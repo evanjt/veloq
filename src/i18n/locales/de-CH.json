@@ -1691,6 +1691,10 @@
     "period4Weeks": "4 Wuche",
     "period3Months": "3 Mönet",
     "period6Months": "6 Mönet",
-    "disclaimer": "Volumeberechnige sind Nöcherigswert basierend uf Üebigsdatä vo dim verbundene Grät."
+    "disclaimer": "Volumeberechnige sind Nöcherigswert basierend uf Üebigsdatä vo dim verbundene Grät.",
+    "showDetails": "Details zeigä",
+    "hideDetails": "Details versteckä",
+    "exercise": "Üebig",
+    "exercises": "Üebige"
   }
 }

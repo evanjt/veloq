@@ -1691,6 +1691,10 @@
     "period4Weeks": "4 weken",
     "period3Months": "3 maanden",
     "period6Months": "6 maanden",
-    "disclaimer": "Volumeberekeningen zijn benaderingen op basis van trainingsgegevens van je verbonden apparaat."
+    "disclaimer": "Volumeberekeningen zijn benaderingen op basis van trainingsgegevens van je verbonden apparaat.",
+    "showDetails": "Details tonen",
+    "hideDetails": "Details verbergen",
+    "exercise": "oefening",
+    "exercises": "oefeningen"
   }
 }

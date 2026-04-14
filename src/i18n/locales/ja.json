@@ -1691,6 +1691,10 @@
     "period4Weeks": "4週間",
     "period3Months": "3ヶ月",
     "period6Months": "6ヶ月",
-    "disclaimer": "ボリューム計算は、接続されたデバイスの運動データに基づく概算値です。"
+    "disclaimer": "ボリューム計算は、接続されたデバイスの運動データに基づく概算値です。",
+    "showDetails": "詳細を表示",
+    "hideDetails": "詳細を隠す",
+    "exercise": "種目",
+    "exercises": "種目"
   }
 }

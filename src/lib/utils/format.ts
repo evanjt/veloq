@@ -540,13 +540,14 @@ export function getSunday(date: Date): Date {
 }
 
 /**
- * Format byte count as human-readable file size (e.g., "1.5 MB").
+ * Format byte count as human-readable file size (e.g., "1.5 MB", "2.3 GB").
  */
 export function formatFileSize(bytes: number): string {
   if (!Number.isFinite(bytes) || bytes < 0) return '0 B';
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
 }
 
 /**

@@ -224,8 +224,12 @@ export function WhatsNewModal() {
         {/* Mode toggle + dot indicators */}
         <View style={styles.indicators}>
           {canToggleMode && (
-            <Pressable onPress={handleModeToggle} hitSlop={8}>
-              <Text style={[styles.modeToggle, { color: primaryColor }]}>
+            <Pressable
+              onPress={handleModeToggle}
+              hitSlop={8}
+              style={[styles.modeTogglePill, { borderColor: primaryColor }]}
+            >
+              <Text style={[styles.modeToggleText, { color: primaryColor }]}>
                 {tourState?.mode === 'tutorial'
                   ? t('whatsNew.justWhatsNew')
                   : t('whatsNew.seeAllFeatures')}
@@ -399,9 +403,15 @@ const styles = StyleSheet.create({
     paddingTop: spacing.sm,
     gap: spacing.xs,
   },
-  modeToggle: {
-    fontSize: 13,
-    fontWeight: '500',
+  modeTogglePill: {
+    borderWidth: 1.5,
+    borderRadius: layout.borderRadiusLg,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs + 2,
+  },
+  modeToggleText: {
+    fontSize: 14,
+    fontWeight: '600',
   },
   dots: {
     flexDirection: 'row',

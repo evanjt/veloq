@@ -4,21 +4,14 @@ import { Text, Switch } from 'react-native-paper';
 import { useTheme } from '@/hooks';
 import { useTranslation } from 'react-i18next';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { navigateTo, formatFileSize, estimateRoutesDatabaseSize } from '@/lib';
+import { navigateTo, formatFileSize, getAppStorageSize } from '@/lib';
 import { getLastBackupTimestamp } from '@/lib/backup';
 import { useRouteSettings } from '@/providers';
-import { useTileCacheStore } from '@/providers/TileCacheStore';
-import { getTerrainPreviewCacheSize } from '@/lib/storage/terrainPreviewCache';
 import * as FileSystem from 'expo-file-system/legacy';
-import { getHeatmapTilesCacheSize, HEATMAP_TILES_DIR } from '@/hooks/maps/useHeatmapTiles';
+import { HEATMAP_TILES_DIR } from '@/hooks/maps/useHeatmapTiles';
 import { getRouteEngine } from '@/lib/native/routeEngine';
-import {
-  requestTileCacheStats,
-  onTileCacheStats,
-  type TileCacheStats,
-} from '@/lib/events/terrainSnapshotEvents';
 import { colors, darkColors, spacing, typography } from '@/theme';
-import { settingsStyles, DIVIDER_INSET } from './settingsStyles';
+import { settingsStyles } from './settingsStyles';
 
 export function DataSection() {
   const { isDark } = useTheme();
@@ -29,31 +22,12 @@ export function DataSection() {
     setHeatmapEnabled,
   } = useRouteSettings();
 
-  // Lightweight cache size computation
-  const nativeSizeEstimate = useTileCacheStore((s) => s.nativeSizeEstimate);
-  const [terrainCacheSize, setTerrainCacheSize] = useState(0);
-  const [heatmapCacheSize, setHeatmapCacheSize] = useState(0);
-  const [tileCacheStats, setTileCacheStats] = useState<TileCacheStats | null>(null);
-  const [routesSize, setRoutesSize] = useState(0);
+  // Total app storage: measures documentDirectory + cacheDirectory
+  const [totalCacheSize, setTotalCacheSize] = useState(0);
 
   useEffect(() => {
-    getTerrainPreviewCacheSize().then(setTerrainCacheSize);
-    setHeatmapCacheSize(getHeatmapTilesCacheSize());
-    estimateRoutesDatabaseSize().then(setRoutesSize);
+    getAppStorageSize().then(setTotalCacheSize);
   }, []);
-
-  useEffect(() => {
-    const unsub = onTileCacheStats(setTileCacheStats);
-    requestTileCacheStats();
-    return unsub;
-  }, []);
-
-  const totalCacheSize =
-    nativeSizeEstimate +
-    terrainCacheSize +
-    heatmapCacheSize +
-    (tileCacheStats?.totalBytes ?? 0) +
-    routesSize;
 
   // Backup summary
   const lastBackupText = useMemo(() => {
@@ -172,8 +146,8 @@ export function DataSection() {
                 getRouteEngine()?.clearHeatmapTiles(legacyDir);
                 // Prevent regeneration
                 getRouteEngine()?.disableHeatmapTiles();
-                // Update displayed cache size immediately
-                setHeatmapCacheSize(0);
+                // Refresh displayed total
+                getAppStorageSize().then(setTotalCacheSize);
               }
             }}
             color={colors.primary}

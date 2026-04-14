@@ -766,6 +766,11 @@ export interface TranslationResource {
     period4Weeks: string;
     period3Months: string;
     period6Months: string;
+    disclaimer: string;
+    showDetails: string;
+    hideDetails: string;
+    exercise: string;
+    exercises: string;
   };
 
   fitnessScreen: {

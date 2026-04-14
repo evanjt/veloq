@@ -1691,6 +1691,10 @@
     "period4Weeks": "4 周",
     "period3Months": "3 个月",
     "period6Months": "6 个月",
-    "disclaimer": "训练量计算是基于已连接设备的运动数据的近似值。"
+    "disclaimer": "训练量计算是基于已连接设备的运动数据的近似值。",
+    "showDetails": "显示详情",
+    "hideDetails": "隐藏详情",
+    "exercise": "动作",
+    "exercises": "动作"
   }
 }

@@ -1691,6 +1691,10 @@
     "period4Weeks": "4 Wochen",
     "period3Months": "3 Monate",
     "period6Months": "6 Monate",
-    "disclaimer": "Volumenberechnungen sind Näherungswerte basierend auf Übungsdaten Ihres verbundenen Geräts."
+    "disclaimer": "Volumenberechnungen sind Näherungswerte basierend auf Übungsdaten Ihres verbundenen Geräts.",
+    "showDetails": "Details anzeigen",
+    "hideDetails": "Details ausblenden",
+    "exercise": "Übung",
+    "exercises": "Übungen"
   }
 }

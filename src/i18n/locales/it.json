@@ -1691,6 +1691,10 @@
     "period4Weeks": "4 settimane",
     "period3Months": "3 mesi",
     "period6Months": "6 mesi",
-    "disclaimer": "I calcoli del volume sono approssimazioni basate sui dati di allenamento del dispositivo connesso."
+    "disclaimer": "I calcoli del volume sono approssimazioni basate sui dati di allenamento del dispositivo connesso.",
+    "showDetails": "Mostra dettagli",
+    "hideDetails": "Nascondi dettagli",
+    "exercise": "esercizio",
+    "exercises": "esercizi"
   }
 }

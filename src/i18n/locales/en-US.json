@@ -804,7 +804,11 @@
     "period4Weeks": "4 weeks",
     "period3Months": "3 months",
     "period6Months": "6 months",
-    "disclaimer": "Volume calculations are approximations based on exercise data from your connected device."
+    "disclaimer": "Volume calculations are approximations based on exercise data from your connected device.",
+    "showDetails": "Show details",
+    "hideDetails": "Hide details",
+    "exercise": "exercise",
+    "exercises": "exercises"
   },
   "licenses": {
     "footer": "Tap any license badge to view the full license text. Tap the link icon to visit the project repository.",

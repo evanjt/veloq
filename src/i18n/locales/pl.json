@@ -1691,6 +1691,10 @@
     "period4Weeks": "4 tygodnie",
     "period3Months": "3 miesiące",
     "period6Months": "6 miesięcy",
-    "disclaimer": "Obliczenia objętości to przybliżenia oparte na danych treningowych z połączonego urządzenia."
+    "disclaimer": "Obliczenia objętości to przybliżenia oparte na danych treningowych z połączonego urządzenia.",
+    "showDetails": "Pokaż szczegóły",
+    "hideDetails": "Ukryj szczegóły",
+    "exercise": "ćwiczenie",
+    "exercises": "ćwiczenia"
   }
 }

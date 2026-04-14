@@ -1691,6 +1691,10 @@
     "period4Weeks": "4 uger",
     "period3Months": "3 måneder",
     "period6Months": "6 måneder",
-    "disclaimer": "Volumenberegninger er tilnærmelser baseret på træningsdata fra din tilsluttede enhed."
+    "disclaimer": "Volumenberegninger er tilnærmelser baseret på træningsdata fra din tilsluttede enhed.",
+    "showDetails": "Vis detaljer",
+    "hideDetails": "Skjul detaljer",
+    "exercise": "øvelse",
+    "exercises": "øvelser"
   }
 }

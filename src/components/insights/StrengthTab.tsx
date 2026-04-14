@@ -68,6 +68,7 @@ export const StrengthTab = React.memo(function StrengthTab() {
   const [period, setPeriod] = useState<StrengthPeriod>('4weeks');
   const [selectedMuscle, setSelectedMuscle] = useState<string | null>(null);
   const [expandedExercise, setExpandedExercise] = useState<number | null>(null);
+  const [showMuscleDetails, setShowMuscleDetails] = useState(false);
 
   const { data: summary, isLoading } = useStrengthVolume(period);
   const { data: progression } = useStrengthProgression(selectedMuscle);
@@ -134,7 +135,11 @@ export const StrengthTab = React.memo(function StrengthTab() {
   }, [progression]);
 
   const handleMuscleTap = useCallback((slug: string) => {
-    setSelectedMuscle((prev) => (prev === slug ? null : slug));
+    setSelectedMuscle((prev) => {
+      const next = prev === slug ? null : slug;
+      if (!next) setShowMuscleDetails(false);
+      return next;
+    });
     setExpandedExercise(null);
   }, []);
 
@@ -249,7 +254,10 @@ export const StrengthTab = React.memo(function StrengthTab() {
             {selectedVolume ? (
               <TouchableOpacity
                 style={styles.subtitleRow}
-                onPress={() => setSelectedMuscle(null)}
+                onPress={() => {
+                  setSelectedMuscle(null);
+                  setShowMuscleDetails(false);
+                }}
                 activeOpacity={0.7}
               >
                 <View
@@ -265,14 +273,7 @@ export const StrengthTab = React.memo(function StrengthTab() {
                   style={[styles.subtitleText, isDark && styles.subtitleTextDark]}
                   numberOfLines={1}
                 >
-                  {MUSCLE_DISPLAY_NAMES[selectedVolume.slug as MuscleSlug] ?? selectedVolume.slug} ·{' '}
-                  {selectedVolume.weightedSets % 1 === 0
-                    ? selectedVolume.weightedSets.toFixed(0)
-                    : selectedVolume.weightedSets.toFixed(1)}{' '}
-                  {t('strength.sets')}
-                  {selectedVolume.totalReps > 0
-                    ? ` · ${selectedVolume.totalReps} ${t('strength.reps')}`
-                    : ''}
+                  {MUSCLE_DISPLAY_NAMES[selectedVolume.slug as MuscleSlug] ?? selectedVolume.slug}
                 </Text>
                 <MaterialCommunityIcons
                   name="close"
@@ -327,61 +328,157 @@ export const StrengthTab = React.memo(function StrengthTab() {
                 </Text>
               </View>
             </View>
+
+            {/* Inline muscle summary — appears inside body card when muscle selected */}
+            {selectedVolume && (
+              <View style={[styles.inlineMusclePanel, isDark && styles.inlineMusclePanelDark]}>
+                <View style={styles.inlineMuscleHeader}>
+                  <Text
+                    style={[styles.inlineMuscleName, isDark && styles.inlineMuscleNameDark]}
+                    numberOfLines={1}
+                  >
+                    {MUSCLE_DISPLAY_NAMES[selectedVolume.slug as MuscleSlug] ?? selectedVolume.slug}
+                  </Text>
+                  {progression && (
+                    <View
+                      style={[
+                        styles.inlineTrendBadge,
+                        progression.trend === 'up'
+                          ? styles.progressBadgeUp
+                          : progression.trend === 'down'
+                            ? styles.progressBadgeDown
+                            : styles.progressBadgeFlat,
+                      ]}
+                    >
+                      <Text style={styles.inlineTrendText}>
+                        {progression.changePct == null
+                          ? t('strength.newSignal')
+                          : `${progression.changePct > 0 ? '+' : ''}${Math.round(
+                              progression.changePct
+                            )}%`}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+
+                <View style={styles.inlineStatsRow}>
+                  <View style={styles.inlineStat}>
+                    <Text style={[styles.inlineStatValue, isDark && styles.inlineStatValueDark]}>
+                      {formatSetCount(selectedVolume.weightedSets)}
+                    </Text>
+                    <Text style={[styles.inlineStatLabel, isDark && styles.inlineStatLabelDark]}>
+                      {t('strength.sets')}
+                    </Text>
+                  </View>
+                  {selectedVolume.totalReps > 0 && (
+                    <View style={styles.inlineStat}>
+                      <Text style={[styles.inlineStatValue, isDark && styles.inlineStatValueDark]}>
+                        {selectedVolume.totalReps}
+                      </Text>
+                      <Text style={[styles.inlineStatLabel, isDark && styles.inlineStatLabelDark]}>
+                        {t('strength.reps')}
+                      </Text>
+                    </View>
+                  )}
+                  {selectedVolume.totalWeightKg > 0 && (
+                    <View style={styles.inlineStat}>
+                      <Text style={[styles.inlineStatValue, isDark && styles.inlineStatValueDark]}>
+                        {formatWeight(selectedVolume.totalWeightKg, isMetric)}
+                      </Text>
+                      <Text style={[styles.inlineStatLabel, isDark && styles.inlineStatLabelDark]}>
+                        {t('strength.totalVolume')}
+                      </Text>
+                    </View>
+                  )}
+                  {exerciseSummary && (
+                    <View style={styles.inlineStat}>
+                      <Text style={[styles.inlineStatValue, isDark && styles.inlineStatValueDark]}>
+                        {exerciseSummary.exercises.length}
+                      </Text>
+                      <Text style={[styles.inlineStatLabel, isDark && styles.inlineStatLabelDark]}>
+                        {exerciseSummary.exercises.length === 1
+                          ? t('strength.exercise')
+                          : t('strength.exercises')}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+
+                {/* Compact 4-week sparkline bars */}
+                {progression && hasRecentProgression && (
+                  <View style={styles.inlineSparkRow}>
+                    {progression.points.map((point, index) => (
+                      <View key={point.label} style={styles.inlineSparkCol}>
+                        <View
+                          style={[styles.inlineSparkTrack, isDark && styles.inlineSparkTrackDark]}
+                        >
+                          <View
+                            style={[
+                              styles.inlineSparkFill,
+                              index === progression.points.length - 1
+                                ? styles.progressBarFillCurrent
+                                : styles.progressBarFillPast,
+                              {
+                                height: Math.max(
+                                  4,
+                                  (point.weightedSets / maxProgressWeightedSets) * 32
+                                ),
+                              },
+                            ]}
+                          />
+                        </View>
+                        <Text
+                          style={[styles.inlineSparkLabel, isDark && styles.inlineSparkLabelDark]}
+                        >
+                          {point.label}
+                        </Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
+
+                {(exerciseSummary?.exercises.length ?? 0) > 0 && (
+                  <TouchableOpacity
+                    style={styles.inlineDetailsToggle}
+                    onPress={() => setShowMuscleDetails((prev) => !prev)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={styles.inlineDetailsToggleText}>
+                      {showMuscleDetails ? t('strength.hideDetails') : t('strength.showDetails')}
+                    </Text>
+                    <MaterialCommunityIcons
+                      name={showMuscleDetails ? 'chevron-up' : 'chevron-down'}
+                      size={14}
+                      color={colors.primary}
+                    />
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
           </View>
 
-          {selectedVolume && progression ? (
-            <View style={[styles.progressCard, isDark && styles.progressCardDark]}>
-              <View style={styles.progressHeader}>
-                <View style={styles.progressHeaderText}>
-                  <Text style={[styles.progressTitle, isDark && styles.progressTitleDark]}>
-                    {t('strength.progression', {
-                      muscle:
-                        MUSCLE_DISPLAY_NAMES[selectedVolume.slug as MuscleSlug] ??
-                        selectedVolume.slug,
-                    })}
-                  </Text>
-                  <Text style={[styles.progressSubtitle, isDark && styles.progressSubtitleDark]}>
-                    {t('strength.last4Weeks')}
-                  </Text>
-                </View>
-                <View
-                  style={[
-                    styles.progressBadge,
-                    progression.trend === 'up'
-                      ? styles.progressBadgeUp
-                      : progression.trend === 'down'
-                        ? styles.progressBadgeDown
-                        : styles.progressBadgeFlat,
-                  ]}
-                >
-                  <Text style={styles.progressBadgeText}>
-                    {progression.changePct == null
-                      ? t('strength.newSignal')
-                      : `${progression.changePct > 0 ? '+' : ''}${Math.round(
-                          progression.changePct
-                        )}%`}
-                  </Text>
-                </View>
-              </View>
+          {/* Expanded muscle details — progression + exercises */}
+          {selectedVolume && showMuscleDetails && (
+            <>
+              {progression && hasRecentProgression && (
+                <View style={[styles.progressCard, isDark && styles.progressCardDark]}>
+                  <View style={styles.progressHeader}>
+                    <View style={styles.progressHeaderText}>
+                      <Text style={[styles.progressTitle, isDark && styles.progressTitleDark]}>
+                        {t('strength.progression', {
+                          muscle:
+                            MUSCLE_DISPLAY_NAMES[selectedVolume.slug as MuscleSlug] ??
+                            selectedVolume.slug,
+                        })}
+                      </Text>
+                      <Text
+                        style={[styles.progressSubtitle, isDark && styles.progressSubtitleDark]}
+                      >
+                        {t('strength.last4Weeks')}
+                      </Text>
+                    </View>
+                  </View>
 
-              <Text style={[styles.progressSummary, isDark && styles.progressSummaryDark]}>
-                {!progression.points.some((p) => p.weightedSets > 0)
-                  ? t('insights.strengthBalance.noRecentVolume')
-                  : progression.changePct == null
-                    ? t('insights.strengthBalance.volumeAppeared')
-                    : progression.trend === 'up'
-                      ? t('insights.strengthBalance.volumeUp', {
-                          percent: Math.abs(progression.changePct).toFixed(0),
-                        })
-                      : progression.trend === 'down'
-                        ? t('insights.strengthBalance.volumeDown', {
-                            percent: Math.abs(progression.changePct).toFixed(0),
-                          })
-                        : t('insights.strengthBalance.volumeSteady')}
-              </Text>
-
-              {hasRecentProgression ? (
-                <>
                   <View style={styles.progressBarsRow}>
                     {progression.points.map((point, index) => (
                       <View key={point.label} style={styles.progressBarColumn}>
@@ -455,136 +552,123 @@ export const StrengthTab = React.memo(function StrengthTab() {
                       </Text>
                     </View>
                   </View>
-                </>
-              ) : null}
-            </View>
-          ) : null}
-
-          {/* Exercise detail list when muscle selected */}
-          {selectedVolume && exerciseSummary && exerciseSummary.exercises.length > 0 && (
-            <View style={[styles.exerciseCard, isDark && styles.exerciseCardDark]}>
-              <Text style={[styles.exerciseCardTitle, isDark && styles.exerciseCardTitleDark]}>
-                {t('strength.exercisesTargeting', {
-                  muscle:
-                    MUSCLE_DISPLAY_NAMES[selectedVolume.slug as MuscleSlug] ?? selectedVolume.slug,
-                })}
-              </Text>
-              {exerciseSummary.exercises.map((exercise: ExerciseSummary, idx: number) => {
-                const isExpanded = expandedExercise === exercise.exerciseCategory;
-                return (
-                  <View key={exercise.exerciseCategory}>
-                    <TouchableOpacity
-                      style={[
-                        styles.exerciseCardItem,
-                        idx > 0 && styles.exerciseCardItemBorder,
-                        idx > 0 && isDark && styles.exerciseCardItemBorderDark,
-                      ]}
-                      onPress={() =>
-                        setExpandedExercise(isExpanded ? null : exercise.exerciseCategory)
-                      }
-                      activeOpacity={0.7}
-                    >
-                      <View style={styles.exerciseCardDot} />
-                      <View style={styles.exerciseCardContent}>
-                        <View style={styles.exerciseCardNameRow}>
-                          <Text
-                            style={[styles.exerciseCardName, isDark && styles.exerciseCardNameDark]}
-                            numberOfLines={1}
-                          >
-                            {exercise.exerciseName}
-                          </Text>
-                          <MaterialCommunityIcons
-                            name={isExpanded ? 'chevron-up' : 'chevron-down'}
-                            size={16}
-                            color={isDark ? darkColors.textSecondary : colors.textSecondary}
-                          />
-                        </View>
-                        <Text
-                          style={[styles.exerciseCardMeta, isDark && styles.exerciseCardMetaDark]}
-                        >
-                          {t('strength.exerciseSets', {
-                            sets: exercise.totalSets,
-                          })}{' '}
-                          ·{' '}
-                          {t('strength.exerciseWorkoutCount', {
-                            count: exercise.activityCount,
-                          })}
-                          {exercise.totalWeightKg > 0
-                            ? ` · ${formatWeight(exercise.totalWeightKg, isMetric)}`
-                            : ''}
-                        </Text>
-                      </View>
-                    </TouchableOpacity>
-
-                    {/* Expanded: per-activity breakdown */}
-                    {isExpanded && exerciseActivities && exerciseActivities.length > 0 && (
-                      <View style={[styles.activityList, isDark && styles.activityListDark]}>
-                        {exerciseActivities.map((activity) => (
-                          <TouchableOpacity
-                            key={activity.activityId}
-                            style={styles.activityRow}
-                            onPress={() => router.push(`/activity/${activity.activityId}`)}
-                            activeOpacity={0.7}
-                          >
-                            <View style={styles.activityRowLeft}>
-                              <Text
-                                style={[styles.activityName, isDark && styles.activityNameDark]}
-                                numberOfLines={1}
-                              >
-                                {activity.activityName}
-                              </Text>
-                              <Text
-                                style={[styles.activityDate, isDark && styles.activityDateDark]}
-                              >
-                                {new Date(activity.date * 1000).toLocaleDateString(undefined, {
-                                  month: 'short',
-                                  day: 'numeric',
-                                })}
-                              </Text>
-                            </View>
-                            <Text
-                              style={[styles.activityStats, isDark && styles.activityStatsDark]}
-                            >
-                              {t('strength.exerciseSets', {
-                                sets: activity.sets,
-                              })}
-                              {activity.totalWeightKg > 0
-                                ? ` · ${formatWeight(activity.totalWeightKg, isMetric)}`
-                                : ''}
-                            </Text>
-                          </TouchableOpacity>
-                        ))}
-                      </View>
-                    )}
-                    {isExpanded && exerciseActivities && exerciseActivities.length === 0 && (
-                      <View style={[styles.activityList, isDark && styles.activityListDark]}>
-                        <ActivityIndicator size="small" color={colors.primary} />
-                      </View>
-                    )}
-                  </View>
-                );
-              })}
-              {selectedVolume.totalWeightKg > 0 && (
-                <View style={[styles.exerciseCardTotal, isDark && styles.exerciseCardTotalDark]}>
-                  <Text
-                    style={[
-                      styles.exerciseCardTotalLabel,
-                      isDark && styles.exerciseCardTotalLabelDark,
-                    ]}
-                  >
-                    {t('strength.totalVolume')}
-                  </Text>
-                  <Text
-                    style={[
-                      styles.exerciseCardTotalValue,
-                      isDark && styles.exerciseCardTotalValueDark,
-                    ]}
-                  >
-                    {formatWeight(selectedVolume.totalWeightKg, isMetric)}
-                  </Text>
                 </View>
               )}
-            </View>
+
+              {/* Exercise detail list */}
+              {exerciseSummary && exerciseSummary.exercises.length > 0 && (
+                <View style={[styles.exerciseCard, isDark && styles.exerciseCardDark]}>
+                  <Text style={[styles.exerciseCardTitle, isDark && styles.exerciseCardTitleDark]}>
+                    {t('strength.exercisesTargeting', {
+                      muscle:
+                        MUSCLE_DISPLAY_NAMES[selectedVolume.slug as MuscleSlug] ??
+                        selectedVolume.slug,
+                    })}
+                  </Text>
+                  {exerciseSummary.exercises.map((exercise: ExerciseSummary, idx: number) => {
+                    const isExpanded = expandedExercise === exercise.exerciseCategory;
+                    return (
+                      <View key={exercise.exerciseCategory}>
+                        <TouchableOpacity
+                          style={[
+                            styles.exerciseCardItem,
+                            idx > 0 && styles.exerciseCardItemBorder,
+                            idx > 0 && isDark && styles.exerciseCardItemBorderDark,
+                          ]}
+                          onPress={() =>
+                            setExpandedExercise(isExpanded ? null : exercise.exerciseCategory)
+                          }
+                          activeOpacity={0.7}
+                        >
+                          <View style={styles.exerciseCardDot} />
+                          <View style={styles.exerciseCardContent}>
+                            <View style={styles.exerciseCardNameRow}>
+                              <Text
+                                style={[
+                                  styles.exerciseCardName,
+                                  isDark && styles.exerciseCardNameDark,
+                                ]}
+                                numberOfLines={1}
+                              >
+                                {exercise.exerciseName}
+                              </Text>
+                              <MaterialCommunityIcons
+                                name={isExpanded ? 'chevron-up' : 'chevron-down'}
+                                size={16}
+                                color={isDark ? darkColors.textSecondary : colors.textSecondary}
+                              />
+                            </View>
+                            <Text
+                              style={[
+                                styles.exerciseCardMeta,
+                                isDark && styles.exerciseCardMetaDark,
+                              ]}
+                            >
+                              {t('strength.exerciseSets', {
+                                sets: exercise.totalSets,
+                              })}{' '}
+                              ·{' '}
+                              {t('strength.exerciseWorkoutCount', {
+                                count: exercise.activityCount,
+                              })}
+                              {exercise.totalWeightKg > 0
+                                ? ` · ${formatWeight(exercise.totalWeightKg, isMetric)}`
+                                : ''}
+                            </Text>
+                          </View>
+                        </TouchableOpacity>
+
+                        {/* Expanded: per-activity breakdown */}
+                        {isExpanded && exerciseActivities && exerciseActivities.length > 0 && (
+                          <View style={[styles.activityList, isDark && styles.activityListDark]}>
+                            {exerciseActivities.map((activity) => (
+                              <TouchableOpacity
+                                key={activity.activityId}
+                                style={styles.activityRow}
+                                onPress={() => router.push(`/activity/${activity.activityId}`)}
+                                activeOpacity={0.7}
+                              >
+                                <View style={styles.activityRowLeft}>
+                                  <Text
+                                    style={[styles.activityName, isDark && styles.activityNameDark]}
+                                    numberOfLines={1}
+                                  >
+                                    {activity.activityName}
+                                  </Text>
+                                  <Text
+                                    style={[styles.activityDate, isDark && styles.activityDateDark]}
+                                  >
+                                    {new Date(activity.date * 1000).toLocaleDateString(undefined, {
+                                      month: 'short',
+                                      day: 'numeric',
+                                    })}
+                                  </Text>
+                                </View>
+                                <Text
+                                  style={[styles.activityStats, isDark && styles.activityStatsDark]}
+                                >
+                                  {t('strength.exerciseSets', {
+                                    sets: activity.sets,
+                                  })}
+                                  {activity.totalWeightKg > 0
+                                    ? ` · ${formatWeight(activity.totalWeightKg, isMetric)}`
+                                    : ''}
+                                </Text>
+                              </TouchableOpacity>
+                            ))}
+                          </View>
+                        )}
+                        {isExpanded && exerciseActivities && exerciseActivities.length === 0 && (
+                          <View style={[styles.activityList, isDark && styles.activityListDark]}>
+                            <ActivityIndicator size="small" color={colors.primary} />
+                          </View>
+                        )}
+                      </View>
+                    );
+                  })}
+                </View>
+              )}
+            </>
           )}
 
           {/* Hero summary card */}
@@ -1472,5 +1556,112 @@ const styles = StyleSheet.create({
   },
   disclaimerTextDark: {
     color: darkColors.textSecondary,
+  },
+  // Inline muscle summary panel (inside body card)
+  inlineMusclePanel: {
+    marginTop: spacing.sm,
+    paddingTop: spacing.sm,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.divider,
+  },
+  inlineMusclePanelDark: {
+    borderTopColor: darkColors.border,
+  },
+  inlineMuscleHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.sm,
+    marginBottom: spacing.xs,
+  },
+  inlineMuscleName: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.textPrimary,
+    flex: 1,
+  },
+  inlineMuscleNameDark: {
+    color: darkColors.textPrimary,
+  },
+  inlineTrendBadge: {
+    borderRadius: 10,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+  },
+  inlineTrendText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  inlineStatsRow: {
+    flexDirection: 'row',
+    paddingHorizontal: spacing.sm,
+    gap: spacing.md,
+  },
+  inlineStat: {
+    alignItems: 'center',
+  },
+  inlineStatValue: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  inlineStatValueDark: {
+    color: darkColors.textPrimary,
+  },
+  inlineStatLabel: {
+    fontSize: 10,
+    color: colors.textSecondary,
+    marginTop: 1,
+  },
+  inlineStatLabelDark: {
+    color: darkColors.textSecondary,
+  },
+  inlineSparkRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'flex-end',
+    gap: 6,
+    marginTop: spacing.sm,
+    paddingHorizontal: spacing.sm,
+  },
+  inlineSparkCol: {
+    alignItems: 'center',
+    gap: 2,
+  },
+  inlineSparkTrack: {
+    width: 18,
+    height: 36,
+    borderRadius: 4,
+    backgroundColor: opacity.overlay.light,
+    justifyContent: 'flex-end',
+    overflow: 'hidden',
+  },
+  inlineSparkTrackDark: {
+    backgroundColor: opacity.overlayDark.medium,
+  },
+  inlineSparkFill: {
+    width: '100%',
+    borderRadius: 4,
+  },
+  inlineSparkLabel: {
+    fontSize: 9,
+    color: colors.textSecondary,
+  },
+  inlineSparkLabelDark: {
+    color: darkColors.textSecondary,
+  },
+  inlineDetailsToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+    marginTop: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  inlineDetailsToggleText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.primary,
   },
 });
