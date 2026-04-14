@@ -120,30 +120,33 @@ export async function performBackup(force = false): Promise<boolean> {
   }
 
   try {
+    const cacheDir = FileSystem.cacheDirectory;
+    if (!cacheDir) throw new Error('Device cache directory not available');
+
     const timestamp = new Date().toISOString();
     const tempFilename = `veloq-autobackup-${Date.now()}.veloqdb`;
-    const tempPath = `${FileSystem.cacheDirectory}${tempFilename}`;
+    const tempPath = `${cacheDir}${tempFilename}`;
     const plainPath = tempPath.startsWith('file://') ? tempPath.slice(7) : tempPath;
 
     // Create atomic SQLite snapshot
     engine.backupDatabase(plainPath);
 
+    // Verify snapshot was created
+    const fileInfo = await FileSystem.getInfoAsync(tempPath);
+    if (!fileInfo.exists) {
+      throw new Error('Database snapshot was not created');
+    }
+
     // Collect metadata
     const metadata = engine.getBackupMetadata();
     const entry: Omit<BackupEntry, 'id'> = {
       timestamp,
-      sizeBytes: 0,
+      sizeBytes: 'size' in fileInfo ? fileInfo.size || 0 : 0,
       appVersion: APP_VERSION,
       schemaVersion: Number(metadata.schema_version ?? 0),
       activityCount: Number(metadata.activity_count ?? 0),
       athleteId: (metadata.athlete_id as string) ?? null,
     };
-
-    // Get file size
-    const fileInfo = await FileSystem.getInfoAsync(tempPath);
-    if (fileInfo.exists && 'size' in fileInfo) {
-      entry.sizeBytes = fileInfo.size || 0;
-    }
 
     // Upload to backend
     await backend.upload(tempPath, entry);
