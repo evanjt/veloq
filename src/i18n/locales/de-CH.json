@@ -1301,6 +1301,7 @@
     "noMatchesFound": "Kei passendi Abschnitt gfunde",
     "noSectionsFound": "Kei Abschnitt gfunde",
     "matchQuality": "{{quality}}% Überiistimmig",
+    "atPosition": "bi {{pct}}%",
     "addToSection": "Dezue",
     "nearbySections": "Abschnitt i dr Nöchi",
     "nearbySectionsCount": "{{count}} i dr Nöchi",
@@ -1689,6 +1690,7 @@
     "periodWeek": "Wuche",
     "period4Weeks": "4 Wuche",
     "period3Months": "3 Mönet",
-    "period6Months": "6 Mönet"
+    "period6Months": "6 Mönet",
+    "disclaimer": "Volumeberechnige sind Nöcherigswert basierend uf Üebigsdatä vo dim verbundene Grät."
   }
 }

@@ -1301,6 +1301,7 @@
     "noMatchesFound": "未找到匹配路段",
     "noSectionsFound": "未找到路段",
     "matchQuality": "{{quality}}% 匹配",
+    "atPosition": "在 {{pct}}% 处",
     "addToSection": "添加",
     "nearbySections": "附近路段",
     "nearbySectionsCount": "附近 {{count}} 个",
@@ -1689,6 +1690,7 @@
     "periodWeek": "周",
     "period4Weeks": "4 周",
     "period3Months": "3 个月",
-    "period6Months": "6 个月"
+    "period6Months": "6 个月",
+    "disclaimer": "训练量计算是基于已连接设备的运动数据的近似值。"
   }
 }

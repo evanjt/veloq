@@ -1,22 +1,13 @@
 import React, { useState, memo } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  TouchableOpacity,
-  Image,
-  ActivityIndicator,
-  Alert,
-} from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image, Alert } from 'react-native';
 import { useTheme } from '@/hooks';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as WebBrowser from 'expo-web-browser';
 import { useQueryClient } from '@tanstack/react-query';
-import { colors, darkColors, spacing, layout, typography } from '@/theme';
+import { colors, darkColors, spacing, typography } from '@/theme';
 import { getAthleteId } from '@/api';
 import { useAuthStore, useUploadPermissionStore } from '@/providers';
 import { useSyncDateRange } from '@/providers/SyncDateRangeStore';
-import { usePermissionUpgrade } from '@/hooks/recording/usePermissionUpgrade';
 import { clearAllAppCaches, replaceTo } from '@/lib';
 import { clearUploadQueue } from '@/lib/storage/uploadQueue';
 import { useTranslation } from 'react-i18next';
@@ -37,9 +28,7 @@ function ProfileAccountSectionComponent({ athlete }: ProfileAccountSectionProps)
   const { t } = useTranslation();
   const [profileImageError, setProfileImageError] = useState(false);
   const authMethod = useAuthStore((state) => state.authMethod);
-  const hasWritePermission = useUploadPermissionStore((s) => s.hasWritePermission);
   const grantedScopes = useUploadPermissionStore((s) => s.grantedScopes);
-  const { upgradePermissions, isUpgrading, error: upgradeError } = usePermissionUpgrade();
 
   // Logout logic (moved from AccountSection)
   const queryClient = useQueryClient();
@@ -124,9 +113,6 @@ function ProfileAccountSectionComponent({ athlete }: ProfileAccountSectionProps)
   const isDemo = authMethod === 'demo';
   const isOAuth = authMethod === 'oauth';
   const parsedScopes = isOAuth && grantedScopes ? parseScopes(grantedScopes) : [];
-  // Show permission row for OAuth users without confirmed write permission
-  const showPermissionRow = isOAuth && hasWritePermission !== true;
-
   return (
     <View
       testID="settings-profile-section"
@@ -200,42 +186,6 @@ function ProfileAccountSectionComponent({ athlete }: ProfileAccountSectionProps)
         )}
       </TouchableOpacity>
 
-      {/* Permission upgrade row */}
-      {showPermissionRow && (
-        <>
-          <View style={[settingsStyles.fullDivider, isDark && settingsStyles.fullDividerDark]} />
-          <View style={styles.permissionRow}>
-            <MaterialCommunityIcons name="shield-alert-outline" size={20} color={colors.warning} />
-            <Text
-              style={[styles.permissionText, isDark && settingsStyles.textMuted]}
-              numberOfLines={2}
-            >
-              {t('recording.writePermissionNotGranted', 'Write permission not granted')}
-            </Text>
-            <TouchableOpacity
-              testID="settings-grant-access"
-              style={styles.permissionButton}
-              onPress={upgradePermissions}
-              disabled={isUpgrading}
-              activeOpacity={0.7}
-            >
-              {isUpgrading ? (
-                <ActivityIndicator size="small" color="#FFFFFF" />
-              ) : (
-                <Text style={styles.permissionButtonText}>
-                  {t('recording.grantAccess', 'Grant Access')}
-                </Text>
-              )}
-            </TouchableOpacity>
-          </View>
-          {upgradeError ? (
-            <Text style={styles.upgradeError} numberOfLines={2}>
-              {upgradeError}
-            </Text>
-          ) : null}
-        </>
-      )}
-
       {/* Logout row */}
       <View style={[settingsStyles.rowDivider, isDark && settingsStyles.rowDividerDark]} />
       <TouchableOpacity
@@ -304,37 +254,5 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: spacing.xs,
-  },
-  permissionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm + 2,
-    gap: spacing.sm,
-  },
-  permissionText: {
-    ...typography.bodySmall,
-    flex: 1,
-    color: colors.textSecondary,
-  },
-  permissionButton: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 5,
-    borderRadius: layout.borderRadiusXs + 2,
-    backgroundColor: colors.warning,
-    minWidth: 80,
-    alignItems: 'center',
-  },
-  permissionButtonText: {
-    ...typography.bodyCompact,
-    fontWeight: '600',
-    color: '#FFFFFF',
-  },
-  upgradeError: {
-    ...typography.caption,
-    color: colors.error,
-    paddingHorizontal: spacing.md,
-    paddingBottom: spacing.sm,
-    marginLeft: 20 + spacing.sm,
   },
 });

@@ -819,17 +819,17 @@ export function RegionalMapView({
             <RasterSource
               id="heatmap-tiles"
               tileUrlTemplates={[HEATMAP_TILE_URL_TEMPLATE]}
-              minZoomLevel={1}
+              minZoomLevel={0}
               maxZoomLevel={17}
               tileSize={256}
             >
               <RasterLayer
                 id="heatmap-layer"
                 style={{
-                  rasterOpacity: showActivities ? (mapStyle === 'light' ? 0.82 : 0.72) : 0,
-                  rasterContrast: mapStyle === 'light' ? 0.25 : 0,
-                  rasterBrightnessMax: mapStyle === 'light' ? 0.7 : 1,
-                  rasterSaturation: mapStyle === 'light' ? 0.4 : 0,
+                  rasterOpacity: showActivities ? (mapStyle === 'light' ? 0.92 : 0.72) : 0,
+                  rasterContrast: mapStyle === 'light' ? 0.45 : 0,
+                  rasterBrightnessMax: mapStyle === 'light' ? 0.55 : 1,
+                  rasterSaturation: mapStyle === 'light' ? 0.6 : 0,
                   rasterResampling: 'linear',
                   rasterFadeDuration: 0,
                 }}
@@ -865,15 +865,15 @@ export function RegionalMapView({
           {/* Selected activity route */}
           {/* CRITICAL: Always render with fixed ID to avoid iOS MapLibre crash */}
           <ShapeSource id="selected-route" shape={routeGeoJSON}>
-            {/* Outline layer for better visibility */}
+            {/* Dark casing for contrast against heatmap (sport colors blend into teal heatmap) */}
             <LineLayer
               id="selected-routeOutline"
               style={{
-                lineColor: colors.textOnDark,
+                lineColor: 'rgba(0, 0, 0, 0.4)',
                 lineWidth: 8,
                 lineCap: 'round',
                 lineJoin: 'round',
-                lineOpacity: routeHasData ? 0.5 : 0,
+                lineOpacity: routeHasData ? 1 : 0,
               }}
             />
             <LineLayer

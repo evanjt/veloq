@@ -1110,6 +1110,7 @@ export interface TranslationResource {
     noMatchesFound: string;
     noSectionsFound: string;
     matchQuality: string;
+    atPosition: string;
     addToSection: string;
     nearbySections: string;
     nearbySectionsCount: string;

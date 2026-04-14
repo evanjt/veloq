@@ -1301,6 +1301,7 @@
     "noMatchesFound": "Aucune section correspondante trouvée",
     "noSectionsFound": "Aucune section trouvée",
     "matchQuality": "{{quality}}% de correspondance",
+    "atPosition": "\u00e0 {{pct}}%",
     "addToSection": "Ajouter",
     "nearbySections": "Sections à proximité",
     "nearbySectionsCount": "{{count}} à proximité",
@@ -1689,6 +1690,7 @@
     "periodWeek": "semaine",
     "period4Weeks": "4 semaines",
     "period3Months": "3 mois",
-    "period6Months": "6 mois"
+    "period6Months": "6 mois",
+    "disclaimer": "Les calculs de volume sont des approximations basées sur les données d'exercice de votre appareil connecté."
   }
 }

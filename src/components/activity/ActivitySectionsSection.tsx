@@ -306,8 +306,12 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
   const renderScanMatch = useCallback(
     (match: FfiSectionMatch) => {
       const quality = Math.round(match.matchQuality * 100);
-      const displayName =
+      const baseName =
         sectionDisplayNames[match.sectionId] || match.sectionName || match.sectionId.slice(0, 8);
+      const displayName = !match.sameDirection ? `${baseName} \u21A9` : baseName;
+      const totalPoints = coordinates?.length ?? 0;
+      const startPct =
+        totalPoints > 0 ? Math.round((Number(match.startIndex) / totalPoints) * 100) : 0;
       return (
         <View
           key={`${match.sectionId}-${match.startIndex}`}
@@ -325,9 +329,9 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
               {displayName}
             </Text>
             <Text style={[styles.scanMatchMeta, isDark && { color: darkColors.textSecondary }]}>
-              {formatDistance(match.distanceMeters, isMetric)} ·{' '}
-              {t('sections.matchQuality', { quality })}
-              {!match.sameDirection ? ` · ${t('sections.reverse')}` : ''}
+              {formatDistance(match.distanceMeters, isMetric)}
+              {startPct > 0 ? ` · ${t('sections.atPosition', { pct: startPct })}` : ''}
+              {quality < 90 ? ` · ${t('sections.matchQuality', { quality })}` : ''}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -341,7 +345,7 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
         </View>
       );
     },
-    [isDark, isMetric, isScanning, handleRematch, sectionDisplayNames]
+    [isDark, isMetric, isScanning, handleRematch, sectionDisplayNames, coordinates]
   );
 
   // Render footer for section list

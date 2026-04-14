@@ -291,7 +291,7 @@
     "backupFailedTitle": "Backup Failed",
     "backupFailedMessage": "Could not complete the backup. Check your backup destination and try again.",
     "legacyImportNotice": "This is a legacy backup (.veloq). Only preferences, section names, and route names were restored. For a full restore, use a database backup (.veloqdb).",
-    "notEncryptedWarning": "Backups are not encrypted. Do not store on untrusted services.",
+    "notEncryptedWarning": "Backups are not encrypted. Anyone with access to your backup files can read your training data.",
     "scanNextcloudQr": "Scan Nextcloud App Password",
     "nextcloudQrHint": "Nextcloud → Settings → Security → Create new app password → Scan QR code",
     "scanQrTitle": "Scan Nextcloud QR Code",
@@ -803,7 +803,8 @@
     "periodWeek": "week",
     "period4Weeks": "4 weeks",
     "period3Months": "3 months",
-    "period6Months": "6 months"
+    "period6Months": "6 months",
+    "disclaimer": "Volume calculations are approximations based on exercise data from your connected device."
   },
   "licenses": {
     "footer": "Tap any license badge to view the full license text. Tap the link icon to visit the project repository.",
@@ -1345,6 +1346,7 @@
     "noMatchesFound": "No matching sections found",
     "noSectionsFound": "No sections found",
     "matchQuality": "{{quality}}% match",
+    "atPosition": "at {{pct}}%",
     "addToSection": "Add",
     "nearbySections": "Nearby sections",
     "nearbySectionsCount": "{{count}} nearby",

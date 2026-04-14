@@ -1301,6 +1301,7 @@
     "noMatchesFound": "Geen overeenkomende secties gevonden",
     "noSectionsFound": "Geen secties gevonden",
     "matchQuality": "{{quality}}% overeenkomst",
+    "atPosition": "op {{pct}}%",
     "addToSection": "Toevoegen",
     "nearbySections": "Secties in de buurt",
     "nearbySectionsCount": "{{count}} in de buurt",
@@ -1689,6 +1690,7 @@
     "periodWeek": "week",
     "period4Weeks": "4 weken",
     "period3Months": "3 maanden",
-    "period6Months": "6 maanden"
+    "period6Months": "6 maanden",
+    "disclaimer": "Volumeberekeningen zijn benaderingen op basis van trainingsgegevens van je verbonden apparaat."
   }
 }

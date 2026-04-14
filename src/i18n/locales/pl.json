@@ -1301,6 +1301,7 @@
     "noMatchesFound": "Nie znaleziono pasujących odcinków",
     "noSectionsFound": "Nie znaleziono odcinków",
     "matchQuality": "{{quality}}% dopasowania",
+    "atPosition": "na {{pct}}%",
     "addToSection": "Dodaj",
     "nearbySections": "Pobliskie odcinki",
     "nearbySectionsCount": "{{count}} w pobliżu",
@@ -1689,6 +1690,7 @@
     "periodWeek": "tydzień",
     "period4Weeks": "4 tygodnie",
     "period3Months": "3 miesiące",
-    "period6Months": "6 miesięcy"
+    "period6Months": "6 miesięcy",
+    "disclaimer": "Obliczenia objętości to przybliżenia oparte na danych treningowych z połączonego urządzenia."
   }
 }

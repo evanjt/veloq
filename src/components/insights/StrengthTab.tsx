@@ -768,6 +768,14 @@ export const StrengthTab = React.memo(function StrengthTab() {
               </Text>
             </View>
           </View>
+
+          {/* Disclaimer */}
+          <Text style={[styles.disclaimerText, isDark && styles.disclaimerTextDark]}>
+            {t(
+              'strength.disclaimer',
+              'Volume calculations are approximations based on exercise data from your connected device.'
+            )}
+          </Text>
         </>
       )}
     </ScrollView>
@@ -1453,6 +1461,16 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   infoTextDark: {
+    color: darkColors.textSecondary,
+  },
+  disclaimerText: {
+    fontSize: typography.label.fontSize,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: spacing.md,
+    paddingHorizontal: spacing.sm,
+  },
+  disclaimerTextDark: {
     color: darkColors.textSecondary,
   },
 });

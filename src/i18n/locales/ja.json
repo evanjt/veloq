@@ -1301,6 +1301,7 @@
     "noMatchesFound": "一致するセクションが見つかりません",
     "noSectionsFound": "セクションが見つかりません",
     "matchQuality": "{{quality}}%一致",
+    "atPosition": "{{pct}}%地点",
     "addToSection": "追加",
     "nearbySections": "近くのセクション",
     "nearbySectionsCount": "{{count}}件が近く",
@@ -1689,6 +1690,7 @@
     "periodWeek": "週",
     "period4Weeks": "4週間",
     "period3Months": "3ヶ月",
-    "period6Months": "6ヶ月"
+    "period6Months": "6ヶ月",
+    "disclaimer": "ボリューム計算は、接続されたデバイスの運動データに基づく概算値です。"
   }
 }

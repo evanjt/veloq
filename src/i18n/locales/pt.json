@@ -1301,6 +1301,7 @@
     "noMatchesFound": "Nenhum troço correspondente encontrado",
     "noSectionsFound": "Nenhum troço encontrado",
     "matchQuality": "{{quality}}% de correspondência",
+    "atPosition": "em {{pct}}%",
     "addToSection": "Adicionar",
     "nearbySections": "Troços próximos",
     "nearbySectionsCount": "{{count}} próximos",
@@ -1689,6 +1690,7 @@
     "periodWeek": "semana",
     "period4Weeks": "4 semanas",
     "period3Months": "3 meses",
-    "period6Months": "6 meses"
+    "period6Months": "6 meses",
+    "disclaimer": "Os cálculos de volume são aproximações baseadas nos dados de exercício do dispositivo ligado."
   }
 }

@@ -1301,6 +1301,7 @@
     "noMatchesFound": "Ingen matchende sektioner fundet",
     "noSectionsFound": "Ingen sektioner fundet",
     "matchQuality": "{{quality}}% match",
+    "atPosition": "ved {{pct}}%",
     "addToSection": "Tilføj",
     "nearbySections": "Nærliggende sektioner",
     "nearbySectionsCount": "{{count}} i nærheden",
@@ -1689,6 +1690,7 @@
     "periodWeek": "uge",
     "period4Weeks": "4 uger",
     "period3Months": "3 måneder",
-    "period6Months": "6 måneder"
+    "period6Months": "6 måneder",
+    "disclaimer": "Volumenberegninger er tilnærmelser baseret på træningsdata fra din tilsluttede enhed."
   }
 }
