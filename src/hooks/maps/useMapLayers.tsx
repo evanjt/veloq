@@ -157,7 +157,7 @@ export function useMapLayers({
       const portionFeatures: GeoJSON.Feature[] = [];
       const overlayData: SectionOverlayGeoJSON[] = [];
 
-      sectionOverlays.forEach((overlay) => {
+      sectionOverlays.forEach((overlay, idx) => {
         const validSectionPoints = overlay.sectionPolyline.filter(
           (c) =>
             Number.isFinite(c.latitude) &&
@@ -170,7 +170,7 @@ export function useMapLayers({
         if (validSectionPoints.length >= 2) {
           sectionGeo = {
             type: 'Feature',
-            properties: { id: overlay.id, type: 'section', isPR: !!overlay.isPR },
+            properties: { id: overlay.id, type: 'section', isPR: !!overlay.isPR, index: idx },
             geometry: {
               type: 'LineString',
               coordinates: validSectionPoints.map((c) => [c.longitude, c.latitude]),
@@ -198,7 +198,7 @@ export function useMapLayers({
         if (validPortionPoints && validPortionPoints.length >= 2) {
           portionGeo = {
             type: 'Feature',
-            properties: { id: overlay.id, type: 'portion', isPR: !!overlay.isPR },
+            properties: { id: overlay.id, type: 'portion', isPR: !!overlay.isPR, index: idx },
             geometry: {
               type: 'LineString',
               coordinates: validPortionPoints.map((c) => [c.longitude, c.latitude]),

@@ -18,7 +18,7 @@ const PACK_PREFIX = 'veloq-';
 /** Initialize ambient cache size on app start */
 export async function initializeAmbientCache(): Promise<void> {
   try {
-    await OfflineManager.setMaximumAmbientCacheSize(100 * 1024 * 1024); // 100MB
+    await OfflineManager.setMaximumAmbientCacheSize(50 * 1024 * 1024); // 50MB
   } catch {
     // Not critical
   }

@@ -870,11 +870,67 @@ export const ActivityMapView = memo(function ActivityMapView({
             {/* Using consolidated GeoJSONs prevents add/remove cycles during state changes */}
             <ShapeSource id="section-overlays-consolidated" shape={consolidatedSectionsGeoJSON}>
               <LineLayer
+                id="section-overlays-casing"
+                style={{
+                  lineColor: highlightedSectionId
+                    ? [
+                        'case',
+                        ['==', ['get', 'id'], highlightedSectionId],
+                        '#FFFFFF',
+                        'transparent',
+                      ]
+                    : 'transparent',
+                  lineWidth: highlightedSectionId
+                    ? ['case', ['==', ['get', 'id'], highlightedSectionId], 10, 0]
+                    : 0,
+                  lineCap: 'round',
+                  lineJoin: 'round',
+                  lineOpacity: 0.9,
+                }}
+              />
+              <LineLayer
                 id="section-overlays-line"
                 style={{
                   lineColor: highlightedSectionId
-                    ? ['case', ['==', ['get', 'id'], highlightedSectionId], '#FFAB00', '#00BCD4']
-                    : '#00BCD4',
+                    ? [
+                        'case',
+                        ['==', ['get', 'id'], highlightedSectionId],
+                        '#FFAB00',
+                        [
+                          'at',
+                          ['%', ['get', 'index'], 8],
+                          [
+                            'literal',
+                            [
+                              '#00BCD4',
+                              '#AB47BC',
+                              '#FF7043',
+                              '#66BB6A',
+                              '#42A5F5',
+                              '#FFCA28',
+                              '#26A69A',
+                              '#EC407A',
+                            ],
+                          ],
+                        ],
+                      ]
+                    : [
+                        'at',
+                        ['%', ['get', 'index'], 8],
+                        [
+                          'literal',
+                          [
+                            '#00BCD4',
+                            '#AB47BC',
+                            '#FF7043',
+                            '#66BB6A',
+                            '#42A5F5',
+                            '#FFCA28',
+                            '#26A69A',
+                            '#EC407A',
+                          ],
+                        ],
+                      ],
                   lineWidth: highlightedSectionId
                     ? ['case', ['==', ['get', 'id'], highlightedSectionId], 7, 4]
                     : 5,
@@ -1265,7 +1321,23 @@ export const ActivityMapView = memo(function ActivityMapView({
             <LineLayer
               id="fs-section-overlays-line"
               style={{
-                lineColor: '#00BCD4',
+                lineColor: [
+                  'at',
+                  ['%', ['get', 'index'], 8],
+                  [
+                    'literal',
+                    [
+                      '#00BCD4',
+                      '#AB47BC',
+                      '#FF7043',
+                      '#66BB6A',
+                      '#42A5F5',
+                      '#FFCA28',
+                      '#26A69A',
+                      '#EC407A',
+                    ],
+                  ],
+                ],
                 lineWidth: 5,
                 lineCap: 'round',
                 lineJoin: 'round',

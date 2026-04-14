@@ -83,7 +83,10 @@ export default function SectionDetailScreen() {
   }, []);
 
   const { t } = useTranslation();
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, activityId: navActivityId } = useLocalSearchParams<{
+    id: string;
+    activityId?: string;
+  }>();
   const { isDark } = useTheme();
   const insets = useSafeAreaInsets();
 
@@ -612,7 +615,7 @@ export default function SectionDetailScreen() {
     }
   }, [showExcluded, excludedActivityIds, id]);
 
-  const activityCount = section?.visitCount ?? 0;
+  const activityCount = sectionTimeRange === 'all' ? (section?.visitCount ?? 0) : chartData.length;
 
   // Calendar summary: Year > Month performance history
   const calendarSummary = useMemo(() => {
@@ -906,6 +909,7 @@ export default function SectionDetailScreen() {
               showExcluded={showExcluded}
               hasExcluded={excludedActivityIds.size > 0}
               onToggleShowExcluded={handleToggleShowExcluded}
+              highlightedActivityId={navActivityId}
             />
 
             {/* Section info card */}

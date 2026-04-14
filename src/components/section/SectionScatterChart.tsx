@@ -80,6 +80,8 @@ export interface SectionScatterChartProps {
   mini?: boolean;
   /** External style for controlling width in flex layouts */
   containerStyle?: ViewStyle;
+  /** Activity ID to highlight with an orange ring (e.g., the activity that navigated here) */
+  highlightedActivityId?: string;
 }
 
 export function SectionScatterChart({
@@ -102,6 +104,7 @@ export function SectionScatterChart({
   compact,
   mini,
   containerStyle,
+  highlightedActivityId,
 }: SectionScatterChartProps) {
   const { t } = useTranslation();
   const showPace = isRunningActivity(activityType);
@@ -582,86 +585,126 @@ export function SectionScatterChart({
                     )}
 
                     {/* Scatter points */}
-                    {points.speed.map((point: PointsArray[number], idx: number) => {
-                      if (point.x == null || point.y == null) return null;
+                    {(() => {
+                      const highlight: { x: number; y: number }[] = [];
 
-                      const dataPoint = allPoints[idx];
-                      if (!dataPoint) return null;
+                      const dots = points.speed.map((point: PointsArray[number], idx: number) => {
+                        if (point.x == null || point.y == null) return null;
 
-                      const isReverse = dataPoint.direction === 'reverse';
-                      const dotColor = isReverse ? colors.reverseDirection : activityColor;
-                      const isPointExcluded = dataPoint.isExcluded === true;
+                        const dataPoint = allPoints[idx];
+                        if (!dataPoint) return null;
 
-                      // Determine if this is the best in its direction
-                      let isBest = false;
-                      if (!isPointExcluded) {
-                        if (isReverse) {
-                          if (revIdx === reverseBestIdx) isBest = true;
-                          revIdx++;
-                        } else {
-                          if (fwdIdx === forwardBestIdx) isBest = true;
-                          fwdIdx++;
+                        const isReverse = dataPoint.direction === 'reverse';
+                        const dotColor = isReverse ? colors.reverseDirection : activityColor;
+                        const isPointExcluded = dataPoint.isExcluded === true;
+
+                        // Determine if this is the best in its direction
+                        let isBest = false;
+                        if (!isPointExcluded) {
+                          if (isReverse) {
+                            if (revIdx === reverseBestIdx) isBest = true;
+                            revIdx++;
+                          } else {
+                            if (fwdIdx === forwardBestIdx) isBest = true;
+                            fwdIdx++;
+                          }
                         }
-                      }
 
-                      const isSelected =
-                        selectedPoint?.activityId === dataPoint.activityId &&
-                        selectedPoint?.id === dataPoint.id;
+                        // Track highlighted point for rendering last (on top)
+                        const isHighlighted =
+                          highlightedActivityId != null &&
+                          dataPoint.activityId === highlightedActivityId;
+                        if (isHighlighted && highlight.length === 0) {
+                          highlight.push({ x: point.x, y: point.y });
+                        }
 
-                      if (isSelected) {
-                        return (
-                          <React.Fragment key={`pt-${idx}`}>
+                        const isSelected =
+                          selectedPoint?.activityId === dataPoint.activityId &&
+                          selectedPoint?.id === dataPoint.id;
+
+                        if (isSelected) {
+                          return (
+                            <React.Fragment key={`pt-${idx}`}>
+                              <Circle
+                                cx={point.x}
+                                cy={point.y}
+                                r={dotRadius + 3}
+                                color={colors.chartCyan}
+                              />
+                              <Circle cx={point.x} cy={point.y} r={dotRadius} color={dotColor} />
+                            </React.Fragment>
+                          );
+                        }
+
+                        // Skip highlighted point in main loop — rendered on top below
+                        if (isHighlighted) return null;
+
+                        if (isPointExcluded) {
+                          return (
                             <Circle
+                              key={`pt-${idx}`}
                               cx={point.x}
                               cy={point.y}
-                              r={dotRadius + 3}
-                              color={colors.chartCyan}
+                              r={dotRadius - 1}
+                              color={isDark ? darkColors.textSecondary : colors.textSecondary}
+                              opacity={0.25}
                             />
-                            <Circle cx={point.x} cy={point.y} r={dotRadius} color={dotColor} />
-                          </React.Fragment>
-                        );
-                      }
+                          );
+                        }
 
-                      if (isPointExcluded) {
+                        if (isBest) {
+                          return (
+                            <React.Fragment key={`pt-${idx}`}>
+                              <Circle cx={point.x} cy={point.y} r={dotRadius} color={dotColor} />
+                              <Circle
+                                cx={point.x}
+                                cy={point.y}
+                                r={prRingRadius}
+                                color={colors.chartGold}
+                                style="stroke"
+                                strokeWidth={1.5}
+                              />
+                            </React.Fragment>
+                          );
+                        }
+
                         return (
                           <Circle
                             key={`pt-${idx}`}
                             cx={point.x}
                             cy={point.y}
-                            r={dotRadius - 1}
-                            color={isDark ? darkColors.textSecondary : colors.textSecondary}
-                            opacity={0.25}
+                            r={dotRadius}
+                            color={dotColor}
+                            opacity={0.7}
                           />
                         );
-                      }
+                      });
 
-                      if (isBest) {
-                        return (
-                          <React.Fragment key={`pt-${idx}`}>
-                            <Circle cx={point.x} cy={point.y} r={dotRadius} color={dotColor} />
-                            <Circle
-                              cx={point.x}
-                              cy={point.y}
-                              r={prRingRadius}
-                              color={colors.chartGold}
-                              style="stroke"
-                              strokeWidth={1.5}
-                            />
-                          </React.Fragment>
-                        );
-                      }
-
+                      const hp = highlight[0];
                       return (
-                        <Circle
-                          key={`pt-${idx}`}
-                          cx={point.x}
-                          cy={point.y}
-                          r={dotRadius}
-                          color={dotColor}
-                          opacity={0.7}
-                        />
+                        <>
+                          {dots}
+                          {hp && (
+                            <React.Fragment key="highlighted-activity">
+                              <Circle
+                                cx={hp.x}
+                                cy={hp.y}
+                                r={dotRadius + 3}
+                                color={colors.primary}
+                                style="stroke"
+                                strokeWidth={1.5}
+                              />
+                              <Circle
+                                cx={hp.x}
+                                cy={hp.y}
+                                r={dotRadius + 1}
+                                color={colors.primary}
+                              />
+                            </React.Fragment>
+                          )}
+                        </>
                       );
-                    })}
+                    })()}
                   </>
                 );
               }) as any

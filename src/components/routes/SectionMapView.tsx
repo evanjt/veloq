@@ -198,7 +198,7 @@ export const SectionMapView = memo(function SectionMapView({
     if (newBounds) {
       cameraRef.current.setCamera({
         bounds: { ne: newBounds.ne, sw: newBounds.sw },
-        padding: { paddingTop: 40, paddingRight: 40, paddingBottom: 40, paddingLeft: 40 },
+        padding: { paddingTop: 80, paddingRight: 80, paddingBottom: 80, paddingLeft: 80 },
         animationDuration: 500,
       });
     }
@@ -533,10 +533,11 @@ export const SectionMapView = memo(function SectionMapView({
       onRegionIsChanging={interactive ? handleRegionIsChanging : undefined}
     >
       <Camera
+        maxZoomLevel={16}
         ref={interactive ? cameraRef : undefined}
         defaultSettings={{
           bounds: { ne: bounds.ne, sw: bounds.sw },
-          padding: { paddingTop: 40, paddingRight: 40, paddingBottom: 40, paddingLeft: 40 },
+          padding: { paddingTop: 80, paddingRight: 80, paddingBottom: 80, paddingLeft: 80 },
         }}
       />
 

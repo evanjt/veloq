@@ -35,22 +35,33 @@ const queryClient = new QueryClient({
 // Export for manual cache management (e.g., clearing on navigation)
 export { queryClient };
 
+/** Empty cache payload — reused to avoid allocating a new string each write */
+const EMPTY_CACHE = '{"clientState":{"queries":[],"mutations":[]}}';
+
 const asyncStoragePersister = createAsyncStoragePersister({
   storage: AsyncStorage,
   key: 'veloq-query-cache',
   // Throttle writes to prevent overwhelming storage
   throttleTime: 2000,
-  // Serialize with size limit - skip large entries
+  // Serialize with size limit — skip entire write when over 1MB.
+  // The persister calls serialize() every throttleTime (2s). Without the
+  // query-count guard, JSON.stringify on a large cache allocates a multi-MB
+  // string every 2s only to discard it when it exceeds the limit.
   serialize: (data) => {
     try {
+      // Fast pre-check: if many queries are cached, the serialized form is
+      // almost certainly over 1MB. Skip the expensive stringify entirely.
+      const queries = (data as { clientState?: { queries?: unknown[] } })?.clientState?.queries;
+      if (queries && queries.length > 200) {
+        return EMPTY_CACHE;
+      }
       const serialized = JSON.stringify(data);
-      // If cache is over 1MB, clear it and return empty (use cached string to avoid object creation)
       if (serialized.length > 1024 * 1024) {
-        return '{"clientState":{"queries":[],"mutations":[]}}';
+        return EMPTY_CACHE;
       }
       return serialized;
     } catch {
-      return '{"clientState":{"queries":[],"mutations":[]}}';
+      return EMPTY_CACHE;
     }
   },
 });
@@ -65,7 +76,7 @@ export function QueryProvider({ children }: QueryProviderProps) {
       client={queryClient}
       persistOptions={{
         persister: asyncStoragePersister,
-        maxAge: 1000 * 60 * 60 * 24 * 7, // 7 days max age - match gcTime
+        maxAge: 1000 * 60 * 60 * 24, // 24 hours — match default gcTime
         // Don't persist activity streams (large data)
         dehydrateOptions: {
           shouldDehydrateQuery: (query) => {

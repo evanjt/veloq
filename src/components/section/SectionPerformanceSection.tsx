@@ -34,6 +34,7 @@ export interface SectionPerformanceSectionProps {
   showExcluded?: boolean;
   hasExcluded?: boolean;
   onToggleShowExcluded?: () => void;
+  highlightedActivityId?: string;
 }
 
 export function SectionPerformanceSection({
@@ -53,6 +54,7 @@ export function SectionPerformanceSection({
   showExcluded,
   hasExcluded,
   onToggleShowExcluded,
+  highlightedActivityId,
 }: SectionPerformanceSectionProps) {
   if (chartData.length < 1) return null;
 
@@ -75,6 +77,7 @@ export function SectionPerformanceSection({
         showExcluded={showExcluded}
         hasExcluded={hasExcluded}
         onToggleShowExcluded={onToggleShowExcluded}
+        highlightedActivityId={highlightedActivityId}
       />
     </View>
   );

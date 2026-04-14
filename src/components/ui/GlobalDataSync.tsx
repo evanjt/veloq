@@ -56,20 +56,10 @@ export function GlobalDataSync() {
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Fetch activities for GPS sync using dynamic date range
+  // Single fetch with stats included — provides both GPS sync data and
+  // TSS/FTP metrics for the engine. Previously two separate fetches were made
+  // (one without stats, one with), doubling the API calls on every launch.
   const { data: activities, isFetching } = useActivities({
-    oldest: syncOldest,
-    newest: syncNewest,
-    includeStats: false,
-    enabled: isAuthenticated,
-  });
-
-  // Fetch activities with stats for fitness tab cache warming.
-  // Uses the same sync date range as the GPS fetch to respect the 90-day default.
-  // Also updates the engine with training load and FTP data — the GPS sync
-  // fetch (above) uses includeStats: false for speed, so the engine initially has
-  // NULL training_load/ftp. This fetch fills in those fields.
-  const { data: statsActivities } = useActivities({
     oldest: syncOldest,
     newest: syncNewest,
     includeStats: true,
@@ -77,15 +67,15 @@ export function GlobalDataSync() {
   });
 
   // Update engine with enhanced metrics (TSS, FTP) when stats-enriched data arrives.
-  // The GPS sync stores metrics with includeStats: false (NULL training_load/ftp).
-  // This backfills the engine so period comparisons use TSS and FTP trend works.
+  // The GPS sync stores basic metrics; this backfills the engine so period
+  // comparisons use TSS and FTP trend works.
   const statsSeededRef = useRef(false);
   useEffect(() => {
-    if (!statsActivities?.length || statsSeededRef.current) return;
+    if (!activities?.length || statsSeededRef.current) return;
     const engine = getRouteEngine();
     if (!engine) return;
 
-    const enhanced = statsActivities
+    const enhanced = activities
       .filter((a) => a.icu_training_load != null || a.icu_ftp != null)
       .map(toActivityMetrics);
 
@@ -94,7 +84,7 @@ export function GlobalDataSync() {
       engine.triggerRefresh('activities');
       statsSeededRef.current = true;
     }
-  }, [statsActivities]);
+  }, [activities]);
 
   // Update fetching state in store
   useEffect(() => {
