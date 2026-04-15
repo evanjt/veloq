@@ -77,9 +77,23 @@ export function SectionPerformanceSection({
             <Pressable
               key={r.id}
               onPress={() => onTimeRangeChange(r.id)}
-              style={[styles.pill, sectionTimeRange === r.id && styles.pillActive]}
+              style={[
+                styles.pill,
+                sectionTimeRange === r.id && [
+                  styles.pillActive,
+                  isDark && { backgroundColor: darkColors.primary + '20' },
+                ],
+              ]}
             >
-              <Text style={[styles.pillText, sectionTimeRange === r.id && styles.pillTextActive]}>
+              <Text
+                style={[
+                  styles.pillText,
+                  isDark && { color: darkColors.textSecondary },
+                  sectionTimeRange === r.id && {
+                    color: isDark ? darkColors.primary : colors.primary,
+                  },
+                ]}
+              >
                 {r.label}
               </Text>
             </Pressable>

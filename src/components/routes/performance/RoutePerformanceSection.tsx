@@ -145,7 +145,11 @@ export function RoutePerformanceSection({
               </Text>
             </View>
           )}
-          <MaterialCommunityIcons name="chevron-right" size={20} color={isDark ? '#555' : '#CCC'} />
+          <MaterialCommunityIcons
+            name="chevron-right"
+            size={20}
+            color={isDark ? '#71717A' : '#CCC'}
+          />
         </View>
       </TouchableOpacity>
 

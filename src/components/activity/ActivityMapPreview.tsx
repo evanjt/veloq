@@ -293,7 +293,7 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
   );
   const prLineStyle = useMemo(
     () => ({
-      lineColor: '#FFD700',
+      lineColor: '#D4AF37',
       lineOpacity: 1,
       lineWidth: 4,
       lineCap: 'round' as const,

@@ -1,13 +1,5 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react';
-import {
-  View,
-  FlatList,
-  TouchableOpacity,
-  Animated,
-  Platform,
-  StyleSheet,
-  Alert,
-} from 'react-native';
+import { View, FlatList, TouchableOpacity, Animated, Platform, StyleSheet } from 'react-native';
 import { Text, ActivityIndicator } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import type { SectionMatch as FfiSectionMatch, SectionEncounter } from 'veloqrs';
@@ -123,30 +115,6 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
       }
     },
     []
-  );
-
-  // Handle delete action for custom sections
-  const handleDeleteSection = useCallback(
-    (sectionId: string) => {
-      const swipeable = swipeableRefs.current.get(sectionId);
-      swipeable?.close();
-
-      Alert.alert(t('sections.deleteSection'), t('sections.deleteSectionConfirm'), [
-        { text: t('common.cancel'), style: 'cancel' },
-        {
-          text: t('common.delete'),
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await removeSection(sectionId);
-            } catch (error) {
-              console.error('Failed to delete section:', error);
-            }
-          },
-        },
-      ]);
-    },
-    [removeSection, t]
   );
 
   // Handle section long press to highlight on map

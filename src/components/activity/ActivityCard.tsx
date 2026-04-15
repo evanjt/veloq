@@ -690,12 +690,12 @@ export const ActivityCard = React.memo(
                               <MaterialCommunityIcons
                                 name="trending-down"
                                 size={13}
-                                color={isDark ? '#A1A1AA' : '#FFFFFF'}
+                                color={isDark ? '#A1A1AA' : '#3F3F46'}
                               />
                               <RNText
                                 style={[
                                   styles.trendCount,
-                                  { color: isDark ? '#A1A1AA' : '#FFFFFF' },
+                                  { color: isDark ? '#A1A1AA' : '#3F3F46' },
                                 ]}
                               >
                                 {declining}

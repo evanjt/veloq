@@ -108,7 +108,7 @@ export function SectionScatterChart({
 }: SectionScatterChartProps) {
   const { t } = useTranslation();
   const showPace = isRunningActivity(activityType);
-  const activityColor = colors.primary;
+  const activityColor = isDark ? '#FC4C02' : colors.primary;
   const sectionDistance = chartData[0]?.sectionDistance || 0;
 
   const effectiveHeight = mini ? MINI_HEIGHT : CHART_HEIGHT;
@@ -690,16 +690,11 @@ export function SectionScatterChart({
                                 cx={hp.x}
                                 cy={hp.y}
                                 r={dotRadius + 3}
-                                color={colors.primary}
+                                color={activityColor}
                                 style="stroke"
                                 strokeWidth={1.5}
                               />
-                              <Circle
-                                cx={hp.x}
-                                cy={hp.y}
-                                r={dotRadius + 1}
-                                color={colors.primary}
-                              />
+                              <Circle cx={hp.x} cy={hp.y} r={dotRadius + 1} color={activityColor} />
                             </React.Fragment>
                           )}
                         </>

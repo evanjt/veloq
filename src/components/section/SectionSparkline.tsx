@@ -44,8 +44,8 @@ export const SectionSparkline = React.memo(function SectionSparkline({
     trendPath.lineTo(toX(i), toY(data[i].speed));
   }
 
-  const dotColor = isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.35)';
-  const lineColor = isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.15)';
+  const dotColor = isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.35)';
+  const lineColor = isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.15)';
 
   return (
     <Canvas style={{ width, height }}>

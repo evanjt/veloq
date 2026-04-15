@@ -349,7 +349,7 @@ export const SectionRow = memo(function SectionRow({
           </Svg>
         ) : (
           <View style={[styles.previewPlaceholder, isDark && styles.previewPlaceholderDark]}>
-            <MaterialCommunityIcons name={icon} size={18} color={isDark ? '#555' : '#BBB'} />
+            <MaterialCommunityIcons name={icon} size={18} color={isDark ? '#71717A' : '#BBB'} />
           </View>
         )}
       </View>

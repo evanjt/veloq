@@ -106,7 +106,13 @@ export const SectionInlinePlot = memo(
             ]}
           >
             <View style={styles.header}>
-              <View style={[styles.numberBadge, { borderColor: style.color }]}>
+              <View
+                style={[
+                  styles.numberBadge,
+                  { borderColor: style.color },
+                  isDark && { backgroundColor: darkColors.surfaceCard },
+                ]}
+              >
                 <Text style={styles.numberBadgeText}>{index + 1}</Text>
               </View>
               <View style={styles.headerInfo}>
@@ -148,7 +154,7 @@ export const SectionInlinePlot = memo(
               <MaterialCommunityIcons
                 name="chevron-right"
                 size={20}
-                color={isDark ? '#555' : '#CCC'}
+                color={isDark ? '#71717A' : '#CCC'}
               />
             </View>
           </Pressable>
