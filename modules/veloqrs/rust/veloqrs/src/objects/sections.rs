@@ -669,7 +669,7 @@ impl SectionManager {
         &self,
         activity_id: String,
     ) -> Result<Vec<crate::FfiSectionEncounter>, VeloqError> {
-        with_engine(|e| Ok(e.get_activity_section_encounters(&activity_id)))
+        with_engine(|e| e.get_activity_section_encounters(&activity_id))
     }
 
     /// Recompute all activity indicators (PRs and trends).
