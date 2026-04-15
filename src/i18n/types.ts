@@ -1563,11 +1563,13 @@ export interface TranslationResource {
     cached: string;
     notSynced: string;
     showActivities: string;
+    showHeatmap: string;
     showMyLocation: string;
     showMyLocationHint: string;
     showRoutes: string;
     showSections: string;
     hideActivities: string;
+    hideHeatmap: string;
     hideRoutes: string;
     hideSections: string;
     activityTypes: {

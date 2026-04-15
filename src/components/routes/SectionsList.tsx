@@ -804,7 +804,7 @@ const styles = StyleSheet.create({
     flexGrow: 1,
   },
   header: {
-    marginBottom: spacing.sm,
+    marginBottom: 0,
   },
   emptyContainer: {
     flex: 1,
@@ -1009,7 +1009,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
     paddingHorizontal: spacing.md,
     marginTop: 2,
-    marginBottom: spacing.md,
+    marginBottom: spacing.xs,
   },
   sortChip: {
     flexDirection: 'row',

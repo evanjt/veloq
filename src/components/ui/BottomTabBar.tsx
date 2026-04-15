@@ -14,6 +14,7 @@ import { useTheme } from '@/hooks';
 import { brand, colorWithOpacity, spacing } from '@/theme';
 import { PERF_DEBUG } from '@/lib/debug/renderTimer';
 import { navigateTab } from '@/lib';
+import { useInsightsStore } from '@/providers/InsightsStore';
 
 // Menu items with routes and icons (labels come from i18n)
 const MENU_ITEMS = [
@@ -47,6 +48,7 @@ function BottomTabBarComponent() {
   const pathname = usePathname();
   const { isDark } = useTheme();
   const { t } = useTranslation();
+  const hasNewInsights = useInsightsStore((s) => s.hasNewInsights);
   // Colors with proper contrast for accessibility
   const activeColor = isDark ? ACTIVE_COLOR_DARK : brand.tealLight;
   const inactiveColor = isDark ? INACTIVE_COLOR_DARK : INACTIVE_COLOR_LIGHT;
@@ -130,6 +132,9 @@ function BottomTabBarComponent() {
                     size={isActive ? ICON_SIZE + 2 : ICON_SIZE}
                     color={isActive ? activeColor : inactiveColor}
                   />
+                  {item.key === 'insights' && hasNewInsights && !isActive && (
+                    <View style={styles.notificationDot} />
+                  )}
                 </View>
                 <Text
                   style={[
@@ -178,6 +183,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     height: ICON_SIZE + 2,
     width: ICON_SIZE + 2,
+  },
+  notificationDot: {
+    position: 'absolute',
+    top: 0,
+    right: -2,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#FC4C02',
   },
   label: {
     fontSize: 11,

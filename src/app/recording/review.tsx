@@ -22,7 +22,7 @@ import { useTheme, useMetricSystem } from '@/hooks';
 import { colors, darkColors, spacing, layout, typography, brand } from '@/theme';
 import { formatDistance, formatDuration, formatSpeed } from '@/lib';
 import { getActivityIcon, getActivityColor } from '@/lib/utils/activityUtils';
-import { generateRouteName } from '@/lib/geo/geocoding';
+
 import * as Haptics from 'expo-haptics';
 import { useRecordingStore } from '@/providers/RecordingStore';
 import { generateFitFile } from '@/lib/recording/fitGenerator';
@@ -259,19 +259,9 @@ export default function ReviewScreen() {
     const defaultName = `${t(`recording.timeOfDay.${tod}`)} ${t(`activityTypes.${type}`, type.replace(/([A-Z])/g, ' $1').trim())}`;
     setName(defaultName);
 
-    // Try geocoding for GPS activities
-    if (summary.hasGps && streams.latlng.length >= 2) {
-      const first = streams.latlng[0];
-      const last = streams.latlng[streams.latlng.length - 1];
-      const isLoop = Math.abs(first[0] - last[0]) < 0.002 && Math.abs(first[1] - last[1]) < 0.002;
-      generateRouteName(first[0], first[1], last[0], last[1], isLoop)
-        .then((geoName) => {
-          if (geoName) setName(geoName);
-        })
-        .catch(() => {
-          // Keep default name
-        });
-    }
+    // Geocoding disabled for Nominatim ToS compliance.
+    // See: https://operations.osmfoundation.org/policies/nominatim/
+    // Will re-enable once a caching proxy is in place.
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Save handler — tries upload, falls back to queue on failure

@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import { View, StyleSheet, Alert, TouchableOpacity } from 'react-native';
 import { Text, IconButton } from 'react-native-paper';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -230,9 +231,11 @@ export default function RoutesScreen() {
     return 'insights';
   });
 
-  useEffect(() => {
-    markAsSeen();
-  }, [markAsSeen]);
+  useFocusEffect(
+    useCallback(() => {
+      markAsSeen();
+    }, [markAsSeen])
+  );
 
   useEffect(() => {
     if (!tab) return;

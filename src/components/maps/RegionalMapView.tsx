@@ -5,7 +5,6 @@ import { useTheme } from '@/hooks';
 import {
   MapView,
   Camera,
-  MarkerView,
   ShapeSource,
   LineLayer,
   CircleLayer,
@@ -48,7 +47,6 @@ import {
   type SelectedRoute,
   type SpiderState,
 } from './regional';
-import { ROUTE_COLORS } from '@/lib/utils/constants';
 
 /**
  * Generate spider layout GeoJSON for cluster fan-out at max zoom.
@@ -165,7 +163,8 @@ export function RegionalMapView({
   const [mapStyle, setMapStyle] = useState<MapStyleType>(systemStyle);
   const [selected, setSelected] = useState<SelectedActivity | null>(null);
   const [is3DMode, setIs3DMode] = useState(false);
-  const [showSections, setShowSections] = useState(false);
+  const [showHeatmap, setShowHeatmap] = useState(true);
+  const [showSections, setShowSections] = useState(true);
   const [showRoutes, setShowRoutes] = useState(false);
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
   const [locationLoading, setLocationLoading] = useState(false);
@@ -323,8 +322,6 @@ export function RegionalMapView({
     sectionsGeoJSON,
     routesGeoJSON,
     routeMarkersGeoJSON,
-    sectionMarkers,
-    routeMarkers,
     userLocationGeoJSON,
     routeGeoJSON,
     routeHasData,
@@ -455,6 +452,11 @@ export function RegionalMapView({
     setIs3DMode((current) => !current);
   };
 
+  // Toggle heatmap visibility
+  const toggleHeatmap = () => {
+    setShowHeatmap((current) => !current);
+  };
+
   // Handle route press - show route popup
   const handleRoutePress = useCallback(
     (event: { features?: GeoJSON.Feature[] }) => {
@@ -570,7 +572,7 @@ export function RegionalMapView({
             sectionsGeoJSON={showSections ? (sectionsGeoJSON ?? undefined) : undefined}
             // In 3D mode, use showActivities directly (no zoom check - 3D doesn't track zoom)
             tracesGeoJSON={showActivities ? (tracesGeoJSON ?? undefined) : undefined}
-            showHeatmap={showActivities}
+            showHeatmap={showHeatmap}
             onSectionClick={handle3DSectionClick}
           />
         </ComponentErrorBoundary>
@@ -602,39 +604,29 @@ export function RegionalMapView({
             id="activity-clusters"
             shape={markersGeoJSON}
             cluster={true}
-            clusterRadius={80}
-            clusterMaxZoomLevel={11}
+            clusterRadius={50}
+            clusterMaxZoomLevel={14}
             onPress={
               Platform.OS === 'android' && showActivities ? handleClusterOrMarkerPress : undefined
             }
             hitbox={{ width: 44, height: 44 }}
           >
-            {/* Cluster circles — sized by activity count */}
-            {/* Use white/dark pill instead of primary teal to contrast against teal heatmap */}
+            {/* Cluster circles — primary color, radius scales by count */}
             <CircleLayer
               id="cluster-circles"
               filter={['has', 'point_count']}
               style={{
-                circleColor: isDark ? 'rgba(30, 30, 35, 0.95)' : 'rgba(255, 255, 255, 0.95)',
+                circleColor: colors.primary,
                 circleRadius: [
                   'step',
                   ['get', 'point_count'],
-                  18, // 1-4 activities
-                  5,
-                  22, // 5-9
+                  20, // <10 activities
                   10,
-                  28, // 10-24
-                  25,
-                  34, // 25-99
-                  100,
-                  42, // 100-499
-                  500,
-                  50, // 500+
+                  25, // 10-49
+                  50,
+                  30, // 50+
                 ],
-                circleOpacity: showActivities ? 1 : 0,
-                circleStrokeWidth: 2.5,
-                circleStrokeColor: isDark ? 'rgba(255, 255, 255, 0.5)' : 'rgba(0, 0, 0, 0.15)',
-                circleStrokeOpacity: showActivities ? 1 : 0,
+                circleOpacity: showActivities ? 0.8 : 0,
               }}
             />
             {/* Cluster count labels — textFont MUST match glyph server (Noto Sans) */}
@@ -644,8 +636,8 @@ export function RegionalMapView({
               style={{
                 textField: ['get', 'point_count_abbreviated'],
                 textFont: ['Noto Sans Regular'],
-                textSize: ['step', ['get', 'point_count'], 12, 25, 14, 100, 16],
-                textColor: isDark ? '#FFFFFF' : colors.primary,
+                textSize: 12,
+                textColor: '#FFFFFF',
                 textAllowOverlap: true,
                 textIgnorePlacement: true,
                 visibility: showActivities ? 'visible' : 'none',
@@ -730,13 +722,12 @@ export function RegionalMapView({
             />
           </ShapeSource>
 
-          {/* Route markers - start points for routes */}
-          {/* CRITICAL: Always render ShapeSource to avoid iOS MapLibre crash */}
+          {/* Route markers — ShapeSource kept mounted (empty) to avoid iOS MapLibre crash */}
           <ShapeSource id="route-markers" shape={routeMarkersGeoJSON}>
             <CircleLayer
               id="routeMarkerCircle"
               style={{
-                circleRadius: 0, // Hidden - using MarkerViews instead
+                circleRadius: 0,
                 circleOpacity: 0,
               }}
             />
@@ -826,7 +817,7 @@ export function RegionalMapView({
               <RasterLayer
                 id="heatmap-layer"
                 style={{
-                  rasterOpacity: showActivities ? (mapStyle === 'light' ? 0.92 : 0.72) : 0,
+                  rasterOpacity: showHeatmap ? (mapStyle === 'light' ? 0.92 : 0.72) : 0,
                   rasterContrast: mapStyle === 'light' ? 0.45 : 0,
                   rasterBrightnessMax: mapStyle === 'light' ? 0.55 : 1,
                   rasterSaturation: mapStyle === 'light' ? 0.6 : 0,
@@ -865,7 +856,7 @@ export function RegionalMapView({
           {/* Selected activity route */}
           {/* CRITICAL: Always render with fixed ID to avoid iOS MapLibre crash */}
           <ShapeSource id="selected-route" shape={routeGeoJSON}>
-            {/* Dark casing for contrast against heatmap (sport colors blend into teal heatmap) */}
+            {/* Dark casing + brand-orange trace when heatmap is on (sport colors blend into teal) */}
             <LineLayer
               id="selected-routeOutline"
               style={{
@@ -879,7 +870,11 @@ export function RegionalMapView({
             <LineLayer
               id="selected-routeLine"
               style={{
-                lineColor: selected ? getActivityTypeConfig(selected.activity.type).color : '#000',
+                lineColor: selected
+                  ? isHeatmapEnabled() && showActivities
+                    ? '#FC4C02'
+                    : getActivityTypeConfig(selected.activity.type).color
+                  : '#000',
                 lineWidth: 5,
                 lineCap: 'round',
                 lineJoin: 'round',
@@ -887,80 +882,6 @@ export function RegionalMapView({
               }}
             />
           </ShapeSource>
-
-          {/* Section markers - start points with road icon */}
-          {/* CRITICAL: Always render to avoid iOS crash - use opacity to hide */}
-          {sectionMarkers.map((marker) => {
-            const isVisible = showSections;
-            const isSelected = selectedSection?.id === marker.id;
-
-            return (
-              <MarkerView
-                key={`section-marker-${marker.id}`}
-                coordinate={marker.coordinate}
-                anchor={{ x: 0.5, y: 0.5 }}
-                allowOverlap={true}
-              >
-                <View
-                  testID={`map-section-marker-${marker.id}`}
-                  pointerEvents="none"
-                  style={{
-                    width: 32,
-                    height: 32,
-                    borderRadius: 16,
-                    backgroundColor: isSelected ? colors.primary : '#4CAF50',
-                    borderWidth: 2,
-                    borderColor: colors.textOnDark,
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    opacity: isVisible ? 1 : 0,
-                    ...shadows.elevated,
-                  }}
-                >
-                  <MaterialCommunityIcons name="road-variant" size={18} color={colors.textOnDark} />
-                </View>
-              </MarkerView>
-            );
-          })}
-
-          {/* Route markers - start points with path icon */}
-          {/* CRITICAL: Always render to avoid iOS crash - use opacity to hide */}
-          {routeMarkers.map((marker) => {
-            const isVisible = showRoutes;
-            const isSelected = selectedRoute?.id === marker.id;
-
-            return (
-              <MarkerView
-                key={`route-marker-${marker.id}`}
-                coordinate={marker.coordinate}
-                anchor={{ x: 0.5, y: 0.5 }}
-                allowOverlap={true}
-              >
-                <View
-                  testID={`map-route-marker-${marker.id}`}
-                  pointerEvents="none"
-                  style={{
-                    width: 32,
-                    height: 32,
-                    borderRadius: 16,
-                    backgroundColor: isSelected ? colors.primary : ROUTE_COLORS[0],
-                    borderWidth: 2,
-                    borderColor: colors.textOnDark,
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    opacity: isVisible ? 1 : 0,
-                    ...shadows.elevated,
-                  }}
-                >
-                  <MaterialCommunityIcons
-                    name="map-marker-path"
-                    size={18}
-                    color={colors.textOnDark}
-                  />
-                </View>
-              </MarkerView>
-            );
-          })}
 
           {/* Spider fan-out layers — show when a cluster can't expand further at max zoom */}
           {/* CRITICAL: Always render ShapeSource to avoid iOS crash during reconciliation */}
@@ -1045,6 +966,7 @@ export function RegionalMapView({
         is3DMode={is3DMode}
         can3D={can3D}
         showActivities={showActivities}
+        showHeatmap={showHeatmap}
         showSections={showSections}
         showRoutes={showRoutes}
         userLocationActive={!!userLocation}
@@ -1057,6 +979,7 @@ export function RegionalMapView({
         onResetOrientation={resetOrientation}
         onGetLocation={handleGetLocation}
         onToggleActivities={toggleActivities}
+        onToggleHeatmap={isHeatmapEnabled() ? toggleHeatmap : undefined}
         onToggleSections={isRouteMatchingEnabled() ? toggleSections : undefined}
         onToggleRoutes={isRouteMatchingEnabled() ? toggleRoutes : undefined}
         onFitAll={handleFitAll}
