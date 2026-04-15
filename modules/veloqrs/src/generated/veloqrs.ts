@@ -5055,6 +5055,118 @@ const FfiConverterTypeFfiSectionConfig = (() => {
 })();
 
 /**
+ * A section encounter: one (section, direction) pair for a given activity.
+ * This is the canonical unit for displaying section data in the activity detail.
+ */
+export type FfiSectionEncounter = {
+  sectionId: string;
+  sectionName: string;
+  direction: string;
+  distanceMeters: /*f64*/ number;
+  /**
+   * This activity's time on this section in this direction
+   */
+  lapTime: /*f64*/ number;
+  /**
+   * This activity's pace on this section in this direction
+   */
+  lapPace: /*f64*/ number;
+  /**
+   * Whether this activity holds the PR for this (section, direction)
+   */
+  isPr: boolean;
+  /**
+   * How many total traversals exist for this (section, direction)
+   */
+  visitCount: /*u32*/ number;
+  /**
+   * Historical lap times for sparkline (chronological, all activities in this direction)
+   */
+  historyTimes: Array</*f64*/ number>;
+  /**
+   * Activity IDs corresponding to history_times (for highlighting current activity)
+   */
+  historyActivityIds: Array<string>;
+};
+
+/**
+ * Generated factory for {@link FfiSectionEncounter} record objects.
+ */
+export const FfiSectionEncounter = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiSectionEncounter, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    /**
+     * Create a frozen instance of {@link FfiSectionEncounter}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    create,
+
+    /**
+     * Create a frozen instance of {@link FfiSectionEncounter}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    new: create,
+
+    /**
+     * Defaults specified in the {@link veloqrs} crate.
+     */
+    defaults: () => Object.freeze(defaults()) as Partial<FfiSectionEncounter>,
+  });
+})();
+
+const FfiConverterTypeFfiSectionEncounter = (() => {
+  type TypeName = FfiSectionEncounter;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        sectionId: FfiConverterString.read(from),
+        sectionName: FfiConverterString.read(from),
+        direction: FfiConverterString.read(from),
+        distanceMeters: FfiConverterFloat64.read(from),
+        lapTime: FfiConverterFloat64.read(from),
+        lapPace: FfiConverterFloat64.read(from),
+        isPr: FfiConverterBool.read(from),
+        visitCount: FfiConverterUInt32.read(from),
+        historyTimes: FfiConverterArrayFloat64.read(from),
+        historyActivityIds: FfiConverterArrayString.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterString.write(value.sectionId, into);
+      FfiConverterString.write(value.sectionName, into);
+      FfiConverterString.write(value.direction, into);
+      FfiConverterFloat64.write(value.distanceMeters, into);
+      FfiConverterFloat64.write(value.lapTime, into);
+      FfiConverterFloat64.write(value.lapPace, into);
+      FfiConverterBool.write(value.isPr, into);
+      FfiConverterUInt32.write(value.visitCount, into);
+      FfiConverterArrayFloat64.write(value.historyTimes, into);
+      FfiConverterArrayString.write(value.historyActivityIds, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.sectionId) +
+        FfiConverterString.allocationSize(value.sectionName) +
+        FfiConverterString.allocationSize(value.direction) +
+        FfiConverterFloat64.allocationSize(value.distanceMeters) +
+        FfiConverterFloat64.allocationSize(value.lapTime) +
+        FfiConverterFloat64.allocationSize(value.lapPace) +
+        FfiConverterBool.allocationSize(value.isPr) +
+        FfiConverterUInt32.allocationSize(value.visitCount) +
+        FfiConverterArrayFloat64.allocationSize(value.historyTimes) +
+        FfiConverterArrayString.allocationSize(value.historyActivityIds)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * Extension track for expanding section bounds.
  * Contains the representative activity's full GPS track with section start/end indices.
  */
@@ -8867,6 +8979,13 @@ export interface SectionManagerInterface {
     activityIds: Array<string>,
   ) /*throws*/ : Array<FfiActivityIndicator>;
   /**
+   * Get section encounters for an activity: one entry per (section, direction).
+   * Canonical data unit for the sections tab in activity detail.
+   */
+  getActivitySectionEncounters(
+    activityId: string,
+  ) /*throws*/ : Array<FfiSectionEncounter>;
+  /**
    * Batch-query section highlights (PRs) for a list of activity IDs.
    */
   getActivitySectionHighlights(
@@ -9198,6 +9317,30 @@ export class SectionManager
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_activity_indicators(
             uniffiTypeSectionManagerObjectFactory.clonePointer(this),
             FfiConverterArrayString.lower(activityIds),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * Get section encounters for an activity: one entry per (section, direction).
+   * Canonical data unit for the sections tab in activity detail.
+   */
+  public getActivitySectionEncounters(
+    activityId: string,
+  ): Array<FfiSectionEncounter> /*throws*/ {
+    return FfiConverterArrayTypeFfiSectionEncounter.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_activity_section_encounters(
+            uniffiTypeSectionManagerObjectFactory.clonePointer(this),
+            FfiConverterString.lower(activityId),
             callStatus,
           );
         },
@@ -11534,6 +11677,11 @@ const FfiConverterArrayTypeFfiSection = new FfiConverterArray(
   FfiConverterTypeFfiSection,
 );
 
+// FfiConverter for Array<FfiSectionEncounter>
+const FfiConverterArrayTypeFfiSectionEncounter = new FfiConverterArray(
+  FfiConverterTypeFfiSectionEncounter,
+);
+
 // FfiConverter for Array<FfiSectionLap>
 const FfiConverterArrayTypeFfiSectionLap = new FfiConverterArray(
   FfiConverterTypeFfiSectionLap,
@@ -12143,6 +12291,14 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_sectionmanager_get_activity_indicators",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_activity_section_encounters() !==
+    30839
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_sectionmanager_get_activity_section_encounters",
     );
   }
   if (
@@ -12910,6 +13066,7 @@ export default Object.freeze({
     FfiConverterTypeFfiScalePreset,
     FfiConverterTypeFfiSection,
     FfiConverterTypeFfiSectionConfig,
+    FfiConverterTypeFfiSectionEncounter,
     FfiConverterTypeFfiSectionExtensionTrack,
     FfiConverterTypeFfiSectionLap,
     FfiConverterTypeFfiSectionMatch,

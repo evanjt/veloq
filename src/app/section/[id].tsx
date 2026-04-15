@@ -15,7 +15,7 @@ import {
   Alert,
   InteractionManager,
 } from 'react-native';
-import { Text, SegmentedButtons } from 'react-native-paper';
+import { Text } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams, router } from 'expo-router';
@@ -57,7 +57,7 @@ import {
 } from '@/lib';
 import { fromUnixSeconds } from '@/lib/utils/ffiConversions';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
-import { SECTION_TIME_RANGES, type SectionTimeRange } from '@/constants';
+import { type SectionTimeRange } from '@/constants';
 import type {
   Activity,
   ActivityType,
@@ -296,14 +296,6 @@ export default function SectionDetailScreen() {
 
   // Get the effective reference activity ID (override takes precedence)
   const effectiveReferenceId = overrideReferenceId ?? section?.representativeActivityId;
-
-  // Derive reference activity name and whether it's user-defined (for info card)
-  const isReferenceUserDefined = useMemo(() => {
-    if (!id) return false;
-    const engine = getRouteEngine();
-    if (!engine) return false;
-    return engine.getSectionReferenceInfo(id).isUserDefined;
-  }, [id, sectionRefreshKey]);
 
   // Handle setting an activity as the reference (medoid) for this section
   const handleSetAsReference = useCallback(
@@ -876,21 +868,6 @@ export default function SectionDetailScreen() {
               </TouchableOpacity>
             )}
 
-            {/* Time range selector */}
-            <View style={styles.timeRangeContainer}>
-              <SegmentedButtons
-                value={sectionTimeRange}
-                onValueChange={(value) => {
-                  setSectionTimeRange(value as SectionTimeRange);
-                }}
-                buttons={SECTION_TIME_RANGES.map((r) => ({
-                  value: r.id,
-                  label: r.label,
-                }))}
-                density="small"
-              />
-            </View>
-
             {/* Performance chart with eye toggle */}
             <SectionPerformanceSection
               isDark={isDark}
@@ -910,16 +887,18 @@ export default function SectionDetailScreen() {
               hasExcluded={excludedActivityIds.size > 0}
               onToggleShowExcluded={handleToggleShowExcluded}
               highlightedActivityId={navActivityId}
+              sectionTimeRange={sectionTimeRange}
+              onTimeRangeChange={setSectionTimeRange}
             />
 
-            {/* Section info card */}
+            {/* Summary card */}
             <SectionInfoCard
               chartData={combinedChartData}
-              referenceActivityId={effectiveReferenceId}
-              referenceActivityName={
-                sectionActivitiesUnsorted.find((a) => a.id === effectiveReferenceId)?.name
-              }
-              isReferenceUserDefined={isReferenceUserDefined}
+              bestForwardRecord={computedBestForward}
+              bestReverseRecord={computedBestReverse}
+              forwardStats={computedForwardStats}
+              reverseStats={computedReverseStats}
+              sportType={section.sportType}
               isDark={isDark}
             />
 
@@ -1114,10 +1093,6 @@ export default function SectionDetailScreen() {
 }
 
 const styles = StyleSheet.create({
-  timeRangeContainer: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-  },
   container: {
     flex: 1,
     backgroundColor: colors.background,
