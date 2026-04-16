@@ -69,7 +69,7 @@ export const StrengthBodyDiagram = React.memo(function StrengthBodyDiagram({
   const isMetric = useMetricSystem();
 
   return (
-    <View style={[styles.bodyCard, isDark && styles.bodyCardDark]}>
+    <View testID="strength-body-diagram" style={[styles.bodyCard, isDark && styles.bodyCardDark]}>
       <View style={styles.bodyHeader}>
         <Text style={[styles.bodyTitle, isDark && styles.bodyTitleDark]}>
           {t('strength.muscleGroupVolume')}
@@ -145,7 +145,10 @@ export const StrengthBodyDiagram = React.memo(function StrengthBodyDiagram({
 
       {/* Inline muscle summary */}
       {selectedVolume && (
-        <View style={[styles.inlineMusclePanel, isDark && styles.inlineMusclePanelDark]}>
+        <View
+          testID="strength-inline-muscle-panel"
+          style={[styles.inlineMusclePanel, isDark && styles.inlineMusclePanelDark]}
+        >
           <View style={styles.inlineMuscleHeader}>
             <Text
               style={[styles.inlineMuscleName, isDark && styles.inlineMuscleNameDark]}

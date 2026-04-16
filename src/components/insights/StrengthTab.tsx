@@ -178,6 +178,7 @@ export const StrengthTab = React.memo(function StrengthTab() {
 
   return (
     <ScrollView
+      testID="strength-tab"
       style={styles.container}
       contentContainerStyle={[styles.scrollContent, { paddingBottom: TAB_BAR_SAFE_PADDING + 16 }]}
       showsVerticalScrollIndicator={false}
@@ -187,6 +188,7 @@ export const StrengthTab = React.memo(function StrengthTab() {
         {PERIODS.map((p) => (
           <TouchableOpacity
             key={p.id}
+            testID={`strength-period-${p.id}`}
             style={[
               styles.periodButton,
               isDark && styles.periodButtonDark,

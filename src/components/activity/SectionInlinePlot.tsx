@@ -132,6 +132,7 @@ export const SectionInlinePlot = memo(
                       </Text>
                       {encounter.isPr && (
                         <MaterialCommunityIcons
+                          testID={`section-inline-trophy-${index}`}
                           name="trophy"
                           size={11}
                           color={colors.chartGold}
@@ -143,13 +144,15 @@ export const SectionInlinePlot = memo(
                 </View>
               </View>
               {sparklineData && (
-                <SectionSparkline
-                  data={sparklineData}
-                  width={80}
-                  height={28}
-                  isDark={isDark}
-                  highlightActivityId={activityId}
-                />
+                <View testID={`section-inline-sparkline-${index}`}>
+                  <SectionSparkline
+                    data={sparklineData}
+                    width={80}
+                    height={28}
+                    isDark={isDark}
+                    highlightActivityId={activityId}
+                  />
+                </View>
               )}
               <MaterialCommunityIcons
                 name="chevron-right"

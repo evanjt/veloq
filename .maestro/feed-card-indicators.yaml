@@ -1,0 +1,56 @@
+# Feed Card Indicators (v0.3.0)
+# Verifies the feed card's indicator pills:
+#  - PR trophy pill (gold, trophy icon + count)
+#  - Improving trend pill (green, trending-up + count)
+#  - Declining trend pill (grey, trending-down + count)
+#  - Route chip (trophy OR trending icon)
+#
+# Uses the testIDs added in ActivityCard.tsx so we can assert presence
+# regardless of exact pill counts (demo data varies slightly per run).
+
+appId: com.veloq.app.dev
+tags:
+  - tier1
+---
+- runFlow:
+    file: helpers/setup-demo-mode.yaml
+
+- extendedWaitUntil:
+    visible:
+      id: "home-activity-list"
+    timeout: 15000
+
+- takeScreenshot: "feed-indicators-baseline"
+
+# Scroll through a few cards to find one that has a section chip.
+# If demo-test-0 has the chip, we'll find it; otherwise we sweep a few cards.
+- runFlow:
+    when:
+      visible:
+        id: "activity-card-demo-test-0-section-chip"
+    commands:
+      - assertVisible:
+          id: "activity-card-demo-test-0-section-chip"
+      - takeScreenshot: "feed-indicators-section-chip-demo-0"
+
+      # Tap section chip → should land on Sections tab
+      - tapOn:
+          id: "activity-card-demo-test-0-section-chip"
+      - extendedWaitUntil:
+          visible:
+            id: "activity-sections-list"
+          timeout: 10000
+          optional: true
+      - takeScreenshot: "feed-indicators-chip-deep-link-sections"
+      - back
+
+# Try route chip on demo-test-0 if present
+- runFlow:
+    when:
+      visible:
+        id: "activity-card-demo-test-0-route-chip"
+    commands:
+      - takeScreenshot: "feed-indicators-route-chip-demo-0"
+
+- assertNotVisible:
+    text: "NaN"

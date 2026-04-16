@@ -568,6 +568,7 @@ export const ActivityCard = React.memo(
                 </View>
                 {routeHighlight && (routeHighlight.trend !== 0 || routeHighlight.isPr) && (
                   <Pressable
+                    testID={`activity-card-${activity.id}-route-chip`}
                     onPress={() => router.push(`/activity/${activity.id}?tab=routes`)}
                     hitSlop={8}
                     style={[
@@ -636,6 +637,7 @@ export const ActivityCard = React.memo(
                 {/* Section trend indicators + PR counts */}
                 {sectionHighlights && sectionHighlights.length > 0 ? (
                   <Pressable
+                    testID={`activity-card-${activity.id}-section-chip`}
                     onPress={() => router.push(`/activity/${activity.id}?tab=sections`)}
                     hitSlop={8}
                     style={styles.trendBadge}
@@ -652,6 +654,7 @@ export const ActivityCard = React.memo(
                         <>
                           {prCount > 0 && (
                             <View
+                              testID={`activity-card-${activity.id}-pr-pill`}
                               style={[
                                 styles.trendPill,
                                 isDark ? styles.prPillDark : styles.prPillLight,
@@ -665,6 +668,7 @@ export const ActivityCard = React.memo(
                           )}
                           {improving > 0 && (
                             <View
+                              testID={`activity-card-${activity.id}-improving-pill`}
                               style={[
                                 styles.trendPill,
                                 isDark ? styles.improvingPillDark : styles.improvingPillLight,
@@ -682,6 +686,7 @@ export const ActivityCard = React.memo(
                           )}
                           {declining > 0 && (
                             <View
+                              testID={`activity-card-${activity.id}-declining-pill`}
                               style={[
                                 styles.trendPill,
                                 isDark ? styles.decliningPillDark : styles.decliningPillLight,
