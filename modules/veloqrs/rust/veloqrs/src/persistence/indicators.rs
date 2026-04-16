@@ -261,7 +261,7 @@ impl PersistentRouteEngine {
             )
             .unwrap_or(0);
 
-        if stored_version < INDICATOR_ALGORITHM_VERSION && !self.sections.is_empty() {
+        if stored_version < INDICATOR_ALGORITHM_VERSION {
             log::info!(
                 "tracematch: [indicators] Version mismatch (stored={}, current={}) — recomputing",
                 stored_version,

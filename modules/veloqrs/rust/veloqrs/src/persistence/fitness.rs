@@ -2230,10 +2230,13 @@ impl PersistentRouteEngine {
                     history_ids.push(row.1);
                 }
             }
+            debug_assert_eq!(history_times.len(), history_ids.len());
 
+            // PR tolerance: 0.5% relative — matches route PR detection behavior
+            // and adapts to section length (5s sprint vs 30min climb).
             let is_pr = trav.lap_time > 0.0
                 && best_time < f64::MAX
-                && (trav.lap_time - best_time).abs() < 0.5;
+                && ((trav.lap_time - best_time) / best_time).abs() < 0.005;
 
             encounters.push(FfiSectionEncounter {
                 section_id: trav.section_id.clone(),
