@@ -21,11 +21,12 @@ tags:
 - assertVisible:
     id: "settings-theme-toggle"
 
-# Flip to dark mode — text match since the toggle is a segmented control
+# Flip to dark mode via the segmented control's dedicated testID.
 - tapOn:
-    text: "Dark"
-    optional: true
+    id: "theme-button-dark"
 
+- waitForAnimationToEnd:
+    timeout: 2000
 - takeScreenshot: "dark-mode-settings"
 
 # Feed card sparklines and PR pills

@@ -439,7 +439,12 @@ export function BackupSection() {
             )}
             {backupResult === 'error' && <Text style={styles.connectionError}>{backupError}</Text>}
           </View>
-          <TouchableOpacity onPress={handleBackupNow} disabled={backingUp} activeOpacity={0.2}>
+          <TouchableOpacity
+            testID="backup-now-button"
+            onPress={handleBackupNow}
+            disabled={backingUp}
+            activeOpacity={0.2}
+          >
             <Text style={[styles.linkText, backingUp && styles.linkTextDisabled]}>
               {backingUp ? t('backup.backingUp') : t('backup.backupNow')}
             </Text>
@@ -449,6 +454,7 @@ export function BackupSection() {
 
         {/* Export backup */}
         <TouchableOpacity
+          testID="backup-export-button"
           style={styles.actionRow}
           onPress={dbExporting ? undefined : exportDatabaseBackup}
           disabled={dbExporting}
@@ -468,6 +474,7 @@ export function BackupSection() {
 
         {/* Import backup (auto-detects .veloqdb and legacy .veloq) */}
         <TouchableOpacity
+          testID="backup-import-button"
           style={styles.actionRow}
           onPress={dbImporting ? undefined : importDatabaseBackup}
           disabled={dbImporting}

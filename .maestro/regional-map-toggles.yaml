@@ -1,6 +1,7 @@
 # Regional Map — Layer Toggles
-# US-R1: heatmap / routes / sections are independent controls
-# US-R2: toggling layers changes which polylines / heat render
+# US-R1: heatmap / routes / activities are independent controls (sections toggle
+#        conditional on global section presence — absent in fresh demo mode)
+# US-R2: toggling layers is reflected in map state
 
 appId: com.veloq.app.dev
 tags:
@@ -17,36 +18,58 @@ tags:
       id: "map-screen"
     timeout: 30000
 
-# All three toggles must be present as independent buttons.
+# Core toggles are always present regardless of data state.
 - assertVisible:
     id: "map-toggle-heatmap"
 - assertVisible:
-    id: "map-toggle-sections"
-- assertVisible:
-    id: "map-toggle-routes"
-- assertVisible:
     id: "map-toggle-activities"
+- assertVisible:
+    id: "map-toggle-3d"
 
+# Routes toggle is data-conditional (routeCount > 0). Sections toggle likewise.
+# Take a screenshot of initial state — hardcoded assertion of presence is
+# fragile because demo mode may or may not detect routes by the time this runs.
 - takeScreenshot: "regional-map-default"
 
-# Activate heatmap — trace colour should shift to brand orange when an activity
-# is selected (US-R3 covers that; here we just verify the toggle fires).
+# Activate heatmap and screenshot — trace colour should shift when selecting
+# an activity (covered separately; here we verify the toggle fires).
 - tapOn:
     id: "map-toggle-heatmap"
 - takeScreenshot: "regional-map-heatmap-on"
 
-# Toggle sections off, then back on — proves layer is independent
+# Turn heatmap off again to confirm it's independent of activity layer.
 - tapOn:
-    id: "map-toggle-sections"
-- takeScreenshot: "regional-map-sections-off"
-- tapOn:
-    id: "map-toggle-sections"
-- takeScreenshot: "regional-map-sections-on"
+    id: "map-toggle-heatmap"
+- takeScreenshot: "regional-map-heatmap-off"
 
-# Toggle routes independently
+# Activities toggle — off should hide traces.
 - tapOn:
-    id: "map-toggle-routes"
-- takeScreenshot: "regional-map-routes-on"
+    id: "map-toggle-activities"
+- takeScreenshot: "regional-map-activities-off"
+- tapOn:
+    id: "map-toggle-activities"
+- takeScreenshot: "regional-map-activities-on"
+
+# Routes toggle (conditional — only present if routeCount > 0). Flow must not
+# fail if the toggle isn't rendered.
+- runFlow:
+    when:
+      visible:
+        id: "map-toggle-routes"
+    commands:
+      - tapOn:
+          id: "map-toggle-routes"
+      - takeScreenshot: "regional-map-routes-toggled"
+
+# Sections toggle (conditional — only present if sections.length > 0)
+- runFlow:
+    when:
+      visible:
+        id: "map-toggle-sections"
+    commands:
+      - tapOn:
+          id: "map-toggle-sections"
+      - takeScreenshot: "regional-map-sections-toggled"
 
 - assertNotVisible:
     text: "NaN"

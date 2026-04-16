@@ -76,6 +76,7 @@ export function SectionPerformanceSection({
           {SECTION_TIME_RANGES.map((r) => (
             <Pressable
               key={r.id}
+              testID={`section-time-range-${r.id}`}
               onPress={() => onTimeRangeChange(r.id)}
               style={[
                 styles.pill,
