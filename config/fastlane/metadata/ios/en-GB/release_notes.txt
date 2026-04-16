@@ -1,11 +1,10 @@
-v0.2.2 (Mar 2026)
+v0.3.0 (Apr 2026)
 
-• Health page: activity heatmap, scrub to any day
-• Fitness hero: form/fatigue/fitness with zone labels
-• Sparkline: ATL line, tighter y-axis
-• 3D maps: MapLibre v5, terrain fixes, circle markers
-• Maps: flag markers, cyan scrub highlight, tile caching
-• Settings reorganised with cache details
-• Offline mode: improved reliability
-• Error boundaries on all screens
-• Rust engine: domain object architecture
+• Section cards per direction, inline sparklines highlighting this activity
+• Feed: PR trophies, improving/declining trend pills
+• Section detail: time-range pills, summary + history cards
+• Map: heatmap toggle, separate route/section toggles, activity clustering
+• Strength: inline muscle stats, methodology note
+• Dark mode contrast improvements
+• Backup: local fix, not-encrypted warning
+• Many fixes
