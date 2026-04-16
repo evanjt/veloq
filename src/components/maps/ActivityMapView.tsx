@@ -121,7 +121,16 @@ import {
 } from '@maplibre/maplibre-react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { decodePolyline, LatLng, getActivityColor } from '@/lib';
-import { colors, darkColors, typography, spacing, layout, shadows, sectionPalette } from '@/theme';
+import {
+  colors,
+  darkColors,
+  typography,
+  spacing,
+  layout,
+  shadows,
+  sectionPalette,
+  sectionPaletteExpression,
+} from '@/theme';
 import { useMapPreferences } from '@/providers';
 import { useSectionCreation } from '@/hooks/maps/useSectionCreation';
 import { useMapCamera } from '@/hooks/maps/useMapCamera';
@@ -896,9 +905,9 @@ export const ActivityMapView = memo(function ActivityMapView({
                         'case',
                         ['==', ['get', 'id'], highlightedSectionId],
                         '#FFAB00',
-                        ['at', ['get', 'colorIndex'], ['literal', [...sectionPalette]]],
+                        sectionPaletteExpression() as unknown as string,
                       ]
-                    : ['at', ['get', 'colorIndex'], ['literal', [...sectionPalette]]],
+                    : (sectionPaletteExpression() as unknown as string),
                   lineWidth: highlightedSectionId
                     ? ['case', ['==', ['get', 'id'], highlightedSectionId], 7, 4]
                     : 5,
@@ -1294,7 +1303,7 @@ export const ActivityMapView = memo(function ActivityMapView({
             <LineLayer
               id="fs-section-overlays-line"
               style={{
-                lineColor: ['at', ['get', 'colorIndex'], ['literal', [...sectionPalette]]],
+                lineColor: sectionPaletteExpression() as unknown as string,
                 lineWidth: 5,
                 lineCap: 'round',
                 lineJoin: 'round',

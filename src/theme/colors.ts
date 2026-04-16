@@ -77,6 +77,18 @@ export function sectionPaletteIndex(sectionId: string): number {
   return Math.abs(hash) % sectionPalette.length;
 }
 
+// MapLibre expression builder: maps the `colorIndex` feature property to a
+// palette colour. Uses `match` (not `literal` + `at`) because MapLibre only
+// coerces hex strings to colours in direct positions — inside a literal array
+// they stay typed as strings and trigger "Expected array<color>" errors.
+export function sectionPaletteExpression(): unknown {
+  const branches: unknown[] = [];
+  sectionPalette.forEach((color, i) => {
+    branches.push(i, color);
+  });
+  return ['match', ['get', 'colorIndex'], ...branches, sectionPalette[0]];
+}
+
 // =============================================================================
 // LIGHT MODE COLORS
 // =============================================================================
