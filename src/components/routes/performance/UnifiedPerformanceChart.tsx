@@ -91,6 +91,7 @@ export interface ChartSummaryStats {
 export interface DirectionBestRecord {
   bestTime: number;
   bestSpeed?: number; // Speed (m/s) for routes where distance varies
+  bestPace?: number; // Pace (s/km) for running sections
   activityDate: Date;
 }
 
@@ -1189,8 +1190,8 @@ export function UnifiedPerformanceChart({
                     <MaterialCommunityIcons name="trophy" size={12} color={colors.chartGold} />
                     <Text style={styles.prBadgeTime}>
                       {showPace
-                        ? (bestForwardRecord as any).bestPace
-                          ? formatPace((bestForwardRecord as any).bestPace)
+                        ? bestForwardRecord.bestPace
+                          ? formatPace(bestForwardRecord.bestPace)
                           : formatDuration(bestForwardRecord.bestTime)
                         : formatDuration(bestForwardRecord.bestTime)}
                     </Text>
@@ -1286,8 +1287,8 @@ export function UnifiedPerformanceChart({
                     <MaterialCommunityIcons name="trophy" size={12} color={colors.chartGold} />
                     <Text style={styles.prBadgeTime}>
                       {showPace
-                        ? (bestReverseRecord as any).bestPace
-                          ? formatPace((bestReverseRecord as any).bestPace)
+                        ? bestReverseRecord.bestPace
+                          ? formatPace(bestReverseRecord.bestPace)
                           : formatDuration(bestReverseRecord.bestTime)
                         : formatDuration(bestReverseRecord.bestTime)}
                     </Text>

@@ -108,7 +108,7 @@ export function useRouteGroups(options: UseRouteGroupsOptions = {}): UseRouteGro
         name: g.customName ?? g.groupId,
         activityCount: g.activityCount,
         type: toActivityType(sportType),
-        sportTypes: (g as any).sportTypes ?? [sportType],
+        sportTypes: g.sportTypes ?? [sportType],
         // Signature loaded lazily via useConsensusRoute to avoid blocking render
         signature: undefined,
         // Performance stats not in summaries - use useGroupDetail for full data

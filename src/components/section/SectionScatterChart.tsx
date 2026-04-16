@@ -457,8 +457,8 @@ export function SectionScatterChart({
             <MaterialCommunityIcons name="trophy" size={11} color={colors.chartGold} />
             <Text style={styles.prTime}>
               {showPace
-                ? (bestRecord as any).bestPace
-                  ? formatPace((bestRecord as any).bestPace)
+                ? bestRecord.bestPace
+                  ? formatPace(bestRecord.bestPace)
                   : formatDuration(bestRecord.bestTime)
                 : formatDuration(bestRecord.bestTime)}
             </Text>

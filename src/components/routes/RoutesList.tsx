@@ -152,7 +152,7 @@ function batchGroupToRouteGroup(group: GroupWithPolyline, index: number): RouteG
     signature: null,
     consensusPoints,
     distance: group.distanceMeters > 0 ? group.distanceMeters : undefined,
-    sportTypes: (group as any).sportTypes ?? [sportType],
+    sportTypes: group.sportTypes ?? [sportType],
     center,
   };
 }

@@ -83,7 +83,8 @@ function normalizeSectionData(
       polyline: section.polyline,
       sectionType:
         'sectionType' in section ? (section as { sectionType: string }).sectionType : undefined,
-      sportTypes: 'sportTypes' in section ? (section as any).sportTypes : undefined,
+      sportTypes:
+        'sportTypes' in section ? (section as { sportTypes: string[] }).sportTypes : undefined,
     };
   }
   // Check if it's a SectionSummary (has activityCount number)
@@ -98,7 +99,8 @@ function normalizeSectionData(
       polyline: undefined, // Will be lazy-loaded
       sectionType:
         'sectionType' in section ? (section as { sectionType: string }).sectionType : undefined,
-      sportTypes: 'sportTypes' in section ? (section as any).sportTypes : undefined,
+      sportTypes:
+        'sportTypes' in section ? (section as { sportTypes: string[] }).sportTypes : undefined,
     };
   }
   // Already normalized
