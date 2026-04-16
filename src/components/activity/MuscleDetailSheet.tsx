@@ -4,6 +4,7 @@ import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useTheme, useMetricSystem } from '@/hooks';
+import { formatWeight } from '@/lib/strength/formatting';
 import { colors, darkColors, spacing, typography, brand } from '@/theme';
 import type { MuscleGroupDetail } from '@/hooks/activities/useMuscleDetail';
 
@@ -15,14 +16,6 @@ interface MuscleDetailSheetProps {
   detail: MuscleGroupDetail | null;
   visible: boolean;
   onClose: () => void;
-}
-
-function formatWeight(kg: number, isMetric: boolean): string {
-  if (isMetric) {
-    return kg % 1 === 0 ? `${kg} kg` : `${kg.toFixed(1)} kg`;
-  }
-  const lbs = kg * 2.20462;
-  return lbs % 1 === 0 ? `${lbs} lbs` : `${lbs.toFixed(1)} lbs`;
 }
 
 export const MuscleDetailSheet = React.memo(function MuscleDetailSheet({

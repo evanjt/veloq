@@ -1,35 +1,9 @@
-import type { Insight, InsightMethodology, InsightSupportingData } from '@/types';
 import { formatDuration } from '@/lib';
 import { brand } from '@/theme/colors';
-
-interface SectionPR {
-  sectionId: string;
-  sectionName: string;
-  bestTime: number;
-  daysAgo: number;
-}
-
-type TFunc = (key: string, params?: Record<string, string | number>) => string;
+import type { Insight, SectionPR, TFunc } from './types';
+import { makeInsight } from './insightBuilder';
 
 const MAX_PR_INSIGHTS = 3;
-
-function makeInsight(fields: {
-  id: string;
-  category: Insight['category'];
-  priority: Insight['priority'];
-  icon: string;
-  iconColor: string;
-  title: string;
-  subtitle?: string;
-  body?: string;
-  navigationTarget?: string;
-  timestamp: number;
-  supportingData?: InsightSupportingData;
-  methodology?: InsightMethodology;
-  confidence?: number;
-}): Insight {
-  return { ...fields, isNew: false } as Insight;
-}
 
 export function generateSectionPRInsights(
   recentPRs: SectionPR[],

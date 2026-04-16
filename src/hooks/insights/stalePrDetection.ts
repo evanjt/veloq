@@ -302,3 +302,103 @@ export function stalePROpportunityToInsight(
     },
   };
 }
+
+// ---------------------------------------------------------------------------
+// Group-card builder (used when multiple opportunities exist)
+// ---------------------------------------------------------------------------
+
+const MAX_STALE_PR_SECTIONS_IN_BODY = 3;
+
+/** Inputs for generating stale-PR insights, including dedup against already-present insights. */
+export interface GenerateStalePRInsightsInput {
+  sections: StalePRSectionData[];
+  ftpTrend: StalePRFtpTrend | null;
+  runPaceTrend: StalePRPaceTrend | null;
+  swimPaceTrend: StalePRPaceTrend | null;
+  recentPRs: StalePRRecentPR[];
+  /** IDs of insights already generated (to avoid duplicating section_pr cards) */
+  existingInsightIds: Set<string>;
+}
+
+/**
+ * Generate stale-PR insights: single card when 1 opportunity, group card when 2+.
+ * Handles dedup against existing section_pr insights so the same section isn't surfaced twice.
+ */
+export function generateStalePRInsights(
+  input: GenerateStalePRInsightsInput,
+  t: (key: string, params?: Record<string, string | number>) => string,
+  now: number
+): Insight[] {
+  const opportunities = detectStalePROpportunities({
+    sections: input.sections,
+    ftpTrend: input.ftpTrend,
+    runPaceTrend: input.runPaceTrend,
+    swimPaceTrend: input.swimPaceTrend,
+    recentPRs: input.recentPRs,
+  });
+
+  const filtered = opportunities.filter(
+    (opp) => !input.existingInsightIds.has(`section_pr-${opp.sectionId}`)
+  );
+
+  if (filtered.length === 0) return [];
+  if (filtered.length === 1) return [stalePROpportunityToInsight(filtered[0], t, now)];
+
+  const powerOpps = filtered.filter((o) => o.fitnessMetric === 'power');
+  const runPaceOpps = filtered.filter((o) => o.fitnessMetric === 'pace' && o.unit === '/km');
+  const swimPaceOpps = filtered.filter((o) => o.fitnessMetric === 'pace' && o.unit === '/100m');
+  const subtitleParts: string[] = [];
+  if (powerOpps.length > 0) {
+    const p = powerOpps[0];
+    subtitleParts.push(`FTP: ${Math.round(p.previousValue)}W → ${Math.round(p.currentValue)}W`);
+  }
+  if (runPaceOpps.length > 0) {
+    const p = runPaceOpps[0];
+    subtitleParts.push(
+      `Run threshold: ${formatPaceCompact(p.previousValue)}${p.unit} → ${formatPaceCompact(p.currentValue)}${p.unit}`
+    );
+  }
+  if (swimPaceOpps.length > 0) {
+    const p = swimPaceOpps[0];
+    subtitleParts.push(
+      `Swim threshold: ${formatSwimPace(p.previousValue)}${p.unit} → ${formatSwimPace(p.currentValue)}${p.unit}`
+    );
+  }
+
+  return [
+    {
+      id: 'stale_pr-group',
+      category: 'stale_pr',
+      priority: 2,
+      icon: 'lightning-bolt',
+      iconColor: '#FF9800',
+      title: t('insights.stalePr.groupTitle', { count: filtered.length }),
+      subtitle: subtitleParts.join(', '),
+      body:
+        filtered
+          .slice(0, MAX_STALE_PR_SECTIONS_IN_BODY)
+          .map((o) => o.sectionName)
+          .join(', ') +
+        (filtered.length > MAX_STALE_PR_SECTIONS_IN_BODY
+          ? ` (+${filtered.length - MAX_STALE_PR_SECTIONS_IN_BODY} more)`
+          : ''),
+      navigationTarget: '/routes?tab=sections',
+      timestamp: now,
+      isNew: false,
+      supportingData: {
+        sections: filtered.map((o) => ({
+          sectionId: o.sectionId,
+          sectionName: o.sectionName,
+          bestTime: o.bestTimeSecs,
+          sportType: input.sections.find((s) => s.sectionId === o.sectionId)?.sportType,
+        })),
+        formula: subtitleParts.join('; '),
+        algorithmDescription: t('insights.stalePr.methodology'),
+      },
+      methodology: {
+        name: t('insights.methodology.fitnessPrName'),
+        description: t('insights.stalePr.methodology'),
+      },
+    },
+  ];
+}

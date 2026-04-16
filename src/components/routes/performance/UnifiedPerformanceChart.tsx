@@ -25,8 +25,6 @@ import { navigateTo, safeGetTime, getIntlLocale } from '@/lib';
 import { CartesianChart, Line, type PointsArray } from 'victory-native';
 import { Circle } from '@shopify/react-native-skia';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-
-const NATIVE_GESTURE = Gesture.Native();
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -738,10 +736,14 @@ export function UnifiedPerformanceChart({
     [clearSelection]
   );
 
-  // Combined gesture - use Native() to allow ScrollView to handle scroll momentum properly
+  // Combined gesture - use Native() to allow ScrollView to handle scroll momentum properly.
+  // Note: `Gesture.Native()` must be created per-instance — it carries a handlerTag
+  // that the native side mutates on initialize(). A shared module-level instance
+  // causes handler-tag collisions across mounts.
+  const nativeGesture = useMemo(() => Gesture.Native(), []);
   const composedGesture = useMemo(
-    () => Gesture.Simultaneous(NATIVE_GESTURE, Gesture.Simultaneous(tapGesture, panGesture)),
-    [tapGesture, panGesture]
+    () => Gesture.Simultaneous(nativeGesture, Gesture.Simultaneous(tapGesture, panGesture)),
+    [nativeGesture, tapGesture, panGesture]
   );
 
   // Crosshair animation - accounts for scroll offset so crosshair appears at touch position

@@ -1,25 +1,7 @@
-import type { Insight, InsightMethodology, InsightSupportingData } from '@/types';
-
-type TFunc = (key: string, params?: Record<string, string | number>) => string;
+import type { Insight, TFunc } from './types';
+import { makeInsight } from './insightBuilder';
 
 const MIN_HRV_DATA_POINTS = 5;
-
-function makeInsight(fields: {
-  id: string;
-  category: Insight['category'];
-  priority: Insight['priority'];
-  icon: string;
-  iconColor: string;
-  title: string;
-  body?: string;
-  navigationTarget?: string;
-  timestamp: number;
-  confidence?: number;
-  supportingData?: InsightSupportingData;
-  methodology?: InsightMethodology;
-}): Insight {
-  return { ...fields, isNew: false } as Insight;
-}
 
 /**
  * HRV Trend Insight

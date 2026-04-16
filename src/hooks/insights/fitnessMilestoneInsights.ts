@@ -1,38 +1,8 @@
-import type { Insight, InsightMethodology, InsightSupportingData } from '@/types';
 import { formatPaceCompact, formatSwimPace } from '@/lib';
-
-interface FtpTrend {
-  latestFtp: number | undefined;
-  latestDate: bigint | number | undefined;
-  previousFtp: number | undefined;
-  previousDate: bigint | number | undefined;
-}
-
-interface PaceTrend {
-  latestPace: number | undefined;
-  latestDate: bigint | number | undefined;
-  previousPace: number | undefined;
-  previousDate: bigint | number | undefined;
-}
-
-type TFunc = (key: string, params?: Record<string, string | number>) => string;
+import type { Insight, FtpTrend, PaceTrend, TFunc } from './types';
+import { makeInsight } from './insightBuilder';
 
 const MIN_FTP_CHANGE_WATTS = 5;
-
-function makeInsight(fields: {
-  id: string;
-  category: Insight['category'];
-  priority: Insight['priority'];
-  icon: string;
-  iconColor: string;
-  title: string;
-  navigationTarget?: string;
-  timestamp: number;
-  supportingData?: InsightSupportingData;
-  methodology?: InsightMethodology;
-}): Insight {
-  return { ...fields, isNew: false } as Insight;
-}
 
 function toSecondsPerDistanceMeters(speedMetersPerSecond: number, distanceMeters: number): number {
   if (!Number.isFinite(speedMetersPerSecond) || speedMetersPerSecond <= 0) return 0;

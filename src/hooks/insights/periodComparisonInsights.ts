@@ -1,31 +1,8 @@
-import type { Insight, InsightMethodology, InsightSupportingData } from '@/types';
-
-interface PeriodStats {
-  count: number;
-  totalDuration: number;
-  totalDistance: number;
-  totalTss: number;
-}
-
-type TFunc = (key: string, params?: Record<string, string | number>) => string;
+import type { InsightMethodology, InsightSupportingData } from '@/types';
+import type { Insight, PeriodStats, TFunc } from './types';
+import { makeInsight } from './insightBuilder';
 
 const VOLUME_CHANGE_THRESHOLD = 0.15;
-
-function makeInsight(fields: {
-  id: string;
-  category: Insight['category'];
-  priority: Insight['priority'];
-  icon: string;
-  iconColor: string;
-  title: string;
-  body?: string;
-  navigationTarget?: string;
-  timestamp: number;
-  supportingData?: InsightSupportingData;
-  methodology?: InsightMethodology;
-}): Insight {
-  return { ...fields, isNew: false } as Insight;
-}
 
 /** Format seconds to compact duration string (e.g., "1h30" or "45m"). */
 export function formatDurationCompact(seconds: number): string {

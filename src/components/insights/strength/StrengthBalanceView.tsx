@@ -3,17 +3,9 @@ import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/hooks';
+import { formatSetCount, formatBalanceRatio } from '@/lib/strength/formatting';
 import { colors, darkColors, spacing, opacity, layout, brand } from '@/theme';
 import type { StrengthBalancePair } from '@/types';
-
-function formatSetCount(sets: number): string {
-  return sets % 1 === 0 ? sets.toFixed(0) : sets.toFixed(1);
-}
-
-function formatBalanceRatio(pair: StrengthBalancePair): string {
-  if (pair.ratio == null || !Number.isFinite(pair.ratio)) return '\u2014';
-  return `${pair.ratio.toFixed(pair.ratio >= 10 ? 0 : 1)}x`;
-}
 
 interface StrengthBalanceViewProps {
   visibleBalancePairs: StrengthBalancePair[];

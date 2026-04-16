@@ -14,6 +14,7 @@ import {
 } from '@/hooks/activities/useStrengthVolume';
 import { useAthlete } from '@/hooks';
 import { buildStrengthBalancePairs } from '@/lib/strength/analysis';
+import { formatSetCount } from '@/lib/strength/formatting';
 import { MUSCLE_DISPLAY_NAMES, type MuscleSlug } from '@/lib/strength/exerciseMuscleMap';
 import { TAB_BAR_SAFE_PADDING } from '@/components/ui';
 import { colors, darkColors, spacing, typography, opacity, layout, brand } from '@/theme';
@@ -31,10 +32,6 @@ const PERIODS: { id: StrengthPeriod; label: string }[] = [
   { id: '3months', label: '3M' },
   { id: '6months', label: '6M' },
 ];
-
-function formatSetCount(sets: number): string {
-  return sets % 1 === 0 ? sets.toFixed(0) : sets.toFixed(1);
-}
 
 export const StrengthTab = React.memo(function StrengthTab() {
   const { isDark } = useTheme();

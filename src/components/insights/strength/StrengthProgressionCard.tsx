@@ -4,12 +4,9 @@ import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/hooks';
 import { MUSCLE_DISPLAY_NAMES, type MuscleSlug } from '@/lib/strength/exerciseMuscleMap';
+import { formatSetCount } from '@/lib/strength/formatting';
 import { colors, darkColors, spacing, opacity, layout, brand } from '@/theme';
 import type { MuscleVolume, StrengthProgression } from '@/types';
-
-function formatSetCount(sets: number): string {
-  return sets % 1 === 0 ? sets.toFixed(0) : sets.toFixed(1);
-}
 
 interface StrengthProgressionCardProps {
   selectedVolume: MuscleVolume;

@@ -1,39 +1,9 @@
-import type { Insight, InsightMethodology, InsightSupportingData } from '@/types';
 import { formatDuration } from '@/lib';
-
-interface SectionTrendData {
-  sectionId: string;
-  sectionName: string;
-  trend: number; // -1=declining, 0=stable, 1=improving
-  medianRecentSecs: number;
-  bestTimeSecs: number;
-  traversalCount: number;
-  sportType?: string;
-  daysSinceLast?: number;
-  latestIsPr?: boolean;
-}
-
-type TFunc = (key: string, params?: Record<string, string | number>) => string;
+import type { Insight, SectionTrendData, TFunc } from './types';
+import { makeInsight } from './insightBuilder';
 
 const MAX_SECTION_TREND_INSIGHTS = 2;
 const MIN_TREND_TRAVERSALS = 3;
-
-function makeInsight(fields: {
-  id: string;
-  category: Insight['category'];
-  priority: Insight['priority'];
-  icon: string;
-  iconColor: string;
-  title: string;
-  body?: string;
-  navigationTarget?: string;
-  timestamp: number;
-  confidence?: number;
-  supportingData?: InsightSupportingData;
-  methodology?: InsightMethodology;
-}): Insight {
-  return { ...fields, isNew: false } as Insight;
-}
 
 /**
  * Generate section trend insights for improving/declining sections.

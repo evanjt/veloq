@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { useExerciseSets } from '@/hooks/activities';
 import { useMetricSystem } from '@/hooks/ui/useMetricSystem';
 import { formatDuration } from '@/lib';
+import { formatWeight } from '@/lib/strength/formatting';
 import { colors, darkColors, spacing, layout, typography, shadows, brand } from '@/theme';
 import type { ExerciseSet } from 'veloqrs';
 
@@ -34,14 +35,6 @@ function groupExercises(sets: ExerciseSet[]): ExerciseGroup[] {
   }
 
   return groups;
-}
-
-function formatWeight(kg: number, isMetric: boolean): string {
-  if (isMetric) {
-    return kg % 1 === 0 ? `${kg} kg` : `${kg.toFixed(1)} kg`;
-  }
-  const lbs = kg * 2.20462;
-  return lbs % 1 === 0 ? `${lbs} lbs` : `${lbs.toFixed(1)} lbs`;
 }
 
 export function ExerciseTable({

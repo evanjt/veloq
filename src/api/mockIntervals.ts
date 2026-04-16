@@ -19,7 +19,7 @@ import type {
   CalendarEvent,
   IntervalsDTO,
 } from '@/types';
-import { getMonday } from '@/lib';
+import { getMonday, formatLocalDate } from '@/lib';
 
 // Simulate network delay for realistic UX
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -202,7 +202,7 @@ export const mockIntervalsApi = {
     for (const activity of activities) {
       const date = new Date(activity.start_date_local);
       const monday = getMonday(date);
-      const weekKey = monday.toISOString().split('T')[0];
+      const weekKey = formatLocalDate(monday);
       if (!weekMap.has(weekKey)) {
         weekMap.set(weekKey, []);
       }

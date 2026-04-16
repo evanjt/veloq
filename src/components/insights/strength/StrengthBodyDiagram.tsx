@@ -8,6 +8,7 @@ import { useTranslation } from 'react-i18next';
 import { BodyPairWithLoupe } from '@/components/activity/BodyPairWithLoupe';
 import { useTheme, useMetricSystem } from '@/hooks';
 import { MUSCLE_DISPLAY_NAMES, type MuscleSlug } from '@/lib/strength/exerciseMuscleMap';
+import { formatSetCount, formatWeightRounded as formatWeight } from '@/lib/strength/formatting';
 import { colors, darkColors, spacing, opacity, layout, brand } from '@/theme';
 import type { MuscleVolume, StrengthProgression, ExerciseSummary } from '@/types';
 
@@ -21,15 +22,6 @@ const BODY_COLORS: readonly string[] = [
 ] as const;
 const BODY_FILL_LIGHT = '#3f3f3f';
 const BODY_FILL_DARK = '#555555';
-
-function formatSetCount(sets: number): string {
-  return sets % 1 === 0 ? sets.toFixed(0) : sets.toFixed(1);
-}
-
-function formatWeight(kg: number, isMetric: boolean): string {
-  if (isMetric) return `${Math.round(kg)} kg`;
-  return `${Math.round(kg * 2.20462)} lbs`;
-}
 
 interface StrengthBodyDiagramProps {
   bodyData: ExtendedBodyPart[];

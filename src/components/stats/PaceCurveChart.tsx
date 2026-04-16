@@ -19,7 +19,7 @@ import { ChartCrosshair } from '@/components/charts/base';
 import { CHART_CONFIG } from '@/constants';
 import { usePaceCurve } from '@/hooks';
 import { useActivities } from '@/hooks';
-import { formatFullDate, formatDistance, speedToSecsPerKm } from '@/lib';
+import { formatFullDate, formatDistance, formatLocalDate, speedToSecsPerKm } from '@/lib';
 import { formatDuration } from '@/lib/utils/format';
 
 interface PaceCurveChartProps {
@@ -84,7 +84,7 @@ export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceC
   const daysAgo = new Date();
   daysAgo.setDate(daysAgo.getDate() - days);
   const { data: activities } = useActivities({
-    oldest: daysAgo.toISOString().split('T')[0],
+    oldest: formatLocalDate(daysAgo),
   });
 
   const [tooltipData, setTooltipData] = useState<ChartPoint | null>(null);

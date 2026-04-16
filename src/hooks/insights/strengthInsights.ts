@@ -1,13 +1,10 @@
 import { MUSCLE_DISPLAY_NAMES, type MuscleSlug } from '@/lib/strength/exerciseMuscleMap';
 import { buildStrengthBalancePairs, buildStrengthProgression } from '@/lib/strength/analysis';
+import { formatSetCount } from '@/lib/strength/formatting';
 import type { Insight, StrengthBalancePair, StrengthProgressPoint, StrengthSummary } from '@/types';
 
 const MIN_PROGRESS_SIGNAL = 4;
 const MIN_PROGRESS_CHANGE_PCT = 15;
-
-function formatSetCount(value: number): string {
-  return value % 1 === 0 ? value.toFixed(0) : value.toFixed(1);
-}
 
 function formatRatio(value: number | null): string {
   if (value == null) return 'No signal';

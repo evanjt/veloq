@@ -1,6 +1,4 @@
-import type { Insight, InsightCategory, InsightPriority } from '@/types';
-import { formatPaceCompact, formatSwimPace } from '@/lib';
-import { detectStalePROpportunities, stalePROpportunityToInsight } from './stalePrDetection';
+import { generateStalePRInsights } from './stalePrDetection';
 import { generateEfficiencyTrendInsights } from './efficiencyTrendInsights';
 import { generateSectionPRInsights } from './sectionPRInsights';
 import { generateHrvTrendInsight } from './hrvTrendInsight';
@@ -10,6 +8,15 @@ import {
 } from './periodComparisonInsights';
 import { generateFitnessMilestoneInsights } from './fitnessMilestoneInsights';
 import { generateSectionTrendInsights } from './sectionTrendInsights';
+import type {
+  Insight,
+  PeriodStats,
+  FtpTrend,
+  PaceTrend,
+  SectionPR,
+  SectionTrendData,
+  TFunc,
+} from './types';
 
 // Re-export for tests and consumers
 export { formatDurationCompact };
@@ -26,58 +33,6 @@ export { formatDurationCompact };
  * Insights are generated from cached FFI data — no new queries needed.
  */
 
-// ---------------------------------------------------------------------------
-// Input types -- these match what the FFI functions return
-// ---------------------------------------------------------------------------
-
-interface PeriodStats {
-  count: number;
-  totalDuration: number; // seconds
-  totalDistance: number; // meters
-  totalTss: number;
-}
-
-interface FtpTrend {
-  latestFtp: number | undefined;
-  latestDate: bigint | number | undefined;
-  previousFtp: number | undefined;
-  previousDate: bigint | number | undefined;
-}
-
-interface PaceTrend {
-  latestPace: number | undefined;
-  latestDate: bigint | number | undefined;
-  previousPace: number | undefined;
-  previousDate: bigint | number | undefined;
-}
-
-interface SectionPR {
-  sectionId: string;
-  sectionName: string;
-  bestTime: number;
-  daysAgo: number;
-}
-
-interface ActivityPattern {
-  sportType: string;
-  primaryDay: number; // 0=Mon..6=Sun
-  avgDurationSecs: number;
-  confidence: number;
-  activityCount: number;
-}
-
-interface SectionTrendData {
-  sectionId: string;
-  sectionName: string;
-  trend: number; // -1=declining, 0=stable, 1=improving
-  medianRecentSecs: number;
-  bestTimeSecs: number;
-  traversalCount: number;
-  sportType?: string;
-  daysSinceLast?: number;
-  latestIsPr?: boolean;
-}
-
 export interface InsightInputData {
   currentPeriod: PeriodStats | null;
   previousPeriod: PeriodStats | null;
@@ -85,7 +40,6 @@ export interface InsightInputData {
   paceTrend: PaceTrend | null;
   swimPaceTrend?: PaceTrend | null;
   recentPRs: SectionPR[];
-  todayPattern: ActivityPattern | null;
   sectionTrends: SectionTrendData[];
   formTsb: number | null;
   formCtl: number | null;
@@ -105,15 +59,11 @@ export interface InsightInputData {
   efficiencyTrendSectionIds?: string[];
 }
 
-// Translation function type
-type TFunc = (key: string, params?: Record<string, string | number>) => string;
-
 // ---------------------------------------------------------------------------
 // Constants
 // ---------------------------------------------------------------------------
 
 const MAX_INSIGHTS = 8;
-const MAX_STALE_PR_SECTIONS_IN_BODY = 3;
 
 // ---------------------------------------------------------------------------
 // Scoring — ranks insights by actionability and surprise value
@@ -218,7 +168,30 @@ export function generateInsights(data: InsightInputData, t: TFunc): Insight[] {
   );
 
   // Priority 2: Stale PR / Opportunity Detection
-  addStalePRInsights(insights, data, now, t);
+  if ((data.ftpTrend || data.paceTrend) && data.sectionTrends && data.sectionTrends.length > 0) {
+    const sections = data.sectionTrends.map((s) => ({
+      sectionId: s.sectionId,
+      sectionName: s.sectionName,
+      bestTimeSecs: s.bestTimeSecs,
+      traversalCount: s.traversalCount,
+      sportType: s.sportType,
+    }));
+    const existingStalePrIds = new Set(insights.map((i) => i.id));
+    insights.push(
+      ...generateStalePRInsights(
+        {
+          sections,
+          ftpTrend: data.ftpTrend,
+          runPaceTrend: data.paceTrend,
+          swimPaceTrend: data.swimPaceTrend ?? null,
+          recentPRs: data.recentPRs,
+          existingInsightIds: existingStalePrIds,
+        },
+        t,
+        now
+      )
+    );
+  }
 
   // Priority 2-3: Section Trends
   const existingIds = new Set(
@@ -259,100 +232,4 @@ export function generateInsights(data: InsightInputData, t: TFunc): Insight[] {
   }
 
   return kept;
-}
-
-// ---------------------------------------------------------------------------
-// Stale PR (uses shared stalePrDetection, kept inline for inter-insight dedup)
-// ---------------------------------------------------------------------------
-
-function addStalePRInsights(
-  insights: Insight[],
-  data: InsightInputData,
-  now: number,
-  t: TFunc
-): void {
-  if ((!data.ftpTrend && !data.paceTrend) || !data.sectionTrends || data.sectionTrends.length === 0)
-    return;
-
-  const sections = data.sectionTrends.map((s) => ({
-    sectionId: s.sectionId,
-    sectionName: s.sectionName,
-    bestTimeSecs: s.bestTimeSecs,
-    traversalCount: s.traversalCount,
-    sportType: s.sportType,
-  }));
-
-  const opportunities = detectStalePROpportunities({
-    sections,
-    ftpTrend: data.ftpTrend,
-    runPaceTrend: data.paceTrend,
-    swimPaceTrend: data.swimPaceTrend ?? null,
-    recentPRs: data.recentPRs,
-  });
-
-  const filtered = opportunities.filter(
-    (opp) => !insights.some((i) => i.id === `section_pr-${opp.sectionId}`)
-  );
-
-  if (filtered.length === 0) return;
-
-  if (filtered.length === 1) {
-    insights.push(stalePROpportunityToInsight(filtered[0], t, now));
-  } else {
-    const powerOpps = filtered.filter((o) => o.fitnessMetric === 'power');
-    const runPaceOpps = filtered.filter((o) => o.fitnessMetric === 'pace' && o.unit === '/km');
-    const swimPaceOpps = filtered.filter((o) => o.fitnessMetric === 'pace' && o.unit === '/100m');
-    const subtitleParts: string[] = [];
-    if (powerOpps.length > 0) {
-      const p = powerOpps[0];
-      subtitleParts.push(`FTP: ${Math.round(p.previousValue)}W → ${Math.round(p.currentValue)}W`);
-    }
-    if (runPaceOpps.length > 0) {
-      const p = runPaceOpps[0];
-      subtitleParts.push(
-        `Run threshold: ${formatPaceCompact(p.previousValue)}${p.unit} → ${formatPaceCompact(p.currentValue)}${p.unit}`
-      );
-    }
-    if (swimPaceOpps.length > 0) {
-      const p = swimPaceOpps[0];
-      subtitleParts.push(
-        `Swim threshold: ${formatSwimPace(p.previousValue)}${p.unit} → ${formatSwimPace(p.currentValue)}${p.unit}`
-      );
-    }
-
-    insights.push({
-      id: 'stale_pr-group',
-      category: 'stale_pr' as InsightCategory,
-      priority: 2 as InsightPriority,
-      icon: 'lightning-bolt',
-      iconColor: '#FF9800',
-      title: t('insights.stalePr.groupTitle', { count: filtered.length }),
-      subtitle: subtitleParts.join(', '),
-      body:
-        filtered
-          .slice(0, MAX_STALE_PR_SECTIONS_IN_BODY)
-          .map((o) => o.sectionName)
-          .join(', ') +
-        (filtered.length > MAX_STALE_PR_SECTIONS_IN_BODY
-          ? ` (+${filtered.length - MAX_STALE_PR_SECTIONS_IN_BODY} more)`
-          : ''),
-      navigationTarget: '/routes?tab=sections',
-      timestamp: now,
-      isNew: false,
-      supportingData: {
-        sections: filtered.map((o) => ({
-          sectionId: o.sectionId,
-          sectionName: o.sectionName,
-          bestTime: o.bestTimeSecs,
-          sportType: sections.find((s) => s.sectionId === o.sectionId)?.sportType,
-        })),
-        formula: subtitleParts.join('; '),
-        algorithmDescription: t('insights.stalePr.methodology'),
-      },
-      methodology: {
-        name: t('insights.methodology.fitnessPrName'),
-        description: t('insights.stalePr.methodology'),
-      },
-    });
-  }
 }

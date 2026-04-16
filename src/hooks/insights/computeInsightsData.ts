@@ -469,7 +469,6 @@ export function computeInsightsFromData(
         paceTrend: ffiData.runPaceTrend ?? null,
         swimPaceTrend: ffiData.swimPaceTrend ?? summaryCardData?.swimPaceTrend ?? null,
         recentPRs,
-        todayPattern: ffiData.todayPattern ?? null,
         sectionTrends,
         formTsb: latestWellness ? tsb : null,
         formCtl: ctl > 0 ? ctl : null,

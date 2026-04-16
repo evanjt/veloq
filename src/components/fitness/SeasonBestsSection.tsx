@@ -4,7 +4,7 @@ import { Text, ActivityIndicator } from 'react-native-paper';
 import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useActivities, useTheme } from '@/hooks';
-import { formatPaceCompact, formatSwimPace, formatDuration } from '@/lib';
+import { formatPaceCompact, formatSwimPace, formatDuration, formatLocalDate } from '@/lib';
 import { SPORT_COLORS, type PrimarySport } from '@/providers';
 import { colors, darkColors, spacing, typography, layout } from '@/theme';
 import type { BestEffort } from '@/hooks';
@@ -45,7 +45,7 @@ export function SeasonBestsSection({ efforts, sport, days, isLoading }: SeasonBe
   const daysAgo = useMemo(() => {
     const d = new Date();
     d.setDate(d.getDate() - days);
-    return d.toISOString().split('T')[0];
+    return formatLocalDate(d);
   }, [days]);
 
   const { data: activities } = useActivities({ oldest: daysAgo });
