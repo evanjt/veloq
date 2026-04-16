@@ -8,21 +8,13 @@ import {
   TouchableOpacity,
   Alert,
 } from 'react-native';
-import { Text, Button, TextInput } from 'react-native-paper';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Text, Button } from 'react-native-paper';
 import { ScreenSafeAreaView } from '@/components/ui';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { replaceTo } from '@/lib';
 import { useTranslation } from 'react-i18next';
-import {
-  useAuthStore,
-  useLanguageStore,
-  getAvailableLanguages,
-  isLanguageVariant,
-  isEnglishVariant,
-  getEnglishVariantValue,
-} from '@/providers';
-import { colors, darkColors, spacing, layout, typography, brand } from '@/theme';
+import { useAuthStore, useSyncDateRange, useUploadPermissionStore } from '@/providers';
+import { colors, darkColors, spacing, layout } from '@/theme';
 import { useTheme } from '@/hooks';
 import { createSharedStyles } from '@/styles';
 import { useQueryClient } from '@tanstack/react-query';
@@ -34,24 +26,22 @@ import {
   INTERVALS_URLS,
   getAppRedirectUri,
 } from '@/services/oauth';
-
-const VELOQ_URLS = {
-  privacy: 'https://veloq.fit/privacy',
-};
-import { CollapsibleSection } from '@/components/ui/CollapsibleSection';
 import { clearAllAppCaches } from '@/lib/storage';
-import { useSyncDateRange, useUploadPermissionStore } from '@/providers';
 import { useImportDatabaseBackup } from '@/hooks';
 import { getAvailableBackends, type BackupEntry } from '@/lib/backup';
 import { restoreDatabaseBackup } from '@/lib/export/backup';
 import * as FileSystem from 'expo-file-system/legacy';
 import { getRouteEngine } from '@/lib/native/routeEngine';
+import { LanguagePicker, OAuthLoginForm, ApiKeyLoginForm } from '@/components/login';
+
+const VELOQ_URLS = {
+  privacy: 'https://veloq.fit/privacy',
+};
 
 export default function LoginScreen() {
   const { t } = useTranslation();
   const { isDark, colors: themeColors } = useTheme();
   const shared = createSharedStyles(isDark);
-  const insets = useSafeAreaInsets();
   const setOAuthCredentials = useAuthStore((state) => state.setOAuthCredentials);
   const setCredentials = useAuthStore((state) => state.setCredentials);
   const enterDemoMode = useAuthStore((state) => state.enterDemoMode);
@@ -71,7 +61,6 @@ export default function LoginScreen() {
   const [dismissedRestore, setDismissedRestore] = useState(false);
 
   useEffect(() => {
-    // Only check on fresh install (no activities in engine)
     const engine = getRouteEngine();
     const activityCount = engine?.getActivityCount() ?? 0;
     if (activityCount > 0) return;
@@ -84,18 +73,18 @@ export default function LoginScreen() {
             const backups = await backend.listBackups();
             if (backups.length > 0) {
               setDetectedBackup({
-                entry: backups[0], // Most recent
+                entry: backups[0],
                 backendId: backend.id,
                 backendName: backend.name,
               });
-              return; // Stop at first backend with backups
+              return;
             }
           } catch {
             // Skip backends that fail
           }
         }
       } catch {
-        // Silently fail — auto-detect is best-effort
+        // Silently fail - auto-detect is best-effort
       }
     })();
   }, []);
@@ -108,11 +97,9 @@ export default function LoginScreen() {
       const backend = backends.find((b) => b.id === detectedBackup.backendId);
       if (!backend) throw new Error('Backend not available');
 
-      // Download to temp path
       const tempPath = `${FileSystem.cacheDirectory}restore-temp.veloqdb`;
       await backend.download(detectedBackup.entry.id, tempPath);
 
-      // Restore
       const result = await restoreDatabaseBackup(tempPath);
       await FileSystem.deleteAsync(tempPath, { idempotent: true });
 
@@ -136,48 +123,9 @@ export default function LoginScreen() {
     }
   }, [detectedBackup, restoringDetected, t]);
 
-  // Language selection
-  const language = useLanguageStore((s) => s.language);
-  const setLanguage = useLanguageStore((s) => s.setLanguage);
-  const [showLanguages, setShowLanguages] = useState(false);
-  const availableLanguages = getAvailableLanguages();
-
   const [isLoading, setIsLoading] = useState(false);
   const [isApiKeyLoading, setIsApiKeyLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [apiKey, setApiKey] = useState('');
-  const [apiKeyExpanded, setApiKeyExpanded] = useState(false);
-
-  // Get the display label for the current language selection and check if it's a dialect
-  const { currentLanguageLabel, isDialectSelected } = React.useMemo(() => {
-    for (const group of availableLanguages) {
-      for (const lang of group.languages) {
-        if (language === lang.value) {
-          return { currentLanguageLabel: lang.label, isDialectSelected: false };
-        }
-        // Check variants
-        if (lang.variants) {
-          const variant = lang.variants.find((v) => v.value === language);
-          if (variant) {
-            return {
-              currentLanguageLabel: `${lang.label} (${variant.label})`,
-              isDialectSelected: variant.isDialect ?? false,
-            };
-          }
-        }
-        // Check if current language is a variant of this language
-        if (isLanguageVariant(language, lang.value)) {
-          return { currentLanguageLabel: lang.label, isDialectSelected: false };
-        }
-      }
-    }
-    return { currentLanguageLabel: 'English', isDialectSelected: false }; // Fallback
-  }, [language, availableLanguages]);
-
-  const handleLanguageChange = async (value: string) => {
-    await setLanguage(value);
-    setShowLanguages(false);
-  };
 
   // Show session expired message if redirected here due to token expiry
   useEffect(() => {
@@ -185,19 +133,14 @@ export default function LoginScreen() {
       const message =
         sessionExpired === 'token_revoked' ? t('login.sessionRevoked') : t('login.sessionExpired');
       setError(message);
-      // Clear the session expired flag after showing the message
       clearSessionExpired();
     }
   }, [sessionExpired, t, clearSessionExpired]);
 
   const handleTryDemo = async () => {
-    // Clear ALL cached data from previous sessions (including persisted caches)
     await clearAllAppCaches(queryClient);
-    // Reset sync date range to default 90 days
     resetSyncDateRange();
-    // Enter demo mode
     enterDemoMode();
-    // Navigate to main app
     replaceTo('/');
   };
 
@@ -217,55 +160,51 @@ export default function LoginScreen() {
     Linking.openURL(INTERVALS_URLS.termsOfService);
   };
 
-  const handleOpenDeveloperSettings = () => {
+  const handleOpenDeveloperSettings = useCallback(() => {
     Linking.openURL(INTERVALS_URLS.developerSettings);
-  };
+  }, []);
 
-  const handleApiKeyLogin = async () => {
-    if (!apiKey.trim()) {
-      setError(t('login.apiKeyRequired'));
-      return;
-    }
-
-    setIsApiKeyLoading(true);
-    setError(null);
-
-    try {
-      // Validate API key by calling /athlete/me with temporary axios instance
-      const response = await axios.get('https://intervals.icu/api/v1/athlete/me', {
-        headers: {
-          Authorization: `Basic ${btoa('API_KEY:' + apiKey.trim())}`,
-        },
-        timeout: 10000,
-      });
-
-      const athlete = response.data;
-      if (!athlete?.id) {
-        throw new Error('Invalid response');
+  const handleApiKeyLogin = useCallback(
+    async (apiKey: string) => {
+      if (!apiKey.trim()) {
+        setError(t('login.apiKeyRequired'));
+        return;
       }
 
-      // Clear ALL cached data from previous sessions (including persisted caches)
-      await clearAllAppCaches(queryClient);
-      // Reset sync date range to default 90 days
-      resetSyncDateRange();
+      setIsApiKeyLoading(true);
+      setError(null);
 
-      // Store API key credentials
-      await setCredentials(apiKey.trim(), athlete.id);
+      try {
+        const response = await axios.get('https://intervals.icu/api/v1/athlete/me', {
+          headers: {
+            Authorization: `Basic ${btoa('API_KEY:' + apiKey.trim())}`,
+          },
+          timeout: 10000,
+        });
 
-      // Navigate to main app
-      replaceTo('/');
-    } catch (err: unknown) {
-      if (axios.isAxiosError(err) && err.response?.status === 401) {
-        setError(t('login.invalidApiKey'));
-      } else {
-        setError(t('login.connectionFailed'));
+        const athlete = response.data;
+        if (!athlete?.id) {
+          throw new Error('Invalid response');
+        }
+
+        await clearAllAppCaches(queryClient);
+        resetSyncDateRange();
+        await setCredentials(apiKey.trim(), athlete.id);
+        replaceTo('/');
+      } catch (err: unknown) {
+        if (axios.isAxiosError(err) && err.response?.status === 401) {
+          setError(t('login.invalidApiKey'));
+        } else {
+          setError(t('login.connectionFailed'));
+        }
+      } finally {
+        setIsApiKeyLoading(false);
       }
-    } finally {
-      setIsApiKeyLoading(false);
-    }
-  };
+    },
+    [t, queryClient, resetSyncDateRange, setCredentials]
+  );
 
-  const handleOAuthLogin = async () => {
+  const handleOAuthLogin = useCallback(async () => {
     if (!isOAuthConfigured()) {
       setError(t('login.oauthNotConfigured'));
       return;
@@ -278,7 +217,6 @@ export default function LoginScreen() {
       const result = await startOAuthFlow();
 
       if (result.type === 'success' && result.url) {
-        // Validate that the callback URL matches expected scheme before processing
         const expectedPrefix = getAppRedirectUri();
         if (!result.url.startsWith(expectedPrefix)) {
           setError(t('login.oauthInvalidCallback', { defaultValue: 'Invalid OAuth callback URL' }));
@@ -286,30 +224,23 @@ export default function LoginScreen() {
           return;
         }
 
-        // Handle the callback URL (token is already in URL from proxy)
         const tokenResponse = handleOAuthCallback(result.url);
 
-        // Clear ALL cached data from previous sessions (including persisted caches)
         await clearAllAppCaches(queryClient);
-        // Reset sync date range to default 90 days
         resetSyncDateRange();
 
-        // Store OAuth credentials
         await setOAuthCredentials(
           tokenResponse.access_token,
           tokenResponse.athlete_id,
           tokenResponse.athlete_name
         );
 
-        // Check granted scopes for write permission
         if (tokenResponse.scope) {
           useUploadPermissionStore.getState().setFromOAuthScope(tokenResponse.scope);
         }
 
-        // Success - navigate to main app
         replaceTo('/');
       } else if (result.type === 'cancel') {
-        // User cancelled - no error needed
         setIsLoading(false);
         return;
       } else {
@@ -318,7 +249,6 @@ export default function LoginScreen() {
     } catch (err: unknown) {
       let errorMessage = t('login.connectionFailed');
       if (err instanceof Error) {
-        // Check for CSRF/state validation errors and show user-friendly message
         if (
           err.message.includes('state validation failed') ||
           err.message.includes('missing state parameter')
@@ -332,142 +262,12 @@ export default function LoginScreen() {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [t, queryClient, resetSyncDateRange, setOAuthCredentials]);
 
   return (
     <ScreenSafeAreaView style={shared.container} testID="login-screen">
       <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
-        {/* Language Selector - top right */}
-        <View style={styles.languagePickerContainer}>
-          <TouchableOpacity
-            testID="login-language-button"
-            style={[
-              styles.languageButton,
-              isDark && styles.languageButtonDark,
-              isDialectSelected && styles.languageButtonDialect,
-              isDialectSelected && isDark && styles.languageButtonDialectDark,
-            ]}
-            onPress={() => setShowLanguages(!showLanguages)}
-          >
-            <MaterialCommunityIcons
-              name="translate"
-              size={18}
-              color={isDark ? darkColors.textSecondary : colors.textSecondary}
-            />
-            <Text style={[styles.languageButtonText, isDark && styles.textDark]}>
-              {currentLanguageLabel}
-            </Text>
-            <MaterialCommunityIcons
-              name={showLanguages ? 'chevron-up' : 'chevron-down'}
-              size={18}
-              color={isDark ? darkColors.textSecondary : colors.textSecondary}
-            />
-          </TouchableOpacity>
-        </View>
-
-        {/* Language Dropdown */}
-        {showLanguages && (
-          <View style={[styles.languageDropdown, isDark && styles.languageDropdownDark]}>
-            {/* Dialect legend - fixed at top right, styled as chip */}
-            <View style={[styles.dialectLegendHeader, isDark && styles.dialectLegendHeaderDark]}>
-              <View
-                style={[
-                  styles.variantChip,
-                  isDark && styles.variantChipDark,
-                  styles.variantChipDialect,
-                  isDark && styles.variantChipDialectDark,
-                  styles.dialectLegendChip,
-                ]}
-              >
-                <Text style={[styles.variantChipText, isDark && styles.textMuted]}>
-                  {t('settings.dialect')}
-                </Text>
-              </View>
-            </View>
-            {availableLanguages.flatMap((group, groupIndex) =>
-              group.languages.map((lang, langIndex) => {
-                const index = groupIndex * 100 + langIndex;
-                const isSelected = language === lang.value;
-                const isVariantOfThisLanguage = isLanguageVariant(language, lang.value);
-                const showCheck = isSelected || isVariantOfThisLanguage;
-
-                return (
-                  <View
-                    key={lang.value}
-                    style={[
-                      styles.languageRow,
-                      index > 0 && styles.languageRowBorder,
-                      isDark && styles.languageRowDark,
-                    ]}
-                  >
-                    <TouchableOpacity
-                      onPress={() => {
-                        const valueToUse =
-                          lang.defaultVariant ?? lang.variants?.[0]?.value ?? lang.value;
-                        handleLanguageChange(valueToUse);
-                      }}
-                      style={styles.languageLabelContainer}
-                    >
-                      <Text style={[styles.languageLabel, isDark && styles.textLight]}>
-                        {lang.label}
-                      </Text>
-                    </TouchableOpacity>
-                    {lang.variants && (
-                      <View style={styles.variantChips}>
-                        {lang.variants.map((variant) => {
-                          const isVariantSelected =
-                            language === variant.value ||
-                            (lang.value === 'en' &&
-                              isEnglishVariant(language) &&
-                              getEnglishVariantValue(language) === variant.value);
-                          return (
-                            <TouchableOpacity
-                              key={variant.value}
-                              style={[
-                                styles.variantChip,
-                                isDark && styles.variantChipDark,
-                                variant.isDialect &&
-                                  !isVariantSelected &&
-                                  styles.variantChipDialect,
-                                variant.isDialect &&
-                                  !isVariantSelected &&
-                                  isDark &&
-                                  styles.variantChipDialectDark,
-                                isVariantSelected && styles.variantChipSelected,
-                                isVariantSelected && isDark && styles.variantChipSelectedDark,
-                                variant.isDialect &&
-                                  isVariantSelected &&
-                                  styles.variantChipDialectSelected,
-                                variant.isDialect &&
-                                  isVariantSelected &&
-                                  isDark &&
-                                  styles.variantChipDialectSelectedDark,
-                              ]}
-                              onPress={() => handleLanguageChange(variant.value)}
-                            >
-                              <Text
-                                style={[
-                                  styles.variantChipText,
-                                  isVariantSelected && styles.variantChipTextSelected,
-                                  isDark && !isVariantSelected && styles.textMuted,
-                                ]}
-                              >
-                                {variant.label}
-                              </Text>
-                            </TouchableOpacity>
-                          );
-                        })}
-                      </View>
-                    )}
-                    {showCheck && !lang.variants && (
-                      <MaterialCommunityIcons name="check" size={20} color={colors.primary} />
-                    )}
-                  </View>
-                );
-              })
-            )}
-          </View>
-        )}
+        <LanguagePicker />
 
         {/* Logo/Header */}
         <View style={styles.header}>
@@ -527,19 +327,8 @@ export default function LoginScreen() {
             </View>
           )}
 
-          {/* OAuth Login Button */}
-          <Button
-            testID="login-oauth-button"
-            mode="contained"
-            onPress={handleOAuthLogin}
-            loading={isLoading}
-            disabled={isLoading}
-            style={styles.oauthButton}
-            contentStyle={styles.oauthButtonContent}
-            icon="login"
-          >
-            {isLoading ? t('login.connecting') : t('login.loginWithIntervals')}
-          </Button>
+          {/* OAuth Login */}
+          <OAuthLoginForm onLogin={handleOAuthLogin} isLoading={isLoading} />
 
           {/* Divider */}
           <View style={styles.dividerContainer}>
@@ -577,75 +366,13 @@ export default function LoginScreen() {
               : t('backup.restoreFromBackup', { defaultValue: 'Restore from Backup' })}
           </Button>
 
-          {/* API Key Collapsible Section */}
-          <CollapsibleSection
-            testID="login-apikey-section"
-            title={t('login.useApiKey')}
-            expanded={apiKeyExpanded}
-            onToggle={setApiKeyExpanded}
-            icon="key-variant"
-            style={styles.apiKeySection}
-          >
-            <View style={styles.apiKeyContent}>
-              <Text style={[styles.apiKeyDescription, isDark && styles.textDark]}>
-                {t('login.apiKeyDescription')}
-              </Text>
-
-              <Pressable onPress={handleOpenDeveloperSettings} style={styles.getApiKeyLink}>
-                <Text style={styles.linkText}>{t('login.getApiKey')}</Text>
-                <MaterialCommunityIcons name="open-in-new" size={14} color={colors.primary} />
-              </Pressable>
-
-              <TextInput
-                testID="login-apikey-input"
-                mode="outlined"
-                value={apiKey}
-                onChangeText={setApiKey}
-                placeholder={t('login.apiKeyPlaceholder')}
-                secureTextEntry
-                autoCapitalize="none"
-                autoCorrect={false}
-                style={styles.apiKeyInput}
-                outlineColor={isDark ? darkColors.border : colors.border}
-                activeOutlineColor={colors.primary}
-                textColor={themeColors.text}
-                disabled={isApiKeyLoading}
-              />
-
-              <Button
-                testID="login-apikey-button"
-                mode="contained"
-                onPress={handleApiKeyLogin}
-                loading={isApiKeyLoading}
-                disabled={isApiKeyLoading || !apiKey.trim()}
-                style={styles.apiKeyButton}
-                icon="login"
-              >
-                {isApiKeyLoading ? t('login.connecting') : t('login.apiKeyConnect')}
-              </Button>
-
-              <View style={styles.localModeNote}>
-                <MaterialCommunityIcons
-                  name="shield-check"
-                  size={14}
-                  color={themeColors.textSecondary}
-                />
-                <Text style={[styles.localModeText, isDark && styles.textMuted]}>
-                  {t('login.localModeNote')}
-                </Text>
-              </View>
-              <View style={styles.localModeNote}>
-                <MaterialCommunityIcons
-                  name="bell-off-outline"
-                  size={14}
-                  color={themeColors.textSecondary}
-                />
-                <Text style={[styles.localModeText, isDark && styles.textMuted]}>
-                  {t('login.apiKeyNoNotifications')}
-                </Text>
-              </View>
-            </View>
-          </CollapsibleSection>
+          {/* API Key Login */}
+          <ApiKeyLoginForm
+            onLogin={handleApiKeyLogin}
+            isLoading={isApiKeyLoading}
+            disabled={isLoading}
+            onOpenDeveloperSettings={handleOpenDeveloperSettings}
+          />
         </View>
 
         {/* New User Section */}
@@ -672,13 +399,11 @@ export default function LoginScreen() {
             {t('login.disclaimer')}
           </Text>
 
-          {/* Veloq Privacy - prominent */}
           <Pressable onPress={handleOpenVeloqPrivacy} style={styles.veloqPrivacyLink}>
             <MaterialCommunityIcons name="shield-lock" size={14} color={colors.primary} />
             <Text style={styles.linkText}>{t('about.veloqPrivacy')}</Text>
           </Pressable>
 
-          {/* intervals.icu links - clearly labeled */}
           <Text style={[styles.intervalsLabel, isDark && styles.textMuted]}>intervals.icu:</Text>
           <View style={styles.linksRow}>
             <Pressable onPress={handleOpenIntervalsPrivacy}>
@@ -704,134 +429,10 @@ export default function LoginScreen() {
 }
 
 const styles = StyleSheet.create({
-  // Note: container now uses shared styles
   scrollContent: {
     flexGrow: 1,
     padding: layout.screenPadding,
     justifyContent: 'center',
-  },
-  // Language picker styles
-  languagePickerContainer: {
-    alignItems: 'flex-end',
-    marginBottom: spacing.md,
-  },
-  languageButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderRadius: 8,
-    backgroundColor: colors.surface,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  languageButtonDark: {
-    backgroundColor: darkColors.surface,
-    borderColor: darkColors.border,
-  },
-  languageButtonDialect: {
-    borderColor: brand.gold,
-    borderWidth: 2,
-  },
-  languageButtonDialectDark: {
-    borderColor: brand.goldLight,
-  },
-  languageButtonText: {
-    fontSize: 14,
-    color: colors.textSecondary,
-  },
-  languageDropdown: {
-    backgroundColor: colors.surface,
-    borderRadius: 12,
-    marginBottom: spacing.md,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  languageDropdownDark: {
-    backgroundColor: darkColors.surface,
-    borderColor: darkColors.border,
-  },
-  languageRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.md,
-  },
-  languageRowBorder: {
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
-  languageRowDark: {
-    borderTopColor: darkColors.border,
-  },
-  languageLabelContainer: {
-    flex: 1,
-    paddingVertical: spacing.xs,
-  },
-  languageLabel: {
-    fontSize: 16,
-    color: colors.textPrimary,
-  },
-  variantChips: {
-    flexDirection: 'row',
-    gap: 6,
-    marginLeft: 'auto',
-  },
-  variantChip: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  variantChipDark: {
-    backgroundColor: darkColors.surfaceElevated,
-    borderColor: darkColors.border,
-  },
-  variantChipSelected: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  variantChipSelectedDark: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-  },
-  variantChipDialect: {
-    borderColor: brand.gold,
-  },
-  variantChipDialectDark: {
-    borderColor: brand.goldLight,
-  },
-  variantChipDialectSelected: {
-    borderColor: brand.gold,
-    borderWidth: 2,
-  },
-  variantChipDialectSelectedDark: {
-    borderColor: brand.goldLight,
-    borderWidth: 2,
-  },
-  variantChipText: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    fontWeight: '500',
-  },
-  variantChipTextSelected: {
-    color: colors.textOnDark,
-  },
-  dialectLegendHeader: {
-    position: 'absolute',
-    top: spacing.sm,
-    // Match row paddingHorizontal minus border (1px)
-    right: spacing.md - 1,
-    zIndex: 1,
-  },
-  dialectLegendHeaderDark: {},
-  dialectLegendChip: {
-    // Use same padding as variantChip for consistent sizing
   },
   header: {
     alignItems: 'center',
@@ -878,12 +479,6 @@ const styles = StyleSheet.create({
     color: colors.error,
     flex: 1,
     fontSize: 14,
-  },
-  oauthButton: {
-    backgroundColor: colors.primary,
-  },
-  oauthButtonContent: {
-    paddingVertical: spacing.sm,
   },
   dividerContainer: {
     flexDirection: 'row',
@@ -940,43 +535,6 @@ const styles = StyleSheet.create({
   },
   restoreBannerButton: {
     alignSelf: 'flex-start',
-  },
-  apiKeySection: {
-    marginTop: spacing.lg,
-  },
-  apiKeyContent: {
-    paddingHorizontal: spacing.md,
-    paddingBottom: spacing.md,
-  },
-  apiKeyDescription: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    marginBottom: spacing.md,
-    lineHeight: 20,
-  },
-  getApiKeyLink: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    marginBottom: spacing.md,
-  },
-  apiKeyInput: {
-    marginBottom: spacing.md,
-    backgroundColor: 'transparent',
-  },
-  apiKeyButton: {
-    backgroundColor: colors.primary,
-  },
-  localModeNote: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.xs,
-    marginTop: spacing.md,
-  },
-  localModeText: {
-    fontSize: 12,
-    color: colors.textSecondary,
   },
   newUserTitle: {
     fontSize: 16,

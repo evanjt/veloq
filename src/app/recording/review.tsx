@@ -8,10 +8,7 @@ import {
   ActivityIndicator,
   Animated,
   Easing,
-  Modal,
-  FlatList,
   Dimensions,
-  PanResponder,
 } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -20,7 +17,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useTheme, useMetricSystem } from '@/hooks';
 import { colors, darkColors, spacing, layout, typography, brand } from '@/theme';
-import { formatDistance, formatDuration, formatSpeed } from '@/lib';
+import { formatDistance, formatDuration } from '@/lib';
 import { getActivityIcon, getActivityColor } from '@/lib/utils/activityUtils';
 
 import * as Haptics from 'expo-haptics';
@@ -29,44 +26,20 @@ import { generateFitFile } from '@/lib/recording/fitGenerator';
 import { intervalsApi } from '@/api';
 import { enqueueUpload } from '@/lib/storage/uploadQueue';
 import { debug } from '@/lib/utils/debug';
-import { RecordingMap } from '@/components/recording/RecordingMap';
-import { TrimSlider } from '@/components/recording/TrimSlider';
 import { useAuthStore } from '@/providers/AuthStore';
 import { useUploadPermissionStore } from '@/providers/UploadPermissionStore';
 import { isOAuthConfigured } from '@/services/oauth';
 import { usePermissionUpgrade } from '@/hooks/recording/usePermissionUpgrade';
+import { ReviewMapHero } from '@/components/recording/ReviewMapHero';
+import { RpeSlider } from '@/components/recording/RpeSlider';
+import { ActivityTypePickerModal } from '@/components/recording/ActivityTypePickerModal';
 import type { ActivityType } from '@/types';
 
 const log = debug.create('Upload');
 const SCREEN_HEIGHT = Dimensions.get('window').height;
 const MAP_FRACTION = 0.45;
 
-// Common activity types for the selector, ordered by popularity
-const ACTIVITY_TYPE_OPTIONS: ActivityType[] = [
-  'Ride',
-  'Run',
-  'VirtualRide',
-  'Walk',
-  'Hike',
-  'Swim',
-  'MountainBikeRide',
-  'GravelRide',
-  'TrailRun',
-  'WeightTraining',
-  'Yoga',
-  'Rowing',
-  'NordicSki',
-  'AlpineSki',
-  'Workout',
-  'EBikeRide',
-  'OpenWaterSwim',
-  'Treadmill',
-  'VirtualRun',
-  'Other',
-];
-
 type TimeOfDayKey = 'morning' | 'afternoon' | 'evening' | 'night';
-type RpeLabelKey = 'easy' | 'moderate' | 'hard' | 'veryHard' | 'max';
 
 function getTimeOfDayKey(): TimeOfDayKey {
   const hour = new Date().getHours();
@@ -74,22 +47,6 @@ function getTimeOfDayKey(): TimeOfDayKey {
   if (hour < 17) return 'afternoon';
   if (hour < 21) return 'evening';
   return 'night';
-}
-
-function getRpeLabelKey(value: number): RpeLabelKey {
-  if (value <= 2) return 'easy';
-  if (value <= 4) return 'moderate';
-  if (value <= 6) return 'hard';
-  if (value <= 8) return 'veryHard';
-  return 'max';
-}
-
-function getRpeColor(value: number): string {
-  if (value <= 2) return '#22C55E';
-  if (value <= 4) return '#84CC16';
-  if (value <= 6) return '#EAB308';
-  if (value <= 8) return '#F97316';
-  return '#EF4444';
 }
 
 export default function ReviewScreen() {
@@ -478,33 +435,18 @@ export default function ReviewScreen() {
     clearDiscardTimer();
   }, [clearDiscardTimer]);
 
-  // RPE slider — use Animated.Value for smooth drag, commit to state on release
-  const rpeTrackWidth = useRef(0);
-  const rpeAnimValue = useRef(new Animated.Value(rpe)).current;
-  const rpeRef = useRef(rpe);
-  const rpePan = useRef(
-    PanResponder.create({
-      onStartShouldSetPanResponder: () => true,
-      onMoveShouldSetPanResponder: () => true,
-      onPanResponderGrant: (e) => {
-        if (rpeTrackWidth.current <= 0) return;
-        const x = e.nativeEvent.locationX;
-        const val = Math.max(1, Math.min(10, Math.round((x / rpeTrackWidth.current) * 9) + 1));
-        rpeAnimValue.setValue(val);
-        rpeRef.current = val;
-      },
-      onPanResponderMove: (e) => {
-        if (rpeTrackWidth.current <= 0) return;
-        const x = e.nativeEvent.locationX;
-        const val = Math.max(1, Math.min(10, Math.round((x / rpeTrackWidth.current) * 9) + 1));
-        rpeAnimValue.setValue(val);
-        rpeRef.current = val;
-      },
-      onPanResponderRelease: () => {
-        setRpe(rpeRef.current);
-      },
-    })
-  ).current;
+  const handleTypeSelect = useCallback((item: ActivityType) => {
+    setSelectedType(item);
+    setShowTypeModal(false);
+  }, []);
+
+  const handleCloseTypeModal = useCallback(() => {
+    setShowTypeModal(false);
+  }, []);
+
+  const handleBack = useCallback(() => {
+    router.back();
+  }, []);
 
   const textPrimary = isDark ? darkColors.textPrimary : colors.textPrimary;
   const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
@@ -519,38 +461,19 @@ export default function ReviewScreen() {
     <View style={[styles.container, { backgroundColor: bg }]}>
       {/* Map hero (top portion) */}
       {hasGps && (
-        <View style={[styles.mapContainer, { height: mapHeight, paddingTop: insets.top }]}>
-          <RecordingMap
-            coordinates={streams.latlng}
-            currentLocation={null}
-            fitBounds
-            trimStart={canTrim ? trimStart : undefined}
-            trimEnd={canTrim ? trimEnd : undefined}
-            style={styles.map}
-          />
-
-          {/* Back button overlaid on map */}
-          <TouchableOpacity
-            onPress={() => router.back()}
-            style={[styles.mapBackButton, { top: insets.top + spacing.sm }]}
-            disabled={isProcessing}
-          >
-            <MaterialCommunityIcons name="arrow-left" size={24} color="#FFFFFF" />
-          </TouchableOpacity>
-
-          {/* Trim slider overlaid at bottom of map */}
-          {canTrim && (
-            <View testID="review-trim" style={styles.trimOverlay}>
-              <TrimSlider
-                totalDuration={summary.duration}
-                totalPoints={streams.latlng.length}
-                startIdx={trimStart}
-                endIdx={trimEnd}
-                onTrimChange={handleTrimChange}
-              />
-            </View>
-          )}
-        </View>
+        <ReviewMapHero
+          coordinates={streams.latlng}
+          mapHeight={mapHeight}
+          topInset={insets.top}
+          canTrim={canTrim}
+          trimStart={trimStart}
+          trimEnd={trimEnd}
+          totalDuration={summary.duration}
+          totalPoints={streams.latlng.length}
+          onTrimChange={handleTrimChange}
+          onBack={handleBack}
+          disabled={isProcessing}
+        />
       )}
 
       {/* Header (only for non-GPS activities) */}
@@ -649,62 +572,7 @@ export default function ReviewScreen() {
 
         {/* RPE Slider — only for GPS activities; not applicable to manual entries */}
         {!isManual && (
-          <View testID="review-rpe" style={styles.rpeSection}>
-            <View style={styles.rpeHeader}>
-              <Text style={[styles.label, { color: textSecondary }]}>
-                {t('recording.rpe', 'RPE')}
-              </Text>
-              <Text style={[styles.rpeValue, { color: getRpeColor(rpe) }]}>
-                {rpe} — {t(`recording.rpeLabels.${getRpeLabelKey(rpe)}`)}
-              </Text>
-            </View>
-            <Text style={[styles.rpeDescription, { color: textSecondary }]}>
-              {t('recording.rpeDescription', '1 = effortless, 10 = maximum effort')}
-            </Text>
-            <View
-              style={[
-                styles.rpeTrack,
-                { backgroundColor: isDark ? darkColors.surfaceElevated : colors.backgroundAlt },
-              ]}
-              onLayout={(e) => {
-                rpeTrackWidth.current = e.nativeEvent.layout.width;
-              }}
-              {...rpePan.panHandlers}
-            >
-              {/* Filled portion — driven by Animated.Value for smooth drag */}
-              <Animated.View
-                style={[
-                  styles.rpeFill,
-                  {
-                    width: rpeAnimValue.interpolate({
-                      inputRange: [1, 10],
-                      outputRange: ['0%', '100%'],
-                    }),
-                    backgroundColor: getRpeColor(rpe),
-                  },
-                ]}
-              />
-              {/* Thumb — driven by Animated.Value for smooth drag */}
-              <Animated.View
-                style={[
-                  styles.rpeThumb,
-                  {
-                    left: rpeAnimValue.interpolate({
-                      inputRange: [1, 10],
-                      outputRange: ['0%', '100%'],
-                    }),
-                    backgroundColor: getRpeColor(rpe),
-                  },
-                ]}
-              />
-            </View>
-            {/* Scale labels */}
-            <View style={styles.rpeScaleRow}>
-              <Text style={[styles.rpeScaleLabel, { color: textSecondary }]}>1</Text>
-              <Text style={[styles.rpeScaleLabel, { color: textSecondary }]}>5</Text>
-              <Text style={[styles.rpeScaleLabel, { color: textSecondary }]}>10</Text>
-            </View>
-          </View>
+          <RpeSlider value={rpe} onValueChange={setRpe} textSecondary={textSecondary} />
         )}
 
         {/* Notes */}
@@ -812,60 +680,12 @@ export default function ReviewScreen() {
       </ScrollView>
 
       {/* Activity Type Modal */}
-      <Modal visible={showTypeModal} transparent animationType="slide">
-        <View style={styles.modalOverlay}>
-          <View
-            style={[
-              styles.modalContent,
-              { backgroundColor: isDark ? darkColors.surface : '#FFFFFF' },
-            ]}
-          >
-            <View style={styles.modalHeader}>
-              <Text style={[styles.modalTitle, { color: textPrimary }]}>
-                {t('recording.activityType', 'Activity Type')}
-              </Text>
-              <TouchableOpacity onPress={() => setShowTypeModal(false)}>
-                <MaterialCommunityIcons name="close" size={24} color={textSecondary} />
-              </TouchableOpacity>
-            </View>
-            <FlatList
-              data={ACTIVITY_TYPE_OPTIONS}
-              keyExtractor={(item) => item}
-              renderItem={({ item }) => {
-                const isSelected = item === type;
-                const itemColor = getActivityColor(item);
-                return (
-                  <TouchableOpacity
-                    style={[
-                      styles.typeOption,
-                      isSelected && {
-                        backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.04)',
-                      },
-                    ]}
-                    onPress={() => {
-                      setSelectedType(item);
-                      setShowTypeModal(false);
-                    }}
-                    activeOpacity={0.7}
-                  >
-                    <MaterialCommunityIcons
-                      name={getActivityIcon(item)}
-                      size={22}
-                      color={itemColor}
-                    />
-                    <Text style={[styles.typeOptionText, { color: textPrimary }]}>
-                      {t(`activityTypes.${item}`, item)}
-                    </Text>
-                    {isSelected && (
-                      <MaterialCommunityIcons name="check" size={20} color={brand.teal} />
-                    )}
-                  </TouchableOpacity>
-                );
-              }}
-            />
-          </View>
-        </View>
-      </Modal>
+      <ActivityTypePickerModal
+        visible={showTypeModal}
+        selectedType={type}
+        onSelect={handleTypeSelect}
+        onClose={handleCloseTypeModal}
+      />
     </View>
   );
 }
@@ -873,32 +693,6 @@ export default function ReviewScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-  },
-  // Map hero
-  mapContainer: {
-    position: 'relative',
-  },
-  map: {
-    flex: 1,
-  },
-  mapBackButton: {
-    position: 'absolute',
-    left: spacing.md,
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 10,
-  },
-  trimOverlay: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    paddingHorizontal: spacing.lg,
-    paddingBottom: spacing.sm,
   },
   // Non-GPS header
   header: {
@@ -966,58 +760,6 @@ const styles = StyleSheet.create({
   },
   typeText: {
     ...typography.body,
-  },
-  // RPE
-  rpeSection: {
-    marginTop: spacing.lg,
-  },
-  rpeHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 2,
-  },
-  label: {
-    ...typography.label,
-  },
-  rpeValue: {
-    ...typography.bodyBold,
-  },
-  rpeDescription: {
-    ...typography.caption,
-    marginBottom: spacing.sm,
-  },
-  rpeTrack: {
-    height: 32,
-    borderRadius: 16,
-    position: 'relative',
-    justifyContent: 'center',
-  },
-  rpeFill: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
-    bottom: 0,
-    borderRadius: 16,
-    opacity: 0.3,
-  },
-  rpeThumb: {
-    position: 'absolute',
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    marginLeft: -14,
-    top: 2,
-  },
-  rpeScaleRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: 4,
-    marginTop: 4,
-  },
-  rpeScaleLabel: {
-    fontSize: 11,
-    fontVariant: ['tabular-nums'],
   },
   // Notes
   notesInput: {
@@ -1098,41 +840,5 @@ const styles = StyleSheet.create({
   dangerBtnText: {
     ...typography.bodyBold,
     color: colors.error,
-  },
-  // Activity Type Modal
-  modalOverlay: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-  },
-  modalContent: {
-    maxHeight: '60%',
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    paddingBottom: 34,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: 'rgba(128, 128, 128, 0.2)',
-  },
-  modalTitle: {
-    ...typography.sectionTitle,
-  },
-  typeOption: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm + 2,
-    minHeight: layout.minTapTarget,
-  },
-  typeOptionText: {
-    ...typography.body,
-    flex: 1,
   },
 });
