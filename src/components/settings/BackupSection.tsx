@@ -433,11 +433,22 @@ export function BackupSection() {
         {/* Last backup status */}
         <View style={[styles.statusRow, isDark && styles.statusRowDark]}>
           <View style={{ flex: 1 }}>
-            <Text style={[styles.statusText, isDark && styles.textMuted]}>{lastBackupText}</Text>
+            <Text
+              testID="backup-last-run-text"
+              style={[styles.statusText, isDark && styles.textMuted]}
+            >
+              {lastBackupText}
+            </Text>
             {backupResult === 'success' && (
-              <Text style={styles.connectionSuccess}>{t('backup.backupSuccessMessage')}</Text>
+              <Text testID="backup-success-message" style={styles.connectionSuccess}>
+                {t('backup.backupSuccessMessage')}
+              </Text>
             )}
-            {backupResult === 'error' && <Text style={styles.connectionError}>{backupError}</Text>}
+            {backupResult === 'error' && (
+              <Text testID="backup-error-message" style={styles.connectionError}>
+                {backupError}
+              </Text>
+            )}
           </View>
           <TouchableOpacity
             testID="backup-now-button"

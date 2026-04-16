@@ -1,5 +1,6 @@
 # Storage Display
 # US-X1: Settings shows WAL/SHM-inclusive disk usage; GB unit when large.
+# The storage-stats panel lives on the cache-settings sub-screen.
 
 appId: com.veloq.app.dev
 tags:
@@ -8,30 +9,28 @@ tags:
 - runFlow:
     file: helpers/setup-demo-mode.yaml
 
+- openLink: "veloq://cache-settings"
 - runFlow:
-    file: helpers/navigate-to-settings.yaml
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
 
 - extendedWaitUntil:
     visible:
-      id: "settings-screen"
-    timeout: 15000
-
-- scrollUntilVisible:
-    element:
       id: "settings-storage-stats"
-    direction: DOWN
     timeout: 15000
-    speed: 40
-    optional: true
-
-- assertVisible:
-    id: "settings-storage-stats"
-    optional: true
 
 - takeScreenshot: "storage-display-visible"
 
-# Demo mode won't hit the GB threshold; the assertion here is that the panel
-# renders without NaN and shows a byte-unit-formatted value.
+# Hard assertion: the stats panel must render a formatted byte value.
+# formatFileSize returns "N B", "N.N KB", "N.N MB", or "N.N GB".
+- assertVisible:
+    id: "settings-storage-stats"
+
+- assertVisible:
+    text: ".*(B|KB|MB|GB)\\b.*"
+
 - assertNotVisible:
     text: "NaN"
 - assertNotVisible:

@@ -2,7 +2,10 @@
 # US-D1: time-range pills live inside the chart header (compact, not full-width)
 # US-D2: traversal count + chart data reflect the selected range
 #
-# Real pill labels (from live UI inspection): 1M, 3M, 6M, 1Y, All
+# The Forward/Reverse counts shown per pill state are the strongest proof that
+# the range filter is actually filtering data. Demo Section 7 has 62 total
+# traversals across the Jan–Apr 2026 range; narrowing to 1M reduces the count
+# meaningfully. We open that specific section by its text label for stability.
 
 appId: com.veloq.app.dev
 tags:
@@ -20,71 +23,84 @@ tags:
     timeout: 15000
     optional: true
 
-# Switch to Sections sub-tab (the Insights screen has Insights / Routes / Sections)
 - tapOn:
     text: "Sections"
     optional: true
 
-# Tap the first section in the list. Text matches "Section N" pattern used
-# for auto-detected demo sections.
+# Open Section 7 specifically — it has the highest visit count (62) in demo
+# data, giving a meaningful delta between 1M and All time ranges.
 - tapOn:
-    text: "^Section \\d+$"
-    optional: true
+    text: "Section 7"
 
 - extendedWaitUntil:
     visible:
       text: "Performance Over Time"
     timeout: 15000
-    optional: true
 
 - takeScreenshot: "section-detail-default-range"
 
-# The chart header contains the time-range pills. "All" is the default.
+# All pills must be present (US-D1)
 - assertVisible:
-    text: "All"
+    id: "section-time-range-1m"
+- assertVisible:
+    id: "section-time-range-3m"
+- assertVisible:
+    id: "section-time-range-6m"
+- assertVisible:
+    id: "section-time-range-1y"
+- assertVisible:
+    id: "section-time-range-all"
 
-# Switch through each pill, capturing a screenshot at each stop.
+# Chart must be rendered at default ("All")
+- assertVisible:
+    text: "Hold to scrub through activities"
+
 - tapOn:
-    text: "1M"
-    optional: true
+    id: "section-time-range-1m"
 - waitForAnimationToEnd:
     timeout: 2000
 - takeScreenshot: "section-detail-1M"
+# Chart re-renders — scrub text must still be present
+- assertVisible:
+    text: "Hold to scrub through activities"
 
 - tapOn:
-    text: "3M"
-    optional: true
+    id: "section-time-range-3m"
 - waitForAnimationToEnd:
     timeout: 2000
 - takeScreenshot: "section-detail-3M"
+- assertVisible:
+    text: "Hold to scrub through activities"
 
 - tapOn:
-    text: "6M"
-    optional: true
+    id: "section-time-range-6m"
 - waitForAnimationToEnd:
     timeout: 2000
 - takeScreenshot: "section-detail-6M"
 
 - tapOn:
-    text: "1Y"
-    optional: true
+    id: "section-time-range-1y"
 - waitForAnimationToEnd:
     timeout: 2000
 - takeScreenshot: "section-detail-1Y"
 
 - tapOn:
-    text: "All"
-    optional: true
+    id: "section-time-range-all"
 - waitForAnimationToEnd:
     timeout: 2000
 - takeScreenshot: "section-detail-all"
 
-# No NaN leakage in the stat rows when filters change
 - assertNotVisible:
     text: "NaN"
 - assertNotVisible:
     text: "undefined"
 
-# Confirm the summary card surfaces below the chart (US-D4)
+# Summary card below the chart (US-D4) — First / Last / Best / Avg layout
 - scroll
 - takeScreenshot: "section-detail-summary-history"
+- assertVisible:
+    text: "First"
+- assertVisible:
+    text: "Best"
+- assertVisible:
+    text: "Avg"

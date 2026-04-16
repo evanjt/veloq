@@ -1,7 +1,9 @@
 # Dark Mode Contrast Sweep
-# US-DK1: chart highlight dots, declining pills, sparkline elements, number
-# badges, chevrons all remain visible in dark mode.
-# Captures screenshots of the key surfaces for visual diff review.
+# US-DK1: all v0.3.0 surfaces must render with correct contrast in dark mode —
+# sparklines, trophy pills, section number badges, chevrons, summary cards.
+#
+# Fix from previous attempt: don't re-launch the app after toggling the theme
+# (that loses the setting). Use deep links and internal navigation instead.
 
 appId: com.veloq.app.dev
 tags:
@@ -10,6 +12,9 @@ tags:
 - runFlow:
     file: helpers/setup-demo-mode.yaml
 
+# ====================================================================
+# Flip theme to dark via Settings
+# ====================================================================
 - runFlow:
     file: helpers/navigate-to-settings.yaml
 
@@ -19,47 +24,80 @@ tags:
     timeout: 15000
 
 - assertVisible:
-    id: "settings-theme-toggle"
+    id: "theme-button-dark"
 
-# Flip to dark mode via the segmented control's dedicated testID.
 - tapOn:
     id: "theme-button-dark"
 
+# Give Zustand state + MD3 theme propagation time to settle.
 - waitForAnimationToEnd:
-    timeout: 2000
+    timeout: 3000
+
 - takeScreenshot: "dark-mode-settings"
 
-# Feed card sparklines and PR pills
+# ====================================================================
+# Feed in dark mode
+# ====================================================================
+- openLink: "veloq://"
 - runFlow:
-    file: helpers/setup-demo-mode.yaml
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
+
 - extendedWaitUntil:
     visible:
       id: "home-activity-list"
     timeout: 15000
+- waitForAnimationToEnd:
+    timeout: 1500
 - takeScreenshot: "dark-mode-feed"
 
-# Activity detail — sections tab with sparklines, trophy, chevrons
+# ====================================================================
+# Activity detail Sections tab — where most v0.3.0 dark-mode fixes apply
+# ====================================================================
 - openLink: "veloq://activity/demo-test-0?tab=sections"
 - runFlow:
     when:
       visible: "Open"
     commands:
       - tapOn: "Open"
+
 - extendedWaitUntil:
     visible:
       id: "activity-detail-content"
     timeout: 15000
+
 - tapOn:
     text: "Sections"
     optional: true
+
 - extendedWaitUntil:
     visible:
       id: "activity-sections-list"
     timeout: 10000
-    optional: true
 - takeScreenshot: "dark-mode-sections-tab"
 
-# Regional map — heatmap + activity trace contrast
+# ====================================================================
+# Section detail in dark mode — sparklines + trophy + summary card
+# ====================================================================
+- back
+- runFlow:
+    file: helpers/navigate-to-routes.yaml
+- tapOn:
+    text: "Sections"
+    optional: true
+- tapOn:
+    text: "Section 7"
+- extendedWaitUntil:
+    visible:
+      text: "Performance Over Time"
+    timeout: 15000
+- takeScreenshot: "dark-mode-section-detail"
+
+# ====================================================================
+# Regional map heatmap contrast
+# ====================================================================
 - runFlow:
     file: helpers/navigate-to-map.yaml
 - extendedWaitUntil:
@@ -68,12 +106,21 @@ tags:
     timeout: 30000
 - tapOn:
     id: "map-toggle-heatmap"
-    optional: true
+- waitForAnimationToEnd:
+    timeout: 2000
 - takeScreenshot: "dark-mode-map-heatmap"
 
-# Flip back to light for next run
+# ====================================================================
+# Restore to light so the next run starts clean.
+# ====================================================================
 - runFlow:
     file: helpers/navigate-to-settings.yaml
+- assertVisible:
+    id: "theme-button-light"
 - tapOn:
-    text: "Light"
-    optional: true
+    id: "theme-button-light"
+- waitForAnimationToEnd:
+    timeout: 2000
+
+- assertNotVisible:
+    text: "NaN"
