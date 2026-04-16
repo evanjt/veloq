@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { getRouteEngine } from '@/lib/native/routeEngine';
 import { useEngineSubscription } from '@/hooks/routes/useRouteEngine';
 import { generateSectionName } from '@/lib/utils/sectionNaming';
+import { daysSinceEpoch, median } from '@/lib';
 
 export interface WorkoutSection {
   id: string;
@@ -62,7 +63,6 @@ function enrichRankedSections(
   engine: NonNullable<ReturnType<typeof getRouteEngine>>,
   ranked: ReturnType<NonNullable<ReturnType<typeof getRouteEngine>>['getRankedSections']>
 ): WorkoutSection[] {
-  const now = Date.now();
   const result: WorkoutSection[] = [];
 
   for (const rs of ranked) {
@@ -85,9 +85,7 @@ function enrichRankedSections(
     const bestRecord = perf.bestRecord ?? perf.bestForwardRecord;
     const prTimeSecs = bestRecord?.bestTime ?? null;
 
-    const prDaysAgo = bestRecord?.activityDate
-      ? Math.floor((now - Number(bestRecord.activityDate) * 1000) / 86400000)
-      : null;
+    const prDaysAgo = bestRecord?.activityDate ? daysSinceEpoch(bestRecord.activityDate) : null;
 
     let previousBestTimeSecs: number | null = null;
     if (bestRecord && perf.records.length >= 2) {
@@ -103,9 +101,7 @@ function enrichRankedSections(
       a.activityDate > b.activityDate ? -1 : a.activityDate < b.activityDate ? 1 : 0
     );
     const lastTimeSecs = sorted[0]?.bestTime ?? null;
-    const daysSinceLast = sorted[0]
-      ? Math.floor((now - Number(sorted[0].activityDate) * 1000) / 86400000)
-      : null;
+    const daysSinceLast = sorted[0] ? daysSinceEpoch(sorted[0].activityDate) : null;
 
     result.push({
       id: rs.sectionId,
@@ -139,7 +135,6 @@ function enrichVisitCountSections(
 
   if (topSections.length === 0) return [];
 
-  const now = Date.now();
   const result: WorkoutSection[] = [];
 
   for (const summary of topSections) {
@@ -149,9 +144,7 @@ function enrichVisitCountSections(
     const bestRecord = perf.bestRecord ?? perf.bestForwardRecord;
     const prTimeSecs = bestRecord?.bestTime ?? null;
 
-    const prDaysAgo = bestRecord?.activityDate
-      ? Math.floor((now - Number(bestRecord.activityDate) * 1000) / 86400000)
-      : null;
+    const prDaysAgo = bestRecord?.activityDate ? daysSinceEpoch(bestRecord.activityDate) : null;
 
     let previousBestTimeSecs: number | null = null;
     if (bestRecord && perf.records.length >= 2) {
@@ -167,9 +160,7 @@ function enrichVisitCountSections(
       a.activityDate > b.activityDate ? -1 : a.activityDate < b.activityDate ? 1 : 0
     );
     const lastTimeSecs = sorted[0]?.bestTime ?? null;
-    const daysSinceLast = sorted[0]
-      ? Math.floor((now - Number(sorted[0].activityDate) * 1000) / 86400000)
-      : null;
+    const daysSinceLast = sorted[0] ? daysSinceEpoch(sorted[0].activityDate) : null;
 
     let trend: WorkoutSection['trend'] = null;
     if (sorted.length >= 5) {
@@ -205,11 +196,4 @@ function trendFromInt(trend: number): WorkoutSection['trend'] {
   if (trend > 0) return 'improving';
   if (trend < 0) return 'declining';
   return 'stable';
-}
-
-function median(values: number[]): number {
-  if (values.length === 0) return 0;
-  const sorted = [...values].sort((a, b) => a - b);
-  const mid = Math.floor(sorted.length / 2);
-  return sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
 }

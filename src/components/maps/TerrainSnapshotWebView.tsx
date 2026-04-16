@@ -219,7 +219,7 @@ function generateWorkerHtml(id: number): string {
           var sizes = requests.map(function(req) {
             return cache.match(req).then(function(r) {
               if (!r) return { req: req, size: 0 };
-              var cl = parseInt(r.headers.get('content-length') || '0') || 0;
+              var cl = parseInt(r.headers.get('content-length') || '0', 10) || 0;
               if (cl > 0) return { req: req, size: cl };
               return r.arrayBuffer().then(function(buf) {
                 return { req: req, size: buf.byteLength };
@@ -1078,7 +1078,7 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
                 return cache.keys().then(function(requests) {
                   return Promise.all(requests.map(function(req) {
                     return cache.match(req).then(function(r) {
-                      return r ? (parseInt(r.headers.get('content-length') || '0') || 0) : 0;
+                      return r ? (parseInt(r.headers.get('content-length') || '0', 10) || 0) : 0;
                     });
                   })).then(function(sizes) {
                     var total = 0;

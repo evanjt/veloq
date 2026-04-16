@@ -12,6 +12,8 @@ import { useTranslation } from 'react-i18next';
 import { CartesianChart, type PointsArray } from 'victory-native';
 import { Circle, Path, Skia } from '@shopify/react-native-skia';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+
+const NATIVE_GESTURE = Gesture.Native();
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -382,13 +384,12 @@ export function SectionScatterChart({
 
   // Combined gesture — allows ScrollView to handle scroll momentum
   // In compact mode, skip pan (scrub) gesture entirely; in mini mode, skip all gestures
-  const nativeGesture = useMemo(() => Gesture.Native(), []);
   const composedGesture = useMemo(
     () =>
       compact || mini
-        ? Gesture.Simultaneous(nativeGesture, tapGesture)
-        : Gesture.Simultaneous(nativeGesture, Gesture.Simultaneous(tapGesture, panGesture)),
-    [nativeGesture, tapGesture, panGesture, compact, mini]
+        ? Gesture.Simultaneous(NATIVE_GESTURE, tapGesture)
+        : Gesture.Simultaneous(NATIVE_GESTURE, Gesture.Simultaneous(tapGesture, panGesture)),
+    [tapGesture, panGesture, compact, mini]
   );
 
   // Animated reaction: map touch X to closest data point during scrub

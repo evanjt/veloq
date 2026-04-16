@@ -23,7 +23,12 @@ import { WellnessTrendsChart } from '@/components/wellness';
 import { useActivities, useWellness, useAthleteSummary, useTheme, type TimeRange } from '@/hooks';
 import { colors, darkColors, spacing, layout, typography, opacity } from '@/theme';
 import { createSharedStyles } from '@/styles';
-import { SMOOTHING_PRESETS, getSmoothingDescription, type SmoothingWindow } from '@/lib';
+import {
+  SMOOTHING_PRESETS,
+  getSmoothingDescription,
+  formatLocalDate,
+  type SmoothingWindow,
+} from '@/lib';
 import { logScreenRender } from '@/lib/debug/renderTimer';
 import { useAuthStore } from '@/providers';
 
@@ -72,8 +77,8 @@ export default function HealthScreen() {
   const { oldest, newest, currentYearStart } = useMemo(() => {
     const n = new Date();
     return {
-      oldest: new Date(n.getFullYear() - 1, 0, 1).toISOString().split('T')[0],
-      newest: n.toISOString().split('T')[0],
+      oldest: formatLocalDate(new Date(n.getFullYear() - 1, 0, 1)),
+      newest: formatLocalDate(n),
       currentYearStart: new Date(n.getFullYear(), 0, 1),
     };
   }, []);

@@ -448,6 +448,14 @@ export function formatLocalDate(date: Date): string {
 }
 
 /**
+ * Number of days between a Unix epoch timestamp (in seconds) and now.
+ * Handles both number and bigint (from Rust FFI).
+ */
+export function daysSinceEpoch(epochSeconds: number | bigint): number {
+  return Math.floor((Date.now() - Number(epochSeconds) * 1000) / 86400000);
+}
+
+/**
  * Clamp a value between min and max bounds
  */
 export function clamp(value: number, min: number, max: number): number {

@@ -37,6 +37,7 @@ import {
 // that make Android MapLibre snap the camera back.
 const ALL_TIME_START = new Date('2000-01-01');
 const ALL_TIME_END = new Date('2099-12-31');
+const ALL_TYPES = new Set<string>();
 
 type PeriodKey = 'all' | 'year' | '6m' | '3m' | '1m' | '1w';
 type DistanceKey = 'all' | 'xshort' | 'short' | 'medium' | 'long';
@@ -136,11 +137,10 @@ export default function MapScreen() {
 
   // Get ALL activities from engine (date filtering only — sport+distance filtering in JS
   // so we always have full counts for category chips even when some types are deselected)
-  const allSelectedTypes = useMemo(() => new Set<string>(), []);
   const { activities: allActivities, availableTypes } = useEngineMapActivities({
     startDate: periodStart,
     endDate: ALL_TIME_END,
-    selectedTypes: allSelectedTypes,
+    selectedTypes: ALL_TYPES,
     enabled: isReady,
   });
 
