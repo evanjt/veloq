@@ -14,7 +14,7 @@ import { Text } from 'react-native-paper';
 import { ScreenSafeAreaView } from '@/components/ui';
 import { logScreenRender, PERF_DEBUG } from '@/lib/debug/renderTimer';
 import { isNetworkError } from '@/lib/utils/errorHandler';
-import { navigateTo } from '@/lib';
+import { navigateTo, queryKeys } from '@/lib';
 import { useIsFocused } from '@react-navigation/core';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -250,16 +250,16 @@ export default function FeedScreen() {
     // Reset the infinite query if page params are stale (don't cover today),
     // otherwise invalidate for smooth stale-while-revalidate.
     const infiniteRefresh = isInfiniteActivitiesStale(queryClient)
-      ? queryClient.resetQueries({ queryKey: ['activities-infinite'] })
-      : queryClient.invalidateQueries({ queryKey: ['activities-infinite'] });
+      ? queryClient.resetQueries({ queryKey: queryKeys.activities.infinite.all })
+      : queryClient.invalidateQueries({ queryKey: queryKeys.activities.infinite.all });
 
     await Promise.all([
       infiniteRefresh,
-      queryClient.invalidateQueries({ queryKey: ['activities'] }),
-      queryClient.invalidateQueries({ queryKey: ['wellness'] }),
-      queryClient.invalidateQueries({ queryKey: ['athlete-summary'] }),
-      queryClient.invalidateQueries({ queryKey: ['powerCurve'] }),
-      queryClient.invalidateQueries({ queryKey: ['paceCurve'] }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.activities.all }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.wellness.all }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.athleteSummary.all }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.charts.powerCurve.all }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.charts.paceCurve.all }),
       refetchSummary(),
     ]);
     // Retry any failed 3D terrain snapshots

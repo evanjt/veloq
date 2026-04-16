@@ -53,6 +53,7 @@ import { createSharedStyles } from '@/styles';
 
 import { TIME_RANGES } from '@/lib/utils/constants';
 import { isNetworkError } from '@/lib/utils/errorHandler';
+import { queryKeys } from '@/lib/queryKeys';
 
 // Convert TimeRange to days for activity fetching
 const timeRangeToDays = (range: TimeRange): number => {
@@ -267,10 +268,10 @@ export default function FitnessScreen() {
     setIsRefreshing(true);
     await Promise.all([
       refetch(),
-      queryClient.invalidateQueries({ queryKey: ['activities'] }),
-      queryClient.invalidateQueries({ queryKey: ['powerCurve'] }),
-      queryClient.invalidateQueries({ queryKey: ['paceCurve'] }),
-      queryClient.invalidateQueries({ queryKey: ['athlete-summary'] }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.activities.all }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.charts.powerCurve.all }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.charts.paceCurve.all }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.athleteSummary.all }),
     ]);
     setIsRefreshing(false);
   }, [refetch, queryClient]);

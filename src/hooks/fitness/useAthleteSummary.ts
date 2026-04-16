@@ -3,6 +3,7 @@ import { intervalsApi } from '@/api';
 import { useAuthStore } from '@/providers';
 import { formatLocalDate, getMonday, getSunday, getIntlLocale } from '@/lib';
 import { getRouteEngine } from '@/lib/native/routeEngine';
+import { queryKeys } from '@/lib/queryKeys';
 import type { AthleteSummary } from '@/types';
 
 /**
@@ -108,7 +109,10 @@ export function useAthleteSummary(weeksBack: number = 8) {
   const endDate = getSunday(today);
 
   const query = useQuery<AthleteSummary[]>({
-    queryKey: ['athlete-summary', formatLocalDate(startDate), formatLocalDate(endDate)],
+    queryKey: queryKeys.athleteSummary.byRange(
+      formatLocalDate(startDate),
+      formatLocalDate(endDate)
+    ),
     queryFn: () =>
       intervalsApi.getAthleteSummary({
         start: formatLocalDate(startDate),

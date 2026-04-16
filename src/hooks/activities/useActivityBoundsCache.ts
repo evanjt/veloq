@@ -7,6 +7,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useSyncDateRange } from '@/providers';
 import { clearAllGpsTracks, clearBoundsCache } from '@/lib/storage/gpsStorage';
+import { queryKeys } from '@/lib/queryKeys';
 import { getRouteEngine, getRouteDbPath } from '@/lib/native/routeEngine';
 import { isHeatmapEnabled } from '@/providers/RouteSettingsStore';
 import { formatLocalDate } from '@/lib';
@@ -211,7 +212,7 @@ export function useActivityBoundsCache(): UseActivityBoundsCacheReturn {
     async (_days: number | 'all' = 90) => {
       // Refetch activities (triggers GlobalDataSync to download GPS data)
       await queryClient.refetchQueries({
-        queryKey: ['activities'],
+        queryKey: queryKeys.activities.all,
         type: 'all',
       });
     },

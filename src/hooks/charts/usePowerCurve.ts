@@ -1,5 +1,6 @@
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { intervalsApi } from '@/api';
+import { queryKeys } from '@/lib/queryKeys';
 import type { PowerCurve } from '@/types';
 
 interface UsePowerCurveOptions {
@@ -13,7 +14,7 @@ export function usePowerCurve(options: UsePowerCurveOptions = {}) {
   const { sport = 'Ride', days = 365, enabled = true } = options;
 
   return useQuery<PowerCurve>({
-    queryKey: ['powerCurve', sport, days],
+    queryKey: queryKeys.charts.powerCurve.bySport(sport, days),
     queryFn: () => intervalsApi.getPowerCurve({ sport, days }),
     enabled,
     staleTime: 1000 * 60 * 15, // 15 minutes - curves change infrequently

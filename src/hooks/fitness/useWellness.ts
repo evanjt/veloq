@@ -2,6 +2,7 @@ import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { intervalsApi } from '@/api';
 import { useAuthStore } from '@/providers';
 import { formatLocalDate } from '@/lib';
+import { queryKeys } from '@/lib/queryKeys';
 import type { WellnessData } from '@/types';
 
 export type TimeRange = '7d' | '1m' | '42d' | '3m' | '6m' | '1y';
@@ -33,7 +34,7 @@ export function useWellness(range: TimeRange = '3m') {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
 
   return useQuery<WellnessData[]>({
-    queryKey: ['wellness', range],
+    queryKey: queryKeys.wellness.byRange(range),
     queryFn: () => intervalsApi.getWellness({ oldest, newest }),
     // Only fetch if authenticated (prevents 404 when athleteId is missing)
     enabled: isAuthenticated,
@@ -52,7 +53,7 @@ export function useWellnessForDate(date: string | undefined) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
 
   return useQuery<WellnessData | null>({
-    queryKey: ['wellness-date', date],
+    queryKey: queryKeys.wellness.byDate(date),
     queryFn: async () => {
       if (!date) return null;
       // Fetch just this one day

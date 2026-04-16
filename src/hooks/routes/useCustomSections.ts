@@ -8,9 +8,8 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getRouteEngine } from '@/lib/native/routeEngine';
 import { computePolylineOverlap } from '@/lib/utils/geometry';
 import { gpsPointsToRoutePoints, type GpsPoint } from 'veloqrs';
+import { queryKeys } from '@/lib/queryKeys';
 import type { Section, RoutePoint } from '@/types';
-
-const QUERY_KEY = ['sections', 'custom'];
 
 export interface UseCustomSectionsOptions {
   /** Filter by sport type */
@@ -91,7 +90,7 @@ export function useCustomSections(options: UseCustomSectionsOptions = {}): UseCu
     error,
     refetch,
   } = useQuery<Section[]>({
-    queryKey: QUERY_KEY,
+    queryKey: queryKeys.sections.custom,
     enabled,
     queryFn: async () => {
       const engine = getRouteEngine();
@@ -135,7 +134,7 @@ export function useCustomSections(options: UseCustomSectionsOptions = {}): UseCu
 
   // Invalidate queries after mutations
   const invalidate = useCallback(async () => {
-    await queryClient.invalidateQueries({ queryKey: ['sections'] });
+    await queryClient.invalidateQueries({ queryKey: queryKeys.sections.all });
   }, [queryClient]);
 
   // Create a new section
@@ -235,7 +234,7 @@ export function useCustomSections(options: UseCustomSectionsOptions = {}): UseCu
 
       // Optimistically remove from cache to prevent stale data showing in activity detail
       queryClient.setQueryData(
-        QUERY_KEY,
+        queryKeys.sections.custom,
         (old: Section[] | undefined) => old?.filter((s) => s.id !== sectionId) ?? []
       );
 

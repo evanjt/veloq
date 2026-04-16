@@ -47,7 +47,7 @@ import {
   useEngineStatus,
 } from '@/providers';
 import { isHeatmapEnabled } from '@/providers/RouteSettingsStore';
-import { formatLocalDate } from '@/lib';
+import { formatLocalDate, queryKeys } from '@/lib';
 import { initializeI18n, i18n } from '@/i18n';
 import { lightTheme, darkTheme, colors, darkColors } from '@/theme';
 import {
@@ -220,7 +220,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
         const today = formatLocalDate(new Date());
         if (today !== lastForegroundDateRef.current) {
           lastForegroundDateRef.current = today;
-          queryClient.resetQueries({ queryKey: ['activities-infinite'] });
+          queryClient.resetQueries({ queryKey: queryKeys.activities.infinite.all });
         }
 
         // Sync notification state: if OS permission was revoked while backgrounded,

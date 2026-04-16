@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { getRouteEngine } from '@/lib/native/routeEngine';
 import { getStoredCredentials } from '@/providers';
+import { queryKeys } from '@/lib/queryKeys';
 import type { ExerciseSet, MuscleGroup } from 'veloqrs';
 
 function buildAuthHeader(): string {
@@ -23,7 +24,7 @@ function buildAuthHeader(): string {
  */
 export function useExerciseSets(activityId: string, activityType: string) {
   return useQuery<ExerciseSet[]>({
-    queryKey: ['exercise-sets-v2', activityId],
+    queryKey: queryKeys.strength.exerciseSets(activityId),
     queryFn: () => {
       console.log(`[ExerciseSets] Querying for ${activityId} (type: ${activityType})`);
       const engine = getRouteEngine();
@@ -73,7 +74,7 @@ export function useExerciseSets(activityId: string, activityType: string) {
  */
 export function useMuscleGroups(activityId: string, hasExercises: boolean) {
   return useQuery<MuscleGroup[]>({
-    queryKey: ['muscle-groups-v2', activityId],
+    queryKey: queryKeys.strength.muscleGroups(activityId),
     queryFn: () => {
       const engine = getRouteEngine();
       if (!engine || typeof engine.getMuscleGroups !== 'function') return [];

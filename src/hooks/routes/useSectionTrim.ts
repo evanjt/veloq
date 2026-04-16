@@ -12,6 +12,7 @@ import { Alert } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { getRouteEngine } from '@/lib/native/routeEngine';
+import { queryKeys } from '@/lib/queryKeys';
 import type { FrequentSection, RoutePoint } from '@/types';
 
 /** Haversine distance between two points in meters. */
@@ -311,7 +312,7 @@ export function useSectionTrim(
       setIsTrimming(false);
       setIsExpanded(false);
       setExpandContext(null);
-      queryClient.invalidateQueries({ queryKey: ['sections'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.sections.all });
       onRefresh();
     } else {
       Alert.alert(t('common.error'), t('sections.trimFailed', 'Failed to trim section bounds'));
@@ -334,7 +335,7 @@ export function useSectionTrim(
             setIsTrimming(false);
             setIsExpanded(false);
             setExpandContext(null);
-            queryClient.invalidateQueries({ queryKey: ['sections'] });
+            queryClient.invalidateQueries({ queryKey: queryKeys.sections.all });
             onRefresh();
           }
         },

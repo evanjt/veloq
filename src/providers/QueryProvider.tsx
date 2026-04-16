@@ -6,6 +6,7 @@ import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client
 import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { isInfiniteActivitiesStale } from '@/hooks/activities/useActivities';
+import { queryKeys } from '@/lib/queryKeys';
 
 // Sync TanStack Query's focus state with React Native AppState
 // Module-level so it's active before any query runs
@@ -101,7 +102,7 @@ export function QueryProvider({ children }: QueryProviderProps) {
         // initialPageParam is re-evaluated with today's date — otherwise the feed
         // will never fetch today's activities since invalidateQueries reuses stored params.
         if (isInfiniteActivitiesStale(queryClient)) {
-          queryClient.resetQueries({ queryKey: ['activities-infinite'] });
+          queryClient.resetQueries({ queryKey: queryKeys.activities.infinite.all });
         }
       }}
       onError={() => {

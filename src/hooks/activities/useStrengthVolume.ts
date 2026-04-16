@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { getRouteEngine } from '@/lib/native/routeEngine';
 import { CACHE } from '@/lib/utils/constants';
+import { queryKeys } from '@/lib/queryKeys';
 import { buildStrengthProgression } from '@/lib/strength/analysis';
 import type {
   StrengthSummary,
@@ -103,7 +104,7 @@ function normalizeStrengthSummary(raw: {
  */
 export function useStrengthVolume(period: StrengthPeriod) {
   return useQuery<StrengthSummary>({
-    queryKey: ['strength-volume', period],
+    queryKey: queryKeys.strength.volume(period),
     queryFn: () => {
       const { startTs, endTs } = getTimestampRange(period);
       const engine = getRouteEngine();
@@ -129,7 +130,7 @@ export function useStrengthVolume(period: StrengthPeriod) {
  */
 export function useStrengthProgression(muscleSlug: string | null) {
   return useQuery<StrengthProgression | null>({
-    queryKey: ['strength-progression', muscleSlug],
+    queryKey: queryKeys.strength.progression(muscleSlug!),
     queryFn: () => {
       const engine = getRouteEngine();
       if (!engine || !muscleSlug || typeof engine.getStrengthSummary !== 'function') {
@@ -170,7 +171,7 @@ export function useStrengthProgression(muscleSlug: string | null) {
  */
 export function useExercisesForMuscle(period: StrengthPeriod, muscleSlug: string | null) {
   return useQuery<MuscleExerciseSummary>({
-    queryKey: ['exercises-for-muscle', period, muscleSlug],
+    queryKey: queryKeys.strength.exercisesForMuscle(period, muscleSlug!),
     queryFn: () => {
       const { startTs, endTs } = getTimestampRange(period);
       const engine = getRouteEngine();
@@ -223,7 +224,7 @@ export function useActivitiesForExercise(
   exerciseCategory: number | null
 ) {
   return useQuery<ExerciseActivity[]>({
-    queryKey: ['activities-for-exercise', period, muscleSlug, exerciseCategory],
+    queryKey: queryKeys.strength.activitiesForExercise(period, muscleSlug!, exerciseCategory!),
     queryFn: () => {
       const { startTs, endTs } = getTimestampRange(period);
       const engine = getRouteEngine();

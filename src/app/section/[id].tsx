@@ -56,6 +56,7 @@ import {
   type MaterialIconName,
 } from '@/lib';
 import { fromUnixSeconds } from '@/lib/utils/ffiConversions';
+import { queryKeys } from '@/lib/queryKeys';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import { type SectionTimeRange } from '@/constants';
 import type {
@@ -324,7 +325,7 @@ export default function SectionDetailScreen() {
                 setSectionRefreshKey((k) => k + 1);
                 // Also invalidate custom sections cache for routes list
                 if (isCustomId) {
-                  queryClient.invalidateQueries({ queryKey: ['sections'] });
+                  queryClient.invalidateQueries({ queryKey: queryKeys.sections.all });
                 }
               }
             },
@@ -355,7 +356,7 @@ export default function SectionDetailScreen() {
                 setSectionRefreshKey((k) => k + 1);
                 // Also invalidate custom sections cache for routes list
                 if (isCustomId) {
-                  queryClient.invalidateQueries({ queryKey: ['sections'] });
+                  queryClient.invalidateQueries({ queryKey: queryKeys.sections.all });
                 }
               } else {
                 // Show error if operation failed

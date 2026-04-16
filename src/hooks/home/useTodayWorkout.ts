@@ -3,6 +3,7 @@ import { intervalsApi } from '@/api';
 import { formatLocalDate } from '@/lib';
 import { CACHE } from '@/lib/utils/constants';
 import { useAuthStore } from '@/providers/AuthStore';
+import { queryKeys } from '@/lib/queryKeys';
 import type { CalendarEvent } from '@/types';
 
 /**
@@ -19,7 +20,7 @@ export function useTodayWorkout() {
   const tomorrow = formatLocalDate(new Date(Date.now() + 86400000));
 
   const query = useQuery<CalendarEvent[]>({
-    queryKey: ['calendar-events', today],
+    queryKey: queryKeys.calendar.events(today),
     queryFn: () =>
       intervalsApi.getCalendarEvents({
         oldest: today,

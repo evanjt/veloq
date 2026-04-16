@@ -3,6 +3,7 @@ import { intervalsApi } from '@/api';
 import { useAuthStore, useUnitPreference } from '@/providers';
 import { useEffect, useMemo } from 'react';
 import { getRouteEngine } from '@/lib/native/routeEngine';
+import { queryKeys } from '@/lib/queryKeys';
 import type { Athlete } from '@/types';
 
 export function useAthlete() {
@@ -23,7 +24,7 @@ export function useAthlete() {
   }, []);
 
   const query = useQuery({
-    queryKey: ['athlete'],
+    queryKey: queryKeys.profile.athlete,
     queryFn: async () => {
       const profile = await intervalsApi.getAthlete();
       // Update engine cache on successful fetch

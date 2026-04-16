@@ -32,6 +32,7 @@ import {
 import { logScreenRender } from '@/lib/debug/renderTimer';
 import { useAuthStore } from '@/providers';
 
+import { queryKeys } from '@/lib/queryKeys';
 import { TIME_RANGES } from '@/lib/utils/constants';
 
 export default function HealthScreen() {
@@ -117,7 +118,7 @@ export default function HealthScreen() {
     await Promise.all([
       refetchActivities(),
       refetchWellness(),
-      queryClient.invalidateQueries({ queryKey: ['athlete-summary'] }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.athleteSummary.all }),
     ]);
     setIsRefreshing(false);
   }, [refetchActivities, refetchWellness, queryClient]);

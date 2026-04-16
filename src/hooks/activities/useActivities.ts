@@ -8,6 +8,7 @@ import { useMemo } from 'react';
 import { intervalsApi } from '@/api';
 import { formatLocalDate } from '@/lib';
 import { CACHE } from '@/lib/utils/constants';
+import { queryKeys } from '@/lib/queryKeys';
 import type { Activity, IntervalsDTO } from '@/types';
 import { useAuthStore } from '@/providers/AuthStore';
 
@@ -45,13 +46,12 @@ export function useActivities(options: UseActivitiesOptions = {}) {
   }
 
   return useQuery<Activity[]>({
-    queryKey: [
-      'activities',
+    queryKey: queryKeys.activities.list(
       athleteId ?? 'anon',
-      queryOldest,
-      queryNewest,
-      includeStats ? 'stats' : 'base',
-    ],
+      queryOldest!,
+      queryNewest!,
+      includeStats
+    ),
     queryFn: () =>
       intervalsApi.getActivities({
         oldest: queryOldest,
@@ -85,7 +85,7 @@ export function useInfiniteActivities(options: { includeStats?: boolean } = {}) 
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
 
   const query = useInfiniteQuery<Activity[], Error>({
-    queryKey: ['activities-infinite', athleteId ?? 'anon', includeStats ? 'stats' : 'base'],
+    queryKey: queryKeys.activities.infinite.byAthlete(athleteId ?? 'anon', includeStats),
     queryFn: async ({ pageParam }) => {
       const { oldest, newest } = pageParam as {
         oldest: string;
@@ -148,7 +148,7 @@ export function useInfiniteActivities(options: { includeStats?: boolean } = {}) 
 
 export function useActivity(id: string) {
   return useQuery({
-    queryKey: ['activity', id],
+    queryKey: queryKeys.activities.detail(id),
     queryFn: () => intervalsApi.getActivity(id),
     // Single activity - cache for 1 hour, rarely changes
     staleTime: CACHE.HOUR,
@@ -160,7 +160,7 @@ export function useActivity(id: string) {
 
 export function useActivityStreams(id: string) {
   return useQuery({
-    queryKey: ['activity-streams-v3', id],
+    queryKey: queryKeys.activities.streams(id),
     queryFn: () =>
       intervalsApi.getActivityStreams(id, [
         'latlng',
@@ -184,7 +184,7 @@ export function useActivityStreams(id: string) {
 
 export function useActivityIntervals(id: string) {
   return useQuery<IntervalsDTO>({
-    queryKey: ['activity-intervals', id],
+    queryKey: queryKeys.activities.intervals(id),
     queryFn: () => intervalsApi.getActivityIntervals(id),
     // Intervals never change
     staleTime: Infinity,
@@ -201,7 +201,9 @@ export function useActivityIntervals(id: string) {
  */
 export function isInfiniteActivitiesStale(queryClient: QueryClient): boolean {
   const athleteId = useAuthStore.getState().athleteId ?? 'anon';
-  const state = queryClient.getQueryState(['activities-infinite', athleteId, 'base']);
+  const state = queryClient.getQueryState(
+    queryKeys.activities.infinite.byAthlete(athleteId, false)
+  );
   if (!state?.data) return false;
   const pageParams = (state.data as { pageParams?: Array<{ newest?: string }> }).pageParams;
   const firstNewest = pageParams?.[0]?.newest;

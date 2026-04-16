@@ -8,13 +8,14 @@
 import { useQuery } from '@tanstack/react-query';
 import { intervalsApi } from '@/api';
 import { useAuthStore } from '@/providers/AuthStore';
+import { queryKeys } from '@/lib/queryKeys';
 
 /** Get the oldest activity date from the user's activities */
 export function useOldestActivityDate() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
 
   return useQuery({
-    queryKey: ['oldestActivityDate'],
+    queryKey: queryKeys.calendar.oldestDate,
     queryFn: async () => {
       const dateStr = await intervalsApi.getOldestActivityDate();
       return dateStr ? new Date(dateStr) : null;

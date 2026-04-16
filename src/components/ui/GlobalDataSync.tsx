@@ -13,6 +13,7 @@ import {
   useActivityBoundsCache,
   isInfiniteActivitiesStale,
 } from '@/hooks';
+import { queryKeys } from '@/lib/queryKeys';
 import { onSyncComplete } from '@/lib/backup';
 import { intervalsApi } from '@/api';
 import { getRouteEngine } from '@/lib/native/routeEngine';
@@ -45,14 +46,14 @@ export function GlobalDataSync() {
   // Startup alignment: invalidate activities on mount to force a fresh API fetch.
   useEffect(() => {
     if (isAuthenticated) {
-      queryClient.invalidateQueries({ queryKey: ['activities'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.activities.all });
       if (isInfiniteActivitiesStale(queryClient)) {
-        queryClient.resetQueries({ queryKey: ['activities-infinite'] });
+        queryClient.resetQueries({ queryKey: queryKeys.activities.infinite.all });
       } else {
-        queryClient.invalidateQueries({ queryKey: ['activities-infinite'] });
+        queryClient.invalidateQueries({ queryKey: queryKeys.activities.infinite.all });
       }
-      queryClient.invalidateQueries({ queryKey: ['wellness'] });
-      queryClient.invalidateQueries({ queryKey: ['athlete-summary'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.wellness.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.athleteSummary.all });
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -99,12 +100,12 @@ export function GlobalDataSync() {
   // Invalidate caches when sync completes so data refreshes
   useEffect(() => {
     if (progress.status === 'complete') {
-      queryClient.invalidateQueries({ queryKey: ['activities'] });
-      queryClient.invalidateQueries({ queryKey: ['activities-infinite'] });
-      queryClient.invalidateQueries({ queryKey: ['wellness'] });
-      queryClient.invalidateQueries({ queryKey: ['athlete-summary'] });
-      queryClient.invalidateQueries({ queryKey: ['powerCurve'] });
-      queryClient.invalidateQueries({ queryKey: ['paceCurve'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.activities.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.activities.infinite.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.wellness.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.athleteSummary.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.charts.powerCurve.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.charts.paceCurve.all });
       onSyncComplete();
 
       // Seed pace snapshots for trend tracking (fire-and-forget).
