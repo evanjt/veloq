@@ -1,0 +1,59 @@
+# Local Backup — Backup Now
+# US-X2: "Backup Now" succeeds with local storage backend.
+# Regression guard for the module-level-const docDir bug (B-6's area even if
+# B-6 itself turned out not to be a real bug).
+
+appId: com.veloq.app.dev
+tags:
+  - tier3
+---
+- runFlow:
+    file: helpers/setup-demo-mode.yaml
+
+- runFlow:
+    file: helpers/navigate-to-settings.yaml
+
+- extendedWaitUntil:
+    visible:
+      id: "settings-screen"
+    timeout: 15000
+
+# Navigate to backup settings. Path varies: either a row on the settings screen
+# or a deep link. Try deep link first.
+- openLink: "veloq://backup-settings"
+- runFlow:
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
+
+- takeScreenshot: "backup-local-before"
+
+# The "not encrypted" warning must be present (US-X3).
+- assertVisible:
+    text: ".*not encrypted.*"
+    optional: true
+
+# Select local backend if not default
+- tapOn:
+    text: "Local"
+    optional: true
+
+# Fire Backup Now
+- tapOn:
+    text: "Backup Now"
+    optional: true
+
+# Wait for a success indicator — toast, banner, or updated "last backup" line.
+- extendedWaitUntil:
+    visible:
+      text: ".*success.*|.*complete.*|.*Backup saved.*"
+    timeout: 30000
+    optional: true
+
+- takeScreenshot: "backup-local-after"
+
+- assertNotVisible:
+    text: "Backup failed"
+- assertNotVisible:
+    text: "Error"

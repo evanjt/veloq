@@ -1,0 +1,78 @@
+# Dark Mode Contrast Sweep
+# US-DK1: chart highlight dots, declining pills, sparkline elements, number
+# badges, chevrons all remain visible in dark mode.
+# Captures screenshots of the key surfaces for visual diff review.
+
+appId: com.veloq.app.dev
+tags:
+  - tier3
+---
+- runFlow:
+    file: helpers/setup-demo-mode.yaml
+
+- runFlow:
+    file: helpers/navigate-to-settings.yaml
+
+- extendedWaitUntil:
+    visible:
+      id: "settings-screen"
+    timeout: 15000
+
+- assertVisible:
+    id: "settings-theme-toggle"
+
+# Flip to dark mode — text match since the toggle is a segmented control
+- tapOn:
+    text: "Dark"
+    optional: true
+
+- takeScreenshot: "dark-mode-settings"
+
+# Feed card sparklines and PR pills
+- runFlow:
+    file: helpers/setup-demo-mode.yaml
+- extendedWaitUntil:
+    visible:
+      id: "home-activity-list"
+    timeout: 15000
+- takeScreenshot: "dark-mode-feed"
+
+# Activity detail — sections tab with sparklines, trophy, chevrons
+- openLink: "veloq://activity/demo-test-0?tab=sections"
+- runFlow:
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
+- extendedWaitUntil:
+    visible:
+      id: "activity-detail-content"
+    timeout: 15000
+- tapOn:
+    text: "Sections"
+    optional: true
+- extendedWaitUntil:
+    visible:
+      id: "activity-sections-list"
+    timeout: 10000
+    optional: true
+- takeScreenshot: "dark-mode-sections-tab"
+
+# Regional map — heatmap + activity trace contrast
+- runFlow:
+    file: helpers/navigate-to-map.yaml
+- extendedWaitUntil:
+    visible:
+      id: "map-screen"
+    timeout: 30000
+- tapOn:
+    id: "map-toggle-heatmap"
+    optional: true
+- takeScreenshot: "dark-mode-map-heatmap"
+
+# Flip back to light for next run
+- runFlow:
+    file: helpers/navigate-to-settings.yaml
+- tapOn:
+    text: "Light"
+    optional: true
