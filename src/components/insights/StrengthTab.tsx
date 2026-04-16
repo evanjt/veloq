@@ -5,8 +5,6 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import type { ExtendedBodyPart } from 'react-native-body-highlighter';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTranslation } from 'react-i18next';
-import { useRouter } from 'expo-router';
-import { BodyPairWithLoupe } from '@/components/activity/BodyPairWithLoupe';
 import { useTheme, useMetricSystem } from '@/hooks';
 import {
   useStrengthVolume,
@@ -19,25 +17,14 @@ import { buildStrengthBalancePairs } from '@/lib/strength/analysis';
 import { MUSCLE_DISPLAY_NAMES, type MuscleSlug } from '@/lib/strength/exerciseMuscleMap';
 import { TAB_BAR_SAFE_PADDING } from '@/components/ui';
 import { colors, darkColors, spacing, typography, opacity, layout, brand } from '@/theme';
-import type {
-  StrengthPeriod,
-  MuscleVolume,
-  ExerciseSummary,
-  StrengthBalancePair,
-  StrengthBalanceStatus,
-  StrengthProgression,
-} from '@/types';
+import type { StrengthPeriod, MuscleVolume } from '@/types';
+import {
+  StrengthBodyDiagram,
+  StrengthProgressionCard,
+  StrengthExerciseList,
+  StrengthBalanceView,
+} from './strength';
 
-// 5-step color ramp from light to saturated for continuous heat map
-const BODY_COLORS: readonly string[] = [
-  '#FDDCC4', // 1 - very light
-  brand.orangeLight, // 2 - light orange
-  '#FB8C4E', // 3 - medium orange
-  '#FC6A1A', // 4 - dark orange
-  brand.orange, // 5 - full primary
-] as const;
-const BODY_FILL_LIGHT = '#3f3f3f';
-const BODY_FILL_DARK = '#555555';
 const PERIODS: { id: StrengthPeriod; label: string }[] = [
   { id: 'week', label: '7D' },
   { id: '4weeks', label: '4W' },
@@ -45,18 +32,8 @@ const PERIODS: { id: StrengthPeriod; label: string }[] = [
   { id: '6months', label: '6M' },
 ];
 
-function formatWeight(kg: number, isMetric: boolean): string {
-  if (isMetric) return `${Math.round(kg)} kg`;
-  return `${Math.round(kg * 2.20462)} lbs`;
-}
-
 function formatSetCount(sets: number): string {
   return sets % 1 === 0 ? sets.toFixed(0) : sets.toFixed(1);
-}
-
-function formatBalanceRatio(pair: StrengthBalancePair): string {
-  if (pair.ratio == null || !Number.isFinite(pair.ratio)) return '\u2014';
-  return `${pair.ratio.toFixed(pair.ratio >= 10 ? 0 : 1)}x`;
 }
 
 export const StrengthTab = React.memo(function StrengthTab() {
@@ -64,7 +41,6 @@ export const StrengthTab = React.memo(function StrengthTab() {
   const { t } = useTranslation();
   const isMetric = useMetricSystem();
   const { data: athlete } = useAthlete();
-  const router = useRouter();
   const [period, setPeriod] = useState<StrengthPeriod>('4weeks');
   const [selectedMuscle, setSelectedMuscle] = useState<string | null>(null);
   const [expandedExercise, setExpandedExercise] = useState<number | null>(null);
@@ -89,7 +65,6 @@ export const StrengthTab = React.memo(function StrengthTab() {
 
     return summary.muscleVolumes.map((v) => {
       const normalized = v.weightedSets / maxWeighted;
-      // Map 0-1 to intensity 1-5 for the 5-step color ramp
       const intensity = Math.max(1, Math.min(5, Math.ceil(normalized * 5)));
       return {
         slug: v.slug as ExtendedBodyPart['slug'],
@@ -109,7 +84,6 @@ export const StrengthTab = React.memo(function StrengthTab() {
     return [...summary.muscleVolumes].sort((a, b) => b.weightedSets - a.weightedSets)[0] ?? null;
   }, [summary]);
 
-  // Find the selected muscle's data
   const selectedVolume: MuscleVolume | null = useMemo(() => {
     if (!selectedMuscle || !summary) return null;
     return summary.muscleVolumes.find((v) => v.slug === selectedMuscle) ?? null;
@@ -145,6 +119,19 @@ export const StrengthTab = React.memo(function StrengthTab() {
 
   const handleMuscleScrub = useCallback((slug: string) => {
     setSelectedMuscle(slug);
+  }, []);
+
+  const handleClearSelection = useCallback(() => {
+    setSelectedMuscle(null);
+    setShowMuscleDetails(false);
+  }, []);
+
+  const handleToggleDetails = useCallback(() => {
+    setShowMuscleDetails((prev) => !prev);
+  }, []);
+
+  const handleExpandExercise = useCallback((exerciseCategory: number | null) => {
+    setExpandedExercise(exerciseCategory);
   }, []);
 
   const tappableSlugs = useMemo(
@@ -241,432 +228,42 @@ export const StrengthTab = React.memo(function StrengthTab() {
         </View>
       ) : (
         <>
-          {/* Body diagrams */}
-          <View style={[styles.bodyCard, isDark && styles.bodyCardDark]}>
-            <View style={styles.bodyHeader}>
-              <Text style={[styles.bodyTitle, isDark && styles.bodyTitleDark]}>
-                {t('strength.muscleGroupVolume')}
-              </Text>
-              <Text style={[styles.bodySubtitle, isDark && styles.bodySubtitleDark]}>
-                {t('strength.relativeWeightedSets')}
-              </Text>
-            </View>
-            {selectedVolume ? (
-              <TouchableOpacity
-                style={styles.subtitleRow}
-                onPress={() => {
-                  setSelectedMuscle(null);
-                  setShowMuscleDetails(false);
-                }}
-                activeOpacity={0.7}
-              >
-                <View
-                  style={[
-                    styles.subtitleDot,
-                    {
-                      backgroundColor:
-                        selectedVolume.primarySets > 0 ? brand.orange : brand.orangeLight,
-                    },
-                  ]}
-                />
-                <Text
-                  style={[styles.subtitleText, isDark && styles.subtitleTextDark]}
-                  numberOfLines={1}
-                >
-                  {MUSCLE_DISPLAY_NAMES[selectedVolume.slug as MuscleSlug] ?? selectedVolume.slug}
-                </Text>
-                <MaterialCommunityIcons
-                  name="close"
-                  size={14}
-                  color={isDark ? darkColors.textMuted : colors.textDisabled}
-                />
-              </TouchableOpacity>
-            ) : (
-              <Text style={[styles.bodyHint, isDark && styles.bodyHintDark]}>
-                {t('strength.tapMuscleGroup')}
-              </Text>
-            )}
+          <StrengthBodyDiagram
+            bodyData={bodyData}
+            gender={gender}
+            maxWeightedSets={maxWeightedSets}
+            selectedVolume={selectedVolume}
+            progression={progression ?? null}
+            hasRecentProgression={hasRecentProgression}
+            maxProgressWeightedSets={maxProgressWeightedSets}
+            exerciseSummary={exerciseSummary ?? null}
+            showMuscleDetails={showMuscleDetails}
+            tappableSlugs={tappableSlugs}
+            onMuscleTap={handleMuscleTap}
+            onMuscleScrub={handleMuscleScrub}
+            onClearSelection={handleClearSelection}
+            onToggleDetails={handleToggleDetails}
+          />
 
-            <BodyPairWithLoupe
-              data={bodyData}
-              gender={gender}
-              scale={0.6}
-              colors={BODY_COLORS}
-              onMuscleTap={handleMuscleTap}
-              onMuscleScrub={handleMuscleScrub}
-              tappableSlugs={tappableSlugs}
-              defaultFill={isDark ? BODY_FILL_DARK : BODY_FILL_LIGHT}
-            />
-
-            {/* Continuous scale bar — normalized 0-10 */}
-            <View style={styles.scaleBarContainer}>
-              <Text style={[styles.scaleLabel, isDark && styles.scaleLabelDark]}>
-                {t('strength.relativeVolume')}
-              </Text>
-              <View style={styles.scaleBar}>
-                <LinearGradient
-                  colors={[
-                    BODY_FILL_LIGHT,
-                    '#FDDCC4',
-                    brand.orangeLight,
-                    '#FB8C4E',
-                    '#FC6A1A',
-                    brand.orange,
-                  ]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={styles.scaleGradient}
-                />
-              </View>
-              <View style={styles.scaleLabels}>
-                <Text style={[styles.scaleValue, isDark && styles.scaleValueDark]}>0</Text>
-                <Text style={[styles.scaleValue, isDark && styles.scaleValueDark]}>
-                  {maxWeightedSets % 1 === 0
-                    ? maxWeightedSets.toFixed(0)
-                    : maxWeightedSets.toFixed(1)}{' '}
-                  {t('strength.sets')}
-                </Text>
-              </View>
-            </View>
-
-            {/* Inline muscle summary — appears inside body card when muscle selected */}
-            {selectedVolume && (
-              <View style={[styles.inlineMusclePanel, isDark && styles.inlineMusclePanelDark]}>
-                <View style={styles.inlineMuscleHeader}>
-                  <Text
-                    style={[styles.inlineMuscleName, isDark && styles.inlineMuscleNameDark]}
-                    numberOfLines={1}
-                  >
-                    {MUSCLE_DISPLAY_NAMES[selectedVolume.slug as MuscleSlug] ?? selectedVolume.slug}
-                  </Text>
-                  {progression && (
-                    <View
-                      style={[
-                        styles.inlineTrendBadge,
-                        progression.trend === 'up'
-                          ? styles.progressBadgeUp
-                          : progression.trend === 'down'
-                            ? styles.progressBadgeDown
-                            : styles.progressBadgeFlat,
-                      ]}
-                    >
-                      <Text style={styles.inlineTrendText}>
-                        {progression.changePct == null
-                          ? t('strength.newSignal')
-                          : `${progression.changePct > 0 ? '+' : ''}${Math.round(
-                              progression.changePct
-                            )}%`}
-                      </Text>
-                    </View>
-                  )}
-                </View>
-
-                <View style={styles.inlineStatsRow}>
-                  <View style={styles.inlineStat}>
-                    <Text style={[styles.inlineStatValue, isDark && styles.inlineStatValueDark]}>
-                      {formatSetCount(selectedVolume.weightedSets)}
-                    </Text>
-                    <Text style={[styles.inlineStatLabel, isDark && styles.inlineStatLabelDark]}>
-                      {t('strength.sets')}
-                    </Text>
-                  </View>
-                  {selectedVolume.totalReps > 0 && (
-                    <View style={styles.inlineStat}>
-                      <Text style={[styles.inlineStatValue, isDark && styles.inlineStatValueDark]}>
-                        {selectedVolume.totalReps}
-                      </Text>
-                      <Text style={[styles.inlineStatLabel, isDark && styles.inlineStatLabelDark]}>
-                        {t('strength.reps')}
-                      </Text>
-                    </View>
-                  )}
-                  {selectedVolume.totalWeightKg > 0 && (
-                    <View style={styles.inlineStat}>
-                      <Text style={[styles.inlineStatValue, isDark && styles.inlineStatValueDark]}>
-                        {formatWeight(selectedVolume.totalWeightKg, isMetric)}
-                      </Text>
-                      <Text style={[styles.inlineStatLabel, isDark && styles.inlineStatLabelDark]}>
-                        {t('strength.totalVolume')}
-                      </Text>
-                    </View>
-                  )}
-                  {exerciseSummary && (
-                    <View style={styles.inlineStat}>
-                      <Text style={[styles.inlineStatValue, isDark && styles.inlineStatValueDark]}>
-                        {exerciseSummary.exercises.length}
-                      </Text>
-                      <Text style={[styles.inlineStatLabel, isDark && styles.inlineStatLabelDark]}>
-                        {exerciseSummary.exercises.length === 1
-                          ? t('strength.exercise')
-                          : t('strength.exercises')}
-                      </Text>
-                    </View>
-                  )}
-                </View>
-
-                {/* Compact 4-week sparkline bars */}
-                {progression && hasRecentProgression && (
-                  <View style={styles.inlineSparkRow}>
-                    {progression.points.map((point, index) => (
-                      <View key={point.label} style={styles.inlineSparkCol}>
-                        <View
-                          style={[styles.inlineSparkTrack, isDark && styles.inlineSparkTrackDark]}
-                        >
-                          <View
-                            style={[
-                              styles.inlineSparkFill,
-                              index === progression.points.length - 1
-                                ? styles.progressBarFillCurrent
-                                : styles.progressBarFillPast,
-                              {
-                                height: Math.max(
-                                  4,
-                                  (point.weightedSets / maxProgressWeightedSets) * 32
-                                ),
-                              },
-                            ]}
-                          />
-                        </View>
-                        <Text
-                          style={[styles.inlineSparkLabel, isDark && styles.inlineSparkLabelDark]}
-                        >
-                          {point.label}
-                        </Text>
-                      </View>
-                    ))}
-                  </View>
-                )}
-
-                {(exerciseSummary?.exercises.length ?? 0) > 0 && (
-                  <TouchableOpacity
-                    style={styles.inlineDetailsToggle}
-                    onPress={() => setShowMuscleDetails((prev) => !prev)}
-                    activeOpacity={0.7}
-                  >
-                    <Text style={styles.inlineDetailsToggleText}>
-                      {showMuscleDetails ? t('strength.hideDetails') : t('strength.showDetails')}
-                    </Text>
-                    <MaterialCommunityIcons
-                      name={showMuscleDetails ? 'chevron-up' : 'chevron-down'}
-                      size={14}
-                      color={colors.primary}
-                    />
-                  </TouchableOpacity>
-                )}
-              </View>
-            )}
-          </View>
-
-          {/* Expanded muscle details — progression + exercises */}
+          {/* Expanded muscle details */}
           {selectedVolume && showMuscleDetails && (
             <>
               {progression && hasRecentProgression && (
-                <View style={[styles.progressCard, isDark && styles.progressCardDark]}>
-                  <View style={styles.progressHeader}>
-                    <View style={styles.progressHeaderText}>
-                      <Text style={[styles.progressTitle, isDark && styles.progressTitleDark]}>
-                        {t('strength.progression', {
-                          muscle:
-                            MUSCLE_DISPLAY_NAMES[selectedVolume.slug as MuscleSlug] ??
-                            selectedVolume.slug,
-                        })}
-                      </Text>
-                      <Text
-                        style={[styles.progressSubtitle, isDark && styles.progressSubtitleDark]}
-                      >
-                        {t('strength.last4Weeks')}
-                      </Text>
-                    </View>
-                  </View>
-
-                  <View style={styles.progressBarsRow}>
-                    {progression.points.map((point, index) => (
-                      <View key={point.label} style={styles.progressBarColumn}>
-                        <Text
-                          style={[styles.progressBarValue, isDark && styles.progressBarValueDark]}
-                        >
-                          {formatSetCount(point.weightedSets)}
-                        </Text>
-                        <View
-                          style={[styles.progressBarTrack, isDark && styles.progressBarTrackDark]}
-                        >
-                          <View
-                            style={[
-                              styles.progressBarFill,
-                              index === progression.points.length - 1
-                                ? styles.progressBarFillCurrent
-                                : styles.progressBarFillPast,
-                              {
-                                height: Math.max(
-                                  8,
-                                  (point.weightedSets / maxProgressWeightedSets) * 82
-                                ),
-                              },
-                            ]}
-                          />
-                        </View>
-                        <Text
-                          style={[styles.progressBarLabel, isDark && styles.progressBarLabelDark]}
-                        >
-                          {point.label}
-                        </Text>
-                      </View>
-                    ))}
-                  </View>
-
-                  <View style={styles.progressMetaRow}>
-                    <View style={[styles.progressMetaBox, isDark && styles.progressMetaBoxDark]}>
-                      <Text
-                        style={[styles.progressMetaValue, isDark && styles.progressMetaValueDark]}
-                      >
-                        {formatSetCount(progression.recentAverage)}
-                      </Text>
-                      <Text
-                        style={[styles.progressMetaLabel, isDark && styles.progressMetaLabelDark]}
-                      >
-                        {t('strength.recentAvg')}
-                      </Text>
-                    </View>
-                    <View style={[styles.progressMetaBox, isDark && styles.progressMetaBoxDark]}>
-                      <Text
-                        style={[styles.progressMetaValue, isDark && styles.progressMetaValueDark]}
-                      >
-                        {formatSetCount(progression.baselineAverage)}
-                      </Text>
-                      <Text
-                        style={[styles.progressMetaLabel, isDark && styles.progressMetaLabelDark]}
-                      >
-                        {t('strength.earlierAvg')}
-                      </Text>
-                    </View>
-                    <View style={[styles.progressMetaBox, isDark && styles.progressMetaBoxDark]}>
-                      <Text
-                        style={[styles.progressMetaValue, isDark && styles.progressMetaValueDark]}
-                      >
-                        {formatSetCount(progression.peakWeightedSets)}
-                      </Text>
-                      <Text
-                        style={[styles.progressMetaLabel, isDark && styles.progressMetaLabelDark]}
-                      >
-                        {t('strength.peakWeek')}
-                      </Text>
-                    </View>
-                  </View>
-                </View>
+                <StrengthProgressionCard
+                  selectedVolume={selectedVolume}
+                  progression={progression}
+                  maxProgressWeightedSets={maxProgressWeightedSets}
+                />
               )}
 
-              {/* Exercise detail list */}
               {exerciseSummary && exerciseSummary.exercises.length > 0 && (
-                <View style={[styles.exerciseCard, isDark && styles.exerciseCardDark]}>
-                  <Text style={[styles.exerciseCardTitle, isDark && styles.exerciseCardTitleDark]}>
-                    {t('strength.exercisesTargeting', {
-                      muscle:
-                        MUSCLE_DISPLAY_NAMES[selectedVolume.slug as MuscleSlug] ??
-                        selectedVolume.slug,
-                    })}
-                  </Text>
-                  {exerciseSummary.exercises.map((exercise: ExerciseSummary, idx: number) => {
-                    const isExpanded = expandedExercise === exercise.exerciseCategory;
-                    return (
-                      <View key={exercise.exerciseCategory}>
-                        <TouchableOpacity
-                          style={[
-                            styles.exerciseCardItem,
-                            idx > 0 && styles.exerciseCardItemBorder,
-                            idx > 0 && isDark && styles.exerciseCardItemBorderDark,
-                          ]}
-                          onPress={() =>
-                            setExpandedExercise(isExpanded ? null : exercise.exerciseCategory)
-                          }
-                          activeOpacity={0.7}
-                        >
-                          <View style={styles.exerciseCardDot} />
-                          <View style={styles.exerciseCardContent}>
-                            <View style={styles.exerciseCardNameRow}>
-                              <Text
-                                style={[
-                                  styles.exerciseCardName,
-                                  isDark && styles.exerciseCardNameDark,
-                                ]}
-                                numberOfLines={1}
-                              >
-                                {exercise.exerciseName}
-                              </Text>
-                              <MaterialCommunityIcons
-                                name={isExpanded ? 'chevron-up' : 'chevron-down'}
-                                size={16}
-                                color={isDark ? darkColors.textSecondary : colors.textSecondary}
-                              />
-                            </View>
-                            <Text
-                              style={[
-                                styles.exerciseCardMeta,
-                                isDark && styles.exerciseCardMetaDark,
-                              ]}
-                            >
-                              {t('strength.exerciseSets', {
-                                sets: exercise.totalSets,
-                              })}{' '}
-                              ·{' '}
-                              {t('strength.exerciseWorkoutCount', {
-                                count: exercise.activityCount,
-                              })}
-                              {exercise.totalWeightKg > 0
-                                ? ` · ${formatWeight(exercise.totalWeightKg, isMetric)}`
-                                : ''}
-                            </Text>
-                          </View>
-                        </TouchableOpacity>
-
-                        {/* Expanded: per-activity breakdown */}
-                        {isExpanded && exerciseActivities && exerciseActivities.length > 0 && (
-                          <View style={[styles.activityList, isDark && styles.activityListDark]}>
-                            {exerciseActivities.map((activity) => (
-                              <TouchableOpacity
-                                key={activity.activityId}
-                                style={styles.activityRow}
-                                onPress={() => router.push(`/activity/${activity.activityId}`)}
-                                activeOpacity={0.7}
-                              >
-                                <View style={styles.activityRowLeft}>
-                                  <Text
-                                    style={[styles.activityName, isDark && styles.activityNameDark]}
-                                    numberOfLines={1}
-                                  >
-                                    {activity.activityName}
-                                  </Text>
-                                  <Text
-                                    style={[styles.activityDate, isDark && styles.activityDateDark]}
-                                  >
-                                    {new Date(activity.date * 1000).toLocaleDateString(undefined, {
-                                      month: 'short',
-                                      day: 'numeric',
-                                    })}
-                                  </Text>
-                                </View>
-                                <Text
-                                  style={[styles.activityStats, isDark && styles.activityStatsDark]}
-                                >
-                                  {t('strength.exerciseSets', {
-                                    sets: activity.sets,
-                                  })}
-                                  {activity.totalWeightKg > 0
-                                    ? ` · ${formatWeight(activity.totalWeightKg, isMetric)}`
-                                    : ''}
-                                </Text>
-                              </TouchableOpacity>
-                            ))}
-                          </View>
-                        )}
-                        {isExpanded && exerciseActivities && exerciseActivities.length === 0 && (
-                          <View style={[styles.activityList, isDark && styles.activityListDark]}>
-                            <ActivityIndicator size="small" color={colors.primary} />
-                          </View>
-                        )}
-                      </View>
-                    );
-                  })}
-                </View>
+                <StrengthExerciseList
+                  selectedVolume={selectedVolume}
+                  exerciseSummary={exerciseSummary}
+                  expandedExercise={expandedExercise}
+                  exerciseActivities={exerciseActivities ?? null}
+                  onExpandExercise={handleExpandExercise}
+                />
               )}
             </>
           )}
@@ -720,124 +317,11 @@ export const StrengthTab = React.memo(function StrengthTab() {
             </LinearGradient>
           </View>
 
-          {/* Balance card */}
-          {visibleBalancePairs.length > 0 ? (
-            <View style={[styles.balanceCard, isDark && styles.balanceCardDark]}>
-              <View style={styles.balanceHeader}>
-                <View>
-                  <Text style={[styles.balanceTitle, isDark && styles.balanceTitleDark]}>
-                    {t('insights.strengthBalance.volumeSplit')}
-                  </Text>
-                  <Text style={[styles.balanceSubtitle, isDark && styles.balanceSubtitleDark]}>
-                    {t('strength.balanceObservedPairs', {
-                      period: periodLabel,
-                    })}
-                  </Text>
-                </View>
-                {featuredBalancePair ? (
-                  <View
-                    style={[
-                      styles.balanceHeroBadge,
-                      featuredBalancePair.status === 'balanced'
-                        ? styles.balanceHeroBadgeBalanced
-                        : styles.balanceHeroBadgeAlert,
-                    ]}
-                  >
-                    <Text style={styles.balanceHeroBadgeText}>
-                      {formatBalanceRatio(featuredBalancePair)}
-                    </Text>
-                  </View>
-                ) : null}
-              </View>
-
-              {featuredBalancePair ? (
-                <Text style={[styles.balanceHeroText, isDark && styles.balanceHeroTextDark]}>
-                  {featuredBalancePair.status === 'balanced'
-                    ? t('strength.balancedPairsClose')
-                    : t('strength.balanceDominant', {
-                        dominant: featuredBalancePair.dominantLabel ?? 'One side',
-                        other:
-                          featuredBalancePair.dominantSlug === featuredBalancePair.leftSlug
-                            ? featuredBalancePair.rightLabel
-                            : featuredBalancePair.leftLabel,
-                        pair: featuredBalancePair.label.toLowerCase(),
-                      })}
-                </Text>
-              ) : null}
-
-              {visibleBalancePairs.map((pair, index) => (
-                <View
-                  key={pair.id}
-                  style={[
-                    styles.balanceRow,
-                    index > 0 && styles.balanceRowBorder,
-                    index > 0 && isDark && styles.balanceRowBorderDark,
-                  ]}
-                >
-                  <View style={styles.balanceRowHeader}>
-                    <Text style={[styles.balanceRowTitle, isDark && styles.balanceRowTitleDark]}>
-                      {pair.label}
-                    </Text>
-                    <View
-                      style={[
-                        styles.balanceStatusBadge,
-                        pair.status === 'balanced'
-                          ? styles.balanceStatusBalanced
-                          : pair.status === 'watch'
-                            ? styles.balanceStatusWatch
-                            : styles.balanceStatusImbalanced,
-                      ]}
-                    >
-                      <Text style={styles.balanceStatusText}>
-                        {pair.status === 'balanced'
-                          ? t('insights.strengthBalance.balanced')
-                          : pair.status === 'watch'
-                            ? t('insights.strengthBalance.watch')
-                            : pair.status === 'imbalanced'
-                              ? t('insights.strengthBalance.imbalanced')
-                              : pair.status === 'one-sided'
-                                ? t('insights.strengthBalance.oneSided')
-                                : t('insights.strengthBalance.lowSignal')}
-                      </Text>
-                    </View>
-                  </View>
-
-                  <View style={styles.balanceValueRow}>
-                    <Text style={[styles.balanceValueText, isDark && styles.balanceValueTextDark]}>
-                      {pair.leftLabel} {formatSetCount(pair.leftWeightedSets)}
-                    </Text>
-                    <Text style={[styles.balanceValueText, isDark && styles.balanceValueTextDark]}>
-                      {pair.rightLabel} {formatSetCount(pair.rightWeightedSets)}
-                    </Text>
-                  </View>
-
-                  <View style={[styles.balanceScale, isDark && styles.balanceScaleDark]}>
-                    <View
-                      style={[
-                        styles.balanceScaleSide,
-                        { flex: Math.max(pair.leftWeightedSets, 0.2) },
-                      ]}
-                    />
-                    <View style={styles.balanceScaleGap} />
-                    <View
-                      style={[
-                        styles.balanceScaleSideSecondary,
-                        { flex: Math.max(pair.rightWeightedSets, 0.2) },
-                      ]}
-                    />
-                  </View>
-
-                  <Text style={[styles.balanceRatioText, isDark && styles.balanceRatioTextDark]}>
-                    {formatBalanceRatio(pair)}
-                  </Text>
-                </View>
-              ))}
-
-              <Text style={[styles.balanceFootnote, isDark && styles.balanceFootnoteDark]}>
-                {t('strength.balanceFootnote')}
-              </Text>
-            </View>
-          ) : null}
+          <StrengthBalanceView
+            visibleBalancePairs={visibleBalancePairs}
+            featuredBalancePair={featuredBalancePair}
+            periodLabel={periodLabel}
+          />
 
           {/* Info card */}
           <View style={[styles.infoCard, isDark && styles.infoCardDark]}>
@@ -1000,531 +484,6 @@ const styles = StyleSheet.create({
   heroChipLabelDark: {
     color: darkColors.textSecondary,
   },
-  balanceCard: {
-    backgroundColor: colors.surface,
-    borderRadius: layout.borderRadius,
-    padding: spacing.md,
-    marginBottom: spacing.sm,
-  },
-  balanceCardDark: {
-    backgroundColor: darkColors.surface,
-  },
-  balanceHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    gap: spacing.sm,
-  },
-  balanceTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.textPrimary,
-  },
-  balanceTitleDark: {
-    color: darkColors.textPrimary,
-  },
-  balanceSubtitle: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    marginTop: 2,
-  },
-  balanceSubtitleDark: {
-    color: darkColors.textSecondary,
-  },
-  balanceHeroBadge: {
-    borderRadius: 12,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-  },
-  balanceHeroBadgeBalanced: {
-    backgroundColor: '#22C55E18',
-  },
-  balanceHeroBadgeAlert: {
-    backgroundColor: '#F9731618',
-  },
-  balanceHeroBadgeText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
-  balanceHeroText: {
-    fontSize: 13,
-    lineHeight: 19,
-    color: colors.textSecondary,
-    marginTop: spacing.sm,
-    marginBottom: spacing.xs,
-  },
-  balanceHeroTextDark: {
-    color: darkColors.textSecondary,
-  },
-  balanceRow: {
-    paddingVertical: spacing.sm,
-  },
-  balanceRowBorder: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.divider,
-  },
-  balanceRowBorderDark: {
-    borderTopColor: darkColors.border,
-  },
-  balanceRowHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: spacing.sm,
-  },
-  balanceRowTitle: {
-    flex: 1,
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.textPrimary,
-  },
-  balanceRowTitleDark: {
-    color: darkColors.textPrimary,
-  },
-  balanceStatusBadge: {
-    borderRadius: 10,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-  },
-  balanceStatusBalanced: {
-    backgroundColor: '#22C55E18',
-  },
-  balanceStatusWatch: {
-    backgroundColor: '#F59E0B18',
-  },
-  balanceStatusImbalanced: {
-    backgroundColor: '#EF444418',
-  },
-  balanceStatusText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
-  balanceValueRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: spacing.xs,
-    gap: spacing.sm,
-  },
-  balanceValueText: {
-    flex: 1,
-    fontSize: 12,
-    color: colors.textSecondary,
-  },
-  balanceValueTextDark: {
-    color: darkColors.textSecondary,
-  },
-  balanceScale: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    height: 10,
-    borderRadius: 5,
-    overflow: 'hidden',
-    backgroundColor: opacity.overlay.light,
-    marginTop: spacing.xs,
-  },
-  balanceScaleDark: {
-    backgroundColor: opacity.overlayDark.medium,
-  },
-  balanceScaleSide: {
-    height: '100%',
-    backgroundColor: brand.orange,
-  },
-  balanceScaleSideSecondary: {
-    height: '100%',
-    backgroundColor: '#FB8C4E',
-  },
-  balanceScaleGap: {
-    width: 2,
-    height: '100%',
-    backgroundColor: colors.surface,
-  },
-  balanceRatioText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: colors.textPrimary,
-    marginTop: 6,
-  },
-  balanceRatioTextDark: {
-    color: darkColors.textPrimary,
-  },
-  balanceFootnote: {
-    fontSize: 11,
-    lineHeight: 16,
-    color: colors.textSecondary,
-    marginTop: spacing.xs,
-  },
-  balanceFootnoteDark: {
-    color: darkColors.textSecondary,
-  },
-  bodyCard: {
-    backgroundColor: colors.surface,
-    borderRadius: layout.borderRadius,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.sm,
-    marginBottom: spacing.sm,
-  },
-  bodyCardDark: {
-    backgroundColor: darkColors.surface,
-  },
-  bodyHeader: {
-    alignItems: 'center',
-    marginBottom: spacing.xs,
-    gap: 2,
-  },
-  bodyTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.textPrimary,
-    textAlign: 'center',
-  },
-  bodyTitleDark: {
-    color: darkColors.textPrimary,
-  },
-  bodySubtitle: {
-    fontSize: 11,
-    color: colors.textSecondary,
-    textAlign: 'center',
-  },
-  bodySubtitleDark: {
-    color: darkColors.textSecondary,
-  },
-  bodyHint: {
-    fontSize: 11,
-    color: colors.textDisabled,
-    textAlign: 'center',
-    marginBottom: spacing.xs,
-    fontStyle: 'italic',
-  },
-  bodyHintDark: {
-    color: darkColors.textMuted,
-  },
-  subtitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 5,
-    marginBottom: spacing.xs,
-  },
-  subtitleDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 3.5,
-  },
-  subtitleText: {
-    fontSize: 11,
-    color: colors.textSecondary,
-  },
-  subtitleTextDark: {
-    color: darkColors.textSecondary,
-  },
-  scaleBarContainer: {
-    paddingHorizontal: spacing.md,
-    marginTop: spacing.sm,
-  },
-  scaleLabel: {
-    fontSize: 10,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    marginBottom: 4,
-  },
-  scaleLabelDark: {
-    color: darkColors.textSecondary,
-  },
-  scaleBar: {
-    height: 8,
-    borderRadius: 4,
-    overflow: 'hidden',
-  },
-  scaleGradient: {
-    flex: 1,
-    borderRadius: 4,
-  },
-  scaleLabels: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 2,
-  },
-  scaleValue: {
-    fontSize: 10,
-    color: colors.textSecondary,
-  },
-  scaleValueDark: {
-    color: darkColors.textSecondary,
-  },
-  progressCard: {
-    backgroundColor: colors.surface,
-    borderRadius: layout.borderRadius,
-    padding: spacing.md,
-    marginBottom: spacing.sm,
-  },
-  progressCardDark: {
-    backgroundColor: darkColors.surface,
-  },
-  progressHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    gap: spacing.sm,
-  },
-  progressHeaderText: {
-    flex: 1,
-  },
-  progressTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: colors.textPrimary,
-  },
-  progressTitleDark: {
-    color: darkColors.textPrimary,
-  },
-  progressSubtitle: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    marginTop: 2,
-  },
-  progressSubtitleDark: {
-    color: darkColors.textSecondary,
-  },
-  progressBadge: {
-    borderRadius: 12,
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-  },
-  progressBadgeUp: {
-    backgroundColor: '#22C55E18',
-  },
-  progressBadgeDown: {
-    backgroundColor: '#F59E0B18',
-  },
-  progressBadgeFlat: {
-    backgroundColor: '#64748B18',
-  },
-  progressBadgeText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
-  progressSummary: {
-    fontSize: 13,
-    lineHeight: 19,
-    color: colors.textSecondary,
-    marginTop: spacing.sm,
-  },
-  progressSummaryDark: {
-    color: darkColors.textSecondary,
-  },
-  progressBarsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-end',
-    gap: spacing.sm,
-    marginTop: spacing.md,
-  },
-  progressBarColumn: {
-    flex: 1,
-    alignItems: 'center',
-    gap: 6,
-  },
-  progressBarValue: {
-    fontSize: 11,
-    color: colors.textSecondary,
-  },
-  progressBarValueDark: {
-    color: darkColors.textSecondary,
-  },
-  progressBarTrack: {
-    width: '100%',
-    height: 82,
-    borderRadius: 12,
-    backgroundColor: opacity.overlay.light,
-    justifyContent: 'flex-end',
-    overflow: 'hidden',
-  },
-  progressBarTrackDark: {
-    backgroundColor: opacity.overlayDark.medium,
-  },
-  progressBarFill: {
-    width: '100%',
-    borderRadius: 12,
-  },
-  progressBarFillCurrent: {
-    backgroundColor: brand.orange,
-  },
-  progressBarFillPast: {
-    backgroundColor: '#FB8C4E',
-  },
-  progressBarLabel: {
-    fontSize: 11,
-    color: colors.textSecondary,
-  },
-  progressBarLabelDark: {
-    color: darkColors.textSecondary,
-  },
-  progressMetaRow: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-    marginTop: spacing.md,
-  },
-  progressMetaBox: {
-    flex: 1,
-    backgroundColor: opacity.overlay.subtle,
-    borderRadius: 10,
-    padding: spacing.sm,
-    alignItems: 'center',
-  },
-  progressMetaBoxDark: {
-    backgroundColor: opacity.overlayDark.light,
-  },
-  progressMetaValue: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
-  progressMetaValueDark: {
-    color: darkColors.textPrimary,
-  },
-  progressMetaLabel: {
-    fontSize: 11,
-    color: colors.textSecondary,
-    marginTop: 2,
-  },
-  progressMetaLabelDark: {
-    color: darkColors.textSecondary,
-  },
-  exerciseCard: {
-    backgroundColor: colors.surface,
-    borderRadius: layout.borderRadius,
-    padding: spacing.md,
-    marginBottom: spacing.sm,
-  },
-  exerciseCardDark: {
-    backgroundColor: darkColors.surface,
-  },
-  exerciseCardTitle: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.textSecondary,
-    marginBottom: spacing.sm,
-  },
-  exerciseCardTitleDark: {
-    color: darkColors.textSecondary,
-  },
-  exerciseCardItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 6,
-    gap: 8,
-  },
-  exerciseCardItemBorder: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.divider,
-  },
-  exerciseCardItemBorderDark: {
-    borderTopColor: darkColors.border,
-  },
-  exerciseCardDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: brand.orange,
-  },
-  exerciseCardContent: {
-    flex: 1,
-  },
-  exerciseCardNameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  exerciseCardName: {
-    flex: 1,
-    fontSize: 15,
-    color: colors.textPrimary,
-  },
-  exerciseCardNameDark: {
-    color: darkColors.textPrimary,
-  },
-  exerciseCardMeta: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    marginTop: 2,
-  },
-  exerciseCardMetaDark: {
-    color: darkColors.textSecondary,
-  },
-  activityList: {
-    marginLeft: 14,
-    paddingLeft: spacing.sm,
-    borderLeftWidth: 1,
-    borderLeftColor: colors.divider,
-    marginBottom: spacing.xs,
-  },
-  activityListDark: {
-    borderLeftColor: darkColors.border,
-  },
-  activityRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 6,
-    paddingHorizontal: spacing.xs,
-  },
-  activityRowLeft: {
-    flex: 1,
-    marginRight: spacing.sm,
-  },
-  activityName: {
-    fontSize: 13,
-    color: colors.textPrimary,
-  },
-  activityNameDark: {
-    color: darkColors.textPrimary,
-  },
-  activityDate: {
-    fontSize: 11,
-    color: colors.textSecondary,
-    marginTop: 1,
-  },
-  activityDateDark: {
-    color: darkColors.textSecondary,
-  },
-  activityStats: {
-    fontSize: 12,
-    color: colors.textSecondary,
-  },
-  activityStatsDark: {
-    color: darkColors.textSecondary,
-  },
-  exerciseCardTotal: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingTop: spacing.sm,
-    marginTop: spacing.xs,
-    borderTopWidth: 1,
-    borderTopColor: colors.divider,
-  },
-  exerciseCardTotalDark: {
-    borderTopColor: darkColors.border,
-  },
-  exerciseCardTotalLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.textSecondary,
-  },
-  exerciseCardTotalLabelDark: {
-    color: darkColors.textSecondary,
-  },
-  exerciseCardTotalValue: {
-    fontSize: 15,
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
-  exerciseCardTotalValueDark: {
-    color: darkColors.textPrimary,
-  },
   infoCard: {
     backgroundColor: colors.surface,
     borderRadius: layout.borderRadius,
@@ -1556,112 +515,5 @@ const styles = StyleSheet.create({
   },
   disclaimerTextDark: {
     color: darkColors.textSecondary,
-  },
-  // Inline muscle summary panel (inside body card)
-  inlineMusclePanel: {
-    marginTop: spacing.sm,
-    paddingTop: spacing.sm,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.divider,
-  },
-  inlineMusclePanelDark: {
-    borderTopColor: darkColors.border,
-  },
-  inlineMuscleHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.sm,
-    marginBottom: spacing.xs,
-  },
-  inlineMuscleName: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: colors.textPrimary,
-    flex: 1,
-  },
-  inlineMuscleNameDark: {
-    color: darkColors.textPrimary,
-  },
-  inlineTrendBadge: {
-    borderRadius: 10,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-  },
-  inlineTrendText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
-  inlineStatsRow: {
-    flexDirection: 'row',
-    paddingHorizontal: spacing.sm,
-    gap: spacing.md,
-  },
-  inlineStat: {
-    alignItems: 'center',
-  },
-  inlineStatValue: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
-  inlineStatValueDark: {
-    color: darkColors.textPrimary,
-  },
-  inlineStatLabel: {
-    fontSize: 10,
-    color: colors.textSecondary,
-    marginTop: 1,
-  },
-  inlineStatLabelDark: {
-    color: darkColors.textSecondary,
-  },
-  inlineSparkRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'flex-end',
-    gap: 6,
-    marginTop: spacing.sm,
-    paddingHorizontal: spacing.sm,
-  },
-  inlineSparkCol: {
-    alignItems: 'center',
-    gap: 2,
-  },
-  inlineSparkTrack: {
-    width: 18,
-    height: 36,
-    borderRadius: 4,
-    backgroundColor: opacity.overlay.light,
-    justifyContent: 'flex-end',
-    overflow: 'hidden',
-  },
-  inlineSparkTrackDark: {
-    backgroundColor: opacity.overlayDark.medium,
-  },
-  inlineSparkFill: {
-    width: '100%',
-    borderRadius: 4,
-  },
-  inlineSparkLabel: {
-    fontSize: 9,
-    color: colors.textSecondary,
-  },
-  inlineSparkLabelDark: {
-    color: darkColors.textSecondary,
-  },
-  inlineDetailsToggle: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
-    marginTop: spacing.sm,
-    paddingVertical: spacing.xs,
-  },
-  inlineDetailsToggleText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.primary,
   },
 });
