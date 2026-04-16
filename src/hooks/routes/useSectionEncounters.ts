@@ -14,37 +14,19 @@ export interface UseSectionEncountersResult {
 
 export function useSectionEncounters(activityId: string | undefined): UseSectionEncountersResult {
   const [refreshTrigger, setRefreshTrigger] = useState(0);
-  const [isLoading, setIsLoading] = useState(true);
 
-  // Subscribe to section changes
   useEffect(() => {
     const engine = getRouteEngine();
     if (!engine) return;
-
-    const unsub = engine.subscribe('sections', () => {
-      setRefreshTrigger((r) => r + 1);
-    });
-    return unsub;
+    return engine.subscribe('sections', () => setRefreshTrigger((r) => r + 1));
   }, []);
 
-  const encounters = useMemo(() => {
-    if (!activityId) {
-      setIsLoading(false);
-      return [];
-    }
-
+  const { encounters, engineReady } = useMemo(() => {
+    if (!activityId) return { encounters: [], engineReady: true };
     const engine = getRouteEngine();
-    if (!engine) return [];
-
-    try {
-      const result = engine.getActivitySectionEncounters(activityId);
-      setIsLoading(false);
-      return result;
-    } catch {
-      setIsLoading(false);
-      return [];
-    }
+    if (!engine) return { encounters: [], engineReady: false };
+    return { encounters: engine.getActivitySectionEncounters(activityId), engineReady: true };
   }, [activityId, refreshTrigger]);
 
-  return { encounters, isLoading };
+  return { encounters, isLoading: !engineReady };
 }

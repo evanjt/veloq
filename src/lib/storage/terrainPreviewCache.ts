@@ -151,8 +151,9 @@ export async function saveTerrainPreview(
   cachedKeys = cachedKeys.filter((k) => k !== key);
   cachedKeys.push(key);
 
-  // Clear dirty flag — fresh preview saved
+  // Clear dirty + priority flags — fresh preview saved
   dirtyActivities.delete(activityId);
+  prioritySnapshotIds.delete(activityId);
 
   return filePath;
 }

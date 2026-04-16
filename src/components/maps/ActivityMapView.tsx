@@ -121,7 +121,7 @@ import {
 } from '@maplibre/maplibre-react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { decodePolyline, LatLng, getActivityColor } from '@/lib';
-import { colors, darkColors, typography, spacing, layout, shadows } from '@/theme';
+import { colors, darkColors, typography, spacing, layout, shadows, sectionPalette } from '@/theme';
 import { useMapPreferences } from '@/providers';
 import { useSectionCreation } from '@/hooks/maps/useSectionCreation';
 import { useMapCamera } from '@/hooks/maps/useMapCamera';
@@ -896,41 +896,9 @@ export const ActivityMapView = memo(function ActivityMapView({
                         'case',
                         ['==', ['get', 'id'], highlightedSectionId],
                         '#FFAB00',
-                        [
-                          'at',
-                          ['%', ['get', 'index'], 8],
-                          [
-                            'literal',
-                            [
-                              '#00BCD4',
-                              '#AB47BC',
-                              '#FF7043',
-                              '#66BB6A',
-                              '#42A5F5',
-                              '#FFCA28',
-                              '#26A69A',
-                              '#EC407A',
-                            ],
-                          ],
-                        ],
+                        ['at', ['get', 'colorIndex'], ['literal', [...sectionPalette]]],
                       ]
-                    : [
-                        'at',
-                        ['%', ['get', 'index'], 8],
-                        [
-                          'literal',
-                          [
-                            '#00BCD4',
-                            '#AB47BC',
-                            '#FF7043',
-                            '#66BB6A',
-                            '#42A5F5',
-                            '#FFCA28',
-                            '#26A69A',
-                            '#EC407A',
-                          ],
-                        ],
-                      ],
+                    : ['at', ['get', 'colorIndex'], ['literal', [...sectionPalette]]],
                   lineWidth: highlightedSectionId
                     ? ['case', ['==', ['get', 'id'], highlightedSectionId], 7, 4]
                     : 5,
@@ -1071,7 +1039,12 @@ export const ActivityMapView = memo(function ActivityMapView({
                 id="section-marker-circle"
                 style={{
                   circleRadius: ['case', ['get', 'isPR'], 8, 6] as unknown as number,
-                  circleColor: ['case', ['get', 'isPR'], '#D4AF37', '#607D8B'] as unknown as string,
+                  circleColor: [
+                    'case',
+                    ['get', 'isPR'],
+                    colors.accent,
+                    colors.gray500,
+                  ] as unknown as string,
                   circleStrokeWidth: ['case', ['get', 'isPR'], 2, 1.5] as unknown as number,
                   circleStrokeColor: '#FFFFFF',
                 }}
@@ -1104,7 +1077,7 @@ export const ActivityMapView = memo(function ActivityMapView({
                 id="highlight-fill"
                 style={{
                   circleRadius: 5,
-                  circleColor: '#00BCD4',
+                  circleColor: sectionPalette[0],
                   circleOpacity: highlightPoint ? 1 : 0,
                 }}
               />
@@ -1191,7 +1164,7 @@ export const ActivityMapView = memo(function ActivityMapView({
           !isFullscreen && (
             <View style={styles.overlayLegend}>
               <View style={styles.legendRow}>
-                <View style={[styles.legendLine, { backgroundColor: '#00BCD4' }]} />
+                <View style={[styles.legendLine, { backgroundColor: sectionPalette[0] }]} />
                 <Text style={styles.legendText}>{t('routes.legendSection')}</Text>
               </View>
               <View style={styles.legendRow}>
@@ -1321,23 +1294,7 @@ export const ActivityMapView = memo(function ActivityMapView({
             <LineLayer
               id="fs-section-overlays-line"
               style={{
-                lineColor: [
-                  'at',
-                  ['%', ['get', 'index'], 8],
-                  [
-                    'literal',
-                    [
-                      '#00BCD4',
-                      '#AB47BC',
-                      '#FF7043',
-                      '#66BB6A',
-                      '#42A5F5',
-                      '#FFCA28',
-                      '#26A69A',
-                      '#EC407A',
-                    ],
-                  ],
-                ],
+                lineColor: ['at', ['get', 'colorIndex'], ['literal', [...sectionPalette]]],
                 lineWidth: 5,
                 lineCap: 'round',
                 lineJoin: 'round',

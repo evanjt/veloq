@@ -51,6 +51,33 @@ export const brand = {
 } as const;
 
 // =============================================================================
+// SECTION OVERLAY PALETTE
+// =============================================================================
+
+// 8-color rotation for distinguishing overlapping section overlays on the map.
+// Derived from a stable hash of the section ID so colors don't shuffle when
+// the section list re-orders.
+export const sectionPalette = [
+  '#00BCD4',
+  '#AB47BC',
+  '#FF7043',
+  '#66BB6A',
+  '#42A5F5',
+  '#FFCA28',
+  '#26A69A',
+  '#EC407A',
+] as const;
+
+export function sectionPaletteIndex(sectionId: string): number {
+  let hash = 0;
+  for (let i = 0; i < sectionId.length; i++) {
+    hash = (hash << 5) - hash + sectionId.charCodeAt(i);
+    hash |= 0;
+  }
+  return Math.abs(hash) % sectionPalette.length;
+}
+
+// =============================================================================
 // LIGHT MODE COLORS
 // =============================================================================
 

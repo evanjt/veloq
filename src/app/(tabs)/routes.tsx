@@ -25,7 +25,6 @@ import {
   useUserLocation,
 } from '@/hooks';
 import { useHasStrengthData } from '@/hooks/activities/useStrengthVolume';
-import { useRouteNameGeocoding } from '@/hooks/routes/useRouteNameGeocoding';
 import { useRouteSettings, useSyncDateRange, useDebugStore, useEngineStatus } from '@/providers';
 import { logScreenRender } from '@/lib/debug/renderTimer';
 import { colors, darkColors, spacing } from '@/theme';
@@ -146,7 +145,6 @@ export default function RoutesScreen() {
 
   const routeSettings = useRouteSettings((s) => s.settings);
   const isRouteMatchingEnabled = routeSettings.enabled;
-  useRouteNameGeocoding(isRouteMatchingEnabled);
 
   const debugEnabled = useDebugStore((s) => s.enabled);
   const engineInitFailed = useEngineStatus((s) => s.initFailed);

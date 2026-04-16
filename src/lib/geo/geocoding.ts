@@ -3,7 +3,7 @@
  * Uses OpenStreetMap Nominatim for free reverse geocoding.
  *
  * Nominatim Usage Policy (https://operations.osmfoundation.org/policies/nominatim/):
- * - Max 1 request per second (enforced by caller in useRouteNameGeocoding via 1.1s delay)
+ * - Max 1 request per second (must be enforced by any caller — currently no production callers)
  * - Provide a valid User-Agent identifying the application
  * - Cache results to avoid repeat lookups (we cache in memory + AsyncStorage)
  * - No large-scale bulk geocoding

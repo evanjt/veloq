@@ -10,13 +10,6 @@ function formatDateOrDash(dateStr: string | null): string {
   return formatFullDate(dateStr);
 }
 
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
-}
-
 interface StorageBarSegment {
   label: string;
   bytes: number;
@@ -105,7 +98,7 @@ function StorageBreakdownBar({
           <View key={seg.label} style={styles.storageLegendItem}>
             <View style={[styles.storageLegendDot, { backgroundColor: seg.color }]} />
             <Text style={[styles.storageLegendText, isDark && styles.textMuted]}>
-              {seg.label} {formatBytes(seg.bytes)}
+              {seg.label} {formatFileSize(seg.bytes)}
             </Text>
           </View>
         ))}
@@ -125,7 +118,7 @@ function StorageBreakdownBar({
             <View style={[styles.deviceUsageBarFree, { backgroundColor: freeColor }]} />
           </View>
           <Text style={[styles.storageLegendText, { marginTop: 2 }, isDark && styles.textMuted]}>
-            {formatBytes(totalCacheBytes)} of {formatBytes(totalDevice)} used
+            {formatFileSize(totalCacheBytes)} of {formatFileSize(totalDevice)} used
           </Text>
         </>
       )}

@@ -12,6 +12,8 @@ export {
   zoneColors,
   colorWithOpacity,
   insightCategoryColors,
+  sectionPalette,
+  sectionPaletteIndex,
 } from './colors';
 export { spacing, layout } from './spacing';
 export { typography } from './typography';

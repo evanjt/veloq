@@ -152,29 +152,14 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
         extrapolate: 'clamp',
       });
 
-      // For now, all encounters from the engine are treated as auto-detected
-      const isDisabled = false;
-
       return (
-        <Animated.View
-          style={[
-            styles.swipeAction,
-            isDisabled ? styles.enableSwipeAction : styles.disableSwipeAction,
-            { opacity },
-          ]}
-        >
+        <Animated.View style={[styles.swipeAction, styles.disableSwipeAction, { opacity }]}>
           <RectButton
             style={styles.swipeActionButton}
-            onPress={() => handleToggleDisable(item.sectionId, isDisabled)}
+            onPress={() => handleToggleDisable(item.sectionId, false)}
           >
-            <MaterialCommunityIcons
-              name={isDisabled ? 'eye' : 'eye-off'}
-              size={24}
-              color={colors.textOnDark}
-            />
-            <Text style={styles.swipeActionText}>
-              {isDisabled ? t('common.show') : t('common.hide')}
-            </Text>
+            <MaterialCommunityIcons name="eye-off" size={24} color={colors.textOnDark} />
+            <Text style={styles.swipeActionText}>{t('common.hide')}</Text>
           </RectButton>
         </Animated.View>
       );

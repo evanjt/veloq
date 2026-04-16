@@ -11,6 +11,7 @@
 import { useMemo } from 'react';
 import type { LatLng } from '@/lib';
 import type { SectionOverlay } from '@/components/maps/ActivityMapView';
+import { sectionPaletteIndex } from '@/theme';
 
 /** Data about a single section overlay used by the rendering layer */
 export interface SectionOverlayGeoJSON {
@@ -157,7 +158,7 @@ export function useMapLayers({
       const portionFeatures: GeoJSON.Feature[] = [];
       const overlayData: SectionOverlayGeoJSON[] = [];
 
-      sectionOverlays.forEach((overlay, idx) => {
+      sectionOverlays.forEach((overlay) => {
         const validSectionPoints = overlay.sectionPolyline.filter(
           (c) =>
             Number.isFinite(c.latitude) &&
@@ -170,7 +171,12 @@ export function useMapLayers({
         if (validSectionPoints.length >= 2) {
           sectionGeo = {
             type: 'Feature',
-            properties: { id: overlay.id, type: 'section', isPR: !!overlay.isPR, index: idx },
+            properties: {
+              id: overlay.id,
+              type: 'section',
+              isPR: !!overlay.isPR,
+              colorIndex: sectionPaletteIndex(overlay.id),
+            },
             geometry: {
               type: 'LineString',
               coordinates: validSectionPoints.map((c) => [c.longitude, c.latitude]),
@@ -198,7 +204,12 @@ export function useMapLayers({
         if (validPortionPoints && validPortionPoints.length >= 2) {
           portionGeo = {
             type: 'Feature',
-            properties: { id: overlay.id, type: 'portion', isPR: !!overlay.isPR, index: idx },
+            properties: {
+              id: overlay.id,
+              type: 'portion',
+              isPR: !!overlay.isPR,
+              colorIndex: sectionPaletteIndex(overlay.id),
+            },
             geometry: {
               type: 'LineString',
               coordinates: validPortionPoints.map((c) => [c.longitude, c.latitude]),

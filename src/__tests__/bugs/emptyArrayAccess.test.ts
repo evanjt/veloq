@@ -310,15 +310,11 @@ describe('pickBestInsightForNotification with empty array (insightNotification.t
   });
 });
 
-describe('unguarded JSON.parse (useRouteNameGeocoding.ts:31)', () => {
+describe('safeJsonParse pattern for AsyncStorage values', () => {
   /**
-   * src/hooks/routes/useRouteNameGeocoding.ts line 31
-   *
-   * Code:
-   *   const geocodedRouteIds = new Set<string>(routeIdsRaw ? JSON.parse(routeIdsRaw) : []);
-   *
-   * The ternary guards against null (AsyncStorage returns null for missing keys).
-   * However corrupted data (non-JSON string) will throw SyntaxError.
+   * Documents the defensive pattern: when reading JSON from AsyncStorage,
+   * a `raw ? JSON.parse(raw) : []` guard handles null but throws on corrupt
+   * data. Use safeJsonParse with array validation instead.
    */
   // Fixed pattern uses safeJsonParse with array validation
   function safeJsonParse(json: string | null, fallback: string[]): string[] {
