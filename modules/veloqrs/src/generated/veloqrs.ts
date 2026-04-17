@@ -10477,6 +10477,17 @@ export interface StrengthManagerInterface {
     activityIds: Array<string>,
   ) /*throws*/ : Array<string>;
   /**
+   * Insert pre-parsed exercise sets for an activity without touching the
+   * network or FIT-file pipeline. Demo mode uses this to seed synthetic
+   * WeightTraining activities; the production path still goes through
+   * fetch_and_parse_exercise_sets. Also marks the activity as FIT-processed
+   * so the normal code path won't attempt to re-download.
+   */
+  bulkInsertExerciseSets(
+    activityId: string,
+    sets: Array<FfiExerciseSet>,
+  ) /*throws*/ : void;
+  /**
    * Download FIT file, parse exercise sets, store in SQLite, return results.
    * The FIT binary is held in memory only — not persisted to disk.
    */
@@ -10583,6 +10594,33 @@ export class StrengthManager
         },
         /*liftString:*/ FfiConverterString.lift,
       ),
+    );
+  }
+
+  /**
+   * Insert pre-parsed exercise sets for an activity without touching the
+   * network or FIT-file pipeline. Demo mode uses this to seed synthetic
+   * WeightTraining activities; the production path still goes through
+   * fetch_and_parse_exercise_sets. Also marks the activity as FIT-processed
+   * so the normal code path won't attempt to re-download.
+   */
+  public bulkInsertExerciseSets(
+    activityId: string,
+    sets: Array<FfiExerciseSet>,
+  ): void /*throws*/ {
+    uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+        FfiConverterTypeVeloqError,
+      ),
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_veloqrs_fn_method_strengthmanager_bulk_insert_exercise_sets(
+          uniffiTypeStrengthManagerObjectFactory.clonePointer(this),
+          FfiConverterString.lower(activityId),
+          FfiConverterArrayTypeFfiExerciseSet.lower(sets),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
     );
   }
 
@@ -12667,6 +12705,14 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_strengthmanager_batch_fetch_exercise_sets",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_strengthmanager_bulk_insert_exercise_sets() !==
+    41951
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_strengthmanager_bulk_insert_exercise_sets",
     );
   }
   if (

@@ -336,6 +336,10 @@ export function useHasStrengthData(): boolean {
   return useMemo(() => {
     const engine = getRouteEngine();
     if (!engine || typeof engine.hasStrengthData !== 'function') return false;
+    // Seed demo fixtures before the first hasStrengthData check, otherwise
+    // the Strength tab never appears (and useStrengthVolume — which also
+    // seeds — never mounts).
+    ensureDemoStrengthSeeded();
     try {
       return engine.hasStrengthData();
     } catch {

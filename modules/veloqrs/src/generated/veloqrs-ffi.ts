@@ -716,6 +716,12 @@ interface NativeModuleInterface {
     activityIds: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_strengthmanager_bulk_insert_exercise_sets(
+    ptr: bigint,
+    activityId: Uint8Array,
+    sets: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
   ubrn_uniffi_veloqrs_fn_method_strengthmanager_fetch_and_parse_exercise_sets(
     ptr: bigint,
     authHeader: Uint8Array,
@@ -1008,6 +1014,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_settingsmanager_set_setting(): number;
   ubrn_uniffi_veloqrs_checksum_method_settingsmanager_set_sport_settings(): number;
   ubrn_uniffi_veloqrs_checksum_method_strengthmanager_batch_fetch_exercise_sets(): number;
+  ubrn_uniffi_veloqrs_checksum_method_strengthmanager_bulk_insert_exercise_sets(): number;
   ubrn_uniffi_veloqrs_checksum_method_strengthmanager_fetch_and_parse_exercise_sets(): number;
   ubrn_uniffi_veloqrs_checksum_method_strengthmanager_get_activities_for_exercise(): number;
   ubrn_uniffi_veloqrs_checksum_method_strengthmanager_get_exercise_sets(): number;

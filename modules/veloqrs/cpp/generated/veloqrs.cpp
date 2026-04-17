@@ -424,6 +424,9 @@ void *uniffi_veloqrs_fn_constructor_strengthmanager_new(
 RustBuffer uniffi_veloqrs_fn_method_strengthmanager_batch_fetch_exercise_sets(
     void *ptr, RustBuffer auth_header, RustBuffer activity_ids,
     RustCallStatus *uniffi_out_err);
+void uniffi_veloqrs_fn_method_strengthmanager_bulk_insert_exercise_sets(
+    void *ptr, RustBuffer activity_id, RustBuffer sets,
+    RustCallStatus *uniffi_out_err);
 RustBuffer
 uniffi_veloqrs_fn_method_strengthmanager_fetch_and_parse_exercise_sets(
     void *ptr, RustBuffer auth_header, RustBuffer activity_id,
@@ -775,6 +778,8 @@ uint16_t uniffi_veloqrs_checksum_method_settingsmanager_set_setting();
 uint16_t uniffi_veloqrs_checksum_method_settingsmanager_set_sport_settings();
 uint16_t
 uniffi_veloqrs_checksum_method_strengthmanager_batch_fetch_exercise_sets();
+uint16_t
+uniffi_veloqrs_checksum_method_strengthmanager_bulk_insert_exercise_sets();
 uint16_t
 uniffi_veloqrs_checksum_method_strengthmanager_fetch_and_parse_exercise_sets();
 uint16_t
@@ -3852,6 +3857,19 @@ NativeVeloqrs::NativeVeloqrs(
             ->cpp_uniffi_veloqrs_fn_method_strengthmanager_batch_fetch_exercise_sets(
                 rt, thisVal, args, count);
       });
+  props["ubrn_uniffi_veloqrs_fn_method_strengthmanager_bulk_insert_exercise_"
+        "sets"] = jsi::Function::createFromHostFunction(
+      rt,
+      jsi::PropNameID::forAscii(rt,
+                                "ubrn_uniffi_veloqrs_fn_method_strengthmanager_"
+                                "bulk_insert_exercise_sets"),
+      3,
+      [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+             const jsi::Value *args, size_t count) -> jsi::Value {
+        return this
+            ->cpp_uniffi_veloqrs_fn_method_strengthmanager_bulk_insert_exercise_sets(
+                rt, thisVal, args, count);
+      });
   props["ubrn_uniffi_veloqrs_fn_method_strengthmanager_fetch_and_parse_"
         "exercise_sets"] = jsi::Function::createFromHostFunction(
       rt,
@@ -5678,6 +5696,19 @@ NativeVeloqrs::NativeVeloqrs(
              const jsi::Value *args, size_t count) -> jsi::Value {
         return this
             ->cpp_uniffi_veloqrs_checksum_method_strengthmanager_batch_fetch_exercise_sets(
+                rt, thisVal, args, count);
+      });
+  props["ubrn_uniffi_veloqrs_checksum_method_strengthmanager_bulk_insert_"
+        "exercise_sets"] = jsi::Function::createFromHostFunction(
+      rt,
+      jsi::PropNameID::forAscii(rt,
+                                "ubrn_uniffi_veloqrs_checksum_method_"
+                                "strengthmanager_bulk_insert_exercise_sets"),
+      0,
+      [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+             const jsi::Value *args, size_t count) -> jsi::Value {
+        return this
+            ->cpp_uniffi_veloqrs_checksum_method_strengthmanager_bulk_insert_exercise_sets(
                 rt, thisVal, args, count);
       });
   props["ubrn_uniffi_veloqrs_checksum_method_strengthmanager_fetch_and_parse_"
@@ -8527,6 +8558,22 @@ jsi::Value NativeVeloqrs::
   return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
 }
 jsi::Value NativeVeloqrs::
+    cpp_uniffi_veloqrs_fn_method_strengthmanager_bulk_insert_exercise_sets(
+        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+        size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  uniffi_veloqrs_fn_method_strengthmanager_bulk_insert_exercise_sets(
+      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
+      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[2]),
+      &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return jsi::Value::undefined();
+}
+jsi::Value NativeVeloqrs::
     cpp_uniffi_veloqrs_fn_method_strengthmanager_fetch_and_parse_exercise_sets(
         jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
         size_t count) {
@@ -10010,6 +10057,15 @@ jsi::Value NativeVeloqrs::
         size_t count) {
   auto value =
       uniffi_veloqrs_checksum_method_strengthmanager_batch_fetch_exercise_sets();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeVeloqrs::
+    cpp_uniffi_veloqrs_checksum_method_strengthmanager_bulk_insert_exercise_sets(
+        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+        size_t count) {
+  auto value =
+      uniffi_veloqrs_checksum_method_strengthmanager_bulk_insert_exercise_sets();
 
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
