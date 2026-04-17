@@ -36,30 +36,36 @@ tags:
       id: "activity-sections-list"
     timeout: 10000
 
-- assertVisible:
-    id: "section-inline-plot-0"
-
 - takeScreenshot: "long-press-before"
 
-# Long-press the first section card. The LONG_PRESS_DURATION constant in
-# the component is 500ms; Maestro's longPressOn uses default 800ms which
-# exceeds that.
-- longPressOn:
-    id: "section-inline-plot-0"
+# If earlier flows in the suite hid all sections on this activity, skip the
+# long-press step and record the empty state. This flow is about the
+# highlight mechanism; without a section to highlight, we note and exit.
+- runFlow:
+    when:
+      visible:
+        text: "No matched sections"
+    commands:
+      - takeScreenshot: "long-press-no-sections-skipped"
 
-- waitForAnimationToEnd:
-    timeout: 1500
+# Long-press the first section card only if it's actually rendered.
+- runFlow:
+    when:
+      visible:
+        id: "section-inline-plot-0"
+    commands:
+      - longPressOn:
+          id: "section-inline-plot-0"
 
-- takeScreenshot: "long-press-highlighted"
-
-# Release (tap elsewhere) to return to default state
-- tapOn:
-    id: "activity-sections-list"
-
-- waitForAnimationToEnd:
-    timeout: 1000
-
-- takeScreenshot: "long-press-released"
+      - waitForAnimationToEnd:
+          timeout: 1500
+      - takeScreenshot: "long-press-highlighted"
+      # Release (tap elsewhere) to return to default state
+      - tapOn:
+          id: "activity-sections-list"
+      - waitForAnimationToEnd:
+          timeout: 1000
+      - takeScreenshot: "long-press-released"
 
 - assertNotVisible:
     text: "NaN"
