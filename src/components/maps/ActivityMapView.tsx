@@ -1267,6 +1267,7 @@ export const ActivityMapView = memo(function ActivityMapView({
           {/* Fullscreen expand */}
           {enableFullscreen && (
             <TouchableOpacity
+              testID="activity-map-fullscreen"
               style={[styles.controlButton, isDark && styles.controlButtonDark]}
               onPressIn={openFullscreen}
               activeOpacity={0.6}

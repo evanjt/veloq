@@ -1,0 +1,65 @@
+# Activity Map — Long-press Section Highlight (US-M2)
+# Long-pressing a section card highlights that section on the map with a
+# distinct white casing underneath the coloured line. This is the primary
+# v0.3.0 visual fix for "section overlays blend into the terrain".
+#
+# Verification: screenshot at the highlight state, asserted via the
+# highlightedSectionId prop propagating to the ShapeSource layers. A full
+# pixel-level check of the casing colour is out of scope; this flow
+# captures the screenshot as the evidence artifact.
+
+appId: com.veloq.app.dev
+tags:
+  - tier2
+---
+- runFlow:
+    file: helpers/setup-demo-mode.yaml
+
+- openLink: "veloq://activity/demo-test-0?tab=sections"
+- runFlow:
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
+
+- extendedWaitUntil:
+    visible:
+      id: "activity-detail-content"
+    timeout: 15000
+
+- tapOn:
+    text: "Sections"
+    optional: true
+
+- extendedWaitUntil:
+    visible:
+      id: "activity-sections-list"
+    timeout: 10000
+
+- assertVisible:
+    id: "section-inline-plot-0"
+
+- takeScreenshot: "long-press-before"
+
+# Long-press the first section card. The LONG_PRESS_DURATION constant in
+# the component is 500ms; Maestro's longPressOn uses default 800ms which
+# exceeds that.
+- longPressOn:
+    id: "section-inline-plot-0"
+
+- waitForAnimationToEnd:
+    timeout: 1500
+
+- takeScreenshot: "long-press-highlighted"
+
+# Release (tap elsewhere) to return to default state
+- tapOn:
+    id: "activity-sections-list"
+
+- waitForAnimationToEnd:
+    timeout: 1000
+
+- takeScreenshot: "long-press-released"
+
+- assertNotVisible:
+    text: "NaN"

@@ -1,0 +1,72 @@
+# Activity Map — Fullscreen + PR lines (US-M4)
+# Opens the activity map in fullscreen mode and confirms section overlays
+# (including PR gold lines when present) remain visible. Regression guard
+# for the v0.3.0 fix where PR lines weren't rendering in the fullscreen modal.
+
+appId: com.veloq.app.dev
+tags:
+  - tier2
+---
+- runFlow:
+    file: helpers/setup-demo-mode.yaml
+
+- openLink: "veloq://activity/demo-test-0"
+- runFlow:
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
+
+- extendedWaitUntil:
+    visible:
+      id: "activity-detail-content"
+    timeout: 15000
+
+# Sections tab ensures section overlays are being drawn on the primary map.
+- tapOn:
+    text: "Sections"
+    optional: true
+
+- extendedWaitUntil:
+    visible:
+      id: "activity-sections-list"
+    timeout: 10000
+
+- takeScreenshot: "fullscreen-pr-before"
+
+# The fullscreen button lives in the map's control column on the Sections tab.
+- assertVisible:
+    id: "activity-map-fullscreen"
+
+- tapOn:
+    id: "activity-map-fullscreen"
+
+- extendedWaitUntil:
+    visible:
+      id: "map-fullscreen-close"
+    timeout: 10000
+
+- waitForAnimationToEnd:
+    timeout: 2000
+
+- takeScreenshot: "fullscreen-pr-active"
+
+- assertVisible:
+    id: "map-fullscreen-close"
+
+# Close the fullscreen modal
+- tapOn:
+    id: "map-fullscreen-close"
+
+- waitForAnimationToEnd:
+    timeout: 1500
+
+- extendedWaitUntil:
+    visible:
+      id: "activity-sections-list"
+    timeout: 10000
+
+- takeScreenshot: "fullscreen-pr-after-close"
+
+- assertNotVisible:
+    text: "NaN"

@@ -310,6 +310,7 @@ export function BaseMapView({
       {/* Close button */}
       {onClose && (
         <TouchableOpacity
+          testID="map-fullscreen-close"
           style={[
             styles.button,
             styles.closeButton,
