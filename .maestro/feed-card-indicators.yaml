@@ -1,4 +1,4 @@
-# Feed Card Indicators (v0.3.0) — hardened
+# Feed Card Indicators (v0.3.0)
 # US-F1: Feed cards show section trend pills + route trend arrows.
 # US-F2: PR count on the card matches the number of trophy icons inside the
 #        activity detail Sections tab (dedup regression guard — was counting

@@ -1,4 +1,4 @@
-# Local Backup — Backup Now (hardened)
+# Local Backup — Backup Now
 # US-X2: "Backup Now" succeeds with local backend (writes .veloqdb, updates
 #        "Last backup" timestamp, shows success message)
 # US-X3: "not encrypted" warning is always present
