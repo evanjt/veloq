@@ -4,6 +4,8 @@ import { getRouteEngine } from '@/lib/native/routeEngine';
 import { CACHE } from '@/lib/utils/constants';
 import { queryKeys } from '@/lib/queryKeys';
 import { buildStrengthProgression } from '@/lib/strength/analysis';
+import { useAuthStore } from '@/providers';
+import { demoStrengthSets } from '@/data/demo/strengthSets';
 import type {
   StrengthSummary,
   StrengthPeriod,
@@ -11,6 +13,30 @@ import type {
   ExerciseActivity,
   StrengthProgression,
 } from '@/types';
+
+/**
+ * Seed synthetic strength sets for demo activities once per session. The
+ * Strength tab queries aggregate summaries directly (not per-activity) so
+ * the demo-mode seed path in useExerciseSets doesn't cover this entry
+ * point. Idempotent — bulk_insert_exercise_sets uses INSERT OR REPLACE.
+ */
+let demoStrengthSeedAttempted = false;
+function ensureDemoStrengthSeeded(): void {
+  if (demoStrengthSeedAttempted) return;
+  if (!useAuthStore.getState().isDemoMode) return;
+  const engine = getRouteEngine();
+  if (!engine || typeof engine.bulkInsertExerciseSets !== 'function') return;
+  demoStrengthSeedAttempted = true;
+  try {
+    for (const [activityId, sets] of Object.entries(demoStrengthSets)) {
+      if (engine.getExerciseSets(activityId).length === 0) {
+        engine.bulkInsertExerciseSets(activityId, sets);
+      }
+    }
+  } catch (err) {
+    console.warn('[StrengthVolume] demo seed failed:', err);
+  }
+}
 
 /**
  * Compute start/end timestamps for a period, rounded to start-of-day
@@ -106,6 +132,7 @@ export function useStrengthVolume(period: StrengthPeriod) {
   return useQuery<StrengthSummary>({
     queryKey: queryKeys.strength.volume(period),
     queryFn: () => {
+      ensureDemoStrengthSeeded();
       const { startTs, endTs } = getTimestampRange(period);
       const engine = getRouteEngine();
       if (!engine || typeof engine.getStrengthSummary !== 'function') {
