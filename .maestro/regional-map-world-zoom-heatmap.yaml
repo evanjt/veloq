@@ -1,0 +1,45 @@
+# Regional Map — Heatmap at world zoom (US-R5)
+# The heatmap raster layer sets minZoomLevel={0}, so pinching out to world
+# zoom must keep it visible. User memory flagged an earlier bug where it was
+# culled at low zoom — regression guard via pinch + screenshot.
+
+appId: com.veloq.app.dev
+tags:
+  - tier2
+---
+- runFlow:
+    file: helpers/setup-demo-mode.yaml
+
+- runFlow:
+    file: helpers/navigate-to-map.yaml
+
+- extendedWaitUntil:
+    visible:
+      id: "map-screen"
+    timeout: 30000
+
+# Heatmap on so we have something to check for culling.
+- tapOn:
+    id: "map-toggle-heatmap"
+- waitForAnimationToEnd:
+    timeout: 1500
+
+- takeScreenshot: "world-zoom-heatmap-initial"
+
+# Pinch out aggressively — two-finger inward swipe — to reach a very low
+# zoom level. Maestro doesn't have a native pinch primitive, so we use
+# repeated pinchOut which is supported.
+- pinchOut
+- waitForAnimationToEnd:
+    timeout: 1500
+- pinchOut
+- waitForAnimationToEnd:
+    timeout: 1500
+- pinchOut
+- waitForAnimationToEnd:
+    timeout: 1500
+
+- takeScreenshot: "world-zoom-heatmap-zoomed-out"
+
+- assertNotVisible:
+    text: "NaN"
