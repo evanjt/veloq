@@ -1471,6 +1471,17 @@ class RouteEngineClient {
     );
   }
 
+  /**
+   * Insert pre-parsed exercise sets for an activity without touching the
+   * network. Demo-mode only — production uses fetchAndParseExerciseSets.
+   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  bulkInsertExerciseSets(activityId: string, sets: any[]): void {
+    return this.timed('bulkInsertExerciseSets', () =>
+      this.engine.strength().bulkInsertExerciseSets(activityId, sets),
+    );
+  }
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   getMuscleGroups(activityId: string): any[] {
     return this.timed('getMuscleGroups', () =>

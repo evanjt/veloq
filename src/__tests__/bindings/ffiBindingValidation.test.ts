@@ -187,6 +187,29 @@ describe('FFI Binding Validation', () => {
     });
   });
 
+  describe('Strength FFI contract (US-T1/T2)', () => {
+    // Guards that the demo-mode insertion path stays wired end-to-end.
+    // Both sides — the Rust method and the TS client method — must exist so
+    // demo fixtures can seed WeightTraining activities without network calls.
+    const STRENGTH_RS = path.resolve(
+      __dirname,
+      '../../../modules/veloqrs/rust/veloqrs/src/objects/strength.rs'
+    );
+    const ROUTE_ENGINE_CLIENT_TS = path.join(VELOQRS_SRC_DIR, 'RouteEngineClient.ts');
+
+    it('Rust StrengthManager exposes bulk_insert_exercise_sets', () => {
+      const source = fs.readFileSync(STRENGTH_RS, 'utf-8');
+      expect(source).toMatch(/fn bulk_insert_exercise_sets\s*\(/);
+      expect(source).toMatch(/Vec<FfiExerciseSet>/);
+    });
+
+    it('TS client wraps bulkInsertExerciseSets', () => {
+      const source = fs.readFileSync(ROUTE_ENGINE_CLIENT_TS, 'utf-8');
+      expect(source).toMatch(/bulkInsertExerciseSets\s*\(/);
+      expect(source).toContain('strength().bulkInsertExerciseSets');
+    });
+  });
+
   describe('Binding alignment validation', () => {
     it('should not have function imports that do not exist in Rust exports', () => {
       const tsImports = extractGeneratedImports();

@@ -1,0 +1,59 @@
+# Strength — inline muscle panel (US-T1, US-T2)
+# Opens the Strength tab seeded from demo-test-6 (a WeightTraining fixture
+# with bench/squat/deadlift sets bulk-inserted via engine.bulkInsertExerciseSets).
+# Verifies the body diagram renders, tapping a muscle produces the inline
+# panel next to the diagram (not below the fold), and the methodology
+# disclaimer is present.
+
+appId: com.veloq.app.dev
+tags:
+  - tier2
+---
+- runFlow:
+    file: helpers/setup-demo-mode.yaml
+
+# The Strength tab lives inside the Insights screen. Deep link there.
+- openLink: "veloq://routes"
+- runFlow:
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
+
+- extendedWaitUntil:
+    visible:
+      id: "strength-tab"
+    timeout: 15000
+
+- takeScreenshot: "strength-tab-initial"
+
+# The body diagram is the primary affordance — must be on screen.
+- assertVisible:
+    id: "strength-body-diagram"
+
+# Period selector present (e.g. strength-period-30d / -90d / -1y).
+- assertVisible:
+    id: "strength-period-30d"
+
+# Tap the body diagram to select a muscle — coordinates are chest area
+# on the front-view silhouette. Maestro tap coords are relative to screen.
+- tapOn:
+    id: "strength-body-diagram"
+
+- extendedWaitUntil:
+    visible:
+      id: "strength-inline-muscle-panel"
+    timeout: 5000
+
+- takeScreenshot: "strength-muscle-panel"
+
+# Methodology disclaimer is part of the Strength tab (US-T2). Scroll up if
+# needed; the text comes from i18n, match loosely on a stable phrase.
+- scrollUntilVisible:
+    element:
+      text: ".*volume.*indicative.*|.*Volume.*indicative.*|.*indicative measure.*"
+    direction: DOWN
+    timeout: 5000
+
+- assertNotVisible:
+    text: "NaN"

@@ -483,6 +483,45 @@ impl StrengthManager {
         })?
     }
 
+    /// Insert pre-parsed exercise sets for an activity without touching the
+    /// network or FIT-file pipeline. Demo mode uses this to seed synthetic
+    /// WeightTraining activities; the production path still goes through
+    /// fetch_and_parse_exercise_sets. Also marks the activity as FIT-processed
+    /// so the normal code path won't attempt to re-download.
+    fn bulk_insert_exercise_sets(
+        &self,
+        activity_id: String,
+        sets: Vec<FfiExerciseSet>,
+    ) -> Result<(), VeloqError> {
+        let internal: Vec<fit::FitExerciseSet> = sets
+            .iter()
+            .map(|s| fit::FitExerciseSet {
+                set_order: s.set_order,
+                exercise_category: s.exercise_category,
+                exercise_name: s.exercise_name,
+                set_type: s.set_type,
+                repetitions: s.repetitions,
+                weight_kg: s.weight_kg,
+                duration_secs: s.duration_secs,
+                start_time: None,
+            })
+            .collect();
+        let has_sets = !internal.is_empty();
+        with_engine(|e| -> Result<(), VeloqError> {
+            if has_sets {
+                e.store_exercise_sets(&activity_id, &internal)
+                    .map_err(|err| VeloqError::Database {
+                        msg: format!("{}", err),
+                    })?;
+            }
+            e.mark_fit_processed(&activity_id, has_sets)
+                .map_err(|err| VeloqError::Database {
+                    msg: format!("{}", err),
+                })?;
+            Ok(())
+        })?
+    }
+
     /// Check if there are any strength activities with exercise data.
     fn has_strength_data(&self) -> Result<bool, VeloqError> {
         with_engine(|e| {

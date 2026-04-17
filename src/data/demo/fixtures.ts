@@ -1244,6 +1244,51 @@ function generateStableTestActivities(): (ApiActivity & { _routeId: string | nul
       country: 'Brazil',
       _routeId: 'route-rio-run-1-outback',
     },
+    // demo-test-6: 7 days ago strength session. No GPS — WeightTraining
+    // activities don't have a track. Exercise sets are seeded via
+    // engine.bulkInsertExerciseSets() from src/data/demo/strengthSets.ts the
+    // first time the Strength tab is viewed.
+    {
+      id: 'demo-test-6',
+      start_date_local: (() => {
+        const d = new Date(referenceDate);
+        d.setDate(d.getDate() - 7);
+        d.setHours(18, 0, 0, 0);
+        return formatLocalISOString(d);
+      })(),
+      type: 'WeightTraining',
+      name: 'Strength Session',
+      description: 'Bench / squat / deadlift.',
+      distance: 0,
+      moving_time: 3600,
+      elapsed_time: 4200,
+      total_elevation_gain: 0,
+      total_elevation_loss: 0,
+      average_speed: 0,
+      max_speed: 0,
+      average_heartrate: 118,
+      max_heartrate: 148,
+      average_cadence: null,
+      average_temp: 20,
+      calories: 320,
+      device_name: 'Demo Device',
+      trainer: false,
+      commute: false,
+      average_watts: null,
+      weighted_average_watts: null,
+      icu_training_load: 55,
+      icu_intensity: null,
+      icu_ftp: 250,
+      icu_atl: 40,
+      icu_ctl: 38,
+      icu_hr_zones: [130, 145, 160, 170, 180, 190],
+      icu_power_zones: [125, 170, 210, 250, 290, 350],
+      icu_zone_times: null,
+      stream_types: ['time', 'heartrate'],
+      locality: 'Valais',
+      country: 'Switzerland',
+      _routeId: null,
+    },
   ];
 
   return stableActivities;
