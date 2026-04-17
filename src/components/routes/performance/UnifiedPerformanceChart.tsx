@@ -12,8 +12,6 @@ import {
   TouchableOpacity,
   Pressable,
   LayoutAnimation,
-  Platform,
-  UIManager,
   Dimensions,
   PixelRatio,
   ScrollView,
@@ -53,11 +51,6 @@ const MIN_POINT_SPACING = 50; // Minimum pixels between points
 const BASE_CHART_WIDTH = SCREEN_WIDTH - 32; // Default chart width
 // Metal/GPU texture limit is 8192px — Skia canvas backing texture is scaled by pixelRatio
 const MAX_CHART_WIDTH = Math.floor(8192 / PixelRatio.get()) - 1;
-
-// Enable LayoutAnimation on Android
-if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
-}
 
 const LANE_HEIGHT = 80;
 

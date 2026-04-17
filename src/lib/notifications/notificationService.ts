@@ -12,23 +12,18 @@ export function initializeNotifications(): void {
   // Configure how notifications appear when app is in foreground
   Notifications.setNotificationHandler({
     handleNotification: async (notification) => {
-      // Sync progress notifications: show in shade/notification center, no popup banner.
-      // Android: shouldShowAlert must be true to post to NotificationManager at all;
-      //          the LOW-importance channel prevents heads-up display.
-      // iOS 14+: shouldShowBanner=false suppresses the drop-down banner,
-      //          shouldShowList=true keeps it in notification center.
+      // Sync progress: notification center only, no popup banner.
+      // Android LOW-importance channel prevents heads-up display; iOS
+      // shouldShowBanner=false suppresses the drop-down.
       if (notification.request.identifier === SYNC_NOTIFICATION_ID) {
         return {
-          shouldShowAlert: true,
           shouldShowBanner: false,
           shouldShowList: true,
           shouldPlaySound: false,
           shouldSetBadge: false,
         };
       }
-      // Insight notifications: show as in-app alert
       return {
-        shouldShowAlert: true,
         shouldShowBanner: true,
         shouldShowList: true,
         shouldPlaySound: false,

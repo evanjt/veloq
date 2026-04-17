@@ -12,7 +12,6 @@ import {
   Animated,
   LayoutAnimation,
   Platform,
-  UIManager,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -20,11 +19,6 @@ import { useTranslation } from 'react-i18next';
 import { colors, typography, spacing, layout, shadows } from '@/theme';
 import { formatDistance } from '@/lib';
 import { useMetricSystem } from '@/hooks';
-
-// Enable LayoutAnimation on Android
-if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
-}
 
 export type CreationState =
   | 'idle'

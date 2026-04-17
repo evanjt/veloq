@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { View, StyleSheet, LayoutAnimation, Platform, UIManager, Pressable } from 'react-native';
+import { View, StyleSheet, LayoutAnimation, Pressable } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '@/hooks';
@@ -13,10 +13,6 @@ import { RecentEffortsList } from './RecentEffortsList';
 import { formatDuration } from '@/lib';
 import { brand, colors, darkColors, spacing, shadows, opacity } from '@/theme';
 import type { Insight, SupportingSection } from '@/types';
-
-if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
-}
 
 function getTrendIcon(trend?: number): string {
   if (trend == null) return 'minus';
