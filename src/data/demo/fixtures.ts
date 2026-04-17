@@ -777,6 +777,9 @@ function generateActivities(): ApiActivity[] {
   // Add 20 short runs on the same route to test section detection grouping.
   // All use identical GPS coordinates so section detection groups them together.
   // Start from 14 days ago to keep the most recent week free for Swiss showcase activities.
+  // Times are monotonically increasing with age so demo-stress-0 (the newest,
+  // i=0) is the fastest, giving a deterministic PR for feed-card trophy /
+  // section-PR-line assertions.
   const stressRoute = templates[5]; // route-rio-run-1 (3km short run)
   const stressLocation = getRouteLocation(stressRoute.route!);
   for (let i = 0; i < 20; i++) {
@@ -792,9 +795,9 @@ function generateActivities(): ApiActivity[] {
       type: stressRoute.type,
       name: `Morning Run #${i + 1}`,
       description: null,
-      distance: stressRoute.dist + (i % 10) * 50,
-      moving_time: stressRoute.time + (i % 10) * 20,
-      elapsed_time: Math.round(stressRoute.time * 1.05) + (i % 10) * 20,
+      distance: stressRoute.dist,
+      moving_time: stressRoute.time + i * 3,
+      elapsed_time: Math.round(stressRoute.time * 1.05) + i * 3,
       total_elevation_gain: stressRoute.elev,
       total_elevation_loss: Math.round(stressRoute.elev * 0.95),
       average_speed: stressRoute.speed * (0.95 + (i % 5) * 0.02),
@@ -1188,6 +1191,58 @@ function generateStableTestActivities(): (ApiActivity & { _routeId: string | nul
       locality: 'La Orotava',
       country: 'Spain',
       _routeId: 'route-la-orotava-swim-1',
+    },
+    // demo-test-5: 6 days ago out-and-back run on the rio route.
+    // Section detection sees the shared polyline traversed forward then
+    // reverse, producing the two (section, direction) pairs US-S1 asserts.
+    {
+      id: 'demo-test-5',
+      start_date_local: (() => {
+        const d = new Date(referenceDate);
+        d.setDate(d.getDate() - 6);
+        d.setHours(6, 45, 0, 0);
+        return formatLocalISOString(d);
+      })(),
+      type: 'Run',
+      name: 'Out and Back Beach Run',
+      description: null,
+      distance: 6000,
+      moving_time: 1920,
+      elapsed_time: 2040,
+      total_elevation_gain: 85,
+      total_elevation_loss: 85,
+      average_speed: 3.13,
+      max_speed: 4.2,
+      average_heartrate: 140,
+      max_heartrate: 158,
+      average_cadence: 174,
+      average_temp: 22,
+      calories: 380,
+      device_name: 'Demo Device',
+      trainer: false,
+      commute: false,
+      average_watts: null,
+      weighted_average_watts: null,
+      icu_training_load: 48,
+      icu_intensity: 68,
+      icu_ftp: 250,
+      icu_atl: 42,
+      icu_ctl: 38,
+      icu_hr_zones: [130, 145, 160, 170, 180, 190],
+      icu_power_zones: [125, 170, 210, 250, 290, 350],
+      icu_zone_times: null,
+      stream_types: [
+        'time',
+        'latlng',
+        'heartrate',
+        'altitude',
+        'cadence',
+        'velocity_smooth',
+        'grade_smooth',
+      ],
+      locality: 'Rio de Janeiro',
+      country: 'Brazil',
+      _routeId: 'route-rio-run-1-outback',
     },
   ];
 
