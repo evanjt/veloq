@@ -325,6 +325,10 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
     if (!show3D || !terrainCameraResult) return;
     const hasPriority = isPrioritySnapshot(activity.id);
     if (index >= 10 && !hasPriority) return; // Don't queue snapshots for far-off cards
+    // The priority flag exists solely to bypass the index gate above. Clear it
+    // now so a subsequent early return (e.g. snapshotRef not ready on first
+    // render) doesn't leave the flag stuck in the priority set.
+    if (hasPriority) clearPrioritySnapshot(activity.id);
 
     // If dirty (style/3D changed in detail view), delete old preview first
     if (isTerrainPreviewDirty(activity.id)) {
@@ -334,7 +338,6 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
       // Fall through to request new snapshot below
     } else if (hasTerrainPreview(activity.id, mapStyle)) {
       setTerrainImageUri(getTerrainPreviewUri(activity.id, mapStyle));
-      if (hasPriority) clearPrioritySnapshot(activity.id);
       return;
     }
 
@@ -352,7 +355,6 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
       mapStyle,
       routeColor: activityColor,
     });
-    if (hasPriority) clearPrioritySnapshot(activity.id);
   }, [
     screenFocused,
     show3D,

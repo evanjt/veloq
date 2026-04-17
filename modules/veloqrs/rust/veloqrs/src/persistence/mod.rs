@@ -601,10 +601,10 @@ impl PersistentRouteEngine {
         let source_metrics = self.activity_metrics.get(source_id).cloned();
 
         // Get section_activities entries for source
-        let section_entries: Vec<(String, String, i32, i32, f64)> = self
+        let section_entries: Vec<(String, String, i32, i32, f64, Option<f64>, Option<f64>)> = self
             .db
             .prepare(
-                "SELECT section_id, direction, start_index, end_index, distance_meters
+                "SELECT section_id, direction, start_index, end_index, distance_meters, lap_time, lap_pace
                  FROM section_activities WHERE activity_id = ?",
             )
             .and_then(|mut stmt| {
@@ -615,6 +615,8 @@ impl PersistentRouteEngine {
                         row.get::<_, i32>(2)?,
                         row.get::<_, i32>(3)?,
                         row.get::<_, f64>(4)?,
+                        row.get::<_, Option<f64>>(5)?,
+                        row.get::<_, Option<f64>>(6)?,
                     ))
                 })
                 .map(|rows| rows.filter_map(|r| r.ok()).collect())
@@ -677,13 +679,24 @@ impl PersistentRouteEngine {
                     .insert(clone_id.clone(), clone_metrics);
             }
 
-            // Copy section_activities entries
-            for (section_id, direction, start_idx, end_idx, distance) in &section_entries {
+            // Copy section_activities entries including cached performance
+            for (section_id, direction, start_idx, end_idx, distance, lap_time, lap_pace) in
+                &section_entries
+            {
                 let _ = self.db.execute(
                     "INSERT OR IGNORE INTO section_activities
                      (section_id, activity_id, direction, start_index, end_index, distance_meters, lap_time, lap_pace)
-                     VALUES (?, ?, ?, ?, ?, ?, NULL, NULL)",
-                    rusqlite::params![section_id, clone_id, direction, start_idx, end_idx, distance],
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                    rusqlite::params![
+                        section_id,
+                        clone_id,
+                        direction,
+                        start_idx,
+                        end_idx,
+                        distance,
+                        lap_time,
+                        lap_pace
+                    ],
                 );
             }
 

@@ -8,10 +8,14 @@ import { Tabs } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { PERF_DEBUG } from '@/lib/debug/renderTimer';
 import { useTilePrefetch } from '@/hooks/maps/useTilePrefetch';
+import { useResolvedColorScheme } from '@/providers/ThemeProvider';
 
 export default function TabsLayout() {
   const { t } = useTranslation();
   useTilePrefetch();
+  // Remount frozen tabs on theme flip so PaperProvider's light/dark theme
+  // actually propagates to screens that enableFreeze(true) has kept offscreen.
+  const colorScheme = useResolvedColorScheme();
   // Performance: Track render count
   const renderCount = useRef(0);
   renderCount.current++;
@@ -21,6 +25,7 @@ export default function TabsLayout() {
 
   return (
     <Tabs
+      key={colorScheme}
       screenOptions={{
         headerShown: false,
         // Hide the native tab bar - BottomTabBar provides navigation UI
