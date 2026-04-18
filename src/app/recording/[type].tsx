@@ -8,8 +8,6 @@ import {
   Keyboard,
   Alert,
   Linking,
-  Modal,
-  FlatList,
   Animated,
 } from 'react-native';
 import { Text } from 'react-native-paper';
@@ -22,7 +20,7 @@ import { useTheme, useMetricSystem } from '@/hooks';
 import { colors, darkColors, spacing, layout, typography, brand } from '@/theme';
 import { navigateTo } from '@/lib';
 import { TAB_BAR_SAFE_PADDING } from '@/components/ui';
-import { getRecordingMode, ACTIVITY_CATEGORIES } from '@/lib/utils/recordingModes';
+import { getRecordingMode } from '@/lib/utils/recordingModes';
 import { getActivityIcon, getActivityColor } from '@/lib/utils/activityUtils';
 import { formatDuration, formatDistance, formatPace, formatSpeed } from '@/lib';
 import { useRecordingStore } from '@/providers/RecordingStore';
@@ -35,6 +33,7 @@ import { DataFieldGrid } from '@/components/recording/DataFieldGrid';
 import { ControlBar } from '@/components/recording/ControlBar';
 import { LockOverlay } from '@/components/recording/LockOverlay';
 import { GpsSignalIndicator } from '@/components/recording/GpsSignalIndicator';
+import { ActivityTypePickerModal } from '@/components/recording/ActivityTypePickerModal';
 import { useTimer } from '@/hooks/recording/useTimer';
 import { useLocationTracking } from '@/hooks/recording/useLocationTracking';
 import { useRecordingMetrics } from '@/hooks/recording/useRecordingMetrics';
@@ -597,141 +596,15 @@ export default function RecordingScreen() {
       {/* Activity type picker modal */}
       <ActivityTypePickerModal
         visible={showTypePicker}
-        currentType={currentActivityType}
+        selectedType={currentActivityType}
         onSelect={handleChangeType}
-        onDismiss={() => setShowTypePicker(false)}
+        onClose={() => setShowTypePicker(false)}
+        mode="recording"
         isDark={isDark}
       />
     </View>
   );
 }
-
-/** Activity type picker modal for changing type during recording */
-function ActivityTypePickerModal({
-  visible,
-  currentType,
-  onSelect,
-  onDismiss,
-  isDark,
-}: {
-  visible: boolean;
-  currentType: ActivityType;
-  onSelect: (type: ActivityType) => void;
-  onDismiss: () => void;
-  isDark: boolean;
-}) {
-  const { t } = useTranslation();
-  const surface = isDark ? darkColors.surface : colors.surface;
-  const textPrimary = isDark ? darkColors.textPrimary : colors.textPrimary;
-  const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
-  const border = isDark ? darkColors.border : colors.border;
-
-  const allTypes = useMemo(() => {
-    const types: ActivityType[] = [];
-    for (const group of Object.values(ACTIVITY_CATEGORIES)) {
-      for (const type of group) {
-        types.push(type as ActivityType);
-      }
-    }
-    return types;
-  }, []);
-
-  return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onDismiss}>
-      <TouchableOpacity style={typePickerStyles.backdrop} activeOpacity={1} onPress={onDismiss}>
-        <View style={[typePickerStyles.sheet, { backgroundColor: surface }]}>
-          <View style={typePickerStyles.header}>
-            <Text style={[typePickerStyles.title, { color: textPrimary }]}>
-              {t('recording.changeType', 'Change Activity Type')}
-            </Text>
-            <TouchableOpacity
-              onPress={onDismiss}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            >
-              <MaterialCommunityIcons name="close" size={22} color={textSecondary} />
-            </TouchableOpacity>
-          </View>
-          <FlatList
-            data={allTypes}
-            keyExtractor={(item) => item}
-            style={typePickerStyles.list}
-            renderItem={({ item }) => (
-              <TouchableOpacity
-                style={[
-                  typePickerStyles.typeRow,
-                  { borderBottomColor: border },
-                  item === currentType && typePickerStyles.typeRowSelected,
-                ]}
-                onPress={() => onSelect(item)}
-                activeOpacity={0.7}
-              >
-                <MaterialCommunityIcons
-                  name={getActivityIcon(item)}
-                  size={22}
-                  color={getActivityColor(item)}
-                  style={typePickerStyles.typeIcon}
-                />
-                <Text style={[typePickerStyles.typeLabel, { color: textPrimary }]}>
-                  {t(`activityTypes.${item}`, item)}
-                </Text>
-                {item === currentType && (
-                  <MaterialCommunityIcons name="check" size={18} color={brand.teal} />
-                )}
-              </TouchableOpacity>
-            )}
-          />
-        </View>
-      </TouchableOpacity>
-    </Modal>
-  );
-}
-
-const typePickerStyles = StyleSheet.create({
-  backdrop: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0,0,0,0.4)',
-  },
-  sheet: {
-    maxHeight: '60%',
-    borderTopLeftRadius: layout.borderRadius,
-    borderTopRightRadius: layout.borderRadius,
-    paddingBottom: spacing.xl,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-  },
-  title: {
-    ...typography.sectionTitle,
-  },
-  list: {
-    paddingHorizontal: spacing.sm,
-  },
-  typeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.sm,
-    minHeight: layout.minTapTarget,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  typeRowSelected: {
-    backgroundColor: 'rgba(20, 184, 166, 0.08)',
-  },
-  typeIcon: {
-    marginRight: spacing.sm,
-    width: 28,
-    textAlign: 'center',
-  },
-  typeLabel: {
-    ...typography.body,
-    flex: 1,
-  },
-});
 
 /** Manual activity entry form */
 function ManualEntry({

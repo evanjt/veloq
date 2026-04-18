@@ -70,6 +70,7 @@ import {
   type FfiGroupWithPolyline,
   type FfiSectionWithPolyline,
   type FfiPotentialSection,
+  type FfiStalePrOpportunity,
 } from "./generated/veloqrs";
 
 import { RouteEngineClient } from "./RouteEngineClient";
@@ -112,6 +113,7 @@ export type RoutesScreenData = FfiRoutesScreenData;
 export type GroupWithPolyline = FfiGroupWithPolyline;
 export type SectionWithPolyline = FfiSectionWithPolyline;
 export type PotentialSection = FfiPotentialSection;
+export type StalePrOpportunity = FfiStalePrOpportunity;
 export type {
   FfiSectionMatch as SectionMatch,
   FfiMergeCandidate as MergeCandidate,

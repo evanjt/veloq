@@ -321,62 +321,26 @@ export function useSummaryCardData(): SummaryCardData {
     }
   }, [summaryCard.heroMetric, quickStats, formColor, formZone, t]);
 
-  // Sort wellness data once for all sparkline memos (last 30 days, sorted by date)
-  const sortedWellness30 = useMemo(() => {
-    if (!summaryCard.showSparkline) return undefined;
-    if (!wellnessData || wellnessData.length === 0) return undefined;
-    return [...wellnessData].sort((a, b) => a.id.localeCompare(b.id)).slice(-30);
-  }, [wellnessData, summaryCard.showSparkline]);
+  // Sparklines pulled from Rust (wellness persisted in SQLite via
+  // `upsertWellness` in useWellness). Rust does the 30-day slice, CTL/ATL
+  // coalescing, form = ctl-atl, and HRV/RHR forward-fill in one round-trip.
+  // `wellnessData` is kept as a dep so the memo refreshes after each sync.
+  const sparklines = useMemo(() => {
+    if (!summaryCard.showSparkline) return null;
+    const engine = getRouteEngine();
+    if (!engine?.getWellnessSparklines) return null;
+    try {
+      return engine.getWellnessSparklines(30);
+    } catch {
+      return null;
+    }
+  }, [summaryCard.showSparkline, wellnessData]);
 
-  // Build fitness and form data arrays from wellness (last 30 days)
-  const fitnessData = useMemo(() => {
-    if (!sortedWellness30) return undefined;
-    return sortedWellness30.map((w) => Math.round(w.ctl ?? w.ctlLoad ?? 0));
-  }, [sortedWellness30]);
-
-  const fatigueData = useMemo(() => {
-    if (!sortedWellness30) return undefined;
-    return sortedWellness30.map((w) => Math.round(w.atl ?? w.atlLoad ?? 0));
-  }, [sortedWellness30]);
-
-  const formData = useMemo(() => {
-    if (!sortedWellness30) return undefined;
-    return sortedWellness30.map((w) => {
-      const ctl = w.ctl ?? w.ctlLoad ?? 0;
-      const atl = w.atl ?? w.atlLoad ?? 0;
-      return Math.round(ctl - atl);
-    });
-  }, [sortedWellness30]);
-
-  // Build HRV, RHR, and HRV trend data arrays from wellness (last 30 days)
-  const hrvData = useMemo(() => {
-    if (!sortedWellness30) return undefined;
-    const raw = sortedWellness30.map((w) => w.hrv ?? null);
-    // Forward-fill null values so the line is continuous
-    let last = raw.find((v) => v !== null) ?? 0;
-    if (last === 0 && raw.every((v) => v === null)) return undefined;
-    return raw.map((v) => {
-      if (v !== null) {
-        last = Math.round(v);
-        return last;
-      }
-      return last;
-    });
-  }, [sortedWellness30]);
-
-  const rhrData = useMemo(() => {
-    if (!sortedWellness30) return undefined;
-    const raw = sortedWellness30.map((w) => w.restingHR ?? null);
-    let last = raw.find((v) => v !== null) ?? 0;
-    if (last === 0 && raw.every((v) => v === null)) return undefined;
-    return raw.map((v) => {
-      if (v !== null) {
-        last = Math.round(v);
-        return last;
-      }
-      return last;
-    });
-  }, [sortedWellness30]);
+  const fitnessData = sparklines?.fitness;
+  const fatigueData = sparklines?.fatigue;
+  const formData = sparklines?.form;
+  const hrvData = sparklines?.hrv && sparklines.hrv.length > 0 ? sparklines.hrv : undefined;
+  const rhrData = sparklines?.rhr && sparklines.rhr.length > 0 ? sparklines.rhr : undefined;
 
   // Get sport-specific metrics
   const sportMetrics = useMemo(() => {

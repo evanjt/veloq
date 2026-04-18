@@ -25,13 +25,13 @@ import {
   isDarkStyle,
   getNextStyle,
   getStyleIcon,
-  MAP_ATTRIBUTIONS,
-  TERRAIN_ATTRIBUTION,
-  getCombinedSatelliteAttribution,
 } from './mapStyles';
+import { computeAttribution } from '@/lib/maps/computeAttribution';
 import type { ActivityBoundsItem } from '@/types';
 import { useEngineSections, useRouteSignatures, useRouteGroups } from '@/hooks/routes';
 import { HEATMAP_TILE_URL_TEMPLATE } from '@/hooks/maps/useHeatmapTiles';
+import { useSectionAutoToggle, useVisibilityToggles } from '@/hooks/maps';
+import { buildSpiderGeoJSON } from '@/lib/maps/buildSpiderGeoJSON';
 import { isHeatmapEnabled, isRouteMatchingEnabled } from '@/providers/RouteSettingsStore';
 import type { FrequentSection } from '@/types';
 import {
@@ -47,66 +47,6 @@ import {
   type SelectedRoute,
   type SpiderState,
 } from './regional';
-
-/**
- * Generate spider layout GeoJSON for cluster fan-out at max zoom.
- * Places N points on a circle around the cluster center, with lines connecting
- * each point back to the center. Uses screen-space radius converted to map
- * coordinates based on zoom level.
- */
-function buildSpiderGeoJSON(
-  spider: SpiderState,
-  zoom: number
-): { points: GeoJSON.FeatureCollection; lines: GeoJSON.FeatureCollection } {
-  const { center, leaves } = spider;
-  const n = leaves.length;
-
-  // Convert ~40px screen radius to map degrees at current zoom
-  // At zoom Z, 1 degree of longitude ≈ 256 * 2^Z / 360 pixels
-  const pixelsPerDegree = (256 * Math.pow(2, zoom)) / 360;
-  // Adjust for latitude (longitude degrees are narrower near poles)
-  const latRadians = (center[1] * Math.PI) / 180;
-  const lngScale = 1 / Math.cos(latRadians);
-  const radiusPx = n <= 6 ? 40 : n <= 12 ? 55 : 70;
-  const radiusDeg = radiusPx / pixelsPerDegree;
-
-  const pointFeatures: GeoJSON.Feature[] = [];
-  const lineFeatures: GeoJSON.Feature[] = [];
-
-  for (let i = 0; i < n; i++) {
-    const angle = (2 * Math.PI * i) / n - Math.PI / 2; // start at top
-    const dx = radiusDeg * Math.cos(angle) * lngScale;
-    const dy = radiusDeg * Math.sin(angle);
-    const spiderCoord: [number, number] = [center[0] + dx, center[1] + dy];
-
-    const leaf = leaves[i];
-    pointFeatures.push({
-      type: 'Feature',
-      properties: {
-        ...leaf.properties,
-        isSpider: true,
-      },
-      geometry: {
-        type: 'Point',
-        coordinates: spiderCoord,
-      },
-    });
-
-    lineFeatures.push({
-      type: 'Feature',
-      properties: {},
-      geometry: {
-        type: 'LineString',
-        coordinates: [center, spiderCoord],
-      },
-    });
-  }
-
-  return {
-    points: { type: 'FeatureCollection', features: pointFeatures },
-    lines: { type: 'FeatureCollection', features: lineFeatures },
-  };
-}
 
 const EMPTY_FEATURE_COLLECTION: GeoJSON.FeatureCollection = {
   type: 'FeatureCollection',
@@ -157,15 +97,23 @@ export function RegionalMapView({
   const { t } = useTranslation();
   const router = useRouter();
   const { isDark: systemIsDark } = useTheme();
-  const [showActivities, setShowActivities] = useState(true);
   const insets = useSafeAreaInsets();
   const systemStyle: MapStyleType = systemIsDark ? 'dark' : 'light';
   const [mapStyle, setMapStyle] = useState<MapStyleType>(systemStyle);
   const [selected, setSelected] = useState<SelectedActivity | null>(null);
-  const [is3DMode, setIs3DMode] = useState(false);
-  const [showHeatmap, setShowHeatmap] = useState(true);
-  const [showSections, setShowSections] = useState(true);
-  const [showRoutes, setShowRoutes] = useState(false);
+  const {
+    showActivities,
+    showHeatmap,
+    showSections,
+    showRoutes,
+    is3DMode,
+    setShowActivities,
+    setShowSections,
+    setShowRoutes,
+    setIs3DMode,
+    toggleHeatmap,
+    toggle3D,
+  } = useVisibilityToggles();
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null);
   const [locationLoading, setLocationLoading] = useState(false);
   const [visibleActivityIds, setVisibleActivityIds] = useState<Set<string> | null>(null);
@@ -174,19 +122,6 @@ export function RegionalMapView({
   const [spider, setSpider] = useState<SpiderState | null>(null);
   const cameraRef = useRef<React.ElementRef<typeof Camera>>(null);
   const clusterSourceRef = useRef<React.ElementRef<typeof ShapeSource>>(null);
-
-  // Ref mirror for showSections — read inside handleRegionDidChange to keep callback
-  // identity stable. Changing onRegionDidChange prop causes Android MapLibre to
-  // re-render the native view and snap the camera back.
-  const showSectionsRef = useRef(showSections);
-  showSectionsRef.current = showSections;
-
-  // Track whether user manually toggled sections (if so, don't auto-show/hide)
-  const userToggledSectionsRef = useRef(false);
-
-  // Debounce timer for auto-show/hide sections — defers setShowSections to avoid
-  // React re-renders during gesture momentum that cause Android MapLibre snap-back.
-  const showSectionsDebounceRef = useRef<ReturnType<typeof setTimeout>>(null);
 
   // iOS simulator tile loading retry mechanism
   const [mapKey, setMapKey] = useState(0);
@@ -277,19 +212,19 @@ export function RegionalMapView({
     }
   }, []);
 
-  // Dynamic attribution based on visible satellite sources at current location
-  const attributionText = useMemo(() => {
-    if (mapStyle === 'satellite' && cameraForAttribution) {
-      const satAttribution = getCombinedSatelliteAttribution(
-        cameraForAttribution.center[1],
-        cameraForAttribution.center[0],
-        cameraForAttribution.zoom
-      );
-      return is3DMode ? `${satAttribution} | ${TERRAIN_ATTRIBUTION}` : satAttribution;
-    }
-    const baseAttribution = MAP_ATTRIBUTIONS[mapStyle];
-    return is3DMode ? `${baseAttribution} | ${TERRAIN_ATTRIBUTION}` : baseAttribution;
-  }, [mapStyle, cameraForAttribution, is3DMode]);
+  // Dynamic attribution based on visible satellite sources at current location.
+  // Shared with ActivityMapView via `computeAttribution` so both maps stay in sync
+  // when tile sources or satellite attribution rules change.
+  const attributionText = useMemo(
+    () =>
+      computeAttribution({
+        style: mapStyle,
+        is3D: is3DMode,
+        center: cameraForAttribution?.center ?? null,
+        zoom: cameraForAttribution?.zoom ?? 0,
+      }),
+    [mapStyle, cameraForAttribution, is3DMode]
+  );
 
   // Notify parent when attribution changes
   useEffect(() => {
@@ -390,38 +325,12 @@ export function RegionalMapView({
 
   // Auto-show sections when zoomed in to neighborhood level, auto-hide when zoomed out.
   // Manual toggles (via the control button) take precedence and disable auto-behavior.
-  const SECTIONS_AUTO_SHOW_ZOOM = 13;
-  const SECTIONS_AUTO_HIDE_ZOOM = 11;
-
-  const toggleSections = useCallback(() => {
-    userToggledSectionsRef.current = true;
-    baseToggleSections();
-  }, [baseToggleSections]);
-
-  // CRITICAL: Read showSections from ref (not closure) to keep callback identity stable.
-  // Changing onRegionDidChange prop causes Android MapLibre to re-render and snap camera back.
-  const handleRegionDidChange = useCallback(
-    (feature: GeoJSON.Feature) => {
-      baseHandleRegionDidChange(feature);
-
-      if (userToggledSectionsRef.current) return;
-
-      const zoomLevel = (feature.properties as { zoomLevel?: number } | undefined)?.zoomLevel;
-      if (zoomLevel === undefined) return;
-
-      // Defer section visibility change to avoid React re-render during gesture momentum.
-      // Matches the 300ms debounce used for zoom/center updates in useMapHandlers.
-      if (showSectionsDebounceRef.current) clearTimeout(showSectionsDebounceRef.current);
-      showSectionsDebounceRef.current = setTimeout(() => {
-        if (zoomLevel >= SECTIONS_AUTO_SHOW_ZOOM && !showSectionsRef.current) {
-          setShowSections(true);
-        } else if (zoomLevel < SECTIONS_AUTO_HIDE_ZOOM && showSectionsRef.current) {
-          setShowSections(false);
-        }
-      }, 300);
-    },
-    [baseHandleRegionDidChange]
-  );
+  const { handleRegionDidChange, toggleSections } = useSectionAutoToggle({
+    showSections,
+    setShowSections,
+    baseHandleRegionDidChange,
+    baseToggleSections,
+  });
 
   // Clear selections when their corresponding group visibility is turned off
   useEffect(() => {
@@ -445,16 +354,6 @@ export function RegionalMapView({
   // Toggle map style (cycles through light → dark → satellite)
   const toggleStyle = () => {
     setMapStyle((current) => getNextStyle(current));
-  };
-
-  // Toggle 3D mode
-  const toggle3D = () => {
-    setIs3DMode((current) => !current);
-  };
-
-  // Toggle heatmap visibility
-  const toggleHeatmap = () => {
-    setShowHeatmap((current) => !current);
   };
 
   // Handle route press - show route popup

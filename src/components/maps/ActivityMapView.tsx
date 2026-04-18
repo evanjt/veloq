@@ -86,21 +86,11 @@
  * ```
  */
 
-import React, {
-  useMemo,
-  useState,
-  useRef,
-  useCallback,
-  useEffect,
-  memo,
-  useImperativeHandle,
-  forwardRef,
-} from 'react';
+import React, { useMemo, useState, useRef, useCallback, useEffect, memo } from 'react';
 import {
   View,
   StyleSheet,
   TouchableOpacity,
-  Pressable,
   Modal,
   StatusBar,
   Animated,
@@ -121,10 +111,10 @@ import {
 } from '@maplibre/maplibre-react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { decodePolyline, LatLng, getActivityColor } from '@/lib';
+import { computeAttribution } from '@/lib/maps/computeAttribution';
 import {
   colors,
   darkColors,
-  typography,
   spacing,
   layout,
   shadows,
@@ -135,6 +125,8 @@ import { useMapPreferences } from '@/providers';
 import { useSectionCreation } from '@/hooks/maps/useSectionCreation';
 import { useMapCamera } from '@/hooks/maps/useMapCamera';
 import { useMapLayers } from '@/hooks/maps/useMapLayers';
+import { useMapFullscreen } from '@/hooks/maps/useMapFullscreen';
+import { useIOSMapTap } from '@/hooks/maps/useIOSMapTap';
 import { BaseMapView } from './BaseMapView';
 import { Map3DWebView, type Map3DWebViewRef } from './Map3DWebView';
 import { CompassArrow, ComponentErrorBoundary } from '@/components/ui';
@@ -150,80 +142,9 @@ import {
   getNextStyle,
   getStyleIcon,
   MAP_ATTRIBUTIONS,
-  TERRAIN_ATTRIBUTION,
-  getCombinedSatelliteAttribution,
 } from './mapStyles';
+import { AttributionOverlay, type AttributionOverlayRef } from './AttributionOverlay';
 import type { ActivityType, RoutePoint } from '@/types';
-
-/** Attribution overlay component that manages its own state to avoid parent re-renders */
-interface AttributionOverlayRef {
-  setAttribution: (text: string) => void;
-}
-
-interface AttributionOverlayProps {
-  initialAttribution: string;
-  isFullscreen: boolean;
-}
-
-const AttributionOverlay = memo(
-  forwardRef<AttributionOverlayRef, AttributionOverlayProps>(
-    ({ initialAttribution, isFullscreen }, ref) => {
-      const [attribution, setAttribution] = useState(initialAttribution);
-
-      useImperativeHandle(ref, () => ({
-        setAttribution,
-      }));
-
-      return (
-        <View
-          style={[attributionStyles.attribution, isFullscreen && attributionStyles.attributionPill]}
-        >
-          <Text
-            style={[
-              attributionStyles.attributionText,
-              isFullscreen && attributionStyles.attributionTextPill,
-            ]}
-          >
-            {attribution}
-          </Text>
-        </View>
-      );
-    }
-  )
-);
-
-const attributionStyles = StyleSheet.create({
-  attribution: {
-    position: 'absolute',
-    bottom: 4,
-    left: 0,
-    right: 0,
-    alignItems: 'center',
-    zIndex: 5,
-  },
-  attributionPill: {
-    left: 'auto',
-    right: spacing.sm,
-    bottom: spacing.sm,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: spacing.sm,
-  },
-  attributionText: {
-    fontSize: 9,
-    color: 'rgba(255, 255, 255, 0.5)',
-    textShadowColor: 'rgba(0, 0, 0, 0.5)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
-  },
-  attributionTextPill: {
-    color: colors.textSecondary,
-    textShadowColor: 'transparent',
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 0,
-  },
-});
 
 /** Section overlay for map visualization */
 export interface SectionOverlay {
@@ -346,7 +267,7 @@ export const ActivityMapView = memo(function ActivityMapView({
   const { getStyleForActivity } = useMapPreferences();
   const preferredStyle = getStyleForActivity(activityType, activityId, country);
   const [mapStyle, setMapStyle] = useState<MapStyleType>(initialStyle ?? preferredStyle);
-  const [isFullscreen, setIsFullscreen] = useState(false);
+  const { isFullscreen, openFullscreen, closeFullscreen } = useMapFullscreen({ enableFullscreen });
   const [is3DMode, setIs3DMode] = useState(!!initial3DCamera);
   const [is3DReady, setIs3DReady] = useState(false);
   const map3DRef = useRef<Map3DWebViewRef>(null);
@@ -363,9 +284,6 @@ export const ActivityMapView = memo(function ActivityMapView({
 
   // Track if user manually overrode the style
   const [userOverride, setUserOverride] = useState(false);
-
-  // Track touch start for iOS tap detection (MapView.onPress doesn't fire on iOS with Fabric)
-  const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
 
   // DEBUG: Track render count
   const renderCountRef = useRef(0);
@@ -529,16 +447,6 @@ export const ActivityMapView = memo(function ActivityMapView({
     }).start();
   }, [map3DOpacity]);
 
-  const openFullscreen = useCallback(() => {
-    if (enableFullscreen) {
-      setIsFullscreen(true);
-    }
-  }, [enableFullscreen]);
-
-  const closeFullscreen = () => {
-    setIsFullscreen(false);
-  };
-
   // Handle map press - using MapView's native onPress instead of gesture detector
   // This properly distinguishes taps from zoom/pan gestures
   // Handle native map press - only used for section creation on Android
@@ -563,32 +471,10 @@ export const ActivityMapView = memo(function ActivityMapView({
 
   // iOS tap handler - converts screen coordinates to map coordinates
   // MapView.onPress doesn't fire reliably on iOS with Fabric architecture
-  const handleiOSTap = useCallback(
-    async (screenX: number, screenY: number) => {
-      if (!mapRef.current) return;
-
-      try {
-        // Convert screen coordinates to map coordinates [lng, lat]
-        const coords = await mapRef.current.getCoordinateFromView([screenX, screenY]);
-        if (!coords || coords.length < 2) return;
-
-        // Create a GeoJSON feature and call handleMapPress
-        const feature: GeoJSON.Feature = {
-          type: 'Feature',
-          properties: {},
-          geometry: {
-            type: 'Point',
-            coordinates: coords,
-          },
-        };
-
-        handleMapPress(feature);
-      } catch {
-        // Silently fail - tap handling is best effort
-      }
-    },
-    [handleMapPress, mapRef]
-  );
+  const { onTouchStart: onIOSTouchStart, onTouchEnd: onIOSTouchEnd } = useIOSMapTap({
+    mapRef,
+    onMapPress: handleMapPress,
+  });
 
   // Stop in-flight animations on unmount to prevent updates on unmounted component
   useEffect(() => {
@@ -669,23 +555,16 @@ export const ActivityMapView = memo(function ActivityMapView({
   onAttributionChangeRef.current = onAttributionChange;
 
   // Compute attribution from current viewport - uses refs for latest values
-  const computeAttributionFromRefs = useCallback(() => {
-    const center = currentCenterRef.current;
-    const zoom = currentZoomRef.current;
-    const style = mapStyleRef.current;
-    const is3D = is3DModeRef.current;
-
-    if (style === 'satellite' && center) {
-      const satAttribution = getCombinedSatelliteAttribution(
-        center[1], // lat
-        center[0], // lng
-        zoom
-      );
-      return is3D ? `${satAttribution} | ${TERRAIN_ATTRIBUTION}` : satAttribution;
-    }
-    const baseAttribution = MAP_ATTRIBUTIONS[style];
-    return is3D ? `${baseAttribution} | ${TERRAIN_ATTRIBUTION}` : baseAttribution;
-  }, [currentCenterRef, currentZoomRef]);
+  const computeAttributionFromRefs = useCallback(
+    () =>
+      computeAttribution({
+        style: mapStyleRef.current,
+        is3D: is3DModeRef.current,
+        center: currentCenterRef.current,
+        zoom: currentZoomRef.current,
+      }),
+    [currentCenterRef, currentZoomRef]
+  );
 
   // Compose camera region-did-change with attribution debounce
   const handleRegionDidChange = useCallback(
@@ -760,25 +639,9 @@ export const ActivityMapView = memo(function ActivityMapView({
         style={styles.container}
         {...(creationMode && Platform.OS === 'ios'
           ? {
-              onTouchStart: (e: { nativeEvent: { locationX: number; locationY: number } }) => {
-                touchStartRef.current = {
-                  x: e.nativeEvent.locationX,
-                  y: e.nativeEvent.locationY,
-                  time: Date.now(),
-                };
-              },
-              onTouchEnd: (e: { nativeEvent: { locationX: number; locationY: number } }) => {
-                const start = touchStartRef.current;
-                if (!start) return;
-                const dx = Math.abs(e.nativeEvent.locationX - start.x);
-                const dy = Math.abs(e.nativeEvent.locationY - start.y);
-                const duration = Date.now() - start.time;
-                const isTap = duration < 300 && dx < 10 && dy < 10;
-                if (isTap && !isFullscreen && !(is3DMode && is3DReady)) {
-                  handleiOSTap(e.nativeEvent.locationX, e.nativeEvent.locationY);
-                }
-                touchStartRef.current = null;
-              },
+              onTouchStart: onIOSTouchStart,
+              onTouchEnd: (e: { nativeEvent: { locationX: number; locationY: number } }) =>
+                onIOSTouchEnd(e, () => !isFullscreen && !(is3DMode && is3DReady)),
             }
           : {})}
       >

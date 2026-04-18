@@ -788,6 +788,10 @@ pub struct FfiDirectionStats {
     pub last_activity: Option<i64>,
     /// Number of traversals in this direction
     pub count: u32,
+    /// Average speed across all traversals in this direction (m/s).
+    /// Populated for route detail stats so the TS hook no longer has to
+    /// re-aggregate. Section performance queries currently leave it as None.
+    pub avg_speed: Option<f64>,
 }
 
 impl From<crate::DirectionStats> for FfiDirectionStats {
@@ -796,6 +800,7 @@ impl From<crate::DirectionStats> for FfiDirectionStats {
             avg_time: s.avg_time,
             last_activity: s.last_activity,
             count: s.count,
+            avg_speed: s.avg_speed,
         }
     }
 }
@@ -1037,6 +1042,90 @@ pub struct FfiRankedSection {
     pub latest_is_pr: bool,
 }
 
+/// Per-exercise contribution to a muscle group, aggregated across all active
+/// sets of one activity. Role reflects whether the muscle is primary or
+/// secondary for the exercise.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiExerciseContribution {
+    pub name: String,
+    /// "primary" | "secondary"
+    pub role: String,
+    pub sets: u32,
+    pub reps: u32,
+    pub volume_kg: f64,
+}
+
+/// Full muscle-group breakdown for one activity, one muscle slug. Rust groups
+/// exercise sets by display name, classifies primary/secondary, and returns
+/// totals — replacing the useMemo grouping/reducing in `useMuscleDetail`.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiMuscleGroupDetail {
+    pub slug: String,
+    pub exercises: Vec<FfiExerciseContribution>,
+    pub total_sets: u32,
+    pub total_reps: u32,
+    pub total_volume_kg: f64,
+    pub primary_exercises: u32,
+    pub secondary_exercises: u32,
+}
+
+/// One renderable chart point on the section-detail chart. One entry per
+/// lap traversal (activities with multiple laps expand into multiple points).
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiSectionChartPoint {
+    pub lap_id: String,
+    pub activity_id: String,
+    pub activity_name: String,
+    /// Unix seconds
+    pub activity_date: i64,
+    /// m/s
+    pub speed: f64,
+    /// Section time for this lap (seconds)
+    pub section_time: u32,
+    pub section_distance: f64,
+    /// "same" | "reverse"
+    pub direction: String,
+    /// Rank by speed across all points (1 = fastest). Duplicate activity rows
+    /// keep the best (lowest) rank.
+    pub rank: u32,
+}
+
+/// Bundled chart payload for the section-detail screen. Rust composes
+/// per-lap points, ranks, and summary stats from the performance records
+/// it already owns so the TS hook stops iterating + sorting multiple times.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiSectionChartData {
+    pub points: Vec<FfiSectionChartPoint>,
+    pub min_speed: f64,
+    pub max_speed: f64,
+    /// Index into `points` for the fastest lap (0 when empty).
+    pub best_index: u32,
+    pub has_reverse_runs: bool,
+    pub best_activity_id: Option<String>,
+    pub best_time_secs: Option<f64>,
+    pub best_pace: Option<f64>,
+    pub average_time_secs: Option<f64>,
+    pub last_activity_date: Option<i64>,
+    pub total_activities: u32,
+}
+
+/// Enriched workout section for the home-screen "Sections for you" list.
+/// Composes ranking + performance lookups server-side so the TS hook is a
+/// thin pass-through instead of a per-section FFI loop.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiWorkoutSection {
+    pub id: String,
+    pub name: String,
+    pub pr_time_secs: Option<f64>,
+    /// Second-best time (prior PR before current best)
+    pub previous_best_time_secs: Option<f64>,
+    pub last_time_secs: Option<f64>,
+    pub days_since_last: Option<i32>,
+    pub pr_days_ago: Option<i32>,
+    /// "improving" | "stable" | "declining" — empty string when insufficient data
+    pub trend: String,
+}
+
 // ============================================================================
 // Calendar Summary Types
 // ============================================================================
@@ -1164,6 +1253,67 @@ impl From<crate::CalendarSummary> for FfiCalendarSummary {
 // ============================================================================
 // Activity Pattern Types
 // ============================================================================
+
+/// One wellness row passed in from TS (intervals.icu sync). Fields outside
+/// this subset (sleepQuality, spO2, etc.) aren't persisted yet — the TS
+/// sync helper only forwards the fields the Rust atomics consume.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiWellnessRow {
+    /// ISO-8601 YYYY-MM-DD
+    pub date: String,
+    pub ctl: Option<f64>,
+    pub atl: Option<f64>,
+    pub ramp_rate: Option<f64>,
+    pub hrv: Option<f64>,
+    pub resting_hr: Option<f64>,
+    pub weight: Option<f64>,
+    pub sleep_secs: Option<i64>,
+    pub sleep_score: Option<f64>,
+    pub soreness: Option<i32>,
+    pub fatigue: Option<i32>,
+    pub stress: Option<i32>,
+    pub mood: Option<i32>,
+    pub motivation: Option<i32>,
+}
+
+/// Sparkline payload for the SummaryCard: rounded integer arrays, oldest
+/// first, forward-filled where needed so renderers produce continuous lines.
+/// Empty arrays mean "not enough data" (TS renders `undefined` / skips).
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiWellnessSparklines {
+    pub fitness: Vec<i32>,
+    pub fatigue: Vec<i32>,
+    pub form: Vec<i32>,
+    pub hrv: Vec<i32>,
+    pub rhr: Vec<i32>,
+}
+
+/// HRV trend summary over a trailing window. `label` is the i18n key suffix
+/// ("trendingUp" | "stable" | "trendingDown") — TS resolves translations.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiHrvTrend {
+    pub label: String,
+    pub avg: f64,
+    pub latest: f64,
+    pub data_points: u32,
+    pub sparkline: Vec<f64>,
+}
+
+/// Ranked sections for one sport, paired with the sport label. One element
+/// per input sport in `get_ranked_sections_batch`.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiRankedSectionsBySport {
+    pub sport_type: String,
+    pub sections: Vec<FfiRankedSection>,
+}
+
+/// Bundled patterns payload for the home screen: today's pattern alongside
+/// the full detected set, delivered in a single FFI call.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiActivityPatternsBundle {
+    pub today: Option<FfiActivityPattern>,
+    pub all: Vec<FfiActivityPattern>,
+}
 
 /// A detected recurring training pattern from k-means clustering.
 #[derive(Debug, Clone, uniffi::Record)]
@@ -1345,6 +1495,7 @@ mod tests {
             avg_time: Some(300.0),
             last_activity: Some(1700000000),
             count: 5,
+            avg_speed: Some(4.5),
         };
         let ffi_stats = FfiDirectionStats::from(stats);
         assert_eq!(ffi_stats.avg_time, Some(300.0));
@@ -1571,6 +1722,22 @@ pub struct FfiStrengthSummary {
     pub total_sets: u32,
 }
 
+/// Inclusive Unix-second range used for batched summary requests.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiTimestampRange {
+    pub start_ts: i64,
+    pub end_ts: i64,
+}
+
+/// Bundled strength aggregation for the insights hook: one monthly summary
+/// plus N weekly summaries, each keyed to the corresponding input range.
+/// Collapses 5+ separate `getStrengthSummary` FFI calls into one round-trip.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiStrengthInsightSeries {
+    pub monthly: FfiStrengthSummary,
+    pub weekly: Vec<FfiStrengthSummary>,
+}
+
 // ============================================================================
 // Muscle Exercise Detail Types
 // ============================================================================
@@ -1644,6 +1811,15 @@ pub struct FfiActivitySectionHighlight {
     pub start_index: u32,
     /// End index into the activity's GPS track array
     pub end_index: u32,
+}
+
+/// Combined payload for batched activity-list highlights: pre-computed
+/// section indicators (PRs + trends) and route highlights for the same
+/// activity IDs, delivered in a single FFI round-trip.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiActivityHighlightsBundle {
+    pub indicators: Vec<FfiActivityIndicator>,
+    pub route_highlights: Vec<FfiActivityRouteHighlight>,
 }
 
 // ============================================================================
@@ -1745,4 +1921,23 @@ pub struct FfiNearbySectionSummary {
     pub center_distance_meters: f64,
     /// Flat polyline coordinates [lat, lng, lat, lng, ...] for map overlay
     pub polyline_coords: Vec<f64>,
+}
+
+/// One stale-PR opportunity: a section whose PR might be beatable because
+/// the user's threshold fitness (FTP for cycling, critical speed for run/swim)
+/// has improved since the PR was set, and the section hasn't been visited
+/// recently. Pure pattern recognition — TS formats as an Insight.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiStalePrOpportunity {
+    pub section_id: String,
+    pub section_name: String,
+    pub best_time_secs: f64,
+    pub traversal_count: u32,
+    /// "power" for cycling (FTP), "pace" for running/swimming (critical speed)
+    pub fitness_metric: String,
+    pub current_value: f64,
+    pub previous_value: f64,
+    pub gain_percent: f64,
+    /// "W" for power, "/km" for running, "/100m" for swimming
+    pub unit: String,
 }

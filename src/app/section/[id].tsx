@@ -10,28 +10,23 @@ import {
   StyleSheet,
   StatusBar,
   TouchableOpacity,
-  TextInput,
-  Keyboard,
-  Alert,
   InteractionManager,
 } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams, router } from 'expo-router';
 import { logScreenRender } from '@/lib/debug/renderTimer';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import {
   useSectionPerformances,
-  useCustomSections,
   useTheme,
   useCacheDays,
   useGpxExport,
   useSectionChartData,
   useNearbySections,
   useMergeSections,
-  useSectionRescan,
+  useSectionActions,
 } from '@/hooks';
 import { useSectionDetail } from '@/hooks/routes/useRouteEngine';
 import { useSectionTrim } from '@/hooks/routes/useSectionTrim';
@@ -56,7 +51,6 @@ import {
   type MaterialIconName,
 } from '@/lib';
 import { fromUnixSeconds } from '@/lib/utils/ffiConversions';
-import { queryKeys } from '@/lib/queryKeys';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import { type SectionTimeRange } from '@/constants';
 import type {
@@ -100,7 +94,6 @@ export default function SectionDetailScreen() {
   // Nearby sections and merge candidates
   const { nearby } = useNearbySections(id);
   const { candidates: mergeCandidates, merge: mergeSections, isMerging } = useMergeSections(id);
-  const { rescan, isScanning: isRematching } = useSectionRescan();
 
   const [highlightedActivityId, setHighlightedActivityId] = useState<string | null>(null);
   const [highlightedActivityPoints, setHighlightedActivityPoints] = useState<
@@ -116,20 +109,8 @@ export default function SectionDetailScreen() {
   // Time range for chart data (passed to useSectionChartData)
   const [sectionTimeRange, setSectionTimeRange] = useState<SectionTimeRange>('all');
 
-  // State for section renaming
-  const [isEditing, setIsEditing] = useState(false);
-  const [editName, setEditName] = useState('');
-  const [customName, setCustomName] = useState<string | null>(null);
-  const nameInputRef = useRef<TextInput>(null);
-
-  // State for overriding the reference activity (for immediate UI update)
-  const [overrideReferenceId, setOverrideReferenceId] = useState<string | null>(null);
   // Key to force section data refresh after reference change
   const [sectionRefreshKey, setSectionRefreshKey] = useState(0);
-
-  // Excluded activities state
-  const [showExcluded, setShowExcluded] = useState(false);
-  const [excludedActivityIds, setExcludedActivityIds] = useState<Set<string>>(new Set());
 
   // Sport type filter for cross-sport sections
   const [selectedSportType, setSelectedSportType] = useState<string | undefined>(undefined);
@@ -182,9 +163,6 @@ export default function SectionDetailScreen() {
     return rawEngineSection;
   }, [rawEngineSection, sectionIdWithRefresh, sectionRefreshKey, id]);
 
-  const { removeSection, renameSection } = useCustomSections();
-  const queryClient = useQueryClient();
-
   // Disabled state from section data
   const isSectionDisabled = !!(section?.disabled || section?.supersededBy);
 
@@ -213,188 +191,36 @@ export default function SectionDetailScreen() {
     setTrimEnd,
   } = useSectionTrim(section, handleTrimRefresh);
 
-  // Load custom section name from section data on mount
-  // Section names are now stored directly in the section.name field
-  useEffect(() => {
-    if (section?.name) {
-      setCustomName(section.name);
-    }
-  }, [section?.name]);
-
-  // Handle starting to edit the section name
-  const handleStartEditing = useCallback(() => {
-    const currentName = customName || section?.name || '';
-    setEditName(currentName);
-    setIsEditing(true);
-    setTimeout(() => {
-      nameInputRef.current?.focus();
-    }, 100);
-  }, [customName, section?.name]);
-
-  // Handle saving the edited section name
-  // Uses renameSection hook which invalidates React Query cache for consistent UI updates
-  const handleSaveName = useCallback(() => {
-    // Dismiss keyboard and close edit UI immediately for responsive feel
-    Keyboard.dismiss();
-    setIsEditing(false);
-
-    const trimmedName = editName.trim();
-    if (!trimmedName || !id) {
-      return;
-    }
-
-    // Check uniqueness against ALL section names (custom + auto-generated)
-    const allDisplayNames = getAllSectionDisplayNames();
-    const isDuplicate = Object.entries(allDisplayNames).some(
-      ([existingId, name]) => existingId !== id && name === trimmedName
-    );
-
-    if (isDuplicate) {
-      Alert.alert(t('sections.duplicateNameTitle'), t('sections.duplicateNameMessage'));
-      return;
-    }
-
-    // Update local state immediately for instant feedback
-    setCustomName(trimmedName);
-
-    // Fire rename in background - don't await, cache invalidation happens async
-    renameSection(id, trimmedName).catch((error) => {
-      if (__DEV__) console.error('Failed to save section name:', error);
-    });
-  }, [editName, id, renameSection, t]);
-
-  // Handle canceling the edit
-  const handleCancelEdit = useCallback(() => {
-    setIsEditing(false);
-    setEditName('');
-    Keyboard.dismiss();
-  }, []);
-
-  // Handle deleting a custom section
-  const handleDeleteSection = useCallback(() => {
-    if (!id || !isCustomId) {
-      if (__DEV__) console.warn('[SectionDetail] Delete blocked:', { id, isCustomId });
-      return;
-    }
-
-    Alert.alert(t('sections.deleteSection'), t('sections.deleteSectionConfirm'), [
-      { text: t('common.cancel'), style: 'cancel' },
-      {
-        text: t('common.delete'),
-        style: 'destructive',
-        onPress: async () => {
-          try {
-            await removeSection(id);
-            router.back();
-          } catch (error) {
-            if (__DEV__) console.error('Failed to delete section:', error);
-            Alert.alert(t('common.error'), String(error));
-          }
-        },
-      },
-    ]);
-  }, [id, isCustomId, removeSection, t]);
-
-  // Get the effective reference activity ID (override takes precedence)
-  const effectiveReferenceId = overrideReferenceId ?? section?.representativeActivityId;
-
-  // Handle setting an activity as the reference (medoid) for this section
-  const handleSetAsReference = useCallback(
-    (activityId: string) => {
-      if (!id) return;
-
-      const engine = getRouteEngine();
-      if (!engine) return;
-
-      // Check if this activity is already the reference
-      const currentRef = effectiveReferenceId;
-      const isUserDefinedRef = engine.getSectionReferenceInfo(id).isUserDefined;
-
-      if (currentRef === activityId && isUserDefinedRef) {
-        // Already the user-defined reference - offer to reset
-        Alert.alert(t('sections.resetReference'), t('sections.resetReferenceConfirm'), [
-          { text: t('common.cancel'), style: 'cancel' },
-          {
-            text: t('common.reset'),
-            onPress: () => {
-              const success = engine.resetSectionReference(id);
-              if (success) {
-                // Reset to automatic - clear override to use section's original
-                setOverrideReferenceId(null);
-                // Force section data refresh to get recalculated polyline
-                setSectionRefreshKey((k) => k + 1);
-                // Also invalidate custom sections cache for routes list
-                if (isCustomId) {
-                  queryClient.invalidateQueries({ queryKey: queryKeys.sections.all });
-                }
-              }
-            },
-          },
-        ]);
-      } else {
-        // Set as new reference
-        Alert.alert(t('sections.setAsReference'), t('sections.setAsReferenceConfirm'), [
-          { text: t('common.cancel'), style: 'cancel' },
-          {
-            text: t('common.confirm'),
-            onPress: () => {
-              if (__DEV__) {
-                console.log(
-                  '[SetReference] Attempting to set reference:',
-                  'sectionId=',
-                  id,
-                  'activityId=',
-                  activityId
-                );
-              }
-              const success = engine.setSectionReference(id, activityId);
-              if (__DEV__) console.log('[SetReference] Result:', success);
-              if (success) {
-                // Update local state immediately for responsive UI
-                setOverrideReferenceId(activityId);
-                // Force section data refresh to get updated polyline
-                setSectionRefreshKey((k) => k + 1);
-                // Also invalidate custom sections cache for routes list
-                if (isCustomId) {
-                  queryClient.invalidateQueries({ queryKey: queryKeys.sections.all });
-                }
-              } else {
-                // Show error if operation failed
-                Alert.alert(
-                  t('common.error'),
-                  t('sections.setReferenceError', 'Failed to set reference. Please try again.')
-                );
-              }
-            },
-          },
-        ]);
-      }
-    },
-    [id, t, effectiveReferenceId, isCustomId, queryClient]
-  );
-
-  // Handle removing/restoring an auto-detected section
-  const handleToggleDisable = useCallback(() => {
-    if (!id || isCustomId) return;
-
-    if (isSectionDisabled) {
-      // Restore
-      getRouteEngine()?.enableSection(id);
-    } else {
-      // Remove with confirmation, navigate back after
-      Alert.alert(t('sections.removeSection'), t('sections.removeSectionConfirm'), [
-        { text: t('common.cancel'), style: 'cancel' },
-        {
-          text: t('common.remove'),
-          style: 'destructive',
-          onPress: () => {
-            getRouteEngine()?.disableSection(id);
-            router.back();
-          },
-        },
-      ]);
-    }
-  }, [id, isCustomId, isSectionDisabled, t]);
+  // Section CRUD actions (rename, delete, toggle disable, exclude/include,
+  // reference activity, rematch) — extracted into a hook for clarity.
+  const {
+    isEditing,
+    editName,
+    customName,
+    nameInputRef,
+    setEditName,
+    effectiveReferenceId,
+    showExcluded,
+    excludedActivityIds,
+    isRematching,
+    handleStartEditing,
+    handleSaveName,
+    handleCancelEdit,
+    handleDeleteSection,
+    handleSetAsReference,
+    handleToggleDisable,
+    handleExcludeActivity,
+    handleIncludeActivity,
+    handleToggleShowExcluded,
+    handleRematchActivities,
+  } = useSectionActions({
+    id,
+    isCustomId: !!isCustomId,
+    section,
+    isSectionDisabled,
+    onSectionRefresh: handleTrimRefresh,
+    sectionRefreshKey,
+  });
 
   const handleActivitySelect = useCallback(
     (activityId: string | null, activityPoints?: RoutePoint[]) => {
@@ -406,52 +232,6 @@ export default function SectionDetailScreen() {
 
   const handleScrubChange = useCallback((scrubbing: boolean) => {
     setIsScrubbing(scrubbing);
-  }, []);
-
-  const handleRematchActivities = useCallback(() => {
-    if (!section?.sportType) return;
-    rescan(section.sportType);
-  }, [section?.sportType, rescan]);
-
-  // Load excluded activity IDs for this section
-  useEffect(() => {
-    if (!id) return;
-    const engine = getRouteEngine();
-    if (!engine) return;
-    const ids = engine.getExcludedActivityIds(id);
-    setExcludedActivityIds(new Set(ids));
-  }, [id, sectionRefreshKey]);
-
-  const handleExcludeActivity = useCallback(
-    (activityId: string) => {
-      if (!id) return;
-      const engine = getRouteEngine();
-      if (!engine) return;
-      engine.excludeActivityFromSection(id, activityId);
-      setExcludedActivityIds((prev) => new Set([...prev, activityId]));
-      setSectionRefreshKey((k) => k + 1);
-    },
-    [id]
-  );
-
-  const handleIncludeActivity = useCallback(
-    (activityId: string) => {
-      if (!id) return;
-      const engine = getRouteEngine();
-      if (!engine) return;
-      engine.includeActivityInSection(id, activityId);
-      setExcludedActivityIds((prev) => {
-        const next = new Set(prev);
-        next.delete(activityId);
-        return next;
-      });
-      setSectionRefreshKey((k) => k + 1);
-    },
-    [id]
-  );
-
-  const handleToggleShowExcluded = useCallback(() => {
-    setShowExcluded((v) => !v);
   }, []);
 
   // Get section activities from engine metrics (no API call needed).
@@ -552,6 +332,7 @@ export default function SectionDetailScreen() {
     sectionActivitiesUnsorted: filteredActivities,
     sectionWithTraces: null,
     sectionTimeRange,
+    sportFilter: effectiveSportType,
   });
 
   // Build chart data points for excluded activities (shown dimmed on scatter chart)

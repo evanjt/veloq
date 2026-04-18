@@ -51,8 +51,10 @@ export function useActivitySectionHighlights(activityIds: string[]): {
     if (!engine) return empty;
 
     try {
-      // Section indicators from materialized table
-      const indicators = engine.getActivityIndicators(activityIds);
+      // Single FFI call returns both section indicators and route highlights.
+      const bundle = engine.getActivityHighlightsBundle(activityIds);
+      const indicators = bundle.indicators;
+      const rawRoutes = bundle.routeHighlights;
       const sectionMap = new Map<string, ActivitySectionHighlight[]>();
 
       for (const ind of indicators) {
@@ -92,8 +94,7 @@ export function useActivitySectionHighlights(activityIds: string[]): {
         }
       }
 
-      // Route highlights computed inline from groups + activity_metrics
-      const rawRoutes = engine.getActivityRouteHighlights(activityIds);
+      // Route highlights already fetched in the bundle above.
       const routeMap = new Map<string, ActivityRouteHighlight>();
       for (const r of rawRoutes) {
         routeMap.set(r.activityId, {

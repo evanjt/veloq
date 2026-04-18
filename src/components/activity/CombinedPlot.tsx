@@ -1,5 +1,5 @@
 import React, { useMemo, useRef, useState, useCallback } from 'react';
-import { View, StyleSheet, Text, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, Text } from 'react-native';
 import { useTheme } from '@/hooks';
 import { CartesianChart, Area, Line } from 'victory-native';
 import {
@@ -19,33 +19,24 @@ import Animated, {
   withSpring,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { colors, darkColors, typography, layout, shadows, chartStyles } from '@/theme';
-import { useMetricSystem, POWER_ZONE_COLORS, HR_ZONE_COLORS } from '@/hooks';
+import { colors, typography, layout, chartStyles } from '@/theme';
+import { useMetricSystem } from '@/hooks';
 import type { ChartConfig, ChartTypeId } from '@/lib';
-import { formatDuration, isCyclingActivity } from '@/lib';
 import type { ActivityStreams, ActivityInterval, ActivityType } from '@/types';
 import { CHART_CONFIG } from '@/constants';
 import { ChartErrorBoundary } from '@/components/ui';
+import {
+  buildChartData,
+  computeAllAverages,
+  computeIntervalBands,
+  type ChartMetricValue,
+} from '@/lib/charts/combinedPlotData';
+import { ChartXAxisLabel } from './ChartXAxisLabel';
+import { ChartYAxisLabel } from './ChartYAxisLabel';
+import { ChartDistanceIndicator } from './ChartDistanceIndicator';
 
-interface DataSeries {
-  id: ChartTypeId;
-  config: ChartConfig;
-  rawData: number[];
-  color: string;
-}
-
-/** Per-series metric value exposed to parent for display in chips */
-export interface ChartMetricValue {
-  id: ChartTypeId;
-  label: string;
-  value: string;
-  unit: string;
-  color: string;
-  /** Longest formatted value (for stable chip width during scrubbing) */
-  maxValueWidth?: string;
-}
+export type { ChartMetricValue };
 
 interface CombinedPlotProps {
   streams: ActivityStreams;
@@ -85,6 +76,9 @@ interface ChartBounds {
   top: number;
   bottom: number;
 }
+
+/** Series info type used by this component (mirrors the lib type). */
+type SeriesInfo = ReturnType<typeof buildChartData>['seriesInfo'][number];
 
 const CHART_PADDING = { left: 0, right: 0, top: 2, bottom: 20 } as const;
 const NORMALIZED_DOMAIN = { y: [0, 1] as [number, number] };
@@ -132,104 +126,11 @@ export const CombinedPlot = React.memo(function CombinedPlot({
   const lastNotifiedIdx = useRef<number | null>(null);
 
   // Build normalized data for all selected series (+ preview if unselected)
-  const { chartData, seriesInfo, indexMap, maxX } = useMemo(() => {
-    // Choose x-axis source array based on mode
-    const xSource = xAxisMode === 'time' ? streams.time || [] : streams.distance || [];
-    if (xSource.length === 0) {
-      return {
-        chartData: [],
-        seriesInfo: [] as (DataSeries & {
-          range: { min: number; max: number; range: number };
-          isPreview?: boolean;
-        })[],
-        indexMap: [] as number[],
-        maxX: 1,
-      };
-    }
-
-    // Determine which charts to render (selected + preview if unselected)
-    const chartsToRender = [...selectedCharts];
-    if (previewMetricId && !selectedCharts.includes(previewMetricId)) {
-      chartsToRender.push(previewMetricId);
-    }
-
-    // Collect all series data
-    const series: (DataSeries & { isPreview?: boolean })[] = [];
-    for (const chartId of chartsToRender) {
-      const config = chartConfigs[chartId];
-      if (!config) continue;
-      const rawData = config.getStream?.(streams);
-      if (!rawData || rawData.length === 0) continue;
-      series.push({
-        id: chartId,
-        config,
-        rawData,
-        color: config.color,
-        isPreview: chartId === previewMetricId && !selectedCharts.includes(chartId),
-      });
-    }
-
-    if (series.length === 0) {
-      return {
-        chartData: [],
-        seriesInfo: [] as (DataSeries & {
-          range: { min: number; max: number; range: number };
-          isPreview?: boolean;
-        })[],
-        indexMap: [] as number[],
-        maxX: 1,
-      };
-    }
-
-    // Downsample and normalize
-    const maxPoints = CHART_CONFIG.MAX_DATA_POINTS;
-    const step = Math.max(1, Math.floor(xSource.length / maxPoints));
-    const points: Record<string, number>[] = [];
-    const indices: number[] = [];
-
-    // Calculate min/max for each series for normalization
-    const seriesRanges = series.map((s) => {
-      const values = s.rawData.filter((v) => !isNaN(v) && isFinite(v));
-      const min = Math.min(...values);
-      const max = Math.max(...values);
-      return { min, max, range: max - min || 1 };
-    });
-
-    for (let i = 0; i < xSource.length; i += step) {
-      let xValue: number;
-      if (xAxisMode === 'time') {
-        // Time in seconds (raw)
-        xValue = xSource[i];
-      } else {
-        // Distance in km or miles
-        const distKm = xSource[i] / 1000;
-        xValue = isMetric ? distKm : distKm * 0.621371;
-      }
-
-      const point: Record<string, number> = { x: xValue };
-
-      // Add normalized value for each series (0-1 range)
-      series.forEach((s, idx) => {
-        const rawVal = s.rawData[i] ?? 0;
-        const { min, range } = seriesRanges[idx];
-        const normalized = (rawVal - min) / range;
-        point[s.id] = Math.max(0, Math.min(1, normalized));
-      });
-
-      points.push(point);
-      indices.push(i);
-    }
-
-    const xValues = points.map((p) => p.x);
-    const computedMaxX = Math.max(...xValues);
-
-    return {
-      chartData: points,
-      seriesInfo: series.map((s, idx) => ({ ...s, range: seriesRanges[idx] })),
-      indexMap: indices,
-      maxX: computedMaxX,
-    };
-  }, [streams, selectedCharts, chartConfigs, isMetric, previewMetricId, xAxisMode]);
+  const { chartData, seriesInfo, indexMap, maxX } = useMemo(
+    () =>
+      buildChartData(streams, selectedCharts, chartConfigs, isMetric, previewMetricId, xAxisMode),
+    [streams, selectedCharts, chartConfigs, isMetric, previewMetricId, xAxisMode]
+  );
 
   // Sync x-values to shared value for UI thread access
   React.useEffect(() => {
@@ -418,78 +319,10 @@ export const CombinedPlot = React.memo(function CombinedPlot({
   }, [seriesInfo, isMetric]);
 
   // Compute averages for ALL available chart types (not just selected)
-  const allAverages = useMemo((): ChartMetricValue[] => {
-    const results: ChartMetricValue[] = [];
-    for (const chartId of Object.keys(chartConfigs) as ChartTypeId[]) {
-      const config = chartConfigs[chartId];
-      if (!config) continue;
-      const rawData = config.getStream?.(streams);
-      if (!rawData || rawData.length === 0) continue;
-
-      const validValues = rawData.filter((v) => !isNaN(v) && isFinite(v));
-      if (validValues.length === 0) continue;
-
-      let computed: number;
-      let valuePrefix = '';
-
-      if (config.defaultMetric === 'gain') {
-        // Sum of positive deltas (elevation gain)
-        let gain = 0;
-        for (let i = 1; i < rawData.length; i++) {
-          const delta = rawData[i] - rawData[i - 1];
-          if (delta > 0 && isFinite(delta)) gain += delta;
-        }
-        computed = gain;
-        valuePrefix = '+';
-      } else {
-        computed = validValues.reduce((sum, v) => sum + v, 0) / validValues.length;
-      }
-
-      if (!isMetric && config.convertToImperial) {
-        computed = config.convertToImperial(computed);
-      }
-      const formatted =
-        valuePrefix +
-        (config.formatValue
-          ? config.formatValue(computed, isMetric)
-          : Math.round(computed).toString());
-
-      // Compute widest formatted value for stable chip width
-      let maxFormatted: string;
-      if (config.defaultMetric === 'gain') {
-        // Gain is fixed — use it as max width; also check max altitude for scrub case
-        let maxRaw = Math.max(...validValues);
-        if (!isMetric && config.convertToImperial) {
-          maxRaw = config.convertToImperial(maxRaw);
-        }
-        const maxAltFormatted = config.formatValue
-          ? config.formatValue(maxRaw, isMetric)
-          : Math.round(maxRaw).toString();
-        // Use the wider of gain formatted or max altitude formatted
-        maxFormatted = formatted.length >= maxAltFormatted.length ? formatted : maxAltFormatted;
-      } else {
-        let maxRaw = Math.max(...validValues);
-        if (!isMetric && config.convertToImperial) {
-          maxRaw = config.convertToImperial(maxRaw);
-        }
-        maxFormatted = config.formatValue
-          ? config.formatValue(maxRaw, isMetric)
-          : Math.round(maxRaw).toString();
-      }
-
-      const unit = isMetric ? config.unit || '' : config.unitImperial || config.unit || '';
-
-      results.push({
-        id: chartId,
-        label: config.label,
-        value: formatted,
-        unit,
-        color: config.color,
-        maxValueWidth: maxFormatted,
-      });
-    }
-    return results;
-  }, [chartConfigs, streams, isMetric]);
+  const allAverages = useMemo(
+    () => computeAllAverages(chartConfigs, streams, isMetric),
+    [chartConfigs, streams, isMetric]
+  );
 
   // Emit all averages to parent when not scrubbing
   React.useEffect(() => {
@@ -538,82 +371,20 @@ export const CombinedPlot = React.memo(function CombinedPlot({
   }, [yAxisSeries]);
 
   // Compute interval bands when interval data is provided
-  const intervalBands = useMemo(() => {
-    if (!intervals || intervals.length === 0 || chartData.length === 0) return [];
-    const xSource = xAxisMode === 'time' ? streams.time || [] : streams.distance || [];
-    if (xSource.length === 0) return [];
-
-    const isCycling = activityType ? isCyclingActivity(activityType) : false;
-
-    // Find the series whose avg values we'll use for dashed lines
-    // Prefer the first selected series (power for cycling users, HR for runners)
-    const primarySeries = seriesInfo[0];
-
-    return intervals.map((interval) => {
-      const startIdx = Math.max(0, Math.min(interval.start_index, xSource.length - 1));
-      const endIdx = Math.max(0, Math.min(interval.end_index, xSource.length - 1));
-
-      let startX: number;
-      let endX: number;
-      if (xAxisMode === 'time') {
-        startX = xSource[startIdx];
-        endX = xSource[endIdx];
-      } else {
-        const toUnit = (v: number) => {
-          const km = v / 1000;
-          return isMetric ? km : km * 0.621371;
-        };
-        startX = toUnit(xSource[startIdx]);
-        endX = toUnit(xSource[endIdx]);
-      }
-
-      const isWork = interval.type === 'WORK';
-      const isRecovery = interval.type === 'RECOVERY' || interval.type === 'REST';
-
-      // Zone color
-      let bandColor: string;
-      let bandOpacity: number;
-      if (isWork && interval.zone != null && interval.zone >= 1) {
-        const zoneArr = isCycling ? POWER_ZONE_COLORS : HR_ZONE_COLORS;
-        bandColor = zoneArr[Math.min(interval.zone - 1, zoneArr.length - 1)];
-        if (isDark && interval.zone === 7) bandColor = darkColors.zone7;
-        bandOpacity = 0.35;
-      } else if (isWork) {
-        bandColor = colors.primary;
-        bandOpacity = 0.3;
-      } else if (isRecovery) {
-        bandColor = '#808080';
-        bandOpacity = 0.15;
-      } else if (interval.type === 'WARMUP') {
-        bandColor = '#22C55E';
-        bandOpacity = 0.15;
-      } else if (interval.type === 'COOLDOWN') {
-        bandColor = '#8B5CF6';
-        bandOpacity = 0.15;
-      } else {
-        bandColor = '#808080';
-        bandOpacity = 0.08;
-      }
-
-      // Normalized avg Y for dashed line (only for WORK intervals)
-      let avgNormY: number | null = null;
-      if (isWork && primarySeries) {
-        // Pick the avg value that matches the primary series type
-        const avgRaw =
-          primarySeries.id === 'power'
-            ? interval.average_watts
-            : primarySeries.id === 'heartrate'
-              ? interval.average_heartrate
-              : null;
-        if (avgRaw != null && isFinite(avgRaw)) {
-          const { min, range } = primarySeries.range;
-          avgNormY = Math.max(0, Math.min(1, (avgRaw - min) / range));
-        }
-      }
-
-      return { startX, endX, bandColor, bandOpacity, avgNormY, isWork };
-    });
-  }, [intervals, chartData, streams, xAxisMode, isMetric, isDark, activityType, seriesInfo]);
+  const intervalBands = useMemo(
+    () =>
+      computeIntervalBands(
+        intervals,
+        chartData.length,
+        streams,
+        xAxisMode,
+        isMetric,
+        isDark,
+        activityType,
+        seriesInfo
+      ),
+    [intervals, chartData, streams, xAxisMode, isMetric, isDark, activityType, seriesInfo]
+  );
 
   if (chartData.length === 0 || seriesInfo.length === 0) {
     return (
@@ -838,117 +609,33 @@ export const CombinedPlot = React.memo(function CombinedPlot({
             />
 
             {/* X-axis labels with hint */}
-            <View style={styles.xAxis} pointerEvents="none">
-              <Text style={[styles.xLabel, isDark && styles.xLabelDark]}>
-                {xAxisMode === 'time' ? '0:00' : '0'}
-              </Text>
-              <Text style={[styles.xAxisHint, isDark && styles.xAxisHintDark]}>
-                {t('activity.chartHint', 'Hold to scrub • Hold chip for axis')}
-              </Text>
-              <Text style={[styles.xLabel, isDark && styles.xLabelDark]}>
-                {xAxisMode === 'time' ? formatDuration(maxX) : maxX.toFixed(1)}
-              </Text>
-            </View>
+            <ChartXAxisLabel xAxisMode={xAxisMode} maxX={maxX} isDark={isDark} />
 
             {/* Y-axis labels sitting on reference lines */}
             {yAxisSeries && (
-              <>
-                {/* Max label — on the max reference line at chart top */}
-                <Text
-                  style={[
-                    styles.yLabel,
-                    isDark && styles.yLabelDark,
-                    showYAxisAccent && { borderLeftWidth: 2, borderLeftColor: yAxisSeries.color },
-                    { position: 'absolute', left: 4, top: CHART_PADDING.top },
-                  ]}
-                  pointerEvents="none"
-                >
-                  {formatYAxisValue(yAxisSeries.range.max, yAxisSeries)}
-                </Text>
-                {/* Min label — on the min reference line at chart bottom */}
-                <Text
-                  style={[
-                    styles.yLabel,
-                    isDark && styles.yLabelDark,
-                    showYAxisAccent && { borderLeftWidth: 2, borderLeftColor: yAxisSeries.color },
-                    { position: 'absolute', left: 4, top: height - CHART_PADDING.bottom - 14 },
-                  ]}
-                  pointerEvents="none"
-                >
-                  {formatYAxisValue(yAxisSeries.range.min, yAxisSeries)}
-                </Text>
-                {/* Avg label — on the dashed average line */}
-                {yAxisAvgInfo && (
-                  <Text
-                    style={[
-                      styles.yLabel,
-                      isDark && styles.yLabelDark,
-                      showYAxisAccent && {
-                        borderLeftWidth: 2,
-                        borderLeftColor: yAxisSeries.color,
-                      },
-                      {
-                        position: 'absolute',
-                        left: 4,
-                        top:
-                          CHART_PADDING.top +
-                          (1 - yAxisAvgInfo.normalized) *
-                            (height - CHART_PADDING.top - CHART_PADDING.bottom) -
-                          7,
-                      },
-                    ]}
-                    pointerEvents="none"
-                  >
-                    {formatYAxisValue(yAxisAvgInfo.raw, yAxisSeries)}
-                  </Text>
-                )}
-              </>
+              <ChartYAxisLabel
+                yAxisSeries={yAxisSeries}
+                yAxisAvgInfo={yAxisAvgInfo}
+                showYAxisAccent={showYAxisAccent}
+                chartPaddingTop={CHART_PADDING.top}
+                chartPaddingBottom={CHART_PADDING.bottom}
+                height={height}
+                isDark={isDark}
+                formatYAxisValue={formatYAxisValue}
+              />
             )}
 
             {/* X-axis indicator - overlaid on bottom right of chart */}
-            {canToggleXAxis && onXAxisModeToggle ? (
-              <TouchableOpacity
-                style={[
-                  styles.distanceIndicator,
-                  styles.distanceIndicatorTappable,
-                  isDark && styles.distanceIndicatorDark,
-                  isDark && styles.distanceIndicatorTappableDark,
-                ]}
-                onPress={() => {
-                  Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-                  onXAxisModeToggle();
-                }}
-                activeOpacity={0.7}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              >
-                <Text style={[styles.distanceText, isDark && styles.distanceTextDark]}>
-                  {xAxisMode === 'time'
-                    ? formatDuration(isActive && currentX !== null ? currentX : maxX)
-                    : isActive && currentX !== null
-                      ? `${currentX.toFixed(2)} ${xUnit}`
-                      : `${maxX.toFixed(1)} ${xUnit}`}
-                </Text>
-                <MaterialCommunityIcons
-                  name="swap-horizontal"
-                  size={12}
-                  color={isDark ? darkColors.textSecondary : colors.textSecondary}
-                  style={styles.swapIcon}
-                />
-              </TouchableOpacity>
-            ) : (
-              <View
-                style={[styles.distanceIndicator, isDark && styles.distanceIndicatorDark]}
-                pointerEvents="none"
-              >
-                <Text style={[styles.distanceText, isDark && styles.distanceTextDark]}>
-                  {xAxisMode === 'time'
-                    ? formatDuration(isActive && currentX !== null ? currentX : maxX)
-                    : isActive && currentX !== null
-                      ? `${currentX.toFixed(2)} ${xUnit}`
-                      : `${maxX.toFixed(1)} ${xUnit}`}
-                </Text>
-              </View>
-            )}
+            <ChartDistanceIndicator
+              xAxisMode={xAxisMode}
+              currentX={currentX}
+              isActive={isActive}
+              maxX={maxX}
+              xUnit={xUnit}
+              isDark={isDark}
+              canToggleXAxis={canToggleXAxis}
+              onXAxisModeToggle={onXAxisModeToggle}
+            />
           </View>
         </GestureDetector>
       </View>
@@ -958,41 +645,6 @@ export const CombinedPlot = React.memo(function CombinedPlot({
 
 const styles = StyleSheet.create({
   container: {},
-  distanceIndicator: {
-    position: 'absolute',
-    bottom: 24,
-    right: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 10,
-    // Platform-optimized shadow
-    ...shadows.pill,
-  },
-  distanceIndicatorTappable: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 5,
-    borderWidth: 1,
-    borderColor: 'rgba(0, 0, 0, 0.1)',
-  },
-  distanceIndicatorTappableDark: {
-    borderColor: 'rgba(255, 255, 255, 0.15)',
-  },
-  distanceIndicatorDark: {
-    backgroundColor: darkColors.surfaceOverlay,
-  },
-  swapIcon: {
-    marginLeft: 3,
-  },
-  distanceText: {
-    fontSize: typography.label.fontSize,
-    fontWeight: '600',
-    color: colors.textPrimary,
-  },
-  distanceTextDark: {
-    color: darkColors.textPrimary,
-  },
   crosshair: {
     position: 'absolute',
     top: 8,
@@ -1013,44 +665,5 @@ const styles = StyleSheet.create({
   placeholderText: {
     fontSize: typography.bodyCompact.fontSize,
     color: colors.textSecondary,
-  },
-  xAxis: {
-    position: 'absolute',
-    bottom: 2,
-    left: 4,
-    right: 4,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  xLabel: {
-    fontSize: typography.micro.fontSize,
-    fontWeight: '500',
-    color: colors.textSecondary,
-  },
-  xAxisHint: {
-    fontSize: typography.micro.fontSize,
-    fontWeight: '400',
-    color: colors.textMuted,
-    fontStyle: 'italic',
-  },
-  xAxisHintDark: {
-    color: darkColors.textMuted,
-  },
-  xLabelDark: {
-    color: darkColors.textMuted,
-  },
-  yLabel: {
-    fontSize: typography.micro.fontSize,
-    fontWeight: '500',
-    color: colors.textSecondary,
-    backgroundColor: 'rgba(255, 255, 255, 0.8)',
-    paddingHorizontal: 3,
-    paddingVertical: 1,
-    borderRadius: 3,
-    overflow: 'hidden',
-  },
-  yLabelDark: {
-    color: darkColors.textSecondary,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
   },
 });

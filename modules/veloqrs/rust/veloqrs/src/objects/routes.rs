@@ -38,6 +38,29 @@ impl RouteManager {
         })
     }
 
+    /// Filtered + sorted group summaries. Pushes the activity-count threshold
+    /// and sort key into Rust so the hook stops re-iterating in TS.
+    /// `sort_key` accepts "count" or "name"; anything else maps to "count".
+    fn get_filtered_summaries(
+        &self,
+        min_activities: u32,
+        sort_key: String,
+    ) -> Result<crate::FfiGroupSummariesResult, VeloqError> {
+        with_engine(|e| {
+            let total_count = e.get_group_count();
+            let mut summaries = e.get_group_summaries();
+            summaries.retain(|g| g.activity_count >= min_activities);
+            match sort_key.as_str() {
+                "name" => summaries.sort_by(|a, b| a.group_id.cmp(&b.group_id)),
+                _ => summaries.sort_by(|a, b| b.activity_count.cmp(&a.activity_count)),
+            }
+            crate::FfiGroupSummariesResult {
+                total_count,
+                summaries,
+            }
+        })
+    }
+
     fn get_consensus_route(&self, group_id: String) -> Result<Vec<crate::FfiGpsPoint>, VeloqError> {
         with_engine(|e| {
             e.get_consensus_route(&group_id)

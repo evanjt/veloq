@@ -160,17 +160,20 @@ export function useStrengthProgression(muscleSlug: string | null) {
     queryKey: queryKeys.strength.progression(muscleSlug!),
     queryFn: () => {
       const engine = getRouteEngine();
-      if (!engine || !muscleSlug || typeof engine.getStrengthSummary !== 'function') {
+      if (!engine || !muscleSlug || typeof engine.getStrengthSummaryBatch !== 'function') {
         return null;
       }
 
       try {
-        const points = getTrailingWeekRanges(4).map((range) => {
-          const summary = normalizeStrengthSummary(
-            engine.getStrengthSummary(range.startTs, range.endTs)
-          );
-          const match = summary.muscleVolumes.find((volume) => volume.slug === muscleSlug);
+        const ranges = getTrailingWeekRanges(4);
+        const rawSummaries = engine.getStrengthSummaryBatch(
+          ranges.map((r) => ({ startTs: r.startTs, endTs: r.endTs }))
+        );
+        const summaries = rawSummaries.map((raw) => normalizeStrengthSummary(raw));
 
+        const points = ranges.map((range, idx) => {
+          const summary = summaries[idx];
+          const match = summary.muscleVolumes.find((volume) => volume.slug === muscleSlug);
           return {
             label: range.label,
             startTs: range.startTs,

@@ -545,6 +545,79 @@ const FfiConverterTypeFetchAndStoreResult = (() => {
 })();
 
 /**
+ * Combined payload for batched activity-list highlights: pre-computed
+ * section indicators (PRs + trends) and route highlights for the same
+ * activity IDs, delivered in a single FFI round-trip.
+ */
+export type FfiActivityHighlightsBundle = {
+  indicators: Array<FfiActivityIndicator>;
+  routeHighlights: Array<FfiActivityRouteHighlight>;
+};
+
+/**
+ * Generated factory for {@link FfiActivityHighlightsBundle} record objects.
+ */
+export const FfiActivityHighlightsBundle = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<
+      FfiActivityHighlightsBundle,
+      ReturnType<typeof defaults>
+    >(defaults);
+  })();
+  return Object.freeze({
+    /**
+     * Create a frozen instance of {@link FfiActivityHighlightsBundle}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    create,
+
+    /**
+     * Create a frozen instance of {@link FfiActivityHighlightsBundle}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    new: create,
+
+    /**
+     * Defaults specified in the {@link veloqrs} crate.
+     */
+    defaults: () =>
+      Object.freeze(defaults()) as Partial<FfiActivityHighlightsBundle>,
+  });
+})();
+
+const FfiConverterTypeFfiActivityHighlightsBundle = (() => {
+  type TypeName = FfiActivityHighlightsBundle;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        indicators: FfiConverterArrayTypeFfiActivityIndicator.read(from),
+        routeHighlights:
+          FfiConverterArrayTypeFfiActivityRouteHighlight.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterArrayTypeFfiActivityIndicator.write(value.indicators, into);
+      FfiConverterArrayTypeFfiActivityRouteHighlight.write(
+        value.routeHighlights,
+        into,
+      );
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterArrayTypeFfiActivityIndicator.allocationSize(
+          value.indicators,
+        ) +
+        FfiConverterArrayTypeFfiActivityRouteHighlight.allocationSize(
+          value.routeHighlights,
+        )
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * Pre-computed PR or trend indicator for an activity.
  * Read from the `activity_indicators` table — no on-demand computation.
  */
@@ -921,6 +994,70 @@ const FfiConverterTypeFfiActivityPattern = (() => {
         FfiConverterArrayTypeFfiPatternSection.allocationSize(
           value.commonSections,
         )
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * Bundled patterns payload for the home screen: today's pattern alongside
+ * the full detected set, delivered in a single FFI call.
+ */
+export type FfiActivityPatternsBundle = {
+  today: FfiActivityPattern | undefined;
+  all: Array<FfiActivityPattern>;
+};
+
+/**
+ * Generated factory for {@link FfiActivityPatternsBundle} record objects.
+ */
+export const FfiActivityPatternsBundle = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<
+      FfiActivityPatternsBundle,
+      ReturnType<typeof defaults>
+    >(defaults);
+  })();
+  return Object.freeze({
+    /**
+     * Create a frozen instance of {@link FfiActivityPatternsBundle}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    create,
+
+    /**
+     * Create a frozen instance of {@link FfiActivityPatternsBundle}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    new: create,
+
+    /**
+     * Defaults specified in the {@link veloqrs} crate.
+     */
+    defaults: () =>
+      Object.freeze(defaults()) as Partial<FfiActivityPatternsBundle>,
+  });
+})();
+
+const FfiConverterTypeFfiActivityPatternsBundle = (() => {
+  type TypeName = FfiActivityPatternsBundle;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        today: FfiConverterOptionalTypeFfiActivityPattern.read(from),
+        all: FfiConverterArrayTypeFfiActivityPattern.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterOptionalTypeFfiActivityPattern.write(value.today, into);
+      FfiConverterArrayTypeFfiActivityPattern.write(value.all, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterOptionalTypeFfiActivityPattern.allocationSize(value.today) +
+        FfiConverterArrayTypeFfiActivityPattern.allocationSize(value.all)
       );
     }
   }
@@ -1788,6 +1925,12 @@ export type FfiDirectionStats = {
    * Number of traversals in this direction
    */
   count: /*u32*/ number;
+  /**
+   * Average speed across all traversals in this direction (m/s).
+   * Populated for route detail stats so the TS hook no longer has to
+   * re-aggregate. Section performance queries currently leave it as None.
+   */
+  avgSpeed: /*f64*/ number | undefined;
 };
 
 /**
@@ -1828,18 +1971,21 @@ const FfiConverterTypeFfiDirectionStats = (() => {
         avgTime: FfiConverterOptionalFloat64.read(from),
         lastActivity: FfiConverterOptionalInt64.read(from),
         count: FfiConverterUInt32.read(from),
+        avgSpeed: FfiConverterOptionalFloat64.read(from),
       };
     }
     write(value: TypeName, into: RustBuffer): void {
       FfiConverterOptionalFloat64.write(value.avgTime, into);
       FfiConverterOptionalInt64.write(value.lastActivity, into);
       FfiConverterUInt32.write(value.count, into);
+      FfiConverterOptionalFloat64.write(value.avgSpeed, into);
     }
     allocationSize(value: TypeName): number {
       return (
         FfiConverterOptionalFloat64.allocationSize(value.avgTime) +
         FfiConverterOptionalInt64.allocationSize(value.lastActivity) +
-        FfiConverterUInt32.allocationSize(value.count)
+        FfiConverterUInt32.allocationSize(value.count) +
+        FfiConverterOptionalFloat64.allocationSize(value.avgSpeed)
       );
     }
   }
@@ -2180,6 +2326,86 @@ const FfiConverterTypeFfiExerciseActivity = (() => {
         FfiConverterUInt32.allocationSize(value.sets) +
         FfiConverterFloat64.allocationSize(value.totalWeightKg) +
         FfiConverterBool.allocationSize(value.isPrimary)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * Per-exercise contribution to a muscle group, aggregated across all active
+ * sets of one activity. Role reflects whether the muscle is primary or
+ * secondary for the exercise.
+ */
+export type FfiExerciseContribution = {
+  name: string;
+  /**
+   * "primary" | "secondary"
+   */
+  role: string;
+  sets: /*u32*/ number;
+  reps: /*u32*/ number;
+  volumeKg: /*f64*/ number;
+};
+
+/**
+ * Generated factory for {@link FfiExerciseContribution} record objects.
+ */
+export const FfiExerciseContribution = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<
+      FfiExerciseContribution,
+      ReturnType<typeof defaults>
+    >(defaults);
+  })();
+  return Object.freeze({
+    /**
+     * Create a frozen instance of {@link FfiExerciseContribution}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    create,
+
+    /**
+     * Create a frozen instance of {@link FfiExerciseContribution}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    new: create,
+
+    /**
+     * Defaults specified in the {@link veloqrs} crate.
+     */
+    defaults: () =>
+      Object.freeze(defaults()) as Partial<FfiExerciseContribution>,
+  });
+})();
+
+const FfiConverterTypeFfiExerciseContribution = (() => {
+  type TypeName = FfiExerciseContribution;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        name: FfiConverterString.read(from),
+        role: FfiConverterString.read(from),
+        sets: FfiConverterUInt32.read(from),
+        reps: FfiConverterUInt32.read(from),
+        volumeKg: FfiConverterFloat64.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterString.write(value.name, into);
+      FfiConverterString.write(value.role, into);
+      FfiConverterUInt32.write(value.sets, into);
+      FfiConverterUInt32.write(value.reps, into);
+      FfiConverterFloat64.write(value.volumeKg, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.name) +
+        FfiConverterString.allocationSize(value.role) +
+        FfiConverterUInt32.allocationSize(value.sets) +
+        FfiConverterUInt32.allocationSize(value.reps) +
+        FfiConverterFloat64.allocationSize(value.volumeKg)
       );
     }
   }
@@ -2918,6 +3144,80 @@ const FfiConverterTypeFfiHeatmapDay = (() => {
 })();
 
 /**
+ * HRV trend summary over a trailing window. `label` is the i18n key suffix
+ * ("trendingUp" | "stable" | "trendingDown") — TS resolves translations.
+ */
+export type FfiHrvTrend = {
+  label: string;
+  avg: /*f64*/ number;
+  latest: /*f64*/ number;
+  dataPoints: /*u32*/ number;
+  sparkline: Array</*f64*/ number>;
+};
+
+/**
+ * Generated factory for {@link FfiHrvTrend} record objects.
+ */
+export const FfiHrvTrend = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiHrvTrend, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    /**
+     * Create a frozen instance of {@link FfiHrvTrend}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    create,
+
+    /**
+     * Create a frozen instance of {@link FfiHrvTrend}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    new: create,
+
+    /**
+     * Defaults specified in the {@link veloqrs} crate.
+     */
+    defaults: () => Object.freeze(defaults()) as Partial<FfiHrvTrend>,
+  });
+})();
+
+const FfiConverterTypeFfiHrvTrend = (() => {
+  type TypeName = FfiHrvTrend;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        label: FfiConverterString.read(from),
+        avg: FfiConverterFloat64.read(from),
+        latest: FfiConverterFloat64.read(from),
+        dataPoints: FfiConverterUInt32.read(from),
+        sparkline: FfiConverterArrayFloat64.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterString.write(value.label, into);
+      FfiConverterFloat64.write(value.avg, into);
+      FfiConverterFloat64.write(value.latest, into);
+      FfiConverterUInt32.write(value.dataPoints, into);
+      FfiConverterArrayFloat64.write(value.sparkline, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.label) +
+        FfiConverterFloat64.allocationSize(value.avg) +
+        FfiConverterFloat64.allocationSize(value.latest) +
+        FfiConverterUInt32.allocationSize(value.dataPoints) +
+        FfiConverterArrayFloat64.allocationSize(value.sparkline)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * Batch insights data: combines period stats, trends, patterns, and recent PRs.
  * Reduces Insights hook FFI calls from 13-16 to 1.
  */
@@ -3395,6 +3695,92 @@ const FfiConverterTypeFfiMuscleGroup = (() => {
       return (
         FfiConverterString.allocationSize(value.slug) +
         FfiConverterUInt8.allocationSize(value.intensity)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * Full muscle-group breakdown for one activity, one muscle slug. Rust groups
+ * exercise sets by display name, classifies primary/secondary, and returns
+ * totals — replacing the useMemo grouping/reducing in `useMuscleDetail`.
+ */
+export type FfiMuscleGroupDetail = {
+  slug: string;
+  exercises: Array<FfiExerciseContribution>;
+  totalSets: /*u32*/ number;
+  totalReps: /*u32*/ number;
+  totalVolumeKg: /*f64*/ number;
+  primaryExercises: /*u32*/ number;
+  secondaryExercises: /*u32*/ number;
+};
+
+/**
+ * Generated factory for {@link FfiMuscleGroupDetail} record objects.
+ */
+export const FfiMuscleGroupDetail = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<
+      FfiMuscleGroupDetail,
+      ReturnType<typeof defaults>
+    >(defaults);
+  })();
+  return Object.freeze({
+    /**
+     * Create a frozen instance of {@link FfiMuscleGroupDetail}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    create,
+
+    /**
+     * Create a frozen instance of {@link FfiMuscleGroupDetail}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    new: create,
+
+    /**
+     * Defaults specified in the {@link veloqrs} crate.
+     */
+    defaults: () => Object.freeze(defaults()) as Partial<FfiMuscleGroupDetail>,
+  });
+})();
+
+const FfiConverterTypeFfiMuscleGroupDetail = (() => {
+  type TypeName = FfiMuscleGroupDetail;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        slug: FfiConverterString.read(from),
+        exercises: FfiConverterArrayTypeFfiExerciseContribution.read(from),
+        totalSets: FfiConverterUInt32.read(from),
+        totalReps: FfiConverterUInt32.read(from),
+        totalVolumeKg: FfiConverterFloat64.read(from),
+        primaryExercises: FfiConverterUInt32.read(from),
+        secondaryExercises: FfiConverterUInt32.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterString.write(value.slug, into);
+      FfiConverterArrayTypeFfiExerciseContribution.write(value.exercises, into);
+      FfiConverterUInt32.write(value.totalSets, into);
+      FfiConverterUInt32.write(value.totalReps, into);
+      FfiConverterFloat64.write(value.totalVolumeKg, into);
+      FfiConverterUInt32.write(value.primaryExercises, into);
+      FfiConverterUInt32.write(value.secondaryExercises, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.slug) +
+        FfiConverterArrayTypeFfiExerciseContribution.allocationSize(
+          value.exercises,
+        ) +
+        FfiConverterUInt32.allocationSize(value.totalSets) +
+        FfiConverterUInt32.allocationSize(value.totalReps) +
+        FfiConverterFloat64.allocationSize(value.totalVolumeKg) +
+        FfiConverterUInt32.allocationSize(value.primaryExercises) +
+        FfiConverterUInt32.allocationSize(value.secondaryExercises)
       );
     }
   }
@@ -4109,6 +4495,70 @@ const FfiConverterTypeFfiRankedSection = (() => {
         FfiConverterUInt32.allocationSize(value.daysSinceLast) +
         FfiConverterInt32.allocationSize(value.trend) +
         FfiConverterBool.allocationSize(value.latestIsPr)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * Ranked sections for one sport, paired with the sport label. One element
+ * per input sport in `get_ranked_sections_batch`.
+ */
+export type FfiRankedSectionsBySport = {
+  sportType: string;
+  sections: Array<FfiRankedSection>;
+};
+
+/**
+ * Generated factory for {@link FfiRankedSectionsBySport} record objects.
+ */
+export const FfiRankedSectionsBySport = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<
+      FfiRankedSectionsBySport,
+      ReturnType<typeof defaults>
+    >(defaults);
+  })();
+  return Object.freeze({
+    /**
+     * Create a frozen instance of {@link FfiRankedSectionsBySport}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    create,
+
+    /**
+     * Create a frozen instance of {@link FfiRankedSectionsBySport}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    new: create,
+
+    /**
+     * Defaults specified in the {@link veloqrs} crate.
+     */
+    defaults: () =>
+      Object.freeze(defaults()) as Partial<FfiRankedSectionsBySport>,
+  });
+})();
+
+const FfiConverterTypeFfiRankedSectionsBySport = (() => {
+  type TypeName = FfiRankedSectionsBySport;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        sportType: FfiConverterString.read(from),
+        sections: FfiConverterArrayTypeFfiRankedSection.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterString.write(value.sportType, into);
+      FfiConverterArrayTypeFfiRankedSection.write(value.sections, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.sportType) +
+        FfiConverterArrayTypeFfiRankedSection.allocationSize(value.sections)
       );
     }
   }
@@ -4955,6 +5405,215 @@ const FfiConverterTypeFfiSection = (() => {
         FfiConverterOptionalUInt32.allocationSize(value.endIndex) +
         FfiConverterBool.allocationSize(value.disabled) +
         FfiConverterOptionalString.allocationSize(value.supersededBy)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * Bundled chart payload for the section-detail screen. Rust composes
+ * per-lap points, ranks, and summary stats from the performance records
+ * it already owns so the TS hook stops iterating + sorting multiple times.
+ */
+export type FfiSectionChartData = {
+  points: Array<FfiSectionChartPoint>;
+  minSpeed: /*f64*/ number;
+  maxSpeed: /*f64*/ number;
+  /**
+   * Index into `points` for the fastest lap (0 when empty).
+   */
+  bestIndex: /*u32*/ number;
+  hasReverseRuns: boolean;
+  bestActivityId: string | undefined;
+  bestTimeSecs: /*f64*/ number | undefined;
+  bestPace: /*f64*/ number | undefined;
+  averageTimeSecs: /*f64*/ number | undefined;
+  lastActivityDate: /*i64*/ bigint | undefined;
+  totalActivities: /*u32*/ number;
+};
+
+/**
+ * Generated factory for {@link FfiSectionChartData} record objects.
+ */
+export const FfiSectionChartData = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiSectionChartData, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    /**
+     * Create a frozen instance of {@link FfiSectionChartData}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    create,
+
+    /**
+     * Create a frozen instance of {@link FfiSectionChartData}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    new: create,
+
+    /**
+     * Defaults specified in the {@link veloqrs} crate.
+     */
+    defaults: () => Object.freeze(defaults()) as Partial<FfiSectionChartData>,
+  });
+})();
+
+const FfiConverterTypeFfiSectionChartData = (() => {
+  type TypeName = FfiSectionChartData;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        points: FfiConverterArrayTypeFfiSectionChartPoint.read(from),
+        minSpeed: FfiConverterFloat64.read(from),
+        maxSpeed: FfiConverterFloat64.read(from),
+        bestIndex: FfiConverterUInt32.read(from),
+        hasReverseRuns: FfiConverterBool.read(from),
+        bestActivityId: FfiConverterOptionalString.read(from),
+        bestTimeSecs: FfiConverterOptionalFloat64.read(from),
+        bestPace: FfiConverterOptionalFloat64.read(from),
+        averageTimeSecs: FfiConverterOptionalFloat64.read(from),
+        lastActivityDate: FfiConverterOptionalInt64.read(from),
+        totalActivities: FfiConverterUInt32.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterArrayTypeFfiSectionChartPoint.write(value.points, into);
+      FfiConverterFloat64.write(value.minSpeed, into);
+      FfiConverterFloat64.write(value.maxSpeed, into);
+      FfiConverterUInt32.write(value.bestIndex, into);
+      FfiConverterBool.write(value.hasReverseRuns, into);
+      FfiConverterOptionalString.write(value.bestActivityId, into);
+      FfiConverterOptionalFloat64.write(value.bestTimeSecs, into);
+      FfiConverterOptionalFloat64.write(value.bestPace, into);
+      FfiConverterOptionalFloat64.write(value.averageTimeSecs, into);
+      FfiConverterOptionalInt64.write(value.lastActivityDate, into);
+      FfiConverterUInt32.write(value.totalActivities, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterArrayTypeFfiSectionChartPoint.allocationSize(value.points) +
+        FfiConverterFloat64.allocationSize(value.minSpeed) +
+        FfiConverterFloat64.allocationSize(value.maxSpeed) +
+        FfiConverterUInt32.allocationSize(value.bestIndex) +
+        FfiConverterBool.allocationSize(value.hasReverseRuns) +
+        FfiConverterOptionalString.allocationSize(value.bestActivityId) +
+        FfiConverterOptionalFloat64.allocationSize(value.bestTimeSecs) +
+        FfiConverterOptionalFloat64.allocationSize(value.bestPace) +
+        FfiConverterOptionalFloat64.allocationSize(value.averageTimeSecs) +
+        FfiConverterOptionalInt64.allocationSize(value.lastActivityDate) +
+        FfiConverterUInt32.allocationSize(value.totalActivities)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * One renderable chart point on the section-detail chart. One entry per
+ * lap traversal (activities with multiple laps expand into multiple points).
+ */
+export type FfiSectionChartPoint = {
+  lapId: string;
+  activityId: string;
+  activityName: string;
+  /**
+   * Unix seconds
+   */
+  activityDate: /*i64*/ bigint;
+  /**
+   * m/s
+   */
+  speed: /*f64*/ number;
+  /**
+   * Section time for this lap (seconds)
+   */
+  sectionTime: /*u32*/ number;
+  sectionDistance: /*f64*/ number;
+  /**
+   * "same" | "reverse"
+   */
+  direction: string;
+  /**
+   * Rank by speed across all points (1 = fastest). Duplicate activity rows
+   * keep the best (lowest) rank.
+   */
+  rank: /*u32*/ number;
+};
+
+/**
+ * Generated factory for {@link FfiSectionChartPoint} record objects.
+ */
+export const FfiSectionChartPoint = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<
+      FfiSectionChartPoint,
+      ReturnType<typeof defaults>
+    >(defaults);
+  })();
+  return Object.freeze({
+    /**
+     * Create a frozen instance of {@link FfiSectionChartPoint}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    create,
+
+    /**
+     * Create a frozen instance of {@link FfiSectionChartPoint}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    new: create,
+
+    /**
+     * Defaults specified in the {@link veloqrs} crate.
+     */
+    defaults: () => Object.freeze(defaults()) as Partial<FfiSectionChartPoint>,
+  });
+})();
+
+const FfiConverterTypeFfiSectionChartPoint = (() => {
+  type TypeName = FfiSectionChartPoint;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        lapId: FfiConverterString.read(from),
+        activityId: FfiConverterString.read(from),
+        activityName: FfiConverterString.read(from),
+        activityDate: FfiConverterInt64.read(from),
+        speed: FfiConverterFloat64.read(from),
+        sectionTime: FfiConverterUInt32.read(from),
+        sectionDistance: FfiConverterFloat64.read(from),
+        direction: FfiConverterString.read(from),
+        rank: FfiConverterUInt32.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterString.write(value.lapId, into);
+      FfiConverterString.write(value.activityId, into);
+      FfiConverterString.write(value.activityName, into);
+      FfiConverterInt64.write(value.activityDate, into);
+      FfiConverterFloat64.write(value.speed, into);
+      FfiConverterUInt32.write(value.sectionTime, into);
+      FfiConverterFloat64.write(value.sectionDistance, into);
+      FfiConverterString.write(value.direction, into);
+      FfiConverterUInt32.write(value.rank, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.lapId) +
+        FfiConverterString.allocationSize(value.activityId) +
+        FfiConverterString.allocationSize(value.activityName) +
+        FfiConverterInt64.allocationSize(value.activityDate) +
+        FfiConverterFloat64.allocationSize(value.speed) +
+        FfiConverterUInt32.allocationSize(value.sectionTime) +
+        FfiConverterFloat64.allocationSize(value.sectionDistance) +
+        FfiConverterString.allocationSize(value.direction) +
+        FfiConverterUInt32.allocationSize(value.rank)
       );
     }
   }
@@ -5997,6 +6656,105 @@ const FfiConverterTypeFfiSectionWithPolyline = (() => {
 })();
 
 /**
+ * One stale-PR opportunity: a section whose PR might be beatable because
+ * the user's threshold fitness (FTP for cycling, critical speed for run/swim)
+ * has improved since the PR was set, and the section hasn't been visited
+ * recently. Pure pattern recognition — TS formats as an Insight.
+ */
+export type FfiStalePrOpportunity = {
+  sectionId: string;
+  sectionName: string;
+  bestTimeSecs: /*f64*/ number;
+  traversalCount: /*u32*/ number;
+  /**
+   * "power" for cycling (FTP), "pace" for running/swimming (critical speed)
+   */
+  fitnessMetric: string;
+  currentValue: /*f64*/ number;
+  previousValue: /*f64*/ number;
+  gainPercent: /*f64*/ number;
+  /**
+   * "W" for power, "/km" for running, "/100m" for swimming
+   */
+  unit: string;
+};
+
+/**
+ * Generated factory for {@link FfiStalePrOpportunity} record objects.
+ */
+export const FfiStalePrOpportunity = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<
+      FfiStalePrOpportunity,
+      ReturnType<typeof defaults>
+    >(defaults);
+  })();
+  return Object.freeze({
+    /**
+     * Create a frozen instance of {@link FfiStalePrOpportunity}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    create,
+
+    /**
+     * Create a frozen instance of {@link FfiStalePrOpportunity}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    new: create,
+
+    /**
+     * Defaults specified in the {@link veloqrs} crate.
+     */
+    defaults: () => Object.freeze(defaults()) as Partial<FfiStalePrOpportunity>,
+  });
+})();
+
+const FfiConverterTypeFfiStalePrOpportunity = (() => {
+  type TypeName = FfiStalePrOpportunity;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        sectionId: FfiConverterString.read(from),
+        sectionName: FfiConverterString.read(from),
+        bestTimeSecs: FfiConverterFloat64.read(from),
+        traversalCount: FfiConverterUInt32.read(from),
+        fitnessMetric: FfiConverterString.read(from),
+        currentValue: FfiConverterFloat64.read(from),
+        previousValue: FfiConverterFloat64.read(from),
+        gainPercent: FfiConverterFloat64.read(from),
+        unit: FfiConverterString.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterString.write(value.sectionId, into);
+      FfiConverterString.write(value.sectionName, into);
+      FfiConverterFloat64.write(value.bestTimeSecs, into);
+      FfiConverterUInt32.write(value.traversalCount, into);
+      FfiConverterString.write(value.fitnessMetric, into);
+      FfiConverterFloat64.write(value.currentValue, into);
+      FfiConverterFloat64.write(value.previousValue, into);
+      FfiConverterFloat64.write(value.gainPercent, into);
+      FfiConverterString.write(value.unit, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.sectionId) +
+        FfiConverterString.allocationSize(value.sectionName) +
+        FfiConverterFloat64.allocationSize(value.bestTimeSecs) +
+        FfiConverterUInt32.allocationSize(value.traversalCount) +
+        FfiConverterString.allocationSize(value.fitnessMetric) +
+        FfiConverterFloat64.allocationSize(value.currentValue) +
+        FfiConverterFloat64.allocationSize(value.previousValue) +
+        FfiConverterFloat64.allocationSize(value.gainPercent) +
+        FfiConverterString.allocationSize(value.unit)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * All data needed for the feed screen on startup in one call.
  * Reduces 20+ FFI calls to 1.
  */
@@ -6074,6 +6832,71 @@ const FfiConverterTypeFfiStartupData = (() => {
           value.previewTracks,
         ) +
         FfiConverterArrayString.allocationSize(value.cachedMetricIds)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * Bundled strength aggregation for the insights hook: one monthly summary
+ * plus N weekly summaries, each keyed to the corresponding input range.
+ * Collapses 5+ separate `getStrengthSummary` FFI calls into one round-trip.
+ */
+export type FfiStrengthInsightSeries = {
+  monthly: FfiStrengthSummary;
+  weekly: Array<FfiStrengthSummary>;
+};
+
+/**
+ * Generated factory for {@link FfiStrengthInsightSeries} record objects.
+ */
+export const FfiStrengthInsightSeries = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<
+      FfiStrengthInsightSeries,
+      ReturnType<typeof defaults>
+    >(defaults);
+  })();
+  return Object.freeze({
+    /**
+     * Create a frozen instance of {@link FfiStrengthInsightSeries}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    create,
+
+    /**
+     * Create a frozen instance of {@link FfiStrengthInsightSeries}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    new: create,
+
+    /**
+     * Defaults specified in the {@link veloqrs} crate.
+     */
+    defaults: () =>
+      Object.freeze(defaults()) as Partial<FfiStrengthInsightSeries>,
+  });
+})();
+
+const FfiConverterTypeFfiStrengthInsightSeries = (() => {
+  type TypeName = FfiStrengthInsightSeries;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        monthly: FfiConverterTypeFfiStrengthSummary.read(from),
+        weekly: FfiConverterArrayTypeFfiStrengthSummary.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterTypeFfiStrengthSummary.write(value.monthly, into);
+      FfiConverterArrayTypeFfiStrengthSummary.write(value.weekly, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterTypeFfiStrengthSummary.allocationSize(value.monthly) +
+        FfiConverterArrayTypeFfiStrengthSummary.allocationSize(value.weekly)
       );
     }
   }
@@ -6285,6 +7108,350 @@ const FfiConverterTypeFfiSupersededEntry = (() => {
       return (
         FfiConverterString.allocationSize(value.customSectionId) +
         FfiConverterArrayString.allocationSize(value.autoSectionIds)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * Inclusive Unix-second range used for batched summary requests.
+ */
+export type FfiTimestampRange = {
+  startTs: /*i64*/ bigint;
+  endTs: /*i64*/ bigint;
+};
+
+/**
+ * Generated factory for {@link FfiTimestampRange} record objects.
+ */
+export const FfiTimestampRange = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiTimestampRange, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    /**
+     * Create a frozen instance of {@link FfiTimestampRange}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    create,
+
+    /**
+     * Create a frozen instance of {@link FfiTimestampRange}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    new: create,
+
+    /**
+     * Defaults specified in the {@link veloqrs} crate.
+     */
+    defaults: () => Object.freeze(defaults()) as Partial<FfiTimestampRange>,
+  });
+})();
+
+const FfiConverterTypeFfiTimestampRange = (() => {
+  type TypeName = FfiTimestampRange;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        startTs: FfiConverterInt64.read(from),
+        endTs: FfiConverterInt64.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterInt64.write(value.startTs, into);
+      FfiConverterInt64.write(value.endTs, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterInt64.allocationSize(value.startTs) +
+        FfiConverterInt64.allocationSize(value.endTs)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * One wellness row passed in from TS (intervals.icu sync). Fields outside
+ * this subset (sleepQuality, spO2, etc.) aren't persisted yet — the TS
+ * sync helper only forwards the fields the Rust atomics consume.
+ */
+export type FfiWellnessRow = {
+  /**
+   * ISO-8601 YYYY-MM-DD
+   */
+  date: string;
+  ctl: /*f64*/ number | undefined;
+  atl: /*f64*/ number | undefined;
+  rampRate: /*f64*/ number | undefined;
+  hrv: /*f64*/ number | undefined;
+  restingHr: /*f64*/ number | undefined;
+  weight: /*f64*/ number | undefined;
+  sleepSecs: /*i64*/ bigint | undefined;
+  sleepScore: /*f64*/ number | undefined;
+  soreness: /*i32*/ number | undefined;
+  fatigue: /*i32*/ number | undefined;
+  stress: /*i32*/ number | undefined;
+  mood: /*i32*/ number | undefined;
+  motivation: /*i32*/ number | undefined;
+};
+
+/**
+ * Generated factory for {@link FfiWellnessRow} record objects.
+ */
+export const FfiWellnessRow = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiWellnessRow, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    /**
+     * Create a frozen instance of {@link FfiWellnessRow}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    create,
+
+    /**
+     * Create a frozen instance of {@link FfiWellnessRow}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    new: create,
+
+    /**
+     * Defaults specified in the {@link veloqrs} crate.
+     */
+    defaults: () => Object.freeze(defaults()) as Partial<FfiWellnessRow>,
+  });
+})();
+
+const FfiConverterTypeFfiWellnessRow = (() => {
+  type TypeName = FfiWellnessRow;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        date: FfiConverterString.read(from),
+        ctl: FfiConverterOptionalFloat64.read(from),
+        atl: FfiConverterOptionalFloat64.read(from),
+        rampRate: FfiConverterOptionalFloat64.read(from),
+        hrv: FfiConverterOptionalFloat64.read(from),
+        restingHr: FfiConverterOptionalFloat64.read(from),
+        weight: FfiConverterOptionalFloat64.read(from),
+        sleepSecs: FfiConverterOptionalInt64.read(from),
+        sleepScore: FfiConverterOptionalFloat64.read(from),
+        soreness: FfiConverterOptionalInt32.read(from),
+        fatigue: FfiConverterOptionalInt32.read(from),
+        stress: FfiConverterOptionalInt32.read(from),
+        mood: FfiConverterOptionalInt32.read(from),
+        motivation: FfiConverterOptionalInt32.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterString.write(value.date, into);
+      FfiConverterOptionalFloat64.write(value.ctl, into);
+      FfiConverterOptionalFloat64.write(value.atl, into);
+      FfiConverterOptionalFloat64.write(value.rampRate, into);
+      FfiConverterOptionalFloat64.write(value.hrv, into);
+      FfiConverterOptionalFloat64.write(value.restingHr, into);
+      FfiConverterOptionalFloat64.write(value.weight, into);
+      FfiConverterOptionalInt64.write(value.sleepSecs, into);
+      FfiConverterOptionalFloat64.write(value.sleepScore, into);
+      FfiConverterOptionalInt32.write(value.soreness, into);
+      FfiConverterOptionalInt32.write(value.fatigue, into);
+      FfiConverterOptionalInt32.write(value.stress, into);
+      FfiConverterOptionalInt32.write(value.mood, into);
+      FfiConverterOptionalInt32.write(value.motivation, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.date) +
+        FfiConverterOptionalFloat64.allocationSize(value.ctl) +
+        FfiConverterOptionalFloat64.allocationSize(value.atl) +
+        FfiConverterOptionalFloat64.allocationSize(value.rampRate) +
+        FfiConverterOptionalFloat64.allocationSize(value.hrv) +
+        FfiConverterOptionalFloat64.allocationSize(value.restingHr) +
+        FfiConverterOptionalFloat64.allocationSize(value.weight) +
+        FfiConverterOptionalInt64.allocationSize(value.sleepSecs) +
+        FfiConverterOptionalFloat64.allocationSize(value.sleepScore) +
+        FfiConverterOptionalInt32.allocationSize(value.soreness) +
+        FfiConverterOptionalInt32.allocationSize(value.fatigue) +
+        FfiConverterOptionalInt32.allocationSize(value.stress) +
+        FfiConverterOptionalInt32.allocationSize(value.mood) +
+        FfiConverterOptionalInt32.allocationSize(value.motivation)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * Sparkline payload for the SummaryCard: rounded integer arrays, oldest
+ * first, forward-filled where needed so renderers produce continuous lines.
+ * Empty arrays mean "not enough data" (TS renders `undefined` / skips).
+ */
+export type FfiWellnessSparklines = {
+  fitness: Array</*i32*/ number>;
+  fatigue: Array</*i32*/ number>;
+  form: Array</*i32*/ number>;
+  hrv: Array</*i32*/ number>;
+  rhr: Array</*i32*/ number>;
+};
+
+/**
+ * Generated factory for {@link FfiWellnessSparklines} record objects.
+ */
+export const FfiWellnessSparklines = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<
+      FfiWellnessSparklines,
+      ReturnType<typeof defaults>
+    >(defaults);
+  })();
+  return Object.freeze({
+    /**
+     * Create a frozen instance of {@link FfiWellnessSparklines}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    create,
+
+    /**
+     * Create a frozen instance of {@link FfiWellnessSparklines}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    new: create,
+
+    /**
+     * Defaults specified in the {@link veloqrs} crate.
+     */
+    defaults: () => Object.freeze(defaults()) as Partial<FfiWellnessSparklines>,
+  });
+})();
+
+const FfiConverterTypeFfiWellnessSparklines = (() => {
+  type TypeName = FfiWellnessSparklines;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        fitness: FfiConverterArrayInt32.read(from),
+        fatigue: FfiConverterArrayInt32.read(from),
+        form: FfiConverterArrayInt32.read(from),
+        hrv: FfiConverterArrayInt32.read(from),
+        rhr: FfiConverterArrayInt32.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterArrayInt32.write(value.fitness, into);
+      FfiConverterArrayInt32.write(value.fatigue, into);
+      FfiConverterArrayInt32.write(value.form, into);
+      FfiConverterArrayInt32.write(value.hrv, into);
+      FfiConverterArrayInt32.write(value.rhr, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterArrayInt32.allocationSize(value.fitness) +
+        FfiConverterArrayInt32.allocationSize(value.fatigue) +
+        FfiConverterArrayInt32.allocationSize(value.form) +
+        FfiConverterArrayInt32.allocationSize(value.hrv) +
+        FfiConverterArrayInt32.allocationSize(value.rhr)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * Enriched workout section for the home-screen "Sections for you" list.
+ * Composes ranking + performance lookups server-side so the TS hook is a
+ * thin pass-through instead of a per-section FFI loop.
+ */
+export type FfiWorkoutSection = {
+  id: string;
+  name: string;
+  prTimeSecs: /*f64*/ number | undefined;
+  /**
+   * Second-best time (prior PR before current best)
+   */
+  previousBestTimeSecs: /*f64*/ number | undefined;
+  lastTimeSecs: /*f64*/ number | undefined;
+  daysSinceLast: /*i32*/ number | undefined;
+  prDaysAgo: /*i32*/ number | undefined;
+  /**
+   * "improving" | "stable" | "declining" — empty string when insufficient data
+   */
+  trend: string;
+};
+
+/**
+ * Generated factory for {@link FfiWorkoutSection} record objects.
+ */
+export const FfiWorkoutSection = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiWorkoutSection, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    /**
+     * Create a frozen instance of {@link FfiWorkoutSection}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    create,
+
+    /**
+     * Create a frozen instance of {@link FfiWorkoutSection}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    new: create,
+
+    /**
+     * Defaults specified in the {@link veloqrs} crate.
+     */
+    defaults: () => Object.freeze(defaults()) as Partial<FfiWorkoutSection>,
+  });
+})();
+
+const FfiConverterTypeFfiWorkoutSection = (() => {
+  type TypeName = FfiWorkoutSection;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        id: FfiConverterString.read(from),
+        name: FfiConverterString.read(from),
+        prTimeSecs: FfiConverterOptionalFloat64.read(from),
+        previousBestTimeSecs: FfiConverterOptionalFloat64.read(from),
+        lastTimeSecs: FfiConverterOptionalFloat64.read(from),
+        daysSinceLast: FfiConverterOptionalInt32.read(from),
+        prDaysAgo: FfiConverterOptionalInt32.read(from),
+        trend: FfiConverterString.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterString.write(value.id, into);
+      FfiConverterString.write(value.name, into);
+      FfiConverterOptionalFloat64.write(value.prTimeSecs, into);
+      FfiConverterOptionalFloat64.write(value.previousBestTimeSecs, into);
+      FfiConverterOptionalFloat64.write(value.lastTimeSecs, into);
+      FfiConverterOptionalInt32.write(value.daysSinceLast, into);
+      FfiConverterOptionalInt32.write(value.prDaysAgo, into);
+      FfiConverterString.write(value.trend, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.id) +
+        FfiConverterString.allocationSize(value.name) +
+        FfiConverterOptionalFloat64.allocationSize(value.prTimeSecs) +
+        FfiConverterOptionalFloat64.allocationSize(value.previousBestTimeSecs) +
+        FfiConverterOptionalFloat64.allocationSize(value.lastTimeSecs) +
+        FfiConverterOptionalInt32.allocationSize(value.daysSinceLast) +
+        FfiConverterOptionalInt32.allocationSize(value.prDaysAgo) +
+        FfiConverterString.allocationSize(value.trend)
       );
     }
   }
@@ -7042,6 +8209,14 @@ export interface ActivityManagerInterface {
   ) /*throws*/ : /*u32*/ number;
   getCount() /*throws*/ : /*u32*/ number;
   getGpsTrack(activityId: string) /*throws*/ : Array<FfiGpsPoint>;
+  /**
+   * Combined activity-list highlight bundle: section indicators (PRs +
+   * trends) and route highlights for the same batch of activity IDs in a
+   * single FFI round-trip. Consumed by `useActivitySectionHighlights`.
+   */
+  getHighlightsBundle(
+    activityIds: Array<string>,
+  ) /*throws*/ : FfiActivityHighlightsBundle;
   getIds() /*throws*/ : Array<string>;
   getMetricsForIds(ids: Array<string>) /*throws*/ : Array<FfiActivityMetrics>;
   getMissingTimeStreams(activityIds: Array<string>) /*throws*/ : Array<string>;
@@ -7149,6 +8324,31 @@ export class ActivityManager
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_activitymanager_get_gps_track(
             uniffiTypeActivityManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(activityId),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * Combined activity-list highlight bundle: section indicators (PRs +
+   * trends) and route highlights for the same batch of activity IDs in a
+   * single FFI round-trip. Consumed by `useActivitySectionHighlights`.
+   */
+  public getHighlightsBundle(
+    activityIds: Array<string>,
+  ): FfiActivityHighlightsBundle /*throws*/ {
+    return FfiConverterTypeFfiActivityHighlightsBundle.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_activitymanager_get_highlights_bundle(
+            uniffiTypeActivityManagerObjectFactory.clonePointer(this),
+            FfiConverterArrayString.lower(activityIds),
             callStatus,
           );
         },
@@ -7575,6 +8775,35 @@ const FfiConverterTypeDetectionManager = new FfiConverterObject(
 );
 
 export interface FitnessManagerInterface {
+  /**
+   * HRV trend (label + averages + sparkline) over the trailing `days`
+   * window. Returns `None` when there are <5 valid HRV days. TS maps
+   * the returned label to an i18n key and renders.
+   */
+  computeHrvTrend(days: /*u32*/ number) /*throws*/ : FfiHrvTrend | undefined;
+  /**
+   * Stale-PR opportunity detection.
+   *
+   * Pure pattern recognition: flags sections whose PR might be beatable
+   * because the user's threshold fitness (FTP for cycling, critical speed
+   * for run/swim) has improved by at least `min_gain_percent` since the
+   * PR was set, and the section hasn't been visited in `stale_threshold_days+`
+   * days. Sport-aware: cycling sections look at FTP, running at run pace,
+   * swimming at swim pace.
+   *
+   * `exclude_section_ids` is the set of section IDs already surfaced by
+   * other insights (e.g. recent section_pr cards) — we don't want to
+   * double-surface the same section in the same insights feed.
+   *
+   * Returns up to `max_opportunities` opportunities, sorted by
+   * traversal_count DESC (more-frequented sections first).
+   */
+  findStalePrOpportunities(
+    staleThresholdDays: /*u32*/ number,
+    minGainPercent: /*f64*/ number,
+    maxOpportunities: /*u32*/ number,
+    excludeSectionIds: Array<string>,
+  ) /*throws*/ : Array<FfiStalePrOpportunity>;
   getActivityHeatmap(
     startDate: string,
     endDate: string,
@@ -7584,6 +8813,11 @@ export interface FitnessManagerInterface {
    */
   getActivityMetricIds() /*throws*/ : Array<string>;
   getActivityPatterns() /*throws*/ : Array<FfiActivityPattern>;
+  /**
+   * Combined patterns query: today's pattern + full pattern set in one lock.
+   * Collapses the two-call sequence in `useActivityPatterns`.
+   */
+  getActivityPatternsWithToday() /*throws*/ : FfiActivityPatternsBundle;
   getAvailableSportTypes() /*throws*/ : Array<string>;
   getFtpTrend() /*throws*/ : FfiFtpTrend;
   /**
@@ -7624,6 +8858,15 @@ export interface FitnessManagerInterface {
     prevStart: /*i64*/ bigint,
     prevEnd: /*i64*/ bigint,
   ) /*throws*/ : FfiSummaryCardData;
+  /**
+   * Sparkline arrays (fitness/fatigue/form/hrv/rhr) over the trailing
+   * `days` window. Returns `None` until wellness has been synced at
+   * least once. Replaces the 5 parallel useMemo passes in
+   * `useSummaryCardData.ts` — TS is now a thin pass-through.
+   */
+  getWellnessSparklines(
+    days: /*u32*/ number,
+  ) /*throws*/ : FfiWellnessSparklines | undefined;
   getZoneDistribution(
     sportType: string,
     zoneType: string,
@@ -7635,6 +8878,11 @@ export interface FitnessManagerInterface {
     r2: /*f64*/ number | undefined,
     date: /*i64*/ bigint,
   ) /*throws*/ : void;
+  /**
+   * Sync a batch of wellness rows from the intervals.icu API into SQLite.
+   * Idempotent on `date`; call whenever the TS wellness query refreshes.
+   */
+  upsertWellness(rows: Array<FfiWellnessRow>) /*throws*/ : void;
 }
 
 export class FitnessManager
@@ -7657,6 +8905,74 @@ export class FitnessManager
     this[pointerLiteralSymbol] = pointer;
     this[destructorGuardSymbol] =
       uniffiTypeFitnessManagerObjectFactory.bless(pointer);
+  }
+
+  /**
+   * HRV trend (label + averages + sparkline) over the trailing `days`
+   * window. Returns `None` when there are <5 valid HRV days. TS maps
+   * the returned label to an i18n key and renders.
+   */
+  public computeHrvTrend(
+    days: /*u32*/ number,
+  ): FfiHrvTrend | undefined /*throws*/ {
+    return FfiConverterOptionalTypeFfiHrvTrend.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_fitnessmanager_compute_hrv_trend(
+            uniffiTypeFitnessManagerObjectFactory.clonePointer(this),
+            FfiConverterUInt32.lower(days),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * Stale-PR opportunity detection.
+   *
+   * Pure pattern recognition: flags sections whose PR might be beatable
+   * because the user's threshold fitness (FTP for cycling, critical speed
+   * for run/swim) has improved by at least `min_gain_percent` since the
+   * PR was set, and the section hasn't been visited in `stale_threshold_days+`
+   * days. Sport-aware: cycling sections look at FTP, running at run pace,
+   * swimming at swim pace.
+   *
+   * `exclude_section_ids` is the set of section IDs already surfaced by
+   * other insights (e.g. recent section_pr cards) — we don't want to
+   * double-surface the same section in the same insights feed.
+   *
+   * Returns up to `max_opportunities` opportunities, sorted by
+   * traversal_count DESC (more-frequented sections first).
+   */
+  public findStalePrOpportunities(
+    staleThresholdDays: /*u32*/ number,
+    minGainPercent: /*f64*/ number,
+    maxOpportunities: /*u32*/ number,
+    excludeSectionIds: Array<string>,
+  ): Array<FfiStalePrOpportunity> /*throws*/ {
+    return FfiConverterArrayTypeFfiStalePrOpportunity.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_fitnessmanager_find_stale_pr_opportunities(
+            uniffiTypeFitnessManagerObjectFactory.clonePointer(this),
+            FfiConverterUInt32.lower(staleThresholdDays),
+            FfiConverterFloat64.lower(minGainPercent),
+            FfiConverterUInt32.lower(maxOpportunities),
+            FfiConverterArrayString.lower(excludeSectionIds),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
   }
 
   public getActivityHeatmap(
@@ -7709,6 +9025,27 @@ export class FitnessManager
         ),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_activity_patterns(
+            uniffiTypeFitnessManagerObjectFactory.clonePointer(this),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * Combined patterns query: today's pattern + full pattern set in one lock.
+   * Collapses the two-call sequence in `useActivityPatterns`.
+   */
+  public getActivityPatternsWithToday(): FfiActivityPatternsBundle /*throws*/ {
+    return FfiConverterTypeFfiActivityPatternsBundle.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_activity_patterns_with_today(
             uniffiTypeFitnessManagerObjectFactory.clonePointer(this),
             callStatus,
           );
@@ -7906,6 +9243,32 @@ export class FitnessManager
     );
   }
 
+  /**
+   * Sparkline arrays (fitness/fatigue/form/hrv/rhr) over the trailing
+   * `days` window. Returns `None` until wellness has been synced at
+   * least once. Replaces the 5 parallel useMemo passes in
+   * `useSummaryCardData.ts` — TS is now a thin pass-through.
+   */
+  public getWellnessSparklines(
+    days: /*u32*/ number,
+  ): FfiWellnessSparklines | undefined /*throws*/ {
+    return FfiConverterOptionalTypeFfiWellnessSparklines.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_wellness_sparklines(
+            uniffiTypeFitnessManagerObjectFactory.clonePointer(this),
+            FfiConverterUInt32.lower(days),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
   public getZoneDistribution(
     sportType: string,
     zoneType: string,
@@ -7947,6 +9310,26 @@ export class FitnessManager
           FfiConverterOptionalFloat64.lower(dPrime),
           FfiConverterOptionalFloat64.lower(r2),
           FfiConverterInt64.lower(date),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    );
+  }
+
+  /**
+   * Sync a batch of wellness rows from the intervals.icu API into SQLite.
+   * Idempotent on `date`; call whenever the TS wellness query refreshes.
+   */
+  public upsertWellness(rows: Array<FfiWellnessRow>): void /*throws*/ {
+    uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+        FfiConverterTypeVeloqError,
+      ),
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_veloqrs_fn_method_fitnessmanager_upsert_wellness(
+          uniffiTypeFitnessManagerObjectFactory.clonePointer(this),
+          FfiConverterArrayTypeFfiWellnessRow.lower(rows),
           callStatus,
         );
       },
@@ -8537,6 +9920,15 @@ export interface RouteManagerInterface {
     routeId: string,
     sportType: string | undefined,
   ) /*throws*/ : FfiRoutePerformanceResult;
+  /**
+   * Filtered + sorted group summaries. Pushes the activity-count threshold
+   * and sort key into Rust so the hook stops re-iterating in TS.
+   * `sort_key` accepts "count" or "name"; anything else maps to "count".
+   */
+  getFilteredSummaries(
+    minActivities: /*u32*/ number,
+    sortKey: string,
+  ) /*throws*/ : FfiGroupSummariesResult;
   getPerformances(
     groupId: string,
     currentActivityId: string | undefined,
@@ -8723,6 +10115,33 @@ export class RouteManager
             uniffiTypeRouteManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(routeId),
             FfiConverterOptionalString.lower(sportType),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * Filtered + sorted group summaries. Pushes the activity-count threshold
+   * and sort key into Rust so the hook stops re-iterating in TS.
+   * `sort_key` accepts "count" or "name"; anything else maps to "count".
+   */
+  public getFilteredSummaries(
+    minActivities: /*u32*/ number,
+    sortKey: string,
+  ): FfiGroupSummariesResult /*throws*/ {
+    return FfiConverterTypeFfiGroupSummariesResult.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_routemanager_get_filtered_summaries(
+            uniffiTypeRouteManagerObjectFactory.clonePointer(this),
+            FfiConverterUInt32.lower(minActivities),
+            FfiConverterString.lower(sortKey),
             callStatus,
           );
         },
@@ -8979,6 +10398,15 @@ export interface SectionManagerInterface {
     activityIds: Array<string>,
   ) /*throws*/ : Array<FfiActivityIndicator>;
   /**
+   * Given an activity and a list of section IDs, return the subset where
+   * `activity_id` currently holds the best record. Collapses a per-section
+   * N+1 `get_performances` loop into a single FFI round-trip.
+   */
+  getActivityPrSections(
+    activityId: string,
+    sectionIds: Array<string>,
+  ) /*throws*/ : Array<string>;
+  /**
    * Get section encounters for an activity: one entry per (section, direction).
    * Canonical data unit for the sections tab in activity detail.
    */
@@ -9004,6 +10432,16 @@ export interface SectionManagerInterface {
   getCalendarSummary(
     sectionId: string,
   ) /*throws*/ : FfiCalendarSummary | undefined;
+  /**
+   * Pre-computed chart payload for the section-detail screen: per-lap
+   * points, speed ranks, best/avg/last stats — all in one FFI round-trip.
+   * Replaces the 3+ useMemo aggregations in `useSectionChartData`.
+   */
+  getChartData(
+    sectionId: string,
+    timeRangeDays: /*u32*/ number,
+    sportFilter: string | undefined,
+  ) /*throws*/ : FfiSectionChartData;
   getEfficiencyTrend(
     sectionId: string,
   ) /*throws*/ : FfiEfficiencyTrend | undefined;
@@ -9016,6 +10454,17 @@ export interface SectionManagerInterface {
     sportType: string | undefined,
     minVisits: /*u32*/ number | undefined,
   ) /*throws*/ : Array<FfiFrequentSection>;
+  /**
+   * Filtered + sorted section summaries. Pushes the visit-count threshold
+   * and sort key into Rust so TS stops re-iterating the summaries list.
+   * `sort_key` accepts "visits", "distance", "name"; anything else maps to
+   * the default ("visits").
+   */
+  getFilteredSummaries(
+    sportType: string | undefined,
+    minVisits: /*u32*/ number,
+    sortKey: string,
+  ) /*throws*/ : FfiSectionSummariesResult;
   getForActivity(activityId: string) /*throws*/ : Array<FfiSection>;
   /**
    * Read pre-computed indicators for a single activity.
@@ -9045,6 +10494,14 @@ export interface SectionManagerInterface {
     sportType: string,
     limit: /*u32*/ number,
   ) /*throws*/ : Array<FfiRankedSection>;
+  /**
+   * Ranked sections for multiple sports in a single engine lock. Collapses
+   * the per-sport `getRankedSections` loop in `computeInsightsData.ts`.
+   */
+  getRankedBatch(
+    sportTypes: Array<string>,
+    limit: /*u32*/ number,
+  ) /*throws*/ : Array<FfiRankedSectionsBySport>;
   getReferenceInfo(sectionId: string) /*throws*/ : FfiSectionReferenceInfo;
   getSummaries(
     sportType: string | undefined,
@@ -9052,6 +10509,15 @@ export interface SectionManagerInterface {
   getSummariesWithCount(
     sportType: string | undefined,
   ) /*throws*/ : FfiSectionSummariesResult;
+  /**
+   * Home-screen "Sections for you" list. Composes ML ranking + performance
+   * lookups in one FFI round-trip instead of N+1 per-section `getPerformances`
+   * calls from TS.
+   */
+  getWorkoutSections(
+    sportType: string,
+    limit: /*u32*/ number,
+  ) /*throws*/ : Array<FfiWorkoutSection>;
   hasOriginalBounds(sectionId: string) /*throws*/ : boolean;
   importDisabledIds(ids: Array<string>) /*throws*/ : /*u32*/ number;
   importSupersededMap(
@@ -9326,6 +10792,33 @@ export class SectionManager
   }
 
   /**
+   * Given an activity and a list of section IDs, return the subset where
+   * `activity_id` currently holds the best record. Collapses a per-section
+   * N+1 `get_performances` loop into a single FFI round-trip.
+   */
+  public getActivityPrSections(
+    activityId: string,
+    sectionIds: Array<string>,
+  ): Array<string> /*throws*/ {
+    return FfiConverterArrayString.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_activity_pr_sections(
+            uniffiTypeSectionManagerObjectFactory.clonePointer(this),
+            FfiConverterString.lower(activityId),
+            FfiConverterArrayString.lower(sectionIds),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
    * Get section encounters for an activity: one entry per (section, direction).
    * Canonical data unit for the sections tab in activity detail.
    */
@@ -9487,6 +10980,35 @@ export class SectionManager
     );
   }
 
+  /**
+   * Pre-computed chart payload for the section-detail screen: per-lap
+   * points, speed ranks, best/avg/last stats — all in one FFI round-trip.
+   * Replaces the 3+ useMemo aggregations in `useSectionChartData`.
+   */
+  public getChartData(
+    sectionId: string,
+    timeRangeDays: /*u32*/ number,
+    sportFilter: string | undefined,
+  ): FfiSectionChartData /*throws*/ {
+    return FfiConverterTypeFfiSectionChartData.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_chart_data(
+            uniffiTypeSectionManagerObjectFactory.clonePointer(this),
+            FfiConverterString.lower(sectionId),
+            FfiConverterUInt32.lower(timeRangeDays),
+            FfiConverterOptionalString.lower(sportFilter),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
   public getEfficiencyTrend(
     sectionId: string,
   ): FfiEfficiencyTrend | undefined /*throws*/ {
@@ -9579,6 +11101,36 @@ export class SectionManager
             uniffiTypeSectionManagerObjectFactory.clonePointer(this),
             FfiConverterOptionalString.lower(sportType),
             FfiConverterOptionalUInt32.lower(minVisits),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * Filtered + sorted section summaries. Pushes the visit-count threshold
+   * and sort key into Rust so TS stops re-iterating the summaries list.
+   * `sort_key` accepts "visits", "distance", "name"; anything else maps to
+   * the default ("visits").
+   */
+  public getFilteredSummaries(
+    sportType: string | undefined,
+    minVisits: /*u32*/ number,
+    sortKey: string,
+  ): FfiSectionSummariesResult /*throws*/ {
+    return FfiConverterTypeFfiSectionSummariesResult.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_filtered_summaries(
+            uniffiTypeSectionManagerObjectFactory.clonePointer(this),
+            FfiConverterOptionalString.lower(sportType),
+            FfiConverterUInt32.lower(minVisits),
+            FfiConverterString.lower(sortKey),
             callStatus,
           );
         },
@@ -9740,6 +11292,32 @@ export class SectionManager
     );
   }
 
+  /**
+   * Ranked sections for multiple sports in a single engine lock. Collapses
+   * the per-sport `getRankedSections` loop in `computeInsightsData.ts`.
+   */
+  public getRankedBatch(
+    sportTypes: Array<string>,
+    limit: /*u32*/ number,
+  ): Array<FfiRankedSectionsBySport> /*throws*/ {
+    return FfiConverterArrayTypeFfiRankedSectionsBySport.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_ranked_batch(
+            uniffiTypeSectionManagerObjectFactory.clonePointer(this),
+            FfiConverterArrayString.lower(sportTypes),
+            FfiConverterUInt32.lower(limit),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
   public getReferenceInfo(
     sectionId: string,
   ): FfiSectionReferenceInfo /*throws*/ {
@@ -9792,6 +11370,33 @@ export class SectionManager
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_summaries_with_count(
             uniffiTypeSectionManagerObjectFactory.clonePointer(this),
             FfiConverterOptionalString.lower(sportType),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * Home-screen "Sections for you" list. Composes ML ranking + performance
+   * lookups in one FFI round-trip instead of N+1 per-section `getPerformances`
+   * calls from TS.
+   */
+  public getWorkoutSections(
+    sportType: string,
+    limit: /*u32*/ number,
+  ): Array<FfiWorkoutSection> /*throws*/ {
+    return FfiConverterArrayTypeFfiWorkoutSection.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_workout_sections(
+            uniffiTypeSectionManagerObjectFactory.clonePointer(this),
+            FfiConverterString.lower(sportType),
+            FfiConverterUInt32.lower(limit),
             callStatus,
           );
         },
@@ -10520,10 +12125,28 @@ export interface StrengthManagerInterface {
     muscleSlug: string,
   ) /*throws*/ : FfiMuscleExerciseSummary;
   /**
+   * Per-activity muscle detail: groups exercise sets by display name,
+   * classifies primary/secondary role, returns totals + sorted exercise
+   * list. Replaces the group-by/reduce loop in `useMuscleDetail.ts`.
+   */
+  getMuscleDetail(
+    activityId: string,
+    muscleSlug: string,
+  ) /*throws*/ : FfiMuscleGroupDetail;
+  /**
    * Get aggregated muscle groups for an activity.
    * Returns slugs matching react-native-body-highlighter format.
    */
   getMuscleGroups(activityId: string) /*throws*/ : Array<FfiMuscleGroup>;
+  /**
+   * Bundled strength payload for insights: one monthly summary + N weekly
+   * summaries, computed in a single lock. Collapses the 5× FFI loop in
+   * `computeInsightsData.ts` into one call.
+   */
+  getStrengthInsightSeries(
+    monthly: FfiTimestampRange,
+    weekly: Array<FfiTimestampRange>,
+  ) /*throws*/ : FfiStrengthInsightSeries;
   /**
    * Get aggregated strength training volume for a date range.
    * Uses weighted set counting: primary=1.0, secondary=0.5.
@@ -10533,6 +12156,14 @@ export interface StrengthManagerInterface {
     startTs: /*i64*/ bigint,
     endTs: /*i64*/ bigint,
   ) /*throws*/ : FfiStrengthSummary;
+  /**
+   * Batch variant of `get_strength_summary`. Aggregates each range under a
+   * single engine lock, so the insights hook can request a monthly window
+   * plus N trailing weekly windows in one FFI round-trip.
+   */
+  getStrengthSummaryBatch(
+    ranges: Array<FfiTimestampRange>,
+  ) /*throws*/ : Array<FfiStrengthSummary>;
   /**
    * Get activity IDs from the input list that have not been FIT-processed yet.
    */
@@ -10731,6 +12362,33 @@ export class StrengthManager
   }
 
   /**
+   * Per-activity muscle detail: groups exercise sets by display name,
+   * classifies primary/secondary role, returns totals + sorted exercise
+   * list. Replaces the group-by/reduce loop in `useMuscleDetail.ts`.
+   */
+  public getMuscleDetail(
+    activityId: string,
+    muscleSlug: string,
+  ): FfiMuscleGroupDetail /*throws*/ {
+    return FfiConverterTypeFfiMuscleGroupDetail.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_strengthmanager_get_muscle_detail(
+            uniffiTypeStrengthManagerObjectFactory.clonePointer(this),
+            FfiConverterString.lower(activityId),
+            FfiConverterString.lower(muscleSlug),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
    * Get aggregated muscle groups for an activity.
    * Returns slugs matching react-native-body-highlighter format.
    */
@@ -10744,6 +12402,33 @@ export class StrengthManager
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_strengthmanager_get_muscle_groups(
             uniffiTypeStrengthManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(activityId),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * Bundled strength payload for insights: one monthly summary + N weekly
+   * summaries, computed in a single lock. Collapses the 5× FFI loop in
+   * `computeInsightsData.ts` into one call.
+   */
+  public getStrengthInsightSeries(
+    monthly: FfiTimestampRange,
+    weekly: Array<FfiTimestampRange>,
+  ): FfiStrengthInsightSeries /*throws*/ {
+    return FfiConverterTypeFfiStrengthInsightSeries.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_strengthmanager_get_strength_insight_series(
+            uniffiTypeStrengthManagerObjectFactory.clonePointer(this),
+            FfiConverterTypeFfiTimestampRange.lower(monthly),
+            FfiConverterArrayTypeFfiTimestampRange.lower(weekly),
             callStatus,
           );
         },
@@ -10771,6 +12456,31 @@ export class StrengthManager
             uniffiTypeStrengthManagerObjectFactory.clonePointer(this),
             FfiConverterInt64.lower(startTs),
             FfiConverterInt64.lower(endTs),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * Batch variant of `get_strength_summary`. Aggregates each range under a
+   * single engine lock, so the insights hook can request a monthly window
+   * plus N trailing weekly windows in one FFI round-trip.
+   */
+  public getStrengthSummaryBatch(
+    ranges: Array<FfiTimestampRange>,
+  ): Array<FfiStrengthSummary> /*throws*/ {
+    return FfiConverterArrayTypeFfiStrengthSummary.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_strengthmanager_get_strength_summary_batch(
+            uniffiTypeStrengthManagerObjectFactory.clonePointer(this),
+            FfiConverterArrayTypeFfiTimestampRange.lower(ranges),
             callStatus,
           );
         },
@@ -11484,6 +13194,9 @@ const FfiConverterOptionalFloat64 = new FfiConverterOptional(
   FfiConverterFloat64,
 );
 
+// FfiConverter for /*i32*/number | undefined
+const FfiConverterOptionalInt32 = new FfiConverterOptional(FfiConverterInt32);
+
 // FfiConverter for /*i64*/bigint | undefined
 const FfiConverterOptionalInt64 = new FfiConverterOptional(FfiConverterInt64);
 
@@ -11534,6 +13247,11 @@ const FfiConverterOptionalTypeFfiFrequentSection = new FfiConverterOptional(
   FfiConverterTypeFfiFrequentSection,
 );
 
+// FfiConverter for FfiHrvTrend | undefined
+const FfiConverterOptionalTypeFfiHrvTrend = new FfiConverterOptional(
+  FfiConverterTypeFfiHrvTrend,
+);
+
 // FfiConverter for FfiRouteGroup | undefined
 const FfiConverterOptionalTypeFfiRouteGroup = new FfiConverterOptional(
   FfiConverterTypeFfiRouteGroup,
@@ -11548,6 +13266,11 @@ const FfiConverterOptionalTypeFfiRoutePerformance = new FfiConverterOptional(
 const FfiConverterOptionalTypeFfiSectionPerformanceRecord =
   new FfiConverterOptional(FfiConverterTypeFfiSectionPerformanceRecord);
 
+// FfiConverter for FfiWellnessSparklines | undefined
+const FfiConverterOptionalTypeFfiWellnessSparklines = new FfiConverterOptional(
+  FfiConverterTypeFfiWellnessSparklines,
+);
+
 // FfiConverter for string | undefined
 const FfiConverterOptionalString = new FfiConverterOptional(FfiConverterString);
 
@@ -11559,6 +13282,9 @@ const FfiConverterOptionalUInt32 = new FfiConverterOptional(FfiConverterUInt32);
 
 // FfiConverter for Array</*f64*/number>
 const FfiConverterArrayFloat64 = new FfiConverterArray(FfiConverterFloat64);
+
+// FfiConverter for Array</*i32*/number>
+const FfiConverterArrayInt32 = new FfiConverterArray(FfiConverterInt32);
 
 // FfiConverter for Array<ActivitySportMapping>
 const FfiConverterArrayTypeActivitySportMapping = new FfiConverterArray(
@@ -11613,6 +13339,11 @@ const FfiConverterArrayTypeFfiEfficiencyPoint = new FfiConverterArray(
 // FfiConverter for Array<FfiExerciseActivity>
 const FfiConverterArrayTypeFfiExerciseActivity = new FfiConverterArray(
   FfiConverterTypeFfiExerciseActivity,
+);
+
+// FfiConverter for Array<FfiExerciseContribution>
+const FfiConverterArrayTypeFfiExerciseContribution = new FfiConverterArray(
+  FfiConverterTypeFfiExerciseContribution,
 );
 
 // FfiConverter for Array<FfiExerciseSet>
@@ -11690,6 +13421,11 @@ const FfiConverterArrayTypeFfiRankedSection = new FfiConverterArray(
   FfiConverterTypeFfiRankedSection,
 );
 
+// FfiConverter for Array<FfiRankedSectionsBySport>
+const FfiConverterArrayTypeFfiRankedSectionsBySport = new FfiConverterArray(
+  FfiConverterTypeFfiRankedSectionsBySport,
+);
+
 // FfiConverter for Array<FfiRecentPr>
 const FfiConverterArrayTypeFfiRecentPR = new FfiConverterArray(
   FfiConverterTypeFfiRecentPR,
@@ -11713,6 +13449,11 @@ const FfiConverterArrayTypeFfiScalePreset = new FfiConverterArray(
 // FfiConverter for Array<FfiSection>
 const FfiConverterArrayTypeFfiSection = new FfiConverterArray(
   FfiConverterTypeFfiSection,
+);
+
+// FfiConverter for Array<FfiSectionChartPoint>
+const FfiConverterArrayTypeFfiSectionChartPoint = new FfiConverterArray(
+  FfiConverterTypeFfiSectionChartPoint,
 );
 
 // FfiConverter for Array<FfiSectionEncounter>
@@ -11745,9 +13486,34 @@ const FfiConverterArrayTypeFfiSectionWithPolyline = new FfiConverterArray(
   FfiConverterTypeFfiSectionWithPolyline,
 );
 
+// FfiConverter for Array<FfiStalePrOpportunity>
+const FfiConverterArrayTypeFfiStalePrOpportunity = new FfiConverterArray(
+  FfiConverterTypeFfiStalePrOpportunity,
+);
+
+// FfiConverter for Array<FfiStrengthSummary>
+const FfiConverterArrayTypeFfiStrengthSummary = new FfiConverterArray(
+  FfiConverterTypeFfiStrengthSummary,
+);
+
 // FfiConverter for Array<FfiSupersededEntry>
 const FfiConverterArrayTypeFfiSupersededEntry = new FfiConverterArray(
   FfiConverterTypeFfiSupersededEntry,
+);
+
+// FfiConverter for Array<FfiTimestampRange>
+const FfiConverterArrayTypeFfiTimestampRange = new FfiConverterArray(
+  FfiConverterTypeFfiTimestampRange,
+);
+
+// FfiConverter for Array<FfiWellnessRow>
+const FfiConverterArrayTypeFfiWellnessRow = new FfiConverterArray(
+  FfiConverterTypeFfiWellnessRow,
+);
+
+// FfiConverter for Array<FfiWorkoutSection>
+const FfiConverterArrayTypeFfiWorkoutSection = new FfiConverterArray(
+  FfiConverterTypeFfiWorkoutSection,
 );
 
 // FfiConverter for Array<GroupSummary>
@@ -11868,6 +13634,14 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_activitymanager_get_highlights_bundle() !==
+    38386
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_activitymanager_get_highlights_bundle",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_activitymanager_get_ids() !==
     8571
   ) {
@@ -11956,6 +13730,22 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_compute_hrv_trend() !==
+    48884
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_fitnessmanager_compute_hrv_trend",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_find_stale_pr_opportunities() !==
+    56655
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_fitnessmanager_find_stale_pr_opportunities",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_activity_heatmap() !==
     62263
   ) {
@@ -11977,6 +13767,14 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_fitnessmanager_get_activity_patterns",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_activity_patterns_with_today() !==
+    35489
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_fitnessmanager_get_activity_patterns_with_today",
     );
   }
   if (
@@ -12044,6 +13842,14 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_wellness_sparklines() !==
+    45514
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_fitnessmanager_get_wellness_sparklines",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_zone_distribution() !==
     42240
   ) {
@@ -12057,6 +13863,14 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_fitnessmanager_save_pace_snapshot",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_upsert_wellness() !==
+    47864
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_fitnessmanager_upsert_wellness",
     );
   }
   if (
@@ -12204,6 +14018,14 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_routemanager_get_filtered_summaries() !==
+    20201
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_routemanager_get_filtered_summaries",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_routemanager_get_performances() !==
     38652
   ) {
@@ -12332,6 +14154,14 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_activity_pr_sections() !==
+    6338
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_sectionmanager_get_activity_pr_sections",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_activity_section_encounters() !==
     30839
   ) {
@@ -12396,6 +14226,14 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_chart_data() !==
+    41374
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_sectionmanager_get_chart_data",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_efficiency_trend() !==
     17288
   ) {
@@ -12433,6 +14271,14 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_sectionmanager_get_filtered",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_filtered_summaries() !==
+    3799
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_sectionmanager_get_filtered_summaries",
     );
   }
   if (
@@ -12492,6 +14338,14 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_ranked_batch() !==
+    21325
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_sectionmanager_get_ranked_batch",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_reference_info() !==
     14904
   ) {
@@ -12513,6 +14367,14 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_sectionmanager_get_summaries_with_count",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_workout_sections() !==
+    37119
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_sectionmanager_get_workout_sections",
     );
   }
   if (
@@ -12748,6 +14610,14 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_strengthmanager_get_muscle_detail() !==
+    18472
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_strengthmanager_get_muscle_detail",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_strengthmanager_get_muscle_groups() !==
     7773
   ) {
@@ -12756,11 +14626,27 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_strengthmanager_get_strength_insight_series() !==
+    20652
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_strengthmanager_get_strength_insight_series",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_strengthmanager_get_strength_summary() !==
     35062
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_strengthmanager_get_strength_summary",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_strengthmanager_get_strength_summary_batch() !==
+    20898
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_strengthmanager_get_strength_summary_batch",
     );
   }
   if (
@@ -13063,9 +14949,11 @@ export default Object.freeze({
     FfiConverterTypeDetectionManager,
     FfiConverterTypeDownloadProgressResult,
     FfiConverterTypeFetchAndStoreResult,
+    FfiConverterTypeFfiActivityHighlightsBundle,
     FfiConverterTypeFfiActivityIndicator,
     FfiConverterTypeFfiActivityMetrics,
     FfiConverterTypeFfiActivityPattern,
+    FfiConverterTypeFfiActivityPatternsBundle,
     FfiConverterTypeFfiActivityRouteHighlight,
     FfiConverterTypeFfiActivitySectionHighlight,
     FfiConverterTypeFfiBatchTrace,
@@ -13081,6 +14969,7 @@ export default Object.freeze({
     FfiConverterTypeFfiEfficiencyTrend,
     FfiConverterTypeFfiExerciseActivities,
     FfiConverterTypeFfiExerciseActivity,
+    FfiConverterTypeFfiExerciseContribution,
     FfiConverterTypeFfiExerciseSet,
     FfiConverterTypeFfiExerciseSummary,
     FfiConverterTypeFfiFrequentSection,
@@ -13089,12 +14978,14 @@ export default Object.freeze({
     FfiConverterTypeFfiGroupSummariesResult,
     FfiConverterTypeFfiGroupWithPolyline,
     FfiConverterTypeFfiHeatmapDay,
+    FfiConverterTypeFfiHrvTrend,
     FfiConverterTypeFfiInsightsData,
     FfiConverterTypeFfiMapSignature,
     FfiConverterTypeFfiMergeCandidate,
     FfiConverterTypeFfiMultiScaleSectionResult,
     FfiConverterTypeFfiMuscleExerciseSummary,
     FfiConverterTypeFfiMuscleGroup,
+    FfiConverterTypeFfiMuscleGroupDetail,
     FfiConverterTypeFfiMuscleVolume,
     FfiConverterTypeFfiNearbySectionSummary,
     FfiConverterTypeFfiPaceTrend,
@@ -13103,6 +14994,7 @@ export default Object.freeze({
     FfiConverterTypeFfiPotentialSection,
     FfiConverterTypeFfiPreviewTrack,
     FfiConverterTypeFfiRankedSection,
+    FfiConverterTypeFfiRankedSectionsBySport,
     FfiConverterTypeFfiRecentPR,
     FfiConverterTypeFfiRouteGroup,
     FfiConverterTypeFfiRoutePerformance,
@@ -13111,6 +15003,8 @@ export default Object.freeze({
     FfiConverterTypeFfiRoutesScreenData,
     FfiConverterTypeFfiScalePreset,
     FfiConverterTypeFfiSection,
+    FfiConverterTypeFfiSectionChartData,
+    FfiConverterTypeFfiSectionChartPoint,
     FfiConverterTypeFfiSectionConfig,
     FfiConverterTypeFfiSectionEncounter,
     FfiConverterTypeFfiSectionExtensionTrack,
@@ -13122,10 +15016,16 @@ export default Object.freeze({
     FfiConverterTypeFfiSectionReferenceInfo,
     FfiConverterTypeFfiSectionSummariesResult,
     FfiConverterTypeFfiSectionWithPolyline,
+    FfiConverterTypeFfiStalePrOpportunity,
     FfiConverterTypeFfiStartupData,
+    FfiConverterTypeFfiStrengthInsightSeries,
     FfiConverterTypeFfiStrengthSummary,
     FfiConverterTypeFfiSummaryCardData,
     FfiConverterTypeFfiSupersededEntry,
+    FfiConverterTypeFfiTimestampRange,
+    FfiConverterTypeFfiWellnessRow,
+    FfiConverterTypeFfiWellnessSparklines,
+    FfiConverterTypeFfiWorkoutSection,
     FfiConverterTypeFitnessManager,
     FfiConverterTypeGroupSummary,
     FfiConverterTypeHeatmapManager,

@@ -377,15 +377,17 @@ export function useSectionSummaries(
       const engine = getRouteEngine();
       if (!engine) return { totalCount: 0, summaries: [] };
 
-      const { totalCount, summaries: rawSummaries } = engine.getSectionSummaries(sportType);
+      // Visit-count filter + sort done in Rust; TS only fills display names.
+      const { totalCount, summaries: rawSummaries } = engine.getFilteredSectionSummaries(
+        sportType,
+        minVisits,
+        'visits'
+      );
 
-      // Apply minimum visits filter and generate display names
-      const summaries = rawSummaries
-        .filter((s) => s.visitCount >= minVisits)
-        .map((s) => ({
-          ...s,
-          name: s.name || generateSectionName(s),
-        }));
+      const summaries = rawSummaries.map((s) => ({
+        ...s,
+        name: s.name || generateSectionName(s),
+      }));
 
       return { totalCount, summaries };
     } catch {
@@ -397,8 +399,8 @@ export function useSectionSummaries(
 interface UseGroupSummariesOptions {
   /** Minimum number of activities in group */
   minActivities?: number;
-  /** Sort order */
-  sortBy?: 'count' | 'id';
+  /** Sort order — 'count' (default) or 'name' (alphabetical by groupId) */
+  sortBy?: 'count' | 'name';
 }
 
 interface UseGroupSummariesResult {
@@ -422,19 +424,8 @@ export function useGroupSummaries(options: UseGroupSummariesOptions = {}): UseGr
       const engine = getRouteEngine();
       if (!engine) return { totalCount: 0, summaries: [] };
 
-      const { totalCount, summaries: rawSummaries } = engine.getGroupSummaries();
-
-      // Apply filters
-      let filtered = rawSummaries.filter((g) => g.activityCount >= minActivities);
-
-      // Sort
-      if (sortBy === 'count') {
-        filtered.sort((a, b) => b.activityCount - a.activityCount);
-      } else {
-        filtered.sort((a, b) => a.groupId.localeCompare(b.groupId));
-      }
-
-      return { totalCount, summaries: filtered };
+      // Filter + sort pushed into Rust.
+      return engine.getFilteredGroupSummaries(minActivities, sortBy);
     } catch {
       return { totalCount: 0, summaries: [] };
     }

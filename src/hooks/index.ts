@@ -13,6 +13,10 @@ export {
   useWellness,
   useZoneDistribution,
   useAthleteSummary,
+  useFitnessRefresh,
+  useFitnessComputations,
+  useFitnessScreenData,
+  timeRangeToDays,
   getISOWeekNumber,
   formatWeekRange,
   type WeeklySummaryData,
@@ -32,10 +36,10 @@ export { usePowerCurve, usePaceCurve, useChartColors, useSeasonBests } from './c
 export type { BestEffort, UseSeasonBestsResult } from './charts';
 
 // UI hooks
-export { useTheme, useMetricSystem } from './ui';
+export { useTheme, useMetricSystem, useChartInteraction, useCollapsibleSections } from './ui';
 
 // Export types from ui
-export type { Theme, ThemeColors } from './ui';
+export type { Theme, ThemeColors, UseCollapsibleSections } from './ui';
 
 // Remaining hooks (not yet reorganized)
 export { useAthlete } from './useAthlete';
@@ -118,6 +122,7 @@ export { useRoutesScreenData } from './routes/useRoutesScreenData';
 export { useSectionDetail } from './routes/useRouteEngine';
 // Section matching, nearby, merge, and re-scan hooks
 export { useSectionRescan } from './routes/useSectionRescan';
+export { useSectionActions, type UseSectionActionsResult } from './routes/useSectionActions';
 export { useNearbySections } from './routes/useNearbySections';
 export { useMergeSections } from './routes/useMergeSections';
 export { useActivityRematch } from './routes/useActivityRematch';

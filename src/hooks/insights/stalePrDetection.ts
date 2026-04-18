@@ -1,5 +1,6 @@
 import type { Insight } from '@/types';
 import { formatDuration, formatPaceCompact, formatSwimPace } from '@/lib';
+import { getRouteEngine } from '@/lib/native/routeEngine';
 
 /**
  * Stale PR / Opportunity Detection
@@ -329,17 +330,53 @@ export function generateStalePRInsights(
   t: (key: string, params?: Record<string, string | number>) => string,
   now: number
 ): Insight[] {
-  const opportunities = detectStalePROpportunities({
-    sections: input.sections,
-    ftpTrend: input.ftpTrend,
-    runPaceTrend: input.runPaceTrend,
-    swimPaceTrend: input.swimPaceTrend,
-    recentPRs: input.recentPRs,
-  });
+  // Primary path: Rust atomic on FitnessManager does the full filter+sort+cap
+  // from SQLite-resident FTP/pace trends and ranked-section metadata. TS never
+  // sees the raw candidates. Fallback to the pure-TS detector for jest (no
+  // engine) and for the pre-sync startup window.
+  const excludeSectionIds: string[] = [];
+  for (const id of input.existingInsightIds) {
+    const m = id.match(/^section_pr-(.+)$/);
+    if (m) excludeSectionIds.push(m[1]);
+  }
 
-  const filtered = opportunities.filter(
-    (opp) => !input.existingInsightIds.has(`section_pr-${opp.sectionId}`)
-  );
+  let filtered: StalePROpportunity[] | null = null;
+  try {
+    const engine = getRouteEngine();
+    if (engine?.findStalePrOpportunities) {
+      const rows = engine.findStalePrOpportunities(
+        STALE_THRESHOLD_DAYS,
+        MIN_FTP_GAIN_PERCENT,
+        MAX_OPPORTUNITIES,
+        excludeSectionIds
+      );
+      filtered = rows.map((r) => ({
+        sectionId: r.sectionId,
+        sectionName: r.sectionName,
+        bestTimeSecs: r.bestTimeSecs,
+        fitnessMetric: r.fitnessMetric === 'power' ? 'power' : 'pace',
+        currentValue: r.currentValue,
+        previousValue: r.previousValue,
+        gainPercent: r.gainPercent,
+        unit: r.unit,
+      }));
+    }
+  } catch {
+    filtered = null;
+  }
+
+  if (filtered === null) {
+    const opportunities = detectStalePROpportunities({
+      sections: input.sections,
+      ftpTrend: input.ftpTrend,
+      runPaceTrend: input.runPaceTrend,
+      swimPaceTrend: input.swimPaceTrend,
+      recentPRs: input.recentPRs,
+    });
+    filtered = opportunities.filter(
+      (opp) => !input.existingInsightIds.has(`section_pr-${opp.sectionId}`)
+    );
+  }
 
   if (filtered.length === 0) return [];
   if (filtered.length === 1) return [stalePROpportunityToInsight(filtered[0], t, now)];

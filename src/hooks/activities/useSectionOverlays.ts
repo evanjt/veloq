@@ -103,22 +103,20 @@ export function useSectionOverlays(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activityId, engineSectionIds, customSectionIds]);
 
-  // Determine which sections this activity holds the PR for
+  // Determine which sections this activity holds the PR for.
+  // Single FFI call instead of per-section getSectionPerformances loop.
   const prSectionIds = useMemo((): Set<string> => {
     if (!activityId) return new Set();
-    const prIds = new Set<string>();
-    const allSections = [...engineSectionMatches.map((m) => m.section), ...customMatchedSections];
-    for (const section of allSections) {
-      try {
-        const result = routeEngine.getSectionPerformances(section.id);
-        if (result?.bestRecord?.activityId === activityId) {
-          prIds.add(section.id);
-        }
-      } catch {
-        // Engine may not have performance data yet
-      }
+    const allIds = [
+      ...engineSectionMatches.map((m) => m.section.id),
+      ...customMatchedSections.map((s) => s.id),
+    ];
+    if (allIds.length === 0) return new Set();
+    try {
+      return new Set(routeEngine.getActivityPrSections(activityId, allIds));
+    } catch {
+      return new Set();
     }
-    return prIds;
   }, [engineSectionMatches, customMatchedSections, activityId]);
 
   // Build section overlays for map display (always computed, shown on all tabs)

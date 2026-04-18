@@ -534,6 +534,8 @@ export interface DirectionStats {
   avgTime: number | null;
   lastActivity: Date | null;
   count: number;
+  /** Average speed across traversals (m/s). Populated for route stats; null for section. */
+  avgSpeed: number | null;
 }
 
 /**
@@ -544,6 +546,7 @@ export interface RawDirectionStats {
   avgTime?: number;
   lastActivity?: number; // Unix timestamp in seconds
   count?: number;
+  avgSpeed?: number;
 }
 
 /**
@@ -558,5 +561,6 @@ export function parseDirectionStats(
     avgTime: stats.avgTime ?? null,
     lastActivity: stats.lastActivity ? new Date(stats.lastActivity * 1000) : null,
     count: stats.count ?? 0,
+    avgSpeed: stats.avgSpeed ?? null,
   };
 }

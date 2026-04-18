@@ -72,9 +72,10 @@ export function useRouteGroups(options: UseRouteGroupsOptions = {}): UseRouteGro
   const { type, minActivities = 2, sortBy = 'count' } = options;
 
   // Use lightweight summaries instead of full groups (no activityIds arrays)
+  // Activity-count filter + sort pushed into Rust.
   const { totalCount, summaries } = useGroupSummaries({
-    minActivities: 1, // Get all, filter below
-    sortBy: 'count',
+    minActivities,
+    sortBy: sortBy === 'name' ? 'name' : 'count',
   });
 
   // Rename a route - uses Rust engine as single source of truth
@@ -119,39 +120,19 @@ export function useRouteGroups(options: UseRouteGroupsOptions = {}): UseRouteGro
       };
     });
 
-    let filtered = extended;
-
-    // Filter by type
-    if (type) {
-      filtered = filtered.filter((g) => g.type === type);
-    }
-
-    // Filter by minimum activities
-    filtered = filtered.filter((g) => g.activityCount >= minActivities);
-
-    // Sort
-    const sorted = [...filtered];
-    switch (sortBy) {
-      case 'count':
-        sorted.sort((a, b) => b.activityCount - a.activityCount);
-        break;
-      case 'name':
-        sorted.sort((a, b) => a.name.localeCompare(b.name));
-        break;
-      // 'recent' would require dates which aren't in the engine yet
-      default:
-        sorted.sort((a, b) => b.activityCount - a.activityCount);
-    }
+    // Activity count threshold + name/count sort are applied in Rust.
+    // Only `type` (ActivityType) filtering stays in TS because the mapping
+    // is display-layer logic.
+    const filtered = type ? extended.filter((g) => g.type === type) : extended;
 
     return {
-      groups: sorted,
+      groups: filtered,
       totalCount,
-      // processedCount from sum of activityCount (no need for full activityIds arrays)
       processedCount: summaries.reduce((sum, g) => sum + g.activityCount, 0),
       isReady: true,
       renameRoute,
     };
-  }, [summaries, type, minActivities, sortBy, totalCount, renameRoute]);
+  }, [summaries, type, totalCount, renameRoute]);
 
   return result;
 }

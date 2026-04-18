@@ -379,10 +379,11 @@ export function computeInsightsFromData(
             ? patternSports
             : (engine.getAvailableSportTypes?.() ?? ['Ride', 'Run']);
 
-        for (const sport of sportTypes) {
-          const ranked = engine.getRankedSections(sport, 50);
-          rankedSectionsCache.set(sport, ranked);
-          for (const rs of ranked) {
+        // Single FFI round-trip for all sports.
+        const batches = engine.getRankedSectionsBatch(sportTypes, 50);
+        for (const { sportType, sections } of batches) {
+          rankedSectionsCache.set(sportType, sections);
+          for (const rs of sections) {
             if (!rs.sectionId) continue;
             if (!sectionTrendMap.has(rs.sectionId)) {
               sectionTrendMap.set(rs.sectionId, {
@@ -392,7 +393,7 @@ export function computeInsightsFromData(
                 medianRecentSecs: rs.medianRecentSecs,
                 bestTimeSecs: rs.bestTimeSecs,
                 traversalCount: rs.traversalCount,
-                sportType: sport,
+                sportType,
                 daysSinceLast: rs.daysSinceLast,
                 latestIsPr: rs.latestIsPr,
               });
@@ -483,24 +484,23 @@ export function computeInsightsFromData(
       t
     );
 
-    // Use cached strength insights when available (saves ~5 getStrengthSummary FFI calls)
+    // Strength insights: single FFI call returns monthly + 4 weekly summaries.
     let strengthInsights: Insight[] = [];
     if (useComputeCache && _cachedStrengthInsights !== null) {
       strengthInsights = _cachedStrengthInsights;
     } else if (
       engine &&
       typeof engine.hasStrengthData === 'function' &&
-      typeof engine.getStrengthSummary === 'function'
+      typeof engine.getStrengthInsightSeries === 'function'
     ) {
       try {
         if (engine.hasStrengthData()) {
-          const monthlyRange = getTrailingMonthRange();
-          const monthlySummary = normalizeStrengthSummary(
-            engine.getStrengthSummary(monthlyRange.startTs, monthlyRange.endTs)
+          const series = engine.getStrengthInsightSeries(
+            getTrailingMonthRange(),
+            getTrailingStrengthRanges()
           );
-          const weeklySummaries = getTrailingStrengthRanges().map((range) =>
-            normalizeStrengthSummary(engine.getStrengthSummary(range.startTs, range.endTs))
-          );
+          const monthlySummary = normalizeStrengthSummary(series.monthly);
+          const weeklySummaries = series.weekly.map(normalizeStrengthSummary);
           strengthInsights = generateStrengthInsights(monthlySummary, weeklySummaries, Date.now());
         }
       } catch {

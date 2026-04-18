@@ -1,10 +1,6 @@
 import { useMemo } from 'react';
-import {
-  getMuscleRole,
-  MUSCLE_DISPLAY_NAMES,
-  type MuscleSlug,
-} from '@/lib/strength/exerciseMuscleMap';
-import type { ExerciseSet } from 'veloqrs';
+import { getRouteEngine } from '@/lib/native/routeEngine';
+import { MUSCLE_DISPLAY_NAMES, type MuscleSlug } from '@/lib/strength/exerciseMuscleMap';
 
 export interface ExerciseContribution {
   /** Human-readable exercise name */
@@ -36,70 +32,37 @@ export interface MuscleGroupDetail {
 }
 
 /**
- * Computes a detailed breakdown of which exercises targeted a specific muscle group.
- * Returns null when no slug is selected.
+ * Per-activity, per-muscle-group breakdown of exercise contributions.
+ *
+ * Thin pass-through to `engine.getMuscleDetail` — grouping, role
+ * classification, and sorting all happen in Rust. TS only tacks on the
+ * localized muscle display name.
  */
 export function useMuscleDetail(
-  slug: string | null,
-  exerciseSets: ExerciseSet[]
+  activityId: string | null,
+  slug: string | null
 ): MuscleGroupDetail | null {
   return useMemo(() => {
-    if (!slug || exerciseSets.length === 0) return null;
-
-    // Group active sets by exercise display name, tracking role
-    const exerciseMap = new Map<string, { role: 'primary' | 'secondary'; sets: ExerciseSet[] }>();
-
-    for (const set of exerciseSets) {
-      if (set.setType !== 0) continue; // skip rest/warmup/cooldown
-      const role = getMuscleRole(set.exerciseCategory, slug);
-      if (!role) continue;
-
-      const existing = exerciseMap.get(set.displayName);
-      if (existing) {
-        existing.sets.push(set);
-        // Upgrade to primary if any set targets this muscle as primary
-        if (role === 'primary') existing.role = 'primary';
-      } else {
-        exerciseMap.set(set.displayName, { role, sets: [set] });
-      }
-    }
-
-    if (exerciseMap.size === 0) return null;
-
-    const exercises: ExerciseContribution[] = [];
-    let totalSets = 0;
-    let totalReps = 0;
-    let totalVolumeKg = 0;
-    let primaryExercises = 0;
-    let secondaryExercises = 0;
-
-    for (const [name, { role, sets }] of exerciseMap) {
-      const reps = sets.reduce((sum, s) => sum + (s.repetitions ?? 0), 0);
-      const volumeKg = sets.reduce((sum, s) => sum + (s.weightKg ?? 0) * (s.repetitions ?? 1), 0);
-
-      exercises.push({ name, role, sets: sets.length, reps, volumeKg });
-      totalSets += sets.length;
-      totalReps += reps;
-      totalVolumeKg += volumeKg;
-      if (role === 'primary') primaryExercises++;
-      else secondaryExercises++;
-    }
-
-    // Sort: primary exercises first, then by volume descending
-    exercises.sort((a, b) => {
-      if (a.role !== b.role) return a.role === 'primary' ? -1 : 1;
-      return b.volumeKg - a.volumeKg;
-    });
-
+    if (!slug || !activityId) return null;
+    const engine = getRouteEngine();
+    if (!engine) return null;
+    const detail = engine.getMuscleDetail(activityId, slug);
+    if (!detail || detail.exercises.length === 0) return null;
     return {
       name: MUSCLE_DISPLAY_NAMES[slug as MuscleSlug] ?? slug,
-      slug,
-      exercises,
-      totalSets,
-      totalReps,
-      totalVolumeKg,
-      primaryExercises,
-      secondaryExercises,
+      slug: detail.slug,
+      exercises: detail.exercises.map((e) => ({
+        name: e.name,
+        role: e.role === 'primary' ? 'primary' : 'secondary',
+        sets: e.sets,
+        reps: e.reps,
+        volumeKg: e.volumeKg,
+      })),
+      totalSets: detail.totalSets,
+      totalReps: detail.totalReps,
+      totalVolumeKg: detail.totalVolumeKg,
+      primaryExercises: detail.primaryExercises,
+      secondaryExercises: detail.secondaryExercises,
     };
-  }, [slug, exerciseSets]);
+  }, [activityId, slug]);
 }

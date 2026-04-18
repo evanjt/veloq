@@ -20,15 +20,15 @@ import {
   getActivityIcon,
   getActivityColor,
 } from '@/lib';
-import { colors, darkColors, typography, spacing, shadows, brand, layout } from '@/theme';
+import { colors, darkColors, typography, spacing, shadows, layout } from '@/theme';
 import { CHART_CONFIG } from '@/constants';
 import { useMapPreferences } from '@/providers';
 import { ActivityMapPreview } from './ActivityMapPreview';
 import type { PreviewTrack } from '@/hooks/home/useStartupData';
 import { ActivityCardContextMenu } from './ActivityCardContextMenu';
 import { SkylineBar } from './SkylineBar';
-import Body, { type ExtendedBodyPart } from 'react-native-body-highlighter';
-import { getRouteEngine } from '@/lib/native/routeEngine';
+import { StrengthActivityCard, type StrengthCardData } from './StrengthActivityCard';
+import type { ExtendedBodyPart } from 'react-native-body-highlighter';
 import { useExerciseSets, useMuscleGroups } from '@/hooks/activities';
 import type { TerrainSnapshotWebViewRef } from '@/components/maps/TerrainSnapshotWebView';
 
@@ -273,7 +273,7 @@ export const ActivityCard = React.memo(
     const hasExercises = (exerciseSets?.length ?? 0) > 0;
     const { data: muscleGroups } = useMuscleGroups(activity.id, hasExercises);
 
-    const strengthData = React.useMemo(() => {
+    const strengthData = React.useMemo<StrengthCardData | null>(() => {
       if (!isStrength || !exerciseSets || exerciseSets.length === 0) return null;
       const activeSets = exerciseSets.filter((s) => s.setType === 0);
       if (activeSets.length === 0) return null;
@@ -296,115 +296,7 @@ export const ActivityCard = React.memo(
     }, [isStrength, exerciseSets, muscleGroups]);
 
     if (isStrength && strengthData) {
-      return (
-        <View style={styles.cardWrapper}>
-          <View style={[styles.card, isDark && styles.cardDark, isPressed && styles.cardPressed]}>
-            <View style={[styles.strengthPanel, isDark && styles.strengthPanelDark]}>
-              {/* Pressable overlay */}
-              <Pressable
-                testID={`activity-card-${activity.id}`}
-                onPress={handlePress}
-                onLongPress={handleLongPress}
-                delayLongPress={CHART_CONFIG.LONG_PRESS_DURATION}
-                onPressIn={handlePressIn}
-                onPressOut={handlePressOut}
-                style={styles.pressableOverlay}
-                accessibilityRole="button"
-                accessibilityLabel={`${activity.name}, ${formatRelativeDate(activity.start_date_local)}, ${formatDuration(activity.moving_time)}`}
-              />
-
-              {/* Top: icon + name + date */}
-              <View style={styles.topOverlay} pointerEvents="none">
-                <View style={styles.overlayHeader}>
-                  <View style={[styles.iconContainer, { backgroundColor: activityColor }]}>
-                    <MaterialCommunityIcons name={iconName} size={14} color={colors.textOnDark} />
-                  </View>
-                  <View style={styles.overlayTitleColumn}>
-                    <RNText
-                      style={[
-                        styles.overlayName,
-                        { color: compactTextColor, textShadowColor: 'transparent' },
-                      ]}
-                      numberOfLines={1}
-                    >
-                      {activity.name}
-                    </RNText>
-                    <RNText
-                      style={[
-                        styles.overlayDateSubtitle,
-                        { color: compactMutedColor, textShadowColor: 'transparent' },
-                      ]}
-                    >
-                      {formatRelativeDate(activity.start_date_local)}
-                    </RNText>
-                  </View>
-                </View>
-              </View>
-
-              {/* Center: body diagrams + stats */}
-              <View style={styles.strengthCenter}>
-                <View style={styles.strengthBodies}>
-                  <Body
-                    data={strengthData.muscles}
-                    gender="male"
-                    side="front"
-                    scale={0.38}
-                    colors={[brand.orangeLight, brand.orange]}
-                  />
-                  <Body
-                    data={strengthData.muscles}
-                    gender="male"
-                    side="back"
-                    scale={0.38}
-                    colors={[brand.orangeLight, brand.orange]}
-                  />
-                </View>
-                <View style={styles.strengthStats}>
-                  <View style={styles.strengthStatRow}>
-                    <RNText style={[styles.strengthStatValue, { color: compactTextColor }]}>
-                      {formatDuration(activity.moving_time)}
-                    </RNText>
-                    <RNText style={[styles.strengthStatLabel, { color: compactMutedColor }]}>
-                      Duration
-                    </RNText>
-                  </View>
-                  <View style={styles.strengthStatRow}>
-                    <RNText style={[styles.strengthStatValue, { color: compactTextColor }]}>
-                      {strengthData.exerciseCount} / {strengthData.setCount}
-                    </RNText>
-                    <RNText style={[styles.strengthStatLabel, { color: compactMutedColor }]}>
-                      {t('activityDetail.exercises')} / Sets
-                    </RNText>
-                  </View>
-                  {strengthData.totalWeight > 0 && (
-                    <View style={styles.strengthStatRow}>
-                      <RNText style={[styles.strengthStatValue, { color: compactTextColor }]}>
-                        {isMetric
-                          ? `${Math.round(strengthData.totalWeight)} kg`
-                          : `${Math.round(strengthData.totalWeight * 2.20462)} lbs`}
-                      </RNText>
-                      <RNText style={[styles.strengthStatLabel, { color: compactMutedColor }]}>
-                        Total
-                      </RNText>
-                    </View>
-                  )}
-                </View>
-              </View>
-
-              {/* Bottom: secondary stats only */}
-              <View style={styles.strengthBottom}>
-                {activity.skyline_chart_bytes ? (
-                  <SkylineBar skylineBytes={activity.skyline_chart_bytes} isDark={isDark} />
-                ) : (
-                  <View style={[styles.dividerLine, { backgroundColor: compactDividerColor }]} />
-                )}
-                {secondaryStatsRow(compactMutedColor)}
-              </View>
-            </View>
-          </View>
-          {contextMenu}
-        </View>
-      );
+      return <StrengthActivityCard activity={activity} strengthData={strengthData} />;
     }
 
     // Compact card for activities without GPS data
@@ -789,44 +681,6 @@ const styles = StyleSheet.create({
   mapContainer: {
     position: 'relative',
     height: 240,
-  },
-  strengthPanel: {
-    position: 'relative',
-    height: 240,
-    backgroundColor: colors.gray100,
-  },
-  strengthPanelDark: {
-    backgroundColor: darkColors.backgroundAlt,
-  },
-  strengthCenter: {
-    ...StyleSheet.absoluteFillObject,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
-  },
-  strengthBodies: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  strengthStats: {
-    gap: 10,
-  },
-  strengthStatRow: {},
-  strengthStatValue: {
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  strengthStatLabel: {
-    fontSize: 10,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  strengthBottom: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
   },
   pressableOverlay: {
     ...StyleSheet.absoluteFillObject,

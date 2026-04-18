@@ -87,6 +87,27 @@ impl SectionManager {
         with_engine(|e| e.get_ranked_sections(&sport_type, limit))
     }
 
+    /// Ranked sections for multiple sports in a single engine lock. Collapses
+    /// the per-sport `getRankedSections` loop in `computeInsightsData.ts`.
+    fn get_ranked_batch(
+        &self,
+        sport_types: Vec<String>,
+        limit: u32,
+    ) -> Result<Vec<crate::FfiRankedSectionsBySport>, VeloqError> {
+        with_engine(|e| {
+            sport_types
+                .into_iter()
+                .map(|sport| {
+                    let sections = e.get_ranked_sections(&sport, limit);
+                    crate::FfiRankedSectionsBySport {
+                        sport_type: sport,
+                        sections,
+                    }
+                })
+                .collect()
+        })
+    }
+
     fn get_summaries_with_count(
         &self,
         sport_type: Option<String>,
@@ -97,6 +118,39 @@ impl SectionManager {
                 Some(ref sport) => e.get_section_summaries_for_sport(sport),
                 None => e.get_section_summaries(),
             };
+            crate::FfiSectionSummariesResult {
+                total_count,
+                summaries,
+            }
+        })
+    }
+
+    /// Filtered + sorted section summaries. Pushes the visit-count threshold
+    /// and sort key into Rust so TS stops re-iterating the summaries list.
+    /// `sort_key` accepts "visits", "distance", "name"; anything else maps to
+    /// the default ("visits").
+    fn get_filtered_summaries(
+        &self,
+        sport_type: Option<String>,
+        min_visits: u32,
+        sort_key: String,
+    ) -> Result<crate::FfiSectionSummariesResult, VeloqError> {
+        with_engine(|e| {
+            let total_count = e.get_section_count();
+            let mut summaries = match sport_type {
+                Some(ref sport) => e.get_section_summaries_for_sport(sport),
+                None => e.get_section_summaries(),
+            };
+            summaries.retain(|s| s.visit_count >= min_visits);
+            match sort_key.as_str() {
+                "distance" => summaries.sort_by(|a, b| {
+                    b.distance_meters
+                        .partial_cmp(&a.distance_meters)
+                        .unwrap_or(std::cmp::Ordering::Equal)
+                }),
+                "name" => summaries.sort_by(|a, b| a.id.cmp(&b.id)),
+                _ => summaries.sort_by(|a, b| b.visit_count.cmp(&a.visit_count)),
+            }
             crate::FfiSectionSummariesResult {
                 total_count,
                 summaries,
@@ -681,5 +735,49 @@ impl SectionManager {
                     msg: format!("recompute_indicators failed: {}", err),
                 })
         })?
+    }
+
+    /// Given an activity and a list of section IDs, return the subset where
+    /// `activity_id` currently holds the best record. Collapses a per-section
+    /// N+1 `get_performances` loop into a single FFI round-trip.
+    fn get_activity_pr_sections(
+        &self,
+        activity_id: String,
+        section_ids: Vec<String>,
+    ) -> Result<Vec<String>, VeloqError> {
+        with_engine(|e| {
+            section_ids
+                .into_iter()
+                .filter(|sid| {
+                    e.get_section_performances(sid)
+                        .best_record
+                        .as_ref()
+                        .is_some_and(|r| r.activity_id == activity_id)
+                })
+                .collect()
+        })
+    }
+
+    /// Home-screen "Sections for you" list. Composes ML ranking + performance
+    /// lookups in one FFI round-trip instead of N+1 per-section `getPerformances`
+    /// calls from TS.
+    fn get_workout_sections(
+        &self,
+        sport_type: String,
+        limit: u32,
+    ) -> Result<Vec<crate::FfiWorkoutSection>, VeloqError> {
+        with_engine(|e| e.get_workout_sections_for_sport(&sport_type, limit))
+    }
+
+    /// Pre-computed chart payload for the section-detail screen: per-lap
+    /// points, speed ranks, best/avg/last stats — all in one FFI round-trip.
+    /// Replaces the 3+ useMemo aggregations in `useSectionChartData`.
+    fn get_chart_data(
+        &self,
+        section_id: String,
+        time_range_days: u32,
+        sport_filter: Option<String>,
+    ) -> Result<crate::FfiSectionChartData, VeloqError> {
+        with_engine(|e| e.get_section_chart_data(&section_id, time_range_days, sport_filter.as_deref()))
     }
 }

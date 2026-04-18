@@ -26,7 +26,12 @@ export function fromUnixSeconds(seconds: number | bigint | null | undefined): Da
  */
 export function toDirectionStats(
   ffi:
-    | { avgTime?: number | null; lastActivity?: number | bigint | null; count: number }
+    | {
+        avgTime?: number | null;
+        lastActivity?: number | bigint | null;
+        count: number;
+        avgSpeed?: number | null;
+      }
     | null
     | undefined
 ): DirectionStats | null {
@@ -35,6 +40,7 @@ export function toDirectionStats(
     avgTime: ffi.avgTime ?? null,
     lastActivity: fromUnixSeconds(ffi.lastActivity),
     count: ffi.count,
+    avgSpeed: ffi.avgSpeed ?? null,
   };
 }
 

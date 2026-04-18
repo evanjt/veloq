@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, StyleSheet, TouchableOpacity, RefreshControl } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
 import { Text, ActivityIndicator } from 'react-native-paper';
@@ -7,57 +7,30 @@ import { logScreenRender, logMemory } from '@/lib/debug/renderTimer';
 import * as WebBrowser from 'expo-web-browser';
 import { useSharedValue } from 'react-native-reanimated';
 import { useTranslation } from 'react-i18next';
-import { useQueryClient } from '@tanstack/react-query';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { NetworkErrorState, ErrorStatePreset, ScreenErrorBoundary } from '@/components/ui';
 import {
   FitnessChartCard,
   PerformanceCurveSection,
   FitnessTrendSections,
 } from '@/components/fitness/sections';
+import { TimeRangeSelector, SportToggleSelector, FitnessHeaderStats } from '@/components/fitness';
 import {
-  useWellness,
-  useActivities,
-  useActivityStreams,
-  useZoneDistribution,
-  useEFTPHistory,
-  getLatestFTP,
-  useSportSettings,
-  getSettingsForSport,
-  usePaceCurve,
-  useSeasonBests,
   useTheme,
-  getFormZone,
+  useChartInteraction,
+  useCollapsibleSections,
+  useFitnessRefresh,
+  useFitnessComputations,
+  useFitnessScreenData,
+  timeRangeToDays,
   FORM_ZONE_COLORS,
   FORM_ZONE_LABELS,
   type TimeRange,
 } from '@/hooks';
-import { useSportPreference, SPORT_COLORS, type PrimarySport, useAuthStore } from '@/providers';
-import { formatShortDateWithWeekday } from '@/lib';
+import { useSportPreference, type PrimarySport } from '@/providers';
 import { colors, darkColors, spacing, layout, typography, opacity } from '@/theme';
 import { createSharedStyles } from '@/styles';
 
-import { TIME_RANGES } from '@/lib/utils/constants';
 import { isNetworkError } from '@/lib/utils/errorHandler';
-import { queryKeys } from '@/lib/queryKeys';
-
-// Convert TimeRange to days for activity fetching
-const timeRangeToDays = (range: TimeRange): number => {
-  switch (range) {
-    case '7d':
-      return 7;
-    case '1m':
-      return 30;
-    case '3m':
-      return 90;
-    case '6m':
-      return 180;
-    case '1y':
-      return 365;
-    default:
-      return 90;
-  }
-};
 
 export default function FitnessScreen() {
   // Performance timing
@@ -68,13 +41,9 @@ export default function FitnessScreen() {
   });
 
   const { t } = useTranslation();
-  const queryClient = useQueryClient();
-  const { isDark, colors: themeColors } = useTheme();
-  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const { isDark } = useTheme();
   const shared = createSharedStyles(isDark);
   const [timeRange, setTimeRange] = useState<TimeRange>('3m');
-  const [chartInteracting, setChartInteracting] = useState(false);
-  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Defer secondary charts by one frame to reduce simultaneous Metal shader compilation
   const [chartsReady, setChartsReady] = useState(false);
@@ -83,18 +52,23 @@ export default function FitnessScreen() {
     requestAnimationFrame(() => setChartsReady(true));
   }, []);
 
-  // Collapsible section state - performance collapsed by default to reduce initial render load
-  const [performanceExpanded, setPerformanceExpanded] = useState(false);
-  const [bestsExpanded, setBestsExpanded] = useState(false);
-  const [zonesExpanded, setZonesExpanded] = useState(false);
-  const [trendsExpanded, setTrendsExpanded] = useState(false);
-  const [efficiencyExpanded, setEfficiencyExpanded] = useState(false);
-  const [selectedDate, setSelectedDate] = useState<string | null>(null);
-  const [selectedValues, setSelectedValues] = useState<{
-    fitness: number;
-    fatigue: number;
-    form: number;
-  } | null>(null);
+  // Collapsible section state - all collapsed by default to reduce initial render load
+  const sections = useCollapsibleSections({
+    performance: false,
+    bests: false,
+    zones: false,
+    trends: false,
+    efficiency: false,
+  });
+  const {
+    chartInteracting,
+    selectedDate,
+    selectedValues,
+    setSelectedDate,
+    setSelectedValues,
+    handleInteractionChange,
+    handleDateSelect,
+  } = useChartInteraction();
 
   // Shared value for instant crosshair sync between charts
   const sharedSelectedIdx = useSharedValue(-1);
@@ -106,17 +80,8 @@ export default function FitnessScreen() {
     setSelectedValues(null);
     // Note: sharedSelectedIdx is a Reanimated SharedValue and should NOT be in deps
     // (it's intentionally outside the React render cycle)
-  }, [timeRange]);
+  }, [timeRange, setSelectedDate, setSelectedValues]);
 
-  const { data: wellness, isLoading, isFetching, isError, error, refetch } = useWellness(timeRange);
-
-  // Memory profiling for crash investigation
-  useEffect(() => {
-    if (wellness) logMemory('FitnessScreen:wellnessLoaded');
-  }, [wellness]);
-  useEffect(() => {
-    if (chartsReady) logMemory('FitnessScreen:chartsReady');
-  }, [chartsReady]);
   const { primarySport } = useSportPreference();
 
   // Sport mode state - defaults to primary sport, can be toggled
@@ -127,156 +92,58 @@ export default function FitnessScreen() {
     setSportMode(primarySport);
   }, [primarySport]);
 
-  // Fetch activities for the selected time range (with stats for zone/eFTP)
-  const { data: activities, isLoading: loadingActivities } = useActivities({
-    days: timeRangeToDays(timeRange),
-    includeStats: true,
-    enabled: isAuthenticated,
-  });
+  // Gather all screen data via consolidated hook (wellness, activities, zones, curves, bests)
+  const {
+    wellness,
+    activities,
+    powerZones,
+    hrZones,
+    eftpHistory,
+    currentFTP,
+    runSettings,
+    runPaceCurve,
+    swimPaceCurve,
+    bestsEfforts,
+    loadingActivities,
+    loadingBests,
+    bestsHeader,
+    decouplingStreams,
+    loadingStreams,
+    isLoading,
+    isFetching,
+    isError,
+    error,
+    refetch,
+  } = useFitnessScreenData({ timeRange, sportMode });
 
-  // Compute zone distributions - filtered by current sport mode
-  const powerZones = useZoneDistribution({
-    type: 'power',
-    sport: sportMode,
-  });
-  const hrZones = useZoneDistribution({
-    type: 'hr',
-    sport: sportMode,
-  });
-
-  // Compute eFTP history and current FTP
-  const eftpHistory = useEFTPHistory(activities);
-  const currentFTP = useMemo(() => getLatestFTP(activities), [activities]);
-
-  // Get sport settings for thresholds
-  const { data: sportSettings } = useSportSettings();
-  const runSettings = getSettingsForSport(sportSettings, 'Run');
   const runLthr = runSettings?.lthr;
   const runMaxHr = runSettings?.max_hr;
-
-  // Get pace curve for critical speed (threshold pace)
-  const { data: runPaceCurve } = usePaceCurve({
-    sport: 'Run',
-    days: timeRangeToDays(timeRange),
-  });
   const thresholdPace = runPaceCurve?.criticalSpeed;
-
-  // Get swim pace curve for threshold (CSS - critical swim speed)
-  const { data: swimPaceCurve } = usePaceCurve({
-    sport: 'Swim',
-    days: timeRangeToDays(timeRange),
-  });
   const swimThresholdPace = swimPaceCurve?.criticalSpeed;
 
-  // Season bests from existing power/pace curve data
-  const {
-    efforts: bestsEfforts,
-    isLoading: loadingBests,
-    headerSummary: bestsHeader,
-  } = useSeasonBests({ sport: sportMode, days: timeRangeToDays(timeRange) });
-
-  // Find a recent activity with power data for decoupling analysis
-  const decouplingActivity = useMemo(() => {
-    if (!activities) return null;
-    return (
-      activities.find(
-        (a) =>
-          (a.type === 'Ride' || a.type === 'VirtualRide') &&
-          (a.icu_average_watts || a.average_watts) &&
-          (a.average_heartrate || a.icu_average_hr) &&
-          a.moving_time >= 30 * 60
-      ) || null
-    );
-  }, [activities]);
-
-  // Compute FTP trend (compare current to avg of previous values)
-  const ftpTrend = useMemo(() => {
-    if (!eftpHistory || eftpHistory.length < 2) return null;
-    const current = eftpHistory[eftpHistory.length - 1].eftp;
-    const previous = eftpHistory[eftpHistory.length - 2].eftp;
-    if (current === previous) return 'stable';
-    return current > previous ? 'up' : 'down';
-  }, [eftpHistory]);
-
-  // Compute dominant zone for header display
-  const dominantZone = useMemo(() => {
-    const zones = sportMode === 'Cycling' ? powerZones : hrZones;
-    if (!zones || zones.length === 0) return null;
-    const sorted = [...zones].sort((a, b) => b.percentage - a.percentage);
-    const top = sorted[0];
-    if (top.percentage === 0) return null;
-    return { name: top.name, percentage: top.percentage };
-  }, [sportMode, powerZones, hrZones]);
-
-  // Fetch streams for the decoupling activity
-  const { data: decouplingStreams, isLoading: loadingStreams } = useActivityStreams(
-    decouplingActivity?.id || ''
-  );
-
-  // Compute decoupling percentage for header display
-  const decouplingValue = useMemo(() => {
-    if (!decouplingStreams?.watts || !decouplingStreams?.heartrate) return null;
-    const power = decouplingStreams.watts;
-    const hr = decouplingStreams.heartrate;
-    if (power.length < 4 || hr.length < 4) return null;
-
-    const midpoint = Math.floor(power.length / 2);
-    const avgFirstPower = power.slice(0, midpoint).reduce((a, b) => a + b, 0) / midpoint;
-    const avgFirstHR = hr.slice(0, midpoint).reduce((a, b) => a + b, 0) / midpoint;
-    const avgSecondPower =
-      power.slice(midpoint).reduce((a, b) => a + b, 0) / (power.length - midpoint);
-    const avgSecondHR = hr.slice(midpoint).reduce((a, b) => a + b, 0) / (hr.length - midpoint);
-
-    const firstHalfEf = avgFirstPower / avgFirstHR;
-    const secondHalfEf = avgSecondPower / avgSecondHR;
-    const decoupling = ((firstHalfEf - secondHalfEf) / firstHalfEf) * 100;
-    const isGood = decoupling < 5;
-
-    return { value: decoupling, isGood };
-  }, [decouplingStreams]);
-
-  // Handle chart interaction state changes
-  const handleInteractionChange = useCallback((isInteracting: boolean) => {
-    setChartInteracting(isInteracting);
-  }, []);
-
-  // Handle date selection from charts
-  const handleDateSelect = useCallback(
-    (date: string | null, values: { fitness: number; fatigue: number; form: number } | null) => {
-      setSelectedDate(date);
-      setSelectedValues(values);
-    },
-    []
-  );
+  // Memory profiling for crash investigation
+  useEffect(() => {
+    if (wellness) logMemory('FitnessScreen:wellnessLoaded');
+  }, [wellness]);
+  useEffect(() => {
+    if (chartsReady) logMemory('FitnessScreen:chartsReady');
+  }, [chartsReady]);
 
   // Handle pull-to-refresh — invalidate all fitness-related queries
-  const onRefresh = useCallback(async () => {
-    setIsRefreshing(true);
-    await Promise.all([
-      refetch(),
-      queryClient.invalidateQueries({ queryKey: queryKeys.activities.all }),
-      queryClient.invalidateQueries({ queryKey: queryKeys.charts.powerCurve.all }),
-      queryClient.invalidateQueries({ queryKey: queryKeys.charts.paceCurve.all }),
-      queryClient.invalidateQueries({ queryKey: queryKeys.athleteSummary.all }),
-    ]);
-    setIsRefreshing(false);
-  }, [refetch, queryClient]);
+  const { isRefreshing, onRefresh } = useFitnessRefresh(refetch);
 
-  // Memoize current (latest) values - only recompute when wellness data changes
-  const currentValues = useMemo(() => {
-    if (!wellness || wellness.length === 0) return null;
-    const sorted = [...wellness].sort((a, b) => b.id.localeCompare(a.id));
-    const latest = sorted[0];
-    const fitnessRaw = latest.ctl ?? latest.ctlLoad ?? 0;
-    const fatigueRaw = latest.atl ?? latest.atlLoad ?? 0;
-    // Use rounded values for form calculation to match intervals.icu display
-    const fitness = Math.round(fitnessRaw);
-    const fatigue = Math.round(fatigueRaw);
-    return { fitness, fatigue, form: fitness - fatigue, date: latest.id };
-  }, [wellness]);
-  const displayValues = selectedValues || currentValues;
-  const displayDate = selectedDate || currentValues?.date;
-  const formZone = displayValues ? getFormZone(displayValues.form) : null;
+  // Memoized derivations (FTP trend, dominant zone, decoupling, form zone, display values)
+  const { ftpTrend, dominantZone, decouplingValue, displayValues, displayDate, formZone } =
+    useFitnessComputations({
+      wellness,
+      sportMode,
+      powerZones,
+      hrZones,
+      eftpHistory,
+      decouplingStreams,
+      selectedDate,
+      selectedValues,
+    });
 
   const days = timeRangeToDays(timeRange);
 
@@ -343,89 +210,19 @@ export default function FitnessScreen() {
           }
         >
           {/* Current stats card */}
-          <View style={[styles.statsCard, isDark && styles.statsCardDark]}>
-            <Text style={[styles.statsDate, isDark && styles.statsDateDark]}>
-              {displayDate ? formatDisplayDate(displayDate) : t('fitnessScreen.current')}
-            </Text>
-            <View style={styles.statsRow}>
-              <View style={styles.statItem}>
-                <Text style={[styles.statLabel, isDark && styles.statLabelDark]}>
-                  {t('metrics.fitness')}
-                </Text>
-                <Text style={[styles.statValue, { color: colors.fitnessBlue }]}>
-                  {displayValues ? Math.round(displayValues.fitness) : '-'}
-                </Text>
-                <Text style={[styles.statSubtext, isDark && styles.statSubtextDark]}>
-                  {t('fitnessScreen.ctl')}
-                </Text>
-              </View>
-              <View style={styles.statItem}>
-                <Text style={[styles.statLabel, isDark && styles.statLabelDark]}>
-                  {t('metrics.fatigue')}
-                </Text>
-                <Text style={[styles.statValue, { color: colors.fatiguePurple }]}>
-                  {displayValues ? Math.round(displayValues.fatigue) : '-'}
-                </Text>
-                <Text style={[styles.statSubtext, isDark && styles.statSubtextDark]}>
-                  {t('fitnessScreen.atl')}
-                </Text>
-              </View>
-              <View style={styles.statItem}>
-                <Text style={[styles.statLabel, isDark && styles.statLabelDark]}>
-                  {t('metrics.form')}
-                </Text>
-                <Text
-                  style={[
-                    styles.statValue,
-                    {
-                      color: formZone ? FORM_ZONE_COLORS[formZone] : themeColors.text,
-                    },
-                  ]}
-                >
-                  {displayValues
-                    ? `${displayValues.form > 0 ? '+' : ''}${Math.round(displayValues.form)}`
-                    : '-'}
-                </Text>
-                <Text
-                  style={[
-                    styles.statSubtext,
-                    {
-                      color: formZone ? FORM_ZONE_COLORS[formZone] : themeColors.textSecondary,
-                    },
-                  ]}
-                >
-                  {formZone ? FORM_ZONE_LABELS[formZone] : t('fitnessScreen.tsb')}
-                </Text>
-              </View>
-            </View>
-          </View>
+          <FitnessHeaderStats
+            displayDate={displayDate}
+            displayValues={displayValues}
+            formZone={formZone}
+            isDark={isDark}
+          />
 
           {/* Time range selector */}
-          <View testID="fitness-time-range-selector" style={styles.timeRangeContainer}>
-            {TIME_RANGES.map((range) => (
-              <TouchableOpacity
-                key={range.id}
-                testID={`fitness-range-${range.id}`}
-                style={[
-                  styles.timeRangeButton,
-                  isDark && styles.timeRangeButtonDark,
-                  timeRange === range.id && styles.timeRangeButtonActive,
-                ]}
-                onPress={() => setTimeRange(range.id)}
-                activeOpacity={0.7}
-              >
-                <Text
-                  style={[
-                    styles.timeRangeText,
-                    isDark && styles.timeRangeTextDark,
-                    timeRange === range.id && styles.timeRangeTextActive,
-                  ]}
-                >
-                  {range.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+          <TimeRangeSelector
+            timeRange={timeRange}
+            onTimeRangeChange={setTimeRange}
+            isDark={isDark}
+          />
 
           {/* Combined fitness charts card */}
           <FitnessChartCard
@@ -440,38 +237,11 @@ export default function FitnessScreen() {
           />
 
           {/* Sport Toggle - compact pill selector */}
-          <View style={styles.sportToggleContainer}>
-            {(['Cycling', 'Running', 'Swimming'] as const).map((sport) => (
-              <TouchableOpacity
-                key={sport}
-                testID={`fitness-sport-toggle-${sport}`}
-                style={[
-                  styles.sportToggleButton,
-                  isDark && styles.sportToggleButtonDark,
-                  sportMode === sport && {
-                    backgroundColor: SPORT_COLORS[sport],
-                  },
-                ]}
-                onPress={() => setSportMode(sport)}
-                activeOpacity={0.7}
-              >
-                <MaterialCommunityIcons
-                  name={sport === 'Cycling' ? 'bike' : sport === 'Running' ? 'run' : 'swim'}
-                  size={16}
-                  color={sportMode === sport ? colors.textOnDark : themeColors.textSecondary}
-                />
-                <Text
-                  style={[
-                    styles.sportToggleText,
-                    isDark && styles.sportToggleTextDark,
-                    sportMode === sport && styles.sportToggleTextActive,
-                  ]}
-                >
-                  {t(`filters.${sport.toLowerCase()}` as never)}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+          <SportToggleSelector
+            sportMode={sportMode}
+            onSportModeChange={setSportMode}
+            isDark={isDark}
+          />
 
           {/* Performance curves + season bests */}
           <PerformanceCurveSection
@@ -480,10 +250,10 @@ export default function FitnessScreen() {
             currentFTP={currentFTP}
             thresholdPace={thresholdPace}
             swimThresholdPace={swimThresholdPace}
-            performanceExpanded={performanceExpanded}
-            onPerformanceToggle={setPerformanceExpanded}
-            bestsExpanded={bestsExpanded}
-            onBestsToggle={setBestsExpanded}
+            performanceExpanded={sections.expanded('performance')}
+            onPerformanceToggle={(v) => sections.setExpanded('performance', v)}
+            bestsExpanded={sections.expanded('bests')}
+            onBestsToggle={(v) => sections.setExpanded('bests', v)}
             bestsEfforts={bestsEfforts}
             loadingBests={loadingBests}
             bestsHeader={bestsHeader}
@@ -498,21 +268,21 @@ export default function FitnessScreen() {
             loadingActivities={loadingActivities}
             hasActivities={!!activities}
             dominantZone={dominantZone}
-            zonesExpanded={zonesExpanded}
-            onZonesToggle={setZonesExpanded}
+            zonesExpanded={sections.expanded('zones')}
+            onZonesToggle={(v) => sections.setExpanded('zones', v)}
             eftpHistory={eftpHistory}
             currentFTP={currentFTP}
             ftpTrend={ftpTrend}
-            trendsExpanded={trendsExpanded}
-            onTrendsToggle={setTrendsExpanded}
+            trendsExpanded={sections.expanded('trends')}
+            onTrendsToggle={(v) => sections.setExpanded('trends', v)}
             thresholdPace={thresholdPace}
             runLthr={runLthr}
             runMaxHr={runMaxHr}
             decouplingStreams={decouplingStreams}
             decouplingValue={decouplingValue}
             loadingStreams={loadingStreams}
-            efficiencyExpanded={efficiencyExpanded}
-            onEfficiencyToggle={setEfficiencyExpanded}
+            efficiencyExpanded={sections.expanded('efficiency')}
+            onEfficiencyToggle={(v) => sections.setExpanded('efficiency', v)}
           />
 
           {/* Info section */}
@@ -599,10 +369,6 @@ export default function FitnessScreen() {
   );
 }
 
-function formatDisplayDate(dateStr: string): string {
-  return formatShortDateWithWeekday(dateStr);
-}
-
 const styles = StyleSheet.create({
   // Note: container, headerTitle, loadingContainer now use shared styles
   header: {
@@ -621,111 +387,6 @@ const styles = StyleSheet.create({
     padding: layout.screenPadding,
     paddingTop: spacing.sm,
     paddingBottom: layout.screenPadding + TAB_BAR_SAFE_PADDING,
-  },
-  statsCard: {
-    backgroundColor: colors.surface,
-    borderRadius: layout.borderRadius,
-    padding: layout.cardPadding,
-    marginBottom: spacing.md,
-  },
-  statsCardDark: {
-    backgroundColor: darkColors.surface,
-  },
-  statsDate: {
-    ...typography.caption,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    marginBottom: spacing.sm,
-  },
-  statsDateDark: {
-    color: darkColors.textSecondary,
-  },
-  statsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-  },
-  statItem: {
-    alignItems: 'center',
-  },
-  statLabel: {
-    ...typography.label,
-    color: colors.textSecondary,
-    marginBottom: spacing.xs,
-  },
-  statLabelDark: {
-    color: darkColors.textSecondary,
-  },
-  statValue: {
-    fontSize: 28,
-    fontWeight: '700',
-  },
-  statSubtext: {
-    ...typography.micro,
-    color: colors.textSecondary,
-    marginTop: 2,
-  },
-  statSubtextDark: {
-    color: darkColors.textSecondary,
-  },
-  timeRangeContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-    gap: spacing.xs,
-    marginBottom: spacing.md,
-  },
-  timeRangeButton: {
-    paddingHorizontal: spacing.sm + 4,
-    paddingVertical: spacing.xs,
-    borderRadius: 14,
-    backgroundColor: opacity.overlay.light,
-  },
-  timeRangeButtonDark: {
-    backgroundColor: opacity.overlayDark.medium,
-  },
-  timeRangeButtonActive: {
-    backgroundColor: colors.primary,
-  },
-  timeRangeText: {
-    ...typography.caption,
-    fontWeight: '500',
-    color: colors.textSecondary,
-  },
-  timeRangeTextDark: {
-    color: darkColors.textSecondary,
-  },
-  timeRangeTextActive: {
-    color: colors.textOnDark,
-  },
-  sportToggleContainer: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-    marginBottom: spacing.md,
-  },
-  sportToggleButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.sm,
-    borderRadius: layout.borderRadiusSm,
-    backgroundColor: opacity.overlay.light,
-    gap: 6,
-  },
-  sportToggleButtonDark: {
-    backgroundColor: opacity.overlayDark.medium,
-  },
-  sportToggleText: {
-    ...typography.caption,
-    fontWeight: '600',
-    color: colors.textSecondary,
-  },
-  sportToggleTextDark: {
-    color: darkColors.textSecondary,
-  },
-  sportToggleTextActive: {
-    color: colors.textOnDark,
   },
   infoCard: {
     backgroundColor: colors.surface,

@@ -44,6 +44,7 @@ mod sections;
 mod settings;
 mod strength;
 mod tiles;
+pub(crate) mod wellness;
 
 // ============================================================================
 // Name Translation Support

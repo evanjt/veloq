@@ -43,7 +43,7 @@ export function MuscleGroupView({
   const isMetric = useMetricSystem();
   const { data: muscleGroups } = useMuscleGroups(activityId, hasExercises);
   const [selectedMuscle, setSelectedMuscle] = useState<string | null>(null);
-  const muscleDetail = useMuscleDetail(selectedMuscle, exerciseSets ?? []);
+  const muscleDetail = useMuscleDetail(activityId, selectedMuscle);
 
   const handleMuscleTap = useCallback(
     (slug: string) => {

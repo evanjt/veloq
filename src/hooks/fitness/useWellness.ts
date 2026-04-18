@@ -3,25 +3,64 @@ import { intervalsApi } from '@/api';
 import { useAuthStore } from '@/providers';
 import { formatLocalDate } from '@/lib';
 import { queryKeys } from '@/lib/queryKeys';
+import { getRouteEngine } from '@/lib/native/routeEngine';
 import type { WellnessData } from '@/types';
 
+/**
+ * Mirror wellness rows into Rust so sparkline + HRV-trend atomics can
+ * read from SQLite. Fire-and-forget: failures are logged in dev only
+ * (engine may not be ready yet during early startup).
+ */
+function syncWellnessToEngine(rows: WellnessData[]): void {
+  if (rows.length === 0) return;
+  try {
+    const engine = getRouteEngine();
+    if (!engine?.upsertWellness) return;
+    engine.upsertWellness(
+      rows.map((w) => ({
+        date: w.id,
+        ctl: w.ctl ?? w.ctlLoad,
+        atl: w.atl ?? w.atlLoad,
+        rampRate: w.rampRate,
+        hrv: w.hrv,
+        restingHr: w.restingHR,
+        weight: w.weight,
+        sleepSecs: w.sleepSecs,
+        sleepScore: w.sleepScore,
+        soreness: w.soreness,
+        fatigue: w.fatigue,
+        stress: w.stress,
+        mood: w.mood,
+        motivation: w.motivation,
+      }))
+    );
+  } catch (err) {
+    if (__DEV__) console.warn('[useWellness] upsertWellness failed:', err);
+  }
+}
+
 export type TimeRange = '7d' | '1m' | '42d' | '3m' | '6m' | '1y';
+
+const TIME_RANGE_DAYS: Record<TimeRange, number> = {
+  '7d': 7,
+  '1m': 30,
+  '42d': 42,
+  '3m': 90,
+  '6m': 180,
+  '1y': 365,
+};
+
+/** Convert a TimeRange token to a day count. */
+export function timeRangeToDays(range: TimeRange): number {
+  return TIME_RANGE_DAYS[range];
+}
 
 function getDateRange(range: TimeRange): { oldest: string; newest: string } {
   const today = new Date();
   const newest = formatLocalDate(today);
 
-  const daysMap: Record<TimeRange, number> = {
-    '7d': 7,
-    '1m': 30,
-    '42d': 42,
-    '3m': 90,
-    '6m': 180,
-    '1y': 365,
-  };
-
   const oldest = new Date(today);
-  oldest.setDate(oldest.getDate() - daysMap[range]);
+  oldest.setDate(oldest.getDate() - TIME_RANGE_DAYS[range]);
 
   return {
     oldest: formatLocalDate(oldest),
@@ -35,7 +74,11 @@ export function useWellness(range: TimeRange = '3m') {
 
   return useQuery<WellnessData[]>({
     queryKey: queryKeys.wellness.byRange(range),
-    queryFn: () => intervalsApi.getWellness({ oldest, newest }),
+    queryFn: async () => {
+      const rows = await intervalsApi.getWellness({ oldest, newest });
+      syncWellnessToEngine(rows);
+      return rows;
+    },
     // Only fetch if authenticated (prevents 404 when athleteId is missing)
     enabled: isAuthenticated,
     staleTime: 1000 * 60 * 30, // 30 minutes - wellness data changes infrequently
@@ -61,6 +104,7 @@ export function useWellnessForDate(date: string | undefined) {
         oldest: date,
         newest: date,
       });
+      syncWellnessToEngine(data);
       return data?.[0] || null;
     },
     // Only fetch if authenticated and date is provided

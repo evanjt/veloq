@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   ScrollView,
@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Animated,
-  Easing,
   Dimensions,
 } from 'react-native';
 import { Text } from 'react-native-paper';
@@ -20,34 +19,23 @@ import { colors, darkColors, spacing, layout, typography, brand } from '@/theme'
 import { formatDistance, formatDuration } from '@/lib';
 import { getActivityIcon, getActivityColor } from '@/lib/utils/activityUtils';
 
-import * as Haptics from 'expo-haptics';
 import { useRecordingStore } from '@/providers/RecordingStore';
-import { generateFitFile } from '@/lib/recording/fitGenerator';
-import { intervalsApi } from '@/api';
-import { enqueueUpload } from '@/lib/storage/uploadQueue';
-import { debug } from '@/lib/utils/debug';
-import { useAuthStore } from '@/providers/AuthStore';
-import { useUploadPermissionStore } from '@/providers/UploadPermissionStore';
-import { isOAuthConfigured } from '@/services/oauth';
-import { usePermissionUpgrade } from '@/hooks/recording/usePermissionUpgrade';
+import { useReviewSave } from '@/hooks/recording/useReviewSave';
+import { useActivitySummary } from '@/hooks/recording/useActivitySummary';
+import { useDiscardWithAnimation } from '@/hooks/recording/useDiscardWithAnimation';
+import {
+  useActivityNameGeneration,
+  getTimeOfDayKey,
+} from '@/hooks/recording/useActivityNameGeneration';
 import { ReviewMapHero } from '@/components/recording/ReviewMapHero';
 import { RpeSlider } from '@/components/recording/RpeSlider';
 import { ActivityTypePickerModal } from '@/components/recording/ActivityTypePickerModal';
+import { ActivityStatsCard } from '@/components/recording/ActivityStatsCard';
+import { SaveErrorBanner } from '@/components/recording/SaveErrorBanner';
 import type { ActivityType } from '@/types';
 
-const log = debug.create('Upload');
 const SCREEN_HEIGHT = Dimensions.get('window').height;
 const MAP_FRACTION = 0.45;
-
-type TimeOfDayKey = 'morning' | 'afternoon' | 'evening' | 'night';
-
-function getTimeOfDayKey(): TimeOfDayKey {
-  const hour = new Date().getHours();
-  if (hour < 12) return 'morning';
-  if (hour < 17) return 'afternoon';
-  if (hour < 21) return 'evening';
-  return 'night';
-}
 
 export default function ReviewScreen() {
   const { t } = useTranslation();
@@ -72,21 +60,16 @@ export default function ReviewScreen() {
   const pausedDuration = useRecordingStore((s) => s.pausedDuration);
   const pairedEventId = useRecordingStore((s) => s.pairedEventId);
 
-  const [name, setName] = useState('');
   const [notes, setNotes] = useState(params.notes ?? '');
   const [rpe, setRpe] = useState(5);
   const [selectedType, setSelectedType] = useState<ActivityType>(
     activityType ?? ('Ride' as ActivityType)
   );
-  const [isUploading, setIsUploading] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const [queuedMessage, setQueuedMessage] = useState<string | null>(null);
+  const { name, setName } = useActivityNameGeneration({
+    initialName: params.name,
+    type: selectedType,
+  });
   const [showTypeModal, setShowTypeModal] = useState(false);
-  const [showPermissionFix, setShowPermissionFix] = useState(false);
-  const authMethod = useAuthStore((s) => s.authMethod);
-  const { upgradePermissions, isUpgrading: isOAuthLoading } = usePermissionUpgrade();
-  const discardTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const discardAnim = useRef(new Animated.Value(0)).current;
 
   const [trimStart, setTrimStart] = useState(0);
   const [trimEnd, setTrimEnd] = useState(
@@ -102,280 +85,29 @@ export default function ReviewScreen() {
     setTrimEnd(endIdx);
   }, []);
 
-  // Get trimmed streams for upload
-  const getTrimmedStreams = useCallback(() => {
-    if (!canTrim) return streams;
-    return {
-      latlng: streams.latlng.slice(trimStart, trimEnd + 1),
-      altitude: streams.altitude.slice(trimStart, trimEnd + 1),
-      distance: streams.distance.slice(trimStart, trimEnd + 1),
-      heartrate: streams.heartrate.slice(trimStart, trimEnd + 1),
-      power: streams.power.slice(trimStart, trimEnd + 1),
-      cadence: streams.cadence.slice(trimStart, trimEnd + 1),
-      speed: streams.speed.slice(trimStart, trimEnd + 1),
-      time: streams.time.slice(trimStart, trimEnd + 1),
-    };
-  }, [canTrim, streams, trimStart, trimEnd]);
-
-  // Compute summary stats (with optional trimming)
-  const summary = useMemo(() => {
-    if (isManual) {
-      const durationSec = params.durationSeconds ? Number(params.durationSeconds) : 0;
-      const distanceM = params.distance ? Number(params.distance) : 0;
-      const avgHeartrate = params.avgHr ? Number(params.avgHr) : null;
-      return {
-        duration: durationSec,
-        distance: distanceM,
-        avgSpeed: durationSec > 0 && distanceM > 0 ? distanceM / durationSec : 0,
-        elevationGain: 0,
-        avgHeartrate,
-        avgPower: null as number | null,
-        hasGps: false,
-      };
-    }
-
-    const s = canTrim ? getTrimmedStreams() : streams;
-
-    const startDist = canTrim ? (streams.distance[trimStart] ?? 0) : 0;
-    const endDist = canTrim
-      ? (streams.distance[trimEnd] ?? 0)
-      : (streams.distance[streams.distance.length - 1] ?? 0);
-    const totalDistance = endDist - startDist;
-
-    const elapsed = startTime
-      ? canTrim && s.time.length >= 2
-        ? (s.time[s.time.length - 1] - s.time[0]) / 1000
-        : ((stopTime ?? Date.now()) - startTime - pausedDuration) / 1000
-      : 0;
-
-    // Calculate elevation gain
-    let elevGain = 0;
-    for (let i = 1; i < s.altitude.length; i++) {
-      const diff = s.altitude[i] - s.altitude[i - 1];
-      if (diff > 0) elevGain += diff;
-    }
-
-    // Average heartrate
-    const hrValues = s.heartrate.filter((v) => v > 0);
-    const avgHr =
-      hrValues.length > 0 ? hrValues.reduce((sum, v) => sum + v, 0) / hrValues.length : null;
-
-    // Average power
-    const pwrValues = s.power.filter((v) => v > 0);
-    const avgPwr =
-      pwrValues.length > 0 ? pwrValues.reduce((sum, v) => sum + v, 0) / pwrValues.length : null;
-
-    return {
-      duration: elapsed,
-      distance: totalDistance,
-      avgSpeed: elapsed > 0 ? totalDistance / elapsed : 0,
-      elevationGain: elevGain,
-      avgHeartrate: avgHr,
-      avgPower: avgPwr,
-      hasGps: s.latlng.length > 0,
-    };
-  }, [
-    isManual,
-    params,
+  // Summary, trim delta, and trimmed-stream accessor extracted to useActivitySummary
+  const { summary, trimDelta, getTrimmedStreams } = useActivitySummary({
     streams,
     startTime,
     stopTime,
     pausedDuration,
-    canTrim,
     trimStart,
     trimEnd,
-    getTrimmedStreams,
-  ]);
+    canTrim,
+    isManual,
+    params,
+  });
 
-  // Compute trim delta when trimming is active
-  const trimDelta = useMemo(() => {
-    if (!canTrim || (trimStart === 0 && trimEnd === streams.latlng.length - 1)) return null;
-
-    const fullDist =
-      (streams.distance[streams.distance.length - 1] ?? 0) - (streams.distance[0] ?? 0);
-    const fullElapsed =
-      startTime && streams.time.length >= 2
-        ? (streams.time[streams.time.length - 1] - streams.time[0]) / 1000
-        : 0;
-
-    const distDelta = summary.distance - fullDist;
-    const durationDelta = summary.duration - fullElapsed;
-
-    if (distDelta === 0 && durationDelta === 0) return null;
-    return { distance: distDelta, duration: durationDelta };
-  }, [canTrim, trimStart, trimEnd, streams, startTime, summary]);
-
-  // Generate default name
-  useEffect(() => {
-    if (params.name) {
-      setName(params.name);
-      return;
-    }
-
-    const tod = getTimeOfDayKey();
-    const defaultName = `${t(`recording.timeOfDay.${tod}`)} ${t(`activityTypes.${type}`, type.replace(/([A-Z])/g, ' $1').trim())}`;
-    setName(defaultName);
-
-    // Geocoding disabled for Nominatim ToS compliance.
-    // See: https://operations.osmfoundation.org/policies/nominatim/
-    // Will re-enable once a caching proxy is in place.
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Save handler — tries upload, falls back to queue on failure
-  const handleSave = useCallback(async () => {
-    setIsUploading(true);
-    setErrorMessage(null);
-    setQueuedMessage(null);
-    try {
-      if (isManual) {
-        await intervalsApi.createManualActivity({
-          type,
-          name,
-          start_date_local: new Date().toISOString(),
-          elapsed_time: summary.duration,
-          distance: summary.distance > 0 ? summary.distance : undefined,
-          average_heartrate: summary.avgHeartrate ?? undefined,
-          description: notes || undefined,
-        });
-      } else {
-        const trimmedStreams = getTrimmedStreams();
-        const adjustedStart =
-          canTrim && trimmedStreams.time.length > 0
-            ? new Date(startTime! + trimmedStreams.time[0] * 1000)
-            : new Date(startTime!);
-        const fitBuffer = await generateFitFile({
-          activityType: type,
-          startTime: adjustedStart,
-          streams: trimmedStreams,
-          laps,
-          name,
-        });
-
-        try {
-          log.log(`Uploading ${name}.fit...`);
-          await intervalsApi.uploadActivity(fitBuffer, `${name}.fit`, {
-            name,
-            pairedEventId: pairedEventId ?? undefined,
-          });
-          log.log('Upload succeeded');
-        } catch (uploadErr) {
-          const errMsg = uploadErr instanceof Error ? uploadErr.message : String(uploadErr);
-          // Check for HTTP status first — axios errors with response are API errors, not network
-          const response =
-            uploadErr && typeof uploadErr === 'object' && 'response' in uploadErr
-              ? (uploadErr as { response?: { status?: number; data?: unknown } }).response
-              : undefined;
-          const httpStatus = response?.status;
-          // Extract API error detail from response body if available
-          const rd = response?.data;
-          log.warn(`Upload response body: ${typeof rd === 'string' ? rd : JSON.stringify(rd)}`);
-          const apiDetail =
-            rd && typeof rd === 'object' && 'message' in rd
-              ? String((rd as Record<string, unknown>).message)
-              : rd && typeof rd === 'object' && 'error' in rd
-                ? String((rd as Record<string, unknown>).error)
-                : typeof rd === 'string' && rd.length > 0 && rd.length < 500
-                  ? rd
-                  : null;
-          // Fallback: detect 403 from error message if response object missing
-          const is403 = httpStatus === 403 || (!httpStatus && /status code 403/i.test(errMsg));
-          const isNetworkError =
-            !httpStatus &&
-            !is403 &&
-            /network\s*(error|request\s*failed)|timeout|ERR_NETWORK|ECONNABORTED/i.test(errMsg);
-
-          if (!isNetworkError) {
-            // API error (auth, validation, server error) — show to user, don't queue
-            log.warn(`Upload API error: ${errMsg} (status: ${httpStatus}, is403: ${is403})`);
-            if (is403) {
-              // Update permission store so FAB hides and settings reflect state
-              useUploadPermissionStore.getState().setHasWritePermission(false);
-              setErrorMessage(
-                t(
-                  'recording.permissionExplanation',
-                  'Veloq needs your permission to upload activities to intervals.icu'
-                )
-              );
-              if (isOAuthConfigured()) {
-                setShowPermissionFix(true);
-              }
-            } else {
-              setErrorMessage(
-                t('recording.uploadErrorMessage', 'Could not upload activity: {{error}}', {
-                  error: apiDetail || errMsg,
-                })
-              );
-            }
-            setIsUploading(false);
-            return;
-          }
-
-          // Network error → queue the pre-generated FIT for later upload
-          log.log(`Network error, queueing for later: ${errMsg}`);
-          try {
-            const FileSystem = require('expo-file-system/legacy');
-            const dir = `${FileSystem.documentDirectory}pending_uploads/`;
-            const dirInfo = await FileSystem.getInfoAsync(dir);
-            if (!dirInfo.exists) {
-              await FileSystem.makeDirectoryAsync(dir, { intermediates: true });
-            }
-
-            const filePath = `${dir}${Date.now()}.fit`;
-            const bytes = new Uint8Array(fitBuffer);
-            let binary = '';
-            for (let i = 0; i < bytes.length; i++) {
-              binary += String.fromCharCode(bytes[i]);
-            }
-            const base64 = btoa(binary);
-            await FileSystem.writeAsStringAsync(filePath, base64, {
-              encoding: FileSystem.EncodingType.Base64,
-            });
-
-            await enqueueUpload({
-              filePath,
-              activityType: type,
-              name,
-              pairedEventId: pairedEventId ?? undefined,
-              createdAt: Date.now(),
-            });
-
-            log.log('Queued successfully');
-            // Show queued message briefly then navigate
-            setQueuedMessage(
-              t(
-                'recording.savedQueued',
-                'Activity saved. It will upload automatically when connectivity is restored.'
-              )
-            );
-            setIsUploading(false);
-            setTimeout(() => {
-              useRecordingStore.getState().reset();
-              router.replace('/');
-            }, 1500);
-            return;
-          } catch {
-            // Both upload and queue failed
-            log.warn('Failed to queue upload');
-            setErrorMessage(t('recording.saveError', 'Could not save activity. Please try again.'));
-            setIsUploading(false);
-            return;
-          }
-        }
-      }
-
-      useRecordingStore.getState().reset();
-      router.replace('/');
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Unknown error';
-      setErrorMessage(
-        t('recording.uploadErrorMessage', 'Could not upload activity: {{error}}', {
-          error: message,
-        })
-      );
-    } finally {
-      if (!queuedMessage) setIsUploading(false);
-    }
-  }, [
+  // Save/upload orchestration extracted to useReviewSave
+  const {
+    handleSave,
+    isUploading,
+    errorMessage,
+    queuedMessage,
+    showPermissionFix,
+    isOAuthLoading,
+    handleUpgradeToOAuth,
+  } = useReviewSave({
     isManual,
     type,
     name,
@@ -384,56 +116,12 @@ export default function ReviewScreen() {
     startTime,
     laps,
     pairedEventId,
-    t,
     getTrimmedStreams,
     canTrim,
-    queuedMessage,
-    authMethod,
-  ]);
+  });
 
-  const handleUpgradeToOAuth = useCallback(async () => {
-    setErrorMessage(null);
-    const success = await upgradePermissions();
-    if (success) {
-      log.log('Upgraded to OAuth, retrying upload...');
-      setShowPermissionFix(false);
-      handleSave();
-    }
-  }, [upgradePermissions, handleSave]);
-
-  // Hold-to-discard
-  const DISCARD_HOLD_MS = 1000;
-
-  const clearDiscardTimer = useCallback(() => {
-    if (discardTimerRef.current) {
-      clearTimeout(discardTimerRef.current);
-      discardTimerRef.current = null;
-    }
-    discardAnim.stopAnimation();
-    discardAnim.setValue(0);
-  }, [discardAnim]);
-
-  useEffect(() => clearDiscardTimer, [clearDiscardTimer]);
-
-  const handleDiscardPressIn = useCallback(() => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
-    Animated.timing(discardAnim, {
-      toValue: 1,
-      duration: DISCARD_HOLD_MS,
-      easing: Easing.linear,
-      useNativeDriver: false,
-    }).start();
-    discardTimerRef.current = setTimeout(() => {
-      clearDiscardTimer();
-      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
-      useRecordingStore.getState().reset();
-      router.replace('/');
-    }, DISCARD_HOLD_MS);
-  }, [clearDiscardTimer, discardAnim]);
-
-  const handleDiscardPressOut = useCallback(() => {
-    clearDiscardTimer();
-  }, [clearDiscardTimer]);
+  // Hold-to-discard extracted to useDiscardWithAnimation
+  const { discardAnim, handleDiscardPressIn, handleDiscardPressOut } = useDiscardWithAnimation();
 
   const handleTypeSelect = useCallback((item: ActivityType) => {
     setSelectedType(item);
@@ -516,37 +204,11 @@ export default function ReviewScreen() {
         />
 
         {/* Compact stat row */}
-        <View style={styles.compactStats}>
-          <View style={styles.compactStatItem}>
-            <Text style={[styles.compactStatValue, { color: textPrimary }]}>
-              {formatDuration(summary.duration)}
-            </Text>
-            <Text style={[styles.compactStatLabel, { color: textSecondary }]}>
-              {t('recording.durationLabel', 'Duration')}
-            </Text>
-          </View>
-          {summary.distance > 0 && (
-            <View style={styles.compactStatItem}>
-              <Text style={[styles.compactStatValue, { color: textPrimary }]}>
-                {formatDistance(summary.distance, isMetric)}
-              </Text>
-              <Text style={[styles.compactStatLabel, { color: textSecondary }]}>
-                {t('recording.fields.distance', 'Distance')}
-              </Text>
-            </View>
-          )}
-          {summary.elevationGain > 0 && (
-            <View style={styles.compactStatItem}>
-              <Text style={[styles.compactStatValue, { color: textPrimary }]}>
-                {Math.round(summary.elevationGain)}{' '}
-                {isMetric ? t('units.m', 'm') : t('units.ft', 'ft')} ↑
-              </Text>
-              <Text style={[styles.compactStatLabel, { color: textSecondary }]}>
-                {t('recording.elevation', 'Elevation')}
-              </Text>
-            </View>
-          )}
-        </View>
+        <ActivityStatsCard
+          summary={summary}
+          textPrimary={textPrimary}
+          textSecondary={textSecondary}
+        />
 
         {/* Trim delta feedback */}
         {trimDelta && (
@@ -601,30 +263,12 @@ export default function ReviewScreen() {
         )}
 
         {/* Error banner */}
-        {errorMessage && (
-          <View style={styles.errorBanner}>
-            <Text style={styles.errorBannerText}>{errorMessage}</Text>
-            {showPermissionFix && (
-              <TouchableOpacity
-                style={[styles.oauthUpgradeBtn, { backgroundColor: brand.teal }]}
-                onPress={handleUpgradeToOAuth}
-                disabled={isOAuthLoading}
-                activeOpacity={0.8}
-              >
-                {isOAuthLoading ? (
-                  <ActivityIndicator size="small" color="#FFFFFF" />
-                ) : (
-                  <>
-                    <MaterialCommunityIcons name="shield-lock-outline" size={16} color="#FFFFFF" />
-                    <Text style={styles.oauthUpgradeBtnText}>
-                      {t('recording.grantAccess', 'Grant Access')}
-                    </Text>
-                  </>
-                )}
-              </TouchableOpacity>
-            )}
-          </View>
-        )}
+        <SaveErrorBanner
+          errorMessage={errorMessage}
+          showPermissionFix={showPermissionFix}
+          isOAuthLoading={isOAuthLoading}
+          onUpgradePermissions={handleUpgradeToOAuth}
+        />
 
         {/* Action Buttons */}
         <View style={styles.actions}>
@@ -723,24 +367,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.sm,
   },
-  // Compact stats
-  compactStats: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginTop: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  compactStatItem: {
-    alignItems: 'center',
-  },
-  compactStatValue: {
-    ...typography.metricValue,
-    fontVariant: ['tabular-nums'],
-  },
-  compactStatLabel: {
-    ...typography.caption,
-    marginTop: 2,
-  },
   trimDelta: {
     ...typography.caption,
     textAlign: 'center',
@@ -786,33 +412,6 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: '#22C55E',
     flex: 1,
-  },
-  errorBanner: {
-    backgroundColor: 'rgba(239, 68, 68, 0.1)',
-    borderRadius: layout.borderRadiusSm,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.sm,
-    marginTop: spacing.sm,
-  },
-  errorBannerText: {
-    ...typography.caption,
-    color: colors.error,
-    textAlign: 'center',
-  },
-  oauthUpgradeBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.xs,
-    marginTop: spacing.sm,
-    paddingVertical: spacing.sm,
-    borderRadius: layout.borderRadiusSm,
-    minHeight: layout.minTapTarget,
-  },
-  oauthUpgradeBtnText: {
-    ...typography.bodyBold,
-    color: '#FFFFFF',
-    fontSize: 14,
   },
   // Actions
   actions: {

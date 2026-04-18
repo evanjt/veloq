@@ -1,56 +1,106 @@
 import type { Insight, TFunc } from './types';
 import { makeInsight } from './insightBuilder';
+import { getRouteEngine } from '@/lib/native/routeEngine';
 
+const HRV_WINDOW_DAYS = 7;
 const MIN_HRV_DATA_POINTS = 5;
+
+interface TrendShape {
+  label: string; // "trendingUp" | "stable" | "trendingDown"
+  avg: number;
+  latest: number;
+  dataPoints: number;
+  sparkline: number[];
+}
+
+/**
+ * Fallback TS implementation of the HRV trend math (Kiviniemi 2007).
+ * Used when the Rust engine hasn't been initialized yet or hasn't
+ * persisted wellness (e.g. jest tests). Mirrors `compute_hrv_trend`
+ * in `persistence/wellness.rs` — keep in sync with that logic.
+ */
+function computeHrvTrendFromWindow(
+  wellnessWindow: Array<{ date: string; hrv?: number }> | undefined
+): TrendShape | null {
+  const window = wellnessWindow ?? [];
+  const hrvValues = window
+    .map((w) => w.hrv)
+    .filter((v): v is number => typeof v === 'number' && v > 0);
+
+  if (hrvValues.length < MIN_HRV_DATA_POINTS) return null;
+
+  const avg = hrvValues.reduce((s, v) => s + v, 0) / hrvValues.length;
+  if (avg <= 0) return null;
+
+  const mid = Math.floor(hrvValues.length / 2);
+  const firstHalf = hrvValues.slice(0, mid);
+  const secondHalf = hrvValues.slice(mid);
+  const firstAvg =
+    firstHalf.length > 0 ? firstHalf.reduce((s, v) => s + v, 0) / firstHalf.length : 0;
+  const secondAvg =
+    secondHalf.length > 0 ? secondHalf.reduce((s, v) => s + v, 0) / secondHalf.length : 0;
+
+  const lastTwo = hrvValues.slice(-2);
+  const consecutiveDecline = lastTwo.length === 2 && lastTwo[0] > lastTwo[1] && lastTwo[1] < avg;
+
+  let label: string;
+  if (secondAvg > firstAvg * 1.02) label = 'trendingUp';
+  else if (consecutiveDecline || secondAvg < firstAvg * 0.98) label = 'trendingDown';
+  else label = 'stable';
+
+  return {
+    label,
+    avg,
+    latest: hrvValues[hrvValues.length - 1],
+    dataPoints: hrvValues.length,
+    sparkline: hrvValues,
+  };
+}
 
 /**
  * HRV Trend Insight
  * Kiviniemi et al., 2007 — HRV-guided training RCT
+ *
+ * Primary path: reads from `engine.computeHrvTrend` (Rust SQLite).
+ * Fallback path: computes from the passed-in `wellnessWindow` when the
+ * engine is unavailable (tests, pre-sync startup). Both paths produce
+ * identical output by construction.
  */
 export function generateHrvTrendInsight(
   wellnessWindow: Array<{ date: string; hrv?: number }> | undefined,
   now: number,
   t: TFunc
 ): Insight[] {
-  const window = wellnessWindow ?? [];
-  const hrvValues = window.filter((w) => typeof w.hrv === 'number' && w.hrv > 0);
+  let trend: TrendShape | null = null;
+  try {
+    const engine = getRouteEngine();
+    if (engine?.computeHrvTrend) {
+      trend = engine.computeHrvTrend(HRV_WINDOW_DAYS);
+    }
+  } catch {
+    trend = null;
+  }
+  if (!trend) {
+    trend = computeHrvTrendFromWindow(wellnessWindow);
+  }
+  if (!trend) return [];
 
-  if (hrvValues.length < MIN_HRV_DATA_POINTS) return [];
+  const trendKey = trend.label; // "trendingUp" | "stable" | "trendingDown"
 
-  const hrvNums = hrvValues.map((w) => w.hrv as number);
-  const avg = hrvNums.reduce((s, v) => s + v, 0) / hrvNums.length;
-  if (avg <= 0) return [];
-
-  const firstHalf = hrvNums.slice(0, Math.floor(hrvNums.length / 2));
-  const secondHalf = hrvNums.slice(Math.floor(hrvNums.length / 2));
-  const firstAvg =
-    firstHalf.length > 0 ? firstHalf.reduce((s, v) => s + v, 0) / firstHalf.length : 0;
-  const secondAvg =
-    secondHalf.length > 0 ? secondHalf.reduce((s, v) => s + v, 0) / secondHalf.length : 0;
-
-  // Check for 2 consecutive days of decline (Kiviniemi protocol threshold)
-  const lastTwo = hrvNums.slice(-2);
-  const consecutiveDecline = lastTwo.length === 2 && lastTwo[0] > lastTwo[1] && lastTwo[1] < avg;
-
-  let trendKey: string;
   let trendColor: string;
   let trendIcon: string;
-
-  if (secondAvg > firstAvg * 1.02) {
-    trendKey = 'trendingUp';
+  if (trendKey === 'trendingUp') {
     trendColor = '#66BB6A';
     trendIcon = 'trending-up';
-  } else if (consecutiveDecline || secondAvg < firstAvg * 0.98) {
-    trendKey = 'trendingDown';
+  } else if (trendKey === 'trendingDown') {
     trendColor = '#FFA726';
     trendIcon = 'trending-down';
   } else {
-    trendKey = 'stable';
     trendColor = '#42A5F5';
     trendIcon = 'minus';
   }
 
-  const confidence = Math.min(1, hrvValues.length / 7);
+  const confidence = Math.min(1, trend.dataPoints / 7);
 
   return [
     makeInsight({
@@ -61,8 +111,8 @@ export function generateHrvTrendInsight(
       iconColor: trendColor,
       title: t(`insights.hrvTrend.${trendKey}`),
       body: t(`insights.hrvTrend.${trendKey}Body`, {
-        avg: Math.round(avg),
-        days: hrvValues.length,
+        avg: Math.round(trend.avg),
+        days: trend.dataPoints,
       }),
       navigationTarget: '/fitness',
       timestamp: now,
@@ -71,23 +121,23 @@ export function generateHrvTrendInsight(
         dataPoints: [
           {
             label: t('insights.data.sevenDayAvg'),
-            value: Math.round(avg),
+            value: Math.round(trend.avg),
             unit: 'ms',
             context: 'neutral',
           },
           {
             label: t('insights.data.latestHrv'),
-            value: Math.round(hrvNums[hrvNums.length - 1]),
+            value: Math.round(trend.latest),
             unit: 'ms',
             context: 'neutral',
           },
           {
             label: t('insights.data.dataPoints'),
-            value: hrvValues.length,
+            value: trend.dataPoints,
             unit: t('insights.data.days'),
           },
         ],
-        sparklineData: hrvNums,
+        sparklineData: trend.sparkline,
         sparklineLabel: t('insights.data.hrvSevenDay'),
       },
       methodology: {
