@@ -72,18 +72,25 @@ case "$PLATFORM" in
         cargo build --release --target aarch64-apple-ios-sim -p veloqrs
         cargo build --release --target x86_64-apple-ios -p veloqrs
 
-        # Create simulator fat binary
-        mkdir -p /tmp/veloqrs-sim
+        # Rename libveloqrs.a -> libveloqrs_ffi.a so the xcframework Info.plist
+        # records LibraryPath: libveloqrs_ffi.a. This prevents CocoaPods from
+        # auto-linking -lveloqrs in OTHER_LDFLAGS (which collides with the
+        # -lVeloqrs pod target name on the case-insensitive macOS filesystem
+        # and produces duplicate _OBJC_CLASS_$_Veloqrs symbols at link time).
+        rm -rf /tmp/veloqrs-xcf-build
+        mkdir -p /tmp/veloqrs-xcf-build/device /tmp/veloqrs-xcf-build/sim
+        cp ../target/aarch64-apple-ios/release/libveloqrs.a \
+          /tmp/veloqrs-xcf-build/device/libveloqrs_ffi.a
         lipo -create \
           ../target/aarch64-apple-ios-sim/release/libveloqrs.a \
           ../target/x86_64-apple-ios/release/libveloqrs.a \
-          -output /tmp/veloqrs-sim/libveloqrs.a
+          -output /tmp/veloqrs-xcf-build/sim/libveloqrs_ffi.a
 
         # Create XCFramework
         rm -rf "../../ios/Frameworks/VeloqrsFFI.xcframework"
         xcodebuild -create-xcframework \
-          -library ../target/aarch64-apple-ios/release/libveloqrs.a \
-          -library /tmp/veloqrs-sim/libveloqrs.a \
+          -library /tmp/veloqrs-xcf-build/device/libveloqrs_ffi.a \
+          -library /tmp/veloqrs-xcf-build/sim/libveloqrs_ffi.a \
           -output "../../ios/Frameworks/VeloqrsFFI.xcframework"
         ;;
       *)
