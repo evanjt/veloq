@@ -38,6 +38,7 @@ import {
   type UnsafeMutableRawPointer,
   AbstractFfiConverterByteArray,
   FfiConverterArray,
+  FfiConverterArrayBuffer,
   FfiConverterBool,
   FfiConverterFloat32,
   FfiConverterFloat64,
@@ -7958,6 +7959,7 @@ export enum VeloqError_Tags {
   LockFailed = "LockFailed",
   Database = "Database",
   NotFound = "NotFound",
+  ParseError = "ParseError",
 }
 export const VeloqError = (() => {
   type NotInitialized__interface = {
@@ -8089,6 +8091,41 @@ export const VeloqError = (() => {
     }
   }
 
+  type ParseError__interface = {
+    tag: VeloqError_Tags.ParseError;
+    inner: Readonly<{ msg: string }>;
+  };
+
+  class ParseError_ extends UniffiError implements ParseError__interface {
+    /**
+     * @private
+     * This field is private and should not be used, use `tag` instead.
+     */
+    readonly [uniffiTypeNameSymbol] = "VeloqError";
+    readonly tag = VeloqError_Tags.ParseError;
+    readonly inner: Readonly<{ msg: string }>;
+    constructor(inner: { msg: string }) {
+      super("VeloqError", "ParseError");
+      this.inner = Object.freeze(inner);
+    }
+
+    static new(inner: { msg: string }): ParseError_ {
+      return new ParseError_(inner);
+    }
+
+    static instanceOf(obj: any): obj is ParseError_ {
+      return obj.tag === VeloqError_Tags.ParseError;
+    }
+
+    static hasInner(obj: any): obj is ParseError_ {
+      return ParseError_.instanceOf(obj);
+    }
+
+    static getInner(obj: ParseError_): Readonly<{ msg: string }> {
+      return obj.inner;
+    }
+  }
+
   function instanceOf(obj: any): obj is VeloqError {
     return obj[uniffiTypeNameSymbol] === "VeloqError";
   }
@@ -8099,6 +8136,7 @@ export const VeloqError = (() => {
     LockFailed: LockFailed_,
     Database: Database_,
     NotFound: NotFound_,
+    ParseError: ParseError_,
   });
 })();
 
@@ -8123,6 +8161,10 @@ const FfiConverterTypeVeloqError = (() => {
           });
         case 4:
           return new VeloqError.NotFound({
+            msg: FfiConverterString.read(from),
+          });
+        case 5:
+          return new VeloqError.ParseError({
             msg: FfiConverterString.read(from),
           });
         default:
@@ -8151,6 +8193,12 @@ const FfiConverterTypeVeloqError = (() => {
           FfiConverterString.write(inner.msg, into);
           return;
         }
+        case VeloqError_Tags.ParseError: {
+          ordinalConverter.write(5, into);
+          const inner = value.inner;
+          FfiConverterString.write(inner.msg, into);
+          return;
+        }
         default:
           // Throwing from here means that VeloqError_Tags hasn't matched an ordinal.
           throw new UniffiInternalError.UnexpectedEnumCase();
@@ -8173,6 +8221,12 @@ const FfiConverterTypeVeloqError = (() => {
         case VeloqError_Tags.NotFound: {
           const inner = value.inner;
           let size = ordinalConverter.allocationSize(4);
+          size += FfiConverterString.allocationSize(inner.msg);
+          return size;
+        }
+        case VeloqError_Tags.ParseError: {
+          const inner = value.inner;
+          let size = ordinalConverter.allocationSize(5);
           size += FfiConverterString.allocationSize(inner.msg);
           return size;
         }
@@ -12243,6 +12297,17 @@ export interface StrengthManagerInterface {
    */
   hasStrengthData() /*throws*/ : boolean;
   /**
+   * Parse raw FIT bytes locally and store any strength sets for this
+   * activity. Returns the number of sets inserted. No network access —
+   * callers supply the bytes (e.g. just-recorded FIT buffer, downloaded
+   * file, backup). Also marks the activity as FIT-processed so the
+   * network path won't attempt to re-download.
+   */
+  importSetsFromFit(
+    activityId: string,
+    fitBytes: ArrayBuffer,
+  ) /*throws*/ : /*u32*/ number;
+  /**
    * Check if FIT file has been processed for this activity.
    */
   isFitProcessed(activityId: string) /*throws*/ : boolean;
@@ -12592,6 +12657,35 @@ export class StrengthManager
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_strengthmanager_has_strength_data(
             uniffiTypeStrengthManagerObjectFactory.clonePointer(this),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * Parse raw FIT bytes locally and store any strength sets for this
+   * activity. Returns the number of sets inserted. No network access —
+   * callers supply the bytes (e.g. just-recorded FIT buffer, downloaded
+   * file, backup). Also marks the activity as FIT-processed so the
+   * network path won't attempt to re-download.
+   */
+  public importSetsFromFit(
+    activityId: string,
+    fitBytes: ArrayBuffer,
+  ): /*u32*/ number /*throws*/ {
+    return FfiConverterUInt32.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_strengthmanager_import_sets_from_fit(
+            uniffiTypeStrengthManagerObjectFactory.clonePointer(this),
+            FfiConverterString.lower(activityId),
+            FfiConverterArrayBuffer.lower(fitBytes),
             callStatus,
           );
         },
@@ -14739,6 +14833,14 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_strengthmanager_has_strength_data",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_strengthmanager_import_sets_from_fit() !==
+    62596
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_strengthmanager_import_sets_from_fit",
     );
   }
   if (

@@ -8,6 +8,8 @@ pub enum VeloqError {
     Database { msg: String },
     #[error("Not found: {msg}")]
     NotFound { msg: String },
+    #[error("Parse error: {msg}")]
+    ParseError { msg: String },
 }
 
 /// Execute a closure with a **write lock** on the persistent engine.

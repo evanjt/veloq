@@ -27,6 +27,30 @@ pub struct FitExerciseSet {
     pub start_time: Option<i64>,
 }
 
+/// Errors from parsing a FIT binary file.
+#[derive(Debug, thiserror::Error)]
+pub enum FitParseError {
+    #[error("FIT bytes empty")]
+    Empty,
+    #[error("FIT decode failed: {0}")]
+    Decode(String),
+}
+
+/// Parse a FIT binary file and return extracted exercise sets or a typed error.
+///
+/// Wraps [`parse_fit_sets`] with explicit error reporting so callers can
+/// distinguish an unparseable file from a valid-but-empty one (e.g. a cardio
+/// activity with no `Set` messages).
+pub fn parse_fit_strength_sets(data: &[u8]) -> Result<Vec<FitExerciseSet>, FitParseError> {
+    if data.is_empty() {
+        return Err(FitParseError::Empty);
+    }
+    let mut cursor = Cursor::new(data);
+    let _ = fitparser::from_reader(&mut cursor)
+        .map_err(|e| FitParseError::Decode(format!("{}", e)))?;
+    Ok(parse_fit_sets(data))
+}
+
 /// Parse a FIT binary file and extract exercise set data.
 ///
 /// Returns an empty vec if the file has no set messages or is invalid.
@@ -389,5 +413,22 @@ mod tests {
     fn test_parse_empty_data() {
         assert!(parse_fit_sets(&[]).is_empty());
         assert!(parse_fit_sets(&[0; 10]).is_empty());
+    }
+
+    #[test]
+    fn test_parse_fit_strength_sets_empty_is_error() {
+        match parse_fit_strength_sets(&[]) {
+            Err(FitParseError::Empty) => {}
+            other => panic!("expected Empty error, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_parse_fit_strength_sets_malformed_is_decode_error() {
+        // Non-empty but invalid FIT header should fail decoding.
+        match parse_fit_strength_sets(&[0u8; 16]) {
+            Err(FitParseError::Decode(_)) => {}
+            other => panic!("expected Decode error, got {:?}", other),
+        }
     }
 }

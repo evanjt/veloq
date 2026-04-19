@@ -863,6 +863,12 @@ interface NativeModuleInterface {
     ptr: bigint,
     uniffi_out_err: UniffiRustCallStatus,
   ): number;
+  ubrn_uniffi_veloqrs_fn_method_strengthmanager_import_sets_from_fit(
+    ptr: bigint,
+    activityId: Uint8Array,
+    fitBytes: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): number;
   ubrn_uniffi_veloqrs_fn_method_strengthmanager_is_fit_processed(
     ptr: bigint,
     activityId: Uint8Array,
@@ -1134,6 +1140,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_strengthmanager_get_strength_summary_batch(): number;
   ubrn_uniffi_veloqrs_checksum_method_strengthmanager_get_unprocessed_strength_ids(): number;
   ubrn_uniffi_veloqrs_checksum_method_strengthmanager_has_strength_data(): number;
+  ubrn_uniffi_veloqrs_checksum_method_strengthmanager_import_sets_from_fit(): number;
   ubrn_uniffi_veloqrs_checksum_method_strengthmanager_is_fit_processed(): number;
   ubrn_uniffi_veloqrs_checksum_method_veloqengine_activities(): number;
   ubrn_uniffi_veloqrs_checksum_method_veloqengine_backup_database(): number;

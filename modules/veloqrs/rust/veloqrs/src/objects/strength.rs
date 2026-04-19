@@ -467,6 +467,44 @@ impl StrengthManager {
         })?
     }
 
+    /// Parse raw FIT bytes locally and store any strength sets for this
+    /// activity. Returns the number of sets inserted. No network access —
+    /// callers supply the bytes (e.g. just-recorded FIT buffer, downloaded
+    /// file, backup). Also marks the activity as FIT-processed so the
+    /// network path won't attempt to re-download.
+    fn import_sets_from_fit(
+        &self,
+        activity_id: String,
+        fit_bytes: Vec<u8>,
+    ) -> Result<u32, VeloqError> {
+        let sets = fit::parse_fit_strength_sets(&fit_bytes).map_err(|e| VeloqError::ParseError {
+            msg: format!("{}", e),
+        })?;
+        let count = sets.len() as u32;
+        let has_sets = !sets.is_empty();
+
+        info!(
+            "[Strength] Imported {} sets from FIT bytes for {}",
+            count, activity_id
+        );
+
+        with_engine(|e| -> Result<(), VeloqError> {
+            if has_sets {
+                e.store_exercise_sets(&activity_id, &sets)
+                    .map_err(|err| VeloqError::Database {
+                        msg: format!("{}", err),
+                    })?;
+            }
+            e.mark_fit_processed(&activity_id, has_sets)
+                .map_err(|err| VeloqError::Database {
+                    msg: format!("{}", err),
+                })?;
+            Ok(())
+        })??;
+
+        Ok(count)
+    }
+
     /// Insert pre-parsed exercise sets for an activity without touching the
     /// network or FIT-file pipeline. Demo mode uses this to seed synthetic
     /// WeightTraining activities; the production path still goes through

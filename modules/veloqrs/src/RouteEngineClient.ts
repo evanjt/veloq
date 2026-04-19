@@ -588,6 +588,9 @@ class RouteEngineClient implements DelegateHost {
     dt = 1
   ): number[] => fitnessDelegates.computeWbal(this, powerStream, cp, wPrime, dt);
 
+  computeGapStream = (paceStream: number[], gradientStream: number[]): number[] =>
+    fitnessDelegates.computeGapStream(this, paceStream, gradientStream);
+
   // ==========================================================================
   // Athlete Profile & Sport Settings Cache
   // ==========================================================================
@@ -797,6 +800,14 @@ class RouteEngineClient implements DelegateHost {
 
   batchFetchExerciseSets = (authHeader: string, activityIds: string[]): string[] =>
     strengthDelegates.batchFetchExerciseSets(this, authHeader, activityIds);
+
+  /**
+   * Parse FIT bytes locally and store strength sets. Returns the number of
+   * sets inserted. No network — used when the FIT buffer is already
+   * available (recording upload, local backup replay).
+   */
+  importSetsFromFit = (activityId: string, fitBytes: Uint8Array): number =>
+    strengthDelegates.importSetsFromFit(this, activityId, fitBytes);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   getStrengthSummary = (startTs: number, endTs: number): any =>

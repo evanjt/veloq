@@ -48,6 +48,23 @@ export function batchFetchExerciseSets(
   );
 }
 
+/**
+ * Parse raw FIT bytes locally (no network) and store any strength sets for
+ * the activity. Returns the number of sets inserted. Use this when the FIT
+ * buffer is already in hand — e.g. right after recording or when replaying a
+ * local backup — so Strength data is available without waiting for
+ * intervals.icu to process and re-emit the file.
+ */
+export function importSetsFromFit(
+  host: DelegateHost,
+  activityId: string,
+  fitBytes: Uint8Array
+): number {
+  return host.timed('importSetsFromFit', () =>
+    host.engine.strength().importSetsFromFit(activityId, fitBytes)
+  );
+}
+
 export function getStrengthSummary(host: DelegateHost, startTs: number, endTs: number): any {
   return host.timed('getStrengthSummary', () =>
     host.engine.strength().getStrengthSummary(BigInt(startTs), BigInt(endTs))

@@ -493,6 +493,9 @@ uniffi_veloqrs_fn_method_strengthmanager_get_unprocessed_strength_ids(
     void *ptr, RustBuffer activity_ids, RustCallStatus *uniffi_out_err);
 int8_t uniffi_veloqrs_fn_method_strengthmanager_has_strength_data(
     void *ptr, RustCallStatus *uniffi_out_err);
+uint32_t uniffi_veloqrs_fn_method_strengthmanager_import_sets_from_fit(
+    void *ptr, RustBuffer activity_id, RustBuffer fit_bytes,
+    RustCallStatus *uniffi_out_err);
 int8_t uniffi_veloqrs_fn_method_strengthmanager_is_fit_processed(
     void *ptr, RustBuffer activity_id, RustCallStatus *uniffi_out_err);
 void *uniffi_veloqrs_fn_clone_veloqengine(void *ptr,
@@ -858,6 +861,7 @@ uniffi_veloqrs_checksum_method_strengthmanager_get_strength_summary_batch();
 uint16_t
 uniffi_veloqrs_checksum_method_strengthmanager_get_unprocessed_strength_ids();
 uint16_t uniffi_veloqrs_checksum_method_strengthmanager_has_strength_data();
+uint16_t uniffi_veloqrs_checksum_method_strengthmanager_import_sets_from_fit();
 uint16_t uniffi_veloqrs_checksum_method_strengthmanager_is_fit_processed();
 uint16_t uniffi_veloqrs_checksum_method_veloqengine_activities();
 uint16_t uniffi_veloqrs_checksum_method_veloqengine_backup_database();
@@ -4237,6 +4241,18 @@ NativeVeloqrs::NativeVeloqrs(
                 ->cpp_uniffi_veloqrs_fn_method_strengthmanager_has_strength_data(
                     rt, thisVal, args, count);
           });
+  props["ubrn_uniffi_veloqrs_fn_method_strengthmanager_import_sets_from_fit"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_fn_method_"
+                                        "strengthmanager_import_sets_from_fit"),
+          3,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_fn_method_strengthmanager_import_sets_from_fit(
+                    rt, thisVal, args, count);
+          });
   props["ubrn_uniffi_veloqrs_fn_method_strengthmanager_is_fit_processed"] =
       jsi::Function::createFromHostFunction(
           rt,
@@ -6272,6 +6288,18 @@ NativeVeloqrs::NativeVeloqrs(
              const jsi::Value *args, size_t count) -> jsi::Value {
         return this
             ->cpp_uniffi_veloqrs_checksum_method_strengthmanager_has_strength_data(
+                rt, thisVal, args, count);
+      });
+  props["ubrn_uniffi_veloqrs_checksum_method_strengthmanager_import_sets_from_"
+        "fit"] = jsi::Function::createFromHostFunction(
+      rt,
+      jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_checksum_method_"
+                                    "strengthmanager_import_sets_from_fit"),
+      0,
+      [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+             const jsi::Value *args, size_t count) -> jsi::Value {
+        return this
+            ->cpp_uniffi_veloqrs_checksum_method_strengthmanager_import_sets_from_fit(
                 rt, thisVal, args, count);
       });
   props["ubrn_uniffi_veloqrs_checksum_method_strengthmanager_is_fit_"
@@ -9433,6 +9461,22 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_strengthmanager_has_strength_data(
 
   return uniffi_jsi::Bridging<int8_t>::toJs(rt, callInvoker, value);
 }
+jsi::Value NativeVeloqrs::
+    cpp_uniffi_veloqrs_fn_method_strengthmanager_import_sets_from_fit(
+        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+        size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value = uniffi_veloqrs_fn_method_strengthmanager_import_sets_from_fit(
+      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
+      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[2]),
+      &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return uniffi_jsi::Bridging<uint32_t>::toJs(rt, callInvoker, value);
+}
 jsi::Value
 NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_strengthmanager_is_fit_processed(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
@@ -11005,6 +11049,15 @@ jsi::Value NativeVeloqrs::
         size_t count) {
   auto value =
       uniffi_veloqrs_checksum_method_strengthmanager_has_strength_data();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeVeloqrs::
+    cpp_uniffi_veloqrs_checksum_method_strengthmanager_import_sets_from_fit(
+        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+        size_t count) {
+  auto value =
+      uniffi_veloqrs_checksum_method_strengthmanager_import_sets_from_fit();
 
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
