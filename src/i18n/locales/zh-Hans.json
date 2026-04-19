@@ -885,7 +885,8 @@
     "viewDetails": "查看详情",
     "viewRouteDetails": "查看路线详情",
     "viewSectionDetails": "查看路段详情",
-    "zoomToActivity": "缩放至活动"
+    "zoomToActivity": "缩放至活动",
+    "colorByGradient": "按坡度着色"
   },
   "metrics": {
     "activityCount": "活动",

@@ -885,7 +885,8 @@
     "viewDetails": "Vis detaljer",
     "viewRouteDetails": "Vis rutedetaljer",
     "viewSectionDetails": "Vis sektionsdetaljer",
-    "zoomToActivity": "Zoom til aktivitet"
+    "zoomToActivity": "Zoom til aktivitet",
+    "colorByGradient": "Farv efter gradient"
   },
   "metrics": {
     "activityCount": "Aktiviteter",

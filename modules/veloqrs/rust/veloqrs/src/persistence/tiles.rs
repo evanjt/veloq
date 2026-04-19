@@ -5,7 +5,7 @@
 //! only briefly to extract metadata (db_path, tiles_path, activity bounds).
 
 use super::{PersistentRouteEngine, TileGenerationHandle};
-use crate::tiles;
+use crate::tiles::{self, DEFAULT_HEATMAP_BASE, build_color_lut_for_base};
 use log::info;
 use rusqlite::{Connection, params};
 use std::collections::HashSet;
@@ -17,6 +17,11 @@ use tracematch::{Bounds, GpsPoint};
 /// Triggers automatic cache clear + regeneration on app upgrade.
 const TILE_FORMAT_VERSION: &str = "7";
 
+/// Filename used to remember which colour the cached tiles were generated with.
+/// When this file's contents differ from the configured colour we clear tiles
+/// and mark the cache dirty so regeneration uses the new hue.
+const COLOR_MARKER: &str = "color.txt";
+
 /// Marker file written to the tiles directory when new data arrives.
 /// Cleared after tile generation completes. Prevents redundant generation on app restart.
 const DIRTY_MARKER: &str = ".dirty";
@@ -26,6 +31,11 @@ const DIRTY_MARKER: &str = ".dirty";
 const TILE_ENUMERATION_MARGIN_DEGREES: f64 = 0.002;
 
 impl PersistentRouteEngine {
+    /// Currently configured base RGB color, falling back to the brand default.
+    pub(crate) fn heatmap_color_or_default(&self) -> [u8; 3] {
+        self.heatmap_color_rgb.unwrap_or(DEFAULT_HEATMAP_BASE)
+    }
+
     /// Check whether heatmap tiles need (re)generation.
     /// Returns true if the dirty marker exists or no version file is present (first time / cache cleared).
     pub fn is_heatmap_dirty(&self) -> bool {
@@ -39,6 +49,54 @@ impl PersistentRouteEngine {
         }
         // Dirty marker present → new data arrived since last generation
         base.join(DIRTY_MARKER).exists()
+    }
+
+    /// Update the heatmap gradient base colour.
+    ///
+    /// If the colour differs from the currently cached colour on disk this
+    /// clears existing tiles and marks generation dirty so the next pass
+    /// regenerates everything with the new hue. When a tiles path is
+    /// configured and activities exist, generation is kicked off immediately.
+    pub fn set_heatmap_color(&mut self, color: [u8; 3]) {
+        // Always update the in-memory value so future generation uses it even
+        // if we haven't received a tiles path yet.
+        self.heatmap_color_rgb = Some(color);
+
+        let Some(path) = self.heatmap_tiles_path.clone() else {
+            return;
+        };
+        let base = Path::new(&path);
+        if let Err(e) = std::fs::create_dir_all(base) {
+            log::warn!("[heatmap] Failed to create tiles directory for color marker: {}", e);
+            return;
+        }
+
+        let target_marker = format_color_marker(color);
+        let stored = std::fs::read_to_string(base.join(COLOR_MARKER)).unwrap_or_default();
+        if stored.trim() == target_marker {
+            // Same colour already used for the cache — nothing to do.
+            return;
+        }
+
+        info!(
+            "[heatmap] Heatmap colour changed ({:?} → {}), clearing cached tiles",
+            stored.trim(),
+            target_marker
+        );
+        tiles::clear_all_tiles(base);
+        if let Err(e) = std::fs::write(base.join(COLOR_MARKER), &target_marker) {
+            log::warn!("[heatmap] Failed to write color marker: {}", e);
+        }
+        self.mark_heatmap_dirty();
+
+        // Kick off background regeneration if we have activities to draw.
+        if !self.activity_metadata.is_empty() {
+            if let Some(handle) = self.generate_tiles_background() {
+                if let Ok(mut guard) = super::persistent_engine_ffi::TILE_GENERATION_HANDLE.lock() {
+                    *guard = Some(handle);
+                }
+            }
+        }
     }
 
     /// Mark heatmap tiles as needing regeneration.
@@ -92,6 +150,29 @@ impl PersistentRouteEngine {
             self.mark_heatmap_dirty();
         }
 
+        // Compare the configured heatmap colour with the one the cached tiles
+        // were generated for. Mismatch → clear and regenerate. This handles
+        // both an upgrade from a build without colour persistence and a
+        // primary-sport change that happened while the engine was torn down.
+        let base = Path::new(&path);
+        let target_color = self.heatmap_color_or_default();
+        let target_marker = format_color_marker(target_color);
+        let stored_marker = std::fs::read_to_string(base.join(COLOR_MARKER)).unwrap_or_default();
+        if stored_marker.trim() != target_marker {
+            if !stored_marker.is_empty() {
+                info!(
+                    "[heatmap] Cached tile colour differs ({:?} → {}), clearing",
+                    stored_marker.trim(),
+                    target_marker
+                );
+                tiles::clear_all_tiles(base);
+                self.mark_heatmap_dirty();
+            }
+            if let Err(e) = std::fs::write(base.join(COLOR_MARKER), &target_marker) {
+                log::warn!("[heatmap] Failed to write color marker: {}", e);
+            }
+        }
+
         // Only generate if tiles are stale (new data, format change, first time, or cache cleared).
         // Skips the expensive tile enumeration + file-existence checks on normal app restart.
         if !self.activity_metadata.is_empty() && self.is_heatmap_dirty() {
@@ -126,6 +207,8 @@ impl PersistentRouteEngine {
             .map(|m| m.bounds.clone())
             .collect();
 
+        let color_base = self.heatmap_color_or_default();
+
         let (tx, rx) = mpsc::channel();
         let generated_counter = std::sync::Arc::new(std::sync::atomic::AtomicU32::new(0));
         let total_counter = std::sync::Arc::new(std::sync::atomic::AtomicU32::new(0));
@@ -137,6 +220,7 @@ impl PersistentRouteEngine {
                 &db_path,
                 &tiles_path,
                 &all_bounds,
+                color_base,
                 &gen_clone,
                 &total_clone,
             );
@@ -203,12 +287,14 @@ fn background_generate_tiles(
     db_path: &str,
     tiles_path: &str,
     all_bounds: &[Bounds],
+    color_base: [u8; 3],
     generated_counter: &std::sync::atomic::AtomicU32,
     total_counter: &std::sync::atomic::AtomicU32,
 ) -> u32 {
     let start = std::time::Instant::now();
     let base = Path::new(tiles_path);
     let config = tiles::HeatmapConfig::default();
+    let color_lut = build_color_lut_for_base(color_base);
 
     // Enumerate tile coordinates from each activity bounds rather than the full global bbox.
     // This keeps higher zoom generation tractable for users with travel far apart.

@@ -885,7 +885,8 @@
     "viewDetails": "Details luege",
     "viewRouteDetails": "Routedetails aazeige",
     "viewSectionDetails": "Abschnittsdetails aazeige",
-    "zoomToActivity": "Uf Aktivität zoome"
+    "zoomToActivity": "Uf Aktivität zoome",
+    "colorByGradient": "Nach Gfälli färbe"
   },
   "metrics": {
     "activityCount": "Aktivitäten",

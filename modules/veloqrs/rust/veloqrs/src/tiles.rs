@@ -35,22 +35,55 @@ impl Default for HeatmapConfig {
 // Color Gradient LUT
 // ============================================================================
 
-/// Pre-computed 256-entry color lookup table mapping intensity to RGBA.
-/// Gradient: transparent → deep teal → brand teal → pale teal highlight.
-/// Uses the Veloq brand teal palette for good contrast on both light and dark maps.
-fn build_color_lut() -> [[u8; 4]; 256] {
+/// Default base color for the heatmap gradient when none has been configured.
+/// Matches the Veloq brand teal `#14B8A6`.
+pub const DEFAULT_HEATMAP_BASE: [u8; 3] = [20, 184, 166];
+
+/// Build a 256-entry gradient LUT from a single base RGB color.
+///
+/// The gradient ramps from transparent through a darkened version of the base,
+/// into the base color itself, and then towards white to preserve contrast on
+/// both light and dark map styles. This matches the shape of the previous
+/// hard-coded teal LUT so existing alpha/exposure tuning keeps working.
+pub fn build_color_lut_for_base(base: [u8; 3]) -> [[u8; 4]; 256] {
     let mut lut = [[0u8; 4]; 256];
 
-    // Gradient stops: (intensity, r, g, b, a)
-    let stops: &[(f32, f32, f32, f32, f32)] = &[
-        (0.0,   0.0,   0.0,   0.0,   0.0),         // transparent
-        (0.04,  13.0,  148.0, 136.0, 28.0),         // subtle teal (#0D9488)
-        (0.14,  16.0,  163.0, 150.0, 80.0),         // visible teal
-        (0.32,  20.0,  184.0, 166.0, 128.0),        // brand teal (#14B8A6)
-        (0.58,  45.0,  212.0, 191.0, 176.0),        // bright teal (#2DD4BF)
-        (0.80,  94.0,  234.0, 212.0, 216.0),        // light teal (#5EEAD4)
-        (0.94,  153.0, 246.0, 228.0, 236.0),        // pale teal
-        (1.0,   204.0, 251.0, 241.0, 246.0),        // very pale teal highlight
+    let base_r = base[0] as f32;
+    let base_g = base[1] as f32;
+    let base_b = base[2] as f32;
+
+    // Darkened shade (mix with black) used at low intensity for subtle traces.
+    let dark_mix = 0.65;
+    let dark_r = base_r * dark_mix;
+    let dark_g = base_g * dark_mix;
+    let dark_b = base_b * dark_mix;
+
+    // Brighter shade (mix with white) used as overlap density grows.
+    let lerp_to_white = |v: f32, t: f32| v + (255.0 - v) * t;
+    let bright_r = lerp_to_white(base_r, 0.3);
+    let bright_g = lerp_to_white(base_g, 0.3);
+    let bright_b = lerp_to_white(base_b, 0.3);
+    let light_r = lerp_to_white(base_r, 0.55);
+    let light_g = lerp_to_white(base_g, 0.55);
+    let light_b = lerp_to_white(base_b, 0.55);
+    let pale_r = lerp_to_white(base_r, 0.75);
+    let pale_g = lerp_to_white(base_g, 0.75);
+    let pale_b = lerp_to_white(base_b, 0.75);
+    let highlight_r = lerp_to_white(base_r, 0.88);
+    let highlight_g = lerp_to_white(base_g, 0.88);
+    let highlight_b = lerp_to_white(base_b, 0.88);
+
+    // Gradient stops: (intensity, r, g, b, a). Shape mirrors the original teal
+    // gradient so the exposure tuning downstream is unaffected by hue.
+    let stops: [(f32, f32, f32, f32, f32); 8] = [
+        (0.0,  0.0,       0.0,       0.0,       0.0),
+        (0.04, dark_r,    dark_g,    dark_b,    28.0),
+        (0.14, base_r * 0.85, base_g * 0.85, base_b * 0.85, 80.0),
+        (0.32, base_r,    base_g,    base_b,    128.0),
+        (0.58, bright_r,  bright_g,  bright_b,  176.0),
+        (0.80, light_r,   light_g,   light_b,   216.0),
+        (0.94, pale_r,    pale_g,    pale_b,    236.0),
+        (1.0,  highlight_r, highlight_g, highlight_b, 246.0),
     ];
 
     for i in 1..256 {
@@ -83,8 +116,9 @@ fn build_color_lut() -> [[u8; 4]; 256] {
     lut
 }
 
-/// Cached color LUT (built once)
-static COLOR_LUT: std::sync::LazyLock<[[u8; 4]; 256]> = std::sync::LazyLock::new(build_color_lut);
+/// Cached default color LUT (built once, used when no custom color is set).
+static DEFAULT_COLOR_LUT: std::sync::LazyLock<[[u8; 4]; 256]> =
+    std::sync::LazyLock::new(|| build_color_lut_for_base(DEFAULT_HEATMAP_BASE));
 
 /// Cached fully transparent PNG used for empty raster tiles.
 static EMPTY_TILE_PNG: std::sync::LazyLock<Vec<u8>> = std::sync::LazyLock::new(|| {
@@ -423,7 +457,16 @@ fn gaussian_blur_3x3(buf: &IntensityBuffer) -> IntensityBuffer {
 
 /// Generate a single heatmap tile from GPS tracks.
 /// Returns PNG bytes, or None if the tile contains no data.
-pub fn generate_heatmap_tile(z: u8, x: u32, y: u32, tracks: &[Vec<GpsPoint>]) -> Option<Vec<u8>> {
+///
+/// `color_lut` is a pre-computed gradient LUT. Use `DEFAULT_COLOR_LUT` for the
+/// brand teal gradient, or build one with [`build_color_lut_for_base`].
+pub fn generate_heatmap_tile_with_lut(
+    z: u8,
+    x: u32,
+    y: u32,
+    tracks: &[Vec<GpsPoint>],
+    color_lut: &[[u8; 4]; 256],
+) -> Option<Vec<u8>> {
     let line_width = line_width_for_zoom(z);
     let intensity = line_intensity_for_zoom(z);
 
@@ -460,7 +503,7 @@ pub fn generate_heatmap_tile(z: u8, x: u32, y: u32, tracks: &[Vec<GpsPoint>]) ->
 
     // Map intensity buffer to RGBA using a fixed exposure curve.
     // This preserves overlap without letting moderate-density tiles blow out to white.
-    let lut = &*COLOR_LUT;
+    let lut = color_lut;
     let exposure = intensity_exposure_for_zoom(z);
     let mut img: RgbaImage = ImageBuffer::new(TILE_SIZE, TILE_SIZE);
     for y_px in 0..TILE_SIZE {
@@ -482,6 +525,11 @@ pub fn generate_heatmap_tile(z: u8, x: u32, y: u32, tracks: &[Vec<GpsPoint>]) ->
         .expect("PNG encoding failed");
 
     Some(png_data)
+}
+
+/// Convenience wrapper that uses the default (brand teal) gradient.
+pub fn generate_heatmap_tile(z: u8, x: u32, y: u32, tracks: &[Vec<GpsPoint>]) -> Option<Vec<u8>> {
+    generate_heatmap_tile_with_lut(z, x, y, tracks, &DEFAULT_COLOR_LUT)
 }
 
 /// Generate heatmap tiles for a set of tile coordinates.
@@ -646,13 +694,24 @@ mod tests {
 
     #[test]
     fn test_color_lut() {
-        let lut = &*COLOR_LUT;
+        let lut = &*DEFAULT_COLOR_LUT;
         // Index 0 is transparent
         assert_eq!(lut[0], [0, 0, 0, 0]);
         // Index 255 should be bright
         assert!(lut[255][3] > 200);
         // Monotonically increasing alpha
         assert!(lut[128][3] > lut[1][3]);
+    }
+
+    #[test]
+    fn test_build_color_lut_from_base() {
+        // Orange brand color
+        let lut = build_color_lut_for_base([252, 76, 2]);
+        assert_eq!(lut[0], [0, 0, 0, 0]);
+        // Mid-range should be close to the base hue (orange-dominant channel)
+        assert!(lut[128][0] > lut[128][1]);
+        assert!(lut[128][0] > lut[128][2]);
+        assert!(lut[255][3] > 200);
     }
 
     #[test]
