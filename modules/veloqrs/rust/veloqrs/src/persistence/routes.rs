@@ -403,9 +403,15 @@ impl PersistentRouteEngine {
             .partition(|s| !already_grouped.contains(s.activity_id.as_str()));
 
         let total = signatures.len();
+        // Incremental grouping is correct at any new-to-total ratio
+        // (existing groups stay valid; we only add new edges). The
+        // benchmark shows it's faster than full at every ratio measured
+        // (60+90 → −37%, 154+396 → −19%). The 90% gate exists only to
+        // skip the partition + HashSet build when nearly everything is
+        // new — full is simpler in that fresh-import case.
         let use_incremental = !self.groups.is_empty()
             && !new_sigs.is_empty()
-            && (new_sigs.len() as f64) < (total as f64 * 0.5);
+            && (new_sigs.len() as f64) < (total as f64 * 0.9);
 
         let result = if use_incremental {
             log::info!(
