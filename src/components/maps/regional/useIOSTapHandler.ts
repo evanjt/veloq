@@ -10,6 +10,7 @@ import { useCallback, useRef } from 'react';
 import { Platform, type GestureResponderEvent } from 'react-native';
 import type { Camera, MapViewRef, ShapeSource } from '@maplibre/maplibre-react-native';
 import type { ActivityBoundsItem, FrequentSection, ActivityType } from '@/types';
+import { planClusterZoom } from '@/lib/maps/clusterZoom';
 import type { SelectedActivity } from './ActivityPopup';
 import type { SelectedRoute } from './types';
 import type { SpiderState } from './useMapHandlers';
@@ -169,40 +170,37 @@ export function useIOSTapHandler({
 
           // Determine feature type by checking geometry and properties
           if (feature.geometry?.type === 'Point' && showActivities) {
-            // Cluster tap — zoom in or spider-expand at max zoom
+            // Cluster tap — fit the camera to the bounds of the cluster's
+            // leaves. Produces a tight zoom that always shows the underlying
+            // activities. Falls back to spider-expansion when all the leaves
+            // share a location (e.g. repeated starts from the same door).
             if (feature.properties?.cluster === true) {
               try {
                 if (clusterSourceRef.current) {
-                  const expansionZoom =
-                    await clusterSourceRef.current.getClusterExpansionZoom(feature);
                   const coords = (feature.geometry as GeoJSON.Point).coordinates as [
                     number,
                     number,
                   ];
-                  const currentZoom = currentZoomLevel.current;
+                  const pointCount = (feature.properties?.point_count as number | undefined) ?? 0;
+                  const limit = Math.max(1, Math.min(pointCount || 100, 100));
+                  const leaves = await clusterSourceRef.current.getClusterLeaves(feature, limit, 0);
 
-                  // At max zoom, fan out into spider pattern
-                  if (expansionZoom >= 17 || currentZoom >= 16) {
-                    const pointCount = feature.properties?.point_count ?? 0;
-                    const leaves = await clusterSourceRef.current.getClusterLeaves(
-                      feature,
-                      Math.min(pointCount, 50),
-                      0
+                  const plan = planClusterZoom(leaves.features, coords);
+                  if (plan.kind === 'fitBounds') {
+                    cameraRef.current?.fitBounds(
+                      plan.bounds.ne,
+                      plan.bounds.sw,
+                      [100, 60, 280, 60],
+                      plan.durationMs
                     );
-                    if (leaves.features.length > 0) {
-                      setSpider({ center: coords, leaves: leaves.features });
-                    }
-                    return;
-                  }
-
-                  // Only zoom if expansion zoom is deeper — never zoom back out
-                  if (expansionZoom > currentZoom) {
-                    cameraRef.current?.setCamera({
-                      centerCoordinate: coords,
-                      zoomLevel: expansionZoom,
-                      animationDuration: 400,
-                      animationMode: 'flyTo',
-                    });
+                    setTimeout(() => {
+                      cameraRef.current?.setCamera({
+                        animationDuration: 0,
+                        animationMode: 'moveTo',
+                      });
+                    }, plan.durationMs + 100);
+                  } else if (leaves.features.length > 0) {
+                    setSpider({ center: coords, leaves: leaves.features });
                   }
                 }
               } catch (e) {

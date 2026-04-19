@@ -13,6 +13,7 @@ import { LocationManager } from '@maplibre/maplibre-react-native';
 // Cache for last known location (avoid slow GPS re-acquisition)
 const LOCATION_CACHE_MAX_AGE_MS = 30000; // 30 seconds
 import { normalizeBounds, activitySpatialIndex, mapBoundsToViewport } from '@/lib';
+import { planClusterZoom } from '@/lib/maps/clusterZoom';
 import { saveMapCameraState } from '@/lib/storage/mapCameraState';
 import { intervalsApi } from '@/api';
 import { getRouteEngine } from '@/lib/native/routeEngine';
@@ -239,37 +240,38 @@ export function useMapHandlers({
       const feature = event.features?.[0];
       if (!feature) return;
 
-      // Cluster tap — zoom in or spider-expand at max zoom
-      // Only zoom IN (never back out) to avoid fighting user gestures
+      // Cluster tap — fetch the leaves and fit the camera to their bounds.
+      // This produces a tighter, more predictable zoom than getClusterExpansionZoom,
+      // which just returns the next supercluster split point.
       if (feature.properties?.cluster === true) {
         try {
           if (clusterSourceRef.current) {
-            const expansionZoom = await clusterSourceRef.current.getClusterExpansionZoom(feature);
-            const currentZoom = currentZoomRef.current;
             const coords = (feature.geometry as GeoJSON.Point).coordinates as [number, number];
+            const pointCount = (feature.properties?.point_count as number | undefined) ?? 0;
+            // Cap at 100 leaves — plenty for bounds computation, cheap to transfer.
+            const limit = Math.max(1, Math.min(pointCount || 100, 100));
+            const leaves = await clusterSourceRef.current.getClusterLeaves(feature, limit, 0);
 
-            // At max zoom (can't expand further), fan out into spider pattern
-            if (expansionZoom >= 17 || currentZoom >= 16) {
-              const pointCount = feature.properties?.point_count ?? 0;
-              const leaves = await clusterSourceRef.current.getClusterLeaves(
-                feature,
-                Math.min(pointCount, 50),
-                0
+            const plan = planClusterZoom(leaves.features, coords);
+            if (plan.kind === 'fitBounds') {
+              cameraRef.current?.fitBounds(
+                plan.bounds.ne,
+                plan.bounds.sw,
+                [100, 60, 280, 60], // [top, right, bottom, left]
+                plan.durationMs
               );
-              if (leaves.features.length > 0) {
-                setSpider({ center: coords, leaves: leaves.features });
-              }
-              return;
-            }
-
-            // Only zoom if expansion zoom is deeper than current — never zoom back out
-            if (expansionZoom > currentZoom) {
-              cameraRef.current?.setCamera({
-                centerCoordinate: coords,
-                zoomLevel: expansionZoom,
-                animationDuration: 400,
-                animationMode: 'flyTo',
-              });
+              // Release MapLibre tracking state so later user gestures aren't
+              // snapped back to these bounds (same pattern as handleFitAll).
+              setTimeout(() => {
+                cameraRef.current?.setCamera({
+                  animationDuration: 0,
+                  animationMode: 'moveTo',
+                });
+              }, plan.durationMs + 100);
+            } else if (leaves.features.length > 0) {
+              // Leaves are stacked on top of each other — fan out into spider
+              // pattern so each underlying activity is tappable.
+              setSpider({ center: coords, leaves: leaves.features });
             }
           }
         } catch (e) {
@@ -286,7 +288,7 @@ export function useMapHandlers({
         handleMarkerTap(activity);
       }
     },
-    [activities, handleMarkerTap, clusterSourceRef, cameraRef, currentZoomRef, setSpider]
+    [activities, handleMarkerTap, clusterSourceRef, cameraRef, setSpider]
   );
 
   // Handle tap on a spider-expanded marker (Android only)
