@@ -885,8 +885,7 @@
     "viewDetails": "詳細を表示",
     "viewRouteDetails": "ルートの詳細を表示",
     "viewSectionDetails": "セクションの詳細を表示",
-    "zoomToActivity": "アクティビティにズーム",
-    "colorByGradient": "勾配で色付け"
+    "zoomToActivity": "アクティビティにズーム"
   },
   "metrics": {
     "activityCount": "アクティビティ",

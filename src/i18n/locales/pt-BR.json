@@ -885,8 +885,7 @@
     "viewDetails": "Ver detalhes",
     "viewRouteDetails": "Ver detalhes da rota",
     "viewSectionDetails": "Ver detalhes da seção",
-    "zoomToActivity": "Zoom na atividade",
-    "colorByGradient": "Cor por inclinação"
+    "zoomToActivity": "Zoom na atividade"
   },
   "metrics": {
     "activityCount": "Atividades",

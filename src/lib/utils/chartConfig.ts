@@ -60,7 +60,7 @@ export interface ChartConfig {
  * to hide GPS noise spikes. Returns `undefined` when either stream is
  * missing or too short to compute.
  */
-export function computeGradientStream(
+function computeGradientStream(
   altitude: number[] | undefined,
   distance: number[] | undefined,
   window = 10

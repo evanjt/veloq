@@ -12,9 +12,6 @@ import { useMemo } from 'react';
 import type { LatLng } from '@/lib';
 import type { SectionOverlay } from '@/components/maps/ActivityMapView';
 import { sectionPaletteIndex } from '@/theme';
-import { buildGradientLineStops } from '@/lib/maps/gradientLineColor';
-import { computeGradientStream } from '@/lib/utils/chartConfig';
-import type { ActivityStreams } from '@/types';
 
 /** Data about a single section overlay used by the rendering layer */
 export interface SectionOverlayGeoJSON {
@@ -37,8 +34,6 @@ interface UseMapLayersParams {
   highlightIndex?: number | null;
   /** Active tab — controls marker style (numbered on sections, PR on charts) */
   activeTab?: string;
-  /** Activity streams — used to build per-point gradient colors */
-  streams?: ActivityStreams | null;
 }
 
 interface UseMapLayersResult {
@@ -66,12 +61,6 @@ interface UseMapLayersResult {
   highlightPoint: LatLng | null;
   /** GeoJSON for highlight point (ShapeSource + CircleLayer) */
   highlightGeoJSON: GeoJSON.Feature<GeoJSON.Point>;
-  /**
-   * MapLibre `line-gradient` interpolation expression for the route line,
-   * derived from altitude + distance streams. `null` when gradient data is
-   * unavailable (no altitude/distance stream, or track too short).
-   */
-  gradientLineExpression: unknown | null;
 }
 
 /** Minimal valid geometry placeholder — prevents Fabric add/remove crashes */
@@ -104,7 +93,6 @@ export function useMapLayers({
   sectionOverlays,
   highlightIndex,
   activeTab,
-  streams,
 }: UseMapLayersParams): UseMapLayersResult {
   // ----- route line -----
   const routeGeoJSON = useMemo((): GeoJSON.FeatureCollection | GeoJSON.Feature => {
@@ -390,17 +378,6 @@ export function useMapLayers({
     [highlightPoint]
   );
 
-  // ----- gradient line expression (for "color by gradient" mode) -----
-  // Built from altitude + distance streams. Resampled to at most N stops so
-  // the expression stays compact regardless of track length.
-  const gradientLineExpression = useMemo(() => {
-    if (!streams || validCoordinates.length < 2) return null;
-    const gradient = computeGradientStream(streams.altitude, streams.distance);
-    const stops = buildGradientLineStops(gradient);
-    if (!stops) return null;
-    return ['interpolate', ['linear'], ['line-progress'], ...stops];
-  }, [streams, validCoordinates.length]);
-
   return {
     routeGeoJSON,
     routeHasData,
@@ -414,6 +391,5 @@ export function useMapLayers({
     routeCoords,
     highlightPoint,
     highlightGeoJSON,
-    gradientLineExpression,
   };
 }

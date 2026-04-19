@@ -11,7 +11,7 @@ import type {
 } from '@/components/maps/ActivityMapView';
 import type { CreationState } from '@/components/maps/SectionCreationOverlay';
 import { ComponentErrorBoundary } from '@/components/ui';
-import type { ActivityDetail, ActivityStreams } from '@/types';
+import type { ActivityDetail } from '@/types';
 import type { TerrainCamera } from '@/lib/utils/cameraAngle';
 import type { MapStyleType } from '@/components/maps/mapStyles';
 import { formatDistance, formatDuration, formatElevation, formatDateTime } from '@/lib';
@@ -27,8 +27,6 @@ interface ActivityHeaderProps {
   activity: ActivityDetail;
   activityId: string;
   coordinates: LatLng[];
-  /** Activity streams — required for gradient-based line coloring on the map */
-  streams?: ActivityStreams | null;
   isMetric: boolean;
   isDark: boolean;
   debugEnabled: boolean;
@@ -58,7 +56,6 @@ export const ActivityHeader = React.memo(function ActivityHeader({
   activity,
   activityId,
   coordinates,
-  streams,
   isMetric,
   isDark,
   debugEnabled,
@@ -92,7 +89,6 @@ export const ActivityHeader = React.memo(function ActivityHeader({
             activityType={activity.type}
             activityId={activity.id}
             country={activity.country}
-            streams={streams}
             height={mapHeight}
             showStyleToggle={!sectionCreationMode}
             showAttribution={true}

@@ -885,8 +885,7 @@
     "viewDetails": "Details bekijken",
     "viewRouteDetails": "Routedetails bekijken",
     "viewSectionDetails": "Sectiedetails bekijken",
-    "zoomToActivity": "Inzoomen op activiteit",
-    "colorByGradient": "Kleur op stijging"
+    "zoomToActivity": "Inzoomen op activiteit"
   },
   "metrics": {
     "activityCount": "Activiteiten",

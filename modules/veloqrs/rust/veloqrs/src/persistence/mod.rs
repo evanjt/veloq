@@ -410,15 +410,8 @@ fn load_groups_from_db(conn: &Connection) -> Vec<RouteGroup> {
 /// and GPS tracks are loaded on-demand only when needed for section detection.
 
 pub struct PersistentRouteEngine {
-    /// Database connection.
-    ///
-    /// Wrapped in `Mutex<Connection>` because `rusqlite::Connection` is
-    /// `Send + !Sync`. Wrapping makes the whole `PersistentRouteEngine`
-    /// `Sync`, which is required so we can put it under a global `RwLock`
-    /// for concurrent reads of the in-memory state. Each SQL call still
-    /// serialises through this inner mutex (uncontended ~ns). Call sites
-    /// use `self.db()` to get a short-lived guard.
-    pub(crate) db: Mutex<Connection>,
+    /// Database connection
+    pub(crate) db: Connection,
 
     /// Database path (for spawning background threads)
     db_path: String,
@@ -491,31 +484,13 @@ impl PersistentRouteEngine {
     // Initialization
     // ========================================================================
 
-    /// Acquire the inner SQLite connection mutex.
-    ///
-    /// Recovers from poisoning (no other thread can corrupt SQLite state
-    /// through a poisoned mutex — the `Connection` drop handler closes the
-    /// connection safely).
-    pub(crate) fn db(&self) -> std::sync::MutexGuard<'_, Connection> {
-        self.db.lock().unwrap_or_else(|e| e.into_inner())
-    }
-
-    /// Mutable variant of `db()` for callers that need `&mut Connection`
-    /// (transactions, preparation of write statements). Available on
-    /// `&mut self` because `Mutex::get_mut` is — no runtime locking.
-    pub(crate) fn db_mut(&mut self) -> &mut Connection {
-        self.db
-            .get_mut()
-            .unwrap_or_else(|e| e.into_inner())
-    }
-
     /// Create a new persistent engine with the given database path.
     pub fn new(db_path: &str) -> SqlResult<Self> {
         let mut db = Connection::open(db_path)?;
         Self::init_schema(&mut db)?;
 
         Ok(Self {
-            db: Mutex::new(db),
+            db,
             db_path: db_path.to_string(),
             activity_metadata: HashMap::new(),
             spatial_index: RTree::new(),
@@ -970,58 +945,18 @@ pub struct PersistentEngineStats {
 ///
 /// This singleton allows FFI calls to access a shared persistent engine
 /// without passing state back and forth across the FFI boundary.
-///
-/// Uses `RwLock` (std) so read-only queries can run concurrently. The inner
-/// `rusqlite::Connection` is stored inside `PersistentRouteEngine` behind a
-/// `Mutex<Connection>` so that the engine itself is `Sync` — without that
-/// wrapping, `RwLock<PersistentRouteEngine>` would reject the type because
-/// `Connection` is `Send` but `!Sync`.
-///
-/// Methods that mutate engine state (including LRU caches inside
-/// `&mut self` helpers) must acquire the **write** lock via
-/// `with_persistent_engine` / `with_persistent_engine_write`. Pure-read
-/// helpers that only touch `&self` methods can use
-/// `with_persistent_engine_read`, which lets multiple threads proceed in
-/// parallel.
 
-pub static PERSISTENT_ENGINE: Lazy<RwLock<Option<PersistentRouteEngine>>> =
-    Lazy::new(|| RwLock::new(None));
+pub static PERSISTENT_ENGINE: Lazy<Mutex<Option<PersistentRouteEngine>>> =
+    Lazy::new(|| Mutex::new(None));
 
-/// Acquire the write lock on the global persistent engine.
-///
-/// Use for any closure that needs `&mut PersistentRouteEngine` — includes
-/// `add_*`, `set_*`, `save_*`, `clear_*`, `apply_*`, `remove_*`, `detect_*`,
-/// as well as read-looking helpers that mutate internal LRU caches
-/// (`get_signature`, `get_group_by_id`, `get_section_by_id`,
-/// `get_consensus_route`, `get_section_performances_filtered`, `get_groups`).
+/// Get a lock on the global persistent engine.
 
 pub fn with_persistent_engine<F, R>(f: F) -> Option<R>
 where
     F: FnOnce(&mut PersistentRouteEngine) -> R,
 {
-    let mut guard = PERSISTENT_ENGINE.write().ok()?;
+    let mut guard = PERSISTENT_ENGINE.lock().ok()?;
     guard.as_mut().map(f)
-}
-
-/// Alias for `with_persistent_engine` — explicit write semantics.
-pub fn with_persistent_engine_write<F, R>(f: F) -> Option<R>
-where
-    F: FnOnce(&mut PersistentRouteEngine) -> R,
-{
-    with_persistent_engine(f)
-}
-
-/// Acquire the read lock on the global persistent engine.
-///
-/// Multiple callers can hold the read lock concurrently. The closure only
-/// gets `&PersistentRouteEngine`, so it must stay on `&self` methods — any
-/// call that mutates LRU caches will fail to compile, which is the point.
-pub fn with_persistent_engine_read<F, R>(f: F) -> Option<R>
-where
-    F: FnOnce(&PersistentRouteEngine) -> R,
-{
-    let guard = PERSISTENT_ENGINE.read().ok()?;
-    guard.as_ref().map(f)
 }
 
 // ============================================================================
@@ -1067,7 +1002,7 @@ pub mod persistent_engine_ffi {
                     );
                 }
 
-                let mut guard = PERSISTENT_ENGINE.write().unwrap_or_else(|e| e.into_inner());
+                let mut guard = PERSISTENT_ENGINE.lock().unwrap_or_else(|e| e.into_inner());
                 *guard = Some(engine);
                 info!("tracematch: [PersistentEngine] Initialized successfully");
                 true

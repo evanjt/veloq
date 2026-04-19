@@ -1562,7 +1562,6 @@ export interface TranslationResource {
     toggleStyle: string;
     enable3D: string;
     disable3D: string;
-    colorByGradient: string;
     resetOrientation: string;
     goToLocation: string;
     fitAll: string;
