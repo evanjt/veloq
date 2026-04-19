@@ -436,48 +436,91 @@ impl PersistentRouteEngine {
         }
     }
 
-    /// Apply completed section detection results.
-    /// Saves to DB first, only updates in-memory state on success.
-    pub fn apply_sections(&mut self, sections: Vec<FrequentSection>) -> SqlResult<()> {
+    /// Hot path of apply_sections: replace in-memory sections, persist
+    /// them to SQLite, clear the relevant LRU caches. Returns as soon as
+    /// the new section set is durably saved and queryable from in-memory
+    /// reads. Does NOT do the cross-sport merge or the indicator
+    /// recompute — those are the deferred tail
+    /// (`apply_sections_finalize`) so callers that want the UI interactive
+    /// can return after `_save` and do the tail on a background thread.
+    ///
+    /// If `save_sections` fails the prior in-memory state is restored —
+    /// the rollback contract is unchanged from the monolithic
+    /// `apply_sections`.
+    pub fn apply_sections_save(&mut self, sections: Vec<FrequentSection>) -> SqlResult<()> {
         let old_sections = std::mem::replace(&mut self.sections, sections);
         match self.save_sections() {
             Ok(()) => {
                 self.sections_dirty = false;
-                // Clear activity_traces to prevent memory leak.
-                // These GPS traces were used for consensus computation but are not persisted
-                // to SQLite, so keeping them in memory is wasteful. shrink_to_fit() releases
-                // the HashMap bucket allocation too — clear() alone keeps capacity.
+                // Clear activity_traces to prevent memory leak. These GPS
+                // traces were used for consensus computation but aren't
+                // persisted; shrink_to_fit() releases the bucket
+                // allocation too.
                 for section in &mut self.sections {
                     section.activity_traces.clear();
                     section.activity_traces.shrink_to_fit();
                 }
-                // Invalidate section LRU cache since sections changed
                 self.section_cache.clear();
                 self.invalidate_perf_cache();
-
-                // Merge sections that overlap geographically across different sport types
-                if let Err(e) = self.merge_cross_sport_sections() {
-                    log::warn!(
-                        "tracematch: [apply_sections] Cross-sport merge failed: {}",
-                        e
-                    );
-                }
-
-                // Recompute materialized PR/trend indicators
-                if let Err(e) = self.recompute_activity_indicators() {
-                    log::warn!(
-                        "tracematch: [apply_sections] Indicator recomputation failed: {}",
-                        e
-                    );
-                }
-
                 Ok(())
             }
             Err(e) => {
-                // Rollback in-memory state on DB failure
                 self.sections = old_sections;
                 Err(e)
             }
         }
+    }
+
+    /// Deferred tail of apply_sections: cross-sport merge + activity-
+    /// indicator recompute. Both are best-effort (errors are logged, not
+    /// returned) because they don't affect the ability to query the just-
+    /// saved sections — they only refine derived state. Safe to invoke on
+    /// a background thread after `apply_sections_save` returns.
+    pub fn apply_sections_finalize(&mut self) {
+        self.apply_sections_finalize_with_progress(None);
+    }
+
+    /// Variant that emits phase markers to the supplied progress tracker
+    /// so the UI can show "still working on cross-sport merge / indicator
+    /// recompute" instead of a frozen-looking 100% bar (Tier 4).
+    pub fn apply_sections_finalize_with_progress(
+        &mut self,
+        progress: Option<&super::super::SectionDetectionProgress>,
+    ) {
+        if let Some(p) = progress {
+            p.set_phase("merging_cross_sport", 1);
+        }
+        if let Err(e) = self.merge_cross_sport_sections() {
+            log::warn!(
+                "tracematch: [apply_sections_finalize] Cross-sport merge failed: {}",
+                e
+            );
+        }
+        if let Some(p) = progress {
+            p.increment();
+            p.set_phase("recomputing_indicators", 1);
+        }
+        if let Err(e) = self.recompute_activity_indicators() {
+            log::warn!(
+                "tracematch: [apply_sections_finalize] Indicator recomputation failed: {}",
+                e
+            );
+        }
+        if let Some(p) = progress {
+            p.increment();
+            p.set_phase("complete", 1);
+            p.increment();
+        }
+    }
+
+    /// Apply completed section detection results synchronously: hot save
+    /// path followed by the deferred tail. Equivalent to today's pre-Tier
+    /// 1.1 single call. Callers that want to keep the UI responsive
+    /// during the tail should use `apply_sections_save` followed by
+    /// `apply_sections_finalize` on a background thread.
+    pub fn apply_sections(&mut self, sections: Vec<FrequentSection>) -> SqlResult<()> {
+        self.apply_sections_save(sections)?;
+        self.apply_sections_finalize();
+        Ok(())
     }
 }

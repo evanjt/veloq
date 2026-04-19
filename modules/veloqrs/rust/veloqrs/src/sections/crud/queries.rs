@@ -95,9 +95,14 @@ impl PersistentRouteEngine {
     }
 
     /// Get all visible sections that contain a specific activity.
-    /// Uses section_activities junction table for O(1) lookup (was O(N) with full table scan).
-    /// 25-50x speedup: 250-570ms → 10-20ms
+    /// Uses section_activities junction table for O(1) lookup (was O(N)
+    /// with full table scan). 25-50x speedup: 250-570ms → 10-20ms.
     /// Excludes disabled and superseded sections.
+    ///
+    /// Tier 3.4: results are pre-deduplicated and pre-sorted by visit
+    /// count (descending) so TS callers don't need to walk the array
+    /// twice. The SELECT DISTINCT handles section_id dedup; the
+    /// post-load sort orders by `Section.visit_count`.
     pub fn get_sections_for_activity(&self, activity_id: &str) -> Vec<Section> {
         // Query junction table for section IDs (indexed by activity_id), filtered by visibility
         let query = format!(
@@ -118,11 +123,18 @@ impl PersistentRouteEngine {
         // Load full section data for each ID
         let mut sections = Vec::new();
         for section_id in section_ids {
-            // Reuse get_section() for consistent loading
             if let Some(section) = self.get_section(&section_id) {
                 sections.push(section);
             }
         }
+
+        // Sort by visit count descending — most-traversed sections first.
+        // Stable order, ties broken by section id for determinism.
+        sections.sort_by(|a, b| {
+            b.visit_count
+                .cmp(&a.visit_count)
+                .then_with(|| a.id.cmp(&b.id))
+        });
 
         sections
     }

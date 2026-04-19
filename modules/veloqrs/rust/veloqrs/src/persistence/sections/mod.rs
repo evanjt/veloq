@@ -271,6 +271,66 @@ impl PersistentRouteEngine {
     }
 
     /// Save processed activity IDs to database after section detection.
+    /// Tier 5.5: rebuild a single section's consensus polyline from its
+    /// current activity traces. Cheap, user-initiated alternative to a
+    /// corpus-wide detection rerun. Returns the new polyline shape, or
+    /// None if the section doesn't exist / is user-defined / has no
+    /// activities to refine from.
+    pub fn recalculate_section_polyline(
+        &mut self,
+        section_id: &str,
+    ) -> Option<crate::FfiSectionRecalcResult> {
+        let idx = self.sections.iter().position(|s| s.id == section_id)?;
+        let mut section = self.sections[idx].clone();
+        if section.is_user_defined || section.activity_ids.is_empty() {
+            return None;
+        }
+
+        let activity_ids: Vec<String> = section.activity_ids.clone();
+        let track_pairs: Vec<(String, Vec<tracematch::GpsPoint>)> = activity_ids
+            .iter()
+            .filter_map(|aid| self.load_gps_track_from_db(aid).map(|t| (aid.clone(), t)))
+            .collect();
+        if track_pairs.is_empty() {
+            return None;
+        }
+        let track_map: std::collections::HashMap<&str, &[tracematch::GpsPoint]> = track_pairs
+            .iter()
+            .map(|(id, pts)| (id.as_str(), pts.as_slice()))
+            .collect();
+        let traces = tracematch::sections::extract_all_activity_traces(
+            &activity_ids,
+            &section.polyline,
+            &track_map,
+        );
+        for (aid, trace) in traces {
+            section.activity_traces.insert(aid, trace);
+        }
+
+        let recalced = tracematch::sections::recalculate_section_polyline(
+            &section,
+            &self.section_config,
+        );
+
+        let result = crate::FfiSectionRecalcResult {
+            section_id: recalced.id.clone(),
+            polyline_point_count: recalced.polyline.len() as u32,
+            distance_meters: recalced.distance_meters,
+        };
+
+        let mut updated = recalced;
+        updated.activity_traces.clear();
+        updated.activity_traces.shrink_to_fit();
+        self.sections[idx] = updated;
+        if let Err(err) = self.save_sections() {
+            log::warn!(
+                "tracematch: [recalculate_section_polyline] save_sections failed: {}",
+                err
+            );
+        }
+        Some(result)
+    }
+
     pub fn save_processed_activity_ids(&mut self, activity_ids: &[String]) -> SqlResult<()> {
         let tx = self.db.unchecked_transaction()?;
         let mut stmt =
@@ -1136,6 +1196,50 @@ impl PersistentRouteEngine {
         // Track next available number for each sport type (for sequential assignment)
         let mut sport_counters: HashMap<String, u32> = HashMap::new();
 
+        // Pre-fetch all time streams the upcoming portion loop will need.
+        // Replaces a per-portion `SELECT times FROM time_streams WHERE
+        // activity_id = ?` (~0.1-0.2 ms each, ~hundreds of portions per
+        // detection batch) with one `WHERE activity_id IN (...)` query.
+        // Activities already in `self.time_streams` are skipped so we only
+        // pay for cache misses.
+        let db_time_streams: HashMap<String, Vec<u32>> = {
+            let mut needed: std::collections::HashSet<&str> = std::collections::HashSet::new();
+            for section in &sorted_sections {
+                for portion in &section.activity_portions {
+                    if !self.time_streams.contains_key(&portion.activity_id) {
+                        needed.insert(portion.activity_id.as_str());
+                    }
+                }
+            }
+            if needed.is_empty() {
+                HashMap::new()
+            } else {
+                let mut map: HashMap<String, Vec<u32>> = HashMap::with_capacity(needed.len());
+                let placeholders = std::iter::repeat("?").take(needed.len()).collect::<Vec<_>>().join(",");
+                let sql = format!(
+                    "SELECT activity_id, times FROM time_streams WHERE activity_id IN ({})",
+                    placeholders
+                );
+                let ids: Vec<&str> = needed.iter().copied().collect();
+                let params_vec: Vec<&dyn rusqlite::ToSql> =
+                    ids.iter().map(|s| s as &dyn rusqlite::ToSql).collect();
+                if let Ok(mut stmt) = tx.prepare(&sql) {
+                    if let Ok(rows) = stmt.query_map(params_vec.as_slice(), |row| {
+                        let id: String = row.get(0)?;
+                        let bytes: Vec<u8> = row.get(1)?;
+                        let stream = rmp_serde::from_slice::<Vec<u32>>(&bytes)
+                            .map_err(|_| rusqlite::Error::InvalidQuery)?;
+                        Ok((id, stream))
+                    }) {
+                        for row in rows.flatten() {
+                            map.insert(row.0, row.1);
+                        }
+                    }
+                }
+                map
+            }
+        };
+
         for section in sorted_sections {
             let polyline_json = serde_json::to_string(&section.polyline)
                 .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
@@ -1226,32 +1330,18 @@ impl PersistentRouteEngine {
             ])?;
 
             // Populate junction table with full portion details and cached performance metrics.
-            // Time streams may not be in memory (e.g., after background detection on a
-            // separate thread), so load from DB on cache miss to guarantee lap_time/lap_pace
-            // are always populated.
-            let mut db_time_streams: HashMap<String, Vec<u32>> = HashMap::new();
+            // Time streams come from `self.time_streams` (warm cache) or
+            // the pre-fetched `db_time_streams` batch above (cold).
             for portion in &section.activity_portions {
-                let times = if let Some(times) = self.time_streams.get(&portion.activity_id) {
-                    Some(times.as_slice())
-                } else {
-                    // Load from DB if not in memory
-                    if !db_time_streams.contains_key(&portion.activity_id) {
-                        if let Ok(stream) = tx.query_row(
-                            "SELECT times FROM time_streams WHERE activity_id = ?",
-                            params![&portion.activity_id],
-                            |row| {
-                                let bytes: Vec<u8> = row.get(0)?;
-                                rmp_serde::from_slice::<Vec<u32>>(&bytes)
-                                    .map_err(|_| rusqlite::Error::InvalidQuery)
-                            },
-                        ) {
-                            db_time_streams.insert(portion.activity_id.clone(), stream);
-                        }
-                    }
-                    db_time_streams
-                        .get(&portion.activity_id)
-                        .map(|v| v.as_slice())
-                };
+                let times = self
+                    .time_streams
+                    .get(&portion.activity_id)
+                    .map(|v| v.as_slice())
+                    .or_else(|| {
+                        db_time_streams
+                            .get(&portion.activity_id)
+                            .map(|v| v.as_slice())
+                    });
 
                 let (lap_time, lap_pace) = compute_lap_time_from_stream(
                     times,

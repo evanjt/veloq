@@ -183,6 +183,44 @@ impl SectionManager {
         })
     }
 
+    /// Tier 3.2: batched section-performance fetch. Returns one entry per
+    /// requested section_id (in input order). Saves N FFI round-trips when
+    /// the caller (Insights, Routes list) needs perfs for many sections in
+    /// one render.
+    fn get_performances_batch(
+        &self,
+        section_ids: Vec<String>,
+        sport_type: Option<String>,
+    ) -> Result<Vec<crate::FfiSectionPerformanceBatchEntry>, VeloqError> {
+        with_engine(|e| {
+            section_ids
+                .into_iter()
+                .map(|id| {
+                    let result = e.get_section_performances_filtered(&id, sport_type.as_deref());
+                    crate::FfiSectionPerformanceBatchEntry {
+                        section_id: id,
+                        result: crate::FfiSectionPerformanceResult::from(result),
+                    }
+                })
+                .collect()
+        })
+    }
+
+    /// Tier 5.5: re-derive a section's consensus polyline from its
+    /// current activity traces. Useful for a "refine this section" UI
+    /// without triggering a full corpus-wide detection. Returns the new
+    /// polyline shape (point count + distance) so the caller can confirm
+    /// the refinement landed; None when the section doesn't exist, is
+    /// user-defined, or has no activities to learn from. The full polyline
+    /// is persisted via the standard save path so subsequent
+    /// get_sections() reads pick up the change.
+    fn recalculate_polyline(
+        &self,
+        section_id: String,
+    ) -> Result<Option<crate::FfiSectionRecalcResult>, VeloqError> {
+        with_engine(|e| e.recalculate_section_polyline(&section_id))
+    }
+
     fn get_excluded_performances(
         &self,
         section_id: String,

@@ -164,18 +164,9 @@ export function useSectionMatches(activityId: string | undefined): UseSectionMat
       });
     }
 
-    // Deduplicate by section ID (cloned activities can cause duplicate junction entries)
-    const seen = new Set<string>();
-    const unique = matches.filter((m) => {
-      if (seen.has(m.section.id)) return false;
-      seen.add(m.section.id);
-      return true;
-    });
-
-    // Sort by visit count (most popular first)
-    unique.sort((a, b) => b.section.visitCount - a.section.visitCount);
-
-    return unique;
+    // Tier 3.4: Rust now returns sections deduped by section_id and
+    // sorted by visit count desc, so the TS-side passes are gone.
+    return matches;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activityId, refreshTrigger]);
 

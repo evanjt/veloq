@@ -842,6 +842,25 @@ impl From<crate::SectionPerformanceResult> for FfiSectionPerformanceResult {
     }
 }
 
+/// Tier 3.2: one entry of a batched section-performance fetch. Returned
+/// in the same order as the requested section_ids so the TS caller can
+/// map directly without rebuilding lookups.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiSectionPerformanceBatchEntry {
+    pub section_id: String,
+    pub result: FfiSectionPerformanceResult,
+}
+
+/// Tier 5.5: result of a user-initiated section polyline recalc.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiSectionRecalcResult {
+    pub section_id: String,
+    pub polyline_point_count: u32,
+    pub distance_meters: f64,
+}
+
 /// Route performance for FFI.
 /// Performance data for a single activity on a route.
 #[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
