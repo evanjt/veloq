@@ -1,0 +1,33 @@
+name: Setup Rust for Android
+description: Install the Rust toolchain for Android targets, restore rust-cache, and install cargo-ndk
+
+inputs:
+  targets:
+    description: 'Comma-separated Rust Android targets'
+    required: false
+    default: 'aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android,i686-linux-android'
+  cache-key:
+    description: 'Extra cache-key suffix passed to Swatinem/rust-cache'
+    required: false
+    default: ''
+
+runs:
+  using: composite
+  steps:
+    - name: Setup Rust toolchain
+      uses: dtolnay/rust-toolchain@stable
+      with:
+        targets: ${{ inputs.targets }}
+
+    - name: Cache Rust dependencies
+      uses: Swatinem/rust-cache@v2
+      with:
+        workspaces: modules/veloqrs/rust
+        key: ${{ inputs.cache-key }}
+
+    - name: Install cargo-ndk
+      shell: bash
+      run: |
+        if ! command -v cargo-ndk &> /dev/null; then
+          cargo install cargo-ndk
+        fi

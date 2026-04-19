@@ -167,43 +167,10 @@ jobs:
 
       - name: Get version info
         id: version
-        run: |
-          VERSION=$(node -p "require('./package.json').version")
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-
-          MAJOR=$(echo $VERSION | cut -d. -f1)
-          MINOR=$(echo $VERSION | cut -d. -f2)
-          PATCH=$(echo $VERSION | cut -d. -f3)
-          VERSION_CODE=$((MAJOR * 10000 + MINOR * 100 + PATCH))
-          echo "version_code=$VERSION_CODE" >> $GITHUB_OUTPUT
-
-          SHORT_SHA=$(git rev-parse --short HEAD)
-          echo "short_sha=$SHORT_SHA" >> $GITHUB_OUTPUT
-
-          BUILD_TYPE="preview"
-          IS_RELEASE="false"
-
-          if [[ "${{ inputs.build_type }}" != "" && "${{ inputs.build_type }}" != "auto" ]]; then
-            BUILD_TYPE="${{ inputs.build_type }}"
-          elif [[ "${{ github.ref_type }}" == "tag" ]]; then
-            BUILD_TYPE="production"
-            IS_RELEASE="true"
-          fi
-
-          echo "build_type=$BUILD_TYPE" >> $GITHUB_OUTPUT
-          echo "is_release=$IS_RELEASE" >> $GITHUB_OUTPUT
-
-          if [[ "$BUILD_TYPE" == "production" ]]; then
-            echo "filename=veloq-${VERSION}" >> $GITHUB_OUTPUT
-          else
-            echo "filename=veloq-${VERSION}-${SHORT_SHA}" >> $GITHUB_OUTPUT
-          fi
-
-          # Source hash for build caching (skip on main — always build fresh for signing)
-          SOURCE_HASH=$(cat <(find src app modules plugins -type f \( -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.json" -o -name "*.kt" -o -name "*.java" -o -name "*.gradle" -o -name "*.rs" -o -name "*.toml" \) -exec sha256sum {} \; 2>/dev/null) <(sha256sum package.json app.json 2>/dev/null) | sort | sha256sum | cut -d' ' -f1 | head -c 12)
-          echo "source_hash=$SOURCE_HASH" >> $GITHUB_OUTPUT
-
-          echo "Build type: $BUILD_TYPE | Version: $VERSION ($VERSION_CODE) | Hash: $SOURCE_HASH"
+        uses: ./.github/actions/compute-version-info
+        with:
+          build-type-override: ${{ inputs.build_type }}
+          source-profile: android
 
       # Source-hash cache — skip build if code unchanged (non-main only)
       - name: Cache built APK
@@ -257,21 +224,11 @@ jobs:
         if: steps.apk-cache.outputs.cache-hit != 'true'
         run: npm ci
 
-      - name: Setup Rust toolchain
+      - name: Setup Rust for Android
         if: steps.apk-cache.outputs.cache-hit != 'true'
-        uses: dtolnay/rust-toolchain@stable
+        uses: ./.github/actions/setup-rust-android
         with:
           targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android,i686-linux-android
-
-      - name: Cache Rust dependencies
-        if: steps.apk-cache.outputs.cache-hit != 'true'
-        uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: modules/veloqrs/rust
-
-      - name: Install cargo-ndk
-        if: steps.apk-cache.outputs.cache-hit != 'true'
-        run: cargo install cargo-ndk
 
       - name: Build Rust libraries for Android
         if: steps.apk-cache.outputs.cache-hit != 'true'
@@ -297,38 +254,10 @@ jobs:
 
       - name: Write google-services.json
         if: steps.apk-cache.outputs.cache-hit != 'true'
-        env:
-          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
-        run: |
-          if [ -n "$GOOGLE_SERVICES_JSON" ]; then
-            echo "$GOOGLE_SERVICES_JSON" | base64 -d > google-services.json
-            echo "Wrote google-services.json from secret ($(stat -c%s google-services.json) bytes)"
-          else
-            echo "::notice::GOOGLE_SERVICES_JSON not available — writing stub for CI build"
-            cat > google-services.json << 'STUBEOF'
-          {
-            "project_info": {
-              "project_number": "000000000000",
-              "firebase_url": "https://placeholder.firebaseio.com",
-              "project_id": "placeholder",
-              "storage_bucket": "placeholder.appspot.com"
-            },
-            "client": [
-              {
-                "client_info": {
-                  "mobilesdk_app_id": "1:000000000000:android:0000000000000000",
-                  "android_client_info": {
-                    "package_name": "com.veloq.app"
-                  }
-                },
-                "api_key": [{"current_key": "placeholder"}]
-              }
-            ],
-            "configuration_version": "1"
-          }
-          STUBEOF
-            echo "Wrote google-services.json stub ($(stat -c%s google-services.json) bytes)"
-          fi
+        uses: ./.github/actions/write-google-services-stub
+        with:
+          secret-contents: ${{ secrets.GOOGLE_SERVICES_JSON }}
+          package-name: com.veloq.app
 
       - name: Cache Android prebuild
         if: steps.apk-cache.outputs.cache-hit != 'true'
@@ -552,43 +481,10 @@ jobs:
 
       - name: Get version info
         id: version
-        run: |
-          VERSION=$(node -p "require('./package.json').version")
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-
-          MAJOR=$(echo $VERSION | cut -d. -f1)
-          MINOR=$(echo $VERSION | cut -d. -f2)
-          PATCH=$(echo $VERSION | cut -d. -f3)
-          VERSION_CODE=$((MAJOR * 10000 + MINOR * 100 + PATCH))
-          echo "version_code=$VERSION_CODE" >> $GITHUB_OUTPUT
-
-          SHORT_SHA=$(git rev-parse --short HEAD)
-          echo "short_sha=$SHORT_SHA" >> $GITHUB_OUTPUT
-
-          BUILD_TYPE="preview"
-          IS_RELEASE="false"
-
-          if [[ "${{ inputs.build_type }}" != "" && "${{ inputs.build_type }}" != "auto" ]]; then
-            BUILD_TYPE="${{ inputs.build_type }}"
-          elif [[ "${{ github.ref_type }}" == "tag" ]]; then
-            BUILD_TYPE="production"
-            IS_RELEASE="true"
-          fi
-
-          echo "build_type=$BUILD_TYPE" >> $GITHUB_OUTPUT
-          echo "is_release=$IS_RELEASE" >> $GITHUB_OUTPUT
-
-          if [[ "$BUILD_TYPE" == "production" ]]; then
-            echo "filename=veloq-${VERSION}" >> $GITHUB_OUTPUT
-          else
-            echo "filename=veloq-${VERSION}-${SHORT_SHA}" >> $GITHUB_OUTPUT
-          fi
-
-          # Source hash for simulator .app caching
-          SOURCE_HASH=$(cat <(find src app modules plugins -type f \( -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.json" -o -name "*.swift" -o -name "*.m" -o -name "*.mm" -o -name "*.h" -o -name "*.kt" -o -name "*.java" -o -name "*.podspec" -o -name "*.rs" -o -name "*.toml" \) -exec sha256sum {} \; 2>/dev/null) <(sha256sum package.json app.json 2>/dev/null) | sort | sha256sum | cut -d' ' -f1 | head -c 12)
-          echo "source_hash=$SOURCE_HASH" >> $GITHUB_OUTPUT
-
-          echo "Build type: $BUILD_TYPE | Version: $VERSION ($VERSION_CODE) | Hash: $SOURCE_HASH"
+        uses: ./.github/actions/compute-version-info
+        with:
+          build-type-override: ${{ inputs.build_type }}
+          source-profile: ios
 
       # Source-hash cache for simulator .app
       - name: Cache simulator app
@@ -605,26 +501,11 @@ jobs:
           cache: "npm"
 
       # ---- Rust Build ----
-      - name: Setup Rust toolchain
+      - name: Setup Rust for iOS
         if: steps.app-cache.outputs.cache-hit != 'true'
-        uses: dtolnay/rust-toolchain@stable
+        uses: ./.github/actions/setup-rust-ios
         with:
           targets: aarch64-apple-ios,aarch64-apple-ios-sim,x86_64-apple-ios
-
-      - name: Cache Rust dependencies
-        if: steps.app-cache.outputs.cache-hit != 'true'
-        uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: modules/veloqrs/rust
-
-      - name: Copy C++ files for iOS build
-        if: steps.app-cache.outputs.cache-hit != 'true'
-        run: |
-          mkdir -p modules/veloqrs/ios/cpp/generated
-          cp modules/veloqrs/cpp/veloqrs.h modules/veloqrs/ios/cpp/
-          cp modules/veloqrs/cpp/veloqrs.cpp modules/veloqrs/ios/cpp/
-          cp modules/veloqrs/cpp/generated/veloqrs.hpp modules/veloqrs/ios/cpp/generated/
-          cp modules/veloqrs/cpp/generated/veloqrs.cpp modules/veloqrs/ios/cpp/generated/
 
       - name: Build Rust for iOS
         if: steps.app-cache.outputs.cache-hit != 'true'
@@ -992,9 +873,9 @@ jobs:
 
       - name: Compute source hash
         id: hash
-        run: |
-          SOURCE_HASH=$(cat <(find src app modules plugins -type f \( -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.json" -o -name "*.kt" -o -name "*.java" -o -name "*.gradle" -o -name "*.rs" -o -name "*.toml" \) -exec sha256sum {} \; 2>/dev/null) <(sha256sum package.json app.json 2>/dev/null) | sort | sha256sum | cut -d' ' -f1 | head -c 12)
-          echo "source_hash=$SOURCE_HASH" >> $GITHUB_OUTPUT
+        uses: ./.github/actions/compute-version-info
+        with:
+          source-profile: android
 
       - name: Cache dev APK
         id: apk-cache
@@ -1028,19 +909,11 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         if: steps.apk-cache.outputs.cache-hit != 'true'
 
-      - uses: dtolnay/rust-toolchain@stable
+      - name: Setup Rust for Android
         if: steps.apk-cache.outputs.cache-hit != 'true'
+        uses: ./.github/actions/setup-rust-android
         with:
           targets: aarch64-linux-android,x86_64-linux-android
-
-      - uses: Swatinem/rust-cache@v2
-        if: steps.apk-cache.outputs.cache-hit != 'true'
-        with:
-          workspaces: modules/veloqrs/rust
-
-      - name: Install cargo-ndk
-        if: steps.apk-cache.outputs.cache-hit != 'true'
-        run: cargo install cargo-ndk
 
       - name: Build Rust libraries
         if: steps.apk-cache.outputs.cache-hit != 'true'
@@ -1053,27 +926,9 @@ jobs:
 
       - name: Write google-services.json stub
         if: steps.apk-cache.outputs.cache-hit != 'true'
-        run: |
-          cat > google-services.json << 'EOF'
-          {
-            "project_info": {
-              "project_number": "000000000000",
-              "firebase_url": "https://placeholder.firebaseio.com",
-              "project_id": "placeholder",
-              "storage_bucket": "placeholder.appspot.com"
-            },
-            "client": [
-              {
-                "client_info": {
-                  "mobilesdk_app_id": "1:000000000000:android:0000000000000000",
-                  "android_client_info": { "package_name": "com.veloq.app.dev" }
-                },
-                "api_key": [{"current_key": "placeholder"}]
-              }
-            ],
-            "configuration_version": "1"
-          }
-          EOF
+        uses: ./.github/actions/write-google-services-stub
+        with:
+          package-name: com.veloq.app.dev
 
       - name: Generate native project (dev variant)
         if: steps.apk-cache.outputs.cache-hit != 'true'
@@ -1107,9 +962,9 @@ jobs:
 
       - name: Compute source hash
         id: hash
-        run: |
-          SOURCE_HASH=$(cat <(find src app modules plugins -type f \( -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.json" -o -name "*.swift" -o -name "*.m" -o -name "*.mm" -o -name "*.h" -o -name "*.podspec" -o -name "*.rs" -o -name "*.toml" \) -exec sha256sum {} \; 2>/dev/null) <(sha256sum package.json app.json 2>/dev/null) | sort | sha256sum | cut -d' ' -f1 | head -c 12)
-          echo "source_hash=$SOURCE_HASH" >> $GITHUB_OUTPUT
+        uses: ./.github/actions/compute-version-info
+        with:
+          source-profile: ios
 
       - name: Cache dev simulator app
         id: app-cache
@@ -1136,24 +991,11 @@ jobs:
       - if: steps.app-cache.outputs.cache-hit != 'true'
         run: npm ci
 
-      - uses: dtolnay/rust-toolchain@stable
+      - name: Setup Rust for iOS
         if: steps.app-cache.outputs.cache-hit != 'true'
+        uses: ./.github/actions/setup-rust-ios
         with:
           targets: aarch64-apple-ios-sim,x86_64-apple-ios
-
-      - uses: Swatinem/rust-cache@v2
-        if: steps.app-cache.outputs.cache-hit != 'true'
-        with:
-          workspaces: modules/veloqrs/rust
-
-      - name: Copy C++ files for iOS build
-        if: steps.app-cache.outputs.cache-hit != 'true'
-        run: |
-          mkdir -p modules/veloqrs/ios/cpp/generated
-          cp modules/veloqrs/cpp/veloqrs.h modules/veloqrs/ios/cpp/
-          cp modules/veloqrs/cpp/veloqrs.cpp modules/veloqrs/ios/cpp/
-          cp modules/veloqrs/cpp/generated/veloqrs.hpp modules/veloqrs/ios/cpp/generated/
-          cp modules/veloqrs/cpp/generated/veloqrs.cpp modules/veloqrs/ios/cpp/generated/
 
       - name: Build Rust for iOS simulator
         if: steps.app-cache.outputs.cache-hit != 'true'
@@ -1245,12 +1087,7 @@ jobs:
           path: /tmp/android-artifact
 
       - name: Install Maestro
-        run: |
-          if [ ! -f "$HOME/.maestro/bin/maestro" ]; then
-            curl -Ls "https://get.maestro.mobile.dev" | bash
-          fi
-          echo "$HOME/.maestro/bin" >> $GITHUB_PATH
-          "$HOME/.maestro/bin/maestro" --version
+        uses: ./.github/actions/install-maestro
 
       - name: Boot emulator
         run: |
@@ -1390,10 +1227,7 @@ jobs:
           unzip "$ZIP" -d ios/build/Build/Products/Release-iphonesimulator/
 
       - name: Install Maestro
-        run: |
-          curl -Ls "https://get.maestro.mobile.dev" | bash
-          echo "$HOME/.maestro/bin" >> $GITHUB_PATH
-          "$HOME/.maestro/bin/maestro" --version
+        uses: ./.github/actions/install-maestro
 
       - name: Find and boot simulator
         id: simulator
