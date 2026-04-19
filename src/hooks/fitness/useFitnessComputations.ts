@@ -33,6 +33,10 @@ interface FitnessComputations {
   displayValues: FitnessChartValues | (FitnessChartValues & { date: string }) | null;
   displayDate: string | null | undefined;
   formZone: FormZone | null;
+  /** Ramp rate: CTL change over the trailing 7 days (units: CTL points). */
+  rampRate: number | null;
+  /** Form as percentage of fitness (TSB/CTL*100). Null when fitness is 0. */
+  formPercent: number | null;
 }
 
 /**
@@ -109,6 +113,26 @@ export function useFitnessComputations({
   const displayDate = selectedDate || currentValues?.date;
   const formZone = displayValues ? getFormZone(displayValues.form) : null;
 
+  // Ramp rate: CTL now − CTL seven days ago (in CTL points). Positive means
+  // building; negative means detraining. Forum "safety guardrail" for
+  // overtraining — +6/week is a common rule of thumb.
+  const rampRate = useMemo<number | null>(() => {
+    if (!wellness || wellness.length < 8) return null;
+    const sorted = [...wellness].sort((a, b) => a.id.localeCompare(b.id));
+    const latest = sorted[sorted.length - 1];
+    const weekAgo = sorted[sorted.length - 8];
+    const latestCtl = latest.ctl ?? latest.ctlLoad;
+    const weekAgoCtl = weekAgo.ctl ?? weekAgo.ctlLoad;
+    if (latestCtl == null || weekAgoCtl == null) return null;
+    return latestCtl - weekAgoCtl;
+  }, [wellness]);
+
+  // Form as % of fitness = TSB / CTL × 100. Null when fitness is 0 or missing.
+  const formPercent = useMemo<number | null>(() => {
+    if (!displayValues || displayValues.fitness === 0) return null;
+    return (displayValues.form / displayValues.fitness) * 100;
+  }, [displayValues]);
+
   return {
     ftpTrend,
     dominantZone,
@@ -117,5 +141,7 @@ export function useFitnessComputations({
     displayValues,
     displayDate,
     formZone,
+    rampRate,
+    formPercent,
   };
 }

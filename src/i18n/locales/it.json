@@ -532,7 +532,11 @@
       "transition": "TSB sopra 25. Stimolo di allenamento recente minimo. Forma in calo."
     },
     "tsb": "TSB",
-    "understandingMetrics": "Capire le metriche"
+    "understandingMetrics": "Capire le metriche",
+    "rampRate": "Rampa",
+    "perWeek": "/sett",
+    "formPercent": "Forma %",
+    "ofFitness": "del CTL"
   },
   "formZones": {
     "transition": "Transizione",

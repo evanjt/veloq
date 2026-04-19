@@ -532,7 +532,11 @@
       "transition": "TSB above 25. Minimal recent training stimulus. Fitness declining."
     },
     "tsb": "TSB",
-    "understandingMetrics": "Understanding the Metrics"
+    "understandingMetrics": "Understanding the Metrics",
+    "rampRate": "Ramp",
+    "perWeek": "/wk",
+    "formPercent": "Form %",
+    "ofFitness": "of CTL"
   },
   "formZones": {
     "transition": "Transition",

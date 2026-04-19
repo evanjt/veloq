@@ -532,7 +532,11 @@
       "transition": "TSB高于25。近期训练刺激最小。体能下降中。"
     },
     "tsb": "TSB",
-    "understandingMetrics": "了解指标"
+    "understandingMetrics": "了解指标",
+    "rampRate": "升幅",
+    "perWeek": "/周",
+    "formPercent": "状态 %",
+    "ofFitness": "占 CTL"
   },
   "formZones": {
     "transition": "过渡期",

@@ -133,17 +133,25 @@ export default function FitnessScreen() {
   const { isRefreshing, onRefresh } = useFitnessRefresh(refetch);
 
   // Memoized derivations (FTP trend, dominant zone, decoupling, form zone, display values)
-  const { ftpTrend, dominantZone, decouplingValue, displayValues, displayDate, formZone } =
-    useFitnessComputations({
-      wellness,
-      sportMode,
-      powerZones,
-      hrZones,
-      eftpHistory,
-      decouplingStreams,
-      selectedDate,
-      selectedValues,
-    });
+  const {
+    ftpTrend,
+    dominantZone,
+    decouplingValue,
+    displayValues,
+    displayDate,
+    formZone,
+    rampRate,
+    formPercent,
+  } = useFitnessComputations({
+    wellness,
+    sportMode,
+    powerZones,
+    hrZones,
+    eftpHistory,
+    decouplingStreams,
+    selectedDate,
+    selectedValues,
+  });
 
   const days = timeRangeToDays(timeRange);
 
@@ -215,6 +223,8 @@ export default function FitnessScreen() {
             displayValues={displayValues}
             formZone={formZone}
             isDark={isDark}
+            rampRate={rampRate}
+            formPercent={formPercent}
           />
 
           {/* Time range selector */}

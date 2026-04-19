@@ -532,7 +532,11 @@
       "transition": "TSBが25以上。最近のトレーニング刺激が最小限。フィットネスが低下中。"
     },
     "tsb": "TSB",
-    "understandingMetrics": "指標を理解する"
+    "understandingMetrics": "指標を理解する",
+    "rampRate": "ランプ",
+    "perWeek": "/週",
+    "formPercent": "フォーム%",
+    "ofFitness": "CTL比"
   },
   "formZones": {
     "transition": "移行",

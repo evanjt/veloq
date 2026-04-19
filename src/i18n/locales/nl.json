@@ -532,7 +532,11 @@
       "transition": "TSB boven 25. Minimale recente trainingsprikkel. Fitness dalend."
     },
     "tsb": "TSB",
-    "understandingMetrics": "De statistieken begrijpen"
+    "understandingMetrics": "De statistieken begrijpen",
+    "rampRate": "Stijging",
+    "perWeek": "/week",
+    "formPercent": "Vorm %",
+    "ofFitness": "van CTL"
   },
   "formZones": {
     "transition": "Overgang",

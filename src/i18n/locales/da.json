@@ -532,7 +532,11 @@
       "transition": "TSB over 25. Minimal nylig træningsstimulus. Kondition faldende."
     },
     "tsb": "TSB",
-    "understandingMetrics": "Forstå målingerne"
+    "understandingMetrics": "Forstå målingerne",
+    "rampRate": "Ramp",
+    "perWeek": "/uge",
+    "formPercent": "Form %",
+    "ofFitness": "af CTL"
   },
   "formZones": {
     "transition": "Overgang",

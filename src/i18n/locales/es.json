@@ -532,7 +532,11 @@
       "transition": "TSB por encima de 25. Estímulo de entrenamiento reciente mínimo. Fitness en descenso."
     },
     "tsb": "TSB",
-    "understandingMetrics": "Entendiendo las métricas"
+    "understandingMetrics": "Entendiendo las métricas",
+    "rampRate": "Rampa",
+    "perWeek": "/sem",
+    "formPercent": "Forma %",
+    "ofFitness": "de CTL"
   },
   "formZones": {
     "transition": "Transición",

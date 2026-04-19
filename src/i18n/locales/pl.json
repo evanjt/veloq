@@ -532,7 +532,11 @@
       "transition": "TSB powyżej 25. Minimalny ostatni bodziec treningowy. Kondycja spada."
     },
     "tsb": "TSB",
-    "understandingMetrics": "Zrozumienie metryk"
+    "understandingMetrics": "Zrozumienie metryk",
+    "rampRate": "Tempo",
+    "perWeek": "/tydz.",
+    "formPercent": "Forma %",
+    "ofFitness": "CTL"
   },
   "formZones": {
     "transition": "Przejściowa",

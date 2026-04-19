@@ -532,7 +532,11 @@
       "transition": "TSB über 25. Wenig Trainingsreiz i letschter Zyt. D'Fitness gaht abe."
     },
     "tsb": "TSB",
-    "understandingMetrics": "D Zahle verstaa"
+    "understandingMetrics": "D Zahle verstaa",
+    "rampRate": "Anstieg",
+    "perWeek": "/Woche",
+    "formPercent": "Form %",
+    "ofFitness": "von CTL"
   },
   "formZones": {
     "transition": "Übergang",

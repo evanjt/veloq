@@ -781,6 +781,10 @@ export interface TranslationResource {
     ctl: string;
     atl: string;
     tsb: string;
+    rampRate: string;
+    perWeek: string;
+    formPercent: string;
+    ofFitness: string;
     fitnessAndFatigue: string;
     understandingMetrics: string;
     fitnessDescription: string;

@@ -532,7 +532,11 @@
       "transition": "TSB au-dessus de 25. Stimulus d'entraînement récent minimal. Forme en baisse."
     },
     "tsb": "TSB",
-    "understandingMetrics": "Comprendre les métriques"
+    "understandingMetrics": "Comprendre les métriques",
+    "rampRate": "Montée",
+    "perWeek": "/sem",
+    "formPercent": "Forme %",
+    "ofFitness": "du CTL"
   },
   "formZones": {
     "transition": "Transition",
@@ -1303,7 +1307,7 @@
     "noMatchesFound": "Aucune section correspondante trouvée",
     "noSectionsFound": "Aucune section trouvée",
     "matchQuality": "{{quality}}% de correspondance",
-    "atPosition": "\u00e0 {{pct}}%",
+    "atPosition": "à {{pct}}%",
     "addToSection": "Ajouter",
     "nearbySections": "Sections à proximité",
     "nearbySectionsCount": "{{count}} à proximité",

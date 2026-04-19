@@ -532,7 +532,11 @@
       "transition": "TSB über 25. Minimaler Trainingsreiz in letzter Zeit. Fitness nimmt ab."
     },
     "tsb": "TSB",
-    "understandingMetrics": "Die Metriken verstehen"
+    "understandingMetrics": "Die Metriken verstehen",
+    "rampRate": "Anstieg",
+    "perWeek": "/Woche",
+    "formPercent": "Form %",
+    "ofFitness": "von CTL"
   },
   "formZones": {
     "transition": "Übergang",

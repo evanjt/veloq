@@ -532,7 +532,11 @@
       "transition": "TSB above 25. Not much training stimulus lately. Fitness is dropping off."
     },
     "tsb": "TSB",
-    "understandingMetrics": "What's all this mean?"
+    "understandingMetrics": "What's all this mean?",
+    "rampRate": "Ramp",
+    "perWeek": "/wk",
+    "formPercent": "Form %",
+    "ofFitness": "of CTL"
   },
   "formZones": {
     "transition": "Transition",
