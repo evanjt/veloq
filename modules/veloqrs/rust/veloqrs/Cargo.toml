@@ -94,6 +94,10 @@ required-features = ["synthetic"]
 name = "schema_indexes"
 required-features = ["synthetic"]
 
+[[test]]
+name = "consensus_persistence"
+required-features = ["synthetic"]
+
 [[bin]]
 name = "uniffi-bindgen"
 path = "uniffi-bindgen.rs"

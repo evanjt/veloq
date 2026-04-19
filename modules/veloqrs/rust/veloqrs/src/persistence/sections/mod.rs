@@ -132,7 +132,7 @@ impl PersistentRouteEngine {
                 "SELECT id, section_type, name, sport_type, polyline_json, distance_meters,
                         representative_activity_id, confidence, observation_count, average_spread,
                         point_density_json, scale, version, is_user_defined, stability,
-                        created_at, updated_at
+                        created_at, updated_at, consensus_state_blob
                  FROM sections WHERE section_type = 'auto'",
             )?;
 
@@ -142,6 +142,19 @@ impl PersistentRouteEngine {
                     let polyline_json: String = row.get(4)?;
                     let point_density_json: Option<String> = row.get(10)?;
                     let representative_activity_id: Option<String> = row.get(6)?;
+                    let consensus_state_blob: Option<Vec<u8>> = row.get(17)?;
+                    let consensus_state = consensus_state_blob.and_then(|bytes| {
+                        match rmp_serde::from_slice::<tracematch::sections::ConsensusAccumulator>(&bytes) {
+                            Ok(acc) => Some(acc),
+                            Err(e) => {
+                                log::warn!(
+                                    "tracematch: [load_sections] failed to deserialize consensus_state blob for section {}: {}",
+                                    id, e
+                                );
+                                None
+                            }
+                        }
+                    });
 
                     let polyline: Vec<GpsPoint> = serde_json::from_str(&polyline_json)
                         .map_err(|e| rusqlite::Error::FromSqlConversionFailure(4, Type::Text, Box::new(e)))?;
@@ -191,6 +204,7 @@ impl PersistentRouteEngine {
                         version: row.get::<_, Option<u32>>(12)?.unwrap_or(1),
                         updated_at: row.get(16)?,
                         created_at: row.get(15)?,
+                        consensus_state,
                     })
                 })?
                 .filter_map(|r| match r {
@@ -475,6 +489,7 @@ impl PersistentRouteEngine {
             version: version.unwrap_or(1),
             updated_at,
             created_at,
+            consensus_state: None,
         };
 
         // Find and update existing section, or append if new
@@ -726,6 +741,7 @@ impl PersistentRouteEngine {
             version: section.version.unwrap_or(1),
             updated_at: section.updated_at,
             created_at: Some(section.created_at),
+            consensus_state: None,
         };
 
         // Cache for future access
@@ -1102,8 +1118,9 @@ impl PersistentRouteEngine {
                 id, section_type, name, sport_type, polyline_json, distance_meters,
                 representative_activity_id, confidence, observation_count, average_spread,
                 point_density_json, scale, version, is_user_defined, stability, created_at, updated_at,
-                bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng
-            ) VALUES (?, 'auto', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+                bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng,
+                consensus_state_blob
+            ) VALUES (?, 'auto', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
         )?;
         let mut junction_stmt = tx
             .prepare("INSERT INTO section_activities (section_id, activity_id, direction, start_index, end_index, distance_meters, lap_time, lap_pace) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")?;
@@ -1171,6 +1188,15 @@ impl PersistentRouteEngine {
                     (None, None, None, None)
                 };
 
+            // Serialise the consensus accumulator if present, as a
+            // MessagePack blob (smaller + faster than JSON; matches the
+            // gps_tracks/signatures convention). None → NULL, letting the
+            // next incremental touch lazily backfill from current traces.
+            let consensus_state_blob = section
+                .consensus_state
+                .as_ref()
+                .and_then(|acc| rmp_serde::to_vec(acc).ok());
+
             section_stmt.execute(params![
                 section.id,
                 name_to_save,
@@ -1196,6 +1222,7 @@ impl PersistentRouteEngine {
                 bounds_max_lat,
                 bounds_min_lng,
                 bounds_max_lng,
+                consensus_state_blob,
             ])?;
 
             // Populate junction table with full portion details and cached performance metrics.

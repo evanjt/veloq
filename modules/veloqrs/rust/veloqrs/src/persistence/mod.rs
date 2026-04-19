@@ -1314,6 +1314,7 @@ mod tests {
             version: 1,
             updated_at: None,
             created_at: Some("2026-01-28T00:00:00Z".to_string()),
+            consensus_state: None,
         }
     }
 
