@@ -138,6 +138,12 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_fn_constructor_fitnessmanager_new(
     uniffi_out_err: UniffiRustCallStatus,
   ): bigint;
+  ubrn_uniffi_veloqrs_fn_method_fitnessmanager_compute_gap_stream(
+    ptr: bigint,
+    paceStream: Uint8Array,
+    gradientStream: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_fitnessmanager_compute_hrv_trend(
     ptr: bigint,
     days: number,
@@ -1022,6 +1028,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_detectionmanager_get_progress(): number;
   ubrn_uniffi_veloqrs_checksum_method_detectionmanager_poll(): number;
   ubrn_uniffi_veloqrs_checksum_method_detectionmanager_start(): number;
+  ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_compute_gap_stream(): number;
   ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_compute_hrv_trend(): number;
   ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_compute_wbal(): number;
   ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_find_stale_pr_opportunities(): number;

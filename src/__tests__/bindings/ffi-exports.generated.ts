@@ -6,7 +6,7 @@
  * Used by tests to validate TypeScript bindings match Rust exports.
  *
  * 4 standalone `#[uniffi::export]` functions plus
- * 167 methods inside `#[uniffi::export] impl` blocks across
+ * 170 methods inside `#[uniffi::export] impl` blocks across
  * 10 UniFFI Objects.
  */
 
@@ -25,7 +25,7 @@ export interface FfiExportInfo {
 
 /**
  * All FFI exports from Rust source.
- * Total: 171 exports (4 standalone + 167 methods)
+ * Total: 174 exports (4 standalone + 170 methods)
  */
 export const FFI_EXPORTS: FfiExportInfo[] = [
   {
@@ -474,6 +474,20 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     object: 'FitnessManager',
   },
   {
+    name: 'compute_wbal',
+    camelName: 'computeWbal',
+    file: 'objects/fitness.rs',
+    line: 511,
+    object: 'FitnessManager',
+  },
+  {
+    name: 'compute_gap_stream',
+    camelName: 'computeGapStream',
+    file: 'objects/fitness.rs',
+    line: 538,
+    object: 'FitnessManager',
+  },
+  {
     name: 'new',
     camelName: 'new',
     file: 'objects/maps.rs',
@@ -596,28 +610,28 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'include_activity',
     camelName: 'includeActivity',
     file: 'objects/routes.rs',
-    line: 153,
+    line: 150,
     object: 'RouteManager',
   },
   {
     name: 'get_excluded_activities',
     camelName: 'getExcludedActivities',
     file: 'objects/routes.rs',
-    line: 167,
+    line: 161,
     object: 'RouteManager',
   },
   {
     name: 'get_excluded_performances',
     camelName: 'getExcludedPerformances',
     file: 'objects/routes.rs',
-    line: 171,
+    line: 165,
     object: 'RouteManager',
   },
   {
     name: 'get_activity_route_highlights',
     camelName: 'getActivityRouteHighlights',
     file: 'objects/routes.rs',
-    line: 184,
+    line: 178,
     object: 'RouteManager',
   },
   {
@@ -1139,31 +1153,38 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     object: 'StrengthManager',
   },
   {
+    name: 'import_sets_from_fit',
+    camelName: 'importSetsFromFit',
+    file: 'objects/strength.rs',
+    line: 475,
+    object: 'StrengthManager',
+  },
+  {
     name: 'bulk_insert_exercise_sets',
     camelName: 'bulkInsertExerciseSets',
     file: 'objects/strength.rs',
-    line: 475,
+    line: 513,
     object: 'StrengthManager',
   },
   {
     name: 'has_strength_data',
     camelName: 'hasStrengthData',
     file: 'objects/strength.rs',
-    line: 510,
+    line: 548,
     object: 'StrengthManager',
   },
   {
     name: 'get_muscle_groups',
     camelName: 'getMuscleGroups',
     file: 'objects/strength.rs',
-    line: 523,
+    line: 561,
     object: 'StrengthManager',
   },
   {
     name: 'get_muscle_detail',
     camelName: 'getMuscleDetail',
     file: 'objects/strength.rs',
-    line: 545,
+    line: 583,
     object: 'StrengthManager',
   },
   {
@@ -1219,7 +1240,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'compute_polyline_overlap',
     camelName: 'computePolylineOverlap',
     file: 'persistence/mod.rs',
-    line: 1039,
+    line: 1087,
   },
 ];
 
@@ -1291,6 +1312,8 @@ export const EXPECTED_TS_FUNCTIONS = new Set<string>([
   'findStalePrOpportunities',
   'getInsightsData',
   'getStartupData',
+  'computeWbal',
+  'computeGapStream',
   'new',
   'queryViewport',
   'getFiltered',
@@ -1386,6 +1409,7 @@ export const EXPECTED_TS_FUNCTIONS = new Set<string>([
   'getStrengthInsightSeries',
   'getExercisesForMuscle',
   'getActivitiesForExercise',
+  'importSetsFromFit',
   'bulkInsertExerciseSets',
   'hasStrengthData',
   'getMuscleGroups',
@@ -1470,6 +1494,8 @@ export const RUST_TO_TS_NAME: Record<string, string> = {
   find_stale_pr_opportunities: 'findStalePrOpportunities',
   get_insights_data: 'getInsightsData',
   get_startup_data: 'getStartupData',
+  compute_wbal: 'computeWbal',
+  compute_gap_stream: 'computeGapStream',
   query_viewport: 'queryViewport',
   get_filtered: 'getFiltered',
   get_bounds_for_range: 'getBoundsForRange',
@@ -1546,6 +1572,7 @@ export const RUST_TO_TS_NAME: Record<string, string> = {
   get_strength_insight_series: 'getStrengthInsightSeries',
   get_exercises_for_muscle: 'getExercisesForMuscle',
   get_activities_for_exercise: 'getActivitiesForExercise',
+  import_sets_from_fit: 'importSetsFromFit',
   bulk_insert_exercise_sets: 'bulkInsertExerciseSets',
   has_strength_data: 'hasStrengthData',
   get_muscle_groups: 'getMuscleGroups',

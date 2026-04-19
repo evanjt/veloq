@@ -358,6 +358,7 @@
     "dist": "距离",
     "elapsedTime": "总用时",
     "elev": "海拔",
+    "gap": "配速（坡度）",
     "grade": "坡度",
     "gradient": "坡度(计算)",
     "hr": "心率",

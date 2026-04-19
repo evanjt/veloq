@@ -14,6 +14,7 @@ type ChartTypeKey =
   | 'chartTypes.cad'
   | 'chartTypes.speed'
   | 'chartTypes.pace'
+  | 'chartTypes.gap'
   | 'chartTypes.elev'
   | 'chartTypes.grade'
   | 'chartTypes.gradient'
@@ -27,6 +28,7 @@ const CHART_LABEL_KEYS: Partial<Record<ChartTypeId, ChartTypeKey>> = {
   cadence: 'chartTypes.cad',
   speed: 'chartTypes.speed',
   pace: 'chartTypes.pace',
+  gap: 'chartTypes.gap',
   elevation: 'chartTypes.elev',
   grade: 'chartTypes.grade',
   gradient: 'chartTypes.gradient',

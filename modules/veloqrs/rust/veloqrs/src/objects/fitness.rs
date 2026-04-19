@@ -517,6 +517,31 @@ impl FitnessManager {
     ) -> Result<Vec<i32>, VeloqError> {
         Ok(compute_wbal_stream(&power_stream, cp, w_prime, dt))
     }
+
+    /// Compute a Gradient-Adjusted Pace (GAP) stream from a raw pace stream and
+    /// an aligned gradient stream using Minetti's cost-of-transport model.
+    ///
+    /// - `pace_stream`: per-sample pace in minutes per km (values must be > 0
+    ///   to contribute; zeros and non-finite samples are passed through as 0).
+    /// - `gradient_stream`: per-sample gradient. Accepts either a percent value
+    ///   (e.g. `5.0` for 5%) or a fraction (e.g. `0.05`); we auto-detect by
+    ///   magnitude so callers that already compute a percent stream via
+    ///   `computeGradientStream` can pass it through unchanged.
+    ///
+    /// Returns a vector of the same length as `pace_stream`. If the two inputs
+    /// have different lengths the shorter length is used; on empty input an
+    /// empty vector is returned.
+    ///
+    /// Minetti, A. E., et al. (2002) "Energy cost of walking and running at
+    /// extreme uphill and downhill slopes." J. Appl. Physiol. 93(3):1039-1046.
+    /// Valid for gradients in roughly [-0.45, +0.45].
+    fn compute_gap_stream(
+        &self,
+        pace_stream: Vec<f64>,
+        gradient_stream: Vec<f64>,
+    ) -> Result<Vec<f64>, VeloqError> {
+        Ok(compute_gap_stream(&pace_stream, &gradient_stream))
+    }
 }
 
 /// Pure W'bal computation kernel, split out so it can be unit-tested without
@@ -566,9 +591,72 @@ fn compute_wbal_stream(power_stream: &[u32], cp: u32, w_prime: u32, dt: u32) -> 
     out
 }
 
+/// Minetti cost-of-transport kernel (public domain formula).
+///
+/// `g` is gradient as a fraction (rise/run). Returns cost in J/(kg·m) for
+/// running. Recommended input range [-0.45, +0.45]; we clamp to that band so
+/// extreme GPS noise spikes never blow up the multiplier.
+///
+/// Minetti, A. E., et al. (2002) J. Appl. Physiol. 93(3):1039-1046.
+fn minetti_cost(g: f64) -> f64 {
+    let g = g.clamp(-0.45, 0.45);
+    let g2 = g * g;
+    let g3 = g2 * g;
+    let g4 = g3 * g;
+    let g5 = g4 * g;
+    155.4 * g5 - 30.4 * g4 - 43.3 * g3 + 46.3 * g2 + 19.5 * g + 3.6
+}
+
+/// Pure GAP computation kernel. See the `FitnessManager::compute_gap_stream`
+/// wrapper above for the FFI-facing contract.
+///
+/// The pace multiplier is `cost(0) / cost(g)` so flat running returns the raw
+/// pace, uphill returns a smaller min/km number (faster equivalent flat pace),
+/// and downhill returns a larger one (a modest penalty at shallow grades).
+fn compute_gap_stream(pace_stream: &[f64], gradient_stream: &[f64]) -> Vec<f64> {
+    let n = pace_stream.len().min(gradient_stream.len());
+    let mut out = Vec::with_capacity(n);
+    if n == 0 {
+        return out;
+    }
+
+    let flat_cost = minetti_cost(0.0);
+    for i in 0..n {
+        let pace = pace_stream[i];
+        if !pace.is_finite() || pace <= 0.0 {
+            out.push(0.0);
+            continue;
+        }
+
+        let raw_g = gradient_stream[i];
+        if !raw_g.is_finite() {
+            out.push(pace);
+            continue;
+        }
+
+        // Auto-detect percent vs fraction. Realistic gradient fractions rarely
+        // exceed 0.45 (45%), but a percent stream can easily sit in single or
+        // double digits. Anything |g| > 1 is treated as percent.
+        let gradient = if raw_g.abs() > 1.0 { raw_g / 100.0 } else { raw_g };
+
+        let cost = minetti_cost(gradient);
+        if !cost.is_finite() || cost <= 0.0 {
+            out.push(pace);
+            continue;
+        }
+
+        let multiplier = flat_cost / cost;
+        let gap = pace * multiplier;
+        out.push(if gap.is_finite() { gap } else { pace });
+    }
+
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::compute_wbal_stream;
+    use super::{compute_gap_stream, minetti_cost};
 
     #[test]
     fn empty_stream_returns_empty() {
@@ -628,5 +716,82 @@ mod tests {
             "expected negative W'bal, got {}",
             out.last().unwrap()
         );
+    }
+
+    #[test]
+    fn gap_empty_stream_returns_empty() {
+        assert!(compute_gap_stream(&[], &[]).is_empty());
+        // Mismatched length with one side empty should also be empty.
+        assert!(compute_gap_stream(&[5.0, 4.5], &[]).is_empty());
+        assert!(compute_gap_stream(&[], &[0.0, 1.0]).is_empty());
+    }
+
+    #[test]
+    fn gap_flat_terrain_matches_raw_pace() {
+        // On flat ground the cost ratio is 1.0, so GAP == raw pace.
+        let pace = vec![5.0_f64; 10];
+        let gradient = vec![0.0_f64; 10];
+        let out = compute_gap_stream(&pace, &gradient);
+        assert_eq!(out.len(), 10);
+        for (raw, gap) in pace.iter().zip(out.iter()) {
+            assert!(
+                (raw - gap).abs() < 1e-9,
+                "expected flat GAP ≈ raw ({} vs {})",
+                raw,
+                gap
+            );
+        }
+    }
+
+    #[test]
+    fn gap_uphill_faster_equivalent_pace() {
+        // Climbing costs more energy per metre, so the equivalent flat pace is
+        // faster (lower min/km). Running 5:00/km up a 10% grade is a much
+        // harder effort than the same pace on flat ground.
+        let pace = vec![5.0_f64; 5];
+        let gradient = vec![0.10_f64; 5]; // 10% as fraction
+        let out = compute_gap_stream(&pace, &gradient);
+        assert_eq!(out.len(), 5);
+
+        // Sanity: Minetti cost at +10% is ~meaningfully greater than flat.
+        assert!(minetti_cost(0.10) > minetti_cost(0.0));
+
+        // GAP should be strictly less than raw pace (faster equivalent).
+        // Using the formula: cost(0.10) ≈ 6.55, cost(0) = 3.6 → ratio ≈ 0.55,
+        // so GAP ≈ 5.0 * 0.55 ≈ 2.75 min/km. Loose bounds keep the test
+        // robust if the model is ever replaced with an equivalent formulation.
+        for gap in &out {
+            assert!(*gap < 5.0, "expected uphill GAP < raw pace, got {}", gap);
+            assert!(*gap > 0.0, "expected finite positive GAP, got {}", gap);
+        }
+    }
+
+    #[test]
+    fn gap_downhill_slower_equivalent_pace_modestly() {
+        // Gentle downhill is easier than flat, so the equivalent flat pace is
+        // slower (higher min/km), but only modestly. Steeper downhill starts
+        // costing energy again (braking), so the effect plateaus.
+        let pace = vec![5.0_f64; 5];
+        let gradient = vec![-0.05_f64; 5]; // -5%
+        let out = compute_gap_stream(&pace, &gradient);
+        assert_eq!(out.len(), 5);
+
+        // -5% should sit near the minimum-cost region of the curve.
+        assert!(minetti_cost(-0.05) < minetti_cost(0.0));
+
+        for gap in &out {
+            // GAP slower than raw pace, but by less than ~2x — gentle downhill
+            // is only a small multiplier.
+            assert!(
+                *gap > 5.0,
+                "expected downhill GAP > raw pace, got {}",
+                gap
+            );
+            assert!(
+                *gap < 10.0,
+                "expected modest downhill multiplier, got {}",
+                gap
+            );
+        }
     }
 }

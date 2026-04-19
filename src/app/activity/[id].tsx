@@ -36,7 +36,7 @@ import type {
 } from '@/components/maps/ActivityMapView';
 import type { CreationState } from '@/components/maps/SectionCreationOverlay';
 import { convertLatLngTuples, decodePolyline } from '@/lib';
-import { useExerciseSets, useWbalStream } from '@/hooks/activities';
+import { useExerciseSets, useWbalStream, useGapStream } from '@/hooks/activities';
 import { useAthlete, useSportSettings } from '@/hooks';
 import { ExerciseTable } from '@/components/activity/ExerciseTable';
 import { MuscleGroupView } from '@/components/activity/MuscleGroupView';
@@ -152,13 +152,21 @@ export default function ActivityDetailScreen() {
   // FTP + athlete W'. Returns undefined when FTP or power is unavailable.
   const wbalStream = useWbalStream(activity, streams, athlete, sportSettings);
 
-  // Merge wbal into the streams object passed to charts. Skips allocation
-  // when wbal is not available so other chart types are unaffected.
+  // Gradient-Adjusted Pace stream (min/km). Computed in Rust from pace +
+  // derived gradient via Minetti's cost-of-transport model. Returns undefined
+  // when pace, altitude, or distance is unavailable.
+  const gapStream = useGapStream(activity, streams);
+
+  // Merge derived streams (wbal, gap) into the streams object passed to
+  // charts. Skips allocation when neither is available.
   const chartStreams = useMemo(() => {
     if (!streams) return streams;
-    if (!wbalStream) return streams;
-    return { ...streams, wbal: wbalStream };
-  }, [streams, wbalStream]);
+    if (!wbalStream && !gapStream) return streams;
+    const merged: typeof streams = { ...streams };
+    if (wbalStream) merged.wbal = wbalStream;
+    if (gapStream) merged.gap = gapStream;
+    return merged;
+  }, [streams, wbalStream, gapStream]);
 
   // Get auto-detected sections from engine that include this activity
   const { sections: engineSectionMatches, count: engineSectionCount } = useSectionMatches(id);

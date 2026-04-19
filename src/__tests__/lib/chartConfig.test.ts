@@ -145,4 +145,33 @@ describe('getAvailableCharts', () => {
     const data = CHART_CONFIGS.wbal.getStream!(streams);
     expect(data).toEqual([20, 15.5, 0, -1]);
   });
+
+  it('includes gap when the gap stream is populated', () => {
+    // GAP is precomputed upstream (pace + altitude + distance → Rust).
+    // When any of those inputs are missing `useGapStream` returns undefined
+    // and `streams.gap` stays unset — so the chip visibility check mirrors
+    // the wbal pattern: present iff `streams.gap` is populated.
+    const streams: ActivityStreams = {
+      velocity_smooth: [3, 4, 5],
+      altitude: [100, 110, 120],
+      distance: [0, 100, 200],
+      gap: [4.5, 4.3, 4.1],
+    };
+    const ids = getAvailableCharts(streams).map((c) => c.id);
+    expect(ids).toContain('gap');
+  });
+
+  it('excludes gap when the gap stream is not populated', () => {
+    // Raw pace + gradient inputs alone don't surface GAP — the upstream
+    // `useGapStream` hook is responsible for writing `streams.gap`. Without
+    // it the chip stays hidden.
+    const streams: ActivityStreams = {
+      velocity_smooth: [3, 4, 5],
+      altitude: [100, 110, 120],
+      distance: [0, 100, 200],
+    };
+    const ids = getAvailableCharts(streams).map((c) => c.id);
+    expect(ids).toContain('pace');
+    expect(ids).not.toContain('gap');
+  });
 });

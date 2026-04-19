@@ -181,6 +181,13 @@ export interface ActivityStreams {
    * stream and a known FTP.
    */
   wbal?: number[];
+  /**
+   * Gradient-Adjusted Pace stream in min/km, computed upstream in Rust
+   * from raw pace + gradient via `computeGapStream` (Minetti model). Not
+   * fetched from the server; only populated when pace, altitude, and
+   * distance streams are all available so gradient is derivable.
+   */
+  gap?: number[];
 }
 
 // Interval within an activity (lap/interval data from intervals.icu)

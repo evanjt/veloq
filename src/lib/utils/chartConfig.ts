@@ -16,6 +16,7 @@ export type ChartTypeId =
   | 'cadence'
   | 'speed'
   | 'pace'
+  | 'gap'
   | 'elevation'
   | 'grade'
   | 'gradient'
@@ -197,6 +198,25 @@ export const CHART_CONFIGS: Record<ChartTypeId, ChartConfig> = {
     getStream: (streams) => streams.wbal?.map((j) => j / 1000),
     formatValue: (v) => Math.round(v).toString(),
   },
+  gap: {
+    id: 'gap',
+    label: 'GAP',
+    icon: 'trending-up',
+    color: '#06B6D4', // Cyan — distinct from indigo pace
+    unit: '/km',
+    unitImperial: '/mi',
+    // GAP is precomputed in Rust upstream (FFI call on pace + derived
+    // gradient via Minetti's cost-of-transport model) and merged into
+    // streams as `gap` (min/km per sample). Only appears when pace,
+    // altitude, and distance are all available so gradient is derivable.
+    getStream: (streams) => streams.gap,
+    convertToImperial: (v) => v * 1.60934,
+    formatValue: (v) => {
+      const mins = Math.floor(v);
+      const secs = Math.round((v - mins) * 60);
+      return `${mins}:${secs.toString().padStart(2, '0')}`;
+    },
+  },
   distance: {
     id: 'distance',
     label: 'Dist',
@@ -241,6 +261,7 @@ const PRIMARY_CHART_IDS: ChartTypeId[] = [
   'cadence',
   'speed',
   'pace',
+  'gap',
   'elevation',
   'grade',
   'gradient',

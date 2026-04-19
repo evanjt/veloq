@@ -291,23 +291,17 @@ export function upsertWellness(host: DelegateHost, rows: WellnessRowInput[]): vo
   );
 }
 
-export function getWellnessSparklines(
-  host: DelegateHost,
-  days: number
-): WellnessSparklines | null {
+export function getWellnessSparklines(host: DelegateHost, days: number): WellnessSparklines | null {
   if (!host.ready) return null;
   return (
-    host.timed('getWellnessSparklines', () =>
-      host.engine.fitness().getWellnessSparklines(days)
-    ) ?? null
+    host.timed('getWellnessSparklines', () => host.engine.fitness().getWellnessSparklines(days)) ??
+    null
   );
 }
 
 export function computeHrvTrend(host: DelegateHost, days: number): HrvTrendResult | null {
   if (!host.ready) return null;
-  return (
-    host.timed('computeHrvTrend', () => host.engine.fitness().computeHrvTrend(days)) ?? null
-  );
+  return host.timed('computeHrvTrend', () => host.engine.fitness().computeHrvTrend(days)) ?? null;
 }
 
 export function findStalePrOpportunities(
@@ -350,12 +344,31 @@ export function computeWbal(
   if (!Number.isFinite(cp) || cp <= 0) return [];
   if (!Number.isFinite(wPrime) || wPrime <= 0) return [];
   const dtSafe = Number.isFinite(dt) && dt > 0 ? Math.max(1, Math.floor(dt)) : 1;
-  const normalized = powerStream.map((p) =>
-    Number.isFinite(p) && p > 0 ? Math.round(p) : 0
-  );
+  const normalized = powerStream.map((p) => (Number.isFinite(p) && p > 0 ? Math.round(p) : 0));
   return host.timed('computeWbal', () =>
-    host.engine
-      .fitness()
-      .computeWbal(normalized, Math.round(cp), Math.round(wPrime), dtSafe)
+    host.engine.fitness().computeWbal(normalized, Math.round(cp), Math.round(wPrime), dtSafe)
+  );
+}
+
+/**
+ * Compute Gradient-Adjusted Pace stream using Minetti's cost-of-transport
+ * model. `paceStream` is min/km; `gradientStream` is either percent or
+ * fraction (Rust auto-detects by magnitude). Returns an empty array when the
+ * engine is unavailable or either input is empty; mismatched lengths are
+ * truncated to the shorter of the two.
+ */
+export function computeGapStream(
+  host: DelegateHost,
+  paceStream: number[],
+  gradientStream: number[]
+): number[] {
+  if (!host.ready) return [];
+  if (!Array.isArray(paceStream) || paceStream.length === 0) return [];
+  if (!Array.isArray(gradientStream) || gradientStream.length === 0) return [];
+  const n = Math.min(paceStream.length, gradientStream.length);
+  const pace = paceStream.slice(0, n).map((v) => (Number.isFinite(v) ? v : 0));
+  const gradient = gradientStream.slice(0, n).map((v) => (Number.isFinite(v) ? v : 0));
+  return host.timed('computeGapStream', () =>
+    host.engine.fitness().computeGapStream(pace, gradient)
   );
 }

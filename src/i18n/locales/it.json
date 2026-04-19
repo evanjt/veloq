@@ -358,6 +358,7 @@
     "dist": "Dist",
     "elapsedTime": "Tempo trascorso",
     "elev": "Elev",
+    "gap": "Passo corr.",
     "grade": "Pendenza",
     "gradient": "Inclinazione",
     "hr": "FC",

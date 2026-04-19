@@ -350,10 +350,7 @@ class RouteEngineClient implements DelegateHost {
   getActivityPrSections = (activityId: string, sectionIds: string[]): string[] =>
     sectionDelegates.getActivityPrSections(this, activityId, sectionIds);
 
-  getWorkoutSections = (
-    sportType: string,
-    limit: number
-  ): sectionDelegates.FfiWorkoutSection[] =>
+  getWorkoutSections = (sportType: string, limit: number): sectionDelegates.FfiWorkoutSection[] =>
     sectionDelegates.getWorkoutSections(this, sportType, limit);
 
   getSectionChartData = (
@@ -581,12 +578,8 @@ class RouteEngineClient implements DelegateHost {
       excludeSectionIds
     );
 
-  computeWbal = (
-    powerStream: number[],
-    cp: number,
-    wPrime: number,
-    dt = 1
-  ): number[] => fitnessDelegates.computeWbal(this, powerStream, cp, wPrime, dt);
+  computeWbal = (powerStream: number[], cp: number, wPrime: number, dt = 1): number[] =>
+    fitnessDelegates.computeWbal(this, powerStream, cp, wPrime, dt);
 
   computeGapStream = (paceStream: number[], gradientStream: number[]): number[] =>
     fitnessDelegates.computeGapStream(this, paceStream, gradientStream);
@@ -787,7 +780,7 @@ class RouteEngineClient implements DelegateHost {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   bulkInsertExerciseSets(activityId: string, sets: any[]): void {
     return this.timed('bulkInsertExerciseSets', () =>
-      this.engine.strength().bulkInsertExerciseSets(activityId, sets),
+      this.engine.strength().bulkInsertExerciseSets(activityId, sets)
     );
   }
 
@@ -819,9 +812,8 @@ class RouteEngineClient implements DelegateHost {
   ): strengthDelegates.StrengthInsightSeries =>
     strengthDelegates.getStrengthInsightSeries(this, monthly, weekly);
 
-  getStrengthSummaryBatch = (
-    ranges: Array<{ startTs: number; endTs: number }>
-  ): any[] => strengthDelegates.getStrengthSummaryBatch(this, ranges);
+  getStrengthSummaryBatch = (ranges: Array<{ startTs: number; endTs: number }>): any[] =>
+    strengthDelegates.getStrengthSummaryBatch(this, ranges);
 
   getMuscleDetail = (
     activityId: string,

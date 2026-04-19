@@ -358,6 +358,7 @@
     "dist": "距離",
     "elapsedTime": "経過時間",
     "elev": "標高",
+    "gap": "補正ペース",
     "grade": "勾配",
     "gradient": "勾配(計算)",
     "hr": "心拍",

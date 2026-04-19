@@ -1239,6 +1239,7 @@ export interface TranslationResource {
     cad: string;
     speed: string;
     pace: string;
+    gap: string;
     elev: string;
     grade: string;
     gradient: string;
