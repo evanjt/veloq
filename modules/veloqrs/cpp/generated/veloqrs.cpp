@@ -377,6 +377,9 @@ RustBuffer uniffi_veloqrs_fn_method_sectionmanager_get_nearby_sections(
 RustBuffer uniffi_veloqrs_fn_method_sectionmanager_get_performances(
     void *ptr, RustBuffer section_id, RustBuffer sport_type,
     RustCallStatus *uniffi_out_err);
+RustBuffer uniffi_veloqrs_fn_method_sectionmanager_get_performances_batch(
+    void *ptr, RustBuffer section_ids, RustBuffer sport_type,
+    RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_sectionmanager_get_polyline(
     void *ptr, RustBuffer section_id, RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_sectionmanager_get_ranked(
@@ -408,6 +411,8 @@ RustBuffer uniffi_veloqrs_fn_method_sectionmanager_match_activity_to_sections(
 RustBuffer uniffi_veloqrs_fn_method_sectionmanager_merge_sections(
     void *ptr, RustBuffer primary_id, RustBuffer secondary_id,
     RustCallStatus *uniffi_out_err);
+RustBuffer uniffi_veloqrs_fn_method_sectionmanager_recalculate_polyline(
+    void *ptr, RustBuffer section_id, RustCallStatus *uniffi_out_err);
 void uniffi_veloqrs_fn_method_sectionmanager_recompute_indicators(
     void *ptr, RustCallStatus *uniffi_out_err);
 int8_t uniffi_veloqrs_fn_method_sectionmanager_rematch_activity_to_section(
@@ -811,6 +816,7 @@ uniffi_veloqrs_checksum_method_sectionmanager_get_indicators_for_activity();
 uint16_t uniffi_veloqrs_checksum_method_sectionmanager_get_merge_candidates();
 uint16_t uniffi_veloqrs_checksum_method_sectionmanager_get_nearby_sections();
 uint16_t uniffi_veloqrs_checksum_method_sectionmanager_get_performances();
+uint16_t uniffi_veloqrs_checksum_method_sectionmanager_get_performances_batch();
 uint16_t uniffi_veloqrs_checksum_method_sectionmanager_get_polyline();
 uint16_t uniffi_veloqrs_checksum_method_sectionmanager_get_ranked();
 uint16_t uniffi_veloqrs_checksum_method_sectionmanager_get_ranked_batch();
@@ -826,6 +832,7 @@ uint16_t uniffi_veloqrs_checksum_method_sectionmanager_include_activity();
 uint16_t
 uniffi_veloqrs_checksum_method_sectionmanager_match_activity_to_sections();
 uint16_t uniffi_veloqrs_checksum_method_sectionmanager_merge_sections();
+uint16_t uniffi_veloqrs_checksum_method_sectionmanager_recalculate_polyline();
 uint16_t uniffi_veloqrs_checksum_method_sectionmanager_recompute_indicators();
 uint16_t
 uniffi_veloqrs_checksum_method_sectionmanager_rematch_activity_to_section();
@@ -3661,6 +3668,19 @@ NativeVeloqrs::NativeVeloqrs(
                 ->cpp_uniffi_veloqrs_fn_method_sectionmanager_get_performances(
                     rt, thisVal, args, count);
           });
+  props["ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_performances_batch"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(rt,
+                                    "ubrn_uniffi_veloqrs_fn_method_"
+                                    "sectionmanager_get_performances_batch"),
+          3,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_fn_method_sectionmanager_get_performances_batch(
+                    rt, thisVal, args, count);
+          });
   props["ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_polyline"] =
       jsi::Function::createFromHostFunction(
           rt,
@@ -3818,6 +3838,18 @@ NativeVeloqrs::NativeVeloqrs(
                  const jsi::Value *args, size_t count) -> jsi::Value {
             return this
                 ->cpp_uniffi_veloqrs_fn_method_sectionmanager_merge_sections(
+                    rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_fn_method_sectionmanager_recalculate_polyline"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_fn_method_"
+                                        "sectionmanager_recalculate_polyline"),
+          2,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_fn_method_sectionmanager_recalculate_polyline(
                     rt, thisVal, args, count);
           });
   props["ubrn_uniffi_veloqrs_fn_method_sectionmanager_recompute_indicators"] =
@@ -5792,6 +5824,18 @@ NativeVeloqrs::NativeVeloqrs(
                 ->cpp_uniffi_veloqrs_checksum_method_sectionmanager_get_performances(
                     rt, thisVal, args, count);
           });
+  props["ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_performances_"
+        "batch"] = jsi::Function::createFromHostFunction(
+      rt,
+      jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_checksum_method_"
+                                    "sectionmanager_get_performances_batch"),
+      0,
+      [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+             const jsi::Value *args, size_t count) -> jsi::Value {
+        return this
+            ->cpp_uniffi_veloqrs_checksum_method_sectionmanager_get_performances_batch(
+                rt, thisVal, args, count);
+      });
   props["ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_polyline"] =
       jsi::Function::createFromHostFunction(
           rt,
@@ -5950,6 +5994,18 @@ NativeVeloqrs::NativeVeloqrs(
                 ->cpp_uniffi_veloqrs_checksum_method_sectionmanager_merge_sections(
                     rt, thisVal, args, count);
           });
+  props["ubrn_uniffi_veloqrs_checksum_method_sectionmanager_recalculate_"
+        "polyline"] = jsi::Function::createFromHostFunction(
+      rt,
+      jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_checksum_method_"
+                                    "sectionmanager_recalculate_polyline"),
+      0,
+      [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+             const jsi::Value *args, size_t count) -> jsi::Value {
+        return this
+            ->cpp_uniffi_veloqrs_checksum_method_sectionmanager_recalculate_polyline(
+                rt, thisVal, args, count);
+      });
   props["ubrn_uniffi_veloqrs_checksum_method_sectionmanager_recompute_"
         "indicators"] = jsi::Function::createFromHostFunction(
       rt,
@@ -8758,6 +8814,22 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_sectionmanager_get_performances(
 
   return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
 }
+jsi::Value NativeVeloqrs::
+    cpp_uniffi_veloqrs_fn_method_sectionmanager_get_performances_batch(
+        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+        size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value = uniffi_veloqrs_fn_method_sectionmanager_get_performances_batch(
+      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
+      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[2]),
+      &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
+}
 jsi::Value
 NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_sectionmanager_get_polyline(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
@@ -8954,6 +9026,21 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_sectionmanager_merge_sections(
       uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[2]),
+      &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
+}
+jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_sectionmanager_recalculate_polyline(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value = uniffi_veloqrs_fn_method_sectionmanager_recalculate_polyline(
+      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
       &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);
@@ -10733,6 +10820,15 @@ jsi::Value NativeVeloqrs::
 
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
+jsi::Value NativeVeloqrs::
+    cpp_uniffi_veloqrs_checksum_method_sectionmanager_get_performances_batch(
+        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+        size_t count) {
+  auto value =
+      uniffi_veloqrs_checksum_method_sectionmanager_get_performances_batch();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
 jsi::Value
 NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_sectionmanager_get_polyline(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
@@ -10841,6 +10937,15 @@ NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_sectionmanager_merge_sections(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
     size_t count) {
   auto value = uniffi_veloqrs_checksum_method_sectionmanager_merge_sections();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeVeloqrs::
+    cpp_uniffi_veloqrs_checksum_method_sectionmanager_recalculate_polyline(
+        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+        size_t count) {
+  auto value =
+      uniffi_veloqrs_checksum_method_sectionmanager_recalculate_polyline();
 
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }

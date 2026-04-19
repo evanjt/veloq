@@ -614,6 +614,12 @@ interface NativeModuleInterface {
     sportType: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_performances_batch(
+    ptr: bigint,
+    sectionIds: Uint8Array,
+    sportType: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_polyline(
     ptr: bigint,
     sectionId: Uint8Array,
@@ -682,6 +688,11 @@ interface NativeModuleInterface {
     ptr: bigint,
     primaryId: Uint8Array,
     secondaryId: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_sectionmanager_recalculate_polyline(
+    ptr: bigint,
+    sectionId: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_recompute_indicators(
@@ -1104,6 +1115,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_merge_candidates(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_nearby_sections(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_performances(): number;
+  ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_performances_batch(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_polyline(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_ranked(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_ranked_batch(): number;
@@ -1117,6 +1129,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_include_activity(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_match_activity_to_sections(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_merge_sections(): number;
+  ubrn_uniffi_veloqrs_checksum_method_sectionmanager_recalculate_polyline(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_recompute_indicators(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_rematch_activity_to_section(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_reset_bounds(): number;

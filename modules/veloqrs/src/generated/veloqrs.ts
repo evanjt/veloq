@@ -6093,6 +6093,71 @@ const FfiConverterTypeFfiSectionMatch = (() => {
 })();
 
 /**
+ * Tier 3.2: one entry of a batched section-performance fetch. Returned
+ * in the same order as the requested section_ids so the TS caller can
+ * map directly without rebuilding lookups.
+ */
+export type FfiSectionPerformanceBatchEntry = {
+  sectionId: string;
+  result: FfiSectionPerformanceResult;
+};
+
+/**
+ * Generated factory for {@link FfiSectionPerformanceBatchEntry} record objects.
+ */
+export const FfiSectionPerformanceBatchEntry = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<
+      FfiSectionPerformanceBatchEntry,
+      ReturnType<typeof defaults>
+    >(defaults);
+  })();
+  return Object.freeze({
+    /**
+     * Create a frozen instance of {@link FfiSectionPerformanceBatchEntry}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    create,
+
+    /**
+     * Create a frozen instance of {@link FfiSectionPerformanceBatchEntry}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    new: create,
+
+    /**
+     * Defaults specified in the {@link veloqrs} crate.
+     */
+    defaults: () =>
+      Object.freeze(defaults()) as Partial<FfiSectionPerformanceBatchEntry>,
+  });
+})();
+
+const FfiConverterTypeFfiSectionPerformanceBatchEntry = (() => {
+  type TypeName = FfiSectionPerformanceBatchEntry;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        sectionId: FfiConverterString.read(from),
+        result: FfiConverterTypeFfiSectionPerformanceResult.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterString.write(value.sectionId, into);
+      FfiConverterTypeFfiSectionPerformanceResult.write(value.result, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.sectionId) +
+        FfiConverterTypeFfiSectionPerformanceResult.allocationSize(value.result)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * Section performance record for FFI.
  * Contains all traversals for a single activity on a section.
  */
@@ -6412,6 +6477,73 @@ const FfiConverterTypeFfiSectionPortion = (() => {
         FfiConverterUInt32.allocationSize(value.endIndex) +
         FfiConverterFloat64.allocationSize(value.distanceMeters) +
         FfiConverterString.allocationSize(value.direction)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * Tier 5.5: result of a user-initiated section polyline recalc.
+ */
+export type FfiSectionRecalcResult = {
+  sectionId: string;
+  polylinePointCount: /*u32*/ number;
+  distanceMeters: /*f64*/ number;
+};
+
+/**
+ * Generated factory for {@link FfiSectionRecalcResult} record objects.
+ */
+export const FfiSectionRecalcResult = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<
+      FfiSectionRecalcResult,
+      ReturnType<typeof defaults>
+    >(defaults);
+  })();
+  return Object.freeze({
+    /**
+     * Create a frozen instance of {@link FfiSectionRecalcResult}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    create,
+
+    /**
+     * Create a frozen instance of {@link FfiSectionRecalcResult}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    new: create,
+
+    /**
+     * Defaults specified in the {@link veloqrs} crate.
+     */
+    defaults: () =>
+      Object.freeze(defaults()) as Partial<FfiSectionRecalcResult>,
+  });
+})();
+
+const FfiConverterTypeFfiSectionRecalcResult = (() => {
+  type TypeName = FfiSectionRecalcResult;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        sectionId: FfiConverterString.read(from),
+        polylinePointCount: FfiConverterUInt32.read(from),
+        distanceMeters: FfiConverterFloat64.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterString.write(value.sectionId, into);
+      FfiConverterUInt32.write(value.polylinePointCount, into);
+      FfiConverterFloat64.write(value.distanceMeters, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.sectionId) +
+        FfiConverterUInt32.allocationSize(value.polylinePointCount) +
+        FfiConverterFloat64.allocationSize(value.distanceMeters)
       );
     }
   }
@@ -10675,6 +10807,16 @@ export interface SectionManagerInterface {
     sectionId: string,
     sportType: string | undefined,
   ) /*throws*/ : FfiSectionPerformanceResult;
+  /**
+   * Tier 3.2: batched section-performance fetch. Returns one entry per
+   * requested section_id (in input order). Saves N FFI round-trips when
+   * the caller (Insights, Routes list) needs perfs for many sections in
+   * one render.
+   */
+  getPerformancesBatch(
+    sectionIds: Array<string>,
+    sportType: string | undefined,
+  ) /*throws*/ : Array<FfiSectionPerformanceBatchEntry>;
   getPolyline(sectionId: string) /*throws*/ : Array<FfiGpsPoint>;
   getRanked(
     sportType: string,
@@ -10722,6 +10864,19 @@ export interface SectionManagerInterface {
    * Recomputes consensus polyline. Deletes secondary. Returns the primary section ID.
    */
   mergeSections(primaryId: string, secondaryId: string) /*throws*/ : string;
+  /**
+   * Tier 5.5: re-derive a section's consensus polyline from its
+   * current activity traces. Useful for a "refine this section" UI
+   * without triggering a full corpus-wide detection. Returns the new
+   * polyline shape (point count + distance) so the caller can confirm
+   * the refinement landed; None when the section doesn't exist, is
+   * user-defined, or has no activities to learn from. The full polyline
+   * is persisted via the standard save path so subsequent
+   * get_sections() reads pick up the change.
+   */
+  recalculatePolyline(
+    sectionId: string,
+  ) /*throws*/ : FfiSectionRecalcResult | undefined;
   /**
    * Recompute all activity indicators (PRs and trends).
    * Call after sync, section detection, route grouping, or exclude/include changes.
@@ -11438,6 +11593,34 @@ export class SectionManager
     );
   }
 
+  /**
+   * Tier 3.2: batched section-performance fetch. Returns one entry per
+   * requested section_id (in input order). Saves N FFI round-trips when
+   * the caller (Insights, Routes list) needs perfs for many sections in
+   * one render.
+   */
+  public getPerformancesBatch(
+    sectionIds: Array<string>,
+    sportType: string | undefined,
+  ): Array<FfiSectionPerformanceBatchEntry> /*throws*/ {
+    return FfiConverterArrayTypeFfiSectionPerformanceBatchEntry.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_performances_batch(
+            uniffiTypeSectionManagerObjectFactory.clonePointer(this),
+            FfiConverterArrayString.lower(sectionIds),
+            FfiConverterOptionalString.lower(sportType),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
   public getPolyline(sectionId: string): Array<FfiGpsPoint> /*throws*/ {
     return FfiConverterArrayTypeFfiGpsPoint.lift(
       uniffiCaller.rustCallWithError(
@@ -11709,6 +11892,36 @@ export class SectionManager
             uniffiTypeSectionManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(primaryId),
             FfiConverterString.lower(secondaryId),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * Tier 5.5: re-derive a section's consensus polyline from its
+   * current activity traces. Useful for a "refine this section" UI
+   * without triggering a full corpus-wide detection. Returns the new
+   * polyline shape (point count + distance) so the caller can confirm
+   * the refinement landed; None when the section doesn't exist, is
+   * user-defined, or has no activities to learn from. The full polyline
+   * is persisted via the standard save path so subsequent
+   * get_sections() reads pick up the change.
+   */
+  public recalculatePolyline(
+    sectionId: string,
+  ): FfiSectionRecalcResult | undefined /*throws*/ {
+    return FfiConverterOptionalTypeFfiSectionRecalcResult.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_recalculate_polyline(
+            uniffiTypeSectionManagerObjectFactory.clonePointer(this),
+            FfiConverterString.lower(sectionId),
             callStatus,
           );
         },
@@ -13492,6 +13705,11 @@ const FfiConverterOptionalTypeFfiRoutePerformance = new FfiConverterOptional(
 const FfiConverterOptionalTypeFfiSectionPerformanceRecord =
   new FfiConverterOptional(FfiConverterTypeFfiSectionPerformanceRecord);
 
+// FfiConverter for FfiSectionRecalcResult | undefined
+const FfiConverterOptionalTypeFfiSectionRecalcResult = new FfiConverterOptional(
+  FfiConverterTypeFfiSectionRecalcResult,
+);
+
 // FfiConverter for FfiWellnessSparklines | undefined
 const FfiConverterOptionalTypeFfiWellnessSparklines = new FfiConverterOptional(
   FfiConverterTypeFfiWellnessSparklines,
@@ -13696,6 +13914,10 @@ const FfiConverterArrayTypeFfiSectionLap = new FfiConverterArray(
 const FfiConverterArrayTypeFfiSectionMatch = new FfiConverterArray(
   FfiConverterTypeFfiSectionMatch,
 );
+
+// FfiConverter for Array<FfiSectionPerformanceBatchEntry>
+const FfiConverterArrayTypeFfiSectionPerformanceBatchEntry =
+  new FfiConverterArray(FfiConverterTypeFfiSectionPerformanceBatchEntry);
 
 // FfiConverter for Array<FfiSectionPerformanceRecord>
 const FfiConverterArrayTypeFfiSectionPerformanceRecord = new FfiConverterArray(
@@ -14564,6 +14786,14 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_performances_batch() !==
+    46557
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_sectionmanager_get_performances_batch",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_polyline() !==
     56312
   ) {
@@ -14665,6 +14895,14 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_sectionmanager_merge_sections",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_recalculate_polyline() !==
+    14407
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_sectionmanager_recalculate_polyline",
     );
   }
   if (
@@ -15260,9 +15498,11 @@ export default Object.freeze({
     FfiConverterTypeFfiSectionExtensionTrack,
     FfiConverterTypeFfiSectionLap,
     FfiConverterTypeFfiSectionMatch,
+    FfiConverterTypeFfiSectionPerformanceBatchEntry,
     FfiConverterTypeFfiSectionPerformanceRecord,
     FfiConverterTypeFfiSectionPerformanceResult,
     FfiConverterTypeFfiSectionPortion,
+    FfiConverterTypeFfiSectionRecalcResult,
     FfiConverterTypeFfiSectionReferenceInfo,
     FfiConverterTypeFfiSectionSummariesResult,
     FfiConverterTypeFfiSectionWithPolyline,
