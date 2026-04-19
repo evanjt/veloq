@@ -362,7 +362,8 @@
     "power": "Moc",
     "speed": "Pręd",
     "temp": "Temp",
-    "watts": "Waty"
+    "watts": "Waty",
+    "wbal": "W'bal"
   },
   "common": {
     "activities": "aktywności",

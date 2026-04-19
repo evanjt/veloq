@@ -362,7 +362,8 @@
     "power": "功率",
     "speed": "速度",
     "temp": "温度",
-    "watts": "功率"
+    "watts": "功率",
+    "wbal": "W'bal"
   },
   "common": {
     "activities": "活动",

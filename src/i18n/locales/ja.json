@@ -362,7 +362,8 @@
     "power": "パワー",
     "speed": "速度",
     "temp": "温度",
-    "watts": "ワット"
+    "watts": "ワット",
+    "wbal": "W'bal"
   },
   "common": {
     "activities": "アクティビティ",

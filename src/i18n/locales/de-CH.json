@@ -362,7 +362,8 @@
     "power": "Leist",
     "speed": "Tempo",
     "temp": "Temp",
-    "watts": "Watt"
+    "watts": "Watt",
+    "wbal": "W'bal"
   },
   "common": {
     "activities": "Aktivitäte",

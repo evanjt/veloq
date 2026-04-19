@@ -362,7 +362,8 @@
     "power": "Pot",
     "speed": "Vel",
     "temp": "Temp",
-    "watts": "Watts"
+    "watts": "Watts",
+    "wbal": "W'bal"
   },
   "common": {
     "activities": "atividades",

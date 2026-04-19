@@ -19,6 +19,7 @@ export type ChartTypeId =
   | 'elevation'
   | 'grade'
   | 'gradient'
+  | 'wbal'
   | 'distance'
   | 'temp'
   | 'moving_time'
@@ -60,7 +61,7 @@ export interface ChartConfig {
  * to hide GPS noise spikes. Returns `undefined` when either stream is
  * missing or too short to compute.
  */
-function computeGradientStream(
+export function computeGradientStream(
   altitude: number[] | undefined,
   distance: number[] | undefined,
   window = 10
@@ -183,6 +184,19 @@ export const CHART_CONFIGS: Record<ChartTypeId, ChartConfig> = {
     getStream: (streams) => computeGradientStream(streams.altitude, streams.distance),
     formatValue: (v) => v.toFixed(1),
   },
+  wbal: {
+    id: 'wbal',
+    label: "W'bal",
+    icon: 'flash-outline',
+    color: '#F97316', // Orange-brick — distinct from amber power
+    unit: 'kJ',
+    // W'bal is precomputed in Rust upstream (FFI call on power + FTP + W')
+    // and merged into the streams as `wbal` (joules per sample). Chart
+    // displays kJ by dividing by 1000. Only appears when the upstream
+    // computation has populated `streams.wbal`.
+    getStream: (streams) => streams.wbal?.map((j) => j / 1000),
+    formatValue: (v) => Math.round(v).toString(),
+  },
   distance: {
     id: 'distance',
     label: 'Dist',
@@ -230,6 +244,7 @@ const PRIMARY_CHART_IDS: ChartTypeId[] = [
   'elevation',
   'grade',
   'gradient',
+  'wbal',
   'temp',
 ];
 

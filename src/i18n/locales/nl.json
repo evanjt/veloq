@@ -362,7 +362,8 @@
     "power": "Verm",
     "speed": "Snel",
     "temp": "Temp",
-    "watts": "Watts"
+    "watts": "Watts",
+    "wbal": "W'bal"
   },
   "common": {
     "activities": "activiteiten",
