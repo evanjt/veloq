@@ -132,11 +132,19 @@ fn ingest_step(
 
     let detect_start = Instant::now();
     let handle = engine.detect_sections_background(None);
-    let (sections, _) = handle.recv().unwrap_or_default();
+    let (sections, processed_ids) = handle.recv().unwrap_or_default();
     let detection_ms = detect_start.elapsed().as_millis();
 
     let apply_start = Instant::now();
     engine.apply_sections(sections).expect("apply_sections");
+    // Mirror the production poll path (objects/detection.rs:62-64): record
+    // which activity IDs the just-finished detection covered so the next
+    // run's "new vs total" check correctly enters incremental mode. Without
+    // this, processed_activity_ids stays empty and every step looks like a
+    // cold-start to the trigger logic.
+    engine
+        .save_processed_activity_ids(&processed_ids)
+        .expect("save_processed_activity_ids");
     let apply_ms = apply_start.elapsed().as_millis();
 
     let total_ms = ingest_start.elapsed().as_millis();
@@ -337,7 +345,10 @@ fn scenario_b_expand_to_1y_baseline() {
 }
 
 #[test]
-#[ignore] // strict — gated on Tier 2.1 incremental-consensus rewrite
+#[ignore] // strict — B's 90/150 = 60% triggers FULL detection mode where
+          // sections legitimately reshuffle. Stable activity_ids in FULL
+          // mode is gated on Tier 2.1's incremental-consensus accumulator,
+          // which would let FULL mode also reuse existing section IDs.
 fn scenario_b_expand_to_1y_stable() {
     let cfg = LifecycleConfig {
         bucket_a_count: 60,
@@ -400,9 +411,10 @@ fn scenario_c_single_add_baseline() {
 }
 
 #[test]
-#[ignore] // strict — Tier 2.1 success gate. Today this fails with several
-          // pre-existing activities being dropped from sections after a
-          // single add. The incremental consensus rewrite must fix this.
+// Promoted to default-on after Tier 1.3: with the bbox pre-filter in
+// incremental detection plus correct processed_activity_ids tracking, a
+// single overlapping add no longer drops pre-existing activities from
+// other sections. This is the strict B1 invariant, locked in.
 fn scenario_c_single_add_stable() {
     let cfg = LifecycleConfig {
         bucket_a_count: 60,
@@ -462,7 +474,9 @@ fn scenario_d_small_batch_baseline() {
 }
 
 #[test]
-#[ignore] // strict — Tier 2.1 gate.
+// Promoted to default-on after Tier 1.3 (see scenario_c_single_add_stable
+// for the same reasoning). A 3-activity incremental add must not perturb
+// pre-existing activity_ids on any pre-existing section.
 fn scenario_d_small_batch_stable() {
     let cfg = LifecycleConfig {
         bucket_a_count: 60,

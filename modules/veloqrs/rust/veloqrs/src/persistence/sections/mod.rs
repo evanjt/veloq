@@ -257,7 +257,7 @@ impl PersistentRouteEngine {
     }
 
     /// Save processed activity IDs to database after section detection.
-    pub(crate) fn save_processed_activity_ids(&mut self, activity_ids: &[String]) -> SqlResult<()> {
+    pub fn save_processed_activity_ids(&mut self, activity_ids: &[String]) -> SqlResult<()> {
         let tx = self.db.unchecked_transaction()?;
         let mut stmt =
             tx.prepare("INSERT OR IGNORE INTO processed_activities (activity_id) VALUES (?)")?;

@@ -110,14 +110,91 @@ impl PersistentRouteEngine {
             );
         }
 
-        // For incremental mode, only load tracks for new activities + section-referenced activities
+        // For incremental mode, only load tracks for new activities + the
+        // subset of section-referenced activities whose sections could
+        // geographically overlap the new activities. The naive approach
+        // (load every section-referenced activity) loaded ~500 tracks for a
+        // 500-activity corpus even when only 1 activity was new — the
+        // dominant cost in the "add 1 activity" lag path. The bbox
+        // pre-filter typically cuts this to dozens.
         let ids_to_load = if use_incremental {
             let mut needed: HashSet<String> = new_activity_ids.iter().cloned().collect();
-            for section in &existing_sections {
-                for aid in &section.activity_ids {
-                    needed.insert(aid.clone());
+
+            // 1. Compute new-activity bbox set from cached activity_metadata
+            //    bounds (no DB read, no GPS parse).
+            let new_bounds: Vec<tracematch::Bounds> = new_activity_ids
+                .iter()
+                .filter_map(|id| self.activity_metadata.get(id).map(|m| m.bounds.clone()))
+                .collect();
+
+            if new_bounds.is_empty() {
+                // No bounds metadata for new activities (shouldn't happen
+                // for synced activities but guard anyway). Fall back to the
+                // safe-but-slow path: load every section-referenced track.
+                for section in &existing_sections {
+                    for aid in &section.activity_ids {
+                        needed.insert(aid.clone());
+                    }
+                }
+            } else {
+                // 2. For each existing section, compute its bbox from the
+                //    polyline (small allocation, well under detection cost)
+                //    and check whether any new-activity bbox overlaps it
+                //    within 2x the proximity threshold (matches the buffer
+                //    used by the overlap detector itself).
+                let buffer_meters = section_config.proximity_threshold * 2.0;
+
+                let mut sections_loaded = 0usize;
+                for section in &existing_sections {
+                    if section.polyline.len() < 2 {
+                        // Defensive: include polyline-less sections so we
+                        // don't drop their consensus state by accident.
+                        for aid in &section.activity_ids {
+                            needed.insert(aid.clone());
+                        }
+                        sections_loaded += 1;
+                        continue;
+                    }
+                    let section_bounds = tracematch::geo_utils::compute_bounds(&section.polyline);
+                    let ref_lat = (section_bounds.min_lat + section_bounds.max_lat) / 2.0;
+
+                    let overlaps = new_bounds.iter().any(|b| {
+                        tracematch::geo_utils::bounds_overlap(
+                            b,
+                            &section_bounds,
+                            buffer_meters,
+                            ref_lat,
+                        )
+                    });
+
+                    if overlaps {
+                        for aid in &section.activity_ids {
+                            needed.insert(aid.clone());
+                        }
+                        sections_loaded += 1;
+                    }
+                }
+
+                if log::log_enabled!(log::Level::Info) {
+                    let naive_count = {
+                        let mut naive: HashSet<&String> = new_activity_ids.iter().collect();
+                        for s in &existing_sections {
+                            for a in &s.activity_ids {
+                                naive.insert(a);
+                            }
+                        }
+                        naive.len()
+                    };
+                    log::info!(
+                        "tracematch: [SectionDetection] bbox pre-filter: {} of {} existing sections nearby — loading {} tracks (naive {})",
+                        sections_loaded,
+                        existing_sections.len(),
+                        needed.len(),
+                        naive_count,
+                    );
                 }
             }
+
             needed.into_iter().collect()
         } else {
             activity_ids.clone()
