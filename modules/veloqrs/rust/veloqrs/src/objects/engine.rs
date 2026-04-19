@@ -18,7 +18,7 @@ impl VeloqEngine {
         init_logging();
 
         let already = PERSISTENT_ENGINE
-            .lock()
+            .read()
             .map(|g| g.is_some())
             .unwrap_or(false);
 
@@ -32,7 +32,7 @@ impl VeloqEngine {
 
     fn is_initialized(&self) -> bool {
         PERSISTENT_ENGINE
-            .lock()
+            .read()
             .map(|guard| guard.is_some())
             .unwrap_or(false)
     }
@@ -72,7 +72,7 @@ impl VeloqEngine {
     /// Drop the persistent engine entirely, closing the SQLite connection.
     /// The next call to `create()` will re-initialize from scratch.
     fn destroy(&self) {
-        if let Ok(mut guard) = PERSISTENT_ENGINE.lock() {
+        if let Ok(mut guard) = PERSISTENT_ENGINE.write() {
             info!("[VeloqEngine] Destroying persistent engine");
             *guard = None;
         }

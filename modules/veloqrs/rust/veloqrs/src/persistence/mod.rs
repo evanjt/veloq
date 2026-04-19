@@ -945,18 +945,69 @@ pub struct PersistentEngineStats {
 ///
 /// This singleton allows FFI calls to access a shared persistent engine
 /// without passing state back and forth across the FFI boundary.
+///
+/// Uses `RwLock` so the common case — read-only queries against in-memory
+/// state — can run concurrently across threads. Mutations acquire the write
+/// lock and therefore serialise.
+///
+/// # Safety invariant
+///
+/// `PersistentRouteEngine` contains a `rusqlite::Connection`, which is
+/// `Send + !Sync`. We `unsafe impl Sync` (below) because callers are
+/// required to access the connection only through the **write** lock:
+/// every FFI method that touches SQLite goes through `with_persistent_engine`
+/// / `with_engine` (write), which guarantees exclusive access. The read
+/// lock (`with_persistent_engine_read` / `with_engine_read`) is only valid
+/// for closures that do not dereference `self.db`; those closures take
+/// `&PersistentRouteEngine` but must stay on pure-memory `&self` methods.
 
-pub static PERSISTENT_ENGINE: Lazy<Mutex<Option<PersistentRouteEngine>>> =
-    Lazy::new(|| Mutex::new(None));
+pub static PERSISTENT_ENGINE: Lazy<RwLock<Option<PersistentRouteEngine>>> =
+    Lazy::new(|| RwLock::new(None));
 
-/// Get a lock on the global persistent engine.
+// SAFETY: see invariant above. All SQLite operations go through the write
+// lock, which provides exclusive `&mut` access; read-lock callers only touch
+// `&self` methods that don't dereference `self.db`.
+unsafe impl Sync for PersistentRouteEngine {}
 
+/// Acquire the **write** lock on the global persistent engine.
+///
+/// Required for any closure that needs `&mut PersistentRouteEngine` —
+/// includes all mutation FFIs (`add_*`, `set_*`, `save_*`, `clear_*`,
+/// `apply_*`, `remove_*`, `detect_*`) plus read-looking helpers that
+/// mutate LRU caches (`get_signature`, `get_group_by_id`,
+/// `get_section_by_id`, `get_consensus_route`, `get_section_performances`,
+/// `get_groups`) **and any closure that touches `self.db`** (the read lock
+/// is memory-only — see safety invariant above).
 pub fn with_persistent_engine<F, R>(f: F) -> Option<R>
 where
     F: FnOnce(&mut PersistentRouteEngine) -> R,
 {
-    let mut guard = PERSISTENT_ENGINE.lock().ok()?;
+    let mut guard = PERSISTENT_ENGINE.write().ok()?;
     guard.as_mut().map(f)
+}
+
+/// Alias for `with_persistent_engine` — explicit write semantics.
+pub fn with_persistent_engine_write<F, R>(f: F) -> Option<R>
+where
+    F: FnOnce(&mut PersistentRouteEngine) -> R,
+{
+    with_persistent_engine(f)
+}
+
+/// Acquire the **read** lock on the global persistent engine.
+///
+/// Multiple callers can hold the read lock concurrently. The closure
+/// receives `&PersistentRouteEngine`, so any call to a `&mut self` helper
+/// fails to compile — that is the point.
+///
+/// **Safety**: do not call any method that dereferences `self.db` from
+/// inside this closure. SQLite access goes through the write lock only.
+pub fn with_persistent_engine_read<F, R>(f: F) -> Option<R>
+where
+    F: FnOnce(&PersistentRouteEngine) -> R,
+{
+    let guard = PERSISTENT_ENGINE.read().ok()?;
+    guard.as_ref().map(f)
 }
 
 // ============================================================================
@@ -1002,7 +1053,7 @@ pub mod persistent_engine_ffi {
                     );
                 }
 
-                let mut guard = PERSISTENT_ENGINE.lock().unwrap_or_else(|e| e.into_inner());
+                let mut guard = PERSISTENT_ENGINE.write().unwrap_or_else(|e| e.into_inner());
                 *guard = Some(engine);
                 info!("tracematch: [PersistentEngine] Initialized successfully");
                 true
