@@ -1,0 +1,3 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`Tier 0.6 contract: computeInsightsFromData produces a stable, ranked insight list given fixture FFI data 1`] = `[]`;

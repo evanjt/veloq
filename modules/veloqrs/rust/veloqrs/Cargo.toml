@@ -82,6 +82,14 @@ required-features = ["synthetic"]
 name = "lifecycle_scenarios"
 required-features = ["synthetic"]
 
+[[test]]
+name = "lock_contention"
+required-features = ["synthetic"]
+
+[[test]]
+name = "apply_sections_atomicity"
+required-features = ["synthetic"]
+
 [[bin]]
 name = "uniffi-bindgen"
 path = "uniffi-bindgen.rs"
