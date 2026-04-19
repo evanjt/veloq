@@ -418,7 +418,8 @@ impl PersistentRouteEngine {
             rusqlite::params![secondary_id],
         )?;
 
-        // Recount visit_count from junction table
+        // visit_count is derived at read-time via COUNT(*) on section_activities —
+        // there is no stored visit_count column on sections.
         let visit_count: u32 = tx
             .query_row(
                 "SELECT COUNT(DISTINCT activity_id) FROM section_activities WHERE section_id = ? AND excluded = 0",
@@ -426,11 +427,6 @@ impl PersistentRouteEngine {
                 |row| row.get(0),
             )
             .unwrap_or(0);
-
-        tx.execute(
-            "UPDATE sections SET visit_count = ? WHERE id = ?",
-            rusqlite::params![visit_count, primary_id],
-        )?;
 
         // Delete secondary section
         tx.execute(

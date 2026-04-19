@@ -856,6 +856,7 @@
     "closePopup": "Close activity popup",
     "closeRoutePopup": "Close route popup",
     "closeSectionPopup": "Close section popup",
+    "colorByGradient": "Colour by gradient",
     "disable3D": "Disable 3D view",
     "enable3D": "Enable 3D view",
     "fitAll": "Fit all activities",
@@ -1464,7 +1465,9 @@
     "geocodingTermsMessage": "Route and section names are generated using OpenStreetMap Nominatim, a free geocoding service. This applies only to new activities. By enabling this feature you agree to the Nominatim Usage Policy (https://nominatim.org/release-docs/develop/api/Search/#terms-and-conditions). Veloq is not affiliated with OpenStreetMap.",
     "cacheAndDatabase": "Cache & Database",
     "heatmapGeneration": "Heatmap",
-    "heatmapDescription": "Uses device storage. Disable to save space."
+    "heatmapDescription": "Uses device storage. Disable to save space.",
+    "redetectSections": "Re-detect sections",
+    "redetectSectionsHint": "Re-run section detection across all activities. Can take 1-2 minutes."
   },
   "stats": {
     "activities": "Activities",

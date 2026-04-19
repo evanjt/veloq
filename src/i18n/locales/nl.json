@@ -885,7 +885,8 @@
     "viewDetails": "Details bekijken",
     "viewRouteDetails": "Routedetails bekijken",
     "viewSectionDetails": "Sectiedetails bekijken",
-    "zoomToActivity": "Inzoomen op activiteit"
+    "zoomToActivity": "Inzoomen op activiteit",
+    "colorByGradient": "Kleur op stijging"
   },
   "metrics": {
     "activityCount": "Activiteiten",
@@ -1464,7 +1465,9 @@
     "geocodingTermsMessage": "Route- en sectienamen worden gegenereerd met OpenStreetMap Nominatim, een gratis geocoderingsdienst. Door deze functie in te schakelen ga je akkoord met het Nominatim-gebruiksbeleid. Veloq is niet gelieerd aan OpenStreetMap.",
     "cacheAndDatabase": "Cache & Database",
     "heatmapGeneration": "Heatmap",
-    "heatmapDescription": "Gebruikt opslagruimte op het apparaat. Schakel uit om ruimte te besparen."
+    "heatmapDescription": "Gebruikt opslagruimte op het apparaat. Schakel uit om ruimte te besparen.",
+    "redetectSections": "Secties opnieuw detecteren",
+    "redetectSectionsHint": "Sectie-detectie opnieuw uitvoeren op alle activiteiten. Kan 1-2 minuten duren."
   },
   "stats": {
     "activities": "Activiteiten",

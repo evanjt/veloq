@@ -885,7 +885,8 @@
     "viewDetails": "詳細を表示",
     "viewRouteDetails": "ルートの詳細を表示",
     "viewSectionDetails": "セクションの詳細を表示",
-    "zoomToActivity": "アクティビティにズーム"
+    "zoomToActivity": "アクティビティにズーム",
+    "colorByGradient": "勾配で色付け"
   },
   "metrics": {
     "activityCount": "アクティビティ",
@@ -1464,7 +1465,9 @@
     "geocodingTermsMessage": "ルートとセクションの名前はOpenStreetMap Nominatim（無料のジオコーディングサービス）を使用して生成されます。この機能を有効にすることで、Nominatim利用規約に同意したことになります。VeloqはOpenStreetMapと提携していません。",
     "cacheAndDatabase": "キャッシュとデータベース",
     "heatmapGeneration": "ヒートマップ",
-    "heatmapDescription": "デバイスのストレージを使用します。容量を節約するには無効にしてください。"
+    "heatmapDescription": "デバイスのストレージを使用します。容量を節約するには無効にしてください。",
+    "redetectSections": "セクションを再検出",
+    "redetectSectionsHint": "全アクティビティでセクション検出を再実行します。1〜2分かかります。"
   },
   "stats": {
     "activities": "アクティビティ",

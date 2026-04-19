@@ -313,6 +313,8 @@ export interface TranslationResource {
     viewRoutes: string;
     pauseRouteProcessing: string;
     clearAllReload: string;
+    redetectSections: string;
+    redetectSectionsHint: string;
     clearAllReloadDescription: string;
     reanalyseRoutes: string;
     clearRouteDescription: string;
@@ -396,6 +398,10 @@ export interface TranslationResource {
     disconnect: string;
     failedToClear: string;
     failedToDisconnect: string;
+    redetectSectionsTitle: string;
+    redetectSectionsMessage: string;
+    redetectSectionsConfirm: string;
+    redetectSectionsBusy: string;
   };
 
   export: {
@@ -1233,6 +1239,7 @@ export interface TranslationResource {
     elev: string;
     grade: string;
     gradient: string;
+    wbal: string;
     dist: string;
     alt: string;
     temp: string;
@@ -1562,6 +1569,7 @@ export interface TranslationResource {
     toggleStyle: string;
     enable3D: string;
     disable3D: string;
+    colorByGradient: string;
     resetOrientation: string;
     goToLocation: string;
     fitAll: string;

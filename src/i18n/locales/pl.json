@@ -885,7 +885,8 @@
     "viewDetails": "Zobacz szczegóły",
     "viewRouteDetails": "Zobacz szczegóły trasy",
     "viewSectionDetails": "Zobacz szczegóły sekcji",
-    "zoomToActivity": "Przybliż do aktywności"
+    "zoomToActivity": "Przybliż do aktywności",
+    "colorByGradient": "Kolor wg nachylenia"
   },
   "metrics": {
     "activityCount": "Aktywności",
@@ -1464,7 +1465,9 @@
     "geocodingTermsMessage": "Nazwy tras i odcinków są generowane za pomocą OpenStreetMap Nominatim, darmowej usługi geokodowania. Włączając tę funkcję, zgadzasz się z Polityką korzystania z Nominatim. Veloq nie jest powiązany z OpenStreetMap.",
     "cacheAndDatabase": "Pamięć podręczna i baza danych",
     "heatmapGeneration": "Mapa ciepła",
-    "heatmapDescription": "Używa pamięci urządzenia. Wyłącz, aby zaoszczędzić miejsce."
+    "heatmapDescription": "Używa pamięci urządzenia. Wyłącz, aby zaoszczędzić miejsce.",
+    "redetectSections": "Wykryj sekcje ponownie",
+    "redetectSectionsHint": "Uruchom detekcję sekcji ponownie dla wszystkich aktywności. Może potrwać 1-2 minuty."
   },
   "stats": {
     "activities": "Aktywności",

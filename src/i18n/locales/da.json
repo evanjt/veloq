@@ -885,7 +885,8 @@
     "viewDetails": "Vis detaljer",
     "viewRouteDetails": "Vis rutedetaljer",
     "viewSectionDetails": "Vis sektionsdetaljer",
-    "zoomToActivity": "Zoom til aktivitet"
+    "zoomToActivity": "Zoom til aktivitet",
+    "colorByGradient": "Farv efter gradient"
   },
   "metrics": {
     "activityCount": "Aktiviteter",
@@ -1464,7 +1465,9 @@
     "geocodingTermsMessage": "Rute- og sektionsnavne genereres ved hjælp af OpenStreetMap Nominatim, en gratis geokodningstjeneste. Ved at aktivere denne funktion accepterer du Nominatims brugspolitik. Veloq er ikke tilknyttet OpenStreetMap.",
     "cacheAndDatabase": "Cache og database",
     "heatmapGeneration": "Heatmap",
-    "heatmapDescription": "Bruger enhedens lagerplads. Deaktivér for at spare plads."
+    "heatmapDescription": "Bruger enhedens lagerplads. Deaktivér for at spare plads.",
+    "redetectSections": "Gendetekter sektioner",
+    "redetectSectionsHint": "Kør sektionsdetektering på alle aktiviteter igen. Kan tage 1-2 minutter."
   },
   "stats": {
     "activities": "Aktiviteter",

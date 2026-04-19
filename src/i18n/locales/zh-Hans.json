@@ -885,7 +885,8 @@
     "viewDetails": "查看详情",
     "viewRouteDetails": "查看路线详情",
     "viewSectionDetails": "查看路段详情",
-    "zoomToActivity": "缩放至活动"
+    "zoomToActivity": "缩放至活动",
+    "colorByGradient": "按坡度着色"
   },
   "metrics": {
     "activityCount": "活动",
@@ -1464,7 +1465,9 @@
     "geocodingTermsMessage": "路线和路段名称使用 OpenStreetMap Nominatim（免费地理编码服务）生成。启用此功能即表示您同意 Nominatim 使用政策。Veloq 与 OpenStreetMap 无关。",
     "cacheAndDatabase": "缓存和数据库",
     "heatmapGeneration": "热力图",
-    "heatmapDescription": "使用设备存储空间。禁用可节省空间。"
+    "heatmapDescription": "使用设备存储空间。禁用可节省空间。",
+    "redetectSections": "重新检测路段",
+    "redetectSectionsHint": "对所有活动重新运行路段检测。需要 1-2 分钟。"
   },
   "stats": {
     "activities": "活动",

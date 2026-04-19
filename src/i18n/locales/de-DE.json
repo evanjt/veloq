@@ -885,7 +885,8 @@
     "viewDetails": "Details anzeigen",
     "viewRouteDetails": "Routendetails anzeigen",
     "viewSectionDetails": "Abschnittsdetails anzeigen",
-    "zoomToActivity": "Auf Aktivität zoomen"
+    "zoomToActivity": "Auf Aktivität zoomen",
+    "colorByGradient": "Nach Gefälle färben"
   },
   "metrics": {
     "activityCount": "Aktivitäten",
@@ -1464,7 +1465,9 @@
     "geocodingTermsMessage": "Routen- und Abschnittsnamen werden mit OpenStreetMap Nominatim generiert, einem kostenlosen Geocoding-Dienst. Dies gilt nur für neue Aktivitäten. Mit der Aktivierung dieser Funktion stimmst du der Nominatim-Nutzungsrichtlinie (https://nominatim.org/release-docs/develop/api/Search/#terms-and-conditions) zu. Veloq ist nicht mit OpenStreetMap verbunden.",
     "cacheAndDatabase": "Cache & Datenbank",
     "heatmapGeneration": "Heatmap",
-    "heatmapDescription": "Nutzt Gerätespeicher. Deaktivieren, um Platz zu sparen."
+    "heatmapDescription": "Nutzt Gerätespeicher. Deaktivieren, um Platz zu sparen.",
+    "redetectSections": "Abschnitte neu erkennen",
+    "redetectSectionsHint": "Abschnittserkennung über alle Aktivitäten erneut ausführen. Kann 1-2 Minuten dauern."
   },
   "stats": {
     "activities": "Aktivitäten",

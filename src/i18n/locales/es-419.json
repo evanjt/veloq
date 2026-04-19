@@ -885,7 +885,8 @@
     "viewDetails": "Ver detalles",
     "viewRouteDetails": "Ver detalles de la ruta",
     "viewSectionDetails": "Ver detalles de la sección",
-    "zoomToActivity": "Zoom a la actividad"
+    "zoomToActivity": "Zoom a la actividad",
+    "colorByGradient": "Color por gradiente"
   },
   "metrics": {
     "activityCount": "Actividades",
@@ -1464,7 +1465,9 @@
     "geocodingTermsMessage": "Los nombres de rutas y secciones se generan usando OpenStreetMap Nominatim, un servicio de geocodificación gratuito. Al activar esta función aceptas la Política de uso de Nominatim. Veloq no está afiliado con OpenStreetMap.",
     "cacheAndDatabase": "Caché y base de datos",
     "heatmapGeneration": "Mapa de calor",
-    "heatmapDescription": "Usa almacenamiento del dispositivo. Desactiva para ahorrar espacio."
+    "heatmapDescription": "Usa almacenamiento del dispositivo. Desactiva para ahorrar espacio.",
+    "redetectSections": "Detectar secciones",
+    "redetectSectionsHint": "Ejecutar la detección de secciones en todas las actividades. Puede tardar 1-2 minutos."
   },
   "stats": {
     "activities": "Actividades",

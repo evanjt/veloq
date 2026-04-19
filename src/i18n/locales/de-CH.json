@@ -885,7 +885,8 @@
     "viewDetails": "Details luege",
     "viewRouteDetails": "Routedetails aazeige",
     "viewSectionDetails": "Abschnittsdetails aazeige",
-    "zoomToActivity": "Uf Aktivität zoome"
+    "zoomToActivity": "Uf Aktivität zoome",
+    "colorByGradient": "Nach Gfälli färbe"
   },
   "metrics": {
     "activityCount": "Aktivitäten",
@@ -1464,7 +1465,9 @@
     "geocodingTermsMessage": "Route- und Abschnittsname wärded mit OpenStreetMap Nominatim erstellt, eme gratis Geocoding-Dienst. Wenn du das aktiviersch, stimmsch de Nominatim-Nutzigsbedingige zue. Veloq hät nüüt mit OpenStreetMap z tue.",
     "cacheAndDatabase": "Cache & Datebank",
     "heatmapGeneration": "Heatmap",
-    "heatmapDescription": "Bruucht Spicherplatz uf em Grät. Deaktiviere zum Platz z spare."
+    "heatmapDescription": "Bruucht Spicherplatz uf em Grät. Deaktiviere zum Platz z spare.",
+    "redetectSections": "Abschnitte nöi erchenne",
+    "redetectSectionsHint": "Abschnittserchennig über alli Aktivitäte nomal laufe lah. Cha 1-2 Minuute dure."
   },
   "stats": {
     "activities": "Aktivitäte",
