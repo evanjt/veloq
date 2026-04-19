@@ -383,10 +383,53 @@ impl PersistentRouteEngine {
             sig_ms
         );
 
-        // Phase 2: Group signatures and capture match info (uses parallel rayon)
+        // Phase 2: Group signatures and capture match info.
+        //
+        // Take the incremental path when we have existing groups AND the
+        // new-to-total ratio is small. `group_incremental` is O(N × M) vs
+        // the full path's O(N²). For 550 activities with 3 new, that's
+        // ~10× less work — this was the dominant slice of scenario E
+        // before the change (4s of the 9s wall-clock).
         let group_start = Instant::now();
-        let result =
-            tracematch::group_signatures_parallel_with_matches(&signatures, &self.match_config);
+
+        let already_grouped: std::collections::HashSet<&str> = self
+            .groups
+            .iter()
+            .flat_map(|g| g.activity_ids.iter().map(|s| s.as_str()))
+            .collect();
+        let (new_sigs, existing_sigs): (Vec<_>, Vec<_>) = signatures
+            .iter()
+            .cloned()
+            .partition(|s| !already_grouped.contains(s.activity_id.as_str()));
+
+        let total = signatures.len();
+        let use_incremental = !self.groups.is_empty()
+            && !new_sigs.is_empty()
+            && (new_sigs.len() as f64) < (total as f64 * 0.5);
+
+        let result = if use_incremental {
+            log::info!(
+                "[RUST: PERF] Phase 2 - INCREMENTAL grouping: {} new vs {} existing",
+                new_sigs.len(),
+                existing_sigs.len()
+            );
+            let groups = tracematch::group_incremental(
+                &new_sigs,
+                &self.groups,
+                &existing_sigs,
+                &self.match_config,
+            );
+            tracematch::GroupingResult {
+                groups,
+                activity_matches: std::collections::HashMap::new(),
+            }
+        } else {
+            log::info!(
+                "[RUST: PERF] Phase 2 - FULL grouping: {} signatures",
+                signatures.len()
+            );
+            tracematch::group_signatures_parallel_with_matches(&signatures, &self.match_config)
+        };
 
         let group_ms = group_start.elapsed().as_millis();
         log::info!(

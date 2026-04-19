@@ -106,6 +106,11 @@ impl StepMeasurement {
 // ============================================================================
 
 fn fresh_engine() -> (PersistentRouteEngine, TempDir) {
+    // RUST_LOG=info on the test command line activates the timing
+    // breakdown log lines from tracematch + veloqrs (no-op when unset
+    // because the global init is gated). is_test=true keeps the output
+    // legible inside `cargo test --nocapture`.
+    let _ = env_logger::builder().is_test(true).try_init();
     let dir = TempDir::new().expect("tempdir");
     let path = dir.path().join("lifecycle.db");
     let engine = PersistentRouteEngine::new(path.to_str().unwrap()).expect("open engine");
