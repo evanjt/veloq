@@ -491,4 +491,142 @@ impl FitnessManager {
             }
         })
     }
+
+    /// Compute the W' balance (anaerobic work capacity remaining) stream for a
+    /// power trace using Skiba's differential model (Skiba et al., 2014).
+    ///
+    /// - `power_stream`: per-sample power in watts
+    /// - `cp`: critical power in watts (typically FTP)
+    /// - `w_prime`: total anaerobic work capacity in joules
+    /// - `dt`: sample interval in seconds (1 for 1 Hz streams)
+    ///
+    /// Returns a vector of the same length as `power_stream`, in joules
+    /// remaining. Values go negative when the athlete exceeds their
+    /// anaerobic capacity.
+    ///
+    /// Model:
+    ///   - P > CP: W'bal decreases linearly by (P - CP) * dt
+    ///   - P <= CP: W'bal recovers exponentially toward W' with tau
+    ///     scaled by the power deficit (CP - P).
+    fn compute_wbal(
+        &self,
+        power_stream: Vec<u32>,
+        cp: u32,
+        w_prime: u32,
+        dt: u32,
+    ) -> Result<Vec<i32>, VeloqError> {
+        Ok(compute_wbal_stream(&power_stream, cp, w_prime, dt))
+    }
+}
+
+/// Pure W'bal computation kernel, split out so it can be unit-tested without
+/// touching the engine singleton.
+fn compute_wbal_stream(power_stream: &[u32], cp: u32, w_prime: u32, dt: u32) -> Vec<i32> {
+    let n = power_stream.len();
+    let mut out = Vec::with_capacity(n);
+    if n == 0 {
+        return out;
+    }
+
+    let w_prime_f = w_prime as f64;
+    let cp_f = cp as f64;
+    // dt=0 is nonsensical (would produce no time evolution); clamp to 1s.
+    let dt_f = if dt == 0 { 1.0_f64 } else { dt as f64 };
+
+    // Skiba's recovery time constant tau_W' (seconds). Empirical fit:
+    //   tau = 546 * e^(-0.01 * (CP - P)) + 316
+    // Evaluated at the instantaneous sub-CP power; tracks the rolling-average
+    // form closely for typical 1 Hz streams.
+    let tau_for_power = |p: f64| -> f64 {
+        let delta = (cp_f - p).max(0.0);
+        546.0 * (-0.01 * delta).exp() + 316.0
+    };
+
+    let mut balance = w_prime_f;
+    for &p_raw in power_stream {
+        let p = p_raw as f64;
+        if p > cp_f {
+            // Expenditure: linear depletion at (P - CP) * dt joules.
+            balance -= (p - cp_f) * dt_f;
+        } else {
+            // Recovery: first-order approach toward full W' with tau scaled
+            // by the power deficit below CP.
+            let tau = tau_for_power(p).max(1.0);
+            let deficit = w_prime_f - balance;
+            if deficit > 0.0 {
+                balance += deficit * (1.0 - (-dt_f / tau).exp());
+            }
+        }
+
+        // Clamp to i32 range so the FFI type stays safe on pathological streams.
+        let clamped = balance.clamp(i32::MIN as f64, i32::MAX as f64);
+        out.push(clamped.round() as i32);
+    }
+
+    out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::compute_wbal_stream;
+
+    #[test]
+    fn empty_stream_returns_empty() {
+        assert!(compute_wbal_stream(&[], 250, 20_000, 1).is_empty());
+    }
+
+    #[test]
+    fn steady_below_cp_stays_full() {
+        // Below CP at full W' — should remain at W'.
+        let power = vec![100u32; 60];
+        let out = compute_wbal_stream(&power, 250, 20_000, 1);
+        assert_eq!(out.len(), 60);
+        for v in &out {
+            assert_eq!(*v, 20_000);
+        }
+    }
+
+    #[test]
+    fn supra_cp_depletes_linearly() {
+        // 10 seconds at CP + 100 W should burn 1000 J.
+        let cp = 250u32;
+        let w_prime = 20_000u32;
+        let power = vec![350u32; 10];
+        let out = compute_wbal_stream(&power, cp, w_prime, 1);
+        assert_eq!(out.first().copied(), Some(19_900));
+        assert_eq!(out.last().copied(), Some(19_000));
+    }
+
+    #[test]
+    fn recovery_after_depletion_trends_toward_full() {
+        // Short burst, then rest at 0 W — W'bal should recover monotonically.
+        let cp = 250u32;
+        let w_prime = 20_000u32;
+        let mut power = vec![450u32; 30];
+        power.extend(vec![0u32; 300]);
+        let out = compute_wbal_stream(&power, cp, w_prime, 1);
+
+        let depleted = out[29];
+        assert!(depleted < 15_000, "expected significant depletion, got {}", depleted);
+
+        let recovered = *out.last().unwrap();
+        assert!(recovered > depleted, "expected recovery, got {} -> {}", depleted, recovered);
+        for v in &out {
+            assert!(*v <= w_prime as i32, "recovery overshot W': {}", v);
+        }
+    }
+
+    #[test]
+    fn can_go_negative_when_capacity_exceeded() {
+        let cp = 250u32;
+        let w_prime = 5_000u32;
+        // 60 s at CP + 200 W would burn 12_000 J — well past 5_000 W'.
+        let power = vec![450u32; 60];
+        let out = compute_wbal_stream(&power, cp, w_prime, 1);
+        assert!(
+            *out.last().unwrap() < 0,
+            "expected negative W'bal, got {}",
+            out.last().unwrap()
+        );
+    }
 }

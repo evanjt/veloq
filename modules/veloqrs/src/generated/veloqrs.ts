@@ -8782,6 +8782,30 @@ export interface FitnessManagerInterface {
    */
   computeHrvTrend(days: /*u32*/ number) /*throws*/ : FfiHrvTrend | undefined;
   /**
+   * Compute the W' balance (anaerobic work capacity remaining) stream for a
+   * power trace using Skiba's differential model (Skiba et al., 2014).
+   *
+   * - `power_stream`: per-sample power in watts
+   * - `cp`: critical power in watts (typically FTP)
+   * - `w_prime`: total anaerobic work capacity in joules
+   * - `dt`: sample interval in seconds (1 for 1 Hz streams)
+   *
+   * Returns a vector of the same length as `power_stream`, in joules
+   * remaining. Values go negative when the athlete exceeds their
+   * anaerobic capacity.
+   *
+   * Model:
+   * - P > CP: W'bal decreases linearly by (P - CP) * dt
+   * - P <= CP: W'bal recovers exponentially toward W' with tau
+   * scaled by the power deficit (CP - P).
+   */
+  computeWbal(
+    powerStream: Array</*u32*/ number>,
+    cp: /*u32*/ number,
+    wPrime: /*u32*/ number,
+    dt: /*u32*/ number,
+  ) /*throws*/ : Array</*i32*/ number>;
+  /**
    * Stale-PR opportunity detection.
    *
    * Pure pattern recognition: flags sections whose PR might be beatable
@@ -8924,6 +8948,50 @@ export class FitnessManager
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_fitnessmanager_compute_hrv_trend(
             uniffiTypeFitnessManagerObjectFactory.clonePointer(this),
             FfiConverterUInt32.lower(days),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * Compute the W' balance (anaerobic work capacity remaining) stream for a
+   * power trace using Skiba's differential model (Skiba et al., 2014).
+   *
+   * - `power_stream`: per-sample power in watts
+   * - `cp`: critical power in watts (typically FTP)
+   * - `w_prime`: total anaerobic work capacity in joules
+   * - `dt`: sample interval in seconds (1 for 1 Hz streams)
+   *
+   * Returns a vector of the same length as `power_stream`, in joules
+   * remaining. Values go negative when the athlete exceeds their
+   * anaerobic capacity.
+   *
+   * Model:
+   * - P > CP: W'bal decreases linearly by (P - CP) * dt
+   * - P <= CP: W'bal recovers exponentially toward W' with tau
+   * scaled by the power deficit (CP - P).
+   */
+  public computeWbal(
+    powerStream: Array</*u32*/ number>,
+    cp: /*u32*/ number,
+    wPrime: /*u32*/ number,
+    dt: /*u32*/ number,
+  ): Array</*i32*/ number> /*throws*/ {
+    return FfiConverterArrayInt32.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_fitnessmanager_compute_wbal(
+            uniffiTypeFitnessManagerObjectFactory.clonePointer(this),
+            FfiConverterArrayUInt32.lower(powerStream),
+            FfiConverterUInt32.lower(cp),
+            FfiConverterUInt32.lower(wPrime),
+            FfiConverterUInt32.lower(dt),
             callStatus,
           );
         },
@@ -13735,6 +13803,14 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_fitnessmanager_compute_hrv_trend",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_compute_wbal() !==
+    42309
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_fitnessmanager_compute_wbal",
     );
   }
   if (

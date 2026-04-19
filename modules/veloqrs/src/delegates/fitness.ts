@@ -329,3 +329,33 @@ export function findStalePrOpportunities(
       )
   );
 }
+
+/**
+ * Compute W' balance stream (joules remaining) for a power trace using
+ * Skiba's differential model. Returns an empty array when the engine is
+ * unavailable, the power stream is empty, or CP/W' are invalid.
+ *
+ * `powerStream` must be non-negative integer watts. `dt` is the sample
+ * interval in seconds (use 1 for standard 1 Hz streams).
+ */
+export function computeWbal(
+  host: DelegateHost,
+  powerStream: number[],
+  cp: number,
+  wPrime: number,
+  dt: number
+): number[] {
+  if (!host.ready) return [];
+  if (!Array.isArray(powerStream) || powerStream.length === 0) return [];
+  if (!Number.isFinite(cp) || cp <= 0) return [];
+  if (!Number.isFinite(wPrime) || wPrime <= 0) return [];
+  const dtSafe = Number.isFinite(dt) && dt > 0 ? Math.max(1, Math.floor(dt)) : 1;
+  const normalized = powerStream.map((p) =>
+    Number.isFinite(p) && p > 0 ? Math.round(p) : 0
+  );
+  return host.timed('computeWbal', () =>
+    host.engine
+      .fitness()
+      .computeWbal(normalized, Math.round(cp), Math.round(wPrime), dtSafe)
+  );
+}

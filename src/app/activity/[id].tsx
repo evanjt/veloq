@@ -36,7 +36,7 @@ import type {
 } from '@/components/maps/ActivityMapView';
 import type { CreationState } from '@/components/maps/SectionCreationOverlay';
 import { convertLatLngTuples, decodePolyline } from '@/lib';
-import { useExerciseSets } from '@/hooks/activities';
+import { useExerciseSets, useWbalStream } from '@/hooks/activities';
 import { useAthlete, useSportSettings } from '@/hooks';
 import { ExerciseTable } from '@/components/activity/ExerciseTable';
 import { MuscleGroupView } from '@/components/activity/MuscleGroupView';
@@ -147,6 +147,18 @@ export default function ActivityDetailScreen() {
   const { data: athlete } = useAthlete();
   const { data: sportSettings } = useSportSettings();
   const hasExercises = (exerciseSets?.length ?? 0) > 0;
+
+  // W' balance stream (joules remaining). Computed in Rust from power +
+  // FTP + athlete W'. Returns undefined when FTP or power is unavailable.
+  const wbalStream = useWbalStream(activity, streams, athlete, sportSettings);
+
+  // Merge wbal into the streams object passed to charts. Skips allocation
+  // when wbal is not available so other chart types are unaffected.
+  const chartStreams = useMemo(() => {
+    if (!streams) return streams;
+    if (!wbalStream) return streams;
+    return { ...streams, wbal: wbalStream };
+  }, [streams, wbalStream]);
 
   // Get auto-detected sections from engine that include this activity
   const { sections: engineSectionMatches, count: engineSectionCount } = useSectionMatches(id);
@@ -503,7 +515,7 @@ export default function ActivityDetailScreen() {
         <ActivityChartsSection
           activity={activity}
           activityId={id}
-          streams={streams}
+          streams={chartStreams}
           intervalsData={intervalsData}
           activityWellness={activityWellness}
           coordinates={coordinates}

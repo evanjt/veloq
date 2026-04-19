@@ -17,6 +17,7 @@ type ChartTypeKey =
   | 'chartTypes.elev'
   | 'chartTypes.grade'
   | 'chartTypes.gradient'
+  | 'chartTypes.wbal'
   | 'chartTypes.temp';
 
 /** Map chart IDs to translation keys */
@@ -29,6 +30,7 @@ const CHART_LABEL_KEYS: Partial<Record<ChartTypeId, ChartTypeKey>> = {
   elevation: 'chartTypes.elev',
   grade: 'chartTypes.grade',
   gradient: 'chartTypes.gradient',
+  wbal: 'chartTypes.wbal',
   temp: 'chartTypes.temp',
 };
 

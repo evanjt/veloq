@@ -13,6 +13,7 @@ export { useSectionOverlays } from './useSectionOverlays';
 export { useSectionTimeStreams } from './useSectionTimeStreams';
 export { useExerciseSets, useMuscleGroups } from './useExerciseSets';
 export { useMuscleDetail } from './useMuscleDetail';
+export { useWbalStream } from './useWbalStream';
 export { useActivitySectionHighlights } from './useActivitySectionHighlights';
 export type {
   ActivitySectionHighlight,

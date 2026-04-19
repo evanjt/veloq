@@ -119,4 +119,30 @@ describe('getAvailableCharts', () => {
       expect(v).toBeLessThanOrEqual(30);
     });
   });
+
+  it('includes wbal when the wbal stream is populated', () => {
+    const streams: ActivityStreams = {
+      watts: [100, 200, 300],
+      wbal: [20000, 19900, 19000],
+    };
+    const ids = getAvailableCharts(streams).map((c) => c.id);
+    expect(ids).toContain('wbal');
+  });
+
+  it('excludes wbal when no wbal stream is present (even with power)', () => {
+    const streams: ActivityStreams = {
+      watts: [100, 200, 300],
+    };
+    const ids = getAvailableCharts(streams).map((c) => c.id);
+    expect(ids).toContain('power');
+    expect(ids).not.toContain('wbal');
+  });
+
+  it('wbal getStream converts joules to kJ', () => {
+    const streams: ActivityStreams = {
+      wbal: [20000, 15500, 0, -1000],
+    };
+    const data = CHART_CONFIGS.wbal.getStream!(streams);
+    expect(data).toEqual([20, 15.5, 0, -1]);
+  });
 });

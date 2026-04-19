@@ -143,6 +143,14 @@ interface NativeModuleInterface {
     days: number,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_fitnessmanager_compute_wbal(
+    ptr: bigint,
+    powerStream: Uint8Array,
+    cp: number,
+    wPrime: number,
+    dt: number,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_fitnessmanager_find_stale_pr_opportunities(
     ptr: bigint,
     staleThresholdDays: number,
@@ -1009,6 +1017,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_detectionmanager_poll(): number;
   ubrn_uniffi_veloqrs_checksum_method_detectionmanager_start(): number;
   ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_compute_hrv_trend(): number;
+  ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_compute_wbal(): number;
   ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_find_stale_pr_opportunities(): number;
   ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_activity_heatmap(): number;
   ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_activity_metric_ids(): number;
