@@ -347,6 +347,17 @@ class RouteEngineClient implements DelegateHost {
   getSectionPerformances = (sectionId: string, sportType?: string): FfiSectionPerformanceResult =>
     sectionDelegates.getSectionPerformances(this, sectionId, sportType);
 
+  /**
+   * Batched section-performance fetch — one FFI call for many section IDs.
+   * Use this anywhere a `for (id of ids) getSectionPerformances(id)` loop
+   * would otherwise pay N round-trips of FFI overhead (~10-30 ms each).
+   */
+  getPerformancesBatch = (
+    sectionIds: string[],
+    sportType?: string
+  ): Array<{ sectionId: string; result: FfiSectionPerformanceResult }> =>
+    sectionDelegates.getPerformancesBatch(this, sectionIds, sportType);
+
   getActivityPrSections = (activityId: string, sectionIds: string[]): string[] =>
     sectionDelegates.getActivityPrSections(this, activityId, sectionIds);
 

@@ -164,6 +164,22 @@ export function getSectionPerformances(
   );
 }
 
+/**
+ * Batched section-performance fetch. One FFI round-trip for many section
+ * IDs instead of N. Backed by `SectionManager.get_performances_batch`.
+ * Returns one entry per requested id, in the same order.
+ */
+export function getPerformancesBatch(
+  host: DelegateHost,
+  sectionIds: string[],
+  sportType?: string
+): Array<{ sectionId: string; result: FfiSectionPerformanceResult }> {
+  if (!host.ready || sectionIds.length === 0) return [];
+  return host.timed('getPerformancesBatch', () =>
+    host.engine.sections().getPerformancesBatch(sectionIds, sportType)
+  );
+}
+
 export function getActivityPrSections(
   host: DelegateHost,
   activityId: string,
