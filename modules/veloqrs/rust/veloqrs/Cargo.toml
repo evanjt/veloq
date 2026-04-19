@@ -78,6 +78,10 @@ tempfile = "3.10"
 name = "persistence_stress"
 required-features = ["synthetic"]
 
+[[test]]
+name = "lifecycle_scenarios"
+required-features = ["synthetic"]
+
 [[bin]]
 name = "uniffi-bindgen"
 path = "uniffi-bindgen.rs"
