@@ -144,7 +144,8 @@ import {
   MAP_ATTRIBUTIONS,
 } from './mapStyles';
 import { AttributionOverlay, type AttributionOverlayRef } from './AttributionOverlay';
-import type { ActivityType, RoutePoint } from '@/types';
+import type { ActivityType, ActivityStreams, RoutePoint } from '@/types';
+import { GRADIENT_COLOR_STOPS } from '@/lib/maps/gradientLineColor';
 
 /** Section overlay for map visualization */
 export interface SectionOverlay {
@@ -232,6 +233,8 @@ interface ActivityMapViewProps {
   } | null;
   /** Activity country — used for demo mode satellite default on Swiss activities */
   country?: string | null;
+  /** Activity streams — required to compute per-point gradient coloring */
+  streams?: ActivityStreams | null;
 }
 
 export const ActivityMapView = memo(function ActivityMapView({
@@ -262,6 +265,7 @@ export const ActivityMapView = memo(function ActivityMapView({
   onCameraCapture,
   initial3DCamera,
   country,
+  streams,
 }: ActivityMapViewProps) {
   const { t } = useTranslation();
   const { getStyleForActivity } = useMapPreferences();
@@ -345,6 +349,7 @@ export const ActivityMapView = memo(function ActivityMapView({
     routeCoords,
     highlightPoint,
     highlightGeoJSON,
+    gradientLineExpression,
   } = useMapLayers({
     validCoordinates,
     coordinates,
@@ -352,7 +357,18 @@ export const ActivityMapView = memo(function ActivityMapView({
     sectionOverlays,
     highlightIndex,
     activeTab,
+    streams,
   });
+
+  // "Color by gradient" toggle — session-local, per-activity.
+  // Off by default so the normal solid-color experience is unchanged.
+  const [colorByGradient, setColorByGradient] = useState(false);
+  const hasGradientData = gradientLineExpression != null;
+  const gradientActive = colorByGradient && hasGradientData;
+
+  const toggleColorByGradient = useCallback(() => {
+    setColorByGradient((current) => !current);
+  }, []);
 
   // Section creation hook
   const {
@@ -726,13 +742,33 @@ export const ActivityMapView = memo(function ActivityMapView({
                   lineWidth: 4,
                   lineCap: 'round',
                   lineJoin: 'round',
-                  lineOpacity: sectionOverlaysGeoJSON
-                    ? highlightedSectionId
-                      ? 0.25
-                      : 0.8
-                    : overlayHasData
-                      ? 0.85
-                      : 1,
+                  // Hide the solid-color line when gradient coloring is active.
+                  lineOpacity: gradientActive
+                    ? 0
+                    : sectionOverlaysGeoJSON
+                      ? highlightedSectionId
+                        ? 0.25
+                        : 0.8
+                      : overlayHasData
+                        ? 0.85
+                        : 1,
+                }}
+              />
+            </ShapeSource>
+
+            {/* Gradient-coloured route line (requires lineMetrics for line-progress). */}
+            {/* CRITICAL: Always render ShapeSource to avoid add/remove cycles that crash iOS MapLibre */}
+            <ShapeSource id="routeGradientSource" shape={routeGeoJSON} lineMetrics={true}>
+              <LineLayer
+                id="routeLineGradient"
+                style={{
+                  lineWidth: 4,
+                  lineCap: 'round',
+                  lineJoin: 'round',
+                  lineGradient: gradientActive
+                    ? (gradientLineExpression as unknown as string)
+                    : undefined,
+                  lineOpacity: gradientActive ? 1 : 0,
                 }}
               />
             </ShapeSource>
@@ -1015,6 +1051,25 @@ export const ActivityMapView = memo(function ActivityMapView({
           />
         )}
 
+        {/* Gradient legend — shown when "color by gradient" is active */}
+        {gradientActive && !isFullscreen && (
+          <View style={styles.gradientLegend}>
+            <View style={styles.gradientBar}>
+              {GRADIENT_COLOR_STOPS.map((stop) => (
+                <View
+                  key={stop.percent}
+                  style={[styles.gradientBarStop, { backgroundColor: stop.color }]}
+                />
+              ))}
+            </View>
+            <View style={styles.gradientLabels}>
+              <Text style={styles.gradientLabel}>-30%</Text>
+              <Text style={styles.gradientLabel}>0%</Text>
+              <Text style={styles.gradientLabel}>+30%</Text>
+            </View>
+          </View>
+        )}
+
         {/* Route overlay legend */}
         {overlayHasData && !isFullscreen && (
           <View style={styles.overlayLegend}>
@@ -1067,6 +1122,33 @@ export const ActivityMapView = memo(function ActivityMapView({
               color={isDark ? colors.textOnDark : colors.textSecondary}
             />
           </TouchableOpacity>
+
+          {/* Gradient coloring toggle — only shown when gradient data is available */}
+          {hasGradientData && (
+            <TouchableOpacity
+              accessibilityLabel={t('maps.colorByGradient')}
+              style={[
+                styles.controlButton,
+                isDark && styles.controlButtonDark,
+                gradientActive && styles.controlButtonActive,
+              ]}
+              onPressIn={toggleColorByGradient}
+              activeOpacity={0.6}
+              hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
+            >
+              <MaterialCommunityIcons
+                name="slope-uphill"
+                size={22}
+                color={
+                  gradientActive
+                    ? colors.textOnDark
+                    : isDark
+                      ? colors.textOnDark
+                      : colors.textSecondary
+                }
+              />
+            </TouchableOpacity>
+          )}
 
           {/* 3D toggle */}
           {hasRoute && (
@@ -1403,5 +1485,35 @@ const styles = StyleSheet.create({
     fontSize: 10,
     fontWeight: '800',
     textAlign: 'center',
+  },
+  gradientLegend: {
+    position: 'absolute',
+    bottom: spacing.sm + 36,
+    left: spacing.sm,
+    width: 140,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    paddingHorizontal: 8,
+    paddingVertical: 6,
+    borderRadius: spacing.sm,
+    zIndex: 10,
+    gap: 4,
+  },
+  gradientBar: {
+    flexDirection: 'row',
+    height: 6,
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  gradientBarStop: {
+    flex: 1,
+  },
+  gradientLabels: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  gradientLabel: {
+    fontSize: 10,
+    color: colors.textOnDark,
+    fontWeight: '500',
   },
 });
