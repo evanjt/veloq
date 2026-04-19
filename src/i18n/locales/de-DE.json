@@ -1344,7 +1344,10 @@
     "viewSection": "Anzeigen",
     "merge": "Zusammenführen",
     "autoName": "{{sport}}-Abschnitt ({{distance}})",
-    "suggestedName": "Vorschlag: {{sport}} ({{distance}})"
+    "suggestedName": "Vorschlag: {{sport}} ({{distance}})",
+    "mergeCandidatesTitle": "Abschnitt zum Zusammenführen auswählen",
+    "mergeCandidatesSubtitle": "{{count}} ähnliche Abschnitte in der Nähe",
+    "overlapLabel": "Überlappung"
   },
   "settings": {
     "account": "Konto",

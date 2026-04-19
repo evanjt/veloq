@@ -1379,7 +1379,10 @@
     "rematchActivities": "Re-match activities",
     "awayDistance": "{{distance}}m away",
     "viewSection": "View",
-    "merge": "Merge"
+    "merge": "Merge",
+    "mergeCandidatesTitle": "Choose a section to merge",
+    "mergeCandidatesSubtitle": "{{count}} similar sections nearby",
+    "overlapLabel": "overlap"
   },
   "settings": {
     "account": "Account",

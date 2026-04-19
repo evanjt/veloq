@@ -41,6 +41,7 @@ import {
   SectionStatsCards,
   SectionInfoCard,
   MergeConfirmDialog,
+  MergeCandidatesModal,
 } from '@/components/section';
 import { getRouteEngine } from '@/lib/native/routeEngine';
 import {
@@ -105,6 +106,8 @@ export default function SectionDetailScreen() {
   const [mapReady, setMapReady] = useState(false);
   // Merge dialog state
   const [mergeTarget, setMergeTarget] = useState<(typeof mergeCandidates)[number] | null>(null);
+  // Shown when 2+ candidates — lets user pick which to merge.
+  const [showMergePicker, setShowMergePicker] = useState(false);
 
   // Time range for chart data (passed to useSectionChartData)
   const [sectionTimeRange, setSectionTimeRange] = useState<SectionTimeRange>('all');
@@ -635,7 +638,13 @@ export default function SectionDetailScreen() {
             {mergeCandidates.length > 0 && (
               <TouchableOpacity
                 style={[styles.mergeBanner, isDark && styles.mergeBannerDark]}
-                onPress={() => setMergeTarget(mergeCandidates[0])}
+                onPress={() => {
+                  if (mergeCandidates.length === 1) {
+                    setMergeTarget(mergeCandidates[0]);
+                  } else {
+                    setShowMergePicker(true);
+                  }
+                }}
                 activeOpacity={0.8}
               >
                 <MaterialCommunityIcons name="call-merge" size={18} color={colors.info} />
@@ -842,6 +851,15 @@ export default function SectionDetailScreen() {
           </View>
         </ScrollView>
       </View>
+      <MergeCandidatesModal
+        visible={showMergePicker}
+        candidates={mergeCandidates}
+        onSelect={(candidate) => {
+          setShowMergePicker(false);
+          setMergeTarget(candidate);
+        }}
+        onCancel={() => setShowMergePicker(false)}
+      />
       {mergeTarget && section && (
         <MergeConfirmDialog
           visible={!!mergeTarget}

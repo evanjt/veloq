@@ -1344,7 +1344,10 @@
     "viewSection": "表示",
     "merge": "結合",
     "autoName": "{{sport}}セクション ({{distance}})",
-    "suggestedName": "提案: {{sport}} ({{distance}})"
+    "suggestedName": "提案: {{sport}} ({{distance}})",
+    "mergeCandidatesTitle": "結合するセクションを選択",
+    "mergeCandidatesSubtitle": "近くに類似セクションが{{count}}件あります",
+    "overlapLabel": "重なり"
   },
   "settings": {
     "account": "アカウント",

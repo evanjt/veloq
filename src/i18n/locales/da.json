@@ -1344,7 +1344,10 @@
     "viewSection": "Vis",
     "merge": "Flet",
     "autoName": "{{sport}}-sektion ({{distance}})",
-    "suggestedName": "Foreslået: {{sport}} ({{distance}})"
+    "suggestedName": "Foreslået: {{sport}} ({{distance}})",
+    "mergeCandidatesTitle": "Vælg en sektion at flette",
+    "mergeCandidatesSubtitle": "{{count}} lignende sektioner i nærheden",
+    "overlapLabel": "overlap"
   },
   "settings": {
     "account": "Konto",

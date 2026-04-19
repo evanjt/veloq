@@ -1344,7 +1344,10 @@
     "viewSection": "Ver",
     "merge": "Mesclar",
     "autoName": "Trecho {{sport}} ({{distance}})",
-    "suggestedName": "Sugestão: {{sport}} ({{distance}})"
+    "suggestedName": "Sugestão: {{sport}} ({{distance}})",
+    "mergeCandidatesTitle": "Escolha um trecho para mesclar",
+    "mergeCandidatesSubtitle": "{{count}} trechos semelhantes por perto",
+    "overlapLabel": "sobreposição"
   },
   "settings": {
     "account": "Conta",

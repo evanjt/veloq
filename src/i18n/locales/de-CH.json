@@ -1344,7 +1344,10 @@
     "viewSection": "Luege",
     "merge": "Zämefüege",
     "autoName": "{{sport}}-Abschnitt ({{distance}})",
-    "suggestedName": "Vorschlag: {{sport}} ({{distance}})"
+    "suggestedName": "Vorschlag: {{sport}} ({{distance}})",
+    "mergeCandidatesTitle": "Abschnitt zum Zämefüege uswähle",
+    "mergeCandidatesSubtitle": "{{count}} ähnlichi Abschnitt i de Nöchi",
+    "overlapLabel": "Überlappung"
   },
   "settings": {
     "account": "Konto",

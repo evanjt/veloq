@@ -1344,7 +1344,10 @@
     "viewSection": "View",
     "merge": "Merge",
     "autoName": "{{sport}} Section ({{distance}})",
-    "suggestedName": "Suggested: {{sport}} ({{distance}})"
+    "suggestedName": "Suggested: {{sport}} ({{distance}})",
+    "mergeCandidatesTitle": "Pick a section to merge",
+    "mergeCandidatesSubtitle": "{{count}} similar sections nearby",
+    "overlapLabel": "overlap"
   },
   "settings": {
     "account": "Your Account",

@@ -1148,6 +1148,9 @@ export interface TranslationResource {
     mergeKeepMessage: string;
     mergeInto: string;
     mergeSuccess: string;
+    mergeCandidatesTitle: string;
+    mergeCandidatesSubtitle: string;
+    overlapLabel: string;
     rescan: string;
     rescanComplete: string;
     forceRedetect: string;

@@ -1344,7 +1344,10 @@
     "viewSection": "Bekijken",
     "merge": "Samenvoegen",
     "autoName": "{{sport}}-sectie ({{distance}})",
-    "suggestedName": "Suggestie: {{sport}} ({{distance}})"
+    "suggestedName": "Suggestie: {{sport}} ({{distance}})",
+    "mergeCandidatesTitle": "Kies een sectie om samen te voegen",
+    "mergeCandidatesSubtitle": "{{count}} vergelijkbare secties in de buurt",
+    "overlapLabel": "overlap"
   },
   "settings": {
     "account": "Account",

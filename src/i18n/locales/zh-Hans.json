@@ -1344,7 +1344,10 @@
     "viewSection": "查看",
     "merge": "合并",
     "autoName": "{{sport}}路段 ({{distance}})",
-    "suggestedName": "建议：{{sport}} ({{distance}})"
+    "suggestedName": "建议：{{sport}} ({{distance}})",
+    "mergeCandidatesTitle": "选择要合并的路段",
+    "mergeCandidatesSubtitle": "附近有 {{count}} 个相似路段",
+    "overlapLabel": "重叠"
   },
   "settings": {
     "account": "账户",

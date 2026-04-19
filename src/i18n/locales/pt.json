@@ -1344,7 +1344,10 @@
     "viewSection": "Ver",
     "merge": "Fundir",
     "autoName": "Troço {{sport}} ({{distance}})",
-    "suggestedName": "Sugestão: {{sport}} ({{distance}})"
+    "suggestedName": "Sugestão: {{sport}} ({{distance}})",
+    "mergeCandidatesTitle": "Escolhe um troço para fundir",
+    "mergeCandidatesSubtitle": "{{count}} troços semelhantes por perto",
+    "overlapLabel": "sobreposição"
   },
   "settings": {
     "account": "Conta",

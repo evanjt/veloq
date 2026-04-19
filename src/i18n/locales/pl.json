@@ -1344,7 +1344,10 @@
     "viewSection": "Zobacz",
     "merge": "Połącz",
     "autoName": "Odcinek {{sport}} ({{distance}})",
-    "suggestedName": "Sugerowany: {{sport}} ({{distance}})"
+    "suggestedName": "Sugerowany: {{sport}} ({{distance}})",
+    "mergeCandidatesTitle": "Wybierz odcinek do połączenia",
+    "mergeCandidatesSubtitle": "{{count}} podobnych odcinków w pobliżu",
+    "overlapLabel": "pokrycie"
   },
   "settings": {
     "account": "Konto",
