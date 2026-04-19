@@ -425,8 +425,11 @@ pub struct PersistentRouteEngine {
     /// Tier 2: LRU cached signatures (200 max = ~2MB)
     signature_cache: LruCache<String, RouteSignature>,
 
-    /// Tier 2: LRU cached consensus routes (50 max)
-    consensus_cache: LruCache<String, Vec<GpsPoint>>,
+    /// Tier 2: LRU cached consensus routes (50 max).
+    /// `Arc` avoids cloning the full `Vec<GpsPoint>` on every read — cache hits
+    /// just bump the refcount and callers either consume a clone of the inner
+    /// data or iterate via `&*arc`.
+    consensus_cache: LruCache<String, Arc<Vec<GpsPoint>>>,
 
     /// Tier 2: LRU cached sections for single-item lookups (50 max = ~5MB)
     section_cache: LruCache<String, FrequentSection>,

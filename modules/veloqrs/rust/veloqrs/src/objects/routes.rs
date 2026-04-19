@@ -64,7 +64,13 @@ impl RouteManager {
     fn get_consensus_route(&self, group_id: String) -> Result<Vec<crate::FfiGpsPoint>, VeloqError> {
         with_engine(|e| {
             e.get_consensus_route(&group_id)
-                .map(|points| points.into_iter().map(crate::FfiGpsPoint::from).collect())
+                .map(|points| {
+                    points
+                        .iter()
+                        .copied()
+                        .map(crate::FfiGpsPoint::from)
+                        .collect()
+                })
                 .unwrap_or_default()
         })
     }

@@ -3,6 +3,7 @@
 use crate::{Bounds, GpsPoint, RouteGroup, geo_utils};
 use rusqlite::{Result as SqlResult, params, types::Type};
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use super::{GroupSummary, PersistentRouteEngine, get_route_word};
 
@@ -1091,7 +1092,10 @@ impl PersistentRouteEngine {
     }
 
     /// Get consensus route for a group, with caching.
-    pub fn get_consensus_route(&mut self, group_id: &str) -> Option<Vec<GpsPoint>> {
+    ///
+    /// Returns an `Arc<Vec<GpsPoint>>` so cache hits are O(1) refcount bumps
+    /// instead of full `Vec` clones.
+    pub fn get_consensus_route(&mut self, group_id: &str) -> Option<Arc<Vec<GpsPoint>>> {
         // Check cache
         if let Some(consensus) = self.consensus_cache.get(&group_id.to_string()) {
             return Some(consensus.clone());
@@ -1114,7 +1118,7 @@ impl PersistentRouteEngine {
         }
 
         // Compute medoid (most representative track)
-        let consensus = self.compute_medoid_track(&tracks);
+        let consensus = Arc::new(self.compute_medoid_track(&tracks));
 
         // Cache result
         self.consensus_cache
