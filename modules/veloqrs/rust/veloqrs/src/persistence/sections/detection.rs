@@ -90,9 +90,20 @@ impl PersistentRouteEngine {
             };
         }
 
+        // Threshold tuned for correctness, not just perf. Tried raising
+        // 0.5 → 0.9 (mirroring the grouping fix) but scenario F drift
+        // went from 2% to 73% — incremental on 72% new misses sections
+        // because the unmatched-pool's full detection only sees the new
+        // tracks, not the existing 28% they should pair with. Grouping
+        // doesn't have this issue because group_incremental queries new
+        // signatures against the union R-tree of existing+new. Section
+        // incremental's "match new against existing sections, then full
+        // on unmatched" loses cross-pairs at the boundary.
+        const INCREMENTAL_THRESHOLD: f64 = 0.5;
+
         let use_incremental = !existing_sections.is_empty()
             && !new_activity_ids.is_empty()
-            && (new_activity_ids.len() as f64) < (activity_ids.len() as f64 * 0.5);
+            && (new_activity_ids.len() as f64) < (activity_ids.len() as f64 * INCREMENTAL_THRESHOLD);
 
         if use_incremental {
             log::info!(
@@ -106,7 +117,7 @@ impl PersistentRouteEngine {
                 "tracematch: [SectionDetection] Using FULL mode: {} new of {} total activities (>{:.0}% threshold)",
                 new_activity_ids.len(),
                 activity_ids.len(),
-                50.0
+                INCREMENTAL_THRESHOLD * 100.0,
             );
         }
 
