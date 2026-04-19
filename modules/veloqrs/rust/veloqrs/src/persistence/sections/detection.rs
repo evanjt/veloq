@@ -368,9 +368,11 @@ impl PersistentRouteEngine {
                 self.sections_dirty = false;
                 // Clear activity_traces to prevent memory leak.
                 // These GPS traces were used for consensus computation but are not persisted
-                // to SQLite, so keeping them in memory is wasteful.
+                // to SQLite, so keeping them in memory is wasteful. shrink_to_fit() releases
+                // the HashMap bucket allocation too — clear() alone keeps capacity.
                 for section in &mut self.sections {
                     section.activity_traces.clear();
+                    section.activity_traces.shrink_to_fit();
                 }
                 // Invalidate section LRU cache since sections changed
                 self.section_cache.clear();
