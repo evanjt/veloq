@@ -37,7 +37,7 @@ import type {
 import type { CreationState } from '@/components/maps/SectionCreationOverlay';
 import { convertLatLngTuples, decodePolyline } from '@/lib';
 import { useExerciseSets } from '@/hooks/activities';
-import { useAthlete } from '@/hooks';
+import { useAthlete, useSportSettings } from '@/hooks';
 import { ExerciseTable } from '@/components/activity/ExerciseTable';
 import { MuscleGroupView } from '@/components/activity/MuscleGroupView';
 import { ComponentErrorBoundary } from '@/components/ui';
@@ -145,6 +145,7 @@ export default function ActivityDetailScreen() {
   const isStrength = activity?.type === 'WeightTraining';
   const { data: exerciseSets } = useExerciseSets(id || '', activity?.type ?? '');
   const { data: athlete } = useAthlete();
+  const { data: sportSettings } = useSportSettings();
   const hasExercises = (exerciseSets?.length ?? 0) > 0;
 
   // Get auto-detected sections from engine that include this activity
@@ -454,6 +455,7 @@ export default function ActivityDetailScreen() {
           activity={activity}
           activityId={id}
           coordinates={coordinates}
+          streams={streams}
           isMetric={isMetric}
           isDark={isDark}
           debugEnabled={debugEnabled}

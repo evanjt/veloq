@@ -17,7 +17,7 @@
       "supportsTablet": true,
       "requireFullScreen": true,
       "bundleIdentifier": "com.veloq.app",
-      "buildNumber": "18",
+      "buildNumber": "19",
       "infoPlist": {
         "CFBundleDevelopmentRegion": "en-AU",
         "CFBundleLocalizations": [
@@ -45,7 +45,7 @@
     },
     "android": {
       "package": "com.veloq.app",
-      "versionCode": 18,
+      "versionCode": 19,
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "foregroundImage": "./src/assets/adaptive-icon.png",

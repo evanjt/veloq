@@ -581,6 +581,13 @@ class RouteEngineClient implements DelegateHost {
       excludeSectionIds
     );
 
+  computeWbal = (
+    powerStream: number[],
+    cp: number,
+    wPrime: number,
+    dt = 1
+  ): number[] => fitnessDelegates.computeWbal(this, powerStream, cp, wPrime, dt);
+
   // ==========================================================================
   // Athlete Profile & Sport Settings Cache
   // ==========================================================================
