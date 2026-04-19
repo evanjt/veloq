@@ -90,6 +90,10 @@ required-features = ["synthetic"]
 name = "apply_sections_atomicity"
 required-features = ["synthetic"]
 
+[[test]]
+name = "schema_indexes"
+required-features = ["synthetic"]
+
 [[bin]]
 name = "uniffi-bindgen"
 path = "uniffi-bindgen.rs"

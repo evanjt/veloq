@@ -10,7 +10,7 @@ use super::PersistentRouteEngine;
 impl PersistentRouteEngine {
     /// Current schema version for app-level tracking.
     /// This is separate from rusqlite_migration and tracks the overall schema state.
-    pub(super) const SCHEMA_VERSION: i32 = 19; // v0.3.0 schema (wellness table added)
+    pub(super) const SCHEMA_VERSION: i32 = 20; // v0.3.0 schema + perf indexes
 
     /// Get the database migrations.
     /// Each migration is applied in order, tracked in `__rusqlite_migrations` table.
@@ -84,6 +84,9 @@ impl PersistentRouteEngine {
             )),
             // M23: Wellness table — unlocks Rust-side sparkline + HRV trend atomics
             M::up(include_str!("../migrations/023_wellness.sql")),
+            // M24: Composite indexes for hot read paths (section_activities,
+            //      activity_metrics by sport+date)
+            M::up(include_str!("../migrations/024_perf_indexes.sql")),
         ])
     }
 
