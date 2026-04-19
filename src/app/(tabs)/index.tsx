@@ -37,7 +37,7 @@ import {
   ComponentErrorBoundary,
   TAB_BAR_SAFE_PADDING,
 } from '@/components/ui';
-import { SummaryCard, InsightLine, NotificationOptInCard } from '@/components/home';
+import { SummaryCard, NotificationOptInCard } from '@/components/home';
 import { useStartupData } from '@/hooks/home/useStartupData';
 import {
   TerrainSnapshotWebView,
@@ -208,8 +208,9 @@ export default function FeedScreen() {
     if (hookTime > 50) console.log(`  ⏱ Total hooks: ${hookTime.toFixed(1)}ms`);
   }
 
-  // Memoize InsightLine to prevent SummaryCard re-renders from new JSX element references
-  const insightLine = useMemo(() => <InsightLine insights={insights} />, [insights]);
+  // InsightLine intentionally disabled per product direction (noisy in top-right slot of
+  // SummaryCard). Leave `undefined` so the SummaryCard slot does not render.
+  const insightLine = undefined;
 
   // Filter activities by search query and type
   const filteredActivities = useMemo(() => {

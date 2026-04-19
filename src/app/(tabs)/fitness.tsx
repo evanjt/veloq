@@ -45,11 +45,12 @@ export default function FitnessScreen() {
   const shared = createSharedStyles(isDark);
   const [timeRange, setTimeRange] = useState<TimeRange>('3m');
 
-  // Defer secondary charts by one frame to reduce simultaneous Metal shader compilation
-  const [chartsReady, setChartsReady] = useState(false);
+  // Chart shaders are pre-warmed at app boot by <ShaderWarmup /> in _layout.tsx,
+  // so secondary charts can mount on first paint without a shader-compile stutter.
+  // Keep `chartsReady` as `true` for downstream prop compatibility.
+  const chartsReady = true;
   useEffect(() => {
     logMemory('FitnessScreen:mount');
-    requestAnimationFrame(() => setChartsReady(true));
   }, []);
 
   // Collapsible section state - all collapsed by default to reduce initial render load
@@ -125,10 +126,6 @@ export default function FitnessScreen() {
   useEffect(() => {
     if (wellness) logMemory('FitnessScreen:wellnessLoaded');
   }, [wellness]);
-  useEffect(() => {
-    if (chartsReady) logMemory('FitnessScreen:chartsReady');
-  }, [chartsReady]);
-
   // Handle pull-to-refresh — invalidate all fitness-related queries
   const { isRefreshing, onRefresh } = useFitnessRefresh(refetch);
 

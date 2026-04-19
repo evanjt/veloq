@@ -53,6 +53,7 @@ import { lightTheme, darkTheme, colors, darkColors } from '@/theme';
 import {
   DemoBanner,
   GlobalDataSync,
+  ShaderWarmup,
   OfflineBanner,
   EngineInitBanner,
   BottomTabBar,
@@ -496,6 +497,7 @@ export default function RootLayout() {
                     <DemoBanner />
                     <WhatsNewModal />
                     <TourReturnPill />
+                    <ShaderWarmup />
                     <Stack
                       screenOptions={{
                         headerShown: false,

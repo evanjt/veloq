@@ -154,18 +154,26 @@ function buildActivityNotificationBody(
     // Rust already filters out disabled/superseded sections
     const sections = routeEngine.getSectionsForActivity(activityId);
     if (sections && sections.length > 0) {
-      // Check for PRs on these sections
+      // Single batched FFI call instead of one per section. Saves
+      // (N-1) × ~10-30 ms of round-trip overhead in the background task.
+      const sectionIds = sections.map((s: { id: string }) => s.id);
+      type BatchEntry = { sectionId: string; result: { bestRecord?: { activityId?: string } } };
+      const batch: BatchEntry[] = (() => {
+        try {
+          return routeEngine.getPerformancesBatch(sectionIds);
+        } catch {
+          return [];
+        }
+      })();
+      const perfById = new Map(batch.map((entry: BatchEntry) => [entry.sectionId, entry.result]));
+
       let prCount = 0;
       let prSectionName = '';
       for (const section of sections) {
-        try {
-          const perf = routeEngine.getSectionPerformances(section.id);
-          if (perf?.bestRecord?.activityId === activityId) {
-            prCount++;
-            if (!prSectionName) prSectionName = section.name || 'a section';
-          }
-        } catch {
-          // Skip sections where performance check fails
+        const perf = perfById.get(section.id);
+        if (perf?.bestRecord?.activityId === activityId) {
+          prCount++;
+          if (!prSectionName) prSectionName = section.name || 'a section';
         }
       }
 
