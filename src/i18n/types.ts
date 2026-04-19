@@ -456,6 +456,19 @@ export interface TranslationResource {
     legacyImportNotice: string;
   };
 
+  bestEffortsScreen: {
+    title: string;
+    thisSeason: string;
+    allTime: string;
+    seasonSubtitle: string;
+    allTimeSubtitle: string;
+    powerBests: string;
+    paceBests: string;
+    swimBests: string;
+    activityNotCached: string;
+    sourceNote: string;
+  };
+
   about: {
     title: string;
     version: string;
@@ -1219,6 +1232,7 @@ export interface TranslationResource {
     pace: string;
     elev: string;
     grade: string;
+    gradient: string;
     dist: string;
     alt: string;
     temp: string;

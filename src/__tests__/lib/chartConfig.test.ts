@@ -64,7 +64,7 @@ describe('getAvailableCharts', () => {
     expect(available).toHaveLength(0);
   });
 
-  it('excludes non-primary charts (distance, temp, moving_time, elapsed_time)', () => {
+  it('excludes non-primary charts (distance, moving_time, elapsed_time)', () => {
     const streams: ActivityStreams = {
       distance: [0, 100, 200],
       altitude: [100, 200, 300],
@@ -74,5 +74,49 @@ describe('getAvailableCharts', () => {
     // altitude maps to elevation (primary), distance is not primary
     expect(ids).toContain('elevation');
     expect(ids).not.toContain('distance');
+    expect(ids).not.toContain('moving_time');
+    expect(ids).not.toContain('elapsed_time');
+  });
+
+  it('includes temp when temp stream is present', () => {
+    const streams: ActivityStreams = {
+      heartrate: [120, 130, 140],
+      temp: [18, 19, 20],
+    };
+    const available = getAvailableCharts(streams);
+    const ids = available.map((c) => c.id);
+    expect(ids).toContain('temp');
+  });
+
+  it('includes gradient when altitude + distance are present', () => {
+    const streams: ActivityStreams = {
+      altitude: [100, 110, 120, 130, 140],
+      distance: [0, 100, 200, 300, 400],
+    };
+    const available = getAvailableCharts(streams);
+    const ids = available.map((c) => c.id);
+    expect(ids).toContain('gradient');
+  });
+
+  it('excludes gradient when altitude or distance missing', () => {
+    const streamsNoDistance: ActivityStreams = { altitude: [100, 110, 120] };
+    expect(getAvailableCharts(streamsNoDistance).map((c) => c.id)).not.toContain('gradient');
+
+    const streamsNoAltitude: ActivityStreams = { distance: [0, 100, 200] };
+    expect(getAvailableCharts(streamsNoAltitude).map((c) => c.id)).not.toContain('gradient');
+  });
+
+  it('gradient values stay within [-30, +30] clip range', () => {
+    const streams: ActivityStreams = {
+      // Synthetic 500% slope would be clipped
+      altitude: [0, 100, 200, 300, 400],
+      distance: [0, 20, 40, 60, 80], // 500% rise
+    };
+    const data = CHART_CONFIGS.gradient.getStream!(streams);
+    expect(data).toBeDefined();
+    data!.forEach((v) => {
+      expect(v).toBeGreaterThanOrEqual(-30);
+      expect(v).toBeLessThanOrEqual(30);
+    });
   });
 });

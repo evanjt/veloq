@@ -173,6 +173,7 @@ export interface ActivityStreams {
   velocity_smooth?: number[];
   distance?: number[];
   grade_smooth?: number[];
+  temp?: number[];
 }
 
 // Interval within an activity (lap/interval data from intervals.icu)

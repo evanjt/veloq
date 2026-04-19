@@ -18,6 +18,7 @@ export type ChartTypeId =
   | 'pace'
   | 'elevation'
   | 'grade'
+  | 'gradient'
   | 'distance'
   | 'temp'
   | 'moving_time'
@@ -49,6 +50,39 @@ export interface ChartConfig {
   formatValue?: (value: number, metric: boolean) => string;
   /** How to compute the default chip value. Default: 'avg' */
   defaultMetric?: 'avg' | 'gain';
+}
+
+/**
+ * Compute a gradient (percent slope) stream from altitude + distance.
+ *
+ * Uses a symmetric sliding window so that each point reads dy/dx across
+ * ~`window` samples in each direction. Values are clamped to [-30, +30]
+ * to hide GPS noise spikes. Returns `undefined` when either stream is
+ * missing or too short to compute.
+ */
+function computeGradientStream(
+  altitude: number[] | undefined,
+  distance: number[] | undefined,
+  window = 10
+): number[] | undefined {
+  if (!altitude || !distance) return undefined;
+  const n = Math.min(altitude.length, distance.length);
+  if (n < 2) return undefined;
+
+  const result = new Array<number>(n);
+  for (let i = 0; i < n; i++) {
+    const lo = Math.max(0, i - window);
+    const hi = Math.min(n - 1, i + window);
+    const dx = distance[hi] - distance[lo];
+    const dy = altitude[hi] - altitude[lo];
+    if (!isFinite(dx) || dx <= 0 || !isFinite(dy)) {
+      result[i] = 0;
+      continue;
+    }
+    const pct = (100 * dy) / dx;
+    result[i] = Math.max(-30, Math.min(30, pct));
+  }
+  return result;
 }
 
 /** Chart configuration registry - labels kept short for compact chip display */
@@ -138,6 +172,17 @@ export const CHART_CONFIGS: Record<ChartTypeId, ChartConfig> = {
     getStream: (streams) => streams.grade_smooth,
     formatValue: (v) => v.toFixed(1),
   },
+  gradient: {
+    id: 'gradient',
+    label: 'Gradient',
+    icon: 'slope-uphill',
+    color: '#8B5CF6', // Purple — distinct from olive grade
+    unit: '%',
+    // Computed from altitude + distance using a sliding window (default 10 samples).
+    // Falls back gracefully if altitude or distance streams are missing.
+    getStream: (streams) => computeGradientStream(streams.altitude, streams.distance),
+    formatValue: (v) => v.toFixed(1),
+  },
   distance: {
     id: 'distance',
     label: 'Dist',
@@ -154,8 +199,10 @@ export const CHART_CONFIGS: Record<ChartTypeId, ChartConfig> = {
     label: 'Temp',
     icon: 'thermometer',
     color: '#E76F51',
+    streamKey: 'temp',
     unit: '°C',
     unitImperial: '°F',
+    getStream: (streams) => streams.temp,
     convertToImperial: (v) => v * 1.8 + 32,
     formatValue: (v) => Math.round(v).toString(),
   },
@@ -182,6 +229,8 @@ const PRIMARY_CHART_IDS: ChartTypeId[] = [
   'pace',
   'elevation',
   'grade',
+  'gradient',
+  'temp',
 ];
 
 /**

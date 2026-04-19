@@ -133,7 +133,7 @@
       "repsCount": "{{count}} reps"
     },
     "sectionPr": "PR",
-    "sectionCount": "{{count}} sections"
+    "sectionCount": "{{count}} secties"
   },
   "activityDetail": {
     "avgHR": "Gem. HF",
@@ -303,6 +303,18 @@
     "nextcloudSetup": "Bij gebruik van Nextcloud WebDAV",
     "manualSetup": "Of handmatig invoeren"
   },
+  "bestEffortsScreen": {
+    "title": "Beste prestaties",
+    "thisSeason": "Dit seizoen",
+    "allTime": "Altijd",
+    "seasonSubtitle": "Sinds 1 jan",
+    "allTimeSubtitle": "Over alle gecachete activiteiten",
+    "powerBests": "Vermogen",
+    "paceBests": "Tempo",
+    "swimBests": "Zwemtempo",
+    "activityNotCached": "Activiteit niet lokaal gecachet",
+    "sourceNote": "Tik op een rij om de activiteit te openen."
+  },
   "cache": {
     "addingActivities": "Activiteiten toevoegen...",
     "allActivitiesSynced": "Alle activiteiten gesynchroniseerd",
@@ -343,6 +355,7 @@
     "elapsedTime": "Verstreken tijd",
     "elev": "Hoogte",
     "grade": "Helling",
+    "gradient": "Stijging",
     "hr": "HF",
     "movingTime": "Beweegtijd",
     "pace": "Tempo",
@@ -603,7 +616,7 @@
       "thresholdSpeedName": "Drempelsnelheid-trendanalyse",
       "thresholdSpeedDescription": "Vergelijkt je laatste drempelsnelheid-schatting met eerdere waarden en zet het verschil om naar leesbaar tempo.",
       "fitnessPrName": "Fitness-PR kruisverwijzing",
-      "sectionTrendName": "Section performance trend"
+      "sectionTrendName": "Prestatietrend per sectie"
     },
     "alternatives": {
       "selected": "Huidige beoordeling",
@@ -641,7 +654,7 @@
       "hrChange": "HF-verandering",
       "efforts": "Pogingen",
       "trendSlope": "Trendhelling",
-      "recentMedian": "Recent median"
+      "recentMedian": "Recente mediaan"
     },
     "hrvTrend": {
       "trendingUp": "Herstel verbetert",
@@ -764,8 +777,8 @@
     "routesDisabled": "Routes uit",
     "routesDisabledLine1": "Routes & secties uitgeschakeld",
     "routesDisabledLine2": "Tik om in te schakelen",
-    "sectionDeclining": "{{name}} slowing down",
-    "sectionDecliningBody": "Recent median: {{median}}. Best: {{best}} across {{count}} efforts."
+    "sectionDeclining": "{{name}} wordt langzamer",
+    "sectionDecliningBody": "Recente mediaan: {{median}}. Beste: {{best}} over {{count}} pogingen."
   },
   "licenses": {
     "footer": "Tik op een licentiebadge om de volledige licentietekst te bekijken. Tik op het linkpictogram om de projectrepository te bezoeken.",
@@ -820,7 +833,7 @@
     "loadingOlderActivities": "Oudere activiteiten laden...",
     "syncing": "Synchroniseren: {{completed}}/{{total}}",
     "activities": "activities",
-    "expandRange": "Expand range"
+    "expandRange": "Bereik uitbreiden"
   },
   "maps": {
     "activitiesCount": "{{count}} activiteiten",

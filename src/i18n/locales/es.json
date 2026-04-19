@@ -133,7 +133,7 @@
       "repsCount": "{{count}} repeticiones"
     },
     "sectionPr": "PR",
-    "sectionCount": "{{count}} sections"
+    "sectionCount": "{{count}} secciones"
   },
   "activityDetail": {
     "avgHR": "FC Prom",
@@ -303,6 +303,18 @@
     "nextcloudSetup": "Si usas WebDAV de Nextcloud",
     "manualSetup": "O ingresa manualmente"
   },
+  "bestEffortsScreen": {
+    "title": "Mejores esfuerzos",
+    "thisSeason": "Esta temporada",
+    "allTime": "Histórico",
+    "seasonSubtitle": "Desde el 1 de enero",
+    "allTimeSubtitle": "En todas las actividades cacheadas",
+    "powerBests": "Potencia",
+    "paceBests": "Ritmo",
+    "swimBests": "Ritmo de natación",
+    "activityNotCached": "Actividad no almacenada localmente",
+    "sourceNote": "Toca una fila para abrir la actividad."
+  },
   "cache": {
     "addingActivities": "Añadiendo actividades...",
     "allActivitiesSynced": "Todas las actividades sincronizadas",
@@ -343,6 +355,7 @@
     "elapsedTime": "Tiempo transcurrido",
     "elev": "Elev",
     "grade": "Pendiente",
+    "gradient": "Inclinación",
     "hr": "FC",
     "movingTime": "Tiempo en movimiento",
     "pace": "Ritmo",
@@ -603,7 +616,7 @@
       "thresholdSpeedName": "Análisis de tendencia de velocidad umbral",
       "thresholdSpeedDescription": "Compara tu estimación de velocidad umbral más reciente con valores anteriores, y formatea el cambio como ritmo legible para el atleta.",
       "fitnessPrName": "Referencia cruzada forma física-PR",
-      "sectionTrendName": "Section performance trend"
+      "sectionTrendName": "Tendencia de rendimiento en secciones"
     },
     "alternatives": {
       "selected": "Evaluación actual",
@@ -641,7 +654,7 @@
       "hrChange": "Cambio FC",
       "efforts": "Esfuerzos",
       "trendSlope": "Pendiente de tendencia",
-      "recentMedian": "Recent median"
+      "recentMedian": "Mediana reciente"
     },
     "hrvTrend": {
       "trendingUp": "Recuperación mejorando",
@@ -764,8 +777,8 @@
     "routesDisabled": "Rutas desactivadas",
     "routesDisabledLine1": "Rutas y secciones desactivadas",
     "routesDisabledLine2": "Toca para activar",
-    "sectionDeclining": "{{name}} slowing down",
-    "sectionDecliningBody": "Recent median: {{median}}. Best: {{best}} across {{count}} efforts."
+    "sectionDeclining": "{{name}} se está ralentizando",
+    "sectionDecliningBody": "Mediana reciente: {{median}}. Mejor: {{best}} en {{count}} esfuerzos."
   },
   "licenses": {
     "footer": "Toca cualquier insignia de licencia para ver el texto completo. Toca el icono de enlace para visitar el repositorio del proyecto.",
@@ -820,7 +833,7 @@
     "loadingOlderActivities": "Cargando actividades anteriores...",
     "syncing": "Sincronizando: {{completed}}/{{total}}",
     "activities": "activities",
-    "expandRange": "Expand range"
+    "expandRange": "Ampliar rango"
   },
   "maps": {
     "activitiesCount": "{{count}} actividades",

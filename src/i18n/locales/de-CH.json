@@ -133,7 +133,7 @@
       "repsCount": "{{count}} Widerholige"
     },
     "sectionPr": "PR",
-    "sectionCount": "{{count}} sections"
+    "sectionCount": "{{count}} Abschnitt"
   },
   "activityDetail": {
     "avgHR": "Ø Puls",
@@ -303,6 +303,18 @@
     "nextcloudSetup": "Wenn du Nextcloud WebDAV bruuchsch",
     "manualSetup": "Oder manuell iigee"
   },
+  "bestEffortsScreen": {
+    "title": "Bescht Leischtige",
+    "thisSeason": "Die Saison",
+    "allTime": "Immer",
+    "seasonSubtitle": "Sit em 1. Jänner",
+    "allTimeSubtitle": "Über alli gcachti Aktivitäte",
+    "powerBests": "Leistig",
+    "paceBests": "Tempo",
+    "swimBests": "Schwümm-Tempo",
+    "activityNotCached": "Aktivität isch nöd lokal gcacht",
+    "sourceNote": "Druck uf e Zile zum Aktivität z öffne."
+  },
   "cache": {
     "addingActivities": "Aktivitäte werdid hinzuegfüegt...",
     "allActivitiesSynced": "Alli Aktivitäte synchronisiert",
@@ -343,6 +355,7 @@
     "elapsedTime": "Vergangni Ziit",
     "elev": "Höhe",
     "grade": "Stiiig",
+    "gradient": "Gefäu",
     "hr": "HF",
     "movingTime": "Beweigs-Ziit",
     "pace": "Pace",
@@ -604,7 +617,7 @@
       "thresholdSpeedName": "Schwelletempo-Trendanalyse",
       "thresholdSpeedDescription": "Vergliicht dini letschti Schwelletempo-Schätzig mit früheri Wert und zeigts als lesbars Tempo aa.",
       "fitnessPrName": "Fitness-PR Chrüüzreferänz",
-      "sectionTrendName": "Section performance trend"
+      "sectionTrendName": "Leistigstrend i de Abschnitt"
     },
     "alternatives": {
       "selected": "Aktuelli Iiischätzig",
@@ -642,7 +655,7 @@
       "hrChange": "HF-Änderig",
       "efforts": "Versüech",
       "trendSlope": "Trendsteiging",
-      "recentMedian": "Recent median"
+      "recentMedian": "Letschte Median"
     },
     "hrvTrend": {
       "trendingUp": "Erholig am besser wärde",
@@ -764,8 +777,8 @@
     "routesDisabled": "Route us",
     "routesDisabledLine1": "Route & Abschnitt deaktiviert",
     "routesDisabledLine2": "Tipp zum Aktiviere",
-    "sectionDeclining": "{{name}} slowing down",
-    "sectionDecliningBody": "Recent median: {{median}}. Best: {{best}} across {{count}} efforts."
+    "sectionDeclining": "{{name}} wird langsamer",
+    "sectionDecliningBody": "Letschte Median: {{median}}. Bestziit: {{best}} us {{count}} Versüech."
   },
   "licenses": {
     "footer": "Tipp uf es Lizenz-Badge um de voll Text z gseh. Tipp ufs Link-Symbol um s Projekt-Repository z bsueche.",
@@ -820,7 +833,7 @@
     "loadingOlderActivities": "Elteri Aktivitäte lade...",
     "syncing": "Sync: {{completed}}/{{total}}",
     "activities": "activities",
-    "expandRange": "Expand range"
+    "expandRange": "Bereich erwiitere"
   },
   "maps": {
     "activitiesCount": "{{count}} Aktivitäte",

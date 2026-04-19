@@ -343,6 +343,7 @@
     "elapsedTime": "Elapsed Time",
     "elev": "Elev",
     "grade": "Grade",
+    "gradient": "Gradient",
     "hr": "HR",
     "movingTime": "Moving Time",
     "pace": "Pace",
@@ -1702,5 +1703,17 @@
       "backupTitle": "Backup & Restore",
       "backupBody": "Export all your data as a full backup and share it via your device's share sheet. Restore from any backup to pick up right where you left off."
     }
+  },
+  "bestEffortsScreen": {
+    "title": "Best Efforts",
+    "thisSeason": "This season",
+    "allTime": "All-time",
+    "seasonSubtitle": "Since Jan 1",
+    "allTimeSubtitle": "Across every cached activity",
+    "powerBests": "Power",
+    "paceBests": "Pace",
+    "swimBests": "Swim pace",
+    "activityNotCached": "Activity not cached locally",
+    "sourceNote": "Tap a row to open the source activity."
   }
 }

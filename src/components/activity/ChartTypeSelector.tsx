@@ -15,7 +15,9 @@ type ChartTypeKey =
   | 'chartTypes.speed'
   | 'chartTypes.pace'
   | 'chartTypes.elev'
-  | 'chartTypes.grade';
+  | 'chartTypes.grade'
+  | 'chartTypes.gradient'
+  | 'chartTypes.temp';
 
 /** Map chart IDs to translation keys */
 const CHART_LABEL_KEYS: Partial<Record<ChartTypeId, ChartTypeKey>> = {
@@ -26,6 +28,8 @@ const CHART_LABEL_KEYS: Partial<Record<ChartTypeId, ChartTypeKey>> = {
   pace: 'chartTypes.pace',
   elevation: 'chartTypes.elev',
   grade: 'chartTypes.grade',
+  gradient: 'chartTypes.gradient',
+  temp: 'chartTypes.temp',
 };
 
 interface ChartMetricDisplay {

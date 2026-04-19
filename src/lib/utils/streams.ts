@@ -45,6 +45,9 @@ export function parseStreams(rawStreams: RawStreamItem[]): ActivityStreams {
       case 'grade_smooth':
         streams.grade_smooth = stream.data;
         break;
+      case 'temp':
+        streams.temp = stream.data;
+        break;
     }
   }
 

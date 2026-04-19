@@ -133,7 +133,7 @@
       "repsCount": "{{count}} 次"
     },
     "sectionPr": "PR",
-    "sectionCount": "{{count}} sections"
+    "sectionCount": "{{count}} 个路段"
   },
   "activityDetail": {
     "avgHR": "平均心率",
@@ -303,6 +303,18 @@
     "nextcloudSetup": "如使用 Nextcloud WebDAV",
     "manualSetup": "或手动输入"
   },
+  "bestEffortsScreen": {
+    "title": "最佳表现",
+    "thisSeason": "本赛季",
+    "allTime": "全部时间",
+    "seasonSubtitle": "自 1 月 1 日起",
+    "allTimeSubtitle": "跨所有已缓存活动",
+    "powerBests": "功率",
+    "paceBests": "配速",
+    "swimBests": "游泳配速",
+    "activityNotCached": "活动未本地缓存",
+    "sourceNote": "点击某行以打开对应活动。"
+  },
   "cache": {
     "addingActivities": "正在添加活动...",
     "allActivitiesSynced": "所有活动已同步",
@@ -343,6 +355,7 @@
     "elapsedTime": "总用时",
     "elev": "海拔",
     "grade": "坡度",
+    "gradient": "坡度(计算)",
     "hr": "心率",
     "movingTime": "运动时间",
     "pace": "配速",
@@ -603,7 +616,7 @@
       "thresholdSpeedName": "阈值速度趋势分析",
       "thresholdSpeedDescription": "将最新的阈值速度估算与之前的值进行比较，然后将变化格式化为运动员可读的配速显示。",
       "fitnessPrName": "体能-PR 交叉参考",
-      "sectionTrendName": "Section performance trend"
+      "sectionTrendName": "路段表现趋势"
     },
     "alternatives": {
       "selected": "当前评估",
@@ -641,7 +654,7 @@
       "hrChange": "心率变化",
       "efforts": "次数",
       "trendSlope": "趋势斜率",
-      "recentMedian": "Recent median"
+      "recentMedian": "近期中位数"
     },
     "hrvTrend": {
       "trendingUp": "恢复改善中",
@@ -764,8 +777,8 @@
     "routesDisabled": "路线已关闭",
     "routesDisabledLine1": "路线和路段已禁用",
     "routesDisabledLine2": "点击启用",
-    "sectionDeclining": "{{name}} slowing down",
-    "sectionDecliningBody": "Recent median: {{median}}. Best: {{best}} across {{count}} efforts."
+    "sectionDeclining": "{{name}}正在变慢",
+    "sectionDecliningBody": "近期中位数: {{median}}。最佳: {{best}}，共{{count}}次。"
   },
   "licenses": {
     "footer": "点击任何许可证徽章查看完整许可证文本。点击链接图标访问项目仓库。",
@@ -820,7 +833,7 @@
     "loadingOlderActivities": "加载更早的活动...",
     "syncing": "同步中: {{completed}}/{{total}}",
     "activities": "activities",
-    "expandRange": "Expand range"
+    "expandRange": "扩展范围"
   },
   "maps": {
     "activitiesCount": "{{count}} 个活动",

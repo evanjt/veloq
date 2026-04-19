@@ -133,7 +133,7 @@
       "repsCount": "{{count}}レップ"
     },
     "sectionPr": "PR",
-    "sectionCount": "{{count}} sections"
+    "sectionCount": "{{count}} 区間"
   },
   "activityDetail": {
     "avgHR": "平均心拍",
@@ -303,6 +303,18 @@
     "nextcloudSetup": "Nextcloud WebDAVの場合",
     "manualSetup": "または手動で入力"
   },
+  "bestEffortsScreen": {
+    "title": "ベストエフォート",
+    "thisSeason": "今シーズン",
+    "allTime": "全期間",
+    "seasonSubtitle": "1月1日から",
+    "allTimeSubtitle": "キャッシュされた全アクティビティ",
+    "powerBests": "パワー",
+    "paceBests": "ペース",
+    "swimBests": "水泳ペース",
+    "activityNotCached": "アクティビティはローカルキャッシュにありません",
+    "sourceNote": "行をタップして元のアクティビティを開きます。"
+  },
   "cache": {
     "addingActivities": "アクティビティを追加中...",
     "allActivitiesSynced": "すべてのアクティビティが同期されました",
@@ -343,6 +355,7 @@
     "elapsedTime": "経過時間",
     "elev": "標高",
     "grade": "勾配",
+    "gradient": "勾配(計算)",
     "hr": "心拍",
     "movingTime": "移動時間",
     "pace": "ペース",
@@ -603,7 +616,7 @@
       "thresholdSpeedName": "閾値速度トレンド分析",
       "thresholdSpeedDescription": "最新の閾値速度推定値を以前の値と比較し、変化をペースとして表示します。",
       "fitnessPrName": "フィットネス-PRクロスリファレンス",
-      "sectionTrendName": "Section performance trend"
+      "sectionTrendName": "区間パフォーマンスの傾向"
     },
     "alternatives": {
       "selected": "現在の評価",
@@ -641,7 +654,7 @@
       "hrChange": "心拍数変化",
       "efforts": "回数",
       "trendSlope": "トレンド傾き",
-      "recentMedian": "Recent median"
+      "recentMedian": "最近の中央値"
     },
     "hrvTrend": {
       "trendingUp": "回復が改善中",
@@ -764,8 +777,8 @@
     "routesDisabled": "ルート無効",
     "routesDisabledLine1": "ルートとセクションが無効です",
     "routesDisabledLine2": "タップして有効にする",
-    "sectionDeclining": "{{name}} slowing down",
-    "sectionDecliningBody": "Recent median: {{median}}. Best: {{best}} across {{count}} efforts."
+    "sectionDeclining": "{{name}}が遅くなっています",
+    "sectionDecliningBody": "最近の中央値: {{median}}。ベスト: {{best}}（{{count}}回の走行）。"
   },
   "licenses": {
     "footer": "ライセンスバッジをタップすると、完全なライセンステキストが表示されます。リンクアイコンをタップすると、プロジェクトリポジトリにアクセスできます。",
@@ -820,7 +833,7 @@
     "loadingOlderActivities": "過去のアクティビティを読み込み中...",
     "syncing": "同期中: {{completed}}/{{total}}",
     "activities": "activities",
-    "expandRange": "Expand range"
+    "expandRange": "範囲を広げる"
   },
   "maps": {
     "activitiesCount": "{{count}}件のアクティビティ",

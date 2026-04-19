@@ -133,7 +133,7 @@
       "repsCount": "{{count}} reps"
     },
     "sectionPr": "PR",
-    "sectionCount": "{{count}} sections"
+    "sectionCount": "{{count}} sektioner"
   },
   "activityDetail": {
     "avgHR": "Gns puls",
@@ -303,6 +303,18 @@
     "nextcloudSetup": "Hvis du bruger Nextcloud WebDAV",
     "manualSetup": "Eller indtast manuelt"
   },
+  "bestEffortsScreen": {
+    "title": "Bedste indsatser",
+    "thisSeason": "Denne sæson",
+    "allTime": "Altid",
+    "seasonSubtitle": "Siden 1. jan.",
+    "allTimeSubtitle": "På tværs af alle cachede aktiviteter",
+    "powerBests": "Watt",
+    "paceBests": "Tempo",
+    "swimBests": "Svømmetempo",
+    "activityNotCached": "Aktivitet ikke gemt lokalt",
+    "sourceNote": "Tryk på en række for at åbne aktiviteten."
+  },
   "cache": {
     "addingActivities": "Tilføjer aktiviteter...",
     "allActivitiesSynced": "Alle aktiviteter synkroniseret",
@@ -343,6 +355,7 @@
     "elapsedTime": "Forløbet tid",
     "elev": "Højde",
     "grade": "Hældning",
+    "gradient": "Gradient",
     "hr": "Puls",
     "movingTime": "Bevægelsestid",
     "pace": "Tempo",
@@ -603,7 +616,7 @@
       "thresholdSpeedName": "Analyse af tærskelhastighedstendens",
       "thresholdSpeedDescription": "Sammenligner dit seneste tærskelhastighedsestimat med tidligere værdier og formaterer ændringen som atletlæsbart tempo.",
       "fitnessPrName": "Fitness-PR krydsreference",
-      "sectionTrendName": "Section performance trend"
+      "sectionTrendName": "Tendens i sektionspræstation"
     },
     "alternatives": {
       "selected": "Nuværende vurdering",
@@ -641,7 +654,7 @@
       "hrChange": "HR-ændring",
       "efforts": "Bestræbelser",
       "trendSlope": "Tendenshældning",
-      "recentMedian": "Recent median"
+      "recentMedian": "Seneste median"
     },
     "hrvTrend": {
       "trendingUp": "Restitution forbedres",
@@ -764,8 +777,8 @@
     "routesDisabled": "Ruter fra",
     "routesDisabledLine1": "Ruter og sektioner deaktiveret",
     "routesDisabledLine2": "Tryk for at aktivere",
-    "sectionDeclining": "{{name}} slowing down",
-    "sectionDecliningBody": "Recent median: {{median}}. Best: {{best}} across {{count}} efforts."
+    "sectionDeclining": "{{name}} bliver langsommere",
+    "sectionDecliningBody": "Seneste median: {{median}}. Bedste: {{best}} over {{count}} forsøg."
   },
   "licenses": {
     "footer": "Tryk på et licensmærke for at se den fulde licenstekst. Tryk på linkikonet for at besøge projektets repository.",
@@ -820,7 +833,7 @@
     "loadingOlderActivities": "Indlæser ældre aktiviteter...",
     "syncing": "Synkroniserer: {{completed}}/{{total}}",
     "activities": "activities",
-    "expandRange": "Expand range"
+    "expandRange": "Udvid interval"
   },
   "maps": {
     "activitiesCount": "{{count}} aktiviteter",
@@ -1195,7 +1208,7 @@
     "selected": "Valgt",
     "shareDetailsWithDeveloper": "Kopiér detaljer og del med udvikleren, hvis du rapporterer et problem",
     "searchSections": "Søg i sektioner...",
-    "searchRoutes": "Search routes...",
+    "searchRoutes": "Søg ruter...",
     "showHidden": "Vis {{count}} skjulte",
     "showRemoved": "Vis fjernede ({{count}})",
     "sortActivities": "Aktiviteter",

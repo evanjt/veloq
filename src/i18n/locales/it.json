@@ -133,7 +133,7 @@
       "repsCount": "{{count}} ripetizioni"
     },
     "sectionPr": "PR",
-    "sectionCount": "{{count}} sections"
+    "sectionCount": "{{count}} tratti"
   },
   "activityDetail": {
     "avgHR": "FC media",
@@ -303,6 +303,18 @@
     "nextcloudSetup": "Se usi Nextcloud WebDAV",
     "manualSetup": "Oppure inserisci manualmente"
   },
+  "bestEffortsScreen": {
+    "title": "Migliori sforzi",
+    "thisSeason": "Questa stagione",
+    "allTime": "Sempre",
+    "seasonSubtitle": "Dal 1 gennaio",
+    "allTimeSubtitle": "Su tutte le attività in cache",
+    "powerBests": "Potenza",
+    "paceBests": "Passo",
+    "swimBests": "Passo nuoto",
+    "activityNotCached": "Attività non in cache locale",
+    "sourceNote": "Tocca una riga per aprire l attività."
+  },
   "cache": {
     "addingActivities": "Aggiunta attività...",
     "allActivitiesSynced": "Tutte le attività sincronizzate",
@@ -343,6 +355,7 @@
     "elapsedTime": "Tempo trascorso",
     "elev": "Elev",
     "grade": "Pendenza",
+    "gradient": "Inclinazione",
     "hr": "FC",
     "movingTime": "Tempo in movimento",
     "pace": "Passo",
@@ -603,7 +616,7 @@
       "thresholdSpeedName": "Analisi tendenza velocità soglia",
       "thresholdSpeedDescription": "Confronta la tua ultima stima di velocità soglia con i valori precedenti, poi formatta la variazione come passo leggibile per l'atleta.",
       "fitnessPrName": "Incrocio forma-PR",
-      "sectionTrendName": "Section performance trend"
+      "sectionTrendName": "Trend di performance sui tratti"
     },
     "alternatives": {
       "selected": "Valutazione attuale",
@@ -641,7 +654,7 @@
       "hrChange": "Variazione FC",
       "efforts": "Sforzi",
       "trendSlope": "Pendenza tendenza",
-      "recentMedian": "Recent median"
+      "recentMedian": "Mediana recente"
     },
     "hrvTrend": {
       "trendingUp": "Recupero in miglioramento",
@@ -764,8 +777,8 @@
     "routesDisabled": "Percorsi disattivati",
     "routesDisabledLine1": "Percorsi e sezioni disabilitati",
     "routesDisabledLine2": "Tocca per attivare",
-    "sectionDeclining": "{{name}} slowing down",
-    "sectionDecliningBody": "Recent median: {{median}}. Best: {{best}} across {{count}} efforts."
+    "sectionDeclining": "{{name}} sta rallentando",
+    "sectionDecliningBody": "Mediana recente: {{median}}. Migliore: {{best}} su {{count}} tentativi."
   },
   "licenses": {
     "footer": "Tocca qualsiasi badge di licenza per vedere il testo completo. Tocca l'icona del link per visitare il repository del progetto.",
@@ -820,7 +833,7 @@
     "loadingOlderActivities": "Caricamento attività precedenti...",
     "syncing": "Sincronizzazione: {{completed}}/{{total}}",
     "activities": "activities",
-    "expandRange": "Expand range"
+    "expandRange": "Estendi intervallo"
   },
   "maps": {
     "activitiesCount": "{{count}} attività",

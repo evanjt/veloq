@@ -133,7 +133,7 @@
       "repsCount": "{{count}} powtórzeń"
     },
     "sectionPr": "PR",
-    "sectionCount": "{{count}} sections"
+    "sectionCount": "{{count}} odcinków"
   },
   "activityDetail": {
     "avgHR": "Śr. HR",
@@ -303,6 +303,18 @@
     "nextcloudSetup": "Jeśli używasz Nextcloud WebDAV",
     "manualSetup": "Lub wpisz ręcznie"
   },
+  "bestEffortsScreen": {
+    "title": "Najlepsze wysilki",
+    "thisSeason": "Ten sezon",
+    "allTime": "Zawsze",
+    "seasonSubtitle": "Od 1 stycznia",
+    "allTimeSubtitle": "We wszystkich zapisanych aktywnosciach",
+    "powerBests": "Moc",
+    "paceBests": "Tempo",
+    "swimBests": "Tempo plywania",
+    "activityNotCached": "Aktywnosc nie jest zapisana lokalnie",
+    "sourceNote": "Dotknij wiersza aby otworzyc aktywnosc."
+  },
   "cache": {
     "addingActivities": "Dodawanie aktywności...",
     "allActivitiesSynced": "Wszystkie aktywności zsynchronizowane",
@@ -343,6 +355,7 @@
     "elapsedTime": "Czas całkowity",
     "elev": "Wys",
     "grade": "Nachylenie",
+    "gradient": "Wzniesienie",
     "hr": "Tętno",
     "movingTime": "Czas ruchu",
     "pace": "Tempo",
@@ -603,7 +616,7 @@
       "thresholdSpeedName": "Analiza trendu prędkości progowej",
       "thresholdSpeedDescription": "Porównuje najnowszy szacunek prędkości progowej z poprzednimi wartościami i formatuje zmianę jako czytelne tempo.",
       "fitnessPrName": "Porównanie kondycji z PR",
-      "sectionTrendName": "Section performance trend"
+      "sectionTrendName": "Trend wydajności na odcinkach"
     },
     "alternatives": {
       "selected": "Bieżąca ocena",
@@ -641,7 +654,7 @@
       "hrChange": "Zmiana HR",
       "efforts": "Powtórzenia",
       "trendSlope": "Nachylenie trendu",
-      "recentMedian": "Recent median"
+      "recentMedian": "Ostatnia mediana"
     },
     "hrvTrend": {
       "trendingUp": "Regeneracja się poprawia",
@@ -764,8 +777,8 @@
     "routesDisabled": "Trasy wyłączone",
     "routesDisabledLine1": "Trasy i odcinki wyłączone",
     "routesDisabledLine2": "Dotknij, aby włączyć",
-    "sectionDeclining": "{{name}} slowing down",
-    "sectionDecliningBody": "Recent median: {{median}}. Best: {{best}} across {{count}} efforts."
+    "sectionDeclining": "{{name}} zwalnia",
+    "sectionDecliningBody": "Ostatnia mediana: {{median}}. Najlepszy: {{best}} z {{count}} prób."
   },
   "licenses": {
     "footer": "Dotknij dowolnej plakietki licencji, aby zobaczyć pełny tekst. Dotknij ikony linku, aby odwiedzić repozytorium projektu.",
@@ -820,7 +833,7 @@
     "loadingOlderActivities": "Wczytywanie starszych aktywności...",
     "syncing": "Synchronizacja: {{completed}}/{{total}}",
     "activities": "activities",
-    "expandRange": "Expand range"
+    "expandRange": "Rozszerz zakres"
   },
   "maps": {
     "activitiesCount": "{{count}} aktywności",

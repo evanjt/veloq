@@ -303,6 +303,18 @@
     "nextcloudSetup": "Pour WebDAV Nextcloud",
     "manualSetup": "Ou saisir manuellement"
   },
+  "bestEffortsScreen": {
+    "title": "Meilleurs efforts",
+    "thisSeason": "Cette saison",
+    "allTime": "Depuis le début",
+    "seasonSubtitle": "Depuis le 1er janvier",
+    "allTimeSubtitle": "Sur toutes les activités en cache",
+    "powerBests": "Puissance",
+    "paceBests": "Allure",
+    "swimBests": "Allure de nage",
+    "activityNotCached": "Activité non mise en cache localement",
+    "sourceNote": "Touche une ligne pour ouvrir l activité."
+  },
   "cache": {
     "addingActivities": "Ajout des activités...",
     "allActivitiesSynced": "Toutes les activités synchronisées",
@@ -343,6 +355,7 @@
     "elapsedTime": "Temps total",
     "elev": "Élév",
     "grade": "Pente",
+    "gradient": "Inclinaison",
     "hr": "FC",
     "movingTime": "Temps en mouvement",
     "pace": "Allure",
@@ -603,7 +616,7 @@
       "thresholdSpeedName": "Analyse de tendance de la vitesse seuil",
       "thresholdSpeedDescription": "Compare votre dernière estimation de vitesse seuil aux valeurs précédentes, puis formate le changement en allure lisible pour l'affichage.",
       "fitnessPrName": "Croisement forme-PR",
-      "sectionTrendName": "Section performance trend"
+      "sectionTrendName": "Tendance de performance sur les sections"
     },
     "alternatives": {
       "selected": "Évaluation actuelle",
@@ -641,7 +654,7 @@
       "hrChange": "Variation FC",
       "efforts": "Efforts",
       "trendSlope": "Pente de tendance",
-      "recentMedian": "Recent median"
+      "recentMedian": "Médiane récente"
     },
     "hrvTrend": {
       "trendingUp": "Récupération en hausse",
@@ -764,8 +777,8 @@
     "routesDisabled": "Parcours désactivés",
     "routesDisabledLine1": "Parcours et sections désactivés",
     "routesDisabledLine2": "Appuyez pour activer",
-    "sectionDeclining": "{{name}} slowing down",
-    "sectionDecliningBody": "Recent median: {{median}}. Best: {{best}} across {{count}} efforts."
+    "sectionDeclining": "{{name}} ralentit",
+    "sectionDecliningBody": "Médiane récente : {{median}}. Meilleur : {{best}} sur {{count}} efforts."
   },
   "licenses": {
     "footer": "Appuyez sur un badge de licence pour voir le texte complet. Appuyez sur l'icône de lien pour visiter le dépôt du projet.",
@@ -820,7 +833,7 @@
     "loadingOlderActivities": "Chargement des activités plus anciennes...",
     "syncing": "Synchronisation : {{completed}}/{{total}}",
     "activities": "activities",
-    "expandRange": "Expand range"
+    "expandRange": "Étendre la plage"
   },
   "maps": {
     "activitiesCount": "{{count}} activités",
