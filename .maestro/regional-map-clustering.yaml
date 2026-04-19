@@ -40,13 +40,15 @@ tags:
 
 - takeScreenshot: "clustering-zoomed-out"
 
-# Cluster count labels are rendered as text via SymbolLayer with
-# textField: point_count_abbreviated. With 82 activities, we expect at
-# least one count label visible on screen (e.g., "82", "50", or similar).
-# The text is abbreviated (k for thousands), so match 1–3 digits optionally
-# followed by 'k'.
+# Cluster count labels render in two places:
+#   1. Native SymbolLayer ("cluster-count") — the bitmap glyphs users see.
+#   2. React <ClusterCountOverlay/> — invisible Text nodes carrying
+#      `testID="map-cluster-count-<id>"` for accessibility + test automation.
+# Maestro's view tree cannot read native bitmap text, so we assert on the
+# React overlay instead. At world-fit zoom the 82 demo activities collapse
+# into clusters whose testIDs start with `map-cluster-count-`.
 - assertVisible:
-    text: "^\\d{1,3}k?$"
+    id: "map-cluster-count-.*"
 
 - assertNotVisible:
     text: "NaN"

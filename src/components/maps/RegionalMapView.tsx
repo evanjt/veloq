@@ -28,23 +28,23 @@ import {
 } from './mapStyles';
 import { computeAttribution } from '@/lib/maps/computeAttribution';
 import type { ActivityBoundsItem } from '@/types';
-import { useEngineSections, useRouteSignatures, useRouteGroups } from '@/hooks/routes';
+import { useEngineSections, useRouteSignatures } from '@/hooks/routes';
 import { HEATMAP_TILE_URL_TEMPLATE } from '@/hooks/maps/useHeatmapTiles';
 import { useSectionAutoToggle, useVisibilityToggles } from '@/hooks/maps';
 import { buildSpiderGeoJSON } from '@/lib/maps/buildSpiderGeoJSON';
-import { isHeatmapEnabled, isRouteMatchingEnabled } from '@/providers/RouteSettingsStore';
+import { isHeatmapEnabled } from '@/providers/RouteSettingsStore';
 import type { FrequentSection } from '@/types';
 import {
   ActivityPopup,
   SectionPopup,
-  RoutePopup,
   MapControlStack,
+  ClusterCountOverlay,
+  type ClusterCountOverlayRef,
   useMapHandlers,
   useMapCamera,
   useMapGeoJSON,
   useIOSTapHandler,
   type SelectedActivity,
-  type SelectedRoute,
   type SpiderState,
 } from './regional';
 
@@ -105,11 +105,9 @@ export function RegionalMapView({
     showActivities,
     showHeatmap,
     showSections,
-    showRoutes,
     is3DMode,
     setShowActivities,
     setShowSections,
-    setShowRoutes,
     setIs3DMode,
     toggleHeatmap,
     toggle3D,
@@ -118,7 +116,6 @@ export function RegionalMapView({
   const [locationLoading, setLocationLoading] = useState(false);
   const [visibleActivityIds, setVisibleActivityIds] = useState<Set<string> | null>(null);
   const [selectedSection, setSelectedSection] = useState<FrequentSection | null>(null);
-  const [selectedRoute, setSelectedRoute] = useState<SelectedRoute | null>(null);
   const [spider, setSpider] = useState<SpiderState | null>(null);
   const cameraRef = useRef<React.ElementRef<typeof Camera>>(null);
   const clusterSourceRef = useRef<React.ElementRef<typeof ShapeSource>>(null);
@@ -153,15 +150,13 @@ export function RegionalMapView({
   const routeSignatures = useRouteSignatures(isMapFocused);
 
   // Frequent sections from route matching (with polylines loaded)
-  // useEngineSections loads full section data from Rust engine including polylines
-  // This fixes iOS crash when sectionsGeoJSON creates LineString with empty coordinates
+  // useEngineSections loads full section data from Rust engine including polylines.
+  // minVisits: 1 surfaces every detected section; the global map should show
+  // all sections regardless of repeat-count.
   const { sections } = useEngineSections({
-    minVisits: 2,
+    minVisits: 1,
     enabled: showSections,
   });
-
-  // Route groups for displaying routes on the map
-  const { groups: routeGroups } = useRouteGroups({ minActivities: 2 });
 
   // Camera, bounds, and pre-computed activity centers
   const { activityCenters, mapCenter, currentZoomRef, currentCenterRef, markUserInteracted } =
@@ -173,6 +168,7 @@ export function RegionalMapView({
   const TRACE_ZOOM_THRESHOLD = 11;
   const mapRef = useRef<React.ElementRef<typeof MapView>>(null);
   const map3DRef = useRef<Map3DWebViewRef>(null);
+  const clusterOverlayRef = useRef<ClusterCountOverlayRef>(null);
   const bearingAnim = useRef(new Animated.Value(0)).current;
 
   // ===========================================
@@ -255,8 +251,6 @@ export function RegionalMapView({
     tracesGeoJSON,
     startPointsGeoJSON,
     sectionsGeoJSON,
-    routesGeoJSON,
-    routeMarkersGeoJSON,
     userLocationGeoJSON,
     routeGeoJSON,
     routeHasData,
@@ -266,8 +260,8 @@ export function RegionalMapView({
     activityCenters,
     routeSignatures,
     sections,
-    routeGroups,
-    showRoutes,
+    routeGroups: [],
+    showRoutes: false,
     userLocation,
     selected,
     t,
@@ -288,7 +282,6 @@ export function RegionalMapView({
     handleGetLocation,
     toggleActivities,
     toggleSections: baseToggleSections,
-    toggleRoutes,
     resetOrientation,
     handleFitAll,
   } = useMapHandlers({
@@ -301,9 +294,9 @@ export function RegionalMapView({
     setShowActivities,
     showSections,
     setShowSections,
-    showRoutes,
-    setShowRoutes,
-    setSelectedRoute,
+    showRoutes: false,
+    setShowRoutes: NOOP,
+    setSelectedRoute: NOOP,
     userLocation,
     setUserLocation,
     setLocationLoading,
@@ -325,12 +318,28 @@ export function RegionalMapView({
 
   // Auto-show sections when zoomed in to neighborhood level, auto-hide when zoomed out.
   // Manual toggles (via the control button) take precedence and disable auto-behavior.
-  const { handleRegionDidChange, toggleSections } = useSectionAutoToggle({
-    showSections,
-    setShowSections,
-    baseHandleRegionDidChange,
-    baseToggleSections,
-  });
+  const { handleRegionDidChange: autoToggleHandleRegionDidChange, toggleSections } =
+    useSectionAutoToggle({
+      showSections,
+      setShowSections,
+      baseHandleRegionDidChange,
+      baseToggleSections,
+    });
+
+  // Wrap the region-change handler to also refresh the cluster-count overlay.
+  // MapLibre's native SymbolLayer renders cluster counts in bitmap form — those
+  // glyphs are invisible to accessibility tools (Maestro, TalkBack). The React
+  // overlay (`<ClusterCountOverlay>`) queries the rendered cluster features and
+  // places matching Text nodes at the same screen positions, giving tests and
+  // assistive tech an accessible handle on cluster counts.
+  const handleRegionDidChange = useCallback(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (e: any) => {
+      autoToggleHandleRegionDidChange(e);
+      clusterOverlayRef.current?.refresh();
+    },
+    [autoToggleHandleRegionDidChange]
+  );
 
   // Clear selections when their corresponding group visibility is turned off
   useEffect(() => {
@@ -345,38 +354,10 @@ export function RegionalMapView({
     }
   }, [showSections, selectedSection]);
 
-  useEffect(() => {
-    if (!showRoutes && selectedRoute) {
-      setSelectedRoute(null);
-    }
-  }, [showRoutes, selectedRoute]);
-
   // Toggle map style (cycles through light → dark → satellite)
   const toggleStyle = () => {
     setMapStyle((current) => getNextStyle(current));
   };
-
-  // Handle route press - show route popup
-  const handleRoutePress = useCallback(
-    (event: { features?: GeoJSON.Feature[] }) => {
-      const feature = event.features?.[0];
-      const routeId = feature?.properties?.id as string | undefined;
-      if (routeId) {
-        const route = routeGroups.find((g) => g.id === routeId);
-        if (route) {
-          setSelectedRoute({
-            id: route.id,
-            name: route.name,
-            activityCount: route.activityCount,
-            sportType: route.sportType,
-            type: route.type,
-            bestTime: route.bestTime,
-          });
-        }
-      }
-    },
-    [routeGroups]
-  );
 
   // Handle 3D section click — receives section ID string, looks up section to select
   const handle3DSectionClick = useCallback(
@@ -556,16 +537,16 @@ export function RegionalMapView({
     mapRef,
     activities,
     sections,
-    routeGroups,
+    routeGroups: [],
     selected,
     selectedSection,
-    selectedRoute,
+    selectedRoute: null,
     setSelected,
     setSelectedSection,
-    setSelectedRoute,
+    setSelectedRoute: NOOP,
     showActivities,
     showSections,
-    showRoutes,
+    showRoutes: false,
     show3D,
     handleMarkerTap,
     clusterSourceRef,
@@ -591,7 +572,6 @@ export function RegionalMapView({
             routeColor={selected ? getActivityTypeConfig(selected.activity.type).color : undefined}
             initialCenter={currentCenterRef.current ?? mapCenter ?? undefined}
             initialZoom={currentZoomRef.current}
-            routesGeoJSON={showRoutes ? (routesGeoJSON ?? undefined) : undefined}
             sectionsGeoJSON={showSections ? (sectionsGeoJSON ?? undefined) : undefined}
             // In 3D mode, use showActivities directly (no zoom check - 3D doesn't track zoom)
             tracesGeoJSON={showActivities ? (tracesGeoJSON ?? undefined) : undefined}
@@ -656,64 +636,11 @@ export function RegionalMapView({
             />
           </ShapeSource>
 
-          {/* Routes layer - solid wider polylines for route groups (purple family) */}
-          {/* CRITICAL: Always render ShapeSource to avoid iOS MapLibre crash during reconciliation */}
-          <ShapeSource
-            id="routes"
-            shape={routesGeoJSON}
-            onPress={handleRoutePress}
-            hitbox={{ width: 44, height: 44 }}
-          >
-            {/* Route outline — dark border for depth and readability */}
-            <LineLayer
-              id="routesOutline"
-              style={{
-                visibility: showRoutes ? 'visible' : 'none',
-                lineColor: 'rgba(0, 0, 0, 0.3)',
-                lineWidth: [
-                  'case',
-                  ['==', ['get', 'id'], selectedRoute?.id ?? ''],
-                  12, // Wide glow when selected
-                  8,
-                ],
-                lineOpacity: ['case', ['==', ['get', 'id'], selectedRoute?.id ?? ''], 0.7, 0.4],
-                lineCap: 'round',
-                lineJoin: 'round',
-              }}
-            />
-            <LineLayer
-              id="routesLine"
-              style={{
-                visibility: showRoutes ? 'visible' : 'none',
-                lineColor: ['get', 'color'],
-                lineWidth: [
-                  'case',
-                  ['==', ['get', 'id'], selectedRoute?.id ?? ''],
-                  8, // Bold when selected
-                  5,
-                ],
-                lineOpacity: ['case', ['==', ['get', 'id'], selectedRoute?.id ?? ''], 1, 0.85],
-                lineCap: 'round',
-                lineJoin: 'round',
-              }}
-            />
-          </ShapeSource>
-
-          {/* Route markers — ShapeSource kept mounted (empty) to avoid iOS MapLibre crash */}
-          <ShapeSource id="route-markers" shape={routeMarkersGeoJSON}>
-            <CircleLayer
-              id="routeMarkerCircle"
-              style={{
-                circleRadius: 0,
-                circleOpacity: 0,
-              }}
-            />
-          </ShapeSource>
-
-          {/* Sections layer - frequent road/trail sections */}
+          {/* Sections layer - frequent road/trail sections (primary content on global map) */}
           {/* CRITICAL: Always render ShapeSource to avoid iOS MapLibre crash */}
           <ShapeSource
             id="sections"
+            testID="regional-map-sections-overlay"
             shape={sectionsGeoJSON}
             onPress={handleSectionPress}
             hitbox={{ width: 44, height: 44 }}
@@ -726,21 +653,20 @@ export function RegionalMapView({
                   ? [
                       'case',
                       ['==', ['get', 'id'], selectedSection.id],
-                      9, // Bold + prominent when selected
-                      4,
+                      10, // Bold when selected
+                      6,
                     ]
-                  : ['interpolate', ['linear'], ['zoom'], 10, 3, 14, 5, 18, 7],
+                  : ['interpolate', ['linear'], ['zoom'], 6, 3, 10, 5, 14, 7, 18, 9],
                 lineOpacity: showSections
                   ? selectedSection
-                    ? [
+                    ? ([
                         'case',
                         ['==', ['get', 'id'], selectedSection.id],
                         1,
-                        0.55, // Dim unselected to make selected pop
-                      ]
-                    : 0.92
+                        0.6, // Dim unselected to make selected pop
+                      ] as unknown as number)
+                    : 1
                   : 0,
-                lineDasharray: [4, 2],
                 lineCap: 'round',
                 lineJoin: 'round',
               }}
@@ -872,6 +798,10 @@ export function RegionalMapView({
         </MapView>
       )}
 
+      {/* Accessibility + test-ID overlay for cluster counts (invisible to users;
+          the native SymbolLayer above renders the visible glyphs). */}
+      {!show3D && <ClusterCountOverlay mapRef={mapRef} ref={clusterOverlayRef} />}
+
       {/* Style toggle */}
       <TouchableOpacity
         style={[
@@ -900,11 +830,11 @@ export function RegionalMapView({
         showActivities={showActivities}
         showHeatmap={showHeatmap}
         showSections={showSections}
-        showRoutes={showRoutes}
+        showRoutes={false}
         userLocationActive={!!userLocation}
         locationLoading={locationLoading}
         sections={sections}
-        routeCount={routeGroups.length}
+        routeCount={0}
         activityCount={activities.length}
         bearingAnim={bearingAnim}
         onToggle3D={toggle3D}
@@ -912,8 +842,7 @@ export function RegionalMapView({
         onGetLocation={handleGetLocation}
         onToggleActivities={toggleActivities}
         onToggleHeatmap={isHeatmapEnabled() ? toggleHeatmap : undefined}
-        onToggleSections={isRouteMatchingEnabled() ? toggleSections : undefined}
-        onToggleRoutes={isRouteMatchingEnabled() ? toggleRoutes : undefined}
+        onToggleSections={toggleSections}
         onFitAll={handleFitAll}
       />
       {/* Attribution */}
@@ -941,18 +870,6 @@ export function RegionalMapView({
           onViewDetails={() => {
             setSelectedSection(null);
             router.push(`/section/${selectedSection.id}`);
-          }}
-        />
-      )}
-      {/* Route popup - shows when a route is tapped */}
-      {selectedRoute && (
-        <RoutePopup
-          route={selectedRoute}
-          bottom={insets.bottom + 200}
-          onClose={() => setSelectedRoute(null)}
-          onViewDetails={() => {
-            setSelectedRoute(null);
-            router.push(`/route/${selectedRoute.id}`);
           }}
         />
       )}

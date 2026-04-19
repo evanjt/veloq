@@ -11,4 +11,5 @@ export {
 export { useMapHandlers, type SpiderState } from './useMapHandlers';
 export { useMapCamera } from './useMapCamera';
 export { useIOSTapHandler } from './useIOSTapHandler';
+export { ClusterCountOverlay, type ClusterCountOverlayRef } from './ClusterCountOverlay';
 export { type SelectedRoute } from './types';
