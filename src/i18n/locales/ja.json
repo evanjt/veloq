@@ -238,6 +238,10 @@
     "error": "エラー",
     "failedToClear": "キャッシュのクリアに失敗しました。再試行してください。",
     "failedToDisconnect": "切断に失敗しました。再試行してください。",
+    "redetectSectionsBusy": "セクション検出は実行中です。完了までお待ちください。",
+    "redetectSectionsConfirm": "再検出",
+    "redetectSectionsMessage": "すべてのアクティビティでセクション検出を再実行します。ライブラリのサイズにより 1〜2 分かかる場合があります。",
+    "redetectSectionsTitle": "セクションを再検出しますか？",
     "sync": "同期",
     "syncAllMessage": "最大10年分のアクティビティデータをバックグラウンドで同期します。より深いルート分析と比較が可能になります。",
     "syncAllTitle": "全履歴を同期"

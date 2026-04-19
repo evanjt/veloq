@@ -238,6 +238,10 @@
     "error": "Error",
     "failedToClear": "Error al borrar la caché. Por favor, intentadlo de nuevo.",
     "failedToDisconnect": "Error al desconectar. Por favor, intentadlo de nuevo.",
+    "redetectSectionsBusy": "La detección de secciones ya está en curso. Espera a que termine.",
+    "redetectSectionsConfirm": "Redetectar",
+    "redetectSectionsMessage": "Vuelve a ejecutar la detección de secciones en todas las actividades. Puede tardar 1-2 minutos según el tamaño de tu biblioteca.",
+    "redetectSectionsTitle": "¿Redetectar secciones?",
     "sync": "Sincronizar",
     "syncAllMessage": "Esto sincronizará hasta 10 años de datos de actividades en segundo plano. Permite un análisis de rutas más profundo.",
     "syncAllTitle": "Sincronizar todo el historial"

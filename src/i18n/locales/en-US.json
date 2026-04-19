@@ -238,6 +238,10 @@
     "error": "Error",
     "failedToClear": "Failed to clear cache. Please try again.",
     "failedToDisconnect": "Failed to disconnect. Please try again.",
+    "redetectSectionsBusy": "Section detection is already running. Please wait for it to finish.",
+    "redetectSectionsConfirm": "Re-detect",
+    "redetectSectionsMessage": "Re-run section detection on all activities. This can take 1-2 minutes depending on your library size.",
+    "redetectSectionsTitle": "Re-detect Sections?",
     "sync": "Sync",
     "syncAllMessage": "This will sync up to 10 years of activity data in the background. This enables deeper route analysis and comparison.",
     "syncAllTitle": "Sync All History"

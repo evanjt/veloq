@@ -238,6 +238,10 @@
     "error": "Erreur",
     "failedToClear": "Échec de l'effacement du cache. Veuillez réessayer.",
     "failedToDisconnect": "Échec de la déconnexion. Veuillez réessayer.",
+    "redetectSectionsBusy": "La détection de sections est déjà en cours. Veuillez patienter.",
+    "redetectSectionsConfirm": "Relancer",
+    "redetectSectionsMessage": "Relance la détection de sections sur toutes les activités. Peut prendre 1 à 2 minutes selon la taille de votre bibliothèque.",
+    "redetectSectionsTitle": "Redétecter les sections ?",
     "sync": "Synchroniser",
     "syncAllMessage": "Cela synchronisera jusqu'à 10 ans de données d'activités en arrière-plan. Cela permet une analyse de parcours plus approfondie.",
     "syncAllTitle": "Synchroniser tout l'historique"

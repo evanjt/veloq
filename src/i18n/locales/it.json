@@ -238,6 +238,10 @@
     "error": "Errore",
     "failedToClear": "Impossibile cancellare la cache. Riprova.",
     "failedToDisconnect": "Impossibile disconnettere. Riprova.",
+    "redetectSectionsBusy": "Il rilevamento delle sezioni è già in corso. Attendi il completamento.",
+    "redetectSectionsConfirm": "Ri-rileva",
+    "redetectSectionsMessage": "Ri-esegue il rilevamento delle sezioni su tutte le attività. Può richiedere 1-2 minuti a seconda della dimensione della libreria.",
+    "redetectSectionsTitle": "Ri-rilevare le sezioni?",
     "sync": "Sincronizza",
     "syncAllMessage": "Questo sincronizzerà fino a 10 anni di dati attività in background. Permette un'analisi e un confronto più approfonditi dei percorsi.",
     "syncAllTitle": "Sincronizza tutta la cronologia"

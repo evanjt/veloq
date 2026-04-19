@@ -238,6 +238,10 @@
     "error": "Gopferteckel!",
     "failedToClear": "Gopferteckel, hät nöd klappet!",
     "failedToDisconnect": "Trenne hät nöd klappet, Siech!",
+    "redetectSectionsBusy": "Abschnittserkennig lauft scho. Bitte warte.",
+    "redetectSectionsConfirm": "Nöi erkenne",
+    "redetectSectionsMessage": "Abschnittserkennig für alli Aktivitäte nomol laufe lasse. Dueret 1-2 Minute, je nach Grössi vo dinere Bibliothek.",
+    "redetectSectionsTitle": "Abschnitt nöi erkenne?",
     "sync": "Go!",
     "syncAllMessage": "Bis zu 10 Jahr. Cheibe lässig für Route!",
     "syncAllTitle": "Alls synce?"

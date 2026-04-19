@@ -238,6 +238,10 @@
     "error": "Fejl",
     "failedToClear": "Kunne ikke rydde cache. Prøv venligst igen.",
     "failedToDisconnect": "Kunne ikke afbryde forbindelse. Prøv venligst igen.",
+    "redetectSectionsBusy": "Sektionsregistrering kører allerede. Vent venligst.",
+    "redetectSectionsConfirm": "Gen-registrér",
+    "redetectSectionsMessage": "Kør sektionsregistrering igen på alle aktiviteter. Kan tage 1-2 minutter afhængig af bibliotekets størrelse.",
+    "redetectSectionsTitle": "Gen-registrér sektioner?",
     "sync": "Synkroniser",
     "syncAllMessage": "Dette vil synkronisere op til 10 års aktivitetsdata i baggrunden. Dette muliggør dybere ruteanalyse og sammenligning.",
     "syncAllTitle": "Synkroniser al historik"

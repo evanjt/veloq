@@ -238,6 +238,10 @@
     "error": "Strewth",
     "failedToClear": "Couldn't clear the cache. Have another crack.",
     "failedToDisconnect": "Couldn't disconnect. Have another crack.",
+    "redetectSectionsBusy": "Section crunching's already on the go. Hang tight.",
+    "redetectSectionsConfirm": "Re-crunch",
+    "redetectSectionsMessage": "Re-run section detection across every activity. Takes a minute or two on bigger libraries.",
+    "redetectSectionsTitle": "Re-crunch sections?",
     "sync": "Sync it",
     "syncAllMessage": "This'll sync up to 10 years of activity data in the background. Gives you better route analysis and comparison.",
     "syncAllTitle": "Sync the lot"

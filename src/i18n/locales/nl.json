@@ -238,6 +238,10 @@
     "error": "Fout",
     "failedToClear": "Cache wissen mislukt. Probeer opnieuw.",
     "failedToDisconnect": "Loskoppelen mislukt. Probeer opnieuw.",
+    "redetectSectionsBusy": "Sectiedetectie is al bezig. Even geduld.",
+    "redetectSectionsConfirm": "Opnieuw detecteren",
+    "redetectSectionsMessage": "Voer sectiedetectie opnieuw uit op alle activiteiten. Duurt 1-2 minuten, afhankelijk van de grootte van je bibliotheek.",
+    "redetectSectionsTitle": "Secties opnieuw detecteren?",
     "sync": "Synchroniseren",
     "syncAllMessage": "Dit synchroniseert tot 10 jaar activiteitsgegevens op de achtergrond. Dit maakt diepere route-analyse en vergelijking mogelijk.",
     "syncAllTitle": "Alle geschiedenis synchroniseren"

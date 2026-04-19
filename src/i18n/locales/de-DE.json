@@ -238,6 +238,10 @@
     "error": "Fehler",
     "failedToClear": "Cache konnte nicht gelöscht werden. Bitte versuche es erneut.",
     "failedToDisconnect": "Trennung fehlgeschlagen. Bitte versuche es erneut.",
+    "redetectSectionsBusy": "Abschnittserkennung läuft bereits. Bitte warten.",
+    "redetectSectionsConfirm": "Neu erkennen",
+    "redetectSectionsMessage": "Abschnittserkennung für alle Aktivitäten neu ausführen. Dauert je nach Bibliothek 1-2 Minuten.",
+    "redetectSectionsTitle": "Abschnitte neu erkennen?",
     "sync": "Synchronisieren",
     "syncAllMessage": "Dies synchronisiert bis zu 10 Jahre Aktivitätsdaten im Hintergrund. Dies ermöglicht tiefere Routenanalyse und Vergleiche.",
     "syncAllTitle": "Gesamten Verlauf synchronisieren"

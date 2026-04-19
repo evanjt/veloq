@@ -238,6 +238,10 @@
     "error": "Błąd",
     "failedToClear": "Nie udało się wyczyścić pamięci podręcznej. Spróbuj ponownie.",
     "failedToDisconnect": "Nie udało się odłączyć. Spróbuj ponownie.",
+    "redetectSectionsBusy": "Wykrywanie odcinków jest już w toku. Poczekaj na zakończenie.",
+    "redetectSectionsConfirm": "Wykryj ponownie",
+    "redetectSectionsMessage": "Ponownie uruchom wykrywanie odcinków dla wszystkich aktywności. Może zająć 1-2 minuty w zależności od wielkości biblioteki.",
+    "redetectSectionsTitle": "Ponownie wykryć odcinki?",
     "sync": "Synchronizuj",
     "syncAllMessage": "Zsynchronizuje do 10 lat danych aktywności w tle. Umożliwia głębszą analizę tras i porównania.",
     "syncAllTitle": "Synchronizuj całą historię"

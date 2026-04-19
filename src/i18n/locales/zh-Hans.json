@@ -238,6 +238,10 @@
     "error": "错误",
     "failedToClear": "清除缓存失败。请重试。",
     "failedToDisconnect": "断开连接失败。请重试。",
+    "redetectSectionsBusy": "路段检测已在运行。请等待完成。",
+    "redetectSectionsConfirm": "重新检测",
+    "redetectSectionsMessage": "在所有活动上重新运行路段检测。根据库的大小,可能需要 1-2 分钟。",
+    "redetectSectionsTitle": "重新检测路段?",
     "sync": "同步",
     "syncAllMessage": "这将在后台同步最多 10 年的活动数据。这可以实现更深入的路线分析和比较。",
     "syncAllTitle": "同步全部历史"

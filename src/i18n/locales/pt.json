@@ -238,6 +238,10 @@
     "error": "Erro",
     "failedToClear": "Falha ao limpar cache. Tente novamente.",
     "failedToDisconnect": "Falha ao desligar. Tente novamente.",
+    "redetectSectionsBusy": "A deteção de troços já está em execução. Aguarda que termine.",
+    "redetectSectionsConfirm": "Redetetar",
+    "redetectSectionsMessage": "Volta a executar a deteção de troços em todas as atividades. Pode demorar 1-2 minutos dependendo do tamanho da biblioteca.",
+    "redetectSectionsTitle": "Redetetar troços?",
     "sync": "Sincronizar",
     "syncAllMessage": "Isto ira sincronizar ate 10 anos de dados de atividades em segundo plano. Permite uma analise e comparacao de percursos mais aprofundada.",
     "syncAllTitle": "Sincronizar todo o historico"
