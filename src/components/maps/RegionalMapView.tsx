@@ -427,6 +427,130 @@ export function RegionalMapView({
   // Show 3D view when enabled
   const show3D = is3DMode && can3D;
 
+  // ========================================================================
+  // Memoized marker style objects
+  // ------------------------------------------------------------------------
+  // Inline style={{...}} objects are a fresh reference every render, which
+  // causes MapLibre to diff and re-apply layer styles even when nothing
+  // changed. Memoising each distinct marker-layer style object keeps
+  // references stable across renders when their dependencies haven't changed.
+  // ========================================================================
+
+  const clusterCircleStyle = useMemo(
+    () => ({
+      circleColor: colors.primary,
+      circleRadius: [
+        'step',
+        ['get', 'point_count'],
+        20, // <10 activities
+        10,
+        25, // 10-49
+        50,
+        30, // 50+
+      ] as unknown as number,
+      circleOpacity: showActivities ? 0.8 : 0,
+    }),
+    [showActivities]
+  );
+
+  const clusterCountStyle = useMemo(
+    () => ({
+      textField: ['get', 'point_count_abbreviated'] as unknown as string,
+      textFont: ['Noto Sans Regular'],
+      textSize: 12,
+      textColor: '#FFFFFF',
+      textAllowOverlap: true,
+      textIgnorePlacement: true,
+      visibility: (showActivities ? 'visible' : 'none') as 'visible' | 'none',
+    }),
+    [showActivities]
+  );
+
+  const unclusteredPointStyle = useMemo(
+    () => ({
+      circleColor: ['get', 'color'] as unknown as string,
+      circleRadius: selectedActivityId
+        ? ([
+            'case',
+            ['==', ['get', 'id'], selectedActivityId],
+            12, // Selected: larger
+            8,
+          ] as unknown as number)
+        : 8,
+      // Recency fade: recent activities full opacity, 1+ year old at 35%
+      circleOpacity: showActivities
+        ? (['interpolate', ['linear'], ['get', 'age'], 0, 1, 1, 0.35] as unknown as number)
+        : 0,
+      circleStrokeWidth: selectedActivityId
+        ? (['case', ['==', ['get', 'id'], selectedActivityId], 2.5, 1.5] as unknown as number)
+        : 1.5,
+      circleStrokeColor: selectedActivityId
+        ? ([
+            'case',
+            ['==', ['get', 'id'], selectedActivityId],
+            colors.primary,
+            'rgba(255, 255, 255, 0.8)',
+          ] as unknown as string)
+        : 'rgba(255, 255, 255, 0.8)',
+      circleStrokeOpacity: showActivities ? 1 : 0,
+    }),
+    [selectedActivityId, showActivities]
+  );
+
+  const startPointStyle = useMemo(
+    () => ({
+      circleRadius: 5,
+      circleColor: ['get', 'color'] as unknown as string,
+      circleOpacity: showActivities ? 0.9 : 0,
+      circleStrokeWidth: 1.5,
+      circleStrokeColor: '#FFFFFF',
+      circleStrokeOpacity: showActivities ? 1 : 0,
+    }),
+    [showActivities]
+  );
+
+  const spiderLinesStyle = useMemo(
+    () => ({
+      lineColor: isDark ? 'rgba(255, 255, 255, 0.5)' : 'rgba(0, 0, 0, 0.3)',
+      lineWidth: 1.5,
+      lineOpacity: spider ? 1 : 0,
+    }),
+    [isDark, spider]
+  );
+
+  const spiderPointsStyle = useMemo(
+    () => ({
+      circleColor: ['get', 'color'] as unknown as string,
+      circleRadius: 10,
+      circleOpacity: spider ? 1 : 0,
+      circleStrokeWidth: 2,
+      circleStrokeColor: '#FFFFFF',
+      circleStrokeOpacity: spider ? 1 : 0,
+    }),
+    [spider]
+  );
+
+  const userLocationOuterStyle = useMemo(
+    () => ({
+      circleRadius: 12,
+      circleColor: colors.primary,
+      circleOpacity: userLocation ? 0.3 : 0,
+      circleStrokeWidth: 0,
+    }),
+    [userLocation]
+  );
+
+  const userLocationInnerStyle = useMemo(
+    () => ({
+      circleRadius: 6,
+      circleColor: colors.primary,
+      circleOpacity: userLocation ? 1 : 0,
+      circleStrokeWidth: 2,
+      circleStrokeColor: colors.textOnDark,
+    }),
+    [userLocation]
+  );
+
   // iOS tap handling (no-op on Android)
   const { onTouchStart, onTouchEnd } = useIOSTapHandler({
     mapRef,
@@ -514,33 +638,13 @@ export function RegionalMapView({
             <CircleLayer
               id="cluster-circles"
               filter={['has', 'point_count']}
-              style={{
-                circleColor: colors.primary,
-                circleRadius: [
-                  'step',
-                  ['get', 'point_count'],
-                  20, // <10 activities
-                  10,
-                  25, // 10-49
-                  50,
-                  30, // 50+
-                ],
-                circleOpacity: showActivities ? 0.8 : 0,
-              }}
+              style={clusterCircleStyle}
             />
             {/* Cluster count labels — textFont MUST match glyph server (Noto Sans) */}
             <SymbolLayer
               id="cluster-count"
               filter={['has', 'point_count']}
-              style={{
-                textField: ['get', 'point_count_abbreviated'],
-                textFont: ['Noto Sans Regular'],
-                textSize: 12,
-                textColor: '#FFFFFF',
-                textAllowOverlap: true,
-                textIgnorePlacement: true,
-                visibility: showActivities ? 'visible' : 'none',
-              }}
+              style={clusterCountStyle}
             />
             {/* Individual unclustered activity points — colored by sport type */}
             {/* Only visible at zoom >= 10 to keep low-zoom view clean (clusters only) */}
@@ -548,33 +652,7 @@ export function RegionalMapView({
               id="unclustered-point"
               filter={['!', ['has', 'point_count']]}
               minZoomLevel={10}
-              style={{
-                circleColor: ['get', 'color'],
-                circleRadius: selectedActivityId
-                  ? [
-                      'case',
-                      ['==', ['get', 'id'], selectedActivityId],
-                      12, // Selected: larger
-                      8,
-                    ]
-                  : 8,
-                // Recency fade: recent activities full opacity, 1+ year old at 35%
-                circleOpacity: showActivities
-                  ? ['interpolate', ['linear'], ['get', 'age'], 0, 1, 1, 0.35]
-                  : 0,
-                circleStrokeWidth: selectedActivityId
-                  ? ['case', ['==', ['get', 'id'], selectedActivityId], 2.5, 1.5]
-                  : 1.5,
-                circleStrokeColor: selectedActivityId
-                  ? [
-                      'case',
-                      ['==', ['get', 'id'], selectedActivityId],
-                      colors.primary,
-                      'rgba(255, 255, 255, 0.8)',
-                    ]
-                  : 'rgba(255, 255, 255, 0.8)',
-                circleStrokeOpacity: showActivities ? 1 : 0,
-              }}
+              style={unclusteredPointStyle}
             />
           </ShapeSource>
 
@@ -738,18 +816,7 @@ export function RegionalMapView({
           {/* Start-point markers: use native minZoomLevel instead of React state
               to avoid re-renders that cause Android MapLibre camera snap-back */}
           <ShapeSource id="activity-start-points" shape={startPointsGeoJSON}>
-            <CircleLayer
-              id="start-point-outer"
-              minZoomLevel={11}
-              style={{
-                circleRadius: 5,
-                circleColor: ['get', 'color'],
-                circleOpacity: showActivities ? 0.9 : 0,
-                circleStrokeWidth: 1.5,
-                circleStrokeColor: '#FFFFFF',
-                circleStrokeOpacity: showActivities ? 1 : 0,
-              }}
-            />
+            <CircleLayer id="start-point-outer" minZoomLevel={11} style={startPointStyle} />
           </ShapeSource>
 
           {/* Selected activity route */}
@@ -785,14 +852,7 @@ export function RegionalMapView({
           {/* Spider fan-out layers — show when a cluster can't expand further at max zoom */}
           {/* CRITICAL: Always render ShapeSource to avoid iOS crash during reconciliation */}
           <ShapeSource id="spider-legs" shape={spiderLinesGeoJSON}>
-            <LineLayer
-              id="spider-lines"
-              style={{
-                lineColor: isDark ? 'rgba(255, 255, 255, 0.5)' : 'rgba(0, 0, 0, 0.3)',
-                lineWidth: 1.5,
-                lineOpacity: spider ? 1 : 0,
-              }}
-            />
+            <LineLayer id="spider-lines" style={spiderLinesStyle} />
           </ShapeSource>
           <ShapeSource
             id="spider-markers"
@@ -800,41 +860,14 @@ export function RegionalMapView({
             onPress={Platform.OS === 'android' && spider ? handleSpiderMarkerPress : undefined}
             hitbox={{ width: 44, height: 44 }}
           >
-            <CircleLayer
-              id="spider-points"
-              style={{
-                circleColor: ['get', 'color'],
-                circleRadius: 10,
-                circleOpacity: spider ? 1 : 0,
-                circleStrokeWidth: 2,
-                circleStrokeColor: '#FFFFFF',
-                circleStrokeOpacity: spider ? 1 : 0,
-              }}
-            />
+            <CircleLayer id="spider-points" style={spiderPointsStyle} />
           </ShapeSource>
 
           {/* User location marker - using ShapeSource + CircleLayer to avoid Fabric crash */}
           {/* CRITICAL: Always render to prevent add/remove cycles that crash iOS */}
           <ShapeSource id="user-location" shape={userLocationGeoJSON}>
-            <CircleLayer
-              id="user-location-outer"
-              style={{
-                circleRadius: 12,
-                circleColor: colors.primary,
-                circleOpacity: userLocation ? 0.3 : 0,
-                circleStrokeWidth: 0,
-              }}
-            />
-            <CircleLayer
-              id="user-location-inner"
-              style={{
-                circleRadius: 6,
-                circleColor: colors.primary,
-                circleOpacity: userLocation ? 1 : 0,
-                circleStrokeWidth: 2,
-                circleStrokeColor: colors.textOnDark,
-              }}
-            />
+            <CircleLayer id="user-location-outer" style={userLocationOuterStyle} />
+            <CircleLayer id="user-location-inner" style={userLocationInnerStyle} />
           </ShapeSource>
         </MapView>
       )}
