@@ -124,21 +124,17 @@ impl PersistentRouteEngine {
 
         let mut populated = 0u32;
         for (section_id, activity_id, start_idx, end_idx, distance) in &null_portions {
-            if let Some(times) = db_time_streams.get(activity_id) {
-                let si = *start_idx as usize;
-                let ei = *end_idx as usize;
-                if si < times.len() && ei < times.len() {
-                    let lap_time = (times[ei] as f64 - times[si] as f64).abs();
-                    if lap_time > 0.0 {
-                        let lap_pace = distance / lap_time;
-                        let _ = self.db.execute(
-                            "UPDATE section_activities SET lap_time = ?, lap_pace = ?
-                             WHERE section_id = ? AND activity_id = ? AND start_index = ?",
-                            params![lap_time, lap_pace, section_id, activity_id, start_idx],
-                        );
-                        populated += 1;
-                    }
-                }
+            let times = db_time_streams.get(activity_id).map(|v| v.as_slice());
+            let (lap_time, lap_pace) = super::super::sections::compute_lap_time_from_stream(
+                times, *start_idx, *end_idx, *distance,
+            );
+            if let (Some(lap_time), Some(lap_pace)) = (lap_time, lap_pace) {
+                let _ = self.db.execute(
+                    "UPDATE section_activities SET lap_time = ?, lap_pace = ?
+                     WHERE section_id = ? AND activity_id = ? AND start_index = ?",
+                    params![lap_time, lap_pace, section_id, activity_id, start_idx],
+                );
+                populated += 1;
             }
         }
 

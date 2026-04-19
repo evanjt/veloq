@@ -1764,4 +1764,134 @@ mod tests {
             "Activity-2 should still be present after re-matching"
         );
     }
+
+    /// Regression: a freshly-detected section must have non-NULL `lap_time`/`lap_pace`
+    /// in `section_activities` immediately after `apply_sections()` — no lazy
+    /// backfill trip on the first `get_section_performances()` call.
+    ///
+    /// The computation happens inline in `save_sections()` by reading the
+    /// time stream (from memory or the DB) for each portion. The lazy
+    /// backfill path remains as a fallback for migration edge cases and
+    /// for activities whose time streams arrive after detection.
+    #[test]
+    fn test_lap_time_populated_by_apply_sections() {
+        let mut engine = PersistentRouteEngine::in_memory().unwrap();
+
+        // Two activities sharing the same route.
+        let coords = sample_coords();
+        engine
+            .add_activity(
+                "activity-1".to_string(),
+                coords.clone(),
+                "cycling".to_string(),
+            )
+            .unwrap();
+        engine
+            .add_activity(
+                "activity-2".to_string(),
+                coords.clone(),
+                "cycling".to_string(),
+            )
+            .unwrap();
+
+        // Seed time streams for both activities: 0s..49s at 1s cadence.
+        // 50 points means indices 0..=49 are all valid.
+        let times: Vec<u32> = (0..50u32).collect();
+        let all_times: Vec<u32> = times.iter().chain(times.iter()).copied().collect();
+        let offsets: Vec<u32> = vec![0, times.len() as u32];
+        engine.set_time_streams_flat(
+            &["activity-1".to_string(), "activity-2".to_string()],
+            &all_times,
+            &offsets,
+        );
+
+        // Apply a section spanning the full track (index 0..49).
+        let section = create_test_frequent_section(
+            "sec_lap_time",
+            "activity-1",
+            vec!["activity-1".to_string(), "activity-2".to_string()],
+            coords,
+        );
+        engine
+            .apply_sections(vec![section])
+            .expect("apply_sections");
+
+        // Read back junction rows directly — do NOT call `get_section_performances`
+        // (that path does lazy backfill and would mask a missing inline compute).
+        let rows: Vec<(String, Option<f64>, Option<f64>)> = engine
+            .db
+            .prepare(
+                "SELECT activity_id, lap_time, lap_pace
+                 FROM section_activities WHERE section_id = 'sec_lap_time'
+                 ORDER BY activity_id",
+            )
+            .and_then(|mut stmt| {
+                stmt.query_map([], |row| {
+                    Ok((
+                        row.get::<_, String>(0)?,
+                        row.get::<_, Option<f64>>(1)?,
+                        row.get::<_, Option<f64>>(2)?,
+                    ))
+                })
+                .map(|iter| iter.filter_map(|r| r.ok()).collect())
+            })
+            .expect("read junction rows");
+
+        assert_eq!(rows.len(), 2, "expected one junction row per portion");
+        for (activity_id, lap_time, lap_pace) in &rows {
+            assert!(
+                lap_time.is_some(),
+                "lap_time should be populated during save_sections for {}",
+                activity_id
+            );
+            assert!(
+                lap_pace.is_some(),
+                "lap_pace should be populated during save_sections for {}",
+                activity_id
+            );
+            // Traversal indices 0..49 on a 1-second-cadence stream = 49s.
+            assert!(
+                (lap_time.unwrap() - 49.0).abs() < 0.001,
+                "expected lap_time ≈ 49s for {}, got {:?}",
+                activity_id,
+                lap_time
+            );
+            // Distance 5000m / 49s ≈ 102.04 m/s.
+            assert!(
+                (lap_pace.unwrap() - (5000.0 / 49.0)).abs() < 0.001,
+                "expected lap_pace ≈ distance/time for {}, got {:?}",
+                activity_id,
+                lap_pace
+            );
+        }
+    }
+
+    /// Regression: `compute_lap_time_from_stream` handles the zero-span and
+    /// missing-stream edge cases by returning `(None, None)` — never panics
+    /// on out-of-bounds indices.
+    #[test]
+    fn test_compute_lap_time_from_stream_edge_cases() {
+        use super::sections::compute_lap_time_from_stream;
+
+        // No stream available.
+        assert_eq!(compute_lap_time_from_stream(None, 0, 5, 100.0), (None, None));
+
+        // Zero-duration traversal (start == end).
+        let times: Vec<u32> = vec![10, 20, 30];
+        assert_eq!(
+            compute_lap_time_from_stream(Some(&times), 1, 1, 100.0),
+            (None, None)
+        );
+
+        // Out of bounds end_index.
+        assert_eq!(
+            compute_lap_time_from_stream(Some(&times), 0, 99, 100.0),
+            (None, None)
+        );
+
+        // Happy path: indices 0..2 on [10, 20, 30] = 20s; 100m/20s = 5 m/s.
+        let (lap_time, lap_pace) = compute_lap_time_from_stream(Some(&times), 0, 2, 100.0);
+        assert_eq!(lap_time, Some(20.0));
+        assert_eq!(lap_pace, Some(5.0));
+    }
 }

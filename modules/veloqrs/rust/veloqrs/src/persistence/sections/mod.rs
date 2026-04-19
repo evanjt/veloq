@@ -22,6 +22,38 @@ pub(super) fn haversine_distance(lat1: f64, lng1: f64, lat2: f64, lng2: f64) -> 
     r * 2.0 * a.sqrt().asin()
 }
 
+/// Compute `(lap_time, lap_pace)` from a time stream slice and traversal indices.
+///
+/// Returns `(None, None)` when:
+/// - `times` is `None` (no stream available)
+/// - either index is out of bounds
+/// - the traversal spans zero (or negative) time
+///
+/// Shared by the detection-time populate path (`save_sections`), the manual
+/// insert path (`insert_section_activity`), and the lazy backfill path.
+pub(super) fn compute_lap_time_from_stream(
+    times: Option<&[u32]>,
+    start_index: u32,
+    end_index: u32,
+    distance_meters: f64,
+) -> (Option<f64>, Option<f64>) {
+    let times = match times {
+        Some(t) => t,
+        None => return (None, None),
+    };
+    let si = start_index as usize;
+    let ei = end_index as usize;
+    if si >= times.len() || ei >= times.len() {
+        return (None, None);
+    }
+    let lap_time = (times[ei] as f64 - times[si] as f64).abs();
+    if lap_time <= 0.0 {
+        return (None, None);
+    }
+    let lap_pace = distance_meters / lap_time;
+    (Some(lap_time), Some(lap_pace))
+}
+
 impl PersistentRouteEngine {
     /// Load sections from database.
     pub(super) fn load_sections(&mut self) -> SqlResult<()> {
@@ -904,18 +936,7 @@ impl PersistentRouteEngine {
                 .ok()
         };
 
-        if let Some(times) = times {
-            let si = start_index as usize;
-            let ei = end_index as usize;
-            if si < times.len() && ei < times.len() {
-                let lap_time = (times[ei] as f64 - times[si] as f64).abs();
-                if lap_time > 0.0 {
-                    let lap_pace = distance_meters / lap_time;
-                    return (Some(lap_time), Some(lap_pace));
-                }
-            }
-        }
-        (None, None)
+        compute_lap_time_from_stream(times.as_deref(), start_index, end_index, distance_meters)
     }
 
     /// Get sections near a given section within a radius (meters).
@@ -1205,23 +1226,12 @@ impl PersistentRouteEngine {
                         .map(|v| v.as_slice())
                 };
 
-                let (lap_time, lap_pace) = if let Some(times) = times {
-                    let start_idx = portion.start_index as usize;
-                    let end_idx = portion.end_index as usize;
-                    if start_idx < times.len() && end_idx < times.len() {
-                        let lap_time = (times[end_idx] as f64 - times[start_idx] as f64).abs();
-                        if lap_time > 0.0 {
-                            let lap_pace = portion.distance_meters / lap_time;
-                            (Some(lap_time), Some(lap_pace))
-                        } else {
-                            (None, None)
-                        }
-                    } else {
-                        (None, None)
-                    }
-                } else {
-                    (None, None)
-                };
+                let (lap_time, lap_pace) = compute_lap_time_from_stream(
+                    times,
+                    portion.start_index,
+                    portion.end_index,
+                    portion.distance_meters,
+                );
 
                 junction_stmt.execute(params![
                     section.id,
