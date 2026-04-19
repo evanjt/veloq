@@ -523,7 +523,11 @@ export function computeInsightsFromData(
     }
 
     return consolidated;
-  } catch {
+  } catch (err) {
+    if (typeof process !== 'undefined' && process.env?.VELOQ_INSIGHTS_DEBUG) {
+      // eslint-disable-next-line no-console
+      console.error('[computeInsightsFromData] swallowed error:', err);
+    }
     return [];
   }
 }

@@ -41,6 +41,7 @@ export function generateEfficiencyTrendInsights(
 ): Insight[] {
   const engine = getRouteEngine();
   if (!engine || sectionIds.length === 0) return [];
+  if (typeof engine.getSectionEfficiencyTrend !== 'function') return [];
 
   const insights: Insight[] = [];
 

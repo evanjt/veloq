@@ -141,30 +141,54 @@ function logInsightGeneration(candidates: InsightCandidate[], final: Insight[]):
 // Main function
 // ---------------------------------------------------------------------------
 
+function safeRun<T>(label: string, fn: () => T[], fallback: T[] = []): T[] {
+  try {
+    return fn();
+  } catch (err) {
+    if (
+      typeof process !== 'undefined' &&
+      process.env &&
+      (process.env.VELOQ_INSIGHTS_DEBUG || process.env.NODE_ENV === 'test')
+    ) {
+      // eslint-disable-next-line no-console
+      console.warn(`[insights/${label}] generator failed; isolating:`, err);
+    }
+    return fallback;
+  }
+}
+
 export function generateInsights(data: InsightInputData, t: TFunc): Insight[] {
   const insights: Insight[] = [];
   const now = Date.now();
 
+  // Each generator is isolated: a thrown error from one (e.g. a missing
+  // FFI method, a malformed wellness row) yields zero insights for that
+  // category but does not kill the rest.
+
   // Priority 1: Section PRs
-  insights.push(...generateSectionPRInsights(data.recentPRs, now, t));
+  insights.push(...safeRun('sectionPR', () => generateSectionPRInsights(data.recentPRs, now, t)));
 
   // Priority 2: HRV Trend
-  insights.push(...generateHrvTrendInsight(data.wellnessWindow, now, t));
+  insights.push(...safeRun('hrvTrend', () => generateHrvTrendInsight(data.wellnessWindow, now, t)));
 
   // Priority 2: Period Comparison
   insights.push(
-    ...generatePeriodComparisonInsights(
-      data.currentPeriod,
-      data.previousPeriod,
-      data.chronicPeriod,
-      now,
-      t
+    ...safeRun('periodComparison', () =>
+      generatePeriodComparisonInsights(
+        data.currentPeriod,
+        data.previousPeriod,
+        data.chronicPeriod,
+        now,
+        t
+      )
     )
   );
 
   // Priority 2: FTP/Pace Milestones
   insights.push(
-    ...generateFitnessMilestoneInsights(data.ftpTrend, data.paceTrend, data.swimPaceTrend, now, t)
+    ...safeRun('fitnessMilestone', () =>
+      generateFitnessMilestoneInsights(data.ftpTrend, data.paceTrend, data.swimPaceTrend, now, t)
+    )
   );
 
   // Priority 2: Stale PR / Opportunity Detection
@@ -178,17 +202,19 @@ export function generateInsights(data: InsightInputData, t: TFunc): Insight[] {
     }));
     const existingStalePrIds = new Set(insights.map((i) => i.id));
     insights.push(
-      ...generateStalePRInsights(
-        {
-          sections,
-          ftpTrend: data.ftpTrend,
-          runPaceTrend: data.paceTrend,
-          swimPaceTrend: data.swimPaceTrend ?? null,
-          recentPRs: data.recentPRs,
-          existingInsightIds: existingStalePrIds,
-        },
-        t,
-        now
+      ...safeRun('stalePR', () =>
+        generateStalePRInsights(
+          {
+            sections,
+            ftpTrend: data.ftpTrend,
+            runPaceTrend: data.paceTrend,
+            swimPaceTrend: data.swimPaceTrend ?? null,
+            recentPRs: data.recentPRs,
+            existingInsightIds: existingStalePrIds,
+          },
+          t,
+          now
+        )
       )
     );
   }
@@ -200,12 +226,18 @@ export function generateInsights(data: InsightInputData, t: TFunc): Insight[] {
       return match ? [match[1] ?? match[2]] : [];
     })
   );
-  insights.push(...generateSectionTrendInsights(data.sectionTrends, existingIds, now, t));
+  insights.push(
+    ...safeRun('sectionTrend', () =>
+      generateSectionTrendInsights(data.sectionTrends, existingIds, now, t)
+    )
+  );
 
   // Priority 1: Aerobic Efficiency Trends
   const sectionIds = data.efficiencyTrendSectionIds;
   if (sectionIds && sectionIds.length > 0) {
-    insights.push(...generateEfficiencyTrendInsights(sectionIds, now, t));
+    insights.push(
+      ...safeRun('efficiencyTrend', () => generateEfficiencyTrendInsights(sectionIds, now, t))
+    );
   }
 
   // Score and rank insights, then cap at MAX_INSIGHTS
