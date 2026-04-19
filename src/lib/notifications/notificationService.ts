@@ -123,6 +123,24 @@ export async function dismissSyncNotification(): Promise<void> {
   }
 }
 
+/**
+ * Set up the foreground notification listener.
+ * Fires whenever a notification is delivered while the app is in the foreground
+ * (the actual presentation is handled by setNotificationHandler). Currently
+ * used for diagnostic logging only — the deep-link flow runs from the tap
+ * handler below, and the background silent-push pipeline runs from the
+ * TaskManager task in backgroundInsightTask.ts.
+ */
+export function setupNotificationReceivedHandler(): Notifications.Subscription {
+  return Notifications.addNotificationReceivedListener((notification) => {
+    if (__DEV__) {
+      const id = notification.request.identifier;
+      const data = notification.request.content.data;
+      console.log(`[Notification] Received (foreground) id=${id}`, data);
+    }
+  });
+}
+
 /** Set up the notification response handler for deep linking. Call once at app startup. */
 export function setupNotificationResponseHandler(): Notifications.Subscription {
   return Notifications.addNotificationResponseReceivedListener((response) => {

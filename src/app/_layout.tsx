@@ -71,6 +71,7 @@ import {
 } from '@/lib/backup';
 import {
   initializeNotifications,
+  setupNotificationReceivedHandler,
   setupNotificationResponseHandler,
   hasNotificationPermission,
 } from '@/lib/notifications/notificationService';
@@ -393,8 +394,12 @@ export default function RootLayout() {
   useEffect(() => {
     initializeNotifications();
     registerBackgroundNotificationTask();
-    const subscription = setupNotificationResponseHandler();
-    return () => subscription.remove();
+    const receivedSub = setupNotificationReceivedHandler();
+    const responseSub = setupNotificationResponseHandler();
+    return () => {
+      receivedSub.remove();
+      responseSub.remove();
+    };
   }, []);
 
   // Re-register push token on app open (refreshes TTL on server)
