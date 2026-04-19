@@ -264,20 +264,17 @@ export default function HealthScreen() {
             )}
           </View>
 
-          {/* Below-fold cards — frame 1: WeeklySummary (pure RN) */}
+          {/* Below-fold cards — frame 1: WeeklySummary (pure RN).
+              Always mount once belowFoldReady — the component renders its own
+              empty/loading states and the testID must be present for automated
+              tests to find the widget during data load. */}
           {belowFoldReady && (
             <View style={[styles.card, isDark && styles.cardDark]}>
-              {activitiesLoading ? (
-                <View style={styles.loadingContainer}>
-                  <ActivityIndicator size="small" color={colors.primary} />
-                </View>
-              ) : (
-                <WeeklySummary
-                  activities={activities}
-                  summaryData={summaryData}
-                  summaryLoading={summaryLoading}
-                />
-              )}
+              <WeeklySummary
+                activities={activities}
+                summaryData={summaryData}
+                summaryLoading={summaryLoading || activitiesLoading}
+              />
             </View>
           )}
 
