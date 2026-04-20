@@ -4,6 +4,13 @@
  *
  * Section indicators: read from `activity_indicators` table via getActivityIndicators().
  * Route highlights: computed inline from groups + activity_metrics via getActivityRouteHighlights().
+ *
+ * NOTE: The feed badge counts here are derived from the materialized
+ * `activity_indicators` table populated by `compute_section_indicators()` in
+ * Rust. The section detail page's calendar shows trophies at year/month
+ * aggregation levels, so the user may see 3 trophy icons in the calendar
+ * for what is really one all-time PR — that is a visualization artifact in
+ * SectionStatsCards, not a count mismatch in this hook.
  */
 
 import { useMemo } from 'react';

@@ -347,10 +347,12 @@
     "syncingActivities": "アクティビティを同期中",
     "syncedActivities": "{{count}}件のアクティビティを同期しました",
     "syncedDemoActivities": "{{count}}件のデモアクティビティを同期しました",
-    "downloadingGpsProgress": "GPSデータをダウンロード中... {{completed}}/{{total}}",
+    "downloadingGpsProgress": "GPSデータをダウンロード中... {{percent}}%",
     "noValidGpsChecked": "有効なGPSデータが見つかりません（{{count}}件のアクティビティを確認）",
     "fetchingActivities": "アクティビティを取得中...",
-    "generatingHeatmap": "ヒートマップを生成中..."
+    "generatingHeatmap": "ヒートマップを生成中...",
+    "fetchingTimeStreams": "タイムデータを取得中... {{percent}}%",
+    "finalizingHeatmap": "ヒートマップを完成中... {{percent}}%"
   },
   "chartTypes": {
     "alt": "高度",
@@ -837,7 +839,7 @@
   "mapScreen": {
     "loadingActivities": "アクティビティを読み込み中...",
     "loadingOlderActivities": "過去のアクティビティを読み込み中...",
-    "syncing": "同期中: {{completed}}/{{total}}",
+    "syncing": "同期中: {{percent}}%",
     "activities": "activities",
     "expandRange": "範囲を広げる"
   },
@@ -884,7 +886,7 @@
     "showRoutes": "ルートを表示",
     "showSections": "セクションを表示",
     "startPercent": "開始: {{percent}}%",
-    "syncingActivities": "{{completed}}/{{total}}件のアクティビティを同期中",
+    "syncingActivities": "{{percent}}%件のアクティビティを同期中",
     "tapSelectEnd": "タップして終了点を選択",
     "tapSelectStart": "タップして開始点を選択",
     "toggleStyle": "マップスタイルを切り替え",

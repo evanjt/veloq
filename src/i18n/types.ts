@@ -1231,6 +1231,8 @@ export interface TranslationResource {
     syncedActivities: string;
     syncedDemoActivities: string;
     syncingActivities: string;
+    fetchingTimeStreams: string;
+    finalizingHeatmap: string;
   };
 
   chartTypes: {

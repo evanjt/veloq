@@ -73,9 +73,17 @@ export const InsightLine = React.memo(function InsightLine({ insights }: Insight
     opacity: opacity.value,
   }));
 
+  // Tapping the chip should land on the insights tab and surface the matching
+  // insight in context (open its detail sheet). The insight's `navigationTarget`
+  // is used by the detail sheet's "View in detail" link to drill into the
+  // source (section/fitness/etc), but the chip itself always opens insights.
   const handlePress = useCallback(() => {
-    const target = displayInsights[currentIndex]?.navigationTarget;
-    navigateTo(target || '/(tabs)/routes');
+    const id = displayInsights[currentIndex]?.id;
+    if (id) {
+      navigateTo(`/(tabs)/routes?insightId=${encodeURIComponent(id)}`);
+    } else {
+      navigateTo('/(tabs)/routes');
+    }
   }, [displayInsights, currentIndex]);
 
   if (displayInsights.length === 0) return null;

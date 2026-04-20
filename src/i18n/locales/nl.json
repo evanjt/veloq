@@ -347,10 +347,12 @@
     "syncingActivities": "Activiteiten synchroniseren",
     "syncedActivities": "{{count}} activiteiten gesynchroniseerd",
     "syncedDemoActivities": "{{count}} demo-activiteiten gesynchroniseerd",
-    "downloadingGpsProgress": "GPS-gegevens downloaden... {{completed}}/{{total}}",
+    "downloadingGpsProgress": "GPS-gegevens downloaden... {{percent}}%",
     "noValidGpsChecked": "Geen geldige GPS-gegevens gevonden ({{count}} activiteiten gecontroleerd)",
     "fetchingActivities": "Activiteiten ophalen...",
-    "generatingHeatmap": "Heatmap genereren..."
+    "generatingHeatmap": "Heatmap genereren...",
+    "fetchingTimeStreams": "Tijdgegevens ophalen... {{percent}}%",
+    "finalizingHeatmap": "Heatmap afronden... {{percent}}%"
   },
   "chartTypes": {
     "alt": "Alt",
@@ -837,7 +839,7 @@
   "mapScreen": {
     "loadingActivities": "Activiteiten laden...",
     "loadingOlderActivities": "Oudere activiteiten laden...",
-    "syncing": "Synchroniseren: {{completed}}/{{total}}",
+    "syncing": "Synchroniseren: {{percent}}%",
     "activities": "activities",
     "expandRange": "Bereik uitbreiden"
   },
@@ -884,7 +886,7 @@
     "showRoutes": "Toon routes",
     "showSections": "Secties tonen",
     "startPercent": "Start: {{percent}}%",
-    "syncingActivities": "{{completed}}/{{total}} activiteiten synchroniseren",
+    "syncingActivities": "{{percent}}% activiteiten synchroniseren",
     "tapSelectEnd": "Tik om eindpunt te selecteren",
     "tapSelectStart": "Tik om startpunt te selecteren",
     "toggleStyle": "Kaartstijl wisselen",

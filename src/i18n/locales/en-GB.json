@@ -347,10 +347,12 @@
     "syncingActivities": "Syncing activities",
     "syncedActivities": "Synced {{count}} activities",
     "syncedDemoActivities": "Synced {{count}} demo activities",
-    "downloadingGpsProgress": "Downloading GPS data... {{completed}}/{{total}}",
+    "downloadingGpsProgress": "Downloading GPS data... {{percent}}%",
     "noValidGpsChecked": "No valid GPS data found (checked {{count}} activities)",
     "fetchingActivities": "Fetching activities...",
-    "generatingHeatmap": "Generating heatmap..."
+    "generatingHeatmap": "Generating heatmap...",
+    "fetchingTimeStreams": "Fetching time streams... {{percent}}%",
+    "finalizingHeatmap": "Finalising heatmap... {{percent}}%"
   },
   "chartTypes": {
     "alt": "Alt",
@@ -837,7 +839,7 @@
   "mapScreen": {
     "loadingActivities": "Loading activities...",
     "loadingOlderActivities": "Loading older activities...",
-    "syncing": "Syncing: {{completed}}/{{total}}",
+    "syncing": "Syncing: {{percent}}%",
     "activities": "activities",
     "expandRange": "Expand range"
   },
@@ -885,7 +887,7 @@
     "showRoutes": "Show routes",
     "showSections": "Show sections",
     "startPercent": "Start: {{percent}}%",
-    "syncingActivities": "Syncing {{completed}}/{{total}} activities",
+    "syncingActivities": "Syncing {{percent}}% activities",
     "tapSelectEnd": "Tap to select end point",
     "tapSelectStart": "Tap to select start point",
     "toggleStyle": "Toggle map style",

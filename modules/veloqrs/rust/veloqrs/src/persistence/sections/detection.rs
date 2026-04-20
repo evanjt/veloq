@@ -12,6 +12,315 @@ use super::super::{
     SectionDetectionProgress, load_groups_from_db,
 };
 
+/// Tier 2 upgrade-path backfill: seed `consensus_state_blob` on every
+/// pre-existing section whose blob is still NULL, using its own SQLite
+/// connection so it doesn't block the main engine. Runs once per install
+/// (guarded by the `accumulators_seeded_v1` key in `schema_info`).
+///
+/// Why: users upgrading from 0.2.2 (or any pre-Tier-2 version) have
+/// sections on disk whose `consensus_state_blob` is NULL because the
+/// detection run that created them didn't seed accumulators. Without this
+/// backfill, the first post-upgrade sync still pays the historical-trace
+/// extraction cost (scenario C's ~1.5 s). With it, the next sync reads
+/// fresh accumulators and lands in the O(K) fast path immediately.
+///
+/// Race-safety:
+/// - UPDATE is gated on `WHERE consensus_state_blob IS NULL`, so if the
+///   main engine's `apply_sections_save` persisted a newer blob in the
+///   meantime we don't clobber it.
+/// - If the user syncs during backfill, the engine's in-memory copy still
+///   has None accumulators and will hit today's backfill branch in
+///   incremental detection — correct but slow. Subsequent syncs pick up
+///   the persisted blobs on next engine reload.
+/// - `try_write` at the end is best-effort: if the engine lock is taken
+///   by an active operation we skip the in-memory reload; the fresh blobs
+///   land on next app start via `load_sections`.
+pub fn spawn_accumulator_backfill(db_path: String) {
+    std::thread::spawn(move || {
+        let result = run_accumulator_backfill(&db_path, /* refresh_engine = */ true);
+        if let Err(e) = result {
+            log::warn!("tracematch: [accum backfill] {}", e);
+        }
+    });
+}
+
+/// Synchronous body of [`spawn_accumulator_backfill`]. Separated so
+/// integration tests can drive the backfill deterministically (no thread).
+///
+/// When `refresh_engine` is true and any section got seeded, best-effort
+/// acquires the global engine write lock and reloads sections. Tests pass
+/// `false` — they hold their own engine and don't need the singleton.
+pub fn run_accumulator_backfill(
+    db_path: &str,
+    refresh_engine: bool,
+) -> Result<(u32, u32), String> {
+    let start = std::time::Instant::now();
+    let conn = match Connection::open(db_path) {
+        Ok(c) => {
+            let _ = c.busy_timeout(std::time::Duration::from_millis(500));
+            c
+        }
+        Err(e) => return Err(format!("open failed: {}", e)),
+    };
+
+    // Already-seeded flag: once set, skip entirely.
+    let flag_set: bool = conn
+        .query_row(
+            "SELECT value FROM schema_info WHERE key = 'accumulators_seeded_v1'",
+            [],
+            |row| row.get::<_, String>(0),
+        )
+        .is_ok();
+    if flag_set {
+        return Ok((0, 0));
+    }
+
+    // Collect sections that still need seeding.
+    let sections_to_seed: Vec<(String, Vec<tracematch::GpsPoint>)> = {
+        let mut stmt = conn
+            .prepare(
+                "SELECT id, polyline_json FROM sections
+                 WHERE consensus_state_blob IS NULL
+                   AND polyline_json IS NOT NULL
+                   AND disabled = 0",
+            )
+            .map_err(|e| format!("prepare failed: {}", e))?;
+        stmt.query_map([], |row| {
+            let id: String = row.get(0)?;
+            let polyline_json: String = row.get(1)?;
+            Ok((id, polyline_json))
+        })
+        .ok()
+        .map(|rows| {
+            rows.filter_map(|r| r.ok())
+                .filter_map(|(id, json)| {
+                    serde_json::from_str::<Vec<tracematch::GpsPoint>>(&json)
+                        .ok()
+                        .map(|p| (id, p))
+                })
+                .filter(|(_, p)| p.len() >= 2)
+                .collect()
+        })
+        .unwrap_or_default()
+    };
+
+    if sections_to_seed.is_empty() {
+        // Nothing to do. Set flag so next start skips straight past.
+        let _ = conn.execute(
+            "INSERT OR REPLACE INTO schema_info (key, value)
+             VALUES ('accumulators_seeded_v1', '1')",
+            [],
+        );
+        return Ok((0, 0));
+    }
+
+    log::info!(
+        "tracematch: [accum backfill] Seeding {} sections from pre-Tier-2 data",
+        sections_to_seed.len()
+    );
+
+    let section_config = tracematch::SectionConfig::default();
+    let mut seeded: u32 = 0;
+    let mut skipped: u32 = 0;
+
+    for (section_id, polyline) in &sections_to_seed {
+        // Activity ids for this section (excluded=0 matches the rest of the codebase).
+        let activity_ids: Vec<String> = match conn.prepare(
+            "SELECT activity_id FROM section_activities
+             WHERE section_id = ? AND excluded = 0",
+        ) {
+            Ok(mut stmt) => stmt
+                .query_map([section_id], |row| row.get::<_, String>(0))
+                .ok()
+                .map(|r| r.filter_map(|x| x.ok()).collect())
+                .unwrap_or_default(),
+            Err(_) => Vec::new(),
+        };
+        if activity_ids.is_empty() {
+            skipped += 1;
+            continue;
+        }
+
+        // Load full GPS tracks for the section's activities in a single IN(...)
+        // query — cheaper than N separate query_row round-trips, especially on
+        // sections with many traversals.
+        let mut track_map_owned: HashMap<String, Vec<tracematch::GpsPoint>> = HashMap::new();
+        {
+            let placeholders: String = std::iter::repeat("?")
+                .take(activity_ids.len())
+                .collect::<Vec<_>>()
+                .join(",");
+            let sql = format!(
+                "SELECT activity_id, track_data FROM gps_tracks WHERE activity_id IN ({})",
+                placeholders
+            );
+            if let Ok(mut stmt) = conn.prepare(&sql) {
+                let params_slice: Vec<&dyn rusqlite::ToSql> = activity_ids
+                    .iter()
+                    .map(|id| id as &dyn rusqlite::ToSql)
+                    .collect();
+                if let Ok(rows) = stmt.query_map(params_slice.as_slice(), |row| {
+                    let id: String = row.get(0)?;
+                    let bytes: Vec<u8> = row.get(1)?;
+                    let track: Vec<tracematch::GpsPoint> = rmp_serde::from_slice(&bytes)
+                        .unwrap_or_default();
+                    Ok((id, track))
+                }) {
+                    for row in rows.flatten() {
+                        if !row.1.is_empty() {
+                            track_map_owned.insert(row.0, row.1);
+                        }
+                    }
+                }
+            }
+        }
+        if track_map_owned.is_empty() {
+            skipped += 1;
+            continue;
+        }
+
+        let track_ref_map: HashMap<&str, &[tracematch::GpsPoint]> = track_map_owned
+            .iter()
+            .map(|(k, v)| (k.as_str(), v.as_slice()))
+            .collect();
+
+        let traces_map = tracematch::sections::extract_all_activity_traces(
+            &activity_ids,
+            polyline,
+            &track_ref_map,
+        );
+        if traces_map.is_empty() {
+            skipped += 1;
+            continue;
+        }
+        let traces: Vec<(String, Vec<tracematch::GpsPoint>)> = traces_map.into_iter().collect();
+        let acc = tracematch::sections::build_accumulator_from_traces(
+            polyline,
+            &traces,
+            section_config.proximity_threshold,
+        );
+
+        match rmp_serde::to_vec(&acc) {
+            Ok(blob) => {
+                // IS NULL guard: respect any writes the main engine made
+                // while we were computing (e.g., a sync that ran concurrently
+                // and populated this section via the normal incremental path).
+                let updated = conn
+                    .execute(
+                        "UPDATE sections SET consensus_state_blob = ?
+                         WHERE id = ? AND consensus_state_blob IS NULL",
+                        params![blob, section_id],
+                    )
+                    .unwrap_or(0);
+                if updated > 0 {
+                    seeded += 1;
+                } else {
+                    skipped += 1;
+                }
+            }
+            Err(_) => skipped += 1,
+        }
+    }
+
+    // Mark the flag even if some were skipped — we only want to pay the
+    // corpus-wide scan once. Sections we skipped here (e.g., no GPS data on
+    // disk) will get their accumulators built by the ordinary incremental
+    // backfill path if/when they're ever touched.
+    let _ = conn.execute(
+        "INSERT OR REPLACE INTO schema_info (key, value)
+         VALUES ('accumulators_seeded_v1', '1')",
+        [],
+    );
+
+    log::info!(
+        "tracematch: [accum backfill] Done: {} seeded, {} skipped, took {:?}",
+        seeded,
+        skipped,
+        start.elapsed()
+    );
+
+    // Best-effort: refresh the engine's in-memory copy so the new blobs
+    // become usable without requiring an app restart. If the write lock is
+    // held by a concurrent operation, skip — the engine will pick them up
+    // on next `load_sections` call / next app start.
+    if refresh_engine && seeded > 0 {
+        if let Ok(mut guard) = super::super::PERSISTENT_ENGINE.try_write() {
+            if let Some(ref mut engine) = *guard {
+                if let Err(e) = engine.load_sections() {
+                    log::warn!(
+                        "tracematch: [accum backfill] in-memory reload failed: {}",
+                        e
+                    );
+                } else {
+                    log::info!("tracematch: [accum backfill] in-memory sections refreshed");
+                }
+            }
+        } else {
+            log::info!(
+                "tracematch: [accum backfill] engine busy, deferring reload to next start"
+            );
+        }
+    }
+
+    Ok((seeded, skipped))
+}
+
+/// Tier 2: seed `consensus_state` on any section that came out of detection
+/// with None. Uses the GPS tracks already loaded for detection, so no DB
+/// round-trip. Runs before the results cross the mpsc channel so the
+/// accumulator lands in the FrequentSection that `apply_sections_save` later
+/// persists via `consensus_state_blob`.
+///
+/// Why it matters: without a seeded accumulator, the first incremental add
+/// that touches each section falls into the backfill branch in
+/// `tracematch/src/sections/incremental.rs` (extract_all_activity_traces for
+/// every historical activity of that section). On a 150-activity corpus
+/// that's the bulk of scenario C's 1.6 s lag per the baselines. Seeding
+/// eagerly shifts that cost into the detection phase itself (where we
+/// already have all the traces resident) and lets the next incremental
+/// touch take the O(K) fast path.
+///
+/// Idempotent: sections that already have `consensus_state` (from the
+/// incremental path that produced them) are skipped, so we never
+/// double-seed.
+fn seed_consensus_state(
+    sections: &mut [FrequentSection],
+    tracks: &[(String, Vec<GpsPoint>)],
+    proximity_threshold: f64,
+) {
+    if sections.is_empty() || tracks.is_empty() {
+        return;
+    }
+    let track_map: HashMap<&str, &[GpsPoint]> = tracks
+        .iter()
+        .map(|(id, pts)| (id.as_str(), pts.as_slice()))
+        .collect();
+
+    for section in sections.iter_mut() {
+        if section.consensus_state.is_some() {
+            continue;
+        }
+        if section.polyline.len() < 2 || section.activity_ids.is_empty() {
+            continue;
+        }
+        let traces_map = tracematch::sections::extract_all_activity_traces(
+            &section.activity_ids,
+            &section.polyline,
+            &track_map,
+        );
+        if traces_map.is_empty() {
+            continue;
+        }
+        let traces: Vec<(String, Vec<GpsPoint>)> = traces_map.into_iter().collect();
+        let acc = tracematch::sections::build_accumulator_from_traces(
+            &section.polyline,
+            &traces,
+            proximity_threshold,
+        );
+        section.consensus_state = Some(acc);
+    }
+}
+
 impl PersistentRouteEngine {
     /// Start section detection in a background thread.
     ///
@@ -238,39 +547,80 @@ impl PersistentRouteEngine {
 
             progress_clone.set_phase("loading", ids_to_load.len() as u32);
 
-            // Load GPS tracks from DB
+            // Tier 3: single IN(...) query to load every needed track in one
+            // round-trip, instead of preparing + executing N statements inside
+            // the loop. For scenario E (550 tracks) this cuts the per-row
+            // prepare/plan overhead; the msgpack decode cost per track is
+            // unchanged. SQLite's IN-list limit is 32k — safely above any
+            // realistic batch. Progress still ticks per-track so the UI
+            // animates through the phase at the same cadence.
             let mut tracks_loaded = 0;
             let mut tracks_empty = 0;
-            let tracks: Vec<(String, Vec<GpsPoint>)> = ids_to_load
-                .iter()
-                .filter_map(|id| {
-                    progress_clone.increment();
-                    let mut stmt = conn
-                        .prepare("SELECT track_data FROM gps_tracks WHERE activity_id = ?")
-                        .ok()?;
-                    let track: Vec<GpsPoint> = stmt
-                        .query_row(params![id], |row| {
-                            let blob: Vec<u8> = row.get(0)?;
-                            match rmp_serde::from_slice(&blob) {
-                                Ok(t) => Ok(t),
-                                Err(e) => {
+            let tracks: Vec<(String, Vec<GpsPoint>)> = if ids_to_load.is_empty() {
+                Vec::new()
+            } else {
+                let placeholders: String = std::iter::repeat("?")
+                    .take(ids_to_load.len())
+                    .collect::<Vec<_>>()
+                    .join(",");
+                let sql = format!(
+                    "SELECT activity_id, track_data FROM gps_tracks WHERE activity_id IN ({})",
+                    placeholders
+                );
+                let mut loaded: HashMap<String, Vec<GpsPoint>> = HashMap::new();
+                match conn.prepare(&sql) {
+                    Ok(mut stmt) => {
+                        let params_slice: Vec<&dyn rusqlite::ToSql> = ids_to_load
+                            .iter()
+                            .map(|id| id as &dyn rusqlite::ToSql)
+                            .collect();
+                        let rows = stmt.query_map(params_slice.as_slice(), |row| {
+                            let id: String = row.get(0)?;
+                            let blob: Vec<u8> = row.get(1)?;
+                            let track: Vec<GpsPoint> = rmp_serde::from_slice(&blob)
+                                .unwrap_or_else(|e| {
                                     log::warn!(
-                                        "tracematch: [SectionDetection] Skipping malformed track data for {}: {:?}",
+                                        "tracematch: [SectionDetection] Skipping malformed track for {}: {:?}",
                                         id, e
                                     );
-                                    Ok(Vec::new())
-                                }
+                                    Vec::new()
+                                });
+                            Ok((id, track))
+                        });
+                        if let Ok(iter) = rows {
+                            for row in iter.flatten() {
+                                loaded.insert(row.0, row.1);
                             }
-                        })
-                        .ok()?;
-                    if track.is_empty() {
-                        tracks_empty += 1;
-                        return None;
+                        }
                     }
-                    tracks_loaded += 1;
-                    Some((id.clone(), track))
-                })
-                .collect();
+                    Err(e) => {
+                        log::warn!(
+                            "tracematch: [SectionDetection] Batch prepare failed: {:?}; loaded=0",
+                            e
+                        );
+                    }
+                }
+
+                // Preserve the original `ids_to_load` order + emit per-track
+                // progress ticks + classify empty vs loaded. Tracks missing
+                // from the result (unknown ids, rows not found) count as empty.
+                ids_to_load
+                    .iter()
+                    .filter_map(|id| {
+                        progress_clone.increment();
+                        match loaded.remove(id) {
+                            Some(track) if !track.is_empty() => {
+                                tracks_loaded += 1;
+                                Some((id.clone(), track))
+                            }
+                            _ => {
+                                tracks_empty += 1;
+                                None
+                            }
+                        }
+                    })
+                    .collect()
+            };
 
             log::info!(
                 "tracematch: [SectionDetection] Loaded {} tracks ({} empty/missing) from {} activity IDs",
@@ -330,6 +680,15 @@ impl PersistentRouteEngine {
                 let mut all_sections = result.updated_sections;
                 all_sections.extend(result.new_sections);
 
+                // Tier 2: seed consensus_state for any newly-discovered section
+                // that lacks one. Incremental-path updates already carry an
+                // accumulator, so this only touches new_sections.
+                seed_consensus_state(
+                    &mut all_sections,
+                    &tracks,
+                    section_config.proximity_threshold,
+                );
+
                 // Signal saving phase before sending results for DB persistence
                 progress_clone.set_phase("saving", 1);
                 tx.send((all_sections, all_activity_ids)).ok();
@@ -355,9 +714,20 @@ impl PersistentRouteEngine {
                         result.potentials.len()
                     );
 
+                    // Tier 2: seed consensus_state for every section produced by
+                    // the full-detection pipeline — tracematch emits them with
+                    // None and the next incremental add otherwise falls into the
+                    // expensive first-touch backfill (scenario C's ~1.5 s).
+                    let mut sections_to_send = result.sections;
+                    seed_consensus_state(
+                        &mut sections_to_send,
+                        &tracks,
+                        section_config.proximity_threshold,
+                    );
+
                     // Signal saving phase before sending results for DB persistence
                     progress_clone.set_phase("saving", 1);
-                    tx.send((result.sections, all_activity_ids)).ok();
+                    tx.send((sections_to_send, all_activity_ids)).ok();
                 } else {
                     // Large dataset: process in batches
                     let num_batches = (tracks.len() + BATCH_CAP - 1) / BATCH_CAP;
@@ -432,6 +802,18 @@ impl PersistentRouteEngine {
                     log::info!(
                         "tracematch: [SectionDetection] Batched detection complete: {} sections",
                         accumulated_sections.len()
+                    );
+
+                    // Tier 2: seed consensus_state. Sections from the first
+                    // batch's full detection arrive with None; subsequent
+                    // batches' updated-sections already carry accumulators,
+                    // so seed is a no-op for those and only pays for the
+                    // first-batch sections and any new sections from later
+                    // batches' unmatched-pool detections.
+                    seed_consensus_state(
+                        &mut accumulated_sections,
+                        &tracks,
+                        section_config.proximity_threshold,
                     );
 
                     // Signal saving phase before sending results for DB persistence

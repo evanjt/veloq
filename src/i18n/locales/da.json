@@ -347,10 +347,12 @@
     "syncingActivities": "Synkroniserer aktiviteter",
     "syncedActivities": "Synkroniserede {{count}} aktiviteter",
     "syncedDemoActivities": "Synkroniserede {{count}} demoaktiviteter",
-    "downloadingGpsProgress": "Downloader GPS-data... {{completed}}/{{total}}",
+    "downloadingGpsProgress": "Downloader GPS-data... {{percent}}%",
     "noValidGpsChecked": "Ingen gyldige GPS-data fundet (tjekkede {{count}} aktiviteter)",
     "fetchingActivities": "Henter aktiviteter...",
-    "generatingHeatmap": "Genererer heatmap..."
+    "generatingHeatmap": "Genererer heatmap...",
+    "fetchingTimeStreams": "Henter tidsdata... {{percent}}%",
+    "finalizingHeatmap": "Færdiggør heatmap... {{percent}}%"
   },
   "chartTypes": {
     "alt": "Alt",
@@ -837,7 +839,7 @@
   "mapScreen": {
     "loadingActivities": "Indlæser aktiviteter...",
     "loadingOlderActivities": "Indlæser ældre aktiviteter...",
-    "syncing": "Synkroniserer: {{completed}}/{{total}}",
+    "syncing": "Synkroniserer: {{percent}}%",
     "activities": "activities",
     "expandRange": "Udvid interval"
   },
@@ -884,7 +886,7 @@
     "showRoutes": "Vis ruter",
     "showSections": "Vis sektioner",
     "startPercent": "Start: {{percent}}%",
-    "syncingActivities": "Synkroniserer {{completed}}/{{total}} aktiviteter",
+    "syncingActivities": "Synkroniserer {{percent}}% aktiviteter",
     "tapSelectEnd": "Tryk for at vælge slutpunkt",
     "tapSelectStart": "Tryk for at vælge startpunkt",
     "toggleStyle": "Skift kortstil",

@@ -412,10 +412,26 @@ impl PersistentRouteEngine {
                 }
 
                 let lap_count = laps.len() as u32;
-                // Find the lap with minimum time (best performance)
-                // Use both time and pace from the SAME lap for consistency
+                // Find the lap with minimum time (best performance) — but only
+                // among COMPLETE traversals. Partial-direction laps and laps
+                // covering less than 70% of the canonical section distance are
+                // excluded so a 200m partial overlap can't be reported as a PR
+                // for a 2km section. See the per-direction selection below for
+                // the same rules applied at lap level.
+                let canonical_distance_for_record = section.distance_meters;
+                let min_distance_for_record = if canonical_distance_for_record > 0.0 {
+                    canonical_distance_for_record * 0.7
+                } else {
+                    0.0
+                };
                 let best_lap = laps
                     .iter()
+                    .filter(|lap| {
+                        if lap.direction == "partial" {
+                            return false;
+                        }
+                        min_distance_for_record == 0.0 || lap.distance >= min_distance_for_record
+                    })
                     .min_by(|a, b| a.time.partial_cmp(&b.time).unwrap_or(std::cmp::Ordering::Equal));
                 let (best_time, best_pace) = best_lap
                     .map(|lap| (lap.time, lap.pace))
@@ -462,6 +478,25 @@ impl PersistentRouteEngine {
         // Scan all laps across all records to find per-direction bests.
         // This fixes the bug where record-level direction (first lap) and
         // cross-direction best_time gave wrong per-direction PRs.
+        //
+        // PR completeness rules (apply to BOTH per-direction best and stats):
+        //  1. Skip "partial" direction laps — by definition a partial overlap
+        //     only covers some of the section, so its lap_time is for that
+        //     fragment, not a full traversal. Including it produces
+        //     impossibly fast PR times like "1:24" on a section that takes
+        //     6 minutes.
+        //  2. Skip laps whose actual GPS distance is less than 70% of the
+        //     section's canonical distance — even when the matcher labels
+        //     them "same"/"reverse", a substantially short portion is still
+        //     an incomplete traversal and shouldn't count as a PR. The 0.7
+        //     threshold matches the matcher's own "complete enough" gate.
+        let canonical_distance = section.distance_meters;
+        let min_portion_distance = if canonical_distance > 0.0 {
+            canonical_distance * 0.7
+        } else {
+            0.0
+        };
+
         let mut best_fwd_time = f64::MAX;
         let mut best_fwd_record_idx: Option<usize> = None;
         let mut best_fwd_pace = 0.0f64;
@@ -476,6 +511,16 @@ impl PersistentRouteEngine {
 
         for (i, record) in records.iter().enumerate() {
             for lap in &record.laps {
+                // Rule 1: partial direction = incomplete traversal, skip.
+                if lap.direction == "partial" {
+                    continue;
+                }
+                // Rule 2: actual GPS distance too short relative to section.
+                // Always allow when canonical distance is unknown (0).
+                if min_portion_distance > 0.0 && lap.distance < min_portion_distance {
+                    continue;
+                }
+
                 let is_rev = lap.direction == "reverse" || lap.direction == "backward";
                 if is_rev {
                     rev_times.push(lap.time);

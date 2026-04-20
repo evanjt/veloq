@@ -5,6 +5,14 @@ mod merging;
 mod naming;
 mod ranking;
 
+// Re-export the Tier 2 upgrade-path backfill so `persistent_engine_ffi::init`
+// can trigger it without reaching through private module paths. The sync
+// variant (`run_accumulator_backfill`) is re-exported pub so integration
+// tests in `tests/` can drive it deterministically — it's a test-only
+// entry point, not a FFI surface.
+pub(super) use detection::spawn_accumulator_backfill;
+pub use detection::run_accumulator_backfill;
+
 use crate::{FrequentSection, GpsPoint, SectionPortion};
 use chrono::Utc;
 use rusqlite::{Result as SqlResult, params, types::Type};

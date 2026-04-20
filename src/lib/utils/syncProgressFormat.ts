@@ -52,11 +52,16 @@ export function formatGpsSyncProgress(
 
   // Analysing routes (section detection)
   if (progress.status === 'computing' || progress.status === 'processing') {
+    // If the caller supplied a message (e.g. heatmap tile finalization
+    // passes its own percent-formatted string), trust it and drop the
+    // count suffix — otherwise we'd render both "75%" and "12400/51500".
+    const hasCustomMessage = Boolean(progress.message);
     return {
       icon: 'map-marker-path',
       text: progress.message || (t('cache.analyzingRoutes') as string),
       percent: progress.percent,
-      countText: progress.total > 0 ? `${progress.completed}/${progress.total}` : null,
+      countText:
+        !hasCustomMessage && progress.total > 0 ? `${progress.completed}/${progress.total}` : null,
       indeterminate: progress.percent === 0 || progress.percent === 50,
     };
   }

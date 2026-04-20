@@ -350,10 +350,26 @@ impl FitnessManager {
 
             for s in &all_summaries {
                 let perf = e.get_section_performances_filtered(&s.id, None);
-                let best = perf
-                    .best_record
-                    .as_ref()
-                    .or(perf.best_forward_record.as_ref());
+                // Prefer per-direction bests: they're computed lap-by-lap and
+                // line up with what the section detail page shows. The combined
+                // `best_record` is each activity's minimum lap, which can pick
+                // a partial / unusually short portion (yielding implausible
+                // times like "1:24" for a section that's normally ~6 minutes).
+                // Take the faster of forward/reverse so we mirror what the
+                // user would see as "the PR" on the section detail screen.
+                let best = match (
+                    perf.best_forward_record.as_ref(),
+                    perf.best_reverse_record.as_ref(),
+                ) {
+                    (Some(fwd), Some(rev)) => Some(if fwd.best_time <= rev.best_time {
+                        fwd
+                    } else {
+                        rev
+                    }),
+                    (Some(fwd), None) => Some(fwd),
+                    (None, Some(rev)) => Some(rev),
+                    (None, None) => perf.best_record.as_ref(),
+                };
                 if let Some(record) = best {
                     if record.activity_date >= seven_days_ago {
                         let days_ago = crate::calendar_days_between(record.activity_date, now_ts);
@@ -421,10 +437,26 @@ impl FitnessManager {
 
             for s in &all_summaries {
                 let perf = e.get_section_performances_filtered(&s.id, None);
-                let best = perf
-                    .best_record
-                    .as_ref()
-                    .or(perf.best_forward_record.as_ref());
+                // Prefer per-direction bests: they're computed lap-by-lap and
+                // line up with what the section detail page shows. The combined
+                // `best_record` is each activity's minimum lap, which can pick
+                // a partial / unusually short portion (yielding implausible
+                // times like "1:24" for a section that's normally ~6 minutes).
+                // Take the faster of forward/reverse so we mirror what the
+                // user would see as "the PR" on the section detail screen.
+                let best = match (
+                    perf.best_forward_record.as_ref(),
+                    perf.best_reverse_record.as_ref(),
+                ) {
+                    (Some(fwd), Some(rev)) => Some(if fwd.best_time <= rev.best_time {
+                        fwd
+                    } else {
+                        rev
+                    }),
+                    (Some(fwd), None) => Some(fwd),
+                    (None, Some(rev)) => Some(rev),
+                    (None, None) => perf.best_record.as_ref(),
+                };
                 if let Some(record) = best {
                     if record.activity_date >= seven_days_ago {
                         let days_ago = crate::calendar_days_between(record.activity_date, now_ts);

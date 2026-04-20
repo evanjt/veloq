@@ -526,92 +526,99 @@ export const ActivityCard = React.memo(
                     {formatElevation(activity.total_elevation_gain, isMetric)}
                   </RNText>
                 </View>
-                {/* Section trend indicators + PR counts */}
-                {sectionHighlights && sectionHighlights.length > 0 ? (
-                  <Pressable
-                    testID={`activity-card-${activity.id}-section-chip`}
-                    onPress={() => router.push(`/activity/${activity.id}?tab=sections`)}
-                    hitSlop={8}
-                    style={styles.trendBadge}
-                  >
-                    {(() => {
-                      const improving = sectionHighlights.filter(
-                        (h) => h.trend === 1 && !h.isPr
-                      ).length;
-                      const declining = sectionHighlights.filter(
-                        (h) => h.trend === -1 && !h.isPr
-                      ).length;
-                      const prCount = sectionHighlights.filter((h) => h.isPr).length;
-                      return (
-                        <>
-                          {prCount > 0 && (
-                            <View
-                              testID={`activity-card-${activity.id}-pr-pill`}
-                              style={[
-                                styles.trendPill,
-                                isDark ? styles.prPillDark : styles.prPillLight,
-                              ]}
-                            >
-                              <MaterialCommunityIcons name="trophy" size={12} color="#18181B" />
-                              <RNText style={[styles.trendCount, { color: '#18181B' }]}>
-                                {prCount}
-                              </RNText>
-                            </View>
-                          )}
-                          {improving > 0 && (
-                            <View
-                              testID={`activity-card-${activity.id}-improving-pill`}
-                              style={[
-                                styles.trendPill,
-                                isDark ? styles.improvingPillDark : styles.improvingPillLight,
-                              ]}
-                            >
-                              <MaterialCommunityIcons
-                                name="trending-up"
-                                size={13}
-                                color="#FFFFFF"
-                              />
-                              <RNText style={[styles.trendCount, { color: '#FFFFFF' }]}>
-                                {improving}
-                              </RNText>
-                            </View>
-                          )}
-                          {declining > 0 && (
-                            <View
-                              testID={`activity-card-${activity.id}-declining-pill`}
-                              style={[
-                                styles.trendPill,
-                                isDark ? styles.decliningPillDark : styles.decliningPillLight,
-                              ]}
-                            >
-                              <MaterialCommunityIcons
-                                name="trending-down"
-                                size={13}
-                                color={isDark ? '#A1A1AA' : '#3F3F46'}
-                              />
-                              <RNText
-                                style={[
-                                  styles.trendCount,
-                                  { color: isDark ? '#A1A1AA' : '#3F3F46' },
-                                ]}
-                              >
-                                {declining}
-                              </RNText>
-                            </View>
-                          )}
-                        </>
-                      );
-                    })()}
-                  </Pressable>
-                ) : location ? (
-                  <RNText
-                    style={[
-                      styles.overlayLocation,
-                      { color: theme.textMuted, textShadowColor: theme.shadow },
-                    ]}
-                  >
-                    {location}
-                  </RNText>
+                {/* Right column: section trend indicators + PR counts, then location.
+                    Stack vertically so badges and location can coexist. */}
+                {(sectionHighlights && sectionHighlights.length > 0) || location ? (
+                  <View style={styles.rightColumn}>
+                    {sectionHighlights && sectionHighlights.length > 0 && (
+                      <Pressable
+                        testID={`activity-card-${activity.id}-section-chip`}
+                        onPress={() => router.push(`/activity/${activity.id}?tab=sections`)}
+                        hitSlop={8}
+                        style={styles.trendBadge}
+                      >
+                        {(() => {
+                          const improving = sectionHighlights.filter(
+                            (h) => h.trend === 1 && !h.isPr
+                          ).length;
+                          const declining = sectionHighlights.filter(
+                            (h) => h.trend === -1 && !h.isPr
+                          ).length;
+                          const prCount = sectionHighlights.filter((h) => h.isPr).length;
+                          return (
+                            <>
+                              {prCount > 0 && (
+                                <View
+                                  testID={`activity-card-${activity.id}-pr-pill`}
+                                  style={[
+                                    styles.trendPill,
+                                    isDark ? styles.prPillDark : styles.prPillLight,
+                                  ]}
+                                >
+                                  <MaterialCommunityIcons name="trophy" size={12} color="#18181B" />
+                                  <RNText style={[styles.trendCount, { color: '#18181B' }]}>
+                                    {prCount}
+                                  </RNText>
+                                </View>
+                              )}
+                              {improving > 0 && (
+                                <View
+                                  testID={`activity-card-${activity.id}-improving-pill`}
+                                  style={[
+                                    styles.trendPill,
+                                    isDark ? styles.improvingPillDark : styles.improvingPillLight,
+                                  ]}
+                                >
+                                  <MaterialCommunityIcons
+                                    name="trending-up"
+                                    size={13}
+                                    color="#FFFFFF"
+                                  />
+                                  <RNText style={[styles.trendCount, { color: '#FFFFFF' }]}>
+                                    {improving}
+                                  </RNText>
+                                </View>
+                              )}
+                              {declining > 0 && (
+                                <View
+                                  testID={`activity-card-${activity.id}-declining-pill`}
+                                  style={[
+                                    styles.trendPill,
+                                    isDark ? styles.decliningPillDark : styles.decliningPillLight,
+                                  ]}
+                                >
+                                  <MaterialCommunityIcons
+                                    name="trending-down"
+                                    size={13}
+                                    color={isDark ? '#A1A1AA' : '#3F3F46'}
+                                  />
+                                  <RNText
+                                    style={[
+                                      styles.trendCount,
+                                      { color: isDark ? '#A1A1AA' : '#3F3F46' },
+                                    ]}
+                                  >
+                                    {declining}
+                                  </RNText>
+                                </View>
+                              )}
+                            </>
+                          );
+                        })()}
+                      </Pressable>
+                    )}
+                    {location && (
+                      <RNText
+                        style={[
+                          styles.overlayLocation,
+                          { color: theme.textMuted, textShadowColor: theme.shadow },
+                        ]}
+                        numberOfLines={1}
+                      >
+                        {location}
+                      </RNText>
+                    )}
+                  </View>
                 ) : null}
               </Pressable>
               {activity.skyline_chart_bytes ? (
@@ -761,6 +768,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingTop: 20,
     paddingBottom: 2,
+  },
+  rightColumn: {
+    flexDirection: 'column',
+    alignItems: 'flex-end',
+    gap: 2,
+    marginLeft: spacing.sm,
+    flexShrink: 1,
   },
   trendBadge: {
     flexDirection: 'row',

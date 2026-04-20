@@ -84,7 +84,16 @@ impl PersistentRouteEngine {
                            THEN a.duration_secs * (sa.distance_meters / a.distance_meters)
                            ELSE NULL END)";
 
-        // Get all (section_id, direction) pairs with 2+ non-excluded traversals
+        // Get all (section_id, direction) pairs with 2+ non-excluded traversals.
+        //
+        // PR completeness rules (apply to both the pair list AND the per-pair
+        // traversal scan below):
+        //  - Skip "partial" direction rows. A partial overlap only covers part
+        //    of the section, so its lap_time is for that fragment, not a full
+        //    traversal. Without this filter, a 200m partial of a 2km section
+        //    can show up as a "PR" of 1:24 in feed badges.
+        //  - Skip rows whose actual GPS distance is < 70% of the section's
+        //    canonical distance (matches `get_section_performances_filtered`).
         let pair_sql = format!(
             "SELECT sa.section_id, sa.direction, COUNT(*) as cnt
              FROM section_activities sa
@@ -94,6 +103,9 @@ impl PersistentRouteEngine {
                AND {} IS NOT NULL
                AND s.disabled = 0
                AND s.superseded_by IS NULL
+               AND sa.direction != 'partial'
+               AND (s.distance_meters IS NULL OR s.distance_meters <= 0
+                    OR sa.distance_meters >= s.distance_meters * 0.7)
              GROUP BY sa.section_id, sa.direction
              HAVING cnt >= 2",
             effective_time_expr
@@ -123,14 +135,20 @@ impl PersistentRouteEngine {
 
         let mut total = 0;
 
-        // For each (section, direction) pair: query traversals ordered by date
+        // For each (section, direction) pair: query traversals ordered by date.
+        // Same completeness filter as the pair query above so the per-traversal
+        // best matches what `get_section_performances_filtered` produces.
         let traversal_sql = format!(
             "SELECT sa.activity_id, {} as effective_time
              FROM section_activities sa
              JOIN activities a ON a.id = sa.activity_id
+             JOIN sections s ON s.id = sa.section_id
              WHERE sa.section_id = ?
                AND sa.direction = ?
                AND sa.excluded = 0
+               AND sa.direction != 'partial'
+               AND (s.distance_meters IS NULL OR s.distance_meters <= 0
+                    OR sa.distance_meters >= s.distance_meters * 0.7)
              ORDER BY a.start_date ASC",
             effective_time_expr
         );

@@ -347,10 +347,12 @@
     "syncingActivities": "Aktivitäte am synce...",
     "syncedActivities": "{{count}} Aktivitäte synchronisiert",
     "syncedDemoActivities": "{{count}} Demo-Aktivitäte synchronisiert",
-    "downloadingGpsProgress": "GPS-Date abelade... {{completed}}/{{total}}",
+    "downloadingGpsProgress": "GPS-Date abelade... {{percent}}%",
     "noValidGpsChecked": "Kei gültige GPS-Date gfunde ({{count}} Aktivitäte gprüeft)",
     "fetchingActivities": "Aktivitäte am hole...",
-    "generatingHeatmap": "Heatmap am erstelle..."
+    "generatingHeatmap": "Heatmap am erstelle...",
+    "fetchingTimeStreams": "Zitdate wärde abgholt... {{percent}}%",
+    "finalizingHeatmap": "Heatmap am abschliesse... {{percent}}%"
   },
   "chartTypes": {
     "alt": "Alt",
@@ -837,7 +839,7 @@
   "mapScreen": {
     "loadingActivities": "Am Lade...",
     "loadingOlderActivities": "Elteri Aktivitäte lade...",
-    "syncing": "Sync: {{completed}}/{{total}}",
+    "syncing": "Sync: {{percent}}%",
     "activities": "activities",
     "expandRange": "Bereich erwiitere"
   },
@@ -884,7 +886,7 @@
     "showRoutes": "Route zeige",
     "showSections": "Abschnitt iiblende",
     "startPercent": "Start: {{percent}}%",
-    "syncingActivities": "Sync: {{completed}}/{{total}}",
+    "syncingActivities": "Sync: {{percent}}%",
     "tapSelectEnd": "Tipp für Endpunkt",
     "tapSelectStart": "Tipp für Startpunkt",
     "toggleStyle": "Stil wächsle",

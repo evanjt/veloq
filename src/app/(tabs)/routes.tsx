@@ -130,7 +130,7 @@ export default function RoutesScreen() {
 
   const { t } = useTranslation();
   const { isDark } = useTheme();
-  const { tab } = useLocalSearchParams<{ tab?: string }>();
+  const { tab, insightId } = useLocalSearchParams<{ tab?: string; insightId?: string }>();
   const { insights, markAsSeen } = useInsights();
   const hasStrength = useHasStrengthData();
   const { location: userLocation, requestPermission } = useUserLocation();
@@ -222,12 +222,27 @@ export default function RoutesScreen() {
 
   const availableTabKeys = useMemo(() => new Set(tabs.map((entry) => entry.key)), [tabs]);
   const [activeTab, setActiveTab] = useState<TabType>(() => {
+    // Deep-link from home insight chip — always lands on insights tab.
+    if (insightId) return 'insights';
     if (tab === 'strength' && hasStrength) return 'strength';
     if (tab === 'routes' || tab === 'sections' || tab === 'debug' || tab === 'insights') {
       return tab;
     }
     return 'insights';
   });
+
+  // When the insightId param is present, ensure the insights tab is active.
+  useEffect(() => {
+    if (insightId) {
+      setActiveTab('insights');
+    }
+  }, [insightId]);
+
+  // Clear the insightId URL param after the panel reports it has opened the
+  // matching insight, so back-nav doesn't reopen the sheet.
+  const handleInsightOpened = useCallback(() => {
+    router.setParams({ insightId: undefined });
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
@@ -364,8 +379,15 @@ export default function RoutesScreen() {
   // Per-tab memos isolate re-render blast radius: changing insights
   // doesn't recreate routes/sections JSX and vice versa.
   const insightsPage = useMemo(
-    () => <InsightsPanel key="insights" insights={insights} />,
-    [insights]
+    () => (
+      <InsightsPanel
+        key="insights"
+        insights={insights}
+        initialInsightId={insightId}
+        onInsightOpened={handleInsightOpened}
+      />
+    ),
+    [insights, insightId, handleInsightOpened]
   );
 
   const routesPage = useMemo(

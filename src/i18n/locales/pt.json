@@ -347,10 +347,12 @@
     "syncingActivities": "A sincronizar atividades",
     "syncedActivities": "{{count}} atividades sincronizadas",
     "syncedDemoActivities": "{{count}} atividades demo sincronizadas",
-    "downloadingGpsProgress": "A transferir dados GPS... {{completed}}/{{total}}",
+    "downloadingGpsProgress": "A transferir dados GPS... {{percent}}%",
     "noValidGpsChecked": "Sem dados GPS válidos (verificadas {{count}} atividades)",
     "fetchingActivities": "A obter atividades...",
-    "generatingHeatmap": "A gerar mapa de calor..."
+    "generatingHeatmap": "A gerar mapa de calor...",
+    "fetchingTimeStreams": "A obter dados temporais... {{percent}}%",
+    "finalizingHeatmap": "A finalizar mapa de calor... {{percent}}%"
   },
   "chartTypes": {
     "alt": "Alt",
@@ -837,7 +839,7 @@
   "mapScreen": {
     "loadingActivities": "A carregar atividades...",
     "loadingOlderActivities": "A carregar atividades mais antigas...",
-    "syncing": "A sincronizar: {{completed}}/{{total}}",
+    "syncing": "A sincronizar: {{percent}}%",
     "activities": "activities",
     "expandRange": "Expandir intervalo"
   },
@@ -884,7 +886,7 @@
     "showRoutes": "Mostrar rotas",
     "showSections": "Mostrar secções",
     "startPercent": "Início: {{percent}}%",
-    "syncingActivities": "A sincronizar {{completed}}/{{total}} atividades",
+    "syncingActivities": "A sincronizar {{percent}}% atividades",
     "tapSelectEnd": "Toque para selecionar ponto final",
     "tapSelectStart": "Toque para selecionar ponto de início",
     "toggleStyle": "Alternar estilo do mapa",

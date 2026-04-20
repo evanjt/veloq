@@ -40,7 +40,7 @@ mod fitness;
 mod indicators;
 mod routes;
 mod schema;
-mod sections;
+pub mod sections;
 mod settings;
 mod strength;
 mod tiles;
@@ -1056,6 +1056,16 @@ pub mod persistent_engine_ffi {
                 let mut guard = PERSISTENT_ENGINE.write().unwrap_or_else(|e| e.into_inner());
                 *guard = Some(engine);
                 info!("tracematch: [PersistentEngine] Initialized successfully");
+
+                // Tier 2 upgrade path: spawn a background thread that seeds
+                // consensus_state for any section carrying a NULL blob (users
+                // upgrading from 0.2.2 or earlier). Guarded by a schema_info
+                // flag so it only does the corpus-wide scan once per install.
+                // Drop the write lock before spawning so the backfill thread
+                // can try_write later without racing our own release.
+                drop(guard);
+                super::sections::spawn_accumulator_backfill(db_path.clone());
+
                 true
             }
             Err(e) => {

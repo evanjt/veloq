@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback } from 'react';
 import { Modal, View, StyleSheet, Pressable, ScrollView, Dimensions } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -8,8 +8,6 @@ import { useTheme } from '@/hooks';
 import { colors, darkColors, spacing, typography, opacity, colorWithOpacity } from '@/theme';
 import { InsightDetailContent } from './content/InsightDetailContent';
 import { MethodologySection } from './MethodologySection';
-import { InsightQuickTake } from './InsightQuickTake';
-import { CollapsibleSection } from '@/components/ui';
 import type { Insight } from '@/types';
 
 const SHEET_HEIGHT = Dimensions.get('window').height * 0.85;
@@ -27,7 +25,6 @@ export const InsightDetailSheet = React.memo(function InsightDetailSheet({
 }: InsightDetailSheetProps) {
   const { isDark } = useTheme();
   const { t } = useTranslation();
-  const [quickTakeExpanded, setQuickTakeExpanded] = useState(false);
 
   const handleNavigate = useCallback(() => {
     if (insight?.navigationTarget) {
@@ -104,7 +101,7 @@ export const InsightDetailSheet = React.memo(function InsightDetailSheet({
             <InsightDetailContent insight={insight} />
           </View>
 
-          {/* Methodology transparency */}
+          {/* Methodology transparency — single "How was this calculated?" block */}
           {insight.methodology ||
           insight.supportingData?.formula ||
           insight.supportingData?.algorithmDescription ? (
@@ -112,18 +109,6 @@ export const InsightDetailSheet = React.memo(function InsightDetailSheet({
               <MethodologySection insight={insight} />
             </View>
           ) : null}
-
-          {/* Quick Take — collapsible detail breakdown */}
-          <View style={styles.quickTakeSection}>
-            <CollapsibleSection
-              title={t('insights.quickTake.howCalculated', 'How was this calculated?')}
-              expanded={quickTakeExpanded}
-              onToggle={setQuickTakeExpanded}
-              icon="calculator-variant-outline"
-            >
-              <InsightQuickTake insight={insight} />
-            </CollapsibleSection>
-          </View>
 
           {/* Navigation link */}
           {hasNavTarget ? (
@@ -242,11 +227,6 @@ const styles = StyleSheet.create({
   // Methodology
   methodologySection: {
     paddingHorizontal: spacing.lg,
-  },
-  // Quick Take collapsible
-  quickTakeSection: {
-    paddingHorizontal: spacing.lg,
-    marginTop: spacing.xs,
   },
   // Navigation
   navLink: {

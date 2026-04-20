@@ -108,6 +108,7 @@ import {
   MarkerView,
   CircleLayer,
   SymbolLayer,
+  Images,
 } from '@maplibre/maplibre-react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { decodePolyline, LatLng, getActivityColor } from '@/lib';
@@ -776,9 +777,13 @@ export const ActivityMapView = memo(function ActivityMapView({
             {/* Section overlays - render after route line so they appear on top */}
             {/* CRITICAL: Always render stable ShapeSources to avoid Fabric crash */}
             {/* Using consolidated GeoJSONs prevents add/remove cycles during state changes */}
+            {/* PR sections are EXCLUDED from the canonical section layer — only the
+                activity's actual GPS cutout (portion overlay below) is drawn so the
+                user sees what they actually rode, not the averaged consensus line. */}
             <ShapeSource id="section-overlays-consolidated" shape={consolidatedSectionsGeoJSON}>
               <LineLayer
                 id="section-overlays-casing"
+                filter={['!=', ['get', 'isPR'], true] as unknown as never}
                 style={{
                   lineColor: highlightedSectionId
                     ? [
@@ -798,6 +803,7 @@ export const ActivityMapView = memo(function ActivityMapView({
               />
               <LineLayer
                 id="section-overlays-line"
+                filter={['!=', ['get', 'isPR'], true] as unknown as never}
                 style={{
                   lineColor: highlightedSectionId
                     ? [
@@ -935,6 +941,8 @@ export const ActivityMapView = memo(function ActivityMapView({
             {/* Section numbered/PR markers — geo-anchored so they track with map pan/zoom */}
             {/* Uses ShapeSource + CircleLayer + SymbolLayer instead of MarkerView: */}
             {/* MarkerView coordinate updates break native position binding in MapLibre RN */}
+            {/* PR markers use the trophy icon (matches activity feed); numbered markers use text */}
+            <Images images={{ trophy: require('@/assets/icons/trophy.png') }} />
             <ShapeSource
               id="sectionMarkersSource"
               shape={sectionMarkersGeoJSON}
@@ -946,23 +954,37 @@ export const ActivityMapView = memo(function ActivityMapView({
               <CircleLayer
                 id="section-marker-circle"
                 style={{
-                  circleRadius: ['case', ['get', 'isPR'], 8, 6] as unknown as number,
+                  circleRadius: ['case', ['get', 'isPR'], 9, 6] as unknown as number,
                   circleColor: [
                     'case',
                     ['get', 'isPR'],
                     colors.accent,
-                    colors.gray500,
+                    colors.gray700,
                   ] as unknown as string,
                   circleStrokeWidth: ['case', ['get', 'isPR'], 2, 1.5] as unknown as number,
                   circleStrokeColor: '#FFFFFF',
                 }}
               />
               <SymbolLayer
-                id="section-marker-text"
+                id="section-marker-pr-icon"
+                filter={['==', ['get', 'isPR'], true] as unknown as never}
+                style={{
+                  iconImage: 'trophy',
+                  iconSize: 0.32,
+                  iconAllowOverlap: true,
+                  iconIgnorePlacement: true,
+                  iconAnchor: 'center',
+                }}
+              />
+              <SymbolLayer
+                id="section-marker-number-text"
+                filter={['!=', ['get', 'isPR'], true] as unknown as never}
                 style={{
                   textField: ['get', 'label'] as unknown as string,
                   textColor: '#FFFFFF',
-                  textSize: 7,
+                  textHaloColor: '#000000',
+                  textHaloWidth: 0.6,
+                  textSize: 8,
                   textAnchor: 'center',
                   textAllowOverlap: true,
                   textIgnorePlacement: true,
@@ -1248,6 +1270,7 @@ export const ActivityMapView = memo(function ActivityMapView({
           <ShapeSource id="fs-section-overlays-consolidated" shape={consolidatedSectionsGeoJSON}>
             <LineLayer
               id="fs-section-overlays-line"
+              filter={['!=', ['get', 'isPR'], true] as unknown as never}
               style={{
                 lineColor: sectionPaletteExpression() as unknown as string,
                 lineWidth: 5,
@@ -1271,7 +1294,8 @@ export const ActivityMapView = memo(function ActivityMapView({
           </ShapeSource>
 
           {/* PR markers at center of each PR section in fullscreen */}
-          {/* Geo-anchored via ShapeSource so markers track with pan/zoom */}
+          {/* Geo-anchored via ShapeSource so markers track with pan/zoom.
+              Uses the trophy icon for visual parity with feed cards. */}
           <ShapeSource
             id="fs-section-markers-source"
             shape={fullscreenPRMarkersGeoJSON}
@@ -1283,21 +1307,20 @@ export const ActivityMapView = memo(function ActivityMapView({
             <CircleLayer
               id="fs-section-marker-circle"
               style={{
-                circleRadius: 8,
+                circleRadius: 9,
                 circleColor: '#D4AF37',
                 circleStrokeWidth: 2,
                 circleStrokeColor: '#FFFFFF',
               }}
             />
             <SymbolLayer
-              id="fs-section-marker-text"
+              id="fs-section-marker-icon"
               style={{
-                textField: ['get', 'label'] as unknown as string,
-                textColor: '#FFFFFF',
-                textSize: 7,
-                textAnchor: 'center',
-                textAllowOverlap: true,
-                textIgnorePlacement: true,
+                iconImage: 'trophy',
+                iconSize: 0.32,
+                iconAllowOverlap: true,
+                iconIgnorePlacement: true,
+                iconAnchor: 'center',
               }}
             />
           </ShapeSource>

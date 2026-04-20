@@ -9,7 +9,6 @@ import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { router } from 'expo-router';
-import { CollapsibleSection } from '@/components/ui';
 import { formatDuration, formatPace } from '@/lib';
 import { colors, darkColors, spacing, typography, layout } from '@/theme';
 
@@ -63,7 +62,6 @@ export function SectionStatsCards({
   referenceActivityId,
 }: SectionStatsCardsProps) {
   const { t } = useTranslation();
-  const [showHistory, setShowHistory] = useState(false);
   const [expandedYears, setExpandedYears] = useState<Set<number>>(() => {
     if (calendarSummary.years.length > 0) {
       return new Set([calendarSummary.years[0].year]);
@@ -94,14 +92,7 @@ export function SectionStatsCards({
 
   return (
     <View style={[styles.cardContainer, isDark && styles.cardContainerDark]}>
-      <CollapsibleSection
-        title={t('sections.performanceHistory')}
-        icon="calendar-clock"
-        expanded={showHistory}
-        onToggle={setShowHistory}
-        estimatedHeight={calendarSummary.years.length * 200}
-        style={styles.calendarSection}
-      >
+      <View style={styles.calendarSection}>
         {calendarSummary.years.map((yearData) => {
           const isYearExpanded = expandedYears.has(yearData.year);
           const yearFwd = yearData.forward;
@@ -305,7 +296,7 @@ export function SectionStatsCards({
             </View>
           );
         })}
-      </CollapsibleSection>
+      </View>
     </View>
   );
 }
