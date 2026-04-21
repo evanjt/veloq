@@ -8962,58 +8962,11 @@ const FfiConverterTypeDetectionManager = new FfiConverterObject(
 
 export interface FitnessManagerInterface {
   /**
-   * Compute a Gradient-Adjusted Pace (GAP) stream from a raw pace stream and
-   * an aligned gradient stream using Minetti's cost-of-transport model.
-   *
-   * - `pace_stream`: per-sample pace in minutes per km (values must be > 0
-   * to contribute; zeros and non-finite samples are passed through as 0).
-   * - `gradient_stream`: per-sample gradient. Accepts either a percent value
-   * (e.g. `5.0` for 5%) or a fraction (e.g. `0.05`); we auto-detect by
-   * magnitude so callers that already compute a percent stream via
-   * `computeGradientStream` can pass it through unchanged.
-   *
-   * Returns a vector of the same length as `pace_stream`. If the two inputs
-   * have different lengths the shorter length is used; on empty input an
-   * empty vector is returned.
-   *
-   * Minetti, A. E., et al. (2002) "Energy cost of walking and running at
-   * extreme uphill and downhill slopes." J. Appl. Physiol. 93(3):1039-1046.
-   * Valid for gradients in roughly [-0.45, +0.45].
-   */
-  computeGapStream(
-    paceStream: Array</*f64*/ number>,
-    gradientStream: Array</*f64*/ number>,
-  ) /*throws*/ : Array</*f64*/ number>;
-  /**
    * HRV trend (label + averages + sparkline) over the trailing `days`
    * window. Returns `None` when there are <5 valid HRV days. TS maps
    * the returned label to an i18n key and renders.
    */
   computeHrvTrend(days: /*u32*/ number) /*throws*/ : FfiHrvTrend | undefined;
-  /**
-   * Compute the W' balance (anaerobic work capacity remaining) stream for a
-   * power trace using Skiba's differential model (Skiba et al., 2014).
-   *
-   * - `power_stream`: per-sample power in watts
-   * - `cp`: critical power in watts (typically FTP)
-   * - `w_prime`: total anaerobic work capacity in joules
-   * - `dt`: sample interval in seconds (1 for 1 Hz streams)
-   *
-   * Returns a vector of the same length as `power_stream`, in joules
-   * remaining. Values go negative when the athlete exceeds their
-   * anaerobic capacity.
-   *
-   * Model:
-   * - P > CP: W'bal decreases linearly by (P - CP) * dt
-   * - P <= CP: W'bal recovers exponentially toward W' with tau
-   * scaled by the power deficit (CP - P).
-   */
-  computeWbal(
-    powerStream: Array</*u32*/ number>,
-    cp: /*u32*/ number,
-    wPrime: /*u32*/ number,
-    dt: /*u32*/ number,
-  ) /*throws*/ : Array</*i32*/ number>;
   /**
    * Stale-PR opportunity detection.
    *
@@ -9141,47 +9094,6 @@ export class FitnessManager
   }
 
   /**
-   * Compute a Gradient-Adjusted Pace (GAP) stream from a raw pace stream and
-   * an aligned gradient stream using Minetti's cost-of-transport model.
-   *
-   * - `pace_stream`: per-sample pace in minutes per km (values must be > 0
-   * to contribute; zeros and non-finite samples are passed through as 0).
-   * - `gradient_stream`: per-sample gradient. Accepts either a percent value
-   * (e.g. `5.0` for 5%) or a fraction (e.g. `0.05`); we auto-detect by
-   * magnitude so callers that already compute a percent stream via
-   * `computeGradientStream` can pass it through unchanged.
-   *
-   * Returns a vector of the same length as `pace_stream`. If the two inputs
-   * have different lengths the shorter length is used; on empty input an
-   * empty vector is returned.
-   *
-   * Minetti, A. E., et al. (2002) "Energy cost of walking and running at
-   * extreme uphill and downhill slopes." J. Appl. Physiol. 93(3):1039-1046.
-   * Valid for gradients in roughly [-0.45, +0.45].
-   */
-  public computeGapStream(
-    paceStream: Array</*f64*/ number>,
-    gradientStream: Array</*f64*/ number>,
-  ): Array</*f64*/ number> /*throws*/ {
-    return FfiConverterArrayFloat64.lift(
-      uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
-        /*caller:*/ (callStatus) => {
-          return nativeModule().ubrn_uniffi_veloqrs_fn_method_fitnessmanager_compute_gap_stream(
-            uniffiTypeFitnessManagerObjectFactory.clonePointer(this),
-            FfiConverterArrayFloat64.lower(paceStream),
-            FfiConverterArrayFloat64.lower(gradientStream),
-            callStatus,
-          );
-        },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
-    );
-  }
-
-  /**
    * HRV trend (label + averages + sparkline) over the trailing `days`
    * window. Returns `None` when there are <5 valid HRV days. TS maps
    * the returned label to an i18n key and renders.
@@ -9198,50 +9110,6 @@ export class FitnessManager
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_fitnessmanager_compute_hrv_trend(
             uniffiTypeFitnessManagerObjectFactory.clonePointer(this),
             FfiConverterUInt32.lower(days),
-            callStatus,
-          );
-        },
-        /*liftString:*/ FfiConverterString.lift,
-      ),
-    );
-  }
-
-  /**
-   * Compute the W' balance (anaerobic work capacity remaining) stream for a
-   * power trace using Skiba's differential model (Skiba et al., 2014).
-   *
-   * - `power_stream`: per-sample power in watts
-   * - `cp`: critical power in watts (typically FTP)
-   * - `w_prime`: total anaerobic work capacity in joules
-   * - `dt`: sample interval in seconds (1 for 1 Hz streams)
-   *
-   * Returns a vector of the same length as `power_stream`, in joules
-   * remaining. Values go negative when the athlete exceeds their
-   * anaerobic capacity.
-   *
-   * Model:
-   * - P > CP: W'bal decreases linearly by (P - CP) * dt
-   * - P <= CP: W'bal recovers exponentially toward W' with tau
-   * scaled by the power deficit (CP - P).
-   */
-  public computeWbal(
-    powerStream: Array</*u32*/ number>,
-    cp: /*u32*/ number,
-    wPrime: /*u32*/ number,
-    dt: /*u32*/ number,
-  ): Array</*i32*/ number> /*throws*/ {
-    return FfiConverterArrayInt32.lift(
-      uniffiCaller.rustCallWithError(
-        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
-          FfiConverterTypeVeloqError,
-        ),
-        /*caller:*/ (callStatus) => {
-          return nativeModule().ubrn_uniffi_veloqrs_fn_method_fitnessmanager_compute_wbal(
-            uniffiTypeFitnessManagerObjectFactory.clonePointer(this),
-            FfiConverterArrayUInt32.lower(powerStream),
-            FfiConverterUInt32.lower(cp),
-            FfiConverterUInt32.lower(wPrime),
-            FfiConverterUInt32.lower(dt),
             callStatus,
           );
         },
@@ -14178,27 +14046,11 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_compute_gap_stream() !==
-    40753
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_fitnessmanager_compute_gap_stream",
-    );
-  }
-  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_compute_hrv_trend() !==
     48884
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_fitnessmanager_compute_hrv_trend",
-    );
-  }
-  if (
-    nativeModule().ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_compute_wbal() !==
-    42309
-  ) {
-    throw new UniffiInternalError.ApiChecksumMismatch(
-      "uniffi_veloqrs_checksum_method_fitnessmanager_compute_wbal",
     );
   }
   if (

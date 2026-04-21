@@ -7,7 +7,7 @@
  * that any generator currently uses.
  */
 
-import type { Insight, InsightMethodology, InsightSupportingData } from '@/types';
+import type { Insight, InsightMeta, InsightMethodology, InsightSupportingData } from '@/types';
 
 export interface InsightFields {
   id: string;
@@ -23,6 +23,13 @@ export interface InsightFields {
   confidence?: number;
   supportingData?: InsightSupportingData;
   methodology?: InsightMethodology;
+  /**
+   * Optional structured metadata used by the rules pipeline (recency,
+   * proximity, specificity, temporal-self framing). Generators attach this so
+   * `rules.ts` can filter and rank without digging into category-specific
+   * supportingData shapes.
+   */
+  meta?: InsightMeta;
 }
 
 /** Build an Insight with `isNew: false` default. */

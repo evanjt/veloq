@@ -96,6 +96,30 @@ export async function presentInsightNotification(
   });
 }
 
+/**
+ * Schedule (or replace) a per-activity notification using a stable identifier.
+ * Repeated calls with the same activityId update the existing tray entry in
+ * place rather than stacking duplicates — used by the background task to fire
+ * a placeholder immediately and then enrich it once GPS + insights are ready.
+ */
+export async function presentActivityNotification(
+  activityId: string,
+  title: string,
+  body: string,
+  data?: InsightNotificationData
+): Promise<void> {
+  await Notifications.scheduleNotificationAsync({
+    identifier: `activity-${activityId}`,
+    content: {
+      title,
+      body,
+      data: data ?? {},
+      ...(Platform.OS === 'android' ? { channelId: CHANNEL_ID } : {}),
+    },
+    trigger: null,
+  });
+}
+
 /** Post or update the sync progress notification. Reuses the same identifier for silent in-place updates. */
 export async function updateSyncNotification(body: string): Promise<void> {
   try {
@@ -141,22 +165,62 @@ export function setupNotificationReceivedHandler(): Notifications.Subscription {
   });
 }
 
+// A single tap can surface through both `getLastNotificationResponseAsync`
+// (cold-start path) and `addNotificationResponseReceivedListener` (live path).
+// Track identifiers we've already routed for to avoid double-navigation.
+const handledResponseIds = new Set<string>();
+
+/**
+ * Route based on notification data. Handles the activityId / sectionId / route
+ * fields the same way regardless of whether the tap happened while the app was
+ * running or launched the app cold.
+ */
+function routeFromNotificationData(data: InsightNotificationData | undefined): void {
+  if (!data) return;
+  if (data.activityId) {
+    console.log('[Notification] Navigating to activity:', data.activityId);
+    router.push(`/activity/${data.activityId}` as never);
+  } else if (data.sectionId) {
+    router.push(`/section/${data.sectionId}` as never);
+  } else if (data.route) {
+    console.log('[Notification] Navigating to route:', data.route);
+    router.push(data.route as never);
+  }
+}
+
 /** Set up the notification response handler for deep linking. Call once at app startup. */
 export function setupNotificationResponseHandler(): Notifications.Subscription {
   return Notifications.addNotificationResponseReceivedListener((response) => {
+    const id = response.notification.request.identifier;
+    if (handledResponseIds.has(id)) {
+      console.log('[Notification] Tap already handled via cold-start path:', id);
+      return;
+    }
+    handledResponseIds.add(id);
     const data = response.notification.request.content.data as InsightNotificationData | undefined;
     console.log('[Notification] Tap data:', JSON.stringify(data));
-    if (!data) return;
-
-    // Deep link to the relevant screen
-    if (data.activityId) {
-      console.log('[Notification] Navigating to activity:', data.activityId);
-      router.push(`/activity/${data.activityId}` as never);
-    } else if (data.sectionId) {
-      router.push(`/section/${data.sectionId}` as never);
-    } else if (data.route) {
-      console.log('[Notification] Navigating to route:', data.route);
-      router.push(data.route as never);
-    }
+    routeFromNotificationData(data);
   });
+}
+
+/**
+ * Handle the notification that launched the app (cold-start tap).
+ * `addNotificationResponseReceivedListener` registers too late to catch this —
+ * on Android, FCM posts the tap intent before JS has booted, so we have to
+ * explicitly ask expo-notifications what the launching notification was.
+ * Returns a promise that resolves once routing has been attempted.
+ */
+export async function handleInitialNotificationResponse(): Promise<void> {
+  try {
+    const response = await Notifications.getLastNotificationResponseAsync();
+    if (!response) return;
+    const id = response.notification.request.identifier;
+    if (handledResponseIds.has(id)) return;
+    handledResponseIds.add(id);
+    const data = response.notification.request.content.data as InsightNotificationData | undefined;
+    console.log('[Notification] Cold-start tap data:', JSON.stringify(data));
+    routeFromNotificationData(data);
+  } catch (e) {
+    console.warn('[Notification] Could not read initial response:', e);
+  }
 }

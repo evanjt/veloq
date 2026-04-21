@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -7,6 +7,7 @@ import { useTheme } from '@/hooks';
 import { TodayBanner } from '@/components/routes/TodayBanner';
 import { InsightListCard } from './InsightListCard';
 import { InsightDetailSheet } from './InsightDetailSheet';
+import { InsightDebugPanel } from './InsightDebugPanel';
 import { TAB_BAR_SAFE_PADDING } from '@/components/ui';
 import { colors, darkColors, spacing, layout } from '@/theme';
 import type { Insight } from '@/types';
@@ -31,8 +32,12 @@ export const InsightsPanel = React.memo(function InsightsPanel({
   const { isDark } = useTheme();
   const { t } = useTranslation();
   const [selectedInsight, setSelectedInsight] = useState<Insight | null>(null);
+  const [debugOpen, setDebugOpen] = useState(false);
   const handleInsightPress = useCallback((i: Insight) => setSelectedInsight(i), []);
   const handleCloseSheet = useCallback(() => setSelectedInsight(null), []);
+  const handleLongPress = useCallback(() => {
+    if (__DEV__) setDebugOpen(true);
+  }, []);
 
   // Open the deep-linked insight once it appears in the list.
   useEffect(() => {
@@ -47,7 +52,9 @@ export const InsightsPanel = React.memo(function InsightsPanel({
   return (
     <View style={styles.container} testID="insights-panel">
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-        <TodayBanner />
+        <Pressable onLongPress={handleLongPress} delayLongPress={800}>
+          <TodayBanner />
+        </Pressable>
         {insights.length > 0 ? (
           <View style={styles.cardList} testID="insights-card-list">
             {insights.map((insight) => (
@@ -78,6 +85,7 @@ export const InsightsPanel = React.memo(function InsightsPanel({
         visible={!!selectedInsight}
         onClose={handleCloseSheet}
       />
+      <InsightDebugPanel visible={debugOpen} onClose={() => setDebugOpen(false)} />
     </View>
   );
 });

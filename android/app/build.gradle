@@ -181,6 +181,21 @@ configurations.configureEach {
     }
 }
 
+// Under --configure-on-demand (which Expo CLI passes), the app's CMake
+// configure task can run before :veloqrs:generateCodegenArtifactsFromSchema
+// has populated modules/veloqrs/android/build/generated/source/codegen/jni/.
+// Android-autolinking.cmake then fails on add_subdirectory() and the build
+// requires a second pass to succeed. Force the ordering explicitly.
+evaluationDependsOn(':veloqrs')
+afterEvaluate {
+    def veloqrsCodegen = project(':veloqrs').tasks.findByName('generateCodegenArtifactsFromSchema')
+    if (veloqrsCodegen != null) {
+        tasks.matching { it.name.startsWith('configureCMake') || it.name.startsWith('buildCMake') }.configureEach {
+            dependsOn veloqrsCodegen
+        }
+    }
+}
+
 dependencies {
     // The version of react-native is set by the React Native Gradle Plugin
     implementation("com.facebook.react:react-android")

@@ -2,6 +2,7 @@ import { getRouteEngine } from '@/lib/native/routeEngine';
 import { isRouteMatchingEnabled } from '@/providers/RouteSettingsStore';
 import { generateInsights } from './generateInsights';
 import { generateStrengthInsights } from './strengthInsights';
+import { INSIGHTS_CONFIG } from './config';
 import type { Insight } from '@/types';
 import type { StrengthSummary } from '@/types';
 
@@ -380,6 +381,10 @@ export function computeInsightsFromData(
             : (engine.getAvailableSportTypes?.() ?? ['Ride', 'Run']);
 
         // Single FFI round-trip for all sports.
+        // Note: we keep the full unfiltered list here so the stale_pr
+        // detector (which needs OLD sections) still works on the TS fallback
+        // path. The section_trend generator does its own recency filter
+        // internally using INSIGHTS_CONFIG.activeWindowDays.
         const batches = engine.getRankedSectionsBatch(sportTypes, 50);
         for (const { sportType, sections } of batches) {
           rankedSectionsCache.set(sportType, sections);
@@ -426,10 +431,18 @@ export function computeInsightsFromData(
 
       sectionTrends = Array.from(sectionTrendMap.values());
 
-      // Aerobic efficiency section IDs — reuse cached ranked sections from above
+      // Aerobic efficiency section IDs — reuse cached ranked sections, but
+      // drop sections outside the active window. An efficiency trend on a
+      // section you haven't touched in months is historical curiosity, not
+      // a motivating insight. See G1 (event recency) in the rules pipeline.
+      const activeWindowDays = INSIGHTS_CONFIG.activeWindowDays;
       efficiencyTrendSectionIds = [];
       for (const [, cached] of rankedSectionsCache) {
-        for (const rs of cached.slice(0, 5)) {
+        const recent = cached.filter((rs) => {
+          if (rs.daysSinceLast == null || !Number.isFinite(rs.daysSinceLast)) return true;
+          return rs.daysSinceLast <= activeWindowDays;
+        });
+        for (const rs of recent.slice(0, 5)) {
           if (!efficiencyTrendSectionIds.includes(rs.sectionId)) {
             efficiencyTrendSectionIds.push(rs.sectionId);
           }

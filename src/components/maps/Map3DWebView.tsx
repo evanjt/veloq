@@ -22,6 +22,11 @@ import { DARK_MATTER_STYLE } from './darkMatterStyle';
 // Stable empty array to prevent unnecessary re-renders when coordinates prop is undefined
 const EMPTY_COORDS: [number, number][] = [];
 
+// Trophy icon (black silhouette) encoded as base64 for WebView injection.
+// Loaded as SDF in MapLibre GL JS so we can tint it gold and match the 2D view.
+const TROPHY_BASE64 =
+  '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';
+
 interface Map3DWebViewProps {
   /** Route coordinates as [lng, lat] pairs (optional - if not provided, just shows terrain) */
   coordinates?: [number, number][];
@@ -293,56 +298,102 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
             var markerSourceExists = !!window.map.getSource('section-markers-source');
             var hasMarkers = sectionMarkersData && sectionMarkersData.features && sectionMarkersData.features.length > 0;
 
-            try {
-              if (markerSourceExists) {
-                if (hasMarkers) {
-                  window.map.getSource('section-markers-source').setData(sectionMarkersData);
-                  window.map.setLayoutProperty('section-marker-circle-3d', 'visibility', 'visible');
-                  window.map.setLayoutProperty('section-marker-border-3d', 'visibility', 'visible');
-                  window.map.setLayoutProperty('section-marker-text-3d', 'visibility', 'visible');
-                } else {
-                  window.map.setLayoutProperty('section-marker-circle-3d', 'visibility', 'none');
-                  window.map.setLayoutProperty('section-marker-border-3d', 'visibility', 'none');
-                  window.map.setLayoutProperty('section-marker-text-3d', 'visibility', 'none');
+            function addMarkerLayers() {
+              try {
+                if (!hasMarkers) {
+                  ['section-marker-circle-3d','section-marker-border-3d','section-marker-text-3d','section-marker-pr-shadow-3d','section-marker-pr-icon-3d'].forEach(function(id) {
+                    if (window.map.getLayer(id)) window.map.setLayoutProperty(id, 'visibility', 'none');
+                  });
+                  return;
                 }
-              } else if (hasMarkers) {
-                window.map.addSource('section-markers-source', { type: 'geojson', data: sectionMarkersData });
-                window.map.addLayer({
-                  id: 'section-marker-border-3d',
-                  type: 'circle',
-                  source: 'section-markers-source',
-                  paint: {
-                    'circle-radius': ['case', ['get', 'isPR'], 16, 14],
-                    'circle-color': '#FFFFFF',
-                  },
+                if (markerSourceExists) {
+                  window.map.getSource('section-markers-source').setData(sectionMarkersData);
+                } else {
+                  window.map.addSource('section-markers-source', { type: 'geojson', data: sectionMarkersData });
+                }
+                // Remove any old unfiltered layers from previous versions so the new filtered ones take over
+                ['section-marker-border-3d','section-marker-circle-3d','section-marker-text-3d','section-marker-pr-shadow-3d','section-marker-pr-icon-3d'].forEach(function(id) {
+                  if (window.map.getLayer(id)) window.map.removeLayer(id);
                 });
-                window.map.addLayer({
-                  id: 'section-marker-circle-3d',
-                  type: 'circle',
-                  source: 'section-markers-source',
-                  paint: {
-                    'circle-radius': ['case', ['get', 'isPR'], 14, 12],
-                    'circle-color': ['case', ['get', 'isPR'], '#D4AF37', '#00BCD4'],
-                    'circle-stroke-width': ['case', ['get', 'isPR'], 2.5, 2],
-                    'circle-stroke-color': '#FFFFFF',
-                  },
-                });
-                window.map.addLayer({
-                  id: 'section-marker-text-3d',
-                  type: 'symbol',
-                  source: 'section-markers-source',
-                  layout: {
-                    'text-field': ['get', 'label'],
-                    'text-size': 10,
-                    'text-anchor': 'center',
-                    'text-allow-overlap': true,
-                    'text-ignore-placement': true,
-                  },
-                  paint: { 'text-color': '#FFFFFF' },
-                });
+                {
+                  // Non-PR numbered markers: white border + colored fill + text label
+                  window.map.addLayer({
+                    id: 'section-marker-border-3d',
+                    type: 'circle',
+                    source: 'section-markers-source',
+                    filter: ['!=', ['get', 'isPR'], true],
+                    paint: { 'circle-radius': 14, 'circle-color': '#FFFFFF' },
+                  });
+                  window.map.addLayer({
+                    id: 'section-marker-circle-3d',
+                    type: 'circle',
+                    source: 'section-markers-source',
+                    filter: ['!=', ['get', 'isPR'], true],
+                    paint: {
+                      'circle-radius': 12,
+                      'circle-color': '#00BCD4',
+                      'circle-stroke-width': 2,
+                      'circle-stroke-color': '#FFFFFF',
+                    },
+                  });
+                  window.map.addLayer({
+                    id: 'section-marker-text-3d',
+                    type: 'symbol',
+                    source: 'section-markers-source',
+                    filter: ['!=', ['get', 'isPR'], true],
+                    layout: {
+                      'text-field': ['get', 'label'],
+                      'text-size': 10,
+                      'text-anchor': 'center',
+                      'text-allow-overlap': true,
+                      'text-ignore-placement': true,
+                    },
+                    paint: { 'text-color': '#FFFFFF' },
+                  });
+                  // PR markers: gold trophy, offset above trace
+                  if (window.map.hasImage('trophy-3d')) {
+                    window.map.addLayer({
+                      id: 'section-marker-pr-icon-3d',
+                      type: 'symbol',
+                      source: 'section-markers-source',
+                      filter: ['==', ['get', 'isPR'], true],
+                      layout: {
+                        'icon-image': 'trophy-3d',
+                        'icon-size': 0.15,
+                        'icon-offset': [0, -90],
+                        'icon-allow-overlap': true,
+                        'icon-ignore-placement': true,
+                        'icon-anchor': 'center',
+                      },
+                      paint: {
+                        'icon-color': '#D4AF37',
+                      },
+                    });
+                  }
+                }
+              } catch (e) {
+                console.warn('Section marker layer error:', e);
               }
-            } catch (e) {
-              console.warn('Section marker layer error:', e);
+            }
+
+            // Load trophy image as SDF once, then add marker layers.
+            if (!window.map.hasImage('trophy-3d')) {
+              var trophyImg = new Image();
+              trophyImg.onload = function() {
+                try {
+                  if (!window.map.hasImage('trophy-3d')) {
+                    window.map.addImage('trophy-3d', trophyImg, { sdf: true });
+                  }
+                } catch (err) { console.warn('addImage trophy-3d failed:', err); }
+                addMarkerLayers();
+              };
+              trophyImg.onerror = function() {
+                console.warn('trophy-3d image failed to load');
+                addMarkerLayers();
+              };
+              trophyImg.src = 'data:image/png;base64,${TROPHY_BASE64}';
+            } else {
+              addMarkerLayers();
             }
 
             console.log('[3D] Layers updated - routes:', routesData?.features?.length || 0,

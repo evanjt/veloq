@@ -74,6 +74,7 @@ import {
   initializeNotifications,
   setupNotificationReceivedHandler,
   setupNotificationResponseHandler,
+  handleInitialNotificationResponse,
   hasNotificationPermission,
 } from '@/lib/notifications/notificationService';
 
@@ -402,6 +403,15 @@ export default function RootLayout() {
       responseSub.remove();
     };
   }, []);
+
+  // Handle cold-start taps — addNotificationResponseReceivedListener misses
+  // these on Android because it registers after JS has booted, but the tap
+  // intent was already delivered. Gate on appReady so the router is mounted
+  // when we call router.push.
+  useEffect(() => {
+    if (!appReady) return;
+    handleInitialNotificationResponse();
+  }, [appReady]);
 
   // Re-register push token on app open (refreshes TTL on server)
   // Also retry any failed unregister from a previous session

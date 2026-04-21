@@ -947,7 +947,8 @@
     },
     "activityRecorded": {
       "title": "Aktivität aufgezeichnet",
-      "body": "Neue Aktivität synchronisiert. Öffne die App für Details."
+      "body": "Neue Aktivität synchronisiert. Öffne die App für Details.",
+      "placeholder": "Neue Aktivität empfangen"
     },
     "privacy": {
       "title": "Datenschutzhinweis",

@@ -332,15 +332,14 @@ export function useRouteDataSync(
                   if (progress && progress.length >= 2 && progress[1] > 0) {
                     const [processed, total] = progress;
                     const pct = 95 + Math.min(processed / total, 1) * 5;
+                    const tilePercent =
+                      total > 0 ? Math.min(100, Math.round((processed / total) * 100)) : 0;
                     updateProgress({
                       status: 'computing',
                       completed: processed,
                       total,
                       percent: Math.min(100, Math.round(pct)),
-                      message: i18n.t('cache.finalizingHeatmap', {
-                        completed: processed,
-                        total,
-                      }),
+                      message: i18n.t('cache.finalizingHeatmap', { percent: tilePercent }),
                     });
                   }
                   if (s !== 'running' || Date.now() - tileStartTime > maxPoll) break;

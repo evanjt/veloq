@@ -17,20 +17,29 @@ import type {
   SectionTrendData,
   TFunc,
 } from './types';
+import { INSIGHTS_CONFIG } from './config';
+import {
+  applyMixAndCap,
+  passesProximity,
+  passesRecency,
+  passesRepetition,
+  passesValence,
+  scoreInsight,
+  type Bbox,
+  type DropRecord,
+  type GateReason,
+  type ScoredInsight,
+} from './rules';
 
 // Re-export for tests and consumers
 export { formatDurationCompact };
 
 /**
- * Insight priority ranking (1 = highest):
- * 1. Section PRs set in last 7 days (Veloq's unique differentiator)
- * 2. TSB form position, HRV trend, period comparison, weekly load change, FTP/pace milestones
- * 3. Section trends, training consistency
- * 4. Activity patterns
- *
- * All insights are INFORMATIONAL only — no prescriptive advice.
- *
- * Insights are generated from cached FFI data — no new queries needed.
+ * Insight pipeline: generate → hard gates (G1–G4) → score (R5–R8) → diversity
+ * cap (D9–D10). Every rule is a pure function in `rules.ts`; every threshold
+ * is in `config.ts`. See the plan at
+ * /home/evan/.claude/plans/hi-couoe-you-tak3-vivid-lemur.md for research
+ * citations.
  */
 
 export interface InsightInputData {
@@ -57,83 +66,60 @@ export interface InsightInputData {
   chronicPeriod?: PeriodStats | null;
   allSectionTrends?: SectionTrendData[];
   efficiencyTrendSectionIds?: string[];
+  /**
+   * Bbox of activities in the last `activeWindowDays` — drives the proximity
+   * gate (G2). Null disables the gate (insufficient data, gate off, etc.).
+   */
+  activeRegion?: Bbox | null;
 }
 
 // ---------------------------------------------------------------------------
-// Constants
+// Pipeline outcome — exposed for the debug panel
 // ---------------------------------------------------------------------------
 
-const MAX_INSIGHTS = 8;
-
-// ---------------------------------------------------------------------------
-// Scoring — ranks insights by actionability and surprise value
-// ---------------------------------------------------------------------------
-
-function scoreInsight(insight: Insight): number {
-  const priorityScore = (6 - insight.priority) * 50;
-  const confidenceScore = (insight.confidence ?? 0.5) * 30;
-
-  let categoryBonus = 0;
-  switch (insight.category) {
-    case 'section_pr':
-      categoryBonus = 15;
-      break;
-    case 'efficiency_trend':
-      categoryBonus = 12;
-      break;
-    case 'stale_pr':
-      categoryBonus = 10;
-      break;
-    case 'fitness_milestone':
-      categoryBonus = 10;
-      break;
-    case 'hrv_trend':
-      categoryBonus = 8;
-      break;
-    case 'period_comparison':
-      categoryBonus = 5;
-      break;
-    case 'section_trend':
-      categoryBonus = 7;
-      break;
-    case 'strength_balance':
-      categoryBonus = 6;
-      break;
-    case 'strength_progression':
-      categoryBonus = 4;
-      break;
-  }
-
-  return priorityScore + confidenceScore + categoryBonus;
+export interface PipelineOutcome {
+  kept: Insight[];
+  rejected: Array<{ insight: Insight; reason: GateReason }>;
+  scored: ScoredInsight[];
+  capDropped: DropRecord[];
 }
 
-// ---------------------------------------------------------------------------
-// Debug logging — __DEV__ only
-// ---------------------------------------------------------------------------
+/**
+ * Last pipeline outcome — captured so the dev debug panel can render the full
+ * candidate list (kept, rejected, cap-dropped) without re-running generation.
+ * Intentionally a module singleton: generation is already memoised upstream.
+ */
+let _lastOutcome: PipelineOutcome | null = null;
 
-interface InsightCandidate {
-  id: string;
-  category: string;
-  priority: number;
-  score: number;
-  included: boolean;
-  reason?: string;
+export function getLastInsightOutcome(): PipelineOutcome | null {
+  return _lastOutcome;
 }
 
-function logInsightGeneration(candidates: InsightCandidate[], final: Insight[]): void {
-  if (!__DEV__) return;
+function logInsightGeneration(outcome: PipelineOutcome): void {
+  if (!INSIGHTS_CONFIG.debug.logCandidates) return;
 
+  const total = outcome.scored.length + outcome.rejected.length;
+  // eslint-disable-next-line no-console
   console.log('\n[INSIGHTS] ═══════════════════════════════════════');
-  console.log(`[INSIGHTS] Generated ${candidates.length} candidates, kept ${final.length}`);
+  // eslint-disable-next-line no-console
+  console.log(
+    `[INSIGHTS] ${total} candidates → ${outcome.kept.length} kept, ${outcome.rejected.length} gated, ${outcome.capDropped.length} capped`
+  );
 
-  for (const c of candidates) {
-    const status = c.included ? '  KEPT' : 'DROPPED';
-    const reason = c.reason ? ` (${c.reason})` : '';
+  for (const r of outcome.rejected) {
+    // eslint-disable-next-line no-console
+    console.log(`[INSIGHTS] [GATED ] ${r.insight.category}/${r.insight.id} — ${r.reason}`);
+  }
+  for (const s of outcome.scored) {
+    const capped = outcome.capDropped.find((d) => d.insight.id === s.insight.id);
+    const status = capped ? 'CAPPED' : '  KEPT';
+    const reason = capped ? ` (${capped.reason})` : '';
+    // eslint-disable-next-line no-console
     console.log(
-      `[INSIGHTS] [${status}] ${c.category}/${c.id} — priority=${c.priority} score=${c.score.toFixed(0)}${reason}`
+      `[INSIGHTS] [${status}] ${s.insight.category}/${s.insight.id} — score=${s.score.toFixed(0)} (base=${s.breakdown.base.toFixed(0)} cat=${s.breakdown.category} spec=${s.breakdown.specificity} self=${s.breakdown.temporalSelf} sig=${s.breakdown.signal})${reason}`
     );
   }
-
+  // eslint-disable-next-line no-console
   console.log('[INSIGHTS] ═══════════════════════════════════════\n');
 }
 
@@ -158,21 +144,17 @@ function safeRun<T>(label: string, fn: () => T[], fallback: T[] = []): T[] {
 }
 
 export function generateInsights(data: InsightInputData, t: TFunc): Insight[] {
-  const insights: Insight[] = [];
+  const candidates: Insight[] = [];
   const now = Date.now();
 
-  // Each generator is isolated: a thrown error from one (e.g. a missing
-  // FFI method, a malformed wellness row) yields zero insights for that
-  // category but does not kill the rest.
-
-  // Priority 1: Section PRs
-  insights.push(...safeRun('sectionPR', () => generateSectionPRInsights(data.recentPRs, now, t)));
-
-  // Priority 2: HRV Trend
-  insights.push(...safeRun('hrvTrend', () => generateHrvTrendInsight(data.wellnessWindow, now, t)));
-
-  // Priority 2: Period Comparison
-  insights.push(
+  // 1. Generate candidates — each generator is isolated so a thrown error
+  //    from one yields zero insights for that category but does not kill
+  //    the rest.
+  candidates.push(...safeRun('sectionPR', () => generateSectionPRInsights(data.recentPRs, now, t)));
+  candidates.push(
+    ...safeRun('hrvTrend', () => generateHrvTrendInsight(data.wellnessWindow, now, t))
+  );
+  candidates.push(
     ...safeRun('periodComparison', () =>
       generatePeriodComparisonInsights(
         data.currentPeriod,
@@ -183,15 +165,12 @@ export function generateInsights(data: InsightInputData, t: TFunc): Insight[] {
       )
     )
   );
-
-  // Priority 2: FTP/Pace Milestones
-  insights.push(
+  candidates.push(
     ...safeRun('fitnessMilestone', () =>
       generateFitnessMilestoneInsights(data.ftpTrend, data.paceTrend, data.swimPaceTrend, now, t)
     )
   );
 
-  // Priority 2: Stale PR / Opportunity Detection
   if ((data.ftpTrend || data.paceTrend) && data.sectionTrends && data.sectionTrends.length > 0) {
     const sections = data.sectionTrends.map((s) => ({
       sectionId: s.sectionId,
@@ -200,8 +179,8 @@ export function generateInsights(data: InsightInputData, t: TFunc): Insight[] {
       traversalCount: s.traversalCount,
       sportType: s.sportType,
     }));
-    const existingStalePrIds = new Set(insights.map((i) => i.id));
-    insights.push(
+    const existingStalePrIds = new Set(candidates.map((i) => i.id));
+    candidates.push(
       ...safeRun('stalePR', () =>
         generateStalePRInsights(
           {
@@ -219,49 +198,54 @@ export function generateInsights(data: InsightInputData, t: TFunc): Insight[] {
     );
   }
 
-  // Priority 2-3: Section Trends
   const existingIds = new Set(
-    insights.flatMap((i) => {
+    candidates.flatMap((i) => {
       const match = i.id.match(/section_pr-(.+)|stale_pr-(.+)/);
       return match ? [match[1] ?? match[2]] : [];
     })
   );
-  insights.push(
+  candidates.push(
     ...safeRun('sectionTrend', () =>
       generateSectionTrendInsights(data.sectionTrends, existingIds, now, t)
     )
   );
 
-  // Priority 1: Aerobic Efficiency Trends
   const sectionIds = data.efficiencyTrendSectionIds;
   if (sectionIds && sectionIds.length > 0) {
-    insights.push(
+    candidates.push(
       ...safeRun('efficiencyTrend', () => generateEfficiencyTrendInsights(sectionIds, now, t))
     );
   }
 
-  // Score and rank insights, then cap at MAX_INSIGHTS
-  const scored = insights.map((insight) => ({
-    insight,
-    score: scoreInsight(insight),
-  }));
-  scored.sort((a, b) => b.score - a.score || a.insight.priority - b.insight.priority);
+  // 2. Hard gates (G1–G4) — reject before scoring
+  const activeRegion = data.activeRegion ?? null;
+  const rejected: Array<{ insight: Insight; reason: GateReason }> = [];
+  const passed: Insight[] = [];
 
-  const kept = scored.slice(0, MAX_INSIGHTS).map((s) => s.insight);
-
-  // Debug logging
-  if (__DEV__) {
-    const keptIds = new Set(kept.map((i) => i.id));
-    const candidates: InsightCandidate[] = scored.map((s) => ({
-      id: s.insight.id,
-      category: s.insight.category,
-      priority: s.insight.priority,
-      score: s.score,
-      included: keptIds.has(s.insight.id),
-      reason: keptIds.has(s.insight.id) ? undefined : 'exceeded MAX_INSIGHTS',
-    }));
-    logInsightGeneration(candidates, kept);
+  for (const insight of candidates) {
+    const gates = [
+      passesRecency(insight, now),
+      passesProximity(insight, activeRegion),
+      passesRepetition(insight),
+      passesValence(insight),
+    ];
+    const failed = gates.find((g) => !g.passed);
+    if (failed && failed.reason) {
+      rejected.push({ insight, reason: failed.reason });
+    } else {
+      passed.push(insight);
+    }
   }
+
+  // 3. Score (R5–R8 inside scoreInsight)
+  const scored = passed.map((i) => scoreInsight(i));
+
+  // 4. Diversity + surface cap (D9, D10)
+  const { kept, dropped: capDropped } = applyMixAndCap(scored);
+
+  const outcome: PipelineOutcome = { kept, rejected, scored, capDropped };
+  _lastOutcome = outcome;
+  logInsightGeneration(outcome);
 
   return kept;
 }

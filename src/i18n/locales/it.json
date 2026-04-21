@@ -947,7 +947,8 @@
     },
     "activityRecorded": {
       "title": "Attività registrata",
-      "body": "Nuova attività sincronizzata. Apri l'app per i dettagli."
+      "body": "Nuova attività sincronizzata. Apri l'app per i dettagli.",
+      "placeholder": "Nuova attività ricevuta"
     },
     "privacy": {
       "title": "Informativa sulla privacy",

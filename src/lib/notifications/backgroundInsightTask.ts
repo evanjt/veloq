@@ -1,6 +1,7 @@
 import * as Notifications from 'expo-notifications';
 import * as TaskManager from 'expo-task-manager';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { AppState } from 'react-native';
 import { debug } from '@/lib';
 import {
   computeInsightsFromData,
@@ -10,9 +11,11 @@ import type { WellnessInput } from '@/hooks/insights/computeInsightsData';
 import {
   filterInsightsForNotificationPreferences,
   formatInsightNotification,
+  isPushAllowed,
   pickBestInsightForNotification,
+  prunePushHistory,
 } from './insightNotification';
-import { presentInsightNotification } from './notificationService';
+import { presentActivityNotification, presentInsightNotification } from './notificationService';
 import { computeInsightFingerprint } from '@/providers/InsightsStore';
 import type { NotificationPreferences } from '@/providers/NotificationPreferencesStore';
 import type { Insight } from '@/types';
@@ -23,6 +26,30 @@ export const BACKGROUND_INSIGHT_TASK = 'veloq-background-insight';
 
 const FINGERPRINT_KEY = 'veloq-insights-fingerprint';
 const PREFS_KEY = 'veloq-notification-preferences';
+/** History of recent push timestamps (ms epoch) for D11 cooldown enforcement. */
+const PUSH_HISTORY_KEY = 'veloq-insight-push-history';
+
+async function readPushHistory(): Promise<number[]> {
+  try {
+    const raw = await AsyncStorage.getItem(PUSH_HISTORY_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((n): n is number => typeof n === 'number' && Number.isFinite(n));
+  } catch {
+    return [];
+  }
+}
+
+async function appendPushHistory(ts: number): Promise<void> {
+  try {
+    const existing = await readPushHistory();
+    const pruned = prunePushHistory([...existing, ts], ts);
+    await AsyncStorage.setItem(PUSH_HISTORY_KEY, JSON.stringify(pruned));
+  } catch (e) {
+    log.warn('Could not persist push history:', e);
+  }
+}
 
 /** Max time to wait for GPS download (15 seconds) */
 const GPS_DOWNLOAD_TIMEOUT_MS = 15_000;
@@ -46,6 +73,8 @@ interface ActivityInfo {
   name: string;
   type: string;
   ingested: boolean;
+  distance?: number;
+  movingTime?: number;
 }
 
 function sleep(ms: number): Promise<void> {
@@ -96,15 +125,34 @@ async function fetchAndIngestActivity(activityId: string): Promise<ActivityInfo 
       name: activity.name ?? 'Activity',
       type: activity.type ?? 'Ride',
       ingested: false,
+      distance: typeof activity.distance === 'number' ? activity.distance : undefined,
+      movingTime: typeof activity.moving_time === 'number' ? activity.moving_time : undefined,
     };
 
-    // Download GPS in Rust (direct to SQLite, ~150ms for one activity)
     const {
       startFetchAndStore,
       getDownloadProgress,
       takeFetchAndStoreResult,
       routeEngine,
     } = require('veloqrs');
+
+    // Skip GPS download if we already have this activity in SQLite — the
+    // enrichment path reads sections from the DB, so a re-delivered webhook
+    // (or duplicate silent push) produces the same enriched output without
+    // a pointless 150–15000ms network roundtrip.
+    const alreadyIngested = (() => {
+      try {
+        return routeEngine.getActivityIds().includes(activityId);
+      } catch {
+        return false;
+      }
+    })();
+
+    if (alreadyIngested) {
+      activityInfo.ingested = true;
+      log.log(`Activity already in DB, skipping download: ${activityInfo.name}`);
+      return activityInfo;
+    }
 
     startFetchAndStore(authHeader, [activityId], [{ activityId, sportType: activityInfo.type }]);
 
@@ -141,11 +189,25 @@ async function fetchAndIngestActivity(activityId: string): Promise<ActivityInfo 
  * Queries the engine to find section PRs and matches for THIS specific activity,
  * rather than relying on generic insight fingerprint diffing.
  */
+function formatBasicStat(info: ActivityInfo | null): string | null {
+  if (!info) return null;
+  const km = info.distance && info.distance > 0 ? info.distance / 1000 : 0;
+  const mins = info.movingTime && info.movingTime > 0 ? Math.round(info.movingTime / 60) : 0;
+  if (km >= 1) {
+    return `${km.toFixed(1)} km${mins > 0 ? ` in ${mins} min` : ''}`;
+  }
+  if (mins > 0) {
+    return `${mins} min`;
+  }
+  return null;
+}
+
 function buildActivityNotificationBody(
   activityId: string,
   activityName: string,
   newInsights: Insight[],
-  prefs: NotificationPreferences
+  prefs: NotificationPreferences,
+  activityInfo: ActivityInfo | null
 ): string {
   try {
     const { routeEngine } = require('veloqrs');
@@ -200,6 +262,12 @@ function buildActivityNotificationBody(
     return `${activityName} — ${milestone.title}`;
   }
 
+  // Fallback: basic stats so the notification isn't just the activity name
+  const stat = formatBasicStat(activityInfo);
+  if (stat) {
+    return `${activityName} — ${stat}`;
+  }
+
   return activityName;
 }
 
@@ -211,12 +279,16 @@ function buildActivityNotificationBody(
  *
  * Flow:
  *   1. Check notification preferences
- *   2. If activity event: download GPS, ingest into engine
- *   3. Fetch fresh wellness data from intervals.icu
- *   4. Generate insights (now including the new activity)
- *   5. Present notification with deep link to activity
+ *   2. Fire placeholder notification immediately for activity events (so the
+ *      user sees something within ~1s even if enrichment fails)
+ *   3. Download GPS, ingest into engine
+ *   4. Fetch fresh wellness data from intervals.icu
+ *   5. Generate insights (now including the new activity)
+ *   6. Replace the placeholder with the enriched body via the same identifier
  */
+log.log('Task module loaded, defining task');
 TaskManager.defineTask(BACKGROUND_INSIGHT_TASK, async ({ data, error }) => {
+  log.log('Task fired (entry)');
   if (error) {
     log.error('Background insight error:', error.message);
     return;
@@ -225,6 +297,7 @@ TaskManager.defineTask(BACKGROUND_INSIGHT_TASK, async ({ data, error }) => {
   try {
     // 1. Read preferences directly from AsyncStorage (Zustand may not be hydrated)
     const prefs = await readPrefsFromStorage();
+    log.log(`Prefs: enabled=${prefs?.enabled}, hasData=${!!data}`);
     if (!prefs?.enabled) {
       log.log('Notifications disabled, skipping');
       return;
@@ -250,6 +323,16 @@ TaskManager.defineTask(BACKGROUND_INSIGHT_TASK, async ({ data, error }) => {
     }
 
     log.log(`Push received: event=${eventType}, activity=${activityId}`);
+
+    // The visible tray push also wakes this task (Expo delivers `notification`
+    // messages through the same TaskBroadcastReceiver as `data` messages), but
+    // with no event_type/activity_id. Bail immediately — the silent push right
+    // behind it carries the real payload.
+    if (!eventType) {
+      log.log('No event type (visible-push wake), skipping');
+      return;
+    }
+
     const isActivityEvent = eventType === 'ACTIVITY_UPLOADED' || eventType === 'ACTIVITY_ANALYZED';
 
     // 3. Get i18n translation function (standalone, no React)
@@ -259,13 +342,17 @@ TaskManager.defineTask(BACKGROUND_INSIGHT_TASK, async ({ data, error }) => {
       params?: Record<string, string | number>
     ) => string;
 
-    // 4. If activity event, fetch metadata + download GPS into engine
+    // Note: no on-device placeholder notification — the worker's visible push
+    // is already in the tray by the time this task runs. We dismiss that one
+    // and present the enriched version below.
+
+    // 5. If activity event, fetch metadata + download GPS into engine
     let activityInfo: ActivityInfo | null = null;
     if (isActivityEvent && activityId) {
       activityInfo = await fetchAndIngestActivity(activityId);
     }
 
-    // 5. Fetch fresh wellness data from intervals.icu API
+    // 6. Fetch fresh wellness data from intervals.icu API
     let wellnessData: WellnessInput[] | null = null;
     try {
       const { intervalsApi } = require('@/api');
@@ -275,7 +362,7 @@ TaskManager.defineTask(BACKGROUND_INSIGHT_TASK, async ({ data, error }) => {
       log.warn('Could not fetch wellness data:', e);
     }
 
-    // 6. Generate insights (now includes new activity if ingested)
+    // 7. Generate insights (now includes new activity if ingested)
     const enginePayload = fetchInsightsDataFromEngine();
     const insights = enginePayload
       ? computeInsightsFromData(
@@ -286,34 +373,72 @@ TaskManager.defineTask(BACKGROUND_INSIGHT_TASK, async ({ data, error }) => {
         )
       : [];
 
-    // 7. Find insights that are NEW (caused by this activity)
+    // 8. Find insights that are NEW (caused by this activity)
     const storedFingerprint = await AsyncStorage.getItem(FINGERPRINT_KEY);
     const previousIds = new Set((storedFingerprint ?? '').split('|'));
     const newInsights = insights.filter((i) => !previousIds.has(i.id));
     const allowedNewInsights = filterInsightsForNotificationPreferences(newInsights, prefs);
 
-    // 8. Build activity-centric notification
-    if (isActivityEvent) {
+    // 9. Replace the placeholder with the enriched activity notification
+    if (isActivityEvent && activityId) {
       const activityName = activityInfo?.name ?? t('notifications.activityRecorded.title');
       const body = buildActivityNotificationBody(
-        activityId!,
+        activityId,
         activityName,
         allowedNewInsights,
-        prefs
+        prefs,
+        activityInfo
       );
 
-      await presentInsightNotification(t('notifications.activityRecorded.title'), body, {
-        route: activityId ? `/activity/${activityId}` : '/',
-        activityId: activityId || undefined,
-      });
-      log.log(`Notification sent: ${body}`);
+      // Clear any tray entries for this activity (both the FCM-generated
+      // visible push and any older on-device one). We re-present below only
+      // if the app is not in foreground — if the user already opened the app
+      // via the notification tap, the in-app UI shows the data and leaving
+      // a stale tray entry up is noise.
+      try {
+        const presented = await Notifications.getPresentedNotificationsAsync();
+        for (const n of presented) {
+          const data = n.request.content.data as { activityId?: string } | undefined;
+          const isThisActivity = data?.activityId === activityId;
+          const isGenericFcm = !data?.activityId; // FCM-posted visible push
+          if (isThisActivity || isGenericFcm) {
+            await Notifications.dismissNotificationAsync(n.request.identifier);
+          }
+        }
+      } catch (e) {
+        log.warn('Could not dismiss tray entries:', e);
+      }
+
+      // Skip re-presenting if the user has already opened the app — they're
+      // looking at the data already, a tray entry is redundant. This is the
+      // common case when tapping the generic visible push cold-starts the
+      // app and the silent push fires the task a second or two later.
+      if (AppState.currentState === 'active') {
+        log.log('App foregrounded, skipping enriched notification re-post');
+      } else {
+        await presentActivityNotification(
+          activityId,
+          t('notifications.activityRecorded.title'),
+          body,
+          { route: `/activity/${activityId}`, activityId }
+        );
+        log.log(`Notification sent: ${body}`);
+      }
     } else if (allowedNewInsights.length > 0) {
-      // Non-activity event (fitness update, wellness change) with new insights
-      const bestInsight = pickBestInsightForNotification(allowedNewInsights);
-      if (bestInsight) {
-        const content = formatInsightNotification(bestInsight, t);
-        await presentInsightNotification(content.title, content.body, content.data);
-        log.log(`Notification sent: ${content.title} — ${content.body}`);
+      // Non-activity event (fitness update, wellness change) with new insights.
+      // Enforce D11 cooldown — max pushes/week + min spacing — so a flurry of
+      // wellness webhooks can't chain-fire notifications.
+      const history = await readPushHistory();
+      if (!isPushAllowed(history)) {
+        log.log(`Push blocked by cooldown (history=${history.length} in last 7d)`);
+      } else {
+        const bestInsight = pickBestInsightForNotification(allowedNewInsights);
+        if (bestInsight) {
+          const content = formatInsightNotification(bestInsight, t);
+          await presentInsightNotification(content.title, content.body, content.data);
+          await appendPushHistory(Date.now());
+          log.log(`Notification sent: ${content.title} — ${content.body}`);
+        }
       }
     } else {
       log.log('No notification content to show');

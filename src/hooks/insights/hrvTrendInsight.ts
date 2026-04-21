@@ -1,9 +1,9 @@
 import type { Insight, TFunc } from './types';
 import { makeInsight } from './insightBuilder';
 import { getRouteEngine } from '@/lib/native/routeEngine';
+import { INSIGHTS_CONFIG } from './config';
 
 const HRV_WINDOW_DAYS = 7;
-const MIN_HRV_DATA_POINTS = 5;
 
 interface TrendShape {
   label: string; // "trendingUp" | "stable" | "trendingDown"
@@ -27,7 +27,7 @@ function computeHrvTrendFromWindow(
     .map((w) => w.hrv)
     .filter((v): v is number => typeof v === 'number' && v > 0);
 
-  if (hrvValues.length < MIN_HRV_DATA_POINTS) return null;
+  if (hrvValues.length < INSIGHTS_CONFIG.thresholds.minHrvDataPoints) return null;
 
   const avg = hrvValues.reduce((s, v) => s + v, 0) / hrvValues.length;
   if (avg <= 0) return null;
@@ -117,6 +117,11 @@ export function generateHrvTrendInsight(
       navigationTarget: '/fitness',
       timestamp: now,
       confidence,
+      meta: {
+        sourceTimestamp: now,
+        comparisonKind: 'self',
+        specificity: { hasNumber: true, hasPlace: false, hasDate: true },
+      },
       supportingData: {
         dataPoints: [
           {

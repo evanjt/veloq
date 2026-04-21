@@ -48,6 +48,12 @@ export function parseStreams(rawStreams: RawStreamItem[]): ActivityStreams {
       case 'temp':
         streams.temp = stream.data;
         break;
+      case 'w_bal':
+        streams.wbal = stream.data;
+        break;
+      case 'ga_velocity':
+        streams.gap = stream.data.map((v) => (v > 0 ? 1000 / v / 60 : 0));
+        break;
     }
   }
 

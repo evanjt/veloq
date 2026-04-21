@@ -13,7 +13,6 @@ import type { LatLng } from '@/lib';
 import type { SectionOverlay } from '@/components/maps/ActivityMapView';
 import { sectionPaletteIndex } from '@/theme';
 import { buildGradientLineStops } from '@/lib/maps/gradientLineColor';
-import { computeGradientStream } from '@/lib/utils/chartConfig';
 import type { ActivityStreams } from '@/types';
 
 /** Data about a single section overlay used by the rendering layer */
@@ -391,12 +390,11 @@ export function useMapLayers({
   );
 
   // ----- gradient line expression (for "color by gradient" mode) -----
-  // Built from altitude + distance streams. Resampled to at most ~100 stops
-  // so the expression stays compact regardless of track length.
+  // Uses intervals.icu's `grade_smooth` stream. Resampled to at most ~100
+  // stops so the expression stays compact regardless of track length.
   const gradientLineExpression = useMemo(() => {
     if (!streams || validCoordinates.length < 2) return null;
-    const gradient = computeGradientStream(streams.altitude, streams.distance);
-    const stops = buildGradientLineStops(gradient);
+    const stops = buildGradientLineStops(streams.grade_smooth);
     if (!stops) return null;
     return ['interpolate', ['linear'], ['line-progress'], ...stops];
   }, [streams, validCoordinates.length]);

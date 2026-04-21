@@ -2,9 +2,7 @@ import { MUSCLE_DISPLAY_NAMES, type MuscleSlug } from '@/lib/strength/exerciseMu
 import { buildStrengthBalancePairs, buildStrengthProgression } from '@/lib/strength/analysis';
 import { formatSetCount } from '@/lib/strength/formatting';
 import type { Insight, StrengthBalancePair, StrengthProgressPoint, StrengthSummary } from '@/types';
-
-const MIN_PROGRESS_SIGNAL = 4;
-const MIN_PROGRESS_CHANGE_PCT = 15;
+import { INSIGHTS_CONFIG } from './config';
 
 function formatRatio(value: number | null): string {
   if (value == null) return 'No signal';
@@ -35,6 +33,11 @@ function buildStrengthBalanceInsight(pair: StrengthBalancePair, now: number): In
     navigationTarget: '/routes?tab=strength',
     timestamp: now,
     isNew: false,
+    meta: {
+      sourceTimestamp: now,
+      comparisonKind: 'self',
+      specificity: { hasNumber: true, hasPlace: false, hasDate: false },
+    },
     supportingData: {
       dataPoints: [
         { label: pair.leftLabel, value: formatSetCount(pair.leftWeightedSets), unit: 'sets' },
@@ -61,14 +64,14 @@ function buildStrengthProgressionInsight(
   points: StrengthProgressPoint[],
   now: number
 ): Insight | null {
-  if (monthlyWeightedSets < MIN_PROGRESS_SIGNAL) return null;
+  if (monthlyWeightedSets < INSIGHTS_CONFIG.repetition.strength_min_sets) return null;
 
   const progression = buildStrengthProgression(muscleSlug, points);
   const hasRecentVolume = progression.points.some((point) => point.weightedSets > 0);
   const isMeaningfulChange =
     progression.changePct == null
       ? progression.recentAverage > 0 && progression.baselineAverage === 0
-      : Math.abs(progression.changePct) >= MIN_PROGRESS_CHANGE_PCT;
+      : Math.abs(progression.changePct) >= INSIGHTS_CONFIG.thresholds.minProgressChangePct;
 
   if (!hasRecentVolume || !isMeaningfulChange || progression.trend === 'flat') {
     return null;
@@ -101,6 +104,15 @@ function buildStrengthProgressionInsight(
     navigationTarget: '/routes?tab=strength',
     timestamp: now,
     isNew: false,
+    meta: {
+      sourceTimestamp: now,
+      comparisonKind: 'self',
+      specificity: {
+        hasNumber: true,
+        hasPlace: false,
+        hasDate: true,
+      },
+    },
     supportingData: {
       dataPoints: [
         { label: 'Recent avg', value: progression.recentAverage, unit: 'sets' },

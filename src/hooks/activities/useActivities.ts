@@ -174,6 +174,8 @@ export function useActivityStreams(id: string) {
         'velocity_smooth',
         'grade_smooth',
         'temp',
+        'w_bal',
+        'ga_velocity',
       ]),
     // Streams NEVER change - infinite staleTime prevents refetching
     staleTime: Infinity,

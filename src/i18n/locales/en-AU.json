@@ -947,7 +947,8 @@
     },
     "activityRecorded": {
       "title": "Activity Recorded",
-      "body": "New activity synced. Open the app for details."
+      "body": "New activity synced. Open the app for details.",
+      "placeholder": "New activity received"
     },
     "privacy": {
       "title": "Privacy Notice",

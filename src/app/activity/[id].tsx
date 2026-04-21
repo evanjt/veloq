@@ -36,8 +36,8 @@ import type {
 } from '@/components/maps/ActivityMapView';
 import type { CreationState } from '@/components/maps/SectionCreationOverlay';
 import { convertLatLngTuples, decodePolyline } from '@/lib';
-import { useExerciseSets, useWbalStream, useGapStream } from '@/hooks/activities';
-import { useAthlete, useSportSettings } from '@/hooks';
+import { useExerciseSets } from '@/hooks/activities';
+import { useAthlete } from '@/hooks';
 import { ExerciseTable } from '@/components/activity/ExerciseTable';
 import { MuscleGroupView } from '@/components/activity/MuscleGroupView';
 import { ComponentErrorBoundary } from '@/components/ui';
@@ -145,28 +145,7 @@ export default function ActivityDetailScreen() {
   const isStrength = activity?.type === 'WeightTraining';
   const { data: exerciseSets } = useExerciseSets(id || '', activity?.type ?? '');
   const { data: athlete } = useAthlete();
-  const { data: sportSettings } = useSportSettings();
   const hasExercises = (exerciseSets?.length ?? 0) > 0;
-
-  // W' balance stream (joules remaining). Computed in Rust from power +
-  // FTP + athlete W'. Returns undefined when FTP or power is unavailable.
-  const wbalStream = useWbalStream(activity, streams, athlete, sportSettings);
-
-  // Gradient-Adjusted Pace stream (min/km). Computed in Rust from pace +
-  // derived gradient via Minetti's cost-of-transport model. Returns undefined
-  // when pace, altitude, or distance is unavailable.
-  const gapStream = useGapStream(activity, streams);
-
-  // Merge derived streams (wbal, gap) into the streams object passed to
-  // charts. Skips allocation when neither is available.
-  const chartStreams = useMemo(() => {
-    if (!streams) return streams;
-    if (!wbalStream && !gapStream) return streams;
-    const merged: typeof streams = { ...streams };
-    if (wbalStream) merged.wbal = wbalStream;
-    if (gapStream) merged.gap = gapStream;
-    return merged;
-  }, [streams, wbalStream, gapStream]);
 
   // Get auto-detected sections from engine that include this activity
   const { sections: engineSectionMatches, count: engineSectionCount } = useSectionMatches(id);
@@ -523,7 +502,7 @@ export default function ActivityDetailScreen() {
         <ActivityChartsSection
           activity={activity}
           activityId={id}
-          streams={chartStreams}
+          streams={streams}
           intervalsData={intervalsData}
           activityWellness={activityWellness}
           coordinates={coordinates}

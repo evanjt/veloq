@@ -947,7 +947,8 @@
     },
     "activityRecorded": {
       "title": "活动已记录",
-      "body": "新活动已同步。打开应用查看详情。"
+      "body": "新活动已同步。打开应用查看详情。",
+      "placeholder": "已收到新活动"
     },
     "privacy": {
       "title": "隐私声明",

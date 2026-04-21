@@ -94,6 +94,13 @@ export function useActivityBoundsCache(): UseActivityBoundsCacheReturn {
   // Counter to force engine re-subscription after clear+reinit
   const [engineGeneration, setEngineGeneration] = useState(0);
 
+  // True once we've successfully subscribed to the engine. Distinct from
+  // "has activities" — an engine with zero activities is still ready, just
+  // empty. Using activityCount as the readiness gate strands new/cleared
+  // installs on a perpetual "Loading activities..." screen because the
+  // count never climbs above zero until a sync completes.
+  const [isSubscribed, setIsSubscribed] = useState(() => getRouteEngine() !== null);
+
   // Track mount state to prevent setState after unmount
   const isMountedRef = useRef(true);
   useEffect(() => {
@@ -134,6 +141,7 @@ export function useActivityBoundsCache(): UseActivityBoundsCacheReturn {
       if (!engine) return false;
 
       updateFromEngine();
+      if (isMountedRef.current) setIsSubscribed(true);
 
       unsubscribe = engine.subscribe('activities', () => {
         if (!isMountedRef.current) return;
@@ -221,7 +229,7 @@ export function useActivityBoundsCache(): UseActivityBoundsCacheReturn {
 
   return {
     progress,
-    isReady: activityCount > 0,
+    isReady: isSubscribed,
     syncDateRange,
     clearCache,
     cacheStats,

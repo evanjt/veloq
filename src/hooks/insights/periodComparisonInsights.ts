@@ -1,8 +1,7 @@
 import type { InsightMethodology, InsightSupportingData } from '@/types';
 import type { Insight, PeriodStats, TFunc } from './types';
 import { makeInsight } from './insightBuilder';
-
-const VOLUME_CHANGE_THRESHOLD = 0.15;
+import { INSIGHTS_CONFIG } from './config';
 
 /** Format seconds to compact duration string (e.g., "1h30" or "45m"). */
 export function formatDurationCompact(seconds: number): string {
@@ -89,8 +88,14 @@ export function generatePeriodComparisonInsights(
     ],
   };
 
+  const periodMeta = {
+    sourceTimestamp: now,
+    comparisonKind: 'self' as const,
+    specificity: { hasNumber: true, hasPlace: false, hasDate: true },
+  };
+
   const insights: Insight[] = [];
-  if (ratio > VOLUME_CHANGE_THRESHOLD) {
+  if (ratio > INSIGHTS_CONFIG.thresholds.volumeChangePct) {
     insights.push(
       makeInsight({
         id: 'period_comparison-volume',
@@ -104,9 +109,10 @@ export function generatePeriodComparisonInsights(
         timestamp: now,
         methodology: comparisonMethodology,
         supportingData: comparisonSupportingData,
+        meta: periodMeta,
       })
     );
-  } else if (ratio < -VOLUME_CHANGE_THRESHOLD) {
+  } else if (ratio < -INSIGHTS_CONFIG.thresholds.volumeChangePct) {
     insights.push(
       makeInsight({
         id: 'period_comparison-volume',
@@ -120,6 +126,7 @@ export function generatePeriodComparisonInsights(
         timestamp: now,
         methodology: comparisonMethodology,
         supportingData: comparisonSupportingData,
+        meta: periodMeta,
       })
     );
   }
@@ -143,7 +150,7 @@ function generateLastWeekVsAverageInsight(
 
   const ratio = prevValue / avgValue - 1;
   const percent = Math.round(Math.abs(ratio) * 100);
-  if (percent < Math.round(VOLUME_CHANGE_THRESHOLD * 100)) return [];
+  if (percent < Math.round(INSIGHTS_CONFIG.thresholds.volumeChangePct * 100)) return [];
 
   const direction = ratio > 0 ? t('insights.weeklyLoad.above') : t('insights.weeklyLoad.below');
 
@@ -157,6 +164,11 @@ function generateLastWeekVsAverageInsight(
       title: t('insights.weeklyLoad.title', { percent, direction }),
       navigationTarget: '/routes?tab=routes',
       timestamp: now,
+      meta: {
+        sourceTimestamp: now,
+        comparisonKind: 'self',
+        specificity: { hasNumber: true, hasPlace: false, hasDate: true },
+      },
       supportingData: {
         comparisonData: {
           current: {

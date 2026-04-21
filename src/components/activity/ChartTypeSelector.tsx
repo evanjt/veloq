@@ -17,7 +17,6 @@ type ChartTypeKey =
   | 'chartTypes.gap'
   | 'chartTypes.elev'
   | 'chartTypes.grade'
-  | 'chartTypes.gradient'
   | 'chartTypes.wbal'
   | 'chartTypes.temp';
 
@@ -31,7 +30,6 @@ const CHART_LABEL_KEYS: Partial<Record<ChartTypeId, ChartTypeKey>> = {
   gap: 'chartTypes.gap',
   elevation: 'chartTypes.elev',
   grade: 'chartTypes.grade',
-  gradient: 'chartTypes.gradient',
   wbal: 'chartTypes.wbal',
   temp: 'chartTypes.temp',
 };

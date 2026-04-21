@@ -947,7 +947,8 @@
     },
     "activityRecorded": {
       "title": "Aktywność zarejestrowana",
-      "body": "Nowa aktywność zsynchronizowana. Otwórz aplikację, aby zobaczyć szczegóły."
+      "body": "Nowa aktywność zsynchronizowana. Otwórz aplikację, aby zobaczyć szczegóły.",
+      "placeholder": "Otrzymano nową aktywność"
     },
     "privacy": {
       "title": "Informacja o prywatności",

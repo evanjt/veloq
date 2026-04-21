@@ -947,7 +947,8 @@
     },
     "activityRecorded": {
       "title": "Activiteit opgenomen",
-      "body": "Nieuwe activiteit gesynchroniseerd. Open de app voor details."
+      "body": "Nieuwe activiteit gesynchroniseerd. Open de app voor details.",
+      "placeholder": "Nieuwe activiteit ontvangen"
     },
     "privacy": {
       "title": "Privacymelding",

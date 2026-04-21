@@ -328,6 +328,12 @@ impl TileGenerationHandle {
         self.receiver.try_recv().ok()
     }
 
+    /// Block until generation completes, returning the tiles-generated count.
+    /// Test and bench path; production uses `try_recv()` via the HeatmapManager poll loop.
+    pub fn recv_blocking(&self) -> Option<u32> {
+        self.receiver.recv().ok()
+    }
+
     /// Get current progress: (generated, total)
     pub fn get_progress(&self) -> (u32, u32) {
         (

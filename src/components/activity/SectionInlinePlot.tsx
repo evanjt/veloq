@@ -5,9 +5,9 @@ import Swipeable from 'react-native-gesture-handler/Swipeable';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Animated } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { colors, darkColors, spacing, typography, layout } from '@/theme';
+import { brand, colors, darkColors, spacing, typography, layout } from '@/theme';
 import { CHART_CONFIG } from '@/constants';
-import { formatDistance, formatDuration } from '@/lib';
+import { formatDistance, formatPace } from '@/lib';
 import { SectionSparkline } from '@/components/section/SectionSparkline';
 import type { SectionEncounter } from 'veloqrs';
 import type { PerformanceDataPoint } from '@/types';
@@ -106,15 +106,7 @@ export const SectionInlinePlot = memo(
             ]}
           >
             <View style={styles.header}>
-              <View
-                style={[
-                  styles.numberBadge,
-                  { borderColor: style.color },
-                  isDark && { backgroundColor: darkColors.surfaceCard },
-                ]}
-              >
-                <Text style={styles.numberBadgeText}>{index + 1}</Text>
-              </View>
+              <Text style={styles.numberLabel}>{index + 1}</Text>
               <View style={styles.headerInfo}>
                 <Text style={[styles.name, isDark && styles.textLight]} numberOfLines={1}>
                   {displayName}
@@ -128,14 +120,14 @@ export const SectionInlinePlot = memo(
                     <>
                       <Text style={[styles.meta, isDark && styles.textMuted]}> · </Text>
                       <Text style={[styles.timeValue, isDark && styles.textLight]}>
-                        {formatDuration(encounter.lapTime)}
+                        {formatPace(encounter.distanceMeters / encounter.lapTime, isMetric)}
                       </Text>
                       {encounter.isPr && (
                         <MaterialCommunityIcons
                           testID={`section-inline-trophy-${index}`}
                           name="trophy"
                           size={11}
-                          color={colors.chartGold}
+                          color={brand.gold}
                           style={{ marginLeft: 2 }}
                         />
                       )}
@@ -197,20 +189,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: spacing.sm,
   },
-  numberBadge: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    borderWidth: 1.5,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: colors.surface,
+  numberLabel: {
+    width: 26,
+    textAlign: 'center',
+    fontSize: 18,
+    fontWeight: '800',
+    color: brand.gold,
+    textShadowColor: '#FFFFFF',
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 2,
     marginRight: spacing.sm,
-  },
-  numberBadgeText: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: colors.textPrimary,
   },
   headerInfo: {
     flex: 1,

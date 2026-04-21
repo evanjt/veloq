@@ -947,7 +947,8 @@
     },
     "activityRecorded": {
       "title": "Aktivität ufgnoh",
-      "body": "Nöii Aktivität synchronisiert. Mach d App uf für Details."
+      "body": "Nöii Aktivität synchronisiert. Mach d App uf für Details.",
+      "placeholder": "Nöii Aktivität empfange"
     },
     "privacy": {
       "title": "Dateschutz-Hinwiis",

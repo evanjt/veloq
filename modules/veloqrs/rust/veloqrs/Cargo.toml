@@ -74,6 +74,8 @@ panic = "abort"
 [dev-dependencies]
 tempfile = "3.10"
 env_logger = "0.11"
+criterion = { version = "0.5", features = ["html_reports"] }
+sha2 = "0.10"
 
 [[test]]
 name = "persistence_stress"
@@ -97,6 +99,23 @@ required-features = ["synthetic"]
 
 [[test]]
 name = "consensus_persistence"
+required-features = ["synthetic"]
+
+[[test]]
+name = "heatmap_parity"
+required-features = ["synthetic"]
+
+[[test]]
+name = "heatmap_idempotent"
+required-features = ["synthetic"]
+
+[[test]]
+name = "heatmap_tile_set"
+required-features = ["synthetic"]
+
+[[bench]]
+name = "heatmap_tiles"
+harness = false
 required-features = ["synthetic"]
 
 [[bin]]

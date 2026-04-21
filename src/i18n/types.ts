@@ -862,7 +862,7 @@ export interface TranslationResource {
     sectionCluster: { title: string };
     efficiencyTrend: { title: string };
     generic: { title: string };
-    activityRecorded: { title: string; body: string };
+    activityRecorded: { title: string; body: string; placeholder: string };
     privacy: {
       title: string;
       brief: string;

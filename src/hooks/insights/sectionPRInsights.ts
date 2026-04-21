@@ -2,8 +2,9 @@ import { formatDuration } from '@/lib';
 import { brand } from '@/theme/colors';
 import type { Insight, SectionPR, TFunc } from './types';
 import { makeInsight } from './insightBuilder';
+import { maxPerCategoryFor } from './config';
 
-const MAX_PR_INSIGHTS = 3;
+const DAY_MS = 86_400_000;
 
 export function generateSectionPRInsights(
   recentPRs: SectionPR[],
@@ -13,7 +14,8 @@ export function generateSectionPRInsights(
   if (!recentPRs || recentPRs.length === 0) return [];
 
   const insights: Insight[] = [];
-  const prs = recentPRs.slice(0, MAX_PR_INSIGHTS);
+  // Emit up to the surface cap for this category — pipeline will dedupe/re-rank.
+  const prs = recentPRs.slice(0, maxPerCategoryFor('section_pr'));
 
   for (const pr of prs) {
     if (!pr.sectionId || !pr.sectionName || !Number.isFinite(pr.bestTime)) continue;
@@ -55,6 +57,11 @@ export function generateSectionPRInsights(
         methodology: {
           name: t('insights.methodology.prDetectionName'),
           description: t('insights.methodology.prDetection'),
+        },
+        meta: {
+          sourceTimestamp: now - pr.daysAgo * DAY_MS,
+          comparisonKind: 'self',
+          specificity: { hasNumber: true, hasPlace: true, hasDate: true },
         },
       })
     );

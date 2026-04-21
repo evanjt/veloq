@@ -1,8 +1,22 @@
 import { formatPaceCompact, formatSwimPace } from '@/lib';
 import type { Insight, FtpTrend, PaceTrend, TFunc } from './types';
 import { makeInsight } from './insightBuilder';
+import { INSIGHTS_CONFIG } from './config';
 
-const MIN_FTP_CHANGE_WATTS = 5;
+const YEAR_2000_MS = 946_684_800_000;
+
+function dateToMs(d: bigint | number | undefined): number | undefined {
+  if (d == null) return undefined;
+  const n = typeof d === 'bigint' ? Number(d) : d;
+  if (!Number.isFinite(n) || n <= 0) return undefined;
+  // Heuristic: values under 1e12 look like seconds, otherwise ms.
+  const ms = n < 1e12 ? n * 1000 : n;
+  // Reject implausibly old dates (test placeholders, corrupt data) — real
+  // activity dates are post-2000. Without this, a BigInt(1000) in a test
+  // becomes 1970-01-01 and fails the recency gate.
+  if (ms < YEAR_2000_MS) return undefined;
+  return ms;
+}
 
 function toSecondsPerDistanceMeters(speedMetersPerSecond: number, distanceMeters: number): number {
   if (!Number.isFinite(speedMetersPerSecond) || speedMetersPerSecond <= 0) return 0;
@@ -54,6 +68,11 @@ function addPaceMilestoneInsight(
       }),
       navigationTarget: '/fitness',
       timestamp: now,
+      meta: {
+        sourceTimestamp: dateToMs(pace.latestDate) ?? now,
+        comparisonKind: 'self',
+        specificity: { hasNumber: true, hasPlace: false, hasDate: true },
+      },
       supportingData: {
         dataPoints: [
           {
@@ -102,7 +121,7 @@ export function generateFitnessMilestoneInsights(
     ftp.latestFtp > ftp.previousFtp
   ) {
     const delta = Math.round(ftp.latestFtp - ftp.previousFtp);
-    if (delta >= MIN_FTP_CHANGE_WATTS) {
+    if (delta >= INSIGHTS_CONFIG.thresholds.minFtpChangeWatts) {
       insights.push(
         makeInsight({
           id: 'fitness_milestone-ftp',
@@ -116,6 +135,11 @@ export function generateFitnessMilestoneInsights(
           }),
           navigationTarget: '/fitness',
           timestamp: now,
+          meta: {
+            sourceTimestamp: dateToMs(ftp.latestDate) ?? now,
+            comparisonKind: 'self',
+            specificity: { hasNumber: true, hasPlace: false, hasDate: true },
+          },
           supportingData: {
             dataPoints: [
               {

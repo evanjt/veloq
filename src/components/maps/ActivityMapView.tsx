@@ -114,6 +114,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { decodePolyline, LatLng, getActivityColor } from '@/lib';
 import { computeAttribution } from '@/lib/maps/computeAttribution';
 import {
+  brand,
   colors,
   darkColors,
   spacing,
@@ -763,12 +764,13 @@ export const ActivityMapView = memo(function ActivityMapView({
               <LineLayer
                 id="routeLineGradient"
                 style={{
+                  lineColor: activityColor,
                   lineWidth: 4,
                   lineCap: 'round',
                   lineJoin: 'round',
-                  lineGradient: gradientActive
-                    ? (gradientLineExpression as unknown as string)
-                    : undefined,
+                  ...(gradientActive && gradientLineExpression
+                    ? { lineGradient: gradientLineExpression as unknown as string }
+                    : {}),
                   lineOpacity: gradientActive ? 1 : 0,
                 }}
               />
@@ -942,7 +944,11 @@ export const ActivityMapView = memo(function ActivityMapView({
             {/* Uses ShapeSource + CircleLayer + SymbolLayer instead of MarkerView: */}
             {/* MarkerView coordinate updates break native position binding in MapLibre RN */}
             {/* PR markers use the trophy icon (matches activity feed); numbered markers use text */}
-            <Images images={{ trophy: require('@/assets/icons/trophy.png') }} />
+            <Images
+              images={{
+                trophy: { source: require('@/assets/icons/trophy.png'), sdf: true },
+              }}
+            />
             <ShapeSource
               id="sectionMarkersSource"
               shape={sectionMarkersGeoJSON}
@@ -953,15 +959,11 @@ export const ActivityMapView = memo(function ActivityMapView({
             >
               <CircleLayer
                 id="section-marker-circle"
+                filter={['!=', ['get', 'isPR'], true] as unknown as never}
                 style={{
-                  circleRadius: ['case', ['get', 'isPR'], 9, 6] as unknown as number,
-                  circleColor: [
-                    'case',
-                    ['get', 'isPR'],
-                    colors.accent,
-                    colors.gray700,
-                  ] as unknown as string,
-                  circleStrokeWidth: ['case', ['get', 'isPR'], 2, 1.5] as unknown as number,
+                  circleRadius: 6,
+                  circleColor: colors.gray700,
+                  circleStrokeWidth: 1.5,
                   circleStrokeColor: '#FFFFFF',
                 }}
               />
@@ -970,7 +972,9 @@ export const ActivityMapView = memo(function ActivityMapView({
                 filter={['==', ['get', 'isPR'], true] as unknown as never}
                 style={{
                   iconImage: 'trophy',
-                  iconSize: 0.32,
+                  iconSize: 0.4,
+                  iconColor: brand.gold,
+                  iconOffset: [0, -30],
                   iconAllowOverlap: true,
                   iconIgnorePlacement: true,
                   iconAnchor: 'center',
@@ -1073,8 +1077,8 @@ export const ActivityMapView = memo(function ActivityMapView({
           />
         )}
 
-        {/* Gradient legend — shown when "color by gradient" is active */}
-        {gradientActive && !isFullscreen && (
+        {/* Gradient legend — shown when "color by gradient" is active (2D only; no effect in 3D) */}
+        {gradientActive && !isFullscreen && !is3DMode && (
           <View style={styles.gradientLegend}>
             <View style={styles.gradientBar}>
               {GRADIENT_COLOR_STOPS.map((stop) => (
@@ -1145,8 +1149,8 @@ export const ActivityMapView = memo(function ActivityMapView({
             />
           </TouchableOpacity>
 
-          {/* Gradient coloring toggle — only shown when gradient data is available */}
-          {hasGradientData && (
+          {/* Gradient coloring toggle — only shown when gradient data is available; hidden in 3D (no effect there) */}
+          {hasGradientData && !is3DMode && (
             <TouchableOpacity
               accessibilityLabel={t('maps.colorByGradient')}
               style={[
@@ -1466,7 +1470,7 @@ const styles = StyleSheet.create({
   },
   overlayLegend: {
     position: 'absolute',
-    bottom: spacing.sm + 36,
+    bottom: spacing.md + spacing.sm + 48,
     right: spacing.sm,
     maxWidth: Dimensions.get('window').width * 0.45,
     backgroundColor: 'rgba(0, 0, 0, 0.6)',
@@ -1511,7 +1515,7 @@ const styles = StyleSheet.create({
   },
   gradientLegend: {
     position: 'absolute',
-    bottom: spacing.sm + 36,
+    bottom: spacing.md + spacing.sm + 48,
     left: spacing.sm,
     width: 140,
     backgroundColor: 'rgba(0, 0, 0, 0.6)',

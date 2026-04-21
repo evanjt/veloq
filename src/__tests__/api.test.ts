@@ -113,6 +113,18 @@ describe('parseStreams', () => {
     expect(result.latlng).toHaveLength(0);
   });
 
+  it('maps w_bal to streams.wbal as joules', () => {
+    const result = parseStreams([{ type: 'w_bal', name: null, data: [20000, 19500, 19000] }]);
+    expect(result.wbal).toEqual([20000, 19500, 19000]);
+  });
+
+  it('converts ga_velocity m/s to streams.gap min/km', () => {
+    const result = parseStreams([{ type: 'ga_velocity', name: null, data: [5, 4, 0] }]);
+    expect(result.gap?.[0]).toBeCloseTo(1000 / 5 / 60, 5);
+    expect(result.gap?.[1]).toBeCloseTo(1000 / 4 / 60, 5);
+    expect(result.gap?.[2]).toBe(0);
+  });
+
   it('should handle real-world stream data structure', () => {
     // Simulates actual API response structure
     const rawStreams: RawStreamItem[] = [

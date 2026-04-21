@@ -174,19 +174,12 @@ export interface ActivityStreams {
   distance?: number[];
   grade_smooth?: number[];
   temp?: number[];
-  /**
-   * W' balance stream in joules remaining, computed upstream in Rust
-   * from `watts` + athlete FTP + athlete W' via `computeWbal`. Not fetched
-   * from the server; only populated for cycling activities with a power
-   * stream and a known FTP.
-   */
+  /** W' balance stream in joules remaining. Sourced from intervals.icu's
+   * `w_bal` stream. Only populated when the server has computed it (power +
+   * FTP + W'). */
   wbal?: number[];
-  /**
-   * Gradient-Adjusted Pace stream in min/km, computed upstream in Rust
-   * from raw pace + gradient via `computeGapStream` (Minetti model). Not
-   * fetched from the server; only populated when pace, altitude, and
-   * distance streams are all available so gradient is derivable.
-   */
+  /** Grade-Adjusted Pace in min/km. Converted from intervals.icu's
+   * `ga_velocity` stream (m/s) at parse time. */
   gap?: number[];
 }
 

@@ -947,7 +947,8 @@
     },
     "activityRecorded": {
       "title": "Aktivitet registreret",
-      "body": "Ny aktivitet synkroniseret. Åbn appen for detaljer."
+      "body": "Ny aktivitet synkroniseret. Åbn appen for detaljer.",
+      "placeholder": "Ny aktivitet modtaget"
     },
     "privacy": {
       "title": "Privatlivsmeddelelse",

@@ -19,13 +19,6 @@ exports[`Tier 0.6 contract: computeInsightsFromData produces a stable, ranked in
     "sectionRefIds": null,
   },
   {
-    "category": "fitness_milestone",
-    "hasNavigationTarget": true,
-    "id": "fitness_milestone-ftp",
-    "priority": 2,
-    "sectionRefIds": null,
-  },
-  {
     "category": "stale_pr",
     "hasNavigationTarget": true,
     "id": "stale_pr-sec-ride-flat-B",

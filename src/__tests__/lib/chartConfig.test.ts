@@ -88,38 +88,6 @@ describe('getAvailableCharts', () => {
     expect(ids).toContain('temp');
   });
 
-  it('includes gradient when altitude + distance are present', () => {
-    const streams: ActivityStreams = {
-      altitude: [100, 110, 120, 130, 140],
-      distance: [0, 100, 200, 300, 400],
-    };
-    const available = getAvailableCharts(streams);
-    const ids = available.map((c) => c.id);
-    expect(ids).toContain('gradient');
-  });
-
-  it('excludes gradient when altitude or distance missing', () => {
-    const streamsNoDistance: ActivityStreams = { altitude: [100, 110, 120] };
-    expect(getAvailableCharts(streamsNoDistance).map((c) => c.id)).not.toContain('gradient');
-
-    const streamsNoAltitude: ActivityStreams = { distance: [0, 100, 200] };
-    expect(getAvailableCharts(streamsNoAltitude).map((c) => c.id)).not.toContain('gradient');
-  });
-
-  it('gradient values stay within [-30, +30] clip range', () => {
-    const streams: ActivityStreams = {
-      // Synthetic 500% slope would be clipped
-      altitude: [0, 100, 200, 300, 400],
-      distance: [0, 20, 40, 60, 80], // 500% rise
-    };
-    const data = CHART_CONFIGS.gradient.getStream!(streams);
-    expect(data).toBeDefined();
-    data!.forEach((v) => {
-      expect(v).toBeGreaterThanOrEqual(-30);
-      expect(v).toBeLessThanOrEqual(30);
-    });
-  });
-
   it('includes wbal when the wbal stream is populated', () => {
     const streams: ActivityStreams = {
       watts: [100, 200, 300],
@@ -147,14 +115,10 @@ describe('getAvailableCharts', () => {
   });
 
   it('includes gap when the gap stream is populated', () => {
-    // GAP is precomputed upstream (pace + altitude + distance → Rust).
-    // When any of those inputs are missing `useGapStream` returns undefined
-    // and `streams.gap` stays unset — so the chip visibility check mirrors
-    // the wbal pattern: present iff `streams.gap` is populated.
+    // GAP is sourced from intervals.icu's `ga_velocity` stream, converted to
+    // min/km at parse time. The chip shows iff `streams.gap` is populated.
     const streams: ActivityStreams = {
       velocity_smooth: [3, 4, 5],
-      altitude: [100, 110, 120],
-      distance: [0, 100, 200],
       gap: [4.5, 4.3, 4.1],
     };
     const ids = getAvailableCharts(streams).map((c) => c.id);
@@ -162,13 +126,8 @@ describe('getAvailableCharts', () => {
   });
 
   it('excludes gap when the gap stream is not populated', () => {
-    // Raw pace + gradient inputs alone don't surface GAP — the upstream
-    // `useGapStream` hook is responsible for writing `streams.gap`. Without
-    // it the chip stays hidden.
     const streams: ActivityStreams = {
       velocity_smooth: [3, 4, 5],
-      altitude: [100, 110, 120],
-      distance: [0, 100, 200],
     };
     const ids = getAvailableCharts(streams).map((c) => c.id);
     expect(ids).toContain('pace');

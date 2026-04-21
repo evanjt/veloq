@@ -7,9 +7,12 @@
 use super::{PersistentRouteEngine, TileGenerationHandle};
 use crate::tiles;
 use log::info;
-use rusqlite::{Connection, params};
-use std::collections::HashSet;
+use rayon::prelude::*;
+use rusqlite::Connection;
+use std::collections::HashMap;
 use std::path::Path;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::mpsc;
 use tracematch::{Bounds, GpsPoint};
 
@@ -20,10 +23,6 @@ const TILE_FORMAT_VERSION: &str = "7";
 /// Marker file written to the tiles directory when new data arrives.
 /// Cleared after tile generation completes. Prevents redundant generation on app restart.
 const DIRTY_MARKER: &str = ".dirty";
-
-/// Expand activity bounds slightly so line antialiasing and low-zoom blur can bleed into
-/// neighboring tiles without getting clipped by strict metadata bounds.
-const TILE_ENUMERATION_MARGIN_DEGREES: f64 = 0.002;
 
 impl PersistentRouteEngine {
     /// Check whether heatmap tiles need (re)generation.
@@ -119,16 +118,18 @@ impl PersistentRouteEngine {
             return None;
         }
 
-        // Extract all activity bounds from in-memory metadata (fast HashMap iteration)
-        let all_bounds: Vec<Bounds> = self
+        // Extract all activity (id, bounds) pairs from in-memory metadata.
+        // The background thread uses IDs to bulk-load GPS tracks and bounds
+        // for an early tile/bounds intersection filter.
+        let activities: Vec<(String, Bounds)> = self
             .activity_metadata
-            .values()
-            .map(|m| m.bounds.clone())
+            .iter()
+            .map(|(id, m)| (id.clone(), m.bounds.clone()))
             .collect();
 
         let (tx, rx) = mpsc::channel();
-        let generated_counter = std::sync::Arc::new(std::sync::atomic::AtomicU32::new(0));
-        let total_counter = std::sync::Arc::new(std::sync::atomic::AtomicU32::new(0));
+        let generated_counter = Arc::new(AtomicU32::new(0));
+        let total_counter = Arc::new(AtomicU32::new(0));
         let gen_clone = generated_counter.clone();
         let total_clone = total_counter.clone();
 
@@ -136,7 +137,7 @@ impl PersistentRouteEngine {
             let generated = background_generate_tiles(
                 &db_path,
                 &tiles_path,
-                &all_bounds,
+                &activities,
                 &gen_clone,
                 &total_clone,
             );
@@ -199,52 +200,33 @@ fn clear_dirty_marker(tiles_path: &str) {
 
 /// Generate heatmap tiles on a background thread.
 /// Opens its own SQLite connection — does NOT touch PERSISTENT_ENGINE.
+///
+/// Pipeline (rewritten for Tier 1.1/1.3):
+/// 1. Bulk-load every activity's GPS track into an in-memory Arc-cache.
+/// 2. Iterate activities × zooms, using polyline-swept tile enumeration to
+///    build a `(z,x,y) → [Arc<track>]` map.
+/// 3. Filter out tiles that already exist on disk (incremental safeguard).
+/// 4. Parallel-generate each tile (rayon) + write PNG.
+///
+/// Strictly better than the old per-tile loop: GPS tracks are deserialized
+/// once instead of once-per-tile, empty bbox tiles are never enumerated, and
+/// the slow rasterization+PNG encode parallelises across cores.
 fn background_generate_tiles(
     db_path: &str,
     tiles_path: &str,
-    all_bounds: &[Bounds],
-    generated_counter: &std::sync::atomic::AtomicU32,
-    total_counter: &std::sync::atomic::AtomicU32,
+    activities: &[(String, Bounds)],
+    generated_counter: &AtomicU32,
+    total_counter: &AtomicU32,
 ) -> u32 {
     let start = std::time::Instant::now();
     let base = Path::new(tiles_path);
     let config = tiles::HeatmapConfig::default();
 
-    // Enumerate tile coordinates from each activity bounds rather than the full global bbox.
-    // This keeps higher zoom generation tractable for users with travel far apart.
-    let mut tile_coords_set: HashSet<(u8, u32, u32)> = HashSet::new();
-    for b in all_bounds {
-        let min_lat =
-            (b.min_lat - TILE_ENUMERATION_MARGIN_DEGREES).clamp(-85.051_128_78, 85.051_128_78);
-        let max_lat =
-            (b.max_lat + TILE_ENUMERATION_MARGIN_DEGREES).clamp(-85.051_128_78, 85.051_128_78);
-        let min_lng = (b.min_lng - TILE_ENUMERATION_MARGIN_DEGREES).clamp(-180.0, 180.0);
-        let max_lng = (b.max_lng + TILE_ENUMERATION_MARGIN_DEGREES).clamp(-180.0, 180.0);
-
-        for z in config.min_zoom..=config.max_zoom {
-            for (x, y) in tiles::tiles_for_bounds(min_lat, max_lat, min_lng, max_lng, z) {
-                tile_coords_set.insert((z, x, y));
-            }
-        }
-    }
-    let mut tile_coords: Vec<(u8, u32, u32)> = tile_coords_set.into_iter().collect();
-    tile_coords.sort_unstable();
-
-    if tile_coords.is_empty() {
+    if activities.is_empty() {
         return 0;
     }
 
-    total_counter.store(tile_coords.len() as u32, std::sync::atomic::Ordering::SeqCst);
-
-    info!(
-        "[heatmap] Background: generating {} tiles for {} activities z{}-{}",
-        tile_coords.len(),
-        all_bounds.len(),
-        config.min_zoom,
-        config.max_zoom,
-    );
-
-    // Open own SQLite connection (same pattern as section detection)
+    // Open own SQLite connection (same pattern as section detection).
     let conn = match Connection::open(db_path) {
         Ok(c) => c,
         Err(e) => {
@@ -253,93 +235,158 @@ fn background_generate_tiles(
         }
     };
 
-    let mut generated = 0u32;
-    let mut skipped = 0u32;
-    let mut processed = 0u32;
-    for (z, x, y) in &tile_coords {
-        // Skip tiles that already exist — only generate new ones.
-        // Tiles are invalidated (deleted) when activities change via
-        // invalidate_tiles_for_bounds(), so existing tiles are up-to-date.
-        if tiles::tile_exists(base, *z, *x, *y) {
-            skipped += 1;
-            processed += 1;
-            generated_counter.store(processed, std::sync::atomic::Ordering::SeqCst);
+    // --- Phase 1: bulk-load all GPS tracks into an Arc cache ----------------
+    let load_started = std::time::Instant::now();
+    let tracks_by_id = bulk_load_tracks(&conn, activities);
+    let load_ms = load_started.elapsed().as_millis();
+
+    // --- Phase 2: build (z,x,y) → [Arc<track>] via polyline sweep ------------
+    let plan_started = std::time::Instant::now();
+    let mut tile_tracks: HashMap<(u8, u32, u32), Vec<Arc<Vec<GpsPoint>>>> = HashMap::new();
+    for (id, _bounds) in activities {
+        let Some(track) = tracks_by_id.get(id) else {
             continue;
-        }
-
-        let tb = tiles::tile_bounds(*z, *x, *y);
-
-        // Query activities overlapping this tile directly from SQL
-        let activity_ids: Vec<String> = match conn.prepare(
-            "SELECT id FROM activities \
-             WHERE min_lat <= ?1 AND max_lat >= ?2 \
-               AND min_lng <= ?3 AND max_lng >= ?4",
-        ) {
-            Ok(mut stmt) => stmt
-                .query_map(
-                    params![tb.max_lat, tb.min_lat, tb.max_lon, tb.min_lon],
-                    |row| row.get(0),
-                )
-                .map(|rows| rows.filter_map(|r| r.ok()).collect())
-                .unwrap_or_default(),
-            Err(_) => Vec::new(),
         };
-
-        if activity_ids.is_empty() {
+        if track.is_empty() {
             continue;
         }
-
-        // Load GPS tracks from database
-        let tracks: Vec<Vec<GpsPoint>> = activity_ids
-            .iter()
-            .filter_map(|id| load_gps_track(&conn, id))
-            .collect();
-
-        if tracks.is_empty() {
-            continue;
-        }
-
-        match tiles::generate_heatmap_tile(*z, *x, *y, &tracks) {
-            Some(png_data) => {
-                if tiles::save_tile(base, *z, *x, *y, &png_data).is_ok() {
-                    generated += 1;
-                }
+        for z in config.min_zoom..=config.max_zoom {
+            for coord in tiles::tiles_along_track(track, z) {
+                tile_tracks
+                    .entry((z, coord.0, coord.1))
+                    .or_default()
+                    .push(Arc::clone(track));
             }
-            None => {}
         }
-        processed += 1;
-        generated_counter.store(processed, std::sync::atomic::Ordering::SeqCst);
+    }
+    let plan_ms = plan_started.elapsed().as_millis();
+
+    // --- Phase 3: filter existing, sort for deterministic progress ----------
+    let mut pending: Vec<((u8, u32, u32), Vec<Arc<Vec<GpsPoint>>>)> = tile_tracks
+        .into_iter()
+        .filter(|(coord, _)| !tiles::tile_exists(base, coord.0, coord.1, coord.2))
+        .collect();
+    // Deterministic ordering keeps progress reporting stable across runs —
+    // otherwise HashMap iteration order shuffles `processed_counter` deltas.
+    pending.sort_unstable_by_key(|((z, x, y), _)| (*z, *x, *y));
+
+    let total = pending.len() as u32;
+    total_counter.store(total, Ordering::SeqCst);
+
+    if total == 0 {
+        info!(
+            "[heatmap] Background: nothing to generate (load={}ms plan={}ms)",
+            load_ms, plan_ms
+        );
+        return 0;
     }
 
     info!(
-        "[heatmap] Background: generated {} tiles, skipped {} existing, in {}ms",
+        "[heatmap] Background: generating {} tiles for {} activities z{}-{} (load={}ms plan={}ms)",
+        total,
+        activities.len(),
+        config.min_zoom,
+        config.max_zoom,
+        load_ms,
+        plan_ms,
+    );
+
+    // --- Phase 4: parallel rasterize + save ---------------------------------
+    // Each worker owns its own refs; Arc<Vec<GpsPoint>> is shared so we don't
+    // deep-clone tracks across threads. No SQLite connection inside workers.
+    let generated = AtomicU32::new(0);
+    let processed = AtomicU32::new(0);
+
+    pending.par_iter().for_each(|(coord, arcs)| {
+        // Build a slice-of-slices view without deep-cloning the track data;
+        // each `&[GpsPoint]` impls `AsRef<[GpsPoint]>`, matching the
+        // generic bound on `generate_heatmap_tile`.
+        let slices: Vec<&[GpsPoint]> = arcs.iter().map(|a| a.as_slice()).collect();
+        if let Some(png_data) =
+            tiles::generate_heatmap_tile(coord.0, coord.1, coord.2, &slices)
+        {
+            if tiles::save_tile(base, coord.0, coord.1, coord.2, &png_data).is_ok() {
+                generated.fetch_add(1, Ordering::Relaxed);
+            }
+        }
+        let done = processed.fetch_add(1, Ordering::Relaxed) + 1;
+        generated_counter.store(done, Ordering::SeqCst);
+    });
+
+    let generated = generated.load(Ordering::SeqCst);
+
+    info!(
+        "[heatmap] Background: generated {} tiles / {} scheduled, total wall time {}ms",
         generated,
-        skipped,
+        total,
         start.elapsed().as_millis()
     );
     generated
 }
 
-/// Load a GPS track from the database (used by background thread).
-fn load_gps_track(conn: &Connection, activity_id: &str) -> Option<Vec<GpsPoint>> {
-    conn.query_row(
-        "SELECT track_data FROM gps_tracks WHERE activity_id = ?",
-        params![activity_id],
-        |row| {
-            let blob: Vec<u8> = row.get(0)?;
-            match rmp_serde::from_slice(&blob) {
-                Ok(track) => Ok(track),
+/// Bulk-load every activity's GPS track in chunked `IN (...)` queries.
+/// Returns a map from activity_id → Arc<Vec<GpsPoint>>. Missing rows and
+/// failed deserialization log warnings and are omitted (same behaviour as
+/// the old per-tile `load_gps_track`).
+fn bulk_load_tracks(
+    conn: &Connection,
+    activities: &[(String, Bounds)],
+) -> HashMap<String, Arc<Vec<GpsPoint>>> {
+    // SQLite's default parameter limit is 999; chunk well under that so the
+    // query never fails for large corpora.
+    const CHUNK: usize = 500;
+    let mut out: HashMap<String, Arc<Vec<GpsPoint>>> = HashMap::with_capacity(activities.len());
+
+    for chunk in activities.chunks(CHUNK) {
+        let placeholders: String = std::iter::repeat("?")
+            .take(chunk.len())
+            .collect::<Vec<_>>()
+            .join(",");
+        let sql = format!(
+            "SELECT activity_id, track_data FROM gps_tracks WHERE activity_id IN ({})",
+            placeholders
+        );
+
+        let mut stmt = match conn.prepare(&sql) {
+            Ok(s) => s,
+            Err(e) => {
+                log::error!("[heatmap] bulk-load prepare failed: {}", e);
+                continue;
+            }
+        };
+
+        let ids: Vec<&str> = chunk.iter().map(|(id, _)| id.as_str()).collect();
+        let rows = stmt.query_map(rusqlite::params_from_iter(ids.iter()), |row| {
+            let id: String = row.get(0)?;
+            let blob: Vec<u8> = row.get(1)?;
+            Ok((id, blob))
+        });
+
+        let rows = match rows {
+            Ok(r) => r,
+            Err(e) => {
+                log::error!("[heatmap] bulk-load query failed: {}", e);
+                continue;
+            }
+        };
+
+        for row in rows {
+            let Ok((id, blob)) = row else { continue };
+            match rmp_serde::from_slice::<Vec<GpsPoint>>(&blob) {
+                Ok(track) => {
+                    out.insert(id, Arc::new(track));
+                }
                 Err(e) => {
                     log::warn!(
                         "[heatmap] Failed to deserialize GPS track for activity {}: {}",
-                        activity_id,
+                        id,
                         e
                     );
-                    // Return empty track so one bad record doesn't halt tile generation
-                    Ok(Vec::new())
+                    out.insert(id, Arc::new(Vec::new()));
                 }
             }
-        },
-    )
-    .ok()
+        }
+    }
+
+    out
 }

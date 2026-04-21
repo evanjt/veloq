@@ -19,7 +19,6 @@ export type ChartTypeId =
   | 'gap'
   | 'elevation'
   | 'grade'
-  | 'gradient'
   | 'wbal'
   | 'distance'
   | 'temp'
@@ -52,39 +51,6 @@ export interface ChartConfig {
   formatValue?: (value: number, metric: boolean) => string;
   /** How to compute the default chip value. Default: 'avg' */
   defaultMetric?: 'avg' | 'gain';
-}
-
-/**
- * Compute a gradient (percent slope) stream from altitude + distance.
- *
- * Uses a symmetric sliding window so that each point reads dy/dx across
- * ~`window` samples in each direction. Values are clamped to [-30, +30]
- * to hide GPS noise spikes. Returns `undefined` when either stream is
- * missing or too short to compute.
- */
-export function computeGradientStream(
-  altitude: number[] | undefined,
-  distance: number[] | undefined,
-  window = 10
-): number[] | undefined {
-  if (!altitude || !distance) return undefined;
-  const n = Math.min(altitude.length, distance.length);
-  if (n < 2) return undefined;
-
-  const result = new Array<number>(n);
-  for (let i = 0; i < n; i++) {
-    const lo = Math.max(0, i - window);
-    const hi = Math.min(n - 1, i + window);
-    const dx = distance[hi] - distance[lo];
-    const dy = altitude[hi] - altitude[lo];
-    if (!isFinite(dx) || dx <= 0 || !isFinite(dy)) {
-      result[i] = 0;
-      continue;
-    }
-    const pct = (100 * dy) / dx;
-    result[i] = Math.max(-30, Math.min(30, pct));
-  }
-  return result;
 }
 
 /** Chart configuration registry - labels kept short for compact chip display */
@@ -174,27 +140,13 @@ export const CHART_CONFIGS: Record<ChartTypeId, ChartConfig> = {
     getStream: (streams) => streams.grade_smooth,
     formatValue: (v) => v.toFixed(1),
   },
-  gradient: {
-    id: 'gradient',
-    label: 'Gradient',
-    icon: 'slope-uphill',
-    color: '#8B5CF6', // Purple — distinct from olive grade
-    unit: '%',
-    // Computed from altitude + distance using a sliding window (default 10 samples).
-    // Falls back gracefully if altitude or distance streams are missing.
-    getStream: (streams) => computeGradientStream(streams.altitude, streams.distance),
-    formatValue: (v) => v.toFixed(1),
-  },
   wbal: {
     id: 'wbal',
     label: "W'bal",
     icon: 'flash-outline',
-    color: '#F97316', // Orange-brick — distinct from amber power
+    color: '#F97316',
     unit: 'kJ',
-    // W'bal is precomputed in Rust upstream (FFI call on power + FTP + W')
-    // and merged into the streams as `wbal` (joules per sample). Chart
-    // displays kJ by dividing by 1000. Only appears when the upstream
-    // computation has populated `streams.wbal`.
+    // Sourced from intervals.icu's `w_bal` stream (joules). Displayed in kJ.
     getStream: (streams) => streams.wbal?.map((j) => j / 1000),
     formatValue: (v) => Math.round(v).toString(),
   },
@@ -202,13 +154,11 @@ export const CHART_CONFIGS: Record<ChartTypeId, ChartConfig> = {
     id: 'gap',
     label: 'GAP',
     icon: 'trending-up',
-    color: '#06B6D4', // Cyan — distinct from indigo pace
+    color: '#06B6D4',
     unit: '/km',
     unitImperial: '/mi',
-    // GAP is precomputed in Rust upstream (FFI call on pace + derived
-    // gradient via Minetti's cost-of-transport model) and merged into
-    // streams as `gap` (min/km per sample). Only appears when pace,
-    // altitude, and distance are all available so gradient is derivable.
+    // Sourced from intervals.icu's `ga_velocity` stream (m/s), converted to
+    // min/km at parse time.
     getStream: (streams) => streams.gap,
     convertToImperial: (v) => v * 1.60934,
     formatValue: (v) => {
@@ -264,7 +214,6 @@ const PRIMARY_CHART_IDS: ChartTypeId[] = [
   'gap',
   'elevation',
   'grade',
-  'gradient',
   'wbal',
   'temp',
 ];
