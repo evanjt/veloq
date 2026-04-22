@@ -22,6 +22,7 @@ import { useCustomSections } from '@/hooks/routes/useCustomSections';
 import { useRouteMatch } from '@/hooks/routes/useRouteMatch';
 import { useSectionMatches } from '@/hooks/routes/useSectionMatches';
 import { useSectionEncounters } from '@/hooks/routes/useSectionEncounters';
+import { useActivitySectionHighlights } from '@/hooks/activities/useActivitySectionHighlights';
 import {
   ActivityHeader,
   ActivityChartsSection,
@@ -117,6 +118,11 @@ export default function ActivityDetailScreen() {
   // Get matched route for this activity
   const { routeGroup: matchedRoute, representativeActivityId } = useRouteMatch(id);
   const matchedRouteCount = matchedRoute ? 1 : 0;
+
+  // Route PR delta for the Routes tab badge (negative = ahead of PR)
+  const activityIdsForHighlights = useMemo(() => (id ? [id] : []), [id]);
+  const { routes: routeHighlightsMap } = useActivitySectionHighlights(activityIdsForHighlights);
+  const routeHighlight = id ? routeHighlightsMap.get(id) : undefined;
 
   // Fetch representative activity streams for route overlay (only when on Routes tab)
   const { data: representativeStreams } = useActivityStreams(
@@ -241,11 +247,23 @@ export default function ActivityDetailScreen() {
       });
     }
     if (hasGpsData && isRouteMatchingOn) {
+      const routeBadge: { badgeText?: string; badgeTone?: SwipeableTab['badgeTone'] } = {};
+      if (routeHighlight) {
+        if (routeHighlight.isPr) {
+          routeBadge.badgeText = 'PR';
+          routeBadge.badgeTone = 'pr';
+        } else if (routeHighlight.timeDeltaSeconds != null) {
+          const d = routeHighlight.timeDeltaSeconds;
+          routeBadge.badgeText = d === 0 ? '0s' : `${d > 0 ? '+' : '−'}${Math.abs(d)}s`;
+          routeBadge.badgeTone = d === 0 ? 'neutral' : d < 0 ? 'positive' : 'negative';
+        }
+      }
       allTabs.push(
         {
           key: 'routes',
           label: t('activityDetail.tabs.route'),
           icon: 'map-marker-path',
+          ...routeBadge,
         },
         {
           key: 'sections',
@@ -256,7 +274,15 @@ export default function ActivityDetailScreen() {
       );
     }
     return allTabs;
-  }, [t, isStrength, hasGpsData, isRouteMatchingOn, matchedRouteCount, encounters.length]);
+  }, [
+    t,
+    isStrength,
+    hasGpsData,
+    isRouteMatchingOn,
+    matchedRouteCount,
+    encounters.length,
+    routeHighlight,
+  ]);
 
   // Handle chart point selection
   const handlePointSelect = useCallback((index: number | null) => {

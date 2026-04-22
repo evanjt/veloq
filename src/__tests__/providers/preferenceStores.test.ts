@@ -80,6 +80,7 @@ const DEFAULT_ROUTE_SETTINGS = {
 };
 
 const DEFAULT_SUMMARY_CARD: SummaryCardPreferences = {
+  enabled: true,
   heroMetric: 'fitness',
   showSparkline: true,
   supportingMetrics: ['fitness', 'ftp', 'weekHours', 'weight'],

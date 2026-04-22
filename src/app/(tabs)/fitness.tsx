@@ -138,7 +138,6 @@ export default function FitnessScreen() {
     displayDate,
     formZone,
     rampRate,
-    formPercent,
   } = useFitnessComputations({
     wellness,
     sportMode,
@@ -221,7 +220,6 @@ export default function FitnessScreen() {
             formZone={formZone}
             isDark={isDark}
             rampRate={rampRate}
-            formPercent={formPercent}
           />
 
           {/* Time range selector */}

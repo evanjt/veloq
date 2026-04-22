@@ -79,9 +79,14 @@ export function DataSection() {
             size={22}
             color={isDark ? darkColors.textSecondary : colors.textSecondary}
           />
-          <Text style={[settingsStyles.actionRowText, isDark && settingsStyles.textLight]}>
-            {t('settings.cacheAndDatabase', 'Cache & Database')}
-          </Text>
+          <View style={styles.cacheTextContainer}>
+            <Text style={[settingsStyles.actionRowText, isDark && settingsStyles.textLight]}>
+              {t('settings.cacheAndDatabase', 'Cache & Database')}
+            </Text>
+            <Text style={[styles.cacheHint, isDark && settingsStyles.textMuted]}>
+              {t('settings.dataCacheHint')}
+            </Text>
+          </View>
           <Text style={[styles.summaryValue, isDark && settingsStyles.textMuted]}>
             {formatFileSize(totalCacheSize)}
           </Text>
@@ -168,6 +173,14 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   toggleHint: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
+  cacheTextContainer: {
+    flex: 1,
+  },
+  cacheHint: {
     ...typography.caption,
     color: colors.textSecondary,
     marginTop: 2,

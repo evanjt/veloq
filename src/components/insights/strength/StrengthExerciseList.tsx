@@ -24,6 +24,9 @@ interface StrengthExerciseListProps {
   expandedExercise: number | null;
   exerciseActivities: ExerciseActivity[] | null;
   onExpandExercise: (exerciseCategory: number | null) => void;
+  /** When true, render without the outer card wrapper (used when embedded
+   *  inside StrengthProgressionCard). */
+  embedded?: boolean;
 }
 
 export const StrengthExerciseList = React.memo(function StrengthExerciseList({
@@ -32,14 +35,18 @@ export const StrengthExerciseList = React.memo(function StrengthExerciseList({
   expandedExercise,
   exerciseActivities,
   onExpandExercise,
+  embedded = false,
 }: StrengthExerciseListProps) {
   const { isDark } = useTheme();
   const { t } = useTranslation();
   const isMetric = useMetricSystem();
   const router = useRouter();
 
+  const Wrapper = embedded ? View : View;
+  const wrapperStyle = embedded ? null : [styles.exerciseCard, isDark && styles.exerciseCardDark];
+
   return (
-    <View style={[styles.exerciseCard, isDark && styles.exerciseCardDark]}>
+    <Wrapper style={wrapperStyle as never}>
       <Text style={[styles.exerciseCardTitle, isDark && styles.exerciseCardTitleDark]}>
         {t('strength.exercisesTargeting', {
           muscle: MUSCLE_DISPLAY_NAMES[selectedVolume.slug as MuscleSlug] ?? selectedVolume.slug,
@@ -132,7 +139,7 @@ export const StrengthExerciseList = React.memo(function StrengthExerciseList({
           </View>
         );
       })}
-    </View>
+    </Wrapper>
   );
 });
 

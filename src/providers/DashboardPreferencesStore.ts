@@ -52,12 +52,14 @@ export interface MetricPreference {
 
 // Summary card preferences
 export interface SummaryCardPreferences {
+  enabled: boolean;
   heroMetric: MetricId;
   showSparkline: boolean;
   supportingMetrics: MetricId[];
 }
 
 const DEFAULT_SUMMARY_CARD: SummaryCardPreferences = {
+  enabled: true,
   heroMetric: 'fitness',
   showSparkline: true,
   supportingMetrics: ['fitness', 'ftp', 'weekHours', 'weight'],
@@ -218,7 +220,7 @@ export async function initializeDashboardPreferences(
     }
 
     let summaryCard: SummaryCardPreferences = storedSummaryCard
-      ? JSON.parse(storedSummaryCard)
+      ? { ...DEFAULT_SUMMARY_CARD, ...JSON.parse(storedSummaryCard) }
       : DEFAULT_SUMMARY_CARD;
 
     // Migration: form is no longer a hero metric option — combined into sparkline

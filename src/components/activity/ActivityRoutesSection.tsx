@@ -64,6 +64,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   tabScrollContent: {
+    paddingTop: spacing.md,
     paddingBottom: spacing.xl + TAB_BAR_SAFE_PADDING,
   },
   noMatchContainer: {

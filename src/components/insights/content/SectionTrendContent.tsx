@@ -36,10 +36,7 @@ function capitalize(value: string): string {
   return value.length > 0 ? value[0].toUpperCase() + value.slice(1) : value;
 }
 
-function getClusterContext(
-  insight: Insight,
-  sections: SupportingSection[]
-): {
+function getClusterContext(sections: SupportingSection[]): {
   heading: string;
   body: string;
   meta: string;
@@ -54,19 +51,13 @@ function getClusterContext(
     )
   );
   const sportLabel = uniqueSports.length === 1 ? getSportDisplayName(uniqueSports[0]) : null;
-  const direction = insight.id.includes('declining') ? 'declining' : 'improving';
 
   return {
     heading: sportLabel ? `${capitalize(sportLabel)} section group` : 'Section group',
-    body:
-      direction === 'declining'
-        ? sportLabel
-          ? `These ${sportLabel} sections are grouped because their recent efforts are moving in the same direction. Seeing the pattern on multiple sections makes it easier to separate broader drift from one awkward pass.`
-          : 'These sections are grouped because their recent efforts are moving in the same direction. Seeing the pattern on multiple sections makes it easier to separate broader drift from one awkward pass.'
-        : sportLabel
-          ? `These ${sportLabel} sections are grouped because their recent efforts are moving in the same direction. Seeing the pattern on multiple sections makes it easier to trust than a one-off result.`
-          : 'These sections are grouped because their recent efforts are moving in the same direction. Seeing the pattern on multiple sections makes it easier to trust than a one-off result.',
-    meta: 'Expand a row to inspect the underlying efforts.',
+    body: sportLabel
+      ? `These ${sportLabel} sections show recent efforts moving in the same direction.`
+      : 'These sections show recent efforts moving in the same direction.',
+    meta: 'Expand a row for the underlying efforts.',
   };
 }
 
@@ -181,7 +172,7 @@ export const SectionTrendContent = React.memo(function SectionTrendContent({
 }: SectionTrendContentProps) {
   const { isDark } = useTheme();
   const sections = insight.supportingData?.sections ?? [];
-  const context = useMemo(() => getClusterContext(insight, sections), [insight, sections]);
+  const context = useMemo(() => getClusterContext(sections), [sections]);
 
   // All sections start collapsed
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());

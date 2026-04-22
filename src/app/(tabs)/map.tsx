@@ -409,7 +409,7 @@ export default function MapScreen() {
               {displayActivities.length} {t('mapScreen.activities', 'activities')}
               {dateRangeLabel ? ` · ${dateRangeLabel}` : ''}
             </Text>
-            <TouchableOpacity onPress={() => router.push('/cache-settings' as never)}>
+            <TouchableOpacity onPress={() => router.push('/settings?scrollTo=syncRange' as never)}>
               <Text style={styles.infoLink}>{t('mapScreen.expandRange', 'Expand range')}</Text>
             </TouchableOpacity>
           </View>

@@ -153,9 +153,12 @@ export function RegionalMapView({
   // useEngineSections loads full section data from Rust engine including polylines.
   // minVisits: 1 surfaces every detected section; the global map should show
   // all sections regardless of repeat-count.
+  // Always load so the toggle button is visible from first paint — gating on
+  // showSections deadlocks the button (button needs sections.length > 0 to
+  // appear, but sections won't load until the user toggles it on).
   const { sections } = useEngineSections({
     minVisits: 1,
-    enabled: showSections,
+    enabled: true,
   });
 
   // Camera, bounds, and pre-computed activity centers

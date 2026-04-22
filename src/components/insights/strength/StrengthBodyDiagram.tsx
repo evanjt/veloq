@@ -6,11 +6,10 @@ import type { ExtendedBodyPart } from 'react-native-body-highlighter';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTranslation } from 'react-i18next';
 import { BodyPairWithLoupe } from '@/components/activity/BodyPairWithLoupe';
-import { useTheme, useMetricSystem } from '@/hooks';
+import { useTheme } from '@/hooks';
 import { MUSCLE_DISPLAY_NAMES, type MuscleSlug } from '@/lib/strength/exerciseMuscleMap';
-import { formatSetCount, formatWeightRounded as formatWeight } from '@/lib/strength/formatting';
-import { colors, darkColors, spacing, opacity, layout, brand } from '@/theme';
-import type { MuscleVolume, StrengthProgression, ExerciseSummary } from '@/types';
+import { colors, darkColors, spacing, layout, brand } from '@/theme';
+import type { MuscleVolume } from '@/types';
 
 // 5-step color ramp from light to saturated for continuous heat map
 const BODY_COLORS: readonly string[] = [
@@ -28,16 +27,10 @@ interface StrengthBodyDiagramProps {
   gender: 'male' | 'female';
   maxWeightedSets: number;
   selectedVolume: MuscleVolume | null;
-  progression: StrengthProgression | null;
-  hasRecentProgression: boolean;
-  maxProgressWeightedSets: number;
-  exerciseSummary: { exercises: ExerciseSummary[] } | null;
-  showMuscleDetails: boolean;
   tappableSlugs: Set<string>;
   onMuscleTap: (slug: string) => void;
   onMuscleScrub: (slug: string) => void;
   onClearSelection: () => void;
-  onToggleDetails: () => void;
 }
 
 export const StrengthBodyDiagram = React.memo(function StrengthBodyDiagram({
@@ -45,20 +38,13 @@ export const StrengthBodyDiagram = React.memo(function StrengthBodyDiagram({
   gender,
   maxWeightedSets,
   selectedVolume,
-  progression,
-  hasRecentProgression,
-  maxProgressWeightedSets,
-  exerciseSummary,
-  showMuscleDetails,
   tappableSlugs,
   onMuscleTap,
   onMuscleScrub,
   onClearSelection,
-  onToggleDetails,
 }: StrengthBodyDiagramProps) {
   const { isDark } = useTheme();
   const { t } = useTranslation();
-  const isMetric = useMetricSystem();
 
   return (
     <View testID="strength-body-diagram" style={[styles.bodyCard, isDark && styles.bodyCardDark]}>
@@ -134,129 +120,6 @@ export const StrengthBodyDiagram = React.memo(function StrengthBodyDiagram({
           </Text>
         </View>
       </View>
-
-      {/* Inline muscle summary */}
-      {selectedVolume && (
-        <View
-          testID="strength-inline-muscle-panel"
-          style={[styles.inlineMusclePanel, isDark && styles.inlineMusclePanelDark]}
-        >
-          <View style={styles.inlineMuscleHeader}>
-            <Text
-              style={[styles.inlineMuscleName, isDark && styles.inlineMuscleNameDark]}
-              numberOfLines={1}
-            >
-              {MUSCLE_DISPLAY_NAMES[selectedVolume.slug as MuscleSlug] ?? selectedVolume.slug}
-            </Text>
-            {progression && (
-              <View
-                style={[
-                  styles.inlineTrendBadge,
-                  progression.trend === 'up'
-                    ? styles.progressBadgeUp
-                    : progression.trend === 'down'
-                      ? styles.progressBadgeDown
-                      : styles.progressBadgeFlat,
-                ]}
-              >
-                <Text style={styles.inlineTrendText}>
-                  {progression.changePct == null
-                    ? t('strength.newSignal')
-                    : `${progression.changePct > 0 ? '+' : ''}${Math.round(
-                        progression.changePct
-                      )}%`}
-                </Text>
-              </View>
-            )}
-          </View>
-
-          <View style={styles.inlineStatsRow}>
-            <View style={styles.inlineStat}>
-              <Text style={[styles.inlineStatValue, isDark && styles.inlineStatValueDark]}>
-                {formatSetCount(selectedVolume.weightedSets)}
-              </Text>
-              <Text style={[styles.inlineStatLabel, isDark && styles.inlineStatLabelDark]}>
-                {t('strength.sets')}
-              </Text>
-            </View>
-            {selectedVolume.totalReps > 0 && (
-              <View style={styles.inlineStat}>
-                <Text style={[styles.inlineStatValue, isDark && styles.inlineStatValueDark]}>
-                  {selectedVolume.totalReps}
-                </Text>
-                <Text style={[styles.inlineStatLabel, isDark && styles.inlineStatLabelDark]}>
-                  {t('strength.reps')}
-                </Text>
-              </View>
-            )}
-            {selectedVolume.totalWeightKg > 0 && (
-              <View style={styles.inlineStat}>
-                <Text style={[styles.inlineStatValue, isDark && styles.inlineStatValueDark]}>
-                  {formatWeight(selectedVolume.totalWeightKg, isMetric)}
-                </Text>
-                <Text style={[styles.inlineStatLabel, isDark && styles.inlineStatLabelDark]}>
-                  {t('strength.totalVolume')}
-                </Text>
-              </View>
-            )}
-            {exerciseSummary && (
-              <View style={styles.inlineStat}>
-                <Text style={[styles.inlineStatValue, isDark && styles.inlineStatValueDark]}>
-                  {exerciseSummary.exercises.length}
-                </Text>
-                <Text style={[styles.inlineStatLabel, isDark && styles.inlineStatLabelDark]}>
-                  {exerciseSummary.exercises.length === 1
-                    ? t('strength.exercise')
-                    : t('strength.exercises')}
-                </Text>
-              </View>
-            )}
-          </View>
-
-          {/* Compact 4-week sparkline bars */}
-          {progression && hasRecentProgression && (
-            <View style={styles.inlineSparkRow}>
-              {progression.points.map((point, index) => (
-                <View key={point.label} style={styles.inlineSparkCol}>
-                  <View style={[styles.inlineSparkTrack, isDark && styles.inlineSparkTrackDark]}>
-                    <View
-                      style={[
-                        styles.inlineSparkFill,
-                        index === progression.points.length - 1
-                          ? styles.progressBarFillCurrent
-                          : styles.progressBarFillPast,
-                        {
-                          height: Math.max(4, (point.weightedSets / maxProgressWeightedSets) * 32),
-                        },
-                      ]}
-                    />
-                  </View>
-                  <Text style={[styles.inlineSparkLabel, isDark && styles.inlineSparkLabelDark]}>
-                    {point.label}
-                  </Text>
-                </View>
-              ))}
-            </View>
-          )}
-
-          {(exerciseSummary?.exercises.length ?? 0) > 0 && (
-            <TouchableOpacity
-              style={styles.inlineDetailsToggle}
-              onPress={onToggleDetails}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.inlineDetailsToggleText}>
-                {showMuscleDetails ? t('strength.hideDetails') : t('strength.showDetails')}
-              </Text>
-              <MaterialCommunityIcons
-                name={showMuscleDetails ? 'chevron-up' : 'chevron-down'}
-                size={14}
-                color={colors.primary}
-              />
-            </TouchableOpacity>
-          )}
-        </View>
-      )}
     </View>
   );
 });
@@ -356,127 +219,5 @@ const styles = StyleSheet.create({
   },
   scaleValueDark: {
     color: darkColors.textSecondary,
-  },
-  // Inline muscle summary panel (inside body card)
-  inlineMusclePanel: {
-    marginTop: spacing.sm,
-    paddingTop: spacing.sm,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.divider,
-  },
-  inlineMusclePanelDark: {
-    borderTopColor: darkColors.border,
-  },
-  inlineMuscleHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.sm,
-    marginBottom: spacing.xs,
-  },
-  inlineMuscleName: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: colors.textPrimary,
-    flex: 1,
-  },
-  inlineMuscleNameDark: {
-    color: darkColors.textPrimary,
-  },
-  inlineTrendBadge: {
-    borderRadius: 10,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-  },
-  inlineTrendText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
-  progressBadgeUp: {
-    backgroundColor: '#22C55E18',
-  },
-  progressBadgeDown: {
-    backgroundColor: '#F59E0B18',
-  },
-  progressBadgeFlat: {
-    backgroundColor: '#64748B18',
-  },
-  inlineStatsRow: {
-    flexDirection: 'row',
-    paddingHorizontal: spacing.sm,
-    gap: spacing.md,
-  },
-  inlineStat: {
-    alignItems: 'center',
-  },
-  inlineStatValue: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
-  inlineStatValueDark: {
-    color: darkColors.textPrimary,
-  },
-  inlineStatLabel: {
-    fontSize: 10,
-    color: colors.textSecondary,
-    marginTop: 1,
-  },
-  inlineStatLabelDark: {
-    color: darkColors.textSecondary,
-  },
-  inlineSparkRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'flex-end',
-    gap: 6,
-    marginTop: spacing.sm,
-    paddingHorizontal: spacing.sm,
-  },
-  inlineSparkCol: {
-    alignItems: 'center',
-    gap: 2,
-  },
-  inlineSparkTrack: {
-    width: 18,
-    height: 36,
-    borderRadius: 4,
-    backgroundColor: opacity.overlay.light,
-    justifyContent: 'flex-end',
-    overflow: 'hidden',
-  },
-  inlineSparkTrackDark: {
-    backgroundColor: opacity.overlayDark.medium,
-  },
-  inlineSparkFill: {
-    width: '100%',
-    borderRadius: 4,
-  },
-  progressBarFillCurrent: {
-    backgroundColor: brand.orange,
-  },
-  progressBarFillPast: {
-    backgroundColor: '#FB8C4E',
-  },
-  inlineSparkLabel: {
-    fontSize: 9,
-    color: colors.textSecondary,
-  },
-  inlineSparkLabelDark: {
-    color: darkColors.textSecondary,
-  },
-  inlineDetailsToggle: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
-    marginTop: spacing.sm,
-    paddingVertical: spacing.xs,
-  },
-  inlineDetailsToggleText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.primary,
   },
 });

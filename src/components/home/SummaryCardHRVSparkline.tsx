@@ -10,7 +10,6 @@ import type { ScrubValues } from './SummaryCardSparkline';
 
 /** Match total height of fitness sparkline (44 chart + 4 form bar) */
 const CHART_HEIGHT = 48;
-const LONG_PRESS_MS = 200;
 const HRV_DOMAIN = { y: [-6, 106] as [number, number] } as const;
 
 interface SummaryCardHRVSparklineProps {
@@ -19,6 +18,7 @@ interface SummaryCardHRVSparklineProps {
   width: number;
   showLabels?: boolean;
   onScrub?: (values: ScrubValues | null) => void;
+  onTap?: () => void;
 }
 
 /**
@@ -34,6 +34,7 @@ export const SummaryCardHRVSparkline = memo(function SummaryCardHRVSparkline({
   width,
   showLabels = false,
   onScrub,
+  onTap,
 }: SummaryCardHRVSparklineProps) {
   const { isDark } = useTheme();
 
@@ -43,6 +44,8 @@ export const SummaryCardHRVSparkline = memo(function SummaryCardHRVSparkline({
   rhrRef.current = rhrData;
   const onScrubRef = useRef(onScrub);
   onScrubRef.current = onScrub;
+  const onTapRef = useRef(onTap);
+  onTapRef.current = onTap;
 
   const hasRhr = rhrData && rhrData.length === hrvData.length;
 
@@ -114,31 +117,27 @@ export const SummaryCardHRVSparkline = memo(function SummaryCardHRVSparkline({
   };
 
   const scrubEnabled = !!onScrub;
-  const longPress = Gesture.LongPress()
-    .minDuration(LONG_PRESS_MS)
-    .enabled(scrubEnabled)
-    .onBegin(() => {
+  const fireTap = () => {
+    onTapRef.current?.();
+  };
+
+  const tap = Gesture.Tap()
+    .enabled(!!onTap)
+    .maxDuration(500)
+    .onEnd(() => {
       'worklet';
-      if (crosshairX.value >= 0) {
-        crosshairX.value = -1;
-        runOnJS(clearScrub)();
-      }
-    })
+      runOnJS(fireTap)();
+    });
+
+  const pan = Gesture.Pan()
+    .enabled(scrubEnabled)
+    .activeOffsetX([-4, 4])
+    .activeOffsetY([-4, 4])
     .onStart((e) => {
       'worklet';
       crosshairX.value = e.x;
       const idx = computeIndex(e.x);
       runOnJS(notifyScrub)(idx);
-    })
-    .shouldCancelWhenOutside(false);
-
-  const pan = Gesture.Pan()
-    .manualActivation(true)
-    .enabled(scrubEnabled)
-    .onTouchesMove((_, manager) => {
-      if (crosshairX.value >= 0) {
-        manager.activate();
-      }
     })
     .onUpdate((e) => {
       'worklet';
@@ -157,7 +156,7 @@ export const SummaryCardHRVSparkline = memo(function SummaryCardHRVSparkline({
       runOnJS(clearScrub)();
     });
 
-  const composed = Gesture.Simultaneous(longPress, pan);
+  const composed = Gesture.Exclusive(pan, tap);
 
   const crosshairStyle = useAnimatedStyle(() => {
     if (crosshairX.value < 0) {

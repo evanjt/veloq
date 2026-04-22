@@ -363,6 +363,8 @@ export interface TranslationResource {
     cached: string;
     notCached: string;
     expandCache: string;
+    localDataRange: string;
+    dataCacheHint: string;
     connectionMethod: string;
     connectedViaApiKey: string;
     demoMode: string;
@@ -373,6 +375,7 @@ export interface TranslationResource {
     availableMetrics: string;
     resetToDefaults: string;
     summaryCard: string;
+    showSummaryCard: string;
     heroMetric: string;
     showSparkline: string;
     supportingMetrics: string;
@@ -769,6 +772,10 @@ export interface TranslationResource {
     balancedPairsClose: string;
     balanceDominant: string;
     balanceFootnote: string;
+    pairsInfoTitle: string;
+    pairsInfoIntro: string;
+    pairsInfoThresholds: string;
+    pairsInfoMinSignal: string;
     exercisesTargeting: string;
     exerciseSets: string;
     exerciseWorkoutCount_one: string;
@@ -802,8 +809,6 @@ export interface TranslationResource {
     tsb: string;
     rampRate: string;
     perWeek: string;
-    formPercent: string;
-    ofFitness: string;
     fitnessAndFatigue: string;
     understandingMetrics: string;
     fitnessDescription: string;
@@ -1064,6 +1069,9 @@ export interface TranslationResource {
   sections: {
     activitiesCount: string;
     performanceOverTime: string;
+    legendPr: string;
+    legendReverse: string;
+    legendThisActivity: string;
     best: string;
     current: string;
     same: string;

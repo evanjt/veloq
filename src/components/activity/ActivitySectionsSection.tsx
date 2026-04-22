@@ -154,11 +154,30 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
   }, []);
   // Re-measure every registered row's window-Y right now. Called at scrub start
   // so the cached pageYs reflect the current outer-page scroll position.
-  const remeasureRows = useCallback(() => {
-    rowRefsRef.current.forEach((ref, sectionId) => {
-      ref?.measureInWindow?.((_x: number, y: number, _w: number, h: number) => {
-        rowLayoutsRef.current.set(sectionId, { y, height: h });
-      });
+  // Returns a Promise that resolves after every measureInWindow callback has
+  // fired — measureInWindow is async across the native bridge, so a bare
+  // setTimeout(0) at the call site isn't enough to wait for it. A stale cache
+  // here produces an off-by-one row error (the hit test lands on the row that
+  // is visually *below* the finger).
+  const remeasureRows = useCallback((): Promise<void> => {
+    const entries = Array.from(rowRefsRef.current.entries());
+    if (entries.length === 0) return Promise.resolve();
+    return new Promise((resolve) => {
+      let pending = entries.length;
+      const done = () => {
+        pending -= 1;
+        if (pending === 0) resolve();
+      };
+      for (const [sectionId, ref] of entries) {
+        if (!ref?.measureInWindow) {
+          done();
+          continue;
+        }
+        ref.measureInWindow((_x: number, y: number, _w: number, h: number) => {
+          rowLayoutsRef.current.set(sectionId, { y, height: h });
+          done();
+        });
+      }
     });
   }, []);
   const autoScrollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -272,20 +291,22 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
   // Start scrub from a page-Y position (invoked from Pan onStart after activateAfterLongPress).
   const startScrubAt = useCallback(
     (pageY: number) => {
-      // Re-measure every row's current window-Y before the first hit test so
-      // outer-page scroll (which doesn't re-fire row onLayout) doesn't leave
-      // stale positions in rowLayoutsRef.
-      remeasureRows();
-      // measureInWindow is async on native; give it a tick to resolve.
-      setTimeout(() => {
+      // Await the native-side measureInWindow round-trip before hit-testing.
+      // Without this await the first hit runs against the stale cache and
+      // lands on the row below the finger (and misses the last row entirely).
+      remeasureRows().then(() => {
         const id = findSectionAtPageY(pageY);
-        console.log('[scrub] onStart pageY=', pageY, 'sectionId=', id);
+        const rows: Array<[string, number, number]> = [];
+        rowLayoutsRef.current.forEach((l, sid) =>
+          rows.push([sid, Math.round(l.y), Math.round(l.y + l.height)])
+        );
+        console.log('[scrub] onStart pageY=', Math.round(pageY), 'sectionId=', id, 'rows=', rows);
         if (!id) return;
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
         onHighlightedSectionIdChange(id);
         setIsScrubbing(true);
         isScrubbingSV.value = true;
-      }, 0);
+      });
     },
     [findSectionAtPageY, onHighlightedSectionIdChange, isScrubbingSV, remeasureRows]
   );

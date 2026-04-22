@@ -66,6 +66,7 @@ interface ActivityCardProps {
     routeName: string;
     isPr: boolean;
     trend: number; // -1=slower, 0=neutral, 1=faster
+    timeDeltaSeconds?: number | null;
   };
 }
 
@@ -458,31 +459,53 @@ export const ActivityCard = React.memo(
                     {formatRelativeDate(activity.start_date_local)}
                   </RNText>
                 </View>
-                {routeHighlight && (routeHighlight.trend !== 0 || routeHighlight.isPr) && (
-                  <Pressable
-                    testID={`activity-card-${activity.id}-route-chip`}
-                    onPress={() => router.push(`/activity/${activity.id}?tab=routes`)}
-                    hitSlop={8}
-                    style={[
-                      styles.routeTrendBadge,
-                      routeHighlight.isPr
-                        ? styles.routeTrendBadgePr
-                        : routeHighlight.trend === 1
-                          ? styles.routeTrendBadgeUp
-                          : styles.routeTrendBadgeDown,
-                    ]}
-                  >
-                    {routeHighlight.isPr ? (
-                      <MaterialCommunityIcons name="trophy" size={14} color="#18181B" />
-                    ) : (
-                      <MaterialCommunityIcons
-                        name={routeHighlight.trend === 1 ? 'trending-up' : 'trending-down'}
-                        size={16}
-                        color="#FFFFFF"
-                      />
-                    )}
-                  </Pressable>
-                )}
+                {routeHighlight &&
+                  (routeHighlight.trend !== 0 ||
+                    routeHighlight.isPr ||
+                    routeHighlight.timeDeltaSeconds != null) && (
+                    <Pressable
+                      testID={`activity-card-${activity.id}-route-chip`}
+                      onPress={() => router.push(`/activity/${activity.id}?tab=routes`)}
+                      hitSlop={8}
+                      style={[
+                        styles.routeTrendBadge,
+                        routeHighlight.isPr
+                          ? styles.routeTrendBadgePr
+                          : routeHighlight.trend === 1
+                            ? styles.routeTrendBadgeUp
+                            : routeHighlight.trend === -1
+                              ? styles.routeTrendBadgeDown
+                              : styles.routeTrendBadgeNeutral,
+                      ]}
+                    >
+                      {routeHighlight.isPr ? (
+                        <MaterialCommunityIcons name="trophy" size={14} color="#18181B" />
+                      ) : (
+                        <>
+                          <MaterialCommunityIcons
+                            name={
+                              routeHighlight.trend === 1
+                                ? 'trending-up'
+                                : routeHighlight.trend === -1
+                                  ? 'trending-down'
+                                  : 'trending-neutral'
+                            }
+                            size={16}
+                            color="#FFFFFF"
+                          />
+                          {routeHighlight.timeDeltaSeconds != null && (
+                            <RNText style={styles.routeTrendBadgeText}>
+                              {routeHighlight.timeDeltaSeconds === 0
+                                ? '0s'
+                                : `${routeHighlight.timeDeltaSeconds > 0 ? '+' : '−'}${Math.abs(
+                                    routeHighlight.timeDeltaSeconds
+                                  )}s`}
+                            </RNText>
+                          )}
+                        </>
+                      )}
+                    </Pressable>
+                  )}
               </View>
             </LinearGradient>
 
@@ -590,14 +613,9 @@ export const ActivityCard = React.memo(
                                   <MaterialCommunityIcons
                                     name="trending-down"
                                     size={13}
-                                    color={isDark ? '#A1A1AA' : '#3F3F46'}
+                                    color="#FFFFFF"
                                   />
-                                  <RNText
-                                    style={[
-                                      styles.trendCount,
-                                      { color: isDark ? '#A1A1AA' : '#3F3F46' },
-                                    ]}
-                                  >
+                                  <RNText style={[styles.trendCount, { color: '#FFFFFF' }]}>
                                     {declining}
                                   </RNText>
                                 </View>
@@ -738,7 +756,19 @@ const styles = StyleSheet.create({
     backgroundColor: '#22C55E',
   },
   routeTrendBadgeDown: {
-    backgroundColor: '#52525B',
+    backgroundColor: '#A1A1AA',
+    borderWidth: 1,
+    borderColor: '#71717A',
+  },
+  routeTrendBadgeNeutral: {
+    backgroundColor: '#A1A1AA',
+    borderWidth: 1,
+    borderColor: '#71717A',
+  },
+  routeTrendBadgeText: {
+    color: '#FFFFFF',
+    fontSize: 11,
+    fontWeight: '700',
   },
   overlayName: {
     fontSize: typography.cardTitle.fontSize,

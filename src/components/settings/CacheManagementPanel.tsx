@@ -2,16 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { TimelineSlider } from '@/components/maps';
 import { colors, darkColors, spacing } from '@/theme';
-
-interface SyncProgress {
-  status: string;
-  completed: number;
-  total: number;
-  percent: number;
-  message: string;
-}
 
 interface RescanProgress {
   phase: string;
@@ -22,16 +13,6 @@ interface RescanProgress {
 export interface CacheManagementPanelProps {
   isDark: boolean;
   isDemoMode: boolean;
-  /** Timeline slider */
-  minDate: Date;
-  maxDate: Date;
-  startDate: Date;
-  endDate: Date;
-  onRangeChange: (start: Date, end: Date) => void;
-  isSyncing: boolean;
-  isFetchingExtended: boolean;
-  syncProgress: SyncProgress;
-  activityCount: number;
   /** Route processing */
   routeMatchingEnabled: boolean;
   isRouteProcessing: boolean;
@@ -47,15 +28,6 @@ export interface CacheManagementPanelProps {
 export function CacheManagementPanel({
   isDark,
   isDemoMode,
-  minDate,
-  maxDate,
-  startDate,
-  endDate,
-  onRangeChange,
-  isSyncing,
-  isFetchingExtended,
-  syncProgress,
-  activityCount,
   routeMatchingEnabled,
   isRouteProcessing,
   onCancelRouteProcessing,
@@ -69,48 +41,6 @@ export function CacheManagementPanel({
 
   return (
     <>
-      {/* Timeline Slider for date range selection - simplified for settings */}
-      {/* fixedEnd: right handle locked at "now", expandOnly: left handle can only move left */}
-      {/* Sync progress is shown via global CacheLoadingBanner at top of screen */}
-      <TimelineSlider
-        minDate={minDate}
-        maxDate={maxDate}
-        startDate={startDate}
-        endDate={endDate}
-        onRangeChange={onRangeChange}
-        isLoading={isSyncing}
-        activityCount={activityCount}
-        cachedOldest={null}
-        cachedNewest={null}
-        isDark={isDark}
-        showActivityFilter={false}
-        showCachedRange={false}
-        showLegend={false}
-        showSyncBanner={false}
-        fixedEnd={true}
-        expandOnly={true}
-      />
-
-      {/* Sync progress — shown during GPS download and route analysis */}
-      {(isSyncing || isFetchingExtended) && (
-        <View style={[styles.progressRow, isDark && styles.progressRowDark]}>
-          <View style={styles.progressBarTrack}>
-            <View
-              style={[styles.progressBarFill, { width: `${Math.max(syncProgress.percent, 2)}%` }]}
-            />
-          </View>
-          <Text style={[styles.progressText, isDark && styles.progressTextDark]}>
-            {syncProgress.message ||
-              (isFetchingExtended
-                ? t('cache.fetchingActivities', 'Fetching activities...')
-                : t('common.loading'))}
-            {syncProgress.total > 0 && ` (${syncProgress.completed}/${syncProgress.total})`}
-          </Text>
-        </View>
-      )}
-
-      <View style={[styles.divider, isDark && styles.dividerDark]} />
-
       {routeMatchingEnabled && isRouteProcessing && (
         <>
           <TouchableOpacity style={styles.actionRow} onPress={onCancelRouteProcessing}>
@@ -228,33 +158,6 @@ const styles = StyleSheet.create({
   },
   actionTextDanger: {
     color: colors.error,
-  },
-  progressRow: {
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    backgroundColor: 'rgba(252, 76, 2, 0.06)',
-  },
-  progressRowDark: {
-    backgroundColor: 'rgba(252, 76, 2, 0.1)',
-  },
-  progressBarTrack: {
-    height: 4,
-    backgroundColor: colors.border,
-    borderRadius: 2,
-    overflow: 'hidden',
-    marginBottom: 4,
-  },
-  progressBarFill: {
-    height: '100%',
-    backgroundColor: colors.primary,
-    borderRadius: 2,
-  },
-  progressText: {
-    fontSize: 12,
-    color: colors.textSecondary,
-  },
-  progressTextDark: {
-    color: darkColors.textSecondary,
   },
   divider: {
     height: 1,

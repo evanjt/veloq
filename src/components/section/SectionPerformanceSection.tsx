@@ -9,7 +9,7 @@ import { useTranslation } from 'react-i18next';
 import { SectionScatterChart } from './SectionScatterChart';
 import type { DirectionSummaryStats } from '@/components/routes/performance';
 import { SECTION_TIME_RANGES, type SectionTimeRange } from '@/constants';
-import { colors, darkColors, spacing, typography } from '@/theme';
+import { brand, colors, darkColors, spacing, typography } from '@/theme';
 import type { ActivityType, RoutePoint, PerformanceDataPoint } from '@/types';
 
 interface DirectionBestRecord {
@@ -120,6 +120,32 @@ export function SectionPerformanceSection({
         onToggleShowExcluded={onToggleShowExcluded}
         highlightedActivityId={highlightedActivityId}
       />
+      <View style={styles.legend}>
+        <View style={styles.legendItem}>
+          <View style={[styles.legendSwatch, { borderColor: brand.gold, borderWidth: 2 }]} />
+          <Text style={[styles.legendText, isDark && styles.legendTextDark]}>
+            {t('sections.legendPr')}
+          </Text>
+        </View>
+        {bestReverseRecord ? (
+          <View style={styles.legendItem}>
+            <View style={[styles.legendSwatch, { backgroundColor: colors.reverseDirection }]} />
+            <Text style={[styles.legendText, isDark && styles.legendTextDark]}>
+              {t('sections.legendReverse')}
+            </Text>
+          </View>
+        ) : null}
+        {highlightedActivityId ? (
+          <View style={styles.legendItem}>
+            <View
+              style={[styles.legendSwatch, { borderColor: colors.chartGreen, borderWidth: 2 }]}
+            />
+            <Text style={[styles.legendText, isDark && styles.legendTextDark]}>
+              {t('sections.legendThisActivity')}
+            </Text>
+          </View>
+        ) : null}
+      </View>
     </View>
   );
 }
@@ -162,5 +188,30 @@ const styles = StyleSheet.create({
   },
   pillTextActive: {
     color: colors.primary,
+  },
+  legend: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: spacing.md,
+    marginTop: spacing.xs,
+    paddingHorizontal: spacing.md,
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  legendSwatch: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  legendText: {
+    fontSize: 11,
+    color: colors.textSecondary,
+  },
+  legendTextDark: {
+    color: darkColors.textSecondary,
   },
 });

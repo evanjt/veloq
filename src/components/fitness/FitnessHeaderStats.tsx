@@ -18,10 +18,8 @@ interface FitnessHeaderStatsProps {
   displayValues: FitnessDisplayValues | null;
   formZone: FormZone | null;
   isDark: boolean;
-  /** CTL change over trailing 7 days; +ve = building, -ve = detraining. */
+  /** Ramp rate from intervals.icu wellness payload. */
   rampRate?: number | null;
-  /** Form as % of fitness (TSB/CTL×100). Null when fitness is 0. */
-  formPercent?: number | null;
 }
 
 /**
@@ -40,7 +38,6 @@ export const FitnessHeaderStats = React.memo(function FitnessHeaderStats({
   formZone,
   isDark,
   rampRate,
-  formPercent,
 }: FitnessHeaderStatsProps) {
   const { t } = useTranslation();
   const { colors: themeColors } = useTheme();
@@ -102,44 +99,24 @@ export const FitnessHeaderStats = React.memo(function FitnessHeaderStats({
         </View>
       </View>
 
-      {(rampRate != null || formPercent != null) && (
+      {rampRate != null && (
         <View style={[styles.secondaryRow, isDark && styles.secondaryRowDark]}>
-          {rampRate != null && (
-            <View style={styles.secondaryItem}>
-              <Text style={[styles.secondaryLabel, isDark && styles.statSubtextDark]}>
-                {t('fitnessScreen.rampRate')}
-              </Text>
-              <Text
-                style={[
-                  styles.secondaryValue,
-                  { color: rampRate >= 0 ? colors.fitnessBlue : colors.fatiguePurple },
-                ]}
-              >
-                {`${rampRate > 0 ? '+' : ''}${rampRate.toFixed(1)}`}
-              </Text>
-              <Text style={[styles.secondaryHint, isDark && styles.statSubtextDark]}>
-                {t('fitnessScreen.perWeek')}
-              </Text>
-            </View>
-          )}
-          {formPercent != null && (
-            <View style={styles.secondaryItem}>
-              <Text style={[styles.secondaryLabel, isDark && styles.statSubtextDark]}>
-                {t('fitnessScreen.formPercent')}
-              </Text>
-              <Text
-                style={[
-                  styles.secondaryValue,
-                  { color: formZone ? FORM_ZONE_COLORS[formZone] : themeColors.text },
-                ]}
-              >
-                {`${formPercent > 0 ? '+' : ''}${formPercent.toFixed(0)}%`}
-              </Text>
-              <Text style={[styles.secondaryHint, isDark && styles.statSubtextDark]}>
-                {t('fitnessScreen.ofFitness')}
-              </Text>
-            </View>
-          )}
+          <View style={styles.secondaryItem}>
+            <Text style={[styles.secondaryLabel, isDark && styles.statSubtextDark]}>
+              {t('fitnessScreen.rampRate')}
+            </Text>
+            <Text
+              style={[
+                styles.secondaryValue,
+                { color: rampRate >= 0 ? colors.fitnessBlue : colors.fatiguePurple },
+              ]}
+            >
+              {`${rampRate > 0 ? '+' : ''}${rampRate.toFixed(1)}`}
+            </Text>
+            <Text style={[styles.secondaryHint, isDark && styles.statSubtextDark]}>
+              {t('fitnessScreen.perWeek')}
+            </Text>
+          </View>
         </View>
       )}
     </View>

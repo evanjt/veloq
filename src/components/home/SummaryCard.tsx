@@ -268,6 +268,7 @@ export const SummaryCard = React.memo(function SummaryCard({
             width={sparklineWidth}
             showLabels={showSparklineLabels}
             onScrub={showSparklineLabels ? undefined : handleScrub}
+            onTap={showSparklineLabels ? undefined : onHeroPress}
           />
         </View>
       )}
@@ -279,6 +280,7 @@ export const SummaryCard = React.memo(function SummaryCard({
             width={sparklineWidth}
             showLabels={showSparklineLabels}
             onScrub={showSparklineLabels ? undefined : handleScrub}
+            onTap={showSparklineLabels ? undefined : onHeroPress}
           />
         </View>
       )}

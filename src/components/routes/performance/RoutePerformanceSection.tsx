@@ -1,8 +1,7 @@
 /**
- * Route performance row for activity detail view.
- * Compact thin-row layout matching the sections tab — small icon badge,
- * route name, meta line, optional sparkline, chevron. Tap opens the
- * route detail page where the full scatter chart lives.
+ * Route progression for the activity-detail Route tab.
+ * Shows a tappable header (route name + best time) and a full-width scatter
+ * chart of the route's history with this activity highlighted.
  */
 
 import React, { useMemo, useCallback } from 'react';
@@ -14,9 +13,9 @@ import { navigateTo } from '@/lib';
 import { useTranslation } from 'react-i18next';
 import { useRoutePerformances } from '@/hooks';
 import { getActivityColor, formatDuration } from '@/lib';
-import { colors, darkColors, spacing, layout, typography } from '@/theme';
+import { brand, colors, darkColors, spacing, layout, typography } from '@/theme';
 import type { ActivityType, PerformanceDataPoint } from '@/types';
-import { SectionSparkline } from '@/components/section/SectionSparkline';
+import { SectionScatterChart } from '@/components/section';
 
 interface RoutePerformanceSectionProps {
   activityId: string;
@@ -30,18 +29,24 @@ export function RoutePerformanceSection({
   const { t } = useTranslation();
   const { isDark } = useTheme();
 
-  const { routeGroup, performances, isLoading, best, currentRank } =
-    useRoutePerformances(activityId);
+  const {
+    routeGroup,
+    performances,
+    isLoading,
+    best,
+    bestForwardRecord,
+    bestReverseRecord,
+    forwardStats,
+    reverseStats,
+    currentRank,
+  } = useRoutePerformances(activityId);
 
   const activityColor = getActivityColor(activityType);
 
-  // Sparkline data — same shape SectionSparkline expects
-  const sparklineData = useMemo((): (PerformanceDataPoint & { x: number })[] | undefined => {
-    if (performances.length < 2) return undefined;
+  const chartData = useMemo((): (PerformanceDataPoint & { x: number })[] => {
     const valid = performances.filter(
       (p) => p.direction !== 'partial' && Number.isFinite(p.speed) && p.speed > 0
     );
-    if (valid.length < 2) return undefined;
     return valid.map((perf, idx) => ({
       x: idx,
       id: perf.activityId,
@@ -51,6 +56,7 @@ export function RoutePerformanceSection({
       activityName: perf.name,
       direction: perf.direction as 'same' | 'reverse',
       matchPercentage: perf.matchPercentage,
+      sectionTime: Math.round(perf.duration),
     }));
   }, [performances]);
 
@@ -71,11 +77,11 @@ export function RoutePerformanceSection({
   const isCurrentBest = !!best && currentRank === 1;
 
   return (
-    <Pressable
-      onPress={handleRoutePress}
-      style={({ pressed }) => [styles.card, isDark && styles.cardDark, pressed && { opacity: 0.7 }]}
-    >
-      <View style={styles.header}>
+    <View style={[styles.card, isDark && styles.cardDark]}>
+      <Pressable
+        onPress={handleRoutePress}
+        style={({ pressed }) => [styles.header, pressed && { opacity: 0.7 }]}
+      >
         <View style={[styles.iconBadge, { borderColor: activityColor }]}>
           <MaterialCommunityIcons name="map-marker-path" size={12} color={activityColor} />
         </View>
@@ -105,24 +111,52 @@ export function RoutePerformanceSection({
             )}
           </View>
         </View>
-        {sparklineData && (
-          <View>
-            <SectionSparkline
-              data={sparklineData}
-              width={80}
-              height={28}
-              isDark={isDark}
-              highlightActivityId={activityId}
-            />
-          </View>
-        )}
         <MaterialCommunityIcons
           name="chevron-right"
           size={20}
           color={isDark ? '#71717A' : '#CCC'}
         />
-      </View>
-    </Pressable>
+      </Pressable>
+
+      {chartData.length >= 1 && (
+        <View style={styles.chartWrap}>
+          <SectionScatterChart
+            chartData={chartData}
+            activityType={activityType}
+            isDark={isDark}
+            bestForwardRecord={bestForwardRecord}
+            bestReverseRecord={bestReverseRecord}
+            forwardStats={forwardStats}
+            reverseStats={reverseStats}
+            highlightedActivityId={activityId}
+          />
+          <View style={styles.legend}>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendSwatch, { borderColor: brand.gold, borderWidth: 2 }]} />
+              <Text style={[styles.legendText, isDark && styles.textMuted]}>
+                {t('sections.legendPr')}
+              </Text>
+            </View>
+            {bestReverseRecord ? (
+              <View style={styles.legendItem}>
+                <View style={[styles.legendSwatch, { backgroundColor: colors.reverseDirection }]} />
+                <Text style={[styles.legendText, isDark && styles.textMuted]}>
+                  {t('sections.legendReverse')}
+                </Text>
+              </View>
+            ) : null}
+            <View style={styles.legendItem}>
+              <View
+                style={[styles.legendSwatch, { borderColor: colors.chartGreen, borderWidth: 2 }]}
+              />
+              <Text style={[styles.legendText, isDark && styles.textMuted]}>
+                {t('sections.legendThisActivity')}
+              </Text>
+            </View>
+          </View>
+        </View>
+      )}
+    </View>
   );
 }
 
@@ -131,10 +165,8 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface,
     borderRadius: layout.borderRadius,
     marginHorizontal: spacing.md,
-    marginBottom: spacing.xs,
+    marginBottom: spacing.md,
     overflow: 'hidden',
-    borderWidth: 2,
-    borderColor: 'transparent',
   },
   cardDark: {
     backgroundColor: darkColors.surfaceCard,
@@ -176,6 +208,32 @@ const styles = StyleSheet.create({
     fontSize: typography.label.fontSize,
     fontWeight: '700',
     color: colors.textPrimary,
+  },
+  chartWrap: {
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.sm,
+  },
+  legend: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: spacing.md,
+    marginTop: spacing.xs,
+    paddingHorizontal: spacing.md,
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  legendSwatch: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  legendText: {
+    fontSize: 11,
+    color: colors.textSecondary,
   },
   textLight: {
     color: darkColors.textPrimary,

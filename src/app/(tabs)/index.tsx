@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   TextInput,
   ActivityIndicator,
+  Image,
   Keyboard,
   Platform,
 } from 'react-native';
@@ -385,6 +386,29 @@ export default function FeedScreen() {
                 </TouchableOpacity>
               )}
             </View>
+            {!summaryCard.enabled && (
+              <TouchableOpacity
+                testID="home-profile-button"
+                onPress={navigateToSettings}
+                accessibilityRole="button"
+                accessibilityLabel={t('navigation.settings')}
+                style={[styles.headerProfile, isDark && styles.headerProfileDark]}
+              >
+                {profileUrl ? (
+                  <Image
+                    source={{ uri: profileUrl }}
+                    style={StyleSheet.absoluteFill}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <MaterialCommunityIcons
+                    name="account"
+                    size={18}
+                    color={isDark ? darkColors.textSecondary : colors.textSecondary}
+                  />
+                )}
+              </TouchableOpacity>
+            )}
           </View>
 
           {/* Filter chips — always visible below search */}
@@ -433,6 +457,9 @@ export default function FeedScreen() {
       themeColors.textSecondary,
       themeColors.textMuted,
       selectTypeGroup,
+      summaryCard.enabled,
+      navigateToSettings,
+      profileUrl,
     ]
   );
 
@@ -520,26 +547,28 @@ export default function FeedScreen() {
         <NotificationOptInCard />
 
         {/* Summary card with hero metric and supporting stats */}
-        <SummaryCard
-          profileUrl={profileUrl}
-          onProfilePress={navigateToSettings}
-          heroMetric={heroMetric}
-          heroValue={heroValue}
-          heroLabel={heroLabel}
-          heroColor={heroColor}
-          heroZoneLabel={heroZoneLabel}
-          heroZoneColor={heroZoneColor}
-          heroTrend={heroTrend}
-          onHeroPress={navigateToHeroMetric}
-          fitnessData={fitnessData}
-          fatigueData={fatigueData}
-          formData={formData}
-          hrvData={hrvData}
-          rhrData={rhrData}
-          showSparkline={showSparkline}
-          supportingMetrics={supportingMetrics}
-          insightLine={insightLine}
-        />
+        {summaryCard.enabled && (
+          <SummaryCard
+            profileUrl={profileUrl}
+            onProfilePress={navigateToSettings}
+            heroMetric={heroMetric}
+            heroValue={heroValue}
+            heroLabel={heroLabel}
+            heroColor={heroColor}
+            heroZoneLabel={heroZoneLabel}
+            heroZoneColor={heroZoneColor}
+            heroTrend={heroTrend}
+            onHeroPress={navigateToHeroMetric}
+            fitnessData={fitnessData}
+            fatigueData={fatigueData}
+            formData={formData}
+            hrvData={hrvData}
+            rhrData={rhrData}
+            showSparkline={showSparkline}
+            supportingMetrics={supportingMetrics}
+            insightLine={insightLine}
+          />
+        )}
 
         <FlatList
           ref={listRef}
@@ -619,6 +648,19 @@ const styles = StyleSheet.create({
   },
   searchInputDark: {
     color: colors.textOnDark,
+  },
+  headerProfile: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    marginLeft: spacing.sm,
+    backgroundColor: opacity.overlay.light,
+    overflow: 'hidden',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerProfileDark: {
+    backgroundColor: opacity.overlayDark.medium,
   },
   filterChips: {
     flexDirection: 'row',

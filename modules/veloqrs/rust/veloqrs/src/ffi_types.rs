@@ -1855,6 +1855,10 @@ pub struct FfiActivityRouteHighlight {
     pub is_pr: bool,
     /// -1=slower than preceding avg, 0=neutral, 1=faster
     pub trend: i8,
+    /// Seconds between this activity's moving time and the route PR's moving
+    /// time. Negative = ahead of PR, positive = behind PR. None when there is
+    /// no PR comparison available (e.g. first attempt).
+    pub time_delta_seconds: Option<i32>,
 }
 
 // ============================================================================

@@ -1080,6 +1080,12 @@ export type FfiActivityRouteHighlight = {
    * -1=slower than preceding avg, 0=neutral, 1=faster
    */
   trend: /*i8*/ number;
+  /**
+   * Seconds between this activity's moving time and the route PR's moving
+   * time. Negative = ahead of PR, positive = behind PR. None when there is
+   * no PR comparison available (e.g. first attempt).
+   */
+  timeDeltaSeconds: /*i32*/ number | undefined;
 };
 
 /**
@@ -1124,6 +1130,7 @@ const FfiConverterTypeFfiActivityRouteHighlight = (() => {
         routeName: FfiConverterString.read(from),
         isPr: FfiConverterBool.read(from),
         trend: FfiConverterInt8.read(from),
+        timeDeltaSeconds: FfiConverterOptionalInt32.read(from),
       };
     }
     write(value: TypeName, into: RustBuffer): void {
@@ -1132,6 +1139,7 @@ const FfiConverterTypeFfiActivityRouteHighlight = (() => {
       FfiConverterString.write(value.routeName, into);
       FfiConverterBool.write(value.isPr, into);
       FfiConverterInt8.write(value.trend, into);
+      FfiConverterOptionalInt32.write(value.timeDeltaSeconds, into);
     }
     allocationSize(value: TypeName): number {
       return (
@@ -1139,7 +1147,8 @@ const FfiConverterTypeFfiActivityRouteHighlight = (() => {
         FfiConverterString.allocationSize(value.routeId) +
         FfiConverterString.allocationSize(value.routeName) +
         FfiConverterBool.allocationSize(value.isPr) +
-        FfiConverterInt8.allocationSize(value.trend)
+        FfiConverterInt8.allocationSize(value.trend) +
+        FfiConverterOptionalInt32.allocationSize(value.timeDeltaSeconds)
       );
     }
   }

@@ -379,11 +379,16 @@ export function SectionScatterChart({
                                 cx={hp.x}
                                 cy={hp.y}
                                 r={dotRadius + 3}
-                                color={activityColor}
+                                color={colors.chartGreen}
                                 style="stroke"
                                 strokeWidth={1.5}
                               />
-                              <Circle cx={hp.x} cy={hp.y} r={dotRadius + 1} color={activityColor} />
+                              <Circle
+                                cx={hp.x}
+                                cy={hp.y}
+                                r={dotRadius + 1}
+                                color={colors.chartGreen}
+                              />
                             </React.Fragment>
                           )}
                         </>

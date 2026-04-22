@@ -280,16 +280,6 @@ export function MapControlStack({
               }
             />
           )}
-          {onToggleHeatmap && (
-            <LayerToggleButton
-              testID="map-toggle-heatmap"
-              icon="fire"
-              active={showHeatmap}
-              isDark={isDark}
-              onPress={onToggleHeatmap}
-              accessibilityLabel={showHeatmap ? t('maps.hideHeatmap') : t('maps.showHeatmap')}
-            />
-          )}
           {sections.length > 0 && onToggleSections && (
             <LayerToggleButton
               testID="map-toggle-sections"
@@ -298,6 +288,16 @@ export function MapControlStack({
               isDark={isDark}
               onPress={onToggleSections}
               accessibilityLabel={showSections ? t('maps.hideSections') : t('maps.showSections')}
+            />
+          )}
+          {onToggleHeatmap && (
+            <LayerToggleButton
+              testID="map-toggle-heatmap"
+              icon="fire"
+              active={showHeatmap}
+              isDark={isDark}
+              onPress={onToggleHeatmap}
+              accessibilityLabel={showHeatmap ? t('maps.hideHeatmap') : t('maps.showHeatmap')}
             />
           )}
           {routeCount > 0 && onToggleRoutes && (

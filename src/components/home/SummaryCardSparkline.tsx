@@ -10,7 +10,6 @@ import { getFormZone, FORM_ZONE_COLORS, getIntlLocale } from '@/lib';
 
 const CHART_HEIGHT = 44;
 const FORM_BAR_HEIGHT = 4;
-const LONG_PRESS_MS = 200;
 
 export interface ScrubValues {
   fitness: number;
@@ -30,6 +29,8 @@ interface SummaryCardSparklineProps {
   showLabels?: boolean;
   /** Called during scrub with selected index values, or null on release */
   onScrub?: (values: ScrubValues | null) => void;
+  /** Called for a single quick tap (no scrub) */
+  onTap?: () => void;
 }
 
 /**
@@ -47,6 +48,7 @@ export const SummaryCardSparkline = memo(function SummaryCardSparkline({
   width,
   showLabels = false,
   onScrub,
+  onTap,
 }: SummaryCardSparklineProps) {
   const { isDark } = useTheme();
 
@@ -59,6 +61,8 @@ export const SummaryCardSparkline = memo(function SummaryCardSparkline({
   formRef.current = formData;
   const onScrubRef = useRef(onScrub);
   onScrubRef.current = onScrub;
+  const onTapRef = useRef(onTap);
+  onTapRef.current = onTap;
 
   const hasFatigue = fatigueData && fatigueData.length === fitnessData.length;
 
@@ -134,38 +138,30 @@ export const SummaryCardSparkline = memo(function SummaryCardSparkline({
     return Math.round(ratio * (dataLength.value - 1));
   };
 
-  // LongPress gates activation, then Pan handles dragging
+  // Quick tap navigates; press-and-drag scrubs. Pan auto-activates on movement
+  // so a stationary tap stays a tap.
   const scrubEnabled = !!onScrub;
-  const longPress = Gesture.LongPress()
-    .minDuration(LONG_PRESS_MS)
-    .enabled(scrubEnabled)
-    .onBegin(() => {
+  const fireTap = () => {
+    onTapRef.current?.();
+  };
+
+  const tap = Gesture.Tap()
+    .enabled(!!onTap)
+    .maxDuration(500)
+    .onEnd(() => {
       'worklet';
-      // Reset stale state from a previous interaction where
-      // Pan never activated (e.g., long-press then lift without moving)
-      if (crosshairX.value >= 0) {
-        crosshairX.value = -1;
-        runOnJS(clearScrub)();
-      }
-    })
+      runOnJS(fireTap)();
+    });
+
+  const pan = Gesture.Pan()
+    .enabled(scrubEnabled)
+    .activeOffsetX([-4, 4])
+    .activeOffsetY([-4, 4])
     .onStart((e) => {
       'worklet';
       crosshairX.value = e.x;
       const idx = computeIndex(e.x);
       runOnJS(notifyScrub)(idx);
-    })
-    .shouldCancelWhenOutside(false);
-
-  const pan = Gesture.Pan()
-    .manualActivation(true)
-    .enabled(scrubEnabled)
-    .onTouchesMove((_, manager) => {
-      // Only activate once longPress has fired (crosshairX >= 0).
-      // Don't call fail() — that permanently kills the gesture for this touch.
-      // Staying undetermined lets Pan activate once the long press triggers.
-      if (crosshairX.value >= 0) {
-        manager.activate();
-      }
     })
     .onUpdate((e) => {
       'worklet';
@@ -184,7 +180,7 @@ export const SummaryCardSparkline = memo(function SummaryCardSparkline({
       runOnJS(clearScrub)();
     });
 
-  const composed = Gesture.Simultaneous(longPress, pan);
+  const composed = Gesture.Exclusive(pan, tap);
 
   const crosshairStyle = useAnimatedStyle(() => {
     if (crosshairX.value < 0) {

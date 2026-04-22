@@ -802,8 +802,10 @@ impl PersistentRouteEngine {
             }
         }
 
-        // Per-group: compute best time + per-activity trend from activity_metrics
-        let mut group_cache: HashMap<&str, (f64, HashMap<&str, (i8, f64)>)> = HashMap::new();
+        // Per-group: compute best time + per-activity trend from activity_metrics.
+        // Cache: (best_speed, best_moving_time_secs, per-activity (trend, speed, moving_time_secs))
+        let mut group_cache: HashMap<&str, (f64, u32, HashMap<&str, (i8, f64, u32)>)> =
+            HashMap::new();
         let mut results = Vec::new();
 
         for (&aid, group) in &activity_to_group {
@@ -811,60 +813,81 @@ impl PersistentRouteEngine {
 
             if !group_cache.contains_key(gid) {
                 // Use speed (m/s) = distance / moving_time — matches route detail page ranking
-                let mut members: Vec<(&str, f64, i64)> = group
+                let mut members: Vec<(&str, f64, u32, i64)> = group
                     .activity_ids
                     .iter()
                     .filter_map(|id| {
                         let m = self.activity_metrics.get(id)?;
                         if m.moving_time > 0 && m.distance > 0.0 {
                             let speed = m.distance / m.moving_time as f64;
-                            Some((id.as_str(), speed, m.date))
+                            Some((id.as_str(), speed, m.moving_time, m.date))
                         } else {
                             None
                         }
                     })
                     .collect();
-                members.sort_by_key(|m| m.2);
+                members.sort_by_key(|m| m.3);
 
                 // Skip singleton routes — need at least 2 attempts for meaningful trends/PRs
                 if members.len() < 2 {
-                    group_cache.insert(gid, (0.0f64, HashMap::new()));
+                    group_cache.insert(gid, (0.0f64, 0u32, HashMap::new()));
                 } else {
-                    // Best = highest speed (fastest)
-                    let mut best = 0.0f64;
-                    let mut trends: HashMap<&str, (i8, f64)> = HashMap::new();
+                    // Best = highest speed (fastest), track its moving_time for delta math
+                    let mut best_speed = 0.0f64;
+                    let mut best_moving_time: u32 = 0;
+                    let mut trends: HashMap<&str, (i8, f64, u32)> = HashMap::new();
                     let mut sum = 0.0f64;
                     let mut n = 0u32;
 
-                    for (mid, speed, _) in &members {
+                    for (mid, speed, moving_time, _) in &members {
                         // Trend: higher speed = improving (reversed from time)
-                        let trend = if n == 0 { 0i8 }
-                        else {
+                        let trend = if n == 0 {
+                            0i8
+                        } else {
                             let avg = sum / n as f64;
-                            if *speed > avg * 1.01 { 1 }    // >1% faster speed
-                            else if *speed < avg * 0.99 { -1 } // >1% slower speed
-                            else { 0 }
+                            if *speed > avg * 1.01 {
+                                1
+                            }
+                            // >1% faster speed
+                            else if *speed < avg * 0.99 {
+                                -1
+                            }
+                            // >1% slower speed
+                            else {
+                                0
+                            }
                         };
-                        trends.insert(mid, (trend, *speed));
+                        trends.insert(mid, (trend, *speed, *moving_time));
                         sum += speed;
                         n += 1;
-                        if *speed > best { best = *speed; }
+                        if *speed > best_speed {
+                            best_speed = *speed;
+                            best_moving_time = *moving_time;
+                        }
                     }
 
-                    group_cache.insert(gid, (best, trends));
+                    group_cache.insert(gid, (best_speed, best_moving_time, trends));
                 }
             }
 
-            if let Some((best, trends)) = group_cache.get(gid) {
-                let (trend, speed) = trends.get(aid).copied().unwrap_or((0, 0.0));
+            if let Some((best_speed, best_moving_time, trends)) = group_cache.get(gid) {
+                let (trend, speed, moving_time) =
+                    trends.get(aid).copied().unwrap_or((0, 0.0, 0));
                 // PR = highest speed (within 0.5% tolerance for float comparison)
-                let is_pr = speed > 0.0 && *best > 0.0 && (speed - best).abs() / best < 0.005;
+                let is_pr =
+                    speed > 0.0 && *best_speed > 0.0 && (speed - best_speed).abs() / best_speed < 0.005;
+                let time_delta_seconds = if moving_time > 0 && *best_moving_time > 0 {
+                    Some(moving_time as i32 - *best_moving_time as i32)
+                } else {
+                    None
+                };
                 results.push(crate::FfiActivityRouteHighlight {
                     activity_id: aid.to_string(),
                     route_id: gid.to_string(),
                     route_name: route_names.get(gid).cloned().unwrap_or_default(),
                     is_pr,
                     trend,
+                    time_delta_seconds,
                 });
             }
         }

@@ -39,9 +39,6 @@ export const PeriodComparisonContent = React.memo(function PeriodComparisonConte
   const isPositive = changeStr.startsWith('+');
   const changeColor = isPositive ? colors.success : colors.warning;
   const changeIcon = isPositive ? 'arrow-up' : 'arrow-down';
-  const unitLabel = comparison.current.unit ?? '';
-  const currentCount = typeof dataPoints?.[0]?.value === 'number' ? dataPoints[0].value : null;
-  const previousCount = typeof dataPoints?.[1]?.value === 'number' ? dataPoints[1].value : null;
 
   const bars = useMemo(
     (): WeekBar[] => [
@@ -62,52 +59,6 @@ export const PeriodComparisonContent = React.memo(function PeriodComparisonConte
   );
 
   const maxVal = Math.max(...bars.map((b) => b.value), 1);
-
-  const contextSummary = useMemo(() => {
-    if (currentCount == null || previousCount == null || currentCount <= 0 || previousCount <= 0) {
-      return null;
-    }
-
-    const currentPerSession = currentVal / currentCount;
-    const previousPerSession = previousVal / previousCount;
-    const roundedCurrent = Math.round(currentPerSession);
-    const roundedPrevious = Math.round(previousPerSession);
-    const averageLabel = unitLabel ? `${roundedPrevious} -> ${roundedCurrent} ${unitLabel}` : null;
-
-    if (currentCount === previousCount) {
-      return {
-        summary: `Session count stayed flat, so the ${changeStr} move came from the size of each session rather than frequency.`,
-        averageLabel,
-      };
-    }
-
-    if (currentCount > previousCount && currentVal >= previousVal) {
-      return {
-        summary: 'The increase came with more sessions, not just denser individual workouts.',
-        averageLabel,
-      };
-    }
-
-    if (currentCount > previousCount && currentVal < previousVal) {
-      return {
-        summary: 'You trained more often, but each session carried less load on average.',
-        averageLabel,
-      };
-    }
-
-    if (currentCount < previousCount && currentVal >= previousVal) {
-      return {
-        summary:
-          'You accumulated similar or higher load in fewer sessions, which points to denser weeks.',
-        averageLabel,
-      };
-    }
-
-    return {
-      summary: 'The drop lines up with fewer sessions as well as lower total work across the week.',
-      averageLabel,
-    };
-  }, [changeStr, currentCount, currentVal, previousCount, previousVal, unitLabel]);
 
   const barChart = useMemo(() => {
     const drawW = CHART_WIDTH - CHART_PADDING.left - CHART_PADDING.right;
@@ -220,22 +171,6 @@ export const PeriodComparisonContent = React.memo(function PeriodComparisonConte
           ))}
         </View>
       ) : null}
-
-      {contextSummary ? (
-        <View style={[styles.contextCard, isDark && styles.contextCardDark]}>
-          <Text style={[styles.contextHeading, isDark && styles.contextHeadingDark]}>
-            What changed beneath the total
-          </Text>
-          <Text style={[styles.contextBody, isDark && styles.contextBodyDark]}>
-            {contextSummary.summary}
-          </Text>
-          {contextSummary.averageLabel ? (
-            <Text style={[styles.contextMeta, isDark && styles.contextMetaDark]}>
-              Avg per session: {contextSummary.averageLabel}
-            </Text>
-          ) : null}
-        </View>
-      ) : null}
     </View>
   );
 });
@@ -322,38 +257,5 @@ const styles = StyleSheet.create({
   },
   countLabelDark: {
     color: darkColors.textSecondary,
-  },
-  contextCard: {
-    backgroundColor: opacity.overlay.subtle,
-    borderRadius: 10,
-    padding: spacing.sm,
-    gap: 4,
-  },
-  contextCardDark: {
-    backgroundColor: opacity.overlayDark.light,
-  },
-  contextHeading: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
-  contextHeadingDark: {
-    color: darkColors.textPrimary,
-  },
-  contextBody: {
-    fontSize: 13,
-    lineHeight: 18,
-    color: colors.textSecondary,
-  },
-  contextBodyDark: {
-    color: darkColors.textSecondary,
-  },
-  contextMeta: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: colors.textPrimary,
-  },
-  contextMetaDark: {
-    color: darkColors.textPrimary,
   },
 });

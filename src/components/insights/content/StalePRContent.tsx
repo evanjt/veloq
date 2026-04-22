@@ -61,10 +61,10 @@ function getContextCopy(
 
   return {
     heading,
-    body: `This compares the current ${sportPrefix}fitness trend with the level captured around the best effort for ${bodyTarget}. It is a timing observation, not a promise that the best will fall on the next pass.`,
+    body: `Comparison of the current ${sportPrefix}fitness trend with the level recorded around the best effort for ${bodyTarget}.`,
     meta: isGrouped
-      ? 'Open any section below to inspect the underlying effort history.'
-      : 'Open the section below to inspect the underlying effort history.',
+      ? 'Open any section below for the underlying effort history.'
+      : 'Open the section below for the underlying effort history.',
   };
 }
 

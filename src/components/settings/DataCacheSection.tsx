@@ -8,12 +8,11 @@ import {
   useActivityBoundsCache,
   useRouteProcessing,
   useRouteGroups,
-  useOldestActivityDate,
   useTheme,
   useSectionSummaries,
   useSectionRescan,
 } from '@/hooks';
-import { formatLocalDate, formatFullDate } from '@/lib';
+import { formatFullDate } from '@/lib';
 import { estimateRoutesDatabaseSize } from '@/lib';
 import { useAuthStore, useRouteSettings, useSyncDateRange } from '@/providers';
 import { useTileCacheStore } from '@/providers/TileCacheStore';
@@ -49,15 +48,9 @@ export function DataCacheSection({ onLayout }: DataCacheSectionProps) {
   const isDemoMode = useAuthStore((state) => state.isDemoMode);
   const queryClient = useQueryClient();
 
-  const { progress, cacheStats, clearCache, syncDateRange } = useActivityBoundsCache();
-  const { data: apiOldestDate } = useOldestActivityDate();
+  const { cacheStats, clearCache } = useActivityBoundsCache();
 
   // Get sync state from global store
-  const syncOldest = useSyncDateRange((s) => s.oldest);
-  const isFetchingExtended = useSyncDateRange((s) => s.isFetchingExtended);
-  const isGpsSyncing = useSyncDateRange((s) => s.isGpsSyncing);
-  const gpsSyncProgress = useSyncDateRange((s) => s.gpsSyncProgress);
-  const isExpansionLocked = useSyncDateRange((s) => s.isExpansionLocked);
   const resetSyncDateRange = useSyncDateRange((s) => s.reset);
 
   // Route matching
@@ -128,66 +121,6 @@ export function DataCacheSection({ onLayout }: DataCacheSectionProps) {
       Math.round((newestDay.getTime() - oldestDay.getTime()) / (1000 * 60 * 60 * 24)) + 1;
     return `${formatDateOrDash(cacheStats.oldestDate)} - ${formatDateOrDash(cacheStats.newestDate)} (${t('stats.daysCount', { count: days })})`;
   }, [cacheStats.oldestDate, cacheStats.newestDate, t, i18n.language]);
-
-  // Timeline slider state - reflects actual cached data range
-  // Start date tracks the oldest loaded activity date (only expands left)
-  // End date is always "now" (fixed at right edge)
-  const cachedStartDate = useMemo(() => {
-    // After a reset, isExpansionLocked is true - use the sync store's 90-day range
-    // This prevents showing stale cache data during the reset transition
-    if (isExpansionLocked) {
-      return new Date(syncOldest);
-    }
-    // Normal operation: show the OLDER (more expanded) of the two dates
-    // This prevents snap-back when user drags to expand but data hasn't loaded yet
-    if (cacheStats.oldestDate) {
-      const cacheOldest = new Date(cacheStats.oldestDate);
-      const syncStart = new Date(syncOldest);
-      // Return the earlier date (smaller timestamp = further in the past)
-      return cacheOldest < syncStart ? cacheOldest : syncStart;
-    }
-    // Fallback to sync store oldest if no cached data yet
-    return new Date(syncOldest);
-  }, [cacheStats.oldestDate, syncOldest, isExpansionLocked]);
-
-  const cachedEndDate = useMemo(() => {
-    // End date is always now (today) - fixed at right edge
-    return new Date();
-  }, []);
-
-  // Combined syncing state
-  const isSyncing = progress.status === 'syncing' || isGpsSyncing || isFetchingExtended;
-
-  // Calculate min/max dates for slider
-  const { minDateForSlider, maxDateForSlider } = useMemo(() => {
-    const now = new Date();
-
-    // Use the oldest activity date from API if available
-    if (apiOldestDate) {
-      return {
-        minDateForSlider: new Date(apiOldestDate),
-        maxDateForSlider: now,
-      };
-    }
-
-    // Fallback: 90 days ago
-    const d = new Date();
-    d.setDate(d.getDate() - 90);
-    return { minDateForSlider: d, maxDateForSlider: now };
-  }, [apiOldestDate]);
-
-  // Handle date range change from timeline slider
-  // Only allow expansion - start can only go earlier (left), end is fixed at "now"
-  const handleRangeChange = useCallback(
-    (start: Date, _end: Date) => {
-      // Only allow expansion to earlier dates
-      if (start < cachedStartDate) {
-        // Trigger sync for the expanded date range (end is always "now")
-        syncDateRange(formatLocalDate(start), formatLocalDate(new Date()));
-      }
-    },
-    [syncDateRange, cachedStartDate]
-  );
 
   // Compute query cache stats
   const queryCacheStats = useMemo(() => {
@@ -290,15 +223,6 @@ export function DataCacheSection({ onLayout }: DataCacheSectionProps) {
         <CacheManagementPanel
           isDark={isDark}
           isDemoMode={isDemoMode}
-          minDate={minDateForSlider}
-          maxDate={maxDateForSlider}
-          startDate={cachedStartDate}
-          endDate={cachedEndDate}
-          onRangeChange={handleRangeChange}
-          isSyncing={isSyncing}
-          isFetchingExtended={isFetchingExtended}
-          syncProgress={gpsSyncProgress}
-          activityCount={cacheStats.totalActivities}
           routeMatchingEnabled={routeSettings.enabled}
           isRouteProcessing={isRouteProcessing}
           onCancelRouteProcessing={cancelRouteProcessing}

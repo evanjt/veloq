@@ -1,8 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  Image,
+  type LayoutChangeEvent,
+} from 'react-native';
 import { ScreenSafeAreaView, ScreenErrorBoundary, TAB_BAR_SAFE_PADDING } from '@/components/ui';
 import { logScreenRender } from '@/lib/debug/renderTimer';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useAthlete, useTheme } from '@/hooks';
@@ -27,6 +35,7 @@ import {
   DataSourcesSection,
   NotificationSection,
   SupportSection,
+  SyncRangePanel,
 } from '@/components/settings';
 import { settingsStyles } from '@/components/settings/settingsStyles';
 
@@ -114,6 +123,23 @@ export default function SettingsScreen() {
   const themePreference = useThemePreferenceStore((s) => s.preference);
   const [showLanguages, setShowLanguages] = useState(false);
 
+  // Optional deep-link to a specific section (e.g. ?scrollTo=syncRange).
+  const { scrollTo } = useLocalSearchParams<{ scrollTo?: string }>();
+  const scrollViewRef = useRef<ScrollView | null>(null);
+  const syncRangeOffsetRef = useRef<number | null>(null);
+  const handleSyncRangeLayout = (event: LayoutChangeEvent) => {
+    syncRangeOffsetRef.current = event.nativeEvent.layout.y;
+    if (scrollTo === 'syncRange' && scrollViewRef.current) {
+      // Defer one tick so the ScrollView has been measured.
+      requestAnimationFrame(() => {
+        scrollViewRef.current?.scrollTo({
+          y: Math.max(0, (syncRangeOffsetRef.current ?? 0) - 16),
+          animated: true,
+        });
+      });
+    }
+  };
+
   const { data: athlete } = useAthlete();
   const authMethod = useAuthStore((state) => state.authMethod);
   const [profileImageError, setProfileImageError] = useState(false);
@@ -148,7 +174,11 @@ export default function SettingsScreen() {
         testID="settings-screen"
         style={[styles.container, isDark && styles.containerDark]}
       >
-        <ScrollView testID="settings-scrollview" contentContainerStyle={styles.content}>
+        <ScrollView
+          ref={scrollViewRef}
+          testID="settings-scrollview"
+          contentContainerStyle={styles.content}
+        >
           {/* Header with back button */}
           <View style={styles.header}>
             <TouchableOpacity
@@ -178,6 +208,10 @@ export default function SettingsScreen() {
             onProfileImageError={() => setProfileImageError(true)}
             isDark={isDark}
           />
+
+          <View onLayout={handleSyncRangeLayout}>
+            <SyncRangePanel />
+          </View>
 
           <SummaryCardSection />
 

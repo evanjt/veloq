@@ -34,6 +34,8 @@ export interface ActivityRouteHighlight {
   routeName: string;
   isPr: boolean;
   trend: number; // -1=slower, 0=neutral, 1=faster vs preceding avg
+  /** Seconds vs route PR moving time. Negative = ahead, positive = behind, 0 = same. Null when no comparison. */
+  timeDeltaSeconds: number | null;
 }
 
 /**
@@ -109,6 +111,7 @@ export function useActivitySectionHighlights(activityIds: string[]): {
           routeName: r.routeName,
           isPr: r.isPr,
           trend: r.trend,
+          timeDeltaSeconds: r.timeDeltaSeconds ?? null,
         });
       }
 
