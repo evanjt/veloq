@@ -91,6 +91,8 @@ import {
   View,
   StyleSheet,
   TouchableOpacity,
+  Pressable,
+  Text as RNText,
   Modal,
   StatusBar,
   Animated,
@@ -120,6 +122,7 @@ import {
   shadows,
   sectionPalette,
   sectionPaletteExpression,
+  sectionPaletteIndex,
 } from '@/theme';
 import { useMapPreferences } from '@/providers';
 import { useSectionCreation } from '@/hooks/maps/useSectionCreation';
@@ -344,6 +347,8 @@ export const ActivityMapView = memo(function ActivityMapView({
     consolidatedPortionsGeoJSON,
     sectionBoundariesGeoJSON,
     sectionMarkersGeoJSON,
+    sectionNumberedMarkersGeoJSON,
+    sectionPRMarkersGeoJSON,
     fullscreenPRMarkersGeoJSON,
     routeCoords,
     highlightPoint,
@@ -960,44 +965,45 @@ export const ActivityMapView = memo(function ActivityMapView({
               </View>
             </MarkerView>
 
-            {/* Section numbered/PR markers — geo-anchored so they track with map pan/zoom */}
-            {/* Uses ShapeSource + CircleLayer + SymbolLayer instead of MarkerView: */}
-            {/* MarkerView coordinate updates break native position binding in MapLibre RN */}
-            {/* PR markers use the trophy icon (matches activity feed); numbered markers use text */}
+            {/* Numbered section markers — one MarkerView per non-PR section.
+                MarkerView is used here (not a ShapeSource + CircleLayer) because
+                @maplibre/maplibre-react-native's boolean filters don't reliably
+                render on native, and MarkerView with React children always does.
+                Each badge uses the section's palette color to match the row. */}
+            {sectionNumberedMarkersGeoJSON.features.map((f) => {
+              const geom = f.geometry as GeoJSON.Point;
+              const coord = geom?.coordinates as [number, number] | undefined;
+              const sectionId = f.properties?.sectionId as string | undefined;
+              const label = f.properties?.label as string | undefined;
+              if (!coord || !sectionId || !label) return null;
+              const color = sectionPalette[sectionPaletteIndex(sectionId)];
+              return (
+                <MarkerView key={`num-${sectionId}`} coordinate={coord} allowOverlap={true}>
+                  <Pressable
+                    onPress={() => onSectionMarkerPress?.(sectionId)}
+                    style={[styles.sectionNumberBadge, { backgroundColor: color }]}
+                  >
+                    <RNText style={styles.sectionNumberBadgeText}>{label}</RNText>
+                  </Pressable>
+                </MarkerView>
+              );
+            })}
+            {/* PR section markers — trophy icon via ShapeSource (icon path works fine). */}
             <Images
               images={{
                 trophy: { source: require('@/assets/icons/trophy.png'), sdf: true },
               }}
             />
             <ShapeSource
-              id="sectionMarkersSource"
-              shape={sectionMarkersGeoJSON}
+              id="sectionPRMarkersSource"
+              shape={sectionPRMarkersGeoJSON}
               onPress={(e) => {
                 const sectionId = e.features[0]?.properties?.sectionId as string | undefined;
                 if (sectionId) onSectionMarkerPress?.(sectionId);
               }}
             >
-              <CircleLayer
-                id="section-marker-border"
-                filter={['!=', ['get', 'isPR'], true] as unknown as never}
-                style={{
-                  circleRadius: 13,
-                  circleColor: '#FFFFFF',
-                }}
-              />
-              <CircleLayer
-                id="section-marker-circle"
-                filter={['!=', ['get', 'isPR'], true] as unknown as never}
-                style={{
-                  circleRadius: 11,
-                  circleColor: colors.gray700,
-                  circleStrokeWidth: 2,
-                  circleStrokeColor: '#FFFFFF',
-                }}
-              />
               <SymbolLayer
                 id="section-marker-pr-icon"
-                filter={['==', ['get', 'isPR'], true] as unknown as never}
                 style={{
                   iconImage: 'trophy',
                   iconSize: 0.4,
@@ -1006,23 +1012,6 @@ export const ActivityMapView = memo(function ActivityMapView({
                   iconAllowOverlap: true,
                   iconIgnorePlacement: true,
                   iconAnchor: 'center',
-                }}
-              />
-              <SymbolLayer
-                id="section-marker-number-text"
-                filter={
-                  ['all', ['has', 'label'], ['!=', ['get', 'isPR'], true]] as unknown as never
-                }
-                style={{
-                  textField: ['get', 'label'] as unknown as string,
-                  textFont: ['Noto Sans Regular'],
-                  textColor: '#FFFFFF',
-                  textHaloColor: '#000000',
-                  textHaloWidth: 0.6,
-                  textSize: 11,
-                  textAnchor: 'center',
-                  textAllowOverlap: true,
-                  textIgnorePlacement: true,
                 }}
               />
             </ShapeSource>
@@ -1400,6 +1389,22 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     borderWidth: 1.5,
     borderColor: colors.textOnDark,
+  },
+  sectionNumberBadge: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+    ...shadows.pill,
+  },
+  sectionNumberBadgeText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 12,
+    textAlign: 'center',
   },
   startMarker: {
     backgroundColor: 'rgba(34,197,94,0.75)',

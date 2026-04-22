@@ -568,6 +568,7 @@ export function useGpsDataFetcher() {
           total: activityIds.length,
           percent: 0,
           message: i18n.t('cache.downloadingGpsProgress', {
+            percent: 0,
             completed: 0,
             total: activityIds.length,
           }),
@@ -641,6 +642,7 @@ export function useGpsDataFetcher() {
             total: progress.total,
             percent: dlPercent,
             message: i18n.t('cache.downloadingGpsProgress', {
+              percent: dlPercent,
               completed: progress.completed,
               total: progress.total,
             }),
@@ -744,6 +746,7 @@ export function useGpsDataFetcher() {
               total: totalStreams,
               percent: 50,
               message: i18n.t('cache.fetchingTimeStreams', {
+                percent: 50,
                 completed: streamProgress.completed,
                 total: totalStreams,
               }),

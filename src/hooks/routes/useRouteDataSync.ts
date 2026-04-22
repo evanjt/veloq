@@ -374,6 +374,7 @@ export function useRouteDataSync(
                     total: totalStreams,
                     percent: 50,
                     message: i18n.t('cache.fetchingTimeStreams', {
+                      percent: 50,
                       completed: 0,
                       total: totalStreams,
                     }),
@@ -404,6 +405,7 @@ export function useRouteDataSync(
                       total: totalStreams,
                       percent: 50,
                       message: i18n.t('cache.fetchingTimeStreams', {
+                        percent: 50,
                         completed: completedStreams,
                         total: totalStreams,
                       }),

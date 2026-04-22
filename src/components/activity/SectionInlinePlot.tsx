@@ -5,7 +5,16 @@ import Swipeable from 'react-native-gesture-handler/Swipeable';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Animated } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { brand, colors, darkColors, spacing, typography, layout } from '@/theme';
+import {
+  brand,
+  colors,
+  darkColors,
+  sectionPalette,
+  sectionPaletteIndex,
+  spacing,
+  typography,
+  layout,
+} from '@/theme';
 import { CHART_CONFIG } from '@/constants';
 import { formatDistance, formatPace } from '@/lib';
 import { SectionSparkline } from '@/components/section/SectionSparkline';
@@ -57,6 +66,10 @@ export const SectionInlinePlot = memo(
     const handlePress = useCallback(() => {
       onPress?.(encounter.sectionId);
     }, [onPress, encounter.sectionId]);
+
+    // Color the row's index number using the same palette + hash as the map's
+    // section portions, so row N visually matches the color of section N on the map.
+    const numberColor = sectionPalette[sectionPaletteIndex(encounter.sectionId)];
 
     const swipeKey = `${encounter.sectionId}-${encounter.direction}`;
     const displayName =
@@ -116,13 +129,17 @@ export const SectionInlinePlot = memo(
             ]}
           >
             <View style={styles.header}>
-              <Text style={styles.numberLabel}>{index + 1}</Text>
+              <Text style={[styles.numberLabel, { color: numberColor }]}>{index + 1}</Text>
               <View style={styles.headerInfo}>
                 <Text style={[styles.name, isDark && styles.textLight]} numberOfLines={1}>
                   {displayName}
                 </Text>
                 <View style={styles.metaRow}>
-                  <Text style={[styles.meta, isDark && styles.textMuted]}>
+                  <Text
+                    style={[styles.meta, isDark && styles.textMuted]}
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                  >
                     {formatDistance(encounter.distanceMeters, isMetric)} · {encounter.visitCount}{' '}
                     {t('routes.visits')}
                   </Text>
