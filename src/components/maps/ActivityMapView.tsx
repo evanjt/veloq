@@ -108,7 +108,6 @@ import {
   MarkerView,
   CircleLayer,
   SymbolLayer,
-  Images,
 } from '@maplibre/maplibre-react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { decodePolyline, LatLng, getActivityColor } from '@/lib';
@@ -988,33 +987,23 @@ export const ActivityMapView = memo(function ActivityMapView({
                 </MarkerView>
               );
             })}
-            {/* PR section markers — trophy icon via ShapeSource (icon path works fine). */}
-            <Images
-              images={{
-                trophy: { source: require('@/assets/icons/trophy.png'), sdf: true },
-              }}
-            />
-            <ShapeSource
-              id="sectionPRMarkersSource"
-              shape={sectionPRMarkersGeoJSON}
-              onPress={(e) => {
-                const sectionId = e.features[0]?.properties?.sectionId as string | undefined;
-                if (sectionId) onSectionMarkerPress?.(sectionId);
-              }}
-            >
-              <SymbolLayer
-                id="section-marker-pr-icon"
-                style={{
-                  iconImage: 'trophy',
-                  iconSize: 0.4,
-                  iconColor: brand.gold,
-                  iconOffset: [0, -30],
-                  iconAllowOverlap: true,
-                  iconIgnorePlacement: true,
-                  iconAnchor: 'center',
-                }}
-              />
-            </ShapeSource>
+            {/* PR section markers — vector trophy via MarkerView, matches feed cards. */}
+            {sectionPRMarkersGeoJSON.features.map((f) => {
+              const geom = f.geometry as GeoJSON.Point;
+              const coord = geom?.coordinates as [number, number] | undefined;
+              const sectionId = f.properties?.sectionId as string | undefined;
+              if (!coord || !sectionId) return null;
+              return (
+                <MarkerView key={`pr-${sectionId}`} coordinate={coord} allowOverlap={true}>
+                  <Pressable
+                    onPress={() => onSectionMarkerPress?.(sectionId)}
+                    style={styles.prTrophyMarker}
+                  >
+                    <MaterialCommunityIcons name="trophy" size={14} color={brand.gold} />
+                  </Pressable>
+                </MarkerView>
+              );
+            })}
 
             {/* Highlight marker from chart scrubbing — rendered last so it's on top of all layers */}
             {/* Uses ShapeSource + CircleLayer because MarkerView coordinate updates break native position binding */}
@@ -1271,37 +1260,24 @@ export const ActivityMapView = memo(function ActivityMapView({
             />
           </ShapeSource>
 
-          {/* PR markers at center of each PR section in fullscreen */}
-          {/* Geo-anchored via ShapeSource so markers track with pan/zoom.
-              Uses the trophy icon for visual parity with feed cards. */}
-          <ShapeSource
-            id="fs-section-markers-source"
-            shape={fullscreenPRMarkersGeoJSON}
-            onPress={(e) => {
-              const sectionId = e.features[0]?.properties?.sectionId as string | undefined;
-              if (sectionId) onSectionMarkerPress?.(sectionId);
-            }}
-          >
-            <CircleLayer
-              id="fs-section-marker-circle"
-              style={{
-                circleRadius: 9,
-                circleColor: '#D4AF37',
-                circleStrokeWidth: 2,
-                circleStrokeColor: '#FFFFFF',
-              }}
-            />
-            <SymbolLayer
-              id="fs-section-marker-icon"
-              style={{
-                iconImage: 'trophy',
-                iconSize: 0.32,
-                iconAllowOverlap: true,
-                iconIgnorePlacement: true,
-                iconAnchor: 'center',
-              }}
-            />
-          </ShapeSource>
+          {/* PR markers at center of each PR section in fullscreen.
+              Vector trophy via MarkerView for visual parity with feed cards. */}
+          {fullscreenPRMarkersGeoJSON.features.map((f) => {
+            const geom = f.geometry as GeoJSON.Point;
+            const coord = geom?.coordinates as [number, number] | undefined;
+            const sectionId = f.properties?.sectionId as string | undefined;
+            if (!coord || !sectionId) return null;
+            return (
+              <MarkerView key={`fs-pr-${sectionId}`} coordinate={coord} allowOverlap={true}>
+                <Pressable
+                  onPress={() => onSectionMarkerPress?.(sectionId)}
+                  style={styles.prTrophyBadge}
+                >
+                  <MaterialCommunityIcons name="trophy" size={12} color="#FFFFFF" />
+                </Pressable>
+              </MarkerView>
+            );
+          })}
 
           {/* Start marker */}
           {/* CRITICAL: Always render to avoid Fabric crash - control visibility via opacity */}
@@ -1394,6 +1370,22 @@ const styles = StyleSheet.create({
     width: 22,
     height: 22,
     borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+    ...shadows.pill,
+  },
+  prTrophyMarker: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    transform: [{ translateY: -30 }],
+  },
+  prTrophyBadge: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: '#D4AF37',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,

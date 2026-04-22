@@ -2,9 +2,9 @@ import React, { memo, useMemo, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Pressable, Animated } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { colors, typography, spacing, layout, shadows } from '@/theme';
+import { colors, darkColors, typography, spacing, shadows } from '@/theme';
 import { formatDistance, formatDuration, formatFullDateWithWeekday } from '@/lib';
-import { useMetricSystem } from '@/hooks';
+import { useMetricSystem, useTheme } from '@/hooks';
 import { getActivityTypeConfig } from '../ActivityTypeFilter';
 import { getActivityIcon } from '@/lib/utils/activityUtils';
 import type { ActivityBoundsItem, ActivityMapData } from '@/types';
@@ -38,6 +38,7 @@ export const ActivityPopup = memo(function ActivityPopup({
 }: ActivityPopupProps) {
   const { t } = useTranslation();
   const isMetric = useMetricSystem();
+  const { isDark } = useTheme();
 
   // Memoize config lookup
   const config = useMemo(
@@ -105,16 +106,30 @@ export const ActivityPopup = memo(function ActivityPopup({
   return (
     <Animated.View
       testID="activity-popup"
-      style={[styles.popup, { bottom, opacity, transform: [{ translateY }] }]}
+      style={[
+        styles.popup,
+        isDark && styles.popupDark,
+        { bottom, opacity, transform: [{ translateY }] },
+      ]}
       pointerEvents="auto"
     >
       <View style={styles.popupHeader}>
         <View style={styles.popupInfo}>
-          <Text style={styles.popupTitle} numberOfLines={1}>
+          <Text style={[styles.popupTitle, isDark && styles.popupTitleDark]} numberOfLines={1}>
             {selected?.activity.name ?? ''}
           </Text>
-          <Text style={styles.popupDate}>{formattedDate}</Text>
+          <Text style={[styles.popupDate, isDark && styles.popupDateDark]}>{formattedDate}</Text>
         </View>
+        <Pressable
+          testID="activity-popup-view-details"
+          onPress={onViewDetails}
+          style={styles.viewDetailsInline}
+          accessibilityLabel={t('maps.viewDetails')}
+          accessibilityRole="button"
+        >
+          <Text style={styles.viewDetailsText}>{t('maps.viewDetails')}</Text>
+          <MaterialCommunityIcons name="chevron-right" size={18} color={colors.primary} />
+        </Pressable>
         <View style={styles.popupHeaderButtons}>
           <Pressable
             testID="activity-popup-zoom"
@@ -132,38 +147,39 @@ export const ActivityPopup = memo(function ActivityPopup({
             accessibilityLabel={t('maps.closePopup')}
             accessibilityRole="button"
           >
-            <MaterialCommunityIcons name="close" size={22} color={colors.textSecondary} />
+            <MaterialCommunityIcons
+              name="close"
+              size={22}
+              color={isDark ? darkColors.textSecondary : colors.textSecondary}
+            />
           </Pressable>
         </View>
       </View>
 
-      <View style={styles.popupStats}>
+      <View style={[styles.popupStats, isDark && styles.popupStatsDark]}>
         <View style={styles.popupStat}>
           <MaterialCommunityIcons
             name={activityIcon}
             size={20}
             color={config?.color ?? colors.primary}
           />
-          <Text style={styles.popupStatValue}>{selected?.activity.type ?? ''}</Text>
+          <Text style={[styles.popupStatValue, isDark && styles.popupStatValueDark]}>
+            {selected?.activity.type ?? ''}
+          </Text>
         </View>
         <View style={styles.popupStat}>
           <MaterialCommunityIcons name="map-marker-distance" size={20} color={colors.chartBlue} />
-          <Text style={styles.popupStatValue}>{formattedDistance}</Text>
+          <Text style={[styles.popupStatValue, isDark && styles.popupStatValueDark]}>
+            {formattedDistance}
+          </Text>
         </View>
         <View style={styles.popupStat}>
           <MaterialCommunityIcons name="clock-outline" size={20} color={colors.chartAmber} />
-          <Text style={styles.popupStatValue}>{formattedDuration}</Text>
+          <Text style={[styles.popupStatValue, isDark && styles.popupStatValueDark]}>
+            {formattedDuration}
+          </Text>
         </View>
       </View>
-
-      <Pressable
-        testID="activity-popup-view-details"
-        style={styles.viewDetailsButton}
-        onPress={onViewDetails}
-      >
-        <Text style={styles.viewDetailsText}>{t('maps.viewDetails')}</Text>
-        <MaterialCommunityIcons name="chevron-right" size={20} color={colors.primary} />
-      </Pressable>
     </Animated.View>
   );
 });
@@ -175,65 +191,75 @@ const styles = StyleSheet.create({
     right: spacing.md,
     backgroundColor: colors.surface,
     borderRadius: spacing.md,
-    padding: spacing.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
     ...shadows.modal,
+  },
+  popupDark: {
+    backgroundColor: darkColors.surfaceCard,
   },
   popupHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    marginBottom: layout.cardMargin,
+    alignItems: 'center',
+    marginBottom: 6,
   },
   popupHeaderButtons: {
     flexDirection: 'row',
     gap: spacing.xs,
   },
   popupIconButton: {
-    padding: spacing.xs,
+    padding: 4,
   },
   popupInfo: {
     flex: 1,
     marginRight: spacing.sm,
   },
   popupTitle: {
-    fontSize: typography.cardTitle.fontSize,
+    fontSize: typography.body.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
-    marginBottom: spacing.xs,
+  },
+  popupTitleDark: {
+    color: darkColors.textPrimary,
   },
   popupDate: {
-    fontSize: typography.bodySmall.fontSize,
+    fontSize: typography.label.fontSize,
     color: colors.textSecondary,
+    marginTop: 1,
+  },
+  popupDateDark: {
+    color: darkColors.textSecondary,
   },
   popupStats: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
-    paddingVertical: layout.cardMargin,
-    borderTopWidth: 1,
-    borderTopColor: colors.divider,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.divider,
-    marginBottom: layout.cardMargin,
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: spacing.md,
+    paddingVertical: 6,
   },
+  popupStatsDark: {},
   popupStat: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 4,
   },
   popupStatValue: {
-    fontSize: typography.bodySmall.fontSize,
+    fontSize: typography.label.fontSize,
     fontWeight: '500',
     color: colors.textPrimary,
   },
-  viewDetailsButton: {
+  popupStatValueDark: {
+    color: darkColors.textPrimary,
+  },
+  viewDetailsInline: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.xs,
-    paddingVertical: spacing.sm,
+    paddingHorizontal: 6,
+    paddingVertical: 4,
   },
   viewDetailsText: {
-    fontSize: typography.body.fontSize,
+    fontSize: typography.label.fontSize,
     fontWeight: '600',
     color: colors.primary,
   },

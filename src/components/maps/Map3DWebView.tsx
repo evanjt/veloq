@@ -315,8 +315,15 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
             // Update sections layer — section consensus polylines (used by RegionalMapView
             // where there is no activity trace to overlay onto). ActivityMapView does not
             // pass sectionsGeoJSON, so this layer is hidden there.
+            // Match 2D: per-feature color from getSectionStyle (color property),
+            // thin dashed line so long sections do not dominate the 3D view.
             addLayerWithOutline('sections-source', 'sections-layer', sectionsData,
-              ['case', ['==', ['get', 'isPR'], true], '#D4AF37', '#00BCD4'], 5, 0.9);
+              ['case', ['==', ['get', 'isPR'], true], '#D4AF37', ['get', 'color']], 2.4, 0.95);
+            try {
+              if (window.map.getLayer('sections-layer')) {
+                window.map.setPaintProperty('sections-layer', 'line-dasharray', [2, 1.2]);
+              }
+            } catch (e) { /* noop */ }
 
             // Update traces layer — activity portion cutouts along the activity's own GPS trace.
             // PR = gold; non-PR = section palette indexed by colorIndex (matches 2D).

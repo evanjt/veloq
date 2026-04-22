@@ -338,7 +338,10 @@ export function useEngineSections(options: UseEngineSectionsOptions = {}): UseEn
         sections: convertedSections,
         totalCount: convertedSections.length,
       };
-    } catch {
+    } catch (e) {
+      if (__DEV__) {
+        console.warn('[useEngineSections] threw', e);
+      }
       return { sections: [], totalCount: 0 };
     }
   }, [trigger, sportType, minVisits, enabled]);

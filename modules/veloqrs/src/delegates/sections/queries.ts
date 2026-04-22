@@ -49,8 +49,10 @@ export function getSectionsFiltered(
   minVisits?: number
 ): FfiFrequentSection[] {
   if (!host.ready) return [];
+  // FfiConverterOptional* accepts undefined for "absent" but throws on null —
+  // forward optional args as-is, do NOT coalesce to null.
   return host.timed('getSectionsFiltered', () =>
-    host.engine.sections().getFiltered(sportType ?? null, minVisits ?? null)
+    host.engine.sections().getFiltered(sportType, minVisits)
   );
 }
 
@@ -139,7 +141,7 @@ export function getAllSectionsIncludingHidden(
 ): SectionSummary[] {
   if (!host.ready) return [];
   return host.timed('getAllSectionsIncludingHidden', () =>
-    host.engine.sections().getAllSummariesIncludingHidden(sportType ?? null)
+    host.engine.sections().getAllSummariesIncludingHidden(sportType)
   );
 }
 

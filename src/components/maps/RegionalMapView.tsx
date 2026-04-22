@@ -344,12 +344,16 @@ export function RegionalMapView({
     [autoToggleHandleRegionDidChange]
   );
 
-  // Clear selections when their corresponding group visibility is turned off
+  // Clear selections when their corresponding group visibility is turned off.
+  // Spider expansion (cluster fan-out) is part of the activities layer — when
+  // activities are hidden, the spider markers/legs must clear too, otherwise
+  // they linger and look like rogue activity markers.
   useEffect(() => {
-    if (!showActivities && selected) {
-      setSelected(null);
+    if (!showActivities) {
+      if (selected) setSelected(null);
+      if (spider) setSpider(null);
     }
-  }, [showActivities, selected]);
+  }, [showActivities, selected, spider]);
 
   useEffect(() => {
     if (!showSections && selectedSection) {
@@ -433,6 +437,7 @@ export function RegionalMapView({
         30, // 50+
       ] as unknown as number,
       circleOpacity: showActivities ? 0.8 : 0,
+      visibility: (showActivities ? 'visible' : 'none') as 'visible' | 'none',
     }),
     [showActivities]
   );
@@ -477,6 +482,7 @@ export function RegionalMapView({
           ] as unknown as string)
         : 'rgba(255, 255, 255, 0.8)',
       circleStrokeOpacity: showActivities ? 1 : 0,
+      visibility: (showActivities ? 'visible' : 'none') as 'visible' | 'none',
     }),
     [selectedActivityId, showActivities]
   );
@@ -489,6 +495,7 @@ export function RegionalMapView({
       circleStrokeWidth: 1.5,
       circleStrokeColor: '#FFFFFF',
       circleStrokeOpacity: showActivities ? 1 : 0,
+      visibility: (showActivities ? 'visible' : 'none') as 'visible' | 'none',
     }),
     [showActivities]
   );
@@ -497,21 +504,23 @@ export function RegionalMapView({
     () => ({
       lineColor: isDark ? 'rgba(255, 255, 255, 0.5)' : 'rgba(0, 0, 0, 0.3)',
       lineWidth: 1.5,
-      lineOpacity: spider ? 1 : 0,
+      lineOpacity: spider && showActivities ? 1 : 0,
+      visibility: (spider && showActivities ? 'visible' : 'none') as 'visible' | 'none',
     }),
-    [isDark, spider]
+    [isDark, spider, showActivities]
   );
 
   const spiderPointsStyle = useMemo(
     () => ({
       circleColor: ['get', 'color'] as unknown as string,
       circleRadius: 10,
-      circleOpacity: spider ? 1 : 0,
+      circleOpacity: spider && showActivities ? 1 : 0,
       circleStrokeWidth: 2,
       circleStrokeColor: '#FFFFFF',
-      circleStrokeOpacity: spider ? 1 : 0,
+      circleStrokeOpacity: spider && showActivities ? 1 : 0,
+      visibility: (spider && showActivities ? 'visible' : 'none') as 'visible' | 'none',
     }),
-    [spider]
+    [spider, showActivities]
   );
 
   const userLocationOuterStyle = useMemo(
@@ -575,9 +584,20 @@ export function RegionalMapView({
             routeColor={selected ? getActivityTypeConfig(selected.activity.type).color : undefined}
             initialCenter={currentCenterRef.current ?? mapCenter ?? undefined}
             initialZoom={currentZoomRef.current}
-            sectionsGeoJSON={showSections ? (sectionsGeoJSON ?? undefined) : undefined}
+            // Pass an empty FeatureCollection (not undefined) when toggled off
+            // so the WebView clears the previous data via setData; undefined
+            // leaves the layer's last value cached and visible.
+            sectionsGeoJSON={
+              showSections
+                ? (sectionsGeoJSON ?? EMPTY_FEATURE_COLLECTION)
+                : EMPTY_FEATURE_COLLECTION
+            }
             // In 3D mode, use showActivities directly (no zoom check - 3D doesn't track zoom)
-            tracesGeoJSON={showActivities ? (tracesGeoJSON ?? undefined) : undefined}
+            tracesGeoJSON={
+              showActivities
+                ? (tracesGeoJSON ?? EMPTY_FEATURE_COLLECTION)
+                : EMPTY_FEATURE_COLLECTION
+            }
             showHeatmap={showHeatmap}
             onSectionClick={handle3DSectionClick}
           />
@@ -648,6 +668,9 @@ export function RegionalMapView({
             onPress={handleSectionPress}
             hitbox={{ width: 44, height: 44 }}
           >
+            {/* Thin dashed section line — matches the dashed traces used in the
+                activity-detail map view. Width is intentionally modest so a
+                long section doesn't dominate the screen. */}
             <LineLayer
               id="sectionsLine"
               style={{
@@ -656,54 +679,35 @@ export function RegionalMapView({
                   ? [
                       'case',
                       ['==', ['get', 'id'], selectedSection.id],
-                      10, // Bold when selected
-                      6,
+                      4, // Slight emphasis when selected
+                      2,
                     ]
-                  : ['interpolate', ['linear'], ['zoom'], 6, 3, 10, 5, 14, 7, 18, 9],
+                  : ['interpolate', ['linear'], ['zoom'], 6, 1.2, 10, 1.8, 14, 2.4, 18, 3.2],
+                lineDasharray: [2, 1.2],
                 lineOpacity: showSections
                   ? selectedSection
                     ? ([
                         'case',
                         ['==', ['get', 'id'], selectedSection.id],
                         1,
-                        0.6, // Dim unselected to make selected pop
+                        0.55,
                       ] as unknown as number)
-                    : 1
+                    : 0.95
                   : 0,
-                lineCap: 'round',
+                lineCap: 'butt',
                 lineJoin: 'round',
               }}
             />
-            {/* Section outline — white border for contrast on any map style */}
+            {/* Subtle outline only when a section is selected — not on every
+                section, otherwise the lines look bulky again. */}
             <LineLayer
               id="sectionsOutline"
               style={{
-                lineColor: selectedSection
-                  ? [
-                      'case',
-                      ['==', ['get', 'id'], selectedSection.id],
-                      '#FFFFFF',
-                      'rgba(255,255,255,0.4)',
-                    ]
-                  : '#FFFFFF',
+                lineColor: '#FFFFFF',
                 lineWidth: selectedSection
-                  ? [
-                      'case',
-                      ['==', ['get', 'id'], selectedSection.id],
-                      14, // Wide glow behind selected section
-                      7,
-                    ]
-                  : ['interpolate', ['linear'], ['zoom'], 10, 6, 14, 8, 18, 10],
-                lineOpacity: showSections
-                  ? selectedSection
-                    ? [
-                        'case',
-                        ['==', ['get', 'id'], selectedSection.id],
-                        0.8, // Bright glow when selected
-                        0.35,
-                      ]
-                    : 0.55
+                  ? (['case', ['==', ['get', 'id'], selectedSection.id], 6, 0] as unknown as number)
                   : 0,
+                lineOpacity: selectedSection && showSections ? 0.8 : 0,
                 lineCap: 'round',
                 lineJoin: 'round',
               }}
@@ -854,21 +858,24 @@ export function RegionalMapView({
           <Text style={styles.attributionText}>{attributionText}</Text>
         </View>
       )}
-      {/* Selected activity popup - positioned above the timeline slider */}
+      {/* Selected activity popup — sits just above the bottom info bar
+          (attribution pill + filter chips). Tuned to leave a small breathing
+          gap above the attribution pill rather than the previous large
+          floating-mid-screen position. */}
       {selected && (
         <ActivityPopup
           selected={selected}
-          bottom={insets.bottom + 200}
+          bottom={insets.bottom + 250}
           onZoom={handleZoomToActivity}
           onClose={handleClosePopup}
           onViewDetails={handleViewDetails}
         />
       )}
-      {/* Section popup - shows when a section is tapped */}
+      {/* Section popup — same vertical anchor as ActivityPopup. */}
       {selectedSection && (
         <SectionPopup
           section={selectedSection}
-          bottom={insets.bottom + 200}
+          bottom={insets.bottom + 250}
           onClose={() => setSelectedSection(null)}
           onViewDetails={() => {
             setSelectedSection(null);
