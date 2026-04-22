@@ -331,6 +331,7 @@ export function useMapLayers({
           sectionId: overlay.id,
           label: isPRMarker ? 'PR' : String(index + 1),
           isPR: isPRMarker,
+          colorIndex: sectionPaletteIndex(overlay.id),
         },
         geometry: { type: 'Point', coordinates: [markerLng, markerLat] },
       });

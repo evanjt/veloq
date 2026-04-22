@@ -1,5 +1,5 @@
-import React, { memo, useCallback, useMemo } from 'react';
-import { View, StyleSheet, Pressable, Platform } from 'react-native';
+import React, { memo, useCallback, useMemo, useRef } from 'react';
+import { View, StyleSheet, Pressable, Platform, Text as RNText } from 'react-native';
 import { Text } from 'react-native-paper';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -30,10 +30,13 @@ interface SectionInlinePlotProps {
   isDark: boolean;
   isMetric: boolean;
   onPress: (sectionId: string) => void;
-  onLongPress: (sectionId: string) => void;
+  onLongPress?: (sectionId: string) => void;
   onSwipeableOpen: (sectionId: string) => void;
   /** Report measured row layout for drag-scrub row detection */
   onRowLayout?: (sectionId: string, y: number, height: number) => void;
+  /** Register/unregister this row's outer View so the parent can re-measure
+   *  it on demand (outer-page scroll invalidates the cached pageY). */
+  registerRowRef?: (sectionId: string, ref: View | null) => void;
   renderRightActions: (
     progress: Animated.AnimatedInterpolation<number>,
     dragX: Animated.AnimatedInterpolation<number>
@@ -54,6 +57,7 @@ export const SectionInlinePlot = memo(
     onLongPress,
     onSwipeableOpen,
     onRowLayout,
+    registerRowRef,
     renderRightActions,
     swipeableRefs,
   }: SectionInlinePlotProps) {
@@ -95,15 +99,28 @@ export const SectionInlinePlot = memo(
       encounter.direction,
     ]);
 
+    // Report the row's absolute window-Y (not parent-relative y) so the parent
+    // scrub gesture can map a finger pageY to a row directly.
+    const rowRef = useRef<View>(null);
     const handleLayout = useCallback(
       (e: { nativeEvent: { layout: { y: number; height: number } } }) => {
-        onRowLayout?.(encounter.sectionId, e.nativeEvent.layout.y, e.nativeEvent.layout.height);
+        const { height } = e.nativeEvent.layout;
+        rowRef.current?.measureInWindow?.((_x: number, pageY: number) => {
+          onRowLayout?.(encounter.sectionId, pageY, height);
+        });
       },
       [onRowLayout, encounter.sectionId]
     );
 
     return (
-      <View testID={`section-inline-plot-${index}`} onLayout={handleLayout}>
+      <View
+        ref={(r) => {
+          rowRef.current = r;
+          registerRowRef?.(encounter.sectionId, r);
+        }}
+        testID={`section-inline-plot-${index}`}
+        onLayout={handleLayout}
+      >
         <Swipeable
           ref={(ref) => {
             if (ref) {
@@ -135,30 +152,26 @@ export const SectionInlinePlot = memo(
                   {displayName}
                 </Text>
                 <View style={styles.metaRow}>
-                  <Text
-                    style={[styles.meta, isDark && styles.textMuted]}
-                    numberOfLines={1}
-                    ellipsizeMode="tail"
-                  >
+                  <RNText style={[styles.meta, isDark && styles.textMuted]}>
                     {formatDistance(encounter.distanceMeters, isMetric)} · {encounter.visitCount}{' '}
                     {t('routes.visits')}
-                  </Text>
-                  {encounter.lapTime > 0 && (
-                    <>
-                      <Text style={[styles.meta, isDark && styles.textMuted]}> · </Text>
-                      <Text style={[styles.timeValue, isDark && styles.textLight]}>
-                        {formatPace(encounter.distanceMeters / encounter.lapTime, isMetric)}
-                      </Text>
-                      {encounter.isPr && (
-                        <MaterialCommunityIcons
-                          testID={`section-inline-trophy-${index}`}
-                          name="trophy"
-                          size={11}
-                          color={brand.gold}
-                          style={{ marginLeft: 2 }}
-                        />
-                      )}
-                    </>
+                    {encounter.lapTime > 0 && (
+                      <>
+                        <RNText style={[styles.meta, isDark && styles.textMuted]}> · </RNText>
+                        <RNText style={[styles.timeValue, isDark && styles.textLight]}>
+                          {formatPace(encounter.distanceMeters / encounter.lapTime, isMetric)}
+                        </RNText>
+                      </>
+                    )}
+                  </RNText>
+                  {encounter.isPr && (
+                    <MaterialCommunityIcons
+                      testID={`section-inline-trophy-${index}`}
+                      name="trophy"
+                      size={11}
+                      color={brand.gold}
+                      style={{ marginLeft: 2 }}
+                    />
                   )}
                 </View>
               </View>
@@ -236,7 +249,6 @@ const styles = StyleSheet.create({
   metaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    flexWrap: 'wrap',
   },
   textLight: {
     color: darkColors.textPrimary,

@@ -428,7 +428,10 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
                     filter: ['!=', ['get', 'isPR'], true],
                     paint: {
                       'circle-radius': 12,
-                      'circle-color': '#3F3F46',
+                      'circle-color': ['match', ['get', 'colorIndex'],
+                        0, '#00BCD4', 1, '#AB47BC', 2, '#FF7043', 3, '#66BB6A',
+                        4, '#42A5F5', 5, '#FFCA28', 6, '#26A69A', 7, '#EC407A',
+                        '#00BCD4'],
                       'circle-stroke-width': 2,
                       'circle-stroke-color': '#FFFFFF',
                     },

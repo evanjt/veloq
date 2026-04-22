@@ -159,7 +159,7 @@ export default function ActivityDetailScreen() {
   } = useActivityRematch();
 
   // Section encounters for the sections tab (one entry per section+direction)
-  const { encounters, isLoading: encountersLoading } = useSectionEncounters(id);
+  const { encounters: encountersRaw, isLoading: encountersLoading } = useSectionEncounters(id);
 
   // Filter custom sections that match this activity (still needed for map overlays)
   const customMatchedSections = useMemo(() => {
@@ -180,6 +180,49 @@ export default function ActivityDetailScreen() {
     customMatchedSections,
     coordinates
   );
+
+  // Sort encounters by where each section starts within this activity so the
+  // numbered rows follow the trace from start to finish (1 → N). Uses
+  // sectionOverlays.activityPortion (the GPS slice for this activity) and
+  // finds its first coord's nearest index in the activity's full track.
+  const encounters = useMemo(() => {
+    if (!id || encountersRaw.length === 0) return encountersRaw;
+    if (!sectionOverlays || sectionOverlays.length === 0) return encountersRaw;
+    if (coordinates.length === 0) return encountersRaw;
+
+    const findNearestIndex = (targetLat: number, targetLng: number): number => {
+      let best = 0;
+      let bestDist = Number.POSITIVE_INFINITY;
+      for (let i = 0; i < coordinates.length; i++) {
+        const c = coordinates[i];
+        const dLat = c.latitude - targetLat;
+        const dLng = c.longitude - targetLng;
+        const d = dLat * dLat + dLng * dLng;
+        if (d < bestDist) {
+          bestDist = d;
+          best = i;
+        }
+      }
+      return best;
+    };
+
+    const startIndexById = new Map<string, number>();
+    for (const overlay of sectionOverlays) {
+      // Prefer the activity's own portion when extractSectionTrace has run; fall
+      // back to the section's consensus polyline first coord otherwise so the
+      // sort still works on first render.
+      const first = overlay.activityPortion?.[0] ?? overlay.sectionPolyline?.[0];
+      if (!first) continue;
+      startIndexById.set(overlay.id, findNearestIndex(first.latitude, first.longitude));
+    }
+
+    const INF = Number.MAX_SAFE_INTEGER;
+    return [...encountersRaw].sort((a, b) => {
+      const ai = startIndexById.get(a.sectionId) ?? INF;
+      const bi = startIndexById.get(b.sectionId) ?? INF;
+      return ai - bi;
+    });
+  }, [encountersRaw, sectionOverlays, coordinates, id]);
 
   // Tabs configuration
   const tabs = useMemo<SwipeableTab[]>(() => {
