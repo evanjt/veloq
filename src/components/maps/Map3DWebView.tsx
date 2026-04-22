@@ -52,6 +52,11 @@ interface Map3DWebViewProps {
   sectionBoundariesGeoJSON?: GeoJSON.FeatureCollection;
   /** GeoJSON for section marker circles (numbered/PR labels) */
   sectionMarkersGeoJSON?: GeoJSON.FeatureCollection;
+  /** GeoJSON for activity point markers — colored circles per activity, used by
+   *  the global map in 3D so the view matches the 2D markers/clusters paradigm
+   *  instead of drawing every full activity polyline. Features must carry
+   *  `properties.color` (hex string) and may carry `properties.size`. */
+  pointMarkersGeoJSON?: GeoJSON.FeatureCollection;
   /** Highlight marker position as [lng, lat] (from chart scrubbing) */
   highlightCoordinate?: [number, number] | null;
   /** Section ID currently highlighted (from list row press). Dims other portions. */
@@ -88,6 +93,8 @@ interface Map3DWebViewPropsInternal extends Map3DWebViewProps {
   onMapClick?: (coordinate: [number, number]) => void;
   /** Called when user taps on a section line feature */
   onSectionClick?: (sectionId: string) => void;
+  /** Called when user taps on an activity point marker (global map only) */
+  onActivityClick?: (activityId: string) => void;
   /** GeoJSON for section creation line (start to end highlight) */
   sectionCreationGeoJSON?: GeoJSON.FeatureCollection | GeoJSON.Feature | null;
   /** Section creation start marker [lng, lat] */
@@ -121,6 +128,7 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       tracesGeoJSON,
       sectionBoundariesGeoJSON,
       sectionMarkersGeoJSON,
+      pointMarkersGeoJSON,
       highlightCoordinate,
       highlightedSectionId,
       showHeatmap = false,
@@ -130,6 +138,7 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       initialCamera,
       onMapClick,
       onSectionClick,
+      onActivityClick,
       sectionCreationGeoJSON,
       sectionCreationStart,
       sectionCreationEnd,
@@ -151,14 +160,17 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
     const sectionsGeoJSONRef = useRef(sectionsGeoJSON);
     const tracesGeoJSONRef = useRef(tracesGeoJSON);
     const sectionMarkersGeoJSONRef = useRef(sectionMarkersGeoJSON);
+    const pointMarkersGeoJSONRef = useRef(pointMarkersGeoJSON);
     const sectionBoundariesGeoJSONRef = useRef(sectionBoundariesGeoJSON);
     const highlightedSectionIdRef = useRef(highlightedSectionId);
 
     // Store callback refs to avoid stale closures in message handler
     const onMapClickRef = useRef(onMapClick);
     const onSectionClickRef = useRef(onSectionClick);
+    const onActivityClickRef = useRef(onActivityClick);
     onMapClickRef.current = onMapClick;
     onSectionClickRef.current = onSectionClick;
+    onActivityClickRef.current = onActivityClick;
 
     // Store initial center/zoom/camera in refs - only used on first render
     // This prevents HTML regeneration when parent updates these values
@@ -183,6 +195,7 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       sectionsGeoJSONRef.current = sectionsGeoJSON;
       tracesGeoJSONRef.current = tracesGeoJSON;
       sectionMarkersGeoJSONRef.current = sectionMarkersGeoJSON;
+      pointMarkersGeoJSONRef.current = pointMarkersGeoJSON;
       sectionBoundariesGeoJSONRef.current = sectionBoundariesGeoJSON;
       highlightedSectionIdRef.current = highlightedSectionId;
     }, [
@@ -190,6 +203,7 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       sectionsGeoJSON,
       tracesGeoJSON,
       sectionMarkersGeoJSON,
+      pointMarkersGeoJSON,
       sectionBoundariesGeoJSON,
       highlightedSectionId,
     ]);
@@ -211,6 +225,9 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
         : 'null';
       const sectionMarkersJSON = sectionMarkersGeoJSONRef.current
         ? JSON.stringify(sectionMarkersGeoJSONRef.current)
+        : 'null';
+      const pointMarkersJSON = pointMarkersGeoJSONRef.current
+        ? JSON.stringify(pointMarkersGeoJSONRef.current)
         : 'null';
       const boundariesJSON = sectionBoundariesGeoJSONRef.current
         ? JSON.stringify(sectionBoundariesGeoJSONRef.current)
@@ -244,6 +261,7 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
             const sectionsData = ${sectionsJSON};
             const tracesData = ${tracesJSON};
             const sectionMarkersData = ${sectionMarkersJSON};
+            const pointMarkersData = ${pointMarkersJSON};
             const sectionBoundariesData = ${boundariesJSON};
             const highlightedSectionId = ${highlightIdJSON};
 
@@ -503,10 +521,50 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
               addMarkerLayers();
             }
 
+            // Activity point markers — used by the global map in 3D as a
+            // points-only equivalent of the 2D markers/clusters layer. We
+            // intentionally skip MapLibre supercluster here to keep the
+            // implementation simple; the marker count on global is in the
+            // hundreds and renders fine as raw points.
+            try {
+              var pointSourceExists = !!window.map.getSource('activity-points-source');
+              var hasPoints = pointMarkersData && pointMarkersData.features && pointMarkersData.features.length > 0;
+              if (pointSourceExists) {
+                if (hasPoints) {
+                  window.map.getSource('activity-points-source').setData(pointMarkersData);
+                  window.map.setLayoutProperty('activity-points-layer', 'visibility', 'visible');
+                } else {
+                  window.map.setLayoutProperty('activity-points-layer', 'visibility', 'none');
+                }
+              } else if (hasPoints) {
+                window.map.addSource('activity-points-source', { type: 'geojson', data: pointMarkersData });
+                window.map.addLayer({
+                  id: 'activity-points-layer',
+                  type: 'circle',
+                  source: 'activity-points-source',
+                  paint: {
+                    'circle-color': ['get', 'color'],
+                    'circle-radius': [
+                      'interpolate', ['linear'], ['zoom'],
+                      6, 4,
+                      10, 6,
+                      14, 8,
+                      18, 10
+                    ],
+                    'circle-opacity': 0.9,
+                    'circle-stroke-color': '#FFFFFF',
+                    'circle-stroke-width': 1.5,
+                    'circle-stroke-opacity': 0.8,
+                  },
+                });
+              }
+            } catch (e) { console.warn('activity-points layer error:', e); }
+
             console.log('[3D] Layers updated - routes:', routesData?.features?.length || 0,
                         'sections:', sectionsData?.features?.length || 0,
                         'traces:', tracesData?.features?.length || 0,
-                        'markers:', sectionMarkersData?.features?.length || 0);
+                        'sectionMarkers:', sectionMarkersData?.features?.length || 0,
+                        'pointMarkers:', pointMarkersData?.features?.length || 0);
           }
 
           addOrUpdateLayers();
@@ -556,6 +614,11 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
             onSectionClickRef.current?.(data.sectionId);
           }
         },
+        activityClick: (data: WebViewBridgeMessage) => {
+          if (typeof data.activityId === 'string') {
+            onActivityClickRef.current?.(data.activityId);
+          }
+        },
         heatmapTileRequest: (data: WebViewBridgeMessage) => {
           if (!data.requestId || !data.tilePath) return;
           const requestId = data.requestId as string;
@@ -574,26 +637,28 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
             .then((base64) => {
               if (!webViewRef.current) return;
               if (base64) {
+                // MapLibre's addProtocol expects { data: ArrayBuffer } for raster
+                // tiles. The previous implementation passed an Image (decode
+                // failed) and built a Blob via `new Blob([atob(b64)])` which
+                // re-encodes the binary string as UTF-8 — the PNG bytes get
+                // mangled. Convert base64 → Uint8Array → ArrayBuffer manually
+                // by walking charCodeAt to preserve raw bytes.
                 webViewRef.current.injectJavaScript(`
                   (function() {
                     var req = window._heatmapRequests && window._heatmapRequests['${requestId}'];
-                    if (req) {
+                    if (!req) return;
+                    try {
                       var binary = atob('${base64}');
-                      var blob = new Blob([binary], { type: 'image/png' });
-                      var url = URL.createObjectURL(blob);
-                      var img = new Image();
-                      img.onload = function() {
-                        URL.revokeObjectURL(url);
-                        req.resolve({ data: img });
-                        delete window._heatmapRequests['${requestId}'];
-                      };
-                      img.onerror = function() {
-                        URL.revokeObjectURL(url);
-                        req.reject(new Error('heatmap image decode failed'));
-                        delete window._heatmapRequests['${requestId}'];
-                      };
-                      img.src = url;
+                      var len = binary.length;
+                      var bytes = new Uint8Array(len);
+                      for (var i = 0; i < len; i++) {
+                        bytes[i] = binary.charCodeAt(i);
+                      }
+                      req.resolve({ data: bytes.buffer });
+                    } catch (err) {
+                      req.reject(new Error('heatmap base64 decode failed: ' + err));
                     }
+                    delete window._heatmapRequests['${requestId}'];
                   })();
                   true;
                 `);
@@ -640,6 +705,7 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       sectionsGeoJSON,
       tracesGeoJSON,
       sectionMarkersGeoJSON,
+      pointMarkersGeoJSON,
       sectionBoundariesGeoJSON,
       highlightedSectionId,
       updateLayers,
@@ -760,7 +826,9 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
             window.map.setStyle(styleObj);
             console.log('[3D] Style changed via setStyle()');
 
-            // Re-add heatmap raster overlay (setStyle clears all sources/layers)
+            // Re-add heatmap raster overlay (setStyle clears all sources/layers).
+            // Probe for 'route-outline' before inserting under it — it's only
+            // present in activity-detail mode (when route coordinates exist).
             window.map.once('style.load', function() {
               if (!window.map.getSource('heatmap-tiles')) {
                 var isLight = '${mapStyle}' === 'light';
@@ -771,6 +839,7 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
                   minzoom: 5,
                   maxzoom: 17
                 });
+                var heatmapBeforeId = window.map.getLayer('route-outline') ? 'route-outline' : undefined;
                 window.map.addLayer({
                   id: 'heatmap-layer',
                   type: 'raster',
@@ -783,7 +852,7 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
                     'raster-fade-duration': 0,
                     'raster-resampling': 'linear'
                   }
-                }, 'route-outline');
+                }, heatmapBeforeId);
               }
             });
           }

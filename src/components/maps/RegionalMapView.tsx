@@ -592,14 +592,18 @@ export function RegionalMapView({
                 ? (sectionsGeoJSON ?? EMPTY_FEATURE_COLLECTION)
                 : EMPTY_FEATURE_COLLECTION
             }
-            // In 3D mode, use showActivities directly (no zoom check - 3D doesn't track zoom)
-            tracesGeoJSON={
-              showActivities
-                ? (tracesGeoJSON ?? EMPTY_FEATURE_COLLECTION)
-                : EMPTY_FEATURE_COLLECTION
-            }
+            // Global map in 3D mirrors the 2D paradigm: only points, never the
+            // full activity polylines. tracesGeoJSON is always empty here;
+            // activity locations come through pointMarkersGeoJSON below as
+            // colored circles per sport (no polylines).
+            tracesGeoJSON={EMPTY_FEATURE_COLLECTION}
+            pointMarkersGeoJSON={showActivities ? markersGeoJSON : EMPTY_FEATURE_COLLECTION}
             showHeatmap={showHeatmap}
             onSectionClick={handle3DSectionClick}
+            onActivityClick={(activityId) => {
+              const activity = activities.find((a) => a.id === activityId);
+              if (activity) handleMarkerTap(activity);
+            }}
           />
         </ComponentErrorBoundary>
       ) : (

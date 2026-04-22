@@ -588,7 +588,26 @@ export function buildMap3DHtml(config: Map3DHtmlConfig): string {
 
       // Click handler — posts map coordinates back to React Native
       map.on('click', function(e) {
-        // Check if the click hit a section line feature first
+        // Check if the click hit an activity point marker first (global map points)
+        try {
+          if (map.getLayer('activity-points-layer')) {
+            var activityFeatures = map.queryRenderedFeatures(e.point, { layers: ['activity-points-layer'] });
+            if (activityFeatures && activityFeatures.length > 0) {
+              var aProps = activityFeatures[0].properties;
+              var activityId = aProps && aProps.id;
+              if (activityId && window.ReactNativeWebView) {
+                window.ReactNativeWebView.postMessage(JSON.stringify({
+                  type: 'activityClick',
+                  activityId: String(activityId)
+                }));
+                return;
+              }
+            }
+          }
+        } catch (err) {
+          // queryRenderedFeatures may fail if layer was just removed — ignore
+        }
+        // Then check section line features
         try {
           if (map.getLayer('sections-layer')) {
             var sectionFeatures = map.queryRenderedFeatures(e.point, { layers: ['sections-layer'] });
@@ -616,7 +635,11 @@ export function buildMap3DHtml(config: Map3DHtmlConfig): string {
         }
       });
 
-      // Heatmap raster overlay (reads tiles from device filesystem via heatmap-file:// protocol)
+      // Heatmap raster overlay (reads tiles from device filesystem via heatmap-file:// protocol).
+      // The beforeId 'route-outline' only exists on activity-detail maps (when coordinates
+      // were passed); on the global map the route layer is never added, so passing the
+      // missing layer id silently drops the addLayer in some MapLibre versions. Probe
+      // for it and only insert behind it when present.
       var showHeatmap = ${showHeatmap};
       var isLightMap = '${mapStyle}' === 'light';
       map.addSource('heatmap-tiles', {
@@ -626,6 +649,7 @@ export function buildMap3DHtml(config: Map3DHtmlConfig): string {
         minzoom: 5,
         maxzoom: 17
       });
+      var heatmapBeforeId = map.getLayer('route-outline') ? 'route-outline' : undefined;
       map.addLayer({
         id: 'heatmap-layer',
         type: 'raster',
@@ -638,7 +662,7 @@ export function buildMap3DHtml(config: Map3DHtmlConfig): string {
           'raster-fade-duration': 0,
           'raster-resampling': 'linear'
         }
-      }, 'route-outline');
+      }, heatmapBeforeId);
 
       // Terrain-first ready detection — only wait for DEM terrain and route sources,
       // not ALL tiles. At 60° pitch, horizon vector/label tiles are deprioritized and
