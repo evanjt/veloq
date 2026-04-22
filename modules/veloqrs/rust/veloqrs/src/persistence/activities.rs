@@ -177,7 +177,7 @@ impl PersistentRouteEngine {
         let metadata = ActivityMetadata {
             id: id.clone(),
             sport_type,
-            bounds,
+            bounds: bounds.clone(),
         };
         self.activity_metadata.insert(id.clone(), metadata);
 
@@ -187,6 +187,34 @@ impl PersistentRouteEngine {
         // Mark computed results as dirty
         self.groups_dirty = true;
         self.sections_dirty = true;
+
+        // Invalidate heatmap tiles covering the inserted activity so the
+        // background generator re-renders them with the full set of overlapping
+        // tracks. Without this, the "skip existing tiles" fast-path would
+        // silently drop the new trace from any tile that was already rendered
+        // from an earlier activity — leaving visible gaps at all zoom levels.
+        if let Some(ref tiles_path) = self.heatmap_tiles_path {
+            let config = crate::tiles::HeatmapConfig::default();
+            let path = std::path::Path::new(tiles_path);
+            let margin = 0.001; // ~111m at equator, matches remove_activity
+            let deleted = crate::tiles::invalidate_tiles_in_bounds(
+                path,
+                bounds.min_lat - margin,
+                bounds.max_lat + margin,
+                bounds.min_lng - margin,
+                bounds.max_lng + margin,
+                config.min_zoom,
+                config.max_zoom,
+            );
+            if deleted > 0 {
+                log::info!(
+                    "[heatmap] Invalidated {} tiles for new activity {}",
+                    deleted,
+                    id
+                );
+            }
+            self.mark_heatmap_dirty();
+        }
 
         Ok(())
     }
