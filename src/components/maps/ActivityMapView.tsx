@@ -94,10 +94,8 @@ import {
   Modal,
   StatusBar,
   Animated,
-  Text,
   Platform,
   ActivityIndicator,
-  Dimensions,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import {
@@ -147,7 +145,6 @@ import {
 } from './mapStyles';
 import { AttributionOverlay, type AttributionOverlayRef } from './AttributionOverlay';
 import type { ActivityType, ActivityStreams, RoutePoint } from '@/types';
-import { GRADIENT_COLOR_STOPS } from '@/lib/maps/gradientLineColor';
 
 /** Section overlay for map visualization */
 export interface SectionOverlay {
@@ -344,8 +341,8 @@ export const ActivityMapView = memo(function ActivityMapView({
     overlayGeoJSON,
     overlayHasData,
     sectionOverlaysGeoJSON,
-    consolidatedSectionsGeoJSON,
     consolidatedPortionsGeoJSON,
+    sectionBoundariesGeoJSON,
     sectionMarkersGeoJSON,
     fullscreenPRMarkersGeoJSON,
     routeCoords,
@@ -776,59 +773,28 @@ export const ActivityMapView = memo(function ActivityMapView({
               />
             </ShapeSource>
 
-            {/* Section overlays - render after route line so they appear on top */}
-            {/* CRITICAL: Always render stable ShapeSources to avoid Fabric crash */}
-            {/* Using consolidated GeoJSONs prevents add/remove cycles during state changes */}
-            {/* PR sections are EXCLUDED from the canonical section layer — only the
-                activity's actual GPS cutout (portion overlay below) is drawn so the
-                user sees what they actually rode, not the averaged consensus line. */}
-            <ShapeSource id="section-overlays-consolidated" shape={consolidatedSectionsGeoJSON}>
+            {/* Section portion overlays - render after route line so they appear on top.
+                One line per section, drawn along the activity's own GPS trace (not the
+                averaged section consensus). White casing for contrast, PR gold or section
+                palette color for fill. */}
+            {/* CRITICAL: Always render stable ShapeSource to avoid Fabric crash */}
+            <ShapeSource id="portion-overlays-consolidated" shape={consolidatedPortionsGeoJSON}>
               <LineLayer
-                id="section-overlays-casing"
-                filter={['!=', ['get', 'isPR'], true] as unknown as never}
+                id="portion-overlays-casing"
                 style={{
-                  lineColor: highlightedSectionId
-                    ? [
-                        'case',
-                        ['==', ['get', 'id'], highlightedSectionId],
-                        '#FFFFFF',
-                        'transparent',
-                      ]
-                    : 'transparent',
+                  lineColor: '#FFFFFF',
                   lineWidth: highlightedSectionId
-                    ? ['case', ['==', ['get', 'id'], highlightedSectionId], 10, 0]
-                    : 0,
-                  lineCap: 'round',
-                  lineJoin: 'round',
-                  lineOpacity: 0.9,
-                }}
-              />
-              <LineLayer
-                id="section-overlays-line"
-                filter={['!=', ['get', 'isPR'], true] as unknown as never}
-                style={{
-                  lineColor: highlightedSectionId
-                    ? [
-                        'case',
-                        ['==', ['get', 'id'], highlightedSectionId],
-                        '#FFAB00',
-                        sectionPaletteExpression() as unknown as string,
-                      ]
-                    : (sectionPaletteExpression() as unknown as string),
-                  lineWidth: highlightedSectionId
-                    ? ['case', ['==', ['get', 'id'], highlightedSectionId], 7, 4]
-                    : 5,
+                    ? ['case', ['==', ['get', 'id'], highlightedSectionId], 7, 5]
+                    : 6,
                   lineCap: 'round',
                   lineJoin: 'round',
                   lineOpacity: sectionOverlaysGeoJSON
                     ? highlightedSectionId
                       ? ['case', ['==', ['get', 'id'], highlightedSectionId], 1, 0.15]
-                      : 0.7
+                      : 0.9
                     : 0,
                 }}
               />
-            </ShapeSource>
-            <ShapeSource id="portion-overlays-consolidated" shape={consolidatedPortionsGeoJSON}>
               <LineLayer
                 id="portion-overlays-line"
                 style={{
@@ -836,20 +802,57 @@ export const ActivityMapView = memo(function ActivityMapView({
                     ? [
                         'case',
                         ['==', ['get', 'id'], highlightedSectionId],
-                        '#FFAB00',
-                        ['case', ['==', ['get', 'isPR'], true], '#D4AF37', '#E91E63'],
+                        '#00E5FF',
+                        [
+                          'case',
+                          ['==', ['get', 'isPR'], true],
+                          '#D4AF37',
+                          sectionPaletteExpression() as unknown as string,
+                        ],
                       ]
-                    : ['case', ['==', ['get', 'isPR'], true], '#D4AF37', '#E91E63'],
+                    : [
+                        'case',
+                        ['==', ['get', 'isPR'], true],
+                        '#D4AF37',
+                        sectionPaletteExpression() as unknown as string,
+                      ],
                   lineWidth: highlightedSectionId
                     ? ['case', ['==', ['get', 'id'], highlightedSectionId], 5, 3]
                     : 4,
-                  lineCap: 'round',
+                  lineCap: 'butt',
                   lineJoin: 'round',
+                  // Dashed pattern so overlapping sections are visually
+                  // distinguishable (you can see the other color showing through the gaps).
+                  lineDasharray: [2, 1.2],
                   lineOpacity: sectionOverlaysGeoJSON
                     ? highlightedSectionId
-                      ? ['case', ['==', ['get', 'id'], highlightedSectionId], 1, 0.15]
-                      : 1
+                      ? ['case', ['==', ['get', 'id'], highlightedSectionId], 1, 0.25]
+                      : 0.95
                     : 0,
+                }}
+              />
+            </ShapeSource>
+
+            {/* Section boundary ticks — perpendicular short line segments at each
+                portion's start/end. Always rendered, drawn above portions so section
+                breaks are visible even where portions overlap. */}
+            <ShapeSource id="section-boundaries" shape={sectionBoundariesGeoJSON}>
+              <LineLayer
+                id="section-boundaries-casing"
+                style={{
+                  lineColor: '#000000',
+                  lineWidth: 6,
+                  lineCap: 'round',
+                  lineOpacity: 0.45,
+                }}
+              />
+              <LineLayer
+                id="section-boundaries-line"
+                style={{
+                  lineColor: '#FFFFFF',
+                  lineWidth: 3.5,
+                  lineCap: 'round',
+                  lineOpacity: 1,
                 }}
               />
             </ShapeSource>
@@ -958,12 +961,20 @@ export const ActivityMapView = memo(function ActivityMapView({
               }}
             >
               <CircleLayer
+                id="section-marker-border"
+                filter={['!=', ['get', 'isPR'], true] as unknown as never}
+                style={{
+                  circleRadius: 13,
+                  circleColor: '#FFFFFF',
+                }}
+              />
+              <CircleLayer
                 id="section-marker-circle"
                 filter={['!=', ['get', 'isPR'], true] as unknown as never}
                 style={{
-                  circleRadius: 6,
+                  circleRadius: 11,
                   circleColor: colors.gray700,
-                  circleStrokeWidth: 1.5,
+                  circleStrokeWidth: 2,
                   circleStrokeColor: '#FFFFFF',
                 }}
               />
@@ -988,7 +999,7 @@ export const ActivityMapView = memo(function ActivityMapView({
                   textColor: '#FFFFFF',
                   textHaloColor: '#000000',
                   textHaloWidth: 0.6,
-                  textSize: 8,
+                  textSize: 11,
                   textAnchor: 'center',
                   textAllowOverlap: true,
                   textIgnorePlacement: true,
@@ -1039,11 +1050,17 @@ export const ActivityMapView = memo(function ActivityMapView({
                 highlightCoordinate={
                   highlightPoint ? [highlightPoint.longitude, highlightPoint.latitude] : null
                 }
-                sectionsGeoJSON={
-                  consolidatedSectionsGeoJSON.features.length > 0
-                    ? consolidatedSectionsGeoJSON
+                tracesGeoJSON={
+                  consolidatedPortionsGeoJSON.features.length > 0
+                    ? consolidatedPortionsGeoJSON
                     : undefined
                 }
+                sectionBoundariesGeoJSON={
+                  sectionBoundariesGeoJSON.features.length > 0
+                    ? sectionBoundariesGeoJSON
+                    : undefined
+                }
+                highlightedSectionId={highlightedSectionId}
                 sectionMarkersGeoJSON={
                   sectionMarkersGeoJSON.features.length > 0 ? sectionMarkersGeoJSON : undefined
                 }
@@ -1073,63 +1090,8 @@ export const ActivityMapView = memo(function ActivityMapView({
           <AttributionOverlay
             ref={attributionRef}
             initialAttribution={initialAttributionRef.current}
-            isFullscreen={isFullscreen}
           />
         )}
-
-        {/* Gradient legend — shown when "color by gradient" is active (2D only; no effect in 3D) */}
-        {gradientActive && !isFullscreen && !is3DMode && (
-          <View style={styles.gradientLegend}>
-            <View style={styles.gradientBar}>
-              {GRADIENT_COLOR_STOPS.map((stop) => (
-                <View
-                  key={stop.percent}
-                  style={[styles.gradientBarStop, { backgroundColor: stop.color }]}
-                />
-              ))}
-            </View>
-            <View style={styles.gradientLabels}>
-              <Text style={styles.gradientLabel}>-30%</Text>
-              <Text style={styles.gradientLabel}>0%</Text>
-              <Text style={styles.gradientLabel}>+30%</Text>
-            </View>
-          </View>
-        )}
-
-        {/* Route overlay legend */}
-        {overlayHasData && !isFullscreen && (
-          <View style={styles.overlayLegend}>
-            <View style={styles.legendRow}>
-              <View style={[styles.legendLine, { backgroundColor: '#00E5FF' }]} />
-              <Text style={styles.legendText}>{t('routes.legendRoute')}</Text>
-            </View>
-            <View style={styles.legendRow}>
-              <View style={[styles.legendLine, { backgroundColor: activityColor }]} />
-              <Text style={styles.legendText}>{t('routes.thisActivity')}</Text>
-            </View>
-          </View>
-        )}
-
-        {/* Section overlays legend — only on Sections tab */}
-        {activeTab === 'sections' &&
-          sectionOverlaysGeoJSON &&
-          sectionOverlaysGeoJSON.length > 0 &&
-          !isFullscreen && (
-            <View style={styles.overlayLegend}>
-              <View style={styles.legendRow}>
-                <View style={[styles.legendLine, { backgroundColor: sectionPalette[0] }]} />
-                <Text style={styles.legendText}>{t('routes.legendSection')}</Text>
-              </View>
-              <View style={styles.legendRow}>
-                <View style={[styles.legendLine, { backgroundColor: '#E91E63' }]} />
-                <Text style={styles.legendText}>{t('routes.legendYourEffort')}</Text>
-              </View>
-              <View style={styles.legendRow}>
-                <View style={[styles.legendLine, { backgroundColor: activityColor }]} />
-                <Text style={styles.legendText}>{t('routes.legendFullActivity')}</Text>
-              </View>
-            </View>
-          )}
       </View>
 
       {/* Control buttons - rendered OUTSIDE map container for reliable touch handling */}
@@ -1269,26 +1231,29 @@ export const ActivityMapView = memo(function ActivityMapView({
           initialStyle={mapStyle}
           onClose={closeFullscreen}
         >
-          {/* Section overlays in fullscreen */}
-          {/* CRITICAL: Always render stable ShapeSources to avoid Fabric crash */}
-          <ShapeSource id="fs-section-overlays-consolidated" shape={consolidatedSectionsGeoJSON}>
+          {/* Section portion overlays in fullscreen - one line per section, drawn along
+              the activity's own GPS trace with white casing for contrast. */}
+          {/* CRITICAL: Always render stable ShapeSource to avoid Fabric crash */}
+          <ShapeSource id="fs-portion-overlays-consolidated" shape={consolidatedPortionsGeoJSON}>
             <LineLayer
-              id="fs-section-overlays-line"
-              filter={['!=', ['get', 'isPR'], true] as unknown as never}
+              id="fs-portion-overlays-casing"
               style={{
-                lineColor: sectionPaletteExpression() as unknown as string,
-                lineWidth: 5,
+                lineColor: '#FFFFFF',
+                lineWidth: 6,
                 lineCap: 'round',
                 lineJoin: 'round',
-                lineOpacity: sectionOverlaysGeoJSON ? 0.7 : 0,
+                lineOpacity: sectionOverlaysGeoJSON ? 0.9 : 0,
               }}
             />
-          </ShapeSource>
-          <ShapeSource id="fs-portion-overlays-consolidated" shape={consolidatedPortionsGeoJSON}>
             <LineLayer
               id="fs-portion-overlays-line"
               style={{
-                lineColor: ['case', ['==', ['get', 'isPR'], true], '#D4AF37', '#E91E63'],
+                lineColor: [
+                  'case',
+                  ['==', ['get', 'isPR'], true],
+                  '#D4AF37',
+                  sectionPaletteExpression() as unknown as string,
+                ],
                 lineWidth: 4,
                 lineCap: 'round',
                 lineJoin: 'round',
@@ -1467,80 +1432,5 @@ const styles = StyleSheet.create({
   },
   controlButtonActive: {
     backgroundColor: colors.primary,
-  },
-  overlayLegend: {
-    position: 'absolute',
-    bottom: spacing.md + spacing.sm + 48,
-    right: spacing.sm,
-    maxWidth: Dimensions.get('window').width * 0.45,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: spacing.sm,
-    zIndex: 10,
-    gap: 4,
-  },
-  legendRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  legendLine: {
-    width: 16,
-    height: 3,
-    borderRadius: 2,
-  },
-  legendText: {
-    fontSize: 11,
-    color: colors.textOnDark,
-    fontWeight: '500',
-    flexShrink: 1,
-  },
-  prMarker: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: '#D4AF37',
-    borderWidth: 2.5,
-    borderColor: '#FFFFFF',
-    justifyContent: 'center',
-    alignItems: 'center',
-    ...shadows.mapOverlay,
-  },
-  prMarkerText: {
-    color: '#FFFFFF',
-    fontSize: 10,
-    fontWeight: '800',
-    textAlign: 'center',
-  },
-  gradientLegend: {
-    position: 'absolute',
-    bottom: spacing.md + spacing.sm + 48,
-    left: spacing.sm,
-    width: 140,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    paddingHorizontal: 8,
-    paddingVertical: 6,
-    borderRadius: spacing.sm,
-    zIndex: 10,
-    gap: 4,
-  },
-  gradientBar: {
-    flexDirection: 'row',
-    height: 6,
-    borderRadius: 3,
-    overflow: 'hidden',
-  },
-  gradientBarStop: {
-    flex: 1,
-  },
-  gradientLabels: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  gradientLabel: {
-    fontSize: 10,
-    color: colors.textOnDark,
-    fontWeight: '500',
   },
 });

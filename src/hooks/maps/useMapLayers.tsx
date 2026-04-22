@@ -55,6 +55,9 @@ interface UseMapLayersResult {
   consolidatedSectionsGeoJSON: GeoJSON.FeatureCollection;
   /** Consolidated portion polylines GeoJSON (stable shape source) */
   consolidatedPortionsGeoJSON: GeoJSON.FeatureCollection;
+  /** Perpendicular tick marks at each section's start/end. Cuts through stacked
+   *  portion overlays so section boundaries are visible even when portions overlap. */
+  sectionBoundariesGeoJSON: GeoJSON.FeatureCollection;
   /** GeoJSON for geo-anchored section markers (ShapeSource + CircleLayer + SymbolLayer) */
   sectionMarkersGeoJSON: GeoJSON.FeatureCollection;
   /** GeoJSON for PR-only section markers in fullscreen modal */
@@ -329,6 +332,48 @@ export function useMapLayers({
     return { type: 'FeatureCollection', features };
   }, [sectionOverlaysGeoJSON, activeTab]);
 
+  // ----- section boundary ticks -----
+  // Perpendicular short line segments at each section's start and end.
+  // These cut through the stacked portion overlays so the user can see exactly
+  // where each section begins and ends, even where multiple sections overlap.
+  const sectionBoundariesGeoJSON = useMemo((): GeoJSON.FeatureCollection => {
+    if (!sectionOverlaysGeoJSON) return EMPTY_COLLECTION;
+
+    const features: GeoJSON.Feature<GeoJSON.LineString>[] = [];
+    const halfLen = 0.00014; // ~15m perpendicular tick at mid latitudes
+
+    sectionOverlaysGeoJSON.forEach((overlay) => {
+      const portionGeom = overlay.portionGeo?.geometry as GeoJSON.LineString | undefined;
+      const coords = portionGeom?.coordinates;
+      if (!coords || coords.length < 2) return;
+
+      const buildTick = (midIdx: number, neighborIdx: number, kind: 'start' | 'end') => {
+        const mid = coords[midIdx];
+        const neighbor = coords[neighborIdx];
+        if (!mid || !neighbor) return;
+        const dx = neighbor[0] - mid[0];
+        const dy = neighbor[1] - mid[1];
+        const len = Math.sqrt(dx * dx + dy * dy);
+        if (len === 0) return;
+        const nx = -dy / len;
+        const ny = dx / len;
+        const a: [number, number] = [mid[0] + nx * halfLen, mid[1] + ny * halfLen];
+        const b: [number, number] = [mid[0] - nx * halfLen, mid[1] - ny * halfLen];
+        if (!Number.isFinite(a[0]) || !Number.isFinite(b[0])) return;
+        features.push({
+          type: 'Feature',
+          properties: { sectionId: overlay.id, kind, isPR: !!overlay.isPR },
+          geometry: { type: 'LineString', coordinates: [a, b] },
+        });
+      };
+
+      buildTick(0, 1, 'start');
+      buildTick(coords.length - 1, coords.length - 2, 'end');
+    });
+
+    return { type: 'FeatureCollection', features };
+  }, [sectionOverlaysGeoJSON]);
+
   // ----- fullscreen PR marker GeoJSON -----
   // Always PR-only; uses section geometry midpoint without perpendicular offset.
   const fullscreenPRMarkersGeoJSON = useMemo((): GeoJSON.FeatureCollection => {
@@ -407,6 +452,7 @@ export function useMapLayers({
     sectionOverlaysGeoJSON,
     consolidatedSectionsGeoJSON,
     consolidatedPortionsGeoJSON,
+    sectionBoundariesGeoJSON,
     sectionMarkersGeoJSON,
     fullscreenPRMarkersGeoJSON,
     routeCoords,

@@ -18,34 +18,24 @@ export interface AttributionOverlayRef {
 
 export interface AttributionOverlayProps {
   initialAttribution: string;
-  isFullscreen: boolean;
 }
 
 export const AttributionOverlay = memo(
-  forwardRef<AttributionOverlayRef, AttributionOverlayProps>(
-    ({ initialAttribution, isFullscreen }, ref) => {
-      const [attribution, setAttribution] = useState(initialAttribution);
+  forwardRef<AttributionOverlayRef, AttributionOverlayProps>(({ initialAttribution }, ref) => {
+    const [attribution, setAttribution] = useState(initialAttribution);
 
-      useImperativeHandle(ref, () => ({
-        setAttribution,
-      }));
+    useImperativeHandle(ref, () => ({
+      setAttribution,
+    }));
 
-      return (
-        <View
-          style={[attributionStyles.attribution, isFullscreen && attributionStyles.attributionPill]}
-        >
-          <Text
-            style={[
-              attributionStyles.attributionText,
-              isFullscreen && attributionStyles.attributionTextPill,
-            ]}
-          >
-            {attribution}
-          </Text>
+    return (
+      <View style={attributionStyles.attribution}>
+        <View style={attributionStyles.attributionPill}>
+          <Text style={attributionStyles.attributionText}>{attribution}</Text>
         </View>
-      );
-    }
-  )
+      </View>
+    );
+  })
 );
 
 AttributionOverlay.displayName = 'AttributionOverlay';
@@ -53,32 +43,21 @@ AttributionOverlay.displayName = 'AttributionOverlay';
 const attributionStyles = StyleSheet.create({
   attribution: {
     position: 'absolute',
-    bottom: 4,
+    bottom: 0,
     left: 0,
     right: 0,
     alignItems: 'center',
+    paddingBottom: 4,
     zIndex: 5,
   },
   attributionPill: {
-    left: 'auto',
-    right: spacing.sm,
-    bottom: spacing.sm,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.7)',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
     borderRadius: spacing.sm,
   },
   attributionText: {
     fontSize: 9,
-    color: 'rgba(255, 255, 255, 0.5)',
-    textShadowColor: 'rgba(0, 0, 0, 0.5)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
-  },
-  attributionTextPill: {
     color: colors.textSecondary,
-    textShadowColor: 'transparent',
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 0,
   },
 });

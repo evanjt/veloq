@@ -234,7 +234,6 @@ describe('notification tap handler', () => {
 
   it('returns a subscription with remove function', () => {
     const subscription = setupNotificationResponseHandler();
-    expect(subscription).toBeDefined();
     expect(typeof subscription.remove).toBe('function');
   });
 });

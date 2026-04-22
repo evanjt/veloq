@@ -23,6 +23,8 @@ interface SectionInlinePlotProps {
   onPress: (sectionId: string) => void;
   onLongPress: (sectionId: string) => void;
   onSwipeableOpen: (sectionId: string) => void;
+  /** Report measured row layout for drag-scrub row detection */
+  onRowLayout?: (sectionId: string, y: number, height: number) => void;
   renderRightActions: (
     progress: Animated.AnimatedInterpolation<number>,
     dragX: Animated.AnimatedInterpolation<number>
@@ -42,6 +44,7 @@ export const SectionInlinePlot = memo(
     onPress,
     onLongPress,
     onSwipeableOpen,
+    onRowLayout,
     renderRightActions,
     swipeableRefs,
   }: SectionInlinePlotProps) {
@@ -79,8 +82,15 @@ export const SectionInlinePlot = memo(
       encounter.direction,
     ]);
 
+    const handleLayout = useCallback(
+      (e: { nativeEvent: { layout: { y: number; height: number } } }) => {
+        onRowLayout?.(encounter.sectionId, e.nativeEvent.layout.y, e.nativeEvent.layout.height);
+      },
+      [onRowLayout, encounter.sectionId]
+    );
+
     return (
-      <View testID={`section-inline-plot-${index}`}>
+      <View testID={`section-inline-plot-${index}`} onLayout={handleLayout}>
         <Swipeable
           ref={(ref) => {
             if (ref) {
@@ -181,8 +191,8 @@ const styles = StyleSheet.create({
     backgroundColor: darkColors.surfaceCard,
   },
   cardHighlighted: {
-    backgroundColor: colors.chartGold + '26',
-    borderColor: colors.chartGold,
+    backgroundColor: '#00E5FF26',
+    borderColor: '#00E5FF',
   },
   header: {
     flexDirection: 'row',
@@ -194,10 +204,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontSize: 18,
     fontWeight: '800',
-    color: brand.gold,
-    textShadowColor: '#FFFFFF',
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 2,
+    color: colors.textSecondary,
     marginRight: spacing.sm,
   },
   headerInfo: {

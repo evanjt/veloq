@@ -69,7 +69,6 @@ describe('generateSectionTrendInsights — recency gate (regression)', () => {
   it('attaches meta.sourceTimestamp matching daysSinceLast', () => {
     const section = trend('s1', 7, 5, 1);
     const [insight] = generateSectionTrendInsights([section], new Set(), NOW, mockT);
-    expect(insight.meta).toBeDefined();
     expect(insight.meta?.sourceTimestamp).toBe(NOW - 7 * 86_400_000);
     expect(insight.meta?.comparisonKind).toBe('self');
     expect(insight.meta?.repetitionCount).toBe(5);

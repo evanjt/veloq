@@ -196,299 +196,134 @@ describe('getMonday / getSunday', () => {
 // "NaN", "undefined", "Infinity", or throw errors
 // ============================================================
 
-describe('formatDuration edge cases', () => {
-  it('NaN returns fallback, not "NaN"', () => {
-    const result = formatDuration(NaN);
-    expect(result).not.toContain('NaN');
-    expect(result).toBe('0:00');
-  });
+// ============================================================
+// Specific-value fallback matrix — each formatter's canonical
+// fallback for NaN/Infinity/-Infinity/negative/null/undefined.
+// The "NaN/Infinity wall" below also checks these but only asserts
+// "no banned string". The matrix additionally locks the fallback value.
+// ============================================================
 
-  it('Infinity returns fallback, not "Infinity"', () => {
-    const result = formatDuration(Infinity);
-    expect(result).not.toContain('Infinity');
-    expect(result).toBe('0:00');
-  });
-
-  it('-Infinity returns fallback', () => {
-    const result = formatDuration(-Infinity);
-    expect(result).not.toContain('Infinity');
-    expect(result).toBe('0:00');
-  });
-
-  it('negative value returns fallback', () => {
-    const result = formatDuration(-1);
-    expect(result).toBe('0:00');
-  });
-
-  it('zero returns "0:00"', () => {
-    expect(formatDuration(0)).toBe('0:00');
+// Formatters that reject negative numbers (distance/duration/pace/power/etc.
+// can never be negative in the real world).
+describe.each([
+  { name: 'formatDuration', fn: (v: unknown) => formatDuration(v as number), fallback: '0:00' },
+  { name: 'formatDistance', fn: (v: unknown) => formatDistance(v as number), fallback: '0 m' },
+  { name: 'formatPace', fn: (v: unknown) => formatPace(v as number), fallback: '--:--' },
+  { name: 'formatSpeed', fn: (v: unknown) => formatSpeed(v as number), fallback: '0.0 km/h' },
+  { name: 'formatPower', fn: (v: unknown) => formatPower(v as number), fallback: '0 W' },
+  { name: 'formatHeartRate', fn: (v: unknown) => formatHeartRate(v as number), fallback: '0 bpm' },
+  { name: 'formatCalories', fn: (v: unknown) => formatCalories(v as number), fallback: '0 cal' },
+  { name: 'formatTSS', fn: (v: unknown) => formatTSS(v as number), fallback: '0 TSS' },
+])('$name invalid-input fallback', ({ fn, fallback }) => {
+  it.each([NaN, Infinity, -Infinity, -1, null, undefined])('returns %p → fallback', (input) => {
+    expect(fn(input)).toBe(fallback);
   });
 });
 
-describe('formatDurationHuman edge cases', () => {
-  it('NaN returns fallback, not "NaN"', () => {
-    const result = formatDurationHuman(NaN);
-    expect(result).not.toContain('NaN');
-  });
-
-  it('Infinity returns fallback, not "Infinity"', () => {
-    const result = formatDurationHuman(Infinity);
-    expect(result).not.toContain('Infinity');
-  });
-
-  /**
-   * BUG: formatDurationHuman(59.5) returns "60s" instead of "1m"
-   *
-   * When seconds is 59.5, Math.round(59.5) === 60, but the function
-   * checks seconds < 60 before rounding, so it takes the "< 60" branch
-   * and produces "60s". The rounding to 60 should roll over to minutes.
-   */
-  it('59.5 seconds should not display as "60s"', () => {
-    const result = formatDurationHuman(59.5);
-    expect(result).not.toBe('60s');
-    // Should show either "1m" or "60s" rounded to "1m"
-    expect(result).toMatch(/^1m$/);
+// Elevation and temperature accept legitimately-negative values (below sea
+// level, below freezing), so only NaN/Infinity/null/undefined fall back.
+describe.each([
+  {
+    name: 'formatElevation',
+    fn: (v: unknown) => formatElevation(v as number | null),
+    fallback: '0 m',
+  },
+  {
+    name: 'formatTemperature',
+    fn: (v: unknown) => formatTemperature(v as number | null),
+    fallback: '--°C',
+  },
+])('$name invalid-input fallback', ({ fn, fallback }) => {
+  it.each([NaN, Infinity, -Infinity, null, undefined])('returns %p → fallback', (input) => {
+    expect(fn(input)).toBe(fallback);
   });
 });
 
-describe('formatDistance edge cases', () => {
-  it('NaN returns fallback, not "NaN"', () => {
-    const result = formatDistance(NaN);
-    expect(result).not.toContain('NaN');
-  });
-
-  it('Infinity returns fallback, not "Infinity"', () => {
-    const result = formatDistance(Infinity);
-    expect(result).not.toContain('Infinity');
-  });
-
-  it('negative returns fallback', () => {
-    const result = formatDistance(-100);
-    expect(result).toBe('0 m');
-  });
-
-  it('zero returns "0 m"', () => {
-    expect(formatDistance(0)).toBe('0 m');
-  });
-
-  it('imperial NaN returns fallback', () => {
-    const result = formatDistance(NaN, false);
-    expect(result).not.toContain('NaN');
-    expect(result).toBe('0 ft');
+// Zero is a valid value for distance/duration/elevation (displays as
+// normal "0 m" / "0:00"), but a placeholder for pace/speed/temperature
+// where zero is meaningless. Split out to preserve that distinction.
+describe('zero-input handling', () => {
+  it.each([
+    ['formatDuration', formatDuration, 0, '0:00'],
+    ['formatDistance', formatDistance, 0, '0 m'],
+    ['formatFileSize', formatFileSize, 0, '0 B'],
+    ['formatPace', formatPace, 0, '--:--'],
+    ['speedToSecsPerKm', (v: number) => String(speedToSecsPerKm(v)), 0, '0'],
+  ] as const)('%s(0) returns %p', (_, fn, input, expected) => {
+    expect(fn(input as never)).toBe(expected);
   });
 });
 
-describe('formatPace edge cases', () => {
-  it('zero speed returns placeholder, not division-by-zero result', () => {
-    const result = formatPace(0);
-    expect(result).toBe('--:--');
-    expect(result).not.toContain('Infinity');
-  });
-
-  it('NaN returns placeholder', () => {
-    const result = formatPace(NaN);
-    expect(result).toBe('--:--');
-  });
-
-  it('negative speed returns placeholder', () => {
-    const result = formatPace(-5);
-    expect(result).toBe('--:--');
-  });
-
-  it('Infinity returns placeholder', () => {
-    const result = formatPace(Infinity);
-    // Infinity m/s -> 1000/Infinity = 0 seconds/km -> should show 0:00 or --:--
-    // Actually, Infinity IS finite? No, Number.isFinite(Infinity) = false
-    expect(result).toBe('--:--');
-  });
-});
-
-describe('formatSpeed edge cases', () => {
-  it('undefined cast to number does not throw', () => {
-    expect(() => formatSpeed(undefined as unknown as number)).not.toThrow();
-    const result = formatSpeed(undefined as unknown as number);
-    expect(result).not.toContain('undefined');
-    expect(result).not.toContain('NaN');
-  });
-
-  it('NaN returns fallback', () => {
-    const result = formatSpeed(NaN);
-    expect(result).not.toContain('NaN');
-    expect(result).toBe('0.0 km/h');
-  });
-
-  it('Infinity returns fallback', () => {
-    const result = formatSpeed(Infinity);
-    expect(result).not.toContain('Infinity');
-  });
-
-  it('negative returns fallback', () => {
-    expect(formatSpeed(-10)).toBe('0.0 km/h');
-  });
-});
-
-describe('formatPower edge cases', () => {
-  it('NaN returns fallback, not "NaN W"', () => {
-    expect(formatPower(NaN)).toBe('0 W');
-  });
-
-  it('Infinity returns fallback', () => {
-    expect(formatPower(Infinity)).toBe('0 W');
-  });
-
-  it('negative returns fallback', () => {
-    expect(formatPower(-100)).toBe('0 W');
-  });
-});
-
-describe('formatHeartRate edge cases', () => {
-  it('NaN returns fallback', () => {
-    expect(formatHeartRate(NaN)).toBe('0 bpm');
-  });
-
-  it('negative returns fallback', () => {
-    expect(formatHeartRate(-60)).toBe('0 bpm');
-  });
-});
-
-describe('formatCalories edge cases', () => {
-  it('NaN returns fallback, not "NaN cal"', () => {
-    expect(formatCalories(NaN)).toBe('0 cal');
-  });
-
-  it('Infinity returns fallback', () => {
-    expect(formatCalories(Infinity)).toBe('0 cal');
-  });
-});
-
-describe('formatTSS edge cases', () => {
-  it('NaN returns fallback', () => {
-    expect(formatTSS(NaN)).toBe('0 TSS');
-  });
-
-  it('Infinity returns fallback', () => {
-    expect(formatTSS(Infinity)).toBe('0 TSS');
-  });
-});
-
-describe('formatElevation edge cases', () => {
-  it('null returns fallback', () => {
-    expect(formatElevation(null)).toBe('0 m');
-  });
-
-  it('undefined returns fallback', () => {
-    expect(formatElevation(undefined)).toBe('0 m');
-  });
-
-  it('NaN returns fallback', () => {
-    expect(formatElevation(NaN)).toBe('0 m');
-  });
-});
-
-describe('formatTemperature edge cases', () => {
-  it('null returns placeholder', () => {
-    expect(formatTemperature(null)).toBe('--°C');
-  });
-
-  it('NaN returns placeholder', () => {
-    expect(formatTemperature(NaN)).toBe('--°C');
-  });
-
-  it('undefined returns placeholder', () => {
-    expect(formatTemperature(undefined)).toBe('--°C');
+// Imperial variants: just confirm they also fall back cleanly on invalid input.
+describe('imperial fallbacks', () => {
+  it('formatDistance(NaN, false) returns 0 ft', () => {
+    expect(formatDistance(NaN, false)).toBe('0 ft');
   });
 });
 
 /**
  * BUG: formatFileSize does not guard against NaN, Infinity, or negative values.
- *
- * formatFileSize(NaN) returns "NaN B" because there is no Number.isFinite check.
- * formatFileSize(-1) returns "-1 B" which is nonsensical for a file size.
- * formatFileSize(Infinity) returns "Infinity B".
- *
- * Every other format function in the module guards against these, but formatFileSize
- * was missed.
+ * Every other format function guards these; formatFileSize was missed.
+ * We keep behavioural checks (no banned output) separate from the matrix above
+ * because formatFileSize produces unit-scaled output, not a fixed fallback.
  */
 describe('formatFileSize edge cases', () => {
-  it('NaN returns a sensible fallback, not "NaN B"', () => {
-    const result = formatFileSize(NaN);
-    expect(result).not.toContain('NaN');
-  });
-
-  it('negative returns a sensible fallback, not "-1 B"', () => {
-    const result = formatFileSize(-1);
-    // A file size should never be negative
-    expect(result).not.toMatch(/-/);
-  });
-
-  it('Infinity returns a sensible fallback, not "Infinity B"', () => {
-    const result = formatFileSize(Infinity);
-    expect(result).not.toContain('Infinity');
-  });
-
-  it('zero returns "0 B"', () => {
-    expect(formatFileSize(0)).toBe('0 B');
+  it.each([
+    [NaN, /NaN/],
+    [Infinity, /Infinity/],
+    [-1, /-/],
+  ] as const)('%p does not leak %p', (input, banned) => {
+    expect(formatFileSize(input)).not.toMatch(banned);
   });
 });
 
 /**
- * BUG: speedToSecsPerKm does not guard against NaN.
- *
- * speedToSecsPerKm(NaN) — the check `NaN <= 0` is false, so it proceeds to
- * compute 1000 / NaN = NaN. This can propagate NaN values through calculations.
+ * speedToSecsPerKm must coerce invalid input to 0 (avoid NaN propagation).
  */
-describe('speedToSecsPerKm edge cases', () => {
-  it('NaN returns 0, not NaN', () => {
-    const result = speedToSecsPerKm(NaN);
+describe('speedToSecsPerKm invalid-input coercion', () => {
+  it.each([NaN, Infinity, -5])('coerces %p to 0', (input) => {
+    const result = speedToSecsPerKm(input);
     expect(Number.isNaN(result)).toBe(false);
     expect(result).toBe(0);
   });
+});
 
-  it('Infinity returns 0, not a near-zero value', () => {
-    // 1000 / Infinity = 0, which is technically correct but may cause issues downstream
-    // The function should probably guard this
-    const result = speedToSecsPerKm(Infinity);
-    expect(result).toBe(0);
+/**
+ * formatTimeDelta:
+ *  - Near-60-second boundary: 59.5 must roll over to ±1:00, not show ±60s.
+ *  - NaN/Infinity return null (a valid "nothing to display" sentinel).
+ */
+describe('formatTimeDelta edge cases', () => {
+  it.each([
+    [59.5, '+1:00'],
+    [-59.5, '-1:00'],
+  ])('boundary %p rolls over to %p', (input, expected) => {
+    expect(formatTimeDelta(input)).toBe(expected);
   });
 
-  it('zero returns 0', () => {
-    expect(speedToSecsPerKm(0)).toBe(0);
-  });
-
-  it('negative returns 0', () => {
-    expect(speedToSecsPerKm(-5)).toBe(0);
+  it.each([NaN, Infinity, -Infinity])('invalid input %p returns null', (input) => {
+    expect(formatTimeDelta(input)).toBeNull();
   });
 });
 
 /**
- * BUG: formatTimeDelta near the 60-second boundary.
- *
- * formatTimeDelta(59.5): absDelta=59.5, minutes=0, seconds=Math.round(59.5 % 60)=60
- * Returns "+60s" instead of "+1:00".
- *
- * This is a rounding edge case where seconds round to 60 but the code doesn't
- * handle the rollover (unlike formatPace which does handle this case).
+ * BUG: formatDurationHuman(59.5) returned "60s" instead of "1m" — the "< 60"
+ * branch ran before rounding. Locked here so the fix stays in place.
  */
-describe('formatTimeDelta edge cases', () => {
-  it('59.5 seconds should not produce "+60s"', () => {
-    const result = formatTimeDelta(59.5);
-    expect(result).not.toBe('+60s');
-    // Should be "+1:00" since 59.5 rounds to 60s = 1m
-    expect(result).toBe('+1:00');
+describe('formatDurationHuman boundary', () => {
+  it('59.5 seconds rolls over to 1m', () => {
+    expect(formatDurationHuman(59.5)).toMatch(/^1m$/);
   });
+});
 
-  it('-59.5 seconds should not produce "-60s"', () => {
-    const result = formatTimeDelta(-59.5);
-    expect(result).not.toBe('-60s');
-    expect(result).toBe('-1:00');
-  });
-
-  it('NaN returns null', () => {
-    expect(formatTimeDelta(NaN)).toBeNull();
-  });
-
-  it('Infinity returns null', () => {
-    expect(formatTimeDelta(Infinity)).toBeNull();
+/**
+ * formatSpeed must tolerate undefined cast to number without throwing.
+ * Pre-existing coverage for NaN/Infinity/negative already lives in the
+ * fallback matrix above.
+ */
+describe('formatSpeed defensive input', () => {
+  it('does not throw on undefined cast to number', () => {
+    expect(() => formatSpeed(undefined as unknown as number)).not.toThrow();
   });
 });
 

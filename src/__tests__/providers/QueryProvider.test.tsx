@@ -366,15 +366,13 @@ describe('QueryProvider', () => {
 
   describe('QueryProvider rendering', () => {
     it('renders children inside the provider', () => {
-      const { getByTestId } = render(
+      render(
         <QueryProvider>
           <></>
         </QueryProvider>
       );
-      // The provider itself should mount without throwing
+      // Provider must mount without throwing; capture confirms the render path ran
       expect(providerCapture().props.children).toBeDefined();
-      // getByTestId is available but unused here — just ensure no crash
-      expect(getByTestId).toBeDefined();
     });
   });
 

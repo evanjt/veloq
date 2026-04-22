@@ -173,13 +173,11 @@ describe('getSettingsForSport', () => {
 
   it('finds matching sport type', () => {
     const result = getSettingsForSport(mockSettings, 'Ride');
-    expect(result).toBeDefined();
     expect(result?.ftp).toBe(250);
   });
 
   it('finds sport type within multi-type settings', () => {
     const result = getSettingsForSport(mockSettings, 'VirtualRide');
-    expect(result).toBeDefined();
     expect(result?.ftp).toBe(250);
   });
 
@@ -365,54 +363,22 @@ describe('getFormZone', () => {
   });
 });
 
-describe('FORM_ZONE_COLORS', () => {
+describe('FORM_ZONE constants', () => {
   const allZones: FormZone[] = ['highRisk', 'optimal', 'greyZone', 'fresh', 'transition'];
 
-  it('has a color for every form zone', () => {
-    allZones.forEach((zone) => {
-      expect(FORM_ZONE_COLORS[zone]).toBeDefined();
-    });
+  it.each(allZones)('zone %s has valid color, label, and boundaries', (zone) => {
+    expect(FORM_ZONE_COLORS[zone]).toMatch(/^#[0-9A-Fa-f]{6}$/);
+
+    expect(typeof FORM_ZONE_LABELS[zone]).toBe('string');
+    expect(FORM_ZONE_LABELS[zone].length).toBeGreaterThan(0);
+
+    const { min, max } = FORM_ZONE_BOUNDARIES[zone];
+    expect(typeof min).toBe('number');
+    expect(typeof max).toBe('number');
+    expect(min).toBeLessThan(max);
   });
 
-  it('all colors are valid hex strings', () => {
-    allZones.forEach((zone) => {
-      expect(FORM_ZONE_COLORS[zone]).toMatch(/^#[0-9A-Fa-f]{6}$/);
-    });
-  });
-});
-
-describe('FORM_ZONE_LABELS', () => {
-  const allZones: FormZone[] = ['highRisk', 'optimal', 'greyZone', 'fresh', 'transition'];
-
-  it('has a label for every form zone', () => {
-    allZones.forEach((zone) => {
-      expect(FORM_ZONE_LABELS[zone]).toBeDefined();
-      expect(typeof FORM_ZONE_LABELS[zone]).toBe('string');
-      expect(FORM_ZONE_LABELS[zone].length).toBeGreaterThan(0);
-    });
-  });
-});
-
-describe('FORM_ZONE_BOUNDARIES', () => {
-  const allZones: FormZone[] = ['highRisk', 'optimal', 'greyZone', 'fresh', 'transition'];
-
-  it('has boundaries for every form zone', () => {
-    allZones.forEach((zone) => {
-      expect(FORM_ZONE_BOUNDARIES[zone]).toBeDefined();
-      expect(typeof FORM_ZONE_BOUNDARIES[zone].min).toBe('number');
-      expect(typeof FORM_ZONE_BOUNDARIES[zone].max).toBe('number');
-    });
-  });
-
-  it('each zone boundary has min < max', () => {
-    allZones.forEach((zone) => {
-      const { min, max } = FORM_ZONE_BOUNDARIES[zone];
-      expect(min).toBeLessThan(max);
-    });
-  });
-
-  it('zones are contiguous (no gaps between boundaries)', () => {
-    // sorted by min ascending
+  it('boundaries are contiguous (no gaps between zones)', () => {
     const sorted = allZones
       .map((z) => ({ zone: z, ...FORM_ZONE_BOUNDARIES[z] }))
       .sort((a, b) => a.min - b.min);

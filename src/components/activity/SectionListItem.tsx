@@ -1,5 +1,5 @@
 import React, { memo, useCallback } from 'react';
-import { View, StyleSheet, Pressable, Platform } from 'react-native';
+import { View, StyleSheet, Pressable, Platform, Text as RNText } from 'react-native';
 import { Text } from 'react-native-paper';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -32,6 +32,8 @@ interface SectionListItemProps {
   onLongPress: (sectionId: string) => void;
   onPress: (sectionId: string) => void;
   onSwipeableOpen: (sectionId: string) => void;
+  /** Report measured layout for drag-scrub row detection */
+  onRowLayout?: (sectionId: string, y: number, height: number) => void;
   renderRightActions: (
     progress: Animated.AnimatedInterpolation<number>,
     dragX: Animated.AnimatedInterpolation<number>
@@ -65,6 +67,7 @@ export const SectionListItem = memo(
     onLongPress,
     onPress,
     onSwipeableOpen,
+    onRowLayout,
     renderRightActions,
     swipeableRefs,
     formatSectionTime,
@@ -80,8 +83,15 @@ export const SectionListItem = memo(
       onPress?.(sectionId);
     }, [onPress, sectionId]);
 
+    const handleLayout = useCallback(
+      (e: { nativeEvent: { layout: { y: number; height: number } } }) => {
+        onRowLayout?.(sectionId, e.nativeEvent.layout.y, e.nativeEvent.layout.height);
+      },
+      [onRowLayout, sectionId]
+    );
+
     return (
-      <View>
+      <View onLayout={handleLayout}>
         <Swipeable
           ref={(ref) => {
             if (ref) {
@@ -107,9 +117,18 @@ export const SectionListItem = memo(
             ]}
           >
             <View style={styles.sectionCardContent}>
-              {/* Numbered badge matching map marker */}
-              <View style={[styles.sectionNumberBadge, { borderColor: style.color }]}>
-                <Text style={styles.sectionNumberBadgeText}>{index + 1}</Text>
+              {/* Numbered badge matching map marker — neutral gray so it doesn't
+                  compete with PR gold. Inline color to bypass any parent theme. */}
+              <View style={[styles.sectionNumberBadge, isDark && styles.sectionNumberBadgeDark]}>
+                <RNText
+                  style={{
+                    fontSize: 10,
+                    fontWeight: '600',
+                    color: isDark ? '#FAFAFA' : '#1A1A1A',
+                  }}
+                >
+                  {index + 1}
+                </RNText>
               </View>
 
               {/* Mini trace preview */}
@@ -217,10 +236,15 @@ const styles = StyleSheet.create({
     height: 22,
     borderRadius: 11,
     borderWidth: 1.5,
+    borderColor: colors.gray500,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: colors.surface,
     marginRight: spacing.sm,
+  },
+  sectionNumberBadgeDark: {
+    borderColor: darkColors.border,
+    backgroundColor: darkColors.surfaceCard,
   },
   sectionNumberBadgeText: {
     fontSize: 10,

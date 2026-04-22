@@ -249,7 +249,6 @@ describe('Sparkline data construction', () => {
     });
 
     const data = buildSparklineData(encounter);
-    expect(data).toBeDefined();
     expect(data).toHaveLength(5);
   });
 

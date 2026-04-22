@@ -1,5 +1,14 @@
-import React, { useCallback, useMemo, useRef, useState } from 'react';
-import { View, FlatList, TouchableOpacity, Animated, Platform, StyleSheet } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  View,
+  FlatList,
+  TouchableOpacity,
+  Animated,
+  Platform,
+  StyleSheet,
+  PanResponder,
+  type LayoutChangeEvent,
+} from 'react-native';
 import { Text, ActivityIndicator } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import type { SectionMatch as FfiSectionMatch, SectionEncounter } from 'veloqrs';
@@ -117,19 +126,132 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
     []
   );
 
-  // Handle section long press to highlight on map
+  // ----- Drag-to-scrub state -----
+  // After long-press on a row, pan-drag up/down moves the highlight through rows.
+  // FlatList scroll is disabled while scrubbing, and auto-scrolls near the edges.
+  const [isScrubbing, setIsScrubbing] = useState(false);
+  const isScrubbingRef = useRef(false);
+  isScrubbingRef.current = isScrubbing;
+
+  const flatListRef = useRef<FlatList<SectionEncounter> | null>(null);
+  const listTopYRef = useRef(0); // page-Y of the list container's top edge
+  const listHeightRef = useRef(0);
+  const scrollOffsetRef = useRef(0);
+  const rowLayoutsRef = useRef<Map<string, { y: number; height: number }>>(new Map());
+  const autoScrollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const autoScrollDirectionRef = useRef<0 | 1 | -1>(0);
+
+  const handleRowLayout = useCallback((sectionId: string, y: number, height: number) => {
+    rowLayoutsRef.current.set(sectionId, { y, height });
+  }, []);
+
+  const handleListLayout = useCallback((e: LayoutChangeEvent) => {
+    listHeightRef.current = e.nativeEvent.layout.height;
+  }, []);
+
+  const findSectionAtPageY = useCallback((pageY: number): string | null => {
+    const relY = pageY - listTopYRef.current + scrollOffsetRef.current;
+    let best: string | null = null;
+    rowLayoutsRef.current.forEach((layout, id) => {
+      if (relY >= layout.y && relY < layout.y + layout.height) {
+        best = id;
+      }
+    });
+    return best;
+  }, []);
+
+  const stopAutoScroll = useCallback(() => {
+    if (autoScrollIntervalRef.current != null) {
+      clearInterval(autoScrollIntervalRef.current);
+      autoScrollIntervalRef.current = null;
+    }
+    autoScrollDirectionRef.current = 0;
+  }, []);
+
+  const ensureAutoScroll = useCallback(
+    (direction: 0 | 1 | -1, lastPageY: number) => {
+      if (direction === 0) {
+        stopAutoScroll();
+        return;
+      }
+      if (autoScrollDirectionRef.current === direction) return;
+      stopAutoScroll();
+      autoScrollDirectionRef.current = direction;
+      autoScrollIntervalRef.current = setInterval(() => {
+        const delta = direction * 6; // slow, readable drift
+        const next = Math.max(0, scrollOffsetRef.current + delta);
+        scrollOffsetRef.current = next;
+        flatListRef.current?.scrollToOffset({ offset: next, animated: false });
+        const id = findSectionAtPageY(lastPageY);
+        if (id) onHighlightedSectionIdChange(id);
+      }, 16);
+    },
+    [findSectionAtPageY, onHighlightedSectionIdChange, stopAutoScroll]
+  );
+
+  const handleScrubMove = useCallback(
+    (pageY: number) => {
+      const id = findSectionAtPageY(pageY);
+      if (id) onHighlightedSectionIdChange(id);
+      const relY = pageY - listTopYRef.current;
+      const edge = 70;
+      if (relY < edge) ensureAutoScroll(-1, pageY);
+      else if (relY > listHeightRef.current - edge) ensureAutoScroll(1, pageY);
+      else ensureAutoScroll(0, pageY);
+    },
+    [ensureAutoScroll, findSectionAtPageY, onHighlightedSectionIdChange]
+  );
+
+  const handleScrubEnd = useCallback(() => {
+    stopAutoScroll();
+    setIsScrubbing(false);
+    onHighlightedSectionIdChange(null);
+  }, [onHighlightedSectionIdChange, stopAutoScroll]);
+
+  useEffect(() => () => stopAutoScroll(), [stopAutoScroll]);
+
+  // Pan responder captures move events once scrubbing has started (post long-press).
+  // onStart returns false so normal taps / scroll work until long-press flips the flag.
+  const panResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onStartShouldSetPanResponder: () => false,
+        onStartShouldSetPanResponderCapture: () => false,
+        onMoveShouldSetPanResponder: () => isScrubbingRef.current,
+        onMoveShouldSetPanResponderCapture: () => isScrubbingRef.current,
+        onPanResponderMove: (e) => {
+          if (!isScrubbingRef.current) return;
+          handleScrubMove(e.nativeEvent.pageY);
+        },
+        onPanResponderRelease: handleScrubEnd,
+        onPanResponderTerminate: handleScrubEnd,
+        onPanResponderTerminationRequest: () => false,
+      }),
+    [handleScrubEnd, handleScrubMove]
+  );
+
+  // Handle section long press to enter scrub mode — highlight on map, disable scroll.
   const handleSectionLongPress = useCallback(
     (sectionId: string) => {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       onHighlightedSectionIdChange(sectionId);
+      setIsScrubbing(true);
     },
     [onHighlightedSectionIdChange]
   );
 
-  // Handle touch end to clear highlight
+  // Handle touch end (fallback when pan responder wasn't captured) — clear highlight
   const handleSectionsTouchEnd = useCallback(() => {
+    if (isScrubbingRef.current) return; // pan responder handles its own release
     onHighlightedSectionIdChange(null);
   }, [onHighlightedSectionIdChange]);
+
+  const handleContainerLayout = useCallback((e: LayoutChangeEvent) => {
+    // Capture the page-Y of the list wrapper so we can map pageY → row.
+    e.currentTarget?.measureInWindow?.((_x: number, y: number) => {
+      listTopYRef.current = y;
+    });
+  }, []);
 
   // Handle section press navigation
   const handleSectionPress = useCallback(
@@ -189,6 +311,7 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
           onPress={handleSectionPress}
           onLongPress={handleSectionLongPress}
           onSwipeableOpen={handleSwipeableOpen}
+          onRowLayout={handleRowLayout}
           renderRightActions={(progress, dragX) => renderSectionSwipeActions(item, progress, dragX)}
           swipeableRefs={swipeableRefs}
         />
@@ -202,6 +325,7 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
       handleSectionLongPress,
       handleSectionPress,
       handleSwipeableOpen,
+      handleRowLayout,
       renderSectionSwipeActions,
       swipeableRefs,
     ]
@@ -384,9 +508,12 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
     <View
       style={styles.tabScrollView}
       onTouchEnd={handleSectionsTouchEnd}
+      onLayout={handleContainerLayout}
       testID="activity-sections-list"
+      {...panResponder.panHandlers}
     >
       <FlatList
+        ref={flatListRef}
         data={encounters}
         keyExtractor={keyExtractor}
         renderItem={renderEncounterItem}
@@ -401,6 +528,12 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
         maxToRenderPerBatch={4}
         windowSize={3}
         removeClippedSubviews={Platform.OS === 'ios'}
+        onLayout={handleListLayout}
+        onScroll={(e) => {
+          scrollOffsetRef.current = e.nativeEvent.contentOffset.y;
+        }}
+        scrollEventThrottle={16}
+        scrollEnabled={!isScrubbing}
       />
     </View>
   );

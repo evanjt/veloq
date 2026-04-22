@@ -699,7 +699,6 @@ describe('detectStalePROpportunities', () => {
 
     it('includes supporting data with FTP comparison', () => {
       const insight = stalePROpportunityToInsight(opportunity, mockT);
-      expect(insight.supportingData).toBeDefined();
       expect(insight.supportingData!.dataPoints).toHaveLength(4);
       expect(insight.supportingData!.formula).toContain('220');
       expect(insight.supportingData!.formula).toContain('200');
@@ -708,7 +707,6 @@ describe('detectStalePROpportunities', () => {
 
     it('includes methodology', () => {
       const insight = stalePROpportunityToInsight(opportunity, mockT);
-      expect(insight.methodology).toBeDefined();
       expect(insight.methodology!.name).toBe('FTP-PR cross-reference');
     });
 

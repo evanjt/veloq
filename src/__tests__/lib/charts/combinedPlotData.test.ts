@@ -242,7 +242,6 @@ describe('computeAllAverages', () => {
       power: powerConfig(),
     } as unknown as Record<ChartTypeId, ChartConfig>;
     const result = computeAllAverages(configs, streams(), true);
-    expect(result[0].maxValueWidth).toBeDefined();
     // Max raw value is 220, so maxValueWidth is "220"
     expect(result[0].maxValueWidth).toBe('220');
   });

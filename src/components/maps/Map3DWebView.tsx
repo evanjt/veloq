@@ -48,10 +48,14 @@ interface Map3DWebViewProps {
   sectionsGeoJSON?: GeoJSON.FeatureCollection;
   /** GeoJSON for traces layer */
   tracesGeoJSON?: GeoJSON.FeatureCollection;
+  /** GeoJSON for section boundary ticks (perpendicular start/end markers) */
+  sectionBoundariesGeoJSON?: GeoJSON.FeatureCollection;
   /** GeoJSON for section marker circles (numbered/PR labels) */
   sectionMarkersGeoJSON?: GeoJSON.FeatureCollection;
   /** Highlight marker position as [lng, lat] (from chart scrubbing) */
   highlightCoordinate?: [number, number] | null;
+  /** Section ID currently highlighted (from list row press). Dims other portions. */
+  highlightedSectionId?: string | null;
   /** Whether to show the heatmap raster overlay */
   showHeatmap?: boolean;
 }
@@ -115,8 +119,10 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       routesGeoJSON,
       sectionsGeoJSON,
       tracesGeoJSON,
+      sectionBoundariesGeoJSON,
       sectionMarkersGeoJSON,
       highlightCoordinate,
+      highlightedSectionId,
       showHeatmap = false,
       onMapReady,
       onBearingChange,
@@ -145,6 +151,8 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
     const sectionsGeoJSONRef = useRef(sectionsGeoJSON);
     const tracesGeoJSONRef = useRef(tracesGeoJSON);
     const sectionMarkersGeoJSONRef = useRef(sectionMarkersGeoJSON);
+    const sectionBoundariesGeoJSONRef = useRef(sectionBoundariesGeoJSON);
+    const highlightedSectionIdRef = useRef(highlightedSectionId);
 
     // Store callback refs to avoid stale closures in message handler
     const onMapClickRef = useRef(onMapClick);
@@ -175,7 +183,16 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       sectionsGeoJSONRef.current = sectionsGeoJSON;
       tracesGeoJSONRef.current = tracesGeoJSON;
       sectionMarkersGeoJSONRef.current = sectionMarkersGeoJSON;
-    }, [routesGeoJSON, sectionsGeoJSON, tracesGeoJSON, sectionMarkersGeoJSON]);
+      sectionBoundariesGeoJSONRef.current = sectionBoundariesGeoJSON;
+      highlightedSectionIdRef.current = highlightedSectionId;
+    }, [
+      routesGeoJSON,
+      sectionsGeoJSON,
+      tracesGeoJSON,
+      sectionMarkersGeoJSON,
+      sectionBoundariesGeoJSON,
+      highlightedSectionId,
+    ]);
 
     // Update GeoJSON layers dynamically without reloading WebView
     // Reads from refs to avoid stale closure issues
@@ -194,6 +211,12 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
         : 'null';
       const sectionMarkersJSON = sectionMarkersGeoJSONRef.current
         ? JSON.stringify(sectionMarkersGeoJSONRef.current)
+        : 'null';
+      const boundariesJSON = sectionBoundariesGeoJSONRef.current
+        ? JSON.stringify(sectionBoundariesGeoJSONRef.current)
+        : 'null';
+      const highlightIdJSON = highlightedSectionIdRef.current
+        ? JSON.stringify(highlightedSectionIdRef.current)
         : 'null';
 
       webViewRef.current.injectJavaScript(`
@@ -221,6 +244,8 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
             const sectionsData = ${sectionsJSON};
             const tracesData = ${tracesJSON};
             const sectionMarkersData = ${sectionMarkersJSON};
+            const sectionBoundariesData = ${boundariesJSON};
+            const highlightedSectionId = ${highlightIdJSON};
 
             // Helper to safely add or update a layer
             function updateLayer(sourceId, layerId, data, layerConfig) {
@@ -287,12 +312,84 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
             // Update routes layer (with outline for visibility) - purple to match 2D
             addLayerWithOutline('routes-source', 'routes-layer', routesData, '#9C27B0', 3, 0.8);
 
-            // Update sections layer — match 2D palette: cyan (#00BCD4) default, gold (#D4AF37) for PRs
+            // Update sections layer — section consensus polylines (used by RegionalMapView
+            // where there is no activity trace to overlay onto). ActivityMapView does not
+            // pass sectionsGeoJSON, so this layer is hidden there.
             addLayerWithOutline('sections-source', 'sections-layer', sectionsData,
               ['case', ['==', ['get', 'isPR'], true], '#D4AF37', '#00BCD4'], 5, 0.9);
 
-            // Update traces layer (activity GPS tracks) - use color from GeoJSON
-            addLayerWithOutline('traces-source', 'traces-layer', tracesData, ['get', 'color'], 2, 0.7);
+            // Update traces layer — activity portion cutouts along the activity's own GPS trace.
+            // PR = gold; non-PR = section palette indexed by colorIndex (matches 2D).
+            var baseTracesColor = ['case', ['==', ['get', 'isPR'], true], '#D4AF37',
+              ['match', ['get', 'colorIndex'],
+                0, '#00BCD4', 1, '#AB47BC', 2, '#FF7043', 3, '#66BB6A',
+                4, '#42A5F5', 5, '#FFCA28', 6, '#26A69A', 7, '#EC407A',
+                '#00BCD4']];
+            addLayerWithOutline('traces-source', 'traces-layer', tracesData,
+              baseTracesColor, 4, 1);
+            // Dashed pattern — overlapping sections let the colour underneath bleed through.
+            try {
+              if (window.map.getLayer('traces-layer')) {
+                window.map.setPaintProperty('traces-layer', 'line-dasharray', [2, 1.2]);
+              }
+            } catch (e) { /* noop */ }
+            // Apply highlight state by re-setting paint props (addLayerWithOutline only
+            // calls setData on subsequent calls, so paint updates go through here).
+            try {
+              if (window.map.getLayer('traces-layer')) {
+                var tracesColor = highlightedSectionId
+                  ? ['case',
+                      ['==', ['get', 'id'], highlightedSectionId], '#00E5FF',
+                      ['==', ['get', 'isPR'], true], '#D4AF37',
+                      ['match', ['get', 'colorIndex'],
+                        0, '#00BCD4', 1, '#AB47BC', 2, '#FF7043', 3, '#66BB6A',
+                        4, '#42A5F5', 5, '#FFCA28', 6, '#26A69A', 7, '#EC407A',
+                        '#00BCD4']]
+                  : baseTracesColor;
+                var tracesOpacity = highlightedSectionId
+                  ? ['case', ['==', ['get', 'id'], highlightedSectionId], 1, 0.25]
+                  : 0.95;
+                var tracesWidth = highlightedSectionId
+                  ? ['case', ['==', ['get', 'id'], highlightedSectionId], 6, 4]
+                  : 4;
+                window.map.setPaintProperty('traces-layer', 'line-color', tracesColor);
+                window.map.setPaintProperty('traces-layer', 'line-opacity', tracesOpacity);
+                window.map.setPaintProperty('traces-layer', 'line-width', tracesWidth);
+              }
+            } catch (e) { console.warn('traces-layer paint update failed:', e); }
+
+            // Section boundary ticks — perpendicular marks at each portion's start/end.
+            // Drawn above traces so boundaries are visible through any overlap.
+            try {
+              var boundariesSrcExists = !!window.map.getSource('section-boundaries-source');
+              var hasBoundaries = sectionBoundariesData && sectionBoundariesData.features && sectionBoundariesData.features.length > 0;
+              if (boundariesSrcExists) {
+                if (hasBoundaries) {
+                  window.map.getSource('section-boundaries-source').setData(sectionBoundariesData);
+                  window.map.setLayoutProperty('section-boundaries-casing-3d', 'visibility', 'visible');
+                  window.map.setLayoutProperty('section-boundaries-line-3d', 'visibility', 'visible');
+                } else {
+                  window.map.setLayoutProperty('section-boundaries-casing-3d', 'visibility', 'none');
+                  window.map.setLayoutProperty('section-boundaries-line-3d', 'visibility', 'none');
+                }
+              } else if (hasBoundaries) {
+                window.map.addSource('section-boundaries-source', { type: 'geojson', data: sectionBoundariesData });
+                window.map.addLayer({
+                  id: 'section-boundaries-casing-3d',
+                  type: 'line',
+                  source: 'section-boundaries-source',
+                  layout: { 'line-cap': 'round' },
+                  paint: { 'line-color': '#000000', 'line-width': 6, 'line-opacity': 0.45 },
+                });
+                window.map.addLayer({
+                  id: 'section-boundaries-line-3d',
+                  type: 'line',
+                  source: 'section-boundaries-source',
+                  layout: { 'line-cap': 'round' },
+                  paint: { 'line-color': '#FFFFFF', 'line-width': 3.5 },
+                });
+              }
+            } catch (e) { console.warn('section-boundaries layer error:', e); }
 
             // Update section markers (numbered/PR circles matching 2D parity)
             var markerSourceExists = !!window.map.getSource('section-markers-source');
@@ -331,7 +428,7 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
                     filter: ['!=', ['get', 'isPR'], true],
                     paint: {
                       'circle-radius': 12,
-                      'circle-color': '#00BCD4',
+                      'circle-color': '#3F3F46',
                       'circle-stroke-width': 2,
                       'circle-stroke-color': '#FFFFFF',
                     },
@@ -528,7 +625,15 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       if (mapReadyRef.current) {
         updateLayers();
       }
-    }, [routesGeoJSON, sectionsGeoJSON, tracesGeoJSON, sectionMarkersGeoJSON, updateLayers]);
+    }, [
+      routesGeoJSON,
+      sectionsGeoJSON,
+      tracesGeoJSON,
+      sectionMarkersGeoJSON,
+      sectionBoundariesGeoJSON,
+      highlightedSectionId,
+      updateLayers,
+    ]);
 
     // Apply style changes via setStyle() injection — avoids full WebView reload.
     // Builds a complete style object with terrain, sky, hillshade, and route layers,

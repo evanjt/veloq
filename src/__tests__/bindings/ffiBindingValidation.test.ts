@@ -93,7 +93,10 @@ const METHOD_EXPORTS = FFI_EXPORTS.filter((e) => e.object);
 describe('FFI Binding Validation', () => {
   describe('Standalone flat exports', () => {
     it('should have the expected four standalone flat exports', () => {
-      expect(FFI_EXPORTS).toBeDefined();
+      // The domain-object migration left exactly four non-object-method
+      // standalone functions (download progress, fetch lifecycle, polyline
+      // overlap). Adjust if a new standalone is added — but prefer putting
+      // engine-coupled logic on a UniFFI Object.
       expect(STANDALONE_EXPORTS.length).toBe(4);
     });
 
@@ -255,13 +258,5 @@ describe('FFI Manifest Freshness', () => {
     // blocks). If this ever drops to a handful again, the extractor has
     // regressed — see scripts/extract-ffi-exports.ts.
     expect(FFI_EXPORTS.length).toBeGreaterThan(50);
-  });
-
-  it('should have four standalone flat exports', () => {
-    // The domain-object migration left exactly four non-object-method
-    // standalone functions (download progress, fetch lifecycle, polyline
-    // overlap). Adjust if a new standalone is added — but prefer putting
-    // engine-coupled logic on a UniFFI Object.
-    expect(STANDALONE_EXPORTS.length).toBe(4);
   });
 });
