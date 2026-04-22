@@ -6,19 +6,20 @@ import {
   Animated,
   Platform,
   StyleSheet,
-  PanResponder,
   type LayoutChangeEvent,
 } from 'react-native';
 import { Text, ActivityIndicator } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import type { SectionMatch as FfiSectionMatch, SectionEncounter } from 'veloqrs';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
-import { RectButton } from 'react-native-gesture-handler';
+import { Gesture, GestureDetector, RectButton } from 'react-native-gesture-handler';
+import { runOnJS } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { useTranslation } from 'react-i18next';
 import { SectionInlinePlot } from '@/components/activity/SectionInlinePlot';
 import { DataRangeFooter } from '@/components/routes';
 import { TAB_BAR_SAFE_PADDING } from '@/components/ui';
+import { CHART_CONFIG } from '@/constants';
 import { getRouteEngine } from '@/lib/native/routeEngine';
 import { getAllSectionDisplayNames } from '@/hooks/routes/useUnifiedSections';
 import { getSectionStyle, navigateTo, formatDistance } from '@/lib';
@@ -210,27 +211,20 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
 
   useEffect(() => () => stopAutoScroll(), [stopAutoScroll]);
 
-  // Pan responder captures move events once scrubbing has started (post long-press).
-  // onStart returns false so normal taps / scroll work until long-press flips the flag.
-  const panResponder = useMemo(
-    () =>
-      PanResponder.create({
-        onStartShouldSetPanResponder: () => false,
-        onStartShouldSetPanResponderCapture: () => false,
-        onMoveShouldSetPanResponder: () => isScrubbingRef.current,
-        onMoveShouldSetPanResponderCapture: () => isScrubbingRef.current,
-        onPanResponderMove: (e) => {
-          if (!isScrubbingRef.current) return;
-          handleScrubMove(e.nativeEvent.pageY);
-        },
-        onPanResponderRelease: handleScrubEnd,
-        onPanResponderTerminate: handleScrubEnd,
-        onPanResponderTerminationRequest: () => false,
-      }),
-    [handleScrubEnd, handleScrubMove]
+  // Start scrub from a page-Y position (invoked from LongPress gesture or row Pressable).
+  const startScrubAt = useCallback(
+    (pageY: number) => {
+      const id = findSectionAtPageY(pageY);
+      if (!id) return;
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+      onHighlightedSectionIdChange(id);
+      setIsScrubbing(true);
+    },
+    [findSectionAtPageY, onHighlightedSectionIdChange]
   );
 
-  // Handle section long press to enter scrub mode — highlight on map, disable scroll.
+  // Row-level long press (from SectionInlinePlot's Pressable) — lookup by sectionId
+  // bypasses findSectionAtPageY so it works even before rowLayouts are populated.
   const handleSectionLongPress = useCallback(
     (sectionId: string) => {
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
@@ -240,11 +234,36 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
     [onHighlightedSectionIdChange]
   );
 
-  // Handle touch end (fallback when pan responder wasn't captured) — clear highlight
-  const handleSectionsTouchEnd = useCallback(() => {
-    if (isScrubbingRef.current) return; // pan responder handles its own release
-    onHighlightedSectionIdChange(null);
-  }, [onHighlightedSectionIdChange]);
+  // RNGH v2 gesture composition: long-press (kicks off scrub) composed simultaneously
+  // with a manually-activated pan (takes over touches once scrubbing starts). Using
+  // RNGH here instead of PanResponder because Swipeable's native pan recognizer owns
+  // the touch and the classic RN responder system never receives the move events.
+  const scrubGesture = useMemo(() => {
+    const longPress = Gesture.LongPress()
+      .minDuration(CHART_CONFIG.LONG_PRESS_DURATION)
+      .onStart((e) => {
+        runOnJS(startScrubAt)(e.absoluteY);
+      });
+
+    const pan = Gesture.Pan()
+      .manualActivation(true)
+      .onTouchesMove((e, state) => {
+        if (isScrubbingRef.current) {
+          state.activate();
+        }
+      })
+      .onUpdate((e) => {
+        runOnJS(handleScrubMove)(e.absoluteY);
+      })
+      .onEnd(() => {
+        runOnJS(handleScrubEnd)();
+      })
+      .onFinalize(() => {
+        runOnJS(handleScrubEnd)();
+      });
+
+    return Gesture.Simultaneous(longPress, pan);
+  }, [startScrubAt, handleScrubMove, handleScrubEnd]);
 
   const handleContainerLayout = useCallback((e: LayoutChangeEvent) => {
     // Capture the page-Y of the list wrapper so we can map pageY → row.
@@ -505,37 +524,37 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
   ]);
 
   return (
-    <View
-      style={styles.tabScrollView}
-      onTouchEnd={handleSectionsTouchEnd}
-      onLayout={handleContainerLayout}
-      testID="activity-sections-list"
-      {...panResponder.panHandlers}
-    >
-      <FlatList
-        ref={flatListRef}
-        data={encounters}
-        keyExtractor={keyExtractor}
-        renderItem={renderEncounterItem}
-        ListEmptyComponent={renderSectionsListEmpty}
-        ListFooterComponent={renderSectionsListFooter}
-        contentContainerStyle={
-          encounters.length === 0 ? styles.tabScrollContentEmpty : styles.tabScrollContent
-        }
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-        initialNumToRender={4}
-        maxToRenderPerBatch={4}
-        windowSize={3}
-        removeClippedSubviews={Platform.OS === 'ios'}
-        onLayout={handleListLayout}
-        onScroll={(e) => {
-          scrollOffsetRef.current = e.nativeEvent.contentOffset.y;
-        }}
-        scrollEventThrottle={16}
-        scrollEnabled={!isScrubbing}
-      />
-    </View>
+    <GestureDetector gesture={scrubGesture}>
+      <View
+        style={styles.tabScrollView}
+        onLayout={handleContainerLayout}
+        testID="activity-sections-list"
+      >
+        <FlatList
+          ref={flatListRef}
+          data={encounters}
+          keyExtractor={keyExtractor}
+          renderItem={renderEncounterItem}
+          ListEmptyComponent={renderSectionsListEmpty}
+          ListFooterComponent={renderSectionsListFooter}
+          contentContainerStyle={
+            encounters.length === 0 ? styles.tabScrollContentEmpty : styles.tabScrollContent
+          }
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          initialNumToRender={4}
+          maxToRenderPerBatch={4}
+          windowSize={3}
+          removeClippedSubviews={Platform.OS === 'ios'}
+          onLayout={handleListLayout}
+          onScroll={(e) => {
+            scrollOffsetRef.current = e.nativeEvent.contentOffset.y;
+          }}
+          scrollEventThrottle={16}
+          scrollEnabled={!isScrubbing}
+        />
+      </View>
+    </GestureDetector>
   );
 });
 

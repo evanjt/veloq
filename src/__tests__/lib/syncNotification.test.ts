@@ -150,6 +150,7 @@ describe('notification tap handler', () => {
     const response = {
       notification: {
         request: {
+          identifier: 'tap-test-activity',
           content: {
             data: { activityId: 'act-123', route: '/routes' },
           },
@@ -168,6 +169,7 @@ describe('notification tap handler', () => {
     const response = {
       notification: {
         request: {
+          identifier: 'tap-test-section',
           content: {
             data: { sectionId: 'sec-456', route: '/routes' },
           },
@@ -186,6 +188,7 @@ describe('notification tap handler', () => {
     const response = {
       notification: {
         request: {
+          identifier: 'tap-test-route',
           content: {
             data: { route: '/fitness' },
           },
@@ -204,6 +207,7 @@ describe('notification tap handler', () => {
     const response = {
       notification: {
         request: {
+          identifier: 'tap-test-missing-data',
           content: {
             data: undefined,
           },

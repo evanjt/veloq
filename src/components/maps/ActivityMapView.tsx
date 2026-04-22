@@ -444,12 +444,36 @@ export const ActivityMapView = memo(function ActivityMapView({
     }
   }, [is3DMode, map3DOpacity]);
 
-  // Track 3D camera state for capture on exit
+  // Refs used by the attribution pipeline — declared here so the 3D camera
+  // handler below can mirror camera state into them without TDZ issues.
+  const attributionRef = useRef<AttributionOverlayRef>(null);
+  const initialAttributionRef = useRef(MAP_ATTRIBUTIONS[mapStyle]);
+  const mapStyleRef = useRef(mapStyle);
+  const is3DModeRef = useRef(is3DMode);
+  const onAttributionChangeRef = useRef(onAttributionChange);
+  mapStyleRef.current = mapStyle;
+  is3DModeRef.current = is3DMode;
+  onAttributionChangeRef.current = onAttributionChange;
+
+  // Track 3D camera state for capture on exit, and mirror into the shared
+  // center/zoom refs so the attribution pipeline reflects the 3D viewport.
   const handleCameraStateChange = useCallback(
     (camera: { center: [number, number]; zoom: number; bearing: number; pitch: number }) => {
       camera3DRef.current = camera;
+      if (is3DModeRef.current) {
+        currentCenterRef.current = camera.center;
+        currentZoomRef.current = camera.zoom;
+        const newAttribution = computeAttribution({
+          style: mapStyleRef.current,
+          is3D: true,
+          center: camera.center,
+          zoom: camera.zoom,
+        });
+        attributionRef.current?.setAttribution(newAttribution);
+        onAttributionChangeRef.current?.(newAttribution);
+      }
     },
-    []
+    [currentCenterRef, currentZoomRef]
   );
 
   // Handle 3D map ready
@@ -558,16 +582,9 @@ export const ActivityMapView = memo(function ActivityMapView({
 
   // ----- Attribution management -----
   const attributionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Ref to update attribution without causing parent re-render
-  const attributionRef = useRef<AttributionOverlayRef>(null);
-  const initialAttributionRef = useRef(MAP_ATTRIBUTIONS[mapStyle]);
-  // Store latest values in refs to avoid stale closure in debounced callback
-  const mapStyleRef = useRef(mapStyle);
-  const is3DModeRef = useRef(is3DMode);
-  const onAttributionChangeRef = useRef(onAttributionChange);
-  mapStyleRef.current = mapStyle;
-  is3DModeRef.current = is3DMode;
-  onAttributionChangeRef.current = onAttributionChange;
+  // attributionRef / initialAttributionRef / mapStyleRef / is3DModeRef /
+  // onAttributionChangeRef are declared earlier (before handleCameraStateChange)
+  // so the 3D camera handler can mirror camera state into them without TDZ.
 
   // Compute attribution from current viewport - uses refs for latest values
   const computeAttributionFromRefs = useCallback(
@@ -993,9 +1010,12 @@ export const ActivityMapView = memo(function ActivityMapView({
               />
               <SymbolLayer
                 id="section-marker-number-text"
-                filter={['!=', ['get', 'isPR'], true] as unknown as never}
+                filter={
+                  ['all', ['has', 'label'], ['!=', ['get', 'isPR'], true]] as unknown as never
+                }
                 style={{
                   textField: ['get', 'label'] as unknown as string,
+                  textFont: ['Noto Sans Regular'],
                   textColor: '#FFFFFF',
                   textHaloColor: '#000000',
                   textHaloWidth: 0.6,

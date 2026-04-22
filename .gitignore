@@ -106,5 +106,5 @@ screenshots/
 
 # Worktrees
 .worktrees/
-
+.claude
 *.md

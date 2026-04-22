@@ -29,7 +29,7 @@ export const AttributionOverlay = memo(
     }));
 
     return (
-      <View style={attributionStyles.attribution}>
+      <View style={attributionStyles.attribution} pointerEvents="none">
         <View style={attributionStyles.attributionPill}>
           <Text style={attributionStyles.attributionText}>{attribution}</Text>
         </View>
@@ -44,10 +44,10 @@ const attributionStyles = StyleSheet.create({
   attribution: {
     position: 'absolute',
     bottom: 0,
-    left: 0,
     right: 0,
-    alignItems: 'center',
+    alignItems: 'flex-end',
     paddingBottom: 4,
+    paddingRight: 6,
     zIndex: 5,
   },
   attributionPill: {
