@@ -310,7 +310,7 @@ class RouteEngineClient implements DelegateHost {
   setRouteName = (routeId: string, name: string): void =>
     routeDelegates.setRouteName(this, routeId, name);
 
-  setRouteRepresentative = (routeId: string, activityId: string): void =>
+  setRouteRepresentative = (routeId: string, activityId: string): boolean =>
     routeDelegates.setRouteRepresentative(this, routeId, activityId);
 
   setSectionName = (sectionId: string, name: string): boolean =>

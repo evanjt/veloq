@@ -185,14 +185,20 @@ export function setRouteRepresentative(
   host: DelegateHost,
   routeId: string,
   activityId: string
-): void {
-  if (!host.ready) return;
+): boolean {
+  if (!host.ready) return false;
   validateId(routeId, 'route ID');
   validateId(activityId, 'activity ID');
-  host.timed('setRouteRepresentative', () =>
-    host.engine.routes().setRepresentative(routeId, activityId)
-  );
-  host.notify('groups');
+  try {
+    host.timed('setRouteRepresentative', () =>
+      host.engine.routes().setRepresentative(routeId, activityId)
+    );
+    host.notify('groups');
+    return true;
+  } catch (e) {
+    console.error('[RouteEngine] setRouteRepresentative failed:', routeId, activityId, e);
+    return false;
+  }
 }
 
 export function getActivityRouteHighlights(

@@ -116,6 +116,11 @@ export default function RouteDetailScreen() {
   // Get route group from engine using lightweight on-demand query (with LRU caching)
   const { group: engineGroup } = useGroupDetail(id || null);
 
+  // Local override for immediate UI feedback after setting a new reference
+  // (useGroupDetail doesn't subscribe to engine events, so engineGroup.representativeId is stale)
+  const [overrideRepresentativeId, setOverrideRepresentativeId] = useState<string | null>(null);
+  const effectiveRepresentativeId = overrideRepresentativeId ?? engineGroup?.representativeId;
+
   // Sport type selector state
   const [selectedSportType, setSelectedSportType] = useState<string | undefined>(undefined);
 
@@ -375,7 +380,7 @@ export default function RouteDetailScreen() {
 
   const handleSetAsReference = useCallback(
     (activityId: string) => {
-      if (!id || activityId === engineGroup?.representativeId) return;
+      if (!id || activityId === effectiveRepresentativeId) return;
       Alert.alert(t('routes.setAsReference'), t('routes.setAsReferenceConfirm'), [
         { text: t('common.cancel'), style: 'cancel' },
         {
@@ -383,12 +388,15 @@ export default function RouteDetailScreen() {
           onPress: () => {
             const engine = getRouteEngine();
             if (!engine) return;
-            engine.setRouteRepresentative(id, activityId);
+            const success = engine.setRouteRepresentative(id, activityId);
+            if (success) {
+              setOverrideRepresentativeId(activityId);
+            }
           },
         },
       ]);
     },
-    [id, engineGroup?.representativeId, t]
+    [id, effectiveRepresentativeId, t]
   );
 
   // Enrich chart data with PR info for tooltip display
@@ -701,7 +709,7 @@ export default function RouteDetailScreen() {
                   onExcludeActivity={handleExcludeActivity}
                   onIncludeActivity={handleIncludeActivity}
                   onSetAsReference={handleSetAsReference}
-                  referenceActivityId={engineGroup?.representativeId}
+                  referenceActivityId={effectiveRepresentativeId}
                   showExcluded={showExcluded}
                   hasExcluded={excludedActivityIds.size > 0}
                   onToggleShowExcluded={handleToggleShowExcluded}
