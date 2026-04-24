@@ -1084,6 +1084,7 @@ export interface TranslationResource {
     acceptAllConfirm: string;
     acceptedCount: string;
     pinned: string;
+    pinnedOnly: string;
     activitiesCount: string;
     performanceOverTime: string;
     legendPr: string;

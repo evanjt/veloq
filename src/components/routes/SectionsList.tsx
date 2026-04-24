@@ -74,6 +74,7 @@ type HiddenFilters = {
   custom: boolean;
   auto: boolean;
   disabled: boolean;
+  unaccepted: boolean;
 };
 
 export type SectionsSortOption = 'visits' | 'distance' | 'name' | 'nearby';
@@ -111,6 +112,9 @@ function batchSectionToFrequentSection(s: SectionWithPolyline): FrequentSection 
     createdAt: new Date().toISOString(),
     sportTypes: 'sportTypes' in s ? (s as { sportTypes: string[] }).sportTypes : undefined,
     center,
+    isUserDefined: ((s as Record<string, unknown>).isUserDefined as boolean) ?? false,
+    disabled: ((s as Record<string, unknown>).disabled as boolean) ?? false,
+    supersededBy: ((s as Record<string, unknown>).supersededBy as string | null) ?? null,
   };
   // Generate display name using same logic as useFrequentSections
   if (!section.name) {
@@ -265,6 +269,7 @@ export const SectionsList = memo(function SectionsList({
     custom: false,
     auto: false,
     disabled: true, // Hidden sections are hidden by default
+    unaccepted: false,
   });
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -310,65 +315,61 @@ export const SectionsList = memo(function SectionsList({
   const cacheDays = useCacheDays();
 
   // Separate regular sections from potential sections, apply filter, search, and sort
-  const { regularSections, potentialSections, unacceptedAutoCount } = useMemo(() => {
-    const regular: UnifiedSection[] = [];
-    const potential: UnifiedSection[] = [];
-    let unaccepted = 0;
-    const query = searchQuery.toLowerCase();
+  const { regularSections, potentialSections, unacceptedAutoCount, acceptedAutoCount } =
+    useMemo(() => {
+      const regular: UnifiedSection[] = [];
+      const potential: UnifiedSection[] = [];
+      let unaccepted = 0;
+      let accepted = 0;
+      const query = searchQuery.toLowerCase();
 
-    for (const section of unifiedSections) {
-      if (section.sectionType === 'potential') {
-        potential.push(section);
-      } else {
-        if (
-          section.sectionType === 'auto' &&
-          !section.disabled &&
-          !section.supersededBy &&
-          !section.isUserDefined
-        ) {
-          unaccepted++;
+      for (const section of unifiedSections) {
+        if (section.sectionType === 'potential') {
+          potential.push(section);
+        } else {
+          const isVisibleAuto =
+            section.sectionType === 'auto' && !section.disabled && !section.supersededBy;
+          if (isVisibleAuto && !section.isUserDefined) unaccepted++;
+          if (isVisibleAuto && section.isUserDefined) accepted++;
+
+          // Apply hide filters
+          const isCustom = section.sectionType === 'custom';
+          const isDisabledAuto =
+            section.sectionType === 'auto' && !!(section.disabled || section.supersededBy);
+          const isUnacceptedAuto = isVisibleAuto && !section.isUserDefined;
+
+          if (
+            (isCustom && hiddenFilters.custom) ||
+            (isVisibleAuto && hiddenFilters.auto) ||
+            (isDisabledAuto && hiddenFilters.disabled) ||
+            (isUnacceptedAuto && hiddenFilters.unaccepted)
+          ) {
+            continue;
+          }
+
+          if (query && !section.name?.toLowerCase().includes(query)) {
+            continue;
+          }
+
+          regular.push(section);
         }
-
-        // Apply hide filters - hide if the filter is set for this type
-        const isCustom = section.sectionType === 'custom';
-        const isAuto = section.sectionType === 'auto' && !section.disabled && !section.supersededBy;
-        const isDisabledAuto =
-          section.sectionType === 'auto' && !!(section.disabled || section.supersededBy);
-
-        if (
-          (isCustom && hiddenFilters.custom) ||
-          (isAuto && hiddenFilters.auto) ||
-          (isDisabledAuto && hiddenFilters.disabled)
-        ) {
-          continue; // Skip (hide) this section
-        }
-
-        // Apply search filter
-        if (query && !section.name?.toLowerCase().includes(query)) {
-          continue;
-        }
-
-        regular.push(section);
       }
-    }
 
-    // Apply sort
-    if (sortOption === 'visits') {
-      regular.sort((a, b) => (b.visitCount ?? 0) - (a.visitCount ?? 0));
-    } else if (sortOption === 'distance') {
-      regular.sort((a, b) => (b.distanceMeters ?? 0) - (a.distanceMeters ?? 0));
-    } else if (sortOption === 'name') {
-      regular.sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''));
-    }
+      if (sortOption === 'visits') {
+        regular.sort((a, b) => (b.visitCount ?? 0) - (a.visitCount ?? 0));
+      } else if (sortOption === 'distance') {
+        regular.sort((a, b) => (b.distanceMeters ?? 0) - (a.distanceMeters ?? 0));
+      } else if (sortOption === 'name') {
+        regular.sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''));
+      }
 
-    // Preserve native order for nearby sorting so pagination stays correct.
-
-    return {
-      regularSections: regular,
-      potentialSections: potential,
-      unacceptedAutoCount: unaccepted,
-    };
-  }, [unifiedSections, hiddenFilters, searchQuery, sortOption]); // userLocation excluded: nearby sorting is Rust-side
+      return {
+        regularSections: regular,
+        potentialSections: potential,
+        unacceptedAutoCount: unaccepted,
+        acceptedAutoCount: accepted,
+      };
+    }, [unifiedSections, hiddenFilters, searchQuery, sortOption]); // userLocation excluded: nearby sorting is Rust-side
 
   // Pre-compute distance from user for each section (used for display on every row)
   const distanceMap = useMemo(() => {
@@ -824,6 +825,38 @@ export const SectionsList = memo(function SectionsList({
                 ]}
               >
                 {trueDisabledCount} {t('sections.removed')}
+              </Text>
+            </TouchableOpacity>
+          )}
+          {unacceptedAutoCount > 0 && acceptedAutoCount > 0 && (
+            <TouchableOpacity
+              style={[
+                styles.sortChip,
+                isDark && styles.sortChipDark,
+                hiddenFilters.unaccepted && styles.sortChipActive,
+              ]}
+              onPress={() => handleFilterPress('unaccepted')}
+              activeOpacity={0.7}
+            >
+              <MaterialCommunityIcons
+                name="pin"
+                size={13}
+                color={
+                  hiddenFilters.unaccepted
+                    ? colors.primary
+                    : isDark
+                      ? darkColors.textSecondary
+                      : colors.textSecondary
+                }
+              />
+              <Text
+                style={[
+                  styles.sortChipLabel,
+                  isDark && styles.textMuted,
+                  hiddenFilters.unaccepted && styles.sortChipLabelActive,
+                ]}
+              >
+                {t('sections.pinnedOnly')}
               </Text>
             </TouchableOpacity>
           )}

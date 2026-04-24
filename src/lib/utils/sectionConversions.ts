@@ -53,5 +53,12 @@ export function convertNativeSectionToApp(
     version: ('version' in native ? native.version : undefined) ?? undefined,
     updatedAt: ('updatedAt' in native ? native.updatedAt : undefined) ?? undefined,
     createdAt: ('createdAt' in native ? native.createdAt : undefined) ?? '',
+    isUserDefined:
+      'isUserDefined' in native ? !!(native as { isUserDefined?: boolean }).isUserDefined : false,
+    disabled: 'disabled' in native ? !!(native as { disabled?: boolean }).disabled : false,
+    supersededBy:
+      ('supersededBy' in native
+        ? (native as { supersededBy?: string | null }).supersededBy
+        : null) ?? null,
   };
 }

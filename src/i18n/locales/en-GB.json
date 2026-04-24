@@ -1253,6 +1253,7 @@
     "acceptAllConfirm": "Accept all {{count}} auto-detected sections? They will be preserved during future re-detection.",
     "acceptedCount": "Accepted {{count}} sections",
     "pinned": "Pinned",
+    "pinnedOnly": "Pinned only",
     "activities": "Activities",
     "activitiesCount": "{{count}} activities",
     "averagePace": "Avg pace",

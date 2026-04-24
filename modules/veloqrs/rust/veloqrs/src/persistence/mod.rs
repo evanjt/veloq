@@ -904,6 +904,9 @@ impl PersistentRouteEngine {
                     bounds: s.bounds,
                     polyline,
                     sport_types: s.sport_types,
+                    is_user_defined: s.is_user_defined,
+                    disabled: s.disabled,
+                    superseded_by: s.superseded_by,
                 }
             })
             .collect();

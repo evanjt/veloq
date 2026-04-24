@@ -1359,7 +1359,8 @@
     "acceptAllSections": "Accept All",
     "acceptAllConfirm": "Accept all {{count}} auto-detected sections? They will be preserved during future re-detection.",
     "acceptedCount": "Accepted {{count}} sections",
-    "pinned": "Pinned"
+    "pinned": "Pinned",
+    "pinnedOnly": "Alleen vastgezet"
   },
   "settings": {
     "account": "Account",

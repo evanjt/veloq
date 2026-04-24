@@ -1037,6 +1037,9 @@ pub struct FfiSectionWithPolyline {
     pub polyline: Vec<f64>,
     /// All sport types present in this section's activities
     pub sport_types: Vec<String>,
+    pub is_user_defined: bool,
+    pub disabled: bool,
+    pub superseded_by: Option<String>,
 }
 
 /// All data needed by the Routes screen in a single FFI call.
