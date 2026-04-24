@@ -209,6 +209,10 @@ export function isHeatmapEnabled(): boolean {
   return useRouteSettings.getState().settings.heatmapEnabled;
 }
 
+export function getDetectionStrictness(): number {
+  return useRouteSettings.getState().settings.detectionStrictness;
+}
+
 // Initialize route settings (call during app startup)
 export async function initializeRouteSettings(): Promise<void> {
   await useRouteSettings.getState().initialize();

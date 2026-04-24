@@ -1156,6 +1156,31 @@ impl PersistentRouteEngine {
             [],
         )?;
 
+        // Load bounding boxes of accepted sections to dedup new auto detections
+        struct AcceptedBounds {
+            min_lat: f64,
+            max_lat: f64,
+            min_lng: f64,
+            max_lng: f64,
+        }
+        let accepted_bounds: Vec<AcceptedBounds> = {
+            let mut stmt = tx.prepare(
+                "SELECT bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng
+                 FROM sections WHERE is_user_defined = 1
+                 AND bounds_min_lat IS NOT NULL",
+            )?;
+            stmt.query_map([], |row| {
+                Ok(AcceptedBounds {
+                    min_lat: row.get(0)?,
+                    max_lat: row.get(1)?,
+                    min_lng: row.get(2)?,
+                    max_lng: row.get(3)?,
+                })
+            })?
+            .filter_map(|r| r.ok())
+            .collect()
+        };
+
         // Load existing section names to preserve user-set names (from custom sections)
         let existing_names: HashMap<String, String> = {
             let mut stmt = tx.prepare("SELECT id, name FROM sections WHERE name IS NOT NULL")?;
@@ -1316,6 +1341,35 @@ impl PersistentRouteEngine {
                 } else {
                     (None, None, None, None)
                 };
+
+            // Skip new auto sections whose bbox is mostly covered by an accepted section
+            if !section.is_user_defined && !accepted_bounds.is_empty() {
+                if let (Some(mn_lat), Some(mx_lat), Some(mn_lng), Some(mx_lng)) =
+                    (bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng)
+                {
+                    let new_area = (mx_lat - mn_lat) * (mx_lng - mn_lng);
+                    if new_area > 0.0 {
+                        let dominated = accepted_bounds.iter().any(|ab| {
+                            let i_min_lat = mn_lat.max(ab.min_lat);
+                            let i_max_lat = mx_lat.min(ab.max_lat);
+                            let i_min_lng = mn_lng.max(ab.min_lng);
+                            let i_max_lng = mx_lng.min(ab.max_lng);
+                            if i_min_lat >= i_max_lat || i_min_lng >= i_max_lng {
+                                return false;
+                            }
+                            let intersection = (i_max_lat - i_min_lat) * (i_max_lng - i_min_lng);
+                            intersection / new_area > 0.45
+                        });
+                        if dominated {
+                            log::debug!(
+                                "save_sections: skipping auto section {} — overlaps accepted section",
+                                section.id
+                            );
+                            continue;
+                        }
+                    }
+                }
+            }
 
             // Serialise the consensus accumulator if present, as a
             // MessagePack blob (smaller + faster than JSON; matches the

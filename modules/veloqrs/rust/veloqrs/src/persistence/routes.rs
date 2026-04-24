@@ -160,19 +160,28 @@ impl PersistentRouteEngine {
                      running one-time AMD recalculation"
                 );
                 self.recalculate_match_percentages_from_tracks();
-                if let Err(e) = self.persist_match_percentages() {
-                    log::error!(
-                        "tracematch: [migration] Failed to persist match percentages: {}",
-                        e
-                    );
+                match self.persist_match_percentages() {
+                    Ok(()) => {
+                        let _ = self.db.execute(
+                            "INSERT OR REPLACE INTO schema_info (key, value)
+                             VALUES ('match_pct_backfilled_v1', '1')",
+                            [],
+                        );
+                    }
+                    Err(e) => {
+                        log::error!(
+                            "tracematch: [migration] Failed to persist match percentages: {}",
+                            e
+                        );
+                    }
                 }
+            } else {
+                let _ = self.db.execute(
+                    "INSERT OR REPLACE INTO schema_info (key, value)
+                     VALUES ('match_pct_backfilled_v1', '1')",
+                    [],
+                );
             }
-
-            let _ = self.db.execute(
-                "INSERT OR REPLACE INTO schema_info (key, value)
-                 VALUES ('match_pct_backfilled_v1', '1')",
-                [],
-            );
         }
 
         Ok(())
@@ -556,19 +565,15 @@ impl PersistentRouteEngine {
 
         let func_start = Instant::now();
 
-        // PERF ASSESSMENT: This function is a BOTTLENECK
-        // - Loads ALL GPS tracks from SQLite (I/O bound)
-        // - Does pairwise AMD calculations SEQUENTIALLY (CPU bound, O(n*m) per pair)
-        // - Could be parallelized with rayon but requires restructuring
         log::info!(
-            "tracematch: [PERF] recalculate_match_percentages: SEQUENTIAL pairwise AMD - {} groups",
+            "tracematch: [PERF] recalculate_match_percentages: {} groups, parallel AMD via rayon",
             self.groups.len()
         );
 
         // First pass: collect all activity IDs and load tracks
         // PERF: I/O bound - loads tracks SEQUENTIALLY from SQLite
         let load_start = Instant::now();
-        let mut tracks: HashMap<String, Vec<GpsPoint>> = HashMap::new();
+        let mut tracks: HashMap<String, Arc<Vec<GpsPoint>>> = HashMap::new();
         let mut total_points_loaded: usize = 0;
 
         for group in &self.groups {
@@ -577,7 +582,7 @@ impl PersistentRouteEngine {
                 && track.len() >= 2
             {
                 total_points_loaded += track.len();
-                tracks.insert(group.representative_id.clone(), track);
+                tracks.insert(group.representative_id.clone(), Arc::new(track));
             }
 
             // Load all member tracks in this group (use group.activity_ids,
@@ -589,7 +594,7 @@ impl PersistentRouteEngine {
                     && track.len() >= 2
                 {
                     total_points_loaded += track.len();
-                    tracks.insert(activity_id.clone(), track);
+                    tracks.insert(activity_id.clone(), Arc::new(track));
                 }
             }
         }
@@ -607,8 +612,8 @@ impl PersistentRouteEngine {
         // OPTIMIZATION 2: Parallelize with rayon
         let calc_start = Instant::now();
 
-        // Collect work items for parallel processing
-        let mut work_items: Vec<(String, String, Vec<GpsPoint>, Vec<GpsPoint>)> = Vec::new();
+        let mut work_items: Vec<(String, String, Arc<Vec<GpsPoint>>, Arc<Vec<GpsPoint>>)> =
+            Vec::new();
         let mut skipped_self = 0u32;
 
         for group in &self.groups {
@@ -631,8 +636,8 @@ impl PersistentRouteEngine {
                 work_items.push((
                     group.group_id.clone(),
                     activity_id.clone(),
-                    activity_track.clone(),
-                    rep_track.clone(),
+                    Arc::clone(activity_track),
+                    Arc::clone(rep_track),
                 ));
             }
         }
@@ -735,7 +740,16 @@ impl PersistentRouteEngine {
     }
 
     fn save_groups(&self) -> SqlResult<()> {
-        // Clear existing groups and matches
+        // Snapshot excluded flags before wiping — user exclusions must survive recompute
+        let excluded_pairs: Vec<(String, String)> = {
+            let mut stmt = self.db.prepare(
+                "SELECT route_id, activity_id FROM activity_matches WHERE excluded = 1",
+            )?;
+            stmt.query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?
+                .filter_map(|r| r.ok())
+                .collect()
+        };
+
         self.db.execute("DELETE FROM route_groups", [])?;
         self.db.execute("DELETE FROM activity_matches", [])?;
 
@@ -910,9 +924,26 @@ impl PersistentRouteEngine {
                 match_stmt.execute(params![
                     group.group_id,
                     activity_id,
-                    0.0f64, // default match percentage — will be recalculated
+                    0.0f64, // default for members not in activity_matches (representatives, tracks not loaded)
                     "same",
                 ])?;
+            }
+        }
+
+        // Restore excluded flags that were snapshotted before the DELETE
+        if !excluded_pairs.is_empty() {
+            let mut excl_stmt = self.db.prepare(
+                "UPDATE activity_matches SET excluded = 1 WHERE route_id = ? AND activity_id = ?",
+            )?;
+            let mut restored = 0u32;
+            for (route_id, activity_id) in &excluded_pairs {
+                restored += excl_stmt.execute(params![route_id, activity_id])? as u32;
+            }
+            if restored > 0 {
+                log::info!(
+                    "tracematch: Restored {} excluded flags after save_groups",
+                    restored
+                );
             }
         }
 
@@ -1456,6 +1487,15 @@ impl PersistentRouteEngine {
 
         self.consensus_cache.pop(&route_id.to_string());
         self.group_cache.pop(&route_id.to_string());
+
+        // Recompute match percentages against the new representative and persist
+        self.recalculate_match_percentages_from_tracks();
+        if let Err(e) = self.persist_match_percentages() {
+            log::error!(
+                "tracematch: Failed to persist match percentages after representative change: {}",
+                e
+            );
+        }
 
         Ok(())
     }
