@@ -158,6 +158,40 @@ impl SectionManager {
         })
     }
 
+    fn prune_overlapping(&self) -> Result<u32, VeloqError> {
+        with_engine(|e| {
+            let all_sections = e.get_sections().to_vec();
+            let (_, pruneable): (Vec<_>, Vec<_>) = all_sections
+                .into_iter()
+                .partition(|s| s.is_user_defined);
+
+            let before = pruneable.len();
+            let config = e.section_config.clone();
+            let filtered =
+                tracematch::sections::remove_overlapping_sections(pruneable, &config);
+            let filtered =
+                tracematch::sections::merge_nearby_sections(filtered, &config);
+            let after = filtered.len();
+
+            let kept_ids: std::collections::HashSet<&str> =
+                filtered.iter().map(|s| s.id.as_str()).collect();
+            let removed_ids: Vec<String> = e
+                .get_sections()
+                .iter()
+                .filter(|s| !s.is_user_defined && !kept_ids.contains(s.id.as_str()))
+                .map(|s| s.id.clone())
+                .collect();
+
+            for id in &removed_ids {
+                if let Err(err) = e.delete_section(id) {
+                    log::warn!("prune_overlapping: failed to delete {}: {}", id, err);
+                }
+            }
+
+            (before - after) as u32
+        })
+    }
+
     fn get_polyline(&self, section_id: String) -> Result<Vec<crate::FfiGpsPoint>, VeloqError> {
         with_engine(|e| {
             let flat = e.get_section_polyline(&section_id);

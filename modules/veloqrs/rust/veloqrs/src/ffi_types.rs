@@ -440,6 +440,28 @@ impl From<FfiSectionConfig> for tracematch::SectionConfig {
     }
 }
 
+impl From<&tracematch::SectionConfig> for FfiSectionConfig {
+    fn from(c: &tracematch::SectionConfig) -> Self {
+        Self {
+            proximity_threshold: c.proximity_threshold,
+            min_section_length: c.min_section_length,
+            max_section_length: c.max_section_length,
+            min_activities: c.min_activities,
+            cluster_tolerance: c.cluster_tolerance,
+            sample_points: c.sample_points,
+            detection_mode: c.detection_mode.to_string(),
+            include_potentials: c.include_potentials,
+            scale_presets: c
+                .scale_presets
+                .iter()
+                .cloned()
+                .map(FfiScalePreset::from)
+                .collect(),
+            preserve_hierarchy: c.preserve_hierarchy,
+        }
+    }
+}
+
 impl Default for FfiSectionConfig {
     fn default() -> Self {
         let c = tracematch::SectionConfig::default();

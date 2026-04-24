@@ -1231,7 +1231,9 @@
     "thisPace": "This pace",
     "thisSpeed": "This speed",
     "visits": "visits",
-    "waiting": "Hang on..."
+    "waiting": "Hang on...",
+    "setAsReference": "Set as Reference",
+    "setAsReferenceConfirm": "Use this activity as the route reference? Match percentages are calculated relative to the reference activity."
   },
   "routesScreen": {
     "analysingRoutes": "Analysing routes {{current}}/{{total}}",

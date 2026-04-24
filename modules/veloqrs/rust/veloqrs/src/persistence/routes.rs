@@ -1,6 +1,6 @@
 //! Route groups: loading, grouping, matching, consensus routes, names.
 
-use crate::{Bounds, GpsPoint, RouteGroup, geo_utils};
+use crate::{ActivityMatchInfo, Bounds, Direction, GpsPoint, RouteGroup, geo_utils};
 use rusqlite::{Result as SqlResult, params, types::Type};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -128,6 +128,53 @@ impl PersistentRouteEngine {
                 backfilled
             );
         }
+
+        // One-time migration: compute real AMD-based match percentages for
+        // databases where all values are 0.0 (pre-fix data). Gated by a
+        // schema_info flag so it runs exactly once per install.
+        let already_migrated: bool = self
+            .db
+            .query_row(
+                "SELECT value FROM schema_info WHERE key = 'match_pct_backfilled_v1'",
+                [],
+                |row| row.get::<_, String>(0),
+            )
+            .is_ok();
+
+        if !already_migrated && !self.activity_matches.is_empty() {
+            let rep_ids: std::collections::HashSet<&str> = self
+                .groups
+                .iter()
+                .map(|g| g.representative_id.as_str())
+                .collect();
+
+            let has_any_nonzero = self
+                .activity_matches
+                .values()
+                .flat_map(|matches| matches.iter())
+                .any(|m| !rep_ids.contains(m.activity_id.as_str()) && m.match_percentage > 0.0);
+
+            if !has_any_nonzero {
+                log::info!(
+                    "tracematch: [migration] All non-representative match percentages are 0.0, \
+                     running one-time AMD recalculation"
+                );
+                self.recalculate_match_percentages_from_tracks();
+                if let Err(e) = self.persist_match_percentages() {
+                    log::error!(
+                        "tracematch: [migration] Failed to persist match percentages: {}",
+                        e
+                    );
+                }
+            }
+
+            let _ = self.db.execute(
+                "INSERT OR REPLACE INTO schema_info (key, value)
+                 VALUES ('match_pct_backfilled_v1', '1')",
+                [],
+            );
+        }
+
         Ok(())
     }
 
@@ -445,7 +492,9 @@ impl PersistentRouteEngine {
         );
 
         self.groups = result.groups;
-        self.activity_matches = result.activity_matches;
+        if !result.activity_matches.is_empty() {
+            self.activity_matches = result.activity_matches;
+        }
 
         // Phase 3: Recalculate match percentages using ORIGINAL GPS tracks (not simplified signatures)
         // This captures actual GPS variation that was smoothed out by Douglas-Peucker
@@ -531,16 +580,16 @@ impl PersistentRouteEngine {
                 tracks.insert(group.representative_id.clone(), track);
             }
 
-            // Load all activity tracks in this group
-            if let Some(matches) = self.activity_matches.get(&group.group_id) {
-                for match_info in matches {
-                    if !tracks.contains_key(&match_info.activity_id)
-                        && let Some(track) = self.load_gps_track_from_db(&match_info.activity_id)
-                        && track.len() >= 2
-                    {
-                        total_points_loaded += track.len();
-                        tracks.insert(match_info.activity_id.clone(), track);
-                    }
+            // Load all member tracks in this group (use group.activity_ids,
+            // not self.activity_matches, so this works even when the match
+            // map is empty — e.g. after the incremental grouping path)
+            for activity_id in &group.activity_ids {
+                if !tracks.contains_key(activity_id)
+                    && let Some(track) = self.load_gps_track_from_db(activity_id)
+                    && track.len() >= 2
+                {
+                    total_points_loaded += track.len();
+                    tracks.insert(activity_id.clone(), track);
                 }
             }
         }
@@ -568,26 +617,23 @@ impl PersistentRouteEngine {
                 None => continue,
             };
 
-            if let Some(matches) = self.activity_matches.get(&group.group_id) {
-                for match_info in matches {
-                    // OPTIMIZATION: Skip self-comparisons - always 100% match
-                    if match_info.activity_id == group.representative_id {
-                        skipped_self += 1;
-                        continue;
-                    }
-
-                    let activity_track = match tracks.get(&match_info.activity_id) {
-                        Some(t) => t,
-                        None => continue,
-                    };
-
-                    work_items.push((
-                        group.group_id.clone(),
-                        match_info.activity_id.clone(),
-                        activity_track.clone(),
-                        rep_track.clone(),
-                    ));
+            for activity_id in &group.activity_ids {
+                if *activity_id == group.representative_id {
+                    skipped_self += 1;
+                    continue;
                 }
+
+                let activity_track = match tracks.get(activity_id) {
+                    Some(t) => t,
+                    None => continue,
+                };
+
+                work_items.push((
+                    group.group_id.clone(),
+                    activity_id.clone(),
+                    activity_track.clone(),
+                    rep_track.clone(),
+                ));
             }
         }
 
@@ -618,7 +664,7 @@ impl PersistentRouteEngine {
 
         let amd_calculations = (results.len() * 2) as u32;
 
-        // Apply results back to activity_matches
+        // Apply results back to activity_matches (upsert: create entry if missing)
         for (group_id, activity_id, avg_amd, activity_len, rep_len) in results {
             let new_percentage = amd_to_percentage(
                 avg_amd,
@@ -626,9 +672,8 @@ impl PersistentRouteEngine {
                 self.match_config.zero_threshold,
             );
 
-            if let Some(matches) = self.activity_matches.get_mut(&group_id)
-                && let Some(match_info) = matches.iter_mut().find(|m| m.activity_id == activity_id)
-            {
+            let matches = self.activity_matches.entry(group_id).or_default();
+            if let Some(match_info) = matches.iter_mut().find(|m| m.activity_id == activity_id) {
                 log::debug!(
                     "tracematch: recalc match % for {}: {:.1}% -> {:.1}% (AMD: {:.1}m, {} vs {} points)",
                     activity_id,
@@ -639,6 +684,12 @@ impl PersistentRouteEngine {
                     rep_len
                 );
                 match_info.match_percentage = new_percentage;
+            } else {
+                matches.push(ActivityMatchInfo {
+                    activity_id,
+                    match_percentage: new_percentage,
+                    direction: Direction::Same,
+                });
             }
         }
 
@@ -655,6 +706,32 @@ impl PersistentRouteEngine {
             load_ms,
             calc_ms
         );
+    }
+
+    /// Write in-memory match percentages back to SQLite.
+    /// Only updates rows where the computed percentage is non-zero
+    /// (representatives stay at 0.0 by design — they are the reference track).
+    fn persist_match_percentages(&self) -> SqlResult<()> {
+        let mut stmt = self.db.prepare(
+            "UPDATE activity_matches SET match_percentage = ?
+             WHERE route_id = ? AND activity_id = ?",
+        )?;
+        let mut updated = 0u32;
+        for (route_id, matches) in &self.activity_matches {
+            for m in matches {
+                if m.match_percentage > 0.0 {
+                    updated +=
+                        stmt.execute(params![m.match_percentage, route_id, m.activity_id])? as u32;
+                }
+            }
+        }
+        if updated > 0 {
+            log::info!(
+                "tracematch: Persisted {} non-zero match percentages to DB",
+                updated
+            );
+        }
+        Ok(())
     }
 
     fn save_groups(&self) -> SqlResult<()> {
@@ -1348,5 +1425,38 @@ impl PersistentRouteEngine {
                 .collect()
             })
             .unwrap_or_default()
+    }
+
+    pub fn set_route_representative(
+        &mut self,
+        route_id: &str,
+        activity_id: &str,
+    ) -> Result<(), String> {
+        let group = self
+            .groups
+            .iter_mut()
+            .find(|g| g.group_id == route_id)
+            .ok_or_else(|| format!("Route group {} not found", route_id))?;
+
+        if !group.activity_ids.contains(&activity_id.to_string()) {
+            return Err(format!(
+                "Activity {} is not a member of route {}",
+                activity_id, route_id
+            ));
+        }
+
+        group.representative_id = activity_id.to_string();
+
+        self.db
+            .execute(
+                "UPDATE route_groups SET representative_id = ? WHERE id = ?",
+                rusqlite::params![activity_id, route_id],
+            )
+            .map_err(|e| format!("DB update failed: {}", e))?;
+
+        self.consensus_cache.pop(&route_id.to_string());
+        self.group_cache.pop(&route_id.to_string());
+
+        Ok(())
     }
 }

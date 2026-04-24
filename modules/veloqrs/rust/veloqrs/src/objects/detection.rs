@@ -129,6 +129,27 @@ impl DetectionManager {
         Ok(true)
     }
 
+    fn set_config(&self, config: crate::FfiSectionConfig) -> Result<(), VeloqError> {
+        with_engine(|e| {
+            e.set_section_config(config.into());
+        })
+    }
+
+    fn get_config(&self) -> Result<crate::FfiSectionConfig, VeloqError> {
+        with_engine(|e| crate::FfiSectionConfig::from(&e.section_config))
+    }
+
+    fn set_match_strictness(
+        &self,
+        min_match_pct: f64,
+        endpoint_threshold: f64,
+    ) -> Result<(), VeloqError> {
+        with_engine(|e| {
+            e.match_config.min_match_percentage = min_match_pct;
+            e.match_config.endpoint_threshold = endpoint_threshold;
+        })
+    }
+
     fn detect_potentials(
         &self,
         sport_filter: Option<String>,

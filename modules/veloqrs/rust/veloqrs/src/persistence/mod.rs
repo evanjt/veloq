@@ -466,7 +466,7 @@ pub struct PersistentRouteEngine {
     sections_dirty: bool,
 
     /// Configuration
-    match_config: MatchConfig,
+    pub(crate) match_config: MatchConfig,
     pub(crate) section_config: SectionConfig,
 
     /// Path for heatmap tile output (set from JS at init)
