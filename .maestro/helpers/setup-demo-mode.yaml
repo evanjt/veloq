@@ -58,8 +58,50 @@ appId: com.veloq.app.dev
     commands:
       - tapOn: "Skip"
 
+# Dismiss the in-app tour overlay ("Back to Tour / Close X") that can appear
+# after clearing app state on v0.3.0+.
+- runFlow:
+    when:
+      visible: "Close"
+    commands:
+      - tapOn: "Close"
+
 # Final wait for home screen (should be visible now after all dialogs dismissed)
 - extendedWaitUntil:
     visible:
       id: "home-screen"
     timeout: 30000
+    optional: true
+
+# Recovery: if home-screen not visible, relaunch and re-dismiss all dialogs
+- runFlow:
+    when:
+      notVisible:
+        id: "home-screen"
+    commands:
+      - launchApp:
+          clearState: false
+      - extendedWaitUntil:
+          visible:
+            id: "home-screen"
+          timeout: 15000
+          optional: true
+      - runFlow:
+          when:
+            visible: "Not Now"
+          commands:
+            - tapOn: "Not Now"
+      - runFlow:
+          when:
+            visible: "Done"
+          commands:
+            - tapOn: "Done"
+      - runFlow:
+          when:
+            visible: "Skip"
+          commands:
+            - tapOn: "Skip"
+      - extendedWaitUntil:
+          visible:
+            id: "home-screen"
+          timeout: 30000

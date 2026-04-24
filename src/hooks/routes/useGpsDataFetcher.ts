@@ -18,8 +18,10 @@ import {
   takeFetchAndStoreResult,
   type ActivitySportMapping,
 } from 'veloqrs';
-import { getStoredCredentials, getSyncGeneration } from '@/providers';
+import { getStoredCredentials, getSyncGeneration, useSyncDateRange } from '@/providers';
+import { isRouteMatchingEnabled } from '@/providers/RouteSettingsStore';
 import { toActivityMetrics } from '@/lib/utils/activityMetrics';
+import { intervalsApi } from '@/api';
 import type { Activity } from '@/types';
 import type { SyncProgress } from './useRouteSyncProgress';
 
@@ -42,85 +44,147 @@ interface FetchDeps {
 }
 
 /**
- * Phase weights for section detection progress calculation.
- * Maps Rust detection phases to 0-100% progress within the section detection stage.
- *
- * Rust emits phases: "loading", "detecting", "complete"
- * Legacy phases (building_rtrees, etc.) are kept for backwards compatibility.
+ * Human-readable phase names for section detection.
+ * Rust emits: "loading", "building_rtrees", "scale_short", "scale_medium",
+ *             "scale_long", "finding_overlaps" (fallback), "clustering",
+ *             "postprocessing", "saving", "complete"
  */
-const PHASE_WEIGHTS: Record<string, { start: number; weight: number }> = {
-  // Rust phases (from DetectionProgressCallback)
-  loading: { start: 0, weight: 10 },
-  building_rtrees: { start: 10, weight: 5 },
-  finding_overlaps: { start: 15, weight: 70 },
-  postprocessing: { start: 85, weight: 15 },
-  complete: { start: 100, weight: 0 },
-  detecting: { start: 10, weight: 85 }, // backwards compat (single blocking call)
+const PHASE_DISPLAY_NAMES: Record<string, string> = {
+  loading: 'Loading tracks',
+  building_rtrees: 'Building spatial index',
+  finding_overlaps: 'Finding overlaps',
+  scale_short: 'Finding overlaps (short)',
+  scale_medium: 'Finding overlaps (medium)',
+  scale_long: 'Finding overlaps (long)',
+  clustering: 'Clustering sections',
+  postprocessing: 'Processing sections',
+  saving: 'Saving sections',
+  complete: 'Complete',
+  detecting: 'Detecting sections',
 };
 
-// Track the last known progress to prevent backwards jumps
-let lastKnownProgress = 0;
+/**
+ * Per-phase share of the detection bar's 50–100% range.
+ *
+ * Phases are consumed sequentially. Accumulated-fraction-at-phase-start is
+ * computed at call time so a later phase can never render a lower percent
+ * than an earlier one — this fixes the "50% drop" the `saving` phase caused
+ * under the previous naïve completed/total-only calc.
+ *
+ * Weights sum to 1.0. They loosely track measured wall-clock shares for
+ * scenario E in `docs/perf/baselines-2026-04-19.md` (finding_overlaps
+ * dominates at ~70% of detection; everything else is small).
+ */
+const PHASE_WEIGHTS: Array<{ phase: string; weight: number }> = [
+  { phase: 'loading', weight: 0.05 },
+  { phase: 'building_rtrees', weight: 0.1 },
+  { phase: 'scale_short', weight: 0.2 },
+  { phase: 'scale_medium', weight: 0.22 },
+  { phase: 'scale_long', weight: 0.23 },
+  { phase: 'finding_overlaps', weight: 0.65 },
+  { phase: 'clustering', weight: 0.05 },
+  { phase: 'postprocessing', weight: 0.08 },
+  { phase: 'saving', weight: 0.02 },
+];
 
 /**
- * Calculate overall progress percentage across all phases.
- * Returns a smoothly increasing value from 0-100.
- * Uses monotonic tracking to prevent backwards jumps from unknown phases.
+ * Calculate overall progress for section detection (50-100% range).
+ * Download is 0-50%, all detection phases combined are 50-100%.
+ *
+ * Phase-weighted so the bar never regresses when a new phase starts. If the
+ * Rust side emits `finding_overlaps` as a single phase we use that weight;
+ * if it emits the per-scale phases we use the sum of the three scale
+ * weights, and the three phases advance the bar sequentially. This keeps
+ * both old and new detection callbacks working without branching.
  */
-function calculateOverallProgress(phase: string, completed: number, total: number): number {
-  // Handle scale phases (e.g., "scale_short", "scale_medium") - treat as finding_overlaps
-  const normalizedPhase = phase.startsWith('scale_') ? 'finding_overlaps' : phase;
+function calculateDetectionProgress(phase: string, completed: number, total: number): number {
+  const phaseFraction = total > 0 ? Math.min(completed / total, 1) : 0;
 
-  const phaseInfo = PHASE_WEIGHTS[normalizedPhase];
-  if (!phaseInfo) {
-    // Unknown phase - return last known progress instead of 0 to prevent jumps
-    // This handles any phases added in Rust that aren't yet mapped here
-    if (__DEV__) {
-      console.log(
-        `[calculateOverallProgress] Unknown phase: "${phase}", keeping progress at ${lastKnownProgress}`
-      );
+  // Two weight tables depending on which overlap shape Rust emits. The
+  // scale_* entries are strictly-ordered sub-phases of finding_overlaps.
+  const scalePhases = new Set(['scale_short', 'scale_medium', 'scale_long']);
+  const emitsPerScale = scalePhases.has(phase);
+
+  let accumulated = 0;
+  for (const p of PHASE_WEIGHTS) {
+    if (p.phase === 'finding_overlaps' && emitsPerScale) {
+      // Skip the lumped finding_overlaps slot when scale_* phases are active
+      continue;
     }
-    return lastKnownProgress;
+    if (!emitsPerScale && scalePhases.has(p.phase)) {
+      // Skip scale_* slots when using the lumped finding_overlaps phase
+      continue;
+    }
+    if (p.phase === phase) {
+      const pct = 50 + (accumulated + p.weight * phaseFraction) * 50;
+      return Math.min(100, Math.round(pct));
+    }
+    accumulated += p.weight;
   }
+  // Unknown phase: keep moving rather than dropping back to 50%.
+  return Math.min(99, Math.round(50 + accumulated * 50));
+}
 
-  // Calculate progress within this phase
-  const phaseProgress = total > 0 ? Math.min(completed / total, 1) : 0;
-
-  // Overall = phase start + (phase weight * progress within phase)
-  const newProgress = Math.round(phaseInfo.start + phaseInfo.weight * phaseProgress);
-
-  // Only allow progress to increase (monotonic) to prevent backwards jumps
-  // Exception: if we're at 'loading' phase, allow reset to start new detection
-  if (newProgress >= lastKnownProgress || normalizedPhase === 'loading') {
-    lastKnownProgress = newProgress;
-    return newProgress;
-  }
-
-  // Progress would go backwards - keep the higher value
-  return lastKnownProgress;
+/**
+ * Get display name for a detection phase.
+ */
+export function getPhaseDisplayName(phase: string): string {
+  return PHASE_DISPLAY_NAMES[phase] ?? phase;
 }
 
 /**
  * Reset the progress tracker. Call this when starting a new sync operation.
  */
 export function resetProgressTracker(): void {
-  lastKnownProgress = 0;
+  // No-op — progress is now calculated directly from phase completed/total
 }
 
 /**
- * Poll heatmap tile generation until complete.
- * Tile generation runs on a Rust background thread after section detection.
- * We poll briefly to ensure tiles are ready before the user navigates to the map.
+ * Poll heatmap tile generation until complete, surfacing per-tile progress to
+ * the sync banner so the user sees forward motion instead of a frozen bar.
+ *
+ * Tier 1.2: foreground wait is capped at 5 s regardless of tile count. Tile
+ * generation runs on a Rust background thread (spawned from `startFetchAndStore`
+ * when new data lands) and is never cancelled — if it's still running after the
+ * cap, we let it finish silently in the background and return so the sync can
+ * transition to "complete". The map view will pick up fresh tiles as they
+ * render. Previously this blocked the sync completion for up to 30 s.
  */
-async function pollTileGeneration(isMountedRef: React.MutableRefObject<boolean>): Promise<void> {
+async function pollTileGeneration(
+  isMountedRef: React.MutableRefObject<boolean>,
+  updateProgress?: (updater: SyncProgress | ((prev: SyncProgress) => SyncProgress)) => void
+): Promise<void> {
   const status = routeEngine.pollTileGeneration();
   if (status !== 'running' || !isMountedRef.current) return;
 
-  // Poll every 200ms for up to 10s (tile generation is usually fast)
-  const maxPollTime = 10000;
+  const initial = routeEngine.getHeatmapTileProgress();
+  const tileTotal = initial && initial.length >= 2 ? initial[1] : 0;
+  // Foreground budget: scale with tile count but cap hard at 5 s. Empty initial
+  // total (still enumerating) gets 3 s to give the enumerator a chance to publish
+  // a total, then returns.
+  const maxPollTime = tileTotal > 0 ? Math.min(5_000, Math.max(2_000, tileTotal * 10)) : 3_000;
+
   const startTime = Date.now();
   while (isMountedRef.current) {
     await new Promise((resolve) => setTimeout(resolve, 200));
     const s = routeEngine.pollTileGeneration();
+    if (updateProgress) {
+      const progress = routeEngine.getHeatmapTileProgress();
+      if (progress && progress.length >= 2) {
+        const [processed, total] = progress;
+        if (total > 0) {
+          const pct = 95 + Math.min(processed / total, 1) * 5;
+          const tilePercent = total > 0 ? Math.min(100, Math.round((processed / total) * 100)) : 0;
+          updateProgress({
+            status: 'computing',
+            completed: processed,
+            total,
+            percent: Math.min(100, Math.round(pct)),
+            message: i18n.t('cache.finalizingHeatmap', { percent: tilePercent }),
+          });
+        }
+      }
+    }
     if (s !== 'running' || Date.now() - startTime > maxPollTime) break;
   }
 }
@@ -193,7 +257,7 @@ export function useGpsDataFetcher() {
         return {
           syncedIds: [],
           withGpsCount: 0,
-          message: 'Engine not available',
+          message: i18n.t('cache.engineNotAvailable'),
         };
       }
 
@@ -204,7 +268,7 @@ export function useGpsDataFetcher() {
           completed: 0,
           total: activities.length,
           percent: 0,
-          message: 'Loading demo GPS data...',
+          message: i18n.t('cache.loadingDemoGps'),
         });
       }
 
@@ -320,29 +384,24 @@ export function useGpsDataFetcher() {
             const status = nativeModule.routeEngine.pollSectionDetection();
 
             if (status === 'running') {
-              // Get progress and calculate overall percentage
               const progress = nativeModule.routeEngine.getSectionDetectionProgress();
-              // If no progress yet, keep the last percentage (don't reset to 0)
-              const overallPercent = progress
-                ? calculateOverallProgress(progress.phase, progress.completed, progress.total)
-                : lastPercent >= 0
-                  ? lastPercent
-                  : 0;
-
-              // Update on every percentage change - the animation will smooth transitions
-              if (overallPercent !== lastPercent) {
-                const message = progress
-                  ? getSectionDetectionMessage(progress.phase)
-                  : i18n.t('cache.analyzingRoutes');
+              if (progress) {
+                const phasePercent = calculateDetectionProgress(
+                  progress.phase,
+                  progress.completed,
+                  progress.total
+                );
+                const phaseName = getPhaseDisplayName(progress.phase);
+                const countText =
+                  progress.total > 0 ? ` ${progress.completed}/${progress.total}` : '';
 
                 updateProgress({
                   status: 'computing',
-                  completed: 0,
-                  total: 0,
-                  percent: overallPercent,
-                  message,
+                  completed: progress.completed,
+                  total: progress.total,
+                  percent: phasePercent,
+                  message: `${phaseName}${countText}`,
                 });
-                lastPercent = overallPercent;
               }
             } else if (status === 'complete' || status === 'idle') {
               break;
@@ -370,7 +429,7 @@ export function useGpsDataFetcher() {
         routeEngine.triggerRefresh('sections');
 
         // Poll heatmap tile generation (runs on Rust background thread)
-        await pollTileGeneration(isMountedRef);
+        await pollTileGeneration(isMountedRef, updateProgress);
 
         if (isMountedRef.current) {
           updateProgress({
@@ -378,14 +437,14 @@ export function useGpsDataFetcher() {
             completed: ids.length,
             total: activities.length,
             percent: 100,
-            message: `Synced ${ids.length} demo activities`,
+            message: i18n.t('cache.syncedDemoActivities', { count: ids.length }),
           });
         }
 
         return {
           syncedIds: ids,
           withGpsCount: activities.length,
-          message: `Synced ${ids.length} demo activities`,
+          message: i18n.t('cache.syncedDemoActivities', { count: ids.length }),
         };
       }
 
@@ -396,7 +455,7 @@ export function useGpsDataFetcher() {
           completed: 0,
           total: activities.length,
           percent: 0,
-          message: `No valid GPS data found (checked ${activities.length} activities)`,
+          message: i18n.t('cache.noValidGpsChecked', { count: activities.length }),
         });
       }
 
@@ -415,7 +474,7 @@ export function useGpsDataFetcher() {
       return {
         syncedIds: [],
         withGpsCount: activities.length,
-        message: 'No valid GPS data in fixtures',
+        message: i18n.t('cache.noValidGpsData'),
       };
     },
     []
@@ -486,7 +545,7 @@ export function useGpsDataFetcher() {
           completed: 0,
           total: activities.length,
           percent: 0,
-          message: 'Fetching GPS data...',
+          message: i18n.t('cache.fetchingGpsData'),
         });
       }
 
@@ -508,13 +567,54 @@ export function useGpsDataFetcher() {
           completed: 0,
           total: activityIds.length,
           percent: 0,
-          message: `Downloading GPS data... 0/${activityIds.length}`,
+          message: i18n.t('cache.downloadingGpsProgress', {
+            percent: 0,
+            completed: 0,
+            total: activityIds.length,
+          }),
         });
       }
 
       // Start combined fetch+store - Rust downloads GPS data and stores directly
       // NO FFI round-trip: GPS data never crosses to TypeScript and back
       startFetchAndStore(authHeader, activityIds, sportTypes);
+
+      // Tier 1.1: kick off time-stream HTTP fetches concurrently with GPS download.
+      // Previously these ran sequentially AFTER GPS completed, adding ~20 s silent tail
+      // on a scenario-E sync. Rate-limit budget: intervals.icu allows 30 req/s burst,
+      // 120 req/10 s sustained. GPS fetches are paced in Rust (~10 concurrent); this
+      // TS batch of 10 adds ~10 more concurrent, staying under the burst limit.
+      // Streams are fetched for every candidate activity; failed-GPS rows are filtered
+      // out at the end against result.syncedIds so we never persist orphan streams.
+      const streamProgress = { completed: 0 };
+      const totalStreams = activityIds.length;
+      const streamFetchPromise: Promise<Array<{ activityId: string; times: number[] }>> =
+        (async () => {
+          const out: Array<{ activityId: string; times: number[] }> = [];
+          const batchSize = 10;
+          for (let i = 0; i < activityIds.length; i += batchSize) {
+            if (!isMountedRef.current || abortSignal.aborted) break;
+            const batch = activityIds.slice(i, i + batchSize);
+            const batchResults = await Promise.all(
+              batch.map(async (activityId) => {
+                try {
+                  const streams = await intervalsApi.getActivityStreams(activityId, ['time']);
+                  return { activityId, times: (streams.time as number[]) || [] };
+                } catch {
+                  return { activityId, times: [] as number[] };
+                }
+              })
+            );
+            for (const r of batchResults) {
+              if (r.times.length > 0) out.push(r);
+            }
+            streamProgress.completed = Math.min(
+              streamProgress.completed + batch.length,
+              totalStreams
+            );
+          }
+          return out;
+        })();
 
       // Poll for progress every 100ms until complete
       let pollCount = 0;
@@ -531,14 +631,21 @@ export function useGpsDataFetcher() {
         }
 
         if (progress.active) {
+          // Download is 0-50% when route matching is on (detection fills 50-100%),
+          // or 0-100% when route matching is off (no detection phase).
+          const maxPercent = isRouteMatchingEnabled() ? 50 : 100;
           const dlPercent =
-            progress.total > 0 ? Math.round((progress.completed / progress.total) * 100) : 0;
+            progress.total > 0 ? Math.round((progress.completed / progress.total) * maxPercent) : 0;
           updateProgress({
             status: 'fetching',
             completed: progress.completed,
             total: progress.total,
             percent: dlPercent,
-            message: `Downloading GPS data... ${progress.completed}/${progress.total}`,
+            message: i18n.t('cache.downloadingGpsProgress', {
+              percent: dlPercent,
+              completed: progress.completed,
+              total: progress.total,
+            }),
           });
         } else {
           if (__DEV__) {
@@ -621,17 +728,70 @@ export function useGpsDataFetcher() {
         routeEngine.triggerRefresh('groups');
       }
 
-      // Run section detection if new activities were synced OR if the engine
-      // needs re-detection (e.g., after a migration updated the portions algorithm)
+      // Time-stream fetch was kicked off in parallel with the GPS download above.
+      // By now it's usually already done. If any batches remain, show their progress
+      // in the banner while they finish so the user sees the reason for the wait.
+      if (result.syncedIds.length > 0 && isMountedRef.current && !abortSignal.aborted) {
+        try {
+          // Drain the tail: poll the shared counter at 150 ms while the stream promise
+          // is still in flight. If it already resolved (counter at total), skip the loop.
+          while (
+            isMountedRef.current &&
+            !abortSignal.aborted &&
+            streamProgress.completed < totalStreams
+          ) {
+            updateProgress({
+              status: 'fetching',
+              completed: streamProgress.completed,
+              total: totalStreams,
+              percent: 50,
+              message: i18n.t('cache.fetchingTimeStreams', {
+                percent: 50,
+                completed: streamProgress.completed,
+                total: totalStreams,
+              }),
+            });
+            await new Promise((resolve) => setTimeout(resolve, 150));
+          }
+
+          const fetchedStreams = await streamFetchPromise;
+          if (fetchedStreams.length > 0 && isMountedRef.current) {
+            // Filter to streams whose GPS write actually succeeded — keeps the
+            // Rust-side invariant that time streams only exist for synced activities.
+            const syncedSet = new Set(result.syncedIds);
+            const toSync = fetchedStreams.filter((s) => syncedSet.has(s.activityId));
+            if (toSync.length > 0) {
+              routeEngine.setTimeStreams(toSync);
+              if (__DEV__) {
+                console.log(
+                  `[fetchApiGps] Synced ${toSync.length}/${result.syncedIds.length} time streams`
+                );
+              }
+            }
+          }
+        } catch (e) {
+          if (__DEV__) {
+            console.warn('[fetchApiGps] Time stream fetch failed:', e);
+          }
+        }
+      }
+
+      // Run section detection if route matching is enabled AND (new activities synced,
+      // engine needs re-detection, or date range expanded).
+      const { hasExpanded } = useSyncDateRange.getState();
+      const routeMatchingOn = isRouteMatchingEnabled();
       const needsDetection =
-        result.syncedIds.length > 0 || routeEngine.getStats()?.sectionsDirty === true;
+        routeMatchingOn &&
+        (result.syncedIds.length > 0 ||
+          routeEngine.getStats()?.sectionsDirty === true ||
+          hasExpanded);
 
       if (needsDetection && isMountedRef.current) {
         updateProgress({
           status: 'computing',
           completed: 0,
           total: 0,
-          percent: 0,
+          percent: 50,
           message: i18n.t('cache.analyzingRoutes'),
         });
 
@@ -656,25 +816,23 @@ export function useGpsDataFetcher() {
 
             if (status === 'running') {
               const progress = nativeModule.routeEngine.getSectionDetectionProgress();
-              const overallPercent = progress
-                ? calculateOverallProgress(progress.phase, progress.completed, progress.total)
-                : lastPercent >= 0
-                  ? lastPercent
-                  : 0;
-
-              if (overallPercent !== lastPercent) {
-                const message = progress
-                  ? getSectionDetectionMessage(progress.phase)
-                  : i18n.t('cache.analyzingRoutes');
+              if (progress) {
+                const phasePercent = calculateDetectionProgress(
+                  progress.phase,
+                  progress.completed,
+                  progress.total
+                );
+                const phaseName = getPhaseDisplayName(progress.phase);
+                const countText =
+                  progress.total > 0 ? ` ${progress.completed}/${progress.total}` : '';
 
                 updateProgress({
                   status: 'computing',
-                  completed: 0,
-                  total: 0,
-                  percent: overallPercent,
-                  message,
+                  completed: progress.completed,
+                  total: progress.total,
+                  percent: phasePercent,
+                  message: `${phaseName}${countText}`,
                 });
-                lastPercent = overallPercent;
               }
             } else if (status === 'complete' || status === 'idle') {
               break;
@@ -701,7 +859,51 @@ export function useGpsDataFetcher() {
         routeEngine.triggerRefresh('sections');
 
         // Poll heatmap tile generation (runs on Rust background thread)
-        await pollTileGeneration(isMountedRef);
+        await pollTileGeneration(isMountedRef, updateProgress);
+      }
+
+      // Backfill: fetch time streams for existing activities with NULL lap_time.
+      // Handles upgrade from versions that didn't fetch time streams during sync.
+      if (isMountedRef.current && !abortSignal.aborted) {
+        try {
+          const needingStreams = routeEngine.getActivitiesNeedingTimeStreams();
+          if (needingStreams.length > 0) {
+            if (__DEV__) {
+              console.log(
+                `[fetchApiGps] Backfilling time streams for ${needingStreams.length} activities`
+              );
+            }
+            const batchSize = 10;
+            const backfillStreams: Array<{ activityId: string; times: number[] }> = [];
+            for (let i = 0; i < needingStreams.length; i += batchSize) {
+              if (!isMountedRef.current || abortSignal.aborted) break;
+              const batch = needingStreams.slice(i, i + batchSize);
+              const results = await Promise.all(
+                batch.map(async (activityId) => {
+                  try {
+                    const streams = await intervalsApi.getActivityStreams(activityId, ['time']);
+                    return { activityId, times: (streams.time as number[]) || [] };
+                  } catch {
+                    return { activityId, times: [] as number[] };
+                  }
+                })
+              );
+              for (const r of results) {
+                if (r.times.length > 0) backfillStreams.push(r);
+              }
+            }
+            if (backfillStreams.length > 0 && isMountedRef.current) {
+              routeEngine.setTimeStreams(backfillStreams);
+              if (__DEV__) {
+                console.log(
+                  `[fetchApiGps] Backfilled ${backfillStreams.length}/${needingStreams.length} time streams`
+                );
+              }
+            }
+          }
+        } catch {
+          // Non-critical — will retry on next sync
+        }
       }
 
       // Final progress update
@@ -711,14 +913,14 @@ export function useGpsDataFetcher() {
           completed: result.successCount,
           total: activities.length,
           percent: 100,
-          message: `Synced ${result.successCount} activities`,
+          message: i18n.t('cache.syncedActivities', { count: result.successCount }),
         });
       }
 
       return {
         syncedIds: result.syncedIds,
         withGpsCount: activities.length,
-        message: `Synced ${result.successCount} activities`,
+        message: i18n.t('cache.syncedActivities', { count: result.successCount }),
       };
     },
     []

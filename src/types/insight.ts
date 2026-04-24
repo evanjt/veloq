@@ -1,5 +1,6 @@
 export type InsightCategory =
   | 'section_pr'
+  | 'section_trend'
   | 'stale_pr'
   | 'fitness_milestone'
   | 'period_comparison'
@@ -68,6 +69,32 @@ export interface InsightSupportingData {
   algorithmDescription?: string;
 }
 
+export interface InsightMeta {
+  /**
+   * Epoch ms when the triggering event occurred (PR date, trend-window end,
+   * milestone date). Drives the recency gate (G1). Falls back to
+   * `Insight.timestamp` (generation time) when unset — treat unset as "fresh".
+   */
+  sourceTimestamp?: number;
+  /**
+   * Centroid of the section/route the insight references, if location-bound.
+   * Drives the proximity gate (G2). Absent for non-location insights
+   * (fitness milestones, HRV, strength).
+   */
+  location?: { lat: number; lng: number };
+  /**
+   * 'self' compares the user to their own past (Kappen 2018 — preferred).
+   * 'other' compares to population/others. 'none' for pure status facts.
+   */
+  comparisonKind?: 'self' | 'other' | 'none';
+  /** Lifetime count of the repeated behaviour — drives repetition gate (G3). */
+  repetitionCount?: number;
+  /** Proximal-specificity tags — drives R5 ranking bonus. */
+  specificity?: { hasNumber: boolean; hasPlace: boolean; hasDate: boolean };
+  /** Optional signal-to-noise delta (|value − baseline| / stddev) — drives R6. */
+  signalDelta?: number;
+}
+
 export interface Insight {
   id: string;
   category: InsightCategory;
@@ -84,4 +111,5 @@ export interface Insight {
   supportingData?: InsightSupportingData;
   methodology?: InsightMethodology;
   confidence?: number;
+  meta?: InsightMeta;
 }

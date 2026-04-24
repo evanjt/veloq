@@ -1,0 +1,87 @@
+name: Compute Version Info
+description: Derive version, version_code, short_sha, build_type, filename, is_release, and source_hash from package.json and git
+
+inputs:
+  build-type-override:
+    description: 'Build type override from workflow_dispatch inputs (auto|preview|production|empty string)'
+    required: false
+    default: ''
+  source-profile:
+    description: 'Which source-hash file set to use: "android" (JS + Rust + Kotlin/Java/Gradle) or "ios" (JS + Rust + Swift/ObjC/podspec)'
+    required: false
+    default: 'android'
+
+outputs:
+  version:
+    description: 'Semantic version from package.json'
+    value: ${{ steps.compute.outputs.version }}
+  version_code:
+    description: 'Integer version code (MAJOR*10000 + MINOR*100 + PATCH)'
+    value: ${{ steps.compute.outputs.version_code }}
+  short_sha:
+    description: 'Short commit SHA'
+    value: ${{ steps.compute.outputs.short_sha }}
+  build_type:
+    description: 'Resolved build type (preview or production)'
+    value: ${{ steps.compute.outputs.build_type }}
+  is_release:
+    description: 'true if building from a tag ref'
+    value: ${{ steps.compute.outputs.is_release }}
+  filename:
+    description: 'Artifact filename base (veloq-<version> or veloq-<version>-<sha>)'
+    value: ${{ steps.compute.outputs.filename }}
+  source_hash:
+    description: '12-character source hash for build caching'
+    value: ${{ steps.compute.outputs.source_hash }}
+
+runs:
+  using: composite
+  steps:
+    - name: Compute version info
+      id: compute
+      shell: bash
+      env:
+        BUILD_TYPE_OVERRIDE: ${{ inputs.build-type-override }}
+        SOURCE_PROFILE: ${{ inputs.source-profile }}
+      run: |
+        VERSION=$(node -p "require('./package.json').version")
+        echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+        MAJOR=$(echo $VERSION | cut -d. -f1)
+        MINOR=$(echo $VERSION | cut -d. -f2)
+        PATCH=$(echo $VERSION | cut -d. -f3)
+        VERSION_CODE=$((MAJOR * 10000 + MINOR * 100 + PATCH))
+        echo "version_code=$VERSION_CODE" >> $GITHUB_OUTPUT
+
+        SHORT_SHA=$(git rev-parse --short HEAD)
+        echo "short_sha=$SHORT_SHA" >> $GITHUB_OUTPUT
+
+        BUILD_TYPE="preview"
+        IS_RELEASE="false"
+
+        if [[ -n "$BUILD_TYPE_OVERRIDE" && "$BUILD_TYPE_OVERRIDE" != "auto" ]]; then
+          BUILD_TYPE="$BUILD_TYPE_OVERRIDE"
+        elif [[ "${{ github.ref_type }}" == "tag" ]]; then
+          BUILD_TYPE="production"
+          IS_RELEASE="true"
+        fi
+
+        echo "build_type=$BUILD_TYPE" >> $GITHUB_OUTPUT
+        echo "is_release=$IS_RELEASE" >> $GITHUB_OUTPUT
+
+        if [[ "$BUILD_TYPE" == "production" ]]; then
+          echo "filename=veloq-${VERSION}" >> $GITHUB_OUTPUT
+        else
+          echo "filename=veloq-${VERSION}-${SHORT_SHA}" >> $GITHUB_OUTPUT
+        fi
+
+        # Source hash for build caching. The file-type sets below mirror the
+        # inline hashes previously duplicated in build-android / build-ios jobs.
+        if [[ "$SOURCE_PROFILE" == "ios" ]]; then
+          SOURCE_HASH=$(cat <(find src app modules plugins -type f \( -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.json" -o -name "*.swift" -o -name "*.m" -o -name "*.mm" -o -name "*.h" -o -name "*.kt" -o -name "*.java" -o -name "*.podspec" -o -name "*.rs" -o -name "*.toml" \) -exec sha256sum {} \; 2>/dev/null) <(sha256sum package.json app.json 2>/dev/null) | sort | sha256sum | cut -d' ' -f1 | head -c 12)
+        else
+          SOURCE_HASH=$(cat <(find src app modules plugins -type f \( -name "*.ts" -o -name "*.tsx" -o -name "*.js" -o -name "*.json" -o -name "*.kt" -o -name "*.java" -o -name "*.gradle" -o -name "*.rs" -o -name "*.toml" \) -exec sha256sum {} \; 2>/dev/null) <(sha256sum package.json app.json 2>/dev/null) | sort | sha256sum | cut -d' ' -f1 | head -c 12)
+        fi
+        echo "source_hash=$SOURCE_HASH" >> $GITHUB_OUTPUT
+
+        echo "Build type: $BUILD_TYPE | Version: $VERSION ($VERSION_CODE) | Hash: $SOURCE_HASH"

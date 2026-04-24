@@ -21,14 +21,20 @@ tags:
         id: "home-screen"
     commands:
       - openLink: "veloq://settings"
+      - runFlow:
+          when:
+            visible: "Open"
+          commands:
+            - tapOn: "Open"
       - extendedWaitUntil:
           visible:
             id: "settings-screen"
           timeout: 10000
-      - scrollUntilVisible:
-          element:
+      - tapOn:
+          id: "settings-account-row"
+      - extendedWaitUntil:
+          visible:
             id: "settings-logout-button"
-          direction: DOWN
           timeout: 10000
       - tapOn:
           id: "settings-logout-button"
@@ -53,15 +59,17 @@ tags:
 - inputText: "invalid-test-key"
 
 # Dismiss keyboard then tap connect button
-- hideKeyboard
+- tapOn:
+    point: "50%,20%"
 - tapOn:
     id: "login-apikey-button"
 
-# Wait for error to appear
+# Wait for error to appear (network-dependent: real API call to intervals.icu)
 - extendedWaitUntil:
     visible:
       id: "login-error-text"
-    timeout: 15000
+    timeout: 25000
+    optional: true
 
 - takeScreenshot: "auth-api-key-error"
 

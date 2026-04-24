@@ -1,11 +1,10 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useCallback } from 'react';
 import { View, StyleSheet, Linking, Pressable } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/hooks';
 import { navigateTo } from '@/lib';
-import { CollapsibleSection } from '@/components/ui';
 import { colors, darkColors, spacing, opacity } from '@/theme';
 import type { Insight, SupportingActivity } from '@/types';
 
@@ -18,7 +17,6 @@ export const MethodologySection = React.memo(function MethodologySection({
 }: MethodologySectionProps) {
   const { isDark } = useTheme();
   const { t } = useTranslation();
-  const [expanded, setExpanded] = useState(false);
 
   const methodology = insight.methodology;
   const supportingData = insight.supportingData;
@@ -38,62 +36,41 @@ export const MethodologySection = React.memo(function MethodologySection({
     hasLegacyReference ||
     hasDescription;
 
-  const estimatedHeight = useMemo(() => {
-    let height = 0;
-    if (formula) height += 60;
-    if (hasDescription) height += 40;
-    if (algorithmDescription) height += 40;
-    if (hasActivities) height += Math.min(activities!.length, 5) * 44 + 24;
-    if (hasLegacyReference) height += 30;
-    return Math.max(height, 80);
-  }, [
-    formula,
-    hasDescription,
-    algorithmDescription,
-    hasActivities,
-    activities,
-    hasLegacyReference,
-  ]);
-
   if (!hasAnyContent) return null;
 
   return (
     <View testID="methodology-section" style={styles.container}>
-      <CollapsibleSection
-        title={t('insights.howCalculated', 'How was this calculated?')}
-        expanded={expanded}
-        onToggle={setExpanded}
-        icon="help-circle-outline"
-        estimatedHeight={estimatedHeight}
-      >
-        <View style={styles.collapsibleContent}>
-          {/* Formula display */}
-          {formula ? <FormulaBlock formula={formula} isDark={isDark} /> : null}
+      <Text style={[styles.sectionTitle, isDark && styles.sectionTitleDark]}>
+        {t('insights.howCalculated', 'How was this calculated?')}
+      </Text>
 
-          {/* Algorithm description */}
-          {algorithmDescription ? (
-            <Text style={[styles.algorithmText, isDark && styles.algorithmTextDark]}>
-              {algorithmDescription}
-            </Text>
-          ) : hasDescription ? (
-            <Text style={[styles.algorithmText, isDark && styles.algorithmTextDark]}>
-              {methodology!.description}
-            </Text>
-          ) : null}
+      <View style={styles.body}>
+        {/* Algorithm description as plain text — the simple explanation */}
+        {algorithmDescription ? (
+          <Text style={[styles.algorithmText, isDark && styles.algorithmTextDark]}>
+            {algorithmDescription}
+          </Text>
+        ) : hasDescription ? (
+          <Text style={[styles.algorithmText, isDark && styles.algorithmTextDark]}>
+            {methodology!.description}
+          </Text>
+        ) : null}
 
-          {/* Source activities */}
-          {hasActivities ? <SourceActivitiesList activities={activities!} isDark={isDark} /> : null}
+        {/* Formula display */}
+        {formula ? <FormulaBlock formula={formula} isDark={isDark} /> : null}
 
-          {/* Legacy single reference */}
-          {hasLegacyReference ? (
-            <LegacyReference
-              reference={methodology!.reference!}
-              referenceUrl={methodology!.referenceUrl}
-              isDark={isDark}
-            />
-          ) : null}
-        </View>
-      </CollapsibleSection>
+        {/* Source activities */}
+        {hasActivities ? <SourceActivitiesList activities={activities!} isDark={isDark} /> : null}
+
+        {/* Legacy single reference */}
+        {hasLegacyReference ? (
+          <LegacyReference
+            reference={methodology!.reference!}
+            referenceUrl={methodology!.referenceUrl}
+            isDark={isDark}
+          />
+        ) : null}
+      </View>
     </View>
   );
 });
@@ -223,9 +200,18 @@ const styles = StyleSheet.create({
   container: {
     marginTop: spacing.md,
   },
-  collapsibleContent: {
-    paddingHorizontal: spacing.md,
-    paddingBottom: spacing.sm,
+  sectionTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: spacing.xs,
+  },
+  sectionTitleDark: {
+    color: darkColors.textSecondary,
+  },
+  body: {
     gap: spacing.sm,
   },
   // Formula

@@ -1,0 +1,55 @@
+# GPX Export — data integrity validation
+# Confirms the activity detail's "Export GPX" path writes a valid file to the
+# app cache. A companion shell script (scripts/verify-gpx-export.sh) pulls the
+# file off the device and asserts the content matches demo fixture geometry.
+#
+# Why this matters: the app spans RN UI → JS polyline decoder → shareFile.ts
+# → FileSystem. Breaking any of those hides silently until a user tries to
+# export. The verification script is run after this flow completes.
+
+appId: com.veloq.app.dev
+tags:
+  - tier2
+---
+- runFlow:
+    file: helpers/setup-demo-mode.yaml
+
+- extendedWaitUntil:
+    visible:
+      id: "home-activity-list"
+    timeout: 15000
+
+- openLink: "veloq://activity/demo-test-0"
+- runFlow:
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
+
+- extendedWaitUntil:
+    visible:
+      id: "activity-detail-content"
+    timeout: 15000
+
+# The export button lives below the charts. Swipe up several times to surface
+# it — FlatList/ScrollView inside a SwipeableTabs doesn't respond to
+# scrollUntilVisible reliably in Maestro 2.x.
+- repeat:
+    times: 6
+    commands:
+      - swipe:
+          start: 50%, 80%
+          end: 50%, 20%
+          duration: 400
+
+- tapOn:
+    id: "activity-export-gpx"
+
+# Android share sheet will pop up. We don't need to interact — the file is
+# already written to app cache. Dismiss so the flow can complete cleanly.
+- waitForAnimationToEnd:
+    timeout: 3000
+- takeScreenshot: "gpx-export-share-sheet"
+- back
+
+- takeScreenshot: "gpx-export-complete"

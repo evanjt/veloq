@@ -12,8 +12,6 @@ import {
   TouchableOpacity,
   Pressable,
   LayoutAnimation,
-  Platform,
-  UIManager,
   Dimensions,
   PixelRatio,
   ScrollView,
@@ -21,7 +19,18 @@ import {
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { navigateTo, safeGetTime } from '@/lib';
+import { navigateTo } from '@/lib';
+import {
+  detectGaps,
+  buildGapCompression,
+  calculateChartWidth,
+  DEFAULT_COMPRESSED_GAP_DAYS,
+  DEFAULT_GAP_THRESHOLD_DAYS,
+} from '@/lib/charts/gapCompression';
+import { splitIntoLanes, type LaneData } from '@/lib/charts/unifiedPerformanceData';
+import { formatShortDateWithYear } from '@/lib/charts/dateFormatting';
+import { formatAxisDate } from '@/lib/charts/timeAxis';
+import { LaneHeader } from './LaneHeader';
 import { CartesianChart, Line, type PointsArray } from 'victory-native';
 import { Circle } from '@shopify/react-native-skia';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
@@ -40,7 +49,6 @@ import {
   formatDuration,
   isRunningActivity,
   getActivityColor,
-  formatShortDate as formatShortDateLib,
 } from '@/lib';
 import { CHART_CONFIG } from '@/constants';
 import { colors, darkColors, chartStyles } from '@/theme';
@@ -54,26 +62,7 @@ const BASE_CHART_WIDTH = SCREEN_WIDTH - 32; // Default chart width
 // Metal/GPU texture limit is 8192px — Skia canvas backing texture is scaled by pixelRatio
 const MAX_CHART_WIDTH = Math.floor(8192 / PixelRatio.get()) - 1;
 
-// Enable LayoutAnimation on Android
-if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
-}
-
 const LANE_HEIGHT = 80;
-
-/** Format date with 2-digit year (e.g., "Jan 15 '24") */
-function formatShortDate(date: Date): string {
-  const base = formatShortDateLib(date);
-  const year = date.getFullYear().toString().slice(-2);
-  return `${base} '${year}`;
-}
-
-/** Format date for axis labels - includes year as 2-digit suffix */
-function formatAxisDate(date: Date): string {
-  const month = date.toLocaleDateString(undefined, { month: 'short' });
-  const year = date.getFullYear().toString().slice(-2);
-  return `${month} '${year}`;
-}
 
 /** Summary statistics to display in the chart header */
 export interface ChartSummaryStats {
@@ -89,6 +78,7 @@ export interface ChartSummaryStats {
 export interface DirectionBestRecord {
   bestTime: number;
   bestSpeed?: number; // Speed (m/s) for routes where distance varies
+  bestPace?: number; // Pace (s/km) for running sections
   activityDate: Date;
 }
 
@@ -131,15 +121,6 @@ export interface UnifiedPerformanceChartProps {
   reverseStats?: DirectionSummaryStats | null;
   /** Force linear time axis with regular ticks (no gap compression) */
   linearTimeAxis?: boolean;
-}
-
-interface LaneData {
-  points: (PerformanceDataPoint & { x: number })[];
-  originalIndices: number[];
-  bestIndex: number;
-  currentIndex: number;
-  minSpeed: number;
-  maxSpeed: number;
 }
 
 const CHART_PADDING = { left: 40, right: 20, top: 16, bottom: 12 } as const;
@@ -252,46 +233,14 @@ export function UnifiedPerformanceChart({
   const [forwardExpanded, setForwardExpanded] = useState(true);
   const [reverseExpanded, setReverseExpanded] = useState(true);
 
-  // Gap compression settings
-  const GAP_THRESHOLD_DAYS = 14; // Gaps larger than this get compressed
-  const COMPRESSED_GAP_DAYS = 5; // Visual width of compressed gap
-
   // State for individually expanded gaps (by index)
   const [expandedGaps, setExpandedGaps] = useState<Set<number>>(new Set());
 
   // Detect gaps in data globally (must be before chartWidth calculation)
   const detectedGaps = useMemo(() => {
     if (chartData.length < 2 || linearTimeAxis) return [];
-
-    const sortedDates = [...chartData].sort((a, b) => safeGetTime(a.date) - safeGetTime(b.date));
-    const GAP_THRESHOLD_MS = GAP_THRESHOLD_DAYS * 24 * 60 * 60 * 1000;
-
-    const gaps: {
-      beforeIdx: number;
-      afterIdx: number;
-      gapDays: number;
-      startDate: Date;
-      endDate: Date;
-    }[] = [];
-
-    for (let i = 1; i < sortedDates.length; i++) {
-      const prevTime = sortedDates[i - 1].date.getTime();
-      const currTime = sortedDates[i].date.getTime();
-      const gapMs = currTime - prevTime;
-
-      if (gapMs > GAP_THRESHOLD_MS) {
-        gaps.push({
-          beforeIdx: i - 1,
-          afterIdx: i,
-          gapDays: Math.round(gapMs / (24 * 60 * 60 * 1000)),
-          startDate: sortedDates[i - 1].date,
-          endDate: sortedDates[i].date,
-        });
-      }
-    }
-
-    return gaps;
-  }, [chartData]);
+    return detectGaps(chartData, DEFAULT_GAP_THRESHOLD_DAYS);
+  }, [chartData, linearTimeAxis]);
 
   // Toggle individual gap expansion
   const toggleGap = useCallback((gapIndex: number) => {
@@ -308,298 +257,38 @@ export function UnifiedPerformanceChart({
   }, []);
 
   // Calculate dynamic chart width based on number of points and expanded gaps
-  const chartWidth = useMemo(() => {
-    const minWidth = BASE_CHART_WIDTH;
-    let pointsWidth =
-      chartData.length * MIN_POINT_SPACING + CHART_PADDING_LEFT + CHART_PADDING_RIGHT;
-
-    // Add extra width for each expanded gap
-    if (detectedGaps.length > 0 && expandedGaps.size > 0) {
-      const totalExpandedGapDays = detectedGaps
-        .filter((_, idx) => expandedGaps.has(idx))
-        .reduce((sum, gap) => sum + gap.gapDays - COMPRESSED_GAP_DAYS, 0); // Extra days beyond compressed
-      pointsWidth += totalExpandedGapDays * 2; // ~2 pixels per extra day
-    }
-
-    return Math.min(MAX_CHART_WIDTH, Math.max(minWidth, pointsWidth));
-  }, [chartData.length, detectedGaps, expandedGaps]);
+  const chartWidth = useMemo(
+    () =>
+      calculateChartWidth(chartData.length, detectedGaps, expandedGaps, {
+        minPointSpacing: MIN_POINT_SPACING,
+        baseChartWidth: BASE_CHART_WIDTH,
+        maxChartWidth: MAX_CHART_WIDTH,
+        chartPaddingLeft: CHART_PADDING_LEFT,
+        chartPaddingRight: CHART_PADDING_RIGHT,
+        compressedGapDays: DEFAULT_COMPRESSED_GAP_DAYS,
+      }),
+    [chartData.length, detectedGaps, expandedGaps]
+  );
 
   const chartContentWidth = chartWidth - CHART_PADDING_LEFT - CHART_PADDING_RIGHT;
   const isScrollable = chartWidth > BASE_CHART_WIDTH;
 
-  // Calculate X positions with gap compression
-  interface GapWithPosition {
-    xPosition: number; // Center position
-    startX: number; // Left edge position
-    endX: number; // Right edge position
-    gapDays: number;
-    gapIndex: number;
-    isExpanded: boolean;
-  }
-
-  const { dateToX, gaps, timeAxisLabels } = useMemo(() => {
-    if (chartData.length === 0) {
-      return {
-        dateToX: () => 0.5,
-        gaps: [] as GapWithPosition[],
-        timeAxisLabels: [] as { date: Date; position: number }[],
-      };
-    }
-
-    const sortedDates = [...chartData].sort((a, b) => safeGetTime(a.date) - safeGetTime(b.date));
-    const firstTime = sortedDates[0].date.getTime();
-    const lastTime = sortedDates[sortedDates.length - 1].date.getTime();
-    const totalRange = lastTime - firstTime || 1;
-
-    // If no gaps detected, use linear scale
-    if (detectedGaps.length === 0) {
-      const convertDateToX = (date: Date): number => {
-        const t = date.getTime();
-        return 0.05 + ((t - firstTime) / totalRange) * 0.9;
-      };
-
-      // Generate regular time labels at appropriate intervals
-      const labels: { date: Date; position: number }[] = [];
-      const firstDate = sortedDates[0].date;
-      const lastDate = sortedDates[sortedDates.length - 1].date;
-      const monthsInRange =
-        (lastDate.getFullYear() - firstDate.getFullYear()) * 12 +
-        (lastDate.getMonth() - firstDate.getMonth());
-      // Step: quarterly for >18 months, bimonthly for >6 months, monthly otherwise
-      const monthStep = monthsInRange > 18 ? 3 : monthsInRange > 6 ? 2 : 1;
-
-      const currentMonth = new Date(firstDate.getFullYear(), firstDate.getMonth(), 1);
-      while (currentMonth <= lastDate) {
-        if (currentMonth >= firstDate || currentMonth.getMonth() === firstDate.getMonth()) {
-          labels.push({
-            date: new Date(currentMonth),
-            position: convertDateToX(currentMonth),
-          });
-        }
-        currentMonth.setMonth(currentMonth.getMonth() + monthStep);
-      }
-
-      // Filter out labels that are too close together
-      // Need at least ~70px between labels to avoid overlap (labels are ~50px wide)
-      const chartContentW = BASE_CHART_WIDTH - CHART_PADDING_LEFT - CHART_PADDING_RIGHT;
-      const minSpacing = 70 / chartContentW; // Convert pixels to normalized position
-      const uniqueLabels = labels
-        .sort((a, b) => a.position - b.position)
-        .filter(
-          (label, idx, arr) =>
-            idx === 0 || Math.abs(label.position - arr[idx - 1].position) >= minSpacing
-        );
-
-      return {
-        dateToX: convertDateToX,
-        gaps: [] as GapWithPosition[],
-        timeAxisLabels: uniqueLabels,
-      };
-    }
-
-    // Build time mapping with gap compression
-    const COMPRESSED_GAP_MS = COMPRESSED_GAP_DAYS * 24 * 60 * 60 * 1000;
-    const GAP_THRESHOLD_MS = GAP_THRESHOLD_DAYS * 24 * 60 * 60 * 1000;
-    const timeMapping: { originalTime: number; compressedTime: number }[] = [];
-    let compressedTime = 0;
-    let gapCounter = 0; // Track which gap we're at
-
-    for (let i = 0; i < sortedDates.length; i++) {
-      const currTime = sortedDates[i].date.getTime();
-
-      if (i === 0) {
-        timeMapping.push({ originalTime: currTime, compressedTime: 0 });
-      } else {
-        const prevTime = sortedDates[i - 1].date.getTime();
-        const gapMs = currTime - prevTime;
-
-        // Check if this is a large gap (>30 days)
-        const isLargeGap = gapMs > GAP_THRESHOLD_MS;
-
-        if (isLargeGap) {
-          // Check if user expanded this specific gap
-          const userExpandedThisGap = expandedGaps.has(gapCounter);
-
-          if (userExpandedThisGap) {
-            // User clicked to expand - show full gap
-            compressedTime += gapMs;
-          } else {
-            // Default: compress this gap
-            compressedTime += COMPRESSED_GAP_MS;
-          }
-          gapCounter++; // Move to next gap
-        } else {
-          // Not a large gap - show actual time
-          compressedTime += gapMs;
-        }
-        timeMapping.push({ originalTime: currTime, compressedTime });
-      }
-    }
-
-    const totalCompressedRange = compressedTime || 1;
-
-    const convertDateToX = (date: Date): number => {
-      const t = date.getTime();
-      // Find the mapping for this time
-      for (let j = 0; j < timeMapping.length; j++) {
-        if (timeMapping[j].originalTime === t) {
-          return 0.05 + (timeMapping[j].compressedTime / totalCompressedRange) * 0.9;
-        }
-      }
-      // Interpolate for times not in mapping
-      for (let j = 1; j < timeMapping.length; j++) {
-        if (t < timeMapping[j].originalTime) {
-          const prevMap = timeMapping[j - 1];
-          const nextMap = timeMapping[j];
-          const ratio = (t - prevMap.originalTime) / (nextMap.originalTime - prevMap.originalTime);
-          const interpCompressed =
-            prevMap.compressedTime + ratio * (nextMap.compressedTime - prevMap.compressedTime);
-          return 0.05 + (interpCompressed / totalCompressedRange) * 0.9;
-        }
-      }
-      return 0.5;
-    };
-
-    // Calculate gap positions for indicators
-    const gapsWithPositions: GapWithPosition[] = detectedGaps.map((gap, idx) => {
-      const beforeX = convertDateToX(gap.startDate);
-      const afterX = convertDateToX(gap.endDate);
-      return {
-        xPosition: (beforeX + afterX) / 2,
-        startX: beforeX,
-        endX: afterX,
-        gapDays: gap.gapDays,
-        gapIndex: idx,
-        isExpanded: expandedGaps.has(idx),
-      };
-    });
-
-    // Generate time axis labels - data points, gap boundaries, and monthly markers
-    const labels: { date: Date; position: number }[] = [];
-
-    const firstDate = sortedDates[0].date;
-    const lastDate = sortedDates[sortedDates.length - 1].date;
-
-    // Add labels at actual data points (most important!)
-    sortedDates.forEach(({ date }) => {
-      labels.push({ date, position: convertDateToX(date) });
-    });
-
-    // Add labels at gap boundaries for context
-    gapsWithPositions.forEach((gap, idx) => {
-      const gapInfo = detectedGaps[idx];
-      if (gapInfo) {
-        labels.push({
-          date: gapInfo.startDate,
-          position: convertDateToX(gapInfo.startDate),
-        });
-        labels.push({
-          date: gapInfo.endDate,
-          position: convertDateToX(gapInfo.endDate),
-        });
-      }
-    });
-
-    // Add monthly markers if range > 3 months
-    const monthsInRange =
-      (lastDate.getFullYear() - firstDate.getFullYear()) * 12 +
-      (lastDate.getMonth() - firstDate.getMonth());
-    if (monthsInRange > 3) {
-      const currentMonth = new Date(firstDate.getFullYear(), firstDate.getMonth() + 1, 1);
-      while (currentMonth <= lastDate) {
-        labels.push({
-          date: new Date(currentMonth),
-          position: convertDateToX(currentMonth),
-        });
-        currentMonth.setMonth(currentMonth.getMonth() + 1);
-      }
-    }
-
-    // Remove duplicates and sort by position
-    // Reduce spacing to 50px to show more labels
-    const chartContentW = chartWidth - CHART_PADDING_LEFT - CHART_PADDING_RIGHT;
-    const minSpacing = 50 / chartContentW;
-    const uniqueLabels = labels
-      .sort((a, b) => a.position - b.position)
-      .filter(
-        (label, idx, arr) =>
-          idx === 0 || Math.abs(label.position - arr[idx - 1].position) >= minSpacing
-      );
-
-    return {
-      dateToX: convertDateToX,
-      gaps: gapsWithPositions,
-      timeAxisLabels: uniqueLabels,
-    };
-  }, [chartData, detectedGaps, expandedGaps]);
+  // Build compressed time mapping: dateToX + gap positions + time-axis labels
+  const { dateToX, gaps, timeAxisLabels } = useMemo(
+    () =>
+      buildGapCompression(chartData, detectedGaps, expandedGaps, chartWidth, {
+        baseChartWidth: BASE_CHART_WIDTH,
+        chartPaddingLeft: CHART_PADDING_LEFT,
+        chartPaddingRight: CHART_PADDING_RIGHT,
+      }),
+    [chartData, detectedGaps, expandedGaps, chartWidth]
+  );
 
   // Split data by direction, using date-based X positioning
-  const { forwardLane, reverseLane } = useMemo(() => {
-    const forwardPoints: (PerformanceDataPoint & { x: number })[] = [];
-    const reversePoints: (PerformanceDataPoint & { x: number })[] = [];
-    const forwardIndices: number[] = [];
-    const reverseIndices: number[] = [];
-
-    chartData.forEach((point, idx) => {
-      const x = dateToX(point.date);
-      if (point.direction === 'reverse') {
-        reversePoints.push({ ...point, x });
-        reverseIndices.push(idx);
-      } else {
-        forwardPoints.push({ ...point, x });
-        forwardIndices.push(idx);
-      }
-    });
-
-    const calculateLaneStats = (
-      points: (PerformanceDataPoint & { x: number })[],
-      indices: number[]
-    ): LaneData => {
-      if (points.length === 0) {
-        return {
-          points: [],
-          originalIndices: [],
-          bestIndex: -1,
-          currentIndex: -1,
-          minSpeed: 0,
-          maxSpeed: 1,
-        };
-      }
-
-      // Find best (fastest) within THIS lane
-      let laneBestIdx = -1;
-      let laneBestSpeed = -Infinity;
-      let current = -1;
-      let min = Infinity;
-      let max = -Infinity;
-
-      points.forEach((p, idx) => {
-        if (currentIndex !== undefined && indices[idx] === currentIndex) current = idx;
-        min = Math.min(min, p.speed);
-        max = Math.max(max, p.speed);
-        // Track fastest in this lane
-        if (p.speed > laneBestSpeed) {
-          laneBestSpeed = p.speed;
-          laneBestIdx = idx;
-        }
-      });
-
-      const padding = (max - min) * 0.2 || 0.5;
-      return {
-        points,
-        originalIndices: indices,
-        bestIndex: laneBestIdx,
-        currentIndex: current,
-        minSpeed: min - padding,
-        maxSpeed: max + padding,
-      };
-    };
-
-    return {
-      forwardLane: calculateLaneStats(forwardPoints, forwardIndices),
-      reverseLane: calculateLaneStats(reversePoints, reverseIndices),
-    };
-  }, [chartData, currentIndex, dateToX]);
+  const { forwardLane, reverseLane } = useMemo(
+    () => splitIntoLanes(chartData, dateToX, currentIndex),
+    [chartData, currentIndex, dateToX]
+  );
 
   const hasForward = forwardLane.points.length > 0;
   const hasReverse = reverseLane.points.length > 0;
@@ -735,7 +424,10 @@ export function UnifiedPerformanceChart({
     [clearSelection]
   );
 
-  // Combined gesture - use Native() to allow ScrollView to handle scroll momentum properly
+  // Combined gesture - use Native() to allow ScrollView to handle scroll momentum properly.
+  // Note: `Gesture.Native()` must be created per-instance — it carries a handlerTag
+  // that the native side mutates on initialize(). A shared module-level instance
+  // causes handler-tag collisions across mounts.
   const nativeGesture = useMemo(() => Gesture.Native(), []);
   const composedGesture = useMemo(
     () => Gesture.Simultaneous(nativeGesture, Gesture.Simultaneous(tapGesture, panGesture)),
@@ -995,7 +687,7 @@ export function UnifiedPerformanceChart({
                 </View>
                 <View style={styles.summaryItem}>
                   <Text style={[styles.summaryValue, isDark && styles.textLight]}>
-                    {summaryStats.bestDate ? formatShortDate(summaryStats.bestDate) : '-'}
+                    {summaryStats.bestDate ? formatShortDateWithYear(summaryStats.bestDate) : '-'}
                   </Text>
                   <Text style={[styles.summaryLabel, isDark && styles.textMuted]}>
                     {t('routes.bestOn')}
@@ -1040,7 +732,9 @@ export function UnifiedPerformanceChart({
                 </View>
                 <View style={styles.summaryItem}>
                   <Text style={[styles.summaryValue, isDark && styles.textLight]}>
-                    {summaryStats.lastActivity ? formatShortDate(summaryStats.lastActivity) : '-'}
+                    {summaryStats.lastActivity
+                      ? formatShortDateWithYear(summaryStats.lastActivity)
+                      : '-'}
                   </Text>
                   <Text style={[styles.summaryLabel, isDark && styles.textMuted]}>
                     {t('sections.lastActivity')}
@@ -1085,7 +779,7 @@ export function UnifiedPerformanceChart({
                   idx === timeAxisLabels.length - 1 && styles.timeAxisLabelLast,
                 ]}
               >
-                {formatAxisDate(label.date)}
+                {formatAxisDate(label.date, false)}
               </Text>
             ))}
           </View>
@@ -1105,7 +799,7 @@ export function UnifiedPerformanceChart({
                 </Text>
                 <View style={styles.tooltipMeta}>
                   <Text style={[styles.tooltipDate, isDark && styles.textMuted]}>
-                    {formatShortDate(selectedPoint.date)}
+                    {formatShortDateWithYear(selectedPoint.date)}
                   </Text>
                   {tooltipBadgeType === 'time' && selectedPoint.sectionTime != null && (
                     <Text style={[styles.tooltipDate, isDark && styles.textMuted]}>
@@ -1145,67 +839,20 @@ export function UnifiedPerformanceChart({
       {hasForward && (
         <>
           {/* Forward Lane Header (fixed) */}
-          <View style={[styles.lane, isDark && styles.laneDark]}>
-            <Pressable
-              style={[styles.laneHeader, isDark && styles.laneHeaderDark]}
-              onPress={toggleForward}
-            >
-              {/* Left: Direction + count */}
-              <View style={styles.laneHeaderLeft}>
-                <MaterialCommunityIcons
-                  name="arrow-right"
-                  size={16}
-                  color={activityColor}
-                  style={styles.directionIcon}
-                />
-                <Text style={[styles.laneTitle, isDark && styles.textLight]}>
-                  {t('sections.forward')}
-                </Text>
-                <View style={[styles.countBadge, { backgroundColor: activityColor + '20' }]}>
-                  <Text style={[styles.countText, { color: activityColor }]}>
-                    {forwardLane.points.length}
-                  </Text>
-                </View>
-              </View>
-              {/* Middle: Avg */}
-              <View style={styles.laneHeaderMiddle}>
-                {forwardStats?.avgTime != null && (
-                  <Text style={[styles.headerStatText, isDark && styles.headerStatTextDark]}>
-                    {showPace
-                      ? sectionDistance > 0
-                        ? `${formatPace(sectionDistance / forwardStats.avgTime)} ${t('sections.avg')}`
-                        : forwardStats.avgSpeed
-                          ? `${formatPace(forwardStats.avgSpeed)} ${t('sections.avg')}`
-                          : `${formatDuration(forwardStats.avgTime)} ${t('sections.avg')}`
-                      : `${formatDuration(forwardStats.avgTime)} ${t('sections.avg')}`}
-                  </Text>
-                )}
-              </View>
-              {/* Right: PR with date below */}
-              {bestForwardRecord && (
-                <View style={styles.prBadgeStacked}>
-                  <View style={styles.prBadgeRow}>
-                    <MaterialCommunityIcons name="trophy" size={12} color={colors.chartGold} />
-                    <Text style={styles.prBadgeTime}>
-                      {showPace
-                        ? (bestForwardRecord as any).bestPace
-                          ? formatPace((bestForwardRecord as any).bestPace)
-                          : formatDuration(bestForwardRecord.bestTime)
-                        : formatDuration(bestForwardRecord.bestTime)}
-                    </Text>
-                  </View>
-                  <Text style={styles.prBadgeDateSmall}>
-                    {formatShortDate(bestForwardRecord.activityDate)}
-                  </Text>
-                </View>
-              )}
-              <MaterialCommunityIcons
-                name={forwardExpanded ? 'chevron-up' : 'chevron-down'}
-                size={20}
-                color={isDark ? darkColors.textMuted : colors.textMuted}
-              />
-            </Pressable>
-          </View>
+          <LaneHeader
+            direction="forward"
+            label={t('sections.forward')}
+            avgLabel={t('sections.avg')}
+            color={activityColor}
+            count={forwardLane.points.length}
+            expanded={forwardExpanded}
+            onToggle={toggleForward}
+            showPace={showPace}
+            sectionDistance={sectionDistance}
+            isDark={isDark}
+            bestRecord={bestForwardRecord}
+            stats={forwardStats}
+          />
 
           {/* Forward Lane Chart (scrollable with gesture handling) */}
           {forwardExpanded && (
@@ -1240,69 +887,20 @@ export function UnifiedPerformanceChart({
       {hasReverse && (
         <>
           {/* Reverse Lane Header (fixed) */}
-          <View style={[styles.lane, isDark && styles.laneDark]}>
-            <Pressable
-              style={[styles.laneHeader, isDark && styles.laneHeaderDark]}
-              onPress={toggleReverse}
-            >
-              {/* Left: Direction + count */}
-              <View style={styles.laneHeaderLeft}>
-                <MaterialCommunityIcons
-                  name="arrow-left"
-                  size={16}
-                  color={colors.reverseDirection}
-                  style={styles.directionIcon}
-                />
-                <Text style={[styles.laneTitle, isDark && styles.textLight]}>
-                  {t('sections.reverse')}
-                </Text>
-                <View
-                  style={[styles.countBadge, { backgroundColor: colors.reverseDirection + '20' }]}
-                >
-                  <Text style={[styles.countText, { color: colors.reverseDirection }]}>
-                    {reverseLane.points.length}
-                  </Text>
-                </View>
-              </View>
-              {/* Middle: Avg */}
-              <View style={styles.laneHeaderMiddle}>
-                {reverseStats?.avgTime != null && (
-                  <Text style={[styles.headerStatText, isDark && styles.headerStatTextDark]}>
-                    {showPace
-                      ? sectionDistance > 0
-                        ? `${formatPace(sectionDistance / reverseStats.avgTime)} ${t('sections.avg')}`
-                        : reverseStats.avgSpeed
-                          ? `${formatPace(reverseStats.avgSpeed)} ${t('sections.avg')}`
-                          : `${formatDuration(reverseStats.avgTime)} ${t('sections.avg')}`
-                      : `${formatDuration(reverseStats.avgTime)} ${t('sections.avg')}`}
-                  </Text>
-                )}
-              </View>
-              {/* Right: PR with date below */}
-              {bestReverseRecord && (
-                <View style={styles.prBadgeStacked}>
-                  <View style={styles.prBadgeRow}>
-                    <MaterialCommunityIcons name="trophy" size={12} color={colors.chartGold} />
-                    <Text style={styles.prBadgeTime}>
-                      {showPace
-                        ? (bestReverseRecord as any).bestPace
-                          ? formatPace((bestReverseRecord as any).bestPace)
-                          : formatDuration(bestReverseRecord.bestTime)
-                        : formatDuration(bestReverseRecord.bestTime)}
-                    </Text>
-                  </View>
-                  <Text style={styles.prBadgeDateSmall}>
-                    {formatShortDate(bestReverseRecord.activityDate)}
-                  </Text>
-                </View>
-              )}
-              <MaterialCommunityIcons
-                name={reverseExpanded ? 'chevron-up' : 'chevron-down'}
-                size={20}
-                color={isDark ? darkColors.textMuted : colors.textMuted}
-              />
-            </Pressable>
-          </View>
+          <LaneHeader
+            direction="reverse"
+            label={t('sections.reverse')}
+            avgLabel={t('sections.avg')}
+            color={colors.reverseDirection}
+            count={reverseLane.points.length}
+            expanded={reverseExpanded}
+            onToggle={toggleReverse}
+            showPace={showPace}
+            sectionDistance={sectionDistance}
+            isDark={isDark}
+            bestRecord={bestReverseRecord}
+            stats={reverseStats}
+          />
 
           {/* Reverse Lane Chart (scrollable with gesture handling, synced with forward) */}
           {reverseExpanded && (
@@ -1359,7 +957,7 @@ export function UnifiedPerformanceChart({
                   { left: leftPos - 20 },
                 ]}
               >
-                {formatAxisDate(label.date)}
+                {formatAxisDate(label.date, false)}
               </Text>
             );
           })}
@@ -1446,7 +1044,7 @@ export function UnifiedPerformanceChart({
               </Text>
               <View style={styles.tooltipMeta}>
                 <Text style={[styles.tooltipDate, isDark && styles.textMuted]}>
-                  {formatShortDate(selectedPoint.date)}
+                  {formatShortDateWithYear(selectedPoint.date)}
                 </Text>
                 {tooltipBadgeType === 'time' && selectedPoint.sectionTime != null && (
                   <Text style={[styles.tooltipDate, isDark && styles.textMuted]}>
@@ -1561,80 +1159,6 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: colors.textMuted,
     marginTop: 1,
-  },
-  lane: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.border,
-  },
-  laneDark: {
-    borderTopColor: darkColors.border,
-  },
-  laneHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    backgroundColor: colors.background,
-  },
-  laneHeaderDark: {
-    backgroundColor: darkColors.surfaceElevated,
-  },
-  laneHeaderLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  laneHeaderMiddle: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
-  },
-  headerStatText: {
-    fontSize: 11,
-    color: colors.textMuted,
-  },
-  headerStatTextDark: {
-    color: darkColors.textMuted,
-  },
-  prBadgeStacked: {
-    alignItems: 'flex-end',
-    marginRight: 8,
-  },
-  prBadgeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-  },
-  prBadgeDateSmall: {
-    fontSize: 9,
-    color: colors.chartGold,
-    opacity: 0.7,
-  },
-  directionIcon: {
-    marginRight: 2,
-  },
-  laneTitle: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.textPrimary,
-  },
-  countBadge: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 10,
-    marginLeft: 4,
-  },
-  countText: {
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  prBadgeTime: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.chartGold,
   },
   tapTargetContainer: {
     ...StyleSheet.absoluteFillObject,

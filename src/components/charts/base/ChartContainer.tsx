@@ -13,6 +13,7 @@ import { Text } from 'react-native-paper';
 import { GestureDetector, GestureType } from 'react-native-gesture-handler';
 import { colors, typography, chartStyles } from '@/theme';
 import { useTheme } from '@/hooks';
+import { useTranslation } from 'react-i18next';
 
 export interface ChartPadding {
   top?: number;
@@ -49,14 +50,17 @@ export const ChartContainer = React.memo(function ChartContainer({
   title,
   gesture,
   isLoading,
-  loadingText = 'Loading...',
+  loadingText,
   error,
-  emptyText = 'No data available',
+  emptyText,
   children,
   headerRight,
   footer,
 }: ChartContainerProps) {
   const { isDark } = useTheme();
+  const { t } = useTranslation();
+  const resolvedLoadingText = loadingText ?? t('common.loading');
+  const resolvedEmptyText = emptyText ?? t('emptyState.noData.title');
 
   // Loading state
   if (isLoading) {
@@ -69,7 +73,9 @@ export const ChartContainer = React.memo(function ChartContainer({
           </View>
         )}
         <View style={styles.centerContent}>
-          <Text style={[styles.statusText, isDark && chartStyles.textDark]}>{loadingText}</Text>
+          <Text style={[styles.statusText, isDark && chartStyles.textDark]}>
+            {resolvedLoadingText}
+          </Text>
         </View>
       </View>
     );
@@ -86,7 +92,9 @@ export const ChartContainer = React.memo(function ChartContainer({
           </View>
         )}
         <View style={styles.centerContent}>
-          <Text style={[styles.statusText, isDark && chartStyles.textDark]}>{emptyText}</Text>
+          <Text style={[styles.statusText, isDark && chartStyles.textDark]}>
+            {resolvedEmptyText}
+          </Text>
         </View>
       </View>
     );

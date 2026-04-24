@@ -27,15 +27,10 @@ export const FitnessMilestoneContent = React.memo(function FitnessMilestoneConte
   const isPowerMilestone = currentPoint.unit === 'W';
   const isSwimMilestone = currentPoint.unit === '/100m';
   const contextSummary = isPowerMilestone
-    ? `FTP shifted from ${String(previousPoint.value)}W to ${String(currentPoint.value)}W. This estimate is derived from recent power data.`
+    ? `FTP shifted from ${String(previousPoint.value)}W to ${String(currentPoint.value)}W. Derived from recent power data.`
     : isSwimMilestone
-      ? `Threshold swim pace shifted from ${String(previousPoint.value)} to ${String(currentPoint.value)} per 100m. This estimate is derived from recent swim data.`
-      : `Running threshold pace shifted from ${String(previousPoint.value)} to ${String(currentPoint.value)} per km. This estimate is derived from recent run data.`;
-  const compareNext = isPowerMilestone
-    ? 'Section-level timing and zone distribution may reflect this change over the coming weeks.'
-    : isSwimMilestone
-      ? 'Section-level timing and swim pace distribution may reflect this change over the coming weeks.'
-      : 'Section-level timing and pace distribution may reflect this change over the coming weeks.';
+      ? `Threshold swim pace shifted from ${String(previousPoint.value)} to ${String(currentPoint.value)} per 100m. Derived from recent swim data.`
+      : `Running threshold pace shifted from ${String(previousPoint.value)} to ${String(currentPoint.value)} per km. Derived from recent run data.`;
   const contextHeading = isPowerMilestone
     ? 'FTP change context'
     : isSwimMilestone
@@ -125,7 +120,6 @@ export const FitnessMilestoneContent = React.memo(function FitnessMilestoneConte
           {contextHeading}
         </Text>
         <Text style={[styles.contextBody, isDark && styles.contextBodyDark]}>{contextSummary}</Text>
-        <Text style={[styles.contextMeta, isDark && styles.contextMetaDark]}>{compareNext}</Text>
       </View>
     </View>
   );
@@ -254,13 +248,5 @@ const styles = StyleSheet.create({
   },
   contextBodyDark: {
     color: darkColors.textSecondary,
-  },
-  contextMeta: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: colors.textPrimary,
-  },
-  contextMetaDark: {
-    color: darkColors.textPrimary,
   },
 });

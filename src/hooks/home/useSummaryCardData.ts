@@ -321,65 +321,26 @@ export function useSummaryCardData(): SummaryCardData {
     }
   }, [summaryCard.heroMetric, quickStats, formColor, formZone, t]);
 
-  // Build fitness and form data arrays from wellness (last 30 days)
-  const fitnessData = useMemo(() => {
-    if (!summaryCard.showSparkline) return undefined;
-    if (!wellnessData || wellnessData.length === 0) return undefined;
-    const sorted = [...wellnessData].sort((a, b) => a.id.localeCompare(b.id)).slice(-30);
-    return sorted.map((w) => Math.round(w.ctl ?? w.ctlLoad ?? 0));
-  }, [wellnessData, summaryCard.showSparkline]);
+  // Sparklines pulled from Rust (wellness persisted in SQLite via
+  // `upsertWellness` in useWellness). Rust does the 30-day slice, CTL/ATL
+  // coalescing, form = ctl-atl, and HRV/RHR forward-fill in one round-trip.
+  // `wellnessData` is kept as a dep so the memo refreshes after each sync.
+  const sparklines = useMemo(() => {
+    if (!summaryCard.showSparkline) return null;
+    const engine = getRouteEngine();
+    if (!engine?.getWellnessSparklines) return null;
+    try {
+      return engine.getWellnessSparklines(30);
+    } catch {
+      return null;
+    }
+  }, [summaryCard.showSparkline, wellnessData]);
 
-  const fatigueData = useMemo(() => {
-    if (!summaryCard.showSparkline) return undefined;
-    if (!wellnessData || wellnessData.length === 0) return undefined;
-    const sorted = [...wellnessData].sort((a, b) => a.id.localeCompare(b.id)).slice(-30);
-    return sorted.map((w) => Math.round(w.atl ?? w.atlLoad ?? 0));
-  }, [wellnessData, summaryCard.showSparkline]);
-
-  const formData = useMemo(() => {
-    if (!summaryCard.showSparkline) return undefined;
-    if (!wellnessData || wellnessData.length === 0) return undefined;
-    const sorted = [...wellnessData].sort((a, b) => a.id.localeCompare(b.id)).slice(-30);
-    return sorted.map((w) => {
-      const ctl = w.ctl ?? w.ctlLoad ?? 0;
-      const atl = w.atl ?? w.atlLoad ?? 0;
-      return Math.round(ctl - atl);
-    });
-  }, [wellnessData, summaryCard.showSparkline]);
-
-  // Build HRV, RHR, and HRV trend data arrays from wellness (last 30 days)
-  const hrvData = useMemo(() => {
-    if (!summaryCard.showSparkline) return undefined;
-    if (!wellnessData || wellnessData.length === 0) return undefined;
-    const sorted = [...wellnessData].sort((a, b) => a.id.localeCompare(b.id)).slice(-30);
-    const raw = sorted.map((w) => w.hrv ?? null);
-    // Forward-fill null values so the line is continuous
-    let last = raw.find((v) => v !== null) ?? 0;
-    if (last === 0 && raw.every((v) => v === null)) return undefined;
-    return raw.map((v) => {
-      if (v !== null) {
-        last = Math.round(v);
-        return last;
-      }
-      return last;
-    });
-  }, [wellnessData, summaryCard.showSparkline]);
-
-  const rhrData = useMemo(() => {
-    if (!summaryCard.showSparkline) return undefined;
-    if (!wellnessData || wellnessData.length === 0) return undefined;
-    const sorted = [...wellnessData].sort((a, b) => a.id.localeCompare(b.id)).slice(-30);
-    const raw = sorted.map((w) => w.restingHR ?? null);
-    let last = raw.find((v) => v !== null) ?? 0;
-    if (last === 0 && raw.every((v) => v === null)) return undefined;
-    return raw.map((v) => {
-      if (v !== null) {
-        last = Math.round(v);
-        return last;
-      }
-      return last;
-    });
-  }, [wellnessData, summaryCard.showSparkline]);
+  const fitnessData = sparklines?.fitness;
+  const fatigueData = sparklines?.fatigue;
+  const formData = sparklines?.form;
+  const hrvData = sparklines?.hrv && sparklines.hrv.length > 0 ? sparklines.hrv : undefined;
+  const rhrData = sparklines?.rhr && sparklines.rhr.length > 0 ? sparklines.rhr : undefined;
 
   // Get sport-specific metrics
   const sportMetrics = useMemo(() => {

@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { intervalsApi } from '@/api';
 import { useMemo } from 'react';
 import { getRouteEngine } from '@/lib/native/routeEngine';
+import { queryKeys } from '@/lib/queryKeys';
 import type { SportSettings, Zone } from '@/types';
 
 export function useSportSettings() {
@@ -19,7 +20,7 @@ export function useSportSettings() {
   }, []);
 
   return useQuery<SportSettings[]>({
-    queryKey: ['sportSettings'],
+    queryKey: queryKeys.profile.sportSettings,
     queryFn: async () => {
       const settings = await intervalsApi.getSportSettings();
       // Update engine cache on successful fetch

@@ -36,6 +36,10 @@ export interface SwipeableTab {
   label: string;
   icon: keyof typeof MaterialCommunityIcons.glyphMap;
   count?: number;
+  /** Free-form badge text shown in place of `count` (e.g. "−12s", "+5s"). */
+  badgeText?: string;
+  /** Visual tone for `badgeText`. Ignored when `count` is used. */
+  badgeTone?: 'neutral' | 'positive' | 'negative' | 'pr';
 }
 
 interface SwipeableTabsProps {
@@ -208,7 +212,35 @@ export function SwipeableTabs({
               >
                 {tab.label}
               </Text>
-              {tab.count !== undefined && (
+              {tab.badgeText !== undefined ? (
+                <View
+                  style={[
+                    styles.tabBadge,
+                    tab.badgeTone === 'pr'
+                      ? styles.tabBadgePr
+                      : tab.badgeTone === 'positive'
+                        ? styles.tabBadgePositive
+                        : tab.badgeTone === 'negative'
+                          ? styles.tabBadgeNegative
+                          : isDark
+                            ? styles.tabBadgeDark
+                            : null,
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.tabBadgeText,
+                      tab.badgeTone === 'pr' ||
+                      tab.badgeTone === 'positive' ||
+                      tab.badgeTone === 'negative'
+                        ? styles.tabBadgeTextActive
+                        : null,
+                    ]}
+                  >
+                    {tab.badgeText}
+                  </Text>
+                </View>
+              ) : tab.count !== undefined ? (
                 <View
                   style={[
                     styles.tabBadge,
@@ -219,7 +251,7 @@ export function SwipeableTabs({
                     {tab.count}
                   </Text>
                 </View>
-              )}
+              ) : null}
             </Pressable>
           );
         })}
@@ -295,6 +327,15 @@ const styles = StyleSheet.create({
   tabBadgeActive: {
     backgroundColor: colors.primary,
   },
+  tabBadgePr: {
+    backgroundColor: '#D4AF37',
+  },
+  tabBadgePositive: {
+    backgroundColor: '#22C55E',
+  },
+  tabBadgeNegative: {
+    backgroundColor: '#71717A',
+  },
   tabBadgeText: {
     fontSize: 11,
     fontWeight: '600',
@@ -319,6 +360,5 @@ const styles = StyleSheet.create({
   },
   page: {
     width: SCREEN_WIDTH,
-    flex: 1,
   },
 });

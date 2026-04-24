@@ -18,7 +18,7 @@ impl VeloqEngine {
         init_logging();
 
         let already = PERSISTENT_ENGINE
-            .lock()
+            .read()
             .map(|g| g.is_some())
             .unwrap_or(false);
 
@@ -32,7 +32,7 @@ impl VeloqEngine {
 
     fn is_initialized(&self) -> bool {
         PERSISTENT_ENGINE
-            .lock()
+            .read()
             .map(|guard| guard.is_some())
             .unwrap_or(false)
     }
@@ -45,6 +45,12 @@ impl VeloqEngine {
         with_engine(|e| e.activity_count() as u32)
     }
 
+    /// Get activity IDs that need time streams fetched (have NULL lap_time, no time_stream).
+    /// Used for one-time backfill after upgrade.
+    fn get_activities_needing_time_streams(&self) -> Result<Vec<String>, VeloqError> {
+        with_engine(|e| e.get_activities_needing_time_streams())
+    }
+
     fn clear(&self) -> Result<(), VeloqError> {
         with_engine(|e| {
             e.clear().map_err(|e| VeloqError::Database {
@@ -53,10 +59,20 @@ impl VeloqEngine {
         })?
     }
 
+    /// Clear only route/section data, keeping GPS tracks and activities.
+    /// Used when route matching is toggled off.
+    fn clear_routes_and_sections(&self) -> Result<(), VeloqError> {
+        with_engine(|e| {
+            e.clear_routes_and_sections().map_err(|e| VeloqError::Database {
+                msg: format!("{}", e),
+            })
+        })?
+    }
+
     /// Drop the persistent engine entirely, closing the SQLite connection.
     /// The next call to `create()` will re-initialize from scratch.
     fn destroy(&self) {
-        if let Ok(mut guard) = PERSISTENT_ENGINE.lock() {
+        if let Ok(mut guard) = PERSISTENT_ENGINE.write() {
             info!("[VeloqEngine] Destroying persistent engine");
             *guard = None;
         }

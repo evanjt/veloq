@@ -37,12 +37,14 @@ use rusqlite::{Connection, Result as SqlResult};
 mod activities;
 pub(crate) mod export;
 mod fitness;
+mod indicators;
 mod routes;
 mod schema;
-mod sections;
+pub mod sections;
 mod settings;
 mod strength;
 mod tiles;
+pub(crate) mod wellness;
 
 // ============================================================================
 // Name Translation Support
@@ -184,7 +186,8 @@ pub struct MapActivityComplete {
 
 #[derive(Debug, Clone)]
 pub struct SectionDetectionProgress {
-    /// Current phase: "loading", "building_rtrees", "finding_overlaps", "postprocessing"
+    /// Current phase: "loading", "building_rtrees", "finding_overlaps",
+    /// "clustering", "postprocessing", "saving", "complete"
     pub phase: Arc<std::sync::Mutex<String>>,
     /// Number of items completed in current phase
     pub completed: Arc<AtomicU32>,
@@ -240,6 +243,46 @@ impl Default for SectionDetectionProgress {
     }
 }
 
+/// Wrapper that injects a "clustering" phase between FindingOverlaps and Postprocessing.
+///
+/// tracematch reports three phases: BuildingRtrees, FindingOverlaps, Postprocessing.
+/// Between FindingOverlaps and Postprocessing, significant work happens (clustering,
+/// medoid selection, consensus computation) with no progress reporting. This wrapper
+/// intercepts the Postprocessing phase transition and briefly reports "clustering"
+/// before forwarding Postprocessing, giving the TypeScript side a finer-grained view.
+pub struct ClusteringAwareProgress {
+    inner: SectionDetectionProgress,
+}
+
+impl ClusteringAwareProgress {
+    pub fn new(inner: SectionDetectionProgress) -> Self {
+        Self { inner }
+    }
+}
+
+impl tracematch::DetectionProgressCallback for ClusteringAwareProgress {
+    fn on_phase(&self, phase: tracematch::DetectionPhase, total: u32) {
+        match phase {
+            tracematch::DetectionPhase::Postprocessing => {
+                // Before entering postprocessing, signal that clustering just finished.
+                // Set clustering phase as "complete" (1/1) so TypeScript sees it at 100%
+                // of the clustering range before transitioning to postprocessing.
+                self.inner.set_phase("clustering", 1);
+                self.inner.increment(); // 1/1 = complete
+                // Now forward the real postprocessing phase
+                self.inner.set_phase(phase.as_str(), total);
+            }
+            _ => {
+                self.inner.set_phase(phase.as_str(), total);
+            }
+        }
+    }
+
+    fn on_progress(&self) {
+        self.inner.increment();
+    }
+}
+
 /// Handle for background section detection.
 
 pub struct SectionDetectionHandle {
@@ -270,15 +313,33 @@ impl SectionDetectionHandle {
     }
 }
 
-/// Handle for background heatmap tile generation.
+/// Handle for background heatmap tile generation with progress tracking.
 pub struct TileGenerationHandle {
     receiver: mpsc::Receiver<u32>,
+    /// Number of tiles generated so far (updated atomically by background thread)
+    pub generated: Arc<AtomicU32>,
+    /// Total tiles to process
+    pub total: Arc<AtomicU32>,
 }
 
 impl TileGenerationHandle {
     /// Check if generation is complete (non-blocking). Returns tiles generated count.
     pub fn try_recv(&self) -> Option<u32> {
         self.receiver.try_recv().ok()
+    }
+
+    /// Block until generation completes, returning the tiles-generated count.
+    /// Test and bench path; production uses `try_recv()` via the HeatmapManager poll loop.
+    pub fn recv_blocking(&self) -> Option<u32> {
+        self.receiver.recv().ok()
+    }
+
+    /// Get current progress: (generated, total)
+    pub fn get_progress(&self) -> (u32, u32) {
+        (
+            self.generated.load(Ordering::SeqCst),
+            self.total.load(Ordering::SeqCst),
+        )
     }
 }
 
@@ -370,8 +431,11 @@ pub struct PersistentRouteEngine {
     /// Tier 2: LRU cached signatures (200 max = ~2MB)
     signature_cache: LruCache<String, RouteSignature>,
 
-    /// Tier 2: LRU cached consensus routes (50 max)
-    consensus_cache: LruCache<String, Vec<GpsPoint>>,
+    /// Tier 2: LRU cached consensus routes (50 max).
+    /// `Arc` avoids cloning the full `Vec<GpsPoint>` on every read — cache hits
+    /// just bump the refcount and callers either consume a clone of the inner
+    /// data or iterate via `&*arc`.
+    consensus_cache: LruCache<String, Arc<Vec<GpsPoint>>>,
 
     /// Tier 2: LRU cached sections for single-item lookups (50 max = ~5MB)
     section_cache: LruCache<String, FrequentSection>,
@@ -469,6 +533,28 @@ impl PersistentRouteEngine {
         self.load_processed_activity_ids()?;
         self.load_activity_metrics()?;
 
+        // Backfill activities.duration_secs from activity_metrics.moving_time.
+        // Route highlights need duration_secs to compute trends/PRs, but it was
+        // historically not populated. This ensures it's always available at startup.
+        let backfilled = self.db.execute(
+            "UPDATE activities SET duration_secs = (
+                SELECT moving_time FROM activity_metrics
+                WHERE activity_metrics.activity_id = activities.id
+            )
+            WHERE duration_secs IS NULL
+              AND EXISTS (
+                SELECT 1 FROM activity_metrics
+                WHERE activity_metrics.activity_id = activities.id
+              )",
+            [],
+        ).unwrap_or(0);
+        if backfilled > 0 {
+            log::info!(
+                "tracematch: [PersistentEngine] Backfilled duration_secs for {} activities",
+                backfilled
+            );
+        }
+
         // If activities exist but none are marked as processed (migration cleared the table),
         // mark sections as dirty so re-detection runs with the updated algorithm.
         if !self.activity_metadata.is_empty() && self.processed_activity_ids.is_empty() {
@@ -478,6 +564,9 @@ impl PersistentRouteEngine {
             );
             self.sections_dirty = true;
         }
+
+        // Indicator population is handled lazily via version check in get_activity_indicators().
+        // No need to populate here — first read triggers recompute if version mismatches.
 
         Ok(())
     }
@@ -522,10 +611,10 @@ impl PersistentRouteEngine {
         let source_metrics = self.activity_metrics.get(source_id).cloned();
 
         // Get section_activities entries for source
-        let section_entries: Vec<(String, String, i32, i32, f64)> = self
+        let section_entries: Vec<(String, String, i32, i32, f64, Option<f64>, Option<f64>)> = self
             .db
             .prepare(
-                "SELECT section_id, direction, start_index, end_index, distance_meters
+                "SELECT section_id, direction, start_index, end_index, distance_meters, lap_time, lap_pace
                  FROM section_activities WHERE activity_id = ?",
             )
             .and_then(|mut stmt| {
@@ -536,6 +625,8 @@ impl PersistentRouteEngine {
                         row.get::<_, i32>(2)?,
                         row.get::<_, i32>(3)?,
                         row.get::<_, f64>(4)?,
+                        row.get::<_, Option<f64>>(5)?,
+                        row.get::<_, Option<f64>>(6)?,
                     ))
                 })
                 .map(|rows| rows.filter_map(|r| r.ok()).collect())
@@ -598,13 +689,24 @@ impl PersistentRouteEngine {
                     .insert(clone_id.clone(), clone_metrics);
             }
 
-            // Copy section_activities entries
-            for (section_id, direction, start_idx, end_idx, distance) in &section_entries {
+            // Copy section_activities entries including cached performance
+            for (section_id, direction, start_idx, end_idx, distance, lap_time, lap_pace) in
+                &section_entries
+            {
                 let _ = self.db.execute(
                     "INSERT OR IGNORE INTO section_activities
                      (section_id, activity_id, direction, start_index, end_index, distance_meters, lap_time, lap_pace)
-                     VALUES (?, ?, ?, ?, ?, ?, NULL, NULL)",
-                    rusqlite::params![section_id, clone_id, direction, start_idx, end_idx, distance],
+                     VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                    rusqlite::params![
+                        section_id,
+                        clone_id,
+                        direction,
+                        start_idx,
+                        end_idx,
+                        distance,
+                        lap_time,
+                        lap_pace
+                    ],
                 );
             }
 
@@ -849,18 +951,69 @@ pub struct PersistentEngineStats {
 ///
 /// This singleton allows FFI calls to access a shared persistent engine
 /// without passing state back and forth across the FFI boundary.
+///
+/// Uses `RwLock` so the common case — read-only queries against in-memory
+/// state — can run concurrently across threads. Mutations acquire the write
+/// lock and therefore serialise.
+///
+/// # Safety invariant
+///
+/// `PersistentRouteEngine` contains a `rusqlite::Connection`, which is
+/// `Send + !Sync`. We `unsafe impl Sync` (below) because callers are
+/// required to access the connection only through the **write** lock:
+/// every FFI method that touches SQLite goes through `with_persistent_engine`
+/// / `with_engine` (write), which guarantees exclusive access. The read
+/// lock (`with_persistent_engine_read` / `with_engine_read`) is only valid
+/// for closures that do not dereference `self.db`; those closures take
+/// `&PersistentRouteEngine` but must stay on pure-memory `&self` methods.
 
-pub static PERSISTENT_ENGINE: Lazy<Mutex<Option<PersistentRouteEngine>>> =
-    Lazy::new(|| Mutex::new(None));
+pub static PERSISTENT_ENGINE: Lazy<RwLock<Option<PersistentRouteEngine>>> =
+    Lazy::new(|| RwLock::new(None));
 
-/// Get a lock on the global persistent engine.
+// SAFETY: see invariant above. All SQLite operations go through the write
+// lock, which provides exclusive `&mut` access; read-lock callers only touch
+// `&self` methods that don't dereference `self.db`.
+unsafe impl Sync for PersistentRouteEngine {}
 
+/// Acquire the **write** lock on the global persistent engine.
+///
+/// Required for any closure that needs `&mut PersistentRouteEngine` —
+/// includes all mutation FFIs (`add_*`, `set_*`, `save_*`, `clear_*`,
+/// `apply_*`, `remove_*`, `detect_*`) plus read-looking helpers that
+/// mutate LRU caches (`get_signature`, `get_group_by_id`,
+/// `get_section_by_id`, `get_consensus_route`, `get_section_performances`,
+/// `get_groups`) **and any closure that touches `self.db`** (the read lock
+/// is memory-only — see safety invariant above).
 pub fn with_persistent_engine<F, R>(f: F) -> Option<R>
 where
     F: FnOnce(&mut PersistentRouteEngine) -> R,
 {
-    let mut guard = PERSISTENT_ENGINE.lock().ok()?;
+    let mut guard = PERSISTENT_ENGINE.write().ok()?;
     guard.as_mut().map(f)
+}
+
+/// Alias for `with_persistent_engine` — explicit write semantics.
+pub fn with_persistent_engine_write<F, R>(f: F) -> Option<R>
+where
+    F: FnOnce(&mut PersistentRouteEngine) -> R,
+{
+    with_persistent_engine(f)
+}
+
+/// Acquire the **read** lock on the global persistent engine.
+///
+/// Multiple callers can hold the read lock concurrently. The closure
+/// receives `&PersistentRouteEngine`, so any call to a `&mut self` helper
+/// fails to compile — that is the point.
+///
+/// **Safety**: do not call any method that dereferences `self.db` from
+/// inside this closure. SQLite access goes through the write lock only.
+pub fn with_persistent_engine_read<F, R>(f: F) -> Option<R>
+where
+    F: FnOnce(&PersistentRouteEngine) -> R,
+{
+    let guard = PERSISTENT_ENGINE.read().ok()?;
+    guard.as_ref().map(f)
 }
 
 // ============================================================================
@@ -906,9 +1059,19 @@ pub mod persistent_engine_ffi {
                     );
                 }
 
-                let mut guard = PERSISTENT_ENGINE.lock().unwrap_or_else(|e| e.into_inner());
+                let mut guard = PERSISTENT_ENGINE.write().unwrap_or_else(|e| e.into_inner());
                 *guard = Some(engine);
                 info!("tracematch: [PersistentEngine] Initialized successfully");
+
+                // Tier 2 upgrade path: spawn a background thread that seeds
+                // consensus_state for any section carrying a NULL blob (users
+                // upgrading from 0.2.2 or earlier). Guarded by a schema_info
+                // flag so it only does the corpus-wide scan once per install.
+                // Drop the write lock before spawning so the backfill thread
+                // can try_write later without racing our own release.
+                drop(guard);
+                super::sections::spawn_accumulator_backfill(db_path.clone());
+
                 true
             }
             Err(e) => {
@@ -1167,6 +1330,7 @@ mod tests {
             version: 1,
             updated_at: None,
             created_at: Some("2026-01-28T00:00:00Z".to_string()),
+            consensus_state: None,
         }
     }
 
@@ -1667,5 +1831,135 @@ mod tests {
             db_section.activity_ids.contains(&"activity-2".to_string()),
             "Activity-2 should still be present after re-matching"
         );
+    }
+
+    /// Regression: a freshly-detected section must have non-NULL `lap_time`/`lap_pace`
+    /// in `section_activities` immediately after `apply_sections()` — no lazy
+    /// backfill trip on the first `get_section_performances()` call.
+    ///
+    /// The computation happens inline in `save_sections()` by reading the
+    /// time stream (from memory or the DB) for each portion. The lazy
+    /// backfill path remains as a fallback for migration edge cases and
+    /// for activities whose time streams arrive after detection.
+    #[test]
+    fn test_lap_time_populated_by_apply_sections() {
+        let mut engine = PersistentRouteEngine::in_memory().unwrap();
+
+        // Two activities sharing the same route.
+        let coords = sample_coords();
+        engine
+            .add_activity(
+                "activity-1".to_string(),
+                coords.clone(),
+                "cycling".to_string(),
+            )
+            .unwrap();
+        engine
+            .add_activity(
+                "activity-2".to_string(),
+                coords.clone(),
+                "cycling".to_string(),
+            )
+            .unwrap();
+
+        // Seed time streams for both activities: 0s..49s at 1s cadence.
+        // 50 points means indices 0..=49 are all valid.
+        let times: Vec<u32> = (0..50u32).collect();
+        let all_times: Vec<u32> = times.iter().chain(times.iter()).copied().collect();
+        let offsets: Vec<u32> = vec![0, times.len() as u32];
+        engine.set_time_streams_flat(
+            &["activity-1".to_string(), "activity-2".to_string()],
+            &all_times,
+            &offsets,
+        );
+
+        // Apply a section spanning the full track (index 0..49).
+        let section = create_test_frequent_section(
+            "sec_lap_time",
+            "activity-1",
+            vec!["activity-1".to_string(), "activity-2".to_string()],
+            coords,
+        );
+        engine
+            .apply_sections(vec![section])
+            .expect("apply_sections");
+
+        // Read back junction rows directly — do NOT call `get_section_performances`
+        // (that path does lazy backfill and would mask a missing inline compute).
+        let rows: Vec<(String, Option<f64>, Option<f64>)> = engine
+            .db
+            .prepare(
+                "SELECT activity_id, lap_time, lap_pace
+                 FROM section_activities WHERE section_id = 'sec_lap_time'
+                 ORDER BY activity_id",
+            )
+            .and_then(|mut stmt| {
+                stmt.query_map([], |row| {
+                    Ok((
+                        row.get::<_, String>(0)?,
+                        row.get::<_, Option<f64>>(1)?,
+                        row.get::<_, Option<f64>>(2)?,
+                    ))
+                })
+                .map(|iter| iter.filter_map(|r| r.ok()).collect())
+            })
+            .expect("read junction rows");
+
+        assert_eq!(rows.len(), 2, "expected one junction row per portion");
+        for (activity_id, lap_time, lap_pace) in &rows {
+            assert!(
+                lap_time.is_some(),
+                "lap_time should be populated during save_sections for {}",
+                activity_id
+            );
+            assert!(
+                lap_pace.is_some(),
+                "lap_pace should be populated during save_sections for {}",
+                activity_id
+            );
+            // Traversal indices 0..49 on a 1-second-cadence stream = 49s.
+            assert!(
+                (lap_time.unwrap() - 49.0).abs() < 0.001,
+                "expected lap_time ≈ 49s for {}, got {:?}",
+                activity_id,
+                lap_time
+            );
+            // Distance 5000m / 49s ≈ 102.04 m/s.
+            assert!(
+                (lap_pace.unwrap() - (5000.0 / 49.0)).abs() < 0.001,
+                "expected lap_pace ≈ distance/time for {}, got {:?}",
+                activity_id,
+                lap_pace
+            );
+        }
+    }
+
+    /// Regression: `compute_lap_time_from_stream` handles the zero-span and
+    /// missing-stream edge cases by returning `(None, None)` — never panics
+    /// on out-of-bounds indices.
+    #[test]
+    fn test_compute_lap_time_from_stream_edge_cases() {
+        use super::sections::compute_lap_time_from_stream;
+
+        // No stream available.
+        assert_eq!(compute_lap_time_from_stream(None, 0, 5, 100.0), (None, None));
+
+        // Zero-duration traversal (start == end).
+        let times: Vec<u32> = vec![10, 20, 30];
+        assert_eq!(
+            compute_lap_time_from_stream(Some(&times), 1, 1, 100.0),
+            (None, None)
+        );
+
+        // Out of bounds end_index.
+        assert_eq!(
+            compute_lap_time_from_stream(Some(&times), 0, 99, 100.0),
+            (None, None)
+        );
+
+        // Happy path: indices 0..2 on [10, 20, 30] = 20s; 100m/20s = 5 m/s.
+        let (lap_time, lap_pace) = compute_lap_time_from_stream(Some(&times), 0, 2, 100.0);
+        assert_eq!(lap_time, Some(20.0));
+        assert_eq!(lap_pace, Some(5.0));
     }
 }

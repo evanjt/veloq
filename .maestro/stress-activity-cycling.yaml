@@ -13,6 +13,11 @@ tags:
     times: 3
     commands:
       - openLink: "veloq://activity/demo-test-0"
+      - runFlow:
+          when:
+            visible: "Open"
+          commands:
+            - tapOn: "Open"
       - extendedWaitUntil:
           visible:
             id: "activity-detail-content"
@@ -20,6 +25,11 @@ tags:
           optional: true
 
       - openLink: "veloq://activity/demo-test-1"
+      - runFlow:
+          when:
+            visible: "Open"
+          commands:
+            - tapOn: "Open"
       - extendedWaitUntil:
           visible:
             id: "activity-detail-content"
@@ -27,6 +37,11 @@ tags:
           optional: true
 
       - openLink: "veloq://activity/demo-2"
+      - runFlow:
+          when:
+            visible: "Open"
+          commands:
+            - tapOn: "Open"
       - extendedWaitUntil:
           visible:
             id: "activity-detail-content"
@@ -34,6 +49,11 @@ tags:
           optional: true
 
       - openLink: "veloq://activity/demo-3"
+      - runFlow:
+          when:
+            visible: "Open"
+          commands:
+            - tapOn: "Open"
       - extendedWaitUntil:
           visible:
             id: "activity-detail-content"
@@ -41,6 +61,11 @@ tags:
           optional: true
 
       - openLink: "veloq://activity/demo-4"
+      - runFlow:
+          when:
+            visible: "Open"
+          commands:
+            - tapOn: "Open"
       - extendedWaitUntil:
           visible:
             id: "activity-detail-content"
@@ -52,11 +77,31 @@ tags:
     times: 5
     commands:
       - openLink: "veloq://activity/demo-test-0"
+      - runFlow:
+          when:
+            visible: "Open"
+          commands:
+            - tapOn: "Open"
       - openLink: "veloq://activity/demo-test-1"
+      - runFlow:
+          when:
+            visible: "Open"
+          commands:
+            - tapOn: "Open"
       - openLink: "veloq://activity/demo-2"
+      - runFlow:
+          when:
+            visible: "Open"
+          commands:
+            - tapOn: "Open"
 
 # Return to home and verify app is still responsive
 - openLink: "veloq://"
+- runFlow:
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
 
 - extendedWaitUntil:
     visible:

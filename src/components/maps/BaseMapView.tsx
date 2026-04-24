@@ -310,6 +310,7 @@ export function BaseMapView({
       {/* Close button */}
       {onClose && (
         <TouchableOpacity
+          testID="map-fullscreen-close"
           style={[
             styles.button,
             styles.closeButton,
@@ -415,7 +416,7 @@ export function BaseMapView({
 
       {/* Attribution */}
       {showAttribution && (
-        <View style={[styles.attribution, { bottom: insets.bottom }]}>
+        <View style={[styles.attribution, { bottom: insets.bottom }]} pointerEvents="none">
           <View style={styles.attributionPill}>
             <Text style={styles.attributionText}>{attributionText}</Text>
           </View>
@@ -569,10 +570,10 @@ const styles = StyleSheet.create({
   attribution: {
     position: 'absolute',
     bottom: 0,
-    left: 0,
     right: 0,
-    alignItems: 'center',
+    alignItems: 'flex-end',
     paddingBottom: 4,
+    paddingRight: 6,
     zIndex: 5,
   },
   attributionPill: {

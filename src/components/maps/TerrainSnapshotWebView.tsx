@@ -40,6 +40,9 @@ import {
   type PrefetchTilesBatch,
 } from '@/lib/events/terrainSnapshotEvents';
 import { generatePreloadScript } from '@/lib/maps/tilePreloader';
+import { buildSnapshotWorkerHtml } from '@/lib/maps/htmlBuilders';
+import { useWebViewBridge } from '@/hooks/maps/useWebViewBridge';
+import type { WebViewBridgeHandlers, WebViewBridgeMessage } from '@/hooks/maps/useWebViewBridge';
 import { useSyncDateRange } from '@/providers';
 
 const SNAPSHOT_TIMEOUT_MS = 8000;
@@ -74,248 +77,6 @@ interface WorkerState {
   currentRequestRef: { current: SnapshotRequest | null };
 }
 
-/** Generate the HTML for a worker WebView with its ID baked in. */
-function generateWorkerHtml(id: number): string {
-  return `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <script src="https://unpkg.com/maplibre-gl@5.19.0/dist/maplibre-gl.js"></script>
-  <link href="https://unpkg.com/maplibre-gl@5.19.0/dist/maplibre-gl.css" rel="stylesheet" />
-  <style>
-    body { margin: 0; padding: 0; overflow: hidden; }
-    #map { width: 100vw; height: ${SNAPSHOT_HEIGHT}px; }
-  </style>
-</head>
-<body>
-  <div id="map"></div>
-  <script>
-    // Worker identity — used to route messages back to the correct handler
-    window._workerId = ${id};
-
-    // Bridge console to React Native
-    window._rn_log = function(msg) {
-      try {
-        if (window.ReactNativeWebView) {
-          window.ReactNativeWebView.postMessage(JSON.stringify({
-            type: 'console',
-            workerId: window._workerId,
-            message: String(msg)
-          }));
-        }
-      } catch(e) {}
-    };
-
-    // Generation counter for race condition guard
-    window._snapshotGen = 0;
-
-    // Track current base style for reuse optimisation
-    window._currentBaseStyle = null;
-
-    // Decode ArrayBuffer/Blob into HTMLImageElement via Object URL.
-    // MapLibre v5 uses it directly (instanceof HTMLImageElement check),
-    // bypassing arrayBufferToCanvasImageSource → createImageBitmap
-    // which fails silently in Android WebView.
-    function demBlobToImage(blob) {
-      return new Promise(function(resolve, reject) {
-        var url = URL.createObjectURL(blob);
-        var img = new Image();
-        img.onload = function() {
-          URL.revokeObjectURL(url);
-          resolve({ data: img });
-        };
-        img.onerror = function() {
-          URL.revokeObjectURL(url);
-          reject(new Error('DEM image decode failed'));
-        };
-        img.src = url;
-      });
-    }
-
-    // Cache terrain DEM tiles via Cache API — persists across snapshot requests.
-    // MapLibre v5.19.0 uses promise-based addProtocol.
-    var TERRAIN_CACHE = 'veloq-terrain-dem-v1';
-
-    function fetchWithRetry(url, retries, delay) {
-      return fetch(url).catch(function(err) {
-        if (retries <= 0) throw err;
-        window._rn_log('DEM fetch retry (' + retries + ' left) for ' + url.split('/').slice(-3).join('/') + ': ' + err.message);
-        return new Promise(function(resolve) { setTimeout(resolve, delay); })
-          .then(function() { return fetchWithRetry(url, retries - 1, delay * 2); });
-      });
-    }
-
-    maplibregl.addProtocol('cached-terrain', function(params) {
-      var realUrl = 'https://' + params.url.substring('cached-terrain://'.length);
-      return caches.open(TERRAIN_CACHE).then(function(cache) {
-        return cache.match(realUrl).then(function(cached) {
-          if (cached) {
-            return cached.blob().then(demBlobToImage);
-          }
-          return fetchWithRetry(realUrl, 2, 300).then(function(r) {
-            window._rn_log('DEM fetch ' + r.status + ': ' + realUrl.split('/').slice(-3).join('/'));
-            if (!r.ok) throw new Error('HTTP ' + r.status);
-            cache.put(realUrl, r.clone()); maybeEvict(TERRAIN_CACHE);
-            return r.blob().then(demBlobToImage);
-          });
-        });
-      }).catch(function(err) {
-        window._rn_log('DEM error: ' + err.message + ' url=' + realUrl.split('/').slice(-3).join('/'));
-        throw err;
-      });
-    });
-
-    // Cache satellite tiles via Cache API — same pattern as terrain DEM tiles.
-    var SATELLITE_CACHE = 'veloq-satellite-v1';
-    maplibregl.addProtocol('cached-satellite', function(params) {
-      var realUrl = 'https://' + params.url.substring('cached-satellite://'.length);
-      return caches.open(SATELLITE_CACHE).then(function(cache) {
-        return cache.match(realUrl).then(function(cached) {
-          if (cached) {
-            return cached.blob().then(demBlobToImage);
-          }
-          return fetch(realUrl).then(function(r) {
-            if (!r.ok) throw new Error('HTTP ' + r.status);
-            cache.put(realUrl, r.clone()); maybeEvict(SATELLITE_CACHE);
-            return r.blob().then(demBlobToImage);
-          });
-        });
-      });
-    });
-
-    // Cache vector tiles (protocol buffers) via Cache API.
-    var VECTOR_CACHE = 'veloq-vector-v1';
-    maplibregl.addProtocol('cached-vector', function(params) {
-      var realUrl = 'https://' + params.url.substring('cached-vector://'.length);
-      return caches.open(VECTOR_CACHE).then(function(cache) {
-        return cache.match(realUrl).then(function(cached) {
-          if (cached) return cached.arrayBuffer().then(function(d) { return { data: d }; });
-          return fetch(realUrl).then(function(r) {
-            if (!r.ok) throw new Error('HTTP ' + r.status);
-            cache.put(realUrl, r.clone()); maybeEvict(VECTOR_CACHE);
-            return r.arrayBuffer().then(function(d) { return { data: d }; });
-          });
-        });
-      });
-    });
-
-    // Cache eviction — FIFO, size-based. Checked every 50 inserts per cache.
-    var _insertCounts = {};
-    var CACHE_BUDGETS = {
-      'veloq-satellite-v1': 120 * 1024 * 1024,
-      'veloq-vector-v1': 50 * 1024 * 1024,
-      'veloq-terrain-dem-v1': 30 * 1024 * 1024,
-    };
-
-    function maybeEvict(cacheName) {
-      _insertCounts[cacheName] = (_insertCounts[cacheName] || 0) + 1;
-      if (_insertCounts[cacheName] % 50 !== 0) return;
-      var budget = CACHE_BUDGETS[cacheName];
-      if (!budget) return;
-      caches.open(cacheName).then(function(cache) {
-        cache.keys().then(function(requests) {
-          var sizes = requests.map(function(req) {
-            return cache.match(req).then(function(r) {
-              if (!r) return { req: req, size: 0 };
-              var cl = parseInt(r.headers.get('content-length') || '0') || 0;
-              if (cl > 0) return { req: req, size: cl };
-              return r.arrayBuffer().then(function(buf) {
-                return { req: req, size: buf.byteLength };
-              });
-            });
-          });
-          Promise.all(sizes).then(function(entries) {
-            var total = entries.reduce(function(s, e) { return s + e.size; }, 0);
-            if (total <= budget) return;
-            for (var i = 0; i < entries.length && total > budget; i++) {
-              cache.delete(entries[i].req);
-              total -= entries[i].size;
-            }
-          });
-        });
-      });
-    }
-
-    window._rn_log('Initializing MapLibre (worker ${id})...');
-
-    window.map = new maplibregl.Map({
-      container: 'map',
-      style: 'https://tiles.openfreemap.org/styles/liberty',
-      center: [8.5, 47.3],
-      zoom: 10,
-      pitch: 60,
-      attributionControl: false,
-      antialias: true,
-      canvasContextAttributes: {
-        preserveDrawingBuffer: true,
-      },
-      pixelRatio: window.devicePixelRatio || 2,
-    });
-
-    window.map.on('load', function() {
-      window._rn_log('Map loaded OK (worker ${id})');
-      if (window.ReactNativeWebView) {
-        window.ReactNativeWebView.postMessage(JSON.stringify({
-          type: 'mapReady',
-          workerId: window._workerId,
-        }));
-      }
-    });
-
-    window._tileErrorCount = 0;
-
-    window.map.on('error', function(e) {
-      var msg = e.error ? e.error.message : JSON.stringify(e);
-      // Only count server errors (429, 5xx) and network failures as tile errors.
-      // 404s are expected from regional satellite sources (swisstopo, eox, ign)
-      // that return 404 for tiles outside their coverage area.
-      var status = e.error && e.error.status;
-      if (status === 404 || /HTTP 404/.test(msg)) return;
-      window._rn_log('Map error: ' + msg);
-      if (e.sourceId || (e.error && (status >= 400 || /tile|source|fetch|network|load/i.test(msg)))) {
-        window._tileErrorCount++;
-      }
-    });
-
-    // Track tile loading progress per source
-    window._tileStats = {};
-
-    window.map.on('data', function(e) {
-      if (e.dataType === 'source' && e.sourceId && e.tile) {
-        if (!window._tileStats[e.sourceId]) {
-          window._tileStats[e.sourceId] = { loaded: 0, total: 0 };
-        }
-        window._tileStats[e.sourceId].loaded++;
-        var s = window._tileStats[e.sourceId];
-        if (s.loaded % 5 === 0 || s.loaded <= 2) {
-          window._rn_log('Tiles [' + e.sourceId + ']: ' + s.loaded + ' loaded');
-        }
-      }
-    });
-
-    window.map.on('dataloading', function(e) {
-      if (e.dataType === 'source' && e.sourceId) {
-        if (!window._tileStats[e.sourceId]) {
-          window._tileStats[e.sourceId] = { loaded: 0, total: 0 };
-        }
-        window._tileStats[e.sourceId].total++;
-      }
-    });
-
-    // rAF heartbeat — confirms rendering loop is alive
-    var _rafCount = 0;
-    function rafHeartbeat() {
-      _rafCount++;
-      requestAnimationFrame(rafHeartbeat);
-    }
-    requestAnimationFrame(rafHeartbeat);
-  </script>
-</body>
-</html>`;
-}
-
 export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, object>(
   function TerrainSnapshotWebView(_props, ref) {
     // Lazy-init worker pool — created once, never recreated
@@ -332,7 +93,7 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
       }));
     }
     const workers = workersRef.current;
-    const workerHtmls = useMemo(() => workers.map((w) => generateWorkerHtml(w.id)), [workers]);
+    const workerHtmls = useMemo(() => workers.map((w) => buildSnapshotWorkerHtml(w.id)), [workers]);
 
     const queueRef = useRef<SnapshotRequest[]>([]);
     const queueTotalRef = useRef(0);
@@ -921,129 +682,147 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
       }
     }, [workers, updateProgress]);
 
-    const handleMessage = useCallback(
-      async (event: { nativeEvent: { data: string } }) => {
-        try {
-          const data = JSON.parse(event.nativeEvent.data);
-          if (typeof data !== 'object' || data === null || typeof data.type !== 'string') return;
+    // Handle messages from WebView — dispatch via shared bridge.
+    // Each handler does its own worker lookup by `data.workerId` because
+    // multiple worker WebViews post through the same `onMessage` callback.
+    const bridgeHandlers = useMemo<WebViewBridgeHandlers>(
+      () => ({
+        console: (data: WebViewBridgeMessage) => {
           if (typeof data.workerId !== 'number') return;
+          if (!workers[data.workerId]) return;
+          if (__DEV__) console.log(`[TerrainSnapshot:JS:${data.workerId}] ${data.message}`);
+        },
+        mapReady: (data: WebViewBridgeMessage) => {
+          if (typeof data.workerId !== 'number') return;
+          const worker = workers[data.workerId];
+          if (!worker) return;
+          if (__DEV__) console.log(`[TerrainSnapshot:${data.workerId}] WebView map ready`);
+          worker.mapReadyRef.current = true;
+          processNext();
+        },
+        snapshot: async (data: WebViewBridgeMessage) => {
+          if (typeof data.workerId !== 'number') return;
+          const worker = workers[data.workerId];
+          if (!worker) return;
+          if (!data.activityId || !data.base64) return;
 
+          // Discard stale snapshots from superseded requests
+          if (typeof data.gen === 'number' && data.gen !== worker.generationRef.current) {
+            if (__DEV__) {
+              console.warn(
+                `[TerrainSnapshot:${data.workerId}] Discarding stale snapshot for ${data.activityId} (gen=${data.gen}, current=${worker.generationRef.current})`
+              );
+            }
+            return;
+          }
+
+          if (worker.timeoutRef.current) clearTimeout(worker.timeoutRef.current);
+          const style =
+            (data.mapStyle as MapStyleType) ??
+            worker.currentRequestRef.current?.mapStyle ??
+            'light';
+          worker.processingRef.current = false;
+          worker.currentRequestRef.current = null;
+          queueCompletedRef.current++;
+          updateProgress();
+          processNext(); // Start next render immediately
+
+          const base64 = data.base64 as string;
+          const activityId = data.activityId as string;
+          if (__DEV__) {
+            console.log(
+              `[TerrainSnapshot:${data.workerId}] Captured ${activityId} (${Math.round(base64.length / 1024)}KB base64${data.tileErrors ? `, ${data.tileErrors} tile errors` : ''})`
+            );
+          }
+          // Save concurrently — card shows loading state until emitSnapshotComplete
+          try {
+            const uri = await saveTerrainPreview(activityId, style, base64);
+            if (__DEV__)
+              console.log(`[TerrainSnapshot:${data.workerId}] Saved ${activityId} → ${uri}`);
+            emitSnapshotComplete(activityId, uri);
+          } catch (saveErr) {
+            if (__DEV__) {
+              console.warn(
+                `[TerrainSnapshot:${data.workerId}] Save failed for ${activityId}:`,
+                saveErr
+              );
+            }
+          }
+        },
+        tileCacheStats: (data: WebViewBridgeMessage) => {
+          if (typeof data.workerId !== 'number') return;
+          if (!workers[data.workerId]) return;
+          emitTileCacheStats({
+            tileCount: (data.tileCount as number) ?? 0,
+            totalBytes: (data.totalBytes as number) ?? 0,
+            terrain: (data.terrain as { tileCount: number; totalBytes: number }) ?? undefined,
+            satellite: (data.satellite as { tileCount: number; totalBytes: number }) ?? undefined,
+            vector: (data.vector as { tileCount: number; totalBytes: number }) ?? undefined,
+          });
+        },
+        prefetchProgress: (data: WebViewBridgeMessage) => {
+          if (typeof data.workerId !== 'number') return;
+          if (!workers[data.workerId]) return;
+          emitPrefetchTilesProgress((data.completed as number) ?? 0, (data.total as number) ?? 0);
+        },
+        snapshotError: (data: WebViewBridgeMessage) => {
+          if (typeof data.workerId !== 'number') return;
           const worker = workers[data.workerId];
           if (!worker) return;
 
-          if (data.type === 'console') {
-            if (__DEV__) console.log(`[TerrainSnapshot:JS:${data.workerId}] ${data.message}`);
-          } else if (data.type === 'mapReady') {
-            if (__DEV__) console.log(`[TerrainSnapshot:${data.workerId}] WebView map ready`);
-            worker.mapReadyRef.current = true;
-            processNext();
-          } else if (data.type === 'snapshot' && data.activityId && data.base64) {
-            // Discard stale snapshots from superseded requests
-            if (typeof data.gen === 'number' && data.gen !== worker.generationRef.current) {
-              if (__DEV__) {
-                console.warn(
-                  `[TerrainSnapshot:${data.workerId}] Discarding stale snapshot for ${data.activityId} (gen=${data.gen}, current=${worker.generationRef.current})`
-                );
-              }
-              return;
-            }
-
-            if (worker.timeoutRef.current) clearTimeout(worker.timeoutRef.current);
-            const style =
-              (data.mapStyle as MapStyleType) ??
-              worker.currentRequestRef.current?.mapStyle ??
-              'light';
-            worker.processingRef.current = false;
-            worker.currentRequestRef.current = null;
-            queueCompletedRef.current++;
-            updateProgress();
-            processNext(); // Start next render immediately
-
+          // Discard stale errors from superseded requests
+          if (typeof data.gen === 'number' && data.gen !== worker.generationRef.current) {
             if (__DEV__) {
-              console.log(
-                `[TerrainSnapshot:${data.workerId}] Captured ${data.activityId} (${Math.round(data.base64.length / 1024)}KB base64${data.tileErrors ? `, ${data.tileErrors} tile errors` : ''})`
+              console.warn(
+                `[TerrainSnapshot:${data.workerId}] Discarding stale error for ${data.activityId} (gen=${data.gen}, current=${worker.generationRef.current})`
               );
             }
-            // Save concurrently — card shows loading state until emitSnapshotComplete
-            try {
-              const uri = await saveTerrainPreview(data.activityId, style, data.base64);
-              if (__DEV__)
-                console.log(`[TerrainSnapshot:${data.workerId}] Saved ${data.activityId} → ${uri}`);
-              emitSnapshotComplete(data.activityId, uri);
-            } catch (saveErr) {
-              if (__DEV__) {
-                console.warn(
-                  `[TerrainSnapshot:${data.workerId}] Save failed for ${data.activityId}:`,
-                  saveErr
-                );
-              }
-            }
-          } else if (data.type === 'tileCacheStats') {
-            emitTileCacheStats({
-              tileCount: data.tileCount ?? 0,
-              totalBytes: data.totalBytes ?? 0,
-              terrain: data.terrain ?? undefined,
-              satellite: data.satellite ?? undefined,
-              vector: data.vector ?? undefined,
-            });
-          } else if (data.type === 'prefetchProgress') {
-            emitPrefetchTilesProgress(data.completed ?? 0, data.total ?? 0);
-          } else if (data.type === 'snapshotError') {
-            // Discard stale errors from superseded requests
-            if (typeof data.gen === 'number' && data.gen !== worker.generationRef.current) {
-              if (__DEV__) {
-                console.warn(
-                  `[TerrainSnapshot:${data.workerId}] Discarding stale error for ${data.activityId} (gen=${data.gen}, current=${worker.generationRef.current})`
-                );
-              }
-              return;
-            }
-
-            if (worker.timeoutRef.current) clearTimeout(worker.timeoutRef.current);
-            worker.processingRef.current = false;
-
-            const currentRequest = worker.currentRequestRef.current;
-            worker.currentRequestRef.current = null;
-            const tileErrors = data.tileErrors ?? 0;
-            const attempt = currentRequest?._retryAttempt ?? 0;
-
-            if (currentRequest && attempt < MAX_SNAPSHOT_RETRIES) {
-              // Retry: push back to front of queue with incremented attempt
-              if (__DEV__) {
-                console.warn(
-                  `[TerrainSnapshot:${data.workerId}] Scheduling retry for ${data.activityId} (attempt ${attempt + 1}, error: ${data.error}, tile errors: ${tileErrors})`
-                );
-              }
-              queueRef.current.unshift({
-                ...currentRequest,
-                _retryAttempt: attempt + 1,
-              });
-              // Delay retry to let tile servers recover
-              setTimeout(() => processNext(), 2000);
-            } else {
-              // Exhausted retries — save for later re-attempt
-              if (__DEV__) {
-                console.warn(
-                  `[TerrainSnapshot:${data.workerId}] Giving up on ${data.activityId} (error: ${data.error}, tile errors: ${tileErrors})`
-                );
-              }
-              if (currentRequest) {
-                failedRequestsRef.current.push({
-                  ...currentRequest,
-                  _retryAttempt: 0,
-                });
-              }
-              queueCompletedRef.current++;
-              updateProgress();
-              processNext();
-            }
+            return;
           }
-        } catch {
-          // Ignore parse errors
-        }
-      },
+
+          if (worker.timeoutRef.current) clearTimeout(worker.timeoutRef.current);
+          worker.processingRef.current = false;
+
+          const currentRequest = worker.currentRequestRef.current;
+          worker.currentRequestRef.current = null;
+          const tileErrors = (data.tileErrors as number) ?? 0;
+          const attempt = currentRequest?._retryAttempt ?? 0;
+
+          if (currentRequest && attempt < MAX_SNAPSHOT_RETRIES) {
+            // Retry: push back to front of queue with incremented attempt
+            if (__DEV__) {
+              console.warn(
+                `[TerrainSnapshot:${data.workerId}] Scheduling retry for ${data.activityId} (attempt ${attempt + 1}, error: ${data.error}, tile errors: ${tileErrors})`
+              );
+            }
+            queueRef.current.unshift({
+              ...currentRequest,
+              _retryAttempt: attempt + 1,
+            });
+            // Delay retry to let tile servers recover
+            setTimeout(() => processNext(), 2000);
+          } else {
+            // Exhausted retries — save for later re-attempt
+            if (__DEV__) {
+              console.warn(
+                `[TerrainSnapshot:${data.workerId}] Giving up on ${data.activityId} (error: ${data.error}, tile errors: ${tileErrors})`
+              );
+            }
+            if (currentRequest) {
+              failedRequestsRef.current.push({
+                ...currentRequest,
+                _retryAttempt: 0,
+              });
+            }
+            queueCompletedRef.current++;
+            updateProgress();
+            processNext();
+          }
+        },
+      }),
       [workers, processNext, updateProgress]
     );
+    const handleMessage = useWebViewBridge(bridgeHandlers);
 
     // Listen for tile cache clear events from settings
     useEffect(() => {
@@ -1078,7 +857,7 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
                 return cache.keys().then(function(requests) {
                   return Promise.all(requests.map(function(req) {
                     return cache.match(req).then(function(r) {
-                      return r ? (parseInt(r.headers.get('content-length') || '0') || 0) : 0;
+                      return r ? (parseInt(r.headers.get('content-length') || '0', 10) || 0) : 0;
                     });
                   })).then(function(sizes) {
                     var total = 0;

@@ -6,6 +6,7 @@
  */
 
 import { useMemo } from 'react';
+import { i18n } from '@/i18n';
 import { useFrequentSections } from './useFrequentSections';
 import { useCustomSections } from './useCustomSections';
 import { usePotentialSections } from './usePotentialSections';
@@ -182,7 +183,10 @@ export function useUnifiedSections(
           result.push({
             id: potential.id,
             sectionType: 'potential',
-            name: `Suggested: ${potential.sportType} (${distanceStr})`,
+            name: i18n.t('sections.suggestedName', {
+              sport: potential.sportType,
+              distance: distanceStr,
+            }),
             polyline: potential.polyline,
             sportType: potential.sportType,
             distanceMeters: potential.distanceMeters,

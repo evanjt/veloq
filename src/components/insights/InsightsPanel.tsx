@@ -1,5 +1,5 @@
-import React, { useState, useCallback } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import React, { useState, useCallback, useEffect } from 'react';
+import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -7,25 +7,54 @@ import { useTheme } from '@/hooks';
 import { TodayBanner } from '@/components/routes/TodayBanner';
 import { InsightListCard } from './InsightListCard';
 import { InsightDetailSheet } from './InsightDetailSheet';
+import { InsightDebugPanel } from './InsightDebugPanel';
 import { TAB_BAR_SAFE_PADDING } from '@/components/ui';
 import { colors, darkColors, spacing, layout } from '@/theme';
 import type { Insight } from '@/types';
 
 interface InsightsPanelProps {
   insights: Insight[];
+  /**
+   * If set, opens the matching insight's detail sheet on mount. Used by deep
+   * links from the home screen's rotating insight chip
+   * (`/(tabs)/routes?insightId=...`). Calls `onInsightOpened` once the sheet
+   * has been triggered so the parent can clear the URL param.
+   */
+  initialInsightId?: string;
+  onInsightOpened?: () => void;
 }
 
-export const InsightsPanel = React.memo(function InsightsPanel({ insights }: InsightsPanelProps) {
+export const InsightsPanel = React.memo(function InsightsPanel({
+  insights,
+  initialInsightId,
+  onInsightOpened,
+}: InsightsPanelProps) {
   const { isDark } = useTheme();
   const { t } = useTranslation();
   const [selectedInsight, setSelectedInsight] = useState<Insight | null>(null);
+  const [debugOpen, setDebugOpen] = useState(false);
   const handleInsightPress = useCallback((i: Insight) => setSelectedInsight(i), []);
   const handleCloseSheet = useCallback(() => setSelectedInsight(null), []);
+  const handleLongPress = useCallback(() => {
+    if (__DEV__) setDebugOpen(true);
+  }, []);
+
+  // Open the deep-linked insight once it appears in the list.
+  useEffect(() => {
+    if (!initialInsightId) return;
+    const match = insights.find((i) => i.id === initialInsightId);
+    if (match) {
+      setSelectedInsight(match);
+      onInsightOpened?.();
+    }
+  }, [initialInsightId, insights, onInsightOpened]);
 
   return (
     <View style={styles.container} testID="insights-panel">
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
-        <TodayBanner />
+        <Pressable onLongPress={handleLongPress} delayLongPress={800}>
+          <TodayBanner />
+        </Pressable>
         {insights.length > 0 ? (
           <View style={styles.cardList} testID="insights-card-list">
             {insights.map((insight) => (
@@ -56,6 +85,7 @@ export const InsightsPanel = React.memo(function InsightsPanel({ insights }: Ins
         visible={!!selectedInsight}
         onClose={handleCloseSheet}
       />
+      <InsightDebugPanel visible={debugOpen} onClose={() => setDebugOpen(false)} />
     </View>
   );
 });

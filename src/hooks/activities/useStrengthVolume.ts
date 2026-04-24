@@ -1,6 +1,11 @@
+import { useState, useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { getRouteEngine } from '@/lib/native/routeEngine';
+import { CACHE } from '@/lib/utils/constants';
+import { queryKeys } from '@/lib/queryKeys';
 import { buildStrengthProgression } from '@/lib/strength/analysis';
+import { useAuthStore } from '@/providers';
+import { demoStrengthSets } from '@/data/demo/strengthSets';
 import type {
   StrengthSummary,
   StrengthPeriod,
@@ -8,6 +13,30 @@ import type {
   ExerciseActivity,
   StrengthProgression,
 } from '@/types';
+
+/**
+ * Seed synthetic strength sets for demo activities once per session. The
+ * Strength tab queries aggregate summaries directly (not per-activity) so
+ * the demo-mode seed path in useExerciseSets doesn't cover this entry
+ * point. Idempotent — bulk_insert_exercise_sets uses INSERT OR REPLACE.
+ */
+let demoStrengthSeedAttempted = false;
+function ensureDemoStrengthSeeded(): void {
+  if (demoStrengthSeedAttempted) return;
+  if (!useAuthStore.getState().isDemoMode) return;
+  const engine = getRouteEngine();
+  if (!engine || typeof engine.bulkInsertExerciseSets !== 'function') return;
+  demoStrengthSeedAttempted = true;
+  try {
+    for (const [activityId, sets] of Object.entries(demoStrengthSets)) {
+      if (engine.getExerciseSets(activityId).length === 0) {
+        engine.bulkInsertExerciseSets(activityId, sets);
+      }
+    }
+  } catch (err) {
+    console.warn('[StrengthVolume] demo seed failed:', err);
+  }
+}
 
 /**
  * Compute start/end timestamps for a period, rounded to start-of-day
@@ -101,8 +130,9 @@ function normalizeStrengthSummary(raw: {
  */
 export function useStrengthVolume(period: StrengthPeriod) {
   return useQuery<StrengthSummary>({
-    queryKey: ['strength-volume', period],
+    queryKey: queryKeys.strength.volume(period),
     queryFn: () => {
+      ensureDemoStrengthSeeded();
       const { startTs, endTs } = getTimestampRange(period);
       const engine = getRouteEngine();
       if (!engine || typeof engine.getStrengthSummary !== 'function') {
@@ -116,8 +146,8 @@ export function useStrengthVolume(period: StrengthPeriod) {
         return { muscleVolumes: [], activityCount: 0, totalSets: 0 };
       }
     },
-    staleTime: 1000 * 60 * 5, // 5 minutes
-    gcTime: 1000 * 60 * 30, // 30 minutes
+    staleTime: CACHE.SHORT, // 5 minutes
+    gcTime: CACHE.LONG, // 30 minutes
   });
 }
 
@@ -127,20 +157,23 @@ export function useStrengthVolume(period: StrengthPeriod) {
  */
 export function useStrengthProgression(muscleSlug: string | null) {
   return useQuery<StrengthProgression | null>({
-    queryKey: ['strength-progression', muscleSlug],
+    queryKey: queryKeys.strength.progression(muscleSlug!),
     queryFn: () => {
       const engine = getRouteEngine();
-      if (!engine || !muscleSlug || typeof engine.getStrengthSummary !== 'function') {
+      if (!engine || !muscleSlug || typeof engine.getStrengthSummaryBatch !== 'function') {
         return null;
       }
 
       try {
-        const points = getTrailingWeekRanges(4).map((range) => {
-          const summary = normalizeStrengthSummary(
-            engine.getStrengthSummary(range.startTs, range.endTs)
-          );
-          const match = summary.muscleVolumes.find((volume) => volume.slug === muscleSlug);
+        const ranges = getTrailingWeekRanges(4);
+        const rawSummaries = engine.getStrengthSummaryBatch(
+          ranges.map((r) => ({ startTs: r.startTs, endTs: r.endTs }))
+        );
+        const summaries = rawSummaries.map((raw) => normalizeStrengthSummary(raw));
 
+        const points = ranges.map((range, idx) => {
+          const summary = summaries[idx];
+          const match = summary.muscleVolumes.find((volume) => volume.slug === muscleSlug);
           return {
             label: range.label,
             startTs: range.startTs,
@@ -157,8 +190,8 @@ export function useStrengthProgression(muscleSlug: string | null) {
       }
     },
     enabled: !!muscleSlug,
-    staleTime: 1000 * 60 * 5,
-    gcTime: 1000 * 60 * 30,
+    staleTime: CACHE.SHORT,
+    gcTime: CACHE.LONG,
   });
 }
 
@@ -168,7 +201,7 @@ export function useStrengthProgression(muscleSlug: string | null) {
  */
 export function useExercisesForMuscle(period: StrengthPeriod, muscleSlug: string | null) {
   return useQuery<MuscleExerciseSummary>({
-    queryKey: ['exercises-for-muscle', period, muscleSlug],
+    queryKey: queryKeys.strength.exercisesForMuscle(period, muscleSlug!),
     queryFn: () => {
       const { startTs, endTs } = getTimestampRange(period);
       const engine = getRouteEngine();
@@ -206,8 +239,8 @@ export function useExercisesForMuscle(period: StrengthPeriod, muscleSlug: string
       }
     },
     enabled: !!muscleSlug,
-    staleTime: 1000 * 60 * 5,
-    gcTime: 1000 * 60 * 30,
+    staleTime: CACHE.SHORT,
+    gcTime: CACHE.LONG,
   });
 }
 
@@ -221,7 +254,7 @@ export function useActivitiesForExercise(
   exerciseCategory: number | null
 ) {
   return useQuery<ExerciseActivity[]>({
-    queryKey: ['activities-for-exercise', period, muscleSlug, exerciseCategory],
+    queryKey: queryKeys.strength.activitiesForExercise(period, muscleSlug!, exerciseCategory!),
     queryFn: () => {
       const { startTs, endTs } = getTimestampRange(period);
       const engine = getRouteEngine();
@@ -259,20 +292,61 @@ export function useActivitiesForExercise(
       }
     },
     enabled: !!muscleSlug && exerciseCategory != null,
-    staleTime: 1000 * 60 * 5,
-    gcTime: 1000 * 60 * 30,
+    staleTime: CACHE.SHORT,
+    gcTime: CACHE.LONG,
   });
 }
 
 /**
  * Check if any strength training data exists in the engine.
+ * Memoized to avoid redundant FFI calls on every render.
  */
 export function useHasStrengthData(): boolean {
-  const engine = getRouteEngine();
-  if (!engine || typeof engine.hasStrengthData !== 'function') return false;
-  try {
-    return engine.hasStrengthData();
-  } catch {
-    return false;
-  }
+  const [engineVersion, setEngineVersion] = useState(0);
+
+  useEffect(() => {
+    let cancelled = false;
+    let unsubscribe: (() => void) | null = null;
+
+    function trySubscribe(): boolean {
+      const engine = getRouteEngine();
+      if (!engine) return false;
+
+      unsubscribe = engine.subscribe('activities', () => {
+        if (!cancelled) setEngineVersion((v) => v + 1);
+      });
+      if (!cancelled) setEngineVersion((v) => v + 1);
+      return true;
+    }
+
+    if (!trySubscribe()) {
+      const interval = setInterval(() => {
+        if (trySubscribe()) clearInterval(interval);
+      }, 200);
+      return () => {
+        cancelled = true;
+        clearInterval(interval);
+        unsubscribe?.();
+      };
+    }
+
+    return () => {
+      cancelled = true;
+      unsubscribe?.();
+    };
+  }, []);
+
+  return useMemo(() => {
+    const engine = getRouteEngine();
+    if (!engine || typeof engine.hasStrengthData !== 'function') return false;
+    // Seed demo fixtures before the first hasStrengthData check, otherwise
+    // the Strength tab never appears (and useStrengthVolume — which also
+    // seeds — never mounts).
+    ensureDemoStrengthSeeded();
+    try {
+      return engine.hasStrengthData();
+    } catch {
+      return false;
+    }
+  }, [engineVersion]);
 }

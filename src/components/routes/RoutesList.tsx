@@ -152,12 +152,12 @@ function batchGroupToRouteGroup(group: GroupWithPolyline, index: number): RouteG
     signature: null,
     consensusPoints,
     distance: group.distanceMeters > 0 ? group.distanceMeters : undefined,
-    sportTypes: (group as any).sportTypes ?? [sportType],
+    sportTypes: group.sportTypes ?? [sportType],
     center,
   };
 }
 
-export function RoutesList({
+export const RoutesList = memo(function RoutesList({
   onRefresh,
   isRefreshing = false,
   startDate,
@@ -483,7 +483,7 @@ export function RoutesList({
       />
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   outerContainer: {
@@ -582,6 +582,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
     paddingHorizontal: spacing.md,
     marginTop: 2,
+    marginBottom: spacing.md,
   },
   sortChip: {
     flexDirection: 'row',

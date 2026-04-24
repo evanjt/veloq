@@ -1,6 +1,8 @@
 import { getRouteEngine } from '@/lib/native/routeEngine';
+import { isRouteMatchingEnabled } from '@/providers/RouteSettingsStore';
 import { generateInsights } from './generateInsights';
 import { generateStrengthInsights } from './strengthInsights';
+import { INSIGHTS_CONFIG } from './config';
 import type { Insight } from '@/types';
 import type { StrengthSummary } from '@/types';
 
@@ -85,11 +87,124 @@ export interface WellnessInput {
   sleepSecs?: number | null;
 }
 
+/** Matches FfiPeriodStats shape from veloqrs generated bindings */
+interface FfiPeriodStatsShape {
+  count: number;
+  totalDuration: bigint | number;
+  totalDistance: number;
+  totalTss: number;
+}
+
+/** Matches FfiPaceTrend shape from veloqrs generated bindings */
+interface FfiPaceTrendShape {
+  latestPace: number | undefined;
+  latestDate: bigint | number | undefined;
+  previousPace: number | undefined;
+  previousDate: bigint | number | undefined;
+}
+
+/** Matches FfiActivityPattern shape from veloqrs generated bindings */
+interface FfiActivityPatternShape {
+  primaryDay: number;
+  confidence: number;
+  sportType: string;
+  avgDurationSecs: number;
+  activityCount: number;
+  commonSections?: Array<{
+    sectionId: string;
+    sectionName: string;
+    trend: number | undefined;
+    medianRecentSecs: number;
+    bestTimeSecs: number;
+    traversalCount: number;
+  }>;
+}
+
+/** Matches FfiInsightsData shape from veloqrs generated bindings */
+export interface FfiInsightsDataShape {
+  currentWeek: FfiPeriodStatsShape;
+  previousWeek: FfiPeriodStatsShape;
+  chronicPeriod: FfiPeriodStatsShape;
+  todayPeriod: FfiPeriodStatsShape;
+  ftpTrend: {
+    latestFtp: number | undefined;
+    latestDate: bigint | number | undefined;
+    previousFtp: number | undefined;
+    previousDate: bigint | number | undefined;
+  };
+  runPaceTrend: FfiPaceTrendShape;
+  swimPaceTrend?: FfiPaceTrendShape;
+  allPatterns: FfiActivityPatternShape[];
+  todayPattern: FfiActivityPatternShape | null | undefined;
+  recentPrs: Array<{
+    sectionId: string;
+    sectionName: string;
+    bestTime: number;
+    daysAgo: number;
+  }>;
+}
+
+/** Matches FfiSummaryCardData shape from veloqrs generated bindings */
+export interface FfiSummaryCardDataShape {
+  currentWeek: FfiPeriodStatsShape;
+  prevWeek: FfiPeriodStatsShape;
+  ftpTrend: FfiInsightsDataShape['ftpTrend'];
+  runPaceTrend: FfiPaceTrendShape;
+  swimPaceTrend: FfiPaceTrendShape;
+}
+
+/** Shape returned by getRankedSections() */
+interface RankedSectionShape {
+  sectionId: string;
+  sectionName: string;
+  trend: number;
+  medianRecentSecs: number;
+  bestTimeSecs: number;
+  traversalCount: number;
+  daysSinceLast?: number;
+  latestIsPr?: boolean;
+}
+
 interface InsightsEnginePayload {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  insightsData: any;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  summaryCardData: any | null;
+  insightsData: FfiInsightsDataShape;
+  summaryCardData: FfiSummaryCardDataShape | null;
+}
+
+// Module-level cache for fetchInsightsDataFromEngine results.
+// Avoids redundant FFI calls when called multiple times between engine updates.
+let _cachedPayload: InsightsEnginePayload | null = null;
+let _cacheTimestamp = 0;
+const INSIGHTS_CACHE_TTL_MS = 30_000; // 30 seconds
+
+// Module-level cache for section/strength data fetched during computeInsightsFromData.
+// These FFI calls (getRankedSections per sport, getStrengthSummary x5) are expensive
+// and their results only change when the engine data changes.
+let _cachedSectionTrends: Array<{
+  sectionId: string;
+  sectionName: string;
+  trend: number;
+  medianRecentSecs: number;
+  bestTimeSecs: number;
+  traversalCount: number;
+  sportType?: string;
+  daysSinceLast?: number;
+  latestIsPr?: boolean;
+}> | null = null;
+let _cachedEfficiencyIds: string[] | null = null;
+let _cachedStrengthInsights: Insight[] | null = null;
+let _computeCacheTimestamp = 0;
+
+/**
+ * Invalidate the cached insights engine payload.
+ * Call when engine data changes (new sync, etc).
+ */
+export function invalidateInsightsCache(): void {
+  _cachedPayload = null;
+  _cacheTimestamp = 0;
+  _cachedSectionTrends = null;
+  _cachedEfficiencyIds = null;
+  _cachedStrengthInsights = null;
+  _computeCacheTimestamp = 0;
 }
 
 const MAX_SECTION_STORY_INSIGHTS = 2;
@@ -119,6 +234,7 @@ export function consolidateInsights(insights: Insight[]): Insight[] {
   const sorted = [...insights].sort((a, b) => a.priority - b.priority || b.timestamp - a.timestamp);
 
   const kept: Insight[] = [];
+  const dropped: Array<{ id: string; category: string; reason: string }> = [];
   const seenSectionIds = new Set<string>();
   let keptSectionStories = 0;
 
@@ -131,11 +247,21 @@ export function consolidateInsights(insights: Insight[]): Insight[] {
 
     if (isSectionStoryInsight(insight)) {
       if (keptSectionStories >= MAX_SECTION_STORY_INSIGHTS) {
+        dropped.push({
+          id: insight.id,
+          category: insight.category,
+          reason: `section story limit (max ${MAX_SECTION_STORY_INSIGHTS})`,
+        });
         continue;
       }
 
       const sectionIds = getInsightSectionIds(insight);
       if (sectionIds.length > 0 && sectionIds.every((sectionId) => seenSectionIds.has(sectionId))) {
+        dropped.push({
+          id: insight.id,
+          category: insight.category,
+          reason: 'duplicate section (already covered by PR insight)',
+        });
         continue;
       }
 
@@ -146,6 +272,13 @@ export function consolidateInsights(insights: Insight[]): Insight[] {
     }
 
     kept.push(insight);
+  }
+
+  if (__DEV__ && dropped.length > 0) {
+    console.log(`[INSIGHTS] Consolidation dropped ${dropped.length} insights:`);
+    for (const d of dropped) {
+      console.log(`[INSIGHTS]   ${d.category}/${d.id} — ${d.reason}`);
+    }
   }
 
   return kept;
@@ -165,23 +298,16 @@ export function consolidateInsights(insights: Insight[]): Insight[] {
  * @returns Ranked array of insights
  */
 export function computeInsightsFromData(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  ffiData: any,
+  ffiData: FfiInsightsDataShape | null,
   wellnessData: WellnessInput[] | null,
   t: TFunc,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  summaryCardData?: any | null
+  summaryCardData?: FfiSummaryCardDataShape | null
 ): Insight[] {
   if (!ffiData) return [];
 
   try {
     // Convert FFI bigint fields to number
-    const toPeriod = (p: {
-      count: number;
-      totalDuration: bigint | number;
-      totalDistance: number;
-      totalTss: number;
-    }) => ({
+    const toPeriod = (p: FfiPeriodStatsShape) => ({
       count: p.count,
       totalDuration: Number(p.totalDuration),
       totalDistance: p.totalDistance,
@@ -204,101 +330,130 @@ export function computeInsightsFromData(
     const atl = latestWellness?.atl ?? latestWellness?.atlLoad ?? 0;
     const tsb = ctl - atl;
 
-    // Section readiness check
+    // Section readiness check — skip when route matching is disabled
     const engine = getRouteEngine();
-    const sectionCount = engine?.getStats()?.sectionCount ?? 0;
+    const routeMatchingOn = isRouteMatchingEnabled();
+    const sectionCount = routeMatchingOn ? (engine?.getStats()?.sectionCount ?? 0) : 0;
     const sectionsReady = sectionCount > 0;
 
-    // Type the patterns array
-    const allPatterns = (ffiData.allPatterns ?? []) as Array<{
-      primaryDay: number;
-      confidence: number;
-      sportType: string;
-      avgDurationSecs: number;
-      activityCount: number;
-      commonSections?: Array<{
-        sectionId: string;
-        sectionName: string;
-        trend: number | null;
-        medianRecentSecs: number;
-        bestTimeSecs: number;
-        traversalCount: number;
-      }>;
-    }>;
+    const allPatterns = ffiData.allPatterns ?? [];
 
-    // Build section trends from ML-ranked sections
-    const sectionTrendMap = new Map<
-      string,
-      {
-        sectionId: string;
-        sectionName: string;
-        trend: number;
-        medianRecentSecs: number;
-        bestTimeSecs: number;
-        traversalCount: number;
-        sportType?: string;
-        daysSinceLast?: number;
-        latestIsPr?: boolean;
-      }
-    >();
+    // Use cached section trends and efficiency IDs when available (saves ~5 FFI calls).
+    // The cache is invalidated by invalidateInsightsCache() when engine data changes.
+    const computeNow = Date.now();
+    const useComputeCache =
+      _cachedSectionTrends !== null &&
+      _cachedEfficiencyIds !== null &&
+      computeNow - _computeCacheTimestamp < INSIGHTS_CACHE_TTL_MS;
 
-    // Cache ranked sections per sport to avoid duplicate FFI calls below
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const rankedSectionsCache = new Map<string, any[]>();
+    let sectionTrends: typeof _cachedSectionTrends;
+    let efficiencyTrendSectionIds: string[];
 
-    if (sectionsReady && engine) {
-      const patternSports =
-        allPatterns.length > 0 ? [...new Set(allPatterns.map((p) => p.sportType))] : [];
-      const sportTypes =
-        patternSports.length > 0
-          ? patternSports
-          : (engine.getAvailableSportTypes?.() ?? ['Ride', 'Run']);
+    if (useComputeCache) {
+      sectionTrends = _cachedSectionTrends!;
+      efficiencyTrendSectionIds = _cachedEfficiencyIds!;
+    } else {
+      // Build section trends from ML-ranked sections
+      const sectionTrendMap = new Map<
+        string,
+        {
+          sectionId: string;
+          sectionName: string;
+          trend: number;
+          medianRecentSecs: number;
+          bestTimeSecs: number;
+          traversalCount: number;
+          sportType?: string;
+          daysSinceLast?: number;
+          latestIsPr?: boolean;
+        }
+      >();
 
-      for (const sport of sportTypes) {
-        const ranked = engine.getRankedSections(sport, 50);
-        rankedSectionsCache.set(sport, ranked);
-        for (const rs of ranked) {
-          if (!rs.sectionId) continue;
-          if (!sectionTrendMap.has(rs.sectionId)) {
-            sectionTrendMap.set(rs.sectionId, {
-              sectionId: rs.sectionId,
-              sectionName: rs.sectionName || 'Section',
-              trend: rs.trend,
-              medianRecentSecs: rs.medianRecentSecs,
-              bestTimeSecs: rs.bestTimeSecs,
-              traversalCount: rs.traversalCount,
-              sportType: sport,
-              daysSinceLast: rs.daysSinceLast,
-              latestIsPr: rs.latestIsPr,
-            });
+      // Cache ranked sections per sport to avoid duplicate FFI calls below
+      const rankedSectionsCache = new Map<string, RankedSectionShape[]>();
+
+      if (sectionsReady && engine) {
+        const patternSports =
+          allPatterns.length > 0 ? [...new Set(allPatterns.map((p) => p.sportType))] : [];
+        const sportTypes =
+          patternSports.length > 0
+            ? patternSports
+            : (engine.getAvailableSportTypes?.() ?? ['Ride', 'Run']);
+
+        // Single FFI round-trip for all sports.
+        // Note: we keep the full unfiltered list here so the stale_pr
+        // detector (which needs OLD sections) still works on the TS fallback
+        // path. The section_trend generator does its own recency filter
+        // internally using INSIGHTS_CONFIG.activeWindowDays.
+        const batches = engine.getRankedSectionsBatch(sportTypes, 50);
+        for (const { sportType, sections } of batches) {
+          rankedSectionsCache.set(sportType, sections);
+          for (const rs of sections) {
+            if (!rs.sectionId) continue;
+            if (!sectionTrendMap.has(rs.sectionId)) {
+              sectionTrendMap.set(rs.sectionId, {
+                sectionId: rs.sectionId,
+                sectionName: rs.sectionName || 'Section',
+                trend: rs.trend,
+                medianRecentSecs: rs.medianRecentSecs,
+                bestTimeSecs: rs.bestTimeSecs,
+                traversalCount: rs.traversalCount,
+                sportType,
+                daysSinceLast: rs.daysSinceLast,
+                latestIsPr: rs.latestIsPr,
+              });
+            }
           }
         }
       }
-    }
 
-    // Fallback: pattern-based commonSections
-    if (sectionTrendMap.size === 0 && sectionsReady) {
-      for (const pattern of allPatterns) {
-        if (!pattern.commonSections) continue;
-        for (const section of pattern.commonSections) {
-          if (section.trend == null || !section.sectionId) continue;
-          const existing = sectionTrendMap.get(section.sectionId);
-          if (!existing || section.traversalCount > existing.traversalCount) {
-            sectionTrendMap.set(section.sectionId, {
-              sectionId: section.sectionId,
-              sectionName: section.sectionName || 'Section',
-              trend: section.trend,
-              medianRecentSecs: section.medianRecentSecs,
-              bestTimeSecs: section.bestTimeSecs,
-              traversalCount: section.traversalCount,
-              sportType: pattern.sportType,
-            });
+      // Fallback: pattern-based commonSections
+      if (sectionTrendMap.size === 0 && sectionsReady) {
+        for (const pattern of allPatterns) {
+          if (!pattern.commonSections) continue;
+          for (const section of pattern.commonSections) {
+            if (section.trend == null || !section.sectionId) continue;
+            const existing = sectionTrendMap.get(section.sectionId);
+            if (!existing || section.traversalCount > existing.traversalCount) {
+              sectionTrendMap.set(section.sectionId, {
+                sectionId: section.sectionId,
+                sectionName: section.sectionName || 'Section',
+                trend: section.trend,
+                medianRecentSecs: section.medianRecentSecs,
+                bestTimeSecs: section.bestTimeSecs,
+                traversalCount: section.traversalCount,
+                sportType: pattern.sportType,
+              });
+            }
           }
         }
       }
-    }
 
-    const sectionTrends = Array.from(sectionTrendMap.values());
+      sectionTrends = Array.from(sectionTrendMap.values());
+
+      // Aerobic efficiency section IDs — reuse cached ranked sections, but
+      // drop sections outside the active window. An efficiency trend on a
+      // section you haven't touched in months is historical curiosity, not
+      // a motivating insight. See G1 (event recency) in the rules pipeline.
+      const activeWindowDays = INSIGHTS_CONFIG.activeWindowDays;
+      efficiencyTrendSectionIds = [];
+      for (const [, cached] of rankedSectionsCache) {
+        const recent = cached.filter((rs) => {
+          if (rs.daysSinceLast == null || !Number.isFinite(rs.daysSinceLast)) return true;
+          return rs.daysSinceLast <= activeWindowDays;
+        });
+        for (const rs of recent.slice(0, 5)) {
+          if (!efficiencyTrendSectionIds.includes(rs.sectionId)) {
+            efficiencyTrendSectionIds.push(rs.sectionId);
+          }
+        }
+      }
+
+      // Persist to module-level cache
+      _cachedSectionTrends = sectionTrends;
+      _cachedEfficiencyIds = efficiencyTrendSectionIds;
+      _computeCacheTimestamp = computeNow;
+    }
 
     // 7-day wellness window
     const wellnessWindow = sortedWellness.slice(-7).map((w) => ({
@@ -312,30 +467,13 @@ export function computeInsightsFromData(
 
     // Recent PRs (skip if sections aren't loaded)
     const recentPRs = sectionsReady
-      ? (
-          (ffiData.recentPrs ?? []) as Array<{
-            sectionId: string;
-            sectionName: string;
-            bestTime: number;
-            daysAgo: number;
-          }>
-        ).map((pr) => ({
+      ? (ffiData.recentPrs ?? []).map((pr) => ({
           sectionId: pr.sectionId,
           sectionName: pr.sectionName,
           bestTime: pr.bestTime,
           daysAgo: pr.daysAgo,
         }))
       : [];
-
-    // Aerobic efficiency section IDs — reuse cached ranked sections from above
-    let efficiencyTrendSectionIds: string[] = [];
-    for (const [, cached] of rankedSectionsCache) {
-      for (const rs of cached.slice(0, 5)) {
-        if (!efficiencyTrendSectionIds.includes(rs.sectionId)) {
-          efficiencyTrendSectionIds.push(rs.sectionId);
-        }
-      }
-    }
 
     const coreInsights = generateInsights(
       {
@@ -345,7 +483,6 @@ export function computeInsightsFromData(
         paceTrend: ffiData.runPaceTrend ?? null,
         swimPaceTrend: ffiData.swimPaceTrend ?? summaryCardData?.swimPaceTrend ?? null,
         recentPRs,
-        todayPattern: ffiData.todayPattern ?? null,
         sectionTrends,
         formTsb: latestWellness ? tsb : null,
         formCtl: ctl > 0 ? ctl : null,
@@ -360,30 +497,50 @@ export function computeInsightsFromData(
       t
     );
 
+    // Strength insights: single FFI call returns monthly + 4 weekly summaries.
     let strengthInsights: Insight[] = [];
-    if (
+    if (useComputeCache && _cachedStrengthInsights !== null) {
+      strengthInsights = _cachedStrengthInsights;
+    } else if (
       engine &&
       typeof engine.hasStrengthData === 'function' &&
-      typeof engine.getStrengthSummary === 'function'
+      typeof engine.getStrengthInsightSeries === 'function'
     ) {
       try {
         if (engine.hasStrengthData()) {
-          const monthlyRange = getTrailingMonthRange();
-          const monthlySummary = normalizeStrengthSummary(
-            engine.getStrengthSummary(monthlyRange.startTs, monthlyRange.endTs)
+          const series = engine.getStrengthInsightSeries(
+            getTrailingMonthRange(),
+            getTrailingStrengthRanges()
           );
-          const weeklySummaries = getTrailingStrengthRanges().map((range) =>
-            normalizeStrengthSummary(engine.getStrengthSummary(range.startTs, range.endTs))
-          );
+          const monthlySummary = normalizeStrengthSummary(series.monthly);
+          const weeklySummaries = series.weekly.map(normalizeStrengthSummary);
           strengthInsights = generateStrengthInsights(monthlySummary, weeklySummaries, Date.now());
         }
       } catch {
         strengthInsights = [];
       }
+      _cachedStrengthInsights = strengthInsights;
     }
 
-    return consolidateInsights([...coreInsights, ...strengthInsights]);
-  } catch {
+    const consolidated = consolidateInsights([...coreInsights, ...strengthInsights]);
+
+    if (__DEV__) {
+      console.log(
+        `[INSIGHTS] Final: ${consolidated.length} insights (${coreInsights.length} core + ${strengthInsights.length} strength, after consolidation)`
+      );
+      for (const i of consolidated) {
+        console.log(
+          `[INSIGHTS]   ${i.category}/${i.id} — P${i.priority} "${i.title.slice(0, 60)}"`
+        );
+      }
+    }
+
+    return consolidated;
+  } catch (err) {
+    if (typeof process !== 'undefined' && process.env?.VELOQ_INSIGHTS_DEBUG) {
+      // eslint-disable-next-line no-console
+      console.error('[computeInsightsFromData] swallowed error:', err);
+    }
     return [];
   }
 }
@@ -391,13 +548,22 @@ export function computeInsightsFromData(
 /**
  * Fetch FFI insights data from the engine.
  * Pure function — calls synchronous FFI, no React.
+ *
+ * Results are cached for 30 seconds to avoid redundant FFI calls when
+ * the routes tab re-renders without engine data having changed.
  */
 export function fetchInsightsDataFromEngine(): InsightsEnginePayload | null {
+  // Return cached result if still fresh
+  const now = Date.now();
+  if (_cachedPayload && now - _cacheTimestamp < INSIGHTS_CACHE_TTL_MS) {
+    return _cachedPayload;
+  }
+
   const engine = getRouteEngine();
   if (!engine) return null;
 
-  const now = new Date();
-  const startOfWeek = new Date(now);
+  const nowDate = new Date();
+  const startOfWeek = new Date(nowDate);
   const day = startOfWeek.getDay();
   startOfWeek.setDate(startOfWeek.getDate() - day + (day === 0 ? -6 : 1));
   startOfWeek.setHours(0, 0, 0, 0);
@@ -408,13 +574,13 @@ export function fetchInsightsDataFromEngine(): InsightsEnginePayload | null {
   const fourWeeksAgo = new Date(startOfWeek);
   fourWeeksAgo.setDate(fourWeeksAgo.getDate() - 28);
 
-  const todayStart = new Date(now);
+  const todayStart = new Date(nowDate);
   todayStart.setHours(0, 0, 0, 0);
 
   const toTs = (d: Date) => Math.floor(d.getTime() / 1000);
 
   const currentStart = toTs(startOfWeek);
-  const currentEnd = toTs(now);
+  const currentEnd = toTs(nowDate);
   const prevStart = toTs(startOfLastWeek);
   const prevEnd = toTs(startOfWeek);
   const chronicStart = toTs(fourWeeksAgo);
@@ -432,8 +598,13 @@ export function fetchInsightsDataFromEngine(): InsightsEnginePayload | null {
 
   if (!insightsData) return null;
 
-  return {
+  const payload: InsightsEnginePayload = {
     insightsData,
     summaryCardData: engine.getSummaryCardData(currentStart, currentEnd, prevStart, prevEnd),
   };
+
+  _cachedPayload = payload;
+  _cacheTimestamp = now;
+
+  return payload;
 }

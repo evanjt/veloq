@@ -4,7 +4,7 @@
  * Posts native OS notifications for sync progress instead of rendering an in-app banner.
  */
 
-import { useEffect, useMemo, useState, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import {
@@ -13,6 +13,7 @@ import {
   useActivityBoundsCache,
   isInfiniteActivitiesStale,
 } from '@/hooks';
+import { queryKeys } from '@/lib/queryKeys';
 import { onSyncComplete } from '@/lib/backup';
 import { intervalsApi } from '@/api';
 import { getRouteEngine } from '@/lib/native/routeEngine';
@@ -22,6 +23,7 @@ import {
   formatGpsSyncProgress,
   formatBoundsSyncProgress,
   formatTerrainSnapshotProgress,
+  type SyncDisplayInfo,
 } from '@/lib/utils/syncProgressFormat';
 import {
   updateSyncNotification,
@@ -43,46 +45,38 @@ export function GlobalDataSync() {
 
   // Startup alignment: invalidate activities on mount to force a fresh API fetch.
   useEffect(() => {
-    if (isAuthenticated && routeSettings.enabled) {
-      queryClient.invalidateQueries({ queryKey: ['activities'] });
+    if (isAuthenticated) {
+      queryClient.invalidateQueries({ queryKey: queryKeys.activities.all });
       if (isInfiniteActivitiesStale(queryClient)) {
-        queryClient.resetQueries({ queryKey: ['activities-infinite'] });
+        queryClient.resetQueries({ queryKey: queryKeys.activities.infinite.all });
       } else {
-        queryClient.invalidateQueries({ queryKey: ['activities-infinite'] });
+        queryClient.invalidateQueries({ queryKey: queryKeys.activities.infinite.all });
       }
-      queryClient.invalidateQueries({ queryKey: ['wellness'] });
-      queryClient.invalidateQueries({ queryKey: ['athlete-summary'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.wellness.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.athleteSummary.all });
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Fetch activities for GPS sync using dynamic date range
+  // Single fetch with stats included — provides both GPS sync data and
+  // TSS/FTP metrics for the engine. Previously two separate fetches were made
+  // (one without stats, one with), doubling the API calls on every launch.
   const { data: activities, isFetching } = useActivities({
     oldest: syncOldest,
     newest: syncNewest,
-    includeStats: false,
-    enabled: isAuthenticated && routeSettings.enabled,
-  });
-
-  // Prefetch 1 year of activities with stats for fitness tab cache warming.
-  // Also used to update the engine with training load and FTP data — the GPS sync
-  // fetch (above) uses includeStats: false for speed, so the engine initially has
-  // NULL training_load/ftp. This fetch fills in those fields.
-  const { data: statsActivities } = useActivities({
-    days: 365,
     includeStats: true,
     enabled: isAuthenticated,
   });
 
   // Update engine with enhanced metrics (TSS, FTP) when stats-enriched data arrives.
-  // The GPS sync stores metrics with includeStats: false (NULL training_load/ftp).
-  // This backfills the engine so period comparisons use TSS and FTP trend works.
+  // The GPS sync stores basic metrics; this backfills the engine so period
+  // comparisons use TSS and FTP trend works.
   const statsSeededRef = useRef(false);
   useEffect(() => {
-    if (!statsActivities?.length || statsSeededRef.current) return;
+    if (!activities?.length || statsSeededRef.current) return;
     const engine = getRouteEngine();
     if (!engine) return;
 
-    const enhanced = statsActivities
+    const enhanced = activities
       .filter((a) => a.icu_training_load != null || a.icu_ftp != null)
       .map(toActivityMetrics);
 
@@ -91,25 +85,27 @@ export function GlobalDataSync() {
       engine.triggerRefresh('activities');
       statsSeededRef.current = true;
     }
-  }, [statsActivities]);
+  }, [activities]);
 
   // Update fetching state in store
   useEffect(() => {
     setFetchingExtended(isFetching);
   }, [isFetching, setFetchingExtended]);
 
-  // Use the route data sync hook to automatically sync GPS data
-  const { progress, isSyncing } = useRouteDataSync(activities, routeSettings.enabled);
+  // Use the route data sync hook to automatically sync GPS data.
+  // Always enabled — GPS tracks are needed for heatmap even when route matching is off.
+  // Section detection is gated separately in useGpsDataFetcher.
+  const { progress, isSyncing } = useRouteDataSync(activities, true);
 
   // Invalidate caches when sync completes so data refreshes
   useEffect(() => {
     if (progress.status === 'complete') {
-      queryClient.invalidateQueries({ queryKey: ['activities'] });
-      queryClient.invalidateQueries({ queryKey: ['activities-infinite'] });
-      queryClient.invalidateQueries({ queryKey: ['wellness'] });
-      queryClient.invalidateQueries({ queryKey: ['athlete-summary'] });
-      queryClient.invalidateQueries({ queryKey: ['powerCurve'] });
-      queryClient.invalidateQueries({ queryKey: ['paceCurve'] });
+      queryClient.invalidateQueries({ queryKey: queryKeys.activities.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.activities.infinite.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.wellness.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.athleteSummary.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.charts.powerCurve.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.charts.paceCurve.all });
       onSyncComplete();
 
       // Seed pace snapshots for trend tracking (fire-and-forget).
@@ -156,6 +152,34 @@ export function GlobalDataSync() {
   // Terrain snapshot rendering progress
   const terrainSnapshotProgress = useSyncDateRange((s) => s.terrainSnapshotProgress);
 
+  // Poll heatmap tile generation status (runs on Rust background thread)
+  const [heatmapProgress, setHeatmapProgress] = useState<{
+    running: boolean;
+    processed: number;
+    total: number;
+  }>({ running: false, processed: 0, total: 0 });
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const engine = getRouteEngine();
+      if (!engine) return;
+      try {
+        const status = engine.pollTileGeneration();
+        if (status === 'running') {
+          // Get progress counts from Rust
+          const progress = engine.getHeatmapTileProgress?.();
+          const processed = progress?.[0] ?? 0;
+          const total = progress?.[1] ?? 0;
+          setHeatmapProgress({ running: true, processed, total });
+        } else {
+          setHeatmapProgress({ running: false, processed: 0, total: 0 });
+        }
+      } catch {
+        setHeatmapProgress({ running: false, processed: 0, total: 0 });
+      }
+    }, 500);
+    return () => clearInterval(interval);
+  }, []);
+
   // GPS sync display info
   const gpsDisplayInfo = useMemo(
     () => formatGpsSyncProgress(progress, isFetching && !isSyncing, t),
@@ -174,43 +198,35 @@ export function GlobalDataSync() {
     [terrainSnapshotProgress, t]
   );
 
-  // Pick which info to show — GPS sync > bounds sync > terrain snapshots
-  const displayInfo = gpsDisplayInfo ?? boundsDisplayInfo ?? terrainDisplayInfo;
-
-  // Suppress notification for fast syncs (<1s)
-  const [delayPassed, setDelayPassed] = useState(false);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => {
-    if (displayInfo !== null && !delayPassed) {
-      if (!timerRef.current) {
-        timerRef.current = setTimeout(() => setDelayPassed(true), 1000);
-      }
-    } else if (displayInfo === null) {
-      if (timerRef.current) {
-        clearTimeout(timerRef.current);
-        timerRef.current = null;
-      }
-      setDelayPassed(false);
-    }
-    return () => {
-      if (timerRef.current) {
-        clearTimeout(timerRef.current);
-        timerRef.current = null;
-      }
+  // Heatmap tile generation display info
+  const heatmapDisplayInfo = useMemo((): SyncDisplayInfo | null => {
+    if (!heatmapProgress.running) return null;
+    const { processed, total } = heatmapProgress;
+    const percent = total > 0 ? Math.round((processed / total) * 100) : 0;
+    return {
+      icon: 'map-legend',
+      text: `${t('cache.generatingHeatmap', 'Generating heatmap...')} ${total > 0 ? `${percent}%` : ''}`,
+      percent,
+      countText: null,
+      indeterminate: total === 0,
     };
-  }, [displayInfo, delayPassed]);
+  }, [heatmapProgress, t]);
 
-  // Post/update/dismiss native notification based on sync state
+  // Pick which info to show — GPS sync > bounds sync > terrain > heatmap
+  const displayInfo =
+    gpsDisplayInfo ?? boundsDisplayInfo ?? terrainDisplayInfo ?? heatmapDisplayInfo;
+
+  // Post/update/dismiss native notification immediately — no artificial delay.
   useEffect(() => {
-    if (displayInfo !== null && delayPassed) {
+    if (displayInfo !== null) {
       const body = displayInfo.countText
         ? `${displayInfo.text}... ${displayInfo.countText}`
         : `${displayInfo.text}...`;
       updateSyncNotification(body);
-    } else if (displayInfo === null) {
+    } else {
       dismissSyncNotification();
     }
-  }, [displayInfo, delayPassed]);
+  }, [displayInfo]);
 
   // Dismiss notification on unmount
   useEffect(() => {

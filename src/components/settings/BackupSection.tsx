@@ -12,13 +12,7 @@ import {
 } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import {
-  useExportDatabaseBackup,
-  useImportDatabaseBackup,
-  useExportBackup,
-  useImportBackup,
-  useBulkExport,
-} from '@/hooks';
+import { useExportDatabaseBackup, useImportDatabaseBackup, useBulkExport } from '@/hooks';
 import { formatFileSize } from '@/lib';
 import { useTheme } from '@/hooks';
 import { getRouteEngine } from '@/lib/native/routeEngine';
@@ -36,6 +30,7 @@ import {
   type BackupBackend,
 } from '@/lib/backup';
 import { colors, darkColors, spacing, layout } from '@/theme';
+import { NextcloudQrScanner } from './NextcloudQrScanner';
 
 export function BackupSection() {
   const { isDark } = useTheme();
@@ -44,22 +39,45 @@ export function BackupSection() {
   // Auto-backup state
   const [autoEnabled, setAutoEnabled] = useState(() => isAutoBackupEnabled());
   const [backingUp, setBackingUp] = useState(false);
+  const [backupResult, setBackupResult] = useState<'success' | 'error' | null>(null);
+  const [backupError, setBackupError] = useState<string | null>(null);
   const lastBackupTs = useMemo(() => getLastBackupTimestamp(), [backingUp]);
 
-  const handleToggleAutoBackup = useCallback((value: boolean) => {
-    setAutoBackupEnabled(value);
-    setAutoEnabled(value);
-  }, []);
+  const handleToggleAutoBackup = useCallback(
+    async (value: boolean) => {
+      setAutoBackupEnabled(value);
+      setAutoEnabled(value);
+      // Trigger immediate backup when enabling auto-backup
+      if (value) {
+        setBackingUp(true);
+        try {
+          await performBackup(true);
+        } catch {
+          // Silent — auto-backup will retry on next trigger
+        } finally {
+          setBackingUp(false);
+        }
+      }
+    },
+    [backingUp]
+  );
 
   const handleBackupNow = useCallback(async () => {
     if (backingUp) return;
     setBackingUp(true);
+    setBackupResult(null);
+    setBackupError(null);
     try {
-      await performBackup(true);
+      const success = await performBackup(true);
+      setBackupResult(success ? 'success' : 'error');
+      if (!success) setBackupError(t('backup.backupFailedMessage'));
+    } catch (error) {
+      setBackupResult('error');
+      setBackupError(error instanceof Error ? error.message : t('backup.backupFailedMessage'));
     } finally {
       setBackingUp(false);
     }
-  }, [backingUp]);
+  }, [backingUp, t]);
 
   // Backend picker state
   const [currentBackend, setCurrentBackend] = useState(() => getConfiguredBackend());
@@ -71,6 +89,9 @@ export function BackupSection() {
   const [webdavUser, setWebdavUser] = useState('');
   const [webdavPass, setWebdavPass] = useState('');
   const [testingConnection, setTestingConnection] = useState(false);
+  const [connectionResult, setConnectionResult] = useState<'success' | 'error' | null>(null);
+  const [connectionError, setConnectionError] = useState<string | null>(null);
+  const [showQrScanner, setShowQrScanner] = useState(false);
 
   useEffect(() => {
     getAvailableBackends().then(setAvailableBackends);
@@ -95,26 +116,71 @@ export function BackupSection() {
     getAvailableBackends().then(setAvailableBackends);
   }, [webdavUrl, webdavUser, webdavPass]);
 
+  const handleQrScanned = useCallback(
+    (data: string) => {
+      // Parse nc://login/user:USERNAME&password:PASSWORD&server:SERVER_URL
+      if (!data.startsWith('nc://login/')) {
+        setConnectionResult('error');
+        setConnectionError(t('backup.invalidQrCode', 'Not a valid Nextcloud QR code'));
+        setShowQrScanner(false);
+        return;
+      }
+      const params = data.slice('nc://login/'.length);
+      const parts: Record<string, string> = {};
+      for (const part of params.split('&')) {
+        const colonIdx = part.indexOf(':');
+        if (colonIdx > 0) {
+          parts[part.slice(0, colonIdx)] = part.slice(colonIdx + 1);
+        }
+      }
+      const user = parts.user;
+      const password = parts.password;
+      const server = parts.server;
+      if (!user || !password || !server) {
+        setConnectionResult('error');
+        setConnectionError(t('backup.invalidQrCode', 'Not a valid Nextcloud QR code'));
+        setShowQrScanner(false);
+        return;
+      }
+      // Construct WebDAV URL per Nextcloud docs
+      const baseUrl = server.endsWith('/') ? server.slice(0, -1) : server;
+      const webdavEndpoint = `${baseUrl}/remote.php/dav/files/${user}/`;
+      setWebdavUrl(webdavEndpoint);
+      setWebdavUser(user);
+      setWebdavPass(password);
+      setShowQrScanner(false);
+      setConnectionResult(null);
+      // Auto-save config
+      setWebdavConfig(webdavEndpoint, user, password).then(() => {
+        getAvailableBackends().then(setAvailableBackends);
+      });
+    },
+    [t]
+  );
+
   const handleTestConnection = useCallback(async () => {
+    if (!webdavUrl || !webdavUser || !webdavPass) {
+      setConnectionResult('error');
+      setConnectionError(t('backup.fillAllFields', 'Please fill in all fields'));
+      return;
+    }
     setTestingConnection(true);
-    // Save first so the test uses current values
+    setConnectionResult(null);
+    setConnectionError(null);
     await handleSaveWebdav();
     const error = await testWebdavConnection();
     setTestingConnection(false);
     if (error) {
-      Alert.alert(t('backup.connectionFailed'), error);
+      setConnectionResult('error');
+      setConnectionError(error);
     } else {
-      Alert.alert(t('backup.connectionSuccess'));
+      setConnectionResult('success');
     }
-  }, [handleSaveWebdav, t]);
+  }, [handleSaveWebdav, webdavUrl, webdavUser, webdavPass, t]);
 
-  // Database backup (primary)
+  // Database backup
   const { exportDatabaseBackup, exporting: dbExporting } = useExportDatabaseBackup();
   const { importDatabaseBackup, importing: dbImporting } = useImportDatabaseBackup();
-
-  // Legacy JSON backup
-  const { exportBackup: legacyExport, exporting: legacyExporting } = useExportBackup();
-  const { importBackup: legacyImport, importing: legacyImporting } = useImportBackup();
 
   // Bulk export
   const {
@@ -188,6 +254,32 @@ export function BackupSection() {
         {/* WebDAV config (shown when WebDAV is selected) */}
         {currentBackend.id === 'webdav' && (
           <View style={[styles.configBlock, isDark && styles.configBlockDark]}>
+            {/* Nextcloud QR code setup */}
+            <Text style={[styles.configLabel, isDark && styles.textMuted]}>
+              {t('backup.nextcloudSetup', 'If using Nextcloud WebDAV')}
+            </Text>
+            <TouchableOpacity
+              style={styles.qrSetupButton}
+              onPress={() => setShowQrScanner(true)}
+              activeOpacity={0.6}
+            >
+              <MaterialCommunityIcons name="qrcode-scan" size={18} color={colors.primary} />
+              <Text style={styles.qrSetupText}>
+                {t('backup.scanNextcloudQr', 'Scan Nextcloud App Password')}
+              </Text>
+            </TouchableOpacity>
+            <Text style={[styles.qrHint, isDark && styles.textMuted]}>
+              {t(
+                'backup.nextcloudQrHint',
+                'Nextcloud → Settings → Security → Create new app password → Scan QR code'
+              )}
+            </Text>
+
+            <Text
+              style={[styles.configLabel, { marginTop: spacing.sm }, isDark && styles.textMuted]}
+            >
+              {t('backup.manualSetup', 'Or enter manually')}
+            </Text>
             <TextInput
               style={[styles.input, isDark && styles.inputDark]}
               placeholder={t('backup.serverUrl')}
@@ -220,16 +312,26 @@ export function BackupSection() {
               autoCorrect={false}
               secureTextEntry
             />
-            <TouchableOpacity
-              style={[styles.testButton, testingConnection && { opacity: 0.5 }]}
-              onPress={handleTestConnection}
-              disabled={testingConnection || !webdavUrl}
-              activeOpacity={0.6}
-            >
-              <Text style={styles.testButtonText}>
-                {testingConnection ? '...' : t('backup.testConnection')}
-              </Text>
-            </TouchableOpacity>
+            <View style={styles.testRow}>
+              <TouchableOpacity
+                style={[styles.testButton, testingConnection && { opacity: 0.5 }]}
+                onPress={handleTestConnection}
+                disabled={testingConnection}
+                activeOpacity={0.6}
+              >
+                <Text style={styles.testButtonText}>
+                  {testingConnection ? '...' : t('backup.testConnection')}
+                </Text>
+              </TouchableOpacity>
+              {connectionResult === 'success' && (
+                <Text style={styles.connectionSuccess}>{t('backup.connectionSuccess')}</Text>
+              )}
+              {connectionResult === 'error' && (
+                <Text style={styles.connectionError}>
+                  {connectionError || t('backup.connectionFailed')}
+                </Text>
+              )}
+            </View>
           </View>
         )}
         <View style={[styles.divider, isDark && styles.dividerDark]} />
@@ -308,10 +410,52 @@ export function BackupSection() {
           </TouchableOpacity>
         </Modal>
 
+        {/* QR Scanner modal */}
+        <Modal
+          visible={showQrScanner}
+          animationType="slide"
+          onRequestClose={() => setShowQrScanner(false)}
+        >
+          <NextcloudQrScanner onScanned={handleQrScanned} onClose={() => setShowQrScanner(false)} />
+        </Modal>
+
+        {/* Encryption warning */}
+        <View style={[styles.warningRow, isDark && styles.warningRowDark]}>
+          <MaterialCommunityIcons name="shield-alert-outline" size={16} color={colors.warning} />
+          <Text style={[styles.warningText, isDark && styles.textMuted]}>
+            {t(
+              'backup.notEncryptedWarning',
+              'Backups are not encrypted. Do not store on untrusted services.'
+            )}
+          </Text>
+        </View>
+
         {/* Last backup status */}
         <View style={[styles.statusRow, isDark && styles.statusRowDark]}>
-          <Text style={[styles.statusText, isDark && styles.textMuted]}>{lastBackupText}</Text>
-          <TouchableOpacity onPress={handleBackupNow} disabled={backingUp} activeOpacity={0.2}>
+          <View style={{ flex: 1 }}>
+            <Text
+              testID="backup-last-run-text"
+              style={[styles.statusText, isDark && styles.textMuted]}
+            >
+              {lastBackupText}
+            </Text>
+            {backupResult === 'success' && (
+              <Text testID="backup-success-message" style={styles.connectionSuccess}>
+                {t('backup.backupSuccessMessage')}
+              </Text>
+            )}
+            {backupResult === 'error' && (
+              <Text testID="backup-error-message" style={styles.connectionError}>
+                {backupError}
+              </Text>
+            )}
+          </View>
+          <TouchableOpacity
+            testID="backup-now-button"
+            onPress={handleBackupNow}
+            disabled={backingUp}
+            activeOpacity={0.2}
+          >
             <Text style={[styles.linkText, backingUp && styles.linkTextDisabled]}>
               {backingUp ? t('backup.backingUp') : t('backup.backupNow')}
             </Text>
@@ -319,8 +463,9 @@ export function BackupSection() {
         </View>
         <View style={[styles.divider, isDark && styles.dividerDark]} />
 
-        {/* Database export */}
+        {/* Export backup */}
         <TouchableOpacity
+          testID="backup-export-button"
           style={styles.actionRow}
           onPress={dbExporting ? undefined : exportDatabaseBackup}
           disabled={dbExporting}
@@ -328,7 +473,7 @@ export function BackupSection() {
         >
           <MaterialCommunityIcons name="database-export-outline" size={22} color={colors.primary} />
           <Text style={[styles.actionText, isDark && styles.textLight]}>
-            {dbExporting ? t('backup.exportingDatabase') : t('backup.exportDatabase')}
+            {dbExporting ? t('backup.exporting') : t('backup.exportBackup')}
           </Text>
           <MaterialCommunityIcons
             name="chevron-right"
@@ -338,8 +483,9 @@ export function BackupSection() {
         </TouchableOpacity>
         <View style={[styles.divider, isDark && styles.dividerDark]} />
 
-        {/* Database import */}
+        {/* Import backup (auto-detects .veloqdb and legacy .veloq) */}
         <TouchableOpacity
+          testID="backup-import-button"
           style={styles.actionRow}
           onPress={dbImporting ? undefined : importDatabaseBackup}
           disabled={dbImporting}
@@ -347,45 +493,7 @@ export function BackupSection() {
         >
           <MaterialCommunityIcons name="database-import-outline" size={22} color={colors.primary} />
           <Text style={[styles.actionText, isDark && styles.textLight]}>
-            {dbImporting ? t('backup.importingDatabase') : t('backup.importDatabase')}
-          </Text>
-          <MaterialCommunityIcons
-            name="chevron-right"
-            size={20}
-            color={isDark ? darkColors.textMuted : colors.textSecondary}
-          />
-        </TouchableOpacity>
-        <View style={[styles.divider, isDark && styles.dividerDark]} />
-
-        {/* Legacy JSON export */}
-        <TouchableOpacity
-          style={styles.actionRow}
-          onPress={legacyExporting ? undefined : legacyExport}
-          disabled={legacyExporting}
-          activeOpacity={0.2}
-        >
-          <MaterialCommunityIcons name="cloud-upload-outline" size={22} color={colors.primary} />
-          <Text style={[styles.actionText, isDark && styles.textLight]}>
-            {legacyExporting ? t('backup.exporting') : t('backup.exportBackup')}
-          </Text>
-          <MaterialCommunityIcons
-            name="chevron-right"
-            size={20}
-            color={isDark ? darkColors.textMuted : colors.textSecondary}
-          />
-        </TouchableOpacity>
-        <View style={[styles.divider, isDark && styles.dividerDark]} />
-
-        {/* Legacy JSON import */}
-        <TouchableOpacity
-          style={styles.actionRow}
-          onPress={legacyImporting ? undefined : legacyImport}
-          disabled={legacyImporting}
-          activeOpacity={0.2}
-        >
-          <MaterialCommunityIcons name="cloud-download-outline" size={22} color={colors.primary} />
-          <Text style={[styles.actionText, isDark && styles.textLight]}>
-            {legacyImporting ? t('backup.importing') : t('backup.importBackup')}
+            {dbImporting ? t('backup.importing') : t('backup.importBackup')}
           </Text>
           <MaterialCommunityIcons
             name="chevron-right"
@@ -583,18 +691,77 @@ const styles = StyleSheet.create({
     color: colors.textOnDark,
     backgroundColor: darkColors.background,
   },
+  testRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginTop: 2,
+  },
   testButton: {
-    alignSelf: 'flex-start',
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
     borderRadius: 16,
     backgroundColor: colors.primary,
-    marginTop: 2,
+  },
+  qrSetupButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    borderStyle: 'dashed',
+  },
+  qrSetupText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: colors.primary,
+  },
+  qrHint: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginBottom: spacing.xs,
+  },
+  configLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: spacing.xs,
   },
   testButtonText: {
     fontSize: 13,
     fontWeight: '600',
     color: '#fff',
+  },
+  connectionSuccess: {
+    fontSize: 13,
+    color: colors.success ?? '#10B981',
+    marginTop: spacing.xs,
+  },
+  connectionError: {
+    fontSize: 13,
+    color: colors.error ?? '#EF4444',
+    marginTop: spacing.xs,
+  },
+  warningRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    backgroundColor: 'rgba(245, 158, 11, 0.08)',
+  },
+  warningRowDark: {
+    backgroundColor: 'rgba(245, 158, 11, 0.12)',
+  },
+  warningText: {
+    flex: 1,
+    fontSize: 12,
+    color: colors.textSecondary,
   },
   modalOverlay: {
     flex: 1,

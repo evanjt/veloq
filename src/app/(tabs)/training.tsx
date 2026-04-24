@@ -23,9 +23,16 @@ import { WellnessTrendsChart } from '@/components/wellness';
 import { useActivities, useWellness, useAthleteSummary, useTheme, type TimeRange } from '@/hooks';
 import { colors, darkColors, spacing, layout, typography, opacity } from '@/theme';
 import { createSharedStyles } from '@/styles';
-import { SMOOTHING_PRESETS, getSmoothingDescription, type SmoothingWindow } from '@/lib';
+import {
+  SMOOTHING_PRESETS,
+  getSmoothingDescription,
+  formatLocalDate,
+  type SmoothingWindow,
+} from '@/lib';
 import { logScreenRender } from '@/lib/debug/renderTimer';
+import { useAuthStore } from '@/providers';
 
+import { queryKeys } from '@/lib/queryKeys';
 import { TIME_RANGES } from '@/lib/utils/constants';
 
 export default function HealthScreen() {
@@ -33,6 +40,7 @@ export default function HealthScreen() {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const { isDark, colors: themeColors } = useTheme();
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const shared = useMemo(() => createSharedStyles(isDark), [isDark]);
 
   // Log render time (JS phase only)
@@ -70,8 +78,8 @@ export default function HealthScreen() {
   const { oldest, newest, currentYearStart } = useMemo(() => {
     const n = new Date();
     return {
-      oldest: new Date(n.getFullYear() - 1, 0, 1).toISOString().split('T')[0],
-      newest: n.toISOString().split('T')[0],
+      oldest: formatLocalDate(new Date(n.getFullYear() - 1, 0, 1)),
+      newest: formatLocalDate(n),
       currentYearStart: new Date(n.getFullYear(), 0, 1),
     };
   }, []);
@@ -85,6 +93,7 @@ export default function HealthScreen() {
     oldest,
     newest,
     includeStats: true,
+    enabled: isAuthenticated,
   });
 
   // Fetch wellness data
@@ -109,7 +118,7 @@ export default function HealthScreen() {
     await Promise.all([
       refetchActivities(),
       refetchWellness(),
-      queryClient.invalidateQueries({ queryKey: ['athlete-summary'] }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.athleteSummary.all }),
     ]);
     setIsRefreshing(false);
   }, [refetchActivities, refetchWellness, queryClient]);
@@ -231,7 +240,7 @@ export default function HealthScreen() {
           </View>
 
           {/* Wellness Trends Chart */}
-          <View style={[styles.card, isDark && styles.cardDark]}>
+          <View testID="wellness-trends-chart" style={[styles.card, isDark && styles.cardDark]}>
             <View style={styles.chartHeader}>
               <Text style={[styles.sectionTitle, isDark && styles.sectionTitleDark]}>
                 {t('wellnessScreen.trends')}
@@ -255,20 +264,17 @@ export default function HealthScreen() {
             )}
           </View>
 
-          {/* Below-fold cards — frame 1: WeeklySummary (pure RN) */}
+          {/* Below-fold cards — frame 1: WeeklySummary (pure RN).
+              Always mount once belowFoldReady — the component renders its own
+              empty/loading states and the testID must be present for automated
+              tests to find the widget during data load. */}
           {belowFoldReady && (
             <View style={[styles.card, isDark && styles.cardDark]}>
-              {activitiesLoading ? (
-                <View style={styles.loadingContainer}>
-                  <ActivityIndicator size="small" color={colors.primary} />
-                </View>
-              ) : (
-                <WeeklySummary
-                  activities={activities}
-                  summaryData={summaryData}
-                  summaryLoading={summaryLoading}
-                />
-              )}
+              <WeeklySummary
+                activities={activities}
+                summaryData={summaryData}
+                summaryLoading={summaryLoading || activitiesLoading}
+              />
             </View>
           )}
 

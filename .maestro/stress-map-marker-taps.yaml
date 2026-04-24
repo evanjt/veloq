@@ -35,6 +35,11 @@ tags:
 
 # Go back to map
 - openLink: "veloq://map"
+- runFlow:
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
 
 - extendedWaitUntil:
     visible:

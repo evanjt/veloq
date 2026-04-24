@@ -25,7 +25,7 @@ pub struct HeatmapConfig {
 impl Default for HeatmapConfig {
     fn default() -> Self {
         Self {
-            min_zoom: 5,
+            min_zoom: 1,
             max_zoom: 17,
         }
     }
@@ -86,6 +86,46 @@ fn build_color_lut() -> [[u8; 4]; 256] {
 /// Cached color LUT (built once)
 static COLOR_LUT: std::sync::LazyLock<[[u8; 4]; 256]> = std::sync::LazyLock::new(build_color_lut);
 
+/// Pre-computed `u16 intensity → u8 lut_idx` table for a given exposure.
+/// Replaces the per-pixel exp()/round/clamp in the color mapping loop.
+fn build_intensity_idx_lut(exposure: f32) -> Box<[u8; 65536]> {
+    let mut v: Vec<u8> = vec![0u8; 65536];
+    // Index 0 stays 0 (skip write path in the hot loop).
+    for val in 1..65536u32 {
+        let normalized = (1.0 - (-(val as f32) / exposure).exp()).clamp(0.0, 1.0);
+        let idx = (normalized * 255.0).round().clamp(1.0, 255.0) as u8;
+        v[val as usize] = idx;
+    }
+    let slice: Box<[u8]> = v.into_boxed_slice();
+    // Length is fixed at 65536 by construction.
+    let ptr = Box::into_raw(slice) as *mut [u8; 65536];
+    // SAFETY: `slice` was constructed from a Vec with exactly 65536 bytes.
+    unsafe { Box::from_raw(ptr) }
+}
+
+static IDX_LUT_Z0_8: std::sync::LazyLock<Box<[u8; 65536]>> =
+    std::sync::LazyLock::new(|| build_intensity_idx_lut(54.0));
+static IDX_LUT_Z9_11: std::sync::LazyLock<Box<[u8; 65536]>> =
+    std::sync::LazyLock::new(|| build_intensity_idx_lut(42.0));
+static IDX_LUT_Z12_14: std::sync::LazyLock<Box<[u8; 65536]>> =
+    std::sync::LazyLock::new(|| build_intensity_idx_lut(32.0));
+static IDX_LUT_Z15_16: std::sync::LazyLock<Box<[u8; 65536]>> =
+    std::sync::LazyLock::new(|| build_intensity_idx_lut(24.0));
+static IDX_LUT_Z17P: std::sync::LazyLock<Box<[u8; 65536]>> =
+    std::sync::LazyLock::new(|| build_intensity_idx_lut(18.0));
+
+/// Resolve the `u16 → u8 lut_idx` table for a given zoom level.
+/// Mirrors the exposure bands in `intensity_exposure_for_zoom`.
+fn intensity_idx_lut_for_zoom(zoom: u8) -> &'static [u8; 65536] {
+    match zoom {
+        0..=8 => &IDX_LUT_Z0_8,
+        9..=11 => &IDX_LUT_Z9_11,
+        12..=14 => &IDX_LUT_Z12_14,
+        15..=16 => &IDX_LUT_Z15_16,
+        _ => &IDX_LUT_Z17P,
+    }
+}
+
 /// Cached fully transparent PNG used for empty raster tiles.
 static EMPTY_TILE_PNG: std::sync::LazyLock<Vec<u8>> = std::sync::LazyLock::new(|| {
     let img: RgbaImage = ImageBuffer::from_pixel(TILE_SIZE, TILE_SIZE, Rgba([0, 0, 0, 0]));
@@ -125,17 +165,8 @@ fn line_intensity_for_zoom(zoom: u8) -> f32 {
     }
 }
 
-/// Exposure for mapping accumulated line intensity into the color LUT.
-/// Lower values make sparse traces brighter; higher values preserve detail in dense overlap.
-fn intensity_exposure_for_zoom(zoom: u8) -> f32 {
-    match zoom {
-        0..=8 => 54.0,
-        9..=11 => 42.0,
-        12..=14 => 32.0,
-        15..=16 => 24.0,
-        _ => 18.0,
-    }
-}
+// Note: the raw exposure curve is baked into `intensity_idx_lut_for_zoom` at
+// module init. The legacy float function is no longer on the hot path.
 
 // ============================================================================
 // Web Mercator Math
@@ -225,6 +256,112 @@ pub fn tiles_for_track(points: &[GpsPoint], zoom: u8) -> Vec<(u32, u32)> {
         tiles.insert((tx, ty));
     }
     tiles.into_iter().collect()
+}
+
+/// Sweep the polyline through tile space at a given zoom, returning every
+/// tile a line segment crosses plus a one-tile neighbour halo (to match the
+/// 100 px margin used by `gps_to_pixel` so antialiased strokes that bleed
+/// into adjacent tiles are still scheduled for generation).
+///
+/// Much tighter than `tiles_for_bounds`: a long point-to-point activity
+/// enumerates ~O(segments) tiles instead of the full bbox rectangle.
+pub fn tiles_along_track(points: &[GpsPoint], zoom: u8) -> std::collections::HashSet<(u32, u32)> {
+    let max_xy: i64 = (1i64 << zoom).max(1);
+    let mut tiles: std::collections::HashSet<(u32, u32)> = std::collections::HashSet::new();
+
+    let mut add_with_halo = |tiles: &mut std::collections::HashSet<(u32, u32)>, tx: i64, ty: i64| {
+        for dy in -1..=1 {
+            for dx in -1..=1 {
+                let nx = tx + dx;
+                let ny = ty + dy;
+                if nx >= 0 && ny >= 0 && nx < max_xy && ny < max_xy {
+                    tiles.insert((nx as u32, ny as u32));
+                }
+            }
+        }
+    };
+
+    let mut prev_tile: Option<(i64, i64)> = None;
+    let mut prev_valid: Option<(f64, f64)> = None;
+    for point in points {
+        if !point.is_valid() {
+            prev_tile = None;
+            prev_valid = None;
+            continue;
+        }
+        let gx = lon_to_tile_x(point.longitude, zoom);
+        let gy = lat_to_tile_y(point.latitude, zoom);
+        let tx = gx.floor() as i64;
+        let ty = gy.floor() as i64;
+        add_with_halo(&mut tiles, tx, ty);
+
+        if let Some((px, py)) = prev_valid {
+            sweep_line_tiles(
+                &mut tiles,
+                &mut add_with_halo,
+                px,
+                py,
+                gx,
+                gy,
+            );
+        }
+
+        prev_tile = Some((tx, ty));
+        prev_valid = Some((gx, gy));
+    }
+    let _ = prev_tile;
+    tiles
+}
+
+/// Bresenham-style supercover: walk integer tile coords from (x0,y0) to
+/// (x1,y1) in fractional-tile space and call `add_with_halo` at each step.
+/// The halo function handles out-of-bounds and neighbour inclusion.
+fn sweep_line_tiles<F>(
+    tiles: &mut std::collections::HashSet<(u32, u32)>,
+    add_with_halo: &mut F,
+    x0: f64,
+    y0: f64,
+    x1: f64,
+    y1: f64,
+) where
+    F: FnMut(&mut std::collections::HashSet<(u32, u32)>, i64, i64),
+{
+    let ix0 = x0.floor() as i64;
+    let iy0 = y0.floor() as i64;
+    let ix1 = x1.floor() as i64;
+    let iy1 = y1.floor() as i64;
+
+    let dx = (ix1 - ix0).abs();
+    let dy = -(iy1 - iy0).abs();
+    let sx: i64 = if ix0 < ix1 { 1 } else { -1 };
+    let sy: i64 = if iy0 < iy1 { 1 } else { -1 };
+    let mut err = dx + dy;
+    let mut x = ix0;
+    let mut y = iy0;
+    // Cap iterations to defend against pathologically long jumps (e.g. a
+    // GPS glitch across the globe). 2^17 * 2 is larger than any real ride
+    // touches.
+    let limit = 400_000i64;
+    let mut steps = 0i64;
+    loop {
+        add_with_halo(tiles, x, y);
+        if x == ix1 && y == iy1 {
+            break;
+        }
+        let e2 = 2 * err;
+        if e2 >= dy {
+            err += dy;
+            x += sx;
+        }
+        if e2 <= dx {
+            err += dx;
+            y += sy;
+        }
+        steps += 1;
+        if steps > limit {
+            break;
+        }
+    }
 }
 
 /// Enumerate tile coordinates for a bounding box at a given zoom level
@@ -423,7 +560,16 @@ fn gaussian_blur_3x3(buf: &IntensityBuffer) -> IntensityBuffer {
 
 /// Generate a single heatmap tile from GPS tracks.
 /// Returns PNG bytes, or None if the tile contains no data.
-pub fn generate_heatmap_tile(z: u8, x: u32, y: u32, tracks: &[Vec<GpsPoint>]) -> Option<Vec<u8>> {
+///
+/// Accepts anything that yields a `&[GpsPoint]` per track so callers can pass
+/// `Vec<Vec<GpsPoint>>`, `Vec<&[GpsPoint]>`, or `Vec<Arc<Vec<GpsPoint>>>`
+/// without deep-cloning.
+pub fn generate_heatmap_tile<T: AsRef<[GpsPoint]>>(
+    z: u8,
+    x: u32,
+    y: u32,
+    tracks: &[T],
+) -> Option<Vec<u8>> {
     let line_width = line_width_for_zoom(z);
     let intensity = line_intensity_for_zoom(z);
 
@@ -431,6 +577,7 @@ pub fn generate_heatmap_tile(z: u8, x: u32, y: u32, tracks: &[Vec<GpsPoint>]) ->
 
     // Draw each track onto the intensity buffer
     for track in tracks {
+        let track = track.as_ref();
         let mut prev_pixel: Option<(f32, f32)> = None;
 
         for point in track {
@@ -458,18 +605,21 @@ pub fn generate_heatmap_tile(z: u8, x: u32, y: u32, tracks: &[Vec<GpsPoint>]) ->
     // Apply Gaussian blur only at lower zoom levels where density matters more than street detail.
     let buf = if z <= 9 { gaussian_blur_3x3(&buf) } else { buf };
 
-    // Map intensity buffer to RGBA using a fixed exposure curve.
-    // This preserves overlap without letting moderate-density tiles blow out to white.
-    let lut = &*COLOR_LUT;
-    let exposure = intensity_exposure_for_zoom(z);
+    // Map intensity buffer to RGBA via two pre-computed LUTs:
+    //   u16 intensity → u8 color idx (depends on zoom's exposure curve)
+    //   u8 color idx  → RGBA (shared gradient)
+    // Replaces the per-pixel exp()/round/clamp from the original code;
+    // pixel output is bit-identical because the f32 math is pre-computed
+    // once at the same precision.
+    let color_lut = &*COLOR_LUT;
+    let idx_lut = intensity_idx_lut_for_zoom(z);
     let mut img: RgbaImage = ImageBuffer::new(TILE_SIZE, TILE_SIZE);
     for y_px in 0..TILE_SIZE {
         for x_px in 0..TILE_SIZE {
             let val = buf.get(x_px, y_px);
             if val > 0 {
-                let normalized = (1.0 - (-(val as f32) / exposure).exp()).clamp(0.0, 1.0);
-                let lut_idx = (normalized * 255.0).round().clamp(1.0, 255.0) as usize;
-                let c = lut[lut_idx];
+                let lut_idx = idx_lut[val as usize] as usize;
+                let c = color_lut[lut_idx];
                 img.put_pixel(x_px, y_px, Rgba(c));
             }
         }
@@ -486,10 +636,13 @@ pub fn generate_heatmap_tile(z: u8, x: u32, y: u32, tracks: &[Vec<GpsPoint>]) ->
 
 /// Generate heatmap tiles for a set of tile coordinates.
 /// Returns vec of (z, x, y, png_bytes) for non-empty tiles.
-pub fn generate_tiles_parallel(
+pub fn generate_tiles_parallel<T>(
     tile_coords: &[(u8, u32, u32)],
-    tracks: &[Vec<GpsPoint>],
-) -> Vec<(u8, u32, u32, Vec<u8>)> {
+    tracks: &[T],
+) -> Vec<(u8, u32, u32, Vec<u8>)>
+where
+    T: AsRef<[GpsPoint]> + Sync,
+{
     tile_coords
         .par_iter()
         .filter_map(|&(z, x, y)| generate_heatmap_tile(z, x, y, tracks).map(|png| (z, x, y, png)))
@@ -642,6 +795,82 @@ mod tests {
     fn test_tiles_for_bounds() {
         let tiles = tiles_for_bounds(51.0, 52.0, -1.0, 0.0, 10);
         assert!(!tiles.is_empty());
+    }
+
+    #[test]
+    fn tiles_along_track_includes_every_point_tile() {
+        let track = vec![
+            GpsPoint::new(51.5074, -0.1278),
+            GpsPoint::new(51.5080, -0.1290),
+            GpsPoint::new(51.5090, -0.1300),
+        ];
+        let zoom = 14;
+        let swept = tiles_along_track(&track, zoom);
+        for p in &track {
+            let tx = lon_to_tile_x(p.longitude, zoom).floor() as u32;
+            let ty = lat_to_tile_y(p.latitude, zoom).floor() as u32;
+            assert!(
+                swept.contains(&(tx, ty)),
+                "sweep missed point's own tile ({tx},{ty})"
+            );
+        }
+    }
+
+    #[test]
+    fn tiles_along_track_is_tight_vs_bbox() {
+        // A long point-to-point track (several km of span each axis) should
+        // enumerate far fewer tiles than its bbox at high zoom.
+        let mut track = Vec::new();
+        for i in 0..500 {
+            let lat = 47.37 + (i as f64) * 0.0005;
+            let lng = 8.55 + (i as f64) * 0.0007;
+            track.push(GpsPoint::new(lat, lng));
+        }
+        let zoom = 17;
+        let swept = tiles_along_track(&track, zoom);
+        let bbox = tiles_for_bounds(
+            track.iter().map(|p| p.latitude).fold(f64::INFINITY, f64::min),
+            track.iter().map(|p| p.latitude).fold(f64::NEG_INFINITY, f64::max),
+            track.iter().map(|p| p.longitude).fold(f64::INFINITY, f64::min),
+            track.iter().map(|p| p.longitude).fold(f64::NEG_INFINITY, f64::max),
+            zoom,
+        );
+        // Diagonal track: bbox counts every tile in a rectangle; sweep only
+        // counts the diagonal strip plus halo.
+        assert!(
+            swept.len() * 2 < bbox.len(),
+            "sweep did not beat bbox: swept={} bbox={}",
+            swept.len(),
+            bbox.len()
+        );
+    }
+
+    #[test]
+    fn tiles_along_track_handles_invalid_points() {
+        let track = vec![
+            GpsPoint::new(51.5074, -0.1278),
+            GpsPoint::new(f64::NAN, f64::NAN),
+            GpsPoint::new(51.5080, -0.1290),
+        ];
+        // Should not panic, should still include the two valid points' tiles.
+        let swept = tiles_along_track(&track, 14);
+        assert!(!swept.is_empty());
+    }
+
+    #[test]
+    fn tiles_along_track_segment_includes_between_tiles() {
+        // Two points 5 tiles apart at z14; the diagonal between them should
+        // enumerate the intermediate tiles.
+        let zoom = 14;
+        let p0 = GpsPoint::new(51.5074, -0.1278);
+        let p1 = GpsPoint::new(51.5074 + 0.0020, -0.1278 + 0.0020);
+        let swept = tiles_along_track(&[p0, p1], zoom);
+        // Expect at least 3 distinct tile coords (segment length > 1 tile).
+        assert!(
+            swept.len() >= 3,
+            "segment sweep too small: {}",
+            swept.len()
+        );
     }
 
     #[test]

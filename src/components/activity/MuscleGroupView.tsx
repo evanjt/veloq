@@ -12,6 +12,7 @@ import { useMetricSystem } from '@/hooks';
 import { BodyPairWithLoupe } from './BodyPairWithLoupe';
 import { useTranslation } from 'react-i18next';
 import { formatDateTime, formatDuration } from '@/lib';
+import { formatWeight } from '@/lib/strength/formatting';
 import { colors, darkColors, spacing, typography, brand } from '@/theme';
 import type { ActivityDetail } from '@/types';
 import type { ExerciseSet } from 'veloqrs';
@@ -29,12 +30,6 @@ const PRIMARY_COLOR = brand.orange;
 const SECONDARY_COLOR = brand.orangeLight;
 const BODY_COLORS: readonly string[] = [SECONDARY_COLOR, PRIMARY_COLOR] as const;
 
-function formatWeight(kg: number, isMetric: boolean): string {
-  if (isMetric) return kg % 1 === 0 ? `${kg} kg` : `${kg.toFixed(1)} kg`;
-  const lbs = kg * 2.20462;
-  return lbs % 1 === 0 ? `${lbs} lbs` : `${lbs.toFixed(1)} lbs`;
-}
-
 export function MuscleGroupView({
   activityId,
   activity,
@@ -48,7 +43,7 @@ export function MuscleGroupView({
   const isMetric = useMetricSystem();
   const { data: muscleGroups } = useMuscleGroups(activityId, hasExercises);
   const [selectedMuscle, setSelectedMuscle] = useState<string | null>(null);
-  const muscleDetail = useMuscleDetail(selectedMuscle, exerciseSets ?? []);
+  const muscleDetail = useMuscleDetail(activityId, selectedMuscle);
 
   const handleMuscleTap = useCallback(
     (slug: string) => {
@@ -150,8 +145,13 @@ export function MuscleGroupView({
                     </TouchableOpacity>
                   </View>
                   <Text style={[styles.detailStat, isDark && styles.detailStatDark]}>
-                    {muscleDetail.totalSets} {muscleDetail.totalSets === 1 ? 'set' : 'sets'} ·{' '}
-                    {muscleDetail.totalReps} reps
+                    {t('activity.muscle.setCount', {
+                      count: muscleDetail.totalSets,
+                    })}{' '}
+                    ·{' '}
+                    {t('activity.muscle.repsCount', {
+                      count: muscleDetail.totalReps,
+                    })}
                   </Text>
                   {muscleDetail.totalVolumeKg > 0 && (
                     <Text style={[styles.detailStat, isDark && styles.detailStatDark]}>

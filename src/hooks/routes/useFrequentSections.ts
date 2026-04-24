@@ -8,7 +8,9 @@
  */
 
 import { useMemo } from 'react';
-import { useSectionSummaries } from './useRouteEngine';
+import { getRouteEngine } from '@/lib/native/routeEngine';
+import { useEngineSubscription } from './useRouteEngine';
+import { generateSectionName } from '@/lib/utils/sectionNaming';
 import type { FrequentSection } from '@/types';
 import type { SectionSummary } from 'veloqrs';
 
@@ -59,44 +61,35 @@ export function useFrequentSections(
   options: UseFrequentSectionsOptions = {}
 ): UseFrequentSectionsResult {
   const { sportType, minVisits = 3, sortBy = 'visits', enabled = true } = options;
+  const trigger = useEngineSubscription(['sections']);
 
-  // Use lightweight summaries - no polylines loaded, queries SQLite on-demand
-  // Rust already filters out disabled/superseded sections
-  const { totalCount, summaries } = useSectionSummaries({
-    sportType,
-    minVisits: 1,
-    enabled,
-  });
-  const isReady = true;
+  // Sport filter, visit-count threshold, and sort all happen in Rust.
+  // TS only fills in display names for summaries without a stored name.
+  const { sections, totalCount } = useMemo(() => {
+    if (!enabled) return { sections: [], totalCount: 0 };
+    const engine = getRouteEngine();
+    if (!engine) return { sections: [], totalCount: 0 };
 
-  const sections = useMemo(() => {
-    if (!enabled) return [];
-    let filtered = summaries.map(summaryToFrequentSection);
-
-    if (sportType) {
-      filtered = filtered.filter((s) => s.sportType === sportType);
+    try {
+      const { totalCount, summaries: rawSummaries } = engine.getFilteredSectionSummaries(
+        sportType,
+        minVisits,
+        sortBy
+      );
+      const named = rawSummaries.map((s: SectionSummary) => ({
+        ...s,
+        name: s.name || generateSectionName(s),
+      }));
+      return { sections: named.map(summaryToFrequentSection), totalCount };
+    } catch {
+      return { sections: [], totalCount: 0 };
     }
-
-    filtered = filtered.filter((s) => s.visitCount >= minVisits);
-
-    switch (sortBy) {
-      case 'visits':
-        filtered.sort((a, b) => b.visitCount - a.visitCount);
-        break;
-      case 'distance':
-        filtered.sort((a, b) => b.distanceMeters - a.distanceMeters);
-        break;
-      case 'name':
-        filtered.sort((a, b) => a.id.localeCompare(b.id));
-        break;
-    }
-
-    return filtered;
-  }, [summaries, sportType, minVisits, sortBy, enabled]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [trigger, sportType, minVisits, sortBy, enabled]);
 
   return {
     sections,
     totalCount,
-    isReady,
+    isReady: true,
   };
 }

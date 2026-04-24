@@ -9,6 +9,7 @@
 import * as FileSystem from 'expo-file-system/legacy';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getRouteEngine, getRouteDbPath } from '@/lib/native/routeEngine';
+import { formatLocalDate } from '@/lib/utils/format';
 import { shareFile } from './shareFile';
 import { getSetting, setSetting } from '@/lib/backup';
 import {
@@ -86,7 +87,7 @@ export async function exportDatabaseBackup(): Promise<void> {
   const engine = getRouteEngine();
   if (!engine) throw new Error('Engine not initialized');
 
-  const date = new Date().toISOString().split('T')[0];
+  const date = formatLocalDate(new Date());
   const filename = `veloq-backup-${date}.veloqdb`;
   const destPath = `${FileSystem.cacheDirectory}${filename}`;
 
@@ -315,7 +316,7 @@ export async function createBackup(): Promise<string> {
 
 export async function exportBackup(): Promise<void> {
   const json = await createBackup();
-  const date = new Date().toISOString().split('T')[0];
+  const date = formatLocalDate(new Date());
   await shareFile({
     content: json,
     filename: `veloq-backup-${date}.veloq`,

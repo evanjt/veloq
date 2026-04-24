@@ -33,7 +33,12 @@ tags:
 - takeScreenshot: "settings-units-toggled"
 
 # Navigate to home to verify units applied
-- openLink: "veloq://home"
+- openLink: "veloq://"
+- runFlow:
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
 - extendedWaitUntil:
     visible:
       id: "home-screen"

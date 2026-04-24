@@ -7,8 +7,6 @@ import {
   TouchableOpacity,
   Linking,
   LayoutAnimation,
-  Platform,
-  UIManager,
 } from 'react-native';
 import { ScreenSafeAreaView } from '@/components/ui';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -17,11 +15,6 @@ import { useTranslation } from 'react-i18next';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import { createSharedStyles } from '@/styles';
 import { useTheme } from '@/hooks';
-
-// Enable LayoutAnimation on Android
-if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
-}
 
 interface LicenseEntry {
   name: string;

@@ -1,7 +1,13 @@
 import { useQuery } from '@tanstack/react-query';
 import { getRouteEngine } from '@/lib/native/routeEngine';
-import { getStoredCredentials } from '@/providers';
+import { getStoredCredentials, useAuthStore } from '@/providers';
+import { queryKeys } from '@/lib/queryKeys';
+import { demoStrengthSets } from '@/data/demo/strengthSets';
 import type { ExerciseSet, MuscleGroup } from 'veloqrs';
+
+function isDemo(): boolean {
+  return useAuthStore.getState().isDemoMode;
+}
 
 function buildAuthHeader(): string {
   const creds = getStoredCredentials();
@@ -23,7 +29,7 @@ function buildAuthHeader(): string {
  */
 export function useExerciseSets(activityId: string, activityType: string) {
   return useQuery<ExerciseSet[]>({
-    queryKey: ['exercise-sets-v2', activityId],
+    queryKey: queryKeys.strength.exerciseSets(activityId),
     queryFn: () => {
       console.log(`[ExerciseSets] Querying for ${activityId} (type: ${activityType})`);
       const engine = getRouteEngine();
@@ -50,6 +56,17 @@ export function useExerciseSets(activityId: string, activityType: string) {
         console.log(`[ExerciseSets] Processed: ${processed}`);
         if (processed) return [];
 
+        // Demo mode has no FIT file — seed synthetic sets for any fixture
+        // activity that carries one, then read back through the normal path.
+        if (isDemo() && demoStrengthSets[activityId]) {
+          if (typeof engine.bulkInsertExerciseSets !== 'function') {
+            console.log('[ExerciseSets] bulkInsertExerciseSets not available — rebuild required');
+            return [];
+          }
+          engine.bulkInsertExerciseSets(activityId, demoStrengthSets[activityId]);
+          return engine.getExerciseSets(activityId);
+        }
+
         // Download, parse, store, return
         console.log(`[ExerciseSets] Fetching FIT file for ${activityId}...`);
         const authHeader = buildAuthHeader();
@@ -73,7 +90,7 @@ export function useExerciseSets(activityId: string, activityType: string) {
  */
 export function useMuscleGroups(activityId: string, hasExercises: boolean) {
   return useQuery<MuscleGroup[]>({
-    queryKey: ['muscle-groups-v2', activityId],
+    queryKey: queryKeys.strength.muscleGroups(activityId),
     queryFn: () => {
       const engine = getRouteEngine();
       if (!engine || typeof engine.getMuscleGroups !== 'function') return [];

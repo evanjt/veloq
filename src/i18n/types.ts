@@ -208,6 +208,12 @@ export interface TranslationResource {
     noMatchingActivities: string;
     failedToLoad: string;
     searchPlaceholder: string;
+    groups: {
+      cycling: string;
+      running: string;
+      swimming: string;
+      other: string;
+    };
   };
 
   filters: {
@@ -283,6 +289,7 @@ export interface TranslationResource {
   settings: {
     title: string;
     display: string;
+    displayAndMaps: string;
     appearance: string;
     system: string;
     light: string;
@@ -306,6 +313,8 @@ export interface TranslationResource {
     viewRoutes: string;
     pauseRouteProcessing: string;
     clearAllReload: string;
+    redetectSections: string;
+    redetectSectionsHint: string;
     clearAllReloadDescription: string;
     reanalyseRoutes: string;
     clearRouteDescription: string;
@@ -324,6 +333,8 @@ export interface TranslationResource {
     routeMatching: string;
     enableRouteMatching: string;
     routeMatchingDescription: string;
+    geocoding: string;
+    geocodingDescription: string;
     account: string;
     disconnectAccount: string;
     disconnectDescription: string;
@@ -352,6 +363,8 @@ export interface TranslationResource {
     cached: string;
     notCached: string;
     expandCache: string;
+    localDataRange: string;
+    dataCacheHint: string;
     connectionMethod: string;
     connectedViaApiKey: string;
     demoMode: string;
@@ -362,6 +375,7 @@ export interface TranslationResource {
     availableMetrics: string;
     resetToDefaults: string;
     summaryCard: string;
+    showSummaryCard: string;
     heroMetric: string;
     showSparkline: string;
     supportingMetrics: string;
@@ -387,6 +401,10 @@ export interface TranslationResource {
     disconnect: string;
     failedToClear: string;
     failedToDisconnect: string;
+    redetectSectionsTitle: string;
+    redetectSectionsMessage: string;
+    redetectSectionsConfirm: string;
+    redetectSectionsBusy: string;
   };
 
   export: {
@@ -438,6 +456,26 @@ export interface TranslationResource {
     restoreFromBackup: string;
     backupFound: string;
     differentAccount: string;
+    differentAccountMessage: string;
+    clearAndSync: string;
+    backupSuccessTitle: string;
+    backupSuccessMessage: string;
+    backupFailedTitle: string;
+    backupFailedMessage: string;
+    legacyImportNotice: string;
+  };
+
+  bestEffortsScreen: {
+    title: string;
+    thisSeason: string;
+    allTime: string;
+    seasonSubtitle: string;
+    allTimeSubtitle: string;
+    powerBests: string;
+    paceBests: string;
+    swimBests: string;
+    activityNotCached: string;
+    sourceNote: string;
   };
 
   about: {
@@ -475,6 +513,8 @@ export interface TranslationResource {
     calories: string;
     tss: string;
     pwr: string;
+    sectionPr: string;
+    sectionCount: string;
     cal: string;
     temp: string;
     noHeartRateData: string;
@@ -483,6 +523,7 @@ export interface TranslationResource {
     ftp: string;
     maxHR: string;
     noDataAvailable: string;
+    zoneDefault: string;
     avg: string;
     xAxisDistance: string;
     xAxisTime: string;
@@ -562,6 +603,15 @@ export interface TranslationResource {
     conditions: {
       hot: string;
       cold: string;
+    };
+    muscle: {
+      sets: string;
+      reps: string;
+      volume: string;
+      contributingExercises: string;
+      setCount_one: string;
+      setCount_other: string;
+      repsCount: string;
     };
   };
 
@@ -659,6 +709,94 @@ export interface TranslationResource {
       volumeDown: string;
       volumeSteady: string;
     };
+    quickTake: {
+      howCalculated: string;
+      title: string;
+      whatChanged: string;
+      whyItMatters: string;
+      nextLook: string;
+      sectionPr: { changed: string; matters: string; next: string };
+      hrvTrend: { changed: string; matters: string; next: string };
+      periodComparison: { changed: string; matters: string; next: string };
+      fitnessMilestone: {
+        changedFtp: string;
+        changedSwimPace: string;
+        changedRunPace: string;
+        mattersFtp: string;
+        mattersPace: string;
+        nextFtp: string;
+        nextPace: string;
+      };
+      strengthProgression: { changed: string; matters: string; next: string };
+      strengthBalance: { changed: string; matters: string; next: string };
+      stalePr: {
+        changedPowerGrouped: string;
+        changedPowerSingle: string;
+        changedSwimGrouped: string;
+        changedSwimSingle: string;
+        changedRunGrouped: string;
+        changedRunSingle: string;
+        changedGenericGrouped: string;
+        changedGenericSingle: string;
+        matters: string;
+        nextGrouped: string;
+        nextSingle: string;
+      };
+      efficiencyTrend: { changed: string; matters: string; next: string };
+    };
+    viewInDetail: string;
+  };
+
+  strength: {
+    snapshot: string;
+    muscleInFocus: string;
+    muscleStandsOut: string;
+    selectedMuscleObservation: string;
+    topMuscleWithBalance: string;
+    topMuscleOnly: string;
+    defaultObservation: string;
+    noWorkouts: string;
+    noWorkoutsHint: string;
+    workoutCount_one: string;
+    workoutCount_other: string;
+    workoutCount_label_one: string;
+    workoutCount_label_other: string;
+    sets: string;
+    muscleGroups: string;
+    muscleGroupVolume: string;
+    relativeWeightedSets: string;
+    reps: string;
+    tapMuscleGroup: string;
+    relativeVolume: string;
+    balanceObservedPairs: string;
+    balancedPairsClose: string;
+    balanceDominant: string;
+    balanceFootnote: string;
+    pairsInfoTitle: string;
+    pairsInfoIntro: string;
+    pairsInfoThresholds: string;
+    pairsInfoMinSignal: string;
+    exercisesTargeting: string;
+    exerciseSets: string;
+    exerciseWorkoutCount_one: string;
+    exerciseWorkoutCount_other: string;
+    totalVolume: string;
+    infoWeighting: string;
+    progression: string;
+    last4Weeks: string;
+    newSignal: string;
+    recentAvg: string;
+    earlierAvg: string;
+    peakWeek: string;
+    periodWeek: string;
+    period4Weeks: string;
+    period3Months: string;
+    period6Months: string;
+    disclaimer: string;
+    showDetails: string;
+    hideDetails: string;
+    exercise: string;
+    exercises: string;
   };
 
   fitnessScreen: {
@@ -669,6 +807,8 @@ export interface TranslationResource {
     ctl: string;
     atl: string;
     tsb: string;
+    rampRate: string;
+    perWeek: string;
     fitnessAndFatigue: string;
     understandingMetrics: string;
     fitnessDescription: string;
@@ -705,6 +845,16 @@ export interface TranslationResource {
       fitnessTitle: string;
       fitnessBody: string;
     };
+    v030: {
+      insightsTitle: string;
+      insightsBody: string;
+      strengthTitle: string;
+      strengthBody: string;
+      sectionTrimTitle: string;
+      sectionTrimBody: string;
+      backupTitle: string;
+      backupBody: string;
+    };
   };
 
   notifications: {
@@ -717,7 +867,7 @@ export interface TranslationResource {
     sectionCluster: { title: string };
     efficiencyTrend: { title: string };
     generic: { title: string };
-    activityRecorded: { title: string; body: string };
+    activityRecorded: { title: string; body: string; placeholder: string };
     privacy: {
       title: string;
       brief: string;
@@ -821,6 +971,7 @@ export interface TranslationResource {
 
   mapScreen: {
     loadingActivities: string;
+    loadingOlderActivities: string;
     syncing: string;
   };
 
@@ -918,6 +1069,9 @@ export interface TranslationResource {
   sections: {
     activitiesCount: string;
     performanceOverTime: string;
+    legendPr: string;
+    legendReverse: string;
+    legendThisActivity: string;
     best: string;
     current: string;
     same: string;
@@ -941,6 +1095,8 @@ export interface TranslationResource {
     totalTraversals: string;
     last: string;
     lastActivity: string;
+    autoName: string;
+    suggestedName: string;
     defaultName: string;
     deleteSection: string;
     deleteSectionConfirm: string;
@@ -990,6 +1146,7 @@ export interface TranslationResource {
     noMatchesFound: string;
     noSectionsFound: string;
     matchQuality: string;
+    atPosition: string;
     addToSection: string;
     nearbySections: string;
     nearbySectionsCount: string;
@@ -999,6 +1156,9 @@ export interface TranslationResource {
     mergeKeepMessage: string;
     mergeInto: string;
     mergeSuccess: string;
+    mergeCandidatesTitle: string;
+    mergeCandidatesSubtitle: string;
+    overlapLabel: string;
     rescan: string;
     rescanComplete: string;
     forceRedetect: string;
@@ -1016,6 +1176,8 @@ export interface TranslationResource {
     defaultTitle: string;
     defaultMessage: string;
     tryAgain: string;
+    unableToLoad: string;
+    restartHint: string;
   };
 
   emptyState: {
@@ -1048,11 +1210,37 @@ export interface TranslationResource {
   };
 
   cache: {
-    syncingActivities: string;
+    addingActivities: string;
+    allActivitiesSynced: string;
+    analyzingRouteGroups: string;
     analyzingRoutes: string;
     analyzingRoutesProgress: string;
-    routeAnalysisComplete: string;
+    cancelled: string;
+    complete: string;
+    detectingSections: string;
+    detectingSectionsProgress: string;
+    downloadingActivities: string;
+    downloadingGpsProgress: string;
+    downloadingTiles: string;
+    engineNotAvailable: string;
+    fetchingGpsData: string;
+    loadingDemoGps: string;
+    nativeModuleUnavailable: string;
+    noValidGpsData: string;
+    noValidGpsChecked: string;
+    offlineUsingCached: string;
+    processingGpsTracks: string;
+    processingRoutes: string;
     renderingTerrainPreviews: string;
+    routeAnalysisComplete: string;
+    syncComplete: string;
+    syncFailed: string;
+    syncResetDiscarded: string;
+    syncedActivities: string;
+    syncedDemoActivities: string;
+    syncingActivities: string;
+    fetchingTimeStreams: string;
+    finalizingHeatmap: string;
   };
 
   chartTypes: {
@@ -1061,8 +1249,11 @@ export interface TranslationResource {
     cad: string;
     speed: string;
     pace: string;
+    gap: string;
     elev: string;
     grade: string;
+    gradient: string;
+    wbal: string;
     dist: string;
     alt: string;
     temp: string;
@@ -1372,6 +1563,19 @@ export interface TranslationResource {
     settingsAutoPauseThreshold: string;
     settingsDataFields: string;
     settingsUnits: string;
+    timeOfDay: {
+      morning: string;
+      afternoon: string;
+      evening: string;
+      night: string;
+    };
+    rpeLabels: {
+      easy: string;
+      moderate: string;
+      hard: string;
+      veryHard: string;
+      max: string;
+    };
   };
 
   maps: {
@@ -1379,6 +1583,7 @@ export interface TranslationResource {
     toggleStyle: string;
     enable3D: string;
     disable3D: string;
+    colorByGradient: string;
     resetOrientation: string;
     goToLocation: string;
     fitAll: string;
@@ -1398,11 +1603,13 @@ export interface TranslationResource {
     cached: string;
     notSynced: string;
     showActivities: string;
+    showHeatmap: string;
     showMyLocation: string;
     showMyLocationHint: string;
     showRoutes: string;
     showSections: string;
     hideActivities: string;
+    hideHeatmap: string;
     hideRoutes: string;
     hideSections: string;
     activityTypes: {
@@ -1417,6 +1624,61 @@ export interface TranslationResource {
       walk: string;
       water: string;
     };
+  };
+
+  activityTypes: {
+    AlpineSki: string;
+    BackcountrySki: string;
+    Badminton: string;
+    Canoeing: string;
+    Crossfit: string;
+    EBikeRide: string;
+    Elliptical: string;
+    Golf: string;
+    GravelRide: string;
+    Handcycle: string;
+    HighIntensityIntervalTraining: string;
+    Hike: string;
+    IceSkate: string;
+    InlineSkate: string;
+    Kayaking: string;
+    Kitesurf: string;
+    MountainBikeRide: string;
+    NordicSki: string;
+    OpenWaterSwim: string;
+    Other: string;
+    Pickleball: string;
+    Pilates: string;
+    Racquetball: string;
+    Ride: string;
+    RockClimbing: string;
+    RollerSki: string;
+    Rowing: string;
+    Run: string;
+    Sail: string;
+    Skateboard: string;
+    Snowboard: string;
+    Snowshoe: string;
+    Soccer: string;
+    Squash: string;
+    StairStepper: string;
+    StandUpPaddling: string;
+    Surfing: string;
+    Swim: string;
+    TableTennis: string;
+    Tennis: string;
+    TrailRun: string;
+    Treadmill: string;
+    Velomobile: string;
+    VirtualRide: string;
+    VirtualRow: string;
+    VirtualRun: string;
+    Walk: string;
+    WeightTraining: string;
+    Wheelchair: string;
+    Windsurf: string;
+    Workout: string;
+    Yoga: string;
   };
 }
 

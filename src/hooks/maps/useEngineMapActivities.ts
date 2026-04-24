@@ -40,23 +40,47 @@ export function useEngineMapActivities({
 }: UseEngineMapActivitiesOptions): UseEngineMapActivitiesReturn {
   const [activityCount, setActivityCount] = useState(0);
 
-  // Subscribe to engine activity changes
+  // Subscribe to engine activity changes — retry if engine not ready on mount
   useEffect(() => {
     if (!enabled) return;
 
-    const engine = getRouteEngine();
-    if (!engine) return;
+    let cancelled = false;
+    let unsubscribe: (() => void) | null = null;
 
-    // Initial count
-    setActivityCount(engine.getActivityCount());
+    function trySubscribe(): boolean {
+      const engine = getRouteEngine();
+      if (!engine) return false;
 
-    // Subscribe to updates
-    const unsubscribe = engine.subscribe('activities', () => {
-      const eng = getRouteEngine();
-      setActivityCount(eng ? eng.getActivityCount() : 0);
-    });
+      // Initial count
+      if (!cancelled) {
+        setActivityCount(engine.getActivityCount());
+      }
 
-    return unsubscribe;
+      unsubscribe = engine.subscribe('activities', () => {
+        if (cancelled) return;
+        const eng = getRouteEngine();
+        setActivityCount(eng ? eng.getActivityCount() : 0);
+      });
+      return true;
+    }
+
+    if (!trySubscribe()) {
+      const interval = setInterval(() => {
+        if (trySubscribe()) {
+          clearInterval(interval);
+        }
+      }, 200);
+      return () => {
+        cancelled = true;
+        clearInterval(interval);
+        unsubscribe?.();
+      };
+    }
+
+    return () => {
+      cancelled = true;
+      unsubscribe?.();
+    };
   }, [enabled]);
 
   // Get filtered activities from engine (all filtering in Rust)

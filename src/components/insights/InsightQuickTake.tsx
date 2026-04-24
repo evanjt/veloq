@@ -1,10 +1,12 @@
 import React, { useMemo } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
+import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/hooks';
 import { getSportDisplayName } from '@/lib';
 import { colors, darkColors, spacing, opacity } from '@/theme';
 import type { Insight } from '@/types';
+import type { TFunction } from 'i18next';
 
 interface InsightQuickTakeProps {
   insight: Insight;
@@ -60,87 +62,96 @@ function getStalePrMetricContext(insight: Insight): 'power' | 'running' | 'swimm
   return units.has('/km') ? 'running' : 'generic';
 }
 
-function buildQuickTake(insight: Insight): QuickTakeContent | null {
+function buildQuickTake(insight: Insight, t: TFunction): QuickTakeContent | null {
   const currentMetricUnit = insight.supportingData?.dataPoints?.[0]?.unit;
   const isPowerMilestone = currentMetricUnit === 'W';
   const isSwimMilestone = currentMetricUnit === '/100m';
-  const singleSportLabel = getSingleSportLabel(insight);
   const stalePrMetricContext = getStalePrMetricContext(insight);
   const stalePrIsGrouped = (insight.supportingData?.sections?.length ?? 0) > 1;
 
   switch (insight.category) {
     case 'section_pr':
       return {
-        changed: 'A repeatable route now carries a new best.',
-        matters: 'Compares this effort against all previous times on the same section.',
-        next: 'Route detail stores the effort list and timing.',
+        changed: t('insights.quickTake.sectionPr.changed'),
+        matters: t('insights.quickTake.sectionPr.matters'),
+        next: t('insights.quickTake.sectionPr.next'),
       };
     case 'hrv_trend':
       return {
-        changed: 'Short-term recovery readings nudged up or down.',
-        matters: 'Shows the direction of your 7-day HRV rolling average.',
-        next: 'Fitness tab shows HRV alongside other wellness data.',
+        changed: t('insights.quickTake.hrvTrend.changed'),
+        matters: t('insights.quickTake.hrvTrend.matters'),
+        next: t('insights.quickTake.hrvTrend.next'),
       };
     case 'period_comparison':
       return {
-        changed: 'Weekly load landed differently than the week before.',
-        matters: "Compares this week's load against the previous week.",
-        next: 'Routes tab lists the activities from both weeks.',
+        changed: t('insights.quickTake.periodComparison.changed'),
+        matters: t('insights.quickTake.periodComparison.matters'),
+        next: t('insights.quickTake.periodComparison.next'),
       };
     case 'fitness_milestone':
       return {
         changed: isPowerMilestone
-          ? 'Your FTP estimate moved upward.'
+          ? t('insights.quickTake.fitnessMilestone.changedFtp')
           : isSwimMilestone
-            ? 'Your threshold swim speed moved upward, which shows up as faster pace per 100m.'
-            : 'Your running threshold speed moved upward, which shows up as faster pace per kilometre.',
+            ? t('insights.quickTake.fitnessMilestone.changedSwimPace')
+            : t('insights.quickTake.fitnessMilestone.changedRunPace'),
         matters: isPowerMilestone
-          ? 'Tracks the difference between your latest and previous FTP estimates.'
-          : 'Tracks the difference between your latest and previous threshold pace estimates.',
+          ? t('insights.quickTake.fitnessMilestone.mattersFtp')
+          : t('insights.quickTake.fitnessMilestone.mattersPace'),
         next: isPowerMilestone
-          ? 'Fitness tab shows the FTP trend over time.'
-          : 'Fitness tab shows the pace trend over time.',
+          ? t('insights.quickTake.fitnessMilestone.nextFtp')
+          : t('insights.quickTake.fitnessMilestone.nextPace'),
       };
     case 'strength_progression':
       return {
-        changed: "A muscle group's weighted-set volume moved compared to earlier weeks.",
-        matters: 'Compares weighted-set volume in the recent 2 weeks against the earlier 2 weeks.',
-        next: 'Strength tab shows the 4-week history per muscle group.',
+        changed: t('insights.quickTake.strengthProgression.changed'),
+        matters: t('insights.quickTake.strengthProgression.matters'),
+        next: t('insights.quickTake.strengthProgression.next'),
       };
     case 'strength_balance':
       return {
-        changed: 'An antagonist pair shows one side carrying more weighted sets.',
-        matters: 'Shows the weighted-set ratio between antagonist muscle pairs over 4 weeks.',
-        next: 'Strength tab shows the pair totals side by side.',
+        changed: t('insights.quickTake.strengthBalance.changed'),
+        matters: t('insights.quickTake.strengthBalance.matters'),
+        next: t('insights.quickTake.strengthBalance.next'),
       };
     case 'stale_pr':
       return {
         changed:
           stalePrMetricContext === 'power'
-            ? stalePrIsGrouped
-              ? 'Current cycling power now sits above the level tied to several section bests.'
-              : 'Current cycling power now sits above the level tied to this section best.'
+            ? t(
+                stalePrIsGrouped
+                  ? 'insights.quickTake.stalePr.changedPowerGrouped'
+                  : 'insights.quickTake.stalePr.changedPowerSingle'
+              )
             : stalePrMetricContext === 'swimming'
-              ? stalePrIsGrouped
-                ? 'Current swim threshold now sits above the level tied to several section bests.'
-                : 'Current swim threshold now sits above the level tied to this section best.'
+              ? t(
+                  stalePrIsGrouped
+                    ? 'insights.quickTake.stalePr.changedSwimGrouped'
+                    : 'insights.quickTake.stalePr.changedSwimSingle'
+                )
               : stalePrMetricContext === 'running'
-                ? stalePrIsGrouped
-                  ? 'Current running threshold now sits above the level tied to several section bests.'
-                  : 'Current running threshold now sits above the level tied to this section best.'
-                : stalePrIsGrouped
-                  ? 'Current fitness now sits above the level tied to several section bests.'
-                  : 'Current fitness now sits above the level tied to this section best.',
-        matters: 'Cross-references fitness trend dates against section PR dates.',
-        next: stalePrIsGrouped
-          ? 'Sections tab lists the flagged sections.'
-          : 'Section detail shows the effort history.',
+                ? t(
+                    stalePrIsGrouped
+                      ? 'insights.quickTake.stalePr.changedRunGrouped'
+                      : 'insights.quickTake.stalePr.changedRunSingle'
+                  )
+                : t(
+                    stalePrIsGrouped
+                      ? 'insights.quickTake.stalePr.changedGenericGrouped'
+                      : 'insights.quickTake.stalePr.changedGenericSingle'
+                  ),
+        matters: t('insights.quickTake.stalePr.matters'),
+        next: t(
+          stalePrIsGrouped
+            ? 'insights.quickTake.stalePr.nextGrouped'
+            : 'insights.quickTake.stalePr.nextSingle'
+        ),
       };
     case 'efficiency_trend':
       return {
-        changed: 'Matched efforts on this section now show a lower heart-rate cost.',
-        matters: 'Tracks the HR/pace ratio across matched efforts on this section over time.',
-        next: 'Section detail shows the individual efforts and HR data.',
+        changed: t('insights.quickTake.efficiencyTrend.changed'),
+        matters: t('insights.quickTake.efficiencyTrend.matters'),
+        next: t('insights.quickTake.efficiencyTrend.next'),
       };
     default:
       return null;
@@ -151,26 +162,35 @@ export const InsightQuickTake = React.memo(function InsightQuickTake({
   insight,
 }: InsightQuickTakeProps) {
   const { isDark } = useTheme();
-  const content = useMemo(() => buildQuickTake(insight), [insight]);
+  const { t } = useTranslation();
+  const content = useMemo(() => buildQuickTake(insight, t), [insight, t]);
 
   if (!content) return null;
 
   return (
     <View testID="insight-quick-take" style={[styles.card, isDark && styles.cardDark]}>
-      <Text style={[styles.heading, isDark && styles.headingDark]}>Quick Take</Text>
+      <Text style={[styles.heading, isDark && styles.headingDark]}>
+        {t('insights.quickTake.title')}
+      </Text>
 
       <View style={styles.row}>
-        <Text style={[styles.label, isDark && styles.labelDark]}>What changed</Text>
+        <Text style={[styles.label, isDark && styles.labelDark]}>
+          {t('insights.quickTake.whatChanged')}
+        </Text>
         <Text style={[styles.body, isDark && styles.bodyDark]}>{content.changed}</Text>
       </View>
 
       <View style={styles.row}>
-        <Text style={[styles.label, isDark && styles.labelDark]}>Why it matters</Text>
+        <Text style={[styles.label, isDark && styles.labelDark]}>
+          {t('insights.quickTake.whyItMatters')}
+        </Text>
         <Text style={[styles.body, isDark && styles.bodyDark]}>{content.matters}</Text>
       </View>
 
       <View style={styles.row}>
-        <Text style={[styles.label, isDark && styles.labelDark]}>Next look</Text>
+        <Text style={[styles.label, isDark && styles.labelDark]}>
+          {t('insights.quickTake.nextLook')}
+        </Text>
         <Text style={[styles.body, isDark && styles.bodyDark]}>{content.next}</Text>
       </View>
     </View>

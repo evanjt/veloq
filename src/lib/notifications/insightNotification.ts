@@ -1,6 +1,7 @@
 import type { Insight } from '@/types';
 import type { InsightNotificationData } from './notificationService';
 import type { NotificationPreferences } from '@/providers/NotificationPreferencesStore';
+import { INSIGHTS_CONFIG } from '@/hooks/insights/config';
 
 type TFunc = (key: string, params?: Record<string, string | number>) => string;
 
@@ -8,6 +9,45 @@ interface NotificationContent {
   title: string;
   body: string;
   data: InsightNotificationData;
+}
+
+const HOUR_MS = 60 * 60 * 1000;
+const WEEK_MS = 7 * 24 * HOUR_MS;
+
+/**
+ * D11 — push frequency cooldown. Given a history of recent push timestamps
+ * (ms epoch), returns true if a new push is allowed right now.
+ *
+ * Rules:
+ *   - at most `maxPerWeek` pushes in any rolling 7-day window
+ *   - at least `minHoursBetween` between consecutive pushes
+ *
+ * Caller is responsible for persisting the history (AsyncStorage). Keeping
+ * the predicate pure makes it trivially testable.
+ */
+export function isPushAllowed(
+  history: number[],
+  now: number = Date.now(),
+  cfg = INSIGHTS_CONFIG.push
+): boolean {
+  if (!cfg.enabled) return false;
+  if (history.length === 0) return true;
+
+  const sorted = [...history].sort((a, b) => b - a); // newest first
+  const lastPush = sorted[0];
+  if (now - lastPush < cfg.minHoursBetween * HOUR_MS) return false;
+
+  const windowStart = now - WEEK_MS;
+  const inWindow = sorted.filter((ts) => ts >= windowStart).length;
+  if (inWindow >= cfg.maxPerWeek) return false;
+
+  return true;
+}
+
+/** Prune a push-history list to values within the last 7 days. */
+export function prunePushHistory(history: number[], now: number = Date.now()): number[] {
+  const windowStart = now - WEEK_MS;
+  return history.filter((ts) => ts >= windowStart);
 }
 
 const CATEGORY_PREFS: Partial<

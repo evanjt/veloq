@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { getRouteEngine } from '@/lib/native/routeEngine';
 import { useEngineSubscription } from '@/hooks/routes/useRouteEngine';
 import { intervalsApi } from '@/api';
+import { queryKeys } from '@/lib/queryKeys';
 import { convertLatLngTuples } from '@/lib';
 import type { LatLng } from '@/lib/geo/polyline';
 import type { PreviewTrack } from '@/hooks/home/useStartupData';
@@ -41,7 +42,7 @@ export function useMapPreviewCoordinates(
   // 3. Lightweight API fallback — only fires when neither startup nor engine has data
   const needsFetch = hasGpsData && !startupTrack && !engineResult;
   const { data: streams, isLoading: isFetching } = useQuery({
-    queryKey: ['map-preview-streams', activityId],
+    queryKey: queryKeys.activities.mapPreview(activityId),
     queryFn: () => intervalsApi.getActivityStreams(activityId, ['latlng', 'altitude']),
     staleTime: Infinity,
     gcTime: 1000 * 60 * 10,

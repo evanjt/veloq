@@ -12,6 +12,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
+import { getIntlLocale } from '@/lib';
 import { colors, darkColors, spacing } from '@/theme';
 
 interface DateRangeSummaryProps {
@@ -26,7 +27,7 @@ interface DateRangeSummaryProps {
 function formatDate(dateStr: string | null): string {
   if (!dateStr) return '—';
   const date = new Date(dateStr);
-  return date.toLocaleDateString(undefined, {
+  return date.toLocaleDateString(getIntlLocale(), {
     month: 'short',
     year: 'numeric',
   });
@@ -44,7 +45,7 @@ export function DateRangeSummary({
   const themeColors = isDark ? darkColors : colors;
 
   const handleExpandPress = () => {
-    router.push('/cache-settings' as never);
+    router.push('/settings?scrollTo=syncRange' as never);
   };
 
   return (

@@ -2,6 +2,11 @@
 appId: com.veloq.app.dev
 ---
 - openLink: "veloq://routes?tab=routes"
+- runFlow:
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
 - extendedWaitUntil:
     visible:
       id: "routes-screen"

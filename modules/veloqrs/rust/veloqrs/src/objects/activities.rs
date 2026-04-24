@@ -115,4 +115,17 @@ impl ActivityManager {
     fn debug_clone(&self, source_id: String, count: u32) -> Result<u32, VeloqError> {
         with_engine(|e| e.debug_clone_activity(&source_id, count))
     }
+
+    /// Combined activity-list highlight bundle: section indicators (PRs +
+    /// trends) and route highlights for the same batch of activity IDs in a
+    /// single FFI round-trip. Consumed by `useActivitySectionHighlights`.
+    fn get_highlights_bundle(
+        &self,
+        activity_ids: Vec<String>,
+    ) -> Result<crate::FfiActivityHighlightsBundle, VeloqError> {
+        with_engine(|e| crate::FfiActivityHighlightsBundle {
+            indicators: e.get_activity_indicators(&activity_ids),
+            route_highlights: e.get_activity_route_highlights(&activity_ids),
+        })
+    }
 }

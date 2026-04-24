@@ -27,6 +27,19 @@ export function SummaryCardSection() {
         style={[settingsStyles.sectionCard, isDark && settingsStyles.sectionCardDark]}
         testID="settings-summary-card"
       >
+        {/* Master toggle */}
+        <View style={styles.enabledRow}>
+          <Text style={[styles.enabledLabel, isDark && settingsStyles.textLight]}>
+            {t('settings.showSummaryCard')}
+          </Text>
+          <Switch
+            testID="settings-summary-card-enabled-toggle"
+            value={summaryCard.enabled}
+            onValueChange={(value) => setSummaryCardPreferences({ enabled: value })}
+            color={colors.primary}
+          />
+        </View>
+
         {/* Live Preview using actual SummaryCard with real data */}
         <View style={styles.summaryCardPreview}>
           <SummaryCard
@@ -156,6 +169,17 @@ export function SummaryCardSection() {
 }
 
 const styles = StyleSheet.create({
+  enabledRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  enabledLabel: {
+    ...typography.body,
+    color: colors.textPrimary,
+  },
   summaryCardPreview: {
     marginHorizontal: -layout.screenPadding,
     paddingTop: spacing.sm,

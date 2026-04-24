@@ -19,7 +19,7 @@ import type {
   CalendarEvent,
   IntervalsDTO,
 } from '@/types';
-import { getMonday } from '@/lib';
+import { getMonday, formatLocalDate } from '@/lib';
 
 // Simulate network delay for realistic UX
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -176,18 +176,6 @@ export const mockIntervalsApi = {
   },
 
   /**
-   * Get athlete profile with sport settings
-   */
-  async getAthleteProfile(): Promise<Athlete & { sport_settings?: SportSettings[] }> {
-    await delay(100);
-    const [{ fixtures }, { demoSportSettings }] = await Promise.all([loadFixtures(), loadCurves()]);
-    return {
-      ...(fixtures.athlete as Athlete),
-      sport_settings: demoSportSettings as SportSettings[],
-    };
-  },
-
-  /**
    * Get activity map data (GPS coordinates and bounds)
    */
   async getActivityMap(id: string, boundsOnly = false): Promise<ActivityMapData | null> {
@@ -214,7 +202,7 @@ export const mockIntervalsApi = {
     for (const activity of activities) {
       const date = new Date(activity.start_date_local);
       const monday = getMonday(date);
-      const weekKey = monday.toISOString().split('T')[0];
+      const weekKey = formatLocalDate(monday);
       if (!weekMap.has(weekKey)) {
         weekMap.set(weekKey, []);
       }

@@ -23,6 +23,8 @@ interface FfiExport {
   line: number;
   returnType: string;
   params: string[];
+  /** If set, this export is a method on a UniFFI Object with this name. */
+  object?: string;
 }
 
 /**
@@ -33,8 +35,76 @@ function snakeToCamel(name: string): string {
 }
 
 /**
- * Parse a Rust file for #[uniffi::export] functions.
- * Handles both single-line and multi-line function signatures.
+ * Find the matching closing brace for an impl block starting at `startLine`.
+ * Tracks brace depth to handle nested braces in method bodies.
+ * Returns the line index (0-based) of the matching `}` or the end of file.
+ */
+function findImplBlockEnd(lines: string[], startLine: number): number {
+  let depth = 0;
+  let seenOpen = false;
+  for (let i = startLine; i < lines.length; i++) {
+    for (const ch of lines[i]) {
+      if (ch === '{') {
+        depth++;
+        seenOpen = true;
+      } else if (ch === '}') {
+        depth--;
+        if (seenOpen && depth === 0) return i;
+      }
+    }
+  }
+  return lines.length - 1;
+}
+
+/**
+ * Extract a single function signature (name, params, return type) from a
+ * multi-line declaration starting at `startLine`. Returns null if the
+ * declaration does not look like a function (e.g. it's a `use`/`const`).
+ */
+function parseFnDecl(
+  lines: string[],
+  startLine: number
+): { name: string; params: string[]; returnType: string; line: number } | null {
+  let signature = '';
+  for (let j = startLine; j < lines.length && j < startLine + 30; j++) {
+    signature += lines[j] + ' ';
+    if (lines[j].includes('{') || lines[j].trim().endsWith(';')) break;
+  }
+  signature = signature.replace(/\s+/g, ' ').trim();
+
+  // Matches both `pub fn name(...)` and `fn name(...)` (methods inside impl
+  // blocks often omit `pub`). Optional return type after `->`.
+  const match = signature.match(
+    /(?:pub\s+)?fn\s+(\w+)\s*(?:<[^>]*>)?\s*\(([\s\S]*?)\)(?:\s*->\s*([^{;]+?))?\s*[{;]/
+  );
+  if (!match) return null;
+
+  const [, name, paramsStr, returnType] = match;
+  const params = paramsStr
+    .split(',')
+    .map((p) => p.trim())
+    .filter((p) => p.length > 0 && p !== '&self' && p !== '&mut self' && p !== 'self')
+    .map((p) => p.split(':')[0]?.trim())
+    .filter((p): p is string => !!p && p.length > 0);
+
+  return {
+    name,
+    params,
+    returnType: returnType?.trim() || 'void',
+    line: startLine + 1, // 1-indexed
+  };
+}
+
+/**
+ * Parse a Rust file for #[uniffi::export] exports.
+ *
+ * Handles two shapes:
+ *   1. Standalone functions:   `#[uniffi::export] pub fn name(...) { ... }`
+ *   2. Impl blocks:            `#[uniffi::export] impl Foo { fn a(...); fn b(...); }`
+ *
+ * For impl blocks, every `fn` (or `pub fn`) inside the block is counted as an
+ * individual export. Constructors marked with `#[uniffi::constructor]` and
+ * plain methods are both included; UniFFI exposes all of them.
  */
 function extractExportsFromFile(filePath: string): FfiExport[] {
   const content = fs.readFileSync(filePath, 'utf-8');
@@ -44,45 +114,67 @@ function extractExportsFromFile(filePath: string): FfiExport[] {
   const relativePath = path.relative(RUST_SRC_DIR, filePath);
 
   for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
+    if (lines[i].trim() !== '#[uniffi::export]') continue;
 
-    // Look for #[uniffi::export]
-    if (line.trim() === '#[uniffi::export]') {
-      // Collect lines until we find the complete function signature (ends with {)
-      let fnSignature = '';
-      let fnStartLine = i + 1;
+    // Skip attribute-only lines after the `#[uniffi::export]` to find what it
+    // decorates. This handles stacks like `#[uniffi::export]\n#[something]\nfn`.
+    let declStart = i + 1;
+    while (declStart < lines.length && lines[declStart].trim().startsWith('#[')) {
+      declStart++;
+    }
+    if (declStart >= lines.length) continue;
 
-      for (let j = i + 1; j < lines.length && j < i + 20; j++) {
-        fnSignature += lines[j] + ' ';
-        if (lines[j].includes('{')) {
-          break;
-        }
-      }
+    const firstDeclLine = lines[declStart].trim();
 
-      // Normalize whitespace
-      fnSignature = fnSignature.replace(/\s+/g, ' ').trim();
+    // Case 1: `impl Foo {` block — iterate its methods.
+    if (/^impl(?:\s|<)/.test(firstDeclLine) || /^unsafe\s+impl/.test(firstDeclLine)) {
+      // Extract the type name. Handles `impl Foo`, `impl<T> Foo<T>`, and
+      // `impl TraitName for Foo`. For trait impls we want the concrete type.
+      const implName = (() => {
+        const traitFor = firstDeclLine.match(/^impl(?:<[^>]*>)?\s+\S+\s+for\s+(\w+)/);
+        if (traitFor) return traitFor[1];
+        const direct = firstDeclLine.match(/^impl(?:<[^>]*>)?\s+(\w+)/);
+        return direct ? direct[1] : undefined;
+      })();
 
-      // Match: pub fn function_name(params) -> ReturnType {
-      // Or: pub fn function_name(params) {
-      const fnMatch = fnSignature.match(/pub\s+fn\s+(\w+)\s*\((.*?)\)(?:\s*->\s*(.+?))?\s*\{/);
-      if (fnMatch) {
-        const [, name, paramsStr, returnType] = fnMatch;
+      const implEnd = findImplBlockEnd(lines, declStart);
+      for (let j = declStart + 1; j < implEnd; j++) {
+        const raw = lines[j];
+        const trimmed = raw.trim();
+        // Only consider lines that begin a fn declaration. `fn` must be
+        // preceded by start-of-line, whitespace, or `pub` — we reject occurrences
+        // inside comments or within parameter/type positions.
+        if (trimmed.startsWith('//')) continue;
+        if (!/^(?:pub\s+)?fn\s+\w/.test(trimmed)) continue;
 
-        // Parse parameter names (not types, just names for documentation)
-        const params = paramsStr
-          .split(',')
-          .map((p) => p.trim().split(':')[0]?.trim())
-          .filter((p) => p && p.length > 0);
+        const decl = parseFnDecl(lines, j);
+        if (!decl) continue;
 
         exports.push({
-          name,
-          camelName: snakeToCamel(name),
+          name: decl.name,
+          camelName: snakeToCamel(decl.name),
           file: relativePath,
-          line: fnStartLine + 1, // 1-indexed
-          returnType: returnType?.trim() || 'void',
-          params,
+          line: decl.line,
+          returnType: decl.returnType,
+          params: decl.params,
+          object: implName,
         });
       }
+      continue;
+    }
+
+    // Case 2: standalone function.
+    if (/^(?:pub\s+)?fn\s+\w/.test(firstDeclLine)) {
+      const decl = parseFnDecl(lines, declStart);
+      if (!decl) continue;
+      exports.push({
+        name: decl.name,
+        camelName: snakeToCamel(decl.name),
+        file: relativePath,
+        line: decl.line,
+        returnType: decl.returnType,
+        params: decl.params,
+      });
     }
   }
 
@@ -202,9 +294,27 @@ if (checkMode) {
   process.exit(0);
 }
 
+// Collect the set of `#[uniffi::export] impl` types so tests can assert the
+// domain-object surface. Preserves first-seen order.
+function collectUniffiObjects(allExports: FfiExport[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const exp of allExports) {
+    if (exp.object && !seen.has(exp.object)) {
+      seen.add(exp.object);
+      out.push(exp.object);
+    }
+  }
+  return out;
+}
+
 // Default: generate manifest
 {
   console.log(`Found ${exports.length} FFI exports:\n`);
+
+  const standaloneCount = exports.filter((e) => !e.object).length;
+  const methodCount = exports.filter((e) => e.object).length;
+  const uniffiObjects = collectUniffiObjects(exports);
 
   // Group by file
   const byFile = new Map<string, FfiExport[]>();
@@ -218,12 +328,17 @@ if (checkMode) {
     console.log(`\n${file} (${fileExports.length} exports):`);
     for (const exp of fileExports) {
       const params = exp.params.length > 0 ? exp.params.join(', ') : '';
-      console.log(`  ${exp.line}: ${exp.name}(${params}) -> ${exp.returnType}`);
+      const prefix = exp.object ? `${exp.object}::` : '';
+      console.log(`  ${exp.line}: ${prefix}${exp.name}(${params}) -> ${exp.returnType}`);
       console.log(`       TS: ${exp.camelName}`);
     }
   }
 
-  console.log(`\n\nTotal: ${exports.length} FFI exports`);
+  console.log(
+    `\n\nTotal: ${exports.length} FFI exports ` +
+      `(${standaloneCount} standalone + ${methodCount} methods in ` +
+      `${uniffiObjects.length} UniFFI Objects)`
+  );
 
   // Output as TypeScript constant for tests
   const tsOutput = path.resolve(__dirname, '../src/__tests__/bindings/ffi-exports.generated.ts');
@@ -233,6 +348,10 @@ if (checkMode) {
  *
  * This file contains the expected FFI exports extracted from Rust source.
  * Used by tests to validate TypeScript bindings match Rust exports.
+ *
+ * ${standaloneCount} standalone \`#[uniffi::export]\` functions plus
+ * ${methodCount} methods inside \`#[uniffi::export] impl\` blocks across
+ * ${uniffiObjects.length} UniFFI Objects.
  */
 
 export interface FfiExportInfo {
@@ -244,14 +363,18 @@ export interface FfiExportInfo {
   file: string;
   /** Line number in source file */
   line: number;
+  /** If defined, the UniFFI Object that owns this method. */
+  object?: string;
 }
 
 /**
  * All FFI exports from Rust source.
- * Total: ${exports.length} exports
+ * Total: ${exports.length} exports (${standaloneCount} standalone + ${methodCount} methods)
  */
 export const FFI_EXPORTS: FfiExportInfo[] = ${JSON.stringify(
-    exports.map(({ name, camelName, file, line }) => ({ name, camelName, file, line })),
+    exports.map(({ name, camelName, file, line, object }) =>
+      object ? { name, camelName, file, line, object } : { name, camelName, file, line }
+    ),
     null,
     2
   )};
@@ -265,10 +388,24 @@ ${exports.map((e) => `  '${e.camelName}',`).join('\n')}
 
 /**
  * Rust to TypeScript name mapping.
+ *
+ * Deduplicated — UniFFI objects share method names like \`new\`, \`remove\`,
+ * \`create\`, etc. Use \`FFI_EXPORTS\` with \`file\`/\`line\` when the caller
+ * needs to distinguish across objects.
  */
 export const RUST_TO_TS_NAME: Record<string, string> = {
-${exports.map((e) => `  '${e.name}': '${e.camelName}',`).join('\n')}
+${Array.from(new Map(exports.map((e) => [e.name, e.camelName])).entries())
+  .map(([name, camel]) => `  '${name}': '${camel}',`)
+  .join('\n')}
 };
+
+/**
+ * UniFFI Objects that expose methods via \`#[uniffi::export] impl\` blocks.
+ * Each generates a TypeScript class in the generated bindings.
+ */
+export const UNIFFI_OBJECTS = [
+${uniffiObjects.map((o) => `  '${o}',`).join('\n')}
+] as const;
 `;
 
   fs.writeFileSync(tsOutput, tsContent);

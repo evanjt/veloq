@@ -16,19 +16,20 @@ import {
   useCacheDays,
   useGpxExport,
   useSectionOverlays,
-  useSectionTimeStreams,
   useActivityRematch,
 } from '@/hooks';
 import { useCustomSections } from '@/hooks/routes/useCustomSections';
 import { useRouteMatch } from '@/hooks/routes/useRouteMatch';
-import { useSectionMatches, type SectionMatch } from '@/hooks/routes/useSectionMatches';
+import { useSectionMatches } from '@/hooks/routes/useSectionMatches';
+import { useSectionEncounters } from '@/hooks/routes/useSectionEncounters';
+import { useActivitySectionHighlights } from '@/hooks/activities/useActivitySectionHighlights';
 import {
   ActivityHeader,
   ActivityChartsSection,
   ActivityRoutesSection,
   ActivitySectionsSection,
 } from '@/components';
-import { useDebugStore } from '@/providers';
+import { useDebugStore, useRouteSettings } from '@/providers';
 import { SwipeableTabs, type SwipeableTab } from '@/components/ui';
 import type {
   SectionCreationResult,
@@ -66,7 +67,7 @@ export default function ActivityDetailScreen() {
   });
 
   const { t } = useTranslation();
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, tab } = useLocalSearchParams<{ id: string; tab?: string }>();
   const { isDark } = useTheme();
   const isMetric = useMetricSystem();
   const debugEnabled = useDebugStore((s) => s.enabled);
@@ -82,7 +83,9 @@ export default function ActivityDetailScreen() {
 
   // Tab state for swipeable tabs
   type TabType = 'charts' | 'exercises' | 'routes' | 'sections';
-  const [activeTab, setActiveTab] = useState<TabType>('charts');
+  const validTabs: TabType[] = ['charts', 'exercises', 'routes', 'sections'];
+  const initialTab = validTabs.includes(tab as TabType) ? (tab as TabType) : 'charts';
+  const [activeTab, setActiveTab] = useState<TabType>(initialTab);
 
   // Fetch intervals data
   const { data: intervalsData } = useActivityIntervals(id || '');
@@ -116,6 +119,11 @@ export default function ActivityDetailScreen() {
   const { routeGroup: matchedRoute, representativeActivityId } = useRouteMatch(id);
   const matchedRouteCount = matchedRoute ? 1 : 0;
 
+  // Route PR delta for the Routes tab badge (negative = ahead of PR)
+  const activityIdsForHighlights = useMemo(() => (id ? [id] : []), [id]);
+  const { routes: routeHighlightsMap } = useActivitySectionHighlights(activityIdsForHighlights);
+  const routeHighlight = id ? routeHighlightsMap.get(id) : undefined;
+
   // Fetch representative activity streams for route overlay (only when on Routes tab)
   const { data: representativeStreams } = useActivityStreams(
     activeTab === 'routes' && representativeActivityId ? representativeActivityId : ''
@@ -139,6 +147,7 @@ export default function ActivityDetailScreen() {
   }, [streams?.latlng, activity?.polyline]);
 
   const hasGpsData = coordinates.length > 0;
+  const isRouteMatchingOn = useRouteSettings((s) => s.settings.enabled);
   const isStrength = activity?.type === 'WeightTraining';
   const { data: exerciseSets } = useExerciseSets(id || '', activity?.type ?? '');
   const { data: athlete } = useAthlete();
@@ -155,7 +164,10 @@ export default function ActivityDetailScreen() {
     isRematching,
   } = useActivityRematch();
 
-  // Filter custom sections that match this activity
+  // Section encounters for the sections tab (one entry per section+direction)
+  const { encounters: encountersRaw, isLoading: encountersLoading } = useSectionEncounters(id);
+
+  // Filter custom sections that match this activity (still needed for map overlays)
   const customMatchedSections = useMemo(() => {
     if (!id) return [];
     const engineSectionIds = new Set(engineSectionMatches.map((m) => m.section.id));
@@ -166,33 +178,6 @@ export default function ActivityDetailScreen() {
     );
   }, [sections, id, engineSectionMatches]);
 
-  // Total section count (auto-detected + custom, deduplicated)
-  const totalSectionCount = engineSectionCount + customMatchedSections.length;
-
-  // Unified section list for rendering
-  type UnifiedSectionItem =
-    | { type: 'engine'; match: SectionMatch; index: number }
-    | {
-        type: 'custom';
-        section: (typeof customMatchedSections)[0];
-        index: number;
-      };
-
-  const unifiedSections = useMemo((): UnifiedSectionItem[] => {
-    const items: UnifiedSectionItem[] = [];
-    engineSectionMatches.forEach((match, i) => {
-      items.push({ type: 'engine', match, index: i });
-    });
-    customMatchedSections.forEach((section, i) => {
-      items.push({
-        type: 'custom',
-        section,
-        index: engineSectionMatches.length + i,
-      });
-    });
-    return items;
-  }, [engineSectionMatches, customMatchedSections]);
-
   // Section overlay computation (traces + map overlays)
   const { sectionOverlays } = useSectionOverlays(
     activeTab,
@@ -202,12 +187,48 @@ export default function ActivityDetailScreen() {
     coordinates
   );
 
-  // Time stream syncing + performance data for section best times
-  const { getSectionBestTime } = useSectionTimeStreams(
-    activeTab,
-    engineSectionMatches,
-    customMatchedSections
-  );
+  // Sort encounters by where each section starts within this activity so the
+  // numbered rows follow the trace from start to finish (1 → N). Uses
+  // sectionOverlays.activityPortion (the GPS slice for this activity) and
+  // finds its first coord's nearest index in the activity's full track.
+  const encounters = useMemo(() => {
+    if (!id || encountersRaw.length === 0) return encountersRaw;
+    if (!sectionOverlays || sectionOverlays.length === 0) return encountersRaw;
+    if (coordinates.length === 0) return encountersRaw;
+
+    const findNearestIndex = (targetLat: number, targetLng: number): number => {
+      let best = 0;
+      let bestDist = Number.POSITIVE_INFINITY;
+      for (let i = 0; i < coordinates.length; i++) {
+        const c = coordinates[i];
+        const dLat = c.latitude - targetLat;
+        const dLng = c.longitude - targetLng;
+        const d = dLat * dLat + dLng * dLng;
+        if (d < bestDist) {
+          bestDist = d;
+          best = i;
+        }
+      }
+      return best;
+    };
+
+    const startIndexById = new Map<string, number>();
+    for (const overlay of sectionOverlays) {
+      // Prefer the activity's own portion when extractSectionTrace has run; fall
+      // back to the section's consensus polyline first coord otherwise so the
+      // sort still works on first render.
+      const first = overlay.activityPortion?.[0] ?? overlay.sectionPolyline?.[0];
+      if (!first) continue;
+      startIndexById.set(overlay.id, findNearestIndex(first.latitude, first.longitude));
+    }
+
+    const INF = Number.MAX_SAFE_INTEGER;
+    return [...encountersRaw].sort((a, b) => {
+      const ai = startIndexById.get(a.sectionId) ?? INF;
+      const bi = startIndexById.get(b.sectionId) ?? INF;
+      return ai - bi;
+    });
+  }, [encountersRaw, sectionOverlays, coordinates, id]);
 
   // Tabs configuration
   const tabs = useMemo<SwipeableTab[]>(() => {
@@ -225,23 +246,43 @@ export default function ActivityDetailScreen() {
         icon: 'dumbbell',
       });
     }
-    if (hasGpsData) {
+    if (hasGpsData && isRouteMatchingOn) {
+      const routeBadge: { badgeText?: string; badgeTone?: SwipeableTab['badgeTone'] } = {};
+      if (routeHighlight) {
+        if (routeHighlight.isPr) {
+          routeBadge.badgeText = 'PR';
+          routeBadge.badgeTone = 'pr';
+        } else if (routeHighlight.timeDeltaSeconds != null) {
+          const d = routeHighlight.timeDeltaSeconds;
+          routeBadge.badgeText = d === 0 ? '0s' : `${d > 0 ? '+' : '−'}${Math.abs(d)}s`;
+          routeBadge.badgeTone = d === 0 ? 'neutral' : d < 0 ? 'positive' : 'negative';
+        }
+      }
       allTabs.push(
         {
           key: 'routes',
           label: t('activityDetail.tabs.route'),
           icon: 'map-marker-path',
+          ...routeBadge,
         },
         {
           key: 'sections',
           label: t('activityDetail.tabs.sections'),
           icon: 'road-variant',
-          count: totalSectionCount,
+          count: encounters.length,
         }
       );
     }
     return allTabs;
-  }, [t, isStrength, hasGpsData, matchedRouteCount, totalSectionCount]);
+  }, [
+    t,
+    isStrength,
+    hasGpsData,
+    isRouteMatchingOn,
+    matchedRouteCount,
+    encounters.length,
+    routeHighlight,
+  ]);
 
   // Handle chart point selection
   const handlePointSelect = useCallback((index: number | null) => {
@@ -482,6 +523,7 @@ export default function ActivityDetailScreen() {
           activity={activity}
           activityId={id}
           coordinates={coordinates}
+          streams={streams}
           isMetric={isMetric}
           isDark={isDark}
           debugEnabled={debugEnabled}
@@ -575,10 +617,8 @@ export default function ActivityDetailScreen() {
         {hasGpsData && (
           <ActivitySectionsSection
             activityId={id}
-            activityType={activity.type}
-            unifiedSections={unifiedSections}
+            encounters={encounters}
             coordinates={coordinates}
-            streams={streams}
             isDark={isDark}
             isMetric={isMetric}
             sectionCreationMode={sectionCreationMode}
@@ -586,10 +626,10 @@ export default function ActivityDetailScreen() {
             highlightedSectionId={highlightedSectionId}
             onHighlightedSectionIdChange={setHighlightedSectionId}
             onSectionCreationModeChange={setSectionCreationMode}
-            getSectionBestTime={getSectionBestTime}
             removeSection={removeSection}
             scanMatches={scanMatches}
             isScanning={isRematching}
+            isSectionsLoading={encountersLoading}
             onScan={() => scanForSections(id)}
             onRematch={(sectionId) => rematchSection(id, sectionId)}
           />

@@ -12,19 +12,20 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { colors, darkColors } from '@/theme';
 import { getBoundsFromPoints } from '@/lib';
 import { HEATMAP_TILES_DIR } from '@/hooks/maps/useHeatmapTiles';
+import { useWebViewBridge } from '@/hooks/maps/useWebViewBridge';
+import type { WebViewBridgeHandlers, WebViewBridgeMessage } from '@/hooks/maps/useWebViewBridge';
+import { buildMap3DHtml } from '@/lib/maps/htmlBuilders';
 import type { MapStyleType } from './mapStyles';
-import {
-  getCombinedSatelliteStyle3D,
-  SATELLITE_SOURCES,
-  rewriteSatelliteUrls,
-  rewriteVectorUrls,
-  TERRAIN_3D_CONFIG,
-} from './mapStyles';
+import { getCombinedSatelliteStyle3D, rewriteSatelliteUrls, TERRAIN_3D_CONFIG } from './mapStyles';
 import { DARK_MATTER_STYLE } from './darkMatterStyle';
-import { SWITZERLAND_SIMPLE } from './countryBoundaries';
 
 // Stable empty array to prevent unnecessary re-renders when coordinates prop is undefined
 const EMPTY_COORDS: [number, number][] = [];
+
+// Trophy icon (black silhouette) encoded as base64 for WebView injection.
+// Loaded as SDF in MapLibre GL JS so we can tint it gold and match the 2D view.
+const TROPHY_BASE64 =
+  'iVBORw0KGgoAAAANSUhEUgAAAJAAAACQCAYAAADnRuK4AAAF70lEQVR4nO3da8hlUxzH8e+4TsrwgvFnxbjEmJTLYGiixJiGUsgllyKJXMq4hdIYoohcal6RGjKJofFGI4xovJByeyH3uzX+LoVRrjFe7GfqQWbOedZee521z+/zep+1fvvs37PP2fvsZ28QERERERERERERERERERERERERERERERlT03IMahZuannIX4EvgFfc48ctjz0yzMLewJHA7sD0Nsd2jze3Od5GuQq0Ice4E14BbnSPazLO0SmzsAC4FTgi1xzuMcu2rrFAGz0CXOQef+lgrizMwnbAA8DZuefKVaAtcgzakXOBl8zCzNJBpsIsGLCWDsqTU80FAjgcWG0Wti8dZBhmYQbwDDC3dJZUtRcImo2wonSIIT0KHFQ6RBv6UCCAk8zCGaVDDMIsnAWcWDpHW/pSIIClpQMMaEnpAG3qU4HmmIVDSofYFLNwKLB/6Rxt6lOBYPS/VxxYOkDbtio8/9KWlzvHLMyaWpROHD3EsktbXi6LoicSBz251dGJyZHS9nujE4kyklQgSaICSRIVSJKoQJJEBZIkKpAkUYEkiQokSVQgSaICSRIVSJKoQJJEBZIkKpAkUYEkiQokSVQgSaICSRIVSJKoQJJEBZIkKpAkUYEkiQokSVQgSaICSRIVSJKoQJJEBZIkKpAkUYEkiQokSVQgSZLrHom/AdtubiGzsDbT/NVr+b35rcWx/iFXgb4C9hxguaMyzd8Hbb4361oc6x9yfYS9kWlcmZo3cw2cq0BPZhpXpibb9shVoJXAR5nGluF8SLM9sshSIPf4O3AFMHb3dx4xG4DFE9sji2yH8e7xaaDtZ6fKcJZMbIdssty9fDKzcDtwXe555D/ucI/X554ke4EAzML5wD3Ajl3MN+a+B650jw91MVknBQIwCzsB1wBnMtg5IhnOp8BjwF3u8buuJu2sQJOZhQDsBmw34EumAU8BO+TKNEJ+AE5h8AOQn4F17jFmS7QJRQo0FWZhFXBy6RwdWOUeTy0dYlA1/Zi6pnSAjlS1njUV6PnSATpS1XpW8xEGYBbeB/YtnSOjD9zjfqVDDKOmPRDAstIBMqtu/Wor0HLgp9IhMvmJZv2qUlWB3ON6KnyTB7R8Yv2qUlWBJtxGc7a1T76nWa/qVFcg9/g1cHXpHC27emK9qlPVUdhkZuF54LjSOVrwgnusdj2q2wNNch7wWekQiT6nWY9qVVugid9+jge+KZ1lir4FFrrHL0sHSVFtgQDc4wfAIpofIGuyHjjBPb5XOkiqqgsE4B7fAOZTzzXYHwPz3eNrpYO0ofoCAbjHd4B5ZLx4vCVPAIe7x7dLB2lLtUdh/8csnAHcCexROssknwPXusfHSwdpW+8KBGAWpgOXA4uBUDBKBO4FlrnHXwvmyKaXBdrILGwNnEZzqLwA2LKDaf+kuSTjYWCle/yjgzmL6XWBJjMLM4ETaQ79j6G5pLYt64AXgWeB1e6x1lMLQxubAv2bWdgVmAvMAfYBjgYOGOClbwNraY763gFed49f5co56sa2QP9mFq6g+b6yOYvd432Z41SjF4fxUo4KJElUIEmiAkkSFUiSqECSRAWSJCqQJFGBJMlYn4k2C3sBxwIH0/xGNnuAl70HPEdz69wX3OMnufLVYOwKZBZmABcD5wAHtTDkW8AK4H73+GML41VlbApkFrYBbgCuAmZkmGI9cDdwu3vM9miBUTMWBTILh9FcnzOng+neBc5zj692MFdxvf8SbRYuAF6mm/IA7A+sNQsXdjRfUb0ukFm4FHiQAZ4c1LJtgAfMwmUdz9u53n6EmYWFwGrK/pH8BSxyj88VzJBVLwtkFnakOdyeWTgKwNfA7L4eofX1I+wWRqM8ALvQ40c+9G4PZBZ2pvk/rOmls0zyMzCryxuAd6WPe6BLGK3yQHND9UtLh8ihjwU6vXSA/3Fa6QA59OojzCzsRvPfoKMquMdszy8toW97oHmlA2zGqOcbWt8KtGfpAJsxq3QAERERERERERERERERERERERERERERERFpyd/44SziZksvYgAAAABJRU5ErkJggg==';
 
 interface Map3DWebViewProps {
   /** Route coordinates as [lng, lat] pairs (optional - if not provided, just shows terrain) */
@@ -47,8 +48,19 @@ interface Map3DWebViewProps {
   sectionsGeoJSON?: GeoJSON.FeatureCollection;
   /** GeoJSON for traces layer */
   tracesGeoJSON?: GeoJSON.FeatureCollection;
+  /** GeoJSON for section boundary ticks (perpendicular start/end markers) */
+  sectionBoundariesGeoJSON?: GeoJSON.FeatureCollection;
+  /** GeoJSON for section marker circles (numbered/PR labels) */
+  sectionMarkersGeoJSON?: GeoJSON.FeatureCollection;
+  /** GeoJSON for activity point markers — colored circles per activity, used by
+   *  the global map in 3D so the view matches the 2D markers/clusters paradigm
+   *  instead of drawing every full activity polyline. Features must carry
+   *  `properties.color` (hex string) and may carry `properties.size`. */
+  pointMarkersGeoJSON?: GeoJSON.FeatureCollection;
   /** Highlight marker position as [lng, lat] (from chart scrubbing) */
   highlightCoordinate?: [number, number] | null;
+  /** Section ID currently highlighted (from list row press). Dims other portions. */
+  highlightedSectionId?: string | null;
   /** Whether to show the heatmap raster overlay */
   showHeatmap?: boolean;
 }
@@ -77,6 +89,18 @@ interface Map3DWebViewPropsInternal extends Map3DWebViewProps {
     bearing: number;
     pitch: number;
   } | null;
+  /** Called when user taps on the map (for section creation) */
+  onMapClick?: (coordinate: [number, number]) => void;
+  /** Called when user taps on a section line feature */
+  onSectionClick?: (sectionId: string) => void;
+  /** Called when user taps on an activity point marker (global map only) */
+  onActivityClick?: (activityId: string) => void;
+  /** GeoJSON for section creation line (start to end highlight) */
+  sectionCreationGeoJSON?: GeoJSON.FeatureCollection | GeoJSON.Feature | null;
+  /** Section creation start marker [lng, lat] */
+  sectionCreationStart?: [number, number] | null;
+  /** Section creation end marker [lng, lat] */
+  sectionCreationEnd?: [number, number] | null;
 }
 
 /**
@@ -102,12 +126,22 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       routesGeoJSON,
       sectionsGeoJSON,
       tracesGeoJSON,
+      sectionBoundariesGeoJSON,
+      sectionMarkersGeoJSON,
+      pointMarkersGeoJSON,
       highlightCoordinate,
+      highlightedSectionId,
       showHeatmap = false,
       onMapReady,
       onBearingChange,
       onCameraStateChange,
       initialCamera,
+      onMapClick,
+      onSectionClick,
+      onActivityClick,
+      sectionCreationGeoJSON,
+      sectionCreationStart,
+      sectionCreationEnd,
     },
     ref
   ) {
@@ -125,6 +159,18 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
     const routesGeoJSONRef = useRef(routesGeoJSON);
     const sectionsGeoJSONRef = useRef(sectionsGeoJSON);
     const tracesGeoJSONRef = useRef(tracesGeoJSON);
+    const sectionMarkersGeoJSONRef = useRef(sectionMarkersGeoJSON);
+    const pointMarkersGeoJSONRef = useRef(pointMarkersGeoJSON);
+    const sectionBoundariesGeoJSONRef = useRef(sectionBoundariesGeoJSON);
+    const highlightedSectionIdRef = useRef(highlightedSectionId);
+
+    // Store callback refs to avoid stale closures in message handler
+    const onMapClickRef = useRef(onMapClick);
+    const onSectionClickRef = useRef(onSectionClick);
+    const onActivityClickRef = useRef(onActivityClick);
+    onMapClickRef.current = onMapClick;
+    onSectionClickRef.current = onSectionClick;
+    onActivityClickRef.current = onActivityClick;
 
     // Store initial center/zoom/camera in refs - only used on first render
     // This prevents HTML regeneration when parent updates these values
@@ -148,7 +194,19 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       routesGeoJSONRef.current = routesGeoJSON;
       sectionsGeoJSONRef.current = sectionsGeoJSON;
       tracesGeoJSONRef.current = tracesGeoJSON;
-    }, [routesGeoJSON, sectionsGeoJSON, tracesGeoJSON]);
+      sectionMarkersGeoJSONRef.current = sectionMarkersGeoJSON;
+      pointMarkersGeoJSONRef.current = pointMarkersGeoJSON;
+      sectionBoundariesGeoJSONRef.current = sectionBoundariesGeoJSON;
+      highlightedSectionIdRef.current = highlightedSectionId;
+    }, [
+      routesGeoJSON,
+      sectionsGeoJSON,
+      tracesGeoJSON,
+      sectionMarkersGeoJSON,
+      pointMarkersGeoJSON,
+      sectionBoundariesGeoJSON,
+      highlightedSectionId,
+    ]);
 
     // Update GeoJSON layers dynamically without reloading WebView
     // Reads from refs to avoid stale closure issues
@@ -164,6 +222,18 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
         : 'null';
       const tracesJSON = tracesGeoJSONRef.current
         ? JSON.stringify(tracesGeoJSONRef.current)
+        : 'null';
+      const sectionMarkersJSON = sectionMarkersGeoJSONRef.current
+        ? JSON.stringify(sectionMarkersGeoJSONRef.current)
+        : 'null';
+      const pointMarkersJSON = pointMarkersGeoJSONRef.current
+        ? JSON.stringify(pointMarkersGeoJSONRef.current)
+        : 'null';
+      const boundariesJSON = sectionBoundariesGeoJSONRef.current
+        ? JSON.stringify(sectionBoundariesGeoJSONRef.current)
+        : 'null';
+      const highlightIdJSON = highlightedSectionIdRef.current
+        ? JSON.stringify(highlightedSectionIdRef.current)
         : 'null';
 
       webViewRef.current.injectJavaScript(`
@@ -190,6 +260,10 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
             const routesData = ${routesJSON};
             const sectionsData = ${sectionsJSON};
             const tracesData = ${tracesJSON};
+            const sectionMarkersData = ${sectionMarkersJSON};
+            const pointMarkersData = ${pointMarkersJSON};
+            const sectionBoundariesData = ${boundariesJSON};
+            const highlightedSectionId = ${highlightIdJSON};
 
             // Helper to safely add or update a layer
             function updateLayer(sourceId, layerId, data, layerConfig) {
@@ -256,16 +330,241 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
             // Update routes layer (with outline for visibility) - purple to match 2D
             addLayerWithOutline('routes-source', 'routes-layer', routesData, '#9C27B0', 3, 0.8);
 
-            // Update sections layer - vibrant green for visibility on all map styles
-            // Don't use sportType color as it may fall back to dark gray
-            addLayerWithOutline('sections-source', 'sections-layer', sectionsData, '#4CAF50', 5, 0.9);
+            // Update sections layer — section consensus polylines (used by RegionalMapView
+            // where there is no activity trace to overlay onto). ActivityMapView does not
+            // pass sectionsGeoJSON, so this layer is hidden there.
+            // Match 2D: per-feature color from getSectionStyle (color property),
+            // thin dashed line so long sections do not dominate the 3D view.
+            addLayerWithOutline('sections-source', 'sections-layer', sectionsData,
+              ['case', ['==', ['get', 'isPR'], true], '#D4AF37', ['get', 'color']], 2.4, 0.95);
+            try {
+              if (window.map.getLayer('sections-layer')) {
+                window.map.setPaintProperty('sections-layer', 'line-dasharray', [2, 1.2]);
+              }
+            } catch (e) { /* noop */ }
 
-            // Update traces layer (activity GPS tracks) - use color from GeoJSON
-            addLayerWithOutline('traces-source', 'traces-layer', tracesData, ['get', 'color'], 2, 0.7);
+            // Update traces layer — activity portion cutouts along the activity's own GPS trace.
+            // PR = gold; non-PR = section palette indexed by colorIndex (matches 2D).
+            var baseTracesColor = ['case', ['==', ['get', 'isPR'], true], '#D4AF37',
+              ['match', ['get', 'colorIndex'],
+                0, '#00BCD4', 1, '#AB47BC', 2, '#FF7043', 3, '#66BB6A',
+                4, '#42A5F5', 5, '#FFCA28', 6, '#26A69A', 7, '#EC407A',
+                '#00BCD4']];
+            addLayerWithOutline('traces-source', 'traces-layer', tracesData,
+              baseTracesColor, 4, 1);
+            // Dashed pattern — overlapping sections let the colour underneath bleed through.
+            try {
+              if (window.map.getLayer('traces-layer')) {
+                window.map.setPaintProperty('traces-layer', 'line-dasharray', [2, 1.2]);
+              }
+            } catch (e) { /* noop */ }
+            // Apply highlight state by re-setting paint props (addLayerWithOutline only
+            // calls setData on subsequent calls, so paint updates go through here).
+            try {
+              if (window.map.getLayer('traces-layer')) {
+                var tracesColor = highlightedSectionId
+                  ? ['case',
+                      ['==', ['get', 'id'], highlightedSectionId], '#00E5FF',
+                      ['==', ['get', 'isPR'], true], '#D4AF37',
+                      ['match', ['get', 'colorIndex'],
+                        0, '#00BCD4', 1, '#AB47BC', 2, '#FF7043', 3, '#66BB6A',
+                        4, '#42A5F5', 5, '#FFCA28', 6, '#26A69A', 7, '#EC407A',
+                        '#00BCD4']]
+                  : baseTracesColor;
+                var tracesOpacity = highlightedSectionId
+                  ? ['case', ['==', ['get', 'id'], highlightedSectionId], 1, 0.25]
+                  : 0.95;
+                var tracesWidth = highlightedSectionId
+                  ? ['case', ['==', ['get', 'id'], highlightedSectionId], 6, 4]
+                  : 4;
+                window.map.setPaintProperty('traces-layer', 'line-color', tracesColor);
+                window.map.setPaintProperty('traces-layer', 'line-opacity', tracesOpacity);
+                window.map.setPaintProperty('traces-layer', 'line-width', tracesWidth);
+              }
+            } catch (e) { console.warn('traces-layer paint update failed:', e); }
+
+            // Section boundary ticks — perpendicular marks at each portion's start/end.
+            // Drawn above traces so boundaries are visible through any overlap.
+            try {
+              var boundariesSrcExists = !!window.map.getSource('section-boundaries-source');
+              var hasBoundaries = sectionBoundariesData && sectionBoundariesData.features && sectionBoundariesData.features.length > 0;
+              if (boundariesSrcExists) {
+                if (hasBoundaries) {
+                  window.map.getSource('section-boundaries-source').setData(sectionBoundariesData);
+                  window.map.setLayoutProperty('section-boundaries-casing-3d', 'visibility', 'visible');
+                  window.map.setLayoutProperty('section-boundaries-line-3d', 'visibility', 'visible');
+                } else {
+                  window.map.setLayoutProperty('section-boundaries-casing-3d', 'visibility', 'none');
+                  window.map.setLayoutProperty('section-boundaries-line-3d', 'visibility', 'none');
+                }
+              } else if (hasBoundaries) {
+                window.map.addSource('section-boundaries-source', { type: 'geojson', data: sectionBoundariesData });
+                window.map.addLayer({
+                  id: 'section-boundaries-casing-3d',
+                  type: 'line',
+                  source: 'section-boundaries-source',
+                  layout: { 'line-cap': 'round' },
+                  paint: { 'line-color': '#000000', 'line-width': 6, 'line-opacity': 0.45 },
+                });
+                window.map.addLayer({
+                  id: 'section-boundaries-line-3d',
+                  type: 'line',
+                  source: 'section-boundaries-source',
+                  layout: { 'line-cap': 'round' },
+                  paint: { 'line-color': '#FFFFFF', 'line-width': 3.5 },
+                });
+              }
+            } catch (e) { console.warn('section-boundaries layer error:', e); }
+
+            // Update section markers (numbered/PR circles matching 2D parity)
+            var markerSourceExists = !!window.map.getSource('section-markers-source');
+            var hasMarkers = sectionMarkersData && sectionMarkersData.features && sectionMarkersData.features.length > 0;
+
+            function addMarkerLayers() {
+              try {
+                if (!hasMarkers) {
+                  ['section-marker-circle-3d','section-marker-border-3d','section-marker-text-3d','section-marker-pr-shadow-3d','section-marker-pr-icon-3d'].forEach(function(id) {
+                    if (window.map.getLayer(id)) window.map.setLayoutProperty(id, 'visibility', 'none');
+                  });
+                  return;
+                }
+                if (markerSourceExists) {
+                  window.map.getSource('section-markers-source').setData(sectionMarkersData);
+                } else {
+                  window.map.addSource('section-markers-source', { type: 'geojson', data: sectionMarkersData });
+                }
+                // Remove any old unfiltered layers from previous versions so the new filtered ones take over
+                ['section-marker-border-3d','section-marker-circle-3d','section-marker-text-3d','section-marker-pr-shadow-3d','section-marker-pr-icon-3d'].forEach(function(id) {
+                  if (window.map.getLayer(id)) window.map.removeLayer(id);
+                });
+                {
+                  // Non-PR numbered markers: white border + colored fill + text label
+                  window.map.addLayer({
+                    id: 'section-marker-border-3d',
+                    type: 'circle',
+                    source: 'section-markers-source',
+                    filter: ['!=', ['get', 'isPR'], true],
+                    paint: { 'circle-radius': 14, 'circle-color': '#FFFFFF' },
+                  });
+                  window.map.addLayer({
+                    id: 'section-marker-circle-3d',
+                    type: 'circle',
+                    source: 'section-markers-source',
+                    filter: ['!=', ['get', 'isPR'], true],
+                    paint: {
+                      'circle-radius': 12,
+                      'circle-color': ['match', ['get', 'colorIndex'],
+                        0, '#00BCD4', 1, '#AB47BC', 2, '#FF7043', 3, '#66BB6A',
+                        4, '#42A5F5', 5, '#FFCA28', 6, '#26A69A', 7, '#EC407A',
+                        '#00BCD4'],
+                      'circle-stroke-width': 2,
+                      'circle-stroke-color': '#FFFFFF',
+                    },
+                  });
+                  window.map.addLayer({
+                    id: 'section-marker-text-3d',
+                    type: 'symbol',
+                    source: 'section-markers-source',
+                    filter: ['!=', ['get', 'isPR'], true],
+                    layout: {
+                      'text-field': ['get', 'label'],
+                      'text-size': 10,
+                      'text-anchor': 'center',
+                      'text-allow-overlap': true,
+                      'text-ignore-placement': true,
+                    },
+                    paint: { 'text-color': '#FFFFFF' },
+                  });
+                  // PR markers: gold trophy, offset above trace
+                  if (window.map.hasImage('trophy-3d')) {
+                    window.map.addLayer({
+                      id: 'section-marker-pr-icon-3d',
+                      type: 'symbol',
+                      source: 'section-markers-source',
+                      filter: ['==', ['get', 'isPR'], true],
+                      layout: {
+                        'icon-image': 'trophy-3d',
+                        'icon-size': 0.15,
+                        'icon-offset': [0, -90],
+                        'icon-allow-overlap': true,
+                        'icon-ignore-placement': true,
+                        'icon-anchor': 'center',
+                      },
+                      paint: {
+                        'icon-color': '#D4AF37',
+                      },
+                    });
+                  }
+                }
+              } catch (e) {
+                console.warn('Section marker layer error:', e);
+              }
+            }
+
+            // Load trophy image as SDF once, then add marker layers.
+            if (!window.map.hasImage('trophy-3d')) {
+              var trophyImg = new Image();
+              trophyImg.onload = function() {
+                try {
+                  if (!window.map.hasImage('trophy-3d')) {
+                    window.map.addImage('trophy-3d', trophyImg, { sdf: true });
+                  }
+                } catch (err) { console.warn('addImage trophy-3d failed:', err); }
+                addMarkerLayers();
+              };
+              trophyImg.onerror = function() {
+                console.warn('trophy-3d image failed to load');
+                addMarkerLayers();
+              };
+              trophyImg.src = 'data:image/png;base64,${TROPHY_BASE64}';
+            } else {
+              addMarkerLayers();
+            }
+
+            // Activity point markers — used by the global map in 3D as a
+            // points-only equivalent of the 2D markers/clusters layer. We
+            // intentionally skip MapLibre supercluster here to keep the
+            // implementation simple; the marker count on global is in the
+            // hundreds and renders fine as raw points.
+            try {
+              var pointSourceExists = !!window.map.getSource('activity-points-source');
+              var hasPoints = pointMarkersData && pointMarkersData.features && pointMarkersData.features.length > 0;
+              if (pointSourceExists) {
+                if (hasPoints) {
+                  window.map.getSource('activity-points-source').setData(pointMarkersData);
+                  window.map.setLayoutProperty('activity-points-layer', 'visibility', 'visible');
+                } else {
+                  window.map.setLayoutProperty('activity-points-layer', 'visibility', 'none');
+                }
+              } else if (hasPoints) {
+                window.map.addSource('activity-points-source', { type: 'geojson', data: pointMarkersData });
+                window.map.addLayer({
+                  id: 'activity-points-layer',
+                  type: 'circle',
+                  source: 'activity-points-source',
+                  paint: {
+                    'circle-color': ['get', 'color'],
+                    'circle-radius': [
+                      'interpolate', ['linear'], ['zoom'],
+                      6, 4,
+                      10, 6,
+                      14, 8,
+                      18, 10
+                    ],
+                    'circle-opacity': 0.9,
+                    'circle-stroke-color': '#FFFFFF',
+                    'circle-stroke-width': 1.5,
+                    'circle-stroke-opacity': 0.8,
+                  },
+                });
+              }
+            } catch (e) { console.warn('activity-points layer error:', e); }
 
             console.log('[3D] Layers updated - routes:', routesData?.features?.length || 0,
                         'sections:', sectionsData?.features?.length || 0,
-                        'traces:', tracesData?.features?.length || 0);
+                        'traces:', tracesData?.features?.length || 0,
+                        'sectionMarkers:', sectionMarkersData?.features?.length || 0,
+                        'pointMarkers:', pointMarkersData?.features?.length || 0);
           }
 
           addOrUpdateLayers();
@@ -274,109 +573,143 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       `);
     }, []);
 
-    // Handle messages from WebView
-    const handleMessage = useCallback(
-      (event: { nativeEvent: { data: string } }) => {
-        try {
-          const data = JSON.parse(event.nativeEvent.data);
-          // Validate message structure before using
-          if (typeof data !== 'object' || data === null || typeof data.type !== 'string') {
-            return;
-          }
-          if (data.type === 'console') {
-            console.log('[3D]', data.message);
-            return;
-          }
-          if (data.type === 'mapReady') {
-            mapReadyRef.current = true;
-            onMapReady?.();
-            // Update layers after map is ready - small delay ensures style is fully settled
-            setTimeout(() => updateLayers(), 100);
-          } else if (data.type === 'bearingChange' && typeof data.bearing === 'number') {
+    // Handle messages from WebView — dispatch via shared bridge
+    // Each handler keeps its previous body; only the outer parse/dispatch moved
+    // into `useWebViewBridge`.
+    const bridgeHandlers = useMemo<WebViewBridgeHandlers>(
+      () => ({
+        console: (data: WebViewBridgeMessage) => {
+          console.log('[3D]', data.message);
+        },
+        mapReady: () => {
+          mapReadyRef.current = true;
+          onMapReady?.();
+          // Update layers after map is ready - small delay ensures style is fully settled
+          setTimeout(() => updateLayers(), 100);
+        },
+        bearingChange: (data: WebViewBridgeMessage) => {
+          if (typeof data.bearing === 'number') {
             onBearingChange?.(data.bearing);
-          } else if (data.type === 'cameraState' && data.camera) {
-            // Save camera state for restoration
-            savedCameraRef.current = data.camera;
-            onCameraStateChange?.(data.camera);
-          } else if (data.type === 'heatmapTileRequest' && data.requestId && data.tilePath) {
-            // Heatmap tile request from WebView — read PNG from filesystem, return as base64
-            const fullPath = `${HEATMAP_TILES_DIR}${data.tilePath}`;
-            FileSystem.getInfoAsync(fullPath)
-              .then((info) => {
-                if (info.exists && info.size > 0) {
-                  return FileSystem.readAsStringAsync(fullPath, {
-                    encoding: FileSystem.EncodingType.Base64,
-                  });
-                }
-                return null;
-              })
-              .then((base64) => {
-                if (!webViewRef.current) return;
-                if (base64) {
-                  webViewRef.current.injectJavaScript(`
+          }
+        },
+        cameraState: (data: WebViewBridgeMessage) => {
+          if (!data.camera) return;
+          const camera = data.camera as {
+            center: [number, number];
+            zoom: number;
+            bearing: number;
+            pitch: number;
+          };
+          // Save camera state for restoration
+          savedCameraRef.current = camera;
+          onCameraStateChange?.(camera);
+        },
+        mapClick: (data: WebViewBridgeMessage) => {
+          if (Array.isArray(data.coordinate) && data.coordinate.length === 2) {
+            onMapClickRef.current?.(data.coordinate as [number, number]);
+          }
+        },
+        sectionClick: (data: WebViewBridgeMessage) => {
+          if (typeof data.sectionId === 'string') {
+            onSectionClickRef.current?.(data.sectionId);
+          }
+        },
+        activityClick: (data: WebViewBridgeMessage) => {
+          if (typeof data.activityId === 'string') {
+            onActivityClickRef.current?.(data.activityId);
+          }
+        },
+        heatmapTileRequest: (data: WebViewBridgeMessage) => {
+          if (!data.requestId || !data.tilePath) return;
+          const requestId = data.requestId as string;
+          const tilePath = data.tilePath as string;
+          // Heatmap tile request from WebView — read PNG from filesystem, return as base64
+          const fullPath = `${HEATMAP_TILES_DIR}${tilePath}`;
+          FileSystem.getInfoAsync(fullPath)
+            .then((info) => {
+              if (info.exists && info.size > 0) {
+                return FileSystem.readAsStringAsync(fullPath, {
+                  encoding: FileSystem.EncodingType.Base64,
+                });
+              }
+              return null;
+            })
+            .then((base64) => {
+              if (!webViewRef.current) return;
+              if (base64) {
+                // MapLibre's addProtocol expects { data: ArrayBuffer } for raster
+                // tiles. The previous implementation passed an Image (decode
+                // failed) and built a Blob via `new Blob([atob(b64)])` which
+                // re-encodes the binary string as UTF-8 — the PNG bytes get
+                // mangled. Convert base64 → Uint8Array → ArrayBuffer manually
+                // by walking charCodeAt to preserve raw bytes.
+                webViewRef.current.injectJavaScript(`
                   (function() {
-                    var req = window._heatmapRequests && window._heatmapRequests['${data.requestId}'];
-                    if (req) {
+                    var req = window._heatmapRequests && window._heatmapRequests['${requestId}'];
+                    if (!req) return;
+                    try {
                       var binary = atob('${base64}');
-                      var blob = new Blob([binary], { type: 'image/png' });
-                      var url = URL.createObjectURL(blob);
-                      var img = new Image();
-                      img.onload = function() {
-                        URL.revokeObjectURL(url);
-                        req.resolve({ data: img });
-                        delete window._heatmapRequests['${data.requestId}'];
-                      };
-                      img.onerror = function() {
-                        URL.revokeObjectURL(url);
-                        req.reject(new Error('heatmap image decode failed'));
-                        delete window._heatmapRequests['${data.requestId}'];
-                      };
-                      img.src = url;
+                      var len = binary.length;
+                      var bytes = new Uint8Array(len);
+                      for (var i = 0; i < len; i++) {
+                        bytes[i] = binary.charCodeAt(i);
+                      }
+                      req.resolve({ data: bytes.buffer });
+                    } catch (err) {
+                      req.reject(new Error('heatmap base64 decode failed: ' + err));
                     }
+                    delete window._heatmapRequests['${requestId}'];
                   })();
                   true;
                 `);
-                } else {
-                  // Tile not found
-                  webViewRef.current.injectJavaScript(`
+              } else {
+                // Tile not found
+                webViewRef.current.injectJavaScript(`
                   (function() {
-                    var req = window._heatmapRequests && window._heatmapRequests['${data.requestId}'];
+                    var req = window._heatmapRequests && window._heatmapRequests['${requestId}'];
                     if (req) {
                       req.reject(new Error('not found'));
-                      delete window._heatmapRequests['${data.requestId}'];
+                      delete window._heatmapRequests['${requestId}'];
                     }
                   })();
                   true;
                 `);
-                }
-              })
-              .catch(() => {
-                // Read error
-                webViewRef.current?.injectJavaScript(`
+              }
+            })
+            .catch(() => {
+              // Read error
+              webViewRef.current?.injectJavaScript(`
                 (function() {
-                  var req = window._heatmapRequests && window._heatmapRequests['${data.requestId}'];
+                  var req = window._heatmapRequests && window._heatmapRequests['${requestId}'];
                   if (req) {
                     req.reject(new Error('read error'));
-                    delete window._heatmapRequests['${data.requestId}'];
+                    delete window._heatmapRequests['${requestId}'];
                   }
                 })();
                 true;
               `);
-              });
-          }
-        } catch {
-          // Ignore parse errors
-        }
-      },
+            });
+        },
+      }),
       [onMapReady, onBearingChange, onCameraStateChange, updateLayers]
     );
+    const handleMessage = useWebViewBridge(bridgeHandlers);
 
     // Update layers when GeoJSON props change (without reloading WebView)
     useEffect(() => {
       if (mapReadyRef.current) {
         updateLayers();
       }
-    }, [routesGeoJSON, sectionsGeoJSON, tracesGeoJSON, updateLayers]);
+    }, [
+      routesGeoJSON,
+      sectionsGeoJSON,
+      tracesGeoJSON,
+      sectionMarkersGeoJSON,
+      pointMarkersGeoJSON,
+      sectionBoundariesGeoJSON,
+      highlightedSectionId,
+      updateLayers,
+    ]);
 
     // Apply style changes via setStyle() injection — avoids full WebView reload.
     // Builds a complete style object with terrain, sky, hillshade, and route layers,
@@ -493,7 +826,9 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
             window.map.setStyle(styleObj);
             console.log('[3D] Style changed via setStyle()');
 
-            // Re-add heatmap raster overlay (setStyle clears all sources/layers)
+            // Re-add heatmap raster overlay (setStyle clears all sources/layers).
+            // Probe for 'route-outline' before inserting under it — it's only
+            // present in activity-detail mode (when route coordinates exist).
             window.map.once('style.load', function() {
               if (!window.map.getSource('heatmap-tiles')) {
                 var isLight = '${mapStyle}' === 'light';
@@ -504,6 +839,7 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
                   minzoom: 5,
                   maxzoom: 17
                 });
+                var heatmapBeforeId = window.map.getLayer('route-outline') ? 'route-outline' : undefined;
                 window.map.addLayer({
                   id: 'heatmap-layer',
                   type: 'raster',
@@ -516,7 +852,7 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
                     'raster-fade-duration': 0,
                     'raster-resampling': 'linear'
                   }
-                }, 'route-outline');
+                }, heatmapBeforeId);
               }
             });
           }
@@ -591,6 +927,105 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       }
     }, [highlightCoordinate]);
 
+    // Update section creation layers dynamically (line + start/end markers)
+    useEffect(() => {
+      if (!webViewRef.current || !mapReadyRef.current) return;
+
+      const hasLine =
+        sectionCreationGeoJSON &&
+        ((sectionCreationGeoJSON as GeoJSON.Feature).type === 'Feature' ||
+          ((sectionCreationGeoJSON as GeoJSON.FeatureCollection).features?.length ?? 0) > 0);
+
+      const lineJSON = hasLine ? JSON.stringify(sectionCreationGeoJSON) : 'null';
+      const hasStart = !!sectionCreationStart;
+      const hasEnd = !!sectionCreationEnd;
+
+      // Build markers FeatureCollection
+      const markerFeatures: GeoJSON.Feature[] = [];
+      if (hasStart && sectionCreationStart) {
+        markerFeatures.push({
+          type: 'Feature',
+          properties: { type: 'start' },
+          geometry: { type: 'Point', coordinates: sectionCreationStart },
+        });
+      }
+      if (hasEnd && sectionCreationEnd) {
+        markerFeatures.push({
+          type: 'Feature',
+          properties: { type: 'end' },
+          geometry: { type: 'Point', coordinates: sectionCreationEnd },
+        });
+      }
+      const markersJSON =
+        markerFeatures.length > 0
+          ? JSON.stringify({ type: 'FeatureCollection', features: markerFeatures })
+          : 'null';
+
+      webViewRef.current.injectJavaScript(`
+        (function() {
+          if (!window.map) return;
+          try {
+            // Update section creation line — re-create source/layers after setStyle wipes them
+            var lineData = ${lineJSON};
+            var lineSource = window.map.getSource('section-creation-line');
+            if (lineSource) {
+              if (lineData) {
+                lineSource.setData(lineData);
+                window.map.setLayoutProperty('section-creation-line-outline', 'visibility', 'visible');
+                window.map.setLayoutProperty('section-creation-line-fill', 'visibility', 'visible');
+              } else {
+                window.map.setLayoutProperty('section-creation-line-outline', 'visibility', 'none');
+                window.map.setLayoutProperty('section-creation-line-fill', 'visibility', 'none');
+              }
+            } else if (lineData) {
+              window.map.addSource('section-creation-line', { type: 'geojson', data: lineData });
+              window.map.addLayer({
+                id: 'section-creation-line-outline', type: 'line', source: 'section-creation-line',
+                layout: { 'line-join': 'round', 'line-cap': 'round' },
+                paint: { 'line-color': '#FFFFFF', 'line-width': 8, 'line-opacity': 0.6 },
+              });
+              window.map.addLayer({
+                id: 'section-creation-line-fill', type: 'line', source: 'section-creation-line',
+                layout: { 'line-join': 'round', 'line-cap': 'round' },
+                paint: { 'line-color': '#22C55E', 'line-width': 6, 'line-opacity': 1 },
+              });
+            }
+            // Update section creation markers — re-create if missing
+            var markersData = ${markersJSON};
+            var markerSource = window.map.getSource('section-creation-markers');
+            if (markerSource) {
+              if (markersData) {
+                markerSource.setData(markersData);
+                window.map.setLayoutProperty('section-creation-marker-border', 'visibility', 'visible');
+                window.map.setLayoutProperty('section-creation-marker-fill', 'visibility', 'visible');
+                window.map.setLayoutProperty('section-creation-marker-icon', 'visibility', 'visible');
+              } else {
+                window.map.setLayoutProperty('section-creation-marker-border', 'visibility', 'none');
+                window.map.setLayoutProperty('section-creation-marker-fill', 'visibility', 'none');
+                window.map.setLayoutProperty('section-creation-marker-icon', 'visibility', 'none');
+              }
+            } else if (markersData) {
+              window.map.addSource('section-creation-markers', { type: 'geojson', data: markersData });
+              window.map.addLayer({
+                id: 'section-creation-marker-border', type: 'circle', source: 'section-creation-markers',
+                paint: { 'circle-radius': 10, 'circle-color': '#FFFFFF' },
+              });
+              window.map.addLayer({
+                id: 'section-creation-marker-fill', type: 'circle', source: 'section-creation-markers',
+                paint: { 'circle-radius': 8, 'circle-color': ['case', ['==', ['get', 'type'], 'start'], 'rgba(34,197,94,0.9)', 'rgba(239,68,68,0.9)'] },
+              });
+              window.map.addLayer({
+                id: 'section-creation-marker-icon', type: 'symbol', source: 'section-creation-markers',
+                layout: { 'text-field': ['case', ['==', ['get', 'type'], 'start'], '\\u25B6', '\\u25A0'], 'text-size': 10, 'text-allow-overlap': true, 'text-ignore-placement': true },
+                paint: { 'text-color': '#FFFFFF' },
+              });
+            }
+          } catch (e) { console.warn('[3D] Section creation layer error:', e); }
+        })();
+        true;
+      `);
+    }, [sectionCreationGeoJSON, sectionCreationStart, sectionCreationEnd]);
+
     // Toggle heatmap visibility dynamically (without regenerating HTML)
     useEffect(() => {
       if (!webViewRef.current || !mapReadyRef.current) return;
@@ -632,571 +1067,36 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       // Reset map ready state when HTML regenerates
       mapReadyRef.current = false;
 
-      const devicePixelRatio = Math.min(PixelRatio.get(), 2); // Cap at 2x for 3D terrain
-      const coordsJSON = JSON.stringify(coordinates);
-      const boundsJSON = bounds ? JSON.stringify(bounds) : 'null';
       // Use saved camera position if available (from previous style change),
       // then fall back to initialCamera override (from parent), then to initial props.
       const savedCamera = savedCameraRef.current ?? initialCameraRef.current;
-      const centerJSON = savedCamera
-        ? JSON.stringify(savedCamera.center)
-        : initialCenterRef.current
-          ? JSON.stringify(initialCenterRef.current)
-          : 'null';
-      const zoomValue = savedCamera ? savedCamera.zoom : (initialZoomRef.current ?? 12);
-      const bearingValue = savedCamera ? savedCamera.bearing : 0;
-      const pitchValue = savedCamera ? savedCamera.pitch : initialPitch;
-      // Use initial style ref for HTML generation — subsequent style changes
-      // are handled via setStyle() injection without regenerating HTML
-      const initStyle = initialMapStyleRef.current;
-      const isSatellite = initStyle === 'satellite';
-      const isDark = initStyle === 'dark' || initStyle === 'satellite';
+      const centerOverride = savedCamera ? savedCamera.center : (initialCenterRef.current ?? null);
+      const zoom = savedCamera ? savedCamera.zoom : (initialZoomRef.current ?? 12);
+      const bearing = savedCamera ? savedCamera.bearing : 0;
+      const pitch = savedCamera ? savedCamera.pitch : initialPitch;
 
-      // Serialize shared terrain config for injection into initial HTML
-      const initTerrainSourceJSON = JSON.stringify(TERRAIN_3D_CONFIG.source);
-      const initSkyConfigJSON = JSON.stringify(
-        isSatellite
-          ? TERRAIN_3D_CONFIG.sky.satellite
-          : isDark
-            ? TERRAIN_3D_CONFIG.sky.dark
-            : TERRAIN_3D_CONFIG.sky.light
-      );
-      const initHillshadePaintJSON = JSON.stringify(
-        isDark ? TERRAIN_3D_CONFIG.hillshadePaint.dark : TERRAIN_3D_CONFIG.hillshadePaint.light
-      );
-
-      // For satellite, we use combined style with all regional sources layered
-      // For dark, we use the bundled Dark Matter style with OpenFreeMap tiles
-      // Rewrite tile URLs to use cached protocols for offline/performance
-      const styleConfig = isSatellite
-        ? JSON.stringify(rewriteSatelliteUrls(getCombinedSatelliteStyle3D()))
-        : initStyle === 'dark'
-          ? JSON.stringify(rewriteVectorUrls(DARK_MATTER_STYLE))
-          : `null`; // light uses URL-based style — fetched and rewritten in JS init
-
-      return `
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>3D Map</title>
-  <script src="https://unpkg.com/maplibre-gl@5.19.0/dist/maplibre-gl.js"></script>
-  <link href="https://unpkg.com/maplibre-gl@5.19.0/dist/maplibre-gl.css" rel="stylesheet" />
-  <style>
-    body { margin: 0; padding: 0; overflow: hidden; }
-    #map { width: 100vw; height: 100vh; }
-  </style>
-</head>
-<body>
-  <div id="map"></div>
-  <script>
-    // Bridge console logging to React Native for debugging
-    window._rn_log = function(msg) {
-      try {
-        if (window.ReactNativeWebView) {
-          window.ReactNativeWebView.postMessage(JSON.stringify({
-            type: 'console', message: String(msg)
-          }));
-        }
-      } catch(e) {}
-    };
-
-    const coordinates = ${coordsJSON};
-    window._routeCoords = coordinates;
-    const bounds = ${boundsJSON};
-    const center = ${centerJSON};
-    const savedZoom = ${zoomValue};
-    const savedBearing = ${bearingValue};
-    const savedPitch = ${pitchValue};
-    const isSatellite = ${isSatellite};
-    const _terrainSource = ${initTerrainSourceJSON};
-    const _skyConfig = ${initSkyConfigJSON};
-    const _hillshadePaint = ${initHillshadePaintJSON};
-    const _hillshadeInsertCandidates = ${JSON.stringify(TERRAIN_3D_CONFIG.hillshadeInsertBeforeCandidates)};
-
-    // Decode ArrayBuffer/Blob into HTMLImageElement via Object URL.
-    // MapLibre v5 uses it directly (instanceof HTMLImageElement check),
-    // bypassing arrayBufferToCanvasImageSource → createImageBitmap
-    // which fails silently in Android WebView.
-    function demBlobToImage(blob) {
-      return new Promise(function(resolve, reject) {
-        var url = URL.createObjectURL(blob);
-        var img = new Image();
-        img.onload = function() {
-          URL.revokeObjectURL(url);
-          resolve({ data: img });
-        };
-        img.onerror = function() {
-          URL.revokeObjectURL(url);
-          reject(new Error('DEM image decode failed'));
-        };
-        img.src = url;
+      return buildMap3DHtml({
+        coordinates,
+        bounds,
+        centerOverride,
+        zoom,
+        bearing,
+        pitch,
+        hasSavedCamera: !!savedCamera,
+        terrainExaggeration,
+        // Use initial style ref — subsequent style changes are handled via
+        // setStyle() injection without regenerating HTML.
+        initStyle: initialMapStyleRef.current,
+        // mapStyle (current prop) is intentionally captured via closure here,
+        // so the heatmap `isLightMap` calc reflects the style in effect at the
+        // time the memo re-ran. It's not a memo dependency because style changes
+        // go through setStyle() injection, not HTML regeneration.
+        mapStyle,
+        routeColor,
+        showHeatmap,
+        devicePixelRatio: Math.min(PixelRatio.get(), 2), // Cap at 2x for 3D terrain
       });
-    }
-
-    // Cache eviction — FIFO, size-based. Checked every 50 inserts per cache.
-    var _insertCounts = {};
-    var CACHE_BUDGETS = {
-      'veloq-satellite-v1': 120 * 1024 * 1024,
-      'veloq-vector-v1': 50 * 1024 * 1024,
-      'veloq-terrain-dem-v1': 30 * 1024 * 1024,
-    };
-
-    function maybeEvict(cacheName) {
-      _insertCounts[cacheName] = (_insertCounts[cacheName] || 0) + 1;
-      if (_insertCounts[cacheName] % 50 !== 0) return;
-      var budget = CACHE_BUDGETS[cacheName];
-      if (!budget) return;
-      caches.open(cacheName).then(function(cache) {
-        cache.keys().then(function(requests) {
-          var sizes = requests.map(function(req) {
-            return cache.match(req).then(function(r) {
-              if (!r) return { req: req, size: 0 };
-              var cl = parseInt(r.headers.get('content-length') || '0') || 0;
-              if (cl > 0) return { req: req, size: cl };
-              return r.arrayBuffer().then(function(buf) {
-                return { req: req, size: buf.byteLength };
-              });
-            });
-          });
-          Promise.all(sizes).then(function(entries) {
-            var total = entries.reduce(function(s, e) { return s + e.size; }, 0);
-            if (total <= budget) return;
-            for (var i = 0; i < entries.length && total > budget; i++) {
-              cache.delete(entries[i].req);
-              total -= entries[i].size;
-            }
-          });
-        });
-      });
-    }
-
-    // Cache terrain DEM tiles via Cache API — persists across WebView recreations
-    // because baseUrl is https://veloq.fit/ (stable HTTPS origin).
-    // MapLibre v5.19.0 uses promise-based addProtocol.
-    var TERRAIN_CACHE = 'veloq-terrain-dem-v1';
-    var terrainHits = 0, terrainMisses = 0;
-    maplibregl.addProtocol('cached-terrain', function(params) {
-      var realUrl = 'https://' + params.url.substring('cached-terrain://'.length);
-      return caches.open(TERRAIN_CACHE).then(function(cache) {
-        return cache.match(realUrl).then(function(cached) {
-          if (cached) {
-            terrainHits++;
-            return cached.blob().then(demBlobToImage);
-          }
-          terrainMisses++;
-          return fetch(realUrl).then(function(r) {
-            if (!r.ok) throw new Error('HTTP ' + r.status);
-            cache.put(realUrl, r.clone()); maybeEvict(TERRAIN_CACHE);
-            return r.blob().then(demBlobToImage);
-          });
-        });
-      }).catch(function(err) {
-        window._rn_log('terrain protocol error: ' + err.message);
-        throw err;
-      });
-    });
-
-    // Cache satellite tiles via Cache API
-    var SATELLITE_CACHE = 'veloq-satellite-v1';
-    var satHits = 0, satMisses = 0;
-    maplibregl.addProtocol('cached-satellite', function(params) {
-      var realUrl = 'https://' + params.url.substring('cached-satellite://'.length);
-      return caches.open(SATELLITE_CACHE).then(function(cache) {
-        return cache.match(realUrl).then(function(cached) {
-          if (cached) { satHits++; return cached.blob().then(demBlobToImage); }
-          satMisses++;
-          return fetch(realUrl).then(function(r) {
-            if (!r.ok) throw new Error('HTTP ' + r.status);
-            cache.put(realUrl, r.clone()); maybeEvict(SATELLITE_CACHE);
-            return r.blob().then(demBlobToImage);
-          });
-        });
-      });
-    });
-
-    // Cache vector tiles (protocol buffers) via Cache API
-    var VECTOR_CACHE = 'veloq-vector-v1';
-    var vecHits = 0, vecMisses = 0;
-    maplibregl.addProtocol('cached-vector', function(params) {
-      var realUrl = 'https://' + params.url.substring('cached-vector://'.length);
-      return caches.open(VECTOR_CACHE).then(function(cache) {
-        return cache.match(realUrl).then(function(cached) {
-          if (cached) { vecHits++; return cached.arrayBuffer().then(function(d) { return { data: d }; }); }
-          vecMisses++;
-          return fetch(realUrl).then(function(r) {
-            if (!r.ok) throw new Error('HTTP ' + r.status);
-            cache.put(realUrl, r.clone()); maybeEvict(VECTOR_CACHE);
-            return r.arrayBuffer().then(function(d) { return { data: d }; });
-          });
-        });
-      });
-    });
-
-    // Heatmap tile protocol — reads PNG tiles from device filesystem via RN bridge
-    window._heatmapRequests = {};
-    maplibregl.addProtocol('heatmap-file', function(params) {
-      var tilePath = params.url.replace('heatmap-file://', '');
-      return new Promise(function(resolve, reject) {
-        var requestId = '_ht_' + Date.now() + '_' + Math.random().toString(36).substr(2);
-        window._heatmapRequests[requestId] = { resolve: resolve, reject: reject };
-        window.ReactNativeWebView.postMessage(JSON.stringify({
-          type: 'heatmapTileRequest',
-          requestId: requestId,
-          tilePath: tilePath
-        }));
-        // Timeout after 10s to prevent stuck requests
-        setTimeout(function() {
-          if (window._heatmapRequests[requestId]) {
-            delete window._heatmapRequests[requestId];
-            reject(new Error('heatmap tile timeout'));
-          }
-        }, 10000);
-      });
-    });
-
-    // Rewrite vector source URLs in a fetched style JSON
-    function rewriteVectorSources(s) {
-      if (s.sources && s.sources.openmaptiles && s.sources.openmaptiles.url === 'https://tiles.openfreemap.org/planet') {
-        delete s.sources.openmaptiles.url;
-        s.sources.openmaptiles.tiles = ['cached-vector://tiles.openfreemap.org/planet/{z}/{x}/{y}.pbf'];
-        s.sources.openmaptiles.maxzoom = 14;
-      }
-      return s;
-    }
-
-    // Create map with appropriate style
-    // Use saved camera state if available, otherwise use bounds or center/zoom
-    function buildMapOptions(style) {
-      var opts = {
-        container: 'map',
-        style: style,
-        pitch: savedPitch,
-        maxPitch: 85,
-        bearing: savedBearing,
-        attributionControl: false,
-        antialias: true,
-        pixelRatio: ${devicePixelRatio},
-      };
-      if (bounds && !${!!savedCamera}) {
-        opts.bounds = [bounds.sw, bounds.ne];
-        opts.fitBoundsOptions = { padding: 50 };
-      } else if (center) {
-        opts.center = center;
-        opts.zoom = savedZoom;
-      } else {
-        opts.center = [0, 0];
-        opts.zoom = 2;
-      }
-      return opts;
-    }
-
-    // Satellite/dark use inline style JSON; light uses URL directly.
-    // Light mode URL-based init lets MapLibre handle TileJSON resolution
-    // and vector tile loading natively — more reliable than fetch+rewrite.
-    try {
-    var styleJSON = ${styleConfig};
-    if (styleJSON) {
-      window._rn_log('creating map with inline style (satellite/dark)');
-      window.map = new maplibregl.Map(buildMapOptions(styleJSON));
-    } else {
-      window._rn_log('creating map with light style URL');
-      window.map = new maplibregl.Map(buildMapOptions('https://tiles.openfreemap.org/styles/liberty'));
-    }
-
-    var map = window.map;
-
-    // Surface map-level errors, but suppress expected tile 404s from regional sources
-    map.on('error', function(e) {
-      var msg = e.error ? e.error.message || String(e.error) : e.message || '';
-      if (msg.indexOf('HTTP 4') === 0) return;
-      window._rn_log('map error: ' + msg);
-    });
-
-    // Track camera changes and save state for restoration
-    function saveCameraState() {
-      if (window.ReactNativeWebView) {
-        var c = map.getCenter();
-        window.ReactNativeWebView.postMessage(JSON.stringify({
-          type: 'cameraState',
-          camera: {
-            center: [c.lng, c.lat],
-            zoom: map.getZoom(),
-            bearing: map.getBearing(),
-            pitch: map.getPitch()
-          }
-        }));
-      }
-    }
-
-    // Track bearing changes and notify React Native
-    map.on('rotate', function() {
-      if (window.ReactNativeWebView) {
-        window.ReactNativeWebView.postMessage(JSON.stringify({
-          type: 'bearingChange',
-          bearing: map.getBearing()
-        }));
-      }
-    });
-
-    // Save camera state on any movement
-    map.on('moveend', saveCameraState);
-    map.on('zoomend', saveCameraState);
-    map.on('rotateend', saveCameraState);
-    map.on('pitchend', saveCameraState);
-
-    map.on('load', function() {
-      window._rn_log('map load event fired');
-
-      // Add terrain source from shared config
-      map.addSource('terrain', _terrainSource);
-
-      // Enable 3D terrain
-      map.setTerrain({
-        source: 'terrain',
-        exaggeration: ${terrainExaggeration},
-      });
-      window._rn_log('terrain set, exaggeration=${terrainExaggeration}');
-
-      // Sky/fog from shared config — setSky may not be available, cosmetic only
-      try {
-        map.setSky(_skyConfig);
-        window._rn_log('sky set');
-      } catch(e) {
-        window._rn_log('setSky unavailable (ok): ' + e.message);
-      }
-
-      // Add hillshade before the first transportation/building layer found
-      if (!isSatellite) {
-        var _hillshadeBefore = undefined;
-        for (var ci = 0; ci < _hillshadeInsertCandidates.length; ci++) {
-          if (map.getLayer(_hillshadeInsertCandidates[ci])) {
-            _hillshadeBefore = _hillshadeInsertCandidates[ci];
-            break;
-          }
-        }
-        window._rn_log('hillshade insert before: ' + (_hillshadeBefore || 'end'));
-        map.addLayer({
-          id: 'hillshading',
-          type: 'hillshade',
-          source: 'terrain',
-          layout: { visibility: 'visible' },
-          paint: _hillshadePaint,
-        }, _hillshadeBefore);
-      }
-
-      // Add route if coordinates exist
-      if (coordinates.length > 0) {
-        map.addSource('route', {
-          type: 'geojson',
-          data: {
-            type: 'Feature',
-            properties: {},
-            geometry: {
-              type: 'LineString',
-              coordinates: coordinates,
-            },
-          },
-          tolerance: 0,
-        });
-
-        // Route outline (for contrast)
-        map.addLayer({
-          id: 'route-outline',
-          type: 'line',
-          source: 'route',
-          layout: {
-            'line-join': 'round',
-            'line-cap': 'round',
-          },
-          paint: {
-            'line-color': '#FFFFFF',
-            'line-width': 5,
-            'line-opacity': 0.8,
-          },
-        });
-
-        // Route line
-        map.addLayer({
-          id: 'route-line',
-          type: 'line',
-          source: 'route',
-          layout: {
-            'line-join': 'round',
-            'line-cap': 'round',
-          },
-          paint: {
-            'line-color': '${routeColor}',
-            'line-width': 3,
-          },
-        });
-
-        // Start/end circle markers
-        var startPt = coordinates[0];
-        var endPt = coordinates[coordinates.length - 1];
-        map.addSource('start-end-markers', {
-          type: 'geojson',
-          data: {
-            type: 'FeatureCollection',
-            features: [
-              { type: 'Feature', properties: { type: 'start' }, geometry: { type: 'Point', coordinates: startPt } },
-              { type: 'Feature', properties: { type: 'end' }, geometry: { type: 'Point', coordinates: endPt } },
-            ],
-          },
-        });
-        // White border ring
-        map.addLayer({
-          id: 'start-end-border',
-          type: 'circle',
-          source: 'start-end-markers',
-          paint: {
-            'circle-radius': 7,
-            'circle-color': '#FFFFFF',
-          },
-        });
-        // Colored fill (green start, red end)
-        map.addLayer({
-          id: 'start-end-fill',
-          type: 'circle',
-          source: 'start-end-markers',
-          paint: {
-            'circle-radius': 5,
-            'circle-color': ['case', ['==', ['get', 'type'], 'start'], 'rgba(34,197,94,0.75)', 'rgba(239,68,68,0.75)'],
-          },
-        });
-      }
-
-      // Create highlight marker as map layers (not DOM marker — immune to terrain occlusion)
-      map.addSource('highlight-point', {
-        type: 'geojson',
-        data: { type: 'Point', coordinates: [0, 0] },
-      });
-      map.addLayer({
-        id: 'highlight-border',
-        type: 'circle',
-        source: 'highlight-point',
-        paint: { 'circle-radius': 7, 'circle-color': '#FFFFFF' },
-        layout: { visibility: 'none' },
-      });
-      map.addLayer({
-        id: 'highlight-fill',
-        type: 'circle',
-        source: 'highlight-point',
-        paint: { 'circle-radius': 5, 'circle-color': '#00BCD4' },
-        layout: { visibility: 'none' },
-      });
-
-      // Heatmap raster overlay (reads tiles from device filesystem via heatmap-file:// protocol)
-      var showHeatmap = ${showHeatmap};
-      var isLightMap = '${mapStyle}' === 'light';
-      map.addSource('heatmap-tiles', {
-        type: 'raster',
-        tiles: ['heatmap-file://{z}/{x}/{y}.png'],
-        tileSize: 256,
-        minzoom: 5,
-        maxzoom: 17
-      });
-      map.addLayer({
-        id: 'heatmap-layer',
-        type: 'raster',
-        source: 'heatmap-tiles',
-        paint: {
-          'raster-opacity': showHeatmap ? (isLightMap ? 0.82 : 0.72) : 0,
-          'raster-contrast': isLightMap ? 0.25 : 0,
-          'raster-brightness-max': isLightMap ? 0.7 : 1,
-          'raster-saturation': isLightMap ? 0.4 : 0,
-          'raster-fade-duration': 0,
-          'raster-resampling': 'linear'
-        }
-      }, 'route-outline');
-
-      // Terrain-first ready detection — only wait for DEM terrain and route sources,
-      // not ALL tiles. At 60° pitch, horizon vector/label tiles are deprioritized and
-      // may never fully load, causing the old areTilesLoaded() to always hit the timeout.
-      var mapReadySent = false;
-      function sendMapReady() {
-        if (mapReadySent) return;
-        mapReadySent = true;
-        window._rn_log('sending mapReady — terrain:' + terrainHits + '/' + terrainMisses + ' sat:' + satHits + '/' + satMisses + ' vec:' + vecHits + '/' + vecMisses);
-        if (window.ReactNativeWebView) {
-          window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'mapReady' }));
-        }
-      }
-
-      var terrainReady = false;
-      var routeReady = coordinates.length === 0;
-
-      map.on('sourcedata', function(e) {
-        if (mapReadySent) return;
-        if (e.sourceId === 'terrain' && e.isSourceLoaded) terrainReady = true;
-        if (e.sourceId === 'route' && e.isSourceLoaded) routeReady = true;
-        if (terrainReady && routeReady) {
-          requestAnimationFrame(function() { sendMapReady(); });
-        }
-      });
-
-      // Fallback for when sourcedata doesn't fire (e.g. cached tiles)
-      map.once('idle', function() {
-        if (!mapReadySent) {
-          requestAnimationFrame(function() { sendMapReady(); });
-        }
-      });
-
-      map.resize(); // Ensure MapLibre knows full WebView dimensions
-
-      // Hard fallback — reduced from 8s to 4s since we no longer wait for all tiles.
-      // Terrain + route sources load much faster than full vector tile sets.
-      setTimeout(function() {
-        if (!mapReadySent) {
-          window._rn_log('hard timeout — sending mapReady after 4s');
-          sendMapReady();
-        }
-      }, 4000);
-
-      // Preload adjacent DEM zoom levels after map settles — populates Cache API
-      // so zoom in/out has instant terrain. Uses cached-terrain:// protocol.
-      map.once('idle', function() {
-        setTimeout(function() {
-          var z = Math.floor(map.getZoom());
-          var b = map.getBounds();
-          function lng2tile(lng, zoom) { return Math.floor((lng + 180) / 360 * Math.pow(2, zoom)); }
-          function lat2tile(lat, zoom) { return Math.floor((1 - Math.log(Math.tan(lat * Math.PI / 180) + 1 / Math.cos(lat * Math.PI / 180)) / Math.PI) / 2 * Math.pow(2, zoom)); }
-          [z - 1, z + 1].filter(function(v) { return v >= 0 && v <= 15; }).forEach(function(zl) {
-            var xMin = lng2tile(b.getWest(), zl);
-            var xMax = lng2tile(b.getEast(), zl);
-            var yMin = lat2tile(b.getNorth(), zl);
-            var yMax = lat2tile(b.getSouth(), zl);
-            for (var x = xMin; x <= xMax; x++) {
-              for (var y = yMin; y <= yMax; y++) {
-                new Image().src = 'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/' + zl + '/' + x + '/' + y + '.png';
-              }
-            }
-          });
-        }, 1000);
-      });
-    });
-
-    } catch(e) {
-      window._rn_log('SCRIPT ERROR: ' + e.message + ' at ' + (e.stack || ''));
-    }
-  </script>
-</body>
-</html>
-    `;
-    }, [
-      coordinates,
-      bounds,
-      // NOTE: initialCenter and initialZoom are stored in refs to prevent HTML regeneration
-      // when parent updates these values (e.g., from 2D map interactions)
-      // NOTE: mapStyle is NOT a dependency - style changes use setStyle() via injectJavaScript
-      // to avoid full WebView reload (which re-downloads all tiles)
-      routeColor,
-      initialPitch,
-      terrainExaggeration,
-      showHeatmap,
-      // NOTE: GeoJSON props are NOT dependencies - they're updated via injectJavaScript
-    ]);
+    }, [coordinates, bounds, routeColor, initialPitch, terrainExaggeration, showHeatmap]);
 
     return (
       <View style={styles.container}>

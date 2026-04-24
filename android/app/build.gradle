@@ -100,8 +100,8 @@ android {
         applicationId 'com.veloq.app.dev'
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 16
-        versionName "0.2.1"
+        versionCode 19
+        versionName "0.3.0"
 
         buildConfigField "String", "REACT_NATIVE_RELEASE_LEVEL", "\"${findProperty('reactNativeReleaseLevel') ?: 'stable'}\""
     }
@@ -178,6 +178,21 @@ android {
 configurations.configureEach {
     resolutionStrategy {
         force 'androidx.annotation:annotation-experimental:1.4.1'
+    }
+}
+
+// Under --configure-on-demand (which Expo CLI passes), the app's CMake
+// configure task can run before :veloqrs:generateCodegenArtifactsFromSchema
+// has populated modules/veloqrs/android/build/generated/source/codegen/jni/.
+// Android-autolinking.cmake then fails on add_subdirectory() and the build
+// requires a second pass to succeed. Force the ordering explicitly.
+evaluationDependsOn(':veloqrs')
+afterEvaluate {
+    def veloqrsCodegen = project(':veloqrs').tasks.findByName('generateCodegenArtifactsFromSchema')
+    if (veloqrsCodegen != null) {
+        tasks.matching { it.name.startsWith('configureCMake') || it.name.startsWith('buildCMake') }.configureEach {
+            dependsOn veloqrsCodegen
+        }
     }
 }
 

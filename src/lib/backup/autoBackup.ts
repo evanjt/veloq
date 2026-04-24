@@ -30,7 +30,7 @@ const SETTING_AUTO_BACKUP_ENABLED = '__auto_backup_enabled';
 
 const MIN_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24 hours
 const STALE_INTERVAL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
-const MAX_BACKUPS = 3;
+const MAX_LOCAL_BACKUPS = 5;
 
 /** Registry of available backends. */
 const backends: Record<string, BackupBackend> = {
@@ -92,9 +92,10 @@ export function getLastBackupTimestamp(): number | null {
  * @param force - If true, skip time-based throttling (still checks if enabled)
  */
 function shouldBackup(force = false): boolean {
-  if (!isAutoBackupEnabled()) return false;
-
+  // Manual "Backup Now" should always work regardless of auto-backup setting
   if (force) return true;
+
+  if (!isAutoBackupEnabled()) return false;
 
   const lastBackup = getLastBackupTimestamp();
   if (!lastBackup) return true; // Never backed up
@@ -119,30 +120,33 @@ export async function performBackup(force = false): Promise<boolean> {
   }
 
   try {
+    const cacheDir = FileSystem.cacheDirectory;
+    if (!cacheDir) throw new Error('Device cache directory not available');
+
     const timestamp = new Date().toISOString();
     const tempFilename = `veloq-autobackup-${Date.now()}.veloqdb`;
-    const tempPath = `${FileSystem.cacheDirectory}${tempFilename}`;
+    const tempPath = `${cacheDir}${tempFilename}`;
     const plainPath = tempPath.startsWith('file://') ? tempPath.slice(7) : tempPath;
 
     // Create atomic SQLite snapshot
     engine.backupDatabase(plainPath);
 
+    // Verify snapshot was created
+    const fileInfo = await FileSystem.getInfoAsync(tempPath);
+    if (!fileInfo.exists) {
+      throw new Error('Database snapshot was not created');
+    }
+
     // Collect metadata
     const metadata = engine.getBackupMetadata();
     const entry: Omit<BackupEntry, 'id'> = {
       timestamp,
-      sizeBytes: 0,
+      sizeBytes: 'size' in fileInfo ? fileInfo.size || 0 : 0,
       appVersion: APP_VERSION,
       schemaVersion: Number(metadata.schema_version ?? 0),
       activityCount: Number(metadata.activity_count ?? 0),
       athleteId: (metadata.athlete_id as string) ?? null,
     };
-
-    // Get file size
-    const fileInfo = await FileSystem.getInfoAsync(tempPath);
-    if (fileInfo.exists && 'size' in fileInfo) {
-      entry.sizeBytes = fileInfo.size || 0;
-    }
 
     // Upload to backend
     await backend.upload(tempPath, entry);
@@ -153,25 +157,29 @@ export async function performBackup(force = false): Promise<boolean> {
     // Update last backup timestamp
     engine.setSetting(SETTING_LAST_BACKUP, String(Date.now()));
 
-    // Enforce retention (keep last N backups)
-    await enforceRetention(backend);
+    // Local backups: enforce retention to prevent silent device storage growth.
+    // Cloud/WebDAV backups: kept indefinitely — storage is the user's responsibility.
+    if (backend.id === 'local') {
+      await enforceRetention(backend, MAX_LOCAL_BACKUPS);
+    }
 
     log.log(`Auto-backup complete: ${entry.activityCount} activities, ${entry.sizeBytes} bytes`);
     return true;
   } catch (error) {
-    log.warn('Auto-backup failed:', error);
-    return false;
+    const msg = error instanceof Error ? error.message : String(error);
+    log.warn('Auto-backup failed:', msg);
+    throw new Error(msg);
   }
 }
 
-/** Delete old backups beyond the retention limit. */
-async function enforceRetention(backend: BackupBackend): Promise<void> {
+/** Delete old backups beyond the retention limit (local storage only). */
+async function enforceRetention(backend: BackupBackend, maxBackups: number): Promise<void> {
   try {
     const backups = await backend.listBackups();
-    if (backups.length <= MAX_BACKUPS) return;
+    if (backups.length <= maxBackups) return;
 
     // Delete oldest backups beyond the limit
-    const toDelete = backups.slice(MAX_BACKUPS);
+    const toDelete = backups.slice(maxBackups);
     for (const backup of toDelete) {
       await backend.delete(backup.id);
       log.log(`Deleted old backup: ${backup.id}`);

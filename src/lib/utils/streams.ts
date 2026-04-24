@@ -45,6 +45,15 @@ export function parseStreams(rawStreams: RawStreamItem[]): ActivityStreams {
       case 'grade_smooth':
         streams.grade_smooth = stream.data;
         break;
+      case 'temp':
+        streams.temp = stream.data;
+        break;
+      case 'w_bal':
+        streams.wbal = stream.data;
+        break;
+      case 'ga_velocity':
+        streams.gap = stream.data.map((v) => (v > 0 ? 1000 / v / 60 : 0));
+        break;
     }
   }
 

@@ -72,17 +72,46 @@ function hasWildcardReexport(): boolean {
   return /export \* from ['"]\.\/generated\/veloqrs['"]/.test(content);
 }
 
+// Object name -> source file mapping (not a simple PascalCase→snake_case
+// because of historical naming, e.g. HeatmapManager lives in `tiles.rs`).
+const OBJECT_SOURCE_FILES: Record<string, string> = {
+  VeloqEngine: 'engine.rs',
+  SectionManager: 'sections.rs',
+  ActivityManager: 'activities.rs',
+  RouteManager: 'routes.rs',
+  MapManager: 'maps.rs',
+  FitnessManager: 'fitness.rs',
+  SettingsManager: 'settings.rs',
+  DetectionManager: 'detection.rs',
+  StrengthManager: 'strength.rs',
+  HeatmapManager: 'tiles.rs',
+};
+
+const STANDALONE_EXPORTS = FFI_EXPORTS.filter((e) => !e.object);
+const METHOD_EXPORTS = FFI_EXPORTS.filter((e) => e.object);
+
 describe('FFI Binding Validation', () => {
   describe('Standalone flat exports', () => {
-    it('should have the expected standalone flat exports', () => {
-      expect(FFI_EXPORTS).toBeDefined();
-      expect(FFI_EXPORTS.length).toBe(4);
+    it('should have the expected four standalone flat exports', () => {
+      // The domain-object migration left exactly four non-object-method
+      // standalone functions (download progress, fetch lifecycle, polyline
+      // overlap). Adjust if a new standalone is added — but prefer putting
+      // engine-coupled logic on a UniFFI Object.
+      expect(STANDALONE_EXPORTS.length).toBe(4);
     });
 
-    it('should have exports from ffi.rs and persistence.rs', () => {
-      const files = new Set(FFI_EXPORTS.map((e) => e.file));
+    it('should include the known standalone FFI functions', () => {
+      const names = new Set(STANDALONE_EXPORTS.map((e) => e.name));
+      expect(names.has('get_download_progress')).toBe(true);
+      expect(names.has('start_fetch_and_store')).toBe(true);
+      expect(names.has('take_fetch_and_store_result')).toBe(true);
+      expect(names.has('compute_polyline_overlap')).toBe(true);
+    });
+
+    it('should have exports sourced from ffi.rs and persistence/mod.rs', () => {
+      const files = new Set(STANDALONE_EXPORTS.map((e) => e.file));
       expect(files.has('ffi.rs')).toBe(true);
-      expect(files.has('persistence.rs')).toBe(true);
+      expect(files.has('persistence/mod.rs')).toBe(true);
     });
 
     it('should have correct snake_case to camelCase conversion', () => {
@@ -92,28 +121,19 @@ describe('FFI Binding Validation', () => {
   });
 
   describe('UniFFI Objects', () => {
-    it('should define 8 domain objects', () => {
-      expect(UNIFFI_OBJECTS.length).toBe(8);
+    it('should discover all domain objects from Rust source', () => {
+      // Detected by scanning `#[uniffi::export] impl Foo` blocks. The exact
+      // count is whatever the generator found — assert a sensible lower bound
+      // and that every discovered object has a file mapping in this test.
+      expect(UNIFFI_OBJECTS.length).toBeGreaterThanOrEqual(8);
     });
 
     it('should have Rust source files for each object', () => {
-      // Object name -> source file mapping (not a simple PascalCase→snake_case)
-      const objectFiles: Record<string, string> = {
-        VeloqEngine: 'engine.rs',
-        SectionManager: 'sections.rs',
-        ActivityManager: 'activities.rs',
-        RouteManager: 'routes.rs',
-        MapManager: 'maps.rs',
-        FitnessManager: 'fitness.rs',
-        SettingsManager: 'settings.rs',
-        DetectionManager: 'detection.rs',
-      };
-
       const missing: string[] = [];
       for (const obj of UNIFFI_OBJECTS) {
-        const fileName = objectFiles[obj];
+        const fileName = OBJECT_SOURCE_FILES[obj];
         if (!fileName) {
-          missing.push(`${obj} -> no mapping`);
+          missing.push(`${obj} -> no mapping (add to OBJECT_SOURCE_FILES)`);
           continue;
         }
         const filePath = path.join(RUST_OBJECTS_DIR, fileName);
@@ -125,20 +145,9 @@ describe('FFI Binding Validation', () => {
     });
 
     it('should have #[uniffi::export] impl blocks in each object file', () => {
-      const objectFiles: Record<string, string> = {
-        VeloqEngine: 'engine.rs',
-        SectionManager: 'sections.rs',
-        ActivityManager: 'activities.rs',
-        RouteManager: 'routes.rs',
-        MapManager: 'maps.rs',
-        FitnessManager: 'fitness.rs',
-        SettingsManager: 'settings.rs',
-        DetectionManager: 'detection.rs',
-      };
-
       const missingExport: string[] = [];
       for (const obj of UNIFFI_OBJECTS) {
-        const fileName = objectFiles[obj];
+        const fileName = OBJECT_SOURCE_FILES[obj];
         if (!fileName) continue;
         const filePath = path.join(RUST_OBJECTS_DIR, fileName);
         if (!fs.existsSync(filePath)) continue;
@@ -148,6 +157,14 @@ describe('FFI Binding Validation', () => {
         }
       }
       expect(missingExport).toEqual([]);
+    });
+
+    it('every impl-method export should reference a known UniFFI Object', () => {
+      const knownObjects = new Set(UNIFFI_OBJECTS);
+      const orphans = METHOD_EXPORTS.filter(
+        (e) => !knownObjects.has(e.object as (typeof UNIFFI_OBJECTS)[number])
+      );
+      expect(orphans.map((e) => `${e.object}::${e.name}`)).toEqual([]);
     });
   });
 
@@ -187,6 +204,29 @@ describe('FFI Binding Validation', () => {
     });
   });
 
+  describe('Strength FFI contract (US-T1/T2)', () => {
+    // Guards that the demo-mode insertion path stays wired end-to-end.
+    // Both sides — the Rust method and the TS client method — must exist so
+    // demo fixtures can seed WeightTraining activities without network calls.
+    const STRENGTH_RS = path.resolve(
+      __dirname,
+      '../../../modules/veloqrs/rust/veloqrs/src/objects/strength.rs'
+    );
+    const ROUTE_ENGINE_CLIENT_TS = path.join(VELOQRS_SRC_DIR, 'RouteEngineClient.ts');
+
+    it('Rust StrengthManager exposes bulk_insert_exercise_sets', () => {
+      const source = fs.readFileSync(STRENGTH_RS, 'utf-8');
+      expect(source).toMatch(/fn bulk_insert_exercise_sets\s*\(/);
+      expect(source).toMatch(/Vec<FfiExerciseSet>/);
+    });
+
+    it('TS client wraps bulkInsertExerciseSets', () => {
+      const source = fs.readFileSync(ROUTE_ENGINE_CLIENT_TS, 'utf-8');
+      expect(source).toMatch(/bulkInsertExerciseSets\s*\(/);
+      expect(source).toContain('strength().bulkInsertExerciseSets');
+    });
+  });
+
   describe('Binding alignment validation', () => {
     it('should not have function imports that do not exist in Rust exports', () => {
       const tsImports = extractGeneratedImports();
@@ -212,16 +252,11 @@ describe('FFI Binding Validation', () => {
 });
 
 describe('FFI Manifest Freshness', () => {
-  it('should have manifest that matches current Rust source', () => {
-    const expectedCount = 4;
-    const actualCount = FFI_EXPORTS.length;
-
-    if (actualCount !== expectedCount) {
-      console.error(`\nFFI manifest is out of date!`);
-      console.error(`Expected ${expectedCount} exports, found ${actualCount}`);
-      console.error('Run: npx tsx scripts/extract-ffi-exports.ts');
-    }
-
-    expect(actualCount).toBe(expectedCount);
+  it('should have a non-trivial number of exports from Rust source', () => {
+    // The manifest is auto-generated from `#[uniffi::export]` attributes
+    // (both standalone `pub fn` and methods inside `#[uniffi::export] impl`
+    // blocks). If this ever drops to a handful again, the extractor has
+    // regressed — see scripts/extract-ffi-exports.ts.
+    expect(FFI_EXPORTS.length).toBeGreaterThan(50);
   });
 });

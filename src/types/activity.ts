@@ -173,6 +173,14 @@ export interface ActivityStreams {
   velocity_smooth?: number[];
   distance?: number[];
   grade_smooth?: number[];
+  temp?: number[];
+  /** W' balance stream in joules remaining. Sourced from intervals.icu's
+   * `w_bal` stream. Only populated when the server has computed it (power +
+   * FTP + W'). */
+  wbal?: number[];
+  /** Grade-Adjusted Pace in min/km. Converted from intervals.icu's
+   * `ga_velocity` stream (m/s) at parse time. */
+  gap?: number[];
 }
 
 // Interval within an activity (lap/interval data from intervals.icu)
@@ -226,7 +234,16 @@ export interface Athlete {
   sex?: string; // "M" or "F" from intervals.icu
   profile?: string; // URL to profile photo
   profile_medium?: string; // URL to medium profile photo
+  /**
+   * Anaerobic work capacity in joules. Used for W'bal chart computation.
+   * Defaults to 20 kJ when not provided by intervals.icu (common mid-range
+   * value for trained amateurs; elites can exceed 30 kJ).
+   */
+  wPrime?: number;
 }
+
+/** Default W' (anaerobic work capacity) when the athlete has not set one. */
+export const DEFAULT_W_PRIME_JOULES = 20_000;
 
 // Wellness/Fitness data for CTL/ATL/TSB chart
 export interface WellnessData {

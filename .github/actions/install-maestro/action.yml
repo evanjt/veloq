@@ -1,0 +1,14 @@
+name: Install Maestro
+description: Install the Maestro CLI and expose it on PATH (idempotent)
+
+runs:
+  using: composite
+  steps:
+    - name: Install Maestro
+      shell: bash
+      run: |
+        if [ ! -f "$HOME/.maestro/bin/maestro" ]; then
+          curl -Ls "https://get.maestro.mobile.dev" | bash
+        fi
+        echo "$HOME/.maestro/bin" >> $GITHUB_PATH
+        "$HOME/.maestro/bin/maestro" --version

@@ -1,0 +1,18 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<testsuites>
+  <testsuite name="Test Suite" tests="7" failures="3" time="1575.779" timestamp="2026-04-10T09:02:27.123">
+    <testcase id="stress-navigation-rapid" name="stress-navigation-rapid" classname="stress-navigation-rapid" time="737.009" timestamp="2026-04-10T09:16:25.85" status="ERROR">
+      <failure>Assertion is false: id: home-screen is visible</failure>
+    </testcase>
+    <testcase id="home-weekly-summary" name="home-weekly-summary" classname="home-weekly-summary" time="179.007" timestamp="2026-04-10T09:13:26.441" status="SUCCESS"/>
+    <testcase id="fitness-curves-zones" name="fitness-curves-zones" classname="fitness-curves-zones" time="137.46" timestamp="2026-04-10T09:11:08.638" status="SUCCESS"/>
+    <testcase id="error-invalid-activity" name="error-invalid-activity" classname="error-invalid-activity" time="135.08" timestamp="2026-04-10T09:08:53.269" status="SUCCESS"/>
+    <testcase id="navigation-back-buttons" name="navigation-back-buttons" classname="navigation-back-buttons" time="120.069" timestamp="2026-04-10T09:06:52.839" status="ERROR">
+      <failure>Assertion is false: id: home-screen is visible</failure>
+    </testcase>
+    <testcase id="data-values-weekly-summary" name="data-values-weekly-summary" classname="data-values-weekly-summary" time="113.169" timestamp="2026-04-10T09:04:58.898" status="SUCCESS"/>
+    <testcase id="data-values-activity" name="data-values-activity" classname="data-values-activity" time="150.962" timestamp="2026-04-10T09:02:27.446" status="ERROR">
+      <failure>Assertion is false: id: activity-detail-distance is visible</failure>
+    </testcase>
+  </testsuite>
+</testsuites>

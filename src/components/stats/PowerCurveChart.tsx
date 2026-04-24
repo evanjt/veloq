@@ -34,13 +34,6 @@ interface PowerCurveChartProps {
 const DEFAULT_COLOR = '#5B9BD5'; // Brand blue
 const FTP_LINE_COLOR = 'rgba(150, 150, 150, 0.6)';
 
-// Format duration compact for axis labels
-function formatDurationCompact(secs: number): string {
-  if (secs < 60) return `${Math.round(secs)}s`;
-  if (secs < 3600) return `${Math.round(secs / 60)}m`;
-  return `${(secs / 3600).toFixed(1)}h`;
-}
-
 interface ChartPoint {
   x: number;
   y: number;

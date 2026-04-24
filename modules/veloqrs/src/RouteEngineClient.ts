@@ -28,110 +28,54 @@ import type {
   FfiFtpTrend,
   FfiPaceTrend,
   FfiInsightsData,
-  FfiRecentPr,
   FfiStartupData,
-  FfiPreviewTrack,
   FfiRoutesScreenData,
   FfiPotentialSection,
   DownloadProgressResult,
 } from './generated/veloqrs';
 
-// Types for new FFI methods — will be auto-generated after Rust rebuild
-export interface FfiSectionMatch {
-  sectionId: string;
-  sectionName: string | undefined;
-  sportType: string;
-  startIndex: bigint;
-  endIndex: bigint;
-  matchQuality: number;
-  sameDirection: boolean;
-  distanceMeters: number;
-}
+// Types for new FFI methods — will be auto-generated after Rust rebuild.
+// Declarations moved to ./delegates/shared-types.ts; re-exported here so
+// existing consumers (e.g. `import { FfiSectionMatch } from '...'`) keep working.
+export type {
+  FfiSectionMatch,
+  FfiMergeCandidate,
+  FfiNearbySectionSummary,
+  FfiActivitySectionHighlight,
+  FfiActivityRouteHighlight,
+  FfiActivityIndicator,
+  SectionEncounter,
+} from './delegates/shared-types';
 
-export interface FfiMergeCandidate {
-  sectionId: string;
-  name: string | undefined;
-  sportType: string;
-  distanceMeters: number;
-  visitCount: number;
-  overlapPct: number;
-  centerDistanceMeters: number;
-}
-
-export interface FfiNearbySectionSummary {
-  id: string;
-  sectionType: string;
-  name: string | undefined;
-  sportType: string;
-  distanceMeters: number;
-  visitCount: number;
-  centerDistanceMeters: number;
-  polylineCoords: number[];
-}
-
-import * as FileSystem from 'expo-file-system/legacy';
-import {
-  flatCoordsToPoints,
-  validateId,
-  validateName,
-  type RoutePoint,
-  type SectionDetectionProgress,
-} from './conversions';
+import type { RoutePoint, SectionDetectionProgress } from './conversions';
+import type { DelegateHost } from './delegates/host';
+import * as activityDelegates from './delegates/activities';
+import * as detectionDelegates from './delegates/detection';
+import * as fitnessDelegates from './delegates/fitness';
+import * as heatmapDelegates from './delegates/heatmap';
+import * as mapsDelegates from './delegates/maps';
+import * as routeDelegates from './delegates/routes';
+import * as sectionDelegates from './delegates/sections';
+import * as settingsDelegates from './delegates/settings';
+import * as strengthDelegates from './delegates/strength';
+import type {
+  FfiActivityIndicator,
+  FfiActivityRouteHighlight,
+  FfiActivitySectionHighlight,
+  FfiMergeCandidate,
+  FfiNearbySectionSummary,
+  FfiSectionMatch,
+  HeatmapDay,
+  SectionEncounter,
+} from './delegates/shared-types';
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports, @typescript-eslint/no-explicit-any
 const gen = (): any => require('./generated/veloqrs');
 
-/** Pre-computed daily activity intensity from Rust heatmap cache. */
-export interface HeatmapDay {
-  date: string;
-  intensity: number;
-  maxDuration: bigint;
-  activityCount: number;
-}
+/** Pre-computed daily activity intensity from Rust heatmap cache. Re-exported from delegates. */
+export type { HeatmapDay };
 
-// Pre-initialization defaults (typed to match UniFFI-generated types)
-const EMPTY_PERIOD_STATS: FfiPeriodStats = {
-  count: 0,
-  totalDuration: BigInt(0),
-  totalDistance: 0,
-  totalTss: 0,
-};
-
-const EMPTY_FTP_TREND: FfiFtpTrend = {
-  latestFtp: undefined,
-  latestDate: undefined,
-  previousFtp: undefined,
-  previousDate: undefined,
-};
-
-const EMPTY_PACE_TREND: FfiPaceTrend = {
-  latestPace: undefined,
-  latestDate: undefined,
-  previousPace: undefined,
-  previousDate: undefined,
-};
-
-const EMPTY_ROUTE_PERFORMANCE_RESULT: FfiRoutePerformanceResult = {
-  performances: [],
-  activityMetrics: [],
-  best: undefined,
-  bestForward: undefined,
-  bestReverse: undefined,
-  forwardStats: undefined,
-  reverseStats: undefined,
-  currentRank: undefined,
-};
-
-const EMPTY_SECTION_PERFORMANCE_RESULT: FfiSectionPerformanceResult = {
-  records: [],
-  bestRecord: undefined,
-  bestForwardRecord: undefined,
-  bestReverseRecord: undefined,
-  forwardStats: undefined,
-  reverseStats: undefined,
-};
-
-class RouteEngineClient {
+class RouteEngineClient implements DelegateHost {
   private static instance: RouteEngineClient;
   private listeners: Map<string, Set<() => void>> = new Map();
   private initialized = false;
@@ -140,16 +84,16 @@ class RouteEngineClient {
 
   // Cached domain object handles (created once via VeloqEngine factory)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private engine: any = null;
+  engine: any = null;
 
   private constructor() {}
 
   /** Check if engine is ready. Methods called before initWithPath() return safe defaults. */
-  private get ready(): boolean {
+  get ready(): boolean {
     return this.engine !== null;
   }
 
-  private timed<T>(name: string, fn: () => T): T {
+  timed<T>(name: string, fn: () => T): T {
     const shouldLog = typeof __DEV__ !== 'undefined' && __DEV__;
     const shouldRecord = RouteEngineClient.debugEnabled;
     if (!shouldLog && !shouldRecord) return fn();
@@ -193,22 +137,12 @@ class RouteEngineClient {
     if (result) {
       this.initialized = true;
       this.dbPath = dbPath;
-      // Configure heatmap tiles path so Rust generates tiles on background threads
-      // Strip file:// prefix for plain filesystem path (Rust expects plain path, not URL)
-      const tilesPath = `${FileSystem.documentDirectory}heatmap-tiles/`;
-      const normalizedTilesPath = tilesPath.startsWith('file://')
-        ? tilesPath.slice(7)
-        : tilesPath;
-      try {
-        console.log('[RouteEngineClient] Setting heatmap tiles path to:', normalizedTilesPath);
-        this.engine.heatmap().setTilesPath(normalizedTilesPath);
-      } catch (e) {
-        // Non-critical — tiles just won't generate
-        console.warn('[RouteEngineClient] Failed to set heatmap tiles path:', e);
-      }
+      // Heatmap tiles path is set lazily via enableHeatmapTiles() — called from app
+      // code when the heatmap setting is enabled. This avoids importing provider stores
+      // in the native module.
       if (this.pendingMetrics) {
         this.timed('setActivityMetrics', () =>
-          this.engine.activities().setMetrics(this.pendingMetrics!),
+          this.engine.activities().setMetrics(this.pendingMetrics!)
         );
         this.pendingMetrics = null;
         this.notify('activities');
@@ -223,6 +157,17 @@ class RouteEngineClient {
 
   isPersistent(): boolean {
     return this.dbPath !== null;
+  }
+
+  /** Clear only route/section data, keeping GPS tracks and activities.
+   *  Used when route matching is toggled off to free storage. */
+  clearRoutesAndSections(): void {
+    if (!this.ready) return;
+    try {
+      this.engine.clearRoutesAndSections();
+    } catch (e) {
+      console.warn('[RouteEngineClient] Failed to clear routes and sections:', e);
+    }
   }
 
   /** Drop the Rust engine singleton without clearing data. Used before database restore. */
@@ -259,44 +204,22 @@ class RouteEngineClient {
     this.notifyAll('activities', 'groups', 'sections', 'syncReset');
   }
 
-  async addActivities(
+  addActivities = (
     activityIds: string[],
     allCoords: number[],
     offsets: number[],
-    sportTypes: string[],
-  ): Promise<void> {
-    if (!this.ready) return;
-    this.timed('addActivities', () =>
-      this.engine.activities().add(activityIds, allCoords, offsets, sportTypes),
-    );
-    this.notifyAll('activities', 'groups');
-  }
+    sportTypes: string[]
+  ): Promise<void> =>
+    activityDelegates.addActivities(this, activityIds, allCoords, offsets, sportTypes);
 
-  getActivityIds(): string[] {
-    if (!this.ready) return [];
-    return this.timed('getActivityIds', () => this.engine.activities().getIds());
-  }
+  getActivityIds = (): string[] => activityDelegates.getActivityIds(this);
 
-  getActivityMetricIds(): string[] {
-    if (!this.ready) return [];
-    return this.timed('getActivityMetricIds', () => this.engine.fitness().getActivityMetricIds());
-  }
+  getActivityMetricIds = (): string[] => fitnessDelegates.getActivityMetricIds(this);
 
-  getActivityCount(): number {
-    if (!this.ready) return 0;
-    return this.timed('getActivityCount', () => this.engine.activities().getCount());
-  }
+  getActivityCount = (): number => activityDelegates.getActivityCount(this);
 
-  cleanupOldActivities(retentionDays: number): number {
-    if (!this.ready) return 0;
-    const deleted = this.timed('cleanupOldActivities', () =>
-      this.engine.cleanupOldActivities(retentionDays),
-    );
-    if (deleted > 0) {
-      this.notifyAll('activities', 'groups', 'sections');
-    }
-    return deleted;
-  }
+  cleanupOldActivities = (retentionDays: number): number =>
+    activityDelegates.cleanupOldActivities(this, retentionDays);
 
   markForRecomputation(): void {
     if (!this.ready) return;
@@ -307,347 +230,182 @@ class RouteEngineClient {
     }
   }
 
-  startSectionDetection(sportFilter?: string): boolean {
-    if (!this.ready) return false;
-    return this.timed('startSectionDetection', () => this.engine.detection().start(sportFilter));
-  }
+  startSectionDetection = (sportFilter?: string): boolean =>
+    detectionDelegates.startSectionDetection(this, sportFilter);
 
-  pollSectionDetection(): string {
-    if (!this.ready) return 'idle';
-    try {
-      const status = this.timed('pollSectionDetection', () => this.engine.detection().poll());
-      if (status === 'complete') {
-        this.notify('sections');
-      }
-      return status;
-    } catch {
-      return 'error';
-    }
-  }
+  pollSectionDetection = (): string => detectionDelegates.pollSectionDetection(this);
 
-  getSectionDetectionProgress(): SectionDetectionProgress | null {
-    if (!this.ready) return null;
-    return (
-      this.timed('getSectionDetectionProgress', () => this.engine.detection().getProgress()) ?? null
-    );
-  }
+  getSectionDetectionProgress = (): SectionDetectionProgress | null =>
+    detectionDelegates.getSectionDetectionProgress(this);
 
-  getGroups(): FfiRouteGroup[] {
-    if (!this.ready) return [];
-    return this.timed('getGroups', () => this.engine.routes().getAll());
-  }
+  getGroups = (): FfiRouteGroup[] => routeDelegates.getGroups(this);
 
-  getSections(): FfiFrequentSection[] {
-    if (!this.ready) return [];
-    return this.timed('getSections', () => this.engine.sections().getAll());
-  }
+  getSections = (): FfiFrequentSection[] => sectionDelegates.getSections(this);
 
-  getSectionsFiltered(sportType?: string, minVisits?: number): FfiFrequentSection[] {
-    if (!this.ready) return [];
-    return this.timed('getSectionsFiltered', () =>
-      this.engine.sections().getFiltered(sportType ?? null, minVisits ?? null),
-    );
-  }
+  getSectionsFiltered = (sportType?: string, minVisits?: number): FfiFrequentSection[] =>
+    sectionDelegates.getSectionsFiltered(this, sportType, minVisits);
 
-  getSectionsForActivity(activityId: string): FfiSection[] {
-    if (!this.ready) return [];
-    return this.timed('getSectionsForActivity', () =>
-      this.engine.sections().getForActivity(activityId),
-    );
-  }
+  getSectionsForActivity = (activityId: string): FfiSection[] =>
+    sectionDelegates.getSectionsForActivity(this, activityId);
 
-  getSectionSummaries(sportType?: string): { totalCount: number; summaries: SectionSummary[] } {
-    if (!this.ready) return { totalCount: 0, summaries: [] };
-    return this.timed('getSectionSummaries', () =>
-      this.engine.sections().getSummariesWithCount(sportType),
-    );
-  }
+  getSectionSummaries = (sportType?: string): { totalCount: number; summaries: SectionSummary[] } =>
+    sectionDelegates.getSectionSummaries(this, sportType);
 
-  getRankedSections(sportType: string, limit: number): FfiRankedSection[] {
-    if (!this.ready) return [];
-    return this.timed('getRankedSections', () =>
-      this.engine.sections().getRanked(sportType, limit),
-    );
-  }
+  getFilteredSectionSummaries = (
+    sportType: string | undefined,
+    minVisits: number,
+    sortKey: sectionDelegates.SectionSortKey
+  ): { totalCount: number; summaries: SectionSummary[] } =>
+    sectionDelegates.getFilteredSectionSummaries(this, sportType, minVisits, sortKey);
 
-  getGroupSummaries(): { totalCount: number; summaries: GroupSummary[] } {
-    if (!this.ready) return { totalCount: 0, summaries: [] };
-    return this.timed('getGroupSummaries', () =>
-      this.engine.routes().getSummariesWithCount(),
-    );
-  }
+  getRankedSections = (sportType: string, limit: number): FfiRankedSection[] =>
+    sectionDelegates.getRankedSections(this, sportType, limit);
 
-  getSectionById(sectionId: string): FfiFrequentSection | null {
-    if (!this.ready) return null;
-    validateId(sectionId, 'section ID');
-    return this.timed('getSectionById', () => this.engine.sections().getById(sectionId)) ?? null;
-  }
+  getRankedSectionsBatch = (
+    sportTypes: string[],
+    limit: number
+  ): sectionDelegates.RankedSectionsBySport[] =>
+    sectionDelegates.getRankedSectionsBatch(this, sportTypes, limit);
 
-  getGroupById(groupId: string): FfiRouteGroup | null {
-    if (!this.ready) return null;
-    validateId(groupId, 'group ID');
-    return this.timed('getGroupById', () => this.engine.routes().getById(groupId)) ?? null;
-  }
+  getGroupSummaries = (): { totalCount: number; summaries: GroupSummary[] } =>
+    routeDelegates.getGroupSummaries(this);
 
-  getSectionPolyline(sectionId: string): FfiGpsPoint[] {
-    if (!this.ready) return [];
-    validateId(sectionId, 'section ID');
-    return this.timed('getSectionPolyline', () => this.engine.sections().getPolyline(sectionId));
-  }
+  getFilteredGroupSummaries = (
+    minActivities: number,
+    sortKey: routeDelegates.GroupSortKey
+  ): { totalCount: number; summaries: GroupSummary[] } =>
+    routeDelegates.getFilteredGroupSummaries(this, minActivities, sortKey);
 
-  getMapActivitiesFiltered(
+  getSectionById = (sectionId: string): FfiFrequentSection | null =>
+    sectionDelegates.getSectionById(this, sectionId);
+
+  getGroupById = (groupId: string): FfiRouteGroup | null =>
+    routeDelegates.getGroupById(this, groupId);
+
+  getSectionPolyline = (sectionId: string): FfiGpsPoint[] =>
+    sectionDelegates.getSectionPolyline(this, sectionId);
+
+  getMapActivitiesFiltered = (
     startDate: Date,
     endDate: Date,
-    sportTypesArray?: string[],
-  ): MapActivityComplete[] {
-    if (!this.ready) return [];
-    const startTs = BigInt(Math.floor(startDate.getTime() / 1000));
-    const endTs = BigInt(Math.floor(endDate.getTime() / 1000));
-    return this.timed('getMapActivitiesFiltered', () =>
-      this.engine.maps().getFiltered(startTs, endTs, sportTypesArray ?? []),
-    );
-  }
+    sportTypesArray?: string[]
+  ): MapActivityComplete[] =>
+    mapsDelegates.getMapActivitiesFiltered(this, startDate, endDate, sportTypesArray);
 
-  getActivityBoundsForRange(
+  getActivityBoundsForRange = (
     startDate: Date,
     endDate: Date,
-    sportTypesArray?: string[],
-  ): FfiBounds | null {
-    if (!this.ready) return null;
-    const startTs = BigInt(Math.floor(startDate.getTime() / 1000));
-    const endTs = BigInt(Math.floor(endDate.getTime() / 1000));
-    const result = this.timed('getActivityBoundsForRange', () =>
-      this.engine.maps().getBoundsForRange(startTs, endTs, sportTypesArray ?? []),
-    );
-    return result ?? null;
-  }
+    sportTypesArray?: string[]
+  ): FfiBounds | null =>
+    mapsDelegates.getActivityBoundsForRange(this, startDate, endDate, sportTypesArray);
 
-  getAllMapSignatures(): Array<{
+  getAllMapSignatures = (): Array<{
     activityId: string;
     coords: number[];
     centerLat: number;
     centerLng: number;
-  }> {
-    if (!this.ready) return [];
-    return this.timed('getAllMapSignatures', () => this.engine.maps().getAllSignatures());
-  }
+  }> => mapsDelegates.getAllMapSignatures(this);
 
-  setRouteName(routeId: string, name: string): void {
-    if (!this.ready) return;
-    validateId(routeId, 'route ID');
-    validateName(name, 'route name');
-    this.timed('setRouteName', () => this.engine.routes().setName(routeId, name));
-    this.notify('groups');
-  }
+  setRouteName = (routeId: string, name: string): void =>
+    routeDelegates.setRouteName(this, routeId, name);
 
-  setSectionName(sectionId: string, name: string): boolean {
-    if (!this.ready) return false;
-    validateId(sectionId, 'section ID');
-    validateName(name, 'section name');
-    try {
-      this.timed('setSectionName', () => this.engine.sections().setName(sectionId, name));
-      this.notify('sections');
-      return true;
-    } catch (e) {
-      console.error('[RouteEngine] setSectionName failed:', sectionId, e);
-      return false;
-    }
-  }
+  setSectionName = (sectionId: string, name: string): boolean =>
+    sectionDelegates.setSectionName(this, sectionId, name);
 
+  setNameTranslations = (routeWord: string, sectionWord: string): void =>
+    settingsDelegates.setNameTranslations(this, routeWord, sectionWord);
 
-  setNameTranslations(routeWord: string, sectionWord: string): void {
-    if (!this.ready) return;
-    this.timed('setNameTranslations', () =>
-      this.engine.setNameTranslations(routeWord, sectionWord),
-    );
-  }
+  getAllRouteNames = (): Record<string, string> => routeDelegates.getAllRouteNames(this);
 
-  getAllRouteNames(): Record<string, string> {
-    if (!this.ready) return {};
-    const map = this.timed('getAllRouteNames', () => this.engine.routes().getAllNames());
-    return Object.fromEntries(map);
-  }
+  getAllSectionNames = (): Record<string, string> => sectionDelegates.getAllSectionNames(this);
 
-  getAllSectionNames(): Record<string, string> {
-    if (!this.ready) return {};
-    const map = this.timed('getAllSectionNames', () => this.engine.sections().getAllNames());
-    return Object.fromEntries(map);
-  }
+  getGpsTrack = (activityId: string): FfiGpsPoint[] =>
+    activityDelegates.getGpsTrack(this, activityId);
 
-  getGpsTrack(activityId: string): FfiGpsPoint[] {
-    if (!this.ready) return [];
-    validateId(activityId, 'activity ID');
-    return this.timed('getGpsTrack', () => this.engine.activities().getGpsTrack(activityId));
-  }
+  getConsensusRoute = (groupId: string): FfiGpsPoint[] =>
+    routeDelegates.getConsensusRoute(this, groupId);
 
-  getConsensusRoute(groupId: string): FfiGpsPoint[] {
-    if (!this.ready) return [];
-    validateId(groupId, 'group ID');
-    return this.timed('getConsensusRoute', () =>
-      this.engine.routes().getConsensusRoute(groupId),
-    );
-  }
-
-  getRoutePerformances(
+  getRoutePerformances = (
     routeGroupId: string,
     currentActivityId: string,
-    sportType?: string,
-  ): FfiRoutePerformanceResult {
-    if (!this.ready) {
-      return EMPTY_ROUTE_PERFORMANCE_RESULT;
-    }
-    validateId(routeGroupId, 'route group ID');
-    if (currentActivityId !== '') {
-      validateId(currentActivityId, 'activity ID');
-    }
-    return this.timed('getRoutePerformances', () =>
-      this.engine.routes().getPerformances(routeGroupId, currentActivityId || undefined, sportType),
-    );
-  }
+    sportType?: string
+  ): FfiRoutePerformanceResult =>
+    routeDelegates.getRoutePerformances(this, routeGroupId, currentActivityId, sportType);
 
-  excludeActivityFromRoute(routeId: string, activityId: string): void {
-    if (!this.ready) return;
-    this.timed('excludeActivityFromRoute', () =>
-      this.engine.routes().excludeActivity(routeId, activityId),
-    );
-    this.notify('groups');
-  }
+  excludeActivityFromRoute = (routeId: string, activityId: string): void =>
+    routeDelegates.excludeActivityFromRoute(this, routeId, activityId);
 
-  includeActivityInRoute(routeId: string, activityId: string): void {
-    if (!this.ready) return;
-    this.timed('includeActivityInRoute', () =>
-      this.engine.routes().includeActivity(routeId, activityId),
-    );
-    this.notify('groups');
-  }
+  includeActivityInRoute = (routeId: string, activityId: string): void =>
+    routeDelegates.includeActivityInRoute(this, routeId, activityId);
 
-  getExcludedRouteActivityIds(routeId: string): string[] {
-    if (!this.ready) return [];
-    return this.timed('getExcludedRouteActivityIds', () =>
-      this.engine.routes().getExcludedActivities(routeId),
-    );
-  }
+  getExcludedRouteActivityIds = (routeId: string): string[] =>
+    routeDelegates.getExcludedRouteActivityIds(this, routeId);
 
-  getExcludedRoutePerformances(routeId: string, sportType?: string): FfiRoutePerformanceResult {
-    if (!this.ready) {
-      return EMPTY_ROUTE_PERFORMANCE_RESULT;
-    }
-    return this.timed('getExcludedRoutePerformances', () =>
-      this.engine.routes().getExcludedPerformances(routeId, sportType),
-    );
-  }
+  getExcludedRoutePerformances = (routeId: string, sportType?: string): FfiRoutePerformanceResult =>
+    routeDelegates.getExcludedRoutePerformances(this, routeId, sportType);
 
-  getSectionPerformances(sectionId: string, sportType?: string): FfiSectionPerformanceResult {
-    if (!this.ready) {
-      return EMPTY_SECTION_PERFORMANCE_RESULT;
-    }
-    return this.timed('getSectionPerformances', () =>
-      this.engine.sections().getPerformances(sectionId, sportType),
-    );
-  }
+  getSectionPerformances = (sectionId: string, sportType?: string): FfiSectionPerformanceResult =>
+    sectionDelegates.getSectionPerformances(this, sectionId, sportType);
 
-  getSectionEfficiencyTrend(sectionId: string): FfiEfficiencyTrend | null {
-    if (!this.ready) {
-      return null;
-    }
-    return this.timed('getSectionEfficiencyTrend', () =>
-      this.engine.sections().getEfficiencyTrend(sectionId) ?? null,
-    );
-  }
+  /**
+   * Batched section-performance fetch — one FFI call for many section IDs.
+   * Use this anywhere a `for (id of ids) getSectionPerformances(id)` loop
+   * would otherwise pay N round-trips of FFI overhead (~10-30 ms each).
+   */
+  getPerformancesBatch = (
+    sectionIds: string[],
+    sportType?: string
+  ): Array<{ sectionId: string; result: FfiSectionPerformanceResult }> =>
+    sectionDelegates.getPerformancesBatch(this, sectionIds, sportType);
 
-  excludeActivityFromSection(sectionId: string, activityId: string): boolean {
-    if (!this.ready) return false;
-    try {
-      this.timed('excludeActivityFromSection', () =>
-        this.engine.sections().excludeActivity(sectionId, activityId),
-      );
-      this.notify('sections');
-      return true;
-    } catch (e) {
-      console.error('[RouteEngine] excludeActivityFromSection failed:', sectionId, activityId, e);
-      return false;
-    }
-  }
+  getActivityPrSections = (activityId: string, sectionIds: string[]): string[] =>
+    sectionDelegates.getActivityPrSections(this, activityId, sectionIds);
 
-  includeActivityInSection(sectionId: string, activityId: string): boolean {
-    if (!this.ready) return false;
-    try {
-      this.timed('includeActivityInSection', () =>
-        this.engine.sections().includeActivity(sectionId, activityId),
-      );
-      this.notify('sections');
-      return true;
-    } catch (e) {
-      console.error('[RouteEngine] includeActivityInSection failed:', sectionId, activityId, e);
-      return false;
-    }
-  }
+  getWorkoutSections = (sportType: string, limit: number): sectionDelegates.FfiWorkoutSection[] =>
+    sectionDelegates.getWorkoutSections(this, sportType, limit);
 
-  getExcludedActivityIds(sectionId: string): string[] {
-    if (!this.ready) return [];
-    return this.timed('getExcludedActivityIds', () =>
-      this.engine.sections().getExcludedActivities(sectionId),
-    );
-  }
+  getSectionChartData = (
+    sectionId: string,
+    timeRangeDays: number,
+    sportFilter?: string
+  ): sectionDelegates.FfiSectionChartData =>
+    sectionDelegates.getSectionChartData(this, sectionId, timeRangeDays, sportFilter);
 
-  getExcludedSectionPerformances(sectionId: string): FfiSectionPerformanceResult {
-    if (!this.ready) {
-      return EMPTY_SECTION_PERFORMANCE_RESULT;
-    }
-    return this.timed('getExcludedSectionPerformances', () =>
-      this.engine.sections().getExcludedPerformances(sectionId),
-    );
-  }
+  getSectionEfficiencyTrend = (sectionId: string): FfiEfficiencyTrend | null =>
+    sectionDelegates.getSectionEfficiencyTrend(this, sectionId);
 
-  getSectionCalendarSummary(sectionId: string): FfiCalendarSummary | null {
-    if (!this.ready) return null;
-    return (
-      this.timed('getSectionCalendarSummary', () =>
-        this.engine.sections().getCalendarSummary(sectionId),
-      ) ?? null
-    );
-  }
+  excludeActivityFromSection = (sectionId: string, activityId: string): boolean =>
+    sectionDelegates.excludeActivityFromSection(this, sectionId, activityId);
 
+  includeActivityInSection = (sectionId: string, activityId: string): boolean =>
+    sectionDelegates.includeActivityInSection(this, sectionId, activityId);
+
+  getExcludedActivityIds = (sectionId: string): string[] =>
+    sectionDelegates.getExcludedActivityIds(this, sectionId);
+
+  getExcludedSectionPerformances = (sectionId: string): FfiSectionPerformanceResult =>
+    sectionDelegates.getExcludedSectionPerformances(this, sectionId);
+
+  getSectionCalendarSummary = (sectionId: string): FfiCalendarSummary | null =>
+    sectionDelegates.getSectionCalendarSummary(this, sectionId);
+
+  /** Queues metrics until init completes, then delegates to activities module. */
   setActivityMetrics(metrics: FfiActivityMetrics[]): void {
     if (!this.initialized) {
       this.pendingMetrics = metrics;
       return;
     }
-    this.timed('setActivityMetrics', () => this.engine.activities().setMetrics(metrics));
-    this.notify('activities');
+    activityDelegates.setActivityMetricsReady(this, metrics);
   }
 
-  setTimeStreams(streams: Array<{ activityId: string; times: number[] }>): void {
-    if (!this.ready || streams.length === 0) return;
+  setTimeStreams = (streams: Array<{ activityId: string; times: number[] }>): void =>
+    activityDelegates.setTimeStreams(this, streams);
 
-    const activityIds: string[] = [];
-    const allTimes: number[] = [];
-    const offsets: number[] = [0];
+  getActivitiesMissingTimeStreams = (activityIds: string[]): string[] =>
+    activityDelegates.getActivitiesMissingTimeStreams(this, activityIds);
 
-    for (const stream of streams) {
-      activityIds.push(stream.activityId);
-      allTimes.push(...stream.times);
-      offsets.push(allTimes.length);
-    }
-
-    this.timed('setTimeStreams', () =>
-      this.engine.activities().setTimeStreams(activityIds, allTimes, offsets),
-    );
-  }
-
-  getActivitiesMissingTimeStreams(activityIds: string[]): string[] {
-    if (!this.ready || activityIds.length === 0) return [];
-    return this.timed('getActivitiesMissingTimeStreams', () =>
-      this.engine.activities().getMissingTimeStreams(activityIds),
-    );
-  }
-
-  queryViewport(minLat: number, maxLat: number, minLng: number, maxLng: number): string[] {
-    if (!this.ready) return [];
-    return this.timed('queryViewport', () =>
-      this.engine.maps().queryViewport(minLat, maxLat, minLng, maxLng),
-    );
-  }
+  queryViewport = (minLat: number, maxLat: number, minLng: number, maxLng: number): string[] =>
+    mapsDelegates.queryViewport(this, minLat, maxLat, minLng, maxLng);
 
   getStats(): PersistentEngineStats | undefined {
     if (!this.ready) return undefined;
@@ -658,7 +416,19 @@ class RouteEngineClient {
     }
   }
 
-  getRoutesScreenData(
+  /** Get activity IDs needing time stream fetch (NULL lap_time, no time_stream). */
+  getActivitiesNeedingTimeStreams(): string[] {
+    if (!this.ready) return [];
+    try {
+      return this.timed('getActivitiesNeedingTimeStreams', () =>
+        this.engine.getActivitiesNeedingTimeStreams()
+      );
+    } catch {
+      return [];
+    }
+  }
+
+  getRoutesScreenData = (
     groupLimit = 20,
     groupOffset = 0,
     sectionLimit = 20,
@@ -667,161 +437,95 @@ class RouteEngineClient {
     prioritizeNearestGroups = false,
     prioritizeNearestSections = false,
     userLat = Number.NaN,
-    userLng = Number.NaN,
-  ): FfiRoutesScreenData | undefined {
-    if (!this.ready) return undefined;
-    try {
-      return this.timed('getRoutesScreenData', () =>
-        this.engine
-          .routes()
-          .getScreenData(
-            groupLimit,
-            groupOffset,
-            sectionLimit,
-            sectionOffset,
-            minGroupActivityCount,
-            prioritizeNearestGroups,
-            prioritizeNearestSections,
-            userLat,
-            userLng,
-          ),
-      );
-    } catch {
-      return undefined;
-    }
-  }
+    userLng = Number.NaN
+  ): FfiRoutesScreenData | undefined =>
+    routeDelegates.getRoutesScreenData(
+      this,
+      groupLimit,
+      groupOffset,
+      sectionLimit,
+      sectionOffset,
+      minGroupActivityCount,
+      prioritizeNearestGroups,
+      prioritizeNearestSections,
+      userLat,
+      userLng
+    );
 
-  getSummaryCardData(
+  getSummaryCardData = (
     currentStart: number,
     currentEnd: number,
     prevStart: number,
-    prevEnd: number,
+    prevEnd: number
   ): {
     currentWeek: FfiPeriodStats;
     prevWeek: FfiPeriodStats;
     ftpTrend: FfiFtpTrend;
     runPaceTrend: FfiPaceTrend;
     swimPaceTrend: FfiPaceTrend;
-  } {
-    if (!this.ready) {
-      return {
-        currentWeek: EMPTY_PERIOD_STATS,
-        prevWeek: EMPTY_PERIOD_STATS,
-        ftpTrend: EMPTY_FTP_TREND,
-        runPaceTrend: EMPTY_PACE_TREND,
-        swimPaceTrend: EMPTY_PACE_TREND,
-      };
-    }
-    return this.timed('getSummaryCardData', () =>
-      this.engine
-        .fitness()
-        .getSummaryCardData(BigInt(currentStart), BigInt(currentEnd), BigInt(prevStart), BigInt(prevEnd)),
-    );
-  }
+  } => fitnessDelegates.getSummaryCardData(this, currentStart, currentEnd, prevStart, prevEnd);
 
-  getInsightsData(
+  getInsightsData = (
+    currentStart: number,
+    currentEnd: number,
+    prevStart: number,
+    prevEnd: number,
+    chronicStart: number,
+    todayStart: number
+  ): FfiInsightsData | undefined =>
+    fitnessDelegates.getInsightsData(
+      this,
+      currentStart,
+      currentEnd,
+      prevStart,
+      prevEnd,
+      chronicStart,
+      todayStart
+    );
+
+  getStartupData = (
     currentStart: number,
     currentEnd: number,
     prevStart: number,
     prevEnd: number,
     chronicStart: number,
     todayStart: number,
-  ): FfiInsightsData | undefined {
-    if (!this.ready) return undefined;
-    return this.timed('getInsightsData', () =>
-      this.engine
-        .fitness()
-        .getInsightsData(
-          BigInt(currentStart),
-          BigInt(currentEnd),
-          BigInt(prevStart),
-          BigInt(prevEnd),
-          BigInt(chronicStart),
-          BigInt(todayStart),
-        ),
+    previewActivityIds: string[]
+  ): FfiStartupData | undefined =>
+    fitnessDelegates.getStartupData(
+      this,
+      currentStart,
+      currentEnd,
+      prevStart,
+      prevEnd,
+      chronicStart,
+      todayStart,
+      previewActivityIds
     );
-  }
 
-  getStartupData(
-    currentStart: number,
-    currentEnd: number,
-    prevStart: number,
-    prevEnd: number,
-    chronicStart: number,
-    todayStart: number,
-    previewActivityIds: string[],
-  ): FfiStartupData | undefined {
-    if (!this.ready) return undefined;
-    return this.timed('getStartupData', () =>
-      this.engine
-        .fitness()
-        .getStartupData(
-          BigInt(currentStart),
-          BigInt(currentEnd),
-          BigInt(prevStart),
-          BigInt(prevEnd),
-          BigInt(chronicStart),
-          BigInt(todayStart),
-          previewActivityIds,
-        ),
-    );
-  }
+  getPeriodStats = (startTs: number, endTs: number): FfiPeriodStats =>
+    fitnessDelegates.getPeriodStats(this, startTs, endTs);
 
-  getPeriodStats(startTs: number, endTs: number): FfiPeriodStats {
-    if (!this.ready) return EMPTY_PERIOD_STATS;
-    return this.timed('getPeriodStats', () =>
-      this.engine.fitness().getPeriodStats(BigInt(startTs), BigInt(endTs)),
-    );
-  }
+  getZoneDistribution = (sportType: string, zoneType: string): number[] =>
+    fitnessDelegates.getZoneDistribution(this, sportType, zoneType);
 
-  getZoneDistribution(sportType: string, zoneType: string): number[] {
-    if (!this.ready) return [];
-    return this.timed('getZoneDistribution', () =>
-      this.engine.fitness().getZoneDistribution(sportType, zoneType),
-    );
-  }
+  getFtpTrend = (): FfiFtpTrend => fitnessDelegates.getFtpTrend(this);
 
-  getFtpTrend(): FfiFtpTrend {
-    if (!this.ready) return EMPTY_FTP_TREND;
-    return this.timed('getFtpTrend', () => this.engine.fitness().getFtpTrend());
-  }
-
-  savePaceSnapshot(
+  savePaceSnapshot = (
     sportType: string,
     criticalSpeed: number,
     dPrime?: number,
     r2?: number,
-    date?: number,
-  ): void {
-    if (!this.ready) return;
-    const ts = date ?? Math.floor(Date.now() / 1000);
-    try {
-      this.timed('savePaceSnapshot', () =>
-        this.engine.fitness().savePaceSnapshot(sportType, criticalSpeed, dPrime, r2, BigInt(ts)),
-      );
-    } catch {
-      // Pace snapshot save failed — non-critical
-    }
-  }
+    date?: number
+  ): void => fitnessDelegates.savePaceSnapshot(this, sportType, criticalSpeed, dPrime, r2, date);
 
-  getPaceTrend(sportType: string): FfiPaceTrend {
-    if (!this.ready) return EMPTY_PACE_TREND;
-    return this.timed('getPaceTrend', () => this.engine.fitness().getPaceTrend(sportType));
-  }
+  getPaceTrend = (sportType: string): FfiPaceTrend =>
+    fitnessDelegates.getPaceTrend(this, sportType);
 
-  getAvailableSportTypes(): string[] {
-    if (!this.ready) return [];
-    return this.timed('getAvailableSportTypes', () =>
-      this.engine.fitness().getAvailableSportTypes(),
-    );
-  }
+  getAvailableSportTypes = (): string[] => fitnessDelegates.getAvailableSportTypes(this);
 
-  getActivityHeatmap(startDate: string, endDate: string): HeatmapDay[] {
-    if (!this.ready) return [];
-    return this.timed('getActivityHeatmap', () =>
-      this.engine.fitness().getActivityHeatmap(startDate, endDate),
-    );
-  }
+  getActivityHeatmap = (startDate: string, endDate: string): HeatmapDay[] =>
+    fitnessDelegates.getActivityHeatmap(this, startDate, endDate);
 
   // ==========================================================================
   // Heatmap Tiles (Raster tile generation for map overlay)
@@ -829,140 +533,88 @@ class RouteEngineClient {
   // Tile generation is handled in Rust on background threads.
   // Only clear is exposed to JS (for settings "clear cache").
 
+  /** Enable heatmap tile generation by setting the tiles path. */
+  enableHeatmapTiles = (): void => heatmapDelegates.enableHeatmapTiles(this);
+
+  /** Disable heatmap tile generation by clearing the tiles path in the engine. */
+  disableHeatmapTiles = (): void => heatmapDelegates.disableHeatmapTiles(this);
+
+  /** Get total size of heatmap tile cache in bytes (fast native scan). */
+  getHeatmapCacheSize = (basePath: string): number =>
+    heatmapDelegates.getHeatmapCacheSize(this, basePath);
+
   /** Clear all heatmap tiles from disk. */
-  clearHeatmapTiles(basePath: string): number {
-    if (!this.ready) return 0;
-    return this.timed('clearHeatmapTiles', () => this.engine.heatmap().clearTiles(basePath));
-  }
+  clearHeatmapTiles = (basePath: string): number =>
+    heatmapDelegates.clearHeatmapTiles(this, basePath);
+
+  /** Get heatmap tile generation progress: [processed, total] */
+  getHeatmapTileProgress = (): number[] | null => heatmapDelegates.getHeatmapTileProgress(this);
 
   /** Poll tile generation status: 'idle' | 'running' | 'complete' */
-  pollTileGeneration(): string {
-    if (!this.ready) return 'idle';
-    try {
-      return this.engine.heatmap().poll();
-    } catch {
-      return 'error';
-    }
-  }
+  pollTileGeneration = (): string => heatmapDelegates.pollTileGeneration(this);
 
   // ==========================================================================
   // Activity Pattern Detection (K-means clustering)
   // ==========================================================================
 
-  /**
-   * Get activity patterns detected via k-means clustering on activity features.
-   * Returns patterns meeting confidence >= 0.6 threshold.
-   * K-means on [day_of_week, duration, TSS, distance] per sport type.
-   */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  getActivityPatterns(): any[] {
-    if (!this.ready) return [];
-    return this.timed('getActivityPatterns', () =>
-      this.engine.fitness().getActivityPatterns(),
-    );
-  }
+  getActivityPatterns = (): any[] => fitnessDelegates.getActivityPatterns(this);
 
-  /**
-   * Get the highest-confidence pattern matching today's day_of_week + season.
-   * Convenience method for Feed tab teaser (avoids loading all patterns in JS).
-   */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  getPatternForToday(): any | undefined {
-    if (!this.ready) return undefined;
-    return this.timed('getPatternForToday', () =>
-      this.engine.fitness().getPatternForToday() ?? undefined,
+  getPatternForToday = (): any | undefined => fitnessDelegates.getPatternForToday(this);
+
+  getActivityPatternsWithToday = (): { today: any | undefined; all: any[] } =>
+    fitnessDelegates.getActivityPatternsWithToday(this);
+
+  upsertWellness = (rows: fitnessDelegates.WellnessRowInput[]): void =>
+    fitnessDelegates.upsertWellness(this, rows);
+
+  getWellnessSparklines = (days: number): fitnessDelegates.WellnessSparklines | null =>
+    fitnessDelegates.getWellnessSparklines(this, days);
+
+  computeHrvTrend = (days: number): fitnessDelegates.HrvTrendResult | null =>
+    fitnessDelegates.computeHrvTrend(this, days);
+
+  findStalePrOpportunities = (
+    staleThresholdDays: number,
+    minGainPercent: number,
+    maxOpportunities: number,
+    excludeSectionIds: string[]
+  ) =>
+    fitnessDelegates.findStalePrOpportunities(
+      this,
+      staleThresholdDays,
+      minGainPercent,
+      maxOpportunities,
+      excludeSectionIds
     );
-  }
 
   // ==========================================================================
   // Athlete Profile & Sport Settings Cache
   // ==========================================================================
 
-  setAthleteProfile(json: string): void {
-    if (!this.ready) return;
-    try {
-      this.timed('setAthleteProfile', () => this.engine.settings().setAthleteProfile(json));
-    } catch {
-      // Settings write failed — non-critical
-    }
-  }
+  setAthleteProfile = (json: string): void => settingsDelegates.setAthleteProfile(this, json);
 
-  getAthleteProfile(): string {
-    if (!this.ready) return '';
-    try {
-      return this.timed('getAthleteProfile', () => this.engine.settings().getAthleteProfile()) ?? '';
-    } catch {
-      return '';
-    }
-  }
+  getAthleteProfile = (): string => settingsDelegates.getAthleteProfile(this);
 
-  setSportSettings(json: string): void {
-    if (!this.ready) return;
-    try {
-      this.timed('setSportSettings', () => this.engine.settings().setSportSettings(json));
-    } catch {
-      // Settings write failed — non-critical
-    }
-  }
+  setSportSettings = (json: string): void => settingsDelegates.setSportSettings(this, json);
 
-  getSportSettings(): string {
-    if (!this.ready) return '';
-    try {
-      return this.timed('getSportSettings', () => this.engine.settings().getSportSettings()) ?? '';
-    } catch {
-      return '';
-    }
-  }
+  getSportSettings = (): string => settingsDelegates.getSportSettings(this);
 
   // ==========================================================================
   // User Preferences (SQLite settings table)
   // ==========================================================================
 
-  getSetting(key: string): string | undefined {
-    if (!this.ready) return undefined;
-    try {
-      return this.engine.settings().getSetting(key) ?? undefined;
-    } catch {
-      return undefined;
-    }
-  }
+  getSetting = (key: string): string | undefined => settingsDelegates.getSetting(this, key);
 
-  setSetting(key: string, value: string): void {
-    if (!this.ready) return;
-    try {
-      this.engine.settings().setSetting(key, value);
-    } catch {
-      // Settings write failed — non-critical
-    }
-  }
+  setSetting = (key: string, value: string): void => settingsDelegates.setSetting(this, key, value);
 
-  getAllSettings(): Record<string, string> {
-    if (!this.ready) return {};
-    try {
-      const json = this.engine.settings().getAllSettings();
-      return JSON.parse(json) as Record<string, string>;
-    } catch {
-      return {};
-    }
-  }
+  getAllSettings = (): Record<string, string> => settingsDelegates.getAllSettings(this);
 
-  setAllSettings(settings: Record<string, string>): void {
-    if (!this.ready) return;
-    try {
-      this.engine.settings().setAllSettings(JSON.stringify(settings));
-    } catch {
-      // Settings write failed — non-critical
-    }
-  }
+  setAllSettings = (settings: Record<string, string>): void =>
+    settingsDelegates.setAllSettings(this, settings);
 
-  deleteSetting(key: string): void {
-    if (!this.ready) return;
-    try {
-      this.engine.settings().deleteSetting(key);
-    } catch {
-      // Settings delete failed — non-critical
-    }
-  }
+  deleteSetting = (key: string): void => settingsDelegates.deleteSetting(this, key);
 
   // ==========================================================================
   // Database Backup
@@ -1007,492 +659,230 @@ class RouteEngineClient {
 
   computePolylineOverlap(coordsA: number[], coordsB: number[], thresholdMeters = 50): number {
     return this.timed('computePolylineOverlap', () =>
-      gen().computePolylineOverlap(coordsA, coordsB, thresholdMeters),
+      gen().computePolylineOverlap(coordsA, coordsB, thresholdMeters)
     );
   }
 
-  getSectionsByType(sectionType?: 'auto' | 'custom'): FfiSection[] {
-    if (!this.ready) return [];
-    return this.timed('getSectionsByType', () =>
-      this.engine.sections().getByType(sectionType),
-    );
-  }
+  getSectionsByType = (sectionType?: 'auto' | 'custom'): FfiSection[] =>
+    sectionDelegates.getSectionsByType(this, sectionType);
 
-  createSectionFromIndices(
+  createSectionFromIndices = (
     activityId: string,
     startIndex: number,
     endIndex: number,
     sportType: string,
-    name?: string,
-  ): string {
-    if (!this.ready) return '';
-    validateId(activityId, 'activity ID');
-
-    const track = this.getGpsTrack(activityId);
-    if (!track || track.length === 0) {
-      throw new Error(`No GPS track found for activity ${activityId}`);
-    }
-
-    const sectionTrack = track.slice(startIndex, endIndex + 1);
-    if (sectionTrack.length < 2) {
-      throw new Error('Section must have at least 2 points');
-    }
-
-    const sectionId = this.timed('createSection', () =>
-      this.engine.sections().create(
-        sportType,
-        sectionTrack,
-        0.0,
-        name || undefined,
-        activityId,
-        startIndex,
-        endIndex,
-      ),
+    name?: string
+  ): string =>
+    sectionDelegates.createSectionFromIndices(
+      this,
+      activityId,
+      startIndex,
+      endIndex,
+      sportType,
+      name,
+      this.getGpsTrack
     );
 
-    if (sectionId) {
-      this.notify('sections');
-    }
+  deleteSection = (sectionId: string): boolean => sectionDelegates.deleteSection(this, sectionId);
 
-    return sectionId;
-  }
+  disableSection = (sectionId: string): boolean => sectionDelegates.disableSection(this, sectionId);
 
-  deleteSection(sectionId: string): boolean {
-    if (!this.ready) return false;
-    validateId(sectionId, 'section ID');
-    try {
-      this.timed('deleteSection', () => this.engine.sections().delete_(sectionId));
-      this.notify('sections');
-      return true;
-    } catch (e) {
-      console.error('[RouteEngine] deleteSection failed:', sectionId, e);
-      return false;
-    }
-  }
+  enableSection = (sectionId: string): boolean => sectionDelegates.enableSection(this, sectionId);
 
-  disableSection(sectionId: string): boolean {
-    if (!this.ready) return false;
-    try {
-      this.engine.sections().disable(sectionId);
-      this.notify('sections');
-      return true;
-    } catch (e) {
-      console.error('[RouteEngine] disableSection failed:', sectionId, e);
-      return false;
-    }
-  }
+  setSuperseded = (autoSectionId: string, customSectionId: string): boolean =>
+    sectionDelegates.setSuperseded(this, autoSectionId, customSectionId);
 
-  enableSection(sectionId: string): boolean {
-    if (!this.ready) return false;
-    try {
-      this.engine.sections().enable(sectionId);
-      this.notify('sections');
-      return true;
-    } catch (e) {
-      console.error('[RouteEngine] enableSection failed:', sectionId, e);
-      return false;
-    }
-  }
+  clearSuperseded = (customSectionId: string): boolean =>
+    sectionDelegates.clearSuperseded(this, customSectionId);
 
-  setSuperseded(autoSectionId: string, customSectionId: string): boolean {
-    if (!this.ready) return false;
-    try {
-      this.engine.sections().setSuperseded(autoSectionId, customSectionId);
-      return true;
-    } catch (e) {
-      console.error('[RouteEngine] setSuperseded failed:', autoSectionId, e);
-      return false;
-    }
-  }
+  importDisabledIds = (ids: string[]): number => sectionDelegates.importDisabledIds(this, ids);
 
-  clearSuperseded(customSectionId: string): boolean {
-    if (!this.ready) return false;
-    try {
-      this.engine.sections().clearSuperseded(customSectionId);
-      this.notify('sections');
-      return true;
-    } catch (e) {
-      console.error('[RouteEngine] clearSuperseded failed:', customSectionId, e);
-      return false;
-    }
-  }
+  importSupersededMap = (map: Record<string, string[]>): number =>
+    sectionDelegates.importSupersededMap(this, map);
 
-  importDisabledIds(ids: string[]): number {
-    if (!this.ready || ids.length === 0) return 0;
-    try {
-      return this.engine.sections().importDisabledIds(ids);
-    } catch (e) {
-      console.error('[RouteEngine] importDisabledIds failed:', e);
-      return 0;
-    }
-  }
+  getAllSectionsIncludingHidden = (sportType?: string): SectionSummary[] =>
+    sectionDelegates.getAllSectionsIncludingHidden(this, sportType);
 
-  importSupersededMap(map: Record<string, string[]>): number {
-    if (!this.ready) return 0;
-    const entries = Object.entries(map).map(([customSectionId, autoSectionIds]) => ({
-      customSectionId,
-      autoSectionIds,
-    }));
-    if (entries.length === 0) return 0;
-    try {
-      return this.engine.sections().importSupersededMap(entries);
-    } catch (e) {
-      console.error('[RouteEngine] importSupersededMap failed:', e);
-      return 0;
-    }
-  }
+  detectPotentials = (sportFilter?: string): FfiPotentialSection[] =>
+    detectionDelegates.detectPotentials(this, sportFilter);
 
-  getAllSectionsIncludingHidden(sportType?: string): SectionSummary[] {
-    if (!this.ready) return [];
-    return this.timed('getAllSectionsIncludingHidden', () =>
-      this.engine.sections().getAllSummariesIncludingHidden(sportType ?? null),
-    );
-  }
+  extractSectionTrace = (activityId: string, sectionPolylineJson: string): FfiGpsPoint[] =>
+    sectionDelegates.extractSectionTrace(this, activityId, sectionPolylineJson);
 
-  detectPotentials(sportFilter?: string): FfiPotentialSection[] {
-    if (!this.ready) return [];
-    return this.timed('detectPotentials', () =>
-      this.engine.detection().detectPotentials(sportFilter),
-    );
-  }
-
-  extractSectionTrace(activityId: string, sectionPolylineJson: string): FfiGpsPoint[] {
-    if (!this.ready) return [];
-    validateId(activityId, 'activity ID');
-    const flatCoords = this.timed('extractSectionTrace', () =>
-      this.engine.sections().extractTrace(activityId, sectionPolylineJson),
-    );
-    return flatCoordsToPoints(flatCoords);
-  }
-
-  extractSectionTracesBatch(
+  extractSectionTracesBatch = (
     activityIds: string[],
-    sectionPolylineJson: string,
-  ): Record<string, RoutePoint[]> {
-    if (!this.ready || activityIds.length === 0) return {};
-    const results = this.timed('extractSectionTracesBatch', () =>
-      this.engine.sections().extractTracesBatch(activityIds, sectionPolylineJson),
-    );
-    const traces: Record<string, RoutePoint[]> = {};
-    for (const batch of results) {
-      const points: RoutePoint[] = [];
-      for (let i = 0; i < batch.coords.length - 1; i += 2) {
-        points.push({ lat: batch.coords[i], lng: batch.coords[i + 1] });
-      }
-      if (points.length > 0) {
-        traces[batch.activityId] = points;
-      }
-    }
-    return traces;
-  }
+    sectionPolylineJson: string
+  ): Record<string, RoutePoint[]> =>
+    sectionDelegates.extractSectionTracesBatch(this, activityIds, sectionPolylineJson);
 
-  getActivityMetricsForIds(ids: string[]): FfiActivityMetrics[] {
-    if (!this.ready || ids.length === 0) return [];
-    return this.timed('getActivityMetricsForIds', () =>
-      this.engine.activities().getMetricsForIds(ids),
-    );
-  }
+  getActivityMetricsForIds = (ids: string[]): FfiActivityMetrics[] =>
+    activityDelegates.getActivityMetricsForIds(this, ids);
 
-  setSectionReference(sectionId: string, activityId: string): boolean {
-    if (!this.ready) return false;
-    validateId(sectionId, 'section ID');
-    validateId(activityId, 'activity ID');
-    try {
-      this.timed('setSectionReference', () =>
-        this.engine.sections().setReference(sectionId, activityId),
-      );
-      this.notify('sections');
-      return true;
-    } catch (e) {
-      console.error('[RouteEngine] setSectionReference failed:', sectionId, activityId, e);
-      return false;
-    }
-  }
+  setSectionReference = (sectionId: string, activityId: string): boolean =>
+    sectionDelegates.setSectionReference(this, sectionId, activityId);
 
-  resetSectionReference(sectionId: string): boolean {
-    if (!this.ready) return false;
-    validateId(sectionId, 'section ID');
-    try {
-      this.timed('resetSectionReference', () =>
-        this.engine.sections().resetReference(sectionId),
-      );
-      this.notify('sections');
-      return true;
-    } catch (e) {
-      console.error('[RouteEngine] resetSectionReference failed:', sectionId, e);
-      return false;
-    }
-  }
+  resetSectionReference = (sectionId: string): boolean =>
+    sectionDelegates.resetSectionReference(this, sectionId);
 
-  getSectionReferenceInfo(sectionId: string): { activityId?: string; isUserDefined: boolean } {
-    if (!this.ready) return { activityId: undefined, isUserDefined: false };
-    validateId(sectionId, 'section ID');
-    const info = this.timed('getSectionReferenceInfo', () =>
-      this.engine.sections().getReferenceInfo(sectionId),
-    );
-    return { activityId: info?.activityId, isUserDefined: info?.isUserDefined ?? false };
-  }
+  getSectionReferenceInfo = (sectionId: string): { activityId?: string; isUserDefined: boolean } =>
+    sectionDelegates.getSectionReferenceInfo(this, sectionId);
 
   // ==========================================================================
   // Section Bounds Trimming
   // ==========================================================================
 
-  trimSection(sectionId: string, startIndex: number, endIndex: number): boolean {
-    if (!this.ready) return false;
-    validateId(sectionId, 'section ID');
-    try {
-      this.timed('trimSection', () =>
-        this.engine.sections().trim(sectionId, startIndex, endIndex),
-      );
-      this.notifyAll('sections');
-      return true;
-    } catch (e) {
-      console.error('[RouteEngine] trimSection failed:', sectionId, { startIndex, endIndex }, e);
-      return false;
-    }
-  }
+  trimSection = (sectionId: string, startIndex: number, endIndex: number): boolean =>
+    sectionDelegates.trimSection(this, sectionId, startIndex, endIndex);
 
-  resetSectionBounds(sectionId: string): boolean {
-    if (!this.ready) return false;
-    validateId(sectionId, 'section ID');
-    try {
-      this.timed('resetSectionBounds', () => this.engine.sections().resetBounds(sectionId));
-      this.notifyAll('sections');
-      return true;
-    } catch (e) {
-      console.error('[RouteEngine] resetSectionBounds failed:', sectionId, e);
-      return false;
-    }
-  }
+  resetSectionBounds = (sectionId: string): boolean =>
+    sectionDelegates.resetSectionBounds(this, sectionId);
 
-  hasOriginalBounds(sectionId: string): boolean {
-    if (!this.ready) return false;
-    validateId(sectionId, 'section ID');
-    return this.timed('hasOriginalBounds', () =>
-      this.engine.sections().hasOriginalBounds(sectionId),
-    );
-  }
+  hasOriginalBounds = (sectionId: string): boolean =>
+    sectionDelegates.hasOriginalBounds(this, sectionId);
 
-  /**
-   * Get the representative activity's full GPS track for section expansion.
-   * Returns the track as flat coords [lat, lng, ...] + section start/end indices.
-   */
-  getSectionExtensionTrack(
-    sectionId: string,
-  ): { track: number[]; sectionStartIdx: number; sectionEndIdx: number } | null {
-    if (!this.ready) return null;
-    validateId(sectionId, 'section ID');
-    try {
-      return this.timed('getSectionExtensionTrack', () => {
-        const result = this.engine.sections().getExtensionTrack(sectionId);
-        return {
-          track: result.track,
-          sectionStartIdx: result.sectionStartIdx,
-          sectionEndIdx: result.sectionEndIdx,
-        };
-      });
-    } catch (e) {
-      console.error('[RouteEngine] getSectionExtensionTrack failed:', sectionId, e);
-      return null;
-    }
-  }
+  getSectionExtensionTrack = (
+    sectionId: string
+  ): { track: number[]; sectionStartIdx: number; sectionEndIdx: number } | null =>
+    sectionDelegates.getSectionExtensionTrack(this, sectionId);
 
-  /**
-   * Expand section bounds by providing a new polyline (can be larger than original).
-   * Backs up original polyline on first edit, re-matches activities.
-   */
-  expandSectionBounds(sectionId: string, newPolylineJson: string): boolean {
-    if (!this.ready) return false;
-    validateId(sectionId, 'section ID');
-    try {
-      this.timed('expandSectionBounds', () =>
-        this.engine.sections().expandBounds(sectionId, newPolylineJson),
-      );
-      this.notifyAll('sections');
-      return true;
-    } catch (e) {
-      console.error('[RouteEngine] expandSectionBounds failed:', sectionId, e);
-      return false;
-    }
-  }
+  expandSectionBounds = (sectionId: string, newPolylineJson: string): boolean =>
+    sectionDelegates.expandSectionBounds(this, sectionId, newPolylineJson);
 
   getDownloadProgress(): DownloadProgressResult {
     return gen().getDownloadProgress();
   }
 
-  removeActivity(activityId: string): boolean {
-    if (!this.ready) return false;
-    try {
-      this.timed('removeActivity', () => this.engine.activities().remove(activityId));
-      this.notifyAll('activities', 'groups', 'sections');
-      return true;
-    } catch {
-      return false;
-    }
-  }
+  removeActivity = (activityId: string): boolean =>
+    activityDelegates.removeActivity(this, activityId);
 
-  debugCloneActivity(sourceId: string, count: number): number {
-    if (!this.ready) return 0;
-    const created = this.timed('debugCloneActivity', () =>
-      this.engine.activities().debugClone(sourceId, count),
-    );
-    if (created > 0) {
-      this.notifyAll('activities', 'groups', 'sections');
-    }
-    return created;
-  }
+  debugCloneActivity = (sourceId: string, count: number): number =>
+    activityDelegates.debugCloneActivity(this, sourceId, count);
+
+  getActivityHighlightsBundle = (
+    activityIds: string[]
+  ): activityDelegates.ActivityHighlightsBundle =>
+    activityDelegates.getActivityHighlightsBundle(this, activityIds);
 
   // ========================================================================
   // Strength Training
   // ========================================================================
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  getExerciseSets(activityId: string): any[] {
-    return this.timed('getExerciseSets', () =>
-      this.engine.strength().getExerciseSets(activityId),
-    );
-  }
+  getExerciseSets = (activityId: string): any[] =>
+    strengthDelegates.getExerciseSets(this, activityId);
 
-  isFitProcessed(activityId: string): boolean {
-    return this.timed('isFitProcessed', () =>
-      this.engine.strength().isFitProcessed(activityId),
+  isFitProcessed = (activityId: string): boolean =>
+    strengthDelegates.isFitProcessed(this, activityId);
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  fetchAndParseExerciseSets = (authHeader: string, activityId: string): any[] =>
+    strengthDelegates.fetchAndParseExerciseSets(this, authHeader, activityId);
+
+  /**
+   * Insert pre-parsed exercise sets for an activity without touching the
+   * network. Demo-mode only — production uses fetchAndParseExerciseSets.
+   */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  bulkInsertExerciseSets(activityId: string, sets: any[]): void {
+    return this.timed('bulkInsertExerciseSets', () =>
+      this.engine.strength().bulkInsertExerciseSets(activityId, sets)
     );
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  fetchAndParseExerciseSets(authHeader: string, activityId: string): any[] {
-    return this.timed('fetchAndParseExerciseSets', () =>
-      this.engine.strength().fetchAndParseExerciseSets(authHeader, activityId),
-    );
-  }
+  getMuscleGroups = (activityId: string): any[] =>
+    strengthDelegates.getMuscleGroups(this, activityId);
+
+  getUnprocessedStrengthIds = (activityIds: string[]): string[] =>
+    strengthDelegates.getUnprocessedStrengthIds(this, activityIds);
+
+  batchFetchExerciseSets = (authHeader: string, activityIds: string[]): string[] =>
+    strengthDelegates.batchFetchExerciseSets(this, authHeader, activityIds);
+
+  /**
+   * Parse FIT bytes locally and store strength sets. Returns the number of
+   * sets inserted. No network — used when the FIT buffer is already
+   * available (recording upload, local backup replay).
+   */
+  importSetsFromFit = (activityId: string, fitBytes: Uint8Array): number =>
+    strengthDelegates.importSetsFromFit(this, activityId, fitBytes);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  getMuscleGroups(activityId: string): any[] {
-    return this.timed('getMuscleGroups', () =>
-      this.engine.strength().getMuscleGroups(activityId),
-    );
-  }
+  getStrengthSummary = (startTs: number, endTs: number): any =>
+    strengthDelegates.getStrengthSummary(this, startTs, endTs);
 
-  getUnprocessedStrengthIds(activityIds: string[]): string[] {
-    return this.timed('getUnprocessedStrengthIds', () =>
-      this.engine.strength().getUnprocessedStrengthIds(activityIds),
-    );
-  }
+  getStrengthInsightSeries = (
+    monthly: { startTs: number; endTs: number },
+    weekly: Array<{ startTs: number; endTs: number }>
+  ): strengthDelegates.StrengthInsightSeries =>
+    strengthDelegates.getStrengthInsightSeries(this, monthly, weekly);
 
-  batchFetchExerciseSets(authHeader: string, activityIds: string[]): string[] {
-    return this.timed('batchFetchExerciseSets', () =>
-      this.engine.strength().batchFetchExerciseSets(authHeader, activityIds),
-    );
-  }
+  getStrengthSummaryBatch = (ranges: Array<{ startTs: number; endTs: number }>): any[] =>
+    strengthDelegates.getStrengthSummaryBatch(this, ranges);
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  getStrengthSummary(startTs: number, endTs: number): any {
-    return this.timed('getStrengthSummary', () =>
-      this.engine.strength().getStrengthSummary(BigInt(startTs), BigInt(endTs)),
-    );
-  }
+  getMuscleDetail = (
+    activityId: string,
+    muscleSlug: string
+  ): strengthDelegates.MuscleGroupDetailFfi | null =>
+    strengthDelegates.getMuscleDetail(this, activityId, muscleSlug);
 
-  hasStrengthData(): boolean {
-    return this.timed('hasStrengthData', () => this.engine.strength().hasStrengthData());
-  }
+  hasStrengthData = (): boolean => strengthDelegates.hasStrengthData(this);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  getExercisesForMuscle(startTs: number, endTs: number, muscleSlug: string): any {
-    return this.timed('getExercisesForMuscle', () =>
-      this.engine
-        .strength()
-        .getExercisesForMuscle(BigInt(startTs), BigInt(endTs), muscleSlug),
-    );
-  }
+  getExercisesForMuscle = (startTs: number, endTs: number, muscleSlug: string): any =>
+    strengthDelegates.getExercisesForMuscle(this, startTs, endTs, muscleSlug);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  getActivitiesForExercise(
+  getActivitiesForExercise = (
     startTs: number,
     endTs: number,
     muscleSlug: string,
-    exerciseCategory: number,
-  ): any {
-    return this.timed('getActivitiesForExercise', () =>
-      this.engine
-        .strength()
-        .getActivitiesForExercise(BigInt(startTs), BigInt(endTs), muscleSlug, exerciseCategory),
-    );
-  }
+    exerciseCategory: number
+  ): any =>
+    strengthDelegates.getActivitiesForExercise(this, startTs, endTs, muscleSlug, exerciseCategory);
 
   // ========================================================================
   // Section Matching, Nearby, Merge, Re-detect
   // ========================================================================
 
-  matchActivityToSections(activityId: string): FfiSectionMatch[] {
-    if (!this.ready) return [];
-    validateId(activityId, 'activity ID');
-    return this.timed('matchActivityToSections', () =>
-      this.engine.sections().matchActivityToSections(activityId),
-    );
-  }
+  matchActivityToSections = (activityId: string): FfiSectionMatch[] =>
+    sectionDelegates.matchActivityToSections(this, activityId);
 
-  rematchActivityToSection(activityId: string, sectionId: string): boolean {
-    if (!this.ready) return false;
-    validateId(activityId, 'activity ID');
-    validateId(sectionId, 'section ID');
-    try {
-      const result = this.timed('rematchActivityToSection', () =>
-        this.engine.sections().rematchActivityToSection(activityId, sectionId),
-      );
-      if (result) {
-        this.notify('sections');
-      }
-      return result;
-    } catch (e) {
-      console.error('[RouteEngine] rematchActivityToSection failed:', e);
-      return false;
-    }
-  }
+  rematchActivityToSection = (activityId: string, sectionId: string): boolean =>
+    sectionDelegates.rematchActivityToSection(this, activityId, sectionId);
 
-  getNearbySections(sectionId: string, radiusMeters: number = 500): FfiNearbySectionSummary[] {
-    if (!this.ready) return [];
-    validateId(sectionId, 'section ID');
-    return this.timed('getNearbySections', () =>
-      this.engine.sections().getNearbySections(sectionId, radiusMeters),
-    );
-  }
+  getNearbySections = (sectionId: string, radiusMeters: number = 500): FfiNearbySectionSummary[] =>
+    sectionDelegates.getNearbySections(this, sectionId, radiusMeters);
 
-  getMergeCandidates(sectionId: string): FfiMergeCandidate[] {
-    if (!this.ready) return [];
-    validateId(sectionId, 'section ID');
-    return this.timed('getMergeCandidates', () =>
-      this.engine.sections().getMergeCandidates(sectionId),
-    );
-  }
+  getMergeCandidates = (sectionId: string): FfiMergeCandidate[] =>
+    sectionDelegates.getMergeCandidates(this, sectionId);
 
-  mergeSections(primaryId: string, secondaryId: string): string | null {
-    if (!this.ready) return null;
-    validateId(primaryId, 'primary section ID');
-    validateId(secondaryId, 'secondary section ID');
-    try {
-      const result = this.timed('mergeSections', () =>
-        this.engine.sections().mergeSections(primaryId, secondaryId),
-      );
-      this.notify('sections');
-      return result;
-    } catch (e) {
-      console.error('[RouteEngine] mergeSections failed:', e);
-      return null;
-    }
-  }
+  mergeSections = (primaryId: string, secondaryId: string): string | null =>
+    sectionDelegates.mergeSections(this, primaryId, secondaryId);
 
-  forceRedetectSections(sportFilter?: string): boolean {
-    if (!this.ready) return false;
-    try {
-      const started = this.timed('forceRedetectSections', () =>
-        this.engine.detection().forceRedetect(sportFilter),
-      );
-      return started;
-    } catch (e) {
-      console.error('[RouteEngine] forceRedetectSections failed:', e);
-      return false;
-    }
-  }
+  getActivitySectionHighlights = (activityIds: string[]): FfiActivitySectionHighlight[] =>
+    sectionDelegates.getActivitySectionHighlights(this, activityIds);
+
+  getActivityRouteHighlights = (activityIds: string[]): FfiActivityRouteHighlight[] =>
+    routeDelegates.getActivityRouteHighlights(this, activityIds);
+
+  /** Read pre-computed indicators for a batch of activity IDs (from materialized table). */
+  getActivityIndicators = (activityIds: string[]): FfiActivityIndicator[] =>
+    sectionDelegates.getActivityIndicators(this, activityIds);
+
+  /** Read pre-computed indicators for a single activity. */
+  getIndicatorsForActivity = (activityId: string): FfiActivityIndicator[] =>
+    sectionDelegates.getIndicatorsForActivity(this, activityId);
+
+  /** Get section encounters for an activity: one entry per (section, direction). */
+  getActivitySectionEncounters = (activityId: string): SectionEncounter[] =>
+    sectionDelegates.getActivitySectionEncounters(this, activityId);
+
+  /** Recompute all activity indicators (PRs and trends). */
+  recomputeIndicators = (): void => sectionDelegates.recomputeIndicators(this);
+
+  forceRedetectSections = (sportFilter?: string): boolean =>
+    detectionDelegates.forceRedetectSections(this, sportFilter);
 
   subscribe(event: string, callback: () => void): () => void {
     if (!this.listeners.has(event)) {
@@ -1509,11 +899,11 @@ class RouteEngineClient {
     this.notify(event);
   }
 
-  private notify(event: string): void {
+  notify(event: string): void {
     this.listeners.get(event)?.forEach((cb) => cb());
   }
 
-  private notifyAll(...events: string[]): void {
+  notifyAll(...events: string[]): void {
     events.forEach((event) => this.notify(event));
   }
 }

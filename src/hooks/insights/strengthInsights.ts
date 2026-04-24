@@ -1,13 +1,8 @@
 import { MUSCLE_DISPLAY_NAMES, type MuscleSlug } from '@/lib/strength/exerciseMuscleMap';
 import { buildStrengthBalancePairs, buildStrengthProgression } from '@/lib/strength/analysis';
+import { formatSetCount } from '@/lib/strength/formatting';
 import type { Insight, StrengthBalancePair, StrengthProgressPoint, StrengthSummary } from '@/types';
-
-const MIN_PROGRESS_SIGNAL = 4;
-const MIN_PROGRESS_CHANGE_PCT = 15;
-
-function formatSetCount(value: number): string {
-  return value % 1 === 0 ? value.toFixed(0) : value.toFixed(1);
-}
+import { INSIGHTS_CONFIG } from './config';
 
 function formatRatio(value: number | null): string {
   if (value == null) return 'No signal';
@@ -38,6 +33,11 @@ function buildStrengthBalanceInsight(pair: StrengthBalancePair, now: number): In
     navigationTarget: '/routes?tab=strength',
     timestamp: now,
     isNew: false,
+    meta: {
+      sourceTimestamp: now,
+      comparisonKind: 'self',
+      specificity: { hasNumber: true, hasPlace: false, hasDate: false },
+    },
     supportingData: {
       dataPoints: [
         { label: pair.leftLabel, value: formatSetCount(pair.leftWeightedSets), unit: 'sets' },
@@ -64,14 +64,14 @@ function buildStrengthProgressionInsight(
   points: StrengthProgressPoint[],
   now: number
 ): Insight | null {
-  if (monthlyWeightedSets < MIN_PROGRESS_SIGNAL) return null;
+  if (monthlyWeightedSets < INSIGHTS_CONFIG.repetition.strength_min_sets) return null;
 
   const progression = buildStrengthProgression(muscleSlug, points);
   const hasRecentVolume = progression.points.some((point) => point.weightedSets > 0);
   const isMeaningfulChange =
     progression.changePct == null
       ? progression.recentAverage > 0 && progression.baselineAverage === 0
-      : Math.abs(progression.changePct) >= MIN_PROGRESS_CHANGE_PCT;
+      : Math.abs(progression.changePct) >= INSIGHTS_CONFIG.thresholds.minProgressChangePct;
 
   if (!hasRecentVolume || !isMeaningfulChange || progression.trend === 'flat') {
     return null;
@@ -104,6 +104,15 @@ function buildStrengthProgressionInsight(
     navigationTarget: '/routes?tab=strength',
     timestamp: now,
     isNew: false,
+    meta: {
+      sourceTimestamp: now,
+      comparisonKind: 'self',
+      specificity: {
+        hasNumber: true,
+        hasPlace: false,
+        hasDate: true,
+      },
+    },
     supportingData: {
       dataPoints: [
         { label: 'Recent avg', value: progression.recentAverage, unit: 'sets' },
@@ -145,6 +154,50 @@ function buildStrengthProgressionInsight(
   };
 }
 
+function buildStrengthSnapshotInsight(summary: StrengthSummary, now: number): Insight {
+  const dominant = [...summary.muscleVolumes].sort((a, b) => b.weightedSets - a.weightedSets)[0];
+  const dominantName = dominant
+    ? (MUSCLE_DISPLAY_NAMES[dominant.slug as MuscleSlug] ?? dominant.slug)
+    : null;
+  const subtitle = dominantName
+    ? `${summary.activityCount} sessions · ${summary.totalSets} sets · top: ${dominantName}`
+    : `${summary.activityCount} sessions · ${summary.totalSets} sets`;
+
+  return {
+    id: 'strength_snapshot',
+    category: 'strength_progression',
+    priority: 4,
+    title: `${summary.activityCount} strength session${summary.activityCount === 1 ? '' : 's'} in the last 4 weeks`,
+    subtitle,
+    body: `${summary.totalSets} weighted sets across ${summary.muscleVolumes.length} muscle groups.`,
+    icon: 'dumbbell',
+    iconColor: '#71717A',
+    navigationTarget: '/routes?tab=strength',
+    timestamp: now,
+    isNew: false,
+    meta: {
+      sourceTimestamp: now,
+      comparisonKind: 'self',
+      specificity: { hasNumber: true, hasPlace: false, hasDate: false },
+    },
+    supportingData: {
+      dataPoints: [
+        { label: 'Sessions', value: summary.activityCount },
+        { label: 'Sets', value: summary.totalSets },
+        { label: 'Muscle groups', value: summary.muscleVolumes.length },
+      ],
+      formula: 'Counts of strength sessions, weighted sets, and tracked muscle groups',
+      algorithmDescription:
+        'Aggregates strength workouts in the last 4 weeks. Primary work counts as 1.0 and secondary work counts as 0.5 toward each muscle group.',
+    },
+    methodology: {
+      name: 'Strength snapshot',
+      description:
+        'Summarises strength volume across the most recent 4 weeks: workout count, total weighted sets, and number of tracked muscle groups.',
+    },
+  };
+}
+
 export function generateStrengthInsights(
   monthlySummary: StrengthSummary | null,
   weeklySummaries: StrengthSummary[],
@@ -155,6 +208,12 @@ export function generateStrengthInsights(
   }
 
   const insights: Insight[] = [];
+
+  // Surface a snapshot only when there is enough volume to be informative —
+  // mirrors the per-muscle gate used by the other strength insights.
+  if (monthlySummary.totalSets > INSIGHTS_CONFIG.repetition.strength_min_sets) {
+    insights.push(buildStrengthSnapshotInsight(monthlySummary, now));
+  }
 
   const balancePair = buildStrengthBalancePairs(monthlySummary.muscleVolumes).find(
     (pair) => pair.status === 'watch' || pair.status === 'imbalanced' || pair.status === 'one-sided'

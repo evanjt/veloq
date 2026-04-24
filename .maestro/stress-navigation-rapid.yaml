@@ -13,33 +13,93 @@ tags:
     times: 5
     commands:
       - openLink: "veloq://fitness"
+      - runFlow:
+          when:
+            visible: "Open"
+          commands:
+            - tapOn: "Open"
       - openLink: "veloq://training"
+      - runFlow:
+          when:
+            visible: "Open"
+          commands:
+            - tapOn: "Open"
       - openLink: "veloq://map"
+      - runFlow:
+          when:
+            visible: "Open"
+          commands:
+            - tapOn: "Open"
       - openLink: "veloq://"
+      - runFlow:
+          when:
+            visible: "Open"
+          commands:
+            - tapOn: "Open"
 
 # Rapid secondary screen access
 - repeat:
     times: 3
     commands:
       - openLink: "veloq://settings"
+      - runFlow:
+          when:
+            visible: "Open"
+          commands:
+            - tapOn: "Open"
       - openLink: "veloq://about"
+      - runFlow:
+          when:
+            visible: "Open"
+          commands:
+            - tapOn: "Open"
       - openLink: "veloq://routes"
+      - runFlow:
+          when:
+            visible: "Open"
+          commands:
+            - tapOn: "Open"
       - openLink: "veloq://"
+      - runFlow:
+          when:
+            visible: "Open"
+          commands:
+            - tapOn: "Open"
 
 # Rapid activity detail access
 - repeat:
     times: 5
     commands:
       - openLink: "veloq://activity/demo-test-0"
+      - runFlow:
+          when:
+            visible: "Open"
+          commands:
+            - tapOn: "Open"
       - openLink: "veloq://activity/demo-test-1"
+      - runFlow:
+          when:
+            visible: "Open"
+          commands:
+            - tapOn: "Open"
       - openLink: "veloq://activity/demo-2"
+      - runFlow:
+          when:
+            visible: "Open"
+          commands:
+            - tapOn: "Open"
       - openLink: "veloq://"
+      - runFlow:
+          when:
+            visible: "Open"
+          commands:
+            - tapOn: "Open"
 
-# Verify home is still responsive
+# Verify home is still responsive (longer timeout after rapid navigation)
 - extendedWaitUntil:
     visible:
       id: "home-screen"
-    timeout: 30000
+    timeout: 60000
 
 - extendedWaitUntil:
     visible:

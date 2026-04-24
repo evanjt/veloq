@@ -128,6 +128,39 @@ describe('getBounds', () => {
     const result = getBounds([]);
     expect(result).toBeNull();
   });
+
+  // Gulf of Guinea (0, 0) is a real location — origin coordinates must not
+  // be mistaken for "no data".
+  it('should return valid bounds for coordinates at the origin', () => {
+    const coords = [
+      { latitude: 0, longitude: 0 },
+      { latitude: 0.001, longitude: 0.001 },
+    ];
+    const bounds = getBounds(coords);
+    expect(bounds).not.toBeNull();
+    expect(bounds!.minLat).toBe(0);
+    expect(bounds!.maxLat).toBe(0.001);
+  });
+
+  it('should distinguish empty array (null) from single point at origin (non-null)', () => {
+    expect(getBounds([])).toBeNull();
+    expect(getBounds([{ latitude: 0, longitude: 0 }])).not.toBeNull();
+  });
+
+  // Scaling smoke test: 10k points must complete quickly and produce correct
+  // bounds. Guards against accidental O(n²) regressions.
+  it('handles 10000 coordinates under 100ms', () => {
+    const coords = Array.from({ length: 10000 }, (_, i) => ({
+      latitude: 40 + (i % 100) * 0.001,
+      longitude: -74 + Math.floor(i / 100) * 0.001,
+    }));
+    const start = Date.now();
+    const bounds = getBounds(coords);
+    const elapsed = Date.now() - start;
+    expect(bounds).not.toBeNull();
+    expect(bounds!.minLat).toBeCloseTo(40, 1);
+    expect(elapsed).toBeLessThan(100);
+  });
 });
 
 describe('getBoundsCenter', () => {

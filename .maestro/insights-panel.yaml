@@ -1,0 +1,49 @@
+# Insights Panel (v0.3.0)
+# Verifies the Insights tab is the default when navigating to /routes, the
+# panel renders, and either the card list or the empty state is visible.
+
+appId: com.veloq.app.dev
+tags:
+  - tier2
+---
+- runFlow:
+    file: helpers/setup-demo-mode.yaml
+
+# navigate-to-routes helper forces ?tab=routes; use a direct deep link so we
+# land on the Insights sub-tab explicitly.
+- openLink: "veloq://routes?tab=insights"
+- runFlow:
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
+
+- extendedWaitUntil:
+    visible:
+      id: "insights-panel"
+    timeout: 15000
+    optional: true
+
+- takeScreenshot: "insights-panel-default"
+
+- runFlow:
+    when:
+      visible:
+        id: "insights-card-list"
+    commands:
+      - takeScreenshot: "insights-cards-visible"
+      - swipe:
+          start: 50%, 80%
+          end: 50%, 30%
+          duration: 400
+      - takeScreenshot: "insights-cards-scrolled"
+
+- runFlow:
+    when:
+      visible:
+        id: "insights-empty"
+    commands:
+      - takeScreenshot: "insights-empty-state"
+
+- assertNotVisible:
+    text: "NaN"

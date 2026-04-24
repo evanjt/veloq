@@ -1,0 +1,173 @@
+# Auth Token Refresh Flow
+#
+# Exercises the session-expiry / token-invalidation handling that fires when
+# an OAuth token is rejected (401) by intervals.icu, or when an API key is
+# revoked. The app's AuthStore.handleSessionExpired() clears credentials and
+# the login screen surfaces a `sessionExpired` banner (login.tsx:54-60).
+#
+# -----------------------------------------------------------------------------
+# WHAT THIS FLOW TESTS
+# -----------------------------------------------------------------------------
+# The user-visible symptom of a token refresh failure is identical to an
+# explicit logout: credentials are cleared, the login screen is shown, and the
+# user must re-authenticate. This flow verifies that the full credential-clear
+# → login-screen → re-login cycle works without NaN/undefined/crash.
+#
+# In demo mode the OAuth session-expiry code path can't be exercised directly
+# because there is no real token to invalidate. We use the manual logout
+# button (settings → account → disconnect) as the session-expiry proxy, since
+# both code paths ultimately call `clearCredentials()` on the AuthStore.
+#
+# -----------------------------------------------------------------------------
+# INSTRUMENTATION MISSING FOR A HIGHER-FIDELITY TEST
+# -----------------------------------------------------------------------------
+# To simulate a real token-expiry event in E2E, we'd need ONE of:
+#   1. A dev-only deep-link `veloq://debug/expire-session` that calls
+#      `useAuthStore.getState().handleSessionExpired('token_expired')`. None
+#      exists as of 2026-04-18 (grep: `handleSessionExpired` is only called
+#      from the API client's 401 interceptor).
+#   2. A mocked intervals.icu that returns 401 on demand. Our demo fixtures
+#      don't hit the network so this isn't wired up.
+#   3. An OAuth end-to-end test with a live CLIENT_ID/PROXY_URL. OAuth is
+#      unblocked in constants.ts but the E2E runner has no test account.
+#
+# Adding (1) — a dev-only session-expiry deep-link — is the cheapest step and
+# would upgrade this flow from "logout-as-proxy" to "real session expiry".
+# -----------------------------------------------------------------------------
+
+appId: com.veloq.app.dev
+tags:
+  - tier2
+
+# Recovery: if this flow leaves us on the login screen (Disconnect tapped but
+# demo re-entry didn't complete), hop back into demo mode so subsequent flows
+# have a clean starting point.
+onFlowComplete:
+  - runFlow:
+      when:
+        visible:
+          id: "login-screen"
+      commands:
+        - tapOn:
+            id: "login-demo-button"
+        - extendedWaitUntil:
+            visible:
+              id: "home-screen"
+            timeout: 15000
+            optional: true
+---
+- runFlow:
+    file: helpers/setup-demo-mode.yaml
+
+# Baseline: feed data renders cleanly before we clear auth
+- extendedWaitUntil:
+    visible:
+      id: "home-activity-list"
+    timeout: 15000
+
+- assertVisible:
+    id: "activity-card-demo-test-0"
+
+- assertNotVisible:
+    text: "NaN"
+
+# Navigate to settings → account sub-screen → logout button
+# This is the closest thing to a forced session invalidation we have without
+# a dev-only deep-link (see comment block above).
+- runFlow:
+    file: helpers/navigate-to-settings.yaml
+
+- tapOn:
+    id: "settings-account-row"
+
+- extendedWaitUntil:
+    visible:
+      id: "settings-logout-button"
+    timeout: 10000
+
+- scrollUntilVisible:
+    element:
+      id: "settings-logout-button"
+    direction: DOWN
+    timeout: 15000
+    speed: 40
+    visibilityPercentage: 20
+
+- tapOn:
+    id: "settings-logout-button"
+
+# Destructive confirmation dialog
+- extendedWaitUntil:
+    visible:
+      text: "Disconnect Account"
+    timeout: 5000
+
+- tapOn: "Disconnect"
+
+# CRITICAL: app MUST land on login screen without crashing or showing NaN
+# during the transition. AuthStore.clearCredentials() is async (cancels queries,
+# clears caches, deletes SecureStore entries) and is the same teardown path
+# that handleSessionExpired() uses.
+- extendedWaitUntil:
+    visible:
+      id: "login-screen"
+    timeout: 30000
+
+- assertNotVisible:
+    text: "NaN"
+
+- assertNotVisible:
+    text: "undefined"
+
+- takeScreenshot: "auth-token-refresh-login-reached"
+
+# Re-login via demo mode — verifies that post-refresh re-auth works cleanly
+- tapOn:
+    id: "login-demo-button"
+
+# Dismiss any post-login dialogs that may re-appear after state clear
+- runFlow:
+    when:
+      visible: "Not Now"
+    commands:
+      - tapOn: "Not Now"
+
+- runFlow:
+    when:
+      visible: "Done"
+    commands:
+      - tapOn: "Done"
+
+- runFlow:
+    when:
+      visible: "Skip"
+    commands:
+      - tapOn: "Skip"
+
+- runFlow:
+    when:
+      visible: "Close"
+    commands:
+      - tapOn: "Close"
+
+- extendedWaitUntil:
+    visible:
+      id: "home-screen"
+    timeout: 30000
+
+# End state: feed rehydrates cleanly, no NaN on any stat card
+- extendedWaitUntil:
+    visible:
+      id: "home-activity-list"
+    timeout: 15000
+
+- assertVisible:
+    id: "activity-card-demo-test-0"
+
+- assertNotVisible:
+    text: "NaN"
+
+- assertNotVisible:
+    text: "undefined"
+
+- takeScreenshot: "auth-token-refresh-end"

@@ -253,7 +253,7 @@ function RouteRowComponent({ route, navigable = false, distanceFromUser }: Route
               <MaterialCommunityIcons
                 name={getTypeIcon()}
                 size={18}
-                color={isDark ? '#555' : '#BBB'}
+                color={isDark ? '#71717A' : '#BBB'}
               />
             </View>
           )}

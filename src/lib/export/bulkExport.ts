@@ -7,6 +7,7 @@
 
 import * as FileSystem from 'expo-file-system/legacy';
 import { getRouteEngine } from '@/lib/native/routeEngine';
+import { formatLocalDate } from '@/lib/utils/format';
 
 export type BulkExportPhase = 'generating' | 'sharing';
 
@@ -28,7 +29,7 @@ export async function bulkExportActivities(
   const engine = getRouteEngine();
   if (!engine) throw new Error('Route engine not available');
 
-  const dateStr = new Date().toISOString().split('T')[0];
+  const dateStr = formatLocalDate(new Date());
   const filename = `veloq-activities-${dateStr}.zip`;
   const destUri = `${FileSystem.cacheDirectory}${filename}`;
 
@@ -72,7 +73,7 @@ export async function bulkExportActivitiesGeoJson(
   const engine = getRouteEngine();
   if (!engine) throw new Error('Route engine not available');
 
-  const dateStr = new Date().toISOString().split('T')[0];
+  const dateStr = formatLocalDate(new Date());
   const filename = `veloq-activities-${dateStr}.geojson`;
   const destUri = `${FileSystem.cacheDirectory}${filename}`;
   const plainPath = destUri.startsWith('file://') ? destUri.slice(7) : destUri;

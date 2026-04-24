@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { Canvas, Picture, Skia } from '@shopify/react-native-skia';
 import { colors, darkColors, typography, spacing, layout } from '@/theme';
 import { getRouteEngine } from '@/lib/native/routeEngine';
+import { formatLocalDate } from '@/lib';
 import type { Activity } from '@/types';
 
 interface ActivityHeatmapProps {
@@ -57,8 +58,8 @@ export function ActivityHeatmap({ activities, highlightDate }: ActivityHeatmapPr
     const map = new Map<string, number>();
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - WEEKS_TO_SHOW * 7);
-    const startDate = cutoff.toISOString().split('T')[0];
-    const endDate = new Date().toISOString().split('T')[0];
+    const startDate = formatLocalDate(cutoff);
+    const endDate = formatLocalDate(new Date());
 
     // Try Rust engine cache first (fast: single SQL query, but limited to sync range)
     const engine = getRouteEngine();
@@ -107,7 +108,7 @@ export function ActivityHeatmap({ activities, highlightDate }: ActivityHeatmapPr
       for (let d = 0; d < 7; d++) {
         const date = new Date(today);
         date.setDate(date.getDate() - (w * 7 + (6 - d)));
-        const dateStr = date.toISOString().split('T')[0];
+        const dateStr = formatLocalDate(date);
         const col = WEEKS_TO_SHOW - 1 - w;
         intensities[col * 7 + d] = activityMap.get(dateStr) || 0;
 
@@ -171,7 +172,7 @@ export function ActivityHeatmap({ activities, highlightDate }: ActivityHeatmapPr
       for (let d = 0; d < 7; d++) {
         const date = new Date(today);
         date.setDate(date.getDate() - (w * 7 + (6 - d)));
-        if (date.toISOString().split('T')[0] === highlightDate) {
+        if (formatLocalDate(date) === highlightDate) {
           const col = WEEKS_TO_SHOW - 1 - w;
           return {
             x: col * (cellSize + cellGap),

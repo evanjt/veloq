@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { intervalsApi } from '@/api';
 import { getRouteEngine } from '@/lib/native/routeEngine';
+import { queryKeys } from '@/lib/queryKeys';
 import type { PaceCurve } from '@/types';
 
 interface UsePaceCurveOptions {
@@ -17,7 +18,7 @@ export function usePaceCurve(options: UsePaceCurveOptions = {}) {
   const { sport = 'Run', days = 42, gap = false, enabled = true } = options;
 
   const result = useQuery<PaceCurve>({
-    queryKey: ['paceCurve', sport, days, gap],
+    queryKey: queryKeys.charts.paceCurve.bySport(sport, days, gap),
     queryFn: () => intervalsApi.getPaceCurve({ sport, days, gap }),
     enabled,
     staleTime: 1000 * 60 * 15, // 15 minutes - curves change infrequently

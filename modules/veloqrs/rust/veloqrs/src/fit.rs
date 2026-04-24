@@ -2,6 +2,10 @@
 //!
 //! Uses the `fitparser` crate to parse FIT files, extracting `set` messages
 //! (MesgNum::Set). Also provides exercise name and muscle group lookup tables.
+//!
+//! Exercise category IDs and set_type values follow the Garmin FIT SDK
+//! Profile (v21.133). See FIT SDK Profile.xlsx → Types → ExerciseCategory
+//! and SetType for the authoritative enum definitions.
 
 use std::collections::HashMap;
 use std::io::Cursor;
@@ -21,6 +25,30 @@ pub struct FitExerciseSet {
     pub weight_kg: Option<f64>,
     pub duration_secs: Option<f64>,
     pub start_time: Option<i64>,
+}
+
+/// Errors from parsing a FIT binary file.
+#[derive(Debug, thiserror::Error)]
+pub enum FitParseError {
+    #[error("FIT bytes empty")]
+    Empty,
+    #[error("FIT decode failed: {0}")]
+    Decode(String),
+}
+
+/// Parse a FIT binary file and return extracted exercise sets or a typed error.
+///
+/// Wraps [`parse_fit_sets`] with explicit error reporting so callers can
+/// distinguish an unparseable file from a valid-but-empty one (e.g. a cardio
+/// activity with no `Set` messages).
+pub fn parse_fit_strength_sets(data: &[u8]) -> Result<Vec<FitExerciseSet>, FitParseError> {
+    if data.is_empty() {
+        return Err(FitParseError::Empty);
+    }
+    let mut cursor = Cursor::new(data);
+    let _ = fitparser::from_reader(&mut cursor)
+        .map_err(|e| FitParseError::Decode(format!("{}", e)))?;
+    Ok(parse_fit_sets(data))
 }
 
 /// Parse a FIT binary file and extract exercise set data.
@@ -60,8 +88,8 @@ pub fn parse_fit_sets(data: &[u8]) -> Vec<FitExerciseSet> {
                     exercise_name_val = extract_first_u16(field);
                 }
                 "set_type" => {
-                    // FIT SDK enum: raw 0=rest, 1=active (counterintuitive!)
-                    // We normalize to: 0=active, 1=rest for our internal use
+                    // FIT SDK SetType enum (v21.133): 0=active, 1=rest
+                    // Our internal convention: 0=active, 1=rest (same as FIT SDK)
                     match field.value() {
                         fitparser::Value::String(s) => {
                             set_type = Some(match s.to_lowercase().as_str() {
@@ -71,8 +99,8 @@ pub fn parse_fit_sets(data: &[u8]) -> Vec<FitExerciseSet> {
                             });
                         }
                         fitparser::Value::UInt8(v) => {
-                            // Raw FIT enum: 0=rest, 1=active — invert for our convention
-                            set_type = Some(if *v == 0 { 1 } else { 0 });
+                            // Raw FIT enum: 0=active, 1=rest — matches our convention
+                            set_type = Some(*v);
                         }
                         _ => {}
                     }
@@ -145,6 +173,7 @@ fn extract_first_u16(field: &fitparser::FitDataField) -> Option<u16> {
 // ============================================================================
 
 /// Get a human-readable display name for a FIT exercise category and optional sub-type.
+/// Category IDs follow FIT SDK Profile v21.133 ExerciseCategory enum.
 pub fn exercise_display_name(category: u16, _subcategory: Option<u16>) -> String {
     match category {
         0 => "Bench Press".into(),
@@ -200,6 +229,9 @@ pub struct MuscleActivation {
 
 /// Get muscle groups targeted by an exercise category.
 /// Returns slugs matching react-native-body-highlighter's data format.
+///
+/// Category IDs follow FIT SDK Profile v21.133 ExerciseCategory enum.
+/// Keep in sync with exerciseMuscleMap.ts EXERCISE_MUSCLE_MAP.
 pub fn exercise_muscle_groups(category: u16) -> Vec<MuscleActivation> {
     let (primary, secondary): (&[&str], &[&str]) = match category {
         0 => (&["chest", "triceps"], &["deltoids"]), // Bench Press
@@ -242,7 +274,12 @@ pub fn exercise_muscle_groups(category: u16) -> Vec<MuscleActivation> {
         ), // Squat
         29 => (&["quadriceps", "chest", "deltoids"], &["abs", "triceps"]), // Total Body
         30 => (&["triceps"], &[]),                   // Triceps Extension
-        _ => (&[], &[]),                             // Unknown / Warm Up / Run
+        31 | 32 => (&[], &[]),                       // Warm Up / Run (no strength muscles)
+        0xFFFF | 0xFFFE => (&[], &[]),               // Unknown / Invalid
+        other => {
+            eprintln!("[fit] Unknown exercise category {other}, no muscle mapping available");
+            (&[], &[])
+        }
     };
 
     let mut groups = Vec::new();
@@ -376,5 +413,22 @@ mod tests {
     fn test_parse_empty_data() {
         assert!(parse_fit_sets(&[]).is_empty());
         assert!(parse_fit_sets(&[0; 10]).is_empty());
+    }
+
+    #[test]
+    fn test_parse_fit_strength_sets_empty_is_error() {
+        match parse_fit_strength_sets(&[]) {
+            Err(FitParseError::Empty) => {}
+            other => panic!("expected Empty error, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_parse_fit_strength_sets_malformed_is_decode_error() {
+        // Non-empty but invalid FIT header should fail decoding.
+        match parse_fit_strength_sets(&[0u8; 16]) {
+            Err(FitParseError::Decode(_)) => {}
+            other => panic!("expected Decode error, got {:?}", other),
+        }
     }
 }

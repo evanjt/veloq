@@ -7,7 +7,9 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useSyncDateRange } from '@/providers';
 import { clearAllGpsTracks, clearBoundsCache } from '@/lib/storage/gpsStorage';
-import { getRouteEngine } from '@/lib/native/routeEngine';
+import { queryKeys } from '@/lib/queryKeys';
+import { getRouteEngine, getRouteDbPath } from '@/lib/native/routeEngine';
+import { isHeatmapEnabled } from '@/providers/RouteSettingsStore';
 import { formatLocalDate } from '@/lib';
 
 export interface SyncProgress {
@@ -89,6 +91,16 @@ export function useActivityBoundsCache(): UseActivityBoundsCacheReturn {
   const queryClient = useQueryClient();
   const lastSyncTimestamp = useSyncDateRange((s) => s.lastSyncTimestamp);
 
+  // Counter to force engine re-subscription after clear+reinit
+  const [engineGeneration, setEngineGeneration] = useState(0);
+
+  // True once we've successfully subscribed to the engine. Distinct from
+  // "has activities" — an engine with zero activities is still ready, just
+  // empty. Using activityCount as the readiness gate strands new/cleared
+  // installs on a perpetual "Loading activities..." screen because the
+  // count never climbs above zero until a sync completes.
+  const [isSubscribed, setIsSubscribed] = useState(() => getRouteEngine() !== null);
+
   // Track mount state to prevent setState after unmount
   const isMountedRef = useRef(true);
   useEffect(() => {
@@ -98,13 +110,14 @@ export function useActivityBoundsCache(): UseActivityBoundsCacheReturn {
     };
   }, []);
 
-  // Subscribe to Rust engine activity changes
+  // Subscribe to Rust engine activity changes — retry if engine not ready on mount
   useEffect(() => {
-    const engine = getRouteEngine();
-    if (!engine) return;
+    let cancelled = false;
+    let unsubscribe: (() => void) | null = null;
 
     // Helper to update both count and date range from engine stats
     const updateFromEngine = () => {
+      if (cancelled || !isMountedRef.current) return;
       const eng = getRouteEngine();
       if (!eng) {
         setActivityCount(0);
@@ -123,17 +136,38 @@ export function useActivityBoundsCache(): UseActivityBoundsCacheReturn {
       }
     };
 
-    // Initial update
-    updateFromEngine();
+    function trySubscribe(): boolean {
+      const engine = getRouteEngine();
+      if (!engine) return false;
 
-    // Subscribe to updates
-    const unsubscribe = engine.subscribe('activities', () => {
-      if (!isMountedRef.current) return;
       updateFromEngine();
-    });
+      if (isMountedRef.current) setIsSubscribed(true);
 
-    return unsubscribe;
-  }, []);
+      unsubscribe = engine.subscribe('activities', () => {
+        if (!isMountedRef.current) return;
+        updateFromEngine();
+      });
+      return true;
+    }
+
+    if (!trySubscribe()) {
+      const interval = setInterval(() => {
+        if (trySubscribe()) {
+          clearInterval(interval);
+        }
+      }, 200);
+      return () => {
+        cancelled = true;
+        clearInterval(interval);
+        unsubscribe?.();
+      };
+    }
+
+    return () => {
+      cancelled = true;
+      unsubscribe?.();
+    };
+  }, [engineGeneration]); // Re-subscribe when engine is destroyed and re-created
 
   // Cache statistics from engine (date range from engine's actual data)
   const cacheStats: CacheStats = useMemo(() => {
@@ -158,22 +192,35 @@ export function useActivityBoundsCache(): UseActivityBoundsCacheReturn {
   );
 
   const clearCache = useCallback(async () => {
-    // Clear Rust engine state
+    // Destroy and re-init engine to get a clean state.
+    // DO NOT use engine.clear() — it corrupts sub-objects (strength() returns null).
     const engine = getRouteEngine();
-    if (engine) engine.clear();
+    if (engine) {
+      const dbPath = getRouteDbPath();
+      engine.destroyEngine();
+      if (dbPath) {
+        engine.initWithPath(dbPath);
+        // Re-enable heatmap tiles if setting is on (init doesn't do this automatically)
+        if (isHeatmapEnabled()) {
+          engine.enableHeatmapTiles();
+        }
+      }
+    }
 
     // Clear FileSystem caches (GPS tracks and bounds)
     await Promise.all([clearAllGpsTracks(), clearBoundsCache()]);
 
     setActivityCount(0);
     setEngineDateRange({ oldest: null, newest: null });
+    // Force engine re-subscription since destroy+reinit breaks the old subscription
+    setEngineGeneration((g) => g + 1);
   }, []);
 
   const sync = useCallback(
     async (_days: number | 'all' = 90) => {
       // Refetch activities (triggers GlobalDataSync to download GPS data)
       await queryClient.refetchQueries({
-        queryKey: ['activities'],
+        queryKey: queryKeys.activities.all,
         type: 'all',
       });
     },
@@ -182,7 +229,7 @@ export function useActivityBoundsCache(): UseActivityBoundsCacheReturn {
 
   return {
     progress,
-    isReady: activityCount > 0,
+    isReady: isSubscribed,
     syncDateRange,
     clearCache,
     cacheStats,

@@ -2,6 +2,9 @@
  * Static exercise-to-muscle-group mapping.
  * Mirrors modules/veloqrs/rust/veloqrs/src/fit.rs exercise_muscle_groups().
  *
+ * Category IDs follow the Garmin FIT SDK Profile v21.133 ExerciseCategory enum.
+ * See FIT SDK Profile.xlsx -> Types -> ExerciseCategory for authoritative values.
+ *
  * Used by both the activity detail muscle tap feature and the strength insights tab.
  */
 
@@ -87,14 +90,21 @@ const EXERCISE_MUSCLE_MAP: Record<number, MuscleMapping> = {
   }, // Squat
   29: { primary: ['quadriceps', 'chest', 'deltoids'], secondary: ['abs', 'triceps'] }, // Total Body
   30: { primary: ['triceps'], secondary: [] }, // Triceps Extension
+  31: { primary: [], secondary: [] }, // Warm Up (no strength muscles)
+  32: { primary: [], secondary: [] }, // Run (no strength muscles)
 };
 
 /**
  * Get primary and secondary muscle groups for an exercise category.
  * Returns empty arrays for unknown/cardio categories.
+ * Logs a warning for unrecognised category IDs to help identify mapping gaps.
  */
 export function getExerciseMuscles(exerciseCategory: number): MuscleMapping {
-  return EXERCISE_MUSCLE_MAP[exerciseCategory] ?? { primary: [], secondary: [] };
+  const mapping = EXERCISE_MUSCLE_MAP[exerciseCategory];
+  if (!mapping && exerciseCategory !== 0xffff && exerciseCategory !== 0xfffe) {
+    console.warn(`[exerciseMuscleMap] Unknown exercise category ${exerciseCategory}`);
+  }
+  return mapping ?? { primary: [], secondary: [] };
 }
 
 /**

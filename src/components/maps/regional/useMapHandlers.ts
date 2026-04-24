@@ -13,6 +13,7 @@ import { LocationManager } from '@maplibre/maplibre-react-native';
 // Cache for last known location (avoid slow GPS re-acquisition)
 const LOCATION_CACHE_MAX_AGE_MS = 30000; // 30 seconds
 import { normalizeBounds, activitySpatialIndex, mapBoundsToViewport } from '@/lib';
+import { planClusterZoom } from '@/lib/maps/clusterZoom';
 import { saveMapCameraState } from '@/lib/storage/mapCameraState';
 import { intervalsApi } from '@/api';
 import { getRouteEngine } from '@/lib/native/routeEngine';
@@ -20,6 +21,12 @@ import type { ActivityBoundsItem } from '@/types';
 import type { FrequentSection } from '@/types';
 import type { SelectedActivity } from './ActivityPopup';
 import type { Map3DWebViewRef } from '../Map3DWebView';
+
+/** State for spider/fan-out expansion of clusters at max zoom */
+export interface SpiderState {
+  center: [number, number]; // [lng, lat] cluster center
+  leaves: GeoJSON.Feature[]; // individual activity features from the cluster
+}
 
 interface UseMapHandlersOptions {
   activities: ActivityBoundsItem[];
@@ -50,6 +57,7 @@ interface UseMapHandlersOptions {
   currentZoomLevel: React.MutableRefObject<number>;
   is3DMode: boolean;
   markUserInteracted: () => void;
+  setSpider: (state: SpiderState | null) => void;
 }
 
 interface UseMapHandlersResult {
@@ -58,6 +66,7 @@ interface UseMapHandlersResult {
   handleViewDetails: () => void;
   handleZoomToActivity: () => void;
   handleClusterOrMarkerPress: (event: OnPressEvent) => void;
+  handleSpiderMarkerPress: (event: OnPressEvent) => void;
   handleMapPress: () => void;
   handleSectionPress: (event: OnPressEvent) => void;
   handleRegionIsChanging: (feature: GeoJSON.Feature) => void;
@@ -99,6 +108,7 @@ export function useMapHandlers({
   currentZoomLevel,
   is3DMode,
   markUserInteracted,
+  setSpider,
 }: UseMapHandlersOptions): UseMapHandlersResult {
   const router = useRouter();
 
@@ -134,7 +144,12 @@ export function useMapHandlers({
       // Show popup immediately with activity info (no route yet)
       setSelected({
         activity,
-        mapData: { bounds: activity.bounds, latlngs: null, route: null, weather: null },
+        mapData: {
+          bounds: activity.bounds,
+          latlngs: null,
+          route: null,
+          weather: null,
+        },
         routeCoords: undefined,
         isLoading: true,
       });
@@ -154,7 +169,12 @@ export function useMapHandlers({
           }
           setSelected({
             activity,
-            mapData: { bounds: activity.bounds, latlngs: null, route: null, weather: null },
+            mapData: {
+              bounds: activity.bounds,
+              latlngs: null,
+              route: null,
+              weather: null,
+            },
             routeCoords,
             isLoading: false,
           });
@@ -220,18 +240,39 @@ export function useMapHandlers({
       const feature = event.features?.[0];
       if (!feature) return;
 
-      // Cluster tap — always zoom in to expand
+      // Cluster tap — fetch the leaves and fit the camera to their bounds.
+      // This produces a tighter, more predictable zoom than getClusterExpansionZoom,
+      // which just returns the next supercluster split point.
       if (feature.properties?.cluster === true) {
         try {
           if (clusterSourceRef.current) {
-            const expansionZoom = await clusterSourceRef.current.getClusterExpansionZoom(feature);
             const coords = (feature.geometry as GeoJSON.Point).coordinates as [number, number];
-            cameraRef.current?.setCamera({
-              centerCoordinate: coords,
-              zoomLevel: expansionZoom,
-              animationDuration: 400,
-              animationMode: 'flyTo',
-            });
+            const pointCount = (feature.properties?.point_count as number | undefined) ?? 0;
+            // Cap at 100 leaves — plenty for bounds computation, cheap to transfer.
+            const limit = Math.max(1, Math.min(pointCount || 100, 100));
+            const leaves = await clusterSourceRef.current.getClusterLeaves(feature, limit, 0);
+
+            const plan = planClusterZoom(leaves.features, coords);
+            if (plan.kind === 'fitBounds') {
+              cameraRef.current?.fitBounds(
+                plan.bounds.ne,
+                plan.bounds.sw,
+                [100, 60, 280, 60], // [top, right, bottom, left]
+                plan.durationMs
+              );
+              // Release MapLibre tracking state so later user gestures aren't
+              // snapped back to these bounds (same pattern as handleFitAll).
+              setTimeout(() => {
+                cameraRef.current?.setCamera({
+                  animationDuration: 0,
+                  animationMode: 'moveTo',
+                });
+              }, plan.durationMs + 100);
+            } else if (leaves.features.length > 0) {
+              // Leaves are stacked on top of each other — fan out into spider
+              // pattern so each underlying activity is tappable.
+              setSpider({ center: coords, leaves: leaves.features });
+            }
           }
         } catch (e) {
           if (__DEV__) console.warn('[cluster] Error handling cluster tap:', e);
@@ -247,7 +288,24 @@ export function useMapHandlers({
         handleMarkerTap(activity);
       }
     },
-    [activities, handleMarkerTap, clusterSourceRef, cameraRef]
+    [activities, handleMarkerTap, clusterSourceRef, cameraRef, setSpider]
+  );
+
+  // Handle tap on a spider-expanded marker (Android only)
+  const handleSpiderMarkerPress = useCallback(
+    (event: OnPressEvent) => {
+      const feature = event.features?.[0];
+      if (!feature) return;
+
+      const activityId = feature.properties?.id;
+      if (!activityId) return;
+      const activity = activities.find((a) => a.id === activityId);
+      if (activity) {
+        setSpider(null);
+        handleMarkerTap(activity);
+      }
+    },
+    [activities, handleMarkerTap, setSpider]
   );
 
   // Handle map press - Android only (iOS uses onTouchEnd on container View)
@@ -258,8 +316,10 @@ export function useMapHandlers({
       if (selected) {
         setSelected(null);
       }
+      // Dismiss spider on any map tap
+      setSpider(null);
     },
-    [selected, setSelected]
+    [selected, setSelected, setSpider]
   );
 
   // Handle section press
@@ -277,6 +337,11 @@ export function useMapHandlers({
     [sections, setSelectedSection]
   );
 
+  // Ref for spider dismissal during gestures (avoids adding setSpider to hot path deps)
+  const setSpiderRef = useRef(setSpider);
+  setSpiderRef.current = setSpider;
+  const spiderDismissedRef = useRef(false);
+
   // Handle map region change to update compass (real-time during gesture)
   const handleRegionIsChanging = useCallback(
     (feature: GeoJSON.Feature) => {
@@ -288,6 +353,15 @@ export function useMapHandlers({
       if (zoomLevel !== undefined) {
         currentZoomLevel.current = zoomLevel;
       }
+      // Dismiss spider on first gesture frame (avoid repeated calls)
+      if (!spiderDismissedRef.current) {
+        spiderDismissedRef.current = true;
+        setSpiderRef.current(null);
+        // Reset flag after gesture settles
+        setTimeout(() => {
+          spiderDismissedRef.current = false;
+        }, 500);
+      }
     },
     [bearingAnim, currentZoomLevel]
   );
@@ -298,7 +372,10 @@ export function useMapHandlers({
   const handleRegionDidChange = useCallback(
     (feature: GeoJSON.Feature) => {
       const properties = feature.properties as
-        | { zoomLevel?: number; visibleBounds?: [[number, number], [number, number]] }
+        | {
+            zoomLevel?: number;
+            visibleBounds?: [[number, number], [number, number]];
+          }
         | undefined;
       const { zoomLevel, visibleBounds } = properties ?? {};
       const center =
@@ -348,7 +425,10 @@ export function useMapHandlers({
       }, 300);
 
       // v10: visibleBounds is [northEast, southWest] where each is [lng, lat]
-      if (visibleBounds) {
+      // Skip viewport culling entirely for < 2000 activities — native MapLibre Supercluster
+      // handles clustering efficiently. The state update from setVisibleActivityIds causes
+      // React re-renders that trigger Android MapLibre camera snap-back.
+      if (visibleBounds && activities.length >= 2000) {
         if (visibleDebounceRef.current) clearTimeout(visibleDebounceRef.current);
         visibleDebounceRef.current = setTimeout(() => {
           const [northEast, southWest] = visibleBounds;
@@ -400,7 +480,10 @@ export function useMapHandlers({
   );
 
   // Cache last location to avoid slow GPS re-acquisition
-  const lastLocationRef = useRef<{ coords: [number, number]; timestamp: number } | null>(null);
+  const lastLocationRef = useRef<{
+    coords: [number, number];
+    timestamp: number;
+  } | null>(null);
 
   // One-time jump to user location (shows dot, no tracking)
   // Each press gets location, shows dot, centers map once
@@ -565,6 +648,7 @@ export function useMapHandlers({
     handleViewDetails,
     handleZoomToActivity,
     handleClusterOrMarkerPress,
+    handleSpiderMarkerPress,
     handleMapPress,
     handleSectionPress,
     handleRegionIsChanging,

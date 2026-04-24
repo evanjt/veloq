@@ -109,7 +109,7 @@ function batchSectionToFrequentSection(s: SectionWithPolyline): FrequentSection 
     scale: s.scale ?? undefined,
     name: s.name ?? undefined,
     createdAt: new Date().toISOString(),
-    sportTypes: 'sportTypes' in s ? (s as any).sportTypes : undefined,
+    sportTypes: 'sportTypes' in s ? (s as { sportTypes: string[] }).sportTypes : undefined,
     center,
   };
   // Generate display name using same logic as useFrequentSections
@@ -196,7 +196,11 @@ const SectionListItem = memo(
     return (
       <Swipeable
         ref={(ref) => {
-          swipeableRefs.current.set(item.id, ref);
+          if (ref) {
+            swipeableRefs.current.set(item.id, ref);
+          } else {
+            swipeableRefs.current.delete(item.id);
+          }
         }}
         renderRightActions={renderRightActions}
         onSwipeableOpen={() => onSwipeableOpen(item.id)}
@@ -240,7 +244,7 @@ const SectionListItem = memo(
   }
 );
 
-export function SectionsList({
+export const SectionsList = memo(function SectionsList({
   sportType,
   prefetchedData,
   batchSections,
@@ -784,7 +788,7 @@ export function SectionsList({
       />
     </View>
   );
-}
+});
 
 const styles = StyleSheet.create({
   outerContainer: {
@@ -1005,6 +1009,7 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
     paddingHorizontal: spacing.md,
     marginTop: 2,
+    marginBottom: spacing.xs,
   },
   sortChip: {
     flexDirection: 'row',

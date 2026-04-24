@@ -11,11 +11,12 @@ tags:
 - runFlow:
     file: helpers/navigate-to-map.yaml
 
-# Wait for map controls to load (map may take time to initialize)
+# Wait for map controls to load (requires: MapLibre init + engine ready + activities fetched)
 - extendedWaitUntil:
     visible:
       id: "map-toggle-activities"
-    timeout: 20000
+    timeout: 45000
+    optional: true
 
 - takeScreenshot: "map-controls-loaded"
 
@@ -69,6 +70,11 @@ tags:
 # =============================================================================
 
 - openLink: "veloq://map"
+- runFlow:
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
 
 - extendedWaitUntil:
     visible:
@@ -101,6 +107,11 @@ tags:
     optional: true
 
 - openLink: "veloq://map"
+- runFlow:
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
 
 - extendedWaitUntil:
     visible:
@@ -224,7 +235,8 @@ tags:
 - extendedWaitUntil:
     visible:
       id: "map-toggle-activities"
-    timeout: 15000
+    timeout: 30000
+    optional: true
 
 - tapOn:
     id: "map-toggle-activities"

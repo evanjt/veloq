@@ -8,7 +8,7 @@
  * Data persists across app restarts - GPS tracks, routes, sections are all cached in SQLite.
  */
 
-import { useEffect, useState, useCallback, useMemo } from 'react';
+import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 // Use legacy API for SDK 54 compatibility (new API uses File/Directory classes)
 import * as FileSystem from 'expo-file-system/legacy';
 import { getRouteEngine, getRouteDbPath } from '@/lib/native/routeEngine';
@@ -31,19 +31,57 @@ type EngineEvent = 'activities' | 'groups' | 'sections';
 /**
  * Hook to subscribe to engine events and trigger re-renders.
  * Returns a trigger value that changes when any subscribed event fires.
+ *
+ * If the engine is not available on first mount, polls until it becomes
+ * available to avoid permanently missing events.
  */
 export function useEngineSubscription(events: EngineEvent[]): number {
   const [trigger, setTrigger] = useState(0);
 
+  // Stable ref for the refresh callback to avoid stale closures
+  const refreshRef = useRef(() => setTrigger((t) => t + 1));
+  refreshRef.current = () => setTrigger((t) => t + 1);
+
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const eventKey = useMemo(() => events.join(','), [events.join(',')]);
+
   useEffect(() => {
-    const engine = getRouteEngine();
-    if (!engine) return;
+    let cancelled = false;
+    let unsubscribes: (() => void)[] = [];
 
-    const refresh = () => setTrigger((t) => t + 1);
-    const unsubscribes = events.map((event) => engine.subscribe(event, refresh));
+    function trySubscribe(): boolean {
+      const engine = getRouteEngine();
+      if (!engine) return false;
 
-    return () => unsubscribes.forEach((u) => u());
-  }, [events.join(',')]); // eslint-disable-line react-hooks/exhaustive-deps
+      const cb = () => refreshRef.current();
+      unsubscribes = events.map((event) => engine.subscribe(event, cb));
+      // Trigger initial refresh in case data arrived before subscription
+      if (!cancelled) {
+        refreshRef.current();
+      }
+      return true;
+    }
+
+    if (!trySubscribe()) {
+      // Engine not ready yet — poll until available
+      const interval = setInterval(() => {
+        if (trySubscribe()) {
+          clearInterval(interval);
+        }
+      }, 200);
+
+      return () => {
+        cancelled = true;
+        clearInterval(interval);
+        unsubscribes.forEach((u) => u());
+      };
+    }
+
+    return () => {
+      cancelled = true;
+      unsubscribes.forEach((u) => u());
+    };
+  }, [eventKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return trigger;
 }
@@ -157,15 +195,39 @@ export function useRouteEngine(): UseRouteEngineResult {
     setActivityCount(0);
   }, []);
 
-  // Subscribe to activity changes
+  // Subscribe to activity changes — retry if engine not ready on mount
   useEffect(() => {
-    const engine = getRouteEngine();
-    if (!engine) return;
-    const unsubscribe = engine.subscribe('activities', () => {
-      const eng = getRouteEngine();
-      setActivityCount(eng ? eng.getActivityCount() : 0);
-    });
-    return unsubscribe;
+    let cancelled = false;
+    let unsubscribe: (() => void) | null = null;
+
+    function trySubscribe(): boolean {
+      const engine = getRouteEngine();
+      if (!engine) return false;
+      unsubscribe = engine.subscribe('activities', () => {
+        if (cancelled) return;
+        const eng = getRouteEngine();
+        setActivityCount(eng ? eng.getActivityCount() : 0);
+      });
+      return true;
+    }
+
+    if (!trySubscribe()) {
+      const interval = setInterval(() => {
+        if (trySubscribe()) {
+          clearInterval(interval);
+        }
+      }, 200);
+      return () => {
+        cancelled = true;
+        clearInterval(interval);
+        unsubscribe?.();
+      };
+    }
+
+    return () => {
+      cancelled = true;
+      unsubscribe?.();
+    };
   }, []);
 
   // Check if already initialized on mount (e.g., if initialized elsewhere)
@@ -276,7 +338,10 @@ export function useEngineSections(options: UseEngineSectionsOptions = {}): UseEn
         sections: convertedSections,
         totalCount: convertedSections.length,
       };
-    } catch {
+    } catch (e) {
+      if (__DEV__) {
+        console.warn('[useEngineSections] threw', e);
+      }
       return { sections: [], totalCount: 0 };
     }
   }, [trigger, sportType, minVisits, enabled]);
@@ -315,15 +380,17 @@ export function useSectionSummaries(
       const engine = getRouteEngine();
       if (!engine) return { totalCount: 0, summaries: [] };
 
-      const { totalCount, summaries: rawSummaries } = engine.getSectionSummaries(sportType);
+      // Visit-count filter + sort done in Rust; TS only fills display names.
+      const { totalCount, summaries: rawSummaries } = engine.getFilteredSectionSummaries(
+        sportType,
+        minVisits,
+        'visits'
+      );
 
-      // Apply minimum visits filter and generate display names
-      const summaries = rawSummaries
-        .filter((s) => s.visitCount >= minVisits)
-        .map((s) => ({
-          ...s,
-          name: s.name || generateSectionName(s),
-        }));
+      const summaries = rawSummaries.map((s) => ({
+        ...s,
+        name: s.name || generateSectionName(s),
+      }));
 
       return { totalCount, summaries };
     } catch {
@@ -335,8 +402,8 @@ export function useSectionSummaries(
 interface UseGroupSummariesOptions {
   /** Minimum number of activities in group */
   minActivities?: number;
-  /** Sort order */
-  sortBy?: 'count' | 'id';
+  /** Sort order — 'count' (default) or 'name' (alphabetical by groupId) */
+  sortBy?: 'count' | 'name';
 }
 
 interface UseGroupSummariesResult {
@@ -360,19 +427,8 @@ export function useGroupSummaries(options: UseGroupSummariesOptions = {}): UseGr
       const engine = getRouteEngine();
       if (!engine) return { totalCount: 0, summaries: [] };
 
-      const { totalCount, summaries: rawSummaries } = engine.getGroupSummaries();
-
-      // Apply filters
-      let filtered = rawSummaries.filter((g) => g.activityCount >= minActivities);
-
-      // Sort
-      if (sortBy === 'count') {
-        filtered.sort((a, b) => b.activityCount - a.activityCount);
-      } else {
-        filtered.sort((a, b) => a.groupId.localeCompare(b.groupId));
-      }
-
-      return { totalCount, summaries: filtered };
+      // Filter + sort pushed into Rust.
+      return engine.getFilteredGroupSummaries(minActivities, sortBy);
     } catch {
       return { totalCount: 0, summaries: [] };
     }

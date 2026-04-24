@@ -38,10 +38,39 @@ impl RouteManager {
         })
     }
 
+    /// Filtered + sorted group summaries. Pushes the activity-count threshold
+    /// and sort key into Rust so the hook stops re-iterating in TS.
+    /// `sort_key` accepts "count" or "name"; anything else maps to "count".
+    fn get_filtered_summaries(
+        &self,
+        min_activities: u32,
+        sort_key: String,
+    ) -> Result<crate::FfiGroupSummariesResult, VeloqError> {
+        with_engine(|e| {
+            let total_count = e.get_group_count();
+            let mut summaries = e.get_group_summaries();
+            summaries.retain(|g| g.activity_count >= min_activities);
+            match sort_key.as_str() {
+                "name" => summaries.sort_by(|a, b| a.group_id.cmp(&b.group_id)),
+                _ => summaries.sort_by(|a, b| b.activity_count.cmp(&a.activity_count)),
+            }
+            crate::FfiGroupSummariesResult {
+                total_count,
+                summaries,
+            }
+        })
+    }
+
     fn get_consensus_route(&self, group_id: String) -> Result<Vec<crate::FfiGpsPoint>, VeloqError> {
         with_engine(|e| {
             e.get_consensus_route(&group_id)
-                .map(|points| points.into_iter().map(crate::FfiGpsPoint::from).collect())
+                .map(|points| {
+                    points
+                        .iter()
+                        .copied()
+                        .map(crate::FfiGpsPoint::from)
+                        .collect()
+                })
                 .unwrap_or_default()
         })
     }
@@ -110,14 +139,22 @@ impl RouteManager {
     fn exclude_activity(&self, route_id: String, activity_id: String) -> Result<(), VeloqError> {
         with_engine(|e| {
             e.exclude_activity_from_route(&route_id, &activity_id)
-                .map_err(|e| VeloqError::Database { msg: e })
+                .map_err(|e| VeloqError::Database { msg: e })?;
+            if let Err(err) = e.recompute_activity_indicators() {
+                log::warn!("tracematch: [exclude_route_activity] Indicator recomputation failed: {}", err);
+            }
+            Ok(())
         })?
     }
 
     fn include_activity(&self, route_id: String, activity_id: String) -> Result<(), VeloqError> {
         with_engine(|e| {
             e.include_activity_in_route(&route_id, &activity_id)
-                .map_err(|e| VeloqError::Database { msg: e })
+                .map_err(|e| VeloqError::Database { msg: e })?;
+            if let Err(err) = e.recompute_activity_indicators() {
+                log::warn!("tracematch: [include_route_activity] Indicator recomputation failed: {}", err);
+            }
+            Ok(())
         })?
     }
 
@@ -135,5 +172,13 @@ impl RouteManager {
                 e.get_excluded_route_performances(&route_id, sport_type.as_deref()),
             )
         })
+    }
+
+    /// Batch-query route highlights (PRs and trends) for a list of activity IDs.
+    fn get_activity_route_highlights(
+        &self,
+        activity_ids: Vec<String>,
+    ) -> Result<Vec<crate::FfiActivityRouteHighlight>, VeloqError> {
+        with_engine(|e| e.get_activity_route_highlights(&activity_ids))
     }
 }

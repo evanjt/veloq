@@ -1,0 +1,58 @@
+# Regional Map — Routes/sections are polyline-only (US-R2)
+# Confirms the rendering contract: route and section overlays are
+# LineLayers (no marker pins), so toggling heatmap + overlays doesn't
+# introduce circle markers on top of routes/sections. The check is
+# indirect — we screenshot each toggle state for visual regression.
+# If the dev tiles don't load, the overlay shape is still drawable
+# because LineLayer renders directly from GeoJSON coords.
+
+appId: com.veloq.app.dev
+tags:
+  - tier2
+---
+- runFlow:
+    file: helpers/setup-demo-mode.yaml
+
+- runFlow:
+    file: helpers/navigate-to-map.yaml
+
+- extendedWaitUntil:
+    visible:
+      id: "map-screen"
+    timeout: 30000
+
+# Turn heatmap on so we're testing the loud case.
+- tapOn:
+    id: "map-toggle-heatmap"
+- waitForAnimationToEnd:
+    timeout: 1500
+
+- takeScreenshot: "no-route-markers-heatmap"
+
+# Routes toggle — conditional in the demo fixture, only present when
+# route detection has found any.
+- runFlow:
+    when:
+      visible:
+        id: "map-toggle-routes"
+    commands:
+      - tapOn:
+          id: "map-toggle-routes"
+      - waitForAnimationToEnd:
+          timeout: 1500
+      - takeScreenshot: "no-route-markers-routes-on"
+
+# Sections toggle — likewise conditional.
+- runFlow:
+    when:
+      visible:
+        id: "map-toggle-sections"
+    commands:
+      - tapOn:
+          id: "map-toggle-sections"
+      - waitForAnimationToEnd:
+          timeout: 1500
+      - takeScreenshot: "no-route-markers-sections-on"
+
+- assertNotVisible:
+    text: "NaN"

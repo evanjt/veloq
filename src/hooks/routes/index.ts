@@ -16,3 +16,4 @@ export { useUnifiedSections, useUnifiedSection } from './useUnifiedSections';
 export { useRouteDataSync } from './useRouteDataSync';
 export { useRoutesScreenData } from './useRoutesScreenData';
 export { useSectionChartData } from './useSectionChartData';
+export { useSectionActions, type UseSectionActionsResult } from './useSectionActions';

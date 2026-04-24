@@ -9,12 +9,12 @@ import Animated, {
 } from 'react-native-reanimated';
 import Body, { type ExtendedBodyPart } from 'react-native-body-highlighter';
 import { findMuscleAtPoint } from '@/lib/strength/musclePolygons';
+import { CHART_CONFIG } from '@/constants';
 import { brand } from '@/theme';
 
 const LOUPE_SIZE = 90;
 const LOUPE_OFFSET_Y = -100;
 const LOUPE_SCALE = 2.5;
-const LONG_PRESS_MS = 200;
 
 // Body component intrinsic dimensions (from react-native-body-highlighter source)
 const BODY_INTRINSIC_W = 200;
@@ -153,14 +153,29 @@ export const BodyPairWithLoupe = React.memo(function BodyPairWithLoupe({
     })
     .enabled(!!(onMuscleTap && tappableSlugs && tappableSlugs.size > 0));
 
-  const panGesture = Gesture.Pan()
-    .minDistance(0)
-    .activateAfterLongPress(LONG_PRESS_MS)
+  const scrubEnabled = !!(scrubCallback && tappableSlugs && tappableSlugs.size > 0);
+
+  // LongPress gates activation — ScrollView can claim touch before this fires
+  const longPressGesture = Gesture.LongPress()
+    .minDuration(CHART_CONFIG.LONG_PRESS_DURATION)
+    .enabled(scrubEnabled)
     .onStart((e) => {
       'worklet';
-      updateLoupePosition(e.x, e.y);
       loupeOpacity.value = withTiming(1, { duration: 100 });
+      updateLoupePosition(e.x, e.y);
       runOnJS(handleScrubUpdate)(e.x, e.y);
+    })
+    .shouldCancelWhenOutside(false);
+
+  // Pan with manual activation — only activates after long-press shows loupe
+  const panGesture = Gesture.Pan()
+    .manualActivation(true)
+    .enabled(scrubEnabled)
+    .onTouchesMove((_, manager) => {
+      'worklet';
+      if (loupeOpacity.value > 0) {
+        manager.activate();
+      }
     })
     .onUpdate((e) => {
       'worklet';
@@ -172,9 +187,14 @@ export const BodyPairWithLoupe = React.memo(function BodyPairWithLoupe({
       loupeOpacity.value = withTiming(0, { duration: 150 });
       runOnJS(handleScrubEnd)();
     })
-    .enabled(!!(scrubCallback && tappableSlugs && tappableSlugs.size > 0));
+    .onFinalize(() => {
+      'worklet';
+      loupeOpacity.value = withTiming(0, { duration: 150 });
+      runOnJS(handleScrubEnd)();
+    });
 
-  const composedGesture = Gesture.Exclusive(panGesture, tapGesture);
+  const scrubGesture = Gesture.Simultaneous(longPressGesture, panGesture);
+  const composedGesture = Gesture.Exclusive(scrubGesture, tapGesture);
 
   const loupeContainerStyle = useAnimatedStyle(() => {
     'worklet';

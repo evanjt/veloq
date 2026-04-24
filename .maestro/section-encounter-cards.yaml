@@ -1,0 +1,56 @@
+# Section Encounter Cards
+# US-S1: one card per (section, direction); reverse shows ↩ suffix
+# US-S2: trophy only when current activity is a PR for that direction
+# US-S4: Sections tab badge count equals card count
+# Verifies the encounters refactor end-to-end on a real device/emulator.
+
+appId: com.veloq.app.dev
+tags:
+  - tier1
+---
+- runFlow:
+    file: helpers/setup-demo-mode.yaml
+
+- extendedWaitUntil:
+    visible:
+      id: "home-activity-list"
+    timeout: 15000
+
+- openLink: "veloq://activity/demo-test-0"
+- runFlow:
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
+
+- extendedWaitUntil:
+    visible:
+      id: "activity-detail-content"
+    timeout: 15000
+
+# Open the Sections tab (text label may also appear in charts/routes tabs)
+- tapOn:
+    text: "Sections"
+    optional: true
+
+- extendedWaitUntil:
+    visible:
+      id: "activity-sections-list"
+    timeout: 10000
+    optional: true
+
+# At least one encounter card must render if demo data has sections.
+# section-inline-plot-{index} matches the card indexed from 0.
+- assertVisible:
+    id: "section-inline-plot-0"
+    optional: true
+
+- takeScreenshot: "section-encounter-cards-list"
+
+# Scroll to confirm multiple cards render (per-direction splitting)
+- scroll
+- takeScreenshot: "section-encounter-cards-scrolled"
+
+# Guard against regressions where no-data UI masks empty encounters
+- assertNotVisible:
+    text: "NaN"

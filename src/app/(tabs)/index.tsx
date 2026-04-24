@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   TextInput,
   ActivityIndicator,
+  Image,
   Keyboard,
   Platform,
 } from 'react-native';
@@ -14,7 +15,7 @@ import { Text } from 'react-native-paper';
 import { ScreenSafeAreaView } from '@/components/ui';
 import { logScreenRender, PERF_DEBUG } from '@/lib/debug/renderTimer';
 import { isNetworkError } from '@/lib/utils/errorHandler';
-import { navigateTo } from '@/lib';
+import { navigateTo, queryKeys } from '@/lib';
 import { useIsFocused } from '@react-navigation/core';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -25,6 +26,7 @@ import {
   useSummaryCardData,
   useInsights,
   isInfiniteActivitiesStale,
+  useActivitySectionHighlights,
 } from '@/hooks';
 import type { Activity } from '@/types';
 import { useDashboardPreferences, useMapPreferences } from '@/providers';
@@ -33,15 +35,21 @@ import {
   NetworkErrorState,
   ErrorStatePreset,
   ScreenErrorBoundary,
+  ComponentErrorBoundary,
   TAB_BAR_SAFE_PADDING,
 } from '@/components/ui';
-import { SummaryCard, InsightLine, NotificationOptInCard } from '@/components/home';
+import { SummaryCard, NotificationOptInCard } from '@/components/home';
 import { useStartupData } from '@/hooks/home/useStartupData';
 import {
   TerrainSnapshotWebView,
   type TerrainSnapshotWebViewRef,
 } from '@/components/maps/TerrainSnapshotWebView';
-import { initTerrainPreviewCache } from '@/lib/storage/terrainPreviewCache';
+import {
+  initTerrainPreviewCache,
+  consumePendingSnapshots,
+  signalSnapshotNeeded,
+  setPrioritySnapshotIds,
+} from '@/lib/storage/terrainPreviewCache';
 import { initCameraOverrides } from '@/lib/storage/terrainCameraOverrides';
 import { colors, darkColors, opacity, spacing, layout, typography } from '@/theme';
 import { createSharedStyles } from '@/styles';
@@ -68,6 +76,7 @@ const ALL_TYPES = Object.values(ACTIVITY_TYPE_GROUPS).flat();
 
 // Height of the search section (search bar + chips + padding) for scroll-to-reveal
 const SEARCH_SECTION_HEIGHT = 78;
+const INITIAL_CONTENT_OFFSET = { x: 0, y: SEARCH_SECTION_HEIGHT } as const;
 
 export default function FeedScreen() {
   // Performance timing — tracks total render time and sub-component costs
@@ -105,6 +114,15 @@ export default function FeedScreen() {
     if (isAnyTerrain3DEnabled) {
       initTerrainPreviewCache();
       initCameraOverrides();
+      // Check for activities ingested by background notification task —
+      // mount WebView workers immediately instead of waiting 500ms
+      consumePendingSnapshots().then((pending) => {
+        if (pending.length > 0) {
+          setPrioritySnapshotIds(pending);
+          setSnapshotWebViewReady(true);
+          signalSnapshotNeeded();
+        }
+      });
     }
   }, [isAnyTerrain3DEnabled]);
 
@@ -191,8 +209,9 @@ export default function FeedScreen() {
     if (hookTime > 50) console.log(`  ⏱ Total hooks: ${hookTime.toFixed(1)}ms`);
   }
 
-  // Memoize InsightLine to prevent SummaryCard re-renders from new JSX element references
-  const insightLine = useMemo(() => <InsightLine insights={insights} />, [insights]);
+  // InsightLine intentionally disabled per product direction (noisy in top-right slot of
+  // SummaryCard). Leave `undefined` so the SummaryCard slot does not render.
+  const insightLine = undefined;
 
   // Filter activities by search query and type
   const filteredActivities = useMemo(() => {
@@ -220,21 +239,29 @@ export default function FeedScreen() {
     return filtered;
   }, [allActivities, searchQuery, selectedTypeGroup]);
 
+  // Batch-fetch section highlights (PRs) for visible activities
+  const highlightIds = useMemo(
+    () => filteredActivities.map((a: Activity) => a.id),
+    [filteredActivities]
+  );
+  const { sections: sectionHighlightsMap, routes: routeHighlightsMap } =
+    useActivitySectionHighlights(highlightIds);
+
   // Comprehensive refresh: invalidates feed (stale-while-revalidate), triggers route engine sync
   const handleRefresh = useCallback(async () => {
     // Reset the infinite query if page params are stale (don't cover today),
     // otherwise invalidate for smooth stale-while-revalidate.
     const infiniteRefresh = isInfiniteActivitiesStale(queryClient)
-      ? queryClient.resetQueries({ queryKey: ['activities-infinite'] })
-      : queryClient.invalidateQueries({ queryKey: ['activities-infinite'] });
+      ? queryClient.resetQueries({ queryKey: queryKeys.activities.infinite.all })
+      : queryClient.invalidateQueries({ queryKey: queryKeys.activities.infinite.all });
 
     await Promise.all([
       infiniteRefresh,
-      queryClient.invalidateQueries({ queryKey: ['activities'] }),
-      queryClient.invalidateQueries({ queryKey: ['wellness'] }),
-      queryClient.invalidateQueries({ queryKey: ['athlete-summary'] }),
-      queryClient.invalidateQueries({ queryKey: ['powerCurve'] }),
-      queryClient.invalidateQueries({ queryKey: ['paceCurve'] }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.activities.all }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.wellness.all }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.athleteSummary.all }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.charts.powerCurve.all }),
+      queryClient.invalidateQueries({ queryKey: queryKeys.charts.paceCurve.all }),
       refetchSummary(),
     ]);
     // Retry any failed 3D terrain snapshots
@@ -290,9 +317,11 @@ export default function FeedScreen() {
         startupTrack={previewTracksRef.current?.get(item.id)}
         snapshotReady={snapshotWebViewReady}
         colorScheme={isDark}
+        sectionHighlights={sectionHighlightsMap.get(item.id)}
+        routeHighlight={routeHighlightsMap.get(item.id)}
       />
     ),
-    [isFeedFocused, snapshotWebViewReady, isDark]
+    [isFeedFocused, snapshotWebViewReady, isDark, sectionHighlightsMap, routeHighlightsMap]
   );
 
   const navigateToSettings = useCallback(() => {
@@ -305,6 +334,7 @@ export default function FeedScreen() {
         navigateTo('/fitness');
         break;
       case 'hrv':
+      case 'rhr':
         navigateTo('/training');
         break;
       default:
@@ -317,7 +347,7 @@ export default function FeedScreen() {
   }, []);
 
   // Initial content offset to hide search section (iOS-style hidden search)
-  const initialContentOffset = useMemo(() => ({ x: 0, y: SEARCH_SECTION_HEIGHT }), []);
+  const initialContentOffset = INITIAL_CONTENT_OFFSET;
 
   // List header: search bar + filter chips + section title
   const renderListHeader = useCallback(
@@ -356,6 +386,29 @@ export default function FeedScreen() {
                 </TouchableOpacity>
               )}
             </View>
+            {!summaryCard.enabled && (
+              <TouchableOpacity
+                testID="home-profile-button"
+                onPress={navigateToSettings}
+                accessibilityRole="button"
+                accessibilityLabel={t('navigation.settings')}
+                style={[styles.headerProfile, isDark && styles.headerProfileDark]}
+              >
+                {profileUrl ? (
+                  <Image
+                    source={{ uri: profileUrl }}
+                    style={StyleSheet.absoluteFill}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <MaterialCommunityIcons
+                    name="account"
+                    size={18}
+                    color={isDark ? darkColors.textSecondary : colors.textSecondary}
+                  />
+                )}
+              </TouchableOpacity>
+            )}
           </View>
 
           {/* Filter chips — always visible below search */}
@@ -378,7 +431,7 @@ export default function FeedScreen() {
                     selectedTypeGroup === group && styles.filterChipTextActive,
                   ]}
                 >
-                  {group}
+                  {t(`feed.groups.${group.toLowerCase()}`, group)}
                 </Text>
               </TouchableOpacity>
             ))}
@@ -404,6 +457,9 @@ export default function FeedScreen() {
       themeColors.textSecondary,
       themeColors.textMuted,
       selectTypeGroup,
+      summaryCard.enabled,
+      navigateToSettings,
+      profileUrl,
     ]
   );
 
@@ -491,26 +547,28 @@ export default function FeedScreen() {
         <NotificationOptInCard />
 
         {/* Summary card with hero metric and supporting stats */}
-        <SummaryCard
-          profileUrl={profileUrl}
-          onProfilePress={navigateToSettings}
-          heroMetric={heroMetric}
-          heroValue={heroValue}
-          heroLabel={heroLabel}
-          heroColor={heroColor}
-          heroZoneLabel={heroZoneLabel}
-          heroZoneColor={heroZoneColor}
-          heroTrend={heroTrend}
-          onHeroPress={navigateToHeroMetric}
-          fitnessData={fitnessData}
-          fatigueData={fatigueData}
-          formData={formData}
-          hrvData={hrvData}
-          rhrData={rhrData}
-          showSparkline={showSparkline}
-          supportingMetrics={supportingMetrics}
-          insightLine={insightLine}
-        />
+        {summaryCard.enabled && (
+          <SummaryCard
+            profileUrl={profileUrl}
+            onProfilePress={navigateToSettings}
+            heroMetric={heroMetric}
+            heroValue={heroValue}
+            heroLabel={heroLabel}
+            heroColor={heroColor}
+            heroZoneLabel={heroZoneLabel}
+            heroZoneColor={heroZoneColor}
+            heroTrend={heroTrend}
+            onHeroPress={navigateToHeroMetric}
+            fitnessData={fitnessData}
+            fatigueData={fatigueData}
+            formData={formData}
+            hrvData={hrvData}
+            rhrData={rhrData}
+            showSparkline={showSparkline}
+            supportingMetrics={supportingMetrics}
+            insightLine={insightLine}
+          />
+        )}
 
         <FlatList
           ref={listRef}
@@ -537,7 +595,15 @@ export default function FeedScreen() {
         />
 
         {/* Hidden WebView for generating 3D terrain snapshots — deferred to avoid startup cost */}
-        {snapshotWebViewReady && <TerrainSnapshotWebView ref={snapshotRef} />}
+        {snapshotWebViewReady && (
+          <ComponentErrorBoundary
+            componentName="3D Terrain Snapshots"
+            showRetry={false}
+            onError={() => setSnapshotWebViewReady(false)}
+          >
+            <TerrainSnapshotWebView ref={snapshotRef} />
+          </ComponentErrorBoundary>
+        )}
       </ScreenSafeAreaView>
     </ScreenErrorBoundary>
   );
@@ -582,6 +648,19 @@ const styles = StyleSheet.create({
   },
   searchInputDark: {
     color: colors.textOnDark,
+  },
+  headerProfile: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    marginLeft: spacing.sm,
+    backgroundColor: opacity.overlay.light,
+    overflow: 'hidden',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerProfileDark: {
+    backgroundColor: opacity.overlayDark.medium,
   },
   filterChips: {
     flexDirection: 'row',

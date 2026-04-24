@@ -28,6 +28,7 @@ export { DemoBanner } from './DemoBanner';
 export { SwipeableTabs, type SwipeableTab } from './SwipeableTabs';
 export { GlobalDataSync } from './GlobalDataSync';
 export { OfflineBanner } from './OfflineBanner';
+export { ShaderWarmup } from './ShaderWarmup';
 export {
   ScreenTransition,
   StaggeredItem,
