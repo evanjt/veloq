@@ -1097,6 +1097,7 @@ export const ActivityMapView = memo(function ActivityMapView({
         <View style={styles.controlsContainer}>
           {/* Style toggle */}
           <TouchableOpacity
+            testID="activity-map-style-toggle"
             style={[styles.controlButton, isDark && styles.controlButtonDark]}
             onPressIn={toggleMapStyle}
             activeOpacity={0.6}
@@ -1112,6 +1113,7 @@ export const ActivityMapView = memo(function ActivityMapView({
           {/* Gradient coloring toggle — only shown when gradient data is available; hidden in 3D (no effect there) */}
           {hasGradientData && !is3DMode && (
             <TouchableOpacity
+              testID="activity-map-gradient-toggle"
               accessibilityLabel={t('maps.colorByGradient')}
               style={[
                 styles.controlButton,
@@ -1139,6 +1141,7 @@ export const ActivityMapView = memo(function ActivityMapView({
           {/* 3D toggle */}
           {hasRoute && (
             <TouchableOpacity
+              testID="activity-map-3d-toggle"
               style={[
                 styles.controlButton,
                 isDark && styles.controlButtonDark,

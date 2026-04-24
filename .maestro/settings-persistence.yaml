@@ -11,6 +11,16 @@ tags:
 - runFlow:
     file: helpers/navigate-to-settings.yaml
 
+# Theme buttons live inside the Display section, several screens below the
+# fold. Scroll directly to the button so it's in the queryable view tree.
+- scrollUntilVisible:
+    element:
+      id: "theme-button-dark"
+    direction: DOWN
+    timeout: 15000
+    speed: 40
+    visibilityPercentage: 20
+
 # Switch to dark theme
 - tapOn:
     id: "theme-button-dark"
@@ -42,6 +52,15 @@ tags:
     visible:
       id: "settings-screen"
     timeout: 10000
+
+# Re-scroll Display section into view after the round-trip.
+- scrollUntilVisible:
+    element:
+      id: "theme-button-dark"
+    direction: DOWN
+    timeout: 15000
+    speed: 40
+    visibilityPercentage: 20
 
 # Verify dark theme button is still visible (settings still accessible)
 - assertVisible:

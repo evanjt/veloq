@@ -452,12 +452,14 @@ export const RoutesList = memo(function RoutesList({
         testID="routes-list"
         data={groups}
         keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <RouteRow
-            route={item as unknown as RouteGroup}
-            navigable
-            distanceFromUser={distanceMap?.get(item.id)}
-          />
+        renderItem={({ item, index }) => (
+          <View testID={`route-row-${index}`}>
+            <RouteRow
+              route={item as unknown as RouteGroup}
+              navigable
+              distanceFromUser={distanceMap?.get(item.id)}
+            />
+          </View>
         )}
         ListHeaderComponent={renderHeader}
         ListEmptyComponent={renderEmpty}

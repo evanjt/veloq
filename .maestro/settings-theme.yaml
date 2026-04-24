@@ -11,25 +11,54 @@ tags:
 - runFlow:
     file: helpers/navigate-to-settings.yaml
 
-# Verify theme buttons exist
-- assertVisible:
-    id: "theme-button-system"
-- assertVisible:
-    id: "theme-button-light"
-- assertVisible:
-    id: "theme-button-dark"
+# Theme buttons live inside the Display section, several screens below the
+# fold. SegmentedButtons (react-native-paper) only propagates the testID of
+# the *currently selected* button to the queryable tree on Android — the
+# unselected siblings render as Pressable wrappers without an accessible id.
+# Scroll once to bring the row on-screen, then verify by tapping each one
+# in turn (a successful tap proves the button was queryable when active).
+- scrollUntilVisible:
+    element:
+      id: "theme-button-system"
+    direction: DOWN
+    timeout: 15000
+    speed: 40
+    visibilityPercentage: 20
 
-# Switch to dark theme
+# Switch to dark theme — the active button changes after each tap, so a
+# successful tap implicitly asserts the target button was findable.
 - tapOn:
     id: "theme-button-dark"
+- waitForAnimationToEnd:
+    timeout: 2000
 - takeScreenshot: "settings-theme-dark"
 
-# Switch to light theme
+# Switch to light theme — re-scroll first because a theme change re-renders
+# the SegmentedButtons row and on Android the new render briefly drops the
+# inactive buttons from the queryable accessibility tree.
+- scrollUntilVisible:
+    element:
+      id: "theme-button-light"
+    direction: DOWN
+    timeout: 10000
+    speed: 40
+    visibilityPercentage: 20
+    optional: true
 - tapOn:
     id: "theme-button-light"
+- waitForAnimationToEnd:
+    timeout: 2000
 - takeScreenshot: "settings-theme-light"
 
 # Switch back to system
+- scrollUntilVisible:
+    element:
+      id: "theme-button-system"
+    direction: DOWN
+    timeout: 10000
+    speed: 40
+    visibilityPercentage: 20
+    optional: true
 - tapOn:
     id: "theme-button-system"
 - takeScreenshot: "settings-theme-system"

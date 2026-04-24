@@ -269,8 +269,12 @@ export function WeeklySummary({
     };
   }, [activities, timeRange, summaryData, t]);
 
-  // Show loading state while fetching calendar data
-  const isLoading = timeRange === 'week' && isLoadingSummary;
+  // Show loading state: for 'week' the summary endpoint is authoritative.
+  // For other ranges, only block the render while activities is still
+  // undefined (first fetch); once it arrives (even as []) let the empty-
+  // state branch handle it rather than spinning indefinitely.
+  const isLoading =
+    timeRange === 'week' ? isLoadingSummary : activities === undefined && isLoadingSummary;
 
   // Show empty state if no activities in current period
   if (!isLoading && currentStats.count === 0) {

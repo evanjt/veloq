@@ -51,11 +51,11 @@ onFlowComplete:
 - tapOn:
     id: "settings-logout-button"
 
-# Wait for the disconnect alert title to appear
+# Wait for the destructive "Disconnect" button itself (more reliable on iOS
+# than asserting the title — iOS Alert presentation can race the matcher).
 - extendedWaitUntil:
-    visible:
-      text: "Disconnect Account"
-    timeout: 5000
+    visible: "Disconnect"
+    timeout: 10000
 
 - takeScreenshot: "settings-logout-dialog"
 

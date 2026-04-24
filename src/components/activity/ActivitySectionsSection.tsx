@@ -17,6 +17,7 @@ import { runOnJS, useSharedValue } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { useTranslation } from 'react-i18next';
 import { SectionInlinePlot } from '@/components/activity/SectionInlinePlot';
+import { findRowIndexAtPageY } from '@/components/activity/scrubHitTest';
 import { DataRangeFooter } from '@/components/routes';
 import { TAB_BAR_SAFE_PADDING } from '@/components/ui';
 import { CHART_CONFIG } from '@/constants';
@@ -130,7 +131,16 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
   // ----- Drag-to-scrub state -----
   // After long-press on a row, pan-drag up/down moves the highlight through rows.
   // FlatList scroll is disabled while scrubbing, and auto-scrolls near the edges.
+  //
+  // Hit testing is pure arithmetic against row 0's measured pageY and one
+  // row-height sample: index = floor((fingerY - firstRowTopY + scrollOffset) / rowHeight).
+  // Anchoring on the first row (rather than listTop + paddingTop) removes
+  // off-by-one drift caused by parent transforms / safe-area insets / etc.
   const [isScrubbing, setIsScrubbing] = useState(false);
+  // rowKey (sectionId + direction) of the row currently under the finger.
+  // Kept separate from `highlightedSectionId` so two rows sharing a sectionId
+  // (same section matched in both directions) don't both highlight.
+  const [highlightedRowKey, setHighlightedRowKey] = useState<string | null>(null);
   const isScrubbingRef = useRef(false);
   isScrubbingRef.current = isScrubbing;
   // Shared value mirror of isScrubbing — gesture worklets run on the UI thread
@@ -138,91 +148,83 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
   const isScrubbingSV = useSharedValue(false);
 
   const flatListRef = useRef<FlatList<SectionEncounter> | null>(null);
-  const listTopYRef = useRef(0); // page-Y of the list container's top edge
+  const listContainerRef = useRef<View | null>(null);
+  // Window-Y of the list container — only used for the auto-scroll edge
+  // detection (am I near the top/bottom of the visible list area?).
+  const listTopYRef = useRef(0);
   const listHeightRef = useRef(0);
   const scrollOffsetRef = useRef(0);
-  // Stored row layouts: `y` is the window-page-Y captured via measureInWindow.
-  // We re-measure all rows when scrub starts (outer-page scroll can shift rows
-  // without firing their onLayout callbacks).
-  const rowLayoutsRef = useRef<Map<string, { y: number; height: number }>>(new Map());
-  // Live refs to each row's outer View — populated via registerRowRef prop —
-  // so we can call measureInWindow on demand.
-  const rowRefsRef = useRef<Map<string, View>>(new Map());
-  const registerRowRef = useCallback((sectionId: string, ref: View | null) => {
-    if (ref) rowRefsRef.current.set(sectionId, ref);
-    else rowRefsRef.current.delete(sectionId);
-  }, []);
-  // Re-measure every registered row's window-Y right now. Called at scrub start
-  // so the cached pageYs reflect the current outer-page scroll position.
-  // Returns a Promise that resolves after every measureInWindow callback has
-  // fired — measureInWindow is async across the native bridge, so a bare
-  // setTimeout(0) at the call site isn't enough to wait for it. A stale cache
-  // here produces an off-by-one row error (the hit test lands on the row that
-  // is visually *below* the finger).
-  const remeasureRows = useCallback((): Promise<void> => {
-    const entries = Array.from(rowRefsRef.current.entries());
-    if (entries.length === 0) return Promise.resolve();
-    return new Promise((resolve) => {
-      let pending = entries.length;
-      const done = () => {
-        pending -= 1;
-        if (pending === 0) resolve();
-      };
-      for (const [sectionId, ref] of entries) {
-        if (!ref?.measureInWindow) {
-          done();
-          continue;
-        }
-        ref.measureInWindow((_x: number, y: number, _w: number, h: number) => {
-          rowLayoutsRef.current.set(sectionId, { y, height: h });
-          done();
-        });
-      }
-    });
-  }, []);
+  // The anchor point for hit-testing: row 0's window-Y, measured directly
+  // at scrub start. Using the first row instead of listTop + paddingTop
+  // removes any drift introduced by parent transforms, safe-area padding,
+  // or differences between layout-event height and measureInWindow height.
+  const firstRowRef = useRef<View | null>(null);
+  const firstRowTopYRef = useRef(0);
+  // Height of a single row, captured from the first row's onLayout. All rows
+  // render at the same height (single-line name + single-line meta + fixed
+  // sparkline box), so one sample is enough.
+  const rowHeightRef = useRef(0);
   const autoScrollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const autoScrollDirectionRef = useRef<0 | 1 | -1>(0);
 
-  const handleRowLayout = useCallback((sectionId: string, y: number, height: number) => {
-    rowLayoutsRef.current.set(sectionId, { y, height });
+  const handleRowHeight = useCallback((height: number) => {
+    if (rowHeightRef.current === 0 && height > 0) {
+      rowHeightRef.current = height;
+    }
   }, []);
 
-  const listLayoutLoggedRef = useRef(false);
+  const handleFirstRowRef = useCallback((ref: View | null) => {
+    firstRowRef.current = ref;
+  }, []);
+
+  // Resolve row 0's current window-Y via measureInWindow. Called at scrub
+  // start so any outer-page scroll or layout change since mount is picked up.
+  const remeasureFirstRow = useCallback((): Promise<void> => {
+    return new Promise((resolve) => {
+      const ref = firstRowRef.current;
+      if (!ref?.measureInWindow) {
+        resolve();
+        return;
+      }
+      ref.measureInWindow((_x: number, y: number) => {
+        firstRowTopYRef.current = y;
+        resolve();
+      });
+    });
+  }, []);
+
   const handleListLayout = useCallback((e: LayoutChangeEvent) => {
     listHeightRef.current = e.nativeEvent.layout.height;
-    if (!listLayoutLoggedRef.current) {
-      listLayoutLoggedRef.current = true;
-      console.log('[scrub] listLayout height=', Math.round(e.nativeEvent.layout.height));
-    }
   }, []);
 
-  // Throttle the null-match diagnostic so it fires at most once per scrub burst.
+  // Map a finger window-Y to an encounter index using fixed-row arithmetic.
+  // Returns both the rowKey (for exact row highlight) and the sectionId
+  // (for upstream consumers that key off sectionId — e.g. the map).
   const nullMatchLoggedRef = useRef(false);
-  const findSectionAtPageY = useCallback((pageY: number): string | null => {
-    // rowLayoutsRef stores window-page Y per row (measured via measureInWindow
-    // at onLayout time). Compare the finger pageY directly.
-    let best: string | null = null;
-    rowLayoutsRef.current.forEach((layout, id) => {
-      if (pageY >= layout.y && pageY < layout.y + layout.height) {
-        best = id;
-      }
-    });
-    if (!best && !nullMatchLoggedRef.current) {
-      nullMatchLoggedRef.current = true;
-      const entries: Array<[string, { y: number; height: number }]> = [];
-      rowLayoutsRef.current.forEach((layout, id) => entries.push([id, layout]));
-      console.log('[scrub] NO MATCH', {
-        pageY: Math.round(pageY),
-        rowCount: rowLayoutsRef.current.size,
-        firstRow: entries[0],
-        lastRow: entries[entries.length - 1],
+  const findRowAtPageY = useCallback(
+    (pageY: number): { rowKey: string; sectionId: string } | null => {
+      const idx = findRowIndexAtPageY({
+        pageY,
+        firstRowTopY: firstRowTopYRef.current,
+        rowHeight: rowHeightRef.current,
+        scrollOffset: scrollOffsetRef.current,
+        rowCount: encounters.length,
       });
-    }
-    return best;
-  }, []);
+      if (idx === null) {
+        if (!nullMatchLoggedRef.current) {
+          nullMatchLoggedRef.current = true;
+          console.log('[scrub] no-match pageY=', Math.round(pageY));
+        }
+        return null;
+      }
+      const item = encounters[idx];
+      return { rowKey: `${item.sectionId}-${item.direction}`, sectionId: item.sectionId };
+    },
+    [encounters]
+  );
 
-  // Only log when the resolved section ID actually changes — keeps drag output readable.
-  const lastLoggedSectionRef = useRef<string | null>(null);
+  // Only log when the resolved row actually changes — keeps drag output readable.
+  const lastLoggedRowRef = useRef<string | null>(null);
 
   const stopAutoScroll = useCallback(() => {
     if (autoScrollIntervalRef.current != null) {
@@ -231,6 +233,14 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
     }
     autoScrollDirectionRef.current = 0;
   }, []);
+
+  const applyRow = useCallback(
+    (row: { rowKey: string; sectionId: string } | null) => {
+      setHighlightedRowKey(row?.rowKey ?? null);
+      onHighlightedSectionIdChange(row?.sectionId ?? null);
+    },
+    [onHighlightedSectionIdChange]
+  );
 
   const ensureAutoScroll = useCallback(
     (direction: 0 | 1 | -1, lastPageY: number) => {
@@ -246,82 +256,76 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
         const next = Math.max(0, scrollOffsetRef.current + delta);
         scrollOffsetRef.current = next;
         flatListRef.current?.scrollToOffset({ offset: next, animated: false });
-        const id = findSectionAtPageY(lastPageY);
-        if (id) onHighlightedSectionIdChange(id);
+        const row = findRowAtPageY(lastPageY);
+        if (row) applyRow(row);
       }, 16);
     },
-    [findSectionAtPageY, onHighlightedSectionIdChange, stopAutoScroll]
+    [applyRow, findRowAtPageY, stopAutoScroll]
   );
 
   const handleScrubMove = useCallback(
     (pageY: number) => {
-      const id = findSectionAtPageY(pageY);
-      if (id !== lastLoggedSectionRef.current) {
-        console.log('[scrub] move → row', id, 'pageY=', Math.round(pageY));
-        lastLoggedSectionRef.current = id;
+      const row = findRowAtPageY(pageY);
+      const rowKey = row?.rowKey ?? null;
+      if (rowKey !== lastLoggedRowRef.current) {
+        console.log('[scrub] move → row', rowKey, 'pageY=', Math.round(pageY));
+        lastLoggedRowRef.current = rowKey;
       }
-      if (id) onHighlightedSectionIdChange(id);
+      if (row) applyRow(row);
       const relY = pageY - listTopYRef.current;
       const edge = 70;
       if (relY < edge) ensureAutoScroll(-1, pageY);
       else if (relY > listHeightRef.current - edge) ensureAutoScroll(1, pageY);
       else ensureAutoScroll(0, pageY);
     },
-    [ensureAutoScroll, findSectionAtPageY, onHighlightedSectionIdChange]
+    [applyRow, ensureAutoScroll, findRowAtPageY]
   );
 
   const handleScrubEnd = useCallback(() => {
     console.log('[scrub] end');
-    lastLoggedSectionRef.current = null;
+    lastLoggedRowRef.current = null;
     nullMatchLoggedRef.current = false;
     stopAutoScroll();
     setIsScrubbing(false);
     isScrubbingSV.value = false;
-    onHighlightedSectionIdChange(null);
-  }, [onHighlightedSectionIdChange, stopAutoScroll, isScrubbingSV]);
+    applyRow(null);
+  }, [applyRow, stopAutoScroll, isScrubbingSV]);
 
   useEffect(() => () => stopAutoScroll(), [stopAutoScroll]);
 
-  // When the encounters list changes (new activity, re-sort), wipe stale row
-  // layout entries so old sectionId→pageY mappings don't shadow the new ones.
+  // When the encounters list changes (new activity, re-sort), drop the stale
+  // row-height sample so the next layout pass captures the current value.
   useEffect(() => {
-    rowLayoutsRef.current.clear();
+    rowHeightRef.current = 0;
   }, [encounters]);
 
   // Start scrub from a page-Y position (invoked from Pan onStart after activateAfterLongPress).
   const startScrubAt = useCallback(
     (pageY: number) => {
-      // Await the native-side measureInWindow round-trip before hit-testing.
-      // Without this await the first hit runs against the stale cache and
-      // lands on the row below the finger (and misses the last row entirely).
-      remeasureRows().then(() => {
-        const id = findSectionAtPageY(pageY);
-        const rows: Array<[string, number, number]> = [];
-        rowLayoutsRef.current.forEach((l, sid) =>
-          rows.push([sid, Math.round(l.y), Math.round(l.y + l.height)])
+      // Refresh row 0's window-Y once — the outer activity page may have
+      // scrolled since mount. Single measureInWindow round-trip, not one per row.
+      remeasureFirstRow().then(() => {
+        const row = findRowAtPageY(pageY);
+        console.log(
+          '[scrub] onStart pageY=',
+          Math.round(pageY),
+          'firstRowTopY=',
+          Math.round(firstRowTopYRef.current),
+          'rowH=',
+          Math.round(rowHeightRef.current),
+          'scrollOffset=',
+          Math.round(scrollOffsetRef.current),
+          'row=',
+          row
         );
-        console.log('[scrub] onStart pageY=', Math.round(pageY), 'sectionId=', id, 'rows=', rows);
-        if (!id) return;
+        if (!row) return;
         Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-        onHighlightedSectionIdChange(id);
+        applyRow(row);
         setIsScrubbing(true);
         isScrubbingSV.value = true;
       });
     },
-    [findSectionAtPageY, onHighlightedSectionIdChange, isScrubbingSV, remeasureRows]
-  );
-
-  // Row-level long press (from SectionInlinePlot's Pressable) — fallback path if
-  // the container Pan gesture loses to Swipeable's native recognizer.
-  const handleSectionLongPress = useCallback(
-    (sectionId: string) => {
-      console.log('[scrub] row-longpress fallback', sectionId);
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-      onHighlightedSectionIdChange(sectionId);
-      setIsScrubbing(true);
-      isScrubbingSV.value = true;
-    },
-    [onHighlightedSectionIdChange, isScrubbingSV]
+    [applyRow, findRowAtPageY, isScrubbingSV, remeasureFirstRow]
   );
 
   // Scrub gesture: a Pan that only activates AFTER the user holds their finger
@@ -350,15 +354,11 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
       });
   }, [startScrubAt, handleScrubMove, handleScrubEnd]);
 
-  const containerLayoutLoggedRef = useRef(false);
-  const handleContainerLayout = useCallback((e: LayoutChangeEvent) => {
-    // Capture the page-Y of the list wrapper so we can map pageY → row.
-    e.currentTarget?.measureInWindow?.((_x: number, y: number) => {
+  const handleContainerLayout = useCallback((_e: LayoutChangeEvent) => {
+    // Capture the list container's window-Y on mount. It's re-measured
+    // at scrub start to catch any outer-page scroll since this fired.
+    listContainerRef.current?.measureInWindow?.((_x: number, y: number) => {
       listTopYRef.current = y;
-      if (!containerLayoutLoggedRef.current) {
-        containerLayoutLoggedRef.current = true;
-        console.log('[scrub] containerLayout listTopY=', Math.round(y));
-      }
     });
   }, []);
 
@@ -408,19 +408,26 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
   const renderEncounterItem = useCallback(
     ({ item, index }: { item: SectionEncounter; index: number }) => {
       const style = getSectionStyle(index);
+      const rowKey = `${item.sectionId}-${item.direction}`;
+      // When scrubbing we know the exact row under the finger (rowKey); fall
+      // back to sectionId comparison when the highlight comes from elsewhere
+      // (e.g. map interaction setting `highlightedSectionId`).
+      const isHighlighted = highlightedRowKey
+        ? rowKey === highlightedRowKey
+        : highlightedSectionId === item.sectionId;
       return (
         <SectionInlinePlot
           encounter={item}
           activityId={activityId}
           index={index}
           style={style}
-          isHighlighted={highlightedSectionId === item.sectionId}
+          isHighlighted={isHighlighted}
           isDark={isDark}
           isMetric={isMetric}
           onPress={handleSectionPress}
           onSwipeableOpen={handleSwipeableOpen}
-          onRowLayout={handleRowLayout}
-          registerRowRef={registerRowRef}
+          onRowHeight={handleRowHeight}
+          firstRowRef={handleFirstRowRef}
           renderRightActions={(progress, dragX) => renderSectionSwipeActions(item, progress, dragX)}
           swipeableRefs={swipeableRefs}
         />
@@ -428,14 +435,14 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
     },
     [
       activityId,
+      highlightedRowKey,
       highlightedSectionId,
       isDark,
       isMetric,
-      handleSectionLongPress,
       handleSectionPress,
       handleSwipeableOpen,
-      handleRowLayout,
-      registerRowRef,
+      handleRowHeight,
+      handleFirstRowRef,
       renderSectionSwipeActions,
       swipeableRefs,
     ]
@@ -617,6 +624,7 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
   return (
     <GestureDetector gesture={scrubGesture}>
       <View
+        ref={listContainerRef}
         style={styles.tabScrollView}
         onLayout={handleContainerLayout}
         testID="activity-sections-list"

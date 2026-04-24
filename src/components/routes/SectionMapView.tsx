@@ -785,7 +785,7 @@ export const SectionMapView = memo(function SectionMapView({
       {interactive ? (
         // Interactive map with control stack and optional 3D
         <View style={[styles.outerContainer, { height }]}>
-          <View style={styles.container}>
+          <View testID="section-map-container" style={styles.container}>
             {/* 2D Map layer - hidden when 3D is ready */}
             <View style={[styles.mapLayer, is3DMode && is3DReady && styles.hiddenLayer]}>
               {mapContent}
@@ -827,6 +827,7 @@ export const SectionMapView = memo(function SectionMapView({
             <View style={styles.controlsContainer}>
               {/* Style toggle */}
               <TouchableOpacity
+                testID="section-map-style-toggle"
                 style={[styles.controlButton, isDark && styles.controlButtonDark]}
                 onPressIn={toggleMapStyle}
                 activeOpacity={0.6}
@@ -842,6 +843,7 @@ export const SectionMapView = memo(function SectionMapView({
               {/* 3D toggle */}
               {hasRoute && (
                 <TouchableOpacity
+                  testID="section-map-3d-toggle"
                   style={[
                     styles.controlButton,
                     isDark && styles.controlButtonDark,
@@ -905,6 +907,7 @@ export const SectionMapView = memo(function SectionMapView({
               {/* Fullscreen expand (hidden during trim mode) */}
               {enableFullscreen && !isTrimming && (
                 <TouchableOpacity
+                  testID="section-map-fullscreen"
                   style={[styles.controlButton, isDark && styles.controlButtonDark]}
                   onPressIn={openFullscreen}
                   activeOpacity={0.6}
