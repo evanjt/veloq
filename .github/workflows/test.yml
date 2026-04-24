@@ -1,0 +1,104 @@
+name: Test
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: [main]
+
+env:
+  NODE_VERSION: "20"
+
+jobs:
+  jest:
+    name: Jest
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "${{ env.NODE_VERSION }}"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test -- --maxWorkers=2
+
+  rust:
+    name: Rust Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: modules/veloqrs/rust
+          key: test
+
+      - name: Run Rust tests
+        working-directory: modules/veloqrs/rust
+        run: cargo test --workspace
+
+  verify-bindings:
+    name: Verify Bindings
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "${{ env.NODE_VERSION }}"
+          cache: "npm"
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@1.93.0
+
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: modules/veloqrs/rust
+          key: verify-bindings-1.93
+
+      - name: Install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y clang-format
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Regenerate bindings
+        run: ./scripts/generate-bindings.sh
+
+      - name: Check bindings match
+        run: |
+          if ! git diff --quiet modules/veloqrs/src/generated modules/veloqrs/cpp/generated; then
+            echo "::error::Bindings out of sync with Rust source. Run ./scripts/generate-bindings.sh and commit."
+            echo ""
+            echo "=== Changed files ==="
+            git diff --stat modules/veloqrs/src/generated modules/veloqrs/cpp/generated
+            echo ""
+            echo "=== Detailed diff (first 100 lines) ==="
+            git diff modules/veloqrs/src/generated modules/veloqrs/cpp/generated | head -100
+            exit 1
+          fi
+          echo "Bindings are in sync with Rust source"
