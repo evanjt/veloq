@@ -261,8 +261,18 @@ tags:
       id: "map-screen"
     timeout: 2000
 
+# Routes toggle is only mounted when the engine has detected at least one
+# route — demo fixtures may not produce any in the time we get here. Treat
+# the routes-toggle interactions as best-effort.
+- extendedWaitUntil:
+    visible:
+      id: "map-toggle-routes"
+    timeout: 10000
+    optional: true
+
 - tapOn:
     id: "map-toggle-routes"
+    optional: true
 
 - extendedWaitUntil:
     visible:
@@ -272,6 +282,7 @@ tags:
 # Toggle back on
 - tapOn:
     id: "map-toggle-routes"
+    optional: true
 
 - tapOn:
     id: "map-toggle-sections"
@@ -329,6 +340,7 @@ tags:
           id: "map-toggle-activities"
       - tapOn:
           id: "map-toggle-routes"
+          optional: true
       - tapOn:
           id: "map-toggle-sections"
           optional: true

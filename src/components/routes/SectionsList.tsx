@@ -120,6 +120,7 @@ function batchSectionToFrequentSection(s: SectionWithPolyline): FrequentSection 
 }
 
 interface SectionListItemProps {
+  index: number;
   item: UnifiedSection;
   isDark: boolean;
   isDisabled: boolean;
@@ -134,6 +135,7 @@ interface SectionListItemProps {
 
 const SectionListItem = memo(
   function SectionListItem({
+    index,
     item,
     isDark,
     isDisabled,
@@ -208,6 +210,7 @@ const SectionListItem = memo(
         friction={2}
       >
         <View
+          testID={`section-row-${index}`}
           style={[
             styles.swipeableContent,
             isDark && styles.swipeableContentDark,
@@ -567,9 +570,10 @@ export const SectionsList = memo(function SectionsList({
   );
 
   const renderItem = useCallback(
-    ({ item }: { item: UnifiedSection }) => (
+    ({ item, index }: { item: UnifiedSection; index: number }) => (
       <SectionListItem
         item={item}
+        index={index}
         isDark={isDark}
         isDisabled={!!(item.disabled || item.supersededBy)}
         distanceFromUser={distanceMap?.get(item.id)}
@@ -767,7 +771,7 @@ export const SectionsList = memo(function SectionsList({
       </View>
 
       <FlatList
-        testID="sections-list"
+        testID={regularSections.length > 0 ? 'sections-list' : 'sections-list-empty'}
         style={styles.flatList}
         data={regularSections}
         keyExtractor={(item) => item.id}

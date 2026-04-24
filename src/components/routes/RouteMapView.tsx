@@ -412,6 +412,7 @@ export function RouteMapView({
   return (
     <>
       <TouchableOpacity
+        testID="route-map-container"
         style={[styles.container, { height }]}
         onPress={handleMapPress}
         activeOpacity={enableFullscreen || onPress ? 0.9 : 1}

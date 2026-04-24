@@ -1,0 +1,94 @@
+# Activity Sections — Long-press Scrub Smoke
+# Long-press on each section row triggers the scrub Pan gesture
+# (activateAfterLongPress). This flow is a crash-smoke + screenshot record —
+# the per-row correctness of the hit test (right row highlights, no dual
+# highlight when two rows share a sectionId) is unit-tested in
+# src/__tests__/components/activity/scrubHitTest.test.ts. Maestro releases
+# the press before we can assert visible highlight state, so visual
+# validation is left to the screenshots.
+
+appId: com.veloq.app.dev
+tags:
+  - tier2
+---
+- runFlow:
+    file: helpers/setup-demo-mode.yaml
+
+- openLink: "veloq://activity/demo-test-0?tab=sections"
+- runFlow:
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
+
+- extendedWaitUntil:
+    visible:
+      id: "activity-detail-content"
+    timeout: 15000
+
+- tapOn:
+    text: "Sections"
+    optional: true
+
+- extendedWaitUntil:
+    visible:
+      id: "activity-sections-list"
+    timeout: 10000
+
+- takeScreenshot: "sections-scrub-before"
+
+- runFlow:
+    when:
+      visible:
+        text: "No matched sections"
+    commands:
+      - takeScreenshot: "sections-scrub-no-sections"
+
+# Long-press each rendered row. activateAfterLongPress fires the Pan gesture
+# at LONG_PRESS_DURATION (500ms), and the Rust-side haptic + row highlight
+# confirm the scrub started. If the gesture failed to activate on any row,
+# the app would either freeze or throw — both would fail this flow.
+- runFlow:
+    when:
+      visible:
+        id: "section-inline-plot-0"
+    commands:
+      - longPressOn:
+          id: "section-inline-plot-0"
+      - waitForAnimationToEnd:
+          timeout: 1500
+      - takeScreenshot: "sections-scrub-row-0"
+
+- runFlow:
+    when:
+      visible:
+        id: "section-inline-plot-1"
+    commands:
+      - longPressOn:
+          id: "section-inline-plot-1"
+      - waitForAnimationToEnd:
+          timeout: 1500
+      - takeScreenshot: "sections-scrub-row-1"
+
+- runFlow:
+    when:
+      visible:
+        id: "section-inline-plot-2"
+    commands:
+      - longPressOn:
+          id: "section-inline-plot-2"
+      - waitForAnimationToEnd:
+          timeout: 1500
+      - takeScreenshot: "sections-scrub-row-2"
+
+# Tap somewhere neutral to release any open state, then verify the list
+# is still rendered and hasn't corrupted values.
+- tapOn:
+    id: "activity-sections-list"
+- waitForAnimationToEnd:
+    timeout: 1000
+
+- assertVisible:
+    id: "activity-sections-list"
+- assertNotVisible:
+    text: "NaN"

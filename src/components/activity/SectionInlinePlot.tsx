@@ -1,5 +1,12 @@
 import React, { memo, useCallback, useMemo, useRef } from 'react';
-import { View, StyleSheet, Pressable, Platform, Text as RNText } from 'react-native';
+import {
+  View,
+  StyleSheet,
+  Pressable,
+  Platform,
+  Text as RNText,
+  type LayoutChangeEvent,
+} from 'react-native';
 import { Text } from 'react-native-paper';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -15,7 +22,6 @@ import {
   typography,
   layout,
 } from '@/theme';
-import { CHART_CONFIG } from '@/constants';
 import { formatDistance, formatPace } from '@/lib';
 import { SectionSparkline } from '@/components/section/SectionSparkline';
 import type { SectionEncounter } from 'veloqrs';
@@ -30,13 +36,13 @@ interface SectionInlinePlotProps {
   isDark: boolean;
   isMetric: boolean;
   onPress: (sectionId: string) => void;
-  onLongPress?: (sectionId: string) => void;
   onSwipeableOpen: (sectionId: string) => void;
-  /** Report measured row layout for drag-scrub row detection */
-  onRowLayout?: (sectionId: string, y: number, height: number) => void;
-  /** Register/unregister this row's outer View so the parent can re-measure
-   *  it on demand (outer-page scroll invalidates the cached pageY). */
-  registerRowRef?: (sectionId: string, ref: View | null) => void;
+  /** Report the outer row's measured height so the parent can compute
+   *  finger-Y → row-index arithmetically instead of querying per-row layouts. */
+  onRowHeight?: (height: number) => void;
+  /** Expose the first row's outer View ref to the parent. Only row 0 needs
+   *  to be measured — subsequent rows' positions are pure arithmetic. */
+  firstRowRef?: (ref: View | null) => void;
   renderRightActions: (
     progress: Animated.AnimatedInterpolation<number>,
     dragX: Animated.AnimatedInterpolation<number>
@@ -54,18 +60,13 @@ export const SectionInlinePlot = memo(
     isDark,
     isMetric,
     onPress,
-    onLongPress,
     onSwipeableOpen,
-    onRowLayout,
-    registerRowRef,
+    onRowHeight,
+    firstRowRef,
     renderRightActions,
     swipeableRefs,
   }: SectionInlinePlotProps) {
     const { t } = useTranslation();
-
-    const handleLongPress = useCallback(() => {
-      onLongPress?.(encounter.sectionId);
-    }, [onLongPress, encounter.sectionId]);
 
     const handlePress = useCallback(() => {
       onPress?.(encounter.sectionId);
@@ -75,52 +76,89 @@ export const SectionInlinePlot = memo(
     // section portions, so row N visually matches the color of section N on the map.
     const numberColor = sectionPalette[sectionPaletteIndex(encounter.sectionId)];
 
+    // A single section can match in both directions, so `sectionId` alone
+    // isn't unique per row. Use the same composite key as FlatList's keyExtractor.
     const swipeKey = `${encounter.sectionId}-${encounter.direction}`;
     const displayName =
-      encounter.direction === 'reverse' ? `${encounter.sectionName} \u21A9` : encounter.sectionName;
+      encounter.direction === 'reverse' ? `${encounter.sectionName} ↩` : encounter.sectionName;
 
-    // Build sparkline-compatible data from encounter history
+    // Build sparkline-compatible data from encounter history.
+    // Show a window of up to 5 points centered on the current activity
+    // (2 before + current + 2 after). If the current activity is near the
+    // start/end of the history, shift the window so 5 points still render.
+    // If the current activity isn't in the history, fall back to the last 5.
     const sparklineData = useMemo((): (PerformanceDataPoint & { x: number })[] | undefined => {
-      if (encounter.historyTimes.length < 2) return undefined;
-      return encounter.historyTimes.map((time, i) => ({
-        x: i,
-        id: encounter.historyActivityIds[i] || '',
-        activityId: encounter.historyActivityIds[i] || '',
-        speed: time > 0 ? encounter.distanceMeters / time : 0,
-        date: new Date(),
-        activityName: '',
-        direction: encounter.direction as 'same' | 'reverse',
-        sectionTime: time,
-      }));
+      const total = encounter.historyTimes.length;
+      if (total < 2) return undefined;
+
+      const WINDOW_SIZE = 5;
+      let startIdx = 0;
+      let endIdx = total;
+
+      if (total > WINDOW_SIZE) {
+        const currentIdx = encounter.historyActivityIds.indexOf(activityId);
+        if (currentIdx === -1) {
+          startIdx = total - WINDOW_SIZE;
+          endIdx = total;
+        } else {
+          const half = Math.floor(WINDOW_SIZE / 2);
+          startIdx = currentIdx - half;
+          endIdx = currentIdx + half + 1;
+          if (startIdx < 0) {
+            endIdx += -startIdx;
+            startIdx = 0;
+          }
+          if (endIdx > total) {
+            startIdx -= endIdx - total;
+            endIdx = total;
+          }
+          if (startIdx < 0) startIdx = 0;
+        }
+      }
+
+      const out: (PerformanceDataPoint & { x: number })[] = [];
+      for (let i = startIdx; i < endIdx; i++) {
+        const time = encounter.historyTimes[i];
+        out.push({
+          x: i - startIdx,
+          id: encounter.historyActivityIds[i] || '',
+          activityId: encounter.historyActivityIds[i] || '',
+          speed: time > 0 ? encounter.distanceMeters / time : 0,
+          date: new Date(),
+          activityName: '',
+          direction: encounter.direction as 'same' | 'reverse',
+          sectionTime: time,
+        });
+      }
+      return out;
     }, [
       encounter.historyTimes,
       encounter.historyActivityIds,
       encounter.distanceMeters,
       encounter.direction,
+      activityId,
     ]);
 
-    // Report the row's absolute window-Y (not parent-relative y) so the parent
-    // scrub gesture can map a finger pageY to a row directly.
-    const rowRef = useRef<View>(null);
     const handleLayout = useCallback(
-      (e: { nativeEvent: { layout: { y: number; height: number } } }) => {
-        const { height } = e.nativeEvent.layout;
-        rowRef.current?.measureInWindow?.((_x: number, pageY: number) => {
-          onRowLayout?.(encounter.sectionId, pageY, height);
-        });
+      (e: LayoutChangeEvent) => {
+        onRowHeight?.(e.nativeEvent.layout.height);
       },
-      [onRowLayout, encounter.sectionId]
+      [onRowHeight]
+    );
+
+    // Only row 0's ref is forwarded to the parent — it's the anchor point the
+    // scrub hit-test measures at gesture start. Other rows don't need refs.
+    const ownRef = useRef<View | null>(null);
+    const handleRef = useCallback(
+      (r: View | null) => {
+        ownRef.current = r;
+        if (index === 0) firstRowRef?.(r);
+      },
+      [firstRowRef, index]
     );
 
     return (
-      <View
-        ref={(r) => {
-          rowRef.current = r;
-          registerRowRef?.(encounter.sectionId, r);
-        }}
-        testID={`section-inline-plot-${index}`}
-        onLayout={handleLayout}
-      >
+      <View ref={handleRef} testID={`section-inline-plot-${index}`} onLayout={handleLayout}>
         <Swipeable
           ref={(ref) => {
             if (ref) {
@@ -136,8 +174,6 @@ export const SectionInlinePlot = memo(
         >
           <Pressable
             onPress={handlePress}
-            onLongPress={handleLongPress}
-            delayLongPress={CHART_CONFIG.LONG_PRESS_DURATION}
             style={({ pressed }) => [
               styles.card,
               isDark && styles.cardDark,

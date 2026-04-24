@@ -74,7 +74,7 @@ export default function ActivityDetailScreen() {
   const insets = useSafeAreaInsets();
 
   const { data: activity, isLoading, error, refetch } = useActivity(id || '');
-  const { data: streams } = useActivityStreams(id || '');
+  const { data: streams, isLoading: streamsLoading } = useActivityStreams(id || '');
   const { exportGpx, exporting: gpxExporting } = useGpxExport();
 
   // Get the activity date for wellness lookup
@@ -443,7 +443,7 @@ export default function ActivityDetailScreen() {
     }
   }, [activity, coordinates, exportGpx]);
 
-  if (isLoading) {
+  if (isLoading || streamsLoading) {
     return (
       <ScreenSafeAreaView
         testID="activity-detail-screen"
