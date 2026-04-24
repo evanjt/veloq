@@ -181,6 +181,20 @@ export function getRoutesScreenData(
   }
 }
 
+export function setRouteRepresentative(
+  host: DelegateHost,
+  routeId: string,
+  activityId: string
+): void {
+  if (!host.ready) return;
+  validateId(routeId, 'route ID');
+  validateId(activityId, 'activity ID');
+  host.timed('setRouteRepresentative', () =>
+    host.engine.routes().setRepresentative(routeId, activityId)
+  );
+  host.notify('groups');
+}
+
 export function getActivityRouteHighlights(
   host: DelegateHost,
   activityIds: string[]

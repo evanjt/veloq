@@ -1214,6 +1214,8 @@
     "sectionWord": "Abschnitt",
     "sectionsDescription": "Abschnitte werden erkannt, wenn du dieselben Straßen mehrmals befährst, auch auf verschiedenen Routen",
     "selected": "Ausgewählt",
+    "setAsReference": "Set as Reference",
+    "setAsReferenceConfirm": "Use this activity as the route reference? Match percentages are calculated relative to the reference activity.",
     "shareDetailsWithDeveloper": "Details kopieren und mit dem Entwickler teilen, wenn ein Problem gemeldet wird",
     "searchSections": "Abschnitte suchen...",
     "searchRoutes": "Routen suchen...",
@@ -1231,9 +1233,7 @@
     "thisPace": "Dieses Tempo",
     "thisSpeed": "Diese Geschwindigkeit",
     "visits": "Besuche",
-    "waiting": "Warte...",
-    "setAsReference": "Set as Reference",
-    "setAsReferenceConfirm": "Use this activity as the route reference? Match percentages are calculated relative to the reference activity."
+    "waiting": "Warte..."
   },
   "routesScreen": {
     "analysingRoutes": "Analysiere Routen {{current}}/{{total}}",
@@ -1354,7 +1354,12 @@
     "suggestedName": "Vorschlag: {{sport}} ({{distance}})",
     "mergeCandidatesTitle": "Abschnitt zum Zusammenführen auswählen",
     "mergeCandidatesSubtitle": "{{count}} ähnliche Abschnitte in der Nähe",
-    "overlapLabel": "Überlappung"
+    "overlapLabel": "Überlappung",
+    "acceptSection": "Accept",
+    "acceptAllSections": "Accept All",
+    "acceptAllConfirm": "Accept all {{count}} auto-detected sections? They will be preserved during future re-detection.",
+    "acceptedCount": "Accepted {{count}} sections",
+    "pinned": "Pinned"
   },
   "settings": {
     "account": "Konto",

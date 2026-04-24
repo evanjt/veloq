@@ -1214,6 +1214,8 @@
     "sectionWord": "Odcinek",
     "sectionsDescription": "Odcinki są wykrywane, gdy wielokrotnie przejeżdżasz te same drogi, nawet na różnych trasach",
     "selected": "Wybrana",
+    "setAsReference": "Set as Reference",
+    "setAsReferenceConfirm": "Use this activity as the route reference? Match percentages are calculated relative to the reference activity.",
     "shareDetailsWithDeveloper": "Skopiuj szczegóły i udostępnij deweloperowi przy zgłaszaniu problemu",
     "searchSections": "Szukaj sekcji...",
     "searchRoutes": "Szukaj tras...",
@@ -1231,9 +1233,7 @@
     "thisPace": "To tempo",
     "thisSpeed": "Ta prędkość",
     "visits": "wizyty",
-    "waiting": "Oczekiwanie...",
-    "setAsReference": "Set as Reference",
-    "setAsReferenceConfirm": "Use this activity as the route reference? Match percentages are calculated relative to the reference activity."
+    "waiting": "Oczekiwanie..."
   },
   "routesScreen": {
     "analysingRoutes": "Analiza tras {{current}}/{{total}}",
@@ -1354,7 +1354,12 @@
     "suggestedName": "Sugerowany: {{sport}} ({{distance}})",
     "mergeCandidatesTitle": "Wybierz odcinek do połączenia",
     "mergeCandidatesSubtitle": "{{count}} podobnych odcinków w pobliżu",
-    "overlapLabel": "pokrycie"
+    "overlapLabel": "pokrycie",
+    "acceptSection": "Accept",
+    "acceptAllSections": "Accept All",
+    "acceptAllConfirm": "Accept all {{count}} auto-detected sections? They will be preserved during future re-detection.",
+    "acceptedCount": "Accepted {{count}} sections",
+    "pinned": "Pinned"
   },
   "settings": {
     "account": "Konto",

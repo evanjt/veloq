@@ -1214,6 +1214,8 @@
     "sectionWord": "Section",
     "sectionsDescription": "Sections are spotted when you've done the same roads a few times, even on different routes",
     "selected": "Picked",
+    "setAsReference": "Set as Reference",
+    "setAsReferenceConfirm": "Use this activity as the route reference? Match percentages are calculated relative to the reference activity.",
     "shareDetailsWithDeveloper": "Copy the details and flick them to the dev if you're reporting a drama",
     "searchSections": "Search sections...",
     "searchRoutes": "Search routes...",
@@ -1231,9 +1233,7 @@
     "thisPace": "This pace",
     "thisSpeed": "This speed",
     "visits": "visits",
-    "waiting": "Hang on...",
-    "setAsReference": "Set as Reference",
-    "setAsReferenceConfirm": "Use this activity as the route reference? Match percentages are calculated relative to the reference activity."
+    "waiting": "Hang on..."
   },
   "routesScreen": {
     "analysingRoutes": "Analysing routes {{current}}/{{total}}",
@@ -1354,7 +1354,12 @@
     "suggestedName": "Suggested: {{sport}} ({{distance}})",
     "mergeCandidatesTitle": "Pick a section to merge",
     "mergeCandidatesSubtitle": "{{count}} similar sections nearby",
-    "overlapLabel": "overlap"
+    "overlapLabel": "overlap",
+    "acceptSection": "Accept",
+    "acceptAllSections": "Accept All",
+    "acceptAllConfirm": "Accept all {{count}} auto-detected sections? They will be preserved during future re-detection.",
+    "acceptedCount": "Accepted {{count}} sections",
+    "pinned": "Pinned"
   },
   "settings": {
     "account": "Your Account",

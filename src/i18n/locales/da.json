@@ -1214,6 +1214,8 @@
     "sectionWord": "Afsnit",
     "sectionsDescription": "Sektioner registreres, når du rejser de samme veje flere gange, selv på forskellige ruter",
     "selected": "Valgt",
+    "setAsReference": "Set as Reference",
+    "setAsReferenceConfirm": "Use this activity as the route reference? Match percentages are calculated relative to the reference activity.",
     "shareDetailsWithDeveloper": "Kopiér detaljer og del med udvikleren, hvis du rapporterer et problem",
     "searchSections": "Søg i sektioner...",
     "searchRoutes": "Søg ruter...",
@@ -1231,9 +1233,7 @@
     "thisPace": "Dette tempo",
     "thisSpeed": "Denne hastighed",
     "visits": "besøg",
-    "waiting": "Venter...",
-    "setAsReference": "Set as Reference",
-    "setAsReferenceConfirm": "Use this activity as the route reference? Match percentages are calculated relative to the reference activity."
+    "waiting": "Venter..."
   },
   "routesScreen": {
     "analysingRoutes": "Analyserer ruter {{current}}/{{total}}",
@@ -1354,7 +1354,12 @@
     "suggestedName": "Foreslået: {{sport}} ({{distance}})",
     "mergeCandidatesTitle": "Vælg en sektion at flette",
     "mergeCandidatesSubtitle": "{{count}} lignende sektioner i nærheden",
-    "overlapLabel": "overlap"
+    "overlapLabel": "overlap",
+    "acceptSection": "Accept",
+    "acceptAllSections": "Accept All",
+    "acceptAllConfirm": "Accept all {{count}} auto-detected sections? They will be preserved during future re-detection.",
+    "acceptedCount": "Accepted {{count}} sections",
+    "pinned": "Pinned"
   },
   "settings": {
     "account": "Konto",

@@ -1214,6 +1214,8 @@
     "sectionWord": "Seccao",
     "sectionsDescription": "Os trechos sao detectados quando voce percorre as mesmas estradas varias vezes, mesmo em rotas diferentes",
     "selected": "Selecionado",
+    "setAsReference": "Set as Reference",
+    "setAsReferenceConfirm": "Use this activity as the route reference? Match percentages are calculated relative to the reference activity.",
     "shareDetailsWithDeveloper": "Copiar detalhes e compartilhar com o desenvolvedor ao reportar problema",
     "searchSections": "Pesquisar seções...",
     "searchRoutes": "Buscar rotas...",
@@ -1231,9 +1233,7 @@
     "thisPace": "Este ritmo",
     "thisSpeed": "Esta velocidade",
     "visits": "visitas",
-    "waiting": "Aguardando...",
-    "setAsReference": "Set as Reference",
-    "setAsReferenceConfirm": "Use this activity as the route reference? Match percentages are calculated relative to the reference activity."
+    "waiting": "Aguardando..."
   },
   "routesScreen": {
     "analysingRoutes": "Analisando rotas {{current}}/{{total}}",
@@ -1354,7 +1354,12 @@
     "suggestedName": "Sugestão: {{sport}} ({{distance}})",
     "mergeCandidatesTitle": "Escolha um trecho para mesclar",
     "mergeCandidatesSubtitle": "{{count}} trechos semelhantes por perto",
-    "overlapLabel": "sobreposição"
+    "overlapLabel": "sobreposição",
+    "acceptSection": "Accept",
+    "acceptAllSections": "Accept All",
+    "acceptAllConfirm": "Accept all {{count}} auto-detected sections? They will be preserved during future re-detection.",
+    "acceptedCount": "Accepted {{count}} sections",
+    "pinned": "Pinned"
   },
   "settings": {
     "account": "Conta",

@@ -1214,6 +1214,8 @@
     "sectionWord": "Sección",
     "sectionsDescription": "Las secciones se detectan cuando recorres las mismas carreteras varias veces, incluso en rutas diferentes",
     "selected": "Seleccionado",
+    "setAsReference": "Set as Reference",
+    "setAsReferenceConfirm": "Use this activity as the route reference? Match percentages are calculated relative to the reference activity.",
     "shareDetailsWithDeveloper": "Copia los detalles y compártelos con el desarrollador si reportas un problema",
     "searchSections": "Buscar secciones...",
     "searchRoutes": "Buscar rutas...",
@@ -1231,9 +1233,7 @@
     "thisPace": "Este ritmo",
     "thisSpeed": "Esta velocidad",
     "visits": "visitas",
-    "waiting": "Esperando...",
-    "setAsReference": "Set as Reference",
-    "setAsReferenceConfirm": "Use this activity as the route reference? Match percentages are calculated relative to the reference activity."
+    "waiting": "Esperando..."
   },
   "routesScreen": {
     "analysingRoutes": "Analizando rutas {{current}}/{{total}}",
@@ -1354,7 +1354,12 @@
     "suggestedName": "Sugerido: {{sport}} ({{distance}})",
     "mergeCandidatesTitle": "Elige una sección para fusionar",
     "mergeCandidatesSubtitle": "{{count}} secciones similares cerca",
-    "overlapLabel": "solapamiento"
+    "overlapLabel": "solapamiento",
+    "acceptSection": "Accept",
+    "acceptAllSections": "Accept All",
+    "acceptAllConfirm": "Accept all {{count}} auto-detected sections? They will be preserved during future re-detection.",
+    "acceptedCount": "Accepted {{count}} sections",
+    "pinned": "Pinned"
   },
   "settings": {
     "account": "Cuenta",

@@ -1064,6 +1064,8 @@ export interface TranslationResource {
     expandInSettings: string;
     routeWord: string;
     sectionWord: string;
+    setAsReference: string;
+    setAsReferenceConfirm: string;
   };
 
   sections: {

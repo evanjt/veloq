@@ -1214,6 +1214,8 @@
     "sectionWord": "Abschnitt",
     "sectionsDescription": "Abschnitt wärded erkannt wenn du gliichi Strass mehrmals fahrsch",
     "selected": "Usgwählt",
+    "setAsReference": "Set as Reference",
+    "setAsReferenceConfirm": "Use this activity as the route reference? Match percentages are calculated relative to the reference activity.",
     "shareDetailsWithDeveloper": "Details kopiere und em Entwickler schicke bi emne Problem",
     "searchSections": "Abschnitt sueche...",
     "searchRoutes": "Route sueche...",
@@ -1231,9 +1233,7 @@
     "thisPace": "Das Tempo",
     "thisSpeed": "Die Speed",
     "visits": "Bsüech",
-    "waiting": "Momäntli...",
-    "setAsReference": "Set as Reference",
-    "setAsReferenceConfirm": "Use this activity as the route reference? Match percentages are calculated relative to the reference activity."
+    "waiting": "Momäntli..."
   },
   "routesScreen": {
     "analysingRoutes": "Analysiere {{current}}/{{total}}",
@@ -1354,7 +1354,12 @@
     "suggestedName": "Vorschlag: {{sport}} ({{distance}})",
     "mergeCandidatesTitle": "Abschnitt zum Zämefüege uswähle",
     "mergeCandidatesSubtitle": "{{count}} ähnlichi Abschnitt i de Nöchi",
-    "overlapLabel": "Überlappung"
+    "overlapLabel": "Überlappung",
+    "acceptSection": "Accept",
+    "acceptAllSections": "Accept All",
+    "acceptAllConfirm": "Accept all {{count}} auto-detected sections? They will be preserved during future re-detection.",
+    "acceptedCount": "Accepted {{count}} sections",
+    "pinned": "Pinned"
   },
   "settings": {
     "account": "Konto",

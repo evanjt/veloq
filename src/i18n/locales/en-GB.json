@@ -1214,6 +1214,8 @@
     "sectionWord": "Section",
     "sectionsDescription": "Sections are detected when you travel the same roads multiple times, even on different routes",
     "selected": "Selected",
+    "setAsReference": "Set as Reference",
+    "setAsReferenceConfirm": "Use this activity as the route reference? Match percentages are calculated relative to the reference activity.",
     "shareDetailsWithDeveloper": "Copy details and share with developer if reporting issue",
     "searchSections": "Search sections...",
     "searchRoutes": "Search routes...",
@@ -1246,6 +1248,11 @@
     "title": "Routes"
   },
   "sections": {
+    "acceptSection": "Accept",
+    "acceptAllSections": "Accept All",
+    "acceptAllConfirm": "Accept all {{count}} auto-detected sections? They will be preserved during future re-detection.",
+    "acceptedCount": "Accepted {{count}} sections",
+    "pinned": "Pinned",
     "activities": "Activities",
     "activitiesCount": "{{count}} activities",
     "averagePace": "Avg pace",

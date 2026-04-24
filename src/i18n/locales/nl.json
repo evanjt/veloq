@@ -1214,6 +1214,8 @@
     "sectionWord": "Sectie",
     "sectionsDescription": "Secties worden gedetecteerd wanneer je dezelfde wegen meerdere keren aflegt, zelfs op verschillende routes",
     "selected": "Geselecteerd",
+    "setAsReference": "Set as Reference",
+    "setAsReferenceConfirm": "Use this activity as the route reference? Match percentages are calculated relative to the reference activity.",
     "shareDetailsWithDeveloper": "Kopieer details en deel met ontwikkelaar bij het melden van een probleem",
     "searchSections": "Secties zoeken...",
     "searchRoutes": "Routes zoeken...",
@@ -1231,9 +1233,7 @@
     "thisPace": "Dit tempo",
     "thisSpeed": "Deze snelheid",
     "visits": "bezoeken",
-    "waiting": "Wachten...",
-    "setAsReference": "Set as Reference",
-    "setAsReferenceConfirm": "Use this activity as the route reference? Match percentages are calculated relative to the reference activity."
+    "waiting": "Wachten..."
   },
   "routesScreen": {
     "analysingRoutes": "Routes analyseren {{current}}/{{total}}",
@@ -1354,7 +1354,12 @@
     "suggestedName": "Suggestie: {{sport}} ({{distance}})",
     "mergeCandidatesTitle": "Kies een sectie om samen te voegen",
     "mergeCandidatesSubtitle": "{{count}} vergelijkbare secties in de buurt",
-    "overlapLabel": "overlap"
+    "overlapLabel": "overlap",
+    "acceptSection": "Accept",
+    "acceptAllSections": "Accept All",
+    "acceptAllConfirm": "Accept all {{count}} auto-detected sections? They will be preserved during future re-detection.",
+    "acceptedCount": "Accepted {{count}} sections",
+    "pinned": "Pinned"
   },
   "settings": {
     "account": "Account",

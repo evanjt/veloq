@@ -373,6 +373,24 @@ export default function RouteDetailScreen() {
     setShowExcluded((v) => !v);
   }, []);
 
+  const handleSetAsReference = useCallback(
+    (activityId: string) => {
+      if (!id || activityId === engineGroup?.representativeId) return;
+      Alert.alert(t('routes.setAsReference'), t('routes.setAsReferenceConfirm'), [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('common.confirm'),
+          onPress: () => {
+            const engine = getRouteEngine();
+            if (!engine) return;
+            engine.setRouteRepresentative(id, activityId);
+          },
+        },
+      ]);
+    },
+    [id, engineGroup?.representativeId, t]
+  );
+
   // Enrich chart data with PR info for tooltip display
   const enrichedChartData = useMemo(() => {
     if (chartData.length === 0) return chartData;
@@ -682,6 +700,8 @@ export default function RouteDetailScreen() {
                   onActivitySelect={handleActivitySelect}
                   onExcludeActivity={handleExcludeActivity}
                   onIncludeActivity={handleIncludeActivity}
+                  onSetAsReference={handleSetAsReference}
+                  referenceActivityId={engineGroup?.representativeId}
                   showExcluded={showExcluded}
                   hasExcluded={excludedActivityIds.size > 0}
                   onToggleShowExcluded={handleToggleShowExcluded}

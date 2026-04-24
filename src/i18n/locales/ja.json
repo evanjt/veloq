@@ -1214,6 +1214,8 @@
     "sectionWord": "セクション",
     "sectionsDescription": "異なるルートでも同じ道を複数回通ると区間が検出されます",
     "selected": "選択中",
+    "setAsReference": "Set as Reference",
+    "setAsReferenceConfirm": "Use this activity as the route reference? Match percentages are calculated relative to the reference activity.",
     "shareDetailsWithDeveloper": "問題を報告する場合は、詳細をコピーして開発者に共有してください",
     "searchSections": "セクションを検索...",
     "searchRoutes": "ルートを検索...",
@@ -1231,9 +1233,7 @@
     "thisPace": "このペース",
     "thisSpeed": "この速度",
     "visits": "訪問",
-    "waiting": "待機中...",
-    "setAsReference": "Set as Reference",
-    "setAsReferenceConfirm": "Use this activity as the route reference? Match percentages are calculated relative to the reference activity."
+    "waiting": "待機中..."
   },
   "routesScreen": {
     "analysingRoutes": "ルート分析中 {{current}}/{{total}}",
@@ -1354,7 +1354,12 @@
     "suggestedName": "提案: {{sport}} ({{distance}})",
     "mergeCandidatesTitle": "結合するセクションを選択",
     "mergeCandidatesSubtitle": "近くに類似セクションが{{count}}件あります",
-    "overlapLabel": "重なり"
+    "overlapLabel": "重なり",
+    "acceptSection": "Accept",
+    "acceptAllSections": "Accept All",
+    "acceptAllConfirm": "Accept all {{count}} auto-detected sections? They will be preserved during future re-detection.",
+    "acceptedCount": "Accepted {{count}} sections",
+    "pinned": "Pinned"
   },
   "settings": {
     "account": "アカウント",

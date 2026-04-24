@@ -1214,6 +1214,8 @@
     "sectionWord": "Seccao",
     "sectionsDescription": "Os trocos sao detetados quando percorre as mesmas estradas varias vezes, mesmo em percursos diferentes",
     "selected": "Selecionado",
+    "setAsReference": "Set as Reference",
+    "setAsReferenceConfirm": "Use this activity as the route reference? Match percentages are calculated relative to the reference activity.",
     "shareDetailsWithDeveloper": "Copiar detalhes e partilhar com o programador ao reportar um problema",
     "searchSections": "Pesquisar secções...",
     "searchRoutes": "Pesquisar percursos...",
@@ -1231,9 +1233,7 @@
     "thisPace": "Este ritmo",
     "thisSpeed": "Esta velocidade",
     "visits": "visitas",
-    "waiting": "A aguardar...",
-    "setAsReference": "Set as Reference",
-    "setAsReferenceConfirm": "Use this activity as the route reference? Match percentages are calculated relative to the reference activity."
+    "waiting": "A aguardar..."
   },
   "routesScreen": {
     "analysingRoutes": "A analisar percursos {{current}}/{{total}}",
@@ -1354,7 +1354,12 @@
     "suggestedName": "Sugestão: {{sport}} ({{distance}})",
     "mergeCandidatesTitle": "Escolhe um troço para fundir",
     "mergeCandidatesSubtitle": "{{count}} troços semelhantes por perto",
-    "overlapLabel": "sobreposição"
+    "overlapLabel": "sobreposição",
+    "acceptSection": "Accept",
+    "acceptAllSections": "Accept All",
+    "acceptAllConfirm": "Accept all {{count}} auto-detected sections? They will be preserved during future re-detection.",
+    "acceptedCount": "Accepted {{count}} sections",
+    "pinned": "Pinned"
   },
   "settings": {
     "account": "Conta",

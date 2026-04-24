@@ -31,6 +31,7 @@ import type {
   FfiStartupData,
   FfiRoutesScreenData,
   FfiPotentialSection,
+  FfiSectionConfig,
   DownloadProgressResult,
 } from './generated/veloqrs';
 
@@ -308,6 +309,9 @@ class RouteEngineClient implements DelegateHost {
 
   setRouteName = (routeId: string, name: string): void =>
     routeDelegates.setRouteName(this, routeId, name);
+
+  setRouteRepresentative = (routeId: string, activityId: string): void =>
+    routeDelegates.setRouteRepresentative(this, routeId, activityId);
 
   setSectionName = (sectionId: string, name: string): boolean =>
     sectionDelegates.setSectionName(this, sectionId, name);
@@ -860,6 +864,13 @@ class RouteEngineClient implements DelegateHost {
   mergeSections = (primaryId: string, secondaryId: string): string | null =>
     sectionDelegates.mergeSections(this, primaryId, secondaryId);
 
+  acceptSection = (sectionId: string): boolean =>
+    sectionDelegates.acceptSection(this, sectionId);
+
+  acceptAllSections = (): number => sectionDelegates.acceptAllSections(this);
+
+  pruneOverlappingSections = (): number => sectionDelegates.pruneOverlappingSections(this);
+
   getActivitySectionHighlights = (activityIds: string[]): FfiActivitySectionHighlight[] =>
     sectionDelegates.getActivitySectionHighlights(this, activityIds);
 
@@ -883,6 +894,14 @@ class RouteEngineClient implements DelegateHost {
 
   forceRedetectSections = (sportFilter?: string): boolean =>
     detectionDelegates.forceRedetectSections(this, sportFilter);
+
+  setSectionConfig = (config: FfiSectionConfig): void =>
+    detectionDelegates.setSectionConfig(this, config);
+
+  getSectionConfig = (): FfiSectionConfig | null => detectionDelegates.getSectionConfig(this);
+
+  setMatchStrictness = (minMatchPct: number, endpointThreshold: number): void =>
+    detectionDelegates.setMatchStrictness(this, minMatchPct, endpointThreshold);
 
   subscribe(event: string, callback: () => void): () => void {
     if (!this.listeners.has(event)) {

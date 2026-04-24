@@ -1214,6 +1214,8 @@
     "sectionWord": "Section",
     "sectionsDescription": "Les sections sont détectées lorsque vous empruntez les mêmes routes plusieurs fois, même sur des parcours différents",
     "selected": "Sélectionné",
+    "setAsReference": "Set as Reference",
+    "setAsReferenceConfirm": "Use this activity as the route reference? Match percentages are calculated relative to the reference activity.",
     "shareDetailsWithDeveloper": "Copier les détails et partager avec le développeur en cas de problème",
     "searchSections": "Rechercher des sections...",
     "searchRoutes": "Rechercher des parcours...",
@@ -1231,9 +1233,7 @@
     "thisPace": "Cette allure",
     "thisSpeed": "Cette vitesse",
     "visits": "visites",
-    "waiting": "En attente...",
-    "setAsReference": "Set as Reference",
-    "setAsReferenceConfirm": "Use this activity as the route reference? Match percentages are calculated relative to the reference activity."
+    "waiting": "En attente..."
   },
   "routesScreen": {
     "analysingRoutes": "Analyse des parcours {{current}}/{{total}}",
@@ -1354,7 +1354,12 @@
     "suggestedName": "Suggéré : {{sport}} ({{distance}})",
     "mergeCandidatesTitle": "Choisir une section à fusionner",
     "mergeCandidatesSubtitle": "{{count}} sections similaires à proximité",
-    "overlapLabel": "chevauchement"
+    "overlapLabel": "chevauchement",
+    "acceptSection": "Accept",
+    "acceptAllSections": "Accept All",
+    "acceptAllConfirm": "Accept all {{count}} auto-detected sections? They will be preserved during future re-detection.",
+    "acceptedCount": "Accepted {{count}} sections",
+    "pinned": "Pinned"
   },
   "settings": {
     "account": "Compte",
