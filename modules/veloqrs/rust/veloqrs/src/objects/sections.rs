@@ -279,6 +279,24 @@ impl SectionManager {
         })?
     }
 
+    fn accept(&self, section_id: String) -> Result<(), VeloqError> {
+        with_engine(|e| {
+            e.accept_section(&section_id)
+                .map_err(|e| VeloqError::Database {
+                    msg: format!("{}", e),
+                })
+        })?
+    }
+
+    fn accept_all(&self) -> Result<u32, VeloqError> {
+        with_engine(|e| {
+            e.accept_all_sections()
+                .map_err(|e| VeloqError::Database {
+                    msg: format!("{}", e),
+                })
+        })?
+    }
+
     fn set_name(&self, section_id: String, name: String) -> Result<(), VeloqError> {
         let name_opt = if name.is_empty() {
             None

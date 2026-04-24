@@ -396,6 +396,12 @@ impl PersistentRouteEngine {
         }
     }
 
+    pub fn mark_section_accepted_in_memory(&mut self, section_id: &str) {
+        if let Some(section) = self.sections.iter_mut().find(|s| s.id == section_id) {
+            section.is_user_defined = true;
+        }
+    }
+
     /// Refresh a section in memory from the database.
     /// Only applies to auto sections (custom sections are not cached in memory).
     /// Call this after modifying a section's polyline or activity list.
@@ -868,6 +874,16 @@ impl PersistentRouteEngine {
     /// Call this after modifying a section to ensure fresh data on next fetch.
     pub fn invalidate_section_cache(&mut self, section_id: &str) {
         self.section_cache.pop(&section_id.to_string());
+    }
+
+    pub fn invalidate_all_section_caches(&mut self) {
+        self.section_cache.clear();
+    }
+
+    pub fn mark_all_auto_sections_accepted(&mut self) {
+        for section in &mut self.sections {
+            section.is_user_defined = true;
+        }
     }
 
     /// Get section polyline only (flat coordinates for map rendering).

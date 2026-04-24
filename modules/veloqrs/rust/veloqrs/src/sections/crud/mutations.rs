@@ -159,14 +159,49 @@ impl PersistentRouteEngine {
         Ok(())
     }
 
-    /// Rename a section.
+    /// Accept (pin) an auto-detected section so it survives re-detection
+    /// and its consensus polyline stops evolving.
+    pub fn accept_section(&mut self, section_id: &str) -> Result<(), String> {
+        let updated_at = chrono::Utc::now().to_rfc3339();
+        let rows = self
+            .db
+            .execute(
+                "UPDATE sections SET is_user_defined = 1, updated_at = ? WHERE id = ?",
+                params![updated_at, section_id],
+            )
+            .map_err(|e| format!("Failed to accept section: {}", e))?;
+        if rows == 0 {
+            return Err(format!("Section not found: {}", section_id));
+        }
+        self.mark_section_accepted_in_memory(section_id);
+        self.invalidate_section_cache(section_id);
+        Ok(())
+    }
+
+    /// Accept all current auto-detected sections.
+    pub fn accept_all_sections(&mut self) -> Result<u32, String> {
+        let updated_at = chrono::Utc::now().to_rfc3339();
+        let count = self
+            .db
+            .execute(
+                "UPDATE sections SET is_user_defined = 1, updated_at = ?
+                 WHERE section_type = 'auto' AND is_user_defined = 0 AND disabled = 0",
+                params![updated_at],
+            )
+            .map_err(|e| format!("Failed to accept sections: {}", e))?;
+        self.mark_all_auto_sections_accepted();
+        self.invalidate_all_section_caches();
+        Ok(count as u32)
+    }
+
+    /// Rename a section. Auto-promotes to accepted if it's an auto-detected section.
     pub fn rename_section(&mut self, section_id: &str, name: &str) -> Result<(), String> {
         let updated_at = chrono::Utc::now().to_rfc3339();
 
         let rows = self
             .db
             .execute(
-                "UPDATE sections SET name = ?, updated_at = ? WHERE id = ?",
+                "UPDATE sections SET name = ?, is_user_defined = 1, updated_at = ? WHERE id = ?",
                 params![name, updated_at, section_id],
             )
             .map_err(|e| format!("Failed to rename section: {}", e))?;
@@ -175,11 +210,9 @@ impl PersistentRouteEngine {
             return Err(format!("Section not found: {}", section_id));
         }
 
-        // Invalidate cache so next fetch gets fresh data
         self.invalidate_section_cache(section_id);
-
-        // Update in-memory section for immediate visibility
         self.update_section_name_in_memory(section_id, name);
+        self.mark_section_accepted_in_memory(section_id);
 
         Ok(())
     }

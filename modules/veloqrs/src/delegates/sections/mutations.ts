@@ -153,6 +153,31 @@ export function mergeSections(
   }
 }
 
+export function acceptSection(host: DelegateHost, sectionId: string): boolean {
+  if (!host.ready) return false;
+  validateId(sectionId, 'section ID');
+  try {
+    host.timed('acceptSection', () => host.engine.sections().accept(sectionId));
+    host.notify('sections');
+    return true;
+  } catch (e) {
+    console.error('[RouteEngine] acceptSection failed:', sectionId, e);
+    return false;
+  }
+}
+
+export function acceptAllSections(host: DelegateHost): number {
+  if (!host.ready) return 0;
+  try {
+    const count = host.timed('acceptAllSections', () => host.engine.sections().acceptAll());
+    host.notify('sections');
+    return count;
+  } catch (e) {
+    console.error('[RouteEngine] acceptAllSections failed:', e);
+    return 0;
+  }
+}
+
 /** Recompute all activity indicators (PRs and trends). */
 export function recomputeIndicators(host: DelegateHost): void {
   if (!host.ready) return;

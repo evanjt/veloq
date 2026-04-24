@@ -1,22 +1,31 @@
-//! Audit test: reads a private copy of the user's routes.db and runs
-//! section detection + route grouping from scratch, reporting diagnostics.
+//! Audit and regression tests for section detection and route grouping.
 //!
-//! This test only runs when the fixture file exists:
-//!   tests/fixtures/private/routes.db
+//! Reads a Veloq database export (.veloqdb) and runs detection/grouping
+//! from scratch, reporting diagnostics and comparing threshold configs.
 //!
-//! Run with: cargo test -p veloqrs --test detection_audit -- --nocapture --ignored
+//! Usage:
+//!   # Default path: tests/fixtures/private/routes.db
+//!   cargo test -p veloqrs --test detection_audit -- --nocapture --ignored
+//!
+//!   # Custom path (e.g. an exported .veloqdb from the app):
+//!   VELOQ_DB=/path/to/export.veloqdb cargo test -p veloqrs --test detection_audit -- --nocapture --ignored
 
 use rusqlite::Connection;
 use std::collections::HashMap;
 use std::path::Path;
 use tracematch::{GpsPoint, MatchConfig, RouteSignature, SectionConfig};
 
-const DB_PATH: &str = "tests/fixtures/private/routes.db";
+const DEFAULT_DB_PATH: &str = "tests/fixtures/private/routes.db";
+
+fn db_path() -> String {
+    std::env::var("VELOQ_DB").unwrap_or_else(|_| DEFAULT_DB_PATH.to_string())
+}
 
 fn open_db() -> Option<Connection> {
-    let path = Path::new(DB_PATH);
+    let path_str = db_path();
+    let path = Path::new(&path_str);
     if !path.exists() {
-        eprintln!("Skipping: {} not found", DB_PATH);
+        eprintln!("Skipping: {} not found (set VELOQ_DB to override)", path_str);
         return None;
     }
     Some(Connection::open(path).expect("open DB"))
