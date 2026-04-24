@@ -5,6 +5,7 @@
  * clustering activity regions, and estimating tile counts for
  * offline map caching.
  */
+import { median } from '@/lib/utils/statistics';
 
 /** Bounding box with min/max lat/lng */
 export interface Bounds {
@@ -120,7 +121,7 @@ export function clusterActivityBounds(
   const latStep = gridSizeKm / 111;
   // Use median latitude for longitude step
   const allLats = activities.map((a) => (a.bounds.minLat + a.bounds.maxLat) / 2);
-  const medianLat = clampLat(allLats.sort((a, b) => a - b)[Math.floor(allLats.length / 2)]);
+  const medianLat = clampLat(median(allLats));
   const lngStep = gridSizeKm / (111 * Math.cos((medianLat * Math.PI) / 180));
 
   // Assign activities to grid cells

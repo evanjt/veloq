@@ -10,6 +10,11 @@ tags:
 
 # Navigate to insights tab
 - openLink: "veloq://routes"
+- runFlow:
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
 - extendedWaitUntil:
     visible:
       id: "routes-screen"

@@ -1,41 +1,42 @@
-import React, { memo, useCallback } from 'react';
-import { View, StyleSheet, Pressable, Platform, ActivityIndicator } from 'react-native';
+import React, { memo, useCallback, useMemo, useRef } from 'react';
+import { View, StyleSheet, Pressable, Platform, Text as RNText } from 'react-native';
 import { Text } from 'react-native-paper';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Animated } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { colors, darkColors, spacing, typography, layout } from '@/theme';
+import {
+  brand,
+  colors,
+  darkColors,
+  sectionPalette,
+  sectionPaletteIndex,
+  spacing,
+  typography,
+  layout,
+} from '@/theme';
 import { CHART_CONFIG } from '@/constants';
-import { formatDistance } from '@/lib';
-import { SectionScatterChart } from '@/components/section/SectionScatterChart';
-import type { ActivityType, PerformanceDataPoint } from '@/types';
-import type { DirectionBestRecord, DirectionSummaryStats } from '@/components/routes/performance';
-
-export interface InlineSectionData {
-  chartData: (PerformanceDataPoint & { x: number })[];
-  bestForwardRecord: DirectionBestRecord | null;
-  bestReverseRecord: DirectionBestRecord | null;
-  forwardStats: DirectionSummaryStats | null;
-  reverseStats: DirectionSummaryStats | null;
-  activityType: ActivityType;
-}
+import { formatDistance, formatPace } from '@/lib';
+import { SectionSparkline } from '@/components/section/SectionSparkline';
+import type { SectionEncounter } from 'veloqrs';
+import type { PerformanceDataPoint } from '@/types';
 
 interface SectionInlinePlotProps {
-  sectionId: string;
-  sectionName: string;
-  sectionType: string;
-  distance: number;
-  visitCount: number;
+  encounter: SectionEncounter;
+  activityId: string;
   index: number;
   style: { color: string };
   isHighlighted: boolean;
   isDark: boolean;
   isMetric: boolean;
-  plotData: InlineSectionData | undefined;
   onPress: (sectionId: string) => void;
-  onLongPress: (sectionId: string) => void;
+  onLongPress?: (sectionId: string) => void;
   onSwipeableOpen: (sectionId: string) => void;
+  /** Report measured row layout for drag-scrub row detection */
+  onRowLayout?: (sectionId: string, y: number, height: number) => void;
+  /** Register/unregister this row's outer View so the parent can re-measure
+   *  it on demand (outer-page scroll invalidates the cached pageY). */
+  registerRowRef?: (sectionId: string, ref: View | null) => void;
   renderRightActions: (
     progress: Animated.AnimatedInterpolation<number>,
     dragX: Animated.AnimatedInterpolation<number>
@@ -45,41 +46,91 @@ interface SectionInlinePlotProps {
 
 export const SectionInlinePlot = memo(
   function SectionInlinePlot({
-    sectionId,
-    sectionName,
-    sectionType,
-    distance,
-    visitCount,
+    encounter,
+    activityId,
     index,
     style,
     isHighlighted,
     isDark,
     isMetric,
-    plotData,
     onPress,
     onLongPress,
     onSwipeableOpen,
+    onRowLayout,
+    registerRowRef,
     renderRightActions,
     swipeableRefs,
   }: SectionInlinePlotProps) {
     const { t } = useTranslation();
 
     const handleLongPress = useCallback(() => {
-      onLongPress?.(sectionId);
-    }, [onLongPress, sectionId]);
+      onLongPress?.(encounter.sectionId);
+    }, [onLongPress, encounter.sectionId]);
 
     const handlePress = useCallback(() => {
-      onPress?.(sectionId);
-    }, [onPress, sectionId]);
+      onPress?.(encounter.sectionId);
+    }, [onPress, encounter.sectionId]);
+
+    // Color the row's index number using the same palette + hash as the map's
+    // section portions, so row N visually matches the color of section N on the map.
+    const numberColor = sectionPalette[sectionPaletteIndex(encounter.sectionId)];
+
+    const swipeKey = `${encounter.sectionId}-${encounter.direction}`;
+    const displayName =
+      encounter.direction === 'reverse' ? `${encounter.sectionName} \u21A9` : encounter.sectionName;
+
+    // Build sparkline-compatible data from encounter history
+    const sparklineData = useMemo((): (PerformanceDataPoint & { x: number })[] | undefined => {
+      if (encounter.historyTimes.length < 2) return undefined;
+      return encounter.historyTimes.map((time, i) => ({
+        x: i,
+        id: encounter.historyActivityIds[i] || '',
+        activityId: encounter.historyActivityIds[i] || '',
+        speed: time > 0 ? encounter.distanceMeters / time : 0,
+        date: new Date(),
+        activityName: '',
+        direction: encounter.direction as 'same' | 'reverse',
+        sectionTime: time,
+      }));
+    }, [
+      encounter.historyTimes,
+      encounter.historyActivityIds,
+      encounter.distanceMeters,
+      encounter.direction,
+    ]);
+
+    // Report the row's absolute window-Y (not parent-relative y) so the parent
+    // scrub gesture can map a finger pageY to a row directly.
+    const rowRef = useRef<View>(null);
+    const handleLayout = useCallback(
+      (e: { nativeEvent: { layout: { y: number; height: number } } }) => {
+        const { height } = e.nativeEvent.layout;
+        rowRef.current?.measureInWindow?.((_x: number, pageY: number) => {
+          onRowLayout?.(encounter.sectionId, pageY, height);
+        });
+      },
+      [onRowLayout, encounter.sectionId]
+    );
 
     return (
-      <View testID={`section-inline-plot-${index}`}>
+      <View
+        ref={(r) => {
+          rowRef.current = r;
+          registerRowRef?.(encounter.sectionId, r);
+        }}
+        testID={`section-inline-plot-${index}`}
+        onLayout={handleLayout}
+      >
         <Swipeable
           ref={(ref) => {
-            swipeableRefs.current.set(sectionId, ref);
+            if (ref) {
+              swipeableRefs.current.set(swipeKey, ref);
+            } else {
+              swipeableRefs.current.delete(swipeKey);
+            }
           }}
           renderRightActions={renderRightActions}
-          onSwipeableOpen={() => onSwipeableOpen(sectionId)}
+          onSwipeableOpen={() => onSwipeableOpen(swipeKey)}
           overshootRight={false}
           friction={2}
         >
@@ -94,60 +145,53 @@ export const SectionInlinePlot = memo(
               pressed && Platform.OS === 'ios' && { opacity: 0.7 },
             ]}
           >
-            {/* Header row */}
             <View style={styles.header}>
-              <View style={[styles.numberBadge, { borderColor: style.color }]}>
-                <Text style={styles.numberBadgeText}>{index + 1}</Text>
-              </View>
+              <Text style={[styles.numberLabel, { color: numberColor }]}>{index + 1}</Text>
               <View style={styles.headerInfo}>
-                <View style={styles.nameRow}>
-                  <Text style={[styles.name, isDark && styles.textLight]} numberOfLines={1}>
-                    {sectionName}
-                  </Text>
-                  <View
-                    style={[
-                      sectionType === 'custom' ? styles.customBadge : styles.autoBadge,
-                      isDark &&
-                        (sectionType === 'custom' ? styles.customBadgeDark : styles.autoBadgeDark),
-                    ]}
-                  >
-                    <Text
-                      style={
-                        sectionType === 'custom' ? styles.customBadgeText : styles.autoBadgeText
-                      }
-                    >
-                      {sectionType === 'custom' ? t('routes.custom') : t('routes.autoDetected')}
-                    </Text>
-                  </View>
-                </View>
-                <Text style={[styles.meta, isDark && styles.textMuted]}>
-                  {formatDistance(distance, isMetric)} · {visitCount} {t('routes.visits')}
+                <Text style={[styles.name, isDark && styles.textLight]} numberOfLines={1}>
+                  {displayName}
                 </Text>
+                <View style={styles.metaRow}>
+                  <RNText style={[styles.meta, isDark && styles.textMuted]}>
+                    {formatDistance(encounter.distanceMeters, isMetric)} · {encounter.visitCount}{' '}
+                    {t('routes.visits')}
+                    {encounter.lapTime > 0 && (
+                      <>
+                        <RNText style={[styles.meta, isDark && styles.textMuted]}> · </RNText>
+                        <RNText style={[styles.timeValue, isDark && styles.textLight]}>
+                          {formatPace(encounter.distanceMeters / encounter.lapTime, isMetric)}
+                        </RNText>
+                      </>
+                    )}
+                  </RNText>
+                  {encounter.isPr && (
+                    <MaterialCommunityIcons
+                      testID={`section-inline-trophy-${index}`}
+                      name="trophy"
+                      size={11}
+                      color={brand.gold}
+                      style={{ marginLeft: 2 }}
+                    />
+                  )}
+                </View>
               </View>
+              {sparklineData && (
+                <View testID={`section-inline-sparkline-${index}`}>
+                  <SectionSparkline
+                    data={sparklineData}
+                    width={80}
+                    height={28}
+                    isDark={isDark}
+                    highlightActivityId={activityId}
+                  />
+                </View>
+              )}
               <MaterialCommunityIcons
                 name="chevron-right"
                 size={20}
-                color={isDark ? '#555' : '#CCC'}
+                color={isDark ? '#71717A' : '#CCC'}
               />
             </View>
-
-            {/* Inline scatter chart */}
-            {plotData && plotData.chartData.length >= 1 ? (
-              <SectionScatterChart
-                chartData={plotData.chartData}
-                activityType={plotData.activityType}
-                isDark={isDark}
-                bestForwardRecord={plotData.bestForwardRecord}
-                bestReverseRecord={plotData.bestReverseRecord}
-                forwardStats={plotData.forwardStats}
-                reverseStats={plotData.reverseStats}
-                compact
-              />
-            ) : !plotData && visitCount > 1 ? (
-              <View style={styles.chartLoading}>
-                <ActivityIndicator size="small" color={isDark ? '#555' : '#CCC'} />
-              </View>
-            ) : null}
           </Pressable>
         </Swipeable>
       </View>
@@ -156,9 +200,9 @@ export const SectionInlinePlot = memo(
   (prev, next) => {
     return (
       prev.isHighlighted === next.isHighlighted &&
-      prev.plotData === next.plotData &&
+      prev.encounter === next.encounter &&
       prev.isDark === next.isDark &&
-      prev.sectionName === next.sectionName
+      prev.activityId === next.activityId
     );
   }
 );
@@ -177,44 +221,34 @@ const styles = StyleSheet.create({
     backgroundColor: darkColors.surfaceCard,
   },
   cardHighlighted: {
-    backgroundColor: colors.chartGold + '26',
-    borderColor: colors.chartGold,
+    backgroundColor: '#00E5FF26',
+    borderColor: '#00E5FF',
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: spacing.sm,
-    paddingBottom: 0,
   },
-  numberBadge: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    borderWidth: 2,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: colors.surface,
+  numberLabel: {
+    width: 26,
+    textAlign: 'center',
+    fontSize: 18,
+    fontWeight: '800',
+    color: colors.textSecondary,
     marginRight: spacing.sm,
-  },
-  numberBadgeText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.textPrimary,
   },
   headerInfo: {
     flex: 1,
-  },
-  nameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 2,
   },
   name: {
     fontSize: typography.body.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
-    flex: 1,
-    marginRight: spacing.xs,
+    marginBottom: 2,
+  },
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   textLight: {
     color: darkColors.textPrimary,
@@ -226,37 +260,9 @@ const styles = StyleSheet.create({
   textMuted: {
     color: darkColors.textSecondary,
   },
-  customBadge: {
-    backgroundColor: colors.primary + '1A',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  customBadgeDark: {
-    backgroundColor: darkColors.primary + '33',
-  },
-  customBadgeText: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: colors.primary,
-  },
-  autoBadge: {
-    backgroundColor: colors.chartCyan + '1A',
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 4,
-  },
-  autoBadgeDark: {
-    backgroundColor: colors.chartCyan + '33',
-  },
-  autoBadgeText: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: colors.chartCyan,
-  },
-  chartLoading: {
-    height: 60,
-    justifyContent: 'center',
-    alignItems: 'center',
+  timeValue: {
+    fontSize: typography.label.fontSize,
+    fontWeight: '700',
+    color: colors.textPrimary,
   },
 });

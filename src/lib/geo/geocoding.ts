@@ -1,6 +1,13 @@
 /**
  * Geocoding utilities for route naming.
  * Uses OpenStreetMap Nominatim for free reverse geocoding.
+ *
+ * Nominatim Usage Policy (https://operations.osmfoundation.org/policies/nominatim/):
+ * - Max 1 request per second (must be enforced by any caller — currently no production callers)
+ * - Provide a valid User-Agent identifying the application
+ * - Cache results to avoid repeat lookups (we cache in memory + AsyncStorage)
+ * - No large-scale bulk geocoding
+ * - User can disable geocoding via settings toggle
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -64,8 +71,12 @@ async function loadCache(): Promise<GeocodeCacheData> {
     const cached = await AsyncStorage.getItem(GEOCODE_CACHE_KEY);
     if (cached) {
       const data = safeJsonParseWithSchema(cached, isGeocodeCacheData, DEFAULT_CACHE);
-      // Populate memory cache
-      for (const [key, entry] of Object.entries(data.entries)) {
+      // Populate memory cache, trimmed to MAX_MEMORY_CACHE_SIZE
+      // Sort by timestamp descending so we keep the most recent entries
+      const entries = Object.entries(data.entries);
+      entries.sort((a, b) => b[1].timestamp - a[1].timestamp);
+      const toLoad = entries.slice(0, MAX_MEMORY_CACHE_SIZE);
+      for (const [key, entry] of toLoad) {
         memoryCache.set(key, entry.name);
       }
       return data;
@@ -197,9 +208,11 @@ export async function reverseGeocode(lat: number, lng: number): Promise<string |
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 10000);
+    // Nominatim requires a valid User-Agent identifying the application and
+    // contact info per https://operations.osmfoundation.org/policies/nominatim/
     const response = await fetch(url, {
       headers: {
-        'User-Agent': 'Veloq/1.0 (Fitness App)',
+        'User-Agent': 'Veloq/0.3.0 (https://veloq.fit; https://github.com/evanjt/veloq/issues)',
         'Accept-Language': 'en',
       },
       signal: controller.signal,

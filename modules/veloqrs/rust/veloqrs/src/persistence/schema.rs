@@ -10,7 +10,7 @@ use super::PersistentRouteEngine;
 impl PersistentRouteEngine {
     /// Current schema version for app-level tracking.
     /// This is separate from rusqlite_migration and tracks the overall schema state.
-    pub(super) const SCHEMA_VERSION: i32 = 17; // v0.3.0 schema (settings consolidation)
+    pub(super) const SCHEMA_VERSION: i32 = 21; // + consensus_state_json column
 
     /// Get the database migrations.
     /// Each migration is applied in order, tracked in `__rusqlite_migrations` table.
@@ -78,6 +78,18 @@ impl PersistentRouteEngine {
             M::up(include_str!("../migrations/020_section_visibility.sql")),
             // M21: Key-value settings table for user preferences (backup consolidation)
             M::up(include_str!("../migrations/021_settings_table.sql")),
+            // M22: Materialized activity indicators for PR/trend badges on feed cards
+            M::up(include_str!(
+                "../migrations/022_activity_indicators.sql"
+            )),
+            // M23: Wellness table — unlocks Rust-side sparkline + HRV trend atomics
+            M::up(include_str!("../migrations/023_wellness.sql")),
+            // M24: Composite indexes for hot read paths (section_activities,
+            //      activity_metrics by sport+date)
+            M::up(include_str!("../migrations/024_perf_indexes.sql")),
+            // M25: Persistent ConsensusAccumulator storage for tracematch's
+            //      incremental consensus path (Tier 2.1)
+            M::up(include_str!("../migrations/025_consensus_state.sql")),
         ])
     }
 
@@ -176,6 +188,14 @@ impl PersistentRouteEngine {
         // Post-migration: backfill activity_count on route_groups if migrating to v6
         if current_version < 6 && Self::SCHEMA_VERSION >= 6 {
             Self::populate_route_group_counts(conn)?;
+        }
+
+        // Post-migration: populate activity indicators if migrating to v7 (schema 18)
+        // Note: full recomputation also runs after engine init when sections/groups are loaded.
+        // This migration just ensures the table exists; actual data population happens
+        // in recompute_activity_indicators() after engine fully loads.
+        if current_version < 7 && Self::SCHEMA_VERSION >= 7 {
+            log::info!("tracematch: [Migration] activity_indicators table created, will populate after engine init");
         }
 
         Ok(())

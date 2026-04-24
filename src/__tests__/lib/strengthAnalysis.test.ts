@@ -46,7 +46,6 @@ describe('buildStrengthBalancePairs', () => {
     ]);
 
     const chestBack = pairs.find((pair) => pair.id === 'chest_back');
-    expect(chestBack).toBeDefined();
     expect(chestBack!.status).toBe('one-sided');
     expect(chestBack!.ratio).toBe(Infinity);
   });
@@ -60,7 +59,6 @@ describe('buildStrengthBalancePairs', () => {
     ]);
 
     const armPair = pairs.find((pair) => pair.id === 'biceps_triceps');
-    expect(armPair).toBeDefined();
     expect(armPair!.status).toBe('balanced');
     expect(armPair!.dominantLabel).toBeNull();
   });
@@ -71,7 +69,6 @@ describe('buildStrengthBalancePairs', () => {
       makeMuscle('hamstring', 1),
     ]);
     const lowerBody = pairs.find((pair) => pair.id === 'quads_hamstrings');
-    expect(lowerBody).toBeDefined();
     expect(lowerBody!.status).toBe('insufficient');
   });
 });

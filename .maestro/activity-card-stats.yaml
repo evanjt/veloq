@@ -41,6 +41,10 @@ tags:
       id: "chart-type-selector"
     timeout: 15000
 
-- takeScreenshot: "activity-card-stats-detail-loaded"
+# Verify no invalid values
+- assertNotVisible:
+    text: "NaN"
+- assertNotVisible:
+    text: "undefined"
 
-- takeScreenshot: "activity-card-to-detail-complete"
+- takeScreenshot: "activity-card-stats-detail-loaded"

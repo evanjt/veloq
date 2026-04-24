@@ -14,6 +14,11 @@ tags:
       id: "home-activity-list"
     timeout: 15000
 - openLink: "veloq://activity/demo-test-0"
+- runFlow:
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
 - extendedWaitUntil:
     visible:
       id: "activity-detail-content"
@@ -22,23 +27,38 @@ tags:
 # Screenshot hero section (map + title)
 - takeScreenshot: "activity-detail-scroll-hero"
 
-# Scroll down to stats
-- scroll
+# Scroll down to stats (swipe up to scroll down, avoids panning map)
+- swipe:
+    start: 50%, 75%
+    end: 50%, 25%
+    duration: 500
 - takeScreenshot: "activity-detail-scroll-stats"
 
 # Scroll to charts
-- scroll
+- swipe:
+    start: 50%, 75%
+    end: 50%, 25%
+    duration: 500
 - takeScreenshot: "activity-detail-scroll-charts"
 
 # Scroll further
-- scroll
+- swipe:
+    start: 50%, 75%
+    end: 50%, 25%
+    duration: 500
 - takeScreenshot: "activity-detail-scroll-mid"
 
 # Scroll to bottom
-- scroll
+- swipe:
+    start: 50%, 75%
+    end: 50%, 25%
+    duration: 500
 - takeScreenshot: "activity-detail-scroll-bottom"
 
-- scroll
+- swipe:
+    start: 50%, 75%
+    end: 50%, 25%
+    duration: 500
 - takeScreenshot: "activity-detail-scroll-end"
 
 # Verify no NaN anywhere on page

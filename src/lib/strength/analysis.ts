@@ -11,7 +11,7 @@ const WATCH_RATIO = 1.35;
 const IMBALANCED_RATIO = 2;
 const MIN_BALANCE_SIGNAL = 4;
 
-const BALANCE_PAIRS = [
+export const BALANCE_PAIRS = [
   {
     id: 'quads_hamstrings',
     label: 'Quads vs Hamstrings',

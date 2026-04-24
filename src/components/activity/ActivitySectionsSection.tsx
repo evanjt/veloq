@@ -6,37 +6,29 @@ import {
   Animated,
   Platform,
   StyleSheet,
-  Alert,
+  type LayoutChangeEvent,
 } from 'react-native';
 import { Text, ActivityIndicator } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import type { SectionMatch as FfiSectionMatch } from 'veloqrs';
+import type { SectionMatch as FfiSectionMatch, SectionEncounter } from 'veloqrs';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
-import { RectButton } from 'react-native-gesture-handler';
+import { Gesture, GestureDetector, RectButton } from 'react-native-gesture-handler';
+import { runOnJS, useSharedValue } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { useTranslation } from 'react-i18next';
-import { routeEngine, type SectionPerformanceResult } from 'veloqrs';
-import { SectionInlinePlot, type InlineSectionData } from '@/components/activity/SectionInlinePlot';
+import { SectionInlinePlot } from '@/components/activity/SectionInlinePlot';
 import { DataRangeFooter } from '@/components/routes';
 import { TAB_BAR_SAFE_PADDING } from '@/components/ui';
+import { CHART_CONFIG } from '@/constants';
 import { getRouteEngine } from '@/lib/native/routeEngine';
 import { getAllSectionDisplayNames } from '@/hooks/routes/useUnifiedSections';
-import { castDirection, fromUnixSeconds } from '@/lib/utils/ffiConversions';
-import type { SectionMatch } from '@/hooks/routes/useSectionMatches';
-import type { Section, ActivityType, PerformanceDataPoint } from '@/types';
-import { getSectionStyle, navigateTo, formatDistance, safeGetTime } from '@/lib';
+import { getSectionStyle, navigateTo, formatDistance } from '@/lib';
 import { colors, darkColors, spacing, shadows } from '@/theme';
-
-type UnifiedSectionItem =
-  | { type: 'engine'; match: SectionMatch; index: number }
-  | { type: 'custom'; section: Section; index: number };
 
 interface ActivitySectionsSectionProps {
   activityId: string;
-  activityType: ActivityType;
-  unifiedSections: UnifiedSectionItem[];
+  encounters: SectionEncounter[];
   coordinates: { latitude: number; longitude: number }[];
-  streams: { time?: number[] } | undefined;
   isDark: boolean;
   isMetric: boolean;
   sectionCreationMode: boolean;
@@ -44,50 +36,22 @@ interface ActivitySectionsSectionProps {
   highlightedSectionId: string | null;
   onHighlightedSectionIdChange: (id: string | null) => void;
   onSectionCreationModeChange: (mode: boolean) => void;
-  getSectionBestTime: (sectionId: string) => number | undefined;
   removeSection: (sectionId: string) => Promise<void>;
   /** Scan results from useActivityRematch */
   scanMatches: FfiSectionMatch[];
   /** Whether a scan is in progress */
   isScanning: boolean;
+  /** Whether section data is still loading from the engine */
+  isSectionsLoading?: boolean;
   /** Trigger a scan for this activity */
   onScan: () => void;
   /** Force-match to a specific section */
   onRematch: (sectionId: string) => boolean;
 }
 
-/** Build chart data from section performance FFI result */
-function buildChartData(
-  result: SectionPerformanceResult,
-  sportType: string
-): (PerformanceDataPoint & { x: number })[] {
-  const points: (PerformanceDataPoint & { x: number })[] = [];
-  for (const record of result.records) {
-    const date = fromUnixSeconds(record.activityDate);
-    if (!date) continue;
-    for (const lap of record.laps) {
-      if (lap.pace <= 0) continue;
-      points.push({
-        x: 0,
-        id: lap.id,
-        activityId: record.activityId,
-        speed: lap.pace,
-        date,
-        activityName: record.activityName,
-        direction: castDirection(lap.direction),
-        sectionTime: Math.round(lap.time),
-        sectionDistance: lap.distance || record.sectionDistance,
-      });
-    }
-  }
-  points.sort((a, b) => safeGetTime(a.date) - safeGetTime(b.date));
-  return points.map((p, i) => ({ ...p, x: i }));
-}
-
 export const ActivitySectionsSection = React.memo(function ActivitySectionsSection({
   activityId,
-  activityType,
-  unifiedSections,
+  encounters,
   coordinates,
   isDark,
   isMetric,
@@ -99,6 +63,7 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
   removeSection,
   scanMatches,
   isScanning,
+  isSectionsLoading,
   onScan,
   onRematch,
 }: ActivitySectionsSectionProps) {
@@ -114,13 +79,10 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
   // Whether a scan has been performed
   const hasScanned = scanMatches.length > 0 || addedSectionIds.size > 0;
 
-  // Filter scan results: exclude sections already in the matched list and already added
+  // Filter scan results: exclude sections already in the encounter list and already added
   const existingSectionIds = useMemo(
-    () =>
-      new Set(
-        unifiedSections.map((s) => (s.type === 'engine' ? s.match.section.id : s.section.id))
-      ),
-    [unifiedSections]
+    () => new Set(encounters.map((e) => e.sectionId)),
+    [encounters]
   );
 
   const filteredScanMatches = useMemo(
@@ -140,79 +102,6 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
     },
     [onRematch]
   );
-
-  // Retry counter: if first load returns no plot data, retry once after a short delay
-  // (Rust lazily computes lap_time/lap_pace on first query per section)
-  const [plotRetry, setPlotRetry] = useState(0);
-
-  // Batch-load performance data for all sections
-  const plotDataMap = useMemo((): Map<string, InlineSectionData> => {
-    const map = new Map<string, InlineSectionData>();
-    const engine = getRouteEngine();
-    if (!engine) return map;
-
-    for (const item of unifiedSections) {
-      const section = item.type === 'engine' ? item.match.section : item.section;
-      const sectionId = section.id;
-      const sectionSportType = (section as any).sportType || activityType;
-
-      try {
-        const result: SectionPerformanceResult = routeEngine.getSectionPerformances(sectionId);
-        const chartData = buildChartData(result, sectionSportType);
-        if (chartData.length === 0) continue;
-
-        const bestFwd = result.bestForwardRecord;
-        const bestRev = result.bestReverseRecord;
-
-        map.set(sectionId, {
-          chartData,
-          bestForwardRecord: bestFwd
-            ? {
-                bestTime: bestFwd.bestTime,
-                activityDate: fromUnixSeconds(bestFwd.activityDate) ?? new Date(),
-              }
-            : null,
-          bestReverseRecord: bestRev
-            ? {
-                bestTime: bestRev.bestTime,
-                activityDate: fromUnixSeconds(bestRev.activityDate) ?? new Date(),
-              }
-            : null,
-          forwardStats: result.forwardStats
-            ? {
-                avgTime: result.forwardStats.avgTime ?? null,
-                lastActivity: result.forwardStats.lastActivity
-                  ? fromUnixSeconds(result.forwardStats.lastActivity)
-                  : null,
-                count: result.forwardStats.count,
-              }
-            : null,
-          reverseStats: result.reverseStats
-            ? {
-                avgTime: result.reverseStats.avgTime ?? null,
-                lastActivity: result.reverseStats.lastActivity
-                  ? fromUnixSeconds(result.reverseStats.lastActivity)
-                  : null,
-                count: result.reverseStats.count,
-              }
-            : null,
-          activityType: sectionSportType as ActivityType,
-        });
-      } catch {
-        // Skip sections that fail to load
-      }
-    }
-    return map;
-  }, [unifiedSections, activityType, plotRetry]);
-
-  // If sections exist but no plot data loaded, retry after a short delay
-  // (performance data may be lazily computed on first FFI query)
-  useEffect(() => {
-    if (unifiedSections.length > 0 && plotDataMap.size === 0 && plotRetry === 0) {
-      const timer = setTimeout(() => setPlotRetry(1), 500);
-      return () => clearTimeout(timer);
-    }
-  }, [unifiedSections.length, plotDataMap.size, plotRetry]);
 
   // Close any open swipeable when another opens
   const handleSwipeableOpen = useCallback((sectionId: string) => {
@@ -238,55 +127,253 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
     []
   );
 
-  // Handle delete action for custom sections
-  const handleDeleteSection = useCallback(
-    (sectionId: string) => {
-      const swipeable = swipeableRefs.current.get(sectionId);
-      swipeable?.close();
+  // ----- Drag-to-scrub state -----
+  // After long-press on a row, pan-drag up/down moves the highlight through rows.
+  // FlatList scroll is disabled while scrubbing, and auto-scrolls near the edges.
+  const [isScrubbing, setIsScrubbing] = useState(false);
+  const isScrubbingRef = useRef(false);
+  isScrubbingRef.current = isScrubbing;
+  // Shared value mirror of isScrubbing — gesture worklets run on the UI thread
+  // where JS refs aren't visible, so we need a SharedValue they can read.
+  const isScrubbingSV = useSharedValue(false);
 
-      Alert.alert(t('sections.deleteSection'), t('sections.deleteSectionConfirm'), [
-        { text: t('common.cancel'), style: 'cancel' },
-        {
-          text: t('common.delete'),
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await removeSection(sectionId);
-            } catch (error) {
-              console.error('Failed to delete section:', error);
-            }
-          },
-        },
-      ]);
+  const flatListRef = useRef<FlatList<SectionEncounter> | null>(null);
+  const listTopYRef = useRef(0); // page-Y of the list container's top edge
+  const listHeightRef = useRef(0);
+  const scrollOffsetRef = useRef(0);
+  // Stored row layouts: `y` is the window-page-Y captured via measureInWindow.
+  // We re-measure all rows when scrub starts (outer-page scroll can shift rows
+  // without firing their onLayout callbacks).
+  const rowLayoutsRef = useRef<Map<string, { y: number; height: number }>>(new Map());
+  // Live refs to each row's outer View — populated via registerRowRef prop —
+  // so we can call measureInWindow on demand.
+  const rowRefsRef = useRef<Map<string, View>>(new Map());
+  const registerRowRef = useCallback((sectionId: string, ref: View | null) => {
+    if (ref) rowRefsRef.current.set(sectionId, ref);
+    else rowRefsRef.current.delete(sectionId);
+  }, []);
+  // Re-measure every registered row's window-Y right now. Called at scrub start
+  // so the cached pageYs reflect the current outer-page scroll position.
+  // Returns a Promise that resolves after every measureInWindow callback has
+  // fired — measureInWindow is async across the native bridge, so a bare
+  // setTimeout(0) at the call site isn't enough to wait for it. A stale cache
+  // here produces an off-by-one row error (the hit test lands on the row that
+  // is visually *below* the finger).
+  const remeasureRows = useCallback((): Promise<void> => {
+    const entries = Array.from(rowRefsRef.current.entries());
+    if (entries.length === 0) return Promise.resolve();
+    return new Promise((resolve) => {
+      let pending = entries.length;
+      const done = () => {
+        pending -= 1;
+        if (pending === 0) resolve();
+      };
+      for (const [sectionId, ref] of entries) {
+        if (!ref?.measureInWindow) {
+          done();
+          continue;
+        }
+        ref.measureInWindow((_x: number, y: number, _w: number, h: number) => {
+          rowLayoutsRef.current.set(sectionId, { y, height: h });
+          done();
+        });
+      }
+    });
+  }, []);
+  const autoScrollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const autoScrollDirectionRef = useRef<0 | 1 | -1>(0);
+
+  const handleRowLayout = useCallback((sectionId: string, y: number, height: number) => {
+    rowLayoutsRef.current.set(sectionId, { y, height });
+  }, []);
+
+  const listLayoutLoggedRef = useRef(false);
+  const handleListLayout = useCallback((e: LayoutChangeEvent) => {
+    listHeightRef.current = e.nativeEvent.layout.height;
+    if (!listLayoutLoggedRef.current) {
+      listLayoutLoggedRef.current = true;
+      console.log('[scrub] listLayout height=', Math.round(e.nativeEvent.layout.height));
+    }
+  }, []);
+
+  // Throttle the null-match diagnostic so it fires at most once per scrub burst.
+  const nullMatchLoggedRef = useRef(false);
+  const findSectionAtPageY = useCallback((pageY: number): string | null => {
+    // rowLayoutsRef stores window-page Y per row (measured via measureInWindow
+    // at onLayout time). Compare the finger pageY directly.
+    let best: string | null = null;
+    rowLayoutsRef.current.forEach((layout, id) => {
+      if (pageY >= layout.y && pageY < layout.y + layout.height) {
+        best = id;
+      }
+    });
+    if (!best && !nullMatchLoggedRef.current) {
+      nullMatchLoggedRef.current = true;
+      const entries: Array<[string, { y: number; height: number }]> = [];
+      rowLayoutsRef.current.forEach((layout, id) => entries.push([id, layout]));
+      console.log('[scrub] NO MATCH', {
+        pageY: Math.round(pageY),
+        rowCount: rowLayoutsRef.current.size,
+        firstRow: entries[0],
+        lastRow: entries[entries.length - 1],
+      });
+    }
+    return best;
+  }, []);
+
+  // Only log when the resolved section ID actually changes — keeps drag output readable.
+  const lastLoggedSectionRef = useRef<string | null>(null);
+
+  const stopAutoScroll = useCallback(() => {
+    if (autoScrollIntervalRef.current != null) {
+      clearInterval(autoScrollIntervalRef.current);
+      autoScrollIntervalRef.current = null;
+    }
+    autoScrollDirectionRef.current = 0;
+  }, []);
+
+  const ensureAutoScroll = useCallback(
+    (direction: 0 | 1 | -1, lastPageY: number) => {
+      if (direction === 0) {
+        stopAutoScroll();
+        return;
+      }
+      if (autoScrollDirectionRef.current === direction) return;
+      stopAutoScroll();
+      autoScrollDirectionRef.current = direction;
+      autoScrollIntervalRef.current = setInterval(() => {
+        const delta = direction * 6; // slow, readable drift
+        const next = Math.max(0, scrollOffsetRef.current + delta);
+        scrollOffsetRef.current = next;
+        flatListRef.current?.scrollToOffset({ offset: next, animated: false });
+        const id = findSectionAtPageY(lastPageY);
+        if (id) onHighlightedSectionIdChange(id);
+      }, 16);
     },
-    [removeSection, t]
+    [findSectionAtPageY, onHighlightedSectionIdChange, stopAutoScroll]
   );
 
-  // Handle section long press to highlight on map
+  const handleScrubMove = useCallback(
+    (pageY: number) => {
+      const id = findSectionAtPageY(pageY);
+      if (id !== lastLoggedSectionRef.current) {
+        console.log('[scrub] move → row', id, 'pageY=', Math.round(pageY));
+        lastLoggedSectionRef.current = id;
+      }
+      if (id) onHighlightedSectionIdChange(id);
+      const relY = pageY - listTopYRef.current;
+      const edge = 70;
+      if (relY < edge) ensureAutoScroll(-1, pageY);
+      else if (relY > listHeightRef.current - edge) ensureAutoScroll(1, pageY);
+      else ensureAutoScroll(0, pageY);
+    },
+    [ensureAutoScroll, findSectionAtPageY, onHighlightedSectionIdChange]
+  );
+
+  const handleScrubEnd = useCallback(() => {
+    console.log('[scrub] end');
+    lastLoggedSectionRef.current = null;
+    nullMatchLoggedRef.current = false;
+    stopAutoScroll();
+    setIsScrubbing(false);
+    isScrubbingSV.value = false;
+    onHighlightedSectionIdChange(null);
+  }, [onHighlightedSectionIdChange, stopAutoScroll, isScrubbingSV]);
+
+  useEffect(() => () => stopAutoScroll(), [stopAutoScroll]);
+
+  // When the encounters list changes (new activity, re-sort), wipe stale row
+  // layout entries so old sectionId→pageY mappings don't shadow the new ones.
+  useEffect(() => {
+    rowLayoutsRef.current.clear();
+  }, [encounters]);
+
+  // Start scrub from a page-Y position (invoked from Pan onStart after activateAfterLongPress).
+  const startScrubAt = useCallback(
+    (pageY: number) => {
+      // Await the native-side measureInWindow round-trip before hit-testing.
+      // Without this await the first hit runs against the stale cache and
+      // lands on the row below the finger (and misses the last row entirely).
+      remeasureRows().then(() => {
+        const id = findSectionAtPageY(pageY);
+        const rows: Array<[string, number, number]> = [];
+        rowLayoutsRef.current.forEach((l, sid) =>
+          rows.push([sid, Math.round(l.y), Math.round(l.y + l.height)])
+        );
+        console.log('[scrub] onStart pageY=', Math.round(pageY), 'sectionId=', id, 'rows=', rows);
+        if (!id) return;
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+        onHighlightedSectionIdChange(id);
+        setIsScrubbing(true);
+        isScrubbingSV.value = true;
+      });
+    },
+    [findSectionAtPageY, onHighlightedSectionIdChange, isScrubbingSV, remeasureRows]
+  );
+
+  // Row-level long press (from SectionInlinePlot's Pressable) — fallback path if
+  // the container Pan gesture loses to Swipeable's native recognizer.
   const handleSectionLongPress = useCallback(
     (sectionId: string) => {
+      console.log('[scrub] row-longpress fallback', sectionId);
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
       onHighlightedSectionIdChange(sectionId);
+      setIsScrubbing(true);
+      isScrubbingSV.value = true;
     },
-    [onHighlightedSectionIdChange]
+    [onHighlightedSectionIdChange, isScrubbingSV]
   );
 
-  // Handle touch end to clear highlight
-  const handleSectionsTouchEnd = useCallback(() => {
-    onHighlightedSectionIdChange(null);
-  }, [onHighlightedSectionIdChange]);
+  // Scrub gesture: a Pan that only activates AFTER the user holds their finger
+  // still for LONG_PRESS_DURATION. Once activated, every finger move fires
+  // onUpdate continuously, so dragging through rows updates the highlight
+  // smoothly. activateAfterLongPress is the canonical RNGH primitive for
+  // "press-and-hold, then drag" and coordinates cleanly with nested Swipeables.
+  const scrubGesture = useMemo(() => {
+    return Gesture.Pan()
+      .activateAfterLongPress(CHART_CONFIG.LONG_PRESS_DURATION)
+      .onStart((e) => {
+        'worklet';
+        runOnJS(startScrubAt)(e.absoluteY);
+      })
+      .onUpdate((e) => {
+        'worklet';
+        runOnJS(handleScrubMove)(e.absoluteY);
+      })
+      .onEnd(() => {
+        'worklet';
+        runOnJS(handleScrubEnd)();
+      })
+      .onFinalize(() => {
+        'worklet';
+        runOnJS(handleScrubEnd)();
+      });
+  }, [startScrubAt, handleScrubMove, handleScrubEnd]);
+
+  const containerLayoutLoggedRef = useRef(false);
+  const handleContainerLayout = useCallback((e: LayoutChangeEvent) => {
+    // Capture the page-Y of the list wrapper so we can map pageY → row.
+    e.currentTarget?.measureInWindow?.((_x: number, y: number) => {
+      listTopYRef.current = y;
+      if (!containerLayoutLoggedRef.current) {
+        containerLayoutLoggedRef.current = true;
+        console.log('[scrub] containerLayout listTopY=', Math.round(y));
+      }
+    });
+  }, []);
 
   // Handle section press navigation
-  const handleSectionPress = useCallback((sectionId: string) => {
-    navigateTo(`/section/${sectionId}`);
-  }, []);
+  const handleSectionPress = useCallback(
+    (sectionId: string) => {
+      navigateTo(`/section/${sectionId}?activityId=${activityId}`);
+    },
+    [activityId]
+  );
 
   // Render swipe actions for section cards
   const renderSectionSwipeActions = useCallback(
     (
-      sectionId: string,
-      isCustom: boolean,
-      isDisabled: boolean,
+      item: SectionEncounter,
       _progress: Animated.AnimatedInterpolation<number>,
       dragX: Animated.AnimatedInterpolation<number>
     ) => {
@@ -296,109 +383,59 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
         extrapolate: 'clamp',
       });
 
-      if (isCustom) {
-        return (
-          <Animated.View style={[styles.swipeAction, styles.deleteSwipeAction, { opacity }]}>
-            <RectButton
-              style={styles.swipeActionButton}
-              onPress={() => handleDeleteSection(sectionId)}
-            >
-              <MaterialCommunityIcons name="delete" size={24} color={colors.textOnDark} />
-              <Text style={styles.swipeActionText}>{t('common.delete')}</Text>
-            </RectButton>
-          </Animated.View>
-        );
-      }
-
       return (
-        <Animated.View
-          style={[
-            styles.swipeAction,
-            isDisabled ? styles.enableSwipeAction : styles.disableSwipeAction,
-            { opacity },
-          ]}
-        >
+        <Animated.View style={[styles.swipeAction, styles.disableSwipeAction, { opacity }]}>
           <RectButton
             style={styles.swipeActionButton}
-            onPress={() => handleToggleDisable(sectionId, isDisabled)}
+            onPress={() => handleToggleDisable(item.sectionId, false)}
           >
-            <MaterialCommunityIcons
-              name={isDisabled ? 'eye' : 'eye-off'}
-              size={24}
-              color={colors.textOnDark}
-            />
-            <Text style={styles.swipeActionText}>
-              {isDisabled ? t('common.show') : t('common.hide')}
-            </Text>
+            <MaterialCommunityIcons name="eye-off" size={24} color={colors.textOnDark} />
+            <Text style={styles.swipeActionText}>{t('common.hide')}</Text>
           </RectButton>
         </Animated.View>
       );
     },
-    [handleDeleteSection, handleToggleDisable, t]
+    [handleToggleDisable, t]
   );
 
   // FlatList key extractor
-  const keyExtractor = useCallback((item: UnifiedSectionItem) => {
-    return item.type === 'engine' ? item.match.section.id : item.section.id;
-  }, []);
+  const keyExtractor = useCallback(
+    (item: SectionEncounter) => `${item.sectionId}-${item.direction}`,
+    []
+  );
 
   // FlatList render item
-  const renderSectionItem = useCallback(
-    ({ item }: { item: UnifiedSectionItem }) => {
-      const style = getSectionStyle(item.index);
-      const sectionId = item.type === 'engine' ? item.match.section.id : item.section.id;
-      const isCustom = item.type === 'custom';
-      const sectionType = item.type === 'engine' ? item.match.section.sectionType : 'custom';
-      const sectionName =
-        item.type === 'engine'
-          ? item.match.section.name || t('routes.autoDetected')
-          : item.section.name || t('routes.custom');
-
-      let distance: number;
-      let visitCount: number;
-
-      if (item.type === 'engine') {
-        distance = item.match.distance;
-        visitCount = item.match.section.visitCount;
-      } else {
-        distance = item.section.distanceMeters;
-        visitCount = item.section.activityIds?.length ?? item.section.visitCount;
-      }
-
-      const isDisabled = false; // Rust filters disabled sections — only visible ones reach here
-
+  const renderEncounterItem = useCallback(
+    ({ item, index }: { item: SectionEncounter; index: number }) => {
+      const style = getSectionStyle(index);
       return (
         <SectionInlinePlot
-          sectionId={sectionId}
-          sectionName={sectionName}
-          sectionType={sectionType}
-          distance={distance}
-          visitCount={visitCount}
-          index={item.index}
+          encounter={item}
+          activityId={activityId}
+          index={index}
           style={style}
-          isHighlighted={highlightedSectionId === sectionId}
+          isHighlighted={highlightedSectionId === item.sectionId}
           isDark={isDark}
           isMetric={isMetric}
-          plotData={plotDataMap.get(sectionId)}
           onPress={handleSectionPress}
-          onLongPress={handleSectionLongPress}
           onSwipeableOpen={handleSwipeableOpen}
-          renderRightActions={(progress, dragX) =>
-            renderSectionSwipeActions(sectionId, isCustom, isDisabled, progress, dragX)
-          }
+          onRowLayout={handleRowLayout}
+          registerRowRef={registerRowRef}
+          renderRightActions={(progress, dragX) => renderSectionSwipeActions(item, progress, dragX)}
           swipeableRefs={swipeableRefs}
         />
       );
     },
     [
+      activityId,
       highlightedSectionId,
       isDark,
       isMetric,
-      t,
-      plotDataMap,
       handleSectionLongPress,
       handleSectionPress,
       handleSwipeableOpen,
+      handleRowLayout,
+      registerRowRef,
       renderSectionSwipeActions,
       swipeableRefs,
     ]
@@ -406,6 +443,15 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
 
   // Render empty state for section list
   const renderSectionsListEmpty = useCallback(() => {
+    // Show loading spinner while engine subscription is being established
+    if (isSectionsLoading) {
+      return (
+        <View style={styles.emptyStateContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      );
+    }
+
     return (
       <View style={styles.emptyStateContainer}>
         <MaterialCommunityIcons
@@ -438,7 +484,7 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
         )}
       </View>
     );
-  }, [isDark, t, hasScanned, isScanning, onScan]);
+  }, [isDark, t, hasScanned, isScanning, isSectionsLoading, onScan]);
 
   // Render a single scan match result row
   // Look up proper display names for scan results (same names shown in the app)
@@ -447,16 +493,20 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
   const renderScanMatch = useCallback(
     (match: FfiSectionMatch) => {
       const quality = Math.round(match.matchQuality * 100);
-      const displayName =
+      const baseName =
         sectionDisplayNames[match.sectionId] || match.sectionName || match.sectionId.slice(0, 8);
+      const displayName = !match.sameDirection ? `${baseName} \u21A9` : baseName;
+      const totalPoints = coordinates?.length ?? 0;
+      const startPct =
+        totalPoints > 0 ? Math.round((Number(match.startIndex) / totalPoints) * 100) : 0;
       return (
         <View
-          key={match.sectionId}
+          key={`${match.sectionId}-${match.startIndex}`}
           style={[styles.scanMatchRow, isDark && styles.scanMatchRowDark]}
         >
           <TouchableOpacity
             style={styles.scanMatchInfo}
-            onPress={() => navigateTo(`/section/${match.sectionId}`)}
+            onPress={() => navigateTo(`/section/${match.sectionId}?activityId=${activityId}`)}
             activeOpacity={0.7}
           >
             <Text
@@ -466,9 +516,9 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
               {displayName}
             </Text>
             <Text style={[styles.scanMatchMeta, isDark && { color: darkColors.textSecondary }]}>
-              {formatDistance(match.distanceMeters, isMetric)} ·{' '}
-              {t('sections.matchQuality', { quality })}
-              {!match.sameDirection ? ` · ${t('sections.reverse')}` : ''}
+              {formatDistance(match.distanceMeters, isMetric)}
+              {startPct > 0 ? ` · ${t('sections.atPosition', { pct: startPct })}` : ''}
+              {quality < 90 ? ` · ${t('sections.matchQuality', { quality })}` : ''}
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -482,7 +532,7 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
         </View>
       );
     },
-    [isDark, isMetric, isScanning, handleRematch, sectionDisplayNames]
+    [isDark, isMetric, isScanning, handleRematch, sectionDisplayNames, coordinates]
   );
 
   // Render footer for section list
@@ -490,7 +540,7 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
     return (
       <>
         {/* Scan trigger: show "Scan for more sections" link when sections exist */}
-        {unifiedSections.length > 0 && !hasScanned && (
+        {encounters.length > 0 && !hasScanned && (
           <TouchableOpacity
             style={styles.scanLink}
             onPress={onScan}
@@ -556,7 +606,7 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
     cacheDays,
     t,
     onSectionCreationModeChange,
-    unifiedSections.length,
+    encounters.length,
     hasScanned,
     isScanning,
     filteredScanMatches,
@@ -565,28 +615,37 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
   ]);
 
   return (
-    <View
-      style={styles.tabScrollView}
-      onTouchEnd={handleSectionsTouchEnd}
-      testID="activity-sections-list"
-    >
-      <FlatList
-        data={unifiedSections}
-        keyExtractor={keyExtractor}
-        renderItem={renderSectionItem}
-        ListEmptyComponent={renderSectionsListEmpty}
-        ListFooterComponent={renderSectionsListFooter}
-        contentContainerStyle={
-          unifiedSections.length === 0 ? styles.tabScrollContentEmpty : styles.tabScrollContent
-        }
-        showsVerticalScrollIndicator={false}
-        keyboardShouldPersistTaps="handled"
-        initialNumToRender={4}
-        maxToRenderPerBatch={4}
-        windowSize={3}
-        removeClippedSubviews={Platform.OS === 'ios'}
-      />
-    </View>
+    <GestureDetector gesture={scrubGesture}>
+      <View
+        style={styles.tabScrollView}
+        onLayout={handleContainerLayout}
+        testID="activity-sections-list"
+      >
+        <FlatList
+          ref={flatListRef}
+          data={encounters}
+          keyExtractor={keyExtractor}
+          renderItem={renderEncounterItem}
+          ListEmptyComponent={renderSectionsListEmpty}
+          ListFooterComponent={renderSectionsListFooter}
+          contentContainerStyle={
+            encounters.length === 0 ? styles.tabScrollContentEmpty : styles.tabScrollContent
+          }
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+          initialNumToRender={4}
+          maxToRenderPerBatch={4}
+          windowSize={3}
+          removeClippedSubviews={Platform.OS === 'ios'}
+          onLayout={handleListLayout}
+          onScroll={(e) => {
+            scrollOffsetRef.current = e.nativeEvent.contentOffset.y;
+          }}
+          scrollEventThrottle={16}
+          scrollEnabled={!isScrubbing}
+        />
+      </View>
+    </GestureDetector>
   );
 });
 

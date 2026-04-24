@@ -1,0 +1,209 @@
+# v0.3.0 Feature Tour
+# Walks every major surface affected by the 0.2.2 → 0.3.0 work and takes a
+# screenshot at each checkpoint. Intended as a fast visual-regression baseline.
+#
+# Assertions are intentionally light — each screenshot is the primary artifact.
+# This flow is the ground-truth "does the app even render the new surfaces"
+# check; narrower flows verify specific user stories.
+
+appId: com.veloq.app.dev
+tags:
+  - tier2
+---
+- runFlow:
+    file: helpers/setup-demo-mode.yaml
+
+# ====================================================================
+# FEED
+# ====================================================================
+- extendedWaitUntil:
+    visible:
+      id: "home-activity-list"
+    timeout: 15000
+- takeScreenshot: "tour-01-feed-top"
+
+# Sport filter chips
+- assertVisible:
+    text: "Cycling"
+- assertVisible:
+    text: "Running"
+
+# Scroll feed to see multiple cards
+- swipe:
+    start: 50%, 75%
+    end: 50%, 25%
+    duration: 500
+- takeScreenshot: "tour-02-feed-scrolled"
+
+# ====================================================================
+# ACTIVITY DETAIL — Charts tab (default)
+# ====================================================================
+- openLink: "veloq://activity/demo-test-0"
+- runFlow:
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
+- extendedWaitUntil:
+    visible:
+      id: "activity-detail-content"
+    timeout: 15000
+- takeScreenshot: "tour-03-activity-charts-default"
+
+# ====================================================================
+# ACTIVITY DETAIL — Sections tab (encounters refactor)
+# ====================================================================
+- tapOn:
+    text: "Sections"
+    optional: true
+- extendedWaitUntil:
+    visible:
+      id: "activity-sections-list"
+    timeout: 10000
+    optional: true
+- takeScreenshot: "tour-04-activity-sections-tab"
+- assertNotVisible:
+    text: "NaN"
+
+# ====================================================================
+# ACTIVITY DETAIL — Routes tab
+# ====================================================================
+- tapOn:
+    text: "Route"
+    optional: true
+- takeScreenshot: "tour-05-activity-routes-tab"
+
+# ====================================================================
+# SECTION DETAIL (tap first section in list)
+# ====================================================================
+- tapOn:
+    text: "Sections"
+    optional: true
+- tapOn:
+    id: "section-inline-plot-0"
+    optional: true
+- takeScreenshot: "tour-06-section-detail"
+
+# Time-range pills (in chart header per US-D1). Labels: 1M, 3M, 6M, 1Y, All.
+- tapOn:
+    text: "3M"
+    optional: true
+- takeScreenshot: "tour-07-section-detail-3M"
+
+- tapOn:
+    text: "All"
+    optional: true
+- takeScreenshot: "tour-08-section-detail-all"
+
+# Back to activity
+- back
+- back
+
+# ====================================================================
+# REGIONAL MAP
+# ====================================================================
+- runFlow:
+    file: helpers/navigate-to-map.yaml
+- extendedWaitUntil:
+    visible:
+      id: "map-screen"
+    timeout: 30000
+- takeScreenshot: "tour-09-regional-map-default"
+
+- assertVisible:
+    id: "map-toggle-heatmap"
+- assertVisible:
+    id: "map-toggle-activities"
+- assertVisible:
+    id: "map-toggle-3d"
+
+- tapOn:
+    id: "map-toggle-heatmap"
+- waitForAnimationToEnd:
+    timeout: 2000
+- takeScreenshot: "tour-10-regional-map-heatmap"
+
+- tapOn:
+    id: "map-toggle-heatmap"
+- waitForAnimationToEnd:
+    timeout: 2000
+
+# ====================================================================
+# INSIGHTS (Routes tab, but called "Insights" in nav)
+# ====================================================================
+- runFlow:
+    file: helpers/navigate-to-routes.yaml
+- takeScreenshot: "tour-11-insights-top"
+
+# Switch to Routes sub-tab
+- tapOn:
+    text: "Routes"
+    optional: true
+- takeScreenshot: "tour-12-routes-list"
+
+# Switch to Sections sub-tab
+- tapOn:
+    text: "Sections"
+    optional: true
+- takeScreenshot: "tour-13-sections-list"
+
+# ====================================================================
+# FITNESS (CTL/ATL/TSB)
+# ====================================================================
+- runFlow:
+    file: helpers/navigate-to-fitness.yaml
+- takeScreenshot: "tour-14-fitness"
+
+# ====================================================================
+# HEALTH / WELLNESS
+# ====================================================================
+- tapOn:
+    text: "Health"
+    optional: true
+- takeScreenshot: "tour-15-health"
+
+# ====================================================================
+# SETTINGS — Storage stats and backup
+# ====================================================================
+- runFlow:
+    file: helpers/navigate-to-settings.yaml
+- takeScreenshot: "tour-16-settings-top"
+
+# Storage panel is on the cache-settings sub-screen
+- openLink: "veloq://cache-settings"
+- runFlow:
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
+- extendedWaitUntil:
+    visible:
+      id: "settings-storage-stats"
+    timeout: 10000
+    optional: true
+- takeScreenshot: "tour-17-cache-settings-storage"
+- assertVisible:
+    id: "settings-storage-stats"
+    optional: true
+
+# Back to main settings to confirm version
+- back
+- scrollUntilVisible:
+    element:
+      id: "settings-version-text"
+    direction: DOWN
+    timeout: 15000
+    speed: 40
+    optional: true
+- takeScreenshot: "tour-18-settings-bottom"
+- assertVisible:
+    id: "settings-version-text"
+
+# ====================================================================
+# END
+# ====================================================================
+- assertNotVisible:
+    text: "NaN"
+- assertNotVisible:
+    text: "undefined"
+- takeScreenshot: "tour-19-complete"

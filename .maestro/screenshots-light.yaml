@@ -8,6 +8,24 @@ tags:
 - runFlow:
     file: helpers/setup-demo-mode.yaml
 
+# Switch theme to light (parallel of screenshots-dark.yaml setup).
+# Without this, marketing screenshots inherit whatever theme the prior
+# tier4 flow left set (typically dark from screenshots-dark.yaml).
+- runFlow:
+    file: helpers/navigate-to-settings.yaml
+- tapOn:
+    id: "theme-button-light"
+- openLink: "veloq://"
+- runFlow:
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
+- extendedWaitUntil:
+    visible:
+      id: "home-screen"
+    timeout: 10000
+
 # Screenshot 1: Activity Feed
 - extendedWaitUntil:
     visible:
@@ -49,6 +67,11 @@ tags:
 
 # Screenshot 6: Activity Detail
 - openLink: "veloq://activity/demo-test-0"
+- runFlow:
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
 - extendedWaitUntil:
     visible:
       id: "activity-detail-content"

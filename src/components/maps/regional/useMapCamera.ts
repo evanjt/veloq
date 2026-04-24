@@ -250,6 +250,11 @@ export function useMapCamera({
    *  tracking state to prevent snap-back (same pattern as handleFitAll). */
   const applyPosition = useCallback(
     (data: BoundsData) => {
+      if (__DEV__) {
+        console.log(
+          `[CAM] applyPosition — worldSpanning=${data.worldSpanning} zoom=${data.zoomLevel.toFixed(1)} center=[${data.center[0].toFixed(3)},${data.center[1].toFixed(3)}]`
+        );
+      }
       hasAutoRepositionedRef.current = true;
       programmaticMoveRef.current = true;
 
@@ -300,12 +305,16 @@ export function useMapCamera({
   // the initial settle and repositioning. cameraRef.current is guaranteed non-null here
   // because Camera must be mounted to fire onRegionDidChange.
   const markUserInteracted = useCallback(() => {
+    if (__DEV__) {
+      console.log(
+        `[CAM] markUserInteracted — programmatic=${programmaticMoveRef.current} settled=${settledAfterInitialRef.current} autoRepos=${hasAutoRepositionedRef.current} activities=${activitiesRef.current.length}`
+      );
+    }
     if (programmaticMoveRef.current) return;
     if (!settledAfterInitialRef.current) {
       settledAfterInitialRef.current = true;
-      setHasCameraSettled(true); // Triggers fallback effect if activities are empty now
+      setHasCameraSettled(true);
 
-      // Immediately reposition if activities are available — no render cycle needed
       if (!hasAutoRepositionedRef.current && activitiesRef.current.length > 0) {
         const data = calculateBoundsRef.current(activitiesRef.current);
         if (data) {
@@ -314,13 +323,17 @@ export function useMapCamera({
       }
       return;
     }
-    // After initial settle, no-op — auto-reposition uses hasAutoRepositionedRef guard
   }, [cameraRef, applyPosition]);
 
   // Fallback: auto-reposition if activities arrived AFTER the initial settle.
   // The common path fires the camera command synchronously in markUserInteracted above.
   // This effect only runs when hasCameraSettled becomes true AND activities were empty at settle time.
   useEffect(() => {
+    if (__DEV__) {
+      console.log(
+        `[CAM] fallback effect — settled=${hasCameraSettled} autoRepos=${hasAutoRepositionedRef.current} activities=${activities.length}`
+      );
+    }
     if (!hasCameraSettled) return;
     if (hasAutoRepositionedRef.current) return;
     if (activities.length === 0) return;
@@ -328,6 +341,7 @@ export function useMapCamera({
     const data = calculateBoundsAndCenter(activities);
     if (!data) return;
 
+    if (__DEV__) console.log('[CAM] fallback effect → calling applyPosition');
     applyPosition(data);
   }, [activities, hasCameraSettled, calculateBoundsAndCenter, applyPosition]);
 

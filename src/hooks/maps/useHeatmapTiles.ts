@@ -11,13 +11,27 @@ import { useCallback } from 'react';
 import * as FileSystem from 'expo-file-system/legacy';
 import { getRouteEngine } from '@/lib/native/routeEngine';
 
-const HEATMAP_DIR = `${FileSystem.documentDirectory}heatmap-tiles/`;
+const HEATMAP_DIR = `${FileSystem.cacheDirectory}heatmap-tiles/`;
 
 /** file:// URL template for MapLibre RasterSource */
 export const HEATMAP_TILE_URL_TEMPLATE = `${HEATMAP_DIR}{z}/{x}/{y}.png`;
 
 /** The base directory where heatmap tiles are stored */
 export const HEATMAP_TILES_DIR = HEATMAP_DIR;
+
+/**
+ * Get total size of heatmap tile cache in bytes.
+ * Uses native Rust directory scan for speed — no JS filesystem calls.
+ */
+export function getHeatmapTilesCacheSize(): number {
+  try {
+    const engine = getRouteEngine();
+    if (!engine) return 0;
+    return engine.getHeatmapCacheSize(HEATMAP_DIR);
+  } catch {
+    return 0;
+  }
+}
 
 export function useHeatmapTiles(): {
   tileUrlTemplate: string;

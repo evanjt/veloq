@@ -1,0 +1,54 @@
+// Jest Snapshot v1, https://goo.gl/fbAQLP
+
+exports[`Tier 0.6 contract: computeInsightsFromData produces a stable, ranked insight list given fixture FFI data 1`] = `
+[
+  {
+    "category": "section_pr",
+    "hasNavigationTarget": true,
+    "id": "section_pr-sec-ride-climb-A",
+    "priority": 1,
+    "sectionRefIds": [
+      "sec-ride-climb-A",
+    ],
+  },
+  {
+    "category": "hrv_trend",
+    "hasNavigationTarget": true,
+    "id": "hrv_trend",
+    "priority": 2,
+    "sectionRefIds": null,
+  },
+  {
+    "category": "stale_pr",
+    "hasNavigationTarget": true,
+    "id": "stale_pr-sec-ride-flat-B",
+    "priority": 2,
+    "sectionRefIds": null,
+  },
+  {
+    "category": "period_comparison",
+    "hasNavigationTarget": true,
+    "id": "period_comparison-volume",
+    "priority": 2,
+    "sectionRefIds": null,
+  },
+  {
+    "category": "section_trend",
+    "hasNavigationTarget": true,
+    "id": "section_trend-sec-run-climb-A",
+    "priority": 3,
+    "sectionRefIds": [
+      "sec-run-climb-A",
+    ],
+  },
+  {
+    "category": "section_trend",
+    "hasNavigationTarget": true,
+    "id": "section_trend-sec-run-flat-B",
+    "priority": 3,
+    "sectionRefIds": [
+      "sec-run-flat-B",
+    ],
+  },
+]
+`;

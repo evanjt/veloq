@@ -4,7 +4,7 @@ import type { ActivityType } from './activity';
 export type RecordingMode = 'gps' | 'indoor' | 'manual';
 
 /** Overall recording lifecycle state */
-export type RecordingStatus = 'idle' | 'recording' | 'paused' | 'stopped' | 'saving';
+export type RecordingStatus = 'idle' | 'recording' | 'paused' | 'stopped';
 
 /** GPS point collected during recording */
 export interface RecordingGpsPoint {

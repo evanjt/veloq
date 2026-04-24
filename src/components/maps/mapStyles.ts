@@ -167,13 +167,9 @@ export const SATELLITE_SOURCES: Record<SatelliteSourceId, SatelliteSource> = {
     bounds: [-9.4, 36.0, 4.4, 43.8],
   },
   // Austria: basemap.at Orthophoto (CC BY 4.0 OGD Austria - commercial OK)
+  // maps{1-4}.wien.gv.at subdomains have DNS issues — use maps.wien.gv.at (load-balanced)
   austria: {
-    tiles: [
-      'https://maps1.wien.gv.at/basemap/bmaporthofoto30cm/normal/google3857/{z}/{y}/{x}.jpeg',
-      'https://maps2.wien.gv.at/basemap/bmaporthofoto30cm/normal/google3857/{z}/{y}/{x}.jpeg',
-      'https://maps3.wien.gv.at/basemap/bmaporthofoto30cm/normal/google3857/{z}/{y}/{x}.jpeg',
-      'https://maps4.wien.gv.at/basemap/bmaporthofoto30cm/normal/google3857/{z}/{y}/{x}.jpeg',
-    ],
+    tiles: ['https://maps.wien.gv.at/basemap/bmaporthofoto30cm/normal/google3857/{z}/{y}/{x}.jpeg'],
     tileSize: 64,
     maxzoom: 20,
     attribution: 'Datenquelle: basemap.at',

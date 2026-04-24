@@ -1,0 +1,57 @@
+# Feed Card PR Count
+# US-F2: activity with multiple PRs across directions shows the full count
+# (dedup regression — the bug was counting (sectionId) not (sectionId, direction),
+# so 1 forward + 2 reverse PRs appeared as 2 instead of 3).
+
+appId: com.veloq.app.dev
+tags:
+  - tier1
+---
+- runFlow:
+    file: helpers/setup-demo-mode.yaml
+
+- extendedWaitUntil:
+    visible:
+      id: "home-activity-list"
+    timeout: 15000
+
+# Screenshot the feed so PR pill counts are visible for visual regression review.
+- takeScreenshot: "feed-pr-count-baseline"
+
+# Scroll through first several cards
+- swipe:
+    start: 50%, 75%
+    end: 50%, 25%
+    duration: 500
+- takeScreenshot: "feed-pr-count-scrolled"
+
+# Open the first activity and compare its Sections tab count against
+# what the feed card surfaced.
+- tapOn:
+    id: "activity-card-demo-test-0"
+    optional: true
+- runFlow:
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
+
+- extendedWaitUntil:
+    visible:
+      id: "activity-detail-content"
+    timeout: 15000
+
+- tapOn:
+    text: "Sections"
+    optional: true
+
+- extendedWaitUntil:
+    visible:
+      id: "activity-sections-list"
+    timeout: 10000
+    optional: true
+
+- takeScreenshot: "feed-pr-count-sections-tab"
+
+# Manual verification: the feed card's PR count must equal the number of
+# trophy icons shown here on the Sections tab. Screenshots support review.

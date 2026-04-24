@@ -340,6 +340,15 @@ function redirectToAppWithError(error: string): Response {
 /** Device token TTL: 30 days (re-registered on every app open) */
 const DEVICE_TOKEN_TTL_SECONDS = 30 * 24 * 60 * 60;
 
+/**
+ * Soft cap on tokens stored per athlete. A real user has at most a handful
+ * of devices (phone, tablet, maybe a watch companion). Anything beyond this
+ * is almost certainly token rotation noise from dev/release reinstalls. The
+ * webhook path also reactively prunes tokens Expo flags as DeviceNotRegistered
+ * — this cap is a backstop for the case where no webhooks fire.
+ */
+const MAX_TOKENS_PER_ATHLETE = 10;
+
 /** Webhook events we process (others are ignored) */
 const PROCESSED_EVENTS = new Set([
   "ACTIVITY_UPLOADED",
@@ -349,6 +358,26 @@ const PROCESSED_EVENTS = new Set([
   "WELLNESS_UPDATED",
   "SPORT_SETTINGS_UPDATED",
 ]);
+
+/**
+ * Build the visible portion of the push for events that warrant a tray
+ * notification even when the app is in FLAG_STOPPED. The text is generic —
+ * the on-device task replaces it with enriched content (PR detection, etc.)
+ * when the app is alive. Returns null for events that shouldn't surface a
+ * tray entry on their own (wellness/fitness updates are background-only).
+ */
+function visibleContentForEvent(
+  type: string,
+  activityId: string | undefined
+): { title: string; body: string } | null {
+  if (type === "ACTIVITY_UPLOADED" || type === "ACTIVITY_ANALYZED") {
+    return {
+      title: "Activity Recorded",
+      body: activityId ? "New activity received" : "New activity synced",
+    };
+  }
+  return null;
+}
 
 /**
  * Register a device push token for an athlete.
@@ -390,6 +419,15 @@ async function handleDeviceRegister(
       tokens[idx] = entry;
     } else {
       tokens.push(entry);
+    }
+
+    // Hard cap to protect against runaway accumulation if reactive pruning
+    // (DeviceNotRegistered cleanup in the webhook path) hasn't run for a
+    // while. Multi-device users are unaffected — typical case is 1–3 real
+    // devices. Drop the oldest by registeredAt when the cap is exceeded.
+    if (tokens.length > MAX_TOKENS_PER_ATHLETE) {
+      tokens.sort((a, b) => a.registeredAt.localeCompare(b.registeredAt));
+      tokens.splice(0, tokens.length - MAX_TOKENS_PER_ATHLETE);
     }
 
     // Store with TTL
@@ -487,36 +525,68 @@ async function handleIntervalsWebhook(
       if (!event.athlete_id || !event.type) continue;
       if (!PROCESSED_EVENTS.has(event.type)) continue;
 
-      // Deduplicate: skip if we already processed this event recently
-      const dedupeKey = `dedup:${event.athlete_id}:${event.type}:${event.activity?.id ?? "none"}`;
-      const alreadyProcessed = await env.OAUTH_STATES.get(dedupeKey);
-      if (alreadyProcessed) continue;
-
-      // Mark as processed (5-minute TTL)
-      await env.OAUTH_STATES.put(dedupeKey, "1", { expirationTtl: 300 });
+      // Deduplicate: skip if we already processed this event recently.
+      // Bypass with `"skip_dedupe": true` at the top of the webhook body for
+      // test iteration (curl loop against the same activity_id).
+      const skipDedupe = (payload as { skip_dedupe?: boolean }).skip_dedupe === true;
+      if (!skipDedupe) {
+        const dedupeKey = `dedup:${event.athlete_id}:${event.type}:${event.activity?.id ?? "none"}`;
+        const alreadyProcessed = await env.OAUTH_STATES.get(dedupeKey);
+        if (alreadyProcessed) continue;
+        await env.OAUTH_STATES.put(dedupeKey, "1", { expirationTtl: 300 });
+      }
 
       // Look up device tokens for this athlete
       const key = `athlete:${event.athlete_id}`;
       const tokens = await env.DEVICE_TOKENS.get(key, "json") as DeviceToken[] | null;
       if (!tokens || tokens.length === 0) continue;
 
-      // Send silent push to each device
-      for (const device of tokens) {
-        const pushData = {
-          event_type: event.type,
-          athlete_id: event.athlete_id,
-          activity_id: event.activity?.id ?? null,
-        };
-
-        pushPromises.push(
-          sendExpoPush(device.token, pushData).catch((err) => {
+      // Send hybrid visible+data push to each device. Visible title/body lets
+      // the OS display a notification even when the app is in FLAG_STOPPED
+      // (force-stopped, OEM-hibernated, or freshly installed) — those apps
+      // cannot receive any broadcast, including silent data-only pushes. When
+      // the app IS alive the data payload still wakes the background task,
+      // which re-schedules the notification with enriched content via the
+      // same per-activity identifier (`activity-${activityId}`).
+      const pushData = {
+        event_type: event.type,
+        athlete_id: event.athlete_id,
+        activity_id: event.activity?.id ?? null,
+      };
+      const visible = visibleContentForEvent(event.type, event.activity?.id);
+      const perDeviceResults = tokens.map((device) =>
+        sendExpoPush(device.token, pushData, visible)
+          .then((alive) => ({ token: device.token, alive }))
+          .catch((err) => {
             console.error(`Push failed for ${device.platform}:`, err);
+            // Transient transport error — keep the token (don't prune).
+            return { token: device.token, alive: true };
           })
-        );
-      }
+      );
+
+      // Schedule the prune after this athlete's pushes settle. Captured
+      // locally so it doesn't await the outer pushPromises array.
+      pushPromises.push(
+        (async () => {
+          const results = await Promise.all(perDeviceResults);
+          const dead = results.filter((r) => !r.alive).map((r) => r.token);
+          if (dead.length === 0) return;
+          const surviving = tokens.filter((t) => !dead.includes(t.token));
+          if (surviving.length === 0) {
+            await env.DEVICE_TOKENS.delete(key);
+          } else {
+            await env.DEVICE_TOKENS.put(key, JSON.stringify(surviving), {
+              expirationTtl: DEVICE_TOKEN_TTL_SECONDS,
+            });
+          }
+          console.log(
+            `Pruned ${dead.length} dead token(s) from ${key} (${surviving.length} remain)`
+          );
+        })()
+      );
     }
 
-    // Fire all pushes in parallel
+    // Wait for all per-athlete prune blocks (which themselves wait on pushes)
     await Promise.allSettled(pushPromises);
 
     return jsonResponse({ success: true });
@@ -532,29 +602,102 @@ async function handleIntervalsWebhook(
  * No Firebase project or APNs key required — Expo Push is free.
  *
  * Payload contains only event_type + activity_id (zero personal data).
+ *
+ * Returns true if the token is still alive on Expo's side, false if Expo
+ * reported DeviceNotRegistered (caller should remove the token from KV).
  */
 async function sendExpoPush(
   token: string,
-  data: Record<string, unknown>
-): Promise<void> {
-  const response = await fetch("https://exp.host/--/api/v2/push/send", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Accept: "application/json",
-    },
-    body: JSON.stringify({
+  data: Record<string, unknown>,
+  visible: { title: string; body: string } | null
+): Promise<boolean> {
+  const channelId = "veloq-insights";
+
+  // On Android, Expo maps title/body → FCM `notification` block (auto-displayed
+  // by the OS, app never invoked) and data-only → FCM `data` block (delivered
+  // to ExpoFirebaseMessagingService → wakes our TaskManager task). These are
+  // mutually exclusive per FCM message. To get both a tray entry when the app
+  // is stopped AND a background wake when the app is warm, send two pushes:
+  //   1. Visible push: always-on tray entry, generic text. OS handles it.
+  //   2. Silent data push: wakes the task so it can enrich the notification
+  //      by replacing the visible one in place via activity-${activityId} tag.
+  // When the app is FLAG_STOPPED the silent push is dropped by the OS and
+  // only the visible one shows — exactly what we want.
+  const activityId = typeof data.activity_id === "string" ? data.activity_id : null;
+  const tag = activityId ? `activity-${activityId}` : undefined;
+
+  const messages: Record<string, unknown>[] = [];
+
+  if (visible) {
+    // Include deep-link data on the VISIBLE push too. Expo forwards this
+    // `data` field as FCM notification message extras, which the
+    // NotificationResponseHandler on the device reads from
+    // response.notification.request.content.data when the user taps.
+    // Without this, tapping just opens MainActivity with no deep-link
+    // context and the user lands on Home instead of the activity.
+    const tapData = activityId
+      ? {
+          activityId,
+          route: `/activity/${activityId}`,
+          ...data,
+        }
+      : data;
+
+    messages.push({
       to: token,
-      data,
-      priority: "normal",
-      _contentAvailable: true,
-    }),
+      title: visible.title,
+      body: visible.body,
+      data: tapData,
+      priority: "high",
+      channelId,
+    });
+  }
+
+  // Silent data-only push: no title, body, channelId, sound, or any field
+  // that would make Expo emit an FCM notification message. We want a pure
+  // `data` FCM message so ExpoFirebaseMessagingService delivers it to the
+  // TaskManager task instead of the OS rendering a blank tray entry.
+  messages.push({
+    to: token,
+    data,
+    priority: "high",
+    _contentAvailable: true,
   });
 
-  if (!response.ok) {
+  let alive = true;
+  for (const payload of messages) {
+    const response = await fetch("https://exp.host/--/api/v2/push/send", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+
     const body = await response.text();
-    console.error(`Expo push failed (${response.status}): ${body}`);
+    if (!response.ok) {
+      console.error(`Expo push failed (${response.status}): ${body}`);
+      continue; // transport error — don't prune on transient failures
+    }
+
+    console.log(`Expo push ok: ${body}`);
+    try {
+      const parsed = JSON.parse(body) as {
+        data?: { status?: string; details?: { error?: string } };
+      };
+      if (
+        parsed.data?.status === "error" &&
+        parsed.data?.details?.error === "DeviceNotRegistered"
+      ) {
+        alive = false;
+      }
+    } catch {
+      // unparseable body — assume alive
+    }
   }
+
+  return alive;
 }
 
 /** Helper to create JSON responses */

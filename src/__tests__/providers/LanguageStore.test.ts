@@ -107,41 +107,6 @@ describe('LanguageStore', () => {
   });
 
   // ============================================================
-  // SET LANGUAGE
-  // ============================================================
-
-  /**
-   * Note: setLanguage() calls i18n.changeLanguage() which requires i18next
-   * to be fully initialized. In tests, i18next is not initialized.
-   *
-   * These tests are skipped because they require i18next integration.
-   * The pure functions (resolveLanguageToLocale, getEffectiveLanguage, etc.)
-   * are tested separately without i18next dependency.
-   */
-  describe('setLanguage()', () => {
-    it.skip('saves language to AsyncStorage (requires i18next init)', async () => {
-      await useLanguageStore.getState().setLanguage('fr');
-
-      const saved = await AsyncStorage.getItem(STORAGE_KEY);
-      expect(saved).toBe('fr');
-    });
-
-    it.skip('updates store state (requires i18next init)', async () => {
-      await useLanguageStore.getState().setLanguage('ja');
-
-      expect(useLanguageStore.getState().language).toBe('ja');
-    });
-
-    it.skip('handles Swiss dialects (requires i18next init)', async () => {
-      await useLanguageStore.getState().setLanguage('de-CH');
-
-      expect(useLanguageStore.getState().language).toBe('de-CH');
-      const saved = await AsyncStorage.getItem(STORAGE_KEY);
-      expect(saved).toBe('de-CH');
-    });
-  });
-
-  // ============================================================
   // EFFECTIVE LANGUAGE
   // ============================================================
 
@@ -249,8 +214,6 @@ describe('LanguageStore', () => {
       const groups = getAvailableLanguages();
       const german = groups[0].languages.find((l) => l.value === 'de');
 
-      expect(german).toBeDefined();
-      expect(german?.variants).toBeDefined();
       expect(german?.variants?.some((v) => v.value === 'de-CH')).toBe(true);
     });
   });
@@ -270,17 +233,6 @@ describe('LanguageStore', () => {
       // Should not crash and use fallback
       const result = resolveLanguageToLocale(null);
       expect(result).toBeDefined();
-    });
-
-    it.skip('handles rapid language changes (requires i18next init)', async () => {
-      const store = useLanguageStore.getState();
-
-      await store.setLanguage('de');
-      await store.setLanguage('fr');
-      await store.setLanguage('ja');
-      await store.setLanguage('en-AU');
-
-      expect(useLanguageStore.getState().language).toBe('en-AU');
     });
   });
 });

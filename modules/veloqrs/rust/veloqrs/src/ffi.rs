@@ -362,6 +362,7 @@ pub fn start_fetch_and_store(
         // Spawn background heatmap tile generation with the new GPS data
         if success_count > 0 {
             let handle = crate::persistence::with_persistent_engine(|engine| {
+                engine.mark_heatmap_dirty();
                 engine.generate_tiles_background()
             });
             if let Some(Some(h)) = handle {

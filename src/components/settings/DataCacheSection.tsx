@@ -8,11 +8,11 @@ import {
   useActivityBoundsCache,
   useRouteProcessing,
   useRouteGroups,
-  useOldestActivityDate,
   useTheme,
   useSectionSummaries,
+  useSectionRescan,
 } from '@/hooks';
-import { formatLocalDate, formatFullDate } from '@/lib';
+import { formatFullDate } from '@/lib';
 import { estimateRoutesDatabaseSize } from '@/lib';
 import { useAuthStore, useRouteSettings, useSyncDateRange } from '@/providers';
 import { useTileCacheStore } from '@/providers/TileCacheStore';
@@ -27,12 +27,11 @@ import {
   getTerrainPreviewCacheSize,
 } from '@/lib/storage/terrainPreviewCache';
 import * as TileCacheService from '@/lib/maps/tileCacheService';
-import { HEATMAP_TILES_DIR } from '@/hooks/maps/useHeatmapTiles';
+import { HEATMAP_TILES_DIR, getHeatmapTilesCacheSize } from '@/hooks/maps/useHeatmapTiles';
 import { getRouteEngine } from '@/lib/native/routeEngine';
 import { colors, darkColors, spacing, layout } from '@/theme';
 import { CacheManagementPanel } from './CacheManagementPanel';
 import { StorageStatsPanel } from './StorageStatsPanel';
-import { TileCachePanel } from './TileCachePanel';
 
 function formatDateOrDash(dateStr: string | null): string {
   if (!dateStr) return '-';
@@ -49,14 +48,9 @@ export function DataCacheSection({ onLayout }: DataCacheSectionProps) {
   const isDemoMode = useAuthStore((state) => state.isDemoMode);
   const queryClient = useQueryClient();
 
-  const { progress, cacheStats, clearCache, syncDateRange } = useActivityBoundsCache();
-  const { data: apiOldestDate } = useOldestActivityDate();
+  const { cacheStats, clearCache } = useActivityBoundsCache();
 
   // Get sync state from global store
-  const syncOldest = useSyncDateRange((s) => s.oldest);
-  const isFetchingExtended = useSyncDateRange((s) => s.isFetchingExtended);
-  const isGpsSyncing = useSyncDateRange((s) => s.isGpsSyncing);
-  const isExpansionLocked = useSyncDateRange((s) => s.isExpansionLocked);
   const resetSyncDateRange = useSyncDateRange((s) => s.reset);
 
   // Route matching
@@ -65,16 +59,21 @@ export function DataCacheSection({ onLayout }: DataCacheSectionProps) {
     minActivities: 2,
   });
   const { totalCount: totalSections } = useSectionSummaries();
-  const { settings: routeSettings, setEnabled: setRouteMatchingEnabled } = useRouteSettings();
+  const { settings: routeSettings } = useRouteSettings();
+
+  // Section re-detection
+  const { forceRescan, isScanning, progress: rescanProgress } = useSectionRescan();
 
   // Map tile cache stats
-  const { nativeSizeEstimate } = useTileCacheStore();
+  const nativeSizeEstimate = useTileCacheStore((s) => s.nativeSizeEstimate);
   const [terrainCacheSize, setTerrainCacheSize] = useState(0);
+  const [heatmapCacheSize, setHeatmapCacheSize] = useState(0);
   const [tileCacheStats, setTileCacheStats] = useState<TileCacheStats | null>(null);
   const [freeStorage, setFreeStorage] = useState<number | null>(null);
 
   useEffect(() => {
     getTerrainPreviewCacheSize().then(setTerrainCacheSize);
+    setHeatmapCacheSize(getHeatmapTilesCacheSize());
   }, []);
 
   useEffect(() => {
@@ -95,13 +94,16 @@ export function DataCacheSection({ onLayout }: DataCacheSectionProps) {
       .catch(() => setFreeStorage(null));
   }, []);
 
-  const totalMapCache = nativeSizeEstimate + terrainCacheSize + (tileCacheStats?.totalBytes ?? 0);
+  const totalMapCache =
+    nativeSizeEstimate + terrainCacheSize + heatmapCacheSize + (tileCacheStats?.totalBytes ?? 0);
 
   const handleClearMapCache = useCallback(async () => {
     await clearTerrainPreviews();
     await TileCacheService.clearAllPacks();
+    getRouteEngine()?.clearHeatmapTiles(HEATMAP_TILES_DIR);
     emitClearTileCache();
     setTerrainCacheSize(0);
+    setHeatmapCacheSize(0);
     setTileCacheStats(null);
   }, []);
 
@@ -119,66 +121,6 @@ export function DataCacheSection({ onLayout }: DataCacheSectionProps) {
       Math.round((newestDay.getTime() - oldestDay.getTime()) / (1000 * 60 * 60 * 24)) + 1;
     return `${formatDateOrDash(cacheStats.oldestDate)} - ${formatDateOrDash(cacheStats.newestDate)} (${t('stats.daysCount', { count: days })})`;
   }, [cacheStats.oldestDate, cacheStats.newestDate, t, i18n.language]);
-
-  // Timeline slider state - reflects actual cached data range
-  // Start date tracks the oldest loaded activity date (only expands left)
-  // End date is always "now" (fixed at right edge)
-  const cachedStartDate = useMemo(() => {
-    // After a reset, isExpansionLocked is true - use the sync store's 90-day range
-    // This prevents showing stale cache data during the reset transition
-    if (isExpansionLocked) {
-      return new Date(syncOldest);
-    }
-    // Normal operation: show the OLDER (more expanded) of the two dates
-    // This prevents snap-back when user drags to expand but data hasn't loaded yet
-    if (cacheStats.oldestDate) {
-      const cacheOldest = new Date(cacheStats.oldestDate);
-      const syncStart = new Date(syncOldest);
-      // Return the earlier date (smaller timestamp = further in the past)
-      return cacheOldest < syncStart ? cacheOldest : syncStart;
-    }
-    // Fallback to sync store oldest if no cached data yet
-    return new Date(syncOldest);
-  }, [cacheStats.oldestDate, syncOldest, isExpansionLocked]);
-
-  const cachedEndDate = useMemo(() => {
-    // End date is always now (today) - fixed at right edge
-    return new Date();
-  }, []);
-
-  // Combined syncing state
-  const isSyncing = progress.status === 'syncing' || isGpsSyncing || isFetchingExtended;
-
-  // Calculate min/max dates for slider
-  const { minDateForSlider, maxDateForSlider } = useMemo(() => {
-    const now = new Date();
-
-    // Use the oldest activity date from API if available
-    if (apiOldestDate) {
-      return {
-        minDateForSlider: new Date(apiOldestDate),
-        maxDateForSlider: now,
-      };
-    }
-
-    // Fallback: 90 days ago
-    const d = new Date();
-    d.setDate(d.getDate() - 90);
-    return { minDateForSlider: d, maxDateForSlider: now };
-  }, [apiOldestDate]);
-
-  // Handle date range change from timeline slider
-  // Only allow expansion - start can only go earlier (left), end is fixed at "now"
-  const handleRangeChange = useCallback(
-    (start: Date, _end: Date) => {
-      // Only allow expansion to earlier dates
-      if (start < cachedStartDate) {
-        // Trigger sync for the expanded date range (end is always "now")
-        syncDateRange(formatLocalDate(start), formatLocalDate(new Date()));
-      }
-    },
-    [syncDateRange, cachedStartDate]
-  );
 
   // Compute query cache stats
   const queryCacheStats = useMemo(() => {
@@ -210,6 +152,21 @@ export function DataCacheSection({ onLayout }: DataCacheSectionProps) {
     refreshCacheSizes();
   }, [refreshCacheSizes, cacheStats.totalActivities, routeProcessedCount]);
 
+  const handleRescanSections = useCallback(() => {
+    Alert.alert(t('alerts.redetectSectionsTitle'), t('alerts.redetectSectionsMessage'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      {
+        text: t('alerts.redetectSectionsConfirm'),
+        onPress: () => {
+          const started = forceRescan();
+          if (!started) {
+            Alert.alert(t('alerts.error'), t('alerts.redetectSectionsBusy'));
+          }
+        },
+      },
+    ]);
+  }, [forceRescan, t]);
+
   const handleClearCache = useCallback(() => {
     Alert.alert(t('alerts.clearCacheTitle'), t('alerts.clearCacheMessage'), [
       { text: t('common.cancel'), style: 'cancel' },
@@ -218,46 +175,31 @@ export function DataCacheSection({ onLayout }: DataCacheSectionProps) {
         style: 'destructive',
         onPress: async () => {
           try {
-            // 1. Cancel any in-flight queries FIRST to stop ongoing fetches
+            // 1. Cancel any in-flight queries
             await queryClient.cancelQueries();
 
-            // 2. Reset sync date range to 90 days and LOCK expansion
-            // The expansion lock prevents any expandRange() calls from re-expanding
+            // 2. Reset sync date range to 90 days FIRST (changes query keys)
             resetSyncDateRange();
 
-            // 3. CRITICAL: Yield to allow React to re-render GlobalDataSync with new date range
-            // Without this, removeQueries() triggers refetch before GlobalDataSync has the new
-            // 90-day syncOldest/syncNewest values, causing it to fetch the old extended range.
-            await new Promise((resolve) => setTimeout(resolve, 0));
-
-            // 4. Clear GPS/bounds cache and route cache BEFORE removing queries
-            // This ensures the engine is empty before any new queries start
-            // Note: clearCache() already calls engine.clear(), so don't call route clearCache
-            // as that would emit a second 'syncReset' event and trigger duplicate syncs
+            // 3. Clear all caches (engine, tiles, filesystem)
             await clearCache();
             await clearTerrainPreviews();
             await TileCacheService.clearAllPacks();
             emitClearTileCache();
             getRouteEngine()?.clearHeatmapTiles(HEATMAP_TILES_DIR);
             setTerrainCacheSize(0);
+            setHeatmapCacheSize(0);
             setTileCacheStats(null);
-
-            // 5. Remove all cached query data
-            // Now GlobalDataSync has the new 90-day range, so any refetch uses correct dates
-            queryClient.removeQueries({ queryKey: ['activities'] });
-            queryClient.removeQueries({ queryKey: ['activities-infinite'] });
-            queryClient.removeQueries({ queryKey: ['wellness'] });
-            queryClient.removeQueries({ queryKey: ['powerCurve'] });
-            queryClient.removeQueries({ queryKey: ['paceCurve'] });
-            queryClient.removeQueries({ queryKey: ['athlete'] });
             await AsyncStorage.removeItem('veloq-query-cache');
 
-            // 6. Invalidate remaining queries to trigger fresh fetches
-            queryClient.invalidateQueries({ queryKey: ['wellness'] });
-            queryClient.invalidateQueries({ queryKey: ['powerCurve'] });
-            queryClient.invalidateQueries({ queryKey: ['paceCurve'] });
-            queryClient.invalidateQueries({ queryKey: ['athlete'] });
-            // Activities will be auto-fetched by GlobalDataSync with new 90-day range
+            // 4. Yield to let GlobalDataSync re-render with new 90-day date range
+            await new Promise((resolve) => setTimeout(resolve, 200));
+
+            // 5. Force active queries to refetch fresh data.
+            // DO NOT use clear() — it destroys observers.
+            // DO NOT use invalidateQueries() — it only marks stale, doesn't actively fetch.
+            // refetchQueries() actively fetches all mounted queries regardless of state.
+            await queryClient.refetchQueries();
 
             // Refresh cache sizes
             refreshCacheSizes();
@@ -281,16 +223,12 @@ export function DataCacheSection({ onLayout }: DataCacheSectionProps) {
         <CacheManagementPanel
           isDark={isDark}
           isDemoMode={isDemoMode}
-          minDate={minDateForSlider}
-          maxDate={maxDateForSlider}
-          startDate={cachedStartDate}
-          endDate={cachedEndDate}
-          onRangeChange={handleRangeChange}
-          isSyncing={isSyncing}
-          activityCount={cacheStats.totalActivities}
           routeMatchingEnabled={routeSettings.enabled}
           isRouteProcessing={isRouteProcessing}
           onCancelRouteProcessing={cancelRouteProcessing}
+          isRescanning={isScanning}
+          rescanProgress={rescanProgress}
+          onRescanSections={handleRescanSections}
           onClearCache={handleClearCache}
         />
 
@@ -310,15 +248,8 @@ export function DataCacheSection({ onLayout }: DataCacheSectionProps) {
           nativeSizeEstimate={nativeSizeEstimate}
           tileCacheStats={tileCacheStats}
           terrainCacheSize={terrainCacheSize}
+          heatmapCacheSize={heatmapCacheSize}
           freeStorage={freeStorage}
-        />
-
-        <View style={[styles.divider, isDark && styles.dividerDark]} />
-
-        <TileCachePanel
-          isDark={isDark}
-          routeMatchingEnabled={routeSettings.enabled}
-          onRouteMatchingChange={setRouteMatchingEnabled}
         />
       </View>
     </>

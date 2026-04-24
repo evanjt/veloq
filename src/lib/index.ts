@@ -10,6 +10,9 @@ export { activitySpatialIndex, mapBoundsToViewport, type Viewport } from './geo/
 // Storage
 export * from './storage';
 
+// Query keys
+export { queryKeys } from './queryKeys';
+
 // Utilities
 export * from './utils';
 

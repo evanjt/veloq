@@ -281,28 +281,8 @@ export function useRoutePerformances(
     };
   }, [engineGroup, activityId, matchInfoMap, activityMetrics]);
 
-  // Compute average speed for each direction (for pace display in routes)
-  const augmentedForwardStats = useMemo(() => {
-    if (!rustForwardStats) return null;
-    const forwardPerfs = performances.filter(
-      (p) => p.direction === 'same' || p.direction === 'partial'
-    );
-    const avgSpeed =
-      forwardPerfs.length > 0
-        ? forwardPerfs.reduce((sum, p) => sum + p.speed, 0) / forwardPerfs.length
-        : null;
-    return { ...rustForwardStats, avgSpeed };
-  }, [rustForwardStats, performances]);
-
-  const augmentedReverseStats = useMemo(() => {
-    if (!rustReverseStats) return null;
-    const reversePerfs = performances.filter((p) => p.direction === 'reverse');
-    const avgSpeed =
-      reversePerfs.length > 0
-        ? reversePerfs.reduce((sum, p) => sum + p.speed, 0) / reversePerfs.length
-        : null;
-    return { ...rustReverseStats, avgSpeed };
-  }, [rustReverseStats, performances]);
+  // avg_speed now comes pre-computed from Rust's DirectionStats — no TS
+  // augmentation needed.
 
   return {
     routeGroup,
@@ -311,8 +291,8 @@ export function useRoutePerformances(
     best,
     bestForwardRecord,
     bestReverseRecord,
-    forwardStats: augmentedForwardStats,
-    reverseStats: augmentedReverseStats,
+    forwardStats: rustForwardStats,
+    reverseStats: rustReverseStats,
     currentRank: rustData.currentRank,
     activityMetrics: rustData.activityMetrics,
   };

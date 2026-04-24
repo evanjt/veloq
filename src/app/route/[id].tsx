@@ -64,7 +64,10 @@ export default function RouteDetailScreen() {
   });
 
   const { t } = useTranslation();
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, activityId: navActivityId } = useLocalSearchParams<{
+    id: string;
+    activityId?: string;
+  }>();
   const { isDark } = useTheme();
   const isMetric = useMetricSystem();
   const insets = useSafeAreaInsets();
@@ -682,6 +685,7 @@ export default function RouteDetailScreen() {
                   showExcluded={showExcluded}
                   hasExcluded={excludedActivityIds.size > 0}
                   onToggleShowExcluded={handleToggleShowExcluded}
+                  highlightedActivityId={navActivityId}
                 />
               </View>
             )}

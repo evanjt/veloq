@@ -2,7 +2,7 @@ import { useAuthStore, useUploadPermissionStore } from '@/providers';
 
 type CanRecordResult = {
   canRecord: boolean;
-  reason: 'ok' | 'no_permission' | 'checking';
+  reason: 'ok' | 'no_permission';
 };
 
 /**

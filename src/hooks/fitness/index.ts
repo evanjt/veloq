@@ -1,4 +1,4 @@
-export { useWellness, useWellnessForDate, type TimeRange } from './useWellness';
+export { useWellness, useWellnessForDate, timeRangeToDays, type TimeRange } from './useWellness';
 export { useZoneDistribution } from './useZoneDistribution';
 export {
   useAthleteSummary,
@@ -6,3 +6,6 @@ export {
   formatWeekRange,
   type WeeklySummaryData,
 } from './useAthleteSummary';
+export { useFitnessRefresh } from './useFitnessRefresh';
+export { useFitnessComputations } from './useFitnessComputations';
+export { useFitnessScreenData } from './useFitnessScreenData';

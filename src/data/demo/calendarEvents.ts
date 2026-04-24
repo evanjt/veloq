@@ -1,3 +1,4 @@
+import { formatLocalDate } from '@/lib';
 import type { CalendarEvent } from '@/types';
 
 /**
@@ -9,7 +10,7 @@ export function getDemoCalendarEvents(): CalendarEvent[] {
   const tomorrow = new Date(today);
   tomorrow.setDate(tomorrow.getDate() + 1);
 
-  const fmt = (d: Date): string => d.toISOString().split('T')[0];
+  const fmt = (d: Date): string => formatLocalDate(d);
 
   return [
     {

@@ -20,6 +20,8 @@ import {
   isTerrainPreviewDirty,
   clearTerrainPreviewDirty,
   deleteTerrainPreviewsForActivity,
+  isPrioritySnapshot,
+  clearPrioritySnapshot,
 } from '@/lib/storage/terrainPreviewCache';
 import { getCameraOverride } from '@/lib/storage/terrainCameraOverrides';
 import { subscribeSnapshot } from '@/lib/events/terrainSnapshotEvents';
@@ -40,6 +42,8 @@ interface ActivityMapPreviewProps {
   startupTrack?: PreviewTrack;
   /** Whether the snapshot WebView workers are mounted and ready */
   snapshotReady?: boolean;
+  /** GPS track index ranges for PR sections to highlight in gold */
+  prSectionIndices?: Array<{ startIndex: number; endIndex: number }>;
 }
 
 export const ActivityMapPreview = React.memo(function ActivityMapPreview({
@@ -50,6 +54,7 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
   screenFocused = true,
   snapshotReady = false,
   startupTrack,
+  prSectionIndices,
 }: ActivityMapPreviewProps) {
   const mapPreviewStart = __DEV__ && index < 3 ? performance.now() : 0;
   const { getStyleForActivity, getTerrain3DMode } = useMapPreferences();
@@ -230,6 +235,37 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
     };
   }, [validCoordinates]);
 
+  // Build GeoJSON for PR section highlights (gold overlay on the activity trace)
+  const prSectionGeoJSON = useMemo(() => {
+    if (!prSectionIndices || prSectionIndices.length === 0 || validCoordinates.length < 2) {
+      return null;
+    }
+    const features: Array<{
+      type: 'Feature';
+      properties: { index: number };
+      geometry: { type: 'LineString'; coordinates: number[][] };
+    }> = [];
+    prSectionIndices.forEach((range, i) => {
+      const start = Math.max(0, range.startIndex);
+      const end = Math.min(validCoordinates.length, range.endIndex + 1);
+      if (end - start < 2) return;
+      const slice = validCoordinates.slice(start, end);
+      features.push({
+        type: 'Feature' as const,
+        properties: { index: i },
+        geometry: {
+          type: 'LineString' as const,
+          coordinates: slice.map((c) => [c.longitude, c.latitude]),
+        },
+      });
+    });
+    if (features.length === 0) return null;
+    return {
+      type: 'FeatureCollection' as const,
+      features,
+    };
+  }, [prSectionIndices, validCoordinates]);
+
   const styleUrl = getMapStyle(mapStyle);
   const startPoint = validCoordinates[0];
   const endPoint = validCoordinates[validCoordinates.length - 1];
@@ -255,6 +291,16 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
     }),
     [hasRouteData, activityColor]
   );
+  const prLineStyle = useMemo(
+    () => ({
+      lineColor: '#D4AF37',
+      lineOpacity: 1,
+      lineWidth: 4,
+      lineCap: 'round' as const,
+      lineJoin: 'round' as const,
+    }),
+    []
+  );
 
   // Memoize terrain camera: use user override if saved, else auto-calculate
   const terrainCameraResult = useMemo(() => {
@@ -272,11 +318,17 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
 
   // Request 3D terrain snapshot when enabled and coordinates are available
   // Only cards within the first N positions request snapshots to limit queue pressure
+  // Priority activities (from background notification ingestion) bypass the index gate
   // Deferred until the feed screen is focused — avoids competing with the detail view's Map3DWebView
   useEffect(() => {
     if (!screenFocused) return;
     if (!show3D || !terrainCameraResult) return;
-    if (index >= 10) return; // Don't queue snapshots for far-off cards
+    const hasPriority = isPrioritySnapshot(activity.id);
+    if (index >= 10 && !hasPriority) return; // Don't queue snapshots for far-off cards
+    // The priority flag exists solely to bypass the index gate above. Clear it
+    // now so a subsequent early return (e.g. snapshotRef not ready on first
+    // render) doesn't leave the flag stuck in the priority set.
+    if (hasPriority) clearPrioritySnapshot(activity.id);
 
     // If dirty (style/3D changed in detail view), delete old preview first
     if (isTerrainPreviewDirty(activity.id)) {
@@ -408,6 +460,13 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
           <LineLayer id="routeLineCasing" style={casingStyle} />
           <LineLayer id="routeLine" style={routeLineStyle} />
         </ShapeSource>
+
+        {/* PR section highlights in gold */}
+        {prSectionGeoJSON && (
+          <ShapeSource id="prSectionSource" shape={prSectionGeoJSON}>
+            <LineLayer id="prSectionLine" style={prLineStyle} />
+          </ShapeSource>
+        )}
 
         {/* Start marker */}
         {/* iOS CRASH FIX: Always render MarkerView to maintain stable child count */}

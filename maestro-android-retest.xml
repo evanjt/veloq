@@ -1,0 +1,18 @@
+<?xml version='1.0' encoding='UTF-8'?>
+<testsuites>
+  <testsuite name="Test Suite" tests="7" failures="3" time="1503.403" timestamp="2026-04-10T09:02:44.028">
+    <testcase id="stress-navigation-rapid" name="stress-navigation-rapid" classname="stress-navigation-rapid" time="749.956" timestamp="2026-04-10T09:15:17.452" status="SUCCESS"/>
+    <testcase id="home-weekly-summary" name="home-weekly-summary" classname="home-weekly-summary" time="99.719" timestamp="2026-04-10T09:13:36.921" status="ERROR">
+      <failure>Assertion is false: id: weekly-summary-count is visible</failure>
+    </testcase>
+    <testcase id="fitness-curves-zones" name="fitness-curves-zones" classname="fitness-curves-zones" time="123.635" timestamp="2026-04-10T09:11:32.12" status="SUCCESS"/>
+    <testcase id="error-invalid-activity" name="error-invalid-activity" classname="error-invalid-activity" time="127.235" timestamp="2026-04-10T09:09:24.707" status="SUCCESS"/>
+    <testcase id="navigation-back-buttons" name="navigation-back-buttons" classname="navigation-back-buttons" time="156.825" timestamp="2026-04-10T09:06:46.533" status="SUCCESS"/>
+    <testcase id="data-values-weekly-summary" name="data-values-weekly-summary" classname="data-values-weekly-summary" time="110.782" timestamp="2026-04-10T09:04:52.756" status="ERROR">
+      <failure>Assertion is false: id: weekly-summary-count is visible</failure>
+    </testcase>
+    <testcase id="data-values-activity" name="data-values-activity" classname="data-values-activity" time="124.976" timestamp="2026-04-10T09:02:46.268" status="ERROR">
+      <failure>Assertion is false: id: activity-detail-distance is visible</failure>
+    </testcase>
+  </testsuite>
+</testsuites>

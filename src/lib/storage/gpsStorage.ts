@@ -256,11 +256,11 @@ export function getRouteDisplayName(
 const ROUTES_DB_PATH = `${FileSystem.documentDirectory}routes.db`;
 
 /**
- * Estimate routes SQLite database size in bytes
+ * Get the size of a single file, returning 0 if it doesn't exist.
  */
-export async function estimateRoutesDatabaseSize(): Promise<number> {
+async function getFileSize(path: string): Promise<number> {
   try {
-    const info = await FileSystem.getInfoAsync(ROUTES_DB_PATH);
+    const info = await FileSystem.getInfoAsync(path);
     if (info.exists && 'size' in info) {
       return info.size || 0;
     }
@@ -268,6 +268,64 @@ export async function estimateRoutesDatabaseSize(): Promise<number> {
     // Ignore
   }
   return 0;
+}
+
+/**
+ * Estimate routes SQLite database size in bytes.
+ * Includes the main .db file plus WAL and SHM journal files,
+ * which can be substantial in WAL mode.
+ */
+export async function estimateRoutesDatabaseSize(): Promise<number> {
+  const [main, wal, shm] = await Promise.all([
+    getFileSize(ROUTES_DB_PATH),
+    getFileSize(`${ROUTES_DB_PATH}-wal`),
+    getFileSize(`${ROUTES_DB_PATH}-shm`),
+  ]);
+  return main + wal + shm;
+}
+
+/**
+ * Recursively measure total size of a directory in bytes.
+ */
+async function getDirectorySize(dirPath: string): Promise<number> {
+  try {
+    const dirInfo = await FileSystem.getInfoAsync(dirPath);
+    if (!dirInfo.exists || !dirInfo.isDirectory) return 0;
+
+    const entries = await FileSystem.readDirectoryAsync(dirPath);
+    let total = 0;
+
+    for (const entry of entries) {
+      const fullPath = `${dirPath}${entry}`;
+      const info = await FileSystem.getInfoAsync(fullPath);
+      if (!info.exists) continue;
+      if (info.isDirectory) {
+        total += await getDirectorySize(`${fullPath}/`);
+      } else if ('size' in info) {
+        total += info.size || 0;
+      }
+    }
+    return total;
+  } catch {
+    return 0;
+  }
+}
+
+/**
+ * Get total app storage usage across documentDirectory and cacheDirectory.
+ * This is the ground-truth measurement that accounts for all files the app
+ * has written, including SQLite WAL files, map caches, terrain previews, etc.
+ */
+export async function getAppStorageSize(): Promise<number> {
+  const docDir = FileSystem.documentDirectory;
+  const cacheDir = FileSystem.cacheDirectory;
+
+  const [docSize, cacheSize] = await Promise.all([
+    docDir ? getDirectorySize(docDir) : Promise.resolve(0),
+    cacheDir ? getDirectorySize(cacheDir) : Promise.resolve(0),
+  ]);
+
+  return docSize + cacheSize;
 }
 
 // =============================================================================

@@ -24,12 +24,21 @@ onFlowComplete:
 - runFlow:
     file: helpers/navigate-to-settings.yaml
 
+# Navigate to account sub-screen (logout button lives here)
+- tapOn:
+    id: "settings-account-row"
+
+- extendedWaitUntil:
+    visible:
+      id: "settings-logout-button"
+    timeout: 10000
+
 # Scroll to find logout button (accept partial visibility)
 - scrollUntilVisible:
     element:
       id: "settings-logout-button"
     direction: DOWN
-    timeout: 30000
+    timeout: 15000
     speed: 40
     visibilityPercentage: 20
 
@@ -51,14 +60,13 @@ onFlowComplete:
 - takeScreenshot: "settings-logout-dialog"
 
 # Tap the destructive "Disconnect" button
-- tapOn:
-    text: "^Disconnect$"
+- tapOn: "Disconnect"
 
-# Verify we return to login screen (may take time to tear down)
+# Verify we return to login screen (async: cancel queries + clear caches + clear credentials)
 - extendedWaitUntil:
     visible:
       id: "login-screen"
-    timeout: 20000
+    timeout: 30000
 
 - takeScreenshot: "settings-logout-complete"
 

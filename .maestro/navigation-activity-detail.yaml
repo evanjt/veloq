@@ -16,6 +16,11 @@ tags:
 
 # Navigate to first demo activity
 - openLink: "veloq://activity/demo-test-0"
+- runFlow:
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
 - extendedWaitUntil:
     visible:
       id: "activity-detail-content"
@@ -24,6 +29,11 @@ tags:
 
 # Back to home
 - openLink: "veloq://"
+- runFlow:
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
 - extendedWaitUntil:
     visible:
       id: "home-screen"
@@ -31,6 +41,11 @@ tags:
 
 # Navigate to second demo activity
 - openLink: "veloq://activity/demo-test-1"
+- runFlow:
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
 - extendedWaitUntil:
     visible:
       id: "activity-detail-content"

@@ -383,7 +383,7 @@ export const FormZoneChart = React.memo(function FormZoneChart({
                   <SkiaLine
                     p1={vec(chartBounds.left, getZoneY(0))}
                     p2={vec(chartBounds.right, getZoneY(0))}
-                    color={isDark ? '#555' : '#CCC'}
+                    color={isDark ? '#71717A' : '#CCC'}
                     strokeWidth={1}
                     style="stroke"
                   />

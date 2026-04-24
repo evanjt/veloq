@@ -1,0 +1,56 @@
+# Regional Map — Heatmap trace colour (US-R3)
+# When an activity is selected AND heatmap is on, its polyline is drawn in
+# brand orange (#FC4C02). With heatmap off it falls back to the sport colour.
+# Screenshot-based assertion: basemap tiles don't need to load — the polyline
+# colour is a MapLibre expression, not tile-derived.
+
+appId: com.veloq.app.dev
+tags:
+  - tier2
+---
+- runFlow:
+    file: helpers/setup-demo-mode.yaml
+
+- runFlow:
+    file: helpers/navigate-to-map.yaml
+
+- extendedWaitUntil:
+    visible:
+      id: "map-screen"
+    timeout: 30000
+
+# Ensure heatmap is OFF for the baseline screenshot (demo default).
+- runFlow:
+    when:
+      visible:
+        id: "map-toggle-heatmap"
+    commands:
+      - takeScreenshot: "heatmap-trace-baseline"
+
+# Fit all activities so at least one trace is in view.
+- tapOn:
+    id: "map-fit-all"
+- waitForAnimationToEnd:
+    timeout: 2500
+
+# Select the first visible activity marker via the demo fixture's known
+# coordinates. Tapping a marker on the map is fragile — easier to deep-link
+# into an activity and back to map with it pre-selected. Instead, tap the
+# fit-all button then toggle heatmap.
+- tapOn:
+    id: "map-toggle-heatmap"
+- waitForAnimationToEnd:
+    timeout: 1500
+
+- takeScreenshot: "heatmap-trace-heatmap-on"
+
+# Toggle back off and screenshot the sport-colour state for comparison.
+- tapOn:
+    id: "map-toggle-heatmap"
+- waitForAnimationToEnd:
+    timeout: 1500
+
+- takeScreenshot: "heatmap-trace-heatmap-off"
+
+- assertNotVisible:
+    text: "NaN"

@@ -184,6 +184,21 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       // Set basic athlete info if provided
       athlete: athleteName ? ({ id: trimmedAthleteId, name: athleteName } as Athlete) : null,
     });
+
+    // If the user previously opted into push notifications (e.g. restored a
+    // backup or logged back in after a logout), re-register the push token so
+    // the worker knows where to deliver webhook-driven notifications for this
+    // athlete. Fire-and-forget — OAuth login must not block on push setup.
+    try {
+      const { getNotificationPreferences } = require('./NotificationPreferencesStore');
+      const prefs = getNotificationPreferences();
+      if (prefs.enabled) {
+        const { registerPushToken } = require('@/lib/notifications/pushTokenRegistration');
+        registerPushToken(trimmedAthleteId);
+      }
+    } catch {
+      // Push token registration is best-effort
+    }
   },
 
   clearCredentials: async () => {
@@ -249,11 +264,27 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   handleSessionExpired: async (reason: SessionExpiredReason = 'token_expired') => {
-    const { authMethod } = get();
+    const { authMethod, athleteId: currentAthleteId } = get();
 
     // Only handle session expiry for OAuth auth method
     if (authMethod !== 'oauth') {
       return;
+    }
+
+    // Unregister push token before clearing credentials (fire-and-forget).
+    // Without this the worker would keep trying to deliver pushes to a
+    // device whose OAuth session has been revoked.
+    try {
+      if (currentAthleteId) {
+        const { getNotificationPreferences } = require('./NotificationPreferencesStore');
+        const prefs = getNotificationPreferences();
+        if (prefs.enabled) {
+          const { unregisterPushToken } = require('@/lib/notifications/pushTokenRegistration');
+          unregisterPushToken(currentAthleteId);
+        }
+      }
+    } catch {
+      // Push token cleanup is best-effort
     }
 
     // Clear OAuth credentials from storage

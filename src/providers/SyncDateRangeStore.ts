@@ -54,8 +54,6 @@ interface SyncDateRangeState {
    * Sync operations capture this at start and check before adding results.
    */
   syncGeneration: number;
-  /** Internal: timeout ID for delayed unlock (for cleanup) */
-  _unlockTimeoutId: ReturnType<typeof setTimeout> | null;
 
   /** Update the sync date range - expands to include requested range */
   expandRange: (oldest: string, newest: string) => void;
@@ -111,6 +109,9 @@ export function getSyncGeneration(): number {
   return useSyncDateRange.getState().syncGeneration;
 }
 
+/** Module-level timeout ID — kept outside Zustand to avoid triggering re-renders */
+let _unlockTimeoutId: ReturnType<typeof setTimeout> | null = null;
+
 export const useSyncDateRange = create<SyncDateRangeState>((set, get) => ({
   ...getDefaultRange(),
   isFetchingExtended: false,
@@ -121,7 +122,6 @@ export const useSyncDateRange = create<SyncDateRangeState>((set, get) => ({
   lastSyncTimestamp: null,
   isExpansionLocked: false,
   syncGeneration: 0,
-  _unlockTimeoutId: null,
 
   expandRange: (requestedOldest: string, requestedNewest: string) => {
     const current = get();
@@ -226,30 +226,28 @@ export const useSyncDateRange = create<SyncDateRangeState>((set, get) => ({
   },
 
   delayedUnlockExpansion: () => {
-    const state = get();
     // Clear any existing timeout to prevent stale callbacks
-    if (state._unlockTimeoutId) {
-      clearTimeout(state._unlockTimeoutId);
+    if (_unlockTimeoutId) {
+      clearTimeout(_unlockTimeoutId);
     }
 
     // Delay unlock to allow UI to stabilize after sync
-    const timeoutId = setTimeout(() => {
+    _unlockTimeoutId = setTimeout(() => {
+      _unlockTimeoutId = null;
       const currentState = get();
       if (currentState.isExpansionLocked) {
         if (__DEV__) {
           console.log('[SyncDateRange] Expansion UNLOCKED after delay');
         }
-        set({ isExpansionLocked: false, _unlockTimeoutId: null });
+        set({ isExpansionLocked: false });
       }
     }, 500);
-    set({ _unlockTimeoutId: timeoutId });
   },
 
   clearUnlockTimeout: () => {
-    const { _unlockTimeoutId } = get();
     if (_unlockTimeoutId) {
       clearTimeout(_unlockTimeoutId);
-      set({ _unlockTimeoutId: null });
+      _unlockTimeoutId = null;
     }
   },
 }));

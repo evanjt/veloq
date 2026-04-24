@@ -28,6 +28,7 @@ const TIMING_CONFIG = { duration: 250, easing: Easing.out(Easing.cubic) };
 
 const MODAL_HORIZONTAL_PADDING = spacing.xl;
 const CONTENT_WIDTH = SCREEN_WIDTH - MODAL_HORIZONTAL_PADDING * 2;
+const ALL_SLIDES = getAllSlides();
 
 export function WhatsNewModal() {
   const { t } = useTranslation();
@@ -44,7 +45,7 @@ export function WhatsNewModal() {
 
   const currentVersion = Constants.expoConfig?.version ?? '';
   const versionSlides = WHATS_NEW_SLIDES[currentVersion] ?? [];
-  const allSlides = useMemo(() => getAllSlides(), []);
+  const allSlides = ALL_SLIDES;
   const isAutoTriggered = lastSeenVersion !== currentVersion;
 
   // Auto-trigger tour after login:
@@ -223,8 +224,12 @@ export function WhatsNewModal() {
         {/* Mode toggle + dot indicators */}
         <View style={styles.indicators}>
           {canToggleMode && (
-            <Pressable onPress={handleModeToggle} hitSlop={8}>
-              <Text style={[styles.modeToggle, { color: primaryColor }]}>
+            <Pressable
+              onPress={handleModeToggle}
+              hitSlop={8}
+              style={[styles.modeTogglePill, { borderColor: primaryColor }]}
+            >
+              <Text style={[styles.modeToggleText, { color: primaryColor }]}>
                 {tourState?.mode === 'tutorial'
                   ? t('whatsNew.justWhatsNew')
                   : t('whatsNew.seeAllFeatures')}
@@ -398,9 +403,15 @@ const styles = StyleSheet.create({
     paddingTop: spacing.sm,
     gap: spacing.xs,
   },
-  modeToggle: {
-    fontSize: 13,
-    fontWeight: '500',
+  modeTogglePill: {
+    borderWidth: 1.5,
+    borderRadius: layout.borderRadiusLg,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs + 2,
+  },
+  modeToggleText: {
+    fontSize: 14,
+    fontWeight: '600',
   },
   dots: {
     flexDirection: 'row',

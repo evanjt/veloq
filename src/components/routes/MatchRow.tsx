@@ -71,7 +71,11 @@ function MatchRowComponent({ match }: MatchRowProps) {
         {match.previewPoints && match.previewPoints.length > 1 ? (
           <RoutePreview points={match.previewPoints} />
         ) : (
-          <MaterialCommunityIcons name={getTypeIcon()} size={18} color={isDark ? '#555' : '#BBB'} />
+          <MaterialCommunityIcons
+            name={getTypeIcon()}
+            size={18}
+            color={isDark ? '#71717A' : '#BBB'}
+          />
         )}
       </View>
 

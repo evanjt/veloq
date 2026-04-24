@@ -35,7 +35,7 @@ export type {
 } from "./conversions";
 
 // Re-export RouteEngineClient and its locally-defined types
-export { RouteEngineClient, type HeatmapDay } from "./RouteEngineClient";
+export { RouteEngineClient, type HeatmapDay, type SectionEncounter } from "./RouteEngineClient";
 
 // Import generated functions for top-level aliases
 import {
@@ -70,6 +70,7 @@ import {
   type FfiGroupWithPolyline,
   type FfiSectionWithPolyline,
   type FfiPotentialSection,
+  type FfiStalePrOpportunity,
 } from "./generated/veloqrs";
 
 import { RouteEngineClient } from "./RouteEngineClient";
@@ -112,10 +113,13 @@ export type RoutesScreenData = FfiRoutesScreenData;
 export type GroupWithPolyline = FfiGroupWithPolyline;
 export type SectionWithPolyline = FfiSectionWithPolyline;
 export type PotentialSection = FfiPotentialSection;
+export type StalePrOpportunity = FfiStalePrOpportunity;
 export type {
   FfiSectionMatch as SectionMatch,
   FfiMergeCandidate as MergeCandidate,
   FfiNearbySectionSummary as NearbySectionSummary,
+  FfiActivitySectionHighlight as ActivitySectionHighlight,
+  FfiActivityRouteHighlight as ActivityRouteHighlight,
 } from './RouteEngineClient';
 // Strength training types (generated after Rust rebuild)
 export interface ExerciseSet {
@@ -132,11 +136,6 @@ export interface ExerciseSet {
 export interface MuscleGroup {
   slug: string;
   intensity: number;
-}
-
-// For backward compatibility, also export the module initialization status
-export function isRouteMatcherInitialized(): boolean {
-  return installed;
 }
 
 export function getDownloadProgress(): DownloadProgressResult {

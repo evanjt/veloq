@@ -10,6 +10,11 @@ tags:
 
 # Navigate to about screen via deep link
 - openLink: "veloq://about"
+- runFlow:
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
 
 - extendedWaitUntil:
     visible:
@@ -75,8 +80,13 @@ tags:
 
 - takeScreenshot: "licenses-screen"
 
-# Navigate back to about
-- back
+# Navigate back to about (deep link — back button unreliable on iOS)
+- openLink: "veloq://about"
+- runFlow:
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
 
 - extendedWaitUntil:
     visible:

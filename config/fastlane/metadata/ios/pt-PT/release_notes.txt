@@ -1,11 +1,10 @@
-v0.2.2 (Mar 2026)
+v0.3.0 (Apr 2026)
 
-• Página de saúde: mapa de calor de atividades, navegue até qualquer dia
-• Hero de fitness: forma/fadiga/fitness com etiquetas de zona
-• Sparkline: linha ATL, eixo Y mais compacto
-• Mapas 3D: MapLibre v5, correções de terreno, marcadores circulares
-• Mapas: marcadores de bandeira, destaque ciano ao navegar, cache de mosaicos
-• Definições reorganizadas com detalhes de cache
-• Modo offline: fiabilidade melhorada
-• Limites de erro em todos os ecrãs
-• Motor Rust: arquitetura de objetos de domínio
+• Section cards per direction, inline sparklines highlighting this activity
+• Feed: PR trophies, improving/declining trend pills
+• Section detail: time-range pills, summary + history cards
+• Map: heatmap toggle, separate route/section toggles, activity clustering
+• Strength: inline muscle stats, methodology note
+• Dark mode contrast improvements
+• Backup: local fix, not-encrypted warning
+• Many fixes

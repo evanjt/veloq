@@ -1,0 +1,40 @@
+# Regional Map — Heatmap at world zoom (US-R5)
+# The heatmap raster layer sets minZoomLevel={0}, so zooming out to a
+# multi-continent view must keep it visible (earlier regression culled it
+# at low zoom). Demo fixtures span Switzerland, Brazil, Spain/Tenerife, and
+# Cape Town — fit-all on the regional map puts us at a very low zoom.
+
+appId: com.veloq.app.dev
+tags:
+  - tier2
+---
+- runFlow:
+    file: helpers/setup-demo-mode.yaml
+
+- runFlow:
+    file: helpers/navigate-to-map.yaml
+
+- extendedWaitUntil:
+    visible:
+      id: "map-screen"
+    timeout: 30000
+
+# Heatmap on.
+- tapOn:
+    id: "map-toggle-heatmap"
+- waitForAnimationToEnd:
+    timeout: 1500
+
+- takeScreenshot: "world-zoom-heatmap-initial"
+
+# Fit-all → multi-continent bounds → minimum supported zoom. If the raster
+# layer gets culled at low zoom, this screenshot reveals it.
+- tapOn:
+    id: "map-fit-all"
+- waitForAnimationToEnd:
+    timeout: 2500
+
+- takeScreenshot: "world-zoom-heatmap-fit-all"
+
+- assertNotVisible:
+    text: "NaN"

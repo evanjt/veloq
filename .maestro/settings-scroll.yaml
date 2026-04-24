@@ -27,21 +27,13 @@ tags:
 - scroll
 - takeScreenshot: "settings-scroll-mid-3"
 
-# Scroll to bottom — verify logout is reachable
-- scrollUntilVisible:
-    element:
-      id: "settings-logout-button"
-    direction: DOWN
-    timeout: 30000
-    speed: 40
-- takeScreenshot: "settings-scroll-bottom"
-
-# Verify version text is visible at bottom (may need one more scroll)
+# Scroll to bottom — verify version text is reachable
 - scrollUntilVisible:
     element:
       id: "settings-version-text"
     direction: DOWN
-    timeout: 15000
+    timeout: 30000
     speed: 40
+- takeScreenshot: "settings-scroll-bottom"
 
 - takeScreenshot: "settings-scroll-complete"

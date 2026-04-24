@@ -16,6 +16,11 @@ tags:
 
 # Home -> Activity detail -> back -> verify home
 - openLink: "veloq://activity/demo-test-0"
+- runFlow:
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
 - extendedWaitUntil:
     visible:
       id: "activity-detail-screen"
@@ -30,11 +35,21 @@ tags:
 
 # Settings -> About -> back -> verify settings
 - openLink: "veloq://settings"
+- runFlow:
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
 - extendedWaitUntil:
     visible:
       id: "settings-screen"
     timeout: 10000
 - openLink: "veloq://about"
+- runFlow:
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
 - extendedWaitUntil:
     visible:
       id: "about-screen"
@@ -49,14 +64,24 @@ tags:
 
 # Fitness -> back -> verify home
 - openLink: "veloq://fitness"
+- runFlow:
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
 - extendedWaitUntil:
     visible:
       id: "fitness-screen"
     timeout: 10000
 - openLink: "veloq://"
+- runFlow:
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
 - extendedWaitUntil:
     visible:
       id: "home-screen"
-    timeout: 10000
+    timeout: 30000
 
 - takeScreenshot: "navigation-back-buttons-complete"

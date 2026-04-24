@@ -1,0 +1,70 @@
+# Strength — Inline Muscle Panel (v0.3.0 UX)
+# US-T1: tap a muscle on the body diagram → data appears inline (not below the fold)
+# US-T2: methodology disclaimer is visible
+#
+# Tab visibility: the Strength sub-tab only renders when useHasStrengthData()
+# returns true, i.e. the user has WeightTraining activities. Demo data today
+# does not include any, so this flow degrades gracefully: it tries to reach
+# the tab, records what it finds, and asserts no NaN/undefined whichever path.
+
+appId: com.veloq.app.dev
+tags:
+  - tier2
+---
+- runFlow:
+    file: helpers/setup-demo-mode.yaml
+
+- runFlow:
+    file: helpers/navigate-to-routes.yaml
+
+# Capture the Insights screen's tab row to confirm presence/absence of Strength.
+- takeScreenshot: "strength-insights-tabs"
+
+# Try the Strength sub-tab; proceed with assertions only if the tab exists.
+- runFlow:
+    when:
+      visible:
+        text: "Strength"
+    commands:
+      - tapOn:
+          text: "Strength"
+      - extendedWaitUntil:
+          visible:
+            id: "strength-tab"
+          timeout: 10000
+      - takeScreenshot: "strength-tab-visible"
+
+      # Empty-state branch (strength.noWorkouts)
+      - runFlow:
+          when:
+            visible:
+              text: ".*no.*workouts.*|.*record.*workout.*"
+          commands:
+            - takeScreenshot: "strength-empty-state"
+
+      # Data-present branch
+      - runFlow:
+          when:
+            visible:
+              id: "strength-body-diagram"
+          commands:
+            - takeScreenshot: "strength-body-diagram"
+
+            - tapOn:
+                id: "strength-period-7d"
+                optional: true
+            - waitForAnimationToEnd:
+                timeout: 1500
+            - takeScreenshot: "strength-period-7d"
+
+            - tapOn:
+                id: "strength-period-30d"
+                optional: true
+            - waitForAnimationToEnd:
+                timeout: 1500
+            - takeScreenshot: "strength-period-30d"
+
+- assertNotVisible:
+    text: "NaN"
+- assertNotVisible:
+    text: "undefined"

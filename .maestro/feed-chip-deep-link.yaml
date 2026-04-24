@@ -1,0 +1,62 @@
+# Feed Card Chip Deep Links
+# US-F3: section chip tap opens Sections tab
+# US-F4: route chip tap opens Routes tab
+# Verifies the `?tab=sections` / `?tab=routes` search-param routing on the
+# activity detail screen.
+
+appId: com.veloq.app.dev
+tags:
+  - tier1
+---
+- runFlow:
+    file: helpers/setup-demo-mode.yaml
+
+- extendedWaitUntil:
+    visible:
+      id: "home-activity-list"
+    timeout: 15000
+
+# Section chip path — deep-linked to verify the routing contract directly.
+# Visual-chip tap is a separate test; here we prove the query param is honored.
+- openLink: "veloq://activity/demo-test-0?tab=sections"
+- runFlow:
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
+
+- extendedWaitUntil:
+    visible:
+      id: "activity-detail-content"
+    timeout: 15000
+
+- extendedWaitUntil:
+    visible:
+      id: "activity-sections-list"
+    timeout: 10000
+    optional: true
+
+- takeScreenshot: "feed-chip-deep-link-sections-tab"
+
+# Back to feed
+- back
+
+- extendedWaitUntil:
+    visible:
+      id: "home-activity-list"
+    timeout: 10000
+
+# Route chip path
+- openLink: "veloq://activity/demo-test-0?tab=routes"
+- runFlow:
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
+
+- extendedWaitUntil:
+    visible:
+      id: "activity-detail-content"
+    timeout: 15000
+
+- takeScreenshot: "feed-chip-deep-link-routes-tab"

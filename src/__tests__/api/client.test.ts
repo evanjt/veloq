@@ -141,7 +141,7 @@ describe('API Client', () => {
       );
     });
 
-    it('does not set Authorization when no credentials', async () => {
+    it('rejects requests when no credentials are available', async () => {
       mockGetStoredCredentials.mockReturnValue({
         apiKey: null,
         accessToken: null,
@@ -152,7 +152,9 @@ describe('API Client', () => {
       const interceptor = (
         apiClient.interceptors.request as unknown as {
           handlers: {
-            fulfilled?: (config: InternalAxiosRequestConfig) => InternalAxiosRequestConfig;
+            fulfilled?: (
+              config: InternalAxiosRequestConfig
+            ) => InternalAxiosRequestConfig | Promise<never>;
           }[];
         }
       ).handlers[0];
@@ -162,9 +164,9 @@ describe('API Client', () => {
         method: 'get',
       };
 
-      const result = interceptor.fulfilled!(config);
-
-      expect((result as InternalAxiosRequestConfig).headers.Authorization).toBeUndefined();
+      await expect(Promise.resolve(interceptor.fulfilled!(config))).rejects.toMatchObject({
+        __CANCEL__: true,
+      });
     });
 
     it('prefers OAuth over API key when both present', async () => {

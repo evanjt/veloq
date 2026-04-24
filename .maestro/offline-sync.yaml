@@ -1,0 +1,114 @@
+# Offline Sync Flow
+#
+# Exercises the offline banner, pull-to-refresh, and sync-queue code paths
+# that fire when connectivity is lost/regained.
+#
+# -----------------------------------------------------------------------------
+# Maestro 2.1.0 LIMITATION:
+# -----------------------------------------------------------------------------
+# There is no first-class way to toggle airplane mode from within a flow file.
+#   - Maestro 2.x `runScript` executes JS only (not adb shell).
+#   - `adb shell cmd connectivity airplane-mode enable` must run OUTSIDE the flow
+#     (wrapper script around `maestro test`) or against a rooted device.
+#   - `svc wifi disable` / `svc data disable` similarly require root on API 26+.
+#
+# To meaningfully exercise true offline state, we need ONE of:
+#   1. A CI wrapper that flips airplane mode around the Maestro run, OR
+#   2. A dev-only deep-link (e.g. `veloq://debug/force-offline`) that sets
+#      `NetworkContext.isOnline = false` regardless of actual connectivity.
+#   3. A runScript block invoking `adb` via Node child_process (not supported
+#      in Maestro's sandboxed JS runtime).
+#
+# For now this flow exercises the adjacent, testable code paths:
+#   - Pull-to-refresh on the feed (demo mode uses fixtures — no network call).
+#   - Offline banner assertion (offline-banner testID from OfflineBanner.tsx).
+#   - Repeated refresh to catch sync-queue regressions (duplicate requests,
+#     stale loading state, NaN propagation on retry).
+#
+# The offline-banner check is soft (`optional: true`) because in demo mode on
+# an online emulator the banner should NOT appear. If someone later wires a
+# force-offline deep-link, swap the soft check for `assertVisible`.
+# -----------------------------------------------------------------------------
+
+appId: com.veloq.app.dev
+tags:
+  - tier2
+---
+- runFlow:
+    file: helpers/setup-demo-mode.yaml
+
+# Sanity: feed is visible
+- extendedWaitUntil:
+    visible:
+      id: "home-activity-list"
+    timeout: 15000
+
+- assertVisible:
+    id: "activity-card-demo-test-0"
+
+# Online state: offline banner must NOT be visible
+- assertNotVisible:
+    id: "offline-banner"
+
+# First pull-to-refresh — the sync queue path runs even in demo mode
+- swipe:
+    start: 50%, 25%
+    end: 50%, 75%
+    duration: 500
+
+# Feed must remain intact after refresh (no error state, no NaN)
+- extendedWaitUntil:
+    visible:
+      id: "home-activity-list"
+    timeout: 10000
+
+- assertVisible:
+    id: "activity-card-demo-test-0"
+
+- assertNotVisible:
+    text: "NaN"
+
+# Second pull-to-refresh — catches double-tap / stale-loading regressions
+- swipe:
+    start: 50%, 25%
+    end: 50%, 75%
+    duration: 500
+
+- extendedWaitUntil:
+    visible:
+      id: "home-activity-list"
+    timeout: 10000
+
+- assertNotVisible:
+    text: "NaN"
+
+- assertNotVisible:
+    text: "undefined"
+
+# Navigate to fitness tab and pull-to-refresh there too — fitness uses a
+# different data path (getFitnessData vs getFeedData) and has historically
+# been the most NaN-prone screen on reload
+- runFlow:
+    file: helpers/navigate-to-fitness.yaml
+
+- swipe:
+    start: 50%, 25%
+    end: 50%, 75%
+    duration: 500
+
+- extendedWaitUntil:
+    visible:
+      id: "fitness-screen"
+    timeout: 10000
+
+- assertNotVisible:
+    text: "NaN"
+
+- assertNotVisible:
+    text: "undefined"
+
+# Offline banner remains hidden throughout
+- assertNotVisible:
+    id: "offline-banner"
+
+- takeScreenshot: "offline-sync-end"

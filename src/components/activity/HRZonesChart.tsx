@@ -58,7 +58,7 @@ export function HRZonesChart({ streams, activityType = 'Ride', activity }: HRZon
       // API format: array of BPM upper bounds
       builtZones = apiZones.map((upperBpm, idx) => {
         const lowerBpm = idx === 0 ? 0 : apiZones[idx - 1];
-        const zoneName = zoneNames?.[idx] || `Zone ${idx + 1}`;
+        const zoneName = zoneNames?.[idx] || t('activity.zoneDefault', { number: idx + 1 });
         return {
           id: idx + 1,
           name: zoneName,

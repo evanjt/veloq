@@ -1,5 +1,9 @@
 import type { Insight } from '@/types';
 import { formatDuration, formatPaceCompact, formatSwimPace } from '@/lib';
+import { getRouteEngine } from '@/lib/native/routeEngine';
+import { INSIGHTS_CONFIG, maxPerCategoryFor, minAgeDaysFor } from './config';
+
+const DAY_MS = 86_400_000;
 
 /**
  * Stale PR / Opportunity Detection
@@ -76,17 +80,23 @@ export interface StalePROpportunity {
 }
 
 // ---------------------------------------------------------------------------
-// Constants
+// Config-derived constants (recomputed on each call so config edits apply)
 // ---------------------------------------------------------------------------
 
-/** Minimum days since last traversal to consider a section "stale" */
-const STALE_THRESHOLD_DAYS = 30;
+/** Minimum days since last traversal to consider a section "stale". */
+function getStaleThresholdDays(): number {
+  return minAgeDaysFor('stale_pr');
+}
 
-/** Minimum FTP gain (%) to flag an opportunity */
-const MIN_FTP_GAIN_PERCENT = 3;
+/** Minimum FTP gain (%) to flag an opportunity. */
+function getMinFtpGainPercent(): number {
+  return INSIGHTS_CONFIG.thresholds.minFtpGainPercent;
+}
 
-/** Maximum opportunities to return */
-const MAX_OPPORTUNITIES = 3;
+/** Maximum opportunities to return. */
+function getMaxOpportunities(): number {
+  return maxPerCategoryFor('stale_pr');
+}
 
 // ---------------------------------------------------------------------------
 // Detection logic
@@ -123,7 +133,7 @@ function getFitnessImprovement(
     // Pace trends are stored as critical speed in m/s, so higher is better.
     if (cur <= prev) return null;
     const gainPercent = ((cur - prev) / prev) * 100;
-    if (gainPercent < MIN_FTP_GAIN_PERCENT) return null;
+    if (gainPercent < getMinFtpGainPercent()) return null;
     return {
       metric: 'pace',
       current: cur,
@@ -139,7 +149,7 @@ function getFitnessImprovement(
     if (cur == null || prev == null || !Number.isFinite(cur) || !Number.isFinite(prev)) return null;
     if (cur <= prev) return null;
     const gainPercent = ((cur - prev) / prev) * 100;
-    if (gainPercent < MIN_FTP_GAIN_PERCENT) return null;
+    if (gainPercent < getMinFtpGainPercent()) return null;
     return {
       metric: 'power',
       current: cur,
@@ -168,7 +178,7 @@ export function detectStalePROpportunities(input: StalePRInput): StalePROpportun
 
   // Build a set of section IDs that had a recent PR (within 30 days)
   const recentPRSectionIds = new Set(
-    recentPRs.filter((pr) => pr.daysAgo <= STALE_THRESHOLD_DAYS).map((pr) => pr.sectionId)
+    recentPRs.filter((pr) => pr.daysAgo <= getStaleThresholdDays()).map((pr) => pr.sectionId)
   );
 
   const now = Date.now() / 1000;
@@ -181,7 +191,7 @@ export function detectStalePROpportunities(input: StalePRInput): StalePROpportun
     // Check staleness
     if (section.lastTraversalTs != null && Number.isFinite(section.lastTraversalTs)) {
       const daysSinceLast = (now - section.lastTraversalTs) / 86400;
-      if (daysSinceLast < STALE_THRESHOLD_DAYS) continue;
+      if (daysSinceLast < getStaleThresholdDays()) continue;
     }
 
     // Get sport-appropriate fitness improvement
@@ -211,7 +221,7 @@ export function detectStalePROpportunities(input: StalePRInput): StalePROpportun
     return (bSection?.traversalCount ?? 0) - (aSection?.traversalCount ?? 0);
   });
 
-  return opportunities.slice(0, MAX_OPPORTUNITIES);
+  return opportunities.slice(0, getMaxOpportunities());
 }
 
 // ---------------------------------------------------------------------------
@@ -246,6 +256,11 @@ export function stalePROpportunityToInsight(
   const displayedCurrent = isPower ? currentStr : `${currentStr}${opportunity.unit}`;
   const displayedPrevious = isPower ? previousStr : `${previousStr}${opportunity.unit}`;
 
+  // stale_pr omits sourceTimestamp: the detector already filtered by min
+  // staleness (30+ days). The rules pipeline's G1 min-age check is
+  // therefore redundant; signalling it via meta would require plumbing
+  // lastTraversalTs through the engine path, which isn't worth the
+  // duplication today.
   return {
     id: `stale_pr-${opportunity.sectionId}`,
     category: 'stale_pr',
@@ -269,6 +284,11 @@ export function stalePROpportunityToInsight(
     navigationTarget: `/section/${opportunity.sectionId}`,
     timestamp,
     isNew: true,
+    meta: {
+      comparisonKind: 'self',
+      repetitionCount: undefined,
+      specificity: { hasNumber: true, hasPlace: true, hasDate: false },
+    },
     supportingData: {
       dataPoints: [
         {
@@ -301,4 +321,145 @@ export function stalePROpportunityToInsight(
       description: t('insights.stalePr.methodology'),
     },
   };
+}
+
+// ---------------------------------------------------------------------------
+// Group-card builder (used when multiple opportunities exist)
+// ---------------------------------------------------------------------------
+
+const MAX_STALE_PR_SECTIONS_IN_BODY = 3;
+
+/** Inputs for generating stale-PR insights, including dedup against already-present insights. */
+export interface GenerateStalePRInsightsInput {
+  sections: StalePRSectionData[];
+  ftpTrend: StalePRFtpTrend | null;
+  runPaceTrend: StalePRPaceTrend | null;
+  swimPaceTrend: StalePRPaceTrend | null;
+  recentPRs: StalePRRecentPR[];
+  /** IDs of insights already generated (to avoid duplicating section_pr cards) */
+  existingInsightIds: Set<string>;
+}
+
+/**
+ * Generate stale-PR insights: single card when 1 opportunity, group card when 2+.
+ * Handles dedup against existing section_pr insights so the same section isn't surfaced twice.
+ */
+export function generateStalePRInsights(
+  input: GenerateStalePRInsightsInput,
+  t: (key: string, params?: Record<string, string | number>) => string,
+  now: number
+): Insight[] {
+  // Primary path: Rust atomic on FitnessManager does the full filter+sort+cap
+  // from SQLite-resident FTP/pace trends and ranked-section metadata. TS never
+  // sees the raw candidates. Fallback to the pure-TS detector for jest (no
+  // engine) and for the pre-sync startup window.
+  const excludeSectionIds: string[] = [];
+  for (const id of input.existingInsightIds) {
+    const m = id.match(/^section_pr-(.+)$/);
+    if (m) excludeSectionIds.push(m[1]);
+  }
+
+  let filtered: StalePROpportunity[] | null = null;
+  try {
+    const engine = getRouteEngine();
+    if (engine?.findStalePrOpportunities) {
+      const rows = engine.findStalePrOpportunities(
+        getStaleThresholdDays(),
+        getMinFtpGainPercent(),
+        getMaxOpportunities(),
+        excludeSectionIds
+      );
+      filtered = rows.map((r) => ({
+        sectionId: r.sectionId,
+        sectionName: r.sectionName,
+        bestTimeSecs: r.bestTimeSecs,
+        fitnessMetric: r.fitnessMetric === 'power' ? 'power' : 'pace',
+        currentValue: r.currentValue,
+        previousValue: r.previousValue,
+        gainPercent: r.gainPercent,
+        unit: r.unit,
+      }));
+    }
+  } catch {
+    filtered = null;
+  }
+
+  if (filtered === null) {
+    const opportunities = detectStalePROpportunities({
+      sections: input.sections,
+      ftpTrend: input.ftpTrend,
+      runPaceTrend: input.runPaceTrend,
+      swimPaceTrend: input.swimPaceTrend,
+      recentPRs: input.recentPRs,
+    });
+    filtered = opportunities.filter(
+      (opp) => !input.existingInsightIds.has(`section_pr-${opp.sectionId}`)
+    );
+  }
+
+  if (filtered.length === 0) return [];
+  if (filtered.length === 1) return [stalePROpportunityToInsight(filtered[0], t, now)];
+
+  const powerOpps = filtered.filter((o) => o.fitnessMetric === 'power');
+  const runPaceOpps = filtered.filter((o) => o.fitnessMetric === 'pace' && o.unit === '/km');
+  const swimPaceOpps = filtered.filter((o) => o.fitnessMetric === 'pace' && o.unit === '/100m');
+  const subtitleParts: string[] = [];
+  if (powerOpps.length > 0) {
+    const p = powerOpps[0];
+    subtitleParts.push(`FTP: ${Math.round(p.previousValue)}W → ${Math.round(p.currentValue)}W`);
+  }
+  if (runPaceOpps.length > 0) {
+    const p = runPaceOpps[0];
+    subtitleParts.push(
+      `Run threshold: ${formatPaceCompact(p.previousValue)}${p.unit} → ${formatPaceCompact(p.currentValue)}${p.unit}`
+    );
+  }
+  if (swimPaceOpps.length > 0) {
+    const p = swimPaceOpps[0];
+    subtitleParts.push(
+      `Swim threshold: ${formatSwimPace(p.previousValue)}${p.unit} → ${formatSwimPace(p.currentValue)}${p.unit}`
+    );
+  }
+
+  return [
+    {
+      id: 'stale_pr-group',
+      category: 'stale_pr',
+      priority: 2,
+      icon: 'lightning-bolt',
+      iconColor: '#FF9800',
+      title: t('insights.stalePr.groupTitle', { count: filtered.length }),
+      subtitle: subtitleParts.join(', '),
+      body:
+        filtered
+          .slice(0, MAX_STALE_PR_SECTIONS_IN_BODY)
+          .map((o) => o.sectionName)
+          .join(', ') +
+        (filtered.length > MAX_STALE_PR_SECTIONS_IN_BODY
+          ? ` (+${filtered.length - MAX_STALE_PR_SECTIONS_IN_BODY} more)`
+          : ''),
+      navigationTarget: '/routes?tab=sections',
+      timestamp: now,
+      isNew: false,
+      meta: {
+        // See note above — stale_pr opts out of G1 via unset sourceTimestamp.
+        comparisonKind: 'self',
+        specificity: { hasNumber: true, hasPlace: false, hasDate: false },
+      },
+      supportingData: {
+        sections: filtered.map((o) => ({
+          sectionId: o.sectionId,
+          sectionName: o.sectionName,
+          bestTime: o.bestTimeSecs,
+          sportType: input.sections.find((s) => s.sectionId === o.sectionId)?.sportType,
+        })),
+        formula: subtitleParts.join('; '),
+        algorithmDescription: t('insights.stalePr.methodology'),
+      },
+      methodology: {
+        name: t('insights.methodology.fitnessPrName'),
+        description: t('insights.stalePr.methodology'),
+      },
+    },
+  ];
 }

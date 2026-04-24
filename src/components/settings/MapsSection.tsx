@@ -65,7 +65,12 @@ const MAP_ACTIVITY_GROUPS: {
   },
 ];
 
-export function MapsSection() {
+interface MapsSectionProps {
+  /** When true, skip section label and outer card (for embedding in a parent card) */
+  embedded?: boolean;
+}
+
+export function MapsSection({ embedded }: MapsSectionProps = {}) {
   const { isDark } = useTheme();
   const { t } = useTranslation();
   const [showActivityStyles, setShowActivityStyles] = useState(false);
@@ -127,122 +132,132 @@ export function MapsSection() {
         ? t('settings.terrain3DSmart', { defaultValue: 'Smart' })
         : t('settings.terrain3DAlways', { defaultValue: 'Always' });
 
+  const mapsContent = (
+    <>
+      {/* Default style + 3D terrain toggle in header row */}
+      <View style={styles.styleHeaderRow}>
+        <Text style={[styles.mapStyleLabel, isDark && settingsStyles.textLight]}>
+          {t('settings.defaultStyle')}
+        </Text>
+        <TouchableOpacity
+          style={styles.terrain3DBadge}
+          onPress={() => {
+            // Cycle: off → smart → always → off
+            const modes: Terrain3DMode[] = ['off', 'smart', 'always'];
+            const idx = modes.indexOf(mapPreferences.terrain3DMode);
+            handleTerrain3DModeChange(modes[(idx + 1) % 3]);
+          }}
+          activeOpacity={0.6}
+        >
+          <MaterialCommunityIcons
+            name="image-filter-hdr"
+            size={14}
+            color={mapPreferences.terrain3DMode === 'off' ? colors.textSecondary : colors.primary}
+          />
+          <Text
+            style={[
+              styles.terrain3DBadgeText,
+              mapPreferences.terrain3DMode !== 'off' && styles.terrain3DBadgeActive,
+            ]}
+          >
+            3D: {terrain3DLabel}
+          </Text>
+        </TouchableOpacity>
+      </View>
+      <MapStylePreviewPicker
+        value={mapPreferences.defaultStyle}
+        onValueChange={handleDefaultMapStyleChange}
+      />
+
+      {/* Per-activity-type styles toggle */}
+      <TouchableOpacity
+        style={[styles.actionRow, styles.actionRowBorder]}
+        onPress={() => setShowActivityStyles(!showActivityStyles)}
+      >
+        <MaterialCommunityIcons name="tune-variant" size={22} color={colors.primary} />
+        <Text style={[styles.actionText, isDark && settingsStyles.textLight]}>
+          {t('settings.customiseByActivity')}
+        </Text>
+        <MaterialCommunityIcons
+          name={showActivityStyles ? 'chevron-up' : 'chevron-down'}
+          size={20}
+          color={isDark ? darkColors.textMuted : colors.textSecondary}
+        />
+      </TouchableOpacity>
+
+      {/* Per-activity-group pickers */}
+      {showActivityStyles && (
+        <View style={styles.activityStylesContainer}>
+          {MAP_ACTIVITY_GROUPS.map(({ key, labelKey, types }) => {
+            // Use the first type in the group to determine current style
+            const currentStyle = mapPreferences.activityTypeStyles[types[0]] ?? 'default';
+            const terrain3DModeForGroup = getTerrain3DMode(types[0]);
+            return (
+              <View key={key} style={styles.activityStyleRow}>
+                <View style={styles.activityStyleHeader}>
+                  <Text style={[styles.activityStyleLabel, isDark && settingsStyles.textLight]}>
+                    {t(labelKey)}
+                  </Text>
+                </View>
+                <SegmentedButtons
+                  value={currentStyle}
+                  onValueChange={(value) => handleActivityGroupMapStyleChange(key, value)}
+                  buttons={[
+                    { value: 'default', label: t('settings.default') },
+                    { value: 'light', label: t('settings.light') },
+                    { value: 'dark', label: t('settings.dark') },
+                    { value: 'satellite', label: t('settings.satellite') },
+                  ]}
+                  density="small"
+                  style={styles.activityStylePicker}
+                />
+                <View style={styles.terrain3DGroupRow}>
+                  <Text style={[styles.terrain3DGroupLabel, isDark && settingsStyles.textMuted]}>
+                    3D
+                  </Text>
+                  <SegmentedButtons
+                    value={terrain3DModeForGroup}
+                    onValueChange={(value) => handleTerrain3DGroupModeChange(types, value)}
+                    buttons={[
+                      {
+                        value: 'off',
+                        label: t('settings.terrain3DOff', { defaultValue: 'Off' }),
+                      },
+                      {
+                        value: 'smart',
+                        label: t('settings.terrain3DSmart', { defaultValue: 'Smart' }),
+                      },
+                      {
+                        value: 'always',
+                        label: t('settings.terrain3DAlways', { defaultValue: 'Always' }),
+                      },
+                    ]}
+                    density="small"
+                    style={styles.terrain3DGroupPicker}
+                  />
+                </View>
+              </View>
+            );
+          })}
+          <Text style={[styles.activityStyleHint, isDark && settingsStyles.textMuted]}>
+            {t('settings.defaultMapHint')}
+          </Text>
+        </View>
+      )}
+    </>
+  );
+
+  if (embedded) {
+    return mapsContent;
+  }
+
   return (
     <>
       <Text style={[settingsStyles.sectionLabel, isDark && settingsStyles.textMuted]}>
         {t('settings.maps').toUpperCase()}
       </Text>
       <View style={[settingsStyles.sectionCard, isDark && settingsStyles.sectionCardDark]}>
-        {/* Default style + 3D terrain toggle in header row */}
-        <View style={styles.styleHeaderRow}>
-          <Text style={[styles.mapStyleLabel, isDark && settingsStyles.textLight]}>
-            {t('settings.defaultStyle')}
-          </Text>
-          <TouchableOpacity
-            style={styles.terrain3DBadge}
-            onPress={() => {
-              // Cycle: off → smart → always → off
-              const modes: Terrain3DMode[] = ['off', 'smart', 'always'];
-              const idx = modes.indexOf(mapPreferences.terrain3DMode);
-              handleTerrain3DModeChange(modes[(idx + 1) % 3]);
-            }}
-            activeOpacity={0.6}
-          >
-            <MaterialCommunityIcons
-              name="image-filter-hdr"
-              size={14}
-              color={mapPreferences.terrain3DMode === 'off' ? colors.textSecondary : colors.primary}
-            />
-            <Text
-              style={[
-                styles.terrain3DBadgeText,
-                mapPreferences.terrain3DMode !== 'off' && styles.terrain3DBadgeActive,
-              ]}
-            >
-              3D: {terrain3DLabel}
-            </Text>
-          </TouchableOpacity>
-        </View>
-        <MapStylePreviewPicker
-          value={mapPreferences.defaultStyle}
-          onValueChange={handleDefaultMapStyleChange}
-        />
-
-        {/* Per-activity-type styles toggle */}
-        <TouchableOpacity
-          style={[styles.actionRow, styles.actionRowBorder]}
-          onPress={() => setShowActivityStyles(!showActivityStyles)}
-        >
-          <MaterialCommunityIcons name="tune-variant" size={22} color={colors.primary} />
-          <Text style={[styles.actionText, isDark && settingsStyles.textLight]}>
-            {t('settings.customiseByActivity')}
-          </Text>
-          <MaterialCommunityIcons
-            name={showActivityStyles ? 'chevron-up' : 'chevron-down'}
-            size={20}
-            color={isDark ? darkColors.textMuted : colors.textSecondary}
-          />
-        </TouchableOpacity>
-
-        {/* Per-activity-group pickers */}
-        {showActivityStyles && (
-          <View style={styles.activityStylesContainer}>
-            {MAP_ACTIVITY_GROUPS.map(({ key, labelKey, types }) => {
-              // Use the first type in the group to determine current style
-              const currentStyle = mapPreferences.activityTypeStyles[types[0]] ?? 'default';
-              const terrain3DModeForGroup = getTerrain3DMode(types[0]);
-              return (
-                <View key={key} style={styles.activityStyleRow}>
-                  <View style={styles.activityStyleHeader}>
-                    <Text style={[styles.activityStyleLabel, isDark && settingsStyles.textLight]}>
-                      {t(labelKey)}
-                    </Text>
-                  </View>
-                  <SegmentedButtons
-                    value={currentStyle}
-                    onValueChange={(value) => handleActivityGroupMapStyleChange(key, value)}
-                    buttons={[
-                      { value: 'default', label: t('settings.default') },
-                      { value: 'light', label: t('settings.light') },
-                      { value: 'dark', label: t('settings.dark') },
-                      { value: 'satellite', label: t('settings.satellite') },
-                    ]}
-                    density="small"
-                    style={styles.activityStylePicker}
-                  />
-                  <View style={styles.terrain3DGroupRow}>
-                    <Text style={[styles.terrain3DGroupLabel, isDark && settingsStyles.textMuted]}>
-                      3D
-                    </Text>
-                    <SegmentedButtons
-                      value={terrain3DModeForGroup}
-                      onValueChange={(value) => handleTerrain3DGroupModeChange(types, value)}
-                      buttons={[
-                        {
-                          value: 'off',
-                          label: t('settings.terrain3DOff', { defaultValue: 'Off' }),
-                        },
-                        {
-                          value: 'smart',
-                          label: t('settings.terrain3DSmart', { defaultValue: 'Smart' }),
-                        },
-                        {
-                          value: 'always',
-                          label: t('settings.terrain3DAlways', { defaultValue: 'Always' }),
-                        },
-                      ]}
-                      density="small"
-                      style={styles.terrain3DGroupPicker}
-                    />
-                  </View>
-                </View>
-              );
-            })}
-            <Text style={[styles.activityStyleHint, isDark && settingsStyles.textMuted]}>
-              {t('settings.defaultMapHint')}
-            </Text>
-          </View>
-        )}
+        {mapsContent}
       </View>
     </>
   );

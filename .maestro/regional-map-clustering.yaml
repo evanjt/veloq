@@ -1,0 +1,54 @@
+# Regional Map — Activity Clustering (US-R4)
+# Verifies native MapLibre clustering on the activity layer: point_count
+# labels appear on cluster circles; tap expands them. Uses the 3-tier
+# circleRadius step (20/25/30 for <10 / 10–49 / 50+).
+#
+# Demo data has 82 activities across Switzerland, Brazil, Spain, South Africa.
+# At world-fit zoom the clustering should visibly collapse them.
+
+appId: com.veloq.app.dev
+tags:
+  - tier2
+---
+- runFlow:
+    file: helpers/setup-demo-mode.yaml
+
+- runFlow:
+    file: helpers/navigate-to-map.yaml
+
+- extendedWaitUntil:
+    visible:
+      id: "map-screen"
+    timeout: 30000
+
+# Use the fit-all button to force a zoom that shows every activity,
+# guaranteeing clusters collapse.
+- tapOn:
+    id: "map-fit-all"
+- waitForAnimationToEnd:
+    timeout: 2500
+
+- takeScreenshot: "clustering-fit-all"
+
+# Pinch out further for a clearer clustered view.
+- swipe:
+    start: 30%, 50%
+    end: 70%, 50%
+    duration: 500
+- waitForAnimationToEnd:
+    timeout: 1500
+
+- takeScreenshot: "clustering-zoomed-out"
+
+# Cluster count labels render in two places:
+#   1. Native SymbolLayer ("cluster-count") — the bitmap glyphs users see.
+#   2. React <ClusterCountOverlay/> — invisible Text nodes carrying
+#      `testID="map-cluster-count-<id>"` for accessibility + test automation.
+# Maestro's view tree cannot read native bitmap text, so we assert on the
+# React overlay instead. At world-fit zoom the 82 demo activities collapse
+# into clusters whose testIDs start with `map-cluster-count-`.
+- assertVisible:
+    id: "map-cluster-count-.*"
+
+- assertNotVisible:
+    text: "NaN"

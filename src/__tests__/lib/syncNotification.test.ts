@@ -100,16 +100,17 @@ describe('notification handler differentiation', () => {
     return handlerCall
       .handleNotification(syncNotification)
       .then((result: Notifications.NotificationBehavior) => {
-        // shouldShowAlert must be true on Android for NotificationManager to post it
-        expect(result.shouldShowAlert).toBe(true);
         // shouldShowBanner false suppresses iOS drop-down banner
         expect(result.shouldShowBanner).toBe(false);
-        // shouldShowList true keeps it in iOS notification center
+        // shouldShowList true keeps it in iOS notification center and posts
+        // on Android via the LOW-importance channel
         expect(result.shouldShowList).toBe(true);
+        // shouldShowAlert is deprecated in expo-notifications and must not be set
+        expect(result.shouldShowAlert).toBeUndefined();
       });
   });
 
-  it('shows alerts for insight notifications', () => {
+  it('shows banner and list for insight notifications', () => {
     initializeNotifications();
 
     const handlerCall = (Notifications.setNotificationHandler as jest.Mock).mock.calls[0][0];
@@ -120,7 +121,9 @@ describe('notification handler differentiation', () => {
     return handlerCall
       .handleNotification(insightNotification)
       .then((result: Notifications.NotificationBehavior) => {
-        expect(result.shouldShowAlert).toBe(true);
+        expect(result.shouldShowBanner).toBe(true);
+        expect(result.shouldShowList).toBe(true);
+        expect(result.shouldShowAlert).toBeUndefined();
       });
   });
 });
@@ -147,6 +150,7 @@ describe('notification tap handler', () => {
     const response = {
       notification: {
         request: {
+          identifier: 'tap-test-activity',
           content: {
             data: { activityId: 'act-123', route: '/routes' },
           },
@@ -165,6 +169,7 @@ describe('notification tap handler', () => {
     const response = {
       notification: {
         request: {
+          identifier: 'tap-test-section',
           content: {
             data: { sectionId: 'sec-456', route: '/routes' },
           },
@@ -183,6 +188,7 @@ describe('notification tap handler', () => {
     const response = {
       notification: {
         request: {
+          identifier: 'tap-test-route',
           content: {
             data: { route: '/fitness' },
           },
@@ -201,6 +207,7 @@ describe('notification tap handler', () => {
     const response = {
       notification: {
         request: {
+          identifier: 'tap-test-missing-data',
           content: {
             data: undefined,
           },
@@ -225,14 +232,12 @@ describe('notification tap handler', () => {
       .handleNotification(insightNotification)
       .then((result: Notifications.NotificationBehavior) => {
         expect(result.shouldShowBanner).toBe(true);
-        expect(result.shouldShowAlert).toBe(true);
         expect(result.shouldPlaySound).toBe(false);
       });
   });
 
   it('returns a subscription with remove function', () => {
     const subscription = setupNotificationResponseHandler();
-    expect(subscription).toBeDefined();
     expect(typeof subscription.remove).toBe('function');
   });
 });

@@ -52,26 +52,28 @@ impl DetectionManager {
 
         match result {
             Some((sections, detection_activity_ids)) => {
+                // Tier 1.1 split: hot save + processed_ids return synchronously
+                // (sections are queryable immediately), then run the
+                // cross-sport merge + indicator recompute under the engine
+                // lock as the deferred tail. The total wall-clock is
+                // unchanged on the write side, but get_progress() callers
+                // see the apply tail emit phase events
+                // (merging_cross_sport / recomputing_indicators / complete)
+                // and the UI can keep showing forward motion instead of
+                // freezing on a stalled "100%" bar.
+                let progress = handle_guard.as_ref().map(|h| h.progress.clone());
+
                 with_engine(|e| {
-                    if let Err(err) = e.apply_sections(sections) {
-                        log::error!("apply_sections failed: {}", err);
+                    if let Err(err) = e.apply_sections_save(sections) {
+                        log::error!("apply_sections_save failed: {}", err);
                         return Err(VeloqError::Database {
-                            msg: format!("apply_sections failed: {}", err),
+                            msg: format!("apply_sections_save failed: {}", err),
                         });
                     }
                     if let Err(err) = e.save_processed_activity_ids(&detection_activity_ids) {
                         log::error!("save_processed_activity_ids failed: {}", err);
                     }
-
-                    // Spawn background heatmap tile generation after sections are applied
-                    if let Some(handle) = e.generate_tiles_background() {
-                        if let Ok(mut guard) =
-                            crate::persistence::persistent_engine_ffi::TILE_GENERATION_HANDLE.lock()
-                        {
-                            *guard = Some(handle);
-                        }
-                    }
-
+                    e.apply_sections_finalize_with_progress(progress.as_ref());
                     Ok(())
                 })??;
 

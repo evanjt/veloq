@@ -75,9 +75,12 @@ const DEFAULT_ROUTE_SETTINGS = {
   enabled: true,
   retentionDays: 0,
   autoCleanupEnabled: false,
+  geocodingEnabled: false,
+  heatmapEnabled: true,
 };
 
 const DEFAULT_SUMMARY_CARD: SummaryCardPreferences = {
+  enabled: true,
   heroMetric: 'fitness',
   showSparkline: true,
   supportingMetrics: ['fitness', 'ftp', 'weekHours', 'weight'],
@@ -302,7 +305,13 @@ describe('RouteSettingsStore', () => {
   describe('Setter Isolation', () => {
     it('each setter only affects its own field', async () => {
       useRouteSettings.setState({
-        settings: { enabled: true, retentionDays: 90, autoCleanupEnabled: true },
+        settings: {
+          enabled: true,
+          retentionDays: 90,
+          autoCleanupEnabled: true,
+          geocodingEnabled: true,
+          heatmapEnabled: true,
+        },
         isLoaded: true,
       });
 
@@ -363,7 +372,13 @@ describe('RouteSettingsStore', () => {
   describe('Synchronous Helpers', () => {
     it('isRouteMatchingEnabled and getRetentionDays reflect state', () => {
       useRouteSettings.setState({
-        settings: { enabled: false, retentionDays: 180, autoCleanupEnabled: false },
+        settings: {
+          enabled: false,
+          retentionDays: 180,
+          autoCleanupEnabled: false,
+          geocodingEnabled: true,
+          heatmapEnabled: true,
+        },
         isLoaded: true,
       });
       expect(isRouteMatchingEnabled()).toBe(false);

@@ -46,12 +46,14 @@ import {
   useSyncDateRange,
   useEngineStatus,
 } from '@/providers';
-import { formatLocalDate } from '@/lib';
+import { isHeatmapEnabled } from '@/providers/RouteSettingsStore';
+import { formatLocalDate, queryKeys } from '@/lib';
 import { initializeI18n, i18n } from '@/i18n';
 import { lightTheme, darkTheme, colors, darkColors } from '@/theme';
 import {
   DemoBanner,
   GlobalDataSync,
+  ShaderWarmup,
   OfflineBanner,
   EngineInitBanner,
   BottomTabBar,
@@ -60,6 +62,7 @@ import {
   TourReturnPill,
 } from '@/components/ui';
 import { useUploadQueueProcessor } from '@/hooks/recording/useUploadQueueProcessor';
+import { useRouteReoptimization } from '@/hooks/routes/useRouteReoptimization';
 import { getRouteEngine, getRouteDbPath } from '@/lib/native/routeEngine';
 import {
   migrateSettingsToSqlite,
@@ -69,7 +72,9 @@ import {
 } from '@/lib/backup';
 import {
   initializeNotifications,
+  setupNotificationReceivedHandler,
   setupNotificationResponseHandler,
+  handleInitialNotificationResponse,
   hasNotificationPermission,
 } from '@/lib/notifications/notificationService';
 
@@ -93,7 +98,9 @@ function configureMapLibreLogger() {
         log.level === 'error' &&
         (log.tag === 'Mbgl-HttpRequest' ||
           log.message.includes('404') ||
-          log.message.includes('not found'))
+          log.message.includes('not found') ||
+          log.message.includes('Unable to resolve host') ||
+          log.message.includes('Failed to load tile'))
       ) {
         if (__DEV__) {
           console.warn('MapLibre HTTP warning:', log.message);
@@ -119,6 +126,9 @@ function AuthGate({ children }: { children: React.ReactNode }) {
 
   // Process queued uploads on network restore / app foreground
   useUploadQueueProcessor();
+
+  // Trigger route re-detection when sync date range expands
+  useRouteReoptimization();
 
   // Initialize Rust route engine with persistent storage when authenticated
   // Data persists in SQLite - GPS tracks, routes, sections load instantly
@@ -147,6 +157,12 @@ function AuthGate({ children }: { children: React.ReactNode }) {
             const routeWord = i18n.t('routes.routeWord');
             const sectionWord = i18n.t('routes.sectionWord');
             engine.setNameTranslations(routeWord, sectionWord);
+            // Enable/disable heatmap tile generation based on setting
+            if (isHeatmapEnabled()) {
+              engine.enableHeatmapTiles();
+            } else {
+              engine.disableHeatmapTiles();
+            }
             // Migrate AsyncStorage preferences to SQLite (one-time, idempotent)
             migrateSettingsToSqlite().catch(() => {});
             // Load WebDAV credentials into memory cache
@@ -207,7 +223,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
         const today = formatLocalDate(new Date());
         if (today !== lastForegroundDateRef.current) {
           lastForegroundDateRef.current = today;
-          queryClient.resetQueries({ queryKey: ['activities-infinite'] });
+          queryClient.resetQueries({ queryKey: queryKeys.activities.infinite.all });
         }
 
         // Sync notification state: if OS permission was revoked while backgrounded,
@@ -380,9 +396,22 @@ export default function RootLayout() {
   useEffect(() => {
     initializeNotifications();
     registerBackgroundNotificationTask();
-    const subscription = setupNotificationResponseHandler();
-    return () => subscription.remove();
+    const receivedSub = setupNotificationReceivedHandler();
+    const responseSub = setupNotificationResponseHandler();
+    return () => {
+      receivedSub.remove();
+      responseSub.remove();
+    };
   }, []);
+
+  // Handle cold-start taps — addNotificationResponseReceivedListener misses
+  // these on Android because it registers after JS has booted, but the tap
+  // intent was already delivered. Gate on appReady so the router is mounted
+  // when we call router.push.
+  useEffect(() => {
+    if (!appReady) return;
+    handleInitialNotificationResponse();
+  }, [appReady]);
 
   // Re-register push token on app open (refreshes TTL on server)
   // Also retry any failed unregister from a previous session
@@ -478,6 +507,7 @@ export default function RootLayout() {
                     <DemoBanner />
                     <WhatsNewModal />
                     <TourReturnPill />
+                    <ShaderWarmup />
                     <Stack
                       screenOptions={{
                         headerShown: false,

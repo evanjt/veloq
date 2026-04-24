@@ -15,6 +15,11 @@ tags:
 
 # About screen
 - openLink: "veloq://about"
+- runFlow:
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
 - extendedWaitUntil:
     visible:
       id: "about-screen"
@@ -23,6 +28,11 @@ tags:
 
 # Back to home
 - openLink: "veloq://"
+- runFlow:
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
 - extendedWaitUntil:
     visible:
       id: "home-screen"
@@ -35,6 +45,11 @@ tags:
 
 # Return home
 - openLink: "veloq://"
+- runFlow:
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
 - extendedWaitUntil:
     visible:
       id: "home-screen"

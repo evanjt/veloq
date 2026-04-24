@@ -2,6 +2,11 @@
 appId: com.veloq.app.dev
 ---
 - openLink: "veloq://training"
+- runFlow:
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
 - extendedWaitUntil:
     visible:
       id: "training-screen"

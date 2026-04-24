@@ -1,11 +1,10 @@
-v0.2.2 (Mar 2026)
+v0.3.0 (Apr 2026)
 
-• Gezondheidspagina: activiteiten-heatmap, scrub naar elke dag
-• Fitness-hero: vorm/vermoeidheid/fitness met zonelabels
-• Sparkline: ATL-lijn, strakkere y-as
-• 3D-kaarten: MapLibre v5, terrein-fixes, cirkelmarkeringen
-• Kaarten: vlagmarkeringen, cyaan scrub-markering, tegelcaching
-• Instellingen gereorganiseerd met cachedetails
-• Offlinemodus: verbeterde betrouwbaarheid
-• Foutgrenzen op alle schermen
-• Rust-engine: domeinobject-architectuur
+• Section cards per direction, inline sparklines highlighting this activity
+• Feed: PR trophies, improving/declining trend pills
+• Section detail: time-range pills, summary + history cards
+• Map: heatmap toggle, separate route/section toggles, activity clustering
+• Strength: inline muscle stats, methodology note
+• Dark mode contrast improvements
+• Backup: local fix, not-encrypted warning
+• Many fixes

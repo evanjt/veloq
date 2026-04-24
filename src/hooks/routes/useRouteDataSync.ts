@@ -43,8 +43,10 @@ import { InteractionManager } from 'react-native';
 import { useRouteSyncProgress } from './useRouteSyncProgress';
 import { useRouteSyncContext, resetGlobalSyncState } from './useRouteSyncContext';
 import { useGpsDataFetcher } from './useGpsDataFetcher';
+import { i18n } from '@/i18n';
 import { getNativeModule } from '@/lib/native/routeEngine';
 import { routeEngine } from 'veloqrs';
+import { intervalsApi } from '@/api';
 import { toActivityMetrics } from '@/lib/utils/activityMetrics';
 import { useSyncDateRange, getStoredCredentials } from '@/providers';
 import type { Activity } from '@/types';
@@ -156,7 +158,7 @@ export function useRouteDataSync(
             completed: 0,
             total: 0,
             percent: 0,
-            message: 'Offline - using cached routes',
+            message: i18n.t('cache.offlineUsingCached'),
           });
         }
         return;
@@ -309,19 +311,119 @@ export function useRouteDataSync(
               routeEngine.triggerRefresh('groups');
               routeEngine.triggerRefresh('sections');
 
-              // Poll heatmap tile generation (runs on Rust background thread)
+              // Poll heatmap tile generation (runs on Rust background thread) and surface
+              // processed/total so the user sees forward motion instead of a frozen bar.
+              // Foreground wait capped at 5 s (Tier 1.2); Rust keeps rendering in background
+              // if we bail out early and the map will pick up tiles as they land.
               const tileStatus = routeEngine.pollTileGeneration();
               if (tileStatus === 'running' && isMountedRef.current) {
+                const initialTileProgress = routeEngine.getHeatmapTileProgress();
+                const tileTotal =
+                  initialTileProgress && initialTileProgress.length >= 2
+                    ? initialTileProgress[1]
+                    : 0;
+                const maxPoll =
+                  tileTotal > 0 ? Math.min(5_000, Math.max(2_000, tileTotal * 10)) : 3_000;
                 const tileStartTime = Date.now();
                 while (isMountedRef.current) {
                   await new Promise((resolve) => setTimeout(resolve, 200));
                   const s = routeEngine.pollTileGeneration();
-                  if (s !== 'running' || Date.now() - tileStartTime > 10000) break;
+                  const progress = routeEngine.getHeatmapTileProgress();
+                  if (progress && progress.length >= 2 && progress[1] > 0) {
+                    const [processed, total] = progress;
+                    const pct = 95 + Math.min(processed / total, 1) * 5;
+                    const tilePercent =
+                      total > 0 ? Math.min(100, Math.round((processed / total) * 100)) : 0;
+                    updateProgress({
+                      status: 'computing',
+                      completed: processed,
+                      total,
+                      percent: Math.min(100, Math.round(pct)),
+                      message: i18n.t('cache.finalizingHeatmap', { percent: tilePercent }),
+                    });
+                  }
+                  if (s !== 'running' || Date.now() - tileStartTime > maxPoll) break;
                 }
               }
             }
           } else if (__DEV__) {
             console.log('[RouteDataSync] No new activities to sync');
+          }
+
+          // Backfill: fetch time streams for activities with NULL lap_time (upgrade path).
+          // Report progress per-batch so the sync banner keeps moving; the loop is up to
+          // ~20 s on a large cache and previously reported nothing.
+          if (isMountedRef.current && !isDemo) {
+            try {
+              const needingStreams = routeEngine.getActivitiesNeedingTimeStreams();
+              if (needingStreams.length > 0) {
+                if (__DEV__) {
+                  console.log(
+                    `[RouteDataSync] Backfilling time streams for ${needingStreams.length} activities`
+                  );
+                }
+                const batchSize = 10;
+                const totalStreams = needingStreams.length;
+                const backfillStreams: Array<{ activityId: string; times: number[] }> = [];
+                let completedStreams = 0;
+
+                if (isMountedRef.current) {
+                  updateProgress({
+                    status: 'fetching',
+                    completed: 0,
+                    total: totalStreams,
+                    percent: 50,
+                    message: i18n.t('cache.fetchingTimeStreams', {
+                      percent: 50,
+                      completed: 0,
+                      total: totalStreams,
+                    }),
+                  });
+                }
+
+                for (let i = 0; i < needingStreams.length; i += batchSize) {
+                  if (!isMountedRef.current) break;
+                  const batch = needingStreams.slice(i, i + batchSize);
+                  const results = await Promise.all(
+                    batch.map(async (activityId) => {
+                      try {
+                        const streams = await intervalsApi.getActivityStreams(activityId, ['time']);
+                        return { activityId, times: (streams.time as number[]) || [] };
+                      } catch {
+                        return { activityId, times: [] as number[] };
+                      }
+                    })
+                  );
+                  for (const r of results) {
+                    if (r.times.length > 0) backfillStreams.push(r);
+                  }
+                  completedStreams += batch.length;
+                  if (isMountedRef.current) {
+                    updateProgress({
+                      status: 'fetching',
+                      completed: completedStreams,
+                      total: totalStreams,
+                      percent: 50,
+                      message: i18n.t('cache.fetchingTimeStreams', {
+                        percent: 50,
+                        completed: completedStreams,
+                        total: totalStreams,
+                      }),
+                    });
+                  }
+                }
+                if (backfillStreams.length > 0 && isMountedRef.current) {
+                  routeEngine.setTimeStreams(backfillStreams);
+                  if (__DEV__) {
+                    console.log(
+                      `[RouteDataSync] Backfilled ${backfillStreams.length}/${needingStreams.length} time streams`
+                    );
+                  }
+                }
+              }
+            } catch {
+              // Non-critical — will retry next sync
+            }
           }
 
           // Set complete status so lastSyncTimestamp is updated
@@ -331,7 +433,7 @@ export function useRouteDataSync(
               completed: engineActivityIds.size,
               total: engineActivityIds.size,
               percent: 100,
-              message: 'All activities synced',
+              message: i18n.t('cache.allActivitiesSynced'),
             });
           }
           markSyncComplete();

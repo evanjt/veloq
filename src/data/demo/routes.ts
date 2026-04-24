@@ -21,11 +21,42 @@ export interface DemoRoute {
   attribution?: string; // Data source attribution
 }
 
+const baseRoutes: DemoRoute[] = realRoutesData as DemoRoute[];
+
 /**
- * Real routes from OpenStreetMap
+ * Synthetic out-and-back derived from an existing one-way route.
+ * Section detection will see the same stretch traversed forward and then
+ * reverse inside a single activity, producing the two (section, direction)
+ * pairs that US-S1 exercises.
+ */
+function buildOutAndBack(sourceId: string, id: string, name: string): DemoRoute | null {
+  const source = baseRoutes.find((r) => r.id === sourceId);
+  if (!source) return null;
+  const fwd = source.coordinates;
+  const rev = [...fwd].slice(0, fwd.length - 1).reverse();
+  return {
+    id,
+    name,
+    type: source.type,
+    coordinates: [...fwd, ...rev],
+    distance: source.distance * 2,
+    elevation: source.elevation * 2,
+    region: source.region,
+    attribution: source.attribution,
+  };
+}
+
+const outAndBack = buildOutAndBack(
+  'route-rio-run-1',
+  'route-rio-run-1-outback',
+  'Rio Run (out & back)'
+);
+
+/**
+ * Real routes from OpenStreetMap, plus synthetic demo derivations.
  * These are actual GPS routes from cycling paths, running trails, etc.
  */
-export const demoRoutes: DemoRoute[] = realRoutesData as DemoRoute[];
+export const demoRoutes: DemoRoute[] = outAndBack ? [...baseRoutes, outAndBack] : baseRoutes;
 
 /**
  * Get a route's coordinates (exact, no variation)

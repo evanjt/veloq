@@ -1,0 +1,56 @@
+# Regional Map — Sections must render at all zoom levels
+#
+# Bug 4: User reports sections do not show on the global map at any zoom
+# level despite multiple work-package iterations. This flow proves the
+# bug end-to-end: it asserts the sections toggle is present (which only
+# renders when sections.length > 0) AND that the section overlay testID
+# is reachable on the map.
+#
+# The existing regional-map-toggles.yaml only conditionally taps the
+# sections toggle (`when: visible: id: "map-toggle-sections"`) — that
+# silently passes when sections are missing, which is exactly the bug.
+# This flow makes the assertion HARD so the failure surfaces.
+
+appId: com.veloq.app.dev
+tags:
+  - tier2
+---
+- runFlow:
+    file: helpers/setup-demo-mode.yaml
+
+# Visit the routes/insights tab first to give section detection time to
+# run against the engine (demo mode populates routes & sections lazily).
+- runFlow:
+    file: helpers/navigate-to-routes.yaml
+
+- extendedWaitUntil:
+    visible:
+      id: "sections-list"
+    timeout: 30000
+
+# Now navigate to the global map. After section detection has finished
+# above, the map's section toggle MUST be present.
+- runFlow:
+    file: helpers/navigate-to-map.yaml
+
+- extendedWaitUntil:
+    visible:
+      id: "map-screen"
+    timeout: 30000
+
+# HARD assertion (existing flow uses `when:` conditional and silently
+# passes when missing — that's the very bug we're proving here).
+- assertVisible:
+    id: "map-toggle-sections"
+
+# Toggle ON, then assert the section overlay is mounted in the tree.
+- tapOn:
+    id: "map-toggle-sections"
+
+- assertVisible:
+    id: "regional-map-sections-overlay"
+
+- takeScreenshot: "regional-map-sections-rendered"
+
+- assertNotVisible:
+    text: "NaN"

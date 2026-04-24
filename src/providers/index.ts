@@ -53,6 +53,7 @@ export { useDisabledSections, initializeDisabledSections } from './DisabledSecti
 export {
   useRouteSettings,
   isRouteMatchingEnabled,
+  isGeocodingEnabled,
   initializeRouteSettings,
 } from './RouteSettingsStore';
 export {

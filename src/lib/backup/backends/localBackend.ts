@@ -13,13 +13,20 @@ import * as FileSystem from 'expo-file-system/legacy';
 import type { BackupBackend, BackupEntry } from './types';
 import { safeGetTime } from '@/lib/utils/format';
 
-const BACKUP_DIR = `${FileSystem.documentDirectory}backups/`;
+/** Resolve the backup directory at call time (not module load time). */
+function getBackupDir(): string {
+  const docDir = FileSystem.documentDirectory;
+  if (!docDir) throw new Error('Device storage not available');
+  return `${docDir}backups/`;
+}
 
-async function ensureBackupDir(): Promise<void> {
-  const info = await FileSystem.getInfoAsync(BACKUP_DIR);
+async function ensureBackupDir(): Promise<string> {
+  const dir = getBackupDir();
+  const info = await FileSystem.getInfoAsync(dir);
   if (!info.exists) {
-    await FileSystem.makeDirectoryAsync(BACKUP_DIR, { intermediates: true });
+    await FileSystem.makeDirectoryAsync(dir, { intermediates: true });
   }
+  return dir;
 }
 
 export const localBackend: BackupBackend = {
@@ -31,14 +38,14 @@ export const localBackend: BackupBackend = {
   },
 
   async listBackups(): Promise<BackupEntry[]> {
-    await ensureBackupDir();
-    const files = await FileSystem.readDirectoryAsync(BACKUP_DIR);
+    const dir = await ensureBackupDir();
+    const files = await FileSystem.readDirectoryAsync(dir);
     const entries: BackupEntry[] = [];
 
     for (const file of files) {
       if (!file.endsWith('.veloqdb')) continue;
 
-      const metaPath = `${BACKUP_DIR}${file}.meta.json`;
+      const metaPath = `${dir}${file}.meta.json`;
       const metaInfo = await FileSystem.getInfoAsync(metaPath);
       if (!metaInfo.exists) continue;
 
@@ -57,10 +64,10 @@ export const localBackend: BackupBackend = {
   },
 
   async upload(localPath: string, metadata: Omit<BackupEntry, 'id'>): Promise<void> {
-    await ensureBackupDir();
+    const dir = await ensureBackupDir();
 
     const filename = `veloq-${metadata.timestamp.replace(/[:.]/g, '-')}.veloqdb`;
-    const destPath = `${BACKUP_DIR}${filename}`;
+    const destPath = `${dir}${filename}`;
 
     // Copy the backup file
     await FileSystem.copyAsync({ from: localPath, to: destPath });
@@ -71,7 +78,8 @@ export const localBackend: BackupBackend = {
   },
 
   async download(backupId: string, destPath: string): Promise<void> {
-    const sourcePath = `${BACKUP_DIR}${backupId}`;
+    const dir = getBackupDir();
+    const sourcePath = `${dir}${backupId}`;
     const info = await FileSystem.getInfoAsync(sourcePath);
     if (!info.exists) {
       throw new Error(`Backup not found: ${backupId}`);
@@ -80,7 +88,8 @@ export const localBackend: BackupBackend = {
   },
 
   async delete(backupId: string): Promise<void> {
-    const filePath = `${BACKUP_DIR}${backupId}`;
+    const dir = getBackupDir();
+    const filePath = `${dir}${backupId}`;
     await FileSystem.deleteAsync(filePath, { idempotent: true });
     await FileSystem.deleteAsync(`${filePath}.meta.json`, { idempotent: true });
   },

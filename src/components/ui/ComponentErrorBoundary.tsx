@@ -3,6 +3,7 @@ import { View, StyleSheet } from 'react-native';
 import { Text, Button } from 'react-native-paper';
 import { colors, darkColors, typography, spacing } from '@/theme';
 import { useTheme } from '@/hooks';
+import { useTranslation } from 'react-i18next';
 
 interface Props {
   children: ReactNode;
@@ -77,14 +78,17 @@ interface FallbackProps {
 
 function ErrorFallback({ componentName, minHeight, showRetry, onRetry }: FallbackProps) {
   const { isDark } = useTheme();
+  const { t } = useTranslation();
 
   return (
     <View style={[styles.container, minHeight ? { minHeight } : undefined]}>
       <Text style={[styles.errorText, isDark && styles.errorTextDark]}>
-        {componentName ? `Unable to load ${componentName}` : 'Something went wrong'}
+        {componentName
+          ? t('errorState.unableToLoad', { componentName })
+          : t('errorState.defaultTitle')}
       </Text>
       <Text style={[styles.hintText, isDark && styles.hintTextDark]}>
-        Please try again or restart the app
+        {t('errorState.restartHint')}
       </Text>
       {showRetry && (
         <Button
@@ -94,7 +98,7 @@ function ErrorFallback({ componentName, minHeight, showRetry, onRetry }: Fallbac
           labelStyle={styles.retryLabel}
           compact
         >
-          Retry
+          {t('common.retry')}
         </Button>
       )}
     </View>

@@ -19,29 +19,3 @@ export const RANGE_DAYS: Record<SectionTimeRange, number> = {
   '1y': 365,
   all: 0,
 };
-
-export const BUCKET_THRESHOLD = 100;
-
-export type BucketType = 'weekly' | 'monthly' | 'quarterly' | 'yearly';
-
-export const BUCKET_TYPES: {
-  id: BucketType;
-  labelKey:
-    | 'sections.bestPerWeek'
-    | 'sections.bestPerMonth'
-    | 'sections.bestPerQuarter'
-    | 'sections.bestPerYear';
-}[] = [
-  { id: 'weekly', labelKey: 'sections.bestPerWeek' },
-  { id: 'monthly', labelKey: 'sections.bestPerMonth' },
-  { id: 'quarterly', labelKey: 'sections.bestPerQuarter' },
-  { id: 'yearly', labelKey: 'sections.bestPerYear' },
-];
-
-export const DEFAULT_BUCKET_TYPE: Record<SectionTimeRange, BucketType> = {
-  '1m': 'weekly',
-  '3m': 'monthly',
-  '6m': 'monthly',
-  '1y': 'quarterly',
-  all: 'yearly',
-};

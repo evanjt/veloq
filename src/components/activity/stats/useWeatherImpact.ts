@@ -9,6 +9,7 @@ import type { StatDetail } from './types';
 import { colors } from '@/theme';
 import { TEMPERATURE_THRESHOLDS, FEELS_LIKE_THRESHOLD } from '@/constants';
 import { WIND_THRESHOLDS } from '@/constants';
+import { getApparentTemperature } from '@/lib';
 import { createMetricHook } from './createMetricHook';
 
 interface UseWeatherImpactOptions {
@@ -48,7 +49,7 @@ export const useWeatherImpact = createMetricHook<UseWeatherImpactOptions>({
     }
 
     const tempRounded = Math.round(temp);
-    const feelsLike = activity.apparent_temperature || activity.average_temp_feels_like;
+    const feelsLike = getApparentTemperature(activity);
 
     // Determine color based on temperature
     const isHot = temp > TEMPERATURE_THRESHOLDS.HOT;
@@ -109,6 +110,7 @@ export const useWeatherImpact = createMetricHook<UseWeatherImpactOptions>({
     activity.average_weather_temp,
     activity.average_temp,
     activity.apparent_temperature,
+    activity.average_feels_like,
     activity.average_temp_feels_like,
     activity.average_wind_speed,
     activity.average_weather_humidity,

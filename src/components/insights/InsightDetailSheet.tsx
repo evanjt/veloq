@@ -2,12 +2,12 @@ import React, { useCallback } from 'react';
 import { Modal, View, StyleSheet, Pressable, ScrollView, Dimensions } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { navigateTo } from '@/lib';
 import { useTheme } from '@/hooks';
 import { colors, darkColors, spacing, typography, opacity, colorWithOpacity } from '@/theme';
 import { InsightDetailContent } from './content/InsightDetailContent';
 import { MethodologySection } from './MethodologySection';
-import { InsightQuickTake } from './InsightQuickTake';
 import type { Insight } from '@/types';
 
 const SHEET_HEIGHT = Dimensions.get('window').height * 0.85;
@@ -24,6 +24,7 @@ export const InsightDetailSheet = React.memo(function InsightDetailSheet({
   onClose,
 }: InsightDetailSheetProps) {
   const { isDark } = useTheme();
+  const { t } = useTranslation();
 
   const handleNavigate = useCallback(() => {
     if (insight?.navigationTarget) {
@@ -35,7 +36,11 @@ export const InsightDetailSheet = React.memo(function InsightDetailSheet({
   if (!insight) return null;
 
   // Content components for these categories already have embedded navigation
-  const contentHandlesNav = insight.category === 'section_pr' || insight.category === 'stale_pr';
+  // (e.g. tappable section names that go straight to the section detail page).
+  const contentHandlesNav =
+    insight.category === 'section_pr' ||
+    insight.category === 'stale_pr' ||
+    insight.category === 'section_trend';
   const hasNavTarget = !!insight.navigationTarget && !contentHandlesNav;
 
   return (
@@ -95,14 +100,12 @@ export const InsightDetailSheet = React.memo(function InsightDetailSheet({
             <Text style={[styles.body, isDark && styles.bodyDark]}>{insight.body}</Text>
           ) : null}
 
-          <InsightQuickTake insight={insight} />
-
-          {/* Category-specific content */}
+          {/* Category-specific content (charts, sparklines, data) */}
           <View style={styles.contentSection}>
             <InsightDetailContent insight={insight} />
           </View>
 
-          {/* Methodology transparency */}
+          {/* Methodology transparency — single "How was this calculated?" block */}
           {insight.methodology ||
           insight.supportingData?.formula ||
           insight.supportingData?.algorithmDescription ? (
@@ -118,7 +121,7 @@ export const InsightDetailSheet = React.memo(function InsightDetailSheet({
               onPress={handleNavigate}
             >
               <Text style={[styles.navLinkText, isDark && styles.navLinkTextDark]}>
-                View in detail
+                {t('insights.viewInDetail')}
               </Text>
               <MaterialCommunityIcons
                 name="chevron-right"

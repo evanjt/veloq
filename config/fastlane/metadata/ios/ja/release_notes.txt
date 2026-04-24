@@ -1,11 +1,10 @@
-v0.2.2 (Mar 2026)
+v0.3.0 (Apr 2026)
 
-• ヘルスページ：アクティビティヒートマップ、任意の日にスクラブ
-• フィットネスヒーロー：フォーム/疲労/フィットネスとゾーンラベル
-• スパークライン：ATLライン、Y軸の範囲を縮小
-• 3Dマップ：MapLibre v5、地形の修正、円形マーカー
-• マップ：フラグマーカー、シアンのスクラブハイライト、タイルキャッシュ
-• 設定をキャッシュ詳細付きで再編成
-• オフラインモード：信頼性の向上
-• すべての画面にエラーバウンダリ
-• Rustエンジン：ドメインオブジェクトアーキテクチャ
+• Section cards per direction, inline sparklines highlighting this activity
+• Feed: PR trophies, improving/declining trend pills
+• Section detail: time-range pills, summary + history cards
+• Map: heatmap toggle, separate route/section toggles, activity clustering
+• Strength: inline muscle stats, methodology note
+• Dark mode contrast improvements
+• Backup: local fix, not-encrypted warning
+• Many fixes

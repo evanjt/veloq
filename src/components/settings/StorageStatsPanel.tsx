@@ -10,13 +10,6 @@ function formatDateOrDash(dateStr: string | null): string {
   return formatFullDate(dateStr);
 }
 
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
-}
-
 interface StorageBarSegment {
   label: string;
   bytes: number;
@@ -28,6 +21,7 @@ function StorageBreakdownBar({
   nativeSizeEstimate,
   tileCacheStats,
   terrainCacheSize,
+  heatmapCacheSize,
   freeStorage,
   isDark,
 }: {
@@ -35,6 +29,7 @@ function StorageBreakdownBar({
   nativeSizeEstimate: number;
   tileCacheStats: TileCacheStats | null;
   terrainCacheSize: number;
+  heatmapCacheSize: number;
   freeStorage: number | null;
   isDark: boolean;
 }) {
@@ -42,6 +37,9 @@ function StorageBreakdownBar({
     const result: StorageBarSegment[] = [];
     if (routesSize > 0) {
       result.push({ label: 'Database', bytes: routesSize, color: colors.primary });
+    }
+    if (heatmapCacheSize > 0) {
+      result.push({ label: 'Heatmap', bytes: heatmapCacheSize, color: '#FF9800' });
     }
     if (nativeSizeEstimate > 0) {
       result.push({ label: 'Map packs', bytes: nativeSizeEstimate, color: colors.chartBlue });
@@ -71,7 +69,7 @@ function StorageBreakdownBar({
       result.push({ label: '3D previews', bytes: terrainCacheSize, color: colors.chartYellow });
     }
     return result;
-  }, [routesSize, nativeSizeEstimate, tileCacheStats, terrainCacheSize]);
+  }, [routesSize, nativeSizeEstimate, tileCacheStats, terrainCacheSize, heatmapCacheSize]);
 
   const totalCacheBytes = segments.reduce((sum, s) => sum + s.bytes, 0);
 
@@ -100,7 +98,7 @@ function StorageBreakdownBar({
           <View key={seg.label} style={styles.storageLegendItem}>
             <View style={[styles.storageLegendDot, { backgroundColor: seg.color }]} />
             <Text style={[styles.storageLegendText, isDark && styles.textMuted]}>
-              {seg.label} {formatBytes(seg.bytes)}
+              {seg.label} {formatFileSize(seg.bytes)}
             </Text>
           </View>
         ))}
@@ -120,7 +118,7 @@ function StorageBreakdownBar({
             <View style={[styles.deviceUsageBarFree, { backgroundColor: freeColor }]} />
           </View>
           <Text style={[styles.storageLegendText, { marginTop: 2 }, isDark && styles.textMuted]}>
-            {formatBytes(totalCacheBytes)} of {formatBytes(totalDevice)} used
+            {formatFileSize(totalCacheBytes)} of {formatFileSize(totalDevice)} used
           </Text>
         </>
       )}
@@ -144,6 +142,7 @@ export interface StorageStatsPanelProps {
   nativeSizeEstimate: number;
   tileCacheStats: TileCacheStats | null;
   terrainCacheSize: number;
+  heatmapCacheSize: number;
   freeStorage: number | null;
 }
 
@@ -163,6 +162,7 @@ export function StorageStatsPanel({
   nativeSizeEstimate,
   tileCacheStats,
   terrainCacheSize,
+  heatmapCacheSize,
   freeStorage,
 }: StorageStatsPanelProps) {
   const { t } = useTranslation();
@@ -276,6 +276,7 @@ export function StorageStatsPanel({
         nativeSizeEstimate={nativeSizeEstimate}
         tileCacheStats={tileCacheStats}
         terrainCacheSize={terrainCacheSize}
+        heatmapCacheSize={heatmapCacheSize}
         freeStorage={freeStorage}
         isDark={isDark}
       />

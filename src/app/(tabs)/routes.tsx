@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
-import { View, StyleSheet, Alert } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
+import { View, StyleSheet, Alert, TouchableOpacity } from 'react-native';
 import { Text, IconButton } from 'react-native-paper';
 import { router, useLocalSearchParams } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -24,7 +25,6 @@ import {
   useUserLocation,
 } from '@/hooks';
 import { useHasStrengthData } from '@/hooks/activities/useStrengthVolume';
-import { useRouteNameGeocoding } from '@/hooks/routes/useRouteNameGeocoding';
 import { useRouteSettings, useSyncDateRange, useDebugStore, useEngineStatus } from '@/providers';
 import { logScreenRender } from '@/lib/debug/renderTimer';
 import { colors, darkColors, spacing } from '@/theme';
@@ -130,7 +130,7 @@ export default function RoutesScreen() {
 
   const { t } = useTranslation();
   const { isDark } = useTheme();
-  const { tab } = useLocalSearchParams<{ tab?: string }>();
+  const { tab, insightId } = useLocalSearchParams<{ tab?: string; insightId?: string }>();
   const { insights, markAsSeen } = useInsights();
   const hasStrength = useHasStrengthData();
   const { location: userLocation, requestPermission } = useUserLocation();
@@ -145,11 +145,11 @@ export default function RoutesScreen() {
 
   const routeSettings = useRouteSettings((s) => s.settings);
   const isRouteMatchingEnabled = routeSettings.enabled;
-  useRouteNameGeocoding(isRouteMatchingEnabled);
 
   const debugEnabled = useDebugStore((s) => s.enabled);
   const engineInitFailed = useEngineStatus((s) => s.initFailed);
-  const [engineBannerDismissed, setEngineBannerDismissed] = useState(false);
+  const engineBannerDismissed = useEngineStatus((s) => s.engineBannerDismissed);
+  const setEngineBannerDismissed = useEngineStatus((s) => s.setEngineBannerDismissed);
 
   const {
     data: routesData,
@@ -199,27 +199,31 @@ export default function RoutesScreen() {
       });
     }
 
-    result.push({
-      key: 'routes',
-      label: t('trainingScreen.routes'),
-      icon: 'map-marker-path',
-    });
+    if (isRouteMatchingEnabled) {
+      result.push({
+        key: 'routes',
+        label: t('trainingScreen.routes'),
+        icon: 'map-marker-path',
+      });
 
-    result.push({
-      key: 'sections',
-      label: t('trainingScreen.sections'),
-      icon: 'road-variant',
-    });
+      result.push({
+        key: 'sections',
+        label: t('trainingScreen.sections'),
+        icon: 'road-variant',
+      });
+    }
 
     if (debugEnabled) {
       result.push({ key: 'debug', label: 'Sync', icon: 'bug-outline' });
     }
 
     return result;
-  }, [debugEnabled, hasStrength, t]);
+  }, [debugEnabled, hasStrength, isRouteMatchingEnabled, t]);
 
   const availableTabKeys = useMemo(() => new Set(tabs.map((entry) => entry.key)), [tabs]);
   const [activeTab, setActiveTab] = useState<TabType>(() => {
+    // Deep-link from home insight chip — always lands on insights tab.
+    if (insightId) return 'insights';
     if (tab === 'strength' && hasStrength) return 'strength';
     if (tab === 'routes' || tab === 'sections' || tab === 'debug' || tab === 'insights') {
       return tab;
@@ -227,9 +231,24 @@ export default function RoutesScreen() {
     return 'insights';
   });
 
+  // When the insightId param is present, ensure the insights tab is active.
   useEffect(() => {
-    markAsSeen();
-  }, [markAsSeen]);
+    if (insightId) {
+      setActiveTab('insights');
+    }
+  }, [insightId]);
+
+  // Clear the insightId URL param after the panel reports it has opened the
+  // matching insight, so back-nav doesn't reopen the sheet.
+  const handleInsightOpened = useCallback(() => {
+    router.setParams({ insightId: undefined });
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      markAsSeen();
+    }, [markAsSeen])
+  );
 
   useEffect(() => {
     if (!tab) return;
@@ -360,8 +379,15 @@ export default function RoutesScreen() {
   // Per-tab memos isolate re-render blast radius: changing insights
   // doesn't recreate routes/sections JSX and vice versa.
   const insightsPage = useMemo(
-    () => <InsightsPanel key="insights" insights={insights} />,
-    [insights]
+    () => (
+      <InsightsPanel
+        key="insights"
+        insights={insights}
+        initialInsightId={insightId}
+        onInsightOpened={handleInsightOpened}
+      />
+    ),
+    [insights, insightId, handleInsightOpened]
   );
 
   const routesPage = useMemo(
@@ -455,6 +481,27 @@ export default function RoutesScreen() {
           <Text style={[styles.headerTitle, isDark && styles.textLight]}>
             {t('insights.title', 'Insights')}
           </Text>
+          {!isRouteMatchingEnabled && (
+            <TouchableOpacity
+              onPress={() => useRouteSettings.getState().setEnabled(true)}
+              style={styles.disabledHint}
+              activeOpacity={0.6}
+            >
+              <MaterialCommunityIcons
+                name="map-marker-off-outline"
+                size={14}
+                color={isDark ? darkColors.textMuted : colors.textSecondary}
+              />
+              <View>
+                <Text style={[styles.disabledHintText, isDark && styles.textMuted]}>
+                  {t('insights.routesDisabledLine1', 'Routes & Sections disabled')}
+                </Text>
+                <Text style={[styles.disabledHintLink]}>
+                  {t('insights.routesDisabledLine2', 'Tap to enable')}
+                </Text>
+              </View>
+            </TouchableOpacity>
+          )}
           <IconButton
             icon="information-outline"
             size={20}
@@ -506,6 +553,24 @@ const styles = StyleSheet.create({
   infoButton: {
     margin: 0,
   },
+  disabledHint: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    borderRadius: 12,
+    backgroundColor: 'rgba(245, 158, 11, 0.1)',
+  },
+  disabledHintText: {
+    fontSize: 12,
+    color: colors.textSecondary,
+  },
+  disabledHintLink: {
+    fontSize: 11,
+    color: colors.primary,
+    fontWeight: '500',
+  },
   headerTitle: {
     fontSize: 18,
     fontWeight: '600',
@@ -513,6 +578,9 @@ const styles = StyleSheet.create({
   },
   textLight: {
     color: colors.textOnDark,
+  },
+  textMuted: {
+    color: darkColors.textSecondary,
   },
   routeTabPage: {
     flex: 1,

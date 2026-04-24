@@ -10,6 +10,11 @@ tags:
 
 # Open a nonexistent activity via deep link
 - openLink: "veloq://activity/this-does-not-exist"
+- runFlow:
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
 
 # Wait briefly for the app to handle the invalid ID
 - extendedWaitUntil:
@@ -22,6 +27,11 @@ tags:
 
 # Verify app is still responsive by navigating to a real screen
 - openLink: "veloq://"
+- runFlow:
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
 - extendedWaitUntil:
     visible:
       id: "home-screen"
@@ -29,6 +39,11 @@ tags:
 
 # Navigate to another screen to confirm full responsiveness
 - openLink: "veloq://fitness"
+- runFlow:
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
 - extendedWaitUntil:
     visible:
       id: "fitness-screen"

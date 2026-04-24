@@ -11,6 +11,9 @@
 import { useMemo } from 'react';
 import type { LatLng } from '@/lib';
 import type { SectionOverlay } from '@/components/maps/ActivityMapView';
+import { sectionPaletteIndex } from '@/theme';
+import { buildGradientLineStops } from '@/lib/maps/gradientLineColor';
+import type { ActivityStreams } from '@/types';
 
 /** Data about a single section overlay used by the rendering layer */
 export interface SectionOverlayGeoJSON {
@@ -33,6 +36,8 @@ interface UseMapLayersParams {
   highlightIndex?: number | null;
   /** Active tab — controls marker style (numbered on sections, PR on charts) */
   activeTab?: string;
+  /** Activity streams — used to build per-point gradient colors */
+  streams?: ActivityStreams | null;
 }
 
 interface UseMapLayersResult {
@@ -50,8 +55,18 @@ interface UseMapLayersResult {
   consolidatedSectionsGeoJSON: GeoJSON.FeatureCollection;
   /** Consolidated portion polylines GeoJSON (stable shape source) */
   consolidatedPortionsGeoJSON: GeoJSON.FeatureCollection;
+  /** Perpendicular tick marks at each section's start/end. Cuts through stacked
+   *  portion overlays so section boundaries are visible even when portions overlap. */
+  sectionBoundariesGeoJSON: GeoJSON.FeatureCollection;
   /** GeoJSON for geo-anchored section markers (ShapeSource + CircleLayer + SymbolLayer) */
   sectionMarkersGeoJSON: GeoJSON.FeatureCollection;
+  /** Subset of sectionMarkersGeoJSON containing only numbered (non-PR) markers.
+   *  Pre-filtered at the feature level so CircleLayer doesn't need a filter prop —
+   *  @maplibre/maplibre-react-native's filter handling is unreliable for boolean
+   *  property comparisons on some native versions. */
+  sectionNumberedMarkersGeoJSON: GeoJSON.FeatureCollection;
+  /** Subset of sectionMarkersGeoJSON containing only PR markers. */
+  sectionPRMarkersGeoJSON: GeoJSON.FeatureCollection;
   /** GeoJSON for PR-only section markers in fullscreen modal */
   fullscreenPRMarkersGeoJSON: GeoJSON.FeatureCollection;
   /** Route coordinates in [lng, lat] format for BaseMapView / Map3DWebView */
@@ -60,6 +75,12 @@ interface UseMapLayersResult {
   highlightPoint: LatLng | null;
   /** GeoJSON for highlight point (ShapeSource + CircleLayer) */
   highlightGeoJSON: GeoJSON.Feature<GeoJSON.Point>;
+  /**
+   * MapLibre `line-gradient` interpolation expression for the route line,
+   * derived from altitude + distance streams. `null` when gradient data is
+   * unavailable (no altitude/distance stream, or track too short).
+   */
+  gradientLineExpression: unknown | null;
 }
 
 /** Minimal valid geometry placeholder — prevents Fabric add/remove crashes */
@@ -92,6 +113,7 @@ export function useMapLayers({
   sectionOverlays,
   highlightIndex,
   activeTab,
+  streams,
 }: UseMapLayersParams): UseMapLayersResult {
   // ----- route line -----
   const routeGeoJSON = useMemo((): GeoJSON.FeatureCollection | GeoJSON.Feature => {
@@ -170,7 +192,12 @@ export function useMapLayers({
         if (validSectionPoints.length >= 2) {
           sectionGeo = {
             type: 'Feature',
-            properties: { id: overlay.id, type: 'section', isPR: !!overlay.isPR },
+            properties: {
+              id: overlay.id,
+              type: 'section',
+              isPR: !!overlay.isPR,
+              colorIndex: sectionPaletteIndex(overlay.id),
+            },
             geometry: {
               type: 'LineString',
               coordinates: validSectionPoints.map((c) => [c.longitude, c.latitude]),
@@ -198,7 +225,12 @@ export function useMapLayers({
         if (validPortionPoints && validPortionPoints.length >= 2) {
           portionGeo = {
             type: 'Feature',
-            properties: { id: overlay.id, type: 'portion' },
+            properties: {
+              id: overlay.id,
+              type: 'portion',
+              isPR: !!overlay.isPR,
+              colorIndex: sectionPaletteIndex(overlay.id),
+            },
             geometry: {
               type: 'LineString',
               coordinates: validPortionPoints.map((c) => [c.longitude, c.latitude]),
@@ -299,6 +331,7 @@ export function useMapLayers({
           sectionId: overlay.id,
           label: isPRMarker ? 'PR' : String(index + 1),
           isPR: isPRMarker,
+          colorIndex: sectionPaletteIndex(overlay.id),
         },
         geometry: { type: 'Point', coordinates: [markerLng, markerLat] },
       });
@@ -306,6 +339,60 @@ export function useMapLayers({
 
     return { type: 'FeatureCollection', features };
   }, [sectionOverlaysGeoJSON, activeTab]);
+
+  // Split the combined markers into two pre-filtered collections so the 2D map
+  // doesn't need filter expressions on its layers (they don't consistently work
+  // on @maplibre/maplibre-react-native for boolean properties).
+  const sectionNumberedMarkersGeoJSON = useMemo((): GeoJSON.FeatureCollection => {
+    const features = sectionMarkersGeoJSON.features.filter((f) => f.properties?.isPR !== true);
+    return { type: 'FeatureCollection', features };
+  }, [sectionMarkersGeoJSON]);
+  const sectionPRMarkersGeoJSON = useMemo((): GeoJSON.FeatureCollection => {
+    const features = sectionMarkersGeoJSON.features.filter((f) => f.properties?.isPR === true);
+    return { type: 'FeatureCollection', features };
+  }, [sectionMarkersGeoJSON]);
+
+  // ----- section boundary ticks -----
+  // Perpendicular short line segments at each section's start and end.
+  // These cut through the stacked portion overlays so the user can see exactly
+  // where each section begins and ends, even where multiple sections overlap.
+  const sectionBoundariesGeoJSON = useMemo((): GeoJSON.FeatureCollection => {
+    if (!sectionOverlaysGeoJSON) return EMPTY_COLLECTION;
+
+    const features: GeoJSON.Feature<GeoJSON.LineString>[] = [];
+    const halfLen = 0.00014; // ~15m perpendicular tick at mid latitudes
+
+    sectionOverlaysGeoJSON.forEach((overlay) => {
+      const portionGeom = overlay.portionGeo?.geometry as GeoJSON.LineString | undefined;
+      const coords = portionGeom?.coordinates;
+      if (!coords || coords.length < 2) return;
+
+      const buildTick = (midIdx: number, neighborIdx: number, kind: 'start' | 'end') => {
+        const mid = coords[midIdx];
+        const neighbor = coords[neighborIdx];
+        if (!mid || !neighbor) return;
+        const dx = neighbor[0] - mid[0];
+        const dy = neighbor[1] - mid[1];
+        const len = Math.sqrt(dx * dx + dy * dy);
+        if (len === 0) return;
+        const nx = -dy / len;
+        const ny = dx / len;
+        const a: [number, number] = [mid[0] + nx * halfLen, mid[1] + ny * halfLen];
+        const b: [number, number] = [mid[0] - nx * halfLen, mid[1] - ny * halfLen];
+        if (!Number.isFinite(a[0]) || !Number.isFinite(b[0])) return;
+        features.push({
+          type: 'Feature',
+          properties: { sectionId: overlay.id, kind, isPR: !!overlay.isPR },
+          geometry: { type: 'LineString', coordinates: [a, b] },
+        });
+      };
+
+      buildTick(0, 1, 'start');
+      buildTick(coords.length - 1, coords.length - 2, 'end');
+    });
+
+    return { type: 'FeatureCollection', features };
+  }, [sectionOverlaysGeoJSON]);
 
   // ----- fullscreen PR marker GeoJSON -----
   // Always PR-only; uses section geometry midpoint without perpendicular offset.
@@ -367,6 +454,16 @@ export function useMapLayers({
     [highlightPoint]
   );
 
+  // ----- gradient line expression (for "color by gradient" mode) -----
+  // Uses intervals.icu's `grade_smooth` stream. Resampled to at most ~100
+  // stops so the expression stays compact regardless of track length.
+  const gradientLineExpression = useMemo(() => {
+    if (!streams || validCoordinates.length < 2) return null;
+    const stops = buildGradientLineStops(streams.grade_smooth);
+    if (!stops) return null;
+    return ['interpolate', ['linear'], ['line-progress'], ...stops];
+  }, [streams, validCoordinates.length]);
+
   return {
     routeGeoJSON,
     routeHasData,
@@ -375,10 +472,14 @@ export function useMapLayers({
     sectionOverlaysGeoJSON,
     consolidatedSectionsGeoJSON,
     consolidatedPortionsGeoJSON,
+    sectionBoundariesGeoJSON,
     sectionMarkersGeoJSON,
+    sectionNumberedMarkersGeoJSON,
+    sectionPRMarkersGeoJSON,
     fullscreenPRMarkersGeoJSON,
     routeCoords,
     highlightPoint,
     highlightGeoJSON,
+    gradientLineExpression,
   };
 }

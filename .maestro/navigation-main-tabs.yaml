@@ -22,6 +22,11 @@ tags:
 
 # Navigate back to Home
 - openLink: "veloq://"
+- runFlow:
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
 - extendedWaitUntil:
     visible:
       id: "home-screen"

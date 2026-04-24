@@ -62,12 +62,11 @@ export const EfficiencyTrendContent = React.memo(function EfficiencyTrendContent
           Matched-effort comparison
         </Text>
         <Text style={[styles.contextBody, isDark && styles.contextBodyDark]}>
-          This observation comes from repeat efforts on the same section that include both heart
-          rate and pace data. It looks for whether the cardiovascular cost has shifted across those
-          comparable passes over time.
+          Based on repeat efforts on the same section that include both heart rate and pace data.
+          Compares cardiovascular cost across those passes over time.
         </Text>
         <Text style={[styles.contextMeta, isDark && styles.contextMetaDark]}>
-          Open the section to inspect the underlying efforts.
+          Open the section for the underlying efforts.
         </Text>
       </View>
 

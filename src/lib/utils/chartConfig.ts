@@ -16,8 +16,10 @@ export type ChartTypeId =
   | 'cadence'
   | 'speed'
   | 'pace'
+  | 'gap'
   | 'elevation'
   | 'grade'
+  | 'wbal'
   | 'distance'
   | 'temp'
   | 'moving_time'
@@ -138,6 +140,33 @@ export const CHART_CONFIGS: Record<ChartTypeId, ChartConfig> = {
     getStream: (streams) => streams.grade_smooth,
     formatValue: (v) => v.toFixed(1),
   },
+  wbal: {
+    id: 'wbal',
+    label: "W'bal",
+    icon: 'flash-outline',
+    color: '#F97316',
+    unit: 'kJ',
+    // Sourced from intervals.icu's `w_bal` stream (joules). Displayed in kJ.
+    getStream: (streams) => streams.wbal?.map((j) => j / 1000),
+    formatValue: (v) => Math.round(v).toString(),
+  },
+  gap: {
+    id: 'gap',
+    label: 'GAP',
+    icon: 'trending-up',
+    color: '#06B6D4',
+    unit: '/km',
+    unitImperial: '/mi',
+    // Sourced from intervals.icu's `ga_velocity` stream (m/s), converted to
+    // min/km at parse time.
+    getStream: (streams) => streams.gap,
+    convertToImperial: (v) => v * 1.60934,
+    formatValue: (v) => {
+      const mins = Math.floor(v);
+      const secs = Math.round((v - mins) * 60);
+      return `${mins}:${secs.toString().padStart(2, '0')}`;
+    },
+  },
   distance: {
     id: 'distance',
     label: 'Dist',
@@ -154,8 +183,10 @@ export const CHART_CONFIGS: Record<ChartTypeId, ChartConfig> = {
     label: 'Temp',
     icon: 'thermometer',
     color: '#E76F51',
+    streamKey: 'temp',
     unit: '°C',
     unitImperial: '°F',
+    getStream: (streams) => streams.temp,
     convertToImperial: (v) => v * 1.8 + 32,
     formatValue: (v) => Math.round(v).toString(),
   },
@@ -180,8 +211,11 @@ const PRIMARY_CHART_IDS: ChartTypeId[] = [
   'cadence',
   'speed',
   'pace',
+  'gap',
   'elevation',
   'grade',
+  'wbal',
+  'temp',
 ];
 
 /**

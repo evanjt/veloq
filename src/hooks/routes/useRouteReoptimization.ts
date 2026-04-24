@@ -10,6 +10,9 @@
 import { useEffect } from 'react';
 import { useSyncDateRange } from '@/providers/SyncDateRangeStore';
 import { getRouteEngine } from '@/lib/native/routeEngine';
+import { debug } from '@/lib/utils/debug';
+
+const log = debug.create('RouteReoptimization');
 
 /**
  * Hook for automatic route re-optimization on cache expansion.
@@ -34,15 +37,11 @@ export function useRouteReoptimization() {
 
     const engine = getRouteEngine();
     if (!engine) {
-      if (__DEV__) {
-        console.warn('[useRouteReoptimization] Engine not initialized');
-      }
+      log.warn('Engine not initialized');
       return;
     }
 
-    if (__DEV__) {
-      console.log('[useRouteReoptimization] Cache expansion detected, marking for re-computation');
-    }
+    log.log('Cache expansion detected, marking for re-computation');
 
     // Mark engine for re-computation
     engine.markForRecomputation();

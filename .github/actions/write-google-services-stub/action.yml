@@ -1,0 +1,51 @@
+name: Write google-services.json
+description: Write google-services.json from a base64 secret, falling back to a valid placeholder stub so Gradle can complete
+
+inputs:
+  secret-contents:
+    description: 'Base64-encoded google-services.json (typically secrets.GOOGLE_SERVICES_JSON). Empty => use stub.'
+    required: false
+    default: ''
+  package-name:
+    description: 'Android package name used in the placeholder stub (ignored when a real secret is provided)'
+    required: false
+    default: 'com.veloq.app'
+
+runs:
+  using: composite
+  steps:
+    - name: Write google-services.json
+      shell: bash
+      env:
+        GOOGLE_SERVICES_JSON: ${{ inputs.secret-contents }}
+        PACKAGE_NAME: ${{ inputs.package-name }}
+      run: |
+        if [ -n "$GOOGLE_SERVICES_JSON" ]; then
+          echo "$GOOGLE_SERVICES_JSON" | base64 -d > google-services.json
+          echo "Wrote google-services.json from secret ($(stat -c%s google-services.json) bytes)"
+        else
+          echo "::notice::GOOGLE_SERVICES_JSON not available — writing stub for CI build"
+          cat > google-services.json << STUBEOF
+        {
+          "project_info": {
+            "project_number": "000000000000",
+            "firebase_url": "https://placeholder.firebaseio.com",
+            "project_id": "placeholder",
+            "storage_bucket": "placeholder.appspot.com"
+          },
+          "client": [
+            {
+              "client_info": {
+                "mobilesdk_app_id": "1:000000000000:android:0000000000000000",
+                "android_client_info": {
+                  "package_name": "${PACKAGE_NAME}"
+                }
+              },
+              "api_key": [{"current_key": "placeholder"}]
+            }
+          ],
+          "configuration_version": "1"
+        }
+        STUBEOF
+          echo "Wrote google-services.json stub ($(stat -c%s google-services.json) bytes)"
+        fi

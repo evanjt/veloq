@@ -135,7 +135,7 @@
 
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { formatDuration } from '@/lib';
+import { formatDuration, getApparentTemperature } from '@/lib';
 import type { Activity, WellnessData } from '@/types';
 import type { StatDetail } from './types';
 import { colors } from '@/theme';
@@ -364,13 +364,11 @@ export function useActivityStats({
       const isCold = temp < TEMPERATURE_THRESHOLDS.COLD;
       // Build context from available weather data
       const conditionParts: string[] = [];
-      if (
-        activity.average_feels_like != null &&
-        Math.abs(activity.average_feels_like - temp) >= FEELS_LIKE_THRESHOLD
-      ) {
+      const feelsLike = getApparentTemperature(activity);
+      if (feelsLike != null && Math.abs(feelsLike - temp) >= FEELS_LIKE_THRESHOLD) {
         conditionParts.push(
           t('activity.stats.feelsLike', {
-            temp: Math.round(activity.average_feels_like),
+            temp: Math.round(feelsLike),
           })
         );
       }
@@ -400,10 +398,10 @@ export function useActivityStats({
             label: t('activity.stats.temperature'),
             value: `${Math.round(temp)}°C`,
           },
-          activity.average_feels_like != null
+          feelsLike != null
             ? {
                 label: t('activity.stats.feelsLikeLabel'),
-                value: `${Math.round(activity.average_feels_like)}°C`,
+                value: `${Math.round(feelsLike)}°C`,
               }
             : null,
           activity.average_wind_speed != null

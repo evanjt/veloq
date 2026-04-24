@@ -1,0 +1,74 @@
+# Section Swipe-to-Hide (US-S5)
+# Swiping left on a section card reveals the "Hide" action. Tapping it
+# should remove the section from the visible list.
+#
+# Implementation: Swipeable from react-native-gesture-handler in
+# ActivitySectionsSection.tsx; the hide action calls handleToggleDisable
+# which flips sections.disabled = 1 in the Rust engine.
+
+appId: com.veloq.app.dev
+tags:
+  - tier2
+---
+- runFlow:
+    file: helpers/setup-demo-mode.yaml
+
+- openLink: "veloq://activity/demo-test-0?tab=sections"
+- runFlow:
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
+
+- extendedWaitUntil:
+    visible:
+      id: "activity-detail-content"
+    timeout: 15000
+
+- tapOn:
+    text: "Sections"
+    optional: true
+
+- extendedWaitUntil:
+    visible:
+      id: "activity-sections-list"
+    timeout: 10000
+
+- assertVisible:
+    id: "section-inline-plot-0"
+
+- takeScreenshot: "section-swipe-before"
+
+# Swipe left on the first card to reveal the hide action. The Section cards
+# are below the hero map — on a Pixel 5 in portrait, "Section 4" sits
+# around y=68%. (A higher y lands on the map and would open fullscreen.)
+- swipe:
+    start: 90%, 68%
+    end: 20%, 68%
+    duration: 800
+
+- waitForAnimationToEnd:
+    timeout: 1500
+
+- takeScreenshot: "section-swipe-revealed"
+
+# Tap the revealed "Hide" action. In the flow, the action label renders
+# to the right of the card after the swipe.
+- tapOn:
+    text: "Hide"
+
+- waitForAnimationToEnd:
+    timeout: 2000
+
+- takeScreenshot: "section-swipe-after-hide"
+
+# After hide, the list either re-renders with one fewer card or the entry
+# is replaced with a "hidden/undo" state. At minimum, confirm list still
+# renders cleanly (no NaN, no error text).
+- assertVisible:
+    id: "activity-sections-list"
+
+- assertNotVisible:
+    text: "NaN"
+- assertNotVisible:
+    text: "Error"

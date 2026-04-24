@@ -2,7 +2,9 @@ import React from 'react';
 import { Modal, View, StyleSheet, Pressable, ScrollView, Dimensions } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
 import { useTheme, useMetricSystem } from '@/hooks';
+import { formatWeight } from '@/lib/strength/formatting';
 import { colors, darkColors, spacing, typography, brand } from '@/theme';
 import type { MuscleGroupDetail } from '@/hooks/activities/useMuscleDetail';
 
@@ -16,20 +18,13 @@ interface MuscleDetailSheetProps {
   onClose: () => void;
 }
 
-function formatWeight(kg: number, isMetric: boolean): string {
-  if (isMetric) {
-    return kg % 1 === 0 ? `${kg} kg` : `${kg.toFixed(1)} kg`;
-  }
-  const lbs = kg * 2.20462;
-  return lbs % 1 === 0 ? `${lbs} lbs` : `${lbs.toFixed(1)} lbs`;
-}
-
 export const MuscleDetailSheet = React.memo(function MuscleDetailSheet({
   detail,
   visible,
   onClose,
 }: MuscleDetailSheetProps) {
   const { isDark } = useTheme();
+  const { t } = useTranslation();
   const isMetric = useMetricSystem();
 
   if (!detail) return null;
@@ -82,20 +77,26 @@ export const MuscleDetailSheet = React.memo(function MuscleDetailSheet({
               <Text style={[styles.statValue, isDark && styles.statValueDark]}>
                 {detail.totalSets}
               </Text>
-              <Text style={[styles.statLabel, isDark && styles.statLabelDark]}>Sets</Text>
+              <Text style={[styles.statLabel, isDark && styles.statLabelDark]}>
+                {t('activity.muscle.sets')}
+              </Text>
             </View>
             <View style={styles.stat}>
               <Text style={[styles.statValue, isDark && styles.statValueDark]}>
                 {detail.totalReps}
               </Text>
-              <Text style={[styles.statLabel, isDark && styles.statLabelDark]}>Reps</Text>
+              <Text style={[styles.statLabel, isDark && styles.statLabelDark]}>
+                {t('activity.muscle.reps')}
+              </Text>
             </View>
             {detail.totalVolumeKg > 0 && (
               <View style={styles.stat}>
                 <Text style={[styles.statValue, isDark && styles.statValueDark]}>
                   {formatWeight(Math.round(detail.totalVolumeKg), isMetric)}
                 </Text>
-                <Text style={[styles.statLabel, isDark && styles.statLabelDark]}>Volume</Text>
+                <Text style={[styles.statLabel, isDark && styles.statLabelDark]}>
+                  {t('activity.muscle.volume')}
+                </Text>
               </View>
             )}
           </View>
@@ -103,7 +104,7 @@ export const MuscleDetailSheet = React.memo(function MuscleDetailSheet({
           {/* Exercise list */}
           <View style={styles.exerciseSection}>
             <Text style={[styles.sectionTitle, isDark && styles.sectionTitleDark]}>
-              Contributing Exercises
+              {t('activity.muscle.contributingExercises')}
             </Text>
 
             {detail.exercises.map((ex, idx) => (
@@ -133,13 +134,13 @@ export const MuscleDetailSheet = React.memo(function MuscleDetailSheet({
                 </View>
                 <View style={styles.exerciseStats}>
                   <Text style={[styles.exerciseStat, isDark && styles.exerciseStatDark]}>
-                    {ex.sets} {ex.sets === 1 ? 'set' : 'sets'}
+                    {t('activity.muscle.setCount', { count: ex.sets })}
                   </Text>
                   <Text style={[styles.exerciseStatSep, isDark && styles.exerciseStatSepDark]}>
                     ·
                   </Text>
                   <Text style={[styles.exerciseStat, isDark && styles.exerciseStatDark]}>
-                    {ex.reps} reps
+                    {t('activity.muscle.repsCount', { count: ex.reps })}
                   </Text>
                   {ex.volumeKg > 0 && (
                     <>

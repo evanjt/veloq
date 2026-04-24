@@ -41,7 +41,12 @@ tags:
 - takeScreenshot: "settings-summary-card-sparkline-toggled"
 
 # Navigate to home to verify changes applied
-- openLink: "veloq://home"
+- openLink: "veloq://"
+- runFlow:
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
 - extendedWaitUntil:
     visible:
       id: "home-screen"

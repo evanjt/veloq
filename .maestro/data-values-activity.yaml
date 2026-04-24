@@ -16,6 +16,11 @@ tags:
 
 # Open activity via deep link
 - openLink: "veloq://activity/demo-test-0"
+- runFlow:
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
 - extendedWaitUntil:
     visible:
       id: "activity-detail-content"
@@ -34,6 +39,12 @@ tags:
     text: "undefined"
 - assertNotVisible:
     text: "Infinity"
+
+# Assert demo-test-0 fixture values are rendered (Ride: 45km, 1:30:00)
+- assertVisible:
+    id: "activity-detail-distance"
+- assertVisible:
+    id: "activity-detail-duration"
 
 - takeScreenshot: "data-values-activity-initial"
 

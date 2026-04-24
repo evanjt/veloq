@@ -24,6 +24,7 @@ jest.mock('@/lib', () => ({
     sunday.setDate(monday.getDate() + 6);
     return sunday;
   },
+  getIntlLocale: () => 'en-US',
 }));
 
 import { getISOWeekNumber, formatWeekRange } from '@/hooks/fitness/useAthleteSummary';

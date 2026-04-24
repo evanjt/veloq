@@ -1,5 +1,6 @@
 import type { Insight } from '@/types';
 import { getRouteEngine } from '@/lib/native/routeEngine';
+import { INSIGHTS_CONFIG, maxPerCategoryFor } from './config';
 
 /**
  * Aerobic Efficiency Trend Insights
@@ -23,9 +24,6 @@ import { getRouteEngine } from '@/lib/native/routeEngine';
 // Translation function type
 type TFunc = (key: string, params?: Record<string, string | number>) => string;
 
-/** Maximum efficiency trend insights to generate */
-const MAX_EFFICIENCY_INSIGHTS = 2;
-
 /**
  * Generate aerobic efficiency trend insights from the top-ranked sections.
  *
@@ -41,14 +39,17 @@ export function generateEfficiencyTrendInsights(
 ): Insight[] {
   const engine = getRouteEngine();
   if (!engine || sectionIds.length === 0) return [];
+  if (typeof engine.getSectionEfficiencyTrend !== 'function') return [];
 
+  const cap = maxPerCategoryFor('efficiency_trend');
+  const minEfforts = INSIGHTS_CONFIG.repetition.efficiency_trend_min;
   const insights: Insight[] = [];
 
   for (const sectionId of sectionIds) {
-    if (insights.length >= MAX_EFFICIENCY_INSIGHTS) break;
+    if (insights.length >= cap) break;
 
     const trend = engine.getSectionEfficiencyTrend(sectionId);
-    if (!trend || !trend.isImproving || trend.effortCount < 3) continue;
+    if (!trend || !trend.isImproving || trend.effortCount < minEfforts) continue;
 
     const hrChange = Math.abs(Math.round(trend.hrChangeBpm));
     if (hrChange < 1) continue;
@@ -72,6 +73,16 @@ export function generateEfficiencyTrendInsights(
       navigationTarget: `/section/${trend.sectionId}`,
       timestamp: now,
       isNew: false,
+      meta: {
+        sourceTimestamp: now,
+        comparisonKind: 'self',
+        repetitionCount: trend.effortCount,
+        specificity: {
+          hasNumber: hrChange > 0,
+          hasPlace: Boolean(trend.sectionName),
+          hasDate: false,
+        },
+      },
       supportingData: {
         dataPoints: [
           {

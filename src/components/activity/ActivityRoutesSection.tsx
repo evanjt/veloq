@@ -43,7 +43,7 @@ export const ActivityRoutesSection = React.memo(function ActivityRoutesSection({
           <MaterialCommunityIcons
             name="map-marker-question"
             size={48}
-            color={isDark ? '#555' : '#CCC'}
+            color={isDark ? '#71717A' : '#CCC'}
           />
           <Text style={[styles.noMatchTitle, isDark && styles.textLight]}>
             {t('activityDetail.noRouteMatch')}
@@ -64,6 +64,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   tabScrollContent: {
+    paddingTop: spacing.md,
     paddingBottom: spacing.xl + TAB_BAR_SAFE_PADDING,
   },
   noMatchContainer: {

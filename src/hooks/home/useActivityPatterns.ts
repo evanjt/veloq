@@ -24,9 +24,8 @@ export function useActivityPatterns(): {
     if (!engine) return { todayPattern: null, allPatterns: [] };
 
     try {
-      const todayPattern = engine.getPatternForToday() ?? null;
-      const allPatterns = engine.getActivityPatterns();
-      return { todayPattern, allPatterns };
+      const bundle = engine.getActivityPatternsWithToday();
+      return { todayPattern: bundle.today ?? null, allPatterns: bundle.all };
     } catch {
       return { todayPattern: null, allPatterns: [] };
     }

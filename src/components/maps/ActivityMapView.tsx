@@ -86,25 +86,16 @@
  * ```
  */
 
-import React, {
-  useMemo,
-  useState,
-  useRef,
-  useCallback,
-  useEffect,
-  memo,
-  useImperativeHandle,
-  forwardRef,
-} from 'react';
+import React, { useMemo, useState, useRef, useCallback, useEffect, memo } from 'react';
 import {
   View,
   StyleSheet,
   TouchableOpacity,
   Pressable,
+  Text as RNText,
   Modal,
   StatusBar,
   Animated,
-  Text,
   Platform,
   ActivityIndicator,
 } from 'react-native';
@@ -120,11 +111,24 @@ import {
 } from '@maplibre/maplibre-react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { decodePolyline, LatLng, getActivityColor } from '@/lib';
-import { colors, darkColors, typography, spacing, layout, shadows } from '@/theme';
+import { computeAttribution } from '@/lib/maps/computeAttribution';
+import {
+  brand,
+  colors,
+  darkColors,
+  spacing,
+  layout,
+  shadows,
+  sectionPalette,
+  sectionPaletteExpression,
+  sectionPaletteIndex,
+} from '@/theme';
 import { useMapPreferences } from '@/providers';
 import { useSectionCreation } from '@/hooks/maps/useSectionCreation';
 import { useMapCamera } from '@/hooks/maps/useMapCamera';
 import { useMapLayers } from '@/hooks/maps/useMapLayers';
+import { useMapFullscreen } from '@/hooks/maps/useMapFullscreen';
+import { useIOSMapTap } from '@/hooks/maps/useIOSMapTap';
 import { BaseMapView } from './BaseMapView';
 import { Map3DWebView, type Map3DWebViewRef } from './Map3DWebView';
 import { CompassArrow, ComponentErrorBoundary } from '@/components/ui';
@@ -140,80 +144,9 @@ import {
   getNextStyle,
   getStyleIcon,
   MAP_ATTRIBUTIONS,
-  TERRAIN_ATTRIBUTION,
-  getCombinedSatelliteAttribution,
 } from './mapStyles';
-import type { ActivityType, RoutePoint } from '@/types';
-
-/** Attribution overlay component that manages its own state to avoid parent re-renders */
-interface AttributionOverlayRef {
-  setAttribution: (text: string) => void;
-}
-
-interface AttributionOverlayProps {
-  initialAttribution: string;
-  isFullscreen: boolean;
-}
-
-const AttributionOverlay = memo(
-  forwardRef<AttributionOverlayRef, AttributionOverlayProps>(
-    ({ initialAttribution, isFullscreen }, ref) => {
-      const [attribution, setAttribution] = useState(initialAttribution);
-
-      useImperativeHandle(ref, () => ({
-        setAttribution,
-      }));
-
-      return (
-        <View
-          style={[attributionStyles.attribution, isFullscreen && attributionStyles.attributionPill]}
-        >
-          <Text
-            style={[
-              attributionStyles.attributionText,
-              isFullscreen && attributionStyles.attributionTextPill,
-            ]}
-          >
-            {attribution}
-          </Text>
-        </View>
-      );
-    }
-  )
-);
-
-const attributionStyles = StyleSheet.create({
-  attribution: {
-    position: 'absolute',
-    bottom: 4,
-    left: 0,
-    right: 0,
-    alignItems: 'center',
-    zIndex: 5,
-  },
-  attributionPill: {
-    left: 'auto',
-    right: spacing.sm,
-    bottom: spacing.sm,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: spacing.sm,
-  },
-  attributionText: {
-    fontSize: 9,
-    color: 'rgba(255, 255, 255, 0.5)',
-    textShadowColor: 'rgba(0, 0, 0, 0.5)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
-  },
-  attributionTextPill: {
-    color: colors.textSecondary,
-    textShadowColor: 'transparent',
-    textShadowOffset: { width: 0, height: 0 },
-    textShadowRadius: 0,
-  },
-});
+import { AttributionOverlay, type AttributionOverlayRef } from './AttributionOverlay';
+import type { ActivityType, ActivityStreams, RoutePoint } from '@/types';
 
 /** Section overlay for map visualization */
 export interface SectionOverlay {
@@ -301,6 +234,8 @@ interface ActivityMapViewProps {
   } | null;
   /** Activity country — used for demo mode satellite default on Swiss activities */
   country?: string | null;
+  /** Activity streams — required to compute per-point gradient coloring */
+  streams?: ActivityStreams | null;
 }
 
 export const ActivityMapView = memo(function ActivityMapView({
@@ -331,12 +266,13 @@ export const ActivityMapView = memo(function ActivityMapView({
   onCameraCapture,
   initial3DCamera,
   country,
+  streams,
 }: ActivityMapViewProps) {
   const { t } = useTranslation();
   const { getStyleForActivity } = useMapPreferences();
   const preferredStyle = getStyleForActivity(activityType, activityId, country);
   const [mapStyle, setMapStyle] = useState<MapStyleType>(initialStyle ?? preferredStyle);
-  const [isFullscreen, setIsFullscreen] = useState(false);
+  const { isFullscreen, openFullscreen, closeFullscreen } = useMapFullscreen({ enableFullscreen });
   const [is3DMode, setIs3DMode] = useState(!!initial3DCamera);
   const [is3DReady, setIs3DReady] = useState(false);
   const map3DRef = useRef<Map3DWebViewRef>(null);
@@ -353,9 +289,6 @@ export const ActivityMapView = memo(function ActivityMapView({
 
   // Track if user manually overrode the style
   const [userOverride, setUserOverride] = useState(false);
-
-  // Track touch start for iOS tap detection (MapView.onPress doesn't fire on iOS with Fabric)
-  const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
 
   // DEBUG: Track render count
   const renderCountRef = useRef(0);
@@ -410,13 +343,16 @@ export const ActivityMapView = memo(function ActivityMapView({
     overlayGeoJSON,
     overlayHasData,
     sectionOverlaysGeoJSON,
-    consolidatedSectionsGeoJSON,
     consolidatedPortionsGeoJSON,
+    sectionBoundariesGeoJSON,
     sectionMarkersGeoJSON,
+    sectionNumberedMarkersGeoJSON,
+    sectionPRMarkersGeoJSON,
     fullscreenPRMarkersGeoJSON,
     routeCoords,
     highlightPoint,
     highlightGeoJSON,
+    gradientLineExpression,
   } = useMapLayers({
     validCoordinates,
     coordinates,
@@ -424,7 +360,18 @@ export const ActivityMapView = memo(function ActivityMapView({
     sectionOverlays,
     highlightIndex,
     activeTab,
+    streams,
   });
+
+  // "Color by gradient" toggle — session-local, per-activity.
+  // Off by default so the normal solid-color experience is unchanged.
+  const [colorByGradient, setColorByGradient] = useState(false);
+  const hasGradientData = gradientLineExpression != null;
+  const gradientActive = colorByGradient && hasGradientData;
+
+  const toggleColorByGradient = useCallback(() => {
+    setColorByGradient((current) => !current);
+  }, []);
 
   // Section creation hook
   const {
@@ -501,12 +448,36 @@ export const ActivityMapView = memo(function ActivityMapView({
     }
   }, [is3DMode, map3DOpacity]);
 
-  // Track 3D camera state for capture on exit
+  // Refs used by the attribution pipeline — declared here so the 3D camera
+  // handler below can mirror camera state into them without TDZ issues.
+  const attributionRef = useRef<AttributionOverlayRef>(null);
+  const initialAttributionRef = useRef(MAP_ATTRIBUTIONS[mapStyle]);
+  const mapStyleRef = useRef(mapStyle);
+  const is3DModeRef = useRef(is3DMode);
+  const onAttributionChangeRef = useRef(onAttributionChange);
+  mapStyleRef.current = mapStyle;
+  is3DModeRef.current = is3DMode;
+  onAttributionChangeRef.current = onAttributionChange;
+
+  // Track 3D camera state for capture on exit, and mirror into the shared
+  // center/zoom refs so the attribution pipeline reflects the 3D viewport.
   const handleCameraStateChange = useCallback(
     (camera: { center: [number, number]; zoom: number; bearing: number; pitch: number }) => {
       camera3DRef.current = camera;
+      if (is3DModeRef.current) {
+        currentCenterRef.current = camera.center;
+        currentZoomRef.current = camera.zoom;
+        const newAttribution = computeAttribution({
+          style: mapStyleRef.current,
+          is3D: true,
+          center: camera.center,
+          zoom: camera.zoom,
+        });
+        attributionRef.current?.setAttribution(newAttribution);
+        onAttributionChangeRef.current?.(newAttribution);
+      }
     },
-    []
+    [currentCenterRef, currentZoomRef]
   );
 
   // Handle 3D map ready
@@ -518,16 +489,6 @@ export const ActivityMapView = memo(function ActivityMapView({
       useNativeDriver: true,
     }).start();
   }, [map3DOpacity]);
-
-  const openFullscreen = useCallback(() => {
-    if (enableFullscreen) {
-      setIsFullscreen(true);
-    }
-  }, [enableFullscreen]);
-
-  const closeFullscreen = () => {
-    setIsFullscreen(false);
-  };
 
   // Handle map press - using MapView's native onPress instead of gesture detector
   // This properly distinguishes taps from zoom/pan gestures
@@ -553,32 +514,10 @@ export const ActivityMapView = memo(function ActivityMapView({
 
   // iOS tap handler - converts screen coordinates to map coordinates
   // MapView.onPress doesn't fire reliably on iOS with Fabric architecture
-  const handleiOSTap = useCallback(
-    async (screenX: number, screenY: number) => {
-      if (!mapRef.current) return;
-
-      try {
-        // Convert screen coordinates to map coordinates [lng, lat]
-        const coords = await mapRef.current.getCoordinateFromView([screenX, screenY]);
-        if (!coords || coords.length < 2) return;
-
-        // Create a GeoJSON feature and call handleMapPress
-        const feature: GeoJSON.Feature = {
-          type: 'Feature',
-          properties: {},
-          geometry: {
-            type: 'Point',
-            coordinates: coords,
-          },
-        };
-
-        handleMapPress(feature);
-      } catch {
-        // Silently fail - tap handling is best effort
-      }
-    },
-    [handleMapPress, mapRef]
-  );
+  const { onTouchStart: onIOSTouchStart, onTouchEnd: onIOSTouchEnd } = useIOSMapTap({
+    mapRef,
+    onMapPress: handleMapPress,
+  });
 
   // Stop in-flight animations on unmount to prevent updates on unmounted component
   useEffect(() => {
@@ -593,6 +532,40 @@ export const ActivityMapView = memo(function ActivityMapView({
       bearingAnim.setValue(-bearing);
     },
     [bearingAnim]
+  );
+
+  // Handle 3D map click — forward to section creation hook
+  const handle3DMapClick = useCallback(
+    (coordinate: [number, number]) => {
+      if (creationMode) {
+        handleCreationTap(coordinate[0], coordinate[1]);
+      }
+    },
+    [creationMode, handleCreationTap]
+  );
+
+  // Handle 3D section click — forward to parent handler
+  const handle3DSectionClick = useCallback(
+    (sectionId: string) => {
+      onSectionMarkerPress?.(sectionId);
+    },
+    [onSectionMarkerPress]
+  );
+
+  // Section creation start/end coordinates in [lng, lat] format for 3D map
+  const sectionCreationStartCoord: [number, number] | null = useMemo(
+    () =>
+      creationMode && sectionStartPoint
+        ? [sectionStartPoint.longitude, sectionStartPoint.latitude]
+        : null,
+    [creationMode, sectionStartPoint]
+  );
+  const sectionCreationEndCoord: [number, number] | null = useMemo(
+    () =>
+      creationMode && sectionEndPoint
+        ? [sectionEndPoint.longitude, sectionEndPoint.latitude]
+        : null,
+    [creationMode, sectionEndPoint]
   );
 
   const activityColor = getActivityColor(activityType);
@@ -613,35 +586,21 @@ export const ActivityMapView = memo(function ActivityMapView({
 
   // ----- Attribution management -----
   const attributionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Ref to update attribution without causing parent re-render
-  const attributionRef = useRef<AttributionOverlayRef>(null);
-  const initialAttributionRef = useRef(MAP_ATTRIBUTIONS[mapStyle]);
-  // Store latest values in refs to avoid stale closure in debounced callback
-  const mapStyleRef = useRef(mapStyle);
-  const is3DModeRef = useRef(is3DMode);
-  const onAttributionChangeRef = useRef(onAttributionChange);
-  mapStyleRef.current = mapStyle;
-  is3DModeRef.current = is3DMode;
-  onAttributionChangeRef.current = onAttributionChange;
+  // attributionRef / initialAttributionRef / mapStyleRef / is3DModeRef /
+  // onAttributionChangeRef are declared earlier (before handleCameraStateChange)
+  // so the 3D camera handler can mirror camera state into them without TDZ.
 
   // Compute attribution from current viewport - uses refs for latest values
-  const computeAttributionFromRefs = useCallback(() => {
-    const center = currentCenterRef.current;
-    const zoom = currentZoomRef.current;
-    const style = mapStyleRef.current;
-    const is3D = is3DModeRef.current;
-
-    if (style === 'satellite' && center) {
-      const satAttribution = getCombinedSatelliteAttribution(
-        center[1], // lat
-        center[0], // lng
-        zoom
-      );
-      return is3D ? `${satAttribution} | ${TERRAIN_ATTRIBUTION}` : satAttribution;
-    }
-    const baseAttribution = MAP_ATTRIBUTIONS[style];
-    return is3D ? `${baseAttribution} | ${TERRAIN_ATTRIBUTION}` : baseAttribution;
-  }, [currentCenterRef, currentZoomRef]);
+  const computeAttributionFromRefs = useCallback(
+    () =>
+      computeAttribution({
+        style: mapStyleRef.current,
+        is3D: is3DModeRef.current,
+        center: currentCenterRef.current,
+        zoom: currentZoomRef.current,
+      }),
+    [currentCenterRef, currentZoomRef]
+  );
 
   // Compose camera region-did-change with attribution debounce
   const handleRegionDidChange = useCallback(
@@ -716,25 +675,9 @@ export const ActivityMapView = memo(function ActivityMapView({
         style={styles.container}
         {...(creationMode && Platform.OS === 'ios'
           ? {
-              onTouchStart: (e: { nativeEvent: { locationX: number; locationY: number } }) => {
-                touchStartRef.current = {
-                  x: e.nativeEvent.locationX,
-                  y: e.nativeEvent.locationY,
-                  time: Date.now(),
-                };
-              },
-              onTouchEnd: (e: { nativeEvent: { locationX: number; locationY: number } }) => {
-                const start = touchStartRef.current;
-                if (!start) return;
-                const dx = Math.abs(e.nativeEvent.locationX - start.x);
-                const dy = Math.abs(e.nativeEvent.locationY - start.y);
-                const duration = Date.now() - start.time;
-                const isTap = duration < 300 && dx < 10 && dy < 10;
-                if (isTap && !isFullscreen && !(is3DMode && is3DReady)) {
-                  handleiOSTap(e.nativeEvent.locationX, e.nativeEvent.locationY);
-                }
-                touchStartRef.current = null;
-              },
+              onTouchStart: onIOSTouchStart,
+              onTouchEnd: (e: { nativeEvent: { locationX: number; locationY: number } }) =>
+                onIOSTouchEnd(e, () => !isFullscreen && !(is3DMode && is3DReady)),
             }
           : {})}
       >
@@ -819,65 +762,118 @@ export const ActivityMapView = memo(function ActivityMapView({
                   lineWidth: 4,
                   lineCap: 'round',
                   lineJoin: 'round',
-                  lineOpacity: sectionOverlaysGeoJSON
-                    ? highlightedSectionId
-                      ? 0.25
-                      : 0.8
-                    : overlayHasData
-                      ? 0.85
-                      : 1,
+                  // Hide the solid-color line when gradient coloring is active.
+                  lineOpacity: gradientActive
+                    ? 0
+                    : sectionOverlaysGeoJSON
+                      ? highlightedSectionId
+                        ? 0.25
+                        : 0.8
+                      : overlayHasData
+                        ? 0.85
+                        : 1,
                 }}
               />
             </ShapeSource>
 
-            {/* Section overlays - render after route line so they appear on top */}
-            {/* CRITICAL: Always render stable ShapeSources to avoid Fabric crash */}
-            {/* Using consolidated GeoJSONs prevents add/remove cycles during state changes */}
-            <ShapeSource id="section-overlays-consolidated" shape={consolidatedSectionsGeoJSON}>
+            {/* Gradient-coloured route line (requires lineMetrics for line-progress). */}
+            {/* CRITICAL: Always render ShapeSource to avoid add/remove cycles that crash iOS MapLibre */}
+            <ShapeSource id="routeGradientSource" shape={routeGeoJSON} lineMetrics={true}>
               <LineLayer
-                id="section-overlays-line"
+                id="routeLineGradient"
                 style={{
-                  lineColor:
-                    activeTab === 'charts'
-                      ? '#D4AF37'
-                      : highlightedSectionId
-                        ? [
-                            'case',
-                            ['==', ['get', 'id'], highlightedSectionId],
-                            '#FFAB00',
-                            ['case', ['==', ['get', 'isPR'], true], '#D4AF37', '#00BCD4'],
-                          ]
-                        : ['case', ['==', ['get', 'isPR'], true], '#D4AF37', '#00BCD4'],
+                  lineColor: activityColor,
+                  lineWidth: 4,
+                  lineCap: 'round',
+                  lineJoin: 'round',
+                  ...(gradientActive && gradientLineExpression
+                    ? { lineGradient: gradientLineExpression as unknown as string }
+                    : {}),
+                  lineOpacity: gradientActive ? 1 : 0,
+                }}
+              />
+            </ShapeSource>
+
+            {/* Section portion overlays - render after route line so they appear on top.
+                One line per section, drawn along the activity's own GPS trace (not the
+                averaged section consensus). White casing for contrast, PR gold or section
+                palette color for fill. */}
+            {/* CRITICAL: Always render stable ShapeSource to avoid Fabric crash */}
+            <ShapeSource id="portion-overlays-consolidated" shape={consolidatedPortionsGeoJSON}>
+              <LineLayer
+                id="portion-overlays-casing"
+                style={{
+                  lineColor: '#FFFFFF',
                   lineWidth: highlightedSectionId
-                    ? ['case', ['==', ['get', 'id'], highlightedSectionId], 7, 4]
-                    : 5,
+                    ? ['case', ['==', ['get', 'id'], highlightedSectionId], 7, 5]
+                    : 6,
                   lineCap: 'round',
                   lineJoin: 'round',
                   lineOpacity: sectionOverlaysGeoJSON
                     ? highlightedSectionId
                       ? ['case', ['==', ['get', 'id'], highlightedSectionId], 1, 0.15]
-                      : 0.7
+                      : 0.9
                     : 0,
                 }}
               />
-            </ShapeSource>
-            <ShapeSource id="portion-overlays-consolidated" shape={consolidatedPortionsGeoJSON}>
               <LineLayer
                 id="portion-overlays-line"
                 style={{
                   lineColor: highlightedSectionId
-                    ? ['case', ['==', ['get', 'id'], highlightedSectionId], '#FFAB00', '#E91E63']
-                    : '#E91E63',
+                    ? [
+                        'case',
+                        ['==', ['get', 'id'], highlightedSectionId],
+                        '#00E5FF',
+                        [
+                          'case',
+                          ['==', ['get', 'isPR'], true],
+                          '#D4AF37',
+                          sectionPaletteExpression() as unknown as string,
+                        ],
+                      ]
+                    : [
+                        'case',
+                        ['==', ['get', 'isPR'], true],
+                        '#D4AF37',
+                        sectionPaletteExpression() as unknown as string,
+                      ],
                   lineWidth: highlightedSectionId
                     ? ['case', ['==', ['get', 'id'], highlightedSectionId], 5, 3]
                     : 4,
-                  lineCap: 'round',
+                  lineCap: 'butt',
                   lineJoin: 'round',
+                  // Dashed pattern so overlapping sections are visually
+                  // distinguishable (you can see the other color showing through the gaps).
+                  lineDasharray: [2, 1.2],
                   lineOpacity: sectionOverlaysGeoJSON
                     ? highlightedSectionId
-                      ? ['case', ['==', ['get', 'id'], highlightedSectionId], 1, 0.15]
-                      : 1
+                      ? ['case', ['==', ['get', 'id'], highlightedSectionId], 1, 0.25]
+                      : 0.95
                     : 0,
+                }}
+              />
+            </ShapeSource>
+
+            {/* Section boundary ticks — perpendicular short line segments at each
+                portion's start/end. Always rendered, drawn above portions so section
+                breaks are visible even where portions overlap. */}
+            <ShapeSource id="section-boundaries" shape={sectionBoundariesGeoJSON}>
+              <LineLayer
+                id="section-boundaries-casing"
+                style={{
+                  lineColor: '#000000',
+                  lineWidth: 6,
+                  lineCap: 'round',
+                  lineOpacity: 0.45,
+                }}
+              />
+              <LineLayer
+                id="section-boundaries-line"
+                style={{
+                  lineColor: '#FFFFFF',
+                  lineWidth: 3.5,
+                  lineCap: 'round',
+                  lineOpacity: 1,
                 }}
               />
             </ShapeSource>
@@ -968,38 +964,46 @@ export const ActivityMapView = memo(function ActivityMapView({
               </View>
             </MarkerView>
 
-            {/* Section numbered/PR markers — geo-anchored so they track with map pan/zoom */}
-            {/* Uses ShapeSource + CircleLayer + SymbolLayer instead of MarkerView: */}
-            {/* MarkerView coordinate updates break native position binding in MapLibre RN */}
-            <ShapeSource
-              id="sectionMarkersSource"
-              shape={sectionMarkersGeoJSON}
-              onPress={(e) => {
-                const sectionId = e.features[0]?.properties?.sectionId as string | undefined;
-                if (sectionId) onSectionMarkerPress?.(sectionId);
-              }}
-            >
-              <CircleLayer
-                id="section-marker-circle"
-                style={{
-                  circleRadius: ['case', ['get', 'isPR'], 14, 12] as unknown as number,
-                  circleColor: ['case', ['get', 'isPR'], '#D4AF37', '#00BCD4'] as unknown as string,
-                  circleStrokeWidth: ['case', ['get', 'isPR'], 2.5, 2] as unknown as number,
-                  circleStrokeColor: '#FFFFFF',
-                }}
-              />
-              <SymbolLayer
-                id="section-marker-text"
-                style={{
-                  textField: ['get', 'label'] as unknown as string,
-                  textColor: '#FFFFFF',
-                  textSize: 10,
-                  textAnchor: 'center',
-                  textAllowOverlap: true,
-                  textIgnorePlacement: true,
-                }}
-              />
-            </ShapeSource>
+            {/* Numbered section markers — one MarkerView per non-PR section.
+                MarkerView is used here (not a ShapeSource + CircleLayer) because
+                @maplibre/maplibre-react-native's boolean filters don't reliably
+                render on native, and MarkerView with React children always does.
+                Each badge uses the section's palette color to match the row. */}
+            {sectionNumberedMarkersGeoJSON.features.map((f) => {
+              const geom = f.geometry as GeoJSON.Point;
+              const coord = geom?.coordinates as [number, number] | undefined;
+              const sectionId = f.properties?.sectionId as string | undefined;
+              const label = f.properties?.label as string | undefined;
+              if (!coord || !sectionId || !label) return null;
+              const color = sectionPalette[sectionPaletteIndex(sectionId)];
+              return (
+                <MarkerView key={`num-${sectionId}`} coordinate={coord} allowOverlap={true}>
+                  <Pressable
+                    onPress={() => onSectionMarkerPress?.(sectionId)}
+                    style={[styles.sectionNumberBadge, { backgroundColor: color }]}
+                  >
+                    <RNText style={styles.sectionNumberBadgeText}>{label}</RNText>
+                  </Pressable>
+                </MarkerView>
+              );
+            })}
+            {/* PR section markers — vector trophy via MarkerView, matches feed cards. */}
+            {sectionPRMarkersGeoJSON.features.map((f) => {
+              const geom = f.geometry as GeoJSON.Point;
+              const coord = geom?.coordinates as [number, number] | undefined;
+              const sectionId = f.properties?.sectionId as string | undefined;
+              if (!coord || !sectionId) return null;
+              return (
+                <MarkerView key={`pr-${sectionId}`} coordinate={coord} allowOverlap={true}>
+                  <Pressable
+                    onPress={() => onSectionMarkerPress?.(sectionId)}
+                    style={styles.prTrophyMarker}
+                  >
+                    <MaterialCommunityIcons name="trophy" size={14} color={brand.gold} />
+                  </Pressable>
+                </MarkerView>
+              );
+            })}
 
             {/* Highlight marker from chart scrubbing — rendered last so it's on top of all layers */}
             {/* Uses ShapeSource + CircleLayer because MarkerView coordinate updates break native position binding */}
@@ -1016,7 +1020,7 @@ export const ActivityMapView = memo(function ActivityMapView({
                 id="highlight-fill"
                 style={{
                   circleRadius: 5,
-                  circleColor: '#00BCD4',
+                  circleColor: sectionPalette[0],
                   circleOpacity: highlightPoint ? 1 : 0,
                 }}
               />
@@ -1044,10 +1048,29 @@ export const ActivityMapView = memo(function ActivityMapView({
                 highlightCoordinate={
                   highlightPoint ? [highlightPoint.longitude, highlightPoint.latitude] : null
                 }
+                tracesGeoJSON={
+                  consolidatedPortionsGeoJSON.features.length > 0
+                    ? consolidatedPortionsGeoJSON
+                    : undefined
+                }
+                sectionBoundariesGeoJSON={
+                  sectionBoundariesGeoJSON.features.length > 0
+                    ? sectionBoundariesGeoJSON
+                    : undefined
+                }
+                highlightedSectionId={highlightedSectionId}
+                sectionMarkersGeoJSON={
+                  sectionMarkersGeoJSON.features.length > 0 ? sectionMarkersGeoJSON : undefined
+                }
                 onMapReady={handleMap3DReady}
                 onBearingChange={handleBearingChange}
                 onCameraStateChange={handleCameraStateChange}
                 initialCamera={initial3DCamera}
+                onMapClick={handle3DMapClick}
+                onSectionClick={handle3DSectionClick}
+                sectionCreationGeoJSON={creationMode ? sectionGeoJSON : null}
+                sectionCreationStart={sectionCreationStartCoord}
+                sectionCreationEnd={sectionCreationEndCoord}
               />
             </Animated.View>
           </ComponentErrorBoundary>
@@ -1065,44 +1088,8 @@ export const ActivityMapView = memo(function ActivityMapView({
           <AttributionOverlay
             ref={attributionRef}
             initialAttribution={initialAttributionRef.current}
-            isFullscreen={isFullscreen}
           />
         )}
-
-        {/* Route overlay legend */}
-        {overlayHasData && !isFullscreen && (
-          <View style={styles.overlayLegend}>
-            <View style={styles.legendRow}>
-              <View style={[styles.legendLine, { backgroundColor: '#00E5FF' }]} />
-              <Text style={styles.legendText}>{t('routes.legendRoute')}</Text>
-            </View>
-            <View style={styles.legendRow}>
-              <View style={[styles.legendLine, { backgroundColor: activityColor }]} />
-              <Text style={styles.legendText}>{t('routes.thisActivity')}</Text>
-            </View>
-          </View>
-        )}
-
-        {/* Section overlays legend — only on Sections tab */}
-        {activeTab === 'sections' &&
-          sectionOverlaysGeoJSON &&
-          sectionOverlaysGeoJSON.length > 0 &&
-          !isFullscreen && (
-            <View style={styles.overlayLegend}>
-              <View style={styles.legendRow}>
-                <View style={[styles.legendLine, { backgroundColor: '#00BCD4' }]} />
-                <Text style={styles.legendText}>{t('routes.legendSection')}</Text>
-              </View>
-              <View style={styles.legendRow}>
-                <View style={[styles.legendLine, { backgroundColor: '#E91E63' }]} />
-                <Text style={styles.legendText}>{t('routes.legendYourEffort')}</Text>
-              </View>
-              <View style={styles.legendRow}>
-                <View style={[styles.legendLine, { backgroundColor: activityColor }]} />
-                <Text style={styles.legendText}>{t('routes.legendFullActivity')}</Text>
-              </View>
-            </View>
-          )}
       </View>
 
       {/* Control buttons - rendered OUTSIDE map container for reliable touch handling */}
@@ -1121,6 +1108,33 @@ export const ActivityMapView = memo(function ActivityMapView({
               color={isDark ? colors.textOnDark : colors.textSecondary}
             />
           </TouchableOpacity>
+
+          {/* Gradient coloring toggle — only shown when gradient data is available; hidden in 3D (no effect there) */}
+          {hasGradientData && !is3DMode && (
+            <TouchableOpacity
+              accessibilityLabel={t('maps.colorByGradient')}
+              style={[
+                styles.controlButton,
+                isDark && styles.controlButtonDark,
+                gradientActive && styles.controlButtonActive,
+              ]}
+              onPressIn={toggleColorByGradient}
+              activeOpacity={0.6}
+              hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
+            >
+              <MaterialCommunityIcons
+                name="slope-uphill"
+                size={22}
+                color={
+                  gradientActive
+                    ? colors.textOnDark
+                    : isDark
+                      ? colors.textOnDark
+                      : colors.textSecondary
+                }
+              />
+            </TouchableOpacity>
+          )}
 
           {/* 3D toggle */}
           {hasRoute && (
@@ -1184,6 +1198,7 @@ export const ActivityMapView = memo(function ActivityMapView({
           {/* Fullscreen expand */}
           {enableFullscreen && (
             <TouchableOpacity
+              testID="activity-map-fullscreen"
               style={[styles.controlButton, isDark && styles.controlButtonDark]}
               onPressIn={openFullscreen}
               activeOpacity={0.6}
@@ -1214,25 +1229,29 @@ export const ActivityMapView = memo(function ActivityMapView({
           initialStyle={mapStyle}
           onClose={closeFullscreen}
         >
-          {/* Section overlays in fullscreen */}
-          {/* CRITICAL: Always render stable ShapeSources to avoid Fabric crash */}
-          <ShapeSource id="fs-section-overlays-consolidated" shape={consolidatedSectionsGeoJSON}>
+          {/* Section portion overlays in fullscreen - one line per section, drawn along
+              the activity's own GPS trace with white casing for contrast. */}
+          {/* CRITICAL: Always render stable ShapeSource to avoid Fabric crash */}
+          <ShapeSource id="fs-portion-overlays-consolidated" shape={consolidatedPortionsGeoJSON}>
             <LineLayer
-              id="fs-section-overlays-line"
+              id="fs-portion-overlays-casing"
               style={{
-                lineColor: '#00BCD4',
-                lineWidth: 5,
+                lineColor: '#FFFFFF',
+                lineWidth: 6,
                 lineCap: 'round',
                 lineJoin: 'round',
-                lineOpacity: sectionOverlaysGeoJSON ? 0.7 : 0,
+                lineOpacity: sectionOverlaysGeoJSON ? 0.9 : 0,
               }}
             />
-          </ShapeSource>
-          <ShapeSource id="fs-portion-overlays-consolidated" shape={consolidatedPortionsGeoJSON}>
             <LineLayer
               id="fs-portion-overlays-line"
               style={{
-                lineColor: '#E91E63',
+                lineColor: [
+                  'case',
+                  ['==', ['get', 'isPR'], true],
+                  '#D4AF37',
+                  sectionPaletteExpression() as unknown as string,
+                ],
                 lineWidth: 4,
                 lineCap: 'round',
                 lineJoin: 'round',
@@ -1241,37 +1260,24 @@ export const ActivityMapView = memo(function ActivityMapView({
             />
           </ShapeSource>
 
-          {/* PR markers at center of each PR section in fullscreen */}
-          {/* Geo-anchored via ShapeSource so markers track with pan/zoom */}
-          <ShapeSource
-            id="fs-section-markers-source"
-            shape={fullscreenPRMarkersGeoJSON}
-            onPress={(e) => {
-              const sectionId = e.features[0]?.properties?.sectionId as string | undefined;
-              if (sectionId) onSectionMarkerPress?.(sectionId);
-            }}
-          >
-            <CircleLayer
-              id="fs-section-marker-circle"
-              style={{
-                circleRadius: 14,
-                circleColor: '#D4AF37',
-                circleStrokeWidth: 2.5,
-                circleStrokeColor: '#FFFFFF',
-              }}
-            />
-            <SymbolLayer
-              id="fs-section-marker-text"
-              style={{
-                textField: ['get', 'label'] as unknown as string,
-                textColor: '#FFFFFF',
-                textSize: 10,
-                textAnchor: 'center',
-                textAllowOverlap: true,
-                textIgnorePlacement: true,
-              }}
-            />
-          </ShapeSource>
+          {/* PR markers at center of each PR section in fullscreen.
+              Vector trophy via MarkerView for visual parity with feed cards. */}
+          {fullscreenPRMarkersGeoJSON.features.map((f) => {
+            const geom = f.geometry as GeoJSON.Point;
+            const coord = geom?.coordinates as [number, number] | undefined;
+            const sectionId = f.properties?.sectionId as string | undefined;
+            if (!coord || !sectionId) return null;
+            return (
+              <MarkerView key={`fs-pr-${sectionId}`} coordinate={coord} allowOverlap={true}>
+                <Pressable
+                  onPress={() => onSectionMarkerPress?.(sectionId)}
+                  style={styles.prTrophyBadge}
+                >
+                  <MaterialCommunityIcons name="trophy" size={12} color="#FFFFFF" />
+                </Pressable>
+              </MarkerView>
+            );
+          })}
 
           {/* Start marker */}
           {/* CRITICAL: Always render to avoid Fabric crash - control visibility via opacity */}
@@ -1360,6 +1366,38 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: colors.textOnDark,
   },
+  sectionNumberBadge: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+    ...shadows.pill,
+  },
+  prTrophyMarker: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    transform: [{ translateY: -30 }],
+  },
+  prTrophyBadge: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: '#D4AF37',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+    ...shadows.pill,
+  },
+  sectionNumberBadgeText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
+    fontSize: 12,
+    textAlign: 'center',
+  },
   startMarker: {
     backgroundColor: 'rgba(34,197,94,0.75)',
   },
@@ -1411,48 +1449,5 @@ const styles = StyleSheet.create({
   },
   controlButtonActive: {
     backgroundColor: colors.primary,
-  },
-  overlayLegend: {
-    position: 'absolute',
-    bottom: spacing.sm + 36,
-    right: spacing.sm,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    borderRadius: spacing.sm,
-    zIndex: 10,
-    gap: 4,
-  },
-  legendRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  legendLine: {
-    width: 16,
-    height: 3,
-    borderRadius: 2,
-  },
-  legendText: {
-    fontSize: 11,
-    color: colors.textOnDark,
-    fontWeight: '500',
-  },
-  prMarker: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: '#D4AF37',
-    borderWidth: 2.5,
-    borderColor: '#FFFFFF',
-    justifyContent: 'center',
-    alignItems: 'center',
-    ...shadows.mapOverlay,
-  },
-  prMarkerText: {
-    color: '#FFFFFF',
-    fontSize: 10,
-    fontWeight: '800',
-    textAlign: 'center',
   },
 });

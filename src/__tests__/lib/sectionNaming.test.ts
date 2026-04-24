@@ -5,6 +5,18 @@ jest.mock('@/providers', () => ({
   resolveIsMetric: jest.fn(() => true),
 }));
 
+// Mock i18n.t to interpolate keys like the real implementation
+jest.mock('@/i18n', () => ({
+  i18n: {
+    t: jest.fn((key: string, opts?: Record<string, string>) => {
+      if (key === 'sections.autoName' && opts) {
+        return `${opts.sport} Section (${opts.distance})`;
+      }
+      return key;
+    }),
+  },
+}));
+
 describe('generateSectionName', () => {
   it('returns section.name when present', () => {
     const result = generateSectionName({

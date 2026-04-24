@@ -13,6 +13,7 @@ import type { TerrainCamera } from '@/lib/utils/cameraAngle';
 import { deleteTerrainPreviewsForActivity } from './terrainPreviewCache';
 
 const STORAGE_KEY = '@terrain_camera_overrides';
+const MAX_OVERRIDES = 100;
 
 /** In-memory cache for sync lookups */
 const overrides = new Map<string, TerrainCamera>();
@@ -27,7 +28,10 @@ export async function initCameraOverrides(): Promise<void> {
     const raw = await getSetting(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw) as Record<string, TerrainCamera>;
-      for (const [id, camera] of Object.entries(parsed)) {
+      const entries = Object.entries(parsed);
+      // Only load the most recent entries if persisted data exceeds limit
+      const toLoad = entries.length > MAX_OVERRIDES ? entries.slice(-MAX_OVERRIDES) : entries;
+      for (const [id, camera] of toLoad) {
         overrides.set(id, camera);
       }
     }
@@ -50,6 +54,13 @@ export function getCameraOverride(activityId: string): TerrainCamera | undefined
  * so the feed regenerates them with the new angle.
  */
 export async function setCameraOverride(activityId: string, camera: TerrainCamera): Promise<void> {
+  // LRU eviction: delete oldest entry when at capacity
+  if (overrides.size >= MAX_OVERRIDES && !overrides.has(activityId)) {
+    const oldestKey = overrides.keys().next().value;
+    if (oldestKey) overrides.delete(oldestKey);
+  }
+  // Re-insert to move to end of Map iteration order (most recent)
+  overrides.delete(activityId);
   overrides.set(activityId, camera);
 
   // Delete stale cached snapshots so they regenerate with new angle

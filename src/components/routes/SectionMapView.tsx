@@ -46,6 +46,7 @@ import {
 } from '@/components/maps';
 import { Map3DWebView, type Map3DWebViewRef } from '@/components/maps/Map3DWebView';
 import { CompassArrow, ComponentErrorBoundary } from '@/components/ui';
+import { useMapFullscreen } from '@/hooks/maps/useMapFullscreen';
 import type { FrequentSection, RoutePoint, ActivityType } from '@/types';
 
 /**
@@ -135,7 +136,7 @@ export const SectionMapView = memo(function SectionMapView({
   onNearbyPress,
 }: SectionMapViewProps) {
   const { t } = useTranslation();
-  const [isFullscreen, setIsFullscreen] = useState(false);
+  const { isFullscreen, openFullscreen, closeFullscreen } = useMapFullscreen({ enableFullscreen });
   const [selectedNearby, setSelectedNearby] = useState<string | null>(null);
   const { getStyleForActivity } = useMapPreferences();
 
@@ -198,7 +199,7 @@ export const SectionMapView = memo(function SectionMapView({
     if (newBounds) {
       cameraRef.current.setCamera({
         bounds: { ne: newBounds.ne, sw: newBounds.sw },
-        padding: { paddingTop: 40, paddingRight: 40, paddingBottom: 40, paddingLeft: 40 },
+        padding: { paddingTop: 80, paddingRight: 80, paddingBottom: 80, paddingLeft: 80 },
         animationDuration: 500,
       });
     }
@@ -533,10 +534,11 @@ export const SectionMapView = memo(function SectionMapView({
       onRegionIsChanging={interactive ? handleRegionIsChanging : undefined}
     >
       <Camera
+        maxZoomLevel={16}
         ref={interactive ? cameraRef : undefined}
         defaultSettings={{
           bounds: { ne: bounds.ne, sw: bounds.sw },
-          padding: { paddingTop: 40, paddingRight: 40, paddingBottom: 40, paddingLeft: 40 },
+          padding: { paddingTop: 80, paddingRight: 80, paddingBottom: 80, paddingLeft: 80 },
         }}
       />
 
@@ -772,22 +774,6 @@ export const SectionMapView = memo(function SectionMapView({
     </MapView>
   );
 
-  const handleMapPress = useCallback(() => {
-    if (enableFullscreen) {
-      setIsFullscreen(true);
-    }
-  }, [enableFullscreen]);
-
-  const openFullscreen = useCallback(() => {
-    if (enableFullscreen) {
-      setIsFullscreen(true);
-    }
-  }, [enableFullscreen]);
-
-  const closeFullscreen = useCallback(() => {
-    setIsFullscreen(false);
-  }, []);
-
   // Whether to show the interactive control stack (not during trim mode)
   const showControls = interactive;
   const showExpandOverlay = enableFullscreen && !interactive;
@@ -998,7 +984,7 @@ export const SectionMapView = memo(function SectionMapView({
         // Non-interactive map - tap anywhere to fullscreen
         <TouchableOpacity
           style={[styles.container, { height }]}
-          onPress={handleMapPress}
+          onPress={openFullscreen}
           activeOpacity={enableFullscreen ? 0.9 : 1}
           disabled={!enableFullscreen}
         >

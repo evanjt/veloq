@@ -64,7 +64,7 @@ describe('getAvailableCharts', () => {
     expect(available).toHaveLength(0);
   });
 
-  it('excludes non-primary charts (distance, temp, moving_time, elapsed_time)', () => {
+  it('excludes non-primary charts (distance, moving_time, elapsed_time)', () => {
     const streams: ActivityStreams = {
       distance: [0, 100, 200],
       altitude: [100, 200, 300],
@@ -74,5 +74,63 @@ describe('getAvailableCharts', () => {
     // altitude maps to elevation (primary), distance is not primary
     expect(ids).toContain('elevation');
     expect(ids).not.toContain('distance');
+    expect(ids).not.toContain('moving_time');
+    expect(ids).not.toContain('elapsed_time');
+  });
+
+  it('includes temp when temp stream is present', () => {
+    const streams: ActivityStreams = {
+      heartrate: [120, 130, 140],
+      temp: [18, 19, 20],
+    };
+    const available = getAvailableCharts(streams);
+    const ids = available.map((c) => c.id);
+    expect(ids).toContain('temp');
+  });
+
+  it('includes wbal when the wbal stream is populated', () => {
+    const streams: ActivityStreams = {
+      watts: [100, 200, 300],
+      wbal: [20000, 19900, 19000],
+    };
+    const ids = getAvailableCharts(streams).map((c) => c.id);
+    expect(ids).toContain('wbal');
+  });
+
+  it('excludes wbal when no wbal stream is present (even with power)', () => {
+    const streams: ActivityStreams = {
+      watts: [100, 200, 300],
+    };
+    const ids = getAvailableCharts(streams).map((c) => c.id);
+    expect(ids).toContain('power');
+    expect(ids).not.toContain('wbal');
+  });
+
+  it('wbal getStream converts joules to kJ', () => {
+    const streams: ActivityStreams = {
+      wbal: [20000, 15500, 0, -1000],
+    };
+    const data = CHART_CONFIGS.wbal.getStream!(streams);
+    expect(data).toEqual([20, 15.5, 0, -1]);
+  });
+
+  it('includes gap when the gap stream is populated', () => {
+    // GAP is sourced from intervals.icu's `ga_velocity` stream, converted to
+    // min/km at parse time. The chip shows iff `streams.gap` is populated.
+    const streams: ActivityStreams = {
+      velocity_smooth: [3, 4, 5],
+      gap: [4.5, 4.3, 4.1],
+    };
+    const ids = getAvailableCharts(streams).map((c) => c.id);
+    expect(ids).toContain('gap');
+  });
+
+  it('excludes gap when the gap stream is not populated', () => {
+    const streams: ActivityStreams = {
+      velocity_smooth: [3, 4, 5],
+    };
+    const ids = getAvailableCharts(streams).map((c) => c.id);
+    expect(ids).toContain('pace');
+    expect(ids).not.toContain('gap');
   });
 });

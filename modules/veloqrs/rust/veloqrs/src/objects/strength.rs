@@ -7,8 +7,9 @@ use super::error::{VeloqError, with_engine};
 use crate::fit;
 use crate::http::ActivityFetcher;
 use crate::{
-    FfiExerciseActivities, FfiExerciseActivity, FfiExerciseSet, FfiExerciseSummary,
-    FfiMuscleExerciseSummary, FfiMuscleGroup, FfiMuscleVolume, FfiStrengthSummary,
+    FfiExerciseActivities, FfiExerciseActivity, FfiExerciseContribution, FfiExerciseSet,
+    FfiExerciseSummary, FfiMuscleExerciseSummary, FfiMuscleGroup, FfiMuscleGroupDetail,
+    FfiMuscleVolume, FfiStrengthInsightSeries, FfiStrengthSummary, FfiTimestampRange,
 };
 use log::info;
 use std::collections::HashMap;
@@ -240,78 +241,61 @@ impl StrengthManager {
                 .map_err(|e| VeloqError::Database {
                     msg: format!("{}", e),
                 })?;
+            Ok(aggregate_strength_sets(&sets))
+        })?
+    }
 
-            // Count unique activities and total sets
-            let mut activity_ids = std::collections::HashSet::new();
-            let mut total_active_sets: u32 = 0;
-
-            // Per-muscle aggregation
-            struct MuscleAgg {
-                primary_sets: u32,
-                secondary_sets: u32,
-                total_reps: u32,
-                total_weight_kg: f64,
-                exercise_names: std::collections::HashSet<String>,
-            }
-            let mut muscle_map: HashMap<String, MuscleAgg> = HashMap::new();
-
-            for (activity_id, set) in &sets {
-                activity_ids.insert(activity_id.clone());
-                total_active_sets += 1;
-
-                let display_name =
-                    fit::exercise_display_name(set.exercise_category, set.exercise_name);
-                let muscles = fit::exercise_muscle_groups(set.exercise_category);
-
-                for muscle in &muscles {
-                    let agg = muscle_map.entry(muscle.slug.clone()).or_insert(MuscleAgg {
-                        primary_sets: 0,
-                        secondary_sets: 0,
-                        total_reps: 0,
-                        total_weight_kg: 0.0,
-                        exercise_names: std::collections::HashSet::new(),
-                    });
-
-                    agg.exercise_names.insert(display_name.clone());
-
-                    if muscle.intensity == 2 {
-                        // Primary
-                        agg.primary_sets += 1;
-                        agg.total_reps += set.repetitions.unwrap_or(0) as u32;
-                        agg.total_weight_kg +=
-                            set.weight_kg.unwrap_or(0.0) * set.repetitions.unwrap_or(1) as f64;
-                    } else {
-                        // Secondary
-                        agg.secondary_sets += 1;
-                    }
-                }
-            }
-
-            let mut muscle_volumes: Vec<FfiMuscleVolume> = muscle_map
+    /// Batch variant of `get_strength_summary`. Aggregates each range under a
+    /// single engine lock, so the insights hook can request a monthly window
+    /// plus N trailing weekly windows in one FFI round-trip.
+    fn get_strength_summary_batch(
+        &self,
+        ranges: Vec<FfiTimestampRange>,
+    ) -> Result<Vec<FfiStrengthSummary>, VeloqError> {
+        with_engine(|e| {
+            ranges
                 .into_iter()
-                .map(|(slug, agg)| {
-                    let weighted_sets = agg.primary_sets as f64 + agg.secondary_sets as f64 * 0.5;
-                    let mut names: Vec<String> = agg.exercise_names.into_iter().collect();
-                    names.sort();
-                    FfiMuscleVolume {
-                        slug,
-                        primary_sets: agg.primary_sets,
-                        secondary_sets: agg.secondary_sets,
-                        weighted_sets,
-                        total_reps: agg.total_reps,
-                        total_weight_kg: agg.total_weight_kg,
-                        exercise_names: names,
-                    }
+                .map(|range| {
+                    e.get_exercise_sets_in_range(range.start_ts, range.end_ts)
+                        .map(|sets| aggregate_strength_sets(&sets))
+                        .map_err(|err| VeloqError::Database {
+                            msg: format!("{}", err),
+                        })
+                })
+                .collect()
+        })?
+    }
+
+    /// Bundled strength payload for insights: one monthly summary + N weekly
+    /// summaries, computed in a single lock. Collapses the 5× FFI loop in
+    /// `computeInsightsData.ts` into one call.
+    fn get_strength_insight_series(
+        &self,
+        monthly: FfiTimestampRange,
+        weekly: Vec<FfiTimestampRange>,
+    ) -> Result<FfiStrengthInsightSeries, VeloqError> {
+        with_engine(|e| {
+            let monthly_sets = e
+                .get_exercise_sets_in_range(monthly.start_ts, monthly.end_ts)
+                .map_err(|err| VeloqError::Database {
+                    msg: format!("{}", err),
+                })?;
+            let monthly_summary = aggregate_strength_sets(&monthly_sets);
+
+            let weekly_summaries: Result<Vec<_>, VeloqError> = weekly
+                .into_iter()
+                .map(|range| {
+                    e.get_exercise_sets_in_range(range.start_ts, range.end_ts)
+                        .map(|sets| aggregate_strength_sets(&sets))
+                        .map_err(|err| VeloqError::Database {
+                            msg: format!("{}", err),
+                        })
                 })
                 .collect();
 
-            // Sort by weighted sets descending
-            muscle_volumes.sort_by(|a, b| b.weighted_sets.partial_cmp(&a.weighted_sets).unwrap());
-
-            Ok(FfiStrengthSummary {
-                muscle_volumes,
-                activity_count: activity_ids.len() as u32,
-                total_sets: total_active_sets,
+            Ok(FfiStrengthInsightSeries {
+                monthly: monthly_summary,
+                weekly: weekly_summaries?,
             })
         })?
     }
@@ -483,6 +467,83 @@ impl StrengthManager {
         })?
     }
 
+    /// Parse raw FIT bytes locally and store any strength sets for this
+    /// activity. Returns the number of sets inserted. No network access —
+    /// callers supply the bytes (e.g. just-recorded FIT buffer, downloaded
+    /// file, backup). Also marks the activity as FIT-processed so the
+    /// network path won't attempt to re-download.
+    fn import_sets_from_fit(
+        &self,
+        activity_id: String,
+        fit_bytes: Vec<u8>,
+    ) -> Result<u32, VeloqError> {
+        let sets = fit::parse_fit_strength_sets(&fit_bytes).map_err(|e| VeloqError::ParseError {
+            msg: format!("{}", e),
+        })?;
+        let count = sets.len() as u32;
+        let has_sets = !sets.is_empty();
+
+        info!(
+            "[Strength] Imported {} sets from FIT bytes for {}",
+            count, activity_id
+        );
+
+        with_engine(|e| -> Result<(), VeloqError> {
+            if has_sets {
+                e.store_exercise_sets(&activity_id, &sets)
+                    .map_err(|err| VeloqError::Database {
+                        msg: format!("{}", err),
+                    })?;
+            }
+            e.mark_fit_processed(&activity_id, has_sets)
+                .map_err(|err| VeloqError::Database {
+                    msg: format!("{}", err),
+                })?;
+            Ok(())
+        })??;
+
+        Ok(count)
+    }
+
+    /// Insert pre-parsed exercise sets for an activity without touching the
+    /// network or FIT-file pipeline. Demo mode uses this to seed synthetic
+    /// WeightTraining activities; the production path still goes through
+    /// fetch_and_parse_exercise_sets. Also marks the activity as FIT-processed
+    /// so the normal code path won't attempt to re-download.
+    fn bulk_insert_exercise_sets(
+        &self,
+        activity_id: String,
+        sets: Vec<FfiExerciseSet>,
+    ) -> Result<(), VeloqError> {
+        let internal: Vec<fit::FitExerciseSet> = sets
+            .iter()
+            .map(|s| fit::FitExerciseSet {
+                set_order: s.set_order,
+                exercise_category: s.exercise_category,
+                exercise_name: s.exercise_name,
+                set_type: s.set_type,
+                repetitions: s.repetitions,
+                weight_kg: s.weight_kg,
+                duration_secs: s.duration_secs,
+                start_time: None,
+            })
+            .collect();
+        let has_sets = !internal.is_empty();
+        with_engine(|e| -> Result<(), VeloqError> {
+            if has_sets {
+                e.store_exercise_sets(&activity_id, &internal)
+                    .map_err(|err| VeloqError::Database {
+                        msg: format!("{}", err),
+                    })?;
+            }
+            e.mark_fit_processed(&activity_id, has_sets)
+                .map_err(|err| VeloqError::Database {
+                    msg: format!("{}", err),
+                })?;
+            Ok(())
+        })?
+    }
+
     /// Check if there are any strength activities with exercise data.
     fn has_strength_data(&self) -> Result<bool, VeloqError> {
         with_engine(|e| {
@@ -515,6 +576,24 @@ impl StrengthManager {
                 .collect())
         })?
     }
+
+    /// Per-activity muscle detail: groups exercise sets by display name,
+    /// classifies primary/secondary role, returns totals + sorted exercise
+    /// list. Replaces the group-by/reduce loop in `useMuscleDetail.ts`.
+    fn get_muscle_detail(
+        &self,
+        activity_id: String,
+        muscle_slug: String,
+    ) -> Result<FfiMuscleGroupDetail, VeloqError> {
+        with_engine(|e| {
+            let sets = e
+                .get_exercise_sets(&activity_id)
+                .map_err(|e| VeloqError::Database {
+                    msg: format!("{}", e),
+                })?;
+            Ok(aggregate_muscle_detail(&muscle_slug, &sets))
+        })?
+    }
 }
 
 /// Convert internal FitExerciseSet to FFI-safe FfiExerciseSet with display names.
@@ -532,4 +611,164 @@ fn sets_to_ffi(activity_id: &str, sets: &[fit::FitExerciseSet]) -> Vec<FfiExerci
             duration_secs: s.duration_secs,
         })
         .collect()
+}
+
+/// Aggregate a slice of (activity_id, exercise_set) into a strength summary.
+/// Extracted from `get_strength_summary` so batch callers can reuse the loop
+/// without paying N engine locks.
+fn aggregate_strength_sets(sets: &[(String, fit::FitExerciseSet)]) -> FfiStrengthSummary {
+    struct MuscleAgg {
+        primary_sets: u32,
+        secondary_sets: u32,
+        total_reps: u32,
+        total_weight_kg: f64,
+        exercise_names: std::collections::HashSet<String>,
+    }
+
+    let mut activity_ids = std::collections::HashSet::new();
+    let mut total_active_sets: u32 = 0;
+    let mut muscle_map: HashMap<String, MuscleAgg> = HashMap::new();
+
+    for (activity_id, set) in sets {
+        activity_ids.insert(activity_id.clone());
+        total_active_sets += 1;
+
+        let display_name = fit::exercise_display_name(set.exercise_category, set.exercise_name);
+        let muscles = fit::exercise_muscle_groups(set.exercise_category);
+
+        for muscle in &muscles {
+            let agg = muscle_map.entry(muscle.slug.clone()).or_insert(MuscleAgg {
+                primary_sets: 0,
+                secondary_sets: 0,
+                total_reps: 0,
+                total_weight_kg: 0.0,
+                exercise_names: std::collections::HashSet::new(),
+            });
+
+            agg.exercise_names.insert(display_name.clone());
+
+            if muscle.intensity == 2 {
+                agg.primary_sets += 1;
+                agg.total_reps += set.repetitions.unwrap_or(0) as u32;
+                agg.total_weight_kg +=
+                    set.weight_kg.unwrap_or(0.0) * set.repetitions.unwrap_or(1) as f64;
+            } else {
+                agg.secondary_sets += 1;
+            }
+        }
+    }
+
+    let mut muscle_volumes: Vec<FfiMuscleVolume> = muscle_map
+        .into_iter()
+        .map(|(slug, agg)| {
+            let weighted_sets = agg.primary_sets as f64 + agg.secondary_sets as f64 * 0.5;
+            let mut names: Vec<String> = agg.exercise_names.into_iter().collect();
+            names.sort();
+            FfiMuscleVolume {
+                slug,
+                primary_sets: agg.primary_sets,
+                secondary_sets: agg.secondary_sets,
+                weighted_sets,
+                total_reps: agg.total_reps,
+                total_weight_kg: agg.total_weight_kg,
+                exercise_names: names,
+            }
+        })
+        .collect();
+
+    muscle_volumes.sort_by(|a, b| {
+        b.weighted_sets
+            .partial_cmp(&a.weighted_sets)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
+
+    FfiStrengthSummary {
+        muscle_volumes,
+        activity_count: activity_ids.len() as u32,
+        total_sets: total_active_sets,
+    }
+}
+
+/// Group active sets by exercise display name, resolve primary/secondary
+/// role per exercise against `muscle_slug`, and return aggregated totals.
+/// Skips warmup/cooldown/rest sets (`set_type != 0`). Primary role wins
+/// over secondary when an exercise has multiple sets with differing roles.
+fn aggregate_muscle_detail(muscle_slug: &str, sets: &[fit::FitExerciseSet]) -> FfiMuscleGroupDetail {
+    struct ExAgg {
+        role: String, // "primary" | "secondary"
+        sets: u32,
+        reps: u32,
+        volume_kg: f64,
+    }
+
+    let mut by_name: std::collections::BTreeMap<String, ExAgg> = std::collections::BTreeMap::new();
+
+    for set in sets {
+        if set.set_type != 0 {
+            continue;
+        }
+        let muscles = fit::exercise_muscle_groups(set.exercise_category);
+        let hit = muscles.iter().find(|m| m.slug == muscle_slug);
+        let Some(muscle) = hit else { continue };
+
+        let role = if muscle.intensity == 2 {
+            "primary"
+        } else {
+            "secondary"
+        };
+
+        let name = fit::exercise_display_name(set.exercise_category, set.exercise_name);
+        let reps = set.repetitions.unwrap_or(0) as u32;
+        let volume = set.weight_kg.unwrap_or(0.0) * set.repetitions.unwrap_or(1) as f64;
+
+        let entry = by_name.entry(name).or_insert(ExAgg {
+            role: role.to_string(),
+            sets: 0,
+            reps: 0,
+            volume_kg: 0.0,
+        });
+        entry.sets += 1;
+        entry.reps += reps;
+        entry.volume_kg += volume;
+        if role == "primary" {
+            entry.role = "primary".to_string();
+        }
+    }
+
+    let mut exercises: Vec<FfiExerciseContribution> = by_name
+        .into_iter()
+        .map(|(name, agg)| FfiExerciseContribution {
+            name,
+            role: agg.role,
+            sets: agg.sets,
+            reps: agg.reps,
+            volume_kg: agg.volume_kg,
+        })
+        .collect();
+
+    // Primary first, then by volume descending.
+    exercises.sort_by(|a, b| match (a.role.as_str(), b.role.as_str()) {
+        ("primary", "secondary") => std::cmp::Ordering::Less,
+        ("secondary", "primary") => std::cmp::Ordering::Greater,
+        _ => b
+            .volume_kg
+            .partial_cmp(&a.volume_kg)
+            .unwrap_or(std::cmp::Ordering::Equal),
+    });
+
+    let total_sets: u32 = exercises.iter().map(|e| e.sets).sum();
+    let total_reps: u32 = exercises.iter().map(|e| e.reps).sum();
+    let total_volume_kg: f64 = exercises.iter().map(|e| e.volume_kg).sum();
+    let primary_exercises = exercises.iter().filter(|e| e.role == "primary").count() as u32;
+    let secondary_exercises = exercises.iter().filter(|e| e.role == "secondary").count() as u32;
+
+    FfiMuscleGroupDetail {
+        slug: muscle_slug.to_string(),
+        exercises,
+        total_sets,
+        total_reps,
+        total_volume_kg,
+        primary_exercises,
+        secondary_exercises,
+    }
 }

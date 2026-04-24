@@ -1,0 +1,60 @@
+# Local Backup — Backup Now
+# US-X2: "Backup Now" succeeds with local backend (writes .veloqdb, updates
+#        "Last backup" timestamp, shows success message)
+# US-X3: "not encrypted" warning is always present
+#
+# Companion script: scripts/verify-backup-export.sh pulls the file from the
+# emulator and asserts it's a valid SQLite DB with the expected tables.
+
+appId: com.veloq.app.dev
+tags:
+  - tier3
+---
+- runFlow:
+    file: helpers/setup-demo-mode.yaml
+
+- openLink: "veloq://backup-settings"
+- runFlow:
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
+
+- extendedWaitUntil:
+    visible:
+      id: "backup-now-button"
+    timeout: 15000
+
+- takeScreenshot: "backup-screen-initial"
+
+# US-X3: warning must literally be on screen.
+- assertVisible:
+    text: "Backups are not encrypted.*"
+
+- assertVisible:
+    id: "backup-last-run-text"
+
+- assertVisible:
+    id: "backup-now-button"
+
+# US-X2: tap the button and wait for success.
+- tapOn:
+    id: "backup-now-button"
+
+- extendedWaitUntil:
+    visible:
+      id: "backup-success-message"
+    timeout: 30000
+
+- takeScreenshot: "backup-after-success"
+
+# A failure message must NOT appear.
+- assertNotVisible:
+    id: "backup-error-message"
+
+# Export as well, since that's a distinct code path.
+- assertVisible:
+    id: "backup-export-button"
+
+- assertNotVisible:
+    text: "NaN"

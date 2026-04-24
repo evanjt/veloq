@@ -4,6 +4,7 @@
  */
 
 import { resolveIsMetric } from '@/providers';
+import { i18n } from '@/i18n';
 import { formatDistance } from '@/lib/utils/format';
 
 /**
@@ -30,5 +31,5 @@ export function generateSectionName(section: SectionNameData): string {
   const isMetric = resolveIsMetric();
   const distanceStr = formatDistance(section.distanceMeters, isMetric);
 
-  return `${section.sportType} Section (${distanceStr})`;
+  return i18n.t('sections.autoName', { sport: section.sportType, distance: distanceStr });
 }

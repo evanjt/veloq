@@ -54,6 +54,43 @@ export const WHATS_NEW_SLIDES: Record<string, WhatsNewSlideDefinition[]> = {
       },
     },
   ],
+  '0.3.0': [
+    {
+      titleKey: 'whatsNew.v030.insightsTitle',
+      bodyKey: 'whatsNew.v030.insightsBody',
+      icon: 'lightbulb-outline',
+      showMeRoute: '/routes',
+      get Component() {
+        return require('./InsightsSlide').InsightsSlide;
+      },
+    },
+    {
+      titleKey: 'whatsNew.v030.strengthTitle',
+      bodyKey: 'whatsNew.v030.strengthBody',
+      icon: 'arm-flex-outline',
+      showMeRoute: '/fitness',
+      get Component() {
+        return require('./StrengthSlide').StrengthSlide;
+      },
+    },
+    {
+      titleKey: 'whatsNew.v030.sectionTrimTitle',
+      bodyKey: 'whatsNew.v030.sectionTrimBody',
+      icon: 'arrow-expand-horizontal',
+      get Component() {
+        return require('./SectionTrimSlide').SectionTrimSlide;
+      },
+    },
+    {
+      titleKey: 'whatsNew.v030.backupTitle',
+      bodyKey: 'whatsNew.v030.backupBody',
+      icon: 'cloud-upload-outline',
+      showMeRoute: '/backup-settings',
+      get Component() {
+        return require('./BackupSlide').BackupSlide;
+      },
+    },
+  ],
 };
 
 /** Compare two semver strings (e.g. '0.2.1' < '0.2.2'). */

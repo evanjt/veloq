@@ -96,6 +96,11 @@ tags:
 
 # ── Return to Home ──────────────────────────────────────
 - openLink: "veloq://"
+- runFlow:
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
 
 - extendedWaitUntil:
     visible:

@@ -7,6 +7,8 @@ import {
 import { useMemo } from 'react';
 import { intervalsApi } from '@/api';
 import { formatLocalDate } from '@/lib';
+import { CACHE } from '@/lib/utils/constants';
+import { queryKeys } from '@/lib/queryKeys';
 import type { Activity, IntervalsDTO } from '@/types';
 import { useAuthStore } from '@/providers/AuthStore';
 
@@ -44,13 +46,12 @@ export function useActivities(options: UseActivitiesOptions = {}) {
   }
 
   return useQuery<Activity[]>({
-    queryKey: [
-      'activities',
+    queryKey: queryKeys.activities.list(
       athleteId ?? 'anon',
-      queryOldest,
-      queryNewest,
-      includeStats ? 'stats' : 'base',
-    ],
+      queryOldest!,
+      queryNewest!,
+      includeStats
+    ),
     queryFn: () =>
       intervalsApi.getActivities({
         oldest: queryOldest,
@@ -58,8 +59,8 @@ export function useActivities(options: UseActivitiesOptions = {}) {
         includeStats,
       }),
     // Stale-while-revalidate: show cached data immediately, refetch in background
-    staleTime: 1000 * 60 * 5, // 5 minutes - data appears instantly from cache
-    gcTime: 1000 * 60 * 60, // 1 hour - keep in memory for navigation
+    staleTime: CACHE.SHORT, // 5 minutes - data appears instantly from cache
+    gcTime: CACHE.HOUR, // 1 hour - keep in memory for navigation
     placeholderData: keepPreviousData,
     refetchOnWindowFocus: true, // Pick up new activities on foreground
     enabled: enabled && !!athleteId,
@@ -81,9 +82,10 @@ const PAGE_SIZE_DAYS = 30;
 export function useInfiniteActivities(options: { includeStats?: boolean } = {}) {
   const { includeStats = false } = options;
   const athleteId = useAuthStore((s) => s.athleteId);
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
 
   const query = useInfiniteQuery<Activity[], Error>({
-    queryKey: ['activities-infinite', athleteId ?? 'anon', includeStats ? 'stats' : 'base'],
+    queryKey: queryKeys.activities.infinite.byAthlete(athleteId ?? 'anon', includeStats),
     queryFn: async ({ pageParam }) => {
       const { oldest, newest } = pageParam as {
         oldest: string;
@@ -123,13 +125,13 @@ export function useInfiniteActivities(options: { includeStats?: boolean } = {}) 
       };
     },
     // Stale-while-revalidate: show cached data immediately, refetch in background
-    staleTime: 1000 * 60 * 5, // 5 minutes - data appears instantly from cache
-    gcTime: 1000 * 60 * 60, // 1 hour - keep in memory for navigation
+    staleTime: CACHE.SHORT, // 5 minutes - data appears instantly from cache
+    gcTime: CACHE.HOUR, // 1 hour - keep in memory for navigation
     // refetchOnMount: false (inherits global default) — persisted cache shows instantly,
     // 'always' bypasses staleTime so new activities appear immediately on foreground
     refetchOnWindowFocus: 'always',
     maxPages: 10, // Evict old pages to prevent memory growth
-    enabled: !!athleteId,
+    enabled: isAuthenticated && !!athleteId,
   });
 
   // All activities flattened from loaded pages
@@ -146,19 +148,19 @@ export function useInfiniteActivities(options: { includeStats?: boolean } = {}) 
 
 export function useActivity(id: string) {
   return useQuery({
-    queryKey: ['activity', id],
+    queryKey: queryKeys.activities.detail(id),
     queryFn: () => intervalsApi.getActivity(id),
     // Single activity - cache for 1 hour, rarely changes
-    staleTime: 1000 * 60 * 60,
+    staleTime: CACHE.HOUR,
     // GC after 4 hours to prevent memory bloat when viewing many activities
-    gcTime: 1000 * 60 * 60 * 4,
+    gcTime: CACHE.HOUR * 4,
     enabled: !!id,
   });
 }
 
 export function useActivityStreams(id: string) {
   return useQuery({
-    queryKey: ['activity-streams-v3', id],
+    queryKey: queryKeys.activities.streams(id),
     queryFn: () =>
       intervalsApi.getActivityStreams(id, [
         'latlng',
@@ -171,22 +173,25 @@ export function useActivityStreams(id: string) {
         'time',
         'velocity_smooth',
         'grade_smooth',
+        'temp',
+        'w_bal',
+        'ga_velocity',
       ]),
     // Streams NEVER change - infinite staleTime prevents refetching
     staleTime: Infinity,
     // GC after 30 minutes - streams are large (100-500KB), free memory sooner
-    gcTime: 1000 * 60 * 30,
+    gcTime: CACHE.LONG,
     enabled: !!id,
   });
 }
 
 export function useActivityIntervals(id: string) {
   return useQuery<IntervalsDTO>({
-    queryKey: ['activity-intervals', id],
+    queryKey: queryKeys.activities.intervals(id),
     queryFn: () => intervalsApi.getActivityIntervals(id),
     // Intervals never change
     staleTime: Infinity,
-    gcTime: 1000 * 60 * 60 * 2,
+    gcTime: CACHE.HOUR * 2,
     enabled: !!id,
   });
 }
@@ -199,7 +204,9 @@ export function useActivityIntervals(id: string) {
  */
 export function isInfiniteActivitiesStale(queryClient: QueryClient): boolean {
   const athleteId = useAuthStore.getState().athleteId ?? 'anon';
-  const state = queryClient.getQueryState(['activities-infinite', athleteId, 'base']);
+  const state = queryClient.getQueryState(
+    queryKeys.activities.infinite.byAthlete(athleteId, false)
+  );
   if (!state?.data) return false;
   const pageParams = (state.data as { pageParams?: Array<{ newest?: string }> }).pageParams;
   const firstNewest = pageParams?.[0]?.newest;

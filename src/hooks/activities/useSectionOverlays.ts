@@ -103,22 +103,20 @@ export function useSectionOverlays(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activityId, engineSectionIds, customSectionIds]);
 
-  // Determine which sections this activity holds the PR for
+  // Determine which sections this activity holds the PR for.
+  // Single FFI call instead of per-section getSectionPerformances loop.
   const prSectionIds = useMemo((): Set<string> => {
     if (!activityId) return new Set();
-    const prIds = new Set<string>();
-    const allSections = [...engineSectionMatches.map((m) => m.section), ...customMatchedSections];
-    for (const section of allSections) {
-      try {
-        const result = routeEngine.getSectionPerformances(section.id);
-        if (result?.bestRecord?.activityId === activityId) {
-          prIds.add(section.id);
-        }
-      } catch {
-        // Engine may not have performance data yet
-      }
+    const allIds = [
+      ...engineSectionMatches.map((m) => m.section.id),
+      ...customMatchedSections.map((s) => s.id),
+    ];
+    if (allIds.length === 0) return new Set();
+    try {
+      return new Set(routeEngine.getActivityPrSections(activityId, allIds));
+    } catch {
+      return new Set();
     }
-    return prIds;
   }, [engineSectionMatches, customMatchedSections, activityId]);
 
   // Build section overlays for map display (always computed, shown on all tabs)
@@ -229,6 +227,36 @@ export function useSectionOverlays(
         activityPortion,
         isPR: prSectionIds.has(section.id),
       });
+    }
+
+    // Sort overlays by where each section starts along this activity's track.
+    // Keeps the map marker labels (1, 2, 3 …) aligned with the sorted section
+    // list rows so row N and marker N reference the same section.
+    if (coordinates.length > 0 && overlays.length > 1) {
+      const findNearestIndex = (targetLat: number, targetLng: number): number => {
+        let best = 0;
+        let bestDist = Number.POSITIVE_INFINITY;
+        for (let i = 0; i < coordinates.length; i++) {
+          const c = coordinates[i];
+          const dLat = c.latitude - targetLat;
+          const dLng = c.longitude - targetLng;
+          const d = dLat * dLat + dLng * dLng;
+          if (d < bestDist) {
+            bestDist = d;
+            best = i;
+          }
+        }
+        return best;
+      };
+      const startIndexById = new Map<string, number>();
+      for (const o of overlays) {
+        const first = o.activityPortion?.[0] ?? o.sectionPolyline?.[0];
+        if (first) startIndexById.set(o.id, findNearestIndex(first.latitude, first.longitude));
+      }
+      const INF = Number.MAX_SAFE_INTEGER;
+      overlays.sort(
+        (a, b) => (startIndexById.get(a.id) ?? INF) - (startIndexById.get(b.id) ?? INF)
+      );
     }
 
     return overlays;

@@ -1,11 +1,10 @@
-import React, { useCallback, useMemo } from 'react';
-import { View, StyleSheet, Pressable } from 'react-native';
+import React, { useMemo } from 'react';
+import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '@/hooks';
 import { useSectionDetail } from '@/hooks/routes/useRouteEngine';
 import { useSectionPerformances } from '@/hooks/routes/useSectionPerformances';
-import { navigateTo } from '@/lib';
 import { getActivityIcon } from '@/lib/utils/activityUtils';
 import { Shimmer } from '@/components/ui/Shimmer';
 import { SectionInsightMap } from './SectionInsightMap';
@@ -16,7 +15,7 @@ import { colors, darkColors, spacing, opacity, brand } from '@/theme';
 import type { Insight } from '@/types';
 import type { SectionPerformanceRecord } from '@/hooks/routes/useSectionPerformances';
 
-const ACCENT_COLOR = brand.orange;
+const ACCENT_COLOR = brand.gold;
 
 interface SectionPRContentProps {
   insight: Insight;
@@ -48,12 +47,6 @@ export const SectionPRContent = React.memo(function SectionPRContent({
   const sectionId = insight.supportingData?.sections?.[0]?.sectionId ?? null;
   const { section } = useSectionDetail(sectionId);
   const { records, bestRecord, isLoading } = useSectionPerformances(section);
-
-  const handleSectionPress = useCallback(() => {
-    if (sectionId) {
-      navigateTo(`/section/${sectionId}`);
-    }
-  }, [sectionId]);
 
   const prData = insight.supportingData?.sections?.[0];
   const bestTime = bestRecord?.bestTime ?? prData?.bestTime ?? null;
@@ -178,23 +171,6 @@ export const SectionPRContent = React.memo(function SectionPRContent({
       {!isLoading && records.length > 0 ? (
         <RecentEffortsList records={records} bestRecord={bestRecord} />
       ) : null}
-
-      {/* Section link */}
-      {prData ? (
-        <Pressable
-          style={[styles.sectionLink, isDark && styles.sectionLinkDark]}
-          onPress={handleSectionPress}
-        >
-          <Text style={[styles.linkText, isDark && styles.linkTextDark]} numberOfLines={1}>
-            View section details
-          </Text>
-          <MaterialCommunityIcons
-            name="chevron-right"
-            size={18}
-            color={isDark ? darkColors.textSecondary : colors.textSecondary}
-          />
-        </Pressable>
-      ) : null}
     </View>
   );
 });
@@ -285,27 +261,5 @@ const styles = StyleSheet.create({
   },
   shimmerCardDark: {
     backgroundColor: opacity.overlayDark.light,
-  },
-  sectionLink: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.sm,
-    borderRadius: 8,
-    backgroundColor: opacity.overlay.subtle,
-  },
-  sectionLinkDark: {
-    backgroundColor: opacity.overlayDark.light,
-  },
-  linkText: {
-    flex: 1,
-    fontSize: 14,
-    fontWeight: '500',
-    color: colors.textPrimary,
-    marginRight: spacing.sm,
-  },
-  linkTextDark: {
-    color: darkColors.textPrimary,
   },
 });

@@ -10,8 +10,10 @@ import { useCallback, useRef } from 'react';
 import { Platform, type GestureResponderEvent } from 'react-native';
 import type { Camera, MapViewRef, ShapeSource } from '@maplibre/maplibre-react-native';
 import type { ActivityBoundsItem, FrequentSection, ActivityType } from '@/types';
+import { planClusterZoom } from '@/lib/maps/clusterZoom';
 import type { SelectedActivity } from './ActivityPopup';
 import type { SelectedRoute } from './types';
+import type { SpiderState } from './useMapHandlers';
 
 interface UseIOSTapHandlerOptions {
   mapRef: React.RefObject<MapViewRef | null>;
@@ -40,6 +42,8 @@ interface UseIOSTapHandlerOptions {
   cameraRef: React.RefObject<React.ElementRef<typeof Camera> | null>;
   currentZoomLevel: React.MutableRefObject<number>;
   insetTop: number;
+  spider: SpiderState | null;
+  setSpider: (state: SpiderState | null) => void;
 }
 
 interface UseIOSTapHandlerResult {
@@ -70,6 +74,8 @@ export function useIOSTapHandler({
   cameraRef,
   currentZoomLevel,
   insetTop,
+  spider,
+  setSpider,
 }: UseIOSTapHandlerOptions): UseIOSTapHandlerResult {
   const lastTapTimeRef = useRef<number>(0);
   const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
@@ -96,12 +102,17 @@ export function useIOSTapHandler({
         // Expand query rect based on zoom (matches CircleLayer radius interpolation)
         // Use different hit radius for points vs lines - lines are thin and need bigger area
         // Matches CircleLayer: zoom 0→16, 4→14, 8→12, 12→8, 16→6
-        const pointHitRadius = zoom < 4 ? 16 : zoom < 8 ? 14 : zoom < 12 ? 12 : zoom < 16 ? 8 : 6;
+        // Larger hit radius at low zoom where clusters are bigger tap targets
+        const pointHitRadius = zoom < 6 ? 30 : zoom < 10 ? 24 : zoom < 14 ? 16 : 10;
         // Lines need 3x the hit area since they're only a few pixels wide
         const lineHitRadius = Math.max(pointHitRadius * 3, 20); // Minimum 20px for lines
 
         // Build list of layers to query based on visibility
         const layersToQuery: string[] = [];
+        // Spider markers take priority — query them first so they are hit-tested before clusters
+        if (spider) {
+          layersToQuery.push('spider-points');
+        }
         if (showActivities) {
           layersToQuery.push('cluster-circles', 'unclustered-point');
         }
@@ -147,24 +158,50 @@ export function useIOSTapHandler({
           const feature = features.features[0];
           const featureId = feature.properties?.id;
 
+          // Spider marker tap — select the activity and dismiss spider
+          if (feature.properties?.isSpider === true && featureId) {
+            const activity = activities.find((a) => a.id === featureId);
+            if (activity) {
+              setSpider(null);
+              handleMarkerTap(activity);
+              return;
+            }
+          }
+
           // Determine feature type by checking geometry and properties
           if (feature.geometry?.type === 'Point' && showActivities) {
-            // Cluster tap — always zoom in to expand
+            // Cluster tap — fit the camera to the bounds of the cluster's
+            // leaves. Produces a tight zoom that always shows the underlying
+            // activities. Falls back to spider-expansion when all the leaves
+            // share a location (e.g. repeated starts from the same door).
             if (feature.properties?.cluster === true) {
               try {
                 if (clusterSourceRef.current) {
-                  const expansionZoom =
-                    await clusterSourceRef.current.getClusterExpansionZoom(feature);
                   const coords = (feature.geometry as GeoJSON.Point).coordinates as [
                     number,
                     number,
                   ];
-                  cameraRef.current?.setCamera({
-                    centerCoordinate: coords,
-                    zoomLevel: expansionZoom,
-                    animationDuration: 400,
-                    animationMode: 'flyTo',
-                  });
+                  const pointCount = (feature.properties?.point_count as number | undefined) ?? 0;
+                  const limit = Math.max(1, Math.min(pointCount || 100, 100));
+                  const leaves = await clusterSourceRef.current.getClusterLeaves(feature, limit, 0);
+
+                  const plan = planClusterZoom(leaves.features, coords);
+                  if (plan.kind === 'fitBounds') {
+                    cameraRef.current?.fitBounds(
+                      plan.bounds.ne,
+                      plan.bounds.sw,
+                      [100, 60, 280, 60],
+                      plan.durationMs
+                    );
+                    setTimeout(() => {
+                      cameraRef.current?.setCamera({
+                        animationDuration: 0,
+                        animationMode: 'moveTo',
+                      });
+                    }, plan.durationMs + 100);
+                  } else if (leaves.features.length > 0) {
+                    setSpider({ center: coords, leaves: leaves.features });
+                  }
                 }
               } catch (e) {
                 if (__DEV__) console.warn('[iOS tap] cluster error:', e);
@@ -216,6 +253,7 @@ export function useIOSTapHandler({
         if (selected) setSelected(null);
         if (selectedSection) setSelectedSection(null);
         if (selectedRoute) setSelectedRoute(null);
+        if (spider) setSpider(null);
       } catch (error) {
         // Log error but don't crash - gracefully handle MapLibre query failures
         if (__DEV__) {
@@ -241,6 +279,8 @@ export function useIOSTapHandler({
       mapRef,
       clusterSourceRef,
       cameraRef,
+      spider,
+      setSpider,
     ]
   );
 

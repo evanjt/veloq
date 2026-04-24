@@ -5,11 +5,23 @@
  * Performance investigation utilities - enable PERF_DEBUG to see timing logs.
  */
 
+import { AppState } from 'react-native';
+
 // Toggle this to enable/disable performance logging
 export const PERF_DEBUG = __DEV__;
 
 const componentTimers: Map<string, number> = new Map();
 const renderCounts: Map<string, number> = new Map();
+
+// Clear debug Maps when app goes to background to prevent unbounded growth
+if (__DEV__) {
+  AppState.addEventListener('change', (state) => {
+    if (state === 'background') {
+      componentTimers.clear();
+      renderCounts.clear();
+    }
+  });
+}
 
 export function logMount(componentName: string) {
   if (!__DEV__) return;

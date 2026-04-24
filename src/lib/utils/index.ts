@@ -7,5 +7,6 @@ export * from './constants';
 export * from './validation';
 export * from './smoothing';
 export * from './geometry';
+export * from './statistics';
 export * from './skylineDecoder';
 export * from './navigation';

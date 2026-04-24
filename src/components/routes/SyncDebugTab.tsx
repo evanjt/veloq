@@ -8,6 +8,7 @@ import { useActivities, useEngineSubscription } from '@/hooks';
 import { useSyncDateRange } from '@/providers';
 import { getRouteEngine } from '@/lib/native/routeEngine';
 import { deleteGpsTracks } from '@/lib/storage/gpsStorage';
+import { queryKeys } from '@/lib/queryKeys';
 import type { PersistentEngineStats } from 'veloqrs';
 
 // ============================================================================
@@ -145,7 +146,7 @@ export function SyncDebugTab() {
       Alert.alert('Force Sync', 'All activities already synced — nothing to fetch.');
     }
     // Invalidate cache to fetch fresh activity list from API
-    queryClient.invalidateQueries({ queryKey: ['activities'] });
+    queryClient.invalidateQueries({ queryKey: queryKeys.activities.all });
     // Fire syncReset to force useRouteDataSync to re-check engine state
     // (invalidateQueries alone won't trigger re-sync if API returns same data)
     engine?.triggerRefresh('syncReset');
@@ -192,7 +193,7 @@ export function SyncDebugTab() {
               // Trigger background section detection to recompute groups + sections
               engine.startSectionDetection();
               // Invalidate cache + fire syncReset to trigger re-sync of removed activities
-              queryClient.invalidateQueries({ queryKey: ['activities'] });
+              queryClient.invalidateQueries({ queryKey: queryKeys.activities.all });
               engine.triggerRefresh('syncReset');
               Alert.alert(
                 'Done',
@@ -218,7 +219,7 @@ export function SyncDebugTab() {
           style: 'destructive',
           onPress: () => {
             engine.clear();
-            queryClient.invalidateQueries({ queryKey: ['activities'] });
+            queryClient.invalidateQueries({ queryKey: queryKeys.activities.all });
             Alert.alert('Done', 'Engine cleared. Full re-sync triggered.');
           },
         },
