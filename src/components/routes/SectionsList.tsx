@@ -235,7 +235,8 @@ const SectionListItem = memo(
         prev.item.visitCount !== next.item.visitCount ||
         prev.item.distanceMeters !== next.item.distanceMeters ||
         prev.item.name !== next.item.name ||
-        prev.item.sectionType !== next.item.sectionType
+        prev.item.sectionType !== next.item.sectionType ||
+        prev.item.isUserDefined !== next.item.isUserDefined
       )
         return false;
     }
@@ -421,18 +422,22 @@ export const SectionsList = memo(function SectionsList({
   // Handle accepting all auto sections
   const [acceptAllResult, setAcceptAllResult] = useState<number | null>(null);
   const handleAcceptAll = useCallback(() => {
-    Alert.alert(t('sections.acceptAllSections'), t('sections.acceptAllConfirm'), [
-      { text: t('common.cancel'), style: 'cancel' },
-      {
-        text: t('common.confirm'),
-        onPress: () => {
-          const count = getRouteEngine()?.acceptAllSections() ?? 0;
-          setAcceptAllResult(count);
-          setTimeout(() => setAcceptAllResult(null), 3000);
+    Alert.alert(
+      t('sections.acceptAllSections'),
+      t('sections.acceptAllConfirm', { count: unacceptedAutoCount }),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('common.confirm'),
+          onPress: () => {
+            const count = getRouteEngine()?.acceptAllSections() ?? 0;
+            setAcceptAllResult(count);
+            setTimeout(() => setAcceptAllResult(null), 3000);
+          },
         },
-      },
-    ]);
-  }, [t]);
+      ]
+    );
+  }, [t, unacceptedAutoCount]);
 
   // Handle dismissing a potential section
   const dismiss = useSectionDismissals((s) => s.dismiss);

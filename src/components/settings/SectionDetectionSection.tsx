@@ -5,32 +5,15 @@ import { useTheme } from '@/hooks';
 import { useTranslation } from 'react-i18next';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useRouteSettings } from '@/providers';
-import { getRouteEngine } from '@/lib/native/routeEngine';
+import { applyDetectionStrictness, getRouteEngine } from '@/lib/native/routeEngine';
 import { colors, darkColors, spacing } from '@/theme';
 import { settingsStyles } from './settingsStyles';
 
 const PRESETS = [
   { key: 'detectionRelaxed', value: 20, matchPct: 55, endpoint: 270 },
   { key: 'default', value: 60, matchPct: 65, endpoint: 210 },
-  { key: 'detectionStrict', value: 90, matchPct: 73, endpoint: 165 },
+  { key: 'detectionStrict', value: 90, matchPct: 72.5, endpoint: 165 },
 ] as const;
-
-function interpolate(value: number, min: number, max: number): number {
-  return min + (value / 100) * (max - min);
-}
-
-function applyStrictness(value: number) {
-  const engine = getRouteEngine();
-  if (!engine) return;
-  const config = engine.getSectionConfig();
-  if (config) {
-    engine.setSectionConfig({
-      ...config,
-      preserveHierarchy: value <= 40,
-    });
-  }
-  engine.setMatchStrictness(interpolate(value, 50, 75) / 100, interpolate(value, 300, 150));
-}
 
 export function SectionDetectionSection() {
   const { isDark } = useTheme();
@@ -48,7 +31,7 @@ export function SectionDetectionSection() {
   const handlePresetSelect = useCallback(
     (preset: (typeof PRESETS)[number]) => {
       setDetectionStrictness(preset.value);
-      applyStrictness(preset.value);
+      applyDetectionStrictness(preset.value);
     },
     [setDetectionStrictness]
   );

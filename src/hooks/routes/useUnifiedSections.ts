@@ -88,6 +88,7 @@ export function useUnifiedSections(
       distanceMeters: s.distanceMeters as number,
       confidence: s.confidence as number,
       createdAt: s.createdAt as string,
+      isUserDefined: (s.isUserDefined as boolean) ?? false,
       disabled: (s.disabled as boolean) ?? false,
       supersededBy: (s.supersededBy as string | null) ?? null,
     }));

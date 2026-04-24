@@ -653,7 +653,7 @@ impl PersistentRouteEngine {
             "SELECT id, name, sport_type, distance_meters, confidence, scale,
                     bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng,
                     section_type, representative_activity_id, created_at,
-                    disabled, superseded_by
+                    is_user_defined, disabled, superseded_by
              FROM sections
              WHERE disabled = 0 AND superseded_by IS NULL",
         ) {
@@ -708,8 +708,9 @@ impl PersistentRouteEngine {
                     bounds,
                     created_at: row.get::<_, Option<String>>(12)?.unwrap_or_default(),
                     sport_types,
-                    disabled: row.get::<_, Option<i32>>(13)?.unwrap_or(0) != 0,
-                    superseded_by: row.get(14)?,
+                    is_user_defined: row.get::<_, Option<i32>>(13)?.unwrap_or(0) != 0,
+                    disabled: row.get::<_, Option<i32>>(14)?.unwrap_or(0) != 0,
+                    superseded_by: row.get(15)?,
                 })
             })
             .ok()
