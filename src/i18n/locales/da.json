@@ -1490,7 +1490,17 @@
     "heatmapGeneration": "Heatmap",
     "heatmapDescription": "Bruger enhedens lagerplads. Deaktivér for at spare plads.",
     "redetectSections": "Gendetekter sektioner",
-    "redetectSectionsHint": "Kør sektionsdetektering på alle aktiviteter igen. Kan tage 1-2 minutter."
+    "redetectSectionsHint": "Kør sektionsdetektering på alle aktiviteter igen. Kan tage 1-2 minutter.",
+    "sectionDetection": "Section Detection",
+    "detectionSensitivity": "Detection sensitivity",
+    "detectionRelaxed": "Relaxed",
+    "detectionStrict": "Strict",
+    "matchThreshold": "Match: {{pct}}%",
+    "endpointDistance": "Endpoint: {{meters}}m",
+    "reanalyzeSections": "Reanalyze sections",
+    "reanalyzeWarning": "This will replace all unaccepted auto-detected sections. Accepted (pinned) sections will be preserved.",
+    "cleanupOverlapping": "Clean up overlapping",
+    "cleanupResult": "Removed {{count}} overlapping"
   },
   "stats": {
     "activities": "Aktiviteter",

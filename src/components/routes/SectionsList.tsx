@@ -309,15 +309,25 @@ export const SectionsList = memo(function SectionsList({
   const cacheDays = useCacheDays();
 
   // Separate regular sections from potential sections, apply filter, search, and sort
-  const { regularSections, potentialSections } = useMemo(() => {
+  const { regularSections, potentialSections, unacceptedAutoCount } = useMemo(() => {
     const regular: UnifiedSection[] = [];
     const potential: UnifiedSection[] = [];
+    let unaccepted = 0;
     const query = searchQuery.toLowerCase();
 
     for (const section of unifiedSections) {
       if (section.sectionType === 'potential') {
         potential.push(section);
       } else {
+        if (
+          section.sectionType === 'auto' &&
+          !section.disabled &&
+          !section.supersededBy &&
+          !section.isUserDefined
+        ) {
+          unaccepted++;
+        }
+
         // Apply hide filters - hide if the filter is set for this type
         const isCustom = section.sectionType === 'custom';
         const isAuto = section.sectionType === 'auto' && !section.disabled && !section.supersededBy;
@@ -352,7 +362,11 @@ export const SectionsList = memo(function SectionsList({
 
     // Preserve native order for nearby sorting so pagination stays correct.
 
-    return { regularSections: regular, potentialSections: potential };
+    return {
+      regularSections: regular,
+      potentialSections: potential,
+      unacceptedAutoCount: unaccepted,
+    };
   }, [unifiedSections, hiddenFilters, searchQuery, sortOption]); // userLocation excluded: nearby sorting is Rust-side
 
   // Pre-compute distance from user for each section (used for display on every row)
@@ -403,6 +417,22 @@ export const SectionsList = memo(function SectionsList({
     },
     [createSection]
   );
+
+  // Handle accepting all auto sections
+  const [acceptAllResult, setAcceptAllResult] = useState<number | null>(null);
+  const handleAcceptAll = useCallback(() => {
+    Alert.alert(t('sections.acceptAllSections'), t('sections.acceptAllConfirm'), [
+      { text: t('common.cancel'), style: 'cancel' },
+      {
+        text: t('common.confirm'),
+        onPress: () => {
+          const count = getRouteEngine()?.acceptAllSections() ?? 0;
+          setAcceptAllResult(count);
+          setTimeout(() => setAcceptAllResult(null), 3000);
+        },
+      },
+    ]);
+  }, [t]);
 
   // Handle dismissing a potential section
   const dismiss = useSectionDismissals((s) => s.dismiss);
@@ -644,25 +674,50 @@ export const SectionsList = memo(function SectionsList({
           <Text style={[styles.summaryText, isDark && styles.summaryTextDark]}>
             {displaySectionCount} {t('trainingScreen.sections')}
           </Text>
-          <TouchableOpacity
-            onPress={handleRescan}
-            disabled={isScanning}
-            activeOpacity={0.7}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          >
-            {isScanning ? (
-              <ActivityIndicator
-                size={13}
-                color={isDark ? darkColors.textDisabled : colors.textDisabled}
-              />
-            ) : (
-              <MaterialCommunityIcons
-                name="reload"
-                size={14}
-                color={isDark ? darkColors.textDisabled : colors.textDisabled}
-              />
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+            {unacceptedAutoCount > 0 && (
+              <TouchableOpacity
+                onPress={handleAcceptAll}
+                activeOpacity={0.7}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
+              >
+                <MaterialCommunityIcons name="pin-outline" size={13} color={colors.primary} />
+                <Text style={{ fontSize: 12, color: colors.primary }}>
+                  {t('sections.acceptAllSections')}
+                </Text>
+              </TouchableOpacity>
             )}
-          </TouchableOpacity>
+            {acceptAllResult !== null && (
+              <Text
+                style={{
+                  fontSize: 11,
+                  color: isDark ? darkColors.textSecondary : colors.textSecondary,
+                }}
+              >
+                {t('sections.acceptedCount', { count: acceptAllResult })}
+              </Text>
+            )}
+            <TouchableOpacity
+              onPress={handleRescan}
+              disabled={isScanning}
+              activeOpacity={0.7}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              {isScanning ? (
+                <ActivityIndicator
+                  size={13}
+                  color={isDark ? darkColors.textDisabled : colors.textDisabled}
+                />
+              ) : (
+                <MaterialCommunityIcons
+                  name="reload"
+                  size={14}
+                  color={isDark ? darkColors.textDisabled : colors.textDisabled}
+                />
+              )}
+            </TouchableOpacity>
+          </View>
         </View>
         {/* Sort + filter chips */}
         <View style={styles.sortChipRow}>

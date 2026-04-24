@@ -44,6 +44,8 @@ interface SectionRowData {
   sectionType?: string;
   /** All sport types present in this section's activities */
   sportTypes?: string[];
+  /** Whether this section has been accepted/pinned by the user */
+  isUserDefined?: boolean;
 }
 
 interface SectionRowProps {
@@ -85,6 +87,10 @@ function normalizeSectionData(
         'sectionType' in section ? (section as { sectionType: string }).sectionType : undefined,
       sportTypes:
         'sportTypes' in section ? (section as { sportTypes: string[] }).sportTypes : undefined,
+      isUserDefined:
+        'isUserDefined' in section
+          ? (section as { isUserDefined: boolean }).isUserDefined
+          : undefined,
     };
   }
   // Check if it's a SectionSummary (has activityCount number)
@@ -101,6 +107,10 @@ function normalizeSectionData(
         'sectionType' in section ? (section as { sectionType: string }).sectionType : undefined,
       sportTypes:
         'sportTypes' in section ? (section as { sportTypes: string[] }).sportTypes : undefined,
+      isUserDefined:
+        'isUserDefined' in section
+          ? (section as { isUserDefined: boolean }).isUserDefined
+          : undefined,
     };
   }
   // Already normalized
@@ -362,6 +372,14 @@ export const SectionRow = memo(function SectionRow({
           <Text style={[styles.sectionName, isDark && styles.textLight]} numberOfLines={1}>
             {section.name || t('sections.defaultName')}
           </Text>
+          {section.isUserDefined && section.sectionType === 'auto' && (
+            <MaterialCommunityIcons
+              name="pin"
+              size={12}
+              color={isDark ? '#71717A' : '#9CA3AF'}
+              style={{ marginLeft: 4 }}
+            />
+          )}
           {section.sportTypes && section.sportTypes.length > 0 && (
             <View style={styles.sportIconsRow}>
               {section.sportTypes.map((st) => (

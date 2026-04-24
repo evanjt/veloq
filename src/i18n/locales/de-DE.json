@@ -1490,7 +1490,17 @@
     "heatmapGeneration": "Heatmap",
     "heatmapDescription": "Nutzt Gerätespeicher. Deaktivieren, um Platz zu sparen.",
     "redetectSections": "Abschnitte neu erkennen",
-    "redetectSectionsHint": "Abschnittserkennung über alle Aktivitäten erneut ausführen. Kann 1-2 Minuten dauern."
+    "redetectSectionsHint": "Abschnittserkennung über alle Aktivitäten erneut ausführen. Kann 1-2 Minuten dauern.",
+    "sectionDetection": "Section Detection",
+    "detectionSensitivity": "Detection sensitivity",
+    "detectionRelaxed": "Relaxed",
+    "detectionStrict": "Strict",
+    "matchThreshold": "Match: {{pct}}%",
+    "endpointDistance": "Endpoint: {{meters}}m",
+    "reanalyzeSections": "Reanalyze sections",
+    "reanalyzeWarning": "This will replace all unaccepted auto-detected sections. Accepted (pinned) sections will be preserved.",
+    "cleanupOverlapping": "Clean up overlapping",
+    "cleanupResult": "Removed {{count}} overlapping"
   },
   "stats": {
     "activities": "Aktivitäten",

@@ -1490,7 +1490,17 @@
     "heatmapGeneration": "ヒートマップ",
     "heatmapDescription": "デバイスのストレージを使用します。容量を節約するには無効にしてください。",
     "redetectSections": "セクションを再検出",
-    "redetectSectionsHint": "全アクティビティでセクション検出を再実行します。1〜2分かかります。"
+    "redetectSectionsHint": "全アクティビティでセクション検出を再実行します。1〜2分かかります。",
+    "sectionDetection": "Section Detection",
+    "detectionSensitivity": "Detection sensitivity",
+    "detectionRelaxed": "Relaxed",
+    "detectionStrict": "Strict",
+    "matchThreshold": "Match: {{pct}}%",
+    "endpointDistance": "Endpoint: {{meters}}m",
+    "reanalyzeSections": "Reanalyze sections",
+    "reanalyzeWarning": "This will replace all unaccepted auto-detected sections. Accepted (pinned) sections will be preserved.",
+    "cleanupOverlapping": "Clean up overlapping",
+    "cleanupResult": "Removed {{count}} overlapping"
   },
   "stats": {
     "activities": "アクティビティ",

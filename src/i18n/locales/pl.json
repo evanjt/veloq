@@ -1490,7 +1490,17 @@
     "heatmapGeneration": "Mapa ciepła",
     "heatmapDescription": "Używa pamięci urządzenia. Wyłącz, aby zaoszczędzić miejsce.",
     "redetectSections": "Wykryj sekcje ponownie",
-    "redetectSectionsHint": "Uruchom detekcję sekcji ponownie dla wszystkich aktywności. Może potrwać 1-2 minuty."
+    "redetectSectionsHint": "Uruchom detekcję sekcji ponownie dla wszystkich aktywności. Może potrwać 1-2 minuty.",
+    "sectionDetection": "Section Detection",
+    "detectionSensitivity": "Detection sensitivity",
+    "detectionRelaxed": "Relaxed",
+    "detectionStrict": "Strict",
+    "matchThreshold": "Match: {{pct}}%",
+    "endpointDistance": "Endpoint: {{meters}}m",
+    "reanalyzeSections": "Reanalyze sections",
+    "reanalyzeWarning": "This will replace all unaccepted auto-detected sections. Accepted (pinned) sections will be preserved.",
+    "cleanupOverlapping": "Clean up overlapping",
+    "cleanupResult": "Removed {{count}} overlapping"
   },
   "stats": {
     "activities": "Aktywności",

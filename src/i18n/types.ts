@@ -321,6 +321,16 @@ export interface TranslationResource {
     activities: string;
     routesCount: string;
     sectionsCount: string;
+    sectionDetection: string;
+    detectionSensitivity: string;
+    detectionRelaxed: string;
+    detectionStrict: string;
+    matchThreshold: string;
+    endpointDistance: string;
+    reanalyzeSections: string;
+    reanalyzeWarning: string;
+    cleanupOverlapping: string;
+    cleanupResult: string;
     total: string;
     database: string;
     dateRange: string;
@@ -1069,6 +1079,11 @@ export interface TranslationResource {
   };
 
   sections: {
+    acceptSection: string;
+    acceptAllSections: string;
+    acceptAllConfirm: string;
+    acceptedCount: string;
+    pinned: string;
     activitiesCount: string;
     performanceOverTime: string;
     legendPr: string;

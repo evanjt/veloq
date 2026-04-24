@@ -216,6 +216,7 @@ export default function SectionDetailScreen() {
     handleIncludeActivity,
     handleToggleShowExcluded,
     handleRematchActivities,
+    handleAcceptSection,
   } = useSectionActions({
     id,
     isCustomId: !!isCustomId,
@@ -573,6 +574,38 @@ export default function SectionDetailScreen() {
             isRematching={isRematching}
           />
 
+          {/* Accept/Pinned indicator for auto sections */}
+          {section && section.sectionType === 'auto' && !isCustomId && (
+            <View style={styles.acceptRow}>
+              {section.isUserDefined ? (
+                <View style={styles.pinnedChip}>
+                  <MaterialCommunityIcons
+                    name="pin"
+                    size={14}
+                    color={isDark ? '#71717A' : '#9CA3AF'}
+                  />
+                  <Text style={[styles.pinnedText, { color: isDark ? '#71717A' : '#9CA3AF' }]}>
+                    {t('sections.pinned')}
+                  </Text>
+                </View>
+              ) : (
+                <TouchableOpacity
+                  style={[styles.acceptChip, { borderColor: isDark ? '#374151' : '#D1D5DB' }]}
+                  onPress={handleAcceptSection}
+                >
+                  <MaterialCommunityIcons
+                    name="pin-outline"
+                    size={14}
+                    color={isDark ? '#D1D5DB' : '#6B7280'}
+                  />
+                  <Text style={[styles.acceptText, { color: isDark ? '#D1D5DB' : '#6B7280' }]}>
+                    {t('sections.acceptSection')}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
+
           {/* Sport type pills for cross-sport sections */}
           {sportTypeCounts.length > 1 && (
             <View style={styles.sportTypePills}>
@@ -905,6 +938,33 @@ const styles = StyleSheet.create({
   },
   textMuted: {
     color: darkColors.textSecondary,
+  },
+  acceptRow: {
+    flexDirection: 'row',
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.xs,
+  },
+  acceptChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 16,
+    borderWidth: 1,
+    gap: 4,
+  },
+  acceptText: {
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  pinnedChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  pinnedText: {
+    fontSize: 13,
+    fontWeight: '500',
   },
   sportTypePills: {
     flexDirection: 'row',
