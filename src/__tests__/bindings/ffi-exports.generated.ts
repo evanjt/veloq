@@ -5,8 +5,8 @@
  * This file contains the expected FFI exports extracted from Rust source.
  * Used by tests to validate TypeScript bindings match Rust exports.
  *
- * 4 standalone `#[uniffi::export]` functions plus
- * 177 methods inside `#[uniffi::export] impl` blocks across
+ * 5 standalone `#[uniffi::export]` functions plus
+ * 178 methods inside `#[uniffi::export] impl` blocks across
  * 10 UniFFI Objects.
  */
 
@@ -25,7 +25,7 @@ export interface FfiExportInfo {
 
 /**
  * All FFI exports from Rust source.
- * Total: 181 exports (4 standalone + 177 methods)
+ * Total: 183 exports (5 standalone + 178 methods)
  */
 export const FFI_EXPORTS: FfiExportInfo[] = [
   {
@@ -35,16 +35,22 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 44,
   },
   {
+    name: 'validate_backup_database',
+    camelName: 'validateBackupDatabase',
+    file: 'ffi.rs',
+    line: 90,
+  },
+  {
     name: 'start_fetch_and_store',
     camelName: 'startFetchAndStore',
     file: 'ffi.rs',
-    line: 100,
+    line: 139,
   },
   {
     name: 'take_fetch_and_store_result',
     camelName: 'takeFetchAndStoreResult',
     file: 'ffi.rs',
-    line: 419,
+    line: 438,
   },
   {
     name: 'new',
@@ -187,10 +193,17 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     object: 'DetectionManager',
   },
   {
+    name: 'get_match_strictness',
+    camelName: 'getMatchStrictness',
+    file: 'objects/detection.rs',
+    line: 169,
+    object: 'DetectionManager',
+  },
+  {
     name: 'detect_potentials',
     camelName: 'detectPotentials',
     file: 'objects/detection.rs',
-    line: 153,
+    line: 176,
     object: 'DetectionManager',
   },
   {
@@ -1289,7 +1302,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'compute_polyline_overlap',
     camelName: 'computePolylineOverlap',
     file: 'persistence/mod.rs',
-    line: 1103,
+    line: 1120,
   },
 ];
 
@@ -1298,6 +1311,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
  */
 export const EXPECTED_TS_FUNCTIONS = new Set<string>([
   'getDownloadProgress',
+  'validateBackupDatabase',
   'startFetchAndStore',
   'takeFetchAndStoreResult',
   'new',
@@ -1320,6 +1334,7 @@ export const EXPECTED_TS_FUNCTIONS = new Set<string>([
   'setConfig',
   'getConfig',
   'setMatchStrictness',
+  'getMatchStrictness',
   'detectPotentials',
   'create',
   'isInitialized',
@@ -1489,6 +1504,7 @@ export const EXPECTED_TS_FUNCTIONS = new Set<string>([
  */
 export const RUST_TO_TS_NAME: Record<string, string> = {
   get_download_progress: 'getDownloadProgress',
+  validate_backup_database: 'validateBackupDatabase',
   start_fetch_and_store: 'startFetchAndStore',
   take_fetch_and_store_result: 'takeFetchAndStoreResult',
   new: 'new',
@@ -1510,6 +1526,7 @@ export const RUST_TO_TS_NAME: Record<string, string> = {
   set_config: 'setConfig',
   get_config: 'getConfig',
   set_match_strictness: 'setMatchStrictness',
+  get_match_strictness: 'getMatchStrictness',
   detect_potentials: 'detectPotentials',
   create: 'create',
   is_initialized: 'isInitialized',
