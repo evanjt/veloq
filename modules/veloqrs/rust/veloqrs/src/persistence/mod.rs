@@ -41,7 +41,8 @@ mod indicators;
 mod routes;
 mod schema;
 pub mod sections;
-mod settings;
+pub mod settings;
+pub use settings::settings_keys;
 mod strength;
 mod tiles;
 pub(crate) mod wellness;
@@ -532,6 +533,7 @@ impl PersistentRouteEngine {
         self.load_sections()?;
         self.load_processed_activity_ids()?;
         self.load_activity_metrics()?;
+        self.load_match_strictness_from_settings()?;
 
         // Backfill activities.duration_secs from activity_metrics.moving_time.
         // Route highlights need duration_secs to compute trends/PRs, but it was
@@ -581,6 +583,18 @@ impl PersistentRouteEngine {
         self.signature_cache.clear(); // Signatures depend on config
         self.groups_dirty = true;
         self.sections_dirty = true;
+    }
+
+    /// Read-only access to the active `match_config.min_match_percentage`.
+    /// Exposed so integration tests can verify persisted strictness without
+    /// needing crate-private access to the whole `MatchConfig`.
+    pub fn match_config_min_match_percentage(&self) -> f64 {
+        self.match_config.min_match_percentage
+    }
+
+    /// Read-only access to the active `match_config.endpoint_threshold`.
+    pub fn match_config_endpoint_threshold(&self) -> f64 {
+        self.match_config.endpoint_threshold
     }
 
     /// Set section configuration.

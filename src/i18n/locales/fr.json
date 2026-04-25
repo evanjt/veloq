@@ -838,7 +838,7 @@
     "loadingActivities": "Chargement des activités...",
     "loadingOlderActivities": "Chargement des activités plus anciennes...",
     "syncing": "Synchronisation : {{percent}}%",
-    "activities": "activities",
+    "activities": "activités",
     "expandRange": "Étendre la plage"
   },
   "maps": {
@@ -1591,9 +1591,9 @@
     "noEffortData": "Aucune donnée de meilleur effort",
     "pace": "Allure",
     "paceCurve": "Courbe d'allure",
-    "paceCurveInfo": "CS (critical speed) and D' are calculated using the 2 parameter model. Intervals.icu uses your best 1k, 2k, 3k, 4k and 5k times keeping those that take between 2 and 15+ minutes.",
+    "paceCurveInfo": "CS (vitesse critique) et D' sont calculés à partir du modèle à 2 paramètres. Intervals.icu utilise vos meilleurs temps sur 1k, 2k, 3k, 4k et 5k en ne conservant que ceux compris entre 2 et 15+ minutes.",
     "powerCurve": "Courbe de puissance",
-    "powerCurveInfo": "Estimated FTP is calculated using power curves from FastFitness.Tips and Morton's 3 parameter critical power model. The algorithm requires just 1 max effort of between 180 seconds and 30 minutes. W' is relative to eFTP.",
+    "powerCurveInfo": "La FTP estimée est calculée à partir des courbes de puissance de FastFitness.Tips et du modèle de puissance critique à 3 paramètres de Morton. L'algorithme requiert seulement 1 effort maximal compris entre 180 secondes et 30 minutes. W' est relatif à l'eFTP.",
     "ref": "Ref",
     "seasonBests": "Meilleurs efforts",
     "swimPaceCurve": "Courbe d'allure natation",

@@ -1971,6 +1971,14 @@ pub struct FfiNearbySectionSummary {
     pub polyline_coords: Vec<f64>,
 }
 
+/// User-tunable match strictness, persisted in the settings table.
+/// Read by Rust on engine load; written by `DetectionManager.set_match_strictness`.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiMatchStrictness {
+    pub min_match_pct: f64,
+    pub endpoint_threshold: f64,
+}
+
 /// One stale-PR opportunity: a section whose PR might be beatable because
 /// the user's threshold fitness (FTP for cycling, critical speed for run/swim)
 /// has improved since the PR was set, and the section hasn't been visited
