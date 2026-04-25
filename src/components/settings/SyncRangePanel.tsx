@@ -1,7 +1,24 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  Alert,
+  ActivityIndicator,
+  LayoutChangeEvent,
+} from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+  runOnJS,
+  Easing,
+} from 'react-native-reanimated';
+import * as Haptics from 'expo-haptics';
 import { TimelineSlider } from '@/components/maps';
 import { useActivityBoundsCache, useOldestActivityDate, useTheme } from '@/hooks';
 import { formatLocalDate } from '@/lib';
@@ -16,6 +33,216 @@ const PRESETS = [
   { key: 'default', value: 60, matchPct: 65, endpoint: 210 },
   { key: 'detectionStrict', value: 90, matchPct: 72.5, endpoint: 165 },
 ] as const;
+
+const SNAP_TIMING = { duration: 200, easing: Easing.out(Easing.cubic) };
+const THUMB_SIZE = 22;
+
+function DetectionSlider({
+  activeIndex,
+  onSelect,
+  isDark,
+}: {
+  activeIndex: number;
+  onSelect: (index: number) => void;
+  isDark: boolean;
+}) {
+  const { t } = useTranslation();
+  const [trackWidth, setTrackWidth] = useState(0);
+  const thumbX = useSharedValue(0);
+
+  const snapPositions = useMemo(() => {
+    if (trackWidth === 0) return [0, 0, 0];
+    return PRESETS.map((_, i) => (i / (PRESETS.length - 1)) * (trackWidth - THUMB_SIZE));
+  }, [trackWidth]);
+
+  useEffect(() => {
+    if (trackWidth > 0) {
+      thumbX.value = withTiming(snapPositions[activeIndex], SNAP_TIMING);
+    }
+  }, [activeIndex, snapPositions, trackWidth, thumbX]);
+
+  const snapToNearest = useCallback(
+    (x: number) => {
+      let closest = 0;
+      let minDist = Infinity;
+      for (let i = 0; i < snapPositions.length; i++) {
+        const dist = Math.abs(x - snapPositions[i]);
+        if (dist < minDist) {
+          minDist = dist;
+          closest = i;
+        }
+      }
+      if (closest !== activeIndex) {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      }
+      onSelect(closest);
+    },
+    [snapPositions, activeIndex, onSelect]
+  );
+
+  const panGesture = useMemo(
+    () =>
+      Gesture.Pan()
+        .onUpdate((e) => {
+          'worklet';
+          const startX = snapPositions[activeIndex];
+          const newX = Math.max(0, Math.min(trackWidth - THUMB_SIZE, startX + e.translationX));
+          thumbX.value = newX;
+        })
+        .onEnd(() => {
+          'worklet';
+          runOnJS(snapToNearest)(thumbX.value);
+        }),
+    [thumbX, snapPositions, activeIndex, trackWidth, snapToNearest]
+  );
+
+  const thumbStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: thumbX.value }],
+  }));
+
+  const fillStyle = useAnimatedStyle(() => ({
+    width: thumbX.value + THUMB_SIZE / 2,
+  }));
+
+  const handleLayout = useCallback((e: LayoutChangeEvent) => {
+    setTrackWidth(e.nativeEvent.layout.width);
+  }, []);
+
+  const handleLabelPress = useCallback(
+    (index: number) => {
+      if (index !== activeIndex) {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+      }
+      onSelect(index);
+    },
+    [activeIndex, onSelect]
+  );
+
+  return (
+    <View style={sliderStyles.container}>
+      {/* Labels row */}
+      <View style={sliderStyles.labelsRow}>
+        {PRESETS.map((p, i) => {
+          const label = p.key === 'default' ? t('settings.default') : t(`settings.${p.key}`);
+          return (
+            <TouchableOpacity
+              key={p.key}
+              style={sliderStyles.labelTouchable}
+              onPress={() => handleLabelPress(i)}
+            >
+              <Text
+                style={[
+                  sliderStyles.label,
+                  i === activeIndex && sliderStyles.labelActive,
+                  i !== activeIndex && isDark && sliderStyles.labelDark,
+                ]}
+              >
+                {label}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+
+      {/* Track + thumb */}
+      <GestureDetector gesture={panGesture}>
+        <View style={sliderStyles.trackContainer} onLayout={handleLayout}>
+          <View style={[sliderStyles.track, isDark && sliderStyles.trackDark]} />
+          <Animated.View style={[sliderStyles.fill, fillStyle]} />
+          {/* Snap dots */}
+          {trackWidth > 0 &&
+            snapPositions.map((pos, i) => (
+              <View
+                key={i}
+                style={[
+                  sliderStyles.dot,
+                  {
+                    left: pos + THUMB_SIZE / 2 - 3,
+                  },
+                  i <= activeIndex && sliderStyles.dotActive,
+                ]}
+              />
+            ))}
+          <Animated.View style={[sliderStyles.thumb, thumbStyle]} />
+        </View>
+      </GestureDetector>
+    </View>
+  );
+}
+
+const sliderStyles = StyleSheet.create({
+  container: {
+    marginTop: spacing.xs,
+  },
+  labelsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  labelTouchable: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  label: {
+    fontSize: 13,
+    fontWeight: '400',
+    color: colors.textSecondary,
+  },
+  labelActive: {
+    fontWeight: '600',
+    color: colors.primary,
+  },
+  labelDark: {
+    color: darkColors.textSecondary,
+  },
+  trackContainer: {
+    height: 28,
+    justifyContent: 'center',
+  },
+  track: {
+    position: 'absolute',
+    left: THUMB_SIZE / 2,
+    right: THUMB_SIZE / 2,
+    height: 4,
+    backgroundColor: '#E4E4E7',
+    borderRadius: 2,
+  },
+  trackDark: {
+    backgroundColor: '#3F3F46',
+  },
+  fill: {
+    position: 'absolute',
+    left: THUMB_SIZE / 2,
+    height: 4,
+    backgroundColor: colors.primary,
+    borderRadius: 2,
+    opacity: 0.4,
+  },
+  dot: {
+    position: 'absolute',
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#D1D5DB',
+    top: 11,
+  },
+  dotActive: {
+    backgroundColor: colors.primary,
+    opacity: 0.6,
+  },
+  thumb: {
+    position: 'absolute',
+    width: THUMB_SIZE,
+    height: THUMB_SIZE,
+    borderRadius: THUMB_SIZE / 2,
+    backgroundColor: colors.primary,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+    elevation: 3,
+  },
+});
 
 export function SyncRangePanel() {
   const { isDark } = useTheme();
@@ -88,7 +315,8 @@ export function SyncRangePanel() {
   }, [pruneResult]);
 
   const handlePresetSelect = useCallback(
-    (preset: (typeof PRESETS)[number]) => {
+    (index: number) => {
+      const preset = PRESETS[index];
       setDetectionStrictness(preset.value);
       applyDetectionStrictness(preset.value);
     },
@@ -96,7 +324,19 @@ export function SyncRangePanel() {
   );
 
   // --- Section rescan state ---
-  const { forceRescan, isScanning, progress: rescanProgress } = useSectionRescan();
+  const {
+    forceRescan,
+    isScanning,
+    progress: rescanProgress,
+    result,
+    clearResult,
+  } = useSectionRescan();
+
+  useEffect(() => {
+    if (result === null) return;
+    const timer = setTimeout(clearResult, 5000);
+    return () => clearTimeout(timer);
+  }, [result, clearResult]);
 
   const handleReanalyze = useCallback(() => {
     Alert.alert(t('settings.reanalyzeSections'), t('settings.reanalyzeWarning'), [
@@ -114,6 +354,17 @@ export function SyncRangePanel() {
     rescanProgress && rescanProgress.total > 0
       ? Math.max((rescanProgress.completed / rescanProgress.total) * 100, 2)
       : 2;
+
+  const resultText = useMemo(() => {
+    if (!result) return null;
+    const removed = Math.max(0, result.before - result.after);
+    const added = Math.max(0, result.after - result.before);
+    const parts: string[] = [];
+    if (removed > 0) parts.push(`${removed} removed`);
+    if (added > 0) parts.push(`${added} added`);
+    if (parts.length === 0) return `${result.after} sections (unchanged)`;
+    return parts.join(', ');
+  }, [result]);
 
   return (
     <>
@@ -179,43 +430,11 @@ export function SyncRangePanel() {
               {t('settings.detectionSensitivity')}
             </Text>
 
-            {/* Segmented bar */}
-            <View
-              style={[styles.segmentedBar, { backgroundColor: isDark ? '#27272A' : '#E4E4E7' }]}
-            >
-              <View
-                style={[
-                  styles.segmentedFill,
-                  { width: `${((activePresetIndex + 1) / PRESETS.length) * 100}%` },
-                ]}
-              />
-              {PRESETS.map((p, i) => {
-                const isActive = i <= activePresetIndex;
-                const isSelected = i === activePresetIndex;
-                const label = p.key === 'default' ? t('settings.default') : t(`settings.${p.key}`);
-                return (
-                  <TouchableOpacity
-                    key={p.key}
-                    style={styles.segmentedItem}
-                    onPress={() => handlePresetSelect(p)}
-                  >
-                    <Text
-                      style={{
-                        fontSize: 13,
-                        fontWeight: isSelected ? '600' : '400',
-                        color: isActive
-                          ? colors.primary
-                          : isDark
-                            ? darkColors.textSecondary
-                            : colors.textSecondary,
-                      }}
-                    >
-                      {label}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
+            <DetectionSlider
+              activeIndex={activePresetIndex}
+              onSelect={handlePresetSelect}
+              isDark={isDark}
+            />
 
             <Text
               style={{
@@ -252,6 +471,9 @@ export function SyncRangePanel() {
           <Text style={[settingsStyles.actionRowText, isDark && settingsStyles.textLight]}>
             {t('settings.reanalyzeSections')}
           </Text>
+          {resultText && !isScanning ? (
+            <Text style={[styles.resultText, isDark && styles.resultTextDark]}>{resultText}</Text>
+          ) : null}
         </TouchableOpacity>
 
         {/* Rescan progress */}
@@ -336,32 +558,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     gap: spacing.sm,
   },
-  segmentedBar: {
-    flexDirection: 'row',
-    height: 36,
-    borderRadius: 8,
-    overflow: 'hidden',
-    marginTop: spacing.xs,
-  },
-  segmentedFill: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(252, 76, 2, 0.12)',
-    borderRadius: 8,
-  },
-  segmentedItem: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 1,
-  },
   actionRowDisabled: {
     opacity: 0.5,
   },
   spinner: {
     width: 22,
     height: 22,
+  },
+  resultText: {
+    fontSize: 12,
+    color: colors.primary,
+  },
+  resultTextDark: {
+    color: colors.primary,
   },
 });
