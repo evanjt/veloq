@@ -226,6 +226,36 @@ impl SectionDetectionProgress {
     pub fn get_total(&self) -> u32 {
         self.total.load(Ordering::SeqCst)
     }
+
+    /// Phase-weighted overall percent (0–100).
+    ///
+    /// Weights are tuned to wall-clock shares so the progress bar advances
+    /// roughly linearly. `finding_overlaps` dominates at ~55%.
+    pub fn get_percent(&self) -> u32 {
+        let phase = self.get_phase();
+        let completed = self.get_completed();
+        let total = self.get_total();
+        let fraction = if total > 0 {
+            (completed as f64 / total as f64).min(1.0)
+        } else {
+            0.0
+        };
+
+        let (accumulated, weight) = match phase.as_str() {
+            "loading"                => (0.0,  0.05),
+            "building_rtrees"        => (0.05, 0.10),
+            "finding_overlaps"       => (0.15, 0.55),
+            "clustering"             => (0.70, 0.05),
+            "postprocessing"         => (0.75, 0.10),
+            "saving"                 => (0.85, 0.05),
+            "merging_cross_sport"    => (0.90, 0.03),
+            "recomputing_indicators" => (0.93, 0.04),
+            "complete"               => (1.0,  0.0),
+            _                        => return 50,
+        };
+        let pct = (accumulated + weight * fraction) * 100.0;
+        (pct.round() as u32).min(100)
+    }
 }
 
 impl tracematch::DetectionProgressCallback for SectionDetectionProgress {

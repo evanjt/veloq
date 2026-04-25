@@ -92,10 +92,12 @@ impl DetectionManager {
 
         Ok(handle_guard.as_ref().map(|handle| {
             let (phase, completed, total) = handle.get_progress();
+            let percent = handle.progress.get_percent();
             crate::FfiDetectionProgress {
                 phase,
                 completed,
                 total,
+                percent,
             }
         }))
     }

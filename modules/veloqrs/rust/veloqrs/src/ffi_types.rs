@@ -45,6 +45,8 @@ pub struct FfiDetectionProgress {
     pub completed: u32,
     /// Total items in current phase
     pub total: u32,
+    /// Phase-weighted overall percent (0–100)
+    pub percent: u32,
 }
 
 /// Section reference info: combines reference activity ID and user-defined flag.

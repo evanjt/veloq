@@ -290,6 +290,10 @@ interface NativeModuleInterface {
     basePath: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): bigint;
+  ubrn_uniffi_veloqrs_fn_method_heatmapmanager_get_percent(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): number;
   ubrn_uniffi_veloqrs_fn_method_heatmapmanager_get_progress(
     ptr: bigint,
     uniffi_out_err: UniffiRustCallStatus,
@@ -1093,6 +1097,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_clear_tiles(): number;
   ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_clear_tiles_path(): number;
   ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_get_cache_size(): number;
+  ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_get_percent(): number;
   ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_get_progress(): number;
   ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_poll(): number;
   ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_set_tiles_path(): number;

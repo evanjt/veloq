@@ -23,7 +23,7 @@ import { TimelineSlider } from '@/components/maps';
 import { useActivityBoundsCache, useOldestActivityDate, useTheme } from '@/hooks';
 import { formatLocalDate } from '@/lib';
 import { useSyncDateRange, useRouteSettings } from '@/providers';
-import { applyDetectionStrictness, getRouteEngine } from '@/lib/native/routeEngine';
+import { applyDetectionStrictness } from '@/lib/native/routeEngine';
 import { useSectionRescan } from '@/hooks/routes/useSectionRescan';
 import { settingsStyles } from './settingsStyles';
 import { colors, darkColors, spacing } from '@/theme';
@@ -293,7 +293,6 @@ export function SyncRangePanel() {
 
   // --- Detection sensitivity state ---
   const { settings, setDetectionStrictness } = useRouteSettings();
-  const [pruneResult, setPruneResult] = useState<number | null>(null);
 
   const activePresetIndex = useMemo(() => {
     let closest = 0;
@@ -307,12 +306,6 @@ export function SyncRangePanel() {
     }
     return closest;
   }, [settings.detectionStrictness]);
-
-  useEffect(() => {
-    if (pruneResult === null) return;
-    const timer = setTimeout(() => setPruneResult(null), 3000);
-    return () => clearTimeout(timer);
-  }, [pruneResult]);
 
   const handlePresetSelect = useCallback(
     (index: number) => {
@@ -345,15 +338,7 @@ export function SyncRangePanel() {
     ]);
   }, [t, forceRescan]);
 
-  const handlePrune = useCallback(() => {
-    const count = getRouteEngine()?.pruneOverlappingSections() ?? 0;
-    setPruneResult(count);
-  }, []);
-
-  const rescanPercent =
-    rescanProgress && rescanProgress.total > 0
-      ? Math.max((rescanProgress.completed / rescanProgress.total) * 100, 2)
-      : 2;
+  const rescanPercent = rescanProgress ? Math.max(rescanProgress.percent, 2) : 2;
 
   const resultText = useMemo(() => {
     if (!result) return null;
@@ -483,37 +468,10 @@ export function SyncRangePanel() {
               <View style={[styles.progressBarFill, { width: `${rescanPercent}%` }]} />
             </View>
             <Text style={[styles.progressText, isDark && styles.progressTextDark]}>
-              {rescanProgress.phase}
-              {rescanProgress.total > 0
-                ? ` (${rescanProgress.completed}/${rescanProgress.total})`
-                : ''}
+              {rescanProgress.displayName}... {Math.round(rescanPercent)}%
             </Text>
           </View>
         ) : null}
-
-        {/* Cleanup overlapping */}
-        <View style={[settingsStyles.rowDivider, isDark && settingsStyles.rowDividerDark]} />
-
-        <TouchableOpacity style={settingsStyles.actionRow} onPress={handlePrune}>
-          <MaterialCommunityIcons
-            name="set-merge"
-            size={22}
-            color={isDark ? darkColors.textSecondary : colors.textSecondary}
-          />
-          <Text style={[settingsStyles.actionRowText, isDark && settingsStyles.textLight]}>
-            {t('settings.cleanupOverlapping')}
-          </Text>
-          {pruneResult !== null && (
-            <Text
-              style={{
-                fontSize: 12,
-                color: isDark ? darkColors.textSecondary : colors.textSecondary,
-              }}
-            >
-              {t('settings.cleanupResult', { count: pruneResult })}
-            </Text>
-          )}
-        </TouchableOpacity>
       </View>
     </>
   );

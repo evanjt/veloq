@@ -91,4 +91,23 @@ impl HeatmapManager {
             None => Ok(vec![0, 0]),
         }
     }
+
+    /// Get tile generation progress as a single 0–100 percent.
+    fn get_percent(&self) -> Result<u32, VeloqError> {
+        let handle_guard = crate::persistence::persistent_engine_ffi::TILE_GENERATION_HANDLE
+            .lock()
+            .map_err(|_| VeloqError::LockFailed)?;
+
+        match handle_guard.as_ref() {
+            Some(handle) => {
+                let (processed, total) = handle.get_progress();
+                if total == 0 {
+                    Ok(0)
+                } else {
+                    Ok(((processed as u64 * 100) / total as u64).min(100) as u32)
+                }
+            }
+            None => Ok(0),
+        }
+    }
 }

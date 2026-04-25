@@ -1810,6 +1810,10 @@ export type FfiDetectionProgress = {
    * Total items in current phase
    */
   total: /*u32*/ number;
+  /**
+   * Phase-weighted overall percent (0–100)
+   */
+  percent: /*u32*/ number;
 };
 
 /**
@@ -1851,18 +1855,21 @@ const FfiConverterTypeFfiDetectionProgress = (() => {
         phase: FfiConverterString.read(from),
         completed: FfiConverterUInt32.read(from),
         total: FfiConverterUInt32.read(from),
+        percent: FfiConverterUInt32.read(from),
       };
     }
     write(value: TypeName, into: RustBuffer): void {
       FfiConverterString.write(value.phase, into);
       FfiConverterUInt32.write(value.completed, into);
       FfiConverterUInt32.write(value.total, into);
+      FfiConverterUInt32.write(value.percent, into);
     }
     allocationSize(value: TypeName): number {
       return (
         FfiConverterString.allocationSize(value.phase) +
         FfiConverterUInt32.allocationSize(value.completed) +
-        FfiConverterUInt32.allocationSize(value.total)
+        FfiConverterUInt32.allocationSize(value.total) +
+        FfiConverterUInt32.allocationSize(value.percent)
       );
     }
   }
@@ -9812,6 +9819,10 @@ export interface HeatmapManagerInterface {
    */
   getCacheSize(basePath: string) /*throws*/ : /*u64*/ bigint;
   /**
+   * Get tile generation progress as a single 0–100 percent.
+   */
+  getPercent() /*throws*/ : /*u32*/ number;
+  /**
    * Get tile generation progress: (processed, total). Returns (0, 0) if idle.
    */
   getProgress() /*throws*/ : Array</*u32*/ number>;
@@ -9901,6 +9912,26 @@ export class HeatmapManager
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_heatmapmanager_get_cache_size(
             uniffiTypeHeatmapManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(basePath),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * Get tile generation progress as a single 0–100 percent.
+   */
+  public getPercent(): /*u32*/ number /*throws*/ {
+    return FfiConverterUInt32.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_heatmapmanager_get_percent(
+            uniffiTypeHeatmapManagerObjectFactory.clonePointer(this),
             callStatus,
           );
         },
@@ -14512,6 +14543,14 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_heatmapmanager_get_cache_size",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_get_percent() !==
+    8202
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_heatmapmanager_get_percent",
     );
   }
   if (

@@ -223,6 +223,8 @@ void uniffi_veloqrs_fn_method_heatmapmanager_clear_tiles_path(
     void *ptr, RustCallStatus *uniffi_out_err);
 uint64_t uniffi_veloqrs_fn_method_heatmapmanager_get_cache_size(
     void *ptr, RustBuffer base_path, RustCallStatus *uniffi_out_err);
+uint32_t uniffi_veloqrs_fn_method_heatmapmanager_get_percent(
+    void *ptr, RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_heatmapmanager_get_progress(
     void *ptr, RustCallStatus *uniffi_out_err);
 RustBuffer
@@ -771,6 +773,7 @@ uint16_t uniffi_veloqrs_checksum_method_fitnessmanager_upsert_wellness();
 uint16_t uniffi_veloqrs_checksum_method_heatmapmanager_clear_tiles();
 uint16_t uniffi_veloqrs_checksum_method_heatmapmanager_clear_tiles_path();
 uint16_t uniffi_veloqrs_checksum_method_heatmapmanager_get_cache_size();
+uint16_t uniffi_veloqrs_checksum_method_heatmapmanager_get_percent();
 uint16_t uniffi_veloqrs_checksum_method_heatmapmanager_get_progress();
 uint16_t uniffi_veloqrs_checksum_method_heatmapmanager_poll();
 uint16_t uniffi_veloqrs_checksum_method_heatmapmanager_set_tiles_path();
@@ -2972,6 +2975,18 @@ NativeVeloqrs::NativeVeloqrs(
                  const jsi::Value *args, size_t count) -> jsi::Value {
             return this
                 ->cpp_uniffi_veloqrs_fn_method_heatmapmanager_get_cache_size(
+                    rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_fn_method_heatmapmanager_get_percent"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt, "ubrn_uniffi_veloqrs_fn_method_heatmapmanager_get_percent"),
+          1,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_fn_method_heatmapmanager_get_percent(
                     rt, thisVal, args, count);
           });
   props["ubrn_uniffi_veloqrs_fn_method_heatmapmanager_get_progress"] =
@@ -5319,6 +5334,19 @@ NativeVeloqrs::NativeVeloqrs(
                  const jsi::Value *args, size_t count) -> jsi::Value {
             return this
                 ->cpp_uniffi_veloqrs_checksum_method_heatmapmanager_get_cache_size(
+                    rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_get_percent"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt,
+              "ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_get_percent"),
+          0,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_checksum_method_heatmapmanager_get_percent(
                     rt, thisVal, args, count);
           });
   props["ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_get_progress"] =
@@ -8109,6 +8137,19 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_heatmapmanager_get_cache_size(
   return uniffi_jsi::Bridging<uint64_t>::toJs(rt, callInvoker, value);
 }
 jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_heatmapmanager_get_percent(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value = uniffi_veloqrs_fn_method_heatmapmanager_get_percent(
+      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]), &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return uniffi_jsi::Bridging<uint32_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value
 NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_heatmapmanager_get_progress(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
     size_t count) {
@@ -10680,6 +10721,14 @@ NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_heatmapmanager_get_cache_size(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
     size_t count) {
   auto value = uniffi_veloqrs_checksum_method_heatmapmanager_get_cache_size();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_heatmapmanager_get_percent(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  auto value = uniffi_veloqrs_checksum_method_heatmapmanager_get_percent();
 
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }

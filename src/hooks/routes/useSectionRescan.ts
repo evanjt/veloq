@@ -1,16 +1,25 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { getRouteEngine } from '@/lib/native/routeEngine';
+import { getPhaseDisplayName } from '@/lib/utils/detectionProgress';
 
 interface RescanResult {
   before: number;
   after: number;
 }
 
+interface RescanProgress {
+  phase: string;
+  displayName: string;
+  completed: number;
+  total: number;
+  percent: number;
+}
+
 interface SectionRescanState {
   rescan: (sportFilter?: string) => boolean;
   forceRescan: (sportFilter?: string) => boolean;
   isScanning: boolean;
-  progress: { phase: string; completed: number; total: number } | null;
+  progress: RescanProgress | null;
   result: RescanResult | null;
   clearResult: () => void;
 }
@@ -56,7 +65,13 @@ export function useSectionRescan(): SectionRescanState {
       } else {
         const p = engine.getSectionDetectionProgress();
         if (p) {
-          setProgress({ phase: p.phase, completed: p.completed, total: p.total });
+          setProgress({
+            phase: p.phase,
+            displayName: getPhaseDisplayName(p.phase),
+            completed: p.completed,
+            total: p.total,
+            percent: p.percent,
+          });
         }
       }
     }, 500);
