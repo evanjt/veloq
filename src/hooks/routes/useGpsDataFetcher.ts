@@ -495,46 +495,36 @@ export function useGpsDataFetcher() {
           return out;
         })();
 
-      // Poll for progress every 100ms until complete
+      // Poll for combined GPS + time stream progress every 100ms.
+      // Both run concurrently; each contributes half of the download budget.
+      // When route matching is on: download = 0-50%, detection = 50-75%, tiles = 75-100%.
+      // When off: download = 0-100%.
+      const downloadBudget = isRouteMatchingEnabled() ? 50 : 100;
       let pollCount = 0;
       while (isMountedRef.current && !abortSignal.aborted) {
         await new Promise((resolve) => setTimeout(resolve, 100));
-
-        const progress = getDownloadProgress();
         pollCount++;
 
-        if (__DEV__ && pollCount <= 5) {
-          console.log(
-            `[fetchApiGps] Poll #${pollCount}: active=${progress.active}, completed=${progress.completed}/${progress.total}`
-          );
-        }
-
-        if (progress.active) {
-          // Download is 0-50% when route matching is on (detection fills 50-100%),
-          // or 0-100% when route matching is off (no detection phase).
-          // GPS download: 0-25% when route matching on, 0-100% when off
-          const maxPercent = isRouteMatchingEnabled() ? 25 : 100;
-          const dlPercent =
-            progress.total > 0 ? Math.round((progress.completed / progress.total) * maxPercent) : 0;
-          updateProgress({
-            status: 'fetching',
-            completed: progress.completed,
-            total: progress.total,
-            percent: dlPercent,
-            message: i18n.t('cache.downloadingGpsProgress', {
-              percent: dlPercent,
-              completed: progress.completed,
-              total: progress.total,
-            }),
-          });
-        } else {
+        const progress = getDownloadProgress();
+        if (!progress.active) {
           if (__DEV__) {
             console.log(
-              `[fetchApiGps] Polling stopped: active=false after ${pollCount} polls, final progress: ${progress.completed}/${progress.total}`
+              `[fetchApiGps] GPS done after ${pollCount} polls: ${progress.completed}/${progress.total}`
             );
           }
           break;
         }
+
+        const gpsFraction = progress.total > 0 ? progress.completed / progress.total : 0;
+        const streamFraction = totalStreams > 0 ? streamProgress.completed / totalStreams : 1;
+        const combined = Math.round(((gpsFraction + streamFraction) / 2) * downloadBudget);
+        updateProgress({
+          status: 'fetching',
+          completed: progress.completed,
+          total: progress.total,
+          percent: combined,
+          message: i18n.t('cache.downloadingGpsProgress', { percent: combined }),
+        });
       }
 
       // Get result (just IDs - no GPS data transfer!)
@@ -608,41 +598,29 @@ export function useGpsDataFetcher() {
         routeEngine.triggerRefresh('groups');
       }
 
-      // Time-stream fetch was kicked off in parallel with the GPS download above.
-      // By now it's usually already done. If any batches remain, show their progress
-      // in the banner while they finish so the user sees the reason for the wait.
+      // Drain remaining time streams. GPS is done so its half is 100%;
+      // keep advancing the bar as streams complete until we reach downloadBudget.
       if (result.syncedIds.length > 0 && isMountedRef.current && !abortSignal.aborted) {
         try {
-          // Drain the tail: poll the shared counter at 150 ms while the stream promise
-          // is still in flight. If it already resolved (counter at total), skip the loop.
-          // Time streams: 25-50%
           while (
             isMountedRef.current &&
             !abortSignal.aborted &&
             streamProgress.completed < totalStreams
           ) {
-            const streamPct =
-              totalStreams > 0
-                ? 25 + Math.round((streamProgress.completed / totalStreams) * 25)
-                : 25;
+            const streamFraction = totalStreams > 0 ? streamProgress.completed / totalStreams : 1;
+            const combined = Math.round(((1 + streamFraction) / 2) * downloadBudget);
             updateProgress({
               status: 'fetching',
               completed: streamProgress.completed,
               total: totalStreams,
-              percent: streamPct,
-              message: i18n.t('cache.fetchingTimeStreams', {
-                percent: streamPct,
-                completed: streamProgress.completed,
-                total: totalStreams,
-              }),
+              percent: combined,
+              message: i18n.t('cache.fetchingTimeStreams', { percent: combined }),
             });
             await new Promise((resolve) => setTimeout(resolve, 150));
           }
 
           const fetchedStreams = await streamFetchPromise;
           if (fetchedStreams.length > 0 && isMountedRef.current) {
-            // Filter to streams whose GPS write actually succeeded — keeps the
-            // Rust-side invariant that time streams only exist for synced activities.
             const syncedSet = new Set(result.syncedIds);
             const toSync = fetchedStreams.filter((s) => syncedSet.has(s.activityId));
             if (toSync.length > 0) {

@@ -351,7 +351,7 @@
     "noValidGpsChecked": "No valid GPS data found (checked {{count}} activities)",
     "fetchingActivities": "Fetching activities...",
     "generatingHeatmap": "Generating heatmap...",
-    "fetchingTimeStreams": "Fetching time streams... {{percent}}%",
+    "fetchingTimeStreams": "Fetching time data... {{percent}}%",
     "finalizingHeatmap": "Finalising heatmap... {{percent}}%"
   },
   "chartTypes": {

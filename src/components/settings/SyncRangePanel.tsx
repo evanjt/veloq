@@ -124,10 +124,11 @@ function DetectionSlider({
       <View style={sliderStyles.labelsRow}>
         {PRESETS.map((p, i) => {
           const label = p.key === 'default' ? t('settings.default') : t(`settings.${p.key}`);
+          const align = i === 0 ? 'flex-start' : i === PRESETS.length - 1 ? 'flex-end' : 'center';
           return (
             <TouchableOpacity
               key={p.key}
-              style={sliderStyles.labelTouchable}
+              style={[sliderStyles.labelTouchable, { alignItems: align } as const]}
               onPress={() => handleLabelPress(i)}
             >
               <Text
@@ -181,7 +182,6 @@ const sliderStyles = StyleSheet.create({
   },
   labelTouchable: {
     flex: 1,
-    alignItems: 'center',
   },
   label: {
     fontSize: 13,
@@ -404,35 +404,27 @@ export function SyncRangePanel() {
         {/* Detection sensitivity */}
         <View style={[settingsStyles.fullDivider, isDark && settingsStyles.fullDividerDark]} />
 
-        <View style={styles.detectionRow}>
-          <MaterialCommunityIcons
-            name="tune-variant"
-            size={22}
-            color={isDark ? darkColors.textSecondary : colors.textSecondary}
+        <View style={styles.detectionSliderWrap}>
+          <Text style={[styles.detectionLabel, isDark && settingsStyles.textLight]}>
+            {t('settings.detectionSensitivity')}
+          </Text>
+          <DetectionSlider
+            activeIndex={activePresetIndex}
+            onSelect={handlePresetSelect}
+            isDark={isDark}
           />
-          <View style={{ flex: 1 }}>
-            <Text style={[settingsStyles.actionRowText, isDark && settingsStyles.textLight]}>
-              {t('settings.detectionSensitivity')}
-            </Text>
 
-            <DetectionSlider
-              activeIndex={activePresetIndex}
-              onSelect={handlePresetSelect}
-              isDark={isDark}
-            />
-
-            <Text
-              style={{
-                fontSize: 11,
-                color: isDark ? darkColors.textDisabled : colors.textDisabled,
-                marginTop: 4,
-              }}
-            >
-              {t('settings.matchThreshold', { pct: PRESETS[activePresetIndex].matchPct })}
-              {'  '}
-              {t('settings.endpointDistance', { meters: PRESETS[activePresetIndex].endpoint })}
-            </Text>
-          </View>
+          <Text
+            style={{
+              fontSize: 11,
+              color: isDark ? darkColors.textDisabled : colors.textDisabled,
+              marginTop: 4,
+            }}
+          >
+            {t('settings.matchThreshold', { pct: PRESETS[activePresetIndex].matchPct })}
+            {'  '}
+            {t('settings.endpointDistance', { meters: PRESETS[activePresetIndex].endpoint })}
+          </Text>
         </View>
 
         {/* Reanalyse sections */}
@@ -509,12 +501,16 @@ const styles = StyleSheet.create({
   progressTextDark: {
     color: darkColors.textSecondary,
   },
-  detectionRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    paddingVertical: spacing.md,
+  detectionLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.textPrimary,
+    marginBottom: spacing.xs,
+  },
+  detectionSliderWrap: {
     paddingHorizontal: spacing.md,
-    gap: spacing.sm,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.md,
   },
   actionRowDisabled: {
     opacity: 0.5,
