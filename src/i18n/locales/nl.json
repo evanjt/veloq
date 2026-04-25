@@ -1,21 +1,21 @@
 {
   "about": {
-    "dataAttribution": "Data Attribution",
+    "dataAttribution": "Data-attributie",
     "description": "Een snelle, offline-first mobiele client voor intervals.icu met focus op kaarten en visuele analyses.",
     "disclaimer": "Veloq is een onafhankelijk, open-source project. Het is op geen enkele wijze verbonden met, goedgekeurd door of gelieerd aan intervals.icu.",
     "disclaimerTitle": "Disclaimer",
     "garminNote": "Activiteitsgegevens kunnen informatie bevatten van Garmin, Strava, Polar, Wahoo en andere apparaten die met je intervals.icu-account zijn verbonden.",
-    "intervalsApiTerms": "intervals.icu API Terms",
-    "intervalsPrivacy": "intervals.icu Privacy Policy",
-    "intervalsTerms": "intervals.icu Terms of Service",
+    "intervalsApiTerms": "intervals.icu API-voorwaarden",
+    "intervalsPrivacy": "intervals.icu privacybeleid",
+    "intervalsTerms": "intervals.icu servicevoorwaarden",
     "mapAttribution": "Kaarttegels geleverd door OpenStreetMap, Carto en Stadia Maps. Kaartgegevens copyright OpenStreetMap-bijdragers.",
     "mapData": "Kaartgegevens",
     "openSource": "Open Source Licentie (Apache 2.0)",
     "sourceCode": "Broncode",
     "thirdPartyLicenses": "Licenties van Derden",
     "title": "Over & Juridisch",
-    "tracematchSource": "Tracematch Source Code",
-    "veloqPrivacy": "Veloq Privacy Policy",
+    "tracematchSource": "Tracematch-broncode",
+    "veloqPrivacy": "Veloq privacybeleid",
     "version": "Versie"
   },
   "activity": {
@@ -45,7 +45,7 @@
       "fresh": "Fris",
       "neutral": "Neutraal"
     },
-    "ftp": "FTP: {{value}}W",
+    "ftp": "FTP: {{value}} W",
     "heartRate": "Hartslag",
     "mapStyle": "Kaartstijl",
     "maxHR": "Max: {{value}} bpm",
@@ -130,7 +130,7 @@
       "contributingExercises": "Bijdragende oefeningen",
       "setCount_one": "{{count}} set",
       "setCount_other": "{{count}} sets",
-      "repsCount": "{{count}} reps"
+      "repsCount": "{{count}} herhalingen"
     },
     "sectionPr": "PR",
     "sectionCount": "{{count}} secties"
