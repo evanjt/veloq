@@ -84,6 +84,45 @@ pub struct ActivitySportMapping {
     pub sport_type: String,
 }
 
+/// Validate a backup database file without touching the global engine.
+/// Opens the file read-only and returns JSON: {"schema_version", "athlete_id", "activity_count"}.
+#[uniffi::export]
+pub fn validate_backup_database(path: String) -> Result<String, crate::VeloqError> {
+    use rusqlite::{Connection, OpenFlags};
+
+    let conn = Connection::open_with_flags(&path, OpenFlags::SQLITE_OPEN_READ_ONLY)
+        .map_err(|e| crate::VeloqError::Database {
+            msg: format!("Cannot open backup: {}", e),
+        })?;
+
+    let schema_version: String = conn
+        .query_row(
+            "SELECT value FROM schema_info WHERE key = 'schema_version'",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap_or_else(|_| "0".to_string());
+
+    let athlete_id: Option<String> = conn
+        .query_row(
+            "SELECT value FROM settings WHERE key = '__athlete_id'",
+            [],
+            |row| row.get(0),
+        )
+        .ok();
+
+    let activity_count: i64 = conn
+        .query_row("SELECT COUNT(*) FROM activities", [], |row| row.get(0))
+        .unwrap_or(0);
+
+    let metadata = serde_json::json!({
+        "schema_version": schema_version,
+        "athlete_id": athlete_id,
+        "activity_count": activity_count,
+    });
+    Ok(metadata.to_string())
+}
+
 /// Start a background fetch that downloads GPS data and stores it directly
 /// in the persistent engine. This eliminates the FFI round-trip where GPS
 /// data would otherwise be sent to TypeScript and back.

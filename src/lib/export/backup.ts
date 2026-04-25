@@ -128,6 +128,9 @@ export interface DatabaseRestoreResult {
 /**
  * Restore from a .veloqdb SQLite snapshot.
  * This replaces the entire database — all activities, sections, settings.
+ *
+ * Pre-validates the backup (athlete ID, schema) BEFORE destroying the live
+ * database so a mismatch doesn't cause data loss.
  */
 export async function restoreDatabaseBackup(fileUri: string): Promise<DatabaseRestoreResult> {
   const dbPath = getRouteDbPath();
@@ -135,60 +138,82 @@ export async function restoreDatabaseBackup(fileUri: string): Promise<DatabaseRe
     return { success: false, activityCount: 0, error: 'Cannot determine database path' };
   }
 
-  const engine = getRouteEngine();
-
-  // Validate the file is a real SQLite database with our schema
-  // We do this by checking the file exists and has reasonable size
   const fileInfo = await FileSystem.getInfoAsync(fileUri);
   if (!fileInfo.exists || fileInfo.size === 0) {
     return { success: false, activityCount: 0, error: 'Backup file is empty or missing' };
   }
 
-  // Destroy the current engine (closes SQLite connection)
+  // Copy to a temp path so Rust can open it (fileUri may be a content:// URI)
+  const tempPath = `${FileSystem.cacheDirectory}restore-validation.veloqdb`;
+  await FileSystem.copyAsync({ from: fileUri, to: tempPath });
+  const plainTempPath = tempPath.startsWith('file://') ? tempPath.slice(7) : tempPath;
+
+  // Pre-validate: open backup read-only to check athlete ID before destroying anything
+  const { useAuthStore } = await import('@/providers');
+  const currentAthleteId = useAuthStore.getState().athleteId;
+  let backupAthleteId: string | null = null;
+
+  try {
+    const { getNativeModule } = await import('@/lib/native/routeEngine');
+    const nativeModule = getNativeModule();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const validateFn = (nativeModule as any)?.validateBackupDatabase as
+      | ((path: string) => string)
+      | undefined;
+    if (validateFn) {
+      const metaJson = validateFn(plainTempPath);
+      const meta = JSON.parse(metaJson);
+      backupAthleteId = meta.athlete_id ?? null;
+
+      if (
+        currentAthleteId != null &&
+        backupAthleteId != null &&
+        currentAthleteId !== backupAthleteId
+      ) {
+        await FileSystem.deleteAsync(tempPath, { idempotent: true });
+        return {
+          success: false,
+          activityCount: 0,
+          athleteIdMismatch: true,
+          backupAthleteId,
+          error: 'Backup belongs to a different athlete',
+        };
+      }
+    }
+  } catch {
+    // Validation unavailable (old binary without validateBackupDatabase) — fall through
+  }
+
+  const engine = getRouteEngine();
   if (engine) {
     engine.destroyEngine();
   }
 
   try {
-    // Replace the database file
+    // Replace the database file from the already-copied temp file
     const dbUri = `file://${dbPath}`;
-    await FileSystem.copyAsync({ from: fileUri, to: dbUri });
+    await FileSystem.copyAsync({ from: tempPath, to: dbUri });
+    await FileSystem.deleteAsync(tempPath, { idempotent: true });
 
-    // Re-initialize the engine (migrations run automatically on older schemas)
     const { getNativeModule } = await import('@/lib/native/routeEngine');
     const nativeModule = getNativeModule();
     if (nativeModule) {
       nativeModule.routeEngine.initWithPath(dbPath);
     }
 
-    // Reload all stores from the new database
     await reinitializeAllStores();
-
-    // Clear TanStack Query cache (stale data from old database)
     await AsyncStorage.removeItem('veloq-query-cache');
 
-    // Get activity count and metadata from the restored database
     const restoredEngine = getRouteEngine();
     const activityCount = restoredEngine?.getActivityCount() ?? 0;
-    const metadataRaw = restoredEngine?.getBackupMetadata();
-    const metadataResult = metadataRaw ? DatabaseBackupMetadataSchema.safeParse(metadataRaw) : null;
-    const metadata = metadataResult?.success ? metadataResult.data : undefined;
-
-    // Check athlete ID mismatch
-    const { useAuthStore } = await import('@/providers');
-    const currentAthleteId = useAuthStore.getState().athleteId;
-    const backupAthleteId = metadata?.athlete_id ?? null;
-    const athleteIdMismatch =
-      currentAthleteId != null && backupAthleteId != null && currentAthleteId !== backupAthleteId;
 
     return {
       success: true,
       activityCount,
-      athleteIdMismatch,
+      athleteIdMismatch: false,
       backupAthleteId,
     };
   } catch (error) {
-    // Try to re-initialize with existing (possibly corrupt) database
     try {
       const { getNativeModule } = await import('@/lib/native/routeEngine');
       const nativeModule = getNativeModule();

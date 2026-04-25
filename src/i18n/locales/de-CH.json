@@ -79,7 +79,7 @@
       "feelsLike": "Gfühlt {{temp}}°",
       "feelsLikeLabel": "Gfühlt",
       "fitnessCTL": "Fitnäss (CTL)",
-      "formTSB": "Form (TSB)",
+      "formTSB": "Tagesform (TSB)",
       "ftp": "FTP",
       "heartRate": "Puls",
       "hrRecovery": "Puls-Erholig",
@@ -221,7 +221,7 @@
     "WeightTraining": "Chrafttraining",
     "Wheelchair": "Rollstuehl",
     "Windsurf": "Windsurfe",
-    "Workout": "Workout",
+    "Workout": "Trainigs-Session",
     "Yoga": "Yoga"
   },
   "alerts": {
@@ -511,7 +511,7 @@
     "fatigueATL": "Müedigkeit (ATL)",
     "fitAbbrev": "Fit",
     "fitnessCTL": "Fitnäss (CTL)",
-    "formTSB": "Form (TSB)",
+    "formTSB": "Tagesform (TSB)",
     "noData": "Kei Fitnessdate",
     "restDay": "Ruehtag",
     "selectActivity": "Aktivität uswähle",
