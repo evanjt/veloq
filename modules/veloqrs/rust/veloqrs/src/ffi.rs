@@ -108,12 +108,7 @@ pub fn start_fetch_and_store(
 
     let ffi_start = Instant::now();
     let activity_count = activity_ids.len();
-    // Use both info! and eprintln! - eprintln flushes immediately to stderr
     info!(
-        "[RUST: start_fetch_and_store] FFI called with {} activities",
-        activity_count
-    );
-    eprintln!(
         "[RUST: start_fetch_and_store] FFI called with {} activities",
         activity_count
     );
@@ -131,9 +126,10 @@ pub fn start_fetch_and_store(
     );
 
     // Clear any previous results
-    if let Ok(mut results) = FETCH_AND_STORE_RESULT.lock() {
-        *results = None;
-    }
+    FETCH_AND_STORE_RESULT
+        .lock()
+        .expect("FETCH_AND_STORE_RESULT mutex poisoned")
+        .take();
 
     // Reset progress counters
     crate::http::reset_download_progress(activity_ids.len() as u32);
@@ -149,10 +145,6 @@ pub fn start_fetch_and_store(
     std::thread::spawn(move || {
         let thread_start = Instant::now();
         info!(
-            "[RUST: start_fetch_and_store] Thread started for {} activities",
-            activity_ids.len()
-        );
-        eprintln!(
             "[RUST: start_fetch_and_store] Thread started for {} activities",
             activity_ids.len()
         );
@@ -347,14 +339,6 @@ pub fn start_fetch_and_store(
             total_points,
             elapsed_ms(storage_start)
         );
-        eprintln!(
-            "[RUST: start_fetch_and_store] Storage complete: {} synced, {} failed, {} total points ({} ms)",
-            success_count,
-            failed_ids.len(),
-            total_points,
-            elapsed_ms(storage_start)
-        );
-
         let fetch_time = elapsed_ms(fetch_start) as u32;
         let storage_time = elapsed_ms(storage_start) as u32;
         let total_time = elapsed_ms(thread_start) as u32;
@@ -366,11 +350,10 @@ pub fn start_fetch_and_store(
                 engine.generate_tiles_background()
             });
             if let Some(Some(h)) = handle {
-                if let Ok(mut guard) =
-                    crate::persistence::persistent_engine_ffi::TILE_GENERATION_HANDLE.lock()
-                {
-                    *guard = Some(h);
-                }
+                let mut guard = crate::persistence::persistent_engine_ffi::TILE_GENERATION_HANDLE
+                    .lock()
+                    .expect("TILE_GENERATION_HANDLE mutex poisoned");
+                *guard = Some(h);
             }
         }
 
@@ -392,10 +375,6 @@ pub fn start_fetch_and_store(
             "[RUST: start_fetch_and_store] Thread complete ({} ms)",
             total_time
         );
-        eprintln!(
-            "[RUST: start_fetch_and_store] Thread complete ({} ms)",
-            total_time
-        );
     });
 }
 
@@ -405,9 +384,10 @@ static FETCH_AND_STORE_RESULT: std::sync::Mutex<Option<FetchAndStoreResult>> =
     std::sync::Mutex::new(None);
 
 fn store_fetch_and_store_result(result: FetchAndStoreResult) {
-    if let Ok(mut guard) = FETCH_AND_STORE_RESULT.lock() {
-        *guard = Some(result);
-    }
+    let mut guard = FETCH_AND_STORE_RESULT
+        .lock()
+        .expect("FETCH_AND_STORE_RESULT mutex poisoned");
+    *guard = Some(result);
 }
 
 /// Take the result from a completed fetch+store operation.
@@ -419,11 +399,10 @@ fn store_fetch_and_store_result(result: FetchAndStoreResult) {
 pub fn take_fetch_and_store_result() -> Option<FetchAndStoreResult> {
     init_logging();
 
-    let result = if let Ok(mut guard) = FETCH_AND_STORE_RESULT.lock() {
-        guard.take()
-    } else {
-        None
-    };
+    let result = FETCH_AND_STORE_RESULT
+        .lock()
+        .expect("FETCH_AND_STORE_RESULT mutex poisoned")
+        .take();
 
     if let Some(ref r) = result {
         info!(

@@ -357,9 +357,9 @@
   "chartTypes": {
     "alt": "Alt",
     "cad": "Cad",
-    "dist": "Dist",
+    "dist": "Dist.",
     "elapsedTime": "Tempo trascorso",
-    "elev": "Elev",
+    "elev": "Quota",
     "gap": "Passo corr.",
     "grade": "Pendenza",
     "gradient": "Inclinazione",
@@ -368,8 +368,8 @@
     "pace": "Passo",
     "power": "Pot",
     "speed": "Vel",
-    "temp": "Temp",
-    "watts": "Watts",
+    "temp": "Temp.",
+    "watts": "Watt",
     "wbal": "W'bal"
   },
   "common": {
@@ -838,7 +838,7 @@
     "loadingActivities": "Caricamento attività...",
     "loadingOlderActivities": "Caricamento attività precedenti...",
     "syncing": "Sincronizzazione: {{percent}}%",
-    "activities": "activities",
+    "activities": "attività",
     "expandRange": "Estendi intervallo"
   },
   "maps": {
@@ -910,7 +910,7 @@
   },
   "navigation": {
     "activities": "Attività",
-    "feed": "Feed",
+    "feed": "Notizie",
     "fitness": "Forma",
     "health": "Salute",
     "map": "Mappa",
@@ -1006,7 +1006,7 @@
       "pause": "PAUSA",
       "resume": "RIPRENDI",
       "save": "SALVA",
-      "stop": "STOP"
+      "stop": "FERMA"
     },
     "discard": "Scarta",
     "discardConfirm": "Sei sicuro di voler scartare questa attività? L'azione non può essere annullata.",
