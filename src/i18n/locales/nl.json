@@ -847,13 +847,13 @@
       "gym": "Sportschool",
       "hike": "Wandeling",
       "other": "Overig",
-      "racket": "Racket",
+      "racket": "Racketsport",
       "ride": "Rit",
       "run": "Loop",
       "snow": "Sneeuw",
       "swim": "Zwem",
       "walk": "Wandel",
-      "water": "Water"
+      "water": "Watersport"
     },
     "allClear": "Alle",
     "cached": "Gecached",
