@@ -170,6 +170,26 @@ export function takeFetchAndStoreResult(): FetchAndStoreResult | undefined {
     ),
   );
 }
+/**
+ * Validate a backup database file without touching the global engine.
+ * Opens the file read-only and returns JSON: {"schema_version", "athlete_id", "activity_count"}.
+ */
+export function validateBackupDatabase(path: string): string /*throws*/ {
+  return FfiConverterString.lift(
+    uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+        FfiConverterTypeVeloqError,
+      ),
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_veloqrs_fn_func_validate_backup_database(
+          FfiConverterString.lower(path),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    ),
+  );
+}
 
 /**
  * Sport type mapping for activities.
@@ -3418,6 +3438,68 @@ const FfiConverterTypeFfiMapSignature = (() => {
         FfiConverterArrayFloat64.allocationSize(value.coords) +
         FfiConverterFloat64.allocationSize(value.centerLat) +
         FfiConverterFloat64.allocationSize(value.centerLng)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * User-tunable match strictness, persisted in the settings table.
+ * Read by Rust on engine load; written by `DetectionManager.set_match_strictness`.
+ */
+export type FfiMatchStrictness = {
+  minMatchPct: /*f64*/ number;
+  endpointThreshold: /*f64*/ number;
+};
+
+/**
+ * Generated factory for {@link FfiMatchStrictness} record objects.
+ */
+export const FfiMatchStrictness = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiMatchStrictness, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    /**
+     * Create a frozen instance of {@link FfiMatchStrictness}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    create,
+
+    /**
+     * Create a frozen instance of {@link FfiMatchStrictness}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    new: create,
+
+    /**
+     * Defaults specified in the {@link veloqrs} crate.
+     */
+    defaults: () => Object.freeze(defaults()) as Partial<FfiMatchStrictness>,
+  });
+})();
+
+const FfiConverterTypeFfiMatchStrictness = (() => {
+  type TypeName = FfiMatchStrictness;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        minMatchPct: FfiConverterFloat64.read(from),
+        endpointThreshold: FfiConverterFloat64.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterFloat64.write(value.minMatchPct, into);
+      FfiConverterFloat64.write(value.endpointThreshold, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterFloat64.allocationSize(value.minMatchPct) +
+        FfiConverterFloat64.allocationSize(value.endpointThreshold)
       );
     }
   }
@@ -6713,6 +6795,9 @@ export type FfiSectionWithPolyline = {
    * All sport types present in this section's activities
    */
   sportTypes: Array<string>;
+  isUserDefined: boolean;
+  disabled: boolean;
+  supersededBy: string | undefined;
 };
 
 /**
@@ -6763,6 +6848,9 @@ const FfiConverterTypeFfiSectionWithPolyline = (() => {
         bounds: FfiConverterOptionalTypeFfiBounds.read(from),
         polyline: FfiConverterArrayFloat64.read(from),
         sportTypes: FfiConverterArrayString.read(from),
+        isUserDefined: FfiConverterBool.read(from),
+        disabled: FfiConverterBool.read(from),
+        supersededBy: FfiConverterOptionalString.read(from),
       };
     }
     write(value: TypeName, into: RustBuffer): void {
@@ -6777,6 +6865,9 @@ const FfiConverterTypeFfiSectionWithPolyline = (() => {
       FfiConverterOptionalTypeFfiBounds.write(value.bounds, into);
       FfiConverterArrayFloat64.write(value.polyline, into);
       FfiConverterArrayString.write(value.sportTypes, into);
+      FfiConverterBool.write(value.isUserDefined, into);
+      FfiConverterBool.write(value.disabled, into);
+      FfiConverterOptionalString.write(value.supersededBy, into);
     }
     allocationSize(value: TypeName): number {
       return (
@@ -6790,7 +6881,10 @@ const FfiConverterTypeFfiSectionWithPolyline = (() => {
         FfiConverterOptionalString.allocationSize(value.scale) +
         FfiConverterOptionalTypeFfiBounds.allocationSize(value.bounds) +
         FfiConverterArrayFloat64.allocationSize(value.polyline) +
-        FfiConverterArrayString.allocationSize(value.sportTypes)
+        FfiConverterArrayString.allocationSize(value.sportTypes) +
+        FfiConverterBool.allocationSize(value.isUserDefined) +
+        FfiConverterBool.allocationSize(value.disabled) +
+        FfiConverterOptionalString.allocationSize(value.supersededBy)
       );
     }
   }
@@ -8768,6 +8862,7 @@ export interface DetectionManagerInterface {
    */
   forceRedetect(sportFilter: string | undefined) /*throws*/ : boolean;
   getConfig() /*throws*/ : FfiSectionConfig;
+  getMatchStrictness() /*throws*/ : FfiMatchStrictness;
   getProgress() /*throws*/ : FfiDetectionProgress | undefined;
   poll() /*throws*/ : string;
   setConfig(config: FfiSectionConfig) /*throws*/ : void;
@@ -8851,6 +8946,23 @@ export class DetectionManager
         ),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_detectionmanager_get_config(
+            uniffiTypeDetectionManagerObjectFactory.clonePointer(this),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  public getMatchStrictness(): FfiMatchStrictness /*throws*/ {
+    return FfiConverterTypeFfiMatchStrictness.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_detectionmanager_get_match_strictness(
             uniffiTypeDetectionManagerObjectFactory.clonePointer(this),
             callStatus,
           );
@@ -14067,6 +14179,14 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_func_validate_backup_database() !==
+    60738
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_func_validate_backup_database",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_activitymanager_add() !==
     32735
   ) {
@@ -14176,6 +14296,14 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_detectionmanager_get_config",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_detectionmanager_get_match_strictness() !==
+    63948
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_detectionmanager_get_match_strictness",
     );
   }
   if (
@@ -15526,6 +15654,7 @@ export default Object.freeze({
     FfiConverterTypeFfiHrvTrend,
     FfiConverterTypeFfiInsightsData,
     FfiConverterTypeFfiMapSignature,
+    FfiConverterTypeFfiMatchStrictness,
     FfiConverterTypeFfiMergeCandidate,
     FfiConverterTypeFfiMultiScaleSectionResult,
     FfiConverterTypeFfiMuscleExerciseSummary,

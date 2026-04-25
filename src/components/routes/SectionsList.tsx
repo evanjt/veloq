@@ -16,7 +16,6 @@ import {
   Alert,
   Animated,
   ActivityIndicator,
-  TextInput,
 } from 'react-native';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
 import { RectButton } from 'react-native-gesture-handler';
@@ -29,6 +28,8 @@ import { useUnifiedSections } from '@/hooks/routes/useUnifiedSections';
 import { SectionRow } from './SectionRow';
 import { PotentialSectionCard } from './PotentialSectionCard';
 import { DataRangeFooter } from './DataRangeFooter';
+import { SectionsListHeader } from './SectionsListHeader';
+import { SectionsListFiltersBar } from './SectionsListFiltersBar';
 import { useCustomSections } from '@/hooks/routes/useCustomSections';
 import { useSectionDismissals } from '@/providers/SectionDismissalsStore';
 import { debug, navigateTo } from '@/lib';
@@ -652,219 +653,29 @@ export const SectionsList = memo(function SectionsList({
 
   return (
     <View style={styles.outerContainer}>
-      {/* Search and sport filters — outside FlatList to prevent keyboard dismissal */}
       <View style={styles.header}>
-        <View style={[styles.searchContainer, isDark && styles.searchContainerDark]}>
-          <MaterialCommunityIcons
-            name="magnify"
-            size={18}
-            color={isDark ? darkColors.textDisabled : colors.textDisabled}
-          />
-          <TextInput
-            style={[styles.searchInput, isDark && styles.searchInputDark]}
-            placeholder={t('routes.searchSections')}
-            placeholderTextColor={isDark ? darkColors.textDisabled : colors.textDisabled}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            returnKeyType="search"
-            autoCorrect={false}
-          />
-          {searchQuery.length > 0 && (
-            <TouchableOpacity onPress={() => setSearchQuery('')} hitSlop={8}>
-              <MaterialCommunityIcons
-                name="close-circle"
-                size={16}
-                color={isDark ? darkColors.textDisabled : colors.textDisabled}
-              />
-            </TouchableOpacity>
-          )}
-        </View>
-        {/* Count line */}
-        <View style={styles.countRow}>
-          <Text style={[styles.summaryText, isDark && styles.summaryTextDark]}>
-            {displaySectionCount} {t('trainingScreen.sections')}
-          </Text>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
-            {unacceptedAutoCount > 0 && (
-              <TouchableOpacity
-                onPress={handleAcceptAll}
-                activeOpacity={0.7}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}
-              >
-                <MaterialCommunityIcons name="pin-outline" size={13} color={colors.primary} />
-                <Text style={{ fontSize: 12, color: colors.primary }}>
-                  {t('sections.acceptAllSections')}
-                </Text>
-              </TouchableOpacity>
-            )}
-            {acceptAllResult !== null && (
-              <Text
-                style={{
-                  fontSize: 11,
-                  color: isDark ? darkColors.textSecondary : colors.textSecondary,
-                }}
-              >
-                {t('sections.acceptedCount', { count: acceptAllResult })}
-              </Text>
-            )}
-            <TouchableOpacity
-              onPress={handleRescan}
-              disabled={isScanning}
-              activeOpacity={0.7}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            >
-              {isScanning ? (
-                <ActivityIndicator
-                  size={13}
-                  color={isDark ? darkColors.textDisabled : colors.textDisabled}
-                />
-              ) : (
-                <MaterialCommunityIcons
-                  name="reload"
-                  size={14}
-                  color={isDark ? darkColors.textDisabled : colors.textDisabled}
-                />
-              )}
-            </TouchableOpacity>
-          </View>
-        </View>
-        {/* Sort + filter chips */}
-        <View style={styles.sortChipRow}>
-          {regularSections.length > 1 &&
-            sortChips.map((chip) => {
-              const isActive = sortOption === chip.key;
-              return (
-                <TouchableOpacity
-                  key={chip.key}
-                  style={[
-                    styles.sortChip,
-                    isDark && styles.sortChipDark,
-                    isActive && styles.sortChipActive,
-                  ]}
-                  onPress={() => onSortChange(chip.key)}
-                  activeOpacity={0.7}
-                >
-                  <MaterialCommunityIcons
-                    name={chip.icon as any}
-                    size={13}
-                    color={
-                      isActive
-                        ? colors.primary
-                        : isDark
-                          ? darkColors.textSecondary
-                          : colors.textSecondary
-                    }
-                  />
-                  <Text
-                    style={[
-                      styles.sortChipLabel,
-                      isDark && styles.textMuted,
-                      isActive && styles.sortChipLabelActive,
-                    ]}
-                  >
-                    {chip.label}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          {customCount > 0 && (
-            <TouchableOpacity
-              style={[
-                styles.sortChip,
-                isDark && styles.sortChipDark,
-                !hiddenFilters.custom && styles.sortChipActive,
-              ]}
-              onPress={() => handleFilterPress('custom')}
-              activeOpacity={0.7}
-            >
-              <MaterialCommunityIcons
-                name="account"
-                size={13}
-                color={
-                  !hiddenFilters.custom
-                    ? colors.primary
-                    : isDark
-                      ? darkColors.textSecondary
-                      : colors.textSecondary
-                }
-              />
-              <Text
-                style={[
-                  styles.sortChipLabel,
-                  isDark && styles.textMuted,
-                  !hiddenFilters.custom && styles.sortChipLabelActive,
-                ]}
-              >
-                {customCount} {t('routes.custom')}
-              </Text>
-            </TouchableOpacity>
-          )}
-          {trueDisabledCount > 0 && (
-            <TouchableOpacity
-              style={[
-                styles.sortChip,
-                isDark && styles.sortChipDark,
-                !hiddenFilters.disabled && styles.sortChipActive,
-              ]}
-              onPress={() => handleFilterPress('disabled')}
-              activeOpacity={0.7}
-            >
-              <MaterialCommunityIcons
-                name={hiddenFilters.disabled ? 'eye-off' : 'eye'}
-                size={13}
-                color={
-                  !hiddenFilters.disabled
-                    ? colors.primary
-                    : isDark
-                      ? darkColors.textSecondary
-                      : colors.textSecondary
-                }
-              />
-              <Text
-                style={[
-                  styles.sortChipLabel,
-                  isDark && styles.textMuted,
-                  !hiddenFilters.disabled && styles.sortChipLabelActive,
-                ]}
-              >
-                {trueDisabledCount} {t('sections.removed')}
-              </Text>
-            </TouchableOpacity>
-          )}
-          {unacceptedAutoCount > 0 && acceptedAutoCount > 0 && (
-            <TouchableOpacity
-              style={[
-                styles.sortChip,
-                isDark && styles.sortChipDark,
-                hiddenFilters.unaccepted && styles.sortChipActive,
-              ]}
-              onPress={() => handleFilterPress('unaccepted')}
-              activeOpacity={0.7}
-            >
-              <MaterialCommunityIcons
-                name="pin"
-                size={13}
-                color={
-                  hiddenFilters.unaccepted
-                    ? colors.primary
-                    : isDark
-                      ? darkColors.textSecondary
-                      : colors.textSecondary
-                }
-              />
-              <Text
-                style={[
-                  styles.sortChipLabel,
-                  isDark && styles.textMuted,
-                  hiddenFilters.unaccepted && styles.sortChipLabelActive,
-                ]}
-              >
-                {t('sections.pinnedOnly')}
-              </Text>
-            </TouchableOpacity>
-          )}
-        </View>
+        <SectionsListHeader
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          displaySectionCount={displaySectionCount}
+          unacceptedAutoCount={unacceptedAutoCount}
+          acceptAllResult={acceptAllResult}
+          isScanning={isScanning}
+          onAcceptAll={handleAcceptAll}
+          onRescan={handleRescan}
+        />
+        <SectionsListFiltersBar
+          regularSectionsCount={regularSections.length}
+          sortOption={sortOption}
+          onSortChange={onSortChange}
+          sortChips={sortChips}
+          customCount={customCount}
+          hiddenFilters={hiddenFilters}
+          onFilterPress={handleFilterPress}
+          trueDisabledCount={trueDisabledCount}
+          unacceptedAutoCount={unacceptedAutoCount}
+          acceptedAutoCount={acceptedAutoCount}
+        />
       </View>
 
       <FlatList
@@ -952,21 +763,6 @@ const styles = StyleSheet.create({
   },
   infoTextDark: {
     color: darkColors.textDisabled,
-  },
-  countRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.md,
-    marginTop: 2,
-  },
-  summaryText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.textPrimary,
-  },
-  summaryTextDark: {
-    color: darkColors.textPrimary,
   },
   sportFilterRow: {
     flexDirection: 'row',
@@ -1068,29 +864,6 @@ const styles = StyleSheet.create({
   deleteAction: {
     backgroundColor: colors.error,
   },
-  searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    marginHorizontal: spacing.md,
-    marginTop: spacing.sm,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: Platform.OS === 'ios' ? 4 : 2,
-    borderRadius: 10,
-    backgroundColor: colors.gray100,
-  },
-  searchContainerDark: {
-    backgroundColor: darkColors.surface,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 14,
-    color: colors.textPrimary,
-    paddingVertical: 0,
-  },
-  searchInputDark: {
-    color: colors.textOnDark,
-  },
   sortRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1102,39 +875,6 @@ const styles = StyleSheet.create({
     height: 24,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  sortChipRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'center',
-    gap: spacing.xs,
-    paddingHorizontal: spacing.md,
-    marginTop: 2,
-    marginBottom: spacing.xs,
-  },
-  sortChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  sortChipDark: {
-    borderColor: darkColors.border,
-  },
-  sortChipActive: {
-    backgroundColor: colors.primary + '15',
-    borderColor: colors.primary,
-  },
-  sortChipLabel: {
-    fontSize: 12,
-    color: colors.textSecondary,
-  },
-  sortChipLabelActive: {
-    color: colors.primary,
   },
   showAction: {
     backgroundColor: colors.success,
