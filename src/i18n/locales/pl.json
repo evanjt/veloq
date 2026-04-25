@@ -67,8 +67,8 @@
       "caloriesBurned": "Spalone kalorie",
       "conditions": "Warunki",
       "dailyValue": "Wartość dzienna",
-      "decoup": "Decoupling",
-      "decoupling": "Decoupling",
+      "decoup": "Rozsprz.",
+      "decoupling": "Rozsprzężenie",
       "deviceSensor": "Czujnik urządzenia",
       "duration": "Czas trwania",
       "ef": "EF",
@@ -87,7 +87,7 @@
       "hrvToday": "HRV dzisiaj",
       "humidity": "Wilgotność",
       "intensityFactor": "Współczynnik intensywności",
-      "kcalPerHr": "kcal/hr",
+      "kcalPerHr": "kcal/godz.",
       "max": "Maks {{value}}",
       "maxLabel": "Maks",
       "normalizedPower": "Znormalizowana moc",
@@ -357,7 +357,7 @@
   "chartTypes": {
     "alt": "Alt",
     "cad": "Kad",
-    "dist": "Dist",
+    "dist": "Dyst.",
     "elapsedTime": "Czas całkowity",
     "elev": "Wys",
     "gap": "Tempo skor.",
@@ -838,7 +838,7 @@
     "loadingActivities": "Wczytywanie aktywności...",
     "loadingOlderActivities": "Wczytywanie starszych aktywności...",
     "syncing": "Synchronizacja: {{percent}}%",
-    "activities": "activities",
+    "activities": "aktywności",
     "expandRange": "Rozszerz zakres"
   },
   "maps": {
