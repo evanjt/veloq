@@ -45,6 +45,8 @@ export interface UseSectionMatchesResult {
   isReady: boolean;
   /** Whether engine data is still loading (engine not available or not yet subscribed) */
   isLoading: boolean;
+  /** Whether the engine subscription timed out (engine never became available) */
+  timedOut: boolean;
 }
 
 /**
@@ -65,6 +67,7 @@ export function useSectionMatches(activityId: string | undefined): UseSectionMat
 
   // Track whether we've successfully subscribed to the engine
   const [subscribed, setSubscribed] = useState(false);
+  const [timedOut, setTimedOut] = useState(false);
 
   // Hold unsubscribe function so cleanup works across retries
   const unsubscribeRef = useRef<(() => void) | null>(null);
@@ -91,7 +94,10 @@ export function useSectionMatches(activityId: string | undefined): UseSectionMat
 
     // Safety timeout: if engine never becomes available, stop showing loading
     const timeout = setTimeout(() => {
-      if (!cancelled) setSubscribed(true);
+      if (!cancelled) {
+        setSubscribed(true);
+        setTimedOut(true);
+      }
     }, 10000);
 
     if (!trySubscribe()) {
@@ -175,5 +181,6 @@ export function useSectionMatches(activityId: string | undefined): UseSectionMat
     count: sections.length,
     isReady,
     isLoading,
+    timedOut,
   };
 }
