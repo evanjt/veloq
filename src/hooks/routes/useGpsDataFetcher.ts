@@ -587,15 +587,24 @@ export function useGpsDataFetcher() {
       // Activities already stored in Rust engine by startFetchAndStore
       // Just need to sync metrics and start section detection
 
+      const gapStart = Date.now();
+
       if (result.syncedIds.length > 0 && isMountedRef.current) {
-        // Sync activity metrics BEFORE notifying UI — subscribers query metrics on notification
         const syncedActivities = activities.filter((a) => result.syncedIds.includes(a.id));
         const metrics = syncedActivities.map(toActivityMetrics);
-        routeEngine.setActivityMetrics(metrics);
 
-        // Now notify UI that activities have been added (metrics are already in DB)
+        const t0 = Date.now();
+        routeEngine.setActivityMetrics(metrics);
+        if (__DEV__) {
+          console.log(`[fetchApiGps] ⏱ setActivityMetrics: ${Date.now() - t0}ms`);
+        }
+
+        const t1 = Date.now();
         routeEngine.triggerRefresh('activities');
         routeEngine.triggerRefresh('groups');
+        if (__DEV__) {
+          console.log(`[fetchApiGps] ⏱ triggerRefresh: ${Date.now() - t1}ms`);
+        }
       }
 
       // Drain remaining time streams. GPS is done so its half is 100%;
@@ -619,15 +628,20 @@ export function useGpsDataFetcher() {
             await new Promise((resolve) => setTimeout(resolve, 150));
           }
 
+          const t2 = Date.now();
           const fetchedStreams = await streamFetchPromise;
+          if (__DEV__) {
+            console.log(`[fetchApiGps] ⏱ await streamFetchPromise: ${Date.now() - t2}ms`);
+          }
           if (fetchedStreams.length > 0 && isMountedRef.current) {
             const syncedSet = new Set(result.syncedIds);
             const toSync = fetchedStreams.filter((s) => syncedSet.has(s.activityId));
             if (toSync.length > 0) {
+              const t3 = Date.now();
               routeEngine.setTimeStreams(toSync);
               if (__DEV__) {
                 console.log(
-                  `[fetchApiGps] Synced ${toSync.length}/${result.syncedIds.length} time streams`
+                  `[fetchApiGps] ⏱ setTimeStreams (${toSync.length}): ${Date.now() - t3}ms`
                 );
               }
             }
@@ -637,6 +651,10 @@ export function useGpsDataFetcher() {
             console.warn('[fetchApiGps] Time stream fetch failed:', e);
           }
         }
+      }
+
+      if (__DEV__) {
+        console.log(`[fetchApiGps] ⏱ total gap before detection check: ${Date.now() - gapStart}ms`);
       }
 
       // Run section detection if route matching is enabled AND (new activities synced,
@@ -661,7 +679,16 @@ export function useGpsDataFetcher() {
 
         await new Promise((resolve) => setTimeout(resolve, 0));
 
+        if (__DEV__) {
+          console.log('[fetchApiGps] ⏱ calling startSectionDetection...');
+        }
+        const detStart = Date.now();
         const started = nativeModule.routeEngine.startSectionDetection();
+        if (__DEV__) {
+          console.log(
+            `[fetchApiGps] ⏱ startSectionDetection returned ${started} in ${Date.now() - detStart}ms`
+          );
+        }
         if (!started) {
           if (__DEV__) {
             console.warn('[fetchApiGps] startSectionDetection returned false — skipping poll');
