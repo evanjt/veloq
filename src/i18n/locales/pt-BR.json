@@ -838,7 +838,7 @@
     "loadingActivities": "Carregando atividades...",
     "loadingOlderActivities": "Carregando atividades mais antigas...",
     "syncing": "Sincronizando: {{percent}}%",
-    "activities": "activities",
+    "activities": "atividades",
     "expandRange": "Expandir intervalo"
   },
   "maps": {
@@ -1127,7 +1127,7 @@
     "bestTime": "Melhor tempo",
     "lastActivity": "Última atividade",
     "routeNotFound": "Rota nao encontrada",
-    "totalActivities": "Total"
+    "totalActivities": "Total geral"
   },
   "routeIntelligence": {
     "today": "HOJE",
@@ -1307,7 +1307,7 @@
     "boundsModified": "Limites modificados",
     "editBounds": "Editar limites",
     "edited": "Editado",
-    "originalDistance": "Original",
+    "originalDistance": "Distância original",
     "points": "pontos",
     "resetBounds": "Restaurar original",
     "resetBoundsConfirm": "Restaurar os limites originais detectados automaticamente?\n\nA seção será novamente comparada com todas as suas atividades.",
@@ -1320,7 +1320,7 @@
     "firstVisited": "Primeira",
     "lastVisited": "Última",
     "customReference": "Personalizado",
-    "autoReference": "Auto",
+    "autoReference": "Automático",
     "trimming": "Recortando",
     "traversalsSummary": "{{count}} travessias · melhor {{time}}",
     "visits": "visitas",
@@ -1522,8 +1522,8 @@
     "current": "Atual",
     "daysCount": "{{count}} dias",
     "decouplingExplanation": "O desacoplamento mede a deriva cardiaca - quanto a frequencia cardiaca aumenta em relacao a potencia durante esforcos prolongados. Quanto menor, melhor, indicando producao eficiente de energia aerobica.",
-    "distanceHalf": "Half",
-    "distanceMile": "Mile",
+    "distanceHalf": "Meia",
+    "distanceMile": "Milha",
     "efficiency": "Eficiencia",
     "estimatedFtp": "FTP estimado",
     "firstHalf": "Primeira metade",
@@ -1650,7 +1650,7 @@
     "watts": "W"
   },
   "wellness": {
-    "auto": "Auto",
+    "auto": "Automático",
     "connectHint": "Conecte um dispositivo vestivel ou registre dados de bem-estar no Intervals.icu",
     "dayAverage": "Media de {{count}} dias",
     "dragToExplore": "Arraste para explorar",

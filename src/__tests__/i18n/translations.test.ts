@@ -416,23 +416,24 @@ describe('Translation Key Usage', () => {
  * 0 once that locale is fully translated to lock in the gains.
  */
 const FRESHNESS_FREEZE_BASELINE: Record<string, number> = {
-  da: 83,
-  'de-CH': 78,
-  'de-DE': 73,
-  es: 42,
-  'es-419': 40,
-  'es-ES': 46,
-  fr: 87,
-  it: 55,
-  ja: 13,
-  nl: 84,
-  pl: 31,
-  pt: 56,
-  'pt-BR': 55,
-  'zh-Hans': 25,
+  da: 1,
+  'de-CH': 3,
+  'de-DE': 44,
+  es: 9,
+  'es-419': 12,
+  'es-ES': 22,
+  fr: 61,
+  it: 7,
+  ja: 4,
+  nl: 47,
+  pl: 10,
+  pt: 22,
+  'pt-BR': 27,
+  'zh-Hans': 1,
 };
 
 const FRESHNESS_ALLOWLIST_VALUES = new Set([
+  // Brand / product names (stay English in every locale)
   'Veloq',
   'intervals.icu',
   'OpenStreetMap',
@@ -447,6 +448,11 @@ const FRESHNESS_ALLOWLIST_VALUES = new Set([
   'Science2Sport',
   'Joe Friel',
   'Morton',
+  'WebDAV / Nextcloud',
+  'iCloud',
+  'OpenStreetMap Nominatim',
+  'Native Engine (tracematch)',
+  // Cycling / training abbreviations recognised internationally
   'FTP',
   'TSS',
   'CTL',
@@ -460,6 +466,25 @@ const FRESHNESS_ALLOWLIST_VALUES = new Set([
   'RPM',
   'kJ',
   'TRIMP',
+  "W'bal",
+  'HIIT',
+  // Sport names that are loanwords across most locales we support
+  'Badminton',
+  'CrossFit',
+  'Crossfit',
+  'Golf',
+  'Kitesurf',
+  'Pickleball',
+  'Pilates',
+  'Racquetball',
+  'Skateboard',
+  'Snowboard',
+  'Squash',
+  'Surfing',
+  'Tennis',
+  'Velomobile',
+  'Windsurf',
+  'Yoga',
 ]);
 
 const FRESHNESS_ALLOWLIST_KEYS = new Set([
