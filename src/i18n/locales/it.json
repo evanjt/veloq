@@ -88,7 +88,7 @@
       "humidity": "Umidità",
       "intensityFactor": "Fattore di intensità",
       "kcalPerHr": "kcal/h",
-      "max": "Max {{value}}",
+      "max": "Max. {{value}}",
       "maxLabel": "Max",
       "normalizedPower": "Potenza normalizzata",
       "peak": "Picco",
@@ -126,7 +126,7 @@
     "muscle": {
       "sets": "Serie",
       "reps": "Ripetizioni",
-      "volume": "Volume",
+      "volume": "Volume tot.",
       "contributingExercises": "Esercizi coinvolti",
       "setCount_one": "{{count}} serie",
       "setCount_other": "{{count}} serie",
