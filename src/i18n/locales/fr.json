@@ -125,12 +125,12 @@
     "xAxisTime": "Temps",
     "muscle": {
       "sets": "Séries",
-      "reps": "Reps",
+      "reps": "Répétitions",
       "volume": "Volume",
       "contributingExercises": "Exercices contributeurs",
       "setCount_one": "{{count}} série",
       "setCount_other": "{{count}} séries",
-      "repsCount": "{{count}} reps"
+      "repsCount": "{{count}} répétitions"
     },
     "sectionPr": "PR",
     "sectionCount": "{{count}} sections"
@@ -311,8 +311,8 @@
     "title": "Meilleurs efforts",
     "thisSeason": "Cette saison",
     "allTime": "Depuis le début",
-    "seasonSubtitle": "Personal records from the last {{days}} days.",
-    "allTimeSubtitle": "Personal records across your cached history.",
+    "seasonSubtitle": "Records personnels des {{days}} derniers jours.",
+    "allTimeSubtitle": "Records personnels sur l'ensemble de votre historique en cache.",
     "powerBests": "Puissance",
     "paceBests": "Allure",
     "swimBests": "Allure de nage",

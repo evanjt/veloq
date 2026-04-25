@@ -87,7 +87,7 @@
       "hrvToday": "今日のHRV",
       "humidity": "湿度",
       "intensityFactor": "強度係数",
-      "kcalPerHr": "kcal/hr",
+      "kcalPerHr": "kcal/時",
       "max": "最大 {{value}}",
       "maxLabel": "最大",
       "normalizedPower": "正規化パワー",
@@ -311,8 +311,8 @@
     "title": "ベストエフォート",
     "thisSeason": "今シーズン",
     "allTime": "全期間",
-    "seasonSubtitle": "Personal records from the last {{days}} days.",
-    "allTimeSubtitle": "Personal records across your cached history.",
+    "seasonSubtitle": "過去{{days}}日間の自己ベスト記録。",
+    "allTimeSubtitle": "キャッシュされた全履歴の自己ベスト記録。",
     "powerBests": "パワー",
     "paceBests": "ペース",
     "swimBests": "水泳ペース",
@@ -838,7 +838,7 @@
     "loadingActivities": "アクティビティを読み込み中...",
     "loadingOlderActivities": "過去のアクティビティを読み込み中...",
     "syncing": "同期中: {{percent}}%",
-    "activities": "activities",
+    "activities": "件のアクティビティ",
     "expandRange": "範囲を広げる"
   },
   "maps": {

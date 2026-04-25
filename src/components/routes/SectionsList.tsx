@@ -6,7 +6,7 @@
  * so no expensive on-the-fly computation is needed here.
  */
 
-import React, { memo, useCallback, useMemo, useState, useRef } from 'react';
+import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   StyleSheet,
@@ -422,6 +422,11 @@ export const SectionsList = memo(function SectionsList({
 
   // Handle accepting all auto sections
   const [acceptAllResult, setAcceptAllResult] = useState<number | null>(null);
+  useEffect(() => {
+    if (acceptAllResult === null) return;
+    const timer = setTimeout(() => setAcceptAllResult(null), 3000);
+    return () => clearTimeout(timer);
+  }, [acceptAllResult]);
   const handleAcceptAll = useCallback(() => {
     Alert.alert(
       t('sections.acceptAllSections'),
@@ -433,7 +438,6 @@ export const SectionsList = memo(function SectionsList({
           onPress: () => {
             const count = getRouteEngine()?.acceptAllSections() ?? 0;
             setAcceptAllResult(count);
-            setTimeout(() => setAcceptAllResult(null), 3000);
           },
         },
       ]

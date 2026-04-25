@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { View, Alert, TouchableOpacity, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTheme } from '@/hooks';
@@ -21,12 +21,22 @@ export function SectionDetectionSection() {
   const { settings, setDetectionStrictness } = useRouteSettings();
   const [pruneResult, setPruneResult] = useState<number | null>(null);
 
-  const activePreset = PRESETS.reduce((closest, p) =>
-    Math.abs(p.value - settings.detectionStrictness) <
-    Math.abs(closest.value - settings.detectionStrictness)
-      ? p
-      : closest
+  const activePreset = useMemo(
+    () =>
+      PRESETS.reduce((closest, p) =>
+        Math.abs(p.value - settings.detectionStrictness) <
+        Math.abs(closest.value - settings.detectionStrictness)
+          ? p
+          : closest
+      ),
+    [settings.detectionStrictness]
   );
+
+  useEffect(() => {
+    if (pruneResult === null) return;
+    const timer = setTimeout(() => setPruneResult(null), 3000);
+    return () => clearTimeout(timer);
+  }, [pruneResult]);
 
   const handlePresetSelect = useCallback(
     (preset: (typeof PRESETS)[number]) => {
@@ -51,7 +61,6 @@ export function SectionDetectionSection() {
   const handlePrune = useCallback(() => {
     const count = getRouteEngine()?.pruneOverlappingSections() ?? 0;
     setPruneResult(count);
-    setTimeout(() => setPruneResult(null), 3000);
   }, []);
 
   return (
