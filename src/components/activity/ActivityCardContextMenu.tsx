@@ -8,6 +8,7 @@ import { router } from 'expo-router';
 import { useTheme } from '@/hooks';
 import { useMapPreferences } from '@/providers';
 import { getActivityIcon } from '@/lib';
+import { isLikelyInterestingTerrain } from '@/lib/utils/cameraAngle';
 import { colors, darkColors, spacing, brand, shadows } from '@/theme';
 import type { Activity } from '@/types';
 import type { MapStyleType } from '@/components/maps/mapStyles';
@@ -46,7 +47,10 @@ export function ActivityCardContextMenu({
 
   const currentStyle = getStyleForActivity(activity.type, activity.id, activity.country);
   const currentTerrain = getTerrain3DMode(activity.type, activity.id);
-  const is3DOn = currentTerrain === 'always';
+  const is3DOn =
+    currentTerrain === 'always' ||
+    (currentTerrain === 'smart' &&
+      isLikelyInterestingTerrain(activity.total_elevation_gain, activity.distance));
   const hasOverride = hasActivityOverride(activity.id);
 
   const handleStyleSelect = useCallback(

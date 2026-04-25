@@ -320,9 +320,14 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
   }, [maybeShow3D, validCoordinates, altitude, activity.id]);
 
   // Final decision: should we render 3D?
+  // When altitude data is available, trust the camera analysis. When unavailable
+  // (e.g. preview tracks from route signatures lose elevation during DP simplification),
+  // fall back to the activity-metadata pre-filter which uses total_elevation_gain.
+  const cameraConfirmed = terrainCameraResult?.hasInterestingTerrain === true;
+  const noAltitudeData = !altitude || altitude.length === 0;
   const show3D =
     terrain3DMode === 'always' ||
-    (terrain3DMode === 'smart' && terrainCameraResult?.hasInterestingTerrain === true);
+    (terrain3DMode === 'smart' && (cameraConfirmed || (noAltitudeData && maybeShow3D)));
 
   // Request 3D terrain snapshot when enabled and coordinates are available
   // Only cards within the first N positions request snapshots to limit queue pressure
