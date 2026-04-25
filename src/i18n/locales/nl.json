@@ -357,7 +357,7 @@
   "chartTypes": {
     "alt": "Alt",
     "cad": "Cad",
-    "dist": "Dist",
+    "dist": "Afst",
     "elapsedTime": "Verstreken tijd",
     "elev": "Hoogte",
     "gap": "Tempo (hell.)",
@@ -838,7 +838,7 @@
     "loadingActivities": "Activiteiten laden...",
     "loadingOlderActivities": "Oudere activiteiten laden...",
     "syncing": "Synchroniseren: {{percent}}%",
-    "activities": "activities",
+    "activities": "activiteiten",
     "expandRange": "Bereik uitbreiden"
   },
   "maps": {
@@ -1185,7 +1185,7 @@
     "overDays": "over {{count}} dagen",
     "overMonths": "over {{count}} maanden",
     "overYears": "over {{count}} jaar",
-    "overlap": "{{distance}}km overlap",
+    "overlap": "{{distance}} km overlap",
     "partOfRoutes": "Onderdeel van {{count}} route",
     "partOfRoutesPlural": "Onderdeel van {{count}} routes",
     "partial": "Gedeeltelijk",
