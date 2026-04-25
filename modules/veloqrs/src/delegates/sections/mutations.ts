@@ -18,6 +18,7 @@ export function setSectionName(host: DelegateHost, sectionId: string, name: stri
   try {
     host.timed('setSectionName', () => host.engine.sections().setName(sectionId, name));
     host.notify('sections');
+    host.notify('groups');
     return true;
   } catch (e) {
     console.error('[RouteEngine] setSectionName failed:', sectionId, e);
@@ -60,6 +61,7 @@ export function createSectionFromIndices(
 
   if (sectionId) {
     host.notify('sections');
+    host.notify('groups');
   }
 
   return sectionId;
@@ -71,6 +73,7 @@ export function deleteSection(host: DelegateHost, sectionId: string): boolean {
   try {
     host.timed('deleteSection', () => host.engine.sections().delete_(sectionId));
     host.notify('sections');
+    host.notify('groups');
     return true;
   } catch (e) {
     console.error('[RouteEngine] deleteSection failed:', sectionId, e);
@@ -146,6 +149,7 @@ export function mergeSections(
       host.engine.sections().mergeSections(primaryId, secondaryId)
     );
     host.notify('sections');
+    host.notify('groups');
     return result;
   } catch (e) {
     console.error('[RouteEngine] mergeSections failed:', e);
@@ -153,6 +157,10 @@ export function mergeSections(
   }
 }
 
+// Accept-family mutations emit only `'sections'`. Group composition does not
+// change on accept (only sections themselves gain `is_user_defined = 1`),
+// and no current consumer of `useGroupDetail` reads section-accept state.
+// If a future group view starts depending on accept state, also emit `'groups'`.
 export function acceptSection(host: DelegateHost, sectionId: string): boolean {
   if (!host.ready) return false;
   validateId(sectionId, 'section ID');
@@ -185,6 +193,7 @@ export function pruneOverlappingSections(host: DelegateHost): number {
       host.engine.sections().pruneOverlapping()
     );
     host.notify('sections');
+    host.notify('groups');
     return count;
   } catch (e) {
     console.error('[RouteEngine] pruneOverlappingSections failed:', e);

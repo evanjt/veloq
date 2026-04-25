@@ -214,10 +214,6 @@ export const useRecordingStore = create<RecordingState>((set, get) => ({
     const currentElapsed = (now - startTime - pausedDuration) / 1000;
     const lastLap = laps[laps.length - 1];
     const lapStart = lastLap ? lastLap.endTime : 0;
-    const lapStartDist = lastLap
-      ? lastLap.distance +
-        (laps.length > 1 ? laps.slice(0, -1).reduce((s, l) => s + l.distance, 0) : 0)
-      : 0;
 
     // Calculate lap metrics from streams
     const lapStartIdx = streams.time.findIndex((t) => t >= lapStart);

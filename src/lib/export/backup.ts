@@ -35,6 +35,7 @@ import {
 import { reloadCameraOverrides } from '@/lib/storage/terrainCameraOverrides';
 import { reloadMapCameraState } from '@/lib/storage/mapCameraState';
 import Constants from 'expo-constants';
+import { z } from 'zod';
 
 const APP_VERSION = Constants.expoConfig?.version ?? '0.0.0';
 
@@ -72,15 +73,17 @@ export async function reinitializeAllStores(): Promise<void> {
 // SQLite database backup (.veloqdb)
 // ============================================================================
 
-export interface DatabaseBackupMetadata {
-  schema_version: string;
-  activity_count: number;
-  section_count: number;
-  gps_track_count: number;
-  oldest_date: number | null;
-  newest_date: number | null;
-  athlete_id: string | null;
-}
+const DatabaseBackupMetadataSchema = z.object({
+  schema_version: z.coerce.string(),
+  activity_count: z.number(),
+  section_count: z.number(),
+  gps_track_count: z.number(),
+  oldest_date: z.number().nullable(),
+  newest_date: z.number().nullable(),
+  athlete_id: z.string().nullable(),
+});
+
+export type DatabaseBackupMetadata = z.infer<typeof DatabaseBackupMetadataSchema>;
 
 /** Export a full SQLite database snapshot via the OS share sheet. */
 export async function exportDatabaseBackup(): Promise<void> {
@@ -107,7 +110,9 @@ export async function exportDatabaseBackup(): Promise<void> {
 export function getDatabaseBackupMetadata(): DatabaseBackupMetadata | null {
   const engine = getRouteEngine();
   if (!engine) return null;
-  return engine.getBackupMetadata() as unknown as DatabaseBackupMetadata;
+  const raw = engine.getBackupMetadata();
+  const result = DatabaseBackupMetadataSchema.safeParse(raw);
+  return result.success ? result.data : null;
 }
 
 export interface DatabaseRestoreResult {
@@ -165,7 +170,9 @@ export async function restoreDatabaseBackup(fileUri: string): Promise<DatabaseRe
     // Get activity count and metadata from the restored database
     const restoredEngine = getRouteEngine();
     const activityCount = restoredEngine?.getActivityCount() ?? 0;
-    const metadata = restoredEngine?.getBackupMetadata() as DatabaseBackupMetadata | undefined;
+    const metadataRaw = restoredEngine?.getBackupMetadata();
+    const metadataResult = metadataRaw ? DatabaseBackupMetadataSchema.safeParse(metadataRaw) : null;
+    const metadata = metadataResult?.success ? metadataResult.data : undefined;
 
     // Check athlete ID mismatch
     const { useAuthStore } = await import('@/providers');
