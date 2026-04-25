@@ -7964,6 +7964,10 @@ export type SectionSummary = {
    */
   sportTypes: Array<string>;
   /**
+   * Whether the user has accepted/pinned this section.
+   */
+  isUserDefined: boolean;
+  /**
    * Whether the user has disabled (hidden) this section.
    */
   disabled: boolean;
@@ -8021,6 +8025,7 @@ const FfiConverterTypeSectionSummary = (() => {
         bounds: FfiConverterOptionalTypeFfiBounds.read(from),
         createdAt: FfiConverterString.read(from),
         sportTypes: FfiConverterArrayString.read(from),
+        isUserDefined: FfiConverterBool.read(from),
         disabled: FfiConverterBool.read(from),
         supersededBy: FfiConverterOptionalString.read(from),
       };
@@ -8039,6 +8044,7 @@ const FfiConverterTypeSectionSummary = (() => {
       FfiConverterOptionalTypeFfiBounds.write(value.bounds, into);
       FfiConverterString.write(value.createdAt, into);
       FfiConverterArrayString.write(value.sportTypes, into);
+      FfiConverterBool.write(value.isUserDefined, into);
       FfiConverterBool.write(value.disabled, into);
       FfiConverterOptionalString.write(value.supersededBy, into);
     }
@@ -8059,6 +8065,7 @@ const FfiConverterTypeSectionSummary = (() => {
         FfiConverterOptionalTypeFfiBounds.allocationSize(value.bounds) +
         FfiConverterString.allocationSize(value.createdAt) +
         FfiConverterArrayString.allocationSize(value.sportTypes) +
+        FfiConverterBool.allocationSize(value.isUserDefined) +
         FfiConverterBool.allocationSize(value.disabled) +
         FfiConverterOptionalString.allocationSize(value.supersededBy)
       );
@@ -8760,8 +8767,14 @@ export interface DetectionManagerInterface {
    * Returns false if detection is already running.
    */
   forceRedetect(sportFilter: string | undefined) /*throws*/ : boolean;
+  getConfig() /*throws*/ : FfiSectionConfig;
   getProgress() /*throws*/ : FfiDetectionProgress | undefined;
   poll() /*throws*/ : string;
+  setConfig(config: FfiSectionConfig) /*throws*/ : void;
+  setMatchStrictness(
+    minMatchPct: /*f64*/ number,
+    endpointThreshold: /*f64*/ number,
+  ) /*throws*/ : void;
   start(sportFilter: string | undefined) /*throws*/ : boolean;
 }
 
@@ -8830,6 +8843,23 @@ export class DetectionManager
     );
   }
 
+  public getConfig(): FfiSectionConfig /*throws*/ {
+    return FfiConverterTypeFfiSectionConfig.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_detectionmanager_get_config(
+            uniffiTypeDetectionManagerObjectFactory.clonePointer(this),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
   public getProgress(): FfiDetectionProgress | undefined /*throws*/ {
     return FfiConverterOptionalTypeFfiDetectionProgress.lift(
       uniffiCaller.rustCallWithError(
@@ -8861,6 +8891,42 @@ export class DetectionManager
         },
         /*liftString:*/ FfiConverterString.lift,
       ),
+    );
+  }
+
+  public setConfig(config: FfiSectionConfig): void /*throws*/ {
+    uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+        FfiConverterTypeVeloqError,
+      ),
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_veloqrs_fn_method_detectionmanager_set_config(
+          uniffiTypeDetectionManagerObjectFactory.clonePointer(this),
+          FfiConverterTypeFfiSectionConfig.lower(config),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    );
+  }
+
+  public setMatchStrictness(
+    minMatchPct: /*f64*/ number,
+    endpointThreshold: /*f64*/ number,
+  ): void /*throws*/ {
+    uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+        FfiConverterTypeVeloqError,
+      ),
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_veloqrs_fn_method_detectionmanager_set_match_strictness(
+          uniffiTypeDetectionManagerObjectFactory.clonePointer(this),
+          FfiConverterFloat64.lower(minMatchPct),
+          FfiConverterFloat64.lower(endpointThreshold),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
     );
   }
 
@@ -10144,6 +10210,7 @@ export interface RouteManagerInterface {
   getSummariesWithCount() /*throws*/ : FfiGroupSummariesResult;
   includeActivity(routeId: string, activityId: string) /*throws*/ : void;
   setName(routeId: string, name: string) /*throws*/ : void;
+  setRepresentative(routeId: string, activityId: string) /*throws*/ : void;
 }
 
 export class RouteManager
@@ -10473,6 +10540,26 @@ export class RouteManager
     );
   }
 
+  public setRepresentative(
+    routeId: string,
+    activityId: string,
+  ): void /*throws*/ {
+    uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+        FfiConverterTypeVeloqError,
+      ),
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_veloqrs_fn_method_routemanager_set_representative(
+          uniffiTypeRouteManagerObjectFactory.clonePointer(this),
+          FfiConverterString.lower(routeId),
+          FfiConverterString.lower(activityId),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    );
+  }
+
   /**
    * {@inheritDoc uniffi-bindgen-react-native#UniffiAbstractObject.uniffiDestroy}
    */
@@ -10561,6 +10648,8 @@ const FfiConverterTypeRouteManager = new FfiConverterObject(
 );
 
 export interface SectionManagerInterface {
+  accept(sectionId: string) /*throws*/ : void;
+  acceptAll() /*throws*/ : /*u32*/ number;
   clearSuperseded(customSectionId: string) /*throws*/ : void;
   create(
     sportType: string,
@@ -10741,6 +10830,7 @@ export interface SectionManagerInterface {
    * Recomputes consensus polyline. Deletes secondary. Returns the primary section ID.
    */
   mergeSections(primaryId: string, secondaryId: string) /*throws*/ : string;
+  pruneOverlapping() /*throws*/ : /*u32*/ number;
   /**
    * Tier 5.5: re-derive a section's consensus polyline from its
    * current activity traces. Useful for a "refine this section" UI
@@ -10802,6 +10892,39 @@ export class SectionManager
     this[pointerLiteralSymbol] = pointer;
     this[destructorGuardSymbol] =
       uniffiTypeSectionManagerObjectFactory.bless(pointer);
+  }
+
+  public accept(sectionId: string): void /*throws*/ {
+    uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+        FfiConverterTypeVeloqError,
+      ),
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_accept(
+          uniffiTypeSectionManagerObjectFactory.clonePointer(this),
+          FfiConverterString.lower(sectionId),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    );
+  }
+
+  public acceptAll(): /*u32*/ number /*throws*/ {
+    return FfiConverterUInt32.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_accept_all(
+            uniffiTypeSectionManagerObjectFactory.clonePointer(this),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
   }
 
   public clearSuperseded(customSectionId: string): void /*throws*/ {
@@ -11769,6 +11892,23 @@ export class SectionManager
             uniffiTypeSectionManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(primaryId),
             FfiConverterString.lower(secondaryId),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  public pruneOverlapping(): /*u32*/ number /*throws*/ {
+    return FfiConverterUInt32.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_prune_overlapping(
+            uniffiTypeSectionManagerObjectFactory.clonePointer(this),
             callStatus,
           );
         },
@@ -14031,6 +14171,14 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_detectionmanager_get_config() !==
+    43981
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_detectionmanager_get_config",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_detectionmanager_get_progress() !==
     57227
   ) {
@@ -14044,6 +14192,22 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_detectionmanager_poll",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_detectionmanager_set_config() !==
+    29977
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_detectionmanager_set_config",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_detectionmanager_set_match_strictness() !==
+    36926
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_detectionmanager_set_match_strictness",
     );
   }
   if (
@@ -14396,6 +14560,30 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_routemanager_set_name",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_routemanager_set_representative() !==
+    8953
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_routemanager_set_representative",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_accept() !==
+    15262
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_sectionmanager_accept",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_accept_all() !==
+    26900
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_sectionmanager_accept_all",
     );
   }
   if (
@@ -14756,6 +14944,14 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_sectionmanager_merge_sections",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_prune_overlapping() !==
+    60797
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_sectionmanager_prune_overlapping",
     );
   }
   if (
