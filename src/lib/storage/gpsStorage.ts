@@ -11,6 +11,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { debug } from '../utils/debug';
 import { safeJsonParseWithSchema, type SchemaValidator } from '../utils/validation';
 import { getRouteEngine } from '@/lib/native/routeEngine';
+import { clearTerrainPreviews } from '@/lib/storage/terrainPreviewCache';
 
 const log = debug.create('GpsStorage');
 
@@ -367,6 +368,7 @@ export async function clearAllAppCaches(queryClient: { clear: () => void }): Pro
     clearAllGpsTracks(),
     clearBoundsCache(),
     FileSystem.deleteAsync(ROUTE_NAMES_FILE, { idempotent: true }),
+    clearTerrainPreviews(),
   ]);
 
   log.log('Cleared all app caches');

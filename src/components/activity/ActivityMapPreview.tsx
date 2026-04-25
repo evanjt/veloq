@@ -22,6 +22,8 @@ import {
   deleteTerrainPreviewsForActivity,
   isPrioritySnapshot,
   clearPrioritySnapshot,
+  isTerrainCacheInitialized,
+  onTerrainCacheReady,
 } from '@/lib/storage/terrainPreviewCache';
 import { getCameraOverride } from '@/lib/storage/terrainCameraOverrides';
 import { subscribeSnapshot } from '@/lib/events/terrainSnapshotEvents';
@@ -68,6 +70,12 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
     (terrain3DMode === 'smart' &&
       isLikelyInterestingTerrain(activity.total_elevation_gain, activity.distance));
 
+  const [cacheReady, setCacheReady] = useState(() => isTerrainCacheInitialized());
+  useEffect(() => {
+    if (cacheReady) return;
+    return onTerrainCacheReady(() => setCacheReady(true));
+  }, [cacheReady]);
+
   // Track whether we have a cached 3D terrain image
   const [terrainImageUri, setTerrainImageUri] = useState<string | null>(() => {
     if (maybeShow3D && hasTerrainPreview(activity.id, mapStyle)) {
@@ -83,7 +91,7 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
     } else {
       setTerrainImageUri(null);
     }
-  }, [maybeShow3D, mapStyle, activity.id]);
+  }, [maybeShow3D, mapStyle, activity.id, cacheReady]);
 
   // Subscribe to snapshot completion events for this activity
   useEffect(() => {

@@ -3,7 +3,6 @@ export { CacheManagementPanel } from './CacheManagementPanel';
 export { DataCacheSection } from './DataCacheSection';
 export { DataSection } from './DataSection';
 export { DataSourcesSection } from './DataSourcesSection';
-export { SectionDetectionSection } from './SectionDetectionSection';
 export { DisplaySettings } from './DisplaySettings';
 export { MapStylePreviewPicker } from './MapStylePreviewPicker';
 export { MapsSection } from './MapsSection';
