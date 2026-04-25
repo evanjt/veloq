@@ -674,7 +674,7 @@
     "weeklyLoad": {
       "title": "Trainingsbelastig {{percent}}% {{direction}} Schnitt",
       "above": "über",
-      "below": "under",
+      "below": "unter",
       "body": "Die Wuche: {{acute}} TSS vs 4-Wuche-Schnitt vo {{chronic}} TSS ({{percent}}% Unterschied)."
     },
     "stalePr": {
@@ -1214,8 +1214,8 @@
     "sectionWord": "Abschnitt",
     "sectionsDescription": "Abschnitt wärded erkannt wenn du gliichi Strass mehrmals fahrsch",
     "selected": "Usgwählt",
-    "setAsReference": "Set as Reference",
-    "setAsReferenceConfirm": "Use this activity as the route reference? Match percentages are calculated relative to the reference activity.",
+    "setAsReference": "Als Referänz setze",
+    "setAsReferenceConfirm": "Die Aktivität als Routene-Referänz bruuche? Match-Pärzänt wärded relativ zur Referänz-Aktivität brächnet.",
     "shareDetailsWithDeveloper": "Details kopiere und em Entwickler schicke bi emne Problem",
     "searchSections": "Abschnitt sueche...",
     "searchRoutes": "Route sueche...",
@@ -1355,11 +1355,11 @@
     "mergeCandidatesTitle": "Abschnitt zum Zämefüege uswähle",
     "mergeCandidatesSubtitle": "{{count}} ähnlichi Abschnitt i de Nöchi",
     "overlapLabel": "Überlappung",
-    "acceptSection": "Accept",
-    "acceptAllSections": "Accept All",
-    "acceptAllConfirm": "Accept all {{count}} auto-detected sections? They will be preserved during future re-detection.",
-    "acceptedCount": "Accepted {{count}} sections",
-    "pinned": "Pinned",
+    "acceptSection": "Akzeptierä",
+    "acceptAllSections": "All akzeptierä",
+    "acceptAllConfirm": "All {{count}} automatisch erkannti Abschnitt akzeptierä? Si bliibed bi zukünftige Neuerkennige erhalte.",
+    "acceptedCount": "{{count}} Abschnitt akzeptiert",
+    "pinned": "Aagheftet",
     "pinnedOnly": "Nur aaghefte"
   },
   "settings": {
@@ -1492,16 +1492,16 @@
     "heatmapDescription": "Bruucht Spicherplatz uf em Grät. Deaktiviere zum Platz z spare.",
     "redetectSections": "Abschnitte nöi erchenne",
     "redetectSectionsHint": "Abschnittserchennig über alli Aktivitäte nomal laufe lah. Cha 1-2 Minuute dure.",
-    "sectionDetection": "Section Detection",
-    "detectionSensitivity": "Detection sensitivity",
-    "detectionRelaxed": "Relaxed",
-    "detectionStrict": "Strict",
+    "sectionDetection": "Abschnittserkennig",
+    "detectionSensitivity": "Erkennigsempfindlichkeit",
+    "detectionRelaxed": "Locker",
+    "detectionStrict": "Striikt",
     "matchThreshold": "Match: {{pct}}%",
-    "endpointDistance": "Endpoint: {{meters}}m",
-    "reanalyzeSections": "Reanalyze sections",
-    "reanalyzeWarning": "This will replace all unaccepted auto-detected sections. Accepted (pinned) sections will be preserved.",
-    "cleanupOverlapping": "Clean up overlapping",
-    "cleanupResult": "Removed {{count}} overlapping"
+    "endpointDistance": "Ändpunkt: {{meters}} m",
+    "reanalyzeSections": "Abschnitt neu analysierä",
+    "reanalyzeWarning": "Das ersetzt all nöd akzeptierti automatisch erkannti Abschnitt. Akzeptierti (aagheftet) Abschnitt bliibed erhalte.",
+    "cleanupOverlapping": "Überschniidige bereinige",
+    "cleanupResult": "{{count}} Überschniidige entfernt"
   },
   "stats": {
     "activities": "Aktivitäte",

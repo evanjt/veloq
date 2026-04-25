@@ -398,6 +398,151 @@ describe('Translation Key Usage', () => {
   });
 });
 
+/**
+ * Translation Freshness
+ *
+ * Catches the case where a new key is added to en-US.json (or en-GB.json) and
+ * mass-copied to all other locale files without being translated. Without this
+ * check, those locales pass the key-parity tests above while still showing
+ * English to the user.
+ *
+ * For each non-English locale we count leaf-string values that are byte-identical
+ * to en-US AND contain Latin letters (so they're plausibly English text). Brand
+ * names, abbreviations recognised internationally (FTP, TSS, CTL, ATL, TSB, HRV,
+ * GPS, etc.), and a small set of intentional-English keys (paper citations) are
+ * excluded.
+ *
+ * Each locale has a baseline; the count must be <= baseline. Drop a baseline to
+ * 0 once that locale is fully translated to lock in the gains.
+ */
+const FRESHNESS_FREEZE_BASELINE: Record<string, number> = {
+  da: 83,
+  'de-CH': 78,
+  'de-DE': 73,
+  es: 42,
+  'es-419': 40,
+  'es-ES': 46,
+  fr: 87,
+  it: 55,
+  ja: 13,
+  nl: 84,
+  pl: 31,
+  pt: 56,
+  'pt-BR': 55,
+  'zh-Hans': 25,
+};
+
+const FRESHNESS_ALLOWLIST_VALUES = new Set([
+  'Veloq',
+  'intervals.icu',
+  'OpenStreetMap',
+  'MapLibre',
+  'Strava',
+  'Garmin',
+  'TrainingPeaks',
+  'Apple',
+  'Google',
+  'GitHub',
+  'FastFitness.Tips',
+  'Science2Sport',
+  'Joe Friel',
+  'Morton',
+  'FTP',
+  'TSS',
+  'CTL',
+  'ATL',
+  'TSB',
+  'HRV',
+  'GPS',
+  'PR',
+  'VO2',
+  'BPM',
+  'RPM',
+  'kJ',
+  'TRIMP',
+]);
+
+const FRESHNESS_ALLOWLIST_KEYS = new Set([
+  // Intentional English paper-citation links
+  'fitnessScreen.linkTrainingLoad',
+  'fitnessScreen.linkTSBManagement',
+]);
+
+const LATIN_RE = /[A-Za-z]{2,}/;
+const PLACEHOLDER_RE = /\{\{[^}]+\}\}/g;
+
+function isUntranslatedEnglish(key: string, enValue: string, locValue: unknown): boolean {
+  if (typeof locValue !== 'string') return false;
+  if (locValue !== enValue) return false;
+  if (FRESHNESS_ALLOWLIST_KEYS.has(key)) return false;
+  if (FRESHNESS_ALLOWLIST_VALUES.has(enValue)) return false;
+  if (enValue.length <= 3) return false;
+  if (!LATIN_RE.test(enValue)) return false;
+  // Strip placeholders; if nothing meaningful left, it's a pure template (e.g. "{{x}}")
+  const stripped = enValue.replace(PLACEHOLDER_RE, '').trim();
+  if (!stripped || !LATIN_RE.test(stripped)) return false;
+  return true;
+}
+
+describe('Translation Freshness', () => {
+  // Use en-US as the source of truth for "is this still English?".
+  // (en-GB is the i18n source of truth for spelling, but values land in en-US first.)
+  const enData = loadLocale('en-US');
+
+  if (!enData) {
+    test('en-US locale should exist', () => {
+      throw new Error('en-US.json not found - cannot run freshness check');
+    });
+    return;
+  }
+
+  const enKeys = getAllKeys(enData);
+  const enValues = new Map<string, string>();
+  for (const key of enKeys) {
+    const v = getValueAtPath(enData, key);
+    if (typeof v === 'string') enValues.set(key, v);
+  }
+
+  Object.keys(FRESHNESS_FREEZE_BASELINE).forEach((locale) => {
+    const baseline = FRESHNESS_FREEZE_BASELINE[locale];
+
+    describe(`Locale: ${locale}`, () => {
+      const localeData = loadLocale(locale);
+
+      if (!localeData) {
+        test('locale should load', () => {
+          throw new Error(`${locale}.json not found`);
+        });
+        return;
+      }
+
+      test(`identical-to-en-US count should not exceed baseline (${baseline})`, () => {
+        const offenders: { key: string; value: string }[] = [];
+        for (const [key, enValue] of enValues) {
+          const locValue = getValueAtPath(localeData, key);
+          if (isUntranslatedEnglish(key, enValue, locValue)) {
+            offenders.push({ key, value: enValue });
+          }
+        }
+
+        if (offenders.length > baseline) {
+          console.log(`\n❌ ${locale}: ${offenders.length} untranslated (baseline ${baseline})`);
+          console.log(`   New offenders since baseline was set:`);
+          offenders
+            .sort((a, b) => b.value.length - a.value.length)
+            .slice(0, 30)
+            .forEach((o) => {
+              const preview = o.value.length > 80 ? o.value.slice(0, 77) + '...' : o.value;
+              console.log(`     - ${o.key}: "${preview}"`);
+            });
+        }
+
+        expect(offenders.length).toBeLessThanOrEqual(baseline);
+      });
+    });
+  });
+});
+
 // Export for use in other scripts
 export {
   getAllKeys,
