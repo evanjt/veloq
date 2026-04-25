@@ -414,6 +414,15 @@ impl PersistentRouteEngine {
         &self.groups
     }
 
+    /// Reload groups from DB (e.g. after the background thread saved fresh
+    /// groups). Clears the dirty flag so the next `get_groups()` won't
+    /// re-trigger a synchronous recompute.
+    pub fn reload_groups_from_db(&mut self) {
+        if let Err(e) = self.load_groups() {
+            log::warn!("[reload_groups_from_db] Failed: {}", e);
+        }
+    }
+
     /// Recompute route groups.
     fn recompute_groups(&mut self) {
         use std::time::Instant;

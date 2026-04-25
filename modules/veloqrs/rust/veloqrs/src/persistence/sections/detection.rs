@@ -6,11 +6,161 @@ use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::sync::mpsc;
 use std::thread;
+use tracematch::{Bounds, MatchConfig, RouteGroup, RouteSignature};
 
 use super::super::{
     ClusteringAwareProgress, PersistentRouteEngine, SectionDetectionHandle,
     SectionDetectionProgress, load_groups_from_db,
 };
+
+/// Load all route signatures from the DB (standalone, no engine needed).
+fn load_all_signatures(conn: &Connection) -> Vec<RouteSignature> {
+    let mut stmt = match conn.prepare(
+        "SELECT activity_id, points, start_point_lat, start_point_lng,
+                end_point_lat, end_point_lng, total_distance
+         FROM signatures",
+    ) {
+        Ok(s) => s,
+        Err(_) => return Vec::new(),
+    };
+
+    stmt.query_map([], |row| {
+        let id: String = row.get(0)?;
+        let blob: Vec<u8> = row.get(1)?;
+        let points: Vec<GpsPoint> = rmp_serde::from_slice(&blob).unwrap_or_default();
+        let start_point = GpsPoint::new(row.get(2)?, row.get(3)?);
+        let end_point = GpsPoint::new(row.get(4)?, row.get(5)?);
+        let total_distance: f64 = row.get(6)?;
+        let bounds = Bounds::from_points(&points).unwrap_or(Bounds {
+            min_lat: 0.0,
+            max_lat: 0.0,
+            min_lng: 0.0,
+            max_lng: 0.0,
+        });
+        let center = bounds.center();
+        Ok(RouteSignature {
+            activity_id: id,
+            points,
+            total_distance,
+            start_point,
+            end_point,
+            bounds,
+            center,
+        })
+    })
+    .map(|rows| rows.filter_map(|r| r.ok()).collect())
+    .unwrap_or_default()
+}
+
+/// Compute route groups from DB signatures and save them back.
+/// Runs on the background thread so it doesn't block the JS thread.
+fn recompute_and_save_groups(
+    conn: &Connection,
+    match_config: &MatchConfig,
+    existing_groups: &[RouteGroup],
+    activity_metadata: &HashMap<String, String>,
+) -> Vec<RouteGroup> {
+    let start = std::time::Instant::now();
+
+    let signatures = load_all_signatures(conn);
+    let sig_ms = start.elapsed().as_millis();
+
+    if signatures.is_empty() {
+        return existing_groups.to_vec();
+    }
+
+    let already_grouped: HashSet<&str> = existing_groups
+        .iter()
+        .flat_map(|g| g.activity_ids.iter().map(|s| s.as_str()))
+        .collect();
+    let (new_sigs, existing_sigs): (Vec<_>, Vec<_>) = signatures
+        .iter()
+        .cloned()
+        .partition(|s| !already_grouped.contains(s.activity_id.as_str()));
+
+    let total = signatures.len();
+    let use_incremental = !existing_groups.is_empty()
+        && !new_sigs.is_empty()
+        && (new_sigs.len() as f64) < (total as f64 * 0.9);
+
+    let group_start = std::time::Instant::now();
+    let result = if use_incremental {
+        log::info!(
+            "[BG Groups] INCREMENTAL: {} new vs {} existing",
+            new_sigs.len(),
+            existing_sigs.len()
+        );
+        let groups = tracematch::group_incremental(
+            &new_sigs,
+            existing_groups,
+            &existing_sigs,
+            match_config,
+        );
+        tracematch::GroupingResult {
+            groups,
+            activity_matches: HashMap::new(),
+        }
+    } else {
+        log::info!("[BG Groups] FULL: {} signatures", signatures.len());
+        tracematch::group_signatures_parallel_with_matches(&signatures, match_config)
+    };
+    let group_ms = group_start.elapsed().as_millis();
+
+    let mut groups = result.groups;
+
+    for group in &mut groups {
+        if let Some(sport) = activity_metadata.get(&group.representative_id) {
+            group.sport_type = if sport.is_empty() {
+                "Ride".to_string()
+            } else {
+                sport.clone()
+            };
+        }
+    }
+
+    if let Err(e) = save_groups_to_db(conn, &groups) {
+        log::error!("[BG Groups] Save failed: {}", e);
+    }
+
+    let total_ms = start.elapsed().as_millis();
+    log::info!(
+        "[BG Groups] Done: {} groups in {}ms (sigs={}ms, grouping={}ms)",
+        groups.len(),
+        total_ms,
+        sig_ms,
+        group_ms
+    );
+
+    groups
+}
+
+/// Save route groups to DB (standalone, no engine needed).
+fn save_groups_to_db(conn: &Connection, groups: &[RouteGroup]) -> SqlResult<()> {
+    conn.execute("DELETE FROM route_groups", [])?;
+    let mut stmt = conn.prepare(
+        "INSERT INTO route_groups (id, representative_id, activity_ids, sport_type,
+            bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+    )?;
+    for group in groups {
+        let activity_ids_json = serde_json::to_string(&group.activity_ids).unwrap_or_default();
+        let (min_lat, max_lat, min_lng, max_lng) = match &group.bounds {
+            Some(b) => (Some(b.min_lat), Some(b.max_lat), Some(b.min_lng), Some(b.max_lng)),
+            None => (None, None, None, None),
+        };
+        stmt.execute(params![
+            group.group_id,
+            group.representative_id,
+            activity_ids_json,
+            group.sport_type,
+            min_lat,
+            max_lat,
+            min_lng,
+            max_lng,
+        ])?;
+    }
+    Ok(())
+}
 
 /// Tier 2 upgrade-path backfill: seed `consensus_state_blob` on every
 /// pre-existing section whose blob is still NULL, using its own SQLite
@@ -341,20 +491,14 @@ impl PersistentRouteEngine {
         let progress = SectionDetectionProgress::new();
         let progress_clone = progress.clone();
 
-        // Ensure groups are computed before section detection.
-        if self.groups_dirty {
-            log::info!(
-                "tracematch: [SectionDetection] Computing route groups before section detection..."
-            );
-            let start = std::time::Instant::now();
-            let _ = self.get_groups();
-            log::info!(
-                "tracematch: [SectionDetection] Route groups computed in {:?}",
-                start.elapsed()
-            );
-        }
+        // Capture whether groups need recomputation. Instead of blocking the
+        // calling thread (which freezes the JS progress bar), we pass this
+        // flag to the background thread and let it recompute from DB.
+        let needs_group_recompute = self.groups_dirty;
+        let match_config = self.match_config.clone();
+        let current_groups = self.groups.clone();
 
-        // Build sport type map
+        // Build sport type map (also used for background group recomputation)
         let sport_map: HashMap<String, String> = self
             .activity_metadata
             .values()
@@ -539,10 +683,18 @@ impl PersistentRouteEngine {
                 }
             };
 
-            let groups = load_groups_from_db(&conn);
+            let groups = if needs_group_recompute {
+                log::info!(
+                    "tracematch: [SectionDetection] Recomputing route groups on background thread..."
+                );
+                recompute_and_save_groups(&conn, &match_config, &current_groups, &sport_map)
+            } else {
+                load_groups_from_db(&conn)
+            };
             log::info!(
-                "tracematch: [SectionDetection] Loaded {} groups from DB",
-                groups.len()
+                "tracematch: [SectionDetection] {} groups ready (recomputed={})",
+                groups.len(),
+                needs_group_recompute
             );
 
             progress_clone.set_phase("loading", ids_to_load.len() as u32);

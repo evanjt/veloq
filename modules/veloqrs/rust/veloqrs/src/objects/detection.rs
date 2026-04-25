@@ -74,6 +74,9 @@ impl DetectionManager {
                         log::error!("save_processed_activity_ids failed: {}", err);
                     }
                     e.apply_sections_finalize_with_progress(progress.as_ref());
+                    // Reload groups from DB in case the background thread
+                    // recomputed and saved them.
+                    e.reload_groups_from_db();
                     Ok(())
                 })??;
 
