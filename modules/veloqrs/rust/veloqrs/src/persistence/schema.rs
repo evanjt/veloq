@@ -8,88 +8,36 @@ use std::collections::{HashMap, HashSet};
 use super::PersistentRouteEngine;
 
 impl PersistentRouteEngine {
-    /// Current schema version for app-level tracking.
-    /// This is separate from rusqlite_migration and tracks the overall schema state.
-    pub(super) const SCHEMA_VERSION: i32 = 21; // + consensus_state_json column
+    /// App-level schema version for post-migration Rust hooks.
+    /// Independent of rusqlite_migration's PRAGMA user_version (currently 12).
+    /// Hooks <= 7 are dead code for any user on 0.2.2+.
+    pub(super) const SCHEMA_VERSION: i32 = 12; // 0.3.0 consolidated
 
-    /// Get the database migrations.
-    /// Each migration is applied in order, tracked in `__rusqlite_migrations` table.
+    /// Database migrations, tracked in `__rusqlite_migrations` table.
+    /// M1–M11: shipped in 0.2.2 (PRAGMA user_version = 11).
+    /// M12: consolidated 0.2.2 → 0.3.0 upgrade.
     pub(super) fn migrations() -> Migrations<'static> {
         Migrations::new(vec![
-            // M1: Initial schema (uses IF NOT EXISTS for compatibility with pre-migration databases)
             M::up(include_str!("../migrations/001_initial_schema.sql")),
-            // M2: Unified sections table (migrates blob-based sections to column-based)
             M::up(include_str!("../migrations/002_unified_sections.sql")),
-            // M3: Drop legacy section_names table (names now in sections.name column)
             M::up(include_str!("../migrations/003_drop_section_names.sql")),
-            // M4: Extend activity_metrics with training_load, ftp, zone times for aggregation
             M::up(include_str!(
                 "../migrations/004_extend_activity_metrics.sql"
             )),
-            // M5: Athlete profile and sport settings cache tables
             M::up(include_str!("../migrations/005_profile_and_settings.sql")),
-            // M6: Processed activities tracking for incremental section detection
             M::up(include_str!("../migrations/006_processed_activities.sql")),
-            // M7: Cache section performance metrics (lap_time, lap_pace) in section_activities
             M::up(include_str!(
                 "../migrations/007_cache_section_performances.sql"
             )),
-            // M8: Cache all performance metrics (zone sums, FTP history, heatmap intensity)
             M::up(include_str!(
                 "../migrations/008_cache_all_performance_metrics.sql"
             )),
-            // M9: Cache section bounding boxes as columns (avoid JSON polyline deserialization)
             M::up(include_str!("../migrations/009_section_bounds_cache.sql")),
-            // M10: Cache activity_count on route_groups (avoid JSON parsing for count)
             M::up(include_str!(
                 "../migrations/010_route_groups_activity_count.sql"
             )),
-            // M11: Pace history cache for running/swimming trend tracking
             M::up(include_str!("../migrations/011_pace_history.sql")),
-            // M12: Original polyline backup for section bounds trimming
-            M::up(include_str!(
-                "../migrations/012_section_original_polyline.sql"
-            )),
-            // M13: Force re-detection with improved lap splitting algorithm
-            M::up(include_str!(
-                "../migrations/013_redetect_section_portions.sql"
-            )),
-            // M14: Force re-detection to clean cross-sport activity associations
-            M::up(include_str!(
-                "../migrations/014_redetect_cross_sport_fix.sql"
-            )),
-            // M15: Add excluded flag to section_activities for hiding outlier activities
-            M::up(include_str!(
-                "../migrations/015_section_activity_excluded.sql"
-            )),
-            // M16: Add excluded flag to activity_matches for hiding outlier route activities
-            M::up(include_str!(
-                "../migrations/016_route_activity_excluded.sql"
-            )),
-            // M17: Add avg_hr to section_activities for aerobic efficiency tracking
-            M::up(include_str!(
-                "../migrations/017_section_activity_avg_hr.sql"
-            )),
-            // M18: Exercise set data from FIT files for strength training
-            M::up(include_str!("../migrations/018_exercise_sets.sql")),
-            // M19: Reset FIT cache after parser fix (set_type inversion)
-            M::up(include_str!("../migrations/019_reset_fit_cache.sql")),
-            // M20: Section visibility (disabled + superseded_by columns)
-            M::up(include_str!("../migrations/020_section_visibility.sql")),
-            // M21: Key-value settings table for user preferences (backup consolidation)
-            M::up(include_str!("../migrations/021_settings_table.sql")),
-            // M22: Materialized activity indicators for PR/trend badges on feed cards
-            M::up(include_str!(
-                "../migrations/022_activity_indicators.sql"
-            )),
-            // M23: Wellness table — unlocks Rust-side sparkline + HRV trend atomics
-            M::up(include_str!("../migrations/023_wellness.sql")),
-            // M24: Composite indexes for hot read paths (section_activities,
-            //      activity_metrics by sport+date)
-            M::up(include_str!("../migrations/024_perf_indexes.sql")),
-            // M25: Persistent ConsensusAccumulator storage for tracematch's
-            //      incremental consensus path (Tier 2.1)
-            M::up(include_str!("../migrations/025_consensus_state.sql")),
+            M::up(include_str!("../migrations/012_v030.sql")),
         ])
     }
 
@@ -136,9 +84,6 @@ impl PersistentRouteEngine {
             )))
         })?;
 
-        // Post-migration: add columns that may be missing from older schemas
-        Self::migrate_schema(conn)?;
-
         // Update schema version
         conn.execute(
             "INSERT OR REPLACE INTO schema_info (key, value) VALUES ('schema_version', ?)",
@@ -156,46 +101,32 @@ impl PersistentRouteEngine {
             Self::SCHEMA_VERSION
         );
 
-        // Post-migration: populate performance cache if migrating from v2 to v3
-        if current_version < 3 && Self::SCHEMA_VERSION >= 3 {
-            let needs_population: i64 = conn.query_row(
-                "SELECT COUNT(*) FROM section_activities WHERE lap_time IS NULL",
-                [],
-                |row| row.get(0),
-            )?;
-
-            if needs_population > 0 {
-                log::info!(
-                    "tracematch: [Migration] Populating performance cache for {} section portions...",
-                    needs_population
-                );
-                Self::populate_performance_cache(conn)?;
-                log::info!("tracematch: [Migration] Performance cache population complete");
+        // Post-migration data population for pre-0.2.2 databases.
+        // Users on 0.2.2+ (schema_version >= 7) skip this block entirely.
+        if current_version < 7 {
+            if current_version < 3 {
+                let needs_population: i64 = conn.query_row(
+                    "SELECT COUNT(*) FROM section_activities WHERE lap_time IS NULL",
+                    [],
+                    |row| row.get(0),
+                )?;
+                if needs_population > 0 {
+                    log::info!(
+                        "tracematch: [Migration] Populating performance cache for {} section portions...",
+                        needs_population
+                    );
+                    Self::populate_performance_cache(conn)?;
+                }
             }
-        }
-
-        // Post-migration: populate all performance caches if migrating from v3 to v4
-        if current_version < 4 && Self::SCHEMA_VERSION >= 4 {
-            log::info!("tracematch: [Migration] Migrating from v3 to v4...");
-            Self::populate_all_performance_caches(conn)?;
-        }
-
-        // Post-migration: populate section bounds columns if migrating to v5
-        if current_version < 5 && Self::SCHEMA_VERSION >= 5 {
-            Self::populate_section_bounds(conn)?;
-        }
-
-        // Post-migration: backfill activity_count on route_groups if migrating to v6
-        if current_version < 6 && Self::SCHEMA_VERSION >= 6 {
-            Self::populate_route_group_counts(conn)?;
-        }
-
-        // Post-migration: populate activity indicators if migrating to v7 (schema 18)
-        // Note: full recomputation also runs after engine init when sections/groups are loaded.
-        // This migration just ensures the table exists; actual data population happens
-        // in recompute_activity_indicators() after engine fully loads.
-        if current_version < 7 && Self::SCHEMA_VERSION >= 7 {
-            log::info!("tracematch: [Migration] activity_indicators table created, will populate after engine init");
+            if current_version < 4 {
+                Self::populate_all_performance_caches(conn)?;
+            }
+            if current_version < 5 {
+                Self::populate_section_bounds(conn)?;
+            }
+            if current_version < 6 {
+                Self::populate_route_group_counts(conn)?;
+            }
         }
 
         Ok(())
@@ -424,26 +355,6 @@ impl PersistentRouteEngine {
 
         // Drop the legacy table
         conn.execute("DROP TABLE IF EXISTS section_names", [])?;
-
-        Ok(())
-    }
-
-    /// Post-migration schema updates (add columns to existing tables).
-    fn migrate_schema(conn: &Connection) -> SqlResult<()> {
-        // Check if start_date column exists in activities
-        let has_start_date: bool = conn
-            .prepare("SELECT start_date FROM activities LIMIT 0")
-            .is_ok();
-
-        if !has_start_date {
-            conn.execute_batch(
-                "ALTER TABLE activities ADD COLUMN start_date INTEGER;
-                 ALTER TABLE activities ADD COLUMN name TEXT;
-                 ALTER TABLE activities ADD COLUMN distance_meters REAL;
-                 ALTER TABLE activities ADD COLUMN duration_secs INTEGER;",
-            )?;
-            log::info!("tracematch: [Migration] Added metadata columns to activities table");
-        }
 
         Ok(())
     }

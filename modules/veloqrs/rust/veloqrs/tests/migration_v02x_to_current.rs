@@ -3,8 +3,8 @@
 //! Seeds a SQLite file with the schema shipped in 0.2.0 / 0.2.1 / 0.2.2
 //! (`SCHEMA_VERSION=7`, migrations 1–11 — byte-identical across the three
 //! tags) populated with a realistic custom section, then opens the current
-//! `PersistentRouteEngine` against that file. Opening runs migrations
-//! 12–25 plus the post-migration Rust backfill hooks in
+//! `PersistentRouteEngine` against that file. Opening runs the consolidated
+//! migration 12 (0.3.0) plus the post-migration Rust backfill hooks in
 //! `persistence/schema.rs`.
 //!
 //! What this guards against
@@ -367,16 +367,16 @@ fn sql_level_custom_section_survives_forward_migration() {
             |r| r.get(0),
         )
         .expect("schema_version present");
-    assert_eq!(schema_version, "21", "schema version should be bumped to 21");
+    assert_eq!(schema_version, "12", "schema version should be bumped to 12");
 
     // rusqlite_migration tracks progress via SQLite's PRAGMA user_version,
-    // so applying 25 migrations leaves user_version = 25.
+    // so applying 12 migrations leaves user_version = 12.
     let pragma_user_version: i64 = conn
         .query_row("PRAGMA user_version", [], |r| r.get(0))
         .expect("PRAGMA user_version readable");
     assert_eq!(
-        pragma_user_version, 25,
-        "rusqlite_migration should have advanced PRAGMA user_version to 25"
+        pragma_user_version, 12,
+        "rusqlite_migration should have advanced PRAGMA user_version to 12"
     );
 
     // Section row preserved.
