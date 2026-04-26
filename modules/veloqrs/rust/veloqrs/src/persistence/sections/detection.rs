@@ -140,11 +140,13 @@ fn save_groups_to_db(conn: &Connection, groups: &[RouteGroup]) -> SqlResult<()> 
     conn.execute("DELETE FROM route_groups", [])?;
     let mut stmt = conn.prepare(
         "INSERT INTO route_groups (id, representative_id, activity_ids, sport_type,
-            bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng,
+            activity_ids_blob)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
     )?;
     for group in groups {
         let activity_ids_json = serde_json::to_string(&group.activity_ids).unwrap_or_default();
+        let activity_ids_blob = super::codec::serialize(&group.activity_ids).ok();
         let (min_lat, max_lat, min_lng, max_lng) = match &group.bounds {
             Some(b) => (Some(b.min_lat), Some(b.max_lat), Some(b.min_lng), Some(b.max_lng)),
             None => (None, None, None, None),
@@ -158,6 +160,7 @@ fn save_groups_to_db(conn: &Connection, groups: &[RouteGroup]) -> SqlResult<()> 
             max_lat,
             min_lng,
             max_lng,
+            activity_ids_blob,
         ])?;
     }
     Ok(())
@@ -499,23 +502,20 @@ impl PersistentRouteEngine {
         let match_config = self.match_config.clone();
         let current_groups = self.groups.clone();
 
-        // Build sport type map (also used for background group recomputation)
-        let sport_map: HashMap<String, String> = self
-            .activity_metadata
-            .values()
-            .map(|m| (m.id.clone(), m.sport_type.clone()))
-            .collect();
+        // Build sport type map + activity_ids in a single pass over metadata.
+        // Uses the HashMap key (= activity id) to avoid cloning m.id separately.
+        let mut sport_map: HashMap<String, String> =
+            HashMap::with_capacity(self.activity_metadata.len());
+        let mut activity_ids: Vec<String> =
+            Vec::with_capacity(self.activity_metadata.len());
 
-        // Filter activity IDs by sport
-        let activity_ids: Vec<String> = if let Some(ref sport) = sport_filter {
-            self.activity_metadata
-                .values()
-                .filter(|m| &m.sport_type == sport)
-                .map(|m| m.id.clone())
-                .collect()
-        } else {
-            self.activity_metadata.keys().cloned().collect()
-        };
+        for (id, m) in &self.activity_metadata {
+            sport_map.insert(id.clone(), m.sport_type.clone());
+            match &sport_filter {
+                Some(sport) if &m.sport_type != sport => {}
+                _ => activity_ids.push(id.clone()),
+            }
+        }
 
         // Determine if incremental detection is possible:
         // - Must have existing sections

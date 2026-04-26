@@ -11,7 +11,7 @@ impl PersistentRouteEngine {
     /// App-level schema version for post-migration Rust hooks.
     /// Independent of rusqlite_migration's PRAGMA user_version (currently 12).
     /// Hooks <= 7 are dead code for any user on 0.2.2+.
-    pub(super) const SCHEMA_VERSION: i32 = 13;
+    pub(super) const SCHEMA_VERSION: i32 = 12;
 
     /// Database migrations, tracked in `__rusqlite_migrations` table.
     /// M1–M11: shipped in 0.2.2 (PRAGMA user_version = 11).
@@ -38,9 +38,6 @@ impl PersistentRouteEngine {
             )),
             M::up(include_str!("../migrations/011_pace_history.sql")),
             M::up(include_str!("../migrations/012_v030.sql")),
-            M::up(include_str!(
-                "../migrations/013_section_polyline_blob.sql"
-            )),
         ])
     }
 
@@ -104,8 +101,9 @@ impl PersistentRouteEngine {
             Self::SCHEMA_VERSION
         );
 
-        if current_version < 13 {
+        if current_version < 12 {
             Self::migrate_polyline_json_to_blob(conn)?;
+            Self::migrate_route_group_ids_to_blob(conn)?;
         }
 
         // Post-migration data population for pre-0.2.2 databases.
@@ -182,6 +180,46 @@ impl PersistentRouteEngine {
 
         log::info!(
             "tracematch: [Migration] Converted {}/{} section polylines to binary",
+            converted,
+            rows.len()
+        );
+        Ok(())
+    }
+
+    fn migrate_route_group_ids_to_blob(conn: &Connection) -> SqlResult<()> {
+        let mut stmt = conn.prepare(
+            "SELECT id, activity_ids FROM route_groups WHERE activity_ids_blob IS NULL",
+        )?;
+        let rows: Vec<(String, String)> = stmt
+            .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?
+            .filter_map(|r| r.ok())
+            .collect();
+
+        if rows.is_empty() {
+            return Ok(());
+        }
+
+        log::info!(
+            "tracematch: [Migration] Converting {} route group activity_ids from JSON to binary...",
+            rows.len()
+        );
+
+        let mut update = conn.prepare(
+            "UPDATE route_groups SET activity_ids_blob = ? WHERE id = ?",
+        )?;
+
+        let mut converted = 0u32;
+        for (id, json) in &rows {
+            if let Ok(ids) = serde_json::from_str::<Vec<String>>(json) {
+                if let Ok(blob) = codec::serialize(&ids) {
+                    update.execute(rusqlite::params![blob, id])?;
+                    converted += 1;
+                }
+            }
+        }
+
+        log::info!(
+            "tracematch: [Migration] Converted {}/{} route group activity_ids to binary",
             converted,
             rows.len()
         );

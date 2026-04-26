@@ -105,5 +105,11 @@ CREATE INDEX IF NOT EXISTS idx_section_activities_perf
 CREATE INDEX IF NOT EXISTS idx_activity_metrics_sport_date
     ON activity_metrics(sport_type, date DESC);
 
+-- Binary blob columns for postcard-encoded data (faster than JSON deserialization).
+-- Reads prefer blob, fall back to JSON for backward compatibility.
+ALTER TABLE sections ADD COLUMN polyline_blob BLOB;
+ALTER TABLE sections ADD COLUMN point_density_blob BLOB;
+ALTER TABLE route_groups ADD COLUMN activity_ids_blob BLOB;
+
 -- Force section re-detection with improved lap splitting and cross-sport filtering
 DELETE FROM processed_activities;

@@ -385,7 +385,8 @@ impl TileGenerationHandle {
 fn load_groups_from_db(conn: &Connection) -> Vec<RouteGroup> {
     let mut stmt = match conn.prepare(
         "SELECT id, representative_id, activity_ids, sport_type,
-                bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng
+                bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng,
+                activity_ids_blob
          FROM route_groups",
     ) {
         Ok(s) => s,
@@ -400,9 +401,13 @@ fn load_groups_from_db(conn: &Connection) -> Vec<RouteGroup> {
 
     let groups: Vec<RouteGroup> = stmt
         .query_map([], |row| {
-            let activity_ids_json: String = row.get(2)?;
             let activity_ids: Vec<String> =
-                serde_json::from_str(&activity_ids_json).unwrap_or_default();
+                if let Ok(Some(blob)) = row.get::<_, Option<Vec<u8>>>(8) {
+                    codec::deserialize(&blob).unwrap_or_default()
+                } else {
+                    let json: String = row.get(2)?;
+                    serde_json::from_str(&json).unwrap_or_default()
+                };
 
             let bounds = match (
                 row.get::<_, Option<f64>>(4)?,
@@ -461,7 +466,10 @@ pub struct PersistentRouteEngine {
     spatial_index: RTree<ActivityBoundsEntry>,
 
     /// Tier 2: LRU cached signatures (200 max = ~2MB)
-    signature_cache: LruCache<String, RouteSignature>,
+    /// `Arc` avoids cloning the full `RouteSignature` (points vec + metadata)
+    /// on every cache hit — callers that only read through a reference pay
+    /// nothing, and callers that need ownership clone once instead of twice.
+    signature_cache: LruCache<String, Arc<RouteSignature>>,
 
     /// Tier 2: LRU cached consensus routes (50 max).
     /// `Arc` avoids cloning the full `Vec<GpsPoint>` on every read — cache hits

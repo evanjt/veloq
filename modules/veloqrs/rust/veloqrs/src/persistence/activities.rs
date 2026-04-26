@@ -3,6 +3,7 @@
 use crate::{ActivityMatchInfo, ActivityMetrics, Bounds, GpsPoint, RouteSignature};
 use rstar::{AABB, RTree};
 use rusqlite::{Result as SqlResult, params, types::Type};
+use std::sync::Arc;
 
 use super::{ActivityBoundsEntry, ActivityMetadata, MapActivityComplete, PersistentRouteEngine};
 use super::codec;
@@ -171,7 +172,7 @@ impl PersistentRouteEngine {
         if let Some(sig) = &signature {
             self.store_signature(&id, sig)?;
             // Also cache it since we just computed it
-            self.signature_cache.put(id.clone(), sig.clone());
+            self.signature_cache.put(id.clone(), Arc::new(sig.clone()));
         }
 
         // Update in-memory state
@@ -619,16 +620,15 @@ impl PersistentRouteEngine {
     }
 
     /// Get a signature, loading from DB if not cached.
-    pub fn get_signature(&mut self, id: &str) -> Option<RouteSignature> {
-        // Check cache first
+    pub fn get_signature(&mut self, id: &str) -> Option<Arc<RouteSignature>> {
         if let Some(sig) = self.signature_cache.get(&id.to_string()) {
-            return Some(sig.clone());
+            return Some(Arc::clone(sig));
         }
 
-        // Load from database
         let sig = self.load_signature_from_db(id)?;
-        self.signature_cache.put(id.to_string(), sig.clone());
-        Some(sig)
+        let arc = Arc::new(sig);
+        self.signature_cache.put(id.to_string(), Arc::clone(&arc));
+        Some(arc)
     }
 
     fn load_signature_from_db(&self, id: &str) -> Option<RouteSignature> {

@@ -1,6 +1,6 @@
 //! Route groups: loading, grouping, matching, consensus routes, names.
 
-use crate::{ActivityMatchInfo, Bounds, Direction, GpsPoint, RouteGroup, geo_utils};
+use crate::{ActivityMatchInfo, Bounds, Direction, GpsPoint, RouteGroup, RouteSignature, geo_utils};
 use rusqlite::{Result as SqlResult, params, types::Type};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -20,17 +20,22 @@ impl PersistentRouteEngine {
         {
             let mut stmt = self.db.prepare(
                 "SELECT id, representative_id, activity_ids, sport_type,
-                        bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng
+                        bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng,
+                        activity_ids_blob
                  FROM route_groups",
             )?;
 
             self.groups = stmt
                 .query_map([], |row| {
-                    let activity_ids_json: String = row.get(2)?;
-                    let activity_ids: Vec<String> = serde_json::from_str(&activity_ids_json)
-                        .map_err(|e| {
-                            rusqlite::Error::FromSqlConversionFailure(2, Type::Text, Box::new(e))
-                        })?;
+                    let activity_ids: Vec<String> =
+                        if let Ok(Some(blob)) = row.get::<_, Option<Vec<u8>>>(8) {
+                            codec::deserialize(&blob).unwrap_or_default()
+                        } else {
+                            let json: String = row.get(2)?;
+                            serde_json::from_str(&json).map_err(|e| {
+                                rusqlite::Error::FromSqlConversionFailure(2, Type::Text, Box::new(e))
+                            })?
+                        };
 
                     let bounds =
                         if let (Some(min_lat), Some(max_lat), Some(min_lng), Some(max_lng)) = (
@@ -429,21 +434,22 @@ impl PersistentRouteEngine {
         let total_start = Instant::now();
         log::info!("[RUST: PERF] recompute_groups: starting...");
 
-        // Phase 1: Load all signatures (this will use cache where possible)
+        // Phase 1: Load all signatures (Arc avoids full clone on cache hit)
         let sig_start = Instant::now();
         let activity_ids: Vec<String> = self.activity_metadata.keys().cloned().collect();
-        let mut signatures = Vec::with_capacity(activity_ids.len());
+        let mut arc_sigs: Vec<std::sync::Arc<RouteSignature>> =
+            Vec::with_capacity(activity_ids.len());
 
         for id in &activity_ids {
             if let Some(sig) = self.get_signature(id) {
-                signatures.push(sig);
+                arc_sigs.push(sig);
             }
         }
         let sig_ms = sig_start.elapsed().as_millis();
 
         log::info!(
             "[RUST: PERF] Phase 1 - Load signatures: {} from {} activities in {}ms",
-            signatures.len(),
+            arc_sigs.len(),
             activity_ids.len(),
             sig_ms
         );
@@ -462,23 +468,37 @@ impl PersistentRouteEngine {
             .iter()
             .flat_map(|g| g.activity_ids.iter().map(|s| s.as_str()))
             .collect();
-        let (new_sigs, existing_sigs): (Vec<_>, Vec<_>) = signatures
-            .iter()
-            .cloned()
-            .partition(|s| !already_grouped.contains(s.activity_id.as_str()));
 
-        let total = signatures.len();
+        let total = arc_sigs.len();
         // Incremental grouping is correct at any new-to-total ratio
         // (existing groups stay valid; we only add new edges). The
         // benchmark shows it's faster than full at every ratio measured
         // (60+90 → −37%, 154+396 → −19%). The 90% gate exists only to
+        // Count new (ungrouped) sigs cheaply via Arc references — no clone yet.
+        let new_count = arc_sigs
+            .iter()
+            .filter(|s| !already_grouped.contains(s.activity_id.as_str()))
+            .count();
+
         // skip the partition + HashSet build when nearly everything is
         // new — full is simpler in that fresh-import case.
         let use_incremental = !self.groups.is_empty()
-            && !new_sigs.is_empty()
-            && (new_sigs.len() as f64) < (total as f64 * 0.9);
+            && new_count > 0
+            && (new_count as f64) < (total as f64 * 0.9);
 
+        // Materialize owned Vecs for tracematch (needs &[RouteSignature]).
+        // With Arc this is one clone per sig instead of two (cache-hit + partition).
         let result = if use_incremental {
+            let new_sigs: Vec<RouteSignature> = arc_sigs
+                .iter()
+                .filter(|s| !already_grouped.contains(s.activity_id.as_str()))
+                .map(|a| a.as_ref().clone())
+                .collect();
+            let existing_sigs: Vec<RouteSignature> = arc_sigs
+                .iter()
+                .filter(|s| already_grouped.contains(s.activity_id.as_str()))
+                .map(|a| a.as_ref().clone())
+                .collect();
             log::info!(
                 "[RUST: PERF] Phase 2 - INCREMENTAL grouping: {} new vs {} existing",
                 new_sigs.len(),
@@ -495,6 +515,8 @@ impl PersistentRouteEngine {
                 activity_matches: std::collections::HashMap::new(),
             }
         } else {
+            let signatures: Vec<RouteSignature> =
+                arc_sigs.iter().map(|a| a.as_ref().clone()).collect();
             log::info!(
                 "[RUST: PERF] Phase 2 - FULL grouping: {} signatures",
                 signatures.len()
@@ -848,12 +870,12 @@ impl PersistentRouteEngine {
             }
         }
 
-        // Insert groups
+        // Insert groups (dual-write: JSON for backward compat, blob for fast reads)
         let mut stmt = self.db.prepare(
             "INSERT INTO route_groups (id, representative_id, activity_ids, sport_type,
                                         bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng,
-                                        activity_count)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                                        activity_count, activity_ids_blob)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         )?;
 
         // Prepare statement for inserting new route names
@@ -876,6 +898,7 @@ impl PersistentRouteEngine {
         for group in sorted_groups {
             let activity_ids_json = serde_json::to_string(&group.activity_ids)
                 .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
+            let activity_ids_blob = codec::serialize(&group.activity_ids).ok();
             stmt.execute(params![
                 group.group_id,
                 group.representative_id,
@@ -886,6 +909,7 @@ impl PersistentRouteEngine {
                 group.bounds.map(|b| b.min_lng),
                 group.bounds.map(|b| b.max_lng),
                 group.activity_ids.len() as u32,
+                activity_ids_blob,
             ])?;
 
             // Generate unique name if route doesn't already have one
@@ -975,7 +999,7 @@ impl PersistentRouteEngine {
         let mut stmt = match self.db.prepare(
             "SELECT id, representative_id, sport_type, activity_ids,
                     bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng,
-                    activity_count
+                    activity_count, activity_ids_blob
              FROM route_groups",
         ) {
             Ok(s) => s,
@@ -1028,12 +1052,16 @@ impl PersistentRouteEngine {
                 // Look up custom name
                 let custom_name = custom_names.get(&group_id).cloned();
 
-                // Parse activity_ids for sport type lookup
-                let activity_ids_json: String = row.get(3)?;
+                // Parse activity_ids (prefer blob, fall back to JSON)
                 let activity_ids: Vec<String> =
-                    serde_json::from_str(&activity_ids_json).map_err(|e| {
-                        rusqlite::Error::FromSqlConversionFailure(3, Type::Text, Box::new(e))
-                    })?;
+                    if let Ok(Some(blob)) = row.get::<_, Option<Vec<u8>>>(9) {
+                        codec::deserialize(&blob).unwrap_or_default()
+                    } else {
+                        let json: String = row.get(3)?;
+                        serde_json::from_str(&json).map_err(|e| {
+                            rusqlite::Error::FromSqlConversionFailure(3, Type::Text, Box::new(e))
+                        })?
+                    };
 
                 Ok((
                     GroupSummary {
@@ -1106,19 +1134,24 @@ impl PersistentRouteEngine {
             .db
             .query_row(
                 "SELECT id, representative_id, activity_ids, sport_type,
-                        bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng
+                        bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng,
+                        activity_ids_blob
                  FROM route_groups WHERE id = ?",
                 params![group_id],
                 |row| {
                     let id: String = row.get(0)?;
                     let representative_id: String = row.get(1)?;
-                    let activity_ids_json: String = row.get(2)?;
                     let sport_type: String = row.get(3)?;
 
-                    let activity_ids: Vec<String> = serde_json::from_str(&activity_ids_json)
-                        .map_err(|e| {
-                            rusqlite::Error::FromSqlConversionFailure(2, Type::Text, Box::new(e))
-                        })?;
+                    let activity_ids: Vec<String> =
+                        if let Ok(Some(blob)) = row.get::<_, Option<Vec<u8>>>(8) {
+                            codec::deserialize(&blob).unwrap_or_default()
+                        } else {
+                            let json: String = row.get(2)?;
+                            serde_json::from_str(&json).map_err(|e| {
+                                rusqlite::Error::FromSqlConversionFailure(2, Type::Text, Box::new(e))
+                            })?
+                        };
 
                     let bounds =
                         if let (Some(min_lat), Some(max_lat), Some(min_lng), Some(max_lng)) = (
