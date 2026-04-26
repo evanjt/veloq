@@ -5,6 +5,7 @@ use rstar::{AABB, RTree};
 use rusqlite::{Result as SqlResult, params, types::Type};
 
 use super::{ActivityBoundsEntry, ActivityMetadata, MapActivityComplete, PersistentRouteEngine};
+use super::codec;
 
 impl PersistentRouteEngine {
     // ========================================================================
@@ -459,8 +460,8 @@ impl PersistentRouteEngine {
     }
 
     pub(super) fn store_gps_track(&self, id: &str, coords: &[GpsPoint]) -> SqlResult<()> {
-        let track_data = rmp_serde::to_vec(coords)
-            .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
+        let track_data = codec::serialize_points(coords)
+            .map_err(|e| rusqlite::Error::ToSqlConversionFailure(e.into()))?;
         self.db.execute(
             "INSERT OR REPLACE INTO gps_tracks (activity_id, track_data, point_count)
              VALUES (?, ?, ?)",
@@ -470,8 +471,8 @@ impl PersistentRouteEngine {
     }
 
     pub(super) fn store_signature(&self, id: &str, sig: &RouteSignature) -> SqlResult<()> {
-        let points_blob = rmp_serde::to_vec(&sig.points)
-            .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
+        let points_blob = codec::serialize_points(&sig.points)
+            .map_err(|e| rusqlite::Error::ToSqlConversionFailure(e.into()))?;
         self.db.execute(
             "INSERT OR REPLACE INTO signatures (activity_id, points, start_point_lat, start_point_lng, end_point_lat, end_point_lng, total_distance, point_count)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
@@ -641,8 +642,8 @@ impl PersistentRouteEngine {
 
         stmt.query_row(params![id], |row| {
             let points_blob: Vec<u8> = row.get(0)?;
-            let points: Vec<GpsPoint> = rmp_serde::from_slice(&points_blob).map_err(|e| {
-                rusqlite::Error::FromSqlConversionFailure(0, Type::Blob, Box::new(e))
+            let points: Vec<GpsPoint> = codec::deserialize_points(&points_blob).map_err(|e| {
+                rusqlite::Error::FromSqlConversionFailure(0, Type::Blob, e.into())
             })?;
             let start_point = GpsPoint::new(row.get(1)?, row.get(2)?);
             let end_point = GpsPoint::new(row.get(3)?, row.get(4)?);
@@ -697,7 +698,7 @@ impl PersistentRouteEngine {
                 Ok(r) => r,
                 Err(_) => continue,
             };
-            let points: Vec<GpsPoint> = match rmp_serde::from_slice(&points_blob) {
+            let points: Vec<GpsPoint> = match codec::deserialize_points(&points_blob) {
                 Ok(p) => p,
                 Err(_) => continue,
             };
@@ -740,8 +741,8 @@ impl PersistentRouteEngine {
 
         stmt.query_row(params![id], |row| {
             let track_blob: Vec<u8> = row.get(0)?;
-            Ok(rmp_serde::from_slice(&track_blob).map_err(|e| {
-                rusqlite::Error::FromSqlConversionFailure(0, Type::Blob, Box::new(e))
+            Ok(codec::deserialize_points(&track_blob).map_err(|e| {
+                rusqlite::Error::FromSqlConversionFailure(0, Type::Blob, e.into())
             })?)
         })
         .ok()
@@ -763,8 +764,8 @@ impl PersistentRouteEngine {
         let rows = stmt.query_map([], |row| {
             let track_blob: Vec<u8> = row.get(0)?;
             let blob_len = track_blob.len();
-            let track = rmp_serde::from_slice::<Vec<GpsPoint>>(&track_blob).map_err(|e| {
-                rusqlite::Error::FromSqlConversionFailure(0, Type::Blob, Box::new(e))
+            let track: Vec<GpsPoint> = codec::deserialize_points(&track_blob).map_err(|e| {
+                rusqlite::Error::FromSqlConversionFailure(0, Type::Blob, e.into())
             })?;
             log::debug!(
                 "[get_all_tracks] Blob {} bytes -> {} points",
@@ -841,7 +842,7 @@ impl PersistentRouteEngine {
 
         stmt.query_row(params![activity_id], |row| {
             let data: Vec<u8> = row.get(0)?;
-            Ok(rmp_serde::from_slice(&data).ok())
+            Ok(codec::deserialize_points(&data).ok())
         })
         .ok()
         .flatten()
@@ -853,8 +854,8 @@ impl PersistentRouteEngine {
 
     /// Store time stream to database.
     pub(super) fn store_time_stream(&self, activity_id: &str, times: &[u32]) -> SqlResult<()> {
-        let times_blob = rmp_serde::to_vec(times)
-            .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
+        let times_blob = codec::serialize(times)
+            .map_err(|e| rusqlite::Error::ToSqlConversionFailure(e.into()))?;
         self.db.execute(
             "INSERT OR REPLACE INTO time_streams (activity_id, times, point_count)
              VALUES (?, ?, ?)",
@@ -872,8 +873,8 @@ impl PersistentRouteEngine {
 
         stmt.query_row(params![activity_id], |row| {
             let times_blob: Vec<u8> = row.get(0)?;
-            Ok(rmp_serde::from_slice(&times_blob).map_err(|e| {
-                rusqlite::Error::FromSqlConversionFailure(0, Type::Blob, Box::new(e))
+            Ok(codec::deserialize(&times_blob).map_err(|e| {
+                rusqlite::Error::FromSqlConversionFailure(0, Type::Blob, e.into())
             })?)
         })
         .ok()

@@ -4,7 +4,7 @@
 //! following the same pattern as section detection. The engine mutex is held
 //! only briefly to extract metadata (db_path, tiles_path, activity bounds).
 
-use super::{PersistentRouteEngine, TileGenerationHandle};
+use super::{PersistentRouteEngine, TileGenerationHandle, codec};
 use crate::tiles;
 use log::info;
 use rayon::prelude::*;
@@ -372,7 +372,7 @@ fn bulk_load_tracks(
 
         for row in rows {
             let Ok((id, blob)) = row else { continue };
-            match rmp_serde::from_slice::<Vec<GpsPoint>>(&blob) {
+            match codec::deserialize_points(&blob) {
                 Ok(track) => {
                     out.insert(id, Arc::new(track));
                 }

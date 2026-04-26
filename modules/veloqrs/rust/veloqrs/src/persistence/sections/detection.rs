@@ -1,6 +1,7 @@
 //! Background section detection and application.
 
 use crate::{FrequentSection, GpsPoint};
+use crate::persistence::codec;
 use rusqlite::{Connection, Result as SqlResult, params};
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
@@ -27,7 +28,7 @@ fn load_all_signatures(conn: &Connection) -> Vec<RouteSignature> {
     stmt.query_map([], |row| {
         let id: String = row.get(0)?;
         let blob: Vec<u8> = row.get(1)?;
-        let points: Vec<GpsPoint> = rmp_serde::from_slice(&blob).unwrap_or_default();
+        let points: Vec<GpsPoint> = codec::deserialize_points(&blob).unwrap_or_default();
         let start_point = GpsPoint::new(row.get(2)?, row.get(3)?);
         let end_point = GpsPoint::new(row.get(4)?, row.get(5)?);
         let total_distance: f64 = row.get(6)?;
@@ -312,7 +313,7 @@ pub fn run_accumulator_backfill(
                 if let Ok(rows) = stmt.query_map(params_slice.as_slice(), |row| {
                     let id: String = row.get(0)?;
                     let bytes: Vec<u8> = row.get(1)?;
-                    let track: Vec<tracematch::GpsPoint> = rmp_serde::from_slice(&bytes)
+                    let track: Vec<tracematch::GpsPoint> = codec::deserialize_points(&bytes)
                         .unwrap_or_default();
                     Ok((id, track))
                 }) {
@@ -350,7 +351,7 @@ pub fn run_accumulator_backfill(
             section_config.proximity_threshold,
         );
 
-        match rmp_serde::to_vec(&acc) {
+        match codec::serialize_gps_composite(&acc) {
             Ok(blob) => {
                 // IS NULL guard: respect any writes the main engine made
                 // while we were computing (e.g., a sync that ran concurrently
@@ -729,7 +730,7 @@ impl PersistentRouteEngine {
                         let rows = stmt.query_map(params_slice.as_slice(), |row| {
                             let id: String = row.get(0)?;
                             let blob: Vec<u8> = row.get(1)?;
-                            let track: Vec<GpsPoint> = rmp_serde::from_slice(&blob)
+                            let track: Vec<GpsPoint> = codec::deserialize_points(&blob)
                                 .unwrap_or_else(|e| {
                                     log::warn!(
                                         "tracematch: [SectionDetection] Skipping malformed track for {}: {:?}",

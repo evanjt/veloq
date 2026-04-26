@@ -6,7 +6,7 @@
 use rusqlite::{params, Result as SqlResult};
 use std::collections::HashMap;
 
-use super::PersistentRouteEngine;
+use super::{PersistentRouteEngine, codec};
 
 /// Bump this when the indicator computation algorithm changes.
 /// On next read, a version mismatch triggers a full clean recompute.
@@ -403,7 +403,7 @@ impl PersistentRouteEngine {
                 [activity_id],
                 |row| {
                     let bytes: Vec<u8> = row.get(0)?;
-                    let times: Vec<u32> = rmp_serde::from_slice(&bytes)
+                    let times: Vec<u32> = codec::deserialize(&bytes)
                         .map_err(|_| rusqlite::Error::InvalidQuery)?;
                     Ok(times)
                 },

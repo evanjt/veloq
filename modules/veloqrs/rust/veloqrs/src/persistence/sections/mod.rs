@@ -18,7 +18,7 @@ use chrono::Utc;
 use rusqlite::{Result as SqlResult, params, types::Type};
 use std::collections::HashMap;
 
-use super::{PersistentRouteEngine, SectionSummary, get_section_word};
+use super::{PersistentRouteEngine, SectionSummary, codec, get_section_word};
 
 /// Haversine distance between two lat/lng points in meters.
 pub(super) fn haversine_distance(lat1: f64, lng1: f64, lat2: f64, lng2: f64) -> f64 {
@@ -152,7 +152,7 @@ impl PersistentRouteEngine {
                     let representative_activity_id: Option<String> = row.get(6)?;
                     let consensus_state_blob: Option<Vec<u8>> = row.get(17)?;
                     let consensus_state = consensus_state_blob.and_then(|bytes| {
-                        match rmp_serde::from_slice::<tracematch::sections::ConsensusAccumulator>(&bytes) {
+                        match codec::deserialize_gps_composite::<tracematch::sections::ConsensusAccumulator>(&bytes) {
                             Ok(acc) => Some(acc),
                             Err(e) => {
                                 log::warn!(
@@ -1030,7 +1030,7 @@ impl PersistentRouteEngine {
                     rusqlite::params![activity_id],
                     |row| {
                         let bytes: Vec<u8> = row.get(0)?;
-                        rmp_serde::from_slice::<Vec<u32>>(&bytes)
+                        codec::deserialize::<Vec<u32>>(&bytes)
                             .map_err(|_| rusqlite::Error::InvalidQuery)
                     },
                 )
@@ -1277,7 +1277,7 @@ impl PersistentRouteEngine {
                     if let Ok(rows) = stmt.query_map(params_vec.as_slice(), |row| {
                         let id: String = row.get(0)?;
                         let bytes: Vec<u8> = row.get(1)?;
-                        let stream = rmp_serde::from_slice::<Vec<u32>>(&bytes)
+                        let stream = codec::deserialize::<Vec<u32>>(&bytes)
                             .map_err(|_| rusqlite::Error::InvalidQuery)?;
                         Ok((id, stream))
                     }) {
@@ -1378,7 +1378,7 @@ impl PersistentRouteEngine {
             let consensus_state_blob = section
                 .consensus_state
                 .as_ref()
-                .and_then(|acc| rmp_serde::to_vec(acc).ok());
+                .and_then(|acc| codec::serialize_gps_composite(acc).ok());
 
             section_stmt.execute(params![
                 section.id,

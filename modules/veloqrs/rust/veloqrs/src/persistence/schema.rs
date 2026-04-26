@@ -5,7 +5,7 @@ use rusqlite::{Connection, Result as SqlResult, params};
 use rusqlite_migration::{M, Migrations};
 use std::collections::{HashMap, HashSet};
 
-use super::PersistentRouteEngine;
+use super::{PersistentRouteEngine, codec};
 
 impl PersistentRouteEngine {
     /// App-level schema version for post-migration Rust hooks.
@@ -412,7 +412,7 @@ impl PersistentRouteEngine {
                     [activity_id],
                     |row| {
                         let bytes: Vec<u8> = row.get(0)?;
-                        let times: Vec<u32> = rmp_serde::from_slice(&bytes)
+                        let times: Vec<u32> = codec::deserialize(&bytes)
                             .map_err(|_| rusqlite::Error::InvalidQuery)?;
                         Ok(times)
                     },

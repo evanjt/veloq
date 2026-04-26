@@ -5,7 +5,7 @@ use rusqlite::{Result as SqlResult, params, types::Type};
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use super::{GroupSummary, PersistentRouteEngine, get_route_word};
+use super::{GroupSummary, PersistentRouteEngine, codec, get_route_word};
 
 impl PersistentRouteEngine {
     // ========================================================================
@@ -1229,8 +1229,12 @@ impl PersistentRouteEngine {
             .query_map(params.as_slice(), |row| {
                 let activity_id: String = row.get(0)?;
                 let points_blob: Vec<u8> = row.get(1)?;
-                let points: Vec<GpsPoint> = rmp_serde::from_slice(&points_blob).map_err(|e| {
-                    rusqlite::Error::FromSqlConversionFailure(1, Type::Blob, Box::new(e))
+                let points: Vec<GpsPoint> = codec::deserialize_points(&points_blob).map_err(|e| {
+                    rusqlite::Error::FromSqlConversionFailure(
+                        1,
+                        Type::Blob,
+                        e.into(),
+                    )
                 })?;
                 let flat_coords: Vec<f64> = points
                     .iter()

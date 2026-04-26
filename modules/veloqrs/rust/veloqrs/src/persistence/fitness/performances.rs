@@ -7,6 +7,7 @@ use crate::{
     ActivityMetrics, Direction, DirectionStats, RoutePerformance, RoutePerformanceResult,
     SectionLap, SectionPerformanceRecord, SectionPerformanceResult,
 };
+use crate::persistence::codec;
 use rusqlite::params;
 use std::collections::HashMap;
 
@@ -114,7 +115,7 @@ impl PersistentRouteEngine {
                 params![activity_id],
                 |row| {
                     let bytes: Vec<u8> = row.get(0)?;
-                    rmp_serde::from_slice::<Vec<u32>>(&bytes)
+                    codec::deserialize::<Vec<u32>>(&bytes)
                         .map_err(|_| rusqlite::Error::InvalidQuery)
                 },
             ) {
