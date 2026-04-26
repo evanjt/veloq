@@ -51,16 +51,26 @@ onFlowComplete:
 - tapOn:
     id: "settings-logout-button"
 
-# Wait for the destructive "Disconnect" button itself (more reliable on iOS
-# than asserting the title — iOS Alert presentation can race the matcher).
+# Wait for the destructive alert button. en-AU translates "Disconnect" to
+# "Pull the plug", so check both.
 - extendedWaitUntil:
     visible: "Disconnect"
-    timeout: 10000
+    timeout: 8000
+    optional: true
 
 - takeScreenshot: "settings-logout-dialog"
 
-# Tap the destructive "Disconnect" button
-- tapOn: "Disconnect"
+- runFlow:
+    when:
+      visible: "Disconnect"
+    commands:
+      - tapOn: "Disconnect"
+
+- runFlow:
+    when:
+      visible: "Pull the plug"
+    commands:
+      - tapOn: "Pull the plug"
 
 # Verify we return to login screen (async: cancel queries + clear caches + clear credentials)
 - extendedWaitUntil:

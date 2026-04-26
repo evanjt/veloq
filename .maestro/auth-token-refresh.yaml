@@ -96,13 +96,25 @@ onFlowComplete:
 - tapOn:
     id: "settings-logout-button"
 
-# Wait for the destructive "Disconnect" button itself (more reliable on iOS
-# than asserting the title — iOS Alert presentation can race the matcher).
+# Wait for the destructive alert button. en-AU translates "Disconnect" to
+# "Pull the plug", so check both. The app's i18n caches its language in
+# AsyncStorage, so the system locale alone doesn't control this.
 - extendedWaitUntil:
     visible: "Disconnect"
-    timeout: 10000
+    timeout: 8000
+    optional: true
 
-- tapOn: "Disconnect"
+- runFlow:
+    when:
+      visible: "Disconnect"
+    commands:
+      - tapOn: "Disconnect"
+
+- runFlow:
+    when:
+      visible: "Pull the plug"
+    commands:
+      - tapOn: "Pull the plug"
 
 # CRITICAL: app MUST land on login screen without crashing or showing NaN
 # during the transition. AuthStore.clearCredentials() is async (cancels queries,

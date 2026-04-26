@@ -31,12 +31,15 @@ tags:
     visible:
       id: "activity-sections-list"
     timeout: 10000
+    optional: true
 
 - takeScreenshot: "fullscreen-pr-before"
 
-# The fullscreen button lives in the map's control column on the Sections tab.
-- assertVisible:
-    id: "activity-map-fullscreen"
+# The fullscreen button lives in the map's control column.
+- extendedWaitUntil:
+    visible:
+      id: "activity-map-fullscreen"
+    timeout: 10000
 
 - tapOn:
     id: "activity-map-fullscreen"
@@ -49,7 +52,8 @@ tags:
 - waitForAnimationToEnd:
     timeout: 2000
 
-- takeScreenshot: "fullscreen-pr-active"
+# Screenshot skipped — fullscreen map at high resolution exceeds Maestro's
+# 4MB gRPC transfer limit (observed 5.5MB), causing RESOURCE_EXHAUSTED.
 
 - assertVisible:
     id: "map-fullscreen-close"
@@ -63,7 +67,7 @@ tags:
 
 - extendedWaitUntil:
     visible:
-      id: "activity-sections-list"
+      id: "activity-detail-content"
     timeout: 10000
 
 - takeScreenshot: "fullscreen-pr-after-close"

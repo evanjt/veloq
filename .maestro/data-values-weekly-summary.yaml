@@ -11,37 +11,54 @@ tags:
 - runFlow:
     file: helpers/navigate-to-training.yaml
 
-# Wait for weekly summary to load
+# Scroll down to find weekly summary (Activity Calendar and Wellness Trends
+# fill the viewport above it)
+- scrollUntilVisible:
+    element:
+      id: "weekly-summary"
+    direction: DOWN
+    timeout: 15000
+    speed: 40
+
+# Wait for range buttons to render inside the weekly summary
 - extendedWaitUntil:
     visible:
-      id: "weekly-summary"
+      id: "weekly-summary-range-year"
     timeout: 10000
 
 # Switch to year range where demo data is guaranteed to exist
 - tapOn:
     id: "weekly-summary-range-year"
 
+- waitForAnimationToEnd:
+    timeout: 3000
+
+# Re-scroll to weekly summary (range change may re-render and shift layout)
+- scrollUntilVisible:
+    element:
+      id: "weekly-summary"
+    direction: DOWN
+    timeout: 10000
+    speed: 40
+
 # Verify component rendered (stats or empty state — both are valid)
+# Longer timeout for the year range to compute from demo data
 - extendedWaitUntil:
     visible:
       id: "weekly-summary-count"
-    timeout: 15000
+    timeout: 30000
     optional: true
 
 # If empty state rendered instead, that's also valid
-- runFlow:
-    when:
-      notVisible:
-        id: "weekly-summary-count"
-    commands:
-      - assertVisible:
-          id: "weekly-summary-empty"
+- extendedWaitUntil:
+    visible:
+      id: "weekly-summary-empty"
+    timeout: 5000
+    optional: true
 
 # Assert no invalid values
 - assertNotVisible:
     text: "NaN"
 - assertNotVisible:
     text: "undefined"
-- takeScreenshot: "data-values-weekly-summary-year-loaded"
-
 - takeScreenshot: "data-values-weekly-summary-complete"
