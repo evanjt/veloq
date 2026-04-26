@@ -473,8 +473,8 @@ fn ffi_custom_section_readable_after_migration() {
     assert_eq!(section.name.as_deref(), Some(SECTION_NAME));
     assert_eq!(section.sport_type, SOURCE_SPORT);
     assert!(
-        !section.polyline.is_empty(),
-        "polyline must deserialize to ≥1 point"
+        !section.encoded_polyline.is_empty(),
+        "encoded polyline must not be empty"
     );
     assert!(section.is_user_defined, "custom section must report is_user_defined=true");
     assert_eq!(
@@ -765,7 +765,7 @@ fn ffi_survives_orphan_and_null_edge_cases() {
         .map(FfiFrequentSection::from)
         .expect("empty-polyline section retrievable");
     assert!(
-        empty_poly.polyline.is_empty(),
+        veloqrs::coords::decode(&empty_poly.encoded_polyline).is_empty(),
         "empty polyline_json must deserialize to empty vec"
     );
     let flat = engine.get_section_polyline("custom_1700000000002__empty");

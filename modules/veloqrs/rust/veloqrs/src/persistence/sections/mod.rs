@@ -946,14 +946,14 @@ impl PersistentRouteEngine {
     pub(super) fn get_section_polylines_batch(
         &self,
         section_ids: &[&str],
-    ) -> HashMap<String, Vec<f64>> {
+    ) -> HashMap<String, Vec<u8>> {
         if section_ids.is_empty() {
             return HashMap::new();
         }
 
         let placeholders: Vec<&str> = section_ids.iter().map(|_| "?").collect();
         let query = format!(
-            "SELECT id, polyline_json FROM sections WHERE id IN ({})",
+            "SELECT id, polyline_blob, polyline_json FROM sections WHERE id IN ({})",
             placeholders.join(",")
         );
 
@@ -973,23 +973,17 @@ impl PersistentRouteEngine {
             .map(|id| id as &dyn rusqlite::types::ToSql)
             .collect();
 
-        let results: HashMap<String, Vec<f64>> = stmt
+        let results: HashMap<String, Vec<u8>> = stmt
             .query_map(params.as_slice(), |row| {
                 let section_id: String = row.get(0)?;
-                let polyline_json: String = row.get(1)?;
-                let points: Vec<serde_json::Value> =
-                    serde_json::from_str(&polyline_json).map_err(|e| {
-                        rusqlite::Error::FromSqlConversionFailure(1, Type::Text, Box::new(e))
-                    })?;
-                let coords: Vec<f64> = points
-                    .iter()
-                    .flat_map(|p| {
-                        let lat = p["latitude"].as_f64().unwrap_or(0.0);
-                        let lng = p["longitude"].as_f64().unwrap_or(0.0);
-                        vec![lat, lng]
-                    })
-                    .collect();
-                Ok((section_id, coords))
+                let polyline_blob: Option<Vec<u8>> = row.get(1)?;
+                let points: Vec<GpsPoint> = if let Some(blob) = polyline_blob {
+                    codec::deserialize_points(&blob).unwrap_or_default()
+                } else {
+                    let polyline_json: String = row.get(2)?;
+                    serde_json::from_str(&polyline_json).unwrap_or_default()
+                };
+                Ok((section_id, crate::coords::encode(&points)))
             })
             .ok()
             .map(|iter| iter.filter_map(|r| r.ok()).collect())
@@ -1118,21 +1112,11 @@ impl PersistentRouteEngine {
                     continue;
                 }
 
-                // Parse polyline to flat coords
-                let polyline_coords = polyline_json
+                let encoded_polyline = polyline_json
                     .and_then(|json| {
-                        serde_json::from_str::<Vec<serde_json::Value>>(&json).ok()
+                        serde_json::from_str::<Vec<GpsPoint>>(&json).ok()
                     })
-                    .map(|points| {
-                        points
-                            .iter()
-                            .flat_map(|p| {
-                                let lat = p["latitude"].as_f64().unwrap_or(0.0);
-                                let lng = p["longitude"].as_f64().unwrap_or(0.0);
-                                vec![lat, lng]
-                            })
-                            .collect::<Vec<f64>>()
-                    })
+                    .map(|points| crate::coords::encode(&points))
                     .unwrap_or_default();
 
                 results.push(crate::FfiNearbySectionSummary {
@@ -1143,7 +1127,7 @@ impl PersistentRouteEngine {
                     distance_meters,
                     visit_count,
                     center_distance_meters: dist,
-                    polyline_coords,
+                    encoded_polyline,
                 });
             }
         }

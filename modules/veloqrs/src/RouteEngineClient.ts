@@ -302,7 +302,7 @@ class RouteEngineClient implements DelegateHost {
 
   getAllMapSignatures = (): Array<{
     activityId: string;
-    coords: number[];
+    encodedCoords: ArrayBuffer;
     centerLat: number;
     centerLng: number;
   }> => mapsDelegates.getAllMapSignatures(this);
@@ -746,7 +746,7 @@ class RouteEngineClient implements DelegateHost {
 
   getSectionExtensionTrack = (
     sectionId: string
-  ): { track: number[]; sectionStartIdx: number; sectionEndIdx: number } | null =>
+  ): { encodedTrack: ArrayBuffer; sectionStartIdx: number; sectionEndIdx: number } | null =>
     sectionDelegates.getSectionExtensionTrack(this, sectionId);
 
   expandSectionBounds = (sectionId: string, newPolylineFlat: number[]): boolean =>

@@ -883,11 +883,10 @@ impl PersistentRouteEngine {
         let groups: Vec<crate::FfiGroupWithPolyline> = paged_summaries
             .into_iter()
             .map(|g| {
-                let consensus_polyline = rep_polylines
+                let encoded_polyline = rep_polylines
                     .get(&g.representative_id)
                     .cloned()
                     .unwrap_or_default();
-                // Look up distance from representative activity's metrics
                 let distance_meters = self
                     .activity_metrics
                     .get(&g.representative_id)
@@ -901,7 +900,7 @@ impl PersistentRouteEngine {
                     custom_name: g.custom_name,
                     bounds: g.bounds,
                     distance_meters,
-                    consensus_polyline,
+                    encoded_polyline,
                     sport_types: g.sport_types,
                 }
             })
@@ -936,7 +935,7 @@ impl PersistentRouteEngine {
         let sections: Vec<crate::FfiSectionWithPolyline> = paged_sections
             .into_iter()
             .map(|s| {
-                let polyline = section_polylines.get(&s.id).cloned().unwrap_or_default();
+                let encoded_polyline = section_polylines.get(&s.id).cloned().unwrap_or_default();
                 crate::FfiSectionWithPolyline {
                     id: s.id,
                     name: s.name,
@@ -947,7 +946,7 @@ impl PersistentRouteEngine {
                     confidence: s.confidence,
                     scale: s.scale,
                     bounds: s.bounds,
-                    polyline,
+                    encoded_polyline,
                     sport_types: s.sport_types,
                     is_user_defined: s.is_user_defined,
                     disabled: s.disabled,

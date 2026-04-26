@@ -1198,7 +1198,7 @@ impl PersistentRouteEngine {
     pub(super) fn get_representative_polylines_batch(
         &self,
         activity_ids: &[&str],
-    ) -> HashMap<String, Vec<f64>> {
+    ) -> HashMap<String, Vec<u8>> {
         if activity_ids.is_empty() {
             return HashMap::new();
         }
@@ -1225,7 +1225,7 @@ impl PersistentRouteEngine {
             .map(|id| id as &dyn rusqlite::types::ToSql)
             .collect();
 
-        let results: HashMap<String, Vec<f64>> = stmt
+        let results: HashMap<String, Vec<u8>> = stmt
             .query_map(params.as_slice(), |row| {
                 let activity_id: String = row.get(0)?;
                 let points_blob: Vec<u8> = row.get(1)?;
@@ -1236,11 +1236,7 @@ impl PersistentRouteEngine {
                         e.into(),
                     )
                 })?;
-                let flat_coords: Vec<f64> = points
-                    .iter()
-                    .flat_map(|p| vec![p.latitude, p.longitude])
-                    .collect();
-                Ok((activity_id, flat_coords))
+                Ok((activity_id, crate::coords::encode(&points)))
             })
             .ok()
             .map(|iter| {

@@ -7,7 +7,8 @@
  * No mutations emitted from this module.
  */
 
-import { flatCoordsToPoints, validateId } from '../../conversions';
+import { validateId } from '../../conversions';
+import { decodeCoords } from '../../coords';
 import type { RoutePoint } from '../../conversions';
 import type {
   FfiCalendarSummary,
@@ -325,19 +326,19 @@ export function hasOriginalBounds(host: DelegateHost, sectionId: string): boolea
 
 /**
  * Get the representative activity's full GPS track for section expansion.
- * Returns the track as flat coords [lat, lng, ...] + section start/end indices.
+ * Returns the track as delta+varint encoded coords + section start/end indices.
  */
 export function getSectionExtensionTrack(
   host: DelegateHost,
   sectionId: string
-): { track: number[]; sectionStartIdx: number; sectionEndIdx: number } | null {
+): { encodedTrack: ArrayBuffer; sectionStartIdx: number; sectionEndIdx: number } | null {
   if (!host.ready) return null;
   validateId(sectionId, 'section ID');
   try {
     return host.timed('getSectionExtensionTrack', () => {
       const result = host.engine.sections().getExtensionTrack(sectionId);
       return {
-        track: result.track,
+        encodedTrack: result.encodedTrack,
         sectionStartIdx: result.sectionStartIdx,
         sectionEndIdx: result.sectionEndIdx,
       };
@@ -446,10 +447,14 @@ export function extractSectionTrace(
 ): FfiGpsPoint[] {
   if (!host.ready) return [];
   validateId(activityId, 'activity ID');
-  const flatCoords = host.timed('extractSectionTrace', () =>
+  const encoded = host.timed('extractSectionTrace', () =>
     host.engine.sections().extractTrace(activityId, sectionPolylineFlat)
   );
-  return flatCoordsToPoints(flatCoords);
+  return decodeCoords(encoded).map((p) => ({
+    latitude: p.latitude,
+    longitude: p.longitude,
+    elevation: undefined,
+  }));
 }
 
 export function extractSectionTracesBatch(
@@ -463,10 +468,10 @@ export function extractSectionTracesBatch(
   );
   const traces: Record<string, RoutePoint[]> = {};
   for (const batch of results) {
-    const points: RoutePoint[] = [];
-    for (let i = 0; i < batch.coords.length - 1; i += 2) {
-      points.push({ lat: batch.coords[i], lng: batch.coords[i + 1] });
-    }
+    const points: RoutePoint[] = decodeCoords(batch.encodedCoords).map((p) => ({
+      lat: p.latitude,
+      lng: p.longitude,
+    }));
     if (points.length > 0) {
       traces[batch.activityId] = points;
     }

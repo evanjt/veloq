@@ -715,16 +715,9 @@ impl PersistentRouteEngine {
             });
             let center = bounds.center();
 
-            // Flatten points to [lat, lng, lat, lng, ...]
-            let mut coords = Vec::with_capacity(points.len() * 2);
-            for p in &points {
-                coords.push(p.latitude);
-                coords.push(p.longitude);
-            }
-
             result.push(crate::ffi_types::FfiMapSignature {
                 activity_id,
-                coords,
+                encoded_coords: crate::coords::encode(&points),
                 center_lat: center.latitude,
                 center_lng: center.longitude,
             });

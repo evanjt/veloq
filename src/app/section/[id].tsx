@@ -44,6 +44,7 @@ import {
   MergeCandidatesModal,
 } from '@/components/section';
 import { getRouteEngine } from '@/lib/native/routeEngine';
+import { decodeCoords } from 'veloqrs';
 import {
   formatRelativeDate,
   getActivityIcon,
@@ -271,11 +272,10 @@ export default function SectionDetailScreen() {
       const allSigs = engine.getAllMapSignatures();
       const result: Record<string, RoutePoint[]> = {};
       for (const sig of allSigs) {
-        if (!activityIdSet.has(sig.activityId) || sig.coords.length < 4) continue;
-        const points: RoutePoint[] = [];
-        for (let i = 0; i < sig.coords.length - 1; i += 2) {
-          points.push({ lat: sig.coords[i], lng: sig.coords[i + 1] });
-        }
+        if (!activityIdSet.has(sig.activityId)) continue;
+        const decoded = decodeCoords(sig.encodedCoords);
+        if (decoded.length < 2) continue;
+        const points: RoutePoint[] = decoded.map((p) => ({ lat: p.latitude, lng: p.longitude }));
         result[sig.activityId] = points;
       }
       return Object.keys(result).length > 0 ? result : undefined;
@@ -415,16 +415,14 @@ export default function SectionDetailScreen() {
   const nearbyPolylines = useMemo(() => {
     if (!nearby || nearby.length === 0) return undefined;
     const displayNames = getAllSectionDisplayNames();
-    return nearby
-      .filter((n) => n.polylineCoords && n.polylineCoords.length >= 4)
-      .map((n) => ({
-        id: n.id,
-        name: displayNames[n.id] || n.name,
-        sportType: n.sportType,
-        distanceMeters: n.distanceMeters,
-        visitCount: n.visitCount,
-        polylineCoords: n.polylineCoords,
-      }));
+    return nearby.map((n) => ({
+      id: n.id,
+      name: displayNames[n.id] || n.name,
+      sportType: n.sportType,
+      distanceMeters: n.distanceMeters,
+      visitCount: n.visitCount,
+      encodedPolyline: n.encodedPolyline,
+    }));
   }, [nearby]);
 
   const isRunning = effectiveSportType

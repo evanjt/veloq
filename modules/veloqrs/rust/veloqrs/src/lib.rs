@@ -8,6 +8,9 @@
 // Re-export algorithm types from tracematch (without UniFFI derives)
 pub use tracematch::*;
 
+// Delta+varint coordinate encoding for compact FFI transfer
+pub mod coords;
+
 // FFI-safe types with UniFFI derives
 pub mod ffi_types;
 pub use ffi_types::*;

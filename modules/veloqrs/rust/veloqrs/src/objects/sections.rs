@@ -421,7 +421,7 @@ impl SectionManager {
         &self,
         activity_id: String,
         section_polyline_flat: Vec<f64>,
-    ) -> Result<Vec<f64>, VeloqError> {
+    ) -> Result<Vec<u8>, VeloqError> {
         with_engine(|engine| {
             let polyline: Vec<tracematch::GpsPoint> = section_polyline_flat
                 .chunks(2)
@@ -447,10 +447,7 @@ impl SectionManager {
                 &track_map,
             );
             match traces.get(&activity_id) {
-                Some(trace) => trace
-                    .iter()
-                    .flat_map(|p| vec![p.latitude, p.longitude])
-                    .collect(),
+                Some(trace) => crate::coords::encode(trace),
                 None => vec![],
             }
         })
@@ -483,10 +480,7 @@ impl SectionManager {
                 .get_section_extension_track(&section_id)
                 .map_err(|msg| VeloqError::Database { msg })?;
             Ok(crate::FfiSectionExtensionTrack {
-                track: track
-                    .iter()
-                    .flat_map(|p| vec![p.latitude, p.longitude])
-                    .collect(),
+                encoded_track: crate::coords::encode(&track),
                 section_start_idx: start,
                 section_end_idx: end,
             })
@@ -618,10 +612,7 @@ impl SectionManager {
                     }
                     Some(crate::FfiBatchTrace {
                         activity_id: id.clone(),
-                        coords: trace
-                            .iter()
-                            .flat_map(|p| vec![p.latitude, p.longitude])
-                            .collect(),
+                        encoded_coords: crate::coords::encode(&trace),
                     })
                 })
                 .collect()

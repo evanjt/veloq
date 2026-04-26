@@ -40,6 +40,7 @@ import {
 import { useDebugStore } from '@/providers';
 import { useFFITimer } from '@/hooks/debug/useFFITimer';
 import { SectionScatterChart } from '@/components/section';
+import { decodeCoords } from 'veloqrs';
 import {
   formatDistance,
   formatRelativeDate,
@@ -251,11 +252,10 @@ export default function RouteDetailScreen() {
       const result: Record<string, { points: Array<{ lat: number; lng: number }> }> = {};
 
       for (const sig of allSigs) {
-        if (!activityIdSet.has(sig.activityId) || sig.coords.length < 4) continue;
-        const points: Array<{ lat: number; lng: number }> = [];
-        for (let i = 0; i < sig.coords.length - 1; i += 2) {
-          points.push({ lat: sig.coords[i], lng: sig.coords[i + 1] });
-        }
+        if (!activityIdSet.has(sig.activityId)) continue;
+        const decoded = decodeCoords(sig.encodedCoords);
+        if (decoded.length < 2) continue;
+        const points = decoded.map((p) => ({ lat: p.latitude, lng: p.longitude }));
         result[sig.activityId] = { points };
       }
       return result;

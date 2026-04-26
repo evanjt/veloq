@@ -503,11 +503,7 @@ impl FitnessManager {
                     }
                     Some(crate::FfiPreviewTrack {
                         activity_id: id.clone(),
-                        points: sig
-                            .points
-                            .into_iter()
-                            .map(crate::FfiGpsPoint::from)
-                            .collect(),
+                        encoded_coords: crate::coords::encode(&sig.points),
                     })
                 })
                 .collect();
