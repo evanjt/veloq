@@ -442,12 +442,12 @@ export function getActivitySectionEncounters(
 export function extractSectionTrace(
   host: DelegateHost,
   activityId: string,
-  sectionPolylineJson: string
+  sectionPolylineFlat: number[]
 ): FfiGpsPoint[] {
   if (!host.ready) return [];
   validateId(activityId, 'activity ID');
   const flatCoords = host.timed('extractSectionTrace', () =>
-    host.engine.sections().extractTrace(activityId, sectionPolylineJson)
+    host.engine.sections().extractTrace(activityId, sectionPolylineFlat)
   );
   return flatCoordsToPoints(flatCoords);
 }
@@ -455,11 +455,11 @@ export function extractSectionTrace(
 export function extractSectionTracesBatch(
   host: DelegateHost,
   activityIds: string[],
-  sectionPolylineJson: string
+  sectionPolylineFlat: number[]
 ): Record<string, RoutePoint[]> {
   if (!host.ready || activityIds.length === 0) return {};
   const results = host.timed('extractSectionTracesBatch', () =>
-    host.engine.sections().extractTracesBatch(activityIds, sectionPolylineJson)
+    host.engine.sections().extractTracesBatch(activityIds, sectionPolylineFlat)
   );
   const traces: Record<string, RoutePoint[]> = {};
   for (const batch of results) {

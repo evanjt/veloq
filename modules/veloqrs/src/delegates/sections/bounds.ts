@@ -48,13 +48,13 @@ export function resetSectionBounds(host: DelegateHost, sectionId: string): boole
 export function expandSectionBounds(
   host: DelegateHost,
   sectionId: string,
-  newPolylineJson: string
+  newPolylineFlat: number[]
 ): boolean {
   if (!host.ready) return false;
   validateId(sectionId, 'section ID');
   try {
     host.timed('expandSectionBounds', () =>
-      host.engine.sections().expandBounds(sectionId, newPolylineJson)
+      host.engine.sections().expandBounds(sectionId, newPolylineFlat)
     );
     host.notifyAll('sections');
     return true;

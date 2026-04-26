@@ -289,12 +289,12 @@ export function useSectionTrim(
 
       if (expandedBeyond) {
         // Expansion: extract new polyline from window points
-        const newPolyline = expandContext.windowPoints.slice(trimStart, trimEnd + 1).map((p) => ({
-          latitude: p.lat,
-          longitude: p.lng,
-        }));
-        const newPolylineJson = JSON.stringify(newPolyline);
-        success = engine.expandSectionBounds(section.id, newPolylineJson);
+        const windowSlice = expandContext.windowPoints.slice(trimStart, trimEnd + 1);
+        const newPolylineFlat: number[] = [];
+        for (const p of windowSlice) {
+          newPolylineFlat.push(p.lat, p.lng);
+        }
+        success = engine.expandSectionBounds(section.id, newPolylineFlat);
       } else {
         // User shrunk within section — map window indices back to section polyline indices
         const sectionStart = trimStart - expandContext.sectionStartInWindow;

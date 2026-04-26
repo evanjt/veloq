@@ -297,11 +297,8 @@ impl PersistentRouteEngine {
     pub fn expand_section_bounds(
         &mut self,
         section_id: &str,
-        new_polyline_json: &str,
+        new_polyline: &[GpsPoint],
     ) -> Result<(), String> {
-        let new_polyline: Vec<GpsPoint> = serde_json::from_str(new_polyline_json)
-            .map_err(|e| format!("Failed to parse new polyline: {}", e))?;
-
         if new_polyline.len() < 5 {
             return Err("Expanded section must have at least 5 points".to_string());
         }
@@ -332,8 +329,10 @@ impl PersistentRouteEngine {
         }
 
         // Compute new bounds and distance
-        let bounds = tracematch::geo_utils::compute_bounds(&new_polyline);
+        let bounds = tracematch::geo_utils::compute_bounds(new_polyline);
         let updated_at = chrono::Utc::now().to_rfc3339();
+        let polyline_json = serde_json::to_string(new_polyline)
+            .map_err(|e| format!("Failed to serialize polyline: {}", e))?;
 
         // Update section
         self.db
@@ -349,7 +348,7 @@ impl PersistentRouteEngine {
                     bounds_max_lng = ?
                  WHERE id = ?",
                 params![
-                    new_polyline_json,
+                    polyline_json,
                     distance,
                     updated_at,
                     bounds.min_lat,

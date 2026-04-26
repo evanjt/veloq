@@ -420,14 +420,14 @@ impl SectionManager {
     fn extract_trace(
         &self,
         activity_id: String,
-        section_polyline_json: String,
+        section_polyline_flat: Vec<f64>,
     ) -> Result<Vec<f64>, VeloqError> {
         with_engine(|engine| {
-            let polyline: Vec<tracematch::GpsPoint> =
-                match serde_json::from_str(&section_polyline_json) {
-                    Ok(p) => p,
-                    Err(_) => return vec![],
-                };
+            let polyline: Vec<tracematch::GpsPoint> = section_polyline_flat
+                .chunks(2)
+                .filter(|c| c.len() == 2)
+                .map(|c| tracematch::GpsPoint::new(c[0], c[1]))
+                .collect();
             if polyline.len() < 2 {
                 return vec![];
             }
@@ -496,10 +496,15 @@ impl SectionManager {
     fn expand_bounds(
         &self,
         section_id: String,
-        new_polyline_json: String,
+        new_polyline_flat: Vec<f64>,
     ) -> Result<(), VeloqError> {
         with_engine(|e| {
-            e.expand_section_bounds(&section_id, &new_polyline_json)
+            let points: Vec<tracematch::GpsPoint> = new_polyline_flat
+                .chunks(2)
+                .filter(|c| c.len() == 2)
+                .map(|c| tracematch::GpsPoint::new(c[0], c[1]))
+                .collect();
+            e.expand_section_bounds(&section_id, &points)
                 .map_err(|e| VeloqError::Database { msg: e })
         })?
     }
@@ -584,14 +589,14 @@ impl SectionManager {
     fn extract_traces_batch(
         &self,
         activity_ids: Vec<String>,
-        section_polyline_json: String,
+        section_polyline_flat: Vec<f64>,
     ) -> Result<Vec<crate::FfiBatchTrace>, VeloqError> {
         with_engine(|engine| {
-            let polyline: Vec<tracematch::GpsPoint> =
-                match serde_json::from_str(&section_polyline_json) {
-                    Ok(p) => p,
-                    Err(_) => return vec![],
-                };
+            let polyline: Vec<tracematch::GpsPoint> = section_polyline_flat
+                .chunks(2)
+                .filter(|c| c.len() == 2)
+                .map(|c| tracematch::GpsPoint::new(c[0], c[1]))
+                .collect();
             if polyline.len() < 2 {
                 return vec![];
             }

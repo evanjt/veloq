@@ -76,18 +76,18 @@ export function useSectionOverlays(
 
       if (polyline.length < 2) continue;
 
-      // Convert polyline to JSON for Rust engine (expects latitude/longitude)
-      const polylineJson = JSON.stringify(
-        polyline.map(
-          (p: { lat?: number; lng?: number; latitude?: number; longitude?: number }) => ({
-            latitude: p.lat ?? p.latitude ?? 0,
-            longitude: p.lng ?? p.longitude ?? 0,
-          })
-        )
-      );
+      // Flatten polyline to [lat, lng, lat, lng, ...] for Rust engine
+      const polylineFlat: number[] = [];
+      for (const p of polyline as {
+        lat?: number;
+        lng?: number;
+        latitude?: number;
+        longitude?: number;
+      }[]) {
+        polylineFlat.push(p.lat ?? p.latitude ?? 0, p.lng ?? p.longitude ?? 0);
+      }
 
-      // Use Rust engine's extractSectionTrace
-      const extractedTrace = routeEngine.extractSectionTrace(activityId, polylineJson);
+      const extractedTrace = routeEngine.extractSectionTrace(activityId, polylineFlat);
 
       if (extractedTrace && extractedTrace.length > 0) {
         // Convert GpsPoint[] to LatLng format

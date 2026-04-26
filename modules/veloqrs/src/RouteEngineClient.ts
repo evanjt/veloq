@@ -710,14 +710,14 @@ class RouteEngineClient implements DelegateHost {
   detectPotentials = (sportFilter?: string): FfiPotentialSection[] =>
     detectionDelegates.detectPotentials(this, sportFilter);
 
-  extractSectionTrace = (activityId: string, sectionPolylineJson: string): FfiGpsPoint[] =>
-    sectionDelegates.extractSectionTrace(this, activityId, sectionPolylineJson);
+  extractSectionTrace = (activityId: string, sectionPolylineFlat: number[]): FfiGpsPoint[] =>
+    sectionDelegates.extractSectionTrace(this, activityId, sectionPolylineFlat);
 
   extractSectionTracesBatch = (
     activityIds: string[],
-    sectionPolylineJson: string
+    sectionPolylineFlat: number[]
   ): Record<string, RoutePoint[]> =>
-    sectionDelegates.extractSectionTracesBatch(this, activityIds, sectionPolylineJson);
+    sectionDelegates.extractSectionTracesBatch(this, activityIds, sectionPolylineFlat);
 
   getActivityMetricsForIds = (ids: string[]): FfiActivityMetrics[] =>
     activityDelegates.getActivityMetricsForIds(this, ids);
@@ -749,8 +749,8 @@ class RouteEngineClient implements DelegateHost {
   ): { track: number[]; sectionStartIdx: number; sectionEndIdx: number } | null =>
     sectionDelegates.getSectionExtensionTrack(this, sectionId);
 
-  expandSectionBounds = (sectionId: string, newPolylineJson: string): boolean =>
-    sectionDelegates.expandSectionBounds(this, sectionId, newPolylineJson);
+  expandSectionBounds = (sectionId: string, newPolylineFlat: number[]): boolean =>
+    sectionDelegates.expandSectionBounds(this, sectionId, newPolylineFlat);
 
   getDownloadProgress(): DownloadProgressResult {
     return gen().getDownloadProgress();
