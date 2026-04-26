@@ -11,7 +11,7 @@ impl PersistentRouteEngine {
     /// App-level schema version for post-migration Rust hooks.
     /// Independent of rusqlite_migration's PRAGMA user_version (currently 12).
     /// Hooks <= 7 are dead code for any user on 0.2.2+.
-    pub(super) const SCHEMA_VERSION: i32 = 12; // 0.3.0 consolidated
+    pub(super) const SCHEMA_VERSION: i32 = 13;
 
     /// Database migrations, tracked in `__rusqlite_migrations` table.
     /// M1–M11: shipped in 0.2.2 (PRAGMA user_version = 11).
@@ -38,6 +38,9 @@ impl PersistentRouteEngine {
             )),
             M::up(include_str!("../migrations/011_pace_history.sql")),
             M::up(include_str!("../migrations/012_v030.sql")),
+            M::up(include_str!(
+                "../migrations/013_section_polyline_blob.sql"
+            )),
         ])
     }
 
@@ -101,6 +104,10 @@ impl PersistentRouteEngine {
             Self::SCHEMA_VERSION
         );
 
+        if current_version < 13 {
+            Self::migrate_polyline_json_to_blob(conn)?;
+        }
+
         // Post-migration data population for pre-0.2.2 databases.
         // Users on 0.2.2+ (schema_version >= 7) skip this block entirely.
         if current_version < 7 {
@@ -135,6 +142,52 @@ impl PersistentRouteEngine {
     /// Migrate legacy blob-based sections to the new format.
     /// This runs BEFORE the migration system to handle pre-migration databases.
     ///
+    fn migrate_polyline_json_to_blob(conn: &Connection) -> SqlResult<()> {
+        let mut stmt = conn.prepare(
+            "SELECT id, polyline_json, point_density_json FROM sections WHERE polyline_blob IS NULL AND polyline_json IS NOT NULL",
+        )?;
+        let rows: Vec<(String, String, Option<String>)> = stmt
+            .query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))?
+            .filter_map(|r| r.ok())
+            .collect();
+
+        if rows.is_empty() {
+            return Ok(());
+        }
+
+        log::info!(
+            "tracematch: [Migration] Converting {} section polylines from JSON to binary...",
+            rows.len()
+        );
+
+        let mut update_stmt = conn.prepare(
+            "UPDATE sections SET polyline_blob = ?, point_density_blob = ? WHERE id = ?",
+        )?;
+
+        let mut converted = 0u32;
+        for (id, polyline_json, density_json) in &rows {
+            let polyline_blob: Option<Vec<u8>> =
+                serde_json::from_str::<Vec<GpsPoint>>(polyline_json)
+                    .ok()
+                    .and_then(|pts| super::codec::serialize_points(&pts).ok());
+
+            let density_blob: Option<Vec<u8>> = density_json
+                .as_deref()
+                .and_then(|j| serde_json::from_str::<Vec<u32>>(j).ok())
+                .and_then(|d| super::codec::serialize(&d).ok());
+
+            update_stmt.execute(params![polyline_blob, density_blob, id])?;
+            converted += 1;
+        }
+
+        log::info!(
+            "tracematch: [Migration] Converted {}/{} section polylines to binary",
+            converted,
+            rows.len()
+        );
+        Ok(())
+    }
+
     /// SAFE MIGRATION STRATEGY:
     /// 1. Create new tables with _new suffix (don't touch old data)
     /// 2. Copy all data to new tables

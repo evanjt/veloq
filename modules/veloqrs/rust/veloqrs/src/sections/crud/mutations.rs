@@ -69,6 +69,7 @@ impl PersistentRouteEngine {
         let created_at = chrono::Utc::now().to_rfc3339();
         let polyline_json =
             serde_json::to_string(&params.polyline).unwrap_or_else(|_| "[]".to_string());
+        let polyline_blob = crate::persistence::codec::serialize_points(&params.polyline).ok();
 
         // Compute bounds from polyline
         let (bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng) =
@@ -87,24 +88,25 @@ impl PersistentRouteEngine {
         self.db
             .execute(
                 "INSERT INTO sections (
-                    id, section_type, name, sport_type, polyline_json, distance_meters,
+                    id, section_type, name, sport_type, polyline_json, polyline_blob, distance_meters,
                     representative_activity_id, source_activity_id, start_index, end_index,
                     created_at, is_user_defined,
                     bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 params![
                     id,
                     section_type.as_str(),
                     params.name,
                     params.sport_type,
                     polyline_json,
+                    polyline_blob,
                     params.distance_meters,
-                    params.source_activity_id.as_ref(), // representative = source for custom
+                    params.source_activity_id.as_ref(),
                     params.source_activity_id,
                     params.start_index,
                     params.end_index,
                     created_at,
-                    1, // is_user_defined = true for manually created sections
+                    1,
                     bounds_min_lat,
                     bounds_max_lat,
                     bounds_min_lng,
@@ -272,6 +274,7 @@ impl PersistentRouteEngine {
 
             let polyline_json =
                 serde_json::to_string(&polyline).unwrap_or_else(|_| "[]".to_string());
+            let polyline_blob = crate::persistence::codec::serialize_points(&polyline).ok();
             let distance = calculate_route_distance(&polyline);
             let bounds = tracematch::geo_utils::compute_bounds(&polyline);
 
@@ -281,6 +284,7 @@ impl PersistentRouteEngine {
                         representative_activity_id = ?,
                         source_activity_id = ?,
                         polyline_json = ?,
+                        polyline_blob = ?,
                         distance_meters = ?,
                         is_user_defined = 1,
                         updated_at = ?,
@@ -293,6 +297,7 @@ impl PersistentRouteEngine {
                         activity_id,
                         activity_id,
                         polyline_json,
+                        polyline_blob,
                         distance,
                         updated_at,
                         bounds.min_lat,
@@ -387,6 +392,8 @@ impl PersistentRouteEngine {
 
                 let polyline_json =
                     serde_json::to_string(&new_polyline).unwrap_or_else(|_| "[]".to_string());
+                let polyline_blob =
+                    crate::persistence::codec::serialize_points(&new_polyline).ok();
                 let bounds = tracematch::geo_utils::compute_bounds(&new_polyline);
 
                 self.db
@@ -394,6 +401,7 @@ impl PersistentRouteEngine {
                         "UPDATE sections SET
                             representative_activity_id = ?,
                             polyline_json = ?,
+                            polyline_blob = ?,
                             distance_meters = ?,
                             is_user_defined = 1,
                             updated_at = ?,
@@ -405,6 +413,7 @@ impl PersistentRouteEngine {
                         params![
                             activity_id,
                             polyline_json,
+                            polyline_blob,
                             new_distance,
                             updated_at,
                             bounds.min_lat,

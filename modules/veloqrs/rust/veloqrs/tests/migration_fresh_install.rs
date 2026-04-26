@@ -1,7 +1,7 @@
 //! Fresh-install schema verification test.
 //!
 //! Opens a PersistentRouteEngine against an empty database, then verifies
-//! that all 12 migrations produce the expected tables, columns, and indexes.
+//! that all 13 migrations produce the expected tables, columns, and indexes.
 
 use rusqlite::{Connection, params};
 use tempfile::TempDir;
@@ -47,7 +47,7 @@ fn fresh_install_version_numbers() {
     let user_version: i64 = conn
         .query_row("PRAGMA user_version", [], |r| r.get(0))
         .expect("user_version");
-    assert_eq!(user_version, 12, "12 migrations applied");
+    assert_eq!(user_version, 13, "13 migrations applied");
 
     let schema_version: String = conn
         .query_row(
@@ -56,7 +56,7 @@ fn fresh_install_version_numbers() {
             |r| r.get(0),
         )
         .expect("schema_version");
-    assert_eq!(schema_version, "12");
+    assert_eq!(schema_version, "13");
 }
 
 #[test]

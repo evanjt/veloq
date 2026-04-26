@@ -140,7 +140,8 @@ impl PersistentRouteEngine {
                 "SELECT id, section_type, name, sport_type, polyline_json, distance_meters,
                         representative_activity_id, confidence, observation_count, average_spread,
                         point_density_json, scale, version, is_user_defined, stability,
-                        created_at, updated_at, consensus_state_blob
+                        created_at, updated_at, consensus_state_blob,
+                        polyline_blob, point_density_blob
                  FROM sections WHERE section_type = 'auto'",
             )?;
 
@@ -151,6 +152,8 @@ impl PersistentRouteEngine {
                     let point_density_json: Option<String> = row.get(10)?;
                     let representative_activity_id: Option<String> = row.get(6)?;
                     let consensus_state_blob: Option<Vec<u8>> = row.get(17)?;
+                    let polyline_blob: Option<Vec<u8>> = row.get(18)?;
+                    let point_density_blob: Option<Vec<u8>> = row.get(19)?;
                     let consensus_state = consensus_state_blob.and_then(|bytes| {
                         match codec::deserialize_gps_composite::<tracematch::sections::ConsensusAccumulator>(&bytes) {
                             Ok(acc) => Some(acc),
@@ -164,11 +167,21 @@ impl PersistentRouteEngine {
                         }
                     });
 
-                    let polyline: Vec<GpsPoint> = serde_json::from_str(&polyline_json)
-                        .map_err(|e| rusqlite::Error::FromSqlConversionFailure(4, Type::Text, Box::new(e)))?;
-                    let point_density: Vec<u32> = point_density_json
-                        .and_then(|j| serde_json::from_str(&j).ok())
-                        .unwrap_or_default();
+                    let polyline: Vec<GpsPoint> = if let Some(blob) = polyline_blob {
+                        codec::deserialize_points(&blob).unwrap_or_else(|_| {
+                            serde_json::from_str(&polyline_json).unwrap_or_default()
+                        })
+                    } else {
+                        serde_json::from_str(&polyline_json)
+                            .map_err(|e| rusqlite::Error::FromSqlConversionFailure(4, Type::Text, Box::new(e)))?
+                    };
+                    let point_density: Vec<u32> = if let Some(blob) = point_density_blob {
+                        codec::deserialize(&blob).unwrap_or_default()
+                    } else {
+                        point_density_json
+                            .and_then(|j| serde_json::from_str(&j).ok())
+                            .unwrap_or_default()
+                    };
 
                     let portions = section_portions.get(&id)
                         .cloned()
@@ -1229,8 +1242,8 @@ impl PersistentRouteEngine {
                 representative_activity_id, confidence, observation_count, average_spread,
                 point_density_json, scale, version, is_user_defined, stability, created_at, updated_at,
                 bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng,
-                consensus_state_blob
-            ) VALUES (?, 'auto', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+                consensus_state_blob, polyline_blob, point_density_blob
+            ) VALUES (?, 'auto', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
         )?;
         let mut junction_stmt = tx
             .prepare("INSERT INTO section_activities (section_id, activity_id, direction, start_index, end_index, distance_meters, lap_time, lap_pace) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")?;
@@ -1293,10 +1306,16 @@ impl PersistentRouteEngine {
         for section in sorted_sections {
             let polyline_json = serde_json::to_string(&section.polyline)
                 .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
+            let polyline_blob = codec::serialize_points(&section.polyline).ok();
             let point_density_json = if section.point_density.is_empty() {
                 None
             } else {
                 serde_json::to_string(&section.point_density).ok()
+            };
+            let point_density_blob = if section.point_density.is_empty() {
+                None
+            } else {
+                codec::serialize(&section.point_density).ok()
             };
             let created_at = section
                 .created_at
@@ -1406,6 +1425,8 @@ impl PersistentRouteEngine {
                 bounds_min_lng,
                 bounds_max_lng,
                 consensus_state_blob,
+                polyline_blob,
+                point_density_blob,
             ])?;
 
             // Populate junction table with full portion details and cached performance metrics.
