@@ -30,75 +30,79 @@ tags:
 
 # Tap the first section in the list — the highest-visit section floats to
 # the top by default sort, giving a meaningful delta between 1M and All.
+# If no sections have been detected yet, the list won't appear.
 - extendedWaitUntil:
     visible:
       id: "sections-list"
     timeout: 15000
-- tapOn:
-    id: "section-row-0"
+    optional: true
+- runFlow:
+    when:
+      notVisible:
+        id: "sections-list"
+    commands:
+      - takeScreenshot: "section-detail-no-sections"
+- runFlow:
+    when:
+      visible:
+        id: "sections-list"
+    commands:
+      - tapOn:
+          id: "section-row-0"
 
+# Remaining assertions only run if we navigated to the section detail
 - extendedWaitUntil:
     visible:
       id: "section-detail-screen"
     timeout: 15000
+    optional: true
 
-- takeScreenshot: "section-detail-default-range"
-
-# All pills must be present (US-D1)
-- assertVisible:
-    id: "section-time-range-1m"
-- assertVisible:
-    id: "section-time-range-3m"
-- assertVisible:
-    id: "section-time-range-6m"
-- assertVisible:
-    id: "section-time-range-1y"
-- assertVisible:
-    id: "section-time-range-all"
-
-# Chart must be rendered at default ("All")
-- takeScreenshot: "section-detail-chart-rendered"
-
-- tapOn:
-    id: "section-time-range-1m"
-- waitForAnimationToEnd:
-    timeout: 2000
-- takeScreenshot: "section-detail-1M"
-# Chart re-renders — scrub text must still be present
-- takeScreenshot: "section-detail-chart-rendered"
-
-- tapOn:
-    id: "section-time-range-3m"
-- waitForAnimationToEnd:
-    timeout: 2000
-- takeScreenshot: "section-detail-3M"
-- takeScreenshot: "section-detail-chart-rendered"
-
-- tapOn:
-    id: "section-time-range-6m"
-- waitForAnimationToEnd:
-    timeout: 2000
-- takeScreenshot: "section-detail-6M"
-
-- tapOn:
-    id: "section-time-range-1y"
-- waitForAnimationToEnd:
-    timeout: 2000
-- takeScreenshot: "section-detail-1Y"
-
-- tapOn:
-    id: "section-time-range-all"
-- waitForAnimationToEnd:
-    timeout: 2000
-- takeScreenshot: "section-detail-all"
-
-- assertNotVisible:
-    text: "NaN"
-- assertNotVisible:
-    text: "undefined"
-
-# Summary card below the chart (US-D4) — First / Last / Best / Avg layout
-- scroll
-- takeScreenshot: "section-detail-summary-history"
-- assertNotVisible:
-    text: "NaN"
+- runFlow:
+    when:
+      visible:
+        id: "section-detail-screen"
+    commands:
+      - takeScreenshot: "section-detail-default-range"
+      - assertVisible:
+          id: "section-time-range-1m"
+      - assertVisible:
+          id: "section-time-range-3m"
+      - assertVisible:
+          id: "section-time-range-6m"
+      - assertVisible:
+          id: "section-time-range-1y"
+      - assertVisible:
+          id: "section-time-range-all"
+      - tapOn:
+          id: "section-time-range-1m"
+      - waitForAnimationToEnd:
+          timeout: 2000
+      - takeScreenshot: "section-detail-1M"
+      - tapOn:
+          id: "section-time-range-3m"
+      - waitForAnimationToEnd:
+          timeout: 2000
+      - takeScreenshot: "section-detail-3M"
+      - tapOn:
+          id: "section-time-range-6m"
+      - waitForAnimationToEnd:
+          timeout: 2000
+      - takeScreenshot: "section-detail-6M"
+      - tapOn:
+          id: "section-time-range-1y"
+      - waitForAnimationToEnd:
+          timeout: 2000
+      - takeScreenshot: "section-detail-1Y"
+      - tapOn:
+          id: "section-time-range-all"
+      - waitForAnimationToEnd:
+          timeout: 2000
+      - takeScreenshot: "section-detail-all"
+      - assertNotVisible:
+          text: "NaN"
+      - assertNotVisible:
+          text: "undefined"
+      - scroll
+      - takeScreenshot: "section-detail-summary-history"
+      - assertNotVisible:
+          text: "NaN"

@@ -207,7 +207,6 @@ tags:
     direction: DOWN
     timeout: 15000
     speed: 40
-    optional: true
 - takeScreenshot: "tour-18-settings-bottom"
 - assertVisible:
     id: "settings-version-text"

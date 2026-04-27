@@ -48,7 +48,7 @@ tags:
 # React overlay instead. At world-fit zoom the 82 demo activities collapse
 # into clusters whose testIDs start with `map-cluster-count-`.
 - assertVisible:
-    id: "map-cluster-count-.*"
+    idRegex: "map-cluster-count-.*"
 
 - assertNotVisible:
     text: "NaN"
