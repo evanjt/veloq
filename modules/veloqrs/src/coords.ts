@@ -17,6 +17,9 @@ export interface LatLng {
 }
 
 export function decodeCoords(buf: ArrayBuffer): LatLng[] {
+  if (!(buf instanceof ArrayBuffer) || buf.byteLength === 0) {
+    return [];
+  }
   const bytes = new Uint8Array(buf);
   let pos = 0;
 
