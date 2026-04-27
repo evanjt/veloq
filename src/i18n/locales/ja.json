@@ -1389,6 +1389,7 @@
     "default": "デフォルト",
     "defaultMapHint": "「デフォルト」は上記で設定したマップスタイルを使用",
     "defaultStyle": "デフォルトスタイル",
+    "exploreMapStyle": "探索マップ",
     "demoDataSources": "デモデータソース",
     "demoMode": "デモモード",
     "dialect": "方言",

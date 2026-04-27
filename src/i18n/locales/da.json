@@ -1390,6 +1390,7 @@
     "default": "Standard",
     "defaultMapHint": "'Standard' bruger kortstilen indstillet ovenfor",
     "defaultStyle": "Standardstil",
+    "exploreMapStyle": "Udforsk kort",
     "demoDataSources": "Demodatakilder",
     "demoMode": "Demotilstand",
     "dialect": "Dialekt",

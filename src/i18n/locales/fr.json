@@ -1389,6 +1389,7 @@
     "default": "Par défaut",
     "defaultMapHint": "'Par défaut' utilise le style de carte défini ci-dessus",
     "defaultStyle": "Style par défaut",
+    "exploreMapStyle": "Carte d'exploration",
     "demoDataSources": "Sources de données démo",
     "demoMode": "Mode démo",
     "dialect": "Dialecte",

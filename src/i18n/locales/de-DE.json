@@ -1389,6 +1389,7 @@
     "default": "Standard",
     "defaultMapHint": "'Standard' verwendet den oben eingestellten Kartenstil",
     "defaultStyle": "Standardstil",
+    "exploreMapStyle": "Erkundungskarte",
     "demoDataSources": "Demo-Datenquellen",
     "demoMode": "Demo-Modus",
     "dialect": "Dialekt",

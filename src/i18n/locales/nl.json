@@ -1389,6 +1389,7 @@
     "default": "Standaard",
     "defaultMapHint": "'Standaard' gebruikt de hierboven ingestelde kaartstijl",
     "defaultStyle": "Standaardstijl",
+    "exploreMapStyle": "Verkenkaart",
     "demoDataSources": "Demo-gegevensbronnen",
     "demoMode": "Demomodus",
     "dialect": "Dialect",

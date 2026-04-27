@@ -1389,6 +1389,7 @@
     "default": "Domyślny",
     "defaultMapHint": "'Domyślny' używa stylu mapy ustawionego powyżej",
     "defaultStyle": "Domyślny styl",
+    "exploreMapStyle": "Mapa eksploracji",
     "demoDataSources": "Źródła danych demo",
     "demoMode": "Tryb demo",
     "dialect": "Dialekt",

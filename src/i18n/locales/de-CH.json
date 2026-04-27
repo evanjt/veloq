@@ -1389,6 +1389,7 @@
     "default": "Standard",
     "defaultMapHint": "Bruucht de Chartestil vo obe",
     "defaultStyle": "Standard",
+    "exploreMapStyle": "Erkundigscharte",
     "demoDataSources": "Demo-Quelle",
     "demoMode": "Demo-Modus",
     "dialect": "Dialekt",

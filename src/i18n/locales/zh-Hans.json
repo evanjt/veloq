@@ -1389,6 +1389,7 @@
     "default": "默认",
     "defaultMapHint": "「默认」使用上方设置的地图样式",
     "defaultStyle": "默认样式",
+    "exploreMapStyle": "探索地图",
     "demoDataSources": "演示数据来源",
     "demoMode": "演示模式",
     "dialect": "方言",

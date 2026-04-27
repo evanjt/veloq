@@ -1390,6 +1390,7 @@
     "default": "Default",
     "defaultMapHint": "'Default' uses the map style set above",
     "defaultStyle": "Default Style",
+    "exploreMapStyle": "Explore Map",
     "demoDataSources": "Demo Data Sources",
     "demoMode": "Demo mode",
     "dialect": "Dialect",

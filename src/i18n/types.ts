@@ -302,6 +302,7 @@ export interface TranslationResource {
     primarySportHintSwimming: string;
     maps: string;
     defaultStyle: string;
+    exploreMapStyle: string;
     satellite: string;
     customiseByActivity: string;
     default: string;

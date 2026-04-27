@@ -1389,6 +1389,7 @@
     "default": "Predefinito",
     "defaultMapHint": "'Predefinito' usa lo stile mappa impostato sopra",
     "defaultStyle": "Stile predefinito",
+    "exploreMapStyle": "Mappa esplora",
     "demoDataSources": "Sorgenti dati demo",
     "demoMode": "Modalità demo",
     "dialect": "Dialetto",

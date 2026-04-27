@@ -1389,6 +1389,7 @@
     "default": "Padrao",
     "defaultMapHint": "'Padrao' usa o estilo de mapa definido acima",
     "defaultStyle": "Estilo padrao",
+    "exploreMapStyle": "Mapa de exploração",
     "demoDataSources": "Fontes de dados demo",
     "demoMode": "Modo demo",
     "dialect": "Dialeto",
