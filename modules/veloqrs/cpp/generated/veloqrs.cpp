@@ -327,13 +327,13 @@ void uniffi_veloqrs_fn_method_sectionmanager_exclude_activity(
     void *ptr, RustBuffer section_id, RustBuffer activity_id,
     RustCallStatus *uniffi_out_err);
 void uniffi_veloqrs_fn_method_sectionmanager_expand_bounds(
-    void *ptr, RustBuffer section_id, RustBuffer new_polyline_json,
+    void *ptr, RustBuffer section_id, RustBuffer new_polyline_flat,
     RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_sectionmanager_extract_trace(
-    void *ptr, RustBuffer activity_id, RustBuffer section_polyline_json,
+    void *ptr, RustBuffer activity_id, RustBuffer section_polyline_flat,
     RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_sectionmanager_extract_traces_batch(
-    void *ptr, RustBuffer activity_ids, RustBuffer section_polyline_json,
+    void *ptr, RustBuffer activity_ids, RustBuffer section_polyline_flat,
     RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_sectionmanager_get_activity_indicators(
     void *ptr, RustBuffer activity_ids, RustCallStatus *uniffi_out_err);

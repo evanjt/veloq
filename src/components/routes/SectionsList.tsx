@@ -35,7 +35,7 @@ import { useSectionDismissals } from '@/providers/SectionDismissalsStore';
 import { debug, navigateTo } from '@/lib';
 import { getRouteEngine } from '@/lib/native/routeEngine';
 import type { UnifiedSection, FrequentSection } from '@/types';
-import type { SectionWithPolyline } from 'veloqrs';
+import { decodeCoords, type SectionWithPolyline } from 'veloqrs';
 import { generateSectionName } from '@/hooks/routes/useUnifiedSections';
 import { computeCenter, haversineDistance, type LatLng } from '@/lib/geo/distance';
 
@@ -85,11 +85,10 @@ export type SectionsSortOption = 'visits' | 'distance' | 'name' | 'nearby';
  * Pre-populates polylines so SectionRow doesn't need per-row FFI calls.
  */
 function batchSectionToFrequentSection(s: SectionWithPolyline): FrequentSection {
-  // Convert flat coords [lat1, lng1, lat2, lng2, ...] to RoutePoint[]
-  const polyline: Array<{ lat: number; lng: number }> = [];
-  for (let i = 0; i < s.polyline.length - 1; i += 2) {
-    polyline.push({ lat: s.polyline[i], lng: s.polyline[i + 1] });
-  }
+  const polyline = decodeCoords(s.encodedPolyline).map((p) => ({
+    lat: p.latitude,
+    lng: p.longitude,
+  }));
   const center = s.bounds
     ? computeCenter({
         minLat: s.bounds.minLat,

@@ -7,7 +7,7 @@ import { useCallback, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getRouteEngine } from '@/lib/native/routeEngine';
 import { computePolylineOverlap } from '@/lib/utils/geometry';
-import { gpsPointsToRoutePoints, type GpsPoint } from 'veloqrs';
+import { decodeCoords } from 'veloqrs';
 import { queryKeys } from '@/lib/queryKeys';
 import type { Section, RoutePoint } from '@/types';
 
@@ -105,7 +105,10 @@ export function useCustomSections(options: UseCustomSectionsOptions = {}): UseCu
       // Note: FfiSection doesn't have activityPortions - it's optional in the app type
       return sections.map((s) => ({
         ...s,
-        polyline: gpsPointsToRoutePoints(s.polyline as unknown as GpsPoint[]),
+        polyline: decodeCoords(s.encodedPolyline).map((pt) => ({
+          lat: pt.latitude,
+          lng: pt.longitude,
+        })),
         sectionType: 'custom' as const,
         createdAt: s.createdAt || new Date().toISOString(),
         // FfiSection doesn't have activityPortions
@@ -171,7 +174,10 @@ export function useCustomSections(options: UseCustomSectionsOptions = {}): UseCu
 
       const result = {
         ...section,
-        polyline: gpsPointsToRoutePoints(section.polyline as unknown as GpsPoint[]),
+        polyline: decodeCoords(section.encodedPolyline).map((pt) => ({
+          lat: pt.latitude,
+          lng: pt.longitude,
+        })),
         sectionType: 'custom' as const,
         createdAt: section.createdAt || new Date().toISOString(),
         activityPortions: section.activityPortions?.map((p) => ({
@@ -191,7 +197,10 @@ export function useCustomSections(options: UseCustomSectionsOptions = {}): UseCu
         const autoSections = engine.getSectionsByType('auto');
         const autoSectionsForOverlap = autoSections.map((s) => ({
           id: s.id,
-          polyline: gpsPointsToRoutePoints(s.polyline as unknown as GpsPoint[]),
+          polyline: decodeCoords(s.encodedPolyline).map((pt) => ({
+            lat: pt.latitude,
+            lng: pt.longitude,
+          })),
         }));
         const supersededIds = findSupersededSections(result.polyline, autoSectionsForOverlap);
         if (supersededIds.length > 0) {

@@ -1272,14 +1272,14 @@ const FfiConverterTypeFfiActivitySectionHighlight = (() => {
 })();
 
 /**
- * Batch trace result: one activity's extracted section trace as flat coords.
+ * Batch trace result: one activity's extracted section trace.
  */
 export type FfiBatchTrace = {
   activityId: string;
   /**
-   * Flat coordinates [lat, lng, lat, lng, ...]
+   * Delta+varint encoded coordinates (decode with coords::decode)
    */
-  coords: Array</*f64*/ number>;
+  encodedCoords: ArrayBuffer;
 };
 
 /**
@@ -1318,17 +1318,17 @@ const FfiConverterTypeFfiBatchTrace = (() => {
     read(from: RustBuffer): TypeName {
       return {
         activityId: FfiConverterString.read(from),
-        coords: FfiConverterArrayFloat64.read(from),
+        encodedCoords: FfiConverterArrayBuffer.read(from),
       };
     }
     write(value: TypeName, into: RustBuffer): void {
       FfiConverterString.write(value.activityId, into);
-      FfiConverterArrayFloat64.write(value.coords, into);
+      FfiConverterArrayBuffer.write(value.encodedCoords, into);
     }
     allocationSize(value: TypeName): number {
       return (
         FfiConverterString.allocationSize(value.activityId) +
-        FfiConverterArrayFloat64.allocationSize(value.coords)
+        FfiConverterArrayBuffer.allocationSize(value.encodedCoords)
       );
     }
   }
@@ -2653,7 +2653,7 @@ export type FfiFrequentSection = {
   id: string;
   name: string | undefined;
   sportType: string;
-  polyline: Array<FfiGpsPoint>;
+  encodedPolyline: ArrayBuffer;
   representativeActivityId: string;
   activityIds: Array<string>;
   activityPortions: Array<FfiSectionPortion>;
@@ -2710,7 +2710,7 @@ const FfiConverterTypeFfiFrequentSection = (() => {
         id: FfiConverterString.read(from),
         name: FfiConverterOptionalString.read(from),
         sportType: FfiConverterString.read(from),
-        polyline: FfiConverterArrayTypeFfiGpsPoint.read(from),
+        encodedPolyline: FfiConverterArrayBuffer.read(from),
         representativeActivityId: FfiConverterString.read(from),
         activityIds: FfiConverterArrayString.read(from),
         activityPortions: FfiConverterArrayTypeFfiSectionPortion.read(from),
@@ -2733,7 +2733,7 @@ const FfiConverterTypeFfiFrequentSection = (() => {
       FfiConverterString.write(value.id, into);
       FfiConverterOptionalString.write(value.name, into);
       FfiConverterString.write(value.sportType, into);
-      FfiConverterArrayTypeFfiGpsPoint.write(value.polyline, into);
+      FfiConverterArrayBuffer.write(value.encodedPolyline, into);
       FfiConverterString.write(value.representativeActivityId, into);
       FfiConverterArrayString.write(value.activityIds, into);
       FfiConverterArrayTypeFfiSectionPortion.write(
@@ -2759,7 +2759,7 @@ const FfiConverterTypeFfiFrequentSection = (() => {
         FfiConverterString.allocationSize(value.id) +
         FfiConverterOptionalString.allocationSize(value.name) +
         FfiConverterString.allocationSize(value.sportType) +
-        FfiConverterArrayTypeFfiGpsPoint.allocationSize(value.polyline) +
+        FfiConverterArrayBuffer.allocationSize(value.encodedPolyline) +
         FfiConverterString.allocationSize(value.representativeActivityId) +
         FfiConverterArrayString.allocationSize(value.activityIds) +
         FfiConverterArrayTypeFfiSectionPortion.allocationSize(
@@ -3015,9 +3015,9 @@ export type FfiGroupWithPolyline = {
    */
   distanceMeters: /*f64*/ number;
   /**
-   * Flat lat/lng pairs [lat1, lng1, lat2, lng2, ...]
+   * Delta+varint encoded coordinates
    */
-  consensusPolyline: Array</*f64*/ number>;
+  encodedPolyline: ArrayBuffer;
   /**
    * All sport types present in this group's activities
    */
@@ -3067,7 +3067,7 @@ const FfiConverterTypeFfiGroupWithPolyline = (() => {
         customName: FfiConverterOptionalString.read(from),
         bounds: FfiConverterOptionalTypeFfiBounds.read(from),
         distanceMeters: FfiConverterFloat64.read(from),
-        consensusPolyline: FfiConverterArrayFloat64.read(from),
+        encodedPolyline: FfiConverterArrayBuffer.read(from),
         sportTypes: FfiConverterArrayString.read(from),
       };
     }
@@ -3079,7 +3079,7 @@ const FfiConverterTypeFfiGroupWithPolyline = (() => {
       FfiConverterOptionalString.write(value.customName, into);
       FfiConverterOptionalTypeFfiBounds.write(value.bounds, into);
       FfiConverterFloat64.write(value.distanceMeters, into);
-      FfiConverterArrayFloat64.write(value.consensusPolyline, into);
+      FfiConverterArrayBuffer.write(value.encodedPolyline, into);
       FfiConverterArrayString.write(value.sportTypes, into);
     }
     allocationSize(value: TypeName): number {
@@ -3091,7 +3091,7 @@ const FfiConverterTypeFfiGroupWithPolyline = (() => {
         FfiConverterOptionalString.allocationSize(value.customName) +
         FfiConverterOptionalTypeFfiBounds.allocationSize(value.bounds) +
         FfiConverterFloat64.allocationSize(value.distanceMeters) +
-        FfiConverterArrayFloat64.allocationSize(value.consensusPolyline) +
+        FfiConverterArrayBuffer.allocationSize(value.encodedPolyline) +
         FfiConverterArrayString.allocationSize(value.sportTypes)
       );
     }
@@ -3380,14 +3380,14 @@ const FfiConverterTypeFfiInsightsData = (() => {
 
 /**
  * Lightweight map signature for rendering activity traces on the map.
- * Contains simplified GPS points (max ~100 via Douglas-Peucker) as flat coords.
+ * Contains simplified GPS points (max ~100 via Douglas-Peucker) as encoded coords.
  */
 export type FfiMapSignature = {
   activityId: string;
   /**
-   * Flat coordinates [lat, lng, lat, lng, ...] (simplified, max ~100 points)
+   * Delta+varint encoded coordinates (simplified, max ~100 points)
    */
-  coords: Array</*f64*/ number>;
+  encodedCoords: ArrayBuffer;
   centerLat: /*f64*/ number;
   centerLng: /*f64*/ number;
 };
@@ -3428,21 +3428,21 @@ const FfiConverterTypeFfiMapSignature = (() => {
     read(from: RustBuffer): TypeName {
       return {
         activityId: FfiConverterString.read(from),
-        coords: FfiConverterArrayFloat64.read(from),
+        encodedCoords: FfiConverterArrayBuffer.read(from),
         centerLat: FfiConverterFloat64.read(from),
         centerLng: FfiConverterFloat64.read(from),
       };
     }
     write(value: TypeName, into: RustBuffer): void {
       FfiConverterString.write(value.activityId, into);
-      FfiConverterArrayFloat64.write(value.coords, into);
+      FfiConverterArrayBuffer.write(value.encodedCoords, into);
       FfiConverterFloat64.write(value.centerLat, into);
       FfiConverterFloat64.write(value.centerLng, into);
     }
     allocationSize(value: TypeName): number {
       return (
         FfiConverterString.allocationSize(value.activityId) +
-        FfiConverterArrayFloat64.allocationSize(value.coords) +
+        FfiConverterArrayBuffer.allocationSize(value.encodedCoords) +
         FfiConverterFloat64.allocationSize(value.centerLat) +
         FfiConverterFloat64.allocationSize(value.centerLng)
       );
@@ -4000,9 +4000,9 @@ export type FfiNearbySectionSummary = {
   visitCount: /*u32*/ number;
   centerDistanceMeters: /*f64*/ number;
   /**
-   * Flat polyline coordinates [lat, lng, lat, lng, ...] for map overlay
+   * Delta+varint encoded coordinates for map overlay
    */
-  polylineCoords: Array</*f64*/ number>;
+  encodedPolyline: ArrayBuffer;
 };
 
 /**
@@ -4049,7 +4049,7 @@ const FfiConverterTypeFfiNearbySectionSummary = (() => {
         distanceMeters: FfiConverterFloat64.read(from),
         visitCount: FfiConverterUInt32.read(from),
         centerDistanceMeters: FfiConverterFloat64.read(from),
-        polylineCoords: FfiConverterArrayFloat64.read(from),
+        encodedPolyline: FfiConverterArrayBuffer.read(from),
       };
     }
     write(value: TypeName, into: RustBuffer): void {
@@ -4060,7 +4060,7 @@ const FfiConverterTypeFfiNearbySectionSummary = (() => {
       FfiConverterFloat64.write(value.distanceMeters, into);
       FfiConverterUInt32.write(value.visitCount, into);
       FfiConverterFloat64.write(value.centerDistanceMeters, into);
-      FfiConverterArrayFloat64.write(value.polylineCoords, into);
+      FfiConverterArrayBuffer.write(value.encodedPolyline, into);
     }
     allocationSize(value: TypeName): number {
       return (
@@ -4071,7 +4071,7 @@ const FfiConverterTypeFfiNearbySectionSummary = (() => {
         FfiConverterFloat64.allocationSize(value.distanceMeters) +
         FfiConverterUInt32.allocationSize(value.visitCount) +
         FfiConverterFloat64.allocationSize(value.centerDistanceMeters) +
-        FfiConverterArrayFloat64.allocationSize(value.polylineCoords)
+        FfiConverterArrayBuffer.allocationSize(value.encodedPolyline)
       );
     }
   }
@@ -4348,7 +4348,7 @@ const FfiConverterTypeFfiPeriodStats = (() => {
 export type FfiPotentialSection = {
   id: string;
   sportType: string;
-  polyline: Array<FfiGpsPoint>;
+  encodedPolyline: ArrayBuffer;
   activityIds: Array<string>;
   visitCount: /*u32*/ number;
   distanceMeters: /*f64*/ number;
@@ -4393,7 +4393,7 @@ const FfiConverterTypeFfiPotentialSection = (() => {
       return {
         id: FfiConverterString.read(from),
         sportType: FfiConverterString.read(from),
-        polyline: FfiConverterArrayTypeFfiGpsPoint.read(from),
+        encodedPolyline: FfiConverterArrayBuffer.read(from),
         activityIds: FfiConverterArrayString.read(from),
         visitCount: FfiConverterUInt32.read(from),
         distanceMeters: FfiConverterFloat64.read(from),
@@ -4404,7 +4404,7 @@ const FfiConverterTypeFfiPotentialSection = (() => {
     write(value: TypeName, into: RustBuffer): void {
       FfiConverterString.write(value.id, into);
       FfiConverterString.write(value.sportType, into);
-      FfiConverterArrayTypeFfiGpsPoint.write(value.polyline, into);
+      FfiConverterArrayBuffer.write(value.encodedPolyline, into);
       FfiConverterArrayString.write(value.activityIds, into);
       FfiConverterUInt32.write(value.visitCount, into);
       FfiConverterFloat64.write(value.distanceMeters, into);
@@ -4415,7 +4415,7 @@ const FfiConverterTypeFfiPotentialSection = (() => {
       return (
         FfiConverterString.allocationSize(value.id) +
         FfiConverterString.allocationSize(value.sportType) +
-        FfiConverterArrayTypeFfiGpsPoint.allocationSize(value.polyline) +
+        FfiConverterArrayBuffer.allocationSize(value.encodedPolyline) +
         FfiConverterArrayString.allocationSize(value.activityIds) +
         FfiConverterUInt32.allocationSize(value.visitCount) +
         FfiConverterFloat64.allocationSize(value.distanceMeters) +
@@ -4432,7 +4432,10 @@ const FfiConverterTypeFfiPotentialSection = (() => {
  */
 export type FfiPreviewTrack = {
   activityId: string;
-  points: Array<FfiGpsPoint>;
+  /**
+   * Delta+varint encoded coordinates
+   */
+  encodedCoords: ArrayBuffer;
 };
 
 /**
@@ -4471,17 +4474,17 @@ const FfiConverterTypeFfiPreviewTrack = (() => {
     read(from: RustBuffer): TypeName {
       return {
         activityId: FfiConverterString.read(from),
-        points: FfiConverterArrayTypeFfiGpsPoint.read(from),
+        encodedCoords: FfiConverterArrayBuffer.read(from),
       };
     }
     write(value: TypeName, into: RustBuffer): void {
       FfiConverterString.write(value.activityId, into);
-      FfiConverterArrayTypeFfiGpsPoint.write(value.points, into);
+      FfiConverterArrayBuffer.write(value.encodedCoords, into);
     }
     allocationSize(value: TypeName): number {
       return (
         FfiConverterString.allocationSize(value.activityId) +
-        FfiConverterArrayTypeFfiGpsPoint.allocationSize(value.points)
+        FfiConverterArrayBuffer.allocationSize(value.encodedCoords)
       );
     }
   }
@@ -5104,7 +5107,7 @@ const FfiConverterTypeFfiRoutePerformanceResult = (() => {
  */
 export type FfiRouteSignature = {
   activityId: string;
-  points: Array<FfiGpsPoint>;
+  encodedPoints: ArrayBuffer;
   totalDistance: /*f64*/ number;
   startPoint: FfiGpsPoint;
   endPoint: FfiGpsPoint;
@@ -5148,7 +5151,7 @@ const FfiConverterTypeFfiRouteSignature = (() => {
     read(from: RustBuffer): TypeName {
       return {
         activityId: FfiConverterString.read(from),
-        points: FfiConverterArrayTypeFfiGpsPoint.read(from),
+        encodedPoints: FfiConverterArrayBuffer.read(from),
         totalDistance: FfiConverterFloat64.read(from),
         startPoint: FfiConverterTypeFfiGpsPoint.read(from),
         endPoint: FfiConverterTypeFfiGpsPoint.read(from),
@@ -5158,7 +5161,7 @@ const FfiConverterTypeFfiRouteSignature = (() => {
     }
     write(value: TypeName, into: RustBuffer): void {
       FfiConverterString.write(value.activityId, into);
-      FfiConverterArrayTypeFfiGpsPoint.write(value.points, into);
+      FfiConverterArrayBuffer.write(value.encodedPoints, into);
       FfiConverterFloat64.write(value.totalDistance, into);
       FfiConverterTypeFfiGpsPoint.write(value.startPoint, into);
       FfiConverterTypeFfiGpsPoint.write(value.endPoint, into);
@@ -5168,7 +5171,7 @@ const FfiConverterTypeFfiRouteSignature = (() => {
     allocationSize(value: TypeName): number {
       return (
         FfiConverterString.allocationSize(value.activityId) +
-        FfiConverterArrayTypeFfiGpsPoint.allocationSize(value.points) +
+        FfiConverterArrayBuffer.allocationSize(value.encodedPoints) +
         FfiConverterFloat64.allocationSize(value.totalDistance) +
         FfiConverterTypeFfiGpsPoint.allocationSize(value.startPoint) +
         FfiConverterTypeFfiGpsPoint.allocationSize(value.endPoint) +
@@ -5363,7 +5366,7 @@ export type FfiSection = {
   sectionType: string;
   name: string | undefined;
   sportType: string;
-  polyline: Array<FfiGpsPoint>;
+  encodedPolyline: ArrayBuffer;
   distanceMeters: /*f64*/ number;
   representativeActivityId: string | undefined;
   activityIds: Array<string>;
@@ -5425,7 +5428,7 @@ const FfiConverterTypeFfiSection = (() => {
         sectionType: FfiConverterString.read(from),
         name: FfiConverterOptionalString.read(from),
         sportType: FfiConverterString.read(from),
-        polyline: FfiConverterArrayTypeFfiGpsPoint.read(from),
+        encodedPolyline: FfiConverterArrayBuffer.read(from),
         distanceMeters: FfiConverterFloat64.read(from),
         representativeActivityId: FfiConverterOptionalString.read(from),
         activityIds: FfiConverterArrayString.read(from),
@@ -5453,7 +5456,7 @@ const FfiConverterTypeFfiSection = (() => {
       FfiConverterString.write(value.sectionType, into);
       FfiConverterOptionalString.write(value.name, into);
       FfiConverterString.write(value.sportType, into);
-      FfiConverterArrayTypeFfiGpsPoint.write(value.polyline, into);
+      FfiConverterArrayBuffer.write(value.encodedPolyline, into);
       FfiConverterFloat64.write(value.distanceMeters, into);
       FfiConverterOptionalString.write(value.representativeActivityId, into);
       FfiConverterArrayString.write(value.activityIds, into);
@@ -5481,7 +5484,7 @@ const FfiConverterTypeFfiSection = (() => {
         FfiConverterString.allocationSize(value.sectionType) +
         FfiConverterOptionalString.allocationSize(value.name) +
         FfiConverterString.allocationSize(value.sportType) +
-        FfiConverterArrayTypeFfiGpsPoint.allocationSize(value.polyline) +
+        FfiConverterArrayBuffer.allocationSize(value.encodedPolyline) +
         FfiConverterFloat64.allocationSize(value.distanceMeters) +
         FfiConverterOptionalString.allocationSize(
           value.representativeActivityId,
@@ -5930,9 +5933,9 @@ const FfiConverterTypeFfiSectionEncounter = (() => {
  */
 export type FfiSectionExtensionTrack = {
   /**
-   * Flat coordinates [lat, lng, lat, lng, ...] of the full representative activity track
+   * Delta+varint encoded coordinates of the full representative activity track
    */
-  track: Array</*f64*/ number>;
+  encodedTrack: ArrayBuffer;
   /**
    * Index in the track where the current section starts
    */
@@ -5980,19 +5983,19 @@ const FfiConverterTypeFfiSectionExtensionTrack = (() => {
   class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
     read(from: RustBuffer): TypeName {
       return {
-        track: FfiConverterArrayFloat64.read(from),
+        encodedTrack: FfiConverterArrayBuffer.read(from),
         sectionStartIdx: FfiConverterUInt32.read(from),
         sectionEndIdx: FfiConverterUInt32.read(from),
       };
     }
     write(value: TypeName, into: RustBuffer): void {
-      FfiConverterArrayFloat64.write(value.track, into);
+      FfiConverterArrayBuffer.write(value.encodedTrack, into);
       FfiConverterUInt32.write(value.sectionStartIdx, into);
       FfiConverterUInt32.write(value.sectionEndIdx, into);
     }
     allocationSize(value: TypeName): number {
       return (
-        FfiConverterArrayFloat64.allocationSize(value.track) +
+        FfiConverterArrayBuffer.allocationSize(value.encodedTrack) +
         FfiConverterUInt32.allocationSize(value.sectionStartIdx) +
         FfiConverterUInt32.allocationSize(value.sectionEndIdx)
       );
@@ -6795,9 +6798,9 @@ export type FfiSectionWithPolyline = {
   scale: string | undefined;
   bounds: FfiBounds | undefined;
   /**
-   * Flat lat/lng pairs [lat1, lng1, lat2, lng2, ...]
+   * Delta+varint encoded coordinates
    */
-  polyline: Array</*f64*/ number>;
+  encodedPolyline: ArrayBuffer;
   /**
    * All sport types present in this section's activities
    */
@@ -6853,7 +6856,7 @@ const FfiConverterTypeFfiSectionWithPolyline = (() => {
         confidence: FfiConverterFloat64.read(from),
         scale: FfiConverterOptionalString.read(from),
         bounds: FfiConverterOptionalTypeFfiBounds.read(from),
-        polyline: FfiConverterArrayFloat64.read(from),
+        encodedPolyline: FfiConverterArrayBuffer.read(from),
         sportTypes: FfiConverterArrayString.read(from),
         isUserDefined: FfiConverterBool.read(from),
         disabled: FfiConverterBool.read(from),
@@ -6870,7 +6873,7 @@ const FfiConverterTypeFfiSectionWithPolyline = (() => {
       FfiConverterFloat64.write(value.confidence, into);
       FfiConverterOptionalString.write(value.scale, into);
       FfiConverterOptionalTypeFfiBounds.write(value.bounds, into);
-      FfiConverterArrayFloat64.write(value.polyline, into);
+      FfiConverterArrayBuffer.write(value.encodedPolyline, into);
       FfiConverterArrayString.write(value.sportTypes, into);
       FfiConverterBool.write(value.isUserDefined, into);
       FfiConverterBool.write(value.disabled, into);
@@ -6887,7 +6890,7 @@ const FfiConverterTypeFfiSectionWithPolyline = (() => {
         FfiConverterFloat64.allocationSize(value.confidence) +
         FfiConverterOptionalString.allocationSize(value.scale) +
         FfiConverterOptionalTypeFfiBounds.allocationSize(value.bounds) +
-        FfiConverterArrayFloat64.allocationSize(value.polyline) +
+        FfiConverterArrayBuffer.allocationSize(value.encodedPolyline) +
         FfiConverterArrayString.allocationSize(value.sportTypes) +
         FfiConverterBool.allocationSize(value.isUserDefined) +
         FfiConverterBool.allocationSize(value.disabled) +
@@ -10807,14 +10810,17 @@ export interface SectionManagerInterface {
   disable(sectionId: string) /*throws*/ : void;
   enable(sectionId: string) /*throws*/ : void;
   excludeActivity(sectionId: string, activityId: string) /*throws*/ : void;
-  expandBounds(sectionId: string, newPolylineJson: string) /*throws*/ : void;
+  expandBounds(
+    sectionId: string,
+    newPolylineFlat: Array</*f64*/ number>,
+  ) /*throws*/ : void;
   extractTrace(
     activityId: string,
-    sectionPolylineJson: string,
-  ) /*throws*/ : Array</*f64*/ number>;
+    sectionPolylineFlat: Array</*f64*/ number>,
+  ) /*throws*/ : ArrayBuffer;
   extractTracesBatch(
     activityIds: Array<string>,
-    sectionPolylineJson: string,
+    sectionPolylineFlat: Array</*f64*/ number>,
   ) /*throws*/ : Array<FfiBatchTrace>;
   /**
    * Read pre-computed indicators for a batch of activity IDs.
@@ -11188,7 +11194,7 @@ export class SectionManager
 
   public expandBounds(
     sectionId: string,
-    newPolylineJson: string,
+    newPolylineFlat: Array</*f64*/ number>,
   ): void /*throws*/ {
     uniffiCaller.rustCallWithError(
       /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
@@ -11198,7 +11204,7 @@ export class SectionManager
         nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_expand_bounds(
           uniffiTypeSectionManagerObjectFactory.clonePointer(this),
           FfiConverterString.lower(sectionId),
-          FfiConverterString.lower(newPolylineJson),
+          FfiConverterArrayFloat64.lower(newPolylineFlat),
           callStatus,
         );
       },
@@ -11208,9 +11214,9 @@ export class SectionManager
 
   public extractTrace(
     activityId: string,
-    sectionPolylineJson: string,
-  ): Array</*f64*/ number> /*throws*/ {
-    return FfiConverterArrayFloat64.lift(
+    sectionPolylineFlat: Array</*f64*/ number>,
+  ): ArrayBuffer /*throws*/ {
+    return FfiConverterArrayBuffer.lift(
       uniffiCaller.rustCallWithError(
         /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
           FfiConverterTypeVeloqError,
@@ -11219,7 +11225,7 @@ export class SectionManager
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_extract_trace(
             uniffiTypeSectionManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(activityId),
-            FfiConverterString.lower(sectionPolylineJson),
+            FfiConverterArrayFloat64.lower(sectionPolylineFlat),
             callStatus,
           );
         },
@@ -11230,7 +11236,7 @@ export class SectionManager
 
   public extractTracesBatch(
     activityIds: Array<string>,
-    sectionPolylineJson: string,
+    sectionPolylineFlat: Array</*f64*/ number>,
   ): Array<FfiBatchTrace> /*throws*/ {
     return FfiConverterArrayTypeFfiBatchTrace.lift(
       uniffiCaller.rustCallWithError(
@@ -11241,7 +11247,7 @@ export class SectionManager
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_extract_traces_batch(
             uniffiTypeSectionManagerObjectFactory.clonePointer(this),
             FfiConverterArrayString.lower(activityIds),
-            FfiConverterString.lower(sectionPolylineJson),
+            FfiConverterArrayFloat64.lower(sectionPolylineFlat),
             callStatus,
           );
         },
@@ -14803,7 +14809,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_expand_bounds() !==
-    13879
+    18305
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_sectionmanager_expand_bounds",
@@ -14811,7 +14817,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_extract_trace() !==
-    57921
+    33605
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_sectionmanager_extract_trace",
@@ -14819,7 +14825,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_extract_traces_batch() !==
-    10771
+    14691
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_sectionmanager_extract_traces_batch",

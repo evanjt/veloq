@@ -139,7 +139,7 @@ export default function SectionDetailScreen() {
       const engine = getRouteEngine();
       if (engine && id) {
         const fresh = engine.getSectionById(id);
-        if (fresh && fresh.polyline && fresh.polyline.length > 0) {
+        if (fresh && fresh.encodedPolyline && fresh.encodedPolyline.byteLength > 0) {
           const freshAny = fresh as unknown as Record<string, unknown>;
           const sectionType: 'auto' | 'custom' =
             typeof freshAny.sectionType === 'string' && freshAny.sectionType === 'custom'
@@ -150,7 +150,7 @@ export default function SectionDetailScreen() {
           return {
             ...fresh,
             sectionType,
-            polyline: fresh.polyline.map((p: { latitude: number; longitude: number }) => ({
+            polyline: decodeCoords(fresh.encodedPolyline).map((p) => ({
               lat: p.latitude,
               lng: p.longitude,
             })),

@@ -3,7 +3,7 @@
  */
 
 import {
-  gpsPointsToRoutePoints,
+  decodeCoords,
   type FrequentSection as NativeFrequentSection,
   type Section as NativeSection,
 } from 'veloqrs';
@@ -19,7 +19,10 @@ import type { FrequentSection } from '@/types';
 export function convertNativeSectionToApp(
   native: NativeFrequentSection | NativeSection
 ): FrequentSection {
-  const polyline = gpsPointsToRoutePoints(native.polyline);
+  const polyline = decodeCoords(native.encodedPolyline).map((p) => ({
+    lat: p.latitude,
+    lng: p.longitude,
+  }));
 
   // Determine section type - FfiSection has sectionType string, FfiFrequentSection doesn't
   const sectionType =

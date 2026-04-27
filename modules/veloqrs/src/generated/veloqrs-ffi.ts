@@ -507,19 +507,19 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_expand_bounds(
     ptr: bigint,
     sectionId: Uint8Array,
-    newPolylineJson: Uint8Array,
+    newPolylineFlat: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): void;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_extract_trace(
     ptr: bigint,
     activityId: Uint8Array,
-    sectionPolylineJson: Uint8Array,
+    sectionPolylineFlat: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_extract_traces_batch(
     ptr: bigint,
     activityIds: Uint8Array,
-    sectionPolylineJson: Uint8Array,
+    sectionPolylineFlat: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_activity_indicators(
