@@ -51,7 +51,7 @@ jobs:
         if: steps.apk-cache.outputs.cache-hit == 'true'
         run: echo "Using cached dev APK (hash ${{ steps.hash.outputs.source_hash }})"
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         if: steps.apk-cache.outputs.cache-hit != 'true'
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -145,7 +145,7 @@ jobs:
         with:
           xcode-version: '26.2'
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         if: steps.app-cache.outputs.cache-hit != 'true'
         with:
           node-version: ${{ env.NODE_VERSION }}
