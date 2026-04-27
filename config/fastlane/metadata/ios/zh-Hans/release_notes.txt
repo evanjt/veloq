@@ -1,10 +1,10 @@
-v0.3.0 (Apr 2026)
+v0.3.0
 
-• Section cards per direction, inline sparklines highlighting this activity
-• Feed: PR trophies, improving/declining trend pills
-• Section detail: time-range pills, summary + history cards
-• Map: heatmap toggle, separate route/section toggles, activity clustering
-• Strength: inline muscle stats, methodology note
-• Dark mode contrast improvements
-• Backup: local fix, not-encrypted warning
-• Many fixes
+• 固定、接受或禁用路段；调整检测灵敏度
+• 设置参考表现用于未来比较
+• 同步进度逐阶段反馈
+• 最佳表现：功率和配速PR，点击查看来源
+• 动态：PR奖杯、趋势标签、sparkline路段卡片
+• 地图：渐变折线、热力图、聚类缩放
+• 体能：增长率、状态百分比、温度和坡度图表
+• 更快的传输和路段加载

@@ -1,0 +1,10 @@
+v0.3.0
+
+• Épingler, accepter ou désactiver des sections ; ajuster la sensibilité
+• Définir un effort de référence pour comparaisons
+• Synchro avec retour d'avancement par étape
+• Meilleurs efforts : PRs puissance et allure avec lien
+• Feed : trophées PR, pilules tendance, cartes sparkline
+• Carte : polylignes dégradées, heatmap, zoom cluster
+• Fitness : taux de montée, forme %, graphiques température et dénivelé
+• Transferts et chargement plus rapides

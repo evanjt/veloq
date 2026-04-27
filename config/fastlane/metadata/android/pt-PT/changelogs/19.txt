@@ -1,0 +1,10 @@
+v0.3.0
+
+• Fixar, aceitar ou desativar secções; ajustar sensibilidade
+• Definir esforço de referência para comparações
+• Progresso de sincronização com feedback por etapa
+• Melhores desempenhos: PRs de potência e ritmo com ligação
+• Feed: troféus PR, pílulas de tendência, cartões sparkline
+• Mapa: polilinhas com gradiente, heatmap, zoom clusters
+• Fitness: taxa de rampa, forma %, gráficos temperatura e inclinação
+• Transferências e carregamento mais rápidos
