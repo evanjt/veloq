@@ -46,7 +46,7 @@ import {
   useSyncDateRange,
   useEngineStatus,
 } from '@/providers';
-import { isHeatmapEnabled } from '@/providers/RouteSettingsStore';
+import { isHeatmapEnabled, getDetectionStrictness } from '@/providers/RouteSettingsStore';
 import { formatLocalDate, queryKeys } from '@/lib';
 import { initializeI18n, i18n } from '@/i18n';
 import { lightTheme, darkTheme, colors, darkColors } from '@/theme';
@@ -63,7 +63,7 @@ import {
 } from '@/components/ui';
 import { useUploadQueueProcessor } from '@/hooks/recording/useUploadQueueProcessor';
 import { useRouteReoptimization } from '@/hooks/routes/useRouteReoptimization';
-import { getRouteEngine, getRouteDbPath } from '@/lib/native/routeEngine';
+import { getRouteEngine, getRouteDbPath, applyDetectionStrictness } from '@/lib/native/routeEngine';
 import {
   migrateSettingsToSqlite,
   onAppBackground,
@@ -162,6 +162,11 @@ function AuthGate({ children }: { children: React.ReactNode }) {
               engine.enableHeatmapTiles();
             } else {
               engine.disableHeatmapTiles();
+            }
+            // Apply persisted detection strictness if not default
+            const strictness = getDetectionStrictness();
+            if (strictness !== 60) {
+              applyDetectionStrictness(strictness);
             }
             // Migrate AsyncStorage preferences to SQLite (one-time, idempotent)
             migrateSettingsToSqlite().catch(() => {});

@@ -158,6 +158,40 @@ impl SectionManager {
         })
     }
 
+    fn prune_overlapping(&self) -> Result<u32, VeloqError> {
+        with_engine(|e| {
+            let all_sections = e.get_sections().to_vec();
+            let (_, pruneable): (Vec<_>, Vec<_>) = all_sections
+                .into_iter()
+                .partition(|s| s.is_user_defined);
+
+            let before = pruneable.len();
+            let config = e.section_config.clone();
+            let filtered =
+                tracematch::sections::remove_overlapping_sections(pruneable, &config);
+            let filtered =
+                tracematch::sections::merge_nearby_sections(filtered, &config);
+            let after = filtered.len();
+
+            let kept_ids: std::collections::HashSet<&str> =
+                filtered.iter().map(|s| s.id.as_str()).collect();
+            let removed_ids: Vec<String> = e
+                .get_sections()
+                .iter()
+                .filter(|s| !s.is_user_defined && !kept_ids.contains(s.id.as_str()))
+                .map(|s| s.id.clone())
+                .collect();
+
+            for id in &removed_ids {
+                if let Err(err) = e.delete_section(id) {
+                    log::warn!("prune_overlapping: failed to delete {}: {}", id, err);
+                }
+            }
+
+            (before - after) as u32
+        })
+    }
+
     fn get_polyline(&self, section_id: String) -> Result<Vec<crate::FfiGpsPoint>, VeloqError> {
         with_engine(|e| {
             let flat = e.get_section_polyline(&section_id);
@@ -279,6 +313,24 @@ impl SectionManager {
         })?
     }
 
+    fn accept(&self, section_id: String) -> Result<(), VeloqError> {
+        with_engine(|e| {
+            e.accept_section(&section_id)
+                .map_err(|e| VeloqError::Database {
+                    msg: format!("{}", e),
+                })
+        })?
+    }
+
+    fn accept_all(&self) -> Result<u32, VeloqError> {
+        with_engine(|e| {
+            e.accept_all_sections()
+                .map_err(|e| VeloqError::Database {
+                    msg: format!("{}", e),
+                })
+        })?
+    }
+
     fn set_name(&self, section_id: String, name: String) -> Result<(), VeloqError> {
         let name_opt = if name.is_empty() {
             None
@@ -368,14 +420,14 @@ impl SectionManager {
     fn extract_trace(
         &self,
         activity_id: String,
-        section_polyline_json: String,
-    ) -> Result<Vec<f64>, VeloqError> {
+        section_polyline_flat: Vec<f64>,
+    ) -> Result<Vec<u8>, VeloqError> {
         with_engine(|engine| {
-            let polyline: Vec<tracematch::GpsPoint> =
-                match serde_json::from_str(&section_polyline_json) {
-                    Ok(p) => p,
-                    Err(_) => return vec![],
-                };
+            let polyline: Vec<tracematch::GpsPoint> = section_polyline_flat
+                .chunks(2)
+                .filter(|c| c.len() == 2)
+                .map(|c| tracematch::GpsPoint::new(c[0], c[1]))
+                .collect();
             if polyline.len() < 2 {
                 return vec![];
             }
@@ -395,10 +447,7 @@ impl SectionManager {
                 &track_map,
             );
             match traces.get(&activity_id) {
-                Some(trace) => trace
-                    .iter()
-                    .flat_map(|p| vec![p.latitude, p.longitude])
-                    .collect(),
+                Some(trace) => crate::coords::encode(trace),
                 None => vec![],
             }
         })
@@ -431,10 +480,7 @@ impl SectionManager {
                 .get_section_extension_track(&section_id)
                 .map_err(|msg| VeloqError::Database { msg })?;
             Ok(crate::FfiSectionExtensionTrack {
-                track: track
-                    .iter()
-                    .flat_map(|p| vec![p.latitude, p.longitude])
-                    .collect(),
+                encoded_track: crate::coords::encode(&track),
                 section_start_idx: start,
                 section_end_idx: end,
             })
@@ -444,10 +490,15 @@ impl SectionManager {
     fn expand_bounds(
         &self,
         section_id: String,
-        new_polyline_json: String,
+        new_polyline_flat: Vec<f64>,
     ) -> Result<(), VeloqError> {
         with_engine(|e| {
-            e.expand_section_bounds(&section_id, &new_polyline_json)
+            let points: Vec<tracematch::GpsPoint> = new_polyline_flat
+                .chunks(2)
+                .filter(|c| c.len() == 2)
+                .map(|c| tracematch::GpsPoint::new(c[0], c[1]))
+                .collect();
+            e.expand_section_bounds(&section_id, &points)
                 .map_err(|e| VeloqError::Database { msg: e })
         })?
     }
@@ -532,14 +583,14 @@ impl SectionManager {
     fn extract_traces_batch(
         &self,
         activity_ids: Vec<String>,
-        section_polyline_json: String,
+        section_polyline_flat: Vec<f64>,
     ) -> Result<Vec<crate::FfiBatchTrace>, VeloqError> {
         with_engine(|engine| {
-            let polyline: Vec<tracematch::GpsPoint> =
-                match serde_json::from_str(&section_polyline_json) {
-                    Ok(p) => p,
-                    Err(_) => return vec![],
-                };
+            let polyline: Vec<tracematch::GpsPoint> = section_polyline_flat
+                .chunks(2)
+                .filter(|c| c.len() == 2)
+                .map(|c| tracematch::GpsPoint::new(c[0], c[1]))
+                .collect();
             if polyline.len() < 2 {
                 return vec![];
             }
@@ -561,10 +612,7 @@ impl SectionManager {
                     }
                     Some(crate::FfiBatchTrace {
                         activity_id: id.clone(),
-                        coords: trace
-                            .iter()
-                            .flat_map(|p| vec![p.latitude, p.longitude])
-                            .collect(),
+                        encoded_coords: crate::coords::encode(&trace),
                     })
                 })
                 .collect()

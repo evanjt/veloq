@@ -7,6 +7,7 @@ use crate::{
     ActivityMetrics, Direction, DirectionStats, RoutePerformance, RoutePerformanceResult,
     SectionLap, SectionPerformanceRecord, SectionPerformanceResult,
 };
+use crate::persistence::codec;
 use rusqlite::params;
 use std::collections::HashMap;
 
@@ -114,7 +115,7 @@ impl PersistentRouteEngine {
                 params![activity_id],
                 |row| {
                     let bytes: Vec<u8> = row.get(0)?;
-                    rmp_serde::from_slice::<Vec<u32>>(&bytes)
+                    codec::deserialize::<Vec<u32>>(&bytes)
                         .map_err(|_| rusqlite::Error::InvalidQuery)
                 },
             ) {
@@ -186,7 +187,7 @@ impl PersistentRouteEngine {
             None => match self.get_section_by_id(section_id) {
                 Some(s) => s,
                 None => {
-                    log::warn!("[DEBUG] Section not found: {}", section_id);
+                    log::debug!("Section not found: {}", section_id);
                     return SectionPerformanceResult {
                         records: vec![],
                         best_record: None,
@@ -199,8 +200,8 @@ impl PersistentRouteEngine {
             },
         };
 
-        log::info!(
-            "[DEBUG] Section found. activity_portions count: {}",
+        log::debug!(
+            "Section found. activity_portions count: {}",
             section.activity_portions.len()
         );
 
@@ -234,7 +235,7 @@ impl PersistentRouteEngine {
         let mut stmt = match self.db.prepare(&query) {
             Ok(s) => s,
             Err(e) => {
-                log::error!("[DEBUG] Failed to prepare portion query: {}", e);
+                log::warn!("Failed to prepare portion query: {}", e);
                 return SectionPerformanceResult {
                     records: vec![],
                     best_record: None,
@@ -272,7 +273,7 @@ impl PersistentRouteEngine {
             Ok(iter) => match iter.collect::<Result<Vec<_>, _>>() {
                 Ok(v) => v,
                 Err(e) => {
-                    log::error!("[DEBUG] Failed to deserialize portion row: {}", e);
+                    log::warn!("Failed to deserialize portion row: {}", e);
                     return SectionPerformanceResult {
                         records: vec![],
                         best_record: None,
@@ -284,7 +285,7 @@ impl PersistentRouteEngine {
                 }
             },
             Err(e) => {
-                log::error!("[DEBUG] Failed to query portions: {}", e);
+                log::warn!("Failed to query portions: {}", e);
                 return SectionPerformanceResult {
                     records: vec![],
                     best_record: None,
@@ -381,8 +382,8 @@ impl PersistentRouteEngine {
                                         return None;
                                     }
                                 } else {
-                                    log::warn!(
-                                        "[DEBUG] No time stream available for {}, lap {} - skipping",
+                                    log::debug!(
+                                        "No time stream available for {}, lap {} - skipping",
                                         activity_id, i
                                     );
                                     return None;
@@ -460,7 +461,7 @@ impl PersistentRouteEngine {
             })
             .collect();
 
-        log::info!("[DEBUG] Built {} performance records", records.len());
+        log::debug!("Built {} performance records", records.len());
 
         // Sort by date
         records.sort_by_key(|r| r.activity_date);

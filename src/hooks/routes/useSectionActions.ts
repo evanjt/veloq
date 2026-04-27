@@ -90,6 +90,8 @@ export interface UseSectionActionsResult {
   handleToggleShowExcluded: () => void;
   /** Kick off a rematch scan for the current sport type. */
   handleRematchActivities: () => void;
+  /** Accept (pin) an auto-detected section to protect it from re-detection. */
+  handleAcceptSection: () => void;
 }
 
 export function useSectionActions({
@@ -340,6 +342,16 @@ export function useSectionActions({
     setShowExcluded((v) => !v);
   }, []);
 
+  // --- accept/pin ---
+  const handleAcceptSection = useCallback(() => {
+    if (!id || isCustomId) return;
+    const engine = getRouteEngine();
+    if (!engine) return;
+    engine.acceptSection(id);
+    queryClient.invalidateQueries({ queryKey: queryKeys.sections.all });
+    onSectionRefresh();
+  }, [id, isCustomId, queryClient, onSectionRefresh]);
+
   // --- rematch ---
   const handleRematchActivities = useCallback(() => {
     if (!section?.sportType) return;
@@ -371,5 +383,6 @@ export function useSectionActions({
     handleIncludeActivity,
     handleToggleShowExcluded,
     handleRematchActivities,
+    handleAcceptSection,
   };
 }

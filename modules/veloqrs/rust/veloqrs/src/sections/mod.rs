@@ -129,6 +129,8 @@ pub struct SectionSummary {
     pub created_at: String,
     /// All sport types present in this section's activities
     pub sport_types: Vec<String>,
+    /// Whether the user has accepted/pinned this section.
+    pub is_user_defined: bool,
     /// Whether the user has disabled (hidden) this section.
     pub disabled: bool,
     /// If superseded by a custom section, stores its ID.

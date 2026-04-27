@@ -44,6 +44,7 @@ import {
   MergeCandidatesModal,
 } from '@/components/section';
 import { getRouteEngine } from '@/lib/native/routeEngine';
+import { decodeCoords } from 'veloqrs';
 import {
   formatRelativeDate,
   getActivityIcon,
@@ -138,7 +139,7 @@ export default function SectionDetailScreen() {
       const engine = getRouteEngine();
       if (engine && id) {
         const fresh = engine.getSectionById(id);
-        if (fresh && fresh.polyline && fresh.polyline.length > 0) {
+        if (fresh && fresh.encodedPolyline && fresh.encodedPolyline.byteLength > 0) {
           const freshAny = fresh as unknown as Record<string, unknown>;
           const sectionType: 'auto' | 'custom' =
             typeof freshAny.sectionType === 'string' && freshAny.sectionType === 'custom'
@@ -149,7 +150,7 @@ export default function SectionDetailScreen() {
           return {
             ...fresh,
             sectionType,
-            polyline: fresh.polyline.map((p: { latitude: number; longitude: number }) => ({
+            polyline: decodeCoords(fresh.encodedPolyline).map((p) => ({
               lat: p.latitude,
               lng: p.longitude,
             })),
@@ -216,6 +217,7 @@ export default function SectionDetailScreen() {
     handleIncludeActivity,
     handleToggleShowExcluded,
     handleRematchActivities,
+    handleAcceptSection,
   } = useSectionActions({
     id,
     isCustomId: !!isCustomId,
@@ -270,11 +272,10 @@ export default function SectionDetailScreen() {
       const allSigs = engine.getAllMapSignatures();
       const result: Record<string, RoutePoint[]> = {};
       for (const sig of allSigs) {
-        if (!activityIdSet.has(sig.activityId) || sig.coords.length < 4) continue;
-        const points: RoutePoint[] = [];
-        for (let i = 0; i < sig.coords.length - 1; i += 2) {
-          points.push({ lat: sig.coords[i], lng: sig.coords[i + 1] });
-        }
+        if (!activityIdSet.has(sig.activityId)) continue;
+        const decoded = decodeCoords(sig.encodedCoords);
+        if (decoded.length < 2) continue;
+        const points: RoutePoint[] = decoded.map((p) => ({ lat: p.latitude, lng: p.longitude }));
         result[sig.activityId] = points;
       }
       return Object.keys(result).length > 0 ? result : undefined;
@@ -414,16 +415,14 @@ export default function SectionDetailScreen() {
   const nearbyPolylines = useMemo(() => {
     if (!nearby || nearby.length === 0) return undefined;
     const displayNames = getAllSectionDisplayNames();
-    return nearby
-      .filter((n) => n.polylineCoords && n.polylineCoords.length >= 4)
-      .map((n) => ({
-        id: n.id,
-        name: displayNames[n.id] || n.name,
-        sportType: n.sportType,
-        distanceMeters: n.distanceMeters,
-        visitCount: n.visitCount,
-        polylineCoords: n.polylineCoords,
-      }));
+    return nearby.map((n) => ({
+      id: n.id,
+      name: displayNames[n.id] || n.name,
+      sportType: n.sportType,
+      distanceMeters: n.distanceMeters,
+      visitCount: n.visitCount,
+      encodedPolyline: n.encodedPolyline,
+    }));
   }, [nearby]);
 
   const isRunning = effectiveSportType
@@ -572,6 +571,38 @@ export default function SectionDetailScreen() {
             onRematchActivities={handleRematchActivities}
             isRematching={isRematching}
           />
+
+          {/* Accept/Pinned indicator for auto sections */}
+          {section && section.sectionType === 'auto' && !isCustomId && (
+            <View style={styles.acceptRow}>
+              {section.isUserDefined ? (
+                <View style={styles.pinnedChip}>
+                  <MaterialCommunityIcons
+                    name="pin"
+                    size={14}
+                    color={isDark ? '#71717A' : '#9CA3AF'}
+                  />
+                  <Text style={[styles.pinnedText, { color: isDark ? '#71717A' : '#9CA3AF' }]}>
+                    {t('sections.pinned')}
+                  </Text>
+                </View>
+              ) : (
+                <TouchableOpacity
+                  style={[styles.acceptChip, { borderColor: isDark ? '#374151' : '#D1D5DB' }]}
+                  onPress={handleAcceptSection}
+                >
+                  <MaterialCommunityIcons
+                    name="pin-outline"
+                    size={14}
+                    color={isDark ? '#D1D5DB' : '#6B7280'}
+                  />
+                  <Text style={[styles.acceptText, { color: isDark ? '#D1D5DB' : '#6B7280' }]}>
+                    {t('sections.acceptSection')}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
 
           {/* Sport type pills for cross-sport sections */}
           {sportTypeCounts.length > 1 && (
@@ -905,6 +936,33 @@ const styles = StyleSheet.create({
   },
   textMuted: {
     color: darkColors.textSecondary,
+  },
+  acceptRow: {
+    flexDirection: 'row',
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.xs,
+  },
+  acceptChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 16,
+    borderWidth: 1,
+    gap: 4,
+  },
+  acceptText: {
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  pinnedChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  pinnedText: {
+    fontSize: 13,
+    fontWeight: '500',
   },
   sportTypePills: {
     flexDirection: 'row',

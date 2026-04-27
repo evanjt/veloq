@@ -35,13 +35,15 @@ use rstar::{AABB, RTree, RTreeObject};
 use rusqlite::{Connection, Result as SqlResult};
 
 mod activities;
+pub(crate) mod codec;
 pub(crate) mod export;
 mod fitness;
 mod indicators;
 mod routes;
 mod schema;
 pub mod sections;
-mod settings;
+pub mod settings;
+pub use settings::settings_keys;
 mod strength;
 mod tiles;
 pub(crate) mod wellness;
@@ -225,6 +227,36 @@ impl SectionDetectionProgress {
     pub fn get_total(&self) -> u32 {
         self.total.load(Ordering::SeqCst)
     }
+
+    /// Phase-weighted overall percent (0–100).
+    ///
+    /// Weights are tuned to wall-clock shares so the progress bar advances
+    /// roughly linearly. `finding_overlaps` dominates at ~55%.
+    pub fn get_percent(&self) -> u32 {
+        let phase = self.get_phase();
+        let completed = self.get_completed();
+        let total = self.get_total();
+        let fraction = if total > 0 {
+            (completed as f64 / total as f64).min(1.0)
+        } else {
+            0.0
+        };
+
+        let (accumulated, weight) = match phase.as_str() {
+            "loading"                => (0.0,  0.05),
+            "building_rtrees"        => (0.05, 0.10),
+            "finding_overlaps"       => (0.15, 0.55),
+            "clustering"             => (0.70, 0.05),
+            "postprocessing"         => (0.75, 0.10),
+            "saving"                 => (0.85, 0.05),
+            "merging_cross_sport"    => (0.90, 0.03),
+            "recomputing_indicators" => (0.93, 0.04),
+            "complete"               => (1.0,  0.0),
+            _                        => return 50,
+        };
+        let pct = (accumulated + weight * fraction) * 100.0;
+        (pct.round() as u32).min(100)
+    }
 }
 
 impl tracematch::DetectionProgressCallback for SectionDetectionProgress {
@@ -353,7 +385,8 @@ impl TileGenerationHandle {
 fn load_groups_from_db(conn: &Connection) -> Vec<RouteGroup> {
     let mut stmt = match conn.prepare(
         "SELECT id, representative_id, activity_ids, sport_type,
-                bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng
+                bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng,
+                activity_ids_blob
          FROM route_groups",
     ) {
         Ok(s) => s,
@@ -368,9 +401,13 @@ fn load_groups_from_db(conn: &Connection) -> Vec<RouteGroup> {
 
     let groups: Vec<RouteGroup> = stmt
         .query_map([], |row| {
-            let activity_ids_json: String = row.get(2)?;
             let activity_ids: Vec<String> =
-                serde_json::from_str(&activity_ids_json).unwrap_or_default();
+                if let Ok(Some(blob)) = row.get::<_, Option<Vec<u8>>>(8) {
+                    codec::deserialize(&blob).unwrap_or_default()
+                } else {
+                    let json: String = row.get(2)?;
+                    serde_json::from_str(&json).unwrap_or_default()
+                };
 
             let bounds = match (
                 row.get::<_, Option<f64>>(4)?,
@@ -429,7 +466,10 @@ pub struct PersistentRouteEngine {
     spatial_index: RTree<ActivityBoundsEntry>,
 
     /// Tier 2: LRU cached signatures (200 max = ~2MB)
-    signature_cache: LruCache<String, RouteSignature>,
+    /// `Arc` avoids cloning the full `RouteSignature` (points vec + metadata)
+    /// on every cache hit — callers that only read through a reference pay
+    /// nothing, and callers that need ownership clone once instead of twice.
+    signature_cache: LruCache<String, Arc<RouteSignature>>,
 
     /// Tier 2: LRU cached consensus routes (50 max).
     /// `Arc` avoids cloning the full `Vec<GpsPoint>` on every read — cache hits
@@ -466,7 +506,7 @@ pub struct PersistentRouteEngine {
     sections_dirty: bool,
 
     /// Configuration
-    match_config: MatchConfig,
+    pub(crate) match_config: MatchConfig,
     pub(crate) section_config: SectionConfig,
 
     /// Path for heatmap tile output (set from JS at init)
@@ -532,6 +572,7 @@ impl PersistentRouteEngine {
         self.load_sections()?;
         self.load_processed_activity_ids()?;
         self.load_activity_metrics()?;
+        self.load_match_strictness_from_settings()?;
 
         // Backfill activities.duration_secs from activity_metrics.moving_time.
         // Route highlights need duration_secs to compute trends/PRs, but it was
@@ -581,6 +622,18 @@ impl PersistentRouteEngine {
         self.signature_cache.clear(); // Signatures depend on config
         self.groups_dirty = true;
         self.sections_dirty = true;
+    }
+
+    /// Read-only access to the active `match_config.min_match_percentage`.
+    /// Exposed so integration tests can verify persisted strictness without
+    /// needing crate-private access to the whole `MatchConfig`.
+    pub fn match_config_min_match_percentage(&self) -> f64 {
+        self.match_config.min_match_percentage
+    }
+
+    /// Read-only access to the active `match_config.endpoint_threshold`.
+    pub fn match_config_endpoint_threshold(&self) -> f64 {
+        self.match_config.endpoint_threshold
     }
 
     /// Set section configuration.
@@ -838,11 +891,10 @@ impl PersistentRouteEngine {
         let groups: Vec<crate::FfiGroupWithPolyline> = paged_summaries
             .into_iter()
             .map(|g| {
-                let consensus_polyline = rep_polylines
+                let encoded_polyline = rep_polylines
                     .get(&g.representative_id)
                     .cloned()
                     .unwrap_or_default();
-                // Look up distance from representative activity's metrics
                 let distance_meters = self
                     .activity_metrics
                     .get(&g.representative_id)
@@ -856,7 +908,7 @@ impl PersistentRouteEngine {
                     custom_name: g.custom_name,
                     bounds: g.bounds,
                     distance_meters,
-                    consensus_polyline,
+                    encoded_polyline,
                     sport_types: g.sport_types,
                 }
             })
@@ -891,7 +943,7 @@ impl PersistentRouteEngine {
         let sections: Vec<crate::FfiSectionWithPolyline> = paged_sections
             .into_iter()
             .map(|s| {
-                let polyline = section_polylines.get(&s.id).cloned().unwrap_or_default();
+                let encoded_polyline = section_polylines.get(&s.id).cloned().unwrap_or_default();
                 crate::FfiSectionWithPolyline {
                     id: s.id,
                     name: s.name,
@@ -902,8 +954,11 @@ impl PersistentRouteEngine {
                     confidence: s.confidence,
                     scale: s.scale,
                     bounds: s.bounds,
-                    polyline,
+                    encoded_polyline,
                     sport_types: s.sport_types,
+                    is_user_defined: s.is_user_defined,
+                    disabled: s.disabled,
+                    superseded_by: s.superseded_by,
                 }
             })
             .collect();

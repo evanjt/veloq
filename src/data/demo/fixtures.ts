@@ -11,7 +11,13 @@
  */
 
 import type { ActivityInterval, IntervalsDTO, ActivityIntervalGroup } from '@/types';
-import { demoRoutes, getRouteBounds, getRouteCoordinates, getRouteLocation } from './routes';
+import {
+  demoRoutes,
+  getRouteBounds,
+  getRouteCoordinates,
+  getRouteCoordinatesWithVariation,
+  getRouteLocation,
+} from './routes';
 import {
   getDemoReferenceDate,
   formatDateId,
@@ -19,9 +25,9 @@ import {
   generateActivityId,
   createDateSeededRandom,
   createActivitySeededRandom,
-  isRestDay,
   getTimeOfDay,
 } from './random';
+import { getTrainingDay } from './periodization';
 
 // ============================================================================
 // TYPES (matching API responses)
@@ -254,40 +260,64 @@ const DEMO_ATHLETE: ApiAthlete = {
   icu_resting_hr: 55,
 };
 
-/**
- * Generate activity name based on type, time of day, and workout style
- */
+type SessionType = 'endurance' | 'tempo' | 'interval' | 'long' | 'recovery' | 'race';
+
+const ZONE_DISTRIBUTIONS: Record<SessionType, number[]> = {
+  endurance: [0.08, 0.62, 0.2, 0.07, 0.02, 0.01, 0.0],
+  tempo: [0.05, 0.2, 0.38, 0.28, 0.06, 0.02, 0.01],
+  interval: [0.12, 0.22, 0.12, 0.14, 0.28, 0.09, 0.03],
+  long: [0.1, 0.55, 0.22, 0.08, 0.03, 0.015, 0.005],
+  recovery: [0.35, 0.5, 0.12, 0.03, 0.0, 0.0, 0.0],
+  race: [0.04, 0.12, 0.2, 0.28, 0.25, 0.08, 0.03],
+};
+
+const RIDE_NAMES: Record<SessionType, string[]> = {
+  endurance: ['Steady Ride', 'Zone 2 Cruise', 'Coffee Ride', 'Easy Spin'],
+  tempo: ['Sweet Spot Intervals', 'Tempo Ride', 'Threshold Efforts', 'FTP Builder'],
+  interval: ['VO2max 5x3min', 'High Intensity Ride', 'Power Intervals', 'Anaerobic Repeats'],
+  long: ['Endurance Ride', 'Gran Fondo Prep', 'Long Ride', 'Century Prep'],
+  recovery: ['Recovery Spin', 'Easy Spin', 'Active Recovery'],
+  race: ['Race Simulation', 'Time Trial', 'Race Day'],
+};
+
+const RUN_NAMES: Record<SessionType, string[]> = {
+  endurance: ['Easy Run', 'Zone 2 Run', 'Aerobic Run', 'Base Run'],
+  tempo: ['Tempo Run', 'Threshold Run', 'Steady State Run', 'Cruise Intervals'],
+  interval: ['Track Repeats', 'VO2max Intervals', 'Speed Work', 'Hill Repeats'],
+  long: ['Long Run', 'Trail Long Run', 'Progressive Long Run'],
+  recovery: ['Recovery Jog', 'Shake-Out Run', 'Easy Jog'],
+  race: ['Race Pace Run', 'Race Simulation', 'Parkrun'],
+};
+
+function pickFromArray<T>(arr: T[], rng: () => number): T {
+  return arr[Math.floor(rng() * arr.length)];
+}
+
 function generateActivityName(
   type: string,
   hour: number,
-  isLong: boolean,
-  isHard: boolean,
+  session: SessionType,
   routeId?: string | null
 ): string {
   const timeOfDay = hour < 12 ? 'Morning' : hour < 17 ? 'Afternoon' : 'Evening';
+  const hash = (routeId || type).length;
+  const nameIndex = hash % 4;
 
   switch (type) {
     case 'Ride':
-      if (isLong) return `${timeOfDay} Endurance Ride`;
-      if (isHard) return `${timeOfDay} Interval Ride`;
-      return `${timeOfDay} Ride`;
+      return `${timeOfDay} ${(RIDE_NAMES[session] || RIDE_NAMES.endurance)[nameIndex % (RIDE_NAMES[session] || RIDE_NAMES.endurance).length]}`;
     case 'Run':
-      if (isLong) return `${timeOfDay} Long Run`;
-      if (isHard) return `${timeOfDay} Tempo Run`;
-      return `${timeOfDay} Run`;
+      return `${timeOfDay} ${(RUN_NAMES[session] || RUN_NAMES.endurance)[nameIndex % (RUN_NAMES[session] || RUN_NAMES.endurance).length]}`;
     case 'VirtualRide':
-      // Use route name for virtual rides
       if (routeId?.includes('grindelwald')) return `${timeOfDay} Virtual Ride - Swiss Alps`;
       if (routeId?.includes('lavaux')) return `${timeOfDay} Virtual Ride - Vineyards`;
       if (routeId?.includes('vuelta')) return `${timeOfDay} Virtual Ride - Stage Climb`;
       if (routeId?.includes('rio')) return `${timeOfDay} Virtual Ride - Coastal`;
       return `${timeOfDay} Virtual Ride`;
     case 'Swim':
-      if (routeId) return `${timeOfDay} Open Water Swim`;
-      return `${timeOfDay} Pool Swim`;
+      return routeId ? `${timeOfDay} Open Water Swim` : `${timeOfDay} Pool Swim`;
     case 'Hike':
-      if (isLong) return `${timeOfDay} Mountain Hike`;
-      return `${timeOfDay} Valley Hike`;
+      return session === 'long' ? `${timeOfDay} Mountain Hike` : `${timeOfDay} Valley Hike`;
     case 'Walk':
       return `${timeOfDay} Walk`;
     default:
@@ -297,33 +327,27 @@ function generateActivityName(
 
 /**
  * Generate a year of activities in API format
- * Uses deterministic random for reproducible data
+ * Uses periodization model for realistic training patterns
  */
 function generateActivities(): ApiActivity[] {
   const activities: ApiActivity[] = [];
   const referenceDate = getDemoReferenceDate();
-  let globalActivityIndex = 0; // Global index for simple demo-N IDs
+  let globalActivityIndex = 0;
 
-  // Route IDs from realRoutes.json (extracted from real activities):
-  // Outdoor Cycling (Valais, Switzerland):
-  //   route-valais-ride-1: Rhône Valley Ride (73km)
-  //   route-valais-ride-2: Alpine Approach (29km)
-  // Virtual Cycling:
-  //   route-rouvy-grindelwald: Grindelwald to Lauterbrunnen (23km)
-  //   route-rouvy-lavaux: Lavaux Vineyards (17km)
-  //   route-rouvy-rio: Rio de Janeiro Aterro (10km)
-  //   route-rouvy-vuelta: La Vuelta Stage 12 (21km)
-  // Running (Rio de Janeiro, Brazil):
-  //   route-rio-run-1 through route-rio-run-4 (3-15km)
-  // Open Water Swimming (La Orotava, Tenerife):
-  //   route-la-orotava-swim-1 through route-la-orotava-swim-4 (100-200m)
-  // Hiking (Lauterbrunnen, Switzerland):
-  //   route-lauterbrunnen-hike-1 through route-lauterbrunnen-hike-3 (0.7-10km)
-  // Walking (Cape Town, South Africa):
-  //   route-cape-town-walk-1 through route-cape-town-walk-8 (0.8-3km)
+  interface RouteTemplate {
+    type: string;
+    dist: number;
+    time: number;
+    elev: number;
+    speed: number;
+    hr: number;
+    watts: number;
+    tss: number;
+    route: string | null;
+    sessions: SessionType[];
+  }
 
-  const templates = [
-    // === OUTDOOR CYCLING (Valais, Switzerland) ===
+  const templates: RouteTemplate[] = [
     {
       type: 'Ride',
       dist: 30000,
@@ -333,9 +357,8 @@ function generateActivities(): ApiActivity[] {
       hr: 145,
       watts: 180,
       tss: 65,
-      route: 'route-valais-ride-2', // Alpine Approach (29km)
-      isLong: false,
-      isHard: false,
+      route: 'route-valais-ride-2',
+      sessions: ['endurance', 'tempo', 'interval'],
     },
     {
       type: 'Ride',
@@ -346,12 +369,9 @@ function generateActivities(): ApiActivity[] {
       hr: 135,
       watts: 165,
       tss: 120,
-      route: 'route-valais-ride-1', // Rhône Valley Ride (73km)
-      isLong: true,
-      isHard: false,
+      route: 'route-valais-ride-1',
+      sessions: ['long', 'endurance'],
     },
-
-    // === VIRTUAL CYCLING ===
     {
       type: 'VirtualRide',
       dist: 23000,
@@ -361,9 +381,8 @@ function generateActivities(): ApiActivity[] {
       hr: 150,
       watts: 195,
       tss: 55,
-      route: 'route-rouvy-grindelwald', // Grindelwald to Lauterbrunnen (Swiss Alps)
-      isLong: false,
-      isHard: false,
+      route: 'route-rouvy-grindelwald',
+      sessions: ['endurance', 'tempo', 'interval'],
     },
     {
       type: 'VirtualRide',
@@ -374,9 +393,8 @@ function generateActivities(): ApiActivity[] {
       hr: 155,
       watts: 210,
       tss: 50,
-      route: 'route-rouvy-lavaux', // Lavaux Vineyards (Lake Geneva)
-      isLong: false,
-      isHard: true,
+      route: 'route-rouvy-lavaux',
+      sessions: ['tempo', 'interval'],
     },
     {
       type: 'VirtualRide',
@@ -387,12 +405,9 @@ function generateActivities(): ApiActivity[] {
       hr: 148,
       watts: 190,
       tss: 60,
-      route: 'route-rouvy-vuelta', // La Vuelta Stage 12 (Spain)
-      isLong: false,
-      isHard: false,
+      route: 'route-rouvy-vuelta',
+      sessions: ['endurance', 'tempo'],
     },
-
-    // === RUNNING (Rio de Janeiro, Brazil) ===
     {
       type: 'Run',
       dist: 3000,
@@ -402,9 +417,8 @@ function generateActivities(): ApiActivity[] {
       hr: 140,
       watts: 0,
       tss: 25,
-      route: 'route-rio-run-1', // Short Rio run
-      isLong: false,
-      isHard: false,
+      route: 'route-rio-run-1',
+      sessions: ['endurance', 'recovery'],
     },
     {
       type: 'Run',
@@ -415,9 +429,8 @@ function generateActivities(): ApiActivity[] {
       hr: 145,
       watts: 0,
       tss: 70,
-      route: 'route-rio-run-2', // Long Rio run (15km)
-      isLong: true,
-      isHard: false,
+      route: 'route-rio-run-2',
+      sessions: ['long', 'endurance'],
     },
     {
       type: 'Run',
@@ -428,12 +441,9 @@ function generateActivities(): ApiActivity[] {
       hr: 155,
       watts: 0,
       tss: 30,
-      route: 'route-rio-run-3', // Tempo Rio run
-      isLong: false,
-      isHard: true,
+      route: 'route-rio-run-3',
+      sessions: ['tempo', 'interval'],
     },
-
-    // === OPEN WATER SWIMMING (La Orotava, Tenerife) ===
     {
       type: 'Swim',
       dist: 2500,
@@ -443,9 +453,8 @@ function generateActivities(): ApiActivity[] {
       hr: 130,
       watts: 0,
       tss: 40,
-      route: null, // Pool swim - no GPS
-      isLong: false,
-      isHard: false,
+      route: null,
+      sessions: ['endurance'],
     },
     {
       type: 'Swim',
@@ -456,9 +465,8 @@ function generateActivities(): ApiActivity[] {
       hr: 135,
       watts: 0,
       tss: 25,
-      route: 'route-la-orotava-swim-1', // Open water swim (Tenerife)
-      isLong: false,
-      isHard: false,
+      route: 'route-la-orotava-swim-1',
+      sessions: ['endurance'],
     },
     {
       type: 'Swim',
@@ -469,12 +477,9 @@ function generateActivities(): ApiActivity[] {
       hr: 140,
       watts: 0,
       tss: 20,
-      route: 'route-la-orotava-swim-3', // Open water swim (Tenerife)
-      isLong: false,
-      isHard: true,
+      route: 'route-la-orotava-swim-3',
+      sessions: ['tempo'],
     },
-
-    // === HIKING (Lauterbrunnen, Switzerland) ===
     {
       type: 'Hike',
       dist: 10000,
@@ -484,9 +489,8 @@ function generateActivities(): ApiActivity[] {
       hr: 115,
       watts: 0,
       tss: 80,
-      route: 'route-lauterbrunnen-hike-3', // Long mountain hike (10km)
-      isLong: true,
-      isHard: false,
+      route: 'route-lauterbrunnen-hike-3',
+      sessions: ['long'],
     },
     {
       type: 'Hike',
@@ -497,12 +501,9 @@ function generateActivities(): ApiActivity[] {
       hr: 105,
       watts: 0,
       tss: 20,
-      route: 'route-lauterbrunnen-hike-2', // Short valley hike
-      isLong: false,
-      isHard: false,
+      route: 'route-lauterbrunnen-hike-2',
+      sessions: ['endurance'],
     },
-
-    // === WALKING (Cape Town, South Africa) ===
     {
       type: 'Walk',
       dist: 3000,
@@ -512,9 +513,8 @@ function generateActivities(): ApiActivity[] {
       hr: 95,
       watts: 0,
       tss: 15,
-      route: 'route-cape-town-walk-3', // Table Mountain walk
-      isLong: false,
-      isHard: false,
+      route: 'route-cape-town-walk-3',
+      sessions: ['endurance'],
     },
     {
       type: 'Walk',
@@ -525,298 +525,340 @@ function generateActivities(): ApiActivity[] {
       hr: 90,
       watts: 0,
       tss: 12,
-      route: 'route-cape-town-walk-5', // Coastal walk
-      isLong: false,
-      isHard: false,
+      route: 'route-cape-town-walk-5',
+      sessions: ['recovery'],
     },
   ];
 
-  // Track CTL/ATL for realistic values
-  let ctl = 35;
-  let atl = 35;
+  const homeRoutes: Record<string, number[]> = {
+    Ride: [0],
+    VirtualRide: [2],
+    Run: [5],
+  };
+
+  let ctl = 30;
+  let atl = 30;
   let lastRoute: string | null = null;
 
-  // Swiss routes: Valais rides (0-1), Grindelwald/Lavaux virtual rides (2-3), Lauterbrunnen hikes (11-12)
   const swissIndices = [0, 1, 2, 3, 11, 12];
 
-  // Helper to select a template from a range, avoiding the last used route (deterministic)
-  const selectTemplate = (indices: number[], random: () => number): (typeof templates)[0] => {
-    // Filter to templates with different routes than last used
-    const candidates = indices.filter((i) => templates[i].route !== lastRoute);
-    // If all have same route (shouldn't happen), fall back to original list
-    const pool = candidates.length > 0 ? candidates : indices;
-    return templates[pool[Math.floor(random() * pool.length)]];
-  };
+  function selectTemplate(
+    indices: number[],
+    rng: () => number,
+    session: SessionType
+  ): RouteTemplate {
+    const withSession = indices.filter((i) => templates[i].sessions.includes(session));
+    const pool = withSession.length > 0 ? withSession : indices;
+    const noRepeat = pool.filter((i) => templates[i].route !== lastRoute);
+    const final = noRepeat.length > 0 ? noRepeat : pool;
+    return templates[final[Math.floor(rng() * final.length)]];
+  }
+
+  function getStreamTypes(type: string, route: string | null): string[] {
+    if (type === 'Swim' && !route) return ['time', 'heartrate', 'distance'];
+    if (type === 'Swim') return ['time', 'latlng', 'heartrate', 'distance'];
+    if (type === 'Hike' || type === 'Walk')
+      return ['time', 'latlng', 'heartrate', 'altitude', 'grade_smooth'];
+    if (type === 'VirtualRide' && !route)
+      return [
+        'time',
+        'heartrate',
+        'altitude',
+        'cadence',
+        'watts',
+        'velocity_smooth',
+        'grade_smooth',
+      ];
+    if (type === 'Run')
+      return [
+        'time',
+        'latlng',
+        'heartrate',
+        'altitude',
+        'cadence',
+        'velocity_smooth',
+        'grade_smooth',
+      ];
+    return [
+      'time',
+      'latlng',
+      'heartrate',
+      'altitude',
+      'cadence',
+      'watts',
+      'velocity_smooth',
+      'grade_smooth',
+    ];
+  }
+
+  function pushActivity(
+    id: string,
+    date: Date,
+    template: RouteTemplate,
+    session: SessionType,
+    ctx: ReturnType<typeof getTrainingDay>,
+    rng: () => number
+  ) {
+    const fitnessRatio = ctx.ftpWatts / 250;
+    const tsbEffect = ctl - atl > 10 ? 1.03 : atl - ctl > 10 ? 0.96 : 1.0;
+    const perf = fitnessRatio * ctx.formFactor * tsbEffect * (0.97 + rng() * 0.06);
+
+    const sessionVolume: Record<SessionType, number> = {
+      endurance: 1.0,
+      tempo: 0.85,
+      interval: 0.7,
+      long: 1.4,
+      recovery: 0.55,
+      race: 0.9,
+    };
+    const vol = ctx.volumeMultiplier * (sessionVolume[session] || 1.0);
+
+    const movingTime = Math.round(template.time * vol);
+    const distance = Math.round(template.dist * vol * perf);
+
+    const sessionIntensity: Record<SessionType, number> = {
+      endurance: 0.68,
+      tempo: 0.88,
+      interval: 0.95,
+      long: 0.65,
+      recovery: 0.52,
+      race: 1.05,
+    };
+    const intensity = sessionIntensity[session] || 0.7;
+
+    const avgWatts = template.watts
+      ? Math.round(ctx.ftpWatts * intensity * ctx.formFactor * (0.96 + rng() * 0.08))
+      : null;
+    const tss = template.watts
+      ? Math.round((movingTime / 3600) * Math.pow(intensity * ctx.formFactor, 2) * 100)
+      : Math.round(template.tss * vol * ctx.formFactor);
+
+    atl = atl + (tss - atl) / 7;
+    ctl = ctl + (tss - ctl) / 42;
+
+    const baseHr =
+      template.hr * (session === 'recovery' ? 0.85 : session === 'interval' ? 1.08 : 1.0);
+    const hrFitnessDrift = 1 - (fitnessRatio - 1) * 0.5;
+    const avgHr = Math.round(baseHr * hrFitnessDrift * ctx.formFactor * (0.96 + rng() * 0.08));
+
+    const location = template.route
+      ? getRouteLocation(template.route)
+      : { locality: null, country: null };
+
+    const zoneDist = ZONE_DISTRIBUTIONS[session] || ZONE_DISTRIBUTIONS.endurance;
+    const zoneTimes = template.watts
+      ? zoneDist.map((pct, i) => ({ id: `Z${i + 1}`, secs: Math.round(movingTime * pct) }))
+      : null;
+
+    const hrZoneSecs = !template.watts
+      ? [0.12, 0.35, 0.3, 0.17, 0.06].map((p) => Math.round(movingTime * p))
+      : null;
+
+    const a: ApiActivity & { _routeId: string | null } = {
+      id,
+      start_date_local: formatLocalISOString(date),
+      type: template.type,
+      name: generateActivityName(template.type, date.getHours(), session, template.route),
+      description: null,
+      distance,
+      moving_time: movingTime,
+      elapsed_time: Math.round(movingTime * (1.03 + rng() * 0.04)),
+      total_elevation_gain: Math.round(template.elev * vol),
+      total_elevation_loss: Math.round(template.elev * vol * 0.95),
+      average_speed: distance / movingTime,
+      max_speed: (distance / movingTime) * (1.2 + rng() * 0.2),
+      average_heartrate: Math.max(80, Math.min(195, avgHr)),
+      max_heartrate: Math.round(Math.min(200, avgHr * (1.12 + rng() * 0.08))),
+      average_cadence:
+        template.type === 'Run'
+          ? 168 + Math.round(rng() * 12)
+          : template.type === 'Ride' || template.type === 'VirtualRide'
+            ? 82 + Math.round(rng() * 16)
+            : null,
+      average_temp: 14 + Math.round(rng() * 14),
+      calories: Math.round(tss * (7 + rng() * 2)),
+      device_name: 'Demo Device',
+      trainer: template.type === 'VirtualRide',
+      commute: false,
+      average_watts: avgWatts,
+      weighted_average_watts: avgWatts ? Math.round(avgWatts * (1.03 + rng() * 0.06)) : null,
+      icu_training_load: tss,
+      icu_intensity: avgWatts ? Math.round((avgWatts / ctx.ftpWatts) * 100) : null,
+      icu_ftp: ctx.ftpWatts,
+      icu_atl: Math.round(atl * 10) / 10,
+      icu_ctl: Math.round(ctl * 10) / 10,
+      icu_hr_zones: [130, 145, 160, 170, 180, 190],
+      icu_power_zones:
+        Math.round(ctx.ftpWatts * 0.55) > 0
+          ? [
+              Math.round(ctx.ftpWatts * 0.55),
+              Math.round(ctx.ftpWatts * 0.75),
+              Math.round(ctx.ftpWatts * 0.9),
+              ctx.ftpWatts,
+              Math.round(ctx.ftpWatts * 1.18),
+              Math.round(ctx.ftpWatts * 1.5),
+            ]
+          : [125, 170, 210, 250, 290, 350],
+      icu_zone_times: zoneTimes,
+      stream_types: getStreamTypes(template.type, template.route),
+      locality: location.locality,
+      country: location.country,
+      _routeId: template.route,
+    };
+    a.skyline_chart_bytes = generateSkylineBytes(
+      zoneTimes,
+      hrZoneSecs,
+      createActivitySeededRandom(id)
+    );
+    activities.push(a);
+    lastRoute = template.route;
+  }
 
   for (let daysAgo = 365; daysAgo >= 0; daysAgo--) {
     const date = new Date(referenceDate);
     date.setDate(date.getDate() - daysAgo);
     const dateStr = formatDateId(date);
-
-    // Create date-seeded random for this day's activities
     const dayRandom = createDateSeededRandom(dateStr + '-activity');
-
-    // Set time of day deterministically
-    const timeOfDay = getTimeOfDay(dateStr);
-    date.setHours(timeOfDay.hours, timeOfDay.minutes, 0, 0);
-
-    // Seasonal variation
-    const month = date.getMonth();
-    const seasonMult =
-      month >= 11 || month <= 1
-        ? 0.7
-        : month >= 2 && month <= 4
-          ? 0.9
-          : month >= 5 && month <= 7
-            ? 1.15
-            : 1.0;
-
     const dayOfWeek = date.getDay();
 
-    // Rest days (deterministic)
-    if (isRestDay(dateStr, dayOfWeek)) {
-      // Update CTL/ATL even on rest days
+    const ctx = getTrainingDay(daysAgo, dateStr);
+
+    if (ctx.isLifeGap || ctx.isIllness) {
+      if (dayRandom() < ctx.restDayProbability) {
+        atl = atl + (0 - atl) / 7;
+        ctl = ctl + (0 - ctl) / 42;
+        continue;
+      }
+    }
+
+    const spontaneousRest = dayRandom() < ctx.restDayProbability;
+    if (spontaneousRest) {
       atl = atl + (0 - atl) / 7;
       ctl = ctl + (0 - ctl) / 42;
       continue;
     }
 
-    // Select template based on day (using deterministic random)
-    // Templates: 0-1=Ride, 2-4=VirtualRide, 5-7=Run, 8-10=Swim, 11-12=Hike, 13-14=Walk
+    const isHard = dayRandom() < ctx.hardSessionProbability;
+    const session: SessionType = ctx.isIllness
+      ? 'recovery'
+      : isHard
+        ? dayRandom() < 0.5
+          ? 'interval'
+          : 'tempo'
+        : dayOfWeek === 0
+          ? 'long'
+          : ctx.phase === 'race' && dayRandom() < 0.3
+            ? 'race'
+            : ctx.phase === 'activeRecovery' || ctx.phase === 'taper'
+              ? dayRandom() < 0.4
+                ? 'recovery'
+                : 'endurance'
+              : 'endurance';
+
+    const timeOfDay = getTimeOfDay(dateStr);
+    date.setHours(timeOfDay.hours, timeOfDay.minutes, 0, 0);
+
     let template;
     if (daysAgo <= 7) {
-      // Most recent week: Swiss mountain activities for beautiful satellite/3D showcase
-      template = selectTemplate(swissIndices, dayRandom);
+      template = selectTemplate(swissIndices, dayRandom, session);
     } else if (dayOfWeek === 0) {
-      // Sunday: Long activities - long ride, long run, or mountain hike
       const r = dayRandom();
-      if (r < 0.4)
-        template = selectTemplate([1], dayRandom); // Long ride
-      else if (r < 0.7)
-        template = selectTemplate([6], dayRandom); // Long run
-      else template = selectTemplate([11], dayRandom); // Mountain hike
+      if (r < 0.4) template = selectTemplate([1], dayRandom, 'long');
+      else if (r < 0.7) template = selectTemplate([6], dayRandom, 'long');
+      else template = selectTemplate([11], dayRandom, 'long');
     } else if (dayOfWeek === 6) {
-      // Saturday: Outdoor activities - rides, runs, hikes, or walks
       const r = dayRandom();
-      if (r < 0.35)
-        template = selectTemplate([0, 1], dayRandom); // Rides
-      else if (r < 0.6)
-        template = selectTemplate([5, 6, 7], dayRandom); // Runs
-      else if (r < 0.8)
-        template = selectTemplate([11, 12], dayRandom); // Hikes
-      else template = selectTemplate([13, 14], dayRandom); // Walks
+      if (r < 0.35) template = selectTemplate([0, 1], dayRandom, session);
+      else if (r < 0.6) template = selectTemplate([5, 6, 7], dayRandom, session);
+      else if (r < 0.8) template = selectTemplate([11, 12], dayRandom, session);
+      else template = selectTemplate([13, 14], dayRandom, session);
     } else if (dayOfWeek === 2 || dayOfWeek === 5) {
-      // Tuesday/Friday: Indoor or short activities - runs, swims, virtual rides
       const r = dayRandom();
-      if (r < 0.35)
-        template = selectTemplate([5, 6, 7], dayRandom); // Runs
-      else if (r < 0.55)
-        template = selectTemplate([8, 9, 10], dayRandom); // Swims
-      else template = selectTemplate([2, 3, 4], dayRandom); // Virtual rides
+      if (r < 0.35) template = selectTemplate([5, 6, 7], dayRandom, session);
+      else if (r < 0.55) template = selectTemplate([8, 9, 10], dayRandom, session);
+      else template = selectTemplate([2, 3, 4], dayRandom, session);
     } else {
-      // Other weekdays: Mix of everything
-      template = selectTemplate([...Array(templates.length).keys()], dayRandom);
+      const sportType = dayRandom() < 0.4 ? 'Ride' : dayRandom() < 0.7 ? 'Run' : null;
+      if (sportType && homeRoutes[sportType] && dayRandom() < 0.4) {
+        template = selectTemplate(homeRoutes[sportType], dayRandom, session);
+      } else {
+        template = selectTemplate([...Array(templates.length).keys()], dayRandom, session);
+      }
     }
 
-    const variance = (0.85 + dayRandom() * 0.3) * seasonMult;
-    const tss = Math.round(template.tss * variance);
-
-    // Update CTL/ATL
-    atl = atl + (tss - atl) / 7;
-    ctl = ctl + (tss - ctl) / 42;
-
-    // Generate name based on type and time of day
-    const hour = date.getHours();
-    const activityName = generateActivityName(
-      template.type,
-      hour,
-      template.isLong,
-      template.isHard,
-      template.route
-    );
-
-    // Get location from route
-    const location = template.route
-      ? getRouteLocation(template.route)
-      : { locality: null, country: null };
-
-    // Generate deterministic activity ID using global index
     const activityId = generateActivityId(dateStr, globalActivityIndex);
     globalActivityIndex++;
+    pushActivity(activityId, date, template, session, ctx, dayRandom);
 
-    activities.push({
-      id: activityId,
-      start_date_local: formatLocalISOString(date),
-      type: template.type,
-      name: activityName,
-      description: null,
-      distance: Math.round(template.dist * variance),
-      moving_time: Math.round(template.time * variance),
-      elapsed_time: Math.round(template.time * variance * 1.05),
-      total_elevation_gain: Math.round(template.elev * variance),
-      total_elevation_loss: Math.round(template.elev * variance * 0.95),
-      average_speed: template.speed * variance,
-      max_speed: template.speed * variance * 1.3,
-      average_heartrate: Math.round(template.hr * (0.95 + dayRandom() * 0.1)),
-      max_heartrate: Math.round(template.hr * 1.2),
-      average_cadence:
-        template.type === 'Run'
-          ? 85 + dayRandom() * 10
-          : template.type === 'Ride'
-            ? 85 + dayRandom() * 15
-            : null,
-      average_temp: 18 + dayRandom() * 10,
-      calories: Math.round(tss * 8),
-      device_name: 'Demo Device',
-      trainer: template.type === 'VirtualRide',
-      commute: false,
-      average_watts: template.watts ? Math.round(template.watts * variance) : null,
-      weighted_average_watts: template.watts
-        ? Math.round(template.watts * variance * (1.03 + dayRandom() * 0.07))
-        : null,
-      icu_training_load: tss,
-      icu_intensity: template.watts ? Math.round((template.watts / 250) * 100) : null,
-      icu_ftp: 250,
-      icu_atl: Math.round(atl * 10) / 10,
-      icu_ctl: Math.round(ctl * 10) / 10,
-      icu_hr_zones: [130, 145, 160, 170, 180, 190],
-      icu_power_zones: [125, 170, 210, 250, 290, 350],
-      icu_zone_times: template.watts
-        ? (() => {
-            const totalSecs = Math.round(template.time * variance);
-            return [
-              { id: 'Z1', secs: Math.round(totalSecs * 0.1) },
-              { id: 'Z2', secs: Math.round(totalSecs * 0.35) },
-              { id: 'Z3', secs: Math.round(totalSecs * 0.25) },
-              { id: 'Z4', secs: Math.round(totalSecs * 0.15) },
-              { id: 'Z5', secs: Math.round(totalSecs * 0.1) },
-              { id: 'Z6', secs: Math.round(totalSecs * 0.04) },
-              { id: 'Z7', secs: Math.round(totalSecs * 0.01) },
-            ];
-          })()
-        : null,
-      stream_types:
-        template.type === 'Swim' && !template.route
-          ? ['time', 'heartrate', 'distance'] // Pool swim - no GPS
-          : template.type === 'Swim' && template.route
-            ? ['time', 'latlng', 'heartrate', 'distance'] // Open water swim with GPS
-            : template.type === 'VirtualRide' && template.route
-              ? [
-                  'time',
-                  'latlng',
-                  'heartrate',
-                  'altitude',
-                  'cadence',
-                  'watts',
-                  'velocity_smooth',
-                  'grade_smooth',
-                ] // Virtual ride with GPS
-              : template.type === 'VirtualRide'
-                ? [
-                    'time',
-                    'heartrate',
-                    'altitude',
-                    'cadence',
-                    'watts',
-                    'velocity_smooth',
-                    'grade_smooth',
-                  ] // Virtual ride without GPS (fallback)
-                : template.type === 'Ride'
-                  ? [
-                      'time',
-                      'latlng',
-                      'heartrate',
-                      'altitude',
-                      'cadence',
-                      'watts',
-                      'velocity_smooth',
-                      'grade_smooth',
-                    ]
-                  : template.type === 'Hike' || template.type === 'Walk'
-                    ? ['time', 'latlng', 'heartrate', 'altitude', 'grade_smooth'] // Hiking/walking
-                    : [
-                        'time',
-                        'latlng',
-                        'heartrate',
-                        'altitude',
-                        'cadence',
-                        'velocity_smooth',
-                        'grade_smooth',
-                      ], // Running
-      locality: location.locality,
-      country: location.country,
-      // Store route ID for map lookups (not part of real API)
-      _routeId: template.route,
-    } as ApiActivity & { _routeId: string | null });
-
-    // Generate skyline bytes for the activity we just pushed
-    const pushed = activities[activities.length - 1];
-    const hrZoneSecs = !template.watts
-      ? (() => {
-          const totalSecs = Math.round(template.time * variance);
-          return [
-            Math.round(totalSecs * 0.15),
-            Math.round(totalSecs * 0.35),
-            Math.round(totalSecs * 0.3),
-            Math.round(totalSecs * 0.15),
-            Math.round(totalSecs * 0.05),
-          ];
-        })()
-      : null;
-    pushed.skyline_chart_bytes = generateSkylineBytes(
-      pushed.icu_zone_times,
-      hrZoneSecs,
-      createActivitySeededRandom(pushed.id)
-    );
-
-    // Track last route to avoid consecutive duplicates
-    lastRoute = template.route;
+    if (dayRandom() < ctx.doubleDayProbability) {
+      const pmDate = new Date(date);
+      pmDate.setHours(17 + Math.floor(dayRandom() * 2), Math.floor(dayRandom() * 60), 0, 0);
+      const pmSession: SessionType =
+        session === 'interval' || session === 'tempo' ? 'recovery' : 'endurance';
+      const pmSport = template.type === 'Ride' ? [5, 6, 7] : [0, 2, 3, 4];
+      const pmTemplate = selectTemplate(pmSport, dayRandom, pmSession);
+      const pmId = generateActivityId(dateStr, globalActivityIndex);
+      globalActivityIndex++;
+      pushActivity(pmId, pmDate, pmTemplate, pmSession, ctx, dayRandom);
+    }
   }
 
-  // === STRESS TEST: High-traversal section ===
-  // Add 20 short runs on the same route to test section detection grouping.
-  // All use identical GPS coordinates so section detection groups them together.
-  // Start from 14 days ago to keep the most recent week free for Swiss showcase activities.
-  // Times are monotonically increasing with age so demo-stress-0 (the newest,
-  // i=0) is the fastest, giving a deterministic PR for feed-card trophy /
-  // section-PR-line assertions.
-  const stressRoute = templates[5]; // route-rio-run-1 (3km short run)
-  const stressLocation = getRouteLocation(stressRoute.route!);
+  // === STRESS TEST: 20 runs on the same route with fitness-driven times ===
+  // Pre-compute all times, then ensure demo-stress-0 (newest) is the fastest
+  const stressTemplate = templates[5]; // route-rio-run-1
+  const stressLocation = getRouteLocation(stressTemplate.route!);
+  const stressTimes: number[] = [];
+  const stressDaysAgo: number[] = [];
   for (let i = 0; i < 20; i++) {
-    const daysAgo = 14 + Math.floor((i / 20) * 351);
+    const da = 14 + Math.floor((i / 20) * 351);
+    stressDaysAgo.push(da);
+    const d = new Date(referenceDate);
+    d.setDate(d.getDate() - da);
+    const ds = formatDateId(d);
+    const c = getTrainingDay(da, ds);
+    const ratio = c.ftpWatts / 250;
+    stressTimes.push(Math.round(stressTemplate.time / (ratio * Math.min(c.formFactor, 1.05))));
+  }
+  const minTime = Math.min(...stressTimes);
+  stressTimes[0] = Math.max(minTime - 5, Math.round(stressTemplate.time * 0.82));
+
+  for (let i = 0; i < 20; i++) {
     const date = new Date(referenceDate);
-    date.setDate(date.getDate() - daysAgo);
+    date.setDate(date.getDate() - stressDaysAgo[i]);
     date.setHours(6, 30, 0, 0);
-    const activityId = `demo-stress-${i}`;
+    const dateStr = formatDateId(date);
+    const ctx = getTrainingDay(stressDaysAgo[i], dateStr);
+    const movingTime = i === 0 ? stressTimes[0] : Math.max(stressTimes[0] + 1, stressTimes[i]);
+    const fitnessRatio = ctx.ftpWatts / 250;
 
     activities.push({
-      id: activityId,
+      id: `demo-stress-${i}`,
       start_date_local: formatLocalISOString(date),
-      type: stressRoute.type,
-      name: `Morning Run #${i + 1}`,
+      type: stressTemplate.type,
+      name: `Morning Run`,
       description: null,
-      distance: stressRoute.dist,
-      moving_time: stressRoute.time + i * 3,
-      elapsed_time: Math.round(stressRoute.time * 1.05) + i * 3,
-      total_elevation_gain: stressRoute.elev,
-      total_elevation_loss: Math.round(stressRoute.elev * 0.95),
-      average_speed: stressRoute.speed * (0.95 + (i % 5) * 0.02),
-      max_speed: stressRoute.speed * 1.3,
-      average_heartrate: stressRoute.hr + (i % 8) - 4,
-      max_heartrate: Math.round(stressRoute.hr * 1.2),
-      average_cadence: 85 + (i % 10),
+      distance: stressTemplate.dist,
+      moving_time: movingTime,
+      elapsed_time: Math.round(movingTime * 1.05),
+      total_elevation_gain: stressTemplate.elev,
+      total_elevation_loss: Math.round(stressTemplate.elev * 0.95),
+      average_speed: stressTemplate.dist / movingTime,
+      max_speed: (stressTemplate.dist / movingTime) * 1.3,
+      average_heartrate: Math.round(stressTemplate.hr * (1.05 - fitnessRatio * 0.05) + (i % 8) - 4),
+      max_heartrate: Math.round(stressTemplate.hr * 1.2),
+      average_cadence: 170 + (i % 10),
       average_temp: 22,
-      calories: stressRoute.tss * 8,
+      calories: stressTemplate.tss * 8,
       device_name: 'Demo Device',
       trainer: false,
       commute: true,
       average_watts: null,
       weighted_average_watts: null,
-      icu_training_load: stressRoute.tss,
+      icu_training_load: stressTemplate.tss,
       icu_intensity: null,
-      icu_ftp: 250,
-      icu_atl: 35,
-      icu_ctl: 35,
+      icu_ftp: ctx.ftpWatts,
+      icu_atl: Math.round(atl * 10) / 10,
+      icu_ctl: Math.round(ctl * 10) / 10,
       icu_hr_zones: [130, 145, 160, 170, 180, 190],
       icu_power_zones: [125, 170, 210, 250, 290, 350],
       icu_zone_times: null,
@@ -831,66 +873,72 @@ function generateActivities(): ApiActivity[] {
       ],
       locality: stressLocation.locality,
       country: stressLocation.country,
-      _routeId: stressRoute.route,
+      _routeId: stressTemplate.route,
     } as ApiActivity & { _routeId: string | null });
   }
 
   return activities;
 }
 
-/**
- * Generate a year of wellness data in API format
- * Uses deterministic random for reproducible data
- */
 function generateWellness(): ApiWellness[] {
   const wellness: ApiWellness[] = [];
   const referenceDate = getDemoReferenceDate();
 
-  let ctl = 35;
-  let atl = 35;
-  const baseWeight = 75;
-  const baseRhr = 55;
-  const baseHrv = 50;
+  let ctl = 30;
+  let atl = 30;
 
   for (let daysAgo = 365; daysAgo >= 0; daysAgo--) {
     const date = new Date(referenceDate);
     date.setDate(date.getDate() - daysAgo);
     const dateStr = formatDateId(date);
+    const rng = createDateSeededRandom(dateStr + '-wellness-fixture');
+    const ctx = getTrainingDay(daysAgo, dateStr);
 
-    // Create date-seeded random for this day's wellness
-    const wellnessRandom = createDateSeededRandom(dateStr + '-wellness-fixture');
-
-    // Seasonal target CTL
-    const month = date.getMonth();
-    const targetCtl =
-      month >= 11 || month <= 1
-        ? 35
-        : month >= 2 && month <= 4
-          ? 45
-          : month >= 5 && month <= 7
-            ? 55
-            : 45;
-
-    // Simulate daily load (deterministic)
-    const dayOfWeek = date.getDay();
-    const isRest = dayOfWeek === 1 || (dayOfWeek === 4 && wellnessRandom() < 0.5);
+    const isRest = rng() < ctx.restDayProbability;
     const dailyTss = isRest
       ? 0
-      : dayOfWeek === 0 || dayOfWeek === 6
-        ? 80 + wellnessRandom() * 50
-        : 40 + wellnessRandom() * 40;
+      : Math.round(
+          ctx.targetCTL * ctx.volumeMultiplier * ctx.intensityMultiplier * (0.8 + rng() * 0.4)
+        );
 
-    // Update CTL/ATL
     atl = atl + (dailyTss - atl) / 7;
     ctl = ctl + (dailyTss - ctl) / 42;
-    ctl += (targetCtl - ctl) * 0.01;
 
-    // Derived metrics (deterministic)
-    const fatigueFactor = atl / 50;
-    const rhr = Math.round(baseRhr + fatigueFactor * 5 + (wellnessRandom() - 0.5) * 4);
-    const hrv = Math.round(baseHrv - fatigueFactor * 5 + (wellnessRandom() - 0.5) * 10);
-    const sleepHours = 7 + (isRest ? 0.5 : 0) + (wellnessRandom() - 0.5) * 1.5;
-    const sleepScore = Math.round(70 + (sleepHours - 6) * 10 + wellnessRandom() * 10);
+    const fitnessBonus = Math.max(0, (ctx.ftpWatts - 235) / 30) * 4;
+    const acuteLoadStress = (atl / 50) * 8;
+    const tsbBoost = Math.max(0, (ctl - atl) / 20) * 3;
+    const illnessHit = ctx.isIllness ? 12 : 0;
+
+    const baseHrv = 52;
+    const hrv = Math.round(
+      baseHrv + fitnessBonus + tsbBoost - acuteLoadStress - illnessHit + (rng() - 0.5) * 12
+    );
+
+    const baseRhr = 57;
+    const rhr = Math.round(
+      baseRhr -
+        fitnessBonus * 0.4 +
+        acuteLoadStress * 0.7 +
+        (ctx.isIllness ? 7 : 0) +
+        (rng() - 0.5) * 4
+    );
+
+    // Weight: 77kg start → gradual loss during training → 73.5 at peak → slight regain
+    const weightProgress = (365 - daysAgo) / 365;
+    const trainingWeightLoss = Math.min(3.5, weightProgress * 5);
+    const peakRebound = daysAgo < 50 ? (50 - daysAgo) * 0.02 : 0;
+    const offseasonGain = daysAgo > 330 ? (daysAgo - 330) * 0.015 : 0;
+    const weight = 77 - trainingWeightLoss + peakRebound + offseasonGain + (rng() - 0.5) * 0.8;
+
+    const overreaching = Math.max(0, atl - ctl - 10);
+    const baseSleep = 7.5;
+    const sleepHours =
+      baseSleep +
+      (ctx.isIllness ? 1.2 : 0) +
+      (isRest ? 0.4 : 0) -
+      overreaching * 0.03 +
+      (rng() - 0.5) * 1.0;
+    const sleepScore = Math.round(72 + (sleepHours - 6.5) * 12 + (rng() - 0.5) * 10);
 
     wellness.push({
       id: dateStr,
@@ -900,23 +948,18 @@ function generateWellness(): ApiWellness[] {
       ctlLoad: Math.round(dailyTss),
       atlLoad: Math.round(dailyTss),
       sportInfo: [
-        {
-          type: 'Ride',
-          eftp: 250 + Math.round((ctl - 40) * 1.5),
-          wPrime: 15000,
-          pMax: 800,
-        },
-        { type: 'Run', eftp: 300, wPrime: 20000, pMax: 600 },
+        { type: 'Ride', eftp: ctx.ftpWatts, wPrime: 15000, pMax: Math.round(ctx.ftpWatts * 3.2) },
+        { type: 'Run', eftp: Math.round(ctx.runPaceMs * 120), wPrime: 20000, pMax: 600 },
       ],
-      weight: Math.round((baseWeight + Math.sin(daysAgo * 0.1) * 1.5) * 10) / 10,
-      restingHR: rhr,
+      weight: Math.round(weight * 10) / 10,
+      restingHR: Math.max(42, Math.min(70, rhr)),
       hrv: Math.max(20, Math.min(100, hrv)),
-      hrvSDNN: Math.round(hrv * 1.2),
-      sleepSecs: Math.round(sleepHours * 3600),
-      sleepScore: Math.max(50, Math.min(100, sleepScore)),
+      hrvSDNN: Math.round(Math.max(20, Math.min(100, hrv)) * 1.2),
+      sleepSecs: Math.round(Math.max(5, Math.min(10, sleepHours)) * 3600),
+      sleepScore: Math.max(40, Math.min(100, sleepScore)),
       sleepQuality: sleepScore >= 80 ? 3 : sleepScore >= 60 ? 2 : 1,
-      steps: Math.round((isRest ? 5000 : 10000) + wellnessRandom() * 5000),
-      vo2max: 50 + (ctl - 40) * 0.1,
+      steps: Math.round((isRest ? 4000 : 8000) + rng() * 6000),
+      vo2max: 48 + fitnessBonus * 0.3,
     });
   }
 
@@ -1354,7 +1397,10 @@ export function getActivityMap(id: string, boundsOnly = false): ApiActivityMap |
   const route = routeId ? demoRoutes.find((r) => r.id === routeId) : null;
 
   if (route && routeId) {
-    const coords = getRouteCoordinates(routeId);
+    const isStable = id.startsWith('demo-test-') || id.startsWith('demo-stress-');
+    const coords = isStable
+      ? getRouteCoordinates(routeId)
+      : getRouteCoordinatesWithVariation(routeId, createActivitySeededRandom(id + '-gps'));
     const bounds = getRouteBounds(coords);
     return {
       bounds,

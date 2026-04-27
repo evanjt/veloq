@@ -31,6 +31,7 @@ import type {
   FfiStartupData,
   FfiRoutesScreenData,
   FfiPotentialSection,
+  FfiSectionConfig,
   DownloadProgressResult,
 } from './generated/veloqrs';
 
@@ -301,13 +302,16 @@ class RouteEngineClient implements DelegateHost {
 
   getAllMapSignatures = (): Array<{
     activityId: string;
-    coords: number[];
+    encodedCoords: ArrayBuffer;
     centerLat: number;
     centerLng: number;
   }> => mapsDelegates.getAllMapSignatures(this);
 
   setRouteName = (routeId: string, name: string): void =>
     routeDelegates.setRouteName(this, routeId, name);
+
+  setRouteRepresentative = (routeId: string, activityId: string): boolean =>
+    routeDelegates.setRouteRepresentative(this, routeId, activityId);
 
   setSectionName = (sectionId: string, name: string): boolean =>
     sectionDelegates.setSectionName(this, sectionId, name);
@@ -706,14 +710,14 @@ class RouteEngineClient implements DelegateHost {
   detectPotentials = (sportFilter?: string): FfiPotentialSection[] =>
     detectionDelegates.detectPotentials(this, sportFilter);
 
-  extractSectionTrace = (activityId: string, sectionPolylineJson: string): FfiGpsPoint[] =>
-    sectionDelegates.extractSectionTrace(this, activityId, sectionPolylineJson);
+  extractSectionTrace = (activityId: string, sectionPolylineFlat: number[]): FfiGpsPoint[] =>
+    sectionDelegates.extractSectionTrace(this, activityId, sectionPolylineFlat);
 
   extractSectionTracesBatch = (
     activityIds: string[],
-    sectionPolylineJson: string
+    sectionPolylineFlat: number[]
   ): Record<string, RoutePoint[]> =>
-    sectionDelegates.extractSectionTracesBatch(this, activityIds, sectionPolylineJson);
+    sectionDelegates.extractSectionTracesBatch(this, activityIds, sectionPolylineFlat);
 
   getActivityMetricsForIds = (ids: string[]): FfiActivityMetrics[] =>
     activityDelegates.getActivityMetricsForIds(this, ids);
@@ -742,11 +746,11 @@ class RouteEngineClient implements DelegateHost {
 
   getSectionExtensionTrack = (
     sectionId: string
-  ): { track: number[]; sectionStartIdx: number; sectionEndIdx: number } | null =>
+  ): { encodedTrack: ArrayBuffer; sectionStartIdx: number; sectionEndIdx: number } | null =>
     sectionDelegates.getSectionExtensionTrack(this, sectionId);
 
-  expandSectionBounds = (sectionId: string, newPolylineJson: string): boolean =>
-    sectionDelegates.expandSectionBounds(this, sectionId, newPolylineJson);
+  expandSectionBounds = (sectionId: string, newPolylineFlat: number[]): boolean =>
+    sectionDelegates.expandSectionBounds(this, sectionId, newPolylineFlat);
 
   getDownloadProgress(): DownloadProgressResult {
     return gen().getDownloadProgress();
@@ -860,6 +864,13 @@ class RouteEngineClient implements DelegateHost {
   mergeSections = (primaryId: string, secondaryId: string): string | null =>
     sectionDelegates.mergeSections(this, primaryId, secondaryId);
 
+  acceptSection = (sectionId: string): boolean =>
+    sectionDelegates.acceptSection(this, sectionId);
+
+  acceptAllSections = (): number => sectionDelegates.acceptAllSections(this);
+
+  pruneOverlappingSections = (): number => sectionDelegates.pruneOverlappingSections(this);
+
   getActivitySectionHighlights = (activityIds: string[]): FfiActivitySectionHighlight[] =>
     sectionDelegates.getActivitySectionHighlights(this, activityIds);
 
@@ -883,6 +894,14 @@ class RouteEngineClient implements DelegateHost {
 
   forceRedetectSections = (sportFilter?: string): boolean =>
     detectionDelegates.forceRedetectSections(this, sportFilter);
+
+  setSectionConfig = (config: FfiSectionConfig): void =>
+    detectionDelegates.setSectionConfig(this, config);
+
+  getSectionConfig = (): FfiSectionConfig | null => detectionDelegates.getSectionConfig(this);
+
+  setMatchStrictness = (minMatchPct: number, endpointThreshold: number): void =>
+    detectionDelegates.setMatchStrictness(this, minMatchPct, endpointThreshold);
 
   subscribe(event: string, callback: () => void): () => void {
     if (!this.listeners.has(event)) {

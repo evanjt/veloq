@@ -1,0 +1,10 @@
+v0.3.0
+
+• Abschnitte anheften, akzeptieren oder deaktivieren; Erkennungsempfindlichkeit anpassen
+• Referenzaktivität für Vergleiche festlegen
+• Sync-Fortschritt mit Schritt-für-Schritt-Feedback
+• Bestleistungen: Leistungs- und Tempo-PRs mit Quellenlink
+• Feed: PR-Trophäen, Trend-Pillen, Sparkline-Karten
+• Karte: Farbverlauf-Polylinien, Heatmap, Cluster-Zoom
+• Fitness: Ramp Rate, Form %, Temperatur- und Steigungsdiagramme
+• Schnellere Übertragungen und Abschnittsladezeiten

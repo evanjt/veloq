@@ -1,11 +1,11 @@
 //! Route groups: loading, grouping, matching, consensus routes, names.
 
-use crate::{Bounds, GpsPoint, RouteGroup, geo_utils};
+use crate::{ActivityMatchInfo, Bounds, Direction, GpsPoint, RouteGroup, RouteSignature, geo_utils};
 use rusqlite::{Result as SqlResult, params, types::Type};
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use super::{GroupSummary, PersistentRouteEngine, get_route_word};
+use super::{GroupSummary, PersistentRouteEngine, codec, get_route_word};
 
 impl PersistentRouteEngine {
     // ========================================================================
@@ -20,17 +20,22 @@ impl PersistentRouteEngine {
         {
             let mut stmt = self.db.prepare(
                 "SELECT id, representative_id, activity_ids, sport_type,
-                        bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng
+                        bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng,
+                        activity_ids_blob
                  FROM route_groups",
             )?;
 
             self.groups = stmt
                 .query_map([], |row| {
-                    let activity_ids_json: String = row.get(2)?;
-                    let activity_ids: Vec<String> = serde_json::from_str(&activity_ids_json)
-                        .map_err(|e| {
-                            rusqlite::Error::FromSqlConversionFailure(2, Type::Text, Box::new(e))
-                        })?;
+                    let activity_ids: Vec<String> =
+                        if let Ok(Some(blob)) = row.get::<_, Option<Vec<u8>>>(8) {
+                            codec::deserialize(&blob).unwrap_or_default()
+                        } else {
+                            let json: String = row.get(2)?;
+                            serde_json::from_str(&json).map_err(|e| {
+                                rusqlite::Error::FromSqlConversionFailure(2, Type::Text, Box::new(e))
+                            })?
+                        };
 
                     let bounds =
                         if let (Some(min_lat), Some(max_lat), Some(min_lng), Some(max_lng)) = (
@@ -128,6 +133,62 @@ impl PersistentRouteEngine {
                 backfilled
             );
         }
+
+        // One-time migration: compute real AMD-based match percentages for
+        // databases where all values are 0.0 (pre-fix data). Gated by a
+        // schema_info flag so it runs exactly once per install.
+        let already_migrated: bool = self
+            .db
+            .query_row(
+                "SELECT value FROM schema_info WHERE key = 'match_pct_backfilled_v1'",
+                [],
+                |row| row.get::<_, String>(0),
+            )
+            .is_ok();
+
+        if !already_migrated && !self.activity_matches.is_empty() {
+            let rep_ids: std::collections::HashSet<&str> = self
+                .groups
+                .iter()
+                .map(|g| g.representative_id.as_str())
+                .collect();
+
+            let has_any_nonzero = self
+                .activity_matches
+                .values()
+                .flat_map(|matches| matches.iter())
+                .any(|m| !rep_ids.contains(m.activity_id.as_str()) && m.match_percentage > 0.0);
+
+            if !has_any_nonzero {
+                log::info!(
+                    "tracematch: [migration] All non-representative match percentages are 0.0, \
+                     running one-time AMD recalculation"
+                );
+                self.recalculate_match_percentages_from_tracks();
+                match self.persist_match_percentages() {
+                    Ok(()) => {
+                        let _ = self.db.execute(
+                            "INSERT OR REPLACE INTO schema_info (key, value)
+                             VALUES ('match_pct_backfilled_v1', '1')",
+                            [],
+                        );
+                    }
+                    Err(e) => {
+                        log::error!(
+                            "tracematch: [migration] Failed to persist match percentages: {}",
+                            e
+                        );
+                    }
+                }
+            } else {
+                let _ = self.db.execute(
+                    "INSERT OR REPLACE INTO schema_info (key, value)
+                     VALUES ('match_pct_backfilled_v1', '1')",
+                    [],
+                );
+            }
+        }
+
         Ok(())
     }
 
@@ -358,27 +419,37 @@ impl PersistentRouteEngine {
         &self.groups
     }
 
+    /// Reload groups from DB (e.g. after the background thread saved fresh
+    /// groups). Clears the dirty flag so the next `get_groups()` won't
+    /// re-trigger a synchronous recompute.
+    pub fn reload_groups_from_db(&mut self) {
+        if let Err(e) = self.load_groups() {
+            log::warn!("[reload_groups_from_db] Failed: {}", e);
+        }
+    }
+
     /// Recompute route groups.
     fn recompute_groups(&mut self) {
         use std::time::Instant;
         let total_start = Instant::now();
         log::info!("[RUST: PERF] recompute_groups: starting...");
 
-        // Phase 1: Load all signatures (this will use cache where possible)
+        // Phase 1: Load all signatures (Arc avoids full clone on cache hit)
         let sig_start = Instant::now();
         let activity_ids: Vec<String> = self.activity_metadata.keys().cloned().collect();
-        let mut signatures = Vec::with_capacity(activity_ids.len());
+        let mut arc_sigs: Vec<std::sync::Arc<RouteSignature>> =
+            Vec::with_capacity(activity_ids.len());
 
         for id in &activity_ids {
             if let Some(sig) = self.get_signature(id) {
-                signatures.push(sig);
+                arc_sigs.push(sig);
             }
         }
         let sig_ms = sig_start.elapsed().as_millis();
 
         log::info!(
             "[RUST: PERF] Phase 1 - Load signatures: {} from {} activities in {}ms",
-            signatures.len(),
+            arc_sigs.len(),
             activity_ids.len(),
             sig_ms
         );
@@ -397,23 +468,37 @@ impl PersistentRouteEngine {
             .iter()
             .flat_map(|g| g.activity_ids.iter().map(|s| s.as_str()))
             .collect();
-        let (new_sigs, existing_sigs): (Vec<_>, Vec<_>) = signatures
-            .iter()
-            .cloned()
-            .partition(|s| !already_grouped.contains(s.activity_id.as_str()));
 
-        let total = signatures.len();
+        let total = arc_sigs.len();
         // Incremental grouping is correct at any new-to-total ratio
         // (existing groups stay valid; we only add new edges). The
         // benchmark shows it's faster than full at every ratio measured
         // (60+90 → −37%, 154+396 → −19%). The 90% gate exists only to
+        // Count new (ungrouped) sigs cheaply via Arc references — no clone yet.
+        let new_count = arc_sigs
+            .iter()
+            .filter(|s| !already_grouped.contains(s.activity_id.as_str()))
+            .count();
+
         // skip the partition + HashSet build when nearly everything is
         // new — full is simpler in that fresh-import case.
         let use_incremental = !self.groups.is_empty()
-            && !new_sigs.is_empty()
-            && (new_sigs.len() as f64) < (total as f64 * 0.9);
+            && new_count > 0
+            && (new_count as f64) < (total as f64 * 0.9);
 
+        // Materialize owned Vecs for tracematch (needs &[RouteSignature]).
+        // With Arc this is one clone per sig instead of two (cache-hit + partition).
         let result = if use_incremental {
+            let new_sigs: Vec<RouteSignature> = arc_sigs
+                .iter()
+                .filter(|s| !already_grouped.contains(s.activity_id.as_str()))
+                .map(|a| a.as_ref().clone())
+                .collect();
+            let existing_sigs: Vec<RouteSignature> = arc_sigs
+                .iter()
+                .filter(|s| already_grouped.contains(s.activity_id.as_str()))
+                .map(|a| a.as_ref().clone())
+                .collect();
             log::info!(
                 "[RUST: PERF] Phase 2 - INCREMENTAL grouping: {} new vs {} existing",
                 new_sigs.len(),
@@ -430,6 +515,8 @@ impl PersistentRouteEngine {
                 activity_matches: std::collections::HashMap::new(),
             }
         } else {
+            let signatures: Vec<RouteSignature> =
+                arc_sigs.iter().map(|a| a.as_ref().clone()).collect();
             log::info!(
                 "[RUST: PERF] Phase 2 - FULL grouping: {} signatures",
                 signatures.len()
@@ -445,7 +532,9 @@ impl PersistentRouteEngine {
         );
 
         self.groups = result.groups;
-        self.activity_matches = result.activity_matches;
+        if !result.activity_matches.is_empty() {
+            self.activity_matches = result.activity_matches;
+        }
 
         // Phase 3: Recalculate match percentages using ORIGINAL GPS tracks (not simplified signatures)
         // This captures actual GPS variation that was smoothed out by Douglas-Peucker
@@ -507,19 +596,15 @@ impl PersistentRouteEngine {
 
         let func_start = Instant::now();
 
-        // PERF ASSESSMENT: This function is a BOTTLENECK
-        // - Loads ALL GPS tracks from SQLite (I/O bound)
-        // - Does pairwise AMD calculations SEQUENTIALLY (CPU bound, O(n*m) per pair)
-        // - Could be parallelized with rayon but requires restructuring
         log::info!(
-            "tracematch: [PERF] recalculate_match_percentages: SEQUENTIAL pairwise AMD - {} groups",
+            "tracematch: [PERF] recalculate_match_percentages: {} groups, parallel AMD via rayon",
             self.groups.len()
         );
 
         // First pass: collect all activity IDs and load tracks
         // PERF: I/O bound - loads tracks SEQUENTIALLY from SQLite
         let load_start = Instant::now();
-        let mut tracks: HashMap<String, Vec<GpsPoint>> = HashMap::new();
+        let mut tracks: HashMap<String, Arc<Vec<GpsPoint>>> = HashMap::new();
         let mut total_points_loaded: usize = 0;
 
         for group in &self.groups {
@@ -528,19 +613,19 @@ impl PersistentRouteEngine {
                 && track.len() >= 2
             {
                 total_points_loaded += track.len();
-                tracks.insert(group.representative_id.clone(), track);
+                tracks.insert(group.representative_id.clone(), Arc::new(track));
             }
 
-            // Load all activity tracks in this group
-            if let Some(matches) = self.activity_matches.get(&group.group_id) {
-                for match_info in matches {
-                    if !tracks.contains_key(&match_info.activity_id)
-                        && let Some(track) = self.load_gps_track_from_db(&match_info.activity_id)
-                        && track.len() >= 2
-                    {
-                        total_points_loaded += track.len();
-                        tracks.insert(match_info.activity_id.clone(), track);
-                    }
+            // Load all member tracks in this group (use group.activity_ids,
+            // not self.activity_matches, so this works even when the match
+            // map is empty — e.g. after the incremental grouping path)
+            for activity_id in &group.activity_ids {
+                if !tracks.contains_key(activity_id)
+                    && let Some(track) = self.load_gps_track_from_db(activity_id)
+                    && track.len() >= 2
+                {
+                    total_points_loaded += track.len();
+                    tracks.insert(activity_id.clone(), Arc::new(track));
                 }
             }
         }
@@ -558,8 +643,8 @@ impl PersistentRouteEngine {
         // OPTIMIZATION 2: Parallelize with rayon
         let calc_start = Instant::now();
 
-        // Collect work items for parallel processing
-        let mut work_items: Vec<(String, String, Vec<GpsPoint>, Vec<GpsPoint>)> = Vec::new();
+        let mut work_items: Vec<(String, String, Arc<Vec<GpsPoint>>, Arc<Vec<GpsPoint>>)> =
+            Vec::new();
         let mut skipped_self = 0u32;
 
         for group in &self.groups {
@@ -568,26 +653,23 @@ impl PersistentRouteEngine {
                 None => continue,
             };
 
-            if let Some(matches) = self.activity_matches.get(&group.group_id) {
-                for match_info in matches {
-                    // OPTIMIZATION: Skip self-comparisons - always 100% match
-                    if match_info.activity_id == group.representative_id {
-                        skipped_self += 1;
-                        continue;
-                    }
-
-                    let activity_track = match tracks.get(&match_info.activity_id) {
-                        Some(t) => t,
-                        None => continue,
-                    };
-
-                    work_items.push((
-                        group.group_id.clone(),
-                        match_info.activity_id.clone(),
-                        activity_track.clone(),
-                        rep_track.clone(),
-                    ));
+            for activity_id in &group.activity_ids {
+                if *activity_id == group.representative_id {
+                    skipped_self += 1;
+                    continue;
                 }
+
+                let activity_track = match tracks.get(activity_id) {
+                    Some(t) => t,
+                    None => continue,
+                };
+
+                work_items.push((
+                    group.group_id.clone(),
+                    activity_id.clone(),
+                    Arc::clone(activity_track),
+                    Arc::clone(rep_track),
+                ));
             }
         }
 
@@ -618,7 +700,7 @@ impl PersistentRouteEngine {
 
         let amd_calculations = (results.len() * 2) as u32;
 
-        // Apply results back to activity_matches
+        // Apply results back to activity_matches (upsert: create entry if missing)
         for (group_id, activity_id, avg_amd, activity_len, rep_len) in results {
             let new_percentage = amd_to_percentage(
                 avg_amd,
@@ -626,9 +708,8 @@ impl PersistentRouteEngine {
                 self.match_config.zero_threshold,
             );
 
-            if let Some(matches) = self.activity_matches.get_mut(&group_id)
-                && let Some(match_info) = matches.iter_mut().find(|m| m.activity_id == activity_id)
-            {
+            let matches = self.activity_matches.entry(group_id).or_default();
+            if let Some(match_info) = matches.iter_mut().find(|m| m.activity_id == activity_id) {
                 log::debug!(
                     "tracematch: recalc match % for {}: {:.1}% -> {:.1}% (AMD: {:.1}m, {} vs {} points)",
                     activity_id,
@@ -639,6 +720,12 @@ impl PersistentRouteEngine {
                     rep_len
                 );
                 match_info.match_percentage = new_percentage;
+            } else {
+                matches.push(ActivityMatchInfo {
+                    activity_id,
+                    match_percentage: new_percentage,
+                    direction: Direction::Same,
+                });
             }
         }
 
@@ -657,8 +744,43 @@ impl PersistentRouteEngine {
         );
     }
 
+    /// Write in-memory match percentages back to SQLite.
+    /// Only updates rows where the computed percentage is non-zero
+    /// (representatives stay at 0.0 by design — they are the reference track).
+    fn persist_match_percentages(&self) -> SqlResult<()> {
+        let mut stmt = self.db.prepare(
+            "UPDATE activity_matches SET match_percentage = ?
+             WHERE route_id = ? AND activity_id = ?",
+        )?;
+        let mut updated = 0u32;
+        for (route_id, matches) in &self.activity_matches {
+            for m in matches {
+                if m.match_percentage > 0.0 {
+                    updated +=
+                        stmt.execute(params![m.match_percentage, route_id, m.activity_id])? as u32;
+                }
+            }
+        }
+        if updated > 0 {
+            log::info!(
+                "tracematch: Persisted {} non-zero match percentages to DB",
+                updated
+            );
+        }
+        Ok(())
+    }
+
     fn save_groups(&self) -> SqlResult<()> {
-        // Clear existing groups and matches
+        // Snapshot excluded flags before wiping — user exclusions must survive recompute
+        let excluded_pairs: Vec<(String, String)> = {
+            let mut stmt = self.db.prepare(
+                "SELECT route_id, activity_id FROM activity_matches WHERE excluded = 1",
+            )?;
+            stmt.query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?
+                .filter_map(|r| r.ok())
+                .collect()
+        };
+
         self.db.execute("DELETE FROM route_groups", [])?;
         self.db.execute("DELETE FROM activity_matches", [])?;
 
@@ -748,12 +870,12 @@ impl PersistentRouteEngine {
             }
         }
 
-        // Insert groups
+        // Insert groups (dual-write: JSON for backward compat, blob for fast reads)
         let mut stmt = self.db.prepare(
             "INSERT INTO route_groups (id, representative_id, activity_ids, sport_type,
                                         bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng,
-                                        activity_count)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                                        activity_count, activity_ids_blob)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         )?;
 
         // Prepare statement for inserting new route names
@@ -776,6 +898,7 @@ impl PersistentRouteEngine {
         for group in sorted_groups {
             let activity_ids_json = serde_json::to_string(&group.activity_ids)
                 .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
+            let activity_ids_blob = codec::serialize(&group.activity_ids).ok();
             stmt.execute(params![
                 group.group_id,
                 group.representative_id,
@@ -786,6 +909,7 @@ impl PersistentRouteEngine {
                 group.bounds.map(|b| b.min_lng),
                 group.bounds.map(|b| b.max_lng),
                 group.activity_ids.len() as u32,
+                activity_ids_blob,
             ])?;
 
             // Generate unique name if route doesn't already have one
@@ -833,9 +957,26 @@ impl PersistentRouteEngine {
                 match_stmt.execute(params![
                     group.group_id,
                     activity_id,
-                    0.0f64, // default match percentage — will be recalculated
+                    0.0f64, // default for members not in activity_matches (representatives, tracks not loaded)
                     "same",
                 ])?;
+            }
+        }
+
+        // Restore excluded flags that were snapshotted before the DELETE
+        if !excluded_pairs.is_empty() {
+            let mut excl_stmt = self.db.prepare(
+                "UPDATE activity_matches SET excluded = 1 WHERE route_id = ? AND activity_id = ?",
+            )?;
+            let mut restored = 0u32;
+            for (route_id, activity_id) in &excluded_pairs {
+                restored += excl_stmt.execute(params![route_id, activity_id])? as u32;
+            }
+            if restored > 0 {
+                log::info!(
+                    "tracematch: Restored {} excluded flags after save_groups",
+                    restored
+                );
             }
         }
 
@@ -858,7 +999,7 @@ impl PersistentRouteEngine {
         let mut stmt = match self.db.prepare(
             "SELECT id, representative_id, sport_type, activity_ids,
                     bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng,
-                    activity_count
+                    activity_count, activity_ids_blob
              FROM route_groups",
         ) {
             Ok(s) => s,
@@ -911,12 +1052,16 @@ impl PersistentRouteEngine {
                 // Look up custom name
                 let custom_name = custom_names.get(&group_id).cloned();
 
-                // Parse activity_ids for sport type lookup
-                let activity_ids_json: String = row.get(3)?;
+                // Parse activity_ids (prefer blob, fall back to JSON)
                 let activity_ids: Vec<String> =
-                    serde_json::from_str(&activity_ids_json).map_err(|e| {
-                        rusqlite::Error::FromSqlConversionFailure(3, Type::Text, Box::new(e))
-                    })?;
+                    if let Ok(Some(blob)) = row.get::<_, Option<Vec<u8>>>(9) {
+                        codec::deserialize(&blob).unwrap_or_default()
+                    } else {
+                        let json: String = row.get(3)?;
+                        serde_json::from_str(&json).map_err(|e| {
+                            rusqlite::Error::FromSqlConversionFailure(3, Type::Text, Box::new(e))
+                        })?
+                    };
 
                 Ok((
                     GroupSummary {
@@ -989,19 +1134,24 @@ impl PersistentRouteEngine {
             .db
             .query_row(
                 "SELECT id, representative_id, activity_ids, sport_type,
-                        bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng
+                        bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng,
+                        activity_ids_blob
                  FROM route_groups WHERE id = ?",
                 params![group_id],
                 |row| {
                     let id: String = row.get(0)?;
                     let representative_id: String = row.get(1)?;
-                    let activity_ids_json: String = row.get(2)?;
                     let sport_type: String = row.get(3)?;
 
-                    let activity_ids: Vec<String> = serde_json::from_str(&activity_ids_json)
-                        .map_err(|e| {
-                            rusqlite::Error::FromSqlConversionFailure(2, Type::Text, Box::new(e))
-                        })?;
+                    let activity_ids: Vec<String> =
+                        if let Ok(Some(blob)) = row.get::<_, Option<Vec<u8>>>(8) {
+                            codec::deserialize(&blob).unwrap_or_default()
+                        } else {
+                            let json: String = row.get(2)?;
+                            serde_json::from_str(&json).map_err(|e| {
+                                rusqlite::Error::FromSqlConversionFailure(2, Type::Text, Box::new(e))
+                            })?
+                        };
 
                     let bounds =
                         if let (Some(min_lat), Some(max_lat), Some(min_lng), Some(max_lng)) = (
@@ -1081,7 +1231,7 @@ impl PersistentRouteEngine {
     pub(super) fn get_representative_polylines_batch(
         &self,
         activity_ids: &[&str],
-    ) -> HashMap<String, Vec<f64>> {
+    ) -> HashMap<String, Vec<u8>> {
         if activity_ids.is_empty() {
             return HashMap::new();
         }
@@ -1108,18 +1258,18 @@ impl PersistentRouteEngine {
             .map(|id| id as &dyn rusqlite::types::ToSql)
             .collect();
 
-        let results: HashMap<String, Vec<f64>> = stmt
+        let results: HashMap<String, Vec<u8>> = stmt
             .query_map(params.as_slice(), |row| {
                 let activity_id: String = row.get(0)?;
                 let points_blob: Vec<u8> = row.get(1)?;
-                let points: Vec<GpsPoint> = rmp_serde::from_slice(&points_blob).map_err(|e| {
-                    rusqlite::Error::FromSqlConversionFailure(1, Type::Blob, Box::new(e))
+                let points: Vec<GpsPoint> = codec::deserialize_points(&points_blob).map_err(|e| {
+                    rusqlite::Error::FromSqlConversionFailure(
+                        1,
+                        Type::Blob,
+                        e.into(),
+                    )
                 })?;
-                let flat_coords: Vec<f64> = points
-                    .iter()
-                    .flat_map(|p| vec![p.latitude, p.longitude])
-                    .collect();
-                Ok((activity_id, flat_coords))
+                Ok((activity_id, crate::coords::encode(&points)))
             })
             .ok()
             .map(|iter| {
@@ -1348,5 +1498,47 @@ impl PersistentRouteEngine {
                 .collect()
             })
             .unwrap_or_default()
+    }
+
+    pub fn set_route_representative(
+        &mut self,
+        route_id: &str,
+        activity_id: &str,
+    ) -> Result<(), String> {
+        let group = self
+            .groups
+            .iter_mut()
+            .find(|g| g.group_id == route_id)
+            .ok_or_else(|| format!("Route group {} not found", route_id))?;
+
+        if !group.activity_ids.contains(&activity_id.to_string()) {
+            return Err(format!(
+                "Activity {} is not a member of route {}",
+                activity_id, route_id
+            ));
+        }
+
+        group.representative_id = activity_id.to_string();
+
+        self.db
+            .execute(
+                "UPDATE route_groups SET representative_id = ? WHERE id = ?",
+                rusqlite::params![activity_id, route_id],
+            )
+            .map_err(|e| format!("DB update failed: {}", e))?;
+
+        self.consensus_cache.pop(&route_id.to_string());
+        self.group_cache.pop(&route_id.to_string());
+
+        // Recompute match percentages against the new representative and persist
+        self.recalculate_match_percentages_from_tracks();
+        if let Err(e) = self.persist_match_percentages() {
+            log::error!(
+                "tracematch: Failed to persist match percentages after representative change: {}",
+                e
+            );
+        }
+
+        Ok(())
     }
 }

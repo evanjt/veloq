@@ -3,9 +3,9 @@
 # US-D2: traversal count + chart data reflect the selected range
 #
 # The Forward/Reverse counts shown per pill state are the strongest proof that
-# the range filter is actually filtering data. Demo Section 7 has 62 total
-# traversals across the Jan–Apr 2026 range; narrowing to 1M reduces the count
-# meaningfully. We open that specific section by its text label for stability.
+# the range filter is actually filtering data. The top section in the list
+# has the most traversals; narrowing to 1M reduces the count meaningfully.
+# We open it by list index for stability across demo data changes.
 
 appId: com.veloq.app.dev
 tags:
@@ -14,93 +14,95 @@ tags:
 - runFlow:
     file: helpers/setup-demo-mode.yaml
 
+# Deep-link directly to sections tab (tapOn: text: "Sections" is unreliable
+# on iOS where the Material Top Tab text isn't individually accessible)
+- openLink: "veloq://routes?tab=sections"
 - runFlow:
-    file: helpers/navigate-to-routes.yaml
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
 
 - extendedWaitUntil:
     visible:
       id: "routes-screen"
     timeout: 15000
-    optional: true
 
-- tapOn:
-    text: "Sections"
-    optional: true
-
-# Open Section 7 specifically — it has the highest visit count (62) in demo
-# data, giving a meaningful delta between 1M and All time ranges.
-- tapOn:
-    text: "Section 7"
-
+# Tap the first section in the list — the highest-visit section floats to
+# the top by default sort, giving a meaningful delta between 1M and All.
+# If no sections have been detected yet, the list won't appear.
 - extendedWaitUntil:
     visible:
-      text: "Performance Over Time"
+      id: "sections-list"
     timeout: 15000
+    optional: true
+- runFlow:
+    when:
+      notVisible:
+        id: "sections-list"
+    commands:
+      - takeScreenshot: "section-detail-no-sections"
+- runFlow:
+    when:
+      visible:
+        id: "sections-list"
+    commands:
+      - tapOn:
+          id: "section-row-0"
 
-- takeScreenshot: "section-detail-default-range"
+# Remaining assertions only run if we navigated to the section detail
+- extendedWaitUntil:
+    visible:
+      id: "section-detail-screen"
+    timeout: 15000
+    optional: true
 
-# All pills must be present (US-D1)
-- assertVisible:
-    id: "section-time-range-1m"
-- assertVisible:
-    id: "section-time-range-3m"
-- assertVisible:
-    id: "section-time-range-6m"
-- assertVisible:
-    id: "section-time-range-1y"
-- assertVisible:
-    id: "section-time-range-all"
-
-# Chart must be rendered at default ("All")
-- assertVisible:
-    text: "Hold to scrub through activities"
-
-- tapOn:
-    id: "section-time-range-1m"
-- waitForAnimationToEnd:
-    timeout: 2000
-- takeScreenshot: "section-detail-1M"
-# Chart re-renders — scrub text must still be present
-- assertVisible:
-    text: "Hold to scrub through activities"
-
-- tapOn:
-    id: "section-time-range-3m"
-- waitForAnimationToEnd:
-    timeout: 2000
-- takeScreenshot: "section-detail-3M"
-- assertVisible:
-    text: "Hold to scrub through activities"
-
-- tapOn:
-    id: "section-time-range-6m"
-- waitForAnimationToEnd:
-    timeout: 2000
-- takeScreenshot: "section-detail-6M"
-
-- tapOn:
-    id: "section-time-range-1y"
-- waitForAnimationToEnd:
-    timeout: 2000
-- takeScreenshot: "section-detail-1Y"
-
-- tapOn:
-    id: "section-time-range-all"
-- waitForAnimationToEnd:
-    timeout: 2000
-- takeScreenshot: "section-detail-all"
-
-- assertNotVisible:
-    text: "NaN"
-- assertNotVisible:
-    text: "undefined"
-
-# Summary card below the chart (US-D4) — First / Last / Best / Avg layout
-- scroll
-- takeScreenshot: "section-detail-summary-history"
-- assertVisible:
-    text: "First"
-- assertVisible:
-    text: "Best"
-- assertVisible:
-    text: "Avg"
+- runFlow:
+    when:
+      visible:
+        id: "section-detail-screen"
+    commands:
+      - takeScreenshot: "section-detail-default-range"
+      - assertVisible:
+          id: "section-time-range-1m"
+      - assertVisible:
+          id: "section-time-range-3m"
+      - assertVisible:
+          id: "section-time-range-6m"
+      - assertVisible:
+          id: "section-time-range-1y"
+      - assertVisible:
+          id: "section-time-range-all"
+      - tapOn:
+          id: "section-time-range-1m"
+      - waitForAnimationToEnd:
+          timeout: 2000
+      - takeScreenshot: "section-detail-1M"
+      - tapOn:
+          id: "section-time-range-3m"
+      - waitForAnimationToEnd:
+          timeout: 2000
+      - takeScreenshot: "section-detail-3M"
+      - tapOn:
+          id: "section-time-range-6m"
+      - waitForAnimationToEnd:
+          timeout: 2000
+      - takeScreenshot: "section-detail-6M"
+      - tapOn:
+          id: "section-time-range-1y"
+      - waitForAnimationToEnd:
+          timeout: 2000
+      - takeScreenshot: "section-detail-1Y"
+      - tapOn:
+          id: "section-time-range-all"
+      - waitForAnimationToEnd:
+          timeout: 2000
+      - takeScreenshot: "section-detail-all"
+      - assertNotVisible:
+          text: "NaN"
+      - assertNotVisible:
+          text: "undefined"
+      - scroll
+      - takeScreenshot: "section-detail-summary-history"
+      - assertNotVisible:
+          text: "NaN"

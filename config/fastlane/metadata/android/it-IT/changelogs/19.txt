@@ -1,0 +1,10 @@
+v0.3.0
+
+• Fissa, accetta o disattiva sezioni; regola sensibilità di rilevamento
+• Imposta sforzo di riferimento per confronti futuri
+• Avanzamento sincronizzazione con feedback passo per passo
+• Migliori prestazioni: PR di potenza e passo con link alla fonte
+• Feed: trofei PR, pillole di tendenza, schede sparkline
+• Mappa: polilinee sfumate, heatmap, zoom cluster
+• Fitness: tasso di rampa, forma %, grafici temperatura e pendenza
+• Trasferimenti e caricamento sezioni più veloci

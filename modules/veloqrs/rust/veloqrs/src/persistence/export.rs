@@ -6,7 +6,7 @@
 
 use std::io::Write;
 
-use super::PersistentRouteEngine;
+use super::{PersistentRouteEngine, codec};
 use crate::GpsPoint;
 
 /// Result of a bulk GPX export.
@@ -65,7 +65,7 @@ impl PersistentRouteEngine {
                 };
 
             // Deserialize GPS track
-            let points: Vec<GpsPoint> = match rmp_serde::from_slice(&track_blob) {
+            let points: Vec<GpsPoint> = match codec::deserialize_points(&track_blob) {
                 Ok(p) => p,
                 Err(_) => { skipped += 1; continue; }
             };
@@ -229,7 +229,7 @@ impl PersistentRouteEngine {
                     Err(_) => { skipped += 1; continue; }
                 };
 
-            let points: Vec<GpsPoint> = match rmp_serde::from_slice(&track_blob) {
+            let points: Vec<GpsPoint> = match codec::deserialize_points(&track_blob) {
                 Ok(p) => p,
                 Err(_) => { skipped += 1; continue; }
             };

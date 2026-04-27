@@ -7,7 +7,7 @@
  */
 
 import type { SectionDetectionProgress } from '../conversions';
-import type { FfiPotentialSection } from '../generated/veloqrs';
+import type { FfiPotentialSection, FfiSectionConfig } from '../generated/veloqrs';
 import type { DelegateHost } from './host';
 
 export function startSectionDetection(host: DelegateHost, sportFilter?: string): boolean {
@@ -39,6 +39,27 @@ export function detectPotentials(host: DelegateHost, sportFilter?: string): FfiP
   if (!host.ready) return [];
   return host.timed('detectPotentials', () =>
     host.engine.detection().detectPotentials(sportFilter)
+  );
+}
+
+export function setSectionConfig(host: DelegateHost, config: FfiSectionConfig): void {
+  if (!host.ready) return;
+  host.timed('setSectionConfig', () => host.engine.detection().setConfig(config));
+}
+
+export function getSectionConfig(host: DelegateHost): FfiSectionConfig | null {
+  if (!host.ready) return null;
+  return host.timed('getSectionConfig', () => host.engine.detection().getConfig());
+}
+
+export function setMatchStrictness(
+  host: DelegateHost,
+  minMatchPct: number,
+  endpointThreshold: number
+): void {
+  if (!host.ready) return;
+  host.timed('setMatchStrictness', () =>
+    host.engine.detection().setMatchStrictness(minMatchPct, endpointThreshold)
   );
 }
 

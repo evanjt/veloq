@@ -7,7 +7,7 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { getRouteEngine } from '@/lib/native/routeEngine';
-import { gpsPointsToRoutePoints } from 'veloqrs';
+import { decodeCoords } from 'veloqrs';
 import { usePotentialSections as usePotentialSectionsStore } from '@/providers/PotentialSectionsStore';
 import type { PotentialSection } from '@/types';
 
@@ -123,7 +123,10 @@ export function usePotentialSections(
       const potentials: PotentialSection[] = rawPotentials.map((p) => ({
         id: p.id,
         sportType: p.sportType,
-        polyline: gpsPointsToRoutePoints(p.polyline),
+        polyline: decodeCoords(p.encodedPolyline).map((pt) => ({
+          lat: pt.latitude,
+          lng: pt.longitude,
+        })),
         activityIds: p.activityIds,
         visitCount: p.activityIds.length,
         distanceMeters: p.distanceMeters,

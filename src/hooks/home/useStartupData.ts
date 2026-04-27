@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { getRouteEngine } from '@/lib/native/routeEngine';
 import { useEngineSubscription } from '@/hooks/routes/useRouteEngine';
+import { decodeCoords } from 'veloqrs';
 import type { LatLng } from '@/lib/geo/polyline';
 
 /**
@@ -63,17 +64,13 @@ function buildPreviewTracks(
 ): Map<string, PreviewTrack> {
   const tracks = new Map<string, PreviewTrack>();
   for (const track of rawTracks) {
-    const coords = (track.points ?? []).filter(
-      (p: { latitude: number; longitude: number }) => !isNaN(p.latitude) && !isNaN(p.longitude)
-    );
+    const decoded = decodeCoords(track.encodedCoords);
+    const coords = decoded.filter((p) => !isNaN(p.latitude) && !isNaN(p.longitude));
     if (coords.length > 0) {
-      const elevations = (track.points ?? [])
-        .map((p: { elevation?: number | null }) => p.elevation)
-        .filter((e: number | null | undefined): e is number => e != null);
       tracks.set(track.activityId, {
         activityId: track.activityId,
         coordinates: coords,
-        altitude: elevations.length > 0 ? elevations : undefined,
+        altitude: undefined, // encoded format does not include elevation
       });
     }
   }

@@ -73,14 +73,34 @@ appId: com.veloq.app.dev
     timeout: 30000
     optional: true
 
-# Recovery: if home-screen not visible, relaunch and re-dismiss all dialogs
+# Recovery: stop the app entirely, relaunch, and re-enter demo mode from scratch.
+# This handles state pollution from a preceding flow (stuck on section detail,
+# settings sub-screen, alert dialog, or any non-home screen).
 - runFlow:
     when:
       notVisible:
         id: "home-screen"
     commands:
+      - stopApp
       - launchApp:
           clearState: false
+      - runFlow:
+          when:
+            visible: "Open"
+          commands:
+            - tapOn: "Open"
+      - extendedWaitUntil:
+          visible:
+            id: "login-screen"
+          timeout: 15000
+          optional: true
+      - runFlow:
+          when:
+            visible:
+              id: "login-screen"
+          commands:
+            - tapOn:
+                id: "login-demo-button"
       - extendedWaitUntil:
           visible:
             id: "home-screen"
@@ -101,6 +121,11 @@ appId: com.veloq.app.dev
             visible: "Skip"
           commands:
             - tapOn: "Skip"
+      - runFlow:
+          when:
+            visible: "Close"
+          commands:
+            - tapOn: "Close"
       - extendedWaitUntil:
           visible:
             id: "home-screen"

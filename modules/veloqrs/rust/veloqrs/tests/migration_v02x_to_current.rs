@@ -3,8 +3,8 @@
 //! Seeds a SQLite file with the schema shipped in 0.2.0 / 0.2.1 / 0.2.2
 //! (`SCHEMA_VERSION=7`, migrations 1–11 — byte-identical across the three
 //! tags) populated with a realistic custom section, then opens the current
-//! `PersistentRouteEngine` against that file. Opening runs migrations
-//! 12–25 plus the post-migration Rust backfill hooks in
+//! `PersistentRouteEngine` against that file. Opening runs the consolidated
+//! migration 12 (0.3.0) plus the post-migration Rust backfill hooks in
 //! `persistence/schema.rs`.
 //!
 //! What this guards against
@@ -367,16 +367,16 @@ fn sql_level_custom_section_survives_forward_migration() {
             |r| r.get(0),
         )
         .expect("schema_version present");
-    assert_eq!(schema_version, "21", "schema version should be bumped to 21");
+    assert_eq!(schema_version, "12", "schema version should be bumped to 12");
 
     // rusqlite_migration tracks progress via SQLite's PRAGMA user_version,
-    // so applying 25 migrations leaves user_version = 25.
+    // so applying 12 migrations leaves user_version = 12.
     let pragma_user_version: i64 = conn
         .query_row("PRAGMA user_version", [], |r| r.get(0))
         .expect("PRAGMA user_version readable");
     assert_eq!(
-        pragma_user_version, 25,
-        "rusqlite_migration should have advanced PRAGMA user_version to 25"
+        pragma_user_version, 12,
+        "rusqlite_migration should have advanced PRAGMA user_version to 12"
     );
 
     // Section row preserved.
@@ -473,8 +473,8 @@ fn ffi_custom_section_readable_after_migration() {
     assert_eq!(section.name.as_deref(), Some(SECTION_NAME));
     assert_eq!(section.sport_type, SOURCE_SPORT);
     assert!(
-        !section.polyline.is_empty(),
-        "polyline must deserialize to ≥1 point"
+        !section.encoded_polyline.is_empty(),
+        "encoded polyline must not be empty"
     );
     assert!(section.is_user_defined, "custom section must report is_user_defined=true");
     assert_eq!(
@@ -765,7 +765,7 @@ fn ffi_survives_orphan_and_null_edge_cases() {
         .map(FfiFrequentSection::from)
         .expect("empty-polyline section retrievable");
     assert!(
-        empty_poly.polyline.is_empty(),
+        veloqrs::coords::decode(&empty_poly.encoded_polyline).is_empty(),
         "empty polyline_json must deserialize to empty vec"
     );
     let flat = engine.get_section_polyline("custom_1700000000002__empty");

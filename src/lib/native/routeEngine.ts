@@ -37,6 +37,25 @@ export function getRouteEngine(): typeof import('veloqrs').routeEngine | null {
 }
 
 /**
+ * Apply detection strictness to the Rust engine.
+ * Maps a 0-100 slider value to match_config and section_config parameters.
+ */
+export function applyDetectionStrictness(value: number): void {
+  const engine = getRouteEngine();
+  if (!engine) return;
+  const config = engine.getSectionConfig();
+  if (config) {
+    engine.setSectionConfig({
+      ...config,
+      preserveHierarchy: value <= 40,
+    });
+  }
+  const minMatchPct = 50 + (value / 100) * 25;
+  const endpointThreshold = 300 + (value / 100) * -150;
+  engine.setMatchStrictness(minMatchPct, endpointThreshold);
+}
+
+/**
  * Get the plain filesystem path for the routes SQLite database.
  * FileSystem.documentDirectory returns a file:// URI, but SQLite needs a plain path.
  */

@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated, Platform } from 'react-native';
 import { useRouter, usePathname } from 'expo-router';
-import { useTheme } from '@/hooks';
+import { useMapPreferences } from '@/providers';
 import {
   MapView,
   Camera,
@@ -96,10 +96,9 @@ export function RegionalMapView({
 }: RegionalMapViewProps) {
   const { t } = useTranslation();
   const router = useRouter();
-  const { isDark: systemIsDark } = useTheme();
+  const { getGlobalMapStyle, setGlobalMapStyle } = useMapPreferences();
   const insets = useSafeAreaInsets();
-  const systemStyle: MapStyleType = systemIsDark ? 'dark' : 'light';
-  const [mapStyle, setMapStyle] = useState<MapStyleType>(systemStyle);
+  const [mapStyle, setMapStyleLocal] = useState<MapStyleType>(getGlobalMapStyle());
   const [selected, setSelected] = useState<SelectedActivity | null>(null);
   const {
     showActivities,
@@ -361,9 +360,12 @@ export function RegionalMapView({
     }
   }, [showSections, selectedSection]);
 
-  // Toggle map style (cycles through light → dark → satellite)
   const toggleStyle = () => {
-    setMapStyle((current) => getNextStyle(current));
+    setMapStyleLocal((current) => {
+      const next = getNextStyle(current);
+      setGlobalMapStyle(next);
+      return next;
+    });
   };
 
   // Handle 3D section click — receives section ID string, looks up section to select

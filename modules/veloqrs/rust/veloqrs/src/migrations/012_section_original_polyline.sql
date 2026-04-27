@@ -1,1 +1,0 @@
-ALTER TABLE sections ADD COLUMN original_polyline_json TEXT;

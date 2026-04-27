@@ -146,6 +146,7 @@ impl PersistentRouteEngine {
         // Compute new bounds and distance
         let bounds = tracematch::geo_utils::compute_bounds(&trimmed);
         let trimmed_json = serde_json::to_string(&trimmed).unwrap_or_else(|_| "[]".to_string());
+        let trimmed_blob = crate::persistence::codec::serialize_points(&trimmed).ok();
         let updated_at = chrono::Utc::now().to_rfc3339();
 
         // Update section
@@ -153,6 +154,7 @@ impl PersistentRouteEngine {
             .execute(
                 "UPDATE sections SET
                     polyline_json = ?,
+                    polyline_blob = ?,
                     distance_meters = ?,
                     is_user_defined = 1,
                     updated_at = ?,
@@ -163,6 +165,7 @@ impl PersistentRouteEngine {
                  WHERE id = ?",
                 params![
                     trimmed_json,
+                    trimmed_blob,
                     distance,
                     updated_at,
                     bounds.min_lat,
@@ -242,11 +245,14 @@ impl PersistentRouteEngine {
         // Custom sections are always user-defined; auto sections revert to algorithm-defined
         let is_user_defined = if section_type == "custom" { 1 } else { 0 };
 
+        let original_blob = crate::persistence::codec::serialize_points(&original).ok();
+
         // Restore polyline and clear original backup
         self.db
             .execute(
                 "UPDATE sections SET
                     polyline_json = ?,
+                    polyline_blob = ?,
                     original_polyline_json = NULL,
                     distance_meters = ?,
                     is_user_defined = ?,
@@ -258,6 +264,7 @@ impl PersistentRouteEngine {
                  WHERE id = ?",
                 params![
                     original_json,
+                    original_blob,
                     distance,
                     is_user_defined,
                     updated_at,
@@ -297,11 +304,8 @@ impl PersistentRouteEngine {
     pub fn expand_section_bounds(
         &mut self,
         section_id: &str,
-        new_polyline_json: &str,
+        new_polyline: &[GpsPoint],
     ) -> Result<(), String> {
-        let new_polyline: Vec<GpsPoint> = serde_json::from_str(new_polyline_json)
-            .map_err(|e| format!("Failed to parse new polyline: {}", e))?;
-
         if new_polyline.len() < 5 {
             return Err("Expanded section must have at least 5 points".to_string());
         }
@@ -332,14 +336,18 @@ impl PersistentRouteEngine {
         }
 
         // Compute new bounds and distance
-        let bounds = tracematch::geo_utils::compute_bounds(&new_polyline);
+        let bounds = tracematch::geo_utils::compute_bounds(new_polyline);
         let updated_at = chrono::Utc::now().to_rfc3339();
+        let polyline_json = serde_json::to_string(new_polyline)
+            .map_err(|e| format!("Failed to serialize polyline: {}", e))?;
+        let polyline_blob = crate::persistence::codec::serialize_points(new_polyline).ok();
 
         // Update section
         self.db
             .execute(
                 "UPDATE sections SET
                     polyline_json = ?,
+                    polyline_blob = ?,
                     distance_meters = ?,
                     is_user_defined = 1,
                     updated_at = ?,
@@ -349,7 +357,8 @@ impl PersistentRouteEngine {
                     bounds_max_lng = ?
                  WHERE id = ?",
                 params![
-                    new_polyline_json,
+                    polyline_json,
+                    polyline_blob,
                     distance,
                     updated_at,
                     bounds.min_lat,

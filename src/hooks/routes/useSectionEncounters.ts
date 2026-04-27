@@ -25,7 +25,11 @@ export function useSectionEncounters(activityId: string | undefined): UseSection
     if (!activityId) return { encounters: [], engineReady: true };
     const engine = getRouteEngine();
     if (!engine) return { encounters: [], engineReady: false };
-    return { encounters: engine.getActivitySectionEncounters(activityId), engineReady: true };
+    try {
+      return { encounters: engine.getActivitySectionEncounters(activityId), engineReady: true };
+    } catch {
+      return { encounters: [], engineReady: true };
+    }
   }, [activityId, refreshTrigger]);
 
   return { encounters, isLoading: !engineReady };

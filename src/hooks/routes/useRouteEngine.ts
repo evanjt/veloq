@@ -561,6 +561,8 @@ interface UseGroupDetailResult {
  * Fetches from Rust/SQLite with LRU caching.
  */
 export function useGroupDetail(groupId: string | null): UseGroupDetailResult {
+  const trigger = useEngineSubscription(['groups']);
+
   const group = useMemo(() => {
     if (!groupId) return null;
 
@@ -572,7 +574,7 @@ export function useGroupDetail(groupId: string | null): UseGroupDetailResult {
     } catch {
       return null;
     }
-  }, [groupId]);
+  }, [groupId, trigger]);
 
   return { group };
 }

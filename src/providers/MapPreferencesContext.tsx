@@ -26,6 +26,7 @@ export interface ActivityMapOverride {
 
 export interface MapPreferences {
   defaultStyle: MapStyleType;
+  globalMapStyle?: MapStyleType;
   activityTypeStyles: Partial<Record<ActivityType, MapStyleType>>;
   terrain3DMode: Terrain3DMode;
   terrain3DModeByType: Partial<Record<ActivityType, Terrain3DMode>>;
@@ -35,6 +36,8 @@ interface MapPreferencesContextValue {
   preferences: MapPreferences;
   isLoaded: boolean;
   setDefaultStyle: (style: MapStyleType) => Promise<void>;
+  setGlobalMapStyle: (style: MapStyleType) => Promise<void>;
+  getGlobalMapStyle: () => MapStyleType;
   setActivityTypeStyle: (activityType: ActivityType, style: MapStyleType | null) => Promise<void>;
   setActivityGroupStyle: (
     activityTypes: ActivityType[],
@@ -124,11 +127,19 @@ function parseStoredPreferences(value: unknown): MapPreferences | null {
     }
   }
 
+  // Parse optional globalMapStyle
+  const globalMapStyle =
+    typeof obj.globalMapStyle === 'string' &&
+    VALID_MAP_STYLES.has(obj.globalMapStyle as MapStyleType)
+      ? (obj.globalMapStyle as MapStyleType)
+      : undefined;
+
   // Migrate or parse terrain3D settings
   const { terrain3DMode, terrain3DModeByType } = migrateBooleanTerrain(obj);
 
   return {
     defaultStyle: obj.defaultStyle as MapStyleType,
+    ...(globalMapStyle && { globalMapStyle }),
     activityTypeStyles,
     terrain3DMode,
     terrain3DModeByType,
@@ -213,6 +224,25 @@ export function MapPreferencesProvider({ children }: { children: ReactNode }) {
     },
     [savePreferences]
   );
+
+  const setGlobalMapStyle = useCallback(
+    async (style: MapStyleType) => {
+      setPreferences((prev) => {
+        const newPrefs = { ...prev, globalMapStyle: style };
+        savePreferences(newPrefs).catch((error) => {
+          if (__DEV__) {
+            console.warn('[MapPreferences] Failed to persist:', error);
+          }
+        });
+        return newPrefs;
+      });
+    },
+    [savePreferences]
+  );
+
+  const getGlobalMapStyle = useCallback((): MapStyleType => {
+    return preferences.globalMapStyle ?? preferences.defaultStyle;
+  }, [preferences.globalMapStyle, preferences.defaultStyle]);
 
   // Set activity type style - persist inside callback to fix React 18 batching issue
   const setActivityTypeStyle = useCallback(
@@ -413,6 +443,8 @@ export function MapPreferencesProvider({ children }: { children: ReactNode }) {
         preferences,
         isLoaded,
         setDefaultStyle,
+        setGlobalMapStyle,
+        getGlobalMapStyle,
         setActivityTypeStyle,
         setActivityGroupStyle,
         getStyleForActivity,

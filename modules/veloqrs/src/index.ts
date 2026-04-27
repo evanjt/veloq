@@ -27,6 +27,7 @@ export {
   validateId,
   validateName,
 } from "./conversions";
+export { decodeCoords, type LatLng } from "./coords";
 export type {
   RoutePoint,
   SectionDetectionProgress,

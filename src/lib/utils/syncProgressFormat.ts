@@ -62,7 +62,7 @@ export function formatGpsSyncProgress(
       percent: progress.percent,
       countText:
         !hasCustomMessage && progress.total > 0 ? `${progress.completed}/${progress.total}` : null,
-      indeterminate: progress.percent === 0 || progress.percent === 50,
+      indeterminate: progress.percent === 0 && progress.completed === 0 && progress.total === 0,
     };
   }
 

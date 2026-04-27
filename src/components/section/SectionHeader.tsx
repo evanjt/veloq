@@ -54,7 +54,7 @@ export interface SectionHeaderProps {
     sportType: string;
     distanceMeters: number;
     visitCount: number;
-    polylineCoords: number[];
+    encodedPolyline: ArrayBuffer;
   }>;
   onNearbyPress?: (sectionId: string) => void;
   onBack: () => void;

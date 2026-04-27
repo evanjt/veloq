@@ -69,6 +69,7 @@ impl PersistentRouteEngine {
         let created_at = chrono::Utc::now().to_rfc3339();
         let polyline_json =
             serde_json::to_string(&params.polyline).unwrap_or_else(|_| "[]".to_string());
+        let polyline_blob = crate::persistence::codec::serialize_points(&params.polyline).ok();
 
         // Compute bounds from polyline
         let (bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng) =
@@ -87,24 +88,25 @@ impl PersistentRouteEngine {
         self.db
             .execute(
                 "INSERT INTO sections (
-                    id, section_type, name, sport_type, polyline_json, distance_meters,
+                    id, section_type, name, sport_type, polyline_json, polyline_blob, distance_meters,
                     representative_activity_id, source_activity_id, start_index, end_index,
                     created_at, is_user_defined,
                     bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 params![
                     id,
                     section_type.as_str(),
                     params.name,
                     params.sport_type,
                     polyline_json,
+                    polyline_blob,
                     params.distance_meters,
-                    params.source_activity_id.as_ref(), // representative = source for custom
+                    params.source_activity_id.as_ref(),
                     params.source_activity_id,
                     params.start_index,
                     params.end_index,
                     created_at,
-                    1, // is_user_defined = true for manually created sections
+                    1,
                     bounds_min_lat,
                     bounds_max_lat,
                     bounds_min_lng,
@@ -159,14 +161,49 @@ impl PersistentRouteEngine {
         Ok(())
     }
 
-    /// Rename a section.
+    /// Accept (pin) an auto-detected section so it survives re-detection
+    /// and its consensus polyline stops evolving.
+    pub fn accept_section(&mut self, section_id: &str) -> Result<(), String> {
+        let updated_at = chrono::Utc::now().to_rfc3339();
+        let rows = self
+            .db
+            .execute(
+                "UPDATE sections SET is_user_defined = 1, updated_at = ? WHERE id = ?",
+                params![updated_at, section_id],
+            )
+            .map_err(|e| format!("Failed to accept section: {}", e))?;
+        if rows == 0 {
+            return Err(format!("Section not found: {}", section_id));
+        }
+        self.mark_section_accepted_in_memory(section_id);
+        self.invalidate_section_cache(section_id);
+        Ok(())
+    }
+
+    /// Accept all current auto-detected sections.
+    pub fn accept_all_sections(&mut self) -> Result<u32, String> {
+        let updated_at = chrono::Utc::now().to_rfc3339();
+        let count = self
+            .db
+            .execute(
+                "UPDATE sections SET is_user_defined = 1, updated_at = ?
+                 WHERE section_type = 'auto' AND is_user_defined = 0 AND disabled = 0",
+                params![updated_at],
+            )
+            .map_err(|e| format!("Failed to accept sections: {}", e))?;
+        self.mark_all_auto_sections_accepted();
+        self.invalidate_all_section_caches();
+        Ok(count as u32)
+    }
+
+    /// Rename a section. Auto-promotes to accepted if it's an auto-detected section.
     pub fn rename_section(&mut self, section_id: &str, name: &str) -> Result<(), String> {
         let updated_at = chrono::Utc::now().to_rfc3339();
 
         let rows = self
             .db
             .execute(
-                "UPDATE sections SET name = ?, updated_at = ? WHERE id = ?",
+                "UPDATE sections SET name = ?, is_user_defined = 1, updated_at = ? WHERE id = ?",
                 params![name, updated_at, section_id],
             )
             .map_err(|e| format!("Failed to rename section: {}", e))?;
@@ -175,11 +212,9 @@ impl PersistentRouteEngine {
             return Err(format!("Section not found: {}", section_id));
         }
 
-        // Invalidate cache so next fetch gets fresh data
         self.invalidate_section_cache(section_id);
-
-        // Update in-memory section for immediate visibility
         self.update_section_name_in_memory(section_id, name);
+        self.mark_section_accepted_in_memory(section_id);
 
         Ok(())
     }
@@ -239,6 +274,7 @@ impl PersistentRouteEngine {
 
             let polyline_json =
                 serde_json::to_string(&polyline).unwrap_or_else(|_| "[]".to_string());
+            let polyline_blob = crate::persistence::codec::serialize_points(&polyline).ok();
             let distance = calculate_route_distance(&polyline);
             let bounds = tracematch::geo_utils::compute_bounds(&polyline);
 
@@ -248,6 +284,7 @@ impl PersistentRouteEngine {
                         representative_activity_id = ?,
                         source_activity_id = ?,
                         polyline_json = ?,
+                        polyline_blob = ?,
                         distance_meters = ?,
                         is_user_defined = 1,
                         updated_at = ?,
@@ -260,6 +297,7 @@ impl PersistentRouteEngine {
                         activity_id,
                         activity_id,
                         polyline_json,
+                        polyline_blob,
                         distance,
                         updated_at,
                         bounds.min_lat,
@@ -354,6 +392,8 @@ impl PersistentRouteEngine {
 
                 let polyline_json =
                     serde_json::to_string(&new_polyline).unwrap_or_else(|_| "[]".to_string());
+                let polyline_blob =
+                    crate::persistence::codec::serialize_points(&new_polyline).ok();
                 let bounds = tracematch::geo_utils::compute_bounds(&new_polyline);
 
                 self.db
@@ -361,6 +401,7 @@ impl PersistentRouteEngine {
                         "UPDATE sections SET
                             representative_activity_id = ?,
                             polyline_json = ?,
+                            polyline_blob = ?,
                             distance_meters = ?,
                             is_user_defined = 1,
                             updated_at = ?,
@@ -372,6 +413,7 @@ impl PersistentRouteEngine {
                         params![
                             activity_id,
                             polyline_json,
+                            polyline_blob,
                             new_distance,
                             updated_at,
                             bounds.min_lat,

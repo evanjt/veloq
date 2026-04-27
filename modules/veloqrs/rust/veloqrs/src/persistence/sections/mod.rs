@@ -18,7 +18,7 @@ use chrono::Utc;
 use rusqlite::{Result as SqlResult, params, types::Type};
 use std::collections::HashMap;
 
-use super::{PersistentRouteEngine, SectionSummary, get_section_word};
+use super::{PersistentRouteEngine, SectionSummary, codec, get_section_word};
 
 /// Haversine distance between two lat/lng points in meters.
 pub(super) fn haversine_distance(lat1: f64, lng1: f64, lat2: f64, lng2: f64) -> f64 {
@@ -140,7 +140,8 @@ impl PersistentRouteEngine {
                 "SELECT id, section_type, name, sport_type, polyline_json, distance_meters,
                         representative_activity_id, confidence, observation_count, average_spread,
                         point_density_json, scale, version, is_user_defined, stability,
-                        created_at, updated_at, consensus_state_blob
+                        created_at, updated_at, consensus_state_blob,
+                        polyline_blob, point_density_blob
                  FROM sections WHERE section_type = 'auto'",
             )?;
 
@@ -151,8 +152,10 @@ impl PersistentRouteEngine {
                     let point_density_json: Option<String> = row.get(10)?;
                     let representative_activity_id: Option<String> = row.get(6)?;
                     let consensus_state_blob: Option<Vec<u8>> = row.get(17)?;
+                    let polyline_blob: Option<Vec<u8>> = row.get(18)?;
+                    let point_density_blob: Option<Vec<u8>> = row.get(19)?;
                     let consensus_state = consensus_state_blob.and_then(|bytes| {
-                        match rmp_serde::from_slice::<tracematch::sections::ConsensusAccumulator>(&bytes) {
+                        match codec::deserialize_gps_composite::<tracematch::sections::ConsensusAccumulator>(&bytes) {
                             Ok(acc) => Some(acc),
                             Err(e) => {
                                 log::warn!(
@@ -164,11 +167,21 @@ impl PersistentRouteEngine {
                         }
                     });
 
-                    let polyline: Vec<GpsPoint> = serde_json::from_str(&polyline_json)
-                        .map_err(|e| rusqlite::Error::FromSqlConversionFailure(4, Type::Text, Box::new(e)))?;
-                    let point_density: Vec<u32> = point_density_json
-                        .and_then(|j| serde_json::from_str(&j).ok())
-                        .unwrap_or_default();
+                    let polyline: Vec<GpsPoint> = if let Some(blob) = polyline_blob {
+                        codec::deserialize_points(&blob).unwrap_or_else(|_| {
+                            serde_json::from_str(&polyline_json).unwrap_or_default()
+                        })
+                    } else {
+                        serde_json::from_str(&polyline_json)
+                            .map_err(|e| rusqlite::Error::FromSqlConversionFailure(4, Type::Text, Box::new(e)))?
+                    };
+                    let point_density: Vec<u32> = if let Some(blob) = point_density_blob {
+                        codec::deserialize(&blob).unwrap_or_default()
+                    } else {
+                        point_density_json
+                            .and_then(|j| serde_json::from_str(&j).ok())
+                            .unwrap_or_default()
+                    };
 
                     let portions = section_portions.get(&id)
                         .cloned()
@@ -393,6 +406,12 @@ impl PersistentRouteEngine {
     pub fn update_section_name_in_memory(&mut self, section_id: &str, name: &str) {
         if let Some(section) = self.sections.iter_mut().find(|s| s.id == section_id) {
             section.name = Some(name.to_string());
+        }
+    }
+
+    pub fn mark_section_accepted_in_memory(&mut self, section_id: &str) {
+        if let Some(section) = self.sections.iter_mut().find(|s| s.id == section_id) {
+            section.is_user_defined = true;
         }
     }
 
@@ -647,7 +666,7 @@ impl PersistentRouteEngine {
             "SELECT id, name, sport_type, distance_meters, confidence, scale,
                     bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng,
                     section_type, representative_activity_id, created_at,
-                    disabled, superseded_by
+                    is_user_defined, disabled, superseded_by
              FROM sections
              WHERE disabled = 0 AND superseded_by IS NULL",
         ) {
@@ -702,8 +721,9 @@ impl PersistentRouteEngine {
                     bounds,
                     created_at: row.get::<_, Option<String>>(12)?.unwrap_or_default(),
                     sport_types,
-                    disabled: row.get::<_, Option<i32>>(13)?.unwrap_or(0) != 0,
-                    superseded_by: row.get(14)?,
+                    is_user_defined: row.get::<_, Option<i32>>(13)?.unwrap_or(0) != 0,
+                    disabled: row.get::<_, Option<i32>>(14)?.unwrap_or(0) != 0,
+                    superseded_by: row.get(15)?,
                 })
             })
             .ok()
@@ -870,6 +890,16 @@ impl PersistentRouteEngine {
         self.section_cache.pop(&section_id.to_string());
     }
 
+    pub fn invalidate_all_section_caches(&mut self) {
+        self.section_cache.clear();
+    }
+
+    pub fn mark_all_auto_sections_accepted(&mut self) {
+        for section in &mut self.sections {
+            section.is_user_defined = true;
+        }
+    }
+
     /// Get section polyline only (flat coordinates for map rendering).
     /// Returns [lat1, lng1, lat2, lng2, ...] or empty vec if not found.
     pub fn get_section_polyline(&self, section_id: &str) -> Vec<f64> {
@@ -916,14 +946,14 @@ impl PersistentRouteEngine {
     pub(super) fn get_section_polylines_batch(
         &self,
         section_ids: &[&str],
-    ) -> HashMap<String, Vec<f64>> {
+    ) -> HashMap<String, Vec<u8>> {
         if section_ids.is_empty() {
             return HashMap::new();
         }
 
         let placeholders: Vec<&str> = section_ids.iter().map(|_| "?").collect();
         let query = format!(
-            "SELECT id, polyline_json FROM sections WHERE id IN ({})",
+            "SELECT id, polyline_blob, polyline_json FROM sections WHERE id IN ({})",
             placeholders.join(",")
         );
 
@@ -943,23 +973,17 @@ impl PersistentRouteEngine {
             .map(|id| id as &dyn rusqlite::types::ToSql)
             .collect();
 
-        let results: HashMap<String, Vec<f64>> = stmt
+        let results: HashMap<String, Vec<u8>> = stmt
             .query_map(params.as_slice(), |row| {
                 let section_id: String = row.get(0)?;
-                let polyline_json: String = row.get(1)?;
-                let points: Vec<serde_json::Value> =
-                    serde_json::from_str(&polyline_json).map_err(|e| {
-                        rusqlite::Error::FromSqlConversionFailure(1, Type::Text, Box::new(e))
-                    })?;
-                let coords: Vec<f64> = points
-                    .iter()
-                    .flat_map(|p| {
-                        let lat = p["latitude"].as_f64().unwrap_or(0.0);
-                        let lng = p["longitude"].as_f64().unwrap_or(0.0);
-                        vec![lat, lng]
-                    })
-                    .collect();
-                Ok((section_id, coords))
+                let polyline_blob: Option<Vec<u8>> = row.get(1)?;
+                let points: Vec<GpsPoint> = if let Some(blob) = polyline_blob {
+                    codec::deserialize_points(&blob).unwrap_or_default()
+                } else {
+                    let polyline_json: String = row.get(2)?;
+                    serde_json::from_str(&polyline_json).unwrap_or_default()
+                };
+                Ok((section_id, crate::coords::encode(&points)))
             })
             .ok()
             .map(|iter| iter.filter_map(|r| r.ok()).collect())
@@ -1013,7 +1037,7 @@ impl PersistentRouteEngine {
                     rusqlite::params![activity_id],
                     |row| {
                         let bytes: Vec<u8> = row.get(0)?;
-                        rmp_serde::from_slice::<Vec<u32>>(&bytes)
+                        codec::deserialize::<Vec<u32>>(&bytes)
                             .map_err(|_| rusqlite::Error::InvalidQuery)
                     },
                 )
@@ -1088,21 +1112,11 @@ impl PersistentRouteEngine {
                     continue;
                 }
 
-                // Parse polyline to flat coords
-                let polyline_coords = polyline_json
+                let encoded_polyline = polyline_json
                     .and_then(|json| {
-                        serde_json::from_str::<Vec<serde_json::Value>>(&json).ok()
+                        serde_json::from_str::<Vec<GpsPoint>>(&json).ok()
                     })
-                    .map(|points| {
-                        points
-                            .iter()
-                            .flat_map(|p| {
-                                let lat = p["latitude"].as_f64().unwrap_or(0.0);
-                                let lng = p["longitude"].as_f64().unwrap_or(0.0);
-                                vec![lat, lng]
-                            })
-                            .collect::<Vec<f64>>()
-                    })
+                    .map(|points| crate::coords::encode(&points))
                     .unwrap_or_default();
 
                 results.push(crate::FfiNearbySectionSummary {
@@ -1113,7 +1127,7 @@ impl PersistentRouteEngine {
                     distance_meters,
                     visit_count,
                     center_distance_meters: dist,
-                    polyline_coords,
+                    encoded_polyline,
                 });
             }
         }
@@ -1132,12 +1146,37 @@ impl PersistentRouteEngine {
     pub(super) fn save_sections(&self) -> SqlResult<()> {
         let tx = self.db.unchecked_transaction()?;
 
-        // Clear existing auto sections (keep custom sections and trimmed auto sections)
-        tx.execute("DELETE FROM section_activities WHERE section_id IN (SELECT id FROM sections WHERE section_type = 'auto' AND original_polyline_json IS NULL)", [])?;
+        // Clear existing auto sections (keep custom, trimmed, and accepted sections)
+        tx.execute("DELETE FROM section_activities WHERE section_id IN (SELECT id FROM sections WHERE section_type = 'auto' AND original_polyline_json IS NULL AND is_user_defined = 0)", [])?;
         tx.execute(
-            "DELETE FROM sections WHERE section_type = 'auto' AND original_polyline_json IS NULL",
+            "DELETE FROM sections WHERE section_type = 'auto' AND original_polyline_json IS NULL AND is_user_defined = 0",
             [],
         )?;
+
+        // Load bounding boxes of accepted sections to dedup new auto detections
+        struct AcceptedBounds {
+            min_lat: f64,
+            max_lat: f64,
+            min_lng: f64,
+            max_lng: f64,
+        }
+        let accepted_bounds: Vec<AcceptedBounds> = {
+            let mut stmt = tx.prepare(
+                "SELECT bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng
+                 FROM sections WHERE is_user_defined = 1
+                 AND bounds_min_lat IS NOT NULL",
+            )?;
+            stmt.query_map([], |row| {
+                Ok(AcceptedBounds {
+                    min_lat: row.get(0)?,
+                    max_lat: row.get(1)?,
+                    min_lng: row.get(2)?,
+                    max_lng: row.get(3)?,
+                })
+            })?
+            .filter_map(|r| r.ok())
+            .collect()
+        };
 
         // Load existing section names to preserve user-set names (from custom sections)
         let existing_names: HashMap<String, String> = {
@@ -1187,8 +1226,8 @@ impl PersistentRouteEngine {
                 representative_activity_id, confidence, observation_count, average_spread,
                 point_density_json, scale, version, is_user_defined, stability, created_at, updated_at,
                 bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng,
-                consensus_state_blob
-            ) VALUES (?, 'auto', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+                consensus_state_blob, polyline_blob, point_density_blob
+            ) VALUES (?, 'auto', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
         )?;
         let mut junction_stmt = tx
             .prepare("INSERT INTO section_activities (section_id, activity_id, direction, start_index, end_index, distance_meters, lap_time, lap_pace) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")?;
@@ -1235,7 +1274,7 @@ impl PersistentRouteEngine {
                     if let Ok(rows) = stmt.query_map(params_vec.as_slice(), |row| {
                         let id: String = row.get(0)?;
                         let bytes: Vec<u8> = row.get(1)?;
-                        let stream = rmp_serde::from_slice::<Vec<u32>>(&bytes)
+                        let stream = codec::deserialize::<Vec<u32>>(&bytes)
                             .map_err(|_| rusqlite::Error::InvalidQuery)?;
                         Ok((id, stream))
                     }) {
@@ -1251,10 +1290,16 @@ impl PersistentRouteEngine {
         for section in sorted_sections {
             let polyline_json = serde_json::to_string(&section.polyline)
                 .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
+            let polyline_blob = codec::serialize_points(&section.polyline).ok();
             let point_density_json = if section.point_density.is_empty() {
                 None
             } else {
                 serde_json::to_string(&section.point_density).ok()
+            };
+            let point_density_blob = if section.point_density.is_empty() {
+                None
+            } else {
+                codec::serialize(&section.point_density).ok()
             };
             let created_at = section
                 .created_at
@@ -1300,6 +1345,35 @@ impl PersistentRouteEngine {
                     (None, None, None, None)
                 };
 
+            // Skip new auto sections whose bbox is mostly covered by an accepted section
+            if !section.is_user_defined && !accepted_bounds.is_empty() {
+                if let (Some(mn_lat), Some(mx_lat), Some(mn_lng), Some(mx_lng)) =
+                    (bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng)
+                {
+                    let new_area = (mx_lat - mn_lat) * (mx_lng - mn_lng);
+                    if new_area > 0.0 {
+                        let dominated = accepted_bounds.iter().any(|ab| {
+                            let i_min_lat = mn_lat.max(ab.min_lat);
+                            let i_max_lat = mx_lat.min(ab.max_lat);
+                            let i_min_lng = mn_lng.max(ab.min_lng);
+                            let i_max_lng = mx_lng.min(ab.max_lng);
+                            if i_min_lat >= i_max_lat || i_min_lng >= i_max_lng {
+                                return false;
+                            }
+                            let intersection = (i_max_lat - i_min_lat) * (i_max_lng - i_min_lng);
+                            intersection / new_area > 0.45
+                        });
+                        if dominated {
+                            log::debug!(
+                                "save_sections: skipping auto section {} — overlaps accepted section",
+                                section.id
+                            );
+                            continue;
+                        }
+                    }
+                }
+            }
+
             // Serialise the consensus accumulator if present, as a
             // MessagePack blob (smaller + faster than JSON; matches the
             // gps_tracks/signatures convention). None → NULL, letting the
@@ -1307,7 +1381,7 @@ impl PersistentRouteEngine {
             let consensus_state_blob = section
                 .consensus_state
                 .as_ref()
-                .and_then(|acc| rmp_serde::to_vec(acc).ok());
+                .and_then(|acc| codec::serialize_gps_composite(acc).ok());
 
             section_stmt.execute(params![
                 section.id,
@@ -1335,6 +1409,8 @@ impl PersistentRouteEngine {
                 bounds_min_lng,
                 bounds_max_lng,
                 consensus_state_blob,
+                polyline_blob,
+                point_density_blob,
             ])?;
 
             // Populate junction table with full portion details and cached performance metrics.

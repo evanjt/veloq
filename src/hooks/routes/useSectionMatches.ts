@@ -45,6 +45,8 @@ export interface UseSectionMatchesResult {
   isReady: boolean;
   /** Whether engine data is still loading (engine not available or not yet subscribed) */
   isLoading: boolean;
+  /** Whether the engine subscription timed out (engine never became available) */
+  timedOut: boolean;
 }
 
 /**
@@ -65,6 +67,7 @@ export function useSectionMatches(activityId: string | undefined): UseSectionMat
 
   // Track whether we've successfully subscribed to the engine
   const [subscribed, setSubscribed] = useState(false);
+  const [timedOut, setTimedOut] = useState(false);
 
   // Hold unsubscribe function so cleanup works across retries
   const unsubscribeRef = useRef<(() => void) | null>(null);
@@ -91,7 +94,10 @@ export function useSectionMatches(activityId: string | undefined): UseSectionMat
 
     // Safety timeout: if engine never becomes available, stop showing loading
     const timeout = setTimeout(() => {
-      if (!cancelled) setSubscribed(true);
+      if (!cancelled) {
+        setSubscribed(true);
+        setTimedOut(true);
+      }
     }, 10000);
 
     if (!trySubscribe()) {
@@ -120,8 +126,12 @@ export function useSectionMatches(activityId: string | undefined): UseSectionMat
 
   // Check if engine has any sections
   const sectionCount = useMemo(() => {
-    const engine = getRouteEngine();
-    return engine?.getSectionSummaries()?.totalCount ?? 0;
+    try {
+      const engine = getRouteEngine();
+      return engine?.getSectionSummaries()?.totalCount ?? 0;
+    } catch {
+      return 0;
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refreshTrigger]);
 
@@ -139,29 +149,37 @@ export function useSectionMatches(activityId: string | undefined): UseSectionMat
       return [];
     }
 
-    // OPTIMIZED: Query only sections for this activity via junction table
-    const nativeSections = engine.getSectionsForActivity(activityId);
+    let nativeSections;
+    try {
+      nativeSections = engine.getSectionsForActivity(activityId);
+    } catch {
+      return [];
+    }
 
     const matches: SectionMatch[] = [];
 
     for (const native of nativeSections) {
-      // Convert to app format
-      const converted = convertNativeSectionToApp(native);
-      const section = {
-        ...converted,
-        name: generateSectionName(converted),
-      };
+      try {
+        // Convert to app format
+        const converted = convertNativeSectionToApp(native);
+        const section = {
+          ...converted,
+          name: generateSectionName(converted),
+        };
 
-      // Validate section structure to prevent crashes from malformed engine data
-      if (!isValidSection(section)) {
+        // Validate section structure to prevent crashes from malformed engine data
+        if (!isValidSection(section)) {
+          continue;
+        }
+
+        matches.push({
+          section,
+          direction: 'same',
+          distance: section.distanceMeters,
+        });
+      } catch {
         continue;
       }
-
-      matches.push({
-        section,
-        direction: 'same',
-        distance: section.distanceMeters,
-      });
     }
 
     // Tier 3.4: Rust now returns sections deduped by section_id and
@@ -175,5 +193,6 @@ export function useSectionMatches(activityId: string | undefined): UseSectionMat
     count: sections.length,
     isReady,
     isLoading,
+    timedOut,
   };
 }

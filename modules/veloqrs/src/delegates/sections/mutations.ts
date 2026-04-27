@@ -18,6 +18,7 @@ export function setSectionName(host: DelegateHost, sectionId: string, name: stri
   try {
     host.timed('setSectionName', () => host.engine.sections().setName(sectionId, name));
     host.notify('sections');
+    host.notify('groups');
     return true;
   } catch (e) {
     console.error('[RouteEngine] setSectionName failed:', sectionId, e);
@@ -60,6 +61,7 @@ export function createSectionFromIndices(
 
   if (sectionId) {
     host.notify('sections');
+    host.notify('groups');
   }
 
   return sectionId;
@@ -71,6 +73,7 @@ export function deleteSection(host: DelegateHost, sectionId: string): boolean {
   try {
     host.timed('deleteSection', () => host.engine.sections().delete_(sectionId));
     host.notify('sections');
+    host.notify('groups');
     return true;
   } catch (e) {
     console.error('[RouteEngine] deleteSection failed:', sectionId, e);
@@ -146,10 +149,55 @@ export function mergeSections(
       host.engine.sections().mergeSections(primaryId, secondaryId)
     );
     host.notify('sections');
+    host.notify('groups');
     return result;
   } catch (e) {
     console.error('[RouteEngine] mergeSections failed:', e);
     return null;
+  }
+}
+
+// Accept-family mutations emit only `'sections'`. Group composition does not
+// change on accept (only sections themselves gain `is_user_defined = 1`),
+// and no current consumer of `useGroupDetail` reads section-accept state.
+// If a future group view starts depending on accept state, also emit `'groups'`.
+export function acceptSection(host: DelegateHost, sectionId: string): boolean {
+  if (!host.ready) return false;
+  validateId(sectionId, 'section ID');
+  try {
+    host.timed('acceptSection', () => host.engine.sections().accept(sectionId));
+    host.notify('sections');
+    return true;
+  } catch (e) {
+    console.error('[RouteEngine] acceptSection failed:', sectionId, e);
+    return false;
+  }
+}
+
+export function acceptAllSections(host: DelegateHost): number {
+  if (!host.ready) return 0;
+  try {
+    const count = host.timed('acceptAllSections', () => host.engine.sections().acceptAll());
+    host.notify('sections');
+    return count;
+  } catch (e) {
+    console.error('[RouteEngine] acceptAllSections failed:', e);
+    return 0;
+  }
+}
+
+export function pruneOverlappingSections(host: DelegateHost): number {
+  if (!host.ready) return 0;
+  try {
+    const count = host.timed('pruneOverlappingSections', () =>
+      host.engine.sections().pruneOverlapping()
+    );
+    host.notify('sections');
+    host.notify('groups');
+    return count;
+  } catch (e) {
+    console.error('[RouteEngine] pruneOverlappingSections failed:', e);
+    return 0;
   }
 }
 

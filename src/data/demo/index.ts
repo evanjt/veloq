@@ -5,6 +5,7 @@ export { demoPowerCurve, demoPaceCurve, demoSportSettings } from './curves';
 export {
   demoRoutes,
   getRouteCoordinates,
+  getRouteCoordinatesWithVariation,
   getRouteBounds,
   getRouteForActivity,
   getRouteById,

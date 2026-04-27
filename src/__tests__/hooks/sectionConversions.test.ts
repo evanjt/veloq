@@ -2,13 +2,76 @@
  * Tests for convertNativeSectionToApp from sectionConversions.ts.
  */
 
+/**
+ * Encode coordinates in the same delta+zigzag-varint format as the Rust side,
+ * so mock FFI data matches the real ArrayBuffer shape.
+ */
+function encodeCoords(points: { latitude: number; longitude: number }[]): ArrayBuffer {
+  const SCALE = 1e7;
+  const bytes: number[] = [];
+
+  function writeVarint(v: number) {
+    v = v >>> 0;
+    while (v > 0x7f) {
+      bytes.push((v & 0x7f) | 0x80);
+      v >>>= 7;
+    }
+    bytes.push(v & 0x7f);
+  }
+
+  function writeZigzag(v: number) {
+    writeVarint((v << 1) ^ (v >> 31));
+  }
+
+  writeVarint(points.length);
+  let prevLat = 0;
+  let prevLng = 0;
+  for (const p of points) {
+    const lat = Math.round(p.latitude * SCALE);
+    const lng = Math.round(p.longitude * SCALE);
+    writeZigzag(lat - prevLat);
+    writeZigzag(lng - prevLng);
+    prevLat = lat;
+    prevLng = lng;
+  }
+
+  return new Uint8Array(bytes).buffer;
+}
+
 jest.mock('veloqrs', () => ({
-  gpsPointsToRoutePoints: (points: unknown[]) =>
-    (points || []).map((p: any) => ({
-      lat: p.lat ?? p.latitude ?? 0,
-      lng: p.lng ?? p.longitude ?? 0,
-      ele: p.ele ?? p.elevation ?? 0,
-    })),
+  decodeCoords: (buf: ArrayBuffer) => {
+    const SCALE = 1e7;
+    const bytes = new Uint8Array(buf);
+    let pos = 0;
+
+    function readVarint(): number {
+      let result = 0;
+      let shift = 0;
+      while (pos < bytes.length) {
+        const byte = bytes[pos++];
+        result |= (byte & 0x7f) << shift;
+        if ((byte & 0x80) === 0) break;
+        shift += 7;
+      }
+      return result >>> 0;
+    }
+
+    function readZigzag(): number {
+      const v = readVarint();
+      return (v >>> 1) ^ -(v & 1);
+    }
+
+    const count = readVarint();
+    const points: { latitude: number; longitude: number }[] = [];
+    let lat = 0;
+    let lng = 0;
+    for (let i = 0; i < count; i++) {
+      lat += readZigzag();
+      lng += readZigzag();
+      points.push({ latitude: lat / SCALE, longitude: lng / SCALE });
+    }
+    return points;
+  },
 }));
 
 jest.mock('@/lib/utils/ffiConversions', () => ({
@@ -29,10 +92,10 @@ function makeNativeFrequentSection(overrides: Record<string, unknown> = {}) {
   return {
     id: 'section-1',
     sportType: 'Ride',
-    polyline: [
-      { lat: 48.0, lng: 11.0, ele: 500 },
-      { lat: 48.1, lng: 11.1, ele: 510 },
-    ],
+    encodedPolyline: encodeCoords([
+      { latitude: 48.0, longitude: 11.0 },
+      { latitude: 48.1, longitude: 11.1 },
+    ]),
     representativeActivityId: 'act-1',
     activityIds: ['act-1', 'act-2'],
     activityPortions: [{ activityId: 'act-1', direction: 'same', startIndex: 0, endIndex: 10 }],
@@ -58,7 +121,7 @@ function makeNativeSection(overrides: Record<string, unknown> = {}) {
     id: 'section-2',
     sectionType: 'custom',
     sportType: 'Run',
-    polyline: [{ lat: 47.0, lng: 10.0, ele: 300 }],
+    encodedPolyline: encodeCoords([{ latitude: 47.0, longitude: 10.0 }]),
     representativeActivityId: null,
     activityIds: ['act-3'],
     visitCount: 1,
@@ -151,11 +214,9 @@ describe('convertNativeSectionToApp', () => {
   });
 
   it('returns empty string for createdAt when input has no createdAt (bug fix)', () => {
-    // Historical sections should not get a "now" timestamp
     const native = makeNativeSection();
     const result = convertNativeSectionToApp(native as any);
 
-    // After the fix: should be empty string, not new Date().toISOString()
     expect(result.createdAt).toBe('');
   });
 
@@ -166,17 +227,19 @@ describe('convertNativeSectionToApp', () => {
     expect(result.name).toBeUndefined();
   });
 
-  it('handles polyline conversion via gpsPointsToRoutePoints', () => {
+  it('decodes encodedPolyline to RoutePoint array', () => {
     const native = makeNativeFrequentSection({
-      polyline: [
-        { lat: 1.0, lng: 2.0, ele: 100 },
-        { lat: 3.0, lng: 4.0, ele: 200 },
-        { lat: 5.0, lng: 6.0, ele: 300 },
-      ],
+      encodedPolyline: encodeCoords([
+        { latitude: 1.0, longitude: 2.0 },
+        { latitude: 3.0, longitude: 4.0 },
+        { latitude: 5.0, longitude: 6.0 },
+      ]),
     });
     const result = convertNativeSectionToApp(native as any);
 
     expect(result.polyline).toHaveLength(3);
-    expect(result.polyline[0]).toEqual({ lat: 1.0, lng: 2.0, ele: 100 });
+    expect(result.polyline[0]).toEqual({ lat: 1.0, lng: 2.0 });
+    expect(result.polyline[1]).toEqual({ lat: 3.0, lng: 4.0 });
+    expect(result.polyline[2]).toEqual({ lat: 5.0, lng: 6.0 });
   });
 });

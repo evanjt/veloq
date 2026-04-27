@@ -26,7 +26,14 @@ tags:
       id: "activity-detail-screen"
     timeout: 15000
 - takeScreenshot: "navigation-back-buttons-activity-detail"
-- back
+
+# Navigate back via deep-link (Maestro's `back` command is unreliable on iOS)
+- openLink: "veloq://"
+- runFlow:
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
 - extendedWaitUntil:
     visible:
       id: "home-screen"
@@ -55,7 +62,13 @@ tags:
       id: "about-screen"
     timeout: 10000
 - takeScreenshot: "navigation-back-buttons-about"
-- back
+
+- openLink: "veloq://settings"
+- runFlow:
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
 - extendedWaitUntil:
     visible:
       id: "settings-screen"

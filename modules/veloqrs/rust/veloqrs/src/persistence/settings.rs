@@ -8,6 +8,16 @@ use std::collections::HashMap;
 
 use super::PersistentRouteEngine;
 
+/// Reserved setting keys owned by Rust internals. The double-underscore
+/// prefix distinguishes them from user-facing preferences set via
+/// `SettingsManager.set_setting`. TS code should treat these as opaque.
+pub mod settings_keys {
+    /// Minimum match percentage threshold (f64 stored as decimal string).
+    pub const MATCH_MIN_MATCH_PCT: &str = "__match_min_match_pct";
+    /// Endpoint distance threshold in metres (f64 stored as decimal string).
+    pub const MATCH_ENDPOINT_THRESHOLD: &str = "__match_endpoint_threshold";
+}
+
 impl PersistentRouteEngine {
     /// Get a single setting by key.
     pub fn get_setting(&self, key: &str) -> SqlResult<Option<String>> {
@@ -67,6 +77,24 @@ impl PersistentRouteEngine {
     pub fn delete_setting(&self, key: &str) -> SqlResult<()> {
         self.db
             .execute("DELETE FROM settings WHERE key = ?", params![key])?;
+        Ok(())
+    }
+
+    /// Apply persisted match-strictness overrides to the in-memory `match_config`.
+    /// Called from `load()` so a fresh engine instance reflects the user's last
+    /// chosen strictness without any TS round-trip. Missing or unparseable
+    /// values silently fall back to whatever `match_config` already holds.
+    pub(super) fn load_match_strictness_from_settings(&mut self) -> SqlResult<()> {
+        if let Some(raw) = self.get_setting(settings_keys::MATCH_MIN_MATCH_PCT)? {
+            if let Ok(v) = raw.parse::<f64>() {
+                self.match_config.min_match_percentage = v;
+            }
+        }
+        if let Some(raw) = self.get_setting(settings_keys::MATCH_ENDPOINT_THRESHOLD)? {
+            if let Ok(v) = raw.parse::<f64>() {
+                self.match_config.endpoint_threshold = v;
+            }
+        }
         Ok(())
     }
 }

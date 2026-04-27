@@ -1,18 +1,10 @@
-v0.3.0 (Apr 2026)
+v0.3.0
 
-• Rust-first refactor: six new native aggregations replace per-screen JS loops
-• Best Efforts screen: power & pace PRs with source activity tap-through
-• Ramp rate and form-as-percentage on fitness header
-• Temperature and gradient as new chart channels
-• Map polish: gradient-colored polyline toggle, cluster tap zoom-to-fit
-• Push notifications: register on OAuth login, unregister on session expiry
-• Section management: merge duplicates, re-detect on demand
-• Performance: consensus routes cached as Arc, React.memo on marker layers
-• Tile cache tracking, sport-tinted heatmap (partial)
-• Nearby sort and search for routes/sections
-• Lap time computed during detection (no more lazy backfill)
-• Unit tests for OAuth, QueryProvider, NetworkContext
-• CI composite actions for shared setup
-• Offline sync and auth-token-refresh Maestro flows
-• Strength E2E coverage, demo data seeding
-• Maintainability: submodule split of persistence/sections/fitness
+• Pin, accept, or disable sections; adjust detection sensitivity
+• Set a reference effort for future comparisons
+• Sync progress with stage-by-stage feedback
+• Best Efforts: power and pace PRs with source tap-through
+• Feed: PR trophies, trend pills, sparkline section cards
+• Map: gradient polylines, heatmap, cluster zoom
+• Fitness: ramp rate, form %, temperature and gradient charts
+• Faster transfers and section loading

@@ -19,7 +19,7 @@ import {
   TextInput,
 } from 'react-native';
 import { useTheme, useRouteProcessing, useCacheDays } from '@/hooks';
-import type { GroupWithPolyline } from 'veloqrs';
+import { decodeCoords, type GroupWithPolyline } from 'veloqrs';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -127,14 +127,17 @@ const DiscoveredRoutesList = memo(
  */
 function batchGroupToRouteGroup(group: GroupWithPolyline, index: number): RouteGroup {
   const sportType = group.sportType || 'Ride';
-  // Convert flat coords [lat1, lng1, lat2, lng2, ...] to RoutePoint[]
-  const consensusPoints: Array<{ lat: number; lng: number }> = [];
-  for (let i = 0; i < group.consensusPolyline.length - 1; i += 2) {
-    consensusPoints.push({
-      lat: group.consensusPolyline[i],
-      lng: group.consensusPolyline[i + 1],
-    });
-  }
+  // Decode delta+varint encoded polyline to RoutePoint[]
+  // encodedPolyline after Rust rebuild; consensusPolyline on stale bindings
+  const polylineData =
+    (group as Record<string, unknown>).encodedPolyline ??
+    (group as Record<string, unknown>).consensusPolyline;
+  const consensusPoints = (
+    polylineData instanceof ArrayBuffer ? decodeCoords(polylineData) : []
+  ).map((p) => ({
+    lat: p.latitude,
+    lng: p.longitude,
+  }));
   const center = group.bounds
     ? computeCenter({
         minLat: group.bounds.minLat,

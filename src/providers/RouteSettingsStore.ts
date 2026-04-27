@@ -22,6 +22,8 @@ interface RouteSettings {
   geocodingEnabled: boolean;
   /** Whether heatmap tile generation is enabled (default: true) */
   heatmapEnabled: boolean;
+  /** Detection sensitivity slider value (0=relaxed, 100=strict, default: 60) */
+  detectionStrictness: number;
 }
 
 const DEFAULT_SETTINGS: RouteSettings = {
@@ -30,6 +32,7 @@ const DEFAULT_SETTINGS: RouteSettings = {
   autoCleanupEnabled: false, // Don't auto-delete by default
   geocodingEnabled: false, // Off by default — user must acknowledge OSM Nominatim terms
   heatmapEnabled: true, // Generate heatmap tiles by default
+  detectionStrictness: 60,
 };
 
 /**
@@ -48,6 +51,7 @@ function isRouteSettings(value: unknown): value is RouteSettings {
   if ('geocodingEnabled' in obj && typeof obj.geocodingEnabled !== 'boolean') return false;
   // heatmapEnabled must be boolean if present
   if ('heatmapEnabled' in obj && typeof obj.heatmapEnabled !== 'boolean') return false;
+  if ('detectionStrictness' in obj && typeof obj.detectionStrictness !== 'number') return false;
   return true;
 }
 
@@ -62,6 +66,7 @@ interface RouteSettingsState {
   setAutoCleanupEnabled: (enabled: boolean) => Promise<void>;
   setGeocodingEnabled: (enabled: boolean) => Promise<void>;
   setHeatmapEnabled: (enabled: boolean) => Promise<void>;
+  setDetectionStrictness: (value: number) => Promise<void>;
 }
 
 export const useRouteSettings = create<RouteSettingsState>((set, get) => ({
@@ -171,6 +176,17 @@ export const useRouteSettings = create<RouteSettingsState>((set, get) => ({
 
     log.log(`Heatmap generation ${enabled ? 'enabled' : 'disabled'}`);
   },
+
+  setDetectionStrictness: async (value: number) => {
+    const clamped = Math.max(0, Math.min(100, Math.round(value)));
+    set((state) => {
+      const newSettings = { ...state.settings, detectionStrictness: clamped };
+      setSetting(ROUTE_SETTINGS_KEY, JSON.stringify(newSettings)).catch((error) => {
+        log.error('Failed to save detection strictness:', error);
+      });
+      return { settings: newSettings };
+    });
+  },
 }));
 
 // Helper for synchronous access
@@ -191,6 +207,10 @@ export function isGeocodingEnabled(): boolean {
 // Helper for checking heatmap enabled synchronously
 export function isHeatmapEnabled(): boolean {
   return useRouteSettings.getState().settings.heatmapEnabled;
+}
+
+export function getDetectionStrictness(): number {
+  return useRouteSettings.getState().settings.detectionStrictness;
 }
 
 // Initialize route settings (call during app startup)

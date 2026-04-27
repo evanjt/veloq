@@ -60,13 +60,44 @@ export const demoRoutes: DemoRoute[] = outAndBack ? [...baseRoutes, outAndBack] 
 
 /**
  * Get a route's coordinates (exact, no variation)
- * Activities using the same route template get identical coordinates,
- * which allows route matching to correctly group them.
  */
 export function getRouteCoordinates(routeId: string): [number, number][] {
   const route = demoRoutes.find((r) => r.id === routeId);
   if (!route) return [];
   return route.coordinates;
+}
+
+/**
+ * Get route coordinates with per-activity GPS variation.
+ * Adds realistic jitter, shifted start/end, and occasional dropouts
+ * so each traversal looks slightly different while still matching
+ * the same section in detection.
+ */
+export function getRouteCoordinatesWithVariation(
+  routeId: string,
+  rng: () => number
+): [number, number][] {
+  const base = getRouteCoordinates(routeId);
+  if (base.length < 4) return base;
+
+  const metersToDeg = 1 / 111320;
+  const jitterMeters = 3 + rng() * 5;
+
+  const startTrim = Math.floor(rng() * Math.min(6, Math.floor(base.length * 0.08)));
+  const endTrim = Math.floor(rng() * Math.min(6, Math.floor(base.length * 0.08)));
+  const trimmed = base.slice(startTrim, base.length - endTrim || undefined);
+
+  const result: [number, number][] = [];
+  for (let i = 0; i < trimmed.length; i++) {
+    if (rng() < 0.02 && i > 0 && i < trimmed.length - 1) continue;
+
+    const [lat, lng] = trimmed[i];
+    const dLat = (rng() - 0.5) * 2 * jitterMeters * metersToDeg;
+    const dLng = ((rng() - 0.5) * 2 * jitterMeters * metersToDeg) / Math.cos((lat * Math.PI) / 180);
+    result.push([lat + dLat, lng + dLng]);
+  }
+
+  return result;
 }
 
 /**

@@ -38,8 +38,13 @@ tags:
 
 - takeScreenshot: "feed-chip-deep-link-sections-tab"
 
-# Back to feed
-- back
+# Navigate back via deep-link (Maestro's `back` command is unreliable on iOS)
+- openLink: "veloq://"
+- runFlow:
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
 
 - extendedWaitUntil:
     visible:

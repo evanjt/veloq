@@ -1,0 +1,10 @@
+v0.3.0
+
+• Przypinaj, akceptuj lub wyłączaj sekcje; dostosuj czułość wykrywania
+• Ustaw wysiłek referencyjny do porównań
+• Postęp synchronizacji z informacją na każdym etapie
+• Najlepsze wyniki: PR mocy i tempa z linkiem do źródła
+• Feed: trofea PR, pigułki trendów, karty sparkline
+• Mapa: polilinie z gradientem, heatmapa, zoom klastrów
+• Fitness: tempo wzrostu, forma %, wykresy temperatury i nachylenia
+• Szybsze transfery i ładowanie sekcji

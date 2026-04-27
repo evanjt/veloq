@@ -114,6 +114,14 @@ interface NativeModuleInterface {
     sportFilter: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): number;
+  ubrn_uniffi_veloqrs_fn_method_detectionmanager_get_config(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_detectionmanager_get_match_strictness(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_detectionmanager_get_progress(
     ptr: bigint,
     uniffi_out_err: UniffiRustCallStatus,
@@ -122,6 +130,17 @@ interface NativeModuleInterface {
     ptr: bigint,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_detectionmanager_set_config(
+    ptr: bigint,
+    config: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
+  ubrn_uniffi_veloqrs_fn_method_detectionmanager_set_match_strictness(
+    ptr: bigint,
+    minMatchPct: number,
+    endpointThreshold: number,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
   ubrn_uniffi_veloqrs_fn_method_detectionmanager_start(
     ptr: bigint,
     sportFilter: Uint8Array,
@@ -271,6 +290,10 @@ interface NativeModuleInterface {
     basePath: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): bigint;
+  ubrn_uniffi_veloqrs_fn_method_heatmapmanager_get_percent(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): number;
   ubrn_uniffi_veloqrs_fn_method_heatmapmanager_get_progress(
     ptr: bigint,
     uniffi_out_err: UniffiRustCallStatus,
@@ -418,6 +441,12 @@ interface NativeModuleInterface {
     name: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): void;
+  ubrn_uniffi_veloqrs_fn_method_routemanager_set_representative(
+    ptr: bigint,
+    routeId: Uint8Array,
+    activityId: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
   ubrn_uniffi_veloqrs_fn_clone_sectionmanager(
     ptr: bigint,
     uniffi_out_err: UniffiRustCallStatus,
@@ -429,6 +458,15 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_fn_constructor_sectionmanager_new(
     uniffi_out_err: UniffiRustCallStatus,
   ): bigint;
+  ubrn_uniffi_veloqrs_fn_method_sectionmanager_accept(
+    ptr: bigint,
+    sectionId: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
+  ubrn_uniffi_veloqrs_fn_method_sectionmanager_accept_all(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): number;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_clear_superseded(
     ptr: bigint,
     customSectionId: Uint8Array,
@@ -469,19 +507,19 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_expand_bounds(
     ptr: bigint,
     sectionId: Uint8Array,
-    newPolylineJson: Uint8Array,
+    newPolylineFlat: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): void;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_extract_trace(
     ptr: bigint,
     activityId: Uint8Array,
-    sectionPolylineJson: Uint8Array,
+    sectionPolylineFlat: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_extract_traces_batch(
     ptr: bigint,
     activityIds: Uint8Array,
-    sectionPolylineJson: Uint8Array,
+    sectionPolylineFlat: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_activity_indicators(
@@ -676,6 +714,10 @@ interface NativeModuleInterface {
     secondaryId: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_sectionmanager_prune_overlapping(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): number;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_recalculate_polyline(
     ptr: bigint,
     sectionId: Uint8Array,
@@ -1005,10 +1047,15 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_fn_func_take_fetch_and_store_result(
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_func_validate_backup_database(
+    path: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
   ubrn_uniffi_veloqrs_checksum_func_compute_polyline_overlap(): number;
   ubrn_uniffi_veloqrs_checksum_func_get_download_progress(): number;
   ubrn_uniffi_veloqrs_checksum_func_start_fetch_and_store(): number;
   ubrn_uniffi_veloqrs_checksum_func_take_fetch_and_store_result(): number;
+  ubrn_uniffi_veloqrs_checksum_func_validate_backup_database(): number;
   ubrn_uniffi_veloqrs_checksum_method_activitymanager_add(): number;
   ubrn_uniffi_veloqrs_checksum_method_activitymanager_debug_clone(): number;
   ubrn_uniffi_veloqrs_checksum_method_activitymanager_get_count(): number;
@@ -1022,8 +1069,12 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_activitymanager_set_time_streams(): number;
   ubrn_uniffi_veloqrs_checksum_method_detectionmanager_detect_potentials(): number;
   ubrn_uniffi_veloqrs_checksum_method_detectionmanager_force_redetect(): number;
+  ubrn_uniffi_veloqrs_checksum_method_detectionmanager_get_config(): number;
+  ubrn_uniffi_veloqrs_checksum_method_detectionmanager_get_match_strictness(): number;
   ubrn_uniffi_veloqrs_checksum_method_detectionmanager_get_progress(): number;
   ubrn_uniffi_veloqrs_checksum_method_detectionmanager_poll(): number;
+  ubrn_uniffi_veloqrs_checksum_method_detectionmanager_set_config(): number;
+  ubrn_uniffi_veloqrs_checksum_method_detectionmanager_set_match_strictness(): number;
   ubrn_uniffi_veloqrs_checksum_method_detectionmanager_start(): number;
   ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_compute_hrv_trend(): number;
   ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_find_stale_pr_opportunities(): number;
@@ -1046,6 +1097,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_clear_tiles(): number;
   ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_clear_tiles_path(): number;
   ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_get_cache_size(): number;
+  ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_get_percent(): number;
   ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_get_progress(): number;
   ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_poll(): number;
   ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_set_tiles_path(): number;
@@ -1068,6 +1120,9 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_routemanager_get_summaries_with_count(): number;
   ubrn_uniffi_veloqrs_checksum_method_routemanager_include_activity(): number;
   ubrn_uniffi_veloqrs_checksum_method_routemanager_set_name(): number;
+  ubrn_uniffi_veloqrs_checksum_method_routemanager_set_representative(): number;
+  ubrn_uniffi_veloqrs_checksum_method_sectionmanager_accept(): number;
+  ubrn_uniffi_veloqrs_checksum_method_sectionmanager_accept_all(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_clear_superseded(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_create(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_delete(): number;
@@ -1113,6 +1168,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_include_activity(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_match_activity_to_sections(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_merge_sections(): number;
+  ubrn_uniffi_veloqrs_checksum_method_sectionmanager_prune_overlapping(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_recalculate_polyline(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_recompute_indicators(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_rematch_activity_to_section(): number;

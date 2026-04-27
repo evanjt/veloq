@@ -1,0 +1,528 @@
+name: E2E
+
+on:
+  workflow_dispatch:
+    inputs:
+      tier:
+        description: "Test tier tags"
+        required: false
+        default: "tier0,tier1,tier2,tier3"
+        type: string
+
+permissions:
+  contents: read
+  checks: write
+
+env:
+  NODE_VERSION: "22"
+
+jobs:
+  # ============================================
+  # Build Dev Variant for E2E (Android)
+  # ============================================
+  build-android-dev:
+    name: Build Android Dev
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      JAVA_TOOL_OPTIONS: "-Dhttp.agent=Gradle -Dhttps.agent=Gradle"
+      GRADLE_OPTS: "-Dhttp.agent=Gradle -Dhttps.agent=Gradle"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Compute source hash
+        id: hash
+        uses: ./.github/actions/compute-version-info
+        with:
+          source-profile: android
+
+      - name: Cache dev APK
+        id: apk-cache
+        uses: actions/cache@v4
+        with:
+          path: android/app/build/outputs/apk/release/app-release.apk
+          key: android-dev-apk-v1-${{ steps.hash.outputs.source_hash }}
+
+      - name: Skip build (cache hit)
+        if: steps.apk-cache.outputs.cache-hit == 'true'
+        run: echo "Using cached dev APK (hash ${{ steps.hash.outputs.source_hash }})"
+
+      - uses: actions/setup-node@v4
+        if: steps.apk-cache.outputs.cache-hit != 'true'
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - if: steps.apk-cache.outputs.cache-hit != 'true'
+        run: npm ci
+
+      - uses: actions/setup-java@v4
+        if: steps.apk-cache.outputs.cache-hit != 'true'
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: android-actions/setup-android@v3
+        if: steps.apk-cache.outputs.cache-hit != 'true'
+
+      - uses: gradle/actions/setup-gradle@v4
+        if: steps.apk-cache.outputs.cache-hit != 'true'
+
+      - name: Setup Rust for Android
+        if: steps.apk-cache.outputs.cache-hit != 'true'
+        uses: ./.github/actions/setup-rust-android
+        with:
+          targets: aarch64-linux-android,x86_64-linux-android
+
+      - name: Build Rust libraries
+        if: steps.apk-cache.outputs.cache-hit != 'true'
+        working-directory: modules/veloqrs/rust
+        run: |
+          mkdir -p ../android/src/main/jniLibs
+          cargo ndk -t aarch64-linux-android -t x86_64-linux-android \
+            --platform 24 -o ../android/src/main/jniLibs \
+            build --release -p veloqrs
+
+      - name: Write google-services.json stub
+        if: steps.apk-cache.outputs.cache-hit != 'true'
+        uses: ./.github/actions/write-google-services-stub
+        with:
+          package-name: com.veloq.app.dev
+
+      - name: Generate native project (dev variant)
+        if: steps.apk-cache.outputs.cache-hit != 'true'
+        run: npx expo prebuild --platform android
+
+      - name: Build release APK
+        if: steps.apk-cache.outputs.cache-hit != 'true'
+        run: |
+          cd android && ./gradlew assembleRelease \
+            -PreactNativeArchitectures=arm64-v8a,x86_64 \
+            --no-daemon --no-build-cache
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-dev-apk
+          path: android/app/build/outputs/apk/release/app-release.apk
+          retention-days: 7
+
+  # ============================================
+  # Build Dev Variant for E2E (iOS)
+  # ============================================
+  build-ios-dev:
+    name: Build iOS Dev
+
+    runs-on: macos-26
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Compute source hash
+        id: hash
+        uses: ./.github/actions/compute-version-info
+        with:
+          source-profile: ios
+
+      - name: Cache dev simulator app
+        id: app-cache
+        uses: actions/cache@v4
+        with:
+          path: artifacts/ios-dev-simulator.zip
+          key: ios-dev-sim-v1-${{ steps.hash.outputs.source_hash }}
+
+      - name: Skip build (cache hit)
+        if: steps.app-cache.outputs.cache-hit == 'true'
+        run: echo "Using cached dev simulator app (hash ${{ steps.hash.outputs.source_hash }})"
+
+      - uses: maxim-lobanov/setup-xcode@v1
+        if: steps.app-cache.outputs.cache-hit != 'true'
+        with:
+          xcode-version: '26.2'
+
+      - uses: actions/setup-node@v4
+        if: steps.app-cache.outputs.cache-hit != 'true'
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - if: steps.app-cache.outputs.cache-hit != 'true'
+        run: npm ci
+
+      - name: Setup Rust for iOS
+        if: steps.app-cache.outputs.cache-hit != 'true'
+        uses: ./.github/actions/setup-rust-ios
+        with:
+          targets: aarch64-apple-ios-sim,x86_64-apple-ios
+
+      - name: Build Rust for iOS simulator
+        if: steps.app-cache.outputs.cache-hit != 'true'
+        working-directory: modules/veloqrs/rust
+        run: |
+          for target in aarch64-apple-ios-sim x86_64-apple-ios; do
+            cargo build --release --target $target -p veloqrs
+          done
+          mkdir -p target/sim-fat
+          lipo -create \
+            target/aarch64-apple-ios-sim/release/libveloqrs.a \
+            target/x86_64-apple-ios/release/libveloqrs.a \
+            -output target/sim-fat/libveloqrs_ffi.a
+          mkdir -p ../ios/Frameworks
+          rm -rf ../ios/Frameworks/VeloqrsFFI.xcframework
+          xcodebuild -create-xcframework \
+            -library target/sim-fat/libveloqrs_ffi.a \
+            -output ../ios/Frameworks/VeloqrsFFI.xcframework
+
+      - name: Generate native project (dev variant)
+        if: steps.app-cache.outputs.cache-hit != 'true'
+        run: npx expo prebuild --platform ios
+
+      - name: Install Pods
+        if: steps.app-cache.outputs.cache-hit != 'true'
+        working-directory: ios
+        run: pod install
+
+      - name: Find simulator
+        if: steps.app-cache.outputs.cache-hit != 'true'
+        id: simulator
+        run: |
+          UDID=$(xcrun simctl list devices available | grep -E "iPhone 17 Pro" | head -1 | sed -E 's/.*\(([A-F0-9-]+)\).*/\1/')
+          if [ -z "$UDID" ]; then
+            UDID=$(xcrun simctl list devices available | grep "iPhone" | head -1 | sed -E 's/.*\(([A-F0-9-]+)\).*/\1/')
+          fi
+          echo "udid=$UDID" >> $GITHUB_OUTPUT
+
+      - name: Build simulator app
+        if: steps.app-cache.outputs.cache-hit != 'true'
+        run: |
+          xcodebuild -workspace ios/VeloqDev.xcworkspace \
+            -scheme VeloqDev \
+            -configuration Release \
+            -sdk iphonesimulator \
+            -destination "id=${{ steps.simulator.outputs.udid }}" \
+            -derivedDataPath ios/build \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO
+
+      - name: Package simulator app
+        if: steps.app-cache.outputs.cache-hit != 'true'
+        run: |
+          APP_PATH="ios/build/Build/Products/Release-iphonesimulator/VeloqDev.app"
+          if [ ! -d "$APP_PATH" ]; then
+            echo "ERROR: VeloqDev.app not found"
+            ls -la ios/build/Build/Products/Release-iphonesimulator/ || true
+            exit 1
+          fi
+          mkdir -p artifacts
+          cd "$(dirname "$APP_PATH")"
+          zip -yr "$OLDPWD/artifacts/ios-dev-simulator.zip" VeloqDev.app
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ios-dev-simulator
+          path: artifacts/ios-dev-simulator.zip
+          retention-days: 7
+
+  # ============================================
+  # E2E Tests - Android with Maestro
+  # ============================================
+  e2e-android:
+    needs: build-android-dev
+
+    name: E2E Android (Maestro)
+    runs-on: [self-hosted, e2e-android]
+    timeout-minutes: 120
+    env:
+      ANDROID_HOME: /home/gha-runner/Android/Sdk
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download APK
+        uses: actions/download-artifact@v4
+        with:
+          name: android-dev-apk
+          path: /tmp/android-artifact
+
+      - name: Install Maestro
+        uses: ./.github/actions/install-maestro
+
+      - name: Boot emulator
+        run: |
+          ADB=$ANDROID_HOME/platform-tools/adb
+
+          # Kill any existing emulator and disconnect all devices
+          $ADB kill-server 2>/dev/null || true
+          sleep 1
+          $ADB start-server
+
+          # Disconnect any physical devices before launching emulator
+          $ADB devices | grep -v emulator | grep -v "List" | grep -v "^$" | awk '{print $1}' | while read dev; do
+            echo "Disconnecting non-emulator device: $dev"
+            $ADB disconnect "$dev" 2>/dev/null || true
+          done
+
+          $ANDROID_HOME/emulator/emulator -avd e2e-test -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot-save -no-metrics &
+          EMULATOR_PID=$!
+          echo "Emulator PID: $EMULATOR_PID"
+
+          # Wait for the emulator specifically
+          $ADB -s emulator-5554 wait-for-device
+          for i in $(seq 1 60); do
+            BOOT=$($ADB -s emulator-5554 shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')
+            if [ "$BOOT" = "1" ]; then echo "Boot complete after ${i}s"; break; fi
+            echo "Waiting for boot... ($i/60)"
+            sleep 2
+          done
+          sleep 5
+
+          echo "=== Connected devices ==="
+          $ADB devices
+
+          $ADB -s emulator-5554 shell settings put global window_animation_scale 0
+          $ADB -s emulator-5554 shell settings put global transition_animation_scale 0
+          $ADB -s emulator-5554 shell settings put global animator_duration_scale 0
+
+      - name: Install APK and warm up
+        run: |
+          APK=$(find /tmp/android-artifact -name "*.apk" | head -1)
+          $ANDROID_HOME/platform-tools/adb -s emulator-5554 install "$APK"
+          sleep 3
+          $ANDROID_HOME/platform-tools/adb -s emulator-5554 logcat -c
+
+      - name: Run Maestro tests
+        env:
+          MAESTRO_DRIVER_STARTUP_TIMEOUT: 180000
+        run: |
+          export PATH="$HOME/.maestro/bin:$PATH"
+          maestro test .maestro/ \
+            --include-tags=${{ inputs.tier || 'tier0,tier1,tier2,tier3' }} \
+            --format junit --output maestro-report.xml --no-ansi || echo "MAESTRO_FAILED=true" >> $GITHUB_ENV
+
+      - name: Kill emulator
+        if: always()
+        run: $ANDROID_HOME/platform-tools/adb emu kill 2>/dev/null || true
+
+      - name: Capture diagnostic logs
+        if: always()
+        run: |
+          $ANDROID_HOME/platform-tools/adb logcat -d > /tmp/logcat.txt 2>&1 || true
+          grep -E "(FATAL|veloqrs|ReactNative|AndroidRuntime|Process:|Signal|crash|panic)" /tmp/logcat.txt > /tmp/logcat-filtered.txt 2>/dev/null || true
+
+      - name: Collect screenshots
+        if: always()
+        run: |
+          mkdir -p screenshots-flat
+          find ~/.maestro -name "*.png" -exec cp {} screenshots-flat/ \; 2>/dev/null || true
+          for f in screenshots-flat/*.png; do
+            [ -f "$f" ] && mv "$f" "${f%.png}-android.png" 2>/dev/null || true
+          done
+
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshots-android
+          path: screenshots-flat/
+          retention-days: 14
+
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: maestro-android-report
+          path: maestro-report.xml
+          retention-days: 7
+
+      - name: Upload diagnostic logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-logcat
+          path: |
+            /tmp/logcat.txt
+            /tmp/logcat-filtered.txt
+          retention-days: 7
+
+      - name: Publish test results
+        if: always()
+        uses: mikepenz/action-junit-report@v5
+        with:
+          report_paths: maestro-report.xml
+          check_name: E2E Android Results
+          fail_on_failure: false
+
+      - name: Fail if tests failed
+        if: always() && env.MAESTRO_FAILED == 'true'
+        run: exit 1
+
+  # ============================================
+  # E2E Tests - iOS with Maestro
+  # ============================================
+  e2e-ios:
+    needs: build-ios-dev
+
+    name: E2E iOS (Maestro)
+    runs-on: macos-26
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download iOS app
+        uses: actions/download-artifact@v4
+        with:
+          name: ios-dev-simulator
+          path: /tmp/ios-artifact
+
+      - name: Extract iOS app
+        run: |
+          mkdir -p ios/build/Build/Products/Release-iphonesimulator
+          ZIP=$(find /tmp/ios-artifact -name "*.zip" | head -1)
+          unzip "$ZIP" -d ios/build/Build/Products/Release-iphonesimulator/
+
+      - name: Install Maestro
+        uses: ./.github/actions/install-maestro
+
+      - name: Find and boot simulator
+        id: simulator
+        run: |
+          DEVICE="iPhone 17 Pro Max"
+          UDID=$(xcrun simctl list devices available | grep "$DEVICE" | head -1 | sed -E 's/.*\(([A-F0-9-]+)\).*/\1/')
+          if [ -z "$UDID" ]; then
+            UDID=$(xcrun simctl list devices available | grep "iPhone" | head -1 | sed -E 's/.*\(([A-F0-9-]+)\).*/\1/')
+          fi
+          echo "Using simulator: $UDID"
+          xcrun simctl boot "$UDID" || true
+          echo "udid=$UDID" >> $GITHUB_OUTPUT
+
+      - name: Wait for simulator readiness
+        run: |
+          for i in $(seq 1 30); do
+            if xcrun simctl spawn "${{ steps.simulator.outputs.udid }}" launchctl list 2>/dev/null | grep -q SpringBoard; then
+              echo "SpringBoard is running"
+              break
+            fi
+            echo "Waiting for SpringBoard... ($i/30)"
+            sleep 2
+          done
+          sleep 5
+
+      - name: Install app
+        run: |
+          xcrun simctl install "${{ steps.simulator.outputs.udid }}" ios/build/Build/Products/Release-iphonesimulator/VeloqDev.app
+
+      - name: Run Maestro tests
+        env:
+          MAESTRO_DRIVER_STARTUP_TIMEOUT: 180000
+        run: |
+          export PATH="$HOME/.maestro/bin:$PATH"
+          maestro test .maestro/ \
+            --include-tags=${{ inputs.tier || 'tier0,tier1,tier2,tier3' }} \
+            --format junit --output maestro-report.xml --no-ansi || echo "MAESTRO_FAILED=true" >> $GITHUB_ENV
+
+      - name: Capture diagnostic logs
+        if: always()
+        run: |
+          xcrun simctl spawn "${{ steps.simulator.outputs.udid }}" log show --last 5m --predicate 'process == "VeloqDev" OR processImagePath CONTAINS "VeloqDev"' > /tmp/ios-sim-log.txt 2>&1 || true
+          find ~/Library/Logs/DiagnosticReports -name "VeloqDev*" -exec cp {} /tmp/ \; 2>/dev/null || true
+
+      - name: Collect screenshots
+        if: always()
+        run: |
+          mkdir -p screenshots-flat
+          find ~/.maestro -name "*.png" -exec cp {} screenshots-flat/ \; 2>/dev/null || true
+          for f in screenshots-flat/*.png; do
+            [ -f "$f" ] && mv "$f" "${f%.png}-ios.png" 2>/dev/null || true
+          done
+
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshots-ios
+          path: screenshots-flat/
+          retention-days: 14
+
+      - name: Upload diagnostic logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ios-sim-logs
+          path: |
+            /tmp/ios-sim-log.txt
+            /tmp/VeloqDev*
+          retention-days: 7
+
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: maestro-ios-report
+          path: maestro-report.xml
+          retention-days: 7
+
+      - name: Publish test results
+        if: always()
+        uses: mikepenz/action-junit-report@v5
+        with:
+          report_paths: maestro-report.xml
+          check_name: E2E iOS Results
+          fail_on_failure: false
+
+      - name: Fail if tests failed
+        if: always() && env.MAESTRO_FAILED == 'true'
+        run: exit 1
+
+  # ============================================
+  # E2E Summary
+  # ============================================
+  e2e-summary:
+    needs: [e2e-ios, e2e-android]
+    if: ${{ always() && (needs.e2e-ios.result != 'skipped' || needs.e2e-android.result != 'skipped') }}
+    name: E2E Summary
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Download iOS report
+        uses: actions/download-artifact@v4
+        with:
+          name: maestro-ios-report
+          path: /tmp/reports/ios
+        continue-on-error: true
+
+      - name: Download Android report
+        uses: actions/download-artifact@v4
+        with:
+          name: maestro-android-report
+          path: /tmp/reports/android
+        continue-on-error: true
+
+      - name: Generate summary
+        run: |
+          {
+            echo "## E2E Test Results"
+            echo ""
+            echo "| Platform | Result | Status |"
+            echo "|----------|--------|--------|"
+            for platform in ios android; do
+              report="/tmp/reports/$platform/maestro-report.xml"
+              if [ -f "$report" ]; then
+                tests=$(grep -oP 'tests="\K[0-9]+' "$report" | head -1 || echo "0")
+                failures=$(grep -oP 'failures="\K[0-9]+' "$report" | head -1 || echo "0")
+                if [ "$failures" = "0" ] || [ -z "$failures" ]; then
+                  echo "| $platform | ${tests:-0} passed | :white_check_mark: |"
+                else
+                  passed=$((tests - failures))
+                  echo "| $platform | $passed/$tests passed ($failures failed) | :x: |"
+                fi
+              else
+                echo "| $platform | No report | :warning: |"
+              fi
+            done
+            echo ""
+            echo "_See check annotations and artifacts for details_"
+          } > summary.md
+          cat summary.md >> $GITHUB_STEP_SUMMARY

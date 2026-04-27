@@ -1,10 +1,10 @@
-v0.3.0 (Apr 2026)
+v0.3.0
 
-• Section cards per direction, inline sparklines highlighting this activity
-• Feed: PR trophies, improving/declining trend pills
-• Section detail: time-range pills, summary + history cards
-• Map: heatmap toggle, separate route/section toggles, activity clustering
-• Strength: inline muscle stats, methodology note
-• Dark mode contrast improvements
-• Backup: local fix, not-encrypted warning
-• Many fixes
+• Przypinaj, akceptuj lub wyłączaj odcinki; dostosuj czułość wykrywania
+• Ustaw referencyjny wysiłek do przyszłych porównań
+• Postęp synchronizacji z informacją zwrotną krok po kroku
+• Najlepsze wyniki: PR-y mocy i tempa z podglądem źródła
+• Feed: trofea PR, wskaźniki trendów, karty sparkline odcinków
+• Mapa: polilinie z gradientem, heatmapa, zoom klastrów
+• Fitness: tempo wzrostu, forma %, wykresy temperatury i nachylenia
+• Szybsze transfery i ładowanie odcinków

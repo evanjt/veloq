@@ -351,7 +351,7 @@
     "noValidGpsChecked": "No valid GPS data found (checked {{count}} activities)",
     "fetchingActivities": "Fetching activities...",
     "generatingHeatmap": "Generating heatmap...",
-    "fetchingTimeStreams": "Fetching time streams... {{percent}}%",
+    "fetchingTimeStreams": "Fetching time data... {{percent}}%",
     "finalizingHeatmap": "Finalising heatmap... {{percent}}%"
   },
   "chartTypes": {
@@ -1214,6 +1214,8 @@
     "sectionWord": "Section",
     "sectionsDescription": "Sections are spotted when you've done the same roads a few times, even on different routes",
     "selected": "Picked",
+    "setAsReference": "Set as Reference",
+    "setAsReferenceConfirm": "Use this activity as the route reference? Match percentages are calculated relative to the reference activity.",
     "shareDetailsWithDeveloper": "Copy the details and flick them to the dev if you're reporting a drama",
     "searchSections": "Search sections...",
     "searchRoutes": "Search routes...",
@@ -1352,7 +1354,13 @@
     "suggestedName": "Suggested: {{sport}} ({{distance}})",
     "mergeCandidatesTitle": "Pick a section to merge",
     "mergeCandidatesSubtitle": "{{count}} similar sections nearby",
-    "overlapLabel": "overlap"
+    "overlapLabel": "overlap",
+    "acceptSection": "Accept",
+    "acceptAllSections": "Accept All",
+    "acceptAllConfirm": "Accept all {{count}} auto-detected sections? They will be preserved during future re-detection.",
+    "acceptedCount": "Accepted {{count}} sections",
+    "pinned": "Pinned",
+    "pinnedOnly": "Pinned only"
   },
   "settings": {
     "account": "Your Account",
@@ -1382,6 +1390,7 @@
     "default": "Default",
     "defaultMapHint": "'Default' uses the map style above",
     "defaultStyle": "Default style",
+    "exploreMapStyle": "Explore map",
     "demoDataSources": "Demo data sources",
     "demoMode": "Demo mode",
     "dialect": "Dialect",
@@ -1483,7 +1492,17 @@
     "heatmapGeneration": "Heatmap",
     "heatmapDescription": "Uses device storage. Disable to save space.",
     "redetectSections": "Re-detect sections",
-    "redetectSectionsHint": "Re-run section detection across all activities. Can take 1-2 minutes."
+    "redetectSectionsHint": "Re-run section detection across all activities. Can take 1-2 minutes.",
+    "sectionDetection": "Section Detection",
+    "detectionSensitivity": "Detection sensitivity",
+    "detectionRelaxed": "Relaxed",
+    "detectionStrict": "Strict",
+    "matchThreshold": "Match: {{pct}}%",
+    "endpointDistance": "Endpoint: {{meters}}m",
+    "reanalyzeSections": "Reanalyze sections",
+    "reanalyzeWarning": "This will replace all unaccepted auto-detected sections. Accepted (pinned) sections will be preserved.",
+    "cleanupOverlapping": "Clean up overlapping",
+    "cleanupResult": "Removed {{count}} overlapping"
   },
   "stats": {
     "activities": "Activities",

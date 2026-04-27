@@ -10,7 +10,6 @@ import {
   useRouteGroups,
   useTheme,
   useSectionSummaries,
-  useSectionRescan,
 } from '@/hooks';
 import { formatFullDate } from '@/lib';
 import { estimateRoutesDatabaseSize } from '@/lib';
@@ -60,9 +59,6 @@ export function DataCacheSection({ onLayout }: DataCacheSectionProps) {
   });
   const { totalCount: totalSections } = useSectionSummaries();
   const { settings: routeSettings } = useRouteSettings();
-
-  // Section re-detection
-  const { forceRescan, isScanning, progress: rescanProgress } = useSectionRescan();
 
   // Map tile cache stats
   const nativeSizeEstimate = useTileCacheStore((s) => s.nativeSizeEstimate);
@@ -152,21 +148,6 @@ export function DataCacheSection({ onLayout }: DataCacheSectionProps) {
     refreshCacheSizes();
   }, [refreshCacheSizes, cacheStats.totalActivities, routeProcessedCount]);
 
-  const handleRescanSections = useCallback(() => {
-    Alert.alert(t('alerts.redetectSectionsTitle'), t('alerts.redetectSectionsMessage'), [
-      { text: t('common.cancel'), style: 'cancel' },
-      {
-        text: t('alerts.redetectSectionsConfirm'),
-        onPress: () => {
-          const started = forceRescan();
-          if (!started) {
-            Alert.alert(t('alerts.error'), t('alerts.redetectSectionsBusy'));
-          }
-        },
-      },
-    ]);
-  }, [forceRescan, t]);
-
   const handleClearCache = useCallback(() => {
     Alert.alert(t('alerts.clearCacheTitle'), t('alerts.clearCacheMessage'), [
       { text: t('common.cancel'), style: 'cancel' },
@@ -226,9 +207,6 @@ export function DataCacheSection({ onLayout }: DataCacheSectionProps) {
           routeMatchingEnabled={routeSettings.enabled}
           isRouteProcessing={isRouteProcessing}
           onCancelRouteProcessing={cancelRouteProcessing}
-          isRescanning={isScanning}
-          rescanProgress={rescanProgress}
-          onRescanSections={handleRescanSections}
           onClearCache={handleClearCache}
         />
 

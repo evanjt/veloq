@@ -9,7 +9,7 @@ import {
   requestNotificationPermission,
   hasNotificationPermission,
 } from '@/lib/notifications/notificationService';
-import { colors, darkColors, spacing, layout, typography } from '@/theme';
+import { colors, darkColors, spacing, typography } from '@/theme';
 import { settingsStyles } from './settingsStyles';
 
 export function NotificationSection() {
@@ -18,7 +18,7 @@ export function NotificationSection() {
   const authMethod = useAuthStore((s) => s.authMethod);
   const isOAuth = authMethod === 'oauth';
   const isDemoMode = useAuthStore((s) => s.isDemoMode);
-  const { enabled, categories, setEnabled, setCategoryEnabled } = useNotificationPreferences();
+  const { enabled, setEnabled } = useNotificationPreferences();
   const [toggling, setToggling] = useState(false);
 
   const canEnable = isOAuth && !isDemoMode;
@@ -100,60 +100,11 @@ export function NotificationSection() {
           </Pressable>
         )}
 
-        {/* Category toggles (only when enabled) */}
-        {enabled ? (
-          <>
-            <View style={[settingsStyles.fullDivider, isDark && settingsStyles.fullDividerDark]} />
-            <Text style={[styles.categoryHeader, isDark && settingsStyles.textMuted]}>
-              {t('notifications.settings.categories')}
-            </Text>
-
-            <CategoryRow
-              label={t('notifications.settings.sectionPr')}
-              icon="trophy-outline"
-              value={categories.sectionPr}
-              onToggle={(v) => setCategoryEnabled('sectionPr', v)}
-              isDark={isDark}
-            />
-            <CategoryRow
-              label={t('notifications.settings.fitnessMilestone')}
-              icon="lightning-bolt"
-              value={categories.fitnessMilestone}
-              onToggle={(v) => setCategoryEnabled('fitnessMilestone', v)}
-              isDark={isDark}
-            />
-          </>
-        ) : null}
+        {/* Category toggles hidden until background notifications are implemented.
+           Store and filtering logic retained in NotificationPreferencesStore +
+           insightNotification.ts — re-enable these rows when background push is live. */}
       </View>
     </>
-  );
-}
-
-function CategoryRow({
-  label,
-  icon,
-  value,
-  onToggle,
-  isDark,
-}: {
-  label: string;
-  icon: string;
-  value: boolean;
-  onToggle: (v: boolean) => void;
-  isDark: boolean;
-}) {
-  return (
-    <View style={styles.categoryRow}>
-      <MaterialCommunityIcons
-        name={icon as never}
-        size={16}
-        color={isDark ? darkColors.textSecondary : colors.textSecondary}
-      />
-      <Text style={[styles.categoryLabel, isDark && settingsStyles.textLight]} numberOfLines={1}>
-        {label}
-      </Text>
-      <Switch value={value} onValueChange={onToggle} color={colors.primary} />
-    </View>
   );
 }
 
@@ -181,24 +132,5 @@ const styles = StyleSheet.create({
     ...typography.label,
     color: colors.textMuted,
     textTransform: 'none',
-  },
-  categoryHeader: {
-    ...typography.captionBold,
-    color: colors.textSecondary,
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.xs,
-  },
-  categoryRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.md,
-    paddingVertical: 6,
-    gap: spacing.sm,
-  },
-  categoryLabel: {
-    ...typography.bodySmall,
-    flex: 1,
-    color: colors.textPrimary,
   },
 });

@@ -331,15 +331,14 @@ export function useRouteDataSync(
                   const progress = routeEngine.getHeatmapTileProgress();
                   if (progress && progress.length >= 2 && progress[1] > 0) {
                     const [processed, total] = progress;
-                    const pct = 95 + Math.min(processed / total, 1) * 5;
-                    const tilePercent =
-                      total > 0 ? Math.min(100, Math.round((processed / total) * 100)) : 0;
+                    const tilePct = Math.min(100, Math.round((processed / total) * 100));
+                    const pct = 75 + Math.min(processed / total, 1) * 25;
                     updateProgress({
                       status: 'computing',
-                      completed: processed,
-                      total,
+                      completed: 0,
+                      total: 0,
                       percent: Math.min(100, Math.round(pct)),
-                      message: i18n.t('cache.finalizingHeatmap', { percent: tilePercent }),
+                      message: i18n.t('cache.finalizingHeatmap', { percent: tilePct }),
                     });
                   }
                   if (s !== 'running' || Date.now() - tileStartTime > maxPoll) break;

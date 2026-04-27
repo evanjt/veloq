@@ -77,6 +77,7 @@ const DEFAULT_ROUTE_SETTINGS = {
   autoCleanupEnabled: false,
   geocodingEnabled: false,
   heatmapEnabled: true,
+  detectionStrictness: 60,
 };
 
 const DEFAULT_SUMMARY_CARD: SummaryCardPreferences = {
@@ -311,6 +312,7 @@ describe('RouteSettingsStore', () => {
           autoCleanupEnabled: true,
           geocodingEnabled: true,
           heatmapEnabled: true,
+          detectionStrictness: 60,
         },
         isLoaded: true,
       });
@@ -378,6 +380,7 @@ describe('RouteSettingsStore', () => {
           autoCleanupEnabled: false,
           geocodingEnabled: true,
           heatmapEnabled: true,
+          detectionStrictness: 60,
         },
         isLoaded: true,
       });
