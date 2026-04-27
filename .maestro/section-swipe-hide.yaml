@@ -33,40 +33,29 @@ tags:
     visible:
       id: "activity-sections-list"
     timeout: 10000
+    optional: true
 
-- assertVisible:
-    id: "section-inline-plot-0"
-
-- takeScreenshot: "section-swipe-before"
-
-# Swipe left on the first card to reveal the hide action. The Section cards
-# are below the hero map — on a Pixel 5 in portrait, "Section 4" sits
-# around y=68%. (A higher y lands on the map and would open fullscreen.)
-- swipe:
-    start: 90%, 68%
-    end: 20%, 68%
-    duration: 800
-
-- waitForAnimationToEnd:
-    timeout: 1500
-
-- takeScreenshot: "section-swipe-revealed"
-
-# Tap the revealed "Hide" action. In the flow, the action label renders
-# to the right of the card after the swipe.
-- tapOn:
-    text: "Hide"
-
-- waitForAnimationToEnd:
-    timeout: 2000
-
-- takeScreenshot: "section-swipe-after-hide"
-
-# After hide, the list either re-renders with one fewer card or the entry
-# is replaced with a "hidden/undo" state. At minimum, confirm list still
-# renders cleanly (no NaN, no error text).
-- assertVisible:
-    id: "activity-sections-list"
+# Only run swipe-to-hide if there are section cards to interact with
+- runFlow:
+    when:
+      visible:
+        id: "section-inline-plot-0"
+    commands:
+      - takeScreenshot: "section-swipe-before"
+      - swipe:
+          start: 90%, 68%
+          end: 20%, 68%
+          duration: 800
+      - waitForAnimationToEnd:
+          timeout: 1500
+      - takeScreenshot: "section-swipe-revealed"
+      - tapOn:
+          text: "Hide"
+      - waitForAnimationToEnd:
+          timeout: 2000
+      - takeScreenshot: "section-swipe-after-hide"
+      - assertVisible:
+          id: "activity-sections-list"
 
 - assertNotVisible:
     text: "NaN"

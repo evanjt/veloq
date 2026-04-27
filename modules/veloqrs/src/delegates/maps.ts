@@ -39,7 +39,7 @@ export function getActivityBoundsForRange(
 
 export function getAllMapSignatures(
   host: DelegateHost
-): Array<{ activityId: string; coords: number[]; centerLat: number; centerLng: number }> {
+): Array<{ activityId: string; encodedCoords: ArrayBuffer; centerLat: number; centerLng: number }> {
   if (!host.ready) return [];
   return host.timed('getAllMapSignatures', () => host.engine.maps().getAllSignatures());
 }

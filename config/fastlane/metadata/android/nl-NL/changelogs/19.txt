@@ -1,0 +1,10 @@
+v0.3.0
+
+• Secties vastzetten, accepteren of uitschakelen; detectiegevoeligheid aanpassen
+• Referentie-inspanning instellen voor vergelijkingen
+• Synchronisatievoortgang met stapsgewijze feedback
+• Beste prestaties: vermogen- en tempo-PRs met bronlink
+• Feed: PR-trofeeën, trendpillen, sparkline-kaarten
+• Kaart: kleurverloop-polylijnen, heatmap, clusterzoom
+• Fitness: opbouwsnelheid, vorm %, temperatuur- en hellingsgrafieken
+• Snellere overdrachten en sectieladen

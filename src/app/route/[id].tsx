@@ -40,6 +40,7 @@ import {
 import { useDebugStore } from '@/providers';
 import { useFFITimer } from '@/hooks/debug/useFFITimer';
 import { SectionScatterChart } from '@/components/section';
+import { decodeCoords } from 'veloqrs';
 import {
   formatDistance,
   formatRelativeDate,
@@ -115,6 +116,11 @@ export default function RouteDetailScreen() {
 
   // Get route group from engine using lightweight on-demand query (with LRU caching)
   const { group: engineGroup } = useGroupDetail(id || null);
+
+  // Local override for immediate UI feedback after setting a new reference
+  // (useGroupDetail doesn't subscribe to engine events, so engineGroup.representativeId is stale)
+  const [overrideRepresentativeId, setOverrideRepresentativeId] = useState<string | null>(null);
+  const effectiveRepresentativeId = overrideRepresentativeId ?? engineGroup?.representativeId;
 
   // Sport type selector state
   const [selectedSportType, setSelectedSportType] = useState<string | undefined>(undefined);
@@ -246,11 +252,10 @@ export default function RouteDetailScreen() {
       const result: Record<string, { points: Array<{ lat: number; lng: number }> }> = {};
 
       for (const sig of allSigs) {
-        if (!activityIdSet.has(sig.activityId) || sig.coords.length < 4) continue;
-        const points: Array<{ lat: number; lng: number }> = [];
-        for (let i = 0; i < sig.coords.length - 1; i += 2) {
-          points.push({ lat: sig.coords[i], lng: sig.coords[i + 1] });
-        }
+        if (!activityIdSet.has(sig.activityId)) continue;
+        const decoded = decodeCoords(sig.encodedCoords);
+        if (decoded.length < 2) continue;
+        const points = decoded.map((p) => ({ lat: p.latitude, lng: p.longitude }));
         result[sig.activityId] = { points };
       }
       return result;
@@ -372,6 +377,27 @@ export default function RouteDetailScreen() {
   const handleToggleShowExcluded = useCallback(() => {
     setShowExcluded((v) => !v);
   }, []);
+
+  const handleSetAsReference = useCallback(
+    (activityId: string) => {
+      if (!id || activityId === effectiveRepresentativeId) return;
+      Alert.alert(t('routes.setAsReference'), t('routes.setAsReferenceConfirm'), [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('common.confirm'),
+          onPress: () => {
+            const engine = getRouteEngine();
+            if (!engine) return;
+            const success = engine.setRouteRepresentative(id, activityId);
+            if (success) {
+              setOverrideRepresentativeId(activityId);
+            }
+          },
+        },
+      ]);
+    },
+    [id, effectiveRepresentativeId, t]
+  );
 
   // Enrich chart data with PR info for tooltip display
   const enrichedChartData = useMemo(() => {
@@ -682,6 +708,8 @@ export default function RouteDetailScreen() {
                   onActivitySelect={handleActivitySelect}
                   onExcludeActivity={handleExcludeActivity}
                   onIncludeActivity={handleIncludeActivity}
+                  onSetAsReference={handleSetAsReference}
+                  referenceActivityId={effectiveRepresentativeId}
                   showExcluded={showExcluded}
                   hasExcluded={excludedActivityIds.size > 0}
                   onToggleShowExcluded={handleToggleShowExcluded}

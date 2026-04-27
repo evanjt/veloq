@@ -181,4 +181,16 @@ impl RouteManager {
     ) -> Result<Vec<crate::FfiActivityRouteHighlight>, VeloqError> {
         with_engine(|e| e.get_activity_route_highlights(&activity_ids))
     }
+
+    fn set_representative(
+        &self,
+        route_id: String,
+        activity_id: String,
+    ) -> Result<(), VeloqError> {
+        with_engine(|e| {
+            e.set_route_representative(&route_id, &activity_id)
+                .map_err(|e| VeloqError::Database { msg: e })?;
+            Ok(())
+        })?
+    }
 }

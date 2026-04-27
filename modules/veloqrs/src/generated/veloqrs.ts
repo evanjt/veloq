@@ -170,6 +170,26 @@ export function takeFetchAndStoreResult(): FetchAndStoreResult | undefined {
     ),
   );
 }
+/**
+ * Validate a backup database file without touching the global engine.
+ * Opens the file read-only and returns JSON: {"schema_version", "athlete_id", "activity_count"}.
+ */
+export function validateBackupDatabase(path: string): string /*throws*/ {
+  return FfiConverterString.lift(
+    uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+        FfiConverterTypeVeloqError,
+      ),
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_veloqrs_fn_func_validate_backup_database(
+          FfiConverterString.lower(path),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    ),
+  );
+}
 
 /**
  * Sport type mapping for activities.
@@ -1252,14 +1272,14 @@ const FfiConverterTypeFfiActivitySectionHighlight = (() => {
 })();
 
 /**
- * Batch trace result: one activity's extracted section trace as flat coords.
+ * Batch trace result: one activity's extracted section trace.
  */
 export type FfiBatchTrace = {
   activityId: string;
   /**
-   * Flat coordinates [lat, lng, lat, lng, ...]
+   * Delta+varint encoded coordinates (decode with coords::decode)
    */
-  coords: Array</*f64*/ number>;
+  encodedCoords: ArrayBuffer;
 };
 
 /**
@@ -1298,17 +1318,17 @@ const FfiConverterTypeFfiBatchTrace = (() => {
     read(from: RustBuffer): TypeName {
       return {
         activityId: FfiConverterString.read(from),
-        coords: FfiConverterArrayFloat64.read(from),
+        encodedCoords: FfiConverterArrayBuffer.read(from),
       };
     }
     write(value: TypeName, into: RustBuffer): void {
       FfiConverterString.write(value.activityId, into);
-      FfiConverterArrayFloat64.write(value.coords, into);
+      FfiConverterArrayBuffer.write(value.encodedCoords, into);
     }
     allocationSize(value: TypeName): number {
       return (
         FfiConverterString.allocationSize(value.activityId) +
-        FfiConverterArrayFloat64.allocationSize(value.coords)
+        FfiConverterArrayBuffer.allocationSize(value.encodedCoords)
       );
     }
   }
@@ -1790,6 +1810,10 @@ export type FfiDetectionProgress = {
    * Total items in current phase
    */
   total: /*u32*/ number;
+  /**
+   * Phase-weighted overall percent (0–100)
+   */
+  percent: /*u32*/ number;
 };
 
 /**
@@ -1831,18 +1855,21 @@ const FfiConverterTypeFfiDetectionProgress = (() => {
         phase: FfiConverterString.read(from),
         completed: FfiConverterUInt32.read(from),
         total: FfiConverterUInt32.read(from),
+        percent: FfiConverterUInt32.read(from),
       };
     }
     write(value: TypeName, into: RustBuffer): void {
       FfiConverterString.write(value.phase, into);
       FfiConverterUInt32.write(value.completed, into);
       FfiConverterUInt32.write(value.total, into);
+      FfiConverterUInt32.write(value.percent, into);
     }
     allocationSize(value: TypeName): number {
       return (
         FfiConverterString.allocationSize(value.phase) +
         FfiConverterUInt32.allocationSize(value.completed) +
-        FfiConverterUInt32.allocationSize(value.total)
+        FfiConverterUInt32.allocationSize(value.total) +
+        FfiConverterUInt32.allocationSize(value.percent)
       );
     }
   }
@@ -2626,7 +2653,7 @@ export type FfiFrequentSection = {
   id: string;
   name: string | undefined;
   sportType: string;
-  polyline: Array<FfiGpsPoint>;
+  encodedPolyline: ArrayBuffer;
   representativeActivityId: string;
   activityIds: Array<string>;
   activityPortions: Array<FfiSectionPortion>;
@@ -2683,7 +2710,7 @@ const FfiConverterTypeFfiFrequentSection = (() => {
         id: FfiConverterString.read(from),
         name: FfiConverterOptionalString.read(from),
         sportType: FfiConverterString.read(from),
-        polyline: FfiConverterArrayTypeFfiGpsPoint.read(from),
+        encodedPolyline: FfiConverterArrayBuffer.read(from),
         representativeActivityId: FfiConverterString.read(from),
         activityIds: FfiConverterArrayString.read(from),
         activityPortions: FfiConverterArrayTypeFfiSectionPortion.read(from),
@@ -2706,7 +2733,7 @@ const FfiConverterTypeFfiFrequentSection = (() => {
       FfiConverterString.write(value.id, into);
       FfiConverterOptionalString.write(value.name, into);
       FfiConverterString.write(value.sportType, into);
-      FfiConverterArrayTypeFfiGpsPoint.write(value.polyline, into);
+      FfiConverterArrayBuffer.write(value.encodedPolyline, into);
       FfiConverterString.write(value.representativeActivityId, into);
       FfiConverterArrayString.write(value.activityIds, into);
       FfiConverterArrayTypeFfiSectionPortion.write(
@@ -2732,7 +2759,7 @@ const FfiConverterTypeFfiFrequentSection = (() => {
         FfiConverterString.allocationSize(value.id) +
         FfiConverterOptionalString.allocationSize(value.name) +
         FfiConverterString.allocationSize(value.sportType) +
-        FfiConverterArrayTypeFfiGpsPoint.allocationSize(value.polyline) +
+        FfiConverterArrayBuffer.allocationSize(value.encodedPolyline) +
         FfiConverterString.allocationSize(value.representativeActivityId) +
         FfiConverterArrayString.allocationSize(value.activityIds) +
         FfiConverterArrayTypeFfiSectionPortion.allocationSize(
@@ -2988,9 +3015,9 @@ export type FfiGroupWithPolyline = {
    */
   distanceMeters: /*f64*/ number;
   /**
-   * Flat lat/lng pairs [lat1, lng1, lat2, lng2, ...]
+   * Delta+varint encoded coordinates
    */
-  consensusPolyline: Array</*f64*/ number>;
+  encodedPolyline: ArrayBuffer;
   /**
    * All sport types present in this group's activities
    */
@@ -3040,7 +3067,7 @@ const FfiConverterTypeFfiGroupWithPolyline = (() => {
         customName: FfiConverterOptionalString.read(from),
         bounds: FfiConverterOptionalTypeFfiBounds.read(from),
         distanceMeters: FfiConverterFloat64.read(from),
-        consensusPolyline: FfiConverterArrayFloat64.read(from),
+        encodedPolyline: FfiConverterArrayBuffer.read(from),
         sportTypes: FfiConverterArrayString.read(from),
       };
     }
@@ -3052,7 +3079,7 @@ const FfiConverterTypeFfiGroupWithPolyline = (() => {
       FfiConverterOptionalString.write(value.customName, into);
       FfiConverterOptionalTypeFfiBounds.write(value.bounds, into);
       FfiConverterFloat64.write(value.distanceMeters, into);
-      FfiConverterArrayFloat64.write(value.consensusPolyline, into);
+      FfiConverterArrayBuffer.write(value.encodedPolyline, into);
       FfiConverterArrayString.write(value.sportTypes, into);
     }
     allocationSize(value: TypeName): number {
@@ -3064,7 +3091,7 @@ const FfiConverterTypeFfiGroupWithPolyline = (() => {
         FfiConverterOptionalString.allocationSize(value.customName) +
         FfiConverterOptionalTypeFfiBounds.allocationSize(value.bounds) +
         FfiConverterFloat64.allocationSize(value.distanceMeters) +
-        FfiConverterArrayFloat64.allocationSize(value.consensusPolyline) +
+        FfiConverterArrayBuffer.allocationSize(value.encodedPolyline) +
         FfiConverterArrayString.allocationSize(value.sportTypes)
       );
     }
@@ -3353,14 +3380,14 @@ const FfiConverterTypeFfiInsightsData = (() => {
 
 /**
  * Lightweight map signature for rendering activity traces on the map.
- * Contains simplified GPS points (max ~100 via Douglas-Peucker) as flat coords.
+ * Contains simplified GPS points (max ~100 via Douglas-Peucker) as encoded coords.
  */
 export type FfiMapSignature = {
   activityId: string;
   /**
-   * Flat coordinates [lat, lng, lat, lng, ...] (simplified, max ~100 points)
+   * Delta+varint encoded coordinates (simplified, max ~100 points)
    */
-  coords: Array</*f64*/ number>;
+  encodedCoords: ArrayBuffer;
   centerLat: /*f64*/ number;
   centerLng: /*f64*/ number;
 };
@@ -3401,23 +3428,85 @@ const FfiConverterTypeFfiMapSignature = (() => {
     read(from: RustBuffer): TypeName {
       return {
         activityId: FfiConverterString.read(from),
-        coords: FfiConverterArrayFloat64.read(from),
+        encodedCoords: FfiConverterArrayBuffer.read(from),
         centerLat: FfiConverterFloat64.read(from),
         centerLng: FfiConverterFloat64.read(from),
       };
     }
     write(value: TypeName, into: RustBuffer): void {
       FfiConverterString.write(value.activityId, into);
-      FfiConverterArrayFloat64.write(value.coords, into);
+      FfiConverterArrayBuffer.write(value.encodedCoords, into);
       FfiConverterFloat64.write(value.centerLat, into);
       FfiConverterFloat64.write(value.centerLng, into);
     }
     allocationSize(value: TypeName): number {
       return (
         FfiConverterString.allocationSize(value.activityId) +
-        FfiConverterArrayFloat64.allocationSize(value.coords) +
+        FfiConverterArrayBuffer.allocationSize(value.encodedCoords) +
         FfiConverterFloat64.allocationSize(value.centerLat) +
         FfiConverterFloat64.allocationSize(value.centerLng)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * User-tunable match strictness, persisted in the settings table.
+ * Read by Rust on engine load; written by `DetectionManager.set_match_strictness`.
+ */
+export type FfiMatchStrictness = {
+  minMatchPct: /*f64*/ number;
+  endpointThreshold: /*f64*/ number;
+};
+
+/**
+ * Generated factory for {@link FfiMatchStrictness} record objects.
+ */
+export const FfiMatchStrictness = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiMatchStrictness, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    /**
+     * Create a frozen instance of {@link FfiMatchStrictness}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    create,
+
+    /**
+     * Create a frozen instance of {@link FfiMatchStrictness}, with defaults specified
+     * in Rust, in the {@link veloqrs} crate.
+     */
+    new: create,
+
+    /**
+     * Defaults specified in the {@link veloqrs} crate.
+     */
+    defaults: () => Object.freeze(defaults()) as Partial<FfiMatchStrictness>,
+  });
+})();
+
+const FfiConverterTypeFfiMatchStrictness = (() => {
+  type TypeName = FfiMatchStrictness;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        minMatchPct: FfiConverterFloat64.read(from),
+        endpointThreshold: FfiConverterFloat64.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterFloat64.write(value.minMatchPct, into);
+      FfiConverterFloat64.write(value.endpointThreshold, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterFloat64.allocationSize(value.minMatchPct) +
+        FfiConverterFloat64.allocationSize(value.endpointThreshold)
       );
     }
   }
@@ -3911,9 +4000,9 @@ export type FfiNearbySectionSummary = {
   visitCount: /*u32*/ number;
   centerDistanceMeters: /*f64*/ number;
   /**
-   * Flat polyline coordinates [lat, lng, lat, lng, ...] for map overlay
+   * Delta+varint encoded coordinates for map overlay
    */
-  polylineCoords: Array</*f64*/ number>;
+  encodedPolyline: ArrayBuffer;
 };
 
 /**
@@ -3960,7 +4049,7 @@ const FfiConverterTypeFfiNearbySectionSummary = (() => {
         distanceMeters: FfiConverterFloat64.read(from),
         visitCount: FfiConverterUInt32.read(from),
         centerDistanceMeters: FfiConverterFloat64.read(from),
-        polylineCoords: FfiConverterArrayFloat64.read(from),
+        encodedPolyline: FfiConverterArrayBuffer.read(from),
       };
     }
     write(value: TypeName, into: RustBuffer): void {
@@ -3971,7 +4060,7 @@ const FfiConverterTypeFfiNearbySectionSummary = (() => {
       FfiConverterFloat64.write(value.distanceMeters, into);
       FfiConverterUInt32.write(value.visitCount, into);
       FfiConverterFloat64.write(value.centerDistanceMeters, into);
-      FfiConverterArrayFloat64.write(value.polylineCoords, into);
+      FfiConverterArrayBuffer.write(value.encodedPolyline, into);
     }
     allocationSize(value: TypeName): number {
       return (
@@ -3982,7 +4071,7 @@ const FfiConverterTypeFfiNearbySectionSummary = (() => {
         FfiConverterFloat64.allocationSize(value.distanceMeters) +
         FfiConverterUInt32.allocationSize(value.visitCount) +
         FfiConverterFloat64.allocationSize(value.centerDistanceMeters) +
-        FfiConverterArrayFloat64.allocationSize(value.polylineCoords)
+        FfiConverterArrayBuffer.allocationSize(value.encodedPolyline)
       );
     }
   }
@@ -4259,7 +4348,7 @@ const FfiConverterTypeFfiPeriodStats = (() => {
 export type FfiPotentialSection = {
   id: string;
   sportType: string;
-  polyline: Array<FfiGpsPoint>;
+  encodedPolyline: ArrayBuffer;
   activityIds: Array<string>;
   visitCount: /*u32*/ number;
   distanceMeters: /*f64*/ number;
@@ -4304,7 +4393,7 @@ const FfiConverterTypeFfiPotentialSection = (() => {
       return {
         id: FfiConverterString.read(from),
         sportType: FfiConverterString.read(from),
-        polyline: FfiConverterArrayTypeFfiGpsPoint.read(from),
+        encodedPolyline: FfiConverterArrayBuffer.read(from),
         activityIds: FfiConverterArrayString.read(from),
         visitCount: FfiConverterUInt32.read(from),
         distanceMeters: FfiConverterFloat64.read(from),
@@ -4315,7 +4404,7 @@ const FfiConverterTypeFfiPotentialSection = (() => {
     write(value: TypeName, into: RustBuffer): void {
       FfiConverterString.write(value.id, into);
       FfiConverterString.write(value.sportType, into);
-      FfiConverterArrayTypeFfiGpsPoint.write(value.polyline, into);
+      FfiConverterArrayBuffer.write(value.encodedPolyline, into);
       FfiConverterArrayString.write(value.activityIds, into);
       FfiConverterUInt32.write(value.visitCount, into);
       FfiConverterFloat64.write(value.distanceMeters, into);
@@ -4326,7 +4415,7 @@ const FfiConverterTypeFfiPotentialSection = (() => {
       return (
         FfiConverterString.allocationSize(value.id) +
         FfiConverterString.allocationSize(value.sportType) +
-        FfiConverterArrayTypeFfiGpsPoint.allocationSize(value.polyline) +
+        FfiConverterArrayBuffer.allocationSize(value.encodedPolyline) +
         FfiConverterArrayString.allocationSize(value.activityIds) +
         FfiConverterUInt32.allocationSize(value.visitCount) +
         FfiConverterFloat64.allocationSize(value.distanceMeters) +
@@ -4343,7 +4432,10 @@ const FfiConverterTypeFfiPotentialSection = (() => {
  */
 export type FfiPreviewTrack = {
   activityId: string;
-  points: Array<FfiGpsPoint>;
+  /**
+   * Delta+varint encoded coordinates
+   */
+  encodedCoords: ArrayBuffer;
 };
 
 /**
@@ -4382,17 +4474,17 @@ const FfiConverterTypeFfiPreviewTrack = (() => {
     read(from: RustBuffer): TypeName {
       return {
         activityId: FfiConverterString.read(from),
-        points: FfiConverterArrayTypeFfiGpsPoint.read(from),
+        encodedCoords: FfiConverterArrayBuffer.read(from),
       };
     }
     write(value: TypeName, into: RustBuffer): void {
       FfiConverterString.write(value.activityId, into);
-      FfiConverterArrayTypeFfiGpsPoint.write(value.points, into);
+      FfiConverterArrayBuffer.write(value.encodedCoords, into);
     }
     allocationSize(value: TypeName): number {
       return (
         FfiConverterString.allocationSize(value.activityId) +
-        FfiConverterArrayTypeFfiGpsPoint.allocationSize(value.points)
+        FfiConverterArrayBuffer.allocationSize(value.encodedCoords)
       );
     }
   }
@@ -5015,7 +5107,7 @@ const FfiConverterTypeFfiRoutePerformanceResult = (() => {
  */
 export type FfiRouteSignature = {
   activityId: string;
-  points: Array<FfiGpsPoint>;
+  encodedPoints: ArrayBuffer;
   totalDistance: /*f64*/ number;
   startPoint: FfiGpsPoint;
   endPoint: FfiGpsPoint;
@@ -5059,7 +5151,7 @@ const FfiConverterTypeFfiRouteSignature = (() => {
     read(from: RustBuffer): TypeName {
       return {
         activityId: FfiConverterString.read(from),
-        points: FfiConverterArrayTypeFfiGpsPoint.read(from),
+        encodedPoints: FfiConverterArrayBuffer.read(from),
         totalDistance: FfiConverterFloat64.read(from),
         startPoint: FfiConverterTypeFfiGpsPoint.read(from),
         endPoint: FfiConverterTypeFfiGpsPoint.read(from),
@@ -5069,7 +5161,7 @@ const FfiConverterTypeFfiRouteSignature = (() => {
     }
     write(value: TypeName, into: RustBuffer): void {
       FfiConverterString.write(value.activityId, into);
-      FfiConverterArrayTypeFfiGpsPoint.write(value.points, into);
+      FfiConverterArrayBuffer.write(value.encodedPoints, into);
       FfiConverterFloat64.write(value.totalDistance, into);
       FfiConverterTypeFfiGpsPoint.write(value.startPoint, into);
       FfiConverterTypeFfiGpsPoint.write(value.endPoint, into);
@@ -5079,7 +5171,7 @@ const FfiConverterTypeFfiRouteSignature = (() => {
     allocationSize(value: TypeName): number {
       return (
         FfiConverterString.allocationSize(value.activityId) +
-        FfiConverterArrayTypeFfiGpsPoint.allocationSize(value.points) +
+        FfiConverterArrayBuffer.allocationSize(value.encodedPoints) +
         FfiConverterFloat64.allocationSize(value.totalDistance) +
         FfiConverterTypeFfiGpsPoint.allocationSize(value.startPoint) +
         FfiConverterTypeFfiGpsPoint.allocationSize(value.endPoint) +
@@ -5274,7 +5366,7 @@ export type FfiSection = {
   sectionType: string;
   name: string | undefined;
   sportType: string;
-  polyline: Array<FfiGpsPoint>;
+  encodedPolyline: ArrayBuffer;
   distanceMeters: /*f64*/ number;
   representativeActivityId: string | undefined;
   activityIds: Array<string>;
@@ -5336,7 +5428,7 @@ const FfiConverterTypeFfiSection = (() => {
         sectionType: FfiConverterString.read(from),
         name: FfiConverterOptionalString.read(from),
         sportType: FfiConverterString.read(from),
-        polyline: FfiConverterArrayTypeFfiGpsPoint.read(from),
+        encodedPolyline: FfiConverterArrayBuffer.read(from),
         distanceMeters: FfiConverterFloat64.read(from),
         representativeActivityId: FfiConverterOptionalString.read(from),
         activityIds: FfiConverterArrayString.read(from),
@@ -5364,7 +5456,7 @@ const FfiConverterTypeFfiSection = (() => {
       FfiConverterString.write(value.sectionType, into);
       FfiConverterOptionalString.write(value.name, into);
       FfiConverterString.write(value.sportType, into);
-      FfiConverterArrayTypeFfiGpsPoint.write(value.polyline, into);
+      FfiConverterArrayBuffer.write(value.encodedPolyline, into);
       FfiConverterFloat64.write(value.distanceMeters, into);
       FfiConverterOptionalString.write(value.representativeActivityId, into);
       FfiConverterArrayString.write(value.activityIds, into);
@@ -5392,7 +5484,7 @@ const FfiConverterTypeFfiSection = (() => {
         FfiConverterString.allocationSize(value.sectionType) +
         FfiConverterOptionalString.allocationSize(value.name) +
         FfiConverterString.allocationSize(value.sportType) +
-        FfiConverterArrayTypeFfiGpsPoint.allocationSize(value.polyline) +
+        FfiConverterArrayBuffer.allocationSize(value.encodedPolyline) +
         FfiConverterFloat64.allocationSize(value.distanceMeters) +
         FfiConverterOptionalString.allocationSize(
           value.representativeActivityId,
@@ -5841,9 +5933,9 @@ const FfiConverterTypeFfiSectionEncounter = (() => {
  */
 export type FfiSectionExtensionTrack = {
   /**
-   * Flat coordinates [lat, lng, lat, lng, ...] of the full representative activity track
+   * Delta+varint encoded coordinates of the full representative activity track
    */
-  track: Array</*f64*/ number>;
+  encodedTrack: ArrayBuffer;
   /**
    * Index in the track where the current section starts
    */
@@ -5891,19 +5983,19 @@ const FfiConverterTypeFfiSectionExtensionTrack = (() => {
   class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
     read(from: RustBuffer): TypeName {
       return {
-        track: FfiConverterArrayFloat64.read(from),
+        encodedTrack: FfiConverterArrayBuffer.read(from),
         sectionStartIdx: FfiConverterUInt32.read(from),
         sectionEndIdx: FfiConverterUInt32.read(from),
       };
     }
     write(value: TypeName, into: RustBuffer): void {
-      FfiConverterArrayFloat64.write(value.track, into);
+      FfiConverterArrayBuffer.write(value.encodedTrack, into);
       FfiConverterUInt32.write(value.sectionStartIdx, into);
       FfiConverterUInt32.write(value.sectionEndIdx, into);
     }
     allocationSize(value: TypeName): number {
       return (
-        FfiConverterArrayFloat64.allocationSize(value.track) +
+        FfiConverterArrayBuffer.allocationSize(value.encodedTrack) +
         FfiConverterUInt32.allocationSize(value.sectionStartIdx) +
         FfiConverterUInt32.allocationSize(value.sectionEndIdx)
       );
@@ -6706,13 +6798,16 @@ export type FfiSectionWithPolyline = {
   scale: string | undefined;
   bounds: FfiBounds | undefined;
   /**
-   * Flat lat/lng pairs [lat1, lng1, lat2, lng2, ...]
+   * Delta+varint encoded coordinates
    */
-  polyline: Array</*f64*/ number>;
+  encodedPolyline: ArrayBuffer;
   /**
    * All sport types present in this section's activities
    */
   sportTypes: Array<string>;
+  isUserDefined: boolean;
+  disabled: boolean;
+  supersededBy: string | undefined;
 };
 
 /**
@@ -6761,8 +6856,11 @@ const FfiConverterTypeFfiSectionWithPolyline = (() => {
         confidence: FfiConverterFloat64.read(from),
         scale: FfiConverterOptionalString.read(from),
         bounds: FfiConverterOptionalTypeFfiBounds.read(from),
-        polyline: FfiConverterArrayFloat64.read(from),
+        encodedPolyline: FfiConverterArrayBuffer.read(from),
         sportTypes: FfiConverterArrayString.read(from),
+        isUserDefined: FfiConverterBool.read(from),
+        disabled: FfiConverterBool.read(from),
+        supersededBy: FfiConverterOptionalString.read(from),
       };
     }
     write(value: TypeName, into: RustBuffer): void {
@@ -6775,8 +6873,11 @@ const FfiConverterTypeFfiSectionWithPolyline = (() => {
       FfiConverterFloat64.write(value.confidence, into);
       FfiConverterOptionalString.write(value.scale, into);
       FfiConverterOptionalTypeFfiBounds.write(value.bounds, into);
-      FfiConverterArrayFloat64.write(value.polyline, into);
+      FfiConverterArrayBuffer.write(value.encodedPolyline, into);
       FfiConverterArrayString.write(value.sportTypes, into);
+      FfiConverterBool.write(value.isUserDefined, into);
+      FfiConverterBool.write(value.disabled, into);
+      FfiConverterOptionalString.write(value.supersededBy, into);
     }
     allocationSize(value: TypeName): number {
       return (
@@ -6789,8 +6890,11 @@ const FfiConverterTypeFfiSectionWithPolyline = (() => {
         FfiConverterFloat64.allocationSize(value.confidence) +
         FfiConverterOptionalString.allocationSize(value.scale) +
         FfiConverterOptionalTypeFfiBounds.allocationSize(value.bounds) +
-        FfiConverterArrayFloat64.allocationSize(value.polyline) +
-        FfiConverterArrayString.allocationSize(value.sportTypes)
+        FfiConverterArrayBuffer.allocationSize(value.encodedPolyline) +
+        FfiConverterArrayString.allocationSize(value.sportTypes) +
+        FfiConverterBool.allocationSize(value.isUserDefined) +
+        FfiConverterBool.allocationSize(value.disabled) +
+        FfiConverterOptionalString.allocationSize(value.supersededBy)
       );
     }
   }
@@ -7964,6 +8068,10 @@ export type SectionSummary = {
    */
   sportTypes: Array<string>;
   /**
+   * Whether the user has accepted/pinned this section.
+   */
+  isUserDefined: boolean;
+  /**
    * Whether the user has disabled (hidden) this section.
    */
   disabled: boolean;
@@ -8021,6 +8129,7 @@ const FfiConverterTypeSectionSummary = (() => {
         bounds: FfiConverterOptionalTypeFfiBounds.read(from),
         createdAt: FfiConverterString.read(from),
         sportTypes: FfiConverterArrayString.read(from),
+        isUserDefined: FfiConverterBool.read(from),
         disabled: FfiConverterBool.read(from),
         supersededBy: FfiConverterOptionalString.read(from),
       };
@@ -8039,6 +8148,7 @@ const FfiConverterTypeSectionSummary = (() => {
       FfiConverterOptionalTypeFfiBounds.write(value.bounds, into);
       FfiConverterString.write(value.createdAt, into);
       FfiConverterArrayString.write(value.sportTypes, into);
+      FfiConverterBool.write(value.isUserDefined, into);
       FfiConverterBool.write(value.disabled, into);
       FfiConverterOptionalString.write(value.supersededBy, into);
     }
@@ -8059,6 +8169,7 @@ const FfiConverterTypeSectionSummary = (() => {
         FfiConverterOptionalTypeFfiBounds.allocationSize(value.bounds) +
         FfiConverterString.allocationSize(value.createdAt) +
         FfiConverterArrayString.allocationSize(value.sportTypes) +
+        FfiConverterBool.allocationSize(value.isUserDefined) +
         FfiConverterBool.allocationSize(value.disabled) +
         FfiConverterOptionalString.allocationSize(value.supersededBy)
       );
@@ -8760,8 +8871,15 @@ export interface DetectionManagerInterface {
    * Returns false if detection is already running.
    */
   forceRedetect(sportFilter: string | undefined) /*throws*/ : boolean;
+  getConfig() /*throws*/ : FfiSectionConfig;
+  getMatchStrictness() /*throws*/ : FfiMatchStrictness;
   getProgress() /*throws*/ : FfiDetectionProgress | undefined;
   poll() /*throws*/ : string;
+  setConfig(config: FfiSectionConfig) /*throws*/ : void;
+  setMatchStrictness(
+    minMatchPct: /*f64*/ number,
+    endpointThreshold: /*f64*/ number,
+  ) /*throws*/ : void;
   start(sportFilter: string | undefined) /*throws*/ : boolean;
 }
 
@@ -8830,6 +8948,40 @@ export class DetectionManager
     );
   }
 
+  public getConfig(): FfiSectionConfig /*throws*/ {
+    return FfiConverterTypeFfiSectionConfig.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_detectionmanager_get_config(
+            uniffiTypeDetectionManagerObjectFactory.clonePointer(this),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  public getMatchStrictness(): FfiMatchStrictness /*throws*/ {
+    return FfiConverterTypeFfiMatchStrictness.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_detectionmanager_get_match_strictness(
+            uniffiTypeDetectionManagerObjectFactory.clonePointer(this),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
   public getProgress(): FfiDetectionProgress | undefined /*throws*/ {
     return FfiConverterOptionalTypeFfiDetectionProgress.lift(
       uniffiCaller.rustCallWithError(
@@ -8861,6 +9013,42 @@ export class DetectionManager
         },
         /*liftString:*/ FfiConverterString.lift,
       ),
+    );
+  }
+
+  public setConfig(config: FfiSectionConfig): void /*throws*/ {
+    uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+        FfiConverterTypeVeloqError,
+      ),
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_veloqrs_fn_method_detectionmanager_set_config(
+          uniffiTypeDetectionManagerObjectFactory.clonePointer(this),
+          FfiConverterTypeFfiSectionConfig.lower(config),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    );
+  }
+
+  public setMatchStrictness(
+    minMatchPct: /*f64*/ number,
+    endpointThreshold: /*f64*/ number,
+  ): void /*throws*/ {
+    uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+        FfiConverterTypeVeloqError,
+      ),
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_veloqrs_fn_method_detectionmanager_set_match_strictness(
+          uniffiTypeDetectionManagerObjectFactory.clonePointer(this),
+          FfiConverterFloat64.lower(minMatchPct),
+          FfiConverterFloat64.lower(endpointThreshold),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
     );
   }
 
@@ -9634,6 +9822,10 @@ export interface HeatmapManagerInterface {
    */
   getCacheSize(basePath: string) /*throws*/ : /*u64*/ bigint;
   /**
+   * Get tile generation progress as a single 0–100 percent.
+   */
+  getPercent() /*throws*/ : /*u32*/ number;
+  /**
    * Get tile generation progress: (processed, total). Returns (0, 0) if idle.
    */
   getProgress() /*throws*/ : Array</*u32*/ number>;
@@ -9723,6 +9915,26 @@ export class HeatmapManager
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_heatmapmanager_get_cache_size(
             uniffiTypeHeatmapManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(basePath),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * Get tile generation progress as a single 0–100 percent.
+   */
+  public getPercent(): /*u32*/ number /*throws*/ {
+    return FfiConverterUInt32.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_heatmapmanager_get_percent(
+            uniffiTypeHeatmapManagerObjectFactory.clonePointer(this),
             callStatus,
           );
         },
@@ -10144,6 +10356,7 @@ export interface RouteManagerInterface {
   getSummariesWithCount() /*throws*/ : FfiGroupSummariesResult;
   includeActivity(routeId: string, activityId: string) /*throws*/ : void;
   setName(routeId: string, name: string) /*throws*/ : void;
+  setRepresentative(routeId: string, activityId: string) /*throws*/ : void;
 }
 
 export class RouteManager
@@ -10473,6 +10686,26 @@ export class RouteManager
     );
   }
 
+  public setRepresentative(
+    routeId: string,
+    activityId: string,
+  ): void /*throws*/ {
+    uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+        FfiConverterTypeVeloqError,
+      ),
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_veloqrs_fn_method_routemanager_set_representative(
+          uniffiTypeRouteManagerObjectFactory.clonePointer(this),
+          FfiConverterString.lower(routeId),
+          FfiConverterString.lower(activityId),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    );
+  }
+
   /**
    * {@inheritDoc uniffi-bindgen-react-native#UniffiAbstractObject.uniffiDestroy}
    */
@@ -10561,6 +10794,8 @@ const FfiConverterTypeRouteManager = new FfiConverterObject(
 );
 
 export interface SectionManagerInterface {
+  accept(sectionId: string) /*throws*/ : void;
+  acceptAll() /*throws*/ : /*u32*/ number;
   clearSuperseded(customSectionId: string) /*throws*/ : void;
   create(
     sportType: string,
@@ -10575,14 +10810,17 @@ export interface SectionManagerInterface {
   disable(sectionId: string) /*throws*/ : void;
   enable(sectionId: string) /*throws*/ : void;
   excludeActivity(sectionId: string, activityId: string) /*throws*/ : void;
-  expandBounds(sectionId: string, newPolylineJson: string) /*throws*/ : void;
+  expandBounds(
+    sectionId: string,
+    newPolylineFlat: Array</*f64*/ number>,
+  ) /*throws*/ : void;
   extractTrace(
     activityId: string,
-    sectionPolylineJson: string,
-  ) /*throws*/ : Array</*f64*/ number>;
+    sectionPolylineFlat: Array</*f64*/ number>,
+  ) /*throws*/ : ArrayBuffer;
   extractTracesBatch(
     activityIds: Array<string>,
-    sectionPolylineJson: string,
+    sectionPolylineFlat: Array</*f64*/ number>,
   ) /*throws*/ : Array<FfiBatchTrace>;
   /**
    * Read pre-computed indicators for a batch of activity IDs.
@@ -10741,6 +10979,7 @@ export interface SectionManagerInterface {
    * Recomputes consensus polyline. Deletes secondary. Returns the primary section ID.
    */
   mergeSections(primaryId: string, secondaryId: string) /*throws*/ : string;
+  pruneOverlapping() /*throws*/ : /*u32*/ number;
   /**
    * Tier 5.5: re-derive a section's consensus polyline from its
    * current activity traces. Useful for a "refine this section" UI
@@ -10802,6 +11041,39 @@ export class SectionManager
     this[pointerLiteralSymbol] = pointer;
     this[destructorGuardSymbol] =
       uniffiTypeSectionManagerObjectFactory.bless(pointer);
+  }
+
+  public accept(sectionId: string): void /*throws*/ {
+    uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+        FfiConverterTypeVeloqError,
+      ),
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_accept(
+          uniffiTypeSectionManagerObjectFactory.clonePointer(this),
+          FfiConverterString.lower(sectionId),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    );
+  }
+
+  public acceptAll(): /*u32*/ number /*throws*/ {
+    return FfiConverterUInt32.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_accept_all(
+            uniffiTypeSectionManagerObjectFactory.clonePointer(this),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
   }
 
   public clearSuperseded(customSectionId: string): void /*throws*/ {
@@ -10922,7 +11194,7 @@ export class SectionManager
 
   public expandBounds(
     sectionId: string,
-    newPolylineJson: string,
+    newPolylineFlat: Array</*f64*/ number>,
   ): void /*throws*/ {
     uniffiCaller.rustCallWithError(
       /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
@@ -10932,7 +11204,7 @@ export class SectionManager
         nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_expand_bounds(
           uniffiTypeSectionManagerObjectFactory.clonePointer(this),
           FfiConverterString.lower(sectionId),
-          FfiConverterString.lower(newPolylineJson),
+          FfiConverterArrayFloat64.lower(newPolylineFlat),
           callStatus,
         );
       },
@@ -10942,9 +11214,9 @@ export class SectionManager
 
   public extractTrace(
     activityId: string,
-    sectionPolylineJson: string,
-  ): Array</*f64*/ number> /*throws*/ {
-    return FfiConverterArrayFloat64.lift(
+    sectionPolylineFlat: Array</*f64*/ number>,
+  ): ArrayBuffer /*throws*/ {
+    return FfiConverterArrayBuffer.lift(
       uniffiCaller.rustCallWithError(
         /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
           FfiConverterTypeVeloqError,
@@ -10953,7 +11225,7 @@ export class SectionManager
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_extract_trace(
             uniffiTypeSectionManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(activityId),
-            FfiConverterString.lower(sectionPolylineJson),
+            FfiConverterArrayFloat64.lower(sectionPolylineFlat),
             callStatus,
           );
         },
@@ -10964,7 +11236,7 @@ export class SectionManager
 
   public extractTracesBatch(
     activityIds: Array<string>,
-    sectionPolylineJson: string,
+    sectionPolylineFlat: Array</*f64*/ number>,
   ): Array<FfiBatchTrace> /*throws*/ {
     return FfiConverterArrayTypeFfiBatchTrace.lift(
       uniffiCaller.rustCallWithError(
@@ -10975,7 +11247,7 @@ export class SectionManager
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_extract_traces_batch(
             uniffiTypeSectionManagerObjectFactory.clonePointer(this),
             FfiConverterArrayString.lower(activityIds),
-            FfiConverterString.lower(sectionPolylineJson),
+            FfiConverterArrayFloat64.lower(sectionPolylineFlat),
             callStatus,
           );
         },
@@ -11769,6 +12041,23 @@ export class SectionManager
             uniffiTypeSectionManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(primaryId),
             FfiConverterString.lower(secondaryId),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  public pruneOverlapping(): /*u32*/ number /*throws*/ {
+    return FfiConverterUInt32.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_prune_overlapping(
+            uniffiTypeSectionManagerObjectFactory.clonePointer(this),
             callStatus,
           );
         },
@@ -13927,6 +14216,14 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_func_validate_backup_database() !==
+    60738
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_func_validate_backup_database",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_activitymanager_add() !==
     32735
   ) {
@@ -14031,6 +14328,22 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_detectionmanager_get_config() !==
+    43981
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_detectionmanager_get_config",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_detectionmanager_get_match_strictness() !==
+    63948
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_detectionmanager_get_match_strictness",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_detectionmanager_get_progress() !==
     57227
   ) {
@@ -14044,6 +14357,22 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_detectionmanager_poll",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_detectionmanager_set_config() !==
+    29977
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_detectionmanager_set_config",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_detectionmanager_set_match_strictness() !==
+    36926
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_detectionmanager_set_match_strictness",
     );
   }
   if (
@@ -14223,6 +14552,14 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_get_percent() !==
+    8202
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_heatmapmanager_get_percent",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_get_progress() !==
     23308
   ) {
@@ -14399,6 +14736,30 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_routemanager_set_representative() !==
+    8953
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_routemanager_set_representative",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_accept() !==
+    15262
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_sectionmanager_accept",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_accept_all() !==
+    26900
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_sectionmanager_accept_all",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_clear_superseded() !==
     46272
   ) {
@@ -14448,7 +14809,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_expand_bounds() !==
-    13879
+    18305
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_sectionmanager_expand_bounds",
@@ -14456,7 +14817,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_extract_trace() !==
-    57921
+    33605
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_sectionmanager_extract_trace",
@@ -14464,7 +14825,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_extract_traces_batch() !==
-    10771
+    14691
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_sectionmanager_extract_traces_batch",
@@ -14756,6 +15117,14 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_sectionmanager_merge_sections",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_prune_overlapping() !==
+    60797
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_sectionmanager_prune_overlapping",
     );
   }
   if (
@@ -15330,6 +15699,7 @@ export default Object.freeze({
     FfiConverterTypeFfiHrvTrend,
     FfiConverterTypeFfiInsightsData,
     FfiConverterTypeFfiMapSignature,
+    FfiConverterTypeFfiMatchStrictness,
     FfiConverterTypeFfiMergeCandidate,
     FfiConverterTypeFfiMultiScaleSectionResult,
     FfiConverterTypeFfiMuscleExerciseSummary,

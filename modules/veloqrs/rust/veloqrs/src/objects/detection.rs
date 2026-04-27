@@ -74,6 +74,9 @@ impl DetectionManager {
                         log::error!("save_processed_activity_ids failed: {}", err);
                     }
                     e.apply_sections_finalize_with_progress(progress.as_ref());
+                    // Reload groups from DB in case the background thread
+                    // recomputed and saved them.
+                    e.reload_groups_from_db();
                     Ok(())
                 })??;
 
@@ -92,10 +95,12 @@ impl DetectionManager {
 
         Ok(handle_guard.as_ref().map(|handle| {
             let (phase, completed, total) = handle.get_progress();
+            let percent = handle.progress.get_percent();
             crate::FfiDetectionProgress {
                 phase,
                 completed,
                 total,
+                percent,
             }
         }))
     }
@@ -127,6 +132,50 @@ impl DetectionManager {
         *handle_guard = Some(handle);
         info!("tracematch: [DetectionManager] Forced full section re-detection started");
         Ok(true)
+    }
+
+    fn set_config(&self, config: crate::FfiSectionConfig) -> Result<(), VeloqError> {
+        with_engine(|e| {
+            e.set_section_config(config.into());
+        })
+    }
+
+    fn get_config(&self) -> Result<crate::FfiSectionConfig, VeloqError> {
+        with_engine(|e| crate::FfiSectionConfig::from(&e.section_config))
+    }
+
+    fn set_match_strictness(
+        &self,
+        min_match_pct: f64,
+        endpoint_threshold: f64,
+    ) -> Result<(), VeloqError> {
+        with_engine(|e| {
+            e.match_config.min_match_percentage = min_match_pct;
+            e.match_config.endpoint_threshold = endpoint_threshold;
+            e.set_setting(
+                crate::persistence::settings_keys::MATCH_MIN_MATCH_PCT,
+                &min_match_pct.to_string(),
+            )
+            .map_err(|err| VeloqError::Database {
+                msg: format!("persist match_min_match_pct failed: {}", err),
+            })?;
+            e.set_setting(
+                crate::persistence::settings_keys::MATCH_ENDPOINT_THRESHOLD,
+                &endpoint_threshold.to_string(),
+            )
+            .map_err(|err| VeloqError::Database {
+                msg: format!("persist match_endpoint_threshold failed: {}", err),
+            })?;
+            Ok::<(), VeloqError>(())
+        })??;
+        Ok(())
+    }
+
+    fn get_match_strictness(&self) -> Result<crate::FfiMatchStrictness, VeloqError> {
+        with_engine(|e| crate::FfiMatchStrictness {
+            min_match_pct: e.match_config.min_match_percentage,
+            endpoint_threshold: e.match_config.endpoint_threshold,
+        })
     }
 
     fn detect_potentials(

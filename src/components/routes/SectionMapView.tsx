@@ -47,6 +47,7 @@ import {
 import { Map3DWebView, type Map3DWebViewRef } from '@/components/maps/Map3DWebView';
 import { CompassArrow, ComponentErrorBoundary } from '@/components/ui';
 import { useMapFullscreen } from '@/hooks/maps/useMapFullscreen';
+import { decodeCoords } from 'veloqrs';
 import type { FrequentSection, RoutePoint, ActivityType } from '@/types';
 
 /**
@@ -107,14 +108,14 @@ interface SectionMapViewProps {
   trimRange?: { start: number; end: number } | null;
   /** Extension track for expanding section bounds - shown as faded line beyond the section */
   extensionTrack?: RoutePoint[] | null;
-  /** Nearby section polylines to render as muted gray overlays. Each entry has flat [lat,lng,...] coords. */
+  /** Nearby section polylines to render as muted gray overlays. Each entry has encoded coords. */
   nearbyPolylines?: Array<{
     id: string;
     name?: string;
     sportType: string;
     distanceMeters: number;
     visitCount: number;
-    polylineCoords: number[];
+    encodedPolyline: ArrayBuffer;
   }>;
   /** Called when a nearby section polyline is tapped */
   onNearbyPress?: (sectionId: string) => void;
@@ -376,17 +377,12 @@ export const SectionMapView = memo(function SectionMapView({
     if (!nearbyPolylines || nearbyPolylines.length === 0) return emptyCollection;
     const features = nearbyPolylines
       .map((entry) => {
-        const coords = entry.polylineCoords;
-        // Flat array: [lat, lng, lat, lng, ...]
-        if (!coords || coords.length < 4) return null;
-        const coordinates: [number, number][] = [];
-        for (let i = 0; i < coords.length - 1; i += 2) {
-          const lat = coords[i];
-          const lng = coords[i + 1];
-          if (Number.isFinite(lat) && Number.isFinite(lng)) {
-            coordinates.push([lng, lat]);
-          }
-        }
+        if (!entry.encodedPolyline) return null;
+        const decoded = decodeCoords(entry.encodedPolyline);
+        if (decoded.length < 2) return null;
+        const coordinates: [number, number][] = decoded
+          .filter((p) => Number.isFinite(p.latitude) && Number.isFinite(p.longitude))
+          .map((p) => [p.longitude, p.latitude]);
         if (coordinates.length < 2) return null;
         return {
           type: 'Feature' as const,
@@ -575,10 +571,12 @@ export const SectionMapView = memo(function SectionMapView({
 
       {/* Start/end markers for nearby sections */}
       {nearbyPolylines?.map((entry) => {
-        const coords = entry.polylineCoords;
-        if (!coords || coords.length < 4) return null;
-        const startCoord: [number, number] = [coords[1], coords[0]]; // [lng, lat]
-        const endCoord: [number, number] = [coords[coords.length - 1], coords[coords.length - 2]];
+        if (!entry.encodedPolyline) return null;
+        const decoded = decodeCoords(entry.encodedPolyline);
+        if (decoded.length < 2) return null;
+        const startCoord: [number, number] = [decoded[0].longitude, decoded[0].latitude];
+        const last = decoded[decoded.length - 1];
+        const endCoord: [number, number] = [last.longitude, last.latitude];
         return (
           <React.Fragment key={`nearby-markers-${entry.id}`}>
             <MarkerView coordinate={startCoord}>

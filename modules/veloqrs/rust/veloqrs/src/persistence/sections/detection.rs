@@ -1,16 +1,170 @@
 //! Background section detection and application.
 
 use crate::{FrequentSection, GpsPoint};
+use crate::persistence::codec;
 use rusqlite::{Connection, Result as SqlResult, params};
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use std::sync::mpsc;
 use std::thread;
+use tracematch::{Bounds, MatchConfig, RouteGroup, RouteSignature};
 
 use super::super::{
     ClusteringAwareProgress, PersistentRouteEngine, SectionDetectionHandle,
     SectionDetectionProgress, load_groups_from_db,
 };
+
+/// Load all route signatures from the DB (standalone, no engine needed).
+fn load_all_signatures(conn: &Connection) -> Vec<RouteSignature> {
+    let mut stmt = match conn.prepare(
+        "SELECT activity_id, points, start_point_lat, start_point_lng,
+                end_point_lat, end_point_lng, total_distance
+         FROM signatures",
+    ) {
+        Ok(s) => s,
+        Err(_) => return Vec::new(),
+    };
+
+    stmt.query_map([], |row| {
+        let id: String = row.get(0)?;
+        let blob: Vec<u8> = row.get(1)?;
+        let points: Vec<GpsPoint> = codec::deserialize_points(&blob).unwrap_or_default();
+        let start_point = GpsPoint::new(row.get(2)?, row.get(3)?);
+        let end_point = GpsPoint::new(row.get(4)?, row.get(5)?);
+        let total_distance: f64 = row.get(6)?;
+        let bounds = Bounds::from_points(&points).unwrap_or(Bounds {
+            min_lat: 0.0,
+            max_lat: 0.0,
+            min_lng: 0.0,
+            max_lng: 0.0,
+        });
+        let center = bounds.center();
+        Ok(RouteSignature {
+            activity_id: id,
+            points,
+            total_distance,
+            start_point,
+            end_point,
+            bounds,
+            center,
+        })
+    })
+    .map(|rows| rows.filter_map(|r| r.ok()).collect())
+    .unwrap_or_default()
+}
+
+/// Compute route groups from DB signatures and save them back.
+/// Runs on the background thread so it doesn't block the JS thread.
+fn recompute_and_save_groups(
+    conn: &Connection,
+    match_config: &MatchConfig,
+    existing_groups: &[RouteGroup],
+    activity_metadata: &HashMap<String, String>,
+) -> Vec<RouteGroup> {
+    let start = std::time::Instant::now();
+
+    let signatures = load_all_signatures(conn);
+    let sig_ms = start.elapsed().as_millis();
+
+    if signatures.is_empty() {
+        return existing_groups.to_vec();
+    }
+
+    let already_grouped: HashSet<&str> = existing_groups
+        .iter()
+        .flat_map(|g| g.activity_ids.iter().map(|s| s.as_str()))
+        .collect();
+    let (new_sigs, existing_sigs): (Vec<_>, Vec<_>) = signatures
+        .iter()
+        .cloned()
+        .partition(|s| !already_grouped.contains(s.activity_id.as_str()));
+
+    let total = signatures.len();
+    let use_incremental = !existing_groups.is_empty()
+        && !new_sigs.is_empty()
+        && (new_sigs.len() as f64) < (total as f64 * 0.9);
+
+    let group_start = std::time::Instant::now();
+    let result = if use_incremental {
+        log::info!(
+            "[BG Groups] INCREMENTAL: {} new vs {} existing",
+            new_sigs.len(),
+            existing_sigs.len()
+        );
+        let groups = tracematch::group_incremental(
+            &new_sigs,
+            existing_groups,
+            &existing_sigs,
+            match_config,
+        );
+        tracematch::GroupingResult {
+            groups,
+            activity_matches: HashMap::new(),
+        }
+    } else {
+        log::info!("[BG Groups] FULL: {} signatures", signatures.len());
+        tracematch::group_signatures_parallel_with_matches(&signatures, match_config)
+    };
+    let group_ms = group_start.elapsed().as_millis();
+
+    let mut groups = result.groups;
+
+    for group in &mut groups {
+        if let Some(sport) = activity_metadata.get(&group.representative_id) {
+            group.sport_type = if sport.is_empty() {
+                "Ride".to_string()
+            } else {
+                sport.clone()
+            };
+        }
+    }
+
+    if let Err(e) = save_groups_to_db(conn, &groups) {
+        log::error!("[BG Groups] Save failed: {}", e);
+    }
+
+    let total_ms = start.elapsed().as_millis();
+    log::info!(
+        "[BG Groups] Done: {} groups in {}ms (sigs={}ms, grouping={}ms)",
+        groups.len(),
+        total_ms,
+        sig_ms,
+        group_ms
+    );
+
+    groups
+}
+
+/// Save route groups to DB (standalone, no engine needed).
+fn save_groups_to_db(conn: &Connection, groups: &[RouteGroup]) -> SqlResult<()> {
+    conn.execute("DELETE FROM route_groups", [])?;
+    let mut stmt = conn.prepare(
+        "INSERT INTO route_groups (id, representative_id, activity_ids, sport_type,
+            bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng,
+            activity_ids_blob)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+    )?;
+    for group in groups {
+        let activity_ids_json = serde_json::to_string(&group.activity_ids).unwrap_or_default();
+        let activity_ids_blob = super::codec::serialize(&group.activity_ids).ok();
+        let (min_lat, max_lat, min_lng, max_lng) = match &group.bounds {
+            Some(b) => (Some(b.min_lat), Some(b.max_lat), Some(b.min_lng), Some(b.max_lng)),
+            None => (None, None, None, None),
+        };
+        stmt.execute(params![
+            group.group_id,
+            group.representative_id,
+            activity_ids_json,
+            group.sport_type,
+            min_lat,
+            max_lat,
+            min_lng,
+            max_lng,
+            activity_ids_blob,
+        ])?;
+    }
+    Ok(())
+}
 
 /// Tier 2 upgrade-path backfill: seed `consensus_state_blob` on every
 /// pre-existing section whose blob is still NULL, using its own SQLite
@@ -162,7 +316,7 @@ pub fn run_accumulator_backfill(
                 if let Ok(rows) = stmt.query_map(params_slice.as_slice(), |row| {
                     let id: String = row.get(0)?;
                     let bytes: Vec<u8> = row.get(1)?;
-                    let track: Vec<tracematch::GpsPoint> = rmp_serde::from_slice(&bytes)
+                    let track: Vec<tracematch::GpsPoint> = codec::deserialize_points(&bytes)
                         .unwrap_or_default();
                     Ok((id, track))
                 }) {
@@ -200,7 +354,7 @@ pub fn run_accumulator_backfill(
             section_config.proximity_threshold,
         );
 
-        match rmp_serde::to_vec(&acc) {
+        match codec::serialize_gps_composite(&acc) {
             Ok(blob) => {
                 // IS NULL guard: respect any writes the main engine made
                 // while we were computing (e.g., a sync that ran concurrently
@@ -341,36 +495,27 @@ impl PersistentRouteEngine {
         let progress = SectionDetectionProgress::new();
         let progress_clone = progress.clone();
 
-        // Ensure groups are computed before section detection.
-        if self.groups_dirty {
-            log::info!(
-                "tracematch: [SectionDetection] Computing route groups before section detection..."
-            );
-            let start = std::time::Instant::now();
-            let _ = self.get_groups();
-            log::info!(
-                "tracematch: [SectionDetection] Route groups computed in {:?}",
-                start.elapsed()
-            );
+        // Capture whether groups need recomputation. Instead of blocking the
+        // calling thread (which freezes the JS progress bar), we pass this
+        // flag to the background thread and let it recompute from DB.
+        let needs_group_recompute = self.groups_dirty;
+        let match_config = self.match_config.clone();
+        let current_groups = self.groups.clone();
+
+        // Build sport type map + activity_ids in a single pass over metadata.
+        // Uses the HashMap key (= activity id) to avoid cloning m.id separately.
+        let mut sport_map: HashMap<String, String> =
+            HashMap::with_capacity(self.activity_metadata.len());
+        let mut activity_ids: Vec<String> =
+            Vec::with_capacity(self.activity_metadata.len());
+
+        for (id, m) in &self.activity_metadata {
+            sport_map.insert(id.clone(), m.sport_type.clone());
+            match &sport_filter {
+                Some(sport) if &m.sport_type != sport => {}
+                _ => activity_ids.push(id.clone()),
+            }
         }
-
-        // Build sport type map
-        let sport_map: HashMap<String, String> = self
-            .activity_metadata
-            .values()
-            .map(|m| (m.id.clone(), m.sport_type.clone()))
-            .collect();
-
-        // Filter activity IDs by sport
-        let activity_ids: Vec<String> = if let Some(ref sport) = sport_filter {
-            self.activity_metadata
-                .values()
-                .filter(|m| &m.sport_type == sport)
-                .map(|m| m.id.clone())
-                .collect()
-        } else {
-            self.activity_metadata.keys().cloned().collect()
-        };
 
         // Determine if incremental detection is possible:
         // - Must have existing sections
@@ -539,10 +684,18 @@ impl PersistentRouteEngine {
                 }
             };
 
-            let groups = load_groups_from_db(&conn);
+            let groups = if needs_group_recompute {
+                log::info!(
+                    "tracematch: [SectionDetection] Recomputing route groups on background thread..."
+                );
+                recompute_and_save_groups(&conn, &match_config, &current_groups, &sport_map)
+            } else {
+                load_groups_from_db(&conn)
+            };
             log::info!(
-                "tracematch: [SectionDetection] Loaded {} groups from DB",
-                groups.len()
+                "tracematch: [SectionDetection] {} groups ready (recomputed={})",
+                groups.len(),
+                needs_group_recompute
             );
 
             progress_clone.set_phase("loading", ids_to_load.len() as u32);
@@ -577,7 +730,7 @@ impl PersistentRouteEngine {
                         let rows = stmt.query_map(params_slice.as_slice(), |row| {
                             let id: String = row.get(0)?;
                             let blob: Vec<u8> = row.get(1)?;
-                            let track: Vec<GpsPoint> = rmp_serde::from_slice(&blob)
+                            let track: Vec<GpsPoint> = codec::deserialize_points(&blob)
                                 .unwrap_or_else(|e| {
                                     log::warn!(
                                         "tracematch: [SectionDetection] Skipping malformed track for {}: {:?}",

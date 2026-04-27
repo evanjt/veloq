@@ -22,6 +22,8 @@ import {
   deleteTerrainPreviewsForActivity,
   isPrioritySnapshot,
   clearPrioritySnapshot,
+  isTerrainCacheInitialized,
+  onTerrainCacheReady,
 } from '@/lib/storage/terrainPreviewCache';
 import { getCameraOverride } from '@/lib/storage/terrainCameraOverrides';
 import { subscribeSnapshot } from '@/lib/events/terrainSnapshotEvents';
@@ -68,6 +70,12 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
     (terrain3DMode === 'smart' &&
       isLikelyInterestingTerrain(activity.total_elevation_gain, activity.distance));
 
+  const [cacheReady, setCacheReady] = useState(() => isTerrainCacheInitialized());
+  useEffect(() => {
+    if (cacheReady) return;
+    return onTerrainCacheReady(() => setCacheReady(true));
+  }, [cacheReady]);
+
   // Track whether we have a cached 3D terrain image
   const [terrainImageUri, setTerrainImageUri] = useState<string | null>(() => {
     if (maybeShow3D && hasTerrainPreview(activity.id, mapStyle)) {
@@ -83,7 +91,7 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
     } else {
       setTerrainImageUri(null);
     }
-  }, [maybeShow3D, mapStyle, activity.id]);
+  }, [maybeShow3D, mapStyle, activity.id, cacheReady]);
 
   // Subscribe to snapshot completion events for this activity
   useEffect(() => {
@@ -312,9 +320,14 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
   }, [maybeShow3D, validCoordinates, altitude, activity.id]);
 
   // Final decision: should we render 3D?
+  // When altitude data is available, trust the camera analysis. When unavailable
+  // (e.g. preview tracks from route signatures lose elevation during DP simplification),
+  // fall back to the activity-metadata pre-filter which uses total_elevation_gain.
+  const cameraConfirmed = terrainCameraResult?.hasInterestingTerrain === true;
+  const noAltitudeData = !altitude || altitude.length === 0;
   const show3D =
     terrain3DMode === 'always' ||
-    (terrain3DMode === 'smart' && terrainCameraResult?.hasInterestingTerrain === true);
+    (terrain3DMode === 'smart' && (cameraConfirmed || (noAltitudeData && maybeShow3D)));
 
   // Request 3D terrain snapshot when enabled and coordinates are available
   // Only cards within the first N positions request snapshots to limit queue pressure

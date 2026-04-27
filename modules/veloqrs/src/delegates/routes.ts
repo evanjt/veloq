@@ -181,6 +181,26 @@ export function getRoutesScreenData(
   }
 }
 
+export function setRouteRepresentative(
+  host: DelegateHost,
+  routeId: string,
+  activityId: string
+): boolean {
+  if (!host.ready) return false;
+  validateId(routeId, 'route ID');
+  validateId(activityId, 'activity ID');
+  try {
+    host.timed('setRouteRepresentative', () =>
+      host.engine.routes().setRepresentative(routeId, activityId)
+    );
+    host.notify('groups');
+    return true;
+  } catch (e) {
+    console.error('[RouteEngine] setRouteRepresentative failed:', routeId, activityId, e);
+    return false;
+  }
+}
+
 export function getActivityRouteHighlights(
   host: DelegateHost,
   activityIds: string[]

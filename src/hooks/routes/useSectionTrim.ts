@@ -12,6 +12,7 @@ import { Alert } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { getRouteEngine } from '@/lib/native/routeEngine';
+import { decodeCoords } from 'veloqrs';
 import { queryKeys } from '@/lib/queryKeys';
 import type { FrequentSection, RoutePoint } from '@/types';
 
@@ -221,7 +222,7 @@ export function useSectionTrim(
 
     try {
       const result = engine.getSectionExtensionTrack(section.id);
-      if (!result || result.track.length < 4) {
+      if (!result) {
         Alert.alert(
           t('common.error'),
           t('sections.expandUnavailable', 'No activity track available for expansion')
@@ -229,10 +230,16 @@ export function useSectionTrim(
         return;
       }
 
-      // Convert flat coords [lat, lng, lat, lng, ...] to RoutePoint[]
-      const fullPoints: RoutePoint[] = [];
-      for (let i = 0; i < result.track.length - 1; i += 2) {
-        fullPoints.push({ lat: result.track[i], lng: result.track[i + 1] });
+      const fullPoints: RoutePoint[] = decodeCoords(result.encodedTrack).map((p) => ({
+        lat: p.latitude,
+        lng: p.longitude,
+      }));
+      if (fullPoints.length < 2) {
+        Alert.alert(
+          t('common.error'),
+          t('sections.expandUnavailable', 'No activity track available for expansion')
+        );
+        return;
       }
 
       const ctx = computePaddedWindow(
@@ -289,12 +296,12 @@ export function useSectionTrim(
 
       if (expandedBeyond) {
         // Expansion: extract new polyline from window points
-        const newPolyline = expandContext.windowPoints.slice(trimStart, trimEnd + 1).map((p) => ({
-          latitude: p.lat,
-          longitude: p.lng,
-        }));
-        const newPolylineJson = JSON.stringify(newPolyline);
-        success = engine.expandSectionBounds(section.id, newPolylineJson);
+        const windowSlice = expandContext.windowPoints.slice(trimStart, trimEnd + 1);
+        const newPolylineFlat: number[] = [];
+        for (const p of windowSlice) {
+          newPolylineFlat.push(p.lat, p.lng);
+        }
+        success = engine.expandSectionBounds(section.id, newPolylineFlat);
       } else {
         // User shrunk within section — map window indices back to section polyline indices
         const sectionStart = trimStart - expandContext.sectionStartInWindow;

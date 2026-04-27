@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { InteractionManager } from 'react-native';
 import { getRouteEngine } from '@/lib/native/routeEngine';
+import { decodeCoords } from 'veloqrs';
 
 export interface RouteSignature {
   points: Array<{ lat: number; lng: number }>;
@@ -35,13 +36,10 @@ export function useRouteSignatures(enabled = true): Record<string, RouteSignatur
       const sigs: Record<string, RouteSignature> = {};
 
       for (const sig of mapSignatures) {
-        if (sig.coords.length < 4) continue; // Need at least 2 points
+        const decoded = decodeCoords(sig.encodedCoords);
+        if (decoded.length < 2) continue; // Need at least 2 points
 
-        // Convert flat [lat, lng, lat, lng, ...] to point objects
-        const points: Array<{ lat: number; lng: number }> = [];
-        for (let i = 0; i < sig.coords.length - 1; i += 2) {
-          points.push({ lat: sig.coords[i], lng: sig.coords[i + 1] });
-        }
+        const points = decoded.map((p) => ({ lat: p.latitude, lng: p.longitude }));
 
         sigs[sig.activityId] = {
           points,

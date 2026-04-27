@@ -1,10 +1,10 @@
-v0.3.0 (Apr 2026)
+v0.3.0
 
-• Section cards per direction, inline sparklines highlighting this activity
-• Feed: PR trophies, improving/declining trend pills
-• Section detail: time-range pills, summary + history cards
-• Map: heatmap toggle, separate route/section toggles, activity clustering
-• Strength: inline muscle stats, methodology note
-• Dark mode contrast improvements
-• Backup: local fix, not-encrypted warning
-• Many fixes
+• Secties vastzetten, accepteren of uitschakelen; detectiegevoeligheid aanpassen
+• Stel een referentie-inspanning in voor toekomstige vergelijkingen
+• Synchronisatievoortgang met stapsgewijze feedback
+• Beste prestaties: power- en tempo-PR's met bron-doortik
+• Feed: PR-trofeeën, trendpillen, sparkline-sectiekaarten
+• Kaart: gradiënt-polylijnen, heatmap, clusterzoom
+• Fitness: opbouwsnelheid, vorm %, temperatuur- en hellingsgrafieken
+• Snellere overdrachten en sectie-laden

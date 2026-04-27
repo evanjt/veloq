@@ -77,6 +77,8 @@ export function MapsSection({ embedded }: MapsSectionProps = {}) {
   const {
     preferences: mapPreferences,
     setDefaultStyle,
+    setGlobalMapStyle,
+    getGlobalMapStyle,
     setActivityGroupStyle,
     setTerrain3DMode,
     setTerrain3DModeGroup,
@@ -102,6 +104,12 @@ export function MapsSection({ embedded }: MapsSectionProps = {}) {
   const handleDefaultMapStyleChange = async (value: string) => {
     const style = value as MapStyleType;
     await setDefaultStyle(style);
+    await clearTerrainPreviews();
+  };
+
+  const handleGlobalMapStyleChange = async (value: string) => {
+    const style = value as MapStyleType;
+    await setGlobalMapStyle(style);
     await clearTerrainPreviews();
   };
 
@@ -167,6 +175,17 @@ export function MapsSection({ embedded }: MapsSectionProps = {}) {
       <MapStylePreviewPicker
         value={mapPreferences.defaultStyle}
         onValueChange={handleDefaultMapStyleChange}
+      />
+
+      {/* Global/explore map style */}
+      <View style={[styles.styleHeaderRow, styles.actionRowBorder]}>
+        <Text style={[styles.mapStyleLabel, isDark && settingsStyles.textLight]}>
+          {t('settings.exploreMapStyle')}
+        </Text>
+      </View>
+      <MapStylePreviewPicker
+        value={getGlobalMapStyle()}
+        onValueChange={handleGlobalMapStyleChange}
       />
 
       {/* Per-activity-type styles toggle */}

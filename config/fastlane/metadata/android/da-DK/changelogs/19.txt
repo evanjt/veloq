@@ -1,0 +1,10 @@
+v0.3.0
+
+• Fastgør, acceptér eller deaktivér sektioner; justér detekteringsfølsomhed
+• Vælg en referenceaktivitet til fremtidige sammenligninger
+• Synkroniseringsstatus med trin-for-trin feedback
+• Bedste præstationer: effekt- og tempo-PR med kildehenvisning
+• Feed: PR-trofæer, trendpiller, sparkline-sektionskort
+• Kort: gradient-polylinjer, heatmap, klyngezoom
+• Fitness: rampefrekvens, form %, temperatur- og stigningsgrafer
+• Hurtigere overførsler og sektionsindlæsning

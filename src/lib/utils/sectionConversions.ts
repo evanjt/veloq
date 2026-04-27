@@ -3,7 +3,7 @@
  */
 
 import {
-  gpsPointsToRoutePoints,
+  decodeCoords,
   type FrequentSection as NativeFrequentSection,
   type Section as NativeSection,
 } from 'veloqrs';
@@ -19,7 +19,10 @@ import type { FrequentSection } from '@/types';
 export function convertNativeSectionToApp(
   native: NativeFrequentSection | NativeSection
 ): FrequentSection {
-  const polyline = gpsPointsToRoutePoints(native.polyline);
+  const polyline = decodeCoords(native.encodedPolyline).map((p) => ({
+    lat: p.latitude,
+    lng: p.longitude,
+  }));
 
   // Determine section type - FfiSection has sectionType string, FfiFrequentSection doesn't
   const sectionType =
@@ -53,5 +56,12 @@ export function convertNativeSectionToApp(
     version: ('version' in native ? native.version : undefined) ?? undefined,
     updatedAt: ('updatedAt' in native ? native.updatedAt : undefined) ?? undefined,
     createdAt: ('createdAt' in native ? native.createdAt : undefined) ?? '',
+    isUserDefined:
+      'isUserDefined' in native ? !!(native as { isUserDefined?: boolean }).isUserDefined : false,
+    disabled: 'disabled' in native ? !!(native as { disabled?: boolean }).disabled : false,
+    supersededBy:
+      ('supersededBy' in native
+        ? (native as { supersededBy?: string | null }).supersededBy
+        : null) ?? null,
   };
 }

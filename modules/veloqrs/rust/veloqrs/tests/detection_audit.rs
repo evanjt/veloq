@@ -1,22 +1,31 @@
-//! Audit test: reads a private copy of the user's routes.db and runs
-//! section detection + route grouping from scratch, reporting diagnostics.
+//! Audit and regression tests for section detection and route grouping.
 //!
-//! This test only runs when the fixture file exists:
-//!   tests/fixtures/private/routes.db
+//! Reads a Veloq database export (.veloqdb) and runs detection/grouping
+//! from scratch, reporting diagnostics and comparing threshold configs.
 //!
-//! Run with: cargo test -p veloqrs --test detection_audit -- --nocapture --ignored
+//! Usage:
+//!   # Default path: tests/fixtures/private/routes.db
+//!   cargo test -p veloqrs --test detection_audit -- --nocapture --ignored
+//!
+//!   # Custom path (e.g. an exported .veloqdb from the app):
+//!   VELOQ_DB=/path/to/export.veloqdb cargo test -p veloqrs --test detection_audit -- --nocapture --ignored
 
 use rusqlite::Connection;
 use std::collections::HashMap;
 use std::path::Path;
 use tracematch::{GpsPoint, MatchConfig, RouteSignature, SectionConfig};
 
-const DB_PATH: &str = "tests/fixtures/private/routes.db";
+const DEFAULT_DB_PATH: &str = "tests/fixtures/private/routes.db";
+
+fn db_path() -> String {
+    std::env::var("VELOQ_DB").unwrap_or_else(|_| DEFAULT_DB_PATH.to_string())
+}
 
 fn open_db() -> Option<Connection> {
-    let path = Path::new(DB_PATH);
+    let path_str = db_path();
+    let path = Path::new(&path_str);
     if !path.exists() {
-        eprintln!("Skipping: {} not found", DB_PATH);
+        eprintln!("Skipping: {} not found (set VELOQ_DB to override)", path_str);
         return None;
     }
     Some(Connection::open(path).expect("open DB"))
@@ -673,4 +682,176 @@ fn redetect_and_compare() {
     println!("\n======================================================================");
     println!("AUDIT COMPLETE");
     println!("======================================================================\n");
+}
+
+// ── Consensus freeze tests ────────────────────────────────────────
+
+fn make_straight_track(id: &str, base_lat: f64, base_lng: f64, points: usize) -> (String, Vec<GpsPoint>) {
+    let pts: Vec<GpsPoint> = (0..points)
+        .map(|i| GpsPoint {
+            latitude: base_lat + (i as f64) * 0.0001,
+            longitude: base_lng,
+            elevation: Some(100.0),
+        })
+        .collect();
+    (id.to_string(), pts)
+}
+
+#[test]
+#[ignore]
+fn consensus_freeze_accepted_section() {
+    use std::sync::Arc;
+    use tracematch::sections::{detect_sections_multiscale, NoopProgress};
+
+    let config = SectionConfig::default();
+    let mut sport_types = HashMap::new();
+
+    let tracks: Vec<(String, Vec<GpsPoint>)> = (0..5)
+        .map(|i| {
+            let offset = (i as f64) * 0.00001;
+            make_straight_track(&format!("a{}", i), 47.0 + offset, 7.0, 60)
+        })
+        .collect();
+    for (id, _) in &tracks {
+        sport_types.insert(id.clone(), "Ride".to_string());
+    }
+
+    let match_config = MatchConfig::default();
+    let groups = tracematch::group_signatures_parallel(
+        &tracks
+            .iter()
+            .filter_map(|(id, pts)| RouteSignature::from_points(id, pts, &match_config))
+            .collect::<Vec<_>>(),
+        &match_config,
+    );
+
+    let result = detect_sections_multiscale(&tracks, &sport_types, &groups, &config);
+    assert!(!result.sections.is_empty(), "should detect at least one section");
+
+    let mut sections = result.sections;
+    sections[0].is_user_defined = true;
+    let frozen_polyline = sections[0].polyline.clone();
+    let frozen_confidence = sections[0].confidence;
+
+    let new_tracks: Vec<(String, Vec<GpsPoint>)> = (5..8)
+        .map(|i| {
+            let offset = (i as f64) * 0.00002;
+            make_straight_track(&format!("a{}", i), 47.0 + offset, 7.0, 60)
+        })
+        .collect();
+    for (id, _) in &new_tracks {
+        sport_types.insert(id.clone(), "Ride".to_string());
+    }
+
+    let all_tracks: Vec<_> = tracks.iter().chain(new_tracks.iter()).cloned().collect();
+    let incremental = tracematch::sections::incremental::detect_sections_incremental(
+        &new_tracks,
+        &sections,
+        &all_tracks,
+        &sport_types,
+        &groups,
+        &config,
+        Arc::new(NoopProgress),
+    );
+
+    let accepted = incremental
+        .updated_sections
+        .iter()
+        .find(|s| s.is_user_defined)
+        .expect("accepted section should still exist");
+
+    assert_eq!(accepted.polyline.len(), frozen_polyline.len(),
+        "accepted section polyline length changed");
+    for (i, (a, b)) in accepted.polyline.iter().zip(frozen_polyline.iter()).enumerate() {
+        assert!(
+            (a.latitude - b.latitude).abs() < 1e-10 && (a.longitude - b.longitude).abs() < 1e-10,
+            "polyline point {} changed: ({},{}) -> ({},{})", i, b.latitude, b.longitude, a.latitude, a.longitude,
+        );
+    }
+    assert_eq!(accepted.confidence, frozen_confidence, "confidence changed");
+
+    assert!(
+        accepted.visit_count > 5,
+        "visit count should increase (got {})", accepted.visit_count,
+    );
+
+    println!("Consensus freeze: PASSED — polyline frozen, visits updated to {}", accepted.visit_count);
+}
+
+#[test]
+#[ignore]
+fn save_sections_preserves_accepted() {
+    let conn = match open_db() {
+        Some(c) => c,
+        None => return,
+    };
+
+    // Count accepted sections before
+    let before: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM sections WHERE is_user_defined = 1",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap_or(0);
+
+    if before == 0 {
+        println!("No accepted sections in DB — marking one for test");
+        let maybe_id: Option<String> = conn
+            .query_row(
+                "SELECT id FROM sections WHERE section_type = 'auto' LIMIT 1",
+                [],
+                |row| row.get(0),
+            )
+            .ok();
+
+        if let Some(id) = maybe_id {
+            conn.execute(
+                "UPDATE sections SET is_user_defined = 1 WHERE id = ?",
+                [&id],
+            )
+            .unwrap();
+            println!("Marked section {} as accepted", id);
+        } else {
+            println!("No auto sections to mark — skipping test");
+            return;
+        }
+    }
+
+    let accepted_count: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM sections WHERE is_user_defined = 1",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+
+    // Simulate what save_sections DELETE queries do (read-only check)
+    let would_delete: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM sections WHERE section_type = 'auto' AND original_polyline_json IS NULL AND is_user_defined = 0",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+
+    let would_keep: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM sections WHERE section_type = 'auto' AND is_user_defined = 1",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap();
+
+    println!("Accepted sections: {}", accepted_count);
+    println!("Would delete (non-accepted auto): {}", would_delete);
+    println!("Would keep (accepted auto): {}", would_keep);
+
+    assert!(
+        would_keep >= accepted_count,
+        "DELETE query would remove accepted sections! kept={} accepted={}",
+        would_keep, accepted_count
+    );
+
+    println!("Save persistence: PASSED — accepted sections survive DELETE queries");
 }

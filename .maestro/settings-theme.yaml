@@ -15,50 +15,46 @@ tags:
 # fold. SegmentedButtons (react-native-paper) only propagates the testID of
 # the *currently selected* button to the queryable tree on Android — the
 # unselected siblings render as Pressable wrappers without an accessible id.
-# Scroll once to bring the row on-screen, then verify by tapping each one
-# in turn (a successful tap proves the button was queryable when active).
+# Scroll to the parent container (always visible) and tap by text label,
+# which works regardless of which button is currently active.
 - scrollUntilVisible:
     element:
-      id: "theme-button-system"
+      id: "settings-theme-toggle"
     direction: DOWN
     timeout: 15000
     speed: 40
     visibilityPercentage: 20
 
-# Switch to dark theme — the active button changes after each tap, so a
-# successful tap implicitly asserts the target button was findable.
-- tapOn:
-    id: "theme-button-dark"
+# Switch to dark theme via text label (immune to SegmentedButtons testID quirks)
+- tapOn: "Dark"
 - waitForAnimationToEnd:
     timeout: 2000
 - takeScreenshot: "settings-theme-dark"
 
-# Switch to light theme — re-scroll first because a theme change re-renders
-# the SegmentedButtons row and on Android the new render briefly drops the
-# inactive buttons from the queryable accessibility tree.
+# Re-scroll after theme change — re-render can shift the row off-screen
 - scrollUntilVisible:
     element:
-      id: "theme-button-light"
+      id: "settings-theme-toggle"
     direction: DOWN
     timeout: 10000
     speed: 40
     visibilityPercentage: 20
     optional: true
-- tapOn:
-    id: "theme-button-light"
+
+# Switch to light theme
+- tapOn: "Light"
 - waitForAnimationToEnd:
     timeout: 2000
 - takeScreenshot: "settings-theme-light"
 
-# Switch back to system
+# Re-scroll and switch back to system
 - scrollUntilVisible:
     element:
-      id: "theme-button-system"
+      id: "settings-theme-toggle"
     direction: DOWN
     timeout: 10000
     speed: 40
     visibilityPercentage: 20
     optional: true
-- tapOn:
-    id: "theme-button-system"
+- tapOn: "System"
 - takeScreenshot: "settings-theme-system"

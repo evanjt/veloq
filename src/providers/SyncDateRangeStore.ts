@@ -146,7 +146,8 @@ export const useSyncDateRange = create<SyncDateRangeState>((set, get) => ({
         oldest: newOldest,
         newest: newNewest,
         isFetchingExtended: true,
-        hasExpanded: true, // Mark that we've expanded (triggers route re-optimization)
+        hasExpanded: true,
+        gpsSyncProgress: defaultGpsSyncProgress,
       });
 
       if (__DEV__) {

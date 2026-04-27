@@ -9,12 +9,12 @@ use serde::{Deserialize, Serialize};
 // Core Types
 // ============================================================================
 
-/// Batch trace result: one activity's extracted section trace as flat coords.
+/// Batch trace result: one activity's extracted section trace.
 #[derive(Debug, Clone, uniffi::Record)]
 pub struct FfiBatchTrace {
     pub activity_id: String,
-    /// Flat coordinates [lat, lng, lat, lng, ...]
-    pub coords: Vec<f64>,
+    /// Delta+varint encoded coordinates (decode with coords::decode)
+    pub encoded_coords: Vec<u8>,
 }
 
 /// Entry for importing superseded section mappings from AsyncStorage migration.
@@ -28,8 +28,8 @@ pub struct FfiSupersededEntry {
 /// Contains the representative activity's full GPS track with section start/end indices.
 #[derive(Debug, Clone, uniffi::Record)]
 pub struct FfiSectionExtensionTrack {
-    /// Flat coordinates [lat, lng, lat, lng, ...] of the full representative activity track
-    pub track: Vec<f64>,
+    /// Delta+varint encoded coordinates of the full representative activity track
+    pub encoded_track: Vec<u8>,
     /// Index in the track where the current section starts
     pub section_start_idx: u32,
     /// Index in the track where the current section ends
@@ -45,6 +45,8 @@ pub struct FfiDetectionProgress {
     pub completed: u32,
     /// Total items in current phase
     pub total: u32,
+    /// Phase-weighted overall percent (0–100)
+    pub percent: u32,
 }
 
 /// Section reference info: combines reference activity ID and user-defined flag.
@@ -55,12 +57,12 @@ pub struct FfiSectionReferenceInfo {
 }
 
 /// Lightweight map signature for rendering activity traces on the map.
-/// Contains simplified GPS points (max ~100 via Douglas-Peucker) as flat coords.
+/// Contains simplified GPS points (max ~100 via Douglas-Peucker) as encoded coords.
 #[derive(Debug, Clone, uniffi::Record)]
 pub struct FfiMapSignature {
     pub activity_id: String,
-    /// Flat coordinates [lat, lng, lat, lng, ...] (simplified, max ~100 points)
-    pub coords: Vec<f64>,
+    /// Delta+varint encoded coordinates (simplified, max ~100 points)
+    pub encoded_coords: Vec<u8>,
     pub center_lat: f64,
     pub center_lng: f64,
 }
@@ -273,7 +275,7 @@ pub struct FfiGroupSummariesResult {
 #[derive(Debug, Clone, uniffi::Record)]
 pub struct FfiRouteSignature {
     pub activity_id: String,
-    pub points: Vec<FfiGpsPoint>,
+    pub encoded_points: Vec<u8>,
     pub total_distance: f64,
     pub start_point: FfiGpsPoint,
     pub end_point: FfiGpsPoint,
@@ -285,7 +287,7 @@ impl From<tracematch::RouteSignature> for FfiRouteSignature {
     fn from(s: tracematch::RouteSignature) -> Self {
         Self {
             activity_id: s.activity_id,
-            points: s.points.into_iter().map(FfiGpsPoint::from).collect(),
+            encoded_points: crate::coords::encode(&s.points),
             total_distance: s.total_distance,
             start_point: FfiGpsPoint::from(s.start_point),
             end_point: FfiGpsPoint::from(s.end_point),
@@ -299,11 +301,7 @@ impl From<FfiRouteSignature> for tracematch::RouteSignature {
     fn from(s: FfiRouteSignature) -> Self {
         Self {
             activity_id: s.activity_id,
-            points: s
-                .points
-                .into_iter()
-                .map(tracematch::GpsPoint::from)
-                .collect(),
+            points: crate::coords::decode(&s.encoded_points),
             total_distance: s.total_distance,
             start_point: tracematch::GpsPoint::from(s.start_point),
             end_point: tracematch::GpsPoint::from(s.end_point),
@@ -440,6 +438,28 @@ impl From<FfiSectionConfig> for tracematch::SectionConfig {
     }
 }
 
+impl From<&tracematch::SectionConfig> for FfiSectionConfig {
+    fn from(c: &tracematch::SectionConfig) -> Self {
+        Self {
+            proximity_threshold: c.proximity_threshold,
+            min_section_length: c.min_section_length,
+            max_section_length: c.max_section_length,
+            min_activities: c.min_activities,
+            cluster_tolerance: c.cluster_tolerance,
+            sample_points: c.sample_points,
+            detection_mode: c.detection_mode.to_string(),
+            include_potentials: c.include_potentials,
+            scale_presets: c
+                .scale_presets
+                .iter()
+                .cloned()
+                .map(FfiScalePreset::from)
+                .collect(),
+            preserve_hierarchy: c.preserve_hierarchy,
+        }
+    }
+}
+
 impl Default for FfiSectionConfig {
     fn default() -> Self {
         let c = tracematch::SectionConfig::default();
@@ -492,7 +512,7 @@ pub struct FfiFrequentSection {
     pub id: String,
     pub name: Option<String>,
     pub sport_type: String,
-    pub polyline: Vec<FfiGpsPoint>,
+    pub encoded_polyline: Vec<u8>,
     pub representative_activity_id: String,
     pub activity_ids: Vec<String>,
     pub activity_portions: Vec<FfiSectionPortion>,
@@ -517,7 +537,7 @@ impl From<tracematch::FrequentSection> for FfiFrequentSection {
             id: s.id,
             name: s.name,
             sport_type: s.sport_type,
-            polyline: s.polyline.into_iter().map(FfiGpsPoint::from).collect(),
+            encoded_polyline: crate::coords::encode(&s.polyline),
             representative_activity_id: s.representative_activity_id,
             activity_ids: s.activity_ids,
             activity_portions: s
@@ -548,7 +568,7 @@ impl From<tracematch::FrequentSection> for FfiFrequentSection {
 pub struct FfiPotentialSection {
     pub id: String,
     pub sport_type: String,
-    pub polyline: Vec<FfiGpsPoint>,
+    pub encoded_polyline: Vec<u8>,
     pub activity_ids: Vec<String>,
     pub visit_count: u32,
     pub distance_meters: f64,
@@ -561,7 +581,7 @@ impl From<tracematch::PotentialSection> for FfiPotentialSection {
         Self {
             id: s.id,
             sport_type: s.sport_type,
-            polyline: s.polyline.into_iter().map(FfiGpsPoint::from).collect(),
+            encoded_polyline: crate::coords::encode(&s.polyline),
             activity_ids: s.activity_ids,
             visit_count: s.visit_count,
             distance_meters: s.distance_meters,
@@ -632,7 +652,7 @@ pub struct FfiSection {
     pub section_type: String,
     pub name: Option<String>,
     pub sport_type: String,
-    pub polyline: Vec<FfiGpsPoint>,
+    pub encoded_polyline: Vec<u8>,
     pub distance_meters: f64,
     pub representative_activity_id: Option<String>,
     pub activity_ids: Vec<String>,
@@ -666,7 +686,7 @@ impl From<crate::sections::Section> for FfiSection {
             section_type: s.section_type.as_str().to_string(),
             name: s.name,
             sport_type: s.sport_type,
-            polyline: s.polyline.into_iter().map(FfiGpsPoint::from).collect(),
+            encoded_polyline: crate::coords::encode(&s.polyline),
             distance_meters: s.distance_meters,
             representative_activity_id: s.representative_activity_id,
             activity_ids: s.activity_ids,
@@ -992,8 +1012,8 @@ pub struct FfiGroupWithPolyline {
     pub bounds: Option<FfiBounds>,
     /// Distance in meters (from representative activity's metrics)
     pub distance_meters: f64,
-    /// Flat lat/lng pairs [lat1, lng1, lat2, lng2, ...]
-    pub consensus_polyline: Vec<f64>,
+    /// Delta+varint encoded coordinates
+    pub encoded_polyline: Vec<u8>,
     /// All sport types present in this group's activities
     pub sport_types: Vec<String>,
 }
@@ -1011,10 +1031,13 @@ pub struct FfiSectionWithPolyline {
     pub confidence: f64,
     pub scale: Option<String>,
     pub bounds: Option<FfiBounds>,
-    /// Flat lat/lng pairs [lat1, lng1, lat2, lng2, ...]
-    pub polyline: Vec<f64>,
+    /// Delta+varint encoded coordinates
+    pub encoded_polyline: Vec<u8>,
     /// All sport types present in this section's activities
     pub sport_types: Vec<String>,
+    pub is_user_defined: bool,
+    pub disabled: bool,
+    pub superseded_by: Option<String>,
 }
 
 /// All data needed by the Routes screen in a single FFI call.
@@ -1429,7 +1452,8 @@ pub struct FfiInsightsData {
 #[derive(Debug, Clone, uniffi::Record)]
 pub struct FfiPreviewTrack {
     pub activity_id: String,
-    pub points: Vec<FfiGpsPoint>,
+    /// Delta+varint encoded coordinates
+    pub encoded_coords: Vec<u8>,
 }
 
 /// All data needed for the feed screen on startup in one call.
@@ -1671,7 +1695,7 @@ mod tests {
         assert_eq!(ffi_section.section_type, "auto");
         assert_eq!(ffi_section.name, Some("Test Section".to_string()));
         assert_eq!(ffi_section.sport_type, "Ride");
-        assert_eq!(ffi_section.polyline.len(), 2);
+        assert_eq!(crate::coords::decode(&ffi_section.encoded_polyline).len(), 2);
         assert_eq!(ffi_section.distance_meters, 1500.0);
         assert_eq!(ffi_section.activity_ids.len(), 2);
         assert_eq!(ffi_section.visit_count, 5);
@@ -1942,8 +1966,16 @@ pub struct FfiNearbySectionSummary {
     pub distance_meters: f64,
     pub visit_count: u32,
     pub center_distance_meters: f64,
-    /// Flat polyline coordinates [lat, lng, lat, lng, ...] for map overlay
-    pub polyline_coords: Vec<f64>,
+    /// Delta+varint encoded coordinates for map overlay
+    pub encoded_polyline: Vec<u8>,
+}
+
+/// User-tunable match strictness, persisted in the settings table.
+/// Read by Rust on engine load; written by `DetectionManager.set_match_strictness`.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiMatchStrictness {
+    pub min_match_pct: f64,
+    pub endpoint_threshold: f64,
 }
 
 /// One stale-PR opportunity: a section whose PR might be beatable because

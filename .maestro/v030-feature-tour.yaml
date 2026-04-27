@@ -95,9 +95,17 @@ tags:
     optional: true
 - takeScreenshot: "tour-08-section-detail-all"
 
-# Back to activity
-- back
-- back
+# Back to activity via deep-link (Maestro's `back` is unreliable on iOS)
+- openLink: "veloq://activity/demo-test-0"
+- runFlow:
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
+- extendedWaitUntil:
+    visible:
+      id: "activity-detail-content"
+    timeout: 15000
 
 # ====================================================================
 # REGIONAL MAP
@@ -186,15 +194,19 @@ tags:
     id: "settings-storage-stats"
     optional: true
 
-# Back to main settings to confirm version
-- back
+# Back to main settings via deep-link (Maestro's `back` is unreliable on iOS)
+- openLink: "veloq://settings"
+- runFlow:
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
 - scrollUntilVisible:
     element:
       id: "settings-version-text"
     direction: DOWN
     timeout: 15000
     speed: 40
-    optional: true
 - takeScreenshot: "tour-18-settings-bottom"
 - assertVisible:
     id: "settings-version-text"

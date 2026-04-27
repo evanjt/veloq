@@ -302,6 +302,7 @@ export interface TranslationResource {
     primarySportHintSwimming: string;
     maps: string;
     defaultStyle: string;
+    exploreMapStyle: string;
     satellite: string;
     customiseByActivity: string;
     default: string;
@@ -321,6 +322,16 @@ export interface TranslationResource {
     activities: string;
     routesCount: string;
     sectionsCount: string;
+    sectionDetection: string;
+    detectionSensitivity: string;
+    detectionRelaxed: string;
+    detectionStrict: string;
+    matchThreshold: string;
+    endpointDistance: string;
+    reanalyzeSections: string;
+    reanalyzeWarning: string;
+    cleanupOverlapping: string;
+    cleanupResult: string;
     total: string;
     database: string;
     dateRange: string;
@@ -1064,9 +1075,17 @@ export interface TranslationResource {
     expandInSettings: string;
     routeWord: string;
     sectionWord: string;
+    setAsReference: string;
+    setAsReferenceConfirm: string;
   };
 
   sections: {
+    acceptSection: string;
+    acceptAllSections: string;
+    acceptAllConfirm: string;
+    acceptedCount: string;
+    pinned: string;
+    pinnedOnly: string;
     activitiesCount: string;
     performanceOverTime: string;
     legendPr: string;

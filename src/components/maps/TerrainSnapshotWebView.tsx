@@ -100,6 +100,9 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
     const queueCompletedRef = useRef(0);
     const failedRequestsRef = useRef<SnapshotRequest[]>([]);
     const pendingPrefetchRef = useRef<PrefetchTilesBatch[]>([]);
+    const stalenessTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    const STALENESS_TIMEOUT_MS = 15000;
 
     const updateProgress = useCallback(() => {
       const { setTerrainSnapshotProgress } = useSyncDateRange.getState();
@@ -107,14 +110,32 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
         setTerrainSnapshotProgress({ status: 'idle', completed: 0, total: 0 });
         queueTotalRef.current = 0;
         queueCompletedRef.current = 0;
+        if (stalenessTimerRef.current) {
+          clearTimeout(stalenessTimerRef.current);
+          stalenessTimerRef.current = null;
+        }
       } else {
         setTerrainSnapshotProgress({
           status: 'rendering',
           completed: queueCompletedRef.current,
           total: queueTotalRef.current,
         });
+        // Reset staleness timer — if no completion happens within the timeout,
+        // force-dismiss the notification to avoid a permanently stuck banner.
+        if (stalenessTimerRef.current) clearTimeout(stalenessTimerRef.current);
+        stalenessTimerRef.current = setTimeout(() => {
+          const inFlight = workers.some((w) => w.processingRef.current);
+          const queued = queueRef.current.length > 0;
+          if (!inFlight && !queued) {
+            queueTotalRef.current = 0;
+            queueCompletedRef.current = 0;
+            useSyncDateRange
+              .getState()
+              .setTerrainSnapshotProgress({ status: 'idle', completed: 0, total: 0 });
+          }
+        }, STALENESS_TIMEOUT_MS);
       }
-    }, []);
+    }, [workers]);
 
     const processNext = useCallback(() => {
       for (const worker of workers) {
@@ -924,11 +945,20 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
       ref,
       () => ({
         requestSnapshot: (request: SnapshotRequest) => {
-          // Deduplicate: skip if already cached for this style, or already queued
+          // Deduplicate: skip if already cached, already queued, or in-flight on a worker
           if (hasTerrainPreview(request.activityId, request.mapStyle)) return;
           if (
             queueRef.current.some(
               (r) => r.activityId === request.activityId && r.mapStyle === request.mapStyle
+            )
+          )
+            return;
+          if (
+            workers.some(
+              (w) =>
+                w.processingRef.current &&
+                w.currentRequestRef.current?.activityId === request.activityId &&
+                w.currentRequestRef.current?.mapStyle === request.mapStyle
             )
           )
             return;

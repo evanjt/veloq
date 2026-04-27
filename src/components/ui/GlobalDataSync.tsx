@@ -16,7 +16,7 @@ import {
 import { queryKeys } from '@/lib/queryKeys';
 import { onSyncComplete } from '@/lib/backup';
 import { intervalsApi } from '@/api';
-import { getRouteEngine } from '@/lib/native/routeEngine';
+import { getRouteEngine, applyDetectionStrictness } from '@/lib/native/routeEngine';
 import { toActivityMetrics } from '@/lib/utils/activityMetrics';
 import { useAuthStore, useRouteSettings, useSyncDateRange } from '@/providers';
 import {
@@ -86,6 +86,19 @@ export function GlobalDataSync() {
       statsSeededRef.current = true;
     }
   }, [activities]);
+
+  // Apply persisted detection strictness to the Rust engine on first mount.
+  const strictnessAppliedRef = useRef(false);
+  useEffect(() => {
+    if (strictnessAppliedRef.current) return;
+    const engine = getRouteEngine();
+    if (!engine) return;
+    const { detectionStrictness } = routeSettings;
+    if (detectionStrictness !== 60) {
+      applyDetectionStrictness(detectionStrictness);
+    }
+    strictnessAppliedRef.current = true;
+  }, [routeSettings]);
 
   // Update fetching state in store
   useEffect(() => {

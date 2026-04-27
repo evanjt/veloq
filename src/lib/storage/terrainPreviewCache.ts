@@ -84,16 +84,33 @@ export async function initTerrainPreviewCache(): Promise<void> {
       await FileSystem.makeDirectoryAsync(TERRAIN_DIR, { intermediates: true });
       cachedKeys = [];
       initialized = true;
+      for (const cb of cacheReadyListeners) cb();
       return;
     }
 
     const files = await FileSystem.readDirectoryAsync(TERRAIN_DIR);
     cachedKeys = files.filter((f) => f.endsWith('.jpg')).map((f) => f.replace('.jpg', ''));
     initialized = true;
+    for (const cb of cacheReadyListeners) cb();
   } catch {
     cachedKeys = [];
     initialized = true;
+    for (const cb of cacheReadyListeners) cb();
   }
+}
+
+type CacheReadyListener = () => void;
+const cacheReadyListeners = new Set<CacheReadyListener>();
+
+export function onTerrainCacheReady(cb: CacheReadyListener): () => void {
+  cacheReadyListeners.add(cb);
+  return () => {
+    cacheReadyListeners.delete(cb);
+  };
+}
+
+export function isTerrainCacheInitialized(): boolean {
+  return initialized;
 }
 
 /** Ensure directory exists */
@@ -207,6 +224,7 @@ export async function clearTerrainPreviews(): Promise<void> {
     // Best effort cleanup
   }
   cachedKeys = [];
+  initialized = false;
 }
 
 /**

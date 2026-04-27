@@ -44,7 +44,7 @@ export interface FfiNearbySectionSummary {
   distanceMeters: number;
   visitCount: number;
   centerDistanceMeters: number;
-  polylineCoords: number[];
+  encodedPolyline: ArrayBuffer;
 }
 
 export interface FfiActivitySectionHighlight {

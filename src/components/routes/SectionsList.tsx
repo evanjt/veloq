@@ -6,7 +6,7 @@
  * so no expensive on-the-fly computation is needed here.
  */
 
-import React, { memo, useCallback, useMemo, useState, useRef } from 'react';
+import React, { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   View,
   StyleSheet,
@@ -16,7 +16,6 @@ import {
   Alert,
   Animated,
   ActivityIndicator,
-  TextInput,
 } from 'react-native';
 import Swipeable from 'react-native-gesture-handler/Swipeable';
 import { RectButton } from 'react-native-gesture-handler';
@@ -29,12 +28,14 @@ import { useUnifiedSections } from '@/hooks/routes/useUnifiedSections';
 import { SectionRow } from './SectionRow';
 import { PotentialSectionCard } from './PotentialSectionCard';
 import { DataRangeFooter } from './DataRangeFooter';
+import { SectionsListHeader } from './SectionsListHeader';
+import { SectionsListFiltersBar } from './SectionsListFiltersBar';
 import { useCustomSections } from '@/hooks/routes/useCustomSections';
 import { useSectionDismissals } from '@/providers/SectionDismissalsStore';
 import { debug, navigateTo } from '@/lib';
 import { getRouteEngine } from '@/lib/native/routeEngine';
 import type { UnifiedSection, FrequentSection } from '@/types';
-import type { SectionWithPolyline } from 'veloqrs';
+import { decodeCoords, type SectionWithPolyline } from 'veloqrs';
 import { generateSectionName } from '@/hooks/routes/useUnifiedSections';
 import { computeCenter, haversineDistance, type LatLng } from '@/lib/geo/distance';
 
@@ -74,6 +75,7 @@ type HiddenFilters = {
   custom: boolean;
   auto: boolean;
   disabled: boolean;
+  unaccepted: boolean;
 };
 
 export type SectionsSortOption = 'visits' | 'distance' | 'name' | 'nearby';
@@ -83,11 +85,10 @@ export type SectionsSortOption = 'visits' | 'distance' | 'name' | 'nearby';
  * Pre-populates polylines so SectionRow doesn't need per-row FFI calls.
  */
 function batchSectionToFrequentSection(s: SectionWithPolyline): FrequentSection {
-  // Convert flat coords [lat1, lng1, lat2, lng2, ...] to RoutePoint[]
-  const polyline: Array<{ lat: number; lng: number }> = [];
-  for (let i = 0; i < s.polyline.length - 1; i += 2) {
-    polyline.push({ lat: s.polyline[i], lng: s.polyline[i + 1] });
-  }
+  const polyline = decodeCoords(s.encodedPolyline).map((p) => ({
+    lat: p.latitude,
+    lng: p.longitude,
+  }));
   const center = s.bounds
     ? computeCenter({
         minLat: s.bounds.minLat,
@@ -111,6 +112,9 @@ function batchSectionToFrequentSection(s: SectionWithPolyline): FrequentSection 
     createdAt: new Date().toISOString(),
     sportTypes: 'sportTypes' in s ? (s as { sportTypes: string[] }).sportTypes : undefined,
     center,
+    isUserDefined: ((s as Record<string, unknown>).isUserDefined as boolean) ?? false,
+    disabled: ((s as Record<string, unknown>).disabled as boolean) ?? false,
+    supersededBy: ((s as Record<string, unknown>).supersededBy as string | null) ?? null,
   };
   // Generate display name using same logic as useFrequentSections
   if (!section.name) {
@@ -235,7 +239,8 @@ const SectionListItem = memo(
         prev.item.visitCount !== next.item.visitCount ||
         prev.item.distanceMeters !== next.item.distanceMeters ||
         prev.item.name !== next.item.name ||
-        prev.item.sectionType !== next.item.sectionType
+        prev.item.sectionType !== next.item.sectionType ||
+        prev.item.isUserDefined !== next.item.isUserDefined
       )
         return false;
     }
@@ -264,6 +269,7 @@ export const SectionsList = memo(function SectionsList({
     custom: false,
     auto: false,
     disabled: true, // Hidden sections are hidden by default
+    unaccepted: false,
   });
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -309,51 +315,61 @@ export const SectionsList = memo(function SectionsList({
   const cacheDays = useCacheDays();
 
   // Separate regular sections from potential sections, apply filter, search, and sort
-  const { regularSections, potentialSections } = useMemo(() => {
-    const regular: UnifiedSection[] = [];
-    const potential: UnifiedSection[] = [];
-    const query = searchQuery.toLowerCase();
+  const { regularSections, potentialSections, unacceptedAutoCount, acceptedAutoCount } =
+    useMemo(() => {
+      const regular: UnifiedSection[] = [];
+      const potential: UnifiedSection[] = [];
+      let unaccepted = 0;
+      let accepted = 0;
+      const query = searchQuery.toLowerCase();
 
-    for (const section of unifiedSections) {
-      if (section.sectionType === 'potential') {
-        potential.push(section);
-      } else {
-        // Apply hide filters - hide if the filter is set for this type
-        const isCustom = section.sectionType === 'custom';
-        const isAuto = section.sectionType === 'auto' && !section.disabled && !section.supersededBy;
-        const isDisabledAuto =
-          section.sectionType === 'auto' && !!(section.disabled || section.supersededBy);
+      for (const section of unifiedSections) {
+        if (section.sectionType === 'potential') {
+          potential.push(section);
+        } else {
+          const isVisibleAuto =
+            section.sectionType === 'auto' && !section.disabled && !section.supersededBy;
+          if (isVisibleAuto && !section.isUserDefined) unaccepted++;
+          if (isVisibleAuto && section.isUserDefined) accepted++;
 
-        if (
-          (isCustom && hiddenFilters.custom) ||
-          (isAuto && hiddenFilters.auto) ||
-          (isDisabledAuto && hiddenFilters.disabled)
-        ) {
-          continue; // Skip (hide) this section
+          // Apply hide filters
+          const isCustom = section.sectionType === 'custom';
+          const isDisabledAuto =
+            section.sectionType === 'auto' && !!(section.disabled || section.supersededBy);
+          const isUnacceptedAuto = isVisibleAuto && !section.isUserDefined;
+
+          if (
+            (isCustom && hiddenFilters.custom) ||
+            (isVisibleAuto && hiddenFilters.auto) ||
+            (isDisabledAuto && hiddenFilters.disabled) ||
+            (isUnacceptedAuto && hiddenFilters.unaccepted)
+          ) {
+            continue;
+          }
+
+          if (query && !section.name?.toLowerCase().includes(query)) {
+            continue;
+          }
+
+          regular.push(section);
         }
-
-        // Apply search filter
-        if (query && !section.name?.toLowerCase().includes(query)) {
-          continue;
-        }
-
-        regular.push(section);
       }
-    }
 
-    // Apply sort
-    if (sortOption === 'visits') {
-      regular.sort((a, b) => (b.visitCount ?? 0) - (a.visitCount ?? 0));
-    } else if (sortOption === 'distance') {
-      regular.sort((a, b) => (b.distanceMeters ?? 0) - (a.distanceMeters ?? 0));
-    } else if (sortOption === 'name') {
-      regular.sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''));
-    }
+      if (sortOption === 'visits') {
+        regular.sort((a, b) => (b.visitCount ?? 0) - (a.visitCount ?? 0));
+      } else if (sortOption === 'distance') {
+        regular.sort((a, b) => (b.distanceMeters ?? 0) - (a.distanceMeters ?? 0));
+      } else if (sortOption === 'name') {
+        regular.sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''));
+      }
 
-    // Preserve native order for nearby sorting so pagination stays correct.
-
-    return { regularSections: regular, potentialSections: potential };
-  }, [unifiedSections, hiddenFilters, searchQuery, sortOption]); // userLocation excluded: nearby sorting is Rust-side
+      return {
+        regularSections: regular,
+        potentialSections: potential,
+        unacceptedAutoCount: unaccepted,
+        acceptedAutoCount: accepted,
+      };
+    }, [unifiedSections, hiddenFilters, searchQuery, sortOption]); // userLocation excluded: nearby sorting is Rust-side
 
   // Pre-compute distance from user for each section (used for display on every row)
   const distanceMap = useMemo(() => {
@@ -403,6 +419,30 @@ export const SectionsList = memo(function SectionsList({
     },
     [createSection]
   );
+
+  // Handle accepting all auto sections
+  const [acceptAllResult, setAcceptAllResult] = useState<number | null>(null);
+  useEffect(() => {
+    if (acceptAllResult === null) return;
+    const timer = setTimeout(() => setAcceptAllResult(null), 3000);
+    return () => clearTimeout(timer);
+  }, [acceptAllResult]);
+  const handleAcceptAll = useCallback(() => {
+    Alert.alert(
+      t('sections.acceptAllSections'),
+      t('sections.acceptAllConfirm', { count: unacceptedAutoCount }),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('common.confirm'),
+          onPress: () => {
+            const count = getRouteEngine()?.acceptAllSections() ?? 0;
+            setAcceptAllResult(count);
+          },
+        },
+      ]
+    );
+  }, [t, unacceptedAutoCount]);
 
   // Handle dismissing a potential section
   const dismiss = useSectionDismissals((s) => s.dismiss);
@@ -612,162 +652,29 @@ export const SectionsList = memo(function SectionsList({
 
   return (
     <View style={styles.outerContainer}>
-      {/* Search and sport filters — outside FlatList to prevent keyboard dismissal */}
       <View style={styles.header}>
-        <View style={[styles.searchContainer, isDark && styles.searchContainerDark]}>
-          <MaterialCommunityIcons
-            name="magnify"
-            size={18}
-            color={isDark ? darkColors.textDisabled : colors.textDisabled}
-          />
-          <TextInput
-            style={[styles.searchInput, isDark && styles.searchInputDark]}
-            placeholder={t('routes.searchSections')}
-            placeholderTextColor={isDark ? darkColors.textDisabled : colors.textDisabled}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            returnKeyType="search"
-            autoCorrect={false}
-          />
-          {searchQuery.length > 0 && (
-            <TouchableOpacity onPress={() => setSearchQuery('')} hitSlop={8}>
-              <MaterialCommunityIcons
-                name="close-circle"
-                size={16}
-                color={isDark ? darkColors.textDisabled : colors.textDisabled}
-              />
-            </TouchableOpacity>
-          )}
-        </View>
-        {/* Count line */}
-        <View style={styles.countRow}>
-          <Text style={[styles.summaryText, isDark && styles.summaryTextDark]}>
-            {displaySectionCount} {t('trainingScreen.sections')}
-          </Text>
-          <TouchableOpacity
-            onPress={handleRescan}
-            disabled={isScanning}
-            activeOpacity={0.7}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          >
-            {isScanning ? (
-              <ActivityIndicator
-                size={13}
-                color={isDark ? darkColors.textDisabled : colors.textDisabled}
-              />
-            ) : (
-              <MaterialCommunityIcons
-                name="reload"
-                size={14}
-                color={isDark ? darkColors.textDisabled : colors.textDisabled}
-              />
-            )}
-          </TouchableOpacity>
-        </View>
-        {/* Sort + filter chips */}
-        <View style={styles.sortChipRow}>
-          {regularSections.length > 1 &&
-            sortChips.map((chip) => {
-              const isActive = sortOption === chip.key;
-              return (
-                <TouchableOpacity
-                  key={chip.key}
-                  style={[
-                    styles.sortChip,
-                    isDark && styles.sortChipDark,
-                    isActive && styles.sortChipActive,
-                  ]}
-                  onPress={() => onSortChange(chip.key)}
-                  activeOpacity={0.7}
-                >
-                  <MaterialCommunityIcons
-                    name={chip.icon as any}
-                    size={13}
-                    color={
-                      isActive
-                        ? colors.primary
-                        : isDark
-                          ? darkColors.textSecondary
-                          : colors.textSecondary
-                    }
-                  />
-                  <Text
-                    style={[
-                      styles.sortChipLabel,
-                      isDark && styles.textMuted,
-                      isActive && styles.sortChipLabelActive,
-                    ]}
-                  >
-                    {chip.label}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          {customCount > 0 && (
-            <TouchableOpacity
-              style={[
-                styles.sortChip,
-                isDark && styles.sortChipDark,
-                !hiddenFilters.custom && styles.sortChipActive,
-              ]}
-              onPress={() => handleFilterPress('custom')}
-              activeOpacity={0.7}
-            >
-              <MaterialCommunityIcons
-                name="account"
-                size={13}
-                color={
-                  !hiddenFilters.custom
-                    ? colors.primary
-                    : isDark
-                      ? darkColors.textSecondary
-                      : colors.textSecondary
-                }
-              />
-              <Text
-                style={[
-                  styles.sortChipLabel,
-                  isDark && styles.textMuted,
-                  !hiddenFilters.custom && styles.sortChipLabelActive,
-                ]}
-              >
-                {customCount} {t('routes.custom')}
-              </Text>
-            </TouchableOpacity>
-          )}
-          {trueDisabledCount > 0 && (
-            <TouchableOpacity
-              style={[
-                styles.sortChip,
-                isDark && styles.sortChipDark,
-                !hiddenFilters.disabled && styles.sortChipActive,
-              ]}
-              onPress={() => handleFilterPress('disabled')}
-              activeOpacity={0.7}
-            >
-              <MaterialCommunityIcons
-                name={hiddenFilters.disabled ? 'eye-off' : 'eye'}
-                size={13}
-                color={
-                  !hiddenFilters.disabled
-                    ? colors.primary
-                    : isDark
-                      ? darkColors.textSecondary
-                      : colors.textSecondary
-                }
-              />
-              <Text
-                style={[
-                  styles.sortChipLabel,
-                  isDark && styles.textMuted,
-                  !hiddenFilters.disabled && styles.sortChipLabelActive,
-                ]}
-              >
-                {trueDisabledCount} {t('sections.removed')}
-              </Text>
-            </TouchableOpacity>
-          )}
-        </View>
+        <SectionsListHeader
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          displaySectionCount={displaySectionCount}
+          unacceptedAutoCount={unacceptedAutoCount}
+          acceptAllResult={acceptAllResult}
+          isScanning={isScanning}
+          onAcceptAll={handleAcceptAll}
+          onRescan={handleRescan}
+        />
+        <SectionsListFiltersBar
+          regularSectionsCount={regularSections.length}
+          sortOption={sortOption}
+          onSortChange={onSortChange}
+          sortChips={sortChips}
+          customCount={customCount}
+          hiddenFilters={hiddenFilters}
+          onFilterPress={handleFilterPress}
+          trueDisabledCount={trueDisabledCount}
+          unacceptedAutoCount={unacceptedAutoCount}
+          acceptedAutoCount={acceptedAutoCount}
+        />
       </View>
 
       <FlatList
@@ -855,21 +762,6 @@ const styles = StyleSheet.create({
   },
   infoTextDark: {
     color: darkColors.textDisabled,
-  },
-  countRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: spacing.md,
-    marginTop: 2,
-  },
-  summaryText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.textPrimary,
-  },
-  summaryTextDark: {
-    color: darkColors.textPrimary,
   },
   sportFilterRow: {
     flexDirection: 'row',
@@ -971,29 +863,6 @@ const styles = StyleSheet.create({
   deleteAction: {
     backgroundColor: colors.error,
   },
-  searchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    marginHorizontal: spacing.md,
-    marginTop: spacing.sm,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: Platform.OS === 'ios' ? 4 : 2,
-    borderRadius: 10,
-    backgroundColor: colors.gray100,
-  },
-  searchContainerDark: {
-    backgroundColor: darkColors.surface,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 14,
-    color: colors.textPrimary,
-    paddingVertical: 0,
-  },
-  searchInputDark: {
-    color: colors.textOnDark,
-  },
   sortRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1005,39 +874,6 @@ const styles = StyleSheet.create({
     height: 24,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  sortChipRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'center',
-    gap: spacing.xs,
-    paddingHorizontal: spacing.md,
-    marginTop: 2,
-    marginBottom: spacing.xs,
-  },
-  sortChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  sortChipDark: {
-    borderColor: darkColors.border,
-  },
-  sortChipActive: {
-    backgroundColor: colors.primary + '15',
-    borderColor: colors.primary,
-  },
-  sortChipLabel: {
-    fontSize: 12,
-    color: colors.textSecondary,
-  },
-  sortChipLabelActive: {
-    color: colors.primary,
   },
   showAction: {
     backgroundColor: colors.success,
