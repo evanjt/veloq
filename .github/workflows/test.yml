@@ -7,7 +7,7 @@ on:
     branches: [main]
 
 env:
-  NODE_VERSION: "20"
+  NODE_VERSION: "22"
 
 jobs:
   jest:
@@ -31,6 +31,11 @@ jobs:
 
       - name: Run tests
         run: npm test -- --maxWorkers=2
+        env:
+          # Prevent jest-expo from loading expo/virtual/streams polyfill.
+          # The polyfill replaces native ReadableStream and its cancel()
+          # triggers unhandled rejections during axios module initialization.
+          EXPO_OS: web
 
   rust:
     name: Rust Tests
