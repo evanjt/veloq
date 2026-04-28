@@ -41,8 +41,6 @@ function withSettingsGradleRepositories(config) {
 
 function withGradleUserAgent(config) {
   return withGradleProperties(config, (config) => {
-    // Add User-Agent system property to avoid Maven Central 403 errors
-    // Maven Central blocks requests without proper User-Agent headers
     const userAgentProp = config.modResults.find(
       (p) => p.key === "systemProp.http.agent"
     );
@@ -52,6 +50,20 @@ function withGradleUserAgent(config) {
         type: "property",
         key: "systemProp.http.agent",
         value: "Gradle",
+      });
+    }
+
+    const jvmArgsProp = config.modResults.find(
+      (p) => p.key === "org.gradle.jvmargs"
+    );
+
+    if (jvmArgsProp) {
+      jvmArgsProp.value = "-Xmx4096m -XX:MaxMetaspaceSize=512m";
+    } else {
+      config.modResults.push({
+        type: "property",
+        key: "org.gradle.jvmargs",
+        value: "-Xmx4096m -XX:MaxMetaspaceSize=512m",
       });
     }
 
