@@ -50,15 +50,6 @@ export function useLocationTracking(): {
       return false;
     }
 
-    try {
-      const { status: bgStatus } = await Location.requestBackgroundPermissionsAsync();
-      if (bgStatus !== 'granted') {
-        log.warn('Background location permission denied (foreground granted)');
-      }
-    } catch (e) {
-      log.warn('Background location not available:', e);
-    }
-
     setHasPermission(true);
     return true;
   }, []);

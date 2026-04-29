@@ -2,6 +2,7 @@ const IS_PROD = process.env.APP_VARIANT === 'production';
 
 module.exports = ({ config }) => ({
   ...config,
+  plugins: [...(config.plugins || []), 'react-native-iap'],
   name: IS_PROD ? config.name : 'Veloq Dev',
   android: {
     ...config.android,
