@@ -11,7 +11,7 @@ jobs:
   # ============================================
   find-and-wait:
     name: Find Main Build
-    runs-on: ubuntu-latest
+    runs-on: git-runner-set
     outputs:
       run_id: ${{ steps.find.outputs.run_id }}
     steps:
@@ -65,7 +65,7 @@ jobs:
   release:
     name: Create Release
     needs: find-and-wait
-    runs-on: ubuntu-latest
+    runs-on: git-runner-set
     permissions:
       contents: write
     outputs:
@@ -210,7 +210,7 @@ jobs:
   deploy-play-store:
     name: Deploy to Play Store
     needs: release
-    runs-on: ubuntu-latest
+    runs-on: git-runner-set
     # Only runs if GOOGLE_PLAY_SERVICE_ACCOUNT_JSON secret is configured
     if: needs.release.outputs.aab_path != ''
     steps:

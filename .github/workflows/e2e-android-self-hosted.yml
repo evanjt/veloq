@@ -29,6 +29,9 @@ jobs:
     runs-on: git-runner-set
     timeout-minutes: 45
     env:
+      ANDROID_HOME: /opt/android-sdk
+      ANDROID_SDK_ROOT: /opt/android-sdk
+      JAVA_HOME: /usr/lib/jvm/java-17-openjdk-amd64
       JAVA_TOOL_OPTIONS: "-Dhttp.agent=Gradle -Dhttps.agent=Gradle"
       GRADLE_OPTS: "-Dhttp.agent=Gradle -Dhttps.agent=Gradle"
     steps:
@@ -53,26 +56,8 @@ jobs:
         if: steps.apk-cache.outputs.cache-hit == 'true'
         run: echo "Using cached dev APK (hash ${{ steps.hash.outputs.source_hash }})"
 
-      - uses: actions/setup-node@v4
-        if: steps.apk-cache.outputs.cache-hit != 'true'
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: npm
-
       - if: steps.apk-cache.outputs.cache-hit != 'true'
         run: npm ci
-
-      - uses: actions/setup-java@v4
-        if: steps.apk-cache.outputs.cache-hit != 'true'
-        with:
-          distribution: temurin
-          java-version: 17
-
-      - uses: android-actions/setup-android@v3
-        if: steps.apk-cache.outputs.cache-hit != 'true'
-
-      - uses: gradle/actions/setup-gradle@v4
-        if: steps.apk-cache.outputs.cache-hit != 'true'
 
       - name: Setup Rust for Android
         if: steps.apk-cache.outputs.cache-hit != 'true'

@@ -12,7 +12,7 @@ env:
 jobs:
   jest:
     name: Jest
-    runs-on: ubuntu-latest
+    runs-on: git-runner-set
     timeout-minutes: 10
     steps:
       - name: Checkout repository
@@ -20,26 +20,17 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "${{ env.NODE_VERSION }}"
-          cache: "npm"
-
       - name: Install dependencies
         run: npm ci
 
       - name: Run tests
         run: npm test -- --maxWorkers=2
         env:
-          # Prevent jest-expo from loading expo/virtual/streams polyfill.
-          # The polyfill replaces native ReadableStream and its cancel()
-          # triggers unhandled rejections during axios module initialization.
           EXPO_OS: web
 
   rust:
     name: Rust Tests
-    runs-on: ubuntu-latest
+    runs-on: git-runner-set
     timeout-minutes: 15
     steps:
       - name: Checkout repository
@@ -62,19 +53,13 @@ jobs:
 
   verify-bindings:
     name: Verify Bindings
-    runs-on: ubuntu-latest
+    runs-on: git-runner-set
     timeout-minutes: 15
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           submodules: recursive
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: "${{ env.NODE_VERSION }}"
-          cache: "npm"
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@1.93.0
