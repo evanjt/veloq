@@ -81,7 +81,7 @@ jobs:
 
       - name: Setup Android SDK
         if: steps.apk-cache.outputs.cache-hit != 'true'
-        uses: android-actions/setup-android@v3
+        uses: android-actions/setup-android@v4
 
       - name: Setup Gradle
         if: steps.apk-cache.outputs.cache-hit != 'true'
