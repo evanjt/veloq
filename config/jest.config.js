@@ -9,6 +9,9 @@ module.exports = {
   moduleNameMapper: {
     "^@/theme$": "<rootDir>/src/__tests__/__mocks__/theme.js",
     "^@/(.*)$": "<rootDir>/src/$1",
+    // Block expo's ReadableStream polyfill — its cancel() throws when axios
+    // probes stream support. Node already provides native ReadableStream.
+    "expo/virtual/streams": "<rootDir>/config/jest.emptyModule.js",
   },
   transformIgnorePatterns: [
     "node_modules/(?!((jest-)?react-native|@react-native(-community)?)|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@sentry/react-native|native-base|react-native-svg|react-native-paper|@shopify/react-native-skia)",
