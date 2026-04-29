@@ -97,10 +97,10 @@ interface FfiPeriodStatsShape {
 
 /** Matches FfiPaceTrend shape from veloqrs generated bindings */
 interface FfiPaceTrendShape {
-  latestPace: number | undefined;
-  latestDate: bigint | number | undefined;
-  previousPace: number | undefined;
-  previousDate: bigint | number | undefined;
+  latestPace?: number;
+  latestDate?: bigint | number;
+  previousPace?: number;
+  previousDate?: bigint | number;
 }
 
 /** Matches FfiActivityPattern shape from veloqrs generated bindings */
@@ -113,7 +113,7 @@ interface FfiActivityPatternShape {
   commonSections?: Array<{
     sectionId: string;
     sectionName: string;
-    trend: number | undefined;
+    trend?: number;
     medianRecentSecs: number;
     bestTimeSecs: number;
     traversalCount: number;
@@ -127,15 +127,15 @@ export interface FfiInsightsDataShape {
   chronicPeriod: FfiPeriodStatsShape;
   todayPeriod: FfiPeriodStatsShape;
   ftpTrend: {
-    latestFtp: number | undefined;
-    latestDate: bigint | number | undefined;
-    previousFtp: number | undefined;
-    previousDate: bigint | number | undefined;
+    latestFtp?: number;
+    latestDate?: bigint | number;
+    previousFtp?: number;
+    previousDate?: bigint | number;
   };
   runPaceTrend: FfiPaceTrendShape;
   swimPaceTrend?: FfiPaceTrendShape;
   allPatterns: FfiActivityPatternShape[];
-  todayPattern: FfiActivityPatternShape | null | undefined;
+  todayPattern?: FfiActivityPatternShape | null;
   recentPrs: Array<{
     sectionId: string;
     sectionName: string;

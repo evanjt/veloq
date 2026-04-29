@@ -36,10 +36,10 @@ export interface StalePRSectionData {
 }
 
 export interface StalePRFtpTrend {
-  latestFtp: number | undefined;
-  latestDate: bigint | number | undefined;
-  previousFtp: number | undefined;
-  previousDate: bigint | number | undefined;
+  latestFtp?: number;
+  latestDate?: bigint | number;
+  previousFtp?: number;
+  previousDate?: bigint | number;
 }
 
 export interface StalePRRecentPR {
@@ -50,10 +50,10 @@ export interface StalePRRecentPR {
 }
 
 export interface StalePRPaceTrend {
-  latestPace: number | undefined;
-  latestDate: bigint | number | undefined;
-  previousPace: number | undefined;
-  previousDate: bigint | number | undefined;
+  latestPace?: number;
+  latestDate?: bigint | number;
+  previousPace?: number;
+  previousDate?: bigint | number;
 }
 
 export interface StalePRInput {

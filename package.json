@@ -117,7 +117,7 @@
     "react-dom": "^18.2.0",
     "ts-jest": "^29.4.6",
     "typescript": "^5.9.3",
-    "uniffi-bindgen-react-native": "^0.29.3-1"
+    "uniffi-bindgen-react-native": "^0.31.0-2"
   },
   "private": true,
   "lint-staged": {
