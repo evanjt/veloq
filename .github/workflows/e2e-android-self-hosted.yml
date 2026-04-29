@@ -1,0 +1,358 @@
+name: E2E Android (Self-Hosted)
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      tiers:
+        description: "Test tiers to run"
+        required: false
+        default: "tier0,tier1,tier2"
+        type: string
+      shards:
+        description: "Number of parallel shards"
+        required: false
+        default: "8"
+        type: string
+
+permissions:
+  contents: read
+  checks: write
+
+env:
+  NODE_VERSION: "22"
+
+jobs:
+  build-android-dev:
+    name: Build Android Dev
+    runs-on: git-runner-set
+    timeout-minutes: 45
+    env:
+      JAVA_TOOL_OPTIONS: "-Dhttp.agent=Gradle -Dhttps.agent=Gradle"
+      GRADLE_OPTS: "-Dhttp.agent=Gradle -Dhttps.agent=Gradle"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Compute source hash
+        id: hash
+        uses: ./.github/actions/compute-version-info
+        with:
+          source-profile: android
+
+      - name: Cache dev APK
+        id: apk-cache
+        uses: actions/cache@v4
+        with:
+          path: android/app/build/outputs/apk/release/app-release.apk
+          key: android-dev-apk-v1-${{ steps.hash.outputs.source_hash }}
+
+      - name: Skip build (cache hit)
+        if: steps.apk-cache.outputs.cache-hit == 'true'
+        run: echo "Using cached dev APK (hash ${{ steps.hash.outputs.source_hash }})"
+
+      - uses: actions/setup-node@v4
+        if: steps.apk-cache.outputs.cache-hit != 'true'
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - if: steps.apk-cache.outputs.cache-hit != 'true'
+        run: npm ci
+
+      - uses: actions/setup-java@v4
+        if: steps.apk-cache.outputs.cache-hit != 'true'
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: android-actions/setup-android@v3
+        if: steps.apk-cache.outputs.cache-hit != 'true'
+
+      - uses: gradle/actions/setup-gradle@v4
+        if: steps.apk-cache.outputs.cache-hit != 'true'
+
+      - name: Setup Rust for Android
+        if: steps.apk-cache.outputs.cache-hit != 'true'
+        uses: ./.github/actions/setup-rust-android
+        with:
+          targets: aarch64-linux-android,x86_64-linux-android
+
+      - name: Build Rust libraries
+        if: steps.apk-cache.outputs.cache-hit != 'true'
+        working-directory: modules/veloqrs/rust
+        run: |
+          mkdir -p ../android/src/main/jniLibs
+          cargo ndk -t aarch64-linux-android -t x86_64-linux-android \
+            --platform 24 -o ../android/src/main/jniLibs \
+            build --release -p veloqrs
+
+      - name: Write google-services.json stub
+        if: steps.apk-cache.outputs.cache-hit != 'true'
+        uses: ./.github/actions/write-google-services-stub
+        with:
+          package-name: com.veloq.app.dev
+
+      - name: Generate native project (dev variant)
+        if: steps.apk-cache.outputs.cache-hit != 'true'
+        run: npx expo prebuild --platform android
+
+      - name: Build release APK
+        if: steps.apk-cache.outputs.cache-hit != 'true'
+        run: |
+          cd android && ./gradlew assembleRelease \
+            -PreactNativeArchitectures=arm64-v8a,x86_64 \
+            --no-daemon --no-build-cache
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-dev-apk
+          path: android/app/build/outputs/apk/release/app-release.apk
+          retention-days: 7
+
+  prepare-shards:
+    name: Prepare Test Shards
+    runs-on: git-runner-set
+    outputs:
+      matrix: ${{ steps.shard.outputs.matrix }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Generate shard matrix
+        id: shard
+        run: |
+          TIERS="${{ inputs.tiers || 'tier0,tier1,tier2' }}"
+          SHARD_COUNT="${{ inputs.shards || '8' }}"
+
+          # Collect all flow files matching requested tiers
+          FLOWS=()
+          for tier in $(echo "$TIERS" | tr ',' ' '); do
+            while IFS= read -r f; do
+              FLOWS+=("$(basename "$f")")
+            done < <(grep -rl "- $tier" .maestro/*.yaml 2>/dev/null | sort)
+          done
+
+          # Deduplicate (a flow might match multiple tiers)
+          FLOWS=($(printf '%s\n' "${FLOWS[@]}" | sort -u))
+          TOTAL=${#FLOWS[@]}
+          echo "Total flows: $TOTAL across tiers: $TIERS"
+
+          # Cap shard count to flow count
+          if [ "$SHARD_COUNT" -gt "$TOTAL" ]; then
+            SHARD_COUNT=$TOTAL
+          fi
+
+          # Build matrix JSON
+          MATRIX="{\"include\":["
+          for i in $(seq 0 $((SHARD_COUNT - 1))); do
+            SHARD_FLOWS=()
+            for j in $(seq "$i" "$SHARD_COUNT" $((TOTAL - 1))); do
+              SHARD_FLOWS+=("${FLOWS[$j]}")
+            done
+            FLOW_LIST=$(printf '%s,' "${SHARD_FLOWS[@]}" | sed 's/,$//')
+            if [ "$i" -gt 0 ]; then MATRIX+=","; fi
+            MATRIX+="{\"shard\":$((i + 1)),\"flows\":\"$FLOW_LIST\"}"
+          done
+          MATRIX+="]}"
+
+          echo "matrix=$MATRIX" >> $GITHUB_OUTPUT
+          echo "Generated $SHARD_COUNT shards"
+
+  e2e-android:
+    needs: [build-android-dev, prepare-shards]
+    name: "E2E Shard ${{ matrix.shard }}"
+    runs-on: git-runner-set
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.prepare-shards.outputs.matrix) }}
+    env:
+      ANDROID_HOME: /opt/android-sdk
+      ANDROID_SDK_ROOT: /opt/android-sdk
+      MAESTRO_DRIVER_STARTUP_TIMEOUT: "180000"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download APK
+        uses: actions/download-artifact@v4
+        with:
+          name: android-dev-apk
+          path: /tmp/android-artifact
+
+      - name: Boot emulator
+        run: |
+          ADB=$ANDROID_HOME/platform-tools/adb
+          $ADB kill-server 2>/dev/null || true
+          sleep 1
+          $ADB start-server
+
+          $ANDROID_HOME/emulator/emulator -avd e2e-test \
+            -no-window -gpu swiftshader_indirect -noaudio \
+            -no-boot-anim -no-snapshot-save -no-metrics &
+
+          $ADB wait-for-device
+          for i in $(seq 1 90); do
+            BOOT=$($ADB shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')
+            if [ "$BOOT" = "1" ]; then echo "Boot complete after ${i}s"; break; fi
+            if [ "$i" = "90" ]; then echo "Emulator boot timeout"; exit 1; fi
+            sleep 2
+          done
+          sleep 3
+
+          $ADB shell settings put global window_animation_scale 0
+          $ADB shell settings put global transition_animation_scale 0
+          $ADB shell settings put global animator_duration_scale 0
+
+      - name: Install APK
+        run: |
+          APK=$(find /tmp/android-artifact -name "*.apk" | head -1)
+          $ANDROID_HOME/platform-tools/adb install "$APK"
+          sleep 2
+          $ANDROID_HOME/platform-tools/adb logcat -c
+
+      - name: Run Maestro tests (shard ${{ matrix.shard }})
+        run: |
+          export PATH="/opt/maestro/bin:$HOME/.maestro/bin:$PATH"
+
+          IFS=',' read -ra FLOW_FILES <<< "${{ matrix.flows }}"
+          FAILED=0
+          TOTAL=0
+
+          mkdir -p /tmp/maestro-results
+
+          for flow in "${FLOW_FILES[@]}"; do
+            TOTAL=$((TOTAL + 1))
+            echo "=== Running: $flow ($TOTAL/${#FLOW_FILES[@]}) ==="
+            if maestro test ".maestro/$flow" \
+                --format junit \
+                --output "/tmp/maestro-results/${flow%.yaml}.xml" \
+                --no-ansi; then
+              echo "PASS: $flow"
+            else
+              echo "FAIL: $flow"
+              FAILED=$((FAILED + 1))
+            fi
+          done
+
+          echo "=== Shard ${{ matrix.shard }} Results: $((TOTAL - FAILED))/$TOTAL passed ==="
+
+          # Merge JUnit reports
+          echo '<?xml version="1.0" encoding="UTF-8"?><testsuites>' > maestro-report.xml
+          for f in /tmp/maestro-results/*.xml; do
+            [ -f "$f" ] && grep -v '<?xml' "$f" >> maestro-report.xml
+          done
+          echo '</testsuites>' >> maestro-report.xml
+
+          if [ "$FAILED" -gt 0 ]; then
+            echo "MAESTRO_FAILED=true" >> $GITHUB_ENV
+          fi
+
+      - name: Kill emulator
+        if: always()
+        run: $ANDROID_HOME/platform-tools/adb emu kill 2>/dev/null || true
+
+      - name: Capture logcat
+        if: always()
+        run: |
+          $ANDROID_HOME/platform-tools/adb logcat -d > /tmp/logcat.txt 2>&1 || true
+          grep -E "(FATAL|veloqrs|ReactNative|AndroidRuntime|Process:|Signal|crash|panic)" \
+            /tmp/logcat.txt > /tmp/logcat-filtered.txt 2>/dev/null || true
+
+      - name: Collect screenshots
+        if: always()
+        run: |
+          mkdir -p screenshots
+          find ~/.maestro -name "*.png" -exec cp {} screenshots/ \; 2>/dev/null || true
+
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshots-shard-${{ matrix.shard }}
+          path: screenshots/
+          retention-days: 14
+
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: maestro-report-shard-${{ matrix.shard }}
+          path: maestro-report.xml
+          retention-days: 7
+
+      - name: Upload logcat
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: logcat-shard-${{ matrix.shard }}
+          path: |
+            /tmp/logcat.txt
+            /tmp/logcat-filtered.txt
+          retention-days: 7
+
+      - name: Publish test results
+        if: always()
+        uses: mikepenz/action-junit-report@v5
+        with:
+          report_paths: maestro-report.xml
+          check_name: "E2E Android Shard ${{ matrix.shard }}"
+          fail_on_failure: false
+
+      - name: Fail if tests failed
+        if: env.MAESTRO_FAILED == 'true'
+        run: exit 1
+
+  e2e-summary:
+    needs: [e2e-android]
+    if: always()
+    name: E2E Summary
+    runs-on: git-runner-set
+    timeout-minutes: 5
+    steps:
+      - name: Download all reports
+        uses: actions/download-artifact@v4
+        with:
+          pattern: maestro-report-shard-*
+          path: /tmp/reports
+          merge-multiple: false
+
+      - name: Generate summary
+        run: |
+          {
+            echo "## E2E Android Results (Self-Hosted)"
+            echo ""
+            echo "| Shard | Tests | Failures | Status |"
+            echo "|-------|-------|----------|--------|"
+            total_tests=0
+            total_failures=0
+            for dir in /tmp/reports/maestro-report-shard-*/; do
+              shard=$(basename "$dir" | sed 's/maestro-report-shard-//')
+              report="$dir/maestro-report.xml"
+              if [ -f "$report" ]; then
+                tests=$(grep -oP 'tests="\K[0-9]+' "$report" | paste -sd+ | bc 2>/dev/null || echo "0")
+                failures=$(grep -oP 'failures="\K[0-9]+' "$report" | paste -sd+ | bc 2>/dev/null || echo "0")
+                total_tests=$((total_tests + tests))
+                total_failures=$((total_failures + failures))
+                if [ "$failures" = "0" ] || [ -z "$failures" ]; then
+                  echo "| $shard | $tests | 0 | :white_check_mark: |"
+                else
+                  echo "| $shard | $tests | $failures | :x: |"
+                fi
+              else
+                echo "| $shard | - | - | :warning: No report |"
+              fi
+            done
+            echo ""
+            echo "**Total: $total_tests tests, $total_failures failures**"
+          } >> $GITHUB_STEP_SUMMARY
+
+      - name: Check overall result
+        run: |
+          if [ "${{ needs.e2e-android.result }}" != "success" ]; then
+            echo "One or more shards failed"
+            exit 1
+          fi
