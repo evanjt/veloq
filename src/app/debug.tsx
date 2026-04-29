@@ -16,6 +16,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, darkColors, spacing } from '@/theme';
 import { useTheme } from '@/hooks';
 import { getFFIMetricsSummary, clearFFIMetrics } from '@/lib/debug/renderTimer';
+import { useSupportStore } from '@/providers';
 import type { PersistentEngineStats } from 'veloqrs';
 
 function getRouteEngine() {
@@ -285,6 +286,23 @@ export default function DebugScreen() {
             </Text>
           )}
         </CollapsibleSection>
+
+        {/* Support Card Testing */}
+        <TouchableOpacity
+          style={[styles.shareButton, isDark && styles.shareButtonDark]}
+          onPress={() => {
+            const store = useSupportStore.getState();
+            store.remindLater();
+            // Reset lastActionDate to null so card shows immediately
+            useSupportStore.setState({ lastActionDate: null, permanentlyDismissed: false });
+          }}
+          activeOpacity={0.7}
+        >
+          <MaterialCommunityIcons name="heart-outline" size={18} color={colors.primary} />
+          <Text style={[styles.shareButtonText, { color: colors.primary }]}>
+            Reset Support Card (shows on next Feed visit)
+          </Text>
+        </TouchableOpacity>
 
         {/* Share Debug Snapshot */}
         <TouchableOpacity

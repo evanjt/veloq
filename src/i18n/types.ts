@@ -1699,6 +1699,22 @@ export interface TranslationResource {
     Workout: string;
     Yoga: string;
   };
+  support: {
+    tipTitle: string;
+    tipDescription: string;
+    reviewTitle: string;
+    reviewDescription: string;
+    rateApp: string;
+    neverShow: string;
+    thankYou: string;
+    sponsorGitHub: string;
+    legacyTitle: string;
+    legacyDescription: string;
+    forum: string;
+    idea: string;
+    bug: string;
+    tipAgain: string;
+  };
 }
 
 /**

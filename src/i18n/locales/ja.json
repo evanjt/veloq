@@ -1757,5 +1757,21 @@
     "hideDetails": "詳細を隠す",
     "exercise": "種目",
     "exercises": "種目"
+  },
+  "support": {
+    "tipTitle": "Veloqを応援",
+    "tipDescription": "すべての機能は無料で、課金の壁はありません。チップはストアの費用を賄うのに役立ちます。",
+    "reviewTitle": "Veloqを気に入りましたか？",
+    "reviewDescription": "評価は他の人がストアでVeloqを見つけるのに役立ちます。",
+    "rateApp": "ストアで評価する",
+    "neverShow": "今後表示しない",
+    "thankYou": "ご支援ありがとうございます！",
+    "sponsorGitHub": "GitHubでスポンサーになる",
+    "legacyTitle": "ご支援ありがとうございます",
+    "legacyDescription": "継続的なご支援は新機能の開発に役立ちます。アイデアやバグを見つけましたか？",
+    "forum": "フォーラム",
+    "idea": "アイデア",
+    "bug": "バグ",
+    "tipAgain": "もう一度チップ："
   }
 }

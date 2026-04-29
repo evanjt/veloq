@@ -1757,5 +1757,21 @@
     "hideDetails": "Ukryj szczegóły",
     "exercise": "ćwiczenie",
     "exercises": "ćwiczenia"
+  },
+  "support": {
+    "tipTitle": "Wesprzyj Veloq",
+    "tipDescription": "Wszystkie funkcje są darmowe, bez paywall. Napiwki pomagają pokryć koszty sklepu.",
+    "reviewTitle": "Podoba ci się Veloq?",
+    "reviewDescription": "Oceny pomagają innym znaleźć Veloq w sklepie.",
+    "rateApp": "Oceń w sklepie",
+    "neverShow": "Nie pokazuj ponownie",
+    "thankYou": "Dziękujemy za wsparcie!",
+    "sponsorGitHub": "Sponsoruj na GitHub",
+    "legacyTitle": "Dziękujemy za wsparcie",
+    "legacyDescription": "Twoje wsparcie pomaga tworzyć nowe funkcje. Masz pomysł lub znalazłeś błąd?",
+    "forum": "Forum",
+    "idea": "Pomysł",
+    "bug": "Błąd",
+    "tipAgain": "Daj napiwek ponownie:"
   }
 }

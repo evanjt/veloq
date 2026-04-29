@@ -116,3 +116,4 @@ export {
 } from './RecordingPreferencesStore';
 export { useUploadPermissionStore, initializeUploadPermission } from './UploadPermissionStore';
 export { useNotificationPrompt, initializeNotificationPrompt } from './NotificationPromptStore';
+export { useSupportStore, initializeSupportStore } from './SupportStore';

@@ -38,7 +38,7 @@ import {
   ComponentErrorBoundary,
   TAB_BAR_SAFE_PADDING,
 } from '@/components/ui';
-import { SummaryCard, NotificationOptInCard } from '@/components/home';
+import { SummaryCard, NotificationOptInCard, SupportCard } from '@/components/home';
 import { useStartupData } from '@/hooks/home/useStartupData';
 import {
   TerrainSnapshotWebView,
@@ -545,6 +545,7 @@ export default function FeedScreen() {
       <ScreenSafeAreaView style={shared.container} testID="home-screen">
         {/* Notification opt-in card (OAuth users who haven't enabled yet) */}
         <NotificationOptInCard />
+        <SupportCard />
 
         {/* Summary card with hero metric and supporting stats */}
         {summaryCard.enabled && (

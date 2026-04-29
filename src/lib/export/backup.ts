@@ -31,6 +31,7 @@ import {
   initializeRecordingPreferences,
   initializeNotificationPreferences,
   initializeNotificationPrompt,
+  initializeSupportStore,
 } from '@/providers';
 import { reloadCameraOverrides } from '@/lib/storage/terrainCameraOverrides';
 import { reloadMapCameraState } from '@/lib/storage/mapCameraState';
@@ -64,6 +65,7 @@ export async function reinitializeAllStores(): Promise<void> {
     initializeRecordingPreferences(),
     initializeNotificationPreferences(),
     initializeNotificationPrompt(),
+    initializeSupportStore(),
     reloadCameraOverrides(),
     reloadMapCameraState(),
   ]);
@@ -266,6 +268,7 @@ const LEGACY_PREFERENCE_KEYS = [
   'veloq-geocoded-section-ids',
   'veloq-notification-preferences',
   'veloq-upload-permission',
+  'veloq-support-store',
 ] as const;
 
 interface BackupCustomSection {

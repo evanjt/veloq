@@ -1757,5 +1757,21 @@
     "hideDetails": "Ocultar detalles",
     "exercise": "ejercicio",
     "exercises": "ejercicios"
+  },
+  "support": {
+    "tipTitle": "Apoya a Veloq",
+    "tipDescription": "Todas las funciones son gratuitas, sin muros de pago. Las propinas ayudan a cubrir los costos de la tienda.",
+    "reviewTitle": "¿Te gusta Veloq?",
+    "reviewDescription": "Las calificaciones ayudan a que otros encuentren Veloq en la tienda.",
+    "rateApp": "Calificar en la tienda",
+    "neverShow": "No mostrar de nuevo",
+    "thankYou": "¡Gracias por tu apoyo!",
+    "sponsorGitHub": "Patrocinar en GitHub",
+    "legacyTitle": "Gracias por tu apoyo",
+    "legacyDescription": "Tu apoyo continuo ayuda a crear nuevas funciones. ¿Tienes una idea o encontraste un error?",
+    "forum": "Foro",
+    "idea": "Idea",
+    "bug": "Error",
+    "tipAgain": "Dar propina de nuevo:"
   }
 }

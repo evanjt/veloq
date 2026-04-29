@@ -8,13 +8,17 @@ import * as WebBrowser from 'expo-web-browser';
 import Constants from 'expo-constants';
 import { navigateTo } from '@/lib';
 import { useDebugStore, useWhatsNewStore } from '@/providers';
+import { useDonation } from '@/hooks/useDonation';
 import { getAllSlides } from '@/components/ui/whatsNew/slides';
 import { colors, darkColors, spacing, layout, shadows, typography } from '@/theme';
 import { settingsStyles } from './settingsStyles';
 
+const GITHUB_SPONSORS_URL = 'https://github.com/sponsors/evanjt';
+
 export function SupportSection() {
   const { isDark } = useTheme();
   const { t } = useTranslation();
+  const { products, isAvailable, isPurchasing, purchaseSuccess, purchase } = useDonation();
 
   const debugUnlocked = useDebugStore((s) => s.unlocked);
   const debugEnabled = useDebugStore((s) => s.enabled);
@@ -60,26 +64,36 @@ export function SupportSection() {
 
         <TouchableOpacity
           style={[styles.supportCard, isDark && styles.supportCardDark]}
-          onPress={() => WebBrowser.openBrowserAsync('https://github.com/sponsors/evanjt')}
+          onPress={() => {
+            if (isAvailable && products.length > 0) {
+              const mid = products.find((p) => p.id === 'tip_medium') || products[0];
+              purchase(mid.id);
+            } else {
+              WebBrowser.openBrowserAsync(GITHUB_SPONSORS_URL);
+            }
+          }}
           activeOpacity={0.7}
         >
-          <View
-            style={[
-              styles.supportIconBg,
-              {
-                backgroundColor: isDark ? darkColors.surfaceElevated : colors.divider,
-              },
-            ]}
-          >
+          <View style={[styles.supportIconBg, { backgroundColor: 'rgba(252, 76, 2, 0.12)' }]}>
             <MaterialCommunityIcons
-              name="github"
+              name={purchaseSuccess ? 'heart' : 'heart-outline'}
               size={24}
-              color={isDark ? colors.textOnDark : colors.textPrimary}
+              color={colors.primary}
             />
           </View>
-          <Text style={[styles.supportTitle, isDark && settingsStyles.textLight]}>@evanjt</Text>
+          <Text style={[styles.supportTitle, isDark && settingsStyles.textLight]}>
+            {purchaseSuccess ? t('support.thankYou') : t('support.tipTitle')}
+          </Text>
           <Text style={[styles.supportSubtitle, isDark && settingsStyles.textMuted]}>
-            {t('settings.sponsorDev')}
+            {isAvailable
+              ? products
+                  .sort((a, b) => {
+                    const order = ['tip_small', 'tip_medium', 'tip_large'];
+                    return order.indexOf(a.id) - order.indexOf(b.id);
+                  })
+                  .map((p) => p.displayPrice)
+                  .join(' · ')
+              : t('support.sponsorGitHub')}
           </Text>
         </TouchableOpacity>
       </View>

@@ -1757,5 +1757,21 @@
     "hideDetails": "Details versteckä",
     "exercise": "Üebig",
     "exercises": "Üebige"
+  },
+  "support": {
+    "tipTitle": "Veloq unterstützä",
+    "tipDescription": "Alli Funktione sind gratis, kei Bezahlschrankä. Trinkgälder helfed d'Store-Chöste z'deckä.",
+    "reviewTitle": "Gfallt dir Veloq?",
+    "reviewDescription": "Bewertige helfed anderne, Veloq im Store z'findä.",
+    "rateApp": "Im Store bewertä",
+    "neverShow": "Nie meh azeigä",
+    "thankYou": "Merci vilmal für dini Unterstützig!",
+    "sponsorGitHub": "Uf GitHub sponserä",
+    "legacyTitle": "Merci vilmal für dini Unterstützig",
+    "legacyDescription": "Dini Unterstützig hilft, neui Funktione z'entwicklä. Hesch en Idee oder en Fähler gfundä?",
+    "forum": "Forum",
+    "idea": "Idee",
+    "bug": "Fähler",
+    "tipAgain": "Nomal spändä:"
   }
 }
