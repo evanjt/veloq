@@ -43,6 +43,8 @@ import {
   initializeUploadPermission,
   initializeNotificationPreferences,
   initializeNotificationPrompt,
+  initializeSupportStore,
+  useSupportStore,
   useSyncDateRange,
   useEngineStatus,
 } from '@/providers';
@@ -368,7 +370,22 @@ export default function RootLayout() {
           initializeUploadPermission(),
           initializeNotificationPreferences(),
           initializeNotificationPrompt(),
+          initializeSupportStore(),
         ]);
+
+        // One-time legacy purchaser detection: if user already had data
+        // when the app went free, mark them so they see a different card
+        const support = useSupportStore.getState();
+        if (!support.isLegacyPurchaser) {
+          try {
+            const eng = getRouteEngine();
+            if (eng && eng.getActivityCount() > 0) {
+              support.setLegacyPurchaser();
+            }
+          } catch {
+            // Engine not available yet — skip, will be a new user
+          }
+        }
 
         const failed = results.filter((result) => result.status === 'rejected');
         if (failed.length > 0) {

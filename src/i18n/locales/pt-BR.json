@@ -1757,5 +1757,21 @@
     "hideDetails": "Ocultar detalhes",
     "exercise": "exercício",
     "exercises": "exercícios"
+  },
+  "support": {
+    "tipTitle": "Apoie o Veloq",
+    "tipDescription": "Todos os recursos são gratuitos, sem paywalls. Gorjetas ajudam a cobrir os custos da loja.",
+    "reviewTitle": "Está gostando do Veloq?",
+    "reviewDescription": "Avaliações ajudam outras pessoas a encontrar o Veloq na loja.",
+    "rateApp": "Avaliar na loja",
+    "neverShow": "Nunca mais mostrar",
+    "thankYou": "Obrigado pelo seu apoio!",
+    "sponsorGitHub": "Patrocinar no GitHub",
+    "legacyTitle": "Obrigado pelo seu apoio",
+    "legacyDescription": "Seu apoio contínuo ajuda a desenvolver novos recursos. Tem uma ideia ou encontrou um bug?",
+    "forum": "Fórum",
+    "idea": "Ideia",
+    "bug": "Bug",
+    "tipAgain": "Dar gorjeta novamente:"
   }
 }

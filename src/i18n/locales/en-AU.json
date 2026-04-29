@@ -1757,5 +1757,21 @@
     "hideDetails": "Hide details",
     "exercise": "exercise",
     "exercises": "exercises"
+  },
+  "support": {
+    "tipTitle": "Support Veloq",
+    "tipDescription": "Everything's free, no paywalls. Tips help cover store costs — legend.",
+    "reviewTitle": "Reckon Veloq's alright?",
+    "reviewDescription": "Ratings help other legends find Veloq on the store.",
+    "rateApp": "Rate on store",
+    "neverShow": "Never show again",
+    "thankYou": "Legend — thanks for the support!",
+    "sponsorGitHub": "Sponsor on GitHub",
+    "legacyTitle": "Cheers for the support",
+    "legacyDescription": "Your support helps build new features. Got an idea or found a bug?",
+    "forum": "Forum",
+    "idea": "Idea",
+    "bug": "Bug",
+    "tipAgain": "Tip again:"
   }
 }

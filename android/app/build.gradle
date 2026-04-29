@@ -1,7 +1,6 @@
 apply plugin: "com.android.application"
 apply plugin: "org.jetbrains.kotlin.android"
 apply plugin: "com.facebook.react"
-apply plugin: "com.google.gms.google-services"
 
 def projectRoot = rootDir.getAbsoluteFile().getParentFile().getAbsolutePath()
 
@@ -181,28 +180,10 @@ configurations.configureEach {
     }
 }
 
-// Under --configure-on-demand (which Expo CLI passes), the app's CMake
-// configure task can run before :veloqrs:generateCodegenArtifactsFromSchema
-// has populated modules/veloqrs/android/build/generated/source/codegen/jni/.
-// Android-autolinking.cmake then fails on add_subdirectory() and the build
-// requires a second pass to succeed. Force the ordering explicitly.
-evaluationDependsOn(':veloqrs')
-afterEvaluate {
-    def veloqrsCodegen = project(':veloqrs').tasks.findByName('generateCodegenArtifactsFromSchema')
-    if (veloqrsCodegen != null) {
-        tasks.matching { it.name.startsWith('configureCMake') || it.name.startsWith('buildCMake') }.configureEach {
-            dependsOn veloqrsCodegen
-        }
-    }
-}
-
 dependencies {
+    implementation "io.github.hyochan.openiap:openiap-google:2.1.0"
     // The version of react-native is set by the React Native Gradle Plugin
     implementation("com.facebook.react:react-android")
-
-    // Firebase Cloud Messaging for push notifications
-    implementation platform('com.google.firebase:firebase-bom:33.7.0')
-    implementation 'com.google.firebase:firebase-messaging'
 
     def isGifEnabled = (findProperty('expo.gif.enabled') ?: "") == "true";
     def isWebpEnabled = (findProperty('expo.webp.enabled') ?: "") == "true";
@@ -228,3 +209,5 @@ dependencies {
         implementation jscFlavor
     }
 }
+
+apply plugin: 'com.google.gms.google-services'

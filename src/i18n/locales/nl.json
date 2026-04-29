@@ -1757,5 +1757,21 @@
     "hideDetails": "Details verbergen",
     "exercise": "oefening",
     "exercises": "oefeningen"
+  },
+  "support": {
+    "tipTitle": "Steun Veloq",
+    "tipDescription": "Alle functies zijn gratis, geen betaalmuren. Fooien helpen de storekosten te dekken.",
+    "reviewTitle": "Bevalt Veloq?",
+    "reviewDescription": "Beoordelingen helpen anderen Veloq te vinden in de store.",
+    "rateApp": "Beoordeel in store",
+    "neverShow": "Nooit meer tonen",
+    "thankYou": "Bedankt voor je steun!",
+    "sponsorGitHub": "Sponsor op GitHub",
+    "legacyTitle": "Bedankt voor je steun",
+    "legacyDescription": "Je steun helpt bij het ontwikkelen van nieuwe functies. Heb je een idee of een bug gevonden?",
+    "forum": "Forum",
+    "idea": "Idee",
+    "bug": "Bug",
+    "tipAgain": "Opnieuw doneren:"
   }
 }

@@ -1757,5 +1757,21 @@
     "hideDetails": "Details ausblenden",
     "exercise": "Übung",
     "exercises": "Übungen"
+  },
+  "support": {
+    "tipTitle": "Veloq unterstützen",
+    "tipDescription": "Alle Funktionen sind kostenlos, keine Bezahlschranken. Trinkgelder helfen, die Store-Kosten zu decken.",
+    "reviewTitle": "Gefällt dir Veloq?",
+    "reviewDescription": "Bewertungen helfen anderen, Veloq im Store zu finden.",
+    "rateApp": "Im Store bewerten",
+    "neverShow": "Nie wieder anzeigen",
+    "thankYou": "Vielen Dank für deine Unterstützung!",
+    "sponsorGitHub": "Auf GitHub sponsern",
+    "legacyTitle": "Vielen Dank für deine Unterstützung",
+    "legacyDescription": "Deine fortlaufende Unterstützung hilft, neue Funktionen zu entwickeln. Hast du eine Idee oder einen Fehler gefunden?",
+    "forum": "Forum",
+    "idea": "Idee",
+    "bug": "Fehler",
+    "tipAgain": "Erneut spenden:"
   }
 }

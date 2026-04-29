@@ -1757,5 +1757,21 @@
     "hideDetails": "Skjul detaljer",
     "exercise": "øvelse",
     "exercises": "øvelser"
+  },
+  "support": {
+    "tipTitle": "Støt Veloq",
+    "tipDescription": "Alle funktioner er gratis, ingen betalingsmure. Drikkepenge hjælper med at dække butiksomkostningerne.",
+    "reviewTitle": "Kan du lide Veloq?",
+    "reviewDescription": "Bedømmelser hjælper andre med at finde Veloq i butikken.",
+    "rateApp": "Bedøm i butikken",
+    "neverShow": "Vis aldrig igen",
+    "thankYou": "Tak for din støtte!",
+    "sponsorGitHub": "Sponsorér på GitHub",
+    "legacyTitle": "Tak for din støtte",
+    "legacyDescription": "Din fortsatte støtte hjælper med at udvikle nye funktioner. Har du en idé eller fundet en fejl?",
+    "forum": "Forum",
+    "idea": "Idé",
+    "bug": "Fejl",
+    "tipAgain": "Giv drikkepenge igen:"
   }
 }
