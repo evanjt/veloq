@@ -1702,9 +1702,6 @@ export interface TranslationResource {
   support: {
     tipTitle: string;
     tipDescription: string;
-    reviewTitle: string;
-    reviewDescription: string;
-    rateApp: string;
     neverShow: string;
     thankYou: string;
     sponsorGitHub: string;

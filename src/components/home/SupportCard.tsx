@@ -5,7 +5,6 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import type { TFunction } from 'i18next';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
-import * as StoreReview from 'expo-store-review';
 import * as WebBrowser from 'expo-web-browser';
 import { useTheme } from '@/hooks';
 import { useSupportStore } from '@/providers';
@@ -21,7 +20,6 @@ export function SupportCard() {
   const { isDark } = useTheme();
   const { t } = useTranslation();
   const shouldShow = useSupportStore((s) => s.shouldShow);
-  const nextType = useSupportStore((s) => s.nextType);
   const isLegacyPurchaser = useSupportStore((s) => s.isLegacyPurchaser);
   const remindLater = useSupportStore((s) => s.remindLater);
   const neverShowAgain = useSupportStore((s) => s.neverShowAgain);
@@ -39,17 +37,6 @@ export function SupportCard() {
       remindLater();
     }
   }, [shouldShow, remindLater]);
-
-  const handleReview = useCallback(async () => {
-    const available = await StoreReview.isAvailableAsync();
-    if (available) {
-      await StoreReview.requestReview();
-    } else {
-      const url = StoreReview.storeUrl();
-      if (url) await WebBrowser.openBrowserAsync(url);
-    }
-    recordAction();
-  }, [recordAction]);
 
   const handleTip = useCallback(
     (productId: string) => {
@@ -96,12 +83,6 @@ export function SupportCard() {
         onTip={handleTip}
         onSponsor={handleSponsor}
       />
-    );
-  }
-
-  if (nextType === 'review') {
-    return (
-      <ReviewCard isDark={isDark} t={t} neverShowAgain={handleNeverShow} onReview={handleReview} />
     );
   }
 
@@ -176,43 +157,6 @@ function TipCard({
           </Text>
         </Pressable>
       )}
-      <DismissRow isDark={isDark} t={t} neverShowAgain={neverShowAgain} />
-    </Animated.View>
-  );
-}
-
-// ── Review card ─────────────────────────────────────────────────────
-
-interface ReviewCardProps {
-  isDark: boolean;
-  t: TFunction;
-  neverShowAgain: () => void;
-  onReview: () => void;
-}
-
-function ReviewCard({ isDark, t, neverShowAgain, onReview }: ReviewCardProps) {
-  return (
-    <Animated.View
-      entering={FadeIn.duration(300)}
-      exiting={FadeOut.duration(200)}
-      style={[styles.card, isDark && styles.cardDark]}
-    >
-      <View style={styles.header}>
-        <MaterialCommunityIcons
-          name="star-outline"
-          size={22}
-          color={isDark ? darkColors.textPrimary : colors.textPrimary}
-        />
-        <Text style={[styles.title, isDark && styles.titleDark]}>{t('support.reviewTitle')}</Text>
-      </View>
-      <Text style={[styles.description, isDark && styles.descriptionDark]}>
-        {t('support.reviewDescription')}
-      </Text>
-      <View style={styles.actions}>
-        <Pressable onPress={onReview} style={styles.primaryButton}>
-          <Text style={styles.primaryButtonText}>{t('support.rateApp')}</Text>
-        </Pressable>
-      </View>
       <DismissRow isDark={isDark} t={t} neverShowAgain={neverShowAgain} />
     </Animated.View>
   );
@@ -518,22 +462,6 @@ const styles = StyleSheet.create({
   secondaryTipLabel: {
     ...typography.caption,
     color: colors.textSecondary,
-  },
-  actions: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  primaryButton: {
-    flex: 1,
-    backgroundColor: colors.primary,
-    paddingVertical: spacing.sm,
-    borderRadius: layout.borderRadiusSm,
-    alignItems: 'center',
-  },
-  primaryButtonText: {
-    ...typography.bodySmall,
-    fontWeight: '600',
-    color: '#FFFFFF',
   },
   dismissRow: {
     flexDirection: 'row',

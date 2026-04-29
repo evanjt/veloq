@@ -3,11 +3,8 @@ import { getSetting, setSetting } from '@/lib/backup';
 
 const STORAGE_KEY = 'veloq-support-store';
 
-type CardType = 'tip' | 'review';
-
 interface SupportState {
   lastActionDate: string | null;
-  nextType: CardType;
   permanentlyDismissed: boolean;
   isLegacyPurchaser: boolean;
   isLoaded: boolean;
@@ -29,13 +26,8 @@ function todayISO(): string {
   return new Date().toISOString().split('T')[0];
 }
 
-function alternateType(current: CardType): CardType {
-  return current === 'tip' ? 'review' : 'tip';
-}
-
 interface PersistedData {
   lastActionDate: string | null;
-  nextType: CardType;
   permanentlyDismissed: boolean;
   isLegacyPurchaser: boolean;
 }
@@ -43,7 +35,6 @@ interface PersistedData {
 function persist(state: SupportState): void {
   const data: PersistedData = {
     lastActionDate: state.lastActionDate,
-    nextType: state.nextType,
     permanentlyDismissed: state.permanentlyDismissed,
     isLegacyPurchaser: state.isLegacyPurchaser,
   };
@@ -52,7 +43,6 @@ function persist(state: SupportState): void {
 
 export const useSupportStore = create<SupportState>((set, get) => ({
   lastActionDate: null,
-  nextType: 'tip',
   permanentlyDismissed: false,
   isLegacyPurchaser: false,
   isLoaded: false,
@@ -61,13 +51,21 @@ export const useSupportStore = create<SupportState>((set, get) => ({
     const s = get();
     if (!s.isLoaded) return false;
     if (s.permanentlyDismissed) return false;
-    if (s.lastActionDate === null) return true;
+    if (s.lastActionDate === null) {
+      // First launch — seed the 30-day timer but don't show
+      set((prev) => {
+        const next = { ...prev, lastActionDate: todayISO() };
+        persist(next as SupportState);
+        return next;
+      });
+      return false;
+    }
     return daysSince(s.lastActionDate) >= 30;
   },
 
   remindLater: () => {
     set((s) => {
-      const next = { ...s, lastActionDate: todayISO(), nextType: alternateType(s.nextType) };
+      const next = { ...s, lastActionDate: todayISO() };
       persist(next as SupportState);
       return next;
     });
@@ -83,7 +81,7 @@ export const useSupportStore = create<SupportState>((set, get) => ({
 
   recordAction: () => {
     set((s) => {
-      const next = { ...s, lastActionDate: todayISO(), nextType: alternateType(s.nextType) };
+      const next = { ...s, lastActionDate: todayISO() };
       persist(next as SupportState);
       return next;
     });
@@ -104,7 +102,6 @@ export const useSupportStore = create<SupportState>((set, get) => ({
         const data: PersistedData = JSON.parse(stored);
         set({
           lastActionDate: data.lastActionDate ?? null,
-          nextType: data.nextType ?? 'tip',
           permanentlyDismissed: data.permanentlyDismissed ?? false,
           isLegacyPurchaser: data.isLegacyPurchaser ?? false,
           isLoaded: true,
