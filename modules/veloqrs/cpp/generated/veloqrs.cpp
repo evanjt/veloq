@@ -17,575 +17,609 @@ namespace jsi = facebook::jsi;
 extern "C" {
 typedef void (*UniffiRustFutureContinuationCallback)(uint64_t data,
                                                      int8_t poll_result);
-typedef void (*UniffiForeignFutureFree)(uint64_t handle);
+typedef void (*UniffiForeignFutureDroppedCallback)(uint64_t handle);
 typedef void (*UniffiCallbackInterfaceFree)(uint64_t handle);
-typedef struct UniffiForeignFuture {
+typedef uint64_t (*UniffiCallbackInterfaceClone)(uint64_t handle);
+typedef struct UniffiForeignFutureDroppedCallbackStruct {
   uint64_t handle;
-  UniffiForeignFutureFree free;
-} UniffiForeignFuture;
-typedef struct UniffiForeignFutureStructU8 {
+  UniffiForeignFutureDroppedCallback free;
+} UniffiForeignFutureDroppedCallbackStruct;
+typedef struct UniffiForeignFutureResultU8 {
   uint8_t return_value;
   RustCallStatus call_status;
-} UniffiForeignFutureStructU8;
+} UniffiForeignFutureResultU8;
 typedef void (*UniffiForeignFutureCompleteU8)(
-    uint64_t callback_data, UniffiForeignFutureStructU8 result);
-typedef struct UniffiForeignFutureStructI8 {
+    uint64_t callback_data, UniffiForeignFutureResultU8 result);
+typedef struct UniffiForeignFutureResultI8 {
   int8_t return_value;
   RustCallStatus call_status;
-} UniffiForeignFutureStructI8;
+} UniffiForeignFutureResultI8;
 typedef void (*UniffiForeignFutureCompleteI8)(
-    uint64_t callback_data, UniffiForeignFutureStructI8 result);
-typedef struct UniffiForeignFutureStructU16 {
+    uint64_t callback_data, UniffiForeignFutureResultI8 result);
+typedef struct UniffiForeignFutureResultU16 {
   uint16_t return_value;
   RustCallStatus call_status;
-} UniffiForeignFutureStructU16;
+} UniffiForeignFutureResultU16;
 typedef void (*UniffiForeignFutureCompleteU16)(
-    uint64_t callback_data, UniffiForeignFutureStructU16 result);
-typedef struct UniffiForeignFutureStructI16 {
+    uint64_t callback_data, UniffiForeignFutureResultU16 result);
+typedef struct UniffiForeignFutureResultI16 {
   int16_t return_value;
   RustCallStatus call_status;
-} UniffiForeignFutureStructI16;
+} UniffiForeignFutureResultI16;
 typedef void (*UniffiForeignFutureCompleteI16)(
-    uint64_t callback_data, UniffiForeignFutureStructI16 result);
-typedef struct UniffiForeignFutureStructU32 {
+    uint64_t callback_data, UniffiForeignFutureResultI16 result);
+typedef struct UniffiForeignFutureResultU32 {
   uint32_t return_value;
   RustCallStatus call_status;
-} UniffiForeignFutureStructU32;
+} UniffiForeignFutureResultU32;
 typedef void (*UniffiForeignFutureCompleteU32)(
-    uint64_t callback_data, UniffiForeignFutureStructU32 result);
-typedef struct UniffiForeignFutureStructI32 {
+    uint64_t callback_data, UniffiForeignFutureResultU32 result);
+typedef struct UniffiForeignFutureResultI32 {
   int32_t return_value;
   RustCallStatus call_status;
-} UniffiForeignFutureStructI32;
+} UniffiForeignFutureResultI32;
 typedef void (*UniffiForeignFutureCompleteI32)(
-    uint64_t callback_data, UniffiForeignFutureStructI32 result);
-typedef struct UniffiForeignFutureStructU64 {
+    uint64_t callback_data, UniffiForeignFutureResultI32 result);
+typedef struct UniffiForeignFutureResultU64 {
   uint64_t return_value;
   RustCallStatus call_status;
-} UniffiForeignFutureStructU64;
+} UniffiForeignFutureResultU64;
 typedef void (*UniffiForeignFutureCompleteU64)(
-    uint64_t callback_data, UniffiForeignFutureStructU64 result);
-typedef struct UniffiForeignFutureStructI64 {
+    uint64_t callback_data, UniffiForeignFutureResultU64 result);
+typedef struct UniffiForeignFutureResultI64 {
   int64_t return_value;
   RustCallStatus call_status;
-} UniffiForeignFutureStructI64;
+} UniffiForeignFutureResultI64;
 typedef void (*UniffiForeignFutureCompleteI64)(
-    uint64_t callback_data, UniffiForeignFutureStructI64 result);
-typedef struct UniffiForeignFutureStructF32 {
+    uint64_t callback_data, UniffiForeignFutureResultI64 result);
+typedef struct UniffiForeignFutureResultF32 {
   float return_value;
   RustCallStatus call_status;
-} UniffiForeignFutureStructF32;
+} UniffiForeignFutureResultF32;
 typedef void (*UniffiForeignFutureCompleteF32)(
-    uint64_t callback_data, UniffiForeignFutureStructF32 result);
-typedef struct UniffiForeignFutureStructF64 {
+    uint64_t callback_data, UniffiForeignFutureResultF32 result);
+typedef struct UniffiForeignFutureResultF64 {
   double return_value;
   RustCallStatus call_status;
-} UniffiForeignFutureStructF64;
+} UniffiForeignFutureResultF64;
 typedef void (*UniffiForeignFutureCompleteF64)(
-    uint64_t callback_data, UniffiForeignFutureStructF64 result);
-typedef struct UniffiForeignFutureStructPointer {
-  void *return_value;
-  RustCallStatus call_status;
-} UniffiForeignFutureStructPointer;
-typedef void (*UniffiForeignFutureCompletePointer)(
-    uint64_t callback_data, UniffiForeignFutureStructPointer result);
-typedef struct UniffiForeignFutureStructRustBuffer {
+    uint64_t callback_data, UniffiForeignFutureResultF64 result);
+typedef struct UniffiForeignFutureResultRustBuffer {
   RustBuffer return_value;
   RustCallStatus call_status;
-} UniffiForeignFutureStructRustBuffer;
+} UniffiForeignFutureResultRustBuffer;
 typedef void (*UniffiForeignFutureCompleteRustBuffer)(
-    uint64_t callback_data, UniffiForeignFutureStructRustBuffer result);
-typedef struct UniffiForeignFutureStructVoid {
+    uint64_t callback_data, UniffiForeignFutureResultRustBuffer result);
+typedef struct UniffiForeignFutureResultVoid {
   RustCallStatus call_status;
-} UniffiForeignFutureStructVoid;
+} UniffiForeignFutureResultVoid;
 typedef void (*UniffiForeignFutureCompleteVoid)(
-    uint64_t callback_data, UniffiForeignFutureStructVoid result);
-void *uniffi_veloqrs_fn_clone_activitymanager(void *ptr,
-                                              RustCallStatus *uniffi_out_err);
-void uniffi_veloqrs_fn_free_activitymanager(void *ptr,
-                                            RustCallStatus *uniffi_out_err);
-void *uniffi_veloqrs_fn_constructor_activitymanager_new(
+    uint64_t callback_data, UniffiForeignFutureResultVoid result);
+/*handle*/ uint64_t uniffi_veloqrs_fn_clone_activitymanager(
+    /*handle*/ uint64_t handle, RustCallStatus *uniffi_out_err);
+void uniffi_veloqrs_fn_free_activitymanager(
+    /*handle*/ uint64_t handle, RustCallStatus *uniffi_out_err);
+/*handle*/ uint64_t uniffi_veloqrs_fn_constructor_activitymanager_new(
     RustCallStatus *uniffi_out_err);
 void uniffi_veloqrs_fn_method_activitymanager_add(
-    void *ptr, RustBuffer activity_ids, RustBuffer all_coords,
+    /*handle*/ uint64_t ptr, RustBuffer activity_ids, RustBuffer all_coords,
     RustBuffer offsets, RustBuffer sport_types, RustCallStatus *uniffi_out_err);
 uint32_t uniffi_veloqrs_fn_method_activitymanager_debug_clone(
-    void *ptr, RustBuffer source_id, uint32_t count,
+    /*handle*/ uint64_t ptr, RustBuffer source_id, uint32_t count,
     RustCallStatus *uniffi_out_err);
 uint32_t uniffi_veloqrs_fn_method_activitymanager_get_count(
-    void *ptr, RustCallStatus *uniffi_out_err);
+    /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_activitymanager_get_gps_track(
-    void *ptr, RustBuffer activity_id, RustCallStatus *uniffi_out_err);
+    /*handle*/ uint64_t ptr, RustBuffer activity_id,
+    RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_activitymanager_get_highlights_bundle(
-    void *ptr, RustBuffer activity_ids, RustCallStatus *uniffi_out_err);
+    /*handle*/ uint64_t ptr, RustBuffer activity_ids,
+    RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_activitymanager_get_ids(
-    void *ptr, RustCallStatus *uniffi_out_err);
+    /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_activitymanager_get_metrics_for_ids(
-    void *ptr, RustBuffer ids, RustCallStatus *uniffi_out_err);
+    /*handle*/ uint64_t ptr, RustBuffer ids, RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_activitymanager_get_missing_time_streams(
-    void *ptr, RustBuffer activity_ids, RustCallStatus *uniffi_out_err);
+    /*handle*/ uint64_t ptr, RustBuffer activity_ids,
+    RustCallStatus *uniffi_out_err);
 void uniffi_veloqrs_fn_method_activitymanager_remove(
-    void *ptr, RustBuffer activity_id, RustCallStatus *uniffi_out_err);
+    /*handle*/ uint64_t ptr, RustBuffer activity_id,
+    RustCallStatus *uniffi_out_err);
 void uniffi_veloqrs_fn_method_activitymanager_set_metrics(
-    void *ptr, RustBuffer metrics, RustCallStatus *uniffi_out_err);
+    /*handle*/ uint64_t ptr, RustBuffer metrics,
+    RustCallStatus *uniffi_out_err);
 void uniffi_veloqrs_fn_method_activitymanager_set_time_streams(
-    void *ptr, RustBuffer activity_ids, RustBuffer all_times,
+    /*handle*/ uint64_t ptr, RustBuffer activity_ids, RustBuffer all_times,
     RustBuffer offsets, RustCallStatus *uniffi_out_err);
-void *uniffi_veloqrs_fn_clone_detectionmanager(void *ptr,
-                                               RustCallStatus *uniffi_out_err);
-void uniffi_veloqrs_fn_free_detectionmanager(void *ptr,
-                                             RustCallStatus *uniffi_out_err);
-void *uniffi_veloqrs_fn_constructor_detectionmanager_new(
+/*handle*/ uint64_t uniffi_veloqrs_fn_clone_detectionmanager(
+    /*handle*/ uint64_t handle, RustCallStatus *uniffi_out_err);
+void uniffi_veloqrs_fn_free_detectionmanager(
+    /*handle*/ uint64_t handle, RustCallStatus *uniffi_out_err);
+/*handle*/ uint64_t uniffi_veloqrs_fn_constructor_detectionmanager_new(
     RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_detectionmanager_detect_potentials(
-    void *ptr, RustBuffer sport_filter, RustCallStatus *uniffi_out_err);
+    /*handle*/ uint64_t ptr, RustBuffer sport_filter,
+    RustCallStatus *uniffi_out_err);
 int8_t uniffi_veloqrs_fn_method_detectionmanager_force_redetect(
-    void *ptr, RustBuffer sport_filter, RustCallStatus *uniffi_out_err);
+    /*handle*/ uint64_t ptr, RustBuffer sport_filter,
+    RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_detectionmanager_get_config(
-    void *ptr, RustCallStatus *uniffi_out_err);
+    /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_detectionmanager_get_match_strictness(
-    void *ptr, RustCallStatus *uniffi_out_err);
+    /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_detectionmanager_get_progress(
-    void *ptr, RustCallStatus *uniffi_out_err);
-RustBuffer
-uniffi_veloqrs_fn_method_detectionmanager_poll(void *ptr,
-                                               RustCallStatus *uniffi_out_err);
+    /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
+RustBuffer uniffi_veloqrs_fn_method_detectionmanager_poll(
+    /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
 void uniffi_veloqrs_fn_method_detectionmanager_set_config(
-    void *ptr, RustBuffer config, RustCallStatus *uniffi_out_err);
+    /*handle*/ uint64_t ptr, RustBuffer config, RustCallStatus *uniffi_out_err);
 void uniffi_veloqrs_fn_method_detectionmanager_set_match_strictness(
-    void *ptr, double min_match_pct, double endpoint_threshold,
+    /*handle*/ uint64_t ptr, double min_match_pct, double endpoint_threshold,
     RustCallStatus *uniffi_out_err);
 int8_t uniffi_veloqrs_fn_method_detectionmanager_start(
-    void *ptr, RustBuffer sport_filter, RustCallStatus *uniffi_out_err);
-void *uniffi_veloqrs_fn_clone_fitnessmanager(void *ptr,
-                                             RustCallStatus *uniffi_out_err);
-void uniffi_veloqrs_fn_free_fitnessmanager(void *ptr,
-                                           RustCallStatus *uniffi_out_err);
-void *uniffi_veloqrs_fn_constructor_fitnessmanager_new(
+    /*handle*/ uint64_t ptr, RustBuffer sport_filter,
+    RustCallStatus *uniffi_out_err);
+/*handle*/ uint64_t uniffi_veloqrs_fn_clone_veloqengine(
+    /*handle*/ uint64_t handle, RustCallStatus *uniffi_out_err);
+void uniffi_veloqrs_fn_free_veloqengine(
+    /*handle*/ uint64_t handle, RustCallStatus *uniffi_out_err);
+/*handle*/ uint64_t uniffi_veloqrs_fn_constructor_veloqengine_create(
+    RustBuffer db_path, RustCallStatus *uniffi_out_err);
+/*handle*/ uint64_t uniffi_veloqrs_fn_method_veloqengine_activities(
+    /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
+void uniffi_veloqrs_fn_method_veloqengine_backup_database(
+    /*handle*/ uint64_t ptr, RustBuffer dest_path,
+    RustCallStatus *uniffi_out_err);
+RustBuffer uniffi_veloqrs_fn_method_veloqengine_bulk_export_geojson(
+    /*handle*/ uint64_t ptr, RustBuffer dest_path,
+    RustCallStatus *uniffi_out_err);
+RustBuffer uniffi_veloqrs_fn_method_veloqengine_bulk_export_gpx(
+    /*handle*/ uint64_t ptr, RustBuffer dest_path,
+    RustCallStatus *uniffi_out_err);
+uint32_t uniffi_veloqrs_fn_method_veloqengine_cleanup_old_activities(
+    /*handle*/ uint64_t ptr, uint32_t retention_days,
+    RustCallStatus *uniffi_out_err);
+void uniffi_veloqrs_fn_method_veloqengine_clear(
+    /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
+void uniffi_veloqrs_fn_method_veloqengine_clear_routes_and_sections(
+    /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
+void uniffi_veloqrs_fn_method_veloqengine_destroy(
+    /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
+/*handle*/ uint64_t uniffi_veloqrs_fn_method_veloqengine_detection(
+    /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
+/*handle*/ uint64_t uniffi_veloqrs_fn_method_veloqengine_fitness(
+    /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
+RustBuffer
+uniffi_veloqrs_fn_method_veloqengine_get_activities_needing_time_streams(
+    /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
+uint32_t uniffi_veloqrs_fn_method_veloqengine_get_activity_count(
+    /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
+RustBuffer uniffi_veloqrs_fn_method_veloqengine_get_backup_metadata(
+    /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
+RustBuffer uniffi_veloqrs_fn_method_veloqengine_get_stats(
+    /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
+/*handle*/ uint64_t uniffi_veloqrs_fn_method_veloqengine_heatmap(
+    /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
+int8_t uniffi_veloqrs_fn_method_veloqengine_is_initialized(
+    /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
+/*handle*/ uint64_t uniffi_veloqrs_fn_method_veloqengine_maps(
+    /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
+void uniffi_veloqrs_fn_method_veloqengine_mark_for_recomputation(
+    /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
+/*handle*/ uint64_t uniffi_veloqrs_fn_method_veloqengine_routes(
+    /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
+/*handle*/ uint64_t uniffi_veloqrs_fn_method_veloqengine_sections(
+    /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
+void uniffi_veloqrs_fn_method_veloqengine_set_name_translations(
+    /*handle*/ uint64_t ptr, RustBuffer route_word, RustBuffer section_word,
+    RustCallStatus *uniffi_out_err);
+/*handle*/ uint64_t uniffi_veloqrs_fn_method_veloqengine_settings(
+    /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
+/*handle*/ uint64_t uniffi_veloqrs_fn_method_veloqengine_strength(
+    /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
+/*handle*/ uint64_t uniffi_veloqrs_fn_clone_fitnessmanager(
+    /*handle*/ uint64_t handle, RustCallStatus *uniffi_out_err);
+void uniffi_veloqrs_fn_free_fitnessmanager(
+    /*handle*/ uint64_t handle, RustCallStatus *uniffi_out_err);
+/*handle*/ uint64_t uniffi_veloqrs_fn_constructor_fitnessmanager_new(
     RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_fitnessmanager_compute_hrv_trend(
-    void *ptr, uint32_t days, RustCallStatus *uniffi_out_err);
+    /*handle*/ uint64_t ptr, uint32_t days, RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_fitnessmanager_find_stale_pr_opportunities(
-    void *ptr, uint32_t stale_threshold_days, double min_gain_percent,
-    uint32_t max_opportunities, RustBuffer exclude_section_ids,
-    RustCallStatus *uniffi_out_err);
+    /*handle*/ uint64_t ptr, uint32_t stale_threshold_days,
+    double min_gain_percent, uint32_t max_opportunities,
+    RustBuffer exclude_section_ids, RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_fitnessmanager_get_activity_heatmap(
-    void *ptr, RustBuffer start_date, RustBuffer end_date,
+    /*handle*/ uint64_t ptr, RustBuffer start_date, RustBuffer end_date,
     RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_fitnessmanager_get_activity_metric_ids(
-    void *ptr, RustCallStatus *uniffi_out_err);
+    /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_fitnessmanager_get_activity_patterns(
-    void *ptr, RustCallStatus *uniffi_out_err);
+    /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
 RustBuffer
 uniffi_veloqrs_fn_method_fitnessmanager_get_activity_patterns_with_today(
-    void *ptr, RustCallStatus *uniffi_out_err);
+    /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_fitnessmanager_get_available_sport_types(
-    void *ptr, RustCallStatus *uniffi_out_err);
+    /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_fitnessmanager_get_ftp_trend(
-    void *ptr, RustCallStatus *uniffi_out_err);
+    /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_fitnessmanager_get_insights_data(
-    void *ptr, int64_t current_start, int64_t current_end, int64_t prev_start,
-    int64_t prev_end, int64_t chronic_start, int64_t today_start,
-    RustCallStatus *uniffi_out_err);
+    /*handle*/ uint64_t ptr, int64_t current_start, int64_t current_end,
+    int64_t prev_start, int64_t prev_end, int64_t chronic_start,
+    int64_t today_start, RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_fitnessmanager_get_pace_trend(
-    void *ptr, RustBuffer sport_type, RustCallStatus *uniffi_out_err);
+    /*handle*/ uint64_t ptr, RustBuffer sport_type,
+    RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_fitnessmanager_get_pattern_for_today(
-    void *ptr, RustCallStatus *uniffi_out_err);
+    /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_fitnessmanager_get_period_stats(
-    void *ptr, int64_t start_ts, int64_t end_ts,
+    /*handle*/ uint64_t ptr, int64_t start_ts, int64_t end_ts,
     RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_fitnessmanager_get_startup_data(
-    void *ptr, int64_t current_start, int64_t current_end, int64_t prev_start,
-    int64_t prev_end, int64_t chronic_start, int64_t today_start,
-    RustBuffer preview_activity_ids, RustCallStatus *uniffi_out_err);
+    /*handle*/ uint64_t ptr, int64_t current_start, int64_t current_end,
+    int64_t prev_start, int64_t prev_end, int64_t chronic_start,
+    int64_t today_start, RustBuffer preview_activity_ids,
+    RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_fitnessmanager_get_summary_card_data(
-    void *ptr, int64_t current_start, int64_t current_end, int64_t prev_start,
-    int64_t prev_end, RustCallStatus *uniffi_out_err);
+    /*handle*/ uint64_t ptr, int64_t current_start, int64_t current_end,
+    int64_t prev_start, int64_t prev_end, RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_fitnessmanager_get_wellness_sparklines(
-    void *ptr, uint32_t days, RustCallStatus *uniffi_out_err);
+    /*handle*/ uint64_t ptr, uint32_t days, RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_fitnessmanager_get_zone_distribution(
-    void *ptr, RustBuffer sport_type, RustBuffer zone_type,
+    /*handle*/ uint64_t ptr, RustBuffer sport_type, RustBuffer zone_type,
     RustCallStatus *uniffi_out_err);
 void uniffi_veloqrs_fn_method_fitnessmanager_save_pace_snapshot(
-    void *ptr, RustBuffer sport_type, double critical_speed, RustBuffer d_prime,
-    RustBuffer r2, int64_t date, RustCallStatus *uniffi_out_err);
-void uniffi_veloqrs_fn_method_fitnessmanager_upsert_wellness(
-    void *ptr, RustBuffer rows, RustCallStatus *uniffi_out_err);
-void *uniffi_veloqrs_fn_clone_heatmapmanager(void *ptr,
-                                             RustCallStatus *uniffi_out_err);
-void uniffi_veloqrs_fn_free_heatmapmanager(void *ptr,
-                                           RustCallStatus *uniffi_out_err);
-void *uniffi_veloqrs_fn_constructor_heatmapmanager_new(
+    /*handle*/ uint64_t ptr, RustBuffer sport_type, double critical_speed,
+    RustBuffer d_prime, RustBuffer r2, int64_t date,
     RustCallStatus *uniffi_out_err);
-uint32_t uniffi_veloqrs_fn_method_heatmapmanager_clear_tiles(
-    void *ptr, RustBuffer base_path, RustCallStatus *uniffi_out_err);
-void uniffi_veloqrs_fn_method_heatmapmanager_clear_tiles_path(
-    void *ptr, RustCallStatus *uniffi_out_err);
-uint64_t uniffi_veloqrs_fn_method_heatmapmanager_get_cache_size(
-    void *ptr, RustBuffer base_path, RustCallStatus *uniffi_out_err);
-uint32_t uniffi_veloqrs_fn_method_heatmapmanager_get_percent(
-    void *ptr, RustCallStatus *uniffi_out_err);
-RustBuffer uniffi_veloqrs_fn_method_heatmapmanager_get_progress(
-    void *ptr, RustCallStatus *uniffi_out_err);
-RustBuffer
-uniffi_veloqrs_fn_method_heatmapmanager_poll(void *ptr,
-                                             RustCallStatus *uniffi_out_err);
-void uniffi_veloqrs_fn_method_heatmapmanager_set_tiles_path(
-    void *ptr, RustBuffer path, RustCallStatus *uniffi_out_err);
-void *uniffi_veloqrs_fn_clone_mapmanager(void *ptr,
-                                         RustCallStatus *uniffi_out_err);
-void uniffi_veloqrs_fn_free_mapmanager(void *ptr,
-                                       RustCallStatus *uniffi_out_err);
-void *
+void uniffi_veloqrs_fn_method_fitnessmanager_upsert_wellness(
+    /*handle*/ uint64_t ptr, RustBuffer rows, RustCallStatus *uniffi_out_err);
+/*handle*/ uint64_t uniffi_veloqrs_fn_clone_mapmanager(
+    /*handle*/ uint64_t handle, RustCallStatus *uniffi_out_err);
+void uniffi_veloqrs_fn_free_mapmanager(
+    /*handle*/ uint64_t handle, RustCallStatus *uniffi_out_err);
+/*handle*/ uint64_t
 uniffi_veloqrs_fn_constructor_mapmanager_new(RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_mapmanager_get_all_signatures(
-    void *ptr, RustCallStatus *uniffi_out_err);
+    /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_mapmanager_get_bounds_for_range(
-    void *ptr, int64_t start_date, int64_t end_date, RustBuffer sport_types,
-    RustCallStatus *uniffi_out_err);
+    /*handle*/ uint64_t ptr, int64_t start_date, int64_t end_date,
+    RustBuffer sport_types, RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_mapmanager_get_filtered(
-    void *ptr, int64_t start_date, int64_t end_date, RustBuffer sport_types,
-    RustCallStatus *uniffi_out_err);
+    /*handle*/ uint64_t ptr, int64_t start_date, int64_t end_date,
+    RustBuffer sport_types, RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_mapmanager_query_viewport(
-    void *ptr, double min_lat, double max_lat, double min_lng, double max_lng,
-    RustCallStatus *uniffi_out_err);
-void *uniffi_veloqrs_fn_clone_routemanager(void *ptr,
-                                           RustCallStatus *uniffi_out_err);
-void uniffi_veloqrs_fn_free_routemanager(void *ptr,
-                                         RustCallStatus *uniffi_out_err);
-void *
+    /*handle*/ uint64_t ptr, double min_lat, double max_lat, double min_lng,
+    double max_lng, RustCallStatus *uniffi_out_err);
+/*handle*/ uint64_t uniffi_veloqrs_fn_clone_routemanager(
+    /*handle*/ uint64_t handle, RustCallStatus *uniffi_out_err);
+void uniffi_veloqrs_fn_free_routemanager(
+    /*handle*/ uint64_t handle, RustCallStatus *uniffi_out_err);
+/*handle*/ uint64_t
 uniffi_veloqrs_fn_constructor_routemanager_new(RustCallStatus *uniffi_out_err);
 void uniffi_veloqrs_fn_method_routemanager_exclude_activity(
-    void *ptr, RustBuffer route_id, RustBuffer activity_id,
+    /*handle*/ uint64_t ptr, RustBuffer route_id, RustBuffer activity_id,
     RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_routemanager_get_activity_route_highlights(
-    void *ptr, RustBuffer activity_ids, RustCallStatus *uniffi_out_err);
-RustBuffer
-uniffi_veloqrs_fn_method_routemanager_get_all(void *ptr,
-                                              RustCallStatus *uniffi_out_err);
+    /*handle*/ uint64_t ptr, RustBuffer activity_ids,
+    RustCallStatus *uniffi_out_err);
+RustBuffer uniffi_veloqrs_fn_method_routemanager_get_all(
+    /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_routemanager_get_all_names(
-    void *ptr, RustCallStatus *uniffi_out_err);
-RustBuffer
-uniffi_veloqrs_fn_method_routemanager_get_by_id(void *ptr, RustBuffer group_id,
-                                                RustCallStatus *uniffi_out_err);
+    /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
+RustBuffer uniffi_veloqrs_fn_method_routemanager_get_by_id(
+    /*handle*/ uint64_t ptr, RustBuffer group_id,
+    RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_routemanager_get_consensus_route(
-    void *ptr, RustBuffer group_id, RustCallStatus *uniffi_out_err);
+    /*handle*/ uint64_t ptr, RustBuffer group_id,
+    RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_routemanager_get_excluded_activities(
-    void *ptr, RustBuffer route_id, RustCallStatus *uniffi_out_err);
+    /*handle*/ uint64_t ptr, RustBuffer route_id,
+    RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_routemanager_get_excluded_performances(
-    void *ptr, RustBuffer route_id, RustBuffer sport_type,
+    /*handle*/ uint64_t ptr, RustBuffer route_id, RustBuffer sport_type,
     RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_routemanager_get_filtered_summaries(
-    void *ptr, uint32_t min_activities, RustBuffer sort_key,
+    /*handle*/ uint64_t ptr, uint32_t min_activities, RustBuffer sort_key,
     RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_routemanager_get_performances(
-    void *ptr, RustBuffer group_id, RustBuffer current_activity_id,
-    RustBuffer sport_type, RustCallStatus *uniffi_out_err);
+    /*handle*/ uint64_t ptr, RustBuffer group_id,
+    RustBuffer current_activity_id, RustBuffer sport_type,
+    RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_routemanager_get_screen_data(
-    void *ptr, uint32_t group_limit, uint32_t group_offset,
+    /*handle*/ uint64_t ptr, uint32_t group_limit, uint32_t group_offset,
     uint32_t section_limit, uint32_t section_offset,
     uint32_t min_group_activity_count, int8_t prioritize_nearest_groups,
     int8_t prioritize_nearest_sections, double user_lat, double user_lng,
     RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_routemanager_get_summaries(
-    void *ptr, RustCallStatus *uniffi_out_err);
+    /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_routemanager_get_summaries_with_count(
-    void *ptr, RustCallStatus *uniffi_out_err);
+    /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
 void uniffi_veloqrs_fn_method_routemanager_include_activity(
-    void *ptr, RustBuffer route_id, RustBuffer activity_id,
+    /*handle*/ uint64_t ptr, RustBuffer route_id, RustBuffer activity_id,
     RustCallStatus *uniffi_out_err);
 void uniffi_veloqrs_fn_method_routemanager_set_name(
-    void *ptr, RustBuffer route_id, RustBuffer name,
+    /*handle*/ uint64_t ptr, RustBuffer route_id, RustBuffer name,
     RustCallStatus *uniffi_out_err);
 void uniffi_veloqrs_fn_method_routemanager_set_representative(
-    void *ptr, RustBuffer route_id, RustBuffer activity_id,
+    /*handle*/ uint64_t ptr, RustBuffer route_id, RustBuffer activity_id,
     RustCallStatus *uniffi_out_err);
-void *uniffi_veloqrs_fn_clone_sectionmanager(void *ptr,
-                                             RustCallStatus *uniffi_out_err);
-void uniffi_veloqrs_fn_free_sectionmanager(void *ptr,
-                                           RustCallStatus *uniffi_out_err);
-void *uniffi_veloqrs_fn_constructor_sectionmanager_new(
+/*handle*/ uint64_t uniffi_veloqrs_fn_clone_sectionmanager(
+    /*handle*/ uint64_t handle, RustCallStatus *uniffi_out_err);
+void uniffi_veloqrs_fn_free_sectionmanager(
+    /*handle*/ uint64_t handle, RustCallStatus *uniffi_out_err);
+/*handle*/ uint64_t uniffi_veloqrs_fn_constructor_sectionmanager_new(
     RustCallStatus *uniffi_out_err);
 void uniffi_veloqrs_fn_method_sectionmanager_accept(
-    void *ptr, RustBuffer section_id, RustCallStatus *uniffi_out_err);
+    /*handle*/ uint64_t ptr, RustBuffer section_id,
+    RustCallStatus *uniffi_out_err);
 uint32_t uniffi_veloqrs_fn_method_sectionmanager_accept_all(
-    void *ptr, RustCallStatus *uniffi_out_err);
+    /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
 void uniffi_veloqrs_fn_method_sectionmanager_clear_superseded(
-    void *ptr, RustBuffer custom_section_id, RustCallStatus *uniffi_out_err);
+    /*handle*/ uint64_t ptr, RustBuffer custom_section_id,
+    RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_sectionmanager_create(
-    void *ptr, RustBuffer sport_type, RustBuffer polyline,
+    /*handle*/ uint64_t ptr, RustBuffer sport_type, RustBuffer polyline,
     double _distance_meters, RustBuffer name, RustBuffer source_activity_id,
     RustBuffer start_index, RustBuffer end_index,
     RustCallStatus *uniffi_out_err);
 void uniffi_veloqrs_fn_method_sectionmanager_delete(
-    void *ptr, RustBuffer section_id, RustCallStatus *uniffi_out_err);
+    /*handle*/ uint64_t ptr, RustBuffer section_id,
+    RustCallStatus *uniffi_out_err);
 void uniffi_veloqrs_fn_method_sectionmanager_disable(
-    void *ptr, RustBuffer section_id, RustCallStatus *uniffi_out_err);
+    /*handle*/ uint64_t ptr, RustBuffer section_id,
+    RustCallStatus *uniffi_out_err);
 void uniffi_veloqrs_fn_method_sectionmanager_enable(
-    void *ptr, RustBuffer section_id, RustCallStatus *uniffi_out_err);
+    /*handle*/ uint64_t ptr, RustBuffer section_id,
+    RustCallStatus *uniffi_out_err);
 void uniffi_veloqrs_fn_method_sectionmanager_exclude_activity(
-    void *ptr, RustBuffer section_id, RustBuffer activity_id,
+    /*handle*/ uint64_t ptr, RustBuffer section_id, RustBuffer activity_id,
     RustCallStatus *uniffi_out_err);
 void uniffi_veloqrs_fn_method_sectionmanager_expand_bounds(
-    void *ptr, RustBuffer section_id, RustBuffer new_polyline_flat,
-    RustCallStatus *uniffi_out_err);
+    /*handle*/ uint64_t ptr, RustBuffer section_id,
+    RustBuffer new_polyline_flat, RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_sectionmanager_extract_trace(
-    void *ptr, RustBuffer activity_id, RustBuffer section_polyline_flat,
-    RustCallStatus *uniffi_out_err);
+    /*handle*/ uint64_t ptr, RustBuffer activity_id,
+    RustBuffer section_polyline_flat, RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_sectionmanager_extract_traces_batch(
-    void *ptr, RustBuffer activity_ids, RustBuffer section_polyline_flat,
-    RustCallStatus *uniffi_out_err);
+    /*handle*/ uint64_t ptr, RustBuffer activity_ids,
+    RustBuffer section_polyline_flat, RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_sectionmanager_get_activity_indicators(
-    void *ptr, RustBuffer activity_ids, RustCallStatus *uniffi_out_err);
+    /*handle*/ uint64_t ptr, RustBuffer activity_ids,
+    RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_sectionmanager_get_activity_pr_sections(
-    void *ptr, RustBuffer activity_id, RustBuffer section_ids,
+    /*handle*/ uint64_t ptr, RustBuffer activity_id, RustBuffer section_ids,
     RustCallStatus *uniffi_out_err);
 RustBuffer
 uniffi_veloqrs_fn_method_sectionmanager_get_activity_section_encounters(
-    void *ptr, RustBuffer activity_id, RustCallStatus *uniffi_out_err);
+    /*handle*/ uint64_t ptr, RustBuffer activity_id,
+    RustCallStatus *uniffi_out_err);
 RustBuffer
 uniffi_veloqrs_fn_method_sectionmanager_get_activity_section_highlights(
-    void *ptr, RustBuffer activity_ids, RustCallStatus *uniffi_out_err);
-RustBuffer
-uniffi_veloqrs_fn_method_sectionmanager_get_all(void *ptr,
-                                                RustCallStatus *uniffi_out_err);
+    /*handle*/ uint64_t ptr, RustBuffer activity_ids,
+    RustCallStatus *uniffi_out_err);
+RustBuffer uniffi_veloqrs_fn_method_sectionmanager_get_all(
+    /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_sectionmanager_get_all_names(
-    void *ptr, RustCallStatus *uniffi_out_err);
+    /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
 RustBuffer
 uniffi_veloqrs_fn_method_sectionmanager_get_all_summaries_including_hidden(
-    void *ptr, RustBuffer sport_type, RustCallStatus *uniffi_out_err);
+    /*handle*/ uint64_t ptr, RustBuffer sport_type,
+    RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_sectionmanager_get_by_id(
-    void *ptr, RustBuffer section_id, RustCallStatus *uniffi_out_err);
+    /*handle*/ uint64_t ptr, RustBuffer section_id,
+    RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_sectionmanager_get_by_type(
-    void *ptr, RustBuffer section_type, RustCallStatus *uniffi_out_err);
+    /*handle*/ uint64_t ptr, RustBuffer section_type,
+    RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_sectionmanager_get_calendar_summary(
-    void *ptr, RustBuffer section_id, RustCallStatus *uniffi_out_err);
+    /*handle*/ uint64_t ptr, RustBuffer section_id,
+    RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_sectionmanager_get_chart_data(
-    void *ptr, RustBuffer section_id, uint32_t time_range_days,
+    /*handle*/ uint64_t ptr, RustBuffer section_id, uint32_t time_range_days,
     RustBuffer sport_filter, RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_sectionmanager_get_efficiency_trend(
-    void *ptr, RustBuffer section_id, RustCallStatus *uniffi_out_err);
+    /*handle*/ uint64_t ptr, RustBuffer section_id,
+    RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_sectionmanager_get_excluded_activities(
-    void *ptr, RustBuffer section_id, RustCallStatus *uniffi_out_err);
+    /*handle*/ uint64_t ptr, RustBuffer section_id,
+    RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_sectionmanager_get_excluded_performances(
-    void *ptr, RustBuffer section_id, RustCallStatus *uniffi_out_err);
+    /*handle*/ uint64_t ptr, RustBuffer section_id,
+    RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_sectionmanager_get_extension_track(
-    void *ptr, RustBuffer section_id, RustCallStatus *uniffi_out_err);
+    /*handle*/ uint64_t ptr, RustBuffer section_id,
+    RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_sectionmanager_get_filtered(
-    void *ptr, RustBuffer sport_type, RustBuffer min_visits,
+    /*handle*/ uint64_t ptr, RustBuffer sport_type, RustBuffer min_visits,
     RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_sectionmanager_get_filtered_summaries(
-    void *ptr, RustBuffer sport_type, uint32_t min_visits, RustBuffer sort_key,
-    RustCallStatus *uniffi_out_err);
+    /*handle*/ uint64_t ptr, RustBuffer sport_type, uint32_t min_visits,
+    RustBuffer sort_key, RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_sectionmanager_get_for_activity(
-    void *ptr, RustBuffer activity_id, RustCallStatus *uniffi_out_err);
+    /*handle*/ uint64_t ptr, RustBuffer activity_id,
+    RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_sectionmanager_get_indicators_for_activity(
-    void *ptr, RustBuffer activity_id, RustCallStatus *uniffi_out_err);
+    /*handle*/ uint64_t ptr, RustBuffer activity_id,
+    RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_sectionmanager_get_merge_candidates(
-    void *ptr, RustBuffer section_id, RustCallStatus *uniffi_out_err);
+    /*handle*/ uint64_t ptr, RustBuffer section_id,
+    RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_sectionmanager_get_nearby_sections(
-    void *ptr, RustBuffer section_id, double radius_meters,
+    /*handle*/ uint64_t ptr, RustBuffer section_id, double radius_meters,
     RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_sectionmanager_get_performances(
-    void *ptr, RustBuffer section_id, RustBuffer sport_type,
+    /*handle*/ uint64_t ptr, RustBuffer section_id, RustBuffer sport_type,
     RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_sectionmanager_get_performances_batch(
-    void *ptr, RustBuffer section_ids, RustBuffer sport_type,
+    /*handle*/ uint64_t ptr, RustBuffer section_ids, RustBuffer sport_type,
     RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_sectionmanager_get_polyline(
-    void *ptr, RustBuffer section_id, RustCallStatus *uniffi_out_err);
+    /*handle*/ uint64_t ptr, RustBuffer section_id,
+    RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_sectionmanager_get_ranked(
-    void *ptr, RustBuffer sport_type, uint32_t limit,
+    /*handle*/ uint64_t ptr, RustBuffer sport_type, uint32_t limit,
     RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_sectionmanager_get_ranked_batch(
-    void *ptr, RustBuffer sport_types, uint32_t limit,
+    /*handle*/ uint64_t ptr, RustBuffer sport_types, uint32_t limit,
     RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_sectionmanager_get_reference_info(
-    void *ptr, RustBuffer section_id, RustCallStatus *uniffi_out_err);
+    /*handle*/ uint64_t ptr, RustBuffer section_id,
+    RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_sectionmanager_get_summaries(
-    void *ptr, RustBuffer sport_type, RustCallStatus *uniffi_out_err);
+    /*handle*/ uint64_t ptr, RustBuffer sport_type,
+    RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_sectionmanager_get_summaries_with_count(
-    void *ptr, RustBuffer sport_type, RustCallStatus *uniffi_out_err);
+    /*handle*/ uint64_t ptr, RustBuffer sport_type,
+    RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_sectionmanager_get_workout_sections(
-    void *ptr, RustBuffer sport_type, uint32_t limit,
+    /*handle*/ uint64_t ptr, RustBuffer sport_type, uint32_t limit,
     RustCallStatus *uniffi_out_err);
 int8_t uniffi_veloqrs_fn_method_sectionmanager_has_original_bounds(
-    void *ptr, RustBuffer section_id, RustCallStatus *uniffi_out_err);
+    /*handle*/ uint64_t ptr, RustBuffer section_id,
+    RustCallStatus *uniffi_out_err);
 uint32_t uniffi_veloqrs_fn_method_sectionmanager_import_disabled_ids(
-    void *ptr, RustBuffer ids, RustCallStatus *uniffi_out_err);
+    /*handle*/ uint64_t ptr, RustBuffer ids, RustCallStatus *uniffi_out_err);
 uint32_t uniffi_veloqrs_fn_method_sectionmanager_import_superseded_map(
-    void *ptr, RustBuffer entries, RustCallStatus *uniffi_out_err);
+    /*handle*/ uint64_t ptr, RustBuffer entries,
+    RustCallStatus *uniffi_out_err);
 void uniffi_veloqrs_fn_method_sectionmanager_include_activity(
-    void *ptr, RustBuffer section_id, RustBuffer activity_id,
+    /*handle*/ uint64_t ptr, RustBuffer section_id, RustBuffer activity_id,
     RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_sectionmanager_match_activity_to_sections(
-    void *ptr, RustBuffer activity_id, RustCallStatus *uniffi_out_err);
+    /*handle*/ uint64_t ptr, RustBuffer activity_id,
+    RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_sectionmanager_merge_sections(
-    void *ptr, RustBuffer primary_id, RustBuffer secondary_id,
+    /*handle*/ uint64_t ptr, RustBuffer primary_id, RustBuffer secondary_id,
     RustCallStatus *uniffi_out_err);
 uint32_t uniffi_veloqrs_fn_method_sectionmanager_prune_overlapping(
-    void *ptr, RustCallStatus *uniffi_out_err);
+    /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_sectionmanager_recalculate_polyline(
-    void *ptr, RustBuffer section_id, RustCallStatus *uniffi_out_err);
+    /*handle*/ uint64_t ptr, RustBuffer section_id,
+    RustCallStatus *uniffi_out_err);
 void uniffi_veloqrs_fn_method_sectionmanager_recompute_indicators(
-    void *ptr, RustCallStatus *uniffi_out_err);
+    /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
 int8_t uniffi_veloqrs_fn_method_sectionmanager_rematch_activity_to_section(
-    void *ptr, RustBuffer activity_id, RustBuffer section_id,
+    /*handle*/ uint64_t ptr, RustBuffer activity_id, RustBuffer section_id,
     RustCallStatus *uniffi_out_err);
 void uniffi_veloqrs_fn_method_sectionmanager_reset_bounds(
-    void *ptr, RustBuffer section_id, RustCallStatus *uniffi_out_err);
+    /*handle*/ uint64_t ptr, RustBuffer section_id,
+    RustCallStatus *uniffi_out_err);
 void uniffi_veloqrs_fn_method_sectionmanager_reset_reference(
-    void *ptr, RustBuffer section_id, RustCallStatus *uniffi_out_err);
+    /*handle*/ uint64_t ptr, RustBuffer section_id,
+    RustCallStatus *uniffi_out_err);
 void uniffi_veloqrs_fn_method_sectionmanager_set_name(
-    void *ptr, RustBuffer section_id, RustBuffer name,
+    /*handle*/ uint64_t ptr, RustBuffer section_id, RustBuffer name,
     RustCallStatus *uniffi_out_err);
 void uniffi_veloqrs_fn_method_sectionmanager_set_reference(
-    void *ptr, RustBuffer section_id, RustBuffer activity_id,
+    /*handle*/ uint64_t ptr, RustBuffer section_id, RustBuffer activity_id,
     RustCallStatus *uniffi_out_err);
 void uniffi_veloqrs_fn_method_sectionmanager_set_superseded(
-    void *ptr, RustBuffer auto_section_id, RustBuffer custom_section_id,
-    RustCallStatus *uniffi_out_err);
+    /*handle*/ uint64_t ptr, RustBuffer auto_section_id,
+    RustBuffer custom_section_id, RustCallStatus *uniffi_out_err);
 void uniffi_veloqrs_fn_method_sectionmanager_trim(
-    void *ptr, RustBuffer section_id, uint32_t start_index, uint32_t end_index,
-    RustCallStatus *uniffi_out_err);
-void *uniffi_veloqrs_fn_clone_settingsmanager(void *ptr,
-                                              RustCallStatus *uniffi_out_err);
-void uniffi_veloqrs_fn_free_settingsmanager(void *ptr,
-                                            RustCallStatus *uniffi_out_err);
-void *uniffi_veloqrs_fn_constructor_settingsmanager_new(
+    /*handle*/ uint64_t ptr, RustBuffer section_id, uint32_t start_index,
+    uint32_t end_index, RustCallStatus *uniffi_out_err);
+/*handle*/ uint64_t uniffi_veloqrs_fn_clone_settingsmanager(
+    /*handle*/ uint64_t handle, RustCallStatus *uniffi_out_err);
+void uniffi_veloqrs_fn_free_settingsmanager(
+    /*handle*/ uint64_t handle, RustCallStatus *uniffi_out_err);
+/*handle*/ uint64_t uniffi_veloqrs_fn_constructor_settingsmanager_new(
     RustCallStatus *uniffi_out_err);
 void uniffi_veloqrs_fn_method_settingsmanager_delete_setting(
-    void *ptr, RustBuffer key, RustCallStatus *uniffi_out_err);
+    /*handle*/ uint64_t ptr, RustBuffer key, RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_settingsmanager_get_all_settings(
-    void *ptr, RustCallStatus *uniffi_out_err);
+    /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_settingsmanager_get_athlete_profile(
-    void *ptr, RustCallStatus *uniffi_out_err);
+    /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_settingsmanager_get_setting(
-    void *ptr, RustBuffer key, RustCallStatus *uniffi_out_err);
+    /*handle*/ uint64_t ptr, RustBuffer key, RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_settingsmanager_get_sport_settings(
-    void *ptr, RustCallStatus *uniffi_out_err);
+    /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
 void uniffi_veloqrs_fn_method_settingsmanager_set_all_settings(
-    void *ptr, RustBuffer json, RustCallStatus *uniffi_out_err);
+    /*handle*/ uint64_t ptr, RustBuffer json, RustCallStatus *uniffi_out_err);
 void uniffi_veloqrs_fn_method_settingsmanager_set_athlete_profile(
-    void *ptr, RustBuffer json, RustCallStatus *uniffi_out_err);
+    /*handle*/ uint64_t ptr, RustBuffer json, RustCallStatus *uniffi_out_err);
 void uniffi_veloqrs_fn_method_settingsmanager_set_setting(
-    void *ptr, RustBuffer key, RustBuffer value,
+    /*handle*/ uint64_t ptr, RustBuffer key, RustBuffer value,
     RustCallStatus *uniffi_out_err);
 void uniffi_veloqrs_fn_method_settingsmanager_set_sport_settings(
-    void *ptr, RustBuffer json, RustCallStatus *uniffi_out_err);
-void *uniffi_veloqrs_fn_clone_strengthmanager(void *ptr,
-                                              RustCallStatus *uniffi_out_err);
-void uniffi_veloqrs_fn_free_strengthmanager(void *ptr,
-                                            RustCallStatus *uniffi_out_err);
-void *uniffi_veloqrs_fn_constructor_strengthmanager_new(
+    /*handle*/ uint64_t ptr, RustBuffer json, RustCallStatus *uniffi_out_err);
+/*handle*/ uint64_t uniffi_veloqrs_fn_clone_strengthmanager(
+    /*handle*/ uint64_t handle, RustCallStatus *uniffi_out_err);
+void uniffi_veloqrs_fn_free_strengthmanager(
+    /*handle*/ uint64_t handle, RustCallStatus *uniffi_out_err);
+/*handle*/ uint64_t uniffi_veloqrs_fn_constructor_strengthmanager_new(
     RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_strengthmanager_batch_fetch_exercise_sets(
-    void *ptr, RustBuffer auth_header, RustBuffer activity_ids,
+    /*handle*/ uint64_t ptr, RustBuffer auth_header, RustBuffer activity_ids,
     RustCallStatus *uniffi_out_err);
 void uniffi_veloqrs_fn_method_strengthmanager_bulk_insert_exercise_sets(
-    void *ptr, RustBuffer activity_id, RustBuffer sets,
+    /*handle*/ uint64_t ptr, RustBuffer activity_id, RustBuffer sets,
     RustCallStatus *uniffi_out_err);
 RustBuffer
 uniffi_veloqrs_fn_method_strengthmanager_fetch_and_parse_exercise_sets(
-    void *ptr, RustBuffer auth_header, RustBuffer activity_id,
+    /*handle*/ uint64_t ptr, RustBuffer auth_header, RustBuffer activity_id,
     RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_strengthmanager_get_activities_for_exercise(
-    void *ptr, int64_t start_ts, int64_t end_ts, RustBuffer muscle_slug,
-    uint16_t exercise_category, RustCallStatus *uniffi_out_err);
-RustBuffer uniffi_veloqrs_fn_method_strengthmanager_get_exercise_sets(
-    void *ptr, RustBuffer activity_id, RustCallStatus *uniffi_out_err);
-RustBuffer uniffi_veloqrs_fn_method_strengthmanager_get_exercises_for_muscle(
-    void *ptr, int64_t start_ts, int64_t end_ts, RustBuffer muscle_slug,
+    /*handle*/ uint64_t ptr, int64_t start_ts, int64_t end_ts,
+    RustBuffer muscle_slug, uint16_t exercise_category,
     RustCallStatus *uniffi_out_err);
+RustBuffer uniffi_veloqrs_fn_method_strengthmanager_get_exercise_sets(
+    /*handle*/ uint64_t ptr, RustBuffer activity_id,
+    RustCallStatus *uniffi_out_err);
+RustBuffer uniffi_veloqrs_fn_method_strengthmanager_get_exercises_for_muscle(
+    /*handle*/ uint64_t ptr, int64_t start_ts, int64_t end_ts,
+    RustBuffer muscle_slug, RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_strengthmanager_get_muscle_detail(
-    void *ptr, RustBuffer activity_id, RustBuffer muscle_slug,
+    /*handle*/ uint64_t ptr, RustBuffer activity_id, RustBuffer muscle_slug,
     RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_strengthmanager_get_muscle_groups(
-    void *ptr, RustBuffer activity_id, RustCallStatus *uniffi_out_err);
+    /*handle*/ uint64_t ptr, RustBuffer activity_id,
+    RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_strengthmanager_get_strength_insight_series(
-    void *ptr, RustBuffer monthly, RustBuffer weekly,
+    /*handle*/ uint64_t ptr, RustBuffer monthly, RustBuffer weekly,
     RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_strengthmanager_get_strength_summary(
-    void *ptr, int64_t start_ts, int64_t end_ts,
+    /*handle*/ uint64_t ptr, int64_t start_ts, int64_t end_ts,
     RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_strengthmanager_get_strength_summary_batch(
-    void *ptr, RustBuffer ranges, RustCallStatus *uniffi_out_err);
+    /*handle*/ uint64_t ptr, RustBuffer ranges, RustCallStatus *uniffi_out_err);
 RustBuffer
 uniffi_veloqrs_fn_method_strengthmanager_get_unprocessed_strength_ids(
-    void *ptr, RustBuffer activity_ids, RustCallStatus *uniffi_out_err);
+    /*handle*/ uint64_t ptr, RustBuffer activity_ids,
+    RustCallStatus *uniffi_out_err);
 int8_t uniffi_veloqrs_fn_method_strengthmanager_has_strength_data(
-    void *ptr, RustCallStatus *uniffi_out_err);
+    /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
 uint32_t uniffi_veloqrs_fn_method_strengthmanager_import_sets_from_fit(
-    void *ptr, RustBuffer activity_id, RustBuffer fit_bytes,
+    /*handle*/ uint64_t ptr, RustBuffer activity_id, RustBuffer fit_bytes,
     RustCallStatus *uniffi_out_err);
 int8_t uniffi_veloqrs_fn_method_strengthmanager_is_fit_processed(
-    void *ptr, RustBuffer activity_id, RustCallStatus *uniffi_out_err);
-void *uniffi_veloqrs_fn_clone_veloqengine(void *ptr,
-                                          RustCallStatus *uniffi_out_err);
-void uniffi_veloqrs_fn_free_veloqengine(void *ptr,
-                                        RustCallStatus *uniffi_out_err);
-void *uniffi_veloqrs_fn_constructor_veloqengine_create(
-    RustBuffer db_path, RustCallStatus *uniffi_out_err);
-void *
-uniffi_veloqrs_fn_method_veloqengine_activities(void *ptr,
-                                                RustCallStatus *uniffi_out_err);
-void uniffi_veloqrs_fn_method_veloqengine_backup_database(
-    void *ptr, RustBuffer dest_path, RustCallStatus *uniffi_out_err);
-RustBuffer uniffi_veloqrs_fn_method_veloqengine_bulk_export_geojson(
-    void *ptr, RustBuffer dest_path, RustCallStatus *uniffi_out_err);
-RustBuffer uniffi_veloqrs_fn_method_veloqengine_bulk_export_gpx(
-    void *ptr, RustBuffer dest_path, RustCallStatus *uniffi_out_err);
-uint32_t uniffi_veloqrs_fn_method_veloqengine_cleanup_old_activities(
-    void *ptr, uint32_t retention_days, RustCallStatus *uniffi_out_err);
-void uniffi_veloqrs_fn_method_veloqengine_clear(void *ptr,
-                                                RustCallStatus *uniffi_out_err);
-void uniffi_veloqrs_fn_method_veloqengine_clear_routes_and_sections(
-    void *ptr, RustCallStatus *uniffi_out_err);
-void uniffi_veloqrs_fn_method_veloqengine_destroy(
-    void *ptr, RustCallStatus *uniffi_out_err);
-void *
-uniffi_veloqrs_fn_method_veloqengine_detection(void *ptr,
-                                               RustCallStatus *uniffi_out_err);
-void *
-uniffi_veloqrs_fn_method_veloqengine_fitness(void *ptr,
-                                             RustCallStatus *uniffi_out_err);
-RustBuffer
-uniffi_veloqrs_fn_method_veloqengine_get_activities_needing_time_streams(
-    void *ptr, RustCallStatus *uniffi_out_err);
-uint32_t uniffi_veloqrs_fn_method_veloqengine_get_activity_count(
-    void *ptr, RustCallStatus *uniffi_out_err);
-RustBuffer uniffi_veloqrs_fn_method_veloqengine_get_backup_metadata(
-    void *ptr, RustCallStatus *uniffi_out_err);
-RustBuffer
-uniffi_veloqrs_fn_method_veloqengine_get_stats(void *ptr,
-                                               RustCallStatus *uniffi_out_err);
-void *
-uniffi_veloqrs_fn_method_veloqengine_heatmap(void *ptr,
-                                             RustCallStatus *uniffi_out_err);
-int8_t uniffi_veloqrs_fn_method_veloqengine_is_initialized(
-    void *ptr, RustCallStatus *uniffi_out_err);
-void *uniffi_veloqrs_fn_method_veloqengine_maps(void *ptr,
-                                                RustCallStatus *uniffi_out_err);
-void uniffi_veloqrs_fn_method_veloqengine_mark_for_recomputation(
-    void *ptr, RustCallStatus *uniffi_out_err);
-void *
-uniffi_veloqrs_fn_method_veloqengine_routes(void *ptr,
-                                            RustCallStatus *uniffi_out_err);
-void *
-uniffi_veloqrs_fn_method_veloqengine_sections(void *ptr,
-                                              RustCallStatus *uniffi_out_err);
-void uniffi_veloqrs_fn_method_veloqengine_set_name_translations(
-    void *ptr, RustBuffer route_word, RustBuffer section_word,
+    /*handle*/ uint64_t ptr, RustBuffer activity_id,
     RustCallStatus *uniffi_out_err);
-void *
-uniffi_veloqrs_fn_method_veloqengine_settings(void *ptr,
-                                              RustCallStatus *uniffi_out_err);
-void *
-uniffi_veloqrs_fn_method_veloqengine_strength(void *ptr,
-                                              RustCallStatus *uniffi_out_err);
-double uniffi_veloqrs_fn_func_compute_polyline_overlap(
-    RustBuffer coords_a, RustBuffer coords_b, double threshold_meters,
+/*handle*/ uint64_t uniffi_veloqrs_fn_clone_heatmapmanager(
+    /*handle*/ uint64_t handle, RustCallStatus *uniffi_out_err);
+void uniffi_veloqrs_fn_free_heatmapmanager(
+    /*handle*/ uint64_t handle, RustCallStatus *uniffi_out_err);
+/*handle*/ uint64_t uniffi_veloqrs_fn_constructor_heatmapmanager_new(
     RustCallStatus *uniffi_out_err);
+uint32_t uniffi_veloqrs_fn_method_heatmapmanager_clear_tiles(
+    /*handle*/ uint64_t ptr, RustBuffer base_path,
+    RustCallStatus *uniffi_out_err);
+void uniffi_veloqrs_fn_method_heatmapmanager_clear_tiles_path(
+    /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
+uint64_t uniffi_veloqrs_fn_method_heatmapmanager_get_cache_size(
+    /*handle*/ uint64_t ptr, RustBuffer base_path,
+    RustCallStatus *uniffi_out_err);
+uint32_t uniffi_veloqrs_fn_method_heatmapmanager_get_percent(
+    /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
+RustBuffer uniffi_veloqrs_fn_method_heatmapmanager_get_progress(
+    /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
+RustBuffer uniffi_veloqrs_fn_method_heatmapmanager_poll(
+    /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
+void uniffi_veloqrs_fn_method_heatmapmanager_set_tiles_path(
+    /*handle*/ uint64_t ptr, RustBuffer path, RustCallStatus *uniffi_out_err);
 RustBuffer
 uniffi_veloqrs_fn_func_get_download_progress(RustCallStatus *uniffi_out_err);
 void uniffi_veloqrs_fn_func_start_fetch_and_store(
@@ -596,6 +630,9 @@ RustBuffer uniffi_veloqrs_fn_func_take_fetch_and_store_result(
 RustBuffer
 uniffi_veloqrs_fn_func_validate_backup_database(RustBuffer path,
                                                 RustCallStatus *uniffi_out_err);
+double uniffi_veloqrs_fn_func_compute_polyline_overlap(
+    RustBuffer coords_a, RustBuffer coords_b, double threshold_meters,
+    RustCallStatus *uniffi_out_err);
 RustBuffer ffi_veloqrs_rustbuffer_alloc(uint64_t size,
                                         RustCallStatus *uniffi_out_err);
 RustBuffer ffi_veloqrs_rustbuffer_from_bytes(ForeignBytes bytes,
@@ -694,15 +731,6 @@ void ffi_veloqrs_rust_future_free_f64(
     /*handle*/ uint64_t handle);
 double ffi_veloqrs_rust_future_complete_f64(
     /*handle*/ uint64_t handle, RustCallStatus *uniffi_out_err);
-void ffi_veloqrs_rust_future_poll_pointer(
-    /*handle*/ uint64_t handle, UniffiRustFutureContinuationCallback callback,
-    /*handle*/ uint64_t callback_data);
-void ffi_veloqrs_rust_future_cancel_pointer(
-    /*handle*/ uint64_t handle);
-void ffi_veloqrs_rust_future_free_pointer(
-    /*handle*/ uint64_t handle);
-void *ffi_veloqrs_rust_future_complete_pointer(
-    /*handle*/ uint64_t handle, RustCallStatus *uniffi_out_err);
 void ffi_veloqrs_rust_future_poll_rust_buffer(
     /*handle*/ uint64_t handle, UniffiRustFutureContinuationCallback callback,
     /*handle*/ uint64_t callback_data);
@@ -721,11 +749,11 @@ void ffi_veloqrs_rust_future_free_void(
     /*handle*/ uint64_t handle);
 void ffi_veloqrs_rust_future_complete_void(
     /*handle*/ uint64_t handle, RustCallStatus *uniffi_out_err);
-uint16_t uniffi_veloqrs_checksum_func_compute_polyline_overlap();
 uint16_t uniffi_veloqrs_checksum_func_get_download_progress();
 uint16_t uniffi_veloqrs_checksum_func_start_fetch_and_store();
 uint16_t uniffi_veloqrs_checksum_func_take_fetch_and_store_result();
 uint16_t uniffi_veloqrs_checksum_func_validate_backup_database();
+uint16_t uniffi_veloqrs_checksum_func_compute_polyline_overlap();
 uint16_t uniffi_veloqrs_checksum_method_activitymanager_add();
 uint16_t uniffi_veloqrs_checksum_method_activitymanager_debug_clone();
 uint16_t uniffi_veloqrs_checksum_method_activitymanager_get_count();
@@ -747,6 +775,30 @@ uint16_t uniffi_veloqrs_checksum_method_detectionmanager_poll();
 uint16_t uniffi_veloqrs_checksum_method_detectionmanager_set_config();
 uint16_t uniffi_veloqrs_checksum_method_detectionmanager_set_match_strictness();
 uint16_t uniffi_veloqrs_checksum_method_detectionmanager_start();
+uint16_t uniffi_veloqrs_checksum_method_veloqengine_activities();
+uint16_t uniffi_veloqrs_checksum_method_veloqengine_backup_database();
+uint16_t uniffi_veloqrs_checksum_method_veloqengine_bulk_export_geojson();
+uint16_t uniffi_veloqrs_checksum_method_veloqengine_bulk_export_gpx();
+uint16_t uniffi_veloqrs_checksum_method_veloqengine_cleanup_old_activities();
+uint16_t uniffi_veloqrs_checksum_method_veloqengine_clear();
+uint16_t uniffi_veloqrs_checksum_method_veloqengine_clear_routes_and_sections();
+uint16_t uniffi_veloqrs_checksum_method_veloqengine_destroy();
+uint16_t uniffi_veloqrs_checksum_method_veloqengine_detection();
+uint16_t uniffi_veloqrs_checksum_method_veloqengine_fitness();
+uint16_t
+uniffi_veloqrs_checksum_method_veloqengine_get_activities_needing_time_streams();
+uint16_t uniffi_veloqrs_checksum_method_veloqengine_get_activity_count();
+uint16_t uniffi_veloqrs_checksum_method_veloqengine_get_backup_metadata();
+uint16_t uniffi_veloqrs_checksum_method_veloqengine_get_stats();
+uint16_t uniffi_veloqrs_checksum_method_veloqengine_heatmap();
+uint16_t uniffi_veloqrs_checksum_method_veloqengine_is_initialized();
+uint16_t uniffi_veloqrs_checksum_method_veloqengine_maps();
+uint16_t uniffi_veloqrs_checksum_method_veloqengine_mark_for_recomputation();
+uint16_t uniffi_veloqrs_checksum_method_veloqengine_routes();
+uint16_t uniffi_veloqrs_checksum_method_veloqengine_sections();
+uint16_t uniffi_veloqrs_checksum_method_veloqengine_set_name_translations();
+uint16_t uniffi_veloqrs_checksum_method_veloqengine_settings();
+uint16_t uniffi_veloqrs_checksum_method_veloqengine_strength();
 uint16_t uniffi_veloqrs_checksum_method_fitnessmanager_compute_hrv_trend();
 uint16_t
 uniffi_veloqrs_checksum_method_fitnessmanager_find_stale_pr_opportunities();
@@ -770,13 +822,6 @@ uniffi_veloqrs_checksum_method_fitnessmanager_get_wellness_sparklines();
 uint16_t uniffi_veloqrs_checksum_method_fitnessmanager_get_zone_distribution();
 uint16_t uniffi_veloqrs_checksum_method_fitnessmanager_save_pace_snapshot();
 uint16_t uniffi_veloqrs_checksum_method_fitnessmanager_upsert_wellness();
-uint16_t uniffi_veloqrs_checksum_method_heatmapmanager_clear_tiles();
-uint16_t uniffi_veloqrs_checksum_method_heatmapmanager_clear_tiles_path();
-uint16_t uniffi_veloqrs_checksum_method_heatmapmanager_get_cache_size();
-uint16_t uniffi_veloqrs_checksum_method_heatmapmanager_get_percent();
-uint16_t uniffi_veloqrs_checksum_method_heatmapmanager_get_progress();
-uint16_t uniffi_veloqrs_checksum_method_heatmapmanager_poll();
-uint16_t uniffi_veloqrs_checksum_method_heatmapmanager_set_tiles_path();
 uint16_t uniffi_veloqrs_checksum_method_mapmanager_get_all_signatures();
 uint16_t uniffi_veloqrs_checksum_method_mapmanager_get_bounds_for_range();
 uint16_t uniffi_veloqrs_checksum_method_mapmanager_get_filtered();
@@ -899,40 +944,23 @@ uniffi_veloqrs_checksum_method_strengthmanager_get_unprocessed_strength_ids();
 uint16_t uniffi_veloqrs_checksum_method_strengthmanager_has_strength_data();
 uint16_t uniffi_veloqrs_checksum_method_strengthmanager_import_sets_from_fit();
 uint16_t uniffi_veloqrs_checksum_method_strengthmanager_is_fit_processed();
-uint16_t uniffi_veloqrs_checksum_method_veloqengine_activities();
-uint16_t uniffi_veloqrs_checksum_method_veloqengine_backup_database();
-uint16_t uniffi_veloqrs_checksum_method_veloqengine_bulk_export_geojson();
-uint16_t uniffi_veloqrs_checksum_method_veloqengine_bulk_export_gpx();
-uint16_t uniffi_veloqrs_checksum_method_veloqengine_cleanup_old_activities();
-uint16_t uniffi_veloqrs_checksum_method_veloqengine_clear();
-uint16_t uniffi_veloqrs_checksum_method_veloqengine_clear_routes_and_sections();
-uint16_t uniffi_veloqrs_checksum_method_veloqengine_destroy();
-uint16_t uniffi_veloqrs_checksum_method_veloqengine_detection();
-uint16_t uniffi_veloqrs_checksum_method_veloqengine_fitness();
-uint16_t
-uniffi_veloqrs_checksum_method_veloqengine_get_activities_needing_time_streams();
-uint16_t uniffi_veloqrs_checksum_method_veloqengine_get_activity_count();
-uint16_t uniffi_veloqrs_checksum_method_veloqengine_get_backup_metadata();
-uint16_t uniffi_veloqrs_checksum_method_veloqengine_get_stats();
-uint16_t uniffi_veloqrs_checksum_method_veloqengine_heatmap();
-uint16_t uniffi_veloqrs_checksum_method_veloqengine_is_initialized();
-uint16_t uniffi_veloqrs_checksum_method_veloqengine_maps();
-uint16_t uniffi_veloqrs_checksum_method_veloqengine_mark_for_recomputation();
-uint16_t uniffi_veloqrs_checksum_method_veloqengine_routes();
-uint16_t uniffi_veloqrs_checksum_method_veloqengine_sections();
-uint16_t uniffi_veloqrs_checksum_method_veloqengine_set_name_translations();
-uint16_t uniffi_veloqrs_checksum_method_veloqengine_settings();
-uint16_t uniffi_veloqrs_checksum_method_veloqengine_strength();
+uint16_t uniffi_veloqrs_checksum_method_heatmapmanager_clear_tiles();
+uint16_t uniffi_veloqrs_checksum_method_heatmapmanager_clear_tiles_path();
+uint16_t uniffi_veloqrs_checksum_method_heatmapmanager_get_cache_size();
+uint16_t uniffi_veloqrs_checksum_method_heatmapmanager_get_percent();
+uint16_t uniffi_veloqrs_checksum_method_heatmapmanager_get_progress();
+uint16_t uniffi_veloqrs_checksum_method_heatmapmanager_poll();
+uint16_t uniffi_veloqrs_checksum_method_heatmapmanager_set_tiles_path();
 uint16_t uniffi_veloqrs_checksum_constructor_activitymanager_new();
 uint16_t uniffi_veloqrs_checksum_constructor_detectionmanager_new();
+uint16_t uniffi_veloqrs_checksum_constructor_veloqengine_create();
 uint16_t uniffi_veloqrs_checksum_constructor_fitnessmanager_new();
-uint16_t uniffi_veloqrs_checksum_constructor_heatmapmanager_new();
 uint16_t uniffi_veloqrs_checksum_constructor_mapmanager_new();
 uint16_t uniffi_veloqrs_checksum_constructor_routemanager_new();
 uint16_t uniffi_veloqrs_checksum_constructor_sectionmanager_new();
 uint16_t uniffi_veloqrs_checksum_constructor_settingsmanager_new();
 uint16_t uniffi_veloqrs_checksum_constructor_strengthmanager_new();
-uint16_t uniffi_veloqrs_checksum_constructor_veloqengine_create();
+uint16_t uniffi_veloqrs_checksum_constructor_heatmapmanager_new();
 uint32_t ffi_veloqrs_uniffi_contract_version();
 }
 
@@ -1212,7 +1240,7 @@ static void callback(uint64_t rs_data, int8_t rs_pollResult) {
   rsLambda(rs_data, rs_pollResult);
 }
 
-static UniffiRustFutureContinuationCallback
+[[maybe_unused]] static UniffiRustFutureContinuationCallback
 makeCallbackFunction( // uniffi::veloqrs::cb::rustfuturecontinuationcallback
     jsi::Runtime &rt,
     std::shared_ptr<uniffi_runtime::UniffiCallInvoker> callInvoker,
@@ -1256,42 +1284,11 @@ static void cleanup() {
   rsLambda = nullptr;
 }
 } // namespace uniffi::veloqrs::cb::rustfuturecontinuationcallback
-  // Implementation of callback function calling from JS to Rust
-  // ForeignFutureFree, passed from Rust to JS as part of async callbacks.
-namespace uniffi::veloqrs {
-using CallInvoker = uniffi_runtime::UniffiCallInvoker;
-
-template <> struct Bridging<UniffiForeignFutureFree> {
-  static jsi::Value toJs(jsi::Runtime &rt,
-                         std::shared_ptr<CallInvoker> callInvoker,
-                         UniffiForeignFutureFree rsCallback) {
-    return jsi::Function::createFromHostFunction(
-        rt, jsi::PropNameID::forAscii(rt, "--ForeignFutureFree"), 1,
-        [rsCallback, callInvoker](jsi::Runtime &rt, const jsi::Value &thisValue,
-                                  const jsi::Value *arguments,
-                                  size_t count) -> jsi::Value {
-          return intoRust(rt, callInvoker, thisValue, arguments, count,
-                          rsCallback);
-        });
-  }
-
-  static jsi::Value intoRust(jsi::Runtime &rt,
-                             std::shared_ptr<CallInvoker> callInvoker,
-                             const jsi::Value &thisValue,
-                             const jsi::Value *args, size_t count,
-                             UniffiForeignFutureFree func) {
-    // Convert the arguments into the Rust, with Bridging<T>::fromJs,
-    // then call the rs_callback with those arguments.
-    func(uniffi_jsi::Bridging<uint64_t>::fromJs(rt, callInvoker, args[0]));
-
-    return jsi::Value::undefined();
-  }
-};
-} // namespace uniffi::veloqrs
-  // Implementation of free callback function CallbackInterfaceFree
+  // Implementation of callback function calling from Rust to JS
+  // ForeignFutureDroppedCallback
 
 // Callback function:
-// uniffi::veloqrs::st::foreignfuture::foreignfuture::free::UniffiCallbackInterfaceFree
+// uniffi::veloqrs::cb::foreignfuturedroppedcallback::UniffiForeignFutureDroppedCallback
 //
 // We have the following constraints:
 // - we need to pass a function pointer to Rust.
@@ -1304,7 +1301,7 @@ template <> struct Bridging<UniffiForeignFutureFree> {
 //
 // We then give the `callback` function pointer to Rust which will call the
 // lambda sometime in the future.
-namespace uniffi::veloqrs::st::foreignfuture::foreignfuture::free {
+namespace uniffi::veloqrs::cb::foreignfuturedroppedcallback {
 using namespace facebook;
 
 // We need to store a lambda in a global so we can call it from
@@ -1332,7 +1329,7 @@ static void body(jsi::Runtime &rt,
     auto uniffiResult = cb.call(rt, js_handle);
 
   } catch (const jsi::JSError &error) {
-    std::cout << "Error in callback UniffiCallbackInterfaceFree: "
+    std::cout << "Error in callback UniffiForeignFutureDroppedCallback: "
               << error.what() << std::endl;
     throw error;
   }
@@ -1357,8 +1354,8 @@ static void callback(uint64_t rs_handle) {
   rsLambda(rs_handle);
 }
 
-static UniffiCallbackInterfaceFree
-makeCallbackFunction( // uniffi::veloqrs::st::foreignfuture::foreignfuture::free
+[[maybe_unused]] static UniffiForeignFutureDroppedCallback
+makeCallbackFunction( // uniffi::veloqrs::cb::foreignfuturedroppedcallback
     jsi::Runtime &rt,
     std::shared_ptr<uniffi_runtime::UniffiCallInvoker> callInvoker,
     const jsi::Value &value) {
@@ -1398,31 +1395,36 @@ static void cleanup() {
   // out, then the pointer will no longer be left dangling.
   rsLambda = nullptr;
 }
-} // namespace uniffi::veloqrs::st::foreignfuture::foreignfuture::free
+} // namespace uniffi::veloqrs::cb::foreignfuturedroppedcallback
+  // Implementation of free callback function CallbackInterfaceFree
+
 namespace uniffi::veloqrs {
 using namespace facebook;
 using CallInvoker = uniffi_runtime::UniffiCallInvoker;
 
-template <> struct Bridging<UniffiForeignFuture> {
-  static UniffiForeignFuture fromJs(jsi::Runtime &rt,
-                                    std::shared_ptr<CallInvoker> callInvoker,
-                                    const jsi::Value &jsValue) {
+template <> struct Bridging<UniffiForeignFutureDroppedCallbackStruct> {
+  static UniffiForeignFutureDroppedCallbackStruct
+  fromJs(jsi::Runtime &rt, std::shared_ptr<CallInvoker> callInvoker,
+         const jsi::Value &jsValue) {
     // Check if the input is an object
     if (!jsValue.isObject()) {
-      throw jsi::JSError(rt, "Expected an object for UniffiForeignFuture");
+      throw jsi::JSError(
+          rt,
+          "Expected an object for UniffiForeignFutureDroppedCallbackStruct");
     }
 
     // Get the object from the jsi::Value
     auto jsObject = jsValue.getObject(rt);
 
     // Create the vtable struct
-    UniffiForeignFuture rsObject;
+    UniffiForeignFutureDroppedCallbackStruct rsObject;
 
     // Create the vtable from the js callbacks.
     rsObject.handle = uniffi_jsi::Bridging<uint64_t>::fromJs(
         rt, callInvoker, jsObject.getProperty(rt, "handle"));
-    rsObject.free = uniffi::veloqrs::st::foreignfuture::foreignfuture::free::
-        makeCallbackFunction(rt, callInvoker, jsObject.getProperty(rt, "free"));
+    rsObject.free =
+        uniffi::veloqrs::cb::foreignfuturedroppedcallback::makeCallbackFunction(
+            rt, callInvoker, jsObject.getProperty(rt, "free"));
 
     return rsObject;
   }
@@ -1433,21 +1435,21 @@ namespace uniffi::veloqrs {
 using namespace facebook;
 using CallInvoker = uniffi_runtime::UniffiCallInvoker;
 
-template <> struct Bridging<UniffiForeignFutureStructU8> {
-  static UniffiForeignFutureStructU8
+template <> struct Bridging<UniffiForeignFutureResultU8> {
+  static UniffiForeignFutureResultU8
   fromJs(jsi::Runtime &rt, std::shared_ptr<CallInvoker> callInvoker,
          const jsi::Value &jsValue) {
     // Check if the input is an object
     if (!jsValue.isObject()) {
       throw jsi::JSError(rt,
-                         "Expected an object for UniffiForeignFutureStructU8");
+                         "Expected an object for UniffiForeignFutureResultU8");
     }
 
     // Get the object from the jsi::Value
     auto jsObject = jsValue.getObject(rt);
 
     // Create the vtable struct
-    UniffiForeignFutureStructU8 rsObject;
+    UniffiForeignFutureResultU8 rsObject;
 
     // Create the vtable from the js callbacks.
     rsObject.return_value = uniffi_jsi::Bridging<uint8_t>::fromJs(
@@ -1487,7 +1489,7 @@ template <> struct Bridging<UniffiForeignFutureCompleteU8> {
     // Convert the arguments into the Rust, with Bridging<T>::fromJs,
     // then call the rs_callback with those arguments.
     func(uniffi_jsi::Bridging<uint64_t>::fromJs(rt, callInvoker, args[0]),
-         uniffi::veloqrs::Bridging<UniffiForeignFutureStructU8>::fromJs(
+         uniffi::veloqrs::Bridging<UniffiForeignFutureResultU8>::fromJs(
              rt, callInvoker, args[1]));
 
     return jsi::Value::undefined();
@@ -1498,21 +1500,21 @@ namespace uniffi::veloqrs {
 using namespace facebook;
 using CallInvoker = uniffi_runtime::UniffiCallInvoker;
 
-template <> struct Bridging<UniffiForeignFutureStructI8> {
-  static UniffiForeignFutureStructI8
+template <> struct Bridging<UniffiForeignFutureResultI8> {
+  static UniffiForeignFutureResultI8
   fromJs(jsi::Runtime &rt, std::shared_ptr<CallInvoker> callInvoker,
          const jsi::Value &jsValue) {
     // Check if the input is an object
     if (!jsValue.isObject()) {
       throw jsi::JSError(rt,
-                         "Expected an object for UniffiForeignFutureStructI8");
+                         "Expected an object for UniffiForeignFutureResultI8");
     }
 
     // Get the object from the jsi::Value
     auto jsObject = jsValue.getObject(rt);
 
     // Create the vtable struct
-    UniffiForeignFutureStructI8 rsObject;
+    UniffiForeignFutureResultI8 rsObject;
 
     // Create the vtable from the js callbacks.
     rsObject.return_value = uniffi_jsi::Bridging<int8_t>::fromJs(
@@ -1552,7 +1554,7 @@ template <> struct Bridging<UniffiForeignFutureCompleteI8> {
     // Convert the arguments into the Rust, with Bridging<T>::fromJs,
     // then call the rs_callback with those arguments.
     func(uniffi_jsi::Bridging<uint64_t>::fromJs(rt, callInvoker, args[0]),
-         uniffi::veloqrs::Bridging<UniffiForeignFutureStructI8>::fromJs(
+         uniffi::veloqrs::Bridging<UniffiForeignFutureResultI8>::fromJs(
              rt, callInvoker, args[1]));
 
     return jsi::Value::undefined();
@@ -1563,21 +1565,21 @@ namespace uniffi::veloqrs {
 using namespace facebook;
 using CallInvoker = uniffi_runtime::UniffiCallInvoker;
 
-template <> struct Bridging<UniffiForeignFutureStructU16> {
-  static UniffiForeignFutureStructU16
+template <> struct Bridging<UniffiForeignFutureResultU16> {
+  static UniffiForeignFutureResultU16
   fromJs(jsi::Runtime &rt, std::shared_ptr<CallInvoker> callInvoker,
          const jsi::Value &jsValue) {
     // Check if the input is an object
     if (!jsValue.isObject()) {
       throw jsi::JSError(rt,
-                         "Expected an object for UniffiForeignFutureStructU16");
+                         "Expected an object for UniffiForeignFutureResultU16");
     }
 
     // Get the object from the jsi::Value
     auto jsObject = jsValue.getObject(rt);
 
     // Create the vtable struct
-    UniffiForeignFutureStructU16 rsObject;
+    UniffiForeignFutureResultU16 rsObject;
 
     // Create the vtable from the js callbacks.
     rsObject.return_value = uniffi_jsi::Bridging<uint16_t>::fromJs(
@@ -1618,7 +1620,7 @@ template <> struct Bridging<UniffiForeignFutureCompleteU16> {
     // Convert the arguments into the Rust, with Bridging<T>::fromJs,
     // then call the rs_callback with those arguments.
     func(uniffi_jsi::Bridging<uint64_t>::fromJs(rt, callInvoker, args[0]),
-         uniffi::veloqrs::Bridging<UniffiForeignFutureStructU16>::fromJs(
+         uniffi::veloqrs::Bridging<UniffiForeignFutureResultU16>::fromJs(
              rt, callInvoker, args[1]));
 
     return jsi::Value::undefined();
@@ -1629,21 +1631,21 @@ namespace uniffi::veloqrs {
 using namespace facebook;
 using CallInvoker = uniffi_runtime::UniffiCallInvoker;
 
-template <> struct Bridging<UniffiForeignFutureStructI16> {
-  static UniffiForeignFutureStructI16
+template <> struct Bridging<UniffiForeignFutureResultI16> {
+  static UniffiForeignFutureResultI16
   fromJs(jsi::Runtime &rt, std::shared_ptr<CallInvoker> callInvoker,
          const jsi::Value &jsValue) {
     // Check if the input is an object
     if (!jsValue.isObject()) {
       throw jsi::JSError(rt,
-                         "Expected an object for UniffiForeignFutureStructI16");
+                         "Expected an object for UniffiForeignFutureResultI16");
     }
 
     // Get the object from the jsi::Value
     auto jsObject = jsValue.getObject(rt);
 
     // Create the vtable struct
-    UniffiForeignFutureStructI16 rsObject;
+    UniffiForeignFutureResultI16 rsObject;
 
     // Create the vtable from the js callbacks.
     rsObject.return_value = uniffi_jsi::Bridging<int16_t>::fromJs(
@@ -1684,7 +1686,7 @@ template <> struct Bridging<UniffiForeignFutureCompleteI16> {
     // Convert the arguments into the Rust, with Bridging<T>::fromJs,
     // then call the rs_callback with those arguments.
     func(uniffi_jsi::Bridging<uint64_t>::fromJs(rt, callInvoker, args[0]),
-         uniffi::veloqrs::Bridging<UniffiForeignFutureStructI16>::fromJs(
+         uniffi::veloqrs::Bridging<UniffiForeignFutureResultI16>::fromJs(
              rt, callInvoker, args[1]));
 
     return jsi::Value::undefined();
@@ -1695,21 +1697,21 @@ namespace uniffi::veloqrs {
 using namespace facebook;
 using CallInvoker = uniffi_runtime::UniffiCallInvoker;
 
-template <> struct Bridging<UniffiForeignFutureStructU32> {
-  static UniffiForeignFutureStructU32
+template <> struct Bridging<UniffiForeignFutureResultU32> {
+  static UniffiForeignFutureResultU32
   fromJs(jsi::Runtime &rt, std::shared_ptr<CallInvoker> callInvoker,
          const jsi::Value &jsValue) {
     // Check if the input is an object
     if (!jsValue.isObject()) {
       throw jsi::JSError(rt,
-                         "Expected an object for UniffiForeignFutureStructU32");
+                         "Expected an object for UniffiForeignFutureResultU32");
     }
 
     // Get the object from the jsi::Value
     auto jsObject = jsValue.getObject(rt);
 
     // Create the vtable struct
-    UniffiForeignFutureStructU32 rsObject;
+    UniffiForeignFutureResultU32 rsObject;
 
     // Create the vtable from the js callbacks.
     rsObject.return_value = uniffi_jsi::Bridging<uint32_t>::fromJs(
@@ -1750,7 +1752,7 @@ template <> struct Bridging<UniffiForeignFutureCompleteU32> {
     // Convert the arguments into the Rust, with Bridging<T>::fromJs,
     // then call the rs_callback with those arguments.
     func(uniffi_jsi::Bridging<uint64_t>::fromJs(rt, callInvoker, args[0]),
-         uniffi::veloqrs::Bridging<UniffiForeignFutureStructU32>::fromJs(
+         uniffi::veloqrs::Bridging<UniffiForeignFutureResultU32>::fromJs(
              rt, callInvoker, args[1]));
 
     return jsi::Value::undefined();
@@ -1761,21 +1763,21 @@ namespace uniffi::veloqrs {
 using namespace facebook;
 using CallInvoker = uniffi_runtime::UniffiCallInvoker;
 
-template <> struct Bridging<UniffiForeignFutureStructI32> {
-  static UniffiForeignFutureStructI32
+template <> struct Bridging<UniffiForeignFutureResultI32> {
+  static UniffiForeignFutureResultI32
   fromJs(jsi::Runtime &rt, std::shared_ptr<CallInvoker> callInvoker,
          const jsi::Value &jsValue) {
     // Check if the input is an object
     if (!jsValue.isObject()) {
       throw jsi::JSError(rt,
-                         "Expected an object for UniffiForeignFutureStructI32");
+                         "Expected an object for UniffiForeignFutureResultI32");
     }
 
     // Get the object from the jsi::Value
     auto jsObject = jsValue.getObject(rt);
 
     // Create the vtable struct
-    UniffiForeignFutureStructI32 rsObject;
+    UniffiForeignFutureResultI32 rsObject;
 
     // Create the vtable from the js callbacks.
     rsObject.return_value = uniffi_jsi::Bridging<int32_t>::fromJs(
@@ -1816,7 +1818,7 @@ template <> struct Bridging<UniffiForeignFutureCompleteI32> {
     // Convert the arguments into the Rust, with Bridging<T>::fromJs,
     // then call the rs_callback with those arguments.
     func(uniffi_jsi::Bridging<uint64_t>::fromJs(rt, callInvoker, args[0]),
-         uniffi::veloqrs::Bridging<UniffiForeignFutureStructI32>::fromJs(
+         uniffi::veloqrs::Bridging<UniffiForeignFutureResultI32>::fromJs(
              rt, callInvoker, args[1]));
 
     return jsi::Value::undefined();
@@ -1827,21 +1829,21 @@ namespace uniffi::veloqrs {
 using namespace facebook;
 using CallInvoker = uniffi_runtime::UniffiCallInvoker;
 
-template <> struct Bridging<UniffiForeignFutureStructU64> {
-  static UniffiForeignFutureStructU64
+template <> struct Bridging<UniffiForeignFutureResultU64> {
+  static UniffiForeignFutureResultU64
   fromJs(jsi::Runtime &rt, std::shared_ptr<CallInvoker> callInvoker,
          const jsi::Value &jsValue) {
     // Check if the input is an object
     if (!jsValue.isObject()) {
       throw jsi::JSError(rt,
-                         "Expected an object for UniffiForeignFutureStructU64");
+                         "Expected an object for UniffiForeignFutureResultU64");
     }
 
     // Get the object from the jsi::Value
     auto jsObject = jsValue.getObject(rt);
 
     // Create the vtable struct
-    UniffiForeignFutureStructU64 rsObject;
+    UniffiForeignFutureResultU64 rsObject;
 
     // Create the vtable from the js callbacks.
     rsObject.return_value = uniffi_jsi::Bridging<uint64_t>::fromJs(
@@ -1882,7 +1884,7 @@ template <> struct Bridging<UniffiForeignFutureCompleteU64> {
     // Convert the arguments into the Rust, with Bridging<T>::fromJs,
     // then call the rs_callback with those arguments.
     func(uniffi_jsi::Bridging<uint64_t>::fromJs(rt, callInvoker, args[0]),
-         uniffi::veloqrs::Bridging<UniffiForeignFutureStructU64>::fromJs(
+         uniffi::veloqrs::Bridging<UniffiForeignFutureResultU64>::fromJs(
              rt, callInvoker, args[1]));
 
     return jsi::Value::undefined();
@@ -1893,21 +1895,21 @@ namespace uniffi::veloqrs {
 using namespace facebook;
 using CallInvoker = uniffi_runtime::UniffiCallInvoker;
 
-template <> struct Bridging<UniffiForeignFutureStructI64> {
-  static UniffiForeignFutureStructI64
+template <> struct Bridging<UniffiForeignFutureResultI64> {
+  static UniffiForeignFutureResultI64
   fromJs(jsi::Runtime &rt, std::shared_ptr<CallInvoker> callInvoker,
          const jsi::Value &jsValue) {
     // Check if the input is an object
     if (!jsValue.isObject()) {
       throw jsi::JSError(rt,
-                         "Expected an object for UniffiForeignFutureStructI64");
+                         "Expected an object for UniffiForeignFutureResultI64");
     }
 
     // Get the object from the jsi::Value
     auto jsObject = jsValue.getObject(rt);
 
     // Create the vtable struct
-    UniffiForeignFutureStructI64 rsObject;
+    UniffiForeignFutureResultI64 rsObject;
 
     // Create the vtable from the js callbacks.
     rsObject.return_value = uniffi_jsi::Bridging<int64_t>::fromJs(
@@ -1948,7 +1950,7 @@ template <> struct Bridging<UniffiForeignFutureCompleteI64> {
     // Convert the arguments into the Rust, with Bridging<T>::fromJs,
     // then call the rs_callback with those arguments.
     func(uniffi_jsi::Bridging<uint64_t>::fromJs(rt, callInvoker, args[0]),
-         uniffi::veloqrs::Bridging<UniffiForeignFutureStructI64>::fromJs(
+         uniffi::veloqrs::Bridging<UniffiForeignFutureResultI64>::fromJs(
              rt, callInvoker, args[1]));
 
     return jsi::Value::undefined();
@@ -1959,21 +1961,21 @@ namespace uniffi::veloqrs {
 using namespace facebook;
 using CallInvoker = uniffi_runtime::UniffiCallInvoker;
 
-template <> struct Bridging<UniffiForeignFutureStructF32> {
-  static UniffiForeignFutureStructF32
+template <> struct Bridging<UniffiForeignFutureResultF32> {
+  static UniffiForeignFutureResultF32
   fromJs(jsi::Runtime &rt, std::shared_ptr<CallInvoker> callInvoker,
          const jsi::Value &jsValue) {
     // Check if the input is an object
     if (!jsValue.isObject()) {
       throw jsi::JSError(rt,
-                         "Expected an object for UniffiForeignFutureStructF32");
+                         "Expected an object for UniffiForeignFutureResultF32");
     }
 
     // Get the object from the jsi::Value
     auto jsObject = jsValue.getObject(rt);
 
     // Create the vtable struct
-    UniffiForeignFutureStructF32 rsObject;
+    UniffiForeignFutureResultF32 rsObject;
 
     // Create the vtable from the js callbacks.
     rsObject.return_value = uniffi_jsi::Bridging<float>::fromJs(
@@ -2014,7 +2016,7 @@ template <> struct Bridging<UniffiForeignFutureCompleteF32> {
     // Convert the arguments into the Rust, with Bridging<T>::fromJs,
     // then call the rs_callback with those arguments.
     func(uniffi_jsi::Bridging<uint64_t>::fromJs(rt, callInvoker, args[0]),
-         uniffi::veloqrs::Bridging<UniffiForeignFutureStructF32>::fromJs(
+         uniffi::veloqrs::Bridging<UniffiForeignFutureResultF32>::fromJs(
              rt, callInvoker, args[1]));
 
     return jsi::Value::undefined();
@@ -2025,21 +2027,21 @@ namespace uniffi::veloqrs {
 using namespace facebook;
 using CallInvoker = uniffi_runtime::UniffiCallInvoker;
 
-template <> struct Bridging<UniffiForeignFutureStructF64> {
-  static UniffiForeignFutureStructF64
+template <> struct Bridging<UniffiForeignFutureResultF64> {
+  static UniffiForeignFutureResultF64
   fromJs(jsi::Runtime &rt, std::shared_ptr<CallInvoker> callInvoker,
          const jsi::Value &jsValue) {
     // Check if the input is an object
     if (!jsValue.isObject()) {
       throw jsi::JSError(rt,
-                         "Expected an object for UniffiForeignFutureStructF64");
+                         "Expected an object for UniffiForeignFutureResultF64");
     }
 
     // Get the object from the jsi::Value
     auto jsObject = jsValue.getObject(rt);
 
     // Create the vtable struct
-    UniffiForeignFutureStructF64 rsObject;
+    UniffiForeignFutureResultF64 rsObject;
 
     // Create the vtable from the js callbacks.
     rsObject.return_value = uniffi_jsi::Bridging<double>::fromJs(
@@ -2080,7 +2082,7 @@ template <> struct Bridging<UniffiForeignFutureCompleteF64> {
     // Convert the arguments into the Rust, with Bridging<T>::fromJs,
     // then call the rs_callback with those arguments.
     func(uniffi_jsi::Bridging<uint64_t>::fromJs(rt, callInvoker, args[0]),
-         uniffi::veloqrs::Bridging<UniffiForeignFutureStructF64>::fromJs(
+         uniffi::veloqrs::Bridging<UniffiForeignFutureResultF64>::fromJs(
              rt, callInvoker, args[1]));
 
     return jsi::Value::undefined();
@@ -2091,87 +2093,21 @@ namespace uniffi::veloqrs {
 using namespace facebook;
 using CallInvoker = uniffi_runtime::UniffiCallInvoker;
 
-template <> struct Bridging<UniffiForeignFutureStructPointer> {
-  static UniffiForeignFutureStructPointer
+template <> struct Bridging<UniffiForeignFutureResultRustBuffer> {
+  static UniffiForeignFutureResultRustBuffer
   fromJs(jsi::Runtime &rt, std::shared_ptr<CallInvoker> callInvoker,
          const jsi::Value &jsValue) {
     // Check if the input is an object
     if (!jsValue.isObject()) {
       throw jsi::JSError(
-          rt, "Expected an object for UniffiForeignFutureStructPointer");
+          rt, "Expected an object for UniffiForeignFutureResultRustBuffer");
     }
 
     // Get the object from the jsi::Value
     auto jsObject = jsValue.getObject(rt);
 
     // Create the vtable struct
-    UniffiForeignFutureStructPointer rsObject;
-
-    // Create the vtable from the js callbacks.
-    rsObject.return_value = uniffi_jsi::Bridging<void *>::fromJs(
-        rt, callInvoker, jsObject.getProperty(rt, "returnValue"));
-    rsObject.call_status = uniffi::veloqrs::Bridging<RustCallStatus>::fromJs(
-        rt, callInvoker, jsObject.getProperty(rt, "callStatus"));
-
-    return rsObject;
-  }
-};
-
-} // namespace uniffi::veloqrs
-  // Implementation of callback function calling from JS to Rust
-  // ForeignFutureCompletePointer, passed from Rust to JS as part of async
-  // callbacks.
-namespace uniffi::veloqrs {
-using CallInvoker = uniffi_runtime::UniffiCallInvoker;
-
-template <> struct Bridging<UniffiForeignFutureCompletePointer> {
-  static jsi::Value toJs(jsi::Runtime &rt,
-                         std::shared_ptr<CallInvoker> callInvoker,
-                         UniffiForeignFutureCompletePointer rsCallback) {
-    return jsi::Function::createFromHostFunction(
-        rt, jsi::PropNameID::forAscii(rt, "--ForeignFutureCompletePointer"), 2,
-        [rsCallback, callInvoker](jsi::Runtime &rt, const jsi::Value &thisValue,
-                                  const jsi::Value *arguments,
-                                  size_t count) -> jsi::Value {
-          return intoRust(rt, callInvoker, thisValue, arguments, count,
-                          rsCallback);
-        });
-  }
-
-  static jsi::Value intoRust(jsi::Runtime &rt,
-                             std::shared_ptr<CallInvoker> callInvoker,
-                             const jsi::Value &thisValue,
-                             const jsi::Value *args, size_t count,
-                             UniffiForeignFutureCompletePointer func) {
-    // Convert the arguments into the Rust, with Bridging<T>::fromJs,
-    // then call the rs_callback with those arguments.
-    func(uniffi_jsi::Bridging<uint64_t>::fromJs(rt, callInvoker, args[0]),
-         uniffi::veloqrs::Bridging<UniffiForeignFutureStructPointer>::fromJs(
-             rt, callInvoker, args[1]));
-
-    return jsi::Value::undefined();
-  }
-};
-} // namespace uniffi::veloqrs
-namespace uniffi::veloqrs {
-using namespace facebook;
-using CallInvoker = uniffi_runtime::UniffiCallInvoker;
-
-template <> struct Bridging<UniffiForeignFutureStructRustBuffer> {
-  static UniffiForeignFutureStructRustBuffer
-  fromJs(jsi::Runtime &rt, std::shared_ptr<CallInvoker> callInvoker,
-         const jsi::Value &jsValue) {
-    // Check if the input is an object
-    if (!jsValue.isObject()) {
-      throw jsi::JSError(
-          rt, "Expected an object for UniffiForeignFutureStructRustBuffer");
-    }
-
-    // Get the object from the jsi::Value
-    auto jsObject = jsValue.getObject(rt);
-
-    // Create the vtable struct
-    UniffiForeignFutureStructRustBuffer rsObject;
+    UniffiForeignFutureResultRustBuffer rsObject;
 
     // Create the vtable from the js callbacks.
     rsObject.return_value = uniffi::veloqrs::Bridging<RustBuffer>::fromJs(
@@ -2213,7 +2149,7 @@ template <> struct Bridging<UniffiForeignFutureCompleteRustBuffer> {
     // Convert the arguments into the Rust, with Bridging<T>::fromJs,
     // then call the rs_callback with those arguments.
     func(uniffi_jsi::Bridging<uint64_t>::fromJs(rt, callInvoker, args[0]),
-         uniffi::veloqrs::Bridging<UniffiForeignFutureStructRustBuffer>::fromJs(
+         uniffi::veloqrs::Bridging<UniffiForeignFutureResultRustBuffer>::fromJs(
              rt, callInvoker, args[1]));
 
     return jsi::Value::undefined();
@@ -2224,21 +2160,21 @@ namespace uniffi::veloqrs {
 using namespace facebook;
 using CallInvoker = uniffi_runtime::UniffiCallInvoker;
 
-template <> struct Bridging<UniffiForeignFutureStructVoid> {
-  static UniffiForeignFutureStructVoid
+template <> struct Bridging<UniffiForeignFutureResultVoid> {
+  static UniffiForeignFutureResultVoid
   fromJs(jsi::Runtime &rt, std::shared_ptr<CallInvoker> callInvoker,
          const jsi::Value &jsValue) {
     // Check if the input is an object
     if (!jsValue.isObject()) {
       throw jsi::JSError(
-          rt, "Expected an object for UniffiForeignFutureStructVoid");
+          rt, "Expected an object for UniffiForeignFutureResultVoid");
     }
 
     // Get the object from the jsi::Value
     auto jsObject = jsValue.getObject(rt);
 
     // Create the vtable struct
-    UniffiForeignFutureStructVoid rsObject;
+    UniffiForeignFutureResultVoid rsObject;
 
     // Create the vtable from the js callbacks.
     rsObject.call_status = uniffi::veloqrs::Bridging<RustCallStatus>::fromJs(
@@ -2277,7 +2213,7 @@ template <> struct Bridging<UniffiForeignFutureCompleteVoid> {
     // Convert the arguments into the Rust, with Bridging<T>::fromJs,
     // then call the rs_callback with those arguments.
     func(uniffi_jsi::Bridging<uint64_t>::fromJs(rt, callInvoker, args[0]),
-         uniffi::veloqrs::Bridging<UniffiForeignFutureStructVoid>::fromJs(
+         uniffi::veloqrs::Bridging<UniffiForeignFutureResultVoid>::fromJs(
              rt, callInvoker, args[1]));
 
     return jsi::Value::undefined();
@@ -2649,6 +2585,307 @@ NativeVeloqrs::NativeVeloqrs(
             return this->cpp_uniffi_veloqrs_fn_method_detectionmanager_start(
                 rt, thisVal, args, count);
           });
+  props["ubrn_uniffi_veloqrs_fn_clone_veloqengine"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(rt,
+                                    "ubrn_uniffi_veloqrs_fn_clone_veloqengine"),
+          1,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_uniffi_veloqrs_fn_clone_veloqengine(rt, thisVal,
+                                                                 args, count);
+          });
+  props["ubrn_uniffi_veloqrs_fn_free_veloqengine"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(rt,
+                                    "ubrn_uniffi_veloqrs_fn_free_veloqengine"),
+          1,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_uniffi_veloqrs_fn_free_veloqengine(rt, thisVal,
+                                                                args, count);
+          });
+  props["ubrn_uniffi_veloqrs_fn_constructor_veloqengine_create"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt, "ubrn_uniffi_veloqrs_fn_constructor_veloqengine_create"),
+          1,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_uniffi_veloqrs_fn_constructor_veloqengine_create(
+                rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_fn_method_veloqengine_activities"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt, "ubrn_uniffi_veloqrs_fn_method_veloqengine_activities"),
+          1,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_uniffi_veloqrs_fn_method_veloqengine_activities(
+                rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_fn_method_veloqengine_backup_database"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt, "ubrn_uniffi_veloqrs_fn_method_veloqengine_backup_database"),
+          2,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_fn_method_veloqengine_backup_database(
+                    rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_fn_method_veloqengine_bulk_export_geojson"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt,
+              "ubrn_uniffi_veloqrs_fn_method_veloqengine_bulk_export_geojson"),
+          2,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_fn_method_veloqengine_bulk_export_geojson(
+                    rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_fn_method_veloqengine_bulk_export_gpx"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt, "ubrn_uniffi_veloqrs_fn_method_veloqengine_bulk_export_gpx"),
+          2,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_fn_method_veloqengine_bulk_export_gpx(
+                    rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_fn_method_veloqengine_cleanup_old_activities"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_fn_method_"
+                                        "veloqengine_cleanup_old_activities"),
+          2,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_fn_method_veloqengine_cleanup_old_activities(
+                    rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_fn_method_veloqengine_clear"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt, "ubrn_uniffi_veloqrs_fn_method_veloqengine_clear"),
+          1,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_uniffi_veloqrs_fn_method_veloqengine_clear(
+                rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_fn_method_veloqengine_clear_routes_and_sections"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(rt,
+                                    "ubrn_uniffi_veloqrs_fn_method_veloqengine_"
+                                    "clear_routes_and_sections"),
+          1,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_fn_method_veloqengine_clear_routes_and_sections(
+                    rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_fn_method_veloqengine_destroy"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt, "ubrn_uniffi_veloqrs_fn_method_veloqengine_destroy"),
+          1,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_uniffi_veloqrs_fn_method_veloqengine_destroy(
+                rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_fn_method_veloqengine_detection"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt, "ubrn_uniffi_veloqrs_fn_method_veloqengine_detection"),
+          1,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_uniffi_veloqrs_fn_method_veloqengine_detection(
+                rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_fn_method_veloqengine_fitness"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt, "ubrn_uniffi_veloqrs_fn_method_veloqengine_fitness"),
+          1,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_uniffi_veloqrs_fn_method_veloqengine_fitness(
+                rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_fn_method_veloqengine_get_activities_needing_time_"
+        "streams"] = jsi::Function::createFromHostFunction(
+      rt,
+      jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_fn_method_veloqengine_"
+                                    "get_activities_needing_time_streams"),
+      1,
+      [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+             const jsi::Value *args, size_t count) -> jsi::Value {
+        return this
+            ->cpp_uniffi_veloqrs_fn_method_veloqengine_get_activities_needing_time_streams(
+                rt, thisVal, args, count);
+      });
+  props["ubrn_uniffi_veloqrs_fn_method_veloqengine_get_activity_count"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt,
+              "ubrn_uniffi_veloqrs_fn_method_veloqengine_get_activity_count"),
+          1,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_fn_method_veloqengine_get_activity_count(
+                    rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_fn_method_veloqengine_get_backup_metadata"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt,
+              "ubrn_uniffi_veloqrs_fn_method_veloqengine_get_backup_metadata"),
+          1,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_fn_method_veloqengine_get_backup_metadata(
+                    rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_fn_method_veloqengine_get_stats"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt, "ubrn_uniffi_veloqrs_fn_method_veloqengine_get_stats"),
+          1,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_uniffi_veloqrs_fn_method_veloqengine_get_stats(
+                rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_fn_method_veloqengine_heatmap"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt, "ubrn_uniffi_veloqrs_fn_method_veloqengine_heatmap"),
+          1,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_uniffi_veloqrs_fn_method_veloqengine_heatmap(
+                rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_fn_method_veloqengine_is_initialized"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt, "ubrn_uniffi_veloqrs_fn_method_veloqengine_is_initialized"),
+          1,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_fn_method_veloqengine_is_initialized(
+                    rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_fn_method_veloqengine_maps"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt, "ubrn_uniffi_veloqrs_fn_method_veloqengine_maps"),
+          1,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_uniffi_veloqrs_fn_method_veloqengine_maps(
+                rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_fn_method_veloqengine_mark_for_recomputation"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_fn_method_"
+                                        "veloqengine_mark_for_recomputation"),
+          1,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_fn_method_veloqengine_mark_for_recomputation(
+                    rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_fn_method_veloqengine_routes"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt, "ubrn_uniffi_veloqrs_fn_method_veloqengine_routes"),
+          1,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_uniffi_veloqrs_fn_method_veloqengine_routes(
+                rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_fn_method_veloqengine_sections"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt, "ubrn_uniffi_veloqrs_fn_method_veloqengine_sections"),
+          1,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_uniffi_veloqrs_fn_method_veloqengine_sections(
+                rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_fn_method_veloqengine_set_name_translations"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_fn_method_"
+                                        "veloqengine_set_name_translations"),
+          3,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_fn_method_veloqengine_set_name_translations(
+                    rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_fn_method_veloqengine_settings"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt, "ubrn_uniffi_veloqrs_fn_method_veloqengine_settings"),
+          1,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_uniffi_veloqrs_fn_method_veloqengine_settings(
+                rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_fn_method_veloqengine_strength"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt, "ubrn_uniffi_veloqrs_fn_method_veloqengine_strength"),
+          1,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_uniffi_veloqrs_fn_method_veloqengine_strength(
+                rt, thisVal, args, count);
+          });
   props["ubrn_uniffi_veloqrs_fn_clone_fitnessmanager"] =
       jsi::Function::createFromHostFunction(
           rt,
@@ -2904,125 +3141,6 @@ NativeVeloqrs::NativeVeloqrs(
                  const jsi::Value *args, size_t count) -> jsi::Value {
             return this
                 ->cpp_uniffi_veloqrs_fn_method_fitnessmanager_upsert_wellness(
-                    rt, thisVal, args, count);
-          });
-  props["ubrn_uniffi_veloqrs_fn_clone_heatmapmanager"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(
-              rt, "ubrn_uniffi_veloqrs_fn_clone_heatmapmanager"),
-          1,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this->cpp_uniffi_veloqrs_fn_clone_heatmapmanager(
-                rt, thisVal, args, count);
-          });
-  props["ubrn_uniffi_veloqrs_fn_free_heatmapmanager"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(
-              rt, "ubrn_uniffi_veloqrs_fn_free_heatmapmanager"),
-          1,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this->cpp_uniffi_veloqrs_fn_free_heatmapmanager(rt, thisVal,
-                                                                   args, count);
-          });
-  props["ubrn_uniffi_veloqrs_fn_constructor_heatmapmanager_new"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(
-              rt, "ubrn_uniffi_veloqrs_fn_constructor_heatmapmanager_new"),
-          0,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this->cpp_uniffi_veloqrs_fn_constructor_heatmapmanager_new(
-                rt, thisVal, args, count);
-          });
-  props["ubrn_uniffi_veloqrs_fn_method_heatmapmanager_clear_tiles"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(
-              rt, "ubrn_uniffi_veloqrs_fn_method_heatmapmanager_clear_tiles"),
-          2,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this
-                ->cpp_uniffi_veloqrs_fn_method_heatmapmanager_clear_tiles(
-                    rt, thisVal, args, count);
-          });
-  props["ubrn_uniffi_veloqrs_fn_method_heatmapmanager_clear_tiles_path"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(
-              rt,
-              "ubrn_uniffi_veloqrs_fn_method_heatmapmanager_clear_tiles_path"),
-          1,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this
-                ->cpp_uniffi_veloqrs_fn_method_heatmapmanager_clear_tiles_path(
-                    rt, thisVal, args, count);
-          });
-  props["ubrn_uniffi_veloqrs_fn_method_heatmapmanager_get_cache_size"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(
-              rt,
-              "ubrn_uniffi_veloqrs_fn_method_heatmapmanager_get_cache_size"),
-          2,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this
-                ->cpp_uniffi_veloqrs_fn_method_heatmapmanager_get_cache_size(
-                    rt, thisVal, args, count);
-          });
-  props["ubrn_uniffi_veloqrs_fn_method_heatmapmanager_get_percent"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(
-              rt, "ubrn_uniffi_veloqrs_fn_method_heatmapmanager_get_percent"),
-          1,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this
-                ->cpp_uniffi_veloqrs_fn_method_heatmapmanager_get_percent(
-                    rt, thisVal, args, count);
-          });
-  props["ubrn_uniffi_veloqrs_fn_method_heatmapmanager_get_progress"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(
-              rt, "ubrn_uniffi_veloqrs_fn_method_heatmapmanager_get_progress"),
-          1,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this
-                ->cpp_uniffi_veloqrs_fn_method_heatmapmanager_get_progress(
-                    rt, thisVal, args, count);
-          });
-  props["ubrn_uniffi_veloqrs_fn_method_heatmapmanager_poll"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(
-              rt, "ubrn_uniffi_veloqrs_fn_method_heatmapmanager_poll"),
-          1,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this->cpp_uniffi_veloqrs_fn_method_heatmapmanager_poll(
-                rt, thisVal, args, count);
-          });
-  props["ubrn_uniffi_veloqrs_fn_method_heatmapmanager_set_tiles_path"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(
-              rt,
-              "ubrn_uniffi_veloqrs_fn_method_heatmapmanager_set_tiles_path"),
-          2,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this
-                ->cpp_uniffi_veloqrs_fn_method_heatmapmanager_set_tiles_path(
                     rt, thisVal, args, count);
           });
   props["ubrn_uniffi_veloqrs_fn_clone_mapmanager"] =
@@ -4425,317 +4543,124 @@ NativeVeloqrs::NativeVeloqrs(
                 ->cpp_uniffi_veloqrs_fn_method_strengthmanager_is_fit_processed(
                     rt, thisVal, args, count);
           });
-  props["ubrn_uniffi_veloqrs_fn_clone_veloqengine"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(rt,
-                                    "ubrn_uniffi_veloqrs_fn_clone_veloqengine"),
-          1,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this->cpp_uniffi_veloqrs_fn_clone_veloqengine(rt, thisVal,
-                                                                 args, count);
-          });
-  props["ubrn_uniffi_veloqrs_fn_free_veloqengine"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(rt,
-                                    "ubrn_uniffi_veloqrs_fn_free_veloqengine"),
-          1,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this->cpp_uniffi_veloqrs_fn_free_veloqengine(rt, thisVal,
-                                                                args, count);
-          });
-  props["ubrn_uniffi_veloqrs_fn_constructor_veloqengine_create"] =
+  props["ubrn_uniffi_veloqrs_fn_clone_heatmapmanager"] =
       jsi::Function::createFromHostFunction(
           rt,
           jsi::PropNameID::forAscii(
-              rt, "ubrn_uniffi_veloqrs_fn_constructor_veloqengine_create"),
+              rt, "ubrn_uniffi_veloqrs_fn_clone_heatmapmanager"),
           1,
           [this](jsi::Runtime &rt, const jsi::Value &thisVal,
                  const jsi::Value *args, size_t count) -> jsi::Value {
-            return this->cpp_uniffi_veloqrs_fn_constructor_veloqengine_create(
+            return this->cpp_uniffi_veloqrs_fn_clone_heatmapmanager(
                 rt, thisVal, args, count);
           });
-  props["ubrn_uniffi_veloqrs_fn_method_veloqengine_activities"] =
+  props["ubrn_uniffi_veloqrs_fn_free_heatmapmanager"] =
       jsi::Function::createFromHostFunction(
           rt,
           jsi::PropNameID::forAscii(
-              rt, "ubrn_uniffi_veloqrs_fn_method_veloqengine_activities"),
+              rt, "ubrn_uniffi_veloqrs_fn_free_heatmapmanager"),
           1,
           [this](jsi::Runtime &rt, const jsi::Value &thisVal,
                  const jsi::Value *args, size_t count) -> jsi::Value {
-            return this->cpp_uniffi_veloqrs_fn_method_veloqengine_activities(
-                rt, thisVal, args, count);
+            return this->cpp_uniffi_veloqrs_fn_free_heatmapmanager(rt, thisVal,
+                                                                   args, count);
           });
-  props["ubrn_uniffi_veloqrs_fn_method_veloqengine_backup_database"] =
+  props["ubrn_uniffi_veloqrs_fn_constructor_heatmapmanager_new"] =
       jsi::Function::createFromHostFunction(
           rt,
           jsi::PropNameID::forAscii(
-              rt, "ubrn_uniffi_veloqrs_fn_method_veloqengine_backup_database"),
+              rt, "ubrn_uniffi_veloqrs_fn_constructor_heatmapmanager_new"),
+          0,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_uniffi_veloqrs_fn_constructor_heatmapmanager_new(
+                rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_fn_method_heatmapmanager_clear_tiles"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt, "ubrn_uniffi_veloqrs_fn_method_heatmapmanager_clear_tiles"),
           2,
           [this](jsi::Runtime &rt, const jsi::Value &thisVal,
                  const jsi::Value *args, size_t count) -> jsi::Value {
             return this
-                ->cpp_uniffi_veloqrs_fn_method_veloqengine_backup_database(
+                ->cpp_uniffi_veloqrs_fn_method_heatmapmanager_clear_tiles(
                     rt, thisVal, args, count);
           });
-  props["ubrn_uniffi_veloqrs_fn_method_veloqengine_bulk_export_geojson"] =
+  props["ubrn_uniffi_veloqrs_fn_method_heatmapmanager_clear_tiles_path"] =
       jsi::Function::createFromHostFunction(
           rt,
           jsi::PropNameID::forAscii(
               rt,
-              "ubrn_uniffi_veloqrs_fn_method_veloqengine_bulk_export_geojson"),
-          2,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this
-                ->cpp_uniffi_veloqrs_fn_method_veloqengine_bulk_export_geojson(
-                    rt, thisVal, args, count);
-          });
-  props["ubrn_uniffi_veloqrs_fn_method_veloqengine_bulk_export_gpx"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(
-              rt, "ubrn_uniffi_veloqrs_fn_method_veloqengine_bulk_export_gpx"),
-          2,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this
-                ->cpp_uniffi_veloqrs_fn_method_veloqengine_bulk_export_gpx(
-                    rt, thisVal, args, count);
-          });
-  props["ubrn_uniffi_veloqrs_fn_method_veloqengine_cleanup_old_activities"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_fn_method_"
-                                        "veloqengine_cleanup_old_activities"),
-          2,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this
-                ->cpp_uniffi_veloqrs_fn_method_veloqengine_cleanup_old_activities(
-                    rt, thisVal, args, count);
-          });
-  props["ubrn_uniffi_veloqrs_fn_method_veloqengine_clear"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(
-              rt, "ubrn_uniffi_veloqrs_fn_method_veloqengine_clear"),
-          1,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this->cpp_uniffi_veloqrs_fn_method_veloqengine_clear(
-                rt, thisVal, args, count);
-          });
-  props["ubrn_uniffi_veloqrs_fn_method_veloqengine_clear_routes_and_sections"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(rt,
-                                    "ubrn_uniffi_veloqrs_fn_method_veloqengine_"
-                                    "clear_routes_and_sections"),
+              "ubrn_uniffi_veloqrs_fn_method_heatmapmanager_clear_tiles_path"),
           1,
           [this](jsi::Runtime &rt, const jsi::Value &thisVal,
                  const jsi::Value *args, size_t count) -> jsi::Value {
             return this
-                ->cpp_uniffi_veloqrs_fn_method_veloqengine_clear_routes_and_sections(
+                ->cpp_uniffi_veloqrs_fn_method_heatmapmanager_clear_tiles_path(
                     rt, thisVal, args, count);
           });
-  props["ubrn_uniffi_veloqrs_fn_method_veloqengine_destroy"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(
-              rt, "ubrn_uniffi_veloqrs_fn_method_veloqengine_destroy"),
-          1,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this->cpp_uniffi_veloqrs_fn_method_veloqengine_destroy(
-                rt, thisVal, args, count);
-          });
-  props["ubrn_uniffi_veloqrs_fn_method_veloqengine_detection"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(
-              rt, "ubrn_uniffi_veloqrs_fn_method_veloqengine_detection"),
-          1,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this->cpp_uniffi_veloqrs_fn_method_veloqengine_detection(
-                rt, thisVal, args, count);
-          });
-  props["ubrn_uniffi_veloqrs_fn_method_veloqengine_fitness"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(
-              rt, "ubrn_uniffi_veloqrs_fn_method_veloqengine_fitness"),
-          1,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this->cpp_uniffi_veloqrs_fn_method_veloqengine_fitness(
-                rt, thisVal, args, count);
-          });
-  props["ubrn_uniffi_veloqrs_fn_method_veloqengine_get_activities_needing_time_"
-        "streams"] = jsi::Function::createFromHostFunction(
-      rt,
-      jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_fn_method_veloqengine_"
-                                    "get_activities_needing_time_streams"),
-      1,
-      [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-             const jsi::Value *args, size_t count) -> jsi::Value {
-        return this
-            ->cpp_uniffi_veloqrs_fn_method_veloqengine_get_activities_needing_time_streams(
-                rt, thisVal, args, count);
-      });
-  props["ubrn_uniffi_veloqrs_fn_method_veloqengine_get_activity_count"] =
+  props["ubrn_uniffi_veloqrs_fn_method_heatmapmanager_get_cache_size"] =
       jsi::Function::createFromHostFunction(
           rt,
           jsi::PropNameID::forAscii(
               rt,
-              "ubrn_uniffi_veloqrs_fn_method_veloqengine_get_activity_count"),
+              "ubrn_uniffi_veloqrs_fn_method_heatmapmanager_get_cache_size"),
+          2,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_fn_method_heatmapmanager_get_cache_size(
+                    rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_fn_method_heatmapmanager_get_percent"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt, "ubrn_uniffi_veloqrs_fn_method_heatmapmanager_get_percent"),
           1,
           [this](jsi::Runtime &rt, const jsi::Value &thisVal,
                  const jsi::Value *args, size_t count) -> jsi::Value {
             return this
-                ->cpp_uniffi_veloqrs_fn_method_veloqengine_get_activity_count(
+                ->cpp_uniffi_veloqrs_fn_method_heatmapmanager_get_percent(
                     rt, thisVal, args, count);
           });
-  props["ubrn_uniffi_veloqrs_fn_method_veloqengine_get_backup_metadata"] =
+  props["ubrn_uniffi_veloqrs_fn_method_heatmapmanager_get_progress"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt, "ubrn_uniffi_veloqrs_fn_method_heatmapmanager_get_progress"),
+          1,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_fn_method_heatmapmanager_get_progress(
+                    rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_fn_method_heatmapmanager_poll"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt, "ubrn_uniffi_veloqrs_fn_method_heatmapmanager_poll"),
+          1,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_uniffi_veloqrs_fn_method_heatmapmanager_poll(
+                rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_fn_method_heatmapmanager_set_tiles_path"] =
       jsi::Function::createFromHostFunction(
           rt,
           jsi::PropNameID::forAscii(
               rt,
-              "ubrn_uniffi_veloqrs_fn_method_veloqengine_get_backup_metadata"),
-          1,
+              "ubrn_uniffi_veloqrs_fn_method_heatmapmanager_set_tiles_path"),
+          2,
           [this](jsi::Runtime &rt, const jsi::Value &thisVal,
                  const jsi::Value *args, size_t count) -> jsi::Value {
             return this
-                ->cpp_uniffi_veloqrs_fn_method_veloqengine_get_backup_metadata(
+                ->cpp_uniffi_veloqrs_fn_method_heatmapmanager_set_tiles_path(
                     rt, thisVal, args, count);
-          });
-  props["ubrn_uniffi_veloqrs_fn_method_veloqengine_get_stats"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(
-              rt, "ubrn_uniffi_veloqrs_fn_method_veloqengine_get_stats"),
-          1,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this->cpp_uniffi_veloqrs_fn_method_veloqengine_get_stats(
-                rt, thisVal, args, count);
-          });
-  props["ubrn_uniffi_veloqrs_fn_method_veloqengine_heatmap"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(
-              rt, "ubrn_uniffi_veloqrs_fn_method_veloqengine_heatmap"),
-          1,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this->cpp_uniffi_veloqrs_fn_method_veloqengine_heatmap(
-                rt, thisVal, args, count);
-          });
-  props["ubrn_uniffi_veloqrs_fn_method_veloqengine_is_initialized"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(
-              rt, "ubrn_uniffi_veloqrs_fn_method_veloqengine_is_initialized"),
-          1,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this
-                ->cpp_uniffi_veloqrs_fn_method_veloqengine_is_initialized(
-                    rt, thisVal, args, count);
-          });
-  props["ubrn_uniffi_veloqrs_fn_method_veloqengine_maps"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(
-              rt, "ubrn_uniffi_veloqrs_fn_method_veloqengine_maps"),
-          1,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this->cpp_uniffi_veloqrs_fn_method_veloqengine_maps(
-                rt, thisVal, args, count);
-          });
-  props["ubrn_uniffi_veloqrs_fn_method_veloqengine_mark_for_recomputation"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_fn_method_"
-                                        "veloqengine_mark_for_recomputation"),
-          1,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this
-                ->cpp_uniffi_veloqrs_fn_method_veloqengine_mark_for_recomputation(
-                    rt, thisVal, args, count);
-          });
-  props["ubrn_uniffi_veloqrs_fn_method_veloqengine_routes"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(
-              rt, "ubrn_uniffi_veloqrs_fn_method_veloqengine_routes"),
-          1,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this->cpp_uniffi_veloqrs_fn_method_veloqengine_routes(
-                rt, thisVal, args, count);
-          });
-  props["ubrn_uniffi_veloqrs_fn_method_veloqengine_sections"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(
-              rt, "ubrn_uniffi_veloqrs_fn_method_veloqengine_sections"),
-          1,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this->cpp_uniffi_veloqrs_fn_method_veloqengine_sections(
-                rt, thisVal, args, count);
-          });
-  props["ubrn_uniffi_veloqrs_fn_method_veloqengine_set_name_translations"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_fn_method_"
-                                        "veloqengine_set_name_translations"),
-          3,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this
-                ->cpp_uniffi_veloqrs_fn_method_veloqengine_set_name_translations(
-                    rt, thisVal, args, count);
-          });
-  props["ubrn_uniffi_veloqrs_fn_method_veloqengine_settings"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(
-              rt, "ubrn_uniffi_veloqrs_fn_method_veloqengine_settings"),
-          1,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this->cpp_uniffi_veloqrs_fn_method_veloqengine_settings(
-                rt, thisVal, args, count);
-          });
-  props["ubrn_uniffi_veloqrs_fn_method_veloqengine_strength"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(
-              rt, "ubrn_uniffi_veloqrs_fn_method_veloqengine_strength"),
-          1,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this->cpp_uniffi_veloqrs_fn_method_veloqengine_strength(
-                rt, thisVal, args, count);
-          });
-  props["ubrn_uniffi_veloqrs_fn_func_compute_polyline_overlap"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(
-              rt, "ubrn_uniffi_veloqrs_fn_func_compute_polyline_overlap"),
-          3,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this->cpp_uniffi_veloqrs_fn_func_compute_polyline_overlap(
-                rt, thisVal, args, count);
           });
   props["ubrn_uniffi_veloqrs_fn_func_get_download_progress"] =
       jsi::Function::createFromHostFunction(
@@ -4781,17 +4706,16 @@ NativeVeloqrs::NativeVeloqrs(
             return this->cpp_uniffi_veloqrs_fn_func_validate_backup_database(
                 rt, thisVal, args, count);
           });
-  props["ubrn_uniffi_veloqrs_checksum_func_compute_polyline_overlap"] =
+  props["ubrn_uniffi_veloqrs_fn_func_compute_polyline_overlap"] =
       jsi::Function::createFromHostFunction(
           rt,
           jsi::PropNameID::forAscii(
-              rt, "ubrn_uniffi_veloqrs_checksum_func_compute_polyline_overlap"),
-          0,
+              rt, "ubrn_uniffi_veloqrs_fn_func_compute_polyline_overlap"),
+          3,
           [this](jsi::Runtime &rt, const jsi::Value &thisVal,
                  const jsi::Value *args, size_t count) -> jsi::Value {
-            return this
-                ->cpp_uniffi_veloqrs_checksum_func_compute_polyline_overlap(
-                    rt, thisVal, args, count);
+            return this->cpp_uniffi_veloqrs_fn_func_compute_polyline_overlap(
+                rt, thisVal, args, count);
           });
   props["ubrn_uniffi_veloqrs_checksum_func_get_download_progress"] =
       jsi::Function::createFromHostFunction(
@@ -4838,6 +4762,18 @@ NativeVeloqrs::NativeVeloqrs(
                  const jsi::Value *args, size_t count) -> jsi::Value {
             return this
                 ->cpp_uniffi_veloqrs_checksum_func_validate_backup_database(
+                    rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_checksum_func_compute_polyline_overlap"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt, "ubrn_uniffi_veloqrs_checksum_func_compute_polyline_overlap"),
+          0,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_checksum_func_compute_polyline_overlap(
                     rt, thisVal, args, count);
           });
   props["ubrn_uniffi_veloqrs_checksum_method_activitymanager_add"] =
@@ -5081,6 +5017,278 @@ NativeVeloqrs::NativeVeloqrs(
                 ->cpp_uniffi_veloqrs_checksum_method_detectionmanager_start(
                     rt, thisVal, args, count);
           });
+  props["ubrn_uniffi_veloqrs_checksum_method_veloqengine_activities"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt, "ubrn_uniffi_veloqrs_checksum_method_veloqengine_activities"),
+          0,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_checksum_method_veloqengine_activities(
+                    rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_checksum_method_veloqengine_backup_database"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_checksum_method_"
+                                        "veloqengine_backup_database"),
+          0,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_checksum_method_veloqengine_backup_database(
+                    rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_checksum_method_veloqengine_bulk_export_geojson"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_checksum_method_"
+                                        "veloqengine_bulk_export_geojson"),
+          0,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_checksum_method_veloqengine_bulk_export_geojson(
+                    rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_checksum_method_veloqengine_bulk_export_gpx"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_checksum_method_"
+                                        "veloqengine_bulk_export_gpx"),
+          0,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_checksum_method_veloqengine_bulk_export_gpx(
+                    rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_checksum_method_veloqengine_cleanup_old_"
+        "activities"] = jsi::Function::createFromHostFunction(
+      rt,
+      jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_checksum_method_"
+                                    "veloqengine_cleanup_old_activities"),
+      0,
+      [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+             const jsi::Value *args, size_t count) -> jsi::Value {
+        return this
+            ->cpp_uniffi_veloqrs_checksum_method_veloqengine_cleanup_old_activities(
+                rt, thisVal, args, count);
+      });
+  props["ubrn_uniffi_veloqrs_checksum_method_veloqengine_clear"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt, "ubrn_uniffi_veloqrs_checksum_method_veloqengine_clear"),
+          0,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_uniffi_veloqrs_checksum_method_veloqengine_clear(
+                rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_checksum_method_veloqengine_clear_routes_and_"
+        "sections"] = jsi::Function::createFromHostFunction(
+      rt,
+      jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_checksum_method_"
+                                    "veloqengine_clear_routes_and_sections"),
+      0,
+      [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+             const jsi::Value *args, size_t count) -> jsi::Value {
+        return this
+            ->cpp_uniffi_veloqrs_checksum_method_veloqengine_clear_routes_and_sections(
+                rt, thisVal, args, count);
+      });
+  props["ubrn_uniffi_veloqrs_checksum_method_veloqengine_destroy"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt, "ubrn_uniffi_veloqrs_checksum_method_veloqengine_destroy"),
+          0,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_uniffi_veloqrs_checksum_method_veloqengine_destroy(
+                rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_checksum_method_veloqengine_detection"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt, "ubrn_uniffi_veloqrs_checksum_method_veloqengine_detection"),
+          0,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_checksum_method_veloqengine_detection(
+                    rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_checksum_method_veloqengine_fitness"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt, "ubrn_uniffi_veloqrs_checksum_method_veloqengine_fitness"),
+          0,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_uniffi_veloqrs_checksum_method_veloqengine_fitness(
+                rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_checksum_method_veloqengine_get_activities_"
+        "needing_time_streams"] = jsi::Function::createFromHostFunction(
+      rt,
+      jsi::PropNameID::forAscii(
+          rt, "ubrn_uniffi_veloqrs_checksum_method_veloqengine_get_activities_"
+              "needing_time_streams"),
+      0,
+      [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+             const jsi::Value *args, size_t count) -> jsi::Value {
+        return this
+            ->cpp_uniffi_veloqrs_checksum_method_veloqengine_get_activities_needing_time_streams(
+                rt, thisVal, args, count);
+      });
+  props["ubrn_uniffi_veloqrs_checksum_method_veloqengine_get_activity_count"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_checksum_method_"
+                                        "veloqengine_get_activity_count"),
+          0,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_checksum_method_veloqengine_get_activity_count(
+                    rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_checksum_method_veloqengine_get_backup_metadata"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_checksum_method_"
+                                        "veloqengine_get_backup_metadata"),
+          0,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_checksum_method_veloqengine_get_backup_metadata(
+                    rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_checksum_method_veloqengine_get_stats"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt, "ubrn_uniffi_veloqrs_checksum_method_veloqengine_get_stats"),
+          0,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_checksum_method_veloqengine_get_stats(
+                    rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_checksum_method_veloqengine_heatmap"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt, "ubrn_uniffi_veloqrs_checksum_method_veloqengine_heatmap"),
+          0,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_uniffi_veloqrs_checksum_method_veloqengine_heatmap(
+                rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_checksum_method_veloqengine_is_initialized"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt,
+              "ubrn_uniffi_veloqrs_checksum_method_veloqengine_is_initialized"),
+          0,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_checksum_method_veloqengine_is_initialized(
+                    rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_checksum_method_veloqengine_maps"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt, "ubrn_uniffi_veloqrs_checksum_method_veloqengine_maps"),
+          0,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_uniffi_veloqrs_checksum_method_veloqengine_maps(
+                rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_checksum_method_veloqengine_mark_for_"
+        "recomputation"] = jsi::Function::createFromHostFunction(
+      rt,
+      jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_checksum_method_"
+                                    "veloqengine_mark_for_recomputation"),
+      0,
+      [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+             const jsi::Value *args, size_t count) -> jsi::Value {
+        return this
+            ->cpp_uniffi_veloqrs_checksum_method_veloqengine_mark_for_recomputation(
+                rt, thisVal, args, count);
+      });
+  props["ubrn_uniffi_veloqrs_checksum_method_veloqengine_routes"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt, "ubrn_uniffi_veloqrs_checksum_method_veloqengine_routes"),
+          0,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_uniffi_veloqrs_checksum_method_veloqengine_routes(
+                rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_checksum_method_veloqengine_sections"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt, "ubrn_uniffi_veloqrs_checksum_method_veloqengine_sections"),
+          0,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_checksum_method_veloqengine_sections(
+                    rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_checksum_method_veloqengine_set_name_"
+        "translations"] = jsi::Function::createFromHostFunction(
+      rt,
+      jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_checksum_method_"
+                                    "veloqengine_set_name_translations"),
+      0,
+      [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+             const jsi::Value *args, size_t count) -> jsi::Value {
+        return this
+            ->cpp_uniffi_veloqrs_checksum_method_veloqengine_set_name_translations(
+                rt, thisVal, args, count);
+      });
+  props["ubrn_uniffi_veloqrs_checksum_method_veloqengine_settings"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt, "ubrn_uniffi_veloqrs_checksum_method_veloqengine_settings"),
+          0,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_checksum_method_veloqengine_settings(
+                    rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_checksum_method_veloqengine_strength"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt, "ubrn_uniffi_veloqrs_checksum_method_veloqengine_strength"),
+          0,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_checksum_method_veloqengine_strength(
+                    rt, thisVal, args, count);
+          });
   props["ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_compute_hrv_"
         "trend"] = jsi::Function::createFromHostFunction(
       rt,
@@ -5297,91 +5505,6 @@ NativeVeloqrs::NativeVeloqrs(
                  const jsi::Value *args, size_t count) -> jsi::Value {
             return this
                 ->cpp_uniffi_veloqrs_checksum_method_fitnessmanager_upsert_wellness(
-                    rt, thisVal, args, count);
-          });
-  props["ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_clear_tiles"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(
-              rt,
-              "ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_clear_tiles"),
-          0,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this
-                ->cpp_uniffi_veloqrs_checksum_method_heatmapmanager_clear_tiles(
-                    rt, thisVal, args, count);
-          });
-  props["ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_clear_tiles_path"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_checksum_method_"
-                                        "heatmapmanager_clear_tiles_path"),
-          0,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this
-                ->cpp_uniffi_veloqrs_checksum_method_heatmapmanager_clear_tiles_path(
-                    rt, thisVal, args, count);
-          });
-  props["ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_get_cache_size"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_checksum_method_"
-                                        "heatmapmanager_get_cache_size"),
-          0,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this
-                ->cpp_uniffi_veloqrs_checksum_method_heatmapmanager_get_cache_size(
-                    rt, thisVal, args, count);
-          });
-  props["ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_get_percent"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(
-              rt,
-              "ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_get_percent"),
-          0,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this
-                ->cpp_uniffi_veloqrs_checksum_method_heatmapmanager_get_percent(
-                    rt, thisVal, args, count);
-          });
-  props["ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_get_progress"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_checksum_method_"
-                                        "heatmapmanager_get_progress"),
-          0,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this
-                ->cpp_uniffi_veloqrs_checksum_method_heatmapmanager_get_progress(
-                    rt, thisVal, args, count);
-          });
-  props["ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_poll"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(
-              rt, "ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_poll"),
-          0,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this->cpp_uniffi_veloqrs_checksum_method_heatmapmanager_poll(
-                rt, thisVal, args, count);
-          });
-  props["ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_set_tiles_path"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_checksum_method_"
-                                        "heatmapmanager_set_tiles_path"),
-          0,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this
-                ->cpp_uniffi_veloqrs_checksum_method_heatmapmanager_set_tiles_path(
                     rt, thisVal, args, count);
           });
   props["ubrn_uniffi_veloqrs_checksum_method_mapmanager_get_all_signatures"] =
@@ -6618,276 +6741,89 @@ NativeVeloqrs::NativeVeloqrs(
             ->cpp_uniffi_veloqrs_checksum_method_strengthmanager_is_fit_processed(
                 rt, thisVal, args, count);
       });
-  props["ubrn_uniffi_veloqrs_checksum_method_veloqengine_activities"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(
-              rt, "ubrn_uniffi_veloqrs_checksum_method_veloqengine_activities"),
-          0,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this
-                ->cpp_uniffi_veloqrs_checksum_method_veloqengine_activities(
-                    rt, thisVal, args, count);
-          });
-  props["ubrn_uniffi_veloqrs_checksum_method_veloqengine_backup_database"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_checksum_method_"
-                                        "veloqengine_backup_database"),
-          0,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this
-                ->cpp_uniffi_veloqrs_checksum_method_veloqengine_backup_database(
-                    rt, thisVal, args, count);
-          });
-  props["ubrn_uniffi_veloqrs_checksum_method_veloqengine_bulk_export_geojson"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_checksum_method_"
-                                        "veloqengine_bulk_export_geojson"),
-          0,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this
-                ->cpp_uniffi_veloqrs_checksum_method_veloqengine_bulk_export_geojson(
-                    rt, thisVal, args, count);
-          });
-  props["ubrn_uniffi_veloqrs_checksum_method_veloqengine_bulk_export_gpx"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_checksum_method_"
-                                        "veloqengine_bulk_export_gpx"),
-          0,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this
-                ->cpp_uniffi_veloqrs_checksum_method_veloqengine_bulk_export_gpx(
-                    rt, thisVal, args, count);
-          });
-  props["ubrn_uniffi_veloqrs_checksum_method_veloqengine_cleanup_old_"
-        "activities"] = jsi::Function::createFromHostFunction(
-      rt,
-      jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_checksum_method_"
-                                    "veloqengine_cleanup_old_activities"),
-      0,
-      [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-             const jsi::Value *args, size_t count) -> jsi::Value {
-        return this
-            ->cpp_uniffi_veloqrs_checksum_method_veloqengine_cleanup_old_activities(
-                rt, thisVal, args, count);
-      });
-  props["ubrn_uniffi_veloqrs_checksum_method_veloqengine_clear"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(
-              rt, "ubrn_uniffi_veloqrs_checksum_method_veloqengine_clear"),
-          0,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this->cpp_uniffi_veloqrs_checksum_method_veloqengine_clear(
-                rt, thisVal, args, count);
-          });
-  props["ubrn_uniffi_veloqrs_checksum_method_veloqengine_clear_routes_and_"
-        "sections"] = jsi::Function::createFromHostFunction(
-      rt,
-      jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_checksum_method_"
-                                    "veloqengine_clear_routes_and_sections"),
-      0,
-      [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-             const jsi::Value *args, size_t count) -> jsi::Value {
-        return this
-            ->cpp_uniffi_veloqrs_checksum_method_veloqengine_clear_routes_and_sections(
-                rt, thisVal, args, count);
-      });
-  props["ubrn_uniffi_veloqrs_checksum_method_veloqengine_destroy"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(
-              rt, "ubrn_uniffi_veloqrs_checksum_method_veloqengine_destroy"),
-          0,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this->cpp_uniffi_veloqrs_checksum_method_veloqengine_destroy(
-                rt, thisVal, args, count);
-          });
-  props["ubrn_uniffi_veloqrs_checksum_method_veloqengine_detection"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(
-              rt, "ubrn_uniffi_veloqrs_checksum_method_veloqengine_detection"),
-          0,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this
-                ->cpp_uniffi_veloqrs_checksum_method_veloqengine_detection(
-                    rt, thisVal, args, count);
-          });
-  props["ubrn_uniffi_veloqrs_checksum_method_veloqengine_fitness"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(
-              rt, "ubrn_uniffi_veloqrs_checksum_method_veloqengine_fitness"),
-          0,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this->cpp_uniffi_veloqrs_checksum_method_veloqengine_fitness(
-                rt, thisVal, args, count);
-          });
-  props["ubrn_uniffi_veloqrs_checksum_method_veloqengine_get_activities_"
-        "needing_time_streams"] = jsi::Function::createFromHostFunction(
-      rt,
-      jsi::PropNameID::forAscii(
-          rt, "ubrn_uniffi_veloqrs_checksum_method_veloqengine_get_activities_"
-              "needing_time_streams"),
-      0,
-      [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-             const jsi::Value *args, size_t count) -> jsi::Value {
-        return this
-            ->cpp_uniffi_veloqrs_checksum_method_veloqengine_get_activities_needing_time_streams(
-                rt, thisVal, args, count);
-      });
-  props["ubrn_uniffi_veloqrs_checksum_method_veloqengine_get_activity_count"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_checksum_method_"
-                                        "veloqengine_get_activity_count"),
-          0,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this
-                ->cpp_uniffi_veloqrs_checksum_method_veloqengine_get_activity_count(
-                    rt, thisVal, args, count);
-          });
-  props["ubrn_uniffi_veloqrs_checksum_method_veloqengine_get_backup_metadata"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_checksum_method_"
-                                        "veloqengine_get_backup_metadata"),
-          0,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this
-                ->cpp_uniffi_veloqrs_checksum_method_veloqengine_get_backup_metadata(
-                    rt, thisVal, args, count);
-          });
-  props["ubrn_uniffi_veloqrs_checksum_method_veloqengine_get_stats"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(
-              rt, "ubrn_uniffi_veloqrs_checksum_method_veloqengine_get_stats"),
-          0,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this
-                ->cpp_uniffi_veloqrs_checksum_method_veloqengine_get_stats(
-                    rt, thisVal, args, count);
-          });
-  props["ubrn_uniffi_veloqrs_checksum_method_veloqengine_heatmap"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(
-              rt, "ubrn_uniffi_veloqrs_checksum_method_veloqengine_heatmap"),
-          0,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this->cpp_uniffi_veloqrs_checksum_method_veloqengine_heatmap(
-                rt, thisVal, args, count);
-          });
-  props["ubrn_uniffi_veloqrs_checksum_method_veloqengine_is_initialized"] =
+  props["ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_clear_tiles"] =
       jsi::Function::createFromHostFunction(
           rt,
           jsi::PropNameID::forAscii(
               rt,
-              "ubrn_uniffi_veloqrs_checksum_method_veloqengine_is_initialized"),
+              "ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_clear_tiles"),
           0,
           [this](jsi::Runtime &rt, const jsi::Value &thisVal,
                  const jsi::Value *args, size_t count) -> jsi::Value {
             return this
-                ->cpp_uniffi_veloqrs_checksum_method_veloqengine_is_initialized(
+                ->cpp_uniffi_veloqrs_checksum_method_heatmapmanager_clear_tiles(
                     rt, thisVal, args, count);
           });
-  props["ubrn_uniffi_veloqrs_checksum_method_veloqengine_maps"] =
+  props["ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_clear_tiles_path"] =
       jsi::Function::createFromHostFunction(
           rt,
-          jsi::PropNameID::forAscii(
-              rt, "ubrn_uniffi_veloqrs_checksum_method_veloqengine_maps"),
-          0,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this->cpp_uniffi_veloqrs_checksum_method_veloqengine_maps(
-                rt, thisVal, args, count);
-          });
-  props["ubrn_uniffi_veloqrs_checksum_method_veloqengine_mark_for_"
-        "recomputation"] = jsi::Function::createFromHostFunction(
-      rt,
-      jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_checksum_method_"
-                                    "veloqengine_mark_for_recomputation"),
-      0,
-      [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-             const jsi::Value *args, size_t count) -> jsi::Value {
-        return this
-            ->cpp_uniffi_veloqrs_checksum_method_veloqengine_mark_for_recomputation(
-                rt, thisVal, args, count);
-      });
-  props["ubrn_uniffi_veloqrs_checksum_method_veloqengine_routes"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(
-              rt, "ubrn_uniffi_veloqrs_checksum_method_veloqengine_routes"),
-          0,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this->cpp_uniffi_veloqrs_checksum_method_veloqengine_routes(
-                rt, thisVal, args, count);
-          });
-  props["ubrn_uniffi_veloqrs_checksum_method_veloqengine_sections"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(
-              rt, "ubrn_uniffi_veloqrs_checksum_method_veloqengine_sections"),
+          jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_checksum_method_"
+                                        "heatmapmanager_clear_tiles_path"),
           0,
           [this](jsi::Runtime &rt, const jsi::Value &thisVal,
                  const jsi::Value *args, size_t count) -> jsi::Value {
             return this
-                ->cpp_uniffi_veloqrs_checksum_method_veloqengine_sections(
+                ->cpp_uniffi_veloqrs_checksum_method_heatmapmanager_clear_tiles_path(
                     rt, thisVal, args, count);
           });
-  props["ubrn_uniffi_veloqrs_checksum_method_veloqengine_set_name_"
-        "translations"] = jsi::Function::createFromHostFunction(
-      rt,
-      jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_checksum_method_"
-                                    "veloqengine_set_name_translations"),
-      0,
-      [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-             const jsi::Value *args, size_t count) -> jsi::Value {
-        return this
-            ->cpp_uniffi_veloqrs_checksum_method_veloqengine_set_name_translations(
-                rt, thisVal, args, count);
-      });
-  props["ubrn_uniffi_veloqrs_checksum_method_veloqengine_settings"] =
+  props["ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_get_cache_size"] =
       jsi::Function::createFromHostFunction(
           rt,
-          jsi::PropNameID::forAscii(
-              rt, "ubrn_uniffi_veloqrs_checksum_method_veloqengine_settings"),
+          jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_checksum_method_"
+                                        "heatmapmanager_get_cache_size"),
           0,
           [this](jsi::Runtime &rt, const jsi::Value &thisVal,
                  const jsi::Value *args, size_t count) -> jsi::Value {
             return this
-                ->cpp_uniffi_veloqrs_checksum_method_veloqengine_settings(
+                ->cpp_uniffi_veloqrs_checksum_method_heatmapmanager_get_cache_size(
                     rt, thisVal, args, count);
           });
-  props["ubrn_uniffi_veloqrs_checksum_method_veloqengine_strength"] =
+  props["ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_get_percent"] =
       jsi::Function::createFromHostFunction(
           rt,
           jsi::PropNameID::forAscii(
-              rt, "ubrn_uniffi_veloqrs_checksum_method_veloqengine_strength"),
+              rt,
+              "ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_get_percent"),
           0,
           [this](jsi::Runtime &rt, const jsi::Value &thisVal,
                  const jsi::Value *args, size_t count) -> jsi::Value {
             return this
-                ->cpp_uniffi_veloqrs_checksum_method_veloqengine_strength(
+                ->cpp_uniffi_veloqrs_checksum_method_heatmapmanager_get_percent(
+                    rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_get_progress"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_checksum_method_"
+                                        "heatmapmanager_get_progress"),
+          0,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_checksum_method_heatmapmanager_get_progress(
+                    rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_poll"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt, "ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_poll"),
+          0,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_uniffi_veloqrs_checksum_method_heatmapmanager_poll(
+                rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_set_tiles_path"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_checksum_method_"
+                                        "heatmapmanager_set_tiles_path"),
+          0,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_checksum_method_heatmapmanager_set_tiles_path(
                     rt, thisVal, args, count);
           });
   props["ubrn_uniffi_veloqrs_checksum_constructor_activitymanager_new"] =
@@ -6916,6 +6852,19 @@ NativeVeloqrs::NativeVeloqrs(
                 ->cpp_uniffi_veloqrs_checksum_constructor_detectionmanager_new(
                     rt, thisVal, args, count);
           });
+  props["ubrn_uniffi_veloqrs_checksum_constructor_veloqengine_create"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt,
+              "ubrn_uniffi_veloqrs_checksum_constructor_veloqengine_create"),
+          0,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_checksum_constructor_veloqengine_create(
+                    rt, thisVal, args, count);
+          });
   props["ubrn_uniffi_veloqrs_checksum_constructor_fitnessmanager_new"] =
       jsi::Function::createFromHostFunction(
           rt,
@@ -6927,19 +6876,6 @@ NativeVeloqrs::NativeVeloqrs(
                  const jsi::Value *args, size_t count) -> jsi::Value {
             return this
                 ->cpp_uniffi_veloqrs_checksum_constructor_fitnessmanager_new(
-                    rt, thisVal, args, count);
-          });
-  props["ubrn_uniffi_veloqrs_checksum_constructor_heatmapmanager_new"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(
-              rt,
-              "ubrn_uniffi_veloqrs_checksum_constructor_heatmapmanager_new"),
-          0,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this
-                ->cpp_uniffi_veloqrs_checksum_constructor_heatmapmanager_new(
                     rt, thisVal, args, count);
           });
   props["ubrn_uniffi_veloqrs_checksum_constructor_mapmanager_new"] =
@@ -7004,17 +6940,17 @@ NativeVeloqrs::NativeVeloqrs(
                 ->cpp_uniffi_veloqrs_checksum_constructor_strengthmanager_new(
                     rt, thisVal, args, count);
           });
-  props["ubrn_uniffi_veloqrs_checksum_constructor_veloqengine_create"] =
+  props["ubrn_uniffi_veloqrs_checksum_constructor_heatmapmanager_new"] =
       jsi::Function::createFromHostFunction(
           rt,
           jsi::PropNameID::forAscii(
               rt,
-              "ubrn_uniffi_veloqrs_checksum_constructor_veloqengine_create"),
+              "ubrn_uniffi_veloqrs_checksum_constructor_heatmapmanager_new"),
           0,
           [this](jsi::Runtime &rt, const jsi::Value &thisVal,
                  const jsi::Value *args, size_t count) -> jsi::Value {
             return this
-                ->cpp_uniffi_veloqrs_checksum_constructor_veloqengine_create(
+                ->cpp_uniffi_veloqrs_checksum_constructor_heatmapmanager_new(
                     rt, thisVal, args, count);
           });
   props["ubrn_ffi_veloqrs_uniffi_contract_version"] =
@@ -7052,6 +6988,19 @@ NativeVeloqrs::NativeVeloqrs(
                 ->cpp_uniffi_internal_fn_method_detectionmanager_ffi__bless_pointer(
                     rt, thisVal, args, count);
           });
+  props["ubrn_uniffi_internal_fn_method_veloqengine_ffi__bless_pointer"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt,
+              "ubrn_uniffi_internal_fn_method_veloqengine_ffi__bless_pointer"),
+          1,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_internal_fn_method_veloqengine_ffi__bless_pointer(
+                    rt, thisVal, args, count);
+          });
   props["ubrn_uniffi_internal_fn_method_fitnessmanager_ffi__bless_pointer"] =
       jsi::Function::createFromHostFunction(
           rt,
@@ -7062,18 +7011,6 @@ NativeVeloqrs::NativeVeloqrs(
                  const jsi::Value *args, size_t count) -> jsi::Value {
             return this
                 ->cpp_uniffi_internal_fn_method_fitnessmanager_ffi__bless_pointer(
-                    rt, thisVal, args, count);
-          });
-  props["ubrn_uniffi_internal_fn_method_heatmapmanager_ffi__bless_pointer"] =
-      jsi::Function::createFromHostFunction(
-          rt,
-          jsi::PropNameID::forAscii(rt, "ubrn_uniffi_internal_fn_method_"
-                                        "heatmapmanager_ffi__bless_pointer"),
-          1,
-          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
-                 const jsi::Value *args, size_t count) -> jsi::Value {
-            return this
-                ->cpp_uniffi_internal_fn_method_heatmapmanager_ffi__bless_pointer(
                     rt, thisVal, args, count);
           });
   props["ubrn_uniffi_internal_fn_method_mapmanager_ffi__bless_pointer"] =
@@ -7138,17 +7075,16 @@ NativeVeloqrs::NativeVeloqrs(
                 ->cpp_uniffi_internal_fn_method_strengthmanager_ffi__bless_pointer(
                     rt, thisVal, args, count);
           });
-  props["ubrn_uniffi_internal_fn_method_veloqengine_ffi__bless_pointer"] =
+  props["ubrn_uniffi_internal_fn_method_heatmapmanager_ffi__bless_pointer"] =
       jsi::Function::createFromHostFunction(
           rt,
-          jsi::PropNameID::forAscii(
-              rt,
-              "ubrn_uniffi_internal_fn_method_veloqengine_ffi__bless_pointer"),
+          jsi::PropNameID::forAscii(rt, "ubrn_uniffi_internal_fn_method_"
+                                        "heatmapmanager_ffi__bless_pointer"),
           1,
           [this](jsi::Runtime &rt, const jsi::Value &thisVal,
                  const jsi::Value *args, size_t count) -> jsi::Value {
             return this
-                ->cpp_uniffi_internal_fn_method_veloqengine_ffi__bless_pointer(
+                ->cpp_uniffi_internal_fn_method_heatmapmanager_ffi__bless_pointer(
                     rt, thisVal, args, count);
           });
 }
@@ -7190,8 +7126,9 @@ void NativeVeloqrs::set(jsi::Runtime &rt, const jsi::PropNameID &name,
 NativeVeloqrs::~NativeVeloqrs() {
   // Cleanup for callback function RustFutureContinuationCallback
   uniffi::veloqrs::cb::rustfuturecontinuationcallback::cleanup();
+  // Cleanup for callback function ForeignFutureDroppedCallback
+  uniffi::veloqrs::cb::foreignfuturedroppedcallback::cleanup();
   // Cleanup for "free" callback function CallbackInterfaceFree
-  uniffi::veloqrs::st::foreignfuture::foreignfuture::free::cleanup();
 }
 
 // Utility functions for serialization/deserialization of strings.
@@ -7222,9 +7159,8 @@ NativeVeloqrs::cpp_uniffi_internal_fn_method_activitymanager_ffi__bless_pointer(
   auto pointer =
       uniffi_jsi::Bridging<uint64_t>::fromJs(rt, callInvoker, args[0]);
   auto static destructor = [](uint64_t p) {
-    auto pointer = reinterpret_cast<void *>(static_cast<uintptr_t>(p));
     RustCallStatus status = {0};
-    uniffi_veloqrs_fn_free_activitymanager(pointer, &status);
+    uniffi_veloqrs_fn_free_activitymanager(p, &status);
   };
   auto ptrObj =
       std::make_shared<uniffi_jsi::DestructibleObject>(pointer, destructor);
@@ -7238,121 +7174,8 @@ jsi::Value NativeVeloqrs::
   auto pointer =
       uniffi_jsi::Bridging<uint64_t>::fromJs(rt, callInvoker, args[0]);
   auto static destructor = [](uint64_t p) {
-    auto pointer = reinterpret_cast<void *>(static_cast<uintptr_t>(p));
     RustCallStatus status = {0};
-    uniffi_veloqrs_fn_free_detectionmanager(pointer, &status);
-  };
-  auto ptrObj =
-      std::make_shared<uniffi_jsi::DestructibleObject>(pointer, destructor);
-  auto obj = jsi::Object::createFromHostObject(rt, ptrObj);
-  return jsi::Value(rt, obj);
-}
-jsi::Value
-NativeVeloqrs::cpp_uniffi_internal_fn_method_fitnessmanager_ffi__bless_pointer(
-    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-    size_t count) {
-  auto pointer =
-      uniffi_jsi::Bridging<uint64_t>::fromJs(rt, callInvoker, args[0]);
-  auto static destructor = [](uint64_t p) {
-    auto pointer = reinterpret_cast<void *>(static_cast<uintptr_t>(p));
-    RustCallStatus status = {0};
-    uniffi_veloqrs_fn_free_fitnessmanager(pointer, &status);
-  };
-  auto ptrObj =
-      std::make_shared<uniffi_jsi::DestructibleObject>(pointer, destructor);
-  auto obj = jsi::Object::createFromHostObject(rt, ptrObj);
-  return jsi::Value(rt, obj);
-}
-jsi::Value
-NativeVeloqrs::cpp_uniffi_internal_fn_method_heatmapmanager_ffi__bless_pointer(
-    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-    size_t count) {
-  auto pointer =
-      uniffi_jsi::Bridging<uint64_t>::fromJs(rt, callInvoker, args[0]);
-  auto static destructor = [](uint64_t p) {
-    auto pointer = reinterpret_cast<void *>(static_cast<uintptr_t>(p));
-    RustCallStatus status = {0};
-    uniffi_veloqrs_fn_free_heatmapmanager(pointer, &status);
-  };
-  auto ptrObj =
-      std::make_shared<uniffi_jsi::DestructibleObject>(pointer, destructor);
-  auto obj = jsi::Object::createFromHostObject(rt, ptrObj);
-  return jsi::Value(rt, obj);
-}
-jsi::Value
-NativeVeloqrs::cpp_uniffi_internal_fn_method_mapmanager_ffi__bless_pointer(
-    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-    size_t count) {
-  auto pointer =
-      uniffi_jsi::Bridging<uint64_t>::fromJs(rt, callInvoker, args[0]);
-  auto static destructor = [](uint64_t p) {
-    auto pointer = reinterpret_cast<void *>(static_cast<uintptr_t>(p));
-    RustCallStatus status = {0};
-    uniffi_veloqrs_fn_free_mapmanager(pointer, &status);
-  };
-  auto ptrObj =
-      std::make_shared<uniffi_jsi::DestructibleObject>(pointer, destructor);
-  auto obj = jsi::Object::createFromHostObject(rt, ptrObj);
-  return jsi::Value(rt, obj);
-}
-jsi::Value
-NativeVeloqrs::cpp_uniffi_internal_fn_method_routemanager_ffi__bless_pointer(
-    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-    size_t count) {
-  auto pointer =
-      uniffi_jsi::Bridging<uint64_t>::fromJs(rt, callInvoker, args[0]);
-  auto static destructor = [](uint64_t p) {
-    auto pointer = reinterpret_cast<void *>(static_cast<uintptr_t>(p));
-    RustCallStatus status = {0};
-    uniffi_veloqrs_fn_free_routemanager(pointer, &status);
-  };
-  auto ptrObj =
-      std::make_shared<uniffi_jsi::DestructibleObject>(pointer, destructor);
-  auto obj = jsi::Object::createFromHostObject(rt, ptrObj);
-  return jsi::Value(rt, obj);
-}
-jsi::Value
-NativeVeloqrs::cpp_uniffi_internal_fn_method_sectionmanager_ffi__bless_pointer(
-    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-    size_t count) {
-  auto pointer =
-      uniffi_jsi::Bridging<uint64_t>::fromJs(rt, callInvoker, args[0]);
-  auto static destructor = [](uint64_t p) {
-    auto pointer = reinterpret_cast<void *>(static_cast<uintptr_t>(p));
-    RustCallStatus status = {0};
-    uniffi_veloqrs_fn_free_sectionmanager(pointer, &status);
-  };
-  auto ptrObj =
-      std::make_shared<uniffi_jsi::DestructibleObject>(pointer, destructor);
-  auto obj = jsi::Object::createFromHostObject(rt, ptrObj);
-  return jsi::Value(rt, obj);
-}
-jsi::Value
-NativeVeloqrs::cpp_uniffi_internal_fn_method_settingsmanager_ffi__bless_pointer(
-    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-    size_t count) {
-  auto pointer =
-      uniffi_jsi::Bridging<uint64_t>::fromJs(rt, callInvoker, args[0]);
-  auto static destructor = [](uint64_t p) {
-    auto pointer = reinterpret_cast<void *>(static_cast<uintptr_t>(p));
-    RustCallStatus status = {0};
-    uniffi_veloqrs_fn_free_settingsmanager(pointer, &status);
-  };
-  auto ptrObj =
-      std::make_shared<uniffi_jsi::DestructibleObject>(pointer, destructor);
-  auto obj = jsi::Object::createFromHostObject(rt, ptrObj);
-  return jsi::Value(rt, obj);
-}
-jsi::Value
-NativeVeloqrs::cpp_uniffi_internal_fn_method_strengthmanager_ffi__bless_pointer(
-    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-    size_t count) {
-  auto pointer =
-      uniffi_jsi::Bridging<uint64_t>::fromJs(rt, callInvoker, args[0]);
-  auto static destructor = [](uint64_t p) {
-    auto pointer = reinterpret_cast<void *>(static_cast<uintptr_t>(p));
-    RustCallStatus status = {0};
-    uniffi_veloqrs_fn_free_strengthmanager(pointer, &status);
+    uniffi_veloqrs_fn_free_detectionmanager(p, &status);
   };
   auto ptrObj =
       std::make_shared<uniffi_jsi::DestructibleObject>(pointer, destructor);
@@ -7366,9 +7189,113 @@ NativeVeloqrs::cpp_uniffi_internal_fn_method_veloqengine_ffi__bless_pointer(
   auto pointer =
       uniffi_jsi::Bridging<uint64_t>::fromJs(rt, callInvoker, args[0]);
   auto static destructor = [](uint64_t p) {
-    auto pointer = reinterpret_cast<void *>(static_cast<uintptr_t>(p));
     RustCallStatus status = {0};
-    uniffi_veloqrs_fn_free_veloqengine(pointer, &status);
+    uniffi_veloqrs_fn_free_veloqengine(p, &status);
+  };
+  auto ptrObj =
+      std::make_shared<uniffi_jsi::DestructibleObject>(pointer, destructor);
+  auto obj = jsi::Object::createFromHostObject(rt, ptrObj);
+  return jsi::Value(rt, obj);
+}
+jsi::Value
+NativeVeloqrs::cpp_uniffi_internal_fn_method_fitnessmanager_ffi__bless_pointer(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  auto pointer =
+      uniffi_jsi::Bridging<uint64_t>::fromJs(rt, callInvoker, args[0]);
+  auto static destructor = [](uint64_t p) {
+    RustCallStatus status = {0};
+    uniffi_veloqrs_fn_free_fitnessmanager(p, &status);
+  };
+  auto ptrObj =
+      std::make_shared<uniffi_jsi::DestructibleObject>(pointer, destructor);
+  auto obj = jsi::Object::createFromHostObject(rt, ptrObj);
+  return jsi::Value(rt, obj);
+}
+jsi::Value
+NativeVeloqrs::cpp_uniffi_internal_fn_method_mapmanager_ffi__bless_pointer(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  auto pointer =
+      uniffi_jsi::Bridging<uint64_t>::fromJs(rt, callInvoker, args[0]);
+  auto static destructor = [](uint64_t p) {
+    RustCallStatus status = {0};
+    uniffi_veloqrs_fn_free_mapmanager(p, &status);
+  };
+  auto ptrObj =
+      std::make_shared<uniffi_jsi::DestructibleObject>(pointer, destructor);
+  auto obj = jsi::Object::createFromHostObject(rt, ptrObj);
+  return jsi::Value(rt, obj);
+}
+jsi::Value
+NativeVeloqrs::cpp_uniffi_internal_fn_method_routemanager_ffi__bless_pointer(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  auto pointer =
+      uniffi_jsi::Bridging<uint64_t>::fromJs(rt, callInvoker, args[0]);
+  auto static destructor = [](uint64_t p) {
+    RustCallStatus status = {0};
+    uniffi_veloqrs_fn_free_routemanager(p, &status);
+  };
+  auto ptrObj =
+      std::make_shared<uniffi_jsi::DestructibleObject>(pointer, destructor);
+  auto obj = jsi::Object::createFromHostObject(rt, ptrObj);
+  return jsi::Value(rt, obj);
+}
+jsi::Value
+NativeVeloqrs::cpp_uniffi_internal_fn_method_sectionmanager_ffi__bless_pointer(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  auto pointer =
+      uniffi_jsi::Bridging<uint64_t>::fromJs(rt, callInvoker, args[0]);
+  auto static destructor = [](uint64_t p) {
+    RustCallStatus status = {0};
+    uniffi_veloqrs_fn_free_sectionmanager(p, &status);
+  };
+  auto ptrObj =
+      std::make_shared<uniffi_jsi::DestructibleObject>(pointer, destructor);
+  auto obj = jsi::Object::createFromHostObject(rt, ptrObj);
+  return jsi::Value(rt, obj);
+}
+jsi::Value
+NativeVeloqrs::cpp_uniffi_internal_fn_method_settingsmanager_ffi__bless_pointer(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  auto pointer =
+      uniffi_jsi::Bridging<uint64_t>::fromJs(rt, callInvoker, args[0]);
+  auto static destructor = [](uint64_t p) {
+    RustCallStatus status = {0};
+    uniffi_veloqrs_fn_free_settingsmanager(p, &status);
+  };
+  auto ptrObj =
+      std::make_shared<uniffi_jsi::DestructibleObject>(pointer, destructor);
+  auto obj = jsi::Object::createFromHostObject(rt, ptrObj);
+  return jsi::Value(rt, obj);
+}
+jsi::Value
+NativeVeloqrs::cpp_uniffi_internal_fn_method_strengthmanager_ffi__bless_pointer(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  auto pointer =
+      uniffi_jsi::Bridging<uint64_t>::fromJs(rt, callInvoker, args[0]);
+  auto static destructor = [](uint64_t p) {
+    RustCallStatus status = {0};
+    uniffi_veloqrs_fn_free_strengthmanager(p, &status);
+  };
+  auto ptrObj =
+      std::make_shared<uniffi_jsi::DestructibleObject>(pointer, destructor);
+  auto obj = jsi::Object::createFromHostObject(rt, ptrObj);
+  return jsi::Value(rt, obj);
+}
+jsi::Value
+NativeVeloqrs::cpp_uniffi_internal_fn_method_heatmapmanager_ffi__bless_pointer(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  auto pointer =
+      uniffi_jsi::Bridging<uint64_t>::fromJs(rt, callInvoker, args[0]);
+  auto static destructor = [](uint64_t p) {
+    RustCallStatus status = {0};
+    uniffi_veloqrs_fn_free_heatmapmanager(p, &status);
   };
   auto ptrObj =
       std::make_shared<uniffi_jsi::DestructibleObject>(pointer, destructor);
@@ -7383,11 +7310,14 @@ jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_clone_activitymanager(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value = uniffi_veloqrs_fn_clone_activitymanager(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]), &status);
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);
 
-  return uniffi_jsi::Bridging<void *>::toJs(rt, callInvoker, value);
+  return uniffi_jsi::Bridging</*handle*/ uint64_t>::toJs(rt, callInvoker,
+                                                         value);
 }
 jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_free_activitymanager(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
@@ -7395,7 +7325,9 @@ jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_free_activitymanager(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   uniffi_veloqrs_fn_free_activitymanager(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]), &status);
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);
 
@@ -7410,7 +7342,8 @@ jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_constructor_activitymanager_new(
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);
 
-  return uniffi_jsi::Bridging<void *>::toJs(rt, callInvoker, value);
+  return uniffi_jsi::Bridging</*handle*/ uint64_t>::toJs(rt, callInvoker,
+                                                         value);
 }
 jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_activitymanager_add(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
@@ -7418,7 +7351,8 @@ jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_activitymanager_add(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   uniffi_veloqrs_fn_method_activitymanager_add(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[2]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[3]),
@@ -7436,7 +7370,8 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_activitymanager_debug_clone(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value = uniffi_veloqrs_fn_method_activitymanager_debug_clone(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
       uniffi_jsi::Bridging<uint32_t>::fromJs(rt, callInvoker, args[2]),
       &status);
@@ -7452,7 +7387,9 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_activitymanager_get_count(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value = uniffi_veloqrs_fn_method_activitymanager_get_count(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]), &status);
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);
 
@@ -7465,7 +7402,8 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_activitymanager_get_gps_track(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value = uniffi_veloqrs_fn_method_activitymanager_get_gps_track(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
       &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
@@ -7480,7 +7418,8 @@ jsi::Value NativeVeloqrs::
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value = uniffi_veloqrs_fn_method_activitymanager_get_highlights_bundle(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
       &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
@@ -7494,7 +7433,9 @@ jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_activitymanager_get_ids(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value = uniffi_veloqrs_fn_method_activitymanager_get_ids(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]), &status);
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);
 
@@ -7507,7 +7448,8 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_activitymanager_get_metrics_for_ids(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value = uniffi_veloqrs_fn_method_activitymanager_get_metrics_for_ids(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
       &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
@@ -7523,7 +7465,8 @@ jsi::Value NativeVeloqrs::
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value =
       uniffi_veloqrs_fn_method_activitymanager_get_missing_time_streams(
-          uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+          uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                            args[0]),
           uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker,
                                                         args[1]),
           &status);
@@ -7538,7 +7481,8 @@ jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_activitymanager_remove(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   uniffi_veloqrs_fn_method_activitymanager_remove(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
       &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
@@ -7553,7 +7497,8 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_activitymanager_set_metrics(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   uniffi_veloqrs_fn_method_activitymanager_set_metrics(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
       &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
@@ -7568,7 +7513,8 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_activitymanager_set_time_streams(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   uniffi_veloqrs_fn_method_activitymanager_set_time_streams(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[2]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[3]),
@@ -7584,11 +7530,14 @@ jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_clone_detectionmanager(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value = uniffi_veloqrs_fn_clone_detectionmanager(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]), &status);
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);
 
-  return uniffi_jsi::Bridging<void *>::toJs(rt, callInvoker, value);
+  return uniffi_jsi::Bridging</*handle*/ uint64_t>::toJs(rt, callInvoker,
+                                                         value);
 }
 jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_free_detectionmanager(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
@@ -7596,7 +7545,9 @@ jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_free_detectionmanager(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   uniffi_veloqrs_fn_free_detectionmanager(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]), &status);
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);
 
@@ -7612,7 +7563,8 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_constructor_detectionmanager_new(
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);
 
-  return uniffi_jsi::Bridging<void *>::toJs(rt, callInvoker, value);
+  return uniffi_jsi::Bridging</*handle*/ uint64_t>::toJs(rt, callInvoker,
+                                                         value);
 }
 jsi::Value
 NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_detectionmanager_detect_potentials(
@@ -7621,7 +7573,8 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_detectionmanager_detect_potentials(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value = uniffi_veloqrs_fn_method_detectionmanager_detect_potentials(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
       &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
@@ -7636,7 +7589,8 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_detectionmanager_force_redetect(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value = uniffi_veloqrs_fn_method_detectionmanager_force_redetect(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
       &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
@@ -7651,7 +7605,9 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_detectionmanager_get_config(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value = uniffi_veloqrs_fn_method_detectionmanager_get_config(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]), &status);
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);
 
@@ -7664,7 +7620,9 @@ jsi::Value NativeVeloqrs::
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value = uniffi_veloqrs_fn_method_detectionmanager_get_match_strictness(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]), &status);
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);
 
@@ -7677,7 +7635,9 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_detectionmanager_get_progress(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value = uniffi_veloqrs_fn_method_detectionmanager_get_progress(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]), &status);
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);
 
@@ -7689,7 +7649,9 @@ jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_detectionmanager_poll(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value = uniffi_veloqrs_fn_method_detectionmanager_poll(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]), &status);
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);
 
@@ -7702,7 +7664,8 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_detectionmanager_set_config(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   uniffi_veloqrs_fn_method_detectionmanager_set_config(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
       &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
@@ -7717,7 +7680,8 @@ jsi::Value NativeVeloqrs::
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   uniffi_veloqrs_fn_method_detectionmanager_set_match_strictness(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
       uniffi_jsi::Bridging<double>::fromJs(rt, callInvoker, args[1]),
       uniffi_jsi::Bridging<double>::fromJs(rt, callInvoker, args[2]), &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
@@ -7731,7 +7695,8 @@ jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_detectionmanager_start(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value = uniffi_veloqrs_fn_method_detectionmanager_start(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
       &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
@@ -7739,17 +7704,412 @@ jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_detectionmanager_start(
 
   return uniffi_jsi::Bridging<int8_t>::toJs(rt, callInvoker, value);
 }
+jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_clone_veloqengine(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value = uniffi_veloqrs_fn_clone_veloqengine(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return uniffi_jsi::Bridging</*handle*/ uint64_t>::toJs(rt, callInvoker,
+                                                         value);
+}
+jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_free_veloqengine(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  uniffi_veloqrs_fn_free_veloqengine(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return jsi::Value::undefined();
+}
+jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_constructor_veloqengine_create(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value = uniffi_veloqrs_fn_constructor_veloqengine_create(
+      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[0]),
+      &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return uniffi_jsi::Bridging</*handle*/ uint64_t>::toJs(rt, callInvoker,
+                                                         value);
+}
+jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_veloqengine_activities(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value = uniffi_veloqrs_fn_method_veloqengine_activities(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return uniffi_jsi::Bridging</*handle*/ uint64_t>::toJs(rt, callInvoker,
+                                                         value);
+}
+jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_veloqengine_backup_database(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  uniffi_veloqrs_fn_method_veloqengine_backup_database(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
+      &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return jsi::Value::undefined();
+}
+jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_veloqengine_bulk_export_geojson(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value = uniffi_veloqrs_fn_method_veloqengine_bulk_export_geojson(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
+      &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
+}
+jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_veloqengine_bulk_export_gpx(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value = uniffi_veloqrs_fn_method_veloqengine_bulk_export_gpx(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
+      &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
+}
+jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_veloqengine_cleanup_old_activities(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value = uniffi_veloqrs_fn_method_veloqengine_cleanup_old_activities(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      uniffi_jsi::Bridging<uint32_t>::fromJs(rt, callInvoker, args[1]),
+      &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return uniffi_jsi::Bridging<uint32_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_veloqengine_clear(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  uniffi_veloqrs_fn_method_veloqengine_clear(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return jsi::Value::undefined();
+}
+jsi::Value NativeVeloqrs::
+    cpp_uniffi_veloqrs_fn_method_veloqengine_clear_routes_and_sections(
+        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+        size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  uniffi_veloqrs_fn_method_veloqengine_clear_routes_and_sections(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return jsi::Value::undefined();
+}
+jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_veloqengine_destroy(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  uniffi_veloqrs_fn_method_veloqengine_destroy(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return jsi::Value::undefined();
+}
+jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_veloqengine_detection(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value = uniffi_veloqrs_fn_method_veloqengine_detection(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return uniffi_jsi::Bridging</*handle*/ uint64_t>::toJs(rt, callInvoker,
+                                                         value);
+}
+jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_veloqengine_fitness(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value = uniffi_veloqrs_fn_method_veloqengine_fitness(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return uniffi_jsi::Bridging</*handle*/ uint64_t>::toJs(rt, callInvoker,
+                                                         value);
+}
+jsi::Value NativeVeloqrs::
+    cpp_uniffi_veloqrs_fn_method_veloqengine_get_activities_needing_time_streams(
+        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+        size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value =
+      uniffi_veloqrs_fn_method_veloqengine_get_activities_needing_time_streams(
+          uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                            args[0]),
+          &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
+}
+jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_veloqengine_get_activity_count(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value = uniffi_veloqrs_fn_method_veloqengine_get_activity_count(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return uniffi_jsi::Bridging<uint32_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_veloqengine_get_backup_metadata(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value = uniffi_veloqrs_fn_method_veloqengine_get_backup_metadata(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_veloqengine_get_stats(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value = uniffi_veloqrs_fn_method_veloqengine_get_stats(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_veloqengine_heatmap(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value = uniffi_veloqrs_fn_method_veloqengine_heatmap(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return uniffi_jsi::Bridging</*handle*/ uint64_t>::toJs(rt, callInvoker,
+                                                         value);
+}
+jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_veloqengine_is_initialized(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value = uniffi_veloqrs_fn_method_veloqengine_is_initialized(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return uniffi_jsi::Bridging<int8_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_veloqengine_maps(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value = uniffi_veloqrs_fn_method_veloqengine_maps(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return uniffi_jsi::Bridging</*handle*/ uint64_t>::toJs(rt, callInvoker,
+                                                         value);
+}
+jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_veloqengine_mark_for_recomputation(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  uniffi_veloqrs_fn_method_veloqengine_mark_for_recomputation(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return jsi::Value::undefined();
+}
+jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_veloqengine_routes(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value = uniffi_veloqrs_fn_method_veloqengine_routes(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return uniffi_jsi::Bridging</*handle*/ uint64_t>::toJs(rt, callInvoker,
+                                                         value);
+}
+jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_veloqengine_sections(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value = uniffi_veloqrs_fn_method_veloqengine_sections(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return uniffi_jsi::Bridging</*handle*/ uint64_t>::toJs(rt, callInvoker,
+                                                         value);
+}
+jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_veloqengine_set_name_translations(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  uniffi_veloqrs_fn_method_veloqengine_set_name_translations(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
+      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[2]),
+      &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return jsi::Value::undefined();
+}
+jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_veloqengine_settings(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value = uniffi_veloqrs_fn_method_veloqengine_settings(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return uniffi_jsi::Bridging</*handle*/ uint64_t>::toJs(rt, callInvoker,
+                                                         value);
+}
+jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_veloqengine_strength(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value = uniffi_veloqrs_fn_method_veloqengine_strength(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return uniffi_jsi::Bridging</*handle*/ uint64_t>::toJs(rt, callInvoker,
+                                                         value);
+}
 jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_clone_fitnessmanager(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
     size_t count) {
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value = uniffi_veloqrs_fn_clone_fitnessmanager(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]), &status);
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);
 
-  return uniffi_jsi::Bridging<void *>::toJs(rt, callInvoker, value);
+  return uniffi_jsi::Bridging</*handle*/ uint64_t>::toJs(rt, callInvoker,
+                                                         value);
 }
 jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_free_fitnessmanager(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
@@ -7757,7 +8117,9 @@ jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_free_fitnessmanager(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   uniffi_veloqrs_fn_free_fitnessmanager(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]), &status);
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);
 
@@ -7772,7 +8134,8 @@ jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_constructor_fitnessmanager_new(
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);
 
-  return uniffi_jsi::Bridging<void *>::toJs(rt, callInvoker, value);
+  return uniffi_jsi::Bridging</*handle*/ uint64_t>::toJs(rt, callInvoker,
+                                                         value);
 }
 jsi::Value
 NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_fitnessmanager_compute_hrv_trend(
@@ -7781,7 +8144,8 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_fitnessmanager_compute_hrv_trend(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value = uniffi_veloqrs_fn_method_fitnessmanager_compute_hrv_trend(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
       uniffi_jsi::Bridging<uint32_t>::fromJs(rt, callInvoker, args[1]),
       &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
@@ -7797,7 +8161,8 @@ jsi::Value NativeVeloqrs::
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value =
       uniffi_veloqrs_fn_method_fitnessmanager_find_stale_pr_opportunities(
-          uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+          uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                            args[0]),
           uniffi_jsi::Bridging<uint32_t>::fromJs(rt, callInvoker, args[1]),
           uniffi_jsi::Bridging<double>::fromJs(rt, callInvoker, args[2]),
           uniffi_jsi::Bridging<uint32_t>::fromJs(rt, callInvoker, args[3]),
@@ -7816,7 +8181,8 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_fitnessmanager_get_activity_heatmap(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value = uniffi_veloqrs_fn_method_fitnessmanager_get_activity_heatmap(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[2]),
       &status);
@@ -7832,7 +8198,9 @@ jsi::Value NativeVeloqrs::
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value = uniffi_veloqrs_fn_method_fitnessmanager_get_activity_metric_ids(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]), &status);
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);
 
@@ -7845,7 +8213,9 @@ jsi::Value NativeVeloqrs::
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value = uniffi_veloqrs_fn_method_fitnessmanager_get_activity_patterns(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]), &status);
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);
 
@@ -7859,7 +8229,8 @@ jsi::Value NativeVeloqrs::
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value =
       uniffi_veloqrs_fn_method_fitnessmanager_get_activity_patterns_with_today(
-          uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+          uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                            args[0]),
           &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);
@@ -7874,7 +8245,8 @@ jsi::Value NativeVeloqrs::
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value =
       uniffi_veloqrs_fn_method_fitnessmanager_get_available_sport_types(
-          uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+          uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                            args[0]),
           &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);
@@ -7888,7 +8260,9 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_fitnessmanager_get_ftp_trend(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value = uniffi_veloqrs_fn_method_fitnessmanager_get_ftp_trend(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]), &status);
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);
 
@@ -7901,7 +8275,8 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_fitnessmanager_get_insights_data(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value = uniffi_veloqrs_fn_method_fitnessmanager_get_insights_data(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
       uniffi_jsi::Bridging<int64_t>::fromJs(rt, callInvoker, args[1]),
       uniffi_jsi::Bridging<int64_t>::fromJs(rt, callInvoker, args[2]),
       uniffi_jsi::Bridging<int64_t>::fromJs(rt, callInvoker, args[3]),
@@ -7920,7 +8295,8 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_fitnessmanager_get_pace_trend(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value = uniffi_veloqrs_fn_method_fitnessmanager_get_pace_trend(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
       &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
@@ -7935,7 +8311,9 @@ jsi::Value NativeVeloqrs::
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value = uniffi_veloqrs_fn_method_fitnessmanager_get_pattern_for_today(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]), &status);
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);
 
@@ -7948,7 +8326,8 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_fitnessmanager_get_period_stats(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value = uniffi_veloqrs_fn_method_fitnessmanager_get_period_stats(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
       uniffi_jsi::Bridging<int64_t>::fromJs(rt, callInvoker, args[1]),
       uniffi_jsi::Bridging<int64_t>::fromJs(rt, callInvoker, args[2]), &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
@@ -7963,7 +8342,8 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_fitnessmanager_get_startup_data(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value = uniffi_veloqrs_fn_method_fitnessmanager_get_startup_data(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
       uniffi_jsi::Bridging<int64_t>::fromJs(rt, callInvoker, args[1]),
       uniffi_jsi::Bridging<int64_t>::fromJs(rt, callInvoker, args[2]),
       uniffi_jsi::Bridging<int64_t>::fromJs(rt, callInvoker, args[3]),
@@ -7984,7 +8364,8 @@ jsi::Value NativeVeloqrs::
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value = uniffi_veloqrs_fn_method_fitnessmanager_get_summary_card_data(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
       uniffi_jsi::Bridging<int64_t>::fromJs(rt, callInvoker, args[1]),
       uniffi_jsi::Bridging<int64_t>::fromJs(rt, callInvoker, args[2]),
       uniffi_jsi::Bridging<int64_t>::fromJs(rt, callInvoker, args[3]),
@@ -8001,7 +8382,8 @@ jsi::Value NativeVeloqrs::
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value = uniffi_veloqrs_fn_method_fitnessmanager_get_wellness_sparklines(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
       uniffi_jsi::Bridging<uint32_t>::fromJs(rt, callInvoker, args[1]),
       &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
@@ -8016,7 +8398,8 @@ jsi::Value NativeVeloqrs::
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value = uniffi_veloqrs_fn_method_fitnessmanager_get_zone_distribution(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[2]),
       &status);
@@ -8032,7 +8415,8 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_fitnessmanager_save_pace_snapshot(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   uniffi_veloqrs_fn_method_fitnessmanager_save_pace_snapshot(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
       uniffi_jsi::Bridging<double>::fromJs(rt, callInvoker, args[2]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[3]),
@@ -8050,138 +8434,8 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_fitnessmanager_upsert_wellness(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   uniffi_veloqrs_fn_method_fitnessmanager_upsert_wellness(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
-      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
-      &status);
-  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
-                                                        args[count - 1]);
-
-  return jsi::Value::undefined();
-}
-jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_clone_heatmapmanager(
-    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-    size_t count) {
-  RustCallStatus status =
-      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
-  auto value = uniffi_veloqrs_fn_clone_heatmapmanager(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]), &status);
-  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
-                                                        args[count - 1]);
-
-  return uniffi_jsi::Bridging<void *>::toJs(rt, callInvoker, value);
-}
-jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_free_heatmapmanager(
-    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-    size_t count) {
-  RustCallStatus status =
-      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
-  uniffi_veloqrs_fn_free_heatmapmanager(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]), &status);
-  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
-                                                        args[count - 1]);
-
-  return jsi::Value::undefined();
-}
-jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_constructor_heatmapmanager_new(
-    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-    size_t count) {
-  RustCallStatus status =
-      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
-  auto value = uniffi_veloqrs_fn_constructor_heatmapmanager_new(&status);
-  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
-                                                        args[count - 1]);
-
-  return uniffi_jsi::Bridging<void *>::toJs(rt, callInvoker, value);
-}
-jsi::Value
-NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_heatmapmanager_clear_tiles(
-    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-    size_t count) {
-  RustCallStatus status =
-      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
-  auto value = uniffi_veloqrs_fn_method_heatmapmanager_clear_tiles(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
-      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
-      &status);
-  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
-                                                        args[count - 1]);
-
-  return uniffi_jsi::Bridging<uint32_t>::toJs(rt, callInvoker, value);
-}
-jsi::Value
-NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_heatmapmanager_clear_tiles_path(
-    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-    size_t count) {
-  RustCallStatus status =
-      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
-  uniffi_veloqrs_fn_method_heatmapmanager_clear_tiles_path(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]), &status);
-  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
-                                                        args[count - 1]);
-
-  return jsi::Value::undefined();
-}
-jsi::Value
-NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_heatmapmanager_get_cache_size(
-    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-    size_t count) {
-  RustCallStatus status =
-      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
-  auto value = uniffi_veloqrs_fn_method_heatmapmanager_get_cache_size(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
-      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
-      &status);
-  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
-                                                        args[count - 1]);
-
-  return uniffi_jsi::Bridging<uint64_t>::toJs(rt, callInvoker, value);
-}
-jsi::Value
-NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_heatmapmanager_get_percent(
-    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-    size_t count) {
-  RustCallStatus status =
-      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
-  auto value = uniffi_veloqrs_fn_method_heatmapmanager_get_percent(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]), &status);
-  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
-                                                        args[count - 1]);
-
-  return uniffi_jsi::Bridging<uint32_t>::toJs(rt, callInvoker, value);
-}
-jsi::Value
-NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_heatmapmanager_get_progress(
-    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-    size_t count) {
-  RustCallStatus status =
-      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
-  auto value = uniffi_veloqrs_fn_method_heatmapmanager_get_progress(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]), &status);
-  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
-                                                        args[count - 1]);
-
-  return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
-}
-jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_heatmapmanager_poll(
-    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-    size_t count) {
-  RustCallStatus status =
-      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
-  auto value = uniffi_veloqrs_fn_method_heatmapmanager_poll(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]), &status);
-  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
-                                                        args[count - 1]);
-
-  return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
-}
-jsi::Value
-NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_heatmapmanager_set_tiles_path(
-    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-    size_t count) {
-  RustCallStatus status =
-      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
-  uniffi_veloqrs_fn_method_heatmapmanager_set_tiles_path(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
       &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
@@ -8195,11 +8449,14 @@ jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_clone_mapmanager(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value = uniffi_veloqrs_fn_clone_mapmanager(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]), &status);
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);
 
-  return uniffi_jsi::Bridging<void *>::toJs(rt, callInvoker, value);
+  return uniffi_jsi::Bridging</*handle*/ uint64_t>::toJs(rt, callInvoker,
+                                                         value);
 }
 jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_free_mapmanager(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
@@ -8207,7 +8464,9 @@ jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_free_mapmanager(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   uniffi_veloqrs_fn_free_mapmanager(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]), &status);
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);
 
@@ -8222,7 +8481,8 @@ jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_constructor_mapmanager_new(
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);
 
-  return uniffi_jsi::Bridging<void *>::toJs(rt, callInvoker, value);
+  return uniffi_jsi::Bridging</*handle*/ uint64_t>::toJs(rt, callInvoker,
+                                                         value);
 }
 jsi::Value
 NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_mapmanager_get_all_signatures(
@@ -8231,7 +8491,9 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_mapmanager_get_all_signatures(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value = uniffi_veloqrs_fn_method_mapmanager_get_all_signatures(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]), &status);
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);
 
@@ -8244,7 +8506,8 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_mapmanager_get_bounds_for_range(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value = uniffi_veloqrs_fn_method_mapmanager_get_bounds_for_range(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
       uniffi_jsi::Bridging<int64_t>::fromJs(rt, callInvoker, args[1]),
       uniffi_jsi::Bridging<int64_t>::fromJs(rt, callInvoker, args[2]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[3]),
@@ -8260,7 +8523,8 @@ jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_mapmanager_get_filtered(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value = uniffi_veloqrs_fn_method_mapmanager_get_filtered(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
       uniffi_jsi::Bridging<int64_t>::fromJs(rt, callInvoker, args[1]),
       uniffi_jsi::Bridging<int64_t>::fromJs(rt, callInvoker, args[2]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[3]),
@@ -8277,7 +8541,8 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_mapmanager_query_viewport(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value = uniffi_veloqrs_fn_method_mapmanager_query_viewport(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
       uniffi_jsi::Bridging<double>::fromJs(rt, callInvoker, args[1]),
       uniffi_jsi::Bridging<double>::fromJs(rt, callInvoker, args[2]),
       uniffi_jsi::Bridging<double>::fromJs(rt, callInvoker, args[3]),
@@ -8293,11 +8558,14 @@ jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_clone_routemanager(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value = uniffi_veloqrs_fn_clone_routemanager(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]), &status);
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);
 
-  return uniffi_jsi::Bridging<void *>::toJs(rt, callInvoker, value);
+  return uniffi_jsi::Bridging</*handle*/ uint64_t>::toJs(rt, callInvoker,
+                                                         value);
 }
 jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_free_routemanager(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
@@ -8305,7 +8573,9 @@ jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_free_routemanager(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   uniffi_veloqrs_fn_free_routemanager(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]), &status);
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);
 
@@ -8320,7 +8590,8 @@ jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_constructor_routemanager_new(
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);
 
-  return uniffi_jsi::Bridging<void *>::toJs(rt, callInvoker, value);
+  return uniffi_jsi::Bridging</*handle*/ uint64_t>::toJs(rt, callInvoker,
+                                                         value);
 }
 jsi::Value
 NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_routemanager_exclude_activity(
@@ -8329,7 +8600,8 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_routemanager_exclude_activity(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   uniffi_veloqrs_fn_method_routemanager_exclude_activity(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[2]),
       &status);
@@ -8346,7 +8618,8 @@ jsi::Value NativeVeloqrs::
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value =
       uniffi_veloqrs_fn_method_routemanager_get_activity_route_highlights(
-          uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+          uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                            args[0]),
           uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker,
                                                         args[1]),
           &status);
@@ -8361,7 +8634,9 @@ jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_routemanager_get_all(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value = uniffi_veloqrs_fn_method_routemanager_get_all(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]), &status);
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);
 
@@ -8374,7 +8649,9 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_routemanager_get_all_names(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value = uniffi_veloqrs_fn_method_routemanager_get_all_names(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]), &status);
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);
 
@@ -8386,7 +8663,8 @@ jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_routemanager_get_by_id(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value = uniffi_veloqrs_fn_method_routemanager_get_by_id(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
       &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
@@ -8401,7 +8679,8 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_routemanager_get_consensus_route(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value = uniffi_veloqrs_fn_method_routemanager_get_consensus_route(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
       &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
@@ -8416,7 +8695,8 @@ jsi::Value NativeVeloqrs::
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value = uniffi_veloqrs_fn_method_routemanager_get_excluded_activities(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
       &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
@@ -8431,7 +8711,8 @@ jsi::Value NativeVeloqrs::
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value = uniffi_veloqrs_fn_method_routemanager_get_excluded_performances(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[2]),
       &status);
@@ -8447,7 +8728,8 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_routemanager_get_filtered_summaries(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value = uniffi_veloqrs_fn_method_routemanager_get_filtered_summaries(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
       uniffi_jsi::Bridging<uint32_t>::fromJs(rt, callInvoker, args[1]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[2]),
       &status);
@@ -8463,7 +8745,8 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_routemanager_get_performances(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value = uniffi_veloqrs_fn_method_routemanager_get_performances(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[2]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[3]),
@@ -8480,7 +8763,8 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_routemanager_get_screen_data(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value = uniffi_veloqrs_fn_method_routemanager_get_screen_data(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
       uniffi_jsi::Bridging<uint32_t>::fromJs(rt, callInvoker, args[1]),
       uniffi_jsi::Bridging<uint32_t>::fromJs(rt, callInvoker, args[2]),
       uniffi_jsi::Bridging<uint32_t>::fromJs(rt, callInvoker, args[3]),
@@ -8502,7 +8786,9 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_routemanager_get_summaries(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value = uniffi_veloqrs_fn_method_routemanager_get_summaries(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]), &status);
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);
 
@@ -8515,7 +8801,9 @@ jsi::Value NativeVeloqrs::
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value = uniffi_veloqrs_fn_method_routemanager_get_summaries_with_count(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]), &status);
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);
 
@@ -8528,7 +8816,8 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_routemanager_include_activity(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   uniffi_veloqrs_fn_method_routemanager_include_activity(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[2]),
       &status);
@@ -8543,7 +8832,8 @@ jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_routemanager_set_name(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   uniffi_veloqrs_fn_method_routemanager_set_name(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[2]),
       &status);
@@ -8559,7 +8849,8 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_routemanager_set_representative(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   uniffi_veloqrs_fn_method_routemanager_set_representative(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[2]),
       &status);
@@ -8574,11 +8865,14 @@ jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_clone_sectionmanager(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value = uniffi_veloqrs_fn_clone_sectionmanager(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]), &status);
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);
 
-  return uniffi_jsi::Bridging<void *>::toJs(rt, callInvoker, value);
+  return uniffi_jsi::Bridging</*handle*/ uint64_t>::toJs(rt, callInvoker,
+                                                         value);
 }
 jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_free_sectionmanager(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
@@ -8586,7 +8880,9 @@ jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_free_sectionmanager(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   uniffi_veloqrs_fn_free_sectionmanager(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]), &status);
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);
 
@@ -8601,7 +8897,8 @@ jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_constructor_sectionmanager_new(
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);
 
-  return uniffi_jsi::Bridging<void *>::toJs(rt, callInvoker, value);
+  return uniffi_jsi::Bridging</*handle*/ uint64_t>::toJs(rt, callInvoker,
+                                                         value);
 }
 jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_sectionmanager_accept(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
@@ -8609,7 +8906,8 @@ jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_sectionmanager_accept(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   uniffi_veloqrs_fn_method_sectionmanager_accept(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
       &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
@@ -8624,7 +8922,9 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_sectionmanager_accept_all(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value = uniffi_veloqrs_fn_method_sectionmanager_accept_all(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]), &status);
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);
 
@@ -8637,7 +8937,8 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_sectionmanager_clear_superseded(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   uniffi_veloqrs_fn_method_sectionmanager_clear_superseded(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
       &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
@@ -8651,7 +8952,8 @@ jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_sectionmanager_create(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value = uniffi_veloqrs_fn_method_sectionmanager_create(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[2]),
       uniffi_jsi::Bridging<double>::fromJs(rt, callInvoker, args[3]),
@@ -8671,7 +8973,8 @@ jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_sectionmanager_delete(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   uniffi_veloqrs_fn_method_sectionmanager_delete(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
       &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
@@ -8685,7 +8988,8 @@ jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_sectionmanager_disable(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   uniffi_veloqrs_fn_method_sectionmanager_disable(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
       &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
@@ -8699,7 +9003,8 @@ jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_sectionmanager_enable(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   uniffi_veloqrs_fn_method_sectionmanager_enable(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
       &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
@@ -8714,7 +9019,8 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_sectionmanager_exclude_activity(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   uniffi_veloqrs_fn_method_sectionmanager_exclude_activity(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[2]),
       &status);
@@ -8730,7 +9036,8 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_sectionmanager_expand_bounds(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   uniffi_veloqrs_fn_method_sectionmanager_expand_bounds(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[2]),
       &status);
@@ -8746,7 +9053,8 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_sectionmanager_extract_trace(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value = uniffi_veloqrs_fn_method_sectionmanager_extract_trace(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[2]),
       &status);
@@ -8762,7 +9070,8 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_sectionmanager_extract_traces_batch(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value = uniffi_veloqrs_fn_method_sectionmanager_extract_traces_batch(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[2]),
       &status);
@@ -8778,7 +9087,8 @@ jsi::Value NativeVeloqrs::
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value = uniffi_veloqrs_fn_method_sectionmanager_get_activity_indicators(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
       &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
@@ -8793,7 +9103,8 @@ jsi::Value NativeVeloqrs::
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value = uniffi_veloqrs_fn_method_sectionmanager_get_activity_pr_sections(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[2]),
       &status);
@@ -8810,7 +9121,8 @@ jsi::Value NativeVeloqrs::
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value =
       uniffi_veloqrs_fn_method_sectionmanager_get_activity_section_encounters(
-          uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+          uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                            args[0]),
           uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker,
                                                         args[1]),
           &status);
@@ -8827,7 +9139,8 @@ jsi::Value NativeVeloqrs::
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value =
       uniffi_veloqrs_fn_method_sectionmanager_get_activity_section_highlights(
-          uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+          uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                            args[0]),
           uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker,
                                                         args[1]),
           &status);
@@ -8842,7 +9155,9 @@ jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_sectionmanager_get_all(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value = uniffi_veloqrs_fn_method_sectionmanager_get_all(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]), &status);
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);
 
@@ -8855,7 +9170,9 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_sectionmanager_get_all_names(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value = uniffi_veloqrs_fn_method_sectionmanager_get_all_names(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]), &status);
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);
 
@@ -8869,7 +9186,8 @@ jsi::Value NativeVeloqrs::
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value =
       uniffi_veloqrs_fn_method_sectionmanager_get_all_summaries_including_hidden(
-          uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+          uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                            args[0]),
           uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker,
                                                         args[1]),
           &status);
@@ -8884,7 +9202,8 @@ jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_sectionmanager_get_by_id(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value = uniffi_veloqrs_fn_method_sectionmanager_get_by_id(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
       &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
@@ -8899,7 +9218,8 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_sectionmanager_get_by_type(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value = uniffi_veloqrs_fn_method_sectionmanager_get_by_type(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
       &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
@@ -8914,7 +9234,8 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_sectionmanager_get_calendar_summary(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value = uniffi_veloqrs_fn_method_sectionmanager_get_calendar_summary(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
       &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
@@ -8929,7 +9250,8 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_sectionmanager_get_chart_data(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value = uniffi_veloqrs_fn_method_sectionmanager_get_chart_data(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
       uniffi_jsi::Bridging<uint32_t>::fromJs(rt, callInvoker, args[2]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[3]),
@@ -8946,7 +9268,8 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_sectionmanager_get_efficiency_trend(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value = uniffi_veloqrs_fn_method_sectionmanager_get_efficiency_trend(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
       &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
@@ -8961,7 +9284,8 @@ jsi::Value NativeVeloqrs::
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value = uniffi_veloqrs_fn_method_sectionmanager_get_excluded_activities(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
       &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
@@ -8977,7 +9301,8 @@ jsi::Value NativeVeloqrs::
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value =
       uniffi_veloqrs_fn_method_sectionmanager_get_excluded_performances(
-          uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+          uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                            args[0]),
           uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker,
                                                         args[1]),
           &status);
@@ -8993,7 +9318,8 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_sectionmanager_get_extension_track(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value = uniffi_veloqrs_fn_method_sectionmanager_get_extension_track(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
       &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
@@ -9008,7 +9334,8 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_sectionmanager_get_filtered(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value = uniffi_veloqrs_fn_method_sectionmanager_get_filtered(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[2]),
       &status);
@@ -9024,7 +9351,8 @@ jsi::Value NativeVeloqrs::
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value = uniffi_veloqrs_fn_method_sectionmanager_get_filtered_summaries(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
       uniffi_jsi::Bridging<uint32_t>::fromJs(rt, callInvoker, args[2]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[3]),
@@ -9041,7 +9369,8 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_sectionmanager_get_for_activity(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value = uniffi_veloqrs_fn_method_sectionmanager_get_for_activity(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
       &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
@@ -9057,7 +9386,8 @@ jsi::Value NativeVeloqrs::
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value =
       uniffi_veloqrs_fn_method_sectionmanager_get_indicators_for_activity(
-          uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+          uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                            args[0]),
           uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker,
                                                         args[1]),
           &status);
@@ -9073,7 +9403,8 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_sectionmanager_get_merge_candidates(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value = uniffi_veloqrs_fn_method_sectionmanager_get_merge_candidates(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
       &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
@@ -9088,7 +9419,8 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_sectionmanager_get_nearby_sections(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value = uniffi_veloqrs_fn_method_sectionmanager_get_nearby_sections(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
       uniffi_jsi::Bridging<double>::fromJs(rt, callInvoker, args[2]), &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
@@ -9103,7 +9435,8 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_sectionmanager_get_performances(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value = uniffi_veloqrs_fn_method_sectionmanager_get_performances(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[2]),
       &status);
@@ -9119,7 +9452,8 @@ jsi::Value NativeVeloqrs::
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value = uniffi_veloqrs_fn_method_sectionmanager_get_performances_batch(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[2]),
       &status);
@@ -9135,7 +9469,8 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_sectionmanager_get_polyline(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value = uniffi_veloqrs_fn_method_sectionmanager_get_polyline(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
       &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
@@ -9150,7 +9485,8 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_sectionmanager_get_ranked(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value = uniffi_veloqrs_fn_method_sectionmanager_get_ranked(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
       uniffi_jsi::Bridging<uint32_t>::fromJs(rt, callInvoker, args[2]),
       &status);
@@ -9166,7 +9502,8 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_sectionmanager_get_ranked_batch(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value = uniffi_veloqrs_fn_method_sectionmanager_get_ranked_batch(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
       uniffi_jsi::Bridging<uint32_t>::fromJs(rt, callInvoker, args[2]),
       &status);
@@ -9182,7 +9519,8 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_sectionmanager_get_reference_info(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value = uniffi_veloqrs_fn_method_sectionmanager_get_reference_info(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
       &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
@@ -9197,7 +9535,8 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_sectionmanager_get_summaries(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value = uniffi_veloqrs_fn_method_sectionmanager_get_summaries(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
       &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
@@ -9212,7 +9551,8 @@ jsi::Value NativeVeloqrs::
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value = uniffi_veloqrs_fn_method_sectionmanager_get_summaries_with_count(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
       &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
@@ -9227,7 +9567,8 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_sectionmanager_get_workout_sections(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value = uniffi_veloqrs_fn_method_sectionmanager_get_workout_sections(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
       uniffi_jsi::Bridging<uint32_t>::fromJs(rt, callInvoker, args[2]),
       &status);
@@ -9243,7 +9584,8 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_sectionmanager_has_original_bounds(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value = uniffi_veloqrs_fn_method_sectionmanager_has_original_bounds(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
       &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
@@ -9258,7 +9600,8 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_sectionmanager_import_disabled_ids(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value = uniffi_veloqrs_fn_method_sectionmanager_import_disabled_ids(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
       &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
@@ -9273,7 +9616,8 @@ jsi::Value NativeVeloqrs::
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value = uniffi_veloqrs_fn_method_sectionmanager_import_superseded_map(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
       &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
@@ -9288,7 +9632,8 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_sectionmanager_include_activity(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   uniffi_veloqrs_fn_method_sectionmanager_include_activity(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[2]),
       &status);
@@ -9305,7 +9650,8 @@ jsi::Value NativeVeloqrs::
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value =
       uniffi_veloqrs_fn_method_sectionmanager_match_activity_to_sections(
-          uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+          uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                            args[0]),
           uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker,
                                                         args[1]),
           &status);
@@ -9321,7 +9667,8 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_sectionmanager_merge_sections(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value = uniffi_veloqrs_fn_method_sectionmanager_merge_sections(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[2]),
       &status);
@@ -9337,7 +9684,9 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_sectionmanager_prune_overlapping(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value = uniffi_veloqrs_fn_method_sectionmanager_prune_overlapping(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]), &status);
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);
 
@@ -9350,7 +9699,8 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_sectionmanager_recalculate_polyline(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value = uniffi_veloqrs_fn_method_sectionmanager_recalculate_polyline(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
       &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
@@ -9365,7 +9715,9 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_sectionmanager_recompute_indicators(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   uniffi_veloqrs_fn_method_sectionmanager_recompute_indicators(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]), &status);
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);
 
@@ -9379,7 +9731,8 @@ jsi::Value NativeVeloqrs::
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value =
       uniffi_veloqrs_fn_method_sectionmanager_rematch_activity_to_section(
-          uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+          uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                            args[0]),
           uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker,
                                                         args[1]),
           uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker,
@@ -9397,7 +9750,8 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_sectionmanager_reset_bounds(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   uniffi_veloqrs_fn_method_sectionmanager_reset_bounds(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
       &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
@@ -9412,7 +9766,8 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_sectionmanager_reset_reference(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   uniffi_veloqrs_fn_method_sectionmanager_reset_reference(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
       &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
@@ -9426,7 +9781,8 @@ jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_sectionmanager_set_name(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   uniffi_veloqrs_fn_method_sectionmanager_set_name(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[2]),
       &status);
@@ -9442,7 +9798,8 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_sectionmanager_set_reference(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   uniffi_veloqrs_fn_method_sectionmanager_set_reference(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[2]),
       &status);
@@ -9458,7 +9815,8 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_sectionmanager_set_superseded(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   uniffi_veloqrs_fn_method_sectionmanager_set_superseded(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[2]),
       &status);
@@ -9473,7 +9831,8 @@ jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_sectionmanager_trim(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   uniffi_veloqrs_fn_method_sectionmanager_trim(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
       uniffi_jsi::Bridging<uint32_t>::fromJs(rt, callInvoker, args[2]),
       uniffi_jsi::Bridging<uint32_t>::fromJs(rt, callInvoker, args[3]),
@@ -9489,11 +9848,14 @@ jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_clone_settingsmanager(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value = uniffi_veloqrs_fn_clone_settingsmanager(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]), &status);
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);
 
-  return uniffi_jsi::Bridging<void *>::toJs(rt, callInvoker, value);
+  return uniffi_jsi::Bridging</*handle*/ uint64_t>::toJs(rt, callInvoker,
+                                                         value);
 }
 jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_free_settingsmanager(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
@@ -9501,7 +9863,9 @@ jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_free_settingsmanager(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   uniffi_veloqrs_fn_free_settingsmanager(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]), &status);
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);
 
@@ -9516,7 +9880,8 @@ jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_constructor_settingsmanager_new(
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);
 
-  return uniffi_jsi::Bridging<void *>::toJs(rt, callInvoker, value);
+  return uniffi_jsi::Bridging</*handle*/ uint64_t>::toJs(rt, callInvoker,
+                                                         value);
 }
 jsi::Value
 NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_settingsmanager_delete_setting(
@@ -9525,7 +9890,8 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_settingsmanager_delete_setting(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   uniffi_veloqrs_fn_method_settingsmanager_delete_setting(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
       &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
@@ -9540,7 +9906,9 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_settingsmanager_get_all_settings(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value = uniffi_veloqrs_fn_method_settingsmanager_get_all_settings(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]), &status);
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);
 
@@ -9553,7 +9921,9 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_settingsmanager_get_athlete_profile(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value = uniffi_veloqrs_fn_method_settingsmanager_get_athlete_profile(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]), &status);
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);
 
@@ -9566,7 +9936,8 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_settingsmanager_get_setting(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value = uniffi_veloqrs_fn_method_settingsmanager_get_setting(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
       &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
@@ -9581,7 +9952,9 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_settingsmanager_get_sport_settings(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value = uniffi_veloqrs_fn_method_settingsmanager_get_sport_settings(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]), &status);
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);
 
@@ -9594,7 +9967,8 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_settingsmanager_set_all_settings(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   uniffi_veloqrs_fn_method_settingsmanager_set_all_settings(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
       &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
@@ -9609,7 +9983,8 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_settingsmanager_set_athlete_profile(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   uniffi_veloqrs_fn_method_settingsmanager_set_athlete_profile(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
       &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
@@ -9624,7 +9999,8 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_settingsmanager_set_setting(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   uniffi_veloqrs_fn_method_settingsmanager_set_setting(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[2]),
       &status);
@@ -9640,7 +10016,8 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_settingsmanager_set_sport_settings(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   uniffi_veloqrs_fn_method_settingsmanager_set_sport_settings(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
       &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
@@ -9654,11 +10031,14 @@ jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_clone_strengthmanager(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value = uniffi_veloqrs_fn_clone_strengthmanager(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]), &status);
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);
 
-  return uniffi_jsi::Bridging<void *>::toJs(rt, callInvoker, value);
+  return uniffi_jsi::Bridging</*handle*/ uint64_t>::toJs(rt, callInvoker,
+                                                         value);
 }
 jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_free_strengthmanager(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
@@ -9666,7 +10046,9 @@ jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_free_strengthmanager(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   uniffi_veloqrs_fn_free_strengthmanager(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]), &status);
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);
 
@@ -9681,7 +10063,8 @@ jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_constructor_strengthmanager_new(
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);
 
-  return uniffi_jsi::Bridging<void *>::toJs(rt, callInvoker, value);
+  return uniffi_jsi::Bridging</*handle*/ uint64_t>::toJs(rt, callInvoker,
+                                                         value);
 }
 jsi::Value NativeVeloqrs::
     cpp_uniffi_veloqrs_fn_method_strengthmanager_batch_fetch_exercise_sets(
@@ -9691,7 +10074,8 @@ jsi::Value NativeVeloqrs::
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value =
       uniffi_veloqrs_fn_method_strengthmanager_batch_fetch_exercise_sets(
-          uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+          uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                            args[0]),
           uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker,
                                                         args[1]),
           uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker,
@@ -9709,7 +10093,8 @@ jsi::Value NativeVeloqrs::
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   uniffi_veloqrs_fn_method_strengthmanager_bulk_insert_exercise_sets(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[2]),
       &status);
@@ -9726,7 +10111,8 @@ jsi::Value NativeVeloqrs::
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value =
       uniffi_veloqrs_fn_method_strengthmanager_fetch_and_parse_exercise_sets(
-          uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+          uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                            args[0]),
           uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker,
                                                         args[1]),
           uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker,
@@ -9745,7 +10131,8 @@ jsi::Value NativeVeloqrs::
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value =
       uniffi_veloqrs_fn_method_strengthmanager_get_activities_for_exercise(
-          uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+          uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                            args[0]),
           uniffi_jsi::Bridging<int64_t>::fromJs(rt, callInvoker, args[1]),
           uniffi_jsi::Bridging<int64_t>::fromJs(rt, callInvoker, args[2]),
           uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker,
@@ -9764,7 +10151,8 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_strengthmanager_get_exercise_sets(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value = uniffi_veloqrs_fn_method_strengthmanager_get_exercise_sets(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
       &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
@@ -9780,7 +10168,8 @@ jsi::Value NativeVeloqrs::
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value =
       uniffi_veloqrs_fn_method_strengthmanager_get_exercises_for_muscle(
-          uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+          uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                            args[0]),
           uniffi_jsi::Bridging<int64_t>::fromJs(rt, callInvoker, args[1]),
           uniffi_jsi::Bridging<int64_t>::fromJs(rt, callInvoker, args[2]),
           uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker,
@@ -9798,7 +10187,8 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_strengthmanager_get_muscle_detail(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value = uniffi_veloqrs_fn_method_strengthmanager_get_muscle_detail(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[2]),
       &status);
@@ -9814,7 +10204,8 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_strengthmanager_get_muscle_groups(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value = uniffi_veloqrs_fn_method_strengthmanager_get_muscle_groups(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
       &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
@@ -9830,7 +10221,8 @@ jsi::Value NativeVeloqrs::
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value =
       uniffi_veloqrs_fn_method_strengthmanager_get_strength_insight_series(
-          uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+          uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                            args[0]),
           uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker,
                                                         args[1]),
           uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker,
@@ -9848,7 +10240,8 @@ jsi::Value NativeVeloqrs::
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value = uniffi_veloqrs_fn_method_strengthmanager_get_strength_summary(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
       uniffi_jsi::Bridging<int64_t>::fromJs(rt, callInvoker, args[1]),
       uniffi_jsi::Bridging<int64_t>::fromJs(rt, callInvoker, args[2]), &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
@@ -9864,7 +10257,8 @@ jsi::Value NativeVeloqrs::
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value =
       uniffi_veloqrs_fn_method_strengthmanager_get_strength_summary_batch(
-          uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+          uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                            args[0]),
           uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker,
                                                         args[1]),
           &status);
@@ -9881,7 +10275,8 @@ jsi::Value NativeVeloqrs::
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value =
       uniffi_veloqrs_fn_method_strengthmanager_get_unprocessed_strength_ids(
-          uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+          uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                            args[0]),
           uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker,
                                                         args[1]),
           &status);
@@ -9897,7 +10292,9 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_strengthmanager_has_strength_data(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value = uniffi_veloqrs_fn_method_strengthmanager_has_strength_data(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]), &status);
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);
 
@@ -9910,7 +10307,8 @@ jsi::Value NativeVeloqrs::
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value = uniffi_veloqrs_fn_method_strengthmanager_import_sets_from_fit(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[2]),
       &status);
@@ -9926,7 +10324,8 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_strengthmanager_is_fit_processed(
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value = uniffi_veloqrs_fn_method_strengthmanager_is_fit_processed(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
       &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
@@ -9934,356 +10333,153 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_strengthmanager_is_fit_processed(
 
   return uniffi_jsi::Bridging<int8_t>::toJs(rt, callInvoker, value);
 }
-jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_clone_veloqengine(
+jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_clone_heatmapmanager(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
     size_t count) {
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
-  auto value = uniffi_veloqrs_fn_clone_veloqengine(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]), &status);
-  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
-                                                        args[count - 1]);
-
-  return uniffi_jsi::Bridging<void *>::toJs(rt, callInvoker, value);
-}
-jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_free_veloqengine(
-    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-    size_t count) {
-  RustCallStatus status =
-      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
-  uniffi_veloqrs_fn_free_veloqengine(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]), &status);
-  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
-                                                        args[count - 1]);
-
-  return jsi::Value::undefined();
-}
-jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_constructor_veloqengine_create(
-    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-    size_t count) {
-  RustCallStatus status =
-      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
-  auto value = uniffi_veloqrs_fn_constructor_veloqengine_create(
-      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[0]),
+  auto value = uniffi_veloqrs_fn_clone_heatmapmanager(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
       &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);
 
-  return uniffi_jsi::Bridging<void *>::toJs(rt, callInvoker, value);
+  return uniffi_jsi::Bridging</*handle*/ uint64_t>::toJs(rt, callInvoker,
+                                                         value);
 }
-jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_veloqengine_activities(
+jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_free_heatmapmanager(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
     size_t count) {
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
-  auto value = uniffi_veloqrs_fn_method_veloqengine_activities(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]), &status);
-  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
-                                                        args[count - 1]);
-
-  return uniffi_jsi::Bridging<void *>::toJs(rt, callInvoker, value);
-}
-jsi::Value
-NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_veloqengine_backup_database(
-    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-    size_t count) {
-  RustCallStatus status =
-      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
-  uniffi_veloqrs_fn_method_veloqengine_backup_database(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
-      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
+  uniffi_veloqrs_fn_free_heatmapmanager(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
       &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);
 
   return jsi::Value::undefined();
 }
-jsi::Value
-NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_veloqengine_bulk_export_geojson(
+jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_constructor_heatmapmanager_new(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
     size_t count) {
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
-  auto value = uniffi_veloqrs_fn_method_veloqengine_bulk_export_geojson(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
-      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
-      &status);
+  auto value = uniffi_veloqrs_fn_constructor_heatmapmanager_new(&status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);
 
-  return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
+  return uniffi_jsi::Bridging</*handle*/ uint64_t>::toJs(rt, callInvoker,
+                                                         value);
 }
 jsi::Value
-NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_veloqengine_bulk_export_gpx(
+NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_heatmapmanager_clear_tiles(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
     size_t count) {
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
-  auto value = uniffi_veloqrs_fn_method_veloqengine_bulk_export_gpx(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
+  auto value = uniffi_veloqrs_fn_method_heatmapmanager_clear_tiles(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
-      &status);
-  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
-                                                        args[count - 1]);
-
-  return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
-}
-jsi::Value
-NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_veloqengine_cleanup_old_activities(
-    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-    size_t count) {
-  RustCallStatus status =
-      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
-  auto value = uniffi_veloqrs_fn_method_veloqengine_cleanup_old_activities(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
-      uniffi_jsi::Bridging<uint32_t>::fromJs(rt, callInvoker, args[1]),
       &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);
 
   return uniffi_jsi::Bridging<uint32_t>::toJs(rt, callInvoker, value);
 }
-jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_veloqengine_clear(
-    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-    size_t count) {
-  RustCallStatus status =
-      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
-  uniffi_veloqrs_fn_method_veloqengine_clear(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]), &status);
-  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
-                                                        args[count - 1]);
-
-  return jsi::Value::undefined();
-}
-jsi::Value NativeVeloqrs::
-    cpp_uniffi_veloqrs_fn_method_veloqengine_clear_routes_and_sections(
-        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-        size_t count) {
-  RustCallStatus status =
-      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
-  uniffi_veloqrs_fn_method_veloqengine_clear_routes_and_sections(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]), &status);
-  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
-                                                        args[count - 1]);
-
-  return jsi::Value::undefined();
-}
-jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_veloqengine_destroy(
-    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-    size_t count) {
-  RustCallStatus status =
-      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
-  uniffi_veloqrs_fn_method_veloqengine_destroy(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]), &status);
-  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
-                                                        args[count - 1]);
-
-  return jsi::Value::undefined();
-}
-jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_veloqengine_detection(
-    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-    size_t count) {
-  RustCallStatus status =
-      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
-  auto value = uniffi_veloqrs_fn_method_veloqengine_detection(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]), &status);
-  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
-                                                        args[count - 1]);
-
-  return uniffi_jsi::Bridging<void *>::toJs(rt, callInvoker, value);
-}
-jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_veloqengine_fitness(
-    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-    size_t count) {
-  RustCallStatus status =
-      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
-  auto value = uniffi_veloqrs_fn_method_veloqengine_fitness(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]), &status);
-  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
-                                                        args[count - 1]);
-
-  return uniffi_jsi::Bridging<void *>::toJs(rt, callInvoker, value);
-}
-jsi::Value NativeVeloqrs::
-    cpp_uniffi_veloqrs_fn_method_veloqengine_get_activities_needing_time_streams(
-        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-        size_t count) {
-  RustCallStatus status =
-      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
-  auto value =
-      uniffi_veloqrs_fn_method_veloqengine_get_activities_needing_time_streams(
-          uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
-          &status);
-  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
-                                                        args[count - 1]);
-
-  return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
-}
 jsi::Value
-NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_veloqengine_get_activity_count(
+NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_heatmapmanager_clear_tiles_path(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
     size_t count) {
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
-  auto value = uniffi_veloqrs_fn_method_veloqengine_get_activity_count(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]), &status);
-  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
-                                                        args[count - 1]);
-
-  return uniffi_jsi::Bridging<uint32_t>::toJs(rt, callInvoker, value);
-}
-jsi::Value
-NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_veloqengine_get_backup_metadata(
-    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-    size_t count) {
-  RustCallStatus status =
-      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
-  auto value = uniffi_veloqrs_fn_method_veloqengine_get_backup_metadata(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]), &status);
-  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
-                                                        args[count - 1]);
-
-  return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
-}
-jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_veloqengine_get_stats(
-    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-    size_t count) {
-  RustCallStatus status =
-      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
-  auto value = uniffi_veloqrs_fn_method_veloqengine_get_stats(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]), &status);
-  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
-                                                        args[count - 1]);
-
-  return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
-}
-jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_veloqengine_heatmap(
-    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-    size_t count) {
-  RustCallStatus status =
-      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
-  auto value = uniffi_veloqrs_fn_method_veloqengine_heatmap(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]), &status);
-  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
-                                                        args[count - 1]);
-
-  return uniffi_jsi::Bridging<void *>::toJs(rt, callInvoker, value);
-}
-jsi::Value
-NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_veloqengine_is_initialized(
-    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-    size_t count) {
-  RustCallStatus status =
-      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
-  auto value = uniffi_veloqrs_fn_method_veloqengine_is_initialized(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]), &status);
-  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
-                                                        args[count - 1]);
-
-  return uniffi_jsi::Bridging<int8_t>::toJs(rt, callInvoker, value);
-}
-jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_veloqengine_maps(
-    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-    size_t count) {
-  RustCallStatus status =
-      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
-  auto value = uniffi_veloqrs_fn_method_veloqengine_maps(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]), &status);
-  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
-                                                        args[count - 1]);
-
-  return uniffi_jsi::Bridging<void *>::toJs(rt, callInvoker, value);
-}
-jsi::Value
-NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_veloqengine_mark_for_recomputation(
-    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-    size_t count) {
-  RustCallStatus status =
-      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
-  uniffi_veloqrs_fn_method_veloqengine_mark_for_recomputation(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]), &status);
-  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
-                                                        args[count - 1]);
-
-  return jsi::Value::undefined();
-}
-jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_veloqengine_routes(
-    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-    size_t count) {
-  RustCallStatus status =
-      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
-  auto value = uniffi_veloqrs_fn_method_veloqengine_routes(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]), &status);
-  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
-                                                        args[count - 1]);
-
-  return uniffi_jsi::Bridging<void *>::toJs(rt, callInvoker, value);
-}
-jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_veloqengine_sections(
-    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-    size_t count) {
-  RustCallStatus status =
-      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
-  auto value = uniffi_veloqrs_fn_method_veloqengine_sections(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]), &status);
-  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
-                                                        args[count - 1]);
-
-  return uniffi_jsi::Bridging<void *>::toJs(rt, callInvoker, value);
-}
-jsi::Value
-NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_veloqengine_set_name_translations(
-    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-    size_t count) {
-  RustCallStatus status =
-      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
-  uniffi_veloqrs_fn_method_veloqengine_set_name_translations(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]),
-      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
-      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[2]),
+  uniffi_veloqrs_fn_method_heatmapmanager_clear_tiles_path(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
       &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);
 
   return jsi::Value::undefined();
 }
-jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_veloqengine_settings(
+jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_heatmapmanager_get_cache_size(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
     size_t count) {
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
-  auto value = uniffi_veloqrs_fn_method_veloqengine_settings(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]), &status);
-  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
-                                                        args[count - 1]);
-
-  return uniffi_jsi::Bridging<void *>::toJs(rt, callInvoker, value);
-}
-jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_veloqengine_strength(
-    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-    size_t count) {
-  RustCallStatus status =
-      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
-  auto value = uniffi_veloqrs_fn_method_veloqengine_strength(
-      uniffi_jsi::Bridging<void *>::fromJs(rt, callInvoker, args[0]), &status);
-  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
-                                                        args[count - 1]);
-
-  return uniffi_jsi::Bridging<void *>::toJs(rt, callInvoker, value);
-}
-jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_func_compute_polyline_overlap(
-    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-    size_t count) {
-  RustCallStatus status =
-      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
-  auto value = uniffi_veloqrs_fn_func_compute_polyline_overlap(
-      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[0]),
+  auto value = uniffi_veloqrs_fn_method_heatmapmanager_get_cache_size(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
-      uniffi_jsi::Bridging<double>::fromJs(rt, callInvoker, args[2]), &status);
+      &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);
 
-  return uniffi_jsi::Bridging<double>::toJs(rt, callInvoker, value);
+  return uniffi_jsi::Bridging<uint64_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_heatmapmanager_get_percent(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value = uniffi_veloqrs_fn_method_heatmapmanager_get_percent(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return uniffi_jsi::Bridging<uint32_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_heatmapmanager_get_progress(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value = uniffi_veloqrs_fn_method_heatmapmanager_get_progress(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_heatmapmanager_poll(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value = uniffi_veloqrs_fn_method_heatmapmanager_poll(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
+}
+jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_heatmapmanager_set_tiles_path(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  uniffi_veloqrs_fn_method_heatmapmanager_set_tiles_path(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
+      &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return jsi::Value::undefined();
 }
 jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_func_get_download_progress(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
@@ -10336,13 +10532,19 @@ jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_func_validate_backup_database(
 
   return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
 }
-jsi::Value
-NativeVeloqrs::cpp_uniffi_veloqrs_checksum_func_compute_polyline_overlap(
+jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_func_compute_polyline_overlap(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
     size_t count) {
-  auto value = uniffi_veloqrs_checksum_func_compute_polyline_overlap();
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value = uniffi_veloqrs_fn_func_compute_polyline_overlap(
+      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[0]),
+      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
+      uniffi_jsi::Bridging<double>::fromJs(rt, callInvoker, args[2]), &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
 
-  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+  return uniffi_jsi::Bridging<double>::toJs(rt, callInvoker, value);
 }
 jsi::Value
 NativeVeloqrs::cpp_uniffi_veloqrs_checksum_func_get_download_progress(
@@ -10373,6 +10575,14 @@ NativeVeloqrs::cpp_uniffi_veloqrs_checksum_func_validate_backup_database(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
     size_t count) {
   auto value = uniffi_veloqrs_checksum_func_validate_backup_database();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_checksum_func_compute_polyline_overlap(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  auto value = uniffi_veloqrs_checksum_func_compute_polyline_overlap();
 
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
@@ -10543,6 +10753,192 @@ NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_detectionmanager_start(
 
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
+jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_veloqengine_activities(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  auto value = uniffi_veloqrs_checksum_method_veloqengine_activities();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_veloqengine_backup_database(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  auto value = uniffi_veloqrs_checksum_method_veloqengine_backup_database();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeVeloqrs::
+    cpp_uniffi_veloqrs_checksum_method_veloqengine_bulk_export_geojson(
+        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+        size_t count) {
+  auto value = uniffi_veloqrs_checksum_method_veloqengine_bulk_export_geojson();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_veloqengine_bulk_export_gpx(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  auto value = uniffi_veloqrs_checksum_method_veloqengine_bulk_export_gpx();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeVeloqrs::
+    cpp_uniffi_veloqrs_checksum_method_veloqengine_cleanup_old_activities(
+        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+        size_t count) {
+  auto value =
+      uniffi_veloqrs_checksum_method_veloqengine_cleanup_old_activities();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_veloqengine_clear(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  auto value = uniffi_veloqrs_checksum_method_veloqengine_clear();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeVeloqrs::
+    cpp_uniffi_veloqrs_checksum_method_veloqengine_clear_routes_and_sections(
+        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+        size_t count) {
+  auto value =
+      uniffi_veloqrs_checksum_method_veloqengine_clear_routes_and_sections();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_veloqengine_destroy(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  auto value = uniffi_veloqrs_checksum_method_veloqengine_destroy();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_veloqengine_detection(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  auto value = uniffi_veloqrs_checksum_method_veloqengine_detection();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_veloqengine_fitness(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  auto value = uniffi_veloqrs_checksum_method_veloqengine_fitness();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeVeloqrs::
+    cpp_uniffi_veloqrs_checksum_method_veloqengine_get_activities_needing_time_streams(
+        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+        size_t count) {
+  auto value =
+      uniffi_veloqrs_checksum_method_veloqengine_get_activities_needing_time_streams();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeVeloqrs::
+    cpp_uniffi_veloqrs_checksum_method_veloqengine_get_activity_count(
+        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+        size_t count) {
+  auto value = uniffi_veloqrs_checksum_method_veloqengine_get_activity_count();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeVeloqrs::
+    cpp_uniffi_veloqrs_checksum_method_veloqengine_get_backup_metadata(
+        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+        size_t count) {
+  auto value = uniffi_veloqrs_checksum_method_veloqengine_get_backup_metadata();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_veloqengine_get_stats(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  auto value = uniffi_veloqrs_checksum_method_veloqengine_get_stats();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_veloqengine_heatmap(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  auto value = uniffi_veloqrs_checksum_method_veloqengine_heatmap();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_veloqengine_is_initialized(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  auto value = uniffi_veloqrs_checksum_method_veloqengine_is_initialized();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_veloqengine_maps(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  auto value = uniffi_veloqrs_checksum_method_veloqengine_maps();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeVeloqrs::
+    cpp_uniffi_veloqrs_checksum_method_veloqengine_mark_for_recomputation(
+        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+        size_t count) {
+  auto value =
+      uniffi_veloqrs_checksum_method_veloqengine_mark_for_recomputation();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_veloqengine_routes(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  auto value = uniffi_veloqrs_checksum_method_veloqengine_routes();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_veloqengine_sections(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  auto value = uniffi_veloqrs_checksum_method_veloqengine_sections();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeVeloqrs::
+    cpp_uniffi_veloqrs_checksum_method_veloqengine_set_name_translations(
+        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+        size_t count) {
+  auto value =
+      uniffi_veloqrs_checksum_method_veloqengine_set_name_translations();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_veloqengine_settings(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  auto value = uniffi_veloqrs_checksum_method_veloqengine_settings();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_veloqengine_strength(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  auto value = uniffi_veloqrs_checksum_method_veloqengine_strength();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
 jsi::Value NativeVeloqrs::
     cpp_uniffi_veloqrs_checksum_method_fitnessmanager_compute_hrv_trend(
         jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
@@ -10697,62 +11093,6 @@ jsi::Value NativeVeloqrs::
         jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
         size_t count) {
   auto value = uniffi_veloqrs_checksum_method_fitnessmanager_upsert_wellness();
-
-  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
-}
-jsi::Value
-NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_heatmapmanager_clear_tiles(
-    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-    size_t count) {
-  auto value = uniffi_veloqrs_checksum_method_heatmapmanager_clear_tiles();
-
-  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
-}
-jsi::Value NativeVeloqrs::
-    cpp_uniffi_veloqrs_checksum_method_heatmapmanager_clear_tiles_path(
-        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-        size_t count) {
-  auto value = uniffi_veloqrs_checksum_method_heatmapmanager_clear_tiles_path();
-
-  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
-}
-jsi::Value
-NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_heatmapmanager_get_cache_size(
-    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-    size_t count) {
-  auto value = uniffi_veloqrs_checksum_method_heatmapmanager_get_cache_size();
-
-  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
-}
-jsi::Value
-NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_heatmapmanager_get_percent(
-    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-    size_t count) {
-  auto value = uniffi_veloqrs_checksum_method_heatmapmanager_get_percent();
-
-  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
-}
-jsi::Value
-NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_heatmapmanager_get_progress(
-    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-    size_t count) {
-  auto value = uniffi_veloqrs_checksum_method_heatmapmanager_get_progress();
-
-  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
-}
-jsi::Value
-NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_heatmapmanager_poll(
-    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-    size_t count) {
-  auto value = uniffi_veloqrs_checksum_method_heatmapmanager_poll();
-
-  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
-}
-jsi::Value
-NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_heatmapmanager_set_tiles_path(
-    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-    size_t count) {
-  auto value = uniffi_veloqrs_checksum_method_heatmapmanager_set_tiles_path();
 
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
@@ -11619,188 +11959,58 @@ jsi::Value NativeVeloqrs::
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
 jsi::Value
-NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_veloqengine_activities(
+NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_heatmapmanager_clear_tiles(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
     size_t count) {
-  auto value = uniffi_veloqrs_checksum_method_veloqengine_activities();
-
-  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
-}
-jsi::Value
-NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_veloqengine_backup_database(
-    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-    size_t count) {
-  auto value = uniffi_veloqrs_checksum_method_veloqengine_backup_database();
+  auto value = uniffi_veloqrs_checksum_method_heatmapmanager_clear_tiles();
 
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
 jsi::Value NativeVeloqrs::
-    cpp_uniffi_veloqrs_checksum_method_veloqengine_bulk_export_geojson(
+    cpp_uniffi_veloqrs_checksum_method_heatmapmanager_clear_tiles_path(
         jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
         size_t count) {
-  auto value = uniffi_veloqrs_checksum_method_veloqengine_bulk_export_geojson();
+  auto value = uniffi_veloqrs_checksum_method_heatmapmanager_clear_tiles_path();
 
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
 jsi::Value
-NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_veloqengine_bulk_export_gpx(
+NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_heatmapmanager_get_cache_size(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
     size_t count) {
-  auto value = uniffi_veloqrs_checksum_method_veloqengine_bulk_export_gpx();
-
-  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
-}
-jsi::Value NativeVeloqrs::
-    cpp_uniffi_veloqrs_checksum_method_veloqengine_cleanup_old_activities(
-        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-        size_t count) {
-  auto value =
-      uniffi_veloqrs_checksum_method_veloqengine_cleanup_old_activities();
-
-  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
-}
-jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_veloqengine_clear(
-    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-    size_t count) {
-  auto value = uniffi_veloqrs_checksum_method_veloqengine_clear();
-
-  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
-}
-jsi::Value NativeVeloqrs::
-    cpp_uniffi_veloqrs_checksum_method_veloqengine_clear_routes_and_sections(
-        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-        size_t count) {
-  auto value =
-      uniffi_veloqrs_checksum_method_veloqengine_clear_routes_and_sections();
+  auto value = uniffi_veloqrs_checksum_method_heatmapmanager_get_cache_size();
 
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
 jsi::Value
-NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_veloqengine_destroy(
+NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_heatmapmanager_get_percent(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
     size_t count) {
-  auto value = uniffi_veloqrs_checksum_method_veloqengine_destroy();
+  auto value = uniffi_veloqrs_checksum_method_heatmapmanager_get_percent();
 
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
 jsi::Value
-NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_veloqengine_detection(
+NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_heatmapmanager_get_progress(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
     size_t count) {
-  auto value = uniffi_veloqrs_checksum_method_veloqengine_detection();
+  auto value = uniffi_veloqrs_checksum_method_heatmapmanager_get_progress();
 
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
 jsi::Value
-NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_veloqengine_fitness(
+NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_heatmapmanager_poll(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
     size_t count) {
-  auto value = uniffi_veloqrs_checksum_method_veloqengine_fitness();
-
-  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
-}
-jsi::Value NativeVeloqrs::
-    cpp_uniffi_veloqrs_checksum_method_veloqengine_get_activities_needing_time_streams(
-        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-        size_t count) {
-  auto value =
-      uniffi_veloqrs_checksum_method_veloqengine_get_activities_needing_time_streams();
-
-  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
-}
-jsi::Value NativeVeloqrs::
-    cpp_uniffi_veloqrs_checksum_method_veloqengine_get_activity_count(
-        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-        size_t count) {
-  auto value = uniffi_veloqrs_checksum_method_veloqengine_get_activity_count();
-
-  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
-}
-jsi::Value NativeVeloqrs::
-    cpp_uniffi_veloqrs_checksum_method_veloqengine_get_backup_metadata(
-        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-        size_t count) {
-  auto value = uniffi_veloqrs_checksum_method_veloqengine_get_backup_metadata();
+  auto value = uniffi_veloqrs_checksum_method_heatmapmanager_poll();
 
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
 jsi::Value
-NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_veloqengine_get_stats(
+NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_heatmapmanager_set_tiles_path(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
     size_t count) {
-  auto value = uniffi_veloqrs_checksum_method_veloqengine_get_stats();
-
-  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
-}
-jsi::Value
-NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_veloqengine_heatmap(
-    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-    size_t count) {
-  auto value = uniffi_veloqrs_checksum_method_veloqengine_heatmap();
-
-  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
-}
-jsi::Value
-NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_veloqengine_is_initialized(
-    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-    size_t count) {
-  auto value = uniffi_veloqrs_checksum_method_veloqengine_is_initialized();
-
-  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
-}
-jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_veloqengine_maps(
-    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-    size_t count) {
-  auto value = uniffi_veloqrs_checksum_method_veloqengine_maps();
-
-  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
-}
-jsi::Value NativeVeloqrs::
-    cpp_uniffi_veloqrs_checksum_method_veloqengine_mark_for_recomputation(
-        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-        size_t count) {
-  auto value =
-      uniffi_veloqrs_checksum_method_veloqengine_mark_for_recomputation();
-
-  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
-}
-jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_veloqengine_routes(
-    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-    size_t count) {
-  auto value = uniffi_veloqrs_checksum_method_veloqengine_routes();
-
-  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
-}
-jsi::Value
-NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_veloqengine_sections(
-    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-    size_t count) {
-  auto value = uniffi_veloqrs_checksum_method_veloqengine_sections();
-
-  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
-}
-jsi::Value NativeVeloqrs::
-    cpp_uniffi_veloqrs_checksum_method_veloqengine_set_name_translations(
-        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-        size_t count) {
-  auto value =
-      uniffi_veloqrs_checksum_method_veloqengine_set_name_translations();
-
-  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
-}
-jsi::Value
-NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_veloqengine_settings(
-    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-    size_t count) {
-  auto value = uniffi_veloqrs_checksum_method_veloqengine_settings();
-
-  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
-}
-jsi::Value
-NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_veloqengine_strength(
-    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
-    size_t count) {
-  auto value = uniffi_veloqrs_checksum_method_veloqengine_strength();
+  auto value = uniffi_veloqrs_checksum_method_heatmapmanager_set_tiles_path();
 
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
@@ -11821,18 +12031,18 @@ NativeVeloqrs::cpp_uniffi_veloqrs_checksum_constructor_detectionmanager_new(
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
 jsi::Value
-NativeVeloqrs::cpp_uniffi_veloqrs_checksum_constructor_fitnessmanager_new(
+NativeVeloqrs::cpp_uniffi_veloqrs_checksum_constructor_veloqengine_create(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
     size_t count) {
-  auto value = uniffi_veloqrs_checksum_constructor_fitnessmanager_new();
+  auto value = uniffi_veloqrs_checksum_constructor_veloqengine_create();
 
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
 jsi::Value
-NativeVeloqrs::cpp_uniffi_veloqrs_checksum_constructor_heatmapmanager_new(
+NativeVeloqrs::cpp_uniffi_veloqrs_checksum_constructor_fitnessmanager_new(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
     size_t count) {
-  auto value = uniffi_veloqrs_checksum_constructor_heatmapmanager_new();
+  auto value = uniffi_veloqrs_checksum_constructor_fitnessmanager_new();
 
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
@@ -11877,10 +12087,10 @@ NativeVeloqrs::cpp_uniffi_veloqrs_checksum_constructor_strengthmanager_new(
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
 jsi::Value
-NativeVeloqrs::cpp_uniffi_veloqrs_checksum_constructor_veloqengine_create(
+NativeVeloqrs::cpp_uniffi_veloqrs_checksum_constructor_heatmapmanager_new(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
     size_t count) {
-  auto value = uniffi_veloqrs_checksum_constructor_veloqengine_create();
+  auto value = uniffi_veloqrs_checksum_constructor_heatmapmanager_new();
 
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }

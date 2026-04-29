@@ -25,22 +25,22 @@ interface CalendarDirectionBest {
 interface CalendarMonthSummary {
   month: number;
   traversalCount: number;
-  forward: CalendarDirectionBest | undefined;
-  reverse: CalendarDirectionBest | undefined;
+  forward?: CalendarDirectionBest;
+  reverse?: CalendarDirectionBest;
 }
 
 interface CalendarYearSummary {
   year: number;
   traversalCount: number;
-  forward: CalendarDirectionBest | undefined;
-  reverse: CalendarDirectionBest | undefined;
+  forward?: CalendarDirectionBest;
+  reverse?: CalendarDirectionBest;
   months: CalendarMonthSummary[];
 }
 
 export interface CalendarSummary {
   years: CalendarYearSummary[];
-  forwardPr: CalendarDirectionBest | undefined;
-  reversePr: CalendarDirectionBest | undefined;
+  forwardPr?: CalendarDirectionBest;
+  reversePr?: CalendarDirectionBest;
   sectionDistance: number;
 }
 
