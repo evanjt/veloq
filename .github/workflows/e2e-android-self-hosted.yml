@@ -2,9 +2,7 @@ name: E2E Android (Self-Hosted)
 
 on:
   push:
-    branches: [main]
   pull_request:
-    branches: [main]
   workflow_dispatch:
     inputs:
       tiers:
