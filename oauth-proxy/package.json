@@ -8,7 +8,7 @@
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20260426.1",
-    "typescript": "^5.7.0",
+    "typescript": "^6.0.3",
     "wrangler": "^4.80.0"
   }
 }
