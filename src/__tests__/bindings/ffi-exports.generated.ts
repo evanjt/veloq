@@ -6,7 +6,7 @@
  * Used by tests to validate TypeScript bindings match Rust exports.
  *
  * 5 standalone `#[uniffi::export]` functions plus
- * 178 methods inside `#[uniffi::export] impl` blocks across
+ * 179 methods inside `#[uniffi::export] impl` blocks across
  * 10 UniFFI Objects.
  */
 
@@ -25,7 +25,7 @@ export interface FfiExportInfo {
 
 /**
  * All FFI exports from Rust source.
- * Total: 183 exports (5 standalone + 178 methods)
+ * Total: 184 exports (5 standalone + 179 methods)
  */
 export const FFI_EXPORTS: FfiExportInfo[] = [
   {
@@ -161,49 +161,49 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'get_progress',
     camelName: 'getProgress',
     file: 'objects/detection.rs',
-    line: 88,
+    line: 91,
     object: 'DetectionManager',
   },
   {
     name: 'force_redetect',
     camelName: 'forceRedetect',
     file: 'objects/detection.rs',
-    line: 106,
+    line: 111,
     object: 'DetectionManager',
   },
   {
     name: 'set_config',
     camelName: 'setConfig',
     file: 'objects/detection.rs',
-    line: 132,
+    line: 137,
     object: 'DetectionManager',
   },
   {
     name: 'get_config',
     camelName: 'getConfig',
     file: 'objects/detection.rs',
-    line: 138,
+    line: 143,
     object: 'DetectionManager',
   },
   {
     name: 'set_match_strictness',
     camelName: 'setMatchStrictness',
     file: 'objects/detection.rs',
-    line: 142,
+    line: 147,
     object: 'DetectionManager',
   },
   {
     name: 'get_match_strictness',
     camelName: 'getMatchStrictness',
     file: 'objects/detection.rs',
-    line: 169,
+    line: 174,
     object: 'DetectionManager',
   },
   {
     name: 'detect_potentials',
     camelName: 'detectPotentials',
     file: 'objects/detection.rs',
-    line: 176,
+    line: 181,
     object: 'DetectionManager',
   },
   {
@@ -882,189 +882,189 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'trim',
     camelName: 'trim',
     file: 'objects/sections.rs',
-    line: 459,
+    line: 456,
     object: 'SectionManager',
   },
   {
     name: 'reset_bounds',
     camelName: 'resetBounds',
     file: 'objects/sections.rs',
-    line: 466,
+    line: 463,
     object: 'SectionManager',
   },
   {
     name: 'has_original_bounds',
     camelName: 'hasOriginalBounds',
     file: 'objects/sections.rs',
-    line: 473,
+    line: 470,
     object: 'SectionManager',
   },
   {
     name: 'get_extension_track',
     camelName: 'getExtensionTrack',
     file: 'objects/sections.rs',
-    line: 477,
+    line: 474,
     object: 'SectionManager',
   },
   {
     name: 'expand_bounds',
     camelName: 'expandBounds',
     file: 'objects/sections.rs',
-    line: 496,
+    line: 490,
     object: 'SectionManager',
   },
   {
     name: 'get_efficiency_trend',
     camelName: 'getEfficiencyTrend',
     file: 'objects/sections.rs',
-    line: 507,
+    line: 506,
     object: 'SectionManager',
   },
   {
     name: 'disable',
     camelName: 'disable',
     file: 'objects/sections.rs',
-    line: 514,
+    line: 513,
     object: 'SectionManager',
   },
   {
     name: 'enable',
     camelName: 'enable',
     file: 'objects/sections.rs',
-    line: 521,
+    line: 520,
     object: 'SectionManager',
   },
   {
     name: 'set_superseded',
     camelName: 'setSuperseded',
     file: 'objects/sections.rs',
-    line: 528,
+    line: 527,
     object: 'SectionManager',
   },
   {
     name: 'clear_superseded',
     camelName: 'clearSuperseded',
     file: 'objects/sections.rs',
-    line: 539,
+    line: 538,
     object: 'SectionManager',
   },
   {
     name: 'import_disabled_ids',
     camelName: 'importDisabledIds',
     file: 'objects/sections.rs',
-    line: 546,
+    line: 545,
     object: 'SectionManager',
   },
   {
     name: 'import_superseded_map',
     camelName: 'importSupersededMap',
     file: 'objects/sections.rs',
-    line: 553,
+    line: 552,
     object: 'SectionManager',
   },
   {
     name: 'get_all_summaries_including_hidden',
     camelName: 'getAllSummariesIncludingHidden',
     file: 'objects/sections.rs',
-    line: 568,
+    line: 567,
     object: 'SectionManager',
   },
   {
     name: 'extract_traces_batch',
     camelName: 'extractTracesBatch',
     file: 'objects/sections.rs',
-    line: 584,
+    line: 583,
     object: 'SectionManager',
   },
   {
     name: 'match_activity_to_sections',
     camelName: 'matchActivityToSections',
     file: 'objects/sections.rs',
-    line: 628,
+    line: 624,
     object: 'SectionManager',
   },
   {
     name: 'rematch_activity_to_section',
     camelName: 'rematchActivityToSection',
     file: 'objects/sections.rs',
-    line: 674,
+    line: 670,
     object: 'SectionManager',
   },
   {
     name: 'get_nearby_sections',
     camelName: 'getNearbySections',
     file: 'objects/sections.rs',
-    line: 747,
+    line: 743,
     object: 'SectionManager',
   },
   {
     name: 'get_merge_candidates',
     camelName: 'getMergeCandidates',
     file: 'objects/sections.rs',
-    line: 759,
+    line: 755,
     object: 'SectionManager',
   },
   {
     name: 'merge_sections',
     camelName: 'mergeSections',
     file: 'objects/sections.rs',
-    line: 770,
+    line: 766,
     object: 'SectionManager',
   },
   {
     name: 'get_activity_section_highlights',
     camelName: 'getActivitySectionHighlights',
     file: 'objects/sections.rs',
-    line: 785,
+    line: 781,
     object: 'SectionManager',
   },
   {
     name: 'get_activity_indicators',
     camelName: 'getActivityIndicators',
     file: 'objects/sections.rs',
-    line: 795,
+    line: 791,
     object: 'SectionManager',
   },
   {
     name: 'get_indicators_for_activity',
     camelName: 'getIndicatorsForActivity',
     file: 'objects/sections.rs',
-    line: 803,
+    line: 799,
     object: 'SectionManager',
   },
   {
     name: 'get_activity_section_encounters',
     camelName: 'getActivitySectionEncounters',
     file: 'objects/sections.rs',
-    line: 812,
+    line: 808,
     object: 'SectionManager',
   },
   {
     name: 'recompute_indicators',
     camelName: 'recomputeIndicators',
     file: 'objects/sections.rs',
-    line: 821,
+    line: 817,
     object: 'SectionManager',
   },
   {
     name: 'get_activity_pr_sections',
     camelName: 'getActivityPrSections',
     file: 'objects/sections.rs',
-    line: 833,
+    line: 829,
     object: 'SectionManager',
   },
   {
     name: 'get_workout_sections',
     camelName: 'getWorkoutSections',
     file: 'objects/sections.rs',
-    line: 854,
+    line: 850,
     object: 'SectionManager',
   },
   {
     name: 'get_chart_data',
     camelName: 'getChartData',
     file: 'objects/sections.rs',
-    line: 865,
+    line: 861,
     object: 'SectionManager',
   },
   {
@@ -1299,10 +1299,17 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     object: 'HeatmapManager',
   },
   {
+    name: 'get_percent',
+    camelName: 'getPercent',
+    file: 'objects/tiles.rs',
+    line: 96,
+    object: 'HeatmapManager',
+  },
+  {
     name: 'compute_polyline_overlap',
     camelName: 'computePolylineOverlap',
     file: 'persistence/mod.rs',
-    line: 1120,
+    line: 1158,
   },
 ];
 
@@ -1492,6 +1499,7 @@ export const EXPECTED_TS_FUNCTIONS = new Set<string>([
   'getCacheSize',
   'poll',
   'getProgress',
+  'getPercent',
   'computePolylineOverlap',
 ]);
 
@@ -1661,6 +1669,7 @@ export const RUST_TO_TS_NAME: Record<string, string> = {
   clear_tiles_path: 'clearTilesPath',
   clear_tiles: 'clearTiles',
   get_cache_size: 'getCacheSize',
+  get_percent: 'getPercent',
   compute_polyline_overlap: 'computePolylineOverlap',
 };
 
