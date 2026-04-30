@@ -51,7 +51,7 @@ jobs:
         if: steps.apk-cache.outputs.cache-hit == 'true'
         run: echo "Using cached dev APK (hash ${{ steps.hash.outputs.source_hash }})"
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         if: steps.apk-cache.outputs.cache-hit != 'true'
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -66,10 +66,10 @@ jobs:
           distribution: temurin
           java-version: 17
 
-      - uses: android-actions/setup-android@v3
+      - uses: android-actions/setup-android@v4
         if: steps.apk-cache.outputs.cache-hit != 'true'
 
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6
         if: steps.apk-cache.outputs.cache-hit != 'true'
 
       - name: Setup Rust for Android
@@ -145,7 +145,7 @@ jobs:
         with:
           xcode-version: '26.2'
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         if: steps.app-cache.outputs.cache-hit != 'true'
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -351,7 +351,7 @@ jobs:
 
       - name: Publish test results
         if: always()
-        uses: mikepenz/action-junit-report@v5
+        uses: mikepenz/action-junit-report@v6
         with:
           report_paths: maestro-report.xml
           check_name: E2E Android Results
@@ -468,7 +468,7 @@ jobs:
 
       - name: Publish test results
         if: always()
-        uses: mikepenz/action-junit-report@v5
+        uses: mikepenz/action-junit-report@v6
         with:
           report_paths: maestro-report.xml
           check_name: E2E iOS Results
