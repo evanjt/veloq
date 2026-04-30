@@ -1760,7 +1760,8 @@
   },
   "support": {
     "tipTitle": "Apoiar Veloq",
-    "tipDescription": "Todas as funcionalidades são gratuitas, sem paywalls. As gorjetas ajudam a cobrir os custos da loja.",
+    "tipDescription": "Todas as funcionalidades são gratuitas, sem paywalls. As gorjetas ajudam a cobrir os custos de desenvolvimento e funcionamento.",
+    "remindLater": "Lembrar mais tarde",
     "neverShow": "Nunca mais mostrar",
     "thankYou": "Obrigado pelo seu apoio!",
     "sponsorGitHub": "Patrocinar no GitHub",

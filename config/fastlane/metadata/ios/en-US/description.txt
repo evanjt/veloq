@@ -16,7 +16,7 @@ Offline-first
 Sync once, access anywhere. Your data is cached locally so it's always available, even without internet.
 
 Privacy
-All data stays on your device. No analytics, no tracking, no servers. Open source under Apache 2.0.
+All data stays on your device. No analytics, no tracking. Optional push notifications store a device token on our server with automatic 30-day expiry — no personal data is retained. Open source under Apache 2.0.
 
 Supports cycling, running, swimming, and 20+ activity types. Try the built-in demo mode to explore without an account.
 

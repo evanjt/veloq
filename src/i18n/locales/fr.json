@@ -1760,7 +1760,8 @@
   },
   "support": {
     "tipTitle": "Soutenir Veloq",
-    "tipDescription": "Toutes les fonctionnalités sont gratuites, sans mur payant. Les pourboires aident à couvrir les frais de publication.",
+    "tipDescription": "Toutes les fonctionnalités sont gratuites, sans mur payant. Les pourboires aident à couvrir les frais de développement et de fonctionnement.",
+    "remindLater": "Me rappeler plus tard",
     "neverShow": "Ne plus afficher",
     "thankYou": "Merci pour votre soutien !",
     "sponsorGitHub": "Sponsoriser sur GitHub",

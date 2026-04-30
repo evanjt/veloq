@@ -16,7 +16,7 @@ Offline-first
 Sincronize uma vez, aceda em qualquer lugar. Os seus dados ficam armazenados localmente e estão sempre disponíveis, mesmo sem internet.
 
 Privacidade
-Todos os dados permanecem no seu dispositivo. Sem análises, sem rastreamento, sem servidores. Código aberto sob licença Apache 2.0.
+Todos os dados permanecem no seu dispositivo. Sem análises, sem rastreamento. As notificações push opcionais armazenam um token do dispositivo no nosso servidor com expiração automática de 30 dias — nenhum dado pessoal é retido. Código aberto sob licença Apache 2.0.
 
 Compatível com ciclismo, corrida, natação e mais de 20 tipos de atividade. Experimente o modo de demonstração integrado para explorar sem criar conta.
 

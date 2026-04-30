@@ -1760,7 +1760,8 @@
   },
   "support": {
     "tipTitle": "Support Veloq",
-    "tipDescription": "Everything's free, no paywalls. Tips help cover store costs — legend.",
+    "tipDescription": "Everything's free, no paywalls. Tips help cover dev and running costs — legend.",
+    "remindLater": "Remind me later",
     "neverShow": "Never show again",
     "thankYou": "Legend — thanks for the support!",
     "sponsorGitHub": "Sponsor on GitHub",

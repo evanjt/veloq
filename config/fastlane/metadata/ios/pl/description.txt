@@ -16,7 +16,7 @@ Offline-first
 Synchronizuj raz, korzystaj wszędzie. Twoje dane są przechowywane lokalnie i zawsze dostępne, nawet bez internetu.
 
 Prywatność
-Wszystkie dane pozostają na Twoim urządzeniu. Brak analityki, brak śledzenia, brak serwerów. Otwarte źródło na licencji Apache 2.0.
+Wszystkie dane pozostają na Twoim urządzeniu. Brak analityki, brak śledzenia. Opcjonalne powiadomienia push przechowują token urządzenia na naszym serwerze z automatycznym wygaśnięciem po 30 dniach — żadne dane osobowe nie są zachowywane. Otwarte źródło na licencji Apache 2.0.
 
 Obsługuje kolarstwo, bieganie, pływanie i ponad 20 typów aktywności. Wypróbuj wbudowany tryb demo, aby poznać aplikację bez zakładania konta.
 

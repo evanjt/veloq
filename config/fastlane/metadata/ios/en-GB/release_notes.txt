@@ -1,10 +1,5 @@
-v0.3.0
+v0.3.1
 
-• Pin, accept, or disable sections; adjust detection sensitivity
-• Set a reference effort for future comparisons
-• Sync progress with stage-by-stage feedback
-• Best Efforts: power and pace PRs with source tap-through
-• Feed: PR trophies, trend pills, sparkline section cards
-• Map: gradient polylines, heatmap, cluster zoom
-• Fitness: ramp rate, form %, temperature and gradient charts
-• Faster transfers and section loading
+• Support the project with tips from the home screen or settings
+• Updated native engine (UniFFI 0.31)
+• Dependency updates for stability and performance

@@ -1760,7 +1760,8 @@
   },
   "support": {
     "tipTitle": "Veloq unterstützen",
-    "tipDescription": "Alle Funktionen sind kostenlos, keine Bezahlschranken. Trinkgelder helfen, die Store-Kosten zu decken.",
+    "tipDescription": "Alle Funktionen sind kostenlos, keine Bezahlschranken. Trinkgelder helfen, die Entwicklungs- und Betriebskosten zu decken.",
+    "remindLater": "Später erinnern",
     "neverShow": "Nie wieder anzeigen",
     "thankYou": "Vielen Dank für deine Unterstützung!",
     "sponsorGitHub": "Auf GitHub sponsern",

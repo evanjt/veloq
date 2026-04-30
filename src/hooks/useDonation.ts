@@ -15,6 +15,7 @@ import {
 import { useSupportStore } from '@/providers';
 
 const PRODUCT_IDS = ['tip_small', 'tip_medium', 'tip_large'];
+const THANK_YOU_DISPLAY_MS = 3000;
 
 interface DonationState {
   products: Product[];
@@ -66,7 +67,7 @@ export function useDonation() {
           setState((s) => ({ ...s, isPurchasing: false, purchaseSuccess: true }));
           setTimeout(() => {
             if (mounted) setState((s) => ({ ...s, purchaseSuccess: false }));
-          }, 3000);
+          }, THANK_YOU_DISPLAY_MS);
         }
       });
 

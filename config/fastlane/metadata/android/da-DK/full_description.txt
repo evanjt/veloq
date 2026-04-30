@@ -15,8 +15,8 @@ Overvåg din CTL/ATL/TSB-fitnessmodel med formzoneanalyse. Spor HRV, hvilepuls, 
 <b>Offline-first</b>
 Aggressiv caching sikrer, at dine data altid er tilgængelige. Synkroniser dine aktiviteter én gang og få adgang til dem overalt uden internetforbindelse.
 
-<b>Fokus på privatliv</b>
-Alle data forbliver på din enhed. Ingen analyse, ingen sporing, ingen dataindsamling. Dine loginoplysninger gemmes sikkert med platformskryptering.
+<b>Privatliv</b>
+Alle data forbliver på din enhed. Ingen analyse, ingen sporing. Valgfrie push-notifikationer gemmer et enhedstoken på vores server med automatisk 30-dages udløb — ingen personlige data opbevares. Open source under Apache 2.0.
 
 <b>Multisport-understøttelse</b>
 Fuld understøttelse af cykling, løb, svømning og 20+ aktivitetstyper med sportsspecifikke målinger og analyser.

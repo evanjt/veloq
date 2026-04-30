@@ -16,7 +16,7 @@ Offline-first
 Sincronizza una volta, accedi ovunque. I tuoi dati sono archiviati localmente e sempre disponibili, anche senza internet.
 
 Privacy
-Tutti i dati restano sul tuo dispositivo. Nessuna analisi, nessun tracciamento, nessun server. Open source con licenza Apache 2.0.
+Tutti i dati restano sul tuo dispositivo. Nessuna analisi, nessun tracciamento. Le notifiche push opzionali memorizzano un token del dispositivo sul nostro server con scadenza automatica di 30 giorni — nessun dato personale viene conservato. Open source con licenza Apache 2.0.
 
 Supporta ciclismo, corsa, nuoto e oltre 20 tipi di attività. Prova la modalità demo integrata per esplorare senza un account.
 

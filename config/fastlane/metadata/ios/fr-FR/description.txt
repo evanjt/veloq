@@ -16,7 +16,7 @@ Hors ligne d'abord
 Synchronisez une fois, accédez partout. Vos données sont stockées localement et toujours disponibles, même sans internet.
 
 Confidentialité
-Toutes les données restent sur votre appareil. Pas d'analyse, pas de suivi, pas de serveurs. Code source ouvert sous Apache 2.0.
+Toutes les données restent sur votre appareil. Pas d'analyse, pas de suivi. Les notifications push optionnelles stockent un jeton d'appareil sur notre serveur avec une expiration automatique de 30 jours — aucune donnée personnelle n'est conservée. Code source ouvert sous Apache 2.0.
 
 Compatible avec le cyclisme, la course, la natation et plus de 20 types d'activités. Essayez le mode démo intégré pour explorer sans compte.
 

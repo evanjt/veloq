@@ -1702,6 +1702,7 @@ export interface TranslationResource {
   support: {
     tipTitle: string;
     tipDescription: string;
+    remindLater: string;
     neverShow: string;
     thankYou: string;
     sponsorGitHub: string;
