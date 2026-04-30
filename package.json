@@ -1,6 +1,6 @@
 {
   "name": "veloq",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "repository": {
     "type": "git",
     "url": "https://github.com/evanjt/veloq"
@@ -33,9 +33,6 @@
     "maestro:test": "maestro test .maestro/ --include-tags=tier0,tier1,tier2 --no-ansi",
     "maestro:stress": "maestro test .maestro/ --include-tags=tier3 --no-ansi",
     "maestro:screenshots": "maestro test .maestro/ --include-tags=tier4 --no-ansi",
-    "store:changelog": "npx tsx scripts/store-metadata.ts changelog",
-    "store:sync": "npx tsx scripts/store-metadata.ts sync-metadata",
-    "store:locales": "npx tsx scripts/store-metadata.ts list-locales",
     "ffi:manifest": "npx tsx scripts/extract-ffi-exports.ts",
     "ffi:check": "npx tsx scripts/extract-ffi-exports.ts --check",
     "ffi:test": "jest --config config/jest.config.js --testPathPattern=ffiBinding",

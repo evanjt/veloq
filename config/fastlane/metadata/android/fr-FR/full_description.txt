@@ -15,8 +15,8 @@ Surveillez votre modèle de fitness CTL/ATL/TSB avec analyse des zones de forme.
 <b>Offline-first</b>
 La mise en cache agressive garantit que vos données sont toujours disponibles. Synchronisez vos activités une seule fois et accédez-y partout sans connexion internet.
 
-<b>Respect de la vie privée</b>
-Toutes les données restent sur votre appareil. Aucune analyse, aucun suivi, aucune collecte de données. Vos identifiants sont stockés de manière sécurisée grâce au chiffrement de la plateforme.
+<b>Confidentialité</b>
+Toutes les données restent sur votre appareil. Pas d'analyse, pas de suivi. Les notifications push optionnelles stockent un jeton d'appareil sur notre serveur avec expiration automatique de 30 jours — aucune donnée personnelle n'est conservée. Open source sous Apache 2.0.
 
 <b>Support multisport</b>
 Prise en charge complète du cyclisme, de la course à pied, de la natation et de plus de 20 types d'activités avec des métriques et analyses spécifiques à chaque sport.

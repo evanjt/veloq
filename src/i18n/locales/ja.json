@@ -1760,7 +1760,8 @@
   },
   "support": {
     "tipTitle": "Veloqを応援",
-    "tipDescription": "すべての機能は無料で、課金の壁はありません。チップはストアの費用を賄うのに役立ちます。",
+    "tipDescription": "すべての機能は無料で、課金の壁はありません。チップは開発費と運営費を賄うのに役立ちます。",
+    "remindLater": "後で通知する",
     "neverShow": "今後表示しない",
     "thankYou": "ご支援ありがとうございます！",
     "sponsorGitHub": "GitHubでスポンサーになる",

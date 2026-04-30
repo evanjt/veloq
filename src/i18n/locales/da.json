@@ -1760,7 +1760,8 @@
   },
   "support": {
     "tipTitle": "Støt Veloq",
-    "tipDescription": "Alle funktioner er gratis, ingen betalingsmure. Drikkepenge hjælper med at dække butiksomkostningerne.",
+    "tipDescription": "Alle funktioner er gratis, ingen betalingsmure. Drikkepenge hjælper med at dække udviklings- og driftsomkostningerne.",
+    "remindLater": "Påmind mig senere",
     "neverShow": "Vis aldrig igen",
     "thankYou": "Tak for din støtte!",
     "sponsorGitHub": "Sponsorér på GitHub",

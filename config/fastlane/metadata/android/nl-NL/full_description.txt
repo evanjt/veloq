@@ -15,8 +15,8 @@ Monitor je CTL/ATL/TSB-fitnessmodel met vormzoneanalyse. Volg HRV, rusthartslag,
 <b>Offline-first</b>
 Agressieve caching zorgt ervoor dat je gegevens altijd beschikbaar zijn. Synchroniseer je activiteiten eenmaal en open ze overal zonder internetverbinding.
 
-<b>Privacygericht</b>
-Alle gegevens blijven op je apparaat. Geen analytics, geen tracking, geen gegevensverzameling. Je inloggegevens worden veilig opgeslagen met platformversleuteling.
+<b>Privacy</b>
+Alle gegevens blijven op je apparaat. Geen analyses, geen tracking. Optionele pushmeldingen slaan een apparaattoken op onze server op met automatische vervaldatum van 30 dagen — er worden geen persoonlijke gegevens bewaard. Open source onder Apache 2.0.
 
 <b>Multisportondersteuning</b>
 Volledige ondersteuning voor fietsen, hardlopen, zwemmen en 20+ activiteitstypen met sportspecifieke metrieken en analyses.

@@ -1,10 +1,5 @@
-v0.3.0
+v0.3.1
 
-• Fijar, aceptar o desactivar secciones; ajustar sensibilidad de detección
-• Establecer un esfuerzo de referencia para comparaciones futuras
-• Progreso de sincronización con feedback paso a paso
-• Mejores marcas: PRs de potencia y ritmo con enlace a la fuente
-• Feed: trofeos de PR, píldoras de tendencia, tarjetas sparkline de secciones
-• Mapa: polilíneas con gradiente, heatmap, zoom por agrupación
-• Fitness: tasa de incremento, forma %, gráficos de temperatura y desnivel
-• Transferencias y carga de secciones más rápidas
+• Apoya el proyecto con propinas desde la pantalla de inicio o ajustes
+• Motor nativo actualizado (UniFFI 0.31)
+• Actualizaciones de dependencias para estabilidad y rendimiento

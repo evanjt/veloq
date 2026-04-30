@@ -376,7 +376,7 @@ export default function RootLayout() {
         // One-time legacy purchaser detection: if user already had data
         // when the app went free, mark them so they see a different card
         const support = useSupportStore.getState();
-        if (!support.isLegacyPurchaser) {
+        if (support.isLoaded && !support.isLegacyPurchaser) {
           try {
             const eng = getRouteEngine();
             if (eng && eng.getActivityCount() > 0) {

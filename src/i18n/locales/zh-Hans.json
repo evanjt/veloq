@@ -1760,7 +1760,8 @@
   },
   "support": {
     "tipTitle": "支持 Veloq",
-    "tipDescription": "所有功能均免费，无付费墙。打赏有助于承担商店费用。",
+    "tipDescription": "所有功能均免费，无付费墙。打赏有助于承担开发和运营费用。",
+    "remindLater": "稍后提醒我",
     "neverShow": "不再显示",
     "thankYou": "感谢您的支持！",
     "sponsorGitHub": "在 GitHub 上赞助",

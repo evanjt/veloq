@@ -15,8 +15,8 @@ Erkenne automatisch wiederkehrende Routen und verfolge deine Leistung über die 
 <b>Offline-first</b>
 Aggressives Caching stellt sicher, dass deine Daten immer verfügbar sind. Synchronisiere deine Aktivitäten einmal und greife überall ohne Internetverbindung darauf zu.
 
-<b>Datenschutz im Fokus</b>
-Alle Daten verbleiben auf deinem Gerät. Keine Analysen, kein Tracking, keine Datenerfassung. Deine Zugangsdaten werden sicher mit Plattformverschlüsselung gespeichert.
+<b>Datenschutz</b>
+Alle Daten bleiben auf deinem Gerät. Keine Analysen, kein Tracking. Optionale Push-Benachrichtigungen speichern ein Geräte-Token auf unserem Server mit automatischem 30-Tage-Ablauf — keine persönlichen Daten werden gespeichert. Open Source unter Apache 2.0.
 
 <b>Multisport-Unterstützung</b>
 Volle Unterstützung für Radfahren, Laufen, Schwimmen und 20+ Aktivitätstypen mit sportspezifischen Metriken und Analysen.

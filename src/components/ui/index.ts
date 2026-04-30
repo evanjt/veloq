@@ -45,3 +45,4 @@ export { CollapsibleSection } from './CollapsibleSection';
 export { ScreenSafeAreaView } from './ScreenSafeAreaView';
 export { WhatsNewModal, TourReturnPill } from './whatsNew';
 export { EngineInitBanner } from './EngineInitBanner';
+export { TipButtons } from './TipButtons';

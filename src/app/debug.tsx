@@ -16,8 +16,8 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, darkColors, spacing } from '@/theme';
 import { useTheme } from '@/hooks';
 import { getFFIMetricsSummary, clearFFIMetrics } from '@/lib/debug/renderTimer';
-import { useSupportStore } from '@/providers';
-import { setSetting } from '@/lib/backup';
+import { useSupportStore, daysSince } from '@/providers';
+import { formatLocalDate } from '@/lib/utils/format';
 import type { PersistentEngineStats } from 'veloqrs';
 
 function getRouteEngine() {
@@ -106,37 +106,23 @@ function getAvgColor(avgMs: number): string {
   return '#22c55e';
 }
 
-function daysAgoISO(days: number): string {
+function daysAgoLocal(days: number): string {
   const d = new Date();
   d.setDate(d.getDate() - days);
-  return d.toISOString().split('T')[0];
+  return formatLocalDate(d);
 }
 
-function SupportCardDebug({ isDark, onRefresh }: { isDark: boolean; onRefresh: () => void }) {
+function SupportCardDebug({ isDark }: { isDark: boolean }) {
   const lastActionDate = useSupportStore((s) => s.lastActionDate);
   const permanentlyDismissed = useSupportStore((s) => s.permanentlyDismissed);
   const isLegacyPurchaser = useSupportStore((s) => s.isLegacyPurchaser);
+  const debugOverride = useSupportStore((s) => s._debugOverride);
 
   const daysUntilShow =
-    lastActionDate != null ? Math.max(0, Math.ceil(30 - daysSinceDate(lastActionDate))) : 0;
+    lastActionDate != null ? Math.max(0, Math.ceil(30 - daysSince(lastActionDate))) : 0;
 
   const textColor = isDark ? darkColors.textPrimary : colors.textPrimary;
   const mutedColor = isDark ? darkColors.textSecondary : colors.textSecondary;
-
-  const setLastShown = (daysAgo: number) => {
-    useSupportStore.setState({ lastActionDate: daysAgoISO(daysAgo), permanentlyDismissed: false });
-    // Persist manually since setState doesn't trigger persist
-    const state = useSupportStore.getState();
-    setSetting(
-      'veloq-support-store',
-      JSON.stringify({
-        lastActionDate: state.lastActionDate,
-        permanentlyDismissed: state.permanentlyDismissed,
-        isLegacyPurchaser: state.isLegacyPurchaser,
-      })
-    ).catch(() => {});
-    onRefresh();
-  };
 
   const presets = [
     { label: '0d ago', days: 0 },
@@ -165,7 +151,9 @@ function SupportCardDebug({ isDark, onRefresh }: { isDark: boolean; onRefresh: (
         {presets.map((p) => (
           <TouchableOpacity
             key={p.days}
-            onPress={() => setLastShown(p.days)}
+            onPress={() =>
+              debugOverride({ lastActionDate: daysAgoLocal(p.days), permanentlyDismissed: false })
+            }
             style={[styles.actionButton, { paddingHorizontal: spacing.sm }]}
             activeOpacity={0.7}
           >
@@ -176,29 +164,19 @@ function SupportCardDebug({ isDark, onRefresh }: { isDark: boolean; onRefresh: (
 
       <View style={{ flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm }}>
         <TouchableOpacity
-          onPress={() => {
-            useSupportStore.setState({ permanentlyDismissed: false });
-            setLastShown(31);
-          }}
+          onPress={() =>
+            debugOverride({
+              lastActionDate: daysAgoLocal(31),
+              permanentlyDismissed: false,
+            })
+          }
           style={styles.actionButton}
           activeOpacity={0.7}
         >
           <Text style={[styles.actionButtonText, { color: colors.primary }]}>Clear dismissed</Text>
         </TouchableOpacity>
         <TouchableOpacity
-          onPress={() => {
-            const current = useSupportStore.getState().isLegacyPurchaser;
-            useSupportStore.setState({ isLegacyPurchaser: !current });
-            setSetting(
-              'veloq-support-store',
-              JSON.stringify({
-                lastActionDate: useSupportStore.getState().lastActionDate,
-                permanentlyDismissed: useSupportStore.getState().permanentlyDismissed,
-                isLegacyPurchaser: !current,
-              })
-            ).catch(() => {});
-            onRefresh();
-          }}
+          onPress={() => debugOverride({ isLegacyPurchaser: !isLegacyPurchaser })}
           style={styles.actionButton}
           activeOpacity={0.7}
         >
@@ -209,10 +187,6 @@ function SupportCardDebug({ isDark, onRefresh }: { isDark: boolean; onRefresh: (
       </View>
     </CollapsibleSection>
   );
-}
-
-function daysSinceDate(isoDate: string): number {
-  return (Date.now() - new Date(isoDate).getTime()) / (1000 * 60 * 60 * 24);
 }
 
 export default function DebugScreen() {
@@ -398,7 +372,7 @@ export default function DebugScreen() {
         </CollapsibleSection>
 
         {/* Support Card Testing */}
-        <SupportCardDebug isDark={isDark} onRefresh={onRefresh} />
+        <SupportCardDebug isDark={isDark} />
 
         {/* Share Debug Snapshot */}
         <TouchableOpacity

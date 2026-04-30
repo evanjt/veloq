@@ -16,7 +16,7 @@ Offline først
 Synkroniser én gang, tilgå overalt. Dine data gemmes lokalt og er altid tilgængelige, selv uden internet.
 
 Privatliv
-Alle data forbliver på din enhed. Ingen analyse, ingen sporing, ingen servere. Open source under Apache 2.0.
+Alle data forbliver på din enhed. Ingen analyse, ingen sporing. Valgfrie push-notifikationer gemmer et enhedstoken på vores server med automatisk 30-dages udløb — ingen personlige data opbevares. Open source under Apache 2.0.
 
 Understøtter cykling, løb, svømning og over 20 aktivitetstyper. Prøv den indbyggede demotilstand for at udforske uden en konto.
 

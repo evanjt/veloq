@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { View, StyleSheet, Linking, Pressable } from 'react-native';
+import { View, StyleSheet, Linking, Pressable, Modal, Text as RNText } from 'react-native';
 import { Text, Switch } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -9,7 +9,7 @@ import {
   requestNotificationPermission,
   hasNotificationPermission,
 } from '@/lib/notifications/notificationService';
-import { colors, darkColors, spacing, typography } from '@/theme';
+import { colors, darkColors, spacing, typography, layout, shadows } from '@/theme';
 import { settingsStyles } from './settingsStyles';
 
 export function NotificationSection() {
@@ -18,12 +18,12 @@ export function NotificationSection() {
   const authMethod = useAuthStore((s) => s.authMethod);
   const isOAuth = authMethod === 'oauth';
   const isDemoMode = useAuthStore((s) => s.isDemoMode);
-  const { enabled, setEnabled } = useNotificationPreferences();
+  const { enabled, privacyAccepted, setEnabled, acceptPrivacy } = useNotificationPreferences();
   const [toggling, setToggling] = useState(false);
+  const [showPrivacyDialog, setShowPrivacyDialog] = useState(false);
 
   const canEnable = isOAuth && !isDemoMode;
 
-  // Sync with OS permission
   useEffect(() => {
     if (enabled) {
       hasNotificationPermission().then((granted) => {
@@ -34,11 +34,26 @@ export function NotificationSection() {
     }
   }, [enabled, setEnabled]);
 
+  const handlePrivacyAccept = useCallback(async () => {
+    setShowPrivacyDialog(false);
+    acceptPrivacy();
+    setToggling(true);
+    const granted = await requestNotificationPermission();
+    if (granted) {
+      setEnabled(true);
+    }
+    setToggling(false);
+  }, [acceptPrivacy, setEnabled]);
+
   const handleMainToggle = useCallback(
     async (value: boolean) => {
       if (!canEnable) return;
 
       if (value) {
+        if (!privacyAccepted) {
+          setShowPrivacyDialog(true);
+          return;
+        }
         setToggling(true);
         const granted = await requestNotificationPermission();
         if (granted) {
@@ -49,8 +64,12 @@ export function NotificationSection() {
         setEnabled(false);
       }
     },
-    [canEnable, setEnabled]
+    [canEnable, privacyAccepted, setEnabled]
   );
+
+  const bg = isDark ? darkColors.surface : colors.surface;
+  const textColor = isDark ? darkColors.textPrimary : colors.textPrimary;
+  const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
 
   return (
     <>
@@ -58,7 +77,6 @@ export function NotificationSection() {
         {t('notifications.settings.title').toUpperCase()}
       </Text>
       <View style={[settingsStyles.sectionCard, isDark && settingsStyles.sectionCardDark]}>
-        {/* Main toggle */}
         <View style={styles.row}>
           <MaterialCommunityIcons
             name="bell-outline"
@@ -99,11 +117,42 @@ export function NotificationSection() {
             </Text>
           </Pressable>
         )}
-
-        {/* Category toggles hidden until background notifications are implemented.
-           Store and filtering logic retained in NotificationPreferencesStore +
-           insightNotification.ts — re-enable these rows when background push is live. */}
       </View>
+
+      <Modal
+        visible={showPrivacyDialog}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowPrivacyDialog(false)}
+      >
+        <View style={styles.overlay}>
+          <View style={[styles.dialog, { backgroundColor: bg }]}>
+            <View style={styles.dialogHeader}>
+              <MaterialCommunityIcons
+                name="shield-check-outline"
+                size={24}
+                color={colors.primary}
+              />
+              <RNText style={[styles.dialogTitle, { color: textColor }]}>
+                {t('notifications.privacy.title')}
+              </RNText>
+            </View>
+            <RNText style={[styles.dialogBody, { color: textSecondary }]}>
+              {t('notifications.privacy.brief')}
+            </RNText>
+            <View style={styles.dialogActions}>
+              <Pressable style={styles.cancelBtn} onPress={() => setShowPrivacyDialog(false)}>
+                <RNText style={[styles.cancelText, { color: textSecondary }]}>
+                  {t('common.cancel')}
+                </RNText>
+              </Pressable>
+              <Pressable style={styles.acceptBtn} onPress={handlePrivacyAccept}>
+                <RNText style={styles.acceptText}>{t('notifications.privacy.accept')}</RNText>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </>
   );
 }
@@ -132,5 +181,58 @@ const styles = StyleSheet.create({
     ...typography.label,
     color: colors.textMuted,
     textTransform: 'none',
+  },
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: spacing.lg,
+  },
+  dialog: {
+    width: '100%',
+    maxWidth: 400,
+    borderRadius: layout.borderRadius,
+    padding: spacing.lg,
+    ...shadows.modal,
+  },
+  dialogHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  dialogTitle: {
+    fontSize: typography.cardTitle.fontSize,
+    fontWeight: '600',
+  },
+  dialogBody: {
+    fontSize: typography.bodySmall.fontSize,
+    lineHeight: 22,
+    marginBottom: spacing.lg,
+  },
+  dialogActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: spacing.sm,
+  },
+  cancelBtn: {
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+  },
+  cancelText: {
+    fontSize: typography.body.fontSize,
+    fontWeight: '500',
+  },
+  acceptBtn: {
+    backgroundColor: colors.primary,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.lg,
+    borderRadius: spacing.sm,
+  },
+  acceptText: {
+    color: '#fff',
+    fontSize: typography.body.fontSize,
+    fontWeight: '600',
   },
 });

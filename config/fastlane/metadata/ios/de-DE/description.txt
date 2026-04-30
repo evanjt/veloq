@@ -16,7 +16,7 @@ Offline-first
 Einmal synchronisieren, überall zugreifen. Deine Daten werden lokal gespeichert und sind immer verfügbar, auch ohne Internet.
 
 Datenschutz
-Alle Daten bleiben auf deinem Gerät. Keine Analysen, kein Tracking, keine Server. Open Source unter Apache 2.0.
+Alle Daten bleiben auf deinem Gerät. Keine Analysen, kein Tracking. Optionale Push-Benachrichtigungen speichern ein Geräte-Token auf unserem Server mit automatischem Ablauf nach 30 Tagen — keine persönlichen Daten werden gespeichert. Open Source unter Apache 2.0.
 
 Unterstützt Radfahren, Laufen, Schwimmen und 20+ Aktivitätstypen. Teste den integrierten Demomodus, um die App ohne Konto zu erkunden.
 

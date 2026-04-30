@@ -1760,7 +1760,8 @@
   },
   "support": {
     "tipTitle": "Apoya a Veloq",
-    "tipDescription": "Todas las funciones son gratuitas, sin muros de pago. Las propinas ayudan a cubrir los costos de la tienda.",
+    "tipDescription": "Todas las funciones son gratuitas, sin muros de pago. Las propinas ayudan a cubrir los costos de desarrollo y funcionamiento.",
+    "remindLater": "Recordarme más tarde",
     "neverShow": "No mostrar de nuevo",
     "thankYou": "¡Gracias por tu apoyo!",
     "sponsorGitHub": "Patrocinar en GitHub",

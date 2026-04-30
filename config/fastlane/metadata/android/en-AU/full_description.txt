@@ -15,8 +15,8 @@ Monitor your CTL/ATL/TSB fitness model with form zone analysis. Track HRV, resti
 <b>Offline-First</b>
 Aggressive caching ensures your data is always available. Sync your activities once and access them anywhere without an internet connection.
 
-<b>Privacy Focused</b>
-All data stays on your device. No analytics, no tracking, no data collection. Your credentials are stored securely using platform encryption.
+<b>Privacy</b>
+All data stays on your device. No analytics, no tracking. Optional push notifications store a device token on our server with automatic 30-day expiry — no personal data is retained. Open source under Apache 2.0.
 
 <b>Multi-Sport Support</b>
 Full support for cycling, running, swimming, and 20+ activity types with sport-specific metrics and analysis.

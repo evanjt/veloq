@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { getSetting, setSetting } from '@/lib/backup';
+import { formatLocalDate } from '@/lib/utils/format';
 
 const STORAGE_KEY = 'veloq-support-store';
 
@@ -13,17 +14,14 @@ interface SupportState {
   neverShowAgain: () => void;
   recordAction: () => void;
   setLegacyPurchaser: () => void;
+  _debugOverride: (partial: Partial<PersistedData>) => void;
   initialize: () => Promise<void>;
 }
 
-function daysSince(isoDate: string): number {
+export function daysSince(isoDate: string): number {
   const then = new Date(isoDate).getTime();
   const now = Date.now();
   return (now - then) / (1000 * 60 * 60 * 24);
-}
-
-function todayISO(): string {
-  return new Date().toISOString().split('T')[0];
 }
 
 interface PersistedData {
@@ -32,13 +30,17 @@ interface PersistedData {
   isLegacyPurchaser: boolean;
 }
 
-function persist(state: SupportState): void {
+function persist(
+  state: Pick<SupportState, 'lastActionDate' | 'permanentlyDismissed' | 'isLegacyPurchaser'>
+): void {
   const data: PersistedData = {
     lastActionDate: state.lastActionDate,
     permanentlyDismissed: state.permanentlyDismissed,
     isLegacyPurchaser: state.isLegacyPurchaser,
   };
-  setSetting(STORAGE_KEY, JSON.stringify(data)).catch(() => {});
+  setSetting(STORAGE_KEY, JSON.stringify(data)).catch((e) => {
+    if (__DEV__) console.warn('[SupportStore] persist failed:', e);
+  });
 }
 
 export const useSupportStore = create<SupportState>((set, get) => ({
@@ -51,38 +53,34 @@ export const useSupportStore = create<SupportState>((set, get) => ({
     const s = get();
     if (!s.isLoaded) return false;
     if (s.permanentlyDismissed) return false;
-    if (s.lastActionDate === null) {
-      // First launch — seed the 30-day timer but don't show
-      set((prev) => {
-        const next = { ...prev, lastActionDate: todayISO() };
-        persist(next as SupportState);
-        return next;
-      });
-      return false;
-    }
+    if (s.lastActionDate === null) return false;
     return daysSince(s.lastActionDate) >= 30;
   },
 
   remindLater: () => {
     set((s) => {
-      const next = { ...s, lastActionDate: todayISO() };
-      persist(next as SupportState);
+      const next = { ...s, lastActionDate: formatLocalDate(new Date()) };
+      persist(next);
       return next;
     });
   },
 
   neverShowAgain: () => {
     set((s) => {
-      const next = { ...s, permanentlyDismissed: true, lastActionDate: todayISO() };
-      persist(next as SupportState);
+      const next = {
+        ...s,
+        permanentlyDismissed: true,
+        lastActionDate: formatLocalDate(new Date()),
+      };
+      persist(next);
       return next;
     });
   },
 
   recordAction: () => {
     set((s) => {
-      const next = { ...s, lastActionDate: todayISO() };
-      persist(next as SupportState);
+      const next = { ...s, lastActionDate: formatLocalDate(new Date()) };
+      persist(next);
       return next;
     });
   },
@@ -90,7 +88,15 @@ export const useSupportStore = create<SupportState>((set, get) => ({
   setLegacyPurchaser: () => {
     set((s) => {
       const next = { ...s, isLegacyPurchaser: true };
-      persist(next as SupportState);
+      persist(next);
+      return next;
+    });
+  },
+
+  _debugOverride: (partial: Partial<PersistedData>) => {
+    set((s) => {
+      const next = { ...s, ...partial };
+      persist(next);
       return next;
     });
   },
@@ -100,8 +106,24 @@ export const useSupportStore = create<SupportState>((set, get) => ({
       const stored = await getSetting(STORAGE_KEY);
       if (stored) {
         const data: PersistedData = JSON.parse(stored);
+        const lastActionDate = data.lastActionDate ?? null;
+        if (lastActionDate === null) {
+          const seeded = formatLocalDate(new Date());
+          set({
+            lastActionDate: seeded,
+            permanentlyDismissed: data.permanentlyDismissed ?? false,
+            isLegacyPurchaser: data.isLegacyPurchaser ?? false,
+            isLoaded: true,
+          });
+          persist({
+            lastActionDate: seeded,
+            permanentlyDismissed: data.permanentlyDismissed ?? false,
+            isLegacyPurchaser: data.isLegacyPurchaser ?? false,
+          });
+          return;
+        }
         set({
-          lastActionDate: data.lastActionDate ?? null,
+          lastActionDate,
           permanentlyDismissed: data.permanentlyDismissed ?? false,
           isLegacyPurchaser: data.isLegacyPurchaser ?? false,
           isLoaded: true,
@@ -111,7 +133,9 @@ export const useSupportStore = create<SupportState>((set, get) => ({
     } catch {
       // Ignore parse errors
     }
-    set({ isLoaded: true });
+    const seeded = formatLocalDate(new Date());
+    set({ lastActionDate: seeded, isLoaded: true });
+    persist({ lastActionDate: seeded, permanentlyDismissed: false, isLegacyPurchaser: false });
   },
 }));
 

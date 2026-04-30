@@ -9,6 +9,7 @@ import Constants from 'expo-constants';
 import { navigateTo } from '@/lib';
 import { useDebugStore, useWhatsNewStore } from '@/providers';
 import { useDonation } from '@/hooks/useDonation';
+import { TipButtons } from '@/components/ui/TipButtons';
 import { getAllSlides } from '@/components/ui/whatsNew/slides';
 import { colors, darkColors, spacing, layout, shadows, typography } from '@/theme';
 import { settingsStyles } from './settingsStyles';
@@ -97,6 +98,18 @@ export function SupportSection() {
           </Text>
         </TouchableOpacity>
       </View>
+
+      {isAvailable && products.length > 0 && (
+        <View style={styles.tipButtonRow}>
+          <TipButtons
+            products={products}
+            isPurchasing={isPurchasing}
+            onTip={(id) => purchase(id)}
+            isDark={isDark}
+            small
+          />
+        </View>
+      )}
 
       {getAllSlides().length > 0 && (
         <TouchableOpacity
@@ -187,6 +200,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     marginHorizontal: layout.screenPadding,
     gap: spacing.sm,
+  },
+  tipButtonRow: {
+    marginHorizontal: layout.screenPadding,
+    marginTop: spacing.sm,
   },
   supportCard: {
     flex: 1,

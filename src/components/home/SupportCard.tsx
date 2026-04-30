@@ -10,6 +10,7 @@ import { useTheme } from '@/hooks';
 import { useSupportStore } from '@/providers';
 import { useDonation } from '@/hooks/useDonation';
 import { colors, darkColors, spacing, layout, shadows, typography } from '@/theme';
+import { TipButtons } from '@/components/ui/TipButtons';
 
 const FORUM_URL =
   'https://forum.intervals.icu/t/veloq-route-and-section-matching-mapping-app/120283';
@@ -19,24 +20,21 @@ const GITHUB_ISSUES_URL = 'https://github.com/evanjt/veloq/issues/new';
 export function SupportCard() {
   const { isDark } = useTheme();
   const { t } = useTranslation();
-  const shouldShow = useSupportStore((s) => s.shouldShow);
   const isLegacyPurchaser = useSupportStore((s) => s.isLegacyPurchaser);
-  const remindLater = useSupportStore((s) => s.remindLater);
   const neverShowAgain = useSupportStore((s) => s.neverShowAgain);
   const recordAction = useSupportStore((s) => s.recordAction);
   const { products, isAvailable, isPurchasing, purchaseSuccess, purchase } = useDonation();
 
-  // Snapshot visibility on mount so card stays visible for this session
-  // even after we mark it as shown (which resets the 30-day timer)
   const [visible, setVisible] = useState(false);
   const hasMarkedShown = useRef(false);
   useEffect(() => {
-    if (shouldShow() && !hasMarkedShown.current) {
+    const store = useSupportStore.getState();
+    if (store.shouldShow() && !hasMarkedShown.current) {
       hasMarkedShown.current = true;
       setVisible(true);
-      remindLater();
+      store.remindLater();
     }
-  }, [shouldShow, remindLater]);
+  }, []);
 
   const handleTip = useCallback(
     (productId: string) => {
@@ -49,6 +47,13 @@ export function SupportCard() {
     WebBrowser.openBrowserAsync(GITHUB_SPONSORS_URL);
     recordAction();
   }, [recordAction]);
+
+  const remindLater = useSupportStore((s) => s.remindLater);
+
+  const handleRemindLater = useCallback(() => {
+    remindLater();
+    setVisible(false);
+  }, [remindLater]);
 
   const handleNeverShow = useCallback(() => {
     neverShowAgain();
@@ -76,6 +81,7 @@ export function SupportCard() {
       <LegacyCard
         isDark={isDark}
         t={t}
+        remindLater={handleRemindLater}
         neverShowAgain={handleNeverShow}
         products={products}
         isAvailable={isAvailable}
@@ -90,6 +96,7 @@ export function SupportCard() {
     <TipCard
       isDark={isDark}
       t={t}
+      remindLater={handleRemindLater}
       neverShowAgain={handleNeverShow}
       products={products}
       isAvailable={isAvailable}
@@ -105,6 +112,7 @@ export function SupportCard() {
 interface TipCardProps {
   isDark: boolean;
   t: TFunction;
+  remindLater: () => void;
   neverShowAgain: () => void;
   products: { id: string; displayPrice: string }[];
   isAvailable: boolean;
@@ -116,6 +124,7 @@ interface TipCardProps {
 function TipCard({
   isDark,
   t,
+  remindLater,
   neverShowAgain,
   products,
   isAvailable,
@@ -157,7 +166,7 @@ function TipCard({
           </Text>
         </Pressable>
       )}
-      <DismissRow isDark={isDark} t={t} neverShowAgain={neverShowAgain} />
+      <DismissRow isDark={isDark} t={t} remindLater={remindLater} neverShowAgain={neverShowAgain} />
     </Animated.View>
   );
 }
@@ -169,6 +178,7 @@ interface LegacyCardProps extends TipCardProps {}
 function LegacyCard({
   isDark,
   t,
+  remindLater,
   neverShowAgain,
   products,
   isAvailable,
@@ -237,57 +247,12 @@ function LegacyCard({
           </Text>
         </Pressable>
       )}
-      <DismissRow isDark={isDark} t={t} neverShowAgain={neverShowAgain} />
+      <DismissRow isDark={isDark} t={t} remindLater={remindLater} neverShowAgain={neverShowAgain} />
     </Animated.View>
   );
 }
 
 // ── Shared sub-components ───────────────────────────────────────────
-
-function TipButtons({
-  products,
-  isPurchasing,
-  onTip,
-  isDark,
-  small,
-}: {
-  products: { id: string; displayPrice: string }[];
-  isPurchasing: boolean;
-  onTip: (id: string) => void;
-  isDark: boolean;
-  small?: boolean;
-}) {
-  const sorted = [...products].sort((a, b) => {
-    const order = ['tip_small', 'tip_medium', 'tip_large'];
-    return order.indexOf(a.id) - order.indexOf(b.id);
-  });
-
-  return (
-    <View style={[styles.tipRow, small && styles.tipRowSmall]}>
-      {sorted.map((product) => (
-        <Pressable
-          key={product.id}
-          onPress={() => onTip(product.id)}
-          disabled={isPurchasing}
-          style={[
-            small ? styles.tipButtonSmall : styles.tipButton,
-            isDark && styles.tipButtonDark,
-            isPurchasing && styles.tipButtonDisabled,
-          ]}
-        >
-          <Text
-            style={[
-              small ? styles.tipButtonTextSmall : styles.tipButtonText,
-              isDark && styles.tipButtonTextDark,
-            ]}
-          >
-            {product.displayPrice}
-          </Text>
-        </Pressable>
-      ))}
-    </View>
-  );
-}
 
 function LinkButton({
   icon,
@@ -315,14 +280,22 @@ function LinkButton({
 function DismissRow({
   isDark,
   t,
+  remindLater,
   neverShowAgain,
 }: {
   isDark: boolean;
   t: TFunction;
+  remindLater: () => void;
   neverShowAgain: () => void;
 }) {
   return (
     <View style={styles.dismissRow}>
+      <Pressable onPress={remindLater} hitSlop={8}>
+        <Text style={[styles.dismissText, isDark && styles.dismissTextDark]}>
+          {t('support.remindLater')}
+        </Text>
+      </Pressable>
+      <Text style={[styles.dismissSeparator, isDark && styles.dismissTextDark]}>·</Text>
       <Pressable onPress={neverShowAgain} hitSlop={8}>
         <Text style={[styles.dismissText, isDark && styles.dismissTextDark]}>
           {t('support.neverShow')}
@@ -368,46 +341,6 @@ const styles = StyleSheet.create({
   },
   descriptionDark: {
     color: darkColors.textSecondary,
-  },
-  tipRow: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  tipRowSmall: {
-    gap: spacing.xs,
-  },
-  tipButton: {
-    flex: 1,
-    backgroundColor: colors.primary,
-    paddingVertical: spacing.sm,
-    borderRadius: layout.borderRadiusSm,
-    alignItems: 'center',
-  },
-  tipButtonSmall: {
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.md,
-    backgroundColor: colors.primary,
-    borderRadius: layout.borderRadiusSm,
-    alignItems: 'center',
-  },
-  tipButtonDark: {
-    backgroundColor: colors.primary,
-  },
-  tipButtonDisabled: {
-    opacity: 0.5,
-  },
-  tipButtonText: {
-    ...typography.bodySmall,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-  tipButtonTextSmall: {
-    ...typography.caption,
-    fontWeight: '700',
-    color: '#FFFFFF',
-  },
-  tipButtonTextDark: {
-    color: '#FFFFFF',
   },
   sponsorButton: {
     flexDirection: 'row',
@@ -472,6 +405,11 @@ const styles = StyleSheet.create({
   dismissText: {
     ...typography.caption,
     color: colors.textSecondary,
+  },
+  dismissSeparator: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    marginHorizontal: spacing.sm,
   },
   dismissTextDark: {
     color: darkColors.textSecondary,

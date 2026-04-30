@@ -1760,7 +1760,8 @@
   },
   "support": {
     "tipTitle": "Wesprzyj Veloq",
-    "tipDescription": "Wszystkie funkcje są darmowe, bez paywall. Napiwki pomagają pokryć koszty sklepu.",
+    "tipDescription": "Wszystkie funkcje są darmowe, bez paywall. Napiwki pomagają pokryć koszty rozwoju i utrzymania.",
+    "remindLater": "Przypomnij później",
     "neverShow": "Nie pokazuj ponownie",
     "thankYou": "Dziękujemy za wsparcie!",
     "sponsorGitHub": "Sponsoruj na GitHub",

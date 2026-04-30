@@ -1760,7 +1760,8 @@
   },
   "support": {
     "tipTitle": "Steun Veloq",
-    "tipDescription": "Alle functies zijn gratis, geen betaalmuren. Fooien helpen de storekosten te dekken.",
+    "tipDescription": "Alle functies zijn gratis, geen betaalmuren. Fooien helpen de ontwikkelings- en exploitatiekosten te dekken.",
+    "remindLater": "Herinner me later",
     "neverShow": "Nooit meer tonen",
     "thankYou": "Bedankt voor je steun!",
     "sponsorGitHub": "Sponsor op GitHub",

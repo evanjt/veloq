@@ -15,8 +15,8 @@ Monitoruj swój model fitness CTL/ATL/TSB z analizą stref formy. Śledź HRV, t
 <b>Offline-first</b>
 Agresywne buforowanie zapewnia, że Twoje dane są zawsze dostępne. Zsynchronizuj swoje aktywności raz i korzystaj z nich wszędzie bez połączenia z internetem.
 
-<b>Skupienie na prywatności</b>
-Wszystkie dane pozostają na Twoim urządzeniu. Bez analityki, bez śledzenia, bez zbierania danych. Twoje dane logowania są bezpiecznie przechowywane z wykorzystaniem szyfrowania platformy.
+<b>Prywatność</b>
+Wszystkie dane pozostają na Twoim urządzeniu. Brak analityki, brak śledzenia. Opcjonalne powiadomienia push przechowują token urządzenia na naszym serwerze z automatycznym 30-dniowym wygaśnięciem — żadne dane osobowe nie są przechowywane. Open source na licencji Apache 2.0.
 
 <b>Wsparcie wielu dyscyplin</b>
 Pełne wsparcie dla kolarstwa, biegania, pływania i ponad 20 typów aktywności ze wskaźnikami i analizami specyficznymi dla danej dyscypliny.

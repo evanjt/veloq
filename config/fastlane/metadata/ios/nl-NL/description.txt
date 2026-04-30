@@ -16,7 +16,7 @@ Offline-first
 Synchroniseer eenmaal, open overal. Je gegevens worden lokaal opgeslagen en zijn altijd beschikbaar, zelfs zonder internet.
 
 Privacy
-Alle gegevens blijven op je apparaat. Geen analyses, geen tracking, geen servers. Open source onder Apache 2.0.
+Alle gegevens blijven op je apparaat. Geen analyses, geen tracking. Optionele pushmeldingen slaan een apparaattoken op onze server op met automatische vervaldatum na 30 dagen — er worden geen persoonlijke gegevens bewaard. Open source onder Apache 2.0.
 
 Ondersteunt fietsen, hardlopen, zwemmen en meer dan 20 activiteitstypen. Probeer de ingebouwde demomodus om te verkennen zonder account.
 

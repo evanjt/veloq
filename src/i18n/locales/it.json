@@ -1760,7 +1760,8 @@
   },
   "support": {
     "tipTitle": "Sostieni Veloq",
-    "tipDescription": "Tutte le funzionalità sono gratuite, senza paywall. Le mance aiutano a coprire i costi dello store.",
+    "tipDescription": "Tutte le funzionalità sono gratuite, senza paywall. Le mance aiutano a coprire i costi di sviluppo e gestione.",
+    "remindLater": "Ricordamelo più tardi",
     "neverShow": "Non mostrare più",
     "thankYou": "Grazie per il tuo supporto!",
     "sponsorGitHub": "Sponsorizza su GitHub",

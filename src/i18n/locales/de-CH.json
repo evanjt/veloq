@@ -1760,7 +1760,8 @@
   },
   "support": {
     "tipTitle": "Veloq unterstützä",
-    "tipDescription": "Alli Funktione sind gratis, kei Bezahlschrankä. Trinkgälder helfed d'Store-Chöste z'deckä.",
+    "tipDescription": "Alli Funktione sind gratis, kei Bezahlschrankä. Trinkgälder helfed d'Entwickligs- und Betriibschöste z'deckä.",
+    "remindLater": "Spöter erinnerä",
     "neverShow": "Nie meh azeigä",
     "thankYou": "Merci vilmal für dini Unterstützig!",
     "sponsorGitHub": "Uf GitHub sponserä",
