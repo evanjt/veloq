@@ -67,7 +67,7 @@ jobs:
 
       - name: Setup Node.js
         if: steps.apk-cache.outputs.cache-hit != 'true'
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: "${{ env.NODE_VERSION }}"
           cache: "npm"
@@ -379,7 +379,7 @@ jobs:
           key: ios-sim-v1-${{ steps.version.outputs.source_hash }}
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
           node-version: "${{ env.NODE_VERSION }}"
           cache: "npm"
