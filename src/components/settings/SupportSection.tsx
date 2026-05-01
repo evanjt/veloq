@@ -46,70 +46,70 @@ export function SupportSection() {
       <Text style={[settingsStyles.sectionLabel, isDark && settingsStyles.textMuted]}>
         {t('settings.support').toUpperCase()}
       </Text>
-      <View style={styles.supportRow}>
-        <TouchableOpacity
-          style={[styles.supportCard, isDark && styles.supportCardDark]}
-          onPress={() => WebBrowser.openBrowserAsync('https://intervals.icu/settings/subscription')}
-          activeOpacity={0.7}
-        >
-          <View style={[styles.supportIconBg, { backgroundColor: 'rgba(233, 30, 99, 0.12)' }]}>
-            <MaterialCommunityIcons name="heart" size={24} color={colors.chartPink} />
-          </View>
-          <Text style={[styles.supportTitle, isDark && settingsStyles.textLight]}>
-            intervals.icu
-          </Text>
-          <Text style={[styles.supportSubtitle, isDark && settingsStyles.textMuted]}>
-            {t('settings.subscribe')}
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={[styles.supportCard, isDark && styles.supportCardDark]}
-          onPress={() => {
-            if (isAvailable && products.length > 0) {
-              const mid = products.find((p) => p.id === 'tip_medium') || products[0];
-              purchase(mid.id);
-            } else {
-              WebBrowser.openBrowserAsync(GITHUB_SPONSORS_URL);
-            }
-          }}
-          activeOpacity={0.7}
-        >
+      <View style={[styles.supportCard, isDark && styles.supportCardDark]}>
+        <View style={styles.supportCardHeader}>
           <View style={[styles.supportIconBg, { backgroundColor: 'rgba(252, 76, 2, 0.12)' }]}>
             <MaterialCommunityIcons
               name={purchaseSuccess ? 'heart' : 'heart-outline'}
-              size={24}
+              size={22}
               color={colors.primary}
             />
           </View>
           <Text style={[styles.supportTitle, isDark && settingsStyles.textLight]}>
             {purchaseSuccess ? t('support.thankYou') : t('support.tipTitle')}
           </Text>
-          <Text style={[styles.supportSubtitle, isDark && settingsStyles.textMuted]}>
-            {isAvailable
-              ? products
-                  .sort((a, b) => {
-                    const order = ['tip_small', 'tip_medium', 'tip_large'];
-                    return order.indexOf(a.id) - order.indexOf(b.id);
-                  })
-                  .map((p) => p.displayPrice)
-                  .join(' · ')
-              : t('support.sponsorGitHub')}
+        </View>
+        {purchaseSuccess ? (
+          <Text style={[styles.thankYouText, isDark && settingsStyles.textMuted]}>
+            {t('support.tipDescription')}
           </Text>
-        </TouchableOpacity>
-      </View>
-
-      {isAvailable && products.length > 0 && (
-        <View style={styles.tipButtonRow}>
+        ) : isAvailable && products.length > 0 ? (
           <TipButtons
             products={products}
             isPurchasing={isPurchasing}
             onTip={(id) => purchase(id)}
             isDark={isDark}
-            small
           />
+        ) : (
+          <TouchableOpacity
+            onPress={() => WebBrowser.openBrowserAsync(GITHUB_SPONSORS_URL)}
+            style={[styles.sponsorButton, isDark && styles.sponsorButtonDark]}
+            activeOpacity={0.7}
+          >
+            <MaterialCommunityIcons
+              name="github"
+              size={18}
+              color={isDark ? darkColors.textPrimary : colors.textPrimary}
+            />
+            <Text style={[styles.sponsorText, isDark && settingsStyles.textLight]}>
+              {t('support.sponsorGitHub')}
+            </Text>
+          </TouchableOpacity>
+        )}
+      </View>
+
+      <TouchableOpacity
+        style={[styles.subscribeCard, isDark && styles.subscribeCardDark]}
+        onPress={() => WebBrowser.openBrowserAsync('https://intervals.icu/settings/subscription')}
+        activeOpacity={0.7}
+      >
+        <View style={[styles.supportIconBg, { backgroundColor: 'rgba(233, 30, 99, 0.12)' }]}>
+          <MaterialCommunityIcons name="heart" size={22} color={colors.chartPink} />
         </View>
-      )}
+        <View style={styles.subscribeInfo}>
+          <Text style={[styles.supportTitle, isDark && settingsStyles.textLight]}>
+            intervals.icu
+          </Text>
+          <Text style={[styles.supportSubtitle, isDark && settingsStyles.textMuted]}>
+            {t('settings.subscribe')}
+          </Text>
+        </View>
+        <MaterialCommunityIcons
+          name="chevron-right"
+          size={24}
+          color={isDark ? darkColors.textSecondary : colors.textSecondary}
+        />
+      </TouchableOpacity>
 
       {getAllSlides().length > 0 && (
         <TouchableOpacity
@@ -196,43 +196,76 @@ export function SupportSection() {
 }
 
 const styles = StyleSheet.create({
-  supportRow: {
-    flexDirection: 'row',
-    marginHorizontal: layout.screenPadding,
-    gap: spacing.sm,
-  },
-  tipButtonRow: {
-    marginHorizontal: layout.screenPadding,
-    marginTop: spacing.sm,
-  },
   supportCard: {
-    flex: 1,
+    marginHorizontal: layout.screenPadding,
     backgroundColor: colors.surface,
     borderRadius: layout.borderRadius,
     padding: spacing.md,
-    alignItems: 'center',
+    gap: spacing.sm,
     ...shadows.card,
   },
   supportCardDark: {
     backgroundColor: darkColors.surfaceCard,
     ...shadows.none,
   },
+  supportCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  subscribeCard: {
+    marginHorizontal: layout.screenPadding,
+    marginTop: spacing.sm,
+    backgroundColor: colors.surface,
+    borderRadius: layout.borderRadius,
+    padding: spacing.md,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    ...shadows.card,
+  },
+  subscribeCardDark: {
+    backgroundColor: darkColors.surfaceCard,
+    ...shadows.none,
+  },
+  subscribeInfo: {
+    flex: 1,
+  },
   supportIconBg: {
-    width: 48,
-    height: 48,
+    width: 40,
+    height: 40,
     borderRadius: layout.borderRadiusLg,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: spacing.sm,
   },
   supportTitle: {
     ...typography.bodySmall,
     fontWeight: '600',
     color: colors.textPrimary,
-    marginBottom: 2,
   },
   supportSubtitle: {
     ...typography.caption,
+    color: colors.textSecondary,
+  },
+  sponsorButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.sm,
+    backgroundColor: colors.background,
+    borderRadius: layout.borderRadiusSm,
+  },
+  sponsorButtonDark: {
+    backgroundColor: darkColors.surfaceElevated,
+  },
+  sponsorText: {
+    ...typography.bodySmall,
+    fontWeight: '600',
+    color: colors.textPrimary,
+  },
+  thankYouText: {
+    ...typography.bodySmall,
     color: colors.textSecondary,
   },
   versionText: {

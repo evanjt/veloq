@@ -43,8 +43,11 @@ export function useDonation() {
 
     async function init() {
       try {
+        if (__DEV__) console.log('[IAP] initConnection...');
         await initConnection();
+        if (__DEV__) console.log('[IAP] fetchProducts...');
         const items = await fetchProducts({ skus: PRODUCT_IDS });
+        if (__DEV__) console.log('[IAP] got', items?.length ?? 0, 'products');
         const productList = (items ?? []) as Product[];
         if (mounted) {
           setState((s) => ({
@@ -54,7 +57,8 @@ export function useDonation() {
             isLoading: false,
           }));
         }
-      } catch {
+      } catch (e: unknown) {
+        if (__DEV__) console.warn('[IAP] init failed:', e);
         if (mounted) {
           setState((s) => ({ ...s, isAvailable: false, isLoading: false }));
         }
