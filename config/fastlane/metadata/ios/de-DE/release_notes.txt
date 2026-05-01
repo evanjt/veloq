@@ -1,7 +1,9 @@
 v0.3.2
 
-• Neu gestalteter Support-Bereich mit Trinkgeld-Buttons in voller Breite
-• Support-Karte erscheint nach 1 Woche, dann monatlich, dann vierteljährlich
-• Dankesbestätigung nach einem Trinkgeld
-• Verbesserte Zuverlässigkeit bei In-App-Käufen
-• Debug-Protokollierung für IAP-Diagnose
+• Tägliche Einblicke: Sektions-PRs, Fitness-Meilensteine, Wochenvergleiche
+• Bestleistungen: Leistungs- und Tempo-PRs über alle Aktivitäten
+• Sektionen anheften, anpassen oder deaktivieren; Referenzleistung festlegen
+• Karte: Gradient-Polylinien, Heatmap-Overlays, Cluster-Zoom
+• Fitness: Ramp-Rate, Form %, Temperatur- und Steigungsdiagramme
+• Feed: PR-Trophäen, Trend-Pills, Sparkline-Sektionskarten
+• Unterstütze das Projekt mit In-App-Trinkgeldern

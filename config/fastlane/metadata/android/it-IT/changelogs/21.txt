@@ -1,7 +1,9 @@
 v0.3.2
 
-• Sezione supporto ridisegnata con pulsanti per le mance a larghezza piena
-• La scheda di supporto appare dopo 1 settimana, poi mensilmente, poi trimestralmente
-• Conferma di ringraziamento dopo aver lasciato una mancia
-• Miglioramenti all'affidabilità degli acquisti in-app
-• Registrazione di debug per la diagnostica IAP
+• Approfondimenti giornalieri: PR di sezione, traguardi fitness, confronti settimanali
+• Migliori prestazioni: PR di potenza e passo su tutte le attività
+• Fissa, regola o disattiva le sezioni; imposta uno sforzo di riferimento
+• Mappa: polilinee con gradiente, overlay heatmap, zoom cluster
+• Fitness: tasso di rampa, forma %, grafici di temperatura e pendenza
+• Feed: trofei PR, pillole di tendenza, schede sezione sparkline
+• Sostieni il progetto con mance in-app

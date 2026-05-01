@@ -1,7 +1,9 @@
 v0.3.2
 
-• Sección de apoyo rediseñada con botones de propina de ancho completo
-• La tarjeta de apoyo aparece después de 1 semana, luego mensual, luego trimestralmente
-• Confirmación de agradecimiento después de dejar una propina
-• Mejoras en la confiabilidad de compras dentro de la app
-• Registro de depuración para diagnósticos de IAP
+• Info diaria: PRs de sección, logros fitness, comparaciones semanales
+• Mejores esfuerzos: PRs de potencia y ritmo en todas las actividades
+• Fijar, ajustar o deshabilitar secciones; esfuerzo de referencia
+• Mapa: polilíneas con gradiente, heatmap, zoom de clústeres
+• Fitness: tasa de rampa, forma %, gráficos de temperatura y desnivel
+• Feed: trofeos PR, tendencias, tarjetas de sección sparkline
+• Apoya el proyecto con propinas en la app

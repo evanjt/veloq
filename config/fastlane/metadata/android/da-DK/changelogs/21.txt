@@ -1,7 +1,9 @@
 v0.3.2
 
-• Redesignet supportsektion med tip-knapper i fuld bredde
-• Supportkort vises nu efter 1 uge, derefter månedligt, derefter kvartalsvis
-• Takkebekræftelse efter at have givet et tip
-• Forbedret pålidelighed for køb i appen
-• Fejlretningslogning til IAP-diagnostik
+• Daglige indsigter: sektions-PR'er, fitnessmilestene, ugentlige sammenligninger
+• Bedste præstationer: effekt- og tempo-PR'er på tværs af alle aktiviteter
+• Fastgør, justér eller deaktivér sektioner; sæt referencebestræbelser
+• Kort: gradient-polylinjer, heatmap-overlejringer, klynge-zoom
+• Fitness: ramptempo, form %, temperatur- og stigningsdiagrammer
+• Feed: PR-trofæer, trend-pills, sparkline-sektionskort
+• Støt projektet med tips i appen

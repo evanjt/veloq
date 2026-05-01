@@ -1,7 +1,9 @@
 v0.3.2
 
-• Section de soutien repensée avec boutons de pourboire pleine largeur
-• La carte de soutien s'affiche après 1 semaine, puis mensuellement, puis trimestriellement
-• Confirmation de remerciement après un pourboire
-• Amélioration de la fiabilité des achats intégrés
-• Journalisation de débogage pour les diagnostics IAP
+• Infos quotidiennes : PRs de section, jalons fitness, comparaisons hebdo
+• Meilleurs efforts : PRs de puissance et d'allure sur toutes les activités
+• Épingler, ajuster ou désactiver des sections ; effort de référence
+• Carte : polylignes en dégradé, heatmap, zoom par cluster
+• Fitness : taux de rampe, forme %, graphiques température et dénivelé
+• Feed : trophées PR, tendances, cartes section sparkline
+• Soutenez le projet avec des pourboires in-app
