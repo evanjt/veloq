@@ -1,7 +1,9 @@
 v0.3.2
 
-• Przeprojektowana sekcja wsparcia z przyciskami napiwków na pełną szerokość
-• Karta wsparcia pojawia się po 1 tygodniu, potem co miesiąc, potem co kwartał
-• Potwierdzenie podziękowania po zostawieniu napiwku
-• Poprawiona niezawodność zakupów w aplikacji
-• Logowanie debugowania dla diagnostyki IAP
+• Codzienne statystyki: rekordy sekcji, kamienie milowe, porównania tygodniowe
+• Najlepsze wyniki: rekordy mocy i tempa we wszystkich aktywnościach
+• Przypinanie, dostosowywanie lub wyłączanie sekcji; wysiłek referencyjny
+• Mapa: polilinie z gradientem, heatmap, zoom klastrów
+• Fitness: tempo narastania, forma %, wykresy temperatury i nachylenia
+• Feed: trofea rekordów, trendy, karty sekcji sparkline
+• Wesprzyj projekt napiwkami w aplikacji

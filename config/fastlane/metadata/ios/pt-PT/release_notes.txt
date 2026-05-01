@@ -1,7 +1,9 @@
 v0.3.2
 
-• Secção de apoio redesenhada com botões de gorjeta em largura total
-• Cartão de apoio aparece após 1 semana, depois mensalmente, depois trimestralmente
-• Confirmação de agradecimento após deixar uma gorjeta
-• Melhorias na fiabilidade das compras na app
-• Registo de depuração para diagnósticos de IAP
+• Informações diárias: PRs de secção, marcos fitness, comparações semanais
+• Melhores esforços: PRs de potência e ritmo em todas as atividades
+• Fixar, ajustar ou desativar secções; esforço de referência
+• Mapa: polilinhas com gradiente, heatmap, zoom de clusters
+• Fitness: taxa de rampa, forma %, gráficos de temperatura e inclinação
+• Feed: troféus PR, tendências, cartões de secção sparkline
+• Apoie o projeto com gorjetas na app

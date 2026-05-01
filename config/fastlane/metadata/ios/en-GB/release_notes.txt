@@ -1,7 +1,9 @@
 v0.3.2
 
-• Redesigned support section with full-width tip buttons
-• Support card now shows after 1 week, then monthly, then quarterly
-• Thank-you confirmation after leaving a tip
-• In-app purchase reliability improvements
-• Debug logging for IAP diagnostics
+• Daily insights: section PRs, fitness milestones, weekly comparisons
+• Best Efforts: power and pace PRs across all activities
+• Pin, adjust, or disable sections; set reference efforts
+• Map: gradient polylines, heatmap overlays, cluster zoom
+• Fitness: ramp rate, form %, temperature and gradient charts
+• Feed: PR trophies, trend pills, sparkline section cards
+• Support the project with in-app tips
