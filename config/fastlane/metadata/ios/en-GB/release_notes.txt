@@ -1,5 +1,7 @@
-v0.3.1
+v0.3.2
 
-• Support the project with tips from the home screen or settings
-• Updated native engine (UniFFI 0.31)
-• Dependency updates for stability and performance
+• Redesigned support section with full-width tip buttons
+• Support card now shows after 1 week, then monthly, then quarterly
+• Thank-you confirmation after leaving a tip
+• In-app purchase reliability improvements
+• Debug logging for IAP diagnostics

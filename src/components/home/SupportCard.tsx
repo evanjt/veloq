@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { View, StyleSheet, Pressable } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -7,7 +7,7 @@ import type { TFunction } from 'i18next';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import * as WebBrowser from 'expo-web-browser';
 import { useTheme } from '@/hooks';
-import { useSupportStore } from '@/providers';
+import { useSupportStore, daysSince } from '@/providers';
 import { useDonation } from '@/hooks/useDonation';
 import { colors, darkColors, spacing, layout, shadows, typography } from '@/theme';
 import { TipButtons } from '@/components/ui/TipButtons';
@@ -25,16 +25,17 @@ export function SupportCard() {
   const recordAction = useSupportStore((s) => s.recordAction);
   const { products, isAvailable, isPurchasing, purchaseSuccess, purchase } = useDonation();
 
+  const shouldShow = useSupportStore((s) => s.shouldShow);
+  const lastActionDate = useSupportStore((s) => s.lastActionDate);
+  const permanentlyDismissed = useSupportStore((s) => s.permanentlyDismissed);
+  const dismissCount = useSupportStore((s) => s.dismissCount);
+  const isLoaded = useSupportStore((s) => s.isLoaded);
   const [visible, setVisible] = useState(false);
-  const hasMarkedShown = useRef(false);
   useEffect(() => {
-    const store = useSupportStore.getState();
-    if (store.shouldShow() && !hasMarkedShown.current) {
-      hasMarkedShown.current = true;
+    if (isLoaded && shouldShow()) {
       setVisible(true);
-      store.remindLater();
     }
-  }, []);
+  }, [lastActionDate, permanentlyDismissed, dismissCount, isLoaded, shouldShow]);
 
   const handleTip = useCallback(
     (productId: string) => {

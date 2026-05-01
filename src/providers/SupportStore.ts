@@ -8,8 +8,10 @@ interface SupportState {
   lastActionDate: string | null;
   permanentlyDismissed: boolean;
   isLegacyPurchaser: boolean;
+  dismissCount: number;
   isLoaded: boolean;
   shouldShow: () => boolean;
+  getIntervalDays: () => number;
   remindLater: () => void;
   neverShowAgain: () => void;
   recordAction: () => void;
@@ -24,19 +26,32 @@ export function daysSince(isoDate: string): number {
   return (now - then) / (1000 * 60 * 60 * 24);
 }
 
+// 7 days → 30 days → 90 days (legacy purchasers start at 30)
+function intervalForCount(count: number, isLegacy: boolean): number {
+  if (isLegacy) return count <= 1 ? 30 : 90;
+  if (count === 0) return 7;
+  if (count === 1) return 30;
+  return 90;
+}
+
 interface PersistedData {
   lastActionDate: string | null;
   permanentlyDismissed: boolean;
   isLegacyPurchaser: boolean;
+  dismissCount?: number;
 }
 
 function persist(
-  state: Pick<SupportState, 'lastActionDate' | 'permanentlyDismissed' | 'isLegacyPurchaser'>
+  state: Pick<
+    SupportState,
+    'lastActionDate' | 'permanentlyDismissed' | 'isLegacyPurchaser' | 'dismissCount'
+  >
 ): void {
   const data: PersistedData = {
     lastActionDate: state.lastActionDate,
     permanentlyDismissed: state.permanentlyDismissed,
     isLegacyPurchaser: state.isLegacyPurchaser,
+    dismissCount: state.dismissCount,
   };
   setSetting(STORAGE_KEY, JSON.stringify(data)).catch((e) => {
     if (__DEV__) console.warn('[SupportStore] persist failed:', e);
@@ -47,19 +62,30 @@ export const useSupportStore = create<SupportState>((set, get) => ({
   lastActionDate: null,
   permanentlyDismissed: false,
   isLegacyPurchaser: false,
+  dismissCount: 0,
   isLoaded: false,
+
+  getIntervalDays: () => {
+    const s = get();
+    return intervalForCount(s.dismissCount, s.isLegacyPurchaser);
+  },
 
   shouldShow: () => {
     const s = get();
     if (!s.isLoaded) return false;
     if (s.permanentlyDismissed) return false;
     if (s.lastActionDate === null) return false;
-    return daysSince(s.lastActionDate) >= 30;
+    const interval = intervalForCount(s.dismissCount, s.isLegacyPurchaser);
+    return daysSince(s.lastActionDate) >= interval;
   },
 
   remindLater: () => {
     set((s) => {
-      const next = { ...s, lastActionDate: formatLocalDate(new Date()) };
+      const next = {
+        ...s,
+        lastActionDate: formatLocalDate(new Date()),
+        dismissCount: s.dismissCount + 1,
+      };
       persist(next);
       return next;
     });
@@ -79,7 +105,7 @@ export const useSupportStore = create<SupportState>((set, get) => ({
 
   recordAction: () => {
     set((s) => {
-      const next = { ...s, lastActionDate: formatLocalDate(new Date()) };
+      const next = { ...s, lastActionDate: formatLocalDate(new Date()), dismissCount: 0 };
       persist(next);
       return next;
     });
@@ -113,12 +139,14 @@ export const useSupportStore = create<SupportState>((set, get) => ({
             lastActionDate: seeded,
             permanentlyDismissed: data.permanentlyDismissed ?? false,
             isLegacyPurchaser: data.isLegacyPurchaser ?? false,
+            dismissCount: data.dismissCount ?? 0,
             isLoaded: true,
           });
           persist({
             lastActionDate: seeded,
             permanentlyDismissed: data.permanentlyDismissed ?? false,
             isLegacyPurchaser: data.isLegacyPurchaser ?? false,
+            dismissCount: data.dismissCount ?? 0,
           });
           return;
         }
@@ -126,6 +154,7 @@ export const useSupportStore = create<SupportState>((set, get) => ({
           lastActionDate,
           permanentlyDismissed: data.permanentlyDismissed ?? false,
           isLegacyPurchaser: data.isLegacyPurchaser ?? false,
+          dismissCount: data.dismissCount ?? 0,
           isLoaded: true,
         });
         return;
@@ -134,8 +163,13 @@ export const useSupportStore = create<SupportState>((set, get) => ({
       // Ignore parse errors
     }
     const seeded = formatLocalDate(new Date());
-    set({ lastActionDate: seeded, isLoaded: true });
-    persist({ lastActionDate: seeded, permanentlyDismissed: false, isLegacyPurchaser: false });
+    set({ lastActionDate: seeded, dismissCount: 0, isLoaded: true });
+    persist({
+      lastActionDate: seeded,
+      permanentlyDismissed: false,
+      isLegacyPurchaser: false,
+      dismissCount: 0,
+    });
   },
 }));
 
