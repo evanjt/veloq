@@ -1759,17 +1759,17 @@
     "exercises": "øvelser"
   },
   "support": {
+    "enjoyingTitle": "Nyder du Veloq?",
+    "feedbackDescription": "Din feedback er med til at forme appen.",
+    "review": "Anmeldelse",
+    "idea": "Idé",
+    "forum": "Forum",
+    "supportDevelopment": "Støt udviklingen",
     "tipTitle": "Støt Veloq",
-    "tipDescription": "Alle funktioner er gratis, ingen betalingsmure. Drikkepenge hjælper med at dække udviklings- og driftsomkostningerne.",
+    "tipDescription": "Drikkepenge hjælper med at dække udviklings- og driftsomkostningerne.",
     "remindLater": "Påmind mig senere",
     "neverShow": "Vis aldrig igen",
     "thankYou": "Tak for din støtte!",
-    "sponsorGitHub": "Sponsorér på GitHub",
-    "legacyTitle": "Tak for din støtte",
-    "legacyDescription": "Din fortsatte støtte hjælper med at udvikle nye funktioner. Har du en idé eller fundet en fejl?",
-    "forum": "Forum",
-    "idea": "Idé",
-    "bug": "Fejl",
-    "tipAgain": "Giv drikkepenge igen:"
+    "sponsorGitHub": "Sponsorér på GitHub"
   }
 }

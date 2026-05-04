@@ -18,7 +18,7 @@ import { navigateTab } from '@/lib';
 import { useTheme } from '@/hooks';
 import { colors, darkColors, spacing, layout } from '@/theme';
 import { useWhatsNewStore, useMapPreferences, useAuthStore } from '@/providers';
-import { WHATS_NEW_SLIDES, getAllSlides } from './slides';
+import { getAllSlides, getSlidesSince } from './slides';
 import { WhatsNewSlide } from './WhatsNewSlide';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -44,40 +44,37 @@ export function WhatsNewModal() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
 
   const currentVersion = Constants.expoConfig?.version ?? '';
-  const versionSlides = WHATS_NEW_SLIDES[currentVersion] ?? [];
   const allSlides = ALL_SLIDES;
+  const missedSlides = lastSeenVersion ? getSlidesSince(lastSeenVersion) : [];
   const isAutoTriggered = lastSeenVersion !== currentVersion;
 
-  // Auto-trigger tour after login:
-  // - First-time user (lastSeenVersion is null): full tutorial with all slides
-  // - Upgrading user (lastSeenVersion differs): what's new for current version only
   const hasAutoTriggered = useRef(false);
   useEffect(() => {
     if (!isLoaded || !isAuthenticated || hasAutoTriggered.current || tourState) return;
     if (lastSeenVersion === null && allSlides.length > 0) {
       hasAutoTriggered.current = true;
       startTour('tutorial');
-    } else if (lastSeenVersion !== currentVersion && versionSlides.length > 0) {
+    } else if (lastSeenVersion !== currentVersion && missedSlides.length > 0) {
       hasAutoTriggered.current = true;
       startTour('whatsNew');
+    } else if (lastSeenVersion !== currentVersion) {
+      hasAutoTriggered.current = true;
+      markSeen(currentVersion);
     }
   }, [
     isLoaded,
     isAuthenticated,
     lastSeenVersion,
     currentVersion,
-    versionSlides.length,
+    missedSlides.length,
     allSlides.length,
     tourState,
     startTour,
+    markSeen,
   ]);
 
   const slides =
-    tourState?.mode === 'tutorial'
-      ? allSlides
-      : versionSlides.length > 0
-        ? versionSlides
-        : allSlides;
+    tourState?.mode === 'tutorial' ? allSlides : missedSlides.length > 0 ? missedSlides : allSlides;
   const slideCount = slides.length;
 
   const translateX = useSharedValue(0);
@@ -101,7 +98,7 @@ export function WhatsNewModal() {
   }, [tourState, translateX, activeIndex]);
 
   const dismiss = useCallback(() => {
-    if (isAutoTriggered && WHATS_NEW_SLIDES[currentVersion]) {
+    if (isAutoTriggered) {
       markSeen(currentVersion);
     }
     endTour();
@@ -191,8 +188,7 @@ export function WhatsNewModal() {
   const mutedColor = isDark ? darkColors.textMuted : colors.textMuted;
   const primaryColor = isDark ? darkColors.primary : colors.primary;
 
-  // Show mode toggle when both version slides and historical slides exist
-  const canToggleMode = versionSlides.length > 0 && allSlides.length > versionSlides.length;
+  const canToggleMode = missedSlides.length > 0 && allSlides.length > missedSlides.length;
 
   return (
     <Animated.View

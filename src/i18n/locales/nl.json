@@ -1759,17 +1759,17 @@
     "exercises": "oefeningen"
   },
   "support": {
+    "enjoyingTitle": "Bevalt Veloq?",
+    "feedbackDescription": "Je feedback helpt de app te verbeteren.",
+    "review": "Beoordeling",
+    "idea": "Idee",
+    "forum": "Forum",
+    "supportDevelopment": "Steun de ontwikkeling",
     "tipTitle": "Steun Veloq",
-    "tipDescription": "Alle functies zijn gratis, geen betaalmuren. Fooien helpen de ontwikkelings- en exploitatiekosten te dekken.",
+    "tipDescription": "Fooien helpen de ontwikkelings- en exploitatiekosten te dekken.",
     "remindLater": "Herinner me later",
     "neverShow": "Nooit meer tonen",
     "thankYou": "Bedankt voor je steun!",
-    "sponsorGitHub": "Sponsor op GitHub",
-    "legacyTitle": "Bedankt voor je steun",
-    "legacyDescription": "Je steun helpt bij het ontwikkelen van nieuwe functies. Heb je een idee of een bug gevonden?",
-    "forum": "Forum",
-    "idea": "Idee",
-    "bug": "Bug",
-    "tipAgain": "Opnieuw doneren:"
+    "sponsorGitHub": "Sponsor op GitHub"
   }
 }

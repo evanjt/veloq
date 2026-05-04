@@ -1759,17 +1759,17 @@
     "exercises": "动作"
   },
   "support": {
+    "enjoyingTitle": "喜欢 Veloq 吗？",
+    "feedbackDescription": "您的反馈有助于改进应用。",
+    "review": "评价",
+    "idea": "建议",
+    "forum": "论坛",
+    "supportDevelopment": "支持开发",
     "tipTitle": "支持 Veloq",
-    "tipDescription": "所有功能均免费，无付费墙。打赏有助于承担开发和运营费用。",
+    "tipDescription": "打赏有助于承担开发和运营费用。",
     "remindLater": "稍后提醒我",
     "neverShow": "不再显示",
     "thankYou": "感谢您的支持！",
-    "sponsorGitHub": "在 GitHub 上赞助",
-    "legacyTitle": "感谢您的支持",
-    "legacyDescription": "您的持续支持有助于开发新功能。有想法或发现了问题？",
-    "forum": "论坛",
-    "idea": "建议",
-    "bug": "问题",
-    "tipAgain": "再次打赏："
+    "sponsorGitHub": "在 GitHub 上赞助"
   }
 }

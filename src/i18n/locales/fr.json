@@ -1759,17 +1759,17 @@
     "exercises": "exercices"
   },
   "support": {
+    "enjoyingTitle": "Vous aimez Veloq ?",
+    "feedbackDescription": "Vos retours aident à façonner l'application.",
+    "review": "Avis",
+    "idea": "Idée",
+    "forum": "Forum",
+    "supportDevelopment": "Soutenir le développement",
     "tipTitle": "Soutenir Veloq",
-    "tipDescription": "Toutes les fonctionnalités sont gratuites, sans mur payant. Les pourboires aident à couvrir les frais de développement et de fonctionnement.",
+    "tipDescription": "Les pourboires aident à couvrir les frais de développement et de fonctionnement.",
     "remindLater": "Me rappeler plus tard",
     "neverShow": "Ne plus afficher",
     "thankYou": "Merci pour votre soutien !",
-    "sponsorGitHub": "Sponsoriser sur GitHub",
-    "legacyTitle": "Merci pour votre soutien",
-    "legacyDescription": "Votre soutien continu aide à développer de nouvelles fonctionnalités. Vous avez une idée ou trouvé un bug ?",
-    "forum": "Forum",
-    "idea": "Idée",
-    "bug": "Bug",
-    "tipAgain": "Donner à nouveau :"
+    "sponsorGitHub": "Sponsoriser sur GitHub"
   }
 }

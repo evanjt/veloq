@@ -1,0 +1,9 @@
+v0.3.2
+
+• Tägliche Einblicke: Sektions-PRs, Fitness-Meilensteine, Wochenvergleiche
+• Bestleistungen: Leistungs- und Tempo-PRs über alle Aktivitäten
+• Sektionen anheften, anpassen oder deaktivieren; Referenzleistung festlegen
+• Karte: Gradient-Polylinien, Heatmap-Overlays, Cluster-Zoom
+• Fitness: Ramp-Rate, Form %, Temperatur- und Steigungsdiagramme
+• Feed: PR-Trophäen, Trend-Pills, Sparkline-Sektionskarten
+• Unterstütze das Projekt mit In-App-Trinkgeldern

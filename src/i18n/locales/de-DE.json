@@ -1759,17 +1759,17 @@
     "exercises": "Übungen"
   },
   "support": {
+    "enjoyingTitle": "Gefällt dir Veloq?",
+    "feedbackDescription": "Dein Feedback hilft, die App zu gestalten.",
+    "review": "Bewertung",
+    "idea": "Idee",
+    "forum": "Forum",
+    "supportDevelopment": "Entwicklung unterstützen",
     "tipTitle": "Veloq unterstützen",
-    "tipDescription": "Alle Funktionen sind kostenlos, keine Bezahlschranken. Trinkgelder helfen, die Entwicklungs- und Betriebskosten zu decken.",
+    "tipDescription": "Trinkgelder helfen, die Entwicklungs- und Betriebskosten zu decken.",
     "remindLater": "Später erinnern",
     "neverShow": "Nie wieder anzeigen",
     "thankYou": "Vielen Dank für deine Unterstützung!",
-    "sponsorGitHub": "Auf GitHub sponsern",
-    "legacyTitle": "Vielen Dank für deine Unterstützung",
-    "legacyDescription": "Deine fortlaufende Unterstützung hilft, neue Funktionen zu entwickeln. Hast du eine Idee oder einen Fehler gefunden?",
-    "forum": "Forum",
-    "idea": "Idee",
-    "bug": "Fehler",
-    "tipAgain": "Erneut spenden:"
+    "sponsorGitHub": "Auf GitHub sponsern"
   }
 }

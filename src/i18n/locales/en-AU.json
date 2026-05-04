@@ -1759,17 +1759,17 @@
     "exercises": "exercises"
   },
   "support": {
+    "enjoyingTitle": "Reckon Veloq's alright?",
+    "feedbackDescription": "Your feedback helps shape the app.",
+    "review": "Leave a review",
+    "idea": "Idea",
+    "forum": "Forum",
+    "supportDevelopment": "Chuck in for development",
     "tipTitle": "Support Veloq",
-    "tipDescription": "Everything's free, no paywalls. Tips help cover dev and running costs — legend.",
+    "tipDescription": "Tips help cover dev and running costs — legend.",
     "remindLater": "Remind me later",
     "neverShow": "Never show again",
     "thankYou": "Legend — thanks for the support!",
-    "sponsorGitHub": "Sponsor on GitHub",
-    "legacyTitle": "Cheers for the support",
-    "legacyDescription": "Your support helps build new features. Got an idea or found a bug?",
-    "forum": "Forum",
-    "idea": "Idea",
-    "bug": "Bug",
-    "tipAgain": "Tip again:"
+    "sponsorGitHub": "Sponsor on GitHub"
   }
 }

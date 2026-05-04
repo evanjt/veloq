@@ -1759,17 +1759,17 @@
     "exercises": "Üebige"
   },
   "support": {
+    "enjoyingTitle": "Gfallt dir Veloq?",
+    "feedbackDescription": "Dis Feedback hilft d'App z'formä.",
+    "review": "Bewärtig",
+    "idea": "Idee",
+    "forum": "Forum",
+    "supportDevelopment": "Entwicklig unterstützä",
     "tipTitle": "Veloq unterstützä",
-    "tipDescription": "Alli Funktione sind gratis, kei Bezahlschrankä. Trinkgälder helfed d'Entwickligs- und Betriibschöste z'deckä.",
+    "tipDescription": "Trinkgälder helfed d'Entwickligs- und Betriibschöste z'deckä.",
     "remindLater": "Spöter erinnerä",
     "neverShow": "Nie meh azeigä",
     "thankYou": "Merci vilmal für dini Unterstützig!",
-    "sponsorGitHub": "Uf GitHub sponserä",
-    "legacyTitle": "Merci vilmal für dini Unterstützig",
-    "legacyDescription": "Dini Unterstützig hilft, neui Funktione z'entwicklä. Hesch en Idee oder en Fähler gfundä?",
-    "forum": "Forum",
-    "idea": "Idee",
-    "bug": "Fähler",
-    "tipAgain": "Nomal spändä:"
+    "sponsorGitHub": "Uf GitHub sponserä"
   }
 }

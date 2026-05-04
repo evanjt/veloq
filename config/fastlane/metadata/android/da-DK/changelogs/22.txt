@@ -1,0 +1,9 @@
+v0.3.2
+
+• Daglige indsigter: sektions-PR'er, fitnessmilestene, ugentlige sammenligninger
+• Bedste præstationer: effekt- og tempo-PR'er på tværs af alle aktiviteter
+• Fastgør, justér eller deaktivér sektioner; sæt referencebestræbelser
+• Kort: gradient-polylinjer, heatmap-overlejringer, klynge-zoom
+• Fitness: ramptempo, form %, temperatur- og stigningsdiagrammer
+• Feed: PR-trofæer, trend-pills, sparkline-sektionskort
+• Støt projektet med tips i appen

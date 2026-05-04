@@ -3,25 +3,31 @@ import { View, StyleSheet, Pressable } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import type { TFunction } from 'i18next';
-import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
+import Animated, {
+  FadeIn,
+  FadeOut,
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+} from 'react-native-reanimated';
 import * as WebBrowser from 'expo-web-browser';
+import * as StoreReview from 'expo-store-review';
 import { useTheme } from '@/hooks';
-import { useSupportStore, daysSince } from '@/providers';
+import { useSupportStore } from '@/providers';
 import { useDonation } from '@/hooks/useDonation';
 import { colors, darkColors, spacing, layout, shadows, typography } from '@/theme';
 import { TipButtons } from '@/components/ui/TipButtons';
 
 const FORUM_URL =
   'https://forum.intervals.icu/t/veloq-route-and-section-matching-mapping-app/120283';
-const GITHUB_SPONSORS_URL = 'https://github.com/sponsors/evanjt';
 const GITHUB_ISSUES_URL = 'https://github.com/evanjt/veloq/issues/new';
+const GITHUB_SPONSORS_URL = 'https://github.com/sponsors/evanjt';
 
 export function SupportCard() {
   const { isDark } = useTheme();
   const { t } = useTranslation();
-  const isLegacyPurchaser = useSupportStore((s) => s.isLegacyPurchaser);
   const neverShowAgain = useSupportStore((s) => s.neverShowAgain);
+  const remindLater = useSupportStore((s) => s.remindLater);
   const recordAction = useSupportStore((s) => s.recordAction);
   const { products, isAvailable, isPurchasing, purchaseSuccess, purchase } = useDonation();
 
@@ -31,11 +37,43 @@ export function SupportCard() {
   const dismissCount = useSupportStore((s) => s.dismissCount);
   const isLoaded = useSupportStore((s) => s.isLoaded);
   const [visible, setVisible] = useState(false);
+  const [tipsExpanded, setTipsExpanded] = useState(false);
+  const tipHeight = useSharedValue(0);
+
   useEffect(() => {
     if (isLoaded && shouldShow()) {
       setVisible(true);
     }
   }, [lastActionDate, permanentlyDismissed, dismissCount, isLoaded, shouldShow]);
+
+  const tipAnimStyle = useAnimatedStyle(() => ({
+    height: tipHeight.value,
+    opacity: tipHeight.value > 0 ? 1 : 0,
+    overflow: 'hidden' as const,
+  }));
+
+  const toggleTips = useCallback(() => {
+    const next = !tipsExpanded;
+    setTipsExpanded(next);
+    tipHeight.value = withTiming(next ? 56 : 0, { duration: 250 });
+  }, [tipsExpanded, tipHeight]);
+
+  const handleReview = useCallback(async () => {
+    if (await StoreReview.hasAction()) {
+      await StoreReview.requestReview();
+    } else {
+      WebBrowser.openBrowserAsync('https://github.com/evanjt/veloq');
+    }
+    recordAction();
+  }, [recordAction]);
+
+  const handleIdea = useCallback(() => {
+    WebBrowser.openBrowserAsync(`${GITHUB_ISSUES_URL}?labels=enhancement`);
+  }, []);
+
+  const handleForum = useCallback(() => {
+    WebBrowser.openBrowserAsync(FORUM_URL);
+  }, []);
 
   const handleTip = useCallback(
     (productId: string) => {
@@ -48,8 +86,6 @@ export function SupportCard() {
     WebBrowser.openBrowserAsync(GITHUB_SPONSORS_URL);
     recordAction();
   }, [recordAction]);
-
-  const remindLater = useSupportStore((s) => s.remindLater);
 
   const handleRemindLater = useCallback(() => {
     remindLater();
@@ -77,62 +113,9 @@ export function SupportCard() {
     );
   }
 
-  if (isLegacyPurchaser) {
-    return (
-      <LegacyCard
-        isDark={isDark}
-        t={t}
-        remindLater={handleRemindLater}
-        neverShowAgain={handleNeverShow}
-        products={products}
-        isAvailable={isAvailable}
-        isPurchasing={isPurchasing}
-        onTip={handleTip}
-        onSponsor={handleSponsor}
-      />
-    );
-  }
+  const textColor = isDark ? darkColors.textPrimary : colors.textPrimary;
+  const mutedColor = isDark ? darkColors.textSecondary : colors.textSecondary;
 
-  return (
-    <TipCard
-      isDark={isDark}
-      t={t}
-      remindLater={handleRemindLater}
-      neverShowAgain={handleNeverShow}
-      products={products}
-      isAvailable={isAvailable}
-      isPurchasing={isPurchasing}
-      onTip={handleTip}
-      onSponsor={handleSponsor}
-    />
-  );
-}
-
-// ── Tip card ────────────────────────────────────────────────────────
-
-interface TipCardProps {
-  isDark: boolean;
-  t: TFunction;
-  remindLater: () => void;
-  neverShowAgain: () => void;
-  products: { id: string; displayPrice: string }[];
-  isAvailable: boolean;
-  isPurchasing: boolean;
-  onTip: (productId: string) => void;
-  onSponsor: () => void;
-}
-
-function TipCard({
-  isDark,
-  t,
-  remindLater,
-  neverShowAgain,
-  products,
-  isAvailable,
-  isPurchasing,
-  onTip,
-  onSponsor,
-}: TipCardProps) {
   return (
     <Animated.View
       entering={FadeIn.duration(300)}
@@ -140,122 +123,85 @@ function TipCard({
       style={[styles.card, isDark && styles.cardDark]}
     >
       <View style={styles.header}>
-        <MaterialCommunityIcons
-          name="heart-outline"
-          size={22}
-          color={isDark ? darkColors.textPrimary : colors.textPrimary}
-        />
-        <Text style={[styles.title, isDark && styles.titleDark]}>{t('support.tipTitle')}</Text>
+        <MaterialCommunityIcons name="star-outline" size={22} color={textColor} />
+        <Text style={[styles.title, isDark && styles.titleDark]}>{t('support.enjoyingTitle')}</Text>
       </View>
       <Text style={[styles.description, isDark && styles.descriptionDark]}>
-        {t('support.tipDescription')}
+        {t('support.feedbackDescription')}
       </Text>
-      {isAvailable ? (
-        <TipButtons products={products} isPurchasing={isPurchasing} onTip={onTip} isDark={isDark} />
-      ) : (
-        <Pressable
-          onPress={onSponsor}
-          style={[styles.sponsorButton, isDark && styles.sponsorButtonDark]}
-        >
-          <MaterialCommunityIcons
-            name="github"
-            size={18}
-            color={isDark ? darkColors.textPrimary : colors.textPrimary}
-          />
-          <Text style={[styles.sponsorText, isDark && styles.sponsorTextDark]}>
-            {t('support.sponsorGitHub')}
-          </Text>
-        </Pressable>
-      )}
-      <DismissRow isDark={isDark} t={t} remindLater={remindLater} neverShowAgain={neverShowAgain} />
-    </Animated.View>
-  );
-}
 
-// ── Legacy purchaser card ───────────────────────────────────────────
-
-interface LegacyCardProps extends TipCardProps {}
-
-function LegacyCard({
-  isDark,
-  t,
-  remindLater,
-  neverShowAgain,
-  products,
-  isAvailable,
-  isPurchasing,
-  onTip,
-  onSponsor,
-}: LegacyCardProps) {
-  return (
-    <Animated.View
-      entering={FadeIn.duration(300)}
-      exiting={FadeOut.duration(200)}
-      style={[styles.card, isDark && styles.cardDark]}
-    >
-      <View style={styles.header}>
-        <MaterialCommunityIcons name="heart" size={22} color={colors.primary} />
-        <Text style={[styles.title, isDark && styles.titleDark]}>{t('support.legacyTitle')}</Text>
-      </View>
-      <Text style={[styles.description, isDark && styles.descriptionDark]}>
-        {t('support.legacyDescription')}
-      </Text>
-      <View style={styles.linkRow}>
-        <LinkButton
-          icon="forum-outline"
-          label={t('support.forum')}
-          onPress={() => WebBrowser.openBrowserAsync(FORUM_URL)}
+      <View style={styles.actionRow}>
+        <ActionButton
+          icon="star"
+          label={t('support.review')}
+          onPress={handleReview}
           isDark={isDark}
         />
-        <LinkButton
+        <ActionButton
           icon="lightbulb-outline"
           label={t('support.idea')}
-          onPress={() => WebBrowser.openBrowserAsync(`${GITHUB_ISSUES_URL}?labels=enhancement`)}
+          onPress={handleIdea}
           isDark={isDark}
         />
-        <LinkButton
-          icon="bug-outline"
-          label={t('support.bug')}
-          onPress={() => WebBrowser.openBrowserAsync(`${GITHUB_ISSUES_URL}?labels=bug`)}
+        <ActionButton
+          icon="forum-outline"
+          label={t('support.forum')}
+          onPress={handleForum}
           isDark={isDark}
         />
       </View>
-      {isAvailable ? (
-        <View style={styles.secondaryTipRow}>
-          <Text style={[styles.secondaryTipLabel, isDark && styles.descriptionDark]}>
-            {t('support.tipAgain')}
-          </Text>
+
+      <Pressable onPress={toggleTips} style={styles.tipToggle} hitSlop={4}>
+        <MaterialCommunityIcons name="heart-outline" size={18} color={mutedColor} />
+        <Text style={[styles.tipToggleText, { color: mutedColor }]}>
+          {t('support.supportDevelopment')}
+        </Text>
+        <MaterialCommunityIcons
+          name={tipsExpanded ? 'chevron-up' : 'chevron-down'}
+          size={18}
+          color={mutedColor}
+        />
+      </Pressable>
+
+      <Animated.View style={tipAnimStyle}>
+        {isAvailable ? (
           <TipButtons
             products={products}
             isPurchasing={isPurchasing}
-            onTip={onTip}
+            onTip={handleTip}
             isDark={isDark}
-            small
           />
-        </View>
-      ) : (
-        <Pressable
-          onPress={onSponsor}
-          style={[styles.sponsorButton, isDark && styles.sponsorButtonDark]}
-        >
-          <MaterialCommunityIcons
-            name="github"
-            size={18}
-            color={isDark ? darkColors.textPrimary : colors.textPrimary}
-          />
-          <Text style={[styles.sponsorText, isDark && styles.sponsorTextDark]}>
-            {t('support.sponsorGitHub')}
+        ) : (
+          <Pressable
+            onPress={handleSponsor}
+            style={[styles.sponsorButton, isDark && styles.sponsorButtonDark]}
+          >
+            <MaterialCommunityIcons name="github" size={18} color={textColor} />
+            <Text style={[styles.sponsorText, isDark && styles.sponsorTextDark]}>
+              {t('support.sponsorGitHub')}
+            </Text>
+          </Pressable>
+        )}
+      </Animated.View>
+
+      <View style={styles.dismissRow}>
+        <Pressable onPress={handleRemindLater} hitSlop={8}>
+          <Text style={[styles.dismissText, isDark && styles.dismissTextDark]}>
+            {t('support.remindLater')}
           </Text>
         </Pressable>
-      )}
-      <DismissRow isDark={isDark} t={t} remindLater={remindLater} neverShowAgain={neverShowAgain} />
+        <Text style={[styles.dismissSeparator, isDark && styles.dismissTextDark]}>·</Text>
+        <Pressable onPress={handleNeverShow} hitSlop={8}>
+          <Text style={[styles.dismissText, isDark && styles.dismissTextDark]}>
+            {t('support.neverShow')}
+          </Text>
+        </Pressable>
+      </View>
     </Animated.View>
   );
 }
 
-// ── Shared sub-components ───────────────────────────────────────────
-
-function LinkButton({
+function ActionButton({
   icon,
   label,
   onPress,
@@ -267,46 +213,16 @@ function LinkButton({
   isDark: boolean;
 }) {
   return (
-    <Pressable onPress={onPress} style={[styles.linkButton, isDark && styles.linkButtonDark]}>
+    <Pressable onPress={onPress} style={[styles.actionButton, isDark && styles.actionButtonDark]}>
       <MaterialCommunityIcons
         name={icon as keyof typeof MaterialCommunityIcons.glyphMap}
         size={20}
         color={isDark ? darkColors.textPrimary : colors.textPrimary}
       />
-      <Text style={[styles.linkButtonText, isDark && styles.linkButtonTextDark]}>{label}</Text>
+      <Text style={[styles.actionButtonText, isDark && styles.actionButtonTextDark]}>{label}</Text>
     </Pressable>
   );
 }
-
-function DismissRow({
-  isDark,
-  t,
-  remindLater,
-  neverShowAgain,
-}: {
-  isDark: boolean;
-  t: TFunction;
-  remindLater: () => void;
-  neverShowAgain: () => void;
-}) {
-  return (
-    <View style={styles.dismissRow}>
-      <Pressable onPress={remindLater} hitSlop={8}>
-        <Text style={[styles.dismissText, isDark && styles.dismissTextDark]}>
-          {t('support.remindLater')}
-        </Text>
-      </Pressable>
-      <Text style={[styles.dismissSeparator, isDark && styles.dismissTextDark]}>·</Text>
-      <Pressable onPress={neverShowAgain} hitSlop={8}>
-        <Text style={[styles.dismissText, isDark && styles.dismissTextDark]}>
-          {t('support.neverShow')}
-        </Text>
-      </Pressable>
-    </View>
-  );
-}
-
-// ── Styles ──────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
   card: {
@@ -343,6 +259,41 @@ const styles = StyleSheet.create({
   descriptionDark: {
     color: darkColors.textSecondary,
   },
+  actionRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  actionButton: {
+    flex: 1,
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: spacing.sm,
+    backgroundColor: colors.background,
+    borderRadius: layout.borderRadiusSm,
+  },
+  actionButtonDark: {
+    backgroundColor: darkColors.surfaceElevated,
+  },
+  actionButtonText: {
+    ...typography.caption,
+    fontWeight: '500',
+    color: colors.textPrimary,
+  },
+  actionButtonTextDark: {
+    color: darkColors.textPrimary,
+  },
+  tipToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingVertical: spacing.xs,
+  },
+  tipToggleText: {
+    ...typography.caption,
+    fontWeight: '500',
+    flex: 1,
+  },
   sponsorButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -363,39 +314,6 @@ const styles = StyleSheet.create({
   },
   sponsorTextDark: {
     color: darkColors.textPrimary,
-  },
-  linkRow: {
-    flexDirection: 'row',
-    gap: spacing.sm,
-  },
-  linkButton: {
-    flex: 1,
-    flexDirection: 'column',
-    alignItems: 'center',
-    gap: 4,
-    paddingVertical: spacing.sm,
-    backgroundColor: colors.background,
-    borderRadius: layout.borderRadiusSm,
-  },
-  linkButtonDark: {
-    backgroundColor: darkColors.surfaceElevated,
-  },
-  linkButtonText: {
-    ...typography.caption,
-    fontWeight: '500',
-    color: colors.textPrimary,
-  },
-  linkButtonTextDark: {
-    color: darkColors.textPrimary,
-  },
-  secondaryTipRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  secondaryTipLabel: {
-    ...typography.caption,
-    color: colors.textSecondary,
   },
   dismissRow: {
     flexDirection: 'row',

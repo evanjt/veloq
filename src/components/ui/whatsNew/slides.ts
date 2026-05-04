@@ -94,7 +94,7 @@ export const WHATS_NEW_SLIDES: Record<string, WhatsNewSlideDefinition[]> = {
 };
 
 /** Compare two semver strings (e.g. '0.2.1' < '0.2.2'). */
-function compareVersions(a: string, b: string): number {
+export function compareVersions(a: string, b: string): number {
   const pa = a.split('.').map(Number);
   const pb = b.split('.').map(Number);
   for (let i = 0; i < Math.max(pa.length, pb.length); i++) {
@@ -108,6 +108,14 @@ function compareVersions(a: string, b: string): number {
 /** Collect all slides across versions in semver order (for tutorial mode). */
 export function getAllSlides(): WhatsNewSlideDefinition[] {
   return Object.keys(WHATS_NEW_SLIDES)
+    .sort(compareVersions)
+    .flatMap((v) => WHATS_NEW_SLIDES[v]);
+}
+
+/** Collect slides from all versions newer than the given version. */
+export function getSlidesSince(version: string): WhatsNewSlideDefinition[] {
+  return Object.keys(WHATS_NEW_SLIDES)
+    .filter((v) => compareVersions(v, version) > 0)
     .sort(compareVersions)
     .flatMap((v) => WHATS_NEW_SLIDES[v]);
 }
