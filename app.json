@@ -53,7 +53,6 @@
         "foregroundImage": "./src/assets/adaptive-icon.png",
         "backgroundColor": "#5B9BD5"
       },
-      "edgeToEdgeEnabled": true,
       "permissions": [
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",
