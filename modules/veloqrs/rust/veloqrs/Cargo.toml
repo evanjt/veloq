@@ -76,7 +76,7 @@ panic = "abort"
 tempfile = "3.10"
 env_logger = "0.11"
 criterion = { version = "0.5", features = ["html_reports"] }
-sha2 = "0.10"
+sha2 = "0.11"
 
 [[test]]
 name = "persistence_stress"
