@@ -1,0 +1,9 @@
+v0.3.2
+
+• Approfondimenti giornalieri: PR di sezione, traguardi fitness, confronti settimanali
+• Migliori prestazioni: PR di potenza e passo su tutte le attività
+• Fissa, regola o disattiva le sezioni; imposta uno sforzo di riferimento
+• Mappa: polilinee con gradiente, overlay heatmap, zoom cluster
+• Fitness: tasso di rampa, forma %, grafici di temperatura e pendenza
+• Feed: trofei PR, pillole di tendenza, schede sezione sparkline
+• Sostieni il progetto con mance in-app

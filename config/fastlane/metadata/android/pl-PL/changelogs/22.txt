@@ -1,0 +1,9 @@
+v0.3.2
+
+• Codzienne statystyki: rekordy sekcji, kamienie milowe, porównania tygodniowe
+• Najlepsze wyniki: rekordy mocy i tempa we wszystkich aktywnościach
+• Przypinanie, dostosowywanie lub wyłączanie sekcji; wysiłek referencyjny
+• Mapa: polilinie z gradientem, heatmap, zoom klastrów
+• Fitness: tempo narastania, forma %, wykresy temperatury i nachylenia
+• Feed: trofea rekordów, trendy, karty sekcji sparkline
+• Wesprzyj projekt napiwkami w aplikacji

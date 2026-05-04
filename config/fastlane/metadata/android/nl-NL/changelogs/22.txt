@@ -1,0 +1,9 @@
+v0.3.2
+
+• Dagelijkse inzichten: sectie-PR's, fitnessmijlpalen, weekvergelijkingen
+• Beste prestaties: vermogen- en tempo-PR's over alle activiteiten
+• Secties vastzetten, aanpassen of uitschakelen; referentie-inspanning instellen
+• Kaart: gradiënt-polylijnen, heatmap-overlays, cluster-zoom
+• Fitness: opbouwtempo, vorm %, temperatuur- en hellingsgrafieken
+• Feed: PR-trofeeën, trendpillen, sparkline-sectiekaarten
+• Steun het project met fooien in de app

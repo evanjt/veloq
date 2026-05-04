@@ -26,9 +26,7 @@ export function daysSince(isoDate: string): number {
   return (now - then) / (1000 * 60 * 60 * 24);
 }
 
-// 7 days → 30 days → 90 days (legacy purchasers start at 30)
-function intervalForCount(count: number, isLegacy: boolean): number {
-  if (isLegacy) return count <= 1 ? 30 : 90;
+function intervalForCount(count: number): number {
   if (count === 0) return 7;
   if (count === 1) return 30;
   return 90;
@@ -67,16 +65,16 @@ export const useSupportStore = create<SupportState>((set, get) => ({
 
   getIntervalDays: () => {
     const s = get();
-    return intervalForCount(s.dismissCount, s.isLegacyPurchaser);
+    return intervalForCount(s.dismissCount);
   },
 
   shouldShow: () => {
     const s = get();
     if (!s.isLoaded) return false;
     if (s.permanentlyDismissed) return false;
+    if (s.isLegacyPurchaser) return false;
     if (s.lastActionDate === null) return false;
-    const interval = intervalForCount(s.dismissCount, s.isLegacyPurchaser);
-    return daysSince(s.lastActionDate) >= interval;
+    return daysSince(s.lastActionDate) >= intervalForCount(s.dismissCount);
   },
 
   remindLater: () => {

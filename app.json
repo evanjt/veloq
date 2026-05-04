@@ -2,7 +2,7 @@
   "expo": {
     "name": "Veloq",
     "slug": "veloq",
-    "version": "0.3.2",
+    "version": "0.3.3",
     "scheme": "veloq",
     "orientation": "default",
     "icon": "./src/assets/icon.png",
@@ -17,7 +17,7 @@
       "supportsTablet": true,
       "requireFullScreen": true,
       "bundleIdentifier": "com.veloq.app",
-      "buildNumber": "21",
+      "buildNumber": "22",
       "infoPlist": {
         "CFBundleDevelopmentRegion": "en-AU",
         "CFBundleLocalizations": [
@@ -41,11 +41,13 @@
       },
       "associatedDomains": [
         "applinks:intervals.icu"
-      ]
+      ],
+      "appStoreUrl": "https://apps.apple.com/us/app/veloq/id6757836732"
     },
     "android": {
       "package": "com.veloq.app",
-      "versionCode": 21,
+      "playStoreUrl": "https://play.google.com/store/apps/details?id=com.veloq.app",
+      "versionCode": 22,
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "foregroundImage": "./src/assets/adaptive-icon.png",

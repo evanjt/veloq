@@ -1700,18 +1700,18 @@ export interface TranslationResource {
     Yoga: string;
   };
   support: {
+    enjoyingTitle: string;
+    feedbackDescription: string;
+    review: string;
+    idea: string;
+    forum: string;
+    supportDevelopment: string;
     tipTitle: string;
     tipDescription: string;
     remindLater: string;
     neverShow: string;
     thankYou: string;
     sponsorGitHub: string;
-    legacyTitle: string;
-    legacyDescription: string;
-    forum: string;
-    idea: string;
-    bug: string;
-    tipAgain: string;
   };
 }
 

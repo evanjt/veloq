@@ -1759,17 +1759,17 @@
     "exercises": "種目"
   },
   "support": {
+    "enjoyingTitle": "Veloqを楽しんでいますか？",
+    "feedbackDescription": "フィードバックはアプリの改善に役立ちます。",
+    "review": "レビュー",
+    "idea": "アイデア",
+    "forum": "フォーラム",
+    "supportDevelopment": "開発を支援",
     "tipTitle": "Veloqを応援",
-    "tipDescription": "すべての機能は無料で、課金の壁はありません。チップは開発費と運営費を賄うのに役立ちます。",
+    "tipDescription": "チップは開発費と運営費を賄うのに役立ちます。",
     "remindLater": "後で通知する",
     "neverShow": "今後表示しない",
     "thankYou": "ご支援ありがとうございます！",
-    "sponsorGitHub": "GitHubでスポンサーになる",
-    "legacyTitle": "ご支援ありがとうございます",
-    "legacyDescription": "継続的なご支援は新機能の開発に役立ちます。アイデアやバグを見つけましたか？",
-    "forum": "フォーラム",
-    "idea": "アイデア",
-    "bug": "バグ",
-    "tipAgain": "もう一度チップ："
+    "sponsorGitHub": "GitHubでスポンサーになる"
   }
 }
