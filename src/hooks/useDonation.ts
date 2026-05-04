@@ -88,7 +88,6 @@ export function useDonation() {
       mounted = false;
       purchaseUpdateSub?.remove();
       purchaseErrorSub?.remove();
-      endConnection();
     };
   }, [recordAction]);
 
