@@ -97,11 +97,7 @@ export function SupportSection() {
 
         {/* Tips */}
         <View style={styles.row}>
-          <MaterialCommunityIcons
-            name={purchaseSuccess ? 'heart' : 'heart-outline'}
-            size={20}
-            color={colors.primary}
-          />
+          <MaterialCommunityIcons name="wrench-outline" size={20} color={colors.primary} />
           <Text style={[styles.rowText, { color: textColor }]}>
             {purchaseSuccess ? t('support.thankYou') : t('support.tipTitle')}
           </Text>

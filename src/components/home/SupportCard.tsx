@@ -152,7 +152,7 @@ export function SupportCard() {
       </View>
 
       <Pressable onPress={toggleTips} style={styles.tipToggle} hitSlop={4}>
-        <MaterialCommunityIcons name="heart-outline" size={18} color={mutedColor} />
+        <MaterialCommunityIcons name="wrench-outline" size={18} color={mutedColor} />
         <Text style={[styles.tipToggleText, { color: mutedColor }]}>
           {t('support.supportDevelopment')}
         </Text>
