@@ -409,6 +409,13 @@ export function getCombinedSatelliteStyle(): CombinedSatelliteMapStyle {
         bounds: SATELLITE_SOURCES.luxembourg.bounds,
       },
     },
+    // Glyph URL is required for any symbol layer with `text-*` props to
+    // render. Without it MapLibre can't fetch font PBFs and the layer fails
+    // registration — on v11 Android that failure cascades up and takes the
+    // whole GeoJSONSource down (so cluster-count symbol kills cluster-circles
+    // and unclustered-point too). Reuses the same openfreemap glyph CDN the
+    // light/dark vector styles already use.
+    glyphs: 'https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf',
     layers: [
       // Dark background so empty tile areas show dark blue instead of white
       {
