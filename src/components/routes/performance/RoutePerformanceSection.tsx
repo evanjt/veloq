@@ -124,6 +124,7 @@ export function RoutePerformanceSection({
             chartData={chartData}
             activityType={activityType}
             isDark={isDark}
+            useTimeAxis
             bestForwardRecord={bestForwardRecord}
             bestReverseRecord={bestReverseRecord}
             forwardStats={forwardStats}

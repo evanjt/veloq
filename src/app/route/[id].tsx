@@ -304,15 +304,17 @@ export default function RouteDetailScreen() {
     const max = speeds.length > 0 ? Math.max(...speeds) : 1;
     const padding = (max - min) * 0.15 || 0.5;
 
-    // Find best (fastest) - use the bestPerformance from Rust engine if available
+    // Find best (shortest time) - use the bestPerformance from hook if available
     let bestIdx = 0;
     if (bestPerformance) {
       bestIdx = dataPoints.findIndex((d) => d.activityId === bestPerformance.activityId);
       if (bestIdx === -1) bestIdx = 0;
     } else {
-      // Fallback to manual search
-      for (let i = 1; i < dataPoints.length; i++) {
-        if (dataPoints[i].speed > dataPoints[bestIdx].speed) {
+      let bestTime = Infinity;
+      for (let i = 0; i < dataPoints.length; i++) {
+        const time = dataPoints[i].sectionTime ?? Infinity;
+        if (time > 0 && time < bestTime) {
+          bestTime = time;
           bestIdx = i;
         }
       }
@@ -704,6 +706,7 @@ export default function RouteDetailScreen() {
                   chartData={combinedChartData}
                   activityType={displayType}
                   isDark={isDark}
+                  useTimeAxis
                   bestForwardRecord={bestForwardRecord}
                   bestReverseRecord={bestReverseRecord}
                   forwardStats={forwardStats}

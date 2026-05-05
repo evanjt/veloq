@@ -12,7 +12,7 @@ import { CartesianChart, type PointsArray } from 'victory-native';
 import { Circle, Path, Skia } from '@shopify/react-native-skia';
 import { GestureDetector } from 'react-native-gesture-handler';
 import Animated from 'react-native-reanimated';
-import { formatPace, formatSpeed, isRunningActivity } from '@/lib';
+import { formatDuration, formatPace, formatSpeed, isRunningActivity } from '@/lib';
 import {
   splitAndPositionChartData,
   buildTrendWithBand,
@@ -58,6 +58,8 @@ export interface SectionScatterChartProps {
   containerStyle?: ViewStyle;
   /** Activity ID to highlight with an orange ring (e.g., the activity that navigated here) */
   highlightedActivityId?: string;
+  /** When true, Y-axis shows time (inverted: shorter = higher) instead of speed */
+  useTimeAxis?: boolean;
 }
 
 export function SectionScatterChart({
@@ -81,6 +83,7 @@ export function SectionScatterChart({
   mini,
   containerStyle,
   highlightedActivityId,
+  useTimeAxis,
 }: SectionScatterChartProps) {
   const showPace = isRunningActivity(activityType);
   const activityColor = isDark ? '#FC4C02' : colors.primary;
@@ -106,6 +109,7 @@ export function SectionScatterChart({
   );
 
   // Separate forward/reverse, compute positions, find PRs (pure fn in @/lib/charts/scatterData)
+  // Gold ring = highest point on displayed axis (speed for sections, time for routes)
   const {
     forwardPoints,
     reversePoints,
@@ -114,13 +118,21 @@ export function SectionScatterChart({
     reverseBestIdx,
     minSpeed,
     maxSpeed,
-  } = useMemo(() => splitAndPositionChartData(chartData), [chartData]);
+    minTime,
+    maxTime,
+  } = useMemo(
+    () => splitAndPositionChartData(chartData, useTimeAxis ? 'time' : 'speed'),
+    [chartData, useTimeAxis]
+  );
+
+  const yMin = useTimeAxis ? maxTime : minSpeed;
+  const yMax = useTimeAxis ? minTime : maxSpeed;
 
   // Compute Gaussian kernel trend lines with confidence bands for all point counts (≥2)
   const { forwardTrend, reverseTrend } = useMemo(
     () => ({
-      forwardTrend: buildTrendWithBand(forwardPoints),
-      reverseTrend: buildTrendWithBand(reversePoints),
+      forwardTrend: buildTrendWithBand(forwardPoints, 200, useTimeAxis ? 'sectionTime' : 'speed'),
+      reverseTrend: buildTrendWithBand(reversePoints, 200, useTimeAxis ? 'sectionTime' : 'speed'),
     }),
     [forwardPoints, reversePoints]
   );
@@ -193,8 +205,8 @@ export function SectionScatterChart({
           <CartesianChart
             data={allPoints as unknown as Record<string, unknown>[]}
             xKey={'x' as never}
-            yKeys={['speed'] as never}
-            domain={{ x: [0, 1], y: [minSpeed, maxSpeed] }}
+            yKeys={[useTimeAxis ? 'sectionTime' : 'speed'] as never}
+            domain={{ x: [0, 1], y: [yMin, yMax] }}
             padding={effectivePadding}
           >
             {
@@ -202,15 +214,16 @@ export function SectionScatterChart({
                 points,
                 chartBounds,
               }: {
-                points: { speed: PointsArray };
+                points: { speed: PointsArray; sectionTime: PointsArray };
                 chartBounds: { left: number; right: number; top: number; bottom: number };
               }) => {
+                const yField = useTimeAxis ? points.sectionTime : points.speed;
                 // Build trend + band paths using chart coordinate system
                 const xScale = (x: number) =>
                   chartBounds.left + (x / 1) * (chartBounds.right - chartBounds.left);
                 const yScale = (y: number) =>
                   chartBounds.top +
-                  ((maxSpeed - y) / (maxSpeed - minSpeed)) * (chartBounds.bottom - chartBounds.top);
+                  ((yMax - y) / (yMax - yMin)) * (chartBounds.bottom - chartBounds.top);
 
                 const buildPaths = (trend: TrendBandPoint[] | null) => {
                   if (!trend || trend.length < 2) return { line: null, band: null };
@@ -277,7 +290,7 @@ export function SectionScatterChart({
                     {(() => {
                       const highlight: { x: number; y: number }[] = [];
 
-                      const dots = points.speed.map((point: PointsArray[number], idx: number) => {
+                      const dots = yField.map((point: PointsArray[number], idx: number) => {
                         if (point.x == null || point.y == null) return null;
 
                         const dataPoint = allPoints[idx];
@@ -415,10 +428,10 @@ export function SectionScatterChart({
         {!mini && (
           <View style={styles.yAxisOverlay} pointerEvents="none">
             <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
-              {formatSpeedValue(maxSpeed)}
+              {useTimeAxis ? formatDuration(minTime) : formatSpeedValue(maxSpeed)}
             </Text>
             <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
-              {formatSpeedValue(minSpeed)}
+              {useTimeAxis ? formatDuration(maxTime) : formatSpeedValue(minSpeed)}
             </Text>
           </View>
         )}

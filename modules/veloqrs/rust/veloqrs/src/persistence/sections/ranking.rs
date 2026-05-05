@@ -369,8 +369,12 @@ fn enrich_from_ranked(
         perf.records
             .iter()
             .filter(|r| r.activity_id != b.activity_id)
+            .max_by(|a, b_rec| {
+                a.best_pace
+                    .partial_cmp(&b_rec.best_pace)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
             .map(|r| r.best_time)
-            .fold(None::<f64>, |acc, t| Some(acc.map_or(t, |a| a.min(t))))
     });
 
     let mut sorted: Vec<_> = perf.records.clone();
@@ -406,8 +410,12 @@ fn enrich_from_summary(
         perf.records
             .iter()
             .filter(|r| r.activity_id != b.activity_id)
+            .max_by(|a, b_rec| {
+                a.best_pace
+                    .partial_cmp(&b_rec.best_pace)
+                    .unwrap_or(std::cmp::Ordering::Equal)
+            })
             .map(|r| r.best_time)
-            .fold(None::<f64>, |acc, t| Some(acc.map_or(t, |a| a.min(t))))
     });
 
     let mut sorted = perf.records.clone();

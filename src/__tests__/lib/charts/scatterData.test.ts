@@ -37,7 +37,7 @@ describe('splitAndPositionChartData', () => {
   });
 
   it('places a single point with normalized x ~0.02', () => {
-    const result = splitAndPositionChartData([point({ speed: 3 })]);
+    const result = splitAndPositionChartData([point({ speed: 3, sectionTime: 300 })]);
     expect(result.allPoints).toHaveLength(1);
     expect(result.forwardPoints).toHaveLength(1);
     expect(result.forwardBestIdx).toBe(0);
@@ -55,25 +55,44 @@ describe('splitAndPositionChartData', () => {
     expect(result.reversePoints).toHaveLength(1);
   });
 
-  it('identifies the fastest non-excluded point as best in each direction', () => {
+  it('identifies the shortest-time non-excluded point as best by default', () => {
     const pts: InputPoint[] = [
-      point({ date: new Date('2024-01-01'), speed: 5 }),
-      point({ date: new Date('2024-02-01'), speed: 7 }),
-      point({ date: new Date('2024-03-01'), speed: 6 }),
+      point({ date: new Date('2024-01-01'), speed: 5, sectionTime: 600 }),
+      point({ date: new Date('2024-02-01'), speed: 7, sectionTime: 300 }),
+      point({ date: new Date('2024-03-01'), speed: 6, sectionTime: 450 }),
     ];
     const result = splitAndPositionChartData(pts);
-    // Points are date-sorted → speed 7 is at index 1
     expect(result.forwardBestIdx).toBe(1);
+  });
+
+  it('identifies the fastest-speed point as best when bestBy is speed', () => {
+    const pts: InputPoint[] = [
+      point({ date: new Date('2024-01-01'), speed: 8, sectionTime: 600 }),
+      point({ date: new Date('2024-02-01'), speed: 5, sectionTime: 200 }),
+      point({ date: new Date('2024-03-01'), speed: 6, sectionTime: 450 }),
+    ];
+    const result = splitAndPositionChartData(pts, 'speed');
+    expect(result.forwardBestIdx).toBe(0);
+  });
+
+  it('speed and time best can disagree when section distances vary', () => {
+    const pts: InputPoint[] = [
+      point({ date: new Date('2024-01-01'), speed: 10, sectionTime: 500 }),
+      point({ date: new Date('2024-02-01'), speed: 6, sectionTime: 200 }),
+    ];
+    const bySpeed = splitAndPositionChartData(pts, 'speed');
+    const byTime = splitAndPositionChartData(pts, 'time');
+    expect(bySpeed.forwardBestIdx).toBe(0);
+    expect(byTime.forwardBestIdx).toBe(1);
   });
 
   it('excludes isExcluded points from best-index computation', () => {
     const pts: InputPoint[] = [
-      point({ date: new Date('2024-01-01'), speed: 5 }),
-      point({ date: new Date('2024-02-01'), speed: 9, isExcluded: true }),
-      point({ date: new Date('2024-03-01'), speed: 6 }),
+      point({ date: new Date('2024-01-01'), speed: 5, sectionTime: 600 }),
+      point({ date: new Date('2024-02-01'), speed: 9, sectionTime: 200, isExcluded: true }),
+      point({ date: new Date('2024-03-01'), speed: 6, sectionTime: 450 }),
     ];
     const result = splitAndPositionChartData(pts);
-    // Speed 9 is excluded → best is speed 6 at index 2
     expect(result.forwardBestIdx).toBe(2);
   });
 

@@ -37,11 +37,11 @@ describe('buildLaneStats', () => {
     expect(lane.maxSpeed).toBe(1);
   });
 
-  it('locates the fastest point as the best', () => {
+  it('locates the shortest-time point as the best', () => {
     const points: ChartPoint[] = [
-      { ...makePoint({ speed: 3 }), x: 0.1 },
-      { ...makePoint({ speed: 7 }), x: 0.2 },
-      { ...makePoint({ speed: 5 }), x: 0.3 },
+      { ...makePoint({ speed: 3, sectionTime: 600 }), x: 0.1 },
+      { ...makePoint({ speed: 7, sectionTime: 300 }), x: 0.2 },
+      { ...makePoint({ speed: 5, sectionTime: 450 }), x: 0.3 },
     ];
     const lane = buildLaneStats(points, [0, 1, 2], undefined);
     expect(lane.bestIndex).toBe(1);
