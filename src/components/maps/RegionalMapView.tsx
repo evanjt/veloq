@@ -12,6 +12,10 @@ import {
   type GeoJSONSourceRef,
   type MapRef,
 } from '@maplibre/maplibre-react-native';
+import type {
+  CircleLayerSpecification,
+  SymbolLayerSpecification,
+} from '@maplibre/maplibre-gl-style-spec';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
@@ -51,6 +55,40 @@ import {
 const EMPTY_FEATURE_COLLECTION: GeoJSON.FeatureCollection = {
   type: 'FeatureCollection',
   features: [],
+};
+
+// Cluster paint/layout — module-level constants, kebab-case, properly typed
+// against the maplibre-gl-style-spec. Modelled on the canonical v11 example
+// at examples/shared/src/examples/SymbolCircleLayer/Earthquakes.tsx. v11
+// requires explicit `paint`/`layout` props with kebab-case keys; the
+// deprecated `style` shorthand silently fails on Android for clustered layers.
+
+const CLUSTER_CIRCLE_PAINT: CircleLayerSpecification['paint'] = {
+  'circle-color': '#FC4C02', // colors.primary — module scope, can't read theme tokens
+  'circle-radius': [
+    'step',
+    ['get', 'point_count'],
+    20, // <10 activities
+    10,
+    25, // 10-49
+    50,
+    30, // 50+
+  ],
+  'circle-opacity': 0.8,
+  'circle-stroke-width': 2,
+  'circle-stroke-color': 'rgba(255, 255, 255, 0.9)',
+};
+
+const CLUSTER_COUNT_LAYOUT: SymbolLayerSpecification['layout'] = {
+  'text-field': ['get', 'point_count_abbreviated'],
+  'text-font': ['Noto Sans Regular'],
+  'text-size': 12,
+  'text-allow-overlap': true,
+  'text-ignore-placement': true,
+};
+
+const CLUSTER_COUNT_PAINT: SymbolLayerSpecification['paint'] = {
+  'text-color': '#FFFFFF',
 };
 
 // Stable no-op function reference for disabled callbacks.
@@ -432,62 +470,24 @@ export function RegionalMapView({
   // references stable across renders when their dependencies haven't changed.
   // ========================================================================
 
-  // Use v11's explicit paint/layout shape for cluster layers — the deprecated
-  // `style` shorthand doesn't reliably propagate `visibility` and expression-based
-  // paint props together on Android, so cluster circles disappear after the
-  // migration. Each layer gets a tuple of (paint, layout) so the existing
-  // memoisation pattern is preserved.
-  const clusterCirclePaint = useMemo(
-    () => ({
-      'circle-color': colors.primary,
-      'circle-radius': [
-        'step',
-        ['get', 'point_count'],
-        20, // <10 activities
-        10,
-        25, // 10-49
-        50,
-        30, // 50+
-      ],
-      'circle-opacity': showActivities ? 0.8 : 0,
-    }),
-    [showActivities]
-  );
-  const clusterCircleLayout = useMemo(
-    () => ({
-      visibility: showActivities ? 'visible' : 'none',
-    }),
-    [showActivities]
-  );
-
-  const clusterCountLayout = useMemo(
-    () => ({
-      'text-field': ['get', 'point_count_abbreviated'],
-      'text-font': ['Noto Sans Regular'],
-      'text-size': 12,
-      'text-allow-overlap': true,
-      'text-ignore-placement': true,
-      visibility: showActivities ? 'visible' : 'none',
-    }),
-    [showActivities]
-  );
-  const clusterCountPaint = useMemo(
-    () => ({
-      'text-color': '#FFFFFF',
-    }),
-    []
-  );
-
-  const unclusteredPointPaint = useMemo(
+  // Cluster paint/layout — modelled on the canonical v11 Earthquakes example
+  // (https://github.com/maplibre/maplibre-react-native/blob/main/examples/shared/src/examples/SymbolCircleLayer/Earthquakes.tsx).
+  // Static kebab-case paint objects typed against the maplibre-gl-style-spec.
+  // No `visibility` toggling — the cluster source is conditionally mounted
+  // when `showActivities` is true, which is cleaner than the v10 trick of
+  // hiding layers via opacity-zero expressions and works correctly on v11
+  // new-arch. Module-level constants (defined at the bottom of the file) are
+  // used for everything that doesn't depend on render state; the only piece
+  // that has to live in a hook is the unclustered-point paint, which depends
+  // on `selectedActivityId`.
+  const unclusteredPointPaint = useMemo<CircleLayerSpecification['paint']>(
     () => ({
       'circle-color': ['get', 'color'],
       'circle-radius': selectedActivityId
         ? ['case', ['==', ['get', 'id'], selectedActivityId], 12, 8]
         : 8,
-      // Recency fade: recent activities full opacity, 1+ year old at 35%
-      'circle-opacity': showActivities
-        ? ['interpolate', ['linear'], ['get', 'age'], 0, 1, 1, 0.35]
-        : 0,
+      // Recency fade: recent activities full opacity, 1+ year old at 35%.
+      'circle-opacity': ['interpolate', ['linear'], ['get', 'age'], 0, 1, 1, 0.35],
       'circle-stroke-width': selectedActivityId
         ? ['case', ['==', ['get', 'id'], selectedActivityId], 2.5, 1.5]
         : 1.5,
@@ -499,15 +499,9 @@ export function RegionalMapView({
             'rgba(255, 255, 255, 0.8)',
           ]
         : 'rgba(255, 255, 255, 0.8)',
-      'circle-stroke-opacity': showActivities ? 1 : 0,
+      'circle-stroke-opacity': 1,
     }),
-    [selectedActivityId, showActivities]
-  );
-  const unclusteredPointLayout = useMemo(
-    () => ({
-      visibility: showActivities ? 'visible' : 'none',
-    }),
-    [showActivities]
+    [selectedActivityId]
   );
 
   const startPointStyle = useMemo(
@@ -649,47 +643,49 @@ export function RegionalMapView({
           {/* Initial positioning is done imperatively via fitBounds in useMapCamera.markUserInteracted. */}
           <Camera ref={cameraRef} />
 
-          {/* Activity markers — clustered GeoJSONSource with native MapLibre clustering */}
-          {/* CRITICAL: Always render GeoJSONSource to avoid iOS crash during view reconciliation */}
-          <GeoJSONSource
-            ref={clusterSourceRef}
-            id="activity-clusters"
-            data={markersGeoJSON}
-            cluster={true}
-            clusterRadius={50}
-            clusterMaxZoom={14}
-            onPress={
-              Platform.OS === 'android' && showActivities ? handleClusterOrMarkerPress : undefined
-            }
-            hitbox={{ top: 22, right: 22, bottom: 22, left: 22 }}
-          >
-            {/* Cluster circles — primary color, radius scales by count */}
-            <Layer
-              type="circle"
-              id="cluster-circles"
-              filter={['has', 'point_count'] as never}
-              paint={clusterCirclePaint as never}
-              layout={clusterCircleLayout as never}
-            />
-            {/* Cluster count labels — textFont MUST match glyph server (Noto Sans) */}
-            <Layer
-              type="symbol"
-              id="cluster-count"
-              filter={['has', 'point_count'] as never}
-              paint={clusterCountPaint as never}
-              layout={clusterCountLayout as never}
-            />
-            {/* Individual unclustered activity points — colored by sport type */}
-            {/* Only visible at zoom >= 10 to keep low-zoom view clean (clusters only) */}
-            <Layer
-              type="circle"
-              id="unclustered-point"
-              filter={['!', ['has', 'point_count']] as never}
-              minzoom={10}
-              paint={unclusteredPointPaint as never}
-              layout={unclusteredPointLayout as never}
-            />
-          </GeoJSONSource>
+          {/* Activity markers — native MapLibre Supercluster clustering.
+              Conditionally mounted on `showActivities` so we don't fight the
+              v11 native renderer with opacity/visibility tricks. The layers
+              follow the canonical v11 pattern: count symbol first, cluster
+              circle below it (via `beforeId`), unclustered single circle at
+              higher zoom levels. */}
+          {showActivities && (
+            <GeoJSONSource
+              ref={clusterSourceRef}
+              id="activity-clusters"
+              data={markersGeoJSON}
+              cluster
+              clusterRadius={50}
+              clusterMaxZoom={14}
+              onPress={Platform.OS === 'android' ? handleClusterOrMarkerPress : undefined}
+              hitbox={{ top: 22, right: 22, bottom: 22, left: 22 }}
+            >
+              {/* Cluster count labels — textFont MUST match glyph server (Noto Sans) */}
+              <Layer
+                type="symbol"
+                id="cluster-count"
+                layout={CLUSTER_COUNT_LAYOUT}
+                paint={CLUSTER_COUNT_PAINT}
+              />
+              {/* Cluster circles — drawn beneath the count label */}
+              <Layer
+                type="circle"
+                id="cluster-circles"
+                beforeId="cluster-count"
+                filter={['has', 'point_count']}
+                paint={CLUSTER_CIRCLE_PAINT}
+              />
+              {/* Individual unclustered activity points — colored by sport type.
+                  Only at zoom >= 10 to keep low-zoom view clean (clusters only) */}
+              <Layer
+                type="circle"
+                id="unclustered-point"
+                filter={['!', ['has', 'point_count']]}
+                minzoom={10}
+                paint={unclusteredPointPaint}
+              />
+            </GeoJSONSource>
+          )}
 
           {/* Sections layer - frequent road/trail sections (primary content on global map) */}
           {/* CRITICAL: Always render GeoJSONSource to avoid iOS MapLibre crash */}
