@@ -673,10 +673,19 @@ export function RegionalMapView({
             }
             hitbox={{ top: 22, right: 22, bottom: 22, left: 22 }}
           >
-            {/* DEBUG: render every feature in the source as a bright magenta
-                circle, no filter, no minzoom. If supercluster is producing
-                cluster features (with `point_count`), we'll see them. If only
-                raw points show, supercluster isn't running. */}
+            {/* Unclustered single points — declared first so cluster layers
+                draw on top via JSX order (no beforeId needed). */}
+            <Layer
+              type="circle"
+              id="unclustered-point"
+              filter={['!', ['has', 'point_count']]}
+              paint={unclusteredPointPaint}
+            />
+            {/* DEBUG: bright magenta no-filter no-beforeId so we know if it
+                renders at all. If we see magenta circles in addition to the
+                pale unclustered points, layer registration is fine and the
+                cluster-circles paint is what's failing. If we see no magenta
+                at all, it's a layer-add-order bug. */}
             <Layer
               type="circle"
               id="cluster-debug-all"
@@ -688,26 +697,18 @@ export function RegionalMapView({
                 'circle-stroke-color': '#000000',
               }}
             />
-            {/* Cluster count text */}
+            <Layer
+              type="circle"
+              id="cluster-circles"
+              filter={['has', 'point_count']}
+              paint={CLUSTER_CIRCLE_PAINT}
+            />
             <Layer
               type="symbol"
               id="cluster-count"
               filter={['has', 'point_count']}
               layout={CLUSTER_COUNT_LAYOUT}
               paint={CLUSTER_COUNT_PAINT}
-            />
-            <Layer
-              type="circle"
-              id="cluster-circles"
-              beforeId="cluster-count"
-              filter={['has', 'point_count']}
-              paint={CLUSTER_CIRCLE_PAINT}
-            />
-            <Layer
-              type="circle"
-              id="unclustered-point"
-              filter={['!', ['has', 'point_count']]}
-              paint={unclusteredPointPaint}
             />
           </GeoJSONSource>
 
