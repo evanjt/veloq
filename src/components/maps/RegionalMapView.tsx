@@ -651,48 +651,47 @@ export function RegionalMapView({
           <Camera ref={cameraRef} />
 
           {/* Activity markers — native MapLibre Supercluster clustering.
-              Conditionally mounted on `showActivities`. JSX order = native
-              draw order, so cluster circles render beneath the count labels
-              without needing `beforeId` (which requires the referenced layer
-              to already exist in the style graph and silently no-ops when
-              it doesn't). */}
-          {showActivities && (
-            <GeoJSONSource
-              ref={clusterSourceRef}
-              id="activity-clusters"
-              data={markersGeoJSON}
-              cluster
-              clusterRadius={50}
-              clusterMaxZoom={14}
-              onPress={Platform.OS === 'android' ? handleClusterOrMarkerPress : undefined}
-              hitbox={{ top: 22, right: 22, bottom: 22, left: 22 }}
-            >
-              {/* Cluster circles — drawn first so labels overlay them */}
-              <Layer
-                type="circle"
-                id="cluster-circles"
-                filter={['has', 'point_count']}
-                paint={CLUSTER_CIRCLE_PAINT}
-              />
-              {/* Cluster count labels — drawn on top of the circles */}
-              <Layer
-                type="symbol"
-                id="cluster-count"
-                filter={['has', 'point_count']}
-                layout={CLUSTER_COUNT_LAYOUT}
-                paint={CLUSTER_COUNT_PAINT}
-              />
-              {/* Individual unclustered activity points — colored by sport type.
-                  Only at zoom >= 10 to keep low-zoom view clean (clusters only) */}
-              <Layer
-                type="circle"
-                id="unclustered-point"
-                filter={['!', ['has', 'point_count']]}
-                minzoom={10}
-                paint={unclusteredPointPaint}
-              />
-            </GeoJSONSource>
-          )}
+              Always mounted (never conditionally rendered) — v11's `useFrozenId`
+              throws "id cannot be changed" if the source unmounts and remounts
+              with the same id, because state is preserved across the mount
+              boundary in some render paths. We toggle data instead: when
+              `showActivities` is false, the source carries an empty
+              FeatureCollection so nothing renders. JSX order = draw order:
+              cluster circles below count labels, unclustered single points
+              appear at high zoom. */}
+          <GeoJSONSource
+            ref={clusterSourceRef}
+            id="activity-clusters"
+            data={showActivities ? markersGeoJSON : EMPTY_FEATURE_COLLECTION}
+            cluster
+            clusterRadius={50}
+            clusterMaxZoom={14}
+            onPress={
+              Platform.OS === 'android' && showActivities ? handleClusterOrMarkerPress : undefined
+            }
+            hitbox={{ top: 22, right: 22, bottom: 22, left: 22 }}
+          >
+            <Layer
+              type="circle"
+              id="cluster-circles"
+              filter={['has', 'point_count']}
+              paint={CLUSTER_CIRCLE_PAINT}
+            />
+            <Layer
+              type="symbol"
+              id="cluster-count"
+              filter={['has', 'point_count']}
+              layout={CLUSTER_COUNT_LAYOUT}
+              paint={CLUSTER_COUNT_PAINT}
+            />
+            <Layer
+              type="circle"
+              id="unclustered-point"
+              filter={['!', ['has', 'point_count']]}
+              minzoom={10}
+              paint={unclusteredPointPaint}
+            />
+          </GeoJSONSource>
 
           {/* Sections layer - frequent road/trail sections (primary content on global map) */}
           {/* CRITICAL: Always render GeoJSONSource to avoid iOS MapLibre crash */}
