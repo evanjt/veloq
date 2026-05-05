@@ -413,12 +413,11 @@ impl PersistentRouteEngine {
                 }
 
                 let lap_count = laps.len() as u32;
-                // Find the lap with minimum time (best performance) — but only
+                // Find the lap with fastest pace (best performance) — but only
                 // among COMPLETE traversals. Partial-direction laps and laps
                 // covering less than 70% of the canonical section distance are
                 // excluded so a 200m partial overlap can't be reported as a PR
-                // for a 2km section. See the per-direction selection below for
-                // the same rules applied at lap level.
+                // for a 2km section.
                 let canonical_distance_for_record = section.distance_meters;
                 let min_distance_for_record = if canonical_distance_for_record > 0.0 {
                     canonical_distance_for_record * 0.7
@@ -433,7 +432,7 @@ impl PersistentRouteEngine {
                         }
                         min_distance_for_record == 0.0 || lap.distance >= min_distance_for_record
                     })
-                    .min_by(|a, b| a.time.partial_cmp(&b.time).unwrap_or(std::cmp::Ordering::Equal));
+                    .max_by(|a, b| a.pace.partial_cmp(&b.pace).unwrap_or(std::cmp::Ordering::Equal));
                 let (best_time, best_pace) = best_lap
                     .map(|lap| (lap.time, lap.pace))
                     .unwrap_or((0.0, 0.0));
@@ -466,12 +465,12 @@ impl PersistentRouteEngine {
         // Sort by date
         records.sort_by_key(|r| r.activity_date);
 
-        // Find best record (fastest time) - overall
+        // Find best record (fastest pace/speed) - overall
         let best_record = records
             .iter()
-            .min_by(|a, b| {
-                a.best_time
-                    .partial_cmp(&b.best_time)
+            .max_by(|a, b| {
+                a.best_pace
+                    .partial_cmp(&b.best_pace)
                     .unwrap_or(std::cmp::Ordering::Equal)
             })
             .cloned();
@@ -498,11 +497,13 @@ impl PersistentRouteEngine {
             0.0
         };
 
-        let mut best_fwd_time = f64::MAX;
+        let mut best_fwd_speed = 0.0f64;
         let mut best_fwd_record_idx: Option<usize> = None;
+        let mut best_fwd_time = 0.0f64;
         let mut best_fwd_pace = 0.0f64;
-        let mut best_rev_time = f64::MAX;
+        let mut best_rev_speed = 0.0f64;
         let mut best_rev_record_idx: Option<usize> = None;
+        let mut best_rev_time = 0.0f64;
         let mut best_rev_pace = 0.0f64;
 
         let mut fwd_times: Vec<f64> = Vec::new();
@@ -529,7 +530,8 @@ impl PersistentRouteEngine {
                         rev_last_date
                             .map_or(record.activity_date, |d: i64| d.max(record.activity_date)),
                     );
-                    if lap.time < best_rev_time {
+                    if lap.pace > best_rev_speed {
+                        best_rev_speed = lap.pace;
                         best_rev_time = lap.time;
                         best_rev_pace = lap.pace;
                         best_rev_record_idx = Some(i);
@@ -540,7 +542,8 @@ impl PersistentRouteEngine {
                         fwd_last_date
                             .map_or(record.activity_date, |d: i64| d.max(record.activity_date)),
                     );
-                    if lap.time < best_fwd_time {
+                    if lap.pace > best_fwd_speed {
+                        best_fwd_speed = lap.pace;
                         best_fwd_time = lap.time;
                         best_fwd_pace = lap.pace;
                         best_fwd_record_idx = Some(i);

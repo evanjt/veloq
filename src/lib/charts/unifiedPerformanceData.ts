@@ -75,7 +75,7 @@ export function buildLaneStats(
   }
 
   let laneBestIdx = -1;
-  let laneBestSpeed = -Infinity;
+  let laneBestTime = Infinity;
   let current = -1;
   let min = Infinity;
   let max = -Infinity;
@@ -84,8 +84,9 @@ export function buildLaneStats(
     if (currentIndex !== undefined && originalIndices[idx] === currentIndex) current = idx;
     min = Math.min(min, p.speed);
     max = Math.max(max, p.speed);
-    if (p.speed > laneBestSpeed) {
-      laneBestSpeed = p.speed;
+    const time = p.sectionTime ?? Infinity;
+    if (time > 0 && time < laneBestTime) {
+      laneBestTime = time;
       laneBestIdx = idx;
     }
   });

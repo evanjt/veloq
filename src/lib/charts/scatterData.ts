@@ -33,6 +33,10 @@ export interface ScatterSplitResult {
   minSpeed: number;
   /** Maximum speed for Y domain (includes 15% padding). */
   maxSpeed: number;
+  /** Minimum sectionTime across all points (for time-axis domain). */
+  minTime: number;
+  /** Maximum sectionTime across all points (for time-axis domain). */
+  maxTime: number;
 }
 
 /** Empty result used when input data is missing or invalid. */
@@ -44,6 +48,8 @@ const EMPTY_SPLIT: ScatterSplitResult = Object.freeze({
   reverseBestIdx: -1,
   minSpeed: 0,
   maxSpeed: 1,
+  minTime: 0,
+  maxTime: 1,
 }) as ScatterSplitResult;
 
 /**
@@ -51,10 +57,13 @@ const EMPTY_SPLIT: ScatterSplitResult = Object.freeze({
  * position to [0.02, 0.98] by time, identify the best in each direction,
  * and compute padded speed bounds.
  *
+ * @param bestBy - 'time' picks shortest sectionTime as PR, 'speed' picks fastest speed.
+ *
  * Returns a frozen `EMPTY_SPLIT` when input is empty or contains no valid dates.
  */
 export function splitAndPositionChartData(
-  chartData: (PerformanceDataPoint & { x: number })[]
+  chartData: (PerformanceDataPoint & { x: number })[],
+  bestBy: 'time' | 'speed' = 'time'
 ): ScatterSplitResult {
   if (chartData.length === 0) {
     return EMPTY_SPLIT;
@@ -80,20 +89,24 @@ export function splitAndPositionChartData(
   const fwd: ScatterChartPoint[] = [];
   const rev: ScatterChartPoint[] = [];
   let fwdBest = -1;
-  let fwdBestSpeed = -Infinity;
+  let fwdBestVal = bestBy === 'speed' ? -Infinity : Infinity;
   let revBest = -1;
-  let revBestSpeed = -Infinity;
+  let revBestVal = bestBy === 'speed' ? -Infinity : Infinity;
 
   for (const p of positioned) {
+    const val = bestBy === 'speed' ? p.speed : (p.sectionTime ?? Infinity);
+    const isBetter = bestBy === 'speed' ? val > 0 && val > fwdBestVal : val > 0 && val < fwdBestVal;
+    const isBetterRev =
+      bestBy === 'speed' ? val > 0 && val > revBestVal : val > 0 && val < revBestVal;
     if (p.direction === 'reverse') {
-      if (!p.isExcluded && p.speed > revBestSpeed) {
-        revBestSpeed = p.speed;
+      if (!p.isExcluded && isBetterRev) {
+        revBestVal = val;
         revBest = rev.length;
       }
       rev.push(p);
     } else {
-      if (!p.isExcluded && p.speed > fwdBestSpeed) {
-        fwdBestSpeed = p.speed;
+      if (!p.isExcluded && isBetter) {
+        fwdBestVal = val;
         fwdBest = fwd.length;
       }
       fwd.push(p);
@@ -103,10 +116,12 @@ export function splitAndPositionChartData(
   const speeds = positioned.map((p) => p.speed);
   const min = Math.min(...speeds);
   const max = Math.max(...speeds);
-  // Scatter chart is dense (points overlap at similar speeds), so tighter 15% padding
-  // keeps points closer to the axes. Compare with the 20% padding in
-  // unifiedPerformanceData.ts, which renders sparser lanes that want more breathing room.
   const padding = (max - min) * 0.15 || 0.5;
+
+  const times = positioned.map((p) => p.sectionTime ?? 0).filter((t) => t > 0);
+  const tMin = times.length > 0 ? Math.min(...times) : 0;
+  const tMax = times.length > 0 ? Math.max(...times) : 1;
+  const tPadding = (tMax - tMin) * 0.15 || 30;
 
   return {
     forwardPoints: fwd,
@@ -116,6 +131,8 @@ export function splitAndPositionChartData(
     reverseBestIdx: revBest,
     minSpeed: Math.max(0, min - padding),
     maxSpeed: max + padding,
+    minTime: Math.max(0, tMin - tPadding),
+    maxTime: tMax + tPadding,
   };
 }
 
@@ -139,11 +156,12 @@ export interface TrendBandPoint {
  */
 export function buildTrendWithBand(
   points: (PerformanceDataPoint & { x: number })[],
-  outputCount: number = 200
+  outputCount: number = 200,
+  yAccessor: 'speed' | 'sectionTime' = 'speed'
 ): TrendBandPoint[] | null {
   if (points.length < 2) return null;
   const xs = points.map((p) => p.x);
-  const ys = points.map((p) => p.speed);
+  const ys = points.map((p) => (yAccessor === 'sectionTime' ? (p.sectionTime ?? 0) : p.speed));
 
   const trend: SmoothedPoint[] = gaussianSmooth(xs, ys, outputCount);
   if (trend.length < 2) return null;
