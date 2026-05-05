@@ -679,29 +679,39 @@ export function RegionalMapView({
             }
             hitbox={{ top: 22, right: 22, bottom: 22, left: 22 }}
           >
-            {/* Unclustered single points (no point_count) — rendered first
-                so cluster circles draw on top via JSX order. */}
+            {/* DIAGNOSTIC LAYER A: NO filter, BLUE — should show every
+                feature in the source (clusters AND raw points). */}
             <Layer
               type="circle"
-              id="unclustered-point"
-              filter={['!', ['has', 'point_count']]}
-              paint={unclusteredPointPaint}
+              id="cluster-debug-all"
+              paint={{
+                'circle-color': '#0066FF',
+                'circle-radius': 22,
+                'circle-opacity': 0.6,
+              }}
             />
-            {/* DIAGNOSTIC: cluster circles with the SAME magenta paint that
-                worked unfiltered. If clusters now render in magenta, our
-                filter is fine and CLUSTER_CIRCLE_PAINT itself is what's
-                broken. If still no clusters, the filter `['has',
-                'point_count']` is being mis-evaluated in v11. */}
+            {/* DIAGNOSTIC LAYER B: filter `['has', 'point_count']`, MAGENTA
+                — should show ONLY supercluster-aggregated features. */}
             <Layer
               type="circle"
               id="cluster-circles"
               filter={['has', 'point_count']}
               paint={{
                 'circle-color': '#FF00FF',
-                'circle-radius': 18,
-                'circle-opacity': 0.9,
-                'circle-stroke-width': 3,
-                'circle-stroke-color': '#000000',
+                'circle-radius': 14,
+                'circle-opacity': 1,
+              }}
+            />
+            {/* DIAGNOSTIC LAYER C: filter `['!', ['has', 'point_count']]`,
+                LIME — should show ONLY raw individual points. */}
+            <Layer
+              type="circle"
+              id="unclustered-point"
+              filter={['!', ['has', 'point_count']]}
+              paint={{
+                'circle-color': '#00FF00',
+                'circle-radius': 8,
+                'circle-opacity': 1,
               }}
             />
             {/* Cluster count text on top of the circles */}
