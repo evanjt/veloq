@@ -108,22 +108,14 @@ jobs:
         if: steps.apk-cache.outputs.cache-hit != 'true'
         run: npm ci
 
-      - name: Cache Rust Android libraries
-        if: steps.apk-cache.outputs.cache-hit != 'true'
-        id: rust-android-cache
-        uses: actions/cache@v4
-        with:
-          path: modules/veloqrs/android/src/main/jniLibs
-          key: rust-android-v1-${{ (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch') && 'all' || 'arm64' }}-${{ hashFiles('modules/veloqrs/rust/**/Cargo.toml', 'modules/veloqrs/rust/**/Cargo.lock', 'modules/veloqrs/rust/**/*.rs') }}
-
       - name: Setup Rust for Android
-        if: steps.apk-cache.outputs.cache-hit != 'true' && steps.rust-android-cache.outputs.cache-hit != 'true'
+        if: steps.apk-cache.outputs.cache-hit != 'true'
         uses: ./.github/actions/setup-rust-android
         with:
           targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android,i686-linux-android
 
       - name: Build Rust libraries for Android
-        if: steps.apk-cache.outputs.cache-hit != 'true' && steps.rust-android-cache.outputs.cache-hit != 'true'
+        if: steps.apk-cache.outputs.cache-hit != 'true'
         working-directory: modules/veloqrs/rust
         run: |
           echo "=== Building veloqrs for Android ==="
@@ -135,8 +127,8 @@ jobs:
               --platform 24 -o ../android/src/main/jniLibs \
               build --release -p veloqrs
           else
-            # Branch build: arm64 only
-            cargo ndk -t aarch64-linux-android \
+            # PR/branch build: arm64 + x86_64 only (faster)
+            cargo ndk -t aarch64-linux-android -t x86_64-linux-android \
               --platform 24 -o ../android/src/main/jniLibs \
               build --release -p veloqrs
           fi
@@ -223,17 +215,7 @@ jobs:
           fi
 
           all_ok=true
-
-          # Required architectures depend on build type
-          if [[ "${{ github.ref }}" == "refs/heads/main" || "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            REQUIRED_ARCHES="arm64-v8a x86_64"
-            OPTIONAL_ARCHES="armeabi-v7a x86"
-          else
-            REQUIRED_ARCHES="arm64-v8a"
-            OPTIONAL_ARCHES=""
-          fi
-
-          for arch in $REQUIRED_ARCHES; do
+          for arch in arm64-v8a x86_64; do
             so_file="modules/veloqrs/android/src/main/jniLibs/$arch/libveloqrs.so"
             if [ -f "$so_file" ]; then
               size=$(stat -c%s "$so_file" 2>/dev/null || echo "0")
@@ -249,15 +231,18 @@ jobs:
             fi
           done
 
-          for arch in $OPTIONAL_ARCHES; do
-            so_file="modules/veloqrs/android/src/main/jniLibs/$arch/libveloqrs.so"
-            if [ -f "$so_file" ]; then
-              size=$(stat -c%s "$so_file" 2>/dev/null || echo "0")
-              echo "$arch: ${size} bytes"
-            else
-              echo "WARNING: $arch not found"
-            fi
-          done
+          # Check extra architectures on main
+          if [[ "${{ github.ref }}" == "refs/heads/main" || "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            for arch in armeabi-v7a x86; do
+              so_file="modules/veloqrs/android/src/main/jniLibs/$arch/libveloqrs.so"
+              if [ -f "$so_file" ]; then
+                size=$(stat -c%s "$so_file" 2>/dev/null || echo "0")
+                echo "$arch: ${size} bytes"
+              else
+                echo "WARNING: $arch not found (expected for main builds)"
+              fi
+            done
+          fi
 
           if [ "$all_ok" = "false" ]; then
             echo "ERROR: veloqrs libraries verification failed!"
@@ -274,9 +259,7 @@ jobs:
         if: steps.apk-cache.outputs.cache-hit != 'true' && !(github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch')
         run: |
           cd android && ./gradlew assembleRelease \
-            -PreactNativeArchitectures=arm64-v8a \
-            -Pandroid.enableMinifyInReleaseBuilds=false \
-            -Pandroid.enableShrinkResourcesInReleaseBuilds=false \
+            -PreactNativeArchitectures=arm64-v8a,x86_64 \
             --no-daemon --no-build-cache
 
       - name: Build Android APK + AAB
@@ -402,58 +385,37 @@ jobs:
           cache: "npm"
 
       # ---- Rust Build ----
-      - name: Copy UniFFI C++ files for iOS
-        if: steps.app-cache.outputs.cache-hit != 'true'
-        run: |
-          mkdir -p modules/veloqrs/ios/cpp/generated
-          cp modules/veloqrs/cpp/veloqrs.h modules/veloqrs/ios/cpp/
-          cp modules/veloqrs/cpp/veloqrs.cpp modules/veloqrs/ios/cpp/
-          cp modules/veloqrs/cpp/generated/veloqrs.hpp modules/veloqrs/ios/cpp/generated/
-          cp modules/veloqrs/cpp/generated/veloqrs.cpp modules/veloqrs/ios/cpp/generated/
-
-      - name: Cache Rust iOS libraries
-        if: steps.app-cache.outputs.cache-hit != 'true'
-        id: rust-ios-cache
-        uses: actions/cache@v4
-        with:
-          path: modules/veloqrs/ios/Frameworks/VeloqrsFFI.xcframework
-          key: rust-ios-v1-${{ (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch') && 'full' || 'sim-only' }}-${{ hashFiles('modules/veloqrs/rust/**/Cargo.toml', 'modules/veloqrs/rust/**/Cargo.lock', 'modules/veloqrs/rust/**/*.rs') }}
-
       - name: Setup Rust for iOS
-        if: steps.app-cache.outputs.cache-hit != 'true' && steps.rust-ios-cache.outputs.cache-hit != 'true'
+        if: steps.app-cache.outputs.cache-hit != 'true'
         uses: ./.github/actions/setup-rust-ios
         with:
           targets: aarch64-apple-ios,aarch64-apple-ios-sim,x86_64-apple-ios
-          copy-cpp-files: 'false'
 
       - name: Build Rust for iOS
-        if: steps.app-cache.outputs.cache-hit != 'true' && steps.rust-ios-cache.outputs.cache-hit != 'true'
+        if: steps.app-cache.outputs.cache-hit != 'true'
         working-directory: modules/veloqrs/rust
         run: |
           echo "=== Building veloqrs for iOS ==="
 
+          # Always build simulator targets
+          for target in aarch64-apple-ios-sim x86_64-apple-ios; do
+            echo "Building for $target..."
+            cargo build --release --target $target -p veloqrs
+          done
+
+          # Build device target on main/dispatch (needed for signed IPA)
           if [[ "${{ github.ref }}" == "refs/heads/main" || "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            # Main: all targets (device + both sim architectures)
-            for target in aarch64-apple-ios aarch64-apple-ios-sim x86_64-apple-ios; do
-              echo "Building for $target..."
-              cargo build --release --target $target -p veloqrs
-            done
-
-            # Fat library for simulator (arm64 + x86_64)
-            echo "Creating fat library for simulator..."
-            mkdir -p target/sim-fat
-            lipo -create \
-              target/aarch64-apple-ios-sim/release/libveloqrs.a \
-              target/x86_64-apple-ios/release/libveloqrs.a \
-              -output target/sim-fat/libveloqrs_ffi.a
-          else
-            # Branch: arm64 simulator only
-            echo "Building for aarch64-apple-ios-sim..."
-            cargo build --release --target aarch64-apple-ios-sim -p veloqrs
-
-            mkdir -p target/sim-fat
-            cp target/aarch64-apple-ios-sim/release/libveloqrs.a target/sim-fat/libveloqrs_ffi.a
+            echo "Building for aarch64-apple-ios (device)..."
+            cargo build --release --target aarch64-apple-ios -p veloqrs
           fi
+
+          # Create fat library for simulator (arm64 + x86_64)
+          echo "Creating fat library for simulator..."
+          mkdir -p target/sim-fat
+          lipo -create \
+            target/aarch64-apple-ios-sim/release/libveloqrs.a \
+            target/x86_64-apple-ios/release/libveloqrs.a \
+            -output target/sim-fat/libveloqrs_ffi.a
 
           # Create XCFramework
           echo "Creating XCFramework..."
