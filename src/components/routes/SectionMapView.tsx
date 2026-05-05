@@ -24,13 +24,18 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import {
-  MapView,
+  Map as MLMap,
   Camera,
-  ShapeSource,
-  LineLayer,
-  MarkerView,
-  type Expression,
+  GeoJSONSource,
+  Layer,
+  Marker,
+  type CameraRef,
+  type ViewStateChangeEvent,
+  type PressEventWithFeatures,
 } from '@maplibre/maplibre-react-native';
+import type { NativeSyntheticEvent } from 'react-native';
+import type { FilterSpecification } from '@maplibre/maplibre-gl-style-spec';
+import { toLngLatBounds, toViewPadding } from '@/lib/maps/bounds';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import * as Location from 'expo-location';
@@ -159,7 +164,7 @@ export const SectionMapView = memo(function SectionMapView({
   const map3DRef = useRef<Map3DWebViewRef>(null);
   const map3DOpacity = useRef(new Animated.Value(0)).current;
   const bearingAnim = useRef(new Animated.Value(0)).current;
-  const cameraRef = useRef<React.ElementRef<typeof Camera>>(null);
+  const cameraRef = useRef<CameraRef>(null);
 
   const displayPoints = section.polyline || [];
 
@@ -198,10 +203,10 @@ export const SectionMapView = memo(function SectionMapView({
         ? getBoundsFromPoints(extensionTrack, 0.15)
         : getBoundsFromPoints(displayPoints, 0.15);
     if (newBounds) {
-      cameraRef.current.setCamera({
-        bounds: { ne: newBounds.ne, sw: newBounds.sw },
-        padding: { paddingTop: 80, paddingRight: 80, paddingBottom: 80, paddingLeft: 80 },
-        animationDuration: 500,
+      void cameraRef.current.setStop({
+        bounds: toLngLatBounds(newBounds),
+        padding: toViewPadding({ paddingTop: 80, paddingRight: 80, paddingBottom: 80, paddingLeft: 80 }),
+        duration: 500,
       });
     }
   }, [extensionTrack, displayPoints]);
@@ -234,11 +239,8 @@ export const SectionMapView = memo(function SectionMapView({
 
   // Handle region change for compass (real-time during gesture)
   const handleRegionIsChanging = useCallback(
-    (feature: GeoJSON.Feature) => {
-      const properties = feature.properties as { heading?: number } | undefined;
-      if (properties?.heading !== undefined) {
-        bearingAnim.setValue(-properties.heading);
-      }
+    (event: NativeSyntheticEvent<ViewStateChangeEvent>) => {
+      bearingAnim.setValue(-event.nativeEvent.bearing);
     },
     [bearingAnim]
   );
@@ -258,9 +260,9 @@ export const SectionMapView = memo(function SectionMapView({
     if (is3DMode && is3DReady) {
       map3DRef.current?.resetOrientation();
     } else {
-      cameraRef.current?.setCamera({
-        heading: 0,
-        animationDuration: 300,
+      void cameraRef.current?.setStop({
+        bearing: 0,
+        duration: 300,
       });
     }
     Animated.timing(bearingAnim, {
@@ -284,10 +286,10 @@ export const SectionMapView = memo(function SectionMapView({
       });
       const coords: [number, number] = [location.coords.longitude, location.coords.latitude];
       setLocationLoading(false);
-      cameraRef.current?.setCamera({
-        centerCoordinate: coords,
-        zoomLevel: 14,
-        animationDuration: 500,
+      void cameraRef.current?.setStop({
+        center: coords,
+        zoom: 14,
+        duration: 500,
       });
     } catch {
       setLocationLoading(false);
@@ -426,7 +428,7 @@ export const SectionMapView = memo(function SectionMapView({
   const hasAllTraces = allTracesFeatureCollection.features.length > 0;
 
   // Filter expression to show only the highlighted activity trace
-  const highlightedTraceFilter = useMemo((): Expression | undefined => {
+  const highlightedTraceFilter = useMemo((): FilterSpecification | undefined => {
     if (!highlightedActivityId || !hasAllTraces) return undefined;
     // MapLibre expression: ["==", ["get", "activityId"], "some-id"]
     return ['==', ['get', 'activityId'], highlightedActivityId];
@@ -516,34 +518,34 @@ export const SectionMapView = memo(function SectionMapView({
   }
 
   const mapContent = (
-    <MapView
+    <MLMap
       ref={mapRef}
       style={styles.map}
       mapStyle={styleUrl}
-      logoEnabled={false}
-      attributionEnabled={false}
-      compassEnabled={false}
-      scrollEnabled={interactive}
-      zoomEnabled={interactive}
-      rotateEnabled={interactive}
-      pitchEnabled={false}
+      logo={false}
+      attribution={false}
+      compass={false}
+      dragPan={interactive}
+      touchZoom={interactive}
+      touchRotate={interactive}
+      touchPitch={false}
       onRegionIsChanging={interactive ? handleRegionIsChanging : undefined}
     >
       <Camera
-        maxZoomLevel={16}
+        maxZoom={16}
         ref={interactive ? cameraRef : undefined}
-        defaultSettings={{
-          bounds: { ne: bounds.ne, sw: bounds.sw },
-          padding: { paddingTop: 80, paddingRight: 80, paddingBottom: 80, paddingLeft: 80 },
+        initialViewState={{
+          bounds: toLngLatBounds(bounds),
+          padding: toViewPadding({ paddingTop: 80, paddingRight: 80, paddingBottom: 80, paddingLeft: 80 }),
         }}
       />
 
       {/* Nearby section polylines (muted gray, tappable for preview) */}
-      <ShapeSource
+      <GeoJSONSource
         id="nearbySource"
-        shape={nearbyGeoJSON}
-        onPress={(e) => {
-          const feature = e?.features?.[0];
+        data={nearbyGeoJSON}
+        onPress={(e: NativeSyntheticEvent<PressEventWithFeatures>) => {
+          const feature = e.nativeEvent.features?.[0];
           const sectionId = feature?.properties?.sectionId;
           if (sectionId) {
             setSelectedNearby(selectedNearby === sectionId ? null : sectionId);
@@ -551,7 +553,8 @@ export const SectionMapView = memo(function SectionMapView({
         }}
         hitbox={{ width: 20, height: 20 }}
       >
-        <LineLayer
+        <Layer
+          type="line"
           id="nearbyLine"
           style={{
             lineColor: [
@@ -567,7 +570,7 @@ export const SectionMapView = memo(function SectionMapView({
             lineDasharray: [2, 2],
           }}
         />
-      </ShapeSource>
+      </GeoJSONSource>
 
       {/* Start/end markers for nearby sections */}
       {nearbyPolylines?.map((entry) => {
@@ -579,16 +582,16 @@ export const SectionMapView = memo(function SectionMapView({
         const endCoord: [number, number] = [last.longitude, last.latitude];
         return (
           <React.Fragment key={`nearby-markers-${entry.id}`}>
-            <MarkerView coordinate={startCoord}>
+            <Marker id={`nearby-start-${entry.id}`} lngLat={startCoord}>
               <View style={styles.markerContainer}>
                 <View style={[styles.nearbyMarker, styles.nearbyStartMarker]} />
               </View>
-            </MarkerView>
-            <MarkerView coordinate={endCoord}>
+            </Marker>
+            <Marker id={`nearby-end-${entry.id}`} lngLat={endCoord}>
               <View style={styles.markerContainer}>
                 <View style={[styles.nearbyMarker, styles.nearbyEndMarker]} />
               </View>
-            </MarkerView>
+            </Marker>
           </React.Fragment>
         );
       })}
@@ -596,8 +599,9 @@ export const SectionMapView = memo(function SectionMapView({
       {/* Shadow track (full activity route) */}
       {/* CRITICAL: Always render all ShapeSources to avoid iOS crash during view reconciliation */}
       {/* Shadow track (full activity route) */}
-      <ShapeSource id="shadowSource" shape={shadowGeoJSON}>
-        <LineLayer
+      <GeoJSONSource id="shadowSource" data={shadowGeoJSON}>
+        <Layer
+          type="line"
           id="shadowLine"
           style={{
             lineColor: colors.gray500,
@@ -607,11 +611,12 @@ export const SectionMapView = memo(function SectionMapView({
             lineJoin: 'round',
           }}
         />
-      </ShapeSource>
+      </GeoJSONSource>
 
       {/* Extension track (representative activity's full route, shown during bounds editing) */}
-      <ShapeSource id="extensionSource" shape={extensionGeoJSON}>
-        <LineLayer
+      <GeoJSONSource id="extensionSource" data={extensionGeoJSON}>
+        <Layer
+          type="line"
           id="extensionLineCasing"
           style={{
             lineColor: '#000000',
@@ -621,7 +626,8 @@ export const SectionMapView = memo(function SectionMapView({
             lineJoin: 'round',
           }}
         />
-        <LineLayer
+        <Layer
+          type="line"
           id="extensionLine"
           style={{
             lineColor: '#FF6B00',
@@ -631,11 +637,12 @@ export const SectionMapView = memo(function SectionMapView({
             lineJoin: 'round',
           }}
         />
-      </ShapeSource>
+      </GeoJSONSource>
 
       {/* Section polyline */}
-      <ShapeSource id="sectionSource" shape={sectionGeoJSON}>
-        <LineLayer
+      <GeoJSONSource id="sectionSource" data={sectionGeoJSON}>
+        <Layer
+          type="line"
           id="sectionLineCasing"
           style={{
             lineColor: '#FFFFFF',
@@ -645,7 +652,8 @@ export const SectionMapView = memo(function SectionMapView({
             lineJoin: 'round',
           }}
         />
-        <LineLayer
+        <Layer
+          type="line"
           id="sectionLine"
           style={{
             lineColor: activityColor,
@@ -655,11 +663,12 @@ export const SectionMapView = memo(function SectionMapView({
             lineJoin: 'round',
           }}
         />
-      </ShapeSource>
+      </GeoJSONSource>
 
       {/* Trimmed section portion (highlighted during bounds editing) */}
-      <ShapeSource id="trimmedSource" shape={trimmedGeoJSON}>
-        <LineLayer
+      <GeoJSONSource id="trimmedSource" data={trimmedGeoJSON}>
+        <Layer
+          type="line"
           id="trimmedLineCasing"
           style={{
             lineColor: '#FFFFFF',
@@ -669,7 +678,8 @@ export const SectionMapView = memo(function SectionMapView({
             lineJoin: 'round',
           }}
         />
-        <LineLayer
+        <Layer
+          type="line"
           id="trimmedLine"
           style={{
             lineColor: activityColor,
@@ -679,11 +689,12 @@ export const SectionMapView = memo(function SectionMapView({
             lineJoin: 'round',
           }}
         />
-      </ShapeSource>
+      </GeoJSONSource>
 
       {/* Pre-loaded activity traces with filter */}
-      <ShapeSource id="allTracesSource" shape={allTracesFeatureCollection}>
-        <LineLayer
+      <GeoJSONSource id="allTracesSource" data={allTracesFeatureCollection}>
+        <Layer
+          type="line"
           id="allTracesLineCasing"
           filter={highlightedTraceFilter}
           style={{
@@ -694,7 +705,8 @@ export const SectionMapView = memo(function SectionMapView({
             lineOpacity: hasAllTraces && highlightedTraceFilter ? 1 : 0,
           }}
         />
-        <LineLayer
+        <Layer
+          type="line"
           id="allTracesLine"
           filter={highlightedTraceFilter}
           style={{
@@ -705,11 +717,12 @@ export const SectionMapView = memo(function SectionMapView({
             lineOpacity: hasAllTraces && highlightedTraceFilter ? 1 : 0,
           }}
         />
-      </ShapeSource>
+      </GeoJSONSource>
 
       {/* Highlighted lap points overlay */}
-      <ShapeSource id="highlightedLapSource" shape={highlightedLapGeoJSON}>
-        <LineLayer
+      <GeoJSONSource id="highlightedLapSource" data={highlightedLapGeoJSON}>
+        <Layer
+          type="line"
           id="highlightedLapLineCasing"
           style={{
             lineColor: '#FFFFFF',
@@ -719,7 +732,8 @@ export const SectionMapView = memo(function SectionMapView({
             lineJoin: 'round',
           }}
         />
-        <LineLayer
+        <Layer
+          type="line"
           id="highlightedLapLine"
           style={{
             lineColor: colors.chartCyan,
@@ -728,11 +742,12 @@ export const SectionMapView = memo(function SectionMapView({
             lineJoin: 'round',
           }}
         />
-      </ShapeSource>
+      </GeoJSONSource>
 
       {/* Fallback: Highlighted activity trace */}
-      <ShapeSource id="highlightedSource" shape={highlightedTraceGeoJSON}>
-        <LineLayer
+      <GeoJSONSource id="highlightedSource" data={highlightedTraceGeoJSON}>
+        <Layer
+          type="line"
           id="highlightedLineCasing"
           style={{
             lineColor: '#FFFFFF',
@@ -742,7 +757,8 @@ export const SectionMapView = memo(function SectionMapView({
             lineJoin: 'round',
           }}
         />
-        <LineLayer
+        <Layer
+          type="line"
           id="highlightedLine"
           style={{
             lineColor: colors.chartCyan,
@@ -751,25 +767,25 @@ export const SectionMapView = memo(function SectionMapView({
             lineJoin: 'round',
           }}
         />
-      </ShapeSource>
+      </GeoJSONSource>
 
       {/* Start marker */}
-      {/* iOS CRASH FIX: Always render MarkerView to maintain stable child count */}
+      {/* iOS CRASH FIX: Always render Marker to maintain stable child count */}
       {/* Use opacity to hide when point is undefined */}
-      <MarkerView coordinate={startPoint ? [startPoint.lng, startPoint.lat] : [0, 0]}>
+      <Marker id="section-start" lngLat={startPoint ? [startPoint.lng, startPoint.lat] : [0, 0]}>
         <View style={[styles.markerContainer, { opacity: startPoint ? 1 : 0 }]}>
           <View style={[styles.marker, styles.startMarker]} />
         </View>
-      </MarkerView>
+      </Marker>
 
       {/* End marker */}
-      {/* iOS CRASH FIX: Always render MarkerView to maintain stable child count */}
-      <MarkerView coordinate={endPoint ? [endPoint.lng, endPoint.lat] : [0, 0]}>
+      {/* iOS CRASH FIX: Always render Marker to maintain stable child count */}
+      <Marker id="section-end" lngLat={endPoint ? [endPoint.lng, endPoint.lat] : [0, 0]}>
         <View style={[styles.markerContainer, { opacity: endPoint ? 1 : 0 }]}>
           <View style={[styles.marker, styles.endMarker]} />
         </View>
-      </MarkerView>
-    </MapView>
+      </Marker>
+    </MLMap>
   );
 
   // Whether to show the interactive control stack (not during trim mode)
@@ -1018,7 +1034,8 @@ export const SectionMapView = memo(function SectionMapView({
           {/* CRITICAL: Always render all ShapeSources to avoid iOS crash */}
           {/* Shadow track (full activity route) */}
           <ShapeSource id="fullscreenShadowSource" shape={shadowGeoJSON}>
-            <LineLayer
+            <Layer
+          type="line"
               id="fullscreenShadowLine"
               style={{
                 lineColor: colors.gray500,
@@ -1028,11 +1045,12 @@ export const SectionMapView = memo(function SectionMapView({
                 lineJoin: 'round',
               }}
             />
-          </ShapeSource>
+          </GeoJSONSource>
 
           {/* Trimmed section portion (for bounds editing) */}
           <ShapeSource id="fullscreenTrimmedSource" shape={trimmedGeoJSON}>
-            <LineLayer
+            <Layer
+          type="line"
               id="fullscreenTrimmedLineCasing"
               style={{
                 lineColor: '#FFFFFF',
@@ -1042,7 +1060,8 @@ export const SectionMapView = memo(function SectionMapView({
                 lineJoin: 'round',
               }}
             />
-            <LineLayer
+            <Layer
+          type="line"
               id="fullscreenTrimmedLine"
               style={{
                 lineColor: activityColor,
@@ -1052,11 +1071,12 @@ export const SectionMapView = memo(function SectionMapView({
                 lineJoin: 'round',
               }}
             />
-          </ShapeSource>
+          </GeoJSONSource>
 
           {/* Pre-loaded activity traces with filter */}
           <ShapeSource id="fullscreenAllTracesSource" shape={allTracesFeatureCollection}>
-            <LineLayer
+            <Layer
+          type="line"
               id="fullscreenAllTracesLineCasing"
               filter={highlightedTraceFilter}
               style={{
@@ -1067,7 +1087,8 @@ export const SectionMapView = memo(function SectionMapView({
                 lineOpacity: hasAllTraces && highlightedTraceFilter ? 1 : 0,
               }}
             />
-            <LineLayer
+            <Layer
+          type="line"
               id="fullscreenAllTracesLine"
               filter={highlightedTraceFilter}
               style={{
@@ -1078,11 +1099,12 @@ export const SectionMapView = memo(function SectionMapView({
                 lineOpacity: hasAllTraces && highlightedTraceFilter ? 1 : 0,
               }}
             />
-          </ShapeSource>
+          </GeoJSONSource>
 
           {/* Highlighted lap points overlay */}
           <ShapeSource id="fullscreenHighlightedLapSource" shape={highlightedLapGeoJSON}>
-            <LineLayer
+            <Layer
+          type="line"
               id="fullscreenHighlightedLapLineCasing"
               style={{
                 lineColor: '#FFFFFF',
@@ -1092,7 +1114,8 @@ export const SectionMapView = memo(function SectionMapView({
                 lineJoin: 'round',
               }}
             />
-            <LineLayer
+            <Layer
+          type="line"
               id="fullscreenHighlightedLapLine"
               style={{
                 lineColor: colors.chartCyan,
@@ -1101,11 +1124,12 @@ export const SectionMapView = memo(function SectionMapView({
                 lineJoin: 'round',
               }}
             />
-          </ShapeSource>
+          </GeoJSONSource>
 
           {/* Fallback: Highlighted activity trace */}
           <ShapeSource id="fullscreenHighlightedSource" shape={highlightedTraceGeoJSON}>
-            <LineLayer
+            <Layer
+          type="line"
               id="fullscreenHighlightedLineCasing"
               style={{
                 lineColor: '#FFFFFF',
@@ -1115,7 +1139,8 @@ export const SectionMapView = memo(function SectionMapView({
                 lineJoin: 'round',
               }}
             />
-            <LineLayer
+            <Layer
+          type="line"
               id="fullscreenHighlightedLine"
               style={{
                 lineColor: colors.chartCyan,
@@ -1124,7 +1149,7 @@ export const SectionMapView = memo(function SectionMapView({
                 lineJoin: 'round',
               }}
             />
-          </ShapeSource>
+          </GeoJSONSource>
 
           {/* Start marker */}
           {startPoint && (

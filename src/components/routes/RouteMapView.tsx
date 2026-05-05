@@ -7,14 +7,8 @@
 
 import React, { useMemo, useRef, useState, useCallback } from 'react';
 import { View, StyleSheet, TouchableOpacity, Modal, StatusBar } from 'react-native';
-import {
-  MapView,
-  Camera,
-  ShapeSource,
-  LineLayer,
-  MarkerView,
-  type CameraBounds,
-} from '@maplibre/maplibre-react-native';
+import { Map as MLMap, Camera, GeoJSONSource, Layer, Marker } from '@maplibre/maplibre-react-native';
+import { toLngLatBounds, toViewPadding } from '@/lib/maps/bounds';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { getActivityColor, getBoundsFromPoints } from '@/lib';
 import { colors, spacing, layout } from '@/theme';
@@ -302,30 +296,31 @@ export function RouteMapView({
   const fadedOpacity = highlightedActivityId ? 0.1 : 0.2;
 
   const mapContent = (
-    <MapView
+    <MLMap
       ref={mapRef}
       style={styles.map}
       mapStyle={styleUrl}
-      logoEnabled={false}
-      attributionEnabled={false}
-      compassEnabled={interactive}
-      scrollEnabled={interactive}
-      zoomEnabled={interactive}
-      rotateEnabled={interactive}
-      pitchEnabled={false}
+      logo={false}
+      attribution={false}
+      compass={interactive}
+      dragPan={interactive}
+      touchZoom={interactive}
+      touchRotate={interactive}
+      touchPitch={false}
       onPress={onPress}
     >
       <Camera
-        defaultSettings={{
-          bounds: { ne: bounds.ne, sw: bounds.sw },
-          padding: { paddingTop: 40, paddingRight: 40, paddingBottom: 40, paddingLeft: 40 },
+        initialViewState={{
+          bounds: toLngLatBounds(bounds),
+          padding: toViewPadding({ paddingTop: 40, paddingRight: 40, paddingBottom: 40, paddingLeft: 40 }),
         }}
       />
 
       {/* Faded individual activity traces (render first, behind everything) */}
-      {/* iOS crash fix: Always render ShapeSource, control visibility via opacity */}
-      <ShapeSource id="fadedTracesSource" shape={fadedTracesGeoJSON}>
-        <LineLayer
+      {/* iOS crash fix: Always render GeoJSONSource, control visibility via opacity */}
+      <GeoJSONSource id="fadedTracesSource" data={fadedTracesGeoJSON}>
+        <Layer
+          type="line"
           id="fadedTracesLine"
           style={{
             lineColor: activityColor,
@@ -335,12 +330,13 @@ export function RouteMapView({
             lineJoin: 'round',
           }}
         />
-      </ShapeSource>
+      </GeoJSONSource>
 
       {/* Consensus/main route line */}
-      {/* iOS crash fix: Always render ShapeSource */}
-      <ShapeSource id="routeSource" shape={routeGeoJSON}>
-        <LineLayer
+      {/* iOS crash fix: Always render GeoJSONSource */}
+      <GeoJSONSource id="routeSource" data={routeGeoJSON}>
+        <Layer
+          type="line"
           id="routeLineCasing"
           style={{
             lineColor: '#FFFFFF',
@@ -350,7 +346,8 @@ export function RouteMapView({
             lineJoin: 'round',
           }}
         />
-        <LineLayer
+        <Layer
+          type="line"
           id="routeLine"
           style={{
             lineColor: activityColor,
@@ -360,12 +357,13 @@ export function RouteMapView({
             lineJoin: 'round',
           }}
         />
-      </ShapeSource>
+      </GeoJSONSource>
 
       {/* Highlighted activity trace (render on top, most prominent) */}
-      {/* iOS crash fix: Always render ShapeSource */}
-      <ShapeSource id="highlightedSource" shape={highlightedTraceGeoJSON}>
-        <LineLayer
+      {/* iOS crash fix: Always render GeoJSONSource */}
+      <GeoJSONSource id="highlightedSource" data={highlightedTraceGeoJSON}>
+        <Layer
+          type="line"
           id="highlightedLineCasing"
           style={{
             lineColor: '#FFFFFF',
@@ -375,7 +373,8 @@ export function RouteMapView({
             lineJoin: 'round',
           }}
         />
-        <LineLayer
+        <Layer
+          type="line"
           id="highlightedLine"
           style={{
             lineColor: colors.chartCyan,
@@ -385,25 +384,25 @@ export function RouteMapView({
             lineJoin: 'round',
           }}
         />
-      </ShapeSource>
+      </GeoJSONSource>
 
       {/* Start marker */}
-      {/* iOS CRASH FIX: Always render MarkerView to maintain stable child count */}
+      {/* iOS CRASH FIX: Always render Marker to maintain stable child count */}
       {/* Use opacity to hide when point is undefined */}
-      <MarkerView coordinate={startPoint ? [startPoint.lng, startPoint.lat] : [0, 0]}>
+      <Marker id="route-start" lngLat={startPoint ? [startPoint.lng, startPoint.lat] : [0, 0]}>
         <View style={[styles.markerContainer, { opacity: startPoint ? 1 : 0 }]}>
           <View style={[styles.marker, styles.startMarker]} />
         </View>
-      </MarkerView>
+      </Marker>
 
       {/* End marker */}
-      {/* iOS CRASH FIX: Always render MarkerView to maintain stable child count */}
-      <MarkerView coordinate={endPoint ? [endPoint.lng, endPoint.lat] : [0, 0]}>
+      {/* iOS CRASH FIX: Always render Marker to maintain stable child count */}
+      <Marker id="route-end" lngLat={endPoint ? [endPoint.lng, endPoint.lat] : [0, 0]}>
         <View style={[styles.markerContainer, { opacity: endPoint ? 1 : 0 }]}>
           <View style={[styles.marker, styles.endMarker]} />
         </View>
-      </MarkerView>
-    </MapView>
+      </Marker>
+    </MLMap>
   );
 
   // Show fullscreen expand icon if enableFullscreen is true
@@ -443,8 +442,9 @@ export function RouteMapView({
           onClose={closeFullscreen}
         >
           {/* Faded activity traces - iOS crash fix: always render */}
-          <ShapeSource id="fadedTracesSource" shape={fadedTracesGeoJSON}>
-            <LineLayer
+          <GeoJSONSource id="fadedTracesSource" data={fadedTracesGeoJSON}>
+            <Layer
+              type="line"
               id="fadedTracesLine"
               style={{
                 lineColor: activityColor,
@@ -454,11 +454,12 @@ export function RouteMapView({
                 lineJoin: 'round',
               }}
             />
-          </ShapeSource>
+          </GeoJSONSource>
 
           {/* Highlighted trace - iOS crash fix: always render */}
-          <ShapeSource id="highlightedSource" shape={highlightedTraceGeoJSON}>
-            <LineLayer
+          <GeoJSONSource id="highlightedSource" data={highlightedTraceGeoJSON}>
+            <Layer
+              type="line"
               id="highlightedLineCasing"
               style={{
                 lineColor: '#FFFFFF',
@@ -468,7 +469,8 @@ export function RouteMapView({
                 lineJoin: 'round',
               }}
             />
-            <LineLayer
+            <Layer
+              type="line"
               id="highlightedLine"
               style={{
                 lineColor: colors.chartCyan,
@@ -478,24 +480,24 @@ export function RouteMapView({
                 lineJoin: 'round',
               }}
             />
-          </ShapeSource>
+          </GeoJSONSource>
 
           {/* Start marker */}
           {startPoint && (
-            <MarkerView coordinate={[startPoint.lng, startPoint.lat]}>
+            <Marker id="fs-route-start" lngLat={[startPoint.lng, startPoint.lat]}>
               <View style={styles.markerContainer}>
                 <View style={[styles.marker, styles.startMarker]} />
               </View>
-            </MarkerView>
+            </Marker>
           )}
 
           {/* End marker */}
           {endPoint && (
-            <MarkerView coordinate={[endPoint.lng, endPoint.lat]}>
+            <Marker id="fs-route-end" lngLat={[endPoint.lng, endPoint.lat]}>
               <View style={styles.markerContainer}>
                 <View style={[styles.marker, styles.endMarker]} />
               </View>
-            </MarkerView>
+            </Marker>
           )}
         </BaseMapView>
       </Modal>
