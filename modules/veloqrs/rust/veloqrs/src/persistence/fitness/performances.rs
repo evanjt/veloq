@@ -885,7 +885,7 @@ impl PersistentRouteEngine {
                     name: metrics.name.clone(),
                     date: metrics.date,
                     speed,
-                    duration: metrics.elapsed_time,
+                    duration: metrics.moving_time,
                     moving_time: metrics.moving_time,
                     distance: metrics.distance,
                     elevation_gain: metrics.elevation_gain,
@@ -904,47 +904,32 @@ impl PersistentRouteEngine {
         // Sort by date (oldest first for charting)
         performances.sort_by_key(|p| p.date);
 
-        // Find best (fastest speed) - overall
+        // Find best (shortest moving time) - overall
         let best = performances
             .iter()
-            .max_by(|a, b| {
-                a.speed
-                    .partial_cmp(&b.speed)
-                    .unwrap_or(std::cmp::Ordering::Equal)
-            })
+            .filter(|p| p.moving_time > 0)
+            .min_by_key(|p| p.moving_time)
             .cloned();
 
         // Find best forward (direction is "same" or "forward")
         let best_forward = performances
             .iter()
-            .filter(|p| p.direction == "same" || p.direction == "forward")
-            .max_by(|a, b| {
-                a.speed
-                    .partial_cmp(&b.speed)
-                    .unwrap_or(std::cmp::Ordering::Equal)
-            })
+            .filter(|p| (p.direction == "same" || p.direction == "forward") && p.moving_time > 0)
+            .min_by_key(|p| p.moving_time)
             .cloned();
 
         // Find best reverse
         let best_reverse = performances
             .iter()
-            .filter(|p| p.direction == "reverse" || p.direction == "backward")
-            .max_by(|a, b| {
-                a.speed
-                    .partial_cmp(&b.speed)
-                    .unwrap_or(std::cmp::Ordering::Equal)
-            })
+            .filter(|p| (p.direction == "reverse" || p.direction == "backward") && p.moving_time > 0)
+            .min_by_key(|p| p.moving_time)
             .cloned();
 
-        // Calculate current rank (1 = fastest)
+        // Calculate current rank (1 = shortest time)
         let current_rank = current_activity_id.and_then(|current_id| {
-            let mut by_speed = performances.clone();
-            by_speed.sort_by(|a, b| {
-                b.speed
-                    .partial_cmp(&a.speed)
-                    .unwrap_or(std::cmp::Ordering::Equal)
-            });
-            by_speed
+            let mut by_time = performances.clone();
+            by_time.sort_by_key(|p| p.moving_time);
+            by_time
                 .iter()
                 .position(|p| p.activity_id == current_id)
                 .map(|idx| (idx + 1) as u32)
@@ -960,7 +945,7 @@ impl PersistentRouteEngine {
         } else {
             let count = forward_perfs.len() as u32;
             let avg_time =
-                forward_perfs.iter().map(|p| p.duration as f64).sum::<f64>() / count as f64;
+                forward_perfs.iter().map(|p| p.moving_time as f64).sum::<f64>() / count as f64;
             let valid_speeds: Vec<f64> = forward_perfs
                 .iter()
                 .map(|p| p.speed)
@@ -990,7 +975,7 @@ impl PersistentRouteEngine {
         } else {
             let count = reverse_perfs.len() as u32;
             let avg_time =
-                reverse_perfs.iter().map(|p| p.duration as f64).sum::<f64>() / count as f64;
+                reverse_perfs.iter().map(|p| p.moving_time as f64).sum::<f64>() / count as f64;
             let valid_speeds: Vec<f64> = reverse_perfs
                 .iter()
                 .map(|p| p.speed)
@@ -1093,7 +1078,7 @@ impl PersistentRouteEngine {
                     name: metrics.name.clone(),
                     date: metrics.date,
                     speed,
-                    duration: metrics.elapsed_time,
+                    duration: metrics.moving_time,
                     moving_time: metrics.moving_time,
                     distance: metrics.distance,
                     elevation_gain: metrics.elevation_gain,
