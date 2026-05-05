@@ -713,16 +713,16 @@ export function RegionalMapView({
                 'circle-opacity': 1,
               }}
             />
-            {/* Layer 4 (added now): count text symbol — anchored to cluster
-                centre with overlap allowed so it renders without label-
-                collision delays. */}
+            {/* Layer 4: count text symbol — no text-font (let MapLibre fall
+                back to whatever the active style provides; explicit fonts
+                that aren't registered with the style cause the layer to
+                fail to register, taking the source down with it on v11). */}
             <Layer
               type="symbol"
               id="cluster-count"
               filter={['has', 'point_count']}
               layout={{
                 'text-field': ['get', 'point_count_abbreviated'],
-                'text-font': ['Noto Sans Regular'],
                 'text-size': 14,
                 'text-anchor': 'center',
                 'text-justify': 'center',
