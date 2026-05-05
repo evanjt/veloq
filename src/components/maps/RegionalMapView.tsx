@@ -660,11 +660,20 @@ export function RegionalMapView({
               over the latest features. Layer order matches the example:
               symbol first, cluster circle below it via `beforeId`,
               unclustered single circle for individual points. */}
-          {/* DIAGNOSTIC: clustering DISABLED. If we see 249 bright magenta
-              circles across Switzerland, the source pipeline works and
-              clustering itself is the broken thing. If we see nothing, the
-              source isn't reaching the style at all. */}
-          <GeoJSONSource ref={clusterSourceRef} id="activity-clusters" data={markersGeoJSON}>
+          {/* DIAGNOSTIC: clustering RE-ENABLED with absolute minimum config.
+              If supercluster is running, 249 individual dots should collapse
+              into ~10-30 large clusters at this zoom (within `clusterRadius`
+              of each other on screen). If we still see ~249 individual dots,
+              `cluster={true}` is not actually activating supercluster on
+              the native side. */}
+          <GeoJSONSource
+            ref={clusterSourceRef}
+            id="activity-clusters"
+            data={markersGeoJSON}
+            cluster={true}
+            clusterRadius={50}
+            clusterMaxZoom={14}
+          >
             <Layer
               type="circle"
               id="cluster-debug-all"
