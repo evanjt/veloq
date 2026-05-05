@@ -64,7 +64,7 @@ const EMPTY_FEATURE_COLLECTION: GeoJSON.FeatureCollection = {
 // deprecated `style` shorthand silently fails on Android for clustered layers.
 
 const CLUSTER_CIRCLE_PAINT: CircleLayerSpecification['paint'] = {
-  'circle-color': '#FC4C02', // colors.primary — module scope, can't read theme tokens
+  'circle-color': '#0D9488', // brand.tealLight — module scope, theme tokens unavailable
   'circle-radius': [
     'step',
     ['get', 'point_count'],
@@ -404,6 +404,13 @@ export function RegionalMapView({
     }
   }, [showSections, selectedSection]);
 
+  // [DEBUG: cluster diagnostics]
+  if (__DEV__) {
+    console.log(
+      `[ClusterDebug] showActivities=${showActivities} markersGeoJSON.features=${markersGeoJSON.features.length}`
+    );
+  }
+
   const toggleStyle = () => {
     setMapStyleLocal((current) => {
       const next = getNextStyle(current);
@@ -644,11 +651,11 @@ export function RegionalMapView({
           <Camera ref={cameraRef} />
 
           {/* Activity markers — native MapLibre Supercluster clustering.
-              Conditionally mounted on `showActivities` so we don't fight the
-              v11 native renderer with opacity/visibility tricks. The layers
-              follow the canonical v11 pattern: count symbol first, cluster
-              circle below it (via `beforeId`), unclustered single circle at
-              higher zoom levels. */}
+              Conditionally mounted on `showActivities`. JSX order = native
+              draw order, so cluster circles render beneath the count labels
+              without needing `beforeId` (which requires the referenced layer
+              to already exist in the style graph and silently no-ops when
+              it doesn't). */}
           {showActivities && (
             <GeoJSONSource
               ref={clusterSourceRef}
@@ -660,20 +667,20 @@ export function RegionalMapView({
               onPress={Platform.OS === 'android' ? handleClusterOrMarkerPress : undefined}
               hitbox={{ top: 22, right: 22, bottom: 22, left: 22 }}
             >
-              {/* Cluster count labels — textFont MUST match glyph server (Noto Sans) */}
-              <Layer
-                type="symbol"
-                id="cluster-count"
-                layout={CLUSTER_COUNT_LAYOUT}
-                paint={CLUSTER_COUNT_PAINT}
-              />
-              {/* Cluster circles — drawn beneath the count label */}
+              {/* Cluster circles — drawn first so labels overlay them */}
               <Layer
                 type="circle"
                 id="cluster-circles"
-                beforeId="cluster-count"
                 filter={['has', 'point_count']}
                 paint={CLUSTER_CIRCLE_PAINT}
+              />
+              {/* Cluster count labels — drawn on top of the circles */}
+              <Layer
+                type="symbol"
+                id="cluster-count"
+                filter={['has', 'point_count']}
+                layout={CLUSTER_COUNT_LAYOUT}
+                paint={CLUSTER_COUNT_PAINT}
               />
               {/* Individual unclustered activity points — colored by sport type.
                   Only at zoom >= 10 to keep low-zoom view clean (clusters only) */}
