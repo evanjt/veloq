@@ -673,8 +673,22 @@ export function RegionalMapView({
             }
             hitbox={{ top: 22, right: 22, bottom: 22, left: 22 }}
           >
-            {/* Cluster count text — declared first; cluster circle uses
-                `beforeId` to insert beneath it so the count reads on top. */}
+            {/* DEBUG: render every feature in the source as a bright magenta
+                circle, no filter, no minzoom. If supercluster is producing
+                cluster features (with `point_count`), we'll see them. If only
+                raw points show, supercluster isn't running. */}
+            <Layer
+              type="circle"
+              id="cluster-debug-all"
+              paint={{
+                'circle-color': '#FF00FF',
+                'circle-radius': 18,
+                'circle-opacity': 0.9,
+                'circle-stroke-width': 3,
+                'circle-stroke-color': '#000000',
+              }}
+            />
+            {/* Cluster count text */}
             <Layer
               type="symbol"
               id="cluster-count"
