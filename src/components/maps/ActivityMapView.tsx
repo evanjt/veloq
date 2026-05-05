@@ -101,14 +101,13 @@ import {
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import {
-  MapView,
+  Map as MLMap,
   Camera,
-  ShapeSource,
-  LineLayer,
-  MarkerView,
-  CircleLayer,
-  SymbolLayer,
+  GeoJSONSource,
+  Layer,
+  Marker,
 } from '@maplibre/maplibre-react-native';
+import { toLngLatBounds, toViewPadding } from '@/lib/maps/bounds';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { decodePolyline, LatLng, getActivityColor } from '@/lib';
 import { computeAttribution } from '@/lib/maps/computeAttribution';
@@ -689,18 +688,18 @@ export const ActivityMapView = memo(function ActivityMapView({
             isFullscreen && styles.hiddenLayer,
           ]}
         >
-          <MapView
+          <MLMap
             ref={mapRef}
             key={`activity-map-${mapKey}`}
             style={[styles.map, { opacity: mapReady ? 1 : 0 }]}
             mapStyle={mapStyleValue}
-            logoEnabled={false}
-            attributionEnabled={false}
-            compassEnabled={false}
-            scrollEnabled={true}
-            zoomEnabled={true}
-            rotateEnabled={true}
-            pitchEnabled={false}
+            logo={false}
+            attribution={false}
+            compass={false}
+            dragPan={true}
+            touchZoom={true}
+            touchRotate={true}
+            touchPitch={false}
             onRegionIsChanging={handleRegionIsChanging}
             onRegionDidChange={handleRegionDidChange}
             onPress={Platform.OS === 'android' ? handleMapPress : undefined}
@@ -713,18 +712,17 @@ export const ActivityMapView = memo(function ActivityMapView({
             {/* We track position in refs and feed it back to keep camera stable */}
             <Camera
               ref={cameraRef}
-              centerCoordinate={currentCenterRef.current ?? undefined}
-              zoomLevel={currentZoomRef.current}
-              animationDuration={0}
-              animationMode="moveTo"
-              followUserLocation={false}
+              center={currentCenterRef.current ?? undefined}
+              zoom={currentZoomRef.current}
+              duration={0}
             />
 
             {/* Route overlay (matched route trace) - rendered first so activity line is on top */}
             {/* CRITICAL: Always render ShapeSource to avoid add/remove cycles that crash iOS MapLibre */}
             {/* When no data, overlayGeoJSON is an empty FeatureCollection, not null */}
-            <ShapeSource id="overlaySource" shape={overlayGeoJSON}>
-              <LineLayer
+            <GeoJSONSource id="overlaySource" data={overlayGeoJSON}>
+              <Layer
+              type="line"
                 id="overlayLine"
                 style={{
                   lineColor: '#00E5FF',
@@ -734,12 +732,13 @@ export const ActivityMapView = memo(function ActivityMapView({
                   lineOpacity: 0.5,
                 }}
               />
-            </ShapeSource>
+            </GeoJSONSource>
 
             {/* Route line - render first so section overlays appear on top */}
             {/* CRITICAL: Always render ShapeSource to avoid add/remove cycles that crash iOS MapLibre */}
-            <ShapeSource id="routeSource" shape={routeGeoJSON}>
-              <LineLayer
+            <GeoJSONSource id="routeSource" data={routeGeoJSON}>
+              <Layer
+              type="line"
                 id="routeLineCasing"
                 style={{
                   lineColor: '#FFFFFF',
@@ -755,7 +754,8 @@ export const ActivityMapView = memo(function ActivityMapView({
                       : 1,
                 }}
               />
-              <LineLayer
+              <Layer
+              type="line"
                 id="routeLine"
                 style={{
                   lineColor: activityColor,
@@ -774,12 +774,13 @@ export const ActivityMapView = memo(function ActivityMapView({
                         : 1,
                 }}
               />
-            </ShapeSource>
+            </GeoJSONSource>
 
             {/* Gradient-coloured route line (requires lineMetrics for line-progress). */}
             {/* CRITICAL: Always render ShapeSource to avoid add/remove cycles that crash iOS MapLibre */}
-            <ShapeSource id="routeGradientSource" shape={routeGeoJSON} lineMetrics={true}>
-              <LineLayer
+            <GeoJSONSource id="routeGradientSource" data={routeGeoJSON} lineMetrics={true}>
+              <Layer
+              type="line"
                 id="routeLineGradient"
                 style={{
                   lineColor: activityColor,
@@ -792,15 +793,16 @@ export const ActivityMapView = memo(function ActivityMapView({
                   lineOpacity: gradientActive ? 1 : 0,
                 }}
               />
-            </ShapeSource>
+            </GeoJSONSource>
 
             {/* Section portion overlays - render after route line so they appear on top.
                 One line per section, drawn along the activity's own GPS trace (not the
                 averaged section consensus). White casing for contrast, PR gold or section
                 palette color for fill. */}
             {/* CRITICAL: Always render stable ShapeSource to avoid Fabric crash */}
-            <ShapeSource id="portion-overlays-consolidated" shape={consolidatedPortionsGeoJSON}>
-              <LineLayer
+            <GeoJSONSource id="portion-overlays-consolidated" data={consolidatedPortionsGeoJSON}>
+              <Layer
+              type="line"
                 id="portion-overlays-casing"
                 style={{
                   lineColor: '#FFFFFF',
@@ -816,7 +818,8 @@ export const ActivityMapView = memo(function ActivityMapView({
                     : 0,
                 }}
               />
-              <LineLayer
+              <Layer
+              type="line"
                 id="portion-overlays-line"
                 style={{
                   lineColor: highlightedSectionId
@@ -852,13 +855,14 @@ export const ActivityMapView = memo(function ActivityMapView({
                     : 0,
                 }}
               />
-            </ShapeSource>
+            </GeoJSONSource>
 
             {/* Section boundary ticks — perpendicular short line segments at each
                 portion's start/end. Always rendered, drawn above portions so section
                 breaks are visible even where portions overlap. */}
-            <ShapeSource id="section-boundaries" shape={sectionBoundariesGeoJSON}>
-              <LineLayer
+            <GeoJSONSource id="section-boundaries" data={sectionBoundariesGeoJSON}>
+              <Layer
+              type="line"
                 id="section-boundaries-casing"
                 style={{
                   lineColor: '#000000',
@@ -867,7 +871,8 @@ export const ActivityMapView = memo(function ActivityMapView({
                   lineOpacity: 0.45,
                 }}
               />
-              <LineLayer
+              <Layer
+              type="line"
                 id="section-boundaries-line"
                 style={{
                   lineColor: '#FFFFFF',
@@ -876,30 +881,35 @@ export const ActivityMapView = memo(function ActivityMapView({
                   lineOpacity: 1,
                 }}
               />
-            </ShapeSource>
+            </GeoJSONSource>
 
             {/* Start marker */}
             {/* CRITICAL: Always render to avoid Fabric crash - control visibility via opacity */}
-            <MarkerView
-              coordinate={startPoint ? [startPoint.longitude, startPoint.latitude] : [0, 0]}
+            <Marker
+              id="activity-start"
+              lngLat={startPoint ? [startPoint.longitude, startPoint.latitude] : [0, 0]}
             >
               <View style={[styles.markerContainer, { opacity: startPoint ? 1 : 0 }]}>
                 <View style={[styles.marker, styles.startMarker]} />
               </View>
-            </MarkerView>
+            </Marker>
 
             {/* End marker */}
             {/* CRITICAL: Always render to avoid Fabric crash - control visibility via opacity */}
-            <MarkerView coordinate={endPoint ? [endPoint.longitude, endPoint.latitude] : [0, 0]}>
+            <Marker
+              id="activity-end"
+              lngLat={endPoint ? [endPoint.longitude, endPoint.latitude] : [0, 0]}
+            >
               <View style={[styles.markerContainer, { opacity: endPoint ? 1 : 0 }]}>
                 <View style={[styles.marker, styles.endMarker]} />
               </View>
-            </MarkerView>
+            </Marker>
 
             {/* Section creation: selected section line */}
             {/* CRITICAL: Always render ShapeSource to avoid add/remove cycles that crash iOS MapLibre */}
-            <ShapeSource id="sectionSource" shape={sectionGeoJSON}>
-              <LineLayer
+            <GeoJSONSource id="sectionSource" data={sectionGeoJSON}>
+              <Layer
+              type="line"
                 id="sectionLine"
                 style={{
                   lineColor: colors.success,
@@ -908,22 +918,22 @@ export const ActivityMapView = memo(function ActivityMapView({
                   lineJoin: 'round',
                 }}
               />
-            </ShapeSource>
+            </GeoJSONSource>
 
             {/* Section creation: start marker */}
             {/* CRITICAL: Always render to avoid camera reset when marker appears */}
             {/* Use activity start as fallback to stay within map bounds (not [0,0]) */}
             {/* Key includes startIndex to force position update (stable when null) */}
-            <MarkerView
+            <Marker
               key={`section-start-${startIndex ?? 'none'}`}
-              coordinate={
+              id={`section-start-marker-${startIndex ?? 'none'}`}
+              lngLat={
                 sectionStartPoint
                   ? [sectionStartPoint.longitude, sectionStartPoint.latitude]
                   : startPoint
                     ? [startPoint.longitude, startPoint.latitude]
                     : [0, 0]
               }
-              allowOverlap={true}
             >
               <View
                 style={[
@@ -935,22 +945,22 @@ export const ActivityMapView = memo(function ActivityMapView({
                   <MaterialCommunityIcons name="flag-outline" size={16} color={colors.textOnDark} />
                 </View>
               </View>
-            </MarkerView>
+            </Marker>
 
             {/* Section creation: end marker */}
             {/* CRITICAL: Always render to avoid camera reset when marker appears */}
             {/* Use activity end as fallback to stay within map bounds (not [0,0]) */}
             {/* Key includes endIndex to force position update (stable when null) */}
-            <MarkerView
+            <Marker
               key={`section-end-${endIndex ?? 'none'}`}
-              coordinate={
+              id={`section-end-marker-${endIndex ?? 'none'}`}
+              lngLat={
                 sectionEndPoint
                   ? [sectionEndPoint.longitude, sectionEndPoint.latitude]
                   : endPoint
                     ? [endPoint.longitude, endPoint.latitude]
                     : [0, 0]
               }
-              allowOverlap={true}
             >
               <View
                 style={[
@@ -962,7 +972,7 @@ export const ActivityMapView = memo(function ActivityMapView({
                   <MaterialCommunityIcons name="flag" size={16} color={colors.textOnDark} />
                 </View>
               </View>
-            </MarkerView>
+            </Marker>
 
             {/* Numbered section markers — one MarkerView per non-PR section.
                 MarkerView is used here (not a ShapeSource + CircleLayer) because
@@ -977,14 +987,14 @@ export const ActivityMapView = memo(function ActivityMapView({
               if (!coord || !sectionId || !label) return null;
               const color = sectionPalette[sectionPaletteIndex(sectionId)];
               return (
-                <MarkerView key={`num-${sectionId}`} coordinate={coord} allowOverlap={true}>
+                <Marker key={`num-${sectionId}`} id={`num-${sectionId}`} lngLat={coord}>
                   <Pressable
                     onPress={() => onSectionMarkerPress?.(sectionId)}
                     style={[styles.sectionNumberBadge, { backgroundColor: color }]}
                   >
                     <RNText style={styles.sectionNumberBadgeText}>{label}</RNText>
                   </Pressable>
-                </MarkerView>
+                </Marker>
               );
             })}
             {/* PR section markers — vector trophy via MarkerView, matches feed cards. */}
@@ -994,21 +1004,22 @@ export const ActivityMapView = memo(function ActivityMapView({
               const sectionId = f.properties?.sectionId as string | undefined;
               if (!coord || !sectionId) return null;
               return (
-                <MarkerView key={`pr-${sectionId}`} coordinate={coord} allowOverlap={true}>
+                <Marker key={`pr-${sectionId}`} id={`pr-${sectionId}`} lngLat={coord}>
                   <Pressable
                     onPress={() => onSectionMarkerPress?.(sectionId)}
                     style={styles.prTrophyMarker}
                   >
                     <MaterialCommunityIcons name="trophy" size={14} color={brand.gold} />
                   </Pressable>
-                </MarkerView>
+                </Marker>
               );
             })}
 
             {/* Highlight marker from chart scrubbing — rendered last so it's on top of all layers */}
             {/* Uses ShapeSource + CircleLayer because MarkerView coordinate updates break native position binding */}
-            <ShapeSource id="highlightSource" shape={highlightGeoJSON}>
-              <CircleLayer
+            <GeoJSONSource id="highlightSource" data={highlightGeoJSON}>
+              <Layer
+                type="circle"
                 id="highlight-border"
                 style={{
                   circleRadius: 7,
@@ -1016,7 +1027,8 @@ export const ActivityMapView = memo(function ActivityMapView({
                   circleOpacity: highlightPoint ? 1 : 0,
                 }}
               />
-              <CircleLayer
+              <Layer
+                type="circle"
                 id="highlight-fill"
                 style={{
                   circleRadius: 5,
@@ -1024,8 +1036,8 @@ export const ActivityMapView = memo(function ActivityMapView({
                   circleOpacity: highlightPoint ? 1 : 0,
                 }}
               />
-            </ShapeSource>
-          </MapView>
+            </GeoJSONSource>
+          </MLMap>
         </View>
 
         {/* 3D Map layer */}
@@ -1234,9 +1246,10 @@ export const ActivityMapView = memo(function ActivityMapView({
         >
           {/* Section portion overlays in fullscreen - one line per section, drawn along
               the activity's own GPS trace with white casing for contrast. */}
-          {/* CRITICAL: Always render stable ShapeSource to avoid Fabric crash */}
-          <ShapeSource id="fs-portion-overlays-consolidated" shape={consolidatedPortionsGeoJSON}>
-            <LineLayer
+          {/* CRITICAL: Always render stable GeoJSONSource to avoid Fabric crash */}
+          <GeoJSONSource id="fs-portion-overlays-consolidated" data={consolidatedPortionsGeoJSON}>
+            <Layer
+              type="line"
               id="fs-portion-overlays-casing"
               style={{
                 lineColor: '#FFFFFF',
@@ -1246,7 +1259,8 @@ export const ActivityMapView = memo(function ActivityMapView({
                 lineOpacity: sectionOverlaysGeoJSON ? 0.9 : 0,
               }}
             />
-            <LineLayer
+            <Layer
+              type="line"
               id="fs-portion-overlays-line"
               style={{
                 lineColor: [
@@ -1261,44 +1275,48 @@ export const ActivityMapView = memo(function ActivityMapView({
                 lineOpacity: sectionOverlaysGeoJSON ? 1 : 0,
               }}
             />
-          </ShapeSource>
+          </GeoJSONSource>
 
           {/* PR markers at center of each PR section in fullscreen.
-              Vector trophy via MarkerView for visual parity with feed cards. */}
+              Vector trophy via Marker for visual parity with feed cards. */}
           {fullscreenPRMarkersGeoJSON.features.map((f) => {
             const geom = f.geometry as GeoJSON.Point;
             const coord = geom?.coordinates as [number, number] | undefined;
             const sectionId = f.properties?.sectionId as string | undefined;
             if (!coord || !sectionId) return null;
             return (
-              <MarkerView key={`fs-pr-${sectionId}`} coordinate={coord} allowOverlap={true}>
+              <Marker key={`fs-pr-${sectionId}`} id={`fs-pr-${sectionId}`} lngLat={coord}>
                 <Pressable
                   onPress={() => onSectionMarkerPress?.(sectionId)}
                   style={styles.prTrophyBadge}
                 >
                   <MaterialCommunityIcons name="trophy" size={12} color="#FFFFFF" />
                 </Pressable>
-              </MarkerView>
+              </Marker>
             );
           })}
 
           {/* Start marker */}
           {/* CRITICAL: Always render to avoid Fabric crash - control visibility via opacity */}
-          <MarkerView
-            coordinate={startPoint ? [startPoint.longitude, startPoint.latitude] : [0, 0]}
+          <Marker
+            id="fs-activity-start"
+            lngLat={startPoint ? [startPoint.longitude, startPoint.latitude] : [0, 0]}
           >
             <View style={[styles.markerContainer, { opacity: startPoint ? 1 : 0 }]}>
               <View style={[styles.marker, styles.startMarker]} />
             </View>
-          </MarkerView>
+          </Marker>
 
           {/* End marker */}
           {/* CRITICAL: Always render to avoid Fabric crash - control visibility via opacity */}
-          <MarkerView coordinate={endPoint ? [endPoint.longitude, endPoint.latitude] : [0, 0]}>
+          <Marker
+            id="fs-activity-end"
+            lngLat={endPoint ? [endPoint.longitude, endPoint.latitude] : [0, 0]}
+          >
             <View style={[styles.markerContainer, { opacity: endPoint ? 1 : 0 }]}>
               <View style={[styles.marker, styles.endMarker]} />
             </View>
-          </MarkerView>
+          </Marker>
         </BaseMapView>
       </Modal>
 
