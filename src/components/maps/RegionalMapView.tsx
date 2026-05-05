@@ -3,14 +3,14 @@ import { View, Text, StyleSheet, TouchableOpacity, Animated, Platform } from 're
 import { useRouter, usePathname } from 'expo-router';
 import { useMapPreferences } from '@/providers';
 import {
-  MapView,
+  Map as MLMap,
   Camera,
-  ShapeSource,
-  LineLayer,
-  CircleLayer,
-  SymbolLayer,
+  GeoJSONSource,
+  Layer,
   RasterSource,
-  RasterLayer,
+  type CameraRef,
+  type GeoJSONSourceRef,
+  type MapRef,
 } from '@maplibre/maplibre-react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -116,8 +116,8 @@ export function RegionalMapView({
   const [visibleActivityIds, setVisibleActivityIds] = useState<Set<string> | null>(null);
   const [selectedSection, setSelectedSection] = useState<FrequentSection | null>(null);
   const [spider, setSpider] = useState<SpiderState | null>(null);
-  const cameraRef = useRef<React.ElementRef<typeof Camera>>(null);
-  const clusterSourceRef = useRef<React.ElementRef<typeof ShapeSource>>(null);
+  const cameraRef = useRef<CameraRef>(null);
+  const clusterSourceRef = useRef<GeoJSONSourceRef>(null);
 
   // iOS simulator tile loading retry mechanism
   const [mapKey, setMapKey] = useState(0);
@@ -168,7 +168,7 @@ export function RegionalMapView({
   // is handled by native minZoomLevel on layers (not React state) to avoid
   // re-renders that cause Android MapLibre camera snap-back.
   const TRACE_ZOOM_THRESHOLD = 11;
-  const mapRef = useRef<React.ElementRef<typeof MapView>>(null);
+  const mapRef = useRef<MapRef>(null);
   const map3DRef = useRef<Map3DWebViewRef>(null);
   const clusterOverlayRef = useRef<ClusterCountOverlayRef>(null);
   const bearingAnim = useRef(new Animated.Value(0)).current;
@@ -609,75 +609,77 @@ export function RegionalMapView({
           />
         </ComponentErrorBoundary>
       ) : (
-        <MapView
+        <MLMap
           key={`regional-map-${mapKey}`}
           ref={mapRef}
           style={styles.map}
           mapStyle={mapStyleValue}
-          logoEnabled={false}
-          attributionEnabled={false}
-          compassEnabled={false}
+          logo={false}
+          attribution={false}
+          compass={false}
           onPress={Platform.OS === 'android' ? handleMapPress : undefined}
           onRegionIsChanging={handleRegionIsChanging}
           onRegionDidChange={handleRegionDidChange}
           onDidFailLoadingMap={handleMapLoadError}
         >
           {/* Camera with ref for programmatic control */}
-          {/* No defaultSettings: Android MapLibre re-applies it on every render, causing snapback. */}
+          {/* No initialViewState: Android MapLibre re-applies it on every render, causing snapback. */}
           {/* Initial positioning is done imperatively via fitBounds in useMapCamera.markUserInteracted. */}
-          {/* CRITICAL: followUserLocation must be explicitly false to prevent auto-centering */}
-          <Camera ref={cameraRef} followUserLocation={false} />
+          <Camera ref={cameraRef} />
 
-          {/* Activity markers — clustered ShapeSource with native MapLibre clustering */}
-          {/* Replaces individual MarkerViews for better performance (GPU-rendered) */}
-          {/* CRITICAL: Always render ShapeSource to avoid iOS crash during view reconciliation */}
-          <ShapeSource
+          {/* Activity markers — clustered GeoJSONSource with native MapLibre clustering */}
+          {/* CRITICAL: Always render GeoJSONSource to avoid iOS crash during view reconciliation */}
+          <GeoJSONSource
             ref={clusterSourceRef}
             id="activity-clusters"
-            shape={markersGeoJSON}
+            data={markersGeoJSON}
             cluster={true}
             clusterRadius={50}
-            clusterMaxZoomLevel={14}
+            clusterMaxZoom={14}
             onPress={
               Platform.OS === 'android' && showActivities ? handleClusterOrMarkerPress : undefined
             }
             hitbox={{ width: 44, height: 44 }}
           >
             {/* Cluster circles — primary color, radius scales by count */}
-            <CircleLayer
+            <Layer
+              type="circle"
               id="cluster-circles"
               filter={['has', 'point_count']}
               style={clusterCircleStyle}
             />
             {/* Cluster count labels — textFont MUST match glyph server (Noto Sans) */}
-            <SymbolLayer
+            <Layer
+              type="symbol"
               id="cluster-count"
               filter={['has', 'point_count']}
               style={clusterCountStyle}
             />
             {/* Individual unclustered activity points — colored by sport type */}
             {/* Only visible at zoom >= 10 to keep low-zoom view clean (clusters only) */}
-            <CircleLayer
+            <Layer
+              type="circle"
               id="unclustered-point"
               filter={['!', ['has', 'point_count']]}
-              minZoomLevel={10}
+              minzoom={10}
               style={unclusteredPointStyle}
             />
-          </ShapeSource>
+          </GeoJSONSource>
 
           {/* Sections layer - frequent road/trail sections (primary content on global map) */}
-          {/* CRITICAL: Always render ShapeSource to avoid iOS MapLibre crash */}
-          <ShapeSource
+          {/* CRITICAL: Always render GeoJSONSource to avoid iOS MapLibre crash */}
+          <GeoJSONSource
             id="sections"
             testID="regional-map-sections-overlay"
-            shape={sectionsGeoJSON}
+            data={sectionsGeoJSON}
             onPress={handleSectionPress}
             hitbox={{ width: 44, height: 44 }}
           >
             {/* Thin dashed section line — matches the dashed traces used in the
                 activity-detail map view. Width is intentionally modest so a
                 long section doesn't dominate the screen. */}
-            <LineLayer
+            <Layer
+              type="line"
               id="sectionsLine"
               style={{
                 lineColor: ['get', 'color'],
@@ -706,7 +708,8 @@ export function RegionalMapView({
             />
             {/* Subtle outline only when a section is selected — not on every
                 section, otherwise the lines look bulky again. */}
-            <LineLayer
+            <Layer
+              type="line"
               id="sectionsOutline"
               style={{
                 lineColor: '#FFFFFF',
@@ -717,20 +720,21 @@ export function RegionalMapView({
                 lineCap: 'round',
                 lineJoin: 'round',
               }}
-              belowLayerID="sectionsLine"
+              beforeId="sectionsLine"
             />
-          </ShapeSource>
+          </GeoJSONSource>
 
           {/* Raster heatmap tiles — only rendered when heatmap generation is enabled */}
           {isHeatmapEnabled() && (
             <RasterSource
               id="heatmap-tiles"
-              tileUrlTemplates={[HEATMAP_TILE_URL_TEMPLATE]}
-              minZoomLevel={0}
-              maxZoomLevel={17}
+              tiles={[HEATMAP_TILE_URL_TEMPLATE]}
+              minzoom={0}
+              maxzoom={17}
               tileSize={256}
             >
-              <RasterLayer
+              <Layer
+                type="raster"
                 id="heatmap-layer"
                 style={{
                   rasterOpacity: showHeatmap ? (mapStyle === 'light' ? 0.92 : 0.72) : 0,
@@ -740,29 +744,30 @@ export function RegionalMapView({
                   rasterResampling: 'linear',
                   rasterFadeDuration: 0,
                 }}
-                belowLayerID="cluster-circles"
+                beforeId="cluster-circles"
               />
             </RasterSource>
           )}
 
-          {/* CRITICAL: Always render ShapeSource to avoid iOS MapLibre crash */}
-          {/* Vector traces fully replaced by raster heatmap — no LineLayer needed */}
-          {/* ShapeSource kept mounted (empty) to prevent Fabric view reconciliation crash */}
-          <ShapeSource id="activity-traces" shape={tracesGeoJSON} />
+          {/* CRITICAL: Always render GeoJSONSource to avoid iOS MapLibre crash */}
+          {/* Vector traces fully replaced by raster heatmap — no Layer needed */}
+          {/* GeoJSONSource kept mounted (empty) to prevent Fabric view reconciliation crash */}
+          <GeoJSONSource id="activity-traces" data={tracesGeoJSON} />
 
           {/* Activity start-point markers — small dots at the first GPS coordinate */}
           {/* Visible when zoomed in past trace threshold and activities are shown */}
-          {/* Start-point markers: use native minZoomLevel instead of React state
+          {/* Start-point markers: use native minzoom instead of React state
               to avoid re-renders that cause Android MapLibre camera snap-back */}
-          <ShapeSource id="activity-start-points" shape={startPointsGeoJSON}>
-            <CircleLayer id="start-point-outer" minZoomLevel={11} style={startPointStyle} />
-          </ShapeSource>
+          <GeoJSONSource id="activity-start-points" data={startPointsGeoJSON}>
+            <Layer type="circle" id="start-point-outer" minzoom={11} style={startPointStyle} />
+          </GeoJSONSource>
 
           {/* Selected activity route */}
           {/* CRITICAL: Always render with fixed ID to avoid iOS MapLibre crash */}
-          <ShapeSource id="selected-route" shape={routeGeoJSON}>
+          <GeoJSONSource id="selected-route" data={routeGeoJSON}>
             {/* Dark casing + brand-orange trace when heatmap is on (sport colors blend into teal) */}
-            <LineLayer
+            <Layer
+              type="line"
               id="selected-routeOutline"
               style={{
                 lineColor: 'rgba(0, 0, 0, 0.4)',
@@ -772,7 +777,8 @@ export function RegionalMapView({
                 lineOpacity: routeHasData ? 1 : 0,
               }}
             />
-            <LineLayer
+            <Layer
+              type="line"
               id="selected-routeLine"
               style={{
                 lineColor: selected
@@ -786,29 +792,29 @@ export function RegionalMapView({
                 lineOpacity: routeHasData ? 1 : 0,
               }}
             />
-          </ShapeSource>
+          </GeoJSONSource>
 
           {/* Spider fan-out layers — show when a cluster can't expand further at max zoom */}
-          {/* CRITICAL: Always render ShapeSource to avoid iOS crash during reconciliation */}
-          <ShapeSource id="spider-legs" shape={spiderLinesGeoJSON}>
-            <LineLayer id="spider-lines" style={spiderLinesStyle} />
-          </ShapeSource>
-          <ShapeSource
+          {/* CRITICAL: Always render GeoJSONSource to avoid iOS crash during reconciliation */}
+          <GeoJSONSource id="spider-legs" data={spiderLinesGeoJSON}>
+            <Layer type="line" id="spider-lines" style={spiderLinesStyle} />
+          </GeoJSONSource>
+          <GeoJSONSource
             id="spider-markers"
-            shape={spiderPointsGeoJSON}
+            data={spiderPointsGeoJSON}
             onPress={Platform.OS === 'android' && spider ? handleSpiderMarkerPress : undefined}
             hitbox={{ width: 44, height: 44 }}
           >
-            <CircleLayer id="spider-points" style={spiderPointsStyle} />
-          </ShapeSource>
+            <Layer type="circle" id="spider-points" style={spiderPointsStyle} />
+          </GeoJSONSource>
 
-          {/* User location marker - using ShapeSource + CircleLayer to avoid Fabric crash */}
+          {/* User location marker - using GeoJSONSource + circle Layer to avoid Fabric crash */}
           {/* CRITICAL: Always render to prevent add/remove cycles that crash iOS */}
-          <ShapeSource id="user-location" shape={userLocationGeoJSON}>
-            <CircleLayer id="user-location-outer" style={userLocationOuterStyle} />
-            <CircleLayer id="user-location-inner" style={userLocationInnerStyle} />
-          </ShapeSource>
-        </MapView>
+          <GeoJSONSource id="user-location" data={userLocationGeoJSON}>
+            <Layer type="circle" id="user-location-outer" style={userLocationOuterStyle} />
+            <Layer type="circle" id="user-location-inner" style={userLocationInnerStyle} />
+          </GeoJSONSource>
+        </MLMap>
       )}
 
       {/* Accessibility + test-ID overlay for cluster counts (invisible to users;
