@@ -679,12 +679,7 @@ export function RegionalMapView({
             }
             hitbox={{ top: 22, right: 22, bottom: 22, left: 22 }}
           >
-            {/* DIAGNOSTIC: same single no-filter magenta layer as Test 2
-                that worked. ALL the source-level props that were added
-                later (showActivities data toggle, onPress, hitbox,
-                clusterMinPoints) are still here. If clusters render now,
-                multi-layer was the bug. If not, one of those source
-                props is the bug. */}
+            {/* Layer 1 (working baseline): no-filter magenta */}
             <Layer
               type="circle"
               id="cluster-debug-all"
@@ -694,6 +689,17 @@ export function RegionalMapView({
                 'circle-opacity': 0.9,
                 'circle-stroke-width': 3,
                 'circle-stroke-color': '#000000',
+              }}
+            />
+            {/* Layer 2 (added now): lime unclustered with negation filter */}
+            <Layer
+              type="circle"
+              id="unclustered-point"
+              filter={['!', ['has', 'point_count']]}
+              paint={{
+                'circle-color': '#00FF00',
+                'circle-radius': 6,
+                'circle-opacity': 1,
               }}
             />
           </GeoJSONSource>
