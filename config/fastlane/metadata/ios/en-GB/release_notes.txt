@@ -1,9 +1,7 @@
-v0.3.2
+v0.3.4
 
-• Daily insights: section PRs, fitness milestones, weekly comparisons
-• Best Efforts: power and pace PRs across all activities
-• Pin, adjust, or disable sections; set reference efforts
-• Map: gradient polylines, heatmap overlays, cluster zoom
-• Fitness: ramp rate, form %, temperature and gradient charts
-• Feed: PR trophies, trend pills, sparkline section cards
-• Support the project with in-app tips
+• Route PRs now compare same-direction attempts only
+• Section PRs use fastest pace instead of shortest time
+• Route chart Y-axis shows time (shorter = higher)
+• PR badge on activity cards shows PR+Xs delta format
+• Consistent PR across card badges, charts, and detail views
