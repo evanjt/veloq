@@ -432,10 +432,15 @@ export function RegionalMapView({
   // references stable across renders when their dependencies haven't changed.
   // ========================================================================
 
-  const clusterCircleStyle = useMemo(
+  // Use v11's explicit paint/layout shape for cluster layers — the deprecated
+  // `style` shorthand doesn't reliably propagate `visibility` and expression-based
+  // paint props together on Android, so cluster circles disappear after the
+  // migration. Each layer gets a tuple of (paint, layout) so the existing
+  // memoisation pattern is preserved.
+  const clusterCirclePaint = useMemo(
     () => ({
-      circleColor: colors.primary,
-      circleRadius: [
+      'circle-color': colors.primary,
+      'circle-radius': [
         'step',
         ['get', 'point_count'],
         20, // <10 activities
@@ -443,56 +448,66 @@ export function RegionalMapView({
         25, // 10-49
         50,
         30, // 50+
-      ] as unknown as number,
-      circleOpacity: showActivities ? 0.8 : 0,
-      visibility: (showActivities ? 'visible' : 'none') as 'visible' | 'none',
+      ],
+      'circle-opacity': showActivities ? 0.8 : 0,
+    }),
+    [showActivities]
+  );
+  const clusterCircleLayout = useMemo(
+    () => ({
+      visibility: showActivities ? 'visible' : 'none',
     }),
     [showActivities]
   );
 
-  const clusterCountStyle = useMemo(
+  const clusterCountLayout = useMemo(
     () => ({
-      textField: ['get', 'point_count_abbreviated'] as unknown as string,
-      textFont: ['Noto Sans Regular'],
-      textSize: 12,
-      textColor: '#FFFFFF',
-      textAllowOverlap: true,
-      textIgnorePlacement: true,
-      visibility: (showActivities ? 'visible' : 'none') as 'visible' | 'none',
+      'text-field': ['get', 'point_count_abbreviated'],
+      'text-font': ['Noto Sans Regular'],
+      'text-size': 12,
+      'text-allow-overlap': true,
+      'text-ignore-placement': true,
+      visibility: showActivities ? 'visible' : 'none',
     }),
     [showActivities]
   );
-
-  const unclusteredPointStyle = useMemo(
+  const clusterCountPaint = useMemo(
     () => ({
-      circleColor: ['get', 'color'] as unknown as string,
-      circleRadius: selectedActivityId
-        ? ([
-            'case',
-            ['==', ['get', 'id'], selectedActivityId],
-            12, // Selected: larger
-            8,
-          ] as unknown as number)
+      'text-color': '#FFFFFF',
+    }),
+    []
+  );
+
+  const unclusteredPointPaint = useMemo(
+    () => ({
+      'circle-color': ['get', 'color'],
+      'circle-radius': selectedActivityId
+        ? ['case', ['==', ['get', 'id'], selectedActivityId], 12, 8]
         : 8,
       // Recency fade: recent activities full opacity, 1+ year old at 35%
-      circleOpacity: showActivities
-        ? (['interpolate', ['linear'], ['get', 'age'], 0, 1, 1, 0.35] as unknown as number)
+      'circle-opacity': showActivities
+        ? ['interpolate', ['linear'], ['get', 'age'], 0, 1, 1, 0.35]
         : 0,
-      circleStrokeWidth: selectedActivityId
-        ? (['case', ['==', ['get', 'id'], selectedActivityId], 2.5, 1.5] as unknown as number)
+      'circle-stroke-width': selectedActivityId
+        ? ['case', ['==', ['get', 'id'], selectedActivityId], 2.5, 1.5]
         : 1.5,
-      circleStrokeColor: selectedActivityId
-        ? ([
+      'circle-stroke-color': selectedActivityId
+        ? [
             'case',
             ['==', ['get', 'id'], selectedActivityId],
             colors.primary,
             'rgba(255, 255, 255, 0.8)',
-          ] as unknown as string)
+          ]
         : 'rgba(255, 255, 255, 0.8)',
-      circleStrokeOpacity: showActivities ? 1 : 0,
-      visibility: (showActivities ? 'visible' : 'none') as 'visible' | 'none',
+      'circle-stroke-opacity': showActivities ? 1 : 0,
     }),
     [selectedActivityId, showActivities]
+  );
+  const unclusteredPointLayout = useMemo(
+    () => ({
+      visibility: showActivities ? 'visible' : 'none',
+    }),
+    [showActivities]
   );
 
   const startPointStyle = useMemo(
@@ -652,24 +667,27 @@ export function RegionalMapView({
             <Layer
               type="circle"
               id="cluster-circles"
-              filter={['has', 'point_count']}
-              style={clusterCircleStyle}
+              filter={['has', 'point_count'] as never}
+              paint={clusterCirclePaint as never}
+              layout={clusterCircleLayout as never}
             />
             {/* Cluster count labels — textFont MUST match glyph server (Noto Sans) */}
             <Layer
               type="symbol"
               id="cluster-count"
-              filter={['has', 'point_count']}
-              style={clusterCountStyle}
+              filter={['has', 'point_count'] as never}
+              paint={clusterCountPaint as never}
+              layout={clusterCountLayout as never}
             />
             {/* Individual unclustered activity points — colored by sport type */}
             {/* Only visible at zoom >= 10 to keep low-zoom view clean (clusters only) */}
             <Layer
               type="circle"
               id="unclustered-point"
-              filter={['!', ['has', 'point_count']]}
+              filter={['!', ['has', 'point_count']] as never}
               minzoom={10}
-              style={unclusteredPointStyle}
+              paint={unclusteredPointPaint as never}
+              layout={unclusteredPointLayout as never}
             />
           </GeoJSONSource>
 
