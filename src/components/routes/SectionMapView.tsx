@@ -205,7 +205,12 @@ export const SectionMapView = memo(function SectionMapView({
     if (newBounds) {
       void cameraRef.current.setStop({
         bounds: toLngLatBounds(newBounds),
-        padding: toViewPadding({ paddingTop: 80, paddingRight: 80, paddingBottom: 80, paddingLeft: 80 }),
+        padding: toViewPadding({
+          paddingTop: 80,
+          paddingRight: 80,
+          paddingBottom: 80,
+          paddingLeft: 80,
+        }),
         duration: 500,
       });
     }
@@ -536,7 +541,12 @@ export const SectionMapView = memo(function SectionMapView({
         ref={interactive ? cameraRef : undefined}
         initialViewState={{
           bounds: toLngLatBounds(bounds),
-          padding: toViewPadding({ paddingTop: 80, paddingRight: 80, paddingBottom: 80, paddingLeft: 80 }),
+          padding: toViewPadding({
+            paddingTop: 80,
+            paddingRight: 80,
+            paddingBottom: 80,
+            paddingLeft: 80,
+          }),
         }}
       />
 
@@ -551,7 +561,7 @@ export const SectionMapView = memo(function SectionMapView({
             setSelectedNearby(selectedNearby === sectionId ? null : sectionId);
           }
         }}
-        hitbox={{ width: 20, height: 20 }}
+        hitbox={{ top: 10, right: 10, bottom: 10, left: 10 }}
       >
         <Layer
           type="line"
@@ -1031,11 +1041,11 @@ export const SectionMapView = memo(function SectionMapView({
           initialStyle={currentMapStyle}
           onClose={closeFullscreen}
         >
-          {/* CRITICAL: Always render all ShapeSources to avoid iOS crash */}
+          {/* CRITICAL: Always render all GeoJSONSources to avoid iOS crash */}
           {/* Shadow track (full activity route) */}
-          <ShapeSource id="fullscreenShadowSource" shape={shadowGeoJSON}>
+          <GeoJSONSource id="fullscreenShadowSource" data={shadowGeoJSON}>
             <Layer
-          type="line"
+              type="line"
               id="fullscreenShadowLine"
               style={{
                 lineColor: colors.gray500,
@@ -1048,9 +1058,9 @@ export const SectionMapView = memo(function SectionMapView({
           </GeoJSONSource>
 
           {/* Trimmed section portion (for bounds editing) */}
-          <ShapeSource id="fullscreenTrimmedSource" shape={trimmedGeoJSON}>
+          <GeoJSONSource id="fullscreenTrimmedSource" data={trimmedGeoJSON}>
             <Layer
-          type="line"
+              type="line"
               id="fullscreenTrimmedLineCasing"
               style={{
                 lineColor: '#FFFFFF',
@@ -1061,7 +1071,7 @@ export const SectionMapView = memo(function SectionMapView({
               }}
             />
             <Layer
-          type="line"
+              type="line"
               id="fullscreenTrimmedLine"
               style={{
                 lineColor: activityColor,
@@ -1074,9 +1084,9 @@ export const SectionMapView = memo(function SectionMapView({
           </GeoJSONSource>
 
           {/* Pre-loaded activity traces with filter */}
-          <ShapeSource id="fullscreenAllTracesSource" shape={allTracesFeatureCollection}>
+          <GeoJSONSource id="fullscreenAllTracesSource" data={allTracesFeatureCollection}>
             <Layer
-          type="line"
+              type="line"
               id="fullscreenAllTracesLineCasing"
               filter={highlightedTraceFilter}
               style={{
@@ -1088,7 +1098,7 @@ export const SectionMapView = memo(function SectionMapView({
               }}
             />
             <Layer
-          type="line"
+              type="line"
               id="fullscreenAllTracesLine"
               filter={highlightedTraceFilter}
               style={{
@@ -1102,9 +1112,9 @@ export const SectionMapView = memo(function SectionMapView({
           </GeoJSONSource>
 
           {/* Highlighted lap points overlay */}
-          <ShapeSource id="fullscreenHighlightedLapSource" shape={highlightedLapGeoJSON}>
+          <GeoJSONSource id="fullscreenHighlightedLapSource" data={highlightedLapGeoJSON}>
             <Layer
-          type="line"
+              type="line"
               id="fullscreenHighlightedLapLineCasing"
               style={{
                 lineColor: '#FFFFFF',
@@ -1115,7 +1125,7 @@ export const SectionMapView = memo(function SectionMapView({
               }}
             />
             <Layer
-          type="line"
+              type="line"
               id="fullscreenHighlightedLapLine"
               style={{
                 lineColor: colors.chartCyan,
@@ -1127,9 +1137,9 @@ export const SectionMapView = memo(function SectionMapView({
           </GeoJSONSource>
 
           {/* Fallback: Highlighted activity trace */}
-          <ShapeSource id="fullscreenHighlightedSource" shape={highlightedTraceGeoJSON}>
+          <GeoJSONSource id="fullscreenHighlightedSource" data={highlightedTraceGeoJSON}>
             <Layer
-          type="line"
+              type="line"
               id="fullscreenHighlightedLineCasing"
               style={{
                 lineColor: '#FFFFFF',
@@ -1140,7 +1150,7 @@ export const SectionMapView = memo(function SectionMapView({
               }}
             />
             <Layer
-          type="line"
+              type="line"
               id="fullscreenHighlightedLine"
               style={{
                 lineColor: colors.chartCyan,
@@ -1153,20 +1163,20 @@ export const SectionMapView = memo(function SectionMapView({
 
           {/* Start marker */}
           {startPoint && (
-            <MarkerView coordinate={[startPoint.lng, startPoint.lat]}>
+            <Marker id="fs-section-start" lngLat={[startPoint.lng, startPoint.lat]}>
               <View style={styles.markerContainer}>
                 <View style={[styles.marker, styles.startMarker]} />
               </View>
-            </MarkerView>
+            </Marker>
           )}
 
           {/* End marker */}
           {endPoint && (
-            <MarkerView coordinate={[endPoint.lng, endPoint.lat]}>
+            <Marker id="fs-section-end" lngLat={[endPoint.lng, endPoint.lat]}>
               <View style={styles.markerContainer}>
                 <View style={[styles.marker, styles.endMarker]} />
               </View>
-            </MarkerView>
+            </Marker>
           )}
         </BaseMapView>
       </Modal>

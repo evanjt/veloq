@@ -543,21 +543,28 @@ export const SATELLITE_STYLE = SATELLITE_STYLE_BASE;
 // Union type for all possible map styles (all inline JSON objects, no URL strings)
 export type MapStyleValue = SatelliteMapStyle | typeof DARK_MATTER_STYLE | typeof LIBERTY_STYLE;
 
+// MapLibre v11 strictly types StyleSpecification.filter via the style-spec; the
+// legacy filter expressions in our embedded styles (e.g. `["==", "type", "polygon"]`)
+// don't satisfy the tuple-based `FilterSpecification`. The native runtime accepts
+// these unchanged, so we cast to MapLibre's StyleSpecification at the boundary.
+import type { StyleSpecification } from '@maplibre/maplibre-gl-style-spec';
+
 // Get the MapLibre style value for a given style type
 export function getMapStyle(
   style: MapStyleType,
   location?: { lat: number; lng: number; zoom: number }
-): MapStyleValue {
+): string | StyleSpecification {
   if (style === 'satellite') {
     if (location) {
-      return getSatelliteStyle(location.lat, location.lng, location.zoom).style;
+      return getSatelliteStyle(location.lat, location.lng, location.zoom)
+        .style as unknown as StyleSpecification;
     }
-    return SATELLITE_STYLE_BASE;
+    return SATELLITE_STYLE_BASE as unknown as StyleSpecification;
   }
   if (style === 'dark') {
-    return DARK_MATTER_STYLE;
+    return DARK_MATTER_STYLE as unknown as StyleSpecification;
   }
-  return MAP_STYLE_URLS.light;
+  return MAP_STYLE_URLS.light as unknown as StyleSpecification;
 }
 
 // Check if a style should use dark UI elements

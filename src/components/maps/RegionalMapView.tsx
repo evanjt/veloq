@@ -639,7 +639,7 @@ export function RegionalMapView({
             onPress={
               Platform.OS === 'android' && showActivities ? handleClusterOrMarkerPress : undefined
             }
-            hitbox={{ width: 44, height: 44 }}
+            hitbox={{ top: 22, right: 22, bottom: 22, left: 22 }}
           >
             {/* Cluster circles — primary color, radius scales by count */}
             <Layer
@@ -673,7 +673,7 @@ export function RegionalMapView({
             testID="regional-map-sections-overlay"
             data={sectionsGeoJSON}
             onPress={handleSectionPress}
-            hitbox={{ width: 44, height: 44 }}
+            hitbox={{ top: 22, right: 22, bottom: 22, left: 22 }}
           >
             {/* Thin dashed section line — matches the dashed traces used in the
                 activity-detail map view. Width is intentionally modest so a
@@ -803,7 +803,7 @@ export function RegionalMapView({
             id="spider-markers"
             data={spiderPointsGeoJSON}
             onPress={Platform.OS === 'android' && spider ? handleSpiderMarkerPress : undefined}
-            hitbox={{ width: 44, height: 44 }}
+            hitbox={{ top: 22, right: 22, bottom: 22, left: 22 }}
           >
             <Layer type="circle" id="spider-points" style={spiderPointsStyle} />
           </GeoJSONSource>

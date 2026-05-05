@@ -15,6 +15,8 @@
  */
 
 import { useCallback, useRef } from 'react';
+import type { NativeSyntheticEvent } from 'react-native';
+import type { ViewStateChangeEvent } from '@maplibre/maplibre-react-native';
 
 /** Zoom level at or above which sections are auto-shown. */
 const SECTIONS_AUTO_SHOW_ZOOM = 13;
@@ -29,14 +31,14 @@ interface UseSectionAutoToggleParams {
   /** State setter for showSections. */
   setShowSections: (value: boolean) => void;
   /** Base region-did-change handler to compose with. */
-  baseHandleRegionDidChange: (feature: GeoJSON.Feature) => void;
+  baseHandleRegionDidChange: (event: NativeSyntheticEvent<ViewStateChangeEvent>) => void;
   /** Base toggleSections callback (from useMapHandlers). */
   baseToggleSections: () => void;
 }
 
 interface UseSectionAutoToggleResult {
   /** Wrapped region-did-change handler that also auto-toggles sections. */
-  handleRegionDidChange: (feature: GeoJSON.Feature) => void;
+  handleRegionDidChange: (event: NativeSyntheticEvent<ViewStateChangeEvent>) => void;
   /** Wrapped toggleSections that marks the user as having taken manual control. */
   toggleSections: () => void;
 }
@@ -70,13 +72,12 @@ export function useSectionAutoToggle({
   // identity stable. Changing onRegionDidChange prop causes Android MapLibre to
   // re-render and snap camera back.
   const handleRegionDidChange = useCallback(
-    (feature: GeoJSON.Feature) => {
-      baseHandleRegionDidChange(feature);
+    (event: NativeSyntheticEvent<ViewStateChangeEvent>) => {
+      baseHandleRegionDidChange(event);
 
       if (userToggledSectionsRef.current) return;
 
-      const zoomLevel = (feature.properties as { zoomLevel?: number } | undefined)?.zoomLevel;
-      if (zoomLevel === undefined) return;
+      const zoomLevel = event.nativeEvent.zoom;
 
       // Defer section visibility change to avoid React re-render during
       // gesture momentum. Matches the 300ms debounce used for zoom/center

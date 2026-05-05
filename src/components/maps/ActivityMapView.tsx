@@ -98,6 +98,7 @@ import {
   Animated,
   Platform,
   ActivityIndicator,
+  type NativeSyntheticEvent,
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import {
@@ -106,6 +107,9 @@ import {
   GeoJSONSource,
   Layer,
   Marker,
+  type ViewStateChangeEvent,
+  type PressEvent,
+  type PressEventWithFeatures,
 } from '@maplibre/maplibre-react-native';
 import { toLngLatBounds, toViewPadding } from '@/lib/maps/bounds';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -494,18 +498,19 @@ export const ActivityMapView = memo(function ActivityMapView({
   // Handle native map press - only used for section creation on Android
   // Fullscreen is handled by the cross-platform touch handler above
   const handleMapPress = useCallback(
-    (feature: GeoJSON.Feature) => {
+    (event: NativeSyntheticEvent<PressEvent> | NativeSyntheticEvent<PressEventWithFeatures>) => {
       if (__DEV__) {
         console.log('[ActivityMapView:Camera] handleMapPress', {
           creationMode,
           creationState,
-          featureType: feature?.geometry?.type,
         });
       }
       // In creation mode, delegate to section creation hook
-      if (creationMode && feature?.geometry?.type === 'Point') {
-        const [lng, lat] = feature.geometry.coordinates as [number, number];
-        handleCreationTap(lng, lat);
+      if (creationMode) {
+        const lngLat = event.nativeEvent.lngLat;
+        if (lngLat) {
+          handleCreationTap(lngLat[0], lngLat[1]);
+        }
       }
     },
     [creationMode, creationState, handleCreationTap]
@@ -603,9 +608,9 @@ export const ActivityMapView = memo(function ActivityMapView({
 
   // Compose camera region-did-change with attribution debounce
   const handleRegionDidChange = useCallback(
-    (feature: GeoJSON.Feature) => {
+    (event: NativeSyntheticEvent<ViewStateChangeEvent>) => {
       // Delegate viewport tracking to camera hook
-      handleCameraRegionDidChange(feature);
+      handleCameraRegionDidChange(event);
 
       // Debounce attribution update to avoid interfering with map gestures
       if (attributionTimeoutRef.current) {
@@ -722,7 +727,7 @@ export const ActivityMapView = memo(function ActivityMapView({
             {/* When no data, overlayGeoJSON is an empty FeatureCollection, not null */}
             <GeoJSONSource id="overlaySource" data={overlayGeoJSON}>
               <Layer
-              type="line"
+                type="line"
                 id="overlayLine"
                 style={{
                   lineColor: '#00E5FF',
@@ -738,7 +743,7 @@ export const ActivityMapView = memo(function ActivityMapView({
             {/* CRITICAL: Always render ShapeSource to avoid add/remove cycles that crash iOS MapLibre */}
             <GeoJSONSource id="routeSource" data={routeGeoJSON}>
               <Layer
-              type="line"
+                type="line"
                 id="routeLineCasing"
                 style={{
                   lineColor: '#FFFFFF',
@@ -755,7 +760,7 @@ export const ActivityMapView = memo(function ActivityMapView({
                 }}
               />
               <Layer
-              type="line"
+                type="line"
                 id="routeLine"
                 style={{
                   lineColor: activityColor,
@@ -780,7 +785,7 @@ export const ActivityMapView = memo(function ActivityMapView({
             {/* CRITICAL: Always render ShapeSource to avoid add/remove cycles that crash iOS MapLibre */}
             <GeoJSONSource id="routeGradientSource" data={routeGeoJSON} lineMetrics={true}>
               <Layer
-              type="line"
+                type="line"
                 id="routeLineGradient"
                 style={{
                   lineColor: activityColor,
@@ -802,7 +807,7 @@ export const ActivityMapView = memo(function ActivityMapView({
             {/* CRITICAL: Always render stable ShapeSource to avoid Fabric crash */}
             <GeoJSONSource id="portion-overlays-consolidated" data={consolidatedPortionsGeoJSON}>
               <Layer
-              type="line"
+                type="line"
                 id="portion-overlays-casing"
                 style={{
                   lineColor: '#FFFFFF',
@@ -819,7 +824,7 @@ export const ActivityMapView = memo(function ActivityMapView({
                 }}
               />
               <Layer
-              type="line"
+                type="line"
                 id="portion-overlays-line"
                 style={{
                   lineColor: highlightedSectionId
@@ -862,7 +867,7 @@ export const ActivityMapView = memo(function ActivityMapView({
                 breaks are visible even where portions overlap. */}
             <GeoJSONSource id="section-boundaries" data={sectionBoundariesGeoJSON}>
               <Layer
-              type="line"
+                type="line"
                 id="section-boundaries-casing"
                 style={{
                   lineColor: '#000000',
@@ -872,7 +877,7 @@ export const ActivityMapView = memo(function ActivityMapView({
                 }}
               />
               <Layer
-              type="line"
+                type="line"
                 id="section-boundaries-line"
                 style={{
                   lineColor: '#FFFFFF',
@@ -909,7 +914,7 @@ export const ActivityMapView = memo(function ActivityMapView({
             {/* CRITICAL: Always render ShapeSource to avoid add/remove cycles that crash iOS MapLibre */}
             <GeoJSONSource id="sectionSource" data={sectionGeoJSON}>
               <Layer
-              type="line"
+                type="line"
                 id="sectionLine"
                 style={{
                   lineColor: colors.success,

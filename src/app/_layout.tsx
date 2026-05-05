@@ -94,7 +94,7 @@ function configureMapLibreLogger() {
   if (mapLibreLoggerConfigured) return;
   try {
     MapLibreLogger.setLogLevel('error');
-    MapLibreLogger.setLogCallback((log: { message: string; level: string; tag?: string }) => {
+    MapLibreLogger.onLog((log) => {
       if (
         log.level === 'error' &&
         (log.tag === 'Mbgl-HttpRequest' ||

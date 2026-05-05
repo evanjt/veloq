@@ -17,15 +17,15 @@ describe('US-D3: section map zoom clamp', () => {
     'utf8'
   );
 
-  it('Camera enforces maxZoomLevel of 16', () => {
-    const match = source.match(/maxZoomLevel=\{(\d+)\}/);
+  it('Camera enforces maxZoom of 16', () => {
+    const match = source.match(/maxZoom=\{(\d+)\}/);
     expect(match).not.toBeNull();
     const max = Number(match![1]);
     expect(max).toBeLessThanOrEqual(16);
   });
 
-  it('Camera has a defaultSettings bounds prop so short sections auto-fit', () => {
-    expect(source).toContain('defaultSettings={');
-    expect(source).toContain('bounds: { ne: bounds.ne, sw: bounds.sw }');
+  it('Camera has an initialViewState bounds prop so short sections auto-fit', () => {
+    expect(source).toContain('initialViewState={');
+    expect(source).toContain('bounds: toLngLatBounds(bounds)');
   });
 });
