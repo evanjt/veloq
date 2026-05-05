@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import type MapView from '@maplibre/maplibre-react-native';
+import type { MapRef } from '@maplibre/maplibre-react-native';
 import { colors } from '@/theme';
 
 /**
@@ -24,11 +24,11 @@ export interface ClusterCountOverlayRef {
 }
 
 interface ClusterCountOverlayProps {
-  mapRef: React.RefObject<React.ElementRef<typeof MapView.MapView> | null>;
+  mapRef: React.RefObject<MapRef | null>;
   /** Show the overlay text visibly (for debug or as the primary label source). */
   visible?: boolean;
-  /** Screen bounds to query in. Defaults to a generous rect; provide for tighter culling. */
-  queryRect?: [number, number, number, number];
+  /** Screen bounds to query in (`[[left, top], [right, bottom]]`). Defaults to a generous rect; provide for tighter culling. */
+  queryRect?: [[number, number], [number, number]];
 }
 
 interface ClusterPoint {
@@ -51,25 +51,23 @@ export const ClusterCountOverlay = React.forwardRef<
     const seq = ++latestSeq.current;
     try {
       // A generous rect covers a typical phone viewport when not provided.
-      const rect = queryRect ?? [0, 0, 2000, 3000];
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const anyMap = map as any;
-      const resp = await anyMap.queryRenderedFeaturesInRect(
-        rect,
-        ['has', 'point_count'],
-        ['cluster-circles']
-      );
-      const features: {
-        geometry: { coordinates: [number, number] };
-        properties: Record<string, unknown>;
-      }[] = resp?.features ?? [];
+      const rect: [[number, number], [number, number]] = queryRect ?? [
+        [0, 0],
+        [2000, 3000],
+      ];
+      const features: GeoJSON.Feature[] = await map.queryRenderedFeatures(rect, {
+        filter: ['has', 'point_count'],
+        layers: ['cluster-circles'],
+      });
       const points = await Promise.all(
         features.map(async (f) => {
-          const [lng, lat] = f.geometry.coordinates;
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const p: [number, number] | undefined = await (map as any).getPointInView?.([lng, lat]);
-          const id = Number(f.properties.cluster_id ?? 0);
-          const count = Number(f.properties.point_count ?? 0);
+          const geom = f.geometry as GeoJSON.Point | undefined;
+          if (!geom || geom.type !== 'Point') return null;
+          const [lng, lat] = geom.coordinates as [number, number];
+          const p = await map.project([lng, lat]);
+          const props = f.properties ?? {};
+          const id = Number((props as Record<string, unknown>).cluster_id ?? 0);
+          const count = Number((props as Record<string, unknown>).point_count ?? 0);
           if (!p) return null;
           return { id, count, x: p[0], y: p[1] } satisfies ClusterPoint;
         })

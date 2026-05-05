@@ -8,7 +8,8 @@
 
 import { useCallback, useRef } from 'react';
 import { Platform, type GestureResponderEvent } from 'react-native';
-import type { Camera, MapViewRef, ShapeSource } from '@maplibre/maplibre-react-native';
+import type { CameraRef, MapRef, GeoJSONSourceRef } from '@maplibre/maplibre-react-native';
+import { toLngLatBounds, toViewPadding } from '@/lib/maps/bounds';
 import type { ActivityBoundsItem, FrequentSection, ActivityType } from '@/types';
 import { planClusterZoom } from '@/lib/maps/clusterZoom';
 import type { SelectedActivity } from './ActivityPopup';
@@ -16,7 +17,7 @@ import type { SelectedRoute } from './types';
 import type { SpiderState } from './useMapHandlers';
 
 interface UseIOSTapHandlerOptions {
-  mapRef: React.RefObject<MapViewRef | null>;
+  mapRef: React.RefObject<MapRef | null>;
   activities: ActivityBoundsItem[];
   sections: FrequentSection[];
   routeGroups: {
@@ -38,8 +39,8 @@ interface UseIOSTapHandlerOptions {
   showRoutes: boolean;
   show3D: boolean;
   handleMarkerTap: (activity: ActivityBoundsItem) => void;
-  clusterSourceRef: React.RefObject<React.ElementRef<typeof ShapeSource> | null>;
-  cameraRef: React.RefObject<React.ElementRef<typeof Camera> | null>;
+  clusterSourceRef: React.RefObject<GeoJSONSourceRef | null>;
+  cameraRef: React.RefObject<CameraRef | null>;
   currentZoomLevel: React.MutableRefObject<number>;
   insetTop: number;
   spider: SpiderState | null;
@@ -129,33 +130,27 @@ export function useIOSTapHandler({
         // Use line hit radius if querying any line layers (sections or routes)
         const hasLineLayer = showSections || showRoutes;
         const hitRadius = hasLineLayer ? lineHitRadius : pointHitRadius;
-        const bbox: [number, number, number, number] = [
-          screenX - hitRadius,
-          screenY - hitRadius,
-          screenX + hitRadius,
-          screenY + hitRadius,
+        const bbox: [[number, number], [number, number]] = [
+          [screenX - hitRadius, screenY - hitRadius],
+          [screenX + hitRadius, screenY + hitRadius],
         ];
 
-        // Try queryRenderedFeaturesAtPoint first (more reliable for single taps on iOS)
-        // Then fall back to queryRenderedFeaturesInRect with expanded bbox
-        let features = await mapRef.current?.queryRenderedFeaturesAtPoint(
-          [screenX, screenY],
-          undefined,
-          layersToQuery
-        );
+        // Try queryRenderedFeatures at point first (more reliable for single taps on iOS)
+        // Then fall back to bbox query
+        let features = await mapRef.current?.queryRenderedFeatures([screenX, screenY], {
+          layers: layersToQuery,
+        });
 
         // If no hit at point, try with expanded bbox
-        if (!features || features.features.length === 0) {
-          features = await mapRef.current?.queryRenderedFeaturesInRect(
-            bbox,
-            undefined,
-            layersToQuery
-          );
+        if (!features || features.length === 0) {
+          features = await mapRef.current?.queryRenderedFeatures(bbox, {
+            layers: layersToQuery,
+          });
         }
 
-        if (features && features.features.length > 0) {
+        if (features && features.length > 0) {
           // Process the first feature found (closest to tap point due to bbox query)
-          const feature = features.features[0];
+          const feature = features[0];
           const featureId = feature.properties?.id;
 
           // Spider marker tap — select the activity and dismiss spider
@@ -183,24 +178,29 @@ export function useIOSTapHandler({
                   ];
                   const pointCount = (feature.properties?.point_count as number | undefined) ?? 0;
                   const limit = Math.max(1, Math.min(pointCount || 100, 100));
-                  const leaves = await clusterSourceRef.current.getClusterLeaves(feature, limit, 0);
+                  const clusterId = feature.properties?.cluster_id as number;
+                  const leaves = await clusterSourceRef.current.getClusterLeaves(
+                    clusterId,
+                    limit,
+                    0
+                  );
 
-                  const plan = planClusterZoom(leaves.features, coords);
+                  const plan = planClusterZoom(leaves, coords);
                   if (plan.kind === 'fitBounds') {
-                    cameraRef.current?.fitBounds(
-                      plan.bounds.ne,
-                      plan.bounds.sw,
-                      [100, 60, 280, 60],
-                      plan.durationMs
-                    );
+                    cameraRef.current?.fitBounds(toLngLatBounds(plan.bounds), {
+                      padding: toViewPadding({
+                        paddingTop: 100,
+                        paddingRight: 60,
+                        paddingBottom: 280,
+                        paddingLeft: 60,
+                      }),
+                      duration: plan.durationMs,
+                    });
                     setTimeout(() => {
-                      cameraRef.current?.setCamera({
-                        animationDuration: 0,
-                        animationMode: 'moveTo',
-                      });
+                      void cameraRef.current?.setStop({ duration: 0 });
                     }, plan.durationMs + 100);
-                  } else if (leaves.features.length > 0) {
-                    setSpider({ center: coords, leaves: leaves.features });
+                  } else if (leaves.length > 0) {
+                    setSpider({ center: coords, leaves });
                   }
                 }
               } catch (e) {

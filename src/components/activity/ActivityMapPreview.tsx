@@ -1,11 +1,11 @@
 import React, { useMemo, useState, useCallback, useEffect, useRef } from 'react';
 import { View, Image, StyleSheet, ActivityIndicator, Platform } from 'react-native';
 import {
-  MapView,
+  Map as MLMap,
   Camera,
-  ShapeSource,
-  LineLayer,
-  MarkerView,
+  GeoJSONSource,
+  Layer,
+  Marker,
 } from '@maplibre/maplibre-react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { getActivityColor, getMapLibreBounds } from '@/lib';
@@ -442,62 +442,63 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
       style={[styles.container, { height }]}
       testID={mapReady ? `activity-map-preview-ready-${activity.id}` : undefined}
     >
-      <MapView
+      <MLMap
         key={`map-preview-${activity.id}-${mapKey}`}
         style={styles.map}
         mapStyle={styleUrl}
-        logoEnabled={false}
-        attributionEnabled={false}
-        compassEnabled={false}
-        scrollEnabled={false}
-        zoomEnabled={false}
-        rotateEnabled={false}
-        pitchEnabled={false}
+        logo={false}
+        attribution={false}
+        compass={false}
+        dragPan={false}
+        touchZoom={false}
+        touchRotate={false}
+        touchPitch={false}
         onDidFinishLoadingMap={handleMapFullyRendered}
         onDidFailLoadingMap={handleMapLoadError}
       >
         <Camera
-          defaultSettings={{
-            bounds: {
-              ne: bounds ? [bounds.ne[0], bounds.ne[1]] : [0, 0],
-              sw: bounds ? [bounds.sw[0], bounds.sw[1]] : [0, 0],
-            },
-            padding: { paddingTop: 50, paddingRight: 30, paddingBottom: 75, paddingLeft: 30 },
-            animationMode: 'moveTo',
-            animationDuration: 0,
+          initialViewState={{
+            bounds: bounds ? [bounds.sw[0], bounds.sw[1], bounds.ne[0], bounds.ne[1]] : [0, 0, 0, 0],
+            padding: { top: 50, right: 30, bottom: 75, left: 30 },
           }}
         />
 
-        {/* Route line - iOS crash fix: always render ShapeSource */}
-        <ShapeSource id="routeSource" shape={routeGeoJSON}>
-          <LineLayer id="routeLineCasing" style={casingStyle} />
-          <LineLayer id="routeLine" style={routeLineStyle} />
-        </ShapeSource>
+        {/* Route line - iOS crash fix: always render GeoJSONSource */}
+        <GeoJSONSource id="routeSource" data={routeGeoJSON}>
+          <Layer type="line" id="routeLineCasing" style={casingStyle} />
+          <Layer type="line" id="routeLine" style={routeLineStyle} />
+        </GeoJSONSource>
 
         {/* PR section highlights in gold */}
         {prSectionGeoJSON && (
-          <ShapeSource id="prSectionSource" shape={prSectionGeoJSON}>
-            <LineLayer id="prSectionLine" style={prLineStyle} />
-          </ShapeSource>
+          <GeoJSONSource id="prSectionSource" data={prSectionGeoJSON}>
+            <Layer type="line" id="prSectionLine" style={prLineStyle} />
+          </GeoJSONSource>
         )}
 
         {/* Start marker */}
-        {/* iOS CRASH FIX: Always render MarkerView to maintain stable child count */}
+        {/* iOS CRASH FIX: Always render Marker to maintain stable child count */}
         {/* Use opacity to hide when point is undefined */}
-        <MarkerView coordinate={startPoint ? [startPoint.longitude, startPoint.latitude] : [0, 0]}>
+        <Marker
+          id="start-marker"
+          lngLat={startPoint ? [startPoint.longitude, startPoint.latitude] : [0, 0]}
+        >
           <View style={[styles.markerContainer, { opacity: startPoint ? 1 : 0 }]}>
             <View style={[styles.marker, styles.startMarker]} />
           </View>
-        </MarkerView>
+        </Marker>
 
         {/* End marker */}
-        {/* iOS CRASH FIX: Always render MarkerView to maintain stable child count */}
-        <MarkerView coordinate={endPoint ? [endPoint.longitude, endPoint.latitude] : [0, 0]}>
+        {/* iOS CRASH FIX: Always render Marker to maintain stable child count */}
+        <Marker
+          id="end-marker"
+          lngLat={endPoint ? [endPoint.longitude, endPoint.latitude] : [0, 0]}
+        >
           <View style={[styles.markerContainer, { opacity: endPoint ? 1 : 0 }]}>
             <View style={[styles.marker, styles.endMarker]} />
           </View>
-        </MarkerView>
-      </MapView>
+        </Marker>
+      </MLMap>
       {/* Loading overlay - shows during stagger period only */}
       {/* mapReady callback is unreliable on Android, so we use deterministic stagger timing */}
       {!showMapContent && (
