@@ -651,39 +651,18 @@ export function RegionalMapView({
           <Camera ref={cameraRef} />
 
           {/* Activity markers — native MapLibre Supercluster clustering.
-              Always mounted (never conditionally rendered) — v11's `useFrozenId`
-              throws "id cannot be changed" if the source unmounts and remounts
-              with the same id, because state is preserved across the mount
-              boundary in some render paths. We toggle data instead: when
-              `showActivities` is false, the source carries an empty
-              FeatureCollection so nothing renders. JSX order = draw order:
-              cluster circles below count labels, unclustered single points
-              appear at high zoom. */}
-          {/* The native `id` flips when activities first arrive so MapLibre
-              creates a brand-new GeoJsonSource with cluster options applied
-              over the populated data. Background: `MLRNSource.addToMap`
-              short-circuits via `style.getSourceAs(mID)` when a source with
-              that id is already attached, reusing it WITHOUT re-running
-              `makeSource()` — so cluster options baked over an empty source
-              never get re-applied when data later arrives via `setData`.
-              React fires NEW.addToMap BEFORE OLD.removeFromMap, so even a
-              `key`-forced remount with the same id hits the existingSource
-              short-circuit. By using a distinct id once features exist, the
-              new mount lands on an unused id, hits the `makeSource()` path,
-              and supercluster runs over the real features. The ref switches
-              to the new source automatically. */}
+              Modelled directly on the canonical v11 Earthquakes example
+              (https://github.com/maplibre/maplibre-react-native/blob/main/examples/shared/src/examples/SymbolCircleLayer/Earthquakes.tsx):
+              stable `id`, no `key`, no conditional mount, no data toggle.
+              Supercluster is configured at the source via `cluster` +
+              `clusterRadius` + `clusterMaxZoom`, and the bridge calls
+              `setGeoJson` whenever `data` updates so the index is rebuilt
+              over the latest features. Layer order matches the example:
+              symbol first, cluster circle below it via `beforeId`,
+              unclustered single circle for individual points. */}
           <GeoJSONSource
-            key={
-              markersGeoJSON.features.length > 0
-                ? 'activity-clusters-data'
-                : 'activity-clusters-empty'
-            }
             ref={clusterSourceRef}
-            id={
-              markersGeoJSON.features.length > 0
-                ? 'activity-clusters-data'
-                : 'activity-clusters-empty'
-            }
+            id="activity-clusters"
             data={showActivities ? markersGeoJSON : EMPTY_FEATURE_COLLECTION}
             cluster
             clusterRadius={50}
@@ -694,12 +673,8 @@ export function RegionalMapView({
             }
             hitbox={{ top: 22, right: 22, bottom: 22, left: 22 }}
           >
-            <Layer
-              type="circle"
-              id="cluster-circles"
-              filter={['has', 'point_count']}
-              paint={CLUSTER_CIRCLE_PAINT}
-            />
+            {/* Cluster count text — declared first; cluster circle uses
+                `beforeId` to insert beneath it so the count reads on top. */}
             <Layer
               type="symbol"
               id="cluster-count"
@@ -709,9 +684,15 @@ export function RegionalMapView({
             />
             <Layer
               type="circle"
+              id="cluster-circles"
+              beforeId="cluster-count"
+              filter={['has', 'point_count']}
+              paint={CLUSTER_CIRCLE_PAINT}
+            />
+            <Layer
+              type="circle"
               id="unclustered-point"
               filter={['!', ['has', 'point_count']]}
-              minzoom={10}
               paint={unclusteredPointPaint}
             />
           </GeoJSONSource>
