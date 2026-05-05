@@ -659,21 +659,31 @@ export function RegionalMapView({
               FeatureCollection so nothing renders. JSX order = draw order:
               cluster circles below count labels, unclustered single points
               appear at high zoom. */}
-          {/* `key` flips once activities first arrive so the native source is
-              re-created WITH features. Background: v11's MLRNGeoJSONSource bakes
-              cluster options at source-creation time (`makeSource()`); a source
-              born empty followed by `setData(...)` works in theory but has
-              proved unreliable on Android — the tile cache doesn't always
-              re-index. By tying the source key to `hasMarkers`, the first
-              transition from empty → populated unmounts the empty source and
-              mounts a fresh one with the real data, so MapLibre Native sees a
-              clusterable input from the very first `makeSource` call.
-              `useFrozenId` is happy because the new mount is a fresh component
-              instance. */}
+          {/* The native `id` flips when activities first arrive so MapLibre
+              creates a brand-new GeoJsonSource with cluster options applied
+              over the populated data. Background: `MLRNSource.addToMap`
+              short-circuits via `style.getSourceAs(mID)` when a source with
+              that id is already attached, reusing it WITHOUT re-running
+              `makeSource()` — so cluster options baked over an empty source
+              never get re-applied when data later arrives via `setData`.
+              React fires NEW.addToMap BEFORE OLD.removeFromMap, so even a
+              `key`-forced remount with the same id hits the existingSource
+              short-circuit. By using a distinct id once features exist, the
+              new mount lands on an unused id, hits the `makeSource()` path,
+              and supercluster runs over the real features. The ref switches
+              to the new source automatically. */}
           <GeoJSONSource
-            key={markersGeoJSON.features.length > 0 ? 'with-data' : 'empty'}
+            key={
+              markersGeoJSON.features.length > 0
+                ? 'activity-clusters-data'
+                : 'activity-clusters-empty'
+            }
             ref={clusterSourceRef}
-            id="activity-clusters"
+            id={
+              markersGeoJSON.features.length > 0
+                ? 'activity-clusters-data'
+                : 'activity-clusters-empty'
+            }
             data={showActivities ? markersGeoJSON : EMPTY_FEATURE_COLLECTION}
             cluster
             clusterRadius={50}
