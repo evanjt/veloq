@@ -669,21 +669,38 @@ export function RegionalMapView({
           <GeoJSONSource
             ref={clusterSourceRef}
             id="activity-clusters"
-            data={markersGeoJSON}
+            data={showActivities ? markersGeoJSON : EMPTY_FEATURE_COLLECTION}
             cluster={true}
             clusterRadius={50}
             clusterMaxZoom={14}
+            clusterMinPoints={2}
+            onPress={
+              Platform.OS === 'android' && showActivities ? handleClusterOrMarkerPress : undefined
+            }
+            hitbox={{ top: 22, right: 22, bottom: 22, left: 22 }}
           >
+            {/* Unclustered single points (no point_count) — rendered first
+                so cluster circles draw on top via JSX order. */}
             <Layer
               type="circle"
-              id="cluster-debug-all"
-              paint={{
-                'circle-color': '#FF00FF',
-                'circle-radius': 18,
-                'circle-opacity': 0.9,
-                'circle-stroke-width': 3,
-                'circle-stroke-color': '#000000',
-              }}
+              id="unclustered-point"
+              filter={['!', ['has', 'point_count']]}
+              paint={unclusteredPointPaint}
+            />
+            {/* Cluster circles — only features with point_count */}
+            <Layer
+              type="circle"
+              id="cluster-circles"
+              filter={['has', 'point_count']}
+              paint={CLUSTER_CIRCLE_PAINT}
+            />
+            {/* Cluster count text on top of the circles */}
+            <Layer
+              type="symbol"
+              id="cluster-count"
+              filter={['has', 'point_count']}
+              layout={CLUSTER_COUNT_LAYOUT}
+              paint={CLUSTER_COUNT_PAINT}
             />
           </GeoJSONSource>
 
