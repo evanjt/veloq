@@ -679,48 +679,22 @@ export function RegionalMapView({
             }
             hitbox={{ top: 22, right: 22, bottom: 22, left: 22 }}
           >
-            {/* DIAGNOSTIC LAYER A: NO filter, BLUE — should show every
-                feature in the source (clusters AND raw points). */}
+            {/* DIAGNOSTIC: same single no-filter magenta layer as Test 2
+                that worked. ALL the source-level props that were added
+                later (showActivities data toggle, onPress, hitbox,
+                clusterMinPoints) are still here. If clusters render now,
+                multi-layer was the bug. If not, one of those source
+                props is the bug. */}
             <Layer
               type="circle"
               id="cluster-debug-all"
               paint={{
-                'circle-color': '#0066FF',
-                'circle-radius': 22,
-                'circle-opacity': 0.6,
-              }}
-            />
-            {/* DIAGNOSTIC LAYER B: filter `['has', 'point_count']`, MAGENTA
-                — should show ONLY supercluster-aggregated features. */}
-            <Layer
-              type="circle"
-              id="cluster-circles"
-              filter={['has', 'point_count']}
-              paint={{
                 'circle-color': '#FF00FF',
-                'circle-radius': 14,
-                'circle-opacity': 1,
+                'circle-radius': 18,
+                'circle-opacity': 0.9,
+                'circle-stroke-width': 3,
+                'circle-stroke-color': '#000000',
               }}
-            />
-            {/* DIAGNOSTIC LAYER C: filter `['!', ['has', 'point_count']]`,
-                LIME — should show ONLY raw individual points. */}
-            <Layer
-              type="circle"
-              id="unclustered-point"
-              filter={['!', ['has', 'point_count']]}
-              paint={{
-                'circle-color': '#00FF00',
-                'circle-radius': 8,
-                'circle-opacity': 1,
-              }}
-            />
-            {/* Cluster count text on top of the circles */}
-            <Layer
-              type="symbol"
-              id="cluster-count"
-              filter={['has', 'point_count']}
-              layout={CLUSTER_COUNT_LAYOUT}
-              paint={CLUSTER_COUNT_PAINT}
             />
           </GeoJSONSource>
 
