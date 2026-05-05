@@ -409,15 +409,17 @@ export default function RouteDetailScreen() {
     let revBestSpeed: number | undefined;
 
     for (const p of chartData) {
+      const time = Math.round(p.sectionTime ?? 0);
+      if (time <= 0) continue;
       if (p.direction === 'reverse') {
-        if (revBestSpeed === undefined || p.speed > revBestSpeed) {
+        if (revBestTime === undefined || time < revBestTime) {
+          revBestTime = time;
           revBestSpeed = p.speed;
-          revBestTime = p.sectionTime;
         }
       } else {
-        if (fwdBestSpeed === undefined || p.speed > fwdBestSpeed) {
+        if (fwdBestTime === undefined || time < fwdBestTime) {
+          fwdBestTime = time;
           fwdBestSpeed = p.speed;
-          fwdBestTime = p.sectionTime;
         }
       }
     }
@@ -426,13 +428,14 @@ export default function RouteDetailScreen() {
       const isReverse = p.direction === 'reverse';
       const dirBestTime = isReverse ? revBestTime : fwdBestTime;
       const dirBestSpeed = isReverse ? revBestSpeed : fwdBestSpeed;
-      const isBest = dirBestSpeed !== undefined && p.speed === dirBestSpeed;
+      const time = Math.round(p.sectionTime ?? 0);
+      const isBest = dirBestTime !== undefined && time > 0 && time === dirBestTime;
       return {
         ...p,
         bestTime: dirBestTime,
         bestSpeed: dirBestSpeed,
         isBest,
-        sectionTime: Math.round(p.sectionTime ?? 0) || undefined,
+        sectionTime: time || undefined,
       };
     });
   }, [chartData]);

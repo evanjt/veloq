@@ -224,7 +224,7 @@ export function useRoutePerformances(
         date: fromUnixSeconds(m.date) ?? new Date(),
         name: m.name,
         speed,
-        duration: m.elapsedTime,
+        duration: m.movingTime,
         movingTime: m.movingTime,
         distance: m.distance || 0,
         elevationGain: m.elevationGain || 0,
@@ -239,17 +239,23 @@ export function useRoutePerformances(
     // Sort by date (oldest first for charting)
     points.sort((a, b) => safeGetTime(a.date) - safeGetTime(b.date));
 
-    // Find best (fastest speed) - overall
+    // Find best (shortest time) - overall
+    const validPoints = points.filter((p) => p.duration > 0);
     const bestPoint =
-      points.length > 0
-        ? points.reduce((best, p) => (p.speed > best.speed ? p : best), points[0])
+      validPoints.length > 0
+        ? validPoints.reduce((best, p) => (p.duration < best.duration ? p : best), validPoints[0])
         : null;
 
     // Find best forward (direction is "same" or "forward")
-    const forwardPoints = points.filter((p) => p.direction === 'same' || p.direction === 'partial');
+    const forwardPoints = points.filter(
+      (p) => (p.direction === 'same' || p.direction === 'partial') && p.duration > 0
+    );
     const bestForwardPoint =
       forwardPoints.length > 0
-        ? forwardPoints.reduce((best, p) => (p.speed > best.speed ? p : best), forwardPoints[0])
+        ? forwardPoints.reduce(
+            (best, p) => (p.duration < best.duration ? p : best),
+            forwardPoints[0]
+          )
         : null;
     const bestForward: DirectionBestRecord | null = bestForwardPoint
       ? {
@@ -260,10 +266,13 @@ export function useRoutePerformances(
       : null;
 
     // Find best reverse
-    const reversePoints = points.filter((p) => p.direction === 'reverse');
+    const reversePoints = points.filter((p) => p.direction === 'reverse' && p.duration > 0);
     const bestReversePoint =
       reversePoints.length > 0
-        ? reversePoints.reduce((best, p) => (p.speed > best.speed ? p : best), reversePoints[0])
+        ? reversePoints.reduce(
+            (best, p) => (p.duration < best.duration ? p : best),
+            reversePoints[0]
+          )
         : null;
     const bestReverse: DirectionBestRecord | null = bestReversePoint
       ? {

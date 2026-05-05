@@ -802,21 +802,45 @@ impl PersistentRouteEngine {
             }
         }
 
-        // Per-group: compute best time + per-activity trend from activity_metrics.
-        // Cache: (best_speed, best_moving_time_secs, per-activity (trend, speed, moving_time_secs))
-        let mut group_cache: HashMap<&str, (f64, u32, HashMap<&str, (i8, f64, u32)>)> =
+        // Direction lookup: group_id -> activity_id -> is_forward_like
+        let mut dir_lookup: HashMap<&str, HashMap<&str, bool>> = HashMap::new();
+        for group in &self.groups {
+            let gid = group.group_id.as_str();
+            if let Some(matches) = self.activity_matches.get(gid) {
+                let map: HashMap<&str, bool> = matches
+                    .iter()
+                    .map(|m| (m.activity_id.as_str(), m.direction.is_forward_like()))
+                    .collect();
+                dir_lookup.insert(gid, map);
+            }
+        }
+
+        // Cache keyed by (group_id, is_forward_like): (best_moving_time, per-activity data)
+        let mut group_cache: HashMap<(&str, bool), (u32, HashMap<&str, (i8, f64, u32)>)> =
             HashMap::new();
         let mut results = Vec::new();
 
         for (&aid, group) in &activity_to_group {
             let gid = group.group_id.as_str();
+            let this_is_forward = dir_lookup
+                .get(gid)
+                .and_then(|m| m.get(aid).copied())
+                .unwrap_or(true);
 
-            if !group_cache.contains_key(gid) {
-                // Use speed (m/s) = distance / moving_time — matches route detail page ranking
+            let cache_key = (gid, this_is_forward);
+
+            if !group_cache.contains_key(&cache_key) {
+                let dir_map = dir_lookup.get(gid);
                 let mut members: Vec<(&str, f64, u32, i64)> = group
                     .activity_ids
                     .iter()
                     .filter_map(|id| {
+                        let is_fwd = dir_map
+                            .and_then(|m| m.get(id.as_str()).copied())
+                            .unwrap_or(true);
+                        if is_fwd != this_is_forward {
+                            return None;
+                        }
                         let m = self.activity_metrics.get(id)?;
                         if m.moving_time > 0 && m.distance > 0.0 {
                             let speed = m.distance / m.moving_time as f64;
@@ -828,54 +852,47 @@ impl PersistentRouteEngine {
                     .collect();
                 members.sort_by_key(|m| m.3);
 
-                // Skip singleton routes — need at least 2 attempts for meaningful trends/PRs
-                if members.len() < 2 {
-                    group_cache.insert(gid, (0.0f64, 0u32, HashMap::new()));
+                if members.is_empty() {
+                    group_cache.insert(cache_key, (0u32, HashMap::new()));
                 } else {
-                    // Best = highest speed (fastest), track its moving_time for delta math
-                    let mut best_speed = 0.0f64;
-                    let mut best_moving_time: u32 = 0;
+                    let mut best_moving_time: u32 = u32::MAX;
                     let mut trends: HashMap<&str, (i8, f64, u32)> = HashMap::new();
                     let mut sum = 0.0f64;
                     let mut n = 0u32;
 
                     for (mid, speed, moving_time, _) in &members {
-                        // Trend: higher speed = improving (reversed from time)
                         let trend = if n == 0 {
                             0i8
                         } else {
                             let avg = sum / n as f64;
                             if *speed > avg * 1.01 {
                                 1
-                            }
-                            // >1% faster speed
-                            else if *speed < avg * 0.99 {
+                            } else if *speed < avg * 0.99 {
                                 -1
-                            }
-                            // >1% slower speed
-                            else {
+                            } else {
                                 0
                             }
                         };
                         trends.insert(mid, (trend, *speed, *moving_time));
                         sum += speed;
                         n += 1;
-                        if *speed > best_speed {
-                            best_speed = *speed;
+                        if *moving_time < best_moving_time {
                             best_moving_time = *moving_time;
                         }
                     }
 
-                    group_cache.insert(gid, (best_speed, best_moving_time, trends));
+                    if best_moving_time == u32::MAX {
+                        best_moving_time = 0;
+                    }
+                    group_cache.insert(cache_key, (best_moving_time, trends));
                 }
             }
 
-            if let Some((best_speed, best_moving_time, trends)) = group_cache.get(gid) {
-                let (trend, speed, moving_time) =
+            if let Some((best_moving_time, trends)) = group_cache.get(&cache_key) {
+                let (trend, _speed, moving_time) =
                     trends.get(aid).copied().unwrap_or((0, 0.0, 0));
-                // PR = highest speed (within 0.5% tolerance for float comparison)
                 let is_pr =
-                    speed > 0.0 && *best_speed > 0.0 && (speed - best_speed).abs() / best_speed < 0.005;
+                    moving_time > 0 && *best_moving_time > 0 && moving_time == *best_moving_time;
                 let time_delta_seconds = if moving_time > 0 && *best_moving_time > 0 {
                     Some(moving_time as i32 - *best_moving_time as i32)
                 } else {

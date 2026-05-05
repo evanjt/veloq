@@ -460,9 +460,9 @@ export const ActivityCard = React.memo(
                   </RNText>
                 </View>
                 {routeHighlight &&
-                  (routeHighlight.trend !== 0 ||
-                    routeHighlight.isPr ||
-                    routeHighlight.timeDeltaSeconds != null) && (
+                  (routeHighlight.isPr ||
+                    (routeHighlight.timeDeltaSeconds != null &&
+                      routeHighlight.timeDeltaSeconds > 0)) && (
                     <Pressable
                       testID={`activity-card-${activity.id}-route-chip`}
                       onPress={() => router.push(`/activity/${activity.id}?tab=routes`)}
@@ -471,38 +471,18 @@ export const ActivityCard = React.memo(
                         styles.routeTrendBadge,
                         routeHighlight.isPr
                           ? styles.routeTrendBadgePr
-                          : routeHighlight.trend === 1
-                            ? styles.routeTrendBadgeUp
-                            : routeHighlight.trend === -1
-                              ? styles.routeTrendBadgeDown
-                              : styles.routeTrendBadgeNeutral,
+                          : styles.routeTrendBadgeDelta,
                       ]}
                     >
                       {routeHighlight.isPr ? (
                         <MaterialCommunityIcons name="trophy" size={14} color="#18181B" />
                       ) : (
-                        <>
-                          <MaterialCommunityIcons
-                            name={
-                              routeHighlight.trend === 1
-                                ? 'trending-up'
-                                : routeHighlight.trend === -1
-                                  ? 'trending-down'
-                                  : 'trending-neutral'
-                            }
-                            size={16}
-                            color="#FFFFFF"
-                          />
-                          {routeHighlight.timeDeltaSeconds != null && (
-                            <RNText style={styles.routeTrendBadgeText}>
-                              {routeHighlight.timeDeltaSeconds === 0
-                                ? '0s'
-                                : `${routeHighlight.timeDeltaSeconds > 0 ? '+' : '−'}${Math.abs(
-                                    routeHighlight.timeDeltaSeconds
-                                  )}s`}
-                            </RNText>
-                          )}
-                        </>
+                        <RNText style={styles.routeTrendBadgeText}>
+                          PR+
+                          {routeHighlight.timeDeltaSeconds! >= 60
+                            ? `${Math.floor(routeHighlight.timeDeltaSeconds! / 60)}:${String(routeHighlight.timeDeltaSeconds! % 60).padStart(2, '0')}`
+                            : `${routeHighlight.timeDeltaSeconds}s`}
+                        </RNText>
                       )}
                     </Pressable>
                   )}
@@ -752,18 +732,10 @@ const styles = StyleSheet.create({
   routeTrendBadgePr: {
     backgroundColor: '#D4AF37',
   },
-  routeTrendBadgeUp: {
-    backgroundColor: '#22C55E',
-  },
-  routeTrendBadgeDown: {
-    backgroundColor: '#A1A1AA',
+  routeTrendBadgeDelta: {
+    backgroundColor: 'rgba(0,0,0,0.55)',
     borderWidth: 1,
-    borderColor: '#71717A',
-  },
-  routeTrendBadgeNeutral: {
-    backgroundColor: '#A1A1AA',
-    borderWidth: 1,
-    borderColor: '#71717A',
+    borderColor: 'rgba(255,255,255,0.2)',
   },
   routeTrendBadgeText: {
     color: '#FFFFFF',

@@ -252,10 +252,11 @@ export default function ActivityDetailScreen() {
         if (routeHighlight.isPr) {
           routeBadge.badgeText = 'PR';
           routeBadge.badgeTone = 'pr';
-        } else if (routeHighlight.timeDeltaSeconds != null) {
+        } else if (routeHighlight.timeDeltaSeconds != null && routeHighlight.timeDeltaSeconds > 0) {
           const d = routeHighlight.timeDeltaSeconds;
-          routeBadge.badgeText = d === 0 ? '0s' : `${d > 0 ? '+' : '−'}${Math.abs(d)}s`;
-          routeBadge.badgeTone = d === 0 ? 'neutral' : d < 0 ? 'positive' : 'negative';
+          routeBadge.badgeText =
+            d >= 60 ? `PR+${Math.floor(d / 60)}:${String(d % 60).padStart(2, '0')}` : `PR+${d}s`;
+          routeBadge.badgeTone = 'negative';
         }
       }
       allTabs.push(

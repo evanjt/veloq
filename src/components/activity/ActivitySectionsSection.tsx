@@ -400,7 +400,7 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
 
   // FlatList key extractor
   const keyExtractor = useCallback(
-    (item: SectionEncounter) => `${item.sectionId}-${item.direction}`,
+    (item: SectionEncounter, index: number) => `${item.sectionId}-${item.direction}-${index}`,
     []
   );
 
