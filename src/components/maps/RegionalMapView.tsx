@@ -660,32 +660,11 @@ export function RegionalMapView({
               over the latest features. Layer order matches the example:
               symbol first, cluster circle below it via `beforeId`,
               unclustered single circle for individual points. */}
-          <GeoJSONSource
-            ref={clusterSourceRef}
-            id="activity-clusters"
-            data={showActivities ? markersGeoJSON : EMPTY_FEATURE_COLLECTION}
-            cluster
-            clusterRadius={50}
-            clusterMaxZoom={14}
-            clusterMinPoints={2}
-            onPress={
-              Platform.OS === 'android' && showActivities ? handleClusterOrMarkerPress : undefined
-            }
-            hitbox={{ top: 22, right: 22, bottom: 22, left: 22 }}
-          >
-            {/* Unclustered single points — declared first so cluster layers
-                draw on top via JSX order (no beforeId needed). */}
-            <Layer
-              type="circle"
-              id="unclustered-point"
-              filter={['!', ['has', 'point_count']]}
-              paint={unclusteredPointPaint}
-            />
-            {/* DEBUG: bright magenta no-filter no-beforeId so we know if it
-                renders at all. If we see magenta circles in addition to the
-                pale unclustered points, layer registration is fine and the
-                cluster-circles paint is what's failing. If we see no magenta
-                at all, it's a layer-add-order bug. */}
+          {/* DIAGNOSTIC: clustering DISABLED. If we see 249 bright magenta
+              circles across Switzerland, the source pipeline works and
+              clustering itself is the broken thing. If we see nothing, the
+              source isn't reaching the style at all. */}
+          <GeoJSONSource ref={clusterSourceRef} id="activity-clusters" data={markersGeoJSON}>
             <Layer
               type="circle"
               id="cluster-debug-all"
@@ -696,19 +675,6 @@ export function RegionalMapView({
                 'circle-stroke-width': 3,
                 'circle-stroke-color': '#000000',
               }}
-            />
-            <Layer
-              type="circle"
-              id="cluster-circles"
-              filter={['has', 'point_count']}
-              paint={CLUSTER_CIRCLE_PAINT}
-            />
-            <Layer
-              type="symbol"
-              id="cluster-count"
-              filter={['has', 'point_count']}
-              layout={CLUSTER_COUNT_LAYOUT}
-              paint={CLUSTER_COUNT_PAINT}
             />
           </GeoJSONSource>
 
