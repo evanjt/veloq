@@ -407,7 +407,7 @@ export function RegionalMapView({
   // [DEBUG: cluster diagnostics]
   if (__DEV__) {
     console.log(
-      `[ClusterDebug] showActivities=${showActivities} markersGeoJSON.features=${markersGeoJSON.features.length}`
+      `[ClusterDebug] showActivities=${showActivities} features=${markersGeoJSON.features.length} sourceKey=${markersGeoJSON.features.length > 0 ? 'with-data' : 'empty'}`
     );
   }
 
@@ -659,13 +659,26 @@ export function RegionalMapView({
               FeatureCollection so nothing renders. JSX order = draw order:
               cluster circles below count labels, unclustered single points
               appear at high zoom. */}
+          {/* `key` flips once activities first arrive so the native source is
+              re-created WITH features. Background: v11's MLRNGeoJSONSource bakes
+              cluster options at source-creation time (`makeSource()`); a source
+              born empty followed by `setData(...)` works in theory but has
+              proved unreliable on Android — the tile cache doesn't always
+              re-index. By tying the source key to `hasMarkers`, the first
+              transition from empty → populated unmounts the empty source and
+              mounts a fresh one with the real data, so MapLibre Native sees a
+              clusterable input from the very first `makeSource` call.
+              `useFrozenId` is happy because the new mount is a fresh component
+              instance. */}
           <GeoJSONSource
+            key={markersGeoJSON.features.length > 0 ? 'with-data' : 'empty'}
             ref={clusterSourceRef}
             id="activity-clusters"
             data={showActivities ? markersGeoJSON : EMPTY_FEATURE_COLLECTION}
             cluster
             clusterRadius={50}
             clusterMaxZoom={14}
+            clusterMinPoints={2}
             onPress={
               Platform.OS === 'android' && showActivities ? handleClusterOrMarkerPress : undefined
             }
