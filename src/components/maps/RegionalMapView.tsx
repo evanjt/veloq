@@ -702,7 +702,7 @@ export function RegionalMapView({
                 'circle-opacity': 1,
               }}
             />
-            {/* Layer 3 (added now): cyan cluster circles, ['has','point_count'] filter */}
+            {/* Layer 3: cyan cluster circles, ['has','point_count'] filter */}
             <Layer
               type="circle"
               id="cluster-circles"
@@ -711,6 +711,26 @@ export function RegionalMapView({
                 'circle-color': '#00FFFF',
                 'circle-radius': 12,
                 'circle-opacity': 1,
+              }}
+            />
+            {/* Layer 4 (added now): count text symbol — anchored to cluster
+                centre with overlap allowed so it renders without label-
+                collision delays. */}
+            <Layer
+              type="symbol"
+              id="cluster-count"
+              filter={['has', 'point_count']}
+              layout={{
+                'text-field': ['get', 'point_count_abbreviated'],
+                'text-font': ['Noto Sans Regular'],
+                'text-size': 14,
+                'text-anchor': 'center',
+                'text-justify': 'center',
+                'text-allow-overlap': true,
+                'text-ignore-placement': true,
+              }}
+              paint={{
+                'text-color': '#000000',
               }}
             />
           </GeoJSONSource>
