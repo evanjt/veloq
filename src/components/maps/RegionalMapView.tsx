@@ -687,12 +687,22 @@ export function RegionalMapView({
               filter={['!', ['has', 'point_count']]}
               paint={unclusteredPointPaint}
             />
-            {/* Cluster circles — only features with point_count */}
+            {/* DIAGNOSTIC: cluster circles with the SAME magenta paint that
+                worked unfiltered. If clusters now render in magenta, our
+                filter is fine and CLUSTER_CIRCLE_PAINT itself is what's
+                broken. If still no clusters, the filter `['has',
+                'point_count']` is being mis-evaluated in v11. */}
             <Layer
               type="circle"
               id="cluster-circles"
               filter={['has', 'point_count']}
-              paint={CLUSTER_CIRCLE_PAINT}
+              paint={{
+                'circle-color': '#FF00FF',
+                'circle-radius': 18,
+                'circle-opacity': 0.9,
+                'circle-stroke-width': 3,
+                'circle-stroke-color': '#000000',
+              }}
             />
             {/* Cluster count text on top of the circles */}
             <Layer
