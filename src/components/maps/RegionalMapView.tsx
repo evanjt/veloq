@@ -679,7 +679,7 @@ export function RegionalMapView({
             }
             hitbox={{ top: 22, right: 22, bottom: 22, left: 22 }}
           >
-            {/* Layer 1 (working baseline): no-filter magenta */}
+            {/* Layer 1: no-filter magenta */}
             <Layer
               type="circle"
               id="cluster-debug-all"
@@ -691,7 +691,7 @@ export function RegionalMapView({
                 'circle-stroke-color': '#000000',
               }}
             />
-            {/* Layer 2 (added now): lime unclustered with negation filter */}
+            {/* Layer 2: lime unclustered, negation filter */}
             <Layer
               type="circle"
               id="unclustered-point"
@@ -699,6 +699,17 @@ export function RegionalMapView({
               paint={{
                 'circle-color': '#00FF00',
                 'circle-radius': 6,
+                'circle-opacity': 1,
+              }}
+            />
+            {/* Layer 3 (added now): cyan cluster circles, ['has','point_count'] filter */}
+            <Layer
+              type="circle"
+              id="cluster-circles"
+              filter={['has', 'point_count']}
+              paint={{
+                'circle-color': '#00FFFF',
+                'circle-radius': 12,
                 'circle-opacity': 1,
               }}
             />
