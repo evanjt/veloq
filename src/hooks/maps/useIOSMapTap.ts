@@ -11,7 +11,7 @@
  */
 
 import { useCallback, useRef } from 'react';
-import type { MapView } from '@maplibre/maplibre-react-native';
+import type { MapRef } from '@maplibre/maplibre-react-native';
 
 /** Maximum tap duration in ms before treated as a drag/hold. */
 const TAP_MAX_DURATION_MS = 300;
@@ -19,8 +19,8 @@ const TAP_MAX_DURATION_MS = 300;
 const TAP_MAX_MOVE_PX = 10;
 
 interface UseIOSMapTapParams {
-  /** Ref to the MapLibre MapView, used to convert screen → map coordinates. */
-  mapRef: React.RefObject<React.ElementRef<typeof MapView> | null>;
+  /** Ref to the MapLibre Map, used to convert screen → map coordinates. */
+  mapRef: React.RefObject<MapRef | null>;
   /** Called with a synthesised Point feature when the user taps the map. */
   onMapPress: (feature: GeoJSON.Feature) => void;
 }
@@ -47,7 +47,7 @@ export function useIOSMapTap({ mapRef, onMapPress }: UseIOSMapTapParams): UseIOS
       if (!mapRef.current) return;
 
       try {
-        const coords = await mapRef.current.getCoordinateFromView([screenX, screenY]);
+        const coords = await mapRef.current.unproject([screenX, screenY]);
         if (!coords || coords.length < 2) return;
 
         const feature: GeoJSON.Feature = {

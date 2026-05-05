@@ -1,6 +1,6 @@
 import React, { memo } from 'react';
 import { View, StyleSheet, TouchableOpacity, Text } from 'react-native';
-import { MapView, Camera } from '@maplibre/maplibre-react-native';
+import { Map as MLMap, Camera } from '@maplibre/maplibre-react-native';
 import { useTheme } from '@/hooks';
 import { useTranslation } from 'react-i18next';
 import { colors, darkColors, spacing } from '@/theme';
@@ -51,24 +51,24 @@ function MapStylePreviewPickerComponent({ value, onValueChange }: MapStylePrevie
               ]}
             >
               <View style={styles.mapCircle}>
-                <MapView
+                <MLMap
                   style={styles.mapView}
                   mapStyle={mapStyleValue}
-                  logoEnabled={false}
-                  attributionEnabled={false}
-                  compassEnabled={false}
-                  scrollEnabled={false}
-                  pitchEnabled={false}
-                  rotateEnabled={false}
-                  zoomEnabled={false}
+                  logo={false}
+                  attribution={false}
+                  compass={false}
+                  dragPan={false}
+                  touchPitch={false}
+                  touchRotate={false}
+                  touchZoom={false}
                 >
                   <Camera
-                    defaultSettings={{
-                      centerCoordinate: BERN_CENTER,
-                      zoomLevel: PREVIEW_ZOOM,
+                    initialViewState={{
+                      center: BERN_CENTER,
+                      zoom: PREVIEW_ZOOM,
                     }}
                   />
-                </MapView>
+                </MLMap>
               </View>
             </View>
             <Text

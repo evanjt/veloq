@@ -16,8 +16,16 @@
  */
 
 import { useMemo, useRef, useEffect, useState, useCallback } from 'react';
-import type { Camera } from '@maplibre/maplibre-react-native';
+import type { CameraRef } from '@maplibre/maplibre-react-native';
 import { normalizeBounds, getBoundsCenter } from '@/lib';
+import { toLngLatBounds, toViewPadding } from '@/lib/maps/bounds';
+
+const FIT_BOUNDS_PADDING = toViewPadding({
+  paddingTop: 100,
+  paddingRight: 60,
+  paddingBottom: 280,
+  paddingLeft: 60,
+});
 import type { ActivityBoundsItem } from '@/types';
 import type { RouteSignature } from '@/hooks/routes';
 
@@ -26,7 +34,7 @@ interface UseMapCameraOptions {
   routeSignatures: Record<string, RouteSignature>;
   /** Incremented on iOS retry — resets camera state so initial position is reapplied */
   mapKey: number;
-  cameraRef: React.RefObject<React.ElementRef<typeof Camera> | null>;
+  cameraRef: React.RefObject<CameraRef | null>;
 }
 
 interface UseMapCameraResult {
@@ -260,36 +268,26 @@ export function useMapCamera({
 
       if (data.worldSpanning) {
         // Multi-continent data: jump instantly to the most recent activity's area.
-        // fitBounds on world-spanning data produces an ocean view, so use setCamera.
-        cameraRef.current?.setCamera({
-          centerCoordinate: data.center,
-          zoomLevel: data.recentZoom,
-          animationDuration: 0,
-          animationMode: 'moveTo',
+        // fitBounds on world-spanning data produces an ocean view, so use setStop.
+        void cameraRef.current?.setStop({
+          center: data.center,
+          zoom: data.recentZoom,
+          duration: 0,
         });
         setTimeout(() => {
-          cameraRef.current?.setCamera({
-            animationDuration: 0,
-            animationMode: 'moveTo',
-          });
+          void cameraRef.current?.setStop({ duration: 0 });
           programmaticMoveRef.current = false;
         }, 100);
       } else {
         // Compact area: fitBounds to show all activities with proper padding.
-        // Padding: [top, right, bottom, left] in pixels — bottom accounts for timeline slider.
-        cameraRef.current?.fitBounds(
-          data.targetBounds.ne,
-          data.targetBounds.sw,
-          [100, 60, 280, 60],
-          500
-        );
+        cameraRef.current?.fitBounds(toLngLatBounds(data.targetBounds), {
+          padding: FIT_BOUNDS_PADDING,
+          duration: 500,
+        });
         // Release MapLibre tracking state after animation completes — without this,
         // the camera snaps back to the bounds after any user gesture.
         setTimeout(() => {
-          cameraRef.current?.setCamera({
-            animationDuration: 0,
-            animationMode: 'moveTo',
-          });
+          void cameraRef.current?.setStop({ duration: 0 });
           programmaticMoveRef.current = false;
         }, 600);
       }

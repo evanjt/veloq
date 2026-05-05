@@ -1,13 +1,8 @@
 import React, { useMemo } from 'react';
 import { View, StyleSheet } from 'react-native';
 import type { ViewStyle } from 'react-native';
-import {
-  MapView,
-  Camera,
-  ShapeSource,
-  LineLayer,
-  CircleLayer,
-} from '@maplibre/maplibre-react-native';
+import { Map as MLMap, Camera, GeoJSONSource, Layer } from '@maplibre/maplibre-react-native';
+import { toLngLatBounds, toViewPadding } from '@/lib/maps/bounds';
 import { useMapPreferences } from '@/providers';
 import { getMapStyle } from '@/components/maps/mapStyles';
 import { darkColors, brand } from '@/theme';
@@ -142,32 +137,32 @@ function RecordingMapInner({
     };
   }, [fitBounds, validCoords]);
 
+  const v11Bounds = bounds
+    ? {
+        bounds: toLngLatBounds({ ne: bounds.ne, sw: bounds.sw }),
+        padding: toViewPadding(bounds),
+      }
+    : null;
+
   return (
     <View style={[styles.container, style]}>
-      <MapView
-        style={styles.map}
-        mapStyle={mapStyleValue}
-        logoEnabled={false}
-        attributionEnabled={false}
-        compassEnabled={false}
-      >
-        {fitBounds && bounds ? (
-          <Camera defaultSettings={{ bounds }} bounds={bounds} animationDuration={0} />
+      <MLMap style={styles.map} mapStyle={mapStyleValue} logo={false} attribution={false} compass={false}>
+        {fitBounds && v11Bounds ? (
+          <Camera initialViewState={v11Bounds} bounds={v11Bounds.bounds} duration={0} />
         ) : (
           <Camera
-            defaultSettings={
-              cameraCenter ? { centerCoordinate: cameraCenter, zoomLevel: 15 } : undefined
-            }
-            centerCoordinate={cameraCenter}
-            zoomLevel={15}
-            animationDuration={500}
+            initialViewState={cameraCenter ? { center: cameraCenter, zoom: 15 } : undefined}
+            center={cameraCenter}
+            zoom={15}
+            duration={500}
           />
         )}
 
         {/* Excluded route portions (grey, behind active) */}
         {hasTrim && (
-          <ShapeSource id="excludedRoute" shape={excludedRouteGeoJSON}>
-            <LineLayer
+          <GeoJSONSource id="excludedRoute" data={excludedRouteGeoJSON}>
+            <Layer
+              type="line"
               id="excludedRouteLine"
               style={{
                 lineColor: EXCLUDED_COLOR,
@@ -176,12 +171,13 @@ function RecordingMapInner({
                 lineJoin: 'round',
               }}
             />
-          </ShapeSource>
+          </GeoJSONSource>
         )}
 
         {/* Active route trace */}
-        <ShapeSource id="recordingRoute" shape={activeRouteGeoJSON}>
-          <LineLayer
+        <GeoJSONSource id="recordingRoute" data={activeRouteGeoJSON}>
+          <Layer
+            type="line"
             id="recordingRouteCasing"
             style={{
               lineColor: POSITION_DOT_HALO,
@@ -191,7 +187,8 @@ function RecordingMapInner({
               lineJoin: 'round',
             }}
           />
-          <LineLayer
+          <Layer
+            type="line"
             id="recordingRouteLine"
             style={{
               lineColor: BRAND_COLOR,
@@ -200,12 +197,13 @@ function RecordingMapInner({
               lineJoin: 'round',
             }}
           />
-        </ShapeSource>
+        </GeoJSONSource>
 
         {/* Current position dot */}
         {positionGeoJSON && (
-          <ShapeSource id="currentPosition" shape={positionGeoJSON}>
-            <CircleLayer
+          <GeoJSONSource id="currentPosition" data={positionGeoJSON}>
+            <Layer
+              type="circle"
               id="currentPositionHalo"
               style={{
                 circleRadius: 10,
@@ -213,7 +211,8 @@ function RecordingMapInner({
                 circleOpacity: 0.9,
               }}
             />
-            <CircleLayer
+            <Layer
+              type="circle"
               id="currentPositionDot"
               style={{
                 circleRadius: 7,
@@ -221,9 +220,9 @@ function RecordingMapInner({
                 circleOpacity: 1,
               }}
             />
-          </ShapeSource>
+          </GeoJSONSource>
         )}
-      </MapView>
+      </MLMap>
     </View>
   );
 }

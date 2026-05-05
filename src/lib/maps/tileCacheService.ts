@@ -12,8 +12,12 @@ import { debug } from '@/lib';
 
 const log = debug.create('TileCacheService');
 
-/** Pack name prefix for identifying Veloq-created packs */
-const PACK_PREFIX = 'veloq-';
+/** Metadata key used to identify Veloq-created packs (v11 packs are id'd by uuid). */
+const PACK_METADATA_KEY = 'veloqPack';
+
+function isVeloqPack(pack: { metadata?: Record<string, unknown> }): boolean {
+  return Boolean(pack.metadata?.[PACK_METADATA_KEY]);
+}
 
 /** Initialize ambient cache size on app start */
 export async function initializeAmbientCache(): Promise<void> {
@@ -29,8 +33,8 @@ export async function clearAllPacks(): Promise<void> {
   try {
     const packs = await OfflineManager.getPacks();
     for (const pack of packs) {
-      if (pack.name?.startsWith(PACK_PREFIX)) {
-        await OfflineManager.deletePack(pack.name);
+      if (isVeloqPack(pack)) {
+        await OfflineManager.deletePack(pack.id);
       }
     }
     useTileCacheStore.getState().setNativePackInfo(0, 0);
@@ -44,7 +48,7 @@ export async function clearAllPacks(): Promise<void> {
 export async function refreshNativePackInfo(): Promise<void> {
   try {
     const packs = await OfflineManager.getPacks();
-    const veloqPacks = packs.filter((p) => p.name?.startsWith(PACK_PREFIX));
+    const veloqPacks = packs.filter(isVeloqPack);
     let totalSize = 0;
 
     for (const pack of veloqPacks) {

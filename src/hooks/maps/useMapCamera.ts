@@ -10,10 +10,16 @@
 
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { Animated, Platform } from 'react-native';
-import { Camera, type MapView } from '@maplibre/maplibre-react-native';
+import type {
+  CameraRef,
+  MapRef,
+  ViewStateChangeEvent,
+} from '@maplibre/maplibre-react-native';
+import type { NativeSyntheticEvent } from 'react-native';
 import * as Location from 'expo-location';
 import type { LatLng } from '@/lib';
 import { getMapLibreBounds } from '@/lib';
+import { toLngLatBounds, toViewPadding } from '@/lib/maps/bounds';
 import type { Map3DWebViewRef } from '@/components/maps/Map3DWebView';
 
 /** Bounds returned by getMapLibreBounds */
@@ -32,9 +38,9 @@ interface UseMapCameraParams {
 
 interface UseMapCameraResult {
   /** Ref to attach to MapLibre Camera component */
-  cameraRef: React.RefObject<React.ElementRef<typeof Camera> | null>;
-  /** Ref to attach to MapLibre MapView (for iOS tap coordinate conversion) */
-  mapRef: React.RefObject<React.ElementRef<typeof MapView> | null>;
+  cameraRef: React.RefObject<CameraRef | null>;
+  /** Ref to attach to MapLibre Map (for iOS tap coordinate conversion) */
+  mapRef: React.RefObject<MapRef | null>;
   /** Whether the 2D map has finished loading and is ready for camera commands */
   mapReady: boolean;
   /** Key to force-remount the MapView (iOS retry mechanism) */
@@ -56,9 +62,9 @@ interface UseMapCameraResult {
   /** Called when the map fails to load (iOS retry) */
   handleMapLoadError: () => void;
   /** Called on region-is-changing (bearing sync for compass) */
-  handleRegionIsChanging: (feature: GeoJSON.Feature) => void;
+  handleRegionIsChanging: (event: NativeSyntheticEvent<ViewStateChangeEvent>) => void;
   /** Called on region-did-change (viewport tracking, attribution debounce) */
-  handleRegionDidChange: (feature: GeoJSON.Feature) => void;
+  handleRegionDidChange: (event: NativeSyntheticEvent<ViewStateChangeEvent>) => void;
   /** Reset map orientation to north */
   resetOrientation: () => void;
   /** Get user location and fly camera there */
@@ -76,8 +82,8 @@ export function useMapCamera({
   map3DRef,
 }: UseMapCameraParams): UseMapCameraResult {
   // ----- refs -----
-  const cameraRef = useRef<React.ElementRef<typeof Camera>>(null);
-  const mapRef = useRef<React.ElementRef<typeof MapView>>(null);
+  const cameraRef = useRef<CameraRef>(null);
+  const mapRef = useRef<MapRef>(null);
 
   // ----- retry / ready state -----
   const [mapKey, setMapKey] = useState(0);
@@ -148,13 +154,12 @@ export function useMapCamera({
     if (pendingCameraRestoreRef.current) {
       const { center, zoom } = pendingCameraRestoreRef.current;
       if (__DEV__) {
-        console.log('[ActivityMapView:Camera] RESTORING position via setCamera', { center, zoom });
+        console.log('[ActivityMapView:Camera] RESTORING position via setStop', { center, zoom });
       }
-      cameraRef.current?.setCamera({
-        centerCoordinate: center,
-        zoomLevel: zoom,
-        animationDuration: 0,
-        animationMode: 'moveTo',
+      void cameraRef.current?.setStop({
+        center,
+        zoom,
+        duration: 0,
       });
       pendingCameraRestoreRef.current = null;
     }
@@ -232,18 +237,17 @@ export function useMapCamera({
     }
     if (mapReady && bounds && cameraRef.current) {
       if (__DEV__) {
-        console.log('[ActivityMapView:Camera] APPLYING initial bounds via setCamera', bounds);
+        console.log('[ActivityMapView:Camera] APPLYING initial bounds via setStop', bounds);
       }
-      cameraRef.current.setCamera({
-        bounds: { ne: bounds.ne, sw: bounds.sw },
-        padding: {
+      void cameraRef.current.setStop({
+        bounds: toLngLatBounds(bounds),
+        padding: toViewPadding({
           paddingTop: 50,
           paddingRight: 50,
           paddingBottom: 50,
           paddingLeft: 50,
-        },
-        animationDuration: 0,
-        animationMode: 'moveTo',
+        }),
+        duration: 0,
       });
       initialCameraAppliedRef.current = true;
     }
@@ -251,54 +255,37 @@ export function useMapCamera({
 
   // ----- bearing sync (compass) -----
   const handleRegionIsChanging = useCallback(
-    (feature: GeoJSON.Feature) => {
-      const properties = feature.properties as { heading?: number } | undefined;
-      if (properties?.heading !== undefined) {
-        bearingAnim.setValue(-properties.heading);
-      }
+    (event: NativeSyntheticEvent<ViewStateChangeEvent>) => {
+      bearingAnim.setValue(-event.nativeEvent.bearing);
     },
     [bearingAnim]
   );
 
   // ----- region did change → viewport tracking -----
-  const handleRegionDidChange = useCallback((feature: GeoJSON.Feature) => {
-    const properties = feature.properties as
-      | {
-          zoomLevel?: number;
-          visibleBounds?: [[number, number], [number, number]];
-        }
-      | undefined;
-    const { zoomLevel, visibleBounds } = properties ?? {};
+  const handleRegionDidChange = useCallback(
+    (event: NativeSyntheticEvent<ViewStateChangeEvent>) => {
+      const { zoom, center } = event.nativeEvent;
+      currentZoomRef.current = zoom;
+      currentCenterRef.current = center;
 
-    if (zoomLevel !== undefined) {
-      currentZoomRef.current = zoomLevel;
-    }
-
-    if (feature.geometry?.type === 'Point') {
-      currentCenterRef.current = feature.geometry.coordinates as [number, number];
-    } else if (visibleBounds) {
-      const [[swLng, swLat], [neLng, neLat]] = visibleBounds;
-      const centerLng = (swLng + neLng) / 2;
-      const centerLat = (swLat + neLat) / 2;
-      currentCenterRef.current = [centerLng, centerLat];
-    }
-
-    if (__DEV__ && zoomLevel !== undefined) {
-      console.log('[ActivityMapView:Camera] onRegionDidChange', {
-        zoomLevel: zoomLevel.toFixed(2),
-        center: currentCenterRef.current,
-      });
-    }
-  }, []);
+      if (__DEV__) {
+        console.log('[ActivityMapView:Camera] onRegionDidChange', {
+          zoom: zoom.toFixed(2),
+          center,
+        });
+      }
+    },
+    []
+  );
 
   // ----- reset orientation -----
   const resetOrientation = useCallback(() => {
     if (is3DMode && is3DReady) {
       map3DRef.current?.resetOrientation();
     } else {
-      cameraRef.current?.setCamera({
-        heading: 0,
-        animationDuration: 300,
+      void cameraRef.current?.setStop({
+        bearing: 0,
+        duration: 300,
       });
     }
     Animated.timing(bearingAnim, {
@@ -322,10 +309,10 @@ export function useMapCamera({
       });
       const coords: [number, number] = [location.coords.longitude, location.coords.latitude];
       setLocationLoading(false);
-      cameraRef.current?.setCamera({
-        centerCoordinate: coords,
-        zoomLevel: 14,
-        animationDuration: 500,
+      void cameraRef.current?.setStop({
+        center: coords,
+        zoom: 14,
+        duration: 500,
       });
     } catch {
       setLocationLoading(false);
