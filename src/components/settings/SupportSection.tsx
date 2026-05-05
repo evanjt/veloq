@@ -1,11 +1,10 @@
 import React, { useCallback, useRef } from 'react';
-import { View, StyleSheet, Pressable, TouchableOpacity } from 'react-native';
+import { Linking, Platform, View, StyleSheet, Pressable, TouchableOpacity } from 'react-native';
 import { Text, Switch } from 'react-native-paper';
 import { useTheme } from '@/hooks';
 import { useTranslation } from 'react-i18next';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as WebBrowser from 'expo-web-browser';
-import * as StoreReview from 'expo-store-review';
 import Constants from 'expo-constants';
 import { navigateTo } from '@/lib';
 import { useDebugStore, useWhatsNewStore } from '@/providers';
@@ -46,8 +45,10 @@ export function SupportSection() {
   }, [debugUnlocked]);
 
   const handleReview = useCallback(async () => {
-    if (await StoreReview.hasAction()) {
-      await StoreReview.requestReview();
+    if (Platform.OS === 'android') {
+      Linking.openURL('market://details?id=com.veloq.app');
+    } else if (Platform.OS === 'ios') {
+      Linking.openURL('itms-apps://apps.apple.com/app/id6757836732?action=write-review');
     } else {
       WebBrowser.openBrowserAsync('https://github.com/evanjt/veloq');
     }

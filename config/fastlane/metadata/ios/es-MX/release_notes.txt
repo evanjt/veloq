@@ -1,9 +1,7 @@
-v0.3.2
+v0.3.4
 
-• Info diaria: PRs de sección, logros fitness, comparaciones semanales
-• Mejores esfuerzos: PRs de potencia y ritmo en todas las actividades
-• Fijar, ajustar o deshabilitar secciones; esfuerzo de referencia
-• Mapa: polilíneas con gradiente, heatmap, zoom de clústeres
-• Fitness: tasa de rampa, forma %, gráficos de temperatura y desnivel
-• Feed: trofeos PR, tendencias, tarjetas de sección sparkline
-• Apoya el proyecto con propinas en la app
+• Los PR de ruta ahora solo comparan intentos en la misma dirección
+• Los PR de sección usan el ritmo más rápido en vez del menor tiempo
+• El eje Y del gráfico de ruta muestra tiempo (menor = más alto)
+• La insignia PR en tarjetas muestra formato delta PR+Xs
+• PR consistente en insignias, gráficos y vistas de detalle

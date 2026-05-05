@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { View, StyleSheet, Pressable } from 'react-native';
+import { Linking, Platform, View, StyleSheet, Pressable } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -11,7 +11,6 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import * as WebBrowser from 'expo-web-browser';
-import * as StoreReview from 'expo-store-review';
 import { useTheme } from '@/hooks';
 import { useSupportStore } from '@/providers';
 import { useDonation } from '@/hooks/useDonation';
@@ -59,8 +58,10 @@ export function SupportCard() {
   }, [tipsExpanded, tipHeight]);
 
   const handleReview = useCallback(async () => {
-    if (await StoreReview.hasAction()) {
-      await StoreReview.requestReview();
+    if (Platform.OS === 'android') {
+      Linking.openURL('market://details?id=com.veloq.app');
+    } else if (Platform.OS === 'ios') {
+      Linking.openURL('itms-apps://apps.apple.com/app/id6757836732?action=write-review');
     } else {
       WebBrowser.openBrowserAsync('https://github.com/evanjt/veloq');
     }
