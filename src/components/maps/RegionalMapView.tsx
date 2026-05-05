@@ -137,6 +137,12 @@ export function RegionalMapView({
     }
   }, []);
 
+  // Gate ClusterCountOverlay queries on the map's style being fully loaded —
+  // v11 throws a native NPE when queryRenderedFeatures runs before the map is ready.
+  const handleMapFinishLoading = useCallback(() => {
+    clusterOverlayRef.current?.setMapLoaded(true);
+  }, []);
+
   // Reset retry count when style changes or map remounts
   useEffect(() => {
     retryCountRef.current = 0;
@@ -621,6 +627,7 @@ export function RegionalMapView({
           onRegionIsChanging={handleRegionIsChanging}
           onRegionDidChange={handleRegionDidChange}
           onDidFailLoadingMap={handleMapLoadError}
+          onDidFinishLoadingMap={handleMapFinishLoading}
         >
           {/* Camera with ref for programmatic control */}
           {/* No initialViewState: Android MapLibre re-applies it on every render, causing snapback. */}

@@ -21,6 +21,8 @@ import { colors } from '@/theme';
 export interface ClusterCountOverlayRef {
   /** Re-query clusters; call from map's onRegionDidChange / onMapIdle handlers. */
   refresh: () => void;
+  /** Mark the map as fully loaded — refresh is a no-op until this fires. */
+  setMapLoaded: (loaded: boolean) => void;
 }
 
 interface ClusterCountOverlayProps {
@@ -44,10 +46,17 @@ export const ClusterCountOverlay = React.forwardRef<
 >(function ClusterCountOverlay({ mapRef, visible = false, queryRect }, ref) {
   const [clusters, setClusters] = useState<ClusterPoint[]>([]);
   const latestSeq = useRef(0);
+  // Gate refresh on map style having finished loading. v11 throws a native NPE
+  // (mapLibreMap is null) inside MLRNMapView.queryRenderedFeaturesWithRect when
+  // the map is queried before it's ready — and that NPE crashes the React Host
+  // before our try/catch can see it (it's a synchronous Java throw, not a
+  // Promise rejection). RegionalMapView wires the parent map's
+  // onDidFinishLoadingMap → setMapLoaded(true).
+  const mapLoadedRef = useRef(false);
 
   const refresh = useCallback(async () => {
     const map = mapRef.current;
-    if (!map) return;
+    if (!map || !mapLoadedRef.current) return;
     const seq = ++latestSeq.current;
     try {
       // A generous rect covers a typical phone viewport when not provided.
@@ -80,13 +89,17 @@ export const ClusterCountOverlay = React.forwardRef<
     }
   }, [mapRef, queryRect]);
 
-  useImperativeHandle(ref, () => ({ refresh }), [refresh]);
-
-  useEffect(() => {
-    // One refresh on mount so testIDs exist before the first region change.
-    const t = setTimeout(refresh, 250);
-    return () => clearTimeout(t);
-  }, [refresh]);
+  useImperativeHandle(
+    ref,
+    () => ({
+      refresh,
+      setMapLoaded: (loaded: boolean) => {
+        mapLoadedRef.current = loaded;
+        if (loaded) refresh();
+      },
+    }),
+    [refresh]
+  );
 
   return (
     <View style={styles.container} pointerEvents="none">
