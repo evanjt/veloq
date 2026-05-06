@@ -713,24 +713,24 @@ export function RegionalMapView({
                 'circle-opacity': 1,
               }}
             />
-            {/* Layer 4: count text symbol — no text-font (let MapLibre fall
-                back to whatever the active style provides; explicit fonts
-                that aren't registered with the style cause the layer to
-                fail to register, taking the source down with it on v11). */}
+            {/* Layer 4: count text symbol — most-reduced form. Explicit
+                `text-font` matters because MapLibre's silent default is
+                `Open Sans Regular` which isn't on openfreemap's CDN; PBF
+                fetch 404s and the layer fails registration, dragging the
+                source down. Noto Sans Regular IS on that CDN. No anchor /
+                justify / allow-overlap / ignore-placement — strip every
+                non-essential prop. */}
             <Layer
               type="symbol"
               id="cluster-count"
               filter={['has', 'point_count']}
               layout={{
-                'text-field': ['get', 'point_count_abbreviated'],
-                'text-size': 14,
-                'text-anchor': 'center',
-                'text-justify': 'center',
-                'text-allow-overlap': true,
-                'text-ignore-placement': true,
+                'text-field': '{point_count}',
+                'text-font': ['Noto Sans Regular'],
+                'text-size': 12,
               }}
               paint={{
-                'text-color': '#000000',
+                'text-color': '#ffffff',
               }}
             />
           </GeoJSONSource>
