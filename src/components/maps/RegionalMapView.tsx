@@ -813,12 +813,13 @@ export function RegionalMapView({
           {/* GeoJSONSource kept mounted (empty) to prevent Fabric view reconciliation crash */}
           <GeoJSONSource id="activity-traces" data={tracesGeoJSON} />
 
-          {/* Activity start-point markers — small dots at the first GPS coordinate */}
-          {/* Visible when zoomed in past trace threshold and activities are shown */}
-          {/* Start-point markers: use native minzoom instead of React state
-              to avoid re-renders that cause Android MapLibre camera snap-back */}
+          {/* Activity start-point markers — small dots at the first GPS
+              coordinate. Hidden below `clusterMaxZoom` so they don't collide
+              with the cluster aggregates at city/regional zoom — clusters
+              alone at z < 14, points appear only after supercluster turns
+              off (z >= 14). */}
           <GeoJSONSource id="activity-start-points" data={startPointsGeoJSON}>
-            <Layer type="circle" id="start-point-outer" minzoom={11} style={startPointStyle} />
+            <Layer type="circle" id="start-point-outer" minzoom={14} style={startPointStyle} />
           </GeoJSONSource>
 
           {/* Selected activity route */}
@@ -875,10 +876,6 @@ export function RegionalMapView({
           </GeoJSONSource>
         </MLMap>
       )}
-
-      {/* Accessibility + test-ID overlay for cluster counts (invisible to users;
-          the native SymbolLayer above renders the visible glyphs). */}
-      {!show3D && <ClusterCountOverlay mapRef={mapRef} ref={clusterOverlayRef} />}
 
       {/* Style toggle */}
       <TouchableOpacity
