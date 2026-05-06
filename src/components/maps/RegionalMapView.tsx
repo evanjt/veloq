@@ -74,9 +74,12 @@ const CLUSTER_CIRCLE_PAINT: CircleLayerSpecification['paint'] = {
     50,
     30, // 50+
   ],
-  'circle-opacity': 0.8,
+  'circle-opacity': 0.85,
   'circle-stroke-width': 2,
   'circle-stroke-color': 'rgba(255, 255, 255, 0.9)',
+  // Match the symbol layer's pitch-alignment so circles and count labels
+  // track each other through pinch-zoom / pan animations without splitting.
+  'circle-pitch-alignment': 'map',
 };
 
 const CLUSTER_COUNT_LAYOUT: SymbolLayerSpecification['layout'] = {
@@ -679,59 +682,46 @@ export function RegionalMapView({
             }
             hitbox={{ top: 22, right: 22, bottom: 22, left: 22 }}
           >
-            {/* Layer 1: no-filter magenta */}
-            <Layer
-              type="circle"
-              id="cluster-debug-all"
-              paint={{
-                'circle-color': '#FF00FF',
-                'circle-radius': 18,
-                'circle-opacity': 0.9,
-                'circle-stroke-width': 3,
-                'circle-stroke-color': '#000000',
-              }}
-            />
-            {/* Layer 2: lime unclustered, negation filter */}
+            {/* Unclustered single activity points — sport-coloured, fade
+                with age. Filter rejects features supercluster has aggregated. */}
             <Layer
               type="circle"
               id="unclustered-point"
               filter={['!', ['has', 'point_count']]}
-              paint={{
-                'circle-color': '#00FF00',
-                'circle-radius': 6,
-                'circle-opacity': 1,
-              }}
+              paint={unclusteredPointPaint}
             />
-            {/* Layer 3: cyan cluster circles, ['has','point_count'] filter */}
+            {/* Cluster circles — branded teal, radius scales with point count. */}
             <Layer
               type="circle"
               id="cluster-circles"
               filter={['has', 'point_count']}
-              paint={{
-                'circle-color': '#00FFFF',
-                'circle-radius': 12,
-                'circle-opacity': 1,
-              }}
+              paint={CLUSTER_CIRCLE_PAINT}
             />
-            {/* Layer 4: count text symbol — most-reduced form. Explicit
-                `text-font` matters because MapLibre's silent default is
-                `Open Sans Regular` which isn't on openfreemap's CDN; PBF
-                fetch 404s and the layer fails registration, dragging the
-                source down. Noto Sans Regular IS on that CDN. No anchor /
-                justify / allow-overlap / ignore-placement — strip every
-                non-essential prop. */}
+            {/* Cluster count text — anchored to map plane with overlap +
+                ignore-placement so the label tracks the circle through
+                pan/zoom without MapLibre's collision detection delaying
+                placement until the gesture ends. `text-font` MUST be
+                specified and present on the active style's glyph CDN —
+                MapLibre's silent default is `Open Sans Regular` which
+                isn't on openfreemap, so the symbol layer fails to register
+                without explicit `Noto Sans Regular` (which IS available),
+                and that failure cascades up and kills the source on v11
+                Android. */}
             <Layer
               type="symbol"
               id="cluster-count"
               filter={['has', 'point_count']}
               layout={{
-                'text-field': '{point_count}',
+                'text-field': '{point_count_abbreviated}',
                 'text-font': ['Noto Sans Regular'],
-                'text-size': 12,
+                'text-size': 13,
+                'text-anchor': 'center',
+                'text-justify': 'center',
+                'text-allow-overlap': true,
+                'text-ignore-placement': true,
+                'text-pitch-alignment': 'map',
               }}
-              paint={{
-                'text-color': '#ffffff',
-              }}
+              paint={CLUSTER_COUNT_PAINT}
             />
           </GeoJSONSource>
 

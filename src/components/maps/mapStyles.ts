@@ -298,6 +298,11 @@ export interface CombinedSatelliteMapStyle {
       bounds?: [number, number, number, number];
     }
   >;
+  /**
+   * Glyph PBF URL — required for any symbol layer with `text-*` props (e.g.
+   * cluster count labels) to render on top of the satellite raster.
+   */
+  glyphs?: string;
   layers: Array<
     | {
         id: string;
