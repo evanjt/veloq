@@ -68,9 +68,7 @@ const CLUSTER_CIRCLE_PAINT: CircleLayerSpecification['paint'] = {
   'circle-radius': [
     'step',
     ['get', 'point_count'],
-    12, // single point (clusterMinPoints=1) — small dot
-    2,
-    20, // 2-9 activities
+    20, // <10 activities
     10,
     25, // 10-49
     50,
@@ -678,12 +676,7 @@ export function RegionalMapView({
             cluster={true}
             clusterRadius={50}
             clusterMaxZoom={14}
-            // `clusterMinPoints={1}` so every isolated activity is still
-            // wrapped as a 1-count "cluster" at low zoom — visual consistency
-            // (no naked single dots floating among teal cluster circles).
-            // The cluster-count text-field hides the "1" label, and the
-            // radius step starts at 12px for singletons vs 20+ for groups.
-            clusterMinPoints={1}
+            clusterMinPoints={2}
             onPress={
               Platform.OS === 'android' && showActivities ? handleClusterOrMarkerPress : undefined
             }
@@ -719,16 +712,7 @@ export function RegionalMapView({
               id="cluster-count"
               filter={['has', 'point_count']}
               layout={{
-                // Hide the count when a "cluster" represents a single
-                // activity (clusterMinPoints=1 means singletons are still
-                // wrapped as clusters for visual consistency, but we don't
-                // want a "1" label inside them).
-                'text-field': [
-                  'case',
-                  ['>', ['get', 'point_count'], 1],
-                  ['get', 'point_count_abbreviated'],
-                  '',
-                ],
+                'text-field': '{point_count_abbreviated}',
                 'text-font': ['Noto Sans Regular'],
                 'text-size': 13,
                 'text-anchor': 'center',
