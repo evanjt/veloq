@@ -1712,6 +1712,12 @@ export interface TranslationResource {
     neverShow: string;
     thankYou: string;
     sponsorGitHub: string;
+    tip_small: string;
+    tip_medium: string;
+    tip_large: string;
+    tipSmall: string;
+    tipMedium: string;
+    tipLarge: string;
   };
 }
 

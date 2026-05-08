@@ -1770,6 +1770,12 @@
     "remindLater": "稍后提醒我",
     "neverShow": "不再显示",
     "thankYou": "感谢您的支持！",
-    "sponsorGitHub": "在 GitHub 上赞助"
+    "sponsorGitHub": "在 GitHub 上赞助",
+    "tip_small": "小额打赏",
+    "tip_medium": "中额打赏",
+    "tip_large": "大额打赏",
+    "tipSmall": "小额",
+    "tipMedium": "中额",
+    "tipLarge": "大额"
   }
 }

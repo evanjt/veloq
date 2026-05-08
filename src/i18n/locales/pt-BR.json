@@ -1770,6 +1770,12 @@
     "remindLater": "Lembrar mais tarde",
     "neverShow": "Nunca mais mostrar",
     "thankYou": "Obrigado pelo seu apoio!",
-    "sponsorGitHub": "Patrocinar no GitHub"
+    "sponsorGitHub": "Patrocinar no GitHub",
+    "tip_small": "Gorjeta pequena",
+    "tip_medium": "Gorjeta média",
+    "tip_large": "Gorjeta grande",
+    "tipSmall": "Pequena",
+    "tipMedium": "Média",
+    "tipLarge": "Grande"
   }
 }

@@ -1770,6 +1770,12 @@
     "remindLater": "後で通知する",
     "neverShow": "今後表示しない",
     "thankYou": "ご支援ありがとうございます！",
-    "sponsorGitHub": "GitHubでスポンサーになる"
+    "sponsorGitHub": "GitHubでスポンサーになる",
+    "tip_small": "少額チップ",
+    "tip_medium": "中額チップ",
+    "tip_large": "高額チップ",
+    "tipSmall": "少額",
+    "tipMedium": "中額",
+    "tipLarge": "高額"
   }
 }

@@ -1770,6 +1770,12 @@
     "remindLater": "Påmind mig senere",
     "neverShow": "Vis aldrig igen",
     "thankYou": "Tak for din støtte!",
-    "sponsorGitHub": "Sponsorér på GitHub"
+    "sponsorGitHub": "Sponsorér på GitHub",
+    "tip_small": "Lille drikkepenge",
+    "tip_medium": "Medium drikkepenge",
+    "tip_large": "Stor drikkepenge",
+    "tipSmall": "Lille",
+    "tipMedium": "Mellem",
+    "tipLarge": "Stor"
   }
 }

@@ -1770,6 +1770,12 @@
     "remindLater": "Me rappeler plus tard",
     "neverShow": "Ne plus afficher",
     "thankYou": "Merci pour votre soutien !",
-    "sponsorGitHub": "Sponsoriser sur GitHub"
+    "sponsorGitHub": "Sponsoriser sur GitHub",
+    "tip_small": "Petit pourboire",
+    "tip_medium": "Pourboire moyen",
+    "tip_large": "Grand pourboire",
+    "tipSmall": "Petit",
+    "tipMedium": "Moyen",
+    "tipLarge": "Grand"
   }
 }

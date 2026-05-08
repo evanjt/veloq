@@ -1,7 +1,4 @@
-v0.3.4
+v0.3.5
 
-• Los PR de ruta ahora solo comparan intentos en la misma dirección
-• Los PR de sección usan el ritmo más rápido en vez del menor tiempo
-• El eje Y del gráfico de ruta muestra tiempo (menor = más alto)
-• La insignia PR en tarjetas muestra formato delta PR+Xs
-• PR consistente en insignias, gráficos y vistas de detalle
+• Corregidos los botones de propina que no aparecían en algunas configuraciones
+• Mejora en la fiabilidad de la carga de compras dentro de la app
