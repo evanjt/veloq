@@ -1,4 +1,10 @@
-Je trainingsgegevens, gevisualiseerd. Veloq combineert kaarten, grafieken en fitnesstracking in één snelle, offline-klare app.
+Je trainingsdata, gevisualiseerd. Veloq combineert opnames, kaarten, grafieken, inzichten en fitnesstracking in één snelle app.
+
+Opnemen
+Registreer activiteiten met GPS, automatische pauze, km-splits en hartslagzonedisplay. Trim je opname voordat je opslaat. Upload als FIT-bestanden, of zet in de wachtrij voor later. Handmatige invoer voor indooractiviteiten.
+
+Inzichten
+Dagelijkse gepersonaliseerde inzichten op basis van je training: sectie-PR's, fitnessmijlpalen, weekvergelijkingen, activiteitspatronen en vormadvies. Positieve, rustdag-bewuste insteek.
 
 Kaarten
 Bekijk je activiteiten op interactieve kaarten met 3D-terrein, route-heatmaps en tijdlijnfiltering. Kies uit lichte, donkere en satellietstijlen. Blader door grafieken en volg je positie in realtime op de kaart.
@@ -11,9 +17,6 @@ Hartslag, vermogen, tempo, hoogte en cadans — alles gesynchroniseerd met de ka
 
 Fitness
 Volg je vorm met CTL/ATL/TSB-tracking en visuele zones. Monitor HRV, rusthartslag, slaap en welzijn. Bekijk vermogens- en tempocurves per sport.
-
-Offline-first
-Synchroniseer eenmaal, open overal. Je gegevens worden lokaal opgeslagen en zijn altijd beschikbaar, zelfs zonder internet.
 
 Privacy
 Alle gegevens blijven op je apparaat. Geen analyses, geen tracking. Optionele pushmeldingen slaan een apparaattoken op onze server op met automatische vervaldatum na 30 dagen — er worden geen persoonlijke gegevens bewaard. Open source onder Apache 2.0.

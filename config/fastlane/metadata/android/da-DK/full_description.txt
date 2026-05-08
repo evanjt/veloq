@@ -1,28 +1,26 @@
-Veloq bringer dine Intervals.icu-træningsdata til mobilen med fokus på kort, visuel analyse og offline-adgang.
+Dine træningsdata, visualiseret. Veloq samler optagelse, kort, diagrammer, indsigter og fitnesssporing i en hurtig app.
 
-<b>Kortbaseret visualisering</b>
-Se dine aktiviteter på et interaktivt regionalt kort med tidslinjefiltrering og rutevarmekort. Skift mellem lyse, mørke og satellitkorttyper. Udforsk 3D-terrænvisninger med synkroniseret diagram-scrubbing.
+<b>Optag</b>
+Spor aktiviteter med GPS, auto-pause, km-splits og pulszonevisning. Trim din optagelse inden lagring. Upload som FIT-filer, eller sæt i kø til senere. Manuel indtastning til indendørsaktiviteter.
 
-<b>Detaljeret aktivitetsanalyse</b>
-Dyk ned i multimetriske diagrammer for puls, power, tempo, højde og kadence. Scrub igennem din aktivitet med fremhævning på kortet i realtid. Se zonefordelinger, træningsmålinger (TSS, intensitetsfaktor) og omgangsfordeling.
+<b>Indsigter</b>
+Daglige personlige indsigter baseret på din træning: sektions-PR'er, fitnessmilesten, ugentlige sammenligninger, aktivitetsmønstre og formrådgivning. Positiv, hviledagsbevidst indramning.
 
-<b>Ruteintelligens</b>
-Opdag automatisk gentagne ruter og følg din præstation over tid. Sammenlign indsatser på den samme rute for at se fremskridt. Identificér hyppigt besøgte sektioner med detaljeret matchanalyse.
+<b>Kort</b>
+Se dine aktiviteter på interaktive kort med 3D-terræn, rute-heatmaps og tidslinjefiltrering. Vælg mellem lyse, mørke og satellitstile. Rul gennem diagrammer og se din position opdatere på kortet i realtid.
 
-<b>Fitnesssporing</b>
-Overvåg din CTL/ATL/TSB-fitnessmodel med formzoneanalyse. Spor HRV, hvilepuls, søvn og velværemålinger. Se powerkurver, tempokurver og zonefordelinger efter sportsgren.
+<b>Rutesporing</b>
+Registrer automatisk gentagne ruter og sektioner i din aktivitetshistorik. Sammenlign præstationer over tid for at se dine fremskridt på favoritstiger og -strækninger.
 
-<b>Offline-first</b>
-Aggressiv caching sikrer, at dine data altid er tilgængelige. Synkroniser dine aktiviteter én gang og få adgang til dem overalt uden internetforbindelse.
+<b>Diagrammer og analyse</b>
+Puls, power, tempo, højde og kadence — alt synkroniseret med kortet. Se zonefordelinger, TSS, intensitetsfaktor og rundedetaljer.
+
+<b>Fitness</b>
+Følg din form med CTL/ATL/TSB-sporing og visuelle zoner. Overvåg HRV, hvilepuls, søvn og velvære. Se power- og tempokurver efter sportsgren.
 
 <b>Privatliv</b>
 Alle data forbliver på din enhed. Ingen analyse, ingen sporing. Valgfrie push-notifikationer gemmer et enhedstoken på vores server med automatisk 30-dages udløb — ingen personlige data opbevares. Open source under Apache 2.0.
 
-<b>Multisport-understøttelse</b>
-Fuld understøttelse af cykling, løb, svømning og 20+ aktivitetstyper med sportsspecifikke målinger og analyser.
+Understøtter cykling, løb, svømning og over 20 aktivitetstyper. Prøv den indbyggede demotilstand for at udforske uden en konto.
 
-<b>Krav</b>
-En Intervals.icu-konto med API-nøgleadgang. Hent din API-nøgle fra Intervals.icu Indstillinger > Udviklerindstillinger.
-
-<b>Open source</b>
-Veloq er open source-software licenseret under Apache 2.0. Bidrag er velkomne på GitHub.
+Kræver en Intervals.icu-konto for livedata. Ikke tilknyttet Intervals.icu.

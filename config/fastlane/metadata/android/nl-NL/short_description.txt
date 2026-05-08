@@ -1,1 +1,1 @@
-Offline-first mobiele client voor Intervals.icu
+GPS-opname, inzichten, kaarten, grafieken en fitnesstracking

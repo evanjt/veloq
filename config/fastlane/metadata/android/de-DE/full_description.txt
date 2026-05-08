@@ -1,28 +1,26 @@
-Veloq bringt deine Intervals.icu-Trainingsdaten aufs Handy – mit Fokus auf Karten, visuelle Analysen und Offline-Zugriff.
+Deine Trainingsdaten, visualisiert. Veloq vereint Aufzeichnung, Karten, Diagramme, Insights und Fitness-Tracking in einer schnellen App.
 
-<b>Kartenbasierte Visualisierung</b>
-Sieh dir deine Aktivitäten auf einer interaktiven regionalen Karte mit Zeitleistenfilter und Routen-Heatmaps an. Wechsle zwischen hellen, dunklen und Satellitenkartenstilen. Erkunde 3D-Geländeansichten mit synchronisiertem Diagramm-Scrubbing.
+<b>Aufzeichnung</b>
+Zeichne Aktivitäten mit GPS, Auto-Pause, km-Splits und Herzfrequenzzonen-Anzeige auf. Schneide deine Aufnahme vor dem Speichern zu. Lade als FIT-Dateien hoch oder stelle sie für später in die Warteschlange. Manuelle Eingabe für Indoor-Aktivitäten.
 
-<b>Umfassende Aktivitätsanalyse</b>
-Tauche ein in Multi-Metrik-Diagramme für Herzfrequenz, Leistung, Tempo, Höhenmeter und Trittfrequenz. Scrub durch deine Aktivität mit Echtzeit-Hervorhebung auf der Karte. Sieh dir Zonenverteilungen, Trainingsmetriken (TSS, Intensitätsfaktor) und Rundenaufschlüsselungen an.
+<b>Insights</b>
+Tägliche personalisierte Insights basierend auf deinem Training: Abschnitts-PRs, Fitness-Meilensteine, Wochenvergleiche, Aktivitätsmuster und Formtipps. Positiv formuliert, mit Berücksichtigung von Ruhetagen.
 
-<b>Routenintelligenz</b>
-Erkenne automatisch wiederkehrende Routen und verfolge deine Leistung über die Zeit. Vergleiche Anstrengungen auf derselben Strecke, um Fortschritte zu sehen. Identifiziere häufig befahrene Abschnitte mit detaillierter Übereinstimmungsanalyse.
+<b>Karten</b>
+Betrachte deine Aktivitäten auf interaktiven Karten mit 3D-Gelände, Routen-Heatmaps und Zeitfilterung. Wähle zwischen hellen, dunklen und Satellitenstilen. Scrolle durch Diagramme und verfolge deine Position in Echtzeit auf der Karte.
 
-<b>Fitness-Tracking</b>
-Überwache dein CTL/ATL/TSB-Fitnessmodell mit Formzonenanalyse. Verfolge HRV, Ruhepuls, Schlaf und Wellness-Metriken. Sieh dir Leistungskurven, Tempokurven und Zonenverteilungen nach Sportart an.
+<b>Routenverfolgung</b>
+Erkenne automatisch wiederholte Routen und Abschnitte in deiner Aktivitätshistorie. Vergleiche Leistungen über die Zeit und verfolge deinen Fortschritt auf Lieblingsanstiegen und -strecken.
 
-<b>Offline-first</b>
-Aggressives Caching stellt sicher, dass deine Daten immer verfügbar sind. Synchronisiere deine Aktivitäten einmal und greife überall ohne Internetverbindung darauf zu.
+<b>Diagramme und Analyse</b>
+Herzfrequenz, Leistung, Pace, Höhe und Kadenz — alles synchronisiert mit der Karte. Zeige Zonenverteilungen, TSS, Intensitätsfaktor und Rundenaufschlüsselungen an.
+
+<b>Fitness</b>
+Verfolge deine Form mit CTL/ATL/TSB-Tracking und visuellen Zonen. Überwache HRV, Ruheherzfrequenz, Schlaf und Wohlbefinden. Zeige Leistungs- und Pace-Kurven nach Sportart an.
 
 <b>Datenschutz</b>
-Alle Daten bleiben auf deinem Gerät. Keine Analysen, kein Tracking. Optionale Push-Benachrichtigungen speichern ein Geräte-Token auf unserem Server mit automatischem 30-Tage-Ablauf — keine persönlichen Daten werden gespeichert. Open Source unter Apache 2.0.
+Alle Daten bleiben auf deinem Gerät. Keine Analysen, kein Tracking. Optionale Push-Benachrichtigungen speichern ein Geräte-Token auf unserem Server mit automatischem Ablauf nach 30 Tagen — keine persönlichen Daten werden gespeichert. Open Source unter Apache 2.0.
 
-<b>Multisport-Unterstützung</b>
-Volle Unterstützung für Radfahren, Laufen, Schwimmen und 20+ Aktivitätstypen mit sportspezifischen Metriken und Analysen.
+Unterstützt Radfahren, Laufen, Schwimmen und 20+ Aktivitätstypen. Teste den integrierten Demomodus, um die App ohne Konto zu erkunden.
 
-<b>Voraussetzungen</b>
-Ein Intervals.icu-Konto mit API-Schlüsselzugang. Hole deinen API-Schlüssel unter Intervals.icu Einstellungen > Entwicklereinstellungen.
-
-<b>Open Source</b>
-Veloq ist Open-Source-Software, lizenziert unter Apache 2.0. Beiträge sind auf GitHub willkommen.
+Erfordert ein Intervals.icu-Konto für Live-Daten. Nicht mit Intervals.icu verbunden.

@@ -1,28 +1,26 @@
-Veloq apporte vos données d'entraînement Intervals.icu sur mobile avec un accent sur les cartes, l'analyse visuelle et l'accès hors ligne.
+Vos donnees d'entrainement, visualisees. Veloq reunit enregistrement, cartes, graphiques, insights et suivi de la condition physique dans une application rapide.
 
-<b>Visualisation cartographique</b>
-Consultez vos activités sur une carte régionale interactive avec filtrage chronologique et cartes de chaleur d'itinéraires. Basculez entre les styles de carte clair, sombre et satellite. Explorez des vues de terrain 3D avec défilement synchronisé des graphiques.
+<b>Enregistrement</b>
+Suivez vos activites avec GPS, pause automatique, splits au kilometre et affichage des zones de frequence cardiaque. Decoupez votre enregistrement avant de le sauvegarder. Exportez en fichiers FIT, ou mettez en file d'attente pour plus tard. Saisie manuelle pour les activites en interieur.
 
-<b>Analyse d'activité approfondie</b>
-Plongez dans des graphiques multi-métriques pour la fréquence cardiaque, la puissance, l'allure, l'altitude et la cadence. Parcourez votre activité avec mise en surbrillance en temps réel sur la carte. Consultez les distributions de zones, les métriques d'entraînement (TSS, facteur d'intensité) et les détails par tour.
+<b>Insights</b>
+Des insights personnalises quotidiens bases sur votre entrainement : records personnels de sections, jalons de condition physique, comparaisons hebdomadaires, tendances d'activite et conseils de forme. Un ton toujours positif, adapte aux jours de repos.
 
-<b>Intelligence d'itinéraire</b>
-Détectez automatiquement les itinéraires répétés et suivez vos performances au fil du temps. Comparez vos efforts sur le même parcours pour visualiser vos progrès. Identifiez les sections fréquemment empruntées avec une analyse détaillée des correspondances.
+<b>Cartes</b>
+Visualisez vos activites sur des cartes interactives avec terrain 3D, cartes de chaleur des itineraires et filtrage temporel. Choisissez entre les styles clair, sombre et satellite. Parcourez les graphiques et suivez votre position en temps reel sur la carte.
 
-<b>Suivi fitness</b>
-Surveillez votre modèle de fitness CTL/ATL/TSB avec analyse des zones de forme. Suivez HRV, fréquence cardiaque au repos, sommeil et métriques de bien-être. Consultez les courbes de puissance, les courbes d'allure et les distributions de zones par sport.
+<b>Suivi d'itineraires</b>
+Detectez automatiquement les itineraires et sections repetes dans votre historique d'activites. Comparez vos efforts au fil du temps pour suivre vos progres sur vos montees et parcours favoris.
 
-<b>Offline-first</b>
-La mise en cache agressive garantit que vos données sont toujours disponibles. Synchronisez vos activités une seule fois et accédez-y partout sans connexion internet.
+<b>Graphiques et analyse</b>
+Frequence cardiaque, puissance, allure, altitude et cadence — le tout synchronise avec la carte. Consultez les distributions de zones, TSS, facteur d'intensite et details par tour.
 
-<b>Confidentialité</b>
-Toutes les données restent sur votre appareil. Pas d'analyse, pas de suivi. Les notifications push optionnelles stockent un jeton d'appareil sur notre serveur avec expiration automatique de 30 jours — aucune donnée personnelle n'est conservée. Open source sous Apache 2.0.
+<b>Condition physique</b>
+Suivez votre forme avec le suivi CTL/ATL/TSB et les zones visuelles. Surveillez la HRV, la frequence cardiaque au repos, le sommeil et le bien-etre. Consultez les courbes de puissance et d'allure par sport.
 
-<b>Support multisport</b>
-Prise en charge complète du cyclisme, de la course à pied, de la natation et de plus de 20 types d'activités avec des métriques et analyses spécifiques à chaque sport.
+<b>Confidentialite</b>
+Toutes les donnees restent sur votre appareil. Pas d'analyse, pas de suivi. Les notifications push optionnelles stockent un jeton d'appareil sur notre serveur avec une expiration automatique de 30 jours — aucune donnee personnelle n'est conservee. Code source ouvert sous Apache 2.0.
 
-<b>Prérequis</b>
-Un compte Intervals.icu avec accès par clé API. Obtenez votre clé API dans Intervals.icu Paramètres > Paramètres développeur.
+Compatible avec le cyclisme, la course, la natation et plus de 20 types d'activites. Essayez le mode demo integre pour explorer sans compte.
 
-<b>Open source</b>
-Veloq est un logiciel open source sous licence Apache 2.0. Les contributions sont les bienvenues sur GitHub.
+Necessite un compte Intervals.icu pour les donnees en direct. Non affilie a Intervals.icu.

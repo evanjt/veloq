@@ -1,13 +1,19 @@
-Veloq brings your Intervals.icu training data to mobile with maps, charts, and fitness tracking.
+Your training data, visualised. Veloq brings recording, maps, charts, insights, and fitness tracking together in one fast app.
+
+<b>Record</b>
+Track activities with GPS, auto-pause, km splits, and heart rate zone display. Trim your recording before saving. Upload as FIT files, or queue for later. Manual entry for indoor activities.
+
+<b>Insights</b>
+Daily personalised insights based on your training: section PRs, fitness milestones, weekly comparisons, activity patterns, and form advice. Positive, rest-day-aware framing.
 
 <b>Maps</b>
 View your activities on interactive maps with 3D terrain, route heatmaps, and timeline filtering. Choose from light, dark, and satellite styles. Scrub through charts and watch your position update on the map in real-time.
 
-<b>Charts and Analysis</b>
-Heart rate, power, pace, elevation, and cadence — all synchronised with the map. View zone distributions, training metrics (TSS, intensity factor), and lap breakdowns.
-
-<b>Route Tracking</b>
+<b>Route tracking</b>
 Automatically detect repeated routes and sections in your activity history. Compare efforts over time to see your progress on favourite climbs and stretches.
+
+<b>Charts and analysis</b>
+Heart rate, power, pace, elevation, and cadence — all synchronised with the map. View zone distributions, TSS, intensity factor, and lap breakdowns.
 
 <b>Fitness</b>
 Follow your form with CTL/ATL/TSB tracking and visual zones. Monitor HRV, resting heart rate, sleep, and wellness. View power and pace curves by sport.

@@ -1,1 +1,1 @@
-kolarstwo,bieganie,triathlon,fitness,CTL,TSB,moc,mapy,GPS,trasy,offline,wykresy,trening,analiza
+kolarstwo,bieganie,triathlon,fitness,CTL,TSB,moc,mapy,GPS,trasy,wykresy,trening,nagrywanie,analizy

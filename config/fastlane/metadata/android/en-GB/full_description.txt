@@ -1,28 +1,26 @@
-Veloq brings your Intervals.icu training data to mobile with a focus on maps, visual analytics, and offline access.
+Your training data, visualised. Veloq brings recording, maps, charts, insights, and fitness tracking together in one fast app.
 
-<b>Map-First Visualisation</b>
-View your activities on an interactive regional map with timeline filtering and route heatmaps. Switch between light, dark, and satellite map styles. Explore 3D terrain views with synchronised chart scrubbing.
+<b>Record</b>
+Track activities with GPS, auto-pause, km splits, and heart rate zone display. Trim your recording before saving. Upload as FIT files, or queue for later. Manual entry for indoor activities.
 
-<b>Rich Activity Analysis</b>
-Dive into multi-metric charts for heart rate, power, pace, elevation, and cadence. Scrub through your activity with real-time map highlighting. View zone distributions, training metrics (TSS, intensity factor), and lap breakdowns.
+<b>Insights</b>
+Daily personalised insights based on your training: section PRs, fitness milestones, weekly comparisons, activity patterns, and form advice. Positive, rest-day-aware framing.
 
-<b>Route Intelligence</b>
-Automatically detect repeated routes and track your performance over time. Compare efforts on the same course to see progress. Identify frequently-travelled sections with detailed match analysis.
+<b>Maps</b>
+View your activities on interactive maps with 3D terrain, route heatmaps, and timeline filtering. Choose from light, dark, and satellite styles. Scrub through charts and watch your position update on the map in real-time.
 
-<b>Fitness Tracking</b>
-Monitor your CTL/ATL/TSB fitness model with form zone analysis. Track HRV, resting heart rate, sleep, and wellness metrics. View power curves, pace curves, and zone distributions by sport.
+<b>Route tracking</b>
+Automatically detect repeated routes and sections in your activity history. Compare efforts over time to see your progress on favourite climbs and stretches.
 
-<b>Offline-First</b>
-Aggressive caching ensures your data is always available. Sync your activities once and access them anywhere without an internet connection.
+<b>Charts and analysis</b>
+Heart rate, power, pace, elevation, and cadence — all synchronised with the map. View zone distributions, TSS, intensity factor, and lap breakdowns.
+
+<b>Fitness</b>
+Follow your form with CTL/ATL/TSB tracking and visual zones. Monitor HRV, resting heart rate, sleep, and wellness. View power and pace curves by sport.
 
 <b>Privacy</b>
 All data stays on your device. No analytics, no tracking. Optional push notifications store a device token on our server with automatic 30-day expiry — no personal data is retained. Open source under Apache 2.0.
 
-<b>Multi-Sport Support</b>
-Full support for cycling, running, swimming, and 20+ activity types with sport-specific metrics and analysis.
+Supports cycling, running, swimming, and 20+ activity types. Try the built-in demo mode to explore without an account.
 
-<b>Requirements</b>
-An Intervals.icu account with API key access. Get your API key from Intervals.icu Settings > Developer Settings.
-
-<b>Open Source</b>
-Veloq is open source software licensed under Apache 2.0. Contributions welcome on GitHub.
+Requires an Intervals.icu account for live data. Not affiliated with Intervals.icu.

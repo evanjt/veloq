@@ -1,4 +1,10 @@
-Twoje dane treningowe, zwizualizowane. Veloq łączy mapy, wykresy i śledzenie kondycji w jednej szybkiej, gotowej do pracy offline aplikacji.
+Twoje dane treningowe, zwizualizowane. Veloq łączy nagrywanie, mapy, wykresy, analizy i śledzenie kondycji w jednej szybkiej aplikacji.
+
+Nagrywanie
+Śledź aktywności z GPS, automatyczną pauzą, podziałem na kilometry i wyświetlaniem stref tętna. Przytnij nagranie przed zapisem. Przesyłaj jako pliki FIT lub kolejkuj do wysłania później. Ręczne wprowadzanie dla aktywności halowych.
+
+Spostrzeżenia
+Codzienne spersonalizowane analizy na podstawie Twojego treningu: rekordy na odcinkach, kamienie milowe kondycji, porównania tygodniowe, wzorce aktywności i porady dotyczące formy. Pozytywne komunikaty uwzględniające dni odpoczynku.
 
 Mapy
 Przeglądaj swoje aktywności na interaktywnych mapach z terenem 3D, mapami ciepła tras i filtrowaniem osi czasu. Wybieraj między jasnymi, ciemnymi i satelitarnymi stylami. Przewijaj wykresy i obserwuj aktualizację pozycji na mapie w czasie rzeczywistym.
@@ -11,9 +17,6 @@ Tętno, moc, tempo, wysokość i kadencja — wszystko zsynchronizowane z mapą.
 
 Kondycja
 Śledź swoją formę dzięki śledzeniu CTL/ATL/TSB i wizualnym strefom. Monitoruj HRV, tętno spoczynkowe, sen i samopoczucie. Przeglądaj krzywe mocy i tempa według dyscypliny.
-
-Offline-first
-Synchronizuj raz, korzystaj wszędzie. Twoje dane są przechowywane lokalnie i zawsze dostępne, nawet bez internetu.
 
 Prywatność
 Wszystkie dane pozostają na Twoim urządzeniu. Brak analityki, brak śledzenia. Opcjonalne powiadomienia push przechowują token urządzenia na naszym serwerze z automatycznym wygaśnięciem po 30 dniach — żadne dane osobowe nie są zachowywane. Otwarte źródło na licencji Apache 2.0.

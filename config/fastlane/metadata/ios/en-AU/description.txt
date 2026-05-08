@@ -1,4 +1,10 @@
-Your training data, visualised. Veloq brings maps, charts, and fitness tracking together in one fast, offline-ready app.
+Your training data, visualised. Veloq brings recording, maps, charts, insights, and fitness tracking together in one fast app.
+
+Record
+Track activities with GPS, auto-pause, km splits, and heart rate zone display. Trim your recording before saving. Upload as FIT files, or queue for later. Manual entry for indoor activities.
+
+Insights
+Daily personalised insights based on your training: section PRs, fitness milestones, weekly comparisons, activity patterns, and form advice. Positive, rest-day-aware framing.
 
 Maps
 View your activities on interactive maps with 3D terrain, route heatmaps, and timeline filtering. Choose from light, dark, and satellite styles. Scrub through charts and watch your position update on the map in real-time.
@@ -11,9 +17,6 @@ Heart rate, power, pace, elevation, and cadence — all synchronised with the ma
 
 Fitness
 Follow your form with CTL/ATL/TSB tracking and visual zones. Monitor HRV, resting heart rate, sleep, and wellness. View power and pace curves by sport.
-
-Offline-first
-Sync once, access anywhere. Your data is cached locally so it's always available, even without internet.
 
 Privacy
 All data stays on your device. No analytics, no tracking. Optional push notifications store a device token on our server with automatic 30-day expiry — no personal data is retained. Open source under Apache 2.0.

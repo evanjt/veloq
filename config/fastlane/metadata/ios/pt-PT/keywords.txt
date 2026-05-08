@@ -1,1 +1,1 @@
-ciclismo,corrida,triathlon,fitness,CTL,TSB,potência,mapas,GPS,rotas,offline,gráficos,treino
+ciclismo,corrida,triathlon,fitness,CTL,TSB,potência,mapas,GPS,rotas,gráficos,treino,insights

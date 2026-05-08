@@ -1,4 +1,10 @@
-Seus dados de treino, visualizados. Veloq reúne mapas, gráficos e acompanhamento de condicionamento físico em um app rápido e pronto para uso offline.
+Seus dados de treino, visualizados. Veloq reúne gravação, mapas, gráficos, insights e acompanhamento de condicionamento físico em um app rápido.
+
+Gravação
+Registre atividades com GPS, pausa automática, splits por km e exibição de zonas de frequência cardíaca. Recorte sua gravação antes de salvar. Envie como arquivos FIT ou coloque na fila para depois. Entrada manual para atividades indoor.
+
+Insights
+Insights diários personalizados com base no seu treino: recordes em trechos, marcos de condicionamento, comparações semanais, padrões de atividade e orientações sobre forma. Enquadramento positivo e consciente dos dias de descanso.
 
 Mapas
 Visualize suas atividades em mapas interativos com terreno 3D, mapas de calor de rotas e filtragem por linha do tempo. Escolha entre estilos claro, escuro e satélite. Navegue pelos gráficos e acompanhe sua posição atualizando no mapa em tempo real.
@@ -11,9 +17,6 @@ Frequência cardíaca, potência, ritmo, elevação e cadência — tudo sincron
 
 Condicionamento físico
 Acompanhe sua forma com rastreamento CTL/ATL/TSB e zonas visuais. Monitore HRV, frequência cardíaca em repouso, sono e bem-estar. Veja curvas de potência e ritmo por esporte.
-
-Offline-first
-Sincronize uma vez, acesse de qualquer lugar. Seus dados ficam armazenados localmente e sempre disponíveis, mesmo sem internet.
 
 Privacidade
 Todos os dados ficam no seu dispositivo. Sem análises, sem rastreamento. As notificações push opcionais armazenam um token do dispositivo no nosso servidor com expiração automática de 30 dias — nenhum dado pessoal é retido. Código aberto sob licença Apache 2.0.

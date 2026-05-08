@@ -1,23 +1,26 @@
-I tuoi dati di allenamento, visualizzati. Veloq riunisce mappe, grafici e monitoraggio del fitness in un'app veloce e pronta per l'uso offline.
+I tuoi dati di allenamento, visualizzati. Veloq riunisce registrazione, mappe, grafici, insights e monitoraggio del fitness in un'app veloce.
+
+Registrazione
+Registra le attivit con GPS, pausa automatica, split chilometrici e visualizzazione delle zone di frequenza cardiaca. Taglia la registrazione prima di salvarla. Carica come file FIT oppure metti in coda per dopo. Inserimento manuale per le attivit indoor.
+
+Insights
+Insights giornalieri personalizzati basati sul tuo allenamento: PR di sezione, traguardi di fitness, confronti settimanali, pattern di attivit e consigli sulla forma. Sempre positivi e consapevoli dei giorni di riposo.
 
 Mappe
-Visualizza le tue attività su mappe interattive con terreno 3D, mappe di calore dei percorsi e filtro temporale. Scegli tra stili chiaro, scuro e satellite. Scorri i grafici e osserva la tua posizione aggiornarsi sulla mappa in tempo reale.
+Visualizza le tue attivit su mappe interattive con terreno 3D, mappe di calore dei percorsi e filtro temporale. Scegli tra stili chiaro, scuro e satellite. Scorri i grafici e osserva la tua posizione aggiornarsi sulla mappa in tempo reale.
 
 Tracciamento percorsi
-Rileva automaticamente percorsi e sezioni ripetute nella tua cronologia attività. Confronta gli sforzi nel tempo per vedere i tuoi progressi su salite e tratti preferiti.
+Rileva automaticamente percorsi e sezioni ripetute nella tua cronologia attivit. Confronta gli sforzi nel tempo per vedere i tuoi progressi su salite e tratti preferiti.
 
 Grafici e analisi
-Frequenza cardiaca, potenza, passo, altitudine e cadenza — tutto sincronizzato con la mappa. Consulta distribuzioni delle zone, TSS, fattore di intensità e dettagli per giro.
+Frequenza cardiaca, potenza, passo, altitudine e cadenza -- tutto sincronizzato con la mappa. Consulta distribuzioni delle zone, TSS, fattore di intensit e dettagli per giro.
 
 Fitness
 Segui la tua forma con monitoraggio CTL/ATL/TSB e zone visive. Monitora HRV, frequenza cardiaca a riposo, sonno e benessere. Consulta curve di potenza e passo per sport.
 
-Offline-first
-Sincronizza una volta, accedi ovunque. I tuoi dati sono archiviati localmente e sempre disponibili, anche senza internet.
-
 Privacy
-Tutti i dati restano sul tuo dispositivo. Nessuna analisi, nessun tracciamento. Le notifiche push opzionali memorizzano un token del dispositivo sul nostro server con scadenza automatica di 30 giorni — nessun dato personale viene conservato. Open source con licenza Apache 2.0.
+Tutti i dati restano sul tuo dispositivo. Nessuna analisi, nessun tracciamento. Le notifiche push opzionali memorizzano un token del dispositivo sul nostro server con scadenza automatica di 30 giorni -- nessun dato personale viene conservato. Open source con licenza Apache 2.0.
 
-Supporta ciclismo, corsa, nuoto e oltre 20 tipi di attività. Prova la modalità demo integrata per esplorare senza un account.
+Supporta ciclismo, corsa, nuoto e oltre 20 tipi di attivit. Prova la modalit demo integrata per esplorare senza un account.
 
 Richiede un account Intervals.icu per i dati in tempo reale. Non affiliato a Intervals.icu.
