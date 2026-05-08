@@ -12,10 +12,42 @@ import {
   type Product,
   type PurchaseError,
 } from 'react-native-iap';
+import i18next from 'i18next';
 import { useSupportStore } from '@/providers';
 
 const PRODUCT_IDS = ['tip_small', 'tip_medium', 'tip_large'];
 const THANK_YOU_DISPLAY_MS = 3000;
+const FETCH_RETRIES = 3;
+const FETCH_RETRY_DELAY_MS = 1000;
+
+const FALLBACK_KEYS: Record<string, string> = {
+  tip_small: 'support.tip_small',
+  tip_medium: 'support.tip_medium',
+  tip_large: 'support.tip_large',
+};
+
+function iosFallbackProducts(): Product[] {
+  return PRODUCT_IDS.map((id) => ({
+    id,
+    displayPrice: FALLBACK_KEYS[id] ? i18next.t(FALLBACK_KEYS[id] as 'support.tip_small') : id,
+  })) as unknown as Product[];
+}
+
+async function fetchWithRetry(): Promise<Product[]> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt < FETCH_RETRIES; attempt++) {
+    try {
+      const items = await fetchProducts({ skus: PRODUCT_IDS });
+      return (items ?? []) as Product[];
+    } catch (e) {
+      lastError = e;
+      if (attempt < FETCH_RETRIES - 1) {
+        await new Promise((r) => setTimeout(r, FETCH_RETRY_DELAY_MS));
+      }
+    }
+  }
+  throw lastError;
+}
 
 interface DonationState {
   products: Product[];
@@ -41,26 +73,44 @@ export function useDonation() {
     let purchaseErrorSub: ReturnType<typeof purchaseErrorListener> | null = null;
     let mounted = true;
 
+    function applyIosFallback() {
+      if (mounted && Platform.OS === 'ios') {
+        setState((s) => ({
+          ...s,
+          isAvailable: true,
+          products: iosFallbackProducts(),
+          isLoading: false,
+        }));
+        return true;
+      }
+      return false;
+    }
+
     async function init() {
       try {
-        if (__DEV__) console.log('[IAP] initConnection...');
         await initConnection();
-        if (__DEV__) console.log('[IAP] fetchProducts...');
-        const items = await fetchProducts({ skus: PRODUCT_IDS });
-        if (__DEV__) console.log('[IAP] got', items?.length ?? 0, 'products');
-        const productList = (items ?? []) as Product[];
+        const productList = await fetchWithRetry();
         if (mounted) {
-          setState((s) => ({
-            ...s,
-            products: productList,
-            isAvailable: productList.length > 0,
-            isLoading: false,
-          }));
+          if (productList.length > 0) {
+            setState((s) => ({
+              ...s,
+              products: productList,
+              isAvailable: true,
+              isLoading: false,
+            }));
+          } else {
+            console.warn('[IAP] fetchProducts returned empty');
+            if (!applyIosFallback()) {
+              setState((s) => ({ ...s, isAvailable: false, isLoading: false }));
+            }
+          }
         }
       } catch (e: unknown) {
-        if (__DEV__) console.warn('[IAP] init failed:', e);
-        if (mounted) {
-          setState((s) => ({ ...s, isAvailable: false, isLoading: false }));
+        console.warn('[IAP] init failed:', e);
+        if (!applyIosFallback()) {
+          if (mounted) {
+            setState((s) => ({ ...s, isAvailable: false, isLoading: false }));
+          }
         }
       }
 
@@ -88,6 +138,7 @@ export function useDonation() {
       mounted = false;
       purchaseUpdateSub?.remove();
       purchaseErrorSub?.remove();
+      endConnection().catch(() => {});
     };
   }, [recordAction]);
 

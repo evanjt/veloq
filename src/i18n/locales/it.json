@@ -1770,6 +1770,12 @@
     "remindLater": "Ricordamelo più tardi",
     "neverShow": "Non mostrare più",
     "thankYou": "Grazie per il tuo supporto!",
-    "sponsorGitHub": "Sponsorizza su GitHub"
+    "sponsorGitHub": "Sponsorizza su GitHub",
+    "tip_small": "Piccola mancia",
+    "tip_medium": "Mancia media",
+    "tip_large": "Grande mancia",
+    "tipSmall": "Piccola",
+    "tipMedium": "Media",
+    "tipLarge": "Grande"
   }
 }

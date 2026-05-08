@@ -1770,6 +1770,12 @@
     "remindLater": "Spöter erinnerä",
     "neverShow": "Nie meh azeigä",
     "thankYou": "Merci vilmal für dini Unterstützig!",
-    "sponsorGitHub": "Uf GitHub sponserä"
+    "sponsorGitHub": "Uf GitHub sponserä",
+    "tip_small": "Chlises Trinkgeld",
+    "tip_medium": "Mittleres Trinkgeld",
+    "tip_large": "Grosses Trinkgeld",
+    "tipSmall": "Chli",
+    "tipMedium": "Mittel",
+    "tipLarge": "Gross"
   }
 }

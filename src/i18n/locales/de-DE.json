@@ -1770,6 +1770,12 @@
     "remindLater": "Später erinnern",
     "neverShow": "Nie wieder anzeigen",
     "thankYou": "Vielen Dank für deine Unterstützung!",
-    "sponsorGitHub": "Auf GitHub sponsern"
+    "sponsorGitHub": "Auf GitHub sponsern",
+    "tip_small": "Kleines Trinkgeld",
+    "tip_medium": "Mittleres Trinkgeld",
+    "tip_large": "Großes Trinkgeld",
+    "tipSmall": "Klein",
+    "tipMedium": "Mittel",
+    "tipLarge": "Groß"
   }
 }

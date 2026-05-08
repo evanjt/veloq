@@ -1770,6 +1770,12 @@
     "remindLater": "Herinner me later",
     "neverShow": "Nooit meer tonen",
     "thankYou": "Bedankt voor je steun!",
-    "sponsorGitHub": "Sponsor op GitHub"
+    "sponsorGitHub": "Sponsor op GitHub",
+    "tip_small": "Kleine fooi",
+    "tip_medium": "Gemiddelde fooi",
+    "tip_large": "Grote fooi",
+    "tipSmall": "Klein",
+    "tipMedium": "Gemiddeld",
+    "tipLarge": "Groot"
   }
 }

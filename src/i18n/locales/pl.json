@@ -1770,6 +1770,12 @@
     "remindLater": "Przypomnij później",
     "neverShow": "Nie pokazuj ponownie",
     "thankYou": "Dziękujemy za wsparcie!",
-    "sponsorGitHub": "Sponsoruj na GitHub"
+    "sponsorGitHub": "Sponsoruj na GitHub",
+    "tip_small": "Mały napiwek",
+    "tip_medium": "Średni napiwek",
+    "tip_large": "Duży napiwek",
+    "tipSmall": "Mały",
+    "tipMedium": "Średni",
+    "tipLarge": "Duży"
   }
 }
