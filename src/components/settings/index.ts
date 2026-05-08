@@ -4,6 +4,7 @@ export { DataCacheSection } from './DataCacheSection';
 export { DataSection } from './DataSection';
 export { DataSourcesSection } from './DataSourcesSection';
 export { DisplaySettings } from './DisplaySettings';
+export { FooterSection } from './FooterSection';
 export { MapStylePreviewPicker } from './MapStylePreviewPicker';
 export { MapsSection } from './MapsSection';
 export { NotificationSection } from './NotificationSection';

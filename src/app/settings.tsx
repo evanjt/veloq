@@ -33,6 +33,7 @@ import {
   SummaryCardSection,
   DataSection,
   DataSourcesSection,
+  FooterSection,
   NotificationSection,
   SupportSection,
   SyncRangePanel,
@@ -244,9 +245,11 @@ export default function SettingsScreen() {
 
           <DataSection />
 
+          <SupportSection />
+
           <DataSourcesSection />
 
-          <SupportSection />
+          <FooterSection />
         </ScrollView>
       </ScreenSafeAreaView>
     </ScreenErrorBoundary>
