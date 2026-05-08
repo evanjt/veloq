@@ -21,6 +21,33 @@ export function DataSourcesSection() {
         {t('settings.dataSources').toUpperCase()}
       </Text>
       <View style={[settingsStyles.sectionCard, isDark && settingsStyles.sectionCardDark]}>
+        {isDemoMode && (
+          <>
+            <View style={styles.toggleRow}>
+              <View style={styles.toggleInfo}>
+                <Text style={[styles.toggleLabel, isDark && settingsStyles.textLight]}>
+                  {t('settings.hideDemoBanner')}
+                </Text>
+                <Text style={[styles.toggleDescription, isDark && settingsStyles.textMuted]}>
+                  {t('settings.hideDemoBannerHint')}
+                </Text>
+              </View>
+              <Switch
+                testID="hide-demo-banner-switch"
+                value={hideDemoBanner}
+                onValueChange={setHideDemoBanner}
+                color={colors.primary}
+              />
+            </View>
+            <View style={styles.dataSourcesContent}>
+              <Text style={[styles.dataSourcesText, isDark && settingsStyles.textMuted]}>
+                {t('attribution.demoData')}
+              </Text>
+            </View>
+            <View style={[settingsStyles.rowDivider, isDark && settingsStyles.rowDividerDark]} />
+          </>
+        )}
+
         <View style={styles.dataSourcesContent}>
           <Text style={[styles.dataSourcesText, isDark && settingsStyles.textMuted]}>
             {t('settings.dataSourcesDescription')}
@@ -44,38 +71,6 @@ export function DataSourcesSection() {
           </Text>
         </View>
       </View>
-
-      {isDemoMode && (
-        <>
-          <Text style={[settingsStyles.sectionLabel, isDark && settingsStyles.textMuted]}>
-            {t('settings.demoDataSources').toUpperCase()}
-          </Text>
-          <View style={[settingsStyles.sectionCard, isDark && settingsStyles.sectionCardDark]}>
-            <View style={styles.toggleRow}>
-              <View style={styles.toggleInfo}>
-                <Text style={[styles.toggleLabel, isDark && settingsStyles.textLight]}>
-                  {t('settings.hideDemoBanner')}
-                </Text>
-                <Text style={[styles.toggleDescription, isDark && settingsStyles.textMuted]}>
-                  {t('settings.hideDemoBannerHint')}
-                </Text>
-              </View>
-              <Switch
-                testID="hide-demo-banner-switch"
-                value={hideDemoBanner}
-                onValueChange={setHideDemoBanner}
-                color={colors.primary}
-              />
-            </View>
-            <View style={[settingsStyles.rowDivider, isDark && settingsStyles.rowDividerDark]} />
-            <View style={styles.dataSourcesContent}>
-              <Text style={[styles.dataSourcesText, isDark && settingsStyles.textMuted]}>
-                {t('attribution.demoData')}
-              </Text>
-            </View>
-          </View>
-        </>
-      )}
     </>
   );
 }
