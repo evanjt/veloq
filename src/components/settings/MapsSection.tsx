@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
-import { Text, SegmentedButtons } from 'react-native-paper';
+import { Text } from 'react-native-paper';
 import { useTheme } from '@/hooks';
 import { useTranslation } from 'react-i18next';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -29,33 +29,17 @@ const MAP_ACTIVITY_GROUPS: {
   labelKey: FilterLabelKey;
   types: ActivityType[];
 }[] = [
-  {
-    key: 'cycling',
-    labelKey: 'filters.cycling',
-    types: ['Ride', 'VirtualRide'],
-  },
-  {
-    key: 'running',
-    labelKey: 'filters.running',
-    types: ['Run', 'TrailRun', 'VirtualRun'],
-  },
+  { key: 'cycling', labelKey: 'filters.cycling', types: ['Ride', 'VirtualRide'] },
+  { key: 'running', labelKey: 'filters.running', types: ['Run', 'TrailRun', 'VirtualRun'] },
   { key: 'hiking', labelKey: 'filters.hiking', types: ['Hike'] },
   { key: 'walking', labelKey: 'filters.walking', types: ['Walk'] },
-  {
-    key: 'swimming',
-    labelKey: 'filters.swimming',
-    types: ['Swim', 'OpenWaterSwim'],
-  },
+  { key: 'swimming', labelKey: 'filters.swimming', types: ['Swim', 'OpenWaterSwim'] },
   {
     key: 'snow',
     labelKey: 'filters.snowSports',
     types: ['AlpineSki', 'NordicSki', 'BackcountrySki', 'Snowboard', 'Snowshoe'],
   },
-  {
-    key: 'water',
-    labelKey: 'filters.waterSports',
-    types: ['Rowing', 'Kayaking', 'Canoeing'],
-  },
+  { key: 'water', labelKey: 'filters.waterSports', types: ['Rowing', 'Kayaking', 'Canoeing'] },
   { key: 'climbing', labelKey: 'filters.climbing', types: ['RockClimbing'] },
   { key: 'racket', labelKey: 'filters.racketSports', types: ['Tennis'] },
   {
@@ -65,15 +49,31 @@ const MAP_ACTIVITY_GROUPS: {
   },
 ];
 
+const MAP_STYLES: MapStyleType[] = ['light', 'dark', 'satellite'];
+const MAP_STYLES_WITH_DEFAULT = ['default', ...MAP_STYLES] as const;
+const TERRAIN_MODES: Terrain3DMode[] = ['off', 'smart', 'always'];
+
+const STYLE_LABELS: Record<string, string> = {
+  default: 'settings.default',
+  light: 'settings.light',
+  dark: 'settings.dark',
+  satellite: 'settings.satellite',
+};
+
+const TERRAIN_LABELS: Record<string, string> = {
+  off: 'settings.terrain3DOff',
+  smart: 'settings.terrain3DSmart',
+  always: 'settings.terrain3DAlways',
+};
+
 interface MapsSectionProps {
-  /** When true, skip section label and outer card (for embedding in a parent card) */
   embedded?: boolean;
 }
 
 export function MapsSection({ embedded }: MapsSectionProps = {}) {
   const { isDark } = useTheme();
   const { t } = useTranslation();
-  const [showActivityStyles, setShowActivityStyles] = useState(false);
+  const [showOverrides, setShowOverrides] = useState(false);
   const {
     preferences: mapPreferences,
     setDefaultStyle,
@@ -85,54 +85,55 @@ export function MapsSection({ embedded }: MapsSectionProps = {}) {
     getTerrain3DMode,
   } = useMapPreferences();
 
-  // Migrate stale per-type 3D overrides: old code only set types[0] per group.
-  // Normalize so all types in a group share the same override.
   useEffect(() => {
     const byType = mapPreferences.terrain3DModeByType;
     for (const group of MAP_ACTIVITY_GROUPS) {
       const lead = byType[group.types[0]];
       if (lead === undefined) continue;
-      const needsFix = group.types.some((t) => byType[t] !== lead);
+      const needsFix = group.types.some((tp) => byType[tp] !== lead);
       if (needsFix) {
         setTerrain3DModeGroup(group.types, lead);
       }
     }
-    // Only run on mount
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleDefaultMapStyleChange = async (value: string) => {
-    const style = value as MapStyleType;
-    await setDefaultStyle(style);
+    await setDefaultStyle(value as MapStyleType);
     await clearTerrainPreviews();
   };
 
-  const handleGlobalMapStyleChange = async (value: string) => {
-    const style = value as MapStyleType;
-    await setGlobalMapStyle(style);
+  const cycleGlobalMapStyle = async () => {
+    const current = getGlobalMapStyle();
+    const idx = MAP_STYLES.indexOf(current);
+    const next = MAP_STYLES[(idx + 1) % MAP_STYLES.length];
+    await setGlobalMapStyle(next);
     await clearTerrainPreviews();
   };
 
-  const handleActivityGroupMapStyleChange = async (groupKey: string, value: string) => {
-    const group = MAP_ACTIVITY_GROUPS.find((g) => g.key === groupKey);
-    if (!group) return;
-
-    const style = value === 'default' ? null : (value as MapStyleType);
-    await setActivityGroupStyle(group.types, style);
+  const cycleActivityGroupStyle = async (types: ActivityType[]) => {
+    const current = mapPreferences.activityTypeStyles[types[0]] ?? 'default';
+    const idx = MAP_STYLES_WITH_DEFAULT.indexOf(
+      current as (typeof MAP_STYLES_WITH_DEFAULT)[number]
+    );
+    const next = MAP_STYLES_WITH_DEFAULT[(idx + 1) % MAP_STYLES_WITH_DEFAULT.length];
+    await setActivityGroupStyle(types, next === 'default' ? null : (next as MapStyleType));
     await clearTerrainPreviews();
   };
 
-  const handleTerrain3DModeChange = async (mode: string) => {
-    await setTerrain3DMode(null, mode as Terrain3DMode);
+  const cycleTerrain3DMode = async () => {
+    const idx = TERRAIN_MODES.indexOf(mapPreferences.terrain3DMode);
+    await setTerrain3DMode(null, TERRAIN_MODES[(idx + 1) % TERRAIN_MODES.length]);
     await clearTerrainPreviews();
   };
 
-  const handleTerrain3DGroupModeChange = async (types: ActivityType[], mode: string) => {
-    await setTerrain3DModeGroup(types, mode as Terrain3DMode);
+  const cycleTerrain3DGroup = async (types: ActivityType[]) => {
+    const current = getTerrain3DMode(types[0]);
+    const idx = TERRAIN_MODES.indexOf(current);
+    await setTerrain3DModeGroup(types, TERRAIN_MODES[(idx + 1) % TERRAIN_MODES.length]);
     await clearTerrainPreviews();
   };
 
-  // 3D terrain mode label
   const terrain3DLabel =
     mapPreferences.terrain3DMode === 'off'
       ? t('settings.terrain3DOff', { defaultValue: 'Off' })
@@ -140,21 +141,20 @@ export function MapsSection({ embedded }: MapsSectionProps = {}) {
         ? t('settings.terrain3DSmart', { defaultValue: 'Smart' })
         : t('settings.terrain3DAlways', { defaultValue: 'Always' });
 
+  const mutedColor = isDark ? darkColors.textSecondary : colors.textSecondary;
+  const pillBg = isDark ? darkColors.surfaceElevated : colors.background;
+  const exploreStyle = getGlobalMapStyle();
+
   const mapsContent = (
     <>
-      {/* Default style + 3D terrain toggle in header row */}
+      {/* Default style + 3D terrain toggle */}
       <View style={styles.styleHeaderRow}>
         <Text style={[styles.mapStyleLabel, isDark && settingsStyles.textLight]}>
           {t('settings.defaultStyle')}
         </Text>
         <TouchableOpacity
           style={styles.terrain3DBadge}
-          onPress={() => {
-            // Cycle: off → smart → always → off
-            const modes: Terrain3DMode[] = ['off', 'smart', 'always'];
-            const idx = modes.indexOf(mapPreferences.terrain3DMode);
-            handleTerrain3DModeChange(modes[(idx + 1) % 3]);
-          }}
+          onPress={cycleTerrain3DMode}
           activeOpacity={0.6}
         >
           <MaterialCommunityIcons
@@ -177,88 +177,89 @@ export function MapsSection({ embedded }: MapsSectionProps = {}) {
         onValueChange={handleDefaultMapStyleChange}
       />
 
-      {/* Global/explore map style */}
-      <View style={[styles.styleHeaderRow, styles.actionRowBorder]}>
-        <Text style={[styles.mapStyleLabel, isDark && settingsStyles.textLight]}>
-          {t('settings.exploreMapStyle')}
-        </Text>
-      </View>
-      <MapStylePreviewPicker
-        value={getGlobalMapStyle()}
-        onValueChange={handleGlobalMapStyleChange}
-      />
-
-      {/* Per-activity-type styles toggle */}
+      {/* Overrides toggle */}
       <TouchableOpacity
         style={[styles.actionRow, styles.actionRowBorder]}
-        onPress={() => setShowActivityStyles(!showActivityStyles)}
+        onPress={() => setShowOverrides(!showOverrides)}
       >
         <MaterialCommunityIcons name="tune-variant" size={22} color={colors.primary} />
         <Text style={[styles.actionText, isDark && settingsStyles.textLight]}>
           {t('settings.customiseByActivity')}
         </Text>
         <MaterialCommunityIcons
-          name={showActivityStyles ? 'chevron-up' : 'chevron-down'}
+          name={showOverrides ? 'chevron-up' : 'chevron-down'}
           size={20}
-          color={isDark ? darkColors.textMuted : colors.textSecondary}
+          color={mutedColor}
         />
       </TouchableOpacity>
 
-      {/* Per-activity-group pickers */}
-      {showActivityStyles && (
-        <View style={styles.activityStylesContainer}>
+      {showOverrides && (
+        <View style={styles.overridesContainer}>
+          {/* Explore Map row */}
+          <View style={styles.overrideRow}>
+            <MaterialCommunityIcons name="map-outline" size={16} color={colors.primary} />
+            <Text
+              style={[styles.overrideLabel, isDark && settingsStyles.textLight]}
+              numberOfLines={1}
+            >
+              {t('settings.exploreMapStyle')}
+            </Text>
+            <TouchableOpacity
+              style={[styles.pill, { backgroundColor: pillBg }]}
+              onPress={cycleGlobalMapStyle}
+              activeOpacity={0.6}
+            >
+              <Text style={[styles.pillText, { color: mutedColor }]}>
+                {t((STYLE_LABELS[exploreStyle] ?? 'settings.light') as 'settings.light')}
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          <View
+            style={[
+              styles.overrideDivider,
+              { backgroundColor: isDark ? darkColors.border : colors.border },
+            ]}
+          />
+
+          {/* Per-activity-group rows */}
           {MAP_ACTIVITY_GROUPS.map(({ key, labelKey, types }) => {
-            // Use the first type in the group to determine current style
             const currentStyle = mapPreferences.activityTypeStyles[types[0]] ?? 'default';
-            const terrain3DModeForGroup = getTerrain3DMode(types[0]);
+            const terrain3D = getTerrain3DMode(types[0]);
+            const styleKey = STYLE_LABELS[currentStyle] ?? 'settings.default';
+            const terrainKey = TERRAIN_LABELS[terrain3D] ?? 'settings.terrain3DSmart';
+
             return (
-              <View key={key} style={styles.activityStyleRow}>
-                <View style={styles.activityStyleHeader}>
-                  <Text style={[styles.activityStyleLabel, isDark && settingsStyles.textLight]}>
-                    {t(labelKey)}
+              <View key={key} style={styles.overrideRow}>
+                <Text
+                  style={[styles.overrideLabel, isDark && settingsStyles.textLight]}
+                  numberOfLines={1}
+                >
+                  {t(labelKey)}
+                </Text>
+                <TouchableOpacity
+                  style={[styles.pill, { backgroundColor: pillBg }]}
+                  onPress={() => cycleActivityGroupStyle(types)}
+                  activeOpacity={0.6}
+                >
+                  <Text style={[styles.pillText, { color: mutedColor }]}>
+                    {t(styleKey as 'settings.default')}
                   </Text>
-                </View>
-                <SegmentedButtons
-                  value={currentStyle}
-                  onValueChange={(value) => handleActivityGroupMapStyleChange(key, value)}
-                  buttons={[
-                    { value: 'default', label: t('settings.default') },
-                    { value: 'light', label: t('settings.light') },
-                    { value: 'dark', label: t('settings.dark') },
-                    { value: 'satellite', label: t('settings.satellite') },
-                  ]}
-                  density="small"
-                  style={styles.activityStylePicker}
-                />
-                <View style={styles.terrain3DGroupRow}>
-                  <Text style={[styles.terrain3DGroupLabel, isDark && settingsStyles.textMuted]}>
-                    3D
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.pill, { backgroundColor: pillBg }]}
+                  onPress={() => cycleTerrain3DGroup(types)}
+                  activeOpacity={0.6}
+                >
+                  <Text style={[styles.pillText, { color: mutedColor }]}>
+                    3D: {t(terrainKey as 'settings.terrain3DSmart', { defaultValue: 'Smart' })}
                   </Text>
-                  <SegmentedButtons
-                    value={terrain3DModeForGroup}
-                    onValueChange={(value) => handleTerrain3DGroupModeChange(types, value)}
-                    buttons={[
-                      {
-                        value: 'off',
-                        label: t('settings.terrain3DOff', { defaultValue: 'Off' }),
-                      },
-                      {
-                        value: 'smart',
-                        label: t('settings.terrain3DSmart', { defaultValue: 'Smart' }),
-                      },
-                      {
-                        value: 'always',
-                        label: t('settings.terrain3DAlways', { defaultValue: 'Always' }),
-                      },
-                    ]}
-                    density="small"
-                    style={styles.terrain3DGroupPicker}
-                  />
-                </View>
+                </TouchableOpacity>
               </View>
             );
           })}
-          <Text style={[styles.activityStyleHint, isDark && settingsStyles.textMuted]}>
+
+          <Text style={[styles.hintText, isDark && settingsStyles.textMuted]}>
             {t('settings.defaultMapHint')}
           </Text>
         </View>
@@ -266,9 +267,7 @@ export function MapsSection({ embedded }: MapsSectionProps = {}) {
     </>
   );
 
-  if (embedded) {
-    return mapsContent;
-  }
+  if (embedded) return mapsContent;
 
   return (
     <>
@@ -328,44 +327,40 @@ const styles = StyleSheet.create({
     flex: 1,
     color: colors.textPrimary,
   },
-  activityStylesContainer: {
+  overridesContainer: {
     paddingHorizontal: spacing.md,
     paddingBottom: spacing.md,
   },
-  activityStyleRow: {
-    marginTop: spacing.md,
-  },
-  activityStyleHeader: {
+  overrideRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: spacing.xs,
+    paddingVertical: spacing.sm,
+    gap: spacing.xs,
   },
-  activityStyleLabel: {
+  overrideLabel: {
     ...typography.bodySmall,
     fontWeight: '500',
     color: colors.textPrimary,
+    flex: 1,
+    flexShrink: 1,
   },
-  activityStylePicker: {
-    // Handled by React Native Paper
+  pill: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 3,
+    borderRadius: layout.borderRadiusSm,
   },
-  activityStyleHint: {
+  pillText: {
+    ...typography.caption,
+    fontSize: 12,
+  },
+  overrideDivider: {
+    height: StyleSheet.hairlineWidth,
+    marginVertical: spacing.xs,
+  },
+  hintText: {
     ...typography.caption,
     color: colors.textSecondary,
     marginTop: spacing.md,
     fontStyle: 'italic',
-  },
-  terrain3DGroupRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    marginTop: spacing.xs,
-  },
-  terrain3DGroupLabel: {
-    ...typography.captionBold,
-    color: colors.textSecondary,
-  },
-  terrain3DGroupPicker: {
-    flex: 1,
   },
 });

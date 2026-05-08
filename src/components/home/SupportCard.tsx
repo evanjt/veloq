@@ -54,7 +54,7 @@ export function SupportCard() {
   const toggleTips = useCallback(() => {
     const next = !tipsExpanded;
     setTipsExpanded(next);
-    tipHeight.value = withTiming(next ? 56 : 0, { duration: 250 });
+    tipHeight.value = withTiming(next ? 64 : 0, { duration: 250 });
   }, [tipsExpanded, tipHeight]);
 
   const handleReview = useCallback(async () => {
