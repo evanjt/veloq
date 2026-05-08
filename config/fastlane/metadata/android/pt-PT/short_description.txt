@@ -1,1 +1,1 @@
-Cliente móvel offline-first para Intervals.icu
+Gravação GPS, insights, mapas, gráficos e monitorização de fitness

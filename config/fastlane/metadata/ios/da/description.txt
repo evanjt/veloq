@@ -1,19 +1,22 @@
-Dine træningsdata, visualiseret. Veloq samler kort, diagrammer og fitnesssporing i en hurtig, offline-klar app.
+Dine træningsdata, visualiseret. Veloq samler optagelse, kort, diagrammer, indsigter og fitnesssporing i en hurtig app.
+
+Optag
+Spor aktiviteter med GPS, auto-pause, km-splits og pulszonevisning. Trim din optagelse inden lagring. Upload som FIT-filer, eller sæt i kø til senere. Manuel indtastning til indendørsaktiviteter.
+
+Indsigter
+Daglige personlige indsigter baseret på din træning: sektions-PR'er, fitnessmilesten, ugentlige sammenligninger, aktivitetsmønstre og formrådgivning. Positiv, hviledagsbevidst indramning.
 
 Kort
 Se dine aktiviteter på interaktive kort med 3D-terræn, rute-heatmaps og tidslinjefiltrering. Vælg mellem lyse, mørke og satellitstile. Rul gennem diagrammer og se din position opdatere på kortet i realtid.
 
 Rutesporing
-Registrer automatisk gentagne ruter og strækninger i din aktivitetshistorik. Sammenlign præstationer over tid for at se dine fremskridt på favoritstiger og -strækninger.
+Registrer automatisk gentagne ruter og sektioner i din aktivitetshistorik. Sammenlign præstationer over tid for at se dine fremskridt på favoritstiger og -strækninger.
 
 Diagrammer og analyse
 Puls, power, tempo, højde og kadence — alt synkroniseret med kortet. Se zonefordelinger, TSS, intensitetsfaktor og rundedetaljer.
 
 Fitness
 Følg din form med CTL/ATL/TSB-sporing og visuelle zoner. Overvåg HRV, hvilepuls, søvn og velvære. Se power- og tempokurver efter sportsgren.
-
-Offline først
-Synkroniser én gang, tilgå overalt. Dine data gemmes lokalt og er altid tilgængelige, selv uden internet.
 
 Privatliv
 Alle data forbliver på din enhed. Ingen analyse, ingen sporing. Valgfrie push-notifikationer gemmer et enhedstoken på vores server med automatisk 30-dages udløb — ingen personlige data opbevares. Open source under Apache 2.0.

@@ -1,23 +1,26 @@
-Vos données d'entraînement, visualisées. Veloq réunit cartes, graphiques et suivi de la condition physique dans une application rapide et utilisable hors ligne.
+Vos donnees d'entrainement, visualisees. Veloq reunit enregistrement, cartes, graphiques, insights et suivi de la condition physique dans une application rapide.
+
+Enregistrement
+Suivez vos activites avec GPS, pause automatique, splits au kilometre et affichage des zones de frequence cardiaque. Decoupez votre enregistrement avant de le sauvegarder. Exportez en fichiers FIT, ou mettez en file d'attente pour plus tard. Saisie manuelle pour les activites en interieur.
+
+Insights
+Des insights personnalises quotidiens bases sur votre entrainement : records personnels de sections, jalons de condition physique, comparaisons hebdomadaires, tendances d'activite et conseils de forme. Un ton toujours positif, adapte aux jours de repos.
 
 Cartes
-Visualisez vos activités sur des cartes interactives avec terrain 3D, cartes de chaleur des itinéraires et filtrage temporel. Choisissez entre les styles clair, sombre et satellite. Parcourez les graphiques et suivez votre position en temps réel sur la carte.
+Visualisez vos activites sur des cartes interactives avec terrain 3D, cartes de chaleur des itineraires et filtrage temporel. Choisissez entre les styles clair, sombre et satellite. Parcourez les graphiques et suivez votre position en temps reel sur la carte.
 
-Suivi d'itinéraires
-Détectez automatiquement les itinéraires et sections répétés dans votre historique d'activités. Comparez vos efforts au fil du temps pour suivre vos progrès sur vos montées et parcours favoris.
+Suivi d'itineraires
+Detectez automatiquement les itineraires et sections repetes dans votre historique d'activites. Comparez vos efforts au fil du temps pour suivre vos progres sur vos montees et parcours favoris.
 
 Graphiques et analyse
-Fréquence cardiaque, puissance, allure, altitude et cadence — le tout synchronisé avec la carte. Consultez les distributions de zones, TSS, facteur d'intensité et détails par tour.
+Frequence cardiaque, puissance, allure, altitude et cadence — le tout synchronise avec la carte. Consultez les distributions de zones, TSS, facteur d'intensite et details par tour.
 
 Condition physique
-Suivez votre forme avec le suivi CTL/ATL/TSB et les zones visuelles. Surveillez la HRV, la fréquence cardiaque au repos, le sommeil et le bien-être. Consultez les courbes de puissance et d'allure par sport.
+Suivez votre forme avec le suivi CTL/ATL/TSB et les zones visuelles. Surveillez la HRV, la frequence cardiaque au repos, le sommeil et le bien-etre. Consultez les courbes de puissance et d'allure par sport.
 
-Hors ligne d'abord
-Synchronisez une fois, accédez partout. Vos données sont stockées localement et toujours disponibles, même sans internet.
+Confidentialite
+Toutes les donnees restent sur votre appareil. Pas d'analyse, pas de suivi. Les notifications push optionnelles stockent un jeton d'appareil sur notre serveur avec une expiration automatique de 30 jours — aucune donnee personnelle n'est conservee. Code source ouvert sous Apache 2.0.
 
-Confidentialité
-Toutes les données restent sur votre appareil. Pas d'analyse, pas de suivi. Les notifications push optionnelles stockent un jeton d'appareil sur notre serveur avec une expiration automatique de 30 jours — aucune donnée personnelle n'est conservée. Code source ouvert sous Apache 2.0.
+Compatible avec le cyclisme, la course, la natation et plus de 20 types d'activites. Essayez le mode demo integre pour explorer sans compte.
 
-Compatible avec le cyclisme, la course, la natation et plus de 20 types d'activités. Essayez le mode démo intégré pour explorer sans compte.
-
-Nécessite un compte Intervals.icu pour les données en direct. Non affilié à Intervals.icu.
+Necessite un compte Intervals.icu pour les donnees en direct. Non affilie a Intervals.icu.

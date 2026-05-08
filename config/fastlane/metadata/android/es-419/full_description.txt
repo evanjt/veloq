@@ -1,28 +1,26 @@
-Veloq lleva tus datos de entrenamiento de Intervals.icu al móvil con un enfoque en mapas, análisis visual y acceso sin conexión.
+Tus datos de entrenamiento, visualizados. Veloq reúne grabación, mapas, gráficas, insights y seguimiento de fitness en una app rápida.
 
-<b>Visualización basada en mapas</b>
-Ve tus actividades en un mapa regional interactivo con filtrado por línea de tiempo y mapas de calor de rutas. Alterna entre estilos de mapa claro, oscuro y satelital. Explora vistas de terreno 3D con desplazamiento sincronizado de gráficos.
+<b>Grabación</b>
+Registra actividades con GPS, pausa automática, parciales por km y visualización de zonas de frecuencia cardíaca. Recorta tu grabación antes de guardar. Sube como archivos FIT, o ponlos en cola para después. Entrada manual para actividades en interior.
 
-<b>Análisis detallado de actividades</b>
-Profundiza en gráficos multimétrica para frecuencia cardíaca, potencia, ritmo, elevación y cadencia. Desplázate por tu actividad con resaltado en tiempo real sobre el mapa. Ve distribuciones de zonas, métricas de entrenamiento (TSS, factor de intensidad) y desglose por vueltas.
+<b>Insights</b>
+Insights diarios personalizados basados en tu entrenamiento: récords en secciones, hitos de fitness, comparaciones semanales, patrones de actividad y consejos de forma. Enfoque positivo y consciente de los días de descanso.
 
-<b>Inteligencia de rutas</b>
-Detecta automáticamente rutas repetidas y sigue tu rendimiento a lo largo del tiempo. Compara esfuerzos en el mismo recorrido para ver tu progreso. Identifica secciones frecuentemente recorridas con análisis detallado de coincidencias.
+<b>Mapas</b>
+Visualiza tus actividades en mapas interactivos con terreno 3D, mapas de calor de rutas y filtrado por línea de tiempo. Elige entre estilos claro, oscuro y satélite. Desplázate por las gráficas y observa tu posición actualizarse en el mapa en tiempo real.
 
-<b>Seguimiento de fitness</b>
-Monitorea tu modelo de fitness CTL/ATL/TSB con análisis de zonas de forma. Registra HRV, frecuencia cardíaca en reposo, sueño y métricas de bienestar. Ve curvas de potencia, curvas de ritmo y distribuciones de zonas por deporte.
+<b>Seguimiento de rutas</b>
+Detecta automáticamente rutas y secciones repetidas en tu historial de actividades. Compara esfuerzos a lo largo del tiempo para ver tu progreso en subidas y tramos favoritos.
 
-<b>Offline-first</b>
-El almacenamiento agresivo en caché asegura que tus datos siempre estén disponibles. Sincroniza tus actividades una vez y accede a ellas en cualquier lugar sin conexión a internet.
+<b>Gráficas y análisis</b>
+Frecuencia cardíaca, potencia, ritmo, elevación y cadencia — todo sincronizado con el mapa. Consulta distribuciones de zonas, TSS, factor de intensidad y desgloses por vuelta.
+
+<b>Fitness</b>
+Sigue tu forma con seguimiento CTL/ATL/TSB y zonas visuales. Monitorea HRV, frecuencia cardíaca en reposo, sueño y bienestar. Consulta curvas de potencia y ritmo por deporte.
 
 <b>Privacidad</b>
-Todos los datos permanecen en tu dispositivo. Sin analíticas, sin rastreo. Las notificaciones push opcionales almacenan un token de dispositivo en nuestro servidor con expiración automática de 30 días — no se retienen datos personales. Código abierto bajo Apache 2.0.
+Todos los datos permanecen en tu dispositivo. Sin analíticas, sin rastreo. Las notificaciones push opcionales almacenan un token de dispositivo en nuestro servidor con caducidad automática de 30 días — no se conservan datos personales. Código abierto bajo Apache 2.0.
 
-<b>Soporte multideporte</b>
-Soporte completo para ciclismo, running, natación y más de 20 tipos de actividad con métricas y análisis específicos por deporte.
+Compatible con ciclismo, carrera, natación y más de 20 tipos de actividad. Prueba el modo demo integrado para explorar sin cuenta.
 
-<b>Requisitos</b>
-Una cuenta de Intervals.icu con acceso a clave API. Obtén tu clave API en Intervals.icu Configuración > Configuración de desarrollador.
-
-<b>Código abierto</b>
-Veloq es software de código abierto licenciado bajo Apache 2.0. Las contribuciones son bienvenidas en GitHub.
+Requiere una cuenta de Intervals.icu para datos en vivo. No afiliado a Intervals.icu.
