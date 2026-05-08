@@ -9,7 +9,7 @@ import { type MapStyleType, getMapStyle } from '@/components/maps/mapStyles';
 // Bern, Switzerland coordinates - centered on the Aare river bend around the old town
 const BERN_CENTER: [number, number] = [7.457, 46.947];
 const PREVIEW_ZOOM = 12.5;
-const CIRCLE_SIZE = 95;
+const CIRCLE_SIZE = 70;
 
 interface MapStylePreviewPickerProps {
   value: MapStyleType;
