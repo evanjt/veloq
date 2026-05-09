@@ -87,16 +87,16 @@ function useStableArray(arr: number[] | undefined): number[] | undefined {
   return ref.current;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type PrecomputedCardData = any;
+
 /**
  * Hook that provides all data needed for SummaryCard.
  *
- * Extracts the data calculation logic from the home screen so it can be
- * reused in settings preview and other places that need the same data.
- *
- * Uses: useAthlete, useWellness, useSportSettings, usePaceCurve,
- * useDashboardPreferences, useSportPreference
+ * When `precomputedCardData` is provided (from getStartupData), skips the
+ * redundant getSummaryCardData FFI call and uses the pre-fetched data instead.
  */
-export function useSummaryCardData(): SummaryCardData {
+export function useSummaryCardData(precomputedCardData?: PrecomputedCardData): SummaryCardData {
   const { t } = useTranslation();
   const { data: athlete } = useAthlete();
   const { primarySport } = useSportPreference();
@@ -187,7 +187,8 @@ export function useSummaryCardData(): SummaryCardData {
     };
   }, [wellnessData]);
 
-  // Engine-derived stats (FFI calls: getPeriodStats x2 + getFtpTrend)
+  // Engine-derived stats — uses precomputed data from getStartupData when available,
+  // falls back to direct FFI call (settings preview, non-feed contexts)
   const engineStats = useMemo(() => {
     const defaults = {
       weekHours: 0,
@@ -198,18 +199,6 @@ export function useSummaryCardData(): SummaryCardData {
       ftpTrend: '' as const,
       thresholdPaceTrend: '' as const,
       cssTrend: '' as const,
-    };
-
-    const engine = getRouteEngine();
-    if (!engine) return defaults;
-
-    const getMonday = (date: Date): Date => {
-      const d = new Date(date);
-      const day = d.getDay();
-      const diff = d.getDate() - day + (day === 0 ? -6 : 1);
-      d.setDate(diff);
-      d.setHours(0, 0, 0, 0);
-      return d;
     };
 
     const getTrend = (
@@ -223,25 +212,44 @@ export function useSummaryCardData(): SummaryCardData {
       return diff > 0 ? '↑' : '↓';
     };
 
-    const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const currentMonday = getMonday(today);
-    const currentSunday = new Date(currentMonday);
-    currentSunday.setDate(currentMonday.getDate() + 6);
-    currentSunday.setHours(23, 59, 59, 999);
+    // Use precomputed data from getStartupData if available
+    let cardData = precomputedCardData;
 
-    const prevMonday = new Date(currentMonday);
-    prevMonday.setDate(currentMonday.getDate() - 7);
-    const prevSunday = new Date(currentMonday);
-    prevSunday.setDate(currentMonday.getDate() - 1);
-    prevSunday.setHours(23, 59, 59, 999);
+    if (!cardData) {
+      const engine = getRouteEngine();
+      if (!engine) return defaults;
 
-    const cardData = engine.getSummaryCardData(
-      Math.floor(currentMonday.getTime() / 1000),
-      Math.floor(currentSunday.getTime() / 1000),
-      Math.floor(prevMonday.getTime() / 1000),
-      Math.floor(prevSunday.getTime() / 1000)
-    );
+      const getMonday = (date: Date): Date => {
+        const d = new Date(date);
+        const day = d.getDay();
+        const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+        d.setDate(diff);
+        d.setHours(0, 0, 0, 0);
+        return d;
+      };
+
+      const now = new Date();
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const currentMonday = getMonday(today);
+      const currentSunday = new Date(currentMonday);
+      currentSunday.setDate(currentMonday.getDate() + 6);
+      currentSunday.setHours(23, 59, 59, 999);
+
+      const prevMonday = new Date(currentMonday);
+      prevMonday.setDate(currentMonday.getDate() - 7);
+      const prevSunday = new Date(currentMonday);
+      prevSunday.setDate(currentMonday.getDate() - 1);
+      prevSunday.setHours(23, 59, 59, 999);
+
+      cardData = engine.getSummaryCardData(
+        Math.floor(currentMonday.getTime() / 1000),
+        Math.floor(currentSunday.getTime() / 1000),
+        Math.floor(prevMonday.getTime() / 1000),
+        Math.floor(prevSunday.getTime() / 1000)
+      );
+    }
+
+    if (!cardData?.currentWeek) return defaults;
 
     const weekCount = cardData.currentWeek.count;
     const weekSeconds = Number(cardData.currentWeek.totalDuration);
@@ -274,7 +282,7 @@ export function useSummaryCardData(): SummaryCardData {
         0.05
       ),
     };
-  }, [engineTrigger]);
+  }, [precomputedCardData, engineTrigger]);
 
   // Merged quick stats — recomputes only when either source changes
   const quickStats = useMemo(

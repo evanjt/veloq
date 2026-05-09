@@ -129,29 +129,6 @@ export default function FeedScreen() {
   // Dashboard preferences for navigation
   const { summaryCard } = useDashboardPreferences();
 
-  // Summary card data (hero metric, sparkline, supporting metrics)
-  const t0 = PERF_DEBUG ? performance.now() : 0;
-  const {
-    profileUrl,
-    heroMetric,
-    heroValue,
-    heroLabel,
-    heroColor,
-    heroZoneLabel,
-    heroZoneColor,
-    heroTrend,
-    fitnessData,
-    fatigueData,
-    formData,
-    hrvData,
-    rhrData,
-    showSparkline,
-    supportingMetrics,
-    refetch: refetchSummary,
-  } = useSummaryCardData();
-  if (PERF_DEBUG && performance.now() - t0 > 5)
-    console.log(`  ⏱ useSummaryCardData: ${(performance.now() - t0).toFixed(1)}ms`);
-
   const t1 = PERF_DEBUG ? performance.now() : 0;
   const {
     data,
@@ -197,6 +174,29 @@ export default function FeedScreen() {
   const { data: startupData } = useStartupData(previewIds);
   if (PERF_DEBUG && performance.now() - t2 > 5)
     console.log(`  ⏱ useStartupData: ${(performance.now() - t2).toFixed(1)}ms`);
+
+  // Summary card data — uses precomputed data from getStartupData to skip redundant FFI
+  const t0 = PERF_DEBUG ? performance.now() : 0;
+  const {
+    profileUrl,
+    heroMetric,
+    heroValue,
+    heroLabel,
+    heroColor,
+    heroZoneLabel,
+    heroZoneColor,
+    heroTrend,
+    fitnessData,
+    fatigueData,
+    formData,
+    hrvData,
+    rhrData,
+    showSparkline,
+    supportingMetrics,
+    refetch: refetchSummary,
+  } = useSummaryCardData(startupData?.summaryCardData);
+  if (PERF_DEBUG && performance.now() - t0 > 5)
+    console.log(`  ⏱ useSummaryCardData: ${(performance.now() - t0).toFixed(1)}ms`);
 
   // useInsights uses pre-computed data from startup — never makes its own FFI call on feed
   const t3 = PERF_DEBUG ? performance.now() : 0;
