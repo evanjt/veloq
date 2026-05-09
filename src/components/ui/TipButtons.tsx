@@ -25,8 +25,6 @@ export function TipButtons({ products, isPurchasing, onTip, isDark, small }: Tip
     return order.indexOf(a.id) - order.indexOf(b.id);
   });
 
-  const isFallback = sorted.length > 0 && !sorted[0].displayPrice.match(/[\d.,]/);
-
   return (
     <View style={[styles.tipRow, small && styles.tipRowSmall]}>
       {sorted.map((product) => (
@@ -45,7 +43,7 @@ export function TipButtons({ products, isPurchasing, onTip, isDark, small }: Tip
           >
             {product.displayPrice}
           </Text>
-          {!isFallback && !small && (
+          {!small && (
             <Text style={[styles.tipLabel, isDark && styles.tipLabelDark]}>
               {t((SIZE_LABELS[product.id] ?? product.id) as 'support.tipSmall')}
             </Text>

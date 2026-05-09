@@ -446,9 +446,9 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ios
-          key: ios-prebuild-v6-${{ runner.os }}-${{ hashFiles('app.json', 'app.config.js', 'package.json', 'package-lock.json', 'plugins/**', 'expo-modules/**/*.json', 'modules/**/ios/**', 'modules/**/package.json') }}
+          key: ios-prebuild-v7-${{ runner.os }}-${{ hashFiles('app.json', 'app.config.js', 'package.json', 'package-lock.json', 'plugins/**', 'expo-modules/**/*.json', 'modules/**/ios/**', 'modules/**/package.json') }}
           restore-keys: |
-            ios-prebuild-v6-${{ runner.os }}-
+            ios-prebuild-v7-${{ runner.os }}-
 
       - name: Install dependencies
         run: npm ci
