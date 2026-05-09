@@ -851,6 +851,10 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_fn_constructor_settingsmanager_new(
     uniffi_out_err: UniffiRustCallStatus,
   ): bigint;
+  ubrn_uniffi_veloqrs_fn_method_settingsmanager_clear_user_profile_caches(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
   ubrn_uniffi_veloqrs_fn_method_settingsmanager_delete_setting(
     ptr: bigint,
     key: Uint8Array,
@@ -1198,6 +1202,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_set_reference(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_set_superseded(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_trim(): number;
+  ubrn_uniffi_veloqrs_checksum_method_settingsmanager_clear_user_profile_caches(): number;
   ubrn_uniffi_veloqrs_checksum_method_settingsmanager_delete_setting(): number;
   ubrn_uniffi_veloqrs_checksum_method_settingsmanager_get_all_settings(): number;
   ubrn_uniffi_veloqrs_checksum_method_settingsmanager_get_athlete_profile(): number;

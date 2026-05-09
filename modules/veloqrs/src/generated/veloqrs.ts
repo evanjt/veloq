@@ -11183,6 +11183,12 @@ const FfiConverterTypeSectionManager = new FfiConverterObject(
 
 export interface SettingsManagerLike {
   /**
+   * Clear the cached athlete profile and sport settings blobs without
+   * touching activity / GPS / section data. Used by the lightweight
+   * "Sign out" path.
+   */
+  clearUserProfileCaches() /*throws*/ : void;
+  /**
    * Delete a single user preference.
    */
   deleteSetting(key: string) /*throws*/ : void;
@@ -11232,6 +11238,26 @@ export class SettingsManager
     this[pointerLiteralSymbol] = pointer;
     this[destructorGuardSymbol] =
       uniffiTypeSettingsManagerObjectFactory.bless(pointer);
+  }
+
+  /**
+   * Clear the cached athlete profile and sport settings blobs without
+   * touching activity / GPS / section data. Used by the lightweight
+   * "Sign out" path.
+   */
+  clearUserProfileCaches(): void /*throws*/ {
+    uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+        FfiConverterTypeVeloqError,
+      ),
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_veloqrs_fn_method_settingsmanager_clear_user_profile_caches(
+          uniffiTypeSettingsManagerObjectFactory.clonePointer(this),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    );
   }
 
   /**
@@ -14182,6 +14208,14 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_sectionmanager_trim",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_settingsmanager_clear_user_profile_caches() !==
+    65287
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_settingsmanager_clear_user_profile_caches",
     );
   }
   if (
