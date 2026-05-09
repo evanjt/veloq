@@ -153,7 +153,11 @@ function SupportCardDebug({ isDark }: { isDark: boolean }) {
             key={p.days}
             testID={`debug-support-preset-${p.days}d`}
             onPress={() =>
-              debugOverride({ lastActionDate: daysAgoLocal(p.days), permanentlyDismissed: false })
+              debugOverride({
+                lastActionDate: daysAgoLocal(p.days),
+                permanentlyDismissed: false,
+                dismissCount: 0,
+              })
             }
             style={[styles.actionButton, { paddingHorizontal: spacing.sm }]}
             activeOpacity={0.7}
