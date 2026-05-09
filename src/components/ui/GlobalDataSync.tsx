@@ -4,7 +4,7 @@
  * Posts native OS notifications for sync progress instead of rendering an in-app banner.
  */
 
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import {
@@ -185,17 +185,44 @@ export function GlobalDataSync() {
   // Pick which info to show — GPS sync > bounds sync > terrain
   const displayInfo = gpsDisplayInfo ?? boundsDisplayInfo ?? terrainDisplayInfo;
 
-  // Post/update/dismiss native notification immediately — no artificial delay.
+  // Debounce sync notification: indeterminate states (like "Loading activities..."
+  // during a background refetch) only post after 1.5s — if the fetch completes
+  // within that window the notification never shows. Determinate states (with real
+  // progress) post immediately so the user sees forward motion.
+  const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const postNotification = useCallback((body: string) => {
+    updateSyncNotification(body);
+  }, []);
+
   useEffect(() => {
+    if (debounceTimerRef.current) {
+      clearTimeout(debounceTimerRef.current);
+      debounceTimerRef.current = null;
+    }
+
     if (displayInfo !== null) {
       const body = displayInfo.countText
         ? `${displayInfo.text}... ${displayInfo.countText}`
         : `${displayInfo.text}...`;
-      updateSyncNotification(body);
+
+      if (displayInfo.indeterminate) {
+        debounceTimerRef.current = setTimeout(() => {
+          postNotification(body);
+        }, 1500);
+      } else {
+        postNotification(body);
+      }
     } else {
       dismissSyncNotification();
     }
-  }, [displayInfo]);
+
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+        debounceTimerRef.current = null;
+      }
+    };
+  }, [displayInfo, postNotification]);
 
   // Dismiss notification on unmount
   useEffect(() => {
