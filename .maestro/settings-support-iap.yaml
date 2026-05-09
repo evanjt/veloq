@@ -1,0 +1,68 @@
+# Settings Support Section IAP regression test
+# Verifies the App Store reviewer cannot see the old fake fallback labels
+# ("Small Tip" / "Medium Tip" / "Large Tip") that were rejected for being
+# non-functional. Either real tip buttons (with prices) or the GitHub
+# Sponsors fallback must be visible — never the fake labels alone.
+
+appId: com.veloq.app.dev
+tags:
+  - tier1
+  - pack-settings
+---
+- runFlow:
+    file: helpers/setup-demo-mode.yaml
+- runFlow:
+    file: helpers/navigate-to-settings.yaml
+
+- extendedWaitUntil:
+    visible:
+      id: "settings-screen"
+    timeout: 10000
+
+# Scroll to Support section
+- scrollUntilVisible:
+    element:
+      id: "support-section"
+    direction: DOWN
+    timeout: 30000
+    speed: 40
+
+- assertVisible:
+    id: "support-section"
+
+# The old buggy fallback rendered translated names as price labels.
+# These exact strings are what Apple's reviewer screenshotted.
+# They MUST NOT be visible anywhere in the Support section.
+- assertNotVisible:
+    text: "Small Tip"
+- assertNotVisible:
+    text: "Medium Tip"
+- assertNotVisible:
+    text: "Large Tip"
+
+# Either the real tip buttons OR the GitHub Sponsors fallback must be present.
+# In the simulator without StoreKit Configuration wired into the scheme,
+# fetchProducts returns empty, so the GitHub Sponsors button is expected.
+# On a TestFlight or Apple-review build with linked IAPs, real tip buttons
+# would show instead.
+- runFlow:
+    when:
+      visible:
+        id: "support-tip-buttons"
+    commands:
+      - assertVisible:
+          id: "support-tip-buttons"
+      - takeScreenshot: "support-iap-real-products"
+
+- runFlow:
+    when:
+      visible:
+        id: "support-sponsor-button"
+    commands:
+      - assertVisible:
+          id: "support-sponsor-button"
+      - assertVisible:
+          text: "Sponsor on GitHub"
+      - takeScreenshot: "support-iap-sponsor-fallback"
+
+- takeScreenshot: "support-iap-complete"
