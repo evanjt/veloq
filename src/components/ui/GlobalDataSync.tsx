@@ -4,7 +4,7 @@
  * Posts native OS notifications for sync progress instead of rendering an in-app banner.
  */
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import {
@@ -23,7 +23,6 @@ import {
   formatGpsSyncProgress,
   formatBoundsSyncProgress,
   formatTerrainSnapshotProgress,
-  type SyncDisplayInfo,
 } from '@/lib/utils/syncProgressFormat';
 import {
   updateSyncNotification,
@@ -165,34 +164,6 @@ export function GlobalDataSync() {
   // Terrain snapshot rendering progress
   const terrainSnapshotProgress = useSyncDateRange((s) => s.terrainSnapshotProgress);
 
-  // Poll heatmap tile generation status (runs on Rust background thread)
-  const [heatmapProgress, setHeatmapProgress] = useState<{
-    running: boolean;
-    processed: number;
-    total: number;
-  }>({ running: false, processed: 0, total: 0 });
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const engine = getRouteEngine();
-      if (!engine) return;
-      try {
-        const status = engine.pollTileGeneration();
-        if (status === 'running') {
-          // Get progress counts from Rust
-          const progress = engine.getHeatmapTileProgress?.();
-          const processed = progress?.[0] ?? 0;
-          const total = progress?.[1] ?? 0;
-          setHeatmapProgress({ running: true, processed, total });
-        } else {
-          setHeatmapProgress({ running: false, processed: 0, total: 0 });
-        }
-      } catch {
-        setHeatmapProgress({ running: false, processed: 0, total: 0 });
-      }
-    }, 500);
-    return () => clearInterval(interval);
-  }, []);
-
   // GPS sync display info
   const gpsDisplayInfo = useMemo(
     () => formatGpsSyncProgress(progress, isFetching && !isSyncing, t),
@@ -211,23 +182,8 @@ export function GlobalDataSync() {
     [terrainSnapshotProgress, t]
   );
 
-  // Heatmap tile generation display info
-  const heatmapDisplayInfo = useMemo((): SyncDisplayInfo | null => {
-    if (!heatmapProgress.running) return null;
-    const { processed, total } = heatmapProgress;
-    const percent = total > 0 ? Math.round((processed / total) * 100) : 0;
-    return {
-      icon: 'map-legend',
-      text: `${t('cache.generatingHeatmap', 'Generating heatmap...')} ${total > 0 ? `${percent}%` : ''}`,
-      percent,
-      countText: null,
-      indeterminate: total === 0,
-    };
-  }, [heatmapProgress, t]);
-
-  // Pick which info to show — GPS sync > bounds sync > terrain > heatmap
-  const displayInfo =
-    gpsDisplayInfo ?? boundsDisplayInfo ?? terrainDisplayInfo ?? heatmapDisplayInfo;
+  // Pick which info to show — GPS sync > bounds sync > terrain
+  const displayInfo = gpsDisplayInfo ?? boundsDisplayInfo ?? terrainDisplayInfo;
 
   // Post/update/dismiss native notification immediately — no artificial delay.
   useEffect(() => {

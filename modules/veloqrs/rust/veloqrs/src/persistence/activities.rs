@@ -156,63 +156,79 @@ impl PersistentRouteEngine {
         coords: Vec<GpsPoint>,
         sport_type: String,
     ) -> SqlResult<()> {
-        let bounds = Bounds::from_points(&coords).unwrap_or(Bounds {
-            min_lat: 0.0,
-            max_lat: 0.0,
-            min_lng: 0.0,
-            max_lng: 0.0,
-        });
+        self.add_activities_batch(vec![(id, coords, sport_type)])
+    }
 
-        // Create signature
-        let signature = RouteSignature::from_points(&id, &coords, &self.match_config);
-
-        // Store to database
-        self.store_activity(&id, &sport_type, &bounds)?;
-        self.store_gps_track(&id, &coords)?;
-        if let Some(sig) = &signature {
-            self.store_signature(&id, sig)?;
-            // Also cache it since we just computed it
-            self.signature_cache.put(id.clone(), Arc::new(sig.clone()));
+    /// Add multiple activities in a single transaction with one R-tree rebuild.
+    pub fn add_activities_batch(
+        &mut self,
+        activities: Vec<(String, Vec<GpsPoint>, String)>,
+    ) -> SqlResult<()> {
+        if activities.is_empty() {
+            return Ok(());
         }
 
-        // Update in-memory state
-        let metadata = ActivityMetadata {
-            id: id.clone(),
-            sport_type,
-            bounds: bounds.clone(),
-        };
-        self.activity_metadata.insert(id.clone(), metadata);
+        self.db.execute_batch("BEGIN IMMEDIATE")?;
 
-        // Rebuild spatial index (could be optimized with incremental insert)
+        let mut all_bounds: Vec<Bounds> = Vec::with_capacity(activities.len());
+
+        for (id, coords, sport_type) in &activities {
+            let bounds = Bounds::from_points(coords).unwrap_or(Bounds {
+                min_lat: 0.0,
+                max_lat: 0.0,
+                min_lng: 0.0,
+                max_lng: 0.0,
+            });
+
+            let signature = RouteSignature::from_points(id, coords, &self.match_config);
+
+            self.store_activity(id, sport_type, &bounds)?;
+            self.store_gps_track(id, coords)?;
+            if let Some(sig) = &signature {
+                self.store_signature(id, sig)?;
+                self.signature_cache.put(id.clone(), Arc::new(sig.clone()));
+            }
+
+            self.activity_metadata.insert(
+                id.clone(),
+                ActivityMetadata {
+                    id: id.clone(),
+                    sport_type: sport_type.clone(),
+                    bounds,
+                },
+            );
+
+            all_bounds.push(bounds);
+        }
+
+        self.db.execute_batch("COMMIT")?;
+
         self.rebuild_spatial_index();
 
-        // Mark computed results as dirty
         self.groups_dirty = true;
         self.sections_dirty = true;
 
-        // Invalidate heatmap tiles covering the inserted activity so the
-        // background generator re-renders them with the full set of overlapping
-        // tracks. Without this, the "skip existing tiles" fast-path would
-        // silently drop the new trace from any tile that was already rendered
-        // from an earlier activity — leaving visible gaps at all zoom levels.
         if let Some(ref tiles_path) = self.heatmap_tiles_path {
             let config = crate::tiles::HeatmapConfig::default();
             let path = std::path::Path::new(tiles_path);
-            let margin = 0.001; // ~111m at equator, matches remove_activity
-            let deleted = crate::tiles::invalidate_tiles_in_bounds(
-                path,
-                bounds.min_lat - margin,
-                bounds.max_lat + margin,
-                bounds.min_lng - margin,
-                bounds.max_lng + margin,
-                config.min_zoom,
-                config.max_zoom,
-            );
-            if deleted > 0 {
+            let margin = 0.001;
+            let mut total_deleted = 0;
+            for bounds in &all_bounds {
+                total_deleted += crate::tiles::invalidate_tiles_in_bounds(
+                    path,
+                    bounds.min_lat - margin,
+                    bounds.max_lat + margin,
+                    bounds.min_lng - margin,
+                    bounds.max_lng + margin,
+                    config.min_zoom,
+                    config.max_zoom,
+                );
+            }
+            if total_deleted > 0 {
                 log::info!(
-                    "[heatmap] Invalidated {} tiles for new activity {}",
-                    deleted,
-                    id
+                    "[heatmap] Invalidated {} tiles for {} new activities",
+                    total_deleted,
+                    activities.len()
                 );
             }
             self.mark_heatmap_dirty();
