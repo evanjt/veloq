@@ -49,6 +49,7 @@ interface CollapsibleSectionProps {
   icon: string;
   isDark: boolean;
   defaultOpen?: boolean;
+  testID?: string;
   children: React.ReactNode;
 }
 
@@ -57,6 +58,7 @@ function CollapsibleSection({
   icon,
   isDark,
   defaultOpen = true,
+  testID,
   children,
 }: CollapsibleSectionProps) {
   const [open, setOpen] = useState(defaultOpen);
@@ -66,6 +68,7 @@ function CollapsibleSection({
   return (
     <View style={[styles.section, isDark && styles.sectionDark]}>
       <TouchableOpacity
+        testID={testID}
         style={styles.sectionHeader}
         onPress={() => setOpen(!open)}
         activeOpacity={0.7}
@@ -136,6 +139,7 @@ function SupportCardDebug({ isDark }: { isDark: boolean }) {
       icon="heart-outline"
       isDark={isDark}
       defaultOpen={false}
+      testID="debug-section-support-card"
     >
       <StatRow label="Last shown" value={lastActionDate ?? 'never'} isDark={isDark} />
       <StatRow label="Days until next" value={String(daysUntilShow)} isDark={isDark} />
