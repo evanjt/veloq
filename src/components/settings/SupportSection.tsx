@@ -40,7 +40,7 @@ export function SupportSection() {
         {t('settings.support').toUpperCase()}
       </Text>
 
-      <View style={[styles.card, isDark && styles.cardDark]}>
+      <View testID="support-section" style={[styles.card, isDark && styles.cardDark]}>
         {/* Action buttons */}
         <View style={styles.actionRow}>
           <Pressable
@@ -81,7 +81,7 @@ export function SupportSection() {
         </View>
         {!purchaseSuccess &&
           (isAvailable ? (
-            <View style={styles.tipContent}>
+            <View testID="support-tip-buttons" style={styles.tipContent}>
               <TipButtons
                 products={products}
                 isPurchasing={isPurchasing}
@@ -91,6 +91,7 @@ export function SupportSection() {
             </View>
           ) : (
             <Pressable
+              testID="support-sponsor-button"
               onPress={() => WebBrowser.openBrowserAsync(GITHUB_SPONSORS_URL)}
               style={[styles.sponsorButton, isDark && styles.sponsorButtonDark]}
             >
