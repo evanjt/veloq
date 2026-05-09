@@ -282,6 +282,18 @@ export function useRouteDataSync(
         }
 
         if (withGps.length === 0) {
+          // Drain any completed-but-uncollected detection results. If a prior
+          // detection finished after the TS poll loop timed out, the result
+          // sits in the global handle and blocks all future start() calls.
+          const drainStatus = nativeModule.routeEngine.pollSectionDetection();
+          if (drainStatus === 'complete') {
+            if (__DEV__) {
+              console.log('[RouteDataSync] Drained stale detection result');
+            }
+            routeEngine.triggerRefresh('sections');
+            routeEngine.triggerRefresh('groups');
+          }
+
           // Check if section detection was interrupted and needs to recover
           const stats = routeEngine.getStats();
           if (stats?.sectionsDirty && isMountedRef.current) {

@@ -38,14 +38,14 @@ export function initializeNotifications(): void {
       name: 'Activity Insights',
       description:
         'Notifications about personal records, fitness milestones, and training insights',
-      importance: Notifications.AndroidImportance.DEFAULT,
+      importance: Notifications.AndroidImportance.HIGH,
       vibrationPattern: [0, 250],
       lightColor: brand.orange,
     });
     Notifications.setNotificationChannelAsync(SYNC_CHANNEL_ID, {
       name: 'Sync Progress',
       description: 'Background data sync progress',
-      importance: Notifications.AndroidImportance.DEFAULT,
+      importance: Notifications.AndroidImportance.LOW,
       vibrationPattern: [],
       sound: null,
     });
@@ -90,6 +90,7 @@ export async function presentInsightNotification(
       title,
       body,
       data: data ?? {},
+      priority: 'high',
       ...(Platform.OS === 'android' ? { channelId: CHANNEL_ID } : {}),
     },
     trigger: null, // immediate
@@ -114,6 +115,7 @@ export async function presentActivityNotification(
       title,
       body,
       data: data ?? {},
+      priority: 'high',
       ...(Platform.OS === 'android' ? { channelId: CHANNEL_ID } : {}),
     },
     trigger: null,

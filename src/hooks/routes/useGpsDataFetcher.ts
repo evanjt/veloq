@@ -261,15 +261,24 @@ export function useGpsDataFetcher() {
         routeEngine.triggerRefresh('activities');
 
         // Demo: detection 25-75%, tiles 75-100%
-        const started = nativeModule.routeEngine.startSectionDetection();
+        let started = nativeModule.routeEngine.startSectionDetection();
         if (!started) {
-          if (__DEV__) {
-            console.warn('[fetchDemoGps] startSectionDetection returned false — skipping poll');
+          const drainStatus = nativeModule.routeEngine.pollSectionDetection();
+          if (drainStatus === 'complete') {
+            if (__DEV__) {
+              console.log('[fetchDemoGps] Drained stale detection result, retrying start');
+            }
+            routeEngine.triggerRefresh('sections');
+            routeEngine.triggerRefresh('groups');
+            started = nativeModule.routeEngine.startSectionDetection();
           }
-        } else {
+        }
+
+        if (started) {
           const pollInterval = 500;
-          const maxPollTime = 60000;
+          const maxPollTime = 120000;
           const startTime = Date.now();
+          let timedOut = false;
 
           while (isMountedRef.current && !abortSignal.aborted) {
             const status = nativeModule.routeEngine.pollSectionDetection();
@@ -296,12 +305,42 @@ export function useGpsDataFetcher() {
 
             if (Date.now() - startTime > maxPollTime) {
               if (__DEV__) {
-                console.warn('[fetchDemoGps] Section detection timed out');
+                console.warn(
+                  '[fetchDemoGps] Section detection exceeded foreground poll time, continuing in background'
+                );
               }
+              timedOut = true;
               break;
             }
 
             await new Promise((resolve) => setTimeout(resolve, pollInterval));
+          }
+
+          if (timedOut && isMountedRef.current) {
+            const bgModule = nativeModule;
+            (async () => {
+              const bgMaxTime = 300000;
+              const bgStart = Date.now();
+              while (Date.now() - bgStart < bgMaxTime) {
+                await new Promise((resolve) => setTimeout(resolve, 2000));
+                try {
+                  const s = bgModule.routeEngine.pollSectionDetection();
+                  if (s === 'complete') {
+                    routeEngine.triggerRefresh('sections');
+                    routeEngine.triggerRefresh('groups');
+                    if (__DEV__) {
+                      console.log(
+                        `[fetchDemoGps] Background poll: detection completed after ${Math.round((Date.now() - bgStart) / 1000)}s`
+                      );
+                    }
+                    break;
+                  }
+                  if (s !== 'running') break;
+                } catch {
+                  break;
+                }
+              }
+            })();
           }
         }
 
@@ -683,20 +722,30 @@ export function useGpsDataFetcher() {
           console.log('[fetchApiGps] ⏱ calling startSectionDetection...');
         }
         const detStart = Date.now();
-        const started = nativeModule.routeEngine.startSectionDetection();
+        let started = nativeModule.routeEngine.startSectionDetection();
         if (__DEV__) {
           console.log(
             `[fetchApiGps] ⏱ startSectionDetection returned ${started} in ${Date.now() - detStart}ms`
           );
         }
         if (!started) {
-          if (__DEV__) {
-            console.warn('[fetchApiGps] startSectionDetection returned false — skipping poll');
+          // Drain any stale detection result that's blocking the handle
+          const drainStatus = nativeModule.routeEngine.pollSectionDetection();
+          if (drainStatus === 'complete') {
+            if (__DEV__) {
+              console.log('[fetchApiGps] Drained stale detection result, retrying start');
+            }
+            routeEngine.triggerRefresh('sections');
+            routeEngine.triggerRefresh('groups');
+            started = nativeModule.routeEngine.startSectionDetection();
           }
-        } else {
+        }
+
+        if (started) {
           const pollInterval = 500;
-          const maxPollTime = 60000;
+          const maxPollTime = 120000;
           const startTime = Date.now();
+          let timedOut = false;
 
           while (isMountedRef.current && !abortSignal.aborted) {
             const status = nativeModule.routeEngine.pollSectionDetection();
@@ -723,12 +772,46 @@ export function useGpsDataFetcher() {
 
             if (Date.now() - startTime > maxPollTime) {
               if (__DEV__) {
-                console.warn('[fetchApiGps] Section detection timed out');
+                console.warn(
+                  '[fetchApiGps] Section detection exceeded foreground poll time, continuing in background'
+                );
               }
+              timedOut = true;
               break;
             }
 
             await new Promise((resolve) => setTimeout(resolve, pollInterval));
+          }
+
+          // If the foreground poll timed out, spawn a background poll so the
+          // detection result gets consumed and sections_dirty is cleared.
+          // Without this, the handle stays occupied and blocks all future
+          // detection attempts permanently.
+          if (timedOut && isMountedRef.current) {
+            const bgModule = nativeModule;
+            (async () => {
+              const bgMaxTime = 300000;
+              const bgStart = Date.now();
+              while (Date.now() - bgStart < bgMaxTime) {
+                await new Promise((resolve) => setTimeout(resolve, 2000));
+                try {
+                  const s = bgModule.routeEngine.pollSectionDetection();
+                  if (s === 'complete') {
+                    routeEngine.triggerRefresh('sections');
+                    routeEngine.triggerRefresh('groups');
+                    if (__DEV__) {
+                      console.log(
+                        `[fetchApiGps] Background poll: detection completed after ${Math.round((Date.now() - bgStart) / 1000)}s`
+                      );
+                    }
+                    break;
+                  }
+                  if (s !== 'running') break;
+                } catch {
+                  break;
+                }
+              }
+            })();
           }
         }
 
