@@ -21,6 +21,7 @@ impl ActivityManager {
         sport_types: Vec<String>,
     ) -> Result<(), VeloqError> {
         with_engine(|engine| {
+            let mut batch = Vec::with_capacity(activity_ids.len());
             for (i, id) in activity_ids.iter().enumerate() {
                 let start = offsets[i] as usize;
                 let end = offsets
@@ -38,12 +39,13 @@ impl ActivityManager {
                     })
                     .collect();
                 let sport = sport_types.get(i).cloned().unwrap_or_default();
-                engine
-                    .add_activity(id.clone(), coords, sport)
-                    .map_err(|e| VeloqError::Database {
-                        msg: format!("{}", e),
-                    })?;
+                batch.push((id.clone(), coords, sport));
             }
+            engine
+                .add_activities_batch(batch)
+                .map_err(|e| VeloqError::Database {
+                    msg: format!("{}", e),
+                })?;
             Ok(())
         })?
     }

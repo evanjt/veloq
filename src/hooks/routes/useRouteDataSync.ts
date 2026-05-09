@@ -300,7 +300,7 @@ export function useRouteDataSync(
 
             const started = nativeModule.routeEngine.startSectionDetection();
             if (started) {
-              const pollInterval = 150;
+              const pollInterval = 500;
               const maxPollTime = 60000;
               const startTime = Date.now();
               while (isMountedRef.current) {

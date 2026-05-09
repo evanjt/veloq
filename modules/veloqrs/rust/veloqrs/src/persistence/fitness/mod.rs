@@ -61,11 +61,28 @@ impl PersistentRouteEngine {
     /// Set activity metrics with extended fields (training load, FTP, zone times).
     /// Persists all fields to the database. Extended fields are only used for SQL aggregate queries.
     /// Also maintains performance caches (zone sums, FTP history, heatmap intensity).
+    /// Skips activities whose metrics are already cached with matching date and moving_time.
     pub fn set_activity_metrics_extended(
         &mut self,
         metrics: Vec<crate::FfiActivityMetrics>,
     ) -> SqlResult<()> {
-        {
+        let new_metrics: Vec<&crate::FfiActivityMetrics> = metrics
+            .iter()
+            .filter(|m| {
+                match self.activity_metrics.get(&m.activity_id) {
+                    Some(existing) => existing.date != m.date || existing.moving_time != m.moving_time,
+                    None => true,
+                }
+            })
+            .collect();
+
+        if new_metrics.is_empty() {
+            return Ok(());
+        }
+
+        self.db.execute_batch("BEGIN IMMEDIATE")?;
+
+        let result = (|| -> SqlResult<()> {
             let mut stmt = self.db.prepare(
                 "INSERT OR REPLACE INTO activity_metrics
                  (activity_id, name, date, distance, moving_time, elapsed_time,
@@ -76,8 +93,7 @@ impl PersistentRouteEngine {
                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             )?;
 
-            for m in &metrics {
-                // Use zone times directly for cache columns
+            for m in &new_metrics {
                 let power_zones: Vec<f64> = m
                     .power_zone_times
                     .as_ref()
@@ -89,7 +105,6 @@ impl PersistentRouteEngine {
                     .map(|v| v.iter().map(|&s| s as f64).collect())
                     .unwrap_or_else(|| vec![0.0; 5]);
 
-                // Serialize to JSON for SQLite TEXT column (backwards compatible)
                 let power_json: Option<String> = m
                     .power_zone_times
                     .as_ref()
@@ -122,7 +137,6 @@ impl PersistentRouteEngine {
                     m.ftp.map(|v| v as i32),
                     power_json.as_deref(),
                     hr_json.as_deref(),
-                    // Zone cache columns
                     power_zones.get(0).unwrap_or(&0.0),
                     power_zones.get(1).unwrap_or(&0.0),
                     power_zones.get(2).unwrap_or(&0.0),
@@ -137,7 +151,6 @@ impl PersistentRouteEngine {
                     hr_zones.get(4).unwrap_or(&0.0),
                 ])?;
 
-                // Update FTP history cache if FTP is present
                 if let Some(ftp) = m.ftp {
                     self.db.execute(
                         "INSERT OR REPLACE INTO ftp_history (date, ftp, activity_id, sport_type)
@@ -146,13 +159,11 @@ impl PersistentRouteEngine {
                     )?;
                 }
 
-                // Populate activities table with duration/name for route trend computation
                 let _ = self.db.execute(
                     "UPDATE activities SET start_date = COALESCE(start_date, ?), name = ?, distance_meters = ?, duration_secs = ? WHERE id = ?",
                     params![m.date, &m.name, m.distance, m.moving_time as i64, &m.activity_id],
                 );
 
-                // Update heatmap intensity cache
                 let date_str = chrono::DateTime::from_timestamp(m.date, 0)
                     .map(|dt| dt.format("%Y-%m-%d").to_string())
                     .unwrap_or_default();
@@ -164,7 +175,6 @@ impl PersistentRouteEngine {
                     _ => 0,
                 };
 
-                // Use UPSERT to update max intensity for the date
                 self.db.execute(
                     "INSERT INTO activity_heatmap (date, intensity, max_duration, activity_count)
                      VALUES (?, ?, ?, 1)
@@ -175,9 +185,18 @@ impl PersistentRouteEngine {
                     params![date_str, intensity, m.moving_time as i64],
                 )?;
             }
+
+            Ok(())
+        })();
+
+        match result {
+            Ok(()) => self.db.execute_batch("COMMIT")?,
+            Err(e) => {
+                let _ = self.db.execute_batch("ROLLBACK");
+                return Err(e);
+            }
         }
 
-        // Update in-memory cache (core fields only)
         for m in metrics {
             let core: ActivityMetrics = m.into();
             self.activity_metrics.insert(core.activity_id.clone(), core);

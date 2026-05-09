@@ -75,7 +75,7 @@ async function pollTileGeneration(
 
   const startTime = Date.now();
   while (isMountedRef.current) {
-    await new Promise((resolve) => setTimeout(resolve, 200));
+    await new Promise((resolve) => setTimeout(resolve, 500));
     const s = routeEngine.pollTileGeneration();
     if (updateProgress) {
       const progress = routeEngine.getHeatmapTileProgress();
@@ -267,7 +267,7 @@ export function useGpsDataFetcher() {
             console.warn('[fetchDemoGps] startSectionDetection returned false — skipping poll');
           }
         } else {
-          const pollInterval = 150;
+          const pollInterval = 500;
           const maxPollTime = 60000;
           const startTime = Date.now();
 
@@ -694,7 +694,7 @@ export function useGpsDataFetcher() {
             console.warn('[fetchApiGps] startSectionDetection returned false — skipping poll');
           }
         } else {
-          const pollInterval = 150;
+          const pollInterval = 500;
           const maxPollTime = 60000;
           const startTime = Date.now();
 
