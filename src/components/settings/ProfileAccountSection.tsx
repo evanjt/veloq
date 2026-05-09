@@ -8,7 +8,8 @@ import { colors, darkColors, spacing, typography } from '@/theme';
 import { getAthleteId } from '@/api';
 import { useAuthStore, useUploadPermissionStore } from '@/providers';
 import { useSyncDateRange } from '@/providers/SyncDateRangeStore';
-import { clearAllAppCaches, replaceTo } from '@/lib';
+import { replaceTo } from '@/lib';
+import { clearAccountData, clearAuthOnly } from '@/lib/storage';
 import { clearUploadQueue } from '@/lib/storage/uploadQueue';
 import { useTranslation } from 'react-i18next';
 import { settingsStyles } from './settingsStyles';
@@ -35,29 +36,58 @@ function ProfileAccountSectionComponent({ athlete }: ProfileAccountSectionProps)
   const clearCredentials = useAuthStore((s) => s.clearCredentials);
   const resetSyncDateRange = useSyncDateRange((s) => s.reset);
 
+  const finishLogout = async (clearAll: boolean) => {
+    try {
+      // Cancel in-flight queries first to prevent re-fetches during teardown
+      await queryClient.cancelQueries();
+      if (clearAll) {
+        await clearAccountData(queryClient);
+      } else {
+        await clearAuthOnly(queryClient);
+      }
+      await clearUploadQueue();
+      resetSyncDateRange();
+      useUploadPermissionStore.getState().reset();
+      // Clear credentials last so auth state change doesn't trigger new queries
+      await clearCredentials();
+      replaceTo('/login');
+    } catch {
+      Alert.alert(t('alerts.error'), t('alerts.failedToDisconnect'));
+    }
+  };
+
+  // Plain "Sign out" — keep cached activities/GPS/sections so re-login on the
+  // same account is instant. Only the auth credentials and the per-user
+  // profile blobs (athlete photo, sport settings) are dropped.
   const handleLogout = () => {
     Alert.alert(t('alerts.disconnectTitle'), t('alerts.disconnectMessage'), [
       { text: t('common.cancel'), style: 'cancel' },
       {
         text: t('alerts.disconnect'),
         style: 'destructive',
-        onPress: async () => {
-          try {
-            // Cancel in-flight queries first to prevent re-fetches during teardown
-            await queryClient.cancelQueries();
-            await clearAllAppCaches(queryClient);
-            await clearUploadQueue();
-            resetSyncDateRange();
-            useUploadPermissionStore.getState().reset();
-            // Clear credentials last so auth state change doesn't trigger new queries
-            await clearCredentials();
-            replaceTo('/login');
-          } catch {
-            Alert.alert(t('alerts.error'), t('alerts.failedToDisconnect'));
-          }
-        },
+        onPress: () => finishLogout(false),
       },
     ]);
+  };
+
+  // Destructive option — wipe everything. For switching to a different
+  // account, freeing storage, or starting clean.
+  const handleLogoutAndClearData = () => {
+    Alert.alert(
+      t('alerts.disconnectAndClearTitle', { defaultValue: 'Sign out and delete data?' }),
+      t('alerts.disconnectAndClearMessage', {
+        defaultValue:
+          'This signs you out AND deletes all cached activities, GPS tracks, sections, and route data on this device. The data will be re-synced from intervals.icu the next time you sign in. This cannot be undone.',
+      }),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('alerts.disconnectAndClearConfirm', { defaultValue: 'Delete and sign out' }),
+          style: 'destructive',
+          onPress: () => finishLogout(true),
+        },
+      ]
+    );
   };
 
   const profileUrl = athlete?.profile_medium || athlete?.profile;
@@ -186,7 +216,7 @@ function ProfileAccountSectionComponent({ athlete }: ProfileAccountSectionProps)
         )}
       </TouchableOpacity>
 
-      {/* Logout row */}
+      {/* Logout row — keeps cached data for instant re-login */}
       <View style={[settingsStyles.rowDivider, isDark && settingsStyles.rowDividerDark]} />
       <TouchableOpacity
         testID="settings-logout-button"
@@ -203,6 +233,30 @@ function ProfileAccountSectionComponent({ athlete }: ProfileAccountSectionProps)
           color={isDark ? darkColors.textMuted : colors.textSecondary}
         />
       </TouchableOpacity>
+
+      {/* Destructive sign-out — wipes activities/GPS/sections too */}
+      {!isDemo && (
+        <>
+          <View style={[settingsStyles.rowDivider, isDark && settingsStyles.rowDividerDark]} />
+          <TouchableOpacity
+            testID="settings-logout-clear-button"
+            style={settingsStyles.actionRow}
+            onPress={handleLogoutAndClearData}
+          >
+            <MaterialCommunityIcons name="delete-forever" size={22} color={colors.error} />
+            <Text style={[settingsStyles.actionRowText, { color: colors.error }]}>
+              {t('settings.disconnectAndClearData', {
+                defaultValue: 'Sign out and delete all data',
+              })}
+            </Text>
+            <MaterialCommunityIcons
+              name="chevron-right"
+              size={20}
+              color={isDark ? darkColors.textMuted : colors.textSecondary}
+            />
+          </TouchableOpacity>
+        </>
+      )}
     </View>
   );
 }

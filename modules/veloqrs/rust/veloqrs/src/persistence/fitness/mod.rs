@@ -260,5 +260,16 @@ impl PersistentRouteEngine {
             )
             .ok()
     }
+
+    /// Clear cached athlete profile and sport settings blobs without touching
+    /// activity / GPS / section data. Used by the lightweight "Sign out" path
+    /// where we want to drop the previous user's identity but keep their
+    /// synced data so a re-login on the same account is instant.
+    pub fn clear_user_profile_caches(&self) {
+        let _ = self.db.execute_batch(
+            "DELETE FROM athlete_profile;
+             DELETE FROM sport_settings;",
+        );
+    }
 }
 

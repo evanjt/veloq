@@ -244,7 +244,14 @@
     "redetectSectionsTitle": "Gen-registrér sektioner?",
     "sync": "Synkroniser",
     "syncAllMessage": "Dette vil synkronisere op til 10 års aktivitetsdata i baggrunden. Dette muliggør dybere ruteanalyse og sammenligning.",
-    "syncAllTitle": "Synkroniser al historik"
+    "syncAllTitle": "Synkroniser al historik",
+    "accountChangeTitle": "Different account detected",
+    "accountChangeMessage": "This device has cached data for another account ({{cachedAthleteId}}). Signing in as a different account will permanently delete it. To keep it, go back and sign in to that account instead.",
+    "accountChangeDemoMessage": "This device has cached data for another account ({{cachedAthleteId}}). Continuing to demo mode will permanently delete that data. To keep it, go back and sign in to that account first.",
+    "accountChangeContinue": "Continue and delete",
+    "disconnectAndClearTitle": "Sign out and delete data?",
+    "disconnectAndClearMessage": "This signs you out AND deletes all cached activities, GPS tracks, sections, and route data on this device. The data will be re-synced from intervals.icu the next time you sign in. This cannot be undone.",
+    "disconnectAndClearConfirm": "Delete and sign out"
   },
   "attribution": {
     "demoData": "Demotilstand bruger rigtige aktivitetsspor. Brugt med tilladelse fra forfatteren.",
@@ -1502,7 +1509,8 @@
     "reanalyzeSections": "Genanalysér sektioner",
     "reanalyzeWarning": "Dette erstatter alle ikke-accepterede automatisk detekterede sektioner. Accepterede (fastgjorte) sektioner bevares.",
     "cleanupOverlapping": "Ryd op i overlap",
-    "cleanupResult": "{{count}} overlap fjernet"
+    "cleanupResult": "{{count}} overlap fjernet",
+    "disconnectAndClearData": "Sign out and delete all data"
   },
   "stats": {
     "activities": "Aktiviteter",

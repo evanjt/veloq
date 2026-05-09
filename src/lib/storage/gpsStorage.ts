@@ -334,36 +334,54 @@ export async function getAppStorageSize(): Promise<number> {
 // =============================================================================
 
 /**
- * Clear all app caches comprehensively.
- * Should be called when transitioning between auth states (login/logout/demo).
+ * Lightweight cleanup for the "Sign out (keep data)" path.
+ *
+ * Drops the previous user's identity (athlete profile + sport settings caches
+ * in Rust, plus the persisted TanStack Query blob) but leaves activities,
+ * GPS tracks, sections, and bounds caches intact so the same user can log
+ * back in and see their data instantly.
+ */
+export async function clearAuthOnly(queryClient: { clear: () => void }): Promise<void> {
+  const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+
+  queryClient.clear();
+  await AsyncStorage.removeItem('veloq-query-cache');
+
+  const routeEngine = getRouteEngine();
+  if (routeEngine) routeEngine.clearUserProfileCaches();
+
+  log.log('Cleared auth-only caches (profile + query cache)');
+}
+
+/**
+ * Full account-data wipe.
+ *
+ * Used for: explicit "Sign out and clear data", account-change confirmation
+ * during login, and demo entry when leftover real-account data is detected.
  *
  * Clears:
  * - TanStack Query in-memory cache (via passed queryClient)
  * - Persisted query cache in AsyncStorage
- * - Rust engine cache (SQLite)
- * - FileSystem GPS tracks and bounds caches
+ * - Rust engine cache including athlete_profile + sport_settings (engine.clear())
+ * - FileSystem GPS tracks, bounds, route names, terrain previews
  *
  * Does NOT clear:
  * - AuthStore (caller handles this)
  * - SyncDateRangeStore (caller may want to reset separately)
  */
-export async function clearAllAppCaches(queryClient: { clear: () => void }): Promise<void> {
-  // Import AsyncStorage here to keep this module focused on FileSystem
+export async function clearAccountData(queryClient: { clear: () => void }): Promise<void> {
   const AsyncStorage = require('@react-native-async-storage/async-storage').default;
 
-  // 1. Clear TanStack Query in-memory cache
   queryClient.clear();
-
-  // 2. Clear persisted query cache in AsyncStorage (critical!)
   await AsyncStorage.removeItem('veloq-query-cache');
 
-  // 3. Clear Rust engine cache (deletes all rows from SQLite tables)
+  // Rust engine.clear() now wipes athlete_profile + sport_settings as well as
+  // all activity / GPS / section tables (see persistence/activities.rs).
   // Note: cannot delete the database file — Rust PERSISTENT_ENGINE global holds
   // the connection and VeloqEngine.create() skips re-init if the global is Some.
   const routeEngine = getRouteEngine();
   if (routeEngine) routeEngine.clear();
 
-  // 4. Clear FileSystem caches (legacy GPS tracks, bounds, and route names)
   await Promise.all([
     clearAllGpsTracks(),
     clearBoundsCache(),
@@ -372,4 +390,28 @@ export async function clearAllAppCaches(queryClient: { clear: () => void }): Pro
   ]);
 
   log.log('Cleared all app caches');
+}
+
+/**
+ * Demo-mode cleanup.
+ *
+ * Used for: leaving demo mode via the "Tap to sign in" banner. The engine
+ * only ever holds one identity at a time, so when this fires the engine
+ * state IS the demo data — a full clearAccountData wipe is correct. The
+ * dedicated alias documents intent at the call site and lets us swap in
+ * a more selective implementation later if the engine ever supports
+ * multi-account state.
+ */
+export async function clearDemoData(queryClient: { clear: () => void }): Promise<void> {
+  await clearAccountData(queryClient);
+}
+
+/**
+ * @deprecated Prefer `clearAccountData` (full wipe), `clearDemoData`
+ * (demo exit), or `clearAuthOnly` (light sign-out) at call sites so the
+ * intent is visible. Retained as an alias for back-compat with existing
+ * call sites until they migrate.
+ */
+export async function clearAllAppCaches(queryClient: { clear: () => void }): Promise<void> {
+  return clearAccountData(queryClient);
 }

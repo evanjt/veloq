@@ -11,7 +11,8 @@ import { useTheme } from '@/hooks';
 import { createSharedStyles } from '@/styles';
 import { useQueryClient } from '@tanstack/react-query';
 import { INTERVALS_URLS } from '@/services/oauth';
-import { clearAllAppCaches } from '@/lib/storage';
+import { clearAccountData } from '@/lib/storage';
+import { confirmAccountChange, getCachedAthleteId } from '@/lib/auth/accountChange';
 import { useImportDatabaseBackup } from '@/hooks';
 import { useApiKeyLogin, useOAuthLogin, useBackupRestore } from '@/hooks/auth';
 import {
@@ -60,7 +61,18 @@ export default function LoginScreen() {
   }, [sessionExpired, t, clearSessionExpired]);
 
   const handleTryDemo = async () => {
-    await clearAllAppCaches(queryClient);
+    // Warn before destroying a real account's cached data. Engine holds at
+    // most one account at a time, so leftover real-user data has to be
+    // wiped before demo can populate. Same dialog as account-switch on login.
+    const cachedId = getCachedAthleteId();
+    if (cachedId) {
+      const proceed = await confirmAccountChange({
+        cachedAthleteId: cachedId,
+        incomingKind: 'demo',
+      });
+      if (!proceed) return;
+    }
+    await clearAccountData(queryClient);
     resetSyncDateRange();
     enterDemoMode();
     replaceTo('/');

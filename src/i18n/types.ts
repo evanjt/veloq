@@ -348,6 +348,7 @@ export interface TranslationResource {
     geocodingDescription: string;
     account: string;
     disconnectAccount: string;
+    disconnectAndClearData: string;
     disconnectDescription: string;
     dataSources: string;
     dataSourcesDescription: string;
@@ -416,6 +417,13 @@ export interface TranslationResource {
     redetectSectionsMessage: string;
     redetectSectionsConfirm: string;
     redetectSectionsBusy: string;
+    accountChangeTitle: string;
+    accountChangeMessage: string;
+    accountChangeDemoMessage: string;
+    accountChangeContinue: string;
+    disconnectAndClearTitle: string;
+    disconnectAndClearMessage: string;
+    disconnectAndClearConfirm: string;
   };
 
   export: {

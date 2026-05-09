@@ -10,7 +10,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useAuthStore, useSyncDateRange } from '@/providers';
 import { useTheme } from '@/hooks';
 import { colors, brand } from '@/theme';
-import { clearAllAppCaches } from '@/lib/storage';
+import { clearDemoData } from '@/lib/storage';
 
 export function DemoBanner() {
   const { t } = useTranslation();
@@ -26,16 +26,24 @@ export function DemoBanner() {
   if (!isDemoMode || hideDemoBanner) return null;
 
   const handlePress = async () => {
-    // Clear ALL cached demo data using shared utility
-    await clearAllAppCaches(queryClient);
-
-    // Reset sync date range to default 90 days
-    resetSyncDateRange();
-
-    // Exit demo mode (sets isAuthenticated to false)
+    // Flip isAuthenticated → false synchronously FIRST. The route-data sync hook
+    // gates new syncs on isAuthenticatedRef.current (useRouteDataSync.ts), so any
+    // sync that fires while clearDemoData is awaited will short-circuit at that
+    // gate instead of racing the engine clear and FS deletes. This race was
+    // benign in dev (Hermes + dev bridge timing usually win) but lethal in
+    // release builds because both Rust crates ship with `panic = "abort"`.
+    if (__DEV__) {
+      console.log(`[DemoBanner] handlePress START at ${Date.now()}`);
+    }
     exitDemoMode();
-
-    // Navigate to login - use replace to prevent going back to demo
+    resetSyncDateRange();
+    if (__DEV__) {
+      console.log(`[DemoBanner] exitDemoMode + reset done, awaiting clearDemoData`);
+    }
+    await clearDemoData(queryClient);
+    if (__DEV__) {
+      console.log(`[DemoBanner] clearDemoData done, navigating`);
+    }
     replaceTo('/login');
   };
 

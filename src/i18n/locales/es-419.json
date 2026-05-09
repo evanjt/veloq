@@ -244,7 +244,14 @@
     "redetectSectionsTitle": "¿Redetectar secciones?",
     "sync": "Sincronizar",
     "syncAllMessage": "Esto sincronizará hasta 10 años de datos de actividades en segundo plano. Permite un análisis de rutas más profundo.",
-    "syncAllTitle": "Sincronizar todo el historial"
+    "syncAllTitle": "Sincronizar todo el historial",
+    "accountChangeTitle": "Different account detected",
+    "accountChangeMessage": "This device has cached data for another account ({{cachedAthleteId}}). Signing in as a different account will permanently delete it. To keep it, go back and sign in to that account instead.",
+    "accountChangeDemoMessage": "This device has cached data for another account ({{cachedAthleteId}}). Continuing to demo mode will permanently delete that data. To keep it, go back and sign in to that account first.",
+    "accountChangeContinue": "Continue and delete",
+    "disconnectAndClearTitle": "Sign out and delete data?",
+    "disconnectAndClearMessage": "This signs you out AND deletes all cached activities, GPS tracks, sections, and route data on this device. The data will be re-synced from intervals.icu the next time you sign in. This cannot be undone.",
+    "disconnectAndClearConfirm": "Delete and sign out"
   },
   "attribution": {
     "demoData": "El modo demo utiliza trazas de actividades reales. Utilizadas con permiso del autor.",
@@ -1502,7 +1509,8 @@
     "reanalyzeSections": "Reanalizar secciones",
     "reanalyzeWarning": "Esto reemplazará todas las secciones detectadas automáticamente que no hayan sido aceptadas. Las secciones aceptadas (fijadas) se conservarán.",
     "cleanupOverlapping": "Limpiar solapamientos",
-    "cleanupResult": "{{count}} solapamientos eliminados"
+    "cleanupResult": "{{count}} solapamientos eliminados",
+    "disconnectAndClearData": "Sign out and delete all data"
   },
   "stats": {
     "activities": "Actividades",

@@ -244,7 +244,14 @@
     "redetectSectionsTitle": "重新检测路段?",
     "sync": "同步",
     "syncAllMessage": "这将在后台同步最多 10 年的活动数据。这可以实现更深入的路线分析和比较。",
-    "syncAllTitle": "同步全部历史"
+    "syncAllTitle": "同步全部历史",
+    "accountChangeTitle": "Different account detected",
+    "accountChangeMessage": "This device has cached data for another account ({{cachedAthleteId}}). Signing in as a different account will permanently delete it. To keep it, go back and sign in to that account instead.",
+    "accountChangeDemoMessage": "This device has cached data for another account ({{cachedAthleteId}}). Continuing to demo mode will permanently delete that data. To keep it, go back and sign in to that account first.",
+    "accountChangeContinue": "Continue and delete",
+    "disconnectAndClearTitle": "Sign out and delete data?",
+    "disconnectAndClearMessage": "This signs you out AND deletes all cached activities, GPS tracks, sections, and route data on this device. The data will be re-synced from intervals.icu the next time you sign in. This cannot be undone.",
+    "disconnectAndClearConfirm": "Delete and sign out"
   },
   "attribution": {
     "demoData": "演示模式使用真实活动轨迹。已获得作者许可使用。",
@@ -1502,7 +1509,8 @@
     "reanalyzeSections": "重新分析路段",
     "reanalyzeWarning": "这将替换所有未接受的自动检测路段。已接受(已固定)的路段将予以保留。",
     "cleanupOverlapping": "清理重叠",
-    "cleanupResult": "已删除 {{count}} 个重叠"
+    "cleanupResult": "已删除 {{count}} 个重叠",
+    "disconnectAndClearData": "Sign out and delete all data"
   },
   "stats": {
     "activities": "活动",
