@@ -79,6 +79,8 @@ export type { HeatmapDay };
 class RouteEngineClient implements DelegateHost {
   private static instance: RouteEngineClient;
   private listeners: Map<string, Set<() => void>> = new Map();
+  private pendingNotifications: Set<string> = new Set();
+  private notifyScheduled = false;
   private initialized = false;
   private dbPath: string | null = null;
   private pendingMetrics: FfiActivityMetrics[] | null = null;
@@ -917,15 +919,34 @@ class RouteEngineClient implements DelegateHost {
   }
 
   triggerRefresh(event: 'groups' | 'sections' | 'activities' | 'syncReset'): void {
-    this.notify(event);
+    if (event === 'syncReset') {
+      this.notifyImmediate(event);
+      return;
+    }
+    this.pendingNotifications.add(event);
+    if (!this.notifyScheduled) {
+      this.notifyScheduled = true;
+      queueMicrotask(() => {
+        const events = [...this.pendingNotifications];
+        this.pendingNotifications.clear();
+        this.notifyScheduled = false;
+        for (const e of events) {
+          this.notifyImmediate(e);
+        }
+      });
+    }
   }
 
   notify(event: string): void {
+    this.triggerRefresh(event as 'groups' | 'sections' | 'activities' | 'syncReset');
+  }
+
+  private notifyImmediate(event: string): void {
     this.listeners.get(event)?.forEach((cb) => cb());
   }
 
   notifyAll(...events: string[]): void {
-    events.forEach((event) => this.notify(event));
+    events.forEach((event) => this.triggerRefresh(event as 'groups' | 'sections' | 'activities' | 'syncReset'));
   }
 }
 

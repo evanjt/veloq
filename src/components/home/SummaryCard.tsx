@@ -1,5 +1,12 @@
-import React, { useState, useCallback } from 'react';
-import { View, StyleSheet, TouchableOpacity, Image, Dimensions } from 'react-native';
+import React, { useState, useCallback, useEffect } from 'react';
+import {
+  View,
+  StyleSheet,
+  TouchableOpacity,
+  Image,
+  Dimensions,
+  InteractionManager,
+} from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { navigateTo } from '@/lib';
@@ -101,6 +108,11 @@ export const SummaryCard = React.memo(function SummaryCard({
   const { isDark, colors: themeColors } = useTheme();
   const [profileImageError, setProfileImageError] = React.useState(false);
   const [scrubValues, setScrubValues] = useState<ScrubValues | null>(null);
+  const [sparklinesReady, setSparklinesReady] = useState(false);
+  useEffect(() => {
+    const handle = InteractionManager.runAfterInteractions(() => setSparklinesReady(true));
+    return () => handle.cancel();
+  }, []);
 
   const handleScrub = useCallback((values: ScrubValues | null) => {
     setScrubValues(values);
@@ -110,16 +122,18 @@ export const SummaryCard = React.memo(function SummaryCard({
   const hasValidProfileUrl =
     profileUrl && typeof profileUrl === 'string' && profileUrl.startsWith('http');
 
-  // Determine which sparkline to show
+  // Determine which sparkline to show — deferred until after first frame
   const isHrvMode = heroMetric === 'hrv';
   const fitnessSparklineVisible =
+    sparklinesReady &&
     showSparkline &&
     !isHrvMode &&
     fitnessData &&
     fitnessData.length > 0 &&
     formData &&
     formData.length > 0;
-  const hrvSparklineVisible = showSparkline && isHrvMode && hrvData && hrvData.length >= 2;
+  const hrvSparklineVisible =
+    sparklinesReady && showSparkline && isHrvMode && hrvData && hrvData.length >= 2;
 
   // During scrub, override the hero display
   const displayValue =
