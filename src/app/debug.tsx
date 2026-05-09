@@ -151,6 +151,7 @@ function SupportCardDebug({ isDark }: { isDark: boolean }) {
         {presets.map((p) => (
           <TouchableOpacity
             key={p.days}
+            testID={`debug-support-preset-${p.days}d`}
             onPress={() =>
               debugOverride({ lastActionDate: daysAgoLocal(p.days), permanentlyDismissed: false })
             }
@@ -238,7 +239,10 @@ export default function DebugScreen() {
   }, [stats, ffiSummary, mem]);
 
   return (
-    <View style={{ flex: 1, backgroundColor: isDark ? darkColors.background : colors.background }}>
+    <View
+      testID="debug-screen"
+      style={{ flex: 1, backgroundColor: isDark ? darkColors.background : colors.background }}
+    >
       <Stack.Screen
         options={{
           title: 'Developer Dashboard',

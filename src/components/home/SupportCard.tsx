@@ -119,6 +119,7 @@ export function SupportCard() {
 
   return (
     <Animated.View
+      testID="support-card"
       entering={FadeIn.duration(300)}
       exiting={FadeOut.duration(200)}
       style={[styles.card, isDark && styles.cardDark]}
@@ -152,7 +153,12 @@ export function SupportCard() {
         />
       </View>
 
-      <Pressable onPress={toggleTips} style={styles.tipToggle} hitSlop={4}>
+      <Pressable
+        testID="support-card-tip-toggle"
+        onPress={toggleTips}
+        style={styles.tipToggle}
+        hitSlop={4}
+      >
         <MaterialCommunityIcons name="wrench-outline" size={18} color={mutedColor} />
         <Text style={[styles.tipToggleText, { color: mutedColor }]}>
           {t('support.supportDevelopment')}
@@ -166,14 +172,17 @@ export function SupportCard() {
 
       <Animated.View style={tipAnimStyle}>
         {isAvailable ? (
-          <TipButtons
-            products={products}
-            isPurchasing={isPurchasing}
-            onTip={handleTip}
-            isDark={isDark}
-          />
+          <View testID="support-card-tip-buttons">
+            <TipButtons
+              products={products}
+              isPurchasing={isPurchasing}
+              onTip={handleTip}
+              isDark={isDark}
+            />
+          </View>
         ) : (
           <Pressable
+            testID="support-card-sponsor-button"
             onPress={handleSponsor}
             style={[styles.sponsorButton, isDark && styles.sponsorButtonDark]}
           >
