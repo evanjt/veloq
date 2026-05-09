@@ -3,7 +3,8 @@ import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 import { replaceTo } from '@/lib';
-import { clearAllAppCaches } from '@/lib/storage';
+import { clearAccountData, clearAuthOnly } from '@/lib/storage';
+import { confirmAccountChange, getCachedAthleteId } from '@/lib/auth/accountChange';
 import { useAuthStore, useSyncDateRange } from '@/providers';
 
 interface UseApiKeyLoginParams {
@@ -41,7 +42,26 @@ export function useApiKeyLogin({ setError }: UseApiKeyLoginParams) {
           throw new Error('Invalid response');
         }
 
-        await clearAllAppCaches(queryClient);
+        // Account-identity check. Engine holds at most one account at a time,
+        // so a different incoming athlete means we must wipe cached data
+        // before letting the new identity in. Same-account login keeps data
+        // for instant resume; only the auth/profile blobs are dropped so the
+        // previous user's avatar can't bleed through.
+        const incomingId = String(athlete.id);
+        const cachedId = getCachedAthleteId();
+        if (cachedId && cachedId !== incomingId) {
+          const proceed = await confirmAccountChange({
+            cachedAthleteId: cachedId,
+            incomingKind: 'login',
+          });
+          if (!proceed) {
+            setIsApiKeyLoading(false);
+            return;
+          }
+          await clearAccountData(queryClient);
+        } else {
+          await clearAuthOnly(queryClient);
+        }
         resetSyncDateRange();
         await setCredentials(apiKey.trim(), athlete.id);
         replaceTo('/');

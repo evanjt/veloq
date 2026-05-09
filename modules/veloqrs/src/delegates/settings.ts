@@ -52,6 +52,25 @@ export function getSportSettings(host: DelegateHost): string {
   }
 }
 
+export function clearUserProfileCaches(host: DelegateHost): void {
+  if (!host.ready) return;
+  try {
+    // Cast to bypass stale generated bindings — the regenerated SettingsManager
+    // (after `npm run clean:rust && npx expo run:android`) has this method, but
+    // tsc would fail against the pre-rebuild .d.ts. Method binding via UniFFI
+    // resolves at runtime, and the catch below absorbs the case where Rust
+    // hasn't been rebuilt yet.
+    const settings = host.engine.settings() as unknown as {
+      clearUserProfileCaches?: () => void;
+    };
+    host.timed('clearUserProfileCaches', () => {
+      settings.clearUserProfileCaches?.();
+    });
+  } catch {
+    // Best-effort — failures here just leave stale rows that engine.clear() would catch later.
+  }
+}
+
 export function getSetting(host: DelegateHost, key: string): string | undefined {
   if (!host.ready) return undefined;
   try {

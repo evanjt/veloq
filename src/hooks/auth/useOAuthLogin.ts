@@ -2,7 +2,8 @@ import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import { replaceTo } from '@/lib';
-import { clearAllAppCaches } from '@/lib/storage';
+import { clearAccountData, clearAuthOnly } from '@/lib/storage';
+import { confirmAccountChange, getCachedAthleteId } from '@/lib/auth/accountChange';
 import { useAuthStore, useSyncDateRange, useUploadPermissionStore } from '@/providers';
 import {
   startOAuthFlow,
@@ -45,7 +46,24 @@ export function useOAuthLogin({ setError }: UseOAuthLoginParams) {
 
         const tokenResponse = handleOAuthCallback(result.url);
 
-        await clearAllAppCaches(queryClient);
+        // Account-identity check (see useApiKeyLogin.ts). Same-account OAuth
+        // refresh keeps cached activities; switching accounts requires
+        // explicit confirmation before we wipe the previous identity.
+        const incomingId = String(tokenResponse.athlete_id);
+        const cachedId = getCachedAthleteId();
+        if (cachedId && cachedId !== incomingId) {
+          const proceed = await confirmAccountChange({
+            cachedAthleteId: cachedId,
+            incomingKind: 'login',
+          });
+          if (!proceed) {
+            setIsLoading(false);
+            return;
+          }
+          await clearAccountData(queryClient);
+        } else {
+          await clearAuthOnly(queryClient);
+        }
         resetSyncDateRange();
 
         await setOAuthCredentials(

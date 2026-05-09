@@ -300,7 +300,9 @@ impl PersistentRouteEngine {
              DELETE FROM activity_matches;
              DELETE FROM time_streams;
              DELETE FROM overlap_cache;
-             DELETE FROM processed_activities;",
+             DELETE FROM processed_activities;
+             DELETE FROM athlete_profile;
+             DELETE FROM sport_settings;",
         )?;
 
         self.activity_metadata.clear();

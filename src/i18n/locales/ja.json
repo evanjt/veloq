@@ -244,7 +244,14 @@
     "redetectSectionsTitle": "セクションを再検出しますか？",
     "sync": "同期",
     "syncAllMessage": "最大10年分のアクティビティデータをバックグラウンドで同期します。より深いルート分析と比較が可能になります。",
-    "syncAllTitle": "全履歴を同期"
+    "syncAllTitle": "全履歴を同期",
+    "accountChangeTitle": "Different account detected",
+    "accountChangeMessage": "This device has cached data for another account ({{cachedAthleteId}}). Signing in as a different account will permanently delete it. To keep it, go back and sign in to that account instead.",
+    "accountChangeDemoMessage": "This device has cached data for another account ({{cachedAthleteId}}). Continuing to demo mode will permanently delete that data. To keep it, go back and sign in to that account first.",
+    "accountChangeContinue": "Continue and delete",
+    "disconnectAndClearTitle": "Sign out and delete data?",
+    "disconnectAndClearMessage": "This signs you out AND deletes all cached activities, GPS tracks, sections, and route data on this device. The data will be re-synced from intervals.icu the next time you sign in. This cannot be undone.",
+    "disconnectAndClearConfirm": "Delete and sign out"
   },
   "attribution": {
     "demoData": "デモモードは実際のアクティビティトレースを使用しています。作者の許可を得て使用しています。",
@@ -1502,7 +1509,8 @@
     "reanalyzeSections": "セクションを再分析",
     "reanalyzeWarning": "未承認の自動検出セクションをすべて置き換えます。承認済み(ピン留め)のセクションは保持されます。",
     "cleanupOverlapping": "重複を整理",
-    "cleanupResult": "{{count}}件の重複を削除しました"
+    "cleanupResult": "{{count}}件の重複を削除しました",
+    "disconnectAndClearData": "Sign out and delete all data"
   },
   "stats": {
     "activities": "アクティビティ",

@@ -244,7 +244,14 @@
     "redetectSectionsTitle": "Ri-rilevare le sezioni?",
     "sync": "Sincronizza",
     "syncAllMessage": "Questo sincronizzerà fino a 10 anni di dati attività in background. Permette un'analisi e un confronto più approfonditi dei percorsi.",
-    "syncAllTitle": "Sincronizza tutta la cronologia"
+    "syncAllTitle": "Sincronizza tutta la cronologia",
+    "accountChangeTitle": "Different account detected",
+    "accountChangeMessage": "This device has cached data for another account ({{cachedAthleteId}}). Signing in as a different account will permanently delete it. To keep it, go back and sign in to that account instead.",
+    "accountChangeDemoMessage": "This device has cached data for another account ({{cachedAthleteId}}). Continuing to demo mode will permanently delete that data. To keep it, go back and sign in to that account first.",
+    "accountChangeContinue": "Continue and delete",
+    "disconnectAndClearTitle": "Sign out and delete data?",
+    "disconnectAndClearMessage": "This signs you out AND deletes all cached activities, GPS tracks, sections, and route data on this device. The data will be re-synced from intervals.icu the next time you sign in. This cannot be undone.",
+    "disconnectAndClearConfirm": "Delete and sign out"
   },
   "attribution": {
     "demoData": "La modalità demo utilizza tracce di attività reali. Utilizzate con il permesso dell'autore.",
@@ -1502,7 +1509,8 @@
     "reanalyzeSections": "Rianalizza sezioni",
     "reanalyzeWarning": "Verranno sostituite tutte le sezioni rilevate automaticamente non accettate. Le sezioni accettate (fissate) saranno conservate.",
     "cleanupOverlapping": "Pulisci sovrapposizioni",
-    "cleanupResult": "{{count}} sovrapposizioni rimosse"
+    "cleanupResult": "{{count}} sovrapposizioni rimosse",
+    "disconnectAndClearData": "Sign out and delete all data"
   },
   "stats": {
     "activities": "Attività",

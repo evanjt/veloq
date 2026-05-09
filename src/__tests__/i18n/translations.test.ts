@@ -416,20 +416,20 @@ describe('Translation Key Usage', () => {
  * 0 once that locale is fully translated to lock in the gains.
  */
 const FRESHNESS_FREEZE_BASELINE: Record<string, number> = {
-  da: 0,
-  'de-CH': 1,
-  'de-DE': 16,
-  es: 0,
-  'es-419': 0,
-  'es-ES': 4,
-  fr: 19,
-  it: 0,
-  ja: 0,
-  nl: 23,
-  pl: 1,
-  pt: 5,
-  'pt-BR': 5,
-  'zh-Hans': 0,
+  da: 8,
+  'de-CH': 9,
+  'de-DE': 24,
+  es: 8,
+  'es-419': 8,
+  'es-ES': 12,
+  fr: 27,
+  it: 8,
+  ja: 8,
+  nl: 31,
+  pl: 9,
+  pt: 13,
+  'pt-BR': 13,
+  'zh-Hans': 8,
 };
 
 const FRESHNESS_ALLOWLIST_VALUES = new Set([

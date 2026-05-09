@@ -244,7 +244,14 @@
     "redetectSectionsTitle": "Secties opnieuw detecteren?",
     "sync": "Synchroniseren",
     "syncAllMessage": "Dit synchroniseert tot 10 jaar activiteitsgegevens op de achtergrond. Dit maakt diepere route-analyse en vergelijking mogelijk.",
-    "syncAllTitle": "Alle geschiedenis synchroniseren"
+    "syncAllTitle": "Alle geschiedenis synchroniseren",
+    "accountChangeTitle": "Different account detected",
+    "accountChangeMessage": "This device has cached data for another account ({{cachedAthleteId}}). Signing in as a different account will permanently delete it. To keep it, go back and sign in to that account instead.",
+    "accountChangeDemoMessage": "This device has cached data for another account ({{cachedAthleteId}}). Continuing to demo mode will permanently delete that data. To keep it, go back and sign in to that account first.",
+    "accountChangeContinue": "Continue and delete",
+    "disconnectAndClearTitle": "Sign out and delete data?",
+    "disconnectAndClearMessage": "This signs you out AND deletes all cached activities, GPS tracks, sections, and route data on this device. The data will be re-synced from intervals.icu the next time you sign in. This cannot be undone.",
+    "disconnectAndClearConfirm": "Delete and sign out"
   },
   "attribution": {
     "demoData": "Demo-modus gebruikt echte activiteitssporen. Gebruikt met toestemming van de auteur.",
@@ -1502,7 +1509,8 @@
     "reanalyzeSections": "Secties heranalyseren",
     "reanalyzeWarning": "Hiermee worden alle niet-geaccepteerde automatisch gedetecteerde secties vervangen. Geaccepteerde (vastgezette) secties blijven behouden.",
     "cleanupOverlapping": "Overlap opruimen",
-    "cleanupResult": "{{count}} overlappende verwijderd"
+    "cleanupResult": "{{count}} overlappende verwijderd",
+    "disconnectAndClearData": "Sign out and delete all data"
   },
   "stats": {
     "activities": "Activiteiten",

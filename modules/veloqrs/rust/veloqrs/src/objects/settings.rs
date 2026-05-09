@@ -34,6 +34,15 @@ impl SettingsManager {
         })
     }
 
+    /// Clear the cached athlete profile and sport settings blobs without
+    /// touching activity / GPS / section data. Used by the lightweight
+    /// "Sign out" path.
+    fn clear_user_profile_caches(&self) -> Result<(), VeloqError> {
+        with_engine(|e| {
+            e.clear_user_profile_caches();
+        })
+    }
+
     /// Get a single user preference by key.
     fn get_setting(&self, key: String) -> Result<Option<String>, VeloqError> {
         with_engine(|e| {

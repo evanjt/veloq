@@ -605,6 +605,8 @@ class RouteEngineClient implements DelegateHost {
 
   getSportSettings = (): string => settingsDelegates.getSportSettings(this);
 
+  clearUserProfileCaches = (): void => settingsDelegates.clearUserProfileCaches(this);
+
   // ==========================================================================
   // User Preferences (SQLite settings table)
   // ==========================================================================
