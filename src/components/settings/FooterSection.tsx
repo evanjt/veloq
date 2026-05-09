@@ -87,11 +87,17 @@ export function FooterSection() {
               Show internal diagnostics in detail pages
             </Text>
           </View>
-          <Switch value={debugEnabled} onValueChange={setDebugEnabled} color={colors.primary} />
+          <Switch
+            testID="settings-debug-switch"
+            value={debugEnabled}
+            onValueChange={setDebugEnabled}
+            color={colors.primary}
+          />
         </View>
       )}
       {debugEnabled && (
         <TouchableOpacity
+          testID="settings-developer-dashboard-link"
           style={styles.toggleRow}
           onPress={() => navigateTo('/debug')}
           activeOpacity={0.7}
