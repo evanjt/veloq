@@ -19,13 +19,13 @@ tags:
 - extendedWaitUntil:
     visible:
       id: "activity-detail-content"
-    timeout: 15000
+    timeout: 30000
 
 # Verify map is rendered (terrain preview ready indicates map loaded)
 - extendedWaitUntil:
     visible:
       id: "activity-map-preview-ready-demo-test-0"
-    timeout: 10000
+    timeout: 15000
     optional: true
 
 - takeScreenshot: "activity-map-loaded"

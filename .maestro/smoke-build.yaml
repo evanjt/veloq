@@ -1,0 +1,48 @@
+# Post-Build Smoke Test
+# Quick sanity check that a freshly built app can launch, enter demo mode,
+# navigate to the map, interact with it, and return home.
+
+appId: com.veloq.app.dev
+tags:
+  - tier0
+  - pack-nav
+---
+- runFlow:
+    file: helpers/setup-demo-mode.yaml
+
+- extendedWaitUntil:
+    visible:
+      id: "home-activity-list"
+    timeout: 15000
+- takeScreenshot: "smoke-build-home"
+
+# Navigate to map tab and verify it renders
+- runFlow:
+    file: helpers/navigate-to-map.yaml
+
+- extendedWaitUntil:
+    visible:
+      id: "map-screen"
+    timeout: 30000
+
+# Swipe on the map to confirm gesture handling works
+- swipe:
+    start: 50%, 50%
+    end: 30%, 40%
+    duration: 600
+- takeScreenshot: "smoke-build-map-interacted"
+
+# Return to home and confirm navigation still works
+- openLink: "veloq://"
+- runFlow:
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
+
+- extendedWaitUntil:
+    visible:
+      id: "home-screen"
+    timeout: 10000
+
+- takeScreenshot: "smoke-build-complete"

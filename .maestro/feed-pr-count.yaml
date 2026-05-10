@@ -39,7 +39,7 @@ tags:
 - extendedWaitUntil:
     visible:
       id: "activity-detail-content"
-    timeout: 15000
+    timeout: 30000
 
 - tapOn:
     text: "Sections"

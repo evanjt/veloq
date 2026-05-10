@@ -11,34 +11,34 @@ tags:
 - runFlow:
     file: helpers/navigate-to-settings.yaml
 
-# Theme buttons live inside the Display section, several screens below the
-# fold. SegmentedButtons (react-native-paper) only propagates the testID of
-# the *currently selected* button to the queryable tree on Android — the
-# unselected siblings render as Pressable wrappers without an accessible id.
-# Scroll to the parent container (always visible) and tap by text label,
-# which works regardless of which button is currently active.
-- scrollUntilVisible:
-    element:
+# Theme buttons live inside the Display section ~2 scrolls below the fold.
+# SegmentedButtons (react-native-paper) only propagates the testID of the
+# *currently selected* button on Android — tap by text label instead.
+# scrollUntilVisible scrolls from center, hitting the detection sensitivity
+# slider. Use small edge-margin swipes to scroll past it without overshooting.
+- repeat:
+    times: 3
+    commands:
+      - swipe:
+          start: 90%, 60%
+          end: 90%, 40%
+          duration: 400
+- extendedWaitUntil:
+    visible:
       id: "settings-theme-toggle"
-    direction: DOWN
-    timeout: 15000
-    speed: 40
-    visibilityPercentage: 20
+    timeout: 5000
 
-# Switch to dark theme via text label (immune to SegmentedButtons testID quirks)
+# Switch to dark theme
 - tapOn: "Dark"
 - waitForAnimationToEnd:
     timeout: 2000
 - takeScreenshot: "settings-theme-dark"
 
-# Re-scroll after theme change — re-render can shift the row off-screen
-- scrollUntilVisible:
-    element:
-      id: "settings-theme-toggle"
-    direction: DOWN
-    timeout: 10000
-    speed: 40
-    visibilityPercentage: 20
+# After theme change, scroll to Appearance label
+- swipe:
+    start: 90%, 60%
+    end: 90%, 40%
+    duration: 400
     optional: true
 
 # Switch to light theme
@@ -47,14 +47,6 @@ tags:
     timeout: 2000
 - takeScreenshot: "settings-theme-light"
 
-# Re-scroll and switch back to system
-- scrollUntilVisible:
-    element:
-      id: "settings-theme-toggle"
-    direction: DOWN
-    timeout: 10000
-    speed: 40
-    visibilityPercentage: 20
-    optional: true
+# Switch back to system
 - tapOn: "System"
 - takeScreenshot: "settings-theme-system"
