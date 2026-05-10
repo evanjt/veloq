@@ -13,7 +13,14 @@ import { useEffect, useRef, useState } from 'react';
 import { Stack, useSegments, useRouter, Href } from 'expo-router';
 import { PaperProvider, Text } from 'react-native-paper';
 import { StatusBar } from 'expo-status-bar';
-import { Alert, AppState, View, ActivityIndicator, Platform } from 'react-native';
+import {
+  Alert,
+  AppState,
+  View,
+  ActivityIndicator,
+  Platform,
+  InteractionManager,
+} from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { configureReanimatedLogger, ReanimatedLogLevel } from 'react-native-reanimated';
 // Use legacy API for SDK 54 compatibility (new API uses File/Directory classes)
@@ -258,8 +265,13 @@ function AuthGate({ children }: { children: React.ReactNode }) {
     const inLoginScreen = routeParts.includes('login' as never);
 
     if (!isAuthenticated && !inLoginScreen) {
-      // Not authenticated and not on login screen - redirect to login
-      router.replace('/login' as Href);
+      // Defer navigation so Android finishes the current render pass before
+      // the tab navigator is torn down. Without this delay, Android crashes
+      // with NullPointerException in ViewGroup.dispatchGetDisplayList.
+      const timer = setTimeout(() => {
+        router.replace('/login' as Href);
+      }, 100);
+      return () => clearTimeout(timer);
     } else if (isAuthenticated && inLoginScreen) {
       // Check for athlete ID mismatch (restored backup from different account)
       const engine = getRouteEngine();

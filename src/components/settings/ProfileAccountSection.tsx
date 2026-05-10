@@ -8,7 +8,6 @@ import { colors, darkColors, spacing, typography } from '@/theme';
 import { getAthleteId } from '@/api';
 import { useAuthStore, useUploadPermissionStore } from '@/providers';
 import { useSyncDateRange } from '@/providers/SyncDateRangeStore';
-import { replaceTo } from '@/lib';
 import { clearAccountData, clearAuthOnly } from '@/lib/storage';
 import { clearUploadQueue } from '@/lib/storage/uploadQueue';
 import { useTranslation } from 'react-i18next';
@@ -48,9 +47,9 @@ function ProfileAccountSectionComponent({ athlete }: ProfileAccountSectionProps)
       await clearUploadQueue();
       resetSyncDateRange();
       useUploadPermissionStore.getState().reset();
-      // Clear credentials last so auth state change doesn't trigger new queries
+      // Clear credentials last — AuthGate detects isAuthenticated=false and
+      // navigates to /login via InteractionManager to avoid an Android crash.
       await clearCredentials();
-      replaceTo('/login');
     } catch {
       Alert.alert(t('alerts.error'), t('alerts.failedToDisconnect'));
     }

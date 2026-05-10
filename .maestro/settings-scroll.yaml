@@ -27,13 +27,20 @@ tags:
 - scroll
 - takeScreenshot: "settings-scroll-mid-3"
 
-# Scroll to bottom — verify version text is reachable
-- scrollUntilVisible:
-    element:
+# Scroll to bottom — the detection sensitivity slider hijacks generic
+# scrollUntilVisible swipes, so use explicit edge-margin swipes instead
+# (same pattern as settings-support-iap.yaml).
+- repeat:
+    times: 10
+    commands:
+      - swipe:
+          start: 90%, 80%
+          end: 90%, 25%
+          duration: 400
+- extendedWaitUntil:
+    visible:
       id: "settings-version-text"
-    direction: DOWN
-    timeout: 30000
-    speed: 40
+    timeout: 5000
 - takeScreenshot: "settings-scroll-bottom"
 
 - takeScreenshot: "settings-scroll-complete"
