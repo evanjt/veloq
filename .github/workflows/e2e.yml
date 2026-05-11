@@ -60,7 +60,7 @@ jobs:
       - if: steps.apk-cache.outputs.cache-hit != 'true'
         run: npm ci
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         if: steps.apk-cache.outputs.cache-hit != 'true'
         with:
           distribution: temurin
