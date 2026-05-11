@@ -746,17 +746,12 @@ jobs:
     name: E2E Smoke
     needs: build-android
     if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
-    runs-on: macos-26
+    runs-on: [self-hosted, e2e-android]
     timeout-minutes: 20
+    env:
+      ANDROID_HOME: /home/gha-runner/Android/Sdk
     steps:
       - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v6
-        with:
-          node-version: "${{ env.NODE_VERSION }}"
-          cache: npm
-
-      - run: npm ci
 
       - name: Download APK
         uses: actions/download-artifact@v4
@@ -769,34 +764,36 @@ jobs:
 
       - name: Boot emulator
         run: |
-          echo "y" | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "system-images;android-35;google_apis;arm64-v8a" >/dev/null 2>&1 || true
-          echo "no" | $ANDROID_HOME/cmdline-tools/latest/bin/avdmanager create avd -n e2e -k "system-images;android-35;google_apis;arm64-v8a" --force
-          $ANDROID_HOME/emulator/emulator -avd e2e -no-window -gpu host -noaudio -no-boot-anim -no-snapshot-save &
-          $ANDROID_HOME/platform-tools/adb wait-for-device
+          ADB=$ANDROID_HOME/platform-tools/adb
+          $ADB kill-server 2>/dev/null || true
+          sleep 1
+          $ADB start-server
+          $ADB devices | grep -v emulator | grep -v "List" | grep -v "^$" | awk '{print $1}' | while read dev; do
+            $ADB disconnect "$dev" 2>/dev/null || true
+          done
+          $ANDROID_HOME/emulator/emulator -avd e2e-test -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot-save -no-metrics &
+          $ADB -s emulator-5554 wait-for-device
           for i in $(seq 1 60); do
-            BOOT=$($ANDROID_HOME/platform-tools/adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')
+            BOOT=$($ADB -s emulator-5554 shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')
             [ "$BOOT" = "1" ] && break
             sleep 2
           done
-          $ANDROID_HOME/platform-tools/adb shell settings put global window_animation_scale 0
-          $ANDROID_HOME/platform-tools/adb shell settings put global transition_animation_scale 0
-          $ANDROID_HOME/platform-tools/adb shell settings put global animator_duration_scale 0
+          sleep 5
+          $ADB -s emulator-5554 shell settings put global window_animation_scale 0
+          $ADB -s emulator-5554 shell settings put global transition_animation_scale 0
+          $ADB -s emulator-5554 shell settings put global animator_duration_scale 0
 
       - name: Install APK
         run: |
           APK=$(find /tmp/apk -name "*.apk" | head -1)
-          $ANDROID_HOME/platform-tools/adb install "$APK"
-
-      - name: Start Metro
-        run: |
-          npx expo start --no-dev --port 8081 &
-          until curl -s http://localhost:8081/status 2>/dev/null | grep -q "packager-status:running"; do sleep 1; done
-          $ANDROID_HOME/platform-tools/adb reverse tcp:8081 tcp:8081
+          $ANDROID_HOME/platform-tools/adb -s emulator-5554 install "$APK"
+          sleep 3
 
       - name: Run smoke test
         env:
           MAESTRO_DRIVER_STARTUP_TIMEOUT: 180000
         run: |
+          export PATH="$HOME/.maestro/bin:$PATH"
           maestro test .maestro/smoke-build.yaml --no-ansi \
             --format junit --output smoke-report.xml
 
@@ -828,18 +825,13 @@ jobs:
     name: E2E Full (Daily)
     needs: e2e-smoke
     if: github.event_name == 'schedule'
-    runs-on: macos-26
+    runs-on: [self-hosted, e2e-android]
     timeout-minutes: 60
     continue-on-error: true
+    env:
+      ANDROID_HOME: /home/gha-runner/Android/Sdk
     steps:
       - uses: actions/checkout@v4
-
-      - uses: actions/setup-node@v6
-        with:
-          node-version: "${{ env.NODE_VERSION }}"
-          cache: npm
-
-      - run: npm ci
 
       - name: Download APK
         uses: actions/download-artifact@v4
@@ -852,34 +844,36 @@ jobs:
 
       - name: Boot emulator
         run: |
-          echo "y" | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "system-images;android-35;google_apis;arm64-v8a" >/dev/null 2>&1 || true
-          echo "no" | $ANDROID_HOME/cmdline-tools/latest/bin/avdmanager create avd -n e2e -k "system-images;android-35;google_apis;arm64-v8a" --force
-          $ANDROID_HOME/emulator/emulator -avd e2e -no-window -gpu host -noaudio -no-boot-anim -no-snapshot-save &
-          $ANDROID_HOME/platform-tools/adb wait-for-device
+          ADB=$ANDROID_HOME/platform-tools/adb
+          $ADB kill-server 2>/dev/null || true
+          sleep 1
+          $ADB start-server
+          $ADB devices | grep -v emulator | grep -v "List" | grep -v "^$" | awk '{print $1}' | while read dev; do
+            $ADB disconnect "$dev" 2>/dev/null || true
+          done
+          $ANDROID_HOME/emulator/emulator -avd e2e-test -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot-save -no-metrics &
+          $ADB -s emulator-5554 wait-for-device
           for i in $(seq 1 60); do
-            BOOT=$($ANDROID_HOME/platform-tools/adb shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')
+            BOOT=$($ADB -s emulator-5554 shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')
             [ "$BOOT" = "1" ] && break
             sleep 2
           done
-          $ANDROID_HOME/platform-tools/adb shell settings put global window_animation_scale 0
-          $ANDROID_HOME/platform-tools/adb shell settings put global transition_animation_scale 0
-          $ANDROID_HOME/platform-tools/adb shell settings put global animator_duration_scale 0
+          sleep 5
+          $ADB -s emulator-5554 shell settings put global window_animation_scale 0
+          $ADB -s emulator-5554 shell settings put global transition_animation_scale 0
+          $ADB -s emulator-5554 shell settings put global animator_duration_scale 0
 
       - name: Install APK
         run: |
           APK=$(find /tmp/apk -name "*.apk" | head -1)
-          $ANDROID_HOME/platform-tools/adb install "$APK"
-
-      - name: Start Metro
-        run: |
-          npx expo start --no-dev --port 8081 &
-          until curl -s http://localhost:8081/status 2>/dev/null | grep -q "packager-status:running"; do sleep 1; done
-          $ANDROID_HOME/platform-tools/adb reverse tcp:8081 tcp:8081
+          $ANDROID_HOME/platform-tools/adb -s emulator-5554 install "$APK"
+          sleep 3
 
       - name: Run full E2E suite
         env:
           MAESTRO_DRIVER_STARTUP_TIMEOUT: 180000
         run: |
+          export PATH="$HOME/.maestro/bin:$PATH"
           maestro test .maestro/ \
             --include-tags=tier0,tier1,tier2 \
             --format junit --output e2e-full-report.xml --no-ansi \
