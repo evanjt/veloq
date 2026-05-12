@@ -746,7 +746,7 @@ jobs:
     name: E2E Smoke
     needs: build-android
     if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
-    runs-on: [self-hosted, e2e-android]
+    runs-on: e2e-android
     timeout-minutes: 20
     env:
       ANDROID_HOME: /home/gha-runner/Android/Sdk
@@ -825,7 +825,7 @@ jobs:
     name: E2E Full (Daily)
     needs: e2e-smoke
     if: github.event_name == 'schedule'
-    runs-on: [self-hosted, e2e-android]
+    runs-on: e2e-android
     timeout-minutes: 60
     continue-on-error: true
     env:
