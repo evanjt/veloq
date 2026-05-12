@@ -236,7 +236,7 @@ jobs:
     needs: build-android-dev
 
     name: E2E Android (Maestro)
-    runs-on: [self-hosted, e2e-android]
+    runs-on: e2e-android
     timeout-minutes: 120
     env:
       ANDROID_HOME: /home/gha-runner/Android/Sdk
