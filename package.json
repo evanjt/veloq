@@ -69,7 +69,7 @@
     "expo-network": "~8.0.8",
     "expo-notifications": "~0.32.16",
     "expo-router": "~6.0.21",
-    "expo-screen-orientation": "~9.0.8",
+    "expo-screen-orientation": "~55.0.13",
     "expo-secure-store": "~15.0.8",
     "expo-sharing": "~14.0.8",
     "expo-status-bar": "~3.0.9",
