@@ -789,6 +789,12 @@ jobs:
           $ANDROID_HOME/platform-tools/adb -s emulator-5554 install "$APK"
           sleep 3
 
+      - name: Verify installed package
+        run: |
+          echo "=== Installed Veloq packages ==="
+          $ANDROID_HOME/platform-tools/adb -s emulator-5554 shell pm list packages | grep veloq || echo "No veloq packages found"
+          echo "=== Expected: com.veloq.app (production) ==="
+
       - name: Run smoke test
         env:
           MAESTRO_DRIVER_STARTUP_TIMEOUT: 180000
@@ -869,15 +875,13 @@ jobs:
           $ANDROID_HOME/platform-tools/adb -s emulator-5554 install "$APK"
           sleep 3
 
-      - name: Run full E2E suite
+      - name: Run production smoke test
         env:
           MAESTRO_DRIVER_STARTUP_TIMEOUT: 180000
         run: |
           export PATH="$HOME/.maestro/bin:$PATH"
-          maestro test .maestro/ \
-            --include-tags=tier0,tier1,tier2 \
-            --format junit --output e2e-full-report.xml --no-ansi \
-            || echo "MAESTRO_FAILED=true" >> $GITHUB_ENV
+          maestro test .maestro/smoke-build.yaml --no-ansi \
+            --format junit --output e2e-full-report.xml
 
       - name: Kill emulator
         if: always()

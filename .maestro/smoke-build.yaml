@@ -1,15 +1,85 @@
 # Post-Build Smoke Test
-# Quick sanity check that a freshly built app can launch, enter demo mode,
-# navigate to the map, interact with it, and return home.
+# Quick sanity check that a freshly built production app can launch, enter
+# demo mode, navigate to the map, interact with it, and return home.
+#
+# Uses appId: com.veloq.app (production) because build.yml builds with
+# APP_VARIANT=production. Shared helpers use com.veloq.app.dev and are
+# designed for dev builds in e2e.yml — so setup is inlined here.
 
-appId: com.veloq.app.dev
+appId: com.veloq.app
 tags:
   - tier0
   - pack-nav
 ---
-- runFlow:
-    file: helpers/setup-demo-mode.yaml
+# --- Inline setup (production appId) ---
+- launchApp:
+    clearState: false
 
+# Dismiss iOS/Android "Open in Veloq?" deep link confirmation
+- runFlow:
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
+
+# Wait for either login screen or home screen
+- extendedWaitUntil:
+    visible:
+      id: "login-screen"
+    timeout: 30000
+    optional: true
+
+# If login screen is visible, enter demo mode
+- runFlow:
+    when:
+      visible:
+        id: "login-screen"
+    commands:
+      - tapOn:
+          id: "login-demo-button"
+
+# Wait for home screen (or a dialog to appear)
+- extendedWaitUntil:
+    visible:
+      id: "home-screen"
+    timeout: 15000
+    optional: true
+
+# Dismiss any system alerts (e.g. "Not Now" for notifications)
+- runFlow:
+    when:
+      visible: "Not Now"
+    commands:
+      - tapOn: "Not Now"
+
+# Dismiss Activity Notifications dialog if present
+- runFlow:
+    when:
+      visible: "Done"
+    commands:
+      - tapOn: "Done"
+
+# Dismiss WhatsNewModal if present
+- runFlow:
+    when:
+      visible: "Skip"
+    commands:
+      - tapOn: "Skip"
+
+# Dismiss the in-app tour overlay
+- runFlow:
+    when:
+      visible: "Close"
+    commands:
+      - tapOn: "Close"
+
+# Final wait for home screen
+- extendedWaitUntil:
+    visible:
+      id: "home-screen"
+    timeout: 30000
+
+# --- Smoke assertions ---
 - extendedWaitUntil:
     visible:
       id: "home-activity-list"
@@ -20,6 +90,7 @@ tags:
 - runFlow:
     file: helpers/navigate-to-map.yaml
 
+- takeScreenshot: "smoke-build-before-map-check"
 - extendedWaitUntil:
     visible:
       id: "map-screen"
