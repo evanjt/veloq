@@ -37,7 +37,7 @@ base64 = "0.22"
 thiserror = "2"
 
 # FIT file parsing
-fitparser = "0.10"
+fitparser = "0.11"
 
 # Common
 log = "0.4"
