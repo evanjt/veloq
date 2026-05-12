@@ -133,15 +133,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "arbitrary"
-version = "1.4.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c3d036a3c4ab069c7b410a2ce876bd74808d2d0888a82667669f8e783a898bf1"
-dependencies = [
- "derive_arbitrary",
-]
-
-[[package]]
 name = "askama"
 version = "0.14.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -554,17 +545,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "derive_arbitrary"
-version = "1.4.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1e567bd82dcff979e4b03460c307b3cdc9e96fde3d73bed1496d2bc75d9dd62a"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
-]
-
-[[package]]
 name = "derive_more"
 version = "2.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -719,9 +699,9 @@ checksum = "8591b0bcc8a98a64310a2fae1bb3e9b8564dd10e381e6e28010fde8e8e8568db"
 
 [[package]]
 name = "fitparser"
-version = "0.10.0"
+version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1294b34d7e0e59469d9331a7fb70a00c9cc5fb51401605b652754dfb58a6e7e6"
+checksum = "56a834aed7c01a500afb06ebcfde59a4dcfd1de7ce15ae501462934d59655376"
 dependencies = [
  "chrono",
  "nom 8.0.0",
@@ -736,6 +716,7 @@ checksum = "843fba2746e448b37e26a819579957415c8cef339bf08564fe8b7ddbd959573c"
 dependencies = [
  "crc32fast",
  "miniz_oxide",
+ "zlib-rs",
 ]
 
 [[package]]
@@ -1000,6 +981,12 @@ name = "hashbrown"
 version = "0.16.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "841d1cc9bed7f9236f321df977030373f4a4163ae1a7dbfe1a51a2c1a51d9100"
+
+[[package]]
+name = "hashbrown"
+version = "0.17.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ed5909b6e89a2db4456e54cd5f673791d7eca6732202bbf2a9cc504fe2f9b84a"
 dependencies = [
  "allocator-api2",
  "equivalent",
@@ -1535,11 +1522,11 @@ checksum = "5e5032e24019045c762d3c0f28f5b6b8bbf38563a65908389bf7978758920897"
 
 [[package]]
 name = "lru"
-version = "0.16.3"
+version = "0.18.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a1dc47f592c06f33f8e3aea9591776ec7c9f9e4124778ff8a3c3b87159f7e593"
+checksum = "8a860605968fce16869fd239cf4237a82f3ac470723415db603b0e8b6c8d4fb9"
 dependencies = [
- "hashbrown 0.16.1",
+ "hashbrown 0.17.1",
 ]
 
 [[package]]
@@ -1854,7 +1841,7 @@ dependencies = [
  "bytes",
  "getrandom 0.3.4",
  "lru-slab",
- "rand 0.9.2",
+ "rand 0.9.4",
  "ring",
  "rustc-hash",
  "rustls",
@@ -1897,9 +1884,9 @@ checksum = "69cdb34c158ceb288df11e18b4bd39de994f6657d83847bdffdbd7f346754b0f"
 
 [[package]]
 name = "rand"
-version = "0.8.5"
+version = "0.8.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "34af8d1a0e25924bc5b7c43c079c942339d8f0a8b57c39049bef581b46327404"
+checksum = "5ca0ecfa931c29007047d1bc58e623ab12e5590e8c7cc53200d5202b69266d8a"
 dependencies = [
  "libc",
  "rand_chacha 0.3.1",
@@ -1908,9 +1895,9 @@ dependencies = [
 
 [[package]]
 name = "rand"
-version = "0.9.2"
+version = "0.9.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6db2770f06117d490610c7488547d543617b21bfa07796d7a12f6f1bd53850d1"
+checksum = "44c5af06bb1b7d3216d91932aed5265164bf384dc89cd6ba05cf59a35f5f76ea"
 dependencies = [
  "rand_chacha 0.9.0",
  "rand_core 0.9.5",
@@ -2178,9 +2165,9 @@ dependencies = [
 
 [[package]]
 name = "rustls-webpki"
-version = "0.103.10"
+version = "0.103.13"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "df33b2b81ac578cabaf06b89b0631153a3f416b0a886e8a7a1707fb51abbd1ef"
+checksum = "61c429a8649f110dddef65e2a5ad240f747e85f7758a6bccc7e5777bd33f756e"
 dependencies = [
  "ring",
  "rustls-pki-types",
@@ -2520,9 +2507,9 @@ checksum = "1f3ccbac311fea05f86f61904b462b55fb3df8837a366dfc601a0161d0532f20"
 
 [[package]]
 name = "tokio"
-version = "1.52.1"
+version = "1.52.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b67dee974fe86fd92cc45b7a95fdd2f99a36a6d7b0d431a231178d3d670bbcc6"
+checksum = "8fc7f01b389ac15039e4dc9531aa973a135d7a4135281b12d7c1bc79fd57fffe"
 dependencies = [
  "bytes",
  "libc",
@@ -2634,7 +2621,7 @@ dependencies = [
  "geo",
  "iai-callgrind",
  "log",
- "rand 0.8.5",
+ "rand 0.8.6",
  "rayon",
  "rstar",
  "serde",
@@ -2665,6 +2652,12 @@ name = "try-lock"
 version = "0.2.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e421abadd41a4225275504ea4d6566923418b7f05506fbc9c0fe86ba7396114b"
+
+[[package]]
+name = "typed-path"
+version = "0.12.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "8e28f89b80c87b8fb0cf04ab448d5dd0dd0ade2f8891bae878de66a75a28600e"
 
 [[package]]
 name = "typenum"
@@ -3376,20 +3369,23 @@ dependencies = [
 
 [[package]]
 name = "zip"
-version = "2.4.2"
+version = "8.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fabe6324e908f85a1c52063ce7aa26b68dcb7eb6dbc83a2d148403c9bc3eba50"
+checksum = "2d04a6b5381502aa6087c94c669499eb1602eb9c5e8198e534de571f7154809b"
 dependencies = [
- "arbitrary",
  "crc32fast",
- "crossbeam-utils",
- "displaydoc",
  "flate2",
  "indexmap",
  "memchr",
- "thiserror",
+ "typed-path",
  "zopfli",
 ]
+
+[[package]]
+name = "zlib-rs"
+version = "0.6.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3be3d40e40a133f9c916ee3f9f4fa2d9d63435b5fbe1bfc6d9dae0aa0ada1513"
 
 [[package]]
 name = "zmij"

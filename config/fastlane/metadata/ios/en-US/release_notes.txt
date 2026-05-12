@@ -1,4 +1,4 @@
-v0.3.5
+v0.3.6
 
-• Fixed tip buttons not appearing in some configurations
-• Improved reliability of in-app purchase loading
+• Fixed in-app purchase reliability on iOS
+• Faster activity sync with batch ingestion

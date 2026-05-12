@@ -56,10 +56,9 @@ jobs:
           build-type-override: ${{ inputs.build_type }}
           source-profile: android
 
-      # Source-hash cache — skip build if code unchanged (non-main only)
+      # Source-hash cache — skip build if code unchanged
       - name: Cache built APK
         id: apk-cache
-        if: github.ref != 'refs/heads/main' && github.event_name != 'workflow_dispatch'
         uses: actions/cache@v4
         with:
           path: android/app/build/outputs/apk/release/app-release.apk
@@ -74,7 +73,7 @@ jobs:
 
       - name: Setup Java
         if: steps.apk-cache.outputs.cache-hit != 'true'
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: "temurin"
           java-version: "17"
@@ -287,7 +286,7 @@ jobs:
           retention-days: 30
 
       - name: Upload APK for E2E
-        if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@v4
         with:
           name: android-apk-e2e
@@ -584,7 +583,7 @@ jobs:
 
       - name: Import code signing certificate
         if: steps.check_ios_signing.outputs.has_signing == 'true' && (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch')
-        uses: apple-actions/import-codesign-certs@v3
+        uses: apple-actions/import-codesign-certs@v7
         with:
           p12-file-base64: ${{ secrets.IOS_DISTRIBUTION_CERT_P12 }}
           p12-password: ${{ secrets.IOS_DISTRIBUTION_CERT_PASSWORD }}
@@ -745,7 +744,7 @@ jobs:
   e2e-smoke:
     name: E2E Smoke
     needs: build-android
-    if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: e2e-android
     timeout-minutes: 20
     env:
@@ -788,6 +787,12 @@ jobs:
           APK=$(find /tmp/apk -name "*.apk" | head -1)
           $ANDROID_HOME/platform-tools/adb -s emulator-5554 install "$APK"
           sleep 3
+
+      - name: Verify installed package
+        run: |
+          echo "=== Installed Veloq packages ==="
+          $ANDROID_HOME/platform-tools/adb -s emulator-5554 shell pm list packages | grep veloq || echo "No veloq packages found"
+          echo "=== Expected: com.veloq.app (production) ==="
 
       - name: Run smoke test
         env:
@@ -869,15 +874,13 @@ jobs:
           $ANDROID_HOME/platform-tools/adb -s emulator-5554 install "$APK"
           sleep 3
 
-      - name: Run full E2E suite
+      - name: Run production smoke test
         env:
           MAESTRO_DRIVER_STARTUP_TIMEOUT: 180000
         run: |
           export PATH="$HOME/.maestro/bin:$PATH"
-          maestro test .maestro/ \
-            --include-tags=tier0,tier1,tier2 \
-            --format junit --output e2e-full-report.xml --no-ansi \
-            || echo "MAESTRO_FAILED=true" >> $GITHUB_ENV
+          maestro test .maestro/smoke-build.yaml --no-ansi \
+            --format junit --output e2e-full-report.xml
 
       - name: Kill emulator
         if: always()

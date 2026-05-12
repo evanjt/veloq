@@ -1,4 +1,4 @@
-v0.3.5
+v0.3.6
 
-• Corregidos los botones de propina que no aparecían en algunas configuraciones
-• Mejora en la fiabilidad de la carga de compras dentro de la app
+• Corregida la fiabilidad de compras dentro de la app en iOS
+• Sincronización de actividades más rápida con ingesta por lotes
