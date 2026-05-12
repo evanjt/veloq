@@ -287,7 +287,7 @@ jobs:
           retention-days: 30
 
       - name: Upload APK for E2E
-        if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@v4
         with:
           name: android-apk-e2e
@@ -745,7 +745,7 @@ jobs:
   e2e-smoke:
     name: E2E Smoke
     needs: build-android
-    if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch' || github.event_name == 'schedule'
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
     runs-on: [self-hosted, e2e-android]
     timeout-minutes: 20
     env:
