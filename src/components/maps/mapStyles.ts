@@ -288,6 +288,7 @@ export function getSatelliteSourceId(lat: number, lng: number, zoom: number): Sa
 // Type for combined satellite MapLibre style with multiple regional sources
 export interface CombinedSatelliteMapStyle {
   version: 8;
+  glyphs?: string;
   sources: Record<
     string,
     {
@@ -328,6 +329,7 @@ export type SatelliteMapStyle = CombinedSatelliteMapStyle;
 export function getCombinedSatelliteStyle(): CombinedSatelliteMapStyle {
   return {
     version: 8,
+    glyphs: 'https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf',
     sources: {
       // Global base layer (EOX Sentinel-2)
       'satellite-eox': {
