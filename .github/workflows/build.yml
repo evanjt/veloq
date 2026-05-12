@@ -56,10 +56,9 @@ jobs:
           build-type-override: ${{ inputs.build_type }}
           source-profile: android
 
-      # Source-hash cache — skip build if code unchanged (non-main only)
+      # Source-hash cache — skip build if code unchanged
       - name: Cache built APK
         id: apk-cache
-        if: github.ref != 'refs/heads/main' && github.event_name != 'workflow_dispatch'
         uses: actions/cache@v4
         with:
           path: android/app/build/outputs/apk/release/app-release.apk
