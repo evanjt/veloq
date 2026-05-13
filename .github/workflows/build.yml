@@ -386,10 +386,10 @@ jobs:
           build-type-override: ${{ inputs.build_type }}
           source-profile: ios
 
-      # Source-hash cache for simulator .app (skip on schedule so daily builds
-      # always run the full pipeline — the IPA step needs the xcodeproj from prebuild)
+      # Source-hash cache for simulator .app (skip on main/schedule/dispatch where
+      # the signed IPA step runs — it needs the xcodeproj from prebuild)
       - name: Cache simulator app
-        if: github.event_name != 'schedule'
+        if: github.ref != 'refs/heads/main' && github.event_name != 'schedule' && github.event_name != 'workflow_dispatch'
         id: app-cache
         uses: actions/cache@v4
         with:
