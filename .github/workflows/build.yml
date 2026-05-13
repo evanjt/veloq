@@ -107,14 +107,23 @@ jobs:
         if: steps.apk-cache.outputs.cache-hit != 'true'
         run: npm ci
 
-      - name: Setup Rust for Android
+      # Rust library cache — skip toolchain install + compilation if Rust unchanged
+      - name: Cache Rust Android libraries
+        id: rust-android-cache
         if: steps.apk-cache.outputs.cache-hit != 'true'
+        uses: actions/cache@v4
+        with:
+          path: modules/veloqrs/android/src/main/jniLibs
+          key: rust-android-${{ (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch') && '4arch' || '2arch' }}-v1-${{ hashFiles('modules/veloqrs/rust/**/*.rs', 'modules/veloqrs/rust/**/Cargo.toml', 'modules/veloqrs/rust/**/Cargo.lock', 'modules/veloqrs/rust/.cargo/config.toml') }}
+
+      - name: Setup Rust for Android
+        if: steps.apk-cache.outputs.cache-hit != 'true' && steps.rust-android-cache.outputs.cache-hit != 'true'
         uses: ./.github/actions/setup-rust-android
         with:
           targets: aarch64-linux-android,armv7-linux-androideabi,x86_64-linux-android,i686-linux-android
 
       - name: Build Rust libraries for Android
-        if: steps.apk-cache.outputs.cache-hit != 'true'
+        if: steps.apk-cache.outputs.cache-hit != 'true' && steps.rust-android-cache.outputs.cache-hit != 'true'
         working-directory: modules/veloqrs/rust
         run: |
           echo "=== Building veloqrs for Android ==="
@@ -377,8 +386,10 @@ jobs:
           build-type-override: ${{ inputs.build_type }}
           source-profile: ios
 
-      # Source-hash cache for simulator .app
+      # Source-hash cache for simulator .app (skip on schedule so daily builds
+      # always run the full pipeline — the IPA step needs the xcodeproj from prebuild)
       - name: Cache simulator app
+        if: github.event_name != 'schedule'
         id: app-cache
         uses: actions/cache@v4
         with:
@@ -392,14 +403,34 @@ jobs:
           cache: "npm"
 
       # ---- Rust Build ----
-      - name: Setup Rust for iOS
+      # Rust library cache — skip toolchain install + compilation if Rust unchanged
+      - name: Cache Rust iOS libraries
+        id: rust-ios-cache
         if: steps.app-cache.outputs.cache-hit != 'true'
+        uses: actions/cache@v4
+        with:
+          path: modules/veloqrs/ios/Frameworks/VeloqrsFFI.xcframework
+          key: rust-ios-${{ (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch') && 'full' || 'sim' }}-v1-${{ hashFiles('modules/veloqrs/rust/**/*.rs', 'modules/veloqrs/rust/**/Cargo.toml', 'modules/veloqrs/rust/**/Cargo.lock', 'modules/veloqrs/rust/.cargo/config.toml') }}
+
+      # C++ bindings are needed by Xcode even when Rust libs are cached
+      - name: Copy C++ bindings for iOS
+        if: steps.app-cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p modules/veloqrs/ios/cpp/generated
+          cp modules/veloqrs/cpp/veloqrs.h modules/veloqrs/ios/cpp/
+          cp modules/veloqrs/cpp/veloqrs.cpp modules/veloqrs/ios/cpp/
+          cp modules/veloqrs/cpp/generated/veloqrs.hpp modules/veloqrs/ios/cpp/generated/
+          cp modules/veloqrs/cpp/generated/veloqrs.cpp modules/veloqrs/ios/cpp/generated/
+
+      - name: Setup Rust for iOS
+        if: steps.app-cache.outputs.cache-hit != 'true' && steps.rust-ios-cache.outputs.cache-hit != 'true'
         uses: ./.github/actions/setup-rust-ios
         with:
           targets: aarch64-apple-ios,aarch64-apple-ios-sim,x86_64-apple-ios
+          copy-cpp-files: 'false'
 
       - name: Build Rust for iOS
-        if: steps.app-cache.outputs.cache-hit != 'true'
+        if: steps.app-cache.outputs.cache-hit != 'true' && steps.rust-ios-cache.outputs.cache-hit != 'true'
         working-directory: modules/veloqrs/rust
         run: |
           echo "=== Building veloqrs for iOS ==="

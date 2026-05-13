@@ -7,8 +7,13 @@ runs:
     - name: Install Maestro
       shell: bash
       run: |
-        if [ ! -f "$HOME/.maestro/bin/maestro" ]; then
+        if command -v maestro &>/dev/null; then
+          echo "Maestro already on PATH: $(command -v maestro)"
+        elif [ -f "$HOME/.maestro/bin/maestro" ]; then
+          echo "Found script-installed Maestro"
+          echo "$HOME/.maestro/bin" >> $GITHUB_PATH
+        else
           curl -Ls "https://get.maestro.mobile.dev" | bash
+          echo "$HOME/.maestro/bin" >> $GITHUB_PATH
         fi
-        echo "$HOME/.maestro/bin" >> $GITHUB_PATH
-        "$HOME/.maestro/bin/maestro" --version
+        maestro --version
