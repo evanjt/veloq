@@ -45,7 +45,7 @@ export function DateRangeSummary({
   const themeColors = isDark ? darkColors : colors;
 
   const handleExpandPress = () => {
-    router.push('/settings?scrollTo=syncRange' as never);
+    router.push('/sync-settings' as never);
   };
 
   return (

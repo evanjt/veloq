@@ -8,8 +8,8 @@ tags:
 - runFlow:
     file: helpers/setup-demo-mode.yaml
 
-# Deep link to settings cache section
-- openLink: "veloq://settings#cache"
+# Deep link to cache settings page
+- openLink: "veloq://cache-settings"
 - runFlow:
     when:
       visible: "Open"
@@ -18,18 +18,14 @@ tags:
 
 - extendedWaitUntil:
     visible:
-      id: "settings-screen"
+      id: "settings-clear-cache"
     timeout: 10000
-
-# Verify cache section is visible (should have scrolled to it)
-- assertVisible:
-    id: "settings-clear-cache"
     optional: true
 
 - takeScreenshot: "deep-link-settings-cache"
 
-# Deep link to settings notifications section
-- openLink: "veloq://settings#notifications"
+# Deep link to notification settings page
+- openLink: "veloq://notification-settings"
 - runFlow:
     when:
       visible: "Open"
@@ -38,12 +34,8 @@ tags:
 
 - extendedWaitUntil:
     visible:
-      id: "settings-screen"
+      id: "settings-notifications-toggle"
     timeout: 10000
-
-# Verify notifications toggle is visible
-- assertVisible:
-    id: "settings-notifications-toggle"
     optional: true
 
 - takeScreenshot: "deep-link-settings-notifications"

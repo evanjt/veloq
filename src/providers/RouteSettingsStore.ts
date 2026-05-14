@@ -24,6 +24,8 @@ interface RouteSettings {
   heatmapEnabled: boolean;
   /** Detection sensitivity slider value (0=relaxed, 100=strict, default: 60) */
   detectionStrictness: number;
+  /** Detection algorithm (corridor, density, flow). Default: corridor */
+  detectionMethod: 'corridor' | 'density' | 'flow';
 }
 
 const DEFAULT_SETTINGS: RouteSettings = {
@@ -33,6 +35,7 @@ const DEFAULT_SETTINGS: RouteSettings = {
   geocodingEnabled: false, // Off by default — user must acknowledge OSM Nominatim terms
   heatmapEnabled: true, // Generate heatmap tiles by default
   detectionStrictness: 60,
+  detectionMethod: 'corridor',
 };
 
 /**
@@ -52,6 +55,7 @@ function isRouteSettings(value: unknown): value is RouteSettings {
   // heatmapEnabled must be boolean if present
   if ('heatmapEnabled' in obj && typeof obj.heatmapEnabled !== 'boolean') return false;
   if ('detectionStrictness' in obj && typeof obj.detectionStrictness !== 'number') return false;
+  if ('detectionMethod' in obj && typeof obj.detectionMethod !== 'string') return false;
   return true;
 }
 
@@ -67,6 +71,7 @@ interface RouteSettingsState {
   setGeocodingEnabled: (enabled: boolean) => Promise<void>;
   setHeatmapEnabled: (enabled: boolean) => Promise<void>;
   setDetectionStrictness: (value: number) => Promise<void>;
+  setDetectionMethod: (method: 'corridor' | 'density' | 'flow') => Promise<void>;
 }
 
 export const useRouteSettings = create<RouteSettingsState>((set, get) => ({
@@ -187,6 +192,16 @@ export const useRouteSettings = create<RouteSettingsState>((set, get) => ({
       return { settings: newSettings };
     });
   },
+
+  setDetectionMethod: async (method: 'corridor' | 'density' | 'flow') => {
+    set((state) => {
+      const newSettings = { ...state.settings, detectionMethod: method };
+      setSetting(ROUTE_SETTINGS_KEY, JSON.stringify(newSettings)).catch((error) => {
+        log.error('Failed to save detection method:', error);
+      });
+      return { settings: newSettings };
+    });
+  },
 }));
 
 // Helper for synchronous access
@@ -211,6 +226,10 @@ export function isHeatmapEnabled(): boolean {
 
 export function getDetectionStrictness(): number {
   return useRouteSettings.getState().settings.detectionStrictness;
+}
+
+export function getDetectionMethod(): 'corridor' | 'density' | 'flow' {
+  return useRouteSettings.getState().settings.detectionMethod;
 }
 
 // Initialize route settings (call during app startup)

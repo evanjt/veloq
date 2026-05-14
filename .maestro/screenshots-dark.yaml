@@ -9,8 +9,16 @@ tags:
     file: helpers/setup-demo-mode.yaml
 
 # Navigate to settings to enable dark mode
+- openLink: "veloq://display-settings"
 - runFlow:
-    file: helpers/navigate-to-settings.yaml
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
+- extendedWaitUntil:
+    visible:
+      id: "theme-button-dark"
+    timeout: 10000
 - tapOn:
     id: "theme-button-dark"
 

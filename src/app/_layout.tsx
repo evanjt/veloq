@@ -55,7 +55,11 @@ import {
   useSyncDateRange,
   useEngineStatus,
 } from '@/providers';
-import { isHeatmapEnabled, getDetectionStrictness } from '@/providers/RouteSettingsStore';
+import {
+  isHeatmapEnabled,
+  getDetectionStrictness,
+  getDetectionMethod,
+} from '@/providers/RouteSettingsStore';
 import { formatLocalDate, queryKeys } from '@/lib';
 import { initializeI18n, i18n } from '@/i18n';
 import { lightTheme, darkTheme, colors, darkColors } from '@/theme';
@@ -72,7 +76,12 @@ import {
 } from '@/components/ui';
 import { useUploadQueueProcessor } from '@/hooks/recording/useUploadQueueProcessor';
 import { useRouteReoptimization } from '@/hooks/routes/useRouteReoptimization';
-import { getRouteEngine, getRouteDbPath, applyDetectionStrictness } from '@/lib/native/routeEngine';
+import {
+  getRouteEngine,
+  getRouteDbPath,
+  applyDetectionPresetForMethod,
+  getStrictnessFromValue,
+} from '@/lib/native/routeEngine';
 import {
   migrateSettingsToSqlite,
   onAppBackground,
@@ -175,7 +184,10 @@ function AuthGate({ children }: { children: React.ReactNode }) {
             // Apply persisted detection strictness if not default
             const strictness = getDetectionStrictness();
             if (strictness !== 60) {
-              applyDetectionStrictness(strictness);
+              applyDetectionPresetForMethod(
+                getDetectionMethod(),
+                getStrictnessFromValue(strictness)
+              );
             }
             // Migrate AsyncStorage preferences to SQLite (one-time, idempotent)
             migrateSettingsToSqlite().catch(() => {});
@@ -237,7 +249,9 @@ function AuthGate({ children }: { children: React.ReactNode }) {
         const today = formatLocalDate(new Date());
         if (today !== lastForegroundDateRef.current) {
           lastForegroundDateRef.current = today;
-          queryClient.resetQueries({ queryKey: queryKeys.activities.infinite.all });
+          queryClient.resetQueries({
+            queryKey: queryKeys.activities.infinite.all,
+          });
         }
 
         // Sync notification state: if OS permission was revoked while backgrounded,
@@ -301,7 +315,9 @@ function AuthGate({ children }: { children: React.ReactNode }) {
               },
             },
             {
-              text: i18n.t('backup.clearAndSync', { defaultValue: 'Clear & Sync' }),
+              text: i18n.t('backup.clearAndSync', {
+                defaultValue: 'Clear & Sync',
+              }),
               style: 'destructive',
               onPress: async () => {
                 engine?.clear();
@@ -508,7 +524,13 @@ export default function RootLayout() {
                           paddingVertical: 10,
                         }}
                       >
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                        <View
+                          style={{
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            gap: 8,
+                          }}
+                        >
                           <ActivityIndicator size="small" color="#F59E0B" />
                           <Text
                             style={{

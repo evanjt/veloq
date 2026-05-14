@@ -71,7 +71,19 @@ impl DetectionManager {
                         });
                     }
                     if let Err(err) = e.save_processed_activity_ids(&detection_activity_ids) {
-                        log::error!("save_processed_activity_ids failed: {}", err);
+                        // Non-fatal: sections WERE saved above. The
+                        // consequence is that the next sync will re-detect
+                        // these activities (wasted work, not data loss).
+                        // Logging at warn-level with explicit "partial
+                        // success" so it's distinguishable from the fatal
+                        // apply_sections_save case above.
+                        log::warn!(
+                            "tracematch: [DetectionManager] poll: detection apply partially \
+                             succeeded — sections saved but save_processed_activity_ids \
+                             failed ({} ids): {}. Next sync will re-process these activities.",
+                            detection_activity_ids.len(),
+                            err
+                        );
                     }
                     e.apply_sections_finalize_with_progress(progress.as_ref());
                     // Reload groups from DB in case the background thread

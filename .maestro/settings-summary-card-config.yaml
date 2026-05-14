@@ -4,29 +4,26 @@
 appId: com.veloq.app.dev
 tags:
   - tier2
+  - pack-settings
 ---
 - runFlow:
     file: helpers/setup-demo-mode.yaml
 
+# Navigate directly to summary card settings page
+- openLink: "veloq://summary-card-settings"
 - runFlow:
-    file: helpers/navigate-to-settings.yaml
-
-# Wait for settings screen
-- extendedWaitUntil:
-    visible:
-      id: "settings-screen"
-    timeout: 10000
-
-# Scroll to summary card settings section
-- scrollUntilVisible:
-    element:
-      id: "settings-summary-card"
-    direction: DOWN
-    timeout: 10000
-    speed: 40
-    optional: true
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
 
 # Verify the summary card settings section exists
+- extendedWaitUntil:
+    visible:
+      id: "settings-summary-card"
+    timeout: 10000
+    optional: true
+
 - assertVisible:
     id: "settings-summary-card"
     optional: true

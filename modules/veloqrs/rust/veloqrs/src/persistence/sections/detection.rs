@@ -829,9 +829,20 @@ impl PersistentRouteEngine {
                     result.unmatched_activity_ids.len(),
                 );
 
-                // Merge: updated existing + newly discovered
+                // Quality filter only the newly discovered sections — the
+                // updated_sections come from the existing in-memory set and
+                // have already passed the filter (or been user-accepted), so
+                // re-filtering them risks deleting valid sections that
+                // temporarily dip below threshold. Mirrors the full-detection
+                // path which only filters fresh output.
+                let filtered_new = tracematch::sections::filter_low_quality_sections(
+                    result.new_sections,
+                    tracks.len(),
+                );
+
+                // Merge: updated existing + filtered newly-discovered
                 let mut all_sections = result.updated_sections;
-                all_sections.extend(result.new_sections);
+                all_sections.extend(filtered_new);
 
                 // Tier 2: seed consensus_state for any newly-discovered section
                 // that lacks one. Incremental-path updates already carry an
@@ -852,26 +863,54 @@ impl PersistentRouteEngine {
                 const BATCH_CAP: usize = 500;
 
                 if tracks.len() <= BATCH_CAP {
-                    // Small enough for single-pass full detection
-                    let result = tracematch::detect_sections_multiscale_with_progress(
-                        &tracks,
-                        &sport_map,
-                        &groups,
-                        &section_config,
-                        Arc::new(ClusteringAwareProgress::new(progress_clone.clone())),
-                    );
+                    let mut sections_to_send = match section_config.detection_method {
+                        tracematch::DetectionMethod::Corridor => {
+                            log::info!(
+                                "tracematch: [SectionDetection] Corridor detection on {} tracks",
+                                tracks.len()
+                            );
+                            tracematch::detect_sections_corridor(
+                                &tracks,
+                                &sport_map,
+                                &section_config,
+                            )
+                        }
+                        tracematch::DetectionMethod::FlowGraph => {
+                            log::info!(
+                                "tracematch: [SectionDetection] Flow graph detection on {} tracks",
+                                tracks.len()
+                            );
+                            tracematch::detect_sections_flow_graph(
+                                &tracks,
+                                &sport_map,
+                                &section_config,
+                            )
+                        }
+                        tracematch::DetectionMethod::DensityGrid => {
+                            log::info!(
+                                "tracematch: [SectionDetection] Density grid detection on {} tracks",
+                                tracks.len()
+                            );
+                            let result = tracematch::detect_sections_multiscale_with_progress(
+                                &tracks,
+                                &sport_map,
+                                &groups,
+                                &section_config,
+                                Arc::new(ClusteringAwareProgress::new(progress_clone.clone())),
+                            );
+                            log::info!(
+                                "tracematch: [SectionDetection] {} sections, {} potentials",
+                                result.sections.len(),
+                                result.potentials.len()
+                            );
+                            result.sections
+                        }
+                    };
 
                     log::info!(
-                        "tracematch: [SectionDetection] Detection complete: {} sections, {} potentials",
-                        result.sections.len(),
-                        result.potentials.len()
+                        "tracematch: [SectionDetection] Detection complete: {} sections",
+                        sections_to_send.len()
                     );
-
-                    // Tier 2: seed consensus_state for every section produced by
-                    // the full-detection pipeline — tracematch emits them with
-                    // None and the next incremental add otherwise falls into the
-                    // expensive first-touch backfill (scenario C's ~1.5 s).
-                    let mut sections_to_send = result.sections;
                     seed_consensus_state(
                         &mut sections_to_send,
                         &tracks,

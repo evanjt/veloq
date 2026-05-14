@@ -1,28 +1,22 @@
 # Settings Theme Toggle Tests
-# Tests theme switching in settings
+# Tests theme switching in display settings
 
 appId: com.veloq.app.dev
 tags:
   - tier2
+  - pack-settings
 ---
 - runFlow:
     file: helpers/setup-demo-mode.yaml
 
+# Navigate directly to display settings page
+- openLink: "veloq://display-settings"
 - runFlow:
-    file: helpers/navigate-to-settings.yaml
-
-# Theme buttons live inside the Display section ~2 scrolls below the fold.
-# SegmentedButtons (react-native-paper) only propagates the testID of the
-# *currently selected* button on Android — tap by text label instead.
-# scrollUntilVisible scrolls from center, hitting the detection sensitivity
-# slider. Use small edge-margin swipes to scroll past it without overshooting.
-- repeat:
-    times: 3
+    when:
+      visible: "Open"
     commands:
-      - swipe:
-          start: 90%, 60%
-          end: 90%, 40%
-          duration: 400
+      - tapOn: "Open"
+
 - extendedWaitUntil:
     visible:
       id: "settings-theme-toggle"
@@ -33,13 +27,6 @@ tags:
 - waitForAnimationToEnd:
     timeout: 2000
 - takeScreenshot: "settings-theme-dark"
-
-# After theme change, scroll to Appearance label
-- swipe:
-    start: 90%, 60%
-    end: 90%, 40%
-    duration: 400
-    optional: true
 
 # Switch to light theme
 - tapOn: "Light"

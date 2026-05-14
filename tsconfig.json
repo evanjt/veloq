@@ -27,4 +27,8 @@
     "modules/**/*.tsx",
     ".expo/types/**/*.ts",
     "expo-env.d.ts"
-  ]}
+  ],
+  "exclude": [
+    "modules/veloqrs/rust/tracematch/web/**"
+  ]
+}

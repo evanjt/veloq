@@ -1037,6 +1037,12 @@ interface NativeModuleInterface {
     path: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): void;
+  ubrn_uniffi_veloqrs_fn_func_detect_sections_standalone(
+    tracksJson: Uint8Array,
+    sportTypesJson: Uint8Array,
+    configJson: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_func_get_download_progress(
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
@@ -1059,6 +1065,7 @@ interface NativeModuleInterface {
     thresholdMeters: number,
     uniffi_out_err: UniffiRustCallStatus,
   ): number;
+  ubrn_uniffi_veloqrs_checksum_func_detect_sections_standalone(): number;
   ubrn_uniffi_veloqrs_checksum_func_get_download_progress(): number;
   ubrn_uniffi_veloqrs_checksum_func_start_fetch_and_store(): number;
   ubrn_uniffi_veloqrs_checksum_func_take_fetch_and_store_result(): number;

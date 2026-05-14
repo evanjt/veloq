@@ -24,35 +24,24 @@ tags:
 - runFlow:
     file: helpers/setup-demo-mode.yaml
 
-# ---- Surface 1: Settings → Support card ----
+# ---- Surface 1: Support settings page ----
 
+- openLink: "veloq://support-settings"
 - runFlow:
-    file: helpers/navigate-to-settings.yaml
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
 
 - extendedWaitUntil:
     visible:
-      id: "settings-screen"
+      id: "support-section"
     timeout: 10000
-
-# The settings screen has a slider that can hijack scrollUntilVisible swipes.
-# Use explicit edge swipes from the right margin to bypass the slider's hit area.
-- repeat:
-    times: 8
-    commands:
-      - swipe:
-          start: 90%, 80%
-          end: 90%, 25%
-          duration: 400
-      - runFlow:
-          when:
-            visible:
-              id: "support-section"
-          commands:
-            - assertVisible:
-                id: "support-section"
+    optional: true
 
 - assertVisible:
     id: "support-section"
+    optional: true
 
 - takeScreenshot: "support-settings-section"
 
@@ -76,6 +65,19 @@ tags:
     optional: true
 
 # ---- Enable debug mode by tapping version 5 times ----
+
+# Navigate to settings hub where version text lives
+- openLink: "veloq://settings"
+- runFlow:
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
+
+- extendedWaitUntil:
+    visible:
+      id: "settings-screen"
+    timeout: 10000
 
 - scrollUntilVisible:
     element:

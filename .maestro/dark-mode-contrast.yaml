@@ -13,18 +13,19 @@ tags:
     file: helpers/setup-demo-mode.yaml
 
 # ====================================================================
-# Flip theme to dark via Settings
+# Flip theme to dark via Display Settings
 # ====================================================================
+- openLink: "veloq://display-settings"
 - runFlow:
-    file: helpers/navigate-to-settings.yaml
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
 
 - extendedWaitUntil:
     visible:
-      id: "settings-screen"
+      id: "theme-button-dark"
     timeout: 15000
-
-- assertVisible:
-    id: "theme-button-dark"
 
 - tapOn:
     id: "theme-button-dark"
@@ -113,10 +114,16 @@ tags:
 # ====================================================================
 # Restore to light so the next run starts clean.
 # ====================================================================
+- openLink: "veloq://display-settings"
 - runFlow:
-    file: helpers/navigate-to-settings.yaml
-- assertVisible:
-    id: "theme-button-light"
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
+- extendedWaitUntil:
+    visible:
+      id: "theme-button-light"
+    timeout: 10000
 - tapOn:
     id: "theme-button-light"
 - waitForAnimationToEnd:

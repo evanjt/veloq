@@ -80,6 +80,34 @@ const uniffiIsDebug =
 // Public interface members begin here.
 
 /**
+ * Run section detection on arbitrary GPS traces without the persistent engine.
+ *
+ * Used for illustrations and previews. Takes JSON-encoded inputs and returns
+ * JSON-encoded FrequentSection array.
+ */
+export function detectSectionsStandalone(
+  tracksJson: string,
+  sportTypesJson: string,
+  configJson: string,
+): string /*throws*/ {
+  return FfiConverterString.lift(
+    uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+        FfiConverterTypeVeloqError,
+      ),
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_veloqrs_fn_func_detect_sections_standalone(
+          FfiConverterString.lower(tracksJson),
+          FfiConverterString.lower(sportTypesJson),
+          FfiConverterString.lower(configJson),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    ),
+  );
+}
+/**
  * Get current download progress for FFI polling.
  *
  * TypeScript should poll this every 100ms during fetch operations
@@ -4933,6 +4961,14 @@ export type FfiSectionConfig = {
   includePotentials: boolean;
   scalePresets: Array<FfiScalePreset>;
   preserveHierarchy: boolean;
+  jaccardThreshold: /*f64*/ number;
+  minRoutes: /*u32*/ number;
+  enableDensitySplits: boolean;
+  mergeDistanceMultiplier: /*f64*/ number;
+  detectionMethod: string;
+  minCellVisits: /*u32*/ number;
+  divergenceThreshold: /*f64*/ number;
+  minCorridorTracks: /*u32*/ number;
 };
 
 /**
@@ -4967,6 +5003,14 @@ const FfiConverterTypeFfiSectionConfig = (() => {
         includePotentials: FfiConverterBool.read(from),
         scalePresets: FfiConverterArrayTypeFfiScalePreset.read(from),
         preserveHierarchy: FfiConverterBool.read(from),
+        jaccardThreshold: FfiConverterFloat64.read(from),
+        minRoutes: FfiConverterUInt32.read(from),
+        enableDensitySplits: FfiConverterBool.read(from),
+        mergeDistanceMultiplier: FfiConverterFloat64.read(from),
+        detectionMethod: FfiConverterString.read(from),
+        minCellVisits: FfiConverterUInt32.read(from),
+        divergenceThreshold: FfiConverterFloat64.read(from),
+        minCorridorTracks: FfiConverterUInt32.read(from),
       };
     }
     write(value: TypeName, into: RustBuffer): void {
@@ -4980,6 +5024,14 @@ const FfiConverterTypeFfiSectionConfig = (() => {
       FfiConverterBool.write(value.includePotentials, into);
       FfiConverterArrayTypeFfiScalePreset.write(value.scalePresets, into);
       FfiConverterBool.write(value.preserveHierarchy, into);
+      FfiConverterFloat64.write(value.jaccardThreshold, into);
+      FfiConverterUInt32.write(value.minRoutes, into);
+      FfiConverterBool.write(value.enableDensitySplits, into);
+      FfiConverterFloat64.write(value.mergeDistanceMultiplier, into);
+      FfiConverterString.write(value.detectionMethod, into);
+      FfiConverterUInt32.write(value.minCellVisits, into);
+      FfiConverterFloat64.write(value.divergenceThreshold, into);
+      FfiConverterUInt32.write(value.minCorridorTracks, into);
     }
     allocationSize(value: TypeName): number {
       return (
@@ -4992,7 +5044,15 @@ const FfiConverterTypeFfiSectionConfig = (() => {
         FfiConverterString.allocationSize(value.detectionMode) +
         FfiConverterBool.allocationSize(value.includePotentials) +
         FfiConverterArrayTypeFfiScalePreset.allocationSize(value.scalePresets) +
-        FfiConverterBool.allocationSize(value.preserveHierarchy)
+        FfiConverterBool.allocationSize(value.preserveHierarchy) +
+        FfiConverterFloat64.allocationSize(value.jaccardThreshold) +
+        FfiConverterUInt32.allocationSize(value.minRoutes) +
+        FfiConverterBool.allocationSize(value.enableDensitySplits) +
+        FfiConverterFloat64.allocationSize(value.mergeDistanceMultiplier) +
+        FfiConverterString.allocationSize(value.detectionMethod) +
+        FfiConverterUInt32.allocationSize(value.minCellVisits) +
+        FfiConverterFloat64.allocationSize(value.divergenceThreshold) +
+        FfiConverterUInt32.allocationSize(value.minCorridorTracks)
       );
     }
   }
@@ -13064,6 +13124,14 @@ function uniffiEnsureInitialized() {
     throw new UniffiInternalError.ContractVersionMismatch(
       scaffoldingContractVersion,
       bindingsContractVersion,
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_func_detect_sections_standalone() !==
+    31752
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_func_detect_sections_standalone",
     );
   }
   if (

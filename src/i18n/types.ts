@@ -185,6 +185,8 @@ export interface TranslationResource {
     undo: string;
     remove: string;
     restore: string;
+    on: string;
+    off: string;
   };
 
   navigation: {
@@ -328,6 +330,26 @@ export interface TranslationResource {
     detectionStrict: string;
     matchThreshold: string;
     endpointDistance: string;
+    routeGroupingHeader: string;
+    sectionDetectionHeader: string;
+    sectionProximity: string;
+    sectionMinLength: string;
+    sectionMinActivities: string;
+    sectionMinRoutes: string;
+    sectionMinCorridorTracks: string;
+    sectionJaccard: string;
+    sectionMinCellVisits: string;
+    sectionDivergence: string;
+    detectionMethodLabel: string;
+    methodCorridor: string;
+    methodCorridorDesc: string;
+    methodDensity: string;
+    methodDensityDesc: string;
+    methodFlow: string;
+    methodFlowDesc: string;
+    detectionMethod_corridor: string;
+    detectionMethod_density: string;
+    detectionMethod_flow: string;
     reanalyzeSections: string;
     reanalyzeWarning: string;
     cleanupOverlapping: string;
@@ -394,6 +416,15 @@ export interface TranslationResource {
     maxMetricsHint: string;
     appTour: string;
     appTourDescription: string;
+    general: string;
+    data: string;
+    notificationsAndStorage: string;
+    routesAndSections: string;
+    heatmapGeneration: string;
+    heatmapDescription: string;
+    heatmapStorageUsed: string;
+    cacheAndDatabase: string;
+    sinceDateSubtitle: string;
   };
 
   alerts: {

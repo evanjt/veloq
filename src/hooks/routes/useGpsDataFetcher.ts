@@ -297,9 +297,11 @@ export function useGpsDataFetcher() {
             } else if (status === 'complete' || status === 'idle') {
               break;
             } else if (status === 'error') {
-              if (__DEV__) {
-                console.warn('[fetchDemoGps] Section detection error');
-              }
+              // Surface in production. A silent break here was hiding real
+              // failures from the Rust apply-save path (e.g. transactional
+              // junction-table writes), leaving users staring at a frozen
+              // progress bar with no idea anything went wrong.
+              console.error('[fetchDemoGps] Section detection returned error status');
               break;
             }
 
@@ -764,9 +766,11 @@ export function useGpsDataFetcher() {
             } else if (status === 'complete' || status === 'idle') {
               break;
             } else if (status === 'error') {
-              if (__DEV__) {
-                console.warn('[fetchApiGps] Section detection error');
-              }
+              // Surface in production. A silent break here was hiding real
+              // failures from the Rust apply-save path (e.g. transactional
+              // junction-table writes), leaving users staring at a frozen
+              // progress bar with no idea anything went wrong.
+              console.error('[fetchApiGps] Section detection returned error status');
               break;
             }
 

@@ -1,9 +1,10 @@
 # Settings Scroll Test
-# Scrolls through the entire settings screen with screenshots
+# Scrolls through the settings hub with screenshots
 
 appId: com.veloq.app.dev
 tags:
   - tier2
+  - pack-settings
 ---
 - runFlow:
     file: helpers/setup-demo-mode.yaml
@@ -17,30 +18,16 @@ tags:
     timeout: 10000
 - takeScreenshot: "settings-scroll-top"
 
-# Scroll down and screenshot settings sections
+# Scroll to bottom to find version text
 - scroll
-- takeScreenshot: "settings-scroll-mid-1"
+- takeScreenshot: "settings-scroll-mid"
 
-- scroll
-- takeScreenshot: "settings-scroll-mid-2"
-
-- scroll
-- takeScreenshot: "settings-scroll-mid-3"
-
-# Scroll to bottom — the detection sensitivity slider hijacks generic
-# scrollUntilVisible swipes, so use explicit edge-margin swipes instead
-# (same pattern as settings-support-iap.yaml).
-- repeat:
-    times: 10
-    commands:
-      - swipe:
-          start: 90%, 80%
-          end: 90%, 25%
-          duration: 400
-- extendedWaitUntil:
-    visible:
+- scrollUntilVisible:
+    element:
       id: "settings-version-text"
-    timeout: 5000
+    direction: DOWN
+    timeout: 10000
+    speed: 40
 - takeScreenshot: "settings-scroll-bottom"
 
 - takeScreenshot: "settings-scroll-complete"

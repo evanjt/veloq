@@ -53,7 +53,7 @@ function RouteTabDisabledState({ isDark }: { isDark: boolean }) {
         icon="cog"
         size={18}
         iconColor={isDark ? '#FBBF24' : '#92400E'}
-        onPress={() => router.push('/settings')}
+        onPress={() => router.push('/detection-settings')}
         style={styles.routeMessageButton}
       />
     </View>

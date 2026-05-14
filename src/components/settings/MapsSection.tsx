@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTheme } from '@/hooks';
@@ -73,7 +73,7 @@ interface MapsSectionProps {
 export function MapsSection({ embedded }: MapsSectionProps = {}) {
   const { isDark } = useTheme();
   const { t } = useTranslation();
-  const [showOverrides, setShowOverrides] = useState(false);
+  const showOverrides = true;
   const {
     preferences: mapPreferences,
     setDefaultStyle,
@@ -177,93 +177,83 @@ export function MapsSection({ embedded }: MapsSectionProps = {}) {
         onValueChange={handleDefaultMapStyleChange}
       />
 
-      {/* Overrides toggle */}
-      <TouchableOpacity
-        style={[styles.actionRow, styles.actionRowBorder]}
-        onPress={() => setShowOverrides(!showOverrides)}
-      >
+      {/* Per-activity overrides */}
+      <View style={[styles.actionRow, styles.actionRowBorder]}>
         <MaterialCommunityIcons name="tune-variant" size={22} color={colors.primary} />
         <Text style={[styles.actionText, isDark && settingsStyles.textLight]}>
           {t('settings.customiseByActivity')}
         </Text>
-        <MaterialCommunityIcons
-          name={showOverrides ? 'chevron-up' : 'chevron-down'}
-          size={20}
-          color={mutedColor}
-        />
-      </TouchableOpacity>
+      </View>
 
-      {showOverrides && (
-        <View style={styles.overridesContainer}>
-          {/* Explore Map row */}
-          <View style={styles.overrideRow}>
-            <MaterialCommunityIcons name="map-outline" size={16} color={colors.primary} />
-            <Text
-              style={[styles.overrideLabel, isDark && settingsStyles.textLight]}
-              numberOfLines={1}
-            >
-              {t('settings.exploreMapStyle')}
-            </Text>
-            <TouchableOpacity
-              style={[styles.pill, { backgroundColor: pillBg }]}
-              onPress={cycleGlobalMapStyle}
-              activeOpacity={0.6}
-            >
-              <Text style={[styles.pillText, { color: mutedColor }]}>
-                {t((STYLE_LABELS[exploreStyle] ?? 'settings.light') as 'settings.light')}
-              </Text>
-            </TouchableOpacity>
-          </View>
-
-          <View
-            style={[
-              styles.overrideDivider,
-              { backgroundColor: isDark ? darkColors.border : colors.border },
-            ]}
-          />
-
-          {/* Per-activity-group rows */}
-          {MAP_ACTIVITY_GROUPS.map(({ key, labelKey, types }) => {
-            const currentStyle = mapPreferences.activityTypeStyles[types[0]] ?? 'default';
-            const terrain3D = getTerrain3DMode(types[0]);
-            const styleKey = STYLE_LABELS[currentStyle] ?? 'settings.default';
-            const terrainKey = TERRAIN_LABELS[terrain3D] ?? 'settings.terrain3DSmart';
-
-            return (
-              <View key={key} style={styles.overrideRow}>
-                <Text
-                  style={[styles.overrideLabel, isDark && settingsStyles.textLight]}
-                  numberOfLines={1}
-                >
-                  {t(labelKey)}
-                </Text>
-                <TouchableOpacity
-                  style={[styles.pill, { backgroundColor: pillBg }]}
-                  onPress={() => cycleActivityGroupStyle(types)}
-                  activeOpacity={0.6}
-                >
-                  <Text style={[styles.pillText, { color: mutedColor }]}>
-                    {t(styleKey as 'settings.default')}
-                  </Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[styles.pill, { backgroundColor: pillBg }]}
-                  onPress={() => cycleTerrain3DGroup(types)}
-                  activeOpacity={0.6}
-                >
-                  <Text style={[styles.pillText, { color: mutedColor }]}>
-                    3D: {t(terrainKey as 'settings.terrain3DSmart', { defaultValue: 'Smart' })}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            );
-          })}
-
-          <Text style={[styles.hintText, isDark && settingsStyles.textMuted]}>
-            {t('settings.defaultMapHint')}
+      <View style={styles.overridesContainer}>
+        {/* Explore Map row */}
+        <View style={styles.overrideRow}>
+          <MaterialCommunityIcons name="map-outline" size={16} color={colors.primary} />
+          <Text
+            style={[styles.overrideLabel, isDark && settingsStyles.textLight]}
+            numberOfLines={1}
+          >
+            {t('settings.exploreMapStyle')}
           </Text>
+          <TouchableOpacity
+            style={[styles.pill, { backgroundColor: pillBg }]}
+            onPress={cycleGlobalMapStyle}
+            activeOpacity={0.6}
+          >
+            <Text style={[styles.pillText, { color: mutedColor }]}>
+              {t((STYLE_LABELS[exploreStyle] ?? 'settings.light') as 'settings.light')}
+            </Text>
+          </TouchableOpacity>
         </View>
-      )}
+
+        <View
+          style={[
+            styles.overrideDivider,
+            { backgroundColor: isDark ? darkColors.border : colors.border },
+          ]}
+        />
+
+        {/* Per-activity-group rows */}
+        {MAP_ACTIVITY_GROUPS.map(({ key, labelKey, types }) => {
+          const currentStyle = mapPreferences.activityTypeStyles[types[0]] ?? 'default';
+          const terrain3D = getTerrain3DMode(types[0]);
+          const styleKey = STYLE_LABELS[currentStyle] ?? 'settings.default';
+          const terrainKey = TERRAIN_LABELS[terrain3D] ?? 'settings.terrain3DSmart';
+
+          return (
+            <View key={key} style={styles.overrideRow}>
+              <Text
+                style={[styles.overrideLabel, isDark && settingsStyles.textLight]}
+                numberOfLines={1}
+              >
+                {t(labelKey)}
+              </Text>
+              <TouchableOpacity
+                style={[styles.pill, { backgroundColor: pillBg }]}
+                onPress={() => cycleActivityGroupStyle(types)}
+                activeOpacity={0.6}
+              >
+                <Text style={[styles.pillText, { color: mutedColor }]}>
+                  {t(styleKey as 'settings.default')}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.pill, { backgroundColor: pillBg }]}
+                onPress={() => cycleTerrain3DGroup(types)}
+                activeOpacity={0.6}
+              >
+                <Text style={[styles.pillText, { color: mutedColor }]}>
+                  3D: {t(terrainKey as 'settings.terrain3DSmart', { defaultValue: 'Smart' })}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          );
+        })}
+
+        <Text style={[styles.hintText, isDark && settingsStyles.textMuted]}>
+          {t('settings.defaultMapHint')}
+        </Text>
+      </View>
     </>
   );
 

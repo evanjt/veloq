@@ -573,6 +573,7 @@ impl PersistentRouteEngine {
         self.load_processed_activity_ids()?;
         self.load_activity_metrics()?;
         self.load_match_strictness_from_settings()?;
+        self.load_section_config_from_settings()?;
 
         // Backfill activities.duration_secs from activity_metrics.moving_time.
         // Route highlights need duration_secs to compute trends/PRs, but it was
@@ -636,8 +637,63 @@ impl PersistentRouteEngine {
         self.match_config.endpoint_threshold
     }
 
+    /// Read-only accessors for `section_config` fields. Mirror the
+    /// MatchConfig getters above so integration tests can verify
+    /// persisted SectionConfig without crate-private access.
+    pub fn section_config_proximity_threshold(&self) -> f64 {
+        self.section_config.proximity_threshold
+    }
+    pub fn section_config_min_section_length(&self) -> f64 {
+        self.section_config.min_section_length
+    }
+    pub fn section_config_min_activities(&self) -> u32 {
+        self.section_config.min_activities
+    }
+
     /// Set section configuration.
     pub fn set_section_config(&mut self, config: SectionConfig) {
+        // Persist the user's chosen detection params alongside MatchConfig
+        // strictness so a fresh engine load reflects the same choices without
+        // a TS round-trip. set_setting errors are logged but not propagated:
+        // in-memory state is still updated, and the strictness loader's
+        // missing-keys fallback handles any failure.
+        if let Err(e) = self.set_setting(
+            settings_keys::SECTION_PROXIMITY_THRESHOLD,
+            &config.proximity_threshold.to_string(),
+        ) {
+            log::warn!(
+                "tracematch: [set_section_config] failed to persist proximity_threshold: {}",
+                e
+            );
+        }
+        if let Err(e) = self.set_setting(
+            settings_keys::SECTION_MIN_LENGTH,
+            &config.min_section_length.to_string(),
+        ) {
+            log::warn!(
+                "tracematch: [set_section_config] failed to persist min_section_length: {}",
+                e
+            );
+        }
+        if let Err(e) = self.set_setting(
+            settings_keys::SECTION_MIN_ACTIVITIES,
+            &config.min_activities.to_string(),
+        ) {
+            log::warn!(
+                "tracematch: [set_section_config] failed to persist min_activities: {}",
+                e
+            );
+        }
+        if let Err(e) = self.set_setting(
+            settings_keys::SECTION_DETECTION_METHOD,
+            config.detection_method.as_str(),
+        ) {
+            log::warn!(
+                "tracematch: [set_section_config] failed to persist detection_method: {}",
+                e
+            );
+        }
+
         self.section_config = config;
         self.sections_dirty = true;
     }
