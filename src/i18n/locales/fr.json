@@ -1523,7 +1523,10 @@
     "methodDensity": "Grille de densité",
     "methodDensityDesc": "Détecte les sections où des groupes d'itinéraires distincts se chevauchent. Nécessite plusieurs itinéraires différents partageant un tronçon.",
     "methodFlow": "Graphe de flux",
-    "methodFlowDesc": "Identifie les carrefours à partir du flux GPS et trace les sections entre les points de divergence."
+    "methodFlowDesc": "Identifie les carrefours à partir du flux GPS et trace les sections entre les points de divergence.",
+    "detectionMethod_corridor": "Corridor",
+    "detectionMethod_density": "Grille de densité",
+    "detectionMethod_flow": "Graphe de flux"
   },
   "stats": {
     "activities": "Activités",

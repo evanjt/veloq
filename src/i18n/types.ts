@@ -341,6 +341,9 @@ export interface TranslationResource {
     methodDensityDesc: string;
     methodFlow: string;
     methodFlowDesc: string;
+    detectionMethod_corridor: string;
+    detectionMethod_density: string;
+    detectionMethod_flow: string;
     reanalyzeSections: string;
     reanalyzeWarning: string;
     cleanupOverlapping: string;

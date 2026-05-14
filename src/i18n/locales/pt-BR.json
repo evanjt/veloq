@@ -1523,7 +1523,10 @@
     "methodDensity": "Grade de densidade",
     "methodDensityDesc": "Detecta seções onde grupos de rotas distintas se sobrepõem. Requer múltiplas rotas diferentes compartilhando um trecho.",
     "methodFlow": "Grafo de fluxo",
-    "methodFlowDesc": "Identifica cruzamentos a partir do fluxo GPS e traça seções entre pontos de divergência."
+    "methodFlowDesc": "Identifica cruzamentos a partir do fluxo GPS e traça seções entre pontos de divergência.",
+    "detectionMethod_corridor": "Corredor",
+    "detectionMethod_density": "Grade de densidade",
+    "detectionMethod_flow": "Grafo de fluxo"
   },
   "stats": {
     "activities": "Atividades",

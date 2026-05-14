@@ -1523,7 +1523,10 @@
     "methodDensity": "密度网格",
     "methodDensityDesc": "检测不同路线组重叠的路段。需要多条不同路线共享同一段路程。",
     "methodFlow": "流图",
-    "methodFlowDesc": "从GPS流中识别交汇点，并追踪分歧点之间的路段。"
+    "methodFlowDesc": "从GPS流中识别交汇点，并追踪分歧点之间的路段。",
+    "detectionMethod_corridor": "走廊",
+    "detectionMethod_density": "密度网格",
+    "detectionMethod_flow": "流图"
   },
   "stats": {
     "activities": "活动",

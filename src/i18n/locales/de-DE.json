@@ -1523,7 +1523,10 @@
     "methodDensity": "Dichtegitter",
     "methodDensityDesc": "Erkennt Abschnitte, in denen verschiedene Routengruppen sich überlappen. Erfordert mehrere verschiedene Routen, die eine Strecke teilen.",
     "methodFlow": "Flussgraph",
-    "methodFlowDesc": "Identifiziert Kreuzungen aus dem GPS-Fluss und verfolgt Abschnitte zwischen Verzweigungspunkten."
+    "methodFlowDesc": "Identifiziert Kreuzungen aus dem GPS-Fluss und verfolgt Abschnitte zwischen Verzweigungspunkten.",
+    "detectionMethod_corridor": "Korridor",
+    "detectionMethod_density": "Dichtegitter",
+    "detectionMethod_flow": "Flussgraph"
   },
   "stats": {
     "activities": "Aktivitäten",

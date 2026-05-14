@@ -1523,7 +1523,10 @@
     "methodDensity": "Siatka gęstości",
     "methodDensityDesc": "Wykrywa odcinki, w których różne grupy tras się nakładają. Wymaga wielu różnych tras dzielących wspólny fragment.",
     "methodFlow": "Graf przepływu",
-    "methodFlowDesc": "Identyfikuje skrzyżowania z przepływu GPS i śledzi odcinki między punktami rozbieżności."
+    "methodFlowDesc": "Identyfikuje skrzyżowania z przepływu GPS i śledzi odcinki między punktami rozbieżności.",
+    "detectionMethod_corridor": "Korytarz",
+    "detectionMethod_density": "Siatka gęstości",
+    "detectionMethod_flow": "Graf przepływu"
   },
   "stats": {
     "activities": "Aktywności",

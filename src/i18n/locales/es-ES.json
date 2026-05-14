@@ -1523,7 +1523,10 @@
     "methodDensity": "Rejilla de densidad",
     "methodDensityDesc": "Detecta secciones donde grupos de rutas distintas se superponen. Requiere múltiples rutas diferentes que compartan un tramo.",
     "methodFlow": "Grafo de flujo",
-    "methodFlowDesc": "Identifica cruces a partir del flujo GPS y traza secciones entre puntos de divergencia."
+    "methodFlowDesc": "Identifica cruces a partir del flujo GPS y traza secciones entre puntos de divergencia.",
+    "detectionMethod_corridor": "Corredor",
+    "detectionMethod_density": "Rejilla de densidad",
+    "detectionMethod_flow": "Grafo de flujo"
   },
   "stats": {
     "activities": "Actividades",

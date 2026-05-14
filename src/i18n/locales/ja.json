@@ -1523,7 +1523,10 @@
     "methodDensity": "密度グリッド",
     "methodDensityDesc": "異なるルートグループが重なるセクションを検出します。複数の異なるルートが区間を共有している必要があります。",
     "methodFlow": "フローグラフ",
-    "methodFlowDesc": "GPSフローからジャンクションを特定し、分岐点間のセクションをトレースします。"
+    "methodFlowDesc": "GPSフローからジャンクションを特定し、分岐点間のセクションをトレースします。",
+    "detectionMethod_corridor": "コリドー",
+    "detectionMethod_density": "密度グリッド",
+    "detectionMethod_flow": "フローグラフ"
   },
   "stats": {
     "activities": "アクティビティ",

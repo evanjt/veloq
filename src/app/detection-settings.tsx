@@ -83,21 +83,15 @@ export default function DetectionSettingsScreen() {
     setMinRoutes(preset.minRoutes);
   }, []);
 
-  const applySliderValues = useCallback(() => {
+  const applyParam = useCallback((key: string, value: number) => {
     const engine = getRouteEngine();
     if (engine) {
       const config = engine.getSectionConfig();
       if (config) {
-        engine.setSectionConfig({
-          ...config,
-          proximityThreshold,
-          minSectionLength,
-          minActivities,
-          minRoutes,
-        });
+        engine.setSectionConfig({ ...config, [key]: value });
       }
     }
-  }, [proximityThreshold, minSectionLength, minActivities, minRoutes]);
+  }, []);
 
   return (
     <ScreenSafeAreaView
@@ -209,7 +203,7 @@ export default function DetectionSettingsScreen() {
             step={25}
             onChange={(v) => {
               setProximityThreshold(v);
-              applySliderValues();
+              applyParam('proximityThreshold', v);
             }}
             isDark={isDark}
           />
@@ -221,7 +215,7 @@ export default function DetectionSettingsScreen() {
             step={50}
             onChange={(v) => {
               setMinSectionLength(v);
-              applySliderValues();
+              applyParam('minSectionLength', v);
             }}
             isDark={isDark}
           />
@@ -233,7 +227,7 @@ export default function DetectionSettingsScreen() {
             step={1}
             onChange={(v) => {
               setMinActivities(v);
-              applySliderValues();
+              applyParam('minActivities', v);
             }}
             isDark={isDark}
           />
@@ -245,7 +239,7 @@ export default function DetectionSettingsScreen() {
             step={1}
             onChange={(v) => {
               setMinRoutes(v);
-              applySliderValues();
+              applyParam('minRoutes', v);
             }}
             isDark={isDark}
           />

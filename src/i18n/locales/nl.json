@@ -1523,7 +1523,10 @@
     "methodDensity": "Dichtheidsraster",
     "methodDensityDesc": "Detecteert secties waar verschillende routegroepen overlappen. Vereist meerdere verschillende routes die een stuk delen.",
     "methodFlow": "Stroomgrafiek",
-    "methodFlowDesc": "Identificeert kruispunten uit GPS-stroom en traceert secties tussen divergentiepunten."
+    "methodFlowDesc": "Identificeert kruispunten uit GPS-stroom en traceert secties tussen divergentiepunten.",
+    "detectionMethod_corridor": "Corridor",
+    "detectionMethod_density": "Dichtheidsraster",
+    "detectionMethod_flow": "Stroomgrafiek"
   },
   "stats": {
     "activities": "Activiteiten",

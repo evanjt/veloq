@@ -1523,7 +1523,10 @@
     "methodDensity": "Griglia di densità",
     "methodDensityDesc": "Rileva sezioni dove gruppi di percorsi distinti si sovrappongono. Richiede più percorsi diversi che condividano un tratto.",
     "methodFlow": "Grafo di flusso",
-    "methodFlowDesc": "Identifica incroci dal flusso GPS e traccia sezioni tra punti di divergenza."
+    "methodFlowDesc": "Identifica incroci dal flusso GPS e traccia sezioni tra punti di divergenza.",
+    "detectionMethod_corridor": "Corridoio",
+    "detectionMethod_density": "Griglia di densità",
+    "detectionMethod_flow": "Grafo di flusso"
   },
   "stats": {
     "activities": "Attività",

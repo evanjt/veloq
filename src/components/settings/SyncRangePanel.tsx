@@ -2,7 +2,6 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
-  Pressable,
   StyleSheet,
   TouchableOpacity,
   Alert,
@@ -379,21 +378,27 @@ export function SyncRangePanel() {
         {/* Detection settings navigation */}
         <View style={[settingsStyles.fullDivider, isDark && settingsStyles.fullDividerDark]} />
 
-        <Pressable
-          style={[styles.navRow, isDark && styles.navRowDark]}
+        <TouchableOpacity
+          style={settingsStyles.actionRow}
           onPress={() => router.push('/detection-settings' as never)}
           testID="settings-detection-row"
         >
-          <View>
-            <Text style={[styles.navRowTitle, isDark && styles.navRowTitleDark]}>
+          <MaterialCommunityIcons name="tune-variant" size={20} color={isDark ? '#aaa' : '#666'} />
+          <View style={{ flex: 1 }}>
+            <Text style={[settingsStyles.actionRowText, isDark && settingsStyles.textLight]}>
               {t('settings.sectionDetection')}
             </Text>
-            <Text style={[styles.navRowSubtitle, isDark && styles.navRowSubtitleDark]}>
+            <Text
+              style={[
+                { fontSize: 12, marginTop: 1 },
+                isDark ? settingsStyles.textMuted : { color: '#888' },
+              ]}
+            >
               {t(`settings.detectionMethod_${detectionMethod}` as never)}
             </Text>
           </View>
-          <MaterialCommunityIcons name="chevron-right" size={20} color={isDark ? '#999' : '#666'} />
-        </Pressable>
+          <MaterialCommunityIcons name="chevron-right" size={20} color={isDark ? '#555' : '#ccc'} />
+        </TouchableOpacity>
 
         {/* Reanalyse sections */}
         <View style={[settingsStyles.rowDivider, isDark && settingsStyles.rowDividerDark]} />
@@ -468,35 +473,6 @@ const styles = StyleSheet.create({
   },
   progressTextDark: {
     color: darkColors.textSecondary,
-  },
-  navRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    marginTop: 12,
-  },
-  navRowDark: {
-    backgroundColor: '#1a1a1a',
-  },
-  navRowTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1A1A1A',
-  },
-  navRowTitleDark: {
-    color: '#e0e0e0',
-  },
-  navRowSubtitle: {
-    fontSize: 13,
-    color: '#666',
-    marginTop: 2,
-  },
-  navRowSubtitleDark: {
-    color: '#999',
   },
   actionRowDisabled: {
     opacity: 0.5,

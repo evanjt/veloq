@@ -1523,7 +1523,10 @@
     "methodDensity": "Dichtegitter",
     "methodDensityDesc": "Erkennt Abschnitt, wo verschidnigi Ruetegruppe sich überlappe. Bruucht mehreri verschidnigi Ruete, wo en Strecke teiled.",
     "methodFlow": "Flussgraph",
-    "methodFlowDesc": "Erkennt Chrüzige us em GPS-Fluss und verfolgt Abschnitt zwüsche Verzweigigspünkt."
+    "methodFlowDesc": "Erkennt Chrüzige us em GPS-Fluss und verfolgt Abschnitt zwüsche Verzweigigspünkt.",
+    "detectionMethod_corridor": "Korridor",
+    "detectionMethod_density": "Dichtegitter",
+    "detectionMethod_flow": "Flussgraph"
   },
   "stats": {
     "activities": "Aktivitäte",

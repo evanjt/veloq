@@ -1562,7 +1562,10 @@
     "methodDensity": "Density grid",
     "methodDensityDesc": "Detects sections where distinct route groups overlap. Requires multiple different routes to share a stretch.",
     "methodFlow": "Flow graph",
-    "methodFlowDesc": "Identifies junctions from GPS flow and traces sections between divergence points."
+    "methodFlowDesc": "Identifies junctions from GPS flow and traces sections between divergence points.",
+    "detectionMethod_corridor": "Corridor",
+    "detectionMethod_density": "Density grid",
+    "detectionMethod_flow": "Flow graph"
   },
   "stats": {
     "activities": "Activities",
