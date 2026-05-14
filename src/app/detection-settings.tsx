@@ -1,10 +1,13 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { View, ScrollView, StyleSheet, Pressable } from 'react-native';
+import { View, ScrollView, StyleSheet, Pressable, TouchableOpacity } from 'react-native';
 import { Text } from 'react-native-paper';
-import { Stack } from 'expo-router';
+import { router } from 'expo-router';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/hooks';
 import { useRouteSettings } from '@/providers';
+import { ScreenSafeAreaView, TAB_BAR_SAFE_PADDING } from '@/components/ui';
 import { DetectionMethodIllustration } from '@/components/settings';
 import { colors, darkColors, spacing, layout, typography, brand } from '@/theme';
 import {
@@ -37,15 +40,16 @@ const METHOD_DESCS: Record<Method, string> = {
 export default function DetectionSettingsScreen() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
+  const insets = useSafeAreaInsets();
 
   const method = useRouteSettings((s) => s.settings.detectionMethod);
   const strictness = useRouteSettings((s) => s.settings.detectionStrictness);
 
   const textPrimary = isDark ? darkColors.textPrimary : colors.textPrimary;
   const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
+  const bg = isDark ? darkColors.background : colors.background;
   const surface = isDark ? darkColors.surface : colors.surface;
   const border = isDark ? darkColors.border : colors.border;
-  const bg = isDark ? darkColors.background : colors.background;
 
   const activePreset = useMemo(() => getDetectionPresetByValue(strictness), [strictness]);
   const activePresetIndex = useMemo(
@@ -53,7 +57,6 @@ export default function DetectionSettingsScreen() {
     [activePreset]
   );
 
-  // Local slider state (synced from preset, editable individually)
   const [proximityThreshold, setProximityThreshold] = useState(activePreset.proximityThreshold);
   const [minSectionLength, setMinSectionLength] = useState(activePreset.minSectionLength);
   const [minActivities, setMinActivities] = useState(activePreset.minActivities);
@@ -97,137 +100,168 @@ export default function DetectionSettingsScreen() {
   }, [proximityThreshold, minSectionLength, minActivities, minRoutes]);
 
   return (
-    <ScrollView
+    <ScreenSafeAreaView
+      testID="detection-settings-screen"
       style={[styles.container, { backgroundColor: bg }]}
-      contentContainerStyle={styles.content}
     >
-      <Stack.Screen options={{ title: t('settings.sectionDetection') }} />
+      <View style={styles.header}>
+        <TouchableOpacity
+          testID="detection-settings-back"
+          onPress={() => router.back()}
+          style={styles.backButton}
+        >
+          <MaterialCommunityIcons name="arrow-left" size={24} color={textPrimary} />
+        </TouchableOpacity>
+        <Text style={[styles.headerTitle, { color: textPrimary }]}>
+          {t('settings.sectionDetection')}
+        </Text>
+      </View>
 
-      {/* Method selector chips */}
-      <View style={styles.chipRow} testID="detection-method-chips">
-        {METHOD_LABELS.map((m) => {
-          const active = method === m.key;
-          return (
-            <Pressable
-              key={m.key}
-              style={[
-                styles.chip,
-                { borderColor: border, backgroundColor: surface },
-                active && styles.chipActive,
-              ]}
-              onPress={() => handleMethodSelect(m.key)}
-              testID={`detection-method-${m.key}`}
-            >
-              <Text
-                style={[styles.chipText, { color: textSecondary }, active && styles.chipTextActive]}
+      <ScrollView
+        contentContainerStyle={[
+          styles.content,
+          { paddingBottom: insets.bottom + TAB_BAR_SAFE_PADDING },
+        ]}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Method chips */}
+        <View style={styles.chipRow} testID="detection-method-chips">
+          {METHOD_LABELS.map((m) => {
+            const active = method === m.key;
+            return (
+              <Pressable
+                key={m.key}
+                style={[
+                  styles.chip,
+                  { borderColor: border, backgroundColor: surface },
+                  active && styles.chipActive,
+                ]}
+                onPress={() => handleMethodSelect(m.key)}
+                testID={`detection-method-${m.key}`}
               >
-                {t(m.label as never)}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
+                <Text
+                  style={[
+                    styles.chipText,
+                    { color: textSecondary },
+                    active && styles.chipTextActive,
+                  ]}
+                >
+                  {t(m.label as never)}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
 
-      {/* Description for active method */}
-      <Text style={[styles.modeDescription, { color: textSecondary }]}>
-        {t(METHOD_DESCS[method] as never)}
-      </Text>
+        <Text style={[styles.modeDescription, { color: textSecondary }]}>
+          {t(METHOD_DESCS[method] as never)}
+        </Text>
 
-      {/* Illustration */}
-      <DetectionMethodIllustration method={method} />
+        {/* Illustration (reactive to all parameters) */}
+        <DetectionMethodIllustration
+          method={method}
+          proximity={proximityThreshold}
+          minSectionLength={minSectionLength}
+          minActivities={minActivities}
+          minRoutes={minRoutes}
+        />
 
-      {/* Strictness presets */}
-      <Text style={[styles.sectionLabel, { color: textSecondary }, styles.sectionLabelSpaced]}>
-        {t('settings.detectionSensitivity')}
-      </Text>
-
-      <View style={styles.chipRow}>
-        {DETECTION_PRESETS.map((p, i) => {
-          const label = p.key === 'default' ? t('settings.default') : t(`settings.${p.key}`);
-          const active = i === activePresetIndex;
-          return (
-            <Pressable
-              key={p.key}
-              style={[
-                styles.chip,
-                { borderColor: border, backgroundColor: surface },
-                active && styles.chipActive,
-              ]}
-              onPress={() => handlePresetSelect(i)}
-            >
-              <Text
-                style={[styles.chipText, { color: textSecondary }, active && styles.chipTextActive]}
+        {/* Presets */}
+        <Text style={[styles.sectionLabel, { color: textSecondary }]}>
+          {t('settings.detectionSensitivity')}
+        </Text>
+        <View style={styles.chipRow}>
+          {DETECTION_PRESETS.map((p, i) => {
+            const label =
+              p.key === 'default' ? t('settings.default') : t(`settings.${p.key}` as never);
+            const active = i === activePresetIndex;
+            return (
+              <Pressable
+                key={p.key}
+                style={[
+                  styles.chip,
+                  { borderColor: border, backgroundColor: surface },
+                  active && styles.chipActive,
+                ]}
+                onPress={() => handlePresetSelect(i)}
               >
-                {label}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
+                <Text
+                  style={[
+                    styles.chipText,
+                    { color: textSecondary },
+                    active && styles.chipTextActive,
+                  ]}
+                >
+                  {label}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
 
-      {/* Individual parameter sliders */}
-      <View style={[styles.slidersContainer, { backgroundColor: surface, borderColor: border }]}>
-        <SliderRow
-          label={t('settings.sectionProximity', { meters: proximityThreshold })}
-          value={proximityThreshold}
-          min={25}
-          max={300}
-          step={25}
-          onValueChange={(v) => {
-            setProximityThreshold(v);
-          }}
-          onSlidingComplete={applySliderValues}
-          isDark={isDark}
-        />
-        <SliderRow
-          label={t('settings.sectionMinLength', { meters: minSectionLength })}
-          value={minSectionLength}
-          min={50}
-          max={2000}
-          step={50}
-          onValueChange={(v) => {
-            setMinSectionLength(v);
-          }}
-          onSlidingComplete={applySliderValues}
-          isDark={isDark}
-        />
-        <SliderRow
-          label={t('settings.sectionMinActivities', { count: minActivities })}
-          value={minActivities}
-          min={2}
-          max={10}
-          step={1}
-          onValueChange={(v) => {
-            setMinActivities(v);
-          }}
-          onSlidingComplete={applySliderValues}
-          isDark={isDark}
-        />
-        <SliderRow
-          label={t('settings.sectionMinRoutes', { count: minRoutes })}
-          value={minRoutes}
-          min={2}
-          max={6}
-          step={1}
-          onValueChange={(v) => {
-            setMinRoutes(v);
-          }}
-          onSlidingComplete={applySliderValues}
-          isDark={isDark}
-        />
-      </View>
-    </ScrollView>
+        {/* Parameter controls */}
+        <View style={[styles.paramsCard, { backgroundColor: surface, borderColor: border }]}>
+          <ParamRow
+            label={t('settings.sectionProximity', { meters: proximityThreshold })}
+            value={proximityThreshold}
+            min={25}
+            max={300}
+            step={25}
+            onChange={(v) => {
+              setProximityThreshold(v);
+              applySliderValues();
+            }}
+            isDark={isDark}
+          />
+          <ParamRow
+            label={t('settings.sectionMinLength', { meters: minSectionLength })}
+            value={minSectionLength}
+            min={50}
+            max={2000}
+            step={50}
+            onChange={(v) => {
+              setMinSectionLength(v);
+              applySliderValues();
+            }}
+            isDark={isDark}
+          />
+          <ParamRow
+            label={t('settings.sectionMinActivities', { count: minActivities })}
+            value={minActivities}
+            min={2}
+            max={10}
+            step={1}
+            onChange={(v) => {
+              setMinActivities(v);
+              applySliderValues();
+            }}
+            isDark={isDark}
+          />
+          <ParamRow
+            label={t('settings.sectionMinRoutes', { count: minRoutes })}
+            value={minRoutes}
+            min={2}
+            max={6}
+            step={1}
+            onChange={(v) => {
+              setMinRoutes(v);
+              applySliderValues();
+            }}
+            isDark={isDark}
+          />
+        </View>
+      </ScrollView>
+    </ScreenSafeAreaView>
   );
 }
 
-function SliderRow({
+function ParamRow({
   label,
   value,
   min,
   max,
   step,
-  onValueChange,
-  onSlidingComplete,
+  onChange,
   isDark,
 }: {
   label: string;
@@ -235,35 +269,26 @@ function SliderRow({
   min: number;
   max: number;
   step: number;
-  onValueChange: (v: number) => void;
-  onSlidingComplete: () => void;
+  onChange: (v: number) => void;
   isDark: boolean;
 }) {
-  const textColor = isDark ? darkColors.textSecondary : colors.textSecondary;
-  const trackColor = isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)';
-  // React Native Slider is not available by default, use a simple numeric stepper
+  const txt = isDark ? darkColors.textSecondary : colors.textSecondary;
+  const btnBg = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)';
   return (
-    <View style={styles.sliderRow}>
-      <Text style={[styles.sliderLabel, { color: textColor }]}>{label}</Text>
-      <View style={styles.stepperRow}>
+    <View style={styles.paramRow}>
+      <Text style={[styles.paramLabel, { color: txt }]}>{label}</Text>
+      <View style={styles.stepper}>
         <Pressable
-          style={[styles.stepperBtn, { backgroundColor: trackColor }]}
-          onPress={() => {
-            if (value > min) onValueChange(value - step);
-            onSlidingComplete();
-          }}
+          style={[styles.stepBtn, { backgroundColor: btnBg }]}
+          onPress={() => value > min && onChange(value - step)}
         >
-          <Text style={[styles.stepperBtnText, { color: textColor }]}>-</Text>
+          <MaterialCommunityIcons name="minus" size={16} color={txt} />
         </Pressable>
-        <Text style={[styles.stepperValue, { color: textColor }]}>{value}</Text>
         <Pressable
-          style={[styles.stepperBtn, { backgroundColor: trackColor }]}
-          onPress={() => {
-            if (value < max) onValueChange(value + step);
-            onSlidingComplete();
-          }}
+          style={[styles.stepBtn, { backgroundColor: btnBg }]}
+          onPress={() => value < max && onChange(value + step)}
         >
-          <Text style={[styles.stepperBtnText, { color: textColor }]}>+</Text>
+          <MaterialCommunityIcons name="plus" size={16} color={txt} />
         </Pressable>
       </View>
     </View>
@@ -272,13 +297,32 @@ function SliderRow({
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  content: { padding: spacing.md, paddingBottom: spacing.xxl },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: spacing.sm,
+  },
+  headerTitle: {
+    ...typography.sectionTitle,
+    fontWeight: '600',
+  },
+  content: {
+    paddingHorizontal: spacing.md,
+  },
   sectionLabel: {
     ...typography.bodySmall,
     fontWeight: '600',
     marginBottom: spacing.sm,
+    marginTop: spacing.lg,
   },
-  sectionLabelSpaced: { marginTop: spacing.lg },
   modeDescription: {
     ...typography.bodySmall,
     marginTop: 4,
@@ -288,6 +332,7 @@ const styles = StyleSheet.create({
   chipRow: {
     flexDirection: 'row',
     gap: spacing.sm,
+    marginBottom: spacing.xs,
   },
   chip: {
     flex: 1,
@@ -305,42 +350,32 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   chipTextActive: { color: '#FFFFFF' },
-  slidersContainer: {
+  paramsCard: {
     marginTop: spacing.md,
     borderRadius: layout.borderRadius,
     borderWidth: StyleSheet.hairlineWidth,
     padding: spacing.md,
-    gap: spacing.md,
+    gap: spacing.sm,
   },
-  sliderRow: {
+  paramRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    minHeight: 40,
   },
-  sliderLabel: {
+  paramLabel: {
     ...typography.bodySmall,
     flex: 1,
   },
-  stepperRow: {
+  stepper: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
+    gap: spacing.xs,
   },
-  stepperBtn: {
+  stepBtn: {
     width: 32,
     height: 32,
     borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  stepperBtnText: {
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  stepperValue: {
-    ...typography.bodySmall,
-    fontWeight: '600',
-    minWidth: 36,
-    textAlign: 'center',
   },
 });

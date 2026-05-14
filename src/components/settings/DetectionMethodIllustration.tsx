@@ -5,9 +5,12 @@ import { useTheme } from '@/hooks';
 
 interface Props {
   method: 'corridor' | 'density' | 'flow';
+  proximity: number;
+  minSectionLength: number;
+  minActivities: number;
+  minRoutes: number;
 }
 
-// SVG (0-400, 0-200) mapped to GPS coordinates (~3km x ~1.5km)
 const REF_LAT = 46.22;
 const REF_LNG = 7.36;
 const LNG_SPAN = 0.04;
@@ -88,7 +91,6 @@ const BASE_TRACES: TraceDef[] = [
   },
 ];
 
-// 50 jittered copies for realistic traffic volume
 function buildTraces(): TraceDef[] {
   const out: TraceDef[] = [];
   for (let rep = 0; rep < 10; rep++) {
@@ -104,7 +106,6 @@ function buildTraces(): TraceDef[] {
   return out;
 }
 
-// Densify to ~3px spacing for realistic GPS density
 function densify(pts: [number, number][]): { latitude: number; longitude: number }[] {
   const out: { latitude: number; longitude: number }[] = [svgToGps(pts[0][0], pts[0][1])];
   for (let i = 1; i < pts.length; i++) {
@@ -126,7 +127,6 @@ const FFI_METHOD: Record<Props['method'], string> = {
   flow: 'flow_graph',
 };
 
-// Pre-computed fallback if FFI is unavailable (demo mode, Expo Go)
 const FALLBACK: Record<Props['method'], string[]> = {
   corridor: [
     '15,105 55,90 110,78 165,72 220,70 275,72 330,78 385,88',
@@ -139,7 +139,13 @@ const FALLBACK: Record<Props['method'], string[]> = {
   flow: ['55,90 110,78', '110,78 165,72', '165,72 220,70', '275,72 330,78'],
 };
 
-export function DetectionMethodIllustration({ method }: Props) {
+export function DetectionMethodIllustration({
+  method,
+  proximity,
+  minSectionLength,
+  minActivities,
+  minRoutes,
+}: Props) {
   const { isDark } = useTheme();
   const bg = isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.08)';
 
@@ -171,29 +177,44 @@ export function DetectionMethodIllustration({ method }: Props) {
           return;
         }
 
-        const flowProx = method === 'flow' ? 50 : 150;
+        const flowProx = method === 'flow' ? Math.max(25, Math.round(proximity / 3)) : proximity;
         const config = JSON.stringify({
           proximityThreshold: flowProx,
-          minSectionLength: 50,
+          minSectionLength,
           maxSectionLength: 200000,
-          minActivities: 3,
+          minActivities,
           clusterTolerance: 80,
           samplePoints: 50,
           detectionMode: 'discovery',
           includePotentials: false,
           scalePresets: [
-            { name: 'short', minLength: 50, maxLength: 500, minActivities: 2 },
-            { name: 'medium', minLength: 500, maxLength: 2000, minActivities: 2 },
-            { name: 'long', minLength: 2000, maxLength: 50000, minActivities: 2 },
+            {
+              name: 'short',
+              minLength: 50,
+              maxLength: 500,
+              minActivities: Math.max(minActivities, 2),
+            },
+            {
+              name: 'medium',
+              minLength: 500,
+              maxLength: 2000,
+              minActivities: Math.max(minActivities, 2),
+            },
+            {
+              name: 'long',
+              minLength: 2000,
+              maxLength: 50000,
+              minActivities: Math.max(minActivities, 2),
+            },
           ],
           preserveHierarchy: true,
           jaccardThreshold: 0.5,
-          minRoutes: 2,
+          minRoutes,
           enableDensitySplits: false,
           mergeDistanceMultiplier: 4.0,
           minCellVisits: 3,
           divergenceThreshold: 0.1,
-          minCorridorTracks: 3,
+          minCorridorTracks: minActivities,
           detectionMethod: FFI_METHOD[method],
         });
 
@@ -226,13 +247,13 @@ export function DetectionMethodIllustration({ method }: Props) {
     return () => {
       cancelled = true;
     };
-  }, [method, inputData]);
+  }, [method, proximity, minSectionLength, minActivities, minRoutes, inputData]);
 
   const displayTraces = BASE_TRACES.map((t) => t.pts.map((p) => p.join(',')).join(' '));
 
   return (
     <View style={{ backgroundColor: bg, borderRadius: 8, overflow: 'hidden', marginVertical: 8 }}>
-      <Svg width="100%" height={170} viewBox="0 0 400 210">
+      <Svg width="100%" height={160} viewBox="0 0 400 210">
         {displayTraces.map((points, i) => (
           <Polyline
             key={i}
@@ -247,7 +268,7 @@ export function DetectionMethodIllustration({ method }: Props) {
         ))}
         {highlights.map((points, i) => (
           <Polyline
-            key={`h-${i}`}
+            key={`h-${method}-${i}`}
             points={points}
             fill="none"
             stroke="#FC4C02"
