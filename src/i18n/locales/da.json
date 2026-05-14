@@ -1515,7 +1515,8 @@
     "sectionDetectionHeader": "Sektionsregistrering",
     "sectionProximity": "Nærhed: {{meters}} m",
     "sectionMinLength": "Min. længde: {{meters}} m",
-    "sectionMinActivities": "Min. besøg: {{count}}"
+    "sectionMinActivities": "Min. besøg: {{count}}",
+    "sectionMinRoutes": "Min. ruter: {{count}}"
   },
   "stats": {
     "activities": "Aktiviteter",

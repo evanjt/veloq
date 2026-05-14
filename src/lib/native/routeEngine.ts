@@ -37,10 +37,16 @@ export function getRouteEngine(): typeof import('veloqrs').routeEngine | null {
 }
 
 /**
- * Detection sensitivity preset. Bundles all 5 detection parameters:
+ * Detection sensitivity preset. Bundles all 6 detection parameters:
  *   - MatchConfig (route grouping): matchPct, endpoint
  *   - SectionConfig (section detection): proximityThreshold, minSectionLength,
- *     minActivities
+ *     minActivities, minRoutes
+ *
+ * `minRoutes` is the alphabet-overlap threshold for the density-grid pass:
+ * how many distinct route groups must share a corridor for it to qualify
+ * as a section. `minActivities` then filters the expanded activity set
+ * (post-route-expansion) so a 2-route corridor visited by 1 person each
+ * still gets pruned at the popularity stage.
  *
  * `value` is the slider position (0-100) used to snap UI controls and to
  * derive `preserveHierarchy` (more relaxed → preserve scale hierarchy).
@@ -53,6 +59,7 @@ export type DetectionPreset = {
   proximityThreshold: number;
   minSectionLength: number;
   minActivities: number;
+  minRoutes: number;
 };
 
 export const DETECTION_PRESETS: readonly DetectionPreset[] = [
@@ -64,6 +71,7 @@ export const DETECTION_PRESETS: readonly DetectionPreset[] = [
     proximityThreshold: 70,
     minSectionLength: 150,
     minActivities: 2,
+    minRoutes: 2,
   },
   {
     key: 'default',
@@ -73,6 +81,7 @@ export const DETECTION_PRESETS: readonly DetectionPreset[] = [
     proximityThreshold: 50,
     minSectionLength: 200,
     minActivities: 3,
+    minRoutes: 3,
   },
   {
     key: 'detectionStrict',
@@ -82,6 +91,7 @@ export const DETECTION_PRESETS: readonly DetectionPreset[] = [
     proximityThreshold: 35,
     minSectionLength: 300,
     minActivities: 4,
+    minRoutes: 4,
   },
 ] as const;
 
@@ -105,10 +115,11 @@ export function getDetectionPresetByValue(value: number): DetectionPreset {
 /**
  * Apply a detection-strictness preset to the Rust engine.
  *
- * Writes ALL 5 detection parameters: 2 MatchConfig (min_match_pct,
- * endpoint_threshold) + 3 SectionConfig (proximity_threshold,
- * min_section_length, min_activities). Both Rust setters persist to the
- * settings table so the next engine load picks them up automatically.
+ * Writes ALL 6 detection parameters: 2 MatchConfig (min_match_pct,
+ * endpoint_threshold) + 4 SectionConfig (proximity_threshold,
+ * min_section_length, min_activities, min_routes). Both Rust setters
+ * persist to the settings table so the next engine load picks them up
+ * automatically.
  *
  * `preserveHierarchy` is derived from the slider position (more relaxed
  * → preserve scale hierarchy, more strict → flatten).
@@ -126,6 +137,7 @@ export function applyDetectionPreset(preset: DetectionPreset): void {
       proximityThreshold: preset.proximityThreshold,
       minSectionLength: preset.minSectionLength,
       minActivities: preset.minActivities,
+      minRoutes: preset.minRoutes,
       preserveHierarchy: preset.value <= 40,
     });
   }

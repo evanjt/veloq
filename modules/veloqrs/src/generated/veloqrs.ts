@@ -4933,6 +4933,10 @@ export type FfiSectionConfig = {
   includePotentials: boolean;
   scalePresets: Array<FfiScalePreset>;
   preserveHierarchy: boolean;
+  jaccardThreshold: /*f64*/ number;
+  minRoutes: /*u32*/ number;
+  enableDensitySplits: boolean;
+  mergeDistanceMultiplier: /*f64*/ number;
 };
 
 /**
@@ -4967,6 +4971,10 @@ const FfiConverterTypeFfiSectionConfig = (() => {
         includePotentials: FfiConverterBool.read(from),
         scalePresets: FfiConverterArrayTypeFfiScalePreset.read(from),
         preserveHierarchy: FfiConverterBool.read(from),
+        jaccardThreshold: FfiConverterFloat64.read(from),
+        minRoutes: FfiConverterUInt32.read(from),
+        enableDensitySplits: FfiConverterBool.read(from),
+        mergeDistanceMultiplier: FfiConverterFloat64.read(from),
       };
     }
     write(value: TypeName, into: RustBuffer): void {
@@ -4980,6 +4988,10 @@ const FfiConverterTypeFfiSectionConfig = (() => {
       FfiConverterBool.write(value.includePotentials, into);
       FfiConverterArrayTypeFfiScalePreset.write(value.scalePresets, into);
       FfiConverterBool.write(value.preserveHierarchy, into);
+      FfiConverterFloat64.write(value.jaccardThreshold, into);
+      FfiConverterUInt32.write(value.minRoutes, into);
+      FfiConverterBool.write(value.enableDensitySplits, into);
+      FfiConverterFloat64.write(value.mergeDistanceMultiplier, into);
     }
     allocationSize(value: TypeName): number {
       return (
@@ -4992,7 +5004,11 @@ const FfiConverterTypeFfiSectionConfig = (() => {
         FfiConverterString.allocationSize(value.detectionMode) +
         FfiConverterBool.allocationSize(value.includePotentials) +
         FfiConverterArrayTypeFfiScalePreset.allocationSize(value.scalePresets) +
-        FfiConverterBool.allocationSize(value.preserveHierarchy)
+        FfiConverterBool.allocationSize(value.preserveHierarchy) +
+        FfiConverterFloat64.allocationSize(value.jaccardThreshold) +
+        FfiConverterUInt32.allocationSize(value.minRoutes) +
+        FfiConverterBool.allocationSize(value.enableDensitySplits) +
+        FfiConverterFloat64.allocationSize(value.mergeDistanceMultiplier)
       );
     }
   }

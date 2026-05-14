@@ -1515,7 +1515,8 @@
     "sectionDetectionHeader": "セクション検出",
     "sectionProximity": "近接距離: {{meters}} m",
     "sectionMinLength": "最小長: {{meters}} m",
-    "sectionMinActivities": "最小訪問数: {{count}}"
+    "sectionMinActivities": "最小訪問数: {{count}}",
+    "sectionMinRoutes": "最小ルート数: {{count}}"
   },
   "stats": {
     "activities": "アクティビティ",

@@ -432,6 +432,10 @@ export function SyncRangePanel() {
             {t('settings.sectionMinActivities', {
               count: PRESETS[activePresetIndex].minActivities,
             })}
+            {'  '}
+            {t('settings.sectionMinRoutes', {
+              count: PRESETS[activePresetIndex].minRoutes,
+            })}
           </Text>
         </View>
 

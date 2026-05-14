@@ -1515,7 +1515,8 @@
     "sectionDetectionHeader": "Détection des sections",
     "sectionProximity": "Proximité : {{meters}} m",
     "sectionMinLength": "Longueur min. : {{meters}} m",
-    "sectionMinActivities": "Visites min. : {{count}}"
+    "sectionMinActivities": "Visites min. : {{count}}",
+    "sectionMinRoutes": "Routes min. : {{count}}"
   },
   "stats": {
     "activities": "Activités",

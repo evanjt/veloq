@@ -1515,7 +1515,8 @@
     "sectionDetectionHeader": "Sectiedetectie",
     "sectionProximity": "Nabijheid: {{meters}} m",
     "sectionMinLength": "Min. lengte: {{meters}} m",
-    "sectionMinActivities": "Min. bezoeken: {{count}}"
+    "sectionMinActivities": "Min. bezoeken: {{count}}",
+    "sectionMinRoutes": "Min. routes: {{count}}"
   },
   "stats": {
     "activities": "Activiteiten",

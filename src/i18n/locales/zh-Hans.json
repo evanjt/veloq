@@ -1515,7 +1515,8 @@
     "sectionDetectionHeader": "路段检测",
     "sectionProximity": "邻近距离: {{meters}} m",
     "sectionMinLength": "最短长度: {{meters}} m",
-    "sectionMinActivities": "最少访问次数: {{count}}"
+    "sectionMinActivities": "最少访问次数: {{count}}",
+    "sectionMinRoutes": "最少路线数: {{count}}"
   },
   "stats": {
     "activities": "活动",

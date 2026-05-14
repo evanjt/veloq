@@ -333,6 +333,7 @@ export interface TranslationResource {
     sectionProximity: string;
     sectionMinLength: string;
     sectionMinActivities: string;
+    sectionMinRoutes: string;
     reanalyzeSections: string;
     reanalyzeWarning: string;
     cleanupOverlapping: string;
