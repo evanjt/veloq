@@ -1516,7 +1516,14 @@
     "sectionProximity": "Proximidad: {{meters}} m",
     "sectionMinLength": "Longitud mín.: {{meters}} m",
     "sectionMinActivities": "Visitas mín.: {{count}}",
-    "sectionMinRoutes": "Rutas mín.: {{count}}"
+    "sectionMinRoutes": "Rutas mín.: {{count}}",
+    "detectionMethodLabel": "Método de detección",
+    "methodCorridor": "Corredor",
+    "methodCorridorDesc": "Encuentra corredores donde muchas actividades convergen. Funciona con trazas GPS sin procesar. Mejor cobertura.",
+    "methodDensity": "Grilla de densidad",
+    "methodDensityDesc": "Detecta secciones donde grupos de rutas distintas se superponen. Requiere múltiples rutas diferentes que compartan un tramo.",
+    "methodFlow": "Grafo de flujo",
+    "methodFlowDesc": "Identifica cruces a partir del flujo GPS y traza secciones entre puntos de divergencia."
   },
   "stats": {
     "activities": "Actividades",

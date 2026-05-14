@@ -1516,7 +1516,14 @@
     "sectionProximity": "近接距離: {{meters}} m",
     "sectionMinLength": "最小長: {{meters}} m",
     "sectionMinActivities": "最小訪問数: {{count}}",
-    "sectionMinRoutes": "最小ルート数: {{count}}"
+    "sectionMinRoutes": "最小ルート数: {{count}}",
+    "detectionMethodLabel": "検出方法",
+    "methodCorridor": "コリドー",
+    "methodCorridorDesc": "多くのアクティビティが集中するコリドーを検出します。生のGPSトレースで動作します。最も広い検出範囲。",
+    "methodDensity": "密度グリッド",
+    "methodDensityDesc": "異なるルートグループが重なるセクションを検出します。複数の異なるルートが区間を共有している必要があります。",
+    "methodFlow": "フローグラフ",
+    "methodFlowDesc": "GPSフローからジャンクションを特定し、分岐点間のセクションをトレースします。"
   },
   "stats": {
     "activities": "アクティビティ",

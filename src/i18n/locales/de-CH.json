@@ -1516,7 +1516,14 @@
     "sectionProximity": "Nähe: {{meters}} m",
     "sectionMinLength": "Min. Länge: {{meters}} m",
     "sectionMinActivities": "Min. Besuche: {{count}}",
-    "sectionMinRoutes": "Min. Route: {{count}}"
+    "sectionMinRoutes": "Min. Route: {{count}}",
+    "detectionMethodLabel": "Erkennigsmethode",
+    "methodCorridor": "Korridor",
+    "methodCorridorDesc": "Findet Korridore, wo vill Aktivitäte zämelauffed. Schaffts mit rohe GPS-Spuure. Bescht Abdeckig.",
+    "methodDensity": "Dichtegitter",
+    "methodDensityDesc": "Erkennt Abschnitt, wo verschidnigi Ruetegruppe sich überlappe. Bruucht mehreri verschidnigi Ruete, wo en Strecke teiled.",
+    "methodFlow": "Flussgraph",
+    "methodFlowDesc": "Erkennt Chrüzige us em GPS-Fluss und verfolgt Abschnitt zwüsche Verzweigigspünkt."
   },
   "stats": {
     "activities": "Aktivitäte",

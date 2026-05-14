@@ -1516,7 +1516,14 @@
     "sectionProximity": "Proximité : {{meters}} m",
     "sectionMinLength": "Longueur min. : {{meters}} m",
     "sectionMinActivities": "Visites min. : {{count}}",
-    "sectionMinRoutes": "Routes min. : {{count}}"
+    "sectionMinRoutes": "Routes min. : {{count}}",
+    "detectionMethodLabel": "Méthode de détection",
+    "methodCorridor": "Corridor",
+    "methodCorridorDesc": "Trouve les corridors où de nombreuses activités convergent. Fonctionne sur les traces GPS brutes. Meilleure couverture.",
+    "methodDensity": "Grille de densité",
+    "methodDensityDesc": "Détecte les sections où des groupes d'itinéraires distincts se chevauchent. Nécessite plusieurs itinéraires différents partageant un tronçon.",
+    "methodFlow": "Graphe de flux",
+    "methodFlowDesc": "Identifie les carrefours à partir du flux GPS et trace les sections entre les points de divergence."
   },
   "stats": {
     "activities": "Activités",

@@ -334,6 +334,13 @@ export interface TranslationResource {
     sectionMinLength: string;
     sectionMinActivities: string;
     sectionMinRoutes: string;
+    detectionMethodLabel: string;
+    methodCorridor: string;
+    methodCorridorDesc: string;
+    methodDensity: string;
+    methodDensityDesc: string;
+    methodFlow: string;
+    methodFlowDesc: string;
     reanalyzeSections: string;
     reanalyzeWarning: string;
     cleanupOverlapping: string;

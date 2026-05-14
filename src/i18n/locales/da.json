@@ -1516,7 +1516,14 @@
     "sectionProximity": "Nærhed: {{meters}} m",
     "sectionMinLength": "Min. længde: {{meters}} m",
     "sectionMinActivities": "Min. besøg: {{count}}",
-    "sectionMinRoutes": "Min. ruter: {{count}}"
+    "sectionMinRoutes": "Min. ruter: {{count}}",
+    "detectionMethodLabel": "Detektionsmetode",
+    "methodCorridor": "Korridor",
+    "methodCorridorDesc": "Finder korridorer, hvor mange aktiviteter konvergerer. Arbejder med rå GPS-spor. Bedst dækning.",
+    "methodDensity": "Tæthedsgitter",
+    "methodDensityDesc": "Detekterer sektioner, hvor forskellige rutegrupper overlapper. Kræver flere forskellige ruter, der deler en strækning.",
+    "methodFlow": "Flowgraf",
+    "methodFlowDesc": "Identificerer kryds fra GPS-flow og sporer sektioner mellem divergenspunkter."
   },
   "stats": {
     "activities": "Aktiviteter",

@@ -1516,7 +1516,14 @@
     "sectionProximity": "Nabijheid: {{meters}} m",
     "sectionMinLength": "Min. lengte: {{meters}} m",
     "sectionMinActivities": "Min. bezoeken: {{count}}",
-    "sectionMinRoutes": "Min. routes: {{count}}"
+    "sectionMinRoutes": "Min. routes: {{count}}",
+    "detectionMethodLabel": "Detectiemethode",
+    "methodCorridor": "Corridor",
+    "methodCorridorDesc": "Vindt corridors waar veel activiteiten samenkomen. Werkt op ruwe GPS-sporen. Beste dekking.",
+    "methodDensity": "Dichtheidsraster",
+    "methodDensityDesc": "Detecteert secties waar verschillende routegroepen overlappen. Vereist meerdere verschillende routes die een stuk delen.",
+    "methodFlow": "Stroomgrafiek",
+    "methodFlowDesc": "Identificeert kruispunten uit GPS-stroom en traceert secties tussen divergentiepunten."
   },
   "stats": {
     "activities": "Activiteiten",

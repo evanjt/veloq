@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View,
   Text,
+  Pressable,
   StyleSheet,
   TouchableOpacity,
   Alert,
@@ -19,11 +20,12 @@ import Animated, {
   Easing,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
+import { useRouter } from 'expo-router';
 import { TimelineSlider } from '@/components/maps';
 import { useActivityBoundsCache, useOldestActivityDate, useTheme } from '@/hooks';
 import { formatLocalDate } from '@/lib';
 import { useSyncDateRange, useRouteSettings } from '@/providers';
-import { applyDetectionPreset, DETECTION_PRESETS as PRESETS } from '@/lib/native/routeEngine';
+import { DETECTION_PRESETS as PRESETS } from '@/lib/native/routeEngine';
 import { useSectionRescan } from '@/hooks/routes/useSectionRescan';
 import { settingsStyles } from './settingsStyles';
 import { colors, darkColors, spacing } from '@/theme';
@@ -285,30 +287,9 @@ export function SyncRangePanel() {
     [syncDateRange, cachedStartDate]
   );
 
-  // --- Detection sensitivity state ---
-  const { settings, setDetectionStrictness } = useRouteSettings();
-
-  const activePresetIndex = useMemo(() => {
-    let closest = 0;
-    let closestDist = Math.abs(PRESETS[0].value - settings.detectionStrictness);
-    for (let i = 1; i < PRESETS.length; i++) {
-      const dist = Math.abs(PRESETS[i].value - settings.detectionStrictness);
-      if (dist < closestDist) {
-        closest = i;
-        closestDist = dist;
-      }
-    }
-    return closest;
-  }, [settings.detectionStrictness]);
-
-  const handlePresetSelect = useCallback(
-    (index: number) => {
-      const preset = PRESETS[index];
-      setDetectionStrictness(preset.value);
-      applyDetectionPreset(preset);
-    },
-    [setDetectionStrictness]
-  );
+  // --- Detection settings nav ---
+  const router = useRouter();
+  const { detectionMethod } = useRouteSettings((s) => s.settings);
 
   // --- Section rescan state ---
   const {
@@ -395,49 +376,23 @@ export function SyncRangePanel() {
           </View>
         ) : null}
 
-        {/* Detection sensitivity */}
+        {/* Detection settings navigation */}
         <View style={[settingsStyles.fullDivider, isDark && settingsStyles.fullDividerDark]} />
 
-        <View style={styles.detectionSliderWrap}>
-          <Text style={[styles.detectionLabel, isDark && settingsStyles.textLight]}>
-            {t('settings.detectionSensitivity')}
-          </Text>
-          <DetectionSlider
-            activeIndex={activePresetIndex}
-            onSelect={handlePresetSelect}
-            isDark={isDark}
-          />
-
-          <Text style={[styles.paramHeader, isDark && styles.paramHeaderDark]}>
-            {t('settings.routeGroupingHeader')}
-          </Text>
-          <Text style={[styles.paramLine, isDark && styles.paramLineDark]}>
-            {t('settings.endpointDistance', { meters: PRESETS[activePresetIndex].endpoint })}
-            {'  '}
-            {t('settings.matchThreshold', { pct: PRESETS[activePresetIndex].matchPct })}
-          </Text>
-
-          <Text style={[styles.paramHeader, isDark && styles.paramHeaderDark]}>
-            {t('settings.sectionDetectionHeader')}
-          </Text>
-          <Text style={[styles.paramLine, isDark && styles.paramLineDark]}>
-            {t('settings.sectionProximity', {
-              meters: PRESETS[activePresetIndex].proximityThreshold,
-            })}
-            {'  '}
-            {t('settings.sectionMinLength', {
-              meters: PRESETS[activePresetIndex].minSectionLength,
-            })}
-            {'  '}
-            {t('settings.sectionMinActivities', {
-              count: PRESETS[activePresetIndex].minActivities,
-            })}
-            {'  '}
-            {t('settings.sectionMinRoutes', {
-              count: PRESETS[activePresetIndex].minRoutes,
-            })}
-          </Text>
-        </View>
+        <Pressable
+          style={[styles.navRow, isDark && styles.navRowDark]}
+          onPress={() => router.push('/detection-settings' as never)}
+        >
+          <View>
+            <Text style={[styles.navRowTitle, isDark && styles.navRowTitleDark]}>
+              {t('settings.sectionDetection')}
+            </Text>
+            <Text style={[styles.navRowSubtitle, isDark && styles.navRowSubtitleDark]}>
+              {t(`settings.detectionMethod_${detectionMethod}` as never)}
+            </Text>
+          </View>
+          <MaterialCommunityIcons name="chevron-right" size={20} color={isDark ? '#999' : '#666'} />
+        </Pressable>
 
         {/* Reanalyse sections */}
         <View style={[settingsStyles.rowDivider, isDark && settingsStyles.rowDividerDark]} />
@@ -513,35 +468,34 @@ const styles = StyleSheet.create({
   progressTextDark: {
     color: darkColors.textSecondary,
   },
-  detectionLabel: {
-    fontSize: 14,
+  navRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    marginTop: 12,
+  },
+  navRowDark: {
+    backgroundColor: '#1a1a1a',
+  },
+  navRowTitle: {
+    fontSize: 16,
     fontWeight: '600',
-    color: colors.textPrimary,
-    marginBottom: spacing.xs,
+    color: '#1A1A1A',
   },
-  paramHeader: {
-    fontSize: 10,
-    fontWeight: '600',
-    color: colors.textSecondary,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-    marginTop: spacing.sm,
+  navRowTitleDark: {
+    color: '#e0e0e0',
   },
-  paramHeaderDark: {
-    color: darkColors.textSecondary,
-  },
-  paramLine: {
-    fontSize: 11,
-    color: colors.textDisabled,
+  navRowSubtitle: {
+    fontSize: 13,
+    color: '#666',
     marginTop: 2,
   },
-  paramLineDark: {
-    color: darkColors.textDisabled,
-  },
-  detectionSliderWrap: {
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.md,
+  navRowSubtitleDark: {
+    color: '#999',
   },
   actionRowDisabled: {
     opacity: 0.5,

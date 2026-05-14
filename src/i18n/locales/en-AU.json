@@ -1516,7 +1516,14 @@
     "sectionProximity": "Proximity: {{meters}}m",
     "sectionMinLength": "Min length: {{meters}}m",
     "sectionMinActivities": "Min visits: {{count}}",
-    "sectionMinRoutes": "Min routes: {{count}}"
+    "sectionMinRoutes": "Min routes: {{count}}",
+    "detectionMethodLabel": "Detection method",
+    "methodCorridor": "Corridor",
+    "methodCorridorDesc": "Finds corridors where heaps of activities converge. Works on raw GPS traces. Best coverage.",
+    "methodDensity": "Density grid",
+    "methodDensityDesc": "Detects sections where distinct route groups overlap. Needs multiple different routes sharing a stretch.",
+    "methodFlow": "Flow graph",
+    "methodFlowDesc": "Identifies junctions from GPS flow and traces sections between divergence points."
   },
   "stats": {
     "activities": "Activities",

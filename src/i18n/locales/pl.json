@@ -1516,7 +1516,14 @@
     "sectionProximity": "Bliskość: {{meters}} m",
     "sectionMinLength": "Min. długość: {{meters}} m",
     "sectionMinActivities": "Min. wizyt: {{count}}",
-    "sectionMinRoutes": "Min. tras: {{count}}"
+    "sectionMinRoutes": "Min. tras: {{count}}",
+    "detectionMethodLabel": "Metoda wykrywania",
+    "methodCorridor": "Korytarz",
+    "methodCorridorDesc": "Znajduje korytarze, w których wiele aktywności się zbiera. Działa na surowych śladach GPS. Najlepsze pokrycie.",
+    "methodDensity": "Siatka gęstości",
+    "methodDensityDesc": "Wykrywa odcinki, w których różne grupy tras się nakładają. Wymaga wielu różnych tras dzielących wspólny fragment.",
+    "methodFlow": "Graf przepływu",
+    "methodFlowDesc": "Identyfikuje skrzyżowania z przepływu GPS i śledzi odcinki między punktami rozbieżności."
   },
   "stats": {
     "activities": "Aktywności",

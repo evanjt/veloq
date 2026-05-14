@@ -1516,7 +1516,14 @@
     "sectionProximity": "邻近距离: {{meters}} m",
     "sectionMinLength": "最短长度: {{meters}} m",
     "sectionMinActivities": "最少访问次数: {{count}}",
-    "sectionMinRoutes": "最少路线数: {{count}}"
+    "sectionMinRoutes": "最少路线数: {{count}}",
+    "detectionMethodLabel": "检测方法",
+    "methodCorridor": "走廊",
+    "methodCorridorDesc": "查找多个活动汇聚的走廊。使用原始GPS轨迹。覆盖范围最广。",
+    "methodDensity": "密度网格",
+    "methodDensityDesc": "检测不同路线组重叠的路段。需要多条不同路线共享同一段路程。",
+    "methodFlow": "流图",
+    "methodFlowDesc": "从GPS流中识别交汇点，并追踪分歧点之间的路段。"
   },
   "stats": {
     "activities": "活动",
