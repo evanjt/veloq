@@ -1,9 +1,8 @@
 import React from 'react';
-import { View, StyleSheet, Pressable } from 'react-native';
+import { View, StyleSheet, Pressable, InteractionManager } from 'react-native';
 import Animated, { SlideInUp, SlideOutUp } from 'react-native-reanimated';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { replaceTo } from '@/lib';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQueryClient } from '@tanstack/react-query';
@@ -25,26 +24,18 @@ export function DemoBanner() {
   // Don't render if not in demo mode or if banner is hidden
   if (!isDemoMode || hideDemoBanner) return null;
 
-  const handlePress = async () => {
-    // Flip isAuthenticated → false synchronously FIRST. The route-data sync hook
-    // gates new syncs on isAuthenticatedRef.current (useRouteDataSync.ts), so any
-    // sync that fires while clearDemoData is awaited will short-circuit at that
-    // gate instead of racing the engine clear and FS deletes. This race was
-    // benign in dev (Hermes + dev bridge timing usually win) but lethal in
-    // release builds because both Rust crates ship with `panic = "abort"`.
-    if (__DEV__) {
-      console.log(`[DemoBanner] handlePress START at ${Date.now()}`);
-    }
+  const handlePress = () => {
+    // Flip isAuthenticated → false synchronously. AuthGate handles the redirect
+    // to /login after a 100ms defer (lets Android finish the current render pass).
     exitDemoMode();
     resetSyncDateRange();
-    if (__DEV__) {
-      console.log(`[DemoBanner] exitDemoMode + reset done, awaiting clearDemoData`);
-    }
-    await clearDemoData(queryClient);
-    if (__DEV__) {
-      console.log(`[DemoBanner] clearDemoData done, navigating`);
-    }
-    replaceTo('/login');
+    // Defer data clearing until the navigation interaction completes. Calling
+    // queryClient.clear() while tab screens are still mounted triggers a mass
+    // re-render cascade that crashes Android with IllegalStateException
+    // (null child in ReactViewGroup during dispatchGetDisplayList).
+    InteractionManager.runAfterInteractions(() => {
+      clearDemoData(queryClient);
+    });
   };
 
   return (

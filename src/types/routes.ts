@@ -484,7 +484,7 @@ export interface SectionConfig {
 
 /** Default section detection configuration */
 export const DEFAULT_SECTION_CONFIG: SectionConfig = {
-  proximityThreshold: 50,
+  proximityThreshold: 150,
   minSectionLength: 200,
   maxSectionLength: 5000,
   minActivities: 3,

@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   LayoutChangeEvent,
 } from 'react-native';
+import { Switch } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
@@ -19,20 +20,15 @@ import Animated, {
   Easing,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
+import * as FileSystem from 'expo-file-system/legacy';
 import { TimelineSlider } from '@/components/maps';
 import { useActivityBoundsCache, useOldestActivityDate, useTheme } from '@/hooks';
-import { formatLocalDate } from '@/lib';
+import { formatLocalDate, formatFileSize } from '@/lib';
 import { useSyncDateRange, useRouteSettings } from '@/providers';
-import { applyDetectionStrictness } from '@/lib/native/routeEngine';
-import { useSectionRescan } from '@/hooks/routes/useSectionRescan';
+import { DETECTION_PRESETS as PRESETS, getRouteEngine } from '@/lib/native/routeEngine';
+import { HEATMAP_TILES_DIR, getHeatmapTilesCacheSize } from '@/hooks/maps/useHeatmapTiles';
 import { settingsStyles } from './settingsStyles';
-import { colors, darkColors, spacing } from '@/theme';
-
-const PRESETS = [
-  { key: 'detectionRelaxed', value: 20, matchPct: 55, endpoint: 270 },
-  { key: 'default', value: 60, matchPct: 65, endpoint: 210 },
-  { key: 'detectionStrict', value: 90, matchPct: 72.5, endpoint: 165 },
-] as const;
+import { colors, darkColors, spacing, typography } from '@/theme';
 
 const SNAP_TIMING = { duration: 200, easing: Easing.out(Easing.cubic) };
 const THUMB_SIZE = 22;
@@ -248,6 +244,36 @@ export function SyncRangePanel() {
   const { isDark } = useTheme();
   const { t } = useTranslation();
 
+  // --- Heatmap toggle state ---
+  const heatmapEnabled = useRouteSettings((s) => s.settings.heatmapEnabled);
+  const setHeatmapEnabled = useRouteSettings((s) => s.setHeatmapEnabled);
+  const [heatmapSize, setHeatmapSize] = useState(0);
+
+  const refreshHeatmapSize = useCallback(() => {
+    setHeatmapSize(getHeatmapTilesCacheSize());
+  }, []);
+
+  useEffect(() => {
+    refreshHeatmapSize();
+  }, [refreshHeatmapSize, heatmapEnabled]);
+
+  const handleHeatmapToggle = useCallback(
+    (enabled: boolean) => {
+      setHeatmapEnabled(enabled);
+      const engine = getRouteEngine();
+      if (enabled) {
+        engine?.enableHeatmapTiles();
+      } else {
+        engine?.clearHeatmapTiles(HEATMAP_TILES_DIR);
+        const legacyDir = `${FileSystem.documentDirectory}heatmap-tiles/`;
+        engine?.clearHeatmapTiles(legacyDir);
+        engine?.disableHeatmapTiles();
+      }
+      refreshHeatmapSize();
+    },
+    [setHeatmapEnabled, refreshHeatmapSize]
+  );
+
   // --- Data range state ---
   const { progress, cacheStats, syncDateRange } = useActivityBoundsCache();
   const { data: apiOldestDate } = useOldestActivityDate();
@@ -291,72 +317,41 @@ export function SyncRangePanel() {
     [syncDateRange, cachedStartDate]
   );
 
-  // --- Detection sensitivity state ---
-  const { settings, setDetectionStrictness } = useRouteSettings();
-
-  const activePresetIndex = useMemo(() => {
-    let closest = 0;
-    let closestDist = Math.abs(PRESETS[0].value - settings.detectionStrictness);
-    for (let i = 1; i < PRESETS.length; i++) {
-      const dist = Math.abs(PRESETS[i].value - settings.detectionStrictness);
-      if (dist < closestDist) {
-        closest = i;
-        closestDist = dist;
-      }
-    }
-    return closest;
-  }, [settings.detectionStrictness]);
-
-  const handlePresetSelect = useCallback(
-    (index: number) => {
-      const preset = PRESETS[index];
-      setDetectionStrictness(preset.value);
-      applyDetectionStrictness(preset.value);
-    },
-    [setDetectionStrictness]
-  );
-
-  // --- Section rescan state ---
-  const {
-    forceRescan,
-    isScanning,
-    progress: rescanProgress,
-    result,
-    clearResult,
-  } = useSectionRescan();
-
-  useEffect(() => {
-    if (result === null) return;
-    const timer = setTimeout(clearResult, 5000);
-    return () => clearTimeout(timer);
-  }, [result, clearResult]);
-
-  const handleReanalyze = useCallback(() => {
-    Alert.alert(t('settings.reanalyzeSections'), t('settings.reanalyzeWarning'), [
-      { text: t('common.cancel'), style: 'cancel' },
-      { text: t('common.confirm'), onPress: () => forceRescan() },
-    ]);
-  }, [t, forceRescan]);
-
-  const rescanPercent = rescanProgress ? Math.max(rescanProgress.percent, 2) : 2;
-
-  const resultText = useMemo(() => {
-    if (!result) return null;
-    const removed = Math.max(0, result.before - result.after);
-    const added = Math.max(0, result.after - result.before);
-    const parts: string[] = [];
-    if (removed > 0) parts.push(`${removed} removed`);
-    if (added > 0) parts.push(`${added} added`);
-    if (parts.length === 0) return `${result.after} sections (unchanged)`;
-    return parts.join(', ');
-  }, [result]);
-
   return (
     <>
       <Text style={[settingsStyles.sectionLabel, isDark && settingsStyles.textMuted]}>
         {t('settings.localDataRange').toUpperCase()}
       </Text>
       <View style={[settingsStyles.sectionCard, isDark && settingsStyles.sectionCardDark]}>
+        {/* Heatmap toggle */}
+        <View style={settingsStyles.actionRow}>
+          <MaterialCommunityIcons
+            name="map-legend"
+            size={22}
+            color={isDark ? darkColors.textSecondary : colors.textSecondary}
+          />
+          <View style={styles.toggleTextWrap}>
+            <Text style={[settingsStyles.actionRowText, isDark && settingsStyles.textLight]}>
+              {t('settings.heatmapGeneration', 'Heatmap')}
+            </Text>
+            <Text style={[styles.toggleHint, isDark && settingsStyles.textMuted]}>
+              {heatmapEnabled && heatmapSize > 0
+                ? t('settings.heatmapStorageUsed', {
+                    defaultValue: 'Using {{size}} of device storage',
+                    size: formatFileSize(heatmapSize),
+                  })
+                : t('settings.heatmapDescription', 'Uses device storage. Disable to save space.')}
+            </Text>
+          </View>
+          <Switch
+            value={heatmapEnabled}
+            onValueChange={handleHeatmapToggle}
+            color={colors.primary}
+          />
+        </View>
+
+        <View style={[settingsStyles.fullDivider, isDark && settingsStyles.fullDividerDark]} />
+
         {/* Timeline slider */}
         <View style={styles.sliderWrap}>
           <TimelineSlider
@@ -400,76 +395,20 @@ export function SyncRangePanel() {
             </Text>
           </View>
         ) : null}
-
-        {/* Detection sensitivity */}
-        <View style={[settingsStyles.fullDivider, isDark && settingsStyles.fullDividerDark]} />
-
-        <View style={styles.detectionSliderWrap}>
-          <Text style={[styles.detectionLabel, isDark && settingsStyles.textLight]}>
-            {t('settings.detectionSensitivity')}
-          </Text>
-          <DetectionSlider
-            activeIndex={activePresetIndex}
-            onSelect={handlePresetSelect}
-            isDark={isDark}
-          />
-
-          <Text
-            style={{
-              fontSize: 11,
-              color: isDark ? darkColors.textDisabled : colors.textDisabled,
-              marginTop: 4,
-            }}
-          >
-            {t('settings.matchThreshold', { pct: PRESETS[activePresetIndex].matchPct })}
-            {'  '}
-            {t('settings.endpointDistance', { meters: PRESETS[activePresetIndex].endpoint })}
-          </Text>
-        </View>
-
-        {/* Reanalyse sections */}
-        <View style={[settingsStyles.rowDivider, isDark && settingsStyles.rowDividerDark]} />
-
-        <TouchableOpacity
-          style={[settingsStyles.actionRow, isScanning && styles.actionRowDisabled]}
-          onPress={isScanning ? undefined : handleReanalyze}
-          disabled={isScanning}
-          activeOpacity={isScanning ? 1 : 0.2}
-        >
-          {isScanning ? (
-            <ActivityIndicator size="small" color={colors.primary} style={styles.spinner} />
-          ) : (
-            <MaterialCommunityIcons
-              name="refresh"
-              size={22}
-              color={isDark ? darkColors.textSecondary : colors.textSecondary}
-            />
-          )}
-          <Text style={[settingsStyles.actionRowText, isDark && settingsStyles.textLight]}>
-            {t('settings.reanalyzeSections')}
-          </Text>
-          {resultText && !isScanning ? (
-            <Text style={[styles.resultText, isDark && styles.resultTextDark]}>{resultText}</Text>
-          ) : null}
-        </TouchableOpacity>
-
-        {/* Rescan progress */}
-        {isScanning && rescanProgress ? (
-          <View style={[styles.progressRow, isDark && styles.progressRowDark]}>
-            <View style={styles.progressBarTrack}>
-              <View style={[styles.progressBarFill, { width: `${rescanPercent}%` }]} />
-            </View>
-            <Text style={[styles.progressText, isDark && styles.progressTextDark]}>
-              {rescanProgress.displayName}... {Math.round(rescanPercent)}%
-            </Text>
-          </View>
-        ) : null}
       </View>
     </>
   );
 }
 
 const styles = StyleSheet.create({
+  toggleTextWrap: {
+    flex: 1,
+  },
+  toggleHint: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
   sliderWrap: {
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
@@ -500,17 +439,6 @@ const styles = StyleSheet.create({
   },
   progressTextDark: {
     color: darkColors.textSecondary,
-  },
-  detectionLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.textPrimary,
-    marginBottom: spacing.xs,
-  },
-  detectionSliderWrap: {
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.md,
   },
   actionRowDisabled: {
     opacity: 0.5,

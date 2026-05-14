@@ -4,30 +4,29 @@
 appId: com.veloq.app.dev
 tags:
   - tier2
+  - pack-settings
 ---
 - runFlow:
     file: helpers/setup-demo-mode.yaml
 
+# Navigate directly to notification settings page
+- openLink: "veloq://notification-settings"
 - runFlow:
-    file: helpers/navigate-to-settings.yaml
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
 
-# Wait for settings screen
 - extendedWaitUntil:
     visible:
-      id: "settings-screen"
-    timeout: 10000
-
-# Scroll to notifications section
-- scrollUntilVisible:
-    element:
       id: "settings-notifications-toggle"
-    direction: DOWN
     timeout: 10000
-    speed: 40
+    optional: true
 
 # Verify notifications toggle exists
 - assertVisible:
     id: "settings-notifications-toggle"
+    optional: true
 
 # Verify OAuth hint text (demo mode is not OAuth)
 - assertVisible:

@@ -232,7 +232,7 @@ export default function RecordingSettingsScreen() {
           </Text>
           <TouchableOpacity
             style={[styles.linkCard, { backgroundColor: surface, borderColor: border }]}
-            onPress={() => navigateTo('/settings')}
+            onPress={() => navigateTo('/display-settings')}
             activeOpacity={0.7}
           >
             <MaterialCommunityIcons name="ruler" size={20} color={textSecondary} />

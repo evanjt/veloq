@@ -1,0 +1,46 @@
+# Settings Detection Method Test
+# Tests: detection method chip selection
+
+appId: com.veloq.app.dev
+tags:
+  - tier2
+  - pack-settings
+---
+- runFlow:
+    file: helpers/setup-demo-mode.yaml
+
+# Navigate directly to detection settings page
+- openLink: "veloq://detection-settings"
+- runFlow:
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
+
+- extendedWaitUntil:
+    visible:
+      id: "detection-method-chips"
+    timeout: 10000
+
+- assertVisible:
+    id: "detection-method-corridor"
+
+- assertVisible:
+    id: "detection-method-density"
+
+- assertVisible:
+    id: "detection-method-flow"
+
+- tapOn:
+    id: "detection-method-density"
+
+- tapOn:
+    id: "detection-method-flow"
+
+- tapOn:
+    id: "detection-method-corridor"
+
+- assertNotVisible:
+    text: "NaN"
+
+- takeScreenshot: "detection-settings"

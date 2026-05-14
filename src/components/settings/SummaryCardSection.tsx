@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import React from 'react';
+import { View, StyleSheet } from 'react-native';
 import { Text, SegmentedButtons, Switch } from 'react-native-paper';
 import { useTheme, useSummaryCardData } from '@/hooks';
 import { useTranslation } from 'react-i18next';
@@ -12,8 +12,6 @@ import { settingsStyles } from './settingsStyles';
 export function SummaryCardSection() {
   const { isDark } = useTheme();
   const { t } = useTranslation();
-  const [showSummaryCardConfig, setShowSummaryCardConfig] = useState(false);
-
   const { summaryCard, setSummaryCardPreferences } = useDashboardPreferences();
   const summaryCardData = useSummaryCardData();
 
@@ -92,77 +90,67 @@ export function SummaryCardSection() {
           />
         </View>
 
-        {/* Supporting Metrics - collapsible */}
-        <TouchableOpacity
-          style={[styles.actionRow, styles.actionRowBorder]}
-          onPress={() => setShowSummaryCardConfig(!showSummaryCardConfig)}
-        >
+        {/* Supporting Metrics */}
+        <View style={[styles.actionRow, styles.actionRowBorder]}>
           <MaterialCommunityIcons name="tune-variant" size={22} color={colors.primary} />
           <Text style={[styles.actionText, isDark && settingsStyles.textLight]}>
             {t('settings.supportingMetrics')}
           </Text>
-          <MaterialCommunityIcons
-            name={showSummaryCardConfig ? 'chevron-up' : 'chevron-down'}
-            size={20}
-            color={isDark ? darkColors.textMuted : colors.textSecondary}
-          />
-        </TouchableOpacity>
+        </View>
 
-        {showSummaryCardConfig && (
-          <View style={styles.summaryCardContainer}>
-            <Text style={[styles.summaryCardHint, isDark && settingsStyles.textMuted]}>
-              {t('settings.maxMetricsHint')}
-            </Text>
+        <View style={styles.summaryCardContainer}>
+          <Text style={[styles.summaryCardHint, isDark && settingsStyles.textMuted]}>
+            {t('settings.maxMetricsHint')}
+          </Text>
 
-            {(
-              [
-                'fitness',
-                'ftp',
-                'weekHours',
-                'weekCount',
-                'form',
-                'hrv',
-                'rhr',
-                'weight',
-                'thresholdPace',
-                'css',
-              ] as MetricId[]
-            ).map((metricId) => {
-              const isEnabled = summaryCard.supportingMetrics.includes(metricId);
-              const maxReached = summaryCard.supportingMetrics.length >= 4;
-              const def = getMetricDefinition(metricId);
-              if (!def) return null;
+          {(
+            [
+              'fitness',
+              'ftp',
+              'weekHours',
+              'weekCount',
+              'form',
+              'hrv',
+              'rhr',
+              'weight',
+              'thresholdPace',
+              'css',
+            ] as MetricId[]
+          ).map((metricId) => {
+            const isEnabled = summaryCard.supportingMetrics.includes(metricId);
+            const maxReached = summaryCard.supportingMetrics.length >= 4;
+            const def = getMetricDefinition(metricId);
+            if (!def) return null;
 
-              return (
-                <View
-                  key={metricId}
-                  style={[styles.summaryMetricRow, isDark && styles.summaryMetricRowDark]}
-                >
-                  <Text style={[styles.summaryMetricLabel, isDark && settingsStyles.textLight]}>
-                    {t(def.labelKey as never)}
-                  </Text>
-                  <Switch
-                    value={isEnabled}
-                    disabled={!isEnabled && maxReached}
-                    onValueChange={(enabled) => {
-                      const current = summaryCard.supportingMetrics;
-                      if (enabled && current.length < 4) {
-                        setSummaryCardPreferences({
-                          supportingMetrics: [...current, metricId],
-                        });
-                      } else if (!enabled) {
-                        setSummaryCardPreferences({
-                          supportingMetrics: current.filter((id) => id !== metricId),
-                        });
-                      }
-                    }}
-                    color={colors.primary}
-                  />
-                </View>
-              );
-            })}
-          </View>
-        )}
+            return (
+              <View
+                key={metricId}
+                style={[styles.summaryMetricRow, isDark && styles.summaryMetricRowDark]}
+              >
+                <Text style={[styles.summaryMetricLabel, isDark && settingsStyles.textLight]}>
+                  {t(def.labelKey as never)}
+                </Text>
+                <Switch
+                  value={isEnabled}
+                  disabled={!isEnabled && maxReached}
+                  onValueChange={(enabled) => {
+                    const current = summaryCard.supportingMetrics;
+                    if (enabled && current.length < 4) {
+                      setSummaryCardPreferences({
+                        supportingMetrics: [...current, metricId],
+                      });
+                    } else if (!enabled) {
+                      setSummaryCardPreferences({
+                        supportingMetrics: current.filter((id) => id !== metricId),
+                      });
+                    }
+                  }}
+                  color={colors.primary}
+                />
+              </View>
+            );
+          })}
+        </View>
       </View>
     </>
   );

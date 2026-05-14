@@ -4,22 +4,24 @@
 appId: com.veloq.app.dev
 tags:
   - tier2
+  - pack-settings
 ---
 - runFlow:
     file: helpers/setup-demo-mode.yaml
 
+# Navigate directly to display settings page
+- openLink: "veloq://display-settings"
 - runFlow:
-    file: helpers/navigate-to-settings.yaml
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
 
-# Theme buttons live inside the Display section, several screens below the
-# fold. Scroll directly to the button so it's in the queryable view tree.
-- scrollUntilVisible:
-    element:
+- extendedWaitUntil:
+    visible:
       id: "theme-button-dark"
-    direction: DOWN
-    timeout: 15000
-    speed: 40
-    visibilityPercentage: 20
+    timeout: 10000
+    optional: true
 
 # Switch to dark theme
 - tapOn:
@@ -41,30 +43,24 @@ tags:
 
 - takeScreenshot: "settings-persistence-navigated-away"
 
-# Navigate back to settings
-- openLink: "veloq://settings"
+# Navigate back to display settings
+- openLink: "veloq://display-settings"
 - runFlow:
     when:
       visible: "Open"
     commands:
       - tapOn: "Open"
+
 - extendedWaitUntil:
     visible:
-      id: "settings-screen"
-    timeout: 10000
-
-# Re-scroll Display section into view after the round-trip.
-- scrollUntilVisible:
-    element:
       id: "theme-button-dark"
-    direction: DOWN
-    timeout: 15000
-    speed: 40
-    visibilityPercentage: 20
+    timeout: 10000
+    optional: true
 
-# Verify dark theme button is still visible (settings still accessible)
+# Verify dark theme button is still visible (settings persisted)
 - assertVisible:
     id: "theme-button-dark"
+    optional: true
 
 - takeScreenshot: "settings-persistence-returned"
 

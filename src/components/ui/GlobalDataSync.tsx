@@ -16,7 +16,11 @@ import {
 import { queryKeys } from '@/lib/queryKeys';
 import { onSyncComplete } from '@/lib/backup';
 import { intervalsApi } from '@/api';
-import { getRouteEngine, applyDetectionStrictness } from '@/lib/native/routeEngine';
+import {
+  getRouteEngine,
+  applyDetectionPresetForMethod,
+  getStrictnessFromValue,
+} from '@/lib/native/routeEngine';
 import { toActivityMetrics } from '@/lib/utils/activityMetrics';
 import { useAuthStore, useRouteSettings, useSyncDateRange } from '@/providers';
 import {
@@ -47,9 +51,13 @@ export function GlobalDataSync() {
     if (isAuthenticated) {
       queryClient.invalidateQueries({ queryKey: queryKeys.activities.all });
       if (isInfiniteActivitiesStale(queryClient)) {
-        queryClient.resetQueries({ queryKey: queryKeys.activities.infinite.all });
+        queryClient.resetQueries({
+          queryKey: queryKeys.activities.infinite.all,
+        });
       } else {
-        queryClient.invalidateQueries({ queryKey: queryKeys.activities.infinite.all });
+        queryClient.invalidateQueries({
+          queryKey: queryKeys.activities.infinite.all,
+        });
       }
       queryClient.invalidateQueries({ queryKey: queryKeys.wellness.all });
       queryClient.invalidateQueries({ queryKey: queryKeys.athleteSummary.all });
@@ -92,9 +100,9 @@ export function GlobalDataSync() {
     if (strictnessAppliedRef.current) return;
     const engine = getRouteEngine();
     if (!engine) return;
-    const { detectionStrictness } = routeSettings;
+    const { detectionStrictness, detectionMethod } = routeSettings;
     if (detectionStrictness !== 60) {
-      applyDetectionStrictness(detectionStrictness);
+      applyDetectionPresetForMethod(detectionMethod, getStrictnessFromValue(detectionStrictness));
     }
     strictnessAppliedRef.current = true;
   }, [routeSettings]);
@@ -113,11 +121,17 @@ export function GlobalDataSync() {
   useEffect(() => {
     if (progress.status === 'complete') {
       queryClient.invalidateQueries({ queryKey: queryKeys.activities.all });
-      queryClient.invalidateQueries({ queryKey: queryKeys.activities.infinite.all });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.activities.infinite.all,
+      });
       queryClient.invalidateQueries({ queryKey: queryKeys.wellness.all });
       queryClient.invalidateQueries({ queryKey: queryKeys.athleteSummary.all });
-      queryClient.invalidateQueries({ queryKey: queryKeys.charts.powerCurve.all });
-      queryClient.invalidateQueries({ queryKey: queryKeys.charts.paceCurve.all });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.charts.powerCurve.all,
+      });
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.charts.paceCurve.all,
+      });
       onSyncComplete();
 
       // Seed pace snapshots for trend tracking (fire-and-forget).

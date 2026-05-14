@@ -17,7 +17,6 @@ import {
   isLanguageVariant,
   getIntervalsPreferenceLabel,
 } from '@/providers';
-import { CollapsibleSection } from '@/components/ui';
 
 // LanguageChoice from useLanguageStore (always a string now, no System option)
 type LanguageChoice = string;
@@ -32,8 +31,6 @@ interface DisplaySettingsProps {
   onSportChange: (value: string) => void;
   language: LanguageChoice;
   onLanguageChange: (value: string) => void;
-  showLanguages: boolean;
-  setShowLanguages: (show: boolean) => void;
   /** When true, skip section label and outer card (for embedding in a parent card) */
   embedded?: boolean;
 }
@@ -48,8 +45,6 @@ function DisplaySettingsComponent({
   onSportChange,
   language,
   onLanguageChange,
-  showLanguages,
-  setShowLanguages,
   embedded,
 }: DisplaySettingsProps) {
   const { t } = useTranslation();
@@ -172,24 +167,33 @@ function DisplaySettingsComponent({
       <View style={[styles.divider, isDark && styles.dividerDark]} />
 
       {/* Language */}
-      <CollapsibleSection
-        title={t('settings.language')}
-        subtitle={currentLanguageLabel}
-        expanded={showLanguages}
-        onToggle={setShowLanguages}
-        icon="translate"
-        estimatedHeight={500}
-        headerRight={
-          // Show dialect chip only when a dialect is selected
-          language === 'en-AU' || language === 'de-CH' ? (
-            <View style={[styles.dialectLegendChip, isDark && styles.dialectLegendChipDark]}>
-              <Text style={[styles.dialectLegendText, isDark && settingsStyles.textMuted]}>
-                {t('settings.dialect')}
-              </Text>
-            </View>
-          ) : null
-        }
-      >
+      <View style={styles.languageHeader}>
+        <MaterialCommunityIcons
+          name="translate"
+          size={22}
+          color={isDark ? darkColors.textSecondary : colors.textSecondary}
+        />
+        <Text style={[styles.subsectionLabel, isDark && settingsStyles.textLight]}>
+          {t('settings.language')}
+        </Text>
+        <Text
+          style={[
+            styles.subsectionHint,
+            isDark && settingsStyles.textMuted,
+            { flex: 0, marginTop: 0, marginBottom: 0 },
+          ]}
+        >
+          {currentLanguageLabel}
+        </Text>
+        {(language === 'en-AU' || language === 'de-CH') && (
+          <View style={[styles.dialectLegendChip, isDark && styles.dialectLegendChipDark]}>
+            <Text style={[styles.dialectLegendText, isDark && settingsStyles.textMuted]}>
+              {t('settings.dialect')}
+            </Text>
+          </View>
+        )}
+      </View>
+      <View>
         {availableLanguages.flatMap((group, groupIndex) =>
           group.languages.map((lang, langIndex) => {
             const index = groupIndex * 100 + langIndex;
@@ -212,7 +216,6 @@ function DisplaySettingsComponent({
                     const valueToUse =
                       lang.defaultVariant ?? lang.variants?.[0]?.value ?? lang.value;
                     onLanguageChange(valueToUse);
-                    setShowLanguages(false);
                   }}
                   style={styles.languageLabelContainer}
                 >
@@ -254,7 +257,6 @@ function DisplaySettingsComponent({
                           ]}
                           onPress={() => {
                             onLanguageChange(variant.value);
-                            setShowLanguages(false);
                           }}
                         >
                           <Text
@@ -278,7 +280,7 @@ function DisplaySettingsComponent({
             );
           })
         )}
-      </CollapsibleSection>
+      </View>
     </>
   );
 
@@ -391,6 +393,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingTop: spacing.sm,
     gap: spacing.xs,
+  },
+  languageHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.xs,
+    gap: spacing.sm,
   },
   subsectionLabel: {
     ...typography.captionBold,

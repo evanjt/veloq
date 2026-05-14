@@ -1,14 +1,14 @@
 //! Synthetic section detection audit.
 //!
-//! Builds 5 GPS tracks sharing a ~1 km overlapping segment (with per-track
-//! jitter) and verifies that `detect_sections_multiscale` finds the overlap.
+//! Builds 5 GPS tracks sharing a ~1.5 km overlapping segment (with per-track
+//! jitter) and verifies that corridor detection finds the overlap.
 //! Unlike `detection_audit.rs` this runs without a private database, so it
 //! executes in CI on every push.
 
 use std::collections::HashMap;
 use tracematch::{
     geo_utils::haversine_distance,
-    sections::{detect_sections_multiscale, SectionConfig},
+    sections::{detect_sections_corridor, SectionConfig},
     GpsPoint,
 };
 
@@ -120,15 +120,14 @@ fn build_fixture() -> (Vec<(String, Vec<GpsPoint>)>, HashMap<String, String>) {
 fn synthetic_overlap_produces_sections() {
     let (tracks, sport_types) = build_fixture();
     let config = SectionConfig::default();
-    let result = detect_sections_multiscale(&tracks, &sport_types, &[], &config);
+    let sections = detect_sections_corridor(&tracks, &sport_types, &config);
 
     assert!(
-        !result.sections.is_empty(),
+        !sections.is_empty(),
         "detection should find at least one section from 5 overlapping tracks"
     );
 
-    let max_visits = result
-        .sections
+    let max_visits = sections
         .iter()
         .map(|s| s.visit_count)
         .max()
@@ -144,17 +143,16 @@ fn synthetic_overlap_produces_sections() {
 fn section_distance_is_reasonable() {
     let (tracks, sport_types) = build_fixture();
     let config = SectionConfig::default();
-    let result = detect_sections_multiscale(&tracks, &sport_types, &[], &config);
+    let sections = detect_sections_corridor(&tracks, &sport_types, &config);
 
-    let best = result
-        .sections
+    let best = sections
         .iter()
         .max_by_key(|s| s.visit_count)
         .expect("should have at least one section");
 
     assert!(
         best.distance_meters > 200.0 && best.distance_meters < 3000.0,
-        "best section distance should be 200–3000 m (shared segment is ~1.5 km), got {:.0} m",
+        "best section distance should be 200-3000 m (shared segment is ~1.5 km), got {:.0} m",
         best.distance_meters
     );
 }
@@ -163,10 +161,9 @@ fn section_distance_is_reasonable() {
 fn most_activities_appear_in_section() {
     let (tracks, sport_types) = build_fixture();
     let config = SectionConfig::default();
-    let result = detect_sections_multiscale(&tracks, &sport_types, &[], &config);
+    let sections = detect_sections_corridor(&tracks, &sport_types, &config);
 
-    let best = result
-        .sections
+    let best = sections
         .iter()
         .max_by_key(|s| s.activity_ids.len())
         .expect("should have at least one section");
@@ -179,13 +176,58 @@ fn most_activities_appear_in_section() {
 }
 
 #[test]
+fn corridor_populates_activity_portions() {
+    // Regression: before the portions fix, corridor detection returned
+    // sections with empty `activity_portions`. The section detail screen
+    // reads the `section_activities` junction table (populated from
+    // `activity_portions` at save time), so empty portions surfaced as
+    // "no data" sections in the UI.
+    let (tracks, sport_types) = build_fixture();
+    let config = SectionConfig::default();
+    let sections = detect_sections_corridor(&tracks, &sport_types, &config);
+
+    let best = sections
+        .iter()
+        .max_by_key(|s| s.activity_ids.len())
+        .expect("should have at least one section");
+
+    assert!(
+        !best.activity_portions.is_empty(),
+        "corridor section must populate activity_portions (got {} ids but 0 portions)",
+        best.activity_ids.len()
+    );
+
+    // Each portion's activity_id must appear in the section's activity_ids
+    // and have a non-zero distance covered.
+    let id_set: std::collections::HashSet<&String> = best.activity_ids.iter().collect();
+    for portion in &best.activity_portions {
+        assert!(
+            id_set.contains(&portion.activity_id),
+            "portion activity_id {} not in section.activity_ids",
+            portion.activity_id
+        );
+        assert!(
+            portion.distance_meters > 0.0,
+            "portion for {} has zero distance",
+            portion.activity_id
+        );
+        assert!(
+            portion.end_index > portion.start_index,
+            "portion for {} has start_index {} >= end_index {}",
+            portion.activity_id,
+            portion.start_index,
+            portion.end_index
+        );
+    }
+}
+
+#[test]
 fn consensus_polyline_is_near_tracks() {
     let (tracks, sport_types) = build_fixture();
     let config = SectionConfig::default();
-    let result = detect_sections_multiscale(&tracks, &sport_types, &[], &config);
+    let sections = detect_sections_corridor(&tracks, &sport_types, &config);
 
-    let best = result
-        .sections
+    let best = sections
         .iter()
         .max_by_key(|s| s.visit_count)
         .expect("should have at least one section");

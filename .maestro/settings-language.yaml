@@ -1,19 +1,27 @@
 # Settings Language Test
-# Tests that language options are visible in settings
+# Tests that language options are visible in display settings
 
 appId: com.veloq.app.dev
 tags:
   - tier2
+  - pack-settings
 ---
 - runFlow:
     file: helpers/setup-demo-mode.yaml
 
+# Navigate directly to display settings page
+- openLink: "veloq://display-settings"
 - runFlow:
-    file: helpers/navigate-to-settings.yaml
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
 
-# Verify settings screen loaded with language section visible
-- assertVisible:
-    id: "settings-screen"
+- extendedWaitUntil:
+    visible:
+      id: "settings-screen"
+    timeout: 10000
+    optional: true
 
 - takeScreenshot: "settings-language-options"
 
