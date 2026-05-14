@@ -1,6 +1,7 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import { View, ScrollView, StyleSheet, Pressable, TouchableOpacity } from 'react-native';
 import { Text } from 'react-native-paper';
+import Slider from '@react-native-community/slider';
 import { router } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -267,24 +268,21 @@ function ParamRow({
   isDark: boolean;
 }) {
   const txt = isDark ? darkColors.textSecondary : colors.textSecondary;
-  const btnBg = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)';
+  const trackBg = isDark ? '#333' : '#ddd';
   return (
     <View style={styles.paramRow}>
       <Text style={[styles.paramLabel, { color: txt }]}>{label}</Text>
-      <View style={styles.stepper}>
-        <Pressable
-          style={[styles.stepBtn, { backgroundColor: btnBg }]}
-          onPress={() => value > min && onChange(value - step)}
-        >
-          <MaterialCommunityIcons name="minus" size={16} color={txt} />
-        </Pressable>
-        <Pressable
-          style={[styles.stepBtn, { backgroundColor: btnBg }]}
-          onPress={() => value < max && onChange(value + step)}
-        >
-          <MaterialCommunityIcons name="plus" size={16} color={txt} />
-        </Pressable>
-      </View>
+      <Slider
+        style={styles.slider}
+        value={value}
+        minimumValue={min}
+        maximumValue={max}
+        step={step}
+        onValueChange={onChange}
+        minimumTrackTintColor={brand.orange}
+        maximumTrackTintColor={trackBg}
+        thumbTintColor={brand.orange}
+      />
     </View>
   );
 }
@@ -352,24 +350,13 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   paramRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    minHeight: 40,
+    gap: 2,
   },
   paramLabel: {
     ...typography.bodySmall,
-    flex: 1,
   },
-  stepper: {
-    flexDirection: 'row',
-    gap: spacing.xs,
-  },
-  stepBtn: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
+  slider: {
+    width: '100%',
+    height: 36,
   },
 });
