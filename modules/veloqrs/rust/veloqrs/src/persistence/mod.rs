@@ -684,6 +684,15 @@ impl PersistentRouteEngine {
                 e
             );
         }
+        if let Err(e) = self.set_setting(
+            settings_keys::SECTION_DETECTION_METHOD,
+            config.detection_method.as_str(),
+        ) {
+            log::warn!(
+                "tracematch: [set_section_config] failed to persist detection_method: {}",
+                e
+            );
+        }
 
         self.section_config = config;
         self.sections_dirty = true;

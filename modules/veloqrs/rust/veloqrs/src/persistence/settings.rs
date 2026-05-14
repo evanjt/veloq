@@ -23,6 +23,8 @@ pub mod settings_keys {
     pub const SECTION_MIN_LENGTH: &str = "__section_min_length";
     /// SectionConfig.min_activities (u32 stored as decimal string).
     pub const SECTION_MIN_ACTIVITIES: &str = "__section_min_activities";
+    /// SectionConfig.detection_method (string: "corridor", "density_grid", "flow_graph").
+    pub const SECTION_DETECTION_METHOD: &str = "__section_detection_method";
 }
 
 impl PersistentRouteEngine {
@@ -122,6 +124,11 @@ impl PersistentRouteEngine {
         if let Some(raw) = self.get_setting(settings_keys::SECTION_MIN_ACTIVITIES)? {
             if let Ok(v) = raw.parse::<u32>() {
                 self.section_config.min_activities = v;
+            }
+        }
+        if let Some(raw) = self.get_setting(settings_keys::SECTION_DETECTION_METHOD)? {
+            if let Ok(v) = raw.parse::<tracematch::DetectionMethod>() {
+                self.section_config.detection_method = v;
             }
         }
         Ok(())

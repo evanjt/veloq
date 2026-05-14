@@ -419,6 +419,10 @@ pub struct FfiSectionConfig {
     pub min_routes: u32,
     pub enable_density_splits: bool,
     pub merge_distance_multiplier: f64,
+    pub detection_method: String,
+    pub min_cell_visits: u32,
+    pub divergence_threshold: f64,
+    pub min_corridor_tracks: u32,
 }
 
 impl From<FfiSectionConfig> for tracematch::SectionConfig {
@@ -442,6 +446,10 @@ impl From<FfiSectionConfig> for tracematch::SectionConfig {
             min_routes: c.min_routes,
             enable_density_splits: c.enable_density_splits,
             merge_distance_multiplier: c.merge_distance_multiplier,
+            detection_method: c.detection_method.parse().unwrap_or_default(),
+            min_cell_visits: c.min_cell_visits,
+            divergence_threshold: c.divergence_threshold,
+            min_corridor_tracks: c.min_corridor_tracks,
         }
     }
 }
@@ -468,6 +476,10 @@ impl From<&tracematch::SectionConfig> for FfiSectionConfig {
             min_routes: c.min_routes,
             enable_density_splits: c.enable_density_splits,
             merge_distance_multiplier: c.merge_distance_multiplier,
+            detection_method: c.detection_method.to_string(),
+            min_cell_visits: c.min_cell_visits,
+            divergence_threshold: c.divergence_threshold,
+            min_corridor_tracks: c.min_corridor_tracks,
         }
     }
 }
@@ -494,6 +506,10 @@ impl Default for FfiSectionConfig {
             min_routes: c.min_routes,
             enable_density_splits: c.enable_density_splits,
             merge_distance_multiplier: c.merge_distance_multiplier,
+            detection_method: c.detection_method.to_string(),
+            min_cell_visits: c.min_cell_visits,
+            divergence_threshold: c.divergence_threshold,
+            min_corridor_tracks: c.min_corridor_tracks,
         }
     }
 }
