@@ -411,7 +411,9 @@
     "showDetails": "显示开发者详情",
     "syncing": "同步中...",
     "undo": "撤销",
-    "agree": "同意"
+    "agree": "同意",
+    "on": "开",
+    "off": "关"
   },
   "demo": {
     "banner": "演示模式",
@@ -1508,6 +1510,7 @@
     "endpointDistance": "端点:{{meters}} 米",
     "reanalyzeSections": "重新分析路段",
     "reanalyzeWarning": "这将替换所有未接受的自动检测路段。已接受(已固定)的路段将予以保留。",
+    "sectionsDetected": "sections detected",
     "cleanupOverlapping": "清理重叠",
     "cleanupResult": "已删除 {{count}} 个重叠",
     "disconnectAndClearData": "Sign out and delete all data",
@@ -1526,7 +1529,12 @@
     "methodFlowDesc": "从GPS流中识别交汇点，并追踪分歧点之间的路段。",
     "detectionMethod_corridor": "走廊",
     "detectionMethod_density": "密度网格",
-    "detectionMethod_flow": "流图"
+    "detectionMethod_flow": "流图",
+    "general": "通用",
+    "data": "数据",
+    "notificationsAndStorage": "通知与存储",
+    "routesAndSections": "路线与区间",
+    "sinceDateSubtitle": "自 {{date}} 起"
   },
   "stats": {
     "activities": "活动",

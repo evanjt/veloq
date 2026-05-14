@@ -411,7 +411,9 @@
     "showDetails": "Mostrar detalhes para o desenvolvedor",
     "syncing": "Sincronizando...",
     "undo": "Desfazer",
-    "agree": "Concordo"
+    "agree": "Concordo",
+    "on": "Ligado",
+    "off": "Desligado"
   },
   "demo": {
     "banner": "Modo Demo",
@@ -1508,6 +1510,7 @@
     "endpointDistance": "Ponto final: {{meters}} m",
     "reanalyzeSections": "Reanalisar trechos",
     "reanalyzeWarning": "Isso substituirá todos os trechos detectados automaticamente que não foram aceitos. Trechos aceitos (fixados) serão preservados.",
+    "sectionsDetected": "sections detected",
     "cleanupOverlapping": "Limpar sobreposições",
     "cleanupResult": "{{count}} sobreposições removidas",
     "disconnectAndClearData": "Sign out and delete all data",
@@ -1526,7 +1529,12 @@
     "methodFlowDesc": "Identifica cruzamentos a partir do fluxo GPS e traça seções entre pontos de divergência.",
     "detectionMethod_corridor": "Corredor",
     "detectionMethod_density": "Grade de densidade",
-    "detectionMethod_flow": "Grafo de fluxo"
+    "detectionMethod_flow": "Grafo de fluxo",
+    "general": "Geral",
+    "data": "Dados",
+    "notificationsAndStorage": "Notificações e armazenamento",
+    "routesAndSections": "Rotas e seções",
+    "sinceDateSubtitle": "Desde {{date}}"
   },
   "stats": {
     "activities": "Atividades",

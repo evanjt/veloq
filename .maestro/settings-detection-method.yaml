@@ -1,3 +1,6 @@
+# Settings Detection Method Test
+# Tests: detection method chip selection
+
 appId: com.veloq.app.dev
 tags:
   - tier2
@@ -6,19 +9,13 @@ tags:
 - runFlow:
     file: helpers/setup-demo-mode.yaml
 
+# Navigate directly to detection settings page
+- openLink: "veloq://detection-settings"
 - runFlow:
-    file: helpers/navigate-to-settings.yaml
-
-- scrollUntilVisible:
-    element:
-      id: "settings-detection-row"
-    direction: DOWN
-    timeout: 15000
-    speed: 40
-    visibilityPercentage: 20
-
-- tapOn:
-    id: "settings-detection-row"
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
 
 - extendedWaitUntil:
     visible:

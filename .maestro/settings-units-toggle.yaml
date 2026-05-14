@@ -4,18 +4,18 @@
 appId: com.veloq.app.dev
 tags:
   - tier2
+  - pack-settings
 ---
 - runFlow:
     file: helpers/setup-demo-mode.yaml
 
+# Navigate directly to display settings page
+- openLink: "veloq://display-settings"
 - runFlow:
-    file: helpers/navigate-to-settings.yaml
-
-# Wait for settings screen
-- extendedWaitUntil:
-    visible:
-      id: "settings-screen"
-    timeout: 10000
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
 
 # Find and tap the unit toggle
 - scrollUntilVisible:
@@ -46,9 +46,13 @@ tags:
 
 - takeScreenshot: "settings-units-applied"
 
-# Return to settings and toggle back
+# Return to display settings and toggle back
+- openLink: "veloq://display-settings"
 - runFlow:
-    file: helpers/navigate-to-settings.yaml
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
 
 - scrollUntilVisible:
     element:

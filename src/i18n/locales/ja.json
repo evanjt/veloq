@@ -411,7 +411,9 @@
     "showDetails": "開発者向け詳細を表示",
     "syncing": "同期中...",
     "undo": "元に戻す",
-    "agree": "同意する"
+    "agree": "同意する",
+    "on": "オン",
+    "off": "オフ"
   },
   "demo": {
     "banner": "デモモード",
@@ -1508,6 +1510,7 @@
     "endpointDistance": "エンドポイント: {{meters}} m",
     "reanalyzeSections": "セクションを再分析",
     "reanalyzeWarning": "未承認の自動検出セクションをすべて置き換えます。承認済み(ピン留め)のセクションは保持されます。",
+    "sectionsDetected": "sections detected",
     "cleanupOverlapping": "重複を整理",
     "cleanupResult": "{{count}}件の重複を削除しました",
     "disconnectAndClearData": "Sign out and delete all data",
@@ -1526,7 +1529,12 @@
     "methodFlowDesc": "GPSフローからジャンクションを特定し、分岐点間のセクションをトレースします。",
     "detectionMethod_corridor": "コリドー",
     "detectionMethod_density": "密度グリッド",
-    "detectionMethod_flow": "フローグラフ"
+    "detectionMethod_flow": "フローグラフ",
+    "general": "一般",
+    "data": "データ",
+    "notificationsAndStorage": "通知とストレージ",
+    "routesAndSections": "ルートとセクション",
+    "sinceDateSubtitle": "{{date}}以降"
   },
   "stats": {
     "activities": "アクティビティ",

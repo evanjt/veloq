@@ -411,7 +411,9 @@
     "showDetails": "Afficher les détails pour le développeur",
     "syncing": "Synchronisation...",
     "undo": "Annuler",
-    "agree": "Accepter"
+    "agree": "Accepter",
+    "on": "Activé",
+    "off": "Désactivé"
   },
   "demo": {
     "banner": "Mode Démo",
@@ -1508,6 +1510,7 @@
     "endpointDistance": "Point final : {{meters}} m",
     "reanalyzeSections": "Réanalyser les sections",
     "reanalyzeWarning": "Cela remplacera toutes les sections détectées automatiquement non acceptées. Les sections acceptées (épinglées) seront conservées.",
+    "sectionsDetected": "sections detected",
     "cleanupOverlapping": "Nettoyer les chevauchements",
     "cleanupResult": "{{count}} chevauchements supprimés",
     "disconnectAndClearData": "Sign out and delete all data",
@@ -1526,7 +1529,12 @@
     "methodFlowDesc": "Identifie les carrefours à partir du flux GPS et trace les sections entre les points de divergence.",
     "detectionMethod_corridor": "Corridor",
     "detectionMethod_density": "Grille de densité",
-    "detectionMethod_flow": "Graphe de flux"
+    "detectionMethod_flow": "Graphe de flux",
+    "general": "Général",
+    "data": "Données",
+    "notificationsAndStorage": "Notifications et stockage",
+    "routesAndSections": "Routes et sections",
+    "sinceDateSubtitle": "Depuis {{date}}"
   },
   "stats": {
     "activities": "Activités",

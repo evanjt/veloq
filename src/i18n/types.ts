@@ -185,6 +185,8 @@ export interface TranslationResource {
     undo: string;
     remove: string;
     restore: string;
+    on: string;
+    off: string;
   };
 
   navigation: {
@@ -410,6 +412,14 @@ export interface TranslationResource {
     maxMetricsHint: string;
     appTour: string;
     appTourDescription: string;
+    general: string;
+    data: string;
+    notificationsAndStorage: string;
+    routesAndSections: string;
+    heatmapGeneration: string;
+    heatmapDescription: string;
+    cacheAndDatabase: string;
+    sinceDateSubtitle: string;
   };
 
   alerts: {

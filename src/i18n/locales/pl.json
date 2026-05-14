@@ -411,7 +411,9 @@
     "showDetails": "Pokaż szczegóły dla dewelopera",
     "syncing": "Synchronizowanie...",
     "undo": "Cofnij",
-    "agree": "Zgadzam się"
+    "agree": "Zgadzam się",
+    "on": "Wł.",
+    "off": "Wył."
   },
   "demo": {
     "banner": "Tryb demo",
@@ -1508,6 +1510,7 @@
     "endpointDistance": "Punkt końcowy: {{meters}} m",
     "reanalyzeSections": "Ponownie przeanalizuj sekcje",
     "reanalyzeWarning": "Spowoduje to zastąpienie wszystkich niezaakceptowanych sekcji wykrytych automatycznie. Zaakceptowane (przypięte) sekcje zostaną zachowane.",
+    "sectionsDetected": "sections detected",
     "cleanupOverlapping": "Wyczyść nakładające się",
     "cleanupResult": "Usunięto {{count}} nakładających się",
     "disconnectAndClearData": "Sign out and delete all data",
@@ -1526,7 +1529,12 @@
     "methodFlowDesc": "Identyfikuje skrzyżowania z przepływu GPS i śledzi odcinki między punktami rozbieżności.",
     "detectionMethod_corridor": "Korytarz",
     "detectionMethod_density": "Siatka gęstości",
-    "detectionMethod_flow": "Graf przepływu"
+    "detectionMethod_flow": "Graf przepływu",
+    "general": "Ogólne",
+    "data": "Dane",
+    "notificationsAndStorage": "Powiadomienia i pamięć",
+    "routesAndSections": "Trasy i odcinki",
+    "sinceDateSubtitle": "Od {{date}}"
   },
   "stats": {
     "activities": "Aktywności",

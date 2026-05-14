@@ -411,7 +411,9 @@
     "showDetails": "Mostra dettagli per lo sviluppatore",
     "syncing": "Sincronizzazione...",
     "undo": "Annulla",
-    "agree": "Accetto"
+    "agree": "Accetto",
+    "on": "Attivo",
+    "off": "Disattivo"
   },
   "demo": {
     "banner": "Modalità Demo",
@@ -1508,6 +1510,7 @@
     "endpointDistance": "Punto finale: {{meters}} m",
     "reanalyzeSections": "Rianalizza sezioni",
     "reanalyzeWarning": "Verranno sostituite tutte le sezioni rilevate automaticamente non accettate. Le sezioni accettate (fissate) saranno conservate.",
+    "sectionsDetected": "sections detected",
     "cleanupOverlapping": "Pulisci sovrapposizioni",
     "cleanupResult": "{{count}} sovrapposizioni rimosse",
     "disconnectAndClearData": "Sign out and delete all data",
@@ -1526,7 +1529,12 @@
     "methodFlowDesc": "Identifica incroci dal flusso GPS e traccia sezioni tra punti di divergenza.",
     "detectionMethod_corridor": "Corridoio",
     "detectionMethod_density": "Griglia di densità",
-    "detectionMethod_flow": "Grafo di flusso"
+    "detectionMethod_flow": "Grafo di flusso",
+    "general": "Generale",
+    "data": "Dati",
+    "notificationsAndStorage": "Notifiche e archiviazione",
+    "routesAndSections": "Percorsi e sezioni",
+    "sinceDateSubtitle": "Dal {{date}}"
   },
   "stats": {
     "activities": "Attività",

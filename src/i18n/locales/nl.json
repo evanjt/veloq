@@ -411,7 +411,9 @@
     "showDetails": "Details tonen voor ontwikkelaar",
     "syncing": "Synchroniseren...",
     "undo": "Ongedaan maken",
-    "agree": "Akkoord"
+    "agree": "Akkoord",
+    "on": "Aan",
+    "off": "Uit"
   },
   "demo": {
     "banner": "Demo-modus",
@@ -1508,6 +1510,7 @@
     "endpointDistance": "Eindpunt: {{meters}} m",
     "reanalyzeSections": "Secties heranalyseren",
     "reanalyzeWarning": "Hiermee worden alle niet-geaccepteerde automatisch gedetecteerde secties vervangen. Geaccepteerde (vastgezette) secties blijven behouden.",
+    "sectionsDetected": "sections detected",
     "cleanupOverlapping": "Overlap opruimen",
     "cleanupResult": "{{count}} overlappende verwijderd",
     "disconnectAndClearData": "Sign out and delete all data",
@@ -1526,7 +1529,12 @@
     "methodFlowDesc": "Identificeert kruispunten uit GPS-stroom en traceert secties tussen divergentiepunten.",
     "detectionMethod_corridor": "Corridor",
     "detectionMethod_density": "Dichtheidsraster",
-    "detectionMethod_flow": "Stroomgrafiek"
+    "detectionMethod_flow": "Stroomgrafiek",
+    "general": "Algemeen",
+    "data": "Gegevens",
+    "notificationsAndStorage": "Meldingen en opslag",
+    "routesAndSections": "Routes en secties",
+    "sinceDateSubtitle": "Sinds {{date}}"
   },
   "stats": {
     "activities": "Activiteiten",

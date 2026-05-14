@@ -1,9 +1,10 @@
 # Settings Profile and Storage Test
-# Tests: profile section, storage stats, tile cache visibility
+# Tests: profile section on hub, storage stats on cache page
 
 appId: com.veloq.app.dev
 tags:
   - tier2
+  - pack-settings
 ---
 - runFlow:
     file: helpers/setup-demo-mode.yaml
@@ -17,12 +18,20 @@ tags:
       id: "settings-screen"
     timeout: 10000
 
-# Verify profile section visible
+# Verify account row visible on hub
 - assertVisible:
-    id: "settings-profile-section"
+    id: "settings-account-row"
     optional: true
 
 - takeScreenshot: "settings-profile"
+
+# Navigate to cache settings for storage stats
+- openLink: "veloq://cache-settings"
+- runFlow:
+    when:
+      visible: "Open"
+    commands:
+      - tapOn: "Open"
 
 # Scroll to storage stats
 - scrollUntilVisible:

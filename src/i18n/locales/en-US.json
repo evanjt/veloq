@@ -399,7 +399,9 @@
     "showDetails": "Show details for developer",
     "syncing": "Syncing...",
     "undo": "Undo",
-    "agree": "Agree"
+    "agree": "Agree",
+    "on": "On",
+    "off": "Off"
   },
   "demo": {
     "banner": "Demo Mode",
@@ -1486,6 +1488,7 @@
     "endpointDistance": "Endpoint: {{meters}}m",
     "reanalyzeSections": "Reanalyze sections",
     "reanalyzeWarning": "This will replace all unaccepted auto-detected sections. Accepted (pinned) sections will be preserved.",
+    "sectionsDetected": "sections detected",
     "cleanupOverlapping": "Clean up overlapping",
     "cleanupResult": "Removed {{count}} overlapping",
     "showSparkline": "Show Sparkline",
@@ -1565,7 +1568,12 @@
     "methodFlowDesc": "Identifies junctions from GPS flow and traces sections between divergence points.",
     "detectionMethod_corridor": "Corridor",
     "detectionMethod_density": "Density grid",
-    "detectionMethod_flow": "Flow graph"
+    "detectionMethod_flow": "Flow graph",
+    "general": "General",
+    "data": "Data",
+    "notificationsAndStorage": "Notifications & Storage",
+    "routesAndSections": "Routes & Sections",
+    "sinceDateSubtitle": "Since {{date}}"
   },
   "stats": {
     "activities": "Activities",

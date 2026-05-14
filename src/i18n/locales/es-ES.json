@@ -411,7 +411,9 @@
     "showDetails": "Mostrar detalles para el desarrollador",
     "syncing": "Sincronizando...",
     "undo": "Deshacer",
-    "agree": "Aceptar"
+    "agree": "Aceptar",
+    "on": "Activado",
+    "off": "Desactivado"
   },
   "demo": {
     "banner": "Modo Demo",
@@ -1508,6 +1510,7 @@
     "endpointDistance": "Punto final: {{meters}} m",
     "reanalyzeSections": "Reanalizar secciones",
     "reanalyzeWarning": "Esto reemplazará todas las secciones detectadas automáticamente que no hayan sido aceptadas. Las secciones aceptadas (fijadas) se conservarán.",
+    "sectionsDetected": "sections detected",
     "cleanupOverlapping": "Limpiar solapamientos",
     "cleanupResult": "{{count}} solapamientos eliminados",
     "disconnectAndClearData": "Sign out and delete all data",
@@ -1526,7 +1529,12 @@
     "methodFlowDesc": "Identifica cruces a partir del flujo GPS y traza secciones entre puntos de divergencia.",
     "detectionMethod_corridor": "Corredor",
     "detectionMethod_density": "Rejilla de densidad",
-    "detectionMethod_flow": "Grafo de flujo"
+    "detectionMethod_flow": "Grafo de flujo",
+    "general": "General",
+    "data": "Datos",
+    "notificationsAndStorage": "Notificaciones y almacenamiento",
+    "routesAndSections": "Rutas y secciones",
+    "sinceDateSubtitle": "Desde {{date}}"
   },
   "stats": {
     "activities": "Actividades",

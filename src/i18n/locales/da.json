@@ -411,7 +411,9 @@
     "showDetails": "Vis detaljer for udvikler",
     "syncing": "Synkroniserer...",
     "undo": "Fortryd",
-    "agree": "Acceptér"
+    "agree": "Acceptér",
+    "on": "Til",
+    "off": "Fra"
   },
   "demo": {
     "banner": "Demotilstand",
@@ -1508,6 +1510,7 @@
     "endpointDistance": "Endepunkt: {{meters}} m",
     "reanalyzeSections": "Genanalysér sektioner",
     "reanalyzeWarning": "Dette erstatter alle ikke-accepterede automatisk detekterede sektioner. Accepterede (fastgjorte) sektioner bevares.",
+    "sectionsDetected": "sections detected",
     "cleanupOverlapping": "Ryd op i overlap",
     "cleanupResult": "{{count}} overlap fjernet",
     "disconnectAndClearData": "Sign out and delete all data",
@@ -1526,7 +1529,12 @@
     "methodFlowDesc": "Identificerer kryds fra GPS-flow og sporer sektioner mellem divergenspunkter.",
     "detectionMethod_corridor": "Korridor",
     "detectionMethod_density": "Tæthedsgitter",
-    "detectionMethod_flow": "Flowgraf"
+    "detectionMethod_flow": "Flowgraf",
+    "general": "Generelt",
+    "data": "Data",
+    "notificationsAndStorage": "Notifikationer & Lager",
+    "routesAndSections": "Ruter & Sektioner",
+    "sinceDateSubtitle": "Siden {{date}}"
   },
   "stats": {
     "activities": "Aktiviteter",

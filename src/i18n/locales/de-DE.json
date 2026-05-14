@@ -411,7 +411,9 @@
     "showDetails": "Details für Entwickler anzeigen",
     "syncing": "Synchronisiere...",
     "undo": "Rückgängig",
-    "agree": "Zustimmen"
+    "agree": "Zustimmen",
+    "on": "An",
+    "off": "Aus"
   },
   "demo": {
     "banner": "Demo-Modus",
@@ -1508,6 +1510,7 @@
     "endpointDistance": "Endpunkt: {{meters}} m",
     "reanalyzeSections": "Abschnitte neu analysieren",
     "reanalyzeWarning": "Dies ersetzt alle nicht akzeptierten automatisch erkannten Abschnitte. Akzeptierte (angeheftete) Abschnitte bleiben erhalten.",
+    "sectionsDetected": "sections detected",
     "cleanupOverlapping": "Überschneidungen bereinigen",
     "cleanupResult": "{{count}} Überschneidungen entfernt",
     "disconnectAndClearData": "Sign out and delete all data",
@@ -1526,7 +1529,12 @@
     "methodFlowDesc": "Identifiziert Kreuzungen aus dem GPS-Fluss und verfolgt Abschnitte zwischen Verzweigungspunkten.",
     "detectionMethod_corridor": "Korridor",
     "detectionMethod_density": "Dichtegitter",
-    "detectionMethod_flow": "Flussgraph"
+    "detectionMethod_flow": "Flussgraph",
+    "general": "Allgemein",
+    "data": "Daten",
+    "notificationsAndStorage": "Benachrichtigungen & Speicher",
+    "routesAndSections": "Routen & Abschnitte",
+    "sinceDateSubtitle": "Seit {{date}}"
   },
   "stats": {
     "activities": "Aktivitäten",

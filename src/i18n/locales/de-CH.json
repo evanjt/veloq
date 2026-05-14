@@ -411,7 +411,9 @@
     "showDetails": "Details für Entwickler zeige",
     "syncing": "Synchronisiere...",
     "undo": "Rückgängig",
-    "agree": "Iiverstande"
+    "agree": "Iiverstande",
+    "on": "Aa",
+    "off": "Us"
   },
   "demo": {
     "banner": "Demo-Modus",
@@ -1508,6 +1510,7 @@
     "endpointDistance": "Ändpunkt: {{meters}} m",
     "reanalyzeSections": "Abschnitt neu analysierä",
     "reanalyzeWarning": "Das ersetzt all nöd akzeptierti automatisch erkannti Abschnitt. Akzeptierti (aagheftet) Abschnitt bliibed erhalte.",
+    "sectionsDetected": "sections detected",
     "cleanupOverlapping": "Überschniidige bereinige",
     "cleanupResult": "{{count}} Überschniidige entfernt",
     "disconnectAndClearData": "Sign out and delete all data",
@@ -1526,7 +1529,12 @@
     "methodFlowDesc": "Erkennt Chrüzige us em GPS-Fluss und verfolgt Abschnitt zwüsche Verzweigigspünkt.",
     "detectionMethod_corridor": "Korridor",
     "detectionMethod_density": "Dichtegitter",
-    "detectionMethod_flow": "Flussgraph"
+    "detectionMethod_flow": "Flussgraph",
+    "general": "Allgemein",
+    "data": "Date",
+    "notificationsAndStorage": "Benachrichtigunge & Speicher",
+    "routesAndSections": "Route & Abschnitt",
+    "sinceDateSubtitle": "Sit {{date}}"
   },
   "stats": {
     "activities": "Aktivitäte",
