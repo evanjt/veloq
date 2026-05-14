@@ -8,14 +8,9 @@
 // Use legacy API for SDK 54 compatibility (new API uses File/Directory classes)
 import * as FileSystem from 'expo-file-system/legacy';
 
-// Cached module reference
 let _module: typeof import('veloqrs') | null = null;
 let _loadAttempted = false;
 
-/**
- * Get the full veloqrs module.
- * Returns null if module is not available.
- */
 export function getNativeModule(): typeof import('veloqrs') | null {
   if (_loadAttempted) return _module;
   _loadAttempted = true;
@@ -27,118 +22,214 @@ export function getNativeModule(): typeof import('veloqrs') | null {
   return _module;
 }
 
-/**
- * Get the route engine from the native module.
- * Returns null if module is not available.
- */
 export function getRouteEngine(): typeof import('veloqrs').routeEngine | null {
   const mod = getNativeModule();
   return mod?.routeEngine ?? null;
 }
 
-/**
- * Detection sensitivity preset. Bundles all 6 detection parameters:
- *   - MatchConfig (route grouping): matchPct, endpoint
- *   - SectionConfig (section detection): proximityThreshold, minSectionLength,
- *     minActivities, minRoutes
- *
- * `minRoutes` is the alphabet-overlap threshold for the density-grid pass:
- * how many distinct route groups must share a corridor for it to qualify
- * as a section. `minActivities` then filters the expanded activity set
- * (post-route-expansion) so a 2-route corridor visited by 1 person each
- * still gets pruned at the popularity stage.
- *
- * `value` is the slider position (0-100) used to snap UI controls and to
- * derive `preserveHierarchy` (more relaxed → preserve scale hierarchy).
- */
-export type DetectionPreset = {
-  key: 'detectionRelaxed' | 'default' | 'detectionStrict';
-  value: number;
-  matchPct: number;
-  endpoint: number;
-  proximityThreshold: number;
-  minSectionLength: number;
-  minActivities: number;
-  minRoutes: number;
-};
+export type DetectionMethod = 'corridor' | 'density' | 'flow';
+export type DetectionStrictness = 'relaxed' | 'default' | 'strict';
 
-export const DETECTION_PRESETS: readonly DetectionPreset[] = [
-  {
-    key: 'detectionRelaxed',
-    value: 20,
-    matchPct: 50,
-    endpoint: 300,
-    proximityThreshold: 200,
-    minSectionLength: 150,
-    minActivities: 2,
-    minRoutes: 2,
-  },
-  {
-    key: 'default',
-    value: 60,
-    matchPct: 55,
-    endpoint: 250,
-    proximityThreshold: 150,
-    minSectionLength: 200,
-    minActivities: 3,
-    minRoutes: 3,
-  },
-  {
-    key: 'detectionStrict',
-    value: 90,
-    matchPct: 65,
-    endpoint: 180,
-    proximityThreshold: 75,
-    minSectionLength: 300,
-    minActivities: 4,
-    minRoutes: 4,
-  },
+/**
+ * UI slider stops. Three positions: relaxed (20), default (60), strict (90).
+ * `key` matches the i18n key used by the settings sliders/chips.
+ */
+export const DETECTION_PRESETS = [
+  { key: 'detectionRelaxed', value: 20, strictness: 'relaxed' as const },
+  { key: 'default', value: 60, strictness: 'default' as const },
+  { key: 'detectionStrict', value: 90, strictness: 'strict' as const },
 ] as const;
 
+export type DetectionPresetStop = (typeof DETECTION_PRESETS)[number];
+
 /**
- * Snap a 0-100 strictness slider value to the nearest preset. Used by
- * startup callers that have only the persisted strictness number.
+ * Snap a 0-100 strictness slider value to the nearest preset stop.
  */
-export function getDetectionPresetByValue(value: number): DetectionPreset {
-  let closest = DETECTION_PRESETS[0];
+export function getDetectionPresetByValue(value: number): DetectionPresetStop {
+  let closest: DetectionPresetStop = DETECTION_PRESETS[0];
   let closestDist = Math.abs(closest.value - value);
   for (let i = 1; i < DETECTION_PRESETS.length; i++) {
-    const dist = Math.abs(DETECTION_PRESETS[i].value - value);
+    const candidate: DetectionPresetStop = DETECTION_PRESETS[i];
+    const dist = Math.abs(candidate.value - value);
     if (dist < closestDist) {
-      closest = DETECTION_PRESETS[i];
+      closest = candidate;
       closestDist = dist;
     }
   }
   return closest;
 }
 
+export function getStrictnessFromValue(value: number): DetectionStrictness {
+  return getDetectionPresetByValue(value).strictness;
+}
+
 /**
- * Apply a detection-strictness preset to the Rust engine.
+ * Route-grouping params (MatchConfig). Independent of detection method.
+ */
+const MATCH_PRESETS: Record<DetectionStrictness, { matchPct: number; endpoint: number }> = {
+  relaxed: { matchPct: 50, endpoint: 300 },
+  default: { matchPct: 55, endpoint: 250 },
+  strict: { matchPct: 65, endpoint: 180 },
+};
+
+export interface CorridorPreset {
+  proximityThreshold: number;
+  minSectionLength: number;
+  minActivities: number;
+  minCorridorTracks: number;
+}
+
+export interface DensityGridPreset {
+  proximityThreshold: number;
+  minSectionLength: number;
+  minActivities: number;
+  minRoutes: number;
+  jaccardThreshold: number;
+}
+
+export interface FlowGraphPreset {
+  proximityThreshold: number;
+  minSectionLength: number;
+  minActivities: number;
+  minCellVisits: number;
+  divergenceThreshold: number;
+}
+
+export const CORRIDOR_PRESETS: Record<DetectionStrictness, CorridorPreset> = {
+  relaxed: {
+    proximityThreshold: 200,
+    minSectionLength: 150,
+    minActivities: 2,
+    minCorridorTracks: 2,
+  },
+  default: {
+    proximityThreshold: 150,
+    minSectionLength: 200,
+    minActivities: 3,
+    minCorridorTracks: 3,
+  },
+  strict: {
+    proximityThreshold: 75,
+    minSectionLength: 300,
+    minActivities: 4,
+    minCorridorTracks: 4,
+  },
+};
+
+export const DENSITY_GRID_PRESETS: Record<DetectionStrictness, DensityGridPreset> = {
+  relaxed: {
+    proximityThreshold: 200,
+    minSectionLength: 150,
+    minActivities: 2,
+    minRoutes: 2,
+    jaccardThreshold: 0.35,
+  },
+  default: {
+    proximityThreshold: 150,
+    minSectionLength: 200,
+    minActivities: 3,
+    minRoutes: 3,
+    jaccardThreshold: 0.5,
+  },
+  strict: {
+    proximityThreshold: 75,
+    minSectionLength: 300,
+    minActivities: 4,
+    minRoutes: 4,
+    jaccardThreshold: 0.65,
+  },
+};
+
+export const FLOW_GRAPH_PRESETS: Record<DetectionStrictness, FlowGraphPreset> = {
+  relaxed: {
+    proximityThreshold: 200,
+    minSectionLength: 150,
+    minActivities: 2,
+    minCellVisits: 30,
+    divergenceThreshold: 0.1,
+  },
+  default: {
+    proximityThreshold: 150,
+    minSectionLength: 200,
+    minActivities: 3,
+    minCellVisits: 50,
+    divergenceThreshold: 0.15,
+  },
+  strict: {
+    proximityThreshold: 75,
+    minSectionLength: 300,
+    minActivities: 4,
+    minCellVisits: 80,
+    divergenceThreshold: 0.25,
+  },
+};
+
+const METHOD_FFI_KEY: Record<DetectionMethod, 'corridor' | 'density_grid' | 'flow_graph'> = {
+  corridor: 'corridor',
+  density: 'density_grid',
+  flow: 'flow_graph',
+};
+
+/**
+ * Apply a detection preset to the Rust engine for the given method.
  *
- * Writes ALL 6 detection parameters: 2 MatchConfig (min_match_pct,
- * endpoint_threshold) + 4 SectionConfig (proximity_threshold,
- * min_section_length, min_activities, min_routes). Both Rust setters
- * persist to the settings table so the next engine load picks them up
- * automatically.
+ * Writes the method-specific param set plus the shared route-grouping
+ * strictness. The Rust engine persists section_config to the settings
+ * table so the next engine load picks it up automatically.
  *
- * `preserveHierarchy` is derived from the slider position (more relaxed
+ * `preserveHierarchy` is derived from the strictness level (more relaxed
  * → preserve scale hierarchy, more strict → flatten).
  */
-export function applyDetectionPreset(preset: DetectionPreset): void {
+export function applyDetectionPresetForMethod(
+  method: DetectionMethod,
+  strictness: DetectionStrictness
+): void {
   const engine = getRouteEngine();
   if (!engine) return;
 
-  engine.setMatchStrictness(preset.matchPct, preset.endpoint);
+  const matchPreset = MATCH_PRESETS[strictness];
+  engine.setMatchStrictness(matchPreset.matchPct, matchPreset.endpoint);
 
   const current = engine.getSectionConfig();
-  if (current) {
+  if (!current) return;
+
+  const ffiMethod = METHOD_FFI_KEY[method];
+  const preserveHierarchy = strictness === 'relaxed';
+
+  if (method === 'corridor') {
+    const p = CORRIDOR_PRESETS[strictness];
     engine.setSectionConfig({
       ...current,
-      proximityThreshold: preset.proximityThreshold,
-      minSectionLength: preset.minSectionLength,
-      minActivities: preset.minActivities,
-      minRoutes: preset.minRoutes,
-      preserveHierarchy: preset.value <= 40,
+      detectionMethod: ffiMethod,
+      preserveHierarchy,
+      proximityThreshold: p.proximityThreshold,
+      minSectionLength: p.minSectionLength,
+      minActivities: p.minActivities,
+      minCorridorTracks: p.minCorridorTracks,
+    });
+  } else if (method === 'density') {
+    const p = DENSITY_GRID_PRESETS[strictness];
+    engine.setSectionConfig({
+      ...current,
+      detectionMethod: ffiMethod,
+      preserveHierarchy,
+      proximityThreshold: p.proximityThreshold,
+      minSectionLength: p.minSectionLength,
+      minActivities: p.minActivities,
+      minRoutes: p.minRoutes,
+      jaccardThreshold: p.jaccardThreshold,
+    });
+  } else {
+    const p = FLOW_GRAPH_PRESETS[strictness];
+    engine.setSectionConfig({
+      ...current,
+      detectionMethod: ffiMethod,
+      preserveHierarchy,
+      proximityThreshold: p.proximityThreshold,
+      minSectionLength: p.minSectionLength,
+      minActivities: p.minActivities,
+      minCellVisits: p.minCellVisits,
+      divergenceThreshold: p.divergenceThreshold,
     });
   }
 }

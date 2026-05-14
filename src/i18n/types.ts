@@ -336,6 +336,10 @@ export interface TranslationResource {
     sectionMinLength: string;
     sectionMinActivities: string;
     sectionMinRoutes: string;
+    sectionMinCorridorTracks: string;
+    sectionJaccard: string;
+    sectionMinCellVisits: string;
+    sectionDivergence: string;
     detectionMethodLabel: string;
     methodCorridor: string;
     methodCorridorDesc: string;

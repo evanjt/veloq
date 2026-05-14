@@ -176,6 +176,52 @@ fn most_activities_appear_in_section() {
 }
 
 #[test]
+fn corridor_populates_activity_portions() {
+    // Regression: before the portions fix, corridor detection returned
+    // sections with empty `activity_portions`. The section detail screen
+    // reads the `section_activities` junction table (populated from
+    // `activity_portions` at save time), so empty portions surfaced as
+    // "no data" sections in the UI.
+    let (tracks, sport_types) = build_fixture();
+    let config = SectionConfig::default();
+    let sections = detect_sections_corridor(&tracks, &sport_types, &config);
+
+    let best = sections
+        .iter()
+        .max_by_key(|s| s.activity_ids.len())
+        .expect("should have at least one section");
+
+    assert!(
+        !best.activity_portions.is_empty(),
+        "corridor section must populate activity_portions (got {} ids but 0 portions)",
+        best.activity_ids.len()
+    );
+
+    // Each portion's activity_id must appear in the section's activity_ids
+    // and have a non-zero distance covered.
+    let id_set: std::collections::HashSet<&String> = best.activity_ids.iter().collect();
+    for portion in &best.activity_portions {
+        assert!(
+            id_set.contains(&portion.activity_id),
+            "portion activity_id {} not in section.activity_ids",
+            portion.activity_id
+        );
+        assert!(
+            portion.distance_meters > 0.0,
+            "portion for {} has zero distance",
+            portion.activity_id
+        );
+        assert!(
+            portion.end_index > portion.start_index,
+            "portion for {} has start_index {} >= end_index {}",
+            portion.activity_id,
+            portion.start_index,
+            portion.end_index
+        );
+    }
+}
+
+#[test]
 fn consensus_polyline_is_near_tracks() {
     let (tracks, sport_types) = build_fixture();
     let config = SectionConfig::default();

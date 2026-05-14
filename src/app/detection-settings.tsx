@@ -22,30 +22,90 @@ import { DetectionMethodIllustration } from '@/components/settings';
 import { colors, darkColors, spacing, layout, typography, brand } from '@/theme';
 import {
   DETECTION_PRESETS,
-  applyDetectionPreset,
+  applyDetectionPresetForMethod,
   getDetectionPresetByValue,
   getRouteEngine,
+  CORRIDOR_PRESETS,
+  DENSITY_GRID_PRESETS,
+  FLOW_GRAPH_PRESETS,
+  type DetectionMethod,
+  type DetectionStrictness,
 } from '@/lib/native/routeEngine';
 
-type Method = 'corridor' | 'density' | 'flow';
-
-const FFI_KEYS: Record<Method, string> = {
-  corridor: 'corridor',
-  density: 'density_grid',
-  flow: 'flow_graph',
-};
-
-const METHOD_LABELS: { key: Method; label: string }[] = [
+const METHOD_LABELS: { key: DetectionMethod; label: string }[] = [
   { key: 'corridor', label: 'settings.methodCorridor' },
   { key: 'density', label: 'settings.methodDensity' },
   { key: 'flow', label: 'settings.methodFlow' },
 ];
 
-const METHOD_DESCS: Record<Method, string> = {
+const METHOD_DESCS: Record<DetectionMethod, string> = {
   corridor: 'settings.methodCorridorDesc',
   density: 'settings.methodDensityDesc',
   flow: 'settings.methodFlowDesc',
 };
+
+type MethodParams = {
+  proximityThreshold: number;
+  minSectionLength: number;
+  minActivities: number;
+  minCorridorTracks: number;
+  minRoutes: number;
+  jaccardThreshold: number;
+  minCellVisits: number;
+  divergenceThreshold: number;
+};
+
+function paramsForMethod(method: DetectionMethod, strictness: DetectionStrictness): MethodParams {
+  const corridor = CORRIDOR_PRESETS[strictness];
+  const density = DENSITY_GRID_PRESETS[strictness];
+  const flow = FLOW_GRAPH_PRESETS[strictness];
+  if (method === 'corridor') {
+    return {
+      proximityThreshold: corridor.proximityThreshold,
+      minSectionLength: corridor.minSectionLength,
+      minActivities: corridor.minActivities,
+      minCorridorTracks: corridor.minCorridorTracks,
+      minRoutes: density.minRoutes,
+      jaccardThreshold: density.jaccardThreshold,
+      minCellVisits: flow.minCellVisits,
+      divergenceThreshold: flow.divergenceThreshold,
+    };
+  }
+  if (method === 'density') {
+    return {
+      proximityThreshold: density.proximityThreshold,
+      minSectionLength: density.minSectionLength,
+      minActivities: density.minActivities,
+      minCorridorTracks: corridor.minCorridorTracks,
+      minRoutes: density.minRoutes,
+      jaccardThreshold: density.jaccardThreshold,
+      minCellVisits: flow.minCellVisits,
+      divergenceThreshold: flow.divergenceThreshold,
+    };
+  }
+  return {
+    proximityThreshold: flow.proximityThreshold,
+    minSectionLength: flow.minSectionLength,
+    minActivities: flow.minActivities,
+    minCorridorTracks: corridor.minCorridorTracks,
+    minRoutes: density.minRoutes,
+    jaccardThreshold: density.jaccardThreshold,
+    minCellVisits: flow.minCellVisits,
+    divergenceThreshold: flow.divergenceThreshold,
+  };
+}
+
+/** Params that are user-visible (and dirty-tracked) for the active method. */
+function visibleKeysForMethod(method: DetectionMethod): (keyof MethodParams)[] {
+  const shared: (keyof MethodParams)[] = [
+    'proximityThreshold',
+    'minSectionLength',
+    'minActivities',
+  ];
+  if (method === 'corridor') return [...shared, 'minCorridorTracks'];
+  if (method === 'density') return [...shared, 'minRoutes', 'jaccardThreshold'];
+  return [...shared, 'minCellVisits', 'divergenceThreshold'];
+}
 
 export default function DetectionSettingsScreen() {
   const { t } = useTranslation();
@@ -53,7 +113,7 @@ export default function DetectionSettingsScreen() {
   const insets = useSafeAreaInsets();
 
   const method = useRouteSettings((s) => s.settings.detectionMethod);
-  const strictness = useRouteSettings((s) => s.settings.detectionStrictness);
+  const strictnessValue = useRouteSettings((s) => s.settings.detectionStrictness);
   const routeMatchingEnabled = useRouteSettings((s) => s.settings.enabled);
   const setRouteMatchingEnabled = useRouteSettings((s) => s.setEnabled);
   const textPrimary = isDark ? darkColors.textPrimary : colors.textPrimary;
@@ -62,67 +122,80 @@ export default function DetectionSettingsScreen() {
   const surface = isDark ? darkColors.surface : colors.surface;
   const border = isDark ? darkColors.border : colors.border;
 
-  const activePreset = useMemo(() => getDetectionPresetByValue(strictness), [strictness]);
+  const activePreset = useMemo(() => getDetectionPresetByValue(strictnessValue), [strictnessValue]);
+  const activeStrictness: DetectionStrictness = activePreset.strictness;
   const activePresetIndex = useMemo(
     () => DETECTION_PRESETS.findIndex((p) => p.key === activePreset.key),
     [activePreset]
   );
 
-  const [proximityThreshold, setProximityThreshold] = useState(activePreset.proximityThreshold);
-  const [minSectionLength, setMinSectionLength] = useState(activePreset.minSectionLength);
-  const [minActivities, setMinActivities] = useState(activePreset.minActivities);
-  const [minRoutes, setMinRoutes] = useState(activePreset.minRoutes);
+  const [params, setParams] = useState<MethodParams>(() =>
+    paramsForMethod(method, activeStrictness)
+  );
 
-  const handleMethodSelect = useCallback((m: Method) => {
-    useRouteSettings.getState().setDetectionMethod(m);
+  const handleMethodSelect = useCallback(
+    (m: DetectionMethod) => {
+      useRouteSettings.getState().setDetectionMethod(m);
+      // Re-seed visible param state and push to engine in one go.
+      applyDetectionPresetForMethod(m, activeStrictness);
+      setParams(paramsForMethod(m, activeStrictness));
+    },
+    [activeStrictness]
+  );
+
+  const handlePresetSelect = useCallback(
+    (index: number) => {
+      const preset = DETECTION_PRESETS[index];
+      useRouteSettings.getState().setDetectionStrictness(preset.value);
+      applyDetectionPresetForMethod(method, preset.strictness);
+      setParams(paramsForMethod(method, preset.strictness));
+    },
+    [method]
+  );
+
+  const applyParam = useCallback((key: keyof MethodParams, value: number) => {
     const engine = getRouteEngine();
-    if (engine) {
-      const config = engine.getSectionConfig();
-      if (config) {
-        engine.setSectionConfig({ ...config, detectionMethod: FFI_KEYS[m] });
-      }
-    }
+    if (!engine) return;
+    const config = engine.getSectionConfig();
+    if (!config) return;
+    engine.setSectionConfig({ ...config, [key]: value });
   }, []);
 
-  const handlePresetSelect = useCallback((index: number) => {
-    const preset = DETECTION_PRESETS[index];
-    useRouteSettings.getState().setDetectionStrictness(preset.value);
-    applyDetectionPreset(preset);
-    setProximityThreshold(preset.proximityThreshold);
-    setMinSectionLength(preset.minSectionLength);
-    setMinActivities(preset.minActivities);
-    setMinRoutes(preset.minRoutes);
-  }, []);
+  const setParam = useCallback(
+    (key: keyof MethodParams, value: number) => {
+      setParams((prev) => ({ ...prev, [key]: value }));
+      applyParam(key, value);
+    },
+    [applyParam]
+  );
 
-  const applyParam = useCallback((key: string, value: number) => {
-    const engine = getRouteEngine();
-    if (engine) {
-      const config = engine.getSectionConfig();
-      if (config) {
-        engine.setSectionConfig({ ...config, [key]: value });
-      }
-    }
-  }, []);
-
-  // Track initial config to detect changes
-  const initialConfig = useRef({
+  // Track initial config to detect changes. Reset when the user switches method
+  // so the rescan button only lights up for unsaved tweaks to the *current*
+  // method's params, not for method switches (which apply immediately).
+  const initialConfig = useRef<{
+    method: DetectionMethod;
+    params: MethodParams;
+  }>({
     method,
-    proximityThreshold,
-    minSectionLength,
-    minActivities,
-    minRoutes,
+    params,
   });
+  useEffect(() => {
+    initialConfig.current = {
+      method,
+      params: paramsForMethod(method, activeStrictness),
+    };
+    // Only reset when method/strictness changes — not on every param tweak.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [method, activeStrictness]);
 
   const isDirty = useMemo(() => {
-    const init = initialConfig.current;
-    return (
-      method !== init.method ||
-      proximityThreshold !== init.proximityThreshold ||
-      minSectionLength !== init.minSectionLength ||
-      minActivities !== init.minActivities ||
-      minRoutes !== init.minRoutes
-    );
-  }, [method, proximityThreshold, minSectionLength, minActivities, minRoutes]);
+    if (method !== initialConfig.current.method) return true;
+    const visible = visibleKeysForMethod(method);
+    for (const k of visible) {
+      if (params[k] !== initialConfig.current.params[k]) return true;
+    }
+    return false;
+  }, [method, params]);
 
   const {
     forceRescan,
@@ -134,24 +207,10 @@ export default function DetectionSettingsScreen() {
 
   useEffect(() => {
     if (rescanResult === null) return;
-    initialConfig.current = {
-      method,
-      proximityThreshold,
-      minSectionLength,
-      minActivities,
-      minRoutes,
-    };
+    initialConfig.current = { method, params };
     const timer = setTimeout(clearResult, 5000);
     return () => clearTimeout(timer);
-  }, [
-    rescanResult,
-    clearResult,
-    method,
-    proximityThreshold,
-    minSectionLength,
-    minActivities,
-    minRoutes,
-  ]);
+  }, [rescanResult, clearResult, method, params]);
 
   const handleRescan = useCallback(() => {
     Alert.alert(t('settings.reanalyzeSections'), t('settings.reanalyzeWarning'), [
@@ -185,7 +244,6 @@ export default function DetectionSettingsScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
-        {/* Route matching toggle */}
         <View style={[styles.toggleCard, { backgroundColor: surface, borderColor: border }]}>
           <View style={styles.toggleRow}>
             <MaterialCommunityIcons name="map-marker-path" size={22} color={textSecondary} />
@@ -200,12 +258,10 @@ export default function DetectionSettingsScreen() {
           </View>
         </View>
 
-        {/* Detection parameters (dimmed when route matching is off) */}
         <View
           style={{ opacity: routeMatchingEnabled ? 1 : 0.4 }}
           pointerEvents={routeMatchingEnabled ? 'auto' : 'none'}
         >
-          {/* Method chips */}
           <View style={styles.chipRow} testID="detection-method-chips">
             {METHOD_LABELS.map((m) => {
               const active = method === m.key;
@@ -238,16 +294,14 @@ export default function DetectionSettingsScreen() {
             {t(METHOD_DESCS[method] as never)}
           </Text>
 
-          {/* Illustration (reactive to all parameters) */}
           <DetectionMethodIllustration
             method={method}
-            proximity={proximityThreshold}
-            minSectionLength={minSectionLength}
-            minActivities={minActivities}
-            minRoutes={minRoutes}
+            proximity={params.proximityThreshold}
+            minSectionLength={params.minSectionLength}
+            minActivities={params.minActivities}
+            minRoutes={params.minRoutes}
           />
 
-          {/* Presets */}
           <Text style={[styles.sectionLabel, { color: textSecondary }]}>
             {t('settings.detectionSensitivity')}
           </Text>
@@ -280,59 +334,110 @@ export default function DetectionSettingsScreen() {
             })}
           </View>
 
-          {/* Parameter controls */}
           <View style={[styles.paramsCard, { backgroundColor: surface, borderColor: border }]}>
             <ParamRow
-              label={t('settings.sectionProximity', { meters: proximityThreshold })}
-              value={proximityThreshold}
+              label={t('settings.sectionProximity', {
+                meters: params.proximityThreshold,
+              })}
+              value={params.proximityThreshold}
               min={25}
               max={300}
               step={25}
-              onChange={(v) => {
-                setProximityThreshold(v);
-                applyParam('proximityThreshold', v);
-              }}
+              onChange={(v) => setParam('proximityThreshold', v)}
               isDark={isDark}
             />
             <ParamRow
-              label={t('settings.sectionMinLength', { meters: minSectionLength })}
-              value={minSectionLength}
+              label={t('settings.sectionMinLength', {
+                meters: params.minSectionLength,
+              })}
+              value={params.minSectionLength}
               min={50}
               max={2000}
               step={50}
-              onChange={(v) => {
-                setMinSectionLength(v);
-                applyParam('minSectionLength', v);
-              }}
+              onChange={(v) => setParam('minSectionLength', v)}
               isDark={isDark}
             />
             <ParamRow
-              label={t('settings.sectionMinActivities', { count: minActivities })}
-              value={minActivities}
+              label={t('settings.sectionMinActivities', {
+                count: params.minActivities,
+              })}
+              value={params.minActivities}
               min={2}
               max={10}
               step={1}
-              onChange={(v) => {
-                setMinActivities(v);
-                applyParam('minActivities', v);
-              }}
+              onChange={(v) => setParam('minActivities', v)}
               isDark={isDark}
             />
-            <ParamRow
-              label={t('settings.sectionMinRoutes', { count: minRoutes })}
-              value={minRoutes}
-              min={2}
-              max={6}
-              step={1}
-              onChange={(v) => {
-                setMinRoutes(v);
-                applyParam('minRoutes', v);
-              }}
-              isDark={isDark}
-            />
+
+            {method === 'corridor' && (
+              <ParamRow
+                label={t('settings.sectionMinCorridorTracks', {
+                  count: params.minCorridorTracks,
+                })}
+                value={params.minCorridorTracks}
+                min={2}
+                max={8}
+                step={1}
+                onChange={(v) => setParam('minCorridorTracks', v)}
+                isDark={isDark}
+              />
+            )}
+
+            {method === 'density' && (
+              <>
+                <ParamRow
+                  label={t('settings.sectionMinRoutes', {
+                    count: params.minRoutes,
+                  })}
+                  value={params.minRoutes}
+                  min={2}
+                  max={6}
+                  step={1}
+                  onChange={(v) => setParam('minRoutes', v)}
+                  isDark={isDark}
+                />
+                <ParamRow
+                  label={t('settings.sectionJaccard', {
+                    value: params.jaccardThreshold.toFixed(2),
+                  })}
+                  value={params.jaccardThreshold}
+                  min={0.2}
+                  max={0.8}
+                  step={0.05}
+                  onChange={(v) => setParam('jaccardThreshold', v)}
+                  isDark={isDark}
+                />
+              </>
+            )}
+
+            {method === 'flow' && (
+              <>
+                <ParamRow
+                  label={t('settings.sectionMinCellVisits', {
+                    count: params.minCellVisits,
+                  })}
+                  value={params.minCellVisits}
+                  min={10}
+                  max={150}
+                  step={5}
+                  onChange={(v) => setParam('minCellVisits', v)}
+                  isDark={isDark}
+                />
+                <ParamRow
+                  label={t('settings.sectionDivergence', {
+                    value: params.divergenceThreshold.toFixed(2),
+                  })}
+                  value={params.divergenceThreshold}
+                  min={0.05}
+                  max={0.5}
+                  step={0.05}
+                  onChange={(v) => setParam('divergenceThreshold', v)}
+                  isDark={isDark}
+                />
+              </>
+            )}
           </View>
 
-          {/* Rescan button, bright when settings changed */}
           <Pressable
             style={[
               styles.rescanBtn,
@@ -430,17 +535,6 @@ const styles = StyleSheet.create({
   toggleLabel: {
     ...typography.body,
     flex: 1,
-  },
-  toggleTextWrap: {
-    flex: 1,
-  },
-  toggleHint: {
-    ...typography.caption,
-    marginTop: 2,
-  },
-  toggleDivider: {
-    height: StyleSheet.hairlineWidth,
-    marginLeft: spacing.md + 22 + spacing.sm,
   },
   header: {
     flexDirection: 'row',
