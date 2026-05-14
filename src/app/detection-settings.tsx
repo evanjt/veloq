@@ -14,13 +14,11 @@ import { router } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import * as FileSystem from 'expo-file-system/legacy';
 import { useTheme } from '@/hooks';
 import { useRouteSettings } from '@/providers';
 import { useSectionRescan } from '@/hooks/routes/useSectionRescan';
 import { ScreenSafeAreaView, TAB_BAR_SAFE_PADDING } from '@/components/ui';
 import { DetectionMethodIllustration } from '@/components/settings';
-import { HEATMAP_TILES_DIR } from '@/hooks/maps/useHeatmapTiles';
 import { colors, darkColors, spacing, layout, typography, brand } from '@/theme';
 import {
   DETECTION_PRESETS,
@@ -58,9 +56,6 @@ export default function DetectionSettingsScreen() {
   const strictness = useRouteSettings((s) => s.settings.detectionStrictness);
   const routeMatchingEnabled = useRouteSettings((s) => s.settings.enabled);
   const setRouteMatchingEnabled = useRouteSettings((s) => s.setEnabled);
-  const heatmapEnabled = useRouteSettings((s) => s.settings.heatmapEnabled);
-  const setHeatmapEnabled = useRouteSettings((s) => s.setHeatmapEnabled);
-
   const textPrimary = isDark ? darkColors.textPrimary : colors.textPrimary;
   const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
   const bg = isDark ? darkColors.background : colors.background;
@@ -190,7 +185,7 @@ export default function DetectionSettingsScreen() {
         ]}
         showsVerticalScrollIndicator={false}
       >
-        {/* Master toggles */}
+        {/* Route matching toggle */}
         <View style={[styles.toggleCard, { backgroundColor: surface, borderColor: border }]}>
           <View style={styles.toggleRow}>
             <MaterialCommunityIcons name="map-marker-path" size={22} color={textSecondary} />
@@ -200,33 +195,6 @@ export default function DetectionSettingsScreen() {
             <Switch
               value={routeMatchingEnabled}
               onValueChange={setRouteMatchingEnabled}
-              color={colors.primary}
-            />
-          </View>
-          <View style={[styles.toggleDivider, { backgroundColor: border }]} />
-          <View style={styles.toggleRow}>
-            <MaterialCommunityIcons name="map-legend" size={22} color={textSecondary} />
-            <View style={styles.toggleTextWrap}>
-              <Text style={[styles.toggleLabel, { color: textPrimary }]}>
-                {t('settings.heatmapGeneration', 'Heatmap')}
-              </Text>
-              <Text style={[styles.toggleHint, { color: textSecondary }]}>
-                {t('settings.heatmapDescription', 'Uses device storage. Disable to save space.')}
-              </Text>
-            </View>
-            <Switch
-              value={heatmapEnabled}
-              onValueChange={(enabled) => {
-                setHeatmapEnabled(enabled);
-                if (enabled) {
-                  getRouteEngine()?.enableHeatmapTiles();
-                } else {
-                  getRouteEngine()?.clearHeatmapTiles(HEATMAP_TILES_DIR);
-                  const legacyDir = `${FileSystem.documentDirectory}heatmap-tiles/`;
-                  getRouteEngine()?.clearHeatmapTiles(legacyDir);
-                  getRouteEngine()?.disableHeatmapTiles();
-                }
-              }}
               color={colors.primary}
             />
           </View>

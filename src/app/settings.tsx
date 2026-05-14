@@ -133,16 +133,18 @@ export default function SettingsScreen() {
     return language ?? 'English';
   }, [language]);
 
+  const unitLabel =
+    unitPreference === 'auto'
+      ? t('settings.unitsAuto')
+      : unitPreference === 'metric'
+        ? t('settings.unitsMetric')
+        : t('settings.unitsImperial');
   const displaySubtitle = useMemo(
     () =>
-      [
-        t(`settings.${themePreference}` as never),
-        t(`settings.${unitPreference}` as never),
-        languageLabel,
-      ]
+      [t(`settings.${themePreference}` as never), unitLabel, languageLabel]
         .filter(Boolean)
         .join(', '),
-    [t, themePreference, unitPreference, languageLabel]
+    [t, themePreference, unitLabel, languageLabel]
   );
 
   // Subtitle: Maps

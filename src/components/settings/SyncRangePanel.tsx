@@ -19,13 +19,11 @@ import Animated, {
   Easing,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
-import { useRouter } from 'expo-router';
 import { TimelineSlider } from '@/components/maps';
 import { useActivityBoundsCache, useOldestActivityDate, useTheme } from '@/hooks';
 import { formatLocalDate } from '@/lib';
 import { useSyncDateRange, useRouteSettings } from '@/providers';
 import { DETECTION_PRESETS as PRESETS } from '@/lib/native/routeEngine';
-import { useSectionRescan } from '@/hooks/routes/useSectionRescan';
 import { settingsStyles } from './settingsStyles';
 import { colors, darkColors, spacing } from '@/theme';
 
@@ -286,45 +284,6 @@ export function SyncRangePanel() {
     [syncDateRange, cachedStartDate]
   );
 
-  // --- Detection settings nav ---
-  const router = useRouter();
-  const { detectionMethod } = useRouteSettings((s) => s.settings);
-
-  // --- Section rescan state ---
-  const {
-    forceRescan,
-    isScanning,
-    progress: rescanProgress,
-    result,
-    clearResult,
-  } = useSectionRescan();
-
-  useEffect(() => {
-    if (result === null) return;
-    const timer = setTimeout(clearResult, 5000);
-    return () => clearTimeout(timer);
-  }, [result, clearResult]);
-
-  const handleReanalyze = useCallback(() => {
-    Alert.alert(t('settings.reanalyzeSections'), t('settings.reanalyzeWarning'), [
-      { text: t('common.cancel'), style: 'cancel' },
-      { text: t('common.confirm'), onPress: () => forceRescan() },
-    ]);
-  }, [t, forceRescan]);
-
-  const rescanPercent = rescanProgress ? Math.max(rescanProgress.percent, 2) : 2;
-
-  const resultText = useMemo(() => {
-    if (!result) return null;
-    const removed = Math.max(0, result.before - result.after);
-    const added = Math.max(0, result.after - result.before);
-    const parts: string[] = [];
-    if (removed > 0) parts.push(`${removed} removed`);
-    if (added > 0) parts.push(`${added} added`);
-    if (parts.length === 0) return `${result.after} sections (unchanged)`;
-    return parts.join(', ');
-  }, [result]);
-
   return (
     <>
       <Text style={[settingsStyles.sectionLabel, isDark && settingsStyles.textMuted]}>
@@ -371,69 +330,6 @@ export function SyncRangePanel() {
                   : t('common.loading'))}
               {gpsSyncProgress.total > 0 &&
                 ` (${gpsSyncProgress.completed}/${gpsSyncProgress.total})`}
-            </Text>
-          </View>
-        ) : null}
-
-        {/* Detection settings navigation */}
-        <View style={[settingsStyles.fullDivider, isDark && settingsStyles.fullDividerDark]} />
-
-        <TouchableOpacity
-          style={settingsStyles.actionRow}
-          onPress={() => router.push('/detection-settings' as never)}
-          testID="settings-detection-row"
-        >
-          <MaterialCommunityIcons name="tune-variant" size={20} color={isDark ? '#aaa' : '#666'} />
-          <View style={{ flex: 1 }}>
-            <Text style={[settingsStyles.actionRowText, isDark && settingsStyles.textLight]}>
-              {t('settings.sectionDetection')}
-            </Text>
-            <Text
-              style={[
-                { fontSize: 12, marginTop: 1 },
-                isDark ? settingsStyles.textMuted : { color: '#888' },
-              ]}
-            >
-              {t(`settings.detectionMethod_${detectionMethod}` as never)}
-            </Text>
-          </View>
-          <MaterialCommunityIcons name="chevron-right" size={20} color={isDark ? '#555' : '#ccc'} />
-        </TouchableOpacity>
-
-        {/* Reanalyse sections */}
-        <View style={[settingsStyles.rowDivider, isDark && settingsStyles.rowDividerDark]} />
-
-        <TouchableOpacity
-          style={[settingsStyles.actionRow, isScanning && styles.actionRowDisabled]}
-          onPress={isScanning ? undefined : handleReanalyze}
-          disabled={isScanning}
-          activeOpacity={isScanning ? 1 : 0.2}
-        >
-          {isScanning ? (
-            <ActivityIndicator size="small" color={colors.primary} style={styles.spinner} />
-          ) : (
-            <MaterialCommunityIcons
-              name="refresh"
-              size={22}
-              color={isDark ? darkColors.textSecondary : colors.textSecondary}
-            />
-          )}
-          <Text style={[settingsStyles.actionRowText, isDark && settingsStyles.textLight]}>
-            {t('settings.reanalyzeSections')}
-          </Text>
-          {resultText && !isScanning ? (
-            <Text style={[styles.resultText, isDark && styles.resultTextDark]}>{resultText}</Text>
-          ) : null}
-        </TouchableOpacity>
-
-        {/* Rescan progress */}
-        {isScanning && rescanProgress ? (
-          <View style={[styles.progressRow, isDark && styles.progressRowDark]}>
-            <View style={styles.progressBarTrack}>
-              <View style={[styles.progressBarFill, { width: `${rescanPercent}%` }]} />
-            </View>
-            <Text style={[styles.progressText, isDark && styles.progressTextDark]}>
-              {rescanProgress.displayName}... {Math.round(rescanPercent)}%
             </Text>
           </View>
         ) : null}
