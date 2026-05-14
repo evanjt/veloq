@@ -23,7 +23,7 @@ import { navigateTo, formatFileSize, getAppStorageSize } from '@/lib';
 import { getLastBackupTimestamp } from '@/lib/backup';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import { SettingsNavRow } from '@/components/settings/SettingsNavRow';
-import { FooterSection } from '@/components/settings';
+import { FooterSection, SupportSection } from '@/components/settings';
 import { settingsStyles, DIVIDER_INSET } from '@/components/settings/settingsStyles';
 
 interface AccountRowProps {
@@ -314,14 +314,11 @@ export default function SettingsScreen() {
             />
           </View>
 
-          {/* Footer area: meta-actions */}
+          {/* Support inline */}
+          <SupportSection />
+
+          {/* Data sources */}
           <View style={styles.footerArea}>
-            <SettingsNavRow
-              icon="heart-outline"
-              title={t('settings.support')}
-              onPress={nav('/support-settings')}
-              testID="settings-nav-support"
-            />
             <SettingsNavRow
               icon="link-variant"
               title={t('settings.dataSources')}
