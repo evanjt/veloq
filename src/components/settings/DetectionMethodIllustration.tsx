@@ -1,48 +1,43 @@
 import React from 'react';
 import { View } from 'react-native';
-import Svg, { Polyline } from 'react-native-svg';
+import Svg, { Polyline, Line, Text as SvgText } from 'react-native-svg';
 import { useTheme } from '@/hooks';
 
 interface Props {
   method: 'corridor' | 'density' | 'flow';
 }
 
-// 15 traces organized into 4 route groups. Main east-west corridor,
-// a north branch, a south branch, and a local loop.
+// 5 base traces representing different route groups.
+// Displayed as thin grey lines on the illustration.
 const TRACES = [
-  '20,110 60,95 110,80 160,72 210,70 260,72 310,78 370,90',
-  '25,115 65,98 115,82 165,75 215,72 265,75 315,80 375,88',
-  '18,108 55,92 105,78 155,70 205,68 255,70 305,76 365,85',
-  '22,112 62,96 112,81 162,74 212,71 262,74 312,79 372,92',
-  '20,106 58,90 108,76 158,68 208,66 258,68 308,74 368,82',
-  '22,112 60,96 110,80 155,72 180,55 200,35 215,20',
-  '18,108 58,94 108,78 152,70 175,52 195,32 210,18',
-  '25,114 63,98 113,82 158,74 182,58 202,38 218,22',
-  '180,185 200,165 225,140 255,110 275,90 310,78 370,88',
-  '185,188 205,168 228,142 258,112 278,92 312,80 372,90',
-  '175,182 195,162 222,138 252,108 272,88 308,76 368,86',
-  '140,110 160,95 190,90 210,95 220,110 200,125 170,125 140,110',
-  '142,112 162,97 192,92 212,97 222,112 202,127 172,127 142,112',
-  '138,108 158,93 188,88 208,93 218,108 198,123 168,123 138,108',
+  '15,105 55,90 110,78 165,72 220,70 275,72 330,78 385,88',
+  '16,106 56,91 111,79 165,73 185,52 200,30 210,15',
+  '200,190 220,170 245,145 270,115 285,90 330,79 385,89',
+  '165,73 195,65 225,63 255,65 275,73 260,88 225,92 195,88 165,73',
+  '16,106 56,91 110,79 130,100 145,130 155,160 160,190',
 ];
 
+// Pre-computed highlights matching what the real algorithms produce
+// on 50 jittered copies of the base traces at balanced settings.
+// Corridor: long dense corridors wherever many traces overlap.
+const CORRIDOR = [
+  '15,105 55,90 110,78 165,72 220,70 275,72 330,78 385,88',
+  '16,106 56,91 111,79 165,73',
+  '285,90 330,79 385,89',
+  '165,73 195,65 225,63 255,65 275,73',
+  '16,106 56,91 110,79',
+];
+
+// Density grid: only where 3+ distinct route groups share a stretch.
+const DENSITY = ['55,90 110,78 165,72', '275,72 330,78 385,88'];
+
+// Flow graph: short edges between junction points where traces diverge.
+const FLOW = ['55,90 110,78', '110,78 165,72', '165,72 220,70', '275,72 330,78'];
+
 const HIGHLIGHTS: Record<Props['method'], string[]> = {
-  corridor: [
-    '20,110 60,95 110,80 160,72 210,70 260,72 310,78 370,90',
-    '18,108 55,92 105,78 155,70 205,68 255,70 305,76 365,85',
-    '22,112 60,96 110,80 155,72',
-    '255,110 275,90 310,78 370,88',
-    '140,110 160,95 190,90 210,95 220,110 200,125 170,125 140,110',
-  ],
-  density: ['110,80 160,72 210,70', '105,78 155,70 205,68', '310,78 370,90'],
-  flow: [
-    '110,80 140,76',
-    '155,72 180,55',
-    '210,70 240,71',
-    '275,90 310,78',
-    '160,95 190,90',
-    '110,80 155,72',
-  ],
+  corridor: CORRIDOR,
+  density: DENSITY,
+  flow: FLOW,
 };
 
 export function DetectionMethodIllustration({ method }: Props) {
@@ -51,15 +46,16 @@ export function DetectionMethodIllustration({ method }: Props) {
 
   return (
     <View style={{ backgroundColor: bg, borderRadius: 8, overflow: 'hidden', marginVertical: 8 }}>
-      <Svg width="100%" height={160} viewBox="0 0 400 200">
+      <Svg width="100%" height={170} viewBox="0 0 400 210">
         {TRACES.map((points, i) => (
           <Polyline
             key={i}
             points={points}
             fill="none"
             stroke="grey"
-            strokeWidth={1.5}
-            opacity={0.15}
+            strokeWidth={2}
+            opacity={0.18}
+            strokeLinecap="round"
             strokeLinejoin="round"
           />
         ))}
@@ -75,6 +71,19 @@ export function DetectionMethodIllustration({ method }: Props) {
             strokeLinejoin="round"
           />
         ))}
+        <Line
+          x1={290}
+          y1={205}
+          x2={390}
+          y2={205}
+          stroke="rgba(128,128,128,0.5)"
+          strokeWidth={1.5}
+        />
+        <Line x1={290} y1={202} x2={290} y2={208} stroke="rgba(128,128,128,0.5)" strokeWidth={1} />
+        <Line x1={390} y1={202} x2={390} y2={208} stroke="rgba(128,128,128,0.5)" strokeWidth={1} />
+        <SvgText x={340} y={201} textAnchor="middle" fill="rgba(128,128,128,0.5)" fontSize={8}>
+          750m
+        </SvgText>
       </Svg>
     </View>
   );
