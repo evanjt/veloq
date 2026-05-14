@@ -1500,6 +1500,7 @@
     "cacheAndDatabase": "Cache & Datebank",
     "heatmapGeneration": "Wärmecharte",
     "heatmapDescription": "Bruucht Spicherplatz uf em Grät. Deaktiviere zum Platz z spare.",
+    "heatmapStorageUsed": "Bruucht {{size}} Spicherplatz",
     "redetectSections": "Abschnitte nöi erchenne",
     "redetectSectionsHint": "Abschnittserchennig über alli Aktivitäte nomal laufe lah. Cha 1-2 Minuute dure.",
     "sectionDetection": "Abschnittserkennig",

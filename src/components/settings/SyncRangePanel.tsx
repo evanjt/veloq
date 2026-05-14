@@ -8,6 +8,7 @@ import {
   ActivityIndicator,
   LayoutChangeEvent,
 } from 'react-native';
+import { Switch } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
@@ -19,13 +20,15 @@ import Animated, {
   Easing,
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
+import * as FileSystem from 'expo-file-system/legacy';
 import { TimelineSlider } from '@/components/maps';
 import { useActivityBoundsCache, useOldestActivityDate, useTheme } from '@/hooks';
-import { formatLocalDate } from '@/lib';
+import { formatLocalDate, formatFileSize } from '@/lib';
 import { useSyncDateRange, useRouteSettings } from '@/providers';
-import { DETECTION_PRESETS as PRESETS } from '@/lib/native/routeEngine';
+import { DETECTION_PRESETS as PRESETS, getRouteEngine } from '@/lib/native/routeEngine';
+import { HEATMAP_TILES_DIR, getHeatmapTilesCacheSize } from '@/hooks/maps/useHeatmapTiles';
 import { settingsStyles } from './settingsStyles';
-import { colors, darkColors, spacing } from '@/theme';
+import { colors, darkColors, spacing, typography } from '@/theme';
 
 const SNAP_TIMING = { duration: 200, easing: Easing.out(Easing.cubic) };
 const THUMB_SIZE = 22;
@@ -241,6 +244,36 @@ export function SyncRangePanel() {
   const { isDark } = useTheme();
   const { t } = useTranslation();
 
+  // --- Heatmap toggle state ---
+  const heatmapEnabled = useRouteSettings((s) => s.settings.heatmapEnabled);
+  const setHeatmapEnabled = useRouteSettings((s) => s.setHeatmapEnabled);
+  const [heatmapSize, setHeatmapSize] = useState(0);
+
+  const refreshHeatmapSize = useCallback(() => {
+    setHeatmapSize(getHeatmapTilesCacheSize());
+  }, []);
+
+  useEffect(() => {
+    refreshHeatmapSize();
+  }, [refreshHeatmapSize, heatmapEnabled]);
+
+  const handleHeatmapToggle = useCallback(
+    (enabled: boolean) => {
+      setHeatmapEnabled(enabled);
+      const engine = getRouteEngine();
+      if (enabled) {
+        engine?.enableHeatmapTiles();
+      } else {
+        engine?.clearHeatmapTiles(HEATMAP_TILES_DIR);
+        const legacyDir = `${FileSystem.documentDirectory}heatmap-tiles/`;
+        engine?.clearHeatmapTiles(legacyDir);
+        engine?.disableHeatmapTiles();
+      }
+      refreshHeatmapSize();
+    },
+    [setHeatmapEnabled, refreshHeatmapSize]
+  );
+
   // --- Data range state ---
   const { progress, cacheStats, syncDateRange } = useActivityBoundsCache();
   const { data: apiOldestDate } = useOldestActivityDate();
@@ -290,6 +323,35 @@ export function SyncRangePanel() {
         {t('settings.localDataRange').toUpperCase()}
       </Text>
       <View style={[settingsStyles.sectionCard, isDark && settingsStyles.sectionCardDark]}>
+        {/* Heatmap toggle */}
+        <View style={settingsStyles.actionRow}>
+          <MaterialCommunityIcons
+            name="map-legend"
+            size={22}
+            color={isDark ? darkColors.textSecondary : colors.textSecondary}
+          />
+          <View style={styles.toggleTextWrap}>
+            <Text style={[settingsStyles.actionRowText, isDark && settingsStyles.textLight]}>
+              {t('settings.heatmapGeneration', 'Heatmap')}
+            </Text>
+            <Text style={[styles.toggleHint, isDark && settingsStyles.textMuted]}>
+              {heatmapEnabled && heatmapSize > 0
+                ? t('settings.heatmapStorageUsed', {
+                    defaultValue: 'Using {{size}} of device storage',
+                    size: formatFileSize(heatmapSize),
+                  })
+                : t('settings.heatmapDescription', 'Uses device storage. Disable to save space.')}
+            </Text>
+          </View>
+          <Switch
+            value={heatmapEnabled}
+            onValueChange={handleHeatmapToggle}
+            color={colors.primary}
+          />
+        </View>
+
+        <View style={[settingsStyles.fullDivider, isDark && settingsStyles.fullDividerDark]} />
+
         {/* Timeline slider */}
         <View style={styles.sliderWrap}>
           <TimelineSlider
@@ -339,6 +401,14 @@ export function SyncRangePanel() {
 }
 
 const styles = StyleSheet.create({
+  toggleTextWrap: {
+    flex: 1,
+  },
+  toggleHint: {
+    ...typography.caption,
+    color: colors.textSecondary,
+    marginTop: 2,
+  },
   sliderWrap: {
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,

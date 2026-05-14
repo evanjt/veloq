@@ -1500,6 +1500,7 @@
     "cacheAndDatabase": "キャッシュとデータベース",
     "heatmapGeneration": "ヒートマップ",
     "heatmapDescription": "デバイスのストレージを使用します。容量を節約するには無効にしてください。",
+    "heatmapStorageUsed": "デバイスのストレージを{{size}}使用中",
     "redetectSections": "セクションを再検出",
     "redetectSectionsHint": "全アクティビティでセクション検出を再実行します。1〜2分かかります。",
     "sectionDetection": "セクション検出",

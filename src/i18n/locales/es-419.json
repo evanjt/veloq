@@ -1500,6 +1500,7 @@
     "cacheAndDatabase": "Caché y base de datos",
     "heatmapGeneration": "Mapa de calor",
     "heatmapDescription": "Usa almacenamiento del dispositivo. Desactiva para ahorrar espacio.",
+    "heatmapStorageUsed": "Usando {{size}} de almacenamiento del dispositivo",
     "redetectSections": "Detectar secciones",
     "redetectSectionsHint": "Ejecutar la detección de secciones en todas las actividades. Puede tardar 1-2 minutos.",
     "sectionDetection": "Detección de secciones",

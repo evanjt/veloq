@@ -1500,6 +1500,7 @@
     "cacheAndDatabase": "Cache & Datenbank",
     "heatmapGeneration": "Heatmap",
     "heatmapDescription": "Nutzt Gerätespeicher. Deaktivieren, um Platz zu sparen.",
+    "heatmapStorageUsed": "Nutzt {{size}} Gerätespeicher",
     "redetectSections": "Abschnitte neu erkennen",
     "redetectSectionsHint": "Abschnittserkennung über alle Aktivitäten erneut ausführen. Kann 1-2 Minuten dauern.",
     "sectionDetection": "Abschnittserkennung",

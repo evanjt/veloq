@@ -1500,6 +1500,7 @@
     "cacheAndDatabase": "缓存和数据库",
     "heatmapGeneration": "热力图",
     "heatmapDescription": "使用设备存储空间。禁用可节省空间。",
+    "heatmapStorageUsed": "正在使用 {{size}} 设备存储空间",
     "redetectSections": "重新检测路段",
     "redetectSectionsHint": "对所有活动重新运行路段检测。需要 1-2 分钟。",
     "sectionDetection": "路段检测",

@@ -1500,6 +1500,7 @@
     "cacheAndDatabase": "Cache og database",
     "heatmapGeneration": "Varmekort",
     "heatmapDescription": "Bruger enhedens lagerplads. Deaktivér for at spare plads.",
+    "heatmapStorageUsed": "Bruger {{size}} af enhedens lagerplads",
     "redetectSections": "Gendetekter sektioner",
     "redetectSectionsHint": "Kør sektionsdetektering på alle aktiviteter igen. Kan tage 1-2 minutter.",
     "sectionDetection": "Sektionsdetektering",

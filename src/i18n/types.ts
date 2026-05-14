@@ -418,6 +418,7 @@ export interface TranslationResource {
     routesAndSections: string;
     heatmapGeneration: string;
     heatmapDescription: string;
+    heatmapStorageUsed: string;
     cacheAndDatabase: string;
     sinceDateSubtitle: string;
   };

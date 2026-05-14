@@ -1500,6 +1500,7 @@
     "cacheAndDatabase": "Cache e database",
     "heatmapGeneration": "Mappa di calore",
     "heatmapDescription": "Usa lo spazio di archiviazione del dispositivo. Disattiva per risparmiare spazio.",
+    "heatmapStorageUsed": "Sta usando {{size}} di spazio del dispositivo",
     "redetectSections": "Ri-rileva sezioni",
     "redetectSectionsHint": "Esegui di nuovo la rilevazione di sezioni su tutte le attività. Può richiedere 1-2 minuti.",
     "sectionDetection": "Rilevamento sezioni",

@@ -1550,6 +1550,7 @@
     "cacheAndDatabase": "Cache & Database",
     "heatmapGeneration": "Heatmap",
     "heatmapDescription": "Uses device storage. Disable to save space.",
+    "heatmapStorageUsed": "Using {{size}} of device storage",
     "redetectSections": "Re-detect sections",
     "redetectSectionsHint": "Re-run section detection across all activities. Can take 1-2 minutes.",
     "disconnectAndClearData": "Sign out and delete all data",

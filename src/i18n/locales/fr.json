@@ -1500,6 +1500,7 @@
     "cacheAndDatabase": "Cache et base de données",
     "heatmapGeneration": "Carte de chaleur",
     "heatmapDescription": "Utilise le stockage de l'appareil. Désactiver pour économiser de l'espace.",
+    "heatmapStorageUsed": "Utilise {{size}} du stockage de l'appareil",
     "redetectSections": "Re-détecter les sections",
     "redetectSectionsHint": "Relancer la détection de sections sur toutes les activités. Peut prendre 1-2 minutes.",
     "sectionDetection": "Détection de sections",

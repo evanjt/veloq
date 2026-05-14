@@ -1500,6 +1500,7 @@
     "cacheAndDatabase": "Pamięć podręczna i baza danych",
     "heatmapGeneration": "Mapa ciepła",
     "heatmapDescription": "Używa pamięci urządzenia. Wyłącz, aby zaoszczędzić miejsce.",
+    "heatmapStorageUsed": "Używa {{size}} pamięci urządzenia",
     "redetectSections": "Wykryj sekcje ponownie",
     "redetectSectionsHint": "Uruchom detekcję sekcji ponownie dla wszystkich aktywności. Może potrwać 1-2 minuty.",
     "sectionDetection": "Wykrywanie sekcji",
