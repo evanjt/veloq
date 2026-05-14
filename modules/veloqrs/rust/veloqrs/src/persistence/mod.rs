@@ -553,7 +553,14 @@ impl PersistentRouteEngine {
             groups_dirty: false,
             sections_dirty: false,
             match_config: MatchConfig::default(),
-            section_config: SectionConfig::default(),
+            section_config: {
+                let mut cfg = SectionConfig::default();
+                cfg.proximity_threshold = 200.0;
+                cfg.min_section_length = 150.0;
+                cfg.min_activities = 2;
+                cfg.min_corridor_tracks = 2;
+                cfg
+            },
             heatmap_tiles_path: None,
             perf_cache_section_id: None,
             perf_cache_result: None,

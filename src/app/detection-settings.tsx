@@ -299,7 +299,11 @@ export default function DetectionSettingsScreen() {
             proximity={params.proximityThreshold}
             minSectionLength={params.minSectionLength}
             minActivities={params.minActivities}
+            minCorridorTracks={params.minCorridorTracks}
             minRoutes={params.minRoutes}
+            jaccardThreshold={params.jaccardThreshold}
+            minCellVisits={params.minCellVisits}
+            divergenceThreshold={params.divergenceThreshold}
           />
 
           <Text style={[styles.sectionLabel, { color: textSecondary }]}>

@@ -164,7 +164,28 @@ function AuthGate({ children }: { children: React.ReactNode }) {
         }
 
         const tryInit = (attempt: number) => {
-          const success = engine.initWithPath(dbPath);
+          let success = engine.initWithPath(dbPath);
+          if (success) {
+            // Engine holds at most one identity's data at a time. If the cached
+            // __athlete_id setting belongs to someone else (different real
+            // account, or demo data left over after a force-quit), wipe and
+            // re-init so the new identity starts from a clean slate.
+            const cachedAthleteId = engine.getSetting('__athlete_id');
+            const credentialsAthleteId = useAuthStore.getState().athleteId;
+            if (
+              cachedAthleteId &&
+              credentialsAthleteId &&
+              cachedAthleteId !== credentialsAthleteId
+            ) {
+              if (__DEV__) {
+                console.log(
+                  `[RouteEngine] Identity mismatch (cached=${cachedAthleteId}, credentials=${credentialsAthleteId}) - wiping engine`
+                );
+              }
+              engine.clear();
+              success = engine.initWithPath(dbPath);
+            }
+          }
           if (success) {
             if (__DEV__) {
               console.log(

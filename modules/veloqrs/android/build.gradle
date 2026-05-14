@@ -152,11 +152,16 @@ if (isNewArchitectureEnabled()) {
 }
 
 // Build Rust library for each requested architecture (local development)
-// In CI, the library is pre-built by a separate workflow step
-// Only builds missing architectures — skips those already present in jniLibs
+// In CI, the library is pre-built by a separate workflow step.
+// Locally, rebuild architectures whose .so is missing OR older than any
+// `.rs` source under rust/. Previously the task short-circuited as long as
+// the .so existed at all, so a submodule bump silently kept the stale
+// binary in the APK — and the user saw "old algorithm" behavior after
+// `npx expo run:android` reported success.
 task buildRustLibrary {
   def jniLibsDir = file("${projectDir}/src/main/jniLibs")
   def rustDir = file("${projectDir}/../rust/veloqrs")
+  def rustRoot = file("${projectDir}/../rust")
   def architectures = reactNativeArchitectures()
 
   architectures.each { arch ->
@@ -164,22 +169,30 @@ task buildRustLibrary {
   }
 
   doLast {
-    def missing = architectures.findAll { arch ->
-      !file("${jniLibsDir}/${arch}/libveloqrs.so").exists()
+    // Newest .rs source under rust/ (tracematch + veloqrs). If any of these
+    // is newer than a target .so, that arch needs a rebuild.
+    long newestSourceMs = 0
+    fileTree(dir: rustRoot, include: "**/*.rs", exclude: "**/target/**").each { f ->
+      if (f.lastModified() > newestSourceMs) newestSourceMs = f.lastModified()
     }
-    if (missing.isEmpty()) {
-      println "[veloqrs] Rust libraries already exist for: ${architectures.join(', ')}"
+
+    def stale = architectures.findAll { arch ->
+      def lib = file("${jniLibsDir}/${arch}/libveloqrs.so")
+      !lib.exists() || lib.lastModified() < newestSourceMs
+    }
+    if (stale.isEmpty()) {
+      println "[veloqrs] Rust libraries up to date for: ${architectures.join(', ')}"
       return
     }
-    println "[veloqrs] Building Rust library for: ${missing.join(', ')}..."
+    println "[veloqrs] Rebuilding Rust library (source newer than .so) for: ${stale.join(', ')}..."
     def args = []
-    missing.each { arch -> args.addAll(["-t", arch]) }
+    stale.each { arch -> args.addAll(["-t", arch]) }
     exec {
       workingDir rustDir
       commandLine(["cargo", "ndk"] + args + ["--platform", "24",
                    "-o", jniLibsDir.absolutePath, "build", "--release", "-p", "veloqrs"])
     }
-    println "[veloqrs] Rust libraries built for: ${missing.join(', ')}"
+    println "[veloqrs] Rust libraries built for: ${stale.join(', ')}"
   }
 }
 

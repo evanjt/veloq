@@ -8,7 +8,11 @@ interface Props {
   proximity: number;
   minSectionLength: number;
   minActivities: number;
+  minCorridorTracks: number;
   minRoutes: number;
+  jaccardThreshold: number;
+  minCellVisits: number;
+  divergenceThreshold: number;
 }
 
 const REF_LAT = 46.22;
@@ -176,7 +180,11 @@ export function DetectionMethodIllustration({
   proximity,
   minSectionLength,
   minActivities,
+  minCorridorTracks,
   minRoutes,
+  jaccardThreshold,
+  minCellVisits,
+  divergenceThreshold,
 }: Props) {
   const { isDark } = useTheme();
   const bg = isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.08)';
@@ -240,13 +248,13 @@ export function DetectionMethodIllustration({
             },
           ],
           preserveHierarchy: true,
-          jaccardThreshold: 0.5,
+          jaccardThreshold,
           minRoutes,
           enableDensitySplits: false,
           mergeDistanceMultiplier: 4.0,
-          minCellVisits: 3,
-          divergenceThreshold: 0.1,
-          minCorridorTracks: minActivities,
+          minCellVisits,
+          divergenceThreshold,
+          minCorridorTracks,
           detectionMethod: FFI_METHOD[method],
         });
 
@@ -279,7 +287,18 @@ export function DetectionMethodIllustration({
     return () => {
       cancelled = true;
     };
-  }, [method, proximity, minSectionLength, minActivities, minRoutes, inputData]);
+  }, [
+    method,
+    proximity,
+    minSectionLength,
+    minActivities,
+    minCorridorTracks,
+    minRoutes,
+    jaccardThreshold,
+    minCellVisits,
+    divergenceThreshold,
+    inputData,
+  ]);
 
   const displayTraces = BASE_TRACES.map((t) => t.pts.map((p) => p.join(',')).join(' '));
 

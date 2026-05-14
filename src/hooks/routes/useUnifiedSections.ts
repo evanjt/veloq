@@ -201,7 +201,11 @@ export function useUnifiedSections(
       }
     }
 
-    // Sort: disabled/superseded sections last, then by type, then by visit count
+    // Sort: disabled/superseded sections last, then by type. Stable within each
+    // group so upstream ordering (e.g. Rust-side nearest-distance pre-sort from
+    // batchSections) survives. Consumers like SectionsList apply their own
+    // visit/distance/name comparator after this; 'nearby' relies on the
+    // preserved upstream order.
     result.sort((a, b) => {
       const aHidden = !!(a.disabled || a.supersededBy);
       const bHidden = !!(b.disabled || b.supersededBy);
@@ -212,9 +216,7 @@ export function useUnifiedSections(
       const aPriority = typePriority[a.sectionType] ?? 1;
       const bPriority = typePriority[b.sectionType] ?? 1;
 
-      if (aPriority !== bPriority) return aPriority - bPriority;
-
-      return b.visitCount - a.visitCount;
+      return aPriority - bPriority;
     });
 
     return result;
