@@ -260,6 +260,20 @@ export function useGpsDataFetcher() {
         routeEngine.setActivityMetrics(metrics);
         routeEngine.triggerRefresh('activities');
 
+        // Persist synthetic time streams so save_sections() can compute lap_time/lap_pace
+        // during detection. Without this, the section detail chart is blank in demo mode
+        // because the junction table ends up with NULL lap_time on every portion.
+        const { getActivityStreams } = require('@/data/demo/fixtures');
+        const demoTimeStreams = ids
+          .map((id) => {
+            const streams = getActivityStreams(id) as { time?: number[] } | null;
+            return { activityId: id, times: streams?.time ?? [] };
+          })
+          .filter((s) => s.times.length > 0);
+        if (demoTimeStreams.length > 0) {
+          routeEngine.setTimeStreams(demoTimeStreams);
+        }
+
         // Demo: detection 25-75%, tiles 75-100%
         let started = nativeModule.routeEngine.startSectionDetection();
         if (!started) {

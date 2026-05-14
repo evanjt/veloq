@@ -97,16 +97,16 @@ export interface FlowGraphPreset {
 
 export const CORRIDOR_PRESETS: Record<DetectionStrictness, CorridorPreset> = {
   relaxed: {
-    proximityThreshold: 200,
-    minSectionLength: 150,
+    proximityThreshold: 250,
+    minSectionLength: 100,
     minActivities: 2,
     minCorridorTracks: 2,
   },
   default: {
-    proximityThreshold: 150,
-    minSectionLength: 200,
-    minActivities: 3,
-    minCorridorTracks: 3,
+    proximityThreshold: 200,
+    minSectionLength: 150,
+    minActivities: 2,
+    minCorridorTracks: 2,
   },
   strict: {
     proximityThreshold: 75,

@@ -13,6 +13,7 @@ import {
   useActivityBoundsCache,
   isInfiniteActivitiesStale,
 } from '@/hooks';
+import { useSectionHealthCheck } from '@/hooks/routes/useSectionHealthCheck';
 import { queryKeys } from '@/lib/queryKeys';
 import { onSyncComplete } from '@/lib/backup';
 import { intervalsApi } from '@/api';
@@ -116,6 +117,11 @@ export function GlobalDataSync() {
   // Always enabled — GPS tracks are needed for heatmap even when route matching is off.
   // Section detection is gated separately in useGpsDataFetcher.
   const { progress, isSyncing } = useRouteDataSync(activities, true);
+
+  // One-shot self-heal for upgrades across the corridor-detection regression.
+  // Triggers a forced redetect when sync completes against an empty section
+  // store while activities exist.
+  useSectionHealthCheck(progress.status === 'complete');
 
   // Invalidate caches when sync completes so data refreshes
   useEffect(() => {

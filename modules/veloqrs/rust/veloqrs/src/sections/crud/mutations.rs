@@ -120,6 +120,16 @@ impl PersistentRouteEngine {
         // with proper portion details (direction, indices, distance)
         let _ = self.match_activities_to_section(&id, &params.polyline, &params.sport_type);
 
+        // Refresh the materialized activity_indicators table so feed cards
+        // pick up section_pr / section_trend chips for the new section without
+        // requiring an app restart.
+        if let Err(e) = self.recompute_activity_indicators() {
+            log::warn!(
+                "tracematch: [create_section] indicator recompute failed: {}",
+                e
+            );
+        }
+
         Ok(id)
     }
 
@@ -597,6 +607,16 @@ impl PersistentRouteEngine {
 
         // Remove from in-memory cache
         self.remove_section_from_memory(section_id);
+
+        // Drop the now-orphaned section_pr / section_trend rows from the
+        // materialized indicators table so feed cards stop showing chips
+        // for a section the user just removed.
+        if let Err(e) = self.recompute_activity_indicators() {
+            log::warn!(
+                "tracematch: [delete_section] indicator recompute failed: {}",
+                e
+            );
+        }
 
         Ok(())
     }

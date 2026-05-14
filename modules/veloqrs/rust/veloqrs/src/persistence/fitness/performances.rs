@@ -46,6 +46,9 @@ impl PersistentRouteEngine {
             persisted_count
         );
         self.invalidate_perf_cache();
+        // Backfill NULL lap_time/lap_pace rows that newly-arrived streams can now resolve.
+        // Without this, the in-DB junction stays NULL until the next engine init / load_sections call.
+        self.backfill_section_performance_cache();
     }
 
     /// Get activity IDs that have section_activities with NULL lap_time but no time_stream.
