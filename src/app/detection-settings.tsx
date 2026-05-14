@@ -6,6 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/hooks';
 import { useRouteSettings } from '@/providers';
 import { colors, darkColors, spacing, layout, typography, brand } from '@/theme';
+import { DetectionMethodIllustration } from '@/components/settings';
 import {
   DETECTION_PRESETS,
   applyDetectionPreset,
@@ -98,6 +99,9 @@ export default function DetectionSettingsScreen() {
           </Pressable>
         );
       })}
+
+      {/* Method illustration */}
+      <DetectionMethodIllustration method={method} />
 
       {/* Strictness presets */}
       <Text style={[styles.sectionLabel, { color: textSecondary }, styles.sectionLabelSpaced]}>
