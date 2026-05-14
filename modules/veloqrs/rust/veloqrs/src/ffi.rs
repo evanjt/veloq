@@ -479,7 +479,12 @@ pub fn detect_sections_standalone(
         })?;
 
     let groups = if matches!(config.detection_method, tracematch::DetectionMethod::DensityGrid) {
-        let match_config = tracematch::MatchConfig::default();
+        let match_config = tracematch::MatchConfig {
+            min_route_distance: 100.0,
+            endpoint_threshold: 500.0,
+            max_distance_diff_ratio: 0.8,
+            ..tracematch::MatchConfig::default()
+        };
         let sigs: Vec<_> = tracks
             .iter()
             .filter_map(|(id, pts)| {
