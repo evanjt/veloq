@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { View } from 'react-native';
 import Svg, { Polyline, Line, Text as SvgText } from 'react-native-svg';
 import { useTheme } from '@/hooks';
@@ -7,47 +7,233 @@ interface Props {
   method: 'corridor' | 'density' | 'flow';
 }
 
-// 5 base traces representing different route groups.
-// Displayed as thin grey lines on the illustration.
-const TRACES = [
-  '15,105 55,90 110,78 165,72 220,70 275,72 330,78 385,88',
-  '16,106 56,91 111,79 165,73 185,52 200,30 210,15',
-  '200,190 220,170 245,145 270,115 285,90 330,79 385,89',
-  '165,73 195,65 225,63 255,65 275,73 260,88 225,92 195,88 165,73',
-  '16,106 56,91 110,79 130,100 145,130 155,160 160,190',
+// SVG (0-400, 0-200) mapped to GPS coordinates (~3km x ~1.5km)
+const REF_LAT = 46.22;
+const REF_LNG = 7.36;
+const LNG_SPAN = 0.04;
+const LAT_SPAN = 0.02;
+
+function svgToGps(x: number, y: number) {
+  return { latitude: REF_LAT - (y / 200) * LAT_SPAN, longitude: REF_LNG + (x / 400) * LNG_SPAN };
+}
+function gpsToSvg(lat: number, lng: number): [number, number] {
+  return [((lng - REF_LNG) / LNG_SPAN) * 400, ((REF_LAT - lat) / LAT_SPAN) * 200];
+}
+
+type TraceDef = { pts: [number, number][]; route: number };
+
+const BASE_TRACES: TraceDef[] = [
+  {
+    pts: [
+      [15, 105],
+      [55, 90],
+      [110, 78],
+      [165, 72],
+      [220, 70],
+      [275, 72],
+      [330, 78],
+      [385, 88],
+    ],
+    route: 0,
+  },
+  {
+    pts: [
+      [16, 106],
+      [56, 91],
+      [111, 79],
+      [165, 73],
+      [185, 52],
+      [200, 30],
+      [210, 15],
+    ],
+    route: 1,
+  },
+  {
+    pts: [
+      [200, 190],
+      [220, 170],
+      [245, 145],
+      [270, 115],
+      [285, 90],
+      [330, 79],
+      [385, 89],
+    ],
+    route: 2,
+  },
+  {
+    pts: [
+      [165, 73],
+      [195, 65],
+      [225, 63],
+      [255, 65],
+      [275, 73],
+      [260, 88],
+      [225, 92],
+      [195, 88],
+      [165, 73],
+    ],
+    route: 3,
+  },
+  {
+    pts: [
+      [16, 106],
+      [56, 91],
+      [110, 79],
+      [130, 100],
+      [145, 130],
+      [155, 160],
+      [160, 190],
+    ],
+    route: 4,
+  },
 ];
 
-// Pre-computed highlights matching what the real algorithms produce
-// on 50 jittered copies of the base traces at balanced settings.
-// Corridor: long dense corridors wherever many traces overlap.
-const CORRIDOR = [
-  '15,105 55,90 110,78 165,72 220,70 275,72 330,78 385,88',
-  '16,106 56,91 111,79 165,73',
-  '285,90 330,79 385,89',
-  '165,73 195,65 225,63 255,65 275,73',
-  '16,106 56,91 110,79',
-];
+// 50 jittered copies for realistic traffic volume
+function buildTraces(): TraceDef[] {
+  const out: TraceDef[] = [];
+  for (let rep = 0; rep < 10; rep++) {
+    const jx = (rep - 5) * 0.8;
+    const jy = (rep - 5) * 0.4;
+    for (const base of BASE_TRACES) {
+      out.push({
+        pts: base.pts.map(([x, y]) => [x + jx, y + jy] as [number, number]),
+        route: base.route,
+      });
+    }
+  }
+  return out;
+}
 
-// Density grid: only where 3+ distinct route groups share a stretch.
-const DENSITY = ['55,90 110,78 165,72', '275,72 330,78 385,88'];
+// Densify to ~3px spacing for realistic GPS density
+function densify(pts: [number, number][]): { latitude: number; longitude: number }[] {
+  const out: { latitude: number; longitude: number }[] = [svgToGps(pts[0][0], pts[0][1])];
+  for (let i = 1; i < pts.length; i++) {
+    const [x0, y0] = pts[i - 1];
+    const [x1, y1] = pts[i];
+    const dist = Math.sqrt((x1 - x0) ** 2 + (y1 - y0) ** 2);
+    const steps = Math.ceil(dist / 3);
+    for (let s = 1; s <= steps; s++) {
+      const t = s / steps;
+      out.push(svgToGps(x0 + (x1 - x0) * t, y0 + (y1 - y0) * t));
+    }
+  }
+  return out;
+}
 
-// Flow graph: short edges between junction points where traces diverge.
-const FLOW = ['55,90 110,78', '110,78 165,72', '165,72 220,70', '275,72 330,78'];
+const FFI_METHOD: Record<Props['method'], string> = {
+  corridor: 'corridor',
+  density: 'density_grid',
+  flow: 'flow_graph',
+};
 
-const HIGHLIGHTS: Record<Props['method'], string[]> = {
-  corridor: CORRIDOR,
-  density: DENSITY,
-  flow: FLOW,
+// Pre-computed fallback if FFI is unavailable (demo mode, Expo Go)
+const FALLBACK: Record<Props['method'], string[]> = {
+  corridor: [
+    '15,105 55,90 110,78 165,72 220,70 275,72 330,78 385,88',
+    '16,106 56,91 111,79 165,73',
+    '285,90 330,79 385,89',
+    '165,73 195,65 225,63 255,65 275,73',
+    '16,106 56,91 110,79',
+  ],
+  density: ['55,90 110,78 165,72', '275,72 330,78 385,88'],
+  flow: ['55,90 110,78', '110,78 165,72', '165,72 220,70', '275,72 330,78'],
 };
 
 export function DetectionMethodIllustration({ method }: Props) {
   const { isDark } = useTheme();
   const bg = isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.08)';
 
+  const [highlights, setHighlights] = useState<string[]>(FALLBACK[method]);
+
+  const traces = useMemo(() => buildTraces(), []);
+  const inputData = useMemo(() => {
+    const tracks: [string, { latitude: number; longitude: number }[]][] = traces.map((t, i) => [
+      `t${i}`,
+      densify(t.pts),
+    ]);
+    const sportTypes: Record<string, string> = {};
+    for (let i = 0; i < traces.length; i++) sportTypes[`t${i}`] = 'Run';
+    return {
+      tracksJson: JSON.stringify(tracks),
+      sportTypesJson: JSON.stringify(sportTypes),
+    };
+  }, [traces]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const run = async () => {
+      try {
+        const { getNativeModule } = require('@/lib/native/routeEngine');
+        const mod = getNativeModule();
+        if (!mod) {
+          setHighlights(FALLBACK[method]);
+          return;
+        }
+
+        const flowProx = method === 'flow' ? 50 : 150;
+        const config = JSON.stringify({
+          proximityThreshold: flowProx,
+          minSectionLength: 50,
+          maxSectionLength: 200000,
+          minActivities: 3,
+          clusterTolerance: 80,
+          samplePoints: 50,
+          detectionMode: 'discovery',
+          includePotentials: false,
+          scalePresets: [
+            { name: 'short', minLength: 50, maxLength: 500, minActivities: 2 },
+            { name: 'medium', minLength: 500, maxLength: 2000, minActivities: 2 },
+            { name: 'long', minLength: 2000, maxLength: 50000, minActivities: 2 },
+          ],
+          preserveHierarchy: true,
+          jaccardThreshold: 0.5,
+          minRoutes: 2,
+          enableDensitySplits: false,
+          mergeDistanceMultiplier: 4.0,
+          minCellVisits: 3,
+          divergenceThreshold: 0.1,
+          minCorridorTracks: 3,
+          detectionMethod: FFI_METHOD[method],
+        });
+
+        const resultJson: string = await mod.detectSectionsStandalone(
+          inputData.tracksJson,
+          inputData.sportTypesJson,
+          config
+        );
+
+        if (cancelled) return;
+
+        const sections: { polyline: { latitude: number; longitude: number }[] }[] =
+          JSON.parse(resultJson);
+
+        if (sections.length > 0) {
+          setHighlights(
+            sections.map((s) =>
+              s.polyline.map((p) => gpsToSvg(p.latitude, p.longitude).join(',')).join(' ')
+            )
+          );
+        } else {
+          setHighlights(FALLBACK[method]);
+        }
+      } catch {
+        setHighlights(FALLBACK[method]);
+      }
+    };
+
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [method, inputData]);
+
+  const displayTraces = BASE_TRACES.map((t) => t.pts.map((p) => p.join(',')).join(' '));
+
   return (
     <View style={{ backgroundColor: bg, borderRadius: 8, overflow: 'hidden', marginVertical: 8 }}>
       <Svg width="100%" height={170} viewBox="0 0 400 210">
-        {TRACES.map((points, i) => (
+        {displayTraces.map((points, i) => (
           <Polyline
             key={i}
             points={points}
@@ -59,7 +245,7 @@ export function DetectionMethodIllustration({ method }: Props) {
             strokeLinejoin="round"
           />
         ))}
-        {HIGHLIGHTS[method].map((points, i) => (
+        {highlights.map((points, i) => (
           <Polyline
             key={`h-${i}`}
             points={points}
