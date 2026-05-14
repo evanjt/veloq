@@ -1510,7 +1510,12 @@
     "reanalyzeWarning": "Esto reemplazará todas las secciones detectadas automáticamente que no hayan sido aceptadas. Las secciones aceptadas (fijadas) se conservarán.",
     "cleanupOverlapping": "Limpiar solapamientos",
     "cleanupResult": "{{count}} solapamientos eliminados",
-    "disconnectAndClearData": "Sign out and delete all data"
+    "disconnectAndClearData": "Sign out and delete all data",
+    "routeGroupingHeader": "Agrupación de rutas",
+    "sectionDetectionHeader": "Detección de secciones",
+    "sectionProximity": "Proximidad: {{meters}} m",
+    "sectionMinLength": "Longitud mín.: {{meters}} m",
+    "sectionMinActivities": "Visitas mín.: {{count}}"
   },
   "stats": {
     "activities": "Actividades",

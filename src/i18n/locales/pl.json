@@ -1510,7 +1510,12 @@
     "reanalyzeWarning": "Spowoduje to zastąpienie wszystkich niezaakceptowanych sekcji wykrytych automatycznie. Zaakceptowane (przypięte) sekcje zostaną zachowane.",
     "cleanupOverlapping": "Wyczyść nakładające się",
     "cleanupResult": "Usunięto {{count}} nakładających się",
-    "disconnectAndClearData": "Sign out and delete all data"
+    "disconnectAndClearData": "Sign out and delete all data",
+    "routeGroupingHeader": "Grupowanie tras",
+    "sectionDetectionHeader": "Wykrywanie sekcji",
+    "sectionProximity": "Bliskość: {{meters}} m",
+    "sectionMinLength": "Min. długość: {{meters}} m",
+    "sectionMinActivities": "Min. wizyt: {{count}}"
   },
   "stats": {
     "activities": "Aktywności",

@@ -1413,6 +1413,22 @@ impl PersistentRouteEngine {
                 point_density_blob,
             ])?;
 
+            // Diagnostic: a section that claims attached activities but has
+            // no portions to record is a save-time symptom of a detection-side
+            // bug (regression test: postprocess.rs `split_high_variance_sections
+            // _populates_activity_portions`). Surfacing it here means the next
+            // such bug shows up loudly instead of silently producing
+            // "0 sections attached" sections in the UI.
+            if !section.activity_ids.is_empty() && section.activity_portions.is_empty() {
+                log::warn!(
+                    "tracematch: [save_sections] section {} has {} activity_ids \
+                     but 0 activity_portions — junction table will get 0 rows for this section. \
+                     Detection-side bug.",
+                    section.id,
+                    section.activity_ids.len(),
+                );
+            }
+
             // Populate junction table with full portion details and cached performance metrics.
             // Time streams come from `self.time_streams` (warm cache) or
             // the pre-fetched `db_time_streams` batch above (cold).

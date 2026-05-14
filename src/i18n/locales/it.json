@@ -1510,7 +1510,12 @@
     "reanalyzeWarning": "Verranno sostituite tutte le sezioni rilevate automaticamente non accettate. Le sezioni accettate (fissate) saranno conservate.",
     "cleanupOverlapping": "Pulisci sovrapposizioni",
     "cleanupResult": "{{count}} sovrapposizioni rimosse",
-    "disconnectAndClearData": "Sign out and delete all data"
+    "disconnectAndClearData": "Sign out and delete all data",
+    "routeGroupingHeader": "Raggruppamento percorsi",
+    "sectionDetectionHeader": "Rilevamento sezioni",
+    "sectionProximity": "Prossimità: {{meters}} m",
+    "sectionMinLength": "Lunghezza min: {{meters}} m",
+    "sectionMinActivities": "Visite min: {{count}}"
   },
   "stats": {
     "activities": "Attività",

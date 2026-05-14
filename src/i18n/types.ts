@@ -328,6 +328,11 @@ export interface TranslationResource {
     detectionStrict: string;
     matchThreshold: string;
     endpointDistance: string;
+    routeGroupingHeader: string;
+    sectionDetectionHeader: string;
+    sectionProximity: string;
+    sectionMinLength: string;
+    sectionMinActivities: string;
     reanalyzeSections: string;
     reanalyzeWarning: string;
     cleanupOverlapping: string;

@@ -1510,7 +1510,12 @@
     "reanalyzeWarning": "Hiermee worden alle niet-geaccepteerde automatisch gedetecteerde secties vervangen. Geaccepteerde (vastgezette) secties blijven behouden.",
     "cleanupOverlapping": "Overlap opruimen",
     "cleanupResult": "{{count}} overlappende verwijderd",
-    "disconnectAndClearData": "Sign out and delete all data"
+    "disconnectAndClearData": "Sign out and delete all data",
+    "routeGroupingHeader": "Routegroepering",
+    "sectionDetectionHeader": "Sectiedetectie",
+    "sectionProximity": "Nabijheid: {{meters}} m",
+    "sectionMinLength": "Min. lengte: {{meters}} m",
+    "sectionMinActivities": "Min. bezoeken: {{count}}"
   },
   "stats": {
     "activities": "Activiteiten",

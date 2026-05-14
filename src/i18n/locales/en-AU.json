@@ -1510,7 +1510,12 @@
     "reanalyzeWarning": "This will replace all unaccepted auto-detected sections. Accepted (pinned) sections will be preserved.",
     "cleanupOverlapping": "Clean up overlapping",
     "cleanupResult": "Removed {{count}} overlapping",
-    "disconnectAndClearData": "Sign out and delete all data"
+    "disconnectAndClearData": "Sign out and delete all data",
+    "routeGroupingHeader": "Route grouping",
+    "sectionDetectionHeader": "Section detection",
+    "sectionProximity": "Proximity: {{meters}}m",
+    "sectionMinLength": "Min length: {{meters}}m",
+    "sectionMinActivities": "Min visits: {{count}}"
   },
   "stats": {
     "activities": "Activities",

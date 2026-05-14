@@ -1510,7 +1510,12 @@
     "reanalyzeWarning": "未承認の自動検出セクションをすべて置き換えます。承認済み(ピン留め)のセクションは保持されます。",
     "cleanupOverlapping": "重複を整理",
     "cleanupResult": "{{count}}件の重複を削除しました",
-    "disconnectAndClearData": "Sign out and delete all data"
+    "disconnectAndClearData": "Sign out and delete all data",
+    "routeGroupingHeader": "ルートのグループ化",
+    "sectionDetectionHeader": "セクション検出",
+    "sectionProximity": "近接距離: {{meters}} m",
+    "sectionMinLength": "最小長: {{meters}} m",
+    "sectionMinActivities": "最小訪問数: {{count}}"
   },
   "stats": {
     "activities": "アクティビティ",

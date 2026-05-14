@@ -1510,7 +1510,12 @@
     "reanalyzeWarning": "Dette erstatter alle ikke-accepterede automatisk detekterede sektioner. Accepterede (fastgjorte) sektioner bevares.",
     "cleanupOverlapping": "Ryd op i overlap",
     "cleanupResult": "{{count}} overlap fjernet",
-    "disconnectAndClearData": "Sign out and delete all data"
+    "disconnectAndClearData": "Sign out and delete all data",
+    "routeGroupingHeader": "Rutegruppering",
+    "sectionDetectionHeader": "Sektionsregistrering",
+    "sectionProximity": "Nærhed: {{meters}} m",
+    "sectionMinLength": "Min. længde: {{meters}} m",
+    "sectionMinActivities": "Min. besøg: {{count}}"
   },
   "stats": {
     "activities": "Aktiviteter",

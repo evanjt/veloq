@@ -23,16 +23,10 @@ import { TimelineSlider } from '@/components/maps';
 import { useActivityBoundsCache, useOldestActivityDate, useTheme } from '@/hooks';
 import { formatLocalDate } from '@/lib';
 import { useSyncDateRange, useRouteSettings } from '@/providers';
-import { applyDetectionStrictness } from '@/lib/native/routeEngine';
+import { applyDetectionPreset, DETECTION_PRESETS as PRESETS } from '@/lib/native/routeEngine';
 import { useSectionRescan } from '@/hooks/routes/useSectionRescan';
 import { settingsStyles } from './settingsStyles';
 import { colors, darkColors, spacing } from '@/theme';
-
-const PRESETS = [
-  { key: 'detectionRelaxed', value: 20, matchPct: 55, endpoint: 270 },
-  { key: 'default', value: 60, matchPct: 65, endpoint: 210 },
-  { key: 'detectionStrict', value: 90, matchPct: 72.5, endpoint: 165 },
-] as const;
 
 const SNAP_TIMING = { duration: 200, easing: Easing.out(Easing.cubic) };
 const THUMB_SIZE = 22;
@@ -311,7 +305,7 @@ export function SyncRangePanel() {
     (index: number) => {
       const preset = PRESETS[index];
       setDetectionStrictness(preset.value);
-      applyDetectionStrictness(preset.value);
+      applyDetectionPreset(preset);
     },
     [setDetectionStrictness]
   );
@@ -414,16 +408,30 @@ export function SyncRangePanel() {
             isDark={isDark}
           />
 
-          <Text
-            style={{
-              fontSize: 11,
-              color: isDark ? darkColors.textDisabled : colors.textDisabled,
-              marginTop: 4,
-            }}
-          >
-            {t('settings.matchThreshold', { pct: PRESETS[activePresetIndex].matchPct })}
-            {'  '}
+          <Text style={[styles.paramHeader, isDark && styles.paramHeaderDark]}>
+            {t('settings.routeGroupingHeader')}
+          </Text>
+          <Text style={[styles.paramLine, isDark && styles.paramLineDark]}>
             {t('settings.endpointDistance', { meters: PRESETS[activePresetIndex].endpoint })}
+            {'  '}
+            {t('settings.matchThreshold', { pct: PRESETS[activePresetIndex].matchPct })}
+          </Text>
+
+          <Text style={[styles.paramHeader, isDark && styles.paramHeaderDark]}>
+            {t('settings.sectionDetectionHeader')}
+          </Text>
+          <Text style={[styles.paramLine, isDark && styles.paramLineDark]}>
+            {t('settings.sectionProximity', {
+              meters: PRESETS[activePresetIndex].proximityThreshold,
+            })}
+            {'  '}
+            {t('settings.sectionMinLength', {
+              meters: PRESETS[activePresetIndex].minSectionLength,
+            })}
+            {'  '}
+            {t('settings.sectionMinActivities', {
+              count: PRESETS[activePresetIndex].minActivities,
+            })}
           </Text>
         </View>
 
@@ -506,6 +514,25 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.textPrimary,
     marginBottom: spacing.xs,
+  },
+  paramHeader: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginTop: spacing.sm,
+  },
+  paramHeaderDark: {
+    color: darkColors.textSecondary,
+  },
+  paramLine: {
+    fontSize: 11,
+    color: colors.textDisabled,
+    marginTop: 2,
+  },
+  paramLineDark: {
+    color: darkColors.textDisabled,
   },
   detectionSliderWrap: {
     paddingHorizontal: spacing.md,

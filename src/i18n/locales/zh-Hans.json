@@ -1510,7 +1510,12 @@
     "reanalyzeWarning": "这将替换所有未接受的自动检测路段。已接受(已固定)的路段将予以保留。",
     "cleanupOverlapping": "清理重叠",
     "cleanupResult": "已删除 {{count}} 个重叠",
-    "disconnectAndClearData": "Sign out and delete all data"
+    "disconnectAndClearData": "Sign out and delete all data",
+    "routeGroupingHeader": "路线分组",
+    "sectionDetectionHeader": "路段检测",
+    "sectionProximity": "邻近距离: {{meters}} m",
+    "sectionMinLength": "最短长度: {{meters}} m",
+    "sectionMinActivities": "最少访问次数: {{count}}"
   },
   "stats": {
     "activities": "活动",

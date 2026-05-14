@@ -16,6 +16,13 @@ pub mod settings_keys {
     pub const MATCH_MIN_MATCH_PCT: &str = "__match_min_match_pct";
     /// Endpoint distance threshold in metres (f64 stored as decimal string).
     pub const MATCH_ENDPOINT_THRESHOLD: &str = "__match_endpoint_threshold";
+
+    /// SectionConfig.proximity_threshold in metres (f64 stored as decimal string).
+    pub const SECTION_PROXIMITY_THRESHOLD: &str = "__section_proximity_threshold";
+    /// SectionConfig.min_section_length in metres (f64 stored as decimal string).
+    pub const SECTION_MIN_LENGTH: &str = "__section_min_length";
+    /// SectionConfig.min_activities (u32 stored as decimal string).
+    pub const SECTION_MIN_ACTIVITIES: &str = "__section_min_activities";
 }
 
 impl PersistentRouteEngine {
@@ -93,6 +100,28 @@ impl PersistentRouteEngine {
         if let Some(raw) = self.get_setting(settings_keys::MATCH_ENDPOINT_THRESHOLD)? {
             if let Ok(v) = raw.parse::<f64>() {
                 self.match_config.endpoint_threshold = v;
+            }
+        }
+        Ok(())
+    }
+
+    /// Mirror of `load_match_strictness_from_settings` for `section_config`.
+    /// Missing or unparseable values fall back to the default SectionConfig
+    /// fields already in place (set during `PersistentRouteEngine::new`).
+    pub(super) fn load_section_config_from_settings(&mut self) -> SqlResult<()> {
+        if let Some(raw) = self.get_setting(settings_keys::SECTION_PROXIMITY_THRESHOLD)? {
+            if let Ok(v) = raw.parse::<f64>() {
+                self.section_config.proximity_threshold = v;
+            }
+        }
+        if let Some(raw) = self.get_setting(settings_keys::SECTION_MIN_LENGTH)? {
+            if let Ok(v) = raw.parse::<f64>() {
+                self.section_config.min_section_length = v;
+            }
+        }
+        if let Some(raw) = self.get_setting(settings_keys::SECTION_MIN_ACTIVITIES)? {
+            if let Ok(v) = raw.parse::<u32>() {
+                self.section_config.min_activities = v;
             }
         }
         Ok(())

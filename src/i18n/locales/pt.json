@@ -1510,7 +1510,12 @@
     "reanalyzeWarning": "Isto substituirá todos os troços detetados automaticamente que não foram aceites. Troços aceites (fixados) serão preservados.",
     "cleanupOverlapping": "Limpar sobreposições",
     "cleanupResult": "{{count}} sobreposições removidas",
-    "disconnectAndClearData": "Sign out and delete all data"
+    "disconnectAndClearData": "Sign out and delete all data",
+    "routeGroupingHeader": "Agrupamento de rotas",
+    "sectionDetectionHeader": "Deteção de secções",
+    "sectionProximity": "Proximidade: {{meters}} m",
+    "sectionMinLength": "Comprimento mín.: {{meters}} m",
+    "sectionMinActivities": "Visitas mín.: {{count}}"
   },
   "stats": {
     "activities": "Atividades",

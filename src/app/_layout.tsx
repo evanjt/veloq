@@ -72,7 +72,12 @@ import {
 } from '@/components/ui';
 import { useUploadQueueProcessor } from '@/hooks/recording/useUploadQueueProcessor';
 import { useRouteReoptimization } from '@/hooks/routes/useRouteReoptimization';
-import { getRouteEngine, getRouteDbPath, applyDetectionStrictness } from '@/lib/native/routeEngine';
+import {
+  getRouteEngine,
+  getRouteDbPath,
+  applyDetectionPreset,
+  getDetectionPresetByValue,
+} from '@/lib/native/routeEngine';
 import {
   migrateSettingsToSqlite,
   onAppBackground,
@@ -175,7 +180,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
             // Apply persisted detection strictness if not default
             const strictness = getDetectionStrictness();
             if (strictness !== 60) {
-              applyDetectionStrictness(strictness);
+              applyDetectionPreset(getDetectionPresetByValue(strictness));
             }
             // Migrate AsyncStorage preferences to SQLite (one-time, idempotent)
             migrateSettingsToSqlite().catch(() => {});

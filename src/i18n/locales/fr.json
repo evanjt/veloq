@@ -1510,7 +1510,12 @@
     "reanalyzeWarning": "Cela remplacera toutes les sections détectées automatiquement non acceptées. Les sections acceptées (épinglées) seront conservées.",
     "cleanupOverlapping": "Nettoyer les chevauchements",
     "cleanupResult": "{{count}} chevauchements supprimés",
-    "disconnectAndClearData": "Sign out and delete all data"
+    "disconnectAndClearData": "Sign out and delete all data",
+    "routeGroupingHeader": "Regroupement des parcours",
+    "sectionDetectionHeader": "Détection des sections",
+    "sectionProximity": "Proximité : {{meters}} m",
+    "sectionMinLength": "Longueur min. : {{meters}} m",
+    "sectionMinActivities": "Visites min. : {{count}}"
   },
   "stats": {
     "activities": "Activités",

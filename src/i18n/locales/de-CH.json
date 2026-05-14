@@ -1510,7 +1510,12 @@
     "reanalyzeWarning": "Das ersetzt all nöd akzeptierti automatisch erkannti Abschnitt. Akzeptierti (aagheftet) Abschnitt bliibed erhalte.",
     "cleanupOverlapping": "Überschniidige bereinige",
     "cleanupResult": "{{count}} Überschniidige entfernt",
-    "disconnectAndClearData": "Sign out and delete all data"
+    "disconnectAndClearData": "Sign out and delete all data",
+    "routeGroupingHeader": "Routengruppierung",
+    "sectionDetectionHeader": "Abschnittserkennung",
+    "sectionProximity": "Nähe: {{meters}} m",
+    "sectionMinLength": "Min. Länge: {{meters}} m",
+    "sectionMinActivities": "Min. Besuche: {{count}}"
   },
   "stats": {
     "activities": "Aktivitäte",
