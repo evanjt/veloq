@@ -1,0 +1,49 @@
+appId: com.veloq.app.dev
+tags:
+  - tier2
+  - pack-settings
+---
+- runFlow:
+    file: helpers/setup-demo-mode.yaml
+
+- runFlow:
+    file: helpers/navigate-to-settings.yaml
+
+- scrollUntilVisible:
+    element:
+      id: "settings-detection-row"
+    direction: DOWN
+    timeout: 15000
+    speed: 40
+    visibilityPercentage: 20
+
+- tapOn:
+    id: "settings-detection-row"
+
+- extendedWaitUntil:
+    visible:
+      id: "detection-method-chips"
+    timeout: 10000
+
+- assertVisible:
+    id: "detection-method-corridor"
+
+- assertVisible:
+    id: "detection-method-density"
+
+- assertVisible:
+    id: "detection-method-flow"
+
+- tapOn:
+    id: "detection-method-density"
+
+- tapOn:
+    id: "detection-method-flow"
+
+- tapOn:
+    id: "detection-method-corridor"
+
+- assertNotVisible:
+    text: "NaN"
+
+- takeScreenshot: "detection-settings"

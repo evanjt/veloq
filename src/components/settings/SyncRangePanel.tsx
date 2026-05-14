@@ -382,6 +382,7 @@ export function SyncRangePanel() {
         <Pressable
           style={[styles.navRow, isDark && styles.navRowDark]}
           onPress={() => router.push('/detection-settings' as never)}
+          testID="settings-detection-row"
         >
           <View>
             <Text style={[styles.navRowTitle, isDark && styles.navRowTitleDark]}>
