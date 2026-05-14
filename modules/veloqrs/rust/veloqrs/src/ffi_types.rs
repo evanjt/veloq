@@ -415,6 +415,10 @@ pub struct FfiSectionConfig {
     pub include_potentials: bool,
     pub scale_presets: Vec<FfiScalePreset>,
     pub preserve_hierarchy: bool,
+    pub jaccard_threshold: f64,
+    pub min_routes: u32,
+    pub enable_density_splits: bool,
+    pub merge_distance_multiplier: f64,
 }
 
 impl From<FfiSectionConfig> for tracematch::SectionConfig {
@@ -434,6 +438,10 @@ impl From<FfiSectionConfig> for tracematch::SectionConfig {
                 .map(tracematch::ScalePreset::from)
                 .collect(),
             preserve_hierarchy: c.preserve_hierarchy,
+            jaccard_threshold: c.jaccard_threshold,
+            min_routes: c.min_routes,
+            enable_density_splits: c.enable_density_splits,
+            merge_distance_multiplier: c.merge_distance_multiplier,
         }
     }
 }
@@ -456,6 +464,10 @@ impl From<&tracematch::SectionConfig> for FfiSectionConfig {
                 .map(FfiScalePreset::from)
                 .collect(),
             preserve_hierarchy: c.preserve_hierarchy,
+            jaccard_threshold: c.jaccard_threshold,
+            min_routes: c.min_routes,
+            enable_density_splits: c.enable_density_splits,
+            merge_distance_multiplier: c.merge_distance_multiplier,
         }
     }
 }
@@ -478,6 +490,10 @@ impl Default for FfiSectionConfig {
                 .map(FfiScalePreset::from)
                 .collect(),
             preserve_hierarchy: c.preserve_hierarchy,
+            jaccard_threshold: c.jaccard_threshold,
+            min_routes: c.min_routes,
+            enable_density_splits: c.enable_density_splits,
+            merge_distance_multiplier: c.merge_distance_multiplier,
         }
     }
 }
