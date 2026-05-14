@@ -464,13 +464,19 @@ pub fn detect_sections_standalone(
     tracks_json: String,
     sport_types_json: String,
     config_json: String,
-) -> Result<String, String> {
-    let tracks: Vec<(String, Vec<GpsPoint>)> =
-        serde_json::from_str(&tracks_json).map_err(|e| e.to_string())?;
+) -> Result<String, crate::VeloqError> {
+    let tracks: Vec<(String, Vec<GpsPoint>)> = serde_json::from_str(&tracks_json)
+        .map_err(|e| crate::VeloqError::ParseError {
+            msg: e.to_string(),
+        })?;
     let sport_types: std::collections::HashMap<String, String> =
-        serde_json::from_str(&sport_types_json).map_err(|e| e.to_string())?;
-    let config: tracematch::SectionConfig =
-        serde_json::from_str(&config_json).map_err(|e| e.to_string())?;
+        serde_json::from_str(&sport_types_json).map_err(|e| crate::VeloqError::ParseError {
+            msg: e.to_string(),
+        })?;
+    let config: tracematch::SectionConfig = serde_json::from_str(&config_json)
+        .map_err(|e| crate::VeloqError::ParseError {
+            msg: e.to_string(),
+        })?;
 
     let groups = if matches!(config.detection_method, tracematch::DetectionMethod::DensityGrid) {
         let match_config = tracematch::MatchConfig::default();
@@ -486,5 +492,7 @@ pub fn detect_sections_standalone(
     };
 
     let sections = tracematch::detect_sections(&tracks, &sport_types, &groups, &config);
-    serde_json::to_string(&sections).map_err(|e| e.to_string())
+    serde_json::to_string(&sections).map_err(|e| crate::VeloqError::ParseError {
+        msg: e.to_string(),
+    })
 }
