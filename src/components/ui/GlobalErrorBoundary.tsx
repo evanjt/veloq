@@ -97,10 +97,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#FC4C02',
+    borderColor: '#0D9488',
   },
   reloadText: {
-    color: '#FC4C02',
+    color: '#0D9488',
     fontSize: 16,
     fontWeight: '600',
   },

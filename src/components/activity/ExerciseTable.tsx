@@ -172,7 +172,7 @@ export function ExerciseTable({
           </Text>
         </View>
         <View style={styles.infoRow}>
-          <View style={[styles.infoDot, { backgroundColor: brand.orangeLight }]} />
+          <View style={[styles.infoDot, { backgroundColor: brand.tealDark }]} />
           <Text style={[styles.infoText, isDark && styles.infoTextDark]}>
             {hasGender ? (
               <>

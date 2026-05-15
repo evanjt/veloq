@@ -550,6 +550,6 @@ const styles = StyleSheet.create({
   viewDetailsText: {
     fontSize: 15,
     fontWeight: '600',
-    color: brand.orange,
+    color: brand.tealLight,
   },
 });

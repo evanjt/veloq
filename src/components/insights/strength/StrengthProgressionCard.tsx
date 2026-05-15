@@ -64,7 +64,7 @@ export const StrengthProgressionCard = React.memo(function StrengthProgressionCa
                       3,
                       (point.weightedSets / maxProgressWeightedSets) * MINI_BAR_HEIGHT
                     ),
-                    backgroundColor: isCurrent ? brand.orange : '#FB8C4E',
+                    backgroundColor: isCurrent ? brand.tealLight : brand.tealDark,
                   },
                 ]}
               />

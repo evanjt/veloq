@@ -2,6 +2,7 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { View } from 'react-native';
 import Svg, { Polyline, Line, Text as SvgText } from 'react-native-svg';
 import { useTheme } from '@/hooks';
+import { brand } from '@/theme';
 
 interface Props {
   method: 'corridor' | 'density' | 'flow';
@@ -322,7 +323,7 @@ export function DetectionMethodIllustration({
             key={`h-${method}-${i}`}
             points={points}
             fill="none"
-            stroke="#FC4C02"
+            stroke={brand.tealLight}
             strokeWidth={3}
             opacity={0.9}
             strokeLinecap="round"

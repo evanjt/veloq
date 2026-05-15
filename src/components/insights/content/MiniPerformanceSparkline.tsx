@@ -20,7 +20,7 @@ export const MiniPerformanceSparkline = React.memo(function MiniPerformanceSpark
   data,
   bestIndex,
   height = 100,
-  color = brand.orange,
+  color = brand.tealLight,
 }: MiniPerformanceSparklineProps) {
   const { isDark } = useTheme();
 

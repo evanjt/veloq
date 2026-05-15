@@ -446,7 +446,7 @@ export default function DetectionSettingsScreen() {
             style={[
               styles.rescanBtn,
               isDirty && !isScanning
-                ? { backgroundColor: brand.orange }
+                ? { backgroundColor: brand.tealLight }
                 : {
                     backgroundColor: surface,
                     borderColor: border,
@@ -513,9 +513,9 @@ function ParamRow({
         maximumValue={max}
         step={step}
         onValueChange={onChange}
-        minimumTrackTintColor={brand.orange}
+        minimumTrackTintColor={brand.tealLight}
         maximumTrackTintColor={trackBg}
-        thumbTintColor={brand.orange}
+        thumbTintColor={brand.tealLight}
       />
     </View>
   );
@@ -585,8 +585,8 @@ const styles = StyleSheet.create({
     borderWidth: StyleSheet.hairlineWidth,
   },
   chipActive: {
-    backgroundColor: brand.orange,
-    borderColor: brand.orange,
+    backgroundColor: brand.tealLight,
+    borderColor: brand.tealLight,
   },
   chipText: {
     ...typography.bodySmall,

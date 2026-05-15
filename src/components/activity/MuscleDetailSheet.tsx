@@ -9,8 +9,8 @@ import { colors, darkColors, spacing, typography, brand } from '@/theme';
 import type { MuscleGroupDetail } from '@/hooks/activities/useMuscleDetail';
 
 const SHEET_HEIGHT = Dimensions.get('window').height * 0.55;
-const PRIMARY_COLOR = brand.orange;
-const SECONDARY_COLOR = brand.orangeLight;
+const PRIMARY_COLOR = brand.tealLight;
+const SECONDARY_COLOR = brand.tealDark;
 
 interface MuscleDetailSheetProps {
   detail: MuscleGroupDetail | null;

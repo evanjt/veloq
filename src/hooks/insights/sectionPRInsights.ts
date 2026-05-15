@@ -25,7 +25,7 @@ export function generateSectionPRInsights(
         category: 'section_pr',
         priority: 1,
         icon: 'trophy-outline',
-        iconColor: brand.orange,
+        iconColor: brand.gold,
         title: t('insights.sectionPr', { name: pr.sectionName }),
         subtitle: t('insights.sectionPrSubtitle', {
           time: formatDuration(pr.bestTime),

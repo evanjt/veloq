@@ -40,7 +40,7 @@ export function initializeNotifications(): void {
         'Notifications about personal records, fitness milestones, and training insights',
       importance: Notifications.AndroidImportance.HIGH,
       vibrationPattern: [0, 250],
-      lightColor: brand.orange,
+      lightColor: brand.tealLight,
     });
     Notifications.setNotificationChannelAsync(SYNC_CHANNEL_ID, {
       name: 'Sync Progress',

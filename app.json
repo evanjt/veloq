@@ -102,7 +102,7 @@
         "expo-notifications",
         {
           "icon": "./src/assets/icon.png",
-          "color": "#FC4C02"
+          "color": "#0D9488"
         }
       ],
       [

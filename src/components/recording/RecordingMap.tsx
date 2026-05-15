@@ -12,7 +12,7 @@ import { useMapPreferences } from '@/providers';
 import { getMapStyle } from '@/components/maps/mapStyles';
 import { darkColors, brand } from '@/theme';
 
-const BRAND_COLOR = brand.orange;
+const BRAND_COLOR = brand.tealLight;
 const EXCLUDED_COLOR = 'rgba(150, 150, 150, 0.5)';
 const POSITION_DOT_COLOR = '#2563EB';
 const POSITION_DOT_HALO = '#FFFFFF';

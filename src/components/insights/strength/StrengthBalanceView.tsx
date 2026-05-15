@@ -355,11 +355,11 @@ const styles = StyleSheet.create({
   },
   balanceScaleSide: {
     height: '100%',
-    backgroundColor: brand.orange,
+    backgroundColor: brand.tealLight,
   },
   balanceScaleSideSecondary: {
     height: '100%',
-    backgroundColor: '#FB8C4E',
+    backgroundColor: brand.tealDark,
   },
   balanceScaleGap: {
     width: 2,

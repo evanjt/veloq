@@ -86,7 +86,7 @@ export function SectionScatterChart({
   useTimeAxis,
 }: SectionScatterChartProps) {
   const showPace = isRunningActivity(activityType);
-  const activityColor = isDark ? '#FC4C02' : colors.primary;
+  const activityColor = isDark ? darkColors.primary : colors.primary;
   const sectionDistance = chartData[0]?.sectionDistance || 0;
 
   const effectiveHeight = mini ? MINI_HEIGHT : CHART_HEIGHT;

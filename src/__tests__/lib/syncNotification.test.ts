@@ -23,7 +23,7 @@ jest.mock('expo-router', () => ({
 }));
 
 jest.mock('@/theme', () => ({
-  brand: { orange: '#FC4C02' },
+  brand: { tealLight: '#0D9488' },
 }));
 
 import {

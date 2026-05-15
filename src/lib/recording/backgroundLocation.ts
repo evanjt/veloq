@@ -53,7 +53,7 @@ export async function startBackgroundLocation(options?: {
     foregroundService: {
       notificationTitle: options?.notificationTitle ?? 'Recording activity',
       notificationBody: options?.notificationBody ?? 'Veloq is tracking your location',
-      notificationColor: brand.orange,
+      notificationColor: brand.tealLight,
     },
     activityType: Location.ActivityType.Fitness,
     showsBackgroundLocationIndicator: true,

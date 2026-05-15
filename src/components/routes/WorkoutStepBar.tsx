@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
-import { spacing, brand } from '@/theme';
+import { spacing, workoutStepColors } from '@/theme';
 import type { WorkoutStep } from '@/types';
 
 interface WorkoutStepBarProps {
@@ -11,7 +11,7 @@ interface WorkoutStepBarProps {
 /**
  * Visual workout intensity bar showing workout structure as colored blocks.
  * Each block width is proportional to duration. Colors encode intensity:
- * warmup=amber, work=orange/red, rest=grey, cooldown=blue.
+ * warmup/tempo=amber, threshold/VO2=red, rest=grey, cooldown=blue.
  */
 export const WorkoutStepBar = React.memo(function WorkoutStepBar({
   steps,
@@ -65,35 +65,35 @@ function flattenSteps(steps: WorkoutStep[]): WorkoutStep[] {
 }
 
 function getStepColor(step: WorkoutStep): string {
-  if (step.warmup) return '#FFA726'; // amber
-  if (step.cooldown) return '#64B5F6'; // blue
+  if (step.warmup) return workoutStepColors.warmup;
+  if (step.cooldown) return workoutStepColors.cooldown;
 
-  // Check intensity from resolved power targets
+  // Check intensity from resolved power targets.
+  // Estimate intensity relative to typical FTP (~280W); exact FTP isn't
+  // critical, we just need visual differentiation.
   const power = step._power;
   if (power) {
     const target = power.value ?? power.end ?? power.start ?? 0;
-    if (target === 0) return '#BDBDBD'; // grey (rest)
-    // Estimate intensity relative to typical FTP (~280W)
-    // Exact FTP isn't critical here — we just need visual differentiation
-    if (target < 150) return '#BDBDBD'; // rest/recovery
-    if (target < 220) return '#FFA726'; // endurance/tempo
-    return brand.orange; // threshold/sweet spot/VO2
+    if (target === 0) return workoutStepColors.rest;
+    if (target < 150) return workoutStepColors.rest;
+    if (target < 220) return workoutStepColors.tempo;
+    return workoutStepColors.threshold;
   }
 
   // Check HR targets
   if (step.hr) {
     const target = step.hr.value ?? step.hr.end ?? 0;
-    if (target === 0) return '#BDBDBD';
-    if (target < 140) return '#BDBDBD';
-    if (target < 160) return '#FFA726';
-    return brand.orange;
+    if (target === 0) return workoutStepColors.rest;
+    if (target < 140) return workoutStepColors.rest;
+    if (target < 160) return workoutStepColors.tempo;
+    return workoutStepColors.threshold;
   }
 
   // No target = rest interval
-  if (step.text?.toLowerCase().includes('recover')) return '#BDBDBD';
-  if (step.text?.toLowerCase().includes('rest')) return '#BDBDBD';
+  if (step.text?.toLowerCase().includes('recover')) return workoutStepColors.rest;
+  if (step.text?.toLowerCase().includes('rest')) return workoutStepColors.rest;
 
-  return brand.orange; // default to work
+  return workoutStepColors.threshold;
 }
 
 const styles = StyleSheet.create({

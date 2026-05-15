@@ -203,14 +203,14 @@ function StrengthActivityCardInner({ activity, strengthData }: StrengthActivityC
                 gender="male"
                 side="front"
                 scale={0.38}
-                colors={[brand.orangeLight, brand.orange]}
+                colors={[brand.tealDark, brand.tealLight]}
               />
               <Body
                 data={strengthData.muscles}
                 gender="male"
                 side="back"
                 scale={0.38}
-                colors={[brand.orangeLight, brand.orange]}
+                colors={[brand.tealDark, brand.tealLight]}
               />
             </View>
             <View style={styles.strengthStats}>
