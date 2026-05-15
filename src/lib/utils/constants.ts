@@ -150,7 +150,7 @@ export const SECTION_PATTERNS: (number[] | undefined)[] = [
 
 /**
  * 10 distinct hues chosen for contrast on both light and dark map styles.
- * Avoids pure red (confusion with primary #FC4C02) and pure white/black.
+ * Avoids the teal primary and pure white/black for visibility on map tiles.
  */
 export const SECTION_COLORS = [
   '#00BCD4', // cyan

@@ -1,6 +1,6 @@
 # Regional Map — Heatmap trace colour (US-R3)
 # When an activity is selected AND heatmap is on, its polyline is drawn in
-# brand orange (#FC4C02). With heatmap off it falls back to the sport colour.
+# the brand teal (#0D9488). With heatmap off it falls back to the sport colour.
 # Screenshot-based assertion: basemap tiles don't need to load — the polyline
 # colour is a MapLibre expression, not tile-derived.
 

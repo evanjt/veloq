@@ -52,7 +52,7 @@ export const ShaderWarmup = React.memo(function ShaderWarmup() {
           </Rect>
 
           {/* Circle — scatter chart dots */}
-          <Circle cx={0.5} cy={0.5} r={0.25} color="#FC4C02" />
+          <Circle cx={0.5} cy={0.5} r={0.25} color="#0D9488" />
         </Group>
       </Canvas>
     </View>

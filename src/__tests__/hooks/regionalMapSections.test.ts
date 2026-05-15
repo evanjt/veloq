@@ -14,7 +14,7 @@
 // react-native + @expo/vector-icons. Mock the small piece of that module
 // we actually use so the test doesn't have to bring in the whole RN stack.
 jest.mock('@/components/maps/ActivityTypeFilter', () => ({
-  getActivityTypeConfig: () => ({ color: '#FC4C02', icon: 'bike', label: 'Ride' }),
+  getActivityTypeConfig: () => ({ color: '#3B82F6', icon: 'bike', label: 'Ride' }),
 }));
 
 import { renderHook } from '@testing-library/react-native';

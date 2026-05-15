@@ -345,7 +345,7 @@ const styles = StyleSheet.create({
     borderRadius: LOUPE_SIZE / 2,
     overflow: 'hidden',
     borderWidth: 3,
-    borderColor: brand.orange,
+    borderColor: brand.tealLight,
     backgroundColor: '#F0F0F0',
     justifyContent: 'center',
     alignItems: 'center',

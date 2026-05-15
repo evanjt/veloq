@@ -26,8 +26,8 @@ interface MuscleGroupViewProps {
   exerciseSets?: ExerciseSet[];
 }
 
-const PRIMARY_COLOR = brand.orange;
-const SECONDARY_COLOR = brand.orangeLight;
+const PRIMARY_COLOR = brand.tealLight;
+const SECONDARY_COLOR = brand.tealDark;
 const BODY_COLORS: readonly string[] = [SECONDARY_COLOR, PRIMARY_COLOR] as const;
 
 export function MuscleGroupView({

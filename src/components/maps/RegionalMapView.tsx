@@ -777,7 +777,7 @@ export function RegionalMapView({
               style={{
                 lineColor: selected
                   ? isHeatmapEnabled() && showActivities
-                    ? brand.orange
+                    ? brand.tealLight
                     : getActivityTypeConfig(selected.activity.type).color
                   : '#000',
                 lineWidth: 5,

@@ -44,10 +44,27 @@ export const brand = {
   blue: '#5B9BD5',
   blueLight: '#7DB3E3',
   blueDark: '#3A7AB8',
+} as const;
 
-  // Orange - intervals.icu brand color
-  orange: '#FC4C02',
-  orangeLight: '#FCA67A',
+// Strength volume heatmap: 5-step teal ramp (light to saturated).
+// Used by the muscle body diagram to encode weighted-set volume per muscle.
+export const strengthRamp = [
+  '#CCFBF1', // Teal-100
+  '#99F6E4', // Teal-200
+  '#5EEAD4', // Teal-300
+  '#2DD4BF', // Teal-400
+  '#0D9488', // Teal-600
+] as const;
+
+// Workout step intensity colors for WorkoutStepBar.
+// warmup/tempo use amber (warning), threshold/VO2 use red (error),
+// cooldown uses light blue, rest/recovery use gray.
+export const workoutStepColors = {
+  warmup: '#FFA726', // amber
+  cooldown: '#64B5F6', // light blue
+  rest: '#BDBDBD',
+  tempo: '#FFA726', // amber
+  threshold: '#EF4444', // red
 } as const;
 
 // =============================================================================
@@ -206,7 +223,7 @@ export const colors = {
 
   // Insight category colors
   insightGold: '#D4AF37', // brand.gold — unified PR color
-  insightOrange: '#F97316',
+  insightStrength: brand.tealLight, // teal for strength progression
 
   // Warning banner colors
   warningBannerBg: '#451A03',
@@ -419,7 +436,7 @@ export const insightCategoryColors: Record<string, string> = {
   section_pr: colors.insightGold,
   fitness_milestone: colors.success,
   period_comparison: brand.blue,
-  strength_progression: colors.insightOrange,
+  strength_progression: colors.insightStrength,
   strength_balance: colors.error,
   hrv_trend: colors.formOptimal,
   stale_pr: colors.warning,

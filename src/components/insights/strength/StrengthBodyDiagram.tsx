@@ -8,17 +8,10 @@ import { useTranslation } from 'react-i18next';
 import { BodyPairWithLoupe } from '@/components/activity/BodyPairWithLoupe';
 import { useTheme } from '@/hooks';
 import { MUSCLE_DISPLAY_NAMES, type MuscleSlug } from '@/lib/strength/exerciseMuscleMap';
-import { colors, darkColors, spacing, layout, brand } from '@/theme';
+import { colors, darkColors, spacing, layout, brand, strengthRamp } from '@/theme';
 import type { MuscleVolume } from '@/types';
 
-// 5-step color ramp from light to saturated for continuous heat map
-const BODY_COLORS: readonly string[] = [
-  '#FDDCC4', // 1 - very light
-  brand.orangeLight, // 2 - light orange
-  '#FB8C4E', // 3 - medium orange
-  '#FC6A1A', // 4 - dark orange
-  brand.orange, // 5 - full primary
-] as const;
+const BODY_COLORS: readonly string[] = strengthRamp;
 const BODY_FILL_LIGHT = '#3f3f3f';
 const BODY_FILL_DARK = '#555555';
 
@@ -62,7 +55,7 @@ export const StrengthBodyDiagram = React.memo(function StrengthBodyDiagram({
             style={[
               styles.subtitleDot,
               {
-                backgroundColor: selectedVolume.primarySets > 0 ? brand.orange : brand.orangeLight,
+                backgroundColor: selectedVolume.primarySets > 0 ? brand.tealLight : brand.tealDark,
               },
             ]}
           />
@@ -99,14 +92,7 @@ export const StrengthBodyDiagram = React.memo(function StrengthBodyDiagram({
         </Text>
         <View style={styles.scaleBar}>
           <LinearGradient
-            colors={[
-              BODY_FILL_LIGHT,
-              '#FDDCC4',
-              brand.orangeLight,
-              '#FB8C4E',
-              '#FC6A1A',
-              brand.orange,
-            ]}
+            colors={[BODY_FILL_LIGHT, ...strengthRamp]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={styles.scaleGradient}

@@ -12,6 +12,8 @@ export {
   zoneColors,
   colorWithOpacity,
   insightCategoryColors,
+  strengthRamp,
+  workoutStepColors,
   sectionPalette,
   sectionPaletteIndex,
   sectionPaletteExpression,
