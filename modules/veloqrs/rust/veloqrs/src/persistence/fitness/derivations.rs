@@ -112,10 +112,10 @@ impl PersistentRouteEngine {
             previous_date: None,
         };
 
-        // Use dedicated FTP history table for 10-30x speedup (was 10-30ms, now <1ms)
-        // LIMIT 20 to scan past repeated identical FTP values to find the first different one
+        // Filter to cycling sports only — running/other FTP values are distinct metrics
         let mut stmt = match self.db.prepare(
             "SELECT ftp, date FROM ftp_history
+             WHERE sport_type IN ('Ride', 'VirtualRide', 'MountainBikeRide', 'GravelRide', 'TrackRide', 'Cyclocross', 'Handcycle', 'Velomobile', 'EBikeRide')
              ORDER BY date DESC
              LIMIT 20",
         ) {

@@ -149,11 +149,7 @@ export const FitnessTrendSections = React.memo(function FitnessTrendSections({
                   <ActivityIndicator size="small" color={colors.primary} />
                 </View>
               ) : (
-                <FTPTrendChart
-                  data={eftpHistory}
-                  currentFTP={currentFTP ?? undefined}
-                  height={180}
-                />
+                <FTPTrendChart data={eftpHistory} height={180} />
               )}
             </View>
           </CollapsibleSection>

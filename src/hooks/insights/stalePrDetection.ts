@@ -242,7 +242,7 @@ export function stalePROpportunityToInsight(
 
   const isPower = opportunity.fitnessMetric === 'power';
   const isSwimPace = opportunity.unit === '/100m';
-  const metricLabel = isPower ? 'FTP' : isSwimPace ? 'CSS' : 'Threshold pace';
+  const metricLabel = isPower ? 'Cycling FTP' : isSwimPace ? 'Swim CSS' : 'Running threshold pace';
   const currentStr = isPower
     ? `${Math.round(opportunity.currentValue)}${opportunity.unit}`
     : isSwimPace
@@ -438,7 +438,7 @@ export function generateStalePRInsights(
         (filtered.length > MAX_STALE_PR_SECTIONS_IN_BODY
           ? ` (+${filtered.length - MAX_STALE_PR_SECTIONS_IN_BODY} more)`
           : ''),
-      navigationTarget: '/routes?tab=sections',
+      navigationTarget: `/section/${filtered[0].sectionId}`,
       timestamp: now,
       isNew: false,
       meta: {

@@ -707,7 +707,7 @@ describe('detectStalePROpportunities', () => {
 
     it('includes methodology', () => {
       const insight = stalePROpportunityToInsight(opportunity, mockT);
-      expect(insight.methodology!.name).toBe('FTP-PR cross-reference');
+      expect(insight.methodology!.name).toBe('Cycling FTP-PR cross-reference');
     });
 
     it('includes fitness values in body', () => {
@@ -737,8 +737,8 @@ describe('detectStalePROpportunities', () => {
         unit: '/km',
       };
       const insight = stalePROpportunityToInsight(paceOpportunity, mockT);
-      expect(insight.methodology!.name).toBe('Threshold pace-PR cross-reference');
-      expect(insight.body).toContain('Threshold pace');
+      expect(insight.methodology!.name).toBe('Running threshold pace-PR cross-reference');
+      expect(insight.body).toContain('Running threshold pace');
       expect(insight.body).not.toContain('FTP');
     });
   });

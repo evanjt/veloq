@@ -12,8 +12,6 @@ import { formatMonth } from '@/lib';
 interface FTPTrendChartProps {
   /** eFTP history data points */
   data?: eFTPPoint[];
-  /** Current eFTP value */
-  currentFTP?: number;
   /** Chart height */
   height?: number;
 }
@@ -21,7 +19,7 @@ interface FTPTrendChartProps {
 // Chart color - yellow/gold for FTP
 const CHART_COLOR = '#FFB300';
 
-export function FTPTrendChart({ data, currentFTP, height = 180 }: FTPTrendChartProps) {
+export function FTPTrendChart({ data, height = 180 }: FTPTrendChartProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
 
@@ -55,11 +53,11 @@ export function FTPTrendChart({ data, currentFTP, height = 180 }: FTPTrendChartP
     return {
       minFTP: Math.min(...values) - 10,
       maxFTP: Math.max(...values) + 10,
-      latestFTP: currentFTP || latest,
+      latestFTP: latest,
       ftpChange: change,
       changePercent: percent,
     };
-  }, [chartData, currentFTP]);
+  }, [chartData]);
 
   const isImproving = ftpChange >= 0;
 
