@@ -17,7 +17,13 @@ import { ComponentErrorBoundary, DeviceAttribution } from '@/components/ui';
 import { DebugInfoPanel, DebugWarningBanner } from '@/components/routes';
 import { POWER_ZONE_COLORS, HR_ZONE_COLORS } from '@/hooks';
 import { useFFITimer } from '@/hooks/debug/useFFITimer';
-import { formatDurationHuman, isCyclingActivity, getAvailableCharts, CHART_CONFIGS } from '@/lib';
+import {
+  formatDurationHuman,
+  isCyclingActivity,
+  isSwimmingActivity,
+  getAvailableCharts,
+  CHART_CONFIGS,
+} from '@/lib';
 import type { ChartTypeId } from '@/lib';
 import type { ActivityDetail, ActivityStreams, ActivityInterval, WellnessData } from '@/types';
 import { colors, darkColors, spacing, typography, layout, opacity, shadows } from '@/theme';
@@ -105,6 +111,24 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
   const availableCharts = useMemo(() => {
     return getAvailableCharts(streams || {});
   }, [streams]);
+
+  // Override pace chart config for swimming (min/100m instead of min/km)
+  const effectiveChartConfigs = useMemo(() => {
+    if (!activity || !isSwimmingActivity(activity.type)) return CHART_CONFIGS;
+    return {
+      ...CHART_CONFIGS,
+      pace: {
+        ...CHART_CONFIGS.pace,
+        unit: '/100m',
+        unitImperial: '/100yd',
+        getStream: (s: typeof streams) => {
+          if (!s?.velocity_smooth) return undefined;
+          return s.velocity_smooth.map((v: number) => (v > 0 ? 100 / v / 60 : 0));
+        },
+        convertToImperial: (v: number) => v * 1.09361,
+      },
+    };
+  }, [activity, streams]);
 
   // Determine effective x-axis mode and whether toggle is available
   const hasDistance = (streams?.distance?.length ?? 0) > 0;
@@ -262,7 +286,7 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
                 <CombinedPlot
                   streams={streams}
                   selectedCharts={selectedCharts}
-                  chartConfigs={CHART_CONFIGS}
+                  chartConfigs={effectiveChartConfigs}
                   height={180}
                   onPointSelect={onPointSelect}
                   onInteractionChange={onInteractionChange}
@@ -509,7 +533,7 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
                 <CombinedPlot
                   streams={streams}
                   selectedCharts={selectedCharts}
-                  chartConfigs={CHART_CONFIGS}
+                  chartConfigs={effectiveChartConfigs}
                   height={windowHeight - 100}
                   onPointSelect={onPointSelect}
                   onInteractionChange={onInteractionChange}

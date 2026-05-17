@@ -7,7 +7,14 @@ import React, { useMemo } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
-import { getIntlLocale, formatDuration, formatPace, isRunningActivity } from '@/lib';
+import {
+  getIntlLocale,
+  formatDuration,
+  formatPace,
+  formatSwimPace,
+  isRunningActivity,
+  isSwimmingActivity,
+} from '@/lib';
 import { colors, darkColors, spacing, typography, layout } from '@/theme';
 import type { PerformanceDataPoint, DirectionStats, ActivityType } from '@/types';
 import type { SectionPerformanceRecord } from '@/hooks/routes/useSectionPerformances';
@@ -41,6 +48,8 @@ export function SectionInfoCard({
   const { t } = useTranslation();
 
   const isRunning = isRunningActivity(sportType as ActivityType);
+  const isSwimming = isSwimmingActivity(sportType as ActivityType);
+  const showPace = isRunning || isSwimming;
 
   // Compute first and last visited dates from chart data
   const { firstDate, lastDate } = useMemo(() => {
@@ -62,8 +71,9 @@ export function SectionInfoCard({
     const rev = bestReverseRecord;
     const best = fwd && rev ? (fwd.bestTime <= rev.bestTime ? fwd : rev) : (fwd ?? rev);
     if (!best) return null;
-    return isRunning ? formatPace(best.bestPace) : formatDuration(best.bestTime);
-  }, [bestForwardRecord, bestReverseRecord, isRunning]);
+    if (!showPace) return formatDuration(best.bestTime);
+    return isSwimming ? formatSwimPace(best.bestPace) : formatPace(best.bestPace);
+  }, [bestForwardRecord, bestReverseRecord, showPace, isSwimming]);
 
   // Average time/pace across both directions (weighted by count)
   const avgDisplay = useMemo(() => {
@@ -74,25 +84,26 @@ export function SectionInfoCard({
       const totalCount = fwd.count + rev.count;
       if (totalCount === 0) return null;
       const weightedAvg = (fwd.avgTime * fwd.count + rev.avgTime * rev.count) / totalCount;
-      if (isRunning) {
-        // Convert avg time to pace (m/s) using section distance from best record
+      if (showPace) {
         const dist = bestForwardRecord?.sectionDistance ?? bestReverseRecord?.sectionDistance;
         if (dist && dist > 0) {
-          return formatPace(dist / weightedAvg);
+          const speed = dist / weightedAvg;
+          return isSwimming ? formatSwimPace(speed) : formatPace(speed);
         }
       }
       return formatDuration(weightedAvg);
     }
     const stats = fwd ?? rev;
     if (!stats || stats.avgTime == null) return null;
-    if (isRunning) {
+    if (showPace) {
       const dist = bestForwardRecord?.sectionDistance ?? bestReverseRecord?.sectionDistance;
       if (dist && dist > 0) {
-        return formatPace(dist / stats.avgTime);
+        const speed = dist / stats.avgTime;
+        return isSwimming ? formatSwimPace(speed) : formatPace(speed);
       }
     }
     return formatDuration(stats.avgTime);
-  }, [forwardStats, reverseStats, isRunning, bestForwardRecord, bestReverseRecord]);
+  }, [forwardStats, reverseStats, showPace, isSwimming, bestForwardRecord, bestReverseRecord]);
 
   if (!firstDate || !lastDate) return null;
 

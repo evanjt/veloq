@@ -12,7 +12,14 @@ import { CartesianChart, type PointsArray } from 'victory-native';
 import { Circle, Path, Skia } from '@shopify/react-native-skia';
 import { GestureDetector } from 'react-native-gesture-handler';
 import Animated from 'react-native-reanimated';
-import { formatDuration, formatPace, formatSpeed, isRunningActivity } from '@/lib';
+import {
+  formatDuration,
+  formatPace,
+  formatSpeed,
+  formatSwimPace,
+  isRunningActivity,
+  isSwimmingActivity,
+} from '@/lib';
 import {
   splitAndPositionChartData,
   buildTrendWithBand,
@@ -85,7 +92,8 @@ export function SectionScatterChart({
   highlightedActivityId,
   useTimeAxis,
 }: SectionScatterChartProps) {
-  const showPace = isRunningActivity(activityType);
+  const isSwimming = isSwimmingActivity(activityType);
+  const showPace = isRunningActivity(activityType) || isSwimming;
   const activityColor = isDark ? darkColors.primary : colors.primary;
   const sectionDistance = chartData[0]?.sectionDistance || 0;
 
@@ -104,8 +112,9 @@ export function SectionScatterChart({
   }, [chartData]);
 
   const formatSpeedValue = useCallback(
-    (speed: number) => (showPace ? formatPace(speed) : formatSpeed(speed)),
-    [showPace]
+    (speed: number) =>
+      isSwimming ? formatSwimPace(speed) : showPace ? formatPace(speed) : formatSpeed(speed),
+    [showPace, isSwimming]
   );
 
   // Separate forward/reverse, compute positions, find PRs (pure fn in @/lib/charts/scatterData)

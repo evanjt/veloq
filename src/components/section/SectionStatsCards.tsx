@@ -9,7 +9,7 @@ import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { router } from 'expo-router';
-import { formatDuration, formatPace } from '@/lib';
+import { formatDuration, formatPace, formatSwimPace } from '@/lib';
 import { colors, darkColors, spacing, typography, layout } from '@/theme';
 
 const REVERSE_COLOR = colors.reverseDirection;
@@ -48,6 +48,7 @@ export interface SectionStatsCardsProps {
   calendarSummary: CalendarSummary;
   isDark: boolean;
   isRunning: boolean;
+  isSwimming?: boolean;
   activityColor: string;
   onSetAsReference?: (activityId: string) => void;
   referenceActivityId?: string;
@@ -57,6 +58,7 @@ export function SectionStatsCards({
   calendarSummary,
   isDark,
   isRunning,
+  isSwimming = false,
   activityColor,
   onSetAsReference,
   referenceActivityId,
@@ -104,9 +106,11 @@ export function SectionStatsCards({
                 : yearRev
               : (yearFwd ?? yearRev);
           const yearBestDisplay = yearBest
-            ? isRunning
-              ? formatPace(yearBest.bestPace)
-              : formatDuration(yearBest.bestTime)
+            ? isSwimming
+              ? formatSwimPace(yearBest.bestPace)
+              : isRunning
+                ? formatPace(yearBest.bestPace)
+                : formatDuration(yearBest.bestTime)
             : '';
           const isYearFwdPr =
             yearFwd &&
@@ -199,9 +203,11 @@ export function SectionStatsCards({
                                   isMonthFwdYearBest && { fontWeight: '700' },
                                 ]}
                               >
-                                {isRunning
-                                  ? formatPace(fwd.bestPace)
-                                  : formatDuration(fwd.bestTime)}
+                                {isSwimming
+                                  ? formatSwimPace(fwd.bestPace)
+                                  : isRunning
+                                    ? formatPace(fwd.bestPace)
+                                    : formatDuration(fwd.bestTime)}
                               </Text>
                               {(isMonthFwdYearBest || isMonthFwdOverallPr) && (
                                 <MaterialCommunityIcons
@@ -252,9 +258,11 @@ export function SectionStatsCards({
                                   isMonthRevYearBest && { fontWeight: '700' },
                                 ]}
                               >
-                                {isRunning
-                                  ? formatPace(rev.bestPace)
-                                  : formatDuration(rev.bestTime)}
+                                {isSwimming
+                                  ? formatSwimPace(rev.bestPace)
+                                  : isRunning
+                                    ? formatPace(rev.bestPace)
+                                    : formatDuration(rev.bestTime)}
                               </Text>
                               {(isMonthRevYearBest || isMonthRevOverallPr) && (
                                 <MaterialCommunityIcons

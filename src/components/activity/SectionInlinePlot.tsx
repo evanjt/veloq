@@ -22,7 +22,8 @@ import {
   typography,
   layout,
 } from '@/theme';
-import { formatDistance, formatPace } from '@/lib';
+import { formatDistance, formatPace, formatSwimPace, isSwimmingActivity } from '@/lib';
+import type { ActivityType } from '@/types';
 import { SectionSparkline } from '@/components/section/SectionSparkline';
 import type { SectionEncounter } from 'veloqrs';
 import type { PerformanceDataPoint } from '@/types';
@@ -30,6 +31,7 @@ import type { PerformanceDataPoint } from '@/types';
 interface SectionInlinePlotProps {
   encounter: SectionEncounter;
   activityId: string;
+  sportType?: string;
   index: number;
   style: { color: string };
   isHighlighted: boolean;
@@ -54,6 +56,7 @@ export const SectionInlinePlot = memo(
   function SectionInlinePlot({
     encounter,
     activityId,
+    sportType,
     index,
     style,
     isHighlighted,
@@ -195,7 +198,9 @@ export const SectionInlinePlot = memo(
                       <>
                         <RNText style={[styles.meta, isDark && styles.textMuted]}> · </RNText>
                         <RNText style={[styles.timeValue, isDark && styles.textLight]}>
-                          {formatPace(encounter.distanceMeters / encounter.lapTime, isMetric)}
+                          {isSwimmingActivity(sportType as ActivityType)
+                            ? formatSwimPace(encounter.distanceMeters / encounter.lapTime, isMetric)
+                            : formatPace(encounter.distanceMeters / encounter.lapTime, isMetric)}
                         </RNText>
                       </>
                     )}
