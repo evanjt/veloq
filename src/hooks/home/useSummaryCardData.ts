@@ -258,7 +258,8 @@ export function useSummaryCardData(precomputedCardData?: PrecomputedCardData): S
     const weekHours = Math.round((weekSeconds / 3600) * 10) / 10;
     const prevWeekHours = Math.round((prevWeekSeconds / 3600) * 10) / 10;
 
-    const latestFtp = cardData.ftpTrend.latestFtp ?? null;
+    const cyclingSettings = getSettingsForSport(sportSettings, 'Ride');
+    const latestFtp = cyclingSettings?.ftp ?? cardData.ftpTrend.latestFtp ?? null;
     const prevFtp = cardData.ftpTrend.previousFtp ?? null;
 
     const runPaceTrend = cardData.runPaceTrend;

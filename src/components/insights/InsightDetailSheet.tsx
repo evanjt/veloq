@@ -38,9 +38,7 @@ export const InsightDetailSheet = React.memo(function InsightDetailSheet({
   // Content components for these categories already have embedded navigation
   // (e.g. tappable section names that go straight to the section detail page).
   const contentHandlesNav =
-    insight.category === 'section_pr' ||
-    insight.category === 'stale_pr' ||
-    insight.category === 'section_trend';
+    insight.category === 'section_pr' || insight.category === 'section_trend';
   const hasNavTarget = !!insight.navigationTarget && !contentHandlesNav;
 
   return (
