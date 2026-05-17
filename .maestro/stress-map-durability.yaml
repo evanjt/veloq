@@ -13,10 +13,14 @@ tags:
     file: helpers/setup-demo-mode.yaml
 
 # Phase 1: Enable debug mode and load stress data
-- openLink: "veloq://settings"
-- extendedWaitUntil:
-    visible:
+- runFlow:
+    file: helpers/navigate-to-settings.yaml
+
+# Scroll to bottom to find version text
+- scrollUntilVisible:
+    element:
       id: "settings-version-text"
+    direction: DOWN
     timeout: 10000
 
 # 5-tap to unlock debug menu
@@ -26,17 +30,21 @@ tags:
       - tapOn:
           id: "settings-version-text"
 
-- extendedWaitUntil:
-    visible:
+# Scroll down again — debug switch may appear below current viewport
+- scrollUntilVisible:
+    element:
       id: "settings-debug-switch"
+    direction: DOWN
     timeout: 5000
 
 - tapOn:
     id: "settings-debug-switch"
 
-- extendedWaitUntil:
-    visible:
+# Debug dashboard link appears after toggle
+- scrollUntilVisible:
+    element:
       id: "settings-developer-dashboard-link"
+    direction: DOWN
     timeout: 5000
 
 - tapOn:
