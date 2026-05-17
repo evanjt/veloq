@@ -250,6 +250,10 @@ export function useMapCamera({
    *  tracking state to prevent snap-back (same pattern as handleFitAll). */
   const applyPosition = useCallback(
     (data: BoundsData) => {
+      // Guard against null camera ref during iOS Fabric reconciliation —
+      // the ref can be null between map unmount/remount cycles (e.g. mapKey change).
+      if (!cameraRef.current) return;
+
       if (__DEV__) {
         console.log(
           `[CAM] applyPosition — worldSpanning=${data.worldSpanning} zoom=${data.zoomLevel.toFixed(1)} center=[${data.center[0].toFixed(3)},${data.center[1].toFixed(3)}]`
