@@ -1,0 +1,244 @@
+# Stress Test: Map Durability Under Heavy Data Load
+# Loads 800 synthetic activities via debug menu, then exercises the map
+# with aggressive zoom/pan/cluster/style interactions for ~3-5 minutes.
+
+appId: com.veloq.app.dev
+tags:
+  - tier3
+  - pack-map
+---
+
+# Phase 0: Setup demo mode
+- runFlow:
+    file: helpers/setup-demo-mode.yaml
+
+# Phase 1: Enable debug mode and load stress data
+- openLink: "veloq://settings"
+- extendedWaitUntil:
+    visible:
+      id: "settings-version-text"
+    timeout: 10000
+
+# 5-tap to unlock debug menu
+- repeat:
+    times: 5
+    commands:
+      - tapOn:
+          id: "settings-version-text"
+
+- extendedWaitUntil:
+    visible:
+      id: "settings-debug-switch"
+    timeout: 5000
+
+- tapOn:
+    id: "settings-debug-switch"
+
+- extendedWaitUntil:
+    visible:
+      id: "settings-developer-dashboard-link"
+    timeout: 5000
+
+- tapOn:
+    id: "settings-developer-dashboard-link"
+
+# Open the map stress section and load data
+- extendedWaitUntil:
+    visible:
+      id: "debug-section-map-stress"
+    timeout: 10000
+
+- tapOn:
+    id: "debug-section-map-stress"
+
+- extendedWaitUntil:
+    visible:
+      id: "debug-load-stress-map"
+    timeout: 5000
+
+- tapOn:
+    id: "debug-load-stress-map"
+
+# Wait for data to finish loading (up to 30s for large dataset)
+- extendedWaitUntil:
+    visible:
+      id: "debug-stress-map-loaded"
+    timeout: 30000
+
+- takeScreenshot: "stress-map-data-loaded"
+
+# Phase 2: Navigate to map
+- runFlow:
+    file: helpers/navigate-to-map.yaml
+
+# Phase 3: Cluster stress - zoom levels
+- tapOn:
+    id: "map-fit-all"
+    optional: true
+- sleep: 2000
+
+# Zoom out to see clusters form
+- swipe:
+    start: 50%, 50%
+    end: 50%, 50%
+    duration: 500
+- sleep: 1000
+
+# Pinch to zoom in on clusters
+- swipe:
+    start: 50%, 40%
+    end: 50%, 30%
+    duration: 300
+- sleep: 1000
+
+- takeScreenshot: "stress-map-clusters"
+
+# Phase 4: Rapid pan across regions (10 fast swipes)
+- repeat:
+    times: 10
+    commands:
+      - swipe:
+          start: 80%, 50%
+          end: 20%, 50%
+          duration: 250
+      - sleep: 400
+
+- takeScreenshot: "stress-map-after-pan"
+
+# Phase 5: Cluster tap and zoom
+- tapOn:
+    id: "map-fit-all"
+    optional: true
+- sleep: 1500
+
+- repeat:
+    times: 5
+    commands:
+      - tapOn:
+          point: 50%, 50%
+      - sleep: 800
+      - tapOn:
+          id: "activity-popup-close"
+          optional: true
+      - sleep: 300
+
+# Phase 6: Style switching under heavy data load
+- repeat:
+    times: 5
+    commands:
+      - tapOn:
+          id: "map-style-toggle"
+          optional: true
+      - sleep: 1500
+
+- takeScreenshot: "stress-map-style-switch"
+
+# Phase 7: Layer toggle rapid cycling
+- repeat:
+    times: 8
+    commands:
+      - tapOn:
+          id: "map-toggle-activities"
+          optional: true
+      - sleep: 200
+      - tapOn:
+          id: "map-toggle-sections"
+          optional: true
+      - sleep: 200
+      - tapOn:
+          id: "map-toggle-heatmap"
+          optional: true
+      - sleep: 200
+
+# Re-enable activities layer
+- tapOn:
+    id: "map-toggle-activities"
+    optional: true
+- sleep: 500
+
+# Phase 8: Activity selection (long track rendering test)
+- tapOn:
+    id: "map-fit-all"
+    optional: true
+- sleep: 1000
+
+# Zoom into a cluster
+- swipe:
+    start: 40%, 40%
+    end: 60%, 60%
+    duration: 300
+- swipe:
+    start: 40%, 40%
+    end: 60%, 60%
+    duration: 300
+- sleep: 1000
+
+# Tap a marker
+- tapOn:
+    point: 50%, 50%
+- sleep: 1500
+
+# Try to zoom to activity
+- tapOn:
+    id: "activity-popup-zoom"
+    optional: true
+- sleep: 2000
+
+- takeScreenshot: "stress-map-activity-selected"
+
+# Phase 9: Sustained mixed interaction (exercises all crash patterns)
+- tapOn:
+    id: "map-fit-all"
+    optional: true
+- sleep: 1000
+
+- repeat:
+    times: 6
+    commands:
+      # Pan
+      - swipe:
+          start: 70%, 50%
+          end: 30%, 50%
+          duration: 300
+      - sleep: 400
+      # Pan vertical
+      - swipe:
+          start: 50%, 70%
+          end: 50%, 30%
+          duration: 300
+      - sleep: 400
+      # Zoom in
+      - swipe:
+          start: 40%, 40%
+          end: 60%, 60%
+          duration: 200
+      - sleep: 400
+      # Zoom out
+      - swipe:
+          start: 60%, 60%
+          end: 40%, 40%
+          duration: 200
+      - sleep: 400
+      # Toggle layers mid-motion
+      - tapOn:
+          id: "map-toggle-activities"
+          optional: true
+      - sleep: 200
+      - tapOn:
+          id: "map-toggle-activities"
+          optional: true
+      - sleep: 400
+
+# Phase 10: Final stability check
+- tapOn:
+    id: "map-fit-all"
+    optional: true
+- sleep: 2000
+
+- assertVisible:
+    id: "map-screen"
+
+- assertNotVisible:
+    text: "NaN"
+
+- takeScreenshot: "stress-map-durability-complete"

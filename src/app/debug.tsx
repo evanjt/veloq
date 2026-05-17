@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   RefreshControl,
   Platform,
   Share,
+  ActivityIndicator,
 } from 'react-native';
 import Constants from 'expo-constants';
 import { Stack } from 'expo-router';
@@ -18,6 +19,7 @@ import { useTheme } from '@/hooks';
 import { getFFIMetricsSummary, clearFFIMetrics } from '@/lib/debug/renderTimer';
 import { useSupportStore, daysSince } from '@/providers';
 import { formatLocalDate } from '@/lib/utils/format';
+import { generateStressMapActivities, getStressDataSummary } from '@/data/demo/stressMapData';
 import type { PersistentEngineStats } from 'veloqrs';
 
 function getRouteEngine() {
@@ -113,6 +115,88 @@ function daysAgoLocal(days: number): string {
   const d = new Date();
   d.setDate(d.getDate() - days);
   return formatLocalDate(d);
+}
+
+function MapStressTest({ isDark }: { isDark: boolean }) {
+  const [loading, setLoading] = useState(false);
+  const [loaded, setLoaded] = useState(false);
+  const [result, setResult] = useState<{ activities: number; points: number } | null>(null);
+  const loadingRef = useRef(false);
+
+  const summary = getStressDataSummary();
+  const mutedColor = isDark ? darkColors.textSecondary : colors.textSecondary;
+  const textColor = isDark ? darkColors.textPrimary : colors.textPrimary;
+
+  const handleLoad = useCallback(async () => {
+    if (loadingRef.current || loaded) return;
+    loadingRef.current = true;
+    setLoading(true);
+
+    try {
+      const engine = getRouteEngine();
+      if (!engine) {
+        setLoading(false);
+        loadingRef.current = false;
+        return;
+      }
+
+      const data = generateStressMapActivities();
+      engine.addActivities(data.ids, data.coords, data.offsets, data.sportTypes);
+      setResult({ activities: data.ids.length, points: data.totalPoints });
+      setLoaded(true);
+    } catch (e) {
+      console.warn('[StressMap] Load failed:', e);
+    } finally {
+      setLoading(false);
+      loadingRef.current = false;
+    }
+  }, [loaded]);
+
+  return (
+    <CollapsibleSection
+      title="Map Stress Testing"
+      icon="map-marker-multiple"
+      isDark={isDark}
+      defaultOpen={false}
+      testID="debug-section-map-stress"
+    >
+      <StatRow label="Activities" value={String(summary.totalActivities)} isDark={isDark} />
+      <StatRow
+        label="Est. GPS points"
+        value={`~${(summary.estimatedPoints / 1000).toFixed(0)}K`}
+        isDark={isDark}
+      />
+      <StatRow label="Regions" value={String(summary.regions.length)} isDark={isDark} />
+      <Text style={[{ fontSize: 11, marginTop: spacing.sm }, { color: mutedColor }]}>
+        {summary.regions.join(', ')}
+      </Text>
+
+      {loaded && result ? (
+        <View testID="debug-stress-map-loaded" style={{ marginTop: spacing.sm }}>
+          <Text style={[{ fontSize: 13, fontWeight: '600' }, { color: colors.success }]}>
+            Loaded {result.activities} activities ({(result.points / 1000).toFixed(1)}K points)
+          </Text>
+        </View>
+      ) : (
+        <TouchableOpacity
+          testID="debug-load-stress-map"
+          style={[styles.actionButton, { marginTop: spacing.sm }]}
+          onPress={handleLoad}
+          disabled={loading}
+          activeOpacity={0.7}
+        >
+          {loading ? (
+            <ActivityIndicator size="small" color={colors.primary} />
+          ) : (
+            <MaterialCommunityIcons name="map-marker-plus" size={16} color={colors.primary} />
+          )}
+          <Text style={[styles.actionButtonText, { color: colors.primary }]}>
+            {loading ? 'Loading...' : `Load ${summary.totalActivities} Activities`}
+          </Text>
+        </TouchableOpacity>
+      )}
+    </CollapsibleSection>
+  );
 }
 
 function SupportCardDebug({ isDark }: { isDark: boolean }) {
@@ -382,6 +466,9 @@ export default function DebugScreen() {
             </Text>
           )}
         </CollapsibleSection>
+
+        {/* Map Stress Testing */}
+        <MapStressTest isDark={isDark} />
 
         {/* Support Card Testing */}
         <SupportCardDebug isDark={isDark} />
