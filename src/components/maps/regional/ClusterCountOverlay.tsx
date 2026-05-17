@@ -93,18 +93,14 @@ export const ClusterCountOverlay = React.forwardRef<
   return (
     <View style={styles.container} pointerEvents="none">
       {clusters.map((c) => (
-        <Text
+        <View
           key={`cluster-${c.id}`}
           testID={`map-cluster-count-${c.id}`}
           accessibilityLabel={`${c.count} activities`}
-          style={[
-            styles.countLabel,
-            visible && styles.countLabelVisible,
-            { left: c.x - 16, top: c.y - 8 },
-          ]}
+          style={[styles.countHitbox, { left: c.x - 16, top: c.y - 8 }]}
         >
-          {c.count}
-        </Text>
+          {visible && <Text style={styles.countLabelVisible}>{c.count}</Text>}
+        </View>
       ))}
     </View>
   );
@@ -114,15 +110,15 @@ const styles = StyleSheet.create({
   container: {
     ...StyleSheet.absoluteFillObject,
   },
-  countLabel: {
+  countHitbox: {
     position: 'absolute',
     width: 32,
-    textAlign: 'center',
-    color: 'transparent',
-    fontSize: 12,
-    fontWeight: '600',
+    height: 16,
   },
   countLabelVisible: {
     color: colors.textOnDark,
+    fontSize: 12,
+    fontWeight: '600',
+    textAlign: 'center',
   },
 });
