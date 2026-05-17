@@ -120,21 +120,23 @@ function daysAgoLocal(days: number): string {
 function MapStressTest({ isDark }: { isDark: boolean }) {
   const [loading, setLoading] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<{ activities: number; points: number } | null>(null);
   const loadingRef = useRef(false);
 
   const summary = getStressDataSummary();
   const mutedColor = isDark ? darkColors.textSecondary : colors.textSecondary;
-  const textColor = isDark ? darkColors.textPrimary : colors.textPrimary;
 
   const handleLoad = useCallback(async () => {
     if (loadingRef.current || loaded) return;
     loadingRef.current = true;
     setLoading(true);
+    setError(null);
 
     try {
       const engine = getRouteEngine();
       if (!engine) {
+        setError('Engine not available');
         setLoading(false);
         loadingRef.current = false;
         return;
@@ -145,6 +147,8 @@ function MapStressTest({ isDark }: { isDark: boolean }) {
       setResult({ activities: data.ids.length, points: data.totalPoints });
       setLoaded(true);
     } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      setError(msg);
       console.warn('[StressMap] Load failed:', e);
     } finally {
       setLoading(false);
@@ -170,6 +174,14 @@ function MapStressTest({ isDark }: { isDark: boolean }) {
       <Text style={[{ fontSize: 11, marginTop: spacing.sm }, { color: mutedColor }]}>
         {summary.regions.join(', ')}
       </Text>
+
+      {error ? (
+        <View testID="debug-stress-map-error" style={{ marginTop: spacing.sm }}>
+          <Text style={[{ fontSize: 13, fontWeight: '600' }, { color: colors.error }]}>
+            {error}
+          </Text>
+        </View>
+      ) : null}
 
       {loaded && result ? (
         <View testID="debug-stress-map-loaded" style={{ marginTop: spacing.sm }}>
