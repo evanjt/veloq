@@ -40,12 +40,17 @@ tags:
 - tapOn:
     id: "settings-debug-switch"
 
-# Debug dashboard link appears after toggle
+# Wait for switch state to propagate and dashboard link to render
+- waitForAnimationToEnd:
+    timeout: 1000
+
+# Dashboard link appears below the switch after enabling
 - scrollUntilVisible:
     element:
       id: "settings-developer-dashboard-link"
     direction: DOWN
-    timeout: 5000
+    timeout: 10000
+    speed: 20
 
 - tapOn:
     id: "settings-developer-dashboard-link"
