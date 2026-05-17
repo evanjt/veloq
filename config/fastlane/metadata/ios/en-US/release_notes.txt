@@ -1,6 +1,1 @@
-v0.3.7
-
-• Redesigned section detection settings with three methods to pick: Corridor, Density Grid, and Flow Graph
-• Each method has its own tuning sliders and a live preview of how it finds sections
-• Reanalyze button highlights when settings change
-• Fixed empty section pages — matched activities and effort history show up again
+Fix FTP display to use current sport settings instead of stale activity values. Correct season comparison bar order (previous left, current right). Show swimming pace as min/100m. Redesigned section trim editor with precision slider, step buttons, and haptic feedback. Map expands during editing. Fixed map cluster label duplication and improved map stability.

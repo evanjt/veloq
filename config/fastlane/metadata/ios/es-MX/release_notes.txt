@@ -1,6 +1,1 @@
-v0.3.7
-
-• Detección de secciones rediseñada con tres métodos a elegir: Corredor, Cuadrícula de densidad y Grafo de flujo
-• Cada método tiene sus propios controles y una vista previa en vivo
-• El botón de reanálisis se resalta cuando cambian los ajustes
-• Corregido: páginas de secciones vacías — actividades coincidentes e historial vuelven a verse
+Corregida la visualización del FTP para usar los ajustes deportivos actuales. Orden correcto de barras de comparación de temporada (anterior izquierda, actual derecha). Ritmo de natación en min/100m. Editor de recorte de sección rediseñado con control de precisión, botones de paso y retroalimentación háptica. Mapa se amplía durante la edición. Corregidos números de cluster duplicados y estabilidad del mapa.
