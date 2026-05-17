@@ -122,6 +122,7 @@ export function RegionalMapView({
   // iOS simulator tile loading retry mechanism
   const [mapKey, setMapKey] = useState(0);
   const retryCountRef = useRef(0);
+  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const MAX_RETRIES = 3;
   const RETRY_DELAY_MS = 1000;
 
@@ -131,15 +132,21 @@ export function RegionalMapView({
       console.log(
         `[RegionalMap] Load failed, retrying (${retryCountRef.current}/${MAX_RETRIES})...`
       );
-      setTimeout(() => {
+      retryTimerRef.current = setTimeout(() => {
         setMapKey((k) => k + 1);
       }, RETRY_DELAY_MS * retryCountRef.current);
     }
   }, []);
 
-  // Reset retry count when style changes or map remounts
+  // Reset retry count when style changes or map remounts; clear pending retry timer
   useEffect(() => {
     retryCountRef.current = 0;
+    return () => {
+      if (retryTimerRef.current !== null) {
+        clearTimeout(retryTimerRef.current);
+        retryTimerRef.current = null;
+      }
+    };
   }, [mapStyle, mapKey]);
 
   // Only load route signatures when the map tab is focused
