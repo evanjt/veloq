@@ -75,21 +75,24 @@ tags:
 - tapOn:
     id: "map-fit-all"
     optional: true
-- sleep: 2000
+- waitForAnimationToEnd:
+    timeout: 2000
 
 # Zoom out to see clusters form
 - swipe:
     start: 50%, 50%
     end: 50%, 50%
     duration: 500
-- sleep: 1000
+- waitForAnimationToEnd:
+    timeout: 1000
 
 # Pinch to zoom in on clusters
 - swipe:
     start: 50%, 40%
     end: 50%, 30%
     duration: 300
-- sleep: 1000
+- waitForAnimationToEnd:
+    timeout: 1000
 
 - takeScreenshot: "stress-map-clusters"
 
@@ -101,7 +104,8 @@ tags:
           start: 80%, 50%
           end: 20%, 50%
           duration: 250
-      - sleep: 400
+      - waitForAnimationToEnd:
+          timeout: 400
 
 - takeScreenshot: "stress-map-after-pan"
 
@@ -109,18 +113,21 @@ tags:
 - tapOn:
     id: "map-fit-all"
     optional: true
-- sleep: 1500
+- waitForAnimationToEnd:
+    timeout: 1500
 
 - repeat:
     times: 5
     commands:
       - tapOn:
           point: 50%, 50%
-      - sleep: 800
+      - waitForAnimationToEnd:
+          timeout: 800
       - tapOn:
           id: "activity-popup-close"
           optional: true
-      - sleep: 300
+      - waitForAnimationToEnd:
+          timeout: 300
 
 # Phase 6: Style switching under heavy data load
 - repeat:
@@ -129,7 +136,8 @@ tags:
       - tapOn:
           id: "map-style-toggle"
           optional: true
-      - sleep: 1500
+      - waitForAnimationToEnd:
+          timeout: 1500
 
 - takeScreenshot: "stress-map-style-switch"
 
@@ -140,27 +148,32 @@ tags:
       - tapOn:
           id: "map-toggle-activities"
           optional: true
-      - sleep: 200
+      - waitForAnimationToEnd:
+          timeout: 200
       - tapOn:
           id: "map-toggle-sections"
           optional: true
-      - sleep: 200
+      - waitForAnimationToEnd:
+          timeout: 200
       - tapOn:
           id: "map-toggle-heatmap"
           optional: true
-      - sleep: 200
+      - waitForAnimationToEnd:
+          timeout: 200
 
 # Re-enable activities layer
 - tapOn:
     id: "map-toggle-activities"
     optional: true
-- sleep: 500
+- waitForAnimationToEnd:
+    timeout: 500
 
 # Phase 8: Activity selection (long track rendering test)
 - tapOn:
     id: "map-fit-all"
     optional: true
-- sleep: 1000
+- waitForAnimationToEnd:
+    timeout: 1000
 
 # Zoom into a cluster
 - swipe:
@@ -171,18 +184,21 @@ tags:
     start: 40%, 40%
     end: 60%, 60%
     duration: 300
-- sleep: 1000
+- waitForAnimationToEnd:
+    timeout: 1000
 
 # Tap a marker
 - tapOn:
     point: 50%, 50%
-- sleep: 1500
+- waitForAnimationToEnd:
+    timeout: 1500
 
 # Try to zoom to activity
 - tapOn:
     id: "activity-popup-zoom"
     optional: true
-- sleep: 2000
+- waitForAnimationToEnd:
+    timeout: 2000
 
 - takeScreenshot: "stress-map-activity-selected"
 
@@ -190,7 +206,8 @@ tags:
 - tapOn:
     id: "map-fit-all"
     optional: true
-- sleep: 1000
+- waitForAnimationToEnd:
+    timeout: 1000
 
 - repeat:
     times: 6
@@ -200,40 +217,47 @@ tags:
           start: 70%, 50%
           end: 30%, 50%
           duration: 300
-      - sleep: 400
+      - waitForAnimationToEnd:
+          timeout: 400
       # Pan vertical
       - swipe:
           start: 50%, 70%
           end: 50%, 30%
           duration: 300
-      - sleep: 400
+      - waitForAnimationToEnd:
+          timeout: 400
       # Zoom in
       - swipe:
           start: 40%, 40%
           end: 60%, 60%
           duration: 200
-      - sleep: 400
+      - waitForAnimationToEnd:
+          timeout: 400
       # Zoom out
       - swipe:
           start: 60%, 60%
           end: 40%, 40%
           duration: 200
-      - sleep: 400
+      - waitForAnimationToEnd:
+          timeout: 400
       # Toggle layers mid-motion
       - tapOn:
           id: "map-toggle-activities"
           optional: true
-      - sleep: 200
+      - waitForAnimationToEnd:
+          timeout: 200
       - tapOn:
           id: "map-toggle-activities"
           optional: true
-      - sleep: 400
+      - waitForAnimationToEnd:
+          timeout: 400
 
 # Phase 10: Final stability check
 - tapOn:
     id: "map-fit-all"
     optional: true
-- sleep: 2000
+- waitForAnimationToEnd:
+    timeout: 2000
 
 - assertVisible:
     id: "map-screen"
