@@ -31,7 +31,12 @@ import {
 import { useSectionDetail } from '@/hooks/routes/useRouteEngine';
 import { useSectionTrim } from '@/hooks/routes/useSectionTrim';
 import { getAllSectionDisplayNames } from '@/hooks/routes/useUnifiedSections';
-import { DataRangeFooter, DebugInfoPanel, DebugWarningBanner } from '@/components/routes';
+import {
+  DataRangeFooter,
+  DebugInfoPanel,
+  DebugWarningBanner,
+  SectionTrimOverlay,
+} from '@/components/routes';
 import { useDebugStore } from '@/providers';
 import { useFFITimer } from '@/hooks/debug/useFFITimer';
 import { TAB_BAR_SAFE_PADDING, ScreenErrorBoundary } from '@/components/ui';
@@ -43,6 +48,7 @@ import {
   MergeConfirmDialog,
   MergeCandidatesModal,
 } from '@/components/section';
+import { MAP_HEIGHT_NORMAL, MAP_HEIGHT_EDIT } from '@/components/section/SectionHeader';
 import { getRouteEngine } from '@/lib/native/routeEngine';
 import { decodeCoords } from 'veloqrs';
 import {
@@ -521,91 +527,186 @@ export default function SectionDetailScreen() {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          {/* Hero Map Section */}
+          {/* Hero Map Section — expands when editing */}
           <SectionHeader
             section={section}
             isDark={isDark}
             insetTop={insets.top}
+            mapHeight={isTrimming ? MAP_HEIGHT_EDIT : MAP_HEIGHT_NORMAL}
             activityColor={activityColor}
             iconName={iconName}
             activityCount={activityCount}
             mapReady={mapReady}
-            isCustomId={!!isCustomId}
-            isSectionDisabled={isSectionDisabled}
-            isEditing={isEditing}
-            editName={editName}
-            customName={customName}
-            nameInputRef={nameInputRef}
-            canResetBounds={canResetBounds}
             isTrimming={isTrimming}
             isExpandMode={isExpandMode}
             trimStart={trimStart}
             trimEnd={trimEnd}
-            isTrimSaving={isTrimSaving}
-            trimmedDistance={trimmedDistance}
-            effectivePointCount={effectivePointCount}
-            sectionStartInWindow={sectionStartInWindow}
-            sectionEndInWindow={sectionEndInWindow}
             expandContextPoints={expandContextPoints}
+            isEditing={isEditing}
+            editName={editName}
+            customName={customName}
+            nameInputRef={nameInputRef}
             shadowTrack={undefined}
             highlightedActivityId={highlightedActivityId}
             highlightedLapPoints={highlightedActivityPoints}
             allActivityTraces={allActivityTraces}
             isScrubbing={isScrubbing}
             nearbyPolylines={nearbyPolylines}
-            onNearbyPress={(sectionId) => router.push(`/section/${sectionId}`)}
+            onNearbyPress={
+              isTrimming ? undefined : (sectionId) => router.push(`/section/${sectionId}`)
+            }
             onBack={() => router.back()}
-            onStartTrim={startTrim}
-            onDeleteSection={handleDeleteSection}
-            onToggleDisable={handleToggleDisable}
             onStartEditing={handleStartEditing}
             onSaveName={handleSaveName}
             onCancelEdit={handleCancelEdit}
             onEditNameChange={setEditName}
-            onTrimStartChange={setTrimStart}
-            onTrimEndChange={setTrimEnd}
-            onConfirmTrim={confirmTrim}
-            onCancelTrim={cancelTrim}
-            onResetBounds={resetBounds}
-            onToggleExpand={toggleExpand}
-            onRematchActivities={handleRematchActivities}
-            isRematching={isRematching}
           />
 
-          {/* Accept/Pinned indicator for auto sections */}
-          {section && section.sectionType === 'auto' && !isCustomId && (
-            <View style={styles.acceptRow}>
-              {section.isUserDefined ? (
-                <View style={styles.pinnedChip}>
-                  <MaterialCommunityIcons
-                    name="pin"
-                    size={14}
-                    color={isDark ? '#71717A' : '#9CA3AF'}
-                  />
-                  <Text style={[styles.pinnedText, { color: isDark ? '#71717A' : '#9CA3AF' }]}>
-                    {t('sections.pinned')}
-                  </Text>
-                </View>
+          {/* Action row — always visible below map, hidden during trim */}
+          {!isTrimming && (
+            <View style={styles.actionRow}>
+              <TouchableOpacity
+                testID="section-trim-button"
+                style={[
+                  styles.actionPill,
+                  { backgroundColor: isDark ? darkColors.surface : colors.surface },
+                ]}
+                onPress={startTrim}
+                activeOpacity={0.7}
+              >
+                <MaterialCommunityIcons
+                  name="content-cut"
+                  size={16}
+                  color={isDark ? darkColors.textPrimary : colors.textSecondary}
+                />
+                <Text style={[styles.actionPillText, isDark && { color: darkColors.textPrimary }]}>
+                  {t('sections.editBounds')}
+                </Text>
+              </TouchableOpacity>
+              {isCustomId ? (
+                <TouchableOpacity
+                  style={[
+                    styles.actionCircle,
+                    { backgroundColor: isDark ? darkColors.surface : colors.surface },
+                  ]}
+                  onPress={handleDeleteSection}
+                  activeOpacity={0.7}
+                >
+                  <MaterialCommunityIcons name="delete-outline" size={16} color={colors.error} />
+                </TouchableOpacity>
               ) : (
                 <TouchableOpacity
-                  style={[styles.acceptChip, { borderColor: isDark ? '#374151' : '#D1D5DB' }]}
-                  onPress={handleAcceptSection}
+                  style={[
+                    styles.actionCircle,
+                    { backgroundColor: isDark ? darkColors.surface : colors.surface },
+                  ]}
+                  onPress={handleToggleDisable}
+                  activeOpacity={0.7}
                 >
                   <MaterialCommunityIcons
-                    name="pin-outline"
-                    size={14}
-                    color={isDark ? '#D1D5DB' : '#6B7280'}
+                    name={isSectionDisabled ? 'undo' : 'delete-outline'}
+                    size={16}
+                    color={
+                      isSectionDisabled
+                        ? colors.success
+                        : isDark
+                          ? darkColors.textSecondary
+                          : colors.textSecondary
+                    }
                   />
-                  <Text style={[styles.acceptText, { color: isDark ? '#D1D5DB' : '#6B7280' }]}>
-                    {t('sections.acceptSection')}
-                  </Text>
                 </TouchableOpacity>
               )}
+              {handleRematchActivities && (
+                <TouchableOpacity
+                  style={[
+                    styles.actionCircle,
+                    { backgroundColor: isDark ? darkColors.surface : colors.surface },
+                  ]}
+                  onPress={handleRematchActivities}
+                  activeOpacity={0.7}
+                  disabled={isRematching}
+                >
+                  <MaterialCommunityIcons
+                    name={isRematching ? 'loading' : 'refresh'}
+                    size={16}
+                    color={isDark ? darkColors.textSecondary : colors.textSecondary}
+                  />
+                </TouchableOpacity>
+              )}
+              {/* Accept/Pin chip — inline with action buttons */}
+              {section &&
+                section.sectionType === 'auto' &&
+                !isCustomId &&
+                (section.isUserDefined ? (
+                  <View
+                    style={[
+                      styles.actionPill,
+                      {
+                        backgroundColor: isDark ? darkColors.surface : colors.surface,
+                        marginLeft: 'auto',
+                      },
+                    ]}
+                  >
+                    <MaterialCommunityIcons
+                      name="pin"
+                      size={14}
+                      color={isDark ? darkColors.textSecondary : colors.textSecondary}
+                    />
+                    <Text
+                      style={[
+                        styles.actionPillText,
+                        { color: isDark ? darkColors.textSecondary : colors.textSecondary },
+                      ]}
+                    >
+                      {t('sections.pinned')}
+                    </Text>
+                  </View>
+                ) : (
+                  <TouchableOpacity
+                    style={[
+                      styles.actionPill,
+                      {
+                        backgroundColor: isDark ? darkColors.surface : colors.surface,
+                        marginLeft: 'auto',
+                      },
+                    ]}
+                    onPress={handleAcceptSection}
+                    activeOpacity={0.7}
+                  >
+                    <MaterialCommunityIcons name="pin-outline" size={14} color={colors.primary} />
+                    <Text style={[styles.actionPillText, { color: colors.primary }]}>
+                      {t('sections.acceptSection')}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
             </View>
           )}
 
+          {/* Trim panel — replaces chart when trimming */}
+          {isTrimming && (
+            <SectionTrimOverlay
+              pointCount={effectivePointCount || section.polyline?.length || 0}
+              startIndex={trimStart}
+              endIndex={trimEnd}
+              trimmedDistance={trimmedDistance}
+              originalDistance={section.distanceMeters}
+              isSaving={isTrimSaving}
+              canReset={canResetBounds}
+              initiallyExpanded={!canResetBounds}
+              isExpandMode={isExpandMode}
+              sectionStartInWindow={sectionStartInWindow}
+              sectionEndInWindow={sectionEndInWindow}
+              onStartChange={setTrimStart}
+              onEndChange={setTrimEnd}
+              onConfirm={confirmTrim}
+              onCancel={cancelTrim}
+              onReset={resetBounds}
+              onToggleExpand={toggleExpand}
+            />
+          )}
+
           {/* Sport type pills for cross-sport sections */}
-          {sportTypeCounts.length > 1 && (
+          {!isTrimming && sportTypeCounts.length > 1 && (
             <View style={styles.sportTypePills}>
               {sportTypeCounts.map(({ type: st, count }) => {
                 const isSelected =
@@ -649,237 +750,243 @@ export default function SectionDetailScreen() {
             </View>
           )}
 
-          {/* Content below hero */}
-          <View style={styles.contentSection}>
-            {/* Disabled banner */}
-            {isSectionDisabled && (
-              <TouchableOpacity
-                style={[styles.disabledBanner, isDark && styles.disabledBannerDark]}
-                onPress={handleToggleDisable}
-                activeOpacity={0.8}
-              >
-                <MaterialCommunityIcons name="delete-outline" size={18} color={colors.warning} />
-                <Text style={styles.disabledBannerText}>
-                  {t('sections.removed')} — {t('sections.restoreSection')}
-                </Text>
-              </TouchableOpacity>
-            )}
+          {/* Content below hero — hidden during trim */}
+          {!isTrimming && (
+            <View style={styles.contentSection}>
+              {/* Disabled banner */}
+              {isSectionDisabled && (
+                <TouchableOpacity
+                  style={[styles.disabledBanner, isDark && styles.disabledBannerDark]}
+                  onPress={handleToggleDisable}
+                  activeOpacity={0.8}
+                >
+                  <MaterialCommunityIcons name="delete-outline" size={18} color={colors.warning} />
+                  <Text style={styles.disabledBannerText}>
+                    {t('sections.removed')} — {t('sections.restoreSection')}
+                  </Text>
+                </TouchableOpacity>
+              )}
 
-            {/* Merge candidates banner */}
-            {mergeCandidates.length > 0 && (
-              <TouchableOpacity
-                style={[styles.mergeBanner, isDark && styles.mergeBannerDark]}
-                onPress={() => {
-                  if (mergeCandidates.length === 1) {
-                    setMergeTarget(mergeCandidates[0]);
-                  } else {
-                    setShowMergePicker(true);
-                  }
-                }}
-                activeOpacity={0.8}
-              >
-                <MaterialCommunityIcons name="call-merge" size={18} color={colors.info} />
-                <Text style={[styles.mergeBannerText, isDark && styles.mergeBannerTextDark]}>
-                  {t('sections.similarNearbyCount', { count: mergeCandidates.length })}
-                </Text>
-                <MaterialCommunityIcons
-                  name="chevron-right"
-                  size={18}
-                  color={isDark ? darkColors.textSecondary : colors.textSecondary}
+              {/* Merge candidates banner */}
+              {mergeCandidates.length > 0 && (
+                <TouchableOpacity
+                  style={[styles.mergeBanner, isDark && styles.mergeBannerDark]}
+                  onPress={() => {
+                    if (mergeCandidates.length === 1) {
+                      setMergeTarget(mergeCandidates[0]);
+                    } else {
+                      setShowMergePicker(true);
+                    }
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <MaterialCommunityIcons name="call-merge" size={18} color={colors.info} />
+                  <Text style={[styles.mergeBannerText, isDark && styles.mergeBannerTextDark]}>
+                    {t('sections.similarNearbyCount', { count: mergeCandidates.length })}
+                  </Text>
+                  <MaterialCommunityIcons
+                    name="chevron-right"
+                    size={18}
+                    color={isDark ? darkColors.textSecondary : colors.textSecondary}
+                  />
+                </TouchableOpacity>
+              )}
+
+              {/* Performance chart with eye toggle — hidden during trim */}
+              {!isTrimming && (
+                <SectionPerformanceSection
+                  isDark={isDark}
+                  section={section}
+                  chartData={combinedChartData}
+                  forwardStats={computedForwardStats}
+                  reverseStats={computedReverseStats}
+                  bestForwardRecord={computedBestForward}
+                  bestReverseRecord={computedBestReverse}
+                  onActivitySelect={handleActivitySelect}
+                  onScrubChange={handleScrubChange}
+                  onExcludeActivity={handleExcludeActivity}
+                  onIncludeActivity={handleIncludeActivity}
+                  onSetAsReference={handleSetAsReference}
+                  referenceActivityId={effectiveReferenceId}
+                  showExcluded={showExcluded}
+                  hasExcluded={excludedActivityIds.size > 0}
+                  onToggleShowExcluded={handleToggleShowExcluded}
+                  highlightedActivityId={navActivityId}
+                  sectionTimeRange={sectionTimeRange}
+                  onTimeRangeChange={setSectionTimeRange}
                 />
-              </TouchableOpacity>
-            )}
+              )}
 
-            {/* Performance chart with eye toggle */}
-            <SectionPerformanceSection
-              isDark={isDark}
-              section={section}
-              chartData={combinedChartData}
-              forwardStats={computedForwardStats}
-              reverseStats={computedReverseStats}
-              bestForwardRecord={computedBestForward}
-              bestReverseRecord={computedBestReverse}
-              onActivitySelect={handleActivitySelect}
-              onScrubChange={handleScrubChange}
-              onExcludeActivity={handleExcludeActivity}
-              onIncludeActivity={handleIncludeActivity}
-              onSetAsReference={handleSetAsReference}
-              referenceActivityId={effectiveReferenceId}
-              showExcluded={showExcluded}
-              hasExcluded={excludedActivityIds.size > 0}
-              onToggleShowExcluded={handleToggleShowExcluded}
-              highlightedActivityId={navActivityId}
-              sectionTimeRange={sectionTimeRange}
-              onTimeRangeChange={setSectionTimeRange}
-            />
-
-            {/* Summary card */}
-            <SectionInfoCard
-              chartData={combinedChartData}
-              bestForwardRecord={computedBestForward}
-              bestReverseRecord={computedBestReverse}
-              forwardStats={computedForwardStats}
-              reverseStats={computedReverseStats}
-              sportType={section.sportType}
-              isDark={isDark}
-            />
-
-            {/* Calendar performance history */}
-            {calendarSummary && (
-              <SectionStatsCards
-                calendarSummary={calendarSummary}
+              {/* Summary card */}
+              <SectionInfoCard
+                chartData={combinedChartData}
+                bestForwardRecord={computedBestForward}
+                bestReverseRecord={computedBestReverse}
+                forwardStats={computedForwardStats}
+                reverseStats={computedReverseStats}
+                sportType={section.sportType}
                 isDark={isDark}
-                isRunning={isRunning}
-                activityColor={activityColor}
-                onSetAsReference={handleSetAsReference}
-                referenceActivityId={effectiveReferenceId}
               />
-            )}
-          </View>
 
-          <View style={styles.listFooterContainer}>
-            {section?.polyline?.length > 0 && (
-              <TouchableOpacity
-                testID="section-export-gpx"
-                style={[styles.exportGpxButton, isDark && styles.exportGpxButtonDark]}
-                onPress={() =>
-                  exportGpx({
-                    name: section.name || 'Section',
-                    points: section.polyline.map((p: RoutePoint) => ({
-                      latitude: p.lat,
-                      longitude: p.lng,
-                    })),
-                    sport: section.sportType,
-                  })
-                }
-                disabled={gpxExporting}
-                activeOpacity={0.7}
-              >
-                <MaterialCommunityIcons
-                  name={gpxExporting ? 'progress-download' : 'download'}
-                  size={20}
-                  color={colors.textOnPrimary}
+              {/* Calendar performance history */}
+              {calendarSummary && (
+                <SectionStatsCards
+                  calendarSummary={calendarSummary}
+                  isDark={isDark}
+                  isRunning={isRunning}
+                  activityColor={activityColor}
+                  onSetAsReference={handleSetAsReference}
+                  referenceActivityId={effectiveReferenceId}
                 />
-                <Text style={styles.exportGpxButtonText}>
-                  {gpxExporting ? t('export.exporting') : t('export.gpx')}
-                </Text>
-              </TouchableOpacity>
-            )}
-            <DataRangeFooter days={cacheDays} isDark={isDark} />
-            {debugEnabled &&
-              section &&
-              (() => {
-                const pageMetrics = getPageMetrics();
-                const ffiEntries = pageMetrics.reduce<
-                  Record<string, { calls: number; totalMs: number; maxMs: number }>
-                >((acc, m) => {
-                  if (!acc[m.name]) acc[m.name] = { calls: 0, totalMs: 0, maxMs: 0 };
-                  acc[m.name].calls++;
-                  acc[m.name].totalMs += m.durationMs;
-                  acc[m.name].maxMs = Math.max(acc[m.name].maxMs, m.durationMs);
-                  return acc;
-                }, {});
-                const warnings: Array<{
-                  level: 'warn' | 'error';
-                  message: string;
-                }> = [];
-                const actCount = section.activityIds.length;
-                if (actCount > 500)
-                  warnings.push({
-                    level: 'error',
-                    message: `${actCount} activities (>500)`,
-                  });
-                else if (actCount > 100)
-                  warnings.push({
-                    level: 'warn',
-                    message: `${actCount} activities (>100)`,
-                  });
-                if (section.polyline.length > 2000)
-                  warnings.push({
-                    level: 'warn',
-                    message: `${section.polyline.length} polyline points (>2000)`,
-                  });
-                for (const [name, m] of Object.entries(ffiEntries)) {
-                  if (m.maxMs > 200)
+              )}
+            </View>
+          )}
+
+          {!isTrimming && (
+            <View style={styles.listFooterContainer}>
+              {section?.polyline?.length > 0 && (
+                <TouchableOpacity
+                  testID="section-export-gpx"
+                  style={[styles.exportGpxButton, isDark && styles.exportGpxButtonDark]}
+                  onPress={() =>
+                    exportGpx({
+                      name: section.name || 'Section',
+                      points: section.polyline.map((p: RoutePoint) => ({
+                        latitude: p.lat,
+                        longitude: p.lng,
+                      })),
+                      sport: section.sportType,
+                    })
+                  }
+                  disabled={gpxExporting}
+                  activeOpacity={0.7}
+                >
+                  <MaterialCommunityIcons
+                    name={gpxExporting ? 'progress-download' : 'download'}
+                    size={20}
+                    color={colors.textOnPrimary}
+                  />
+                  <Text style={styles.exportGpxButtonText}>
+                    {gpxExporting ? t('export.exporting') : t('export.gpx')}
+                  </Text>
+                </TouchableOpacity>
+              )}
+              <DataRangeFooter days={cacheDays} isDark={isDark} />
+              {debugEnabled &&
+                section &&
+                (() => {
+                  const pageMetrics = getPageMetrics();
+                  const ffiEntries = pageMetrics.reduce<
+                    Record<string, { calls: number; totalMs: number; maxMs: number }>
+                  >((acc, m) => {
+                    if (!acc[m.name]) acc[m.name] = { calls: 0, totalMs: 0, maxMs: 0 };
+                    acc[m.name].calls++;
+                    acc[m.name].totalMs += m.durationMs;
+                    acc[m.name].maxMs = Math.max(acc[m.name].maxMs, m.durationMs);
+                    return acc;
+                  }, {});
+                  const warnings: Array<{
+                    level: 'warn' | 'error';
+                    message: string;
+                  }> = [];
+                  const actCount = section.activityIds.length;
+                  if (actCount > 500)
                     warnings.push({
                       level: 'error',
-                      message: `${name}: ${m.maxMs.toFixed(0)}ms (max)`,
+                      message: `${actCount} activities (>500)`,
                     });
-                }
-                return (
-                  <>
-                    {warnings.length > 0 && <DebugWarningBanner warnings={warnings} />}
-                    <DebugInfoPanel
-                      isDark={isDark}
-                      entries={[
-                        {
-                          label: 'ID',
-                          value:
-                            section.id.length > 20 ? section.id.slice(0, 20) + '...' : section.id,
-                        },
-                        { label: 'Type', value: section.sectionType },
-                        {
-                          label: 'Stability',
-                          value: Number.isFinite(section.stability)
-                            ? section.stability!.toFixed(3)
-                            : '-',
-                        },
-                        {
-                          label: 'Version',
-                          value: section.version != null ? String(section.version) : '-',
-                        },
-                        {
-                          label: 'Updated',
-                          value: section.updatedAt ? formatRelativeDate(section.updatedAt) : '-',
-                        },
-                        {
-                          label: 'Created',
-                          value: section.createdAt ? formatRelativeDate(section.createdAt) : '-',
-                        },
-                        {
-                          label: 'Confidence',
-                          value: Number.isFinite(section.confidence)
-                            ? section.confidence!.toFixed(2)
-                            : '-',
-                        },
-                        {
-                          label: 'Observations',
-                          value:
-                            section.observationCount != null
-                              ? String(section.observationCount)
+                  else if (actCount > 100)
+                    warnings.push({
+                      level: 'warn',
+                      message: `${actCount} activities (>100)`,
+                    });
+                  if (section.polyline.length > 2000)
+                    warnings.push({
+                      level: 'warn',
+                      message: `${section.polyline.length} polyline points (>2000)`,
+                    });
+                  for (const [name, m] of Object.entries(ffiEntries)) {
+                    if (m.maxMs > 200)
+                      warnings.push({
+                        level: 'error',
+                        message: `${name}: ${m.maxMs.toFixed(0)}ms (max)`,
+                      });
+                  }
+                  return (
+                    <>
+                      {warnings.length > 0 && <DebugWarningBanner warnings={warnings} />}
+                      <DebugInfoPanel
+                        isDark={isDark}
+                        entries={[
+                          {
+                            label: 'ID',
+                            value:
+                              section.id.length > 20 ? section.id.slice(0, 20) + '...' : section.id,
+                          },
+                          { label: 'Type', value: section.sectionType },
+                          {
+                            label: 'Stability',
+                            value: Number.isFinite(section.stability)
+                              ? section.stability!.toFixed(3)
                               : '-',
-                        },
-                        {
-                          label: 'Avg Spread',
-                          value: Number.isFinite(section.averageSpread)
-                            ? section.averageSpread!.toFixed(1) + 'm'
-                            : '-',
-                        },
-                        {
-                          label: 'Reference',
-                          value: section.representativeActivityId
-                            ? section.representativeActivityId.slice(0, 20) + '...'
-                            : '-',
-                        },
-                        {
-                          label: 'User Defined',
-                          value: section.isUserDefined ? 'Yes' : 'No',
-                        },
-                        { label: 'Activities', value: String(actCount) },
-                        {
-                          label: 'Points',
-                          value: String(section.polyline.length),
-                        },
-                        ...Object.entries(ffiEntries).map(([name, m]) => ({
-                          label: name,
-                          value: `${m.calls}x ${m.totalMs.toFixed(0)}ms`,
-                        })),
-                      ]}
-                    />
-                  </>
-                );
-              })()}
-          </View>
+                          },
+                          {
+                            label: 'Version',
+                            value: section.version != null ? String(section.version) : '-',
+                          },
+                          {
+                            label: 'Updated',
+                            value: section.updatedAt ? formatRelativeDate(section.updatedAt) : '-',
+                          },
+                          {
+                            label: 'Created',
+                            value: section.createdAt ? formatRelativeDate(section.createdAt) : '-',
+                          },
+                          {
+                            label: 'Confidence',
+                            value: Number.isFinite(section.confidence)
+                              ? section.confidence!.toFixed(2)
+                              : '-',
+                          },
+                          {
+                            label: 'Observations',
+                            value:
+                              section.observationCount != null
+                                ? String(section.observationCount)
+                                : '-',
+                          },
+                          {
+                            label: 'Avg Spread',
+                            value: Number.isFinite(section.averageSpread)
+                              ? section.averageSpread!.toFixed(1) + 'm'
+                              : '-',
+                          },
+                          {
+                            label: 'Reference',
+                            value: section.representativeActivityId
+                              ? section.representativeActivityId.slice(0, 20) + '...'
+                              : '-',
+                          },
+                          {
+                            label: 'User Defined',
+                            value: section.isUserDefined ? 'Yes' : 'No',
+                          },
+                          { label: 'Activities', value: String(actCount) },
+                          {
+                            label: 'Points',
+                            value: String(section.polyline.length),
+                          },
+                          ...Object.entries(ffiEntries).map(([name, m]) => ({
+                            label: name,
+                            value: `${m.calls}x ${m.totalMs.toFixed(0)}ms`,
+                          })),
+                        ]}
+                      />
+                    </>
+                  );
+                })()}
+            </View>
+          )}
         </ScrollView>
       </View>
       <MergeCandidatesModal
@@ -936,6 +1043,33 @@ const styles = StyleSheet.create({
   },
   textMuted: {
     color: darkColors.textSecondary,
+  },
+  actionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  actionPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    borderRadius: 16,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+  },
+  actionPillText: {
+    fontSize: typography.caption.fontSize,
+    fontWeight: '500',
+    color: colors.textSecondary,
+  },
+  actionCircle: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   acceptRow: {
     flexDirection: 'row',

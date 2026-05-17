@@ -10,39 +10,34 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useMetricSystem } from '@/hooks';
-import { SectionMapView, SectionTrimOverlay } from '@/components/routes';
+import { SectionMapView } from '@/components/routes';
 import { formatDistance, type MaterialIconName } from '@/lib';
 import { colors, darkColors, spacing, typography } from '@/theme';
 import type { RoutePoint, FrequentSection } from '@/types';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
-const MAP_HEIGHT = Math.round(SCREEN_HEIGHT * 0.45);
+const MAP_HEIGHT_NORMAL = Math.round(SCREEN_HEIGHT * 0.45);
+const MAP_HEIGHT_EDIT = Math.round(SCREEN_HEIGHT * 0.6);
+export { MAP_HEIGHT_NORMAL, MAP_HEIGHT_EDIT };
 
 export interface SectionHeaderProps {
   section: FrequentSection;
+  mapHeight?: number;
   isDark: boolean;
   insetTop: number;
   activityColor: string;
   iconName: MaterialIconName;
   activityCount: number;
   mapReady: boolean;
-  isCustomId: boolean;
-  isSectionDisabled: boolean;
-  isEditing: boolean;
-  editName: string;
-  customName: string | null;
-  nameInputRef: React.RefObject<TextInput | null>;
-  canResetBounds: boolean;
   isTrimming: boolean;
   isExpandMode: boolean;
   trimStart: number;
   trimEnd: number;
-  isTrimSaving: boolean;
-  trimmedDistance: number;
-  effectivePointCount: number;
-  sectionStartInWindow?: number;
-  sectionEndInWindow?: number;
   expandContextPoints?: RoutePoint[] | null;
+  isEditing: boolean;
+  editName: string;
+  customName: string | null;
+  nameInputRef: React.RefObject<TextInput | null>;
   shadowTrack?: [number, number][];
   highlightedActivityId: string | null;
   highlightedLapPoints?: RoutePoint[];
@@ -58,21 +53,10 @@ export interface SectionHeaderProps {
   }>;
   onNearbyPress?: (sectionId: string) => void;
   onBack: () => void;
-  onStartTrim: () => void;
-  onDeleteSection: () => void;
-  onToggleDisable: () => void;
   onStartEditing: () => void;
   onSaveName: () => void;
   onCancelEdit: () => void;
   onEditNameChange: (text: string) => void;
-  onTrimStartChange: (value: number) => void;
-  onTrimEndChange: (value: number) => void;
-  onConfirmTrim: () => void;
-  onCancelTrim: () => void;
-  onResetBounds: () => void;
-  onToggleExpand: () => void;
-  onRematchActivities?: () => void;
-  isRematching?: boolean;
 }
 
 export function SectionHeader({
@@ -83,23 +67,16 @@ export function SectionHeader({
   iconName,
   activityCount,
   mapReady,
-  isCustomId,
-  isSectionDisabled,
-  isEditing,
-  editName,
-  customName,
-  nameInputRef,
-  canResetBounds,
+  mapHeight = MAP_HEIGHT_NORMAL,
   isTrimming,
   isExpandMode,
   trimStart,
   trimEnd,
-  isTrimSaving,
-  trimmedDistance,
-  effectivePointCount,
-  sectionStartInWindow,
-  sectionEndInWindow,
   expandContextPoints,
+  isEditing,
+  editName,
+  customName,
+  nameInputRef,
   shadowTrack,
   highlightedActivityId,
   highlightedLapPoints,
@@ -108,32 +85,21 @@ export function SectionHeader({
   nearbyPolylines,
   onNearbyPress,
   onBack,
-  onStartTrim,
-  onDeleteSection,
-  onToggleDisable,
   onStartEditing,
   onSaveName,
   onCancelEdit,
   onEditNameChange,
-  onTrimStartChange,
-  onTrimEndChange,
-  onConfirmTrim,
-  onCancelTrim,
-  onResetBounds,
-  onToggleExpand,
-  onRematchActivities,
-  isRematching,
 }: SectionHeaderProps) {
   const { t } = useTranslation();
   const isMetric = useMetricSystem();
 
   return (
-    <View style={styles.heroSection}>
+    <View style={[styles.heroSection, { height: mapHeight }]}>
       <View style={styles.mapContainer}>
         {mapReady ? (
           <SectionMapView
             section={section}
-            height={MAP_HEIGHT}
+            height={mapHeight}
             interactive={true}
             enableFullscreen={!isTrimming}
             shadowTrack={shadowTrack}
@@ -147,30 +113,9 @@ export function SectionHeader({
             onNearbyPress={onNearbyPress}
           />
         ) : (
-          <View style={[styles.mapPlaceholder, { height: MAP_HEIGHT }]}>
+          <View style={[styles.mapPlaceholder, { height: mapHeight }]}>
             <ActivityIndicator size="large" color={colors.primary} />
           </View>
-        )}
-        {isTrimming && (
-          <SectionTrimOverlay
-            pointCount={effectivePointCount || section.polyline?.length || 0}
-            startIndex={trimStart}
-            endIndex={trimEnd}
-            trimmedDistance={trimmedDistance}
-            originalDistance={section.distanceMeters}
-            isSaving={isTrimSaving}
-            canReset={canResetBounds}
-            initiallyExpanded={!canResetBounds}
-            isExpandMode={isExpandMode}
-            sectionStartInWindow={sectionStartInWindow}
-            sectionEndInWindow={sectionEndInWindow}
-            onStartChange={onTrimStartChange}
-            onEndChange={onTrimEndChange}
-            onConfirm={onConfirmTrim}
-            onCancel={onCancelTrim}
-            onReset={onResetBounds}
-            onToggleExpand={onToggleExpand}
-          />
         )}
       </View>
 
@@ -245,59 +190,6 @@ export function SectionHeader({
             {activityCount} {t('sections.traversals')}
           </Text>
         </View>
-
-        {!isTrimming && (
-          <View style={styles.actionRow}>
-            <TouchableOpacity
-              testID="section-trim-button"
-              style={styles.editBoundsPill}
-              onPress={onStartTrim}
-              activeOpacity={0.7}
-            >
-              <MaterialCommunityIcons
-                name="content-cut"
-                size={16}
-                color="rgba(255, 255, 255, 0.9)"
-              />
-              <Text style={styles.editBoundsText}>{t('sections.editBounds')}</Text>
-            </TouchableOpacity>
-            {isCustomId ? (
-              <TouchableOpacity
-                style={styles.secondaryPill}
-                onPress={onDeleteSection}
-                activeOpacity={0.7}
-              >
-                <MaterialCommunityIcons name="delete-outline" size={16} color={colors.error} />
-              </TouchableOpacity>
-            ) : (
-              <TouchableOpacity
-                style={styles.secondaryPill}
-                onPress={onToggleDisable}
-                activeOpacity={0.7}
-              >
-                <MaterialCommunityIcons
-                  name={isSectionDisabled ? 'undo' : 'delete-outline'}
-                  size={16}
-                  color={isSectionDisabled ? colors.success : 'rgba(255, 255, 255, 0.7)'}
-                />
-              </TouchableOpacity>
-            )}
-            {onRematchActivities && (
-              <TouchableOpacity
-                style={styles.secondaryPill}
-                onPress={onRematchActivities}
-                activeOpacity={0.7}
-                disabled={isRematching}
-              >
-                <MaterialCommunityIcons
-                  name={isRematching ? 'loading' : 'refresh'}
-                  size={16}
-                  color="rgba(255, 255, 255, 0.7)"
-                />
-              </TouchableOpacity>
-            )}
-          </View>
-        )}
       </View>
     </View>
   );
@@ -305,7 +197,6 @@ export function SectionHeader({
 
 const styles = StyleSheet.create({
   heroSection: {
-    height: MAP_HEIGHT,
     position: 'relative',
   },
   mapContainer: {
@@ -409,36 +300,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 6,
     flexWrap: 'wrap',
-  },
-  actionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    marginTop: spacing.sm,
-  },
-  editBoundsPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-  },
-  editBoundsText: {
-    fontSize: typography.caption.fontSize,
-    fontWeight: '500',
-    color: 'rgba(255, 255, 255, 0.9)',
-  },
-  secondaryPill: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.3)',
   },
   heroStat: {
     fontSize: typography.bodySmall.fontSize,

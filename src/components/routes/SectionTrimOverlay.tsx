@@ -1,67 +1,45 @@
 /**
- * Overlay component for trimming/expanding section bounds.
- * Compact bottom bar design matching SectionCreationOverlay pattern.
- * Dual-handle range slider maps to polyline point indices.
- * Toggle between trim (section polyline) and expand (padded activity context).
+ * Inline trim/expand panel for adjusting section bounds.
+ * Full-width layout below the map, replaces the performance chart when active.
+ *
+ * Performance: slider handles and track run entirely on the UI thread via
+ * Reanimated SharedValues at 60fps. Map updates are throttled to ~100ms
+ * through the JS bridge to avoid overwhelming React re-renders.
  */
 
-import React, { useState, useCallback, useMemo } from 'react';
-import {
-  View,
-  StyleSheet,
-  TouchableOpacity,
-  Text,
-  LayoutChangeEvent,
-  Platform,
-} from 'react-native';
+import React, { useCallback, useEffect, useMemo, useRef } from 'react';
+import { View, StyleSheet, TouchableOpacity, Text, LayoutChangeEvent } from 'react-native';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { useSharedValue, useAnimatedStyle, runOnJS } from 'react-native-reanimated';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { ActivityIndicator } from 'react-native-paper';
-import { colors, typography, spacing, layout, shadows } from '@/theme';
+import * as Haptics from 'expo-haptics';
+import { colors, darkColors, typography, spacing, layout } from '@/theme';
 import { formatDistance } from '@/lib';
-import { useMetricSystem } from '@/hooks';
+import { useMetricSystem, useTheme } from '@/hooks';
 
 const HANDLE_SIZE = 28;
 const TRACK_HEIGHT = 4;
-const MIN_HANDLE_GAP = 0.05; // Minimum 5% gap between handles
+const MIN_HANDLE_GAP = 0.05;
 
 interface SectionTrimOverlayProps {
-  /** Total number of points in the effective polyline */
   pointCount: number;
-  /** Current start index */
   startIndex: number;
-  /** Current end index */
   endIndex: number;
-  /** Trimmed distance in meters */
   trimmedDistance: number;
-  /** Original section distance in meters */
   originalDistance: number;
-  /** Whether a save is in progress */
   isSaving: boolean;
-  /** Whether original bounds can be restored */
   canReset: boolean;
-  /** Whether the detail pill should start expanded (first-time trim) */
   initiallyExpanded?: boolean;
-  /** Whether expand mode is active */
   isExpandMode: boolean;
-  /** Section start index within expand window (for visual marker) */
   sectionStartInWindow?: number;
-  /** Section end index within expand window (for visual marker) */
   sectionEndInWindow?: number;
-  /** Called when start index changes */
   onStartChange: (index: number) => void;
-  /** Called when end index changes */
   onEndChange: (index: number) => void;
-  /** Called to save the trim */
   onConfirm: () => void;
-  /** Called to cancel trimming */
   onCancel: () => void;
-  /** Called to reset to original bounds */
   onReset: () => void;
-  /** Called to toggle expand mode */
   onToggleExpand: () => void;
 }
 
@@ -73,7 +51,6 @@ export function SectionTrimOverlay({
   originalDistance,
   isSaving,
   canReset,
-  initiallyExpanded,
   isExpandMode,
   sectionStartInWindow,
   sectionEndInWindow,
@@ -85,247 +62,380 @@ export function SectionTrimOverlay({
   onToggleExpand,
 }: SectionTrimOverlayProps) {
   const { t } = useTranslation();
-  const insets = useSafeAreaInsets();
   const isMetric = useMetricSystem();
-  const [trackWidth, setTrackWidth] = useState(0);
-  const [expanded, setExpanded] = useState(initiallyExpanded ?? false);
+  const { isDark } = useTheme();
+  const trackWidthSV = useSharedValue(0);
 
-  const maxIndex = pointCount - 1;
+  const maxIndex = Math.max(pointCount - 1, 1);
 
-  // Convert indices to fractions
-  const startFraction = maxIndex > 0 ? startIndex / maxIndex : 0;
-  const endFraction = maxIndex > 0 ? endIndex / maxIndex : 1;
-
-  // Section boundaries within expand window (for visual markers in expand mode)
   const hasWindowMarkers =
     isExpandMode && sectionStartInWindow != null && sectionEndInWindow != null;
   const sectionStartFraction = hasWindowMarkers ? (sectionStartInWindow ?? 0) / maxIndex : 0;
   const sectionEndFraction = hasWindowMarkers ? (sectionEndInWindow ?? maxIndex) / maxIndex : 1;
 
-  // Shared values for gesture tracking
-  const startX = useSharedValue(0);
-  const endX = useSharedValue(0);
+  // ── UI-thread state (SharedValues — 60fps, no bridge) ──
+  const startFrac = useSharedValue(startIndex / maxIndex);
+  const endFrac = useSharedValue(endIndex / maxIndex);
+  const prevTransX = useSharedValue(0);
+  const lastEmitTime = useSharedValue(0);
+  const isDragging = useSharedValue(false);
 
-  const onTrackLayout = useCallback((e: LayoutChangeEvent) => {
-    setTrackWidth(e.nativeEvent.layout.width);
+  // Sync SharedValues when props change (e.g. step buttons, expand toggle)
+  // Skip during active drag — the gesture owns the SharedValues then.
+  useEffect(() => {
+    if (!isDragging.value) startFrac.value = startIndex / maxIndex;
+  }, [startIndex, maxIndex, startFrac, isDragging]);
+  useEffect(() => {
+    if (!isDragging.value) endFrac.value = endIndex / maxIndex;
+  }, [endIndex, maxIndex, endFrac, isDragging]);
+
+  const onTrackLayout = useCallback(
+    (e: LayoutChangeEvent) => {
+      trackWidthSV.value = e.nativeEvent.layout.width;
+    },
+    [trackWidthSV]
+  );
+
+  // ── Precision helpers (worklets) ──
+  const getPrecisionRatio = (dy: number): number => {
+    'worklet';
+    const absDy = Math.abs(dy);
+    if (absDy < 20) return 1.0;
+    if (absDy < 60) return 0.25;
+    return 0.125;
+  };
+
+  const getPrecisionLevel = (dy: number): 'normal' | 'precision' | 'fine' => {
+    'worklet';
+    const absDy = Math.abs(dy);
+    if (absDy < 20) return 'normal';
+    if (absDy < 60) return 'precision';
+    return 'fine';
+  };
+
+  const lastPrecisionRef = useRef<'normal' | 'precision' | 'fine'>('normal');
+  const fireHapticOnThreshold = useCallback((level: 'normal' | 'precision' | 'fine') => {
+    if (level !== lastPrecisionRef.current) {
+      lastPrecisionRef.current = level;
+      if (level === 'precision') {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+      } else if (level === 'fine') {
+        Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+      }
+    }
   }, []);
 
-  // Start handle gesture
+  const resetPrecision = useCallback(() => {
+    lastPrecisionRef.current = 'normal';
+  }, []);
+
+  // ── Step button handlers (JS thread — immediate) ──
+  const nudgeStart = useCallback(
+    (delta: number) => {
+      const newIndex = Math.max(
+        0,
+        Math.min(startIndex + delta, endIndex - Math.ceil(maxIndex * MIN_HANDLE_GAP))
+      );
+      onStartChange(newIndex);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    },
+    [startIndex, endIndex, maxIndex, onStartChange]
+  );
+
+  const nudgeEnd = useCallback(
+    (delta: number) => {
+      const newIndex = Math.max(
+        startIndex + Math.ceil(maxIndex * MIN_HANDLE_GAP),
+        Math.min(endIndex + delta, maxIndex)
+      );
+      onEndChange(newIndex);
+      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
+    },
+    [startIndex, endIndex, maxIndex, onEndChange]
+  );
+
+  // ── Start handle gesture ──
+  // UI thread: handle + track at 60fps. Map updates throttled to ~150ms during drag.
   const startGesture = useMemo(
     () =>
       Gesture.Pan()
         .onStart(() => {
-          startX.value = startFraction * trackWidth;
+          'worklet';
+          isDragging.value = true;
+          prevTransX.value = 0;
+          lastEmitTime.value = 0;
         })
         .onUpdate((e) => {
-          const newX = Math.max(0, Math.min(startX.value + e.translationX, trackWidth));
-          const newFraction = newX / trackWidth;
-          // Ensure min gap from end handle
-          if (newFraction < endFraction - MIN_HANDLE_GAP) {
-            const newIndex = Math.round(newFraction * maxIndex);
-            runOnJS(onStartChange)(newIndex);
+          'worklet';
+          const ratio = getPrecisionRatio(e.translationY);
+          const tw = trackWidthSV.value;
+          if (tw <= 0) return;
+          const deltaX = (e.translationX - prevTransX.value) * ratio;
+          prevTransX.value = e.translationX;
+          const newFrac = Math.max(0, Math.min(startFrac.value + deltaX / tw, 1));
+          if (newFrac < endFrac.value - MIN_HANDLE_GAP) {
+            startFrac.value = newFrac;
+            const now = Date.now();
+            if (now - lastEmitTime.value >= 150) {
+              lastEmitTime.value = now;
+              runOnJS(onStartChange)(Math.round(newFrac * maxIndex));
+            }
           }
+          runOnJS(fireHapticOnThreshold)(getPrecisionLevel(e.translationY));
+        })
+        .onEnd(() => {
+          'worklet';
+          isDragging.value = false;
+          runOnJS(onStartChange)(Math.round(startFrac.value * maxIndex));
+          runOnJS(resetPrecision)();
         })
         .hitSlop({ top: 15, bottom: 15, left: 15, right: 15 }),
-    [startFraction, endFraction, trackWidth, maxIndex, onStartChange, startX]
+    [
+      maxIndex,
+      onStartChange,
+      startFrac,
+      endFrac,
+      prevTransX,
+      trackWidthSV,
+      lastEmitTime,
+      isDragging,
+      fireHapticOnThreshold,
+      resetPrecision,
+    ]
   );
 
-  // End handle gesture
+  // ── End handle gesture ──
   const endGesture = useMemo(
     () =>
       Gesture.Pan()
         .onStart(() => {
-          endX.value = endFraction * trackWidth;
+          'worklet';
+          isDragging.value = true;
+          prevTransX.value = 0;
+          lastEmitTime.value = 0;
         })
         .onUpdate((e) => {
-          const newX = Math.max(0, Math.min(endX.value + e.translationX, trackWidth));
-          const newFraction = newX / trackWidth;
-          // Ensure min gap from start handle
-          if (newFraction > startFraction + MIN_HANDLE_GAP) {
-            const newIndex = Math.round(newFraction * maxIndex);
-            runOnJS(onEndChange)(newIndex);
+          'worklet';
+          const ratio = getPrecisionRatio(e.translationY);
+          const tw = trackWidthSV.value;
+          if (tw <= 0) return;
+          const deltaX = (e.translationX - prevTransX.value) * ratio;
+          prevTransX.value = e.translationX;
+          const newFrac = Math.max(0, Math.min(endFrac.value + deltaX / tw, 1));
+          if (newFrac > startFrac.value + MIN_HANDLE_GAP) {
+            endFrac.value = newFrac;
+            const now = Date.now();
+            if (now - lastEmitTime.value >= 150) {
+              lastEmitTime.value = now;
+              runOnJS(onEndChange)(Math.round(newFrac * maxIndex));
+            }
           }
+          runOnJS(fireHapticOnThreshold)(getPrecisionLevel(e.translationY));
+        })
+        .onEnd(() => {
+          'worklet';
+          isDragging.value = false;
+          runOnJS(onEndChange)(Math.round(endFrac.value * maxIndex));
+          runOnJS(resetPrecision)();
         })
         .hitSlop({ top: 15, bottom: 15, left: 15, right: 15 }),
-    [startFraction, endFraction, trackWidth, maxIndex, onEndChange, endX]
+    [
+      maxIndex,
+      onEndChange,
+      startFrac,
+      endFrac,
+      prevTransX,
+      trackWidthSV,
+      lastEmitTime,
+      isDragging,
+      fireHapticOnThreshold,
+      resetPrecision,
+    ]
   );
 
-  // Animated styles for handles
+  // ── Animated styles (UI thread — instant) ──
   const startHandleStyle = useAnimatedStyle(() => ({
-    left: startFraction * trackWidth - HANDLE_SIZE / 2,
+    left: startFrac.value * trackWidthSV.value - HANDLE_SIZE / 2,
   }));
 
   const endHandleStyle = useAnimatedStyle(() => ({
-    left: endFraction * trackWidth - HANDLE_SIZE / 2,
+    left: endFrac.value * trackWidthSV.value - HANDLE_SIZE / 2,
   }));
 
-  // Percentage of original distance retained (can exceed 100% when expanding)
+  const trackActiveStyle = useAnimatedStyle(() => ({
+    left: startFrac.value * trackWidthSV.value,
+    width: (endFrac.value - startFrac.value) * trackWidthSV.value,
+  }));
+
+  // ── JS-thread derived values (for info display — updates at React render rate) ──
   const percentage =
     originalDistance > 0 ? Math.round((trimmedDistance / originalDistance) * 100) : 100;
-
-  // Detect if bounds have been changed from original position
   const isTrimmed = hasWindowMarkers
     ? startIndex !== sectionStartInWindow || endIndex !== sectionEndInWindow
     : startIndex > 0 || endIndex < maxIndex;
 
-  return (
-    <View testID="section-trim-overlay" style={styles.container} pointerEvents="box-none">
-      <View style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, spacing.sm) }]}>
-        {/* Cancel button */}
-        <TouchableOpacity
-          testID="section-trim-cancel"
-          style={[styles.iconButton, styles.cancelButton]}
-          onPress={onCancel}
-          activeOpacity={0.8}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          disabled={isSaving}
-        >
-          <MaterialCommunityIcons name="close" size={22} color={colors.textOnDark} />
-        </TouchableOpacity>
+  const textColor = isDark ? darkColors.textPrimary : colors.textPrimary;
+  const mutedColor = isDark ? darkColors.textSecondary : colors.textSecondary;
+  const trackReady = trackWidthSV.value > 0 || true;
 
-        {/* Center: status pill with slider */}
-        <TouchableOpacity
-          style={[styles.statusPill, expanded && styles.statusPillExpanded]}
-          onPress={() => setExpanded(!expanded)}
-          activeOpacity={0.9}
-          disabled={isSaving}
-        >
-          {/* Distance display + expand toggle */}
-          <View style={styles.statusRow}>
-            {isSaving ? (
-              <ActivityIndicator size={18} color={colors.primary} />
-            ) : (
-              <MaterialCommunityIcons
-                name={isExpandMode ? 'arrow-expand-horizontal' : 'content-cut'}
-                size={18}
-                color={isTrimmed ? colors.primary : colors.textSecondary}
-              />
-            )}
-            <Text style={[styles.statusText, isTrimmed && { color: colors.primary }]}>
+  return (
+    <View testID="section-trim-overlay" style={styles.container}>
+      {/* Info row */}
+      <View style={styles.infoRow}>
+        <MaterialCommunityIcons
+          name={isExpandMode ? 'arrow-expand-horizontal' : 'content-cut'}
+          size={16}
+          color={isTrimmed ? colors.primary : mutedColor}
+        />
+        {isSaving ? (
+          <ActivityIndicator size={16} color={colors.primary} />
+        ) : (
+          <>
+            <Text style={[styles.infoValue, { color: isTrimmed ? colors.primary : textColor }]}>
               {formatDistance(trimmedDistance, isMetric)}
             </Text>
-            {isTrimmed && <Text style={styles.percentText}>{percentage}%</Text>}
-            <View style={styles.statusSpacer} />
-            {/* Expand/collapse toggle */}
-            <TouchableOpacity
-              testID="section-expand-toggle"
-              onPress={onToggleExpand}
-              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-              style={[styles.expandToggle, isExpandMode && styles.expandToggleActive]}
-              disabled={isSaving}
-            >
-              <MaterialCommunityIcons
-                name={isExpandMode ? 'arrow-collapse-horizontal' : 'arrow-expand-horizontal'}
-                size={14}
-                color={isExpandMode ? colors.primary : colors.textSecondary}
-              />
-            </TouchableOpacity>
-            <MaterialCommunityIcons
-              name={expanded ? 'chevron-down' : 'chevron-up'}
-              size={16}
-              color={colors.textSecondary}
-            />
-          </View>
-
-          {/* Range slider */}
-          <View style={styles.sliderContainer} onLayout={onTrackLayout}>
-            {/* Background track */}
-            <View style={styles.trackBackground} />
-
-            {/* Original section boundaries (visible in expand mode) */}
-            {trackWidth > 0 && hasWindowMarkers && (
-              <View
-                style={[
-                  styles.trackSection,
-                  {
-                    left: sectionStartFraction * trackWidth,
-                    width: (sectionEndFraction - sectionStartFraction) * trackWidth,
-                  },
-                ]}
-              />
+            {isTrimmed && (
+              <Text style={[styles.infoMuted, { color: mutedColor }]}>{percentage}%</Text>
             )}
-
-            {/* Active range */}
-            {trackWidth > 0 && (
-              <View
-                style={[
-                  styles.trackActive,
-                  {
-                    left: startFraction * trackWidth,
-                    width: (endFraction - startFraction) * trackWidth,
-                  },
-                ]}
-              />
-            )}
-
-            {/* Start handle */}
-            {trackWidth > 0 && (
-              <GestureDetector gesture={startGesture}>
-                <Animated.View style={[styles.handle, startHandleStyle]}>
-                  <View style={styles.handleInner}>
-                    <View style={styles.handleBar} />
-                  </View>
-                </Animated.View>
-              </GestureDetector>
-            )}
-
-            {/* End handle */}
-            {trackWidth > 0 && (
-              <GestureDetector gesture={endGesture}>
-                <Animated.View style={[styles.handle, endHandleStyle]}>
-                  <View style={styles.handleInner}>
-                    <View style={styles.handleBar} />
-                  </View>
-                </Animated.View>
-              </GestureDetector>
-            )}
-          </View>
-
-          {/* Expanded details */}
-          {expanded && (
-            <View style={styles.expandedContent}>
-              <View style={styles.detailRow}>
-                <MaterialCommunityIcons
-                  name="map-marker-multiple"
-                  size={14}
-                  color={colors.textSecondary}
-                />
-                <Text style={styles.detailText}>
-                  {endIndex - startIndex + 1} / {pointCount} {t('sections.points', 'points')}
-                </Text>
-              </View>
-              {originalDistance > 0 && isTrimmed && (
-                <View style={styles.detailRow}>
-                  <MaterialCommunityIcons name="ruler" size={14} color={colors.textSecondary} />
-                  <Text style={styles.detailText}>
-                    {t('sections.originalDistance', 'Original')}:{' '}
-                    {formatDistance(originalDistance, isMetric)}
-                  </Text>
-                </View>
-              )}
-              {canReset && (
-                <TouchableOpacity style={styles.resetRow} onPress={onReset}>
-                  <MaterialCommunityIcons name="refresh" size={14} color={colors.primary} />
-                  <Text style={styles.resetText}>{t('sections.resetBounds')}</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          )}
+          </>
+        )}
+        <Text style={[styles.infoMuted, { color: mutedColor }]}>
+          {endIndex - startIndex + 1} / {pointCount} {t('sections.points', 'points')}
+        </Text>
+        <View style={{ flex: 1 }} />
+        <TouchableOpacity
+          testID="section-expand-toggle"
+          onPress={onToggleExpand}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          style={[styles.expandToggle, isExpandMode && styles.expandToggleActive]}
+          disabled={isSaving}
+        >
+          <MaterialCommunityIcons
+            name={isExpandMode ? 'content-cut' : 'arrow-expand-horizontal'}
+            size={14}
+            color={isExpandMode ? colors.primary : mutedColor}
+          />
+          <Text
+            style={[styles.expandToggleText, { color: isExpandMode ? colors.primary : mutedColor }]}
+          >
+            {isExpandMode ? t('sections.trimMode', 'Trim') : t('sections.expandMode', 'Expand')}
+          </Text>
         </TouchableOpacity>
+        {canReset && (
+          <TouchableOpacity onPress={onReset} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <MaterialCommunityIcons name="refresh" size={16} color={colors.primary} />
+          </TouchableOpacity>
+        )}
+      </View>
 
-        {/* Save button */}
+      {/* Full-width slider — handles + track driven by SharedValues (60fps) */}
+      <View style={styles.sliderContainer} onLayout={onTrackLayout}>
+        <View style={[styles.trackBackground, isDark && styles.trackBackgroundDark]} />
+        {hasWindowMarkers && (
+          <View
+            style={[
+              styles.trackSection,
+              {
+                left: `${sectionStartFraction * 100}%` as unknown as number,
+                width: `${(sectionEndFraction - sectionStartFraction) * 100}%` as unknown as number,
+              },
+            ]}
+          />
+        )}
+        <Animated.View style={[styles.trackActive, trackActiveStyle]} />
+        {trackReady && (
+          <GestureDetector gesture={startGesture}>
+            <Animated.View style={[styles.handle, startHandleStyle]}>
+              <View style={styles.handleInner}>
+                <View style={styles.handleBar} />
+              </View>
+            </Animated.View>
+          </GestureDetector>
+        )}
+        {trackReady && (
+          <GestureDetector gesture={endGesture}>
+            <Animated.View style={[styles.handle, endHandleStyle]}>
+              <View style={styles.handleInner}>
+                <View style={styles.handleBar} />
+              </View>
+            </Animated.View>
+          </GestureDetector>
+        )}
+      </View>
+
+      {/* Step buttons */}
+      <View style={styles.stepRow}>
+        <View style={styles.stepGroup}>
+          <TouchableOpacity
+            style={[styles.stepButton, isDark && styles.stepButtonDark]}
+            onPress={() => nudgeStart(-1)}
+            disabled={startIndex <= 0}
+          >
+            <MaterialCommunityIcons name="chevron-left" size={16} color={colors.primary} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.stepButton, isDark && styles.stepButtonDark]}
+            onPress={() => nudgeStart(1)}
+            disabled={startIndex >= endIndex - Math.ceil(maxIndex * MIN_HANDLE_GAP)}
+          >
+            <MaterialCommunityIcons name="chevron-right" size={16} color={colors.primary} />
+          </TouchableOpacity>
+        </View>
+        <View style={styles.stepGroup}>
+          <TouchableOpacity
+            style={[styles.stepButton, isDark && styles.stepButtonDark]}
+            onPress={() => nudgeEnd(-1)}
+            disabled={endIndex <= startIndex + Math.ceil(maxIndex * MIN_HANDLE_GAP)}
+          >
+            <MaterialCommunityIcons name="chevron-left" size={16} color={colors.primary} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.stepButton, isDark && styles.stepButtonDark]}
+            onPress={() => nudgeEnd(1)}
+            disabled={endIndex >= maxIndex}
+          >
+            <MaterialCommunityIcons name="chevron-right" size={16} color={colors.primary} />
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* Precision hint */}
+      <Text style={[styles.hint, { color: mutedColor }]}>
+        {t('sections.trimPrecisionHint', 'Drag handle up or down for finer control')}
+      </Text>
+
+      {/* Action buttons */}
+      <View style={styles.actions}>
+        <TouchableOpacity
+          testID="section-trim-cancel"
+          style={[styles.actionBtn, isDark ? styles.actionBtnDark : styles.actionBtnLight]}
+          onPress={onCancel}
+          activeOpacity={0.8}
+          disabled={isSaving}
+        >
+          <MaterialCommunityIcons name="close" size={18} color={colors.error} />
+          <Text style={[styles.actionLabel, { color: colors.error }]}>{t('common.cancel')}</Text>
+        </TouchableOpacity>
         <TouchableOpacity
           testID="section-trim-confirm"
           style={[
-            styles.iconButton,
-            isTrimmed ? styles.confirmButton : styles.confirmButtonDisabled,
+            styles.actionBtn,
+            isTrimmed ? styles.confirmBtn : isDark ? styles.actionBtnDark : styles.actionBtnLight,
           ]}
           onPress={onConfirm}
           activeOpacity={0.8}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           disabled={!isTrimmed || isSaving}
         >
-          <MaterialCommunityIcons name="check" size={22} color={colors.textOnDark} />
+          <MaterialCommunityIcons
+            name="check"
+            size={18}
+            color={isTrimmed ? colors.textOnPrimary : mutedColor}
+          />
+          <Text
+            style={[styles.actionLabel, { color: isTrimmed ? colors.textOnPrimary : mutedColor }]}
+          >
+            {t('common.save')}
+          </Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -334,59 +444,28 @@ export function SectionTrimOverlay({
 
 const styles = StyleSheet.create({
   container: {
-    ...StyleSheet.absoluteFillObject,
-    justifyContent: 'flex-end',
-    zIndex: 200,
-  },
-  bottomBar: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    justifyContent: 'space-between',
     paddingHorizontal: spacing.md,
-    paddingTop: spacing.sm,
+    paddingTop: spacing.md,
     gap: spacing.sm,
   },
-  iconButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...shadows.elevated,
-  },
-  cancelButton: {
-    backgroundColor: colors.error,
-  },
-  confirmButton: {
-    backgroundColor: colors.success,
-  },
-  confirmButtonDisabled: {
-    backgroundColor: colors.gray500,
-  },
-  statusPill: {
-    flex: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    borderRadius: 22,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    minHeight: 44,
-    justifyContent: 'center',
-    ...shadows.elevated,
-  },
-  statusPillExpanded: {
-    borderRadius: layout.borderRadius,
-  },
-  statusRow: {
+  infoRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.xs,
+    gap: spacing.sm,
   },
-  statusSpacer: {
-    flex: 1,
+  infoValue: {
+    ...typography.body,
+    fontWeight: '600',
+  },
+  infoMuted: {
+    ...typography.caption,
   },
   expandToggle: {
-    padding: 4,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
     borderRadius: 12,
     borderWidth: 1,
     borderColor: colors.border,
@@ -395,20 +474,14 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
     backgroundColor: colors.primary + '10',
   },
-  statusText: {
-    ...typography.body,
-    fontWeight: '600',
-    color: colors.textPrimary,
-    flexShrink: 1,
-  },
-  percentText: {
-    ...typography.caption,
-    color: colors.textSecondary,
+  expandToggleText: {
+    fontSize: typography.caption.fontSize,
+    fontWeight: '500',
   },
   sliderContainer: {
     height: HANDLE_SIZE + 8,
-    marginTop: spacing.xs,
     justifyContent: 'center',
+    marginHorizontal: HANDLE_SIZE / 2,
   },
   trackBackground: {
     position: 'absolute',
@@ -417,6 +490,9 @@ const styles = StyleSheet.create({
     height: TRACK_HEIGHT,
     borderRadius: TRACK_HEIGHT / 2,
     backgroundColor: colors.border,
+  },
+  trackBackgroundDark: {
+    backgroundColor: darkColors.border,
   },
   trackSection: {
     position: 'absolute',
@@ -446,7 +522,6 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
-    ...shadows.elevated,
   },
   handleBar: {
     width: 8,
@@ -454,33 +529,60 @@ const styles = StyleSheet.create({
     borderRadius: 1,
     backgroundColor: colors.primary,
   },
-  expandedContent: {
-    marginTop: spacing.sm,
-    paddingTop: spacing.sm,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.border,
-    gap: spacing.xs,
-  },
-  detailRow: {
+  stepRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.xs,
+    justifyContent: 'space-between',
   },
-  detailText: {
+  stepGroup: {
+    flexDirection: 'row',
+    gap: 2,
+  },
+  stepButton: {
+    width: 30,
+    height: 28,
+    borderRadius: 6,
+    backgroundColor: colors.primary + '15',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  stepButtonDark: {
+    backgroundColor: colors.primary + '25',
+  },
+  hint: {
     ...typography.caption,
-    color: colors.textSecondary,
+    textAlign: 'center',
+    opacity: 0.7,
   },
-  resetRow: {
+  actions: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginTop: spacing.xs,
+  },
+  actionBtn: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: spacing.xs,
-    marginTop: spacing.xs,
-    paddingVertical: spacing.xs,
+    paddingVertical: 12,
+    borderRadius: layout.borderRadiusSm,
   },
-  resetText: {
-    ...typography.caption,
-    color: colors.primary,
+  actionBtnLight: {
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  actionBtnDark: {
+    backgroundColor: darkColors.surface,
+    borderWidth: 1,
+    borderColor: darkColors.border,
+  },
+  confirmBtn: {
+    backgroundColor: colors.primary,
+  },
+  actionLabel: {
+    ...typography.body,
     fontWeight: '600',
   },
 });

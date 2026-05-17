@@ -82,6 +82,10 @@ function isValidActivityType(sportType: string): sportType is ActivityType {
   return validTypes.has(sportType);
 }
 
+// Module-level stable reference — avoids creating a new object each render which would
+// trigger ShapeSource native reconciliation updates when layers are inactive.
+const EMPTY_COLLECTION: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: [] };
+
 interface SectionMapViewProps {
   section: FrequentSection;
   height?: number;
@@ -297,7 +301,6 @@ export const SectionMapView = memo(function SectionMapView({
   // Create GeoJSON for the section polyline
   // CRITICAL: Always return valid GeoJSON to avoid iOS MapLibre crash during view reconciliation
   // Empty FeatureCollection is safe - LineLayer just doesn't render anything
-  const emptyCollection: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: [] };
 
   // GeoJSON LineString requires minimum 2 coordinates
   const sectionGeoJSON = useMemo((): GeoJSON.FeatureCollection | GeoJSON.Feature => {
@@ -306,7 +309,7 @@ export const SectionMapView = memo(function SectionMapView({
       (p) => Number.isFinite(p.lat) && Number.isFinite(p.lng)
     );
     // LineString requires at least 2 valid coordinates
-    if (validPoints.length < 2) return emptyCollection;
+    if (validPoints.length < 2) return EMPTY_COLLECTION;
     return {
       type: 'Feature' as const,
       properties: {},
@@ -320,13 +323,13 @@ export const SectionMapView = memo(function SectionMapView({
   // GeoJSON for the trimmed portion (when trim range is active)
   // In expand mode, trim indices are relative to extensionTrack (window points), not section polyline
   const trimmedGeoJSON = useMemo((): GeoJSON.FeatureCollection | GeoJSON.Feature => {
-    if (!trimRange) return emptyCollection;
+    if (!trimRange) return EMPTY_COLLECTION;
     const sourcePoints =
       extensionTrack && extensionTrack.length > 0 ? extensionTrack : displayPoints;
-    if (sourcePoints.length < 2) return emptyCollection;
+    if (sourcePoints.length < 2) return EMPTY_COLLECTION;
     const sliced = sourcePoints.slice(trimRange.start, trimRange.end + 1);
     const validPoints = sliced.filter((p) => Number.isFinite(p.lat) && Number.isFinite(p.lng));
-    if (validPoints.length < 2) return emptyCollection;
+    if (validPoints.length < 2) return EMPTY_COLLECTION;
     return {
       type: 'Feature' as const,
       properties: {},
@@ -339,12 +342,12 @@ export const SectionMapView = memo(function SectionMapView({
 
   // Create GeoJSON for the shadow track (full activity route)
   const shadowGeoJSON = useMemo((): GeoJSON.FeatureCollection | GeoJSON.Feature => {
-    if (!shadowTrack || shadowTrack.length < 2) return emptyCollection;
+    if (!shadowTrack || shadowTrack.length < 2) return EMPTY_COLLECTION;
     // Filter out NaN/Infinity coordinates
     const validCoords = shadowTrack.filter(
       ([lat, lng]) => Number.isFinite(lat) && Number.isFinite(lng)
     );
-    if (validCoords.length < 2) return emptyCollection;
+    if (validCoords.length < 2) return EMPTY_COLLECTION;
     return {
       type: 'Feature' as const,
       properties: {},
@@ -357,11 +360,11 @@ export const SectionMapView = memo(function SectionMapView({
 
   // Create GeoJSON for the extension track (representative activity's full track)
   const extensionGeoJSON = useMemo((): GeoJSON.FeatureCollection | GeoJSON.Feature => {
-    if (!extensionTrack || extensionTrack.length < 2) return emptyCollection;
+    if (!extensionTrack || extensionTrack.length < 2) return EMPTY_COLLECTION;
     const validCoords = extensionTrack.filter(
       (p) => Number.isFinite(p.lat) && Number.isFinite(p.lng)
     );
-    if (validCoords.length < 2) return emptyCollection;
+    if (validCoords.length < 2) return EMPTY_COLLECTION;
     return {
       type: 'Feature' as const,
       properties: {},
@@ -374,7 +377,7 @@ export const SectionMapView = memo(function SectionMapView({
 
   // Create FeatureCollection for nearby section polylines (muted gray overlays)
   const nearbyGeoJSON = useMemo((): GeoJSON.FeatureCollection => {
-    if (!nearbyPolylines || nearbyPolylines.length === 0) return emptyCollection;
+    if (!nearbyPolylines || nearbyPolylines.length === 0) return EMPTY_COLLECTION;
     const features = nearbyPolylines
       .map((entry) => {
         if (!entry.encodedPolyline) return null;
@@ -399,7 +402,7 @@ export const SectionMapView = memo(function SectionMapView({
 
   // Create FeatureCollection with ALL activity traces for fast scrubbing
   const allTracesFeatureCollection = useMemo((): GeoJSON.FeatureCollection => {
-    if (!allActivityTraces || Object.keys(allActivityTraces).length === 0) return emptyCollection;
+    if (!allActivityTraces || Object.keys(allActivityTraces).length === 0) return EMPTY_COLLECTION;
 
     const features = Object.entries(allActivityTraces)
       .map(([activityId, points]) => {
@@ -436,7 +439,7 @@ export const SectionMapView = memo(function SectionMapView({
   // This is the fallback when allActivityTraces is not provided
   const highlightedTraceGeoJSON = useMemo((): GeoJSON.FeatureCollection | GeoJSON.Feature => {
     // If we have pre-loaded traces, use the filter approach instead
-    if (hasAllTraces) return emptyCollection;
+    if (hasAllTraces) return EMPTY_COLLECTION;
 
     // Lap points take precedence
     if (highlightedLapPoints && highlightedLapPoints.length > 1) {
@@ -444,7 +447,7 @@ export const SectionMapView = memo(function SectionMapView({
       const validPoints = highlightedLapPoints.filter(
         (p) => Number.isFinite(p.lat) && Number.isFinite(p.lng)
       );
-      if (validPoints.length < 2) return emptyCollection;
+      if (validPoints.length < 2) return EMPTY_COLLECTION;
       return {
         type: 'Feature' as const,
         properties: { id: 'highlighted-lap' },
@@ -463,7 +466,7 @@ export const SectionMapView = memo(function SectionMapView({
         const validPoints = activityTrace.filter(
           (p) => Number.isFinite(p.lat) && Number.isFinite(p.lng)
         );
-        if (validPoints.length < 2) return emptyCollection;
+        if (validPoints.length < 2) return EMPTY_COLLECTION;
         return {
           type: 'Feature' as const,
           properties: { id: highlightedActivityId },
@@ -475,17 +478,17 @@ export const SectionMapView = memo(function SectionMapView({
       }
     }
 
-    return emptyCollection;
+    return EMPTY_COLLECTION;
   }, [highlightedActivityId, highlightedLapPoints, section.activityTraces, hasAllTraces]);
 
   // GeoJSON for highlighted lap points (when scrubbing shows specific lap portion)
   const highlightedLapGeoJSON = useMemo((): GeoJSON.FeatureCollection | GeoJSON.Feature => {
-    if (!highlightedLapPoints || highlightedLapPoints.length < 2) return emptyCollection;
+    if (!highlightedLapPoints || highlightedLapPoints.length < 2) return EMPTY_COLLECTION;
     // Filter out NaN/Infinity coordinates
     const validPoints = highlightedLapPoints.filter(
       (p) => Number.isFinite(p.lat) && Number.isFinite(p.lng)
     );
-    if (validPoints.length < 2) return emptyCollection;
+    if (validPoints.length < 2) return EMPTY_COLLECTION;
     return {
       type: 'Feature' as const,
       properties: { id: 'highlighted-lap' },
@@ -502,9 +505,12 @@ export const SectionMapView = memo(function SectionMapView({
   const styleUrl = getMapStyle(currentMapStyle);
 
   // Use trimmed positions for markers when trimming
-  const startPoint = trimRange ? displayPoints[trimRange.start] : displayPoints[0];
+  // In expand mode, indices are relative to the extension track, not the section polyline
+  const markerSource =
+    trimRange && extensionTrack && extensionTrack.length > 0 ? extensionTrack : displayPoints;
+  const startPoint = trimRange ? markerSource[trimRange.start] : displayPoints[0];
   const endPoint = trimRange
-    ? displayPoints[trimRange.end]
+    ? markerSource[trimRange.end]
     : displayPoints[displayPoints.length - 1];
 
   if (!bounds || displayPoints.length === 0) {
