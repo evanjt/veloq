@@ -256,25 +256,12 @@ export function SeasonComparison({
       // Opacity for non-selected months when a month is selected
       const barOpacity = selectedMonth !== null && !isSelected ? 0.4 : 1.0;
 
-      // Draw current bar
-      const currentHeight = maxValue > 0 ? (d.current / maxValue) * (barAreaHeight - 10) : 0;
-      barPaint.setColor(Skia.Color(colorCurrent));
-      barPaint.setAlphaf(barOpacity);
-      if (currentHeight > 0) {
-        const barX = groupCenterX - BAR_WIDTH - BAR_GAP / 2;
-        const barY = barAreaHeight - currentHeight;
-        canvas.drawRRect(
-          Skia.RRectXY(Skia.XYWHRect(barX, barY, BAR_WIDTH, currentHeight), BAR_RADIUS, BAR_RADIUS),
-          barPaint
-        );
-      }
-
-      // Draw previous bar
+      // Draw previous bar (left)
       const previousHeight = maxValue > 0 ? (d.previous / maxValue) * (barAreaHeight - 10) : 0;
       barPaint.setColor(Skia.Color(colorPrevious));
       barPaint.setAlphaf(barOpacity);
       if (previousHeight > 0) {
-        const barX = groupCenterX + BAR_GAP / 2;
+        const barX = groupCenterX - BAR_WIDTH - BAR_GAP / 2;
         const barY = barAreaHeight - previousHeight;
         canvas.drawRRect(
           Skia.RRectXY(
@@ -282,6 +269,19 @@ export function SeasonComparison({
             BAR_RADIUS,
             BAR_RADIUS
           ),
+          barPaint
+        );
+      }
+
+      // Draw current bar (right)
+      const currentHeight = maxValue > 0 ? (d.current / maxValue) * (barAreaHeight - 10) : 0;
+      barPaint.setColor(Skia.Color(colorCurrent));
+      barPaint.setAlphaf(barOpacity);
+      if (currentHeight > 0) {
+        const barX = groupCenterX + BAR_GAP / 2;
+        const barY = barAreaHeight - currentHeight;
+        canvas.drawRRect(
+          Skia.RRectXY(Skia.XYWHRect(barX, barY, BAR_WIDTH, currentHeight), BAR_RADIUS, BAR_RADIUS),
           barPaint
         );
       }
@@ -346,15 +346,15 @@ export function SeasonComparison({
       {/* Legend */}
       <View style={styles.legend}>
         <View style={styles.legendItem}>
-          <View style={[styles.legendDot, { backgroundColor: colorCurrent }]} />
-          <Text style={[styles.legendLabel, isDark && chartStyles.textDark]}>
-            {t('stats.current')}
-          </Text>
-        </View>
-        <View style={styles.legendItem}>
           <View style={[styles.legendDot, { backgroundColor: colorPrevious }]} />
           <Text style={[styles.legendLabel, isDark && chartStyles.textDark]}>
             {t('stats.previous')}
+          </Text>
+        </View>
+        <View style={styles.legendItem}>
+          <View style={[styles.legendDot, { backgroundColor: colorCurrent }]} />
+          <Text style={[styles.legendLabel, isDark && chartStyles.textDark]}>
+            {t('stats.current')}
           </Text>
         </View>
       </View>
@@ -368,16 +368,16 @@ export function SeasonComparison({
             </Text>
             <View style={styles.tooltipValues}>
               <View style={styles.tooltipItem}>
-                <View style={[styles.legendDot, { backgroundColor: colorCurrent }]} />
+                <View style={[styles.legendDot, { backgroundColor: colorPrevious }]} />
                 <Text style={[styles.tooltipValue, isDark && styles.textLight]}>
-                  {selectedMonthData.current}
+                  {selectedMonthData.previous}
                   {metricLabels[metric].unit}
                 </Text>
               </View>
               <View style={styles.tooltipItem}>
-                <View style={[styles.legendDot, { backgroundColor: colorPrevious }]} />
+                <View style={[styles.legendDot, { backgroundColor: colorCurrent }]} />
                 <Text style={[styles.tooltipValue, isDark && styles.textLight]}>
-                  {selectedMonthData.previous}
+                  {selectedMonthData.current}
                   {metricLabels[metric].unit}
                 </Text>
               </View>
@@ -398,19 +398,19 @@ export function SeasonComparison({
           <>
             <View style={styles.summaryItem}>
               <Text style={[styles.summaryLabel, isDark && chartStyles.textDark]}>
-                {t('stats.current')}
+                {t('stats.previous')}
               </Text>
               <Text style={[styles.summaryValue, isDark && styles.textLight]}>
-                {totals.currentTotal}
+                {totals.previousTotal}
                 {metricLabels[metric].unit}
               </Text>
             </View>
             <View style={styles.summaryItem}>
               <Text style={[styles.summaryLabel, isDark && chartStyles.textDark]}>
-                {t('stats.previous')}
+                {t('stats.current')}
               </Text>
               <Text style={[styles.summaryValue, isDark && styles.textLight]}>
-                {totals.previousTotal}
+                {totals.currentTotal}
                 {metricLabels[metric].unit}
               </Text>
             </View>

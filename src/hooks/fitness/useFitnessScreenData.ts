@@ -35,9 +35,13 @@ export function useFitnessScreenData({ timeRange, sportMode }: UseFitnessScreenD
   const hrZones = useZoneDistribution({ type: 'hr', sport: sportMode });
 
   const eftpHistory = useEFTPHistory(activities);
-  const currentFTP = useMemo(() => getLatestFTP(activities), [activities]);
 
   const { data: sportSettings } = useSportSettings();
+  const cyclingSettings = getSettingsForSport(sportSettings, 'Ride');
+  const currentFTP = useMemo(
+    () => cyclingSettings?.ftp ?? getLatestFTP(activities),
+    [cyclingSettings, activities]
+  );
   const runSettings = getSettingsForSport(sportSettings, 'Run');
 
   const { data: runPaceCurve } = usePaceCurve({ sport: 'Run', days });

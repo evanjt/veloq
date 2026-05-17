@@ -150,6 +150,10 @@ export function isCyclingActivity(type: ActivityType): boolean {
   return ['Ride', 'VirtualRide'].includes(type);
 }
 
+export function isSwimmingActivity(type: ActivityType): boolean {
+  return ['Swim', 'OpenWaterSwim'].includes(type);
+}
+
 /**
  * Sort items by date ID in chronological order.
  * The id is expected to be a date string in YYYY-MM-DD format.

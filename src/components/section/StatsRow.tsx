@@ -15,7 +15,7 @@ import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
-import { formatPace, formatDuration } from '@/lib';
+import { formatPace, formatSwimPace, formatDuration } from '@/lib';
 import { colors, darkColors } from '@/theme';
 import type { DirectionBestRecord, DirectionSummaryStats } from '@/components/routes/performance';
 
@@ -28,6 +28,8 @@ export interface StatsRowProps {
   color: string;
   /** When true, show pace instead of duration for the avg/best values. */
   showPace: boolean;
+  /** When true, format pace as min/100m instead of min/km. */
+  isSwimming?: boolean;
   /** Section distance in meters — used to convert `avgTime` into pace when `showPace` is true. */
   sectionDistance: number;
   isDark: boolean;
@@ -40,6 +42,7 @@ export function StatsRow({
   pointCount,
   color,
   showPace,
+  isSwimming = false,
   sectionDistance,
   isDark,
 }: StatsRowProps) {
@@ -65,7 +68,7 @@ export function StatsRow({
         {stats?.avgTime != null && (
           <Text style={[styles.statsValue, isDark && styles.textMuted]}>
             {showPace && sectionDistance > 0
-              ? `${formatPace(sectionDistance / stats.avgTime)} ${t('sections.avg')}`
+              ? `${isSwimming ? formatSwimPace(sectionDistance / stats.avgTime) : formatPace(sectionDistance / stats.avgTime)} ${t('sections.avg')}`
               : `${formatDuration(stats.avgTime)} ${t('sections.avg')}`}
           </Text>
         )}
@@ -76,7 +79,9 @@ export function StatsRow({
           <Text style={styles.prTime}>
             {showPace
               ? bestRecord.bestPace
-                ? formatPace(bestRecord.bestPace)
+                ? isSwimming
+                  ? formatSwimPace(bestRecord.bestPace)
+                  : formatPace(bestRecord.bestPace)
                 : formatDuration(bestRecord.bestTime)
               : formatDuration(bestRecord.bestTime)}
           </Text>
