@@ -42,21 +42,21 @@ tags:
 # Scroll directly to a stress preset button (section opens automatically)
 - scrollUntilVisible:
     element:
-      id: "debug-stress-100"
+      id: "debug-stress-2000"
     direction: DOWN
     timeout: 15000
 
 - takeScreenshot: "stress-01-before-load"
 
-# Load stress activities on top of demo data (100 = pipeline sanity check; bump later)
+# Load 2000 stress activities — original goal: "2000+ activities, some over 100km"
 - tapOn:
-    id: "debug-stress-100"
+    id: "debug-stress-2000"
 
-# Wait for result text — chunked load can take a few minutes on emulator
+# Wait for result text — 2000 activities + concurrent heatmap regen can take 10+ min on a sim
 - extendedWaitUntil:
     visible:
       id: "debug-stress-result"
-    timeout: 300000
+    timeout: 1800000
 
 - takeScreenshot: "stress-02-loaded"
 
