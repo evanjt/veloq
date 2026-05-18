@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -8,7 +8,6 @@ import {
   RefreshControl,
   Platform,
   Share,
-  ActivityIndicator,
 } from 'react-native';
 import Constants from 'expo-constants';
 import { Stack } from 'expo-router';
@@ -19,7 +18,6 @@ import { useTheme } from '@/hooks';
 import { getFFIMetricsSummary, clearFFIMetrics } from '@/lib/debug/renderTimer';
 import { useSupportStore, daysSince } from '@/providers';
 import { formatLocalDate } from '@/lib/utils/format';
-import { generateStressMapActivities, getStressDataSummary } from '@/data/demo/stressMapData';
 import type { PersistentEngineStats } from 'veloqrs';
 
 function getRouteEngine() {
@@ -119,94 +117,91 @@ function daysAgoLocal(days: number): string {
 
 function MapStressTest({ isDark }: { isDark: boolean }) {
   const [loading, setLoading] = useState(false);
-  const [loaded, setLoaded] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<{ activities: number; points: number } | null>(null);
-  const loadingRef = useRef(false);
-
-  const summary = getStressDataSummary();
+  const [result, setResult] = useState<string | null>(null);
   const mutedColor = isDark ? darkColors.textSecondary : colors.textSecondary;
 
-  const handleLoad = useCallback(async () => {
-    if (loadingRef.current || loaded) return;
-    loadingRef.current = true;
-    setLoading(true);
-    setError(null);
+  const presets = [
+    { label: '50', count: 50, testID: 'debug-stress-50' },
+    { label: '100', count: 100, testID: 'debug-stress-100' },
+    { label: '230', count: 230, testID: 'debug-stress-230' },
+  ];
 
-    try {
-      const engine = getRouteEngine();
-      if (!engine) {
-        setError('Engine not available');
-        setLoading(false);
-        loadingRef.current = false;
-        return;
-      }
+  const handleLoad = useCallback(
+    (count: number) => {
+      if (loading) return;
+      setLoading(true);
+      setResult(null);
+      setTimeout(() => {
+        try {
+          const { generateStressMapActivities } = require('@/data/demo/stressMapData');
+          const data = generateStressMapActivities(count);
 
-      const data = generateStressMapActivities();
-      engine.addActivities(data.ids, data.coords, data.offsets, data.sportTypes);
-      setResult({ activities: data.ids.length, points: data.totalPoints });
-      setLoaded(true);
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e);
-      setError(msg);
-      console.warn('[StressMap] Load failed:', e);
-    } finally {
-      setLoading(false);
-      loadingRef.current = false;
-    }
-  }, [loaded]);
+          const client = getRouteEngine();
+          if (!client?.engine) {
+            setResult(`Engine not available (client=${!!client})`);
+            setLoading(false);
+            return;
+          }
+          // Use raw FFI to avoid notifyAll triggering re-sync
+          client.engine.activities().add(data.ids, data.coords, data.offsets, data.sportTypes);
+          const total = client.engine.activities().getCount();
+          setResult(`+${data.ids.length} activities (${total} total, ${data.totalPoints} pts)`);
+        } catch (e) {
+          setResult(`Error: ${e instanceof Error ? e.message : String(e)}`);
+        } finally {
+          setLoading(false);
+        }
+      }, 100);
+    },
+    [loading]
+  );
 
   return (
     <CollapsibleSection
       title="Map Stress Testing"
       icon="map-marker-multiple"
       isDark={isDark}
-      defaultOpen={false}
+      defaultOpen={true}
       testID="debug-section-map-stress"
     >
-      <StatRow label="Activities" value={String(summary.totalActivities)} isDark={isDark} />
-      <StatRow
-        label="Est. GPS points"
-        value={`~${(summary.estimatedPoints / 1000).toFixed(0)}K`}
-        isDark={isDark}
-      />
-      <StatRow label="Regions" value={String(summary.regions.length)} isDark={isDark} />
-      <Text style={[{ fontSize: 11, marginTop: spacing.sm }, { color: mutedColor }]}>
-        {summary.regions.join(', ')}
+      <Text style={[{ fontSize: 12, marginBottom: spacing.sm }, { color: mutedColor }]}>
+        Add synthetic activities on top of existing data. Navigate to the map after loading.
       </Text>
 
-      {error ? (
-        <View testID="debug-stress-map-error" style={{ marginTop: spacing.sm }}>
-          <Text style={[{ fontSize: 13, fontWeight: '600' }, { color: colors.error }]}>
-            {error}
-          </Text>
-        </View>
+      <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+        {presets.map((p) => (
+          <TouchableOpacity
+            key={p.count}
+            testID={p.testID}
+            onPress={() => handleLoad(p.count)}
+            style={[styles.actionButton, { paddingHorizontal: spacing.sm }]}
+            activeOpacity={0.7}
+          >
+            <Text style={[styles.actionButtonText, { color: colors.primary }]}>+{p.label}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+
+      {loading ? (
+        <Text
+          testID="debug-stress-loading"
+          style={[{ fontSize: 12, marginTop: spacing.sm }, { color: mutedColor }]}
+        >
+          Loading...
+        </Text>
       ) : null}
 
-      {loaded && result ? (
-        <View testID="debug-stress-map-loaded" style={{ marginTop: spacing.sm }}>
-          <Text style={[{ fontSize: 13, fontWeight: '600' }, { color: colors.success }]}>
-            Loaded {result.activities} activities ({(result.points / 1000).toFixed(1)}K points)
-          </Text>
-        </View>
-      ) : (
-        <TouchableOpacity
-          testID="debug-load-stress-map"
-          style={[styles.actionButton, { marginTop: spacing.sm }]}
-          onPress={handleLoad}
-          disabled={loading}
-          activeOpacity={0.7}
+      {result ? (
+        <Text
+          testID="debug-stress-result"
+          style={[
+            { fontSize: 12, marginTop: spacing.sm },
+            { color: result.startsWith('Error') ? colors.error : colors.success },
+          ]}
         >
-          {loading ? (
-            <ActivityIndicator size="small" color={colors.primary} />
-          ) : (
-            <MaterialCommunityIcons name="map-marker-plus" size={16} color={colors.primary} />
-          )}
-          <Text style={[styles.actionButtonText, { color: colors.primary }]}>
-            {loading ? 'Loading...' : `Load ${summary.totalActivities} Activities`}
-          </Text>
-        </TouchableOpacity>
-      )}
+          {result}
+        </Text>
+      ) : null}
     </CollapsibleSection>
   );
 }

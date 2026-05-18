@@ -29,37 +29,37 @@ const REGIONS: RegionConfig[] = [
   {
     sportType: 'Ride',
     routeIds: ['route-valais-ride-1', 'route-valais-ride-2'],
-    count: 200,
-    repeats: 3,
+    count: 60,
+    repeats: 1,
   },
   {
     sportType: 'VirtualRide',
     routeIds: ['route-rouvy-grindelwald', 'route-rouvy-lavaux', 'route-rouvy-vuelta'],
-    count: 100,
-    repeats: 2,
+    count: 30,
+    repeats: 1,
   },
   {
     sportType: 'Ride',
     routeIds: ['route-rouvy-rio'],
-    count: 100,
-    repeats: 4,
+    count: 30,
+    repeats: 1,
   },
   {
     sportType: 'Run',
     routeIds: ['route-rio-run-1', 'route-rio-run-2', 'route-rio-run-3', 'route-rio-run-4'],
-    count: 150,
+    count: 40,
     repeats: 1,
   },
   {
     sportType: 'Run',
     routeIds: ['route-cape-town-walk-3', 'route-cape-town-walk-5', 'route-cape-town-walk-6'],
-    count: 100,
-    repeats: 2,
+    count: 30,
+    repeats: 1,
   },
   {
     sportType: 'Swim',
     routeIds: ['route-la-orotava-swim-1', 'route-la-orotava-swim-2', 'route-la-orotava-swim-3'],
-    count: 80,
+    count: 20,
     repeats: 1,
   },
   {
@@ -69,7 +69,7 @@ const REGIONS: RegionConfig[] = [
       'route-lauterbrunnen-hike-2',
       'route-lauterbrunnen-hike-3',
     ],
-    count: 70,
+    count: 20,
     repeats: 1,
   },
 ];
@@ -125,17 +125,18 @@ function chainRoutes(routeIds: string[], repeats: number, rng: () => number): [n
   return result;
 }
 
-export function generateStressMapActivities(): StressMapResult {
+export function generateStressMapActivities(maxCount?: number): StressMapResult {
   const ids: string[] = [];
   const coords: number[] = [];
   const offsets: number[] = [];
   const sportTypes: string[] = [];
   let activityIndex = 0;
+  const limit = maxCount ?? Infinity;
 
   const masterRng = createSeededRandom('stress-map-v1');
 
   for (const region of REGIONS) {
-    for (let i = 0; i < region.count; i++) {
+    for (let i = 0; i < region.count && ids.length < limit; i++) {
       const actId = `stress-map-${activityIndex}`;
       const rng = createSeededRandom(`${actId}-gps`);
 

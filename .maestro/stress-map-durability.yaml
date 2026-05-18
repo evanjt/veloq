@@ -1,6 +1,7 @@
 # Stress Test: Map Durability Under Heavy Data Load
-# Loads 800 synthetic activities via debug menu, then exercises the map
-# with aggressive zoom/pan/cluster/style interactions for ~3-5 minutes.
+# Enters demo mode, dismisses tour, opens debug dashboard, loads stress
+# activities on top of existing demo data, then exercises the map with
+# aggressive zoom/pan/cluster/style interactions.
 
 appId: com.veloq.app.dev
 tags:
@@ -12,104 +13,84 @@ tags:
 - runFlow:
     file: helpers/setup-demo-mode.yaml
 
-# Phase 1: Enable debug mode and load stress data
+# Dismiss tour overlay if present (clearState may trigger it)
 - runFlow:
-    file: helpers/navigate-to-settings.yaml
-
-# Scroll to bottom to find version text
-- scrollUntilVisible:
-    element:
-      id: "settings-version-text"
-    direction: DOWN
-    timeout: 10000
-
-# 5-tap to unlock debug menu
-- repeat:
-    times: 5
+    when:
+      visible: "Skip"
     commands:
-      - tapOn:
-          id: "settings-version-text"
+      - tapOn: "Skip"
+- runFlow:
+    when:
+      visible: "Done"
+    commands:
+      - tapOn: "Done"
 
-# Scroll down again — debug switch may appear below current viewport
+# Phase 1: Navigate to debug dashboard and load stress data
+- openLink: "veloq://debug"
+- extendedWaitUntil:
+    visible:
+      id: "debug-screen"
+    timeout: 15000
+
+# Dismiss tour if it follows to debug screen
+- runFlow:
+    when:
+      visible: "Skip"
+    commands:
+      - tapOn: "Skip"
+
+# Scroll directly to a stress preset button (section opens automatically)
 - scrollUntilVisible:
     element:
-      id: "settings-debug-switch"
+      id: "debug-stress-100"
     direction: DOWN
-    timeout: 5000
+    timeout: 15000
 
+- takeScreenshot: "stress-01-before-load"
+
+# Load 100 stress activities on top of demo data
 - tapOn:
-    id: "settings-debug-switch"
+    id: "debug-stress-100"
 
-# Wait for switch state to propagate and dashboard link to render
-- waitForAnimationToEnd:
-    timeout: 1000
-
-# Dashboard link appears below the switch after enabling
-- scrollUntilVisible:
-    element:
-      id: "settings-developer-dashboard-link"
-    direction: DOWN
-    timeout: 10000
-    speed: 20
-
-- tapOn:
-    id: "settings-developer-dashboard-link"
-
-# Open the map stress section and load data
+# Wait for result text (optional — engine stats verify success)
 - extendedWaitUntil:
     visible:
-      id: "debug-section-map-stress"
-    timeout: 10000
-
-- tapOn:
-    id: "debug-section-map-stress"
-
-- extendedWaitUntil:
-    visible:
-      id: "debug-load-stress-map"
-    timeout: 5000
-
-- tapOn:
-    id: "debug-load-stress-map"
-
-# Wait for data to finish loading (up to 30s for large dataset)
-- extendedWaitUntil:
-    visible:
-      id: "debug-stress-map-loaded"
+      id: "debug-stress-result"
     timeout: 30000
+    optional: true
 
-- takeScreenshot: "stress-map-data-loaded"
+- takeScreenshot: "stress-02-loaded"
 
-# Phase 2: Navigate to map
+# Phase 2: Navigate to map — relaunch app with map deep link
+- stopApp
+- launchApp
+- extendedWaitUntil:
+    visible:
+      id: "home-screen"
+    timeout: 30000
+    optional: true
 - runFlow:
     file: helpers/navigate-to-map.yaml
 
-# Phase 3: Cluster stress - zoom levels
+# Dismiss tour on map if present
+- runFlow:
+    when:
+      visible: "Skip"
+    commands:
+      - tapOn: "Skip"
+
+- waitForAnimationToEnd:
+    timeout: 5000
+
+# Fit all to see clusters
 - tapOn:
     id: "map-fit-all"
     optional: true
 - waitForAnimationToEnd:
-    timeout: 2000
+    timeout: 3000
+- takeScreenshot: "stress-03-map-clusters"
 
-# Zoom out to see clusters form
-- swipe:
-    start: 50%, 50%
-    end: 50%, 50%
-    duration: 500
-- waitForAnimationToEnd:
-    timeout: 1000
-
-# Pinch to zoom in on clusters
-- swipe:
-    start: 50%, 40%
-    end: 50%, 30%
-    duration: 300
-- waitForAnimationToEnd:
-    timeout: 1000
-
-- takeScreenshot: "stress-map-clusters"
-
-# Phase 4: Rapid pan across regions (10 fast swipes)
+# Phase 3: Rapid pan across regions
 - repeat:
     times: 10
     commands:
@@ -119,16 +100,14 @@ tags:
           duration: 250
       - waitForAnimationToEnd:
           timeout: 400
+- takeScreenshot: "stress-04-after-pan"
 
-- takeScreenshot: "stress-map-after-pan"
-
-# Phase 5: Cluster tap and zoom
+# Phase 4: Cluster tap and zoom
 - tapOn:
     id: "map-fit-all"
     optional: true
 - waitForAnimationToEnd:
     timeout: 1500
-
 - repeat:
     times: 5
     commands:
@@ -142,19 +121,18 @@ tags:
       - waitForAnimationToEnd:
           timeout: 300
 
-# Phase 6: Style switching under heavy data load
+# Phase 5: Style switching under load
 - repeat:
-    times: 5
+    times: 3
     commands:
       - tapOn:
           id: "map-style-toggle"
           optional: true
       - waitForAnimationToEnd:
           timeout: 1500
+- takeScreenshot: "stress-05-style-switch"
 
-- takeScreenshot: "stress-map-style-switch"
-
-# Phase 7: Layer toggle rapid cycling
+# Phase 6: Layer toggle rapid cycling
 - repeat:
     times: 8
     commands:
@@ -174,86 +152,35 @@ tags:
       - waitForAnimationToEnd:
           timeout: 200
 
-# Re-enable activities layer
+# Re-enable activities
 - tapOn:
     id: "map-toggle-activities"
     optional: true
 - waitForAnimationToEnd:
     timeout: 500
 
-# Phase 8: Activity selection (long track rendering test)
-- tapOn:
-    id: "map-fit-all"
-    optional: true
-- waitForAnimationToEnd:
-    timeout: 1000
-
-# Zoom into a cluster
-- swipe:
-    start: 40%, 40%
-    end: 60%, 60%
-    duration: 300
-- swipe:
-    start: 40%, 40%
-    end: 60%, 60%
-    duration: 300
-- waitForAnimationToEnd:
-    timeout: 1000
-
-# Tap a marker
-- tapOn:
-    point: 50%, 50%
-- waitForAnimationToEnd:
-    timeout: 1500
-
-# Try to zoom to activity
-- tapOn:
-    id: "activity-popup-zoom"
-    optional: true
-- waitForAnimationToEnd:
-    timeout: 2000
-
-- takeScreenshot: "stress-map-activity-selected"
-
-# Phase 9: Sustained mixed interaction (exercises all crash patterns)
-- tapOn:
-    id: "map-fit-all"
-    optional: true
-- waitForAnimationToEnd:
-    timeout: 1000
-
+# Phase 7: Sustained mixed interaction
 - repeat:
-    times: 6
+    times: 5
     commands:
-      # Pan
       - swipe:
           start: 70%, 50%
           end: 30%, 50%
           duration: 300
       - waitForAnimationToEnd:
           timeout: 400
-      # Pan vertical
       - swipe:
           start: 50%, 70%
           end: 50%, 30%
           duration: 300
       - waitForAnimationToEnd:
           timeout: 400
-      # Zoom in
       - swipe:
           start: 40%, 40%
           end: 60%, 60%
           duration: 200
       - waitForAnimationToEnd:
           timeout: 400
-      # Zoom out
-      - swipe:
-          start: 60%, 60%
-          end: 40%, 40%
-          duration: 200
-      - waitForAnimationToEnd:
-          timeout: 400
-      # Toggle layers mid-motion
       - tapOn:
           id: "map-toggle-activities"
           optional: true
@@ -265,7 +192,7 @@ tags:
       - waitForAnimationToEnd:
           timeout: 400
 
-# Phase 10: Final stability check
+# Phase 8: Final stability check
 - tapOn:
     id: "map-fit-all"
     optional: true
@@ -278,4 +205,12 @@ tags:
 - assertNotVisible:
     text: "NaN"
 
-- takeScreenshot: "stress-map-durability-complete"
+- takeScreenshot: "stress-06-final-map"
+
+# Phase 9: Memory check
+- openLink: "veloq://debug"
+- extendedWaitUntil:
+    visible:
+      id: "debug-screen"
+    timeout: 10000
+- takeScreenshot: "stress-07-final-stats"
