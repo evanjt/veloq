@@ -102,7 +102,7 @@ jobs:
             -PreactNativeArchitectures=arm64-v8a,x86_64 \
             --no-daemon --no-build-cache
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: android-dev-apk
           path: android/app/build/outputs/apk/release/app-release.apk
@@ -221,7 +221,7 @@ jobs:
           cd "$(dirname "$APP_PATH")"
           zip -yr "$OLDPWD/artifacts/ios-dev-simulator.zip" VeloqDev.app
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: ios-dev-simulator
           path: artifacts/ios-dev-simulator.zip
@@ -323,7 +323,7 @@ jobs:
 
       - name: Upload screenshots
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: screenshots-android
           path: screenshots-flat/
@@ -331,7 +331,7 @@ jobs:
 
       - name: Upload test report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: maestro-android-report
           path: maestro-report.xml
@@ -339,7 +339,7 @@ jobs:
 
       - name: Upload diagnostic logs
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: android-logcat
           path: |
@@ -440,7 +440,7 @@ jobs:
 
       - name: Upload screenshots
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: screenshots-ios
           path: screenshots-flat/
@@ -448,7 +448,7 @@ jobs:
 
       - name: Upload diagnostic logs
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ios-sim-logs
           path: |
@@ -458,7 +458,7 @@ jobs:
 
       - name: Upload test report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: maestro-ios-report
           path: maestro-report.xml
