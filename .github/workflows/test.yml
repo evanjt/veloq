@@ -77,7 +77,7 @@ jobs:
           cache: "npm"
 
       - name: Setup Rust
-        uses: dtolnay/rust-toolchain@1.93.0
+        uses: dtolnay/rust-toolchain@1.100.0
 
       - name: Cache Rust
         uses: Swatinem/rust-cache@v2
