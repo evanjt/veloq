@@ -56,13 +56,17 @@ jobs:
           build-type-override: ${{ inputs.build_type }}
           source-profile: android
 
-      # Source-hash cache — skip build if code unchanged
-      - name: Cache built APK
+      # Source-hash cache — skip build if code unchanged.
+      # Key is segmented by build type so an APK-only cache from a feature branch
+      # can't satisfy a main/dispatch build that also needs the AAB.
+      - name: Cache built APK/AAB
         id: apk-cache
         uses: actions/cache@v4
         with:
-          path: android/app/build/outputs/apk/release/app-release.apk
-          key: android-apk-v1-${{ steps.version.outputs.source_hash }}
+          path: |
+            android/app/build/outputs/apk/release/app-release.apk
+            android/app/build/outputs/bundle/release/app-release.aab
+          key: android-build-v2-${{ (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch') && 'with-aab' || 'apk-only' }}-${{ steps.version.outputs.source_hash }}
 
       - name: Setup Node.js
         if: steps.apk-cache.outputs.cache-hit != 'true'
@@ -281,7 +285,10 @@ jobs:
       - name: Copy APK
         run: |
           mkdir -p artifacts
-          if [ ! -f android/keystore.properties ]; then
+          # Only warn when signing actually ran this build but didn't find secrets.
+          # On cache hits the signing step is skipped, but the cached APK was signed
+          # correctly when it was first built, so the warning would be misleading.
+          if [ "${{ steps.signing.outputs.is_signed }}" = "false" ]; then
             echo "::warning::keystore.properties not found — APK uses debug signing"
           fi
           cp android/app/build/outputs/apk/release/app-release.apk \
@@ -302,22 +309,27 @@ jobs:
           path: android/app/build/outputs/apk/release/app-release.apk
           retention-days: 7
 
+      - name: Copy AAB to artifacts
+        if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
+        run: |
+          mkdir -p artifacts
+          AAB_FILE="artifacts/${{ steps.version.outputs.filename }}.aab"
+          AAB_SRC=$(find android/app/build/outputs/bundle -name "*.aab" | head -1)
+          if [ -n "$AAB_SRC" ]; then
+            cp "$AAB_SRC" "$AAB_FILE"
+            echo "Copied AAB: $AAB_FILE"
+          else
+            echo "::error::AAB file not found at android/app/build/outputs/bundle/**/*.aab"
+            exit 1
+          fi
+
       - name: Verify AAB signing
-        if: (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch') && steps.signing.outputs.is_signed == 'true'
+        if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
         env:
           EXPECTED_SHA1: "0D:54:88:9C:F2:AF:55:09:8F:40:35:E8:54:66:17:F8:30:FD:0D:86"
         run: |
           echo "=== Verifying AAB was signed with correct key ==="
           AAB_FILE="artifacts/${{ steps.version.outputs.filename }}.aab"
-
-          # Copy AAB to artifacts first
-          AAB_SRC=$(find android/app/build/outputs/bundle -name "*.aab" | head -1)
-          if [ -n "$AAB_SRC" ]; then
-            cp "$AAB_SRC" "$AAB_FILE"
-          else
-            echo "::error::AAB file not found"
-            exit 1
-          fi
 
           ACTUAL_SHA1=$(unzip -p "$AAB_FILE" "META-INF/BNDLTOOL.RSA" 2>/dev/null | \
             keytool -printcert 2>/dev/null | \
@@ -348,7 +360,7 @@ jobs:
           echo "AAB signed with correct release key"
 
       - name: Upload AAB artifact
-        if: (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch') && steps.signing.outputs.is_signed == 'true'
+        if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@v4
         with:
           name: android-aab-${{ steps.version.outputs.filename }}
