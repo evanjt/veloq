@@ -348,6 +348,19 @@ export default function DebugScreen() {
           headerShown: true,
           headerStyle: { backgroundColor: isDark ? darkColors.surface : colors.surface },
           headerTintColor: isDark ? darkColors.textPrimary : colors.textPrimary,
+          headerLeft: () => (
+            <TouchableOpacity
+              testID="debug-back"
+              onPress={() => require('expo-router').router.back()}
+              style={{ padding: spacing.sm }}
+            >
+              <MaterialCommunityIcons
+                name="arrow-left"
+                size={24}
+                color={isDark ? darkColors.textPrimary : colors.textPrimary}
+              />
+            </TouchableOpacity>
+          ),
         }}
       />
       <ScrollView

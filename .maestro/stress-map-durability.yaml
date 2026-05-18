@@ -61,14 +61,11 @@ tags:
 
 - takeScreenshot: "stress-02-loaded"
 
-# Phase 2: Navigate to map — relaunch app with map deep link
-- stopApp
-- launchApp
-- extendedWaitUntil:
-    visible:
-      id: "home-screen"
-    timeout: 30000
-    optional: true
+# Phase 2: Navigate to map — back from debug, then deep link
+- tapOn:
+    id: "debug-back"
+- waitForAnimationToEnd:
+    timeout: 1000
 - runFlow:
     file: helpers/navigate-to-map.yaml
 
