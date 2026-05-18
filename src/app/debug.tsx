@@ -117,41 +117,96 @@ function daysAgoLocal(days: number): string {
 
 function MapStressTest({ isDark }: { isDark: boolean }) {
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<string | null>(null);
+  const [lines, setLines] = useState<string[]>([]);
+  const [done, setDone] = useState(false);
   const mutedColor = isDark ? darkColors.textSecondary : colors.textSecondary;
 
   const presets = [
-    { label: '50', count: 50, testID: 'debug-stress-50' },
     { label: '100', count: 100, testID: 'debug-stress-100' },
-    { label: '230', count: 230, testID: 'debug-stress-230' },
+    { label: '500', count: 500, testID: 'debug-stress-500' },
+    { label: '1000', count: 1000, testID: 'debug-stress-1000' },
+    { label: '2000', count: 2000, testID: 'debug-stress-2000' },
   ];
 
   const handleLoad = useCallback(
     (count: number) => {
       if (loading) return;
       setLoading(true);
-      setResult(null);
-      setTimeout(() => {
+      setDone(false);
+      setLines([]);
+      const t0 = Date.now();
+      const log = (line: string) => {
+        const ms = Date.now() - t0;
+        const mem = getMemoryStats();
+        const memSuffix = mem ? ` heap=${mem.heapMB}MB alloc=${mem.allocMB}MB` : '';
+        setLines((prev) => [...prev, `[+${String(ms).padStart(5, ' ')}ms] ${line}${memSuffix}`]);
+      };
+      const run = async () => {
         try {
-          const { generateStressMapActivities } = require('@/data/demo/stressMapData');
-          const data = generateStressMapActivities(count);
-
+          log(`target=${count} activities`);
+          const { generateStressMapChunks } = require('@/data/demo/stressMapData');
           const client = getRouteEngine();
           if (!client?.engine) {
-            setResult(`Engine not available (client=${!!client})`);
-            setLoading(false);
+            log(`FAIL: engine unavailable (client=${!!client})`);
             return;
           }
-          // Use raw FFI to avoid notifyAll triggering re-sync
-          client.engine.activities().add(data.ids, data.coords, data.offsets, data.sportTypes);
-          const total = client.engine.activities().getCount();
-          setResult(`+${data.ids.length} activities (${total} total, ${data.totalPoints} pts)`);
+
+          const before = client.engine.activities().getCount();
+          log(`engine: before=${before} activities`);
+
+          const tGen = Date.now();
+          const allIds: string[] = [];
+          const allCoords: number[] = [];
+          const allOffsets: number[] = [];
+          const allSports: string[] = [];
+          const allMetrics: any[] = [];
+          let longestKm = 0;
+          let generated = 0;
+          for (const chunk of generateStressMapChunks(count, 100)) {
+            const baseOffset = allCoords.length / 2;
+            for (const id of chunk.ids) allIds.push(id);
+            for (const off of chunk.offsets) allOffsets.push(baseOffset + off);
+            for (const c of chunk.coords) allCoords.push(c);
+            for (const st of chunk.sportTypes) allSports.push(st);
+            for (const m of chunk.metrics) allMetrics.push(m);
+            if (chunk.longestKm > longestKm) longestKm = chunk.longestKm;
+            generated += chunk.ids.length;
+            log(
+              `gen +${chunk.ids.length} (total ${generated}/${count}, pts=${(allCoords.length / 2).toLocaleString()})`
+            );
+            await new Promise((r) => setTimeout(r, 0));
+          }
+          const genMs = Date.now() - tGen;
+          log(
+            `gen done: ${genMs}ms (${allIds.length} act, ${(allCoords.length / 2).toLocaleString()} pts, longest=${longestKm.toFixed(0)}km)`
+          );
+          await new Promise((r) => setTimeout(r, 0));
+
+          const tAdd = Date.now();
+          client.engine.activities().add(allIds, allCoords, allOffsets, allSports);
+          log(`ffi add(): ${Date.now() - tAdd}ms`);
+          await new Promise((r) => setTimeout(r, 0));
+
+          const tMetrics = Date.now();
+          client.engine.activities().setMetrics(allMetrics);
+          log(`ffi setMetrics(): ${Date.now() - tMetrics}ms`);
+          await new Promise((r) => setTimeout(r, 0));
+
+          const tNotify = Date.now();
+          client.notifyAll('activities', 'groups');
+          log(`notifyAll: ${Date.now() - tNotify}ms`);
+
+          const after = client.engine.activities().getCount();
+          log(`engine: after=${after} (Δ ${after - before})`);
+          log(`OK total=${Date.now() - t0}ms`);
+          setDone(true);
         } catch (e) {
-          setResult(`Error: ${e instanceof Error ? e.message : String(e)}`);
+          log(`ERROR: ${e instanceof Error ? `${e.message}\n${e.stack ?? ''}` : String(e)}`);
         } finally {
           setLoading(false);
         }
-      }, 100);
+      };
+      void run();
     },
     [loading]
   );
@@ -164,17 +219,21 @@ function MapStressTest({ isDark }: { isDark: boolean }) {
       defaultOpen={true}
       testID="debug-section-map-stress"
     >
-      <Text style={[{ fontSize: 12, marginBottom: spacing.sm }, { color: mutedColor }]}>
-        Add synthetic activities on top of existing data. Navigate to the map after loading.
+      <Text style={[{ fontSize: 11, marginBottom: spacing.sm }, { color: mutedColor }]}>
+        Buffer GPS+metrics in JS, then one FFI add() + one setMetrics(). R-tree rebuild runs once.
       </Text>
 
-      <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm }}>
         {presets.map((p) => (
           <TouchableOpacity
             key={p.count}
             testID={p.testID}
             onPress={() => handleLoad(p.count)}
-            style={[styles.actionButton, { paddingHorizontal: spacing.sm }]}
+            disabled={loading}
+            style={[
+              styles.actionButton,
+              { paddingHorizontal: spacing.sm, opacity: loading ? 0.4 : 1 },
+            ]}
             activeOpacity={0.7}
           >
             <Text style={[styles.actionButtonText, { color: colors.primary }]}>+{p.label}</Text>
@@ -182,25 +241,32 @@ function MapStressTest({ isDark }: { isDark: boolean }) {
         ))}
       </View>
 
-      {loading ? (
-        <Text
-          testID="debug-stress-loading"
-          style={[{ fontSize: 12, marginTop: spacing.sm }, { color: mutedColor }]}
+      {lines.length > 0 ? (
+        <View
+          testID={done ? 'debug-stress-result' : 'debug-stress-loading'}
+          style={{
+            marginTop: spacing.sm,
+            padding: spacing.xs,
+            backgroundColor: isDark ? '#0a0a0a' : '#f4f4f4',
+            borderRadius: 4,
+            maxHeight: 320,
+          }}
         >
-          Loading...
-        </Text>
-      ) : null}
-
-      {result ? (
-        <Text
-          testID="debug-stress-result"
-          style={[
-            { fontSize: 12, marginTop: spacing.sm },
-            { color: result.startsWith('Error') ? colors.error : colors.success },
-          ]}
-        >
-          {result}
-        </Text>
+          <ScrollView>
+            {lines.map((line, i) => (
+              <Text
+                key={i}
+                style={{
+                  fontSize: 10,
+                  fontFamily: 'monospace',
+                  color: line.startsWith('[') ? (isDark ? '#ddd' : '#222') : colors.error,
+                }}
+              >
+                {line}
+              </Text>
+            ))}
+          </ScrollView>
+        </View>
       ) : null}
     </CollapsibleSection>
   );

@@ -48,16 +48,15 @@ tags:
 
 - takeScreenshot: "stress-01-before-load"
 
-# Load 100 stress activities on top of demo data
+# Load stress activities on top of demo data (100 = pipeline sanity check; bump later)
 - tapOn:
     id: "debug-stress-100"
 
-# Wait for result text (optional — engine stats verify success)
+# Wait for result text — chunked load can take a few minutes on emulator
 - extendedWaitUntil:
     visible:
       id: "debug-stress-result"
-    timeout: 30000
-    optional: true
+    timeout: 300000
 
 - takeScreenshot: "stress-02-loaded"
 

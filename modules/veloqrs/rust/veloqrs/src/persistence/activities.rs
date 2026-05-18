@@ -209,27 +209,50 @@ impl PersistentRouteEngine {
         self.sections_dirty = true;
 
         if let Some(ref tiles_path) = self.heatmap_tiles_path {
-            let config = crate::tiles::HeatmapConfig::default();
             let path = std::path::Path::new(tiles_path);
-            let margin = 0.001;
-            let mut total_deleted = 0;
-            for bounds in &all_bounds {
-                total_deleted += crate::tiles::invalidate_tiles_in_bounds(
-                    path,
-                    bounds.min_lat - margin,
-                    bounds.max_lat + margin,
-                    bounds.min_lng - margin,
-                    bounds.max_lng + margin,
-                    config.min_zoom,
-                    config.max_zoom,
-                );
-            }
-            if total_deleted > 0 {
-                log::info!(
-                    "[heatmap] Invalidated {} tiles for {} new activities",
-                    total_deleted,
-                    activities.len()
-                );
+            // Skip the whole pass if the tiles directory doesn't exist yet —
+            // there's nothing to invalidate on a fresh DB, and walking the
+            // full zoom×tile space per activity is O(activities × zooms × tiles)
+            // which dominates batch insert time for large stress loads.
+            if path.exists() && !all_bounds.is_empty() {
+                let config = crate::tiles::HeatmapConfig::default();
+                let margin = 0.001;
+                let mut min_lat = f64::INFINITY;
+                let mut max_lat = f64::NEG_INFINITY;
+                let mut min_lng = f64::INFINITY;
+                let mut max_lng = f64::NEG_INFINITY;
+                for b in &all_bounds {
+                    if b.min_lat < min_lat {
+                        min_lat = b.min_lat;
+                    }
+                    if b.max_lat > max_lat {
+                        max_lat = b.max_lat;
+                    }
+                    if b.min_lng < min_lng {
+                        min_lng = b.min_lng;
+                    }
+                    if b.max_lng > max_lng {
+                        max_lng = b.max_lng;
+                    }
+                }
+                if min_lat.is_finite() {
+                    let total_deleted = crate::tiles::invalidate_tiles_in_bounds(
+                        path,
+                        min_lat - margin,
+                        max_lat + margin,
+                        min_lng - margin,
+                        max_lng + margin,
+                        config.min_zoom,
+                        config.max_zoom,
+                    );
+                    if total_deleted > 0 {
+                        log::info!(
+                            "[heatmap] Invalidated {} tiles for {} new activities (union bounds)",
+                            total_deleted,
+                            activities.len()
+                        );
+                    }
+                }
             }
             self.mark_heatmap_dirty();
         }
