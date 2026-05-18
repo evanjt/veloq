@@ -26,19 +26,22 @@ jobs:
           WAITED=0
 
           while [ $WAITED -lt $MAX_WAIT ]; do
-            # Check for build.yml run on this commit
-            RESULT=$(gh api repos/${{ github.repository }}/actions/workflows/build.yml/runs \
-              --jq ".workflow_runs[] | select(.head_sha==\"$COMMIT_SHA\") | {id, status, conclusion}" \
-              | head -1)
+            # Find the build.yml run triggered by the push of this exact commit.
+            # Multiple runs can share head_sha (e.g. a PR build vs a push build), so we
+            # explicitly pick event==push and the most recent run by created_at.
+            RESULT=$(gh api "repos/${{ github.repository }}/actions/workflows/build.yml/runs?head_sha=$COMMIT_SHA&event=push&per_page=100" \
+              --jq "[.workflow_runs[]] | sort_by(.created_at) | reverse | .[0] | {id, status, conclusion, html_url}")
 
-            if [ -z "$RESULT" ]; then
-              echo "::error::No build found for commit $COMMIT_SHA. Tags must be on commits that were built on main."
+            if [ -z "$RESULT" ] || [ "$RESULT" = "null" ]; then
+              echo "::error::No push-triggered build found for commit $COMMIT_SHA. Tags must be on commits that were built on main via a push event."
               exit 1
             fi
 
             STATUS=$(echo "$RESULT" | jq -r '.status')
             CONCLUSION=$(echo "$RESULT" | jq -r '.conclusion')
             RUN_ID=$(echo "$RESULT" | jq -r '.id')
+            RUN_URL=$(echo "$RESULT" | jq -r '.html_url')
+            echo "Matched push build: $RUN_URL (status=$STATUS, conclusion=$CONCLUSION)"
 
             if [ "$STATUS" = "completed" ]; then
               if [ "$CONCLUSION" = "success" ]; then
