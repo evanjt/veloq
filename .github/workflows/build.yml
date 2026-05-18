@@ -61,7 +61,7 @@ jobs:
       # can't satisfy a main/dispatch build that also needs the AAB.
       - name: Cache built APK/AAB
         id: apk-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             android/app/build/outputs/apk/release/app-release.apk
@@ -98,7 +98,7 @@ jobs:
 
       - name: Cache Metro bundler
         if: steps.apk-cache.outputs.cache-hit != 'true'
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             /tmp/metro-*
@@ -115,7 +115,7 @@ jobs:
       - name: Cache Rust Android libraries
         id: rust-android-cache
         if: steps.apk-cache.outputs.cache-hit != 'true'
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: modules/veloqrs/android/src/main/jniLibs
           key: rust-android-${{ (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch') && '4arch' || '2arch' }}-v1-${{ hashFiles('modules/veloqrs/rust/**/*.rs', 'modules/veloqrs/rust/**/Cargo.toml', 'modules/veloqrs/rust/**/Cargo.lock', 'modules/veloqrs/rust/.cargo/config.toml') }}
@@ -158,7 +158,7 @@ jobs:
       - name: Cache Android prebuild
         if: steps.apk-cache.outputs.cache-hit != 'true'
         id: android-prebuild-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             android
@@ -403,7 +403,7 @@ jobs:
       - name: Cache simulator app
         if: github.ref != 'refs/heads/main' && github.event_name != 'schedule' && github.event_name != 'workflow_dispatch'
         id: app-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ios/build/Build/Products/Release-iphonesimulator/Veloq.app
           key: ios-sim-v1-${{ steps.version.outputs.source_hash }}
@@ -419,7 +419,7 @@ jobs:
       - name: Cache Rust iOS libraries
         id: rust-ios-cache
         if: steps.app-cache.outputs.cache-hit != 'true'
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: modules/veloqrs/ios/Frameworks/VeloqrsFFI.xcframework
           key: rust-ios-${{ (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch') && 'full' || 'sim' }}-v1-${{ hashFiles('modules/veloqrs/rust/**/*.rs', 'modules/veloqrs/rust/**/Cargo.toml', 'modules/veloqrs/rust/**/Cargo.lock', 'modules/veloqrs/rust/.cargo/config.toml') }}
@@ -493,7 +493,7 @@ jobs:
       - name: Cache iOS prebuild
         if: steps.app-cache.outputs.cache-hit != 'true'
         id: ios-prebuild-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ios
           key: ios-prebuild-v7-${{ runner.os }}-${{ hashFiles('app.json', 'app.config.js', 'package.json', 'package-lock.json', 'plugins/**', 'expo-modules/**/*.json', 'modules/**/ios/**', 'modules/**/package.json') }}
@@ -509,7 +509,7 @@ jobs:
 
       - name: Cache CocoaPods
         if: steps.app-cache.outputs.cache-hit != 'true'
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ios/Pods
