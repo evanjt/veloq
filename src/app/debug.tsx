@@ -117,6 +117,7 @@ function daysAgoLocal(days: number): string {
 
 function MapStressTest({ isDark }: { isDark: boolean }) {
   const [loading, setLoading] = useState(false);
+  const [progress, setProgress] = useState<string | null>(null);
   const [result, setResult] = useState<string | null>(null);
   const mutedColor = isDark ? darkColors.textSecondary : colors.textSecondary;
 
@@ -131,6 +132,7 @@ function MapStressTest({ isDark }: { isDark: boolean }) {
     (count: number) => {
       if (loading) return;
       setLoading(true);
+      setProgress(null);
       setResult(null);
       const t0 = Date.now();
       const run = async () => {
@@ -147,7 +149,9 @@ function MapStressTest({ isDark }: { isDark: boolean }) {
           const allSports: string[] = [];
           const allMetrics: any[] = [];
           let longestKm = 0;
+          let chunkNum = 0;
           for (const chunk of generateStressMapChunks(count, 100)) {
+            chunkNum++;
             const baseOffset = allCoords.length / 2;
             for (const id of chunk.ids) allIds.push(id);
             for (const off of chunk.offsets) allOffsets.push(baseOffset + off);
@@ -155,16 +159,30 @@ function MapStressTest({ isDark }: { isDark: boolean }) {
             for (const st of chunk.sportTypes) allSports.push(st);
             for (const m of chunk.metrics) allMetrics.push(m);
             if (chunk.longestKm > longestKm) longestKm = chunk.longestKm;
+            setProgress(
+              `gen ${chunkNum} chunk(s), ${allIds.length}/${count} act, ${(allCoords.length / 2 / 1000).toFixed(0)}K pts, ${Date.now() - t0}ms`
+            );
             await new Promise((r) => setTimeout(r, 0));
           }
+          setProgress(`gen done in ${Date.now() - t0}ms, calling FFI add()…`);
+          const tAdd = Date.now();
           client.engine.activities().add(allIds, allCoords, allOffsets, allSports);
+          const addMs = Date.now() - tAdd;
+          setProgress(`add() ${addMs}ms, calling setMetrics()…`);
+          const tMet = Date.now();
           client.engine.activities().setMetrics(allMetrics);
-          client.notifyAll('activities', 'groups');
+          const metMs = Date.now() - tMet;
           const total = client.engine.activities().getCount();
           const ms = Date.now() - t0;
+          // Set the result FIRST so the test sees the loading-complete signal,
+          // then trigger notifyAll which can cascade through React Query for
+          // many seconds without blocking the test from continuing.
           setResult(
-            `+${allIds.length} act, ${(allCoords.length / 2 / 1000).toFixed(0)}K pts, longest ${longestKm.toFixed(0)}km (total ${total}) in ${ms}ms`
+            `+${allIds.length} act, ${(allCoords.length / 2 / 1000).toFixed(0)}K pts, longest ${longestKm.toFixed(0)}km (total ${total}) | add ${addMs}ms set ${metMs}ms total ${ms}ms`
           );
+          setLoading(false);
+          setTimeout(() => client.notifyAll('activities', 'groups'), 0);
+          return;
         } catch (e) {
           setResult(`error: ${e instanceof Error ? e.message : String(e)}`);
         } finally {
@@ -211,7 +229,7 @@ function MapStressTest({ isDark }: { isDark: boolean }) {
             color: mutedColor,
           }}
         >
-          loading…
+          {progress ?? 'loading…'}
         </Text>
       ) : null}
       {result ? (
