@@ -558,6 +558,44 @@ fn gaussian_blur_3x3(buf: &IntensityBuffer) -> IntensityBuffer {
 // Tile Generation
 // ============================================================================
 
+/// Walk every track once, project each consecutive valid pair of points to
+/// tile-pixel space, snap to integer pixel endpoints, and tally identical
+/// segments. The returned map's key is `(x0, y0, x1, y1)` with endpoints
+/// canonically ordered so a segment and its reverse hash to the same bucket.
+fn extract_unique_segments<T: AsRef<[GpsPoint]>>(
+    z: u8,
+    x: u32,
+    y: u32,
+    tracks: &[T],
+) -> std::collections::HashMap<(i32, i32, i32, i32), u32> {
+    let mut segments: std::collections::HashMap<(i32, i32, i32, i32), u32> =
+        std::collections::HashMap::new();
+    for track in tracks {
+        let track = track.as_ref();
+        let mut prev: Option<(i32, i32)> = None;
+        for point in track {
+            if !point.is_valid() {
+                prev = None;
+                continue;
+            }
+            let curr = match gps_to_pixel(point, z, x, y) {
+                Some((px, py)) => (px.round() as i32, py.round() as i32),
+                None => {
+                    prev = None;
+                    continue;
+                }
+            };
+            if let Some(p) = prev {
+                // Canonicalize so reversed segments collapse together.
+                let (a, b) = if p <= curr { (p, curr) } else { (curr, p) };
+                *segments.entry((a.0, a.1, b.0, b.1)).or_insert(0) += 1;
+            }
+            prev = Some(curr);
+        }
+    }
+    segments
+}
+
 /// Generate a single heatmap tile from GPS tracks.
 /// Returns PNG bytes, or None if the tile contains no data.
 ///
@@ -575,26 +613,27 @@ pub fn generate_heatmap_tile<T: AsRef<[GpsPoint]>>(
 
     let mut buf = IntensityBuffer::new(TILE_SIZE, TILE_SIZE);
 
-    // Draw each track onto the intensity buffer
-    for track in tracks {
-        let track = track.as_ref();
-        let mut prev_pixel: Option<(f32, f32)> = None;
+    // Pass 1: collect all segments, snap endpoints to integer pixels, dedupe
+    // identical segments and count duplicates. For tiles where many tracks
+    // overlap on the same route (e.g. a daily commute ridden 400 times),
+    // this collapses N nearly-identical traversals into one weighted draw.
+    // Correctness rests on `IntensityBuffer::add_f` using saturating_add of
+    // u16: rasterizing one segment at `intensity * N` produces the same
+    // per-pixel buffer values as rasterizing the same segment N times at
+    // `intensity` (both saturate at 65535 in the same way).
+    let segments = extract_unique_segments(z, x, y, tracks);
 
-        for point in track {
-            if !point.is_valid() {
-                prev_pixel = None;
-                continue;
-            }
-
-            if let Some((px, py)) = gps_to_pixel(point, z, x, y) {
-                if let Some((prev_x, prev_y)) = prev_pixel {
-                    draw_line_intensity(&mut buf, prev_x, prev_y, px, py, line_width, intensity);
-                }
-                prev_pixel = Some((px, py));
-            } else {
-                prev_pixel = None;
-            }
-        }
+    // Pass 2: rasterize each unique segment once, scaling intensity by count.
+    for (&(x0, y0, x1, y1), &count) in &segments {
+        draw_line_intensity(
+            &mut buf,
+            x0 as f32,
+            y0 as f32,
+            x1 as f32,
+            y1 as f32,
+            line_width,
+            intensity * count as f32,
+        );
     }
 
     // Skip empty tiles entirely
@@ -789,6 +828,50 @@ mod tests {
         ];
         let result = generate_heatmap_tile(12, 0, 0, &[track]);
         assert!(result.is_none());
+    }
+
+    #[test]
+    fn extract_unique_segments_counts_duplicates() {
+        // Three copies of the same track should produce the same set of
+        // segment keys as one copy, but with count = 3 on every entry.
+        let track = vec![
+            GpsPoint::new(51.5074, -0.1278),
+            GpsPoint::new(51.5080, -0.1290),
+            GpsPoint::new(51.5090, -0.1300),
+        ];
+        let zoom = 12;
+        let tx = lon_to_tile_x(-0.1278, zoom).floor() as u32;
+        let ty = lat_to_tile_y(51.5074, zoom).floor() as u32;
+        let one = extract_unique_segments(zoom, tx, ty, &[track.clone()]);
+        let three = extract_unique_segments(
+            zoom,
+            tx,
+            ty,
+            &[track.clone(), track.clone(), track.clone()],
+        );
+        assert!(!one.is_empty(), "expected at least one segment from the track");
+        assert_eq!(one.keys().collect::<Vec<_>>().len(), three.keys().collect::<Vec<_>>().len());
+        for (key, &count_one) in &one {
+            let &count_three = three.get(key).expect("same segment key present in both");
+            assert_eq!(count_three, count_one * 3);
+        }
+    }
+
+    #[test]
+    fn extract_unique_segments_canonicalizes_reverse() {
+        // A track and its reverse should hash to the same segment buckets.
+        let fwd = vec![
+            GpsPoint::new(51.5074, -0.1278),
+            GpsPoint::new(51.5080, -0.1290),
+        ];
+        let rev: Vec<GpsPoint> = fwd.iter().rev().cloned().collect();
+        let zoom = 12;
+        let tx = lon_to_tile_x(-0.1278, zoom).floor() as u32;
+        let ty = lat_to_tile_y(51.5074, zoom).floor() as u32;
+        let combined = extract_unique_segments(zoom, tx, ty, &[fwd, rev]);
+        for &count in combined.values() {
+            assert_eq!(count, 2, "reversed segments must collapse onto same key");
+        }
     }
 
     #[test]
