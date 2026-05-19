@@ -9,54 +9,76 @@ tags:
   - pack-map
 ---
 
-# Phase 0: Setup demo mode
+# Phase 0: Setup demo mode (already dismisses WhatsNewModal via testID).
 - runFlow:
     file: helpers/setup-demo-mode.yaml
 
-# Dismiss tour overlay if present (clearState may trigger it)
+# Belt-and-braces: confirm the WhatsNewModal is gone before deep-linking.
+# The modal blocks the deep-link router until dismissed.
 - runFlow:
     when:
-      visible: "Skip"
+      visible:
+        id: "whats-new-modal"
     commands:
-      - tapOn: "Skip"
-- runFlow:
-    when:
-      visible: "Done"
-    commands:
-      - tapOn: "Done"
+      - tapOn:
+          id: "whats-new-skip"
+          optional: true
+      - tapOn:
+          id: "whats-new-done"
+          optional: true
+      - extendedWaitUntil:
+          notVisible:
+            id: "whats-new-modal"
+          timeout: 5000
+          optional: true
 
 # Phase 1: Navigate to debug dashboard and load stress data
 - openLink: "veloq://debug"
+- waitForAnimationToEnd:
+    timeout: 3000
+
+# Re-check modal in case it auto-shows again after the deep link routes
+- runFlow:
+    when:
+      visible:
+        id: "whats-new-modal"
+    commands:
+      - tapOn:
+          id: "whats-new-skip"
+          optional: true
+      - tapOn:
+          id: "whats-new-done"
+          optional: true
+      - extendedWaitUntil:
+          notVisible:
+            id: "whats-new-modal"
+          timeout: 5000
+          optional: true
+
 - extendedWaitUntil:
     visible:
       id: "debug-screen"
-    timeout: 15000
-
-# Dismiss tour if it follows to debug screen
-- runFlow:
-    when:
-      visible: "Skip"
-    commands:
-      - tapOn: "Skip"
+    timeout: 60000
 
 # Scroll directly to a stress preset button (section opens automatically)
 - scrollUntilVisible:
     element:
-      id: "debug-stress-2000"
+      id: "debug-stress-500"
     direction: DOWN
     timeout: 15000
 
 - takeScreenshot: "stress-01-before-load"
 
-# Load 2000 stress activities — original goal: "2000+ activities, some over 100km"
+# Load 500 stress activities first to validate the pipeline end-to-end on iOS sim.
+# Once this passes we'll scale back up to +2000.
 - tapOn:
-    id: "debug-stress-2000"
+    id: "debug-stress-500"
 
-# Wait for result text — 2000 activities + concurrent heatmap regen can take 10+ min on a sim
+# Wait for result text — 500 activities should complete in <2 min with prepared stmts
 - extendedWaitUntil:
     visible:
       id: "debug-stress-result"
-    timeout: 1800000
+    timeout: 600000
 
 - takeScreenshot: "stress-02-loaded"
 

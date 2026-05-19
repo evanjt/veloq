@@ -195,8 +195,9 @@ export function WhatsNewModal() {
       style={styles.overlay}
       entering={FadeIn.duration(300)}
       exiting={FadeOut.duration(200)}
+      testID="whats-new-modal"
     >
-      <Pressable style={styles.backdrop} onPress={dismiss} />
+      <Pressable style={styles.backdrop} onPress={dismiss} testID="whats-new-backdrop" />
       <View style={[styles.card, { backgroundColor: bgColor }]}>
         <GestureDetector gesture={panGesture}>
           <View style={styles.slideArea}>
@@ -333,7 +334,7 @@ function NavigationButtons({
       {/* Left: Skip (hidden on last slide) */}
       <View style={styles.navLeft}>
         <Animated.View style={isLast}>
-          <Pressable onPress={onSkip} hitSlop={12}>
+          <Pressable onPress={onSkip} hitSlop={12} testID="whats-new-skip">
             <Text style={[styles.navText, { color: mutedColor }]}>{skipLabel}</Text>
           </Pressable>
         </Animated.View>
@@ -354,13 +355,14 @@ function NavigationButtons({
           <Pressable
             onPress={onSkip}
             hitSlop={12}
+            testID="whats-new-done"
             style={[styles.doneButton, { backgroundColor: primaryColor }]}
           >
             <Text style={[styles.doneText, { color: '#FFFFFF' }]}>{doneLabel}</Text>
           </Pressable>
         </Animated.View>
         <Animated.View style={[styles.nextOverlay, isLast]}>
-          <Pressable onPress={onNext} hitSlop={12}>
+          <Pressable onPress={onNext} hitSlop={12} testID="whats-new-next">
             <Text style={[styles.navText, styles.navTextBold, { color: primaryColor }]}>
               {nextLabel}
             </Text>

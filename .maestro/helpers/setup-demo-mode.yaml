@@ -51,7 +51,26 @@ appId: com.veloq.app.dev
     commands:
       - tapOn: "Done"
 
-# Dismiss WhatsNewModal if present (auto-triggers on new app version)
+# Dismiss WhatsNewModal if present (auto-triggers on new app version).
+# The modal has 7 slides on v0.3.0; tap Skip on any slide to dismiss,
+# Done on the last slide. We try testID first (deterministic) and fall back
+# to text "Skip" for older builds. Confirm dismissal before continuing.
+- runFlow:
+    when:
+      visible:
+        id: "whats-new-modal"
+    commands:
+      - tapOn:
+          id: "whats-new-skip"
+          optional: true
+      - tapOn:
+          id: "whats-new-done"
+          optional: true
+      - extendedWaitUntil:
+          notVisible:
+            id: "whats-new-modal"
+          timeout: 5000
+          optional: true
 - runFlow:
     when:
       visible: "Skip"
@@ -116,6 +135,22 @@ appId: com.veloq.app.dev
             visible: "Done"
           commands:
             - tapOn: "Done"
+      - runFlow:
+          when:
+            visible:
+              id: "whats-new-modal"
+          commands:
+            - tapOn:
+                id: "whats-new-skip"
+                optional: true
+            - tapOn:
+                id: "whats-new-done"
+                optional: true
+            - extendedWaitUntil:
+                notVisible:
+                  id: "whats-new-modal"
+                timeout: 5000
+                optional: true
       - runFlow:
           when:
             visible: "Skip"
