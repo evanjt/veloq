@@ -94,7 +94,7 @@ jobs:
           echo "version_code=$VERSION_CODE" >> $GITHUB_OUTPUT
 
       - name: Download artifacts from main build
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           run-id: ${{ needs.find-and-wait.outputs.run_id }}
           github-token: ${{ github.token }}
@@ -243,7 +243,7 @@ jobs:
 
       - name: Download AAB
         if: steps.check_creds.outputs.skip != 'true'
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: release-aab
           path: release/
@@ -321,7 +321,7 @@ jobs:
 
       - name: Download IPA
         if: steps.check_creds.outputs.skip != 'true'
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: release-ipa
           path: release/
