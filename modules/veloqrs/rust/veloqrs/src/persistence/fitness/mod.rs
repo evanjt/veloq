@@ -92,6 +92,22 @@ impl PersistentRouteEngine {
                   hr_z1, hr_z2, hr_z3, hr_z4, hr_z5)
                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             )?;
+            let mut ftp_stmt = self.db.prepare(
+                "INSERT OR REPLACE INTO ftp_history (date, ftp, activity_id, sport_type)
+                 VALUES (?, ?, ?, ?)",
+            )?;
+            let mut act_stmt = self.db.prepare(
+                "UPDATE activities SET start_date = COALESCE(start_date, ?), name = ?,
+                 distance_meters = ?, duration_secs = ? WHERE id = ?",
+            )?;
+            let mut heatmap_stmt = self.db.prepare(
+                "INSERT INTO activity_heatmap (date, intensity, max_duration, activity_count)
+                 VALUES (?, ?, ?, 1)
+                 ON CONFLICT(date) DO UPDATE SET
+                     intensity = MAX(intensity, excluded.intensity),
+                     max_duration = MAX(max_duration, excluded.max_duration),
+                     activity_count = activity_count + 1",
+            )?;
 
             for m in &new_metrics {
                 let power_zones: Vec<f64> = m
@@ -152,17 +168,21 @@ impl PersistentRouteEngine {
                 ])?;
 
                 if let Some(ftp) = m.ftp {
-                    self.db.execute(
-                        "INSERT OR REPLACE INTO ftp_history (date, ftp, activity_id, sport_type)
-                         VALUES (?, ?, ?, ?)",
-                        params![m.date, ftp as i32, &m.activity_id, &m.sport_type],
-                    )?;
+                    ftp_stmt.execute(params![
+                        m.date,
+                        ftp as i32,
+                        &m.activity_id,
+                        &m.sport_type,
+                    ])?;
                 }
 
-                let _ = self.db.execute(
-                    "UPDATE activities SET start_date = COALESCE(start_date, ?), name = ?, distance_meters = ?, duration_secs = ? WHERE id = ?",
-                    params![m.date, &m.name, m.distance, m.moving_time as i64, &m.activity_id],
-                );
+                let _ = act_stmt.execute(params![
+                    m.date,
+                    &m.name,
+                    m.distance,
+                    m.moving_time as i64,
+                    &m.activity_id,
+                ]);
 
                 let date_str = chrono::DateTime::from_timestamp(m.date, 0)
                     .map(|dt| dt.format("%Y-%m-%d").to_string())
@@ -175,15 +195,7 @@ impl PersistentRouteEngine {
                     _ => 0,
                 };
 
-                self.db.execute(
-                    "INSERT INTO activity_heatmap (date, intensity, max_duration, activity_count)
-                     VALUES (?, ?, ?, 1)
-                     ON CONFLICT(date) DO UPDATE SET
-                         intensity = MAX(intensity, excluded.intensity),
-                         max_duration = MAX(max_duration, excluded.max_duration),
-                         activity_count = activity_count + 1",
-                    params![date_str, intensity, m.moving_time as i64],
-                )?;
+                heatmap_stmt.execute(params![date_str, intensity, m.moving_time as i64])?;
             }
 
             Ok(())

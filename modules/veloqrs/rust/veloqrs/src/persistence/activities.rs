@@ -172,33 +172,69 @@ impl PersistentRouteEngine {
 
         let mut all_bounds: Vec<Bounds> = Vec::with_capacity(activities.len());
 
-        for (id, coords, sport_type) in &activities {
-            let bounds = Bounds::from_points(coords).unwrap_or(Bounds {
-                min_lat: 0.0,
-                max_lat: 0.0,
-                min_lng: 0.0,
-                max_lng: 0.0,
-            });
+        {
+            let mut act_stmt = self.db.prepare(
+                "INSERT OR REPLACE INTO activities (id, sport_type, min_lat, max_lat, min_lng, max_lng)
+                 VALUES (?, ?, ?, ?, ?, ?)",
+            )?;
+            let mut track_stmt = self.db.prepare(
+                "INSERT OR REPLACE INTO gps_tracks (activity_id, track_data, point_count)
+                 VALUES (?, ?, ?)",
+            )?;
+            let mut sig_stmt = self.db.prepare(
+                "INSERT OR REPLACE INTO signatures (activity_id, points, start_point_lat,
+                 start_point_lng, end_point_lat, end_point_lng, total_distance, point_count)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+            )?;
 
-            let signature = RouteSignature::from_points(id, coords, &self.match_config);
+            for (id, coords, sport_type) in &activities {
+                let bounds = Bounds::from_points(coords).unwrap_or(Bounds {
+                    min_lat: 0.0,
+                    max_lat: 0.0,
+                    min_lng: 0.0,
+                    max_lng: 0.0,
+                });
 
-            self.store_activity(id, sport_type, &bounds)?;
-            self.store_gps_track(id, coords)?;
-            if let Some(sig) = &signature {
-                self.store_signature(id, sig)?;
-                self.signature_cache.put(id.clone(), Arc::new(sig.clone()));
+                let signature = RouteSignature::from_points(id, coords, &self.match_config);
+
+                act_stmt.execute(params![
+                    id,
+                    sport_type,
+                    bounds.min_lat,
+                    bounds.max_lat,
+                    bounds.min_lng,
+                    bounds.max_lng,
+                ])?;
+                let track_data = codec::serialize_points(coords)
+                    .map_err(|e| rusqlite::Error::ToSqlConversionFailure(e.into()))?;
+                track_stmt.execute(params![id, track_data, coords.len() as i64])?;
+                if let Some(sig) = &signature {
+                    let points_blob = codec::serialize_points(&sig.points)
+                        .map_err(|e| rusqlite::Error::ToSqlConversionFailure(e.into()))?;
+                    sig_stmt.execute(params![
+                        id,
+                        points_blob,
+                        sig.start_point.latitude,
+                        sig.start_point.longitude,
+                        sig.end_point.latitude,
+                        sig.end_point.longitude,
+                        sig.total_distance,
+                        sig.points.len() as i64,
+                    ])?;
+                    self.signature_cache.put(id.clone(), Arc::new(sig.clone()));
+                }
+
+                self.activity_metadata.insert(
+                    id.clone(),
+                    ActivityMetadata {
+                        id: id.clone(),
+                        sport_type: sport_type.clone(),
+                        bounds,
+                    },
+                );
+
+                all_bounds.push(bounds);
             }
-
-            self.activity_metadata.insert(
-                id.clone(),
-                ActivityMetadata {
-                    id: id.clone(),
-                    sport_type: sport_type.clone(),
-                    bounds,
-                },
-            );
-
-            all_bounds.push(bounds);
         }
 
         self.db.execute_batch("COMMIT")?;
@@ -208,52 +244,13 @@ impl PersistentRouteEngine {
         self.groups_dirty = true;
         self.sections_dirty = true;
 
-        if let Some(ref tiles_path) = self.heatmap_tiles_path {
-            let path = std::path::Path::new(tiles_path);
-            // Skip the whole pass if the tiles directory doesn't exist yet —
-            // there's nothing to invalidate on a fresh DB, and walking the
-            // full zoom×tile space per activity is O(activities × zooms × tiles)
-            // which dominates batch insert time for large stress loads.
-            if path.exists() && !all_bounds.is_empty() {
-                let config = crate::tiles::HeatmapConfig::default();
-                let margin = 0.001;
-                let mut min_lat = f64::INFINITY;
-                let mut max_lat = f64::NEG_INFINITY;
-                let mut min_lng = f64::INFINITY;
-                let mut max_lng = f64::NEG_INFINITY;
-                for b in &all_bounds {
-                    if b.min_lat < min_lat {
-                        min_lat = b.min_lat;
-                    }
-                    if b.max_lat > max_lat {
-                        max_lat = b.max_lat;
-                    }
-                    if b.min_lng < min_lng {
-                        min_lng = b.min_lng;
-                    }
-                    if b.max_lng > max_lng {
-                        max_lng = b.max_lng;
-                    }
-                }
-                if min_lat.is_finite() {
-                    let total_deleted = crate::tiles::invalidate_tiles_in_bounds(
-                        path,
-                        min_lat - margin,
-                        max_lat + margin,
-                        min_lng - margin,
-                        max_lng + margin,
-                        config.min_zoom,
-                        config.max_zoom,
-                    );
-                    if total_deleted > 0 {
-                        log::info!(
-                            "[heatmap] Invalidated {} tiles for {} new activities (union bounds)",
-                            total_deleted,
-                            activities.len()
-                        );
-                    }
-                }
-            }
+        if self.heatmap_tiles_path.is_some() {
+            // Don't walk the tile cache here — for batches that span widely
+            // separated regions (Switzerland + Brazil + Cape Town), invalidating
+            // per activity at z1-z17 is O(activities × zooms × tiles_in_bbox)
+            // stat() syscalls and dominates the insert. The dirty flag and the
+            // next regen pass cover correctness; we accept short-lived stale
+            // tiles until `generate_tiles_background` runs again.
             self.mark_heatmap_dirty();
         }
 
