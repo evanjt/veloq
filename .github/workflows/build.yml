@@ -45,7 +45,7 @@ jobs:
       is_signed: ${{ steps.signing.outputs.is_signed }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           submodules: recursive
 
@@ -382,7 +382,7 @@ jobs:
       is_release: ${{ steps.version.outputs.is_release }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           submodules: recursive
 
@@ -791,7 +791,7 @@ jobs:
     runs-on: e2e-android
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Download APK
         uses: actions/download-artifact@v8
@@ -875,7 +875,7 @@ jobs:
     timeout-minutes: 60
     continue-on-error: true
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Download APK
         uses: actions/download-artifact@v8

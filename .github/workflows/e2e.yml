@@ -28,7 +28,7 @@ jobs:
       JAVA_TOOL_OPTIONS: "-Dhttp.agent=Gradle -Dhttps.agent=Gradle"
       GRADLE_OPTS: "-Dhttp.agent=Gradle -Dhttps.agent=Gradle"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           submodules: recursive
 
@@ -117,7 +117,7 @@ jobs:
     runs-on: macos-26
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           submodules: recursive
 
@@ -239,7 +239,7 @@ jobs:
     env:
       ANDROID_HOME: /home/gha-runner/Android/Sdk
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Download APK
         uses: actions/download-artifact@v8
@@ -369,7 +369,7 @@ jobs:
     runs-on: macos-26
     timeout-minutes: 120
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Download iOS app
         uses: actions/download-artifact@v8
