@@ -242,7 +242,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Download APK
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: android-dev-apk
           path: /tmp/android-artifact
@@ -372,7 +372,7 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Download iOS app
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: ios-dev-simulator
           path: /tmp/ios-artifact
@@ -487,14 +487,14 @@ jobs:
     timeout-minutes: 5
     steps:
       - name: Download iOS report
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: maestro-ios-report
           path: /tmp/reports/ios
         continue-on-error: true
 
       - name: Download Android report
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: maestro-android-report
           path: /tmp/reports/android
