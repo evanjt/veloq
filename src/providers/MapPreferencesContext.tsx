@@ -437,30 +437,48 @@ export function MapPreferencesProvider({ children }: { children: ReactNode }) {
     return Object.values(preferences.terrain3DModeByType).some((v) => v !== 'off');
   }, [preferences.terrain3DMode, preferences.terrain3DModeByType]);
 
-  return (
-    <MapPreferencesContext.Provider
-      value={{
-        preferences,
-        isLoaded,
-        setDefaultStyle,
-        setGlobalMapStyle,
-        getGlobalMapStyle,
-        setActivityTypeStyle,
-        setActivityGroupStyle,
-        getStyleForActivity,
-        setTerrain3DMode,
-        setTerrain3DModeGroup,
-        getTerrain3DMode,
-        isAnyTerrain3DEnabled,
-        setActivityOverride,
-        clearActivityOverride,
-        hasActivityOverride,
-        getActivityOverride,
-      }}
-    >
-      {children}
-    </MapPreferencesContext.Provider>
+  // Memoize the context value so unrelated parent re-renders (theme, appReady)
+  // don't hand every consumer a fresh object and force a full re-render.
+  const value = useMemo(
+    () => ({
+      preferences,
+      isLoaded,
+      setDefaultStyle,
+      setGlobalMapStyle,
+      getGlobalMapStyle,
+      setActivityTypeStyle,
+      setActivityGroupStyle,
+      getStyleForActivity,
+      setTerrain3DMode,
+      setTerrain3DModeGroup,
+      getTerrain3DMode,
+      isAnyTerrain3DEnabled,
+      setActivityOverride,
+      clearActivityOverride,
+      hasActivityOverride,
+      getActivityOverride,
+    }),
+    [
+      preferences,
+      isLoaded,
+      setDefaultStyle,
+      setGlobalMapStyle,
+      getGlobalMapStyle,
+      setActivityTypeStyle,
+      setActivityGroupStyle,
+      getStyleForActivity,
+      setTerrain3DMode,
+      setTerrain3DModeGroup,
+      getTerrain3DMode,
+      isAnyTerrain3DEnabled,
+      setActivityOverride,
+      clearActivityOverride,
+      hasActivityOverride,
+      getActivityOverride,
+    ]
   );
+
+  return <MapPreferencesContext.Provider value={value}>{children}</MapPreferencesContext.Provider>;
 }
 
 export function useMapPreferences(): MapPreferencesContextValue {
