@@ -68,7 +68,22 @@ export default function RecordingScreen() {
   const mode = getRecordingMode(activityType);
   const status = useRecordingStore((s) => s.status);
   const startTime = useRecordingStore((s) => s.startTime);
-  const streams = useRecordingStore((s) => s.streams);
+  // Subscribe to per-stream lengths rather than the whole streams object or the
+  // mutated-in-place arrays (whose identity is stable, so a direct array
+  // selector would never notify). Each GPS point changes only the relevant
+  // length, so only the consumers that need it re-render.
+  const latlngLength = useRecordingStore((s) => s.streams.latlng.length);
+  const speedLength = useRecordingStore((s) => s.streams.speed.length);
+  const distanceLength = useRecordingStore((s) => s.streams.distance.length);
+  const heartrateLength = useRecordingStore((s) => s.streams.heartrate.length);
+
+  // Snapshot coordinates for the map/lock overlay. Keyed on length because the
+  // underlying latlng array is mutated in place. The slice gives consumers a
+  // stable reference that only changes when a point is added.
+  const coordinates = useMemo(
+    () => useRecordingStore.getState().streams.latlng.slice(),
+    [latlngLength]
+  );
 
   const [isLocked, setIsLocked] = useState(true);
   const [gpsWarning, setGpsWarning] = useState<string | null>(null);
@@ -172,7 +187,8 @@ export default function RecordingScreen() {
     if (mode !== 'gps' || !autoPauseEnabled) return;
     if (status !== 'recording' && status !== 'paused') return;
 
-    const lastSpeed = streams.speed[streams.speed.length - 1];
+    const speed = useRecordingStore.getState().streams.speed;
+    const lastSpeed = speed[speed.length - 1];
     if (lastSpeed == null) return;
 
     const result = autoPauseDetectorRef.current.update(lastSpeed, Date.now());
@@ -183,13 +199,14 @@ export default function RecordingScreen() {
       useRecordingStore.getState().resumeRecording();
       setAutoPaused(false);
     }
-  }, [streams.speed.length]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [speedLength]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Km split detection
   useEffect(() => {
     if (mode !== 'gps' || status !== 'recording') return;
 
-    const totalDistance = streams.distance[streams.distance.length - 1] ?? 0;
+    const { distance, time } = useRecordingStore.getState().streams;
+    const totalDistance = distance[distance.length - 1] ?? 0;
     const splitUnit = isMetric ? 1000 : 1609.344; // 1 km or 1 mile
     const nextSplitDistance = lastSplitDistanceRef.current + splitUnit;
 
@@ -201,12 +218,12 @@ export default function RecordingScreen() {
       const prevSplitDist = (splitIndex - 1) * splitUnit;
       let prevSplitTime = 0;
       let currSplitTime = 0;
-      for (let i = 0; i < streams.distance.length; i++) {
-        if (streams.distance[i] >= prevSplitDist && prevSplitTime === 0) {
-          prevSplitTime = streams.time[i];
+      for (let i = 0; i < distance.length; i++) {
+        if (distance[i] >= prevSplitDist && prevSplitTime === 0) {
+          prevSplitTime = time[i];
         }
-        if (streams.distance[i] >= nextSplitDistance && currSplitTime === 0) {
-          currSplitTime = streams.time[i];
+        if (distance[i] >= nextSplitDistance && currSplitTime === 0) {
+          currSplitTime = time[i];
           break;
         }
       }
@@ -235,7 +252,7 @@ export default function RecordingScreen() {
       // Initialize the split tracker once we have distance
       lastSplitDistanceRef.current = 0;
     }
-  }, [streams.distance.length]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [distanceLength]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Cleanup split banner timer
   useEffect(() => {
@@ -246,7 +263,8 @@ export default function RecordingScreen() {
 
   // HR zone bar colour update
   useEffect(() => {
-    const lastHR = streams.heartrate[streams.heartrate.length - 1];
+    const heartrate = useRecordingStore.getState().streams.heartrate;
+    const lastHR = heartrate[heartrate.length - 1];
     if (!lastHR || lastHR <= 0 || !maxHR) {
       setHrZoneColor(null);
       return;
@@ -269,7 +287,7 @@ export default function RecordingScreen() {
       prevHrZoneColorRef.current = zoneColor;
       setHrZoneColor(zoneColor);
     }
-  }, [streams.heartrate.length, hrZones, maxHR]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [heartrateLength, hrZones, maxHR]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Crash recovery: periodic backup
   useEffect(() => {
@@ -529,7 +547,7 @@ export default function RecordingScreen() {
       <View style={styles.mainContent}>
         {mode === 'gps' ? (
           <RecordingMap
-            coordinates={streams.latlng}
+            coordinates={coordinates}
             currentLocation={currentLocation}
             style={styles.map}
           />
@@ -591,7 +609,7 @@ export default function RecordingScreen() {
         mode={mode}
         status={status === 'recording' || status === 'paused' ? status : 'idle'}
         accuracy={accuracy}
-        coordinates={streams.latlng}
+        coordinates={coordinates}
         currentLocation={currentLocation}
         activityType={currentActivityType}
         speed={metrics.speed > 0 ? formatSpeed(metrics.speed, isMetric) : undefined}

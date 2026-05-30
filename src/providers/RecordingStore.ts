@@ -164,52 +164,38 @@ export const useRecordingStore = create<RecordingState>((set, get) => ({
       speed = point.speed ?? 0;
     }
 
-    set({
-      streams: {
-        ...streams,
-        time: [...streams.time, elapsedSec],
-        latlng: [...streams.latlng, [point.latitude, point.longitude]],
-        altitude: [...streams.altitude, point.altitude ?? 0],
-        speed: [...streams.speed, speed],
-        distance: [...streams.distance, dist],
-        heartrate: streams.heartrate,
-        power: streams.power,
-        cadence: streams.cadence,
-      },
-    });
+    // Mutate the stream arrays in place to keep per-point cost O(1). A fresh
+    // top-level `streams` object is still emitted so Zustand notifies
+    // subscribers and downstream useMemo deps recompute; effects keyed on
+    // `streams.x.length` fire because the length changes. Rebuilding all
+    // arrays on every point was O(n) per call, O(n^2) per session.
+    streams.time.push(elapsedSec);
+    streams.latlng.push([point.latitude, point.longitude]);
+    streams.altitude.push(point.altitude ?? 0);
+    streams.speed.push(speed);
+    streams.distance.push(dist);
+    set({ streams: { ...streams } });
   },
 
   addHeartrate: (bpm, time) => {
     const { status, startTime, streams } = get();
     if (status !== 'recording' || !startTime) return;
-    set({
-      streams: {
-        ...streams,
-        heartrate: [...streams.heartrate, bpm],
-      },
-    });
+    streams.heartrate.push(bpm);
+    set({ streams: { ...streams } });
   },
 
   addPower: (watts, time) => {
     const { status, startTime, streams } = get();
     if (status !== 'recording' || !startTime) return;
-    set({
-      streams: {
-        ...streams,
-        power: [...streams.power, watts],
-      },
-    });
+    streams.power.push(watts);
+    set({ streams: { ...streams } });
   },
 
   addCadence: (rpm, time) => {
     const { status, startTime, streams } = get();
     if (status !== 'recording' || !startTime) return;
-    set({
-      streams: {
-        ...streams,
-        cadence: [...streams.cadence, rpm],
-      },
-    });
+    streams.cadence.push(rpm);
+    set({ streams: { ...streams } });
   },
 
   addLap: () => {
