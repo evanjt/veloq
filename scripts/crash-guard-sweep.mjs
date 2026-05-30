@@ -369,11 +369,15 @@ function main() {
   for (const f of ts) scanTsFile(f, findings);
   for (const f of rust) scanRustFile(f, findings);
 
-  const blocking = findings.filter((f) => f.kind !== 'd');
-  const advisory = findings.filter((f) => f.kind === 'd');
+  // Blocking = true crash classes: hooks-after-return (Rules of Hooks) and
+  // unguarded JSON.parse. Advisory = (a) Math.max/min on a possibly-empty
+  // spread yields Infinity (a NaN risk caught by the nanInUI guards, not a
+  // crash) and (d) Rust unwrap/expect.
+  const blocking = findings.filter((f) => f.kind === 'b' || f.kind === 'c');
+  const advisory = findings.filter((f) => f.kind === 'a' || f.kind === 'd');
 
   const labels = {
-    a: 'Math.max/min spread',
+    a: 'Math.max/min spread (NaN risk)',
     b: 'hook after early return',
     c: 'unguarded JSON.parse',
     d: 'Rust unwrap/expect in FFI export',
