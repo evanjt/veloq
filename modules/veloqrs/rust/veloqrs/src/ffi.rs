@@ -164,10 +164,12 @@ pub fn start_fetch_and_store(
         elapsed_ms(sport_map_start)
     );
 
-    // Clear any previous results
+    // Clear any previous results. Recover from a poisoned lock instead of
+    // aborting (panic=abort): a poisoned FETCH_AND_STORE_RESULT only means a
+    // prior writer panicked, the inner Option is still safe to read/replace.
     FETCH_AND_STORE_RESULT
         .lock()
-        .expect("FETCH_AND_STORE_RESULT mutex poisoned")
+        .unwrap_or_else(|e| e.into_inner())
         .take();
 
     // Reset progress counters
@@ -391,7 +393,7 @@ pub fn start_fetch_and_store(
             if let Some(Some(h)) = handle {
                 let mut guard = crate::persistence::persistent_engine_ffi::TILE_GENERATION_HANDLE
                     .lock()
-                    .expect("TILE_GENERATION_HANDLE mutex poisoned");
+                    .unwrap_or_else(|e| e.into_inner());
                 *guard = Some(h);
             }
         }
@@ -425,7 +427,7 @@ static FETCH_AND_STORE_RESULT: std::sync::Mutex<Option<FetchAndStoreResult>> =
 fn store_fetch_and_store_result(result: FetchAndStoreResult) {
     let mut guard = FETCH_AND_STORE_RESULT
         .lock()
-        .expect("FETCH_AND_STORE_RESULT mutex poisoned");
+        .unwrap_or_else(|e| e.into_inner());
     *guard = Some(result);
 }
 
@@ -440,7 +442,7 @@ pub fn take_fetch_and_store_result() -> Option<FetchAndStoreResult> {
 
     let result = FETCH_AND_STORE_RESULT
         .lock()
-        .expect("FETCH_AND_STORE_RESULT mutex poisoned")
+        .unwrap_or_else(|e| e.into_inner())
         .take();
 
     if let Some(ref r) = result {

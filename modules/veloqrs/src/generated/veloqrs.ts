@@ -9793,6 +9793,11 @@ export interface SectionManagerLike {
     timeRangeDays: /*u32*/ number,
     sportFilter: string | undefined,
   ) /*throws*/ : FfiSectionChartData;
+  /**
+   * Total number of sections, without deserializing any section blobs.
+   * Cheap alternative to `get_summaries`/`get_all` for count-only callers.
+   */
+  getCount() /*throws*/ : /*u32*/ number;
   getEfficiencyTrend(
     sectionId: string,
   ) /*throws*/ : FfiEfficiencyTrend | undefined;
@@ -10408,6 +10413,27 @@ export class SectionManager
             FfiConverterString.lower(sectionId),
             FfiConverterUInt32.lower(timeRangeDays),
             FfiConverterOptionalString.lower(sportFilter),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * Total number of sections, without deserializing any section blobs.
+   * Cheap alternative to `get_summaries`/`get_all` for count-only callers.
+   */
+  getCount(): /*u32*/ number /*throws*/ {
+    return FfiConverterUInt32.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_count(
+            uniffiTypeSectionManagerObjectFactory.clonePointer(this),
             callStatus,
           );
         },
@@ -13996,6 +14022,14 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_sectionmanager_get_chart_data",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_count() !==
+    1440
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_sectionmanager_get_count",
     );
   }
   if (

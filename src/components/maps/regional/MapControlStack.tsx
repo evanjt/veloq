@@ -9,7 +9,6 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { colors, darkColors, spacing, shadows } from '@/theme';
 import { CompassArrow } from '@/components/ui';
-import type { FrequentSection } from '@/types';
 
 /** Reusable layer toggle button inside a LayerToggleGroup. */
 function LayerToggleButton({
@@ -97,8 +96,8 @@ interface MapControlStackProps {
   userLocationActive: boolean;
   /** Whether location is currently being fetched */
   locationLoading: boolean;
-  /** Sections data (for showing sections toggle) */
-  sections: FrequentSection[];
+  /** Number of sections (for showing sections toggle) */
+  sectionCount: number;
   /** Number of routes (for showing routes toggle) */
   routeCount: number;
   /** Number of activities (for showing activities toggle) */
@@ -134,7 +133,7 @@ export function MapControlStack({
   showRoutes,
   userLocationActive,
   locationLoading,
-  sections,
+  sectionCount,
   routeCount,
   activityCount,
   bearingAnim,
@@ -266,7 +265,7 @@ export function MapControlStack({
       </View>
 
       {/* Combined layer toggles — stacked when multiple exist */}
-      {(activityCount > 0 || sections.length > 0 || routeCount > 0) && (
+      {(activityCount > 0 || sectionCount > 0 || routeCount > 0) && (
         <LayerToggleGroup isDark={isDark}>
           {activityCount > 0 && (
             <LayerToggleButton
@@ -280,7 +279,7 @@ export function MapControlStack({
               }
             />
           )}
-          {sections.length > 0 && onToggleSections && (
+          {sectionCount > 0 && onToggleSections && (
             <LayerToggleButton
               testID="map-toggle-sections"
               icon="road-variant"

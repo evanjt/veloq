@@ -1135,10 +1135,54 @@ pub mod persistent_engine_ffi {
     use super::*;
     use log::info;
 
+    /// Guards one-time installation of the Rust panic hook.
+    static PANIC_HOOK_INIT: std::sync::Once = std::sync::Once::new();
+
+    /// Install a process-wide panic hook (once) that appends the panic
+    /// message + location to `veloq_panic.log` in the DB directory. Under
+    /// `panic = "abort"` the process dies before any JS handler runs, so this
+    /// file is the only record the JS crash sink (source: 'rust-panic') can
+    /// recover on the next launch. Infallible: write errors are ignored.
+    fn install_panic_hook(db_path: &str) {
+        let log_path = std::path::Path::new(db_path)
+            .parent()
+            .unwrap_or_else(|| std::path::Path::new("."))
+            .join("veloq_panic.log");
+
+        PANIC_HOOK_INIT.call_once(move || {
+            let default_hook = std::panic::take_hook();
+            std::panic::set_hook(Box::new(move |info| {
+                use std::io::Write;
+                let location = info
+                    .location()
+                    .map(|l| format!("{}:{}:{}", l.file(), l.line(), l.column()))
+                    .unwrap_or_else(|| "unknown".to_string());
+                let message = info.payload().downcast_ref::<&str>().map_or_else(
+                    || {
+                        info.payload()
+                            .downcast_ref::<String>()
+                            .cloned()
+                            .unwrap_or_else(|| "<non-string panic payload>".to_string())
+                    },
+                    |s| s.to_string(),
+                );
+                if let Ok(mut file) = std::fs::OpenOptions::new()
+                    .create(true)
+                    .append(true)
+                    .open(&log_path)
+                {
+                    let _ = writeln!(file, "panic at {}: {}", location, message);
+                }
+                default_hook(info);
+            }));
+        });
+    }
+
     /// Initialize the persistent engine with a database path.
     /// Called by VeloqEngine::create() — not exported via FFI directly.
     pub fn persistent_engine_init(db_path: String) -> bool {
         crate::init_logging();
+        install_panic_hook(&db_path);
         info!(
             "tracematch: [PersistentEngine] Initializing with db: {}",
             db_path

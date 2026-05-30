@@ -251,6 +251,8 @@ class RouteEngineClient implements DelegateHost {
   getSectionsForActivity = (activityId: string): FfiSection[] =>
     sectionDelegates.getSectionsForActivity(this, activityId);
 
+  getSectionCount = (): number => sectionDelegates.getSectionCount(this);
+
   getSectionSummaries = (sportType?: string): { totalCount: number; summaries: SectionSummary[] } =>
     sectionDelegates.getSectionSummaries(this, sportType);
 

@@ -347,6 +347,25 @@ export function useEngineSections(options: UseEngineSectionsOptions = {}): UseEn
   }, [trigger, sportType, minVisits, enabled]);
 }
 
+/**
+ * Total section count without loading any polylines or summaries. Cheap SQL
+ * COUNT via `getSectionCount()`. Use this to drive UI that only needs to know
+ * whether sections exist (e.g. a toggle button) while deferring the heavy
+ * polyline load behind a separate `useEngineSections({ enabled })` gate.
+ */
+export function useEngineSectionCount(): number {
+  const trigger = useEngineSubscription(['sections']);
+
+  return useMemo(() => {
+    try {
+      return getRouteEngine()?.getSectionCount() ?? 0;
+    } catch {
+      return 0;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [trigger]);
+}
+
 interface UseSectionSummariesOptions {
   /** Filter by sport type */
   sportType?: string;

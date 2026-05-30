@@ -37,8 +37,8 @@ export function useSectionHealthCheck(syncComplete: boolean): void {
         const activityCount = engine.getActivityCount?.() ?? 0;
         if (activityCount === 0) return;
 
-        const sections = engine.getSections?.() ?? [];
-        if (sections.length > 0) {
+        const sectionCount = engine.getSectionCount?.() ?? 0;
+        if (sectionCount > 0) {
           await AsyncStorage.setItem(FLAG_KEY, 'done');
           return;
         }

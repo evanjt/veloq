@@ -92,12 +92,12 @@ const METHOD_EXPORTS = FFI_EXPORTS.filter((e) => e.object);
 
 describe('FFI Binding Validation', () => {
   describe('Standalone flat exports', () => {
-    it('should have the expected five standalone flat exports', () => {
-      // The domain-object migration left exactly five non-object-method
-      // standalone functions (download progress, fetch lifecycle, polyline
-      // overlap, match strictness). Adjust if a new standalone is added —
-      // but prefer putting engine-coupled logic on a UniFFI Object.
-      expect(STANDALONE_EXPORTS.length).toBe(5);
+    it('should have the expected standalone flat exports', () => {
+      // Non-object-method standalone functions (download progress, fetch
+      // lifecycle, polyline overlap, backup validation, standalone section
+      // detection). Adjust if a new standalone is added — but prefer putting
+      // engine-coupled logic on a UniFFI Object.
+      expect(STANDALONE_EXPORTS.length).toBe(6);
     });
 
     it('should include the known standalone FFI functions', () => {
@@ -107,6 +107,7 @@ describe('FFI Binding Validation', () => {
       expect(names.has('start_fetch_and_store')).toBe(true);
       expect(names.has('take_fetch_and_store_result')).toBe(true);
       expect(names.has('compute_polyline_overlap')).toBe(true);
+      expect(names.has('detect_sections_standalone')).toBe(true);
     });
 
     it('should have exports sourced from ffi.rs and persistence/mod.rs', () => {

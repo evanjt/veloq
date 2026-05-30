@@ -108,6 +108,12 @@ impl SectionManager {
         })
     }
 
+    /// Total number of sections, without deserializing any section blobs.
+    /// Cheap alternative to `get_summaries`/`get_all` for count-only callers.
+    fn get_count(&self) -> Result<u32, VeloqError> {
+        with_engine(|e| e.get_section_count())
+    }
+
     fn get_summaries_with_count(
         &self,
         sport_type: Option<String>,

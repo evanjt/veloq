@@ -124,11 +124,12 @@ export function useSectionMatches(activityId: string | undefined): UseSectionMat
     };
   }, []); // Stable — refreshRef avoids stale closure
 
-  // Check if engine has any sections
+  // Check if engine has any sections. Count-only: avoids the heavy
+  // getSectionSummaries() deserialization just to read totalCount.
   const sectionCount = useMemo(() => {
     try {
       const engine = getRouteEngine();
-      return engine?.getSectionSummaries()?.totalCount ?? 0;
+      return engine?.getSectionCount() ?? 0;
     } catch {
       return 0;
     }

@@ -28,7 +28,7 @@ import {
 } from './mapStyles';
 import { computeAttribution } from '@/lib/maps/computeAttribution';
 import type { ActivityBoundsItem } from '@/types';
-import { useEngineSections, useRouteSignatures } from '@/hooks/routes';
+import { useEngineSections, useEngineSectionCount, useRouteSignatures } from '@/hooks/routes';
 import { HEATMAP_TILE_URL_TEMPLATE } from '@/hooks/maps/useHeatmapTiles';
 import { useSectionAutoToggle, useVisibilityToggles } from '@/hooks/maps';
 import { buildSpiderGeoJSON } from '@/lib/maps/buildSpiderGeoJSON';
@@ -155,16 +155,21 @@ export function RegionalMapView({
   const isMapFocused = pathname === '/map' || pathname.endsWith('/map');
   const routeSignatures = useRouteSignatures(isMapFocused);
 
-  // Frequent sections from route matching (with polylines loaded)
-  // useEngineSections loads full section data from Rust engine including polylines.
+  // Cheap section count (SQL COUNT, no polylines) drives the toggle button's
+  // visibility so it appears from first paint without the heavy polyline load.
+  const sectionCount = useEngineSectionCount();
+
+  // Frequent sections from route matching (with polylines loaded).
   // minVisits: 1 surfaces every detected section; the global map should show
   // all sections regardless of repeat-count.
-  // Always load so the toggle button is visible from first paint — gating on
-  // showSections deadlocks the button (button needs sections.length > 0 to
-  // appear, but sections won't load until the user toggles it on).
+  // Gated on showSections: the polylines are only needed when the sections
+  // layer is visible (2D overlay or 3D sectionsGeoJSON). The toggle button no
+  // longer depends on this load — it reads sectionCount — so gating here can't
+  // deadlock the button. The auto-toggle flips showSections on when zoomed in,
+  // which triggers the load on demand.
   const { sections } = useEngineSections({
     minVisits: 1,
-    enabled: true,
+    enabled: showSections,
   });
 
   // Camera, bounds, and pre-computed activity centers
@@ -859,7 +864,7 @@ export function RegionalMapView({
         showRoutes={false}
         userLocationActive={!!userLocation}
         locationLoading={locationLoading}
-        sections={sections}
+        sectionCount={sectionCount}
         routeCount={0}
         activityCount={activities.length}
         bearingAnim={bearingAnim}
