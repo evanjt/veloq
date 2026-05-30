@@ -276,6 +276,7 @@ export default function RecordingScreen() {
     if (status !== 'recording') return;
     const interval = setInterval(() => {
       const state = useRecordingStore.getState();
+      if (state.status !== 'recording') return;
       saveRecordingBackup({
         activityType,
         mode,

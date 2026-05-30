@@ -138,6 +138,12 @@ export const useRecordingStore = create<RecordingState>((set, get) => ({
     if (status !== 'recording' || !startTime) return;
 
     const elapsedSec = (point.timestamp - startTime) / 1000;
+    // Drop duplicate / out-of-order points. Foreground watcher and background
+    // task can both deliver around a bg->fg transition; only accept points
+    // strictly newer than the last, so distance and pace stay monotonic.
+    const lastTime = streams.time[streams.time.length - 1];
+    if (lastTime !== undefined && elapsedSec <= lastTime) return;
+
     const prevLatlng = streams.latlng[streams.latlng.length - 1];
     const prevDist = streams.distance[streams.distance.length - 1] ?? 0;
 
