@@ -523,7 +523,7 @@ const styles = StyleSheet.create({
     width: CHART_WIDTH,
   },
   tapTarget: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
   },
   crosshair: {
     position: 'absolute',

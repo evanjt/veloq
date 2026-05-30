@@ -1022,7 +1022,7 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
               html: workerHtmls[worker.id],
               baseUrl: 'https://veloq.fit/',
             }}
-            style={StyleSheet.absoluteFillObject}
+            style={StyleSheet.absoluteFill}
             scrollEnabled={false}
             bounces={false}
             javaScriptEnabled={true}

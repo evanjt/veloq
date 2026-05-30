@@ -1,3 +1,21 @@
+// jest-expo's preset transforms JS/TS with a babel-jest caller of
+// { name: 'metro', bundler: 'metro' }, which makes babel-preset-expo preserve
+// native ESM (metro handles ESM itself). Jest's CommonJS runtime then chokes on
+// `import` from packages like expo-localization. Use a non-metro babel-jest
+// caller so babel-preset-expo runs the modules-commonjs transform. The rootDir
+// token isn't substituted inside transformer option objects, so extends needs
+// an absolute path.
+const babelTransform = [
+  "babel-jest",
+  {
+    babelrc: false,
+    configFile: false,
+    caller: { name: "babel-jest", supportsStaticESM: false },
+    presets: ["babel-preset-expo"],
+    plugins: [["module-resolver", { root: ["./"], alias: { "@": "./src" } }]],
+  },
+];
+
 module.exports = {
   preset: "jest-expo",
   testEnvironment: "node",
@@ -16,6 +34,9 @@ module.exports = {
   transformIgnorePatterns: [
     "node_modules/(?!((jest-)?react-native|@react-native(-community)?)|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@sentry/react-native|native-base|react-native-svg|react-native-paper|@shopify/react-native-skia)",
   ],
+  transform: {
+    "\\.[jt]sx?$": babelTransform,
+  },
   setupFilesAfterEnv: ["<rootDir>/config/jest.setup.js"],
   collectCoverageFrom: [
     "src/**/*.{ts,tsx}",

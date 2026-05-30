@@ -537,7 +537,6 @@ export default function RootLayout() {
                 <PaperProvider theme={theme}>
                   <StatusBar
                     style={colorScheme === 'dark' ? 'light' : 'dark'}
-                    translucent={Platform.OS === 'ios'}
                     hidden={SCREENSHOT_MODE}
                     animated
                   />

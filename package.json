@@ -106,6 +106,7 @@
   },
   "devDependencies": {
     "@expo/config-plugins": "^56.0.8",
+    "@react-native/assets-registry": "^0.85.3",
     "@react-native/jest-preset": "^0.85.3",
     "@testing-library/react": "^16.3.2",
     "@testing-library/react-native": "^13.3.3",

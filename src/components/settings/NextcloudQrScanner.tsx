@@ -43,7 +43,7 @@ export function NextcloudQrScanner({ onScanned, onClose }: NextcloudQrScannerPro
   return (
     <View style={styles.container}>
       <CameraView
-        style={StyleSheet.absoluteFillObject}
+        style={StyleSheet.absoluteFill}
         barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
         onBarcodeScanned={
           scanned

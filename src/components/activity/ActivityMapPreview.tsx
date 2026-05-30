@@ -537,7 +537,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   loadingOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     justifyContent: 'center',
     alignItems: 'center',
   },

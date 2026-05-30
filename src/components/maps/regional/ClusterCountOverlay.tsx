@@ -108,7 +108,7 @@ export const ClusterCountOverlay = React.forwardRef<
 
 const styles = StyleSheet.create({
   container: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
   },
   countHitbox: {
     position: 'absolute',

@@ -4,6 +4,7 @@
     "strict": true,
     "baseUrl": ".",
     "ignoreDeprecations": "6.0",
+    "types": ["jest", "node", "react"],
     "paths": {
       "@/*": ["src/*"],
       "@/components/*": ["src/components/*"],

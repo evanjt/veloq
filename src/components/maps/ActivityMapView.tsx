@@ -1332,13 +1332,13 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   mapLayer: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
   },
   map3DLayer: {
     zIndex: 1,
   },
   loadingOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     zIndex: 2,
     justifyContent: 'center',
     alignItems: 'center',

@@ -1165,7 +1165,7 @@ const styles = StyleSheet.create({
     borderRadius: layout.borderRadius,
   },
   mapLayer: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
   },
   map3DLayer: {
     zIndex: 1,
@@ -1175,7 +1175,7 @@ const styles = StyleSheet.create({
     pointerEvents: 'none',
   },
   loadingOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     zIndex: 2,
     justifyContent: 'center',
     alignItems: 'center',

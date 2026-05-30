@@ -692,7 +692,7 @@ const styles = StyleSheet.create({
     height: 240,
   },
   pressableOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     zIndex: 1,
   },
   topOverlay: {

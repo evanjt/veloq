@@ -513,7 +513,7 @@ const styles = StyleSheet.create({
     backgroundColor: darkColors.background,
   },
   mapLayer: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
   },
   map3DLayer: {
     zIndex: 1,

@@ -1161,7 +1161,7 @@ const styles = StyleSheet.create({
     marginTop: 1,
   },
   tapTargetContainer: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     paddingLeft: 40,
     paddingRight: 20,
   },
@@ -1248,7 +1248,7 @@ const styles = StyleSheet.create({
     color: darkColors.textMuted,
   },
   gapLinesOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     pointerEvents: 'none',
   },
   gapVerticalLine: {

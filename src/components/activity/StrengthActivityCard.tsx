@@ -297,7 +297,7 @@ const styles = StyleSheet.create({
     backgroundColor: darkColors.backgroundAlt,
   },
   strengthCenter: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -327,7 +327,7 @@ const styles = StyleSheet.create({
     right: 0,
   },
   pressableOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     zIndex: 1,
   },
   topOverlay: {
