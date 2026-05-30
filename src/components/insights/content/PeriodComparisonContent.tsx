@@ -30,31 +30,30 @@ export const PeriodComparisonContent = React.memo(function PeriodComparisonConte
   const comparison = insight.supportingData?.comparisonData;
   const dataPoints = insight.supportingData?.dataPoints;
 
-  if (!comparison) return null;
+  const currentVal = typeof comparison?.current.value === 'number' ? comparison.current.value : 0;
+  const previousVal =
+    typeof comparison?.previous.value === 'number' ? comparison.previous.value : 0;
 
-  const currentVal = typeof comparison.current.value === 'number' ? comparison.current.value : 0;
-  const previousVal = typeof comparison.previous.value === 'number' ? comparison.previous.value : 0;
-
-  const changeStr = String(comparison.change.value);
-  const isPositive = changeStr.startsWith('+');
-  const changeColor = isPositive ? colors.success : colors.warning;
-  const changeIcon = isPositive ? 'arrow-up' : 'arrow-down';
-
+  // Hooks must run every render — keep them above the !comparison early return
+  // and tolerate a null comparison (empty bars) so the hook order is stable.
   const bars = useMemo(
-    (): WeekBar[] => [
-      {
-        label: String(comparison.previous.label),
-        value: previousVal,
-        unit: comparison.previous.unit,
-        isCurrent: false,
-      },
-      {
-        label: String(comparison.current.label),
-        value: currentVal,
-        unit: comparison.current.unit,
-        isCurrent: true,
-      },
-    ],
+    (): WeekBar[] =>
+      comparison
+        ? [
+            {
+              label: String(comparison.previous.label),
+              value: previousVal,
+              unit: comparison.previous.unit,
+              isCurrent: false,
+            },
+            {
+              label: String(comparison.current.label),
+              value: currentVal,
+              unit: comparison.current.unit,
+              isCurrent: true,
+            },
+          ]
+        : [],
     [comparison, currentVal, previousVal]
   );
 
@@ -87,6 +86,13 @@ export const PeriodComparisonContent = React.memo(function PeriodComparisonConte
       };
     });
   }, [bars, maxVal]);
+
+  if (!comparison) return null;
+
+  const changeStr = String(comparison.change.value);
+  const isPositive = changeStr.startsWith('+');
+  const changeColor = isPositive ? colors.success : colors.warning;
+  const changeIcon = isPositive ? 'arrow-up' : 'arrow-down';
 
   const barColor = isPositive ? colors.success : '#42A5F5';
   const mutedBarColor = isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.12)';

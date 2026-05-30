@@ -465,8 +465,6 @@ export function UnifiedPerformanceChart({
     };
   }, [chartData, t]);
 
-  if (chartData.length < 1) return null;
-
   const renderLaneChart = useCallback(
     (lane: LaneData, color: string, direction: 'forward' | 'reverse') => {
       if (lane.points.length === 0) return null;
@@ -629,6 +627,10 @@ export function UnifiedPerformanceChart({
     },
     [handlePointPress, formatSpeedValue, isDark, gaps, chartWidth, chartContentWidth, selectedPoint]
   );
+
+  // Early return after all hooks (Rules of Hooks): chartData may be empty
+  // before data loads, and renderLaneChart above must run every render.
+  if (chartData.length < 1) return null;
 
   // Single direction mode (no swim lanes needed)
   if (!showSwimLanes) {
