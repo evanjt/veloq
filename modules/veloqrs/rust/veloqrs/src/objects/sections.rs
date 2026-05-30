@@ -1,4 +1,4 @@
-use super::error::{VeloqError, with_engine};
+use super::error::{VeloqError, with_engine, with_engine_read};
 use crate::sections::SectionType;
 use std::sync::Arc;
 
@@ -15,7 +15,10 @@ impl SectionManager {
     }
 
     fn get_all(&self) -> Result<Vec<crate::FfiFrequentSection>, VeloqError> {
-        with_engine(|e| {
+        // Read lock: get_sections() only borrows the in-memory sections Vec (no
+        // self.db), so concurrent reads are sound and no longer serialize on the
+        // engine write lock — this is the hot Routes/section-list path.
+        with_engine_read(|e| {
             e.get_sections()
                 .iter()
                 .map(crate::FfiFrequentSection::from)
@@ -28,7 +31,8 @@ impl SectionManager {
         sport_type: Option<String>,
         min_visits: Option<u32>,
     ) -> Result<Vec<crate::FfiFrequentSection>, VeloqError> {
-        with_engine(|e| {
+        // Read lock: get_sections_filtered() filters the in-memory Vec only.
+        with_engine_read(|e| {
             e.get_sections_filtered(sport_type.as_deref(), min_visits)
                 .into_iter()
                 .map(crate::FfiFrequentSection::from)
