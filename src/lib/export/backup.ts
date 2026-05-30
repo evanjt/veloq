@@ -32,6 +32,7 @@ import {
   initializeNotificationPreferences,
   initializeNotificationPrompt,
   initializeSupportStore,
+  queryClient,
 } from '@/providers';
 import { reloadCameraOverrides } from '@/lib/storage/terrainCameraOverrides';
 import { reloadMapCameraState } from '@/lib/storage/mapCameraState';
@@ -208,6 +209,11 @@ export async function restoreDatabaseBackup(fileUri: string): Promise<DatabaseRe
 
     const restoredEngine = getRouteEngine();
     const activityCount = restoredEngine?.getActivityCount() ?? 0;
+
+    // Wake query-on-demand hooks so mounted screens re-query the restored data
+    // instead of showing the pre-restore engine state until the next sync.
+    restoredEngine?.notifyAll('activities', 'groups', 'sections', 'syncReset');
+    queryClient.invalidateQueries();
 
     return {
       success: true,
