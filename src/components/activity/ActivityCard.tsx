@@ -644,7 +644,9 @@ export const ActivityCard = React.memo(
       prev.screenFocused === next.screenFocused &&
       prev.startupTrack === next.startupTrack &&
       prev.colorScheme === next.colorScheme &&
-      prev.snapshotReady === next.snapshotReady;
+      prev.snapshotReady === next.snapshotReady &&
+      prev.sectionHighlights === next.sectionHighlights &&
+      prev.routeHighlight === next.routeHighlight;
     if (__DEV__ && !equal && (prev.index ?? 0) < 3) {
       const diffs: string[] = [];
       if (prev.activity.id !== next.activity.id) diffs.push('id');
@@ -654,6 +656,8 @@ export const ActivityCard = React.memo(
       if (prev.startupTrack !== next.startupTrack) diffs.push('startupTrack');
       if (prev.colorScheme !== next.colorScheme) diffs.push('colorScheme');
       if (prev.snapshotReady !== next.snapshotReady) diffs.push('snapshotReady');
+      if (prev.sectionHighlights !== next.sectionHighlights) diffs.push('sectionHighlights');
+      if (prev.routeHighlight !== next.routeHighlight) diffs.push('routeHighlight');
       console.log(
         `    🔍 ActivityCard[${prev.index}] memo: re-render because: ${diffs.join(', ')}`
       );
