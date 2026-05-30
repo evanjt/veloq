@@ -291,9 +291,13 @@ export default function RecordingScreen() {
     return () => clearInterval(interval);
   }, [status, activityType, mode]);
 
-  // Start location tracking for GPS mode
+  // Start location tracking for GPS mode. Keyed on the session being active
+  // (recording or paused) rather than `status` directly, so auto-pause does not
+  // tear down and restart the location watcher. Points received while paused are
+  // dropped at ingestion by the recording store's addGpsPoint guard.
+  const gpsSessionActive = mode === 'gps' && (status === 'recording' || status === 'paused');
   useEffect(() => {
-    if (mode !== 'gps' || status !== 'recording') return;
+    if (!gpsSessionActive) return;
     let cancelled = false;
 
     (async () => {
@@ -373,7 +377,7 @@ export default function RecordingScreen() {
       }
       stopTracking();
     };
-  }, [mode, status]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [gpsSessionActive]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Initialize recording on mount
   useEffect(() => {
