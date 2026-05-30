@@ -216,7 +216,7 @@ export function SeasonComparison({
             : 'rgba(0, 0, 0, 0.08)'
           : isDark
             ? 'rgba(255, 255, 255, 0.08)'
-            : 'rgba(252, 76, 2, 0.08)';
+            : 'rgba(20, 184, 166, 0.08)'; // brand.tealLight @ 8%
         highlightPaint.setColor(Skia.Color(hlColor));
         canvas.drawRRect(
           Skia.RRectXY(
