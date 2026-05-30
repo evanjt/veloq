@@ -56,6 +56,15 @@ const GPS_DOWNLOAD_TIMEOUT_MS = 15_000;
 const GPS_DOWNLOAD_POLL_MS = 250;
 
 /**
+ * Max time to wait for section detection (15 seconds). The OS gives a silent
+ * push handler a limited budget, so we bound the wait rather than blocking on a
+ * full library re-detection. If detection runs long the engine keeps going in
+ * the background; the notification body just falls back to non-PR content.
+ */
+const SECTION_DETECTION_TIMEOUT_MS = 15_000;
+const SECTION_DETECTION_POLL_MS = 500;
+
+/**
  * Read notification preferences directly from AsyncStorage.
  * In background context, Zustand store may not be initialized.
  */
@@ -93,6 +102,48 @@ async function waitForDownloadCompletion(
     await sleep(GPS_DOWNLOAD_POLL_MS);
   }
   return false;
+}
+
+/**
+ * Run section detection for a freshly ingested activity so its section PRs are
+ * available when buildActivityNotificationBody queries getSectionsForActivity.
+ * Without this, a brand-new activity has GPS in the DB but no section rows yet,
+ * so the notification omits any PR it just set.
+ *
+ * Uses the same start/poll loop as the foreground sync path. Bounded by
+ * SECTION_DETECTION_TIMEOUT_MS so the background task is not killed.
+ */
+async function runSectionDetection(routeEngine: {
+  startSectionDetection: () => boolean;
+  pollSectionDetection: () => string;
+  triggerRefresh: (target: string) => void;
+}): Promise<void> {
+  let started = routeEngine.startSectionDetection();
+  if (!started) {
+    // A stale completed run can block a fresh start. Drain it and retry, same
+    // as the foreground fetcher.
+    const drainStatus = routeEngine.pollSectionDetection();
+    if (drainStatus === 'complete') {
+      routeEngine.triggerRefresh('sections');
+      routeEngine.triggerRefresh('groups');
+      started = routeEngine.startSectionDetection();
+    }
+  }
+  if (!started) return;
+
+  const deadline = Date.now() + SECTION_DETECTION_TIMEOUT_MS;
+  while (Date.now() < deadline) {
+    const status = routeEngine.pollSectionDetection();
+    if (status === 'complete' || status === 'idle') {
+      return;
+    }
+    if (status === 'error') {
+      log.warn('Section detection returned error status');
+      return;
+    }
+    await sleep(SECTION_DETECTION_POLL_MS);
+  }
+  log.warn(`Section detection did not finish within ${SECTION_DETECTION_TIMEOUT_MS}ms`);
 }
 
 /**
@@ -171,6 +222,14 @@ async function fetchAndIngestActivity(activityId: string): Promise<ActivityInfo 
       log.log(
         `Activity ingested: ${activityInfo.name} (${result.totalPoints} GPS points, ${Date.now() - startTime}ms)`
       );
+
+      // Detect sections for the new activity so its PRs are present when the
+      // notification body queries getSectionsForActivity below.
+      try {
+        await runSectionDetection(routeEngine);
+      } catch (e) {
+        log.warn('Section detection after ingest failed:', e);
+      }
 
       // Queue for priority terrain snapshot generation when app opens
       const { addPendingSnapshot } = require('@/lib/storage/terrainPreviewCache');

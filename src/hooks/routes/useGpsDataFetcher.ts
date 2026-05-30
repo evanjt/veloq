@@ -654,6 +654,10 @@ export function useGpsDataFetcher() {
           console.log(`[fetchApiGps] ⏱ setActivityMetrics: ${Date.now() - t0}ms`);
         }
 
+        // Yield so the sync banner can paint between the metrics write and the
+        // refresh notifications, which synchronously re-render every subscriber.
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
         const t1 = Date.now();
         routeEngine.triggerRefresh('activities');
         routeEngine.triggerRefresh('groups');
@@ -699,6 +703,9 @@ export function useGpsDataFetcher() {
                   `[fetchApiGps] ⏱ setTimeStreams (${toSync.length}): ${Date.now() - t3}ms`
                 );
               }
+              // Yield before the section-detection block so the banner repaints
+              // after this write instead of stacking straight into detection.
+              await new Promise((resolve) => setTimeout(resolve, 0));
             }
           }
         } catch (e) {
