@@ -813,6 +813,21 @@ export function useGpsDataFetcher() {
           // Without this, the handle stays occupied and blocks all future
           // detection attempts permanently.
           if (timedOut && isMountedRef.current) {
+            // Past the 120s foreground budget the bar previously froze on its
+            // last percent, reading as a crash. Surface an INDETERMINATE
+            // ongoing state instead: a zero percent/completed/total triple
+            // with `status: 'computing'` maps to `indeterminate: true` in
+            // formatGpsSyncProgress, so the banner shows a moving marquee
+            // ("still analyzing") rather than a stuck number. A large-corpus
+            // detection legitimately runs for minutes; this keeps it honest.
+            updateProgress({
+              status: 'computing',
+              completed: 0,
+              total: 0,
+              percent: 0,
+              message: i18n.t('cache.analyzingRoutes'),
+            });
+
             const bgModule = nativeModule;
             (async () => {
               const bgMaxTime = 300000;
@@ -832,6 +847,17 @@ export function useGpsDataFetcher() {
                     break;
                   }
                   if (s !== 'running') break;
+                  // Still running: keep the indeterminate banner alive so the
+                  // long-running detection doesn't read as dead/frozen.
+                  if (isMountedRef.current) {
+                    updateProgress({
+                      status: 'computing',
+                      completed: 0,
+                      total: 0,
+                      percent: 0,
+                      message: i18n.t('cache.analyzingRoutes'),
+                    });
+                  }
                 } catch {
                   break;
                 }

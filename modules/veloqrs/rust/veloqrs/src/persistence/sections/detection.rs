@@ -700,57 +700,89 @@ impl PersistentRouteEngine {
 
             progress_clone.set_phase("loading", ids_to_load.len() as u32);
 
-            // Tier 3: single IN(...) query to load every needed track in one
-            // round-trip, instead of preparing + executing N statements inside
-            // the loop. For scenario E (550 tracks) this cuts the per-row
-            // prepare/plan overhead; the msgpack decode cost per track is
-            // unchanged. SQLite's IN-list limit is 32k — safely above any
-            // realistic batch. Progress still ticks per-track so the UI
-            // animates through the phase at the same cadence.
+            // #21: chunk the track load to bound the transient SQL/parse
+            // spike. The detection algorithm consumes full-resolution tracks
+            // (the multiscale/incremental entry points borrow each track's
+            // points directly into their `track_map` — see
+            // tracematch::sections::detect_sections_multiscale_with_progress),
+            // and `seed_consensus_state` below also needs them, so all tracks
+            // must still be resident simultaneously when detection runs. We
+            // can NOT downsample on load without changing detection output.
+            // What chunking DOES fix: instead of binding every id into one
+            // giant IN(...) statement and materialising the whole result set
+            // at once, we load in CHUNK_SIZE batches and move each row into
+            // the resident `loaded` map as it arrives. This caps the peak of
+            // (resident tracks + in-flight query buffers) to roughly
+            // (all tracks) + (one chunk) rather than (all tracks) + (full
+            // result set). The final order-preserving pass over `ids_to_load`
+            // is byte-identical to before, so the detection input is unchanged.
+            //
+            // PARTIAL: this only trims the transient spike. The dominant
+            // resident cost — every full-resolution track held at once — is
+            // inherent to the all-pairs algorithm and can only be removed by
+            // a streaming/downsampling change inside the tracematch submodule
+            // (out of scope here).
+            const CHUNK_SIZE: usize = 150;
+            const MEMORY_WARN_THRESHOLD: usize = 800;
+
+            if ids_to_load.len() > MEMORY_WARN_THRESHOLD {
+                log::warn!(
+                    "tracematch: [SectionDetection] Loading {} full-resolution tracks for detection — all must stay resident simultaneously (all-pairs algorithm). Peak memory may be high (~{}MB est.); chunked load bounds only the transient spike, not the resident set.",
+                    ids_to_load.len(),
+                    // Rough estimate: ~64KB resident per track at ~1k points.
+                    ids_to_load.len() * 64 / 1024,
+                );
+            }
+
             let mut tracks_loaded = 0;
             let mut tracks_empty = 0;
             let tracks: Vec<(String, Vec<GpsPoint>)> = if ids_to_load.is_empty() {
                 Vec::new()
             } else {
-                let placeholders: String = std::iter::repeat("?")
-                    .take(ids_to_load.len())
-                    .collect::<Vec<_>>()
-                    .join(",");
-                let sql = format!(
-                    "SELECT activity_id, track_data FROM gps_tracks WHERE activity_id IN ({})",
-                    placeholders
-                );
-                let mut loaded: HashMap<String, Vec<GpsPoint>> = HashMap::new();
-                match conn.prepare(&sql) {
-                    Ok(mut stmt) => {
-                        let params_slice: Vec<&dyn rusqlite::ToSql> = ids_to_load
-                            .iter()
-                            .map(|id| id as &dyn rusqlite::ToSql)
-                            .collect();
-                        let rows = stmt.query_map(params_slice.as_slice(), |row| {
-                            let id: String = row.get(0)?;
-                            let blob: Vec<u8> = row.get(1)?;
-                            let track: Vec<GpsPoint> = codec::deserialize_points(&blob)
-                                .unwrap_or_else(|e| {
-                                    log::warn!(
-                                        "tracematch: [SectionDetection] Skipping malformed track for {}: {:?}",
-                                        id, e
-                                    );
-                                    Vec::new()
-                                });
-                            Ok((id, track))
-                        });
-                        if let Ok(iter) = rows {
-                            for row in iter.flatten() {
-                                loaded.insert(row.0, row.1);
+                let mut loaded: HashMap<String, Vec<GpsPoint>> =
+                    HashMap::with_capacity(ids_to_load.len());
+
+                for chunk in ids_to_load.chunks(CHUNK_SIZE) {
+                    let placeholders: String = std::iter::repeat("?")
+                        .take(chunk.len())
+                        .collect::<Vec<_>>()
+                        .join(",");
+                    let sql = format!(
+                        "SELECT activity_id, track_data FROM gps_tracks WHERE activity_id IN ({})",
+                        placeholders
+                    );
+                    match conn.prepare(&sql) {
+                        Ok(mut stmt) => {
+                            let params_slice: Vec<&dyn rusqlite::ToSql> = chunk
+                                .iter()
+                                .map(|id| id as &dyn rusqlite::ToSql)
+                                .collect();
+                            let rows = stmt.query_map(params_slice.as_slice(), |row| {
+                                let id: String = row.get(0)?;
+                                let blob: Vec<u8> = row.get(1)?;
+                                let track: Vec<GpsPoint> = codec::deserialize_points(&blob)
+                                    .unwrap_or_else(|e| {
+                                        log::warn!(
+                                            "tracematch: [SectionDetection] Skipping malformed track for {}: {:?}",
+                                            id, e
+                                        );
+                                        Vec::new()
+                                    });
+                                Ok((id, track))
+                            });
+                            if let Ok(iter) = rows {
+                                for row in iter.flatten() {
+                                    loaded.insert(row.0, row.1);
+                                }
                             }
                         }
-                    }
-                    Err(e) => {
-                        log::warn!(
-                            "tracematch: [SectionDetection] Batch prepare failed: {:?}; loaded=0",
-                            e
-                        );
+                        Err(e) => {
+                            log::warn!(
+                                "tracematch: [SectionDetection] Batch prepare failed for chunk of {}: {:?}; skipping chunk",
+                                chunk.len(),
+                                e
+                            );
+                        }
                     }
                 }
 
@@ -795,6 +827,17 @@ impl PersistentRouteEngine {
                 total_points,
                 total_points / tracks.len().max(1)
             );
+
+            // #25: emit an intermediate phase so the JS progress bar moves
+            // past "loading" before the heavy tracematch detect call. The
+            // first phase tracematch reports is "building_rtrees", but the
+            // R-tree build + density-grid clustering can run for tens of
+            // seconds before any per-item tick lands. Without this marker the
+            // bar sits frozen at the end of "loading" and a long large-corpus
+            // detection reads as a crash. We use the existing progress handle
+            // only — no tracematch change. The ClusteringAwareProgress passed
+            // into detect overwrites the phase on its first on_phase callback.
+            progress_clone.set_phase("analyzing", tracks.len() as u32);
 
             if use_incremental {
                 // Incremental mode: match new activities against existing sections

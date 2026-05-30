@@ -188,8 +188,9 @@ pub struct MapActivityComplete {
 
 #[derive(Debug, Clone)]
 pub struct SectionDetectionProgress {
-    /// Current phase: "loading", "building_rtrees", "finding_overlaps",
-    /// "clustering", "postprocessing", "saving", "complete"
+    /// Current phase: "loading", "analyzing", "building_rtrees",
+    /// "finding_overlaps", "clustering", "postprocessing", "saving",
+    /// "complete"
     pub phase: Arc<std::sync::Mutex<String>>,
     /// Number of items completed in current phase
     pub completed: Arc<AtomicU32>,
@@ -243,7 +244,8 @@ impl SectionDetectionProgress {
         };
 
         let (accumulated, weight) = match phase.as_str() {
-            "loading"                => (0.0,  0.05),
+            "loading"                => (0.0,  0.04),
+            "analyzing"              => (0.04, 0.01),
             "building_rtrees"        => (0.05, 0.10),
             "finding_overlaps"       => (0.15, 0.55),
             "clustering"             => (0.70, 0.05),
