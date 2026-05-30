@@ -37,7 +37,12 @@
     "ffi:check": "npx tsx scripts/extract-ffi-exports.ts --check",
     "ffi:test": "jest --config config/jest.config.js --testPathPattern=ffiBinding",
     "ffi:usage": "npx tsx scripts/ffi-usage-report.ts",
-    "ffi:unused": "npx tsx scripts/ffi-usage-report.ts --unused"
+    "ffi:unused": "npx tsx scripts/ffi-usage-report.ts --unused",
+    "check:expo": "node scripts/check-expo-sdk.mjs",
+    "crash:guard": "node scripts/crash-guard-sweep.mjs",
+    "lint:engine-bridge": "node scripts/engine-event-bridge-audit.mjs",
+    "ffi:gate": "node scripts/ffi-timing-gate.mjs",
+    "perf:coldstart": "node scripts/cold-start-scaling-harness.mjs"
   },
   "dependencies": {
     "@expo/ngrok": "^4.1.3",

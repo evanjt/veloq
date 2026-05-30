@@ -1,0 +1,9 @@
+{
+  "regressionFactor": 1.3,
+  "budgets": {
+    "getSections": { "p95Ms": 570 },
+    "getSectionSummaries": { "p95Ms": 325 },
+    "getActivityMetricsForIds": { "p95Ms": 50 },
+    "getGroups": { "p95Ms": 100 }
+  }
+}
