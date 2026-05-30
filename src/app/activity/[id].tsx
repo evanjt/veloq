@@ -567,6 +567,7 @@ export default function ActivityDetailScreen() {
         activeTab={activeTab}
         onTabChange={(key) => setActiveTab(key as TabType)}
         isDark={isDark}
+        lazy
       >
         {/* Tab 1: Charts */}
         <ActivityChartsSection
