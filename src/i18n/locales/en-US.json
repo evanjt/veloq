@@ -1816,6 +1816,8 @@
     "tip_large": "Large Tip",
     "tipSmall": "Small",
     "tipMedium": "Medium",
-    "tipLarge": "Large"
+    "tipLarge": "Large",
+    "shareCrashLog": "Share crash log",
+    "noCrashLog": "No crashes recorded"
   }
 }

@@ -1816,6 +1816,8 @@
     "tip_large": "Propina grande",
     "tipSmall": "Pequeña",
     "tipMedium": "Mediana",
-    "tipLarge": "Grande"
+    "tipLarge": "Grande",
+    "shareCrashLog": "Compartir registro de errores",
+    "noCrashLog": "No se registraron fallos"
   }
 }

@@ -1816,6 +1816,8 @@
     "tip_large": "Grote fooi",
     "tipSmall": "Klein",
     "tipMedium": "Gemiddeld",
-    "tipLarge": "Groot"
+    "tipLarge": "Groot",
+    "shareCrashLog": "Crashlogboek delen",
+    "noCrashLog": "Geen crashes geregistreerd"
   }
 }

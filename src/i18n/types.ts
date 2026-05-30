@@ -1757,6 +1757,8 @@ export interface TranslationResource {
     tipSmall: string;
     tipMedium: string;
     tipLarge: string;
+    shareCrashLog: string;
+    noCrashLog: string;
   };
 }
 

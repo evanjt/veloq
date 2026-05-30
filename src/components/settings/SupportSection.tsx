@@ -1,5 +1,5 @@
 import React, { useCallback } from 'react';
-import { Linking, Platform, View, StyleSheet, Pressable } from 'react-native';
+import { Alert, Linking, Platform, View, StyleSheet, Pressable } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTheme } from '@/hooks';
 import { useTranslation } from 'react-i18next';
@@ -7,6 +7,8 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as WebBrowser from 'expo-web-browser';
 import { useDonation } from '@/hooks/useDonation';
 import { TipButtons } from '@/components/ui/TipButtons';
+import { getCrashLog, formatCrashLog } from '@/lib/debug/crashLog';
+import { shareFile } from '@/lib/export/shareFile';
 import { colors, darkColors, spacing, layout, shadows, typography } from '@/theme';
 import { settingsStyles } from './settingsStyles';
 
@@ -29,6 +31,19 @@ export function SupportSection() {
       WebBrowser.openBrowserAsync('https://github.com/evanjt/veloq');
     }
   }, []);
+
+  const handleShareCrashLog = useCallback(async () => {
+    const entries = await getCrashLog();
+    if (!entries.length) {
+      Alert.alert(t('support.shareCrashLog'), t('support.noCrashLog'));
+      return;
+    }
+    await shareFile({
+      content: formatCrashLog(entries),
+      filename: 'veloq-crash-log.txt',
+      mimeType: 'text/plain',
+    });
+  }, [t]);
 
   const textColor = isDark ? darkColors.textPrimary : colors.textPrimary;
   const mutedColor = isDark ? darkColors.textSecondary : colors.textSecondary;
@@ -117,6 +132,14 @@ export function SupportSection() {
             </Text>
           </View>
           <MaterialCommunityIcons name="chevron-right" size={20} color={mutedColor} />
+        </Pressable>
+
+        <View style={[styles.divider, { backgroundColor: dividerColor }]} />
+
+        <Pressable testID="support-crash-log" onPress={handleShareCrashLog} style={styles.row}>
+          <MaterialCommunityIcons name="bug-outline" size={20} color={mutedColor} />
+          <Text style={[styles.rowText, { color: textColor }]}>{t('support.shareCrashLog')}</Text>
+          <MaterialCommunityIcons name="share-variant" size={18} color={mutedColor} />
         </Pressable>
       </View>
     </>

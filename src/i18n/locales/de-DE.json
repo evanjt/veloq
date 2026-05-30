@@ -1816,6 +1816,8 @@
     "tip_large": "Großes Trinkgeld",
     "tipSmall": "Klein",
     "tipMedium": "Mittel",
-    "tipLarge": "Groß"
+    "tipLarge": "Groß",
+    "shareCrashLog": "Absturzprotokoll teilen",
+    "noCrashLog": "Keine Abstürze aufgezeichnet"
   }
 }

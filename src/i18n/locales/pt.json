@@ -1816,6 +1816,8 @@
     "tip_large": "Gorjeta grande",
     "tipSmall": "Pequena",
     "tipMedium": "Média",
-    "tipLarge": "Grande"
+    "tipLarge": "Grande",
+    "shareCrashLog": "Partilhar registo de falhas",
+    "noCrashLog": "Nenhuma falha registada"
   }
 }

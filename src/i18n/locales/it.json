@@ -1816,6 +1816,8 @@
     "tip_large": "Grande mancia",
     "tipSmall": "Piccola",
     "tipMedium": "Media",
-    "tipLarge": "Grande"
+    "tipLarge": "Grande",
+    "shareCrashLog": "Condividi il log dei crash",
+    "noCrashLog": "Nessun crash registrato"
   }
 }

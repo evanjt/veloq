@@ -1,5 +1,6 @@
 import React, { Component, ReactNode } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
+import { recordCrash } from '@/lib/debug/crashLog';
 
 interface Props {
   children: ReactNode;
@@ -26,6 +27,14 @@ export class GlobalErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    try {
+      recordCrash({
+        source: 'react-boundary',
+        message: error?.message ? String(error.message) : String(error),
+        stack: error?.stack ? String(error.stack) : errorInfo?.componentStack || undefined,
+        fatal: true,
+      });
+    } catch {}
     if (__DEV__) {
       console.error('[GlobalErrorBoundary] Uncaught error:', error, errorInfo);
     }

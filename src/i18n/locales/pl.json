@@ -1816,6 +1816,8 @@
     "tip_large": "Duży napiwek",
     "tipSmall": "Mały",
     "tipMedium": "Średni",
-    "tipLarge": "Duży"
+    "tipLarge": "Duży",
+    "shareCrashLog": "Udostępnij dziennik awarii",
+    "noCrashLog": "Nie zarejestrowano awarii"
   }
 }

@@ -1816,6 +1816,8 @@
     "tip_large": "Grand pourboire",
     "tipSmall": "Petit",
     "tipMedium": "Moyen",
-    "tipLarge": "Grand"
+    "tipLarge": "Grand",
+    "shareCrashLog": "Partager le journal des plantages",
+    "noCrashLog": "Aucun plantage enregistré"
   }
 }

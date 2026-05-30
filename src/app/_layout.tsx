@@ -9,6 +9,9 @@ if (!__DEV__) {
   LogBox.ignoreLogs(['Require cycle:', 'Sending `onAnimatedValueUpdate`']);
 }
 
+import { installGlobalCrashHandler, setCrashScreen } from '@/lib/debug/crashLog';
+installGlobalCrashHandler();
+
 import { useEffect, useRef, useState } from 'react';
 import { Stack, useSegments, useRouter, Href } from 'expo-router';
 import { PaperProvider, Text } from 'react-native-paper';
@@ -141,6 +144,10 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const isLoading = useAuthStore((s) => s.isLoading);
   const initializeRange = useSyncDateRange((s) => s.initializeRange);
+
+  useEffect(() => {
+    setCrashScreen(routeParts.join('/') || 'root');
+  }, [routeParts]);
 
   // Process queued uploads on network restore / app foreground
   useUploadQueueProcessor();

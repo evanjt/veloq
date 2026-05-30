@@ -1816,6 +1816,8 @@
     "tip_large": "Stor drikkepenge",
     "tipSmall": "Lille",
     "tipMedium": "Mellem",
-    "tipLarge": "Stor"
+    "tipLarge": "Stor",
+    "shareCrashLog": "Del nedbrudslog",
+    "noCrashLog": "Ingen nedbrud registreret"
   }
 }

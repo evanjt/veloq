@@ -1816,6 +1816,8 @@
     "tip_large": "大额打赏",
     "tipSmall": "小额",
     "tipMedium": "中额",
-    "tipLarge": "大额"
+    "tipLarge": "大额",
+    "shareCrashLog": "分享崩溃日志",
+    "noCrashLog": "未记录崩溃"
   }
 }

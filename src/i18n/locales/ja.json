@@ -1816,6 +1816,8 @@
     "tip_large": "高額チップ",
     "tipSmall": "少額",
     "tipMedium": "中額",
-    "tipLarge": "高額"
+    "tipLarge": "高額",
+    "shareCrashLog": "クラッシュログを共有",
+    "noCrashLog": "クラッシュは記録されていません"
   }
 }
