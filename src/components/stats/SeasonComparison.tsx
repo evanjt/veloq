@@ -140,26 +140,6 @@ export function SeasonComparison({
     }));
   }, [currentYearActivities, previousYearActivities, metric]);
 
-  if (!hasData) {
-    return (
-      <View style={styles.container}>
-        <View style={styles.header}>
-          <Text style={[styles.title, isDark && styles.textLight]}>
-            {t('stats.seasonComparison')}
-          </Text>
-        </View>
-        <View style={[styles.emptyState, { height }]}>
-          <Text style={[styles.emptyText, isDark && chartStyles.textDark]}>
-            {t('stats.noActivityData')}
-          </Text>
-          <Text style={[styles.emptyHint, isDark && chartStyles.textDark]}>
-            {t('stats.completeActivitiesYearComparison')}
-          </Text>
-        </View>
-      </View>
-    );
-  }
-
   const maxValue = useMemo(() => {
     return Math.max(...data.flatMap((d) => [d.current, d.previous]));
   }, [data]);
@@ -314,6 +294,26 @@ export function SeasonComparison({
       isSelected: idx === selectedMonth,
     }));
   }, [data, currentMonth, selectedMonth]);
+
+  if (!hasData) {
+    return (
+      <View style={styles.container}>
+        <View style={styles.header}>
+          <Text style={[styles.title, isDark && styles.textLight]}>
+            {t('stats.seasonComparison')}
+          </Text>
+        </View>
+        <View style={[styles.emptyState, { height }]}>
+          <Text style={[styles.emptyText, isDark && chartStyles.textDark]}>
+            {t('stats.noActivityData')}
+          </Text>
+          <Text style={[styles.emptyHint, isDark && chartStyles.textDark]}>
+            {t('stats.completeActivitiesYearComparison')}
+          </Text>
+        </View>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
