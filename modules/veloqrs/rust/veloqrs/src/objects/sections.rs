@@ -18,7 +18,6 @@ impl SectionManager {
         with_engine(|e| {
             e.get_sections()
                 .iter()
-                .cloned()
                 .map(crate::FfiFrequentSection::from)
                 .collect()
         })

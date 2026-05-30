@@ -311,6 +311,15 @@ class RouteEngineClient implements DelegateHost {
     centerLng: number;
   }> => mapsDelegates.getAllMapSignatures(this);
 
+  getMapSignaturesForIds = (
+    ids: string[]
+  ): Array<{
+    activityId: string;
+    encodedCoords: ArrayBuffer;
+    centerLat: number;
+    centerLng: number;
+  }> => mapsDelegates.getMapSignaturesForIds(this, ids);
+
   setRouteName = (routeId: string, name: string): void =>
     routeDelegates.setRouteName(this, routeId, name);
 

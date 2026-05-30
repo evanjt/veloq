@@ -743,6 +743,74 @@ impl PersistentRouteEngine {
         result
     }
 
+    /// Get map signatures for a specific set of activity IDs.
+    /// Avoids deserializing the whole `signatures` table when only a handful
+    /// of activities are needed (e.g. section-detail map overlay).
+    pub fn get_map_signatures_for_ids(
+        &self,
+        ids: &[String],
+    ) -> Vec<crate::ffi_types::FfiMapSignature> {
+        if ids.is_empty() {
+            return Vec::new();
+        }
+
+        let placeholders = std::iter::repeat("?")
+            .take(ids.len())
+            .collect::<Vec<_>>()
+            .join(",");
+        let sql = format!(
+            "SELECT activity_id, points FROM signatures WHERE activity_id IN ({})",
+            placeholders
+        );
+        let mut stmt = match self.db.prepare(&sql) {
+            Ok(s) => s,
+            Err(_) => return Vec::new(),
+        };
+
+        let params_vec: Vec<&dyn rusqlite::ToSql> =
+            ids.iter().map(|s| s as &dyn rusqlite::ToSql).collect();
+        let rows = match stmt.query_map(params_vec.as_slice(), |row| {
+            let activity_id: String = row.get(0)?;
+            let points_blob: Vec<u8> = row.get(1)?;
+            Ok((activity_id, points_blob))
+        }) {
+            Ok(r) => r,
+            Err(_) => return Vec::new(),
+        };
+
+        let mut result = Vec::new();
+        for row in rows {
+            let (activity_id, points_blob) = match row {
+                Ok(r) => r,
+                Err(_) => continue,
+            };
+            let points: Vec<GpsPoint> = match codec::deserialize_points(&points_blob) {
+                Ok(p) => p,
+                Err(_) => continue,
+            };
+            if points.is_empty() {
+                continue;
+            }
+
+            // Compute center from bounds
+            let bounds = Bounds::from_points(&points).unwrap_or(Bounds {
+                min_lat: 0.0,
+                max_lat: 0.0,
+                min_lng: 0.0,
+                max_lng: 0.0,
+            });
+            let center = bounds.center();
+
+            result.push(crate::ffi_types::FfiMapSignature {
+                activity_id,
+                encoded_coords: crate::coords::encode(&points),
+                center_lat: center.latitude,
+                center_lng: center.longitude,
+            });
+        }
+        result
+    }
+
     /// Get GPS track from database (on-demand, never cached).
     pub fn get_gps_track(&self, id: &str) -> Option<Vec<GpsPoint>> {
         let mut stmt = self
@@ -901,7 +969,7 @@ impl PersistentRouteEngine {
         // First filter out any that are already in memory
         let not_in_memory: Vec<&String> = activity_ids
             .iter()
-            .filter(|id| !self.time_streams.contains_key(*id))
+            .filter(|id| !self.time_streams.contains(*id))
             .collect();
 
         if not_in_memory.is_empty() {
@@ -945,7 +1013,7 @@ impl PersistentRouteEngine {
     /// Check if a specific activity has a time stream (in memory or SQLite).
     pub fn has_time_stream(&self, activity_id: &str) -> bool {
         // First check memory cache
-        if self.time_streams.contains_key(activity_id) {
+        if self.time_streams.contains(activity_id) {
             return true;
         }
         // Then check SQLite
@@ -963,12 +1031,12 @@ impl PersistentRouteEngine {
     /// Returns true if the time stream is available.
     pub(super) fn ensure_time_stream_loaded(&mut self, activity_id: &str) -> bool {
         // Already in memory?
-        if self.time_streams.contains_key(activity_id) {
+        if self.time_streams.contains(activity_id) {
             return true;
         }
         // Try to load from SQLite
         if let Some(times) = self.load_time_stream(activity_id) {
-            self.time_streams.insert(activity_id.to_string(), times);
+            self.time_streams.put(activity_id.to_string(), times);
             return true;
         }
         false

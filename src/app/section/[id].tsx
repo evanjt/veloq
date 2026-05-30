@@ -274,11 +274,9 @@ export default function SectionDetailScreen() {
     try {
       const engine = getRouteEngine();
       if (!engine) return undefined;
-      const activityIdSet = new Set(section.activityIds);
-      const allSigs = engine.getAllMapSignatures();
+      const sigs = engine.getMapSignaturesForIds(section.activityIds);
       const result: Record<string, RoutePoint[]> = {};
-      for (const sig of allSigs) {
-        if (!activityIdSet.has(sig.activityId)) continue;
+      for (const sig of sigs) {
         const decoded = decodeCoords(sig.encodedCoords);
         if (decoded.length < 2) continue;
         const points: RoutePoint[] = decoded.map((p) => ({ lat: p.latitude, lng: p.longitude }));
@@ -290,24 +288,22 @@ export default function SectionDetailScreen() {
     }
   }, [section?.activityIds]);
 
-  // Compute available sport types with activity counts for cross-sport sections
+  // Compute available sport types with activity counts for cross-sport sections.
+  // Derived from the metrics already fetched for sectionActivitiesUnsorted to
+  // avoid a second getActivityMetricsForIds round-trip.
   const sportTypeCounts = useMemo(() => {
     if (!section?.activityIds?.length) return [];
-    const engine = getRouteEngine();
-    if (!engine) return [];
-    try {
-      const metrics = engine.getActivityMetricsForIds(section.activityIds);
-      const counts = new Map<string, number>();
-      for (const m of metrics) {
-        if (m.sportType) counts.set(m.sportType, (counts.get(m.sportType) ?? 0) + 1);
-      }
-      return Array.from(counts.entries())
-        .map(([type, count]) => ({ type, count }))
-        .sort((a, b) => b.count - a.count);
-    } catch {
+    const counts = new Map<string, number>();
+    for (const a of sectionActivitiesUnsorted) {
+      if (a.type) counts.set(a.type, (counts.get(a.type) ?? 0) + 1);
+    }
+    if (counts.size === 0) {
       return [{ type: section.sportType, count: section.activityIds?.length ?? 0 }];
     }
-  }, [section?.id, section?.sportType, section?.activityIds]);
+    return Array.from(counts.entries())
+      .map(([type, count]) => ({ type, count }))
+      .sort((a, b) => b.count - a.count);
+  }, [section?.sportType, section?.activityIds, sectionActivitiesUnsorted]);
 
   const availableSportTypes = useMemo(() => sportTypeCounts.map((s) => s.type), [sportTypeCounts]);
 

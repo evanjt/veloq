@@ -492,8 +492,11 @@ pub struct PersistentRouteEngine {
     /// Activity metrics for performance calculations
     pub(crate) activity_metrics: HashMap<String, ActivityMetrics>,
 
-    /// Time streams for section performance calculations (activity_id -> cumulative times at each GPS point)
-    time_streams: HashMap<String, Vec<u32>>,
+    /// Tier 2: LRU cached time streams for section performance calculations
+    /// (activity_id -> cumulative times at each GPS point). Bounded so a large
+    /// activity history doesn't grow this cache without limit; misses reload
+    /// from the `time_streams` SQLite table.
+    time_streams: LruCache<String, Vec<u32>>,
 
     /// Cached sections (loaded from DB)
     sections: Vec<FrequentSection>,
@@ -547,7 +550,7 @@ impl PersistentRouteEngine {
             groups: Vec::new(),
             activity_matches: HashMap::new(),
             activity_metrics: HashMap::new(),
-            time_streams: HashMap::new(),
+            time_streams: LruCache::new(std::num::NonZeroUsize::new(200).unwrap()),
             sections: Vec::new(),
             processed_activity_ids: HashSet::new(),
             groups_dirty: false,

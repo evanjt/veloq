@@ -38,7 +38,7 @@ impl PersistentRouteEngine {
             }
 
             // Also keep in memory for fast access
-            self.time_streams.insert(activity_id.clone(), times);
+            self.time_streams.put(activity_id.clone(), times);
         }
         log::debug!(
             "tracematch: [PersistentEngine] Set time streams for {} activities ({} persisted to SQLite)",
@@ -111,7 +111,7 @@ impl PersistentRouteEngine {
 
         let mut db_time_streams: HashMap<String, Vec<u32>> = HashMap::new();
         for activity_id in &activity_ids {
-            if let Some(ts) = self.time_streams.get(activity_id) {
+            if let Some(ts) = self.time_streams.peek(activity_id) {
                 db_time_streams.insert(activity_id.clone(), ts.clone());
             } else if let Ok(stream) = self.db.query_row(
                 "SELECT times FROM time_streams WHERE activity_id = ?",
@@ -325,7 +325,7 @@ impl PersistentRouteEngine {
             .collect();
 
         for activity_id in activity_ids_needing_streams {
-            if !self.time_streams.contains_key(&activity_id) {
+            if !self.time_streams.contains(&activity_id) {
                 self.ensure_time_stream_loaded(&activity_id);
             }
         }
@@ -369,7 +369,7 @@ impl PersistentRouteEngine {
                                 // Fall back to calculation if cache miss
                                 // This handles migration edge case or corrupt data
                                 // Time stream should already be loaded by pre-loading step above
-                                if let Some(times) = self.time_streams.get(activity_id) {
+                                if let Some(times) = self.time_streams.peek(activity_id) {
                                     let start_idx = portion.start_index as usize;
                                     let end_idx = portion.end_index as usize;
 
@@ -726,7 +726,7 @@ impl PersistentRouteEngine {
             .collect();
 
         for activity_id in activity_ids_needing_streams {
-            if !self.time_streams.contains_key(&activity_id) {
+            if !self.time_streams.contains(&activity_id) {
                 self.ensure_time_stream_loaded(&activity_id);
             }
         }
@@ -743,7 +743,7 @@ impl PersistentRouteEngine {
                             (Some(t), Some(p)) if t > 0.0 => (t, p),
                             _ => {
                                 // Fall back to time-stream calculation if cache miss
-                                if let Some(times) = self.time_streams.get(activity_id) {
+                                if let Some(times) = self.time_streams.peek(activity_id) {
                                     let start_idx = p.start_index as usize;
                                     let end_idx = p.end_index as usize;
                                     if start_idx < times.len() && end_idx < times.len() {

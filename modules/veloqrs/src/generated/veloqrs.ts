@@ -9018,6 +9018,7 @@ export interface MapManagerLike {
     endDate: /*i64*/ bigint,
     sportTypes: Array<string>,
   ) /*throws*/ : Array<MapActivityComplete>;
+  getSignaturesForIds(ids: Array<string>) /*throws*/ : Array<FfiMapSignature>;
   queryViewport(
     minLat: /*f64*/ number,
     maxLat: /*f64*/ number,
@@ -9106,6 +9107,24 @@ export class MapManager extends UniffiAbstractObject implements MapManagerLike {
             FfiConverterInt64.lower(startDate),
             FfiConverterInt64.lower(endDate),
             FfiConverterArrayString.lower(sportTypes),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  getSignaturesForIds(ids: Array<string>): Array<FfiMapSignature> /*throws*/ {
+    return FfiConverterArrayTypeFfiMapSignature.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_mapmanager_get_signatures_for_ids(
+            uniffiTypeMapManagerObjectFactory.clonePointer(this),
+            FfiConverterArrayString.lower(ids),
             callStatus,
           );
         },
@@ -13710,6 +13729,14 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_mapmanager_get_filtered",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_mapmanager_get_signatures_for_ids() !==
+    17059
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_mapmanager_get_signatures_for_ids",
     );
   }
   if (

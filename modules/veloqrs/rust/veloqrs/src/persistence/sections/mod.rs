@@ -393,12 +393,11 @@ impl PersistentRouteEngine {
         &self,
         sport_type: Option<&str>,
         min_visits: Option<u32>,
-    ) -> Vec<FrequentSection> {
+    ) -> Vec<&FrequentSection> {
         let min = min_visits.unwrap_or(0);
         self.sections
             .iter()
             .filter(|s| sport_type.map_or(true, |st| s.sport_type == st) && s.visit_count >= min)
-            .cloned()
             .collect()
     }
 
@@ -1028,7 +1027,7 @@ impl PersistentRouteEngine {
         end_index: u32,
         distance_meters: f64,
     ) -> (Option<f64>, Option<f64>) {
-        let times = if let Some(ts) = self.time_streams.get(activity_id) {
+        let times = if let Some(ts) = self.time_streams.peek(activity_id) {
             Some(ts.clone())
         } else {
             self.db
@@ -1253,7 +1252,7 @@ impl PersistentRouteEngine {
             let mut needed: std::collections::HashSet<&str> = std::collections::HashSet::new();
             for section in &sorted_sections {
                 for portion in &section.activity_portions {
-                    if !self.time_streams.contains_key(&portion.activity_id) {
+                    if !self.time_streams.contains(&portion.activity_id) {
                         needed.insert(portion.activity_id.as_str());
                     }
                 }
@@ -1435,7 +1434,7 @@ impl PersistentRouteEngine {
             for portion in &section.activity_portions {
                 let times = self
                     .time_streams
-                    .get(&portion.activity_id)
+                    .peek(&portion.activity_id)
                     .map(|v| v.as_slice())
                     .or_else(|| {
                         db_time_streams

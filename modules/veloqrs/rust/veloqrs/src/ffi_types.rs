@@ -565,31 +565,40 @@ pub struct FfiFrequentSection {
 
 impl From<tracematch::FrequentSection> for FfiFrequentSection {
     fn from(s: tracematch::FrequentSection) -> Self {
+        Self::from(&s)
+    }
+}
+
+// Borrow-based conversion so get-all / get-filtered paths don't deep-copy the
+// large `activity_traces` HashMap that the FFI struct never carries.
+impl From<&tracematch::FrequentSection> for FfiFrequentSection {
+    fn from(s: &tracematch::FrequentSection) -> Self {
         Self {
-            id: s.id,
-            name: s.name,
-            sport_type: s.sport_type,
+            id: s.id.clone(),
+            name: s.name.clone(),
+            sport_type: s.sport_type.clone(),
             encoded_polyline: crate::coords::encode(&s.polyline),
-            representative_activity_id: s.representative_activity_id,
-            activity_ids: s.activity_ids,
+            representative_activity_id: s.representative_activity_id.clone(),
+            activity_ids: s.activity_ids.clone(),
             activity_portions: s
                 .activity_portions
-                .into_iter()
+                .iter()
+                .cloned()
                 .map(FfiSectionPortion::from)
                 .collect(),
-            route_ids: s.route_ids,
+            route_ids: s.route_ids.clone(),
             visit_count: s.visit_count,
             distance_meters: s.distance_meters,
             confidence: s.confidence,
             observation_count: s.observation_count,
             average_spread: s.average_spread,
-            point_density: s.point_density,
+            point_density: s.point_density.clone(),
             scale: s.scale.map(|s| s.to_string()),
             is_user_defined: s.is_user_defined,
             stability: s.stability,
             version: s.version,
-            updated_at: s.updated_at,
-            created_at: s.created_at,
+            updated_at: s.updated_at.clone(),
+            created_at: s.created_at.clone(),
         }
     }
 }

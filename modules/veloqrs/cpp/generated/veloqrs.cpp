@@ -288,6 +288,8 @@ RustBuffer uniffi_veloqrs_fn_method_mapmanager_get_bounds_for_range(
 RustBuffer uniffi_veloqrs_fn_method_mapmanager_get_filtered(
     /*handle*/ uint64_t ptr, int64_t start_date, int64_t end_date,
     RustBuffer sport_types, RustCallStatus *uniffi_out_err);
+RustBuffer uniffi_veloqrs_fn_method_mapmanager_get_signatures_for_ids(
+    /*handle*/ uint64_t ptr, RustBuffer ids, RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_mapmanager_query_viewport(
     /*handle*/ uint64_t ptr, double min_lat, double max_lat, double min_lng,
     double max_lng, RustCallStatus *uniffi_out_err);
@@ -833,6 +835,7 @@ uint16_t uniffi_veloqrs_checksum_method_fitnessmanager_upsert_wellness();
 uint16_t uniffi_veloqrs_checksum_method_mapmanager_get_all_signatures();
 uint16_t uniffi_veloqrs_checksum_method_mapmanager_get_bounds_for_range();
 uint16_t uniffi_veloqrs_checksum_method_mapmanager_get_filtered();
+uint16_t uniffi_veloqrs_checksum_method_mapmanager_get_signatures_for_ids();
 uint16_t uniffi_veloqrs_checksum_method_mapmanager_query_viewport();
 uint16_t uniffi_veloqrs_checksum_method_routemanager_exclude_activity();
 uint16_t
@@ -3224,6 +3227,18 @@ NativeVeloqrs::NativeVeloqrs(
             return this->cpp_uniffi_veloqrs_fn_method_mapmanager_get_filtered(
                 rt, thisVal, args, count);
           });
+  props["ubrn_uniffi_veloqrs_fn_method_mapmanager_get_signatures_for_ids"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_fn_method_"
+                                        "mapmanager_get_signatures_for_ids"),
+          2,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_fn_method_mapmanager_get_signatures_for_ids(
+                    rt, thisVal, args, count);
+          });
   props["ubrn_uniffi_veloqrs_fn_method_mapmanager_query_viewport"] =
       jsi::Function::createFromHostFunction(
           rt,
@@ -5603,6 +5618,18 @@ NativeVeloqrs::NativeVeloqrs(
                 ->cpp_uniffi_veloqrs_checksum_method_mapmanager_get_filtered(
                     rt, thisVal, args, count);
           });
+  props["ubrn_uniffi_veloqrs_checksum_method_mapmanager_get_signatures_for_"
+        "ids"] = jsi::Function::createFromHostFunction(
+      rt,
+      jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_checksum_method_"
+                                    "mapmanager_get_signatures_for_ids"),
+      0,
+      [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+             const jsi::Value *args, size_t count) -> jsi::Value {
+        return this
+            ->cpp_uniffi_veloqrs_checksum_method_mapmanager_get_signatures_for_ids(
+                rt, thisVal, args, count);
+      });
   props["ubrn_uniffi_veloqrs_checksum_method_mapmanager_query_viewport"] =
       jsi::Function::createFromHostFunction(
           rt,
@@ -8620,6 +8647,22 @@ jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_mapmanager_get_filtered(
   return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
 }
 jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_mapmanager_get_signatures_for_ids(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value = uniffi_veloqrs_fn_method_mapmanager_get_signatures_for_ids(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
+      &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
+}
+jsi::Value
 NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_mapmanager_query_viewport(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
     size_t count) {
@@ -11254,6 +11297,15 @@ NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_mapmanager_get_filtered(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
     size_t count) {
   auto value = uniffi_veloqrs_checksum_method_mapmanager_get_filtered();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeVeloqrs::
+    cpp_uniffi_veloqrs_checksum_method_mapmanager_get_signatures_for_ids(
+        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+        size_t count) {
+  auto value =
+      uniffi_veloqrs_checksum_method_mapmanager_get_signatures_for_ids();
 
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
