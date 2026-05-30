@@ -941,6 +941,22 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
       });
     }, [workers]);
 
+    // Clear all pending timers on unmount so callbacks don't fire on a gone component
+    useEffect(() => {
+      return () => {
+        for (const worker of workers) {
+          if (worker.timeoutRef.current) {
+            clearTimeout(worker.timeoutRef.current);
+            worker.timeoutRef.current = null;
+          }
+        }
+        if (stalenessTimerRef.current) {
+          clearTimeout(stalenessTimerRef.current);
+          stalenessTimerRef.current = null;
+        }
+      };
+    }, [workers]);
+
     useImperativeHandle(
       ref,
       () => ({

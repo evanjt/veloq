@@ -180,6 +180,12 @@ export function RegionalMapView({
   const clusterOverlayRef = useRef<ClusterCountOverlayRef>(null);
   const bearingAnim = useRef(new Animated.Value(0)).current;
 
+  useEffect(() => {
+    return () => {
+      bearingAnim.stopAnimation();
+    };
+  }, [bearingAnim]);
+
   // ===========================================
   // GESTURE TRACKING - For compass updates
   // ===========================================
