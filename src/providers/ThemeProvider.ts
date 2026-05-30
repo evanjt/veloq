@@ -27,7 +27,9 @@ export const useThemePreferenceStore = create<ThemeState>((set) => ({
 }));
 
 function applyThemePreference(preference: ThemePreference): void {
-  Appearance.setColorScheme(preference === 'system' ? null : preference);
+  // RN 0.85 made Appearance.setColorScheme non-null; 'unspecified' is the
+  // reset-to-system value (passing null crashes the native AppearanceModule).
+  Appearance.setColorScheme(preference === 'system' ? 'unspecified' : preference);
 }
 
 /**

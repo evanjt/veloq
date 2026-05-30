@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect } from 'expo-router';
 import { View, StyleSheet, Alert, TouchableOpacity } from 'react-native';
 import { Text, IconButton } from 'react-native-paper';
 import { router, useLocalSearchParams } from 'expo-router';

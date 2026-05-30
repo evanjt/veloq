@@ -16,7 +16,7 @@ import { ScreenSafeAreaView } from '@/components/ui';
 import { logScreenRender, PERF_DEBUG } from '@/lib/debug/renderTimer';
 import { isNetworkError } from '@/lib/utils/errorHandler';
 import { navigateTo, queryKeys } from '@/lib';
-import { useIsFocused } from '@react-navigation/core';
+import { useIsFocused } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';

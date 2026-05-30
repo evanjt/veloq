@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { InteractionManager } from 'react-native';
 import { useTranslation } from 'react-i18next';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect } from 'expo-router';
 import { useEngineSubscription } from '@/hooks/routes/useRouteEngine';
 import { useWellness } from '@/hooks/fitness';
 import {
