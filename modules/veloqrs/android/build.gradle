@@ -187,10 +187,14 @@ task buildRustLibrary {
     println "[veloqrs] Rebuilding Rust library (source newer than .so) for: ${stale.join(', ')}..."
     def args = []
     stale.each { arch -> args.addAll(["-t", arch]) }
-    exec {
-      workingDir rustDir
-      commandLine(["cargo", "ndk"] + args + ["--platform", "24",
-                   "-o", jniLibsDir.absolutePath, "build", "--release", "-p", "veloqrs"])
+    // ProcessBuilder rather than Gradle's exec {}: Gradle 9 (Expo SDK 56)
+    // removed Project.exec from the task-action context.
+    def cmd = ["cargo", "ndk"] + args + ["--platform", "24",
+               "-o", jniLibsDir.absolutePath, "build", "--release", "-p", "veloqrs"]
+    def proc = new ProcessBuilder(cmd).directory(rustDir).inheritIO().start()
+    def code = proc.waitFor()
+    if (code != 0) {
+      throw new GradleException("cargo ndk failed with exit code ${code}")
     }
     println "[veloqrs] Rust libraries built for: ${stale.join(', ')}"
   }
