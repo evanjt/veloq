@@ -179,8 +179,10 @@ export function useActivityStreams(id: string) {
       ]),
     // Streams NEVER change - infinite staleTime prevents refetching
     staleTime: Infinity,
-    // GC after 30 minutes - streams are large (100-500KB), free memory sooner
-    gcTime: CACHE.LONG,
+    // Streams are the largest payloads (100-500KB each). GC them sooner so
+    // browsing many activities in one session doesn't pin them all in memory;
+    // re-decoding from the engine on revisit is cheap.
+    gcTime: CACHE.MEDIUM,
     enabled: !!id,
   });
 }

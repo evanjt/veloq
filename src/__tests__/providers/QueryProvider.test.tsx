@@ -116,9 +116,9 @@ describe('QueryProvider', () => {
       expect(defaults.staleTime).toBe(1000 * 60 * 5);
     });
 
-    it('sets gcTime to 24 hours (reduced from 7d to prevent memory bloat)', () => {
+    it('sets in-memory gcTime to 2 hours (persister maxAge handles cross-launch)', () => {
       const defaults = queryClient.getDefaultOptions().queries!;
-      expect(defaults.gcTime).toBe(1000 * 60 * 60 * 24);
+      expect(defaults.gcTime).toBe(1000 * 60 * 60 * 2);
     });
 
     it('uses offlineFirst network mode and retry=2', () => {

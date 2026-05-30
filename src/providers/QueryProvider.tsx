@@ -22,7 +22,11 @@ const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       staleTime: 1000 * 60 * 5, // 5 minutes
-      gcTime: 1000 * 60 * 60 * 24, // 24 hours - reduced from 7 days to prevent memory bloat
+      // In-memory cache eviction. Kept short so a long browsing session over a
+      // large activity history doesn't pin every visited query (feed cards,
+      // charts, sections) in the Hermes heap. Cross-launch continuity comes from
+      // the persister's 24h maxAge below, not from holding everything in memory.
+      gcTime: 1000 * 60 * 60 * 2, // 2 hours
       retry: 2,
       networkMode: 'offlineFirst',
       refetchOnReconnect: true,
