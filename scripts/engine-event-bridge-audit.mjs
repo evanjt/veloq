@@ -73,6 +73,16 @@ const ENGINE_READ = /\bgetRouteEngine\s*\(|\bengine\.get[A-Z]|\brouteEngine\.\w/
 const SUBSCRIBES =
   /\buseEngineSubscription\b|\bcreateEngineHook\b|\.subscribe\s*\(|\buse(?:Engine|Section|Group|Route)[A-Z]\w*\s*\(/;
 
+// Hooks whose queryFn fetches from intervalsApi are API-sourced — the engine
+// read is a write-through cache fallback. They refresh on their own staleTime,
+// not on activity sync, so they aren't the sync-derived shape these bugs had.
+const API_BACKED = /\bintervalsApi\./;
+
+// Verified-acceptable engine-derived hooks that intentionally don't invalidate
+// on sync-complete: custom sections are user-created (not activity-sync-mutated)
+// and refresh via their own refresh() on create/delete.
+const EXEMPT = new Set(['src/hooks/routes/useCustomSections.ts']);
+
 // The strength + wellness stale-data bugs were a useQuery whose queryFn read
 // engine data, keyed on a centralized queryKeys.<group>, with that group missing
 // from GlobalDataSync's invalidation set. We scope the audit to exactly that
@@ -94,6 +104,8 @@ function findEngineHookOrphans(knownGroups, invalidatedGroups) {
     if (usedGroups.size === 0) continue;
 
     if (SUBSCRIBES.test(src)) continue;
+    if (API_BACKED.test(src)) continue;
+    if (EXEMPT.has(rel(file))) continue;
 
     const uncovered = [...usedGroups].filter((g) => !invalidatedGroups.has(g));
     if (uncovered.length > 0) {
