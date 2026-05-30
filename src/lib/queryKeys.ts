@@ -26,20 +26,21 @@ export const queryKeys = {
   },
 
   strength: {
-    exerciseSets: (activityId: string) => ['exercise-sets-v2', activityId] as const,
-    muscleGroups: (activityId: string) => ['muscle-groups-v2', activityId] as const,
-    volume: (period: string) => ['strength-volume', period] as const,
-    progression: (muscleSlug: string) => ['strength-progression', muscleSlug] as const,
+    all: ['strength'] as const,
+    exerciseSets: (activityId: string) => ['strength', 'exercise-sets', activityId] as const,
+    muscleGroups: (activityId: string) => ['strength', 'muscle-groups', activityId] as const,
+    volume: (period: string) => ['strength', 'volume', period] as const,
+    progression: (muscleSlug: string) => ['strength', 'progression', muscleSlug] as const,
     exercisesForMuscle: (period: string, muscleSlug: string) =>
-      ['exercises-for-muscle', period, muscleSlug] as const,
+      ['strength', 'exercises-for-muscle', period, muscleSlug] as const,
     activitiesForExercise: (period: string, muscleSlug: string, exerciseCategory: number) =>
-      ['activities-for-exercise', period, muscleSlug, exerciseCategory] as const,
+      ['strength', 'activities-for-exercise', period, muscleSlug, exerciseCategory] as const,
   },
 
   wellness: {
     all: ['wellness'] as const,
     byRange: (range: string) => ['wellness', range] as const,
-    byDate: (date: string | undefined) => ['wellness-date', date] as const,
+    byDate: (date: string | undefined) => ['wellness', 'date', date] as const,
   },
 
   athleteSummary: {

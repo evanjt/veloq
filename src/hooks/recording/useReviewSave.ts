@@ -1,7 +1,9 @@
 import { useState, useCallback } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { generateFitFile } from '@/lib/recording/fitGenerator';
+import { queryKeys } from '@/lib/queryKeys';
 import { intervalsApi } from '@/api';
 import { debug } from '@/lib/utils/debug';
 import { useRecordingStore } from '@/providers/RecordingStore';
@@ -78,6 +80,7 @@ export function useReviewSave({
   const [showPermissionFix, setShowPermissionFix] = useState(false);
   const { upgradePermissions, isUpgrading: isOAuthLoading } = usePermissionUpgrade();
   const { queueUpload } = useUploadQueue();
+  const queryClient = useQueryClient();
 
   const handleSave = useCallback(async () => {
     setIsUploading(true);
@@ -177,6 +180,8 @@ export function useReviewSave({
         }
       }
 
+      queryClient.invalidateQueries({ queryKey: queryKeys.activities.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.activities.infinite.all });
       useRecordingStore.getState().reset();
       router.replace('/');
     } catch (err) {
@@ -203,6 +208,7 @@ export function useReviewSave({
     canTrim,
     queuedMessage,
     queueUpload,
+    queryClient,
   ]);
 
   const handleUpgradeToOAuth = useCallback(async () => {

@@ -131,6 +131,7 @@ export function GlobalDataSync() {
         queryKey: queryKeys.activities.infinite.all,
       });
       queryClient.invalidateQueries({ queryKey: queryKeys.wellness.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.strength.all });
       queryClient.invalidateQueries({ queryKey: queryKeys.athleteSummary.all });
       queryClient.invalidateQueries({
         queryKey: queryKeys.charts.powerCurve.all,
