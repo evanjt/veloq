@@ -191,7 +191,7 @@ export function useRouteDataSync(
               message: 'Native module unavailable',
             });
           }
-          markSyncComplete();
+          markSyncComplete(abortController);
           return;
         }
 
@@ -315,20 +315,27 @@ export function useRouteDataSync(
               const pollInterval = 500;
               const maxPollTime = 60000;
               const startTime = Date.now();
-              while (isMountedRef.current) {
+              while (isMountedRef.current && !abortController.signal.aborted) {
                 const detectionStatus = nativeModule.routeEngine.pollSectionDetection();
                 if (detectionStatus !== 'running' || Date.now() - startTime > maxPollTime) break;
                 await new Promise((resolve) => setTimeout(resolve, pollInterval));
               }
-              routeEngine.triggerRefresh('groups');
-              routeEngine.triggerRefresh('sections');
+              // Skip side effects if a newer sync took over (cache clear race)
+              if (!abortController.signal.aborted) {
+                routeEngine.triggerRefresh('groups');
+                routeEngine.triggerRefresh('sections');
+              }
 
               // Poll heatmap tile generation (runs on Rust background thread) and surface
               // processed/total so the user sees forward motion instead of a frozen bar.
               // Foreground wait capped at 5 s (Tier 1.2); Rust keeps rendering in background
               // if we bail out early and the map will pick up tiles as they land.
               const tileStatus = routeEngine.pollTileGeneration();
-              if (tileStatus === 'running' && isMountedRef.current) {
+              if (
+                tileStatus === 'running' &&
+                isMountedRef.current &&
+                !abortController.signal.aborted
+              ) {
                 const initialTileProgress = routeEngine.getHeatmapTileProgress();
                 const tileTotal =
                   initialTileProgress && initialTileProgress.length >= 2
@@ -337,7 +344,7 @@ export function useRouteDataSync(
                 const maxPoll =
                   tileTotal > 0 ? Math.min(5_000, Math.max(2_000, tileTotal * 10)) : 3_000;
                 const tileStartTime = Date.now();
-                while (isMountedRef.current) {
+                while (isMountedRef.current && !abortController.signal.aborted) {
                   await new Promise((resolve) => setTimeout(resolve, 200));
                   const s = routeEngine.pollTileGeneration();
                   const progress = routeEngine.getHeatmapTileProgress();
@@ -364,7 +371,7 @@ export function useRouteDataSync(
           // Backfill: fetch time streams for activities with NULL lap_time (upgrade path).
           // Report progress per-batch so the sync banner keeps moving; the loop is up to
           // ~20 s on a large cache and previously reported nothing.
-          if (isMountedRef.current && !isDemo) {
+          if (isMountedRef.current && !isDemo && !abortController.signal.aborted) {
             try {
               const needingStreams = routeEngine.getActivitiesNeedingTimeStreams();
               if (needingStreams.length > 0) {
@@ -393,7 +400,7 @@ export function useRouteDataSync(
                 }
 
                 for (let i = 0; i < needingStreams.length; i += batchSize) {
-                  if (!isMountedRef.current) break;
+                  if (!isMountedRef.current || abortController.signal.aborted) break;
                   const batch = needingStreams.slice(i, i + batchSize);
                   const results = await Promise.all(
                     batch.map(async (activityId) => {
@@ -423,7 +430,11 @@ export function useRouteDataSync(
                     });
                   }
                 }
-                if (backfillStreams.length > 0 && isMountedRef.current) {
+                if (
+                  backfillStreams.length > 0 &&
+                  isMountedRef.current &&
+                  !abortController.signal.aborted
+                ) {
                   routeEngine.setTimeStreams(backfillStreams);
                   if (__DEV__) {
                     console.log(
@@ -437,8 +448,9 @@ export function useRouteDataSync(
             }
           }
 
-          // Set complete status so lastSyncTimestamp is updated
-          if (isMountedRef.current) {
+          // Set complete status so lastSyncTimestamp is updated.
+          // Skip if aborted so a stale run can't mark a newer sync's work complete.
+          if (isMountedRef.current && !abortController.signal.aborted) {
             updateProgress({
               status: 'complete',
               completed: engineActivityIds.size,
@@ -447,7 +459,7 @@ export function useRouteDataSync(
               message: i18n.t('cache.allActivitiesSynced'),
             });
           }
-          markSyncComplete();
+          markSyncComplete(abortController);
           return;
         }
 
@@ -473,8 +485,9 @@ export function useRouteDataSync(
         if (__DEV__) {
           console.error('[RouteDataSync] Error during sync:', error);
         }
-        // Update progress with error
-        if (isMountedRef.current) {
+        // Update progress with error. Skip if aborted so a stale run's failure
+        // (e.g. engine cleared mid-sync) doesn't overwrite a newer sync's progress.
+        if (isMountedRef.current && !abortController.signal.aborted) {
           updateProgress({
             status: 'error',
             completed: 0,
@@ -487,8 +500,9 @@ export function useRouteDataSync(
         if (__DEV__) {
           console.log('[RouteDataSync] Sync complete (finally block)');
         }
-        // Always mark sync complete
-        markSyncComplete();
+        // Always mark sync complete. Ownership check inside markSyncComplete
+        // ensures a stale run won't clear the globals a newer sync now owns.
+        markSyncComplete(abortController);
       }
     },
     [

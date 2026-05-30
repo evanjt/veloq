@@ -60,8 +60,12 @@ interface UseRouteSyncContextResult {
   canStartSync: () => boolean;
   /**
    * Mark sync as complete (reset isSyncingRef and clear abort controller).
+   * Only clears the global mutex/controller when this run still owns them,
+   * so a stale sync finishing after a cache clear can't stomp a newer run.
+   *
+   * @param abortController The controller returned by createAbortController for this run
    */
-  markSyncComplete: () => void;
+  markSyncComplete: (abortController: AbortController | null) => void;
 }
 
 /**
@@ -153,12 +157,20 @@ export function useRouteSyncContext(): UseRouteSyncContextResult {
 
   /**
    * Mark sync as complete and cleanup.
+   * Only releases the global mutex/controller when the passed controller still
+   * owns them. A stale sync (whose controller was already replaced by a newer
+   * run after a cache clear) must not clear the new run's globals.
    */
-  const markSyncComplete = useCallback(() => {
-    globalIsSyncing = false;
-    globalAbortController = null;
+  const markSyncComplete = useCallback((abortController: AbortController | null) => {
+    const ownsGlobals = abortController !== null && globalAbortController === abortController;
+    if (ownsGlobals) {
+      globalIsSyncing = false;
+      globalAbortController = null;
+    }
     isSyncingRef.current = false;
-    syncAbortRef.current = null;
+    if (syncAbortRef.current === abortController) {
+      syncAbortRef.current = null;
+    }
   }, []);
 
   return {
