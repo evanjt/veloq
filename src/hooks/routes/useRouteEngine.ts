@@ -252,6 +252,8 @@ interface UseEngineGroupsOptions {
   minActivities?: number;
   /** Sort order */
   sortBy?: 'count' | 'id';
+  /** When false, skip the getGroups() FFI entirely (used to defer off a screen's mount frame) */
+  enabled?: boolean;
 }
 
 interface UseEngineGroupsResult {
@@ -266,11 +268,12 @@ interface UseEngineGroupsResult {
  * Groups are queried fresh from Rust/SQLite on each refresh (no long-term JS memory storage).
  */
 export function useEngineGroups(options: UseEngineGroupsOptions = {}): UseEngineGroupsResult {
-  const { minActivities = 2, sortBy = 'count' } = options;
+  const { minActivities = 2, sortBy = 'count', enabled = true } = options;
   const trigger = useEngineSubscription(['groups']);
 
   return useMemo(() => {
     try {
+      if (!enabled) return { groups: [], totalCount: 0 };
       const engine = getRouteEngine();
       if (!engine) return { groups: [], totalCount: 0 };
 
@@ -290,7 +293,7 @@ export function useEngineGroups(options: UseEngineGroupsOptions = {}): UseEngine
     } catch {
       return { groups: [], totalCount: 0 };
     }
-  }, [trigger, minActivities, sortBy]);
+  }, [trigger, minActivities, sortBy, enabled]);
 }
 
 interface UseEngineSectionsOptions {

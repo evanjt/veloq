@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
-import { View, ScrollView, StyleSheet, Dimensions } from 'react-native';
+import { View, ScrollView, StyleSheet, Dimensions, InteractionManager } from 'react-native';
 import { Text, IconButton, ActivityIndicator, Snackbar } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScreenSafeAreaView } from '@/components/ui';
@@ -77,6 +77,15 @@ export default function ActivityDetailScreen() {
   const { data: streams, isLoading: streamsLoading } = useActivityStreams(id || '');
   const { exportGpx, exporting: gpxExporting } = useGpxExport();
 
+  // Defer the cluster of synchronous engine FFI reads (route match/getGroups,
+  // section matches, encounters, highlights) off the push-animation frame so the
+  // screen is interactive immediately. They populate after interactions complete.
+  const [interactive, setInteractive] = useState(false);
+  useEffect(() => {
+    const handle = InteractionManager.runAfterInteractions(() => setInteractive(true));
+    return () => handle.cancel();
+  }, []);
+
   // Get the activity date for wellness lookup
   const activityDate = activity?.start_date_local?.split('T')[0];
   const { data: activityWellness } = useWellnessForDate(activityDate);
@@ -116,11 +125,14 @@ export default function ActivityDetailScreen() {
   const cacheDays = useCacheDays();
 
   // Get matched route for this activity
-  const { routeGroup: matchedRoute, representativeActivityId } = useRouteMatch(id);
+  const { routeGroup: matchedRoute, representativeActivityId } = useRouteMatch(id, interactive);
   const matchedRouteCount = matchedRoute ? 1 : 0;
 
   // Route PR delta for the Routes tab badge (negative = ahead of PR)
-  const activityIdsForHighlights = useMemo(() => (id ? [id] : []), [id]);
+  const activityIdsForHighlights = useMemo(
+    () => (interactive && id ? [id] : []),
+    [interactive, id]
+  );
   const { routes: routeHighlightsMap } = useActivitySectionHighlights(activityIdsForHighlights);
   const routeHighlight = id ? routeHighlightsMap.get(id) : undefined;
 
@@ -154,7 +166,9 @@ export default function ActivityDetailScreen() {
   const hasExercises = (exerciseSets?.length ?? 0) > 0;
 
   // Get auto-detected sections from engine that include this activity
-  const { sections: engineSectionMatches, count: engineSectionCount } = useSectionMatches(id);
+  const { sections: engineSectionMatches, count: engineSectionCount } = useSectionMatches(
+    interactive ? id : undefined
+  );
 
   // Scan for additional section matches
   const {
@@ -165,7 +179,9 @@ export default function ActivityDetailScreen() {
   } = useActivityRematch();
 
   // Section encounters for the sections tab (one entry per section+direction)
-  const { encounters: encountersRaw, isLoading: encountersLoading } = useSectionEncounters(id);
+  const { encounters: encountersRaw, isLoading: encountersLoading } = useSectionEncounters(
+    interactive ? id : undefined
+  );
 
   // Filter custom sections that match this activity (still needed for map overlays)
   const customMatchedSections = useMemo(() => {
@@ -631,7 +647,7 @@ export default function ActivityDetailScreen() {
             removeSection={removeSection}
             scanMatches={scanMatches}
             isScanning={isRematching}
-            isSectionsLoading={encountersLoading}
+            isSectionsLoading={encountersLoading || !interactive}
             onScan={() => scanForSections(id)}
             onRematch={(sectionId) => rematchSection(id, sectionId)}
           />

@@ -21,8 +21,8 @@ interface UseRouteMatchResult {
   representativeActivityId: string | null;
 }
 
-export function useRouteMatch(activityId: string | undefined): UseRouteMatchResult {
-  const { groups } = useEngineGroups({ minActivities: 1 });
+export function useRouteMatch(activityId: string | undefined, enabled = true): UseRouteMatchResult {
+  const { groups } = useEngineGroups({ minActivities: 1, enabled });
 
   return useMemo(() => {
     if (!activityId) {
