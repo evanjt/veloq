@@ -7,7 +7,8 @@
  * On engine refresh events, resets to the first page.
  */
 
-import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
+import { InteractionManager } from 'react-native';
 import { useFocusEffect } from 'expo-router';
 import { getRouteEngine } from '@/lib/native/routeEngine';
 import { useEngineSubscription } from './useRouteEngine';
@@ -118,8 +119,11 @@ export function useRoutesScreenData(opts?: {
     }
   }, [combinedTrigger, prioritizeNearestGroups, prioritizeNearestSections, userLat, userLng]);
 
-  // Compute data from engine
-  const data = useMemo(() => {
+  // Compute data from engine. getRoutesScreenData routes through
+  // get_section_summaries (~277-325ms with real data) plus polyline batch loads,
+  // so running it synchronously in render blocks the tab-focus frame. Compute it
+  // inside InteractionManager (below) and return the last result synchronously.
+  const computeData = useCallback((): PaginatedRoutesData | null => {
     try {
       const engine = getRouteEngine();
       if (!engine) return lastResultRef.current;
@@ -189,9 +193,7 @@ export function useRoutesScreenData(opts?: {
       isLoadingGroupsRef.current = false;
       isLoadingSectionsRef.current = false;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
-    combinedTrigger,
     groupOffset,
     sectionOffset,
     groupLimit,
@@ -201,6 +203,23 @@ export function useRoutesScreenData(opts?: {
     userLat,
     userLng,
   ]);
+
+  // Deferred result: render returns the last computed value immediately
+  // (stale-while-revalidate), and the heavy FFI runs after the focus/mount
+  // interaction completes so it never lands inside the visible transition frame.
+  const [data, setData] = useState<PaginatedRoutesData | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    const handle = InteractionManager.runAfterInteractions(() => {
+      if (cancelled) return;
+      const next = computeData();
+      if (!cancelled) setData(next);
+    });
+    return () => {
+      cancelled = true;
+      handle.cancel();
+    };
+  }, [combinedTrigger, computeData]);
 
   const loadMoreGroups = useCallback(() => {
     if (hasMoreGroupsRef.current && !isLoadingGroupsRef.current) {
