@@ -188,7 +188,9 @@ function routeFromNotificationData(data: InsightNotificationData | undefined): v
     router.push(`/section/${data.sectionId}` as never);
   } else if (data.route) {
     console.log('[Notification] Navigating to route:', data.route);
-    router.push(data.route as never);
+    // navigate (not push) so a route that targets a mounted tab switches to it
+    // instead of stacking a duplicate tab screen on every notification tap
+    router.navigate(data.route as never);
   }
 }
 
