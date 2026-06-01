@@ -1,12 +1,15 @@
 import React, { memo, useMemo, useRef } from 'react';
 import { View, StyleSheet, Text as RNText } from 'react-native';
-import { CartesianChart, Line } from 'victory-native';
-import { Canvas, Rect, Line as SkiaLine, vec } from '@shopify/react-native-skia';
+import { Canvas, Rect, Line as SkiaLine, Path, Skia, vec } from '@shopify/react-native-skia';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { useSharedValue, useAnimatedStyle, runOnJS } from 'react-native-reanimated';
 import { useTheme } from '@/hooks';
 import { darkColors, colors, colorWithOpacity } from '@/theme';
 import { getFormZone, FORM_ZONE_COLORS, getIntlLocale } from '@/lib';
+import { buildMonotoneSvg } from '@/lib/charts/sparklinePath';
+
+const PLOT_TOP = 2;
+const PLOT_BOTTOM = 2;
 
 const CHART_HEIGHT = 44;
 const FORM_BAR_HEIGHT = 4;
@@ -66,16 +69,6 @@ export const SummaryCardSparkline = memo(function SummaryCardSparkline({
 
   const hasFatigue = fatigueData && fatigueData.length === fitnessData.length;
 
-  const chartData = useMemo(
-    () =>
-      fitnessData.map((value, index) => ({
-        x: index,
-        fitness: value,
-        fatigue: hasFatigue ? fatigueData[index] : value,
-      })),
-    [fitnessData, fatigueData, hasFatigue]
-  );
-
   const domain = useMemo(() => {
     if (fitnessData.length === 0) return { y: [0, 100] as [number, number] };
     const allValues = hasFatigue ? [...fitnessData, ...fatigueData] : fitnessData;
@@ -92,10 +85,6 @@ export const SummaryCardSparkline = memo(function SummaryCardSparkline({
 
   // Crosshair position shared value
   const crosshairX = useSharedValue(-1);
-
-  // Chart bounds — synced from CartesianChart render callback
-  const chartLeft = useSharedValue(0);
-  const chartRight = useSharedValue(1);
 
   // JS-side scrub notification (called via runOnJS from worklet)
   const notifyScrub = (index: number) => {
@@ -229,6 +218,21 @@ export const SummaryCardSparkline = memo(function SummaryCardSparkline({
     return { formBarRects: rects, transitions: trans };
   }, [formData, chartWidth]);
 
+  // Direct-Skia line paths (replaces Victory CartesianChart). monotoneX + the same
+  // buffered domain as before → pixel-identical curves, but no chart-tree mount cost.
+  const linePaths = useMemo(() => {
+    const [min, max] = domain.y;
+    const plotHeight = CHART_HEIGHT - PLOT_TOP - PLOT_BOTTOM;
+    const fitnessSvg = buildMonotoneSvg(fitnessData, min, max, chartWidth, PLOT_TOP, plotHeight);
+    const fatigueSvg = hasFatigue
+      ? buildMonotoneSvg(fatigueData!, min, max, chartWidth, PLOT_TOP, plotHeight)
+      : null;
+    return {
+      fitness: fitnessSvg ? Skia.Path.MakeFromSVGString(fitnessSvg) : null,
+      fatigue: fatigueSvg ? Skia.Path.MakeFromSVGString(fatigueSvg) : null,
+    };
+  }, [fitnessData, fatigueData, hasFatigue, domain, chartWidth]);
+
   return (
     <GestureDetector gesture={composed}>
       <View style={[styles.container, { width, height: totalHeight }]}>
@@ -242,67 +246,57 @@ export const SummaryCardSparkline = memo(function SummaryCardSparkline({
             </View>
           )}
 
-          {/* Chart area */}
+          {/* Chart area — single Skia canvas: sparklines (top) + form zone bar (bottom) */}
           <View style={{ width: chartWidth, height: totalHeight }}>
-            {/* Fitness + Fatigue sparklines — overflow visible so strokes aren't clipped */}
-            <View style={{ height: CHART_HEIGHT, overflow: 'visible' }}>
-              <CartesianChart
-                data={chartData}
-                xKey="x"
-                yKeys={['fitness', 'fatigue']}
-                yAxis={[{ tickCount: 0, labelOffset: 0 }]}
-                domain={domain}
-                padding={{ left: 0, right: 0, top: 2, bottom: 2 }}
-              >
-                {({ points, chartBounds }) => {
-                  // Sync bounds to shared values for gesture computation
-                  chartLeft.value = chartBounds.left;
-                  chartRight.value = chartBounds.right;
-                  return (
-                    <>
-                      {/* Fatigue (ATL) — drawn first so fitness renders on top */}
-                      {hasFatigue && (
-                        <>
-                          <Line
-                            points={points.fatigue}
-                            color={casingColor}
-                            strokeWidth={2}
-                            curveType="monotoneX"
-                          />
-                          <Line
-                            points={points.fatigue}
-                            color={fatigueLineColor}
-                            strokeWidth={1}
-                            curveType="monotoneX"
-                          />
-                        </>
-                      )}
-                      {/* Fitness (CTL) — primary line, on top */}
-                      <Line
-                        points={points.fitness}
-                        color={casingColor}
-                        strokeWidth={2}
-                        curveType="monotoneX"
-                      />
-                      <Line
-                        points={points.fitness}
-                        color={fitnessLineColor}
-                        strokeWidth={1.5}
-                        curveType="monotoneX"
-                      />
-                    </>
-                  );
-                }}
-              </CartesianChart>
-            </View>
-
-            {/* Form zone bar — sits directly below chart, no gap */}
-            <Canvas style={{ width: chartWidth, height: FORM_BAR_HEIGHT }}>
+            <Canvas style={{ width: chartWidth, height: totalHeight }}>
+              {/* Fatigue (ATL) — drawn first so fitness renders on top */}
+              {linePaths.fatigue && (
+                <Path
+                  path={linePaths.fatigue}
+                  color={casingColor}
+                  style="stroke"
+                  strokeWidth={2}
+                  strokeJoin="round"
+                  strokeCap="round"
+                />
+              )}
+              {linePaths.fatigue && (
+                <Path
+                  path={linePaths.fatigue}
+                  color={fatigueLineColor}
+                  style="stroke"
+                  strokeWidth={1}
+                  strokeJoin="round"
+                  strokeCap="round"
+                />
+              )}
+              {/* Fitness (CTL) — primary line, on top */}
+              {linePaths.fitness && (
+                <Path
+                  path={linePaths.fitness}
+                  color={casingColor}
+                  style="stroke"
+                  strokeWidth={2}
+                  strokeJoin="round"
+                  strokeCap="round"
+                />
+              )}
+              {linePaths.fitness && (
+                <Path
+                  path={linePaths.fitness}
+                  color={fitnessLineColor}
+                  style="stroke"
+                  strokeWidth={1.5}
+                  strokeJoin="round"
+                  strokeCap="round"
+                />
+              )}
+              {/* Form zone bar — directly below the chart (y = CHART_HEIGHT) */}
               {formBarRects.map((rect, i) => (
                 <Rect
                   key={i}
                   x={rect.x}
-                  y={0}
+                  y={CHART_HEIGHT}
                   width={rect.width}
                   height={FORM_BAR_HEIGHT}
                   color={rect.color}
@@ -311,8 +305,8 @@ export const SummaryCardSparkline = memo(function SummaryCardSparkline({
               {transitions.map((x, i) => (
                 <SkiaLine
                   key={`div-${i}`}
-                  p1={vec(x, 0)}
-                  p2={vec(x, FORM_BAR_HEIGHT)}
+                  p1={vec(x, CHART_HEIGHT)}
+                  p2={vec(x, CHART_HEIGHT + FORM_BAR_HEIGHT)}
                   color={dividerColor}
                   strokeWidth={1}
                 />
