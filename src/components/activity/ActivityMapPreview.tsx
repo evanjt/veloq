@@ -1,18 +1,11 @@
-import React, { useMemo, useState, useCallback, useEffect, useRef } from 'react';
-import { View, Image, StyleSheet, ActivityIndicator, Platform } from 'react-native';
-import {
-  MapView,
-  Camera,
-  ShapeSource,
-  LineLayer,
-  MarkerView,
-} from '@maplibre/maplibre-react-native';
+import React, { useMemo, useState, useEffect } from 'react';
+import { View, Image, StyleSheet, ActivityIndicator } from 'react-native';
+import { Canvas, Path, Circle, Skia } from '@shopify/react-native-skia';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { getActivityColor, getMapLibreBounds } from '@/lib';
-import { colors } from '@/theme';
 import { useMapPreferences } from '@/providers';
-import { getMapStyle } from '@/components/maps';
 import { StaticCompassArrow } from '@/components/ui';
+import { projectRouteToBox } from '@/lib/geo/routePreview';
 import { useMapPreviewCoordinates } from '@/hooks/activities/useMapPreviewCoordinates';
 import {
   hasTerrainPreview,
@@ -100,51 +93,9 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
       setTerrainImageUri(uri);
     });
   }, [maybeShow3D, activity.id]);
-  const [mapReady, setMapReady] = useState(false);
-  const [mapError, setMapError] = useState(false);
 
-  // Map retry mechanism for transient failures
-  const [mapKey, setMapKey] = useState(0);
-  const retryCountRef = useRef(0);
-  const MAX_RETRIES = 2;
-  const RETRY_DELAY_MS = 500;
-
-  // Stagger showing maps - always render MapView but delay removing loading overlay
-  // This prevents overwhelming tile requests while allowing proper MapView initialization
-  // All maps get a minimum delay to give native MapView time to render and call onDidFinishRenderingMapFully
-  const [showMapContent, setShowMapContent] = useState(false);
-
-  useEffect(() => {
-    // Short stagger to prevent tile request floods; capped at 250ms for all cards
-    const delay = Math.min(index * 50, 250);
-    const timeout = setTimeout(() => setShowMapContent(true), delay);
-    return () => clearTimeout(timeout);
-  }, [index]);
-
-  const handleMapFullyRendered = useCallback(() => {
-    setMapReady(true);
-    setMapError(false);
-  }, []);
-
-  // Handle map load failure - retry on both platforms, then show error state
-  const handleMapLoadError = useCallback(() => {
-    if (retryCountRef.current < MAX_RETRIES) {
-      retryCountRef.current += 1;
-      console.log(
-        `[ActivityMapPreview] Load failed for ${activity.id}, retrying (${retryCountRef.current}/${MAX_RETRIES})...`
-      );
-      setTimeout(() => {
-        setMapKey((k) => k + 1);
-      }, RETRY_DELAY_MS * retryCountRef.current);
-    } else {
-      // Retries exhausted - show error state instead of infinite spinner
-      console.warn(
-        `[ActivityMapPreview] Map load failed for ${activity.id} after ${MAX_RETRIES} retries`
-      );
-      setMapError(true);
-      setMapReady(true); // Remove loading overlay
-    }
-  }, [activity.id]);
+  // Container width for the static route preview (Skia needs explicit size).
+  const [boxW, setBoxW] = useState(0);
 
   // Check if activity has GPS data available
   const hasGpsData = activity.stream_types?.includes('latlng');
@@ -158,157 +109,41 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
 
   const bounds = useMemo(() => getMapLibreBounds(validCoordinates), [validCoordinates]);
 
-  // Calculate center and zoom from bounds instead of using bounds directly
-  // This fixes the FlatList issue where Camera bounds fail when map is off-screen
-  // (native layer reports 64x64px size, causing zoom calculations to fail)
-  const { center, zoomLevel } = useMemo(() => {
-    if (!bounds) return { center: null, zoomLevel: 10 };
+  // Project the route to pixel points that fit the card box, then build Skia
+  // paths. A static line preview replaces the per-card live MapLibre MapView —
+  // the GL contexts were the feed's dominant render cost. The full interactive
+  // map lives on the activity detail screen.
+  const routePoints = useMemo(
+    () => projectRouteToBox(validCoordinates, boxW, height),
+    [validCoordinates, boxW, height]
+  );
 
-    // Calculate center
-    const centerLng = (bounds.ne[0] + bounds.sw[0]) / 2;
-    const centerLat = (bounds.ne[1] + bounds.sw[1]) / 2;
+  const routePath = useMemo(() => {
+    if (routePoints.length < 2) return null;
+    const p = Skia.Path.Make();
+    p.moveTo(routePoints[0].x, routePoints[0].y);
+    for (let i = 1; i < routePoints.length; i++) p.lineTo(routePoints[i].x, routePoints[i].y);
+    return p;
+  }, [routePoints]);
 
-    // Validate center coordinates
-    if (!isFinite(centerLng) || !isFinite(centerLat)) {
-      return { center: null, zoomLevel: 10 };
-    }
-
-    // Calculate zoom level based on bounds span
-    // Using Mercator projection: zoom ≈ log2(360 / lonSpan) or log2(180 / latSpan)
-    const latSpan = Math.abs(bounds.ne[1] - bounds.sw[1]);
-    const lngSpan = Math.abs(bounds.ne[0] - bounds.sw[0]);
-
-    // Handle single-point or very small activities
-    if (latSpan < 0.0001 && lngSpan < 0.0001) {
-      return {
-        center: [centerLng, centerLat] as [number, number],
-        zoomLevel: 15, // Default zoom for single point
-      };
-    }
-
-    // Add padding factor (smaller view = need to zoom out more)
-    const paddingFactor = 1.5;
-    const latZoom = Math.log2(180 / (latSpan * paddingFactor || 0.001));
-    const lngZoom = Math.log2(360 / (lngSpan * paddingFactor || 0.001));
-
-    // Use the smaller zoom (shows more area) and clamp to reasonable range
-    const calculatedZoom = Math.min(latZoom, lngZoom);
-    const clampedZoom = Math.max(1, Math.min(18, isFinite(calculatedZoom) ? calculatedZoom : 10));
-
-    return {
-      center: [centerLng, centerLat] as [number, number],
-      zoomLevel: clampedZoom,
-    };
-  }, [bounds]);
-
-  // iOS crash fix: Always return valid GeoJSON, never null
-  // Using minimal valid LineString to avoid MapLibre "Invalid geometry" warnings
-  const { routeGeoJSON, hasRouteData } = useMemo(() => {
-    if (validCoordinates.length < 2) {
-      return {
-        routeGeoJSON: {
-          type: 'FeatureCollection' as const,
-          features: [
-            {
-              type: 'Feature' as const,
-              properties: {},
-              geometry: {
-                type: 'LineString' as const,
-                coordinates: [
-                  [0, 0],
-                  [0, 0.0001],
-                ],
-              },
-            },
-          ],
-        },
-        hasRouteData: false,
-      };
-    }
-    return {
-      routeGeoJSON: {
-        type: 'FeatureCollection' as const,
-        features: [
-          {
-            type: 'Feature' as const,
-            properties: {},
-            geometry: {
-              type: 'LineString' as const,
-              coordinates: validCoordinates.map((c) => [c.longitude, c.latitude]),
-            },
-          },
-        ],
-      },
-      hasRouteData: true,
-    };
-  }, [validCoordinates]);
-
-  // Build GeoJSON for PR section highlights (gold overlay on the activity trace)
-  const prSectionGeoJSON = useMemo(() => {
-    if (!prSectionIndices || prSectionIndices.length === 0 || validCoordinates.length < 2) {
-      return null;
-    }
-    const features: Array<{
-      type: 'Feature';
-      properties: { index: number };
-      geometry: { type: 'LineString'; coordinates: number[][] };
-    }> = [];
-    prSectionIndices.forEach((range, i) => {
+  // PR section highlights (gold) — slice the same projected points by index range.
+  const prPaths = useMemo(() => {
+    if (!prSectionIndices || prSectionIndices.length === 0 || routePoints.length < 2) return [];
+    const paths: ReturnType<typeof Skia.Path.Make>[] = [];
+    for (const range of prSectionIndices) {
       const start = Math.max(0, range.startIndex);
-      const end = Math.min(validCoordinates.length, range.endIndex + 1);
-      if (end - start < 2) return;
-      const slice = validCoordinates.slice(start, end);
-      features.push({
-        type: 'Feature' as const,
-        properties: { index: i },
-        geometry: {
-          type: 'LineString' as const,
-          coordinates: slice.map((c) => [c.longitude, c.latitude]),
-        },
-      });
-    });
-    if (features.length === 0) return null;
-    return {
-      type: 'FeatureCollection' as const,
-      features,
-    };
-  }, [prSectionIndices, validCoordinates]);
+      const end = Math.min(routePoints.length, range.endIndex + 1);
+      if (end - start < 2) continue;
+      const p = Skia.Path.Make();
+      p.moveTo(routePoints[start].x, routePoints[start].y);
+      for (let i = start + 1; i < end; i++) p.lineTo(routePoints[i].x, routePoints[i].y);
+      paths.push(p);
+    }
+    return paths;
+  }, [prSectionIndices, routePoints]);
 
-  const styleUrl = getMapStyle(mapStyle);
-  const startPoint = validCoordinates[0];
-  const endPoint = validCoordinates[validCoordinates.length - 1];
-
-  // Memoize LineLayer styles to avoid re-creating objects on every render
-  const casingStyle = useMemo(
-    () => ({
-      lineColor: '#FFFFFF',
-      lineOpacity: hasRouteData ? 1 : 0,
-      lineWidth: 4,
-      lineCap: 'round' as const,
-      lineJoin: 'round' as const,
-    }),
-    [hasRouteData]
-  );
-  const routeLineStyle = useMemo(
-    () => ({
-      lineColor: activityColor,
-      lineOpacity: hasRouteData ? 1 : 0,
-      lineWidth: 3,
-      lineCap: 'round' as const,
-      lineJoin: 'round' as const,
-    }),
-    [hasRouteData, activityColor]
-  );
-  const prLineStyle = useMemo(
-    () => ({
-      lineColor: '#D4AF37',
-      lineOpacity: 1,
-      lineWidth: 4,
-      lineCap: 'round' as const,
-      lineJoin: 'round' as const,
-    }),
-    []
-  );
+  const startPoint = routePoints[0];
+  const endPoint = routePoints[routePoints.length - 1];
 
   // Memoize terrain camera: use user override if saved, else auto-calculate
   const terrainCameraResult = useMemo(() => {
@@ -437,79 +272,48 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
     );
   }
 
+  // Static route-line preview (no live map / GL context). The detail screen has
+  // the full interactive map; the feed just needs a fast, correct route shape.
   return (
     <View
-      style={[styles.container, { height }]}
-      testID={mapReady ? `activity-map-preview-ready-${activity.id}` : undefined}
+      style={[styles.container, { height, backgroundColor: activityColor + '14' }]}
+      onLayout={(e) => setBoxW(e.nativeEvent.layout.width)}
+      testID={routePath ? `activity-map-preview-ready-${activity.id}` : undefined}
     >
-      <MapView
-        key={`map-preview-${activity.id}-${mapKey}`}
-        style={styles.map}
-        mapStyle={styleUrl}
-        logoEnabled={false}
-        attributionEnabled={false}
-        compassEnabled={false}
-        scrollEnabled={false}
-        zoomEnabled={false}
-        rotateEnabled={false}
-        pitchEnabled={false}
-        onDidFinishLoadingMap={handleMapFullyRendered}
-        onDidFailLoadingMap={handleMapLoadError}
-      >
-        <Camera
-          defaultSettings={{
-            bounds: {
-              ne: bounds ? [bounds.ne[0], bounds.ne[1]] : [0, 0],
-              sw: bounds ? [bounds.sw[0], bounds.sw[1]] : [0, 0],
-            },
-            padding: { paddingTop: 50, paddingRight: 30, paddingBottom: 75, paddingLeft: 30 },
-            animationMode: 'moveTo',
-            animationDuration: 0,
-          }}
-        />
-
-        {/* Route line - iOS crash fix: always render ShapeSource */}
-        <ShapeSource id="routeSource" shape={routeGeoJSON}>
-          <LineLayer id="routeLineCasing" style={casingStyle} />
-          <LineLayer id="routeLine" style={routeLineStyle} />
-        </ShapeSource>
-
-        {/* PR section highlights in gold */}
-        {prSectionGeoJSON && (
-          <ShapeSource id="prSectionSource" shape={prSectionGeoJSON}>
-            <LineLayer id="prSectionLine" style={prLineStyle} />
-          </ShapeSource>
-        )}
-
-        {/* Start marker */}
-        {/* iOS CRASH FIX: Always render MarkerView to maintain stable child count */}
-        {/* Use opacity to hide when point is undefined */}
-        <MarkerView coordinate={startPoint ? [startPoint.longitude, startPoint.latitude] : [0, 0]}>
-          <View style={[styles.markerContainer, { opacity: startPoint ? 1 : 0 }]}>
-            <View style={[styles.marker, styles.startMarker]} />
-          </View>
-        </MarkerView>
-
-        {/* End marker */}
-        {/* iOS CRASH FIX: Always render MarkerView to maintain stable child count */}
-        <MarkerView coordinate={endPoint ? [endPoint.longitude, endPoint.latitude] : [0, 0]}>
-          <View style={[styles.markerContainer, { opacity: endPoint ? 1 : 0 }]}>
-            <View style={[styles.marker, styles.endMarker]} />
-          </View>
-        </MarkerView>
-      </MapView>
-      {/* Loading overlay - shows during stagger period only */}
-      {/* mapReady callback is unreliable on Android, so we use deterministic stagger timing */}
-      {!showMapContent && (
-        <View style={[styles.loadingOverlay, { backgroundColor: activityColor + '10' }]}>
-          <ActivityIndicator size="small" color={activityColor} />
-        </View>
-      )}
-      {/* Error overlay - shows when map fails to load */}
-      {mapError && (
-        <View style={[styles.loadingOverlay, { backgroundColor: activityColor + '20' }]}>
-          <MaterialCommunityIcons name="map-marker-alert" size={24} color={activityColor} />
-        </View>
+      {boxW > 0 && routePath && (
+        <Canvas style={{ width: boxW, height }}>
+          <Path
+            path={routePath}
+            color="#FFFFFF"
+            style="stroke"
+            strokeWidth={4}
+            strokeJoin="round"
+            strokeCap="round"
+          />
+          <Path
+            path={routePath}
+            color={activityColor}
+            style="stroke"
+            strokeWidth={3}
+            strokeJoin="round"
+            strokeCap="round"
+          />
+          {prPaths.map((p, i) => (
+            <Path
+              key={i}
+              path={p}
+              color="#D4AF37"
+              style="stroke"
+              strokeWidth={4}
+              strokeJoin="round"
+              strokeCap="round"
+            />
+          ))}
+          {startPoint && (
+            <Circle cx={startPoint.x} cy={startPoint.y} r={5} color="rgba(34,197,94,0.9)" />
+          )}
+          {endPoint && <Circle cx={endPoint.x} cy={endPoint.y} r={5} color="rgba(239,68,68,0.9)" />}
+        </Canvas>
       )}
     </View>
   );
@@ -518,9 +322,6 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
 const styles = StyleSheet.create({
   container: {
     overflow: 'hidden',
-  },
-  map: {
-    flex: 1,
   },
   terrainImage: {
     flex: 1,
@@ -536,30 +337,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  loadingOverlay: {
-    ...StyleSheet.absoluteFill,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
   placeholder: {
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  markerContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  marker: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    borderWidth: 1.5,
-    borderColor: colors.textOnDark,
-  },
-  startMarker: {
-    backgroundColor: 'rgba(34,197,94,0.75)',
-  },
-  endMarker: {
-    backgroundColor: 'rgba(239,68,68,0.75)',
   },
 });
