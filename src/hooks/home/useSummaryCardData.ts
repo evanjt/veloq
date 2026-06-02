@@ -101,7 +101,7 @@ export function useSummaryCardData(precomputedCardData?: PrecomputedCardData): S
   const { data: athlete } = useAthlete();
   const { primarySport } = useSportPreference();
   const { data: sportSettings } = useSportSettings();
-  const { summaryCard } = useDashboardPreferences();
+  const summaryCard = useDashboardPreferences((s) => s.summaryCard);
   const isMetric = useMetricSystem();
 
   // Check if pace/CSS metrics are enabled (determines which pace curves to fetch)

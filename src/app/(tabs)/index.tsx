@@ -127,7 +127,7 @@ export default function FeedScreen() {
   }, [isAnyTerrain3DEnabled]);
 
   // Dashboard preferences for navigation
-  const { summaryCard } = useDashboardPreferences();
+  const summaryCard = useDashboardPreferences((s) => s.summaryCard);
 
   const t1 = PERF_DEBUG ? performance.now() : 0;
   const {
