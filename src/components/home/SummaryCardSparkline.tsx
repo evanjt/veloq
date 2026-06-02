@@ -183,17 +183,6 @@ export const SummaryCardSparkline = memo(function SummaryCardSparkline({
   const chartWidth = width - labelWidth;
   const totalHeight = CHART_HEIGHT + FORM_BAR_HEIGHT;
 
-  if (fitnessData.length === 0 || formData.length === 0 || width <= 0) {
-    return <View style={{ width, height: totalHeight }} />;
-  }
-
-  const labelColor = isDark ? darkColors.textMuted : colors.textMuted;
-  const casingColor = isDark ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.15)';
-  const fitnessLineColor = isDark ? colors.fitnessBlue : colorWithOpacity(colors.fitnessBlue, 0.85);
-  const fatigueLineColor = isDark ? colors.chartPink : colorWithOpacity(colors.chartPink, 0.75);
-
-  const dividerColor = isDark ? darkColors.surface : colors.surface;
-
   const { formBarRects, transitions } = useMemo(() => {
     const N = formData.length;
     // Match CartesianChart's N-1 interval spacing: point i at i * step
@@ -232,6 +221,17 @@ export const SummaryCardSparkline = memo(function SummaryCardSparkline({
       fatigue: fatigueSvg ? Skia.Path.MakeFromSVGString(fatigueSvg) : null,
     };
   }, [fitnessData, fatigueData, hasFatigue, domain, chartWidth]);
+
+  if (fitnessData.length === 0 || formData.length === 0 || width <= 0) {
+    return <View style={{ width, height: totalHeight }} />;
+  }
+
+  const labelColor = isDark ? darkColors.textMuted : colors.textMuted;
+  const casingColor = isDark ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.15)';
+  const fitnessLineColor = isDark ? colors.fitnessBlue : colorWithOpacity(colors.fitnessBlue, 0.85);
+  const fatigueLineColor = isDark ? colors.chartPink : colorWithOpacity(colors.chartPink, 0.75);
+
+  const dividerColor = isDark ? darkColors.surface : colors.surface;
 
   return (
     <GestureDetector gesture={composed}>

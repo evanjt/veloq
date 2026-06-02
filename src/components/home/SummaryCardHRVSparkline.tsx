@@ -1,16 +1,19 @@
 import React, { memo, useMemo, useRef } from 'react';
 import { View, StyleSheet, Text as RNText } from 'react-native';
-import { CartesianChart, Line, Area } from 'victory-native';
-import { vec, LinearGradient } from '@shopify/react-native-skia';
+import { Canvas, Path, Skia, vec, LinearGradient } from '@shopify/react-native-skia';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { useSharedValue, useAnimatedStyle, runOnJS } from 'react-native-reanimated';
 import { useTheme } from '@/hooks';
 import { darkColors, colors, colorWithOpacity } from '@/theme';
+import { buildMonotoneSvg, buildMonotoneAreaSvg } from '@/lib/charts/sparklinePath';
 import type { ScrubValues } from './SummaryCardSparkline';
 
 /** Match total height of fitness sparkline (44 chart + 4 form bar) */
 const CHART_HEIGHT = 48;
-const HRV_DOMAIN = { y: [-6, 106] as [number, number] } as const;
+const PLOT_TOP = 2;
+const PLOT_BOTTOM = 2;
+const HRV_DOMAIN_MIN = -6;
+const HRV_DOMAIN_MAX = 106;
 
 interface SummaryCardHRVSparklineProps {
   hrvData: number[];
@@ -49,9 +52,9 @@ export const SummaryCardHRVSparkline = memo(function SummaryCardHRVSparkline({
 
   const hasRhr = rhrData && rhrData.length === hrvData.length;
 
-  // Dual-axis chart data: HRV and RHR on independent y-scales.
-  // Normalize both to 0-100 range so they share the same CartesianChart domain.
-  const chartData = useMemo(() => {
+  // HRV and RHR live on independent y-scales. Normalize both to 0-100 so they
+  // share one domain ([-6, 106]) — RHR inverted (higher HR = worse = lower).
+  const normalized = useMemo(() => {
     const hrvMin = Math.min(...hrvData);
     const hrvMax = Math.max(...hrvData);
     const hrvRange = hrvMax - hrvMin || 1;
@@ -64,15 +67,10 @@ export const SummaryCardHRVSparkline = memo(function SummaryCardHRVSparkline({
       rhrRange = rhrMax - rhrMin || 1;
     }
 
-    return hrvData.map((hrv, index) => {
-      const normHrv = ((hrv - hrvMin) / hrvRange) * 100;
-      // Invert RHR so higher HR (worse) maps to lower position on chart
-      const normRhr = hasRhr ? (1 - (rhrData[index] - rhrMin) / rhrRange) * 100 : normHrv;
-      return { x: index, hrv: normHrv, rhr: normRhr };
-    });
+    const hrv = hrvData.map((v) => ((v - hrvMin) / hrvRange) * 100);
+    const rhr = hasRhr ? rhrData.map((v) => (1 - (v - rhrMin) / rhrRange) * 100) : null;
+    return { hrv, rhr };
   }, [hrvData, rhrData, hasRhr]);
-
-  const domain = HRV_DOMAIN;
 
   // Crosshair state
   const crosshairX = useSharedValue(-1);
@@ -169,6 +167,45 @@ export const SummaryCardHRVSparkline = memo(function SummaryCardHRVSparkline({
   const labelWidth = showLabels ? 42 : 0;
   const chartWidth = width - labelWidth;
 
+  // Direct-Skia paths (replaces Victory CartesianChart): same monotoneX geometry,
+  // no chart-tree mount cost. Area baseline matches the original <Area y0={CHART_HEIGHT}>
+  // (a data-space value, kept for pixel parity).
+  const skiaPaths = useMemo(() => {
+    const plotHeight = CHART_HEIGHT - PLOT_TOP - PLOT_BOTTOM;
+    const hrvSvg = buildMonotoneSvg(
+      normalized.hrv,
+      HRV_DOMAIN_MIN,
+      HRV_DOMAIN_MAX,
+      chartWidth,
+      PLOT_TOP,
+      plotHeight
+    );
+    const rhrSvg = normalized.rhr
+      ? buildMonotoneSvg(
+          normalized.rhr,
+          HRV_DOMAIN_MIN,
+          HRV_DOMAIN_MAX,
+          chartWidth,
+          PLOT_TOP,
+          plotHeight
+        )
+      : null;
+    const areaSvg = buildMonotoneAreaSvg(
+      normalized.hrv,
+      HRV_DOMAIN_MIN,
+      HRV_DOMAIN_MAX,
+      chartWidth,
+      PLOT_TOP,
+      plotHeight,
+      CHART_HEIGHT
+    );
+    return {
+      hrv: hrvSvg ? Skia.Path.MakeFromSVGString(hrvSvg) : null,
+      rhr: rhrSvg ? Skia.Path.MakeFromSVGString(rhrSvg) : null,
+      area: areaSvg ? Skia.Path.MakeFromSVGString(areaSvg) : null,
+    };
+  }, [normalized, chartWidth]);
+
   if (hrvData.length < 2 || width <= 0) {
     return <View style={{ width, height: CHART_HEIGHT }} />;
   }
@@ -192,71 +229,67 @@ export const SummaryCardHRVSparkline = memo(function SummaryCardHRVSparkline({
           )}
 
           <View style={{ width: chartWidth, height: CHART_HEIGHT }}>
-            <View style={{ height: CHART_HEIGHT, overflow: 'visible' }}>
-              <CartesianChart
-                data={chartData}
-                xKey="x"
-                yKeys={['hrv', 'rhr']}
-                yAxis={[{ tickCount: 0, labelOffset: 0 }]}
-                domain={domain}
-                padding={{ left: 0, right: 0, top: 2, bottom: 2 }}
-              >
-                {({ points }) => (
-                  <>
-                    {/* HRV gradient fill */}
-                    <Area
-                      points={points.hrv}
-                      y0={CHART_HEIGHT}
-                      curveType="monotoneX"
-                      opacity={0.15}
-                    >
-                      <LinearGradient
-                        start={vec(0, 0)}
-                        end={vec(0, CHART_HEIGHT)}
-                        colors={[
-                          isDark
-                            ? colorWithOpacity(colors.chartPink, 0.38)
-                            : colorWithOpacity(colors.chartPink, 0.25),
-                          'transparent',
-                        ]}
-                      />
-                    </Area>
+            <Canvas style={{ width: chartWidth, height: CHART_HEIGHT }}>
+              {/* HRV gradient fill */}
+              {skiaPaths.area && (
+                <Path path={skiaPaths.area} style="fill" opacity={0.15}>
+                  <LinearGradient
+                    start={vec(0, 0)}
+                    end={vec(0, CHART_HEIGHT)}
+                    colors={[
+                      isDark
+                        ? colorWithOpacity(colors.chartPink, 0.38)
+                        : colorWithOpacity(colors.chartPink, 0.25),
+                      'transparent',
+                    ]}
+                  />
+                </Path>
+              )}
 
-                    {/* RHR line (drawn first so HRV renders on top) */}
-                    {hasRhr && (
-                      <>
-                        <Line
-                          points={points.rhr}
-                          color={casingColor}
-                          strokeWidth={2}
-                          curveType="monotoneX"
-                        />
-                        <Line
-                          points={points.rhr}
-                          color={rhrLineColor}
-                          strokeWidth={1}
-                          curveType="monotoneX"
-                        />
-                      </>
-                    )}
+              {/* RHR line (drawn first so HRV renders on top) */}
+              {hasRhr && skiaPaths.rhr && (
+                <Path
+                  path={skiaPaths.rhr}
+                  color={casingColor}
+                  style="stroke"
+                  strokeWidth={2}
+                  strokeJoin="round"
+                  strokeCap="round"
+                />
+              )}
+              {hasRhr && skiaPaths.rhr && (
+                <Path
+                  path={skiaPaths.rhr}
+                  color={rhrLineColor}
+                  style="stroke"
+                  strokeWidth={1}
+                  strokeJoin="round"
+                  strokeCap="round"
+                />
+              )}
 
-                    {/* HRV line — primary, on top */}
-                    <Line
-                      points={points.hrv}
-                      color={casingColor}
-                      strokeWidth={2}
-                      curveType="monotoneX"
-                    />
-                    <Line
-                      points={points.hrv}
-                      color={hrvLineColor}
-                      strokeWidth={1.5}
-                      curveType="monotoneX"
-                    />
-                  </>
-                )}
-              </CartesianChart>
-            </View>
+              {/* HRV line — primary, on top */}
+              {skiaPaths.hrv && (
+                <Path
+                  path={skiaPaths.hrv}
+                  color={casingColor}
+                  style="stroke"
+                  strokeWidth={2}
+                  strokeJoin="round"
+                  strokeCap="round"
+                />
+              )}
+              {skiaPaths.hrv && (
+                <Path
+                  path={skiaPaths.hrv}
+                  color={hrvLineColor}
+                  style="stroke"
+                  strokeWidth={1.5}
+                  strokeJoin="round"
+                  strokeCap="round"
+                />
+              )}
+            </Canvas>
 
             {/* Time range label */}
             <RNText

@@ -1,5 +1,5 @@
-import { line, curveMonotoneX } from 'd3-shape';
-import { buildMonotoneSvg } from '@/lib/charts/sparklinePath';
+import { line, area, curveMonotoneX } from 'd3-shape';
+import { buildMonotoneSvg, buildMonotoneAreaSvg } from '@/lib/charts/sparklinePath';
 
 // Locks pixel parity with Victory Native: Victory builds its line series the same
 // way (d3-shape line + curveMonotoneX → SVG). If buildMonotoneSvg drifts from this
@@ -45,5 +45,44 @@ describe('buildMonotoneSvg', () => {
     expect(
       buildMonotoneSvg(vals as number[], lo as number, hi as number, w as number, 2, 40)
     ).toBeNull();
+  });
+});
+
+// Locks pixel parity with Victory Native's <Area curveType="monotoneX" y0={baseline}>,
+// which builds the fill the same way (d3-shape area + curveMonotoneX → SVG).
+describe('buildMonotoneAreaSvg', () => {
+  const values = [10, 25, 18, 40, 33, 50];
+  const min = 10;
+  const max = 50;
+  const width = 100;
+  const plotTop = 2;
+  const plotHeight = 40;
+  const baseline = 48;
+
+  it('matches d3-shape area().curve(curveMonotoneX) with Victory scales', () => {
+    const step = width / (values.length - 1);
+    const range = max - min;
+    const y = (v: number) => plotTop + (1 - (v - min) / range) * plotHeight;
+    const expected = area<number>()
+      .x((_v, i) => i * step)
+      .y0(() => y(baseline))
+      .y1((v) => y(v))
+      .curve(curveMonotoneX)(values);
+    expect(buildMonotoneAreaSvg(values, min, max, width, plotTop, plotHeight, baseline)).toBe(
+      expected
+    );
+  });
+
+  it('produces a closed fill path (ends with Z)', () => {
+    const svg = buildMonotoneAreaSvg(values, min, max, width, plotTop, plotHeight, baseline)!;
+    expect(svg.trim().endsWith('Z')).toBe(true);
+    expect(svg).not.toContain('NaN');
+  });
+
+  it.each([
+    ['single point', [5]],
+    ['empty', []],
+  ])('returns null for %s', (_label, vals) => {
+    expect(buildMonotoneAreaSvg(vals as number[], 0, 10, width, plotTop, plotHeight, 5)).toBeNull();
   });
 });
