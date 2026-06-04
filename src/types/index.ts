@@ -1,7 +1,7 @@
 export * from './activity';
 export * from './routes';
 export * from './calendar';
-export * from './insight';
+export * from '@/features/insights/types';
 export * from './recording';
 export * from '@/features/strength/types';
 

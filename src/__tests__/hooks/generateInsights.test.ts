@@ -2,7 +2,7 @@ import {
   generateInsights,
   formatDurationCompact,
   InsightInputData,
-} from '@/hooks/insights/generateInsights';
+} from '@/features/insights/lib/generateInsights';
 import type { Insight } from '@/types';
 
 // Mock translation function — returns key with interpolated params

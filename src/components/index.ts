@@ -22,4 +22,15 @@ export {
   DecouplingChart,
 } from '@/features/stats';
 export * from './routes';
-export * from './insights';
+export {
+  InsightsPanel,
+  InsightCard,
+  InsightListCard,
+  InsightDetailSheet,
+  PatternDetailSheet,
+  DataPointRow,
+  SupportingDataSection,
+  MethodologySection,
+  InsightDetailContent,
+  StrengthTab,
+} from '@/features/insights';

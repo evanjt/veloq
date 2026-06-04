@@ -1,5 +1,5 @@
 import type { Insight } from '@/types';
-import { INSIGHTS_CONFIG } from '@/hooks/insights/config';
+import { INSIGHTS_CONFIG } from '@/features/insights/lib/config';
 import {
   applyMixAndCap,
   passesProximity,
@@ -11,7 +11,7 @@ import {
   specificityScore,
   temporalSelfScore,
   type Bbox,
-} from '@/hooks/insights/rules';
+} from '@/features/insights/lib/rules';
 
 const DAY_MS = 86_400_000;
 const NOW = 1_700_000_000_000; // fixed epoch for deterministic tests

@@ -2,23 +2,25 @@ import * as Notifications from 'expo-notifications';
 import * as TaskManager from 'expo-task-manager';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AppState } from 'react-native';
+
 import { debug } from '@/lib';
 import {
-  computeInsightsFromData,
-  fetchInsightsDataFromEngine,
-} from '@/hooks/insights/computeInsightsData';
-import type { WellnessInput } from '@/hooks/insights/computeInsightsData';
+  presentActivityNotification,
+  presentInsightNotification,
+} from '@/lib/notifications/notificationService';
+import type { NotificationPreferences } from '@/providers/NotificationPreferencesStore';
+
+import { computeInsightsFromData, fetchInsightsDataFromEngine } from './lib/computeInsightsData';
+import type { WellnessInput } from './lib/computeInsightsData';
 import {
   filterInsightsForNotificationPreferences,
   formatInsightNotification,
   isPushAllowed,
   pickBestInsightForNotification,
   prunePushHistory,
-} from './insightNotification';
-import { presentActivityNotification, presentInsightNotification } from './notificationService';
-import { computeInsightFingerprint } from '@/providers/InsightsStore';
-import type { NotificationPreferences } from '@/providers/NotificationPreferencesStore';
-import type { Insight } from '@/types';
+} from './notifications';
+import { computeInsightFingerprint } from './store';
+import type { Insight } from './types';
 
 const log = debug.create('BackgroundInsight');
 

@@ -1,4 +1,4 @@
-import type { InsightCategory } from '@/types';
+import type { InsightCategory } from '../types';
 
 /**
  * Single source of truth for insight curation. Every threshold, cap, window,

@@ -1,8 +1,8 @@
 import { formatDuration } from '@/lib';
 import { brand } from '@/theme/colors';
-import type { Insight, SectionPR, TFunc } from './types';
-import { makeInsight } from './insightBuilder';
-import { maxPerCategoryFor } from './config';
+import type { Insight, SectionPR, TFunc } from '../types';
+import { makeInsight } from '../lib/insightBuilder';
+import { maxPerCategoryFor } from '../lib/config';
 
 const DAY_MS = 86_400_000;
 

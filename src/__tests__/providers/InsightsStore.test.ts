@@ -4,7 +4,7 @@ import {
   initializeInsightsStore,
   computeInsightFingerprint,
   diffInsights,
-} from '@/providers/InsightsStore';
+} from '@/features/insights/store';
 import type { Insight } from '@/types';
 
 const STORAGE_KEY = 'veloq-insights-fingerprint';

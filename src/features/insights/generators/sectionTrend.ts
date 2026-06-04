@@ -1,7 +1,7 @@
 import { formatDuration } from '@/lib';
-import type { Insight, SectionTrendData, TFunc } from './types';
-import { makeInsight } from './insightBuilder';
-import { INSIGHTS_CONFIG, maxAgeDaysFor, maxPerCategoryFor } from './config';
+import type { Insight, SectionTrendData, TFunc } from '../types';
+import { makeInsight } from '../lib/insightBuilder';
+import { INSIGHTS_CONFIG, maxAgeDaysFor, maxPerCategoryFor } from '../lib/config';
 
 const DAY_MS = 86_400_000;
 

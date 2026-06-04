@@ -1,13 +1,13 @@
-import { generateStalePRInsights } from './stalePrDetection';
-import { generateEfficiencyTrendInsights } from './efficiencyTrendInsights';
-import { generateSectionPRInsights } from './sectionPRInsights';
-import { generateHrvTrendInsight } from './hrvTrendInsight';
+import { generateStalePRInsights } from '../generators/stalePr';
+import { generateEfficiencyTrendInsights } from '../generators/efficiencyTrend';
+import { generateSectionPRInsights } from '../generators/sectionPR';
+import { generateHrvTrendInsight } from '../generators/hrvTrend';
 import {
   generatePeriodComparisonInsights,
   formatDurationCompact,
-} from './periodComparisonInsights';
-import { generateFitnessMilestoneInsights } from './fitnessMilestoneInsights';
-import { generateSectionTrendInsights } from './sectionTrendInsights';
+} from '../generators/periodComparison';
+import { generateFitnessMilestoneInsights } from '../generators/fitnessMilestone';
+import { generateSectionTrendInsights } from '../generators/sectionTrend';
 import type {
   Insight,
   PeriodStats,
@@ -16,7 +16,7 @@ import type {
   SectionPR,
   SectionTrendData,
   TFunc,
-} from './types';
+} from '../types';
 import { INSIGHTS_CONFIG } from './config';
 import {
   applyMixAndCap,

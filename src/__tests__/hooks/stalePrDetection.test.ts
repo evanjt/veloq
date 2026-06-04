@@ -3,7 +3,7 @@ import {
   stalePROpportunityToInsight,
   StalePRInput,
   StalePROpportunity,
-} from '@/hooks/insights/stalePrDetection';
+} from '@/features/insights/generators/stalePr';
 
 // Mock translation function — returns key with interpolated params
 const mockT = (key: string, params?: Record<string, string | number>): string => {

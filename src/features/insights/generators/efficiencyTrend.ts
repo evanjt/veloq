@@ -1,6 +1,6 @@
-import type { Insight } from '@/types';
+import type { Insight } from '../types';
 import { getRouteEngine } from '@/shared/native/routeEngine';
-import { INSIGHTS_CONFIG, maxPerCategoryFor } from './config';
+import { INSIGHTS_CONFIG, maxPerCategoryFor } from '../lib/config';
 
 /**
  * Aerobic Efficiency Trend Insights

@@ -1,4 +1,4 @@
-import type { Insight, InsightCategory } from '@/types';
+import type { Insight, InsightCategory } from '../types';
 import {
   INSIGHTS_CONFIG,
   maxAgeDaysFor,

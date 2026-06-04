@@ -1,4 +1,4 @@
-import { consolidateInsights } from '@/hooks/insights/computeInsightsData';
+import { consolidateInsights } from '@/features/insights/lib/computeInsightsData';
 import type { Insight } from '@/types';
 
 function createInsight(

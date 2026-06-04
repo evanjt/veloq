@@ -1,6 +1,6 @@
-import { generateSectionTrendInsights } from '@/hooks/insights/sectionTrendInsights';
-import { INSIGHTS_CONFIG } from '@/hooks/insights/config';
-import type { SectionTrendData } from '@/hooks/insights/types';
+import { generateSectionTrendInsights } from '@/features/insights/generators/sectionTrend';
+import { INSIGHTS_CONFIG } from '@/features/insights/lib/config';
+import type { SectionTrendData } from '@/features/insights/types';
 
 const mockT = (key: string, params?: Record<string, string | number>): string => {
   if (!params) return key;

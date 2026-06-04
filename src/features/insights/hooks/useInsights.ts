@@ -2,20 +2,18 @@ import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { InteractionManager } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useFocusEffect } from 'expo-router';
+
 import { useEngineSubscription } from '@/hooks/routes/useRouteEngine';
 import { useWellness } from '@/features/wellness';
-import {
-  useInsightsStore,
-  computeInsightFingerprint,
-  diffInsights,
-} from '@/providers/InsightsStore';
+
+import { useInsightsStore, computeInsightFingerprint, diffInsights } from '../store';
 import {
   computeInsightsFromData,
   fetchInsightsDataFromEngine,
   invalidateInsightsCache,
-} from './computeInsightsData';
-import type { FfiInsightsDataShape, FfiSummaryCardDataShape } from './computeInsightsData';
-import type { Insight } from '@/types';
+} from '../lib/computeInsightsData';
+import type { FfiInsightsDataShape, FfiSummaryCardDataShape } from '../lib/computeInsightsData';
+import type { Insight } from '../types';
 
 /**
  * Compute ranked insights from FFI data.

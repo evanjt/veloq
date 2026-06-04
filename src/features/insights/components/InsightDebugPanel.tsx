@@ -1,9 +1,11 @@
 import React, { useMemo } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Text } from 'react-native-paper';
-import { getLastInsightOutcome } from '@/hooks/insights/generateInsights';
-import { colors, darkColors, spacing } from '@/theme';
+
 import { useTheme } from '@/hooks';
+import { colors, darkColors, spacing } from '@/theme';
+
+import { getLastInsightOutcome } from '../lib/generateInsights';
 
 interface Props {
   visible: boolean;

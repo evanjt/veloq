@@ -141,7 +141,7 @@ export { useWorkoutSections, type WorkoutSection } from '@/features/home/hooks';
 export { useActivityPatterns } from '@/features/home/hooks';
 
 // Insights hooks
-export { useInsights } from './insights';
+export { useInsights } from '@/features/insights';
 
 // Location hooks
 export { useUserLocation } from '@/shared/app/useUserLocation';

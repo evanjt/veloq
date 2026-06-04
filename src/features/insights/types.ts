@@ -113,3 +113,49 @@ export interface Insight {
   confidence?: number;
   meta?: InsightMeta;
 }
+
+// --- Generator input shapes ---
+
+export interface PeriodStats {
+  count: number;
+  totalDuration: number; // seconds
+  totalDistance: number; // meters
+  totalTss: number;
+}
+
+export interface FtpTrend {
+  latestFtp?: number;
+  latestDate?: bigint | number;
+  previousFtp?: number;
+  previousDate?: bigint | number;
+}
+
+export interface PaceTrend {
+  latestPace?: number;
+  latestDate?: bigint | number;
+  previousPace?: number;
+  previousDate?: bigint | number;
+}
+
+export interface SectionPR {
+  sectionId: string;
+  sectionName: string;
+  bestTime: number;
+  daysAgo: number;
+}
+
+export interface SectionTrendData {
+  sectionId: string;
+  sectionName: string;
+  /** -1=declining, 0=stable, 1=improving */
+  trend: number;
+  medianRecentSecs: number;
+  bestTimeSecs: number;
+  traversalCount: number;
+  sportType?: string;
+  daysSinceLast?: number;
+  latestIsPr?: boolean;
+}
+
+/** Translation function signature (react-i18next-compatible). */
+export type TFunc = (key: string, params?: Record<string, string | number>) => string;

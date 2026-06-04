@@ -26,7 +26,7 @@ import {
   type FfiInsightsDataShape,
   type FfiSummaryCardDataShape,
   type WellnessInput,
-} from '@/hooks/insights/computeInsightsData';
+} from '@/features/insights/lib/computeInsightsData';
 import { getRouteEngine } from '@/shared/native/routeEngine';
 
 const t = (key: string, params?: Record<string, string | number>) => {

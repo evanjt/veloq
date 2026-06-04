@@ -1,7 +1,8 @@
-import type { Insight } from '@/types';
-import type { InsightNotificationData } from './notificationService';
+import type { InsightNotificationData } from '@/lib/notifications/notificationService';
 import type { NotificationPreferences } from '@/providers/NotificationPreferencesStore';
-import { INSIGHTS_CONFIG } from '@/hooks/insights/config';
+
+import { INSIGHTS_CONFIG } from './lib/config';
+import type { Insight } from './types';
 
 type TFunc = (key: string, params?: Record<string, string | number>) => string;
 

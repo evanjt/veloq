@@ -1,4 +1,4 @@
-import { INSIGHTS_CONFIG } from '@/hooks/insights/config';
+import { INSIGHTS_CONFIG } from '@/features/insights/lib/config';
 import type { Insight } from '@/types';
 
 import { MUSCLE_DISPLAY_NAMES, type MuscleSlug } from '../lib/exerciseMuscleMap';

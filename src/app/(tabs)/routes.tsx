@@ -11,8 +11,7 @@ import {
   SwipeableTabs,
   type SwipeableTab,
 } from '@/shared/ui';
-import { InsightsPanel } from '@/components/insights';
-import { StrengthTab } from '@/components/insights/StrengthTab';
+import { InsightsPanel, StrengthTab } from '@/features/insights';
 import { DateRangeSummary, RoutesList, SectionsList, SyncDebugTab } from '@/components';
 import type { RoutesSortOption } from '@/components/routes/RoutesList';
 import type { SectionsSortOption } from '@/components/routes/SectionsList';

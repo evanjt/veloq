@@ -1,6 +1,8 @@
 import { create } from 'zustand';
+
 import { getSetting, setSetting } from '@/lib/backup';
-import type { Insight } from '@/types';
+
+import type { Insight } from './types';
 
 const STORAGE_KEY = 'veloq-insights-fingerprint';
 

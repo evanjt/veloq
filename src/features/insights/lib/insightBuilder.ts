@@ -7,7 +7,7 @@
  * that any generator currently uses.
  */
 
-import type { Insight, InsightMeta, InsightMethodology, InsightSupportingData } from '@/types';
+import type { Insight, InsightMeta, InsightMethodology, InsightSupportingData } from '../types';
 
 export interface InsightFields {
   id: string;

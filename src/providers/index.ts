@@ -106,7 +106,7 @@ export {
   initializeInsightsStore,
   computeInsightFingerprint,
   diffInsights,
-} from './InsightsStore';
+} from '@/features/insights/store';
 export {
   useNotificationPreferences,
   getNotificationPreferences,

@@ -1,7 +1,7 @@
-import type { InsightMethodology, InsightSupportingData } from '@/types';
-import type { Insight, PeriodStats, TFunc } from './types';
-import { makeInsight } from './insightBuilder';
-import { INSIGHTS_CONFIG } from './config';
+import type { InsightMethodology, InsightSupportingData } from '../types';
+import type { Insight, PeriodStats, TFunc } from '../types';
+import { makeInsight } from '../lib/insightBuilder';
+import { INSIGHTS_CONFIG } from '../lib/config';
 
 /** Format seconds to compact duration string (e.g., "1h30" or "45m"). */
 export function formatDurationCompact(seconds: number): string {

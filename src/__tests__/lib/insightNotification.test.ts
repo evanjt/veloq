@@ -2,7 +2,7 @@ import {
   filterInsightsForNotificationPreferences,
   formatInsightNotification,
   pickBestInsightForNotification,
-} from '@/lib/notifications/insightNotification';
+} from '@/features/insights/notifications';
 import type { Insight } from '@/types';
 import type { NotificationPreferences } from '@/providers/NotificationPreferencesStore';
 

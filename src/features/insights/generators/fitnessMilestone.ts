@@ -1,7 +1,7 @@
 import { formatPaceCompact, formatSwimPace } from '@/lib';
-import type { Insight, FtpTrend, PaceTrend, TFunc } from './types';
-import { makeInsight } from './insightBuilder';
-import { INSIGHTS_CONFIG } from './config';
+import type { Insight, FtpTrend, PaceTrend, TFunc } from '../types';
+import { makeInsight } from '../lib/insightBuilder';
+import { INSIGHTS_CONFIG } from '../lib/config';
 
 const YEAR_2000_MS = 946_684_800_000;
 
