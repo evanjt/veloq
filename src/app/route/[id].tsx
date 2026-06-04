@@ -331,8 +331,10 @@ export default function RouteDetailScreen() {
     if (performances.length === 0) return { distance: 0, lastDate: '' };
     const distances = performances.map((p) => p.distance || 0);
     const avgDistance = distances.reduce((a, b) => a + b, 0) / distances.length;
-    const dates = performances.map((p) => p.date.getTime());
-    const lastDate = new Date(Math.max(...dates)).toISOString();
+    // Filter out invalid dates: a NaN getTime() poisons Math.max, and
+    // new Date(NaN).toISOString() throws RangeError.
+    const dates = performances.map((p) => p.date.getTime()).filter((t) => Number.isFinite(t));
+    const lastDate = dates.length > 0 ? new Date(Math.max(...dates)).toISOString() : '';
     return { distance: avgDistance, lastDate };
   }, [performances]);
 
