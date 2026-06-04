@@ -611,7 +611,7 @@ describe('useRecordingMetrics', () => {
         makeLap({
           index: 0,
           startTime: 0,
-          endTime: 2, // endTime used as index -> streams.distance[2] = 500
+          endTime: 60, // lap ended at t=60s, which is sample index 2 (distance 500)
           distance: 500,
         }),
       ],
@@ -619,8 +619,9 @@ describe('useRecordingMetrics', () => {
 
     const { result } = renderHook(() => useRecordingMetrics());
 
-    // Total distance 1000, lapStartDistance = streams.distance[2] = 500
-    // lapDistance = 1000 - 500 = 500
+    // endTime is a seconds value, not an array index: the last lap ended at
+    // t=60s where cumulative distance is 500, and the current total is 1000, so
+    // the in-progress lap covers 1000 - 500 = 500.
     expect(result.current.lapDistance).toBe(500);
   });
 
