@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
-import { useWellness, timeRangeToDays, type TimeRange } from './useWellness';
+
+import { useWellness, timeRangeToDays, type TimeRange } from '@/features/wellness';
 import { useZoneDistribution } from './useZoneDistribution';
 import { useActivities, useActivityStreams, useEFTPHistory, getLatestFTP } from '../activities';
 import { useSportSettings, getSettingsForSport } from '@/shared/app/useSportSettings';

@@ -1,4 +1,5 @@
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
+
 import { intervalsApi } from '@/api';
 import { useAuthStore } from '@/providers';
 import { formatLocalDate } from '@/lib';
@@ -6,11 +7,9 @@ import { queryKeys } from '@/shared/query/queryKeys';
 import { getRouteEngine } from '@/shared/native/routeEngine';
 import type { WellnessData } from '@/types';
 
-/**
- * Mirror wellness rows into Rust so sparkline + HRV-trend atomics can
- * read from SQLite. Fire-and-forget: failures are logged in dev only
- * (engine may not be ready yet during early startup).
- */
+// Mirror wellness rows into Rust so sparkline + HRV-trend atomics can read
+// from SQLite. Fire-and-forget: failures are logged in dev only (engine may
+// not be ready yet during early startup).
 function syncWellnessToEngine(rows: WellnessData[]): void {
   if (rows.length === 0) return;
   try {
@@ -50,7 +49,6 @@ const TIME_RANGE_DAYS: Record<TimeRange, number> = {
   '1y': 365,
 };
 
-/** Convert a TimeRange token to a day count. */
 export function timeRangeToDays(range: TimeRange): number {
   return TIME_RANGE_DAYS[range];
 }
@@ -88,10 +86,7 @@ export function useWellness(range: TimeRange = '3m') {
   });
 }
 
-/**
- * Fetch wellness data for a specific date
- * Used for showing Form (CTL/ATL/TSB) on activity detail pages
- */
+// Used for showing Form (CTL/ATL/TSB) on activity detail pages.
 export function useWellnessForDate(date: string | undefined) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
 

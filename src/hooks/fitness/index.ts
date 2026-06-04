@@ -1,4 +1,3 @@
-export { useWellness, useWellnessForDate, timeRangeToDays, type TimeRange } from './useWellness';
 export { useZoneDistribution } from './useZoneDistribution';
 export {
   useAthleteSummary,

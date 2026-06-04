@@ -8,7 +8,7 @@ import { useTheme } from '@/hooks';
 import { useTodayWorkout } from '@/features/home/hooks/useTodayWorkout';
 import { useWorkoutSections } from '@/features/home/hooks/useWorkoutSections';
 import { useActivityPatterns } from '@/features/home/hooks/useActivityPatterns';
-import { useWellness } from '@/hooks/fitness';
+import { useWellness } from '@/features/wellness';
 import {
   getFormZone,
   FORM_ZONE_COLORS,

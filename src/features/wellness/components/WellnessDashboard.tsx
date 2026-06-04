@@ -1,13 +1,13 @@
 import React, { useMemo } from 'react';
 import { View, StyleSheet } from 'react-native';
-import { useTheme } from '@/hooks';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
+
+import { useTheme } from '@/hooks';
 import { colors, darkColors, spacing, typography, layout, opacity } from '@/theme';
 import type { WellnessData } from '@/types';
 
 interface WellnessDashboardProps {
-  /** Wellness data array */
   data?: WellnessData[];
 }
 

@@ -8,19 +8,25 @@ export {
 export { useSectionOverlays } from './activities/useSectionOverlays';
 export { useSectionTimeStreams } from './activities/useSectionTimeStreams';
 
-// Fitness & Wellness hooks
+// Fitness hooks
 export {
-  useWellness,
   useZoneDistribution,
   useAthleteSummary,
   useFitnessRefresh,
   useFitnessComputations,
   useFitnessScreenData,
-  timeRangeToDays,
   getISOWeekNumber,
   formatWeekRange,
   type WeeklySummaryData,
 } from './fitness';
+
+// Wellness hooks
+export {
+  useWellness,
+  useWellnessForDate,
+  timeRangeToDays,
+  type TimeRange,
+} from '@/features/wellness';
 
 export {
   calculateTSB,
@@ -44,7 +50,6 @@ export type { Theme, ThemeColors, UseCollapsibleSections } from '@/shared/app';
 
 // Remaining hooks (not yet reorganized)
 export { useAthlete } from '@/shared/app/useAthlete';
-export { useWellnessForDate, type TimeRange } from './fitness';
 export {
   useInfiniteActivities,
   useActivity,

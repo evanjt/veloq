@@ -3,7 +3,7 @@ import { InteractionManager } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useFocusEffect } from 'expo-router';
 import { useEngineSubscription } from '@/hooks/routes/useRouteEngine';
-import { useWellness } from '@/hooks/fitness';
+import { useWellness } from '@/features/wellness';
 import {
   useInsightsStore,
   computeInsightFingerprint,

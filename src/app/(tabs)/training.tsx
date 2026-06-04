@@ -19,7 +19,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import { WeeklySummary, ActivityHeatmap, SeasonComparison } from '@/components/stats';
-import { WellnessTrendsChart } from '@/components/wellness';
+import { WellnessTrendsChart } from '@/features/wellness';
 import { useActivities, useWellness, useAthleteSummary, useTheme, type TimeRange } from '@/hooks';
 import { colors, darkColors, spacing, layout, typography, opacity } from '@/theme';
 import { createSharedStyles } from '@/styles';

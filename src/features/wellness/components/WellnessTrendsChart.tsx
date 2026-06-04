@@ -1,11 +1,12 @@
 import React, { useMemo, useState, useCallback } from 'react';
 import { View, StyleSheet, LayoutChangeEvent } from 'react-native';
-import { useTheme } from '@/hooks';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { Canvas, Picture, Skia } from '@shopify/react-native-skia';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { useSharedValue, runOnJS } from 'react-native-reanimated';
+
+import { useTheme } from '@/hooks';
 import { colors, spacing, typography, opacity, chartStyles } from '@/theme';
 import { CHART_CONFIG } from '@/constants';
 import {
@@ -16,7 +17,8 @@ import {
   type SmoothingWindow,
 } from '@/lib';
 import type { WellnessData } from '@/types';
-import type { TimeRange } from '@/hooks';
+
+import type { TimeRange } from '../hooks';
 
 interface WellnessTrendsChartProps {
   data?: WellnessData[];
