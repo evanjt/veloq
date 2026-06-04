@@ -8,7 +8,7 @@ import { ComponentErrorBoundary } from '@/components/ui';
 import { DataRangeFooter } from '@/components/routes';
 import { TAB_BAR_SAFE_PADDING } from '@/components/ui';
 import type { ActivityType } from '@/types';
-import { colors, spacing } from '@/theme';
+import { colors, darkColors, spacing } from '@/theme';
 
 interface ActivityRoutesSectionProps {
   activityId: string;
@@ -43,7 +43,7 @@ export const ActivityRoutesSection = React.memo(function ActivityRoutesSection({
           <MaterialCommunityIcons
             name="map-marker-question"
             size={48}
-            color={isDark ? '#71717A' : '#CCC'}
+            color={isDark ? darkColors.iconFaint : colors.iconFaint}
           />
           <Text style={[styles.noMatchTitle, isDark && styles.textLight]}>
             {t('activityDetail.noRouteMatch')}

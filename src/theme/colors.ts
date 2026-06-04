@@ -107,6 +107,27 @@ export function sectionPaletteExpression(): unknown {
 }
 
 // =============================================================================
+// MAP PREVIEW COLORS
+// =============================================================================
+
+// Background gradient and grid for the static route/section map previews
+// (MiniTraceView, RouteRow, SectionRow SVGs) and the Skia feed preview halo.
+// Deliberately muted greens — not the brand teal.
+export const mapPreviewColors = {
+  routeHalo: '#FFFFFF', // White outline under the colored route line (theme-independent)
+  light: {
+    bg: '#e8f4e8',
+    bgBottom: '#d4e8d4',
+    grid: '#d0e8d0',
+  },
+  dark: {
+    bg: '#1a2a1a',
+    bgBottom: '#0d1a0d',
+    grid: '#2a3a2a',
+  },
+} as const;
+
+// =============================================================================
 // LIGHT MODE COLORS
 // =============================================================================
 
@@ -136,6 +157,8 @@ export const colors = {
   textMuted: '#71717A',
   textOnDark: '#FFFFFF',
   textOnPrimary: '#18181B', // Dark text on gold
+  iconFaint: '#CCCCCC', // Faint chevrons / placeholder icons (dark counterpart: textMuted)
+  warningAmber: '#92400E', // Amber warning text/icon on light amber surfaces
 
   // Semantic
   success: '#22C55E',
@@ -276,6 +299,10 @@ export const darkColors = {
   iconSecondary: '#A1A1AA',
   iconMuted: '#71717A',
   iconDisabled: '#52525B',
+  iconFaint: '#71717A', // Faint chevrons / placeholder icons (light counterpart: #CCCCCC)
+
+  // Amber warning text/icon (counterpart to light warningAmber)
+  warningAmber: '#FBBF24',
 
   // Interactive states
   buttonSecondary: '#27272A',

@@ -244,9 +244,9 @@ const SectionHighlights = React.memo(function SectionHighlights({
 });
 
 function getTrendStyle(trend: string) {
-  if (trend === 'improving') return { color: '#66BB6A' };
-  if (trend === 'declining') return { color: '#EF5350' };
-  return { color: '#9E9E9E' };
+  if (trend === 'improving') return { color: colors.formOptimal };
+  if (trend === 'declining') return { color: colors.formHighRisk };
+  return { color: colors.formGreyZone };
 }
 
 const styles = StyleSheet.create({

@@ -74,7 +74,7 @@ function MatchRowComponent({ match }: MatchRowProps) {
           <MaterialCommunityIcons
             name={getTypeIcon()}
             size={18}
-            color={isDark ? '#71717A' : '#BBB'}
+            color={isDark ? darkColors.iconFaint : colors.iconFaint}
           />
         )}
       </View>

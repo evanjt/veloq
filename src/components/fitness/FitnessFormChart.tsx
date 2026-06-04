@@ -64,11 +64,11 @@ const FORM_ZONES = {
 
 // Get form line color based on current value
 function getFormLineColor(form: number): string {
-  if (form < -30) return '#EF5350'; // High Risk - Red
-  if (form < -10) return '#66BB6A'; // Optimal - Green
-  if (form < 5) return '#9E9E9E'; // Grey Zone - Grey
-  if (form < 25) return '#81C784'; // Fresh - Light Green
-  return '#64B5F6'; // Detraining - Blue
+  if (form < -30) return colors.formHighRisk;
+  if (form < -10) return colors.formOptimal;
+  if (form < 5) return colors.formGreyZone;
+  if (form < 25) return colors.formFresh;
+  return colors.formTransition;
 }
 
 interface FitnessFormChartProps {
@@ -550,19 +550,19 @@ export const FitnessFormChart = memo(function FitnessFormChart({
 
               {/* Form zone labels on right */}
               <View style={styles.zoneLabels} pointerEvents="none">
-                <Text style={[styles.zoneLabelText, { color: '#64B5F6' }]}>
+                <Text style={[styles.zoneLabelText, { color: colors.formTransition }]}>
                   {t('formZones.transition')}
                 </Text>
-                <Text style={[styles.zoneLabelText, { color: '#81C784' }]}>
+                <Text style={[styles.zoneLabelText, { color: colors.formFresh }]}>
                   {t('formZones.fresh')}
                 </Text>
-                <Text style={[styles.zoneLabelText, { color: '#9E9E9E' }]}>
+                <Text style={[styles.zoneLabelText, { color: colors.formGreyZone }]}>
                   {t('formZones.greyZone')}
                 </Text>
-                <Text style={[styles.zoneLabelText, { color: '#66BB6A' }]}>
+                <Text style={[styles.zoneLabelText, { color: colors.formOptimal }]}>
                   {t('formZones.optimal')}
                 </Text>
-                <Text style={[styles.zoneLabelText, { color: '#EF5350' }]}>
+                <Text style={[styles.zoneLabelText, { color: colors.formHighRisk }]}>
                   {t('formZones.highRisk')}
                 </Text>
               </View>

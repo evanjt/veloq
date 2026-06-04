@@ -6,11 +6,11 @@ import { useTheme } from '@/hooks';
 import { colors, darkColors, spacing } from '@/theme';
 
 const FORM_ZONE_COLORS = {
-  highRisk: '#EF5350',
-  optimal: '#66BB6A',
-  greyZone: '#9E9E9E',
-  fresh: '#81C784',
-  transition: '#64B5F6',
+  highRisk: colors.formHighRisk,
+  optimal: colors.formOptimal,
+  greyZone: colors.formGreyZone,
+  fresh: colors.formFresh,
+  transition: colors.formTransition,
 };
 
 const HERO_METRICS = [

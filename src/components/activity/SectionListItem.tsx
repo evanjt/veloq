@@ -124,7 +124,7 @@ export const SectionListItem = memo(
                   style={{
                     fontSize: 10,
                     fontWeight: '600',
-                    color: isDark ? '#FAFAFA' : '#1A1A1A',
+                    color: isDark ? darkColors.textPrimary : colors.textPrimary,
                   }}
                 >
                   {index + 1}

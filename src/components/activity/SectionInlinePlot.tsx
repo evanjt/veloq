@@ -230,7 +230,7 @@ export const SectionInlinePlot = memo(
               <MaterialCommunityIcons
                 name="chevron-right"
                 size={20}
-                color={isDark ? '#71717A' : '#CCC'}
+                color={isDark ? darkColors.iconFaint : colors.iconFaint}
               />
             </View>
           </Pressable>

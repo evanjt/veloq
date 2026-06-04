@@ -14,7 +14,15 @@ import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Svg, { Polyline, G, Defs, LinearGradient, Stop, Rect, Circle } from 'react-native-svg';
 import { useTranslation } from 'react-i18next';
-import { colors, darkColors, spacing, layout, typography, shadows } from '@/theme';
+import {
+  colors,
+  darkColors,
+  spacing,
+  layout,
+  typography,
+  shadows,
+  mapPreviewColors,
+} from '@/theme';
 import { formatDistance, getBoundsFromPoints, getActivityColor, getActivityIcon } from '@/lib';
 import type { ActivityType, FrequentSection, RoutePoint } from '@/types';
 import type { SectionSummary } from 'veloqrs';
@@ -228,8 +236,9 @@ export const SectionRow = memo(function SectionRow({
   const activityColor = colors.primary;
 
   // Background colors for map-like appearance
-  const bgColor = isDark ? '#1a2a1a' : '#e8f4e8';
-  const gridColor = isDark ? '#2a3a2a' : '#d0e8d0';
+  const preview = isDark ? mapPreviewColors.dark : mapPreviewColors.light;
+  const bgColor = preview.bg;
+  const gridColor = preview.grid;
 
   // Get start/end points for markers
   const polylinePoints = useMemo(() => {
@@ -255,7 +264,7 @@ export const SectionRow = memo(function SectionRow({
             <Defs>
               <LinearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
                 <Stop offset="0" stopColor={bgColor} stopOpacity="1" />
-                <Stop offset="1" stopColor={isDark ? '#0d1a0d' : '#d4e8d4'} stopOpacity="1" />
+                <Stop offset="1" stopColor={preview.bgBottom} stopOpacity="1" />
               </LinearGradient>
             </Defs>
 
@@ -361,7 +370,11 @@ export const SectionRow = memo(function SectionRow({
           </Svg>
         ) : (
           <View style={[styles.previewPlaceholder, isDark && styles.previewPlaceholderDark]}>
-            <MaterialCommunityIcons name={icon} size={18} color={isDark ? '#71717A' : '#BBB'} />
+            <MaterialCommunityIcons
+              name={icon}
+              size={18}
+              color={isDark ? darkColors.iconFaint : colors.iconFaint}
+            />
           </View>
         )}
       </View>
@@ -376,7 +389,7 @@ export const SectionRow = memo(function SectionRow({
             <MaterialCommunityIcons
               name="pin"
               size={12}
-              color={isDark ? '#71717A' : '#9CA3AF'}
+              color={isDark ? darkColors.textMuted : colors.textDisabled}
               style={{ marginLeft: 4 }}
             />
           )}

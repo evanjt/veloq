@@ -7,6 +7,7 @@ import { View, StyleSheet } from 'react-native';
 import { CartesianChart, Line } from 'victory-native';
 import { Rect } from '@shopify/react-native-skia';
 import { useTheme } from '@/hooks';
+import { colors } from '@/theme';
 
 // Form zone backgrounds (matching intervals.icu and FitnessFormChart)
 const FORM_ZONES = {
@@ -19,11 +20,11 @@ const FORM_ZONES = {
 
 // Get form line color based on current value
 function getFormLineColor(form: number): string {
-  if (form < -30) return '#EF5350'; // High Risk - Red
-  if (form < -10) return '#66BB6A'; // Optimal - Green
-  if (form < 5) return '#9E9E9E'; // Grey Zone - Grey
-  if (form < 25) return '#81C784'; // Fresh - Light Green
-  return '#64B5F6'; // Detraining - Blue
+  if (form < -30) return colors.formHighRisk;
+  if (form < -10) return colors.formOptimal;
+  if (form < 5) return colors.formGreyZone;
+  if (form < 25) return colors.formFresh;
+  return colors.formTransition;
 }
 
 interface MiniFormChartProps {

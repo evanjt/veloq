@@ -22,6 +22,7 @@ import { getCameraOverride } from '@/lib/storage/terrainCameraOverrides';
 import { subscribeSnapshot } from '@/lib/events/terrainSnapshotEvents';
 import { calculateTerrainCamera, isLikelyInterestingTerrain } from '@/lib/utils/cameraAngle';
 import type { TerrainSnapshotWebViewRef } from '@/components/maps/TerrainSnapshotWebView';
+import { brand, colors, mapPreviewColors, colorWithOpacity } from '@/theme';
 import type { Activity } from '@/types';
 import type { PreviewTrack } from '@/hooks/home/useStartupData';
 
@@ -284,7 +285,7 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
         <Canvas style={{ width: boxW, height }}>
           <Path
             path={routePath}
-            color="#FFFFFF"
+            color={mapPreviewColors.routeHalo}
             style="stroke"
             strokeWidth={4}
             strokeJoin="round"
@@ -302,7 +303,7 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
             <Path
               key={i}
               path={p}
-              color="#D4AF37"
+              color={brand.gold}
               style="stroke"
               strokeWidth={4}
               strokeJoin="round"
@@ -310,9 +311,21 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
             />
           ))}
           {startPoint && (
-            <Circle cx={startPoint.x} cy={startPoint.y} r={5} color="rgba(34,197,94,0.9)" />
+            <Circle
+              cx={startPoint.x}
+              cy={startPoint.y}
+              r={5}
+              color={colorWithOpacity(colors.success, 0.9)}
+            />
           )}
-          {endPoint && <Circle cx={endPoint.x} cy={endPoint.y} r={5} color="rgba(239,68,68,0.9)" />}
+          {endPoint && (
+            <Circle
+              cx={endPoint.x}
+              cy={endPoint.y}
+              r={5}
+              color={colorWithOpacity(colors.error, 0.9)}
+            />
+          )}
         </Canvas>
       )}
     </View>

@@ -7,7 +7,7 @@
 import React, { useMemo, useId } from 'react';
 import { View, StyleSheet } from 'react-native';
 import Svg, { Polyline, Defs, LinearGradient, Stop, Rect, Circle } from 'react-native-svg';
-import { colors } from '@/theme';
+import { colors, mapPreviewColors } from '@/theme';
 import type { RoutePoint } from '@/types';
 
 interface MiniTraceViewProps {
@@ -54,9 +54,10 @@ export function MiniTraceView({
   const height = propHeight ?? (propWidth ? 40 : size);
 
   // Background colors for map-like appearance
-  const bgColor = isDark ? '#1a2a1a' : '#e8f4e8';
-  const bgColorBottom = isDark ? '#0d1a0d' : '#d4e8d4';
-  const gridColor = isDark ? '#2a3a2a' : '#d0e8d0';
+  const preview = isDark ? mapPreviewColors.dark : mapPreviewColors.light;
+  const bgColor = preview.bg;
+  const bgColorBottom = preview.bgBottom;
+  const gridColor = preview.grid;
 
   // Memoize all the expensive coordinate calculations
   const { primaryString, referenceString, startPoint, endPoint } = useMemo(() => {

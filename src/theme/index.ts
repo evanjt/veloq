@@ -14,6 +14,7 @@ export {
   insightCategoryColors,
   strengthRamp,
   workoutStepColors,
+  mapPreviewColors,
   sectionPalette,
   sectionPaletteIndex,
   sectionPaletteExpression,

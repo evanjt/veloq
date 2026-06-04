@@ -39,7 +39,7 @@ function RouteTabDisabledState({ isDark }: { isDark: boolean }) {
       <MaterialCommunityIcons
         name="map-marker-off"
         size={18}
-        color={isDark ? '#FBBF24' : '#92400E'}
+        color={isDark ? darkColors.warningAmber : colors.warningAmber}
       />
       <View style={styles.routeMessageText}>
         <Text style={[styles.routeMessageTitle, isDark && styles.routeMessageTitleDark]}>
@@ -52,7 +52,7 @@ function RouteTabDisabledState({ isDark }: { isDark: boolean }) {
       <IconButton
         icon="cog"
         size={18}
-        iconColor={isDark ? '#FBBF24' : '#92400E'}
+        iconColor={isDark ? darkColors.warningAmber : colors.warningAmber}
         onPress={() => router.push('/detection-settings')}
         style={styles.routeMessageButton}
       />
@@ -103,7 +103,7 @@ function RouteTabEngineState({
           <MaterialCommunityIcons
             name="alert-outline"
             size={16}
-            color={isDark ? '#FBBF24' : '#92400E'}
+            color={isDark ? darkColors.warningAmber : colors.warningAmber}
           />
           <Text style={[styles.engineBannerText, isDark && styles.engineBannerTextDark]}>
             {t('engine.initFailed')}
@@ -111,7 +111,7 @@ function RouteTabEngineState({
           <IconButton
             icon="close"
             size={16}
-            iconColor={isDark ? '#FBBF24' : '#92400E'}
+            iconColor={isDark ? darkColors.warningAmber : colors.warningAmber}
             onPress={onDismissEngineBanner}
             style={styles.engineBannerClose}
           />

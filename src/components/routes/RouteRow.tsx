@@ -11,7 +11,16 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Svg, { Polyline, Defs, LinearGradient, Stop, Rect, Circle } from 'react-native-svg';
 import { navigateTo } from '@/lib';
 import { useTranslation } from 'react-i18next';
-import { colors, darkColors, opacity, spacing, layout, typography, shadows } from '@/theme';
+import {
+  colors,
+  darkColors,
+  opacity,
+  spacing,
+  layout,
+  typography,
+  shadows,
+  mapPreviewColors,
+} from '@/theme';
 import {
   getActivityColor,
   getActivityIcon,
@@ -85,15 +94,16 @@ const RoutePreview = memo(function RoutePreview({ points, color, isDark }: Route
   const endPoint = scaledPoints[scaledPoints.length - 1];
 
   // Background colors for map-like appearance
-  const bgColor = isDark ? '#1a2a1a' : '#e8f4e8';
-  const gridColor = isDark ? '#2a3a2a' : '#d0e8d0';
+  const preview = isDark ? mapPreviewColors.dark : mapPreviewColors.light;
+  const bgColor = preview.bg;
+  const gridColor = preview.grid;
 
   return (
     <Svg width={width} height={height}>
       <Defs>
         <LinearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
           <Stop offset="0" stopColor={bgColor} stopOpacity="1" />
-          <Stop offset="1" stopColor={isDark ? '#0d1a0d' : '#d4e8d4'} stopOpacity="1" />
+          <Stop offset="1" stopColor={preview.bgBottom} stopOpacity="1" />
         </LinearGradient>
       </Defs>
 
@@ -253,7 +263,7 @@ function RouteRowComponent({ route, navigable = false, distanceFromUser }: Route
               <MaterialCommunityIcons
                 name={getTypeIcon()}
                 size={18}
-                color={isDark ? '#71717A' : '#BBB'}
+                color={isDark ? darkColors.iconFaint : colors.iconFaint}
               />
             </View>
           )}

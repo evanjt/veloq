@@ -39,7 +39,7 @@ export const EfficiencyTrendContent = React.memo(function EfficiencyTrendContent
     <View style={styles.container}>
       {hrChangePoint ? (
         <View style={[styles.headlineCard, isDark && styles.headlineCardDark]}>
-          <MaterialCommunityIcons name="heart-pulse" size={28} color="#66BB6A" />
+          <MaterialCommunityIcons name="heart-pulse" size={28} color={colors.formOptimal} />
           <View style={styles.headlineText}>
             <Text style={[styles.hrChange, isDark && styles.hrChangeDark]}>
               {hrChangePoint.value} {hrChangePoint.unit}
@@ -159,10 +159,10 @@ const styles = StyleSheet.create({
   hrChange: {
     fontSize: 22,
     fontWeight: '700',
-    color: '#66BB6A',
+    color: colors.formOptimal,
   },
   hrChangeDark: {
-    color: '#81C784',
+    color: colors.formFresh,
   },
   hrLabel: {
     fontSize: 13,
@@ -174,7 +174,7 @@ const styles = StyleSheet.create({
   },
   effortBadge: {
     alignItems: 'center',
-    backgroundColor: '#66BB6A18',
+    backgroundColor: colors.formOptimal + '18',
     borderRadius: 8,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
@@ -182,11 +182,11 @@ const styles = StyleSheet.create({
   effortCount: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#66BB6A',
+    color: colors.formOptimal,
   },
   effortLabel: {
     fontSize: 10,
-    color: '#66BB6A',
+    color: colors.formOptimal,
     fontWeight: '500',
   },
   sectionLink: {
