@@ -1,26 +1,31 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, StyleSheet, ScrollView, Linking, Pressable } from 'react-native';
 import { Text, Button } from 'react-native-paper';
-import { ScreenSafeAreaView } from '@/shared/ui';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { replaceTo } from '@/lib';
 import { useTranslation } from 'react-i18next';
-import { useAuthStore, useSyncDateRange } from '@/providers';
+import { useQueryClient } from '@tanstack/react-query';
+
+import { ScreenSafeAreaView } from '@/shared/ui';
+import { replaceTo } from '@/lib';
+import { useSyncDateRange } from '@/providers';
 import { colors, darkColors, spacing, layout } from '@/theme';
 import { useTheme } from '@/hooks';
 import { createSharedStyles } from '@/styles';
-import { useQueryClient } from '@tanstack/react-query';
-import { INTERVALS_URLS } from '@/services/oauth';
 import { clearAccountData } from '@/shared/storage';
-import { confirmAccountChange, getCachedAthleteId } from '@/lib/auth/accountChange';
 import { useImportDatabaseBackup } from '@/hooks';
-import { useApiKeyLogin, useOAuthLogin, useBackupRestore } from '@/hooks/auth';
 import {
+  useAuthStore,
+  INTERVALS_URLS,
+  confirmAccountChange,
+  getCachedAthleteId,
+  useApiKeyLogin,
+  useOAuthLogin,
+  useBackupRestore,
   LanguagePicker,
   OAuthLoginForm,
   ApiKeyLoginForm,
   BackupRestoreBanner,
-} from '@/components/login';
+} from '@/features/auth';
 
 const VELOQ_URLS = {
   privacy: 'https://veloq.fit/privacy',

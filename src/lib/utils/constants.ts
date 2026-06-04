@@ -102,25 +102,6 @@ export const API_DEFAULTS = {
 } as const;
 
 /**
- * OAuth configuration for intervals.icu
- * See oauth-proxy/README.md for registration details
- */
-export const OAUTH = {
-  /** OAuth client ID (public - safe to embed in app) */
-  CLIENT_ID: '182',
-  /** OAuth proxy URL (Cloudflare Worker that holds client_secret) */
-  PROXY_URL: 'https://auth.veloq.fit',
-  /** intervals.icu authorization endpoint */
-  AUTH_ENDPOINT: 'https://intervals.icu/oauth/authorize',
-  /** App's deep link scheme */
-  APP_SCHEME: 'veloq',
-  /** OAuth scopes */
-  /** WRITE implies READ — don't request both for the same category */
-  /** ACTIVITY:WRITE removed for 0.3.0 — recording not shipping yet, no write access needed */
-  SCOPES: ['ACTIVITY:READ', 'WELLNESS:READ', 'CALENDAR:READ', 'SETTINGS:READ'],
-} as const;
-
-/**
  * External URLs for intervals.icu
  */
 export const INTERVALS_URLS = {

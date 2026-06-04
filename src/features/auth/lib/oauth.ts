@@ -1,7 +1,8 @@
 import * as WebBrowser from 'expo-web-browser';
 import * as Linking from 'expo-linking';
 import * as Crypto from 'expo-crypto';
-import { OAUTH } from '@/lib/utils/constants';
+
+import { OAUTH } from '@/features/auth/constants';
 
 /**
  * Module-level state for CSRF protection during OAuth flow.

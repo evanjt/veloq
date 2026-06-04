@@ -1,12 +1,13 @@
 import { useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
+
 import { useAuthStore, useUploadPermissionStore } from '@/providers';
 import {
   startOAuthFlow,
   handleOAuthCallback,
   isOAuthConfigured,
   getAppRedirectUri,
-} from '@/services/oauth';
+} from '@/features/auth';
 import { clearPermissionBlocked } from '@/lib/storage/uploadQueue';
 import { debug } from '@/shared/debug/debug';
 

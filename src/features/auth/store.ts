@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import * as SecureStore from 'expo-secure-store';
+
 import type { Athlete } from '@/types';
 import { getRouteEngine } from '@/shared/native/routeEngine';
 
@@ -190,7 +191,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     // the worker knows where to deliver webhook-driven notifications for this
     // athlete. Fire-and-forget — OAuth login must not block on push setup.
     try {
-      const { getNotificationPreferences } = require('./NotificationPreferencesStore');
+      const { getNotificationPreferences } = require('@/providers/NotificationPreferencesStore');
       const prefs = getNotificationPreferences();
       if (prefs.enabled) {
         const { registerPushToken } = require('@/lib/notifications/pushTokenRegistration');
@@ -206,7 +207,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       const currentAthleteId = get().athleteId;
       if (currentAthleteId) {
-        const { getNotificationPreferences } = require('./NotificationPreferencesStore');
+        const { getNotificationPreferences } = require('@/providers/NotificationPreferencesStore');
         const prefs = getNotificationPreferences();
         if (prefs.enabled) {
           const { unregisterPushToken } = require('@/lib/notifications/pushTokenRegistration');
@@ -276,7 +277,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     // device whose OAuth session has been revoked.
     try {
       if (currentAthleteId) {
-        const { getNotificationPreferences } = require('./NotificationPreferencesStore');
+        const { getNotificationPreferences } = require('@/providers/NotificationPreferencesStore');
         const prefs = getNotificationPreferences();
         if (prefs.enabled) {
           const { unregisterPushToken } = require('@/lib/notifications/pushTokenRegistration');

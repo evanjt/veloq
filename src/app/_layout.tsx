@@ -498,7 +498,7 @@ export default function RootLayout() {
       getNotificationPreferences,
       retryPendingUnregister,
     } = require('@/providers/NotificationPreferencesStore');
-    const { useAuthStore: authStore } = require('@/providers/AuthStore');
+    const { useAuthStore: authStore } = require('@/features/auth/store');
     const prefs = getNotificationPreferences();
     const { athleteId, isDemoMode: demo } = authStore.getState();
     if (prefs.enabled && athleteId && !demo) {

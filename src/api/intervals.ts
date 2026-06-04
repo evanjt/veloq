@@ -1,6 +1,6 @@
 import { apiClient, getAthleteId } from './client';
 import { formatLocalDate, parseStreams, debug } from '@/lib';
-import { useAuthStore, DEMO_ATHLETE_ID } from '@/providers/AuthStore';
+import { useAuthStore, DEMO_ATHLETE_ID } from '@/features/auth/store';
 import { mockIntervalsApi } from './mockIntervals';
 import { API_DEFAULTS } from '@/lib/utils/constants';
 

@@ -2,10 +2,12 @@ import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
+
 import { replaceTo } from '@/lib';
 import { clearAccountData, clearAuthOnly } from '@/shared/storage';
-import { confirmAccountChange, getCachedAthleteId } from '@/lib/auth/accountChange';
-import { useAuthStore, useSyncDateRange } from '@/providers';
+import { confirmAccountChange, getCachedAthleteId } from '@/features/auth/lib/accountChange';
+import { useSyncDateRange } from '@/providers';
+import { useAuthStore } from '@/features/auth/store';
 
 interface UseApiKeyLoginParams {
   setError: (message: string | null) => void;

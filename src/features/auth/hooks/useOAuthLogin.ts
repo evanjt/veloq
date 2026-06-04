@@ -1,16 +1,18 @@
 import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
+
 import { replaceTo } from '@/lib';
 import { clearAccountData, clearAuthOnly } from '@/shared/storage';
-import { confirmAccountChange, getCachedAthleteId } from '@/lib/auth/accountChange';
-import { useAuthStore, useSyncDateRange, useUploadPermissionStore } from '@/providers';
+import { confirmAccountChange, getCachedAthleteId } from '@/features/auth/lib/accountChange';
+import { useSyncDateRange, useUploadPermissionStore } from '@/providers';
+import { useAuthStore } from '@/features/auth/store';
 import {
   startOAuthFlow,
   handleOAuthCallback,
   isOAuthConfigured,
   getAppRedirectUri,
-} from '@/services/oauth';
+} from '@/features/auth/lib/oauth';
 
 interface UseOAuthLoginParams {
   setError: (message: string | null) => void;

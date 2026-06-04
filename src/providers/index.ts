@@ -19,7 +19,7 @@ export {
   DEMO_ATHLETE_ID,
   type AuthMethod,
   type SessionExpiredReason,
-} from './AuthStore';
+} from '@/features/auth/store';
 export {
   useSportPreference,
   getPrimarySport,

@@ -8,7 +8,7 @@ import { intervalsApi } from '@/api';
 import { debug } from '@/shared/debug/debug';
 import { useRecordingStore } from '@/providers/RecordingStore';
 import { useUploadPermissionStore } from '@/providers/UploadPermissionStore';
-import { isOAuthConfigured } from '@/services/oauth';
+import { isOAuthConfigured } from '@/features/auth';
 import { usePermissionUpgrade } from '@/hooks/recording/usePermissionUpgrade';
 import { useUploadQueue } from '@/hooks/recording/useUploadQueue';
 import { classifyUploadError } from '@/lib/upload/classifyUploadError';

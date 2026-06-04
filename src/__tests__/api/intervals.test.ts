@@ -10,7 +10,7 @@ jest.mock('@/api/client', () => ({
   getAthleteId: jest.fn(() => 'i12345'),
 }));
 
-jest.mock('@/providers/AuthStore', () => {
+jest.mock('@/features/auth/store', () => {
   const store = {
     getState: jest.fn(() => ({
       isDemoMode: false,

@@ -54,8 +54,8 @@ import {
   validateState,
   handleOAuthCallback,
   getAppRedirectUri,
-} from '@/services/oauth';
-import { OAUTH } from '@/lib/utils/constants';
+} from '@/features/auth/lib/oauth';
+import { OAUTH } from '@/features/auth/constants';
 
 const mockedOpenAuth = WebBrowser.openAuthSessionAsync as jest.MockedFunction<
   typeof WebBrowser.openAuthSessionAsync

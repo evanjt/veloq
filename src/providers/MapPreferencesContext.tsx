@@ -12,7 +12,7 @@ import { safeJsonParseWithSchema } from '@/shared/validation/validation';
 import type { MapStyleType } from '@/components/maps/mapStyles';
 import type { ActivityType, Terrain3DMode } from '@/types';
 import { isActivityType } from '@/types';
-import { useAuthStore } from './AuthStore';
+import { useAuthStore } from '@/features/auth/store';
 
 const STORAGE_KEY = 'veloq-map-preferences';
 const ACTIVITY_OVERRIDES_KEY = 'veloq-map-activity-overrides';
