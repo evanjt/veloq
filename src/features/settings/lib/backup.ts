@@ -17,6 +17,7 @@ import { initializeDashboardPreferences } from '@/features/home/store';
 import { initializeInsightsStore } from '@/features/insights/store';
 import { initializeTileCacheStore } from '@/features/maps/stores/TileCacheStore';
 import { initializeRecordingPreferences } from '@/features/recording/stores/RecordingPreferencesStore';
+import { initializeUploadPermission } from '@/features/recording/stores/UploadPermissionStore';
 import { initializeDisabledSections } from '@/features/routes/stores/DisabledSectionsStore';
 import { initializePotentialSections } from '@/features/routes/stores/PotentialSectionsStore';
 import { initializeRouteSettings } from '@/features/routes/stores/RouteSettingsStore';
@@ -35,8 +36,10 @@ import { reloadCameraOverrides } from '@/features/maps/lib/storage/terrainCamera
 import { reloadMapCameraState } from '@/features/maps/lib/storage/mapCameraState';
 import Constants from 'expo-constants';
 import { z } from 'zod';
+import { debug } from '@/shared/debug/debug';
 
 const APP_VERSION = Constants.expoConfig?.version ?? '0.0.0';
+const log = debug.create('Backup');
 
 // ============================================================================
 // Shared helpers
@@ -61,6 +64,7 @@ export async function reinitializeAllStores(): Promise<void> {
     initializeWhatsNewStore(),
     initializeInsightsStore(),
     initializeRecordingPreferences(),
+    initializeUploadPermission(),
     initializeNotificationPreferences(),
     initializeNotificationPrompt(),
     initializeSupportStore(),
@@ -84,6 +88,15 @@ const DatabaseBackupMetadataSchema = z.object({
 });
 
 export type DatabaseBackupMetadata = z.infer<typeof DatabaseBackupMetadataSchema>;
+
+// Shape returned by the native `validateBackupDatabase` pre-restore probe.
+// Narrower than DatabaseBackupMetadataSchema: the probe only reads the three
+// fields it needs to gate the restore, so validate against exactly those.
+const BackupValidationSchema = z.object({
+  schema_version: z.coerce.string(),
+  athlete_id: z.string().nullable(),
+  activity_count: z.number(),
+});
 
 /** Export a full SQLite database snapshot via the OS share sheet. */
 export async function exportDatabaseBackup(): Promise<void> {
@@ -162,8 +175,25 @@ export async function restoreDatabaseBackup(fileUri: string): Promise<DatabaseRe
       | undefined;
     if (validateFn) {
       const metaJson = validateFn(plainTempPath);
-      const meta = JSON.parse(metaJson);
-      backupAthleteId = meta.athlete_id ?? null;
+      let meta: unknown;
+      try {
+        meta = JSON.parse(metaJson);
+      } catch {
+        await FileSystem.deleteAsync(tempPath, { idempotent: true });
+        log.warn('Backup metadata is not valid JSON — refusing to restore');
+        return { success: false, activityCount: 0, error: 'Backup file is corrupt or unreadable' };
+      }
+      const parsed = BackupValidationSchema.safeParse(meta);
+      if (!parsed.success) {
+        await FileSystem.deleteAsync(tempPath, { idempotent: true });
+        log.warn('Backup metadata failed validation — refusing to restore');
+        return {
+          success: false,
+          activityCount: 0,
+          error: 'Backup file is corrupt or from an incompatible version',
+        };
+      }
+      backupAthleteId = parsed.data.athlete_id;
 
       if (
         currentAthleteId != null &&
