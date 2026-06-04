@@ -15,7 +15,7 @@ import {
   ScreenErrorBoundary,
   ErrorStatePreset,
   TAB_BAR_SAFE_PADDING,
-} from '@/components/ui';
+} from '@/shared/ui';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import { WeeklySummary, ActivityHeatmap, SeasonComparison } from '@/components/stats';

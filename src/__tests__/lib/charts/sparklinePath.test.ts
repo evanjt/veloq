@@ -1,5 +1,5 @@
 import { line, area, curveMonotoneX } from 'd3-shape';
-import { buildMonotoneSvg, buildMonotoneAreaSvg } from '@/lib/charts/sparklinePath';
+import { buildMonotoneSvg, buildMonotoneAreaSvg } from '@/shared/charts/sparklinePath';
 
 // Locks pixel parity with Victory Native: Victory builds its line series the same
 // way (d3-shape line + curveMonotoneX → SVG). If buildMonotoneSvg drifts from this

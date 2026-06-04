@@ -6,7 +6,7 @@ import { useTheme } from '@/hooks';
 import { useSectionDetail } from '@/hooks/routes/useRouteEngine';
 import { useSectionPerformances } from '@/hooks/routes/useSectionPerformances';
 import { getActivityIcon } from '@/lib/utils/activityUtils';
-import { Shimmer } from '@/components/ui/Shimmer';
+import { Shimmer } from '@/shared/ui/Shimmer';
 import { SectionInsightMap } from './SectionInsightMap';
 import { SectionPerformanceTimeline } from './SectionPerformanceTimeline';
 import { RecentEffortsList } from './RecentEffortsList';

@@ -15,8 +15,8 @@ import {
 import { useTranslation } from 'react-i18next';
 import { colors, darkColors, typography, layout, chartStyles } from '@/theme';
 import { useMetricSystem } from '@/hooks';
-import { ChartErrorBoundary } from '@/components/ui';
-import { ChartCrosshair } from '@/components/charts/base';
+import { ChartErrorBoundary } from '@/shared/ui';
+import { ChartCrosshair } from '@/shared/charts';
 import { CHART_CONFIG } from '@/constants';
 
 interface ActivityDataChartProps {

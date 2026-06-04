@@ -8,7 +8,7 @@ import { useSectionDetail } from '@/hooks/routes/useRouteEngine';
 import { useSectionPerformances } from '@/hooks/routes/useSectionPerformances';
 import { navigateTo } from '@/lib';
 import { getActivityIcon } from '@/lib/utils/activityUtils';
-import { Shimmer } from '@/components/ui/Shimmer';
+import { Shimmer } from '@/shared/ui/Shimmer';
 import { RecentEffortsList } from './RecentEffortsList';
 import { formatDuration } from '@/lib';
 import { brand, colors, darkColors, spacing, shadows, opacity } from '@/theme';

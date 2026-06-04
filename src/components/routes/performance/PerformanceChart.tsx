@@ -19,7 +19,7 @@ import Animated, {
   runOnJS,
 } from 'react-native-reanimated';
 import { colors, darkColors, spacing, typography } from '@/theme';
-import { ChartCrosshair } from '@/components/charts/base';
+import { ChartCrosshair } from '@/shared/charts';
 import { CHART_CONFIG } from '@/constants';
 import { gaussianSmooth } from '@/lib/utils/smoothing';
 import type { RoutePerformancePoint } from '@/hooks/routes/useRoutePerformances';

@@ -74,9 +74,8 @@ import {
   EngineInitBanner,
   BottomTabBar,
   GlobalErrorBoundary,
-  WhatsNewModal,
-  TourReturnPill,
-} from '@/components/ui';
+} from '@/shared/ui';
+import { WhatsNewModal, TourReturnPill } from '@/components/ui';
 import { useUploadQueueProcessor } from '@/hooks/recording/useUploadQueueProcessor';
 import { useRouteReoptimization } from '@/hooks/routes/useRouteReoptimization';
 import {

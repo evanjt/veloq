@@ -15,7 +15,7 @@ import { useTheme } from '@/hooks';
 import { useSupportStore } from '@/providers';
 import { useDonation } from '@/hooks/useDonation';
 import { colors, darkColors, spacing, layout, shadows, typography } from '@/theme';
-import { TipButtons } from '@/components/ui/TipButtons';
+import { TipButtons } from '@/shared/ui/TipButtons';
 
 const FORUM_URL =
   'https://forum.intervals.icu/t/veloq-route-and-section-matching-mapping-app/120283';

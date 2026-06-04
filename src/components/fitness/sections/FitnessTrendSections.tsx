@@ -3,7 +3,7 @@ import { View, StyleSheet } from 'react-native';
 import { Text, ActivityIndicator } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { CollapsibleSection } from '@/components/ui';
+import { CollapsibleSection } from '@/shared/ui';
 import { ZoneDistributionChart, FTPTrendChart, DecouplingChart } from '@/components/stats';
 import { useTheme } from '@/hooks';
 import { SPORT_COLORS, type PrimarySport } from '@/providers';

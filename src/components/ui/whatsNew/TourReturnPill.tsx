@@ -9,7 +9,7 @@ import Constants from 'expo-constants';
 import { useTheme } from '@/hooks';
 import { colors, darkColors, spacing, shadows } from '@/theme';
 import { useWhatsNewStore } from '@/providers';
-import { TAB_BAR_HEIGHT, GRADIENT_HEIGHT } from '../BottomTabBar';
+import { TAB_BAR_HEIGHT, GRADIENT_HEIGHT } from '@/shared/ui/BottomTabBar';
 import { WHATS_NEW_SLIDES } from './slides';
 
 export function TourReturnPill() {

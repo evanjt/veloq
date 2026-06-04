@@ -13,7 +13,7 @@ import {
   brand,
   insightCategoryColors,
 } from '@/theme';
-import { ChartErrorBoundary } from '@/components/ui';
+import { ChartErrorBoundary } from '@/shared/ui';
 import type { Insight } from '@/types';
 
 interface InsightListCardProps {

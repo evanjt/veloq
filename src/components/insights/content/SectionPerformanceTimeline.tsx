@@ -12,7 +12,7 @@ import {
 import { useTheme } from '@/hooks';
 import { formatDuration, formatShortDate, safeGetTime } from '@/lib';
 import { colors, darkColors, spacing, opacity } from '@/theme';
-import { ChartErrorBoundary } from '@/components/ui';
+import { ChartErrorBoundary } from '@/shared/ui';
 import type { SectionPerformanceRecord } from '@/hooks/routes/useSectionPerformances';
 import type { LayoutChangeEvent } from 'react-native';
 

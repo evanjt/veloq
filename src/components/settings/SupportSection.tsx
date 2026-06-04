@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as WebBrowser from 'expo-web-browser';
 import { useDonation } from '@/hooks/useDonation';
-import { TipButtons } from '@/components/ui/TipButtons';
+import { TipButtons } from '@/shared/ui/TipButtons';
 import { getCrashLog, formatCrashLog } from '@/lib/debug/crashLog';
 import { shareFile } from '@/lib/export/shareFile';
 import { colors, darkColors, spacing, layout, shadows, typography } from '@/theme';

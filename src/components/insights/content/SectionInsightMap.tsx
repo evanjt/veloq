@@ -3,7 +3,7 @@ import { View, StyleSheet } from 'react-native';
 import { Canvas, Path, Circle } from '@shopify/react-native-skia';
 import { useTheme } from '@/hooks';
 import { colors, spacing, opacity } from '@/theme';
-import { ChartErrorBoundary } from '@/components/ui';
+import { ChartErrorBoundary } from '@/shared/ui';
 import type { RoutePoint } from '@/types';
 import type { LayoutChangeEvent } from 'react-native';
 

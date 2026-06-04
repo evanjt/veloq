@@ -5,7 +5,7 @@ export {
   useFitnessColors,
   type ChartColorScheme,
   type ChartMetricType,
-} from './useChartColors';
+} from '@/shared/charts/useChartColors';
 export {
   usePaceCurve,
   PACE_CURVE_DISTANCES,

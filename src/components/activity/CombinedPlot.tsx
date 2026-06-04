@@ -25,7 +25,7 @@ import { useMetricSystem } from '@/hooks';
 import type { ChartConfig, ChartTypeId } from '@/lib';
 import type { ActivityStreams, ActivityInterval, ActivityType } from '@/types';
 import { CHART_CONFIG } from '@/constants';
-import { ChartErrorBoundary } from '@/components/ui';
+import { ChartErrorBoundary } from '@/shared/ui';
 import {
   buildChartData,
   computeAllAverages,

@@ -19,8 +19,8 @@ import { colors, darkColors, opacity, typography, spacing, layout, chartStyles }
 import { CHART_CONFIG } from '@/constants';
 import { calculateTSB } from '@/hooks';
 import { sortByDateId, formatShortDate } from '@/lib';
-import { ChartErrorBoundary } from '@/components/ui';
-import { ChartCrosshair } from '@/components/charts/base';
+import { ChartErrorBoundary } from '@/shared/ui';
+import { ChartCrosshair } from '@/shared/charts';
 import type { WellnessData } from '@/types';
 
 // Chart colors

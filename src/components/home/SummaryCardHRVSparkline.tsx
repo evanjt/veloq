@@ -5,7 +5,7 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { useSharedValue, useAnimatedStyle, runOnJS } from 'react-native-reanimated';
 import { useTheme } from '@/hooks';
 import { darkColors, colors, colorWithOpacity } from '@/theme';
-import { buildMonotoneSvg, buildMonotoneAreaSvg } from '@/lib/charts/sparklinePath';
+import { buildMonotoneSvg, buildMonotoneAreaSvg } from '@/shared/charts/sparklinePath';
 import type { ScrubValues } from './SummaryCardSparkline';
 
 /** Match total height of fitness sparkline (44 chart + 4 form bar) */

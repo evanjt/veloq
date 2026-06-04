@@ -39,7 +39,7 @@ import {
 } from '@/components/routes';
 import { useDebugStore } from '@/providers';
 import { useFFITimer } from '@/hooks/debug/useFFITimer';
-import { TAB_BAR_SAFE_PADDING, ScreenErrorBoundary } from '@/components/ui';
+import { TAB_BAR_SAFE_PADDING, ScreenErrorBoundary } from '@/shared/ui';
 import {
   SectionHeader,
   SectionPerformanceSection,

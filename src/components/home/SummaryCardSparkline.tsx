@@ -6,7 +6,7 @@ import Animated, { useSharedValue, useAnimatedStyle, runOnJS } from 'react-nativ
 import { useTheme } from '@/hooks';
 import { darkColors, colors, colorWithOpacity } from '@/theme';
 import { getFormZone, FORM_ZONE_COLORS, getIntlLocale } from '@/lib';
-import { buildMonotoneSvg } from '@/lib/charts/sparklinePath';
+import { buildMonotoneSvg } from '@/shared/charts/sparklinePath';
 
 const PLOT_TOP = 2;
 const PLOT_BOTTOM = 2;

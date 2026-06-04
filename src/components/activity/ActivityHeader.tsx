@@ -10,7 +10,7 @@ import type {
   SectionCreationError,
 } from '@/components/maps/ActivityMapView';
 import type { CreationState } from '@/components/maps/SectionCreationOverlay';
-import { ComponentErrorBoundary } from '@/components/ui';
+import { ComponentErrorBoundary } from '@/shared/ui';
 import type { ActivityDetail, ActivityStreams } from '@/types';
 import type { TerrainCamera } from '@/lib/utils/cameraAngle';
 import type { MapStyleType } from '@/components/maps/mapStyles';

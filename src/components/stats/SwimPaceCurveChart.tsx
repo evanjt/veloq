@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { CartesianChart, Line } from 'victory-native';
 import { DashPathEffect, Line as SkiaLine } from '@shopify/react-native-skia';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import { ChartCrosshair } from '@/components/charts/base';
+import { ChartCrosshair } from '@/shared/charts';
 import {
   useSharedValue,
   useAnimatedReaction,

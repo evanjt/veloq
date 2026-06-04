@@ -15,7 +15,7 @@ import {
 } from 'react-native-reanimated';
 import { router } from 'expo-router';
 import { colors, darkColors, typography, spacing, layout, chartStyles } from '@/theme';
-import { ChartCrosshair } from '@/components/charts/base';
+import { ChartCrosshair } from '@/shared/charts';
 import { CHART_CONFIG } from '@/constants';
 import { usePaceCurve } from '@/hooks';
 import { useActivities } from '@/hooks';

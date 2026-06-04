@@ -15,7 +15,7 @@ import {
   ScreenErrorBoundary,
   ErrorStatePreset,
   TAB_BAR_SAFE_PADDING,
-} from '@/components/ui';
+} from '@/shared/ui';
 import { logScreenRender } from '@/lib/debug/renderTimer';
 import {
   useActivityBoundsCache,

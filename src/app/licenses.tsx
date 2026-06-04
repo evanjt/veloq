@@ -8,7 +8,7 @@ import {
   Linking,
   LayoutAnimation,
 } from 'react-native';
-import { ScreenSafeAreaView } from '@/components/ui';
+import { ScreenSafeAreaView } from '@/shared/ui';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';

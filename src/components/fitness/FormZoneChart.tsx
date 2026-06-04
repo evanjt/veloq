@@ -16,7 +16,7 @@ import {
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { colors, darkColors, opacity, typography, spacing, layout, chartStyles } from '@/theme';
-import { ChartCrosshair } from '@/components/charts/base';
+import { ChartCrosshair } from '@/shared/charts';
 import { CHART_CONFIG } from '@/constants';
 import {
   calculateTSB,

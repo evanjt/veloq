@@ -28,7 +28,7 @@ import {
 import { fromUnixSeconds } from '@/lib/utils/ffiConversions';
 import { useGroupDetail } from '@/hooks/routes/useRouteEngine';
 import { getAllRouteDisplayNames } from '@/hooks/routes/useRouteGroups';
-import { TAB_BAR_SAFE_PADDING, ScreenErrorBoundary } from '@/components/ui';
+import { TAB_BAR_SAFE_PADDING, ScreenErrorBoundary } from '@/shared/ui';
 import { getRouteEngine } from '@/lib/native/routeEngine';
 
 import {

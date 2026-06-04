@@ -19,7 +19,7 @@ import { useTranslation } from 'react-i18next';
 import { SectionInlinePlot } from '@/components/activity/SectionInlinePlot';
 import { findRowIndexAtPageY } from '@/components/activity/scrubHitTest';
 import { DataRangeFooter } from '@/components/routes';
-import { TAB_BAR_SAFE_PADDING } from '@/components/ui';
+import { TAB_BAR_SAFE_PADDING } from '@/shared/ui';
 import { CHART_CONFIG } from '@/constants';
 import { getRouteEngine } from '@/lib/native/routeEngine';
 import { getAllSectionDisplayNames } from '@/hooks/routes/useUnifiedSections';

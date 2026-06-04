@@ -131,7 +131,7 @@ import { useMapFullscreen } from '@/hooks/maps/useMapFullscreen';
 import { useIOSMapTap } from '@/hooks/maps/useIOSMapTap';
 import { BaseMapView } from './BaseMapView';
 import { Map3DWebView, type Map3DWebViewRef } from './Map3DWebView';
-import { CompassArrow, ComponentErrorBoundary } from '@/components/ui';
+import { CompassArrow, ComponentErrorBoundary } from '@/shared/ui';
 import {
   SectionCreationOverlay,
   type CreationState,

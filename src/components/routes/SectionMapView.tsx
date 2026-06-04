@@ -45,7 +45,7 @@ import {
   getStyleIcon,
 } from '@/components/maps';
 import { Map3DWebView, type Map3DWebViewRef } from '@/components/maps/Map3DWebView';
-import { CompassArrow, ComponentErrorBoundary } from '@/components/ui';
+import { CompassArrow, ComponentErrorBoundary } from '@/shared/ui';
 import { useMapFullscreen } from '@/hooks/maps/useMapFullscreen';
 import { decodeCoords } from 'veloqrs';
 import type { FrequentSection, RoutePoint, ActivityType } from '@/types';

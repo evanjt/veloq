@@ -15,7 +15,7 @@ import {
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { router } from 'expo-router';
-import { ChartCrosshair } from '@/components/charts/base';
+import { ChartCrosshair } from '@/shared/charts';
 import { colors, darkColors, opacity, spacing, layout, typography, chartStyles } from '@/theme';
 import { CHART_CONFIG } from '@/constants';
 import { getActivityColor, sortByDateId } from '@/lib';

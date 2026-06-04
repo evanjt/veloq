@@ -14,7 +14,7 @@ import { useTranslation } from 'react-i18next';
 import * as Location from 'expo-location';
 import { colors, darkColors, opacity, typography, spacing, layout, shadows } from '@/theme';
 import { Map3DWebView, type Map3DWebViewRef } from './Map3DWebView';
-import { CompassArrow, ComponentErrorBoundary } from '@/components/ui';
+import { CompassArrow, ComponentErrorBoundary } from '@/shared/ui';
 import {
   type MapStyleType,
   getMapStyle,

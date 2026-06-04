@@ -4,7 +4,7 @@ import { Canvas, Path, Circle, Skia } from '@shopify/react-native-skia';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { getActivityColor, getMapLibreBounds } from '@/lib';
 import { useMapPreferences } from '@/providers';
-import { StaticCompassArrow } from '@/components/ui';
+import { StaticCompassArrow } from '@/shared/ui';
 import { projectRouteToBox } from '@/lib/geo/routePreview';
 import { useMapPreviewCoordinates } from '@/hooks/activities/useMapPreviewCoordinates';
 import {

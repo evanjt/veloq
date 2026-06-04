@@ -1,7 +1,7 @@
 import React, { useCallback, useMemo } from 'react';
 import { View, ScrollView, StyleSheet, TouchableOpacity, Switch } from 'react-native';
 import { Text } from 'react-native-paper';
-import { ScreenSafeAreaView, TAB_BAR_SAFE_PADDING } from '@/components/ui';
+import { ScreenSafeAreaView, TAB_BAR_SAFE_PADDING } from '@/shared/ui';
 import { router } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';

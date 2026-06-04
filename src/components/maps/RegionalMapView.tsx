@@ -18,7 +18,7 @@ import { useTranslation } from 'react-i18next';
 import { colors, darkColors, spacing, layout, shadows, brand } from '@/theme';
 import { getActivityTypeConfig } from './ActivityTypeFilter';
 import { Map3DWebView, type Map3DWebViewRef } from './Map3DWebView';
-import { ComponentErrorBoundary } from '@/components/ui';
+import { ComponentErrorBoundary } from '@/shared/ui';
 import {
   type MapStyleType,
   getMapStyle,

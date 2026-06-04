@@ -8,7 +8,7 @@ import { TodayBanner } from '@/components/routes/TodayBanner';
 import { InsightListCard } from './InsightListCard';
 import { InsightDetailSheet } from './InsightDetailSheet';
 import { InsightDebugPanel } from './InsightDebugPanel';
-import { TAB_BAR_SAFE_PADDING } from '@/components/ui';
+import { TAB_BAR_SAFE_PADDING } from '@/shared/ui';
 import { colors, darkColors, spacing, layout } from '@/theme';
 import type { Insight } from '@/types';
 

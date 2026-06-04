@@ -2,7 +2,7 @@ import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
-import { CollapsibleSection } from '@/components/ui';
+import { CollapsibleSection } from '@/shared/ui';
 import { PowerCurveChart, PaceCurveChart, SwimPaceCurveChart } from '@/components/stats';
 import { SeasonBestsSection } from '@/components/fitness';
 import { useTheme } from '@/hooks';

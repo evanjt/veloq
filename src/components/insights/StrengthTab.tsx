@@ -13,7 +13,7 @@ import {
 } from '@/hooks/activities/useStrengthVolume';
 import { useAthlete } from '@/hooks';
 import { buildStrengthBalancePairs } from '@/lib/strength/analysis';
-import { TAB_BAR_SAFE_PADDING } from '@/components/ui';
+import { TAB_BAR_SAFE_PADDING } from '@/shared/ui';
 import { colors, darkColors, spacing, typography, opacity, layout } from '@/theme';
 import type { StrengthPeriod, MuscleVolume } from '@/types';
 import {

@@ -25,7 +25,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { colors, darkColors, spacing, layout } from '@/theme';
 import { useUnifiedSections } from '@/hooks/routes/useUnifiedSections';
-import { Shimmer } from '@/components/ui';
+import { Shimmer } from '@/shared/ui';
 import { SectionRow } from './SectionRow';
 import { PotentialSectionCard } from './PotentialSectionCard';
 import { DataRangeFooter } from './DataRangeFooter';

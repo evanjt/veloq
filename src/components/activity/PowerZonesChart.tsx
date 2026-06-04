@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { colors, darkColors, opacity, typography, spacing, layout } from '@/theme';
 import { POWER_ZONE_COLORS } from '@/hooks';
 import type { ActivityDetail } from '@/types';
-import { ChartErrorBoundary } from '@/components/ui';
+import { ChartErrorBoundary } from '@/shared/ui';
 import { formatDurationHuman } from '@/lib/utils/format';
 
 interface PowerZonesChartProps {

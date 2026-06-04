@@ -13,7 +13,7 @@ import {
   useDerivedValue,
   useAnimatedStyle,
 } from 'react-native-reanimated';
-import { ChartCrosshair } from '@/components/charts/base';
+import { ChartCrosshair } from '@/shared/charts';
 import { colors, darkColors, typography, spacing, chartStyles } from '@/theme';
 import { CHART_CONFIG } from '@/constants';
 import { usePowerCurve } from '@/hooks';

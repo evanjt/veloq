@@ -2,12 +2,12 @@ import React, { useState, useEffect, useRef } from 'react';
 import { View, StyleSheet, TouchableOpacity, RefreshControl } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
 import { Text, ActivityIndicator } from 'react-native-paper';
-import { ScreenSafeAreaView, TAB_BAR_SAFE_PADDING } from '@/components/ui';
+import { ScreenSafeAreaView, TAB_BAR_SAFE_PADDING } from '@/shared/ui';
 import { logScreenRender, logMemory } from '@/lib/debug/renderTimer';
 import * as WebBrowser from 'expo-web-browser';
 import { useSharedValue } from 'react-native-reanimated';
 import { useTranslation } from 'react-i18next';
-import { NetworkErrorState, ErrorStatePreset, ScreenErrorBoundary } from '@/components/ui';
+import { NetworkErrorState, ErrorStatePreset, ScreenErrorBoundary } from '@/shared/ui';
 import {
   FitnessChartCard,
   PerformanceCurveSection,

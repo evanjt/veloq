@@ -15,7 +15,7 @@ import {
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { colors, darkColors, opacity, spacing, layout, typography, chartStyles } from '@/theme';
-import { ChartCrosshair } from '@/components/charts/base';
+import { ChartCrosshair } from '@/shared/charts';
 import { CHART_CONFIG } from '@/constants';
 import { calculateTSB, getFormZone, FORM_ZONE_COLORS } from '@/hooks';
 import { sortByDateId, formatShortDate, formatShortDateWithWeekday } from '@/lib';

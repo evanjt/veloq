@@ -19,7 +19,7 @@ import { useKeepAwake } from 'expo-keep-awake';
 import { useTheme, useMetricSystem } from '@/hooks';
 import { colors, darkColors, spacing, layout, typography, brand } from '@/theme';
 import { navigateTo } from '@/lib';
-import { TAB_BAR_SAFE_PADDING } from '@/components/ui';
+import { TAB_BAR_SAFE_PADDING } from '@/shared/ui';
 import { getRecordingMode } from '@/lib/utils/recordingModes';
 import { getActivityIcon, getActivityColor } from '@/lib/utils/activityUtils';
 import { formatDuration, formatDistance, formatPace, formatSpeed } from '@/lib';

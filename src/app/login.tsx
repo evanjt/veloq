@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { View, StyleSheet, ScrollView, Linking, Pressable } from 'react-native';
 import { Text, Button } from 'react-native-paper';
-import { ScreenSafeAreaView } from '@/components/ui';
+import { ScreenSafeAreaView } from '@/shared/ui';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { replaceTo } from '@/lib';
 import { useTranslation } from 'react-i18next';

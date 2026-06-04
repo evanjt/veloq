@@ -5,7 +5,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { colors, darkColors, spacing } from '@/theme';
 import { useTheme } from '@/hooks';
-import { CollapsibleSection } from '@/components/ui/CollapsibleSection';
+import { CollapsibleSection } from '@/shared/ui/CollapsibleSection';
 
 interface ApiKeyLoginFormProps {
   onLogin: (apiKey: string) => Promise<void>;

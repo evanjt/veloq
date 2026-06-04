@@ -6,7 +6,7 @@ import { colors, darkColors, opacity, typography, spacing, layout } from '@/them
 import { useHRZones } from '@/providers';
 import { useSportSettings, getSettingsForSport, HR_ZONE_COLORS } from '@/hooks';
 import type { ActivityStreams, ActivityDetail } from '@/types';
-import { ChartErrorBoundary } from '@/components/ui';
+import { ChartErrorBoundary } from '@/shared/ui';
 import { formatDurationHuman } from '@/lib/utils/format';
 
 interface HRZonesChartProps {

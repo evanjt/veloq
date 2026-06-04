@@ -4,9 +4,9 @@ import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { RoutePerformanceSection } from '@/components/routes/performance/RoutePerformanceSection';
-import { ComponentErrorBoundary } from '@/components/ui';
+import { ComponentErrorBoundary } from '@/shared/ui';
 import { DataRangeFooter } from '@/components/routes';
-import { TAB_BAR_SAFE_PADDING } from '@/components/ui';
+import { TAB_BAR_SAFE_PADDING } from '@/shared/ui';
 import type { ActivityType } from '@/types';
 import { colors, darkColors, spacing } from '@/theme';
 

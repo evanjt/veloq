@@ -10,7 +10,7 @@ import {
   ScreenSafeAreaView,
   SwipeableTabs,
   type SwipeableTab,
-} from '@/components/ui';
+} from '@/shared/ui';
 import { InsightsPanel } from '@/components/insights';
 import { StrengthTab } from '@/components/insights/StrengthTab';
 import { DateRangeSummary, RoutesList, SectionsList, SyncDebugTab } from '@/components';

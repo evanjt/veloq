@@ -8,7 +8,7 @@ import { View, TouchableOpacity, StyleSheet, Animated, ActivityIndicator } from 
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { colors, darkColors, spacing, shadows } from '@/theme';
-import { CompassArrow } from '@/components/ui';
+import { CompassArrow } from '@/shared/ui';
 
 /** Reusable layer toggle button inside a LayerToggleGroup. */
 function LayerToggleButton({

@@ -12,7 +12,7 @@ import {
   Platform,
 } from 'react-native';
 import { Text } from 'react-native-paper';
-import { ScreenSafeAreaView } from '@/components/ui';
+import { ScreenSafeAreaView } from '@/shared/ui';
 import { logScreenRender, PERF_DEBUG } from '@/lib/debug/renderTimer';
 import { isNetworkError } from '@/lib/utils/errorHandler';
 import { navigateTo, queryKeys } from '@/lib';
@@ -38,7 +38,7 @@ import {
   ComponentErrorBoundary,
   ActivityCardSkeleton,
   TAB_BAR_SAFE_PADDING,
-} from '@/components/ui';
+} from '@/shared/ui';
 import { SummaryCard, NotificationOptInCard, SupportCard } from '@/components/home';
 import { useStartupData } from '@/hooks/home/useStartupData';
 import {

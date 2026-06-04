@@ -5,7 +5,7 @@ import { Canvas, RoundedRect } from '@shopify/react-native-skia';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '@/hooks';
 import { colors, darkColors, spacing, opacity } from '@/theme';
-import { ChartErrorBoundary } from '@/components/ui';
+import { ChartErrorBoundary } from '@/shared/ui';
 import type { Insight } from '@/types';
 
 const CHART_HEIGHT = 140;

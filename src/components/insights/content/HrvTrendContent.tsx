@@ -5,7 +5,7 @@ import { Canvas, Path, LinearGradient, vec, Line as SkiaLine } from '@shopify/re
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '@/hooks';
 import { colors, darkColors, spacing, opacity } from '@/theme';
-import { ChartErrorBoundary } from '@/components/ui';
+import { ChartErrorBoundary } from '@/shared/ui';
 import type { Insight } from '@/types';
 import type { LayoutChangeEvent } from 'react-native';
 

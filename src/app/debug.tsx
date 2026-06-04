@@ -11,7 +11,7 @@ import {
 } from 'react-native';
 import Constants from 'expo-constants';
 import { Stack } from 'expo-router';
-import { TAB_BAR_SAFE_PADDING } from '@/components/ui';
+import { TAB_BAR_SAFE_PADDING } from '@/shared/ui';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, darkColors, spacing } from '@/theme';
 import { useTheme } from '@/hooks';

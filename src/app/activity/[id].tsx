@@ -2,7 +2,7 @@ import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react'
 import { View, ScrollView, StyleSheet, Dimensions, InteractionManager } from 'react-native';
 import { Text, IconButton, Snackbar } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ScreenSafeAreaView, ChartSkeleton } from '@/components/ui';
+import { ScreenSafeAreaView, ChartSkeleton } from '@/shared/ui';
 import { logScreenRender } from '@/lib/debug/renderTimer';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -30,7 +30,7 @@ import {
   ActivitySectionsSection,
 } from '@/components';
 import { useDebugStore, useRouteSettings } from '@/providers';
-import { SwipeableTabs, type SwipeableTab } from '@/components/ui';
+import { SwipeableTabs, type SwipeableTab } from '@/shared/ui';
 import type {
   SectionCreationResult,
   SectionCreationError,
@@ -41,9 +41,9 @@ import { useExerciseSets } from '@/hooks/activities';
 import { useAthlete } from '@/hooks';
 import { ExerciseTable } from '@/components/activity/ExerciseTable';
 import { MuscleGroupView } from '@/components/activity/MuscleGroupView';
-import { ComponentErrorBoundary } from '@/components/ui';
+import { ComponentErrorBoundary } from '@/shared/ui';
 import { colors, darkColors, spacing } from '@/theme';
-import { ErrorStatePreset } from '@/components/ui';
+import { ErrorStatePreset } from '@/shared/ui';
 import {
   setCameraOverride,
   getCameraOverride,

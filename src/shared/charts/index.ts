@@ -1,13 +1,3 @@
-/**
- * Chart base infrastructure components.
- *
- * Provides unified chart interaction and styling:
- * - useChartGestures: Gesture handling hook
- * - ChartContainer: Wrapper with loading/error states
- * - ChartCrosshair: Vertical indicator line
- * - ChartTooltip: Data value display
- */
-
 export { useChartGestures } from './useChartGestures';
 export type {
   ChartPoint,
@@ -24,3 +14,12 @@ export type { ChartCrosshairProps } from './ChartCrosshair';
 
 export { ChartTooltip } from './ChartTooltip';
 export type { ChartTooltipProps, TooltipValue } from './ChartTooltip';
+
+export { useChartColors, useChartColor, useZoneColors, useFitnessColors } from './useChartColors';
+export type { ChartColorScheme, ChartMetricType } from './useChartColors';
+
+export { useChartInteraction } from './useChartInteraction';
+
+export { buildMonotoneSvg, buildMonotoneAreaSvg } from './sparklinePath';
+
+export { CHART_CONFIG, GESTURE_VELOCITY, CHART_ANIMATION_DURATION } from './constants';
