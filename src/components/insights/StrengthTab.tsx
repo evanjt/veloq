@@ -4,24 +4,22 @@ import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import type { ExtendedBodyPart } from 'react-native-body-highlighter';
 import { useTranslation } from 'react-i18next';
-import { useTheme } from '@/hooks';
+
+import { useTheme, useAthlete } from '@/hooks';
 import {
   useStrengthVolume,
   useStrengthProgression,
   useExercisesForMuscle,
   useActivitiesForExercise,
-} from '@/hooks/activities/useStrengthVolume';
-import { useAthlete } from '@/hooks';
-import { buildStrengthBalancePairs } from '@/lib/strength/analysis';
-import { TAB_BAR_SAFE_PADDING } from '@/shared/ui';
-import { colors, darkColors, spacing, typography, opacity, layout } from '@/theme';
-import type { StrengthPeriod, MuscleVolume } from '@/types';
-import {
+  buildStrengthBalancePairs,
   StrengthBodyDiagram,
   StrengthProgressionCard,
   StrengthExerciseList,
   StrengthBalanceView,
-} from './strength';
+} from '@/features/strength';
+import { TAB_BAR_SAFE_PADDING } from '@/shared/ui';
+import { colors, darkColors, spacing, typography, opacity, layout } from '@/theme';
+import type { StrengthPeriod, MuscleVolume } from '@/types';
 
 const PERIODS: { id: StrengthPeriod; label: string }[] = [
   { id: 'week', label: '7D' },

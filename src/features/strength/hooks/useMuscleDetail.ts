@@ -1,32 +1,24 @@
 import { useMemo } from 'react';
+
 import { getRouteEngine } from '@/shared/native/routeEngine';
-import { MUSCLE_DISPLAY_NAMES, type MuscleSlug } from '@/lib/strength/exerciseMuscleMap';
+
+import { MUSCLE_DISPLAY_NAMES, type MuscleSlug } from '../lib/exerciseMuscleMap';
 
 export interface ExerciseContribution {
-  /** Human-readable exercise name */
   name: string;
-  /** Whether this muscle is a primary or secondary target */
   role: 'primary' | 'secondary';
-  /** Number of active sets */
   sets: number;
-  /** Total reps across all sets */
   reps: number;
-  /** Total volume load (weight x reps) in kg */
   volumeKg: number;
 }
 
 export interface MuscleGroupDetail {
-  /** Display name for the muscle group */
   name: string;
-  /** Slug matching body-highlighter format */
   slug: string;
-  /** Per-exercise breakdown */
   exercises: ExerciseContribution[];
-  /** Totals */
   totalSets: number;
   totalReps: number;
   totalVolumeKg: number;
-  /** Count of exercises targeting this muscle as primary vs secondary */
   primaryExercises: number;
   secondaryExercises: number;
 }

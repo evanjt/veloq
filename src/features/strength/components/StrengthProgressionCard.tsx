@@ -2,11 +2,13 @@ import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
+
 import { useTheme, useMetricSystem } from '@/hooks';
-import { MUSCLE_DISPLAY_NAMES, type MuscleSlug } from '@/lib/strength/exerciseMuscleMap';
-import { formatSetCount, formatWeightRounded as formatWeight } from '@/lib/strength/formatting';
 import { colors, darkColors, spacing, opacity, layout, brand } from '@/theme';
 import type { ExerciseSummary, MuscleVolume, StrengthProgression } from '@/types';
+
+import { MUSCLE_DISPLAY_NAMES, type MuscleSlug } from '../lib/exerciseMuscleMap';
+import { formatSetCount, formatWeightRounded as formatWeight } from '../lib/formatting';
 
 interface StrengthProgressionCardProps {
   selectedVolume: MuscleVolume;

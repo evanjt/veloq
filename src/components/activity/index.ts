@@ -1,6 +1,6 @@
 export { ActivityCard } from './ActivityCard';
 export { ActivityCardContextMenu } from './ActivityCardContextMenu';
-export { StrengthActivityCard } from './StrengthActivityCard';
+export { StrengthActivityCard } from '@/features/strength';
 export { ActivityMapPreview } from './ActivityMapPreview';
 export { SingularPlot } from './SingularPlot';
 export { ActivityDataChart } from './ActivityDataChart';

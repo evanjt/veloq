@@ -8,9 +8,11 @@ import Animated, {
   runOnJS,
 } from 'react-native-reanimated';
 import Body, { type ExtendedBodyPart } from 'react-native-body-highlighter';
-import { findMuscleAtPoint } from '@/lib/strength/musclePolygons';
+
 import { CHART_CONFIG } from '@/constants';
 import { brand } from '@/theme';
+
+import { findMuscleAtPoint } from '../lib/polygons';
 
 const LOUPE_SIZE = 90;
 const LOUPE_OFFSET_Y = -100;

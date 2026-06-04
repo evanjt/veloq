@@ -24,7 +24,7 @@ import {
   useRoutesScreenData,
   useUserLocation,
 } from '@/hooks';
-import { useHasStrengthData } from '@/hooks/activities/useStrengthVolume';
+import { useHasStrengthData } from '@/features/strength';
 import { useRouteSettings, useSyncDateRange, useDebugStore, useEngineStatus } from '@/providers';
 import { logScreenRender } from '@/shared/debug/renderTimer';
 import { colors, darkColors, spacing } from '@/theme';

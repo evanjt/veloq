@@ -27,7 +27,7 @@ import { ActivityMapPreview } from './ActivityMapPreview';
 import type { PreviewTrack } from '@/features/home/hooks/useStartupData';
 import { ActivityCardContextMenu } from './ActivityCardContextMenu';
 import { SkylineBar } from './SkylineBar';
-import { StrengthActivityCard, type StrengthCardData } from './StrengthActivityCard';
+import { StrengthActivityCard, type StrengthCardData } from '@/features/strength';
 import type { ExtendedBodyPart } from 'react-native-body-highlighter';
 import { useExerciseSets, useMuscleGroups } from '@/hooks/activities';
 import type { TerrainSnapshotWebViewRef } from '@/components/maps/TerrainSnapshotWebView';

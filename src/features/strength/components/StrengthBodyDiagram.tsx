@@ -5,11 +5,13 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import type { ExtendedBodyPart } from 'react-native-body-highlighter';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useTranslation } from 'react-i18next';
-import { BodyPairWithLoupe } from '@/components/activity/BodyPairWithLoupe';
+
 import { useTheme } from '@/hooks';
-import { MUSCLE_DISPLAY_NAMES, type MuscleSlug } from '@/lib/strength/exerciseMuscleMap';
 import { colors, darkColors, spacing, layout, brand, strengthRamp } from '@/theme';
 import type { MuscleVolume } from '@/types';
+
+import { BodyPairWithLoupe } from './BodyPairWithLoupe';
+import { MUSCLE_DISPLAY_NAMES, type MuscleSlug } from '../lib/exerciseMuscleMap';
 
 const BODY_COLORS: readonly string[] = strengthRamp;
 const BODY_FILL_LIGHT = '#3f3f3f';

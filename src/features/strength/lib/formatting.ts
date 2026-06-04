@@ -1,4 +1,4 @@
-import type { StrengthBalancePair } from '@/types';
+import type { StrengthBalancePair } from '../types';
 
 /**
  * Format a weight value in kg or lbs depending on the user's metric preference.

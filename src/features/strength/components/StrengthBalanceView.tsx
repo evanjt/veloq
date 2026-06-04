@@ -3,11 +3,13 @@ import { View, StyleSheet, TouchableOpacity, Modal, Pressable } from 'react-nati
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
+
 import { useTheme } from '@/hooks';
-import { formatSetCount, formatBalanceRatio } from '@/lib/strength/formatting';
-import { BALANCE_PAIRS } from '@/lib/strength/analysis';
 import { colors, darkColors, spacing, opacity, layout, brand } from '@/theme';
 import type { StrengthBalancePair } from '@/types';
+
+import { formatSetCount, formatBalanceRatio } from '../lib/formatting';
+import { BALANCE_PAIRS } from '../lib/analysis';
 
 interface StrengthBalanceViewProps {
   visibleBalancePairs: StrengthBalancePair[];

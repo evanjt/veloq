@@ -1,9 +1,11 @@
 import { useQuery } from '@tanstack/react-query';
+import type { ExerciseSet, MuscleGroup } from 'veloqrs';
+
 import { getRouteEngine } from '@/shared/native/routeEngine';
 import { getStoredCredentials, useAuthStore } from '@/providers';
 import { queryKeys } from '@/shared/query/queryKeys';
-import { demoStrengthSets } from '@/data/demo/strengthSets';
-import type { ExerciseSet, MuscleGroup } from 'veloqrs';
+
+import { demoStrengthSets } from '../demo';
 
 function isDemo(): boolean {
   return useAuthStore.getState().isDemoMode;

@@ -1,10 +1,12 @@
 import React, { useState, useCallback, useRef } from 'react';
 import { View, ScrollView, StyleSheet, Pressable, Platform, Text as RNText } from 'react-native';
-import { useTheme, useMetricSystem } from '@/hooks';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useTranslation } from 'react-i18next';
+import Body, { type ExtendedBodyPart } from 'react-native-body-highlighter';
+
+import { useTheme, useMetricSystem } from '@/hooks';
 import type { Activity } from '@/types';
 import {
   formatDuration,
@@ -19,9 +21,8 @@ import {
 } from '@/lib';
 import { colors, darkColors, typography, spacing, shadows, brand, layout } from '@/theme';
 import { CHART_CONFIG } from '@/constants';
-import { ActivityCardContextMenu } from './ActivityCardContextMenu';
-import { SkylineBar } from './SkylineBar';
-import Body, { type ExtendedBodyPart } from 'react-native-body-highlighter';
+import { ActivityCardContextMenu } from '@/components/activity/ActivityCardContextMenu';
+import { SkylineBar } from '@/components/activity/SkylineBar';
 
 /** Aggregated muscle/exercise data for a strength activity */
 export interface StrengthCardData {

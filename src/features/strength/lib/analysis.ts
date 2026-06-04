@@ -1,11 +1,12 @@
-import { MUSCLE_DISPLAY_NAMES } from './exerciseMuscleMap';
 import type {
   MuscleVolume,
   StrengthBalancePair,
   StrengthBalanceStatus,
   StrengthProgressPoint,
   StrengthProgression,
-} from '@/types';
+} from '../types';
+
+import { MUSCLE_DISPLAY_NAMES } from './exerciseMuscleMap';
 
 const WATCH_RATIO = 1.35;
 const IMBALANCED_RATIO = 2;

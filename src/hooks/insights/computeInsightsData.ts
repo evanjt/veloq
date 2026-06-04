@@ -1,10 +1,10 @@
 import { getRouteEngine } from '@/shared/native/routeEngine';
 import { isRouteMatchingEnabled } from '@/providers/RouteSettingsStore';
+import { generateStrengthInsights } from '@/features/strength/hooks/strengthInsights';
+import type { Insight, StrengthSummary } from '@/types';
+
 import { generateInsights } from './generateInsights';
-import { generateStrengthInsights } from './strengthInsights';
 import { INSIGHTS_CONFIG } from './config';
-import type { Insight } from '@/types';
-import type { StrengthSummary } from '@/types';
 
 type TFunc = (key: string, params?: Record<string, string | number>) => string;
 

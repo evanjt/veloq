@@ -1,18 +1,20 @@
 import { useState, useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
+
 import { getRouteEngine } from '@/shared/native/routeEngine';
 import { CACHE } from '@/lib/utils/constants';
 import { queryKeys } from '@/shared/query/queryKeys';
-import { buildStrengthProgression } from '@/lib/strength/analysis';
 import { useAuthStore } from '@/providers';
-import { demoStrengthSets } from '@/data/demo/strengthSets';
+
+import { buildStrengthProgression } from '../lib/analysis';
+import { demoStrengthSets } from '../demo';
 import type {
   StrengthSummary,
   StrengthPeriod,
   MuscleExerciseSummary,
   ExerciseActivity,
   StrengthProgression,
-} from '@/types';
+} from '../types';
 
 /**
  * Seed synthetic strength sets for demo activities once per session. The

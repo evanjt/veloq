@@ -1,8 +1,10 @@
-import { MUSCLE_DISPLAY_NAMES, type MuscleSlug } from '@/lib/strength/exerciseMuscleMap';
-import { buildStrengthBalancePairs, buildStrengthProgression } from '@/lib/strength/analysis';
-import { formatSetCount } from '@/lib/strength/formatting';
-import type { Insight, StrengthBalancePair, StrengthProgressPoint, StrengthSummary } from '@/types';
-import { INSIGHTS_CONFIG } from './config';
+import { INSIGHTS_CONFIG } from '@/hooks/insights/config';
+import type { Insight } from '@/types';
+
+import { MUSCLE_DISPLAY_NAMES, type MuscleSlug } from '../lib/exerciseMuscleMap';
+import { buildStrengthBalancePairs, buildStrengthProgression } from '../lib/analysis';
+import { formatSetCount } from '../lib/formatting';
+import type { StrengthBalancePair, StrengthProgressPoint, StrengthSummary } from '../types';
 
 function formatRatio(value: number | null): string {
   if (value == null) return 'No signal';

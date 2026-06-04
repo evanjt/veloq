@@ -11,8 +11,8 @@ export { useEFTPHistory, getLatestFTP, getLatestEFTP } from './useEFTPHistory';
 export { useMapPreviewCoordinates } from './useMapPreviewCoordinates';
 export { useSectionOverlays } from './useSectionOverlays';
 export { useSectionTimeStreams } from './useSectionTimeStreams';
-export { useExerciseSets, useMuscleGroups } from './useExerciseSets';
-export { useMuscleDetail } from './useMuscleDetail';
+export { useExerciseSets, useMuscleGroups } from '@/features/strength';
+export { useMuscleDetail } from '@/features/strength';
 export { useActivitySectionHighlights } from './useActivitySectionHighlights';
 export type {
   ActivitySectionHighlight,
@@ -24,4 +24,4 @@ export {
   useStrengthProgression,
   useExercisesForMuscle,
   useActivitiesForExercise,
-} from './useStrengthVolume';
+} from '@/features/strength';

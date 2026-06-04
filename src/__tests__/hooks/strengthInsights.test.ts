@@ -1,4 +1,4 @@
-import { generateStrengthInsights } from '@/hooks/insights/strengthInsights';
+import { generateStrengthInsights } from '@/features/strength/hooks/strengthInsights';
 import type { StrengthSummary } from '@/types';
 
 function makeSummary(

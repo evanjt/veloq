@@ -4,11 +4,13 @@ import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useRouter } from 'expo-router';
+
 import { useTheme, useMetricSystem } from '@/hooks';
-import { MUSCLE_DISPLAY_NAMES, type MuscleSlug } from '@/lib/strength/exerciseMuscleMap';
-import { formatWeightRounded as formatWeight } from '@/lib/strength/formatting';
 import { colors, darkColors, spacing, layout, brand } from '@/theme';
 import type { MuscleVolume, ExerciseSummary } from '@/types';
+
+import { MUSCLE_DISPLAY_NAMES, type MuscleSlug } from '../lib/exerciseMuscleMap';
+import { formatWeightRounded as formatWeight } from '../lib/formatting';
 
 interface ExerciseActivity {
   activityId: string;

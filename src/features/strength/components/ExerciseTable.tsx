@@ -2,12 +2,14 @@ import React, { useMemo } from 'react';
 import { View, StyleSheet, ActivityIndicator, Pressable, Linking } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
-import { useExerciseSets } from '@/hooks/activities';
+import type { ExerciseSet } from 'veloqrs';
+
 import { useMetricSystem } from '@/shared/app/useMetricSystem';
 import { formatDuration } from '@/lib';
-import { formatWeight } from '@/lib/strength/formatting';
 import { colors, darkColors, spacing, layout, typography, shadows, brand } from '@/theme';
-import type { ExerciseSet } from 'veloqrs';
+
+import { useExerciseSets } from '../hooks/useExerciseSets';
+import { formatWeight } from '../lib/formatting';
 
 interface ExerciseTableProps {
   activityId: string;

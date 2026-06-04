@@ -6,16 +6,18 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import type { ExtendedBodyPart } from 'react-native-body-highlighter';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useMuscleGroups } from '@/hooks/activities';
-import { useMuscleDetail } from '@/hooks/activities/useMuscleDetail';
-import { useMetricSystem } from '@/hooks';
-import { BodyPairWithLoupe } from './BodyPairWithLoupe';
 import { useTranslation } from 'react-i18next';
+import type { ExerciseSet } from 'veloqrs';
+
+import { useMetricSystem } from '@/hooks';
 import { formatDateTime, formatDuration } from '@/lib';
-import { formatWeight } from '@/lib/strength/formatting';
 import { colors, darkColors, spacing, typography, brand } from '@/theme';
 import type { ActivityDetail } from '@/types';
-import type { ExerciseSet } from 'veloqrs';
+
+import { useMuscleGroups } from '../hooks/useExerciseSets';
+import { useMuscleDetail } from '../hooks/useMuscleDetail';
+import { formatWeight } from '../lib/formatting';
+import { BodyPairWithLoupe } from './BodyPairWithLoupe';
 
 interface MuscleGroupViewProps {
   activityId: string;
