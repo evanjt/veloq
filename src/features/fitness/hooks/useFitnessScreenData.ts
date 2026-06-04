@@ -1,11 +1,16 @@
 import { useMemo } from 'react';
 
 import { useWellness, timeRangeToDays, type TimeRange } from '@/features/wellness';
-import { useZoneDistribution } from './useZoneDistribution';
-import { useActivities, useActivityStreams, useEFTPHistory, getLatestFTP } from '../activities';
+import {
+  useActivities,
+  useActivityStreams,
+  useEFTPHistory,
+  getLatestFTP,
+} from '@/hooks/activities';
 import { useSportSettings, getSettingsForSport } from '@/shared/app/useSportSettings';
 import { usePaceCurve, useSeasonBests } from '@/features/stats';
 import { useAuthStore, type PrimarySport } from '@/providers';
+import { useZoneDistribution } from './useZoneDistribution';
 
 interface UseFitnessScreenDataArgs {
   timeRange: TimeRange;

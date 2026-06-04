@@ -25,7 +25,7 @@ import { getActivityIcon, getActivityColor } from '@/lib/utils/activityUtils';
 import { formatDuration, formatDistance, formatPace, formatSpeed } from '@/lib';
 import { useRecordingStore } from '@/providers/RecordingStore';
 import { useRecordingPreferences } from '@/providers/RecordingPreferencesStore';
-import { useHRZones } from '@/providers/HRZonesStore';
+import { useHRZones } from '@/features/fitness';
 import { createAutoPauseDetector } from '@/lib/recording/autoPause';
 import { saveRecordingBackup, clearRecordingBackup } from '@/lib/storage/recordingBackup';
 import { RecordingMap } from '@/components/recording/RecordingMap';

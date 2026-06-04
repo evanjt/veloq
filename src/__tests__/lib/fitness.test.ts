@@ -1,4 +1,4 @@
-import { calculateTSB, getFormZone, type FormZone } from '@/lib/algorithms/fitness';
+import { calculateTSB, getFormZone, type FormZone } from '@/features/fitness/lib/fitness';
 import type { WellnessData } from '@/types';
 
 describe('calculateTSB', () => {

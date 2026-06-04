@@ -12,8 +12,10 @@ import {
   FitnessChartCard,
   PerformanceCurveSection,
   FitnessTrendSections,
-} from '@/components/fitness/sections';
-import { TimeRangeSelector, SportToggleSelector, FitnessHeaderStats } from '@/components/fitness';
+  TimeRangeSelector,
+  SportToggleSelector,
+  FitnessHeaderStats,
+} from '@/features/fitness';
 import {
   useTheme,
   useChartInteraction,

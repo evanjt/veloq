@@ -27,7 +27,7 @@ export {
   SPORT_API_TYPES,
   SPORT_COLORS,
   type PrimarySport,
-} from './SportPreferenceStore';
+} from '@/features/fitness/stores';
 export {
   useHRZones,
   getHRZones,
@@ -35,7 +35,7 @@ export {
   DEFAULT_HR_ZONES,
   type HRZone,
   type HRZonesSettings,
-} from './HRZonesStore';
+} from '@/features/fitness/stores';
 export {
   usePotentialSections,
   getPotentialSections,

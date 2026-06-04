@@ -18,7 +18,7 @@ export {
   getISOWeekNumber,
   formatWeekRange,
   type WeeklySummaryData,
-} from './fitness';
+} from '@/features/fitness/hooks';
 
 // Wellness hooks
 export {
@@ -35,7 +35,7 @@ export {
   FORM_ZONE_LABELS,
   FORM_ZONE_BOUNDARIES,
   type FormZone,
-} from '@/lib';
+} from '@/features/fitness/lib/fitness';
 
 // Chart hooks
 export { usePowerCurve, usePaceCurve, useSeasonBests } from '@/features/stats';

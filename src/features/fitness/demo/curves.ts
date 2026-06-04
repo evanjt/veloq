@@ -1,5 +1,5 @@
 import type { PowerCurve, PaceCurve } from '@/types';
-import { DEMO_REFERENCE_DATE, getDemoReferenceDate, formatDateId } from './random';
+import { DEMO_REFERENCE_DATE, getDemoReferenceDate, formatDateId } from '@/data/demo/random';
 
 // Calculate deterministic date range (42 days before reference date)
 const referenceDate = getDemoReferenceDate();

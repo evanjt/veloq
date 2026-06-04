@@ -41,8 +41,8 @@ import {
   SPORT_COLORS,
   getPrimarySport,
   initializeSportPreference,
-} from '@/providers/SportPreferenceStore';
-import type { PrimarySport } from '@/providers/SportPreferenceStore';
+} from '@/features/fitness/stores/SportPreferenceStore';
+import type { PrimarySport } from '@/features/fitness/stores/SportPreferenceStore';
 
 // DashboardPreferencesStore
 import {
@@ -57,7 +57,11 @@ import {
 } from '@/features/home/store';
 
 // HRZonesStore
-import { useHRZones, DEFAULT_HR_ZONES, initializeHRZones } from '@/providers/HRZonesStore';
+import {
+  useHRZones,
+  DEFAULT_HR_ZONES,
+  initializeHRZones,
+} from '@/features/fitness/stores/HRZonesStore';
 
 // MapPreferencesContext
 import { MapPreferencesProvider, useMapPreferences } from '@/providers/MapPreferencesContext';

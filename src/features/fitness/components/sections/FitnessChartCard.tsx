@@ -3,11 +3,12 @@ import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import type { SharedValue } from 'react-native-reanimated';
-import { FitnessChart, FormZoneChart, ActivityDotsChart } from '@/components/fitness';
-import { useTheme, FORM_ZONE_COLORS } from '@/hooks';
+
+import { useTheme } from '@/hooks';
 import { colors, darkColors, spacing, layout, typography, opacity } from '@/theme';
 import type { WellnessData, Activity } from '@/types';
-import type { FormZone } from '@/lib/algorithms/fitness';
+import { FitnessChart, FormZoneChart, ActivityDotsChart } from '..';
+import { FORM_ZONE_COLORS, type FormZone } from '../../lib';
 
 interface FitnessChartCardProps {
   wellness: WellnessData[];

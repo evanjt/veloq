@@ -26,7 +26,7 @@ const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 // Lazy-loaded demo fixture cache (avoids ~400KB eager load for non-demo users)
 let _fixtures: Awaited<typeof import('@/data/demo/fixtures')> | null = null;
-let _curves: Awaited<typeof import('@/data/demo/curves')> | null = null;
+let _curves: Awaited<typeof import('@/features/fitness/demo/curves')> | null = null;
 let _calendarEvents: Awaited<typeof import('@/data/demo/calendarEvents')> | null = null;
 
 async function loadFixtures() {
@@ -35,7 +35,7 @@ async function loadFixtures() {
 }
 
 async function loadCurves() {
-  if (!_curves) _curves = await import('@/data/demo/curves');
+  if (!_curves) _curves = await import('@/features/fitness/demo/curves');
   return _curves;
 }
 

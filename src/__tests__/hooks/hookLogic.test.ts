@@ -16,7 +16,7 @@ jest.mock('@/providers', () => ({
   },
 }));
 
-import { calculateZonesFromStreams } from '@/hooks/fitness/useZoneDistribution';
+import { calculateZonesFromStreams } from '@/features/fitness/hooks/useZoneDistribution';
 import {
   getSettingsForSport,
   getZoneColor,
@@ -24,15 +24,15 @@ import {
   HR_ZONE_COLORS,
   DEFAULT_HR_ZONES,
 } from '@/shared/app/useSportSettings';
-import { SPORT_API_TYPES, SPORT_COLORS } from '@/providers/SportPreferenceStore';
-import type { PrimarySport } from '@/providers/SportPreferenceStore';
+import { SPORT_API_TYPES, SPORT_COLORS } from '@/features/fitness/stores/SportPreferenceStore';
+import type { PrimarySport } from '@/features/fitness/stores/SportPreferenceStore';
 import {
   getFormZone,
   FORM_ZONE_COLORS,
   FORM_ZONE_LABELS,
   FORM_ZONE_BOUNDARIES,
   type FormZone,
-} from '@/lib/algorithms/fitness';
+} from '@/features/fitness/lib/fitness';
 import { getLatestFTP, getLatestEFTP } from '@/hooks/activities/useEFTPHistory';
 import type { SportSettings, Activity } from '@/types';
 

@@ -27,7 +27,7 @@ jest.mock('@/lib', () => ({
   getIntlLocale: () => 'en-US',
 }));
 
-import { getISOWeekNumber, formatWeekRange } from '@/hooks/fitness/useAthleteSummary';
+import { getISOWeekNumber, formatWeekRange } from '@/features/fitness/hooks/useAthleteSummary';
 
 // ---------------------------------------------------------------------------
 // getISOWeekNumber

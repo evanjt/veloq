@@ -23,7 +23,7 @@ import {
   formatTSS,
 } from '@/shared/format/format';
 import { parseStreams } from '@/lib/utils/streams';
-import { calculateTSB, getFormZone } from '@/lib/algorithms/fitness';
+import { calculateTSB, getFormZone } from '@/features/fitness/lib/fitness';
 import type { RawStreamItem, WellnessData } from '@/types';
 
 // Mock veloqrs native module — toActivityMetrics imports the type

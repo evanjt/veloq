@@ -1,5 +1,5 @@
 import type { WellnessData } from '@/types';
-import { fixtures } from './fixtures';
+import { fixtures } from '@/data/demo/fixtures';
 
 export const demoWellness: WellnessData[] = fixtures.wellness.map((w) => ({
   id: w.id,

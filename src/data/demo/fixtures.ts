@@ -27,7 +27,7 @@ import {
   createActivitySeededRandom,
   getTimeOfDay,
 } from './random';
-import { getTrainingDay } from './periodization';
+import { getTrainingDay } from '@/features/fitness/demo/periodization';
 
 // ============================================================================
 // TYPES (matching API responses)

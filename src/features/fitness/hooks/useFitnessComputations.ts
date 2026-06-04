@@ -1,7 +1,8 @@
 import { useMemo } from 'react';
-import { getFormZone, type FormZone } from '@/lib';
+
 import type { PrimarySport } from '@/providers';
 import type { WellnessData, ZoneDistribution, eFTPPoint } from '@/types';
+import { getFormZone, type FormZone } from '../lib';
 
 interface DecouplingStreams {
   watts?: number[];

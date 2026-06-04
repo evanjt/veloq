@@ -1,6 +1,15 @@
 export * from './activity';
 export * from './maps';
-export * from './fitness';
+export {
+  FitnessChart,
+  FitnessFormChart,
+  FormZoneChart,
+  ActivityDotsChart,
+  SeasonBestsSection,
+  TimeRangeSelector,
+  SportToggleSelector,
+  FitnessHeaderStats,
+} from '@/features/fitness/components';
 export {
   PowerCurveChart,
   PaceCurveChart,

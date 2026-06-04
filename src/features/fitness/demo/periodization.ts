@@ -1,4 +1,4 @@
-import { createDateSeededRandom } from './random';
+import { createDateSeededRandom } from '@/data/demo/random';
 
 export type TrainingPhase =
   | 'offseason'

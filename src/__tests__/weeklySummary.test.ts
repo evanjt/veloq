@@ -3,7 +3,7 @@
  * Ensures calendar weeks match intervals.icu display
  */
 
-import { getISOWeekNumber, formatWeekRange } from '../hooks/fitness/useAthleteSummary';
+import { getISOWeekNumber, formatWeekRange } from '@/features/fitness/hooks/useAthleteSummary';
 
 // Test helper: Get Monday of ISO week
 function getMonday(date: Date): Date {

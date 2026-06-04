@@ -2,10 +2,11 @@ import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
-import { useTheme, FORM_ZONE_COLORS, FORM_ZONE_LABELS } from '@/hooks';
+
+import { useTheme } from '@/hooks';
 import { formatShortDateWithWeekday } from '@/lib';
-import type { FormZone } from '@/lib/algorithms/fitness';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
+import { FORM_ZONE_COLORS, FORM_ZONE_LABELS, type FormZone } from '../lib';
 
 interface FitnessDisplayValues {
   fitness: number;

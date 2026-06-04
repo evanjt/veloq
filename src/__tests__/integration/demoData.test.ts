@@ -4,9 +4,9 @@
  * and that fixtures themselves remain shape-valid, unique, and deterministic.
  */
 
-import { calculateTSB } from '@/lib/algorithms/fitness';
+import { calculateTSB } from '@/features/fitness/lib/fitness';
 import { sortByDateId } from '@/lib/utils/activityUtils';
-import { demoWellness } from '@/data/demo/wellness';
+import { demoWellness } from '@/data/demo';
 import {
   fixtures,
   getActivityStreams,
