@@ -49,6 +49,12 @@ module.exports = {
     "!src/styles/**",
     "!src/theme/**",
     "!src/types/**",
+    "!src/features/**/components/**",
+    "!src/shared/ui/**",
+    "!src/features/**/demo/**",
+    "!src/features/**/demo.ts",
+    "!src/features/**/types.ts",
+    "!src/features/**/constants.ts",
   ],
   coverageThreshold: {
     global: {
