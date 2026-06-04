@@ -18,7 +18,7 @@ import {
 } from '@/shared/ui';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
-import { WeeklySummary, ActivityHeatmap, SeasonComparison } from '@/components/stats';
+import { WeeklySummary, ActivityHeatmap, SeasonComparison } from '@/features/stats';
 import { WellnessTrendsChart } from '@/features/wellness';
 import { useActivities, useWellness, useAthleteSummary, useTheme, type TimeRange } from '@/hooks';
 import { colors, darkColors, spacing, layout, typography, opacity } from '@/theme';

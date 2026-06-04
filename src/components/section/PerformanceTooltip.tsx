@@ -16,7 +16,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
 import { navigateTo, formatPace, formatSpeed, formatDuration, formatPerformanceDelta } from '@/lib';
-import { formatShortDateWithYear } from '@/lib/charts/dateFormatting';
+import { formatShortDateWithYear } from '@/features/stats';
 import { colors, darkColors } from '@/theme';
 import type { PerformanceDataPoint } from '@/types';
 

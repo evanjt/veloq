@@ -31,7 +31,7 @@ import {
   computeAllAverages,
   computeIntervalBands,
   type ChartMetricValue,
-} from '@/lib/charts/combinedPlotData';
+} from '@/features/stats';
 import { ChartXAxisLabel } from './ChartXAxisLabel';
 import { ChartYAxisLabel } from './ChartYAxisLabel';
 import { ChartDistanceIndicator } from './ChartDistanceIndicator';

@@ -2,7 +2,11 @@
  * Tests for time-axis helpers used by date-based charts.
  */
 
-import { computeTimeAxisLabels, axisLabelsNeedDay, formatAxisDate } from '@/lib/charts/timeAxis';
+import {
+  computeTimeAxisLabels,
+  axisLabelsNeedDay,
+  formatAxisDate,
+} from '@/features/stats/lib/timeAxis';
 
 function dp(iso: string): { date: Date } {
   return { date: new Date(iso) };

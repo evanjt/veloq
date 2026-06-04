@@ -11,7 +11,7 @@ import {
   DEFAULT_COMPRESSED_GAP_DAYS,
   DEFAULT_GAP_THRESHOLD_DAYS,
   detectGaps,
-} from '@/lib/charts/gapCompression';
+} from '@/features/stats/lib/gapCompression';
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 

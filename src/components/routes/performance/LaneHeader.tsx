@@ -12,7 +12,7 @@ import { View, StyleSheet, Pressable } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { formatPace, formatDuration } from '@/lib';
-import { formatShortDateWithYear } from '@/lib/charts/dateFormatting';
+import { formatShortDateWithYear } from '@/features/stats';
 import { colors, darkColors } from '@/theme';
 import type { DirectionBestRecord, DirectionSummaryStats } from './UnifiedPerformanceChart';
 

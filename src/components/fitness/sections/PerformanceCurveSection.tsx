@@ -3,13 +3,13 @@ import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { CollapsibleSection } from '@/shared/ui';
-import { PowerCurveChart, PaceCurveChart, SwimPaceCurveChart } from '@/components/stats';
+import { PowerCurveChart, PaceCurveChart, SwimPaceCurveChart } from '@/features/stats';
 import { SeasonBestsSection } from '@/components/fitness';
 import { useTheme } from '@/hooks';
 import { SPORT_COLORS, type PrimarySport } from '@/providers';
 import { formatPaceCompact, formatSwimPace } from '@/lib';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
-import type { BestEffort } from '@/hooks/charts/useSeasonBests';
+import type { BestEffort } from '@/features/stats';
 
 interface PerformanceCurveSectionProps {
   sportMode: PrimarySport;

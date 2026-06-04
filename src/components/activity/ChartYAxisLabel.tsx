@@ -1,7 +1,7 @@
 import React from 'react';
 import { StyleSheet, Text } from 'react-native';
 import { colors, darkColors, typography } from '@/theme';
-import type { SeriesInfo } from '@/lib/charts/combinedPlotData';
+import type { SeriesInfo } from '@/features/stats';
 
 interface ChartYAxisLabelProps {
   yAxisSeries: SeriesInfo;

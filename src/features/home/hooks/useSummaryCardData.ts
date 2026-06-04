@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useAthlete } from '@/shared/app/useAthlete';
 import { useWellness } from '@/features/wellness';
 import { useSportSettings, getSettingsForSport } from '@/shared/app/useSportSettings';
-import { usePaceCurve } from '@/hooks/charts';
+import { usePaceCurve } from '@/features/stats';
 import { getFormZone, FORM_ZONE_COLORS, FORM_ZONE_LABELS } from '@/lib';
 import { useDashboardPreferences, useSportPreference, SPORT_COLORS } from '@/providers';
 import type { MetricId } from '@/providers';

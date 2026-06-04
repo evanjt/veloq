@@ -26,10 +26,10 @@ import {
   calculateChartWidth,
   DEFAULT_COMPRESSED_GAP_DAYS,
   DEFAULT_GAP_THRESHOLD_DAYS,
-} from '@/lib/charts/gapCompression';
+  formatShortDateWithYear,
+  formatAxisDate,
+} from '@/features/stats';
 import { splitIntoLanes, type LaneData } from '@/lib/charts/unifiedPerformanceData';
-import { formatShortDateWithYear } from '@/lib/charts/dateFormatting';
-import { formatAxisDate } from '@/lib/charts/timeAxis';
 import { LaneHeader } from './LaneHeader';
 import { CartesianChart, Line, type PointsArray } from 'victory-native';
 import { Circle } from '@shopify/react-native-skia';

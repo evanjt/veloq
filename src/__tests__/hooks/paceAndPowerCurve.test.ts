@@ -11,14 +11,14 @@ import {
   getTimeAtDistance,
   PACE_CURVE_DISTANCES,
   SWIM_PACE_CURVE_DISTANCES,
-} from '@/hooks/charts/usePaceCurve';
+} from '@/features/stats/hooks/usePaceCurve';
 
 import {
   getPowerAtDuration,
   getIndexAtDuration,
   formatPowerCurveForChart,
   POWER_CURVE_DURATIONS,
-} from '@/hooks/charts/usePowerCurve';
+} from '@/features/stats/hooks/usePowerCurve';
 
 import type { PaceCurve, PowerCurve } from '@/types';
 

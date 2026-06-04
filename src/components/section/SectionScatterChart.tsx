@@ -25,8 +25,12 @@ import {
   buildTrendWithBand,
   type TrendBandPoint,
 } from '@/lib/charts/scatterData';
-import { computeTimeAxisLabels, axisLabelsNeedDay, formatAxisDate } from '@/lib/charts/timeAxis';
-import { useScatterGestures } from '@/hooks/charts/useScatterGestures';
+import {
+  computeTimeAxisLabels,
+  axisLabelsNeedDay,
+  formatAxisDate,
+  useScatterGestures,
+} from '@/features/stats';
 import { colors, darkColors } from '@/theme';
 import type { ActivityType, RoutePoint, PerformanceDataPoint } from '@/types';
 import type { DirectionBestRecord, DirectionSummaryStats } from '@/components/routes/performance';

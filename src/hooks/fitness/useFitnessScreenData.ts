@@ -4,7 +4,7 @@ import { useWellness, timeRangeToDays, type TimeRange } from '@/features/wellnes
 import { useZoneDistribution } from './useZoneDistribution';
 import { useActivities, useActivityStreams, useEFTPHistory, getLatestFTP } from '../activities';
 import { useSportSettings, getSettingsForSport } from '@/shared/app/useSportSettings';
-import { usePaceCurve, useSeasonBests } from '../charts';
+import { usePaceCurve, useSeasonBests } from '@/features/stats';
 import { useAuthStore, type PrimarySport } from '@/providers';
 
 interface UseFitnessScreenDataArgs {

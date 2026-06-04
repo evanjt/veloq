@@ -18,7 +18,7 @@ import {
   computeAllAverages,
   computeIntervalBands,
   type SeriesInfo,
-} from '@/lib/charts/combinedPlotData';
+} from '@/features/stats/lib/combinedPlotData';
 import type { ChartConfig, ChartTypeId } from '@/lib';
 import type { ActivityStreams, ActivityInterval } from '@/types';
 

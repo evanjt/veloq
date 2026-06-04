@@ -1,12 +1,4 @@
 export {
-  useChartColors,
-  useChartColor,
-  useZoneColors,
-  useFitnessColors,
-  type ChartColorScheme,
-  type ChartMetricType,
-} from '@/shared/charts/useChartColors';
-export {
   usePaceCurve,
   PACE_CURVE_DISTANCES,
   SWIM_PACE_CURVE_DISTANCES,
@@ -24,3 +16,4 @@ export {
   formatPowerCurveForChart,
 } from './usePowerCurve';
 export { useSeasonBests, type BestEffort, type UseSeasonBestsResult } from './useSeasonBests';
+export { useScatterGestures } from './useScatterGestures';

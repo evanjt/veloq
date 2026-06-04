@@ -38,8 +38,9 @@ export {
 } from '@/lib';
 
 // Chart hooks
-export { usePowerCurve, usePaceCurve, useChartColors, useSeasonBests } from './charts';
-export type { BestEffort, UseSeasonBestsResult } from './charts';
+export { usePowerCurve, usePaceCurve, useSeasonBests } from '@/features/stats';
+export { useChartColors } from '@/shared/charts/useChartColors';
+export type { BestEffort, UseSeasonBestsResult } from '@/features/stats';
 
 // UI hooks
 export { useTheme, useMetricSystem, useCollapsibleSections } from '@/shared/app';
@@ -78,14 +79,14 @@ export {
   getTimeAtDistance,
   paceToMinPerKm,
   paceToMinPer100m,
-} from './charts';
+} from '@/features/stats';
 export {
   useChartColor,
   useZoneColors,
   useFitnessColors,
   type ChartColorScheme,
   type ChartMetricType,
-} from './charts';
+} from '@/shared/charts/useChartColors';
 export { getLatestFTP, getLatestEFTP } from './activities';
 export { useOldestActivityDate } from '@/shared/app/useOldestActivityDate';
 export { useCacheDays } from '@/shared/app/useCacheDays';
