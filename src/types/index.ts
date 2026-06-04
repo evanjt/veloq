@@ -1,4 +1,4 @@
-export * from './activity';
+export * from '@/features/activity/types';
 export * from './routes';
 export * from './calendar';
 export * from '@/features/insights/types';

@@ -33,7 +33,7 @@ import {
   FORM_ZONE_BOUNDARIES,
   type FormZone,
 } from '@/features/fitness/lib/fitness';
-import { getLatestFTP, getLatestEFTP } from '@/hooks/activities/useEFTPHistory';
+import { getLatestFTP, getLatestEFTP } from '@/features/activity/hooks/useEFTPHistory';
 import type { SportSettings, Activity } from '@/types';
 
 // ---------------------------------------------------------------------------

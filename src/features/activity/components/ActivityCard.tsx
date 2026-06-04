@@ -29,7 +29,7 @@ import { ActivityCardContextMenu } from './ActivityCardContextMenu';
 import { SkylineBar } from './SkylineBar';
 import { StrengthActivityCard, type StrengthCardData } from '@/features/strength';
 import type { ExtendedBodyPart } from 'react-native-body-highlighter';
-import { useExerciseSets, useMuscleGroups } from '@/hooks/activities';
+import { useExerciseSets, useMuscleGroups } from '@/features/strength';
 import type { TerrainSnapshotWebViewRef } from '@/components/maps/TerrainSnapshotWebView';
 
 function formatLocation(activity: Activity): string | null {

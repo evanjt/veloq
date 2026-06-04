@@ -57,7 +57,7 @@ function providerCapture() {
 // Stub isInfiniteActivitiesStale so onSuccess can be exercised without pulling in
 // the full activities module (which drags in auth store, queryKeys, etc.)
 const mockIsInfiniteActivitiesStale = jest.fn().mockReturnValue(false);
-jest.mock('@/hooks/activities/useActivities', () => ({
+jest.mock('@/features/activity/hooks/useActivities', () => ({
   isInfiniteActivitiesStale: (...args: any[]) => mockIsInfiniteActivitiesStale(...args),
 }));
 

@@ -20,7 +20,7 @@ import {
 } from 'veloqrs';
 import { getStoredCredentials, getSyncGeneration, useSyncDateRange } from '@/providers';
 import { isRouteMatchingEnabled } from '@/providers/RouteSettingsStore';
-import { toActivityMetrics } from '@/lib/utils/activityMetrics';
+import { toActivityMetrics } from '@/features/activity/lib/activityMetrics';
 import { intervalsApi } from '@/api';
 import type { Activity } from '@/types';
 import type { SyncProgress } from './useRouteSyncProgress';

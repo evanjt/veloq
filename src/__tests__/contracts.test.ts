@@ -22,7 +22,7 @@ import {
   formatLocalDate,
   formatTSS,
 } from '@/shared/format/format';
-import { parseStreams } from '@/lib/utils/streams';
+import { parseStreams } from '@/features/activity/lib/streams';
 import { calculateTSB, getFormZone } from '@/features/fitness/lib/fitness';
 import type { RawStreamItem, WellnessData } from '@/types';
 
@@ -31,7 +31,7 @@ jest.mock('veloqrs', () => ({}));
 
 // Import after mock is set up
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const { toActivityMetrics } = require('@/lib/utils/activityMetrics');
+const { toActivityMetrics } = require('@/features/activity/lib/activityMetrics');
 
 // ============================================================================
 // FIXTURES — stable test activities from demo data

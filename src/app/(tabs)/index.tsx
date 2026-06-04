@@ -30,7 +30,7 @@ import {
 } from '@/hooks';
 import type { Activity } from '@/types';
 import { useDashboardPreferences, useMapPreferences } from '@/providers';
-import { ActivityCard } from '@/components/activity';
+import { ActivityCard } from '@/features/activity/components';
 import {
   NetworkErrorState,
   ErrorStatePreset,

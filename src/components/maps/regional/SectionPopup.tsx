@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/hooks';
 import { colors, darkColors, typography, spacing, shadows } from '@/theme';
 import { getActivityTypeConfig } from '../ActivityTypeFilter';
-import { getActivityIcon } from '@/lib/utils/activityUtils';
+import { getActivityIcon } from '@/features/activity/lib/activityUtils';
 import type { FrequentSection } from '@/types';
 
 interface SectionPopupProps {

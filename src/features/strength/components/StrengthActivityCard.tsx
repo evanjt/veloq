@@ -21,8 +21,8 @@ import {
 } from '@/lib';
 import { colors, darkColors, typography, spacing, shadows, brand, layout } from '@/theme';
 import { CHART_CONFIG } from '@/constants';
-import { ActivityCardContextMenu } from '@/components/activity/ActivityCardContextMenu';
-import { SkylineBar } from '@/components/activity/SkylineBar';
+import { ActivityCardContextMenu } from '@/features/activity/components/ActivityCardContextMenu';
+import { SkylineBar } from '@/features/activity/components/SkylineBar';
 
 /** Aggregated muscle/exercise data for a strength activity */
 export interface StrengthCardData {

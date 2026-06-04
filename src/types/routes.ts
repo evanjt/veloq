@@ -2,7 +2,7 @@
  * Route matching types for identifying activities on similar routes.
  */
 
-import type { ActivityType } from './activity';
+import type { ActivityType } from '@/features/activity/types';
 
 /**
  * Valid activity types for type checking.

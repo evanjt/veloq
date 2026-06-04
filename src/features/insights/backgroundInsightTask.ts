@@ -217,7 +217,7 @@ async function fetchAndIngestActivity(activityId: string): Promise<ActivityInfo 
 
     const result = takeFetchAndStoreResult();
     if (result && result.successCount > 0) {
-      const { toActivityMetrics } = require('@/lib/utils/activityMetrics');
+      const { toActivityMetrics } = require('@/features/activity/lib/activityMetrics');
       routeEngine.setActivityMetrics([toActivityMetrics(activity)]);
       routeEngine.triggerRefresh('activities');
       activityInfo.ingested = true;

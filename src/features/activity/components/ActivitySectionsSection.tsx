@@ -16,8 +16,8 @@ import { Gesture, GestureDetector, RectButton } from 'react-native-gesture-handl
 import { runOnJS, useSharedValue } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { useTranslation } from 'react-i18next';
-import { SectionInlinePlot } from '@/components/activity/SectionInlinePlot';
-import { findRowIndexAtPageY } from '@/components/activity/scrubHitTest';
+import { SectionInlinePlot } from './SectionInlinePlot';
+import { findRowIndexAtPageY } from './scrubHitTest';
 import { DataRangeFooter } from '@/components/routes';
 import { TAB_BAR_SAFE_PADDING } from '@/shared/ui';
 import { CHART_CONFIG } from '@/constants';

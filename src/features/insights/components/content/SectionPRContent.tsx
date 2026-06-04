@@ -5,7 +5,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '@/hooks';
 import { useSectionDetail } from '@/hooks/routes/useRouteEngine';
 import { useSectionPerformances } from '@/hooks/routes/useSectionPerformances';
-import { getActivityIcon } from '@/lib/utils/activityUtils';
+import { getActivityIcon } from '@/features/activity/lib/activityUtils';
 import { Shimmer } from '@/shared/ui/Shimmer';
 import { SectionInsightMap } from './SectionInsightMap';
 import { SectionPerformanceTimeline } from './SectionPerformanceTimeline';

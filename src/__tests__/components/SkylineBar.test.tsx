@@ -3,7 +3,7 @@
  * Uses decoder output directly since React Native rendering isn't
  * available in the Jest transform configuration.
  */
-import { decodeSkylineBytes } from '@/lib/utils/skylineDecoder';
+import { decodeSkylineBytes } from '@/features/activity/lib/skylineDecoder';
 
 // Inline zone color constants (must match useSportSettings.ts)
 const POWER_ZONE_COLORS = [

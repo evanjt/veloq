@@ -21,7 +21,7 @@ import { colors, darkColors, spacing, layout, typography, brand } from '@/theme'
 import { navigateTo } from '@/lib';
 import { TAB_BAR_SAFE_PADDING } from '@/shared/ui';
 import { getRecordingMode } from '@/lib/utils/recordingModes';
-import { getActivityIcon, getActivityColor } from '@/lib/utils/activityUtils';
+import { getActivityIcon, getActivityColor } from '@/features/activity/lib/activityUtils';
 import { formatDuration, formatDistance, formatPace, formatSpeed } from '@/lib';
 import { useRecordingStore } from '@/providers/RecordingStore';
 import { useRecordingPreferences } from '@/providers/RecordingPreferencesStore';

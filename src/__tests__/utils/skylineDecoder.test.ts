@@ -1,4 +1,4 @@
-import { decodeSkylineBytes } from '@/lib/utils/skylineDecoder';
+import { decodeSkylineBytes } from '@/features/activity/lib/skylineDecoder';
 
 // Helper: encode a minimal protobuf for testing
 function encodeVarint(value: number): number[] {

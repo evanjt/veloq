@@ -1,4 +1,4 @@
-import { parseStreams } from '../lib/utils/streams';
+import { parseStreams } from '@/features/activity/lib/streams';
 import type { RawStreamItem } from '../types';
 
 describe('parseStreams', () => {

@@ -1,4 +1,4 @@
-import type { ActivityType } from './activity';
+import type { ActivityType } from '@/features/activity/types';
 
 /** Recording mode determines the UI and data collection approach */
 export type RecordingMode = 'gps' | 'indoor' | 'manual';

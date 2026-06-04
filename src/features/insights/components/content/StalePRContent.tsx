@@ -6,7 +6,7 @@ import { useTheme } from '@/hooks';
 import { getSportDisplayName } from '@/lib';
 import { useSectionDetail } from '@/hooks/routes/useRouteEngine';
 import { navigateTo, formatDuration } from '@/lib';
-import { getActivityIcon } from '@/lib/utils/activityUtils';
+import { getActivityIcon } from '@/features/activity/lib/activityUtils';
 import { SectionInsightMap } from './SectionInsightMap';
 import { colors, darkColors, spacing, opacity, shadows } from '@/theme';
 import type { Insight, SupportingSection } from '@/types';

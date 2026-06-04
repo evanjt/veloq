@@ -1,4 +1,4 @@
-export * from './activity';
+export * from '@/features/activity/components';
 export * from './maps';
 export {
   FitnessChart,

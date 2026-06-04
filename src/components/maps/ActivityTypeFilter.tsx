@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, activityTypeColors, typography, spacing, layout } from '@/theme';
 import type { ActivityType } from '@/types';
-import type { MaterialIconName } from '@/lib/utils/activityUtils';
+import type { MaterialIconName } from '@/features/activity/lib/activityUtils';
 
 // Activity type label keys for translation
 type ActivityLabelKey =

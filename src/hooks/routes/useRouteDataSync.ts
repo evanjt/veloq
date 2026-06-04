@@ -47,7 +47,7 @@ import { i18n } from '@/i18n';
 import { getNativeModule } from '@/shared/native/routeEngine';
 import { routeEngine } from 'veloqrs';
 import { intervalsApi } from '@/api';
-import { toActivityMetrics } from '@/lib/utils/activityMetrics';
+import { toActivityMetrics } from '@/features/activity/lib/activityMetrics';
 import { useSyncDateRange, getStoredCredentials } from '@/providers';
 import type { Activity } from '@/types';
 import type { SyncProgress } from './useRouteSyncProgress';

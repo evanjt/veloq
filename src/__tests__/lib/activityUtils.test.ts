@@ -4,7 +4,7 @@ import {
   getActivityIcon,
   isRunningActivity,
   isCyclingActivity,
-} from '@/lib/utils/activityUtils';
+} from '@/features/activity/lib/activityUtils';
 
 describe('sortByDateId', () => {
   it('sorts items by date id in chronological order', () => {

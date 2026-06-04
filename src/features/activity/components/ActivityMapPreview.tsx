@@ -6,7 +6,7 @@ import { getActivityColor, getMapLibreBounds } from '@/lib';
 import { useMapPreferences } from '@/providers';
 import { StaticCompassArrow } from '@/shared/ui';
 import { projectRouteToBox } from '@/shared/geo/routePreview';
-import { useMapPreviewCoordinates } from '@/hooks/activities/useMapPreviewCoordinates';
+import { useMapPreviewCoordinates } from '../hooks/useMapPreviewCoordinates';
 import {
   hasTerrainPreview,
   getTerrainPreviewUri,

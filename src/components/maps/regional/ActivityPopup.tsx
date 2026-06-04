@@ -6,7 +6,7 @@ import { colors, darkColors, typography, spacing, shadows } from '@/theme';
 import { formatDistance, formatDuration, formatFullDateWithWeekday } from '@/lib';
 import { useMetricSystem, useTheme } from '@/hooks';
 import { getActivityTypeConfig } from '../ActivityTypeFilter';
-import { getActivityIcon } from '@/lib/utils/activityUtils';
+import { getActivityIcon } from '@/features/activity/lib/activityUtils';
 import type { ActivityBoundsItem, ActivityMapData } from '@/types';
 
 export interface SelectedActivity {

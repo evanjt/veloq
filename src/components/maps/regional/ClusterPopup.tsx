@@ -6,7 +6,7 @@ import { colors, typography, spacing, shadows } from '@/theme';
 import { formatDistance, formatFullDateWithWeekday } from '@/lib';
 import { useMetricSystem } from '@/hooks';
 import { getActivityTypeConfig } from '../ActivityTypeFilter';
-import { getActivityIcon } from '@/lib/utils/activityUtils';
+import { getActivityIcon } from '@/features/activity/lib/activityUtils';
 import type { ActivityBoundsItem } from '@/types';
 
 interface ClusterPopupProps {

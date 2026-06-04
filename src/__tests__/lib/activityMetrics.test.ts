@@ -9,7 +9,7 @@
 
 jest.mock('veloqrs', () => ({}), { virtual: true });
 
-import { toActivityMetrics } from '@/lib/utils/activityMetrics';
+import { toActivityMetrics } from '@/features/activity/lib/activityMetrics';
 import type { Activity } from '@/types';
 
 function makeActivity(overrides: Partial<Activity> = {}): Activity {

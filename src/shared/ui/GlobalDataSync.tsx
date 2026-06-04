@@ -22,7 +22,7 @@ import {
   applyDetectionPresetForMethod,
   getStrictnessFromValue,
 } from '@/shared/native/routeEngine';
-import { toActivityMetrics } from '@/lib/utils/activityMetrics';
+import { toActivityMetrics } from '@/features/activity/lib/activityMetrics';
 import { useAuthStore, useRouteSettings, useSyncDateRange } from '@/providers';
 import {
   formatGpsSyncProgress,

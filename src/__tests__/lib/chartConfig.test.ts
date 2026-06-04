@@ -1,4 +1,4 @@
-import { CHART_CONFIGS, getAvailableCharts } from '@/lib/utils/chartConfig';
+import { CHART_CONFIGS, getAvailableCharts } from '@/features/activity/lib/chartConfig';
 import type { ActivityStreams } from '@/types';
 
 describe('CHART_CONFIGS', () => {

@@ -7,4 +7,4 @@
 
 export * from '@/shared/charts/constants';
 export * from './section';
-export * from './weather';
+export * from '@/features/activity/lib/weather';

@@ -1,4 +1,4 @@
-import { findRowIndexAtPageY } from '@/components/activity/scrubHitTest';
+import { findRowIndexAtPageY } from '@/features/activity/components/scrubHitTest';
 
 // Realistic numbers pulled from actual device layout: row 0 at window-Y 261
 // (= 245 list container + 16 padding), 62px tall (54 card + 4 marginBottom +

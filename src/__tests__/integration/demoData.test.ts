@@ -5,7 +5,7 @@
  */
 
 import { calculateTSB } from '@/features/fitness/lib/fitness';
-import { sortByDateId } from '@/lib/utils/activityUtils';
+import { sortByDateId } from '@/features/activity/lib/activityUtils';
 import { demoWellness } from '@/data/demo';
 import {
   fixtures,

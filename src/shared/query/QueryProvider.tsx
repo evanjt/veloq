@@ -6,7 +6,7 @@ import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persi
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { i18n } from '@/i18n';
-import { isInfiniteActivitiesStale } from '@/hooks/activities/useActivities';
+import { isInfiniteActivitiesStale } from '@/features/activity/hooks/useActivities';
 import { queryKeys } from '@/shared/query/queryKeys';
 
 // Sync TanStack Query's focus state with React Native AppState

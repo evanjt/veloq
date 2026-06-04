@@ -6,7 +6,7 @@ import {
   useActivityStreams,
   useEFTPHistory,
   getLatestFTP,
-} from '@/hooks/activities';
+} from '@/features/activity/hooks';
 import { useSportSettings, getSettingsForSport } from '@/shared/app/useSportSettings';
 import { usePaceCurve, useSeasonBests } from '@/features/stats';
 import { useAuthStore, type PrimarySport } from '@/providers';

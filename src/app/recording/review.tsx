@@ -17,7 +17,7 @@ import { useTranslation } from 'react-i18next';
 import { useTheme, useMetricSystem } from '@/hooks';
 import { colors, darkColors, spacing, layout, typography, brand } from '@/theme';
 import { formatDistance, formatDuration } from '@/lib';
-import { getActivityIcon, getActivityColor } from '@/lib/utils/activityUtils';
+import { getActivityIcon, getActivityColor } from '@/features/activity/lib/activityUtils';
 
 import { useRecordingStore } from '@/providers/RecordingStore';
 import { useReviewSave } from '@/hooks/recording/useReviewSave';

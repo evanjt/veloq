@@ -4,9 +4,9 @@ export {
   useActivityBoundsCache,
   useEFTPHistory,
   useActivitySectionHighlights,
-} from './activities';
-export { useSectionOverlays } from './activities/useSectionOverlays';
-export { useSectionTimeStreams } from './activities/useSectionTimeStreams';
+} from '@/features/activity/hooks';
+export { useSectionOverlays } from '@/features/activity/hooks/useSectionOverlays';
+export { useSectionTimeStreams } from '@/features/activity/hooks/useSectionTimeStreams';
 
 // Fitness hooks
 export {
@@ -57,7 +57,7 @@ export {
   useActivityStreams,
   useActivityIntervals,
   isInfiniteActivitiesStale,
-} from './activities';
+} from '@/features/activity/hooks';
 export {
   useSportSettings,
   getSettingsForSport,
@@ -87,7 +87,7 @@ export {
   type ChartColorScheme,
   type ChartMetricType,
 } from '@/shared/charts/useChartColors';
-export { getLatestFTP, getLatestEFTP } from './activities';
+export { getLatestFTP, getLatestEFTP } from '@/features/activity/hooks';
 export { useOldestActivityDate } from '@/shared/app/useOldestActivityDate';
 export { useCacheDays } from '@/shared/app/useCacheDays';
 

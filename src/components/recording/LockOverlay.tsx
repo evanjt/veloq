@@ -7,7 +7,7 @@ import * as Haptics from 'expo-haptics';
 import { spacing } from '@/theme';
 import { RecordingMap } from '@/components/recording/RecordingMap';
 import { GpsSignalIndicator } from '@/components/recording/GpsSignalIndicator';
-import { getActivityIcon } from '@/lib/utils/activityUtils';
+import { getActivityIcon } from '@/features/activity/lib/activityUtils';
 import type { RecordingMode, ActivityType } from '@/types';
 
 const HANDLE_SIZE = 56;

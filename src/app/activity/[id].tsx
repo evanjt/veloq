@@ -22,7 +22,7 @@ import { useCustomSections } from '@/hooks/routes/useCustomSections';
 import { useRouteMatch } from '@/hooks/routes/useRouteMatch';
 import { useSectionMatches } from '@/hooks/routes/useSectionMatches';
 import { useSectionEncounters } from '@/hooks/routes/useSectionEncounters';
-import { useActivitySectionHighlights } from '@/hooks/activities/useActivitySectionHighlights';
+import { useActivitySectionHighlights } from '@/features/activity/hooks/useActivitySectionHighlights';
 import {
   ActivityHeader,
   ActivityChartsSection,
@@ -37,7 +37,7 @@ import type {
 } from '@/components/maps/ActivityMapView';
 import type { CreationState } from '@/components/maps/SectionCreationOverlay';
 import { convertLatLngTuples, decodePolyline } from '@/lib';
-import { useExerciseSets } from '@/hooks/activities';
+import { useExerciseSets } from '@/features/strength';
 import { useAthlete } from '@/hooks';
 import { ExerciseTable, MuscleGroupView } from '@/features/strength';
 import { ComponentErrorBoundary } from '@/shared/ui';
