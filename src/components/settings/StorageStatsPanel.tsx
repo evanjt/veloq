@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { formatFullDate, formatFileSize, navigateTo } from '@/lib';
-import { type TileCacheStats } from '@/lib/events/terrainSnapshotEvents';
+import { type TileCacheStats } from '@/features/maps/lib/terrainSnapshotEvents';
 import { colors, darkColors, spacing } from '@/theme';
 
 function formatDateOrDash(dateStr: string | null): string {

@@ -14,7 +14,7 @@ import { Camera, type MapView } from '@maplibre/maplibre-react-native';
 import * as Location from 'expo-location';
 import type { LatLng } from '@/lib';
 import { getMapLibreBounds } from '@/lib';
-import type { Map3DWebViewRef } from '@/components/maps/Map3DWebView';
+import type { Map3DWebViewRef } from '@/features/maps/components/Map3DWebView';
 
 /** Bounds returned by getMapLibreBounds */
 export interface MapBounds {

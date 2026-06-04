@@ -1,4 +1,7 @@
-import { calculateTerrainCamera, isLikelyInterestingTerrain } from '@/lib/utils/cameraAngle';
+import {
+  calculateTerrainCamera,
+  isLikelyInterestingTerrain,
+} from '@/features/maps/lib/cameraAngle';
 
 describe('calculateTerrainCamera', () => {
   // Helper: generate a straight line of coordinates

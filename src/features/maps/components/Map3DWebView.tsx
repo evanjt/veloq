@@ -11,10 +11,13 @@ import { WebView } from 'react-native-webview';
 import * as FileSystem from 'expo-file-system/legacy';
 import { colors, darkColors } from '@/theme';
 import { getBoundsFromPoints } from '@/lib';
-import { HEATMAP_TILES_DIR } from '@/hooks/maps/useHeatmapTiles';
-import { useWebViewBridge } from '@/hooks/maps/useWebViewBridge';
-import type { WebViewBridgeHandlers, WebViewBridgeMessage } from '@/hooks/maps/useWebViewBridge';
-import { buildMap3DHtml } from '@/lib/maps/htmlBuilders';
+import { HEATMAP_TILES_DIR } from '@/features/maps/hooks/useHeatmapTiles';
+import { useWebViewBridge } from '@/features/maps/hooks/useWebViewBridge';
+import type {
+  WebViewBridgeHandlers,
+  WebViewBridgeMessage,
+} from '@/features/maps/hooks/useWebViewBridge';
+import { buildMap3DHtml } from '@/features/maps/lib/htmlBuilders';
 import type { MapStyleType } from './mapStyles';
 import { getCombinedSatelliteStyle3D, rewriteSatelliteUrls, TERRAIN_3D_CONFIG } from './mapStyles';
 import { DARK_MATTER_STYLE } from './darkMatterStyle';

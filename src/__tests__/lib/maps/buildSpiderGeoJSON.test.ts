@@ -3,7 +3,7 @@
  * No React / MapLibre / native dependencies, so we test the math directly.
  */
 
-import { buildSpiderGeoJSON } from '@/lib/maps/buildSpiderGeoJSON';
+import { buildSpiderGeoJSON } from '@/features/maps/lib/buildSpiderGeoJSON';
 
 function leaf(id: string): GeoJSON.Feature {
   return {

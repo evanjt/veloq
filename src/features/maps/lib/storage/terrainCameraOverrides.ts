@@ -9,7 +9,7 @@
  */
 
 import { getSetting, setSetting } from '@/lib/backup';
-import type { TerrainCamera } from '@/lib/utils/cameraAngle';
+import type { TerrainCamera } from '@/features/maps/lib/cameraAngle';
 import { deleteTerrainPreviewsForActivity } from './terrainPreviewCache';
 
 const STORAGE_KEY = '@terrain_camera_overrides';

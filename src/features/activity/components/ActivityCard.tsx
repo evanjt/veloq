@@ -30,7 +30,7 @@ import { SkylineBar } from './SkylineBar';
 import { StrengthActivityCard, type StrengthCardData } from '@/features/strength';
 import type { ExtendedBodyPart } from 'react-native-body-highlighter';
 import { useExerciseSets, useMuscleGroups } from '@/features/strength';
-import type { TerrainSnapshotWebViewRef } from '@/components/maps/TerrainSnapshotWebView';
+import type { TerrainSnapshotWebViewRef } from '@/features/maps/components/TerrainSnapshotWebView';
 
 function formatLocation(activity: Activity): string | null {
   if (!activity.locality) return null;

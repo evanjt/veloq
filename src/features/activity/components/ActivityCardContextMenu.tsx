@@ -8,10 +8,10 @@ import { router } from 'expo-router';
 import { useTheme } from '@/hooks';
 import { useMapPreferences } from '@/providers';
 import { getActivityIcon } from '@/lib';
-import { isLikelyInterestingTerrain } from '@/lib/utils/cameraAngle';
+import { isLikelyInterestingTerrain } from '@/features/maps/lib/cameraAngle';
 import { colors, darkColors, spacing, brand, shadows } from '@/theme';
 import type { Activity } from '@/types';
-import type { MapStyleType } from '@/components/maps/mapStyles';
+import type { MapStyleType } from '@/features/maps/components/mapStyles';
 
 interface ActivityCardContextMenuProps {
   visible: boolean;

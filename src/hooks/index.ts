@@ -105,7 +105,7 @@ export {
 } from './routes/useSectionPerformances';
 export { useCustomSections, useCustomSection } from './routes/useCustomSections';
 export { useUnifiedSections } from './routes/useUnifiedSections';
-export { useEngineMapActivities } from './maps';
+export { useEngineMapActivities } from '@/features/maps/hooks';
 
 // Route Engine hooks (stateful Rust backend)
 export {

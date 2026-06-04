@@ -4,7 +4,7 @@ import { MapView, Camera } from '@maplibre/maplibre-react-native';
 import { useTheme } from '@/hooks';
 import { useTranslation } from 'react-i18next';
 import { colors, darkColors, spacing } from '@/theme';
-import { type MapStyleType, getMapStyle } from '@/components/maps/mapStyles';
+import { type MapStyleType, getMapStyle } from '@/features/maps/components/mapStyles';
 
 // Bern, Switzerland coordinates - centered on the Aare river bend around the old town
 const BERN_CENTER: [number, number] = [7.457, 46.947];

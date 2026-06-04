@@ -12,7 +12,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { debug } from '@/shared/debug/debug';
 import { getRouteEngine } from '@/shared/native/routeEngine';
 import { safeJsonParseWithSchema, type SchemaValidator } from '@/shared/validation/validation';
-import { clearTerrainPreviews } from '@/lib/storage/terrainPreviewCache';
+import { clearTerrainPreviews } from '@/features/maps/lib/storage/terrainPreviewCache';
 
 const log = debug.create('GpsStorage');
 

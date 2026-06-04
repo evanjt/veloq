@@ -27,8 +27,11 @@ import { WebView } from 'react-native-webview';
 import type { MapStyleType } from './mapStyles';
 import { getSnapshotSatelliteStyle, rewriteSatelliteUrls, TERRAIN_3D_CONFIG } from './mapStyles';
 import { DARK_MATTER_STYLE } from './darkMatterStyle';
-import type { TerrainCamera } from '@/lib/utils/cameraAngle';
-import { saveTerrainPreview, hasTerrainPreview } from '@/lib/storage/terrainPreviewCache';
+import type { TerrainCamera } from '@/features/maps/lib/cameraAngle';
+import {
+  saveTerrainPreview,
+  hasTerrainPreview,
+} from '@/features/maps/lib/storage/terrainPreviewCache';
 import {
   emitSnapshotComplete,
   onClearTileCache,
@@ -38,11 +41,14 @@ import {
   onCancelWebViewPrefetch,
   emitPrefetchTilesProgress,
   type PrefetchTilesBatch,
-} from '@/lib/events/terrainSnapshotEvents';
-import { generatePreloadScript } from '@/lib/maps/tilePreloader';
-import { buildSnapshotWorkerHtml } from '@/lib/maps/htmlBuilders';
-import { useWebViewBridge } from '@/hooks/maps/useWebViewBridge';
-import type { WebViewBridgeHandlers, WebViewBridgeMessage } from '@/hooks/maps/useWebViewBridge';
+} from '@/features/maps/lib/terrainSnapshotEvents';
+import { generatePreloadScript } from '@/features/maps/lib/tilePreloader';
+import { buildSnapshotWorkerHtml } from '@/features/maps/lib/htmlBuilders';
+import { useWebViewBridge } from '@/features/maps/hooks/useWebViewBridge';
+import type {
+  WebViewBridgeHandlers,
+  WebViewBridgeMessage,
+} from '@/features/maps/hooks/useWebViewBridge';
 import { useSyncDateRange } from '@/providers';
 
 const SNAPSHOT_TIMEOUT_MS = 8000;

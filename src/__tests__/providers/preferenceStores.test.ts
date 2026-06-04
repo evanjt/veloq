@@ -64,7 +64,10 @@ import {
 } from '@/features/fitness/stores/HRZonesStore';
 
 // MapPreferencesContext
-import { MapPreferencesProvider, useMapPreferences } from '@/providers/MapPreferencesContext';
+import {
+  MapPreferencesProvider,
+  useMapPreferences,
+} from '@/features/maps/stores/MapPreferencesContext';
 
 // Storage keys
 const UNIT_PREFERENCE_KEY = 'veloq-unit-preference';

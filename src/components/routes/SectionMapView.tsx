@@ -43,10 +43,10 @@ import {
   isDarkStyle,
   getNextStyle,
   getStyleIcon,
-} from '@/components/maps';
-import { Map3DWebView, type Map3DWebViewRef } from '@/components/maps/Map3DWebView';
+} from '@/features/maps/components';
+import { Map3DWebView, type Map3DWebViewRef } from '@/features/maps/components/Map3DWebView';
 import { CompassArrow, ComponentErrorBoundary } from '@/shared/ui';
-import { useMapFullscreen } from '@/hooks/maps/useMapFullscreen';
+import { useMapFullscreen } from '@/features/maps/hooks/useMapFullscreen';
 import { decodeCoords } from 'veloqrs';
 import type { FrequentSection, RoutePoint, ActivityType } from '@/types';
 

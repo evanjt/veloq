@@ -34,7 +34,7 @@ import { useDebugStore, isDebugEnabled } from '@/providers/DebugStore';
 import { useWhatsNewStore, initializeWhatsNewStore } from '@/providers/WhatsNewStore';
 
 // TileCacheStore
-import { useTileCacheStore, initializeTileCacheStore } from '@/providers/TileCacheStore';
+import { useTileCacheStore, initializeTileCacheStore } from '@/features/maps/stores/TileCacheStore';
 
 // Storage keys (must match store implementations)
 const DEBUG_MODE_KEY = 'veloq-debug-mode';

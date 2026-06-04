@@ -3,7 +3,11 @@
  * No React / MapLibre dependencies, so we test the math directly.
  */
 
-import { computeLeafBounds, planClusterZoom, CLUSTER_ZOOM_CONSTANTS } from '@/lib/maps/clusterZoom';
+import {
+  computeLeafBounds,
+  planClusterZoom,
+  CLUSTER_ZOOM_CONSTANTS,
+} from '@/features/maps/lib/clusterZoom';
 
 function pointFeature(lng: number, lat: number, id: string): GeoJSON.Feature {
   return {

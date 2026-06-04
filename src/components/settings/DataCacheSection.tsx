@@ -14,19 +14,19 @@ import {
 import { formatFullDate } from '@/lib';
 import { estimateRoutesDatabaseSize } from '@/lib';
 import { useAuthStore, useRouteSettings, useSyncDateRange } from '@/providers';
-import { useTileCacheStore } from '@/providers/TileCacheStore';
+import { useTileCacheStore } from '@/features/maps/stores/TileCacheStore';
 import {
   emitClearTileCache,
   requestTileCacheStats,
   onTileCacheStats,
   type TileCacheStats,
-} from '@/lib/events/terrainSnapshotEvents';
+} from '@/features/maps/lib/terrainSnapshotEvents';
 import {
   clearTerrainPreviews,
   getTerrainPreviewCacheSize,
-} from '@/lib/storage/terrainPreviewCache';
-import * as TileCacheService from '@/lib/maps/tileCacheService';
-import { HEATMAP_TILES_DIR, getHeatmapTilesCacheSize } from '@/hooks/maps/useHeatmapTiles';
+} from '@/features/maps/lib/storage/terrainPreviewCache';
+import * as TileCacheService from '@/features/maps/lib/tileCacheService';
+import { HEATMAP_TILES_DIR, getHeatmapTilesCacheSize } from '@/features/maps/hooks/useHeatmapTiles';
 import { getRouteEngine } from '@/shared/native/routeEngine';
 import { colors, darkColors, spacing, layout } from '@/theme';
 import { CacheManagementPanel } from './CacheManagementPanel';

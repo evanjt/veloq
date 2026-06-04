@@ -10,7 +10,7 @@ import { useCallback, useRef } from 'react';
 import { Platform, type GestureResponderEvent } from 'react-native';
 import type { Camera, MapViewRef, ShapeSource } from '@maplibre/maplibre-react-native';
 import type { ActivityBoundsItem, FrequentSection, ActivityType } from '@/types';
-import { planClusterZoom } from '@/lib/maps/clusterZoom';
+import { planClusterZoom } from '@/features/maps/lib/clusterZoom';
 import type { SelectedActivity } from './ActivityPopup';
 import type { SelectedRoute } from './types';
 import type { SpiderState } from './useMapHandlers';

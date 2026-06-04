@@ -13,8 +13,8 @@ import { LocationManager } from '@maplibre/maplibre-react-native';
 // Cache for last known location (avoid slow GPS re-acquisition)
 const LOCATION_CACHE_MAX_AGE_MS = 30000; // 30 seconds
 import { normalizeBounds, activitySpatialIndex, mapBoundsToViewport } from '@/lib';
-import { planClusterZoom } from '@/lib/maps/clusterZoom';
-import { saveMapCameraState } from '@/lib/storage/mapCameraState';
+import { planClusterZoom } from '@/features/maps/lib/clusterZoom';
+import { saveMapCameraState } from '@/features/maps/lib/storage/mapCameraState';
 import { intervalsApi } from '@/api';
 import { getRouteEngine } from '@/shared/native/routeEngine';
 import type { ActivityBoundsItem } from '@/types';

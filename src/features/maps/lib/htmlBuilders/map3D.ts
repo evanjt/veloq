@@ -16,9 +16,9 @@ import {
   rewriteSatelliteUrls,
   rewriteVectorUrls,
   TERRAIN_3D_CONFIG,
-} from '@/components/maps/mapStyles';
-import type { MapStyleType } from '@/components/maps/mapStyles';
-import { DARK_MATTER_STYLE } from '@/components/maps/darkMatterStyle';
+} from '@/features/maps/components/mapStyles';
+import type { MapStyleType } from '@/features/maps/components/mapStyles';
+import { DARK_MATTER_STYLE } from '@/features/maps/components/darkMatterStyle';
 
 export interface Map3DHtmlConfig {
   /** Route coordinates as [lng, lat] pairs. Empty array = no route layer. */

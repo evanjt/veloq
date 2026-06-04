@@ -17,11 +17,14 @@ import {
   clearPrioritySnapshot,
   isTerrainCacheInitialized,
   onTerrainCacheReady,
-} from '@/lib/storage/terrainPreviewCache';
-import { getCameraOverride } from '@/lib/storage/terrainCameraOverrides';
-import { subscribeSnapshot } from '@/lib/events/terrainSnapshotEvents';
-import { calculateTerrainCamera, isLikelyInterestingTerrain } from '@/lib/utils/cameraAngle';
-import type { TerrainSnapshotWebViewRef } from '@/components/maps/TerrainSnapshotWebView';
+} from '@/features/maps/lib/storage/terrainPreviewCache';
+import { getCameraOverride } from '@/features/maps/lib/storage/terrainCameraOverrides';
+import { subscribeSnapshot } from '@/features/maps/lib/terrainSnapshotEvents';
+import {
+  calculateTerrainCamera,
+  isLikelyInterestingTerrain,
+} from '@/features/maps/lib/cameraAngle';
+import type { TerrainSnapshotWebViewRef } from '@/features/maps/components/TerrainSnapshotWebView';
 import { brand, colors, mapPreviewColors, colorWithOpacity } from '@/theme';
 import type { Activity } from '@/types';
 import type { PreviewTrack } from '@/features/home/hooks/useStartupData';

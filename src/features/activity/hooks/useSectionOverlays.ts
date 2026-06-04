@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { routeEngine } from 'veloqrs';
-import type { SectionOverlay } from '@/components/maps/ActivityMapView';
+import type { SectionOverlay } from '@/features/maps/components/ActivityMapView';
 import type { SectionMatch } from '@/hooks/routes/useSectionMatches';
 import type { Section } from '@/types';
 

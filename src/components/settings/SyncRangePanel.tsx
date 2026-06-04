@@ -21,12 +21,12 @@ import Animated, {
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import * as FileSystem from 'expo-file-system/legacy';
-import { TimelineSlider } from '@/components/maps';
+import { TimelineSlider } from '@/features/maps/components';
 import { useActivityBoundsCache, useOldestActivityDate, useTheme } from '@/hooks';
 import { formatLocalDate, formatFileSize } from '@/lib';
 import { useSyncDateRange, useRouteSettings } from '@/providers';
 import { DETECTION_PRESETS as PRESETS, getRouteEngine } from '@/shared/native/routeEngine';
-import { HEATMAP_TILES_DIR, getHeatmapTilesCacheSize } from '@/hooks/maps/useHeatmapTiles';
+import { HEATMAP_TILES_DIR, getHeatmapTilesCacheSize } from '@/features/maps/hooks/useHeatmapTiles';
 import { settingsStyles } from './settingsStyles';
 import { colors, darkColors, spacing, typography } from '@/theme';
 

@@ -7,8 +7,8 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import type { LatLng } from '@/lib';
 import type { RoutePoint } from '@/types';
-import type { CreationState } from '@/components/maps/SectionCreationOverlay';
-import type { SectionCreationResult } from '@/components/maps/ActivityMapView';
+import type { CreationState } from '@/features/maps/components/SectionCreationOverlay';
+import type { SectionCreationResult } from '@/features/maps/components/ActivityMapView';
 import { haversineDistance } from '@/shared/math/geometry';
 
 interface UseSectionCreationParams {

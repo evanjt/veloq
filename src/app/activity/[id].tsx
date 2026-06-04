@@ -34,8 +34,8 @@ import { SwipeableTabs, type SwipeableTab } from '@/shared/ui';
 import type {
   SectionCreationResult,
   SectionCreationError,
-} from '@/components/maps/ActivityMapView';
-import type { CreationState } from '@/components/maps/SectionCreationOverlay';
+} from '@/features/maps/components/ActivityMapView';
+import type { CreationState } from '@/features/maps/components/SectionCreationOverlay';
 import { convertLatLngTuples, decodePolyline } from '@/lib';
 import { useExerciseSets } from '@/features/strength';
 import { useAthlete } from '@/hooks';
@@ -47,12 +47,12 @@ import {
   setCameraOverride,
   getCameraOverride,
   deleteCameraOverride,
-} from '@/lib/storage/terrainCameraOverrides';
-import { invalidateTerrainPreview } from '@/lib/storage/terrainPreviewCache';
-import type { TerrainCamera } from '@/lib/utils/cameraAngle';
-import { calculateTerrainCamera } from '@/lib/utils/cameraAngle';
+} from '@/features/maps/lib/storage/terrainCameraOverrides';
+import { invalidateTerrainPreview } from '@/features/maps/lib/storage/terrainPreviewCache';
+import type { TerrainCamera } from '@/features/maps/lib/cameraAngle';
+import { calculateTerrainCamera } from '@/features/maps/lib/cameraAngle';
 import { useMapPreferences } from '@/providers';
-import type { MapStyleType } from '@/components/maps/mapStyles';
+import type { MapStyleType } from '@/features/maps/components/mapStyles';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 const MAP_HEIGHT = Math.round(SCREEN_HEIGHT * 0.42);

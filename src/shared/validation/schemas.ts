@@ -17,7 +17,7 @@
  */
 
 import { z } from 'zod';
-import type { MapStyleType } from '@/components/maps/mapStyles';
+import type { MapStyleType } from '@/features/maps/components/mapStyles';
 import type { ActivityType } from '@/types';
 
 // =============================================================================

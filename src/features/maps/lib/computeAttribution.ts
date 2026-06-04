@@ -13,7 +13,7 @@ import {
   TERRAIN_ATTRIBUTION,
   getCombinedSatelliteAttribution,
   type MapStyleType,
-} from '@/components/maps/mapStyles';
+} from '@/features/maps/components/mapStyles';
 
 export interface ComputeAttributionArgs {
   style: MapStyleType;

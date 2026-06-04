@@ -10,9 +10,9 @@
 
 import { useMemo } from 'react';
 import type { LatLng } from '@/lib';
-import type { SectionOverlay } from '@/components/maps/ActivityMapView';
+import type { SectionOverlay } from '@/features/maps/components/ActivityMapView';
 import { sectionPaletteIndex } from '@/theme';
-import { buildGradientLineStops } from '@/lib/maps/gradientLineColor';
+import { buildGradientLineStops } from '@/features/maps/lib/gradientLineColor';
 import type { ActivityStreams } from '@/types';
 
 /** Data about a single section overlay used by the rendering layer */

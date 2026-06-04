@@ -62,7 +62,7 @@ jest.mock('@/lib/backup', () => ({
   removeSetting: jest.fn().mockResolvedValue(undefined),
 }));
 
-jest.mock('@/lib/storage/terrainCameraOverrides', () => ({
+jest.mock('@/features/maps/lib/storage/terrainCameraOverrides', () => ({
   reloadCameraOverrides: jest.fn().mockResolvedValue(undefined),
 }));
 

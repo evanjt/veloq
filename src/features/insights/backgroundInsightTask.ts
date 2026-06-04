@@ -234,7 +234,7 @@ async function fetchAndIngestActivity(activityId: string): Promise<ActivityInfo 
       }
 
       // Queue for priority terrain snapshot generation when app opens
-      const { addPendingSnapshot } = require('@/lib/storage/terrainPreviewCache');
+      const { addPendingSnapshot } = require('@/features/maps/lib/storage/terrainPreviewCache');
       addPendingSnapshot(activityId).catch(() => {});
     }
 

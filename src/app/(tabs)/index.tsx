@@ -44,14 +44,14 @@ import { useStartupData } from '@/features/home/hooks/useStartupData';
 import {
   TerrainSnapshotWebView,
   type TerrainSnapshotWebViewRef,
-} from '@/components/maps/TerrainSnapshotWebView';
+} from '@/features/maps/components/TerrainSnapshotWebView';
 import {
   initTerrainPreviewCache,
   consumePendingSnapshots,
   signalSnapshotNeeded,
   setPrioritySnapshotIds,
-} from '@/lib/storage/terrainPreviewCache';
-import { initCameraOverrides } from '@/lib/storage/terrainCameraOverrides';
+} from '@/features/maps/lib/storage/terrainPreviewCache';
+import { initCameraOverrides } from '@/features/maps/lib/storage/terrainCameraOverrides';
 import { colors, darkColors, opacity, spacing, layout, typography } from '@/theme';
 import { createSharedStyles } from '@/styles';
 

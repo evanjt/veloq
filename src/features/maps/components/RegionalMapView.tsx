@@ -26,12 +26,12 @@ import {
   getNextStyle,
   getStyleIcon,
 } from './mapStyles';
-import { computeAttribution } from '@/lib/maps/computeAttribution';
+import { computeAttribution } from '@/features/maps/lib/computeAttribution';
 import type { ActivityBoundsItem } from '@/types';
 import { useEngineSections, useEngineSectionCount, useRouteSignatures } from '@/hooks/routes';
-import { HEATMAP_TILE_URL_TEMPLATE } from '@/hooks/maps/useHeatmapTiles';
-import { useSectionAutoToggle, useVisibilityToggles } from '@/hooks/maps';
-import { buildSpiderGeoJSON } from '@/lib/maps/buildSpiderGeoJSON';
+import { HEATMAP_TILE_URL_TEMPLATE } from '@/features/maps/hooks/useHeatmapTiles';
+import { useSectionAutoToggle, useVisibilityToggles } from '@/features/maps/hooks';
+import { buildSpiderGeoJSON } from '@/features/maps/lib/buildSpiderGeoJSON';
 import { isHeatmapEnabled } from '@/providers/RouteSettingsStore';
 import type { FrequentSection } from '@/types';
 import {

@@ -7,7 +7,7 @@
  */
 
 import { useEffect } from 'react';
-import * as TileCacheService from '@/lib/maps/tileCacheService';
+import * as TileCacheService from '@/features/maps/lib/tileCacheService';
 
 export function useTilePrefetch(): void {
   useEffect(() => {

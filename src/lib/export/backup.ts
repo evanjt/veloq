@@ -34,8 +34,8 @@ import {
   initializeSupportStore,
   queryClient,
 } from '@/providers';
-import { reloadCameraOverrides } from '@/lib/storage/terrainCameraOverrides';
-import { reloadMapCameraState } from '@/lib/storage/mapCameraState';
+import { reloadCameraOverrides } from '@/features/maps/lib/storage/terrainCameraOverrides';
+import { reloadMapCameraState } from '@/features/maps/lib/storage/mapCameraState';
 import Constants from 'expo-constants';
 import { z } from 'zod';
 

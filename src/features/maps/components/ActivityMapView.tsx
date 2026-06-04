@@ -111,7 +111,7 @@ import {
 } from '@maplibre/maplibre-react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { decodePolyline, LatLng, getActivityColor } from '@/lib';
-import { computeAttribution } from '@/lib/maps/computeAttribution';
+import { computeAttribution } from '@/features/maps/lib/computeAttribution';
 import {
   brand,
   colors,
@@ -124,11 +124,11 @@ import {
   sectionPaletteIndex,
 } from '@/theme';
 import { useMapPreferences } from '@/providers';
-import { useSectionCreation } from '@/hooks/maps/useSectionCreation';
-import { useMapCamera } from '@/hooks/maps/useMapCamera';
-import { useMapLayers } from '@/hooks/maps/useMapLayers';
-import { useMapFullscreen } from '@/hooks/maps/useMapFullscreen';
-import { useIOSMapTap } from '@/hooks/maps/useIOSMapTap';
+import { useSectionCreation } from '@/features/maps/hooks/useSectionCreation';
+import { useMapCamera } from '@/features/maps/hooks/useMapCamera';
+import { useMapLayers } from '@/features/maps/hooks/useMapLayers';
+import { useMapFullscreen } from '@/features/maps/hooks/useMapFullscreen';
+import { useIOSMapTap } from '@/features/maps/hooks/useIOSMapTap';
 import { BaseMapView } from './BaseMapView';
 import { Map3DWebView, type Map3DWebViewRef } from './Map3DWebView';
 import { CompassArrow, ComponentErrorBoundary } from '@/shared/ui';

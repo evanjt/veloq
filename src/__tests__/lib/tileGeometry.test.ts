@@ -12,7 +12,7 @@ import {
   enumerateTileUrls,
   estimateTotalTiles,
   type Bounds,
-} from '@/lib/maps/tileGeometry';
+} from '@/features/maps/lib/tileGeometry';
 
 describe('tileGeometry', () => {
   describe('lng2tile', () => {

@@ -6,7 +6,7 @@
  * into the Cache API with throttling (2 concurrent, 50ms delay).
  */
 
-import { SATELLITE_SOURCES } from '@/components/maps/mapStyles';
+import { SATELLITE_SOURCES } from '@/features/maps/components/mapStyles';
 import { lng2tile, lat2tile } from './tileGeometry';
 
 interface ActivityBounds {

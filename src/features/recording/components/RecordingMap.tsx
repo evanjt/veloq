@@ -9,7 +9,7 @@ import {
   CircleLayer,
 } from '@maplibre/maplibre-react-native';
 import { useMapPreferences } from '@/providers';
-import { getMapStyle } from '@/components/maps/mapStyles';
+import { getMapStyle } from '@/features/maps/components/mapStyles';
 import { darkColors, brand } from '@/theme';
 
 const BRAND_COLOR = brand.tealLight;

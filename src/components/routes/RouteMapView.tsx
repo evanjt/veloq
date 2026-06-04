@@ -19,7 +19,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { getActivityColor, getBoundsFromPoints } from '@/lib';
 import { colors, spacing, layout } from '@/theme';
 import { useMapPreferences } from '@/providers';
-import { getMapStyle, BaseMapView, isDarkStyle } from '@/components/maps';
+import { getMapStyle, BaseMapView, isDarkStyle } from '@/features/maps/components';
 import type { RouteGroup, RoutePoint } from '@/types';
 
 /** Minimal route group type for map display - only needs points and distance for signature */

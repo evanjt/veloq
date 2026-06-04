@@ -4,16 +4,16 @@ import { Text } from 'react-native-paper';
 import { LinearGradient } from 'expo-linear-gradient';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { ActivityMapView, type SectionOverlay } from '@/components/maps/ActivityMapView';
+import { ActivityMapView, type SectionOverlay } from '@/features/maps/components/ActivityMapView';
 import type {
   SectionCreationResult,
   SectionCreationError,
-} from '@/components/maps/ActivityMapView';
-import type { CreationState } from '@/components/maps/SectionCreationOverlay';
+} from '@/features/maps/components/ActivityMapView';
+import type { CreationState } from '@/features/maps/components/SectionCreationOverlay';
 import { ComponentErrorBoundary } from '@/shared/ui';
 import type { ActivityDetail, ActivityStreams } from '@/types';
-import type { TerrainCamera } from '@/lib/utils/cameraAngle';
-import type { MapStyleType } from '@/components/maps/mapStyles';
+import type { TerrainCamera } from '@/features/maps/lib/cameraAngle';
+import type { MapStyleType } from '@/features/maps/components/mapStyles';
 import { formatDistance, formatDuration, formatElevation, formatDateTime } from '@/lib';
 import { routeEngine } from 'veloqrs';
 import { colors, spacing, typography } from '@/theme';

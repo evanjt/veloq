@@ -9,7 +9,7 @@ import {
 } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useRouter } from 'expo-router';
-import { RegionalMapView, SyncProgressBanner } from '@/components/maps';
+import { RegionalMapView, SyncProgressBanner } from '@/features/maps/components';
 import {
   ComponentErrorBoundary,
   ScreenErrorBoundary,
@@ -30,7 +30,7 @@ import {
   getActivityTypeConfig,
   groupTypesByCategory,
   ACTIVITY_CATEGORIES,
-} from '@/components/maps/ActivityTypeFilter';
+} from '@/features/maps/components/ActivityTypeFilter';
 
 // Stable date references — creating new Date() in the component body triggers
 // useEngineMapActivities useMemo on every render, causing cascading re-renders

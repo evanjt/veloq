@@ -12,7 +12,7 @@ export {
   useMapPreferences,
   type MapPreferences,
   type ActivityMapOverride,
-} from './MapPreferencesContext';
+} from '@/features/maps/stores/MapPreferencesContext';
 export {
   useAuthStore,
   getStoredCredentials,
@@ -99,7 +99,7 @@ export {
 } from '@/features/home/store';
 export { useDebugStore, isDebugEnabled, initializeDebugStore } from './DebugStore';
 export { useEngineStatus } from './EngineStatusStore';
-export { useTileCacheStore, initializeTileCacheStore } from './TileCacheStore';
+export { useTileCacheStore, initializeTileCacheStore } from '@/features/maps/stores/TileCacheStore';
 export { useWhatsNewStore, initializeWhatsNewStore } from './WhatsNewStore';
 export {
   useInsightsStore,

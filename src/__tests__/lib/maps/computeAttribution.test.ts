@@ -1,10 +1,10 @@
 /**
  * Tests for computeAttribution — pure attribution-text computation.
- * Imports from `@/components/maps/mapStyles`, which pulls only JSON and
+ * Imports from `@/features/maps/components/mapStyles`, which pulls only JSON and
  * pure geometry helpers (no MapLibre). No mocking needed.
  */
 
-import { computeAttribution } from '@/lib/maps/computeAttribution';
+import { computeAttribution } from '@/features/maps/lib/computeAttribution';
 
 describe('computeAttribution', () => {
   it('returns the light-style attribution without 3D', () => {
