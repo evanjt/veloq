@@ -23,7 +23,7 @@ import {
   POWER_ZONE_COLORS,
   HR_ZONE_COLORS,
   DEFAULT_HR_ZONES,
-} from '@/hooks/useSportSettings';
+} from '@/shared/app/useSportSettings';
 import { SPORT_API_TYPES, SPORT_COLORS } from '@/providers/SportPreferenceStore';
 import type { PrimarySport } from '@/providers/SportPreferenceStore';
 import {

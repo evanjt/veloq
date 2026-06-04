@@ -5,7 +5,7 @@ import {
   DEFAULT_HR_ZONES,
   POWER_ZONE_COLORS,
   HR_ZONE_COLORS,
-} from '../useSportSettings';
+} from '@/shared/app/useSportSettings';
 import { type PrimarySport } from '@/providers';
 import { getRouteEngine } from '@/shared/native/routeEngine';
 

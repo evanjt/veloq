@@ -37,7 +37,7 @@ jest.mock('expo-network', () => {
   };
 });
 
-import { NetworkProvider, useNetwork } from '@/providers/NetworkContext';
+import { NetworkProvider, useNetwork } from '@/shared/app/NetworkContext';
 
 type NetworkStateShape = {
   isConnected?: boolean;

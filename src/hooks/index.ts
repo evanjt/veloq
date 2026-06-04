@@ -36,13 +36,14 @@ export { usePowerCurve, usePaceCurve, useChartColors, useSeasonBests } from './c
 export type { BestEffort, UseSeasonBestsResult } from './charts';
 
 // UI hooks
-export { useTheme, useMetricSystem, useChartInteraction, useCollapsibleSections } from './ui';
+export { useTheme, useMetricSystem, useCollapsibleSections } from '@/shared/app';
+export { useChartInteraction } from '@/shared/charts/useChartInteraction';
 
-// Export types from ui
-export type { Theme, ThemeColors, UseCollapsibleSections } from './ui';
+// Export types from shared/app
+export type { Theme, ThemeColors, UseCollapsibleSections } from '@/shared/app';
 
 // Remaining hooks (not yet reorganized)
-export { useAthlete } from './useAthlete';
+export { useAthlete } from '@/shared/app/useAthlete';
 export { useWellnessForDate, type TimeRange } from './fitness';
 export {
   useInfiniteActivities,
@@ -59,7 +60,7 @@ export {
   DEFAULT_POWER_ZONES,
   DEFAULT_HR_ZONES,
   getZoneColor,
-} from './useSportSettings';
+} from '@/shared/app/useSportSettings';
 export {
   POWER_CURVE_DURATIONS,
   getPowerAtDuration,
@@ -81,8 +82,8 @@ export {
   type ChartMetricType,
 } from './charts';
 export { getLatestFTP, getLatestEFTP } from './activities';
-export { useOldestActivityDate } from './useOldestActivityDate';
-export { useCacheDays } from './useCacheDays';
+export { useOldestActivityDate } from '@/shared/app/useOldestActivityDate';
+export { useCacheDays } from '@/shared/app/useCacheDays';
 
 // Route hooks (already organized)
 export { useRouteGroups } from './routes/useRouteGroups';
@@ -137,7 +138,7 @@ export { useActivityPatterns } from './home';
 export { useInsights } from './insights';
 
 // Location hooks
-export { useUserLocation } from './useUserLocation';
+export { useUserLocation } from '@/shared/app/useUserLocation';
 
 // Export hooks
 export { useGpxExport } from './export';

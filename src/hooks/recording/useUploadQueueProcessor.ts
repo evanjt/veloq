@@ -1,7 +1,7 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { AppState } from 'react-native';
 import * as FileSystem from 'expo-file-system/legacy';
-import { useNetwork } from '@/providers/NetworkContext';
+import { useNetwork } from '@/shared/app/NetworkContext';
 import { useAuthStore, useUploadPermissionStore } from '@/providers';
 import { intervalsApi } from '@/api';
 import {

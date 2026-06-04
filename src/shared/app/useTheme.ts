@@ -1,5 +1,6 @@
 import { brand, colors, darkColors } from '@/theme';
-import { useResolvedColorScheme } from '@/providers';
+
+import { useResolvedColorScheme } from './ThemeProvider';
 
 export interface ThemeColors {
   // Core brand

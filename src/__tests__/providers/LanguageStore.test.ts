@@ -23,7 +23,7 @@ import {
   isEnglishVariant,
   isLanguageVariant,
   getBaseLanguage,
-} from '@/providers/LanguageStore';
+} from '@/shared/app/LanguageStore';
 
 const STORAGE_KEY = 'veloq-language-preference';
 const mockGetLocales = Localization.getLocales as jest.Mock;

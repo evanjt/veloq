@@ -3,7 +3,7 @@ import { View, StyleSheet, ActivityIndicator, Pressable, Linking } from 'react-n
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { useExerciseSets } from '@/hooks/activities';
-import { useMetricSystem } from '@/hooks/ui/useMetricSystem';
+import { useMetricSystem } from '@/shared/app/useMetricSystem';
 import { formatDuration } from '@/lib';
 import { formatWeight } from '@/lib/strength/formatting';
 import { colors, darkColors, spacing, layout, typography, shadows, brand } from '@/theme';

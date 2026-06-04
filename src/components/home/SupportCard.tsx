@@ -13,7 +13,7 @@ import Animated, {
 import * as WebBrowser from 'expo-web-browser';
 import { useTheme } from '@/hooks';
 import { useSupportStore } from '@/providers';
-import { useDonation } from '@/hooks/useDonation';
+import { useDonation } from '@/shared/app/useDonation';
 import { colors, darkColors, spacing, layout, shadows, typography } from '@/theme';
 import { TipButtons } from '@/shared/ui/TipButtons';
 

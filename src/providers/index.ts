@@ -6,7 +6,7 @@ export {
   useThemePreferenceStore,
   useResolvedColorScheme,
   type ThemePreference,
-} from './ThemeProvider';
+} from '@/shared/app/ThemeProvider';
 export {
   MapPreferencesProvider,
   useMapPreferences,
@@ -65,15 +65,19 @@ export {
   getEnglishVariantValue,
   isLanguageVariant,
   getBaseLanguage,
-} from './LanguageStore';
+} from '@/shared/app/LanguageStore';
 export {
   useSyncDateRange,
   getSyncGeneration,
   type GpsSyncProgress,
   type TerrainSnapshotProgress,
 } from './SyncDateRangeStore';
-export { NetworkProvider, useNetwork } from './NetworkContext';
-export { TopSafeAreaProvider, useTopSafeArea, useScreenSafeAreaEdges } from './TopSafeAreaContext';
+export { NetworkProvider, useNetwork } from '@/shared/app/NetworkContext';
+export {
+  TopSafeAreaProvider,
+  useTopSafeArea,
+  useScreenSafeAreaEdges,
+} from '@/shared/app/TopSafeAreaContext';
 export {
   useUnitPreference,
   getIsMetric,
@@ -82,7 +86,7 @@ export {
   initializeUnitPreference,
   type UnitPreference,
   type IntervalsUnitPreferences,
-} from './UnitPreferenceStore';
+} from '@/shared/app/UnitPreferenceStore';
 export {
   useDashboardPreferences,
   initializeDashboardPreferences,

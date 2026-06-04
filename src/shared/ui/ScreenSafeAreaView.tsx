@@ -11,7 +11,7 @@
 import React, { ReactNode } from 'react';
 import { StyleProp, ViewStyle } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useScreenSafeAreaEdges } from '@/providers/TopSafeAreaContext';
+import { useScreenSafeAreaEdges } from '@/shared/app/TopSafeAreaContext';
 
 interface ScreenSafeAreaViewProps {
   children: ReactNode;

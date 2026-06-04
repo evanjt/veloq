@@ -24,7 +24,7 @@ import {
   resolveIsMetric,
   getIntervalsPreferenceLabel,
   initializeUnitPreference,
-} from '@/providers/UnitPreferenceStore';
+} from '@/shared/app/UnitPreferenceStore';
 
 // RouteSettingsStore
 import {
@@ -110,7 +110,7 @@ describe('ThemeProvider', () => {
       Appearance: { setColorScheme: jest.fn() },
     }));
     // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const tp = require('@/providers/ThemeProvider');
+    const tp = require('@/shared/app/ThemeProvider');
     getThemePreference = tp.getThemePreference;
   });
 

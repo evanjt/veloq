@@ -1,14 +1,14 @@
 import { useMemo, useCallback, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useAthlete } from '@/hooks/useAthlete';
+import { useAthlete } from '@/shared/app/useAthlete';
 import { useWellness } from '@/hooks/fitness';
-import { useSportSettings, getSettingsForSport } from '@/hooks/useSportSettings';
+import { useSportSettings, getSettingsForSport } from '@/shared/app/useSportSettings';
 import { usePaceCurve } from '@/hooks/charts';
 import { getFormZone, FORM_ZONE_COLORS, FORM_ZONE_LABELS } from '@/lib';
 import { useDashboardPreferences, useSportPreference, SPORT_COLORS } from '@/providers';
 import type { MetricId } from '@/providers';
 import { formatPaceCompact, formatSwimPace } from '@/lib';
-import { useMetricSystem } from '@/hooks/ui/useMetricSystem';
+import { useMetricSystem } from '@/shared/app/useMetricSystem';
 import { colors } from '@/theme';
 import { getRouteEngine } from '@/shared/native/routeEngine';
 import { useEngineSubscription } from '@/hooks/routes/useRouteEngine';

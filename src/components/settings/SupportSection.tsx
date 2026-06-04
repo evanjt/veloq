@@ -5,7 +5,7 @@ import { useTheme } from '@/hooks';
 import { useTranslation } from 'react-i18next';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import * as WebBrowser from 'expo-web-browser';
-import { useDonation } from '@/hooks/useDonation';
+import { useDonation } from '@/shared/app/useDonation';
 import { TipButtons } from '@/shared/ui/TipButtons';
 import { getCrashLog, formatCrashLog } from '@/lib/debug/crashLog';
 import { shareFile } from '@/lib/export/shareFile';

@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { useWellness, timeRangeToDays, type TimeRange } from './useWellness';
 import { useZoneDistribution } from './useZoneDistribution';
 import { useActivities, useActivityStreams, useEFTPHistory, getLatestFTP } from '../activities';
-import { useSportSettings, getSettingsForSport } from '../useSportSettings';
+import { useSportSettings, getSettingsForSport } from '@/shared/app/useSportSettings';
 import { usePaceCurve, useSeasonBests } from '../charts';
 import { useAuthStore, type PrimarySport } from '@/providers';
 
