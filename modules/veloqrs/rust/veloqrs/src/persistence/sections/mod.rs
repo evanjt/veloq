@@ -168,8 +168,18 @@ impl PersistentRouteEngine {
                     });
 
                     let polyline: Vec<GpsPoint> = if let Some(blob) = polyline_blob {
-                        codec::deserialize_points(&blob).unwrap_or_else(|_| {
-                            serde_json::from_str(&polyline_json).unwrap_or_default()
+                        codec::deserialize_points(&blob).unwrap_or_else(|e| {
+                            log::warn!(
+                                "load_sections: polyline blob decode failed ({:?}); falling back to JSON",
+                                e
+                            );
+                            serde_json::from_str(&polyline_json).unwrap_or_else(|e2| {
+                                log::error!(
+                                    "load_sections: polyline JSON fallback also failed ({:?}); section will load with an empty polyline",
+                                    e2
+                                );
+                                Vec::new()
+                            })
                         })
                     } else {
                         serde_json::from_str(&polyline_json)

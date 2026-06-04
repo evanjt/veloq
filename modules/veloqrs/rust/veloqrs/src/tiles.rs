@@ -97,9 +97,11 @@ fn build_intensity_idx_lut(exposure: f32) -> Box<[u8; 65536]> {
         v[val as usize] = idx;
     }
     let slice: Box<[u8]> = v.into_boxed_slice();
-    // Length is fixed at 65536 by construction.
+    // Length is fixed at 65536 by construction; assert before the unchecked cast
+    // so a future change to the Vec size fails loudly instead of becoming UB.
+    assert_eq!(slice.len(), 65536, "intensity LUT must be exactly 65536 bytes");
     let ptr = Box::into_raw(slice) as *mut [u8; 65536];
-    // SAFETY: `slice` was constructed from a Vec with exactly 65536 bytes.
+    // SAFETY: `slice` was just asserted to be exactly 65536 bytes.
     unsafe { Box::from_raw(ptr) }
 }
 

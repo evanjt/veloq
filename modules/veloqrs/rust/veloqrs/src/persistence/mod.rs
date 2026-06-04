@@ -208,7 +208,7 @@ impl SectionDetectionProgress {
     }
 
     pub fn set_phase(&self, phase: &str, total: u32) {
-        *self.phase.lock().unwrap() = phase.to_string();
+        *self.phase.lock().unwrap_or_else(|e| e.into_inner()) = phase.to_string();
         self.completed.store(0, Ordering::SeqCst);
         self.total.store(total, Ordering::SeqCst);
     }
@@ -218,7 +218,7 @@ impl SectionDetectionProgress {
     }
 
     pub fn get_phase(&self) -> String {
-        self.phase.lock().unwrap().clone()
+        self.phase.lock().unwrap_or_else(|e| e.into_inner()).clone()
     }
 
     pub fn get_completed(&self) -> u32 {
