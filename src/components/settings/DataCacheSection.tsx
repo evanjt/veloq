@@ -184,6 +184,8 @@ export function DataCacheSection({ onLayout }: DataCacheSectionProps) {
 
             // Refresh cache sizes
             refreshCacheSizes();
+
+            Alert.alert(t('alerts.cacheCleared'));
           } catch {
             Alert.alert(t('alerts.error'), t('alerts.failedToClear'));
           }
