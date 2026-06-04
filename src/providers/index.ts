@@ -96,7 +96,7 @@ export {
   type MetricId,
   type MetricDefinition,
   type MetricPreference,
-} from './DashboardPreferencesStore';
+} from '@/features/home/store';
 export { useDebugStore, isDebugEnabled, initializeDebugStore } from './DebugStore';
 export { useEngineStatus } from './EngineStatusStore';
 export { useTileCacheStore, initializeTileCacheStore } from './TileCacheStore';

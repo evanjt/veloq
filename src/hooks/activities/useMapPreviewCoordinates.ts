@@ -6,7 +6,7 @@ import { intervalsApi } from '@/api';
 import { queryKeys } from '@/shared/query/queryKeys';
 import { convertLatLngTuples } from '@/lib';
 import type { LatLng } from '@/shared/geo/polyline';
-import type { PreviewTrack } from '@/hooks/home/useStartupData';
+import type { PreviewTrack } from '@/features/home/hooks/useStartupData';
 
 /**
  * Provides GPS coordinates for activity map previews.

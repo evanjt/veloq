@@ -24,7 +24,7 @@ import { colors, darkColors, typography, spacing, shadows, layout } from '@/them
 import { CHART_CONFIG } from '@/constants';
 import { useMapPreferences } from '@/providers';
 import { ActivityMapPreview } from './ActivityMapPreview';
-import type { PreviewTrack } from '@/hooks/home/useStartupData';
+import type { PreviewTrack } from '@/features/home/hooks/useStartupData';
 import { ActivityCardContextMenu } from './ActivityCardContextMenu';
 import { SkylineBar } from './SkylineBar';
 import { StrengthActivityCard, type StrengthCardData } from './StrengthActivityCard';

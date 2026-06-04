@@ -129,10 +129,10 @@ export { useMergeSections } from './routes/useMergeSections';
 export { useActivityRematch } from './routes/useActivityRematch';
 
 // Home hooks
-export { useSummaryCardData, type SummaryCardData } from './home';
-export { useTodayWorkout } from './home';
-export { useWorkoutSections, type WorkoutSection } from './home';
-export { useActivityPatterns } from './home';
+export { useSummaryCardData, type SummaryCardData } from '@/features/home/hooks';
+export { useTodayWorkout } from '@/features/home/hooks';
+export { useWorkoutSections, type WorkoutSection } from '@/features/home/hooks';
+export { useActivityPatterns } from '@/features/home/hooks';
 
 // Insights hooks
 export { useInsights } from './insights';

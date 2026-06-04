@@ -24,7 +24,7 @@ import { calculateTerrainCamera, isLikelyInterestingTerrain } from '@/lib/utils/
 import type { TerrainSnapshotWebViewRef } from '@/components/maps/TerrainSnapshotWebView';
 import { brand, colors, mapPreviewColors, colorWithOpacity } from '@/theme';
 import type { Activity } from '@/types';
-import type { PreviewTrack } from '@/hooks/home/useStartupData';
+import type { PreviewTrack } from '@/features/home/hooks/useStartupData';
 
 interface ActivityMapPreviewProps {
   activity: Activity;

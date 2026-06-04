@@ -5,9 +5,9 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/hooks';
-import { useTodayWorkout } from '@/hooks/home/useTodayWorkout';
-import { useWorkoutSections } from '@/hooks/home/useWorkoutSections';
-import { useActivityPatterns } from '@/hooks/home/useActivityPatterns';
+import { useTodayWorkout } from '@/features/home/hooks/useTodayWorkout';
+import { useWorkoutSections } from '@/features/home/hooks/useWorkoutSections';
+import { useActivityPatterns } from '@/features/home/hooks/useActivityPatterns';
 import { useWellness } from '@/hooks/fitness';
 import {
   getFormZone,
@@ -19,7 +19,7 @@ import {
 import { WorkoutStepBar } from './WorkoutStepBar';
 import { colors, darkColors, spacing, layout, shadows, typography, brand } from '@/theme';
 import type { CalendarEvent } from '@/types';
-import type { WorkoutSection } from '@/hooks/home/useWorkoutSections';
+import type { WorkoutSection } from '@/features/home/hooks/useWorkoutSections';
 import type { ActivityPattern } from '@/types';
 
 const PR_RECENCY_DAYS = 7;

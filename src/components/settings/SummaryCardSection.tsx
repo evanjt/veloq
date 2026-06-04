@@ -5,7 +5,7 @@ import { useTheme, useSummaryCardData } from '@/hooks';
 import { useTranslation } from 'react-i18next';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useDashboardPreferences, getMetricDefinition, type MetricId } from '@/providers';
-import { SummaryCard } from '@/components/home';
+import { SummaryCard } from '@/features/home/components';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import { settingsStyles } from './settingsStyles';
 

@@ -21,6 +21,7 @@ import { fileURLToPath } from 'node:url';
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const HOOKS_DIR = join(ROOT, 'src/hooks');
 const SHARED_APP_DIR = join(ROOT, 'src/shared/app');
+const FEATURES_DIR = join(ROOT, 'src/features');
 const QUERY_KEYS_FILE = join(ROOT, 'src/shared/query/queryKeys.ts');
 const GLOBAL_SYNC_FILE = join(ROOT, 'src/shared/ui/GlobalDataSync.tsx');
 const BACKUP_FILE = join(ROOT, 'src/lib/export/backup.ts');
@@ -91,7 +92,7 @@ const EXEMPT = new Set(['src/hooks/routes/useCustomSections.ts']);
 // action hooks are excluded — they have no sync-driven refresh expectation.
 function findEngineHookOrphans(knownGroups, invalidatedGroups) {
   const orphans = [];
-  for (const file of [...walk(HOOKS_DIR), ...walk(SHARED_APP_DIR)]) {
+  for (const file of [...walk(HOOKS_DIR), ...walk(SHARED_APP_DIR), ...walk(FEATURES_DIR)]) {
     const src = readFileSync(file, 'utf8');
     if (!ENGINE_READ.test(src)) continue;
     if (!/\buseQuery\b/.test(src)) continue;

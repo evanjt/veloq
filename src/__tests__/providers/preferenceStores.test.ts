@@ -54,7 +54,7 @@ import {
   type MetricId,
   type MetricPreference,
   type SummaryCardPreferences,
-} from '@/providers/DashboardPreferencesStore';
+} from '@/features/home/store';
 
 // HRZonesStore
 import { useHRZones, DEFAULT_HR_ZONES, initializeHRZones } from '@/providers/HRZonesStore';

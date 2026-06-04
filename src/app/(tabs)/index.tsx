@@ -39,8 +39,8 @@ import {
   ActivityCardSkeleton,
   TAB_BAR_SAFE_PADDING,
 } from '@/shared/ui';
-import { SummaryCard, NotificationOptInCard, SupportCard } from '@/components/home';
-import { useStartupData } from '@/hooks/home/useStartupData';
+import { SummaryCard, NotificationOptInCard, SupportCard } from '@/features/home/components';
+import { useStartupData } from '@/features/home/hooks/useStartupData';
 import {
   TerrainSnapshotWebView,
   type TerrainSnapshotWebViewRef,
