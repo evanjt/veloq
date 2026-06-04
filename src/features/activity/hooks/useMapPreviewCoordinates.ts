@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { getRouteEngine } from '@/shared/native/routeEngine';
-import { useEngineSubscription } from '@/hooks/routes/useRouteEngine';
+import { useEngineSubscription } from '@/features/routes/hooks/useRouteEngine';
 import { intervalsApi } from '@/api';
 import { queryKeys } from '@/shared/query/queryKeys';
 import { convertLatLngTuples } from '@/lib';

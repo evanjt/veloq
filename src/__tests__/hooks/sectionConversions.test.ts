@@ -82,7 +82,7 @@ jest.mock('@/shared/ffi/ffiConversions', () => ({
     })),
 }));
 
-import { convertNativeSectionToApp } from '@/lib/utils/sectionConversions';
+import { convertNativeSectionToApp } from '@/features/routes/lib/sectionConversions';
 
 // ---------------------------------------------------------------------------
 // Helper: build a minimal NativeFrequentSection-like object

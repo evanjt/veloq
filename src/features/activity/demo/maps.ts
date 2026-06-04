@@ -3,7 +3,7 @@ import {
   getRouteBounds,
   getRouteCoordinates,
   getRouteCoordinatesWithVariation,
-} from '@/data/demo/routes';
+} from '@/features/routes/demo/routes';
 import { createActivitySeededRandom } from '@/data/demo/random';
 
 import type { ApiActivity, ApiActivityMap } from './types';

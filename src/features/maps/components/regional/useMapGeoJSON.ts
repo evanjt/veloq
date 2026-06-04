@@ -9,11 +9,12 @@
 
 import { useMemo } from 'react';
 import type { TFunction } from 'i18next';
+
 import { convertLatLngTuples } from '@/lib';
 import type { ActivityBoundsItem, FrequentSection, ActivityType } from '@/types';
+import { getSectionStyle, getRouteStyle } from '@/features/routes/constants';
+import type { RouteSignature } from '@/features/routes/hooks';
 import { getActivityTypeConfig } from '../ActivityTypeFilter';
-import { getSectionStyle, getRouteStyle } from '@/lib/utils/constants';
-import type { RouteSignature } from '@/hooks/routes';
 import type { SelectedActivity } from './ActivityPopup';
 
 const EMPTY_COLLECTION: GeoJSON.FeatureCollection = {

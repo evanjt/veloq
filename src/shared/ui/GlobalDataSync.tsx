@@ -13,7 +13,7 @@ import {
   useActivityBoundsCache,
   isInfiniteActivitiesStale,
 } from '@/hooks';
-import { useSectionHealthCheck } from '@/hooks/routes/useSectionHealthCheck';
+import { useSectionHealthCheck } from '@/features/routes/hooks/useSectionHealthCheck';
 import { queryKeys } from '@/shared/query/queryKeys';
 import { onSyncComplete } from '@/lib/backup';
 import { intervalsApi } from '@/api';
@@ -28,7 +28,7 @@ import {
   formatGpsSyncProgress,
   formatBoundsSyncProgress,
   formatTerrainSnapshotProgress,
-} from '@/lib/utils/syncProgressFormat';
+} from '@/features/routes/lib/syncProgressFormat';
 import {
   updateSyncNotification,
   dismissSyncNotification,

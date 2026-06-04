@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { routeEngine } from 'veloqrs';
 import { intervalsApi } from '@/api';
-import type { SectionMatch } from '@/hooks/routes/useSectionMatches';
+import type { SectionMatch } from '@/features/routes/hooks/useSectionMatches';
 import type { Section } from '@/types';
 
 /**

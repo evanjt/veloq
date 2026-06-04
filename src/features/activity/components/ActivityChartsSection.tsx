@@ -14,7 +14,7 @@ import { PowerZonesChart } from './PowerZonesChart';
 import { IntervalsTable } from './IntervalsTable';
 import { InsightfulStats } from './stats';
 import { ComponentErrorBoundary, DeviceAttribution } from '@/shared/ui';
-import { DebugInfoPanel, DebugWarningBanner } from '@/components/routes';
+import { DebugInfoPanel, DebugWarningBanner } from '@/features/routes';
 import { POWER_ZONE_COLORS, HR_ZONE_COLORS } from '@/hooks';
 import { useFFITimer } from '@/shared/debug/useFFITimer';
 import {

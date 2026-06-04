@@ -2,7 +2,7 @@
  * Tests for scatter-chart data-prep helpers.
  */
 
-import { splitAndPositionChartData, buildTrendWithBand } from '@/lib/charts/scatterData';
+import { splitAndPositionChartData, buildTrendWithBand } from '@/features/routes/lib/scatterData';
 import type { PerformanceDataPoint } from '@/types';
 
 type InputPoint = PerformanceDataPoint & { x: number };

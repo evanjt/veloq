@@ -3,8 +3,8 @@ import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '@/hooks';
-import { useSectionDetail } from '@/hooks/routes/useRouteEngine';
-import { useSectionPerformances } from '@/hooks/routes/useSectionPerformances';
+import { useSectionDetail } from '@/features/routes/hooks/useRouteEngine';
+import { useSectionPerformances } from '@/features/routes/hooks/useSectionPerformances';
 import { getActivityIcon } from '@/features/activity/lib/activityUtils';
 import { Shimmer } from '@/shared/ui/Shimmer';
 import { SectionInsightMap } from './SectionInsightMap';
@@ -13,7 +13,7 @@ import { RecentEffortsList } from './RecentEffortsList';
 import { formatDuration, formatShortDate } from '@/lib';
 import { colors, darkColors, spacing, opacity, brand } from '@/theme';
 import type { Insight } from '@/types';
-import type { SectionPerformanceRecord } from '@/hooks/routes/useSectionPerformances';
+import type { SectionPerformanceRecord } from '@/features/routes/hooks/useSectionPerformances';
 
 const ACCENT_COLOR = brand.gold;
 

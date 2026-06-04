@@ -15,8 +15,8 @@
 
 import { useMemo } from 'react';
 import { getRouteEngine } from '@/shared/native/routeEngine';
-import { isRouteMatchingEnabled } from '@/providers/RouteSettingsStore';
-import { useEngineSubscription } from '@/hooks/routes/useRouteEngine';
+import { isRouteMatchingEnabled } from '@/features/routes/stores/RouteSettingsStore';
+import { useEngineSubscription } from '@/features/routes/hooks/useRouteEngine';
 
 export interface ActivitySectionHighlight {
   sectionId: string;

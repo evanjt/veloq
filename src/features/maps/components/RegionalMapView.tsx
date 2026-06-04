@@ -28,11 +28,15 @@ import {
 } from './mapStyles';
 import { computeAttribution } from '@/features/maps/lib/computeAttribution';
 import type { ActivityBoundsItem } from '@/types';
-import { useEngineSections, useEngineSectionCount, useRouteSignatures } from '@/hooks/routes';
+import {
+  useEngineSections,
+  useEngineSectionCount,
+  useRouteSignatures,
+} from '@/features/routes/hooks';
 import { HEATMAP_TILE_URL_TEMPLATE } from '@/features/maps/hooks/useHeatmapTiles';
 import { useSectionAutoToggle, useVisibilityToggles } from '@/features/maps/hooks';
 import { buildSpiderGeoJSON } from '@/features/maps/lib/buildSpiderGeoJSON';
-import { isHeatmapEnabled } from '@/providers/RouteSettingsStore';
+import { isHeatmapEnabled } from '@/features/routes/stores/RouteSettingsStore';
 import type { FrequentSection } from '@/types';
 import {
   ActivityPopup,

@@ -10,7 +10,7 @@ export {
   getRouteForActivity,
   getRouteById,
   getRouteLocation,
-} from './routes';
+} from '@/features/routes/demo/routes';
 
 // Fixture-based API exports (primary demo data source)
 export {

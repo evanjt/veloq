@@ -24,7 +24,7 @@ import {
 } from '@/theme';
 import { formatDistance, formatPace, formatSwimPace, isSwimmingActivity } from '@/lib';
 import type { ActivityType } from '@/types';
-import { SectionSparkline } from '@/components/section/SectionSparkline';
+import { SectionSparkline } from '@/features/routes/components/section/SectionSparkline';
 import type { SectionEncounter } from 'veloqrs';
 import type { PerformanceDataPoint } from '@/types';
 

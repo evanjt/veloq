@@ -83,7 +83,7 @@ const API_BACKED = /\bintervalsApi\./;
 // Verified-acceptable engine-derived hooks that intentionally don't invalidate
 // on sync-complete: custom sections are user-created (not activity-sync-mutated)
 // and refresh via their own refresh() on create/delete.
-const EXEMPT = new Set(['src/hooks/routes/useCustomSections.ts']);
+const EXEMPT = new Set(['src/features/routes/hooks/useCustomSections.ts']);
 
 // The strength + wellness stale-data bugs were a useQuery whose queryFn read
 // engine data, keyed on a centralized queryKeys.<group>, with that group missing

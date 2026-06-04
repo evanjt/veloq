@@ -13,7 +13,7 @@ import { useTheme } from '@/hooks';
 import { formatDuration, formatShortDate, safeGetTime } from '@/lib';
 import { colors, darkColors, spacing, opacity } from '@/theme';
 import { ChartErrorBoundary } from '@/shared/ui';
-import type { SectionPerformanceRecord } from '@/hooks/routes/useSectionPerformances';
+import type { SectionPerformanceRecord } from '@/features/routes/hooks/useSectionPerformances';
 import type { LayoutChangeEvent } from 'react-native';
 
 const CHART_HEIGHT = 160;

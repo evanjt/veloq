@@ -62,7 +62,7 @@ import {
   isHeatmapEnabled,
   getDetectionStrictness,
   getDetectionMethod,
-} from '@/providers/RouteSettingsStore';
+} from '@/features/routes/stores/RouteSettingsStore';
 import { formatLocalDate, queryKeys } from '@/lib';
 import { initializeI18n, i18n } from '@/i18n';
 import { lightTheme, darkTheme, colors, darkColors } from '@/theme';
@@ -77,7 +77,7 @@ import {
 } from '@/shared/ui';
 import { WhatsNewModal, TourReturnPill } from '@/components/ui';
 import { useUploadQueueProcessor } from '@/features/recording/hooks/useUploadQueueProcessor';
-import { useRouteReoptimization } from '@/hooks/routes/useRouteReoptimization';
+import { useRouteReoptimization } from '@/features/routes/hooks/useRouteReoptimization';
 import {
   getRouteEngine,
   getRouteDbPath,

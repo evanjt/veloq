@@ -9,8 +9,8 @@ import { Animated } from 'react-native';
 import { colors, darkColors, spacing, typography, opacity, layout } from '@/theme';
 import { CHART_CONFIG } from '@/constants';
 import { formatDistance } from '@/lib';
-import { SectionMiniPreview } from '@/components/routes';
-import type { SectionMatch } from '@/hooks/routes/useSectionMatches';
+import { SectionMiniPreview } from '@/features/routes';
+import type { SectionMatch } from '@/features/routes/hooks/useSectionMatches';
 import type { Section } from '@/types';
 
 interface SectionListItemProps {

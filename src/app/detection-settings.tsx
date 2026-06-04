@@ -16,7 +16,7 @@ import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/hooks';
 import { useRouteSettings } from '@/providers';
-import { useSectionRescan } from '@/hooks/routes/useSectionRescan';
+import { useSectionRescan } from '@/features/routes/hooks/useSectionRescan';
 import { ScreenSafeAreaView, TAB_BAR_SAFE_PADDING } from '@/shared/ui';
 import { DetectionMethodIllustration } from '@/components/settings';
 import { colors, darkColors, spacing, layout, typography, brand } from '@/theme';

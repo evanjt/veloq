@@ -18,12 +18,12 @@ import * as Haptics from 'expo-haptics';
 import { useTranslation } from 'react-i18next';
 import { SectionInlinePlot } from './SectionInlinePlot';
 import { findRowIndexAtPageY } from './scrubHitTest';
-import { DataRangeFooter } from '@/components/routes';
+import { DataRangeFooter, getSectionStyle } from '@/features/routes';
 import { TAB_BAR_SAFE_PADDING } from '@/shared/ui';
 import { CHART_CONFIG } from '@/constants';
 import { getRouteEngine } from '@/shared/native/routeEngine';
-import { getAllSectionDisplayNames } from '@/hooks/routes/useUnifiedSections';
-import { getSectionStyle, navigateTo, formatDistance } from '@/lib';
+import { getAllSectionDisplayNames } from '@/features/routes/hooks/useUnifiedSections';
+import { navigateTo, formatDistance } from '@/lib';
 import { colors, darkColors, spacing, shadows } from '@/theme';
 
 interface ActivitySectionsSectionProps {

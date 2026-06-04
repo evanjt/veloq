@@ -18,10 +18,10 @@ import {
   useSectionOverlays,
   useActivityRematch,
 } from '@/hooks';
-import { useCustomSections } from '@/hooks/routes/useCustomSections';
-import { useRouteMatch } from '@/hooks/routes/useRouteMatch';
-import { useSectionMatches } from '@/hooks/routes/useSectionMatches';
-import { useSectionEncounters } from '@/hooks/routes/useSectionEncounters';
+import { useCustomSections } from '@/features/routes/hooks/useCustomSections';
+import { useRouteMatch } from '@/features/routes/hooks/useRouteMatch';
+import { useSectionMatches } from '@/features/routes/hooks/useSectionMatches';
+import { useSectionEncounters } from '@/features/routes/hooks/useSectionEncounters';
 import { useActivitySectionHighlights } from '@/features/activity/hooks/useActivitySectionHighlights';
 import {
   ActivityHeader,

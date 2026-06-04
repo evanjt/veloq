@@ -1,4 +1,4 @@
-import { generateSectionName } from '@/lib/utils/sectionNaming';
+import { generateSectionName } from '@/features/routes/lib/sectionNaming';
 
 // Mock resolveIsMetric to return true (metric)
 jest.mock('@/providers', () => ({

@@ -1,6 +1,6 @@
 import { generateStrengthInsights } from '@/features/strength/hooks/strengthInsights';
 import type { StrengthSummary } from '@/features/strength/types';
-import { isRouteMatchingEnabled } from '@/providers/RouteSettingsStore';
+import { isRouteMatchingEnabled } from '@/features/routes/stores/RouteSettingsStore';
 import { getRouteEngine } from '@/shared/native/routeEngine';
 
 import type { Insight } from '../types';

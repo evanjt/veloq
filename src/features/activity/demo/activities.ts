@@ -1,4 +1,4 @@
-import { getRouteLocation } from '@/data/demo/routes';
+import { getRouteLocation } from '@/features/routes/demo/routes';
 import {
   getDemoReferenceDate,
   formatDateId,

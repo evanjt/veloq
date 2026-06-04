@@ -6,8 +6,8 @@
  * to start.
  */
 
-import { useSyncDateRange, GpsSyncProgress } from '@/providers/SyncDateRangeStore';
-import { formatGpsSyncProgress } from '@/lib/utils/syncProgressFormat';
+import { useSyncDateRange, GpsSyncProgress } from '@/features/routes/stores/SyncDateRangeStore';
+import { formatGpsSyncProgress } from '@/features/routes/lib/syncProgressFormat';
 import type { TFunction } from 'i18next';
 
 const t = ((key: string) => key) as unknown as TFunction;

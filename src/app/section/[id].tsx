@@ -28,15 +28,15 @@ import {
   useMergeSections,
   useSectionActions,
 } from '@/hooks';
-import { useSectionDetail } from '@/hooks/routes/useRouteEngine';
-import { useSectionTrim } from '@/hooks/routes/useSectionTrim';
-import { getAllSectionDisplayNames } from '@/hooks/routes/useUnifiedSections';
+import { useSectionDetail } from '@/features/routes/hooks/useRouteEngine';
+import { useSectionTrim } from '@/features/routes/hooks/useSectionTrim';
+import { getAllSectionDisplayNames } from '@/features/routes/hooks/useUnifiedSections';
 import {
   DataRangeFooter,
   DebugInfoPanel,
   DebugWarningBanner,
   SectionTrimOverlay,
-} from '@/components/routes';
+} from '@/features/routes';
 import { useDebugStore } from '@/providers';
 import { useFFITimer } from '@/shared/debug/useFFITimer';
 import { TAB_BAR_SAFE_PADDING, ScreenErrorBoundary } from '@/shared/ui';
@@ -47,8 +47,11 @@ import {
   SectionInfoCard,
   MergeConfirmDialog,
   MergeCandidatesModal,
-} from '@/components/section';
-import { MAP_HEIGHT_NORMAL, MAP_HEIGHT_EDIT } from '@/components/section/SectionHeader';
+} from '@/features/routes/components/section';
+import {
+  MAP_HEIGHT_NORMAL,
+  MAP_HEIGHT_EDIT,
+} from '@/features/routes/components/section/SectionHeader';
 import { getRouteEngine } from '@/shared/native/routeEngine';
 import { decodeCoords } from 'veloqrs';
 import {
@@ -60,7 +63,7 @@ import {
 } from '@/lib';
 import { fromUnixSeconds } from '@/shared/ffi/ffiConversions';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
-import { type SectionTimeRange } from '@/constants';
+import { type SectionTimeRange } from '@/features/routes';
 import type {
   Activity,
   ActivityType,

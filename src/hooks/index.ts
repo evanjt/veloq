@@ -92,19 +92,19 @@ export { useOldestActivityDate } from '@/shared/app/useOldestActivityDate';
 export { useCacheDays } from '@/shared/app/useCacheDays';
 
 // Route hooks (already organized)
-export { useRouteGroups } from './routes/useRouteGroups';
-export { useRouteMatch } from './routes/useRouteMatch';
-export { useRoutePerformances } from './routes/useRoutePerformances';
-export { useRouteProcessing } from './routes/useRouteProcessing';
-export { useFrequentSections } from './routes/useFrequentSections';
-export { useSectionMatches } from './routes/useSectionMatches';
+export { useRouteGroups } from '@/features/routes/hooks/useRouteGroups';
+export { useRouteMatch } from '@/features/routes/hooks/useRouteMatch';
+export { useRoutePerformances } from '@/features/routes/hooks/useRoutePerformances';
+export { useRouteProcessing } from '@/features/routes/hooks/useRouteProcessing';
+export { useFrequentSections } from '@/features/routes/hooks/useFrequentSections';
+export { useSectionMatches } from '@/features/routes/hooks/useSectionMatches';
 export {
   useSectionPerformances,
   type SectionLap,
   type SectionPerformanceRecord,
-} from './routes/useSectionPerformances';
-export { useCustomSections, useCustomSection } from './routes/useCustomSections';
-export { useUnifiedSections } from './routes/useUnifiedSections';
+} from '@/features/routes/hooks/useSectionPerformances';
+export { useCustomSections, useCustomSection } from '@/features/routes/hooks/useCustomSections';
+export { useUnifiedSections } from '@/features/routes/hooks/useUnifiedSections';
 export { useEngineMapActivities } from '@/features/maps/hooks';
 
 // Route Engine hooks (stateful Rust backend)
@@ -120,19 +120,22 @@ export {
   useGroupSummaries,
   useGroupDetail,
   useSectionPolyline,
-} from './routes/useRouteEngine';
-export { useRouteDataSync } from './routes/useRouteDataSync';
-export { useSectionChartData } from './routes/useSectionChartData';
-export { useRouteReoptimization } from './routes/useRouteReoptimization';
-export { useRoutesScreenData } from './routes/useRoutesScreenData';
+} from '@/features/routes/hooks/useRouteEngine';
+export { useRouteDataSync } from '@/features/routes/hooks/useRouteDataSync';
+export { useSectionChartData } from '@/features/routes/hooks/useSectionChartData';
+export { useRouteReoptimization } from '@/features/routes/hooks/useRouteReoptimization';
+export { useRoutesScreenData } from '@/features/routes/hooks/useRoutesScreenData';
 // Section detail hook from route engine
-export { useSectionDetail } from './routes/useRouteEngine';
+export { useSectionDetail } from '@/features/routes/hooks/useRouteEngine';
 // Section matching, nearby, merge, and re-scan hooks
-export { useSectionRescan } from './routes/useSectionRescan';
-export { useSectionActions, type UseSectionActionsResult } from './routes/useSectionActions';
-export { useNearbySections } from './routes/useNearbySections';
-export { useMergeSections } from './routes/useMergeSections';
-export { useActivityRematch } from './routes/useActivityRematch';
+export { useSectionRescan } from '@/features/routes/hooks/useSectionRescan';
+export {
+  useSectionActions,
+  type UseSectionActionsResult,
+} from '@/features/routes/hooks/useSectionActions';
+export { useNearbySections } from '@/features/routes/hooks/useNearbySections';
+export { useMergeSections } from '@/features/routes/hooks/useMergeSections';
+export { useActivityRematch } from '@/features/routes/hooks/useActivityRematch';
 
 // Home hooks
 export { useSummaryCardData, type SummaryCardData } from '@/features/home/hooks';

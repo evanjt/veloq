@@ -11,7 +11,7 @@ import { formatPaceCompact, formatSwimPace } from '@/lib';
 import { useMetricSystem } from '@/shared/app/useMetricSystem';
 import { colors } from '@/theme';
 import { getRouteEngine } from '@/shared/native/routeEngine';
-import { useEngineSubscription } from '@/hooks/routes/useRouteEngine';
+import { useEngineSubscription } from '@/features/routes/hooks/useRouteEngine';
 
 /**
  * Supporting metric for SummaryCard display

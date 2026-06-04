@@ -26,8 +26,8 @@ import {
   useGpxExport,
 } from '@/hooks';
 import { fromUnixSeconds } from '@/shared/ffi/ffiConversions';
-import { useGroupDetail } from '@/hooks/routes/useRouteEngine';
-import { getAllRouteDisplayNames } from '@/hooks/routes/useRouteGroups';
+import { useGroupDetail } from '@/features/routes/hooks/useRouteEngine';
+import { getAllRouteDisplayNames } from '@/features/routes/hooks/useRouteGroups';
 import { TAB_BAR_SAFE_PADDING, ScreenErrorBoundary } from '@/shared/ui';
 import { getRouteEngine } from '@/shared/native/routeEngine';
 
@@ -36,10 +36,10 @@ import {
   DataRangeFooter,
   DebugInfoPanel,
   DebugWarningBanner,
-} from '@/components/routes';
+} from '@/features/routes';
 import { useDebugStore } from '@/providers';
 import { useFFITimer } from '@/shared/debug/useFFITimer';
-import { SectionScatterChart } from '@/components/section';
+import { SectionScatterChart } from '@/features/routes/components/section';
 import { decodeCoords } from 'veloqrs';
 import {
   formatDistance,
@@ -51,7 +51,7 @@ import {
 } from '@/lib';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import type { ActivityType, RoutePoint, PerformanceDataPoint } from '@/types';
-import { toActivityType } from '@/types/routes';
+import { toActivityType } from '@/features/routes/types';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 const MAP_HEIGHT = Math.round(SCREEN_HEIGHT * 0.45); // 45% of screen for hero map

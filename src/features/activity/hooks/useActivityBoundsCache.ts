@@ -9,7 +9,7 @@ import { useSyncDateRange } from '@/providers';
 import { clearAllGpsTracks, clearBoundsCache } from '@/shared/storage/gpsStorage';
 import { queryKeys } from '@/shared/query/queryKeys';
 import { getRouteEngine, getRouteDbPath } from '@/shared/native/routeEngine';
-import { isHeatmapEnabled } from '@/providers/RouteSettingsStore';
+import { isHeatmapEnabled } from '@/features/routes/stores/RouteSettingsStore';
 import { formatLocalDate } from '@/lib';
 
 export interface SyncProgress {

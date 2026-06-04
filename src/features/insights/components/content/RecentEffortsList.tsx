@@ -5,7 +5,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '@/hooks';
 import { formatDuration, formatShortDate, navigateTo, safeGetTime } from '@/lib';
 import { colors, darkColors, spacing, opacity, brand } from '@/theme';
-import type { SectionPerformanceRecord } from '@/hooks/routes/useSectionPerformances';
+import type { SectionPerformanceRecord } from '@/features/routes/hooks/useSectionPerformances';
 
 const MAX_EFFORTS = 5;
 

@@ -19,7 +19,7 @@ import { useMemo, useRef, useEffect, useState, useCallback } from 'react';
 import type { Camera } from '@maplibre/maplibre-react-native';
 import { normalizeBounds, getBoundsCenter } from '@/lib';
 import type { ActivityBoundsItem } from '@/types';
-import type { RouteSignature } from '@/hooks/routes';
+import type { RouteSignature } from '@/features/routes/hooks';
 
 interface UseMapCameraOptions {
   activities: ActivityBoundsItem[];

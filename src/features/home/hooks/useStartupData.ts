@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { getRouteEngine } from '@/shared/native/routeEngine';
-import { useEngineSubscription } from '@/hooks/routes/useRouteEngine';
+import { useEngineSubscription } from '@/features/routes/hooks/useRouteEngine';
 import { decodeCoords } from 'veloqrs';
 import type { LatLng } from '@/shared/geo/polyline';
 

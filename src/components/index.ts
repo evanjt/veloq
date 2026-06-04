@@ -21,7 +21,7 @@ export {
   SeasonComparison,
   DecouplingChart,
 } from '@/features/stats';
-export * from './routes';
+export * from '@/features/routes/components';
 export {
   InsightsPanel,
   InsightCard,

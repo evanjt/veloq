@@ -17,7 +17,10 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useActivityBoundsCache } from '@/hooks';
 import { useSyncDateRange } from '@/providers';
-import { formatGpsSyncProgress, formatBoundsSyncProgress } from '@/lib/utils/syncProgressFormat';
+import {
+  formatGpsSyncProgress,
+  formatBoundsSyncProgress,
+} from '@/features/routes/lib/syncProgressFormat';
 import { colors } from '@/theme';
 
 interface SyncProgressBannerProps {

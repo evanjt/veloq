@@ -9,7 +9,7 @@ import {
   buildLaneStats,
   splitIntoLanes,
   type ChartPoint,
-} from '@/lib/charts/unifiedPerformanceData';
+} from '@/features/routes/lib/unifiedPerformanceData';
 import type { PerformanceDataPoint } from '@/types';
 
 function makePoint(overrides: Partial<PerformanceDataPoint> = {}): PerformanceDataPoint {

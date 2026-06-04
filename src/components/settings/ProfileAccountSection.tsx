@@ -7,7 +7,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { colors, darkColors, spacing, typography } from '@/theme';
 import { getAthleteId } from '@/api';
 import { useAuthStore, useUploadPermissionStore } from '@/providers';
-import { useSyncDateRange } from '@/providers/SyncDateRangeStore';
+import { useSyncDateRange } from '@/features/routes/stores/SyncDateRangeStore';
 import { clearAccountData, clearAuthOnly } from '@/shared/storage';
 import { clearUploadQueue } from '@/features/recording/lib/storage/uploadQueue';
 import { useTranslation } from 'react-i18next';

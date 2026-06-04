@@ -16,7 +16,7 @@
 jest.mock('@/shared/native/routeEngine', () => ({
   getRouteEngine: jest.fn(),
 }));
-jest.mock('@/providers/RouteSettingsStore', () => ({
+jest.mock('@/features/routes/stores/RouteSettingsStore', () => ({
   isRouteMatchingEnabled: jest.fn(() => true),
 }));
 

@@ -7,7 +7,7 @@ import { safeGetTime } from '@/shared/format/format';
 
 describe('AUDIT Bug 10.7: Null date in performance sort', () => {
   /**
-   * src/hooks/routes/useRoutePerformances.ts:239
+   * src/features/routes/hooks/useRoutePerformances.ts:239
    *
    * Code: points.sort((a, b) => a.date.getTime() - b.date.getTime())
    *

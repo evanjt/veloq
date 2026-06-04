@@ -40,22 +40,28 @@ export {
   usePotentialSections,
   getPotentialSections,
   initializePotentialSections,
-} from './PotentialSectionsStore';
+} from '@/features/routes/stores/PotentialSectionsStore';
 export {
   useSectionDismissals,
   getSectionDismissals,
   initializeSectionDismissals,
-} from './SectionDismissalsStore';
-export { useSupersededSections, initializeSupersededSections } from './SupersededSectionsStore';
-export { useDisabledSections, initializeDisabledSections } from './DisabledSectionsStore';
+} from '@/features/routes/stores/SectionDismissalsStore';
+export {
+  useSupersededSections,
+  initializeSupersededSections,
+} from '@/features/routes/stores/SupersededSectionsStore';
+export {
+  useDisabledSections,
+  initializeDisabledSections,
+} from '@/features/routes/stores/DisabledSectionsStore';
 // RouteMatchStore has been replaced by Rust persistent engine.
-// Use hooks from src/hooks/routes/useRouteEngine.ts instead.
+// Use hooks from src/features/routes/hooks/useRouteEngine.ts instead.
 export {
   useRouteSettings,
   isRouteMatchingEnabled,
   isGeocodingEnabled,
   initializeRouteSettings,
-} from './RouteSettingsStore';
+} from '@/features/routes/stores/RouteSettingsStore';
 export {
   useLanguageStore,
   initializeLanguage,
@@ -71,7 +77,7 @@ export {
   getSyncGeneration,
   type GpsSyncProgress,
   type TerrainSnapshotProgress,
-} from './SyncDateRangeStore';
+} from '@/features/routes/stores/SyncDateRangeStore';
 export { NetworkProvider, useNetwork } from '@/shared/app/NetworkContext';
 export {
   TopSafeAreaProvider,
@@ -98,7 +104,7 @@ export {
   type MetricPreference,
 } from '@/features/home/store';
 export { useDebugStore, isDebugEnabled, initializeDebugStore } from './DebugStore';
-export { useEngineStatus } from './EngineStatusStore';
+export { useEngineStatus } from '@/features/routes/stores/EngineStatusStore';
 export { useTileCacheStore, initializeTileCacheStore } from '@/features/maps/stores/TileCacheStore';
 export { useWhatsNewStore, initializeWhatsNewStore } from './WhatsNewStore';
 export {

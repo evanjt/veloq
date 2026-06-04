@@ -32,7 +32,7 @@ import {
   isRouteMatchingEnabled,
   getRetentionDays,
   initializeRouteSettings,
-} from '@/providers/RouteSettingsStore';
+} from '@/features/routes/stores/RouteSettingsStore';
 
 // SportPreferenceStore
 import {

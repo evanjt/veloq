@@ -1,5 +1,5 @@
 export * from '@/features/activity/types';
-export * from './routes';
+export * from '@/features/routes/types';
 export * from './calendar';
 export * from '@/features/insights/types';
 export * from '@/features/recording/types';

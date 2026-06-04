@@ -13,8 +13,8 @@ import {
 } from '@/shared/ui';
 import { InsightsPanel, StrengthTab } from '@/features/insights';
 import { DateRangeSummary, RoutesList, SectionsList, SyncDebugTab } from '@/components';
-import type { RoutesSortOption } from '@/components/routes/RoutesList';
-import type { SectionsSortOption } from '@/components/routes/SectionsList';
+import type { RoutesSortOption } from '@/features/routes/components/RoutesList';
+import type { SectionsSortOption } from '@/features/routes/components/SectionsList';
 import {
   useActivityBoundsCache,
   useCustomSections,
