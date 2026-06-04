@@ -124,7 +124,7 @@ export function SectionScatterChart({
     [showPace, isSwimming]
   );
 
-  // Separate forward/reverse, compute positions, find PRs (pure fn in @/lib/charts/scatterData)
+  // Separate forward/reverse, compute positions, find PRs (pure fn in lib/scatterData)
   // Gold ring = highest point on displayed axis (speed for sections, time for routes)
   const {
     forwardPoints,

@@ -8,31 +8,15 @@
 import React, { useState, useMemo, useCallback, useRef } from 'react';
 import {
   View,
-  StyleSheet,
   TouchableOpacity,
   Pressable,
   LayoutAnimation,
   Dimensions,
-  PixelRatio,
   ScrollView,
 } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { navigateTo } from '@/lib';
-import {
-  detectGaps,
-  buildGapCompression,
-  calculateChartWidth,
-  DEFAULT_COMPRESSED_GAP_DAYS,
-  DEFAULT_GAP_THRESHOLD_DAYS,
-  formatShortDateWithYear,
-  formatAxisDate,
-} from '@/features/stats';
-import { splitIntoLanes, type LaneData } from '@/features/routes/lib/unifiedPerformanceData';
-import { LaneHeader } from './LaneHeader';
-import { CartesianChart, Line, type PointsArray } from 'victory-native';
-import { Circle } from '@shopify/react-native-skia';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, {
   useSharedValue,
@@ -43,24 +27,28 @@ import Animated, {
   scrollTo,
   runOnJS,
 } from 'react-native-reanimated';
+
 import {
+  navigateTo,
   formatPace,
   formatSpeed,
   formatDuration,
   isRunningActivity,
   getActivityColor,
 } from '@/lib';
+import { formatShortDateWithYear, formatAxisDate } from '@/features/stats';
 import { CHART_CONFIG } from '@/constants';
-import { colors, darkColors, chartStyles } from '@/theme';
+import { colors, darkColors } from '@/theme';
 import type { ActivityType, RoutePoint, PerformanceDataPoint } from '@/types';
+import { LaneHeader } from './LaneHeader';
+import { PerformanceLaneChart } from './PerformanceLaneChart';
+import { useUnifiedChartLayout } from './useUnifiedChartLayout';
+import { styles } from './unifiedPerformanceChart.styles';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CHART_PADDING_LEFT = 40;
 const CHART_PADDING_RIGHT = 20;
-const MIN_POINT_SPACING = 50; // Minimum pixels between points
-const BASE_CHART_WIDTH = SCREEN_WIDTH - 32; // Default chart width
-// Metal/GPU texture limit is 8192px — Skia canvas backing texture is scaled by pixelRatio
-const MAX_CHART_WIDTH = Math.floor(8192 / PixelRatio.get()) - 1;
+const BASE_CHART_WIDTH = SCREEN_WIDTH - 32;
 
 const LANE_HEIGHT = 80;
 
@@ -122,8 +110,6 @@ export interface UnifiedPerformanceChartProps {
   /** Force linear time axis with regular ticks (no gap compression) */
   linearTimeAxis?: boolean;
 }
-
-const CHART_PADDING = { left: 40, right: 20, top: 16, bottom: 12 } as const;
 
 export function UnifiedPerformanceChart({
   chartData,
@@ -236,12 +222,6 @@ export function UnifiedPerformanceChart({
   // State for individually expanded gaps (by index)
   const [expandedGaps, setExpandedGaps] = useState<Set<number>>(new Set());
 
-  // Detect gaps in data globally (must be before chartWidth calculation)
-  const detectedGaps = useMemo(() => {
-    if (chartData.length < 2 || linearTimeAxis) return [];
-    return detectGaps(chartData, DEFAULT_GAP_THRESHOLD_DAYS);
-  }, [chartData, linearTimeAxis]);
-
   // Toggle individual gap expansion
   const toggleGap = useCallback((gapIndex: number) => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -256,42 +236,19 @@ export function UnifiedPerformanceChart({
     });
   }, []);
 
-  // Calculate dynamic chart width based on number of points and expanded gaps
-  const chartWidth = useMemo(
-    () =>
-      calculateChartWidth(chartData.length, detectedGaps, expandedGaps, {
-        minPointSpacing: MIN_POINT_SPACING,
-        baseChartWidth: BASE_CHART_WIDTH,
-        maxChartWidth: MAX_CHART_WIDTH,
-        chartPaddingLeft: CHART_PADDING_LEFT,
-        chartPaddingRight: CHART_PADDING_RIGHT,
-        compressedGapDays: DEFAULT_COMPRESSED_GAP_DAYS,
-      }),
-    [chartData.length, detectedGaps, expandedGaps]
-  );
+  const {
+    chartWidth,
+    chartContentWidth,
+    isScrollable,
+    dateToX,
+    gaps,
+    timeAxisLabels,
+    forwardLane,
+    reverseLane,
+    hasForward,
+    hasReverse,
+  } = useUnifiedChartLayout(chartData, currentIndex, linearTimeAxis, expandedGaps);
 
-  const chartContentWidth = chartWidth - CHART_PADDING_LEFT - CHART_PADDING_RIGHT;
-  const isScrollable = chartWidth > BASE_CHART_WIDTH;
-
-  // Build compressed time mapping: dateToX + gap positions + time-axis labels
-  const { dateToX, gaps, timeAxisLabels } = useMemo(
-    () =>
-      buildGapCompression(chartData, detectedGaps, expandedGaps, chartWidth, {
-        baseChartWidth: BASE_CHART_WIDTH,
-        chartPaddingLeft: CHART_PADDING_LEFT,
-        chartPaddingRight: CHART_PADDING_RIGHT,
-      }),
-    [chartData, detectedGaps, expandedGaps, chartWidth]
-  );
-
-  // Split data by direction, using date-based X positioning
-  const { forwardLane, reverseLane } = useMemo(
-    () => splitIntoLanes(chartData, dateToX, currentIndex),
-    [chartData, currentIndex, dateToX]
-  );
-
-  const hasForward = forwardLane.points.length > 0;
-  const hasReverse = reverseLane.points.length > 0;
   // Always show swim lanes - provides consistent UI and shows direction context
   const showSwimLanes = true;
 
@@ -465,171 +422,8 @@ export function UnifiedPerformanceChart({
     };
   }, [chartData, t]);
 
-  const renderLaneChart = useCallback(
-    (lane: LaneData, color: string, direction: 'forward' | 'reverse') => {
-      if (lane.points.length === 0) return null;
-
-      // Find selected point index in this lane
-      const selectedLaneIdx = selectedPoint
-        ? lane.points.findIndex((p) => p.activityId === selectedPoint.activityId)
-        : -1;
-
-      return (
-        <View style={chartStyles.chartWrapper}>
-          <View style={StyleSheet.absoluteFill}>
-            <CartesianChart
-              data={lane.points as unknown as Record<string, unknown>[]}
-              xKey={'x' as never}
-              yKeys={['speed'] as never}
-              domain={{
-                x: [0, 1], // Normalized date range (0-1)
-                y: [lane.minSpeed, lane.maxSpeed],
-              }}
-              padding={CHART_PADDING}
-            >
-              {
-                (({ points }: { points: { speed: PointsArray } }) => (
-                  <>
-                    {/* No connecting lines - dots are positioned by date */}
-                    {/* Data points */}
-                    {points.speed.map((point: PointsArray[number], idx: number) => {
-                      if (point.x == null || point.y == null) return null;
-                      const isBest = idx === lane.bestIndex;
-                      const isCurrent = idx === lane.currentIndex;
-                      const isSelected = idx === selectedLaneIdx;
-
-                      // Selected point (cyan ring like PR gold ring)
-                      if (isSelected) {
-                        return (
-                          <React.Fragment key={`point-${idx}`}>
-                            <Circle cx={point.x} cy={point.y} r={8} color={colors.chartCyan} />
-                            <Circle cx={point.x} cy={point.y} r={5} color={color} />
-                          </React.Fragment>
-                        );
-                      }
-
-                      // Best point (gold ring with colored center)
-                      if (isBest && !isCurrent) {
-                        return (
-                          <React.Fragment key={`point-${idx}`}>
-                            <Circle cx={point.x} cy={point.y} r={8} color={colors.chartGold} />
-                            <Circle cx={point.x} cy={point.y} r={5} color={color} />
-                          </React.Fragment>
-                        );
-                      }
-
-                      // Current point (cyan ring with colored center)
-                      if (isCurrent) {
-                        return (
-                          <React.Fragment key={`point-${idx}`}>
-                            <Circle cx={point.x} cy={point.y} r={9} color={colors.chartCyan} />
-                            <Circle cx={point.x} cy={point.y} r={5} color={color} />
-                          </React.Fragment>
-                        );
-                      }
-
-                      // Regular point
-                      return (
-                        <Circle
-                          key={`point-${idx}`}
-                          cx={point.x}
-                          cy={point.y}
-                          r={5}
-                          color={color}
-                        />
-                      );
-                    })}
-                  </>
-                )) as any
-              }
-            </CartesianChart>
-          </View>
-
-          {/* Single tap target — finds nearest point by X coordinate */}
-          <Pressable
-            style={styles.tapTargetContainer}
-            onPress={(e) => {
-              const tapX = e.nativeEvent.locationX - CHART_PADDING_LEFT;
-              const normalizedX = Math.max(0, Math.min(1, tapX / chartContentWidth));
-              let closest = lane.points[0];
-              let closestDist = Infinity;
-              for (const pt of lane.points) {
-                const dist = Math.abs(pt.x - normalizedX);
-                if (dist < closestDist) {
-                  closestDist = dist;
-                  closest = pt;
-                }
-              }
-              if (closest) handlePointPress(closest);
-            }}
-          />
-
-          {/* Y-axis labels */}
-          <View style={styles.yAxisOverlay} pointerEvents="none">
-            <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
-              {formatSpeedValue(lane.maxSpeed)}
-            </Text>
-            <Text style={[styles.axisLabel, isDark && styles.axisLabelDark]}>
-              {formatSpeedValue(lane.minSpeed)}
-            </Text>
-          </View>
-
-          {/* Gap indicators - show edges and fill when expanded */}
-          {gaps.length > 0 && (
-            <View style={styles.gapLinesOverlay} pointerEvents="none">
-              {gaps.map((gap, idx) => {
-                const chartContentW = chartWidth - CHART_PADDING_LEFT - CHART_PADDING_RIGHT;
-                const startPixelX = CHART_PADDING_LEFT + gap.startX * chartContentW;
-                const endPixelX = CHART_PADDING_LEFT + gap.endX * chartContentW;
-                const gapWidth = endPixelX - startPixelX;
-
-                if (gap.isExpanded) {
-                  // Expanded: show two edge lines (label is in time axis below)
-                  const lineColor = isDark ? '#666666' : '#999999';
-
-                  return (
-                    <View key={`gap-expanded-${idx}`}>
-                      {/* Left edge line */}
-                      <View
-                        style={[
-                          styles.gapEdgeLine,
-                          { left: startPixelX, backgroundColor: lineColor },
-                        ]}
-                      />
-                      {/* Right edge line */}
-                      <View
-                        style={[
-                          styles.gapEdgeLine,
-                          { left: endPixelX, backgroundColor: lineColor },
-                        ]}
-                      />
-                    </View>
-                  );
-                } else {
-                  // Compressed: single center line
-                  const pixelX = CHART_PADDING_LEFT + gap.xPosition * chartContentW + 4;
-                  return (
-                    <View
-                      key={`gap-line-${idx}`}
-                      style={[
-                        styles.gapVerticalLine,
-                        isDark && styles.gapVerticalLineDark,
-                        { left: pixelX },
-                      ]}
-                    />
-                  );
-                }
-              })}
-            </View>
-          )}
-        </View>
-      );
-    },
-    [handlePointPress, formatSpeedValue, isDark, gaps, chartWidth, chartContentWidth, selectedPoint]
-  );
-
   // Early return after all hooks (Rules of Hooks): chartData may be empty
-  // before data loads, and renderLaneChart above must run every render.
+  // before data loads.
   if (chartData.length < 1) return null;
 
   // Single direction mode (no swim lanes needed)
@@ -758,7 +552,17 @@ export function UnifiedPerformanceChart({
         {/* Chart with gesture handling */}
         <GestureDetector gesture={composedGesture}>
           <Animated.View style={{ height: LANE_HEIGHT + 20 }}>
-            {renderLaneChart(singleLane, laneColor, hasForward ? 'forward' : 'reverse')}
+            <PerformanceLaneChart
+              lane={singleLane}
+              color={laneColor}
+              selectedPoint={selectedPoint}
+              chartWidth={chartWidth}
+              chartContentWidth={chartContentWidth}
+              gaps={gaps}
+              isDark={isDark}
+              onPointPress={handlePointPress}
+              formatSpeedValue={formatSpeedValue}
+            />
             {/* Crosshair */}
             <Animated.View
               style={[styles.crosshair, crosshairStyle, isDark && styles.crosshairDark]}
@@ -871,7 +675,17 @@ export function UnifiedPerformanceChart({
                   nestedScrollEnabled={true}
                 >
                   <Animated.View style={{ height: LANE_HEIGHT, width: chartWidth }}>
-                    {renderLaneChart(forwardLane, activityColor, 'forward')}
+                    <PerformanceLaneChart
+                      lane={forwardLane}
+                      color={activityColor}
+                      selectedPoint={selectedPoint}
+                      chartWidth={chartWidth}
+                      chartContentWidth={chartContentWidth}
+                      gaps={gaps}
+                      isDark={isDark}
+                      onPointPress={handlePointPress}
+                      formatSpeedValue={formatSpeedValue}
+                    />
                     {/* Crosshair */}
                     <Animated.View
                       style={[styles.crosshair, crosshairStyle, isDark && styles.crosshairDark]}
@@ -919,7 +733,17 @@ export function UnifiedPerformanceChart({
                   nestedScrollEnabled={true}
                 >
                   <Animated.View style={{ height: LANE_HEIGHT, width: chartWidth }}>
-                    {renderLaneChart(reverseLane, colors.reverseDirection, 'reverse')}
+                    <PerformanceLaneChart
+                      lane={reverseLane}
+                      color={colors.reverseDirection}
+                      selectedPoint={selectedPoint}
+                      chartWidth={chartWidth}
+                      chartContentWidth={chartContentWidth}
+                      gaps={gaps}
+                      isDark={isDark}
+                      onPointPress={handlePointPress}
+                      formatSpeedValue={formatSpeedValue}
+                    />
                     {/* Crosshair */}
                     <Animated.View
                       style={[styles.crosshair, crosshairStyle, isDark && styles.crosshairDark]}
@@ -1097,274 +921,3 @@ export function UnifiedPerformanceChart({
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    backgroundColor: colors.surface,
-    borderRadius: 12,
-    marginTop: 12,
-    overflow: 'hidden',
-  },
-  containerDark: {
-    backgroundColor: darkColors.surfaceCard,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingTop: 12,
-    paddingBottom: 8,
-  },
-  title: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.textPrimary,
-  },
-  legend: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  legendItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-  },
-  legendDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-  },
-  legendText: {
-    fontSize: 10,
-    color: colors.textMuted,
-  },
-  summaryRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginHorizontal: 12,
-    paddingTop: 8,
-    paddingBottom: 8,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.border,
-  },
-  summaryItem: {
-    alignItems: 'center',
-    flex: 1,
-  },
-  summaryValue: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: colors.textPrimary,
-  },
-  summaryLabel: {
-    fontSize: 10,
-    color: colors.textMuted,
-    marginTop: 1,
-  },
-  tapTargetContainer: {
-    ...StyleSheet.absoluteFill,
-    paddingLeft: 40,
-    paddingRight: 20,
-  },
-  yAxisOverlay: {
-    position: 'absolute',
-    left: 6,
-    top: 16,
-    bottom: 12,
-    justifyContent: 'space-between',
-  },
-  timeAxis: {
-    height: 32,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.border,
-    position: 'relative',
-  },
-  timeAxisScroll: {
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.border,
-  },
-  timeAxisContent: {
-    height: 44,
-    position: 'relative',
-  },
-  timeAxisLabel: {
-    position: 'absolute',
-    bottom: 8,
-    fontSize: 9,
-    color: colors.textMuted,
-  },
-  timeAxisDateLabel: {
-    position: 'absolute',
-    top: 4,
-    width: 40,
-    fontSize: 9,
-    color: colors.textMuted,
-    textAlign: 'center',
-  },
-  gapMarkerInAxisDark: {
-    backgroundColor: darkColors.surfaceElevated,
-    borderColor: darkColors.border,
-  },
-  gapMarkerInAxisBottom: {
-    position: 'absolute',
-    top: 18,
-    width: 24,
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 0,
-    paddingHorizontal: 2,
-    paddingVertical: 2,
-    backgroundColor: colors.surface,
-    borderRadius: 4,
-    borderWidth: 1,
-    borderColor: colors.border,
-    opacity: 0.9,
-  },
-  gapMarkerExpanded: {
-    position: 'absolute',
-    top: 18,
-    height: 22,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 4,
-    paddingHorizontal: 4,
-    backgroundColor: colors.surface,
-    borderRadius: 4,
-    borderWidth: 1,
-    borderColor: colors.border,
-    opacity: 0.9,
-  },
-  gapMarkerExpandedDark: {
-    backgroundColor: darkColors.surfaceElevated,
-    borderColor: darkColors.border,
-  },
-  gapMarkerExpandedText: {
-    fontSize: 9,
-    fontWeight: '500',
-    color: colors.textMuted,
-  },
-  gapMarkerExpandedTextDark: {
-    color: darkColors.textMuted,
-  },
-  gapLinesOverlay: {
-    ...StyleSheet.absoluteFill,
-    pointerEvents: 'none',
-  },
-  gapVerticalLine: {
-    position: 'absolute',
-    top: 0,
-    bottom: 0,
-    width: 0,
-    borderLeftWidth: 1,
-    borderLeftColor: colors.textMuted,
-    opacity: 0.4,
-  },
-  gapVerticalLineDark: {
-    borderLeftColor: '#888888',
-    opacity: 0.5,
-  },
-  gapEdgeLine: {
-    position: 'absolute',
-    top: 0,
-    bottom: 0,
-    width: 2,
-  },
-  gapMarkerText: {
-    fontSize: 8,
-    color: colors.textMuted,
-  },
-  gapMarkerTextDark: {
-    color: darkColors.textMuted,
-  },
-  timeAxisLabelFirst: {
-    textAlign: 'left',
-  },
-  timeAxisLabelLast: {
-    textAlign: 'right',
-  },
-  axisLabel: {
-    fontSize: 9,
-    color: colors.textMuted,
-  },
-  axisLabelDark: {
-    color: darkColors.textMuted,
-  },
-  tooltipContainer: {
-    minHeight: 52,
-    paddingHorizontal: 12,
-    paddingBottom: 10,
-  },
-  tooltipPlaceholder: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    height: 44,
-  },
-  chartHint: {
-    fontSize: 11,
-    color: colors.textMuted,
-    textAlign: 'center',
-  },
-  selectedTooltip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: colors.background,
-    padding: 10,
-    borderRadius: 8,
-  },
-  selectedTooltipDark: {
-    backgroundColor: darkColors.surfaceElevated,
-  },
-  tooltipLeft: {
-    flex: 1,
-    marginRight: 8,
-  },
-  tooltipName: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.textPrimary,
-    marginBottom: 1,
-  },
-  tooltipMeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  tooltipDate: {
-    fontSize: 11,
-    color: colors.textMuted,
-  },
-  reverseBadge: {
-    padding: 1,
-  },
-  tooltipRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 2,
-  },
-  tooltipSpeed: {
-    fontSize: 14,
-    fontWeight: '700',
-  },
-  textLight: {
-    color: darkColors.textPrimary,
-  },
-  textMuted: {
-    color: darkColors.textMuted,
-  },
-  crosshair: {
-    position: 'absolute',
-    top: 0,
-    bottom: 0,
-    width: 2,
-    backgroundColor: colors.textPrimary,
-    opacity: 0.6,
-    marginLeft: -1, // Center the crosshair on the touch point
-  },
-  crosshairDark: {
-    backgroundColor: darkColors.textPrimary,
-  },
-});

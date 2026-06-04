@@ -16,7 +16,6 @@ import React, { useMemo, useRef, useState, useCallback, useEffect, memo } from '
 import {
   View,
   Text,
-  StyleSheet,
   TouchableOpacity,
   Modal,
   StatusBar,
@@ -29,13 +28,12 @@ import {
   ShapeSource,
   LineLayer,
   MarkerView,
-  type Expression,
 } from '@maplibre/maplibre-react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import * as Location from 'expo-location';
 import { getActivityColor, getBoundsFromPoints } from '@/lib';
-import { colors, darkColors, spacing, layout, shadows } from '@/theme';
+import { colors, darkColors } from '@/theme';
 import { useMapPreferences } from '@/providers';
 import {
   getMapStyle,
@@ -49,6 +47,9 @@ import { CompassArrow, ComponentErrorBoundary } from '@/shared/ui';
 import { useMapFullscreen } from '@/features/maps/hooks/useMapFullscreen';
 import { decodeCoords } from 'veloqrs';
 import type { FrequentSection, RoutePoint, ActivityType } from '@/types';
+import { useSectionMapLayers, type NearbyPolyline } from './useSectionMapLayers';
+import { SectionTrimLayer } from './SectionTrimLayer';
+import { styles } from './sectionMapView.styles';
 
 /**
  * Type guard to validate sport type strings from Rust engine.
@@ -82,10 +83,6 @@ function isValidActivityType(sportType: string): sportType is ActivityType {
   return validTypes.has(sportType);
 }
 
-// Module-level stable reference — avoids creating a new object each render which would
-// trigger ShapeSource native reconciliation updates when layers are inactive.
-const EMPTY_COLLECTION: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: [] };
-
 interface SectionMapViewProps {
   section: FrequentSection;
   height?: number;
@@ -113,14 +110,7 @@ interface SectionMapViewProps {
   /** Extension track for expanding section bounds - shown as faded line beyond the section */
   extensionTrack?: RoutePoint[] | null;
   /** Nearby section polylines to render as muted gray overlays. Each entry has encoded coords. */
-  nearbyPolylines?: Array<{
-    id: string;
-    name?: string;
-    sportType: string;
-    distanceMeters: number;
-    visitCount: number;
-    encodedPolyline: ArrayBuffer;
-  }>;
+  nearbyPolylines?: NearbyPolyline[];
   /** Called when a nearby section polyline is tapped */
   onNearbyPress?: (sectionId: string) => void;
 }
@@ -298,206 +288,28 @@ export const SectionMapView = memo(function SectionMapView({
     }
   }, []);
 
-  // Create GeoJSON for the section polyline
-  // CRITICAL: Always return valid GeoJSON to avoid iOS MapLibre crash during view reconciliation
-  // Empty FeatureCollection is safe - LineLayer just doesn't render anything
-
-  // GeoJSON LineString requires minimum 2 coordinates
-  const sectionGeoJSON = useMemo((): GeoJSON.FeatureCollection | GeoJSON.Feature => {
-    // Filter out NaN/Infinity coordinates
-    const validPoints = displayPoints.filter(
-      (p) => Number.isFinite(p.lat) && Number.isFinite(p.lng)
-    );
-    // LineString requires at least 2 valid coordinates
-    if (validPoints.length < 2) return EMPTY_COLLECTION;
-    return {
-      type: 'Feature' as const,
-      properties: {},
-      geometry: {
-        type: 'LineString' as const,
-        coordinates: validPoints.map((p) => [p.lng, p.lat]),
-      },
-    };
-  }, [displayPoints]);
-
-  // GeoJSON for the trimmed portion (when trim range is active)
-  // In expand mode, trim indices are relative to extensionTrack (window points), not section polyline
-  const trimmedGeoJSON = useMemo((): GeoJSON.FeatureCollection | GeoJSON.Feature => {
-    if (!trimRange) return EMPTY_COLLECTION;
-    const sourcePoints =
-      extensionTrack && extensionTrack.length > 0 ? extensionTrack : displayPoints;
-    if (sourcePoints.length < 2) return EMPTY_COLLECTION;
-    const sliced = sourcePoints.slice(trimRange.start, trimRange.end + 1);
-    const validPoints = sliced.filter((p) => Number.isFinite(p.lat) && Number.isFinite(p.lng));
-    if (validPoints.length < 2) return EMPTY_COLLECTION;
-    return {
-      type: 'Feature' as const,
-      properties: {},
-      geometry: {
-        type: 'LineString' as const,
-        coordinates: validPoints.map((p) => [p.lng, p.lat]),
-      },
-    };
-  }, [displayPoints, extensionTrack, trimRange]);
-
-  // Create GeoJSON for the shadow track (full activity route)
-  const shadowGeoJSON = useMemo((): GeoJSON.FeatureCollection | GeoJSON.Feature => {
-    if (!shadowTrack || shadowTrack.length < 2) return EMPTY_COLLECTION;
-    // Filter out NaN/Infinity coordinates
-    const validCoords = shadowTrack.filter(
-      ([lat, lng]) => Number.isFinite(lat) && Number.isFinite(lng)
-    );
-    if (validCoords.length < 2) return EMPTY_COLLECTION;
-    return {
-      type: 'Feature' as const,
-      properties: {},
-      geometry: {
-        type: 'LineString' as const,
-        coordinates: validCoords.map(([lat, lng]) => [lng, lat]),
-      },
-    };
-  }, [shadowTrack]);
-
-  // Create GeoJSON for the extension track (representative activity's full track)
-  const extensionGeoJSON = useMemo((): GeoJSON.FeatureCollection | GeoJSON.Feature => {
-    if (!extensionTrack || extensionTrack.length < 2) return EMPTY_COLLECTION;
-    const validCoords = extensionTrack.filter(
-      (p) => Number.isFinite(p.lat) && Number.isFinite(p.lng)
-    );
-    if (validCoords.length < 2) return EMPTY_COLLECTION;
-    return {
-      type: 'Feature' as const,
-      properties: {},
-      geometry: {
-        type: 'LineString' as const,
-        coordinates: validCoords.map((p) => [p.lng, p.lat]),
-      },
-    };
-  }, [extensionTrack]);
-
-  // Create FeatureCollection for nearby section polylines (muted gray overlays)
-  const nearbyGeoJSON = useMemo((): GeoJSON.FeatureCollection => {
-    if (!nearbyPolylines || nearbyPolylines.length === 0) return EMPTY_COLLECTION;
-    const features = nearbyPolylines
-      .map((entry) => {
-        if (!entry.encodedPolyline) return null;
-        const decoded = decodeCoords(entry.encodedPolyline);
-        if (decoded.length < 2) return null;
-        const coordinates: [number, number][] = decoded
-          .filter((p) => Number.isFinite(p.latitude) && Number.isFinite(p.longitude))
-          .map((p) => [p.longitude, p.latitude]);
-        if (coordinates.length < 2) return null;
-        return {
-          type: 'Feature' as const,
-          properties: { sectionId: entry.id },
-          geometry: {
-            type: 'LineString' as const,
-            coordinates,
-          },
-        };
-      })
-      .filter((f): f is NonNullable<typeof f> => f !== null);
-    return { type: 'FeatureCollection', features };
-  }, [nearbyPolylines]);
-
-  // Create FeatureCollection with ALL activity traces for fast scrubbing
-  const allTracesFeatureCollection = useMemo((): GeoJSON.FeatureCollection => {
-    if (!allActivityTraces || Object.keys(allActivityTraces).length === 0) return EMPTY_COLLECTION;
-
-    const features = Object.entries(allActivityTraces)
-      .map(([activityId, points]) => {
-        if (!points) return null;
-        // Filter out NaN/Infinity coordinates
-        const validPoints = points.filter((p) => Number.isFinite(p.lat) && Number.isFinite(p.lng));
-        // LineString requires at least 2 valid coordinates
-        if (validPoints.length < 2) return null;
-        return {
-          type: 'Feature' as const,
-          properties: { activityId },
-          geometry: {
-            type: 'LineString' as const,
-            coordinates: validPoints.map((p) => [p.lng, p.lat]),
-          },
-        };
-      })
-      .filter((f): f is NonNullable<typeof f> => f !== null);
-
-    return { type: 'FeatureCollection', features };
-  }, [allActivityTraces]);
-
-  // Helper to check if allTracesFeatureCollection has data
-  const hasAllTraces = allTracesFeatureCollection.features.length > 0;
-
-  // Filter expression to show only the highlighted activity trace
-  const highlightedTraceFilter = useMemo((): Expression | undefined => {
-    if (!highlightedActivityId || !hasAllTraces) return undefined;
-    // MapLibre expression: ["==", ["get", "activityId"], "some-id"]
-    return ['==', ['get', 'activityId'], highlightedActivityId];
-  }, [highlightedActivityId, hasAllTraces]);
-
-  // Create GeoJSON for highlighted trace (activity being scrubbed)
-  // This is the fallback when allActivityTraces is not provided
-  const highlightedTraceGeoJSON = useMemo((): GeoJSON.FeatureCollection | GeoJSON.Feature => {
-    // If we have pre-loaded traces, use the filter approach instead
-    if (hasAllTraces) return EMPTY_COLLECTION;
-
-    // Lap points take precedence
-    if (highlightedLapPoints && highlightedLapPoints.length > 1) {
-      // Filter out NaN/Infinity coordinates
-      const validPoints = highlightedLapPoints.filter(
-        (p) => Number.isFinite(p.lat) && Number.isFinite(p.lng)
-      );
-      if (validPoints.length < 2) return EMPTY_COLLECTION;
-      return {
-        type: 'Feature' as const,
-        properties: { id: 'highlighted-lap' },
-        geometry: {
-          type: 'LineString' as const,
-          coordinates: validPoints.map((p) => [p.lng, p.lat]),
-        },
-      };
-    }
-
-    // If we have a highlighted activity ID and activity traces, use that
-    if (highlightedActivityId && section.activityTraces) {
-      const activityTrace = section.activityTraces[highlightedActivityId];
-      if (activityTrace && activityTrace.length > 1) {
-        // Filter out NaN/Infinity coordinates
-        const validPoints = activityTrace.filter(
-          (p) => Number.isFinite(p.lat) && Number.isFinite(p.lng)
-        );
-        if (validPoints.length < 2) return EMPTY_COLLECTION;
-        return {
-          type: 'Feature' as const,
-          properties: { id: highlightedActivityId },
-          geometry: {
-            type: 'LineString' as const,
-            coordinates: validPoints.map((p) => [p.lng, p.lat]),
-          },
-        };
-      }
-    }
-
-    return EMPTY_COLLECTION;
-  }, [highlightedActivityId, highlightedLapPoints, section.activityTraces, hasAllTraces]);
-
-  // GeoJSON for highlighted lap points (when scrubbing shows specific lap portion)
-  const highlightedLapGeoJSON = useMemo((): GeoJSON.FeatureCollection | GeoJSON.Feature => {
-    if (!highlightedLapPoints || highlightedLapPoints.length < 2) return EMPTY_COLLECTION;
-    // Filter out NaN/Infinity coordinates
-    const validPoints = highlightedLapPoints.filter(
-      (p) => Number.isFinite(p.lat) && Number.isFinite(p.lng)
-    );
-    if (validPoints.length < 2) return EMPTY_COLLECTION;
-    return {
-      type: 'Feature' as const,
-      properties: { id: 'highlighted-lap' },
-      geometry: {
-        type: 'LineString' as const,
-        coordinates: validPoints.map((p) => [p.lng, p.lat]),
-      },
-    };
-  }, [highlightedLapPoints]);
+  const {
+    sectionGeoJSON,
+    trimmedGeoJSON,
+    shadowGeoJSON,
+    extensionGeoJSON,
+    nearbyGeoJSON,
+    allTracesFeatureCollection,
+    hasAllTraces,
+    highlightedTraceFilter,
+    highlightedTraceGeoJSON,
+    highlightedLapGeoJSON,
+  } = useSectionMapLayers({
+    section,
+    displayPoints,
+    shadowTrack,
+    highlightedActivityId,
+    highlightedLapPoints,
+    allActivityTraces,
+    trimRange,
+    extensionTrack,
+    nearbyPolylines,
+  });
 
   // Adjust opacity when something is highlighted or trimming
   const sectionOpacity = highlightedActivityId || highlightedLapPoints || trimRange ? 0.4 : 1;
@@ -599,93 +411,20 @@ export const SectionMapView = memo(function SectionMapView({
         );
       })}
 
-      {/* Shadow track (full activity route) */}
-      {/* CRITICAL: Always render all ShapeSources to avoid iOS crash during view reconciliation */}
-      {/* Shadow track (full activity route) */}
-      <ShapeSource id="shadowSource" shape={shadowGeoJSON}>
-        <LineLayer
-          id="shadowLine"
-          style={{
-            lineColor: colors.gray500,
-            lineOpacity: 0.5,
-            lineWidth: 3,
-            lineCap: 'round',
-            lineJoin: 'round',
-          }}
-        />
-      </ShapeSource>
-
-      {/* Extension track (representative activity's full route, shown during bounds editing) */}
-      <ShapeSource id="extensionSource" shape={extensionGeoJSON}>
-        <LineLayer
-          id="extensionLineCasing"
-          style={{
-            lineColor: '#000000',
-            lineOpacity: extensionTrack ? 0.5 : 0,
-            lineWidth: 6,
-            lineCap: 'round',
-            lineJoin: 'round',
-          }}
-        />
-        <LineLayer
-          id="extensionLine"
-          style={{
-            lineColor: '#FF6B00',
-            lineOpacity: extensionTrack ? 1 : 0,
-            lineWidth: 4,
-            lineCap: 'round',
-            lineJoin: 'round',
-          }}
-        />
-      </ShapeSource>
-
-      {/* Section polyline */}
-      <ShapeSource id="sectionSource" shape={sectionGeoJSON}>
-        <LineLayer
-          id="sectionLineCasing"
-          style={{
-            lineColor: '#FFFFFF',
-            lineOpacity: sectionOpacity,
-            lineWidth: 5,
-            lineCap: 'round',
-            lineJoin: 'round',
-          }}
-        />
-        <LineLayer
-          id="sectionLine"
-          style={{
-            lineColor: activityColor,
-            lineOpacity: sectionOpacity,
-            lineWidth: 4,
-            lineCap: 'round',
-            lineJoin: 'round',
-          }}
-        />
-      </ShapeSource>
-
-      {/* Trimmed section portion (highlighted during bounds editing) */}
-      <ShapeSource id="trimmedSource" shape={trimmedGeoJSON}>
-        <LineLayer
-          id="trimmedLineCasing"
-          style={{
-            lineColor: '#FFFFFF',
-            lineOpacity: trimRange ? 1 : 0,
-            lineWidth: 5,
-            lineCap: 'round',
-            lineJoin: 'round',
-          }}
-        />
-        <LineLayer
-          id="trimmedLine"
-          style={{
-            lineColor: activityColor,
-            lineOpacity: trimRange ? 1 : 0,
-            lineWidth: 4,
-            lineCap: 'round',
-            lineJoin: 'round',
-          }}
-        />
-      </ShapeSource>
+      <SectionTrimLayer
+        idPrefix="inline"
+        shadowGeoJSON={shadowGeoJSON}
+        extensionGeoJSON={extensionGeoJSON}
+        sectionGeoJSON={sectionGeoJSON}
+        trimmedGeoJSON={trimmedGeoJSON}
+        activityColor={activityColor}
+        sectionOpacity={sectionOpacity}
+        trimRange={trimRange}
+        extensionTrack={extensionTrack}
+        showExtensionAndSection
+        trimCasingWidth={5}
+        trimLineWidth={4}
+      />
 
       {/* Pre-loaded activity traces with filter */}
       <ShapeSource id="allTracesSource" shape={allTracesFeatureCollection}>
@@ -1022,43 +761,20 @@ export const SectionMapView = memo(function SectionMapView({
           onClose={closeFullscreen}
         >
           {/* CRITICAL: Always render all ShapeSources to avoid iOS crash */}
-          {/* Shadow track (full activity route) */}
-          <ShapeSource id="fullscreenShadowSource" shape={shadowGeoJSON}>
-            <LineLayer
-              id="fullscreenShadowLine"
-              style={{
-                lineColor: colors.gray500,
-                lineOpacity: 0.5,
-                lineWidth: 3,
-                lineCap: 'round',
-                lineJoin: 'round',
-              }}
-            />
-          </ShapeSource>
-
-          {/* Trimmed section portion (for bounds editing) */}
-          <ShapeSource id="fullscreenTrimmedSource" shape={trimmedGeoJSON}>
-            <LineLayer
-              id="fullscreenTrimmedLineCasing"
-              style={{
-                lineColor: '#FFFFFF',
-                lineOpacity: trimRange ? 1 : 0,
-                lineWidth: 6,
-                lineCap: 'round',
-                lineJoin: 'round',
-              }}
-            />
-            <LineLayer
-              id="fullscreenTrimmedLine"
-              style={{
-                lineColor: activityColor,
-                lineOpacity: trimRange ? 1 : 0,
-                lineWidth: 5,
-                lineCap: 'round',
-                lineJoin: 'round',
-              }}
-            />
-          </ShapeSource>
+          <SectionTrimLayer
+            idPrefix="fullscreen"
+            shadowGeoJSON={shadowGeoJSON}
+            extensionGeoJSON={extensionGeoJSON}
+            sectionGeoJSON={sectionGeoJSON}
+            trimmedGeoJSON={trimmedGeoJSON}
+            activityColor={activityColor}
+            sectionOpacity={sectionOpacity}
+            trimRange={trimRange}
+            extensionTrack={extensionTrack}
+            showExtensionAndSection={false}
+            trimCasingWidth={6}
+            trimLineWidth={5}
+          />
 
           {/* Pre-loaded activity traces with filter */}
           <ShapeSource id="fullscreenAllTracesSource" shape={allTracesFeatureCollection}>
@@ -1153,150 +869,4 @@ export const SectionMapView = memo(function SectionMapView({
       </Modal>
     </>
   );
-});
-
-const styles = StyleSheet.create({
-  outerContainer: {
-    position: 'relative',
-  },
-  container: {
-    flex: 1,
-    overflow: 'hidden',
-    borderRadius: layout.borderRadius,
-  },
-  mapLayer: {
-    ...StyleSheet.absoluteFill,
-  },
-  map3DLayer: {
-    zIndex: 1,
-  },
-  hiddenLayer: {
-    opacity: 0,
-    pointerEvents: 'none',
-  },
-  loadingOverlay: {
-    ...StyleSheet.absoluteFill,
-    zIndex: 2,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.3)',
-    borderRadius: layout.borderRadius,
-  },
-  map: {
-    flex: 1,
-  },
-  placeholder: {
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderRadius: layout.borderRadius,
-  },
-  markerContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  marker: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    borderWidth: 1.5,
-    borderColor: colors.textOnDark,
-  },
-  startMarker: {
-    backgroundColor: 'rgba(34,197,94,0.75)',
-  },
-  endMarker: {
-    backgroundColor: 'rgba(239,68,68,0.75)',
-  },
-  nearbyMarker: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    borderWidth: 1.5,
-    borderColor: colors.textOnDark,
-    opacity: 0.5,
-  },
-  nearbyStartMarker: {
-    backgroundColor: 'rgba(34,197,94,0.6)',
-  },
-  nearbyEndMarker: {
-    backgroundColor: 'rgba(239,68,68,0.6)',
-  },
-  nearbyPopup: {
-    position: 'absolute',
-    bottom: spacing.sm,
-    left: spacing.sm,
-    right: spacing.sm,
-    backgroundColor: colors.surface,
-    borderRadius: spacing.sm,
-    padding: spacing.sm,
-    flexDirection: 'row',
-    alignItems: 'center',
-    ...shadows.card,
-  },
-  nearbyPopupDark: {
-    backgroundColor: darkColors.surface,
-  },
-  nearbyPopupContent: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  nearbyPopupInfo: {
-    flex: 1,
-  },
-  nearbyPopupName: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.textPrimary,
-    marginBottom: 2,
-  },
-  nearbyPopupMeta: {
-    fontSize: 12,
-    color: colors.textSecondary,
-  },
-  nearbyPopupViewBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-  },
-  nearbyPopupViewText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.primary,
-  },
-  nearbyPopupClose: {
-    padding: spacing.xs,
-  },
-  expandOverlay: {
-    position: 'absolute',
-    bottom: spacing.sm,
-    right: spacing.sm,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    borderRadius: 6,
-    padding: spacing.xs,
-  },
-  controlsContainer: {
-    position: 'absolute',
-    top: 48,
-    right: layout.cardMargin,
-    gap: spacing.sm,
-    zIndex: 100,
-    elevation: 100,
-  },
-  controlButton: {
-    width: layout.minTapTarget,
-    height: layout.minTapTarget,
-    borderRadius: layout.minTapTarget / 2,
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    ...shadows.modal,
-  },
-  controlButtonDark: {
-    backgroundColor: darkColors.surfaceCard,
-  },
-  controlButtonActive: {
-    backgroundColor: colors.primary,
-  },
 });
