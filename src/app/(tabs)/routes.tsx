@@ -404,6 +404,7 @@ export default function RoutesScreen() {
             totalGroupCount={routeGroupCount}
             sortOption={routeSort}
             onSortChange={handleRouteSortChange}
+            isLoading={!routesData}
           />
         ) : (
           <RouteTabDisabledState isDark={isDark} />
@@ -413,6 +414,7 @@ export default function RoutesScreen() {
     [
       handleRefresh,
       isDataSyncing,
+      routesData,
       routesData?.groups,
       loadMoreGroups,
       hasMoreGroups,

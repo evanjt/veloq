@@ -25,6 +25,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { colors, darkColors, spacing, layout } from '@/theme';
 import { useUnifiedSections } from '@/hooks/routes/useUnifiedSections';
+import { Shimmer } from '@/components/ui';
 import { SectionRow } from './SectionRow';
 import { PotentialSectionCard } from './PotentialSectionCard';
 import { DataRangeFooter } from './DataRangeFooter';
@@ -121,6 +122,18 @@ function batchSectionToFrequentSection(s: SectionWithPolyline): FrequentSection 
     section.name = generateSectionName(section);
   }
   return section;
+}
+
+function SectionRowSkeleton() {
+  return (
+    <View style={styles.skeletonRow}>
+      <Shimmer width={50} height={36} borderRadius={layout.borderRadiusSm} />
+      <View style={styles.skeletonText}>
+        <Shimmer width="60%" height={14} borderRadius={layout.borderRadiusXs} />
+        <Shimmer width="40%" height={12} borderRadius={layout.borderRadiusXs} />
+      </View>
+    </View>
+  );
 }
 
 interface SectionListItemProps {
@@ -457,15 +470,10 @@ export const SectionsList = memo(function SectionsList({
   const renderEmpty = () => {
     if (!isReady) {
       return (
-        <View style={styles.emptyContainer}>
-          <MaterialCommunityIcons
-            name="loading"
-            size={48}
-            color={isDark ? darkColors.iconDisabled : colors.gray400}
-          />
-          <Text style={[styles.emptyTitle, isDark && styles.textLight]}>
-            {t('routes.loadingSections')}
-          </Text>
+        <View style={styles.skeletonList}>
+          {[0, 1, 2, 3, 4].map((i) => (
+            <SectionRowSkeleton key={i} />
+          ))}
         </View>
       );
     }
@@ -881,5 +889,19 @@ const styles = StyleSheet.create({
   loadingMore: {
     paddingVertical: spacing.md,
     alignItems: 'center',
+  },
+  skeletonList: {
+    paddingTop: spacing.md,
+  },
+  skeletonRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginHorizontal: spacing.md,
+    marginBottom: spacing.sm,
+  },
+  skeletonText: {
+    flex: 1,
+    gap: spacing.xs,
   },
 });

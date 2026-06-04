@@ -26,6 +26,7 @@ import { useTranslation } from 'react-i18next';
 import { colors, darkColors, opacity, spacing, layout, typography } from '@/theme';
 import { UI } from '@/lib/utils/constants';
 import { computeCenter, haversineDistance, type LatLng } from '@/lib/geo/distance';
+import { Shimmer } from '@/components/ui';
 import { RouteRow } from './RouteRow';
 import { DataRangeFooter } from './DataRangeFooter';
 import type { DiscoveredRouteInfo, RouteGroup } from '@/types';
@@ -56,6 +57,20 @@ interface RoutesListProps {
   sortOption: RoutesSortOption;
   /** Called when sort changes */
   onSortChange: (next: RoutesSortOption) => void;
+  /** Engine data still loading — show skeletons instead of an empty state */
+  isLoading?: boolean;
+}
+
+function RouteRowSkeleton() {
+  return (
+    <View style={styles.skeletonRow}>
+      <Shimmer width={50} height={36} borderRadius={layout.borderRadiusSm} />
+      <View style={styles.skeletonText}>
+        <Shimmer width="60%" height={14} borderRadius={layout.borderRadiusXs} />
+        <Shimmer width="40%" height={12} borderRadius={layout.borderRadiusXs} />
+      </View>
+    </View>
+  );
 }
 
 // Memoized routes list - only updates when route count changes
@@ -172,6 +187,7 @@ export const RoutesList = memo(function RoutesList({
   totalGroupCount,
   sortOption,
   onSortChange,
+  isLoading = false,
 }: RoutesListProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
@@ -291,6 +307,16 @@ export const RoutesList = memo(function RoutesList({
   );
 
   const renderEmpty = () => {
+    if (isLoading) {
+      return (
+        <View style={styles.skeletonList}>
+          {[0, 1, 2, 3, 4].map((i) => (
+            <RouteRowSkeleton key={i} />
+          ))}
+        </View>
+      );
+    }
+
     if (!isReady) {
       return (
         <View style={styles.emptyContainer}>
@@ -683,5 +709,19 @@ const styles = StyleSheet.create({
   loadingMore: {
     paddingVertical: spacing.md,
     alignItems: 'center',
+  },
+  skeletonList: {
+    paddingTop: spacing.md,
+  },
+  skeletonRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginHorizontal: spacing.md,
+    marginBottom: spacing.sm,
+  },
+  skeletonText: {
+    flex: 1,
+    gap: spacing.xs,
   },
 });

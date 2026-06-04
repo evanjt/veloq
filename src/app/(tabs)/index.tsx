@@ -36,6 +36,7 @@ import {
   ErrorStatePreset,
   ScreenErrorBoundary,
   ComponentErrorBoundary,
+  ActivityCardSkeleton,
   TAB_BAR_SAFE_PADDING,
 } from '@/components/ui';
 import { SummaryCard, NotificationOptInCard, SupportCard } from '@/components/home';
@@ -476,6 +477,17 @@ export default function FeedScreen() {
     [isDark, searchQuery, selectedTypeGroup, t]
   );
 
+  const renderSkeletons = useCallback(
+    () => (
+      <View testID="home-loading-skeletons">
+        {[0, 1, 2].map((i) => (
+          <ActivityCardSkeleton key={i} />
+        ))}
+      </View>
+    ),
+    []
+  );
+
   const renderError = useCallback(() => {
     if (isNetworkError(error)) {
       return <NetworkErrorState onRetry={() => refetch()} />;
@@ -579,7 +591,7 @@ export default function FeedScreen() {
           keyExtractor={(item) => item.id}
           extraData={isDark}
           ListHeaderComponent={renderListHeader}
-          ListEmptyComponent={isError ? renderError : renderEmpty}
+          ListEmptyComponent={isError ? renderError : isLoading ? renderSkeletons : renderEmpty}
           ListFooterComponent={renderFooter}
           contentContainerStyle={styles.listContent}
           contentOffset={initialContentOffset}

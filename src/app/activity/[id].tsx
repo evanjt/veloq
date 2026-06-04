@@ -1,8 +1,8 @@
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { View, ScrollView, StyleSheet, Dimensions, InteractionManager } from 'react-native';
-import { Text, IconButton, ActivityIndicator, Snackbar } from 'react-native-paper';
+import { Text, IconButton, Snackbar } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ScreenSafeAreaView } from '@/components/ui';
+import { ScreenSafeAreaView, ChartSkeleton } from '@/components/ui';
 import { logScreenRender } from '@/lib/debug/renderTimer';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -466,8 +466,9 @@ export default function ActivityDetailScreen() {
         testID="activity-detail-screen"
         style={[styles.container, isDark && styles.containerDark]}
       >
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
+        <View style={styles.skeletonLoading}>
+          <ChartSkeleton height={220} />
+          <ChartSkeleton height={160} />
         </View>
       </ScreenSafeAreaView>
     );
@@ -679,6 +680,11 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  skeletonLoading: {
+    flex: 1,
+    padding: spacing.md,
+    gap: spacing.lg,
   },
   floatingHeader: {
     position: 'absolute',
