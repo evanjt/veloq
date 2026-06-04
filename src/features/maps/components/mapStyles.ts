@@ -2,7 +2,7 @@
 // All sources are commercially licensed (MIT, BSD, OGD, CC BY, Public Domain)
 
 import { DARK_MATTER_STYLE } from './darkMatterStyle';
-import { LIBERTY_STYLE } from './libertyStyle';
+import { LIBERTY_STYLE } from '@/features/maps/styles/liberty';
 import {
   isPointInSwitzerland,
   isPointInFrance,
