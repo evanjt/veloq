@@ -6,7 +6,7 @@
  * year, so this module wraps it.
  */
 
-import { formatShortDate as formatShortDateBase, getIntlLocale } from '@/lib';
+import { formatShortDate as formatShortDateBase, getIntlLocale } from '@/shared/format/format';
 
 /**
  * Format a date for chart tooltips and headers, with 2-digit year suffix.

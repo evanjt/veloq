@@ -1,6 +1,6 @@
 import React, { useMemo, useRef, useCallback, useState } from 'react';
 import { View, StyleSheet, TouchableOpacity, Modal, Pressable } from 'react-native';
-import { useTheme } from '@/hooks';
+import { useTheme } from '@/shared/app';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { Canvas, Circle, Group } from '@shopify/react-native-skia';
@@ -18,7 +18,7 @@ import { router } from 'expo-router';
 import { ChartCrosshair } from '@/shared/charts';
 import { colors, darkColors, opacity, spacing, layout, typography, chartStyles } from '@/theme';
 import { CHART_CONFIG } from '@/constants';
-import { getActivityColor, sortByDateId } from '@/lib';
+import { getActivityColor, sortByDateId } from '@/features/activity/lib/activityUtils';
 import type { Activity, ActivityType, WellnessData } from '@/types';
 
 // Simple emoji icons for activity types

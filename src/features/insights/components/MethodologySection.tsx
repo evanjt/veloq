@@ -3,8 +3,8 @@ import { View, StyleSheet, Linking, Pressable } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { useTheme } from '@/hooks';
-import { navigateTo } from '@/lib';
+import { useTheme } from '@/shared/app';
+import { navigateTo } from '@/shared/app/navigation';
 import { colors, darkColors, spacing, opacity } from '@/theme';
 import type { Insight, SupportingActivity } from '@/types';
 

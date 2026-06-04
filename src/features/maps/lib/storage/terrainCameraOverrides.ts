@@ -8,7 +8,7 @@
  * In-memory Map backed by AsyncStorage for persistence across sessions.
  */
 
-import { getSetting, setSetting } from '@/lib/backup';
+import { getSetting, setSetting } from '@/shared/storage';
 import type { TerrainCamera } from '@/features/maps/lib/cameraAngle';
 import { deleteTerrainPreviewsForActivity } from './terrainPreviewCache';
 

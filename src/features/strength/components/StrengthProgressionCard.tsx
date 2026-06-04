@@ -3,7 +3,7 @@ import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 
-import { useTheme, useMetricSystem } from '@/hooks';
+import { useTheme, useMetricSystem } from '@/shared/app';
 import { colors, darkColors, spacing, opacity, layout, brand } from '@/theme';
 import type { ExerciseSummary, MuscleVolume, StrengthProgression } from '@/types';
 

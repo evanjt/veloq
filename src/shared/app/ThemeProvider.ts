@@ -1,6 +1,6 @@
 import { Appearance, useColorScheme, type ColorSchemeName } from 'react-native';
 import { create } from 'zustand';
-import { getSetting, setSetting } from '@/lib/backup';
+import { getSetting, setSetting } from '@/shared/storage';
 
 export type ThemePreference = 'system' | 'light' | 'dark';
 const STORAGE_KEY = 'veloq-theme-preference';

@@ -9,9 +9,10 @@ import { Text, ActivityIndicator } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useMetricSystem } from '@/hooks';
+import { useMetricSystem } from '@/shared/app';
 import { SectionMapView } from '@/features/routes';
-import { formatDistance, type MaterialIconName } from '@/lib';
+import { type MaterialIconName } from '@/features/activity/lib/activityUtils';
+import { formatDistance } from '@/shared/format/format';
 import { colors, darkColors, spacing, typography } from '@/theme';
 import type { RoutePoint, FrequentSection } from '@/types';
 

@@ -3,12 +3,12 @@
  * Pure functions, but we need to provide minimal chart-config mocks because
  * the helpers consume a config record keyed by ChartTypeId.
  *
- * `@/hooks` is mocked to avoid pulling the `veloqrs` native TurboModule into
- * the node-based test environment. `combinedPlotData.ts` only needs the
- * zone-color constants from `@/hooks`.
+ * `@/shared/app/useSportSettings` is mocked to avoid pulling the `veloqrs`
+ * native TurboModule into the node-based test environment. `combinedPlotData.ts`
+ * only needs the zone-color constants from it.
  */
 
-jest.mock('@/hooks', () => ({
+jest.mock('@/shared/app/useSportSettings', () => ({
   POWER_ZONE_COLORS: ['#808080', '#3B82F6', '#22C55E', '#F59E0B', '#EF4444', '#8B5CF6', '#DB2777'],
   HR_ZONE_COLORS: ['#808080', '#3B82F6', '#22C55E', '#F59E0B', '#EF4444', '#8B5CF6', '#DB2777'],
 }));
@@ -19,7 +19,7 @@ import {
   computeIntervalBands,
   type SeriesInfo,
 } from '@/features/stats/lib/combinedPlotData';
-import type { ChartConfig, ChartTypeId } from '@/lib';
+import { type ChartConfig, type ChartTypeId } from '@/features/activity/lib/chartConfig';
 import type { ActivityStreams, ActivityInterval } from '@/types';
 
 function powerConfig(): ChartConfig {

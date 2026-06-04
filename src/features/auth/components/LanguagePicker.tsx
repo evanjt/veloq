@@ -9,9 +9,9 @@ import {
   isLanguageVariant,
   isEnglishVariant,
   getEnglishVariantValue,
-} from '@/providers';
+} from '@/shared/app/LanguageStore';
 import { colors, darkColors, spacing, brand } from '@/theme';
-import { useTheme } from '@/hooks';
+import { useTheme } from '@/shared/app';
 
 export const LanguagePicker = React.memo(function LanguagePicker() {
   const { t } = useTranslation();

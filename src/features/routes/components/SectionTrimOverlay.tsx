@@ -16,8 +16,8 @@ import { useTranslation } from 'react-i18next';
 import { ActivityIndicator } from 'react-native-paper';
 import * as Haptics from 'expo-haptics';
 import { colors, darkColors, typography, spacing, layout } from '@/theme';
-import { formatDistance } from '@/lib';
-import { useMetricSystem, useTheme } from '@/hooks';
+import { formatDistance } from '@/shared/format/format';
+import { useMetricSystem, useTheme } from '@/shared/app';
 
 const HANDLE_SIZE = 28;
 const TRACK_HEIGHT = 4;

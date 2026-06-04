@@ -1,7 +1,7 @@
 import { generateSectionName } from '@/features/routes/lib/sectionNaming';
 
 // Mock resolveIsMetric to return true (metric)
-jest.mock('@/providers', () => ({
+jest.mock('@/shared/app/UnitPreferenceStore', () => ({
   resolveIsMetric: jest.fn(() => true),
 }));
 

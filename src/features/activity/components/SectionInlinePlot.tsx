@@ -22,7 +22,8 @@ import {
   typography,
   layout,
 } from '@/theme';
-import { formatDistance, formatPace, formatSwimPace, isSwimmingActivity } from '@/lib';
+import { isSwimmingActivity } from '@/features/activity/lib/activityUtils';
+import { formatDistance, formatPace, formatSwimPace } from '@/shared/format/format';
 import type { ActivityType } from '@/types';
 import { SectionSparkline } from '@/features/routes/components/section/SectionSparkline';
 import type { SectionEncounter } from 'veloqrs';

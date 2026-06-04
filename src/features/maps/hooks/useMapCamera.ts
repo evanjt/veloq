@@ -12,8 +12,8 @@ import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import { Animated, Platform } from 'react-native';
 import { Camera, type MapView } from '@maplibre/maplibre-react-native';
 import * as Location from 'expo-location';
-import type { LatLng } from '@/lib';
-import { getMapLibreBounds } from '@/lib';
+import { type LatLng } from '@/shared/geo/polyline';
+import { getMapLibreBounds } from '@/shared/geo/polyline';
 import type { Map3DWebViewRef } from '@/features/maps/components/Map3DWebView';
 
 /** Bounds returned by getMapLibreBounds */

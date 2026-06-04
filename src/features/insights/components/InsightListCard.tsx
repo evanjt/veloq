@@ -3,7 +3,7 @@ import { StyleSheet, TouchableOpacity, View } from 'react-native';
 import { Text } from 'react-native-paper';
 import { Canvas, Path, Circle } from '@shopify/react-native-skia';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useTheme } from '@/hooks';
+import { useTheme } from '@/shared/app';
 import {
   colors,
   darkColors,

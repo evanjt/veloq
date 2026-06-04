@@ -8,7 +8,7 @@ import {
   LineLayer,
   CircleLayer,
 } from '@maplibre/maplibre-react-native';
-import { useMapPreferences } from '@/providers';
+import { useMapPreferences } from '@/features/maps/stores/MapPreferencesContext';
 import { getMapStyle } from '@/features/maps/components/mapStyles';
 import { darkColors, brand } from '@/theme';
 

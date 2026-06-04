@@ -6,7 +6,7 @@
 import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useSectionPolyline } from '@/hooks';
+import { useSectionPolyline } from '@/features/routes/hooks/useRouteEngine';
 import { colors, darkColors } from '@/theme';
 import { MiniTraceView } from './MiniTraceView';
 import type { RoutePoint } from '@/types';

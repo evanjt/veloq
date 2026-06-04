@@ -3,8 +3,8 @@ import { Modal, View, StyleSheet, Pressable, ScrollView, Dimensions } from 'reac
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { navigateTo } from '@/lib';
-import { useTheme } from '@/hooks';
+import { navigateTo } from '@/shared/app/navigation';
+import { useTheme } from '@/shared/app';
 import { colors, darkColors, spacing, typography, opacity, colorWithOpacity } from '@/theme';
 import { InsightDetailContent } from './content/InsightDetailContent';
 import { MethodologySection } from './MethodologySection';

@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { View, StyleSheet } from 'react-native';
-import { useTheme } from '@/hooks';
+import { useTheme } from '@/shared/app';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { colors, darkColors, typography, spacing, layout } from '@/theme';

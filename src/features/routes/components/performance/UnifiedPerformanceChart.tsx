@@ -28,14 +28,9 @@ import Animated, {
   runOnJS,
 } from 'react-native-reanimated';
 
-import {
-  navigateTo,
-  formatPace,
-  formatSpeed,
-  formatDuration,
-  isRunningActivity,
-  getActivityColor,
-} from '@/lib';
+import { isRunningActivity, getActivityColor } from '@/features/activity/lib/activityUtils';
+import { navigateTo } from '@/shared/app/navigation';
+import { formatPace, formatSpeed, formatDuration } from '@/shared/format/format';
 import { formatShortDateWithYear, formatAxisDate } from '@/features/stats';
 import { CHART_CONFIG } from '@/constants';
 import { colors, darkColors } from '@/theme';

@@ -12,19 +12,23 @@ import {
   type SwipeableTab,
 } from '@/shared/ui';
 import { InsightsPanel, StrengthTab } from '@/features/insights';
-import { DateRangeSummary, RoutesList, SectionsList, SyncDebugTab } from '@/components';
+import { DateRangeSummary } from '@/features/routes/components/DateRangeSummary';
+import { RoutesList } from '@/features/routes/components/RoutesList';
+import { SectionsList } from '@/features/routes/components/SectionsList';
+import { SyncDebugTab } from '@/features/routes/components/SyncDebugTab';
 import type { RoutesSortOption } from '@/features/routes/components/RoutesList';
 import type { SectionsSortOption } from '@/features/routes/components/SectionsList';
-import {
-  useActivityBoundsCache,
-  useCustomSections,
-  useInsights,
-  useTheme,
-  useRoutesScreenData,
-  useUserLocation,
-} from '@/hooks';
+import { useActivityBoundsCache } from '@/features/activity/hooks';
+import { useInsights } from '@/features/insights';
+import { useCustomSections } from '@/features/routes/hooks/useCustomSections';
+import { useRoutesScreenData } from '@/features/routes/hooks/useRoutesScreenData';
+import { useTheme } from '@/shared/app';
+import { useUserLocation } from '@/shared/app/useUserLocation';
 import { useHasStrengthData } from '@/features/strength';
-import { useRouteSettings, useSyncDateRange, useDebugStore, useEngineStatus } from '@/providers';
+import { useEngineStatus } from '@/features/routes/stores/EngineStatusStore';
+import { useRouteSettings } from '@/features/routes/stores/RouteSettingsStore';
+import { useSyncDateRange } from '@/features/routes/stores/SyncDateRangeStore';
+import { useDebugStore } from '@/features/settings/stores/DebugStore';
 import { logScreenRender } from '@/shared/debug/renderTimer';
 import { colors, darkColors, spacing } from '@/theme';
 

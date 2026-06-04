@@ -32,9 +32,10 @@ import {
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import * as Location from 'expo-location';
-import { getActivityColor, getBoundsFromPoints } from '@/lib';
+import { getActivityColor } from '@/features/activity/lib/activityUtils';
+import { getBoundsFromPoints } from '@/shared/geo/polyline';
 import { colors, darkColors } from '@/theme';
-import { useMapPreferences } from '@/providers';
+import { useMapPreferences } from '@/features/maps/stores/MapPreferencesContext';
 import {
   getMapStyle,
   BaseMapView,

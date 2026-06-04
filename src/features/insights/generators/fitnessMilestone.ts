@@ -1,4 +1,4 @@
-import { formatPaceCompact, formatSwimPace } from '@/lib';
+import { formatPaceCompact, formatSwimPace } from '@/shared/format/format';
 import type { Insight, FtpTrend, PaceTrend, TFunc } from '../types';
 import { makeInsight } from '../lib/insightBuilder';
 import { INSIGHTS_CONFIG } from '../lib/config';

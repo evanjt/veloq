@@ -3,9 +3,10 @@ import { View, StyleSheet, Text as RNText } from 'react-native';
 import { Canvas, Rect, Line as SkiaLine, Path, Skia, vec } from '@shopify/react-native-skia';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { useSharedValue, useAnimatedStyle, runOnJS } from 'react-native-reanimated';
-import { useTheme } from '@/hooks';
+import { useTheme } from '@/shared/app';
 import { darkColors, colors, colorWithOpacity } from '@/theme';
-import { getFormZone, FORM_ZONE_COLORS, getIntlLocale } from '@/lib';
+import { getFormZone, FORM_ZONE_COLORS } from '@/features/fitness/lib/fitness';
+import { getIntlLocale } from '@/shared/format/format';
 import { buildMonotoneSvg } from '@/shared/charts/sparklinePath';
 
 const PLOT_TOP = 2;

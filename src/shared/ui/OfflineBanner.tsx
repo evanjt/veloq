@@ -10,7 +10,7 @@ import { Text } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { useNetwork } from '@/providers';
+import { useNetwork } from '@/shared/app/NetworkContext';
 import { colors, darkColors } from '@/theme';
 
 export function OfflineBanner() {

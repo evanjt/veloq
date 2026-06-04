@@ -2,7 +2,7 @@ import React, { memo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { useTheme } from '@/hooks';
+import { useTheme } from '@/shared/app';
 import { colors, darkColors, typography, spacing, shadows } from '@/theme';
 import { getActivityTypeConfig } from '../ActivityTypeFilter';
 import { getActivityIcon } from '@/features/activity/lib/activityUtils';

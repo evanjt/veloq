@@ -3,7 +3,7 @@ import { View, StyleSheet, Text, TouchableOpacity } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, darkColors, typography, shadows } from '@/theme';
-import { formatDuration } from '@/lib';
+import { formatDuration } from '@/shared/format/format';
 
 interface ChartDistanceIndicatorProps {
   xAxisMode: 'distance' | 'time';

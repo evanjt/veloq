@@ -1,4 +1,5 @@
-import { useAuthStore, useUploadPermissionStore } from '@/providers';
+import { useAuthStore } from '@/features/auth/store';
+import { useUploadPermissionStore } from '@/features/recording/stores/UploadPermissionStore';
 
 type CanRecordResult = {
   canRecord: boolean;

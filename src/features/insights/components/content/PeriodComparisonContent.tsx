@@ -3,7 +3,7 @@ import { View, StyleSheet, Dimensions } from 'react-native';
 import { Text } from 'react-native-paper';
 import { Canvas, RoundedRect } from '@shopify/react-native-skia';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useTheme } from '@/hooks';
+import { useTheme } from '@/shared/app';
 import { colors, darkColors, spacing, opacity } from '@/theme';
 import { ChartErrorBoundary } from '@/shared/ui';
 import type { Insight } from '@/types';

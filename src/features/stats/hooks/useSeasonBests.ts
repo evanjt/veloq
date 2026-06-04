@@ -1,8 +1,8 @@
 import { useMemo } from 'react';
 import { usePowerCurve, getIndexAtDuration } from './usePowerCurve';
 import { usePaceCurve, getIndexAtDistance, getTimeAtDistance } from './usePaceCurve';
-import { formatPaceCompact, formatSwimPace } from '@/lib';
-import type { PrimarySport } from '@/providers';
+import { formatPaceCompact, formatSwimPace } from '@/shared/format/format';
+import { type PrimarySport } from '@/features/fitness/stores';
 
 export interface BestEffort {
   label: string;

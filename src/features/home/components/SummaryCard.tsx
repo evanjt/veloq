@@ -9,12 +9,12 @@ import {
 } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { navigateTo } from '@/lib';
-import { useTheme } from '@/hooks';
+import { navigateTo } from '@/shared/app/navigation';
+import { useTheme } from '@/shared/app';
 import { colors, darkColors, spacing, layout, typography, shadows, opacity } from '@/theme';
 import { SummaryCardSparkline, type ScrubValues } from './SummaryCardSparkline';
 import { SummaryCardHRVSparkline } from './SummaryCardHRVSparkline';
-import { getFormZone, FORM_ZONE_COLORS, FORM_ZONE_LABELS } from '@/lib';
+import { getFormZone, FORM_ZONE_COLORS, FORM_ZONE_LABELS } from '@/features/fitness/lib/fitness';
 
 /**
  * Supporting metric displayed in the bottom row of SummaryCard

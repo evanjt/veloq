@@ -17,7 +17,7 @@
 
 import { useMemo, useRef, useEffect, useState, useCallback } from 'react';
 import type { Camera } from '@maplibre/maplibre-react-native';
-import { normalizeBounds, getBoundsCenter } from '@/lib';
+import { normalizeBounds, getBoundsCenter } from '@/shared/geo/polyline';
 import type { ActivityBoundsItem } from '@/types';
 import type { RouteSignature } from '@/features/routes/hooks';
 

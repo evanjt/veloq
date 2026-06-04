@@ -10,7 +10,7 @@
 import { useMemo } from 'react';
 import type { TFunction } from 'i18next';
 
-import { convertLatLngTuples } from '@/lib';
+import { convertLatLngTuples } from '@/shared/geo/polyline';
 import type { ActivityBoundsItem, FrequentSection, ActivityType } from '@/types';
 import { getSectionStyle, getRouteStyle } from '@/features/routes/constants';
 import type { RouteSignature } from '@/features/routes/hooks';

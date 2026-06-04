@@ -17,14 +17,11 @@ import { logScreenRender } from '@/shared/debug/renderTimer';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { LinearGradient } from 'expo-linear-gradient';
-import {
-  useConsensusRoute,
-  useRoutePerformances,
-  useTheme,
-  useMetricSystem,
-  useCacheDays,
-  useGpxExport,
-} from '@/hooks';
+import { useConsensusRoute } from '@/features/routes/hooks/useRouteEngine';
+import { useRoutePerformances } from '@/features/routes/hooks/useRoutePerformances';
+import { useGpxExport } from '@/features/settings/hooks/exportIndex';
+import { useTheme, useMetricSystem } from '@/shared/app';
+import { useCacheDays } from '@/shared/app/useCacheDays';
 import { fromUnixSeconds } from '@/shared/ffi/ffiConversions';
 import { useGroupDetail } from '@/features/routes/hooks/useRouteEngine';
 import { getAllRouteDisplayNames } from '@/features/routes/hooks/useRouteGroups';
@@ -37,18 +34,16 @@ import {
   DebugInfoPanel,
   DebugWarningBanner,
 } from '@/features/routes';
-import { useDebugStore } from '@/providers';
+import { useDebugStore } from '@/features/settings/stores/DebugStore';
 import { useFFITimer } from '@/shared/debug/useFFITimer';
 import { SectionScatterChart } from '@/features/routes/components/section';
 import { decodeCoords } from 'veloqrs';
 import {
-  formatDistance,
-  formatRelativeDate,
   getActivityIcon,
   getActivityColor,
-  formatDuration,
   isRunningActivity,
-} from '@/lib';
+} from '@/features/activity/lib/activityUtils';
+import { formatDistance, formatRelativeDate, formatDuration } from '@/shared/format/format';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import type { ActivityType, RoutePoint, PerformanceDataPoint } from '@/types';
 import { toActivityType } from '@/features/routes/types';

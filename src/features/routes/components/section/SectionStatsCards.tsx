@@ -9,7 +9,7 @@ import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { router } from 'expo-router';
-import { formatDuration, formatPace, formatSwimPace } from '@/lib';
+import { formatDuration, formatPace, formatSwimPace } from '@/shared/format/format';
 import { colors, darkColors, spacing, typography, layout } from '@/theme';
 
 const REVERSE_COLOR = colors.reverseDirection;

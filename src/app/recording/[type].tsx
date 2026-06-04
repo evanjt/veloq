@@ -16,13 +16,13 @@ import { useLocalSearchParams, router } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useKeepAwake } from 'expo-keep-awake';
-import { useTheme, useMetricSystem } from '@/hooks';
+import { useTheme, useMetricSystem } from '@/shared/app';
 import { colors, darkColors, spacing, layout, typography, brand } from '@/theme';
-import { navigateTo } from '@/lib';
+import { navigateTo } from '@/shared/app/navigation';
 import { TAB_BAR_SAFE_PADDING } from '@/shared/ui';
 import { getRecordingMode } from '@/features/recording/lib/recordingModes';
 import { getActivityIcon, getActivityColor } from '@/features/activity/lib/activityUtils';
-import { formatDuration, formatDistance, formatPace, formatSpeed } from '@/lib';
+import { formatDuration, formatDistance, formatPace, formatSpeed } from '@/shared/format/format';
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
 import { useRecordingPreferences } from '@/features/recording/stores/RecordingPreferencesStore';
 import { useHRZones } from '@/features/fitness';
@@ -40,7 +40,7 @@ import { ActivityTypePickerModal } from '@/features/recording/components/Activit
 import { useTimer } from '@/features/recording/hooks/useTimer';
 import { useLocationTracking } from '@/features/recording/hooks/useLocationTracking';
 import { useRecordingMetrics } from '@/features/recording/hooks/useRecordingMetrics';
-import { debug } from '@/lib';
+import { debug } from '@/shared/debug/debug';
 import type { ActivityType, RecordingMode } from '@/types';
 import type { AutoPauseConfig } from '@/features/recording/lib/autoPause';
 

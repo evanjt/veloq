@@ -6,13 +6,13 @@ import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 
 import { ScreenSafeAreaView } from '@/shared/ui';
-import { replaceTo } from '@/lib';
-import { useSyncDateRange } from '@/providers';
+import { replaceTo } from '@/shared/app/navigation';
+import { useSyncDateRange } from '@/features/routes/stores/SyncDateRangeStore';
 import { colors, darkColors, spacing, layout } from '@/theme';
-import { useTheme } from '@/hooks';
+import { useTheme } from '@/shared/app';
 import { createSharedStyles } from '@/styles';
 import { clearAccountData } from '@/shared/storage';
-import { useImportDatabaseBackup } from '@/hooks';
+import { useImportDatabaseBackup } from '@/features/settings/hooks/exportIndex';
 import {
   useAuthStore,
   INTERVALS_URLS,

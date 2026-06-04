@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-import { getSetting, setSetting } from '@/lib/backup';
+import { getSetting, setSetting } from '@/shared/storage';
 import type { ActivityType, DataFieldType } from '@/types';
 
 const STORAGE_KEY = 'veloq-recording-preferences';

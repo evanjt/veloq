@@ -4,7 +4,7 @@ import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import type { SharedValue } from 'react-native-reanimated';
 
-import { useTheme } from '@/hooks';
+import { useTheme } from '@/shared/app';
 import { colors, darkColors, spacing, layout, typography, opacity } from '@/theme';
 import type { WellnessData, Activity } from '@/types';
 import { FitnessChart, FormZoneChart, ActivityDotsChart } from '..';

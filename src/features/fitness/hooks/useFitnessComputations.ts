@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 
-import type { PrimarySport } from '@/providers';
+import { type PrimarySport } from '@/features/fitness/stores';
 import type { WellnessData, ZoneDistribution, eFTPPoint } from '@/types';
 import { getFormZone, type FormZone } from '../lib';
 

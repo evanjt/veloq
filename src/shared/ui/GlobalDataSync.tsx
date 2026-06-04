@@ -9,13 +9,13 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import {
   useActivities,
-  useRouteDataSync,
   useActivityBoundsCache,
   isInfiniteActivitiesStale,
-} from '@/hooks';
+} from '@/features/activity/hooks';
+import { useRouteDataSync } from '@/features/routes/hooks/useRouteDataSync';
 import { useSectionHealthCheck } from '@/features/routes/hooks/useSectionHealthCheck';
 import { queryKeys } from '@/shared/query/queryKeys';
-import { onSyncComplete } from '@/lib/backup';
+import { onSyncComplete } from '@/features/settings/lib/autobackup';
 import { intervalsApi } from '@/api';
 import {
   getRouteEngine,
@@ -23,7 +23,9 @@ import {
   getStrictnessFromValue,
 } from '@/shared/native/routeEngine';
 import { toActivityMetrics } from '@/features/activity/lib/activityMetrics';
-import { useAuthStore, useRouteSettings, useSyncDateRange } from '@/providers';
+import { useAuthStore } from '@/features/auth/store';
+import { useRouteSettings } from '@/features/routes/stores/RouteSettingsStore';
+import { useSyncDateRange } from '@/features/routes/stores/SyncDateRangeStore';
 import {
   formatGpsSyncProgress,
   formatBoundsSyncProgress,
@@ -32,7 +34,7 @@ import {
 import {
   updateSyncNotification,
   dismissSyncNotification,
-} from '@/lib/notifications/notificationService';
+} from '@/features/settings/lib/notificationService';
 
 export function GlobalDataSync() {
   const { t } = useTranslation();

@@ -1,10 +1,15 @@
 import React, { useMemo } from 'react';
 import { View, StyleSheet, Pressable } from 'react-native';
-import { useTheme } from '@/hooks';
+import { useTheme } from '@/shared/app';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { colors, darkColors, typography, spacing, layout } from '@/theme';
-import { POWER_ZONE_COLORS, HR_ZONE_COLORS, DEFAULT_POWER_ZONES, DEFAULT_HR_ZONES } from '@/hooks';
+import {
+  POWER_ZONE_COLORS,
+  HR_ZONE_COLORS,
+  DEFAULT_POWER_ZONES,
+  DEFAULT_HR_ZONES,
+} from '@/shared/app/useSportSettings';
 import type { ZoneDistribution } from '@/types';
 import { formatDurationHuman } from '@/shared/format/format';
 

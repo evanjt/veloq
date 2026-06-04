@@ -1,11 +1,11 @@
 import React, { useRef, useCallback } from 'react';
 import { View, StyleSheet, Pressable, Text } from 'react-native';
-import { useTheme } from '@/hooks';
+import { useTheme } from '@/shared/app';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { colors, typography, layout, spacing } from '@/theme';
 import { CHART_CONFIG } from '@/constants';
-import type { ChartConfig, ChartTypeId } from '@/lib';
+import { type ChartConfig, type ChartTypeId } from '@/features/activity/lib/chartConfig';
 
 /** Chart type translation key type */
 type ChartTypeKey =

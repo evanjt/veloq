@@ -5,13 +5,13 @@
 
 import React, { memo } from 'react';
 import { View, StyleSheet } from 'react-native';
-import { useTheme, useMetricSystem } from '@/hooks';
+import { useTheme, useMetricSystem } from '@/shared/app';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Svg, { Polyline } from 'react-native-svg';
 import { useTranslation } from 'react-i18next';
 import { colors, darkColors, opacity, spacing, layout, typography, shadows } from '@/theme';
-import { formatDistance } from '@/lib';
+import { formatDistance } from '@/shared/format/format';
 import type { DiscoveredMatchInfo } from '@/types';
 
 interface MatchRowProps {

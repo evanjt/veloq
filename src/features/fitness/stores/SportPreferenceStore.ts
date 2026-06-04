@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { getSetting, setSetting } from '@/lib/backup';
+import { getSetting, setSetting } from '@/shared/storage';
 
 const SPORT_PREFERENCE_KEY = 'veloq-primary-sport';
 

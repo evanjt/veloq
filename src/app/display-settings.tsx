@@ -4,19 +4,17 @@ import { ScreenSafeAreaView, ScreenErrorBoundary, TAB_BAR_SAFE_PADDING } from '@
 import { router } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { useTheme } from '@/hooks';
+import { useTheme } from '@/shared/app';
+import { useSportPreference, type PrimarySport } from '@/features/fitness/stores';
+import { useLanguageStore } from '@/shared/app/LanguageStore';
 import {
   setThemePreference,
   useThemePreferenceStore,
-  useSportPreference,
-  useLanguageStore,
-  useUnitPreference,
   type ThemePreference,
-  type PrimarySport,
-  type UnitPreference,
-} from '@/providers';
+} from '@/shared/app/ThemeProvider';
+import { useUnitPreference, type UnitPreference } from '@/shared/app/UnitPreferenceStore';
 import { colors, darkColors, spacing, layout } from '@/theme';
-import { DisplaySettings } from '@/components/settings';
+import { DisplaySettings } from '@/features/settings/components';
 
 export default function DisplaySettingsScreen() {
   const { t } = useTranslation();

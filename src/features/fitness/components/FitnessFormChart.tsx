@@ -1,6 +1,6 @@
 import React, { memo, useMemo, useRef, useCallback, useState } from 'react';
 import { View, StyleSheet } from 'react-native';
-import { useTheme } from '@/hooks';
+import { useTheme } from '@/shared/app';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { CartesianChart, Line, Area, Bar } from 'victory-native';
@@ -17,8 +17,9 @@ import * as Haptics from 'expo-haptics';
 import { colors, darkColors, opacity, spacing, layout, typography, chartStyles } from '@/theme';
 import { ChartCrosshair } from '@/shared/charts';
 import { CHART_CONFIG } from '@/constants';
-import { calculateTSB, getFormZone, FORM_ZONE_COLORS } from '@/hooks';
-import { sortByDateId, formatShortDate, formatShortDateWithWeekday } from '@/lib';
+import { calculateTSB, getFormZone, FORM_ZONE_COLORS } from '@/features/fitness/lib/fitness';
+import { sortByDateId } from '@/features/activity/lib/activityUtils';
+import { formatShortDate, formatShortDateWithWeekday } from '@/shared/format/format';
 import type { WellnessData } from '@/types';
 
 // Chart colors matching intervals.icu

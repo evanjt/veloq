@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 import type { ExerciseSet } from 'veloqrs';
 
 import { useMetricSystem } from '@/shared/app/useMetricSystem';
-import { formatDuration } from '@/lib';
+import { formatDuration } from '@/shared/format/format';
 import { colors, darkColors, spacing, layout, typography, shadows, brand } from '@/theme';
 
 import { useExerciseSets } from '../hooks/useExerciseSets';

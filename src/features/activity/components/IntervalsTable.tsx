@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { View, StyleSheet, FlatList, Text } from 'react-native';
+import { isRunningActivity, isCyclingActivity } from '@/features/activity/lib/activityUtils';
 import {
   formatDistance,
   formatDuration,
@@ -7,10 +8,8 @@ import {
   formatSpeed,
   formatHeartRate,
   formatPower,
-  isRunningActivity,
-  isCyclingActivity,
-} from '@/lib';
-import { POWER_ZONE_COLORS, HR_ZONE_COLORS } from '@/hooks';
+} from '@/shared/format/format';
+import { POWER_ZONE_COLORS, HR_ZONE_COLORS } from '@/shared/app/useSportSettings';
 import { colors, darkColors, spacing } from '@/theme';
 import type { ActivityInterval, ActivityType } from '@/types';
 

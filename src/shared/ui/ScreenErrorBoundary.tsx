@@ -4,7 +4,7 @@ import { Text, Button } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { useTheme } from '@/hooks';
+import { useTheme } from '@/shared/app';
 import { colors, darkColors, spacing, typography } from '@/theme';
 
 interface Props {

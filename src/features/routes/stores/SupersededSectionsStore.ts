@@ -9,7 +9,7 @@
  */
 
 import { create } from 'zustand';
-import { getSetting, setSetting, removeSetting } from '@/lib/backup';
+import { getSetting, setSetting, removeSetting } from '@/shared/storage';
 
 const SUPERSEDED_SECTIONS_KEY = 'veloq-superseded-sections';
 

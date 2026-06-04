@@ -7,7 +7,7 @@
 
 import React, { useState, useCallback, useMemo } from 'react';
 import { View, StyleSheet, Text } from 'react-native';
-import type { LatLng } from '@/lib';
+import { type LatLng } from '@/shared/geo/polyline';
 import { SectionCreationOverlay, type CreationState } from './SectionCreationOverlay';
 import type { SectionCreationResult } from './ActivityMapView';
 import { typography, spacing } from '@/theme';

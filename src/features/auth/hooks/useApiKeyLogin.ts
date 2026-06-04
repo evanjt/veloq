@@ -3,10 +3,10 @@ import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import axios from 'axios';
 
-import { replaceTo } from '@/lib';
+import { replaceTo } from '@/shared/app/navigation';
 import { clearAccountData, clearAuthOnly } from '@/shared/storage';
 import { confirmAccountChange, getCachedAthleteId } from '@/features/auth/lib/accountChange';
-import { useSyncDateRange } from '@/providers';
+import { useSyncDateRange } from '@/features/routes/stores/SyncDateRangeStore';
 import { useAuthStore } from '@/features/auth/store';
 
 interface UseApiKeyLoginParams {

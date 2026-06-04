@@ -4,7 +4,7 @@ import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
-import { useTheme } from '@/hooks';
+import { useTheme } from '@/shared/app';
 import { colors, darkColors, spacing, opacity, layout, brand } from '@/theme';
 import type { StrengthBalancePair } from '@/types';
 

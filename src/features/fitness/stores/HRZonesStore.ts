@@ -1,6 +1,6 @@
 import { create } from 'zustand';
-import { getSetting, setSetting, removeSetting } from '@/lib/backup';
-import { safeJsonParseWithSchema } from '@/lib';
+import { getSetting, setSetting, removeSetting } from '@/shared/storage';
+import { safeJsonParseWithSchema } from '@/shared/validation/validation';
 
 const HR_ZONES_KEY = 'veloq-hr-zones';
 

@@ -12,7 +12,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
-import { getIntlLocale } from '@/lib';
+import { getIntlLocale } from '@/shared/format/format';
 import { colors, darkColors, spacing } from '@/theme';
 
 interface DateRangeSummaryProps {

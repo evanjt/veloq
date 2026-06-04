@@ -2,10 +2,11 @@ import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 
-import { replaceTo } from '@/lib';
+import { replaceTo } from '@/shared/app/navigation';
 import { clearAccountData, clearAuthOnly } from '@/shared/storage';
 import { confirmAccountChange, getCachedAthleteId } from '@/features/auth/lib/accountChange';
-import { useSyncDateRange, useUploadPermissionStore } from '@/providers';
+import { useUploadPermissionStore } from '@/features/recording/stores/UploadPermissionStore';
+import { useSyncDateRange } from '@/features/routes/stores/SyncDateRangeStore';
 import { useAuthStore } from '@/features/auth/store';
 import {
   startOAuthFlow,

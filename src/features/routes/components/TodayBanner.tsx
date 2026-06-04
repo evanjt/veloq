@@ -4,18 +4,13 @@ import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { useTheme } from '@/hooks';
+import { useTheme } from '@/shared/app';
 import { useTodayWorkout } from '@/features/home/hooks/useTodayWorkout';
 import { useWorkoutSections } from '@/features/home/hooks/useWorkoutSections';
 import { useActivityPatterns } from '@/features/home/hooks/useActivityPatterns';
 import { useWellness } from '@/features/wellness';
-import {
-  getFormZone,
-  FORM_ZONE_COLORS,
-  FORM_ZONE_LABELS,
-  formatDuration,
-  formatDurationHuman,
-} from '@/lib';
+import { getFormZone, FORM_ZONE_COLORS, FORM_ZONE_LABELS } from '@/features/fitness/lib/fitness';
+import { formatDuration, formatDurationHuman } from '@/shared/format/format';
 import { WorkoutStepBar } from './WorkoutStepBar';
 import { colors, darkColors, spacing, layout, shadows, typography, brand } from '@/theme';
 import type { CalendarEvent } from '@/types';

@@ -5,11 +5,11 @@
 
 import React, { memo, useState, useMemo, useId } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
-import { useTheme, useMetricSystem } from '@/hooks';
+import { useTheme, useMetricSystem } from '@/shared/app';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Svg, { Polyline, Defs, LinearGradient, Stop, Rect, Circle } from 'react-native-svg';
-import { navigateTo } from '@/lib';
+import { navigateTo } from '@/shared/app/navigation';
 import { useTranslation } from 'react-i18next';
 import {
   colors,
@@ -24,11 +24,9 @@ import {
 import {
   getActivityColor,
   getActivityIcon,
-  formatPace,
-  formatSpeed,
-  formatDistance,
   isRunningActivity,
-} from '@/lib';
+} from '@/features/activity/lib/activityUtils';
+import { formatPace, formatSpeed, formatDistance } from '@/shared/format/format';
 import { useConsensusRoute } from '@/features/routes/hooks/useRouteEngine';
 import { toActivityType } from '@/features/routes/types';
 import type { DiscoveredRouteInfo, RouteGroup } from '@/types';

@@ -2,7 +2,7 @@ import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
-import { formatRelativeDate } from '@/lib';
+import { formatRelativeDate } from '@/shared/format/format';
 import { colors, darkColors, opacity, spacing, typography } from '@/theme';
 
 interface StatsRowProps {

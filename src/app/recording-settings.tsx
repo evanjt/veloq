@@ -6,9 +6,9 @@ import { router } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useTheme } from '@/hooks';
+import { useTheme } from '@/shared/app';
 import { colors, darkColors, spacing, layout, typography, brand } from '@/theme';
-import { navigateTo } from '@/lib';
+import { navigateTo } from '@/shared/app/navigation';
 import { useRecordingPreferences } from '@/features/recording/stores/RecordingPreferencesStore';
 import type { DataFieldType } from '@/types';
 

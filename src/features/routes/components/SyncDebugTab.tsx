@@ -3,9 +3,10 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Alert } from 'rea
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useQueryClient } from '@tanstack/react-query';
 import { colors, darkColors, spacing } from '@/theme';
-import { useTheme } from '@/hooks';
-import { useActivities, useEngineSubscription } from '@/hooks';
-import { useSyncDateRange } from '@/providers';
+import { useTheme } from '@/shared/app';
+import { useActivities } from '@/features/activity/hooks';
+import { useEngineSubscription } from '@/features/routes/hooks/useRouteEngine';
+import { useSyncDateRange } from '@/features/routes/stores/SyncDateRangeStore';
 import { getRouteEngine } from '@/shared/native/routeEngine';
 import { deleteGpsTracks } from '@/shared/storage/gpsStorage';
 import { queryKeys } from '@/shared/query/queryKeys';

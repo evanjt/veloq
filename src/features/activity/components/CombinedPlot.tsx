@@ -1,6 +1,6 @@
 import React, { useMemo, useRef, useState, useCallback } from 'react';
 import { View, StyleSheet, Text } from 'react-native';
-import { useTheme } from '@/hooks';
+import { useTheme } from '@/shared/app';
 import { CartesianChart, Area, Line } from 'victory-native';
 import {
   LinearGradient,
@@ -21,8 +21,8 @@ import Animated, {
 import * as Haptics from 'expo-haptics';
 import { useTranslation } from 'react-i18next';
 import { colors, typography, layout, chartStyles } from '@/theme';
-import { useMetricSystem } from '@/hooks';
-import type { ChartConfig, ChartTypeId } from '@/lib';
+import { useMetricSystem } from '@/shared/app';
+import { type ChartConfig, type ChartTypeId } from '@/features/activity/lib/chartConfig';
 import type { ActivityStreams, ActivityInterval, ActivityType } from '@/types';
 import { CHART_CONFIG } from '@/constants';
 import { ChartErrorBoundary } from '@/shared/ui';

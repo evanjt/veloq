@@ -7,7 +7,7 @@
  * 2-digit year is enough to disambiguate).
  */
 
-import { getIntlLocale } from '@/lib';
+import { getIntlLocale } from '@/shared/format/format';
 
 /**
  * Compute the three key dates for a start/middle/end time axis given a

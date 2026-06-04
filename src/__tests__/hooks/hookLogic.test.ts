@@ -8,7 +8,8 @@ jest.mock('@/shared/native/routeEngine', () => ({
   getRouteEngine: () => null,
 }));
 
-jest.mock('@/providers', () => ({
+jest.mock('@/features/fitness/stores/SportPreferenceStore', () => ({
+  ...jest.requireActual('@/features/fitness/stores/SportPreferenceStore'),
   SPORT_API_TYPES: {
     Cycling: ['Ride', 'VirtualRide'],
     Running: ['Run', 'VirtualRun', 'TrailRun'],

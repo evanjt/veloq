@@ -6,7 +6,7 @@ import {
   POWER_ZONE_COLORS,
   HR_ZONE_COLORS,
 } from '@/shared/app/useSportSettings';
-import { type PrimarySport } from '@/providers';
+import { type PrimarySport } from '@/features/fitness/stores';
 import { getRouteEngine } from '@/shared/native/routeEngine';
 
 interface UseZoneDistributionOptions {

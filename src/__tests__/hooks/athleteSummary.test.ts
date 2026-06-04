@@ -8,7 +8,7 @@ jest.mock('@/api', () => ({
   intervalsApi: {},
 }));
 
-jest.mock('@/providers', () => ({
+jest.mock('@/features/auth/store', () => ({
   useAuthStore: jest.fn(),
 }));
 
@@ -16,7 +16,7 @@ jest.mock('@/shared/native/routeEngine', () => ({
   getRouteEngine: () => null,
 }));
 
-jest.mock('@/lib', () => ({
+jest.mock('@/shared/format/format', () => ({
   formatLocalDate: jest.fn(),
   getMonday: jest.fn(),
   getSunday: (monday: Date) => {

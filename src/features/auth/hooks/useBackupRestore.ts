@@ -3,8 +3,8 @@ import { Alert } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import * as FileSystem from 'expo-file-system/legacy';
 import { getRouteEngine } from '@/shared/native/routeEngine';
-import { getAvailableBackends, type BackupEntry } from '@/lib/backup';
-import { restoreDatabaseBackup } from '@/lib/export/backup';
+import { getAvailableBackends, type BackupEntry } from '@/features/settings/lib/autobackup';
+import { restoreDatabaseBackup } from '@/features/settings/lib/backup';
 
 export interface DetectedBackup {
   entry: BackupEntry;

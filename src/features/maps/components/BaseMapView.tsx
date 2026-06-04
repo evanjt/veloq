@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useRef, useMemo, ReactNode, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated, Platform } from 'react-native';
-import { useTheme } from '@/hooks';
+import { useTheme } from '@/shared/app';
 import {
   MapView,
   Camera,

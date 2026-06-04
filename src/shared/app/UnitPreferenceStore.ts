@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { getSetting, setSetting } from '@/lib/backup';
+import { getSetting, setSetting } from '@/shared/storage';
 import { getLocales } from 'expo-localization';
 
 const UNIT_PREFERENCE_KEY = 'veloq-unit-preference';

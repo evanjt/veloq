@@ -18,16 +18,14 @@ import { useLocalSearchParams, router } from 'expo-router';
 import { logScreenRender } from '@/shared/debug/renderTimer';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import {
-  useSectionPerformances,
-  useTheme,
-  useCacheDays,
-  useGpxExport,
-  useSectionChartData,
-  useNearbySections,
-  useMergeSections,
-  useSectionActions,
-} from '@/hooks';
+import { useMergeSections } from '@/features/routes/hooks/useMergeSections';
+import { useNearbySections } from '@/features/routes/hooks/useNearbySections';
+import { useSectionActions } from '@/features/routes/hooks/useSectionActions';
+import { useSectionChartData } from '@/features/routes/hooks/useSectionChartData';
+import { useSectionPerformances } from '@/features/routes/hooks/useSectionPerformances';
+import { useGpxExport } from '@/features/settings/hooks/exportIndex';
+import { useTheme } from '@/shared/app';
+import { useCacheDays } from '@/shared/app/useCacheDays';
 import { useSectionDetail } from '@/features/routes/hooks/useRouteEngine';
 import { useSectionTrim } from '@/features/routes/hooks/useSectionTrim';
 import { getAllSectionDisplayNames } from '@/features/routes/hooks/useUnifiedSections';
@@ -37,7 +35,7 @@ import {
   DebugWarningBanner,
   SectionTrimOverlay,
 } from '@/features/routes';
-import { useDebugStore } from '@/providers';
+import { useDebugStore } from '@/features/settings/stores/DebugStore';
 import { useFFITimer } from '@/shared/debug/useFFITimer';
 import { TAB_BAR_SAFE_PADDING, ScreenErrorBoundary } from '@/shared/ui';
 import {
@@ -55,12 +53,12 @@ import {
 import { getRouteEngine } from '@/shared/native/routeEngine';
 import { decodeCoords } from 'veloqrs';
 import {
-  formatRelativeDate,
   getActivityIcon,
   getActivityColor,
   isRunningActivity,
   type MaterialIconName,
-} from '@/lib';
+} from '@/features/activity/lib/activityUtils';
+import { formatRelativeDate } from '@/shared/format/format';
 import { fromUnixSeconds } from '@/shared/ffi/ffiConversions';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import { type SectionTimeRange } from '@/features/routes';

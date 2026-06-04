@@ -1,9 +1,9 @@
 import React from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text } from 'react-native-paper';
-import { TIME_RANGES } from '@/lib/utils/constants';
+import { TIME_RANGES } from '@/shared/app/constants';
 import { colors, darkColors, spacing, typography, opacity } from '@/theme';
-import type { TimeRange } from '@/hooks';
+import { type TimeRange } from '@/features/wellness';
 
 interface TimeRangeSelectorProps {
   timeRange: TimeRange;

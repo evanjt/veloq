@@ -17,18 +17,15 @@ import {
   FitnessHeaderStats,
 } from '@/features/fitness';
 import {
-  useTheme,
-  useChartInteraction,
-  useCollapsibleSections,
   useFitnessRefresh,
   useFitnessComputations,
   useFitnessScreenData,
-  timeRangeToDays,
-  FORM_ZONE_COLORS,
-  FORM_ZONE_LABELS,
-  type TimeRange,
-} from '@/hooks';
-import { useSportPreference, type PrimarySport } from '@/providers';
+} from '@/features/fitness/hooks';
+import { FORM_ZONE_COLORS, FORM_ZONE_LABELS } from '@/features/fitness/lib/fitness';
+import { timeRangeToDays, type TimeRange } from '@/features/wellness';
+import { useTheme, useCollapsibleSections } from '@/shared/app';
+import { useChartInteraction } from '@/shared/charts/useChartInteraction';
+import { useSportPreference, type PrimarySport } from '@/features/fitness/stores';
 import { colors, darkColors, spacing, layout, typography, opacity } from '@/theme';
 import { createSharedStyles } from '@/styles';
 

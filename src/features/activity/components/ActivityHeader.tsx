@@ -14,7 +14,12 @@ import { ComponentErrorBoundary } from '@/shared/ui';
 import type { ActivityDetail, ActivityStreams } from '@/types';
 import type { TerrainCamera } from '@/features/maps/lib/cameraAngle';
 import type { MapStyleType } from '@/features/maps/components/mapStyles';
-import { formatDistance, formatDuration, formatElevation, formatDateTime } from '@/lib';
+import {
+  formatDistance,
+  formatDuration,
+  formatElevation,
+  formatDateTime,
+} from '@/shared/format/format';
 import { routeEngine } from 'veloqrs';
 import { colors, spacing, typography } from '@/theme';
 

@@ -12,9 +12,9 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { useSharedValue, useAnimatedStyle, runOnJS } from 'react-native-reanimated';
 import { useTranslation } from 'react-i18next';
 
-import { useTheme } from '@/hooks';
+import { useTheme } from '@/shared/app';
 import { colors, darkColors, spacing, brand, shadows } from '@/theme';
-import { formatDuration } from '@/lib';
+import { formatDuration } from '@/shared/format/format';
 
 const HANDLE_SIZE = 28;
 const TRACK_HEIGHT = 4;

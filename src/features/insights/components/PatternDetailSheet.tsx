@@ -3,9 +3,9 @@ import { Modal, View, StyleSheet, Pressable, ScrollView, Dimensions } from 'reac
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { useTheme } from '@/hooks';
+import { useTheme } from '@/shared/app';
 import { colors, darkColors, spacing, typography, opacity, shadows, brand } from '@/theme';
-import { navigateTo } from '@/lib';
+import { navigateTo } from '@/shared/app/navigation';
 import type { Insight } from '@/types';
 
 const WEEK_DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] as const;

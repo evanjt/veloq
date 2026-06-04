@@ -6,7 +6,7 @@ import React, { memo, useMemo } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { CartesianChart, Line } from 'victory-native';
 import { Rect } from '@shopify/react-native-skia';
-import { useTheme } from '@/hooks';
+import { useTheme } from '@/shared/app';
 import { colors } from '@/theme';
 
 // Form zone backgrounds (matching intervals.icu and FitnessFormChart)

@@ -9,7 +9,8 @@
 
 import React, { memo, useCallback, useMemo, useId } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
-import { useTheme, useSectionPolyline, useMetricSystem } from '@/hooks';
+import { useSectionPolyline } from '@/features/routes/hooks/useRouteEngine';
+import { useTheme, useMetricSystem } from '@/shared/app';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Svg, { Polyline, G, Defs, LinearGradient, Stop, Rect, Circle } from 'react-native-svg';
@@ -23,7 +24,9 @@ import {
   shadows,
   mapPreviewColors,
 } from '@/theme';
-import { formatDistance, getBoundsFromPoints, getActivityColor, getActivityIcon } from '@/lib';
+import { getActivityColor, getActivityIcon } from '@/features/activity/lib/activityUtils';
+import { formatDistance } from '@/shared/format/format';
+import { getBoundsFromPoints } from '@/shared/geo/polyline';
 import type { ActivityType, FrequentSection, RoutePoint } from '@/types';
 import type { SectionSummary } from 'veloqrs';
 

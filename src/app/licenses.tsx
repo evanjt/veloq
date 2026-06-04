@@ -14,7 +14,7 @@ import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import { createSharedStyles } from '@/styles';
-import { useTheme } from '@/hooks';
+import { useTheme } from '@/shared/app';
 
 interface LicenseEntry {
   name: string;

@@ -7,7 +7,7 @@
  */
 
 import realRoutesData from './realRoutes.json';
-import { getBoundsFromPoints } from '@/lib';
+import { getBoundsFromPoints } from '@/shared/geo/polyline';
 import { createDateSeededRandom } from '@/data/demo/random';
 
 export interface DemoRoute {

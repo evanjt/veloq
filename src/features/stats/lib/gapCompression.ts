@@ -12,7 +12,7 @@
  * for driving these with sorted chartData and user-expansion state.
  */
 
-import { safeGetTime } from '@/lib';
+import { safeGetTime } from '@/shared/format/format';
 
 /** A gap in the data between two adjacent sorted points. */
 export interface DetectedGap {

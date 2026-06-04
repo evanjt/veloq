@@ -12,14 +12,8 @@ import { CartesianChart, type PointsArray } from 'victory-native';
 import { Circle, Path, Skia } from '@shopify/react-native-skia';
 import { GestureDetector } from 'react-native-gesture-handler';
 import Animated from 'react-native-reanimated';
-import {
-  formatDuration,
-  formatPace,
-  formatSpeed,
-  formatSwimPace,
-  isRunningActivity,
-  isSwimmingActivity,
-} from '@/lib';
+import { isRunningActivity, isSwimmingActivity } from '@/features/activity/lib/activityUtils';
+import { formatDuration, formatPace, formatSpeed, formatSwimPace } from '@/shared/format/format';
 import {
   splitAndPositionChartData,
   buildTrendWithBand,

@@ -1,6 +1,6 @@
 import React, { useMemo, useCallback, useState, useRef } from 'react';
 import { View, StyleSheet } from 'react-native';
-import { useTheme } from '@/hooks';
+import { useTheme } from '@/shared/app';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { CartesianChart, Line } from 'victory-native';
@@ -16,7 +16,7 @@ import {
 import { ChartCrosshair } from '@/shared/charts';
 import { colors, darkColors, typography, spacing, chartStyles } from '@/theme';
 import { CHART_CONFIG } from '@/constants';
-import { usePowerCurve } from '@/hooks';
+import { usePowerCurve } from '@/features/stats';
 import { formatDurationHuman } from '@/shared/format/format';
 
 interface PowerCurveChartProps {

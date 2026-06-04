@@ -11,8 +11,8 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import * as WebBrowser from 'expo-web-browser';
-import { useTheme } from '@/hooks';
-import { useSupportStore } from '@/providers';
+import { useTheme } from '@/shared/app';
+import { useSupportStore } from '@/features/settings/stores/SupportStore';
 import { useDonation } from '@/shared/app/useDonation';
 import { colors, darkColors, spacing, layout, shadows, typography } from '@/theme';
 import { TipButtons } from '@/shared/ui/TipButtons';

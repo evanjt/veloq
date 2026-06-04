@@ -1,6 +1,6 @@
 import React, { useMemo, useCallback, useState, useRef } from 'react';
 import { View, StyleSheet, Switch, TouchableOpacity } from 'react-native';
-import { useTheme, useMetricSystem } from '@/hooks';
+import { useTheme, useMetricSystem } from '@/shared/app';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { CartesianChart, Line } from 'victory-native';
@@ -17,9 +17,14 @@ import { router } from 'expo-router';
 import { colors, darkColors, typography, spacing, layout, chartStyles } from '@/theme';
 import { ChartCrosshair } from '@/shared/charts';
 import { CHART_CONFIG } from '@/constants';
-import { usePaceCurve } from '@/hooks';
-import { useActivities } from '@/hooks';
-import { formatFullDate, formatDistance, formatLocalDate, speedToSecsPerKm } from '@/lib';
+import { usePaceCurve } from '@/features/stats';
+import { useActivities } from '@/features/activity/hooks';
+import {
+  formatFullDate,
+  formatDistance,
+  formatLocalDate,
+  speedToSecsPerKm,
+} from '@/shared/format/format';
 import { formatDuration } from '@/shared/format/format';
 
 interface PaceCurveChartProps {

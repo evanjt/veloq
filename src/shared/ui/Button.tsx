@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { AnimatedPressable } from './AnimatedPressable';
 import { colors, darkColors, typography, spacing, layout, shadows } from '@/theme';
-import { useTheme } from '@/hooks';
+import { useTheme } from '@/shared/app';
 
 type ButtonVariant = 'primary' | 'secondary' | 'subtle' | 'danger';
 type ButtonSize = 'small' | 'medium' | 'large';

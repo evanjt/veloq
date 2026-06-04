@@ -17,7 +17,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
-import { useTheme } from '@/hooks';
+import { useTheme } from '@/shared/app';
 import { colors, darkColors, spacing, layout, typography, brand } from '@/theme';
 import { getActivityIcon, getActivityColor } from '@/features/activity/lib/activityUtils';
 import type { MaterialIconName } from '@/features/activity/lib/activityUtils';
@@ -32,7 +32,8 @@ import {
   clearRecordingBackup,
 } from '@/features/recording/lib/storage/recordingBackup';
 import { intervalsApi } from '@/api';
-import { formatLocalDate, formatDuration, navigateTo } from '@/lib';
+import { navigateTo } from '@/shared/app/navigation';
+import { formatLocalDate, formatDuration } from '@/shared/format/format';
 import type { ActivityType, CalendarEvent } from '@/types';
 
 const DEFAULT_QUICK_TYPES: ActivityType[] = [

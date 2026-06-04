@@ -7,12 +7,12 @@
  * isolation.
  */
 
-import type { ChartConfig, ChartTypeId } from '@/lib';
-import { isCyclingActivity } from '@/lib';
+import { type ChartConfig, type ChartTypeId } from '@/features/activity/lib/chartConfig';
+import { isCyclingActivity } from '@/features/activity/lib/activityUtils';
 import type { ActivityStreams, ActivityInterval, ActivityType } from '@/types';
 import { CHART_CONFIG } from '@/constants';
 import { colors, darkColors } from '@/theme';
-import { POWER_ZONE_COLORS, HR_ZONE_COLORS } from '@/hooks';
+import { POWER_ZONE_COLORS, HR_ZONE_COLORS } from '@/shared/app/useSportSettings';
 
 /** One input series derived from a chart config + streams. */
 export interface DataSeries {

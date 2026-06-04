@@ -4,8 +4,14 @@ import type { ViewStyle } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 
-import { useTheme } from '@/hooks';
-import { formatDistance, formatDuration, formatSpeed, formatPace, formatElevation } from '@/lib';
+import { useTheme } from '@/shared/app';
+import {
+  formatDistance,
+  formatDuration,
+  formatSpeed,
+  formatPace,
+  formatElevation,
+} from '@/shared/format/format';
 import { colors, darkColors, spacing } from '@/theme';
 import type { DataFieldType } from '@/types';
 

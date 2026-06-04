@@ -1,6 +1,6 @@
 import React, { useMemo, useRef, useCallback, useState, useEffect } from 'react';
 import { View, StyleSheet, Pressable } from 'react-native';
-import { useTheme } from '@/hooks';
+import { useTheme } from '@/shared/app';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { CartesianChart, Line, Area } from 'victory-native';
@@ -17,8 +17,9 @@ import {
 import * as Haptics from 'expo-haptics';
 import { colors, darkColors, opacity, typography, spacing, layout, chartStyles } from '@/theme';
 import { CHART_CONFIG } from '@/constants';
-import { calculateTSB } from '@/hooks';
-import { sortByDateId, formatShortDate } from '@/lib';
+import { calculateTSB } from '@/features/fitness/lib/fitness';
+import { sortByDateId } from '@/features/activity/lib/activityUtils';
+import { formatShortDate } from '@/shared/format/format';
 import { ChartErrorBoundary } from '@/shared/ui';
 import { ChartCrosshair } from '@/shared/charts';
 import type { WellnessData } from '@/types';

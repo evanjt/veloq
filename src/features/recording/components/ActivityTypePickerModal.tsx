@@ -4,7 +4,7 @@ import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
-import { useTheme } from '@/hooks';
+import { useTheme } from '@/shared/app';
 import { colors, darkColors, spacing, layout, typography, brand } from '@/theme';
 import { getActivityIcon, getActivityColor } from '@/features/activity/lib/activityUtils';
 import { ACTIVITY_CATEGORIES } from '@/features/recording/lib/recordingModes';

@@ -10,9 +10,9 @@ import {
   SwimPaceCurveChart,
   type BestEffort,
 } from '@/features/stats';
-import { useTheme } from '@/hooks';
-import { SPORT_COLORS, type PrimarySport } from '@/providers';
-import { formatPaceCompact, formatSwimPace } from '@/lib';
+import { useTheme } from '@/shared/app';
+import { SPORT_COLORS, type PrimarySport } from '@/features/fitness/stores';
+import { formatPaceCompact, formatSwimPace } from '@/shared/format/format';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import { SeasonBestsSection } from '..';
 

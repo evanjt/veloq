@@ -9,7 +9,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, darkColors, typography, spacing } from '@/theme';
-import { useTheme } from '@/hooks';
+import { useTheme } from '@/shared/app';
 import { AnimatedPressable } from './AnimatedPressable';
 
 interface CollapsibleSectionProps {

@@ -1,9 +1,9 @@
 import React, { useMemo } from 'react';
 import { View, StyleSheet, Text } from 'react-native';
-import { useTheme } from '@/hooks';
+import { useTheme } from '@/shared/app';
 import { useTranslation } from 'react-i18next';
 import { colors, darkColors, opacity, typography, spacing, layout } from '@/theme';
-import { POWER_ZONE_COLORS } from '@/hooks';
+import { POWER_ZONE_COLORS } from '@/shared/app/useSportSettings';
 import type { ActivityDetail } from '@/types';
 import { ChartErrorBoundary } from '@/shared/ui';
 import { formatDurationHuman } from '@/shared/format/format';

@@ -1,8 +1,10 @@
 import { apiClient, getAthleteId } from './client';
-import { formatLocalDate, parseStreams, debug } from '@/lib';
+import { parseStreams } from '@/features/activity/lib/streams';
+import { debug } from '@/shared/debug/debug';
+import { formatLocalDate } from '@/shared/format/format';
 import { useAuthStore, DEMO_ATHLETE_ID } from '@/features/auth/store';
 import { mockIntervalsApi } from './mockIntervals';
-import { API_DEFAULTS } from '@/lib/utils/constants';
+import { API_DEFAULTS } from '@/shared/app/constants';
 
 const log = debug.create('API');
 import type {

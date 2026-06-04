@@ -1,6 +1,6 @@
 import React, { useMemo, useCallback, useState, useRef } from 'react';
 import { View, StyleSheet } from 'react-native';
-import { useTheme, useMetricSystem } from '@/hooks';
+import { useTheme, useMetricSystem } from '@/shared/app';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { CartesianChart, Line } from 'victory-native';
@@ -16,8 +16,8 @@ import {
 } from 'react-native-reanimated';
 import { colors, typography, spacing, chartStyles } from '@/theme';
 import { CHART_CONFIG } from '@/constants';
-import { usePaceCurve, paceToMinPer100m } from '@/hooks';
-import { formatDistance } from '@/lib';
+import { usePaceCurve, paceToMinPer100m } from '@/features/stats';
+import { formatDistance } from '@/shared/format/format';
 
 interface SwimPaceCurveChartProps {
   /** Number of days to include (default 365) */

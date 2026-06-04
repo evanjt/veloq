@@ -3,7 +3,7 @@ import { View, TextInput, TouchableOpacity, Platform, ActivityIndicator } from '
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { useTheme } from '@/hooks';
+import { useTheme } from '@/shared/app';
 import { colors, darkColors, spacing } from '@/theme';
 import { StyleSheet } from 'react-native';
 

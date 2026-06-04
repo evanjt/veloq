@@ -1,6 +1,6 @@
 import type { ActivityType } from '@/types';
 import type { RecordingStreams, RecordingLap } from '@/types';
-import { debug } from '@/lib';
+import { debug } from '@/shared/debug/debug';
 
 const log = debug.create('FitGenerator');
 

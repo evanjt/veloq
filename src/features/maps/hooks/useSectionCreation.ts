@@ -5,7 +5,7 @@
  */
 
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
-import type { LatLng } from '@/lib';
+import { type LatLng } from '@/shared/geo/polyline';
 import type { RoutePoint } from '@/types';
 import type { CreationState } from '@/features/maps/components/SectionCreationOverlay';
 import type { SectionCreationResult } from '@/features/maps/components/ActivityMapView';

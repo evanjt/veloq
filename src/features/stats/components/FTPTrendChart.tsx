@@ -1,13 +1,13 @@
 import React, { useMemo } from 'react';
 import { View, StyleSheet } from 'react-native';
-import { useTheme } from '@/hooks';
+import { useTheme } from '@/shared/app';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { CartesianChart, Line, Area } from 'victory-native';
 import { Circle, LinearGradient, vec } from '@shopify/react-native-skia';
 import { colors, darkColors, typography, spacing, layout, chartStyles } from '@/theme';
 import type { eFTPPoint } from '@/types';
-import { formatMonth } from '@/lib';
+import { formatMonth } from '@/shared/format/format';
 
 interface FTPTrendChartProps {
   /** eFTP history data points */

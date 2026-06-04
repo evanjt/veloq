@@ -23,7 +23,7 @@ import { ChartCrosshair } from '@/shared/charts';
 import { CHART_CONFIG } from '@/constants';
 import { gaussianSmooth } from '@/shared/math/smoothing';
 import type { RoutePerformancePoint } from '@/features/routes/hooks/useRoutePerformances';
-import { formatShortDate } from '@/lib';
+import { formatShortDate } from '@/shared/format/format';
 
 // Direction colors
 const SAME_COLOR = colors.sameDirection;

@@ -4,8 +4,9 @@
  */
 
 import { create } from 'zustand';
-import { getSetting, setSetting } from '@/lib/backup';
-import { debug, safeJsonParseWithSchema } from '@/lib';
+import { getSetting, setSetting } from '@/shared/storage';
+import { debug } from '@/shared/debug/debug';
+import { safeJsonParseWithSchema } from '@/shared/validation/validation';
 
 const log = debug.create('RouteSettings');
 

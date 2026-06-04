@@ -9,8 +9,8 @@ import {
   vec,
   Line as SkiaLine,
 } from '@shopify/react-native-skia';
-import { useTheme } from '@/hooks';
-import { formatDuration, formatShortDate, safeGetTime } from '@/lib';
+import { useTheme } from '@/shared/app';
+import { formatDuration, formatShortDate, safeGetTime } from '@/shared/format/format';
 import { colors, darkColors, spacing, opacity } from '@/theme';
 import { ChartErrorBoundary } from '@/shared/ui';
 import type { SectionPerformanceRecord } from '@/features/routes/hooks/useSectionPerformances';

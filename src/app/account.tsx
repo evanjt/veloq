@@ -4,9 +4,10 @@ import { ScreenSafeAreaView, ScreenErrorBoundary, TAB_BAR_SAFE_PADDING } from '@
 import { router } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { useAthlete, useTheme } from '@/hooks';
+import { useTheme } from '@/shared/app';
+import { useAthlete } from '@/shared/app/useAthlete';
 import { colors, darkColors, spacing, layout } from '@/theme';
-import { ProfileAccountSection } from '@/components/settings';
+import { ProfileAccountSection } from '@/features/settings/components';
 
 export default function AccountScreen() {
   const { t } = useTranslation();

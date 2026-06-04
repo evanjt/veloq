@@ -15,7 +15,7 @@ import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
-import { formatPace, formatSwimPace, formatDuration } from '@/lib';
+import { formatPace, formatSwimPace, formatDuration } from '@/shared/format/format';
 import { colors, darkColors } from '@/theme';
 import type {
   DirectionBestRecord,

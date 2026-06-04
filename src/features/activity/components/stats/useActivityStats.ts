@@ -135,7 +135,8 @@
 
 import { useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { formatDuration, getApparentTemperature } from '@/lib';
+import { getApparentTemperature } from '@/features/activity/lib/activityUtils';
+import { formatDuration } from '@/shared/format/format';
 import type { Activity, WellnessData } from '@/types';
 import type { StatDetail } from './types';
 import { colors } from '@/theme';

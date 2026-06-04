@@ -1,12 +1,12 @@
 import React, { useMemo, useRef, useEffect } from 'react';
 import { View, StyleSheet, ScrollView } from 'react-native';
-import { useTheme } from '@/hooks';
+import { useTheme } from '@/shared/app';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { Canvas, Picture, Skia } from '@shopify/react-native-skia';
 import { colors, darkColors, typography, spacing, layout } from '@/theme';
 import { getRouteEngine } from '@/shared/native/routeEngine';
-import { formatLocalDate } from '@/lib';
+import { formatLocalDate } from '@/shared/format/format';
 import type { Activity } from '@/types';
 
 interface ActivityHeatmapProps {

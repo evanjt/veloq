@@ -9,7 +9,7 @@
 
 import { useMemo } from 'react';
 import { brand, colors, darkColors, zoneColors } from '@/theme';
-import { useResolvedColorScheme } from '@/providers';
+import { useResolvedColorScheme } from '@/shared/app/ThemeProvider';
 
 export interface ChartColorScheme {
   // Fitness metrics

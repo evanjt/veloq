@@ -8,7 +8,7 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 import { colors, darkColors, layout, spacing } from '@/theme';
-import { useTheme } from '@/hooks';
+import { useTheme } from '@/shared/app';
 
 interface ShimmerProps {
   width?: DimensionValue;

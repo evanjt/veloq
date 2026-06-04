@@ -3,7 +3,7 @@
  * Generates display names for sections based on custom names or auto-generation.
  */
 
-import { resolveIsMetric } from '@/providers';
+import { resolveIsMetric } from '@/shared/app/UnitPreferenceStore';
 import { i18n } from '@/i18n';
 import { formatDistance } from '@/shared/format/format';
 

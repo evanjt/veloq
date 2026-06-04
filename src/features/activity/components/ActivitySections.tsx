@@ -3,7 +3,8 @@ import { View, TouchableOpacity, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { getRouteEngine } from '@/shared/native/routeEngine';
-import { formatDuration, navigateTo } from '@/lib';
+import { navigateTo } from '@/shared/app/navigation';
+import { formatDuration } from '@/shared/format/format';
 import { brand, darkColors, spacing } from '@/theme';
 
 interface PRSection {

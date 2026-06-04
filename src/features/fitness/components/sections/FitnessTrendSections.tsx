@@ -5,12 +5,12 @@ import { useTranslation } from 'react-i18next';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { CollapsibleSection } from '@/shared/ui';
 import { ZoneDistributionChart, FTPTrendChart, DecouplingChart } from '@/features/stats';
-import { useTheme } from '@/hooks';
-import { SPORT_COLORS, type PrimarySport } from '@/providers';
-import { formatPaceCompact } from '@/lib';
-import { TIME_RANGES } from '@/lib/utils/constants';
+import { useTheme } from '@/shared/app';
+import { SPORT_COLORS, type PrimarySport } from '@/features/fitness/stores';
+import { formatPaceCompact } from '@/shared/format/format';
+import { TIME_RANGES } from '@/shared/app/constants';
 import { colors, darkColors, spacing, layout, typography, opacity } from '@/theme';
-import type { TimeRange } from '@/hooks';
+import { type TimeRange } from '@/features/wellness';
 import type { ZoneDistribution, eFTPPoint, ActivityStreams } from '@/types';
 
 interface FitnessTrendSectionsProps {

@@ -9,7 +9,7 @@
  */
 
 import { create } from 'zustand';
-import { formatLocalDate } from '@/lib';
+import { formatLocalDate } from '@/shared/format/format';
 
 export interface GpsSyncProgress {
   status: 'idle' | 'fetching' | 'processing' | 'computing' | 'complete' | 'error';

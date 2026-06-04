@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { getSetting, setSetting, removeSetting } from '@/lib/backup';
+import { getSetting, setSetting, removeSetting } from '@/shared/storage';
 
 const DISMISSALS_KEY = 'veloq-section-dismissals';
 

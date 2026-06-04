@@ -1,6 +1,6 @@
 import React, { useMemo, useRef, useCallback, useState } from 'react';
 import { View, StyleSheet } from 'react-native';
-import { useTheme } from '@/hooks';
+import { useTheme } from '@/shared/app';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { CartesianChart, Line } from 'victory-native';
@@ -25,8 +25,9 @@ import {
   FORM_ZONE_LABELS,
   FORM_ZONE_BOUNDARIES,
   type FormZone,
-} from '@/hooks';
-import { sortByDateId, formatShortDate } from '@/lib';
+} from '@/features/fitness/lib/fitness';
+import { sortByDateId } from '@/features/activity/lib/activityUtils';
+import { formatShortDate } from '@/shared/format/format';
 import type { WellnessData } from '@/types';
 
 interface FormZoneChartProps {

@@ -4,9 +4,9 @@ import { ScreenSafeAreaView, ScreenErrorBoundary, TAB_BAR_SAFE_PADDING } from '@
 import { router } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { useTheme } from '@/hooks';
+import { useTheme } from '@/shared/app';
 import { colors, darkColors, spacing, layout } from '@/theme';
-import { SupportSection } from '@/components/settings';
+import { SupportSection } from '@/features/settings/components';
 
 export default function SupportSettingsScreen() {
   const { t } = useTranslation();

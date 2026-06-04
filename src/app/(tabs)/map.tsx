@@ -17,14 +17,11 @@ import {
   TAB_BAR_SAFE_PADDING,
 } from '@/shared/ui';
 import { logScreenRender } from '@/shared/debug/renderTimer';
-import {
-  useActivityBoundsCache,
-  useActivities,
-  useTheme,
-  useMetricSystem,
-  useEngineMapActivities,
-} from '@/hooks';
-import { useAuthStore, useSyncDateRange } from '@/providers';
+import { useActivityBoundsCache, useActivities } from '@/features/activity/hooks';
+import { useEngineMapActivities } from '@/features/maps/hooks';
+import { useTheme, useMetricSystem } from '@/shared/app';
+import { useAuthStore } from '@/features/auth/store';
+import { useSyncDateRange } from '@/features/routes/stores/SyncDateRangeStore';
 import { colors, darkColors, spacing, typography } from '@/theme';
 import {
   getActivityTypeConfig,

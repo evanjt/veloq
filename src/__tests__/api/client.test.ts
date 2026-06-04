@@ -26,7 +26,7 @@ const mockGetStoredCredentials = jest.fn<
 
 const mockHandleSessionExpired = jest.fn().mockResolvedValue(undefined);
 
-jest.mock('@/providers', () => ({
+jest.mock('@/features/auth/store', () => ({
   getStoredCredentials: (...args: unknown[]) => mockGetStoredCredentials(...(args as [])),
   useAuthStore: {
     getState: () => ({

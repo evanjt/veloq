@@ -3,8 +3,8 @@ import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 
-import { useTheme } from '@/hooks';
-import { formatShortDateWithWeekday } from '@/lib';
+import { useTheme } from '@/shared/app';
+import { formatShortDateWithWeekday } from '@/shared/format/format';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import { FORM_ZONE_COLORS, FORM_ZONE_LABELS, type FormZone } from '../lib';
 

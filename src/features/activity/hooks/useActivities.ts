@@ -6,8 +6,8 @@ import {
 } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { intervalsApi } from '@/api';
-import { formatLocalDate } from '@/lib';
-import { CACHE } from '@/lib/utils/constants';
+import { formatLocalDate } from '@/shared/format/format';
+import { CACHE } from '@/shared/app/constants';
 import { queryKeys } from '@/shared/query/queryKeys';
 import type { Activity, IntervalsDTO } from '@/types';
 import { useAuthStore } from '@/features/auth/store';

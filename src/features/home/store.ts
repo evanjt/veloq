@@ -3,7 +3,7 @@
  * Users can enable/disable metrics and reorder them.
  */
 import { create } from 'zustand';
-import { getSetting, setSetting } from '@/lib/backup';
+import { getSetting, setSetting } from '@/shared/storage';
 
 const STORAGE_KEY = 'dashboard_preferences';
 const SUMMARY_CARD_STORAGE_KEY = 'dashboard_summary_card';

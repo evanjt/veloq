@@ -30,7 +30,7 @@ import {
   updateSyncNotification,
   dismissSyncNotification,
   initializeNotifications,
-} from '@/lib/notifications/notificationService';
+} from '@/features/settings/lib/notificationService';
 
 describe('updateSyncNotification', () => {
   beforeEach(() => jest.clearAllMocks());
@@ -136,7 +136,9 @@ describe('notification tap handler', () => {
   let { router } = require('expo-router') as {
     router: { push: jest.Mock; navigate: jest.Mock };
   };
-  const { setupNotificationResponseHandler } = require('@/lib/notifications/notificationService');
+  const {
+    setupNotificationResponseHandler,
+  } = require('@/features/settings/lib/notificationService');
   let addListenerMock: jest.Mock;
 
   beforeEach(() => {

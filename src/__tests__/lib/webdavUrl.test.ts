@@ -1,4 +1,4 @@
-import { normalizeWebdavUrl } from '@/lib/backup/backends/webdavBackend';
+import { normalizeWebdavUrl } from '@/features/settings/lib/autobackup/backends/webdavBackend';
 
 describe('normalizeWebdavUrl', () => {
   it('adds trailing slash to bare URL', () => {

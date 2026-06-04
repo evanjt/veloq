@@ -9,8 +9,9 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Svg, { Polyline } from 'react-native-svg';
 import { useTranslation } from 'react-i18next';
 import { colors, typography, spacing, layout, shadows } from '@/theme';
-import { getBoundsFromPoints, formatDistance } from '@/lib';
-import { useMetricSystem } from '@/hooks';
+import { formatDistance } from '@/shared/format/format';
+import { getBoundsFromPoints } from '@/shared/geo/polyline';
+import { useMetricSystem } from '@/shared/app';
 import type { Section, RoutePoint } from '@/types';
 
 interface PotentialSectionCardProps {

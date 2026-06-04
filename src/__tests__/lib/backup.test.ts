@@ -24,33 +24,70 @@ jest.mock('@/shared/native/routeEngine', () => ({
   getRouteEngine: () => mockEngine,
 }));
 
-jest.mock('@/lib/export/shareFile', () => ({
+jest.mock('@/features/settings/lib/shareFile', () => ({
   shareFile: jest.fn().mockResolvedValue(undefined),
 }));
 
-jest.mock('@/providers', () => ({
+jest.mock('@/shared/app/ThemeProvider', () => ({
   initializeTheme: jest.fn().mockResolvedValue(undefined),
+}));
+jest.mock('@/shared/app/LanguageStore', () => ({
   initializeLanguage: jest.fn().mockResolvedValue(undefined),
+}));
+jest.mock('@/shared/app/UnitPreferenceStore', () => ({
+  initializeUnitPreference: jest.fn().mockResolvedValue(undefined),
+}));
+jest.mock('@/features/fitness/stores', () => ({
   initializeSportPreference: jest.fn().mockResolvedValue(undefined),
   initializeHRZones: jest.fn().mockResolvedValue(undefined),
-  initializeUnitPreference: jest.fn().mockResolvedValue(undefined),
-  initializeRouteSettings: jest.fn().mockResolvedValue(undefined),
-  initializeDisabledSections: jest.fn().mockResolvedValue(undefined),
-  initializeSectionDismissals: jest.fn().mockResolvedValue(undefined),
-  initializeSupersededSections: jest.fn().mockResolvedValue(undefined),
-  initializePotentialSections: jest.fn().mockResolvedValue(undefined),
+}));
+jest.mock('@/features/home/store', () => ({
   initializeDashboardPreferences: jest.fn().mockResolvedValue(undefined),
-  initializeDebugStore: jest.fn().mockResolvedValue(undefined),
-  initializeTileCacheStore: jest.fn().mockResolvedValue(undefined),
-  initializeWhatsNewStore: jest.fn().mockResolvedValue(undefined),
+}));
+jest.mock('@/features/insights/store', () => ({
   initializeInsightsStore: jest.fn().mockResolvedValue(undefined),
+}));
+jest.mock('@/features/maps/stores/TileCacheStore', () => ({
+  initializeTileCacheStore: jest.fn().mockResolvedValue(undefined),
+}));
+jest.mock('@/features/recording/stores/RecordingPreferencesStore', () => ({
   initializeRecordingPreferences: jest.fn().mockResolvedValue(undefined),
+}));
+jest.mock('@/features/routes/stores/DisabledSectionsStore', () => ({
+  initializeDisabledSections: jest.fn().mockResolvedValue(undefined),
+}));
+jest.mock('@/features/routes/stores/PotentialSectionsStore', () => ({
+  initializePotentialSections: jest.fn().mockResolvedValue(undefined),
+}));
+jest.mock('@/features/routes/stores/RouteSettingsStore', () => ({
+  initializeRouteSettings: jest.fn().mockResolvedValue(undefined),
+}));
+jest.mock('@/features/routes/stores/SectionDismissalsStore', () => ({
+  initializeSectionDismissals: jest.fn().mockResolvedValue(undefined),
+}));
+jest.mock('@/features/routes/stores/SupersededSectionsStore', () => ({
+  initializeSupersededSections: jest.fn().mockResolvedValue(undefined),
+}));
+jest.mock('@/features/settings/stores/DebugStore', () => ({
+  initializeDebugStore: jest.fn().mockResolvedValue(undefined),
+}));
+jest.mock('@/features/settings/stores/NotificationPreferencesStore', () => ({
   initializeNotificationPreferences: jest.fn().mockResolvedValue(undefined),
+}));
+jest.mock('@/features/settings/stores/NotificationPromptStore', () => ({
   initializeNotificationPrompt: jest.fn().mockResolvedValue(undefined),
+}));
+jest.mock('@/features/settings/stores/SupportStore', () => ({
   initializeSupportStore: jest.fn().mockResolvedValue(undefined),
 }));
+jest.mock('@/features/settings/stores/WhatsNewStore', () => ({
+  initializeWhatsNewStore: jest.fn().mockResolvedValue(undefined),
+}));
+jest.mock('@/features/maps/lib/storage/mapCameraState', () => ({
+  reloadMapCameraState: jest.fn().mockResolvedValue(undefined),
+}));
 
-jest.mock('@/lib/backup', () => ({
+jest.mock('@/shared/storage', () => ({
   getSetting: jest.fn().mockImplementation((key: string) => {
     const AsyncStorage = require('@react-native-async-storage/async-storage');
     return AsyncStorage.getItem(key);
@@ -71,7 +108,7 @@ jest.mock('expo-constants', () => ({
   default: { expoConfig: { version: '0.3.0' } },
 }));
 
-import { createBackup, restoreBackup } from '@/lib/export/backup';
+import { createBackup, restoreBackup } from '@/features/settings/lib/backup';
 
 function makeValidBackup(overrides: Record<string, unknown> = {}): string {
   return JSON.stringify({

@@ -3,7 +3,7 @@ import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { useTheme } from '@/hooks';
+import { useTheme } from '@/shared/app';
 import { TodayBanner } from '@/features/routes/components/TodayBanner';
 import { InsightListCard } from './InsightListCard';
 import { InsightDetailSheet } from './InsightDetailSheet';

@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { View } from 'react-native';
 import { Canvas, Path, Circle, LinearGradient, vec } from '@shopify/react-native-skia';
-import { useTheme } from '@/hooks';
+import { useTheme } from '@/shared/app';
 import { brand } from '@/theme';
 
 interface DataPoint {

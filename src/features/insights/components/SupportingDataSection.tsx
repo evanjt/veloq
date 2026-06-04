@@ -4,11 +4,11 @@ import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { Canvas, Path, LinearGradient, vec } from '@shopify/react-native-skia';
 import { useTranslation } from 'react-i18next';
-import { navigateTo } from '@/lib';
-import { useTheme } from '@/hooks';
+import { navigateTo } from '@/shared/app/navigation';
+import { useTheme } from '@/shared/app';
 import { colors, darkColors, spacing, opacity, shadows } from '@/theme';
 import { DataPointRow } from './DataPointRow';
-import { formatDuration } from '@/lib';
+import { formatDuration } from '@/shared/format/format';
 import type { InsightSupportingData } from '@/types';
 
 const SPARKLINE_HEIGHT = 60;

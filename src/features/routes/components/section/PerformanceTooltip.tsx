@@ -15,7 +15,13 @@ import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
-import { navigateTo, formatPace, formatSpeed, formatDuration, formatPerformanceDelta } from '@/lib';
+import { navigateTo } from '@/shared/app/navigation';
+import {
+  formatPace,
+  formatSpeed,
+  formatDuration,
+  formatPerformanceDelta,
+} from '@/shared/format/format';
 import { formatShortDateWithYear } from '@/features/stats';
 import { colors, darkColors } from '@/theme';
 import type { PerformanceDataPoint } from '@/types';

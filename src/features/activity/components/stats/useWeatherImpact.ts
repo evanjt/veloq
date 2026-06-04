@@ -9,7 +9,7 @@ import type { StatDetail } from './types';
 import { colors } from '@/theme';
 import { TEMPERATURE_THRESHOLDS, FEELS_LIKE_THRESHOLD } from '@/constants';
 import { WIND_THRESHOLDS } from '@/constants';
-import { getApparentTemperature } from '@/lib';
+import { getApparentTemperature } from '@/features/activity/lib/activityUtils';
 import { createMetricHook } from './createMetricHook';
 
 interface UseWeatherImpactOptions {

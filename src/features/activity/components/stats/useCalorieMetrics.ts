@@ -4,7 +4,7 @@
  * Computes energy expenditure with burn rate context.
  */
 
-import { formatDuration } from '@/lib';
+import { formatDuration } from '@/shared/format/format';
 import type { Activity } from '@/types';
 import type { StatDetail } from './types';
 import { createMetricHook } from './createMetricHook';

@@ -3,8 +3,8 @@ import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { useTheme } from '@/hooks';
-import { SPORT_COLORS, type PrimarySport } from '@/providers';
+import { useTheme } from '@/shared/app';
+import { SPORT_COLORS, type PrimarySport } from '@/features/fitness/stores';
 import { colors, darkColors, spacing, layout, typography, opacity } from '@/theme';
 
 const SPORTS = ['Cycling', 'Running', 'Swimming'] as const;

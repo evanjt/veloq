@@ -4,11 +4,17 @@ import { Text, ActivityIndicator } from 'react-native-paper';
 import { router } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { useActivities, useTheme } from '@/hooks';
-import { formatPaceCompact, formatSwimPace, formatDuration, formatLocalDate } from '@/lib';
-import { SPORT_COLORS, type PrimarySport } from '@/providers';
+import { useActivities } from '@/features/activity/hooks';
+import { useTheme } from '@/shared/app';
+import {
+  formatPaceCompact,
+  formatSwimPace,
+  formatDuration,
+  formatLocalDate,
+} from '@/shared/format/format';
+import { SPORT_COLORS, type PrimarySport } from '@/features/fitness/stores';
 import { colors, darkColors, spacing, typography, layout } from '@/theme';
-import type { BestEffort } from '@/hooks';
+import { type BestEffort } from '@/features/stats';
 
 interface SeasonBestsSectionProps {
   efforts: BestEffort[];

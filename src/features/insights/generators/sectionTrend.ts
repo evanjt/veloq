@@ -1,4 +1,4 @@
-import { formatDuration } from '@/lib';
+import { formatDuration } from '@/shared/format/format';
 import type { Insight, SectionTrendData, TFunc } from '../types';
 import { makeInsight } from '../lib/insightBuilder';
 import { INSIGHTS_CONFIG, maxAgeDaysFor, maxPerCategoryFor } from '../lib/config';

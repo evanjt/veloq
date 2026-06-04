@@ -9,7 +9,7 @@
  */
 
 import { useMemo } from 'react';
-import type { LatLng } from '@/lib';
+import { type LatLng } from '@/shared/geo/polyline';
 import type { SectionOverlay } from '@/features/maps/components/ActivityMapView';
 import { sectionPaletteIndex } from '@/theme';
 import { buildGradientLineStops } from '@/features/maps/lib/gradientLineColor';

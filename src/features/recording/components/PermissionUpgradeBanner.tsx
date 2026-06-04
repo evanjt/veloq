@@ -4,8 +4,9 @@ import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
-import { useTheme } from '@/hooks';
-import { useAuthStore, useUploadPermissionStore } from '@/providers';
+import { useTheme } from '@/shared/app';
+import { useAuthStore } from '@/features/auth/store';
+import { useUploadPermissionStore } from '@/features/recording/stores/UploadPermissionStore';
 import { usePermissionUpgrade } from '@/features/recording/hooks/usePermissionUpgrade';
 import { spacing } from '@/theme';
 

@@ -36,8 +36,8 @@
  */
 
 import { create } from 'zustand';
-import { getSetting, setSetting } from '@/lib/backup';
-import { debug } from '@/lib';
+import { getSetting, setSetting } from '@/shared/storage';
+import { debug } from '@/shared/debug/debug';
 
 const log = debug.create('TileCache');
 

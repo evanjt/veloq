@@ -8,7 +8,7 @@
 
 import { OfflineManager } from '@maplibre/maplibre-react-native';
 import { useTileCacheStore } from '@/features/maps/stores/TileCacheStore';
-import { debug } from '@/lib';
+import { debug } from '@/shared/debug/debug';
 
 const log = debug.create('TileCacheService');
 

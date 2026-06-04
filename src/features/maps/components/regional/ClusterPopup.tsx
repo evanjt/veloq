@@ -3,8 +3,8 @@ import { View, Text, StyleSheet, Pressable, Animated, FlatList } from 'react-nat
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { colors, typography, spacing, shadows } from '@/theme';
-import { formatDistance, formatFullDateWithWeekday } from '@/lib';
-import { useMetricSystem } from '@/hooks';
+import { formatDistance, formatFullDateWithWeekday } from '@/shared/format/format';
+import { useMetricSystem } from '@/shared/app';
 import { getActivityTypeConfig } from '../ActivityTypeFilter';
 import { getActivityIcon } from '@/features/activity/lib/activityUtils';
 import type { ActivityBoundsItem } from '@/types';

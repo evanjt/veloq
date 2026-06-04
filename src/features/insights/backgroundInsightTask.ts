@@ -3,12 +3,12 @@ import * as TaskManager from 'expo-task-manager';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AppState } from 'react-native';
 
-import { debug } from '@/lib';
+import { debug } from '@/shared/debug/debug';
 import {
   presentActivityNotification,
   presentInsightNotification,
-} from '@/lib/notifications/notificationService';
-import type { NotificationPreferences } from '@/providers/NotificationPreferencesStore';
+} from '@/features/settings/lib/notificationService';
+import type { NotificationPreferences } from '@/features/settings/stores/NotificationPreferencesStore';
 
 import { computeInsightsFromData, fetchInsightsDataFromEngine } from './lib/computeInsightsData';
 import type { WellnessInput } from './lib/computeInsightsData';

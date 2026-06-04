@@ -6,39 +6,33 @@ import { ScreenSafeAreaView, ChartSkeleton } from '@/shared/ui';
 import { logScreenRender } from '@/shared/debug/renderTimer';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import {
-  useActivity,
-  useActivityStreams,
-  useActivityIntervals,
-  useWellnessForDate,
-  useTheme,
-  useMetricSystem,
-  useCacheDays,
-  useGpxExport,
-  useSectionOverlays,
-  useActivityRematch,
-} from '@/hooks';
+import { useActivity, useActivityStreams, useActivityIntervals } from '@/features/activity/hooks';
+import { useSectionOverlays } from '@/features/activity/hooks/useSectionOverlays';
+import { useActivityRematch } from '@/features/routes/hooks/useActivityRematch';
+import { useWellnessForDate } from '@/features/wellness';
+import { useGpxExport } from '@/features/settings/hooks/exportIndex';
+import { useTheme, useMetricSystem } from '@/shared/app';
+import { useCacheDays } from '@/shared/app/useCacheDays';
 import { useCustomSections } from '@/features/routes/hooks/useCustomSections';
 import { useRouteMatch } from '@/features/routes/hooks/useRouteMatch';
 import { useSectionMatches } from '@/features/routes/hooks/useSectionMatches';
 import { useSectionEncounters } from '@/features/routes/hooks/useSectionEncounters';
 import { useActivitySectionHighlights } from '@/features/activity/hooks/useActivitySectionHighlights';
-import {
-  ActivityHeader,
-  ActivityChartsSection,
-  ActivityRoutesSection,
-  ActivitySectionsSection,
-} from '@/components';
-import { useDebugStore, useRouteSettings } from '@/providers';
+import { ActivityChartsSection } from '@/features/activity/components/ActivityChartsSection';
+import { ActivityHeader } from '@/features/activity/components/ActivityHeader';
+import { ActivityRoutesSection } from '@/features/activity/components/ActivityRoutesSection';
+import { ActivitySectionsSection } from '@/features/activity/components/ActivitySectionsSection';
+import { useRouteSettings } from '@/features/routes/stores/RouteSettingsStore';
+import { useDebugStore } from '@/features/settings/stores/DebugStore';
 import { SwipeableTabs, type SwipeableTab } from '@/shared/ui';
 import type {
   SectionCreationResult,
   SectionCreationError,
 } from '@/features/maps/components/ActivityMapView';
 import type { CreationState } from '@/features/maps/components/SectionCreationOverlay';
-import { convertLatLngTuples, decodePolyline } from '@/lib';
+import { convertLatLngTuples, decodePolyline } from '@/shared/geo/polyline';
 import { useExerciseSets } from '@/features/strength';
-import { useAthlete } from '@/hooks';
+import { useAthlete } from '@/shared/app/useAthlete';
 import { ExerciseTable, MuscleGroupView } from '@/features/strength';
 import { ComponentErrorBoundary } from '@/shared/ui';
 import { colors, darkColors, spacing } from '@/theme';
@@ -51,7 +45,7 @@ import {
 import { invalidateTerrainPreview } from '@/features/maps/lib/storage/terrainPreviewCache';
 import type { TerrainCamera } from '@/features/maps/lib/cameraAngle';
 import { calculateTerrainCamera } from '@/features/maps/lib/cameraAngle';
-import { useMapPreferences } from '@/providers';
+import { useMapPreferences } from '@/features/maps/stores/MapPreferencesContext';
 import type { MapStyleType } from '@/features/maps/components/mapStyles';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');

@@ -6,16 +6,16 @@ import { Canvas, Picture, Skia } from '@shopify/react-native-skia';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import { useSharedValue, runOnJS } from 'react-native-reanimated';
 
-import { useTheme } from '@/hooks';
+import { useTheme } from '@/shared/app';
 import { colors, spacing, typography, opacity, chartStyles } from '@/theme';
 import { CHART_CONFIG } from '@/constants';
+import { sortByDateId } from '@/features/activity/lib/activityUtils';
+import { formatShortDateWithWeekday } from '@/shared/format/format';
 import {
-  sortByDateId,
   smoothDataPoints,
   getEffectiveWindow,
-  formatShortDateWithWeekday,
   type SmoothingWindow,
-} from '@/lib';
+} from '@/shared/math/smoothing';
 import type { WellnessData } from '@/types';
 
 import type { TimeRange } from '../hooks';

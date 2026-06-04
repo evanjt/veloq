@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated, Platform } from 'react-native';
 import { useRouter, usePathname } from 'expo-router';
-import { useMapPreferences } from '@/providers';
+import { useMapPreferences } from '@/features/maps/stores/MapPreferencesContext';
 import {
   MapView,
   Camera,

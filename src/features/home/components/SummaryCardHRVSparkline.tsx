@@ -3,7 +3,7 @@ import { View, StyleSheet, Text as RNText } from 'react-native';
 import { Canvas, Path, Skia, vec, LinearGradient } from '@shopify/react-native-skia';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { useSharedValue, useAnimatedStyle, runOnJS } from 'react-native-reanimated';
-import { useTheme } from '@/hooks';
+import { useTheme } from '@/shared/app';
 import { darkColors, colors, colorWithOpacity } from '@/theme';
 import { buildMonotoneSvg, buildMonotoneAreaSvg } from '@/shared/charts/sparklinePath';
 import type { ScrubValues } from './SummaryCardSparkline';

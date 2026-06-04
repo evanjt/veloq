@@ -4,7 +4,7 @@ import {
   pickBestInsightForNotification,
 } from '@/features/insights/notifications';
 import type { Insight } from '@/types';
-import type { NotificationPreferences } from '@/providers/NotificationPreferencesStore';
+import type { NotificationPreferences } from '@/features/settings/stores/NotificationPreferencesStore';
 
 function createInsight(
   id: string,

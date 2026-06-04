@@ -3,7 +3,7 @@ import { StyleSheet, View, Text, StyleProp, ViewStyle } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, darkColors, typography, spacing } from '@/theme';
-import { useTheme } from '@/hooks';
+import { useTheme } from '@/shared/app';
 import { Button } from './Button';
 
 interface ErrorStateProps {

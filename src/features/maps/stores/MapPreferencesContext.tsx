@@ -7,7 +7,7 @@ import React, {
   useMemo,
   ReactNode,
 } from 'react';
-import { getSetting, setSetting } from '@/lib/backup';
+import { getSetting, setSetting } from '@/shared/storage';
 import { safeJsonParseWithSchema } from '@/shared/validation/validation';
 import type { MapStyleType } from '@/features/maps/components/mapStyles';
 import type { ActivityType, Terrain3DMode } from '@/types';

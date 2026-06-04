@@ -2,8 +2,8 @@ import React from 'react';
 import { StyleSheet, TouchableOpacity, View } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useTheme } from '@/hooks';
-import { navigateTo } from '@/lib';
+import { useTheme } from '@/shared/app';
+import { navigateTo } from '@/shared/app/navigation';
 import { colors, darkColors, spacing, shadows, insightCategoryColors } from '@/theme';
 import type { Insight } from '@/types';
 

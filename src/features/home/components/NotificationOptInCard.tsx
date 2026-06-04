@@ -4,10 +4,11 @@ import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
-import { useTheme } from '@/hooks';
-import { useAuthStore, useNotificationPreferences } from '@/providers';
-import { useNotificationPrompt } from '@/providers/NotificationPromptStore';
-import { requestNotificationPermission } from '@/lib/notifications/notificationService';
+import { useTheme } from '@/shared/app';
+import { useAuthStore } from '@/features/auth/store';
+import { useNotificationPreferences } from '@/features/settings/stores/NotificationPreferencesStore';
+import { useNotificationPrompt } from '@/features/settings/stores/NotificationPromptStore';
+import { requestNotificationPermission } from '@/features/settings/lib/notificationService';
 import { colors, darkColors, spacing, layout, shadows, typography } from '@/theme';
 
 export function NotificationOptInCard() {

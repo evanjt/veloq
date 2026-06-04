@@ -1,12 +1,13 @@
 import React, { useState, useCallback, useRef, useMemo } from 'react';
 import { View, ScrollView, StyleSheet, Pressable, Platform, Text as RNText } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useTheme, useMetricSystem } from '@/hooks';
+import { useTheme, useMetricSystem } from '@/shared/app';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useTranslation } from 'react-i18next';
 import type { Activity } from '@/types';
+import { getActivityIcon, getActivityColor } from '@/features/activity/lib/activityUtils';
 import {
   formatDistance,
   formatDuration,
@@ -17,12 +18,10 @@ import {
   formatTemperature,
   formatTSS,
   formatCalories,
-  getActivityIcon,
-  getActivityColor,
-} from '@/lib';
+} from '@/shared/format/format';
 import { colors, darkColors, typography, spacing, shadows, layout } from '@/theme';
 import { CHART_CONFIG } from '@/constants';
-import { useMapPreferences } from '@/providers';
+import { useMapPreferences } from '@/features/maps/stores/MapPreferencesContext';
 import { ActivityMapPreview } from './ActivityMapPreview';
 import type { PreviewTrack } from '@/features/home/hooks/useStartupData';
 import { ActivityCardContextMenu } from './ActivityCardContextMenu';

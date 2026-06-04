@@ -5,12 +5,12 @@
  */
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { useSyncDateRange } from '@/providers';
+import { useSyncDateRange } from '@/features/routes/stores/SyncDateRangeStore';
 import { clearAllGpsTracks, clearBoundsCache } from '@/shared/storage/gpsStorage';
 import { queryKeys } from '@/shared/query/queryKeys';
 import { getRouteEngine, getRouteDbPath } from '@/shared/native/routeEngine';
 import { isHeatmapEnabled } from '@/features/routes/stores/RouteSettingsStore';
-import { formatLocalDate } from '@/lib';
+import { formatLocalDate } from '@/shared/format/format';
 
 export interface SyncProgress {
   completed: number;

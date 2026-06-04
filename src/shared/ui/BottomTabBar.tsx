@@ -10,10 +10,10 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { usePathname } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 import { useTranslation } from 'react-i18next';
-import { useTheme } from '@/hooks';
+import { useTheme } from '@/shared/app';
 import { brand, colorWithOpacity, spacing } from '@/theme';
 import { PERF_DEBUG } from '@/shared/debug/renderTimer';
-import { navigateTab } from '@/lib';
+import { navigateTab } from '@/shared/app/navigation';
 
 // Menu items with routes and icons (labels come from i18n)
 const MENU_ITEMS = [

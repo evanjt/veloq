@@ -5,7 +5,8 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import type { ExtendedBodyPart } from 'react-native-body-highlighter';
 import { useTranslation } from 'react-i18next';
 
-import { useTheme, useAthlete } from '@/hooks';
+import { useTheme } from '@/shared/app';
+import { useAthlete } from '@/shared/app/useAthlete';
 import {
   useStrengthVolume,
   useStrengthProgression,

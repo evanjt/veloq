@@ -2,9 +2,9 @@ import { useState, useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
 import { getRouteEngine } from '@/shared/native/routeEngine';
-import { CACHE } from '@/lib/utils/constants';
+import { CACHE } from '@/shared/app/constants';
 import { queryKeys } from '@/shared/query/queryKeys';
-import { useAuthStore } from '@/providers';
+import { useAuthStore } from '@/features/auth/store';
 
 import { buildStrengthProgression } from '../lib/analysis';
 import { demoStrengthSets } from '../demo';

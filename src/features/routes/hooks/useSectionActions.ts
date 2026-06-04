@@ -17,7 +17,8 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
 import { getRouteEngine } from '@/shared/native/routeEngine';
 import { getAllSectionDisplayNames } from '@/features/routes/hooks/useUnifiedSections';
-import { useCustomSections, useSectionRescan } from '@/hooks';
+import { useCustomSections } from '@/features/routes/hooks/useCustomSections';
+import { useSectionRescan } from '@/features/routes/hooks/useSectionRescan';
 import { queryKeys } from '@/shared/query/queryKeys';
 import type { FrequentSection } from '@/types';
 

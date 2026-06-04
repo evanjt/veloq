@@ -2,8 +2,9 @@ import React, { useMemo, useCallback } from 'react';
 import { View, StyleSheet, Pressable } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useTheme } from '@/hooks';
-import { formatDuration, formatShortDate, navigateTo, safeGetTime } from '@/lib';
+import { useTheme } from '@/shared/app';
+import { navigateTo } from '@/shared/app/navigation';
+import { formatDuration, formatShortDate, safeGetTime } from '@/shared/format/format';
 import { colors, darkColors, spacing, opacity, brand } from '@/theme';
 import type { SectionPerformanceRecord } from '@/features/routes/hooks/useSectionPerformances';
 

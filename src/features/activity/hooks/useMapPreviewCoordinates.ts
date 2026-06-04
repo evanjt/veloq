@@ -4,7 +4,7 @@ import { getRouteEngine } from '@/shared/native/routeEngine';
 import { useEngineSubscription } from '@/features/routes/hooks/useRouteEngine';
 import { intervalsApi } from '@/api';
 import { queryKeys } from '@/shared/query/queryKeys';
-import { convertLatLngTuples } from '@/lib';
+import { convertLatLngTuples } from '@/shared/geo/polyline';
 import type { LatLng } from '@/shared/geo/polyline';
 import type { PreviewTrack } from '@/features/home/hooks/useStartupData';
 

@@ -5,7 +5,7 @@
  * Returning users see their last-viewed map position instead of a computed bounds view.
  */
 
-import { getSetting, setSetting } from '@/lib/backup';
+import { getSetting, setSetting } from '@/shared/storage';
 
 const STORAGE_KEY = '@map_camera_state';
 

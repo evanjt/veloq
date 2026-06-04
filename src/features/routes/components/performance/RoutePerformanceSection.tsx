@@ -6,13 +6,14 @@
 
 import React, { useMemo, useCallback } from 'react';
 import { View, StyleSheet, Pressable } from 'react-native';
-import { useTheme } from '@/hooks';
+import { useTheme } from '@/shared/app';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { navigateTo } from '@/lib';
+import { navigateTo } from '@/shared/app/navigation';
 import { useTranslation } from 'react-i18next';
-import { useRoutePerformances } from '@/hooks';
-import { getActivityColor, formatDuration } from '@/lib';
+import { useRoutePerformances } from '@/features/routes/hooks/useRoutePerformances';
+import { getActivityColor } from '@/features/activity/lib/activityUtils';
+import { formatDuration } from '@/shared/format/format';
 import { brand, colors, darkColors, spacing, layout, typography } from '@/theme';
 import type { ActivityType, PerformanceDataPoint } from '@/types';
 import { SectionScatterChart } from '@/features/routes/components/section';

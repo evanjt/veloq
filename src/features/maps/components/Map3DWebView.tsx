@@ -10,7 +10,7 @@ import { View, StyleSheet, PixelRatio } from 'react-native';
 import { WebView } from 'react-native-webview';
 
 import { colors, darkColors } from '@/theme';
-import { getBoundsFromPoints } from '@/lib';
+import { getBoundsFromPoints } from '@/shared/geo/polyline';
 import { useMap3DBridge } from '@/features/maps/hooks/useMap3DBridge';
 import { buildMap3DHtml, buildUpdateLayersScript } from '@/features/maps/lib/htmlBuilders';
 import type { MapStyleType } from './mapStyles';

@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { getSetting, setSetting, removeSetting } from '@/lib/backup';
+import { getSetting, setSetting, removeSetting } from '@/shared/storage';
 import type { PotentialSection } from '@/types';
 
 const POTENTIAL_SECTIONS_KEY = 'veloq-potential-sections';

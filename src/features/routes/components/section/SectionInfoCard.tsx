@@ -7,14 +7,8 @@ import React, { useMemo } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
-import {
-  getIntlLocale,
-  formatDuration,
-  formatPace,
-  formatSwimPace,
-  isRunningActivity,
-  isSwimmingActivity,
-} from '@/lib';
+import { isRunningActivity, isSwimmingActivity } from '@/features/activity/lib/activityUtils';
+import { getIntlLocale, formatDuration, formatPace, formatSwimPace } from '@/shared/format/format';
 import { colors, darkColors, spacing, typography, layout } from '@/theme';
 import type { PerformanceDataPoint, DirectionStats, ActivityType } from '@/types';
 import type { SectionPerformanceRecord } from '@/features/routes/hooks/useSectionPerformances';

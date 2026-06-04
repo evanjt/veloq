@@ -12,7 +12,7 @@ import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { GestureDetector, GestureType } from 'react-native-gesture-handler';
 import { colors, typography, chartStyles } from '@/theme';
-import { useTheme } from '@/hooks';
+import { useTheme } from '@/shared/app';
 import { useTranslation } from 'react-i18next';
 
 export interface ChartPadding {

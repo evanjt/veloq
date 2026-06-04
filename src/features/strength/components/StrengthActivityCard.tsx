@@ -6,8 +6,9 @@ import * as Haptics from 'expo-haptics';
 import { useTranslation } from 'react-i18next';
 import Body, { type ExtendedBodyPart } from 'react-native-body-highlighter';
 
-import { useTheme, useMetricSystem } from '@/hooks';
+import { useTheme, useMetricSystem } from '@/shared/app';
 import type { Activity } from '@/types';
+import { getActivityIcon, getActivityColor } from '@/features/activity/lib/activityUtils';
 import {
   formatDuration,
   formatRelativeDate,
@@ -16,9 +17,7 @@ import {
   formatPower,
   formatCalories,
   formatTemperature,
-  getActivityIcon,
-  getActivityColor,
-} from '@/lib';
+} from '@/shared/format/format';
 import { colors, darkColors, typography, spacing, shadows, brand, layout } from '@/theme';
 import { CHART_CONFIG } from '@/constants';
 import { ActivityCardContextMenu } from '@/features/activity/components/ActivityCardContextMenu';

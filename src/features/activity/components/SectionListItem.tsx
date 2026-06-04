@@ -8,7 +8,7 @@ import { useTranslation } from 'react-i18next';
 import { Animated } from 'react-native';
 import { colors, darkColors, spacing, typography, opacity, layout } from '@/theme';
 import { CHART_CONFIG } from '@/constants';
-import { formatDistance } from '@/lib';
+import { formatDistance } from '@/shared/format/format';
 import { SectionMiniPreview } from '@/features/routes';
 import type { SectionMatch } from '@/features/routes/hooks/useSectionMatches';
 import type { Section } from '@/types';

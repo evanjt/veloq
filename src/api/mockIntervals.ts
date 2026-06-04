@@ -19,7 +19,7 @@ import type {
   CalendarEvent,
   IntervalsDTO,
 } from '@/types';
-import { getMonday, formatLocalDate } from '@/lib';
+import { getMonday, formatLocalDate } from '@/shared/format/format';
 
 // Simulate network delay for realistic UX
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));

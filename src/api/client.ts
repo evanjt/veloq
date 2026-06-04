@@ -1,5 +1,5 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
-import { getStoredCredentials, useAuthStore } from '@/providers';
+import { getStoredCredentials, useAuthStore } from '@/features/auth/store';
 
 // Extended config type to track retry count and session expiry handling
 interface RetryableAxiosRequestConfig extends InternalAxiosRequestConfig {

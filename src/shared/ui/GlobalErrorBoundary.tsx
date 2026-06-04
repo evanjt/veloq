@@ -1,6 +1,6 @@
 import React, { Component, ReactNode } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
-import { recordCrash } from '@/lib/debug/crashLog';
+import { recordCrash } from '@/shared/debug/crashLog';
 
 interface Props {
   children: ReactNode;

@@ -2,7 +2,7 @@ import React, { useMemo } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { Text } from 'react-native-paper';
 
-import { useTheme } from '@/hooks';
+import { useTheme } from '@/shared/app';
 import { colors, darkColors, spacing } from '@/theme';
 
 import { getLastInsightOutcome } from '../lib/generateInsights';

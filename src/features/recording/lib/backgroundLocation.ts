@@ -1,7 +1,7 @@
 import * as TaskManager from 'expo-task-manager';
 import * as Location from 'expo-location';
 
-import { debug } from '@/lib';
+import { debug } from '@/shared/debug/debug';
 import { brand } from '@/theme';
 
 const log = debug.create('BackgroundLocation');
@@ -19,7 +19,7 @@ TaskManager.defineTask(BACKGROUND_LOCATION_TASK, async ({ data, error }) => {
   if (!locations || locations.length === 0) return;
 
   // Use require to avoid circular dependency — this runs outside React tree
-  const { useRecordingStore } = require('@/providers/RecordingStore');
+  const { useRecordingStore } = require('@/features/recording/stores/RecordingStore');
   const { addGpsPoint, status } = useRecordingStore.getState();
 
   if (status !== 'recording') return;

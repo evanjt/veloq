@@ -9,8 +9,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
 import type { ExerciseSet } from 'veloqrs';
 
-import { useMetricSystem } from '@/hooks';
-import { formatDateTime, formatDuration } from '@/lib';
+import { useMetricSystem } from '@/shared/app';
+import { formatDateTime, formatDuration } from '@/shared/format/format';
 import { colors, darkColors, spacing, typography, brand } from '@/theme';
 import type { ActivityDetail } from '@/types';
 

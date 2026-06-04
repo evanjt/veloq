@@ -110,7 +110,8 @@ import {
   SymbolLayer,
 } from '@maplibre/maplibre-react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { decodePolyline, LatLng, getActivityColor } from '@/lib';
+import { getActivityColor } from '@/features/activity/lib/activityUtils';
+import { decodePolyline, LatLng } from '@/shared/geo/polyline';
 import { computeAttribution } from '@/features/maps/lib/computeAttribution';
 import {
   brand,
@@ -123,7 +124,7 @@ import {
   sectionPaletteExpression,
   sectionPaletteIndex,
 } from '@/theme';
-import { useMapPreferences } from '@/providers';
+import { useMapPreferences } from '@/features/maps/stores/MapPreferencesContext';
 import { useSectionCreation } from '@/features/maps/hooks/useSectionCreation';
 import { useMapCamera } from '@/features/maps/hooks/useMapCamera';
 import { useMapLayers } from '@/features/maps/hooks/useMapLayers';

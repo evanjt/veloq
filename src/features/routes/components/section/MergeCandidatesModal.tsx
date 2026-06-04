@@ -9,7 +9,7 @@ import React, { memo } from 'react';
 import { View, Text, StyleSheet, Modal, TouchableOpacity, FlatList } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { useTheme } from '@/hooks';
+import { useTheme } from '@/shared/app';
 import { getActivityIcon } from '@/features/activity/lib/activityUtils';
 import type { MergeCandidate } from 'veloqrs';
 import { colors, darkColors, spacing, typography, layout, shadows } from '@/theme';

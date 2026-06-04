@@ -1,17 +1,16 @@
 import React, { useMemo, useState } from 'react';
 import { View, StyleSheet, TouchableOpacity, Text as RNText } from 'react-native';
 import {
-  useTheme,
-  useMetricSystem,
   useAthleteSummary,
   getISOWeekNumber,
   formatWeekRange,
   type WeeklySummaryData,
-} from '@/hooks';
+} from '@/features/fitness/hooks';
+import { useTheme, useMetricSystem } from '@/shared/app';
 import { Text, ActivityIndicator } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { colors, darkColors, opacity, typography, spacing, layout } from '@/theme';
-import { formatDistance, getMonday, getSunday } from '@/lib';
+import { formatDistance, getMonday, getSunday } from '@/shared/format/format';
 import { formatDurationHuman } from '@/shared/format/format';
 import type { Activity } from '@/types';
 

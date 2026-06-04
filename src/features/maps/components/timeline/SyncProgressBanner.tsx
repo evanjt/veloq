@@ -15,8 +15,8 @@ import Animated, {
   useSharedValue,
   cancelAnimation,
 } from 'react-native-reanimated';
-import { useActivityBoundsCache } from '@/hooks';
-import { useSyncDateRange } from '@/providers';
+import { useActivityBoundsCache } from '@/features/activity/hooks';
+import { useSyncDateRange } from '@/features/routes/stores/SyncDateRangeStore';
 import {
   formatGpsSyncProgress,
   formatBoundsSyncProgress,

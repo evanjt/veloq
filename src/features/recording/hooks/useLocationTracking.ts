@@ -8,7 +8,7 @@ import {
   startBackgroundLocation,
   stopBackgroundLocation,
 } from '@/features/recording/lib/backgroundLocation';
-import { debug } from '@/lib';
+import { debug } from '@/shared/debug/debug';
 
 const log = debug.create('LocationTracking');
 

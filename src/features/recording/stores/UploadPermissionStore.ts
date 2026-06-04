@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-import { getSetting, setSetting, removeSetting } from '@/lib/backup';
+import { getSetting, setSetting, removeSetting } from '@/shared/storage';
 import { debug } from '@/shared/debug/debug';
 
 const log = debug.create('UploadPermission');

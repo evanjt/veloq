@@ -14,9 +14,9 @@ import { Stack } from 'expo-router';
 import { TAB_BAR_SAFE_PADDING } from '@/shared/ui';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, darkColors, spacing } from '@/theme';
-import { useTheme } from '@/hooks';
+import { useTheme } from '@/shared/app';
 import { getFFIMetricsSummary, clearFFIMetrics } from '@/shared/debug/renderTimer';
-import { useSupportStore, daysSince } from '@/providers';
+import { useSupportStore, daysSince } from '@/features/settings/stores/SupportStore';
 import { formatLocalDate } from '@/shared/format/format';
 import type { PersistentEngineStats } from 'veloqrs';
 

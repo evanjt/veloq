@@ -3,8 +3,8 @@ import { StyleSheet, TouchableOpacity, View } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import Animated, { useSharedValue, useAnimatedStyle, withTiming } from 'react-native-reanimated';
-import { navigateTo } from '@/lib';
-import { useTheme } from '@/hooks';
+import { navigateTo } from '@/shared/app/navigation';
+import { useTheme } from '@/shared/app';
 import {
   colors,
   darkColors,

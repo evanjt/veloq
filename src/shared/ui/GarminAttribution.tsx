@@ -3,7 +3,7 @@ import { View, Text, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, darkColors, spacing } from '@/theme';
-import { useTheme } from '@/hooks';
+import { useTheme } from '@/shared/app';
 
 interface GarminAttributionProps {
   /** The device name to check for Garmin branding */

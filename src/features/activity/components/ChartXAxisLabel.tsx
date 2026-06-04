@@ -2,7 +2,7 @@ import React from 'react';
 import { View, StyleSheet, Text } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { colors, darkColors, typography } from '@/theme';
-import { formatDuration } from '@/lib';
+import { formatDuration } from '@/shared/format/format';
 
 interface ChartXAxisLabelProps {
   xAxisMode: 'distance' | 'time';

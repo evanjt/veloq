@@ -3,9 +3,9 @@ import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 
-import { formatDistance, formatDuration } from '@/lib';
+import { formatDistance, formatDuration } from '@/shared/format/format';
 import { spacing, typography } from '@/theme';
-import { useMetricSystem } from '@/hooks';
+import { useMetricSystem } from '@/shared/app';
 import type { ActivitySummary } from '@/features/recording/hooks/useActivitySummary';
 
 export interface ActivityStatsCardProps {

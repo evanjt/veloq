@@ -14,11 +14,11 @@ import { router } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useTheme } from '@/hooks';
-import { useRouteSettings } from '@/providers';
+import { useTheme } from '@/shared/app';
+import { useRouteSettings } from '@/features/routes/stores/RouteSettingsStore';
 import { useSectionRescan } from '@/features/routes/hooks/useSectionRescan';
 import { ScreenSafeAreaView, TAB_BAR_SAFE_PADDING } from '@/shared/ui';
-import { DetectionMethodIllustration } from '@/components/settings';
+import { DetectionMethodIllustration } from '@/features/settings/components';
 import { colors, darkColors, spacing, layout, typography, brand } from '@/theme';
 import {
   DETECTION_PRESETS,

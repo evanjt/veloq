@@ -17,8 +17,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { colors, typography, spacing, layout, shadows } from '@/theme';
-import { formatDistance } from '@/lib';
-import { useMetricSystem } from '@/hooks';
+import { formatDistance } from '@/shared/format/format';
+import { useMetricSystem } from '@/shared/app';
 
 export type CreationState =
   | 'idle'

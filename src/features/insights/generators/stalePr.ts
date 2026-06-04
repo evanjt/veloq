@@ -1,5 +1,5 @@
 import type { Insight } from '../types';
-import { formatDuration, formatPaceCompact, formatSwimPace } from '@/lib';
+import { formatDuration, formatPaceCompact, formatSwimPace } from '@/shared/format/format';
 import { getRouteEngine } from '@/shared/native/routeEngine';
 import { INSIGHTS_CONFIG, maxPerCategoryFor, minAgeDaysFor } from '../lib/config';
 

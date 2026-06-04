@@ -15,16 +15,12 @@ import { IntervalsTable } from './IntervalsTable';
 import { InsightfulStats } from './stats';
 import { ComponentErrorBoundary, DeviceAttribution } from '@/shared/ui';
 import { DebugInfoPanel, DebugWarningBanner } from '@/features/routes';
-import { POWER_ZONE_COLORS, HR_ZONE_COLORS } from '@/hooks';
+import { POWER_ZONE_COLORS, HR_ZONE_COLORS } from '@/shared/app/useSportSettings';
 import { useFFITimer } from '@/shared/debug/useFFITimer';
-import {
-  formatDurationHuman,
-  isCyclingActivity,
-  isSwimmingActivity,
-  getAvailableCharts,
-  CHART_CONFIGS,
-} from '@/lib';
-import type { ChartTypeId } from '@/lib';
+import { isCyclingActivity, isSwimmingActivity } from '@/features/activity/lib/activityUtils';
+import { getAvailableCharts, CHART_CONFIGS } from '@/features/activity/lib/chartConfig';
+import { formatDurationHuman } from '@/shared/format/format';
+import { type ChartTypeId } from '@/features/activity/lib/chartConfig';
 import type { ActivityDetail, ActivityStreams, ActivityInterval, WellnessData } from '@/types';
 import { colors, darkColors, spacing, typography, layout, opacity, shadows } from '@/theme';
 import { CHART_CONFIG } from '@/constants';

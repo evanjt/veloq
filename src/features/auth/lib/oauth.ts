@@ -229,4 +229,4 @@ export function getAppRedirectUri(): string {
 }
 
 // Re-export INTERVALS_URLS from constants for backwards compatibility
-export { INTERVALS_URLS } from '@/lib/utils/constants';
+export { INTERVALS_URLS } from '@/shared/app/constants';

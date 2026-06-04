@@ -191,10 +191,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     // the worker knows where to deliver webhook-driven notifications for this
     // athlete. Fire-and-forget — OAuth login must not block on push setup.
     try {
-      const { getNotificationPreferences } = require('@/providers/NotificationPreferencesStore');
+      const {
+        getNotificationPreferences,
+      } = require('@/features/settings/stores/NotificationPreferencesStore');
       const prefs = getNotificationPreferences();
       if (prefs.enabled) {
-        const { registerPushToken } = require('@/lib/notifications/pushTokenRegistration');
+        const { registerPushToken } = require('@/features/settings/lib/pushTokenRegistration');
         registerPushToken(trimmedAthleteId);
       }
     } catch {
@@ -207,10 +209,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     try {
       const currentAthleteId = get().athleteId;
       if (currentAthleteId) {
-        const { getNotificationPreferences } = require('@/providers/NotificationPreferencesStore');
+        const {
+          getNotificationPreferences,
+        } = require('@/features/settings/stores/NotificationPreferencesStore');
         const prefs = getNotificationPreferences();
         if (prefs.enabled) {
-          const { unregisterPushToken } = require('@/lib/notifications/pushTokenRegistration');
+          const { unregisterPushToken } = require('@/features/settings/lib/pushTokenRegistration');
           unregisterPushToken(currentAthleteId);
         }
       }
@@ -277,10 +281,12 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     // device whose OAuth session has been revoked.
     try {
       if (currentAthleteId) {
-        const { getNotificationPreferences } = require('@/providers/NotificationPreferencesStore');
+        const {
+          getNotificationPreferences,
+        } = require('@/features/settings/stores/NotificationPreferencesStore');
         const prefs = getNotificationPreferences();
         if (prefs.enabled) {
-          const { unregisterPushToken } = require('@/lib/notifications/pushTokenRegistration');
+          const { unregisterPushToken } = require('@/features/settings/lib/pushTokenRegistration');
           unregisterPushToken(currentAthleteId);
         }
       }

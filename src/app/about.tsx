@@ -7,7 +7,7 @@ import { useTranslation } from 'react-i18next';
 import Constants from 'expo-constants';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import { createSharedStyles } from '@/styles';
-import { useTheme } from '@/hooks';
+import { useTheme } from '@/shared/app';
 import { INTERVALS_URLS } from '@/features/auth';
 
 const VELOQ_URLS = {

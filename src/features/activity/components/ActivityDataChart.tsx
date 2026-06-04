@@ -1,6 +1,6 @@
 import React, { memo, useMemo, useRef, useState, useCallback, useEffect } from 'react';
 import { View, StyleSheet, Platform } from 'react-native';
-import { useTheme } from '@/hooks';
+import { useTheme } from '@/shared/app';
 import { Text } from 'react-native-paper';
 import { CartesianChart, Area } from 'victory-native';
 import { LinearGradient, vec } from '@shopify/react-native-skia';
@@ -14,7 +14,7 @@ import {
 } from 'react-native-reanimated';
 import { useTranslation } from 'react-i18next';
 import { colors, darkColors, typography, layout, chartStyles } from '@/theme';
-import { useMetricSystem } from '@/hooks';
+import { useMetricSystem } from '@/shared/app';
 import { ChartErrorBoundary } from '@/shared/ui';
 import { ChartCrosshair } from '@/shared/charts';
 import { CHART_CONFIG } from '@/constants';

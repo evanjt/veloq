@@ -9,7 +9,7 @@ import React from 'react';
 import { StyleSheet, ViewStyle } from 'react-native';
 import Animated, { AnimatedStyle } from 'react-native-reanimated';
 import { colors, darkColors, spacing } from '@/theme';
-import { useTheme } from '@/hooks';
+import { useTheme } from '@/shared/app';
 
 export interface ChartCrosshairProps {
   /** Animated style from useChartGestures */

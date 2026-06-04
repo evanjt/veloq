@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { View, StyleSheet } from 'react-native';
-import { decodeSkylineBytes } from '@/lib';
+import { decodeSkylineBytes } from '@/features/activity/lib/skylineDecoder';
 import { POWER_ZONE_COLORS, HR_ZONE_COLORS } from '@/shared/app/useSportSettings';
 import { colors, darkColors } from '@/theme';
 

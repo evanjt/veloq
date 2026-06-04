@@ -4,7 +4,7 @@ import { Text, Button, TextInput } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { colors, darkColors, spacing } from '@/theme';
-import { useTheme } from '@/hooks';
+import { useTheme } from '@/shared/app';
 import { CollapsibleSection } from '@/shared/ui/CollapsibleSection';
 
 interface ApiKeyLoginFormProps {

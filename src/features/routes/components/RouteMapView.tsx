@@ -16,9 +16,10 @@ import {
   type CameraBounds,
 } from '@maplibre/maplibre-react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { getActivityColor, getBoundsFromPoints } from '@/lib';
+import { getActivityColor } from '@/features/activity/lib/activityUtils';
+import { getBoundsFromPoints } from '@/shared/geo/polyline';
 import { colors, spacing, layout } from '@/theme';
-import { useMapPreferences } from '@/providers';
+import { useMapPreferences } from '@/features/maps/stores/MapPreferencesContext';
 import { getMapStyle, BaseMapView, isDarkStyle } from '@/features/maps/components';
 import type { RouteGroup, RoutePoint } from '@/types';
 

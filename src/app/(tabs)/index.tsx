@@ -15,21 +15,23 @@ import { Text } from 'react-native-paper';
 import { ScreenSafeAreaView } from '@/shared/ui';
 import { logScreenRender, PERF_DEBUG } from '@/shared/debug/renderTimer';
 import { isNetworkError } from '@/shared/errors/errorHandler';
-import { navigateTo, queryKeys } from '@/lib';
+import { navigateTo } from '@/shared/app/navigation';
+import { queryKeys } from '@/shared/query/queryKeys';
 import { useIsFocused } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import {
   useInfiniteActivities,
-  useTheme,
-  useSummaryCardData,
-  useInsights,
   isInfiniteActivitiesStale,
   useActivitySectionHighlights,
-} from '@/hooks';
+} from '@/features/activity/hooks';
+import { useSummaryCardData } from '@/features/home/hooks';
+import { useInsights } from '@/features/insights';
+import { useTheme } from '@/shared/app';
 import type { Activity } from '@/types';
-import { useDashboardPreferences, useMapPreferences } from '@/providers';
+import { useDashboardPreferences } from '@/features/home/store';
+import { useMapPreferences } from '@/features/maps/stores/MapPreferencesContext';
 import { ActivityCard } from '@/features/activity/components';
 import {
   NetworkErrorState,

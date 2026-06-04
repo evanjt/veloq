@@ -1,5 +1,5 @@
-import type { InsightNotificationData } from '@/lib/notifications/notificationService';
-import type { NotificationPreferences } from '@/providers/NotificationPreferencesStore';
+import type { InsightNotificationData } from '@/features/settings/lib/notificationService';
+import type { NotificationPreferences } from '@/features/settings/stores/NotificationPreferencesStore';
 
 import { INSIGHTS_CONFIG } from './lib/config';
 import type { Insight } from './types';

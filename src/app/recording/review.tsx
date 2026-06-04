@@ -14,9 +14,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { useTheme, useMetricSystem } from '@/hooks';
+import { useTheme, useMetricSystem } from '@/shared/app';
 import { colors, darkColors, spacing, layout, typography, brand } from '@/theme';
-import { formatDistance, formatDuration } from '@/lib';
+import { formatDistance, formatDuration } from '@/shared/format/format';
 import { getActivityIcon, getActivityColor } from '@/features/activity/lib/activityUtils';
 
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';

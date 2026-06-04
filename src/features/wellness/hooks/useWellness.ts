@@ -1,8 +1,8 @@
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 
 import { intervalsApi } from '@/api';
-import { useAuthStore } from '@/providers';
-import { formatLocalDate } from '@/lib';
+import { useAuthStore } from '@/features/auth/store';
+import { formatLocalDate } from '@/shared/format/format';
 import { queryKeys } from '@/shared/query/queryKeys';
 import { getRouteEngine } from '@/shared/native/routeEngine';
 import type { WellnessData } from '@/types';
