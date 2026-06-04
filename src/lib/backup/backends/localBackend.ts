@@ -11,7 +11,7 @@
 
 import * as FileSystem from 'expo-file-system/legacy';
 import type { BackupBackend, BackupEntry } from './types';
-import { safeGetTime } from '@/lib/utils/format';
+import { safeGetTime } from '@/shared/format/format';
 
 /** Resolve the backup directory at call time (not module load time). */
 function getBackupDir(): string {

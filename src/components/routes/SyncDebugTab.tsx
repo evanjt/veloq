@@ -6,9 +6,9 @@ import { colors, darkColors, spacing } from '@/theme';
 import { useTheme } from '@/hooks';
 import { useActivities, useEngineSubscription } from '@/hooks';
 import { useSyncDateRange } from '@/providers';
-import { getRouteEngine } from '@/lib/native/routeEngine';
-import { deleteGpsTracks } from '@/lib/storage/gpsStorage';
-import { queryKeys } from '@/lib/queryKeys';
+import { getRouteEngine } from '@/shared/native/routeEngine';
+import { deleteGpsTracks } from '@/shared/storage/gpsStorage';
+import { queryKeys } from '@/shared/query/queryKeys';
 import type { PersistentEngineStats } from 'veloqrs';
 
 // ============================================================================

@@ -1,8 +1,8 @@
 import { useEffect, useRef } from 'react';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { intervalsApi } from '@/api';
-import { getRouteEngine } from '@/lib/native/routeEngine';
-import { queryKeys } from '@/lib/queryKeys';
+import { getRouteEngine } from '@/shared/native/routeEngine';
+import { queryKeys } from '@/shared/query/queryKeys';
 import type { PaceCurve } from '@/types';
 
 interface UsePaceCurveOptions {

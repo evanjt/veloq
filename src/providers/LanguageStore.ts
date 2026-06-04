@@ -7,7 +7,7 @@ import {
   changeLanguage,
   i18n,
 } from '@/i18n';
-import { getRouteEngine } from '@/lib/native/routeEngine';
+import { getRouteEngine } from '@/shared/native/routeEngine';
 
 const STORAGE_KEY = 'veloq-language-preference';
 

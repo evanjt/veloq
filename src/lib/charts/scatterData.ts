@@ -11,7 +11,7 @@
  * isolation and reused if another chart needs the same bisected layout.
  */
 
-import { gaussianSmooth, type SmoothedPoint } from '@/lib/utils/smoothing';
+import { gaussianSmooth, type SmoothedPoint } from '@/shared/math/smoothing';
 import type { PerformanceDataPoint } from '@/types';
 
 /** A performance point as rendered on the chart — base record plus its normalized X. */

@@ -13,8 +13,8 @@ import {
 } from 'react-native';
 import { Text } from 'react-native-paper';
 import { ScreenSafeAreaView } from '@/shared/ui';
-import { logScreenRender, PERF_DEBUG } from '@/lib/debug/renderTimer';
-import { isNetworkError } from '@/lib/utils/errorHandler';
+import { logScreenRender, PERF_DEBUG } from '@/shared/debug/renderTimer';
+import { isNetworkError } from '@/shared/errors/errorHandler';
 import { navigateTo, queryKeys } from '@/lib';
 import { useIsFocused } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';

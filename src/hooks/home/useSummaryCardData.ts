@@ -10,7 +10,7 @@ import type { MetricId } from '@/providers';
 import { formatPaceCompact, formatSwimPace } from '@/lib';
 import { useMetricSystem } from '@/hooks/ui/useMetricSystem';
 import { colors } from '@/theme';
-import { getRouteEngine } from '@/lib/native/routeEngine';
+import { getRouteEngine } from '@/shared/native/routeEngine';
 import { useEngineSubscription } from '@/hooks/routes/useRouteEngine';
 
 /**

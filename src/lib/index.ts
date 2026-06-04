@@ -2,16 +2,20 @@
 export * from './algorithms';
 
 // Geo utilities
-export * from './geo';
+export * from '@/shared/geo';
 
 // Spatial indexing
-export { activitySpatialIndex, mapBoundsToViewport, type Viewport } from './geo/spatialIndex';
+export {
+  activitySpatialIndex,
+  mapBoundsToViewport,
+  type Viewport,
+} from '@/shared/geo/spatialIndex';
 
 // Storage
-export * from './storage';
+export * from '@/shared/storage';
 
 // Query keys
-export { queryKeys } from './queryKeys';
+export { queryKeys } from '@/shared/query/queryKeys';
 
 // Utilities
 export * from './utils';

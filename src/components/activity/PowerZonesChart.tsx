@@ -6,7 +6,7 @@ import { colors, darkColors, opacity, typography, spacing, layout } from '@/them
 import { POWER_ZONE_COLORS } from '@/hooks';
 import type { ActivityDetail } from '@/types';
 import { ChartErrorBoundary } from '@/shared/ui';
-import { formatDurationHuman } from '@/lib/utils/format';
+import { formatDurationHuman } from '@/shared/format/format';
 
 interface PowerZonesChartProps {
   activity: ActivityDetail;

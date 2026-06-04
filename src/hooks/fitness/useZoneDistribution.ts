@@ -7,7 +7,7 @@ import {
   HR_ZONE_COLORS,
 } from '../useSportSettings';
 import { type PrimarySport } from '@/providers';
-import { getRouteEngine } from '@/lib/native/routeEngine';
+import { getRouteEngine } from '@/shared/native/routeEngine';
 
 interface UseZoneDistributionOptions {
   type: 'power' | 'hr';

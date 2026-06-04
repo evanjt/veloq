@@ -8,9 +8,10 @@
 
 // Use legacy API for SDK 54 compatibility (new API uses File/Directory classes)
 import * as FileSystem from 'expo-file-system/legacy';
-import { debug } from '../utils/debug';
-import { safeJsonParseWithSchema, type SchemaValidator } from '../utils/validation';
-import { getRouteEngine } from '@/lib/native/routeEngine';
+
+import { debug } from '@/shared/debug/debug';
+import { getRouteEngine } from '@/shared/native/routeEngine';
+import { safeJsonParseWithSchema, type SchemaValidator } from '@/shared/validation/validation';
 import { clearTerrainPreviews } from '@/lib/storage/terrainPreviewCache';
 
 const log = debug.create('GpsStorage');

@@ -12,7 +12,7 @@ import * as Haptics from 'expo-haptics';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/hooks';
 import { brand, colorWithOpacity, spacing } from '@/theme';
-import { PERF_DEBUG } from '@/lib/debug/renderTimer';
+import { PERF_DEBUG } from '@/shared/debug/renderTimer';
 import { navigateTab } from '@/lib';
 
 // Menu items with routes and icons (labels come from i18n)

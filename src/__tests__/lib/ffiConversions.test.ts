@@ -3,7 +3,7 @@ import {
   castDirection,
   toDirectionStats,
   convertActivityPortions,
-} from '@/lib/utils/ffiConversions';
+} from '@/shared/ffi/ffiConversions';
 
 describe('fromUnixSeconds', () => {
   it('converts a valid timestamp to the correct Date', () => {

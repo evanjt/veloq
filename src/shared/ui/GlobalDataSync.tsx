@@ -14,14 +14,14 @@ import {
   isInfiniteActivitiesStale,
 } from '@/hooks';
 import { useSectionHealthCheck } from '@/hooks/routes/useSectionHealthCheck';
-import { queryKeys } from '@/lib/queryKeys';
+import { queryKeys } from '@/shared/query/queryKeys';
 import { onSyncComplete } from '@/lib/backup';
 import { intervalsApi } from '@/api';
 import {
   getRouteEngine,
   applyDetectionPresetForMethod,
   getStrictnessFromValue,
-} from '@/lib/native/routeEngine';
+} from '@/shared/native/routeEngine';
 import { toActivityMetrics } from '@/lib/utils/activityMetrics';
 import { useAuthStore, useRouteSettings, useSyncDateRange } from '@/providers';
 import {

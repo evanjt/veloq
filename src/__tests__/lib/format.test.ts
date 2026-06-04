@@ -28,7 +28,7 @@ import {
   speedToSecsPerKm,
   getMonday,
   getSunday,
-} from '@/lib/utils/format';
+} from '@/shared/format/format';
 
 describe('formatDistance', () => {
   it('shows meters below 1km, kilometers above', () => {

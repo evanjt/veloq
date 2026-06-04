@@ -1,6 +1,6 @@
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { intervalsApi } from '@/api';
-import { queryKeys } from '@/lib/queryKeys';
+import { queryKeys } from '@/shared/query/queryKeys';
 import type { PowerCurve } from '@/types';
 
 interface UsePowerCurveOptions {

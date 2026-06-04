@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { getSetting, setSetting } from '@/lib/backup';
-import { formatLocalDate } from '@/lib/utils/format';
+import { formatLocalDate } from '@/shared/format/format';
 
 const STORAGE_KEY = 'veloq-support-store';
 

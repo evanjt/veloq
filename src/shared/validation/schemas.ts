@@ -6,7 +6,7 @@
  *
  * @example
  * ```ts
- * import { MapPreferencesSchema } from '@/lib/validation/schemas';
+ * import { MapPreferencesSchema } from '@/shared/validation/schemas';
  * type MapPreferences = z.infer<typeof MapPreferencesSchema>;
  *
  * const result = MapPreferencesSchema.safeParse(data);

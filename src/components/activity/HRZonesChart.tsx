@@ -7,7 +7,7 @@ import { useHRZones } from '@/providers';
 import { useSportSettings, getSettingsForSport, HR_ZONE_COLORS } from '@/hooks';
 import type { ActivityStreams, ActivityDetail } from '@/types';
 import { ChartErrorBoundary } from '@/shared/ui';
-import { formatDurationHuman } from '@/lib/utils/format';
+import { formatDurationHuman } from '@/shared/format/format';
 
 interface HRZonesChartProps {
   streams: ActivityStreams;

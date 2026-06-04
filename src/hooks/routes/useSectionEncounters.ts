@@ -4,7 +4,7 @@
  */
 
 import { useState, useMemo, useEffect } from 'react';
-import { getRouteEngine } from '@/lib/native/routeEngine';
+import { getRouteEngine } from '@/shared/native/routeEngine';
 import type { SectionEncounter } from 'veloqrs';
 
 export interface UseSectionEncountersResult {

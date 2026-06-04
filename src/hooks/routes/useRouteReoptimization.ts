@@ -9,8 +9,8 @@
 
 import { useEffect } from 'react';
 import { useSyncDateRange } from '@/providers/SyncDateRangeStore';
-import { getRouteEngine } from '@/lib/native/routeEngine';
-import { debug } from '@/lib/utils/debug';
+import { getRouteEngine } from '@/shared/native/routeEngine';
+import { debug } from '@/shared/debug/debug';
 
 const log = debug.create('RouteReoptimization');
 

@@ -83,7 +83,7 @@ import {
   getRouteDbPath,
   applyDetectionPresetForMethod,
   getStrictnessFromValue,
-} from '@/lib/native/routeEngine';
+} from '@/shared/native/routeEngine';
 import {
   migrateSettingsToSqlite,
   onAppBackground,

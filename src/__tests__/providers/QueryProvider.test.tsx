@@ -62,7 +62,7 @@ jest.mock('@/hooks/activities/useActivities', () => ({
 }));
 
 // Minimal queryKeys stub to avoid importing the auth-coupled module tree
-jest.mock('@/lib/queryKeys', () => ({
+jest.mock('@/shared/query/queryKeys', () => ({
   queryKeys: {
     activities: {
       infinite: {
@@ -100,7 +100,7 @@ jest.spyOn(AppState, 'addEventListener').mockImplementation((event: any, listene
 // import-hoisting that would otherwise defeat the spy.
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const QueryProviderModule =
-  require('@/providers/QueryProvider') as typeof import('@/providers/QueryProvider');
+  require('@/shared/query/QueryProvider') as typeof import('@/shared/query/QueryProvider');
 const { QueryProvider } = QueryProviderModule;
 const queryClient: QueryClient = QueryProviderModule.queryClient;
 

@@ -105,7 +105,7 @@ export const useRouteSettings = create<RouteSettingsState>((set, get) => ({
     });
 
     try {
-      const { getRouteEngine } = require('@/lib/native/routeEngine');
+      const { getRouteEngine } = require('@/shared/native/routeEngine');
       const engine = getRouteEngine();
       if (engine) {
         if (!enabled) {

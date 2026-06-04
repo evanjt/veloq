@@ -12,7 +12,7 @@ import { Text, ActivityIndicator } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { colors, darkColors, opacity, typography, spacing, layout } from '@/theme';
 import { formatDistance, getMonday, getSunday } from '@/lib';
-import { formatDurationHuman } from '@/lib/utils/format';
+import { formatDurationHuman } from '@/shared/format/format';
 import type { Activity } from '@/types';
 
 type TimeRange = 'week' | 'month' | '3m' | '6m' | 'year';

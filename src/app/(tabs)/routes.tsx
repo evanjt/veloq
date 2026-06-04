@@ -26,7 +26,7 @@ import {
 } from '@/hooks';
 import { useHasStrengthData } from '@/hooks/activities/useStrengthVolume';
 import { useRouteSettings, useSyncDateRange, useDebugStore, useEngineStatus } from '@/providers';
-import { logScreenRender } from '@/lib/debug/renderTimer';
+import { logScreenRender } from '@/shared/debug/renderTimer';
 import { colors, darkColors, spacing } from '@/theme';
 
 type TabType = 'insights' | 'strength' | 'routes' | 'sections' | 'debug';

@@ -6,7 +6,7 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { getRouteEngine } from '@/lib/native/routeEngine';
+import { getRouteEngine } from '@/shared/native/routeEngine';
 
 /**
  * Read a setting. Tries SQLite first, falls back to AsyncStorage.

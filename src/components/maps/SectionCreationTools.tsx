@@ -11,7 +11,7 @@ import type { LatLng } from '@/lib';
 import { SectionCreationOverlay, type CreationState } from './SectionCreationOverlay';
 import type { SectionCreationResult } from './ActivityMapView';
 import { typography, spacing } from '@/theme';
-import { haversineDistance } from '@/lib/utils/geometry';
+import { haversineDistance } from '@/shared/math/geometry';
 
 interface SectionCreationToolsProps {
   /** Whether section creation mode is active */

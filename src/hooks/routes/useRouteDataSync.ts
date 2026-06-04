@@ -44,7 +44,7 @@ import { useRouteSyncProgress } from './useRouteSyncProgress';
 import { useRouteSyncContext, resetGlobalSyncState } from './useRouteSyncContext';
 import { useGpsDataFetcher } from './useGpsDataFetcher';
 import { i18n } from '@/i18n';
-import { getNativeModule } from '@/lib/native/routeEngine';
+import { getNativeModule } from '@/shared/native/routeEngine';
 import { routeEngine } from 'veloqrs';
 import { intervalsApi } from '@/api';
 import { toActivityMetrics } from '@/lib/utils/activityMetrics';

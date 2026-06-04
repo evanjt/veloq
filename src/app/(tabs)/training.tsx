@@ -29,10 +29,10 @@ import {
   formatLocalDate,
   type SmoothingWindow,
 } from '@/lib';
-import { logScreenRender } from '@/lib/debug/renderTimer';
+import { logScreenRender } from '@/shared/debug/renderTimer';
 import { useAuthStore } from '@/providers';
 
-import { queryKeys } from '@/lib/queryKeys';
+import { queryKeys } from '@/shared/query/queryKeys';
 import { TIME_RANGES } from '@/lib/utils/constants';
 
 export default function HealthScreen() {

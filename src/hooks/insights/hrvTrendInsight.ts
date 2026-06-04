@@ -1,6 +1,6 @@
 import type { Insight, TFunc } from './types';
 import { makeInsight } from './insightBuilder';
-import { getRouteEngine } from '@/lib/native/routeEngine';
+import { getRouteEngine } from '@/shared/native/routeEngine';
 import { INSIGHTS_CONFIG } from './config';
 
 const HRV_WINDOW_DAYS = 7;

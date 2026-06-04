@@ -211,7 +211,7 @@ export function DetectionMethodIllustration({
 
     const run = async () => {
       try {
-        const { getNativeModule } = require('@/lib/native/routeEngine');
+        const { getNativeModule } = require('@/shared/native/routeEngine');
         const mod = getNativeModule();
         if (!mod) {
           setHighlights(FALLBACK[method]);

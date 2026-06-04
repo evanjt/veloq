@@ -6,7 +6,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import * as Location from 'expo-location';
-import type { LatLng } from '@/lib/geo/distance';
+import type { LatLng } from '@/shared/geo/distance';
 
 let cachedLocation: LatLng | null = null;
 let requestInFlight = false;

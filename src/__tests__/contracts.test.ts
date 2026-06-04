@@ -21,7 +21,7 @@ import {
   formatCalories,
   formatLocalDate,
   formatTSS,
-} from '@/lib/utils/format';
+} from '@/shared/format/format';
 import { parseStreams } from '@/lib/utils/streams';
 import { calculateTSB, getFormZone } from '@/lib/algorithms/fitness';
 import type { RawStreamItem, WellnessData } from '@/types';

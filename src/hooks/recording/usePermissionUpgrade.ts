@@ -8,7 +8,7 @@ import {
   getAppRedirectUri,
 } from '@/services/oauth';
 import { clearPermissionBlocked } from '@/lib/storage/uploadQueue';
-import { debug } from '@/lib/utils/debug';
+import { debug } from '@/shared/debug/debug';
 
 const log = debug.create('PermissionUpgrade');
 

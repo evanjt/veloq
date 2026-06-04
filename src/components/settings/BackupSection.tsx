@@ -15,7 +15,7 @@ import { useTranslation } from 'react-i18next';
 import { useExportDatabaseBackup, useImportDatabaseBackup, useBulkExport } from '@/hooks';
 import { formatFileSize } from '@/lib';
 import { useTheme } from '@/hooks';
-import { getRouteEngine } from '@/lib/native/routeEngine';
+import { getRouteEngine } from '@/shared/native/routeEngine';
 import {
   isAutoBackupEnabled,
   setAutoBackupEnabled,

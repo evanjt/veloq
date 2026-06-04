@@ -7,7 +7,7 @@ import {
   type FrequentSection as NativeFrequentSection,
   type Section as NativeSection,
 } from 'veloqrs';
-import { convertActivityPortions } from '@/lib/utils/ffiConversions';
+import { convertActivityPortions } from '@/shared/ffi/ffiConversions';
 import type { FrequentSection } from '@/types';
 
 /**

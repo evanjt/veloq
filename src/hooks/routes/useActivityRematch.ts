@@ -4,7 +4,7 @@
  */
 
 import { useState, useCallback } from 'react';
-import { getRouteEngine } from '@/lib/native/routeEngine';
+import { getRouteEngine } from '@/shared/native/routeEngine';
 import type { SectionMatch } from 'veloqrs';
 
 interface UseActivityRematchResult {

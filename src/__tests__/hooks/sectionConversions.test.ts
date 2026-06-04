@@ -74,7 +74,7 @@ jest.mock('veloqrs', () => ({
   },
 }));
 
-jest.mock('@/lib/utils/ffiConversions', () => ({
+jest.mock('@/shared/ffi/ffiConversions', () => ({
   convertActivityPortions: (portions: any[]) =>
     portions.map((p) => ({
       ...p,

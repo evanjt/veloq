@@ -64,7 +64,7 @@ export async function initializeDebugStore(): Promise<void> {
 function syncDebugToFFI(): void {
   try {
     const { RouteEngineClient } = require('veloqrs');
-    const { recordFFIMetric } = require('@/lib/debug/renderTimer');
+    const { recordFFIMetric } = require('@/shared/debug/renderTimer');
     RouteEngineClient.setMetricRecorder(recordFFIMetric);
     RouteEngineClient.setDebugEnabled(useDebugStore.getState().enabled);
     useDebugStore.subscribe((state) => {

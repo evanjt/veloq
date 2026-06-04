@@ -3,7 +3,7 @@ import { View, StyleSheet, TouchableOpacity, RefreshControl } from 'react-native
 import { ScrollView } from 'react-native-gesture-handler';
 import { Text, ActivityIndicator } from 'react-native-paper';
 import { ScreenSafeAreaView, TAB_BAR_SAFE_PADDING } from '@/shared/ui';
-import { logScreenRender, logMemory } from '@/lib/debug/renderTimer';
+import { logScreenRender, logMemory } from '@/shared/debug/renderTimer';
 import * as WebBrowser from 'expo-web-browser';
 import { useSharedValue } from 'react-native-reanimated';
 import { useTranslation } from 'react-i18next';
@@ -30,7 +30,7 @@ import { useSportPreference, type PrimarySport } from '@/providers';
 import { colors, darkColors, spacing, layout, typography, opacity } from '@/theme';
 import { createSharedStyles } from '@/styles';
 
-import { isNetworkError } from '@/lib/utils/errorHandler';
+import { isNetworkError } from '@/shared/errors/errorHandler';
 
 export default function FitnessScreen() {
   // Performance timing

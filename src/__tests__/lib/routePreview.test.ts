@@ -1,4 +1,4 @@
-import { projectRouteToBox } from '@/lib/geo/routePreview';
+import { projectRouteToBox } from '@/shared/geo/routePreview';
 
 describe('projectRouteToBox', () => {
   const coords = [

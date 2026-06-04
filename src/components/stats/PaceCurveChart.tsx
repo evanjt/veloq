@@ -20,7 +20,7 @@ import { CHART_CONFIG } from '@/constants';
 import { usePaceCurve } from '@/hooks';
 import { useActivities } from '@/hooks';
 import { formatFullDate, formatDistance, formatLocalDate, speedToSecsPerKm } from '@/lib';
-import { formatDuration } from '@/lib/utils/format';
+import { formatDuration } from '@/shared/format/format';
 
 interface PaceCurveChartProps {
   sport?: string;

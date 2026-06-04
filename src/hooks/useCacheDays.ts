@@ -5,7 +5,7 @@
  */
 import { useMemo } from 'react';
 import { useSyncDateRange } from '@/providers';
-import { getRouteEngine } from '@/lib/native/routeEngine';
+import { getRouteEngine } from '@/shared/native/routeEngine';
 
 /**
  * Returns the number of days of cached activity data.

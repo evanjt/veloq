@@ -3,7 +3,7 @@
  * Verifies that fixes for division-by-zero bugs remain in place.
  */
 
-import { gaussianSmooth } from '@/lib/utils/smoothing';
+import { gaussianSmooth } from '@/shared/math/smoothing';
 
 describe('decoupling calculation (fitness.tsx:235, DecouplingChart.tsx:34)', () => {
   // Replicate the FIXED pattern: length < 4 returns null

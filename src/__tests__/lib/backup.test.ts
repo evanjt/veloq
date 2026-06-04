@@ -20,7 +20,7 @@ const mockEngine = {
   setRouteName: jest.fn(),
 };
 
-jest.mock('@/lib/native/routeEngine', () => ({
+jest.mock('@/shared/native/routeEngine', () => ({
   getRouteEngine: () => mockEngine,
 }));
 

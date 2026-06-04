@@ -25,7 +25,7 @@ import { TimelineSlider } from '@/components/maps';
 import { useActivityBoundsCache, useOldestActivityDate, useTheme } from '@/hooks';
 import { formatLocalDate, formatFileSize } from '@/lib';
 import { useSyncDateRange, useRouteSettings } from '@/providers';
-import { DETECTION_PRESETS as PRESETS, getRouteEngine } from '@/lib/native/routeEngine';
+import { DETECTION_PRESETS as PRESETS, getRouteEngine } from '@/shared/native/routeEngine';
 import { HEATMAP_TILES_DIR, getHeatmapTilesCacheSize } from '@/hooks/maps/useHeatmapTiles';
 import { settingsStyles } from './settingsStyles';
 import { colors, darkColors, spacing, typography } from '@/theme';

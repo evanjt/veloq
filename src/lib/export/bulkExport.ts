@@ -6,8 +6,8 @@
  */
 
 import * as FileSystem from 'expo-file-system/legacy';
-import { getRouteEngine } from '@/lib/native/routeEngine';
-import { formatLocalDate } from '@/lib/utils/format';
+import { getRouteEngine } from '@/shared/native/routeEngine';
+import { formatLocalDate } from '@/shared/format/format';
 
 export type BulkExportPhase = 'generating' | 'sharing';
 

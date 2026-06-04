@@ -6,7 +6,7 @@ import { colors, typography, spacing, layout, shadows } from '@/theme';
 import { getActivityTypeConfig } from '../ActivityTypeFilter';
 import { getActivityIcon } from '@/lib/utils/activityUtils';
 import { formatDuration } from '@/lib';
-import { getRouteEngine } from '@/lib/native/routeEngine';
+import { getRouteEngine } from '@/shared/native/routeEngine';
 import type { ActivityType } from '@/types';
 
 interface RouteGroupInfo {

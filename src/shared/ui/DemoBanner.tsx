@@ -9,7 +9,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { useAuthStore, useSyncDateRange } from '@/providers';
 import { useTheme } from '@/hooks';
 import { colors, brand } from '@/theme';
-import { clearDemoData } from '@/lib/storage';
+import { clearDemoData } from '@/shared/storage';
 
 export function DemoBanner() {
   const { t } = useTranslation();

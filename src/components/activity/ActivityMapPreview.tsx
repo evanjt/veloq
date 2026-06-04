@@ -5,7 +5,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { getActivityColor, getMapLibreBounds } from '@/lib';
 import { useMapPreferences } from '@/providers';
 import { StaticCompassArrow } from '@/shared/ui';
-import { projectRouteToBox } from '@/lib/geo/routePreview';
+import { projectRouteToBox } from '@/shared/geo/routePreview';
 import { useMapPreviewCoordinates } from '@/hooks/activities/useMapPreviewCoordinates';
 import {
   hasTerrainPreview,

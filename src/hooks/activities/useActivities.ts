@@ -8,7 +8,7 @@ import { useMemo } from 'react';
 import { intervalsApi } from '@/api';
 import { formatLocalDate } from '@/lib';
 import { CACHE } from '@/lib/utils/constants';
-import { queryKeys } from '@/lib/queryKeys';
+import { queryKeys } from '@/shared/query/queryKeys';
 import type { Activity, IntervalsDTO } from '@/types';
 import { useAuthStore } from '@/providers/AuthStore';
 

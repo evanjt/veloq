@@ -11,8 +11,9 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { debug } from '../utils/debug';
-import { safeJsonParseWithSchema } from '../utils/validation';
+
+import { debug } from '@/shared/debug/debug';
+import { safeJsonParseWithSchema } from '@/shared/validation/validation';
 
 const log = debug.create('Geocoding');
 

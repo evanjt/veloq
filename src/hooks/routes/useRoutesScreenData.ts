@@ -10,10 +10,10 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { InteractionManager } from 'react-native';
 import { useFocusEffect } from 'expo-router';
-import { getRouteEngine } from '@/lib/native/routeEngine';
+import { getRouteEngine } from '@/shared/native/routeEngine';
 import { useEngineSubscription } from './useRouteEngine';
 import type { RoutesScreenData, GroupWithPolyline, SectionWithPolyline } from 'veloqrs';
-import type { LatLng } from '@/lib/geo/distance';
+import type { LatLng } from '@/shared/geo/distance';
 
 const DEFAULT_PAGE_SIZE = 50;
 

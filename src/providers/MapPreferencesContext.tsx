@@ -8,7 +8,7 @@ import React, {
   ReactNode,
 } from 'react';
 import { getSetting, setSetting } from '@/lib/backup';
-import { safeJsonParseWithSchema } from '@/lib/utils/validation';
+import { safeJsonParseWithSchema } from '@/shared/validation/validation';
 import type { MapStyleType } from '@/components/maps/mapStyles';
 import type { ActivityType, Terrain3DMode } from '@/types';
 import { isActivityType } from '@/types';

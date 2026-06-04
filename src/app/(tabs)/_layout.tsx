@@ -6,7 +6,7 @@
 import { useRef } from 'react';
 import { Tabs } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { PERF_DEBUG } from '@/lib/debug/renderTimer';
+import { PERF_DEBUG } from '@/shared/debug/renderTimer';
 import { useTilePrefetch } from '@/hooks/maps/useTilePrefetch';
 import { useResolvedColorScheme } from '@/providers/ThemeProvider';
 

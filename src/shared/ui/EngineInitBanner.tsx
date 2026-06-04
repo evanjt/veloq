@@ -11,7 +11,7 @@ import { Text, IconButton } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useEngineStatus } from '@/providers';
-import { getRouteEngine, getRouteDbPath } from '@/lib/native/routeEngine';
+import { getRouteEngine, getRouteDbPath } from '@/shared/native/routeEngine';
 import { colors } from '@/theme';
 
 export function EngineInitBanner() {

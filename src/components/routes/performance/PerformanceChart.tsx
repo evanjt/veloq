@@ -21,7 +21,7 @@ import Animated, {
 import { colors, darkColors, spacing, typography } from '@/theme';
 import { ChartCrosshair } from '@/shared/charts';
 import { CHART_CONFIG } from '@/constants';
-import { gaussianSmooth } from '@/lib/utils/smoothing';
+import { gaussianSmooth } from '@/shared/math/smoothing';
 import type { RoutePerformancePoint } from '@/hooks/routes/useRoutePerformances';
 import { formatShortDate } from '@/lib';
 

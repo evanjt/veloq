@@ -4,7 +4,7 @@ import {
   safeAsync,
   safeSync,
   isNetworkError,
-} from '@/lib/utils/errorHandler';
+} from '@/shared/errors/errorHandler';
 
 describe('errorHandler', () => {
   describe('handleAsyncError', () => {

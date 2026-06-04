@@ -21,7 +21,7 @@ import { findRowIndexAtPageY } from '@/components/activity/scrubHitTest';
 import { DataRangeFooter } from '@/components/routes';
 import { TAB_BAR_SAFE_PADDING } from '@/shared/ui';
 import { CHART_CONFIG } from '@/constants';
-import { getRouteEngine } from '@/lib/native/routeEngine';
+import { getRouteEngine } from '@/shared/native/routeEngine';
 import { getAllSectionDisplayNames } from '@/hooks/routes/useUnifiedSections';
 import { getSectionStyle, navigateTo, formatDistance } from '@/lib';
 import { colors, darkColors, spacing, shadows } from '@/theme';

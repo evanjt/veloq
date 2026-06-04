@@ -25,7 +25,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { colors, darkColors, opacity, spacing, layout, typography } from '@/theme';
 import { UI } from '@/lib/utils/constants';
-import { computeCenter, haversineDistance, type LatLng } from '@/lib/geo/distance';
+import { computeCenter, haversineDistance, type LatLng } from '@/shared/geo/distance';
 import { Shimmer } from '@/shared/ui';
 import { RouteRow } from './RouteRow';
 import { DataRangeFooter } from './DataRangeFooter';

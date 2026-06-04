@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { colors, darkColors, typography, spacing, layout } from '@/theme';
 import { POWER_ZONE_COLORS, HR_ZONE_COLORS, DEFAULT_POWER_ZONES, DEFAULT_HR_ZONES } from '@/hooks';
 import type { ZoneDistribution } from '@/types';
-import { formatDurationHuman } from '@/lib/utils/format';
+import { formatDurationHuman } from '@/shared/format/format';
 
 interface ZoneDistributionChartProps {
   /** Zone distribution data */

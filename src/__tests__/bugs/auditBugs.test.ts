@@ -3,7 +3,7 @@
  * Tests verify that fixes for real crash risks remain in place.
  */
 
-import { safeGetTime } from '@/lib/utils/format';
+import { safeGetTime } from '@/shared/format/format';
 
 describe('AUDIT Bug 10.7: Null date in performance sort', () => {
   /**

@@ -17,7 +17,7 @@ import { ChartCrosshair } from '@/shared/charts';
 import { colors, darkColors, typography, spacing, chartStyles } from '@/theme';
 import { CHART_CONFIG } from '@/constants';
 import { usePowerCurve } from '@/hooks';
-import { formatDurationHuman } from '@/lib/utils/format';
+import { formatDurationHuman } from '@/shared/format/format';
 
 interface PowerCurveChartProps {
   sport?: string;

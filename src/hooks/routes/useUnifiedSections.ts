@@ -12,9 +12,9 @@ import { useCustomSections } from './useCustomSections';
 import { usePotentialSections } from './usePotentialSections';
 import { useEngineSubscription } from './useRouteEngine';
 import { useSectionDismissals } from '@/providers/SectionDismissalsStore';
-import { getRouteEngine } from '@/lib/native/routeEngine';
+import { getRouteEngine } from '@/shared/native/routeEngine';
 import { generateSectionName } from '@/lib/utils/sectionNaming';
-import { computePolylineOverlap } from '@/lib/utils/geometry';
+import { computePolylineOverlap } from '@/shared/math/geometry';
 import type { FrequentSection, UnifiedSection, RoutePoint } from '@/types';
 
 // Re-export for backwards compatibility

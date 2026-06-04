@@ -1,4 +1,4 @@
-import { getRouteEngine } from '@/lib/native/routeEngine';
+import { getRouteEngine } from '@/shared/native/routeEngine';
 import { isRouteMatchingEnabled } from '@/providers/RouteSettingsStore';
 import { generateInsights } from './generateInsights';
 import { generateStrengthInsights } from './strengthInsights';

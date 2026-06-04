@@ -5,7 +5,7 @@
  * clustering activity regions, and estimating tile counts for
  * offline map caching.
  */
-import { median } from '@/lib/utils/statistics';
+import { median } from '@/shared/math/statistics';
 
 /** Bounding box with min/max lat/lng */
 export interface Bounds {

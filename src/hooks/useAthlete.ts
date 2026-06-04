@@ -2,8 +2,8 @@ import { useQuery } from '@tanstack/react-query';
 import { intervalsApi } from '@/api';
 import { useAuthStore, useUnitPreference } from '@/providers';
 import { useEffect, useMemo } from 'react';
-import { getRouteEngine } from '@/lib/native/routeEngine';
-import { queryKeys } from '@/lib/queryKeys';
+import { getRouteEngine } from '@/shared/native/routeEngine';
+import { queryKeys } from '@/shared/query/queryKeys';
 import type { Athlete } from '@/types';
 
 export function useAthlete() {

@@ -1,5 +1,5 @@
 import type { Insight } from '@/types';
-import { getRouteEngine } from '@/lib/native/routeEngine';
+import { getRouteEngine } from '@/shared/native/routeEngine';
 import { INSIGHTS_CONFIG, maxPerCategoryFor } from './config';
 
 /**

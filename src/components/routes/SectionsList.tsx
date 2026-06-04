@@ -34,11 +34,11 @@ import { SectionsListFiltersBar } from './SectionsListFiltersBar';
 import { useCustomSections } from '@/hooks/routes/useCustomSections';
 import { useSectionDismissals } from '@/providers/SectionDismissalsStore';
 import { debug, navigateTo } from '@/lib';
-import { getRouteEngine } from '@/lib/native/routeEngine';
+import { getRouteEngine } from '@/shared/native/routeEngine';
 import type { UnifiedSection, FrequentSection } from '@/types';
 import { decodeCoords, type SectionWithPolyline } from 'veloqrs';
 import { generateSectionName } from '@/hooks/routes/useUnifiedSections';
-import { computeCenter, haversineDistance, type LatLng } from '@/lib/geo/distance';
+import { computeCenter, haversineDistance, type LatLng } from '@/shared/geo/distance';
 
 const log = debug.create('SectionsList');
 

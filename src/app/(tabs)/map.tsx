@@ -16,7 +16,7 @@ import {
   ErrorStatePreset,
   TAB_BAR_SAFE_PADDING,
 } from '@/shared/ui';
-import { logScreenRender } from '@/lib/debug/renderTimer';
+import { logScreenRender } from '@/shared/debug/renderTimer';
 import {
   useActivityBoundsCache,
   useActivities,

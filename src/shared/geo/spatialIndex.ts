@@ -3,7 +3,7 @@
  * Provides viewport-based queries using the engine's R-tree index.
  */
 
-import { getRouteEngine } from '@/lib/native/routeEngine';
+import { getRouteEngine } from '@/shared/native/routeEngine';
 
 export interface Viewport {
   minLat: number;

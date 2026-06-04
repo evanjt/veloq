@@ -5,7 +5,7 @@ import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { Canvas, Picture, Skia } from '@shopify/react-native-skia';
 import { colors, darkColors, typography, spacing, layout } from '@/theme';
-import { getRouteEngine } from '@/lib/native/routeEngine';
+import { getRouteEngine } from '@/shared/native/routeEngine';
 import { formatLocalDate } from '@/lib';
 import type { Activity } from '@/types';
 

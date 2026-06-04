@@ -5,7 +5,7 @@
 
 import { resolveIsMetric } from '@/providers';
 import { i18n } from '@/i18n';
-import { formatDistance } from '@/lib/utils/format';
+import { formatDistance } from '@/shared/format/format';
 
 /**
  * Minimal section data needed for name generation.

@@ -11,7 +11,7 @@ import { useTheme } from '@/hooks';
 import { createSharedStyles } from '@/styles';
 import { useQueryClient } from '@tanstack/react-query';
 import { INTERVALS_URLS } from '@/services/oauth';
-import { clearAccountData } from '@/lib/storage';
+import { clearAccountData } from '@/shared/storage';
 import { confirmAccountChange, getCachedAthleteId } from '@/lib/auth/accountChange';
 import { useImportDatabaseBackup } from '@/hooks';
 import { useApiKeyLogin, useOAuthLogin, useBackupRestore } from '@/hooks/auth';

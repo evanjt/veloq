@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import * as SecureStore from 'expo-secure-store';
 import type { Athlete } from '@/types';
-import { getRouteEngine } from '@/lib/native/routeEngine';
+import { getRouteEngine } from '@/shared/native/routeEngine';
 
 const API_KEY_STORAGE_KEY = 'intervals_api_key';
 const ATHLETE_ID_STORAGE_KEY = 'intervals_athlete_id';

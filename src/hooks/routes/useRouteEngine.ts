@@ -11,7 +11,7 @@
 import { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 // Use legacy API for SDK 54 compatibility (new API uses File/Directory classes)
 import * as FileSystem from 'expo-file-system/legacy';
-import { getRouteEngine, getRouteDbPath } from '@/lib/native/routeEngine';
+import { getRouteEngine, getRouteDbPath } from '@/shared/native/routeEngine';
 import { generateSectionName } from '@/lib/utils/sectionNaming';
 import { convertNativeSectionToApp } from '@/lib/utils/sectionConversions';
 import { type RouteGroup, type SectionSummary, type GroupSummary } from 'veloqrs';

@@ -1,6 +1,6 @@
 import * as FileSystem from 'expo-file-system/legacy';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { debug } from '../utils/debug';
+import { debug } from '@/shared/debug/debug';
 import type { UploadQueueEntry } from '@/types';
 
 const log = debug.create('UploadQueue');

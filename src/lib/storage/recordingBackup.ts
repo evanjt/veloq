@@ -1,5 +1,5 @@
 import * as FileSystem from 'expo-file-system/legacy';
-import { debug } from '../utils/debug';
+import { debug } from '@/shared/debug/debug';
 import type { RecordingBackup } from '@/types';
 
 const log = debug.create('RecordingBackup');

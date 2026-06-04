@@ -16,7 +16,7 @@ import { InsightfulStats } from './stats';
 import { ComponentErrorBoundary, DeviceAttribution } from '@/shared/ui';
 import { DebugInfoPanel, DebugWarningBanner } from '@/components/routes';
 import { POWER_ZONE_COLORS, HR_ZONE_COLORS } from '@/hooks';
-import { useFFITimer } from '@/hooks/debug/useFFITimer';
+import { useFFITimer } from '@/shared/debug/useFFITimer';
 import {
   formatDurationHuman,
   isCyclingActivity,

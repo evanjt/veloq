@@ -7,7 +7,7 @@
  */
 
 import { useMemo, useState, useEffect, useRef } from 'react';
-import { getRouteEngine } from '@/lib/native/routeEngine';
+import { getRouteEngine } from '@/shared/native/routeEngine';
 import { generateSectionName } from '@/lib/utils/sectionNaming';
 import { convertNativeSectionToApp } from '@/lib/utils/sectionConversions';
 import type { FrequentSection } from '@/types';

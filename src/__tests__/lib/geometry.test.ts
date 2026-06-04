@@ -1,4 +1,8 @@
-import { haversineDistance, computePolylineOverlap, simplifyPolyline } from '@/lib/utils/geometry';
+import {
+  haversineDistance,
+  computePolylineOverlap,
+  simplifyPolyline,
+} from '@/shared/math/geometry';
 
 describe('haversineDistance', () => {
   it('returns 0 for the same point', () => {

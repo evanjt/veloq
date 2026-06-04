@@ -6,7 +6,7 @@
 
 import { useMemo, useCallback } from 'react';
 import { useGroupSummaries } from './useRouteEngine';
-import { getRouteEngine } from '@/lib/native/routeEngine';
+import { getRouteEngine } from '@/shared/native/routeEngine';
 import { toActivityType, type ActivityType } from '@/types';
 
 interface UseRouteGroupsOptions {

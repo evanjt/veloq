@@ -1,5 +1,5 @@
 import { useRef, useCallback } from 'react';
-import { getFFIMetricsCount, getFFIMetricsSince } from '@/lib/debug/renderTimer';
+import { getFFIMetricsCount, getFFIMetricsSince } from '@/shared/debug/renderTimer';
 
 interface FFITimerEntry {
   name: string;

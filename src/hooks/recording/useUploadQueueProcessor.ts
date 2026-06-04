@@ -10,7 +10,7 @@ import {
   markUploadFailed,
   markUploadPermissionBlocked,
 } from '@/lib/storage/uploadQueue';
-import { debug } from '@/lib/utils/debug';
+import { debug } from '@/shared/debug/debug';
 
 const log = debug.create('UploadQueue');
 

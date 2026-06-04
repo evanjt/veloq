@@ -9,7 +9,7 @@ import { getLastBackupTimestamp } from '@/lib/backup';
 import { useRouteSettings } from '@/providers';
 import * as FileSystem from 'expo-file-system/legacy';
 import { HEATMAP_TILES_DIR } from '@/hooks/maps/useHeatmapTiles';
-import { getRouteEngine } from '@/lib/native/routeEngine';
+import { getRouteEngine } from '@/shared/native/routeEngine';
 import { colors, darkColors, spacing, typography } from '@/theme';
 import { settingsStyles } from './settingsStyles';
 

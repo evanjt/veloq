@@ -10,7 +10,7 @@
 
 import { useCallback } from 'react';
 import { i18n } from '@/i18n';
-import { getNativeModule } from '@/lib/native/routeEngine';
+import { getNativeModule } from '@/shared/native/routeEngine';
 import {
   routeEngine,
   getDownloadProgress,

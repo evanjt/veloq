@@ -1,12 +1,13 @@
 import React from 'react';
 import { Alert, AppState, Platform, type AppStateStatus } from 'react-native';
-import { i18n } from '@/i18n';
 import { QueryClient, focusManager } from '@tanstack/react-query';
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client';
 import { createAsyncStoragePersister } from '@tanstack/query-async-storage-persister';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+
+import { i18n } from '@/i18n';
 import { isInfiniteActivitiesStale } from '@/hooks/activities/useActivities';
-import { queryKeys } from '@/lib/queryKeys';
+import { queryKeys } from '@/shared/query/queryKeys';
 
 // Sync TanStack Query's focus state with React Native AppState
 // Module-level so it's active before any query runs

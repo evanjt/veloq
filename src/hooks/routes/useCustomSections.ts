@@ -5,10 +5,10 @@
 
 import { useCallback, useMemo } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { getRouteEngine } from '@/lib/native/routeEngine';
-import { computePolylineOverlap } from '@/lib/utils/geometry';
+import { getRouteEngine } from '@/shared/native/routeEngine';
+import { computePolylineOverlap } from '@/shared/math/geometry';
 import { decodeCoords } from 'veloqrs';
-import { queryKeys } from '@/lib/queryKeys';
+import { queryKeys } from '@/shared/query/queryKeys';
 import type { Section, RoutePoint } from '@/types';
 
 export interface UseCustomSectionsOptions {

@@ -9,7 +9,7 @@ import type { LatLng } from '@/lib';
 import type { RoutePoint } from '@/types';
 import type { CreationState } from '@/components/maps/SectionCreationOverlay';
 import type { SectionCreationResult } from '@/components/maps/ActivityMapView';
-import { haversineDistance } from '@/lib/utils/geometry';
+import { haversineDistance } from '@/shared/math/geometry';
 
 interface UseSectionCreationParams {
   creationMode: boolean;

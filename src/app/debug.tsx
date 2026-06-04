@@ -15,9 +15,9 @@ import { TAB_BAR_SAFE_PADDING } from '@/shared/ui';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, darkColors, spacing } from '@/theme';
 import { useTheme } from '@/hooks';
-import { getFFIMetricsSummary, clearFFIMetrics } from '@/lib/debug/renderTimer';
+import { getFFIMetricsSummary, clearFFIMetrics } from '@/shared/debug/renderTimer';
 import { useSupportStore, daysSince } from '@/providers';
-import { formatLocalDate } from '@/lib/utils/format';
+import { formatLocalDate } from '@/shared/format/format';
 import type { PersistentEngineStats } from 'veloqrs';
 
 function getRouteEngine() {

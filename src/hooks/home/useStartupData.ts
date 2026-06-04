@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { getRouteEngine } from '@/lib/native/routeEngine';
+import { getRouteEngine } from '@/shared/native/routeEngine';
 import { useEngineSubscription } from '@/hooks/routes/useRouteEngine';
 import { decodeCoords } from 'veloqrs';
-import type { LatLng } from '@/lib/geo/polyline';
+import type { LatLng } from '@/shared/geo/polyline';
 
 /**
  * GPS track for an activity, pre-fetched during startup.

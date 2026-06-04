@@ -1,6 +1,6 @@
 import type { Insight } from '@/types';
 import { formatDuration, formatPaceCompact, formatSwimPace } from '@/lib';
-import { getRouteEngine } from '@/lib/native/routeEngine';
+import { getRouteEngine } from '@/shared/native/routeEngine';
 import { INSIGHTS_CONFIG, maxPerCategoryFor, minAgeDaysFor } from './config';
 
 const DAY_MS = 86_400_000;

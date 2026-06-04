@@ -10,8 +10,8 @@
 import { useMemo } from 'react';
 import { type ChartSummaryStats } from '@/components/routes/performance';
 import { RANGE_DAYS } from '@/constants';
-import { getRouteEngine } from '@/lib/native/routeEngine';
-import { fromUnixSeconds, castDirection } from '@/lib/utils/ffiConversions';
+import { getRouteEngine } from '@/shared/native/routeEngine';
+import { fromUnixSeconds, castDirection } from '@/shared/ffi/ffiConversions';
 import type { Activity, FrequentSection, PerformanceDataPoint, RoutePoint } from '@/types';
 import type { SectionPerformanceRecord } from './useSectionPerformances';
 import type { SectionTimeRange } from '@/constants';

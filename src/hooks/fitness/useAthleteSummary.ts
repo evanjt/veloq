@@ -2,8 +2,8 @@ import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { intervalsApi } from '@/api';
 import { useAuthStore } from '@/providers';
 import { formatLocalDate, getMonday, getSunday, getIntlLocale } from '@/lib';
-import { getRouteEngine } from '@/lib/native/routeEngine';
-import { queryKeys } from '@/lib/queryKeys';
+import { getRouteEngine } from '@/shared/native/routeEngine';
+import { queryKeys } from '@/shared/query/queryKeys';
 import type { AthleteSummary } from '@/types';
 
 /**

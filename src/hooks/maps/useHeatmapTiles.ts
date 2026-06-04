@@ -9,7 +9,7 @@
 
 import { useCallback } from 'react';
 import * as FileSystem from 'expo-file-system/legacy';
-import { getRouteEngine } from '@/lib/native/routeEngine';
+import { getRouteEngine } from '@/shared/native/routeEngine';
 
 const HEATMAP_DIR = `${FileSystem.cacheDirectory}heatmap-tiles/`;
 

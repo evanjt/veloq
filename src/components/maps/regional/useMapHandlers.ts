@@ -16,7 +16,7 @@ import { normalizeBounds, activitySpatialIndex, mapBoundsToViewport } from '@/li
 import { planClusterZoom } from '@/lib/maps/clusterZoom';
 import { saveMapCameraState } from '@/lib/storage/mapCameraState';
 import { intervalsApi } from '@/api';
-import { getRouteEngine } from '@/lib/native/routeEngine';
+import { getRouteEngine } from '@/shared/native/routeEngine';
 import type { ActivityBoundsItem } from '@/types';
 import type { FrequentSection } from '@/types';
 import type { SelectedActivity } from './ActivityPopup';

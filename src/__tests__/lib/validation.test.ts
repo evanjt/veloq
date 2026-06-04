@@ -3,7 +3,7 @@ import {
   safeJsonParseWithSchema,
   isValidRecord,
   type SchemaValidator,
-} from '@/lib/utils/validation';
+} from '@/shared/validation/validation';
 
 describe('safeJsonParse', () => {
   it('parses valid JSON', () => {
@@ -109,7 +109,7 @@ describe('isValidRecord', () => {
 
 describe('validateCustomSection', () => {
   // Migrated from schemas.test.ts — validates size limit enforcement
-  const { validateCustomSection } = require('@/lib/validation/schemas');
+  const { validateCustomSection } = require('@/shared/validation/schemas');
 
   const validSection = {
     id: 'sec1',

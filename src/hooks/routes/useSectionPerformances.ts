@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { intervalsApi } from '@/api';
 import { routeEngine, type SectionPerformanceResult } from 'veloqrs';
 import type { FrequentSection, ActivityStreams, DirectionStats } from '@/types';
-import { toDirectionStats, castDirection, fromUnixSeconds } from '@/lib/utils/ffiConversions';
+import { toDirectionStats, castDirection, fromUnixSeconds } from '@/shared/ffi/ffiConversions';
 
 /**
  * Individual lap/traversal of a section

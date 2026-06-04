@@ -4,7 +4,7 @@
  * Actual timing of pure functions (no native deps) to catch regressions.
  * These run in CI and produce measurable durations for perf-compare.ts.
  */
-import { formatDistance, formatDuration, formatPace } from '@/lib/utils/format';
+import { formatDistance, formatDuration, formatPace } from '@/shared/format/format';
 
 describe('Computation budget', () => {
   describe('formatting throughput', () => {

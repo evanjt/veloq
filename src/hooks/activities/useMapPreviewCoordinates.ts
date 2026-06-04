@@ -1,11 +1,11 @@
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { getRouteEngine } from '@/lib/native/routeEngine';
+import { getRouteEngine } from '@/shared/native/routeEngine';
 import { useEngineSubscription } from '@/hooks/routes/useRouteEngine';
 import { intervalsApi } from '@/api';
-import { queryKeys } from '@/lib/queryKeys';
+import { queryKeys } from '@/shared/query/queryKeys';
 import { convertLatLngTuples } from '@/lib';
-import type { LatLng } from '@/lib/geo/polyline';
+import type { LatLng } from '@/shared/geo/polyline';
 import type { PreviewTrack } from '@/hooks/home/useStartupData';
 
 /**

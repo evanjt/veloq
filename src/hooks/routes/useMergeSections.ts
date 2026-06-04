@@ -3,7 +3,7 @@
  */
 
 import { useState, useMemo, useCallback } from 'react';
-import { getRouteEngine } from '@/lib/native/routeEngine';
+import { getRouteEngine } from '@/shared/native/routeEngine';
 import { useEngineSubscription } from './useRouteEngine';
 import type { MergeCandidate } from 'veloqrs';
 

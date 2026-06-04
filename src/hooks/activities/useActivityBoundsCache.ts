@@ -6,9 +6,9 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useSyncDateRange } from '@/providers';
-import { clearAllGpsTracks, clearBoundsCache } from '@/lib/storage/gpsStorage';
-import { queryKeys } from '@/lib/queryKeys';
-import { getRouteEngine, getRouteDbPath } from '@/lib/native/routeEngine';
+import { clearAllGpsTracks, clearBoundsCache } from '@/shared/storage/gpsStorage';
+import { queryKeys } from '@/shared/query/queryKeys';
+import { getRouteEngine, getRouteDbPath } from '@/shared/native/routeEngine';
 import { isHeatmapEnabled } from '@/providers/RouteSettingsStore';
 import { formatLocalDate } from '@/lib';
 

@@ -2,7 +2,7 @@
  * Geometry utilities for GPS coordinate processing.
  */
 
-import { getRouteEngine } from '@/lib/native/routeEngine';
+import { getRouteEngine } from '@/shared/native/routeEngine';
 
 /**
  * Haversine distance between two points in meters.

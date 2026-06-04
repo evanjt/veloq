@@ -15,10 +15,10 @@ import { Alert, Keyboard, TextInput } from 'react-native';
 import { router } from 'expo-router';
 import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { getRouteEngine } from '@/lib/native/routeEngine';
+import { getRouteEngine } from '@/shared/native/routeEngine';
 import { getAllSectionDisplayNames } from '@/hooks/routes/useUnifiedSections';
 import { useCustomSections, useSectionRescan } from '@/hooks';
-import { queryKeys } from '@/lib/queryKeys';
+import { queryKeys } from '@/shared/query/queryKeys';
 import type { FrequentSection } from '@/types';
 
 interface UseSectionActionsArgs {

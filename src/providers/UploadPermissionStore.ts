@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { getSetting, setSetting, removeSetting } from '@/lib/backup';
-import { debug } from '@/lib/utils/debug';
+import { debug } from '@/shared/debug/debug';
 
 const log = debug.create('UploadPermission');
 const STORAGE_KEY = 'veloq-upload-permission';

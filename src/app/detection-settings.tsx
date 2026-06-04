@@ -30,7 +30,7 @@ import {
   FLOW_GRAPH_PRESETS,
   type DetectionMethod,
   type DetectionStrictness,
-} from '@/lib/native/routeEngine';
+} from '@/shared/native/routeEngine';
 
 const METHOD_LABELS: { key: DetectionMethod; label: string }[] = [
   { key: 'corridor', label: 'settings.methodCorridor' },

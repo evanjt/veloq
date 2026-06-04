@@ -10,8 +10,8 @@
 
 import { Alert } from 'react-native';
 import { i18n } from '@/i18n';
-import { getRouteEngine } from '@/lib/native/routeEngine';
-import { safeJsonParse } from '@/lib/utils/validation';
+import { getRouteEngine } from '@/shared/native/routeEngine';
+import { safeJsonParse } from '@/shared/validation/validation';
 
 export type AccountChangeKind = 'login' | 'demo';
 

@@ -4,7 +4,7 @@ import {
   normalizeBounds,
   getBounds,
   getBoundsCenter,
-} from '../lib/geo/polyline';
+} from '@/shared/geo/polyline';
 
 describe('detectCoordinateFormat', () => {
   it('should detect [lat, lng] format when longitude exceeds 90', () => {

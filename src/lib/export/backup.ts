@@ -8,8 +8,8 @@
 
 import * as FileSystem from 'expo-file-system/legacy';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { getRouteEngine, getRouteDbPath } from '@/lib/native/routeEngine';
-import { formatLocalDate } from '@/lib/utils/format';
+import { getRouteEngine, getRouteDbPath } from '@/shared/native/routeEngine';
+import { formatLocalDate } from '@/shared/format/format';
 import { shareFile } from './shareFile';
 import { getSetting, setSetting } from '@/lib/backup';
 import {
@@ -157,7 +157,7 @@ export async function restoreDatabaseBackup(fileUri: string): Promise<DatabaseRe
   let backupAthleteId: string | null = null;
 
   try {
-    const { getNativeModule } = await import('@/lib/native/routeEngine');
+    const { getNativeModule } = await import('@/shared/native/routeEngine');
     const nativeModule = getNativeModule();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const validateFn = (nativeModule as any)?.validateBackupDatabase as
@@ -198,7 +198,7 @@ export async function restoreDatabaseBackup(fileUri: string): Promise<DatabaseRe
     await FileSystem.copyAsync({ from: tempPath, to: dbUri });
     await FileSystem.deleteAsync(tempPath, { idempotent: true });
 
-    const { getNativeModule } = await import('@/lib/native/routeEngine');
+    const { getNativeModule } = await import('@/shared/native/routeEngine');
     const nativeModule = getNativeModule();
     if (nativeModule) {
       nativeModule.routeEngine.initWithPath(dbPath);
@@ -223,7 +223,7 @@ export async function restoreDatabaseBackup(fileUri: string): Promise<DatabaseRe
     };
   } catch (error) {
     try {
-      const { getNativeModule } = await import('@/lib/native/routeEngine');
+      const { getNativeModule } = await import('@/shared/native/routeEngine');
       const nativeModule = getNativeModule();
       if (nativeModule) {
         nativeModule.routeEngine.initWithPath(dbPath);

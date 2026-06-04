@@ -11,9 +11,9 @@ import { useState, useMemo, useCallback } from 'react';
 import { Alert } from 'react-native';
 import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { getRouteEngine } from '@/lib/native/routeEngine';
+import { getRouteEngine } from '@/shared/native/routeEngine';
 import { decodeCoords } from 'veloqrs';
-import { queryKeys } from '@/lib/queryKeys';
+import { queryKeys } from '@/shared/query/queryKeys';
 import type { FrequentSection, RoutePoint } from '@/types';
 
 /** Haversine distance between two points in meters. */

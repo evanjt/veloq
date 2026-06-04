@@ -16,7 +16,7 @@ jest.mock('veloqrs', () => ({
     setDebugEnabled: jest.fn(),
   },
 }));
-jest.mock('@/lib/debug/renderTimer', () => ({
+jest.mock('@/shared/debug/renderTimer', () => ({
   recordFFIMetric: jest.fn(),
 }));
 

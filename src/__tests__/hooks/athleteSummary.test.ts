@@ -12,7 +12,7 @@ jest.mock('@/providers', () => ({
   useAuthStore: jest.fn(),
 }));
 
-jest.mock('@/lib/native/routeEngine', () => ({
+jest.mock('@/shared/native/routeEngine', () => ({
   getRouteEngine: () => null,
 }));
 

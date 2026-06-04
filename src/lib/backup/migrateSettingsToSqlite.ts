@@ -7,8 +7,8 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { getRouteEngine } from '@/lib/native/routeEngine';
-import { debug } from '@/lib/utils/debug';
+import { getRouteEngine } from '@/shared/native/routeEngine';
+import { debug } from '@/shared/debug/debug';
 
 const SENTINEL_KEY = '__settings_migrated';
 

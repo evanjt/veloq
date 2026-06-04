@@ -6,12 +6,12 @@
 
 import { useMemo } from 'react';
 import { useEngineGroups } from './useRouteEngine';
-import { getRouteEngine } from '@/lib/native/routeEngine';
+import { getRouteEngine } from '@/shared/native/routeEngine';
 import type { RouteGroup, MatchDirection, DirectionStats } from '@/types';
 import { toActivityType } from '@/types';
 import type { RoutePerformanceResult, FfiActivityMetrics } from 'veloqrs';
-import { toDirectionStats, fromUnixSeconds } from '@/lib/utils/ffiConversions';
-import { safeGetTime } from '@/lib/utils/format';
+import { toDirectionStats, fromUnixSeconds } from '@/shared/ffi/ffiConversions';
+import { safeGetTime } from '@/shared/format/format';
 
 /** Match info returned from the Rust engine (uses camelCase from serde) */
 interface RustMatchInfo {

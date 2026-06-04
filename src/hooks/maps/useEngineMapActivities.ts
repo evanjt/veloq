@@ -3,7 +3,7 @@
  * All filtering happens in Rust (single O(n) pass) - no JS filtering.
  */
 import { useMemo, useState, useEffect } from 'react';
-import { getRouteEngine } from '@/lib/native/routeEngine';
+import { getRouteEngine } from '@/shared/native/routeEngine';
 import type { ActivityBoundsItem } from '@/types';
 
 interface UseEngineMapActivitiesOptions {

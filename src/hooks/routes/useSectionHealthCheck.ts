@@ -12,7 +12,7 @@
 
 import { useEffect, useRef } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { getRouteEngine } from '@/lib/native/routeEngine';
+import { getRouteEngine } from '@/shared/native/routeEngine';
 import { isRouteMatchingEnabled } from '@/providers/RouteSettingsStore';
 
 const FLAG_KEY = 'veloq-section-health-check-v1';

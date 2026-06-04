@@ -1,8 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { intervalsApi } from '@/api';
 import { useMemo } from 'react';
-import { getRouteEngine } from '@/lib/native/routeEngine';
-import { queryKeys } from '@/lib/queryKeys';
+import { getRouteEngine } from '@/shared/native/routeEngine';
+import { queryKeys } from '@/shared/query/queryKeys';
 import type { SportSettings, Zone } from '@/types';
 
 export function useSportSettings() {

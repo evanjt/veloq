@@ -6,7 +6,7 @@
  */
 
 import { useEffect, useState, useCallback, useRef } from 'react';
-import { getRouteEngine } from '@/lib/native/routeEngine';
+import { getRouteEngine } from '@/shared/native/routeEngine';
 import { decodeCoords } from 'veloqrs';
 import { usePotentialSections as usePotentialSectionsStore } from '@/providers/PotentialSectionsStore';
 import type { PotentialSection } from '@/types';

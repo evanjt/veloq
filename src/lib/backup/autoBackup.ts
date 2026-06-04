@@ -13,8 +13,8 @@
 
 import * as FileSystem from 'expo-file-system/legacy';
 import Constants from 'expo-constants';
-import { getRouteEngine } from '@/lib/native/routeEngine';
-import { debug } from '@/lib/utils/debug';
+import { getRouteEngine } from '@/shared/native/routeEngine';
+import { debug } from '@/shared/debug/debug';
 import type { BackupBackend, BackupEntry } from './backends/types';
 import { Platform } from 'react-native';
 import { localBackend } from './backends/localBackend';

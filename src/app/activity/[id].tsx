@@ -3,7 +3,7 @@ import { View, ScrollView, StyleSheet, Dimensions, InteractionManager } from 're
 import { Text, IconButton, Snackbar } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ScreenSafeAreaView, ChartSkeleton } from '@/shared/ui';
-import { logScreenRender } from '@/lib/debug/renderTimer';
+import { logScreenRender } from '@/shared/debug/renderTimer';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import {

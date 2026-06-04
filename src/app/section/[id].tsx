@@ -15,7 +15,7 @@ import {
 import { Text } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
-import { logScreenRender } from '@/lib/debug/renderTimer';
+import { logScreenRender } from '@/shared/debug/renderTimer';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import {
@@ -38,7 +38,7 @@ import {
   SectionTrimOverlay,
 } from '@/components/routes';
 import { useDebugStore } from '@/providers';
-import { useFFITimer } from '@/hooks/debug/useFFITimer';
+import { useFFITimer } from '@/shared/debug/useFFITimer';
 import { TAB_BAR_SAFE_PADDING, ScreenErrorBoundary } from '@/shared/ui';
 import {
   SectionHeader,
@@ -49,7 +49,7 @@ import {
   MergeCandidatesModal,
 } from '@/components/section';
 import { MAP_HEIGHT_NORMAL, MAP_HEIGHT_EDIT } from '@/components/section/SectionHeader';
-import { getRouteEngine } from '@/lib/native/routeEngine';
+import { getRouteEngine } from '@/shared/native/routeEngine';
 import { decodeCoords } from 'veloqrs';
 import {
   formatRelativeDate,
@@ -58,7 +58,7 @@ import {
   isRunningActivity,
   type MaterialIconName,
 } from '@/lib';
-import { fromUnixSeconds } from '@/lib/utils/ffiConversions';
+import { fromUnixSeconds } from '@/shared/ffi/ffiConversions';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import { type SectionTimeRange } from '@/constants';
 import type {
