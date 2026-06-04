@@ -11,6 +11,7 @@ import { Text } from 'react-native-paper';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { useSharedValue, useAnimatedStyle, runOnJS } from 'react-native-reanimated';
 import { useTranslation } from 'react-i18next';
+
 import { useTheme } from '@/hooks';
 import { colors, darkColors, spacing, brand, shadows } from '@/theme';
 import { formatDuration } from '@/lib';

@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useRecordingStore } from '@/providers/RecordingStore';
+
+import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
 
 function formatTime(totalSeconds: number): string {
   const s = Math.max(0, Math.floor(totalSeconds));

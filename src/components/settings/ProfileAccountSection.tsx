@@ -9,7 +9,7 @@ import { getAthleteId } from '@/api';
 import { useAuthStore, useUploadPermissionStore } from '@/providers';
 import { useSyncDateRange } from '@/providers/SyncDateRangeStore';
 import { clearAccountData, clearAuthOnly } from '@/shared/storage';
-import { clearUploadQueue } from '@/lib/storage/uploadQueue';
+import { clearUploadQueue } from '@/features/recording/lib/storage/uploadQueue';
 import { useTranslation } from 'react-i18next';
 import { settingsStyles } from './settingsStyles';
 

@@ -9,7 +9,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/hooks';
 import { colors, darkColors, spacing, layout, typography, brand } from '@/theme';
 import { navigateTo } from '@/lib';
-import { useRecordingPreferences } from '@/providers/RecordingPreferencesStore';
+import { useRecordingPreferences } from '@/features/recording/stores/RecordingPreferencesStore';
 import type { DataFieldType } from '@/types';
 
 const SPORT_THRESHOLDS = [

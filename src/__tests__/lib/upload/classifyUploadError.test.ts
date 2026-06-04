@@ -6,7 +6,7 @@
  * over network regex" branches get explicit coverage.
  */
 
-import { classifyUploadError } from '@/lib/upload/classifyUploadError';
+import { classifyUploadError } from '@/features/recording/lib/upload/classifyUploadError';
 
 function axiosLikeError(status: number, data?: unknown, message?: string): unknown {
   const err = new Error(message ?? `Request failed with status code ${status}`);

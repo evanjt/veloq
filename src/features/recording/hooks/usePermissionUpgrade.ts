@@ -8,7 +8,7 @@ import {
   isOAuthConfigured,
   getAppRedirectUri,
 } from '@/features/auth';
-import { clearPermissionBlocked } from '@/lib/storage/uploadQueue';
+import { clearPermissionBlocked } from '@/features/recording/lib/storage/uploadQueue';
 import { debug } from '@/shared/debug/debug';
 
 const log = debug.create('PermissionUpgrade');

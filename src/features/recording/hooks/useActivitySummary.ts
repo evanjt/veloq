@@ -1,5 +1,6 @@
 import { useMemo, useCallback } from 'react';
-import type { RecordingStreams } from '@/types/recording';
+
+import type { RecordingStreams } from '@/features/recording/types';
 
 export interface ActivitySummary {
   duration: number;

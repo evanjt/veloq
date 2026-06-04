@@ -58,7 +58,7 @@ import {
   markUploadFailed,
   getQueueSize,
   clearUploadQueue,
-} from '@/lib/storage/uploadQueue';
+} from '@/features/recording/lib/storage/uploadQueue';
 
 const QUEUE_KEY = 'veloq-upload-queue';
 

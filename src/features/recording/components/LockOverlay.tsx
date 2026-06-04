@@ -4,9 +4,10 @@ import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import * as Haptics from 'expo-haptics';
+
 import { spacing } from '@/theme';
-import { RecordingMap } from '@/components/recording/RecordingMap';
-import { GpsSignalIndicator } from '@/components/recording/GpsSignalIndicator';
+import { RecordingMap } from '@/features/recording/components/RecordingMap';
+import { GpsSignalIndicator } from '@/features/recording/components/GpsSignalIndicator';
 import { getActivityIcon } from '@/features/activity/lib/activityUtils';
 import type { RecordingMode, ActivityType } from '@/types';
 

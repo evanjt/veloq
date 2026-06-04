@@ -3,6 +3,7 @@ import { View, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-nat
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
+
 import { colors, spacing, layout, typography, brand } from '@/theme';
 
 export interface SaveErrorBannerProps {

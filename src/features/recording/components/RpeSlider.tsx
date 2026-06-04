@@ -2,6 +2,7 @@ import React, { useRef, useCallback } from 'react';
 import { View, StyleSheet, PanResponder, Animated } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
+
 import { useTheme } from '@/hooks';
 import { colors, darkColors, spacing, typography } from '@/theme';
 

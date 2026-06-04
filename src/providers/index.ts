@@ -113,11 +113,14 @@ export {
   initializeNotificationPreferences,
   type NotificationPreferences,
 } from './NotificationPreferencesStore';
-export { useRecordingStore, getRecordingStatus } from './RecordingStore';
+export { useRecordingStore, getRecordingStatus } from '@/features/recording/stores/RecordingStore';
 export {
   useRecordingPreferences,
   initializeRecordingPreferences,
-} from './RecordingPreferencesStore';
-export { useUploadPermissionStore, initializeUploadPermission } from './UploadPermissionStore';
+} from '@/features/recording/stores/RecordingPreferencesStore';
+export {
+  useUploadPermissionStore,
+  initializeUploadPermission,
+} from '@/features/recording/stores/UploadPermissionStore';
 export { useNotificationPrompt, initializeNotificationPrompt } from './NotificationPromptStore';
 export { useSupportStore, initializeSupportStore, daysSince } from './SupportStore';

@@ -2,8 +2,8 @@ import React from 'react';
 import { View, TouchableOpacity, StyleSheet } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { spacing } from '@/theme';
-import { RecordingMap } from '@/components/recording/RecordingMap';
-import { TrimSlider } from '@/components/recording/TrimSlider';
+import { RecordingMap } from '@/features/recording/components/RecordingMap';
+import { TrimSlider } from '@/features/recording/components/TrimSlider';
 
 interface ReviewMapHeroProps {
   coordinates: [number, number][];

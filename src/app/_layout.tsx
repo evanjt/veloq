@@ -76,7 +76,7 @@ import {
   GlobalErrorBoundary,
 } from '@/shared/ui';
 import { WhatsNewModal, TourReturnPill } from '@/components/ui';
-import { useUploadQueueProcessor } from '@/hooks/recording/useUploadQueueProcessor';
+import { useUploadQueueProcessor } from '@/features/recording/hooks/useUploadQueueProcessor';
 import { useRouteReoptimization } from '@/hooks/routes/useRouteReoptimization';
 import {
   getRouteEngine,

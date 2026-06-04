@@ -9,7 +9,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   useRecordingPreferences,
   initializeRecordingPreferences,
-} from '@/providers/RecordingPreferencesStore';
+} from '@/features/recording/stores/RecordingPreferencesStore';
 import type { DataFieldType } from '@/types';
 
 const STORAGE_KEY = 'veloq-recording-preferences';

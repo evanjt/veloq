@@ -2,10 +2,11 @@ import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
+
 import { formatDistance, formatDuration } from '@/lib';
 import { spacing, typography } from '@/theme';
 import { useMetricSystem } from '@/hooks';
-import type { ActivitySummary } from '@/hooks/recording/useActivitySummary';
+import type { ActivitySummary } from '@/features/recording/hooks/useActivitySummary';
 
 export interface ActivityStatsCardProps {
   summary: Pick<ActivitySummary, 'duration' | 'distance' | 'elevationGain'>;

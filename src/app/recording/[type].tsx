@@ -20,26 +20,29 @@ import { useTheme, useMetricSystem } from '@/hooks';
 import { colors, darkColors, spacing, layout, typography, brand } from '@/theme';
 import { navigateTo } from '@/lib';
 import { TAB_BAR_SAFE_PADDING } from '@/shared/ui';
-import { getRecordingMode } from '@/lib/utils/recordingModes';
+import { getRecordingMode } from '@/features/recording/lib/recordingModes';
 import { getActivityIcon, getActivityColor } from '@/features/activity/lib/activityUtils';
 import { formatDuration, formatDistance, formatPace, formatSpeed } from '@/lib';
-import { useRecordingStore } from '@/providers/RecordingStore';
-import { useRecordingPreferences } from '@/providers/RecordingPreferencesStore';
+import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
+import { useRecordingPreferences } from '@/features/recording/stores/RecordingPreferencesStore';
 import { useHRZones } from '@/features/fitness';
-import { createAutoPauseDetector } from '@/lib/recording/autoPause';
-import { saveRecordingBackup, clearRecordingBackup } from '@/lib/storage/recordingBackup';
-import { RecordingMap } from '@/components/recording/RecordingMap';
-import { DataFieldGrid } from '@/components/recording/DataFieldGrid';
-import { ControlBar } from '@/components/recording/ControlBar';
-import { LockOverlay } from '@/components/recording/LockOverlay';
-import { GpsSignalIndicator } from '@/components/recording/GpsSignalIndicator';
-import { ActivityTypePickerModal } from '@/components/recording/ActivityTypePickerModal';
-import { useTimer } from '@/hooks/recording/useTimer';
-import { useLocationTracking } from '@/hooks/recording/useLocationTracking';
-import { useRecordingMetrics } from '@/hooks/recording/useRecordingMetrics';
+import { createAutoPauseDetector } from '@/features/recording/lib/autoPause';
+import {
+  saveRecordingBackup,
+  clearRecordingBackup,
+} from '@/features/recording/lib/storage/recordingBackup';
+import { RecordingMap } from '@/features/recording/components/RecordingMap';
+import { DataFieldGrid } from '@/features/recording/components/DataFieldGrid';
+import { ControlBar } from '@/features/recording/components/ControlBar';
+import { LockOverlay } from '@/features/recording/components/LockOverlay';
+import { GpsSignalIndicator } from '@/features/recording/components/GpsSignalIndicator';
+import { ActivityTypePickerModal } from '@/features/recording/components/ActivityTypePickerModal';
+import { useTimer } from '@/features/recording/hooks/useTimer';
+import { useLocationTracking } from '@/features/recording/hooks/useLocationTracking';
+import { useRecordingMetrics } from '@/features/recording/hooks/useRecordingMetrics';
 import { debug } from '@/lib';
 import type { ActivityType, RecordingMode } from '@/types';
-import type { AutoPauseConfig } from '@/lib/recording/autoPause';
+import type { AutoPauseConfig } from '@/features/recording/lib/autoPause';
 
 const log = debug.create('RecordingScreen');
 

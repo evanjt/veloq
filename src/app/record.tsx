@@ -21,16 +21,16 @@ import { useTheme } from '@/hooks';
 import { colors, darkColors, spacing, layout, typography, brand } from '@/theme';
 import { getActivityIcon, getActivityColor } from '@/features/activity/lib/activityUtils';
 import type { MaterialIconName } from '@/features/activity/lib/activityUtils';
-import { ACTIVITY_CATEGORIES, getRecordingMode } from '@/lib/utils/recordingModes';
-import { useRecordingPreferences } from '@/providers/RecordingPreferencesStore';
-import { useRecordingStore } from '@/providers/RecordingStore';
-import { useCanRecord } from '@/hooks/recording/useCanRecord';
-import { usePermissionUpgrade } from '@/hooks/recording/usePermissionUpgrade';
+import { ACTIVITY_CATEGORIES, getRecordingMode } from '@/features/recording/lib/recordingModes';
+import { useRecordingPreferences } from '@/features/recording/stores/RecordingPreferencesStore';
+import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
+import { useCanRecord } from '@/features/recording/hooks/useCanRecord';
+import { usePermissionUpgrade } from '@/features/recording/hooks/usePermissionUpgrade';
 import {
   hasRecordingBackup,
   loadRecordingBackup,
   clearRecordingBackup,
-} from '@/lib/storage/recordingBackup';
+} from '@/features/recording/lib/storage/recordingBackup';
 import { intervalsApi } from '@/api';
 import { formatLocalDate, formatDuration, navigateTo } from '@/lib';
 import type { ActivityType, CalendarEvent } from '@/types';

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
+
 import type { ActivityType } from '@/types';
 
 export type TimeOfDayKey = 'morning' | 'afternoon' | 'evening' | 'night';

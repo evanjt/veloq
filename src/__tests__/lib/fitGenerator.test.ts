@@ -1,4 +1,4 @@
-import { generateFitFile } from '@/lib/recording/fitGenerator';
+import { generateFitFile } from '@/features/recording/lib/fitGenerator';
 import type { RecordingStreams, RecordingLap, ActivityType } from '@/types';
 
 const EMPTY_STREAMS: RecordingStreams = {

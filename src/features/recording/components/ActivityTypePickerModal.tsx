@@ -3,10 +3,11 @@ import { View, Modal, FlatList, TouchableOpacity, StyleSheet } from 'react-nativ
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
+
 import { useTheme } from '@/hooks';
 import { colors, darkColors, spacing, layout, typography, brand } from '@/theme';
 import { getActivityIcon, getActivityColor } from '@/features/activity/lib/activityUtils';
-import { ACTIVITY_CATEGORIES } from '@/lib/utils/recordingModes';
+import { ACTIVITY_CATEGORIES } from '@/features/recording/lib/recordingModes';
 import type { ActivityType } from '@/types';
 
 /**

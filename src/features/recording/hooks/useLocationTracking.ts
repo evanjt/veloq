@@ -2,11 +2,12 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { AppState, type AppStateStatus } from 'react-native';
 import * as Location from 'expo-location';
 import { useTranslation } from 'react-i18next';
-import { useRecordingStore } from '@/providers/RecordingStore';
+
+import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
 import {
   startBackgroundLocation,
   stopBackgroundLocation,
-} from '@/lib/recording/backgroundLocation';
+} from '@/features/recording/lib/backgroundLocation';
 import { debug } from '@/lib';
 
 const log = debug.create('LocationTracking');

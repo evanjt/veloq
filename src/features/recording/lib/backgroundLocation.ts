@@ -1,5 +1,6 @@
 import * as TaskManager from 'expo-task-manager';
 import * as Location from 'expo-location';
+
 import { debug } from '@/lib';
 import { brand } from '@/theme';
 

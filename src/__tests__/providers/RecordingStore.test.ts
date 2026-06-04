@@ -1,4 +1,4 @@
-import { useRecordingStore, getRecordingStatus } from '@/providers/RecordingStore';
+import { useRecordingStore, getRecordingStatus } from '@/features/recording/stores/RecordingStore';
 import type { RecordingGpsPoint } from '@/types';
 
 function resetStore() {

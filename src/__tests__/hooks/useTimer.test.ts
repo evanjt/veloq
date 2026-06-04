@@ -6,8 +6,8 @@
  */
 
 import { renderHook, act } from '@testing-library/react-native';
-import { useRecordingStore } from '@/providers/RecordingStore';
-import { useTimer } from '@/hooks/recording/useTimer';
+import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
+import { useTimer } from '@/features/recording/hooks/useTimer';
 
 // ---------------------------------------------------------------------------
 // Helpers

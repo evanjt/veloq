@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
-import { enqueueUpload } from '@/lib/storage/uploadQueue';
+
+import { enqueueUpload } from '@/features/recording/lib/storage/uploadQueue';
 import type { ActivityType } from '@/types';
 
 export interface QueueUploadParams {

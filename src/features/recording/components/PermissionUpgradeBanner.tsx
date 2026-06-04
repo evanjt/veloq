@@ -3,9 +3,10 @@ import { View, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-nat
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
+
 import { useTheme } from '@/hooks';
 import { useAuthStore, useUploadPermissionStore } from '@/providers';
-import { usePermissionUpgrade } from '@/hooks/recording/usePermissionUpgrade';
+import { usePermissionUpgrade } from '@/features/recording/hooks/usePermissionUpgrade';
 import { spacing } from '@/theme';
 
 const AMBER_BG = 'rgba(245, 158, 11, 0.12)';

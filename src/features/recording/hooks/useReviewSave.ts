@@ -2,18 +2,19 @@ import { useState, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { generateFitFile } from '@/lib/recording/fitGenerator';
+
+import { generateFitFile } from '@/features/recording/lib/fitGenerator';
 import { queryKeys } from '@/shared/query/queryKeys';
 import { intervalsApi } from '@/api';
 import { debug } from '@/shared/debug/debug';
-import { useRecordingStore } from '@/providers/RecordingStore';
-import { useUploadPermissionStore } from '@/providers/UploadPermissionStore';
+import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
+import { useUploadPermissionStore } from '@/features/recording/stores/UploadPermissionStore';
 import { isOAuthConfigured } from '@/features/auth';
-import { usePermissionUpgrade } from '@/hooks/recording/usePermissionUpgrade';
-import { useUploadQueue } from '@/hooks/recording/useUploadQueue';
-import { classifyUploadError } from '@/lib/upload/classifyUploadError';
+import { usePermissionUpgrade } from '@/features/recording/hooks/usePermissionUpgrade';
+import { useUploadQueue } from '@/features/recording/hooks/useUploadQueue';
+import { classifyUploadError } from '@/features/recording/lib/upload/classifyUploadError';
 import type { ActivityType } from '@/types';
-import type { RecordingStreams, RecordingLap } from '@/types/recording';
+import type { RecordingStreams, RecordingLap } from '@/features/recording/types';
 
 const log = debug.create('Upload');
 

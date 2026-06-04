@@ -2,7 +2,8 @@ import { useCallback, useEffect, useRef } from 'react';
 import { Animated, Easing } from 'react-native';
 import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
-import { useRecordingStore } from '@/providers/RecordingStore';
+
+import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
 
 const DISCARD_HOLD_MS = 1000;
 

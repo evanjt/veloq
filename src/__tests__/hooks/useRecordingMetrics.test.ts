@@ -6,8 +6,8 @@
  */
 
 import { renderHook } from '@testing-library/react-native';
-import { useRecordingStore } from '@/providers/RecordingStore';
-import { useRecordingMetrics } from '@/hooks/recording/useRecordingMetrics';
+import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
+import { useRecordingMetrics } from '@/features/recording/hooks/useRecordingMetrics';
 import type { RecordingStreams, RecordingLap } from '@/types';
 
 // ---------------------------------------------------------------------------

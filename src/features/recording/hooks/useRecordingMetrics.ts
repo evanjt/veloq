@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
-import { useRecordingStore } from '@/providers/RecordingStore';
+
+import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
 import { useAuthStore } from '@/providers';
 
 // MET values for calorie estimation

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { AppState } from 'react-native';
 import * as FileSystem from 'expo-file-system/legacy';
+
 import { useNetwork } from '@/shared/app/NetworkContext';
 import { useAuthStore, useUploadPermissionStore } from '@/providers';
 import { intervalsApi } from '@/api';
@@ -9,7 +10,7 @@ import {
   markUploadComplete,
   markUploadFailed,
   markUploadPermissionBlocked,
-} from '@/lib/storage/uploadQueue';
+} from '@/features/recording/lib/storage/uploadQueue';
 import { debug } from '@/shared/debug/debug';
 
 const log = debug.create('UploadQueue');

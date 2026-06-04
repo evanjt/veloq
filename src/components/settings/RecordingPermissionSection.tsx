@@ -5,7 +5,7 @@ import { useTheme } from '@/hooks';
 import { useTranslation } from 'react-i18next';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAuthStore, useUploadPermissionStore } from '@/providers';
-import { usePermissionUpgrade } from '@/hooks/recording/usePermissionUpgrade';
+import { usePermissionUpgrade } from '@/features/recording/hooks/usePermissionUpgrade';
 import { colors, darkColors, spacing, layout } from '@/theme';
 
 export function RecordingPermissionSection() {
