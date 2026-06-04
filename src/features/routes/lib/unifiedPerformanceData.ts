@@ -82,14 +82,22 @@ export function buildLaneStats(
 
   points.forEach((p, idx) => {
     if (currentIndex !== undefined && originalIndices[idx] === currentIndex) current = idx;
-    min = Math.min(min, p.speed);
-    max = Math.max(max, p.speed);
+    if (Number.isFinite(p.speed)) {
+      min = Math.min(min, p.speed);
+      max = Math.max(max, p.speed);
+    }
     const time = p.sectionTime ?? Infinity;
     if (time > 0 && time < laneBestTime) {
       laneBestTime = time;
       laneBestIdx = idx;
     }
   });
+
+  // No finite speed observed — return an empty lane rather than an Infinity
+  // domain that would break the chart's Y axis.
+  if (!Number.isFinite(min) || !Number.isFinite(max)) {
+    return { ...EMPTY_LANE };
+  }
 
   // Add 20% padding to Y domain (with a 0.5 floor so all-equal datasets
   // still render with some breathing room). Deliberately wider than

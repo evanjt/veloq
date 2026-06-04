@@ -244,6 +244,7 @@ export const ActivityDataChart = memo(function ActivityDataChart({
 
   // Format the display value
   const formatDisplayValue = (value: number): string => {
+    if (!Number.isFinite(value)) return '--';
     if (formatValue) {
       return formatValue(value, isMetric);
     }
@@ -272,8 +273,8 @@ export const ActivityDataChart = memo(function ActivityDataChart({
                 pointerEvents="none"
               >
                 <Text style={[chartStyles.tooltipText, isDark && chartStyles.tooltipTextDark]}>
-                  {tooltipData.x.toFixed(2)} {distanceUnit} • {formatDisplayValue(tooltipData.y)}{' '}
-                  {unit}
+                  {Number.isFinite(tooltipData.x) ? tooltipData.x.toFixed(2) : '--'} {distanceUnit}{' '}
+                  • {formatDisplayValue(tooltipData.y)} {unit}
                 </Text>
               </View>
             )}
@@ -342,7 +343,7 @@ export const ActivityDataChart = memo(function ActivityDataChart({
             <View style={styles.xAxisOverlay} pointerEvents="none">
               <Text style={[chartStyles.axisLabel, isDark && chartStyles.axisLabelDark]}>0</Text>
               <Text style={[chartStyles.axisLabel, isDark && chartStyles.axisLabelDark]}>
-                {maxDist.toFixed(1)} {distanceUnit}
+                {Number.isFinite(maxDist) ? maxDist.toFixed(1) : '--'} {distanceUnit}
               </Text>
             </View>
           </View>

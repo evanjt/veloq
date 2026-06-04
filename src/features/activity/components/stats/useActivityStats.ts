@@ -333,13 +333,19 @@ export function useActivityStats({
 
     // Calories
     if (activity.calories && activity.calories > 0) {
-      const calPerHour = Math.round((activity.calories / activity.moving_time) * 3600);
+      // moving_time can be 0 (manual indoor entries), so gate the burn rate to
+      // avoid rendering "Infinity kcal/hr".
+      const calPerHour =
+        activity.moving_time > 0
+          ? Math.round((activity.calories / activity.moving_time) * 3600)
+          : null;
+      const burnRate = calPerHour != null ? `${calPerHour} kcal/hr` : undefined;
       result.push({
         title: t('activity.stats.energy'),
         value: `${Math.round(activity.calories)}`,
         icon: 'fire',
         color: '#FBBF24', // Amber-400
-        context: `${calPerHour} kcal/hr`,
+        context: burnRate,
         explanation: t(METRIC_EXPLANATION_KEYS['Energy'] as never),
         details: [
           {
@@ -350,10 +356,7 @@ export function useActivityStats({
             label: t('activity.duration'),
             value: formatDuration(activity.moving_time),
           },
-          {
-            label: t('activity.stats.burnRate'),
-            value: `${calPerHour} kcal/hr`,
-          },
+          ...(burnRate ? [{ label: t('activity.stats.burnRate'), value: burnRate }] : []),
         ],
       });
     }
