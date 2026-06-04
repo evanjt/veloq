@@ -14,6 +14,14 @@ export interface SaveErrorBannerProps {
   isOAuthLoading: boolean;
   /** Invoked when the user taps "Grant Access" */
   onUpgradePermissions: () => void;
+  /**
+   * When provided, shows a "Retry" button for recoverable (server-rejected)
+   * failures. Omitted for permission and network errors, which have their own
+   * paths (OAuth upgrade / automatic queue).
+   */
+  onRetry?: () => void;
+  /** Spinner state for the retry button */
+  isRetrying?: boolean;
 }
 
 /**
@@ -28,6 +36,8 @@ export function SaveErrorBanner({
   showPermissionFix,
   isOAuthLoading,
   onUpgradePermissions,
+  onRetry,
+  isRetrying = false,
 }: SaveErrorBannerProps) {
   const { t } = useTranslation();
 
@@ -42,15 +52,40 @@ export function SaveErrorBanner({
           onPress={onUpgradePermissions}
           disabled={isOAuthLoading}
           activeOpacity={0.8}
+          accessibilityRole="button"
+          accessibilityLabel={t('recording.grantAccess', 'Grant Access')}
         >
           {isOAuthLoading ? (
-            <ActivityIndicator size="small" color="#FFFFFF" />
+            <ActivityIndicator size="small" color={colors.textOnDark} />
           ) : (
             <>
-              <MaterialCommunityIcons name="shield-lock-outline" size={16} color="#FFFFFF" />
+              <MaterialCommunityIcons
+                name="shield-lock-outline"
+                size={16}
+                color={colors.textOnDark}
+              />
               <Text style={styles.oauthUpgradeBtnText}>
                 {t('recording.grantAccess', 'Grant Access')}
               </Text>
+            </>
+          )}
+        </TouchableOpacity>
+      )}
+      {!showPermissionFix && onRetry && (
+        <TouchableOpacity
+          style={[styles.oauthUpgradeBtn, { backgroundColor: brand.teal }]}
+          onPress={onRetry}
+          disabled={isRetrying}
+          activeOpacity={0.8}
+          accessibilityRole="button"
+          accessibilityLabel={t('common.retry', 'Retry')}
+        >
+          {isRetrying ? (
+            <ActivityIndicator size="small" color={colors.textOnDark} />
+          ) : (
+            <>
+              <MaterialCommunityIcons name="refresh" size={16} color={colors.textOnDark} />
+              <Text style={styles.oauthUpgradeBtnText}>{t('common.retry', 'Retry')}</Text>
             </>
           )}
         </TouchableOpacity>
@@ -84,7 +119,7 @@ const styles = StyleSheet.create({
   },
   oauthUpgradeBtnText: {
     ...typography.bodyBold,
-    color: '#FFFFFF',
+    color: colors.textOnDark,
     fontSize: 14,
   },
 });

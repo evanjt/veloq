@@ -107,6 +107,7 @@ export default function ReviewScreen() {
     showPermissionFix,
     isOAuthLoading,
     handleUpgradeToOAuth,
+    canRetry,
   } = useReviewSave({
     isManual,
     type,
@@ -268,6 +269,8 @@ export default function ReviewScreen() {
           showPermissionFix={showPermissionFix}
           isOAuthLoading={isOAuthLoading}
           onUpgradePermissions={handleUpgradeToOAuth}
+          onRetry={canRetry ? handleSave : undefined}
+          isRetrying={isUploading}
         />
 
         {/* Action Buttons */}

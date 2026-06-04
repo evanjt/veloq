@@ -44,6 +44,12 @@ export interface UseReviewSave {
   setShowPermissionFix: (show: boolean) => void;
   isOAuthLoading: boolean;
   handleUpgradeToOAuth: () => Promise<void>;
+  /**
+   * True when the last failure was a server-side rejection (`apiError`) that
+   * left nothing queued or created — re-running `handleSave` is a safe retry.
+   * Network failures auto-queue and never set this; 403s use the OAuth path.
+   */
+  canRetry: boolean;
 }
 
 /**
@@ -78,6 +84,7 @@ export function useReviewSave({
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [queuedMessage, setQueuedMessage] = useState<string | null>(null);
   const [showPermissionFix, setShowPermissionFix] = useState(false);
+  const [canRetry, setCanRetry] = useState(false);
   const { upgradePermissions, isUpgrading: isOAuthLoading } = usePermissionUpgrade();
   const { queueUpload } = useUploadQueue();
   const queryClient = useQueryClient();
@@ -86,6 +93,7 @@ export function useReviewSave({
     setIsUploading(true);
     setErrorMessage(null);
     setQueuedMessage(null);
+    setCanRetry(false);
     try {
       if (isManual) {
         await intervalsApi.createManualActivity({
@@ -145,6 +153,9 @@ export function useReviewSave({
                 error: err.apiDetail ?? err.errMsg,
               })
             );
+            // Server rejected the upload — nothing was queued or created, so
+            // re-running handleSave regenerates the FIT and re-uploads cleanly.
+            setCanRetry(true);
             setIsUploading(false);
             return;
           }
@@ -231,5 +242,6 @@ export function useReviewSave({
     setShowPermissionFix,
     isOAuthLoading,
     handleUpgradeToOAuth,
+    canRetry,
   };
 }
