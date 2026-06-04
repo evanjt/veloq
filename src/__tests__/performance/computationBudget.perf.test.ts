@@ -37,10 +37,10 @@ describe('Computation budget', () => {
   });
 
   describe('import graph sanity', () => {
-    it('src/lib/ has no circular dependencies', () => {
+    it('src/shared/ has no circular dependencies', () => {
       const fs = require('fs');
       const path = require('path');
-      const libRoot = path.resolve(__dirname, '../../lib');
+      const libRoot = path.resolve(__dirname, '../../shared');
 
       // Build import graph
       const graph = new Map<string, string[]>();
