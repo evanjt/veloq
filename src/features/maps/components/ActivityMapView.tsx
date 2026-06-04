@@ -1,138 +1,41 @@
-/**
- * @fileoverview ActivityMapView - Interactive GPS track visualization
- *
- * **Overview**
- *
- * This component renders activity GPS tracks on a map with support for multiple
- * visualization modes, style switching, and interactive features. It combines
- * MapLibre's 2D rendering with a 3D WebView overlay for terrain visualization.
- *
- * **Architecture**
- *
- * **Dual Rendering System:**
- * - 2D Map: MapLibre React Native (native performance, gesture handling)
- * - 3D Map: WebView with Mapbox GL JS (terrain visualization)
- * - Crossfading: Animated opacity transitions between modes
- *
- * **State Management:**
- * - mapStyle: Current map style (standard/satellite/terrain)
- * - userOverride: Whether user manually changed style (prevents auto-switching)
- * - is3DMode/is3DReady: 3D mode state with loading indicator
- * - creationState/startIndex/endIndex: Section creation flow
- * - highlightIndex: Elevation chart crosshair position
- *
- * **Data Flow:**
- * 1. Props (polyline/coordinates) → decoded → validated → rendered
- * 2. Map style preference → auto-applied (unless user override)
- * 3. Section creation → start → end → callback with result
- * 4. Highlight index → marker → camera follow (optional)
- *
- * **Key Features:**
- *
- * **Style Switching:**
- * - Cycles: standard → satellite → terrain → standard
- * - Respects user preferences from MapPreferencesContext
- * - Manual override persists until component remounts
- *
- * **Section Creation:**
- * - Two-tap interaction: select start → select end → confirm
- * - Distance calculation via Haversine formula
- * - Visual feedback with marker overlays
- * - Callback with polyline slice and distance
- *
- * **Location Services:**
- * - Requests foreground permissions on demand
- * - Camera animates to user position
- * - Silently fails if permission denied
- *
- * **Performance Optimizations:**
- * - coordinate parsing memoized (expensive decodePolyline)
- * - Valid coordinates filtered once (NaN checks)
- * - 3D WebView opacity animated (native driver)
- *
- * **Sub-hooks:**
- * - useMapCamera: Camera position, bounds, ready state, bearing, location
- * - useMapLayers: GeoJSON data preparation for all map layers
- * - useSectionCreation: Section creation state machine
- *
- * @example
- * ```tsx
- * // Basic usage with polyline
- * <ActivityMapView
- *   polyline={activity.map.polyline}
- *   activityType={activity.type}
- *   height={400}
- * />
- *
- * // With section creation
- * <ActivityMapView
- *   polyline={activity.map.polyline}
- *   activityType={activity.type}
- *   creationMode={isEditing}
- *   onSectionCreated={(result) => {
- *     console.log('Section:', result.distanceMeters, 'm');
- *   }}
- *   onCreationCancelled={() => {
- *     setIsEditing(false);
- *   }}
- * />
- *
- * // With elevation highlight
- * <ActivityMapView
- *   polyline={activity.map.polyline}
- *   activityType={activity.type}
- *   highlightIndex={chartPointIndex}
- * />
- * ```
- */
+// Interactive GPS track map. Combines MapLibre 2D rendering with a 3D WebView
+// overlay, style switching, chart-scrub highlighting, and section creation.
+// Layer rendering lives in ActivityMapLayers, the control stack in
+// ActivityMapControls, and styles in ActivityMapView.styles.
 
 import React, { useMemo, useState, useRef, useCallback, useEffect, memo } from 'react';
 import {
   View,
-  StyleSheet,
-  TouchableOpacity,
   Pressable,
-  Text as RNText,
   Modal,
   StatusBar,
   Animated,
   Platform,
   ActivityIndicator,
 } from 'react-native';
-import { useTranslation } from 'react-i18next';
 import {
   MapView,
   Camera,
   ShapeSource,
   LineLayer,
   MarkerView,
-  CircleLayer,
-  SymbolLayer,
 } from '@maplibre/maplibre-react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+
 import { getActivityColor } from '@/features/activity/lib/activityUtils';
 import { decodePolyline, LatLng } from '@/shared/geo/polyline';
 import { computeAttribution } from '@/features/maps/lib/computeAttribution';
-import {
-  brand,
-  colors,
-  darkColors,
-  spacing,
-  layout,
-  shadows,
-  sectionPalette,
-  sectionPaletteExpression,
-  sectionPaletteIndex,
-} from '@/theme';
+import { colors, sectionPaletteExpression } from '@/theme';
 import { useMapPreferences } from '@/features/maps/stores/MapPreferencesContext';
 import { useSectionCreation } from '@/features/maps/hooks/useSectionCreation';
 import { useMapCamera } from '@/features/maps/hooks/useMapCamera';
 import { useMapLayers } from '@/features/maps/hooks/useMapLayers';
 import { useMapFullscreen } from '@/features/maps/hooks/useMapFullscreen';
 import { useIOSMapTap } from '@/features/maps/hooks/useIOSMapTap';
+import { ComponentErrorBoundary } from '@/shared/ui';
+import type { ActivityType, ActivityStreams, RoutePoint } from '@/types';
 import { BaseMapView } from './BaseMapView';
 import { Map3DWebView, type Map3DWebViewRef } from './Map3DWebView';
-import { CompassArrow, ComponentErrorBoundary } from '@/shared/ui';
 import {
   SectionCreationOverlay,
   type CreationState,
@@ -143,11 +46,12 @@ import {
   getMapStyle,
   isDarkStyle,
   getNextStyle,
-  getStyleIcon,
   MAP_ATTRIBUTIONS,
 } from './mapStyles';
 import { AttributionOverlay, type AttributionOverlayRef } from './AttributionOverlay';
-import type { ActivityType, ActivityStreams, RoutePoint } from '@/types';
+import { ActivityMapControls } from './ActivityMapControls';
+import { ActivityMapLayers } from './ActivityMapLayers';
+import { styles } from './ActivityMapView.styles';
 
 /** Section overlay for map visualization */
 export interface SectionOverlay {
@@ -269,7 +173,6 @@ export const ActivityMapView = memo(function ActivityMapView({
   country,
   streams,
 }: ActivityMapViewProps) {
-  const { t } = useTranslation();
   const { getStyleForActivity } = useMapPreferences();
   const preferredStyle = getStyleForActivity(activityType, activityId, country);
   const [mapStyle, setMapStyle] = useState<MapStyleType>(initialStyle ?? preferredStyle);
@@ -290,10 +193,6 @@ export const ActivityMapView = memo(function ActivityMapView({
 
   // Track if user manually overrode the style
   const [userOverride, setUserOverride] = useState(false);
-
-  // DEBUG: Track render count
-  const renderCountRef = useRef(0);
-  renderCountRef.current += 1;
 
   // Parse and validate coordinates early so they're available for callbacks
   const coordinates = useMemo(() => {
@@ -318,7 +217,6 @@ export const ActivityMapView = memo(function ActivityMapView({
     mapReady,
     mapKey,
     bounds,
-    boundsCenter,
     currentCenterRef,
     currentZoomRef,
     bearingAnim,
@@ -340,7 +238,6 @@ export const ActivityMapView = memo(function ActivityMapView({
   // ----- Layer GeoJSON preparation -----
   const {
     routeGeoJSON,
-    routeHasData,
     overlayGeoJSON,
     overlayHasData,
     sectionOverlaysGeoJSON,
@@ -382,7 +279,6 @@ export const ActivityMapView = memo(function ActivityMapView({
     sectionDistance,
     sectionPointCount,
     sectionGeoJSON,
-    sectionHasData,
     sectionStartPoint,
     sectionEndPoint,
     handleCreationTap,
@@ -491,26 +387,17 @@ export const ActivityMapView = memo(function ActivityMapView({
     }).start();
   }, [map3DOpacity]);
 
-  // Handle map press - using MapView's native onPress instead of gesture detector
-  // This properly distinguishes taps from zoom/pan gestures
-  // Handle native map press - only used for section creation on Android
-  // Fullscreen is handled by the cross-platform touch handler above
+  // Handle native map press - only used for section creation on Android.
+  // Fullscreen is handled by the cross-platform touch handler.
   const handleMapPress = useCallback(
     (feature: GeoJSON.Feature) => {
-      if (__DEV__) {
-        console.log('[ActivityMapView:Camera] handleMapPress', {
-          creationMode,
-          creationState,
-          featureType: feature?.geometry?.type,
-        });
-      }
       // In creation mode, delegate to section creation hook
       if (creationMode && feature?.geometry?.type === 'Point') {
         const [lng, lat] = feature.geometry.coordinates as [number, number];
         handleCreationTap(lng, lat);
       }
     },
-    [creationMode, creationState, handleCreationTap]
+    [creationMode, handleCreationTap]
   );
 
   // iOS tap handler - converts screen coordinates to map coordinates
@@ -576,15 +463,6 @@ export const ActivityMapView = memo(function ActivityMapView({
   const mapStyleValue = getMapStyle(mapStyle);
   const isDark = isDarkStyle(mapStyle);
 
-  // DEBUG: Log camera ref values
-  if (__DEV__) {
-    console.log('[ActivityMapView:Camera] Camera ref values', {
-      center: currentCenterRef.current,
-      zoom: currentZoomRef.current,
-      boundsCenter,
-    });
-  }
-
   // ----- Attribution management -----
   const attributionTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // attributionRef / initialAttributionRef / mapStyleRef / is3DModeRef /
@@ -645,20 +523,6 @@ export const ActivityMapView = memo(function ActivityMapView({
       }
     };
   }, []);
-
-  // DEBUG: Log render with key state
-  if (__DEV__) {
-    console.log('[ActivityMapView] RENDER #' + renderCountRef.current, {
-      mapReady,
-      creationMode,
-      creationState,
-      startIndex,
-      endIndex,
-      mapKey,
-      mapStyle,
-      coordCount: validCoordinates.length,
-    });
-  }
 
   if (!bounds || validCoordinates.length === 0) {
     return (
@@ -721,311 +585,31 @@ export const ActivityMapView = memo(function ActivityMapView({
               followUserLocation={false}
             />
 
-            {/* Route overlay (matched route trace) - rendered first so activity line is on top */}
-            {/* CRITICAL: Always render ShapeSource to avoid add/remove cycles that crash iOS MapLibre */}
-            {/* When no data, overlayGeoJSON is an empty FeatureCollection, not null */}
-            <ShapeSource id="overlaySource" shape={overlayGeoJSON}>
-              <LineLayer
-                id="overlayLine"
-                style={{
-                  lineColor: '#00E5FF',
-                  lineWidth: 5,
-                  lineCap: 'round',
-                  lineJoin: 'round',
-                  lineOpacity: 0.5,
-                }}
-              />
-            </ShapeSource>
-
-            {/* Route line - render first so section overlays appear on top */}
-            {/* CRITICAL: Always render ShapeSource to avoid add/remove cycles that crash iOS MapLibre */}
-            <ShapeSource id="routeSource" shape={routeGeoJSON}>
-              <LineLayer
-                id="routeLineCasing"
-                style={{
-                  lineColor: '#FFFFFF',
-                  lineWidth: 5,
-                  lineCap: 'round',
-                  lineJoin: 'round',
-                  lineOpacity: sectionOverlaysGeoJSON
-                    ? highlightedSectionId
-                      ? 0.25
-                      : 0.8
-                    : overlayHasData
-                      ? 0.85
-                      : 1,
-                }}
-              />
-              <LineLayer
-                id="routeLine"
-                style={{
-                  lineColor: activityColor,
-                  lineWidth: 4,
-                  lineCap: 'round',
-                  lineJoin: 'round',
-                  // Hide the solid-color line when gradient coloring is active.
-                  lineOpacity: gradientActive
-                    ? 0
-                    : sectionOverlaysGeoJSON
-                      ? highlightedSectionId
-                        ? 0.25
-                        : 0.8
-                      : overlayHasData
-                        ? 0.85
-                        : 1,
-                }}
-              />
-            </ShapeSource>
-
-            {/* Gradient-coloured route line (requires lineMetrics for line-progress). */}
-            {/* CRITICAL: Always render ShapeSource to avoid add/remove cycles that crash iOS MapLibre */}
-            <ShapeSource id="routeGradientSource" shape={routeGeoJSON} lineMetrics={true}>
-              <LineLayer
-                id="routeLineGradient"
-                style={{
-                  lineColor: activityColor,
-                  lineWidth: 4,
-                  lineCap: 'round',
-                  lineJoin: 'round',
-                  ...(gradientActive && gradientLineExpression
-                    ? { lineGradient: gradientLineExpression as unknown as string }
-                    : {}),
-                  lineOpacity: gradientActive ? 1 : 0,
-                }}
-              />
-            </ShapeSource>
-
-            {/* Section portion overlays - render after route line so they appear on top.
-                One line per section, drawn along the activity's own GPS trace (not the
-                averaged section consensus). White casing for contrast, PR gold or section
-                palette color for fill. */}
-            {/* CRITICAL: Always render stable ShapeSource to avoid Fabric crash */}
-            <ShapeSource id="portion-overlays-consolidated" shape={consolidatedPortionsGeoJSON}>
-              <LineLayer
-                id="portion-overlays-casing"
-                style={{
-                  lineColor: '#FFFFFF',
-                  lineWidth: highlightedSectionId
-                    ? ['case', ['==', ['get', 'id'], highlightedSectionId], 7, 5]
-                    : 6,
-                  lineCap: 'round',
-                  lineJoin: 'round',
-                  lineOpacity: sectionOverlaysGeoJSON
-                    ? highlightedSectionId
-                      ? ['case', ['==', ['get', 'id'], highlightedSectionId], 1, 0.15]
-                      : 0.9
-                    : 0,
-                }}
-              />
-              <LineLayer
-                id="portion-overlays-line"
-                style={{
-                  lineColor: highlightedSectionId
-                    ? [
-                        'case',
-                        ['==', ['get', 'id'], highlightedSectionId],
-                        '#00E5FF',
-                        [
-                          'case',
-                          ['==', ['get', 'isPR'], true],
-                          '#D4AF37',
-                          sectionPaletteExpression() as unknown as string,
-                        ],
-                      ]
-                    : [
-                        'case',
-                        ['==', ['get', 'isPR'], true],
-                        '#D4AF37',
-                        sectionPaletteExpression() as unknown as string,
-                      ],
-                  lineWidth: highlightedSectionId
-                    ? ['case', ['==', ['get', 'id'], highlightedSectionId], 5, 3]
-                    : 4,
-                  lineCap: 'butt',
-                  lineJoin: 'round',
-                  // Dashed pattern so overlapping sections are visually
-                  // distinguishable (you can see the other color showing through the gaps).
-                  lineDasharray: [2, 1.2],
-                  lineOpacity: sectionOverlaysGeoJSON
-                    ? highlightedSectionId
-                      ? ['case', ['==', ['get', 'id'], highlightedSectionId], 1, 0.25]
-                      : 0.95
-                    : 0,
-                }}
-              />
-            </ShapeSource>
-
-            {/* Section boundary ticks — perpendicular short line segments at each
-                portion's start/end. Always rendered, drawn above portions so section
-                breaks are visible even where portions overlap. */}
-            <ShapeSource id="section-boundaries" shape={sectionBoundariesGeoJSON}>
-              <LineLayer
-                id="section-boundaries-casing"
-                style={{
-                  lineColor: '#000000',
-                  lineWidth: 6,
-                  lineCap: 'round',
-                  lineOpacity: 0.45,
-                }}
-              />
-              <LineLayer
-                id="section-boundaries-line"
-                style={{
-                  lineColor: '#FFFFFF',
-                  lineWidth: 3.5,
-                  lineCap: 'round',
-                  lineOpacity: 1,
-                }}
-              />
-            </ShapeSource>
-
-            {/* Start marker */}
-            {/* CRITICAL: Always render to avoid Fabric crash - control visibility via opacity */}
-            <MarkerView
-              coordinate={startPoint ? [startPoint.longitude, startPoint.latitude] : [0, 0]}
-            >
-              <View style={[styles.markerContainer, { opacity: startPoint ? 1 : 0 }]}>
-                <View style={[styles.marker, styles.startMarker]} />
-              </View>
-            </MarkerView>
-
-            {/* End marker */}
-            {/* CRITICAL: Always render to avoid Fabric crash - control visibility via opacity */}
-            <MarkerView coordinate={endPoint ? [endPoint.longitude, endPoint.latitude] : [0, 0]}>
-              <View style={[styles.markerContainer, { opacity: endPoint ? 1 : 0 }]}>
-                <View style={[styles.marker, styles.endMarker]} />
-              </View>
-            </MarkerView>
-
-            {/* Section creation: selected section line */}
-            {/* CRITICAL: Always render ShapeSource to avoid add/remove cycles that crash iOS MapLibre */}
-            <ShapeSource id="sectionSource" shape={sectionGeoJSON}>
-              <LineLayer
-                id="sectionLine"
-                style={{
-                  lineColor: colors.success,
-                  lineWidth: 6,
-                  lineCap: 'round',
-                  lineJoin: 'round',
-                }}
-              />
-            </ShapeSource>
-
-            {/* Section creation: start marker */}
-            {/* CRITICAL: Always render to avoid camera reset when marker appears */}
-            {/* Use activity start as fallback to stay within map bounds (not [0,0]) */}
-            {/* Key includes startIndex to force position update (stable when null) */}
-            <MarkerView
-              key={`section-start-${startIndex ?? 'none'}`}
-              coordinate={
-                sectionStartPoint
-                  ? [sectionStartPoint.longitude, sectionStartPoint.latitude]
-                  : startPoint
-                    ? [startPoint.longitude, startPoint.latitude]
-                    : [0, 0]
-              }
-              allowOverlap={true}
-            >
-              <View
-                style={[
-                  styles.markerContainer,
-                  { opacity: creationMode && sectionStartPoint ? 1 : 0 },
-                ]}
-              >
-                <View style={[styles.sectionCreationMarker, styles.sectionStartMarker]}>
-                  <MaterialCommunityIcons name="flag-outline" size={16} color={colors.textOnDark} />
-                </View>
-              </View>
-            </MarkerView>
-
-            {/* Section creation: end marker */}
-            {/* CRITICAL: Always render to avoid camera reset when marker appears */}
-            {/* Use activity end as fallback to stay within map bounds (not [0,0]) */}
-            {/* Key includes endIndex to force position update (stable when null) */}
-            <MarkerView
-              key={`section-end-${endIndex ?? 'none'}`}
-              coordinate={
-                sectionEndPoint
-                  ? [sectionEndPoint.longitude, sectionEndPoint.latitude]
-                  : endPoint
-                    ? [endPoint.longitude, endPoint.latitude]
-                    : [0, 0]
-              }
-              allowOverlap={true}
-            >
-              <View
-                style={[
-                  styles.markerContainer,
-                  { opacity: creationMode && sectionEndPoint ? 1 : 0 },
-                ]}
-              >
-                <View style={[styles.sectionCreationMarker, styles.sectionEndMarker]}>
-                  <MaterialCommunityIcons name="flag" size={16} color={colors.textOnDark} />
-                </View>
-              </View>
-            </MarkerView>
-
-            {/* Numbered section markers — one MarkerView per non-PR section.
-                MarkerView is used here (not a ShapeSource + CircleLayer) because
-                @maplibre/maplibre-react-native's boolean filters don't reliably
-                render on native, and MarkerView with React children always does.
-                Each badge uses the section's palette color to match the row. */}
-            {sectionNumberedMarkersGeoJSON.features.map((f) => {
-              const geom = f.geometry as GeoJSON.Point;
-              const coord = geom?.coordinates as [number, number] | undefined;
-              const sectionId = f.properties?.sectionId as string | undefined;
-              const label = f.properties?.label as string | undefined;
-              if (!coord || !sectionId || !label) return null;
-              const color = sectionPalette[sectionPaletteIndex(sectionId)];
-              return (
-                <MarkerView key={`num-${sectionId}`} coordinate={coord} allowOverlap={true}>
-                  <Pressable
-                    onPress={() => onSectionMarkerPress?.(sectionId)}
-                    style={[styles.sectionNumberBadge, { backgroundColor: color }]}
-                  >
-                    <RNText style={styles.sectionNumberBadgeText}>{label}</RNText>
-                  </Pressable>
-                </MarkerView>
-              );
-            })}
-            {/* PR section markers — vector trophy via MarkerView, matches feed cards. */}
-            {sectionPRMarkersGeoJSON.features.map((f) => {
-              const geom = f.geometry as GeoJSON.Point;
-              const coord = geom?.coordinates as [number, number] | undefined;
-              const sectionId = f.properties?.sectionId as string | undefined;
-              if (!coord || !sectionId) return null;
-              return (
-                <MarkerView key={`pr-${sectionId}`} coordinate={coord} allowOverlap={true}>
-                  <Pressable
-                    onPress={() => onSectionMarkerPress?.(sectionId)}
-                    style={styles.prTrophyMarker}
-                  >
-                    <MaterialCommunityIcons name="trophy" size={14} color={brand.gold} />
-                  </Pressable>
-                </MarkerView>
-              );
-            })}
-
-            {/* Highlight marker from chart scrubbing — rendered last so it's on top of all layers */}
-            {/* Uses ShapeSource + CircleLayer because MarkerView coordinate updates break native position binding */}
-            <ShapeSource id="highlightSource" shape={highlightGeoJSON}>
-              <CircleLayer
-                id="highlight-border"
-                style={{
-                  circleRadius: 7,
-                  circleColor: '#FFFFFF',
-                  circleOpacity: highlightPoint ? 1 : 0,
-                }}
-              />
-              <CircleLayer
-                id="highlight-fill"
-                style={{
-                  circleRadius: 5,
-                  circleColor: sectionPalette[0],
-                  circleOpacity: highlightPoint ? 1 : 0,
-                }}
-              />
-            </ShapeSource>
+            <ActivityMapLayers
+              overlayGeoJSON={overlayGeoJSON}
+              overlayHasData={overlayHasData}
+              routeGeoJSON={routeGeoJSON}
+              activityColor={activityColor}
+              gradientActive={gradientActive}
+              gradientLineExpression={gradientLineExpression}
+              consolidatedPortionsGeoJSON={consolidatedPortionsGeoJSON}
+              sectionBoundariesGeoJSON={sectionBoundariesGeoJSON}
+              sectionOverlaysGeoJSON={sectionOverlaysGeoJSON}
+              sectionNumberedMarkersGeoJSON={sectionNumberedMarkersGeoJSON}
+              sectionPRMarkersGeoJSON={sectionPRMarkersGeoJSON}
+              highlightGeoJSON={highlightGeoJSON}
+              highlightPoint={highlightPoint}
+              highlightedSectionId={highlightedSectionId}
+              startPoint={startPoint}
+              endPoint={endPoint}
+              sectionGeoJSON={sectionGeoJSON}
+              sectionStartPoint={sectionStartPoint}
+              sectionEndPoint={sectionEndPoint}
+              startIndex={startIndex}
+              endIndex={endIndex}
+              creationMode={creationMode}
+              onSectionMarkerPress={onSectionMarkerPress}
+            />
           </MapView>
         </View>
 
@@ -1095,127 +679,23 @@ export const ActivityMapView = memo(function ActivityMapView({
 
       {/* Control buttons - rendered OUTSIDE map container for reliable touch handling */}
       {showStyleToggle && !isFullscreen && (
-        <View style={styles.controlsContainer}>
-          {/* Style toggle */}
-          <TouchableOpacity
-            testID="activity-map-style-toggle"
-            style={[styles.controlButton, isDark && styles.controlButtonDark]}
-            onPressIn={toggleMapStyle}
-            activeOpacity={0.6}
-            hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
-          >
-            <MaterialCommunityIcons
-              name={getStyleIcon(mapStyle)}
-              size={22}
-              color={isDark ? colors.textOnDark : colors.textSecondary}
-            />
-          </TouchableOpacity>
-
-          {/* Gradient coloring toggle — only shown when gradient data is available; hidden in 3D (no effect there) */}
-          {hasGradientData && !is3DMode && (
-            <TouchableOpacity
-              testID="activity-map-gradient-toggle"
-              accessibilityLabel={t('maps.colorByGradient')}
-              style={[
-                styles.controlButton,
-                isDark && styles.controlButtonDark,
-                gradientActive && styles.controlButtonActive,
-              ]}
-              onPressIn={toggleColorByGradient}
-              activeOpacity={0.6}
-              hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
-            >
-              <MaterialCommunityIcons
-                name="slope-uphill"
-                size={22}
-                color={
-                  gradientActive
-                    ? colors.textOnDark
-                    : isDark
-                      ? colors.textOnDark
-                      : colors.textSecondary
-                }
-              />
-            </TouchableOpacity>
-          )}
-
-          {/* 3D toggle */}
-          {hasRoute && (
-            <TouchableOpacity
-              testID="activity-map-3d-toggle"
-              style={[
-                styles.controlButton,
-                isDark && styles.controlButtonDark,
-                is3DMode && styles.controlButtonActive,
-              ]}
-              onPressIn={toggle3D}
-              activeOpacity={0.6}
-              hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
-            >
-              <MaterialCommunityIcons
-                name="terrain"
-                size={22}
-                color={
-                  is3DMode ? colors.textOnDark : isDark ? colors.textOnDark : colors.textSecondary
-                }
-              />
-            </TouchableOpacity>
-          )}
-
-          {/* Compass */}
-          <TouchableOpacity
-            style={[styles.controlButton, isDark && styles.controlButtonDark]}
-            onPressIn={resetOrientation}
-            activeOpacity={0.6}
-            hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
-          >
-            <CompassArrow
-              size={22}
-              rotation={bearingAnim}
-              northColor={colors.error}
-              southColor={isDark ? colors.textOnDark : colors.textSecondary}
-            />
-          </TouchableOpacity>
-
-          {/* GPS location */}
-          <TouchableOpacity
-            style={[styles.controlButton, isDark && styles.controlButtonDark]}
-            onPress={locationLoading ? undefined : handleGetLocation}
-            activeOpacity={locationLoading ? 1 : 0.6}
-            disabled={locationLoading}
-            hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
-          >
-            {locationLoading ? (
-              <ActivityIndicator
-                size="small"
-                color={isDark ? colors.textOnDark : colors.textSecondary}
-              />
-            ) : (
-              <MaterialCommunityIcons
-                name="crosshairs-gps"
-                size={22}
-                color={isDark ? colors.textOnDark : colors.textSecondary}
-              />
-            )}
-          </TouchableOpacity>
-
-          {/* Fullscreen expand */}
-          {enableFullscreen && (
-            <TouchableOpacity
-              testID="activity-map-fullscreen"
-              style={[styles.controlButton, isDark && styles.controlButtonDark]}
-              onPressIn={openFullscreen}
-              activeOpacity={0.6}
-              hitSlop={{ top: 8, right: 8, bottom: 8, left: 8 }}
-            >
-              <MaterialCommunityIcons
-                name="fullscreen"
-                size={22}
-                color={isDark ? colors.textOnDark : colors.textSecondary}
-              />
-            </TouchableOpacity>
-          )}
-        </View>
+        <ActivityMapControls
+          isDark={isDark}
+          mapStyle={mapStyle}
+          onToggleStyle={toggleMapStyle}
+          hasGradientData={hasGradientData}
+          gradientActive={gradientActive}
+          onToggleGradient={toggleColorByGradient}
+          is3DMode={is3DMode}
+          hasRoute={hasRoute}
+          onToggle3D={toggle3D}
+          bearingAnim={bearingAnim}
+          onResetOrientation={resetOrientation}
+          locationLoading={locationLoading}
+          onGetLocation={handleGetLocation}
+          enableFullscreen={enableFullscreen}
+          onOpenFullscreen={openFullscreen}
+        />
       )}
 
       {/* Fullscreen modal using BaseMapView */}
@@ -1321,137 +801,4 @@ export const ActivityMapView = memo(function ActivityMapView({
       )}
     </View>
   );
-});
-
-const styles = StyleSheet.create({
-  outerContainer: {
-    position: 'relative',
-  },
-  container: {
-    flex: 1,
-    borderRadius: layout.borderRadius,
-    overflow: 'hidden',
-  },
-  mapLayer: {
-    ...StyleSheet.absoluteFill,
-  },
-  map3DLayer: {
-    zIndex: 1,
-  },
-  loadingOverlay: {
-    ...StyleSheet.absoluteFill,
-    zIndex: 2,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.3)',
-    borderRadius: layout.borderRadius,
-  },
-  hiddenLayer: {
-    opacity: 0,
-    pointerEvents: 'none',
-  },
-  map: {
-    flex: 1,
-  },
-  placeholder: {
-    backgroundColor: colors.background,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderRadius: layout.borderRadius,
-  },
-  markerContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  marker: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    borderWidth: 1.5,
-    borderColor: colors.textOnDark,
-  },
-  sectionNumberBadge: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
-    ...shadows.pill,
-  },
-  prTrophyMarker: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    transform: [{ translateY: -30 }],
-  },
-  prTrophyBadge: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    backgroundColor: '#D4AF37',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
-    ...shadows.pill,
-  },
-  sectionNumberBadgeText: {
-    color: '#FFFFFF',
-    fontWeight: '700',
-    fontSize: 12,
-    textAlign: 'center',
-  },
-  startMarker: {
-    backgroundColor: 'rgba(34,197,94,0.75)',
-  },
-  endMarker: {
-    backgroundColor: 'rgba(239,68,68,0.75)',
-  },
-  sectionCreationMarker: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: colors.textOnDark,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  sectionStartMarker: {
-    backgroundColor: 'rgba(34,197,94,0.9)',
-  },
-  sectionEndMarker: {
-    backgroundColor: 'rgba(239,68,68,0.9)',
-  },
-  highlightMarker: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    backgroundColor: colors.primary,
-    borderWidth: 1.5,
-    borderColor: colors.textOnDark,
-  },
-  controlsContainer: {
-    position: 'absolute',
-    top: 48,
-    right: layout.cardMargin,
-    gap: spacing.sm,
-    zIndex: 100,
-    elevation: 100,
-  },
-  controlButton: {
-    width: layout.minTapTarget,
-    height: layout.minTapTarget,
-    borderRadius: layout.minTapTarget / 2,
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    ...shadows.modal,
-  },
-  controlButtonDark: {
-    backgroundColor: darkColors.surfaceCard,
-  },
-  controlButtonActive: {
-    backgroundColor: colors.primary,
-  },
 });
