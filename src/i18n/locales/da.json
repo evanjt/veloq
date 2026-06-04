@@ -382,6 +382,7 @@
   "common": {
     "activities": "aktiviteter",
     "back": "Tilbage",
+    "close": "Luk",
     "cancel": "Annuller",
     "clearSearch": "Ryd søgning",
     "confirm": "Bekræft",

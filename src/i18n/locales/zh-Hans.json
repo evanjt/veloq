@@ -382,6 +382,7 @@
   "common": {
     "activities": "活动",
     "back": "返回",
+    "close": "关闭",
     "cancel": "取消",
     "clearSearch": "清除搜索",
     "confirm": "确认",

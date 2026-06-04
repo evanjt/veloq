@@ -382,6 +382,7 @@
   "common": {
     "activities": "アクティビティ",
     "back": "戻る",
+    "close": "閉じる",
     "cancel": "キャンセル",
     "clearSearch": "検索をクリア",
     "confirm": "確認",

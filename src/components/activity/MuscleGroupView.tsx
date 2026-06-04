@@ -136,7 +136,12 @@ export function MuscleGroupView({
                     >
                       {muscleDetail.name}
                     </Text>
-                    <TouchableOpacity onPress={() => setSelectedMuscle(null)} hitSlop={12}>
+                    <TouchableOpacity
+                      onPress={() => setSelectedMuscle(null)}
+                      hitSlop={16}
+                      accessibilityRole="button"
+                      accessibilityLabel={t('common.close', 'Close')}
+                    >
                       <MaterialCommunityIcons
                         name="close"
                         size={12}

@@ -443,6 +443,9 @@ export const RoutesList = memo(function RoutesList({
                 return (
                   <TouchableOpacity
                     key={chip.key}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: isActive }}
+                    accessibilityLabel={chip.label}
                     style={[
                       styles.sortChip,
                       isDark && styles.sortChipDark,

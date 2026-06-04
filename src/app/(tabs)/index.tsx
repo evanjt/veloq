@@ -418,6 +418,8 @@ export default function FeedScreen() {
               <TouchableOpacity
                 key={group}
                 testID={`home-filter-${group.toLowerCase()}`}
+                accessibilityRole="button"
+                accessibilityState={{ selected: selectedTypeGroup === group }}
                 style={[
                   styles.filterChip,
                   isDark && styles.filterChipDark,

@@ -212,6 +212,8 @@ export default function RecordScreen() {
             testID="record-back"
             onPress={() => router.back()}
             style={styles.backButton}
+            accessibilityRole="button"
+            accessibilityLabel={t('common.back', 'Back')}
           >
             <MaterialCommunityIcons name="arrow-left" size={24} color={textPrimary} />
           </TouchableOpacity>
@@ -263,6 +265,8 @@ export default function RecordScreen() {
           testID="record-back"
           onPress={() => router.back()}
           style={styles.backButton}
+          accessibilityRole="button"
+          accessibilityLabel={t('common.back', 'Back')}
         >
           <MaterialCommunityIcons name="arrow-left" size={24} color={textPrimary} />
         </TouchableOpacity>
@@ -275,6 +279,8 @@ export default function RecordScreen() {
           onPress={() => navigateTo('/recording-settings')}
           style={styles.settingsButton}
           activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityLabel={t('settings.title', 'Settings')}
         >
           <MaterialCommunityIcons name="cog-outline" size={22} color={textSecondary} />
         </TouchableOpacity>

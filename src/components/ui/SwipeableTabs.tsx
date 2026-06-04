@@ -195,7 +195,14 @@ export function SwipeableTabs({
         {tabs.map((tab) => {
           const isActive = activeTab === tab.key;
           return (
-            <Pressable key={tab.key} style={styles.tab} onPress={() => handleTabPress(tab.key)}>
+            <Pressable
+              key={tab.key}
+              style={styles.tab}
+              onPress={() => handleTabPress(tab.key)}
+              accessibilityRole="tab"
+              accessibilityState={{ selected: isActive }}
+              accessibilityLabel={tab.label}
+            >
               <MaterialCommunityIcons
                 name={tab.icon}
                 size={18}

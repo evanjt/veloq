@@ -37,6 +37,8 @@ export const BackupRestoreBanner = React.memo(function BackupRestoreBanner({
         <TouchableOpacity
           onPress={onDismiss}
           hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          accessibilityRole="button"
+          accessibilityLabel={t('common.close', 'Close')}
         >
           <MaterialCommunityIcons
             name="close"

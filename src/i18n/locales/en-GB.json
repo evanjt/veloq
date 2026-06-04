@@ -382,6 +382,7 @@
   "common": {
     "activities": "activities",
     "back": "Back",
+    "close": "Close",
     "cancel": "Cancel",
     "clearSearch": "Clear search",
     "confirm": "Confirm",

@@ -382,6 +382,7 @@
   "common": {
     "activities": "atividades",
     "back": "Voltar",
+    "close": "Fechar",
     "cancel": "Cancelar",
     "clearSearch": "Limpar busca",
     "confirm": "Confirmar",

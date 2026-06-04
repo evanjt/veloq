@@ -157,6 +157,10 @@ export const LanguagePicker = React.memo(function LanguagePicker() {
                                 styles.variantChipDialectSelectedDark,
                             ]}
                             onPress={() => handleLanguageChange(variant.value)}
+                            hitSlop={{ top: 10, bottom: 10, left: 6, right: 6 }}
+                            accessibilityRole="button"
+                            accessibilityState={{ selected: isVariantSelected }}
+                            accessibilityLabel={variant.label}
                           >
                             <Text
                               style={[
