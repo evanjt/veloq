@@ -254,10 +254,13 @@ if (checkMode) {
   }
 
   // Verify all function names match
+  // \b before bare `name` so map keys ending in `_name` (e.g. `set_name:`
+  // in RUST_TO_TS_NAME) don't get captured as a `name:` field, which would
+  // pull the camelCase value into the set and falsely flag it as removed.
   const existingNames = new Set(
     [
       ...existingContent.matchAll(
-        /(?:["']name["']|name)\s*:\s*["']([A-Za-z0-9_]+)["']/g
+        /(?:["']name["']|\bname)\s*:\s*["']([A-Za-z0-9_]+)["']/g
       ),
     ].map((m) => m[1])
   );
