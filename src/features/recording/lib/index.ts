@@ -1,5 +1,13 @@
 export { createAutoPauseDetector, type AutoPauseConfig } from './autoPause';
 export {
+  GPS_WARNING_MS,
+  GPS_ALERT_MS,
+  BACKUP_INTERVAL_MS,
+  SPLIT_BANNER_DURATION_MS,
+} from './constants';
+export { getSportCategory, type SportCategory } from './sportCategoryDetector';
+export { calculateSplitPace } from './splitPaceCalculator';
+export {
   BACKGROUND_LOCATION_TASK,
   startBackgroundLocation,
   stopBackgroundLocation,

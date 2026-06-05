@@ -1,3 +1,15 @@
+export { useAutoPauseEffect } from './useAutoPauseEffect';
+export { useCrashRecoveryBackupEffect } from './useCrashRecoveryBackupEffect';
+export { useGpsSessionEffect } from './useGpsSessionEffect';
+export { useGpsWarningClearEffect } from './useGpsWarningClearEffect';
+export { useHrZoneColorEffect } from './useHrZoneColorEffect';
+export { useInitRecordingEffect } from './useInitRecordingEffect';
+export { useKmSplitBannerEffect } from './useKmSplitBannerEffect';
+export { useLockOnRecordingEffect } from './useLockOnRecordingEffect';
+export { useRecordingHandlers } from './useRecordingHandlers';
+export { useRecordingScreenColors } from './useRecordingScreenColors';
+export { useRecordingScreenState } from './useRecordingScreenState';
+export { useStatusPulseAnimation } from './useStatusPulseAnimation';
 export {
   useActivityNameGeneration,
   getTimeOfDayKey,
