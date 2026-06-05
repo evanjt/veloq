@@ -4,3 +4,6 @@ ios/Frameworks/
 
 # Rust build artifacts
 rust/target/
+
+# Rust source-content hash (build cache marker)
+.rust-source-hash

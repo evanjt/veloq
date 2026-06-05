@@ -423,58 +423,60 @@ function bindingsExist() {
   return false;
 }
 
+const RUST_HASH_FILE = path.join(MODULE_DIR, '.rust-source-hash');
+
 /**
- * Check if committed bindings are stale relative to Rust source files.
- * Compares mtimes of Rust sources against generated binding files.
- * Returns false if any binding file is missing (defers to bindingsExist()).
+ * Hash every Rust source / manifest / lockfile under rust/ (excluding build
+ * output). Content-based, so a git checkout, branch switch, or submodule
+ * update is detected even when file mtimes are misleading — the failure mode
+ * that previously left a stale .a linked (undefined-symbol errors).
  */
-function bindingsStale() {
-  const rustSrcDir = path.join(RUST_DIR, 'veloqrs/src');
-  const cargoToml = path.join(RUST_DIR, 'veloqrs/Cargo.toml');
-
-  const bindingFiles = [
-    path.join(MODULE_DIR, 'src/generated/veloqrs.ts'),
-    path.join(MODULE_DIR, 'src/generated/veloqrs-ffi.ts'),
-    path.join(MODULE_DIR, 'cpp/generated/veloqrs.cpp'),
-    path.join(MODULE_DIR, 'cpp/generated/veloqrs.hpp'),
-  ];
-
-  // If any binding file is missing, defer to bindingsExist() path
-  for (const f of bindingFiles) {
-    if (!existsSync(f)) return false;
-  }
-
-  // Find oldest binding mtime
-  let oldestBindingMtime = Infinity;
-  for (const f of bindingFiles) {
-    const mtime = fs.statSync(f).mtimeMs;
-    if (mtime < oldestBindingMtime) oldestBindingMtime = mtime;
-  }
-
-  // Collect Rust source files recursively
-  function collectRsFiles(dir) {
+function hashRustSources() {
+  const crypto = require('crypto');
+  function collect(dir) {
     let files = [];
     if (!existsSync(dir)) return files;
     for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      if (entry.name === 'target' || entry.name === '.git') continue;
       const full = path.join(dir, entry.name);
       if (entry.isDirectory()) {
-        files = files.concat(collectRsFiles(full));
-      } else if (entry.name.endsWith('.rs')) {
+        files = files.concat(collect(full));
+      } else if (
+        entry.name.endsWith('.rs') ||
+        entry.name === 'Cargo.toml' ||
+        entry.name === 'Cargo.lock' ||
+        (entry.name === 'config.toml' && path.basename(dir) === '.cargo')
+      ) {
         files.push(full);
       }
     }
     return files;
   }
-
-  const rustSources = collectRsFiles(rustSrcDir);
-  if (existsSync(cargoToml)) rustSources.push(cargoToml);
-
-  // Check if any Rust source is newer than oldest binding
-  for (const f of rustSources) {
-    if (fs.statSync(f).mtimeMs > oldestBindingMtime) return true;
+  const h = crypto.createHash('sha256');
+  for (const f of collect(RUST_DIR).sort()) {
+    h.update(path.relative(RUST_DIR, f));
+    h.update(fs.readFileSync(f));
   }
+  return h.digest('hex');
+}
 
-  return false;
+/** True when the Rust tree differs from the hash recorded at the last build. */
+function rustSourcesChanged() {
+  if (!existsSync(RUST_HASH_FILE)) return true;
+  try {
+    return readFileSync(RUST_HASH_FILE, 'utf8').trim() !== hashRustSources();
+  } catch {
+    return true;
+  }
+}
+
+/** Record the current Rust source hash after a successful build. */
+function writeRustSourceHash() {
+  try {
+    writeFileSync(RUST_HASH_FILE, hashRustSources());
+  } catch {
+    // best-effort marker; a missing hash just forces a rebuild next time
+  }
 }
 
 /**
@@ -537,9 +539,14 @@ async function runPreBuildSetup(platform) {
   const hasBinaries = binariesExist(platform);
   const hasBindings = bindingsExist();
   const hasPatches = allPatchesApplied(platform);
-  const staleBindings = hasBindings && bindingsStale();
+  // Rebuild bindings AND binaries when the Rust *content* changed. The old
+  // mtime comparison missed git checkouts/branch switches (which reset mtimes)
+  // and left a stale .a linked — the undefined-symbol failure. CI pre-builds
+  // binaries in a separate job, so never rebuild from source there.
+  const canBuildLocally = hasLocalRust() && !isCI();
+  const sourcesChanged = canBuildLocally && rustSourcesChanged();
 
-  if (hasBinaries && hasBindings && !staleBindings && hasPatches) {
+  if (hasBinaries && hasBindings && !sourcesChanged && hasPatches) {
     // Already built and up to date, skip silently
     return;
   }
@@ -567,23 +574,13 @@ async function runPreBuildSetup(platform) {
           '  Install Rust (https://rustup.rs) or run ./scripts/generate-bindings.sh on a machine with Rust.'
       );
     }
-  } else if (staleBindings) {
-    // Bindings exist but Rust sources are newer
-    if (hasLocalRust() && !isCI()) {
-      if (!quiet) console.log('  Bindings stale (Rust sources changed), regenerating...');
-      generateBindings(quiet);
-    } else if (isCI()) {
-      console.log('  Warning: Bindings may be stale (Rust sources newer than bindings)');
-      console.log(
-        '  Git checkout timestamps can cause false positives — skipping regeneration in CI'
-      );
-    } else {
-      console.log('  Warning: Bindings may be stale (Rust sources newer than bindings)');
-      console.log('  Run ./scripts/generate-bindings.sh to regenerate');
-    }
+  } else if (sourcesChanged) {
+    // sourcesChanged already implies a local Rust toolchain and not-CI
+    if (!quiet) console.log('  Rust sources changed, regenerating bindings...');
+    generateBindings(quiet);
   }
 
-  if (!hasBinaries) {
+  if (!hasBinaries || sourcesChanged) {
     if (isCI()) {
       // In CI, binaries should be pre-built by separate workflow jobs
       console.log('  Warning: Binaries not found in CI - they should be pre-built');
@@ -697,6 +694,10 @@ async function runPreBuildSetup(platform) {
   } else if (platform === 'ios') {
     copyIOSCppFiles();
   }
+
+  // Record the source hash we just built from so the next build skips when
+  // nothing changed and rebuilds when it does.
+  if (canBuildLocally) writeRustSourceHash();
 
   if (!quiet) console.log('\n[veloqrs] Pre-build setup complete!\n');
 }
