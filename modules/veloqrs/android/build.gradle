@@ -163,30 +163,48 @@ task buildRustLibrary {
   def rustDir = file("${projectDir}/../rust/veloqrs")
   def rustRoot = file("${projectDir}/../rust")
   def architectures = reactNativeArchitectures()
+  def hashFile = file("${jniLibsDir}/.rust-source-hash")
 
   architectures.each { arch ->
     outputs.file(file("${jniLibsDir}/${arch}/libveloqrs.so"))
   }
+  // The .so depends on Rust *content*, not file mtime. A git checkout, branch
+  // switch, or submodule update changes content while leaving mtimes that fool
+  // both Cargo and Gradle's timestamp checks — the cause of stale .so shipping
+  // in the APK. So always run the action and gate on a content hash of the
+  // Rust tree; Cargo's own incremental cache makes a no-op invocation fast.
+  outputs.upToDateWhen { false }
 
   doLast {
-    // Newest .rs source under rust/ (tracematch + veloqrs). If any of these
-    // is newer than a target .so, that arch needs a rebuild.
-    long newestSourceMs = 0
-    fileTree(dir: rustRoot, include: "**/*.rs", exclude: "**/target/**").each { f ->
-      if (f.lastModified() > newestSourceMs) newestSourceMs = f.lastModified()
-    }
+    def md = java.security.MessageDigest.getInstance("SHA-256")
+    fileTree(dir: rustRoot,
+             includes: ["**/*.rs", "**/Cargo.toml", "**/Cargo.lock", "**/.cargo/config.toml"],
+             excludes: ["**/target/**"])
+      .files.toSorted { a, b -> a.path <=> b.path }.each { f ->
+        md.update(f.path.bytes)
+        md.update(f.bytes)
+      }
+    def currentHash = md.digest().encodeHex().toString()
+    def storedHash = hashFile.exists() ? hashFile.text.trim() : null
+    def missing = architectures.findAll { !file("${jniLibsDir}/${it}/libveloqrs.so").exists() }
+    def ci = System.getenv("CI") || System.getenv("GITHUB_ACTIONS")
 
-    def stale = architectures.findAll { arch ->
-      def lib = file("${jniLibsDir}/${arch}/libveloqrs.so")
-      !lib.exists() || lib.lastModified() < newestSourceMs
-    }
-    if (stale.isEmpty()) {
-      println "[veloqrs] Rust libraries up to date for: ${architectures.join(', ')}"
+    if (missing.isEmpty() && storedHash == currentHash) {
+      println "[veloqrs] Rust libraries up to date (source hash unchanged)"
       return
     }
-    println "[veloqrs] Rebuilding Rust library (source newer than .so) for: ${stale.join(', ')}..."
+    if (missing.isEmpty() && storedHash == null && ci) {
+      // CI pre-builds the .so in a separate workflow step. Adopt it and record
+      // the hash so Gradle doesn't recompile (which would defeat the CI cache).
+      jniLibsDir.mkdirs()
+      hashFile.text = currentHash
+      println "[veloqrs] Adopting CI-prebuilt Rust library (source hash recorded)"
+      return
+    }
+
+    println "[veloqrs] Building Rust library (source changed or .so missing) for: ${architectures.join(', ')}..."
     def args = []
-    stale.each { arch -> args.addAll(["-t", arch]) }
+    architectures.each { arch -> args.addAll(["-t", arch]) }
     // ProcessBuilder rather than Gradle's exec {}: Gradle 9 (Expo SDK 56)
     // removed Project.exec from the task-action context.
     def cmd = ["cargo", "ndk"] + args + ["--platform", "24",
@@ -196,7 +214,9 @@ task buildRustLibrary {
     if (code != 0) {
       throw new GradleException("cargo ndk failed with exit code ${code}")
     }
-    println "[veloqrs] Rust libraries built for: ${stale.join(', ')}"
+    jniLibsDir.mkdirs()
+    hashFile.text = currentHash
+    println "[veloqrs] Rust libraries built for: ${architectures.join(', ')}"
   }
 }
 
