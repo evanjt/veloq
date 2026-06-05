@@ -1,4 +1,6 @@
 npx lint-staged
 npm run check:expo
+npm run ffi:check
+npm run crash:guard
 npx tsc --noEmit
 npm test -- --maxWorkers=2

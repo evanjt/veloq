@@ -42,7 +42,8 @@
     "crash:guard": "node scripts/crash-guard-sweep.mjs",
     "lint:engine-bridge": "node scripts/engine-event-bridge-audit.mjs",
     "ffi:gate": "node scripts/ffi-timing-gate.mjs",
-    "perf:coldstart": "node scripts/cold-start-scaling-harness.mjs"
+    "perf:coldstart": "node scripts/cold-start-scaling-harness.mjs",
+    "audit": "npm run check:expo && npm run ffi:check && npm run crash:guard && npm run lint:engine-bridge"
   },
   "dependencies": {
     "@expo/ngrok": "^4.1.3",
