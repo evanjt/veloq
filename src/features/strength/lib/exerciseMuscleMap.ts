@@ -8,6 +8,10 @@
  * Used by both the activity detail muscle tap feature and the strength insights tab.
  */
 
+import { debug } from '@/shared/debug/debug';
+
+const log = debug.create('ExerciseMuscleMap');
+
 export type MuscleSlug =
   | 'abs'
   | 'adductors'
@@ -102,7 +106,7 @@ const EXERCISE_MUSCLE_MAP: Record<number, MuscleMapping> = {
 export function getExerciseMuscles(exerciseCategory: number): MuscleMapping {
   const mapping = EXERCISE_MUSCLE_MAP[exerciseCategory];
   if (!mapping && exerciseCategory !== 0xffff && exerciseCategory !== 0xfffe) {
-    console.warn(`[exerciseMuscleMap] Unknown exercise category ${exerciseCategory}`);
+    log.warn(`Unknown exercise category ${exerciseCategory}`);
   }
   return mapping ?? { primary: [], secondary: [] };
 }

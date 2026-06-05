@@ -29,6 +29,9 @@ import type { TerrainSnapshotWebViewRef } from '@/features/maps/components/Terra
 import { brand, colors, mapPreviewColors, colorWithOpacity } from '@/theme';
 import type { Activity } from '@/types';
 import type { PreviewTrack } from '@/features/home/hooks/useStartupData';
+import { debug } from '@/shared/debug/debug';
+
+const log = debug.create('ActivityMapPreview');
 
 interface ActivityMapPreviewProps {
   activity: Activity;
@@ -200,7 +203,7 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
 
     const lngLatCoords: [number, number][] = validCoordinates.map((c) => [c.longitude, c.latitude]);
 
-    console.log(`[ActivityMapPreview] Requesting 3D snapshot for ${activity.id}`);
+    log.log(`Requesting 3D snapshot for ${activity.id}`);
     snapshotRef.current.requestSnapshot({
       activityId: activity.id,
       coordinates: lngLatCoords,

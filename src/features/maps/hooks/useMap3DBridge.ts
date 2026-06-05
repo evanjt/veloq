@@ -8,6 +8,9 @@ import type {
   WebViewBridgeHandlers,
   WebViewBridgeMessage,
 } from '@/features/maps/hooks/useWebViewBridge';
+import { debug } from '@/shared/debug/debug';
+
+const log = debug.create('Map3D');
 
 type Camera = {
   center: [number, number];
@@ -46,7 +49,7 @@ export function useMap3DBridge({
   const bridgeHandlers = useMemo<WebViewBridgeHandlers>(
     () => ({
       console: (data: WebViewBridgeMessage) => {
-        console.log('[3D]', data.message);
+        log.log(data.message);
       },
       mapReady: () => {
         mapReadyRef.current = true;

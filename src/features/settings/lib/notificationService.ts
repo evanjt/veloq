@@ -2,7 +2,9 @@ import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 import { router } from 'expo-router';
 import { brand } from '@/theme';
+import { debug } from '@/shared/debug/debug';
 
+const log = debug.create('Notification');
 const CHANNEL_ID = 'veloq-insights';
 const SYNC_CHANNEL_ID = 'veloq-sync';
 const SYNC_NOTIFICATION_ID = 'sync-progress';
@@ -182,12 +184,12 @@ const handledResponseIds = new Set<string>();
 function routeFromNotificationData(data: InsightNotificationData | undefined): void {
   if (!data) return;
   if (data.activityId) {
-    console.log('[Notification] Navigating to activity:', data.activityId);
+    log.log('Navigating to activity:', data.activityId);
     router.push(`/activity/${data.activityId}` as never);
   } else if (data.sectionId) {
     router.push(`/section/${data.sectionId}` as never);
   } else if (data.route) {
-    console.log('[Notification] Navigating to route:', data.route);
+    log.log('Navigating to route:', data.route);
     // navigate (not push) so a route that targets a mounted tab switches to it
     // instead of stacking a duplicate tab screen on every notification tap
     router.navigate(data.route as never);
@@ -199,12 +201,12 @@ export function setupNotificationResponseHandler(): Notifications.Subscription {
   return Notifications.addNotificationResponseReceivedListener((response) => {
     const id = response.notification.request.identifier;
     if (handledResponseIds.has(id)) {
-      console.log('[Notification] Tap already handled via cold-start path:', id);
+      log.log('Tap already handled via cold-start path:', id);
       return;
     }
     handledResponseIds.add(id);
     const data = response.notification.request.content.data as InsightNotificationData | undefined;
-    console.log('[Notification] Tap data:', JSON.stringify(data));
+    log.log('Tap data:', JSON.stringify(data));
     routeFromNotificationData(data);
   });
 }
@@ -224,9 +226,9 @@ export async function handleInitialNotificationResponse(): Promise<void> {
     if (handledResponseIds.has(id)) return;
     handledResponseIds.add(id);
     const data = response.notification.request.content.data as InsightNotificationData | undefined;
-    console.log('[Notification] Cold-start tap data:', JSON.stringify(data));
+    log.log('Cold-start tap data:', JSON.stringify(data));
     routeFromNotificationData(data);
   } catch (e) {
-    console.warn('[Notification] Could not read initial response:', e);
+    log.warn('Could not read initial response:', e);
   }
 }
