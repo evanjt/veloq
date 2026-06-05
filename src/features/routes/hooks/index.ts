@@ -17,3 +17,8 @@ export { useRouteDataSync } from './useRouteDataSync';
 export { useRoutesScreenData } from './useRoutesScreenData';
 export { useSectionChartData } from './useSectionChartData';
 export { useSectionActions, type UseSectionActionsResult } from './useSectionActions';
+export { useSectionDataRefresh } from './useSectionDataRefresh';
+export { useSectionUIState } from './useSectionUIState';
+export { useSectionActivityData } from './useSectionActivityData';
+export { useSectionChartDataEnriched } from './useSectionChartDataEnriched';
+export { useSectionMapData } from './useSectionMapData';
