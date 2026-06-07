@@ -30,6 +30,7 @@
     "prepare": "husky",
     "postinstall": "node scripts/patch-expo-signing.js",
     "maestro:smoke": "maestro test .maestro/ --include-tags=tier0 --no-ansi",
+    "maestro:gate": "maestro test .maestro/ --include-tags=tier0,tier1 --no-ansi",
     "maestro:test": "maestro test .maestro/ --include-tags=tier0,tier1,tier2 --no-ansi",
     "maestro:stress": "maestro test .maestro/ --include-tags=tier3 --no-ansi",
     "maestro:screenshots": "maestro test .maestro/ --include-tags=tier4 --no-ansi",
