@@ -2,7 +2,7 @@
  * Translation Completeness Test
  *
  * This test ensures:
- * 1. All translation files have the same keys as the reference locale (en-AU)
+ * 1. All translation files have the same keys as the reference locale (en-GB)
  * 2. All translation keys used in source code are defined in locale files
  *
  * It helps identify missing translations and track progress for new languages.
@@ -183,126 +183,20 @@ describe('Translation Completeness', () => {
 
   test(`Reference locale (${REFERENCE_LOCALE}) should have translations`, () => {
     expect(referenceKeys.length).toBeGreaterThan(0);
-    console.log(`\n📊 Reference locale has ${referenceKeys.length} translation keys\n`);
   });
 
-  // Test each locale for completeness
-  availableLocales.forEach((locale) => {
-    if (locale === REFERENCE_LOCALE) return;
-
-    describe(`Locale: ${locale}`, () => {
+  // Each non-reference locale must define every reference key.
+  test.each(availableLocales.filter((l) => l !== REFERENCE_LOCALE))(
+    '%s exists and has every reference key',
+    (locale) => {
       const localeData = loadLocale(locale);
+      expect(localeData).not.toBeNull();
 
-      test('should exist and be valid JSON', () => {
-        expect(localeData).not.toBeNull();
-      });
-
-      if (!localeData) return;
-
-      const localeKeys = getAllKeys(localeData);
+      const localeKeys = getAllKeys(localeData as Record<string, unknown>);
       const missingKeys = referenceKeys.filter((key) => !localeKeys.includes(key));
-      const extraKeys = localeKeys.filter((key) => !referenceKeys.includes(key));
-      const completeness =
-        ((referenceKeys.length - missingKeys.length) / referenceKeys.length) * 100;
-
-      test(`should have all translation keys (${completeness.toFixed(1)}% complete)`, () => {
-        if (missingKeys.length > 0) {
-          console.log(`\n❌ ${locale}: Missing ${missingKeys.length} keys:`);
-          missingKeys.slice(0, 20).forEach((key) => console.log(`   - ${key}`));
-          if (missingKeys.length > 20) {
-            console.log(`   ... and ${missingKeys.length - 20} more`);
-          }
-        } else {
-          console.log(`\n✅ ${locale}: 100% complete (${referenceKeys.length} keys)`);
-        }
-
-        // Fail if any keys are missing
-        expect(missingKeys).toEqual([]);
-      });
-
-      test('should not have extra keys not in reference', () => {
-        if (extraKeys.length > 0) {
-          console.log(`\n⚠️  ${locale}: Has ${extraKeys.length} extra keys not in reference:`);
-          extraKeys.forEach((key) => console.log(`   - ${key}`));
-        }
-        // Extra keys are warnings, not failures
-      });
-
-      test('should not have empty string values', () => {
-        const emptyValues: string[] = [];
-        localeKeys.forEach((key) => {
-          const value = getValueAtPath(localeData, key);
-          if (value === '') {
-            emptyValues.push(key);
-          }
-        });
-
-        if (emptyValues.length > 0) {
-          console.log(`\n⚠️  ${locale}: Has ${emptyValues.length} empty values:`);
-          emptyValues.slice(0, 10).forEach((key) => console.log(`   - ${key}`));
-          if (emptyValues.length > 10) {
-            console.log(`   ... and ${emptyValues.length - 10} more`);
-          }
-        }
-      });
-    });
-  });
-
-  // Summary test
-  test('Translation Progress Summary', () => {
-    console.log('\n' + '='.repeat(60));
-    console.log('📊 TRANSLATION PROGRESS SUMMARY');
-    console.log('='.repeat(60));
-    console.log(`Reference: ${REFERENCE_LOCALE} (${referenceKeys.length} keys)`);
-    console.log('-'.repeat(60));
-
-    const summary: {
-      locale: string;
-      complete: number;
-      missing: number;
-      percent: string;
-    }[] = [];
-
-    availableLocales.forEach((locale) => {
-      if (locale === REFERENCE_LOCALE) return;
-
-      const localeData = loadLocale(locale);
-      if (!localeData) return;
-
-      const localeKeys = getAllKeys(localeData);
-      const missingKeys = referenceKeys.filter((key) => !localeKeys.includes(key));
-      const completeness =
-        ((referenceKeys.length - missingKeys.length) / referenceKeys.length) * 100;
-
-      summary.push({
-        locale,
-        complete: referenceKeys.length - missingKeys.length,
-        missing: missingKeys.length,
-        percent: completeness.toFixed(1),
-      });
-    });
-
-    // Sort by completeness (highest first)
-    summary.sort((a, b) => parseFloat(b.percent) - parseFloat(a.percent));
-
-    summary.forEach(({ locale, complete, missing, percent }) => {
-      const bar =
-        '█'.repeat(Math.floor(parseFloat(percent) / 5)) +
-        '░'.repeat(20 - Math.floor(parseFloat(percent) / 5));
-      const status = parseFloat(percent) === 100 ? '✅' : parseFloat(percent) >= 80 ? '🟡' : '🔴';
-      console.log(
-        `${status} ${locale.padEnd(10)} ${bar} ${percent.padStart(5)}% (${missing} missing)`
-      );
-    });
-
-    console.log('-'.repeat(60));
-    const totalLocales = summary.length;
-    const completeLocales = summary.filter((s) => parseFloat(s.percent) === 100).length;
-    console.log(`Total: ${completeLocales}/${totalLocales} locales at 100%`);
-    console.log('='.repeat(60) + '\n');
-
-    expect(true).toBe(true); // Always pass, this is informational
-  });
+      expect(missingKeys).toEqual([]);
+    }
+  );
 });
 
 describe('Translation Key Usage', () => {
@@ -332,69 +226,8 @@ describe('Translation Key Usage', () => {
       }
     }
 
-    if (undefinedKeys.length > 0) {
-      console.log('\n' + '='.repeat(60));
-      console.log('❌ UNDEFINED TRANSLATION KEYS');
-      console.log('='.repeat(60));
-      console.log(
-        `Found ${undefinedKeys.length} translation keys used in code but not defined in locale files:\n`
-      );
-
-      undefinedKeys.forEach(({ key, usages }) => {
-        console.log(`  ❌ "${key}"`);
-        usages.forEach(({ file, line }) => {
-          console.log(`     └─ ${file}:${line}`);
-        });
-      });
-
-      console.log('\n' + '='.repeat(60));
-      console.log('Add these keys to src/i18n/locales/en-AU.json (and other locale files)');
-      console.log('='.repeat(60) + '\n');
-    } else {
-      console.log('\n✅ All translation keys used in source code are defined in locale files');
-      console.log(`   Checked ${keyUsages.size} unique translation keys\n`);
-    }
-
-    // This test should FAIL if there are undefined keys
-    expect(undefinedKeys).toEqual([]);
-  });
-
-  test('Translation key usage summary', async () => {
-    const keyUsages = await extractAllTranslationKeys();
-
-    console.log('\n' + '='.repeat(60));
-    console.log('📊 TRANSLATION KEY USAGE SUMMARY');
-    console.log('='.repeat(60));
-    console.log(`Total unique keys used in source code: ${keyUsages.size}`);
-    console.log(`Total keys defined in ${REFERENCE_LOCALE}: ${referenceKeys.size}`);
-
-    // Find unused keys (defined but never used in code)
-    const usedKeys = new Set(keyUsages.keys());
-    const unusedKeys = [...referenceKeys].filter((key) => !usedKeys.has(key));
-
-    // Filter out keys that are likely dynamic or used indirectly
-    const likelyUnused = unusedKeys.filter((key) => {
-      // Keep keys that don't look like they're part of a dynamic pattern
-      const parts = key.split('.');
-      const lastPart = parts[parts.length - 1];
-      // Skip keys that look like enum values or dynamic parts
-      return !['ride', 'run', 'swim', 'walk', 'hike', 'other', 'european', 'asian'].includes(
-        lastPart
-      );
-    });
-
-    if (likelyUnused.length > 0 && likelyUnused.length < 50) {
-      console.log(`\n⚠️  Potentially unused keys (${likelyUnused.length}):`);
-      likelyUnused.slice(0, 20).forEach((key) => console.log(`   - ${key}`));
-      if (likelyUnused.length > 20) {
-        console.log(`   ... and ${likelyUnused.length - 20} more`);
-      }
-      console.log('\n   Note: Some keys may be used dynamically and appear unused');
-    }
-
-    console.log('='.repeat(60) + '\n');
-
-    expect(true).toBe(true); // Informational only
+    // Assert on the key names so a failure lists exactly which keys are undefined.
+    expect(undefinedKeys.map((u) => u.key)).toEqual([]);
   });
 });
 
