@@ -1,22 +1,16 @@
 import type { WellnessData } from '@/types';
+import { tsbFromLoads } from '@/shared/math';
 
 /**
- * Calculate TSB (Training Stress Balance / Form) from wellness data.
- * TSB = CTL - ATL (Fitness minus Fatigue)
- *
- * Handles both field name variants from intervals.icu API:
- * - ctl/atl (preferred)
- * - ctlLoad/atlLoad (alternative)
+ * Calculate TSB (Form) per day from wellness data, for chart rendering.
+ * Handles both field name variants (ctl/atl and ctlLoad/atlLoad). A day missing
+ * either load renders as 0 rather than a distorted -atl.
  */
 export function calculateTSB(wellness: WellnessData[]): (WellnessData & { tsb: number })[] {
-  return wellness.map((day) => {
-    const ctl = day.ctl ?? day.ctlLoad ?? 0;
-    const atl = day.atl ?? day.atlLoad ?? 0;
-    return {
-      ...day,
-      tsb: ctl - atl,
-    };
-  });
+  return wellness.map((day) => ({
+    ...day,
+    tsb: tsbFromLoads(day.ctl ?? day.ctlLoad, day.atl ?? day.atlLoad) ?? 0,
+  }));
 }
 
 /**

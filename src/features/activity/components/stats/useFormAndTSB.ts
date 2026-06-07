@@ -8,6 +8,7 @@
 import type { WellnessData } from '@/types';
 import type { StatDetail } from './types';
 import { colors } from '@/theme';
+import { tsbFromLoads } from '@/shared/math';
 import { createMetricHook } from './createMetricHook';
 
 interface UseFormAndTSBOptions {
@@ -47,7 +48,7 @@ export const useFormAndTSB = createMetricHook<UseFormAndTSBOptions>({
 
     const ctl = wellness.ctl; // Chronic Training Load (fitness)
     const atl = wellness.atl; // Acute Training Load (fatigue)
-    const tsb = ctl - atl; // Training Stress Balance (form)
+    const tsb = tsbFromLoads(ctl, atl) ?? 0; // Training Stress Balance (form)
 
     // Determine form level and color
     const isFresh = tsb > 5;

@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { getRouteEngine } from '@/shared/native/routeEngine';
 import { decodeCoords } from 'veloqrs';
 import { fromUnixSeconds } from '@/shared/ffi/ffiConversions';
+import { calculateSpeed } from '@/shared/math';
 import type { Activity, ActivityType, FrequentSection, RoutePoint } from '@/types';
 
 export function useSectionActivityData(
@@ -24,7 +25,7 @@ export function useSectionActivityData(
         moving_time: m.movingTime,
         elapsed_time: m.elapsedTime,
         total_elevation_gain: m.elevationGain,
-        average_speed: m.movingTime > 0 ? m.distance / m.movingTime : 0,
+        average_speed: calculateSpeed(m.distance, m.movingTime),
         max_speed: 0,
         average_heartrate: m.avgHr ?? undefined,
       })

@@ -12,6 +12,7 @@ import { toActivityType } from '@/types';
 import type { RoutePerformanceResult, FfiActivityMetrics } from 'veloqrs';
 import { toDirectionStats, fromUnixSeconds } from '@/shared/ffi/ffiConversions';
 import { safeGetTime } from '@/shared/format/format';
+import { calculateSpeed } from '@/shared/math';
 
 /** Match info returned from the Rust engine (uses camelCase from serde) */
 interface RustMatchInfo {
@@ -212,8 +213,8 @@ export function useRoutePerformances(
     // Filter out activities with invalid speed (would crash chart)
     const points: RoutePerformancePoint[] = [];
     for (const m of activityMetrics.values()) {
-      const speed = m.movingTime > 0 ? m.distance / m.movingTime : 0;
-      if (!Number.isFinite(speed) || speed <= 0) continue;
+      const speed = calculateSpeed(m.distance, m.movingTime);
+      if (speed <= 0) continue;
 
       const matchInfo = matchInfoMap.get(m.activityId);
       const matchPercentage = matchInfo?.matchPercentage;
