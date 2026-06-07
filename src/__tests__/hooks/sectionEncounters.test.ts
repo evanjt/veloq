@@ -172,31 +172,15 @@ describe('Display name for reverse encounters', () => {
       : encounter.sectionName;
   }
 
-  it('appends arrow suffix for reverse direction', () => {
-    const encounter = makeEncounter({
-      sectionName: 'River Path',
-      direction: 'reverse',
-    });
-
-    expect(getDisplayName(encounter)).toBe('River Path \u21A9');
-  });
-
-  it('returns plain name for same direction', () => {
-    const encounter = makeEncounter({
-      sectionName: 'River Path',
-      direction: 'same',
-    });
-
-    expect(getDisplayName(encounter)).toBe('River Path');
-  });
-
-  it('handles empty section name with reverse suffix', () => {
-    const encounter = makeEncounter({
-      sectionName: '',
-      direction: 'reverse',
-    });
-
-    expect(getDisplayName(encounter)).toBe(' \u21A9');
+  it('appends arrow for reverse, plain name for same, across name values', () => {
+    const cases: Array<[{ sectionName: string; direction: 'same' | 'reverse' }, string]> = [
+      [{ sectionName: 'River Path', direction: 'reverse' }, 'River Path \u21A9'],
+      [{ sectionName: 'River Path', direction: 'same' }, 'River Path'],
+      [{ sectionName: '', direction: 'reverse' }, ' \u21A9'],
+    ];
+    for (const [overrides, expected] of cases) {
+      expect(getDisplayName(makeEncounter(overrides))).toBe(expected);
+    }
   });
 
   it('reverse suffix is Unicode U+21A9 (leftwards arrow with hook)', () => {
@@ -586,25 +570,6 @@ describe('Tab badge count', () => {
 
     expect(renderedCardCount).toBe(3);
     expect(uniqueKeys.size).toBe(renderedCardCount);
-  });
-
-  it('badge count is 0 for empty encounters', () => {
-    const encounters: SectionEncounter[] = [];
-    expect(encounters.length).toBe(0);
-  });
-
-  it('badge count reflects bidirectional traversals', () => {
-    // 3 sections, each traversed in both directions = 6 cards
-    const encounters: SectionEncounter[] = [
-      makeEncounter({ sectionId: 's1', direction: 'same' }),
-      makeEncounter({ sectionId: 's1', direction: 'reverse' }),
-      makeEncounter({ sectionId: 's2', direction: 'same' }),
-      makeEncounter({ sectionId: 's2', direction: 'reverse' }),
-      makeEncounter({ sectionId: 's3', direction: 'same' }),
-      makeEncounter({ sectionId: 's3', direction: 'reverse' }),
-    ];
-
-    expect(encounters.length).toBe(6);
   });
 
   it('keyExtractor produces unique keys for all encounters', () => {

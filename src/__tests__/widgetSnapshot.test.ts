@@ -134,17 +134,12 @@ describe('composeSnapshot', () => {
     expect(s.display.impactLine).toBe('Form -5 → -8 · +62 TSS');
   });
 
-  it('emits a null impact line when there is no recent impact', () => {
-    const raw = makeRaw();
-    raw.latest!.date = NOW - 5 * 86400;
-    expect(composeSnapshot(raw).display.impactLine).toBeNull();
-  });
-
-  it('suppresses impact for a stale latest activity', () => {
+  it('suppresses impact and impact line for a stale latest activity', () => {
     const raw = makeRaw();
     raw.latest!.date = NOW - 5 * 86400; // 5 days ago
     const s = composeSnapshot(raw);
     expect(s.impact).toBeNull();
+    expect(s.display.impactLine).toBeNull();
   });
 
   it('reverses sparklines to oldest-first for left→right drawing', () => {

@@ -83,9 +83,9 @@ describe('getFormZone', () => {
     { tsb: 50, expected: 'transition' },
   ];
 
-  testCases.forEach(({ tsb, expected }) => {
-    it(`returns "${expected}" for TSB = ${tsb}`, () => {
+  it('maps TSB to the correct form zone across all boundaries', () => {
+    for (const { tsb, expected } of testCases) {
       expect(getFormZone(tsb)).toBe(expected);
-    });
+    }
   });
 });

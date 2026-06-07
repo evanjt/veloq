@@ -17,6 +17,7 @@
 import React from 'react';
 import { renderHook, act, waitFor } from '@testing-library/react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { eachCorruptPayloadRecovers } from '../__shared__/storeCorruptionHelper';
 
 // UnitPreferenceStore
 import {
@@ -285,16 +286,19 @@ describe('RouteSettingsStore', () => {
       expect(state.isLoaded).toBe(true);
     });
 
-    it('recovers from invalid JSON', async () => {
-      await AsyncStorage.setItem(ROUTE_SETTINGS_KEY, 'not valid json');
-      await initializeRouteSettings();
-      expect(useRouteSettings.getState().settings).toEqual(DEFAULT_ROUTE_SETTINGS);
-    });
-
-    it('recovers from wrong types', async () => {
-      await AsyncStorage.setItem(ROUTE_SETTINGS_KEY, JSON.stringify({ enabled: 'not a boolean' }));
-      await initializeRouteSettings();
-      expect(useRouteSettings.getState().settings).toEqual(DEFAULT_ROUTE_SETTINGS);
+    // typeof [] === 'object', so the array case verifies the type guard rejects arrays too.
+    it('falls back to defaults for invalid JSON, wrong types, and arrays', async () => {
+      await eachCorruptPayloadRecovers(
+        ROUTE_SETTINGS_KEY,
+        initializeRouteSettings,
+        ['not valid json', JSON.stringify({ enabled: 'not a boolean' }), '[1, 2, 3]'],
+        () => {
+          expect(useRouteSettings.getState().settings).toEqual(DEFAULT_ROUTE_SETTINGS);
+          expect(
+            (useRouteSettings.getState().settings as unknown as Record<string, unknown>)['0']
+          ).toBeUndefined();
+        }
+      );
     });
 
     it('merges partial settings with defaults', async () => {
@@ -361,22 +365,6 @@ describe('RouteSettingsStore', () => {
       expect(state.settings.enabled).toBe(false);
       expect(state.settings.retentionDays).toBe(90);
       expect(state.settings.autoCleanupEnabled).toBe(true);
-    });
-  });
-
-  describe('Type Guard Edge Cases', () => {
-    /**
-     * BUG: Type guard doesn't reject arrays
-     *
-     * `typeof [] === 'object'` is true, so arrays pass the type guard.
-     */
-    it('should reject array values and use defaults', async () => {
-      await AsyncStorage.setItem(ROUTE_SETTINGS_KEY, '[1, 2, 3]');
-      await initializeRouteSettings();
-      expect(useRouteSettings.getState().settings).toEqual(DEFAULT_ROUTE_SETTINGS);
-      expect(
-        (useRouteSettings.getState().settings as unknown as Record<string, unknown>)['0']
-      ).toBeUndefined();
     });
   });
 

@@ -112,58 +112,40 @@ describe('toActivityMetrics', () => {
 });
 
 describe('zone time arrays', () => {
-  it('powerZoneTimes extracts .secs from zone objects', () => {
-    const activity = makeActivity({
-      icu_zone_times: [
-        { id: 'Z1', secs: 600 },
-        { id: 'Z2', secs: 1200 },
-      ],
-    });
-    const metrics = toActivityMetrics(activity);
-    expect(metrics.powerZoneTimes).toEqual([600, 1200]);
-  });
-
-  it('hrZoneTimes passes through raw numbers', () => {
-    const activity = makeActivity({
-      icu_hr_zone_times: [300, 600, 1200],
-    });
-    const metrics = toActivityMetrics(activity);
-    expect(metrics.hrZoneTimes).toEqual([300, 600, 1200]);
-  });
-
-  it('powerZoneTimes maps .secs while hrZoneTimes passes through', () => {
+  it('maps power zone .secs while passing hr zones through as raw numbers', () => {
     // icu_zone_times is Array<{id, secs}> → powerZoneTimes = map(z => z.secs)
     // icu_hr_zone_times is number[] → hrZoneTimes = array (passed through)
-    const activity = makeActivity({
-      icu_zone_times: [{ id: 'Z1', secs: 100 }],
-      icu_hr_zone_times: [200],
-    });
-    const metrics = toActivityMetrics(activity);
-    expect(metrics.powerZoneTimes).toEqual([100]);
-    expect(metrics.hrZoneTimes).toEqual([200]);
+    expect(
+      toActivityMetrics(
+        makeActivity({
+          icu_zone_times: [
+            { id: 'Z1', secs: 600 },
+            { id: 'Z2', secs: 1200 },
+          ],
+        })
+      ).powerZoneTimes
+    ).toEqual([600, 1200]);
+    expect(
+      toActivityMetrics(makeActivity({ icu_hr_zone_times: [300, 600, 1200] })).hrZoneTimes
+    ).toEqual([300, 600, 1200]);
+    const both = toActivityMetrics(
+      makeActivity({ icu_zone_times: [{ id: 'Z1', secs: 100 }], icu_hr_zone_times: [200] })
+    );
+    expect(both.powerZoneTimes).toEqual([100]);
+    expect(both.hrZoneTimes).toEqual([200]);
   });
 });
 
 describe('date edge cases', () => {
-  it('does not throw on invalid date string', () => {
-    const activity = makeActivity({ start_date_local: 'not-a-date' });
-    expect(() => toActivityMetrics(activity)).not.toThrow();
-    const metrics = toActivityMetrics(activity);
-    expect(metrics.date).toBe(BigInt(0));
-  });
-
-  it('does not throw on empty string date', () => {
-    const activity = makeActivity({ start_date_local: '' });
-    expect(() => toActivityMetrics(activity)).not.toThrow();
-    // Empty string parses to epoch in some environments
-    const metrics = toActivityMetrics(activity);
-    expect(typeof metrics.date).toBe('bigint');
-  });
-
-  it('does not throw on undefined date', () => {
-    const activity = makeActivity({ start_date_local: undefined as unknown as string });
-    expect(() => toActivityMetrics(activity)).not.toThrow();
-    const metrics = toActivityMetrics(activity);
-    expect(metrics.date).toBe(BigInt(0));
+  it('does not throw on invalid date inputs and falls back to epoch', () => {
+    for (const bad of ['not-a-date', undefined as unknown as string]) {
+      const activity = makeActivity({ start_date_local: bad });
+      expect(() => toActivityMetrics(activity)).not.toThrow();
+      expect(toActivityMetrics(activity).date).toBe(BigInt(0));
+    }
+    // Empty string parses to epoch in some environments — only assert bigint.
+    const emptyActivity = makeActivity({ start_date_local: '' });
+    expect(() => toActivityMetrics(emptyActivity)).not.toThrow();
+    expect(typeof toActivityMetrics(emptyActivity).date).toBe('bigint');
   });
 });

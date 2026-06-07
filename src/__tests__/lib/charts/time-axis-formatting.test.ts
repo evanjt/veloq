@@ -52,24 +52,32 @@ describe('axisLabelsNeedDay', () => {
     expect(axisLabelsNeedDay([new Date('2024-01-01')])).toBe(false);
   });
 
-  it('returns false when all three labels are in different months', () => {
-    const labels = [new Date('2024-01-15'), new Date('2024-06-15'), new Date('2024-12-15')];
-    expect(axisLabelsNeedDay(labels)).toBe(false);
-  });
-
-  it('returns true when first and middle labels share month/year', () => {
-    const labels = [new Date('2024-06-01'), new Date('2024-06-15'), new Date('2024-12-15')];
-    expect(axisLabelsNeedDay(labels)).toBe(true);
-  });
-
-  it('returns true when middle and last labels share month/year', () => {
-    const labels = [new Date('2024-01-01'), new Date('2024-06-15'), new Date('2024-06-30')];
-    expect(axisLabelsNeedDay(labels)).toBe(true);
-  });
-
-  it('distinguishes same month in different years', () => {
-    const labels = [new Date('2023-06-15'), new Date('2024-06-15'), new Date('2025-06-15')];
-    expect(axisLabelsNeedDay(labels)).toBe(false);
+  it('needs day precision only when adjacent labels share month/year', () => {
+    const cases: { label: string; labels: Date[]; expected: boolean }[] = [
+      {
+        label: 'all three in different months',
+        labels: [new Date('2024-01-15'), new Date('2024-06-15'), new Date('2024-12-15')],
+        expected: false,
+      },
+      {
+        label: 'first and middle share month/year',
+        labels: [new Date('2024-06-01'), new Date('2024-06-15'), new Date('2024-12-15')],
+        expected: true,
+      },
+      {
+        label: 'middle and last share month/year',
+        labels: [new Date('2024-01-01'), new Date('2024-06-15'), new Date('2024-06-30')],
+        expected: true,
+      },
+      {
+        label: 'same month in different years',
+        labels: [new Date('2023-06-15'), new Date('2024-06-15'), new Date('2025-06-15')],
+        expected: false,
+      },
+    ];
+    for (const { labels, expected } of cases) {
+      expect(axisLabelsNeedDay(labels)).toBe(expected);
+    }
   });
 });
 

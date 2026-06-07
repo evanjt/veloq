@@ -14,57 +14,34 @@ import {
   type Bounds,
 } from '@/features/maps/lib/tileGeometry';
 
-describe('tileGeometry', () => {
-  describe('lng2tile', () => {
-    it('converts 0° longitude at z0 to tile 0', () => {
-      expect(lng2tile(0, 0)).toBe(0);
+describe('tile math', () => {
+  describe('tile coordinate conversion', () => {
+    it('lng2tile maps longitudes to known tile columns', () => {
+      const cases: [number, number, number][] = [
+        [0, 0, 0],
+        [-180, 1, 0],
+        [180, 1, 2],
+      ];
+      for (const [lng, z, expected] of cases) {
+        expect(lng2tile(lng, z)).toBe(expected);
+      }
+      const zurich = lng2tile(8.54, 10);
+      expect(zurich).toBeGreaterThan(0);
+      expect(zurich).toBeLessThan(1024);
     });
 
-    it('converts -180° longitude at z1 to tile 0', () => {
-      expect(lng2tile(-180, 1)).toBe(0);
-    });
-
-    it('converts 180° longitude at z1 to tile 2', () => {
-      expect(lng2tile(180, 1)).toBe(2);
-    });
-
-    it('produces correct tile for Zurich (8.54°E) at z10', () => {
-      const tile = lng2tile(8.54, 10);
-      expect(tile).toBeGreaterThan(0);
-      expect(tile).toBeLessThan(1024);
-    });
-  });
-
-  describe('lat2tile', () => {
-    it('converts equator at z0 to tile 0', () => {
+    it('lat2tile stays finite across poles, limits, and the equator', () => {
+      for (const lat of [90, -90, 85, 0]) {
+        expect(Number.isFinite(lat2tile(lat, 10))).toBe(true);
+      }
       expect(lat2tile(0, 0)).toBe(0);
+      expect(lat2tile(0, 10)).toBeGreaterThanOrEqual(0);
     });
 
-    it('converts positive latitude to smaller tile number (north)', () => {
+    it('lat2tile gives smaller tile numbers further north', () => {
       const north = lat2tile(47.37, 10); // Zurich
       const south = lat2tile(46.0, 10); // Southern Switzerland
       expect(north).toBeLessThan(south);
-    });
-
-    it('handles north pole (lat=90) without Infinity', () => {
-      const tile = lat2tile(90, 10);
-      expect(Number.isFinite(tile)).toBe(true);
-    });
-
-    it('handles south pole (lat=-90) without Infinity', () => {
-      const tile = lat2tile(-90, 10);
-      expect(Number.isFinite(tile)).toBe(true);
-    });
-
-    it('handles near-pole latitudes (85.05°, Web Mercator limit)', () => {
-      const tile = lat2tile(85, 10);
-      expect(Number.isFinite(tile)).toBe(true);
-    });
-
-    it('handles equator (lat=0)', () => {
-      const tile = lat2tile(0, 10);
-      expect(Number.isFinite(tile)).toBe(true);
-      expect(tile).toBeGreaterThanOrEqual(0);
     });
   });
 

@@ -111,24 +111,13 @@ describe('QueryProvider', () => {
   });
 
   describe('module-level queryClient configuration', () => {
-    it('sets staleTime to 5 minutes', () => {
+    it('configures staleTime, gcTime, network mode, retry, and refetch flags', () => {
       const defaults = queryClient.getDefaultOptions().queries!;
       expect(defaults.staleTime).toBe(1000 * 60 * 5);
-    });
-
-    it('sets in-memory gcTime to 2 hours (persister maxAge handles cross-launch)', () => {
-      const defaults = queryClient.getDefaultOptions().queries!;
+      // in-memory gcTime 2h; persister maxAge handles cross-launch
       expect(defaults.gcTime).toBe(1000 * 60 * 60 * 2);
-    });
-
-    it('uses offlineFirst network mode and retry=2', () => {
-      const defaults = queryClient.getDefaultOptions().queries!;
       expect(defaults.networkMode).toBe('offlineFirst');
       expect(defaults.retry).toBe(2);
-    });
-
-    it('disables refetchOnMount and refetchOnWindowFocus', () => {
-      const defaults = queryClient.getDefaultOptions().queries!;
       expect(defaults.refetchOnMount).toBe(false);
       expect(defaults.refetchOnWindowFocus).toBe(false);
       expect(defaults.refetchOnReconnect).toBe(true);
@@ -136,21 +125,16 @@ describe('QueryProvider', () => {
   });
 
   describe('persister configuration', () => {
-    it('uses the veloq-query-cache key', () => {
-      expect(persisterCapture().options).not.toBeNull();
-      expect(persisterCapture().options.key).toBe('veloq-query-cache');
-    });
-
-    it('uses 2 second throttleTime', () => {
-      expect(persisterCapture().options.throttleTime).toBe(2000);
-    });
-
-    it('passes AsyncStorage as storage', () => {
-      expect(persisterCapture().options.storage).toBe(AsyncStorage);
+    it('uses veloq-query-cache key, 2s throttle, and AsyncStorage', () => {
+      const opts = persisterCapture().options;
+      expect(opts).not.toBeNull();
+      expect(opts.key).toBe('veloq-query-cache');
+      expect(opts.throttleTime).toBe(2000);
+      expect(opts.storage).toBe(AsyncStorage);
     });
   });
 
-  describe('serialize(): size protection', () => {
+  describe('Serialization & size protection', () => {
     const EMPTY_CACHE = '{"clientState":{"queries":[],"mutations":[]}}';
 
     function callSerialize(data: any): string {
@@ -158,13 +142,37 @@ describe('QueryProvider', () => {
       return fn(data);
     }
 
-    it('returns EMPTY_CACHE when clientState has more than 200 queries', () => {
-      const queries = Array.from({ length: 201 }, (_, i) => ({
-        queryKey: ['x', i],
-        state: { data: { id: i } },
-      }));
-      const data = { clientState: { queries, mutations: [] } };
-      expect(callSerialize(data)).toBe(EMPTY_CACHE);
+    it('falls back to EMPTY_CACHE on count/size/serialization-failure', () => {
+      const big = 'x'.repeat(10_000);
+      const circular: any = { clientState: { queries: [], mutations: [] } };
+      circular.circular = circular;
+      const emptyCaseFactories: Array<() => any> = [
+        // >200 queries
+        () => ({
+          clientState: {
+            queries: Array.from({ length: 201 }, (_, i) => ({
+              queryKey: ['x', i],
+              state: { data: { id: i } },
+            })),
+            mutations: [],
+          },
+        }),
+        // serialized payload > 1 MB (150 × ~10 KB)
+        () => ({
+          clientState: {
+            queries: Array.from({ length: 150 }, (_, i) => ({
+              queryKey: ['big', i],
+              state: { data: { blob: big } },
+            })),
+            mutations: [],
+          },
+        }),
+        // JSON.stringify throws on circular ref
+        () => circular,
+      ];
+      for (const make of emptyCaseFactories) {
+        expect(callSerialize(make())).toBe(EMPTY_CACHE);
+      }
     });
 
     it('serializes normally when query count is ≤ 200', () => {
@@ -176,23 +184,6 @@ describe('QueryProvider', () => {
       const out = callSerialize(data);
       expect(out).not.toBe(EMPTY_CACHE);
       expect(out).toContain('"small"');
-    });
-
-    it('returns EMPTY_CACHE when serialized payload exceeds 1 MB', () => {
-      // 150 queries, each carrying ~10 KB of data → serialized > 1 MB
-      const big = 'x'.repeat(10_000);
-      const queries = Array.from({ length: 150 }, (_, i) => ({
-        queryKey: ['big', i],
-        state: { data: { blob: big } },
-      }));
-      const data = { clientState: { queries, mutations: [] } };
-      expect(callSerialize(data)).toBe(EMPTY_CACHE);
-    });
-
-    it('returns EMPTY_CACHE when JSON.stringify throws (circular ref)', () => {
-      const circular: any = { clientState: { queries: [], mutations: [] } };
-      circular.circular = circular;
-      expect(callSerialize(circular)).toBe(EMPTY_CACHE);
     });
 
     it('handles missing clientState gracefully', () => {
@@ -212,21 +203,16 @@ describe('QueryProvider', () => {
       );
     });
 
-    it('sets maxAge to 24 hours (matches gcTime)', () => {
-      expect(providerCapture().props.persistOptions.maxAge).toBe(1000 * 60 * 60 * 24);
-    });
-
-    it('attaches the created persister', () => {
-      expect(providerCapture().props.persistOptions.persister).toBeDefined();
-    });
-
-    it('registers onSuccess and onError callbacks', () => {
-      expect(typeof providerCapture().props.onSuccess).toBe('function');
-      expect(typeof providerCapture().props.onError).toBe('function');
+    it('sets 24h maxAge, attaches persister, registers onSuccess/onError', () => {
+      const props = providerCapture().props;
+      expect(props.persistOptions.maxAge).toBe(1000 * 60 * 60 * 24);
+      expect(props.persistOptions.persister).toBeDefined();
+      expect(typeof props.onSuccess).toBe('function');
+      expect(typeof props.onError).toBe('function');
     });
   });
 
-  describe('dehydrateOptions.shouldDehydrateQuery', () => {
+  describe('Cache rehydration filtering', () => {
     let shouldDehydrate: (q: any) => boolean;
 
     beforeEach(() => {
@@ -239,52 +225,20 @@ describe('QueryProvider', () => {
         providerCapture().props.persistOptions.dehydrateOptions.shouldDehydrateQuery;
     });
 
-    it('returns false for pending queries (would fail on rehydration)', () => {
-      const query = {
-        queryKey: ['anything'],
-        state: { status: 'pending' },
-      };
-      expect(shouldDehydrate(query)).toBe(false);
-    });
-
-    it('returns false for activity-streams-v3 (100-500 KB per activity)', () => {
-      const query = {
-        queryKey: ['activity-streams-v3', 'a1'],
-        state: { status: 'success' },
-      };
-      expect(shouldDehydrate(query)).toBe(false);
-    });
-
-    it('returns false for individual activity queries', () => {
-      const query = {
-        queryKey: ['activity', 'a1'],
-        state: { status: 'success' },
-      };
-      expect(shouldDehydrate(query)).toBe(false);
-    });
-
-    it('returns false for fixed-range activities queries (date params go stale)', () => {
-      const query = {
-        queryKey: ['activities', { oldest: '2024-01-01' }],
-        state: { status: 'success' },
-      };
-      expect(shouldDehydrate(query)).toBe(false);
-    });
-
-    it('returns true for other query keys (e.g., wellness)', () => {
-      const query = {
-        queryKey: ['wellness', '7d'],
-        state: { status: 'success' },
-      };
-      expect(shouldDehydrate(query)).toBe(true);
-    });
-
-    it('returns true for athlete queries', () => {
-      const query = {
-        queryKey: ['athlete'],
-        state: { status: 'success' },
-      };
-      expect(shouldDehydrate(query)).toBe(true);
+    it('excludes pending/stream/activity/fixed-range; keeps everything else', () => {
+      // pending → false regardless of key; streams, single activity, and
+      // fixed-range activities excluded; wellness/athlete dehydrated.
+      const cases: Array<[unknown[], string, boolean]> = [
+        [['anything'], 'pending', false],
+        [['activity-streams-v3', 'a1'], 'success', false],
+        [['activity', 'a1'], 'success', false],
+        [['activities', { oldest: '2024-01-01' }], 'success', false],
+        [['wellness', '7d'], 'success', true],
+        [['athlete'], 'success', true],
+      ];
+      for (const [queryKey, status, expected] of cases) {
+        expect(shouldDehydrate({ queryKey, state: { status } })).toBe(expected);
+      }
     });
   });
 
@@ -377,22 +331,18 @@ describe('QueryProvider', () => {
   });
 
   describe('AppState ↔ focusManager sync', () => {
-    it('registered an AppState change listener at module init', () => {
+    it('registers a change listener that maps active/background to focus state', () => {
       expect(capturedAppStateListeners.length).toBeGreaterThan(0);
-    });
-
-    it('calls focusManager.setFocused(true) when app becomes active', () => {
-      const spy = jest.spyOn(focusManager, 'setFocused').mockImplementation(() => {});
-      capturedAppStateListeners[0]('active');
-      expect(spy).toHaveBeenCalledWith(true);
-      spy.mockRestore();
-    });
-
-    it('calls focusManager.setFocused(false) when app goes to background', () => {
-      const spy = jest.spyOn(focusManager, 'setFocused').mockImplementation(() => {});
-      capturedAppStateListeners[0]('background');
-      expect(spy).toHaveBeenCalledWith(false);
-      spy.mockRestore();
+      const transitions: Array<[string, boolean]> = [
+        ['active', true],
+        ['background', false],
+      ];
+      for (const [status, focused] of transitions) {
+        const spy = jest.spyOn(focusManager, 'setFocused').mockImplementation(() => {});
+        capturedAppStateListeners[0](status);
+        expect(spy).toHaveBeenCalledWith(focused);
+        spy.mockRestore();
+      }
     });
   });
 });

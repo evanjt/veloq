@@ -27,38 +27,25 @@ import type { PaceCurve, PowerCurve } from '@/types';
 // ---------------------------------------------------------------------------
 
 describe('paceToMinPerKm', () => {
-  it('converts a typical running pace (4:00/km = 4.1667 m/s)', () => {
-    // 1000 / 4.1667 ≈ 240s → 4:00
-    const result = paceToMinPerKm(1000 / 240);
-    expect(result.minutes).toBe(4);
-    expect(result.seconds).toBe(0);
+  it('converts m/s to min/km across the running pace range', () => {
+    // pace = 1000 / speed seconds per km, split into minutes/seconds.
+    const cases: { secondsPerKm: number; minutes: number; seconds: number }[] = [
+      { secondsPerKm: 240, minutes: 4, seconds: 0 }, // 4:00
+      { secondsPerKm: 390, minutes: 6, seconds: 30 }, // 6:30
+      { secondsPerKm: 120, minutes: 2, seconds: 0 }, // very fast
+      { secondsPerKm: 900, minutes: 15, seconds: 0 }, // very slow
+    ];
+
+    for (const { secondsPerKm, minutes, seconds } of cases) {
+      const result = paceToMinPerKm(1000 / secondsPerKm);
+      expect(result.minutes).toBe(minutes);
+      expect(result.seconds).toBe(seconds);
+    }
   });
 
-  it('converts a slower pace (6:30/km)', () => {
-    // 6:30 = 390s/km → 1000/390 ≈ 2.564 m/s
-    const result = paceToMinPerKm(1000 / 390);
-    expect(result.minutes).toBe(6);
-    expect(result.seconds).toBe(30);
-  });
-
-  it('returns {0, 0} for zero speed', () => {
+  it('returns {0, 0} for zero and negative speed', () => {
     expect(paceToMinPerKm(0)).toEqual({ minutes: 0, seconds: 0 });
-  });
-
-  it('returns {0, 0} for negative speed', () => {
     expect(paceToMinPerKm(-5)).toEqual({ minutes: 0, seconds: 0 });
-  });
-
-  it('handles very fast speed (2:00/km)', () => {
-    const result = paceToMinPerKm(1000 / 120);
-    expect(result.minutes).toBe(2);
-    expect(result.seconds).toBe(0);
-  });
-
-  it('handles very slow speed (15:00/km)', () => {
-    const result = paceToMinPerKm(1000 / 900);
-    expect(result.minutes).toBe(15);
-    expect(result.seconds).toBe(0);
   });
 
   it('rolls over seconds=60 to next minute', () => {
@@ -111,30 +98,25 @@ describe('getPaceAtDistance', () => {
     pace: [6.15, 5.71, 5.56, 4.76, 4.55],
   };
 
-  it('returns null for undefined curve', () => {
-    expect(getPaceAtDistance(undefined, 1000)).toBeNull();
-  });
-
-  it('finds exact distance match', () => {
-    expect(getPaceAtDistance(mockCurve, 1000)).toBe(5.56);
-  });
-
-  it('finds near-exact match within 1m tolerance', () => {
-    expect(getPaceAtDistance(mockCurve, 1000.5)).toBe(5.56);
-  });
-
-  it('finds closest distance when no exact match', () => {
-    // 900m is closest to 800m
-    expect(getPaceAtDistance(mockCurve, 900)).toBe(5.71);
-  });
-
-  it('returns closest match for distance beyond range', () => {
-    expect(getPaceAtDistance(mockCurve, 50000)).toBe(4.55); // closest to 10000
-  });
-
-  it('returns null for curve with missing pace array', () => {
+  it('returns null for undefined curve or curve missing the pace array', () => {
     const noPace = { type: 'pace', sport: 'Run', distances: [100], times: [20] } as PaceCurve;
+    expect(getPaceAtDistance(undefined, 1000)).toBeNull();
     expect(getPaceAtDistance(noPace, 100)).toBeNull();
+  });
+
+  it('returns the pace at the closest distance', () => {
+    // Exact, within-1m tolerance, nearest entry, and beyond-range all snap to the
+    // closest distance's pace value.
+    const cases: { distance: number; expected: number }[] = [
+      { distance: 1000, expected: 5.56 }, // exact
+      { distance: 1000.5, expected: 5.56 }, // within 1m tolerance
+      { distance: 900, expected: 5.71 }, // nearest is 800m
+      { distance: 50000, expected: 4.55 }, // beyond range -> nearest 10000m
+    ];
+
+    for (const { distance, expected } of cases) {
+      expect(getPaceAtDistance(mockCurve, distance)).toBe(expected);
+    }
   });
 });
 
@@ -155,26 +137,18 @@ describe('getIndexAtDistance', () => {
     expect(getIndexAtDistance(undefined, 1000)).toBeNull();
   });
 
-  it('returns exact index for exact match', () => {
-    expect(getIndexAtDistance(mockCurve, 800)).toBe(1);
-  });
+  it('returns the index of the closest distance, keeping the first when tied', () => {
+    const cases: { distance: number; index: number }[] = [
+      { distance: 800, index: 1 }, // exact
+      { distance: 800.3, index: 1 }, // within tolerance
+      { distance: 700, index: 1 }, // nearest 800m (diff 100 < 300)
+      { distance: 600, index: 0 }, // equidistant 400/800 -> first
+      { distance: 10, index: 0 }, // below range -> first
+    ];
 
-  it('returns exact index for near-match within tolerance', () => {
-    expect(getIndexAtDistance(mockCurve, 800.3)).toBe(1);
-  });
-
-  it('returns closest index for non-exact distance', () => {
-    // 700 is between 400 (diff=300) and 800 (diff=100) → closest is 800 at idx 1
-    expect(getIndexAtDistance(mockCurve, 700)).toBe(1);
-  });
-
-  it('returns first closest when equidistant', () => {
-    // 600 is equidistant from 400 (diff=200) and 800 (diff=200) → keeps first, idx 0
-    expect(getIndexAtDistance(mockCurve, 600)).toBe(0);
-  });
-
-  it('returns first index for distance below range', () => {
-    expect(getIndexAtDistance(mockCurve, 10)).toBe(0);
+    for (const { distance, index } of cases) {
+      expect(getIndexAtDistance(mockCurve, distance)).toBe(index);
+    }
   });
 });
 
@@ -195,13 +169,10 @@ describe('getTimeAtDistance', () => {
     expect(getTimeAtDistance(undefined, 1000)).toBeNull();
   });
 
-  it('returns time at exact distance', () => {
-    expect(getTimeAtDistance(mockCurve, 1000)).toBe(180);
-  });
-
-  it('returns time at closest distance', () => {
-    // 900 → closest is 1000 (idx 2) → time 180
-    expect(getTimeAtDistance(mockCurve, 900)).toBe(140); // 900 is closer to 800 (diff 100) than 1000 (diff 100), picks first closest at index 1
+  it('returns the time at the closest distance', () => {
+    expect(getTimeAtDistance(mockCurve, 1000)).toBe(180); // exact
+    // 900 is equidistant from 800 and 1000 (diff 100); first closest at idx 1 -> 140
+    expect(getTimeAtDistance(mockCurve, 900)).toBe(140);
   });
 });
 
@@ -217,30 +188,23 @@ describe('getPowerAtDuration', () => {
     watts: [1200, 450, 320, 280, 250],
   };
 
-  it('returns null for undefined curve', () => {
-    expect(getPowerAtDuration(undefined, 60)).toBeNull();
-  });
-
-  it('returns null for curve with no secs', () => {
+  it('returns null for undefined curve or curve with no secs', () => {
     const noSecs = { type: 'power', sport: 'Ride' } as PowerCurve;
+    expect(getPowerAtDuration(undefined, 60)).toBeNull();
     expect(getPowerAtDuration(noSecs, 60)).toBeNull();
   });
 
-  it('returns exact match power', () => {
-    expect(getPowerAtDuration(mockCurve, 300)).toBe(320);
-  });
+  it('returns the power at the closest duration', () => {
+    const cases: { duration: number; expected: number }[] = [
+      { duration: 300, expected: 320 }, // exact
+      { duration: 250, expected: 320 }, // nearest 300 (diff 50 < 190)
+      { duration: 1, expected: 1200 }, // very short -> first
+      { duration: 99999, expected: 250 }, // very long -> last
+    ];
 
-  it('returns closest match for non-exact duration', () => {
-    // 250 is between 60 (diff=190) and 300 (diff=50) → closest is 300
-    expect(getPowerAtDuration(mockCurve, 250)).toBe(320);
-  });
-
-  it('returns first entry power for very short duration', () => {
-    expect(getPowerAtDuration(mockCurve, 1)).toBe(1200);
-  });
-
-  it('returns last entry power for very long duration', () => {
-    expect(getPowerAtDuration(mockCurve, 99999)).toBe(250);
+    for (const { duration, expected } of cases) {
+      expect(getPowerAtDuration(mockCurve, duration)).toBe(expected);
+    }
   });
 });
 
@@ -260,13 +224,9 @@ describe('getIndexAtDuration', () => {
     expect(getIndexAtDuration(undefined, 60)).toBeNull();
   });
 
-  it('returns exact index', () => {
-    expect(getIndexAtDuration(mockCurve, 1200)).toBe(3);
-  });
-
-  it('returns closest index for non-exact duration', () => {
-    // 100 is between 60 (diff=40) and 300 (diff=200) → closest is 60 at idx 1
-    expect(getIndexAtDuration(mockCurve, 100)).toBe(1);
+  it('returns the index of the closest duration', () => {
+    expect(getIndexAtDuration(mockCurve, 1200)).toBe(3); // exact
+    expect(getIndexAtDuration(mockCurve, 100)).toBe(1); // nearest 60 (diff 40 < 200)
   });
 });
 

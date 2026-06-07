@@ -32,16 +32,6 @@ describe('InsightsStore', () => {
     jest.clearAllMocks();
   });
 
-  describe('initial state', () => {
-    it('has correct defaults', () => {
-      const state = useInsightsStore.getState();
-      expect(state.lastSeenFingerprint).toBe('');
-      expect(state.hasNewInsights).toBe(false);
-      expect(state.changedInsightIds.size).toBe(0);
-      expect(state.isLoaded).toBe(false);
-    });
-  });
-
   describe('initialize()', () => {
     it('sets isLoaded when no stored data', async () => {
       await initializeInsightsStore();

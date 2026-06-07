@@ -18,52 +18,23 @@ jest.mock('@/i18n', () => ({
 }));
 
 describe('generateSectionName', () => {
-  it('returns section.name when present', () => {
-    const result = generateSectionName({
-      id: 'sec1',
-      name: 'Alpe du Zwift',
-      sportType: 'Ride',
-      distanceMeters: 12000,
-    });
-    expect(result).toBe('Alpe du Zwift');
-  });
+  it('prefers a present name, else auto-generates by sport and distance', () => {
+    const cases: [Parameters<typeof generateSectionName>[0], string][] = [
+      [
+        { id: 'sec1', name: 'Alpe du Zwift', sportType: 'Ride', distanceMeters: 12000 },
+        'Alpe du Zwift',
+      ],
+      // Non-empty name wins even with zero distance.
+      [{ id: 'sec4', name: 'Custom Name', sportType: 'Ride', distanceMeters: 0 }, 'Custom Name'],
+      [{ id: 'sec2', sportType: 'Run', distanceMeters: 5000 }, 'Run Section (5.0 km)'],
+      // Short sections use meters.
+      [{ id: 'sec3', sportType: 'Ride', distanceMeters: 500 }, 'Ride Section (500 m)'],
+      // Empty string is falsy, so it auto-generates.
+      [{ id: 'sec5', name: '', sportType: 'Walk', distanceMeters: 2500 }, 'Walk Section (2.5 km)'],
+    ];
 
-  it('auto-generates from sport type and distance for unnamed sections', () => {
-    const result = generateSectionName({
-      id: 'sec2',
-      sportType: 'Run',
-      distanceMeters: 5000,
-    });
-    expect(result).toBe('Run Section (5.0 km)');
-  });
-
-  it('uses meters for short sections', () => {
-    const result = generateSectionName({
-      id: 'sec3',
-      sportType: 'Ride',
-      distanceMeters: 500,
-    });
-    expect(result).toBe('Ride Section (500 m)');
-  });
-
-  it('prefers name over auto-generation', () => {
-    const result = generateSectionName({
-      id: 'sec4',
-      name: 'Custom Name',
-      sportType: 'Ride',
-      distanceMeters: 0,
-    });
-    expect(result).toBe('Custom Name');
-  });
-
-  it('handles empty name by auto-generating', () => {
-    const result = generateSectionName({
-      id: 'sec5',
-      name: '',
-      sportType: 'Walk',
-      distanceMeters: 2500,
-    });
-    // Empty string is falsy, so auto-generates
-    expect(result).toBe('Walk Section (2.5 km)');
+    for (const [input, expected] of cases) {
+      expect(generateSectionName(input)).toBe(expected);
+    }
   });
 });

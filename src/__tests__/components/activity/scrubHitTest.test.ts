@@ -40,21 +40,24 @@ describe('findRowIndexAtPageY', () => {
   describe('tap anywhere inside a row resolves to that row', () => {
     // Each row N spans [261 + 62N, 261 + 62(N+1)):
     //   row 0: [261, 323)  row 1: [323, 385)  row 2: [385, 447)  row 3: [447, 509)
-    it.each<[number, number, string]>([
-      [0, 261, 'row 0 top edge'],
-      [0, 292, 'row 0 middle (the "natural" tap point)'],
-      [0, 322, 'row 0 bottom'],
-      [1, 323, 'row 1 top'],
-      [1, 354, 'row 1 middle'],
-      [1, 384, 'row 1 bottom'],
-      [2, 385, 'row 2 top'],
-      [2, 416, 'row 2 middle'],
-      [2, 446, 'row 2 bottom'],
-      [3, 447, 'row 3 top'],
-      [3, 478, 'row 3 middle'],
-      [3, 508, 'row 3 bottom'],
-    ])('resolves to row %i for pageY=%i (%s)', (expected, pageY) => {
-      expect(findRowIndexAtPageY({ ...DEFAULT, pageY })).toBe(expected);
+    it('resolves top/middle/bottom of every row to that row', () => {
+      const cases: [number, number][] = [
+        [0, 261],
+        [0, 292],
+        [0, 322],
+        [1, 323],
+        [1, 354],
+        [1, 384],
+        [2, 385],
+        [2, 416],
+        [2, 446],
+        [3, 447],
+        [3, 478],
+        [3, 508],
+      ];
+      for (const [expected, pageY] of cases) {
+        expect(findRowIndexAtPageY({ ...DEFAULT, pageY })).toBe(expected);
+      }
     });
   });
 

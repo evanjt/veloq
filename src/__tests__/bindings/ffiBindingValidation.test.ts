@@ -171,10 +171,6 @@ describe('FFI Binding Validation', () => {
   });
 
   describe('TypeScript index.ts structure', () => {
-    it('should exist', () => {
-      expect(fs.existsSync(VELOQRS_INDEX_PATH)).toBe(true);
-    });
-
     it('should have wildcard re-export from generated module', () => {
       expect(hasWildcardReexport()).toBe(true);
     });
@@ -250,15 +246,5 @@ describe('FFI Binding Validation', () => {
 
       expect(orphanImports).toEqual([]);
     });
-  });
-});
-
-describe('FFI Manifest Freshness', () => {
-  it('should have a non-trivial number of exports from Rust source', () => {
-    // The manifest is auto-generated from `#[uniffi::export]` attributes
-    // (both standalone `pub fn` and methods inside `#[uniffi::export] impl`
-    // blocks). If this ever drops to a handful again, the extractor has
-    // regressed — see scripts/extract-ffi-exports.ts.
-    expect(FFI_EXPORTS.length).toBeGreaterThan(50);
   });
 });

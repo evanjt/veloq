@@ -41,29 +41,18 @@ describe('classifyUploadError', () => {
   });
 
   describe('network error detection', () => {
-    it('classifies ERR_NETWORK without a response as network', () => {
-      const err = new Error('Network Error ERR_NETWORK');
-      const result = classifyUploadError(err);
-      expect(result.type).toBe('network');
-      expect(result.httpStatus).toBeUndefined();
-    });
-
-    it('classifies ECONNABORTED as network', () => {
-      const err = new Error('timeout of 10000ms exceeded ECONNABORTED');
-      const result = classifyUploadError(err);
-      expect(result.type).toBe('network');
-    });
-
-    it('classifies "Network Error" message as network', () => {
-      const err = new Error('Network Error');
-      const result = classifyUploadError(err);
-      expect(result.type).toBe('network');
-    });
-
-    it('classifies "Network request failed" as network', () => {
-      const err = new Error('Network request failed');
-      const result = classifyUploadError(err);
-      expect(result.type).toBe('network');
+    it('classifies connectivity messages without a response as network', () => {
+      const messages = [
+        'Network Error ERR_NETWORK',
+        'timeout of 10000ms exceeded ECONNABORTED',
+        'Network Error',
+        'Network request failed',
+      ];
+      for (const message of messages) {
+        const result = classifyUploadError(new Error(message));
+        expect(result.type).toBe('network');
+        expect(result.httpStatus).toBeUndefined();
+      }
     });
 
     it('does NOT classify as network when an HTTP status is present, even if message mentions network', () => {

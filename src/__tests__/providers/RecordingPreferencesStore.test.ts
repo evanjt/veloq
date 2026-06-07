@@ -88,52 +88,41 @@ describe('RecordingPreferencesStore', () => {
       );
     });
 
-    /**
-     * BUG: No type validation on parsed data. If stored data contains
-     * a string where a Record<string, number> is expected, the store
-     * will happily set it. The `??` only guards against null/undefined,
-     * not wrong types.
-     *
-     * For example: stored `{autoPauseThresholds: "not-an-object"}` —
-     * "not-an-object" is truthy, so `??` does NOT trigger the default.
-     * The store sets autoPauseThresholds to the string "not-an-object".
-     */
-    it('stored autoPauseThresholds as string should fallback to defaults', async () => {
-      await AsyncStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify({ autoPauseThresholds: 'not-an-object' })
-      );
-      await initializeRecordingPreferences();
-      const state = useRecordingPreferences.getState();
-      // The store should have an object, not a string
-      expect(typeof state.autoPauseThresholds).toBe('object');
-      expect(state.autoPauseThresholds).not.toBe('not-an-object');
-    });
+    // The `??` only guards null/undefined, so wrong-typed truthy values must be
+    // type-checked: string thresholds/enabled and array dataFields must not slip through.
+    it('coerces wrong-typed stored values back to their expected types', async () => {
+      const cases: { payload: object; assert: () => void }[] = [
+        {
+          payload: { autoPauseThresholds: 'not-an-object' },
+          assert: () => {
+            const state = useRecordingPreferences.getState();
+            expect(typeof state.autoPauseThresholds).toBe('object');
+            expect(state.autoPauseThresholds).not.toBe('not-an-object');
+          },
+        },
+        {
+          payload: { autoPauseEnabled: 'false' },
+          assert: () => {
+            expect(typeof useRecordingPreferences.getState().autoPauseEnabled).toBe('boolean');
+          },
+        },
+        {
+          payload: { dataFields: ['gps', 'indoor'] },
+          assert: () => {
+            const state = useRecordingPreferences.getState();
+            expect(typeof state.dataFields).toBe('object');
+            expect(Array.isArray(state.dataFields)).toBe(false);
+          },
+        },
+      ];
 
-    /**
-     * BUG: Stored autoPauseEnabled as string "false" — truthy in JS,
-     * so `parsed.autoPauseEnabled ?? true` gives "false" (the string),
-     * not false (the boolean). When used in a condition, string "false"
-     * is truthy, so auto-pause would always appear enabled.
-     */
-    it('stored autoPauseEnabled as string "false" should resolve to boolean false', async () => {
-      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify({ autoPauseEnabled: 'false' }));
-      await initializeRecordingPreferences();
-      const state = useRecordingPreferences.getState();
-      // autoPauseEnabled should be boolean, not string
-      expect(typeof state.autoPauseEnabled).toBe('boolean');
-    });
-
-    /**
-     * BUG: Stored dataFields as array instead of Record — truthy,
-     * so `??` doesn't trigger defaults.
-     */
-    it('stored dataFields as array should fallback to defaults', async () => {
-      await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify({ dataFields: ['gps', 'indoor'] }));
-      await initializeRecordingPreferences();
-      const state = useRecordingPreferences.getState();
-      expect(typeof state.dataFields).toBe('object');
-      expect(Array.isArray(state.dataFields)).toBe(false);
+      for (const { payload, assert } of cases) {
+        resetStore();
+        await AsyncStorage.clear();
+        await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+        await initializeRecordingPreferences();
+        assert();
+      }
     });
 
     it('recovers when AsyncStorage.getItem throws', async () => {
@@ -149,27 +138,15 @@ describe('RecordingPreferencesStore', () => {
   // ============================================================
 
   describe('setAutoPauseThreshold edge cases', () => {
-    /**
-     * BUG: No validation on threshold values. Negative km/h, NaN,
-     * and Infinity are all accepted and persisted.
-     */
-    it('negative threshold should not be stored (or at least clamped to 0)', () => {
-      useRecordingPreferences.getState().setAutoPauseThreshold('cycling', -5);
-      const threshold = useRecordingPreferences.getState().autoPauseThresholds['cycling'];
-      // Negative speed threshold makes no physical sense
-      expect(threshold).toBeGreaterThanOrEqual(0);
-    });
-
-    it('NaN threshold should not be stored', () => {
-      useRecordingPreferences.getState().setAutoPauseThreshold('cycling', NaN);
-      const threshold = useRecordingPreferences.getState().autoPauseThresholds['cycling'];
-      expect(Number.isNaN(threshold)).toBe(false);
-    });
-
-    it('Infinity threshold should not be stored', () => {
-      useRecordingPreferences.getState().setAutoPauseThreshold('cycling', Infinity);
-      const threshold = useRecordingPreferences.getState().autoPauseThresholds['cycling'];
-      expect(Number.isFinite(threshold)).toBe(true);
+    // Negative, NaN, and Infinity speeds make no physical sense and must not persist.
+    it('rejects invalid threshold values, keeping a finite non-negative number', () => {
+      for (const invalid of [-5, NaN, Infinity]) {
+        resetStore();
+        useRecordingPreferences.getState().setAutoPauseThreshold('cycling', invalid);
+        const threshold = useRecordingPreferences.getState().autoPauseThresholds['cycling'];
+        expect(Number.isFinite(threshold)).toBe(true);
+        expect(threshold).toBeGreaterThanOrEqual(0);
+      }
     });
 
     it('valid threshold is stored correctly', () => {

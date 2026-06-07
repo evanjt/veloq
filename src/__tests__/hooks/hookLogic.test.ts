@@ -95,22 +95,12 @@ describe('calculateZonesFromStreams', () => {
     expect(totalPct).toBeLessThanOrEqual(101);
   });
 
-  it('assigns correct zone numbers (1-indexed)', () => {
-    const stream = [50];
-    const result = calculateZonesFromStreams(stream, threeZones, threeColors, threeNames);
+  it('assigns 1-indexed zone numbers, names, and colors from the input arrays', () => {
+    const result = calculateZonesFromStreams([50], threeZones, threeColors, threeNames);
 
-    expect(result[0].zone).toBe(1);
-    expect(result[1].zone).toBe(2);
-    expect(result[2].zone).toBe(3);
-  });
-
-  it('assigns correct names from the zoneNames array', () => {
-    const stream = [50];
-    const result = calculateZonesFromStreams(stream, threeZones, threeColors, threeNames);
-
-    expect(result[0].name).toBe('Low');
-    expect(result[1].name).toBe('Medium');
-    expect(result[2].name).toBe('High');
+    expect(result.map((z) => z.zone)).toEqual([1, 2, 3]);
+    expect(result.map((z) => z.name)).toEqual(['Low', 'Medium', 'High']);
+    expect(result.map((z) => z.color)).toEqual(['#aaa', '#bbb', '#ccc']);
   });
 
   it('falls back to generic name when zoneNames is shorter than zones', () => {
@@ -120,15 +110,6 @@ describe('calculateZonesFromStreams', () => {
     expect(result[0].name).toBe('Low');
     expect(result[1].name).toBe('Zone 2');
     expect(result[2].name).toBe('Zone 3');
-  });
-
-  it('assigns correct colors from the zoneColors array', () => {
-    const stream = [50];
-    const result = calculateZonesFromStreams(stream, threeZones, threeColors, threeNames);
-
-    expect(result[0].color).toBe('#aaa');
-    expect(result[1].color).toBe('#bbb');
-    expect(result[2].color).toBe('#ccc');
   });
 
   it('falls back to last color when zoneColors is shorter than zones', () => {
@@ -164,25 +145,15 @@ describe('getSettingsForSport', () => {
     { types: ['Swim'], lthr: 160 } as SportSettings,
   ];
 
-  it('returns undefined for undefined settings', () => {
+  it('returns undefined for undefined or empty settings', () => {
     expect(getSettingsForSport(undefined, 'Ride')).toBeUndefined();
-  });
-
-  it('returns undefined for empty settings array', () => {
     expect(getSettingsForSport([], 'Ride')).toBeUndefined();
   });
 
-  it('finds matching sport type', () => {
-    const result = getSettingsForSport(mockSettings, 'Ride');
-    expect(result?.ftp).toBe(250);
-  });
-
-  it('finds sport type within multi-type settings', () => {
-    const result = getSettingsForSport(mockSettings, 'VirtualRide');
-    expect(result?.ftp).toBe(250);
-  });
-
-  it('returns undefined for non-matching sport type', () => {
+  it('finds the entry whose types include the sport, undefined when none match', () => {
+    // Matches both single- and multi-type entries; non-member sport -> undefined.
+    expect(getSettingsForSport(mockSettings, 'Ride')?.ftp).toBe(250);
+    expect(getSettingsForSport(mockSettings, 'VirtualRide')?.ftp).toBe(250);
     expect(getSettingsForSport(mockSettings, 'Hike')).toBeUndefined();
   });
 
@@ -201,28 +172,22 @@ describe('getSettingsForSport', () => {
 // ---------------------------------------------------------------------------
 
 describe('getZoneColor', () => {
-  it('returns correct power zone colors for valid indices', () => {
-    expect(getZoneColor(0, 'power')).toBe(POWER_ZONE_COLORS[0]);
-    expect(getZoneColor(3, 'power')).toBe(POWER_ZONE_COLORS[3]);
-    expect(getZoneColor(6, 'power')).toBe(POWER_ZONE_COLORS[6]);
+  it('returns the palette color at valid indices for power and HR', () => {
+    for (const idx of [0, 3, 6]) {
+      expect(getZoneColor(idx, 'power')).toBe(POWER_ZONE_COLORS[idx]);
+    }
+    for (const idx of [0, 2, 4]) {
+      expect(getZoneColor(idx, 'hr')).toBe(HR_ZONE_COLORS[idx]);
+    }
   });
 
-  it('returns correct HR zone colors for valid indices', () => {
-    expect(getZoneColor(0, 'hr')).toBe(HR_ZONE_COLORS[0]);
-    expect(getZoneColor(2, 'hr')).toBe(HR_ZONE_COLORS[2]);
-    expect(getZoneColor(4, 'hr')).toBe(HR_ZONE_COLORS[4]);
-  });
-
-  it('clamps out-of-bounds index to last color for power', () => {
+  it('clamps out-of-bounds index to the last color for power and HR', () => {
     const lastPower = POWER_ZONE_COLORS[POWER_ZONE_COLORS.length - 1];
-    expect(getZoneColor(10, 'power')).toBe(lastPower);
-    expect(getZoneColor(100, 'power')).toBe(lastPower);
-  });
-
-  it('clamps out-of-bounds index to last color for HR', () => {
     const lastHR = HR_ZONE_COLORS[HR_ZONE_COLORS.length - 1];
-    expect(getZoneColor(10, 'hr')).toBe(lastHR);
-    expect(getZoneColor(100, 'hr')).toBe(lastHR);
+    for (const idx of [10, 100]) {
+      expect(getZoneColor(idx, 'power')).toBe(lastPower);
+      expect(getZoneColor(idx, 'hr')).toBe(lastHR);
+    }
   });
 
   it('returns correct palette for power vs HR at same index', () => {
@@ -283,16 +248,15 @@ describe('DEFAULT_HR_ZONES', () => {
 // ---------------------------------------------------------------------------
 
 describe('SPORT_API_TYPES', () => {
-  it('Cycling includes Ride', () => {
-    expect(SPORT_API_TYPES.Cycling).toContain('Ride');
-  });
-
-  it('Running includes Run', () => {
-    expect(SPORT_API_TYPES.Running).toContain('Run');
-  });
-
-  it('Swimming includes Swim', () => {
-    expect(SPORT_API_TYPES.Swimming).toContain('Swim');
+  it('each primary sport includes its canonical API type', () => {
+    const cases: { sport: PrimarySport; type: string }[] = [
+      { sport: 'Cycling', type: 'Ride' },
+      { sport: 'Running', type: 'Run' },
+      { sport: 'Swimming', type: 'Swim' },
+    ];
+    for (const { sport, type } of cases) {
+      expect(SPORT_API_TYPES[sport]).toContain(type);
+    }
   });
 });
 
@@ -337,46 +301,44 @@ describe('getFormZone', () => {
     { tsb: 100, expected: 'transition' },
   ];
 
-  boundaryTests.forEach(({ tsb, expected }) => {
-    it(`returns "${expected}" for TSB = ${tsb}`, () => {
+  it('maps TSB to the correct form zone across the range', () => {
+    for (const { tsb, expected } of boundaryTests) {
       expect(getFormZone(tsb)).toBe(expected);
-    });
+    }
   });
 
-  it('handles exact boundary at -30 (start of optimal)', () => {
-    expect(getFormZone(-30)).toBe('optimal');
-    expect(getFormZone(-30.01)).toBe('highRisk');
-  });
+  it('classifies values either side of each zone boundary', () => {
+    // min inclusive, so the boundary value belongs to the higher zone; just below
+    // it falls back to the lower zone.
+    const edges: { boundary: number; atOrAbove: FormZone; below: number; belowZone: FormZone }[] = [
+      { boundary: -30, atOrAbove: 'optimal', below: -30.01, belowZone: 'highRisk' },
+      { boundary: -10, atOrAbove: 'greyZone', below: -10.01, belowZone: 'optimal' },
+      { boundary: 5, atOrAbove: 'fresh', below: 4.99, belowZone: 'greyZone' },
+      { boundary: 25, atOrAbove: 'transition', below: 24.99, belowZone: 'fresh' },
+    ];
 
-  it('handles exact boundary at -10 (start of greyZone)', () => {
-    expect(getFormZone(-10)).toBe('greyZone');
-    expect(getFormZone(-10.01)).toBe('optimal');
-  });
-
-  it('handles exact boundary at 5 (start of fresh)', () => {
-    expect(getFormZone(5)).toBe('fresh');
-    expect(getFormZone(4.99)).toBe('greyZone');
-  });
-
-  it('handles exact boundary at 25 (start of transition)', () => {
-    expect(getFormZone(25)).toBe('transition');
-    expect(getFormZone(24.99)).toBe('fresh');
+    for (const { boundary, atOrAbove, below, belowZone } of edges) {
+      expect(getFormZone(boundary)).toBe(atOrAbove);
+      expect(getFormZone(below)).toBe(belowZone);
+    }
   });
 });
 
 describe('FORM_ZONE constants', () => {
   const allZones: FormZone[] = ['highRisk', 'optimal', 'greyZone', 'fresh', 'transition'];
 
-  it.each(allZones)('zone %s has valid color, label, and boundaries', (zone) => {
-    expect(FORM_ZONE_COLORS[zone]).toMatch(/^#[0-9A-Fa-f]{6}$/);
+  it('every zone has a valid color, label, and ordered boundaries', () => {
+    for (const zone of allZones) {
+      expect(FORM_ZONE_COLORS[zone]).toMatch(/^#[0-9A-Fa-f]{6}$/);
 
-    expect(typeof FORM_ZONE_LABELS[zone]).toBe('string');
-    expect(FORM_ZONE_LABELS[zone].length).toBeGreaterThan(0);
+      expect(typeof FORM_ZONE_LABELS[zone]).toBe('string');
+      expect(FORM_ZONE_LABELS[zone].length).toBeGreaterThan(0);
 
-    const { min, max } = FORM_ZONE_BOUNDARIES[zone];
-    expect(typeof min).toBe('number');
-    expect(typeof max).toBe('number');
-    expect(min).toBeLessThan(max);
+      const { min, max } = FORM_ZONE_BOUNDARIES[zone];
+      expect(typeof min).toBe('number');
+      expect(typeof max).toBe('number');
+      expect(min).toBeLessThan(max);
+    }
   });
 
   it('boundaries are contiguous (no gaps between zones)', () => {
@@ -395,70 +357,78 @@ describe('FORM_ZONE constants', () => {
 // ---------------------------------------------------------------------------
 
 describe('getLatestFTP', () => {
-  it('returns undefined for undefined activities', () => {
-    expect(getLatestFTP(undefined)).toBeUndefined();
-  });
-
-  it('returns undefined for empty array', () => {
-    expect(getLatestFTP([])).toBeUndefined();
-  });
-
-  it('returns undefined when no activities have FTP', () => {
-    const activities = [
+  it('returns undefined when no activity supplies an FTP value', () => {
+    // undefined input, empty array, and activities all lacking icu_ftp.
+    const noFtp = [
       { id: 'a1', start_date_local: '2025-01-10T10:00:00' } as Activity,
       { id: 'a2', start_date_local: '2025-01-11T10:00:00' } as Activity,
     ];
-    expect(getLatestFTP(activities)).toBeUndefined();
+    expect(getLatestFTP(undefined)).toBeUndefined();
+    expect(getLatestFTP([])).toBeUndefined();
+    expect(getLatestFTP(noFtp)).toBeUndefined();
   });
 
-  it('returns the FTP from the most recent activity', () => {
-    const activities = [
-      { id: 'a1', start_date_local: '2025-01-10T10:00:00', icu_ftp: 200 } as Activity,
-      { id: 'a2', start_date_local: '2025-01-15T10:00:00', icu_ftp: 250 } as Activity,
-      { id: 'a3', start_date_local: '2025-01-12T10:00:00', icu_ftp: 220 } as Activity,
+  it('returns the FTP from the most recent activity that has one', () => {
+    // Picks latest by date; skips icu_ftp = 0 and undefined; handles a single entry.
+    const cases: { activities: Activity[]; expected: number }[] = [
+      {
+        activities: [
+          { id: 'a1', start_date_local: '2025-01-10T10:00:00', icu_ftp: 200 } as Activity,
+          { id: 'a2', start_date_local: '2025-01-15T10:00:00', icu_ftp: 250 } as Activity,
+          { id: 'a3', start_date_local: '2025-01-12T10:00:00', icu_ftp: 220 } as Activity,
+        ],
+        expected: 250,
+      },
+      {
+        activities: [
+          { id: 'a1', start_date_local: '2025-01-20T10:00:00', icu_ftp: 0 } as Activity,
+          { id: 'a2', start_date_local: '2025-01-10T10:00:00', icu_ftp: 200 } as Activity,
+        ],
+        expected: 200,
+      },
+      {
+        activities: [
+          { id: 'a1', start_date_local: '2025-01-20T10:00:00' } as Activity,
+          { id: 'a2', start_date_local: '2025-01-15T10:00:00', icu_ftp: 230 } as Activity,
+        ],
+        expected: 230,
+      },
+      {
+        activities: [
+          { id: 'a1', start_date_local: '2025-01-10T10:00:00', icu_ftp: 180 } as Activity,
+        ],
+        expected: 180,
+      },
     ];
-    expect(getLatestFTP(activities)).toBe(250);
-  });
 
-  it('skips activities with icu_ftp = 0', () => {
-    const activities = [
-      { id: 'a1', start_date_local: '2025-01-20T10:00:00', icu_ftp: 0 } as Activity,
-      { id: 'a2', start_date_local: '2025-01-10T10:00:00', icu_ftp: 200 } as Activity,
-    ];
-    expect(getLatestFTP(activities)).toBe(200);
-  });
-
-  it('skips activities with undefined icu_ftp', () => {
-    const activities = [
-      { id: 'a1', start_date_local: '2025-01-20T10:00:00' } as Activity,
-      { id: 'a2', start_date_local: '2025-01-15T10:00:00', icu_ftp: 230 } as Activity,
-    ];
-    expect(getLatestFTP(activities)).toBe(230);
-  });
-
-  it('returns single activity FTP when only one has a value', () => {
-    const activities = [
-      { id: 'a1', start_date_local: '2025-01-10T10:00:00', icu_ftp: 180 } as Activity,
-    ];
-    expect(getLatestFTP(activities)).toBe(180);
+    for (const { activities, expected } of cases) {
+      expect(getLatestFTP(activities)).toBe(expected);
+    }
   });
 });
 
 describe('getLatestEFTP', () => {
-  it('returns the eFTP from the most recent activity', () => {
-    const activities = [
-      { id: 'a1', start_date_local: '2025-01-10T10:00:00', icu_pm_ftp_watts: 240 } as Activity,
-      { id: 'a2', start_date_local: '2025-01-15T10:00:00', icu_pm_ftp_watts: 260 } as Activity,
-      { id: 'a3', start_date_local: '2025-01-12T10:00:00', icu_pm_ftp_watts: 250 } as Activity,
+  it('returns the eFTP from the most recent activity, skipping zero values', () => {
+    const cases: { activities: Activity[]; expected: number }[] = [
+      {
+        activities: [
+          { id: 'a1', start_date_local: '2025-01-10T10:00:00', icu_pm_ftp_watts: 240 } as Activity,
+          { id: 'a2', start_date_local: '2025-01-15T10:00:00', icu_pm_ftp_watts: 260 } as Activity,
+          { id: 'a3', start_date_local: '2025-01-12T10:00:00', icu_pm_ftp_watts: 250 } as Activity,
+        ],
+        expected: 260,
+      },
+      {
+        activities: [
+          { id: 'a1', start_date_local: '2025-01-20T10:00:00', icu_pm_ftp_watts: 0 } as Activity,
+          { id: 'a2', start_date_local: '2025-01-10T10:00:00', icu_pm_ftp_watts: 245 } as Activity,
+        ],
+        expected: 245,
+      },
     ];
-    expect(getLatestEFTP(activities)).toBe(260);
-  });
 
-  it('skips activities with icu_pm_ftp_watts = 0', () => {
-    const activities = [
-      { id: 'a1', start_date_local: '2025-01-20T10:00:00', icu_pm_ftp_watts: 0 } as Activity,
-      { id: 'a2', start_date_local: '2025-01-10T10:00:00', icu_pm_ftp_watts: 245 } as Activity,
-    ];
-    expect(getLatestEFTP(activities)).toBe(245);
+    for (const { activities, expected } of cases) {
+      expect(getLatestEFTP(activities)).toBe(expected);
+    }
   });
 });

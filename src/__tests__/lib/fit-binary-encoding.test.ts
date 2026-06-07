@@ -571,84 +571,48 @@ describe('generateFitFile', () => {
   });
 
   describe('NaN in sensor data', () => {
-    it('handles NaN in altitude stream without producing invalid FIT', async () => {
-      const streams = makeStreams({
+    it('produces a valid FIT for NaN values in altitude or heartrate streams', async () => {
+      const base = {
         time: [0, 1, 2],
         latlng: [
           [45.0, 10.0],
           [45.001, 10.001],
           [45.002, 10.002],
-        ],
-        altitude: [100, NaN, 200],
-        heartrate: [130, 140, 150],
+        ] as [number, number][],
         power: [200, 210, 220],
         cadence: [85, 86, 87],
         speed: [8.0, 8.2, 8.4],
         distance: [0, 8.0, 16.2],
-      });
+      };
+      const variants: Partial<RecordingStreams>[] = [
+        { ...base, altitude: [100, NaN, 200], heartrate: [130, 140, 150] },
+        { ...base, altitude: [NaN, NaN, NaN], heartrate: [130, 140, 150] },
+        {
+          time: [0, 1],
+          latlng: [
+            [45.0, 10.0],
+            [45.001, 10.001],
+          ],
+          altitude: [100, 101],
+          heartrate: [NaN, 140],
+          power: [200, 210],
+          cadence: [85, 86],
+          speed: [8.0, 8.2],
+          distance: [0, 8.0],
+        },
+      ];
 
-      const buffer = await generateFitFile({
-        activityType: 'Ride',
-        startTime,
-        streams,
-        laps: [],
-      });
-
-      // File should be valid (not throw) and have data
-      expect(buffer.byteLength).toBeGreaterThan(14);
-      const bytes = new Uint8Array(buffer);
-      expect(String.fromCharCode(bytes[8], bytes[9], bytes[10], bytes[11])).toBe('.FIT');
-    });
-
-    it('handles NaN in heartrate stream', async () => {
-      const streams = makeStreams({
-        time: [0, 1],
-        latlng: [
-          [45.0, 10.0],
-          [45.001, 10.001],
-        ],
-        altitude: [100, 101],
-        heartrate: [NaN, 140],
-        power: [200, 210],
-        cadence: [85, 86],
-        speed: [8.0, 8.2],
-        distance: [0, 8.0],
-      });
-
-      const buffer = await generateFitFile({
-        activityType: 'Ride',
-        startTime,
-        streams,
-        laps: [],
-      });
-
-      expect(buffer.byteLength).toBeGreaterThan(14);
-    });
-
-    it('handles all-NaN altitude stream', async () => {
-      const streams = makeStreams({
-        time: [0, 1, 2],
-        latlng: [
-          [45.0, 10.0],
-          [45.001, 10.001],
-          [45.002, 10.002],
-        ],
-        altitude: [NaN, NaN, NaN],
-        heartrate: [130, 140, 150],
-        power: [200, 210, 220],
-        cadence: [85, 86, 87],
-        speed: [8.0, 8.2, 8.4],
-        distance: [0, 8.0, 16.2],
-      });
-
-      const buffer = await generateFitFile({
-        activityType: 'Ride',
-        startTime,
-        streams,
-        laps: [],
-      });
-
-      expect(buffer.byteLength).toBeGreaterThan(14);
+      for (const overrides of variants) {
+        const buffer = await generateFitFile({
+          activityType: 'Ride',
+          startTime,
+          streams: makeStreams(overrides),
+          laps: [],
+        });
+        expect(buffer.byteLength).toBeGreaterThan(14);
+        const bytes = new Uint8Array(buffer);
+        expect(String.fromCharCode(bytes[8], bytes[9], bytes[10], bytes[11])).toBe('.FIT');
+      }
     });
   });
 

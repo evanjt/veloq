@@ -328,23 +328,15 @@ describe('getLastBackupTimestamp falsy zero bug (autoBackup.ts:82)', () => {
     return value != null ? Number(value) : null;
   }
 
-  it('parses normal timestamp strings', () => {
+  it('parses stored timestamps, distinguishing zero from null', () => {
     expect(parseStoredTimestamp('1712345678000')).toBe(1712345678000);
     expect(parseStoredTimestamp('42')).toBe(42);
     expect(parseStoredTimestamp('3.14')).toBeCloseTo(3.14);
-  });
-
-  it('returns null for null/undefined input', () => {
     expect(parseStoredTimestamp(null)).toBeNull();
     expect(parseStoredTimestamp(undefined)).toBeNull();
-  });
-
-  it('parses zero correctly', () => {
+    // '0' must stay 0, not null — Number('0') is falsy but value != null guards it.
     expect(parseStoredTimestamp('0')).toBe(0);
-  });
-
-  it('treats empty string as 0 (Number("") = 0)', () => {
-    // With value != null guard, empty string passes through to Number('')
+    // empty string passes the value != null guard through to Number('') = 0.
     expect(parseStoredTimestamp('')).toBe(0);
   });
 });

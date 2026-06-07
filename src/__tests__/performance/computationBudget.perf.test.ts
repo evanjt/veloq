@@ -8,31 +8,17 @@ import { formatDistance, formatDuration, formatPace } from '@/shared/format/form
 
 describe('Computation budget', () => {
   describe('formatting throughput', () => {
-    it('formatDistance handles 100k calls under 500ms', () => {
-      const start = performance.now();
-      for (let i = 0; i < 100_000; i++) {
-        formatDistance(i * 10, true);
+    it('each core formatter handles 100k calls under 500ms', () => {
+      const formatters: [string, (i: number) => unknown][] = [
+        ['formatDistance', (i) => formatDistance(i * 10, true)],
+        ['formatDuration', (i) => formatDuration(i)],
+        ['formatPace', (i) => formatPace(3 + (i % 10), true)],
+      ];
+      for (const [, run] of formatters) {
+        const start = performance.now();
+        for (let i = 0; i < 100_000; i++) run(i);
+        expect(performance.now() - start).toBeLessThan(500);
       }
-      const elapsed = performance.now() - start;
-      expect(elapsed).toBeLessThan(500);
-    });
-
-    it('formatDuration handles 100k calls under 500ms', () => {
-      const start = performance.now();
-      for (let i = 0; i < 100_000; i++) {
-        formatDuration(i);
-      }
-      const elapsed = performance.now() - start;
-      expect(elapsed).toBeLessThan(500);
-    });
-
-    it('formatPace handles 100k calls under 500ms', () => {
-      const start = performance.now();
-      for (let i = 0; i < 100_000; i++) {
-        formatPace(3 + (i % 10), true);
-      }
-      const elapsed = performance.now() - start;
-      expect(elapsed).toBeLessThan(500);
     });
   });
 

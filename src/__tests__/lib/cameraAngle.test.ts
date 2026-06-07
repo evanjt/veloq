@@ -211,31 +211,20 @@ describe('calculateTerrainCamera', () => {
 });
 
 describe('isLikelyInterestingTerrain', () => {
-  it('returns false for flat city walk (17m gain, 4.6km)', () => {
-    expect(isLikelyInterestingTerrain(17, 4600)).toBe(false);
-  });
+  it('classifies terrain by gain and gain-per-km', () => {
+    // [gain, distance, expected, why]
+    const cases: [number, number, boolean, string][] = [
+      [17, 4600, false, 'flat city walk'],
+      [147, 12600, true, 'mountain route'],
+      [25, 20000, false, 'high-altitude plateau, low gain/km'],
+      [15, 500, false, 'very low gain (<30m)'],
+      [50, 800, true, 'short but steep'],
+      [40, 50000, false, 'long flat, 0.8 m/km'],
+    ];
 
-  it('returns true for mountain route (147m gain, 12.6km)', () => {
-    expect(isLikelyInterestingTerrain(147, 12600)).toBe(true);
-  });
-
-  it('returns false for high-altitude plateau (low gain per km)', () => {
-    // 25m gain over 20km — flat despite being at altitude
-    expect(isLikelyInterestingTerrain(25, 20000)).toBe(false);
-  });
-
-  it('returns false for very low gain (< 30m)', () => {
-    expect(isLikelyInterestingTerrain(15, 500)).toBe(false);
-  });
-
-  it('returns true for short steep activity', () => {
-    // 50m gain over 800m — steep but short
-    expect(isLikelyInterestingTerrain(50, 800)).toBe(true);
-  });
-
-  it('returns false for long flat activity with low gain/km', () => {
-    // 40m gain over 50km — 0.8 m/km
-    expect(isLikelyInterestingTerrain(40, 50000)).toBe(false);
+    for (const [gain, distance, expected] of cases) {
+      expect(isLikelyInterestingTerrain(gain, distance)).toBe(expected);
+    }
   });
 
   it('handles invalid inputs gracefully', () => {

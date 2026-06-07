@@ -109,36 +109,22 @@ describe('planClusterZoom', () => {
     }
   });
 
-  it('uses short duration for small clusters (< 20 leaves)', () => {
-    const features = Array.from({ length: 5 }, (_, i) =>
-      pointFeature(10 + i * 0.1, 45 + i * 0.1, `a${i}`)
-    );
-    const plan = planClusterZoom(features, center);
-    expect(plan.kind).toBe('fitBounds');
-    if (plan.kind === 'fitBounds') {
-      expect(plan.durationMs).toBe(300);
-    }
-  });
-
-  it('uses long duration for large clusters (≥ 20 leaves)', () => {
-    const features = Array.from({ length: 25 }, (_, i) =>
-      pointFeature(10 + i * 0.1, 45 + i * 0.1, `a${i}`)
-    );
-    const plan = planClusterZoom(features, center);
-    expect(plan.kind).toBe('fitBounds');
-    if (plan.kind === 'fitBounds') {
-      expect(plan.durationMs).toBe(600);
-    }
-  });
-
-  it('uses the boundary value (20 leaves) as large', () => {
-    // Exactly 20 leaves should be treated as large (spec says < 20 is small).
-    const features = Array.from({ length: 20 }, (_, i) =>
-      pointFeature(10 + i * 0.1, 45 + i * 0.1, `a${i}`)
-    );
-    const plan = planClusterZoom(features, center);
-    if (plan.kind === 'fitBounds') {
-      expect(plan.durationMs).toBe(600);
+  it('scales animation duration by leaf count with 20 as the large boundary', () => {
+    // < 20 leaves → 300ms; >= 20 (boundary inclusive) → 600ms.
+    const tiers: { count: number; durationMs: number }[] = [
+      { count: 5, durationMs: 300 },
+      { count: 20, durationMs: 600 },
+      { count: 25, durationMs: 600 },
+    ];
+    for (const { count, durationMs } of tiers) {
+      const features = Array.from({ length: count }, (_, i) =>
+        pointFeature(10 + i * 0.1, 45 + i * 0.1, `a${i}`)
+      );
+      const plan = planClusterZoom(features, center);
+      expect(plan.kind).toBe('fitBounds');
+      if (plan.kind === 'fitBounds') {
+        expect(plan.durationMs).toBe(durationMs);
+      }
     }
   });
 
