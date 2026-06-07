@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+  android:layout_width="match_parent"
+  android:layout_height="match_parent"
+  android:orientation="vertical"
+  android:padding="@dimen/widget_padding"
+  android:background="@drawable/widget_background">
+
+  <LinearLayout
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="horizontal">
+
+    <LinearLayout
+      android:layout_width="0dp"
+      android:layout_height="wrap_content"
+      android:layout_weight="1"
+      android:orientation="vertical">
+      <TextView android:id="@+id/large_fitness_label"
+        android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:textSize="@dimen/widget_text_label" android:textColor="@color/widget_text_secondary"
+        android:textAllCaps="true" android:letterSpacing="0.05" />
+      <TextView android:id="@+id/large_fitness_value"
+        android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:textSize="@dimen/widget_text_metric" android:textStyle="bold"
+        android:textColor="@color/widget_text_primary" />
+    </LinearLayout>
+
+    <LinearLayout
+      android:layout_width="0dp"
+      android:layout_height="wrap_content"
+      android:layout_weight="1"
+      android:orientation="vertical">
+      <TextView android:id="@+id/large_fatigue_label"
+        android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:textSize="@dimen/widget_text_label" android:textColor="@color/widget_text_secondary"
+        android:textAllCaps="true" android:letterSpacing="0.05" />
+      <TextView android:id="@+id/large_fatigue_value"
+        android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:textSize="@dimen/widget_text_metric" android:textStyle="bold"
+        android:textColor="@color/widget_text_primary" />
+    </LinearLayout>
+
+    <LinearLayout
+      android:layout_width="0dp"
+      android:layout_height="wrap_content"
+      android:layout_weight="1"
+      android:orientation="vertical">
+      <TextView android:id="@+id/large_form_label"
+        android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:textSize="@dimen/widget_text_label" android:textColor="@color/widget_text_secondary"
+        android:textAllCaps="true" android:letterSpacing="0.05" />
+      <LinearLayout android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:orientation="horizontal" android:gravity="bottom">
+        <TextView android:id="@+id/large_form_value"
+          android:layout_width="wrap_content" android:layout_height="wrap_content"
+          android:textSize="@dimen/widget_text_metric" android:textStyle="bold"
+          android:textColor="@color/widget_text_primary" />
+        <TextView android:id="@+id/large_form_trend"
+          android:layout_width="wrap_content" android:layout_height="wrap_content"
+          android:layout_marginStart="4dp"
+          android:textSize="@dimen/widget_text_label" android:textColor="@color/widget_trend_flat" />
+      </LinearLayout>
+    </LinearLayout>
+  </LinearLayout>
+
+  <ImageView
+    android:id="@+id/large_sparkline"
+    android:layout_width="match_parent"
+    android:layout_height="40dp"
+    android:layout_marginTop="@dimen/widget_gap"
+    android:scaleType="fitXY"
+    android:contentDescription="@null" />
+
+  <TextView
+    android:id="@+id/large_weekly"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginTop="@dimen/widget_gap"
+    android:textSize="@dimen/widget_text_label"
+    android:textColor="@color/widget_text_secondary" />
+
+  <View
+    android:layout_width="match_parent"
+    android:layout_height="1dp"
+    android:layout_marginTop="@dimen/widget_gap"
+    android:background="@color/widget_border" />
+
+  <TextView
+    android:id="@+id/large_activity_name"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginTop="@dimen/widget_gap"
+    android:maxLines="1"
+    android:ellipsize="end"
+    android:textSize="@dimen/widget_text_value"
+    android:textStyle="bold"
+    android:textColor="@color/widget_text_primary" />
+
+  <TextView
+    android:id="@+id/large_activity_sub"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:maxLines="1"
+    android:ellipsize="end"
+    android:textSize="@dimen/widget_text_label"
+    android:textColor="@color/widget_text_secondary" />
+
+  <TextView
+    android:id="@+id/large_impact"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:maxLines="2"
+    android:textSize="@dimen/widget_text_label"
+    android:textColor="@color/widget_primary" />
+</LinearLayout>

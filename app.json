@@ -80,6 +80,7 @@
       "./src/plugins/with-icloud",
       "./src/plugins/with-app-groups",
       "./src/plugins/with-android-widget",
+      "./src/plugins/with-ios-widget",
       "expo-router",
       [
         "expo-screen-orientation",
