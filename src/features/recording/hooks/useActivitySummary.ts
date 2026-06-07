@@ -83,9 +83,15 @@ export function useActivitySummary({
   // Compute summary stats (with optional trimming)
   const summary = useMemo<ActivitySummary>(() => {
     if (isManual) {
-      const durationSec = params.durationSeconds ? Number(params.durationSeconds) : 0;
-      const distanceM = params.distance ? Number(params.distance) : 0;
-      const avgHeartrate = params.avgHr ? Number(params.avgHr) : null;
+      // Route params are free-form strings; a non-numeric value must not save as NaN.
+      const toFinite = (v: unknown): number => {
+        const n = Number(v);
+        return Number.isFinite(n) ? n : 0;
+      };
+      const durationSec = toFinite(params.durationSeconds);
+      const distanceM = toFinite(params.distance);
+      const avgHrNum = Number(params.avgHr);
+      const avgHeartrate = params.avgHr != null && Number.isFinite(avgHrNum) ? avgHrNum : null;
       return {
         duration: durationSec,
         distance: distanceM,
