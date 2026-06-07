@@ -31,6 +31,7 @@ import MapLibre, { Logger as MapLibreLogger } from '@maplibre/maplibre-react-nat
 import { useAuthStore } from '@/features/auth/store';
 import { initializeSportPreference, initializeHRZones } from '@/features/fitness/stores';
 import { initializeDashboardPreferences } from '@/features/home/store';
+import { updateWidgetSnapshot } from '@/features/home';
 import { initializeInsightsStore } from '@/features/insights/store';
 import { MapPreferencesProvider } from '@/features/maps/stores/MapPreferencesContext';
 import { initializeTileCacheStore } from '@/features/maps/stores/TileCacheStore';
@@ -265,6 +266,9 @@ function AuthGate({ children }: { children: React.ReactNode }) {
     const sub = AppState.addEventListener('change', (state) => {
       if (state === 'background') {
         onAppBackground();
+        // Refresh the home-screen widget with the latest data while we have the
+        // engine warm. No-op until the native widget module is built in.
+        updateWidgetSnapshot();
       }
       if (state === 'active') {
         onAppForeground();

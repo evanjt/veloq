@@ -31,3 +31,15 @@ export {
   type MetricDefinition,
   type MetricPreference,
 } from './store';
+
+export {
+  updateWidgetSnapshot,
+  writeWidgetSnapshot,
+  isWidgetBridgeAvailable,
+} from './lib/widgetBridge';
+export {
+  composeSnapshot,
+  gatherWidgetSnapshot,
+  WIDGET_SNAPSHOT_SCHEMA_VERSION,
+  type WidgetSnapshot,
+} from './lib/widgetSnapshot';

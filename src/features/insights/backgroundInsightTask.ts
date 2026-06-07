@@ -434,6 +434,17 @@ TaskManager.defineTask(BACKGROUND_INSIGHT_TASK, async ({ data, error }) => {
         )
       : [];
 
+    // 7b. Refresh the home-screen widget — the engine already holds the newly
+    // ingested activity, so this is a cheap snapshot write. Lazy-required (deep
+    // path, no React components) to keep the headless module graph lean. No-op
+    // until the native widget module is built in.
+    try {
+      const { updateWidgetSnapshot } = require('@/features/home/lib/widgetBridge');
+      updateWidgetSnapshot();
+    } catch (e) {
+      log.warn('widget snapshot update failed:', e);
+    }
+
     // 8. Find insights that are NEW (caused by this activity)
     const storedFingerprint = await AsyncStorage.getItem(FINGERPRINT_KEY);
     const previousIds = new Set((storedFingerprint ?? '').split('|'));
