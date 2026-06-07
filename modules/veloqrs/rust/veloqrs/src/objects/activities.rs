@@ -20,6 +20,23 @@ impl ActivityManager {
         offsets: Vec<u32>,
         sport_types: Vec<String>,
     ) -> Result<(), VeloqError> {
+        if offsets.len() != activity_ids.len() {
+            return Err(VeloqError::Database {
+                msg: format!(
+                    "offsets length {} does not match activity_ids length {}",
+                    offsets.len(),
+                    activity_ids.len()
+                ),
+            });
+        }
+        if all_coords.len() % 2 != 0 {
+            return Err(VeloqError::Database {
+                msg: format!(
+                    "all_coords length {} is not an even count of lat/lon values",
+                    all_coords.len()
+                ),
+            });
+        }
         with_engine(|engine| {
             let mut batch = Vec::with_capacity(activity_ids.len());
             for (i, id) in activity_ids.iter().enumerate() {
@@ -129,5 +146,36 @@ impl ActivityManager {
             indicators: e.get_activity_indicators(&activity_ids),
             route_highlights: e.get_activity_route_highlights(&activity_ids),
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // The flat-buffer guards reject malformed input before touching the engine,
+    // so these cases short-circuit without an initialised PERSISTENT_ENGINE.
+    #[test]
+    fn add_rejects_offsets_length_mismatch() {
+        let mgr = ActivityManager::new();
+        let result = mgr.add(
+            vec!["a".to_string(), "b".to_string()],
+            vec![1.0, 2.0],
+            vec![0],
+            vec!["Ride".to_string()],
+        );
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn add_rejects_odd_coord_count() {
+        let mgr = ActivityManager::new();
+        let result = mgr.add(
+            vec!["a".to_string()],
+            vec![1.0, 2.0, 3.0],
+            vec![0],
+            vec!["Ride".to_string()],
+        );
+        assert!(result.is_err());
     }
 }
