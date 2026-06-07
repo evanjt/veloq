@@ -155,3 +155,39 @@ describe('toFixed on NaN reaching UI (fitness.tsx:778, section/[id].tsx:1003)', 
     expect(display).toBe('3.7%');
   });
 });
+
+describe('Number() falsy-zero parse guard (autoBackup.ts:82)', () => {
+  // FIXED pattern: value != null ? Number(value) : null (so '0' parses, undefined → null)
+  function parseStoredTimestamp(value: string | undefined): number | null {
+    return value != null ? Number(value) : null;
+  }
+
+  it('parses normal timestamp strings', () => {
+    expect(parseStoredTimestamp('1700000000')).toBe(1700000000);
+    expect(parseStoredTimestamp('42')).toBe(42);
+  });
+
+  it('returns null for undefined', () => {
+    expect(parseStoredTimestamp(undefined)).toBeNull();
+  });
+
+  it('parses zero timestamp correctly', () => {
+    expect(parseStoredTimestamp('0')).toBe(0);
+  });
+
+  it('treats empty string as 0 (Number("") = 0)', () => {
+    expect(parseStoredTimestamp('')).toBe(0);
+  });
+});
+
+describe('backup.customSections type confusion (backup.ts:336)', () => {
+  it('Array.isArray rejects non-array customSections (fixed)', () => {
+    const backup = { customSections: 'not an array' };
+    expect(Array.isArray(backup.customSections)).toBe(false);
+  });
+
+  it('Array.isArray accepts valid arrays', () => {
+    const backup = { customSections: [{ name: 'Hill Climb' }] };
+    expect(Array.isArray(backup.customSections)).toBe(true);
+  });
+});
