@@ -147,6 +147,8 @@ export function formatPace(metersPerSecond: number, isMetric = true): string {
   const secondsPerKm = 1000 / metersPerSecond;
   // Seconds per mile = seconds per km / KM_TO_MI
   const totalSeconds = isMetric ? secondsPerKm : secondsPerKm / KM_TO_MI;
+  // A tiny-but-positive speed overflows 1000/mps to Infinity; reject the result.
+  if (!Number.isFinite(totalSeconds)) return '--:--';
 
   let minutes = Math.floor(totalSeconds / 60);
   let seconds = Math.round(totalSeconds % 60);
@@ -175,6 +177,7 @@ export function formatPaceCompact(metersPerSecond: number, isMetric = true): str
 
   const secondsPerKm = 1000 / metersPerSecond;
   const totalSeconds = isMetric ? secondsPerKm : secondsPerKm / KM_TO_MI;
+  if (!Number.isFinite(totalSeconds)) return '--:--';
 
   let minutes = Math.floor(totalSeconds / 60);
   let seconds = Math.round(totalSeconds % 60);
@@ -203,6 +206,7 @@ export function formatSwimPace(metersPerSecond: number, isMetric = true): string
   // 100 yards = 91.44 meters
   const distance = isMetric ? 100 : 91.44;
   const totalSeconds = Math.round(distance / metersPerSecond);
+  if (!Number.isFinite(totalSeconds)) return '--:--';
 
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
@@ -230,13 +234,10 @@ export function formatSpeed(metersPerSecond: number, isMetric = true): string {
     return isMetric ? '0.0 km/h' : '0.0 mph';
   }
 
-  if (isMetric) {
-    const kmh = metersPerSecond * 3.6;
-    return `${kmh.toFixed(1)} km/h`;
-  } else {
-    const mph = metersPerSecond * MPS_TO_MPH;
-    return `${mph.toFixed(1)} mph`;
-  }
+  const value = isMetric ? metersPerSecond * 3.6 : metersPerSecond * MPS_TO_MPH;
+  // An extreme finite speed can overflow the conversion to Infinity.
+  if (!Number.isFinite(value)) return isMetric ? '0.0 km/h' : '0.0 mph';
+  return `${value.toFixed(1)} ${isMetric ? 'km/h' : 'mph'}`;
 }
 
 /**
@@ -251,9 +252,9 @@ export function formatElevation(meters: number | undefined | null, isMetric = tr
 
   if (isMetric) {
     return `${Math.round(meters)} m`;
-  } else {
-    return `${Math.round(meters * M_TO_FT)} ft`;
   }
+  const feet = Math.round(meters * M_TO_FT);
+  return Number.isFinite(feet) ? `${feet} ft` : '0 ft';
 }
 
 /**
@@ -268,10 +269,9 @@ export function formatTemperature(celsius: number | undefined | null, isMetric =
 
   if (isMetric) {
     return `${Math.round(celsius)}°C`;
-  } else {
-    const fahrenheit = celsius * 1.8 + 32;
-    return `${Math.round(fahrenheit)}°F`;
   }
+  const fahrenheit = Math.round(celsius * 1.8 + 32);
+  return Number.isFinite(fahrenheit) ? `${fahrenheit}°F` : '--°F';
 }
 
 export function formatHeartRate(bpm: number): string {
