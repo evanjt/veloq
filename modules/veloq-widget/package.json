@@ -1,0 +1,17 @@
+{
+  "name": "veloq-widget",
+  "version": "0.1.0",
+  "description": "Writes the home-screen widget snapshot to shared storage and triggers a widget reload",
+  "main": "index.ts",
+  "author": "Evan Thomas <evan@evanjt.com>",
+  "homepage": "https://github.com/evanjt/veloq",
+  "license": "MIT",
+  "peerDependencies": {
+    "expo": "*",
+    "react": "*",
+    "react-native": "*"
+  },
+  "devDependencies": {
+    "expo-modules-core": "*"
+  }
+}

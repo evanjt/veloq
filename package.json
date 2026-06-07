@@ -38,6 +38,7 @@
     "ffi:test": "jest --config config/jest.config.js --testPathPattern=ffiBinding",
     "ffi:usage": "npx tsx scripts/ffi-usage-report.ts",
     "ffi:unused": "npx tsx scripts/ffi-usage-report.ts --unused",
+    "gen:widget-theme": "npx tsx scripts/gen-widget-theme.ts",
     "check:expo": "node scripts/check-expo-sdk.mjs",
     "crash:guard": "node scripts/crash-guard-sweep.mjs",
     "lint:engine-bridge": "node scripts/engine-event-bridge-audit.mjs",

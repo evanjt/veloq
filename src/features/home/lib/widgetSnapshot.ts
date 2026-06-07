@@ -13,7 +13,7 @@
  */
 import { formatDistance, formatDuration, formatRelativeDate } from '@/shared/format';
 import { getRouteEngine } from '@/shared/native/routeEngine';
-import { widgetPalette, type WidgetPalette } from '@/shared/theme/widgetTheme';
+import { widgetActivityTint, widgetPalette, type WidgetPalette } from '@/shared/theme/widgetTheme';
 
 export const WIDGET_SNAPSHOT_SCHEMA_VERSION = 2;
 
@@ -38,6 +38,8 @@ export interface WidgetLatest {
   distanceLabel: string;
   durationLabel: string;
   dateLabel: string;
+  /** Resolved sport tint hex, so the widget needs no sport→colour map. */
+  tintHex: string;
 }
 
 export interface WidgetImpact {
@@ -47,6 +49,17 @@ export interface WidgetImpact {
   atlDelta: number;
   tssAdded: number | null;
   dateLabel: string;
+}
+
+/**
+ * Pre-localized strings the widget renders verbatim, so native code holds no i18n
+ * logic. Sourced from existing translation keys (no new locale keys to maintain).
+ */
+export interface WidgetDisplay {
+  metricLabels: { form: string; fitness: string; fatigue: string; hrv: string; rhr: string };
+  weekLabel: string;
+  /** "Form −5 → −8 · +62 TSS", or null when there is no recent impact. */
+  impactLine: string | null;
 }
 
 export interface WidgetSnapshot {
@@ -75,6 +88,7 @@ export interface WidgetSnapshot {
   };
   latest: WidgetLatest | null;
   impact: WidgetImpact | null;
+  display: WidgetDisplay;
   theme: { light: WidgetPalette; dark: WidgetPalette };
 }
 
@@ -115,6 +129,8 @@ export interface RawWidgetData {
   isMetric: boolean;
   /** Unix seconds — injected for deterministic tests. */
   nowSeconds: number;
+  /** i18n lookup; falls back to the raw key when absent (pure-test safe). */
+  translate?: (key: string) => string;
 }
 
 const FORM_DEADBAND = 1; // CTL/ATL/form points are integers; <1 change reads as flat
@@ -203,8 +219,36 @@ export function composeSnapshot(raw: RawWidgetData): WidgetSnapshot {
     },
     latest,
     impact,
+    display: buildDisplay(raw.translate ?? ((k) => k), impact),
     theme: { light: widgetPalette.light, dark: widgetPalette.dark },
   };
+}
+
+/** Pre-localized label strings + the impact sentence, from existing i18n keys. */
+function buildDisplay(t: (key: string) => string, impact: WidgetImpact | null): WidgetDisplay {
+  const formLabel = t('metrics.form');
+  return {
+    metricLabels: {
+      form: formLabel,
+      fitness: t('metrics.fitness'),
+      fatigue: t('metrics.fatigue'),
+      hrv: t('metrics.hrv'),
+      rhr: t('metrics.rhr'),
+    },
+    weekLabel: t('metrics.week'),
+    impactLine: impact ? formatImpactLine(formLabel, impact) : null,
+  };
+}
+
+function formatImpactLine(formLabel: string, impact: WidgetImpact): string {
+  const before = Math.round(impact.formBefore);
+  const after = Math.round(impact.formAfter);
+  let line = `${formLabel} ${before} → ${after}`;
+  if (impact.tssAdded != null) {
+    const tss = Math.round(impact.tssAdded);
+    line += ` · ${tss >= 0 ? '+' : ''}${tss} TSS`;
+  }
+  return line;
 }
 
 function composeLatest(raw: RawWidgetData): WidgetLatest | null {
@@ -224,6 +268,7 @@ function composeLatest(raw: RawWidgetData): WidgetLatest | null {
     distanceLabel: formatDistance(distanceM, raw.isMetric),
     durationLabel: formatDuration(movingTimeS),
     dateLabel: relativeDateLabel(date),
+    tintHex: widgetActivityTint(a.sportType),
   };
 }
 
@@ -264,6 +309,7 @@ export function gatherWidgetSnapshot(opts: {
   locale: string;
   isMetric: boolean;
   now?: Date;
+  translate?: (key: string) => string;
 }): WidgetSnapshot | null {
   const engine = getRouteEngine();
   if (!engine) return null;
@@ -311,6 +357,7 @@ export function gatherWidgetSnapshot(opts: {
     locale: opts.locale,
     isMetric: opts.isMetric,
     nowSeconds,
+    translate: opts.translate,
   });
 }
 

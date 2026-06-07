@@ -48,7 +48,14 @@ export function writeWidgetSnapshot(snapshot: WidgetSnapshot): void {
 export function updateWidgetSnapshot(now?: Date): void {
   if (!VeloqWidget) return;
   try {
-    const snapshot = gatherWidgetSnapshot({ locale: i18n.language, isMetric: getIsMetric(), now });
+    // i18n.t is typed to a finite key union; the widget passes plain keys at runtime.
+    const t = i18n.t as unknown as (key: string) => string;
+    const snapshot = gatherWidgetSnapshot({
+      locale: i18n.language,
+      isMetric: getIsMetric(),
+      now,
+      translate: (key) => t(key),
+    });
     if (snapshot) writeWidgetSnapshot(snapshot);
   } catch (e) {
     log.warn('updateWidgetSnapshot failed:', e);

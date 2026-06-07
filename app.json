@@ -79,6 +79,7 @@
       "./src/plugins/with-android-backup",
       "./src/plugins/with-icloud",
       "./src/plugins/with-app-groups",
+      "./src/plugins/with-android-widget",
       "expo-router",
       [
         "expo-screen-orientation",

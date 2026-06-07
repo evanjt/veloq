@@ -10,6 +10,16 @@ import {
 
 const NOW = 1_733_360_000; // fixed unix seconds
 
+const LABELS: Record<string, string> = {
+  'metrics.form': 'Form',
+  'metrics.fitness': 'Fitness',
+  'metrics.fatigue': 'Fatigue',
+  'metrics.hrv': 'HRV',
+  'metrics.rhr': 'RHR',
+  'metrics.week': 'Week',
+};
+const translate = (key: string) => LABELS[key] ?? key;
+
 function makeRaw(overrides: Partial<RawWidgetData> = {}): RawWidgetData {
   return {
     sparklines: {
@@ -36,6 +46,7 @@ function makeRaw(overrides: Partial<RawWidgetData> = {}): RawWidgetData {
     locale: 'en-AU',
     isMetric: true,
     nowSeconds: NOW,
+    translate,
     ...overrides,
   };
 }
@@ -95,6 +106,7 @@ describe('composeSnapshot', () => {
     expect(s.latest!.distanceLabel).toBe('42.1 km');
     expect(s.latest!.durationLabel).toBe('1:34:20');
     expect(typeof s.latest!.dateLabel).toBe('string');
+    expect(s.latest!.tintHex).toBe('#3B82F6'); // Ride tint, resolved in JS for the widget
   });
 
   it('expresses the latest activity impact on the trend', () => {
@@ -107,6 +119,25 @@ describe('composeSnapshot', () => {
       tssAdded: 62,
       dateLabel: expect.any(String),
     });
+  });
+
+  it('carries pre-localized labels and a composed impact line', () => {
+    const s = composeSnapshot(makeRaw());
+    expect(s.display.metricLabels).toEqual({
+      form: 'Form',
+      fitness: 'Fitness',
+      fatigue: 'Fatigue',
+      hrv: 'HRV',
+      rhr: 'RHR',
+    });
+    expect(s.display.weekLabel).toBe('Week');
+    expect(s.display.impactLine).toBe('Form -5 → -8 · +62 TSS');
+  });
+
+  it('emits a null impact line when there is no recent impact', () => {
+    const raw = makeRaw();
+    raw.latest!.date = NOW - 5 * 86400;
+    expect(composeSnapshot(raw).display.impactLine).toBeNull();
   });
 
   it('suppresses impact for a stale latest activity', () => {
