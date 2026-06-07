@@ -247,4 +247,17 @@ describe('FFI Binding Validation', () => {
       expect(orphanImports).toEqual([]);
     });
   });
+
+  // The manifest carries each export's arity and return type so `npm run
+  // ffi:check` can detect signature drift, not just added/removed names.
+  describe('Signature manifest', () => {
+    it('records arity and return type for every export', () => {
+      for (const exp of FFI_EXPORTS) {
+        expect(typeof exp.paramCount).toBe('number');
+        expect(exp.paramCount).toBeGreaterThanOrEqual(0);
+        expect(typeof exp.returnType).toBe('string');
+        expect(exp.returnType.length).toBeGreaterThan(0);
+      }
+    });
+  });
 });
