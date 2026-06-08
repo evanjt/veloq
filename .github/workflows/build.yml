@@ -45,7 +45,7 @@ jobs:
       is_signed: ${{ steps.signing.outputs.is_signed }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           submodules: recursive
 
@@ -61,7 +61,7 @@ jobs:
       # can't satisfy a main/dispatch build that also needs the AAB.
       - name: Cache built APK/AAB
         id: apk-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             android/app/build/outputs/apk/release/app-release.apk
@@ -98,7 +98,7 @@ jobs:
 
       - name: Cache Metro bundler
         if: steps.apk-cache.outputs.cache-hit != 'true'
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             /tmp/metro-*
@@ -115,7 +115,7 @@ jobs:
       - name: Cache Rust Android libraries
         id: rust-android-cache
         if: steps.apk-cache.outputs.cache-hit != 'true'
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: modules/veloqrs/android/src/main/jniLibs
           key: rust-android-${{ (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch') && '4arch' || '2arch' }}-v1-${{ hashFiles('modules/veloqrs/rust/**/*.rs', 'modules/veloqrs/rust/**/Cargo.toml', 'modules/veloqrs/rust/**/Cargo.lock', 'modules/veloqrs/rust/.cargo/config.toml') }}
@@ -158,7 +158,7 @@ jobs:
       - name: Cache Android prebuild
         if: steps.apk-cache.outputs.cache-hit != 'true'
         id: android-prebuild-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             android
@@ -295,7 +295,7 @@ jobs:
             "artifacts/${{ steps.version.outputs.filename }}.apk"
 
       - name: Upload APK artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: android-apk-${{ steps.version.outputs.filename }}
           path: artifacts/*.apk
@@ -303,7 +303,7 @@ jobs:
 
       - name: Upload APK for E2E
         if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: android-apk-e2e
           path: android/app/build/outputs/apk/release/app-release.apk
@@ -361,7 +361,7 @@ jobs:
 
       - name: Upload AAB artifact
         if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: android-aab-${{ steps.version.outputs.filename }}
           path: artifacts/*.aab
@@ -382,7 +382,7 @@ jobs:
       is_release: ${{ steps.version.outputs.is_release }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           submodules: recursive
 
@@ -403,7 +403,7 @@ jobs:
       - name: Cache simulator app
         if: github.ref != 'refs/heads/main' && github.event_name != 'schedule' && github.event_name != 'workflow_dispatch'
         id: app-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ios/build/Build/Products/Release-iphonesimulator/Veloq.app
           key: ios-sim-v1-${{ steps.version.outputs.source_hash }}
@@ -419,7 +419,7 @@ jobs:
       - name: Cache Rust iOS libraries
         id: rust-ios-cache
         if: steps.app-cache.outputs.cache-hit != 'true'
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: modules/veloqrs/ios/Frameworks/VeloqrsFFI.xcframework
           key: rust-ios-${{ (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch') && 'full' || 'sim' }}-v1-${{ hashFiles('modules/veloqrs/rust/**/*.rs', 'modules/veloqrs/rust/**/Cargo.toml', 'modules/veloqrs/rust/**/Cargo.lock', 'modules/veloqrs/rust/.cargo/config.toml') }}
@@ -493,7 +493,7 @@ jobs:
       - name: Cache iOS prebuild
         if: steps.app-cache.outputs.cache-hit != 'true'
         id: ios-prebuild-cache
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: ios
           key: ios-prebuild-v7-${{ runner.os }}-${{ hashFiles('app.json', 'app.config.js', 'package.json', 'package-lock.json', 'plugins/**', 'expo-modules/**/*.json', 'modules/**/ios/**', 'modules/**/package.json') }}
@@ -509,7 +509,7 @@ jobs:
 
       - name: Cache CocoaPods
         if: steps.app-cache.outputs.cache-hit != 'true'
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             ios/Pods
@@ -594,7 +594,7 @@ jobs:
           echo "Created ${{ steps.version.outputs.filename }}-ios-simulator.zip"
 
       - name: Upload simulator artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ios-simulator-${{ steps.version.outputs.filename }}
           path: artifacts/*-ios-simulator.zip
@@ -602,7 +602,7 @@ jobs:
 
       - name: Upload build log on failure
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ios-build-log
           path: ios-build.log
@@ -702,7 +702,7 @@ jobs:
 
       - name: Upload build logs on failure
         if: failure() && steps.check_ios_signing.outputs.has_signing == 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ios-build-logs-${{ steps.version.outputs.filename }}
           path: |
@@ -775,7 +775,7 @@ jobs:
 
       - name: Upload IPA artifact
         if: steps.check_ios_signing.outputs.has_signing == 'true' && (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch')
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ios-ipa-${{ steps.version.outputs.filename }}
           path: artifacts/*.ipa
@@ -791,7 +791,7 @@ jobs:
     runs-on: e2e-android
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Download APK
         uses: actions/download-artifact@v8
@@ -849,7 +849,7 @@ jobs:
 
       - name: Upload screenshots
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: e2e-smoke-screenshots
           path: |
@@ -858,7 +858,7 @@ jobs:
 
       - name: Upload test report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: e2e-smoke-report
           path: smoke-report.xml
@@ -875,7 +875,7 @@ jobs:
     timeout-minutes: 60
     continue-on-error: true
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - name: Download APK
         uses: actions/download-artifact@v8
@@ -927,7 +927,7 @@ jobs:
 
       - name: Upload screenshots
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: e2e-full-screenshots
           path: |
@@ -936,7 +936,7 @@ jobs:
 
       - name: Upload test report
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: e2e-full-report
           path: e2e-full-report.xml
