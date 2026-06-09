@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
 import { useAuthStore } from '@/features/auth/store';
+import { elevationGain as sumElevationGain } from '@/shared/math/kinematics';
 
 // MET values for calorie estimation
 const MET_VALUES: Record<string, number> = {
@@ -94,16 +95,9 @@ export function useRecordingMetrics(): {
     const pace = speed > 0 ? 1000 / speed : 0;
     const avgPace = avgSpeed > 0 ? 1000 / avgSpeed : 0;
 
-    // Elevation gain: sum of positive altitude differences
-    let elevationGain = 0;
-    for (let i = 1; i < len; i++) {
-      const prev = streams.altitude[i - 1] ?? 0;
-      const curr = streams.altitude[i] ?? 0;
-      const diff = curr - prev;
-      if (diff > 0) {
-        elevationGain += diff;
-      }
-    }
+    // Sum positive deltas; dropouts are skipped, not read as 0 (live altitude
+    // is a real reading, so 0 stays 0 — only missing samples are ignored).
+    const elevationGain = sumElevationGain(streams.altitude);
 
     // Calories estimation: duration_hours * weight_kg * MET
     const met = getMet(activityType ?? 'Other');

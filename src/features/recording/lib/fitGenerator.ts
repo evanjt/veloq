@@ -321,7 +321,9 @@ export async function generateFitFile(params: {
     writer.writeUint16(clampedAlt); // legacy altitude (16-bit)
     writer.writeUint32(Math.max(0, fitAlt)); // enhanced_altitude (32-bit, same encoding)
 
-    // Ascent/descent tracking
+    // Ascent/descent tracking. alt===0 is FIT no-data, so skip it (and keep
+    // prevAlt) rather than route through shared elevationGain — the inline pass
+    // also tracks descent and poisons prevAlt on NaN, so its bytes must not move.
     if (alt !== 0 && prevAlt !== null) {
       const delta = alt - prevAlt;
       if (delta > 0) totalAscent += delta;

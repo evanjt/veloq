@@ -13,3 +13,26 @@ export function calculateSpeed(distanceMeters: number, movingTimeSeconds: number
   const speed = distanceMeters / movingTimeSeconds;
   return Number.isFinite(speed) && speed > 0 ? speed : 0;
 }
+
+/**
+ * Total elevation gain (m): sum of positive deltas between consecutive valid
+ * altitude samples. Null/undefined/non-finite samples are skipped without
+ * resetting the previous reference, so a dropout doesn't fabricate a gain.
+ * With treatZeroAsMissing, 0 is also skipped — the FIT encoding uses 0 for
+ * no-data, so a missing sample shouldn't read as sea level.
+ */
+export function elevationGain(
+  altitudes: readonly (number | null | undefined)[],
+  opts?: { treatZeroAsMissing?: boolean }
+): number {
+  const treatZeroAsMissing = opts?.treatZeroAsMissing ?? false;
+  let gain = 0;
+  let prev: number | null = null;
+  for (const alt of altitudes) {
+    if (alt == null || !Number.isFinite(alt)) continue;
+    if (treatZeroAsMissing && alt === 0) continue;
+    if (prev !== null && alt > prev) gain += alt - prev;
+    prev = alt;
+  }
+  return gain;
+}
