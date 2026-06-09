@@ -10,6 +10,7 @@ import { useTranslation } from 'react-i18next';
 import type { Activity, WellnessData } from '@/types';
 import type { StatDetail } from './types';
 import { colors } from '@/theme';
+import { variabilityIndex, efficiencyFactor } from '@/shared/math/ratios';
 
 interface UsePowerMetricsOptions {
   activity: Activity;
@@ -81,18 +82,18 @@ export function usePowerMetrics({
       });
     }
 
-    // Variability Index (VI = NP / AP)
-    if (activity.weighted_average_watts && activity.average_watts) {
-      const vi = activity.weighted_average_watts / activity.average_watts;
+    // Variability Index (VI = NP / AP); null guards a zero/non-finite denominator.
+    const vi = variabilityIndex(activity.weighted_average_watts, activity.average_watts);
+    if (vi != null) {
       details.push({
         label: t('activity.stats.vi'),
         value: vi.toFixed(2),
       });
     }
 
-    // Efficiency Factor (EF = NP / HR)
-    if (activity.weighted_average_watts && activity.average_heartrate) {
-      const ef = activity.weighted_average_watts / activity.average_heartrate;
+    // Efficiency Factor (EF = NP / HR); null guards a zero/non-finite denominator.
+    const ef = efficiencyFactor(activity.weighted_average_watts, activity.average_heartrate);
+    if (ef != null) {
       details.push({
         label: t('activity.stats.ef'),
         value: ef.toFixed(2),

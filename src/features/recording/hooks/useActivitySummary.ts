@@ -1,6 +1,8 @@
 import { useMemo, useCallback } from 'react';
 
 import type { RecordingStreams } from '@/features/recording/types';
+import { elevationGain } from '@/shared/math';
+import { parseManualSummary } from '../lib/parseManualSummary';
 
 export interface ActivitySummary {
   duration: number;
@@ -84,20 +86,10 @@ export function useActivitySummary({
   const summary = useMemo<ActivitySummary>(() => {
     if (isManual) {
       // Route params are free-form strings; a non-numeric value must not save as NaN.
-      const toFinite = (v: unknown): number => {
-        const n = Number(v);
-        return Number.isFinite(n) ? n : 0;
-      };
-      const durationSec = toFinite(params.durationSeconds);
-      const distanceM = toFinite(params.distance);
-      const avgHrNum = Number(params.avgHr);
-      const avgHeartrate = params.avgHr != null && Number.isFinite(avgHrNum) ? avgHrNum : null;
+      const manual = parseManualSummary(params);
       return {
-        duration: durationSec,
-        distance: distanceM,
-        avgSpeed: durationSec > 0 && distanceM > 0 ? distanceM / durationSec : 0,
+        ...manual,
         elevationGain: 0,
-        avgHeartrate,
         avgPower: null as number | null,
         hasGps: false,
       };
@@ -117,12 +109,8 @@ export function useActivitySummary({
         : ((stopTime ?? Date.now()) - startTime - pausedDuration) / 1000
       : 0;
 
-    // Calculate elevation gain
-    let elevGain = 0;
-    for (let i = 1; i < s.altitude.length; i++) {
-      const diff = s.altitude[i] - s.altitude[i - 1];
-      if (diff > 0) elevGain += diff;
-    }
+    // Sum of positive altitude deltas (skips dropouts), shared with live recording.
+    const elevGain = elevationGain(s.altitude);
 
     // Average heartrate
     const hrValues = s.heartrate.filter((v) => v > 0);
