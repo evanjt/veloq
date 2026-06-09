@@ -11,7 +11,7 @@ import { useMemo } from 'react';
 import { type ChartSummaryStats } from '@/features/routes/components/performance';
 import { RANGE_DAYS } from '@/features/routes/constants';
 import { getRouteEngine } from '@/shared/native/routeEngine';
-import { fromUnixSeconds, castDirection } from '@/shared/ffi/ffiConversions';
+import { fromUnixSeconds, castDirection, ensureFinite } from '@/shared/ffi/ffiConversions';
 import type { Activity, FrequentSection, PerformanceDataPoint, RoutePoint } from '@/types';
 import type { SectionPerformanceRecord } from './useSectionPerformances';
 import type { SectionTimeRange } from '@/features/routes/constants';
@@ -106,25 +106,29 @@ export function useSectionChartData({
       };
     }
 
-    const padding = (rustChart.maxSpeed - rustChart.minSpeed) * 0.15 || 0.5;
+    // Sanitise raw Rust speeds before deriving axis bounds — a non-finite
+    // min/max would poison padding and the whole y-axis range.
+    const minSpeed = ensureFinite(rustChart.minSpeed, 0);
+    const maxSpeed = ensureFinite(rustChart.maxSpeed, 1);
+    const padding = (maxSpeed - minSpeed) * 0.15 || 0.5;
     const chartData: (PerformanceDataPoint & { x: number })[] = rustChart.points.map((p, idx) => ({
       x: idx,
       id: p.lapId,
       activityId: p.activityId,
-      speed: p.speed,
+      speed: ensureFinite(p.speed, 0),
       date: fromUnixSeconds(p.activityDate) ?? new Date(),
       activityName: p.activityName,
       direction: castDirection(p.direction),
       lapPoints: sectionWithTraces?.activityTraces?.[p.activityId],
-      sectionTime: p.sectionTime,
-      sectionDistance: p.sectionDistance,
+      sectionTime: ensureFinite(p.sectionTime, 0),
+      sectionDistance: ensureFinite(p.sectionDistance, 0),
       lapCount: 1,
     }));
 
     return {
       chartData,
-      minSpeed: Math.max(0, rustChart.minSpeed - padding),
-      maxSpeed: rustChart.maxSpeed + padding,
+      minSpeed: Math.max(0, minSpeed - padding),
+      maxSpeed: maxSpeed + padding,
       bestIndex: rustChart.bestIndex,
       hasReverseRuns: rustChart.hasReverseRuns,
     };
@@ -146,12 +150,17 @@ export function useSectionChartData({
       for (const p of rustChart.points) {
         if (!rankMap.has(p.activityId)) rankMap.set(p.activityId, p.rank);
       }
+      // Preserve nullable semantics: a missing field stays undefined; a
+      // present-but-non-finite Rust value (e.g. 0/0 pace) collapses to
+      // undefined so the UI sees a clean absent stat, not 'NaN'.
+      const sanitizeStat = (v: number | undefined): number | undefined =>
+        v == null ? undefined : Number.isFinite(v) ? v : undefined;
       return {
         rankMap,
         bestActivityId: rustChart.bestActivityId ?? null,
-        bestTimeValue: rustChart.bestTimeSecs,
-        bestPaceValue: rustChart.bestPace,
-        averageTime: rustChart.averageTimeSecs,
+        bestTimeValue: sanitizeStat(rustChart.bestTimeSecs),
+        bestPaceValue: sanitizeStat(rustChart.bestPace),
+        averageTime: sanitizeStat(rustChart.averageTimeSecs),
         lastActivityDate:
           rustChart.lastActivityDate != null
             ? (fromUnixSeconds(rustChart.lastActivityDate)?.toISOString() ?? undefined)

@@ -8,6 +8,16 @@
 import type { DirectionStats } from '@/types';
 
 /**
+ * Guard a raw FFI number against NaN/Infinity.
+ * Rust f32/f64 can serialise non-finite values (e.g. 0/0 pace) that would
+ * render as 'NaN'/'Infinity' in the UI. Returns `fallback` for anything
+ * not finite, including null/undefined.
+ */
+export function ensureFinite(value: number | null | undefined, fallback = 0): number {
+  return Number.isFinite(value) ? (value as number) : fallback;
+}
+
+/**
  * Convert Unix timestamp (seconds since epoch) to JavaScript Date.
  * Handles both number and bigint (FFI returns i64 as bigint).
  * Returns null if timestamp is null/undefined.
