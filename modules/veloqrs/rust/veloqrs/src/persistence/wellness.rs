@@ -27,6 +27,12 @@ pub struct WellnessRow {
     pub motivation: Option<i32>,
 }
 
+/// Drop non-finite floats (NaN / +/-Inf) to NULL so corrupt API values never
+/// reach the form charts that subtract and plot them.
+fn finite(v: Option<f64>) -> Option<f64> {
+    v.filter(|x| x.is_finite())
+}
+
 impl PersistentRouteEngine {
     /// Upsert a batch of wellness rows in one transaction. Idempotent on
     /// `date`: re-syncing overwrites prior values.
@@ -61,14 +67,14 @@ impl PersistentRouteEngine {
             for row in rows {
                 stmt.execute(params![
                     row.date,
-                    row.ctl,
-                    row.atl,
-                    row.ramp_rate,
-                    row.hrv,
-                    row.resting_hr,
-                    row.weight,
+                    finite(row.ctl),
+                    finite(row.atl),
+                    finite(row.ramp_rate),
+                    finite(row.hrv),
+                    finite(row.resting_hr),
+                    finite(row.weight),
                     row.sleep_secs,
-                    row.sleep_score,
+                    finite(row.sleep_score),
                     row.soreness,
                     row.fatigue,
                     row.stress,
@@ -227,4 +233,19 @@ where
         out.push(last.round() as i32);
     }
     out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn finite_drops_non_finite_floats() {
+        assert_eq!(finite(Some(f64::NAN)), None);
+        assert_eq!(finite(Some(f64::INFINITY)), None);
+        assert_eq!(finite(Some(f64::NEG_INFINITY)), None);
+        assert_eq!(finite(Some(42.0)), Some(42.0));
+        assert_eq!(finite(Some(0.0)), Some(0.0));
+        assert_eq!(finite(None), None);
+    }
 }
