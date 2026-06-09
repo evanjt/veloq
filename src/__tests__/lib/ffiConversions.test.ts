@@ -3,7 +3,32 @@ import {
   castDirection,
   toDirectionStats,
   convertActivityPortions,
+  ensureFinite,
 } from '@/shared/ffi/ffiConversions';
+
+describe('ensureFinite', () => {
+  it('returns a finite value unchanged', () => {
+    expect(ensureFinite(42.5)).toBe(42.5);
+    expect(ensureFinite(0)).toBe(0);
+    expect(ensureFinite(-17)).toBe(-17);
+  });
+
+  it('returns fallback for NaN', () => {
+    expect(ensureFinite(NaN)).toBe(0);
+    expect(ensureFinite(NaN, 99)).toBe(99);
+  });
+
+  it('returns fallback for Infinity and -Infinity', () => {
+    expect(ensureFinite(Infinity)).toBe(0);
+    expect(ensureFinite(-Infinity, 7)).toBe(7);
+  });
+
+  it('returns fallback for null and undefined', () => {
+    expect(ensureFinite(null)).toBe(0);
+    expect(ensureFinite(undefined)).toBe(0);
+    expect(ensureFinite(null, -1)).toBe(-1);
+  });
+});
 
 describe('fromUnixSeconds', () => {
   it('converts a valid timestamp to the correct Date', () => {
