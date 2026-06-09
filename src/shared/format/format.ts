@@ -164,6 +164,30 @@ export function formatPace(metersPerSecond: number, isMetric = true): string {
 }
 
 /**
+ * Format a pace value already expressed in seconds per km as M:SS (no unit).
+ *
+ * Single source for pace formatting from a seconds-per-km scalar, so callers
+ * that already hold pace in that unit don't re-roll the min/sec math.
+ *
+ * @param secondsPerKm - Pace in seconds per kilometer
+ * @returns Formatted pace string (e.g., "5:30", "--:--")
+ */
+export function formatPaceFromSecsPerKm(secondsPerKm: number): string {
+  if (!Number.isFinite(secondsPerKm) || secondsPerKm <= 0) return '--:--';
+
+  let minutes = Math.floor(secondsPerKm / 60);
+  let seconds = Math.round(secondsPerKm % 60);
+
+  // Handle rounding edge case: if seconds rounds to 60, roll over to next minute
+  if (seconds === 60) {
+    minutes += 1;
+    seconds = 0;
+  }
+
+  return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+}
+
+/**
  * Compact pace format for UI pills (no units).
  *
  * Same as formatPace but without the "/km" or "/mi" suffix for compact display.

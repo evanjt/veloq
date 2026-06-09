@@ -24,6 +24,7 @@ import {
   formatDistance,
   formatLocalDate,
   speedToSecsPerKm,
+  formatPaceFromSecsPerKm,
 } from '@/shared/format/format';
 import { formatDuration } from '@/shared/format/format';
 
@@ -44,14 +45,6 @@ const X_AXIS_MARKERS = [
   { meters: 10000, label: '10km' },
   { meters: 21097.5, label: '21km' },
 ];
-
-// Format pace as min:sec/km
-function formatPace(secondsPerKm: number): string {
-  if (secondsPerKm <= 0 || !isFinite(secondsPerKm)) return '--:--';
-  const minutes = Math.floor(secondsPerKm / 60);
-  const seconds = Math.round(secondsPerKm % 60);
-  return `${minutes}:${seconds.toString().padStart(2, '0')}`;
-}
 
 interface ChartPoint {
   x: number; // log10(distance) for chart positioning
@@ -415,7 +408,7 @@ export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceC
             {t('metrics.pace')}
           </Text>
           <Text style={[styles.valueNumber, { color: CHART_COLOR }]}>
-            {formatPace(displayData.paceSecsPerKm)}/km
+            {formatPaceFromSecsPerKm(displayData.paceSecsPerKm)}/km
           </Text>
         </View>
       </View>
@@ -539,17 +532,17 @@ export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceC
             <Text
               style={[chartStyles.axisLabelCompact, isDark && chartStyles.axisLabelCompactDark]}
             >
-              {formatPace(yDomain[1])}
+              {formatPaceFromSecsPerKm(yDomain[1])}
             </Text>
             <Text
               style={[chartStyles.axisLabelCompact, isDark && chartStyles.axisLabelCompactDark]}
             >
-              {formatPace((yDomain[0] + yDomain[1]) / 2)}
+              {formatPaceFromSecsPerKm((yDomain[0] + yDomain[1]) / 2)}
             </Text>
             <Text
               style={[chartStyles.axisLabelCompact, isDark && chartStyles.axisLabelCompactDark]}
             >
-              {formatPace(yDomain[0])}
+              {formatPaceFromSecsPerKm(yDomain[0])}
             </Text>
           </View>
         </View>
@@ -566,7 +559,8 @@ export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceC
           </Text>
           {criticalSpeedPace && (
             <Text style={[styles.modelStats, isDark && chartStyles.textDark]}>
-              CS {formatPace(criticalSpeedPace)}/km ({curve?.criticalSpeed?.toFixed(2)} m/s)
+              CS {formatPaceFromSecsPerKm(criticalSpeedPace)}/km ({curve?.criticalSpeed?.toFixed(2)}{' '}
+              m/s)
               {curve?.dPrime ? `  D' ${curve.dPrime.toFixed(0)}m` : ''}
               {curve?.r2 ? `  R² ${curve.r2.toFixed(4)}` : ''}
             </Text>
