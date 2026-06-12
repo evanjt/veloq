@@ -57,8 +57,8 @@ export function useExcludedActivities(id: string | undefined, sportFilter: strin
       if (!result?.performances?.length) return [];
 
       return result.performances
-        .filter((p: any) => Number.isFinite(p.speed))
-        .map((p: any) => ({
+        .filter((p) => Number.isFinite(p.speed))
+        .map((p) => ({
           x: 0,
           id: p.activityId,
           activityId: p.activityId,

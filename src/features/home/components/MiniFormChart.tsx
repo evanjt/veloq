@@ -7,25 +7,17 @@ import { View, StyleSheet } from 'react-native';
 import { CartesianChart, Line } from 'victory-native';
 import { Rect } from '@shopify/react-native-skia';
 import { useTheme } from '@/shared/app';
-import { colors } from '@/theme';
+import { formZoneFill, getFormZoneColor, type FormZone } from '@/features/fitness';
 
-// Form zone backgrounds (matching intervals.icu and FitnessFormChart)
-const FORM_ZONES = {
-  highRisk: { min: -Infinity, max: -30, color: 'rgba(239, 83, 80, 0.3)' },
-  optimal: { min: -30, max: -10, color: 'rgba(76, 175, 80, 0.3)' },
-  greyZone: { min: -10, max: 5, color: 'rgba(158, 158, 158, 0.2)' },
-  fresh: { min: 5, max: 25, color: 'rgba(129, 199, 132, 0.3)' },
-  transition: { min: 25, max: Infinity, color: 'rgba(100, 181, 246, 0.25)' },
+// Zone fills are denser here than on the full FitnessFormChart: the mini chart
+// is ~50px tall and washes out at the larger chart's opacity.
+const FORM_ZONE_FILLS: Record<FormZone, string> = {
+  highRisk: formZoneFill('highRisk', 0.3),
+  optimal: formZoneFill('optimal', 0.3),
+  greyZone: formZoneFill('greyZone', 0.2),
+  fresh: formZoneFill('fresh', 0.3),
+  transition: formZoneFill('transition', 0.25),
 };
-
-// Get form line color based on current value
-function getFormLineColor(form: number): string {
-  if (form < -30) return colors.formHighRisk;
-  if (form < -10) return colors.formOptimal;
-  if (form < 5) return colors.formGreyZone;
-  if (form < 25) return colors.formFresh;
-  return colors.formTransition;
-}
 
 interface MiniFormChartProps {
   /** Array of form values (oldest to newest, typically 7 days) */
@@ -83,7 +75,7 @@ export const MiniFormChart = memo(function MiniFormChart({
     y: [Math.min(-35, minForm - 5), Math.max(30, maxForm + 5)] as [number, number],
   };
 
-  const lineColor = getFormLineColor(currentForm);
+  const lineColor = getFormZoneColor(currentForm);
 
   return (
     <View style={[styles.container, { width, height }]}>
@@ -113,7 +105,7 @@ export const MiniFormChart = memo(function MiniFormChart({
                 y={getY(-30)}
                 width={chartBounds.right - chartBounds.left}
                 height={chartBounds.bottom - getY(-30)}
-                color={FORM_ZONES.highRisk.color}
+                color={FORM_ZONE_FILLS.highRisk}
               />
               {/* Optimal zone (-30 to -10) */}
               <Rect
@@ -121,7 +113,7 @@ export const MiniFormChart = memo(function MiniFormChart({
                 y={getY(-10)}
                 width={chartBounds.right - chartBounds.left}
                 height={getY(-30) - getY(-10)}
-                color={FORM_ZONES.optimal.color}
+                color={FORM_ZONE_FILLS.optimal}
               />
               {/* Grey Zone (-10 to 5) */}
               <Rect
@@ -129,7 +121,7 @@ export const MiniFormChart = memo(function MiniFormChart({
                 y={getY(5)}
                 width={chartBounds.right - chartBounds.left}
                 height={getY(-10) - getY(5)}
-                color={FORM_ZONES.greyZone.color}
+                color={FORM_ZONE_FILLS.greyZone}
               />
               {/* Fresh zone (5 to 25) */}
               <Rect
@@ -137,7 +129,7 @@ export const MiniFormChart = memo(function MiniFormChart({
                 y={getY(25)}
                 width={chartBounds.right - chartBounds.left}
                 height={getY(5) - getY(25)}
-                color={FORM_ZONES.fresh.color}
+                color={FORM_ZONE_FILLS.fresh}
               />
               {/* Transition zone (> 25) */}
               <Rect
@@ -145,7 +137,7 @@ export const MiniFormChart = memo(function MiniFormChart({
                 y={chartBounds.top}
                 width={chartBounds.right - chartBounds.left}
                 height={getY(25) - chartBounds.top}
-                color={FORM_ZONES.transition.color}
+                color={FORM_ZONE_FILLS.transition}
               />
 
               {/* Zero line */}

@@ -5,6 +5,7 @@
 import type { ActivityStreams } from '@/types';
 import type { MaterialCommunityIcons } from '@expo/vector-icons';
 import type { ComponentProps } from 'react';
+import { paceMinutesFromSpeed } from '@/shared/math/kinematics';
 
 /** Icon name type from MaterialCommunityIcons */
 type IconName = ComponentProps<typeof MaterialCommunityIcons>['name'];
@@ -108,7 +109,7 @@ export const CHART_CONFIGS: Record<ChartTypeId, ChartConfig> = {
     // Pace is derived from velocity_smooth (m/s -> min/km or min/mi)
     getStream: (streams) => {
       if (!streams.velocity_smooth) return undefined;
-      return streams.velocity_smooth.map((v) => (v > 0 ? 1000 / v / 60 : 0));
+      return streams.velocity_smooth.map((v) => paceMinutesFromSpeed(v));
     },
     convertToImperial: (v) => v * 1.60934, // min/km to min/mi
     formatValue: (v) => {

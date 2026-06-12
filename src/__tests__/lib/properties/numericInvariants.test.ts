@@ -21,7 +21,7 @@ import {
   formatSwimPace,
   speedToSecsPerKm,
 } from '@/shared/format/format';
-import { calculateSpeed, tsbFromLoads } from '@/shared/math';
+import { calculateSpeed, paceMinutesFromSpeed, tsbFromLoads } from '@/shared/math';
 import { getFormZone } from '@/features/fitness/lib/fitness';
 
 const BANNED = ['NaN', 'Infinity', '-Infinity', 'undefined', 'null'];
@@ -105,6 +105,44 @@ describe('calculateSpeed', () => {
     fc.assert(
       fc.property(messyNumber, fc.double({ min: -1000, max: 0, noNaN: true }), (dist, time) => {
         expect(calculateSpeed(dist, time)).toBe(0);
+      })
+    );
+  });
+});
+
+describe('paceMinutesFromSpeed', () => {
+  it('is always finite and non-negative for any speed', () => {
+    fc.assert(
+      fc.property(messyNumber, (mps) => {
+        const pace = paceMinutesFromSpeed(mps);
+        expect(Number.isFinite(pace)).toBe(true);
+        expect(pace).toBeGreaterThanOrEqual(0);
+      })
+    );
+  });
+
+  it('inverts to speed for positive input (ref / (pace * 60) recovers m/s)', () => {
+    fc.assert(
+      fc.property(fc.double({ min: 0.1, max: 30, noNaN: true, noDefaultInfinity: true }), (mps) => {
+        const pace = paceMinutesFromSpeed(mps);
+        expect(1000 / (pace * 60)).toBeCloseTo(mps, 4);
+      })
+    );
+  });
+
+  it('scales linearly with the reference distance (swim 100m basis)', () => {
+    fc.assert(
+      fc.property(fc.double({ min: 0.1, max: 30, noNaN: true, noDefaultInfinity: true }), (mps) => {
+        expect(paceMinutesFromSpeed(mps, 100)).toBeCloseTo(paceMinutesFromSpeed(mps) / 10, 8);
+      })
+    );
+  });
+
+  it('returns 0 for non-positive, non-finite, or overflowing speed', () => {
+    // 5e-324 is the denormal that turned formatPace into "Infinity:NaN".
+    fc.assert(
+      fc.property(fc.constantFrom(NaN, Infinity, -Infinity, -5, 0, 5e-324), (mps) => {
+        expect(paceMinutesFromSpeed(mps)).toBe(0);
       })
     );
   });

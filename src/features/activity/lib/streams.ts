@@ -1,4 +1,5 @@
 import type { RawStreamItem, ActivityStreams } from '@/types';
+import { paceMinutesFromSpeed } from '@/shared/math/kinematics';
 
 /**
  * Transform raw API streams array into usable ActivityStreams object.
@@ -52,7 +53,7 @@ export function parseStreams(rawStreams: RawStreamItem[]): ActivityStreams {
         streams.wbal = stream.data;
         break;
       case 'ga_velocity':
-        streams.gap = stream.data.map((v) => (v > 0 ? 1000 / v / 60 : 0));
+        streams.gap = stream.data.map((v) => paceMinutesFromSpeed(v));
         break;
     }
   }

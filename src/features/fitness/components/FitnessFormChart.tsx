@@ -17,7 +17,14 @@ import * as Haptics from 'expo-haptics';
 import { colors, darkColors, opacity, spacing, layout, typography, chartStyles } from '@/theme';
 import { ChartCrosshair } from '@/shared/charts';
 import { CHART_CONFIG } from '@/constants';
-import { calculateTSB, getFormZone, FORM_ZONE_COLORS } from '@/features/fitness/lib/fitness';
+import {
+  calculateTSB,
+  getFormZone,
+  getFormZoneColor,
+  formZoneFill,
+  FORM_ZONE_COLORS,
+  type FormZone,
+} from '@/features/fitness/lib/fitness';
 import { sortByDateId } from '@/features/activity/lib/activityUtils';
 import { formatShortDate, formatShortDateWithWeekday } from '@/shared/format/format';
 import type { WellnessData } from '@/types';
@@ -30,47 +37,13 @@ const COLORS = {
 };
 
 // Form zone backgrounds (matching intervals.icu)
-const FORM_ZONES = {
-  highRisk: {
-    min: -Infinity,
-    max: -30,
-    color: 'rgba(239, 83, 80, 0.25)',
-    label: 'High Risk',
-  },
-  optimal: {
-    min: -30,
-    max: -10,
-    color: 'rgba(76, 175, 80, 0.25)',
-    label: 'Optimal',
-  },
-  greyZone: {
-    min: -10,
-    max: 5,
-    color: 'rgba(158, 158, 158, 0.15)',
-    label: 'Grey Zone',
-  },
-  fresh: {
-    min: 5,
-    max: 25,
-    color: 'rgba(129, 199, 132, 0.25)',
-    label: 'Fresh',
-  },
-  transition: {
-    min: 25,
-    max: Infinity,
-    color: 'rgba(100, 181, 246, 0.2)',
-    label: 'Transition',
-  },
+const FORM_ZONE_FILLS: Record<FormZone, string> = {
+  highRisk: formZoneFill('highRisk', 0.25),
+  optimal: formZoneFill('optimal', 0.25),
+  greyZone: formZoneFill('greyZone', 0.15),
+  fresh: formZoneFill('fresh', 0.25),
+  transition: formZoneFill('transition', 0.2),
 };
-
-// Get form line color based on current value
-function getFormLineColor(form: number): string {
-  if (form < -30) return colors.formHighRisk;
-  if (form < -10) return colors.formOptimal;
-  if (form < 5) return colors.formGreyZone;
-  if (form < 25) return colors.formFresh;
-  return colors.formTransition;
-}
 
 interface FitnessFormChartProps {
   data: WellnessData[];
@@ -484,7 +457,7 @@ export const FitnessFormChart = memo(function FitnessFormChart({
                         y={getY(-30)}
                         width={chartBounds.right - chartBounds.left}
                         height={chartBounds.bottom - getY(-30)}
-                        color={FORM_ZONES.highRisk.color}
+                        color={FORM_ZONE_FILLS.highRisk}
                       />
                       {/* Optimal zone (-30 to -10) */}
                       <Rect
@@ -492,7 +465,7 @@ export const FitnessFormChart = memo(function FitnessFormChart({
                         y={getY(-10)}
                         width={chartBounds.right - chartBounds.left}
                         height={getY(-10) - getY(-30) > 0 ? getY(-30) - getY(-10) : 0}
-                        color={FORM_ZONES.optimal.color}
+                        color={FORM_ZONE_FILLS.optimal}
                       />
                       {/* Grey Zone (-10 to 5) */}
                       <Rect
@@ -500,7 +473,7 @@ export const FitnessFormChart = memo(function FitnessFormChart({
                         y={getY(5)}
                         width={chartBounds.right - chartBounds.left}
                         height={getY(-10) - getY(5)}
-                        color={FORM_ZONES.greyZone.color}
+                        color={FORM_ZONE_FILLS.greyZone}
                       />
                       {/* Fresh zone (5 to 25) */}
                       <Rect
@@ -508,7 +481,7 @@ export const FitnessFormChart = memo(function FitnessFormChart({
                         y={getY(25)}
                         width={chartBounds.right - chartBounds.left}
                         height={getY(5) - getY(25)}
-                        color={FORM_ZONES.fresh.color}
+                        color={FORM_ZONE_FILLS.fresh}
                       />
                       {/* Transition zone (> 25) */}
                       <Rect
@@ -516,7 +489,7 @@ export const FitnessFormChart = memo(function FitnessFormChart({
                         y={chartBounds.top}
                         width={chartBounds.right - chartBounds.left}
                         height={getY(25) - chartBounds.top}
-                        color={FORM_ZONES.transition.color}
+                        color={FORM_ZONE_FILLS.transition}
                       />
 
                       {/* Zero line */}
@@ -537,7 +510,7 @@ export const FitnessFormChart = memo(function FitnessFormChart({
                       />
                       <Line
                         points={points.form}
-                        color={getFormLineColor(displayData.form)}
+                        color={getFormZoneColor(displayData.form)}
                         strokeWidth={1}
                         curveType="natural"
                       />

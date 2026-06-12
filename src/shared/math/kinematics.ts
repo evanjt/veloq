@@ -15,6 +15,17 @@ export function calculateSpeed(distanceMeters: number, movingTimeSeconds: number
 }
 
 /**
+ * Pace in minutes per reference distance from speed (m/s). Defaults to
+ * min/km; pass 100 for swim min/100m. Returns 0 for non-positive or
+ * non-finite speed so a stopped sample never yields NaN/Infinity.
+ */
+export function paceMinutesFromSpeed(speedMs: number, referenceMeters = 1000): number {
+  if (!(speedMs > 0) || !Number.isFinite(speedMs)) return 0;
+  const pace = referenceMeters / speedMs / 60;
+  return Number.isFinite(pace) ? pace : 0;
+}
+
+/**
  * Total elevation gain (m): sum of positive deltas between consecutive valid
  * altitude samples. Null/undefined/non-finite samples are skipped without
  * resetting the previous reference, so a dropout doesn't fabricate a gain.

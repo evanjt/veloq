@@ -14,6 +14,7 @@ import { PowerZonesChart } from './PowerZonesChart';
 import { IntervalsTable } from './IntervalsTable';
 import { InsightfulStats } from './stats';
 import { ComponentErrorBoundary, DeviceAttribution } from '@/shared/ui';
+import { paceMinutesFromSpeed } from '@/shared/math/kinematics';
 import { DebugInfoPanel, DebugWarningBanner } from '@/features/routes';
 import { POWER_ZONE_COLORS, HR_ZONE_COLORS } from '@/shared/app/useSportSettings';
 import { useFFITimer } from '@/shared/debug/useFFITimer';
@@ -119,7 +120,7 @@ export const ActivityChartsSection = React.memo(function ActivityChartsSection({
         unitImperial: '/100yd',
         getStream: (s: typeof streams) => {
           if (!s?.velocity_smooth) return undefined;
-          return s.velocity_smooth.map((v: number) => (v > 0 ? 100 / v / 60 : 0));
+          return s.velocity_smooth.map((v: number) => paceMinutesFromSpeed(v, 100));
         },
         convertToImperial: (v: number) => v * 1.09361,
       },

@@ -1,7 +1,6 @@
 export { ActivityCard } from './ActivityCard';
 export { ActivityCardContextMenu } from './ActivityCardContextMenu';
 export { ActivityMapPreview } from './ActivityMapPreview';
-export { SingularPlot } from './SingularPlot';
 export { ActivityDataChart } from './ActivityDataChart';
 export { ChartTypeSelector } from './ChartTypeSelector';
 export { CombinedPlot, type ChartMetricValue } from './CombinedPlot';
