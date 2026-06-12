@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // FFI timing regression gate. Parses a captured Metro/logcat log for the FFI
-// timing markers emitted by logFFIStart() in src/lib/debug/renderTimer.ts and
+// timing markers emitted by logFFIStart() in src/shared/debug/renderTimer.ts and
 // compares per-call p95 against scripts/ffi-baseline.json budgets.
 //
 // Marker format (one per line, color dot is one of 🔴🟡🟢):

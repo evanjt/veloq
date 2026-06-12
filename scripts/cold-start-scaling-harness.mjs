@@ -156,7 +156,7 @@ function countOomEvents(logText) {
 }
 
 function parseDetectionMs(logText) {
-  // Detection phase markers come from PERF_DEBUG in src/lib/debug/renderTimer.ts:
+  // Detection phase markers come from PERF_DEBUG in src/shared/debug/renderTimer.ts:
   // FFI timing lines like "🟡 [FFI] detectSections: 1234.5ms" and the colored
   // [SCREEN]/[HOOK] markers. We sum the explicit FFI durations for detection-named
   // calls; fall back to 0 when PERF_DEBUG is off or markers are absent.
