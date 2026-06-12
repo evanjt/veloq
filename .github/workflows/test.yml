@@ -60,6 +60,42 @@ jobs:
         working-directory: modules/veloqrs/rust
         run: cargo test --workspace
 
+  rust-lint:
+    name: Rust Lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      # Pinned to the toolchain the tree is formatted with; bump this together
+      # with a fresh `cargo fmt` run when the local toolchain moves.
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@1.95.0
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: modules/veloqrs/rust
+          key: lint
+
+      # Scoped to the in-repo crate; the tracematch submodule formats on its
+      # own release cycle and joins this gate once its tree is fmt-clean.
+      - name: Check formatting
+        working-directory: modules/veloqrs/rust
+        run: cargo fmt -p veloqrs --check
+
+      # Informational for now: surfaces warnings without blocking. Flip to
+      # `-D warnings` once the existing warning surface is cleared.
+      - name: Clippy (informational)
+        continue-on-error: true
+        working-directory: modules/veloqrs/rust
+        run: cargo clippy --workspace
+
   verify-bindings:
     name: Verify Bindings
     runs-on: ubuntu-latest

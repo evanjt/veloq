@@ -252,7 +252,9 @@ jobs:
         if: steps.check_creds.outputs.skip != 'true'
         env:
           GOOGLE_PLAY_SERVICE_ACCOUNT_JSON: ${{ secrets.GOOGLE_PLAY_SERVICE_ACCOUNT_JSON }}
-        run: echo "$GOOGLE_PLAY_SERVICE_ACCOUNT_JSON" > play_store_credentials.json
+        run: |
+          umask 077
+          printf '%s' "$GOOGLE_PLAY_SERVICE_ACCOUNT_JSON" > play_store_credentials.json
 
       - name: Upload to Play Store (internal track)
         if: steps.check_creds.outputs.skip != 'true'
@@ -343,6 +345,9 @@ jobs:
           fi
           bundle exec fastlane ios beta ipa:"$IPA_PATH"
 
+      # continue-on-error is intentional: metadata upload needs an editable App
+      # Store Connect version to exist. The TestFlight binary upload above is the
+      # critical step; this one is safe to fail.
       - name: Upload App Store metadata
         if: steps.check_creds.outputs.skip != 'true'
         continue-on-error: true

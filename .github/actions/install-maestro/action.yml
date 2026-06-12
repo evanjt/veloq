@@ -1,6 +1,9 @@
 name: Install Maestro
 description: Install the Maestro CLI and expose it on PATH (idempotent)
 
+# Deliberately unpinned: pinning MAESTRO_VERSION broke before when the CDN
+# removed the pinned release (404). Latest is the lesser risk here.
+
 runs:
   using: composite
   steps:

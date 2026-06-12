@@ -93,10 +93,14 @@ jobs:
 
       - name: Generate native project (dev variant)
         if: steps.apk-cache.outputs.cache-hit != 'true'
+        env:
+          APP_VARIANT: dev
         run: npx expo prebuild --platform android
 
       - name: Build release APK
         if: steps.apk-cache.outputs.cache-hit != 'true'
+        env:
+          APP_VARIANT: dev
         run: |
           cd android && ./gradlew assembleRelease \
             -PreactNativeArchitectures=arm64-v8a,x86_64 \
@@ -178,6 +182,8 @@ jobs:
 
       - name: Generate native project (dev variant)
         if: steps.app-cache.outputs.cache-hit != 'true'
+        env:
+          APP_VARIANT: dev
         run: npx expo prebuild --platform ios
 
       - name: Install Pods
@@ -486,6 +492,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
+      # continue-on-error is intentional on both report downloads: the summary must
+      # still render when one platform job died before uploading its report. The
+      # summary step below emits an explicit failure row for a missing report.
       - name: Download iOS report
         uses: actions/download-artifact@v8
         with:
@@ -519,7 +528,7 @@ jobs:
                   echo "| $platform | $passed/$tests passed ($failures failed) | :x: |"
                 fi
               else
-                echo "| $platform | No report | :warning: |"
+                echo "| $platform | Report missing: platform job failed or did not upload | :x: |"
               fi
             done
             echo ""

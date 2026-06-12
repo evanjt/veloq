@@ -1,0 +1,205 @@
+name: E2E Gate
+
+# PR-blocking E2E gate: runs the tier0+tier1 critical-path flows (the same set
+# as `npm run maestro:gate`) on every pull request. Heavier tiers stay in the
+# dispatch-only E2E workflow and the daily e2e-full run.
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  checks: write
+
+concurrency:
+  group: e2e-gate-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: "22"
+
+jobs:
+  # Same build + cache key as e2e.yml build-android-dev, so gate runs and
+  # dispatched E2E runs share the cached APK for identical source.
+  build-android-dev:
+    name: Build Android Dev
+    # Self-hosted gate runner: only run for same-repo PRs, never fork code.
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      JAVA_TOOL_OPTIONS: "-Dhttp.agent=Gradle -Dhttps.agent=Gradle"
+      GRADLE_OPTS: "-Dhttp.agent=Gradle -Dhttps.agent=Gradle"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Compute source hash
+        id: hash
+        uses: ./.github/actions/compute-version-info
+        with:
+          source-profile: android
+
+      - name: Cache dev APK
+        id: apk-cache
+        uses: actions/cache@v4
+        with:
+          path: android/app/build/outputs/apk/release/app-release.apk
+          key: android-dev-apk-v1-${{ steps.hash.outputs.source_hash }}
+
+      - name: Skip build (cache hit)
+        if: steps.apk-cache.outputs.cache-hit == 'true'
+        run: echo "Using cached dev APK (hash ${{ steps.hash.outputs.source_hash }})"
+
+      - uses: actions/setup-node@v6
+        if: steps.apk-cache.outputs.cache-hit != 'true'
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - if: steps.apk-cache.outputs.cache-hit != 'true'
+        run: npm ci
+
+      - uses: actions/setup-java@v5
+        if: steps.apk-cache.outputs.cache-hit != 'true'
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: android-actions/setup-android@v4
+        if: steps.apk-cache.outputs.cache-hit != 'true'
+
+      - uses: gradle/actions/setup-gradle@v6
+        if: steps.apk-cache.outputs.cache-hit != 'true'
+
+      - name: Setup Rust for Android
+        if: steps.apk-cache.outputs.cache-hit != 'true'
+        uses: ./.github/actions/setup-rust-android
+        with:
+          targets: aarch64-linux-android,x86_64-linux-android
+
+      - name: Build Rust libraries
+        if: steps.apk-cache.outputs.cache-hit != 'true'
+        working-directory: modules/veloqrs/rust
+        run: |
+          mkdir -p ../android/src/main/jniLibs
+          cargo ndk -t aarch64-linux-android -t x86_64-linux-android \
+            --platform 24 -o ../android/src/main/jniLibs \
+            build --release -p veloqrs
+
+      - name: Write google-services.json stub
+        if: steps.apk-cache.outputs.cache-hit != 'true'
+        uses: ./.github/actions/write-google-services-stub
+        with:
+          package-name: com.veloq.app.dev
+
+      - name: Generate native project (dev variant)
+        if: steps.apk-cache.outputs.cache-hit != 'true'
+        env:
+          APP_VARIANT: dev
+        run: npx expo prebuild --platform android
+
+      - name: Build release APK
+        if: steps.apk-cache.outputs.cache-hit != 'true'
+        env:
+          APP_VARIANT: dev
+        run: |
+          cd android && ./gradlew assembleRelease \
+            -PreactNativeArchitectures=arm64-v8a,x86_64 \
+            --no-daemon --no-build-cache
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android-gate-apk
+          path: android/app/build/outputs/apk/release/app-release.apk
+          retention-days: 3
+
+  gate:
+    name: Maestro Gate (tier0+tier1)
+    needs: build-android-dev
+    runs-on: e2e-android
+    timeout-minutes: 45
+    env:
+      ANDROID_HOME: /home/gha-runner/Android/Sdk
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download APK
+        uses: actions/download-artifact@v8
+        with:
+          name: android-gate-apk
+          path: /tmp/apk
+
+      - name: Install Maestro
+        uses: ./.github/actions/install-maestro
+
+      - name: Boot emulator
+        run: |
+          ADB=$ANDROID_HOME/platform-tools/adb
+          $ADB kill-server 2>/dev/null || true
+          sleep 1
+          $ADB start-server
+          $ADB devices | grep -v emulator | grep -v "List" | grep -v "^$" | awk '{print $1}' | while read dev; do
+            $ADB disconnect "$dev" 2>/dev/null || true
+          done
+          $ANDROID_HOME/emulator/emulator -avd e2e-test -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot-save -no-metrics &
+          $ADB -s emulator-5554 wait-for-device
+          for i in $(seq 1 60); do
+            BOOT=$($ADB -s emulator-5554 shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')
+            [ "$BOOT" = "1" ] && break
+            sleep 2
+          done
+          sleep 5
+          $ADB -s emulator-5554 shell settings put global window_animation_scale 0
+          $ADB -s emulator-5554 shell settings put global transition_animation_scale 0
+          $ADB -s emulator-5554 shell settings put global animator_duration_scale 0
+
+      - name: Install APK
+        run: |
+          APK=$(find /tmp/apk -name "*.apk" | head -1)
+          $ANDROID_HOME/platform-tools/adb -s emulator-5554 install "$APK"
+          sleep 3
+
+      - name: Run gate flows
+        env:
+          MAESTRO_DRIVER_STARTUP_TIMEOUT: 180000
+        run: |
+          export PATH="$HOME/.maestro/bin:$PATH"
+          maestro test .maestro/ \
+            --include-tags=tier0,tier1 \
+            --format junit --output gate-report.xml --no-ansi || echo "MAESTRO_FAILED=true" >> $GITHUB_ENV
+
+      - name: Kill emulator
+        if: always()
+        run: $ANDROID_HOME/platform-tools/adb emu kill 2>/dev/null || true
+
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-gate-screenshots
+          path: |
+            ~/.maestro/tests/*/screenshots/
+          retention-days: 7
+
+      - name: Upload test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-gate-report
+          path: gate-report.xml
+          retention-days: 7
+
+      - name: Publish test results
+        if: always()
+        uses: mikepenz/action-junit-report@v6
+        with:
+          report_paths: gate-report.xml
+          check_name: E2E Gate Results
+          fail_on_failure: false
+
+      - name: Fail if tests failed
+        if: always() && env.MAESTRO_FAILED == 'true'
+        run: exit 1
