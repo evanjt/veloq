@@ -20,7 +20,18 @@
       <string>en-US</string>
       <string>en-GB</string>
       <string>es</string>
+      <string>es-419</string>
       <string>fr</string>
+      <string>de</string>
+      <string>de-CH</string>
+      <string>nl</string>
+      <string>it</string>
+      <string>pt</string>
+      <string>pt-BR</string>
+      <string>ja</string>
+      <string>zh-Hans</string>
+      <string>pl</string>
+      <string>da</string>
     </array>
     <key>CFBundleName</key>
     <string>$(PRODUCT_NAME)</string>
