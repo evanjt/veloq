@@ -6,6 +6,7 @@
 appId: com.veloq.app.dev
 tags:
   - tier1
+  - pack-nav
 ---
 # ── Launch & Auth ───────────────────────────────────────
 - runFlow:

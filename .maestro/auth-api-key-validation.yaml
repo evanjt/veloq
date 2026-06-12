@@ -4,6 +4,7 @@
 appId: com.veloq.app.dev
 tags:
   - tier1
+  - pack-auth
 ---
 - launchApp
 
