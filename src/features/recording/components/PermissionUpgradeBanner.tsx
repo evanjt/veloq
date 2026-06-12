@@ -8,12 +8,12 @@ import { useTheme } from '@/shared/app';
 import { useAuthStore } from '@/features/auth/store';
 import { useUploadPermissionStore } from '@/features/recording/stores/UploadPermissionStore';
 import { usePermissionUpgrade } from '@/features/recording/hooks/usePermissionUpgrade';
-import { spacing } from '@/theme';
+import { spacing, colors, colorWithOpacity } from '@/theme';
 
-const AMBER_BG = 'rgba(245, 158, 11, 0.12)';
-const AMBER_BG_DARK = 'rgba(245, 158, 11, 0.18)';
-const AMBER_TEXT = '#D97706';
-const AMBER_ACCENT = '#F59E0B';
+const AMBER_BG = colorWithOpacity(colors.warning, 0.12);
+const AMBER_BG_DARK = colorWithOpacity(colors.warning, 0.18);
+const AMBER_TEXT = colors.amberIcon;
+const AMBER_ACCENT = colors.warning;
 
 function PermissionUpgradeBannerInner() {
   const { t } = useTranslation();

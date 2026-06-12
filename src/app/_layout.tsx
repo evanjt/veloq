@@ -61,7 +61,7 @@ import {
 import { formatLocalDate } from '@/shared/format/format';
 import { queryKeys } from '@/shared/query/queryKeys';
 import { initializeI18n, i18n } from '@/i18n';
-import { lightTheme, darkTheme, colors, darkColors } from '@/theme';
+import { lightTheme, darkTheme, colors, darkColors, amberBanner } from '@/theme';
 import {
   DemoBanner,
   GlobalDataSync,
@@ -542,9 +542,13 @@ export default function RootLayout() {
                     {startupError ? (
                       <View
                         style={{
-                          backgroundColor: colorScheme === 'dark' ? '#3F2A17' : '#FEF3C7',
+                          backgroundColor:
+                            colorScheme === 'dark' ? amberBanner.dark.bg : amberBanner.light.bg,
                           borderBottomWidth: 1,
-                          borderBottomColor: colorScheme === 'dark' ? '#92400E' : '#F59E0B',
+                          borderBottomColor:
+                            colorScheme === 'dark'
+                              ? amberBanner.dark.border
+                              : amberBanner.light.border,
                           paddingHorizontal: 16,
                           paddingVertical: 10,
                         }}
@@ -560,7 +564,10 @@ export default function RootLayout() {
                           <Text
                             style={{
                               flex: 1,
-                              color: colorScheme === 'dark' ? '#FDE68A' : '#92400E',
+                              color:
+                                colorScheme === 'dark'
+                                  ? amberBanner.dark.text
+                                  : amberBanner.light.text,
                               fontSize: 13,
                               lineHeight: 18,
                             }}
@@ -572,7 +579,10 @@ export default function RootLayout() {
                           <Text
                             style={{
                               marginTop: 4,
-                              color: colorScheme === 'dark' ? '#FCD34D' : '#B45309',
+                              color:
+                                colorScheme === 'dark'
+                                  ? amberBanner.dark.subtext
+                                  : amberBanner.light.subtext,
                               fontSize: 12,
                             }}
                             numberOfLines={2}

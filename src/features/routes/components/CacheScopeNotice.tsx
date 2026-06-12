@@ -36,7 +36,11 @@ export function CacheScopeNotice({ processedCount, groupCount, onPress }: CacheS
         {groupCount > 0 && ` · ${t('routes.routesFound', { count: groupCount })}`}
       </Text>
       {onPress && (
-        <MaterialCommunityIcons name="chevron-right" size={16} color={isDark ? '#666' : '#999'} />
+        <MaterialCommunityIcons
+          name="chevron-right"
+          size={16}
+          color={isDark ? darkColors.chevronMuted : colors.chevronMuted}
+        />
       )}
     </View>
   );

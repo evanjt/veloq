@@ -2,6 +2,7 @@ import { formatDuration } from '@/shared/format/format';
 import type { Insight, SectionTrendData, TFunc } from '../types';
 import { makeInsight } from '../lib/insightBuilder';
 import { INSIGHTS_CONFIG, maxAgeDaysFor, maxPerCategoryFor } from '../lib/config';
+import { insightIcon } from '@/theme';
 
 const DAY_MS = 86_400_000;
 
@@ -69,7 +70,7 @@ export function generateSectionTrendInsights(
         category: 'section_trend',
         priority: priority as 2 | 3,
         icon: isImproving ? 'trending-up' : 'trending-down',
-        iconColor: isImproving ? '#66BB6A' : '#FFA726',
+        iconColor: isImproving ? insightIcon.positive : insightIcon.caution,
         title: isImproving
           ? t('insights.sectionImproving', { name: section.sectionName })
           : t('insights.sectionDeclining', { name: section.sectionName }),

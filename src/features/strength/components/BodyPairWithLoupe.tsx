@@ -10,7 +10,8 @@ import Animated, {
 import Body, { type ExtendedBodyPart } from 'react-native-body-highlighter';
 
 import { CHART_CONFIG } from '@/constants';
-import { brand } from '@/theme';
+import { brand, loupeChrome } from '@/theme';
+import { useTheme } from '@/shared/app';
 
 import { findMuscleAtPoint } from '../lib/polygons';
 
@@ -49,6 +50,7 @@ export const BodyPairWithLoupe = React.memo(function BodyPairWithLoupe({
   centerContent,
   centerWidth = 0,
 }: BodyPairWithLoupeProps) {
+  const { isDark } = useTheme();
   const [layoutSize, setLayoutSize] = useState<{ width: number; height: number } | null>(null);
   const lastScrubSlug = useRef<string | null>(null);
 
@@ -257,7 +259,7 @@ export const BodyPairWithLoupe = React.memo(function BodyPairWithLoupe({
 
           {/* Magnifying loupe — bodies rendered at larger scale, no CSS scale transform */}
           <Animated.View style={[styles.loupeContainer, loupeContainerStyle]} pointerEvents="none">
-            <View style={styles.loupeClip}>
+            <View style={[styles.loupeClip, isDark && styles.loupeClipDark]}>
               <Animated.View style={[styles.loupeBody, loupeFrontStyle]}>
                 <Body
                   data={data}
@@ -348,9 +350,12 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     borderWidth: 3,
     borderColor: brand.tealLight,
-    backgroundColor: '#F0F0F0',
+    backgroundColor: loupeChrome.bgLight,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  loupeClipDark: {
+    backgroundColor: loupeChrome.bgDark,
   },
   loupeBody: {
     position: 'absolute',
@@ -361,9 +366,9 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: '#1A1A1A',
+    backgroundColor: loupeChrome.crosshairDot,
     borderWidth: 1,
-    borderColor: '#fff',
+    borderColor: loupeChrome.crosshairRing,
     zIndex: 5,
   },
 });

@@ -18,7 +18,7 @@ import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, spacing, layout, typography, brand } from '@/theme';
+import { colors, colorWithOpacity, darkColors, spacing, layout, typography, brand } from '@/theme';
 import { getActivityIcon, getActivityColor } from '@/features/activity/lib/activityUtils';
 import type { MaterialIconName } from '@/features/activity/lib/activityUtils';
 import { ACTIVITY_CATEGORIES, getRecordingMode } from '@/features/recording/lib/recordingModes';
@@ -436,27 +436,27 @@ function GpsReadinessBar({
   > = {
     checking: {
       icon: 'crosshairs-question',
-      color: '#9CA3AF',
+      color: colors.iconNeutral,
       text: t('recording.gpsAcquiring'),
-      bgColor: 'rgba(156, 163, 175, 0.1)',
+      bgColor: colorWithOpacity(colors.iconNeutral, 0.1),
     },
     ready: {
       icon: 'crosshairs-gps',
-      color: '#22C55E',
+      color: colors.success,
       text: t('recording.gpsReady'),
-      bgColor: 'rgba(34, 197, 94, 0.1)',
+      bgColor: colorWithOpacity(colors.success, 0.1),
     },
     weak: {
       icon: 'crosshairs',
-      color: '#F59E0B',
+      color: colors.warning,
       text: t('recording.gpsWeakWarning'),
-      bgColor: 'rgba(245, 158, 11, 0.1)',
+      bgColor: colorWithOpacity(colors.warning, 0.1),
     },
     none: {
       icon: 'crosshairs-off',
-      color: '#EF4444',
+      color: colors.error,
       text: t('recording.gpsNone', 'Location denied'),
-      bgColor: 'rgba(239, 68, 68, 0.1)',
+      bgColor: colorWithOpacity(colors.error, 0.1),
     },
   };
 
@@ -666,18 +666,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.sm + 2,
     borderRadius: 8,
-    backgroundColor: '#F59E0B',
+    backgroundColor: colors.warning,
     minWidth: 140,
     alignItems: 'center',
   },
   permissionButtonText: {
-    color: '#FFFFFF',
+    color: colors.textOnDark,
     fontSize: 16,
     fontWeight: '600',
   },
   permissionError: {
     fontSize: 13,
-    color: '#DC2626',
+    color: colors.errorDark,
     textAlign: 'center',
   },
 });

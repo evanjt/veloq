@@ -2,6 +2,7 @@ import { formatPaceCompact, formatSwimPace } from '@/shared/format/format';
 import type { Insight, FtpTrend, PaceTrend, TFunc } from '../types';
 import { makeInsight } from '../lib/insightBuilder';
 import { INSIGHTS_CONFIG } from '../lib/config';
+import { insightIcon } from '@/theme';
 
 const YEAR_2000_MS = 946_684_800_000;
 
@@ -128,7 +129,7 @@ export function generateFitnessMilestoneInsights(
           category: 'fitness_milestone',
           priority: 2,
           icon: 'lightning-bolt',
-          iconColor: '#FFA726',
+          iconColor: insightIcon.caution,
           title: t('insights.ftpIncrease', {
             current: Math.round(ftp.latestFtp),
             change: delta,
@@ -173,7 +174,7 @@ export function generateFitnessMilestoneInsights(
   addPaceMilestoneInsight(insights, paceTrend ?? null, now, t, {
     id: 'fitness_milestone-pace',
     icon: 'run-fast',
-    iconColor: '#66BB6A',
+    iconColor: insightIcon.positive,
     paceUnit: '/km',
     changeUnit: 's/km',
     formatValue: (speedMetersPerSecond) => formatPaceCompact(speedMetersPerSecond),
@@ -182,7 +183,7 @@ export function generateFitnessMilestoneInsights(
   addPaceMilestoneInsight(insights, swimPaceTrend ?? null, now, t, {
     id: 'fitness_milestone-swim-pace',
     icon: 'swim',
-    iconColor: '#42A5F5',
+    iconColor: insightIcon.info,
     paceUnit: '/100m',
     changeUnit: 's/100m',
     formatValue: (speedMetersPerSecond) => formatSwimPace(speedMetersPerSecond),

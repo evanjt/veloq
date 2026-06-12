@@ -34,7 +34,7 @@ import { useTranslation } from 'react-i18next';
 import * as Location from 'expo-location';
 import { getActivityColor } from '@/features/activity/lib/activityUtils';
 import { getBoundsFromPoints } from '@/shared/geo/polyline';
-import { colors, darkColors } from '@/theme';
+import { colors, darkColors, mapPreviewColors } from '@/theme';
 import { useMapPreferences } from '@/features/maps/stores/MapPreferencesContext';
 import {
   getMapStyle,
@@ -377,7 +377,7 @@ export const SectionMapView = memo(function SectionMapView({
               'case',
               ['==', ['get', 'sectionId'], selectedNearby ?? ''],
               colors.primary,
-              '#888888',
+              colors.neutralLine,
             ],
             lineOpacity: ['case', ['==', ['get', 'sectionId'], selectedNearby ?? ''], 0.8, 0.4],
             lineWidth: ['case', ['==', ['get', 'sectionId'], selectedNearby ?? ''], 5, 3],
@@ -433,7 +433,7 @@ export const SectionMapView = memo(function SectionMapView({
           id="allTracesLineCasing"
           filter={highlightedTraceFilter}
           style={{
-            lineColor: '#FFFFFF',
+            lineColor: mapPreviewColors.routeHalo,
             lineWidth: 5,
             lineCap: 'round',
             lineJoin: 'round',
@@ -458,7 +458,7 @@ export const SectionMapView = memo(function SectionMapView({
         <LineLayer
           id="highlightedLapLineCasing"
           style={{
-            lineColor: '#FFFFFF',
+            lineColor: mapPreviewColors.routeHalo,
             lineOpacity: 1,
             lineWidth: 6,
             lineCap: 'round',
@@ -481,7 +481,7 @@ export const SectionMapView = memo(function SectionMapView({
         <LineLayer
           id="highlightedLineCasing"
           style={{
-            lineColor: '#FFFFFF',
+            lineColor: mapPreviewColors.routeHalo,
             lineOpacity: 1,
             lineWidth: 5,
             lineCap: 'round',
@@ -783,7 +783,7 @@ export const SectionMapView = memo(function SectionMapView({
               id="fullscreenAllTracesLineCasing"
               filter={highlightedTraceFilter}
               style={{
-                lineColor: '#FFFFFF',
+                lineColor: mapPreviewColors.routeHalo,
                 lineWidth: 6,
                 lineCap: 'round',
                 lineJoin: 'round',
@@ -808,7 +808,7 @@ export const SectionMapView = memo(function SectionMapView({
             <LineLayer
               id="fullscreenHighlightedLapLineCasing"
               style={{
-                lineColor: '#FFFFFF',
+                lineColor: mapPreviewColors.routeHalo,
                 lineOpacity: 1,
                 lineWidth: 6,
                 lineCap: 'round',
@@ -831,7 +831,7 @@ export const SectionMapView = memo(function SectionMapView({
             <LineLayer
               id="fullscreenHighlightedLineCasing"
               style={{
-                lineColor: '#FFFFFF',
+                lineColor: mapPreviewColors.routeHalo,
                 lineOpacity: 1,
                 lineWidth: 5,
                 lineCap: 'round',

@@ -5,7 +5,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, spacing, opacity, layout, brand } from '@/theme';
+import { colors, darkColors, spacing, opacity, layout, brand, statusBadge } from '@/theme';
 import type { StrengthBalancePair } from '@/types';
 
 import { formatSetCount, formatBalanceRatio } from '../lib/formatting';
@@ -250,10 +250,10 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
   },
   balanceHeroBadgeBalanced: {
-    backgroundColor: '#22C55E18',
+    backgroundColor: statusBadge.good.bg,
   },
   balanceHeroBadgeAlert: {
-    backgroundColor: '#F9731618',
+    backgroundColor: statusBadge.alert.bg,
   },
   balanceHeroBadgeText: {
     fontSize: 12,
@@ -261,10 +261,10 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
   balanceHeroBadgeTextBalanced: {
-    color: '#15803D',
+    color: statusBadge.good.text,
   },
   balanceHeroBadgeTextAlert: {
-    color: '#B45309',
+    color: statusBadge.watch.text,
   },
   balanceHeroText: {
     fontSize: 13,
@@ -307,13 +307,13 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
   },
   balanceStatusBalanced: {
-    backgroundColor: '#22C55E18',
+    backgroundColor: statusBadge.good.bg,
   },
   balanceStatusWatch: {
-    backgroundColor: '#F59E0B18',
+    backgroundColor: statusBadge.watch.bg,
   },
   balanceStatusImbalanced: {
-    backgroundColor: '#EF444418',
+    backgroundColor: statusBadge.bad.bg,
   },
   balanceStatusText: {
     fontSize: 11,
@@ -321,13 +321,13 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
   balanceStatusTextBalanced: {
-    color: '#15803D',
+    color: statusBadge.good.text,
   },
   balanceStatusTextWatch: {
-    color: '#B45309',
+    color: statusBadge.watch.text,
   },
   balanceStatusTextImbalanced: {
-    color: '#B91C1C',
+    color: statusBadge.bad.text,
   },
   balanceValueRow: {
     flexDirection: 'row',

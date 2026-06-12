@@ -322,7 +322,9 @@ function RouteRowComponent({ route, navigable = false, distanceFromUser }: Route
           <MaterialCommunityIcons
             name={navigable ? 'chevron-right' : expanded ? 'chevron-up' : 'chevron-down'}
             size={16}
-            color={navigable ? '#FFFFFF' : isDark ? '#888' : colors.textSecondary}
+            color={
+              navigable ? colors.textOnDark : isDark ? colors.neutralLine : colors.textSecondary
+            }
           />
         </View>
       </TouchableOpacity>

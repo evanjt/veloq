@@ -1,6 +1,7 @@
 import type { Insight } from '../types';
 import { getRouteEngine } from '@/shared/native/routeEngine';
 import { INSIGHTS_CONFIG, maxPerCategoryFor } from '../lib/config';
+import { insightIcon } from '@/theme';
 
 /**
  * Aerobic Efficiency Trend Insights
@@ -59,7 +60,7 @@ export function generateEfficiencyTrendInsights(
       category: 'efficiency_trend',
       priority: 1,
       icon: 'heart-pulse',
-      iconColor: '#66BB6A',
+      iconColor: insightIcon.positive,
       title: t('insights.efficiencyTrend.title', { name: trend.sectionName }),
       subtitle: t('insights.efficiencyTrend.subtitle', {
         hrChange,

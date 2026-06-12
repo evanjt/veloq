@@ -502,7 +502,7 @@ function ParamRow({
   isDark: boolean;
 }) {
   const txt = isDark ? darkColors.textSecondary : colors.textSecondary;
-  const trackBg = isDark ? '#333' : '#ddd';
+  const trackBg = isDark ? darkColors.inputTrack : colors.inputTrack;
   return (
     <View style={styles.paramRow}>
       <Text style={[styles.paramLabel, { color: txt }]}>{label}</Text>

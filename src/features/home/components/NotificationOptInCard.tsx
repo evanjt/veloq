@@ -162,7 +162,7 @@ const styles = StyleSheet.create({
   enableText: {
     ...typography.bodySmall,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: colors.textOnDark,
   },
   hintContainer: {
     flexDirection: 'row',

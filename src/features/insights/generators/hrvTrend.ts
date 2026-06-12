@@ -2,6 +2,7 @@ import type { Insight, TFunc } from '../types';
 import { makeInsight } from '../lib/insightBuilder';
 import { getRouteEngine } from '@/shared/native/routeEngine';
 import { INSIGHTS_CONFIG } from '../lib/config';
+import { insightIcon } from '@/theme';
 
 const HRV_WINDOW_DAYS = 7;
 
@@ -90,13 +91,13 @@ export function generateHrvTrendInsight(
   let trendColor: string;
   let trendIcon: string;
   if (trendKey === 'trendingUp') {
-    trendColor = '#66BB6A';
+    trendColor = insightIcon.positive;
     trendIcon = 'trending-up';
   } else if (trendKey === 'trendingDown') {
-    trendColor = '#FFA726';
+    trendColor = insightIcon.caution;
     trendIcon = 'trending-down';
   } else {
-    trendColor = '#42A5F5';
+    trendColor = insightIcon.info;
     trendIcon = 'minus';
   }
 

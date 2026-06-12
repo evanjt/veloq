@@ -8,6 +8,7 @@ import { formatDuration } from '@/shared/format/format';
 import type { Activity } from '@/types';
 import type { StatDetail } from './types';
 import { createMetricHook } from './createMetricHook';
+import { darkColors } from '@/theme';
 
 interface UseCalorieMetricsOptions {
   activity: Activity;
@@ -61,7 +62,7 @@ export const useCalorieMetrics = createMetricHook<UseCalorieMetricsOptions>({
       title: t('activity.stats.energy'),
       value: `${calories}`,
       icon: 'fire' as const,
-      color: '#FBBF24', // Amber-400
+      color: darkColors.amberIcon,
       explanation: t('activity.explanations.energy'),
       details,
     };

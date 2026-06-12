@@ -91,6 +91,6 @@ const styles = StyleSheet.create({
     color: colors.textOnDark,
   },
   textMuted: {
-    color: '#999',
+    color: colors.textSecondary,
   },
 });

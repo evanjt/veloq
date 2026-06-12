@@ -2,6 +2,7 @@ import type { Insight } from '../types';
 import { formatDuration, formatPaceCompact, formatSwimPace } from '@/shared/format/format';
 import { getRouteEngine } from '@/shared/native/routeEngine';
 import { INSIGHTS_CONFIG, maxPerCategoryFor, minAgeDaysFor } from '../lib/config';
+import { insightIcon } from '@/theme';
 
 const DAY_MS = 86_400_000;
 
@@ -278,7 +279,7 @@ export function stalePROpportunityToInsight(
       gainPercent: opportunity.gainPercent,
     }),
     icon: 'lightning-bolt',
-    iconColor: '#FF9800',
+    iconColor: insightIcon.opportunity,
     body: t('insights.stalePr.body', {
       section: opportunity.sectionName,
       metric: metricLabel,
@@ -431,7 +432,7 @@ export function generateStalePRInsights(
       category: 'stale_pr',
       priority: 2,
       icon: 'lightning-bolt',
-      iconColor: '#FF9800',
+      iconColor: insightIcon.opportunity,
       title: t('insights.stalePr.groupTitle', { count: filtered.length }),
       subtitle: subtitleParts.join(', '),
       body:

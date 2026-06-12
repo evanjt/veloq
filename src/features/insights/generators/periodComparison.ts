@@ -2,6 +2,7 @@ import type { InsightMethodology, InsightSupportingData } from '../types';
 import type { Insight, PeriodStats, TFunc } from '../types';
 import { makeInsight } from '../lib/insightBuilder';
 import { INSIGHTS_CONFIG } from '../lib/config';
+import { insightIcon } from '@/theme';
 
 /** Format seconds to compact duration string (e.g., "1h30" or "45m"). */
 export function formatDurationCompact(seconds: number): string {
@@ -102,7 +103,7 @@ export function generatePeriodComparisonInsights(
         category: 'period_comparison',
         priority: 2,
         icon: 'trending-up',
-        iconColor: '#66BB6A',
+        iconColor: insightIcon.positive,
         title: t(upKey, { percent }),
         body,
         navigationTarget: '/routes?tab=routes',
@@ -119,7 +120,7 @@ export function generatePeriodComparisonInsights(
         category: 'period_comparison',
         priority: 2,
         icon: 'trending-down',
-        iconColor: '#FFA726',
+        iconColor: insightIcon.caution,
         title: t(downKey, { percent }),
         body,
         navigationTarget: '/routes?tab=routes',
@@ -160,7 +161,7 @@ function generateLastWeekVsAverageInsight(
       category: 'period_comparison',
       priority: 2,
       icon: ratio > 0 ? 'trending-up' : 'trending-down',
-      iconColor: ratio > 0 ? '#66BB6A' : '#FFA726',
+      iconColor: ratio > 0 ? insightIcon.positive : insightIcon.caution,
       title: t('insights.weeklyLoad.title', { percent, direction }),
       navigationTarget: '/routes?tab=routes',
       timestamp: now,

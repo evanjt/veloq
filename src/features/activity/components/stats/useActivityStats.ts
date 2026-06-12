@@ -139,7 +139,7 @@ import { getApparentTemperature } from '@/features/activity/lib/activityUtils';
 import { formatDuration } from '@/shared/format/format';
 import type { Activity, WellnessData } from '@/types';
 import type { StatDetail } from './types';
-import { colors } from '@/theme';
+import { colors, darkColors } from '@/theme';
 import { TEMPERATURE_THRESHOLDS, FEELS_LIKE_THRESHOLD } from '@/constants';
 
 // Explanation keys for each metric - educational, not interpretive
@@ -344,7 +344,7 @@ export function useActivityStats({
         title: t('activity.stats.energy'),
         value: `${Math.round(activity.calories)}`,
         icon: 'fire',
-        color: '#FBBF24', // Amber-400
+        color: darkColors.amberIcon,
         context: burnRate,
         explanation: t(METRIC_EXPLANATION_KEYS['Energy'] as never),
         details: [

@@ -5,6 +5,7 @@ import { MUSCLE_DISPLAY_NAMES, type MuscleSlug } from '../lib/exerciseMuscleMap'
 import { buildStrengthBalancePairs, buildStrengthProgression } from '../lib/analysis';
 import { formatSetCount } from '../lib/formatting';
 import type { StrengthBalancePair, StrengthProgressPoint, StrengthSummary } from '../types';
+import { colors } from '@/theme';
 
 type TFunc = (key: string, params?: Record<string, string | number>) => string;
 
@@ -36,7 +37,7 @@ function buildStrengthBalanceInsight(pair: StrengthBalancePair, now: number, t: 
     subtitle: `${pair.leftLabel} ${formatSetCount(pair.leftWeightedSets)} · ${pair.rightLabel} ${formatSetCount(pair.rightWeightedSets)}`,
     body,
     icon: 'scale-balance',
-    iconColor: pair.status === 'watch' ? '#F59E0B' : '#EF4444',
+    iconColor: pair.status === 'watch' ? colors.warning : colors.error,
     navigationTarget: '/routes?tab=strength',
     timestamp: now,
     isNew: false,
@@ -124,7 +125,7 @@ function buildStrengthProgressionInsight(
           }),
     body,
     icon: progression.trend === 'up' ? 'arm-flex-outline' : 'dumbbell',
-    iconColor: progression.trend === 'up' ? '#22C55E' : '#F59E0B',
+    iconColor: progression.trend === 'up' ? colors.success : colors.warning,
     navigationTarget: '/routes?tab=strength',
     timestamp: now,
     isNew: false,
@@ -219,7 +220,7 @@ function buildStrengthSnapshotInsight(summary: StrengthSummary, now: number, t: 
       groups: summary.muscleVolumes.length,
     }),
     icon: 'dumbbell',
-    iconColor: '#71717A',
+    iconColor: colors.gray500,
     navigationTarget: '/routes?tab=strength',
     timestamp: now,
     isNew: false,

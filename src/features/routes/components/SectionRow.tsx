@@ -23,6 +23,7 @@ import {
   typography,
   shadows,
   mapPreviewColors,
+  colorWithOpacity,
 } from '@/theme';
 import { getActivityColor, getActivityIcon } from '@/features/activity/lib/activityUtils';
 import { formatDistance } from '@/shared/format/format';
@@ -438,7 +439,7 @@ export const SectionRow = memo(function SectionRow({
               <MaterialCommunityIcons
                 name="eye-off"
                 size={10}
-                color={isDark ? '#FBBF24' : '#D97706'}
+                color={isDark ? darkColors.amberIcon : colors.amberIcon}
               />
               <Text style={[styles.disabledTagText, isDark && styles.disabledTagTextDark]}>
                 {t('sections.disabled')}
@@ -577,14 +578,14 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   disabledTagDark: {
-    backgroundColor: 'rgba(251, 191, 36, 0.15)',
+    backgroundColor: colorWithOpacity(darkColors.amberIcon, 0.15),
   },
   disabledTagText: {
     fontSize: 10,
     fontWeight: '600',
-    color: '#D97706',
+    color: colors.amberIcon,
   },
   disabledTagTextDark: {
-    color: '#FBBF24',
+    color: darkColors.amberIcon,
   },
 });

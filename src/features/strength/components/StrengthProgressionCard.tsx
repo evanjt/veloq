@@ -4,7 +4,7 @@ import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 
 import { useTheme, useMetricSystem } from '@/shared/app';
-import { colors, darkColors, spacing, opacity, layout, brand } from '@/theme';
+import { colors, darkColors, spacing, opacity, layout, brand, statusBadge } from '@/theme';
 import type { ExerciseSummary, MuscleVolume, StrengthProgression } from '@/types';
 
 import { MUSCLE_DISPLAY_NAMES, type MuscleSlug } from '../lib/exerciseMuscleMap';
@@ -233,13 +233,13 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
   },
   trendBadgeUp: {
-    backgroundColor: '#22C55E26',
+    backgroundColor: statusBadge.goodStrong.bg,
   },
   trendBadgeDown: {
-    backgroundColor: '#F59E0B26',
+    backgroundColor: statusBadge.watchStrong.bg,
   },
   trendBadgeFlat: {
-    backgroundColor: '#64748B26',
+    backgroundColor: statusBadge.neutralStrong.bg,
   },
   trendText: {
     fontSize: 11,
@@ -247,13 +247,13 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
   trendTextUp: {
-    color: '#15803D',
+    color: statusBadge.goodStrong.text,
   },
   trendTextDown: {
-    color: '#B45309',
+    color: statusBadge.watchStrong.text,
   },
   trendTextFlat: {
-    color: '#475569',
+    color: statusBadge.neutralStrong.text,
   },
   statsRow: {
     flexDirection: 'row',

@@ -117,7 +117,12 @@ export function TrimSlider({
       {/* Slider track */}
       <View style={styles.sliderContainer} onLayout={onTrackLayout}>
         {/* Background track */}
-        <View style={[styles.trackBg, { backgroundColor: isDark ? '#333' : colors.border }]} />
+        <View
+          style={[
+            styles.trackBg,
+            { backgroundColor: isDark ? darkColors.inputTrack : colors.inputTrack },
+          ]}
+        />
 
         {/* Active range */}
         {trackWidth > 0 && (
