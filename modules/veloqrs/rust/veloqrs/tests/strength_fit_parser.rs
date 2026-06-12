@@ -10,8 +10,8 @@
 
 use std::path::PathBuf;
 use tempfile::TempDir;
-use veloqrs::fit::{FitExerciseSet, parse_fit_strength_sets};
 use veloqrs::PersistentRouteEngine;
+use veloqrs::fit::{FitExerciseSet, parse_fit_strength_sets};
 
 #[test]
 fn parse_empty_bytes_reports_empty_error() {
@@ -85,7 +85,11 @@ fn store_and_read_back_exercise_sets() {
         .mark_fit_processed(activity_id, true)
         .expect("mark processed");
 
-    assert!(engine.is_fit_processed(activity_id).expect("is_fit_processed"));
+    assert!(
+        engine
+            .is_fit_processed(activity_id)
+            .expect("is_fit_processed")
+    );
 
     let read_back = engine.get_exercise_sets(activity_id).expect("read ok");
     assert_eq!(read_back.len(), 3, "expected 3 sets");

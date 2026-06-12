@@ -33,9 +33,7 @@ fn setup_engine(activity_count: usize) -> (PersistentRouteEngine, TempDir) {
     for i in 0..activity_count {
         let id = format!("activity_{}", i);
         let track = make_track(47.0, 7.0, 200, i as f64 * 0.5);
-        engine
-            .add_activity(id, track, "Ride".to_string())
-            .unwrap();
+        engine.add_activity(id, track, "Ride".to_string()).unwrap();
     }
 
     (engine, dir)
@@ -46,7 +44,10 @@ fn match_percentages_nonzero_after_full_grouping() {
     let (mut engine, dir) = setup_engine(5);
 
     let groups = engine.get_groups();
-    assert!(!groups.is_empty(), "Should produce at least one route group");
+    assert!(
+        !groups.is_empty(),
+        "Should produce at least one route group"
+    );
 
     // Read directly from DB to verify persistence (not just in-memory state)
     let db_path = dir.path().join("test.db");
@@ -86,7 +87,8 @@ fn match_percentages_nonzero_after_full_grouping() {
         "Should have non-representative members in groups"
     );
     assert_eq!(
-        nonrep_nonzero, nonrep_count,
+        nonrep_nonzero,
+        nonrep_count,
         "All {} non-representative members should have match_percentage > 0.0, \
          but {} are still zero",
         nonrep_count,

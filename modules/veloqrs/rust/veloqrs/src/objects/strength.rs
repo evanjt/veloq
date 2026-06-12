@@ -477,9 +477,10 @@ impl StrengthManager {
         activity_id: String,
         fit_bytes: Vec<u8>,
     ) -> Result<u32, VeloqError> {
-        let sets = fit::parse_fit_strength_sets(&fit_bytes).map_err(|e| VeloqError::ParseError {
-            msg: format!("{}", e),
-        })?;
+        let sets =
+            fit::parse_fit_strength_sets(&fit_bytes).map_err(|e| VeloqError::ParseError {
+                msg: format!("{}", e),
+            })?;
         let count = sets.len() as u32;
         let has_sets = !sets.is_empty();
 
@@ -693,7 +694,10 @@ fn aggregate_strength_sets(sets: &[(String, fit::FitExerciseSet)]) -> FfiStrengt
 /// role per exercise against `muscle_slug`, and return aggregated totals.
 /// Skips warmup/cooldown/rest sets (`set_type != 0`). Primary role wins
 /// over secondary when an exercise has multiple sets with differing roles.
-fn aggregate_muscle_detail(muscle_slug: &str, sets: &[fit::FitExerciseSet]) -> FfiMuscleGroupDetail {
+fn aggregate_muscle_detail(
+    muscle_slug: &str,
+    sets: &[fit::FitExerciseSet],
+) -> FfiMuscleGroupDetail {
     struct ExAgg {
         role: String, // "primary" | "secondary"
         sets: u32,

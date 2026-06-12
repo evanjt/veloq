@@ -123,7 +123,10 @@ impl PersistentRouteEngine {
     /// over the trailing `days` window. Null/missing values are forward-filled
     /// so sparkline renderers get continuous lines (matches prior TS behavior).
     /// Returns `None` when no wellness data has been synced yet.
-    pub fn get_wellness_sparklines(&self, days: u32) -> SqlResult<Option<crate::FfiWellnessSparklines>> {
+    pub fn get_wellness_sparklines(
+        &self,
+        days: u32,
+    ) -> SqlResult<Option<crate::FfiWellnessSparklines>> {
         let window = self.get_wellness_window(days)?;
         if window.is_empty() {
             return Ok(None);

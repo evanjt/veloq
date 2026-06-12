@@ -194,8 +194,7 @@ fn measure_delta(before: &SectionSnapshot, after: &SectionSnapshot) -> Behaviour
             if now.sport_type != prev.sport_type {
                 d.sections_with_sport_type_change += 1;
             }
-            let lost: BTreeSet<&String> =
-                prev.activity_ids.difference(&now.activity_ids).collect();
+            let lost: BTreeSet<&String> = prev.activity_ids.difference(&now.activity_ids).collect();
             if !lost.is_empty() {
                 d.sections_with_lost_activities += 1;
                 d.total_activities_lost += lost.len();
@@ -236,8 +235,7 @@ fn assert_single_add_stability(
             "section {id} sport_type changed across a single add"
         );
 
-        let new_ids: BTreeSet<&String> =
-            now.activity_ids.difference(&prev.activity_ids).collect();
+        let new_ids: BTreeSet<&String> = now.activity_ids.difference(&prev.activity_ids).collect();
         let removed_ids: BTreeSet<&String> =
             prev.activity_ids.difference(&now.activity_ids).collect();
         assert!(
@@ -351,9 +349,9 @@ fn scenario_b_expand_to_1y_baseline() {
 
 #[test]
 #[ignore] // strict — B's 90/150 = 60% triggers FULL detection mode where
-          // sections legitimately reshuffle. Stable activity_ids in FULL
-          // mode is gated on Tier 2.1's incremental-consensus accumulator,
-          // which would let FULL mode also reuse existing section IDs.
+// sections legitimately reshuffle. Stable activity_ids in FULL
+// mode is gated on Tier 2.1's incremental-consensus accumulator,
+// which would let FULL mode also reuse existing section IDs.
 fn scenario_b_expand_to_1y_stable() {
     let cfg = LifecycleConfig {
         bucket_a_count: 60,

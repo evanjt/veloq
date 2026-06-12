@@ -1736,7 +1736,10 @@ mod tests {
         assert_eq!(ffi_section.section_type, "auto");
         assert_eq!(ffi_section.name, Some("Test Section".to_string()));
         assert_eq!(ffi_section.sport_type, "Ride");
-        assert_eq!(crate::coords::decode(&ffi_section.encoded_polyline).len(), 2);
+        assert_eq!(
+            crate::coords::decode(&ffi_section.encoded_polyline).len(),
+            2
+        );
         assert_eq!(ffi_section.distance_meters, 1500.0);
         assert_eq!(ffi_section.activity_ids.len(), 2);
         assert_eq!(ffi_section.visit_count, 5);

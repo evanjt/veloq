@@ -5,8 +5,8 @@ use rstar::{AABB, RTree};
 use rusqlite::{Result as SqlResult, params, types::Type};
 use std::sync::Arc;
 
-use super::{ActivityBoundsEntry, ActivityMetadata, MapActivityComplete, PersistentRouteEngine};
 use super::codec;
+use super::{ActivityBoundsEntry, ActivityMetadata, MapActivityComplete, PersistentRouteEngine};
 
 impl PersistentRouteEngine {
     // ========================================================================
@@ -660,9 +660,8 @@ impl PersistentRouteEngine {
 
         stmt.query_row(params![id], |row| {
             let points_blob: Vec<u8> = row.get(0)?;
-            let points: Vec<GpsPoint> = codec::deserialize_points(&points_blob).map_err(|e| {
-                rusqlite::Error::FromSqlConversionFailure(0, Type::Blob, e.into())
-            })?;
+            let points: Vec<GpsPoint> = codec::deserialize_points(&points_blob)
+                .map_err(|e| rusqlite::Error::FromSqlConversionFailure(0, Type::Blob, e.into()))?;
             let start_point = GpsPoint::new(row.get(1)?, row.get(2)?);
             let end_point = GpsPoint::new(row.get(3)?, row.get(4)?);
             let total_distance: f64 = row.get(5)?;
@@ -820,9 +819,8 @@ impl PersistentRouteEngine {
 
         stmt.query_row(params![id], |row| {
             let track_blob: Vec<u8> = row.get(0)?;
-            Ok(codec::deserialize_points(&track_blob).map_err(|e| {
-                rusqlite::Error::FromSqlConversionFailure(0, Type::Blob, e.into())
-            })?)
+            Ok(codec::deserialize_points(&track_blob)
+                .map_err(|e| rusqlite::Error::FromSqlConversionFailure(0, Type::Blob, e.into()))?)
         })
         .ok()
     }
@@ -843,9 +841,8 @@ impl PersistentRouteEngine {
         let rows = stmt.query_map([], |row| {
             let track_blob: Vec<u8> = row.get(0)?;
             let blob_len = track_blob.len();
-            let track: Vec<GpsPoint> = codec::deserialize_points(&track_blob).map_err(|e| {
-                rusqlite::Error::FromSqlConversionFailure(0, Type::Blob, e.into())
-            })?;
+            let track: Vec<GpsPoint> = codec::deserialize_points(&track_blob)
+                .map_err(|e| rusqlite::Error::FromSqlConversionFailure(0, Type::Blob, e.into()))?;
             log::debug!(
                 "[get_all_tracks] Blob {} bytes -> {} points",
                 blob_len,
@@ -952,9 +949,8 @@ impl PersistentRouteEngine {
 
         stmt.query_row(params![activity_id], |row| {
             let times_blob: Vec<u8> = row.get(0)?;
-            Ok(codec::deserialize(&times_blob).map_err(|e| {
-                rusqlite::Error::FromSqlConversionFailure(0, Type::Blob, e.into())
-            })?)
+            Ok(codec::deserialize(&times_blob)
+                .map_err(|e| rusqlite::Error::FromSqlConversionFailure(0, Type::Blob, e.into()))?)
         })
         .ok()
     }

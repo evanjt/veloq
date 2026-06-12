@@ -39,10 +39,14 @@ impl HeatmapManager {
         let mut total: u64 = 0;
         if let Ok(z_entries) = std::fs::read_dir(path) {
             for z_entry in z_entries.flatten() {
-                if !z_entry.path().is_dir() { continue; }
+                if !z_entry.path().is_dir() {
+                    continue;
+                }
                 if let Ok(x_entries) = std::fs::read_dir(z_entry.path()) {
                     for x_entry in x_entries.flatten() {
-                        if !x_entry.path().is_dir() { continue; }
+                        if !x_entry.path().is_dir() {
+                            continue;
+                        }
                         if let Ok(y_entries) = std::fs::read_dir(x_entry.path()) {
                             for y_entry in y_entries.flatten() {
                                 if let Ok(meta) = y_entry.metadata() {

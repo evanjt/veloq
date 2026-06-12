@@ -1,6 +1,8 @@
 //! Route groups: loading, grouping, matching, consensus routes, names.
 
-use crate::{ActivityMatchInfo, Bounds, Direction, GpsPoint, RouteGroup, RouteSignature, geo_utils};
+use crate::{
+    ActivityMatchInfo, Bounds, Direction, GpsPoint, RouteGroup, RouteSignature, geo_utils,
+};
 use rusqlite::{Result as SqlResult, params, types::Type};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -27,15 +29,16 @@ impl PersistentRouteEngine {
 
             self.groups = stmt
                 .query_map([], |row| {
-                    let activity_ids: Vec<String> =
-                        if let Ok(Some(blob)) = row.get::<_, Option<Vec<u8>>>(8) {
-                            codec::deserialize(&blob).unwrap_or_default()
-                        } else {
-                            let json: String = row.get(2)?;
-                            serde_json::from_str(&json).map_err(|e| {
-                                rusqlite::Error::FromSqlConversionFailure(2, Type::Text, Box::new(e))
-                            })?
-                        };
+                    let activity_ids: Vec<String> = if let Ok(Some(blob)) =
+                        row.get::<_, Option<Vec<u8>>>(8)
+                    {
+                        codec::deserialize(&blob).unwrap_or_default()
+                    } else {
+                        let json: String = row.get(2)?;
+                        serde_json::from_str(&json).map_err(|e| {
+                            rusqlite::Error::FromSqlConversionFailure(2, Type::Text, Box::new(e))
+                        })?
+                    };
 
                     let bounds =
                         if let (Some(min_lat), Some(max_lat), Some(min_lng), Some(max_lng)) = (
@@ -482,9 +485,8 @@ impl PersistentRouteEngine {
 
         // skip the partition + HashSet build when nearly everything is
         // new — full is simpler in that fresh-import case.
-        let use_incremental = !self.groups.is_empty()
-            && new_count > 0
-            && (new_count as f64) < (total as f64 * 0.9);
+        let use_incremental =
+            !self.groups.is_empty() && new_count > 0 && (new_count as f64) < (total as f64 * 0.9);
 
         // Materialize owned Vecs for tracematch (needs &[RouteSignature]).
         // With Arc this is one clone per sig instead of two (cache-hit + partition).
@@ -573,7 +575,10 @@ impl PersistentRouteEngine {
 
         // Recompute materialized PR/trend indicators with updated route groups
         if let Err(e) = self.recompute_activity_indicators() {
-            log::warn!("tracematch: [recompute_groups] Indicator recomputation failed: {}", e);
+            log::warn!(
+                "tracematch: [recompute_groups] Indicator recomputation failed: {}",
+                e
+            );
         }
 
         let total_ms = total_start.elapsed().as_millis();
@@ -773,9 +778,9 @@ impl PersistentRouteEngine {
     fn save_groups(&self) -> SqlResult<()> {
         // Snapshot excluded flags before wiping — user exclusions must survive recompute
         let excluded_pairs: Vec<(String, String)> = {
-            let mut stmt = self.db.prepare(
-                "SELECT route_id, activity_id FROM activity_matches WHERE excluded = 1",
-            )?;
+            let mut stmt = self
+                .db
+                .prepare("SELECT route_id, activity_id FROM activity_matches WHERE excluded = 1")?;
             stmt.query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?
                 .filter_map(|r| r.ok())
                 .collect()
@@ -1143,15 +1148,16 @@ impl PersistentRouteEngine {
                     let representative_id: String = row.get(1)?;
                     let sport_type: String = row.get(3)?;
 
-                    let activity_ids: Vec<String> =
-                        if let Ok(Some(blob)) = row.get::<_, Option<Vec<u8>>>(8) {
-                            codec::deserialize(&blob).unwrap_or_default()
-                        } else {
-                            let json: String = row.get(2)?;
-                            serde_json::from_str(&json).map_err(|e| {
-                                rusqlite::Error::FromSqlConversionFailure(2, Type::Text, Box::new(e))
-                            })?
-                        };
+                    let activity_ids: Vec<String> = if let Ok(Some(blob)) =
+                        row.get::<_, Option<Vec<u8>>>(8)
+                    {
+                        codec::deserialize(&blob).unwrap_or_default()
+                    } else {
+                        let json: String = row.get(2)?;
+                        serde_json::from_str(&json).map_err(|e| {
+                            rusqlite::Error::FromSqlConversionFailure(2, Type::Text, Box::new(e))
+                        })?
+                    };
 
                     let bounds =
                         if let (Some(min_lat), Some(max_lat), Some(min_lng), Some(max_lng)) = (
@@ -1262,13 +1268,10 @@ impl PersistentRouteEngine {
             .query_map(params.as_slice(), |row| {
                 let activity_id: String = row.get(0)?;
                 let points_blob: Vec<u8> = row.get(1)?;
-                let points: Vec<GpsPoint> = codec::deserialize_points(&points_blob).map_err(|e| {
-                    rusqlite::Error::FromSqlConversionFailure(
-                        1,
-                        Type::Blob,
-                        e.into(),
-                    )
-                })?;
+                let points: Vec<GpsPoint> =
+                    codec::deserialize_points(&points_blob).map_err(|e| {
+                        rusqlite::Error::FromSqlConversionFailure(1, Type::Blob, e.into())
+                    })?;
                 Ok((activity_id, crate::coords::encode(&points)))
             })
             .ok()

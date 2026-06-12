@@ -244,17 +244,17 @@ impl SectionDetectionProgress {
         };
 
         let (accumulated, weight) = match phase.as_str() {
-            "loading"                => (0.0,  0.04),
-            "analyzing"              => (0.04, 0.01),
-            "building_rtrees"        => (0.05, 0.10),
-            "finding_overlaps"       => (0.15, 0.55),
-            "clustering"             => (0.70, 0.05),
-            "postprocessing"         => (0.75, 0.10),
-            "saving"                 => (0.85, 0.05),
-            "merging_cross_sport"    => (0.90, 0.03),
+            "loading" => (0.0, 0.04),
+            "analyzing" => (0.04, 0.01),
+            "building_rtrees" => (0.05, 0.10),
+            "finding_overlaps" => (0.15, 0.55),
+            "clustering" => (0.70, 0.05),
+            "postprocessing" => (0.75, 0.10),
+            "saving" => (0.85, 0.05),
+            "merging_cross_sport" => (0.90, 0.03),
             "recomputing_indicators" => (0.93, 0.04),
-            "complete"               => (1.0,  0.0),
-            _                        => return 50,
+            "complete" => (1.0, 0.0),
+            _ => return 50,
         };
         let pct = (accumulated + weight * fraction) * 100.0;
         (pct.round() as u32).min(100)
@@ -403,13 +403,13 @@ fn load_groups_from_db(conn: &Connection) -> Vec<RouteGroup> {
 
     let groups: Vec<RouteGroup> = stmt
         .query_map([], |row| {
-            let activity_ids: Vec<String> =
-                if let Ok(Some(blob)) = row.get::<_, Option<Vec<u8>>>(8) {
-                    codec::deserialize(&blob).unwrap_or_default()
-                } else {
-                    let json: String = row.get(2)?;
-                    serde_json::from_str(&json).unwrap_or_default()
-                };
+            let activity_ids: Vec<String> = if let Ok(Some(blob)) = row.get::<_, Option<Vec<u8>>>(8)
+            {
+                codec::deserialize(&blob).unwrap_or_default()
+            } else {
+                let json: String = row.get(2)?;
+                serde_json::from_str(&json).unwrap_or_default()
+            };
 
             let bounds = match (
                 row.get::<_, Option<f64>>(4)?,
@@ -583,8 +583,10 @@ impl PersistentRouteEngine {
         // Backfill activities.duration_secs from activity_metrics.moving_time.
         // Route highlights need duration_secs to compute trends/PRs, but it was
         // historically not populated. This ensures it's always available at startup.
-        let backfilled = self.db.execute(
-            "UPDATE activities SET duration_secs = (
+        let backfilled = self
+            .db
+            .execute(
+                "UPDATE activities SET duration_secs = (
                 SELECT moving_time FROM activity_metrics
                 WHERE activity_metrics.activity_id = activities.id
             )
@@ -593,8 +595,9 @@ impl PersistentRouteEngine {
                 SELECT 1 FROM activity_metrics
                 WHERE activity_metrics.activity_id = activities.id
               )",
-            [],
-        ).unwrap_or(0);
+                [],
+            )
+            .unwrap_or(0);
         if backfilled > 0 {
             log::info!(
                 "tracematch: [PersistentEngine] Backfilled duration_secs for {} activities",
@@ -2102,7 +2105,10 @@ mod tests {
         use super::sections::compute_lap_time_from_stream;
 
         // No stream available.
-        assert_eq!(compute_lap_time_from_stream(None, 0, 5, 100.0), (None, None));
+        assert_eq!(
+            compute_lap_time_from_stream(None, 0, 5, 100.0),
+            (None, None)
+        );
 
         // Zero-duration traversal (start == end).
         let times: Vec<u32> = vec![10, 20, 30];

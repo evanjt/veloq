@@ -25,7 +25,10 @@ fn open_db() -> Option<Connection> {
     let path_str = db_path();
     let path = Path::new(&path_str);
     if !path.exists() {
-        eprintln!("Skipping: {} not found (set VELOQ_DB to override)", path_str);
+        eprintln!(
+            "Skipping: {} not found (set VELOQ_DB to override)",
+            path_str
+        );
         return None;
     }
     Some(Connection::open(path).expect("open DB"))
@@ -110,7 +113,8 @@ fn audit_route_match_quality() {
             )
             .unwrap_or_default();
 
-        let activity_ids: Vec<String> = serde_json::from_str(&activity_ids_json).unwrap_or_default();
+        let activity_ids: Vec<String> =
+            serde_json::from_str(&activity_ids_json).unwrap_or_default();
 
         let rep_sig = match sig_map.get(rep_id) {
             Some(s) => s,
@@ -485,10 +489,7 @@ fn redetect_and_compare() {
     // Group by sport for sport-specific grouping
     let mut sig_by_sport: HashMap<String, Vec<RouteSignature>> = HashMap::new();
     for sig in &signatures {
-        let sport = sport_map
-            .get(&sig.activity_id)
-            .cloned()
-            .unwrap_or_default();
+        let sport = sport_map.get(&sig.activity_id).cloned().unwrap_or_default();
         sig_by_sport.entry(sport).or_default().push(sig.clone());
     }
 
@@ -502,7 +503,10 @@ fn redetect_and_compare() {
             groups.len()
         );
 
-        let mut large: Vec<_> = groups.iter().filter(|g| g.activity_ids.len() >= 10).collect();
+        let mut large: Vec<_> = groups
+            .iter()
+            .filter(|g| g.activity_ids.len() >= 10)
+            .collect();
         large.sort_by(|a, b| b.activity_ids.len().cmp(&a.activity_ids.len()));
         for g in large.iter().take(5) {
             println!(
@@ -541,9 +545,7 @@ fn redetect_and_compare() {
     // Section stats
     let mut by_sport_sections: HashMap<&str, usize> = HashMap::new();
     for s in &result.sections {
-        *by_sport_sections
-            .entry(s.sport_type.as_str())
-            .or_default() += 1;
+        *by_sport_sections.entry(s.sport_type.as_str()).or_default() += 1;
     }
     println!("\nSections by sport:");
     let mut sv: Vec<_> = by_sport_sections.iter().collect();
@@ -607,7 +609,10 @@ fn redetect_and_compare() {
 
     println!("\n  Top 10 most over-sectioned:");
     for (id, count) in pa_counts.iter().take(10) {
-        let sport = sport_map.get(&id.to_string()).map(|s| s.as_str()).unwrap_or("?");
+        let sport = sport_map
+            .get(&id.to_string())
+            .map(|s| s.as_str())
+            .unwrap_or("?");
         println!("    {} ({}) — {} sections", id, sport, count);
     }
 
@@ -631,8 +636,11 @@ fn redetect_and_compare() {
             for &j in indices.iter().skip(a_idx + 1) {
                 let sj = &result.sections[j];
 
-                let j_in_i =
-                    compute_containment(&sj.polyline, &si.polyline, section_config.proximity_threshold);
+                let j_in_i = compute_containment(
+                    &sj.polyline,
+                    &si.polyline,
+                    section_config.proximity_threshold,
+                );
 
                 if j_in_i > 0.3 {
                     let i_in_j = compute_containment(
@@ -686,7 +694,12 @@ fn redetect_and_compare() {
 
 // ── Consensus freeze tests ────────────────────────────────────────
 
-fn make_straight_track(id: &str, base_lat: f64, base_lng: f64, points: usize) -> (String, Vec<GpsPoint>) {
+fn make_straight_track(
+    id: &str,
+    base_lat: f64,
+    base_lng: f64,
+    points: usize,
+) -> (String, Vec<GpsPoint>) {
     let pts: Vec<GpsPoint> = (0..points)
         .map(|i| GpsPoint {
             latitude: base_lat + (i as f64) * 0.0001,
@@ -701,7 +714,7 @@ fn make_straight_track(id: &str, base_lat: f64, base_lng: f64, points: usize) ->
 #[ignore]
 fn consensus_freeze_accepted_section() {
     use std::sync::Arc;
-    use tracematch::sections::{detect_sections_multiscale, NoopProgress};
+    use tracematch::sections::{NoopProgress, detect_sections_multiscale};
 
     let config = SectionConfig::default();
     let mut sport_types = HashMap::new();
@@ -726,7 +739,10 @@ fn consensus_freeze_accepted_section() {
     );
 
     let result = detect_sections_multiscale(&tracks, &sport_types, &groups, &config);
-    assert!(!result.sections.is_empty(), "should detect at least one section");
+    assert!(
+        !result.sections.is_empty(),
+        "should detect at least one section"
+    );
 
     let mut sections = result.sections;
     sections[0].is_user_defined = true;
@@ -760,22 +776,39 @@ fn consensus_freeze_accepted_section() {
         .find(|s| s.is_user_defined)
         .expect("accepted section should still exist");
 
-    assert_eq!(accepted.polyline.len(), frozen_polyline.len(),
-        "accepted section polyline length changed");
-    for (i, (a, b)) in accepted.polyline.iter().zip(frozen_polyline.iter()).enumerate() {
+    assert_eq!(
+        accepted.polyline.len(),
+        frozen_polyline.len(),
+        "accepted section polyline length changed"
+    );
+    for (i, (a, b)) in accepted
+        .polyline
+        .iter()
+        .zip(frozen_polyline.iter())
+        .enumerate()
+    {
         assert!(
             (a.latitude - b.latitude).abs() < 1e-10 && (a.longitude - b.longitude).abs() < 1e-10,
-            "polyline point {} changed: ({},{}) -> ({},{})", i, b.latitude, b.longitude, a.latitude, a.longitude,
+            "polyline point {} changed: ({},{}) -> ({},{})",
+            i,
+            b.latitude,
+            b.longitude,
+            a.latitude,
+            a.longitude,
         );
     }
     assert_eq!(accepted.confidence, frozen_confidence, "confidence changed");
 
     assert!(
         accepted.visit_count > 5,
-        "visit count should increase (got {})", accepted.visit_count,
+        "visit count should increase (got {})",
+        accepted.visit_count,
     );
 
-    println!("Consensus freeze: PASSED — polyline frozen, visits updated to {}", accepted.visit_count);
+    println!(
+        "Consensus freeze: PASSED — polyline frozen, visits updated to {}",
+        accepted.visit_count
+    );
 }
 
 #[test]
@@ -850,7 +883,8 @@ fn save_sections_preserves_accepted() {
     assert!(
         would_keep >= accepted_count,
         "DELETE query would remove accepted sections! kept={} accepted={}",
-        would_keep, accepted_count
+        would_keep,
+        accepted_count
     );
 
     println!("Save persistence: PASSED — accepted sections survive DELETE queries");

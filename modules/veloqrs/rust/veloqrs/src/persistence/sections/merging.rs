@@ -206,10 +206,7 @@ impl PersistentRouteEngine {
 
     /// Find merge candidates for a section.
     /// Returns sections with >30% polyline overlap or close centers with similar distances.
-    pub fn get_merge_candidates(
-        &self,
-        section_id: &str,
-    ) -> Vec<crate::FfiMergeCandidate> {
+    pub fn get_merge_candidates(&self, section_id: &str) -> Vec<crate::FfiMergeCandidate> {
         // Get the query section's data
         let query_data: Option<(f64, f64, f64, String)> = self
             .db
@@ -258,7 +255,7 @@ impl PersistentRouteEngine {
             .query_map(rusqlite::params![section_id], |row| {
                 Ok((
                     row.get::<_, String>(0)?,         // id
-                    row.get::<_, Option<String>>(1)?,  // name
+                    row.get::<_, Option<String>>(1)?, // name
                     row.get::<_, String>(2)?,         // sport_type
                     row.get::<_, f64>(3)?,            // distance_meters
                     row.get::<_, u32>(4)?,            // visit_count
@@ -384,13 +381,18 @@ impl PersistentRouteEngine {
                 let section_word = get_section_word();
                 // Check if it's NOT auto-generated
                 let is_auto = [
-                    "Ride", "Run", "Hike", "Walk", "Swim", "VirtualRide", "VirtualRun",
+                    "Ride",
+                    "Run",
+                    "Hike",
+                    "Walk",
+                    "Swim",
+                    "VirtualRide",
+                    "VirtualRun",
                 ]
                 .iter()
                 .any(|sport| {
                     let prefix = format!("{} {} ", sport, section_word);
-                    sec_name.starts_with(&prefix)
-                        && sec_name[prefix.len()..].parse::<u32>().is_ok()
+                    sec_name.starts_with(&prefix) && sec_name[prefix.len()..].parse::<u32>().is_ok()
                 });
                 if !is_auto {
                     tx.execute(

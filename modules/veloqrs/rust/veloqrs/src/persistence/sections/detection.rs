@@ -1,7 +1,7 @@
 //! Background section detection and application.
 
-use crate::{FrequentSection, GpsPoint};
 use crate::persistence::codec;
+use crate::{FrequentSection, GpsPoint};
 use rusqlite::{Connection, Result as SqlResult, params};
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
@@ -91,12 +91,8 @@ fn recompute_and_save_groups(
             new_sigs.len(),
             existing_sigs.len()
         );
-        let groups = tracematch::group_incremental(
-            &new_sigs,
-            existing_groups,
-            &existing_sigs,
-            match_config,
-        );
+        let groups =
+            tracematch::group_incremental(&new_sigs, existing_groups, &existing_sigs, match_config);
         tracematch::GroupingResult {
             groups,
             activity_matches: HashMap::new(),
@@ -148,7 +144,12 @@ fn save_groups_to_db(conn: &Connection, groups: &[RouteGroup]) -> SqlResult<()> 
         let activity_ids_json = serde_json::to_string(&group.activity_ids).unwrap_or_default();
         let activity_ids_blob = super::codec::serialize(&group.activity_ids).ok();
         let (min_lat, max_lat, min_lng, max_lng) = match &group.bounds {
-            Some(b) => (Some(b.min_lat), Some(b.max_lat), Some(b.min_lng), Some(b.max_lng)),
+            Some(b) => (
+                Some(b.min_lat),
+                Some(b.max_lat),
+                Some(b.min_lng),
+                Some(b.max_lng),
+            ),
             None => (None, None, None, None),
         };
         stmt.execute(params![
@@ -204,10 +205,7 @@ pub fn spawn_accumulator_backfill(db_path: String) {
 /// When `refresh_engine` is true and any section got seeded, best-effort
 /// acquires the global engine write lock and reloads sections. Tests pass
 /// `false` — they hold their own engine and don't need the singleton.
-pub fn run_accumulator_backfill(
-    db_path: &str,
-    refresh_engine: bool,
-) -> Result<(u32, u32), String> {
+pub fn run_accumulator_backfill(db_path: &str, refresh_engine: bool) -> Result<(u32, u32), String> {
     let start = std::time::Instant::now();
     let conn = match Connection::open(db_path) {
         Ok(c) => {
@@ -316,8 +314,8 @@ pub fn run_accumulator_backfill(
                 if let Ok(rows) = stmt.query_map(params_slice.as_slice(), |row| {
                     let id: String = row.get(0)?;
                     let bytes: Vec<u8> = row.get(1)?;
-                    let track: Vec<tracematch::GpsPoint> = codec::deserialize_points(&bytes)
-                        .unwrap_or_default();
+                    let track: Vec<tracematch::GpsPoint> =
+                        codec::deserialize_points(&bytes).unwrap_or_default();
                     Ok((id, track))
                 }) {
                     for row in rows.flatten() {
@@ -410,9 +408,7 @@ pub fn run_accumulator_backfill(
                 }
             }
         } else {
-            log::info!(
-                "tracematch: [accum backfill] engine busy, deferring reload to next start"
-            );
+            log::info!("tracematch: [accum backfill] engine busy, deferring reload to next start");
         }
     }
 
@@ -506,8 +502,7 @@ impl PersistentRouteEngine {
         // Uses the HashMap key (= activity id) to avoid cloning m.id separately.
         let mut sport_map: HashMap<String, String> =
             HashMap::with_capacity(self.activity_metadata.len());
-        let mut activity_ids: Vec<String> =
-            Vec::with_capacity(self.activity_metadata.len());
+        let mut activity_ids: Vec<String> = Vec::with_capacity(self.activity_metadata.len());
 
         for (id, m) in &self.activity_metadata {
             sport_map.insert(id.clone(), m.sport_type.clone());
@@ -557,7 +552,8 @@ impl PersistentRouteEngine {
 
         let use_incremental = !existing_sections.is_empty()
             && !new_activity_ids.is_empty()
-            && (new_activity_ids.len() as f64) < (activity_ids.len() as f64 * INCREMENTAL_THRESHOLD);
+            && (new_activity_ids.len() as f64)
+                < (activity_ids.len() as f64 * INCREMENTAL_THRESHOLD);
 
         if use_incremental {
             log::info!(
@@ -753,10 +749,8 @@ impl PersistentRouteEngine {
                     );
                     match conn.prepare(&sql) {
                         Ok(mut stmt) => {
-                            let params_slice: Vec<&dyn rusqlite::ToSql> = chunk
-                                .iter()
-                                .map(|id| id as &dyn rusqlite::ToSql)
-                                .collect();
+                            let params_slice: Vec<&dyn rusqlite::ToSql> =
+                                chunk.iter().map(|id| id as &dyn rusqlite::ToSql).collect();
                             let rows = stmt.query_map(params_slice.as_slice(), |row| {
                                 let id: String = row.get(0)?;
                                 let blob: Vec<u8> = row.get(1)?;

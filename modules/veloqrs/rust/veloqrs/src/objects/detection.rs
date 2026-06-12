@@ -135,7 +135,9 @@ impl DetectionManager {
                 .lock()
                 .map_err(|_| VeloqError::LockFailed)?;
             if handle_guard.is_some() {
-                info!("tracematch: [DetectionManager] Cannot force redetect: detection already running");
+                info!(
+                    "tracematch: [DetectionManager] Cannot force redetect: detection already running"
+                );
                 return Ok(false);
             }
         }

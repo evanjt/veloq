@@ -7,9 +7,9 @@
 
 use std::collections::HashMap;
 use tracematch::{
-    geo_utils::haversine_distance,
-    sections::{detect_sections_corridor, SectionConfig},
     GpsPoint,
+    geo_utils::haversine_distance,
+    sections::{SectionConfig, detect_sections_corridor},
 };
 
 // ---------------------------------------------------------------------------
@@ -127,11 +127,7 @@ fn synthetic_overlap_produces_sections() {
         "detection should find at least one section from 5 overlapping tracks"
     );
 
-    let max_visits = sections
-        .iter()
-        .map(|s| s.visit_count)
-        .max()
-        .unwrap_or(0);
+    let max_visits = sections.iter().map(|s| s.visit_count).max().unwrap_or(0);
     assert!(
         max_visits >= 3,
         "best section should have >= 3 visits, got {}",

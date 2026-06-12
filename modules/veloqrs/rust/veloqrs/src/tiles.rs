@@ -43,14 +43,14 @@ fn build_color_lut() -> [[u8; 4]; 256] {
 
     // Gradient stops: (intensity, r, g, b, a)
     let stops: &[(f32, f32, f32, f32, f32)] = &[
-        (0.0,   0.0,   0.0,   0.0,   0.0),         // transparent
-        (0.04,  13.0,  148.0, 136.0, 28.0),         // subtle teal (#0D9488)
-        (0.14,  16.0,  163.0, 150.0, 80.0),         // visible teal
-        (0.32,  20.0,  184.0, 166.0, 128.0),        // brand teal (#14B8A6)
-        (0.58,  45.0,  212.0, 191.0, 176.0),        // bright teal (#2DD4BF)
-        (0.80,  94.0,  234.0, 212.0, 216.0),        // light teal (#5EEAD4)
-        (0.94,  153.0, 246.0, 228.0, 236.0),        // pale teal
-        (1.0,   204.0, 251.0, 241.0, 246.0),        // very pale teal highlight
+        (0.0, 0.0, 0.0, 0.0, 0.0),          // transparent
+        (0.04, 13.0, 148.0, 136.0, 28.0),   // subtle teal (#0D9488)
+        (0.14, 16.0, 163.0, 150.0, 80.0),   // visible teal
+        (0.32, 20.0, 184.0, 166.0, 128.0),  // brand teal (#14B8A6)
+        (0.58, 45.0, 212.0, 191.0, 176.0),  // bright teal (#2DD4BF)
+        (0.80, 94.0, 234.0, 212.0, 216.0),  // light teal (#5EEAD4)
+        (0.94, 153.0, 246.0, 228.0, 236.0), // pale teal
+        (1.0, 204.0, 251.0, 241.0, 246.0),  // very pale teal highlight
     ];
 
     for i in 1..256 {
@@ -99,7 +99,11 @@ fn build_intensity_idx_lut(exposure: f32) -> Box<[u8; 65536]> {
     let slice: Box<[u8]> = v.into_boxed_slice();
     // Length is fixed at 65536 by construction; assert before the unchecked cast
     // so a future change to the Vec size fails loudly instead of becoming UB.
-    assert_eq!(slice.len(), 65536, "intensity LUT must be exactly 65536 bytes");
+    assert_eq!(
+        slice.len(),
+        65536,
+        "intensity LUT must be exactly 65536 bytes"
+    );
     let ptr = Box::into_raw(slice) as *mut [u8; 65536];
     // SAFETY: `slice` was just asserted to be exactly 65536 bytes.
     unsafe { Box::from_raw(ptr) }
@@ -271,17 +275,18 @@ pub fn tiles_along_track(points: &[GpsPoint], zoom: u8) -> std::collections::Has
     let max_xy: i64 = (1i64 << zoom).max(1);
     let mut tiles: std::collections::HashSet<(u32, u32)> = std::collections::HashSet::new();
 
-    let mut add_with_halo = |tiles: &mut std::collections::HashSet<(u32, u32)>, tx: i64, ty: i64| {
-        for dy in -1..=1 {
-            for dx in -1..=1 {
-                let nx = tx + dx;
-                let ny = ty + dy;
-                if nx >= 0 && ny >= 0 && nx < max_xy && ny < max_xy {
-                    tiles.insert((nx as u32, ny as u32));
+    let mut add_with_halo =
+        |tiles: &mut std::collections::HashSet<(u32, u32)>, tx: i64, ty: i64| {
+            for dy in -1..=1 {
+                for dx in -1..=1 {
+                    let nx = tx + dx;
+                    let ny = ty + dy;
+                    if nx >= 0 && ny >= 0 && nx < max_xy && ny < max_xy {
+                        tiles.insert((nx as u32, ny as u32));
+                    }
                 }
             }
-        }
-    };
+        };
 
     let mut prev_tile: Option<(i64, i64)> = None;
     let mut prev_valid: Option<(f64, f64)> = None;
@@ -298,14 +303,7 @@ pub fn tiles_along_track(points: &[GpsPoint], zoom: u8) -> std::collections::Has
         add_with_halo(&mut tiles, tx, ty);
 
         if let Some((px, py)) = prev_valid {
-            sweep_line_tiles(
-                &mut tiles,
-                &mut add_with_halo,
-                px,
-                py,
-                gx,
-                gy,
-            );
+            sweep_line_tiles(&mut tiles, &mut add_with_halo, px, py, gx, gy);
         }
 
         prev_tile = Some((tx, ty));
@@ -831,10 +829,22 @@ mod tests {
         let zoom = 17;
         let swept = tiles_along_track(&track, zoom);
         let bbox = tiles_for_bounds(
-            track.iter().map(|p| p.latitude).fold(f64::INFINITY, f64::min),
-            track.iter().map(|p| p.latitude).fold(f64::NEG_INFINITY, f64::max),
-            track.iter().map(|p| p.longitude).fold(f64::INFINITY, f64::min),
-            track.iter().map(|p| p.longitude).fold(f64::NEG_INFINITY, f64::max),
+            track
+                .iter()
+                .map(|p| p.latitude)
+                .fold(f64::INFINITY, f64::min),
+            track
+                .iter()
+                .map(|p| p.latitude)
+                .fold(f64::NEG_INFINITY, f64::max),
+            track
+                .iter()
+                .map(|p| p.longitude)
+                .fold(f64::INFINITY, f64::min),
+            track
+                .iter()
+                .map(|p| p.longitude)
+                .fold(f64::NEG_INFINITY, f64::max),
             zoom,
         );
         // Diagonal track: bbox counts every tile in a rectangle; sweep only
@@ -868,11 +878,7 @@ mod tests {
         let p1 = GpsPoint::new(51.5074 + 0.0020, -0.1278 + 0.0020);
         let swept = tiles_along_track(&[p0, p1], zoom);
         // Expect at least 3 distinct tile coords (segment length > 1 tile).
-        assert!(
-            swept.len() >= 3,
-            "segment sweep too small: {}",
-            swept.len()
-        );
+        assert!(swept.len() >= 3, "segment sweep too small: {}", swept.len());
     }
 
     #[test]

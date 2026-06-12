@@ -23,9 +23,7 @@ fn setup_engine(activity_count: usize) -> (PersistentRouteEngine, TempDir) {
     for i in 0..activity_count {
         let id = format!("activity_{}", i);
         let track = make_track(47.0, 7.0, 200, i as f64 * 0.5);
-        engine
-            .add_activity(id, track, "Ride".to_string())
-            .unwrap();
+        engine.add_activity(id, track, "Ride".to_string()).unwrap();
     }
 
     (engine, dir)
@@ -36,7 +34,10 @@ fn set_representative_updates_memory_and_db() {
     let (mut engine, dir) = setup_engine(5);
 
     let groups = engine.get_groups();
-    assert!(!groups.is_empty(), "Should produce at least one route group");
+    assert!(
+        !groups.is_empty(),
+        "Should produce at least one route group"
+    );
 
     let group_id = groups[0].group_id.clone();
     let original_rep = groups[0].representative_id.clone();
@@ -86,9 +87,7 @@ fn set_representative_rejects_nonmember_activity() {
     let result = engine.set_route_representative(&group_id, "nonexistent_activity");
     assert!(result.is_err(), "Should reject non-member activity");
     assert!(
-        result
-            .unwrap_err()
-            .contains("is not a member of route"),
+        result.unwrap_err().contains("is not a member of route"),
         "Error message should mention non-membership"
     );
 }

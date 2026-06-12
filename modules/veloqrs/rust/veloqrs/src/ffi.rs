@@ -90,9 +90,11 @@ pub struct ActivitySportMapping {
 pub fn validate_backup_database(path: String) -> Result<String, crate::VeloqError> {
     use rusqlite::{Connection, OpenFlags};
 
-    let conn = Connection::open_with_flags(&path, OpenFlags::SQLITE_OPEN_READ_ONLY)
-        .map_err(|e| crate::VeloqError::Database {
-            msg: format!("Cannot open backup: {}", e),
+    let conn =
+        Connection::open_with_flags(&path, OpenFlags::SQLITE_OPEN_READ_ONLY).map_err(|e| {
+            crate::VeloqError::Database {
+                msg: format!("Cannot open backup: {}", e),
+            }
         })?;
 
     let schema_version: String = conn
@@ -468,19 +470,17 @@ pub fn detect_sections_standalone(
     config_json: String,
 ) -> Result<String, crate::VeloqError> {
     let tracks: Vec<(String, Vec<GpsPoint>)> = serde_json::from_str(&tracks_json)
-        .map_err(|e| crate::VeloqError::ParseError {
-            msg: e.to_string(),
-        })?;
+        .map_err(|e| crate::VeloqError::ParseError { msg: e.to_string() })?;
     let sport_types: std::collections::HashMap<String, String> =
-        serde_json::from_str(&sport_types_json).map_err(|e| crate::VeloqError::ParseError {
-            msg: e.to_string(),
-        })?;
+        serde_json::from_str(&sport_types_json)
+            .map_err(|e| crate::VeloqError::ParseError { msg: e.to_string() })?;
     let config: tracematch::SectionConfig = serde_json::from_str(&config_json)
-        .map_err(|e| crate::VeloqError::ParseError {
-            msg: e.to_string(),
-        })?;
+        .map_err(|e| crate::VeloqError::ParseError { msg: e.to_string() })?;
 
-    let groups = if matches!(config.detection_method, tracematch::DetectionMethod::DensityGrid) {
+    let groups = if matches!(
+        config.detection_method,
+        tracematch::DetectionMethod::DensityGrid
+    ) {
         let match_config = tracematch::MatchConfig {
             min_route_distance: 100.0,
             endpoint_threshold: 500.0,
@@ -489,9 +489,7 @@ pub fn detect_sections_standalone(
         };
         let sigs: Vec<_> = tracks
             .iter()
-            .filter_map(|(id, pts)| {
-                tracematch::RouteSignature::from_points(id, pts, &match_config)
-            })
+            .filter_map(|(id, pts)| tracematch::RouteSignature::from_points(id, pts, &match_config))
             .collect();
         tracematch::group_signatures(&sigs, &match_config)
     } else {
@@ -499,7 +497,6 @@ pub fn detect_sections_standalone(
     };
 
     let sections = tracematch::detect_sections(&tracks, &sport_types, &groups, &config);
-    serde_json::to_string(&sections).map_err(|e| crate::VeloqError::ParseError {
-        msg: e.to_string(),
-    })
+    serde_json::to_string(&sections)
+        .map_err(|e| crate::VeloqError::ParseError { msg: e.to_string() })
 }

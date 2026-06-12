@@ -7,7 +7,7 @@
 //!
 //! Run: `cargo test --test encounters -p veloqrs`
 
-use rusqlite::{params, Connection};
+use rusqlite::{Connection, params};
 use std::path::PathBuf;
 use tempfile::TempDir;
 use veloqrs::PersistentRouteEngine;
@@ -27,15 +27,31 @@ fn setup() -> Setup {
     let engine = PersistentRouteEngine::new(&path_str).expect("engine new");
     let raw = Connection::open(&path).expect("raw open");
 
-    Setup { engine, raw, _tmp: tmp }
+    Setup {
+        engine,
+        raw,
+        _tmp: tmp,
+    }
 }
 
-fn insert_activity(db: &Connection, id: &str, start_date_unix: i64, distance_m: f64, duration_s: i64) {
+fn insert_activity(
+    db: &Connection,
+    id: &str,
+    start_date_unix: i64,
+    distance_m: f64,
+    duration_s: i64,
+) {
     db.execute(
         "INSERT INTO activities (id, sport_type, min_lat, max_lat, min_lng, max_lng,
                                   start_date, name, distance_meters, duration_secs)
          VALUES (?1, 'Ride', 46.0, 46.1, 7.0, 7.1, ?2, ?3, ?4, ?5)",
-        params![id, start_date_unix, format!("Activity {}", id), distance_m, duration_s],
+        params![
+            id,
+            start_date_unix,
+            format!("Activity {}", id),
+            distance_m,
+            duration_s
+        ],
     )
     .expect("insert activity");
 }
@@ -70,7 +86,11 @@ fn insert_traversal(
             start_index,
             distance_m,
             lap_time_s,
-            if lap_time_s > 0.0 { distance_m / lap_time_s } else { 0.0 }
+            if lap_time_s > 0.0 {
+                distance_m / lap_time_s
+            } else {
+                0.0
+            }
         ],
     )
     .expect("insert traversal");
@@ -83,7 +103,9 @@ fn insert_traversal(
 #[test]
 fn returns_empty_for_unknown_activity() {
     let setup = setup();
-    let result = setup.engine.get_activity_section_encounters("does-not-exist");
+    let result = setup
+        .engine
+        .get_activity_section_encounters("does-not-exist");
     assert!(result.is_empty());
 }
 
