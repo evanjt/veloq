@@ -86,7 +86,7 @@ fn audit_route_match_quality() {
         })
         .collect();
 
-    let sport_map: HashMap<String, String> = all_tracks
+    let _sport_map: HashMap<String, String> = all_tracks
         .iter()
         .map(|(id, sport, _)| (id.clone(), sport.clone()))
         .collect();

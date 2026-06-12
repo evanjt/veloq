@@ -83,18 +83,15 @@ jobs:
           workspaces: modules/veloqrs/rust
           key: lint
 
-      # Scoped to the in-repo crate; the tracematch submodule formats on its
-      # own release cycle and joins this gate once its tree is fmt-clean.
       - name: Check formatting
         working-directory: modules/veloqrs/rust
-        run: cargo fmt -p veloqrs --check
+        run: cargo fmt --check
 
-      # Informational for now: surfaces warnings without blocking. Flip to
-      # `-D warnings` once the existing warning surface is cleared.
-      - name: Clippy (informational)
-        continue-on-error: true
+      # Default targets only: test/example targets carry upstream warnings
+      # that don't gate the shipped library.
+      - name: Clippy
         working-directory: modules/veloqrs/rust
-        run: cargo clippy --workspace
+        run: cargo clippy --workspace -- -D warnings
 
   verify-bindings:
     name: Verify Bindings

@@ -2,15 +2,21 @@
  * Strength training delegates.
  *
  * Wraps weight-training FFI: exercise sets, muscle groups, volume summaries,
- * and FIT file parsing. Return types are `any[]` / `any` because the strength
- * bindings are still pending regeneration after Rust changes.
+ * and FIT file parsing.
  */
 
 import type { DelegateHost } from './host';
+import type {
+  FfiExerciseActivities,
+  FfiExerciseSet,
+  FfiMuscleExerciseSummary,
+  FfiMuscleGroup,
+  FfiMuscleGroupDetail,
+  FfiStrengthInsightSeries,
+  FfiStrengthSummary,
+} from '../generated/veloqrs';
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
-
-export function getExerciseSets(host: DelegateHost, activityId: string): any[] {
+export function getExerciseSets(host: DelegateHost, activityId: string): FfiExerciseSet[] {
   return host.timed('getExerciseSets', () => host.engine.strength().getExerciseSets(activityId));
 }
 
@@ -22,13 +28,13 @@ export function fetchAndParseExerciseSets(
   host: DelegateHost,
   authHeader: string,
   activityId: string
-): any[] {
+): FfiExerciseSet[] {
   return host.timed('fetchAndParseExerciseSets', () =>
     host.engine.strength().fetchAndParseExerciseSets(authHeader, activityId)
   );
 }
 
-export function getMuscleGroups(host: DelegateHost, activityId: string): any[] {
+export function getMuscleGroups(host: DelegateHost, activityId: string): FfiMuscleGroup[] {
   return host.timed('getMuscleGroups', () => host.engine.strength().getMuscleGroups(activityId));
 }
 
@@ -65,16 +71,17 @@ export function importSetsFromFit(
   );
 }
 
-export function getStrengthSummary(host: DelegateHost, startTs: number, endTs: number): any {
+export function getStrengthSummary(
+  host: DelegateHost,
+  startTs: number,
+  endTs: number
+): FfiStrengthSummary {
   return host.timed('getStrengthSummary', () =>
     host.engine.strength().getStrengthSummary(BigInt(startTs), BigInt(endTs))
   );
 }
 
-export interface StrengthInsightSeries {
-  monthly: any;
-  weekly: any[];
-}
+export type StrengthInsightSeries = FfiStrengthInsightSeries;
 
 /**
  * Batch strength aggregation: one monthly window plus N weekly windows in a
@@ -102,7 +109,7 @@ export function getStrengthInsightSeries(
 export function getStrengthSummaryBatch(
   host: DelegateHost,
   ranges: Array<{ startTs: number; endTs: number }>
-): any[] {
+): FfiStrengthSummary[] {
   if (ranges.length === 0) return [];
   return host.timed('getStrengthSummaryBatch', () =>
     host.engine.strength().getStrengthSummaryBatch(
@@ -111,21 +118,7 @@ export function getStrengthSummaryBatch(
   );
 }
 
-export interface MuscleGroupDetailFfi {
-  slug: string;
-  exercises: Array<{
-    name: string;
-    role: string;
-    sets: number;
-    reps: number;
-    volumeKg: number;
-  }>;
-  totalSets: number;
-  totalReps: number;
-  totalVolumeKg: number;
-  primaryExercises: number;
-  secondaryExercises: number;
-}
+export type MuscleGroupDetailFfi = FfiMuscleGroupDetail;
 
 /**
  * Per-activity muscle breakdown aggregated in Rust: exercises sorted (primary
@@ -152,7 +145,7 @@ export function getExercisesForMuscle(
   startTs: number,
   endTs: number,
   muscleSlug: string
-): any {
+): FfiMuscleExerciseSummary {
   return host.timed('getExercisesForMuscle', () =>
     host.engine.strength().getExercisesForMuscle(BigInt(startTs), BigInt(endTs), muscleSlug)
   );
@@ -164,7 +157,7 @@ export function getActivitiesForExercise(
   endTs: number,
   muscleSlug: string,
   exerciseCategory: number
-): any {
+): FfiExerciseActivities {
   return host.timed('getActivitiesForExercise', () =>
     host.engine
       .strength()
