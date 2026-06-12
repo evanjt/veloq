@@ -378,11 +378,19 @@ impl PersistentRouteEngine {
 
     /// Clear all processed activity IDs to force full re-detection.
     pub(crate) fn clear_processed_activity_ids(&mut self) {
-        let _ = self.db.execute("DELETE FROM processed_activities", []);
-        self.processed_activity_ids.clear();
-        log::info!(
-            "tracematch: [PersistentEngine] Cleared all processed activity IDs for forced re-detection"
-        );
+        // Only clear the in-memory set when the DB delete succeeds; otherwise
+        // the rows reload on next start and memory would disagree with disk.
+        match self.db.execute("DELETE FROM processed_activities", []) {
+            Ok(_) => {
+                self.processed_activity_ids.clear();
+                log::info!(
+                    "tracematch: [PersistentEngine] Cleared all processed activity IDs for forced re-detection"
+                );
+            }
+            Err(e) => {
+                log::warn!("tracematch: failed to clear processed activity IDs: {e:?}");
+            }
+        }
     }
 
     // Section name migration and management methods live in `naming.rs`.

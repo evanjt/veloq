@@ -748,7 +748,10 @@ impl PersistentRouteEngine {
                 })
                 .map(|rows| rows.filter_map(|r| r.ok()).collect())
             })
-            .unwrap_or_default();
+            .unwrap_or_else(|e| {
+                log::warn!("tracematch: debug_clone_activity section query failed: {e:?}");
+                Vec::new()
+            });
 
         // Use epoch millis to ensure unique IDs across invocations
         let batch_ts = std::time::SystemTime::now()
@@ -764,8 +767,9 @@ impl PersistentRouteEngine {
                 continue;
             }
 
-            // Insert activity record
-            let _ = self.db.execute(
+            // Insert activity record; without it the clone doesn't exist, so
+            // skip the dependent inserts rather than counting a phantom clone.
+            if let Err(e) = self.db.execute(
                 "INSERT OR IGNORE INTO activities (id, sport_type, min_lat, max_lat, min_lng, max_lng)
                  VALUES (?, ?, ?, ?, ?, ?)",
                 rusqlite::params![
@@ -776,11 +780,14 @@ impl PersistentRouteEngine {
                     source_meta.bounds.min_lng,
                     source_meta.bounds.max_lng,
                 ],
-            );
+            ) {
+                log::warn!("tracematch: debug_clone_activity activity insert failed: {e:?}");
+                continue;
+            }
 
             // Insert activity metrics if available
             if let Some(ref metrics) = source_metrics {
-                let _ = self.db.execute(
+                if let Err(e) = self.db.execute(
                     "INSERT OR IGNORE INTO activity_metrics
                      (activity_id, name, date, distance, moving_time, elapsed_time,
                       elevation_gain, avg_hr, avg_power, sport_type)
@@ -797,7 +804,9 @@ impl PersistentRouteEngine {
                         metrics.avg_power,
                         metrics.sport_type,
                     ],
-                );
+                ) {
+                    log::warn!("tracematch: debug_clone_activity metrics insert failed: {e:?}");
+                }
 
                 // Add to in-memory metrics
                 let mut clone_metrics = metrics.clone();
@@ -810,7 +819,7 @@ impl PersistentRouteEngine {
             for (section_id, direction, start_idx, end_idx, distance, lap_time, lap_pace) in
                 &section_entries
             {
-                let _ = self.db.execute(
+                if let Err(e) = self.db.execute(
                     "INSERT OR IGNORE INTO section_activities
                      (section_id, activity_id, direction, start_index, end_index, distance_meters, lap_time, lap_pace)
                      VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
@@ -824,7 +833,9 @@ impl PersistentRouteEngine {
                         lap_time,
                         lap_pace
                     ],
-                );
+                ) {
+                    log::warn!("tracematch: debug_clone_activity section insert failed: {e:?}");
+                }
             }
 
             // Add to in-memory metadata
