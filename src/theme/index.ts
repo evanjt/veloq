@@ -15,6 +15,8 @@ export {
   strengthRamp,
   workoutStepColors,
   mapPreviewColors,
+  chartStreamColors,
+  mapStyleSwatch,
   sectionPalette,
   sectionPaletteIndex,
   sectionPaletteExpression,

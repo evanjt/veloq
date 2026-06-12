@@ -257,6 +257,36 @@ export const colors = {
 } as const;
 
 // =============================================================================
+// CHART STREAM COLORS
+// =============================================================================
+
+// One colour per activity data stream (activity charts via chartConfig.ts).
+// Picked for contrast against both themes and against each other; wbal shares
+// cadence's orange because the two never plot together.
+export const chartStreamColors = {
+  power: colors.chartYellow,
+  heartrate: '#E63946',
+  cadence: '#F97316',
+  speed: '#2A9D8F',
+  pace: '#818CF8',
+  elevation: '#A3E635',
+  grade: '#6B8E23',
+  wbal: '#F97316',
+  gap: colors.chartCyan,
+  distance: '#457B9D',
+  temp: '#E76F51',
+  time: '#6C757D',
+} as const;
+
+// Style-picker chip swatches (map style selection): one representative
+// background per map style. Theme-independent — each depicts the style itself.
+export const mapStyleSwatch = {
+  light: '#E5E7EB',
+  dark: '#374151',
+  satellite: '#1E6B5A',
+} as const;
+
+// =============================================================================
 // DARK MODE COLORS (Whoop-inspired)
 // =============================================================================
 

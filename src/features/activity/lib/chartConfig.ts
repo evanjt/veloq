@@ -6,6 +6,7 @@ import type { ActivityStreams } from '@/types';
 import type { MaterialCommunityIcons } from '@expo/vector-icons';
 import type { ComponentProps } from 'react';
 import { paceMinutesFromSpeed } from '@/shared/math/kinematics';
+import { chartStreamColors } from '@/theme';
 
 /** Icon name type from MaterialCommunityIcons */
 type IconName = ComponentProps<typeof MaterialCommunityIcons>['name'];
@@ -60,7 +61,7 @@ export const CHART_CONFIGS: Record<ChartTypeId, ChartConfig> = {
     id: 'power',
     label: 'Power',
     icon: 'lightning-bolt',
-    color: '#FBBF24', // Amber (power)
+    color: chartStreamColors.power,
     streamKey: 'watts',
     unit: 'W',
     getStream: (streams) => streams.watts,
@@ -70,7 +71,7 @@ export const CHART_CONFIGS: Record<ChartTypeId, ChartConfig> = {
     id: 'heartrate',
     label: 'HR',
     icon: 'heart-pulse',
-    color: '#E63946',
+    color: chartStreamColors.heartrate,
     streamKey: 'heartrate',
     unit: 'bpm',
     getStream: (streams) => streams.heartrate,
@@ -80,7 +81,7 @@ export const CHART_CONFIGS: Record<ChartTypeId, ChartConfig> = {
     id: 'cadence',
     label: 'Cad',
     icon: 'rotate-3d',
-    color: '#F97316', // Orange — distinct from amber power
+    color: chartStreamColors.cadence, // Distinct from amber power
     streamKey: 'cadence',
     unit: 'rpm',
     getStream: (streams) => streams.cadence,
@@ -90,7 +91,7 @@ export const CHART_CONFIGS: Record<ChartTypeId, ChartConfig> = {
     id: 'speed',
     label: 'Speed',
     icon: 'speedometer',
-    color: '#2A9D8F',
+    color: chartStreamColors.speed,
     streamKey: 'velocity_smooth',
     unit: 'km/h',
     unitImperial: 'mph',
@@ -103,7 +104,7 @@ export const CHART_CONFIGS: Record<ChartTypeId, ChartConfig> = {
     id: 'pace',
     label: 'Pace',
     icon: 'clock-outline',
-    color: '#818CF8', // Indigo — visible on dark backgrounds
+    color: chartStreamColors.pace, // Visible on dark backgrounds
     unit: '/km',
     unitImperial: '/mi',
     // Pace is derived from velocity_smooth (m/s -> min/km or min/mi)
@@ -122,7 +123,7 @@ export const CHART_CONFIGS: Record<ChartTypeId, ChartConfig> = {
     id: 'elevation',
     label: 'Elev',
     icon: 'terrain',
-    color: '#A3E635', // Lime green — pops on both light/dark
+    color: chartStreamColors.elevation, // Pops on both light/dark
     streamKey: 'altitude',
     unit: 'm',
     unitImperial: 'ft',
@@ -135,7 +136,7 @@ export const CHART_CONFIGS: Record<ChartTypeId, ChartConfig> = {
     id: 'grade',
     label: 'Grade',
     icon: 'slope-uphill',
-    color: '#6B8E23',
+    color: chartStreamColors.grade,
     streamKey: 'grade_smooth',
     unit: '%',
     getStream: (streams) => streams.grade_smooth,
@@ -145,7 +146,7 @@ export const CHART_CONFIGS: Record<ChartTypeId, ChartConfig> = {
     id: 'wbal',
     label: "W'bal",
     icon: 'flash-outline',
-    color: '#F97316',
+    color: chartStreamColors.wbal,
     unit: 'kJ',
     // Sourced from intervals.icu's `w_bal` stream (joules). Displayed in kJ.
     getStream: (streams) => streams.wbal?.map((j) => j / 1000),
@@ -155,7 +156,7 @@ export const CHART_CONFIGS: Record<ChartTypeId, ChartConfig> = {
     id: 'gap',
     label: 'GAP',
     icon: 'trending-up',
-    color: '#06B6D4',
+    color: chartStreamColors.gap,
     unit: '/km',
     unitImperial: '/mi',
     // Sourced from intervals.icu's `ga_velocity` stream (m/s), converted to
@@ -172,7 +173,7 @@ export const CHART_CONFIGS: Record<ChartTypeId, ChartConfig> = {
     id: 'distance',
     label: 'Dist',
     icon: 'map-marker-distance',
-    color: '#457B9D',
+    color: chartStreamColors.distance,
     unit: 'km',
     unitImperial: 'mi',
     getStream: (streams) => streams.distance?.map((d) => d / 1000),
@@ -183,7 +184,7 @@ export const CHART_CONFIGS: Record<ChartTypeId, ChartConfig> = {
     id: 'temp',
     label: 'Temp',
     icon: 'thermometer',
-    color: '#E76F51',
+    color: chartStreamColors.temp,
     streamKey: 'temp',
     unit: '°C',
     unitImperial: '°F',
@@ -195,13 +196,13 @@ export const CHART_CONFIGS: Record<ChartTypeId, ChartConfig> = {
     id: 'moving_time',
     label: 'Moving Time',
     icon: 'clock-outline',
-    color: '#6C757D',
+    color: chartStreamColors.time,
   },
   elapsed_time: {
     id: 'elapsed_time',
     label: 'Elapsed Time',
     icon: 'clock',
-    color: '#6C757D',
+    color: chartStreamColors.time,
   },
 };
 

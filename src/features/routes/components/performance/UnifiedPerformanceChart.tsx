@@ -42,6 +42,8 @@ import { styles } from './unifiedPerformanceChart.styles';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const CHART_PADDING_LEFT = 40;
+// Gap-marker icon tint, used by both expanded-marker chevrons
+const GAP_MARKER_ICON = { light: '#666', dark: '#aaa' } as const;
 const CHART_PADDING_RIGHT = 20;
 const BASE_CHART_WIDTH = SCREEN_WIDTH - 32;
 
@@ -805,7 +807,7 @@ export function UnifiedPerformanceChart({
                   <MaterialCommunityIcons
                     name="arrow-collapse-horizontal"
                     size={12}
-                    color={isDark ? '#aaa' : '#666'}
+                    color={isDark ? GAP_MARKER_ICON.dark : GAP_MARKER_ICON.light}
                   />
                   <Text
                     style={[
@@ -818,7 +820,7 @@ export function UnifiedPerformanceChart({
                   <MaterialCommunityIcons
                     name="arrow-collapse-horizontal"
                     size={12}
-                    color={isDark ? '#aaa' : '#666'}
+                    color={isDark ? GAP_MARKER_ICON.dark : GAP_MARKER_ICON.light}
                   />
                 </Pressable>
               );

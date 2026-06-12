@@ -9,7 +9,7 @@ import { useTheme } from '@/shared/app';
 import { useMapPreferences } from '@/features/maps/stores/MapPreferencesContext';
 import { getActivityIcon } from '@/features/activity/lib/activityUtils';
 import { isLikelyInterestingTerrain } from '@/features/maps/lib/cameraAngle';
-import { colors, darkColors, spacing, brand, shadows } from '@/theme';
+import { colors, darkColors, spacing, brand, shadows, mapStyleSwatch } from '@/theme';
 import type { Activity } from '@/types';
 import type { MapStyleType } from '@/features/maps/components/mapStyles';
 
@@ -25,9 +25,19 @@ const MAP_STYLES: {
   bg: string;
   labelKey: 'settings.light' | 'settings.dark' | 'settings.satellite';
 }[] = [
-  { key: 'light', icon: 'white-balance-sunny', bg: '#E5E7EB', labelKey: 'settings.light' },
-  { key: 'dark', icon: 'weather-night', bg: '#374151', labelKey: 'settings.dark' },
-  { key: 'satellite', icon: 'satellite-variant', bg: '#1E6B5A', labelKey: 'settings.satellite' },
+  {
+    key: 'light',
+    icon: 'white-balance-sunny',
+    bg: mapStyleSwatch.light,
+    labelKey: 'settings.light',
+  },
+  { key: 'dark', icon: 'weather-night', bg: mapStyleSwatch.dark, labelKey: 'settings.dark' },
+  {
+    key: 'satellite',
+    icon: 'satellite-variant',
+    bg: mapStyleSwatch.satellite,
+    labelKey: 'settings.satellite',
+  },
 ];
 
 export function ActivityCardContextMenu({
