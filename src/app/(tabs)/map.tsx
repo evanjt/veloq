@@ -15,6 +15,7 @@ import {
   ScreenErrorBoundary,
   ErrorStatePreset,
   TAB_BAR_SAFE_PADDING,
+  Shimmer,
 } from '@/shared/ui';
 import { logScreenRender } from '@/shared/debug/renderTimer';
 import { useActivityBoundsCache, useActivities } from '@/features/activity/hooks';
@@ -240,7 +241,7 @@ export default function MapScreen() {
         testID="map-screen"
         style={[styles.loadingContainer, isDark && styles.loadingContainerDark]}
       >
-        <ActivityIndicator size="large" color={colors.primary} />
+        <Shimmer width="100%" height={220} style={styles.loadingShimmer} />
         <Text style={[styles.loadingText, isDark && styles.loadingTextDark]}>
           {t('mapScreen.loadingActivities')}
         </Text>
@@ -429,6 +430,11 @@ const styles = StyleSheet.create({
   },
   loadingContainerDark: {
     backgroundColor: darkColors.background,
+  },
+  loadingShimmer: {
+    alignSelf: 'stretch',
+    marginHorizontal: spacing.md,
+    marginBottom: spacing.md,
   },
   loadingText: {
     marginTop: spacing.md,

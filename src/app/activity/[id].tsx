@@ -478,6 +478,7 @@ export default function ActivityDetailScreen() {
             icon="arrow-left"
             iconColor={colors.textOnDark}
             onPress={() => router.back()}
+            accessibilityLabel={t('common.back')}
           />
         </View>
         <View style={styles.loadingContainer}>
@@ -501,6 +502,7 @@ export default function ActivityDetailScreen() {
             icon="arrow-left"
             iconColor={isDark ? darkColors.textPrimary : colors.textPrimary}
             onPress={() => router.back()}
+            accessibilityLabel={t('common.back')}
           />
           <View style={styles.noMapHeaderText}>
             <Text

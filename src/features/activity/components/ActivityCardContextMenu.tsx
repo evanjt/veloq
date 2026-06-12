@@ -119,7 +119,12 @@ export function ActivityCardContextMenu({
             <Text style={[styles.title, { color: textColor }]} numberOfLines={1}>
               {activity.name}
             </Text>
-            <Pressable onPress={onDismiss} hitSlop={8}>
+            <Pressable
+              onPress={onDismiss}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel={t('common.close')}
+            >
               <MaterialCommunityIcons name="close" size={20} color={mutedColor} />
             </Pressable>
           </View>

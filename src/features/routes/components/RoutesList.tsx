@@ -422,7 +422,12 @@ export const RoutesList = memo(function RoutesList({
               autoCorrect={false}
             />
             {searchQuery.length > 0 && (
-              <TouchableOpacity onPress={() => setSearchQuery('')} hitSlop={8}>
+              <TouchableOpacity
+                onPress={() => setSearchQuery('')}
+                hitSlop={8}
+                accessibilityRole="button"
+                accessibilityLabel={t('common.clearSearch')}
+              >
                 <MaterialCommunityIcons
                   name="close-circle"
                   size={16}

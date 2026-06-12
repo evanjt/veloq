@@ -49,7 +49,12 @@ export function SectionsListHeader({
           autoCorrect={false}
         />
         {searchQuery.length > 0 && (
-          <TouchableOpacity onPress={() => onSearchChange('')} hitSlop={8}>
+          <TouchableOpacity
+            onPress={() => onSearchChange('')}
+            hitSlop={8}
+            accessibilityRole="button"
+            accessibilityLabel={t('common.clearSearch')}
+          >
             <MaterialCommunityIcons
               name="close-circle"
               size={16}

@@ -159,6 +159,7 @@ export interface TranslationResource {
     error: string;
     retry: string;
     cancel: string;
+    close: string;
     save: string;
     create: string;
     delete: string;

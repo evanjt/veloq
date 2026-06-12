@@ -15,6 +15,7 @@ import {
   ScreenErrorBoundary,
   ErrorStatePreset,
   TAB_BAR_SAFE_PADDING,
+  Shimmer,
 } from '@/shared/ui';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
@@ -192,7 +193,7 @@ export default function HealthScreen() {
           <View style={[styles.card, isDark && styles.cardDark]}>
             {activitiesLoading ? (
               <View style={styles.loadingContainer}>
-                <ActivityIndicator size="small" color={colors.primary} />
+                <Shimmer width="100%" height={110} />
               </View>
             ) : (
               <ActivityHeatmap activities={activities} highlightDate={highlightDate} />

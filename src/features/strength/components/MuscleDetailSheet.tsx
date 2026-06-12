@@ -64,7 +64,13 @@ export const MuscleDetailSheet = React.memo(function MuscleDetailSheet({
               />
               <Text style={[styles.title, isDark && styles.titleDark]}>{detail.name}</Text>
             </View>
-            <Pressable style={styles.closeButton} onPress={onClose} hitSlop={12}>
+            <Pressable
+              style={styles.closeButton}
+              onPress={onClose}
+              hitSlop={12}
+              accessibilityRole="button"
+              accessibilityLabel={t('common.close')}
+            >
               <MaterialCommunityIcons
                 name="close"
                 size={20}

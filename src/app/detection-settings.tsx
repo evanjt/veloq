@@ -229,6 +229,8 @@ export default function DetectionSettingsScreen() {
           testID="detection-settings-back"
           onPress={() => router.back()}
           style={styles.backButton}
+          accessibilityRole="button"
+          accessibilityLabel={t('common.back')}
         >
           <MaterialCommunityIcons name="arrow-left" size={24} color={textPrimary} />
         </TouchableOpacity>

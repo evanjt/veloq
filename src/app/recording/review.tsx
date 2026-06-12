@@ -172,6 +172,8 @@ export default function ReviewScreen() {
             onPress={() => router.back()}
             style={styles.backButton}
             disabled={isProcessing}
+            accessibilityRole="button"
+            accessibilityLabel={t('common.back')}
           >
             <MaterialCommunityIcons
               name="arrow-left"

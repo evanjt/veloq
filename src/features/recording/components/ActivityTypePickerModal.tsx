@@ -119,7 +119,12 @@ function ActivityTypePickerModalInner({
         >
           <View style={[styles.header, !isRecording && styles.headerBordered]}>
             <Text style={[styles.title, { color: textPrimary }]}>{t(titleKey, titleFallback)}</Text>
-            <TouchableOpacity onPress={onClose} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+            <TouchableOpacity
+              onPress={onClose}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              accessibilityRole="button"
+              accessibilityLabel={t('common.close')}
+            >
               <MaterialCommunityIcons
                 name="close"
                 size={isRecording ? 22 : 24}

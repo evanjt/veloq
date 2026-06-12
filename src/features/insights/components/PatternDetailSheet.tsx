@@ -216,7 +216,13 @@ export const PatternDetailSheet = React.memo(function PatternDetailSheet({
             <Text style={[styles.title, isDark && styles.titleDark]} numberOfLines={2}>
               {insight.title}
             </Text>
-            <Pressable style={styles.closeButton} onPress={onClose} hitSlop={12}>
+            <Pressable
+              style={styles.closeButton}
+              onPress={onClose}
+              hitSlop={12}
+              accessibilityRole="button"
+              accessibilityLabel={t('common.close')}
+            >
               <MaterialCommunityIcons
                 name="close"
                 size={20}

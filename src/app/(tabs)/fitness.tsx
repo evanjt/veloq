@@ -2,7 +2,12 @@ import React, { useState, useEffect, useRef } from 'react';
 import { View, StyleSheet, TouchableOpacity, RefreshControl } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
 import { Text, ActivityIndicator } from 'react-native-paper';
-import { ScreenSafeAreaView, TAB_BAR_SAFE_PADDING } from '@/shared/ui';
+import {
+  ScreenSafeAreaView,
+  TAB_BAR_SAFE_PADDING,
+  ChartSkeleton,
+  StatsPillSkeleton,
+} from '@/shared/ui';
 import { logScreenRender, logMemory } from '@/shared/debug/renderTimer';
 import * as WebBrowser from 'expo-web-browser';
 import { useSharedValue } from 'react-native-reanimated';
@@ -157,11 +162,10 @@ export default function FitnessScreen() {
         <View style={styles.header}>
           <Text style={shared.headerTitle}>{t('fitnessScreen.title')}</Text>
         </View>
-        <View style={shared.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={[styles.loadingText, isDark && styles.loadingTextDark]}>
-            {t('fitnessScreen.loadingData')}
-          </Text>
+        <View style={styles.skeletonContainer}>
+          <StatsPillSkeleton />
+          <ChartSkeleton height={180} />
+          <ChartSkeleton height={120} />
         </View>
       </ScreenSafeAreaView>
     );
@@ -460,6 +464,12 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: colors.primary,
     paddingVertical: spacing.xs,
+  },
+  skeletonContainer: {
+    flex: 1,
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.md,
+    gap: spacing.md,
   },
   loadingText: {
     ...typography.bodySmall,

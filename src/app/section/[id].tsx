@@ -226,6 +226,8 @@ export default function SectionDetailScreen() {
             style={styles.backButton}
             onPress={() => router.back()}
             activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel={t('common.back')}
           >
             <MaterialCommunityIcons
               name="arrow-left"
