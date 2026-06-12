@@ -474,7 +474,10 @@
     "defaultTitle": "Algo salió mal",
     "tryAgain": "Reintentar",
     "unableToLoad": "No se pudo cargar {{componentName}}",
-    "restartHint": "Inténtalo de nuevo o reinicia la aplicación"
+    "restartHint": "Inténtalo de nuevo o reinicia la aplicación",
+    "unableToDisplay": "No se puede mostrar {{label}}",
+    "unableToDisplayChart": "No se puede mostrar el gráfico",
+    "tapToRetry": "Toca para reintentar"
   },
   "export": {
     "bulkComplete": "Exportación completada",
@@ -632,7 +635,8 @@
       "thresholdSpeedName": "Análisis de tendencia de velocidad umbral",
       "thresholdSpeedDescription": "Compara tu estimación de velocidad umbral más reciente con valores anteriores, y formatea el cambio como ritmo legible para el atleta.",
       "fitnessPrName": "Referencia cruzada forma física-PR",
-      "sectionTrendName": "Tendencia de rendimiento en secciones"
+      "sectionTrendName": "Tendencia de rendimiento en secciones",
+      "stalePrCrossRefName": "Cruce de PR con {{metric}}"
     },
     "alternatives": {
       "selected": "Evaluación actual",
@@ -695,7 +699,10 @@
       "metricGain": "Ganancia de {{metric}}",
       "prTime": "Tiempo PR",
       "methodology": "Compara métricas de fitness en el momento del PR con valores actuales. Muestra secciones donde las métricas de fitness han cambiado desde que se estableció el PR.",
-      "groupTitle": "{{count}} PRs con cambios de fitness"
+      "groupTitle": "{{count}} PRs con cambios de fitness",
+      "metricCyclingFtp": "FTP de ciclismo",
+      "metricSwimCss": "CSS de natación",
+      "metricRunningThreshold": "Ritmo umbral de carrera"
     },
     "disclaimer": "Las métricas de entrenamiento son estimaciones basadas en ciencia del ejercicio publicada. Las respuestas individuales varían. No es consejo médico ni de entrenamiento.",
     "aboutInsights": "Acerca de las perspectivas",
@@ -728,7 +735,18 @@
       "volumeAppeared": "Apareció volumen en las dos últimas semanas tras un inicio más tranquilo.",
       "volumeUp": "La media de las 2 últimas semanas está {{percent}}% por encima de las 2 anteriores.",
       "volumeDown": "La media de las 2 últimas semanas está {{percent}}% por debajo de las 2 anteriores.",
-      "volumeSteady": "La media de las 2 últimas semanas se mantiene estable respecto al inicio del mes."
+      "volumeSteady": "La media de las 2 últimas semanas se mantiene estable respecto al inicio del mes.",
+      "oneSidedTitle": "{{pair}} registra un reparto unilateral",
+      "dominantTitle": "{{dominant}} acumula más volumen en {{pair}}",
+      "oneSidedBody": "{{dominant}} representa todo el volumen de series ponderadas de {{pair}} en las últimas 4 semanas.",
+      "ratioBody": "{{pair}} promedia {{ratio}} en series ponderadas en la ventana más reciente de 4 semanas.",
+      "ratioLabel": "Proporción",
+      "statusLabel": "Estado",
+      "formula": "Series ponderadas por par antagonista",
+      "algorithm": "Compara el número de series ponderadas entre pares antagonistas comunes. El trabajo primario cuenta como 1.0 y el secundario como 0.5.",
+      "methodologyName": "Control de equilibrio de fuerza",
+      "methodologyDescription": "Compara las series ponderadas entre pares de músculos antagonistas durante las últimas 4 semanas para detectar cargas desequilibradas.",
+      "ratioFormula": "proporción = series ponderadas dominantes / series ponderadas secundarias"
     },
     "quickTake": {
       "howCalculated": "¿Cómo se calculó?",
@@ -794,7 +812,38 @@
     "routesDisabledLine1": "Rutas y secciones desactivadas",
     "routesDisabledLine2": "Toca para activar",
     "sectionDeclining": "{{name}} se está ralentizando",
-    "sectionDecliningBody": "Mediana reciente: {{median}}. Mejor: {{best}} en {{count}} esfuerzos."
+    "sectionDecliningBody": "Mediana reciente: {{median}}. Mejor: {{best}} en {{count}} esfuerzos.",
+    "strengthProgression": {
+      "upTitle": "El volumen de {{muscle}} muestra una mejora",
+      "downTitle": "El volumen de {{muscle}} ha bajado",
+      "newVolumeBody": "{{muscle}} generó la mayoría de sus series ponderadas recientes en las 2 semanas actuales tras un período anterior más tranquilo.",
+      "shiftBody": "{{muscle}} pasó de {{from}} a {{to}} series ponderadas en el promedio actual de 2 semanas.",
+      "vsEarlier": "{{change}}% vs 2 semanas anteriores",
+      "fourWeekTotal": "Total 4 semanas",
+      "sparklineLabel": "Series ponderadas de 4 semanas",
+      "recent2Weeks": "2 sem. recientes",
+      "earlier2Weeks": "2 sem. anteriores",
+      "changeLabel": "Cambio",
+      "thisWeek": "Esta sem.",
+      "weeksAgo": "-{{n}}sem",
+      "formula": "Promedio reciente de 2 semanas vs promedio anterior de 2 semanas",
+      "algorithm": "Sigue las series ponderadas por músculo durante las últimas 4 semanas. El trabajo primario cuenta como 1.0 y el secundario como 0.5.",
+      "methodologyName": "Progresión del volumen de fuerza",
+      "methodologyDescription": "Compara el promedio reciente de 2 semanas con el promedio anterior de 2 semanas para detectar cambios significativos en el volumen de series ponderadas."
+    },
+    "strengthSnapshot": {
+      "title_one": "{{count}} sesión de fuerza en las últimas 4 semanas",
+      "title_other": "{{count}} sesiones de fuerza en las últimas 4 semanas",
+      "subtitleWithTop": "{{sessions}} sesiones · {{sets}} series · principal: {{muscle}}",
+      "subtitle": "{{sessions}} sesiones · {{sets}} series",
+      "body": "{{sets}} series ponderadas en {{groups}} grupos musculares.",
+      "sessionsLabel": "Sesiones",
+      "setsLabel": "Series",
+      "muscleGroupsLabel": "Grupos musculares",
+      "formula": "Recuento de sesiones de fuerza, series ponderadas y grupos musculares registrados",
+      "algorithm": "Agrega los entrenamientos de fuerza de las últimas 4 semanas. El trabajo primario cuenta como 1.0 y el secundario como 0.5 para cada grupo muscular.",
+      "methodologyDescription": "Resume el volumen de fuerza de las últimas 4 semanas: número de entrenamientos, series ponderadas totales y grupos musculares registrados."
+    }
   },
   "licenses": {
     "footer": "Toca cualquier insignia de licencia para ver el texto completo. Toca el icono de enlace para visitar el repositorio del proyecto.",

@@ -242,7 +242,11 @@ export function stalePROpportunityToInsight(
 
   const isPower = opportunity.fitnessMetric === 'power';
   const isSwimPace = opportunity.unit === '/100m';
-  const metricLabel = isPower ? 'Cycling FTP' : isSwimPace ? 'Swim CSS' : 'Running threshold pace';
+  const metricLabel = isPower
+    ? t('insights.stalePr.metricCyclingFtp')
+    : isSwimPace
+      ? t('insights.stalePr.metricSwimCss')
+      : t('insights.stalePr.metricRunningThreshold');
   const currentStr = isPower
     ? `${Math.round(opportunity.currentValue)}${opportunity.unit}`
     : isSwimPace
@@ -317,7 +321,7 @@ export function stalePROpportunityToInsight(
       algorithmDescription: t('insights.stalePr.methodology'),
     },
     methodology: {
-      name: `${metricLabel}-PR cross-reference`,
+      name: t('insights.methodology.stalePrCrossRefName', { metric: metricLabel }),
       description: t('insights.stalePr.methodology'),
     },
   };

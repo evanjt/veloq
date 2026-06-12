@@ -6,22 +6,27 @@ import { buildStrengthBalancePairs, buildStrengthProgression } from '../lib/anal
 import { formatSetCount } from '../lib/formatting';
 import type { StrengthBalancePair, StrengthProgressPoint, StrengthSummary } from '../types';
 
-function formatRatio(value: number | null): string {
-  if (value == null) return 'No signal';
-  if (!Number.isFinite(value)) return 'One-sided';
+type TFunc = (key: string, params?: Record<string, string | number>) => string;
+
+function formatRatio(value: number | null, t: TFunc): string {
+  if (value == null) return t('insights.strengthBalance.noSignal');
+  if (!Number.isFinite(value)) return t('insights.strengthBalance.oneSided');
   return `${value.toFixed(value >= 10 ? 0 : 1)}x`;
 }
 
-function buildStrengthBalanceInsight(pair: StrengthBalancePair, now: number): Insight {
-  const counterpart = pair.dominantSlug === pair.leftSlug ? pair.rightLabel : pair.leftLabel;
+function buildStrengthBalanceInsight(pair: StrengthBalancePair, now: number, t: TFunc): Insight {
+  const dominant = pair.dominantLabel ?? pair.leftLabel;
   const title =
     pair.status === 'one-sided'
-      ? `${pair.label} register a one-sided split`
-      : `${pair.dominantLabel ?? pair.leftLabel} carries more volume in ${pair.label.toLowerCase()}`;
+      ? t('insights.strengthBalance.oneSidedTitle', { pair: pair.label })
+      : t('insights.strengthBalance.dominantTitle', { dominant, pair: pair.label });
   const body =
     pair.status === 'one-sided'
-      ? `${pair.dominantLabel ?? pair.leftLabel} represents all of the weighted set volume for ${pair.label.toLowerCase()} across the past 4 weeks.`
-      : `${pair.label} averages ${formatRatio(pair.ratio)} in weighted sets in the most recent 4-week window.`;
+      ? t('insights.strengthBalance.oneSidedBody', { dominant, pair: pair.label })
+      : t('insights.strengthBalance.ratioBody', {
+          pair: pair.label,
+          ratio: formatRatio(pair.ratio, t),
+        });
 
   return {
     id: `strength_balance-${pair.id}`,
@@ -42,20 +47,32 @@ function buildStrengthBalanceInsight(pair: StrengthBalancePair, now: number): In
     },
     supportingData: {
       dataPoints: [
-        { label: pair.leftLabel, value: formatSetCount(pair.leftWeightedSets), unit: 'sets' },
-        { label: pair.rightLabel, value: formatSetCount(pair.rightWeightedSets), unit: 'sets' },
-        { label: 'Ratio', value: formatRatio(pair.ratio) },
-        { label: 'Status', value: pair.status === 'watch' ? 'Watch' : 'Imbalanced' },
+        {
+          label: pair.leftLabel,
+          value: formatSetCount(pair.leftWeightedSets),
+          unit: t('strength.sets'),
+        },
+        {
+          label: pair.rightLabel,
+          value: formatSetCount(pair.rightWeightedSets),
+          unit: t('strength.sets'),
+        },
+        { label: t('insights.strengthBalance.ratioLabel'), value: formatRatio(pair.ratio, t) },
+        {
+          label: t('insights.strengthBalance.statusLabel'),
+          value:
+            pair.status === 'watch'
+              ? t('insights.strengthBalance.watch')
+              : t('insights.strengthBalance.imbalanced'),
+        },
       ],
-      formula: 'Weighted sets per antagonist pair',
-      algorithmDescription:
-        'Compares weighted set counts across common antagonist pairs. Primary work counts as 1.0 and secondary work counts as 0.5.',
+      formula: t('insights.strengthBalance.formula'),
+      algorithmDescription: t('insights.strengthBalance.algorithm'),
     },
     methodology: {
-      name: 'Strength balance check',
-      description:
-        'Compares weighted set counts across antagonist muscle pairs over the last 4 weeks to flag skewed loading patterns.',
-      formula: 'ratio = dominant weighted sets / secondary weighted sets',
+      name: t('insights.strengthBalance.methodologyName'),
+      description: t('insights.strengthBalance.methodologyDescription'),
+      formula: t('insights.strengthBalance.ratioFormula'),
     },
   };
 }
@@ -64,7 +81,8 @@ function buildStrengthProgressionInsight(
   muscleSlug: string,
   monthlyWeightedSets: number,
   points: StrengthProgressPoint[],
-  now: number
+  now: number,
+  t: TFunc
 ): Insight | null {
   if (monthlyWeightedSets < INSIGHTS_CONFIG.repetition.strength_min_sets) return null;
 
@@ -82,14 +100,16 @@ function buildStrengthProgressionInsight(
   const muscleName = MUSCLE_DISPLAY_NAMES[muscleSlug as MuscleSlug] ?? muscleSlug;
   const title =
     progression.trend === 'up'
-      ? `${muscleName} volume gain is visible`
-      : `${muscleName} volume eased off`;
+      ? t('insights.strengthProgression.upTitle', { muscle: muscleName })
+      : t('insights.strengthProgression.downTitle', { muscle: muscleName });
   const body =
     progression.changePct == null
-      ? `${muscleName} generated most of its recent weighted sets in the current 2 weeks after a quieter earlier period.`
-      : `${muscleName} shifted from ${formatSetCount(progression.baselineAverage)} to ${formatSetCount(
-          progression.recentAverage
-        )} weighted sets in the current 2-week average.`;
+      ? t('insights.strengthProgression.newVolumeBody', { muscle: muscleName })
+      : t('insights.strengthProgression.shiftBody', {
+          muscle: muscleName,
+          from: formatSetCount(progression.baselineAverage),
+          to: formatSetCount(progression.recentAverage),
+        });
 
   return {
     id: `strength_progression-${muscleSlug}`,
@@ -98,8 +118,10 @@ function buildStrengthProgressionInsight(
     title,
     subtitle:
       progression.changePct == null
-        ? 'Last 4 weeks'
-        : `${progression.changePct > 0 ? '+' : ''}${Math.round(progression.changePct)}% vs earlier 2 weeks`,
+        ? t('strength.last4Weeks')
+        : t('insights.strengthProgression.vsEarlier', {
+            change: `${progression.changePct > 0 ? '+' : ''}${Math.round(progression.changePct)}`,
+          }),
     body,
     icon: progression.trend === 'up' ? 'arm-flex-outline' : 'dumbbell',
     iconColor: progression.trend === 'up' ? '#22C55E' : '#F59E0B',
@@ -117,61 +139,85 @@ function buildStrengthProgressionInsight(
     },
     supportingData: {
       dataPoints: [
-        { label: 'Recent avg', value: progression.recentAverage, unit: 'sets' },
-        { label: 'Earlier avg', value: progression.baselineAverage, unit: 'sets' },
-        { label: 'Peak week', value: progression.peakWeightedSets, unit: 'sets' },
-        { label: '4-week total', value: formatSetCount(monthlyWeightedSets), unit: 'sets' },
+        {
+          label: t('strength.recentAvg'),
+          value: progression.recentAverage,
+          unit: t('strength.sets'),
+        },
+        {
+          label: t('strength.earlierAvg'),
+          value: progression.baselineAverage,
+          unit: t('strength.sets'),
+        },
+        {
+          label: t('strength.peakWeek'),
+          value: progression.peakWeightedSets,
+          unit: t('strength.sets'),
+        },
+        {
+          label: t('insights.strengthProgression.fourWeekTotal'),
+          value: formatSetCount(monthlyWeightedSets),
+          unit: t('strength.sets'),
+        },
       ],
       sparklineData: progression.points.map((point) => point.weightedSets),
-      sparklineLabel: '4-week weighted sets',
+      sparklineLabel: t('insights.strengthProgression.sparklineLabel'),
       comparisonData: {
         current: {
-          label: 'Recent 2 wks',
+          label: t('insights.strengthProgression.recent2Weeks'),
           value: progression.recentAverage,
-          unit: 'sets',
+          unit: t('strength.sets'),
         },
         previous: {
-          label: 'Earlier 2 wks',
+          label: t('insights.strengthProgression.earlier2Weeks'),
           value: progression.baselineAverage,
-          unit: 'sets',
+          unit: t('strength.sets'),
         },
         change: {
-          label: 'Change',
+          label: t('insights.strengthProgression.changeLabel'),
           value:
             progression.changePct == null
-              ? 'New signal'
+              ? t('strength.newSignal')
               : `${progression.changePct > 0 ? '+' : ''}${Math.round(progression.changePct)}%`,
           context: 'neutral',
         },
       },
-      formula: 'Recent 2-week average vs earlier 2-week average',
-      algorithmDescription:
-        'Tracks weighted sets per muscle across the last 4 weeks. Primary work counts as 1.0 and secondary work counts as 0.5.',
+      formula: t('insights.strengthProgression.formula'),
+      algorithmDescription: t('insights.strengthProgression.algorithm'),
     },
     methodology: {
-      name: 'Strength volume progression',
-      description:
-        'Compares the recent 2-week average against the earlier 2-week average to detect meaningful changes in weighted set volume.',
+      name: t('insights.strengthProgression.methodologyName'),
+      description: t('insights.strengthProgression.methodologyDescription'),
     },
   };
 }
 
-function buildStrengthSnapshotInsight(summary: StrengthSummary, now: number): Insight {
+function buildStrengthSnapshotInsight(summary: StrengthSummary, now: number, t: TFunc): Insight {
   const dominant = [...summary.muscleVolumes].sort((a, b) => b.weightedSets - a.weightedSets)[0];
   const dominantName = dominant
     ? (MUSCLE_DISPLAY_NAMES[dominant.slug as MuscleSlug] ?? dominant.slug)
     : null;
   const subtitle = dominantName
-    ? `${summary.activityCount} sessions · ${summary.totalSets} sets · top: ${dominantName}`
-    : `${summary.activityCount} sessions · ${summary.totalSets} sets`;
+    ? t('insights.strengthSnapshot.subtitleWithTop', {
+        sessions: summary.activityCount,
+        sets: summary.totalSets,
+        muscle: dominantName,
+      })
+    : t('insights.strengthSnapshot.subtitle', {
+        sessions: summary.activityCount,
+        sets: summary.totalSets,
+      });
 
   return {
     id: 'strength_snapshot',
     category: 'strength_progression',
     priority: 4,
-    title: `${summary.activityCount} strength session${summary.activityCount === 1 ? '' : 's'} in the last 4 weeks`,
+    title: t('insights.strengthSnapshot.title', { count: summary.activityCount }),
     subtitle,
-    body: `${summary.totalSets} weighted sets across ${summary.muscleVolumes.length} muscle groups.`,
+    body: t('insights.strengthSnapshot.body', {
+      sets: summary.totalSets,
+      groups: summary.muscleVolumes.length,
+    }),
     icon: 'dumbbell',
     iconColor: '#71717A',
     navigationTarget: '/routes?tab=strength',
@@ -184,18 +230,19 @@ function buildStrengthSnapshotInsight(summary: StrengthSummary, now: number): In
     },
     supportingData: {
       dataPoints: [
-        { label: 'Sessions', value: summary.activityCount },
-        { label: 'Sets', value: summary.totalSets },
-        { label: 'Muscle groups', value: summary.muscleVolumes.length },
+        { label: t('insights.strengthSnapshot.sessionsLabel'), value: summary.activityCount },
+        { label: t('insights.strengthSnapshot.setsLabel'), value: summary.totalSets },
+        {
+          label: t('insights.strengthSnapshot.muscleGroupsLabel'),
+          value: summary.muscleVolumes.length,
+        },
       ],
-      formula: 'Counts of strength sessions, weighted sets, and tracked muscle groups',
-      algorithmDescription:
-        'Aggregates strength workouts in the last 4 weeks. Primary work counts as 1.0 and secondary work counts as 0.5 toward each muscle group.',
+      formula: t('insights.strengthSnapshot.formula'),
+      algorithmDescription: t('insights.strengthSnapshot.algorithm'),
     },
     methodology: {
-      name: 'Strength snapshot',
-      description:
-        'Summarises strength volume across the most recent 4 weeks: workout count, total weighted sets, and number of tracked muscle groups.',
+      name: t('strength.snapshot'),
+      description: t('insights.strengthSnapshot.methodologyDescription'),
     },
   };
 }
@@ -203,7 +250,8 @@ function buildStrengthSnapshotInsight(summary: StrengthSummary, now: number): In
 export function generateStrengthInsights(
   monthlySummary: StrengthSummary | null,
   weeklySummaries: StrengthSummary[],
-  now: number
+  now: number,
+  t: TFunc
 ): Insight[] {
   if (!monthlySummary || monthlySummary.activityCount === 0 || weeklySummaries.length === 0) {
     return [];
@@ -214,14 +262,14 @@ export function generateStrengthInsights(
   // Surface a snapshot only when there is enough volume to be informative —
   // mirrors the per-muscle gate used by the other strength insights.
   if (monthlySummary.totalSets > INSIGHTS_CONFIG.repetition.strength_min_sets) {
-    insights.push(buildStrengthSnapshotInsight(monthlySummary, now));
+    insights.push(buildStrengthSnapshotInsight(monthlySummary, now, t));
   }
 
   const balancePair = buildStrengthBalancePairs(monthlySummary.muscleVolumes).find(
     (pair) => pair.status === 'watch' || pair.status === 'imbalanced' || pair.status === 'one-sided'
   );
   if (balancePair) {
-    insights.push(buildStrengthBalanceInsight(balancePair, now));
+    insights.push(buildStrengthBalanceInsight(balancePair, now, t));
   }
 
   const progressionCandidates = monthlySummary.muscleVolumes
@@ -231,8 +279,10 @@ export function generateStrengthInsights(
         return {
           label:
             index === weeklySummaries.length - 1
-              ? 'This wk'
-              : `-${weeklySummaries.length - 1 - index}w`,
+              ? t('insights.strengthProgression.thisWeek')
+              : t('insights.strengthProgression.weeksAgo', {
+                  n: weeklySummaries.length - 1 - index,
+                }),
           startTs: 0,
           endTs: 0,
           weightedSets: point?.weightedSets ?? 0,
@@ -243,7 +293,8 @@ export function generateStrengthInsights(
         muscle.slug,
         muscle.weightedSets,
         points,
-        now
+        now,
+        t
       );
       const progression = buildStrengthProgression(muscle.slug, points);
       const score =

@@ -474,7 +474,10 @@
     "defaultTitle": "Etwas ist schiefgelaufen",
     "tryAgain": "Erneut versuchen",
     "unableToLoad": "{{componentName}} konnte nicht geladen werden",
-    "restartHint": "Bitte versuche es erneut oder starte die App neu"
+    "restartHint": "Bitte versuche es erneut oder starte die App neu",
+    "unableToDisplay": "{{label}} kann nicht angezeigt werden",
+    "unableToDisplayChart": "Diagramm kann nicht angezeigt werden",
+    "tapToRetry": "Zum Wiederholen tippen"
   },
   "export": {
     "bulkComplete": "Export abgeschlossen",
@@ -632,7 +635,8 @@
       "thresholdSpeedName": "Schwellengeschwindigkeit-Trendanalyse",
       "thresholdSpeedDescription": "Vergleicht deine neueste Schwellengeschwindigkeit mit vorherigen Werten und formatiert die Änderung als lesbares Tempo.",
       "fitnessPrName": "Fitness-PR-Kreuzreferenz",
-      "sectionTrendName": "Leistungstrend in Abschnitten"
+      "sectionTrendName": "Leistungstrend in Abschnitten",
+      "stalePrCrossRefName": "{{metric}}-PR-Abgleich"
     },
     "alternatives": {
       "selected": "Aktuelle Bewertung",
@@ -695,7 +699,10 @@
       "metricGain": "{{metric}}-Gewinn",
       "prTime": "PR-Zeit",
       "methodology": "Vergleicht Fitnesswerte zum PR-Zeitpunkt mit aktuellen Werten. Zeigt Abschnitte, bei denen sich Fitnesswerte seit dem PR verändert haben.",
-      "groupTitle": "{{count}} PRs mit Fitnessänderungen"
+      "groupTitle": "{{count}} PRs mit Fitnessänderungen",
+      "metricCyclingFtp": "Rad-FTP",
+      "metricSwimCss": "Schwimm-CSS",
+      "metricRunningThreshold": "Lauf-Schwellentempo"
     },
     "disclaimer": "Trainingsmetriken sind Schätzungen basierend auf veröffentlichter Sportwissenschaft. Individuelle Reaktionen variieren. Keine medizinische oder Trainingsberatung.",
     "aboutInsights": "Über Einblicke",
@@ -728,7 +735,18 @@
       "volumeAppeared": "Volumen in den letzten zwei Wochen nach einem ruhigeren Start.",
       "volumeUp": "Der 2-Wochen-Durchschnitt liegt {{percent}}% über den vorherigen 2 Wochen.",
       "volumeDown": "Der 2-Wochen-Durchschnitt liegt {{percent}}% unter den vorherigen 2 Wochen.",
-      "volumeSteady": "Der 2-Wochen-Durchschnitt ist stabil im Vergleich zum Monatsbeginn."
+      "volumeSteady": "Der 2-Wochen-Durchschnitt ist stabil im Vergleich zum Monatsbeginn.",
+      "oneSidedTitle": "{{pair}} zeigt eine einseitige Verteilung",
+      "dominantTitle": "{{dominant}} trägt mehr Volumen in {{pair}}",
+      "oneSidedBody": "{{dominant}} stellt das gesamte gewichtete Satzvolumen für {{pair}} der letzten 4 Wochen.",
+      "ratioBody": "{{pair}} liegt im jüngsten 4-Wochen-Fenster bei durchschnittlich {{ratio}} gewichteten Sätzen.",
+      "ratioLabel": "Verhältnis",
+      "statusLabel": "Status",
+      "formula": "Gewichtete Sätze pro Antagonisten-Paar",
+      "algorithm": "Vergleicht gewichtete Satzzahlen über gängige Antagonisten-Paare. Primäre Arbeit zählt 1.0, sekundäre Arbeit 0.5.",
+      "methodologyName": "Kraft-Balance-Prüfung",
+      "methodologyDescription": "Vergleicht gewichtete Satzzahlen zwischen antagonistischen Muskelpaaren der letzten 4 Wochen, um einseitige Belastung zu erkennen.",
+      "ratioFormula": "Verhältnis = dominante gewichtete Sätze / sekundäre gewichtete Sätze"
     },
     "quickTake": {
       "howCalculated": "Wie wurde das berechnet?",
@@ -794,7 +812,38 @@
     "routesDisabledLine1": "Routen & Abschnitte deaktiviert",
     "routesDisabledLine2": "Tippen zum Aktivieren",
     "sectionDeclining": "{{name}} wird langsamer",
-    "sectionDecliningBody": "Aktueller Median: {{median}}. Bestzeit: {{best}} aus {{count}} Versuchen."
+    "sectionDecliningBody": "Aktueller Median: {{median}}. Bestzeit: {{best}} aus {{count}} Versuchen.",
+    "strengthProgression": {
+      "upTitle": "{{muscle}}-Volumen legt sichtbar zu",
+      "downTitle": "{{muscle}}-Volumen hat nachgelassen",
+      "newVolumeBody": "{{muscle}} erzielte die meisten der jüngsten gewichteten Sätze in den aktuellen 2 Wochen nach einer ruhigeren Phase.",
+      "shiftBody": "{{muscle}} bewegte sich im aktuellen 2-Wochen-Schnitt von {{from}} auf {{to}} gewichtete Sätze.",
+      "vsEarlier": "{{change}}% ggü. den 2 Wochen davor",
+      "fourWeekTotal": "4-Wochen-Summe",
+      "sparklineLabel": "Gewichtete Sätze über 4 Wochen",
+      "recent2Weeks": "Letzte 2 Wo.",
+      "earlier2Weeks": "Frühere 2 Wo.",
+      "changeLabel": "Veränderung",
+      "thisWeek": "Diese Wo.",
+      "weeksAgo": "-{{n}}W",
+      "formula": "Schnitt der letzten 2 Wochen vs. Schnitt der 2 Wochen davor",
+      "algorithm": "Verfolgt gewichtete Sätze pro Muskel über die letzten 4 Wochen. Primäre Arbeit zählt 1.0, sekundäre Arbeit 0.5.",
+      "methodologyName": "Kraftvolumen-Progression",
+      "methodologyDescription": "Vergleicht den Schnitt der letzten 2 Wochen mit dem der 2 Wochen davor, um relevante Änderungen im gewichteten Satzvolumen zu erkennen."
+    },
+    "strengthSnapshot": {
+      "title_one": "{{count}} Krafteinheit in den letzten 4 Wochen",
+      "title_other": "{{count}} Krafteinheiten in den letzten 4 Wochen",
+      "subtitleWithTop": "{{sessions}} Einheiten · {{sets}} Sätze · Top: {{muscle}}",
+      "subtitle": "{{sessions}} Einheiten · {{sets}} Sätze",
+      "body": "{{sets}} gewichtete Sätze über {{groups}} Muskelgruppen.",
+      "sessionsLabel": "Einheiten",
+      "setsLabel": "Sätze",
+      "muscleGroupsLabel": "Muskelgruppen",
+      "formula": "Anzahl der Krafteinheiten, gewichteten Sätze und erfassten Muskelgruppen",
+      "algorithm": "Fasst die Kraftworkouts der letzten 4 Wochen zusammen. Primäre Arbeit zählt 1.0, sekundäre Arbeit 0.5 pro Muskelgruppe.",
+      "methodologyDescription": "Fasst das Kraftvolumen der letzten 4 Wochen zusammen: Anzahl der Workouts, gewichtete Sätze gesamt und erfasste Muskelgruppen."
+    }
   },
   "licenses": {
     "footer": "Tippe auf ein Lizenz-Badge um den vollständigen Lizenztext anzuzeigen. Tippe auf das Link-Symbol um das Projekt-Repository zu besuchen.",

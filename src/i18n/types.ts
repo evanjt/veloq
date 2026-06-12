@@ -1235,6 +1235,9 @@ export interface TranslationResource {
     defaultMessage: string;
     tryAgain: string;
     unableToLoad: string;
+    unableToDisplay: string;
+    unableToDisplayChart: string;
+    tapToRetry: string;
     restartHint: string;
   };
 

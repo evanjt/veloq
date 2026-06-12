@@ -561,7 +561,9 @@ describe('detectStalePROpportunities', () => {
 
     it('includes methodology', () => {
       const insight = stalePROpportunityToInsight(opportunity, mockT);
-      expect(insight.methodology!.name).toBe('Cycling FTP-PR cross-reference');
+      expect(insight.methodology!.name).toBe(
+        'insights.methodology.stalePrCrossRefName {metric: insights.stalePr.metricCyclingFtp}'
+      );
     });
 
     it('includes fitness values in body', () => {
@@ -591,9 +593,11 @@ describe('detectStalePROpportunities', () => {
         unit: '/km',
       };
       const insight = stalePROpportunityToInsight(paceOpportunity, mockT);
-      expect(insight.methodology!.name).toBe('Running threshold pace-PR cross-reference');
-      expect(insight.body).toContain('Running threshold pace');
-      expect(insight.body).not.toContain('FTP');
+      expect(insight.methodology!.name).toBe(
+        'insights.methodology.stalePrCrossRefName {metric: insights.stalePr.metricRunningThreshold}'
+      );
+      expect(insight.body).toContain('insights.stalePr.metricRunningThreshold');
+      expect(insight.body).not.toContain('metricCyclingFtp');
     });
   });
 });

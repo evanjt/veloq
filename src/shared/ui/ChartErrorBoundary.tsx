@@ -3,6 +3,7 @@ import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { colors, darkColors, typography, spacing } from '@/theme';
 import { useTheme } from '@/shared/app';
+import { useTranslation } from 'react-i18next';
 
 interface Props {
   children: ReactNode;
@@ -61,14 +62,15 @@ interface FallbackProps {
 
 function ChartErrorFallback({ height, label, onRetry }: FallbackProps) {
   const { isDark } = useTheme();
+  const { t } = useTranslation();
 
   return (
     <View style={[styles.container, { height }]}>
       <Text style={[styles.errorText, isDark && styles.errorTextDark]}>
-        {label ? `Unable to display ${label}` : 'Unable to display chart'}
+        {label ? t('errorState.unableToDisplay', { label }) : t('errorState.unableToDisplayChart')}
       </Text>
       <Text style={[styles.retryText, isDark && styles.retryTextDark]} onPress={onRetry}>
-        Tap to retry
+        {t('errorState.tapToRetry')}
       </Text>
     </View>
   );

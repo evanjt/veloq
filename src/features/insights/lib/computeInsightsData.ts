@@ -515,7 +515,12 @@ export function computeInsightsFromData(
           );
           const monthlySummary = normalizeStrengthSummary(series.monthly);
           const weeklySummaries = series.weekly.map(normalizeStrengthSummary);
-          strengthInsights = generateStrengthInsights(monthlySummary, weeklySummaries, Date.now());
+          strengthInsights = generateStrengthInsights(
+            monthlySummary,
+            weeklySummaries,
+            Date.now(),
+            t
+          );
         }
       } catch {
         strengthInsights = [];

@@ -462,7 +462,10 @@
     "defaultTitle": "Something went wrong",
     "tryAgain": "Try Again",
     "unableToLoad": "Unable to load {{componentName}}",
-    "restartHint": "Please try again or restart the app"
+    "restartHint": "Please try again or restart the app",
+    "unableToDisplay": "Unable to display {{label}}",
+    "unableToDisplayChart": "Unable to display chart",
+    "tapToRetry": "Tap to retry"
   },
   "export": {
     "bulkComplete": "Export Complete",
@@ -609,7 +612,10 @@
       "prMetric": "{{metric}} at PR",
       "metricGain": "{{metric}} gain",
       "prTime": "PR time",
-      "methodology": "Compares fitness metrics at PR time vs current values. Shows sections where fitness metrics have changed since the PR was set."
+      "methodology": "Compares fitness metrics at PR time vs current values. Shows sections where fitness metrics have changed since the PR was set.",
+      "metricCyclingFtp": "Cycling FTP",
+      "metricSwimCss": "Swim CSS",
+      "metricRunningThreshold": "Running threshold pace"
     },
     "viewDetails": "View details",
     "today": "TODAY",
@@ -646,7 +652,8 @@
       "ftpEstimationName": "Functional Threshold Power estimation",
       "thresholdSpeedName": "Threshold speed trend analysis",
       "thresholdSpeedDescription": "Compares your latest threshold-speed estimate against previous values, then formats the change as athlete-readable pace for display.",
-      "fitnessPrName": "Fitness-PR cross-reference"
+      "fitnessPrName": "Fitness-PR cross-reference",
+      "stalePrCrossRefName": "{{metric}} PR cross-reference"
     },
     "alternatives": {
       "selected": "Current assessment",
@@ -717,7 +724,18 @@
       "volumeAppeared": "Volume appeared in the last two weeks after a quieter start.",
       "volumeUp": "Recent 2-week average is {{percent}}% above the prior 2 weeks.",
       "volumeDown": "Recent 2-week average is {{percent}}% below the prior 2 weeks.",
-      "volumeSteady": "Recent 2-week average is holding steady versus the earlier part of the month."
+      "volumeSteady": "Recent 2-week average is holding steady versus the earlier part of the month.",
+      "oneSidedTitle": "{{pair}} register a one-sided split",
+      "dominantTitle": "{{dominant}} carries more volume in {{pair}}",
+      "oneSidedBody": "{{dominant}} represents all of the weighted set volume for {{pair}} across the past 4 weeks.",
+      "ratioBody": "{{pair}} averages {{ratio}} in weighted sets in the most recent 4-week window.",
+      "ratioLabel": "Ratio",
+      "statusLabel": "Status",
+      "formula": "Weighted sets per antagonist pair",
+      "algorithm": "Compares weighted set counts across common antagonist pairs. Primary work counts as 1.0 and secondary work counts as 0.5.",
+      "methodologyName": "Strength balance check",
+      "methodologyDescription": "Compares weighted set counts across antagonist muscle pairs over the last 4 weeks to flag skewed loading patterns.",
+      "ratioFormula": "ratio = dominant weighted sets / secondary weighted sets"
     },
     "howCalculated": "How was this calculated?",
     "quickTake": {
@@ -782,7 +800,38 @@
     "viewInDetail": "View in detail",
     "routesDisabled": "Routes off",
     "routesDisabledLine1": "Routes & Sections disabled",
-    "routesDisabledLine2": "Tap to enable"
+    "routesDisabledLine2": "Tap to enable",
+    "strengthProgression": {
+      "upTitle": "{{muscle}} volume gain is visible",
+      "downTitle": "{{muscle}} volume eased off",
+      "newVolumeBody": "{{muscle}} generated most of its recent weighted sets in the current 2 weeks after a quieter earlier period.",
+      "shiftBody": "{{muscle}} shifted from {{from}} to {{to}} weighted sets in the current 2-week average.",
+      "vsEarlier": "{{change}}% vs earlier 2 weeks",
+      "fourWeekTotal": "4-week total",
+      "sparklineLabel": "4-week weighted sets",
+      "recent2Weeks": "Recent 2 wks",
+      "earlier2Weeks": "Earlier 2 wks",
+      "changeLabel": "Change",
+      "thisWeek": "This wk",
+      "weeksAgo": "-{{n}}w",
+      "formula": "Recent 2-week average vs earlier 2-week average",
+      "algorithm": "Tracks weighted sets per muscle across the last 4 weeks. Primary work counts as 1.0 and secondary work counts as 0.5.",
+      "methodologyName": "Strength volume progression",
+      "methodologyDescription": "Compares the recent 2-week average against the earlier 2-week average to detect meaningful changes in weighted set volume."
+    },
+    "strengthSnapshot": {
+      "title_one": "{{count}} strength session in the last 4 weeks",
+      "title_other": "{{count}} strength sessions in the last 4 weeks",
+      "subtitleWithTop": "{{sessions}} sessions · {{sets}} sets · top: {{muscle}}",
+      "subtitle": "{{sessions}} sessions · {{sets}} sets",
+      "body": "{{sets}} weighted sets across {{groups}} muscle groups.",
+      "sessionsLabel": "Sessions",
+      "setsLabel": "Sets",
+      "muscleGroupsLabel": "Muscle groups",
+      "formula": "Counts of strength sessions, weighted sets, and tracked muscle groups",
+      "algorithm": "Aggregates strength workouts in the last 4 weeks. Primary work counts as 1.0 and secondary work counts as 0.5 toward each muscle group.",
+      "methodologyDescription": "Summarizes strength volume across the most recent 4 weeks: workout count, total weighted sets, and number of tracked muscle groups."
+    }
   },
   "strength": {
     "snapshot": "Strength snapshot",
