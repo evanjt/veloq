@@ -4,6 +4,7 @@ import { useTheme } from '@/shared/app';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { colors, darkColors, typography, spacing, layout } from '@/theme';
+import { calculateDecoupling } from '../lib/decoupling';
 
 interface DecouplingChartProps {
   /** Power or pace data */
@@ -14,51 +15,13 @@ interface DecouplingChartProps {
   height?: number;
 }
 
-function calculateDecoupling(
-  power: number[],
-  heartrate: number[]
-): {
-  firstHalfEf: number;
-  secondHalfEf: number;
-  decoupling: number;
-  isGood: boolean;
-} {
-  if (power.length < 4) return { firstHalfEf: 0, secondHalfEf: 0, decoupling: 0, isGood: true };
-
-  const midpoint = Math.floor(power.length / 2);
-
-  // Calculate efficiency (power/HR) for each half
-  const firstHalfPower = power.slice(0, midpoint);
-  const firstHalfHR = heartrate.slice(0, midpoint);
-  const secondHalfPower = power.slice(midpoint);
-  const secondHalfHR = heartrate.slice(midpoint);
-
-  const avgFirstPower = firstHalfPower.reduce((a, b) => a + b, 0) / firstHalfPower.length;
-  const avgFirstHR = firstHalfHR.reduce((a, b) => a + b, 0) / firstHalfHR.length;
-  const avgSecondPower = secondHalfPower.reduce((a, b) => a + b, 0) / secondHalfPower.length;
-  const avgSecondHR = secondHalfHR.reduce((a, b) => a + b, 0) / secondHalfHR.length;
-
-  const firstHalfEf = avgFirstPower / avgFirstHR;
-  const secondHalfEf = avgSecondPower / avgSecondHR;
-
-  // Decoupling percentage: how much efficiency dropped
-  const decoupling = ((firstHalfEf - secondHalfEf) / firstHalfEf) * 100;
-
-  // < 5% decoupling is considered good aerobic fitness
-  const isGood = decoupling < 5;
-
-  return { firstHalfEf, secondHalfEf, decoupling, isGood };
-}
-
 export function DecouplingChart({ power, heartrate, height = 150 }: DecouplingChartProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
 
   // All hooks must be called before any conditional returns
   const analysis = useMemo(() => {
-    if (!power || !heartrate || power.length === 0 || heartrate.length === 0) {
-      return { firstHalfEf: 0, secondHalfEf: 0, decoupling: 0, isGood: true };
-    }
+    if (!power || !heartrate) return null;
     return calculateDecoupling(power, heartrate);
   }, [power, heartrate]);
 
@@ -67,8 +30,8 @@ export function DecouplingChart({ power, heartrate, height = 150 }: DecouplingCh
     return Math.floor(power.length / 2);
   }, [power]);
 
-  // Show empty state if no data
-  if (!power || !heartrate || power.length === 0 || heartrate.length === 0) {
+  // Show empty state if there is no data or decoupling is not computable
+  if (!power || !heartrate || analysis === null) {
     return (
       <View style={styles.container}>
         <View style={styles.header}>

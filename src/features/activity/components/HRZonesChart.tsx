@@ -12,6 +12,7 @@ import {
 import type { ActivityStreams, ActivityDetail } from '@/types';
 import { ChartErrorBoundary } from '@/shared/ui';
 import { formatDurationHuman } from '@/shared/format/format';
+import { resolveMaxHR } from '../lib/hrZones';
 
 interface HRZonesChartProps {
   streams: ActivityStreams;
@@ -33,7 +34,7 @@ export function HRZonesChart({ streams, activityType = 'Ride', activity }: HRZon
   const { maxHR: localMaxHR, zones: localZones } = useHRZones();
 
   // Use API max_hr if available, otherwise local settings
-  const maxHR = settings?.max_hr ?? localMaxHR;
+  const maxHR = resolveMaxHR(settings?.max_hr, localMaxHR);
 
   // Build zone data - prefer activity's zones, then sport settings, then local
   // Activity has icu_hr_zones (BPM thresholds) and icu_hr_zone_times (seconds in each zone)
