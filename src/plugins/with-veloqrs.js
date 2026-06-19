@@ -1,4 +1,4 @@
-const { execSync, spawnSync } = require('child_process');
+const { execSync, execFileSync, spawnSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const { existsSync, mkdirSync, readFileSync, writeFileSync } = fs;
@@ -595,8 +595,9 @@ async function runPreBuildSetup(platform) {
           if (!quiet) console.log('    Building Rust for Android...');
           const jniLibsDir = path.join(MODULE_DIR, 'android/src/main/jniLibs');
           mkdirSync(jniLibsDir, { recursive: true });
-          execSync(
-            `cargo ndk -t ${arch} --platform 24 -o ${jniLibsDir} build --release -p veloqrs`,
+          execFileSync(
+            'cargo',
+            ['ndk', '-t', arch, '--platform', '24', '-o', jniLibsDir, 'build', '--release', '-p', 'veloqrs'],
             { cwd: path.join(RUST_DIR, 'veloqrs'), stdio: quiet ? 'pipe' : 'inherit' }
           );
         } catch (error) {
@@ -632,11 +633,15 @@ async function runPreBuildSetup(platform) {
               'ios/Frameworks/VeloqrsFFI.xcframework/ios-arm64_x86_64-simulator'
             );
             mkdirSync(xcframeworkDir, { recursive: true });
-            execSync(
-              `lipo -create ` +
-                `${RUST_DIR}/target/aarch64-apple-ios-sim/release/libveloqrs.a ` +
-                `${RUST_DIR}/target/x86_64-apple-ios/release/libveloqrs.a ` +
-                `-output ${xcframeworkDir}/libveloqrs_ffi.a`,
+            execFileSync(
+              'lipo',
+              [
+                '-create',
+                path.join(RUST_DIR, 'target/aarch64-apple-ios-sim/release/libveloqrs.a'),
+                path.join(RUST_DIR, 'target/x86_64-apple-ios/release/libveloqrs.a'),
+                '-output',
+                path.join(xcframeworkDir, 'libveloqrs_ffi.a'),
+              ],
               { stdio: quiet ? 'pipe' : 'inherit' }
             );
 
@@ -733,11 +738,16 @@ module.exports = function withVeloqrs(config) {
   try {
     const result = spawnSync(
       'node',
-      ['-e', `require('${__filename.replace(/'/g, "\\'")}')._runSetupSync('${platform}')`],
+      ['-e', 'require(process.env.VELOQRS_SETUP_MODULE)._runSetupSync(process.env.VELOQRS_SETUP_PLATFORM)'],
       {
         stdio: 'inherit',
         cwd: PROJECT_ROOT,
-        env: { ...process.env, FORCE_COLOR: '1' },
+        env: {
+          ...process.env,
+          FORCE_COLOR: '1',
+          VELOQRS_SETUP_MODULE: __filename,
+          VELOQRS_SETUP_PLATFORM: platform,
+        },
       }
     );
 
