@@ -55,9 +55,9 @@ function providerCapture() {
 // Don't mock @tanstack/react-query — use the real QueryClient / focusManager
 
 // Stub isInfiniteActivitiesStale so onSuccess can be exercised without pulling in
-// the full activities module (which drags in auth store, queryKeys, etc.)
+// the auth store / queryKeys module tree.
 const mockIsInfiniteActivitiesStale = jest.fn().mockReturnValue(false);
-jest.mock('@/features/activity/hooks/useActivities', () => ({
+jest.mock('@/shared/query/activitiesCache', () => ({
   isInfiniteActivitiesStale: (...args: any[]) => mockIsInfiniteActivitiesStale(...args),
 }));
 

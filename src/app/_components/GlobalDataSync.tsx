@@ -7,11 +7,8 @@
 import { useEffect, useMemo, useRef, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import {
-  useActivities,
-  useActivityBoundsCache,
-  isInfiniteActivitiesStale,
-} from '@/features/activity/hooks';
+import { useActivities, useActivityBoundsCache } from '@/features/activity/hooks';
+import { isInfiniteActivitiesStale } from '@/shared/query/activitiesCache';
 import { useRouteDataSync } from '@/features/routes/hooks/useRouteDataSync';
 import { useSectionHealthCheck } from '@/features/routes/hooks/useSectionHealthCheck';
 import { queryKeys } from '@/shared/query/queryKeys';

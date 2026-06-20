@@ -21,11 +21,8 @@ import { useIsFocused } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
-import {
-  useInfiniteActivities,
-  isInfiniteActivitiesStale,
-  useActivitySectionHighlights,
-} from '@/features/activity/hooks';
+import { useInfiniteActivities, useActivitySectionHighlights } from '@/features/activity/hooks';
+import { isInfiniteActivitiesStale } from '@/shared/query/activitiesCache';
 import { useSummaryCardData } from '@/features/home/hooks';
 import { useInsights } from '@/features/insights';
 import { useTheme } from '@/shared/app';
