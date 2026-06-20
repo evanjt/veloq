@@ -1,5 +1,6 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { View, Image, StyleSheet, ActivityIndicator } from 'react-native';
+import { useIsFocused } from 'expo-router';
 import { Canvas, Path, Circle, Skia } from '@shopify/react-native-skia';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { getActivityColor } from '@/features/activity/lib/activityUtils';
@@ -39,8 +40,6 @@ interface ActivityMapPreviewProps {
   index?: number;
   /** Ref to the shared snapshot WebView for requesting 3D terrain previews */
   snapshotRef?: React.RefObject<TerrainSnapshotWebViewRef | null>;
-  /** Whether the parent screen is focused — defers snapshot requests when false */
-  screenFocused?: boolean;
   /** Pre-fetched GPS track from startup data (avoids individual FFI/API calls) */
   startupTrack?: PreviewTrack;
   /** Whether the snapshot WebView workers are mounted and ready */
@@ -54,12 +53,14 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
   height = 160,
   index = 0,
   snapshotRef,
-  screenFocused = true,
   snapshotReady = false,
   startupTrack,
   prSectionIndices,
 }: ActivityMapPreviewProps) {
   const mapPreviewStart = __DEV__ && index < 3 ? performance.now() : 0;
+  // Read focus locally so a tab switch re-renders only this leaf preview, not the
+  // whole ActivityCard. The snapshot effect below defers requests when unfocused.
+  const screenFocused = useIsFocused();
   const { getStyleForActivity, getTerrain3DMode } = useMapPreferences();
   const mapStyle = getStyleForActivity(activity.type, activity.id, activity.country);
   const activityColor = getActivityColor(activity.type);

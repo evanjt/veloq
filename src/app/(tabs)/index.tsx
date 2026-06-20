@@ -17,7 +17,6 @@ import { logScreenRender, PERF_DEBUG } from '@/shared/debug/renderTimer';
 import { isNetworkError } from '@/shared/errors/errorHandler';
 import { navigateTo } from '@/shared/app/navigation';
 import { queryKeys } from '@/shared/query/queryKeys';
-import { useIsFocused } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
@@ -97,7 +96,6 @@ export default function FeedScreen() {
   // 3D terrain snapshot WebView — deferred mount to avoid startup cost
   const { isAnyTerrain3DEnabled } = useMapPreferences();
   const snapshotRef = useRef<TerrainSnapshotWebViewRef | null>(null);
-  const isFeedFocused = useIsFocused();
   const [snapshotWebViewReady, setSnapshotWebViewReady] = useState(false);
   useEffect(() => {
     if (!isAnyTerrain3DEnabled) return;
@@ -313,7 +311,6 @@ export default function FeedScreen() {
         activity={item}
         index={index}
         snapshotRef={snapshotRef}
-        screenFocused={isFeedFocused}
         startupTrack={previewTracksRef.current?.get(item.id)}
         snapshotReady={snapshotWebViewReady}
         colorScheme={isDark}
@@ -321,7 +318,7 @@ export default function FeedScreen() {
         routeHighlight={routeHighlightsMap.get(item.id)}
       />
     ),
-    [isFeedFocused, snapshotWebViewReady, isDark, sectionHighlightsMap, routeHighlightsMap]
+    [snapshotWebViewReady, isDark, sectionHighlightsMap, routeHighlightsMap]
   );
 
   const navigateToSettings = useCallback(() => {
@@ -519,7 +516,6 @@ export default function FeedScreen() {
     isLoading: false,
     actLen: 0,
     insLen: 0,
-    focused: false,
     refetching: false,
     dataRef: null as unknown,
     filteredRef: null as unknown,
@@ -531,7 +527,6 @@ export default function FeedScreen() {
     if (prev.actLen !== allActivities.length)
       changes.push(`activities:${prev.actLen}→${allActivities.length}`);
     if (prev.insLen !== insights.length) changes.push(`insights:${prev.insLen}→${insights.length}`);
-    if (prev.focused !== isFeedFocused) changes.push(`focused:${prev.focused}→${isFeedFocused}`);
     if (prev.refetching !== isRefetching)
       changes.push(`refetching:${prev.refetching}→${isRefetching}`);
     if (prev.dataRef !== data) changes.push('data:newRef');
@@ -539,7 +534,6 @@ export default function FeedScreen() {
     prev.isLoading = isLoading;
     prev.actLen = allActivities.length;
     prev.insLen = insights.length;
-    prev.focused = isFeedFocused;
     prev.refetching = isRefetching;
     prev.dataRef = data;
     prev.filteredRef = filteredActivities;

@@ -44,8 +44,6 @@ interface ActivityCardProps {
   index?: number;
   /** Ref to the shared snapshot WebView for 3D terrain previews */
   snapshotRef?: React.RefObject<TerrainSnapshotWebViewRef | null>;
-  /** Whether the feed screen is focused — defers snapshot requests when false */
-  screenFocused?: boolean;
   /** Pre-fetched GPS track from startup data */
   startupTrack?: PreviewTrack;
   /** Whether snapshot WebView workers are ready */
@@ -128,7 +126,6 @@ export const ActivityCard = React.memo(
     activity,
     index,
     snapshotRef,
-    screenFocused,
     startupTrack,
     snapshotReady,
     sectionHighlights,
@@ -409,7 +406,6 @@ export const ActivityCard = React.memo(
               height={240}
               index={index}
               snapshotRef={snapshotRef}
-              screenFocused={screenFocused}
               snapshotReady={snapshotReady}
               startupTrack={startupTrack}
               prSectionIndices={prSectionIndices}
@@ -640,7 +636,6 @@ export const ActivityCard = React.memo(
       prev.activity.id === next.activity.id &&
       prev.activity.name === next.activity.name &&
       prev.index === next.index &&
-      prev.screenFocused === next.screenFocused &&
       prev.startupTrack === next.startupTrack &&
       prev.colorScheme === next.colorScheme &&
       prev.snapshotReady === next.snapshotReady &&
@@ -651,7 +646,6 @@ export const ActivityCard = React.memo(
       if (prev.activity.id !== next.activity.id) diffs.push('id');
       if (prev.activity.name !== next.activity.name) diffs.push('name');
       if (prev.index !== next.index) diffs.push('index');
-      if (prev.screenFocused !== next.screenFocused) diffs.push('screenFocused');
       if (prev.startupTrack !== next.startupTrack) diffs.push('startupTrack');
       if (prev.colorScheme !== next.colorScheme) diffs.push('colorScheme');
       if (prev.snapshotReady !== next.snapshotReady) diffs.push('snapshotReady');
