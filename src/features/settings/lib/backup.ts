@@ -27,7 +27,7 @@ import { initializeSupersededSections } from '@/features/routes/stores/Supersede
 import { initializeDebugStore } from '@/features/settings/stores/DebugStore';
 import { initializeNotificationPreferences } from '@/features/settings/stores/NotificationPreferencesStore';
 import { initializeNotificationPrompt } from '@/features/settings/stores/NotificationPromptStore';
-import { initializeSupportStore } from '@/features/settings/stores/SupportStore';
+import { initializeSupportStore } from '@/shared/app/SupportStore';
 import { initializeWhatsNewStore } from '@/features/settings/stores/WhatsNewStore';
 import { initializeLanguage } from '@/shared/app/LanguageStore';
 import { initializeTheme } from '@/shared/app/ThemeProvider';

@@ -16,7 +16,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, darkColors, spacing } from '@/theme';
 import { useTheme } from '@/shared/app';
 import { getFFIMetricsSummary, clearFFIMetrics } from '@/shared/debug/renderTimer';
-import { useSupportStore, daysSince } from '@/features/settings/stores/SupportStore';
+import { useSupportStore, daysSince } from '@/shared/app/SupportStore';
 import { formatLocalDate } from '@/shared/format/format';
 import type { PersistentEngineStats } from 'veloqrs';
 

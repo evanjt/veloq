@@ -102,7 +102,7 @@ jest.mock('@/features/settings/stores/NotificationPreferencesStore', () => ({
 jest.mock('@/features/settings/stores/NotificationPromptStore', () => ({
   initializeNotificationPrompt: jest.fn().mockResolvedValue(undefined),
 }));
-jest.mock('@/features/settings/stores/SupportStore', () => ({
+jest.mock('@/shared/app/SupportStore', () => ({
   initializeSupportStore: jest.fn().mockResolvedValue(undefined),
 }));
 jest.mock('@/features/settings/stores/WhatsNewStore', () => ({

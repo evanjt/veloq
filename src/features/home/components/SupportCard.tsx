@@ -12,7 +12,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import * as WebBrowser from 'expo-web-browser';
 import { useTheme } from '@/shared/app';
-import { useSupportStore } from '@/features/settings/stores/SupportStore';
+import { useSupportStore } from '@/shared/app/SupportStore';
 import { useDonation } from '@/shared/app/useDonation';
 import { colors, darkColors, spacing, layout, shadows, typography } from '@/theme';
 import { TipButtons } from '@/shared/ui/TipButtons';

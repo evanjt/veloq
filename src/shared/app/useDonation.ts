@@ -1,7 +1,7 @@
 import { useEffect, useCallback, useState } from 'react';
 import { Platform } from 'react-native';
 import { useIAP, ErrorCode, type Purchase, type PurchaseError } from 'react-native-iap';
-import { useSupportStore } from '@/features/settings/stores/SupportStore';
+import { useSupportStore } from '@/shared/app/SupportStore';
 
 const PRODUCT_IDS = ['tip_small', 'tip_medium', 'tip_large'];
 const THANK_YOU_DISPLAY_MS = 3000;

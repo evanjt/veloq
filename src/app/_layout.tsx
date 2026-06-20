@@ -45,7 +45,7 @@ import { useSyncDateRange } from '@/features/routes/stores/SyncDateRangeStore';
 import { initializeDebugStore } from '@/features/settings/stores/DebugStore';
 import { initializeNotificationPreferences } from '@/features/settings/stores/NotificationPreferencesStore';
 import { initializeNotificationPrompt } from '@/features/settings/stores/NotificationPromptStore';
-import { initializeSupportStore, useSupportStore } from '@/features/settings/stores/SupportStore';
+import { initializeSupportStore, useSupportStore } from '@/shared/app/SupportStore';
 import { initializeWhatsNewStore } from '@/features/settings/stores/WhatsNewStore';
 import { initializeLanguage } from '@/shared/app/LanguageStore';
 import { NetworkProvider } from '@/shared/app/NetworkContext';

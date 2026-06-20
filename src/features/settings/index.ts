@@ -81,6 +81,6 @@ export {
   useNotificationPrompt,
   initializeNotificationPrompt,
 } from './stores/NotificationPromptStore';
-export { useSupportStore, initializeSupportStore, daysSince } from './stores/SupportStore';
+export { useSupportStore, initializeSupportStore, daysSince } from '@/shared/app/SupportStore';
 export { useWhatsNewStore, initializeWhatsNewStore } from './stores/WhatsNewStore';
 export { useDebugStore, isDebugEnabled, initializeDebugStore } from './stores/DebugStore';
