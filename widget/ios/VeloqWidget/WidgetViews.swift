@@ -165,6 +165,31 @@ struct LatestBlock: View {
   }
 }
 
+// Shown before the app has ever written a snapshot (fresh install, before the first
+// background write) so medium/large widgets aren't a blank coloured rectangle. The
+// strings are hardcoded English like the metric-label fallbacks above — no snapshot
+// means no localized `display` block to read.
+struct EmptyWidgetView: View {
+  let palette: WidgetPalette
+
+  var body: some View {
+    VStack(spacing: 4) {
+      Image(systemName: "chart.line.uptrend.xyaxis")
+        .font(.system(size: WidgetTheme.TypeScale.metric, weight: .semibold))
+        .foregroundColor(palette.primary)
+      Text("Open Veloq")
+        .font(.system(size: WidgetTheme.TypeScale.value, weight: .semibold))
+        .foregroundColor(palette.textPrimary)
+      Text("to see your training")
+        .font(.system(size: WidgetTheme.TypeScale.label))
+        .foregroundColor(palette.textSecondary)
+        .multilineTextAlignment(.center)
+    }
+    .frame(maxWidth: .infinity, maxHeight: .infinity)
+    .padding(WidgetTheme.Layout.padding)
+  }
+}
+
 // MARK: - per-family layouts
 
 struct SmallWidgetView: View {
@@ -203,8 +228,16 @@ struct MediumWidgetView: View {
   let palette: WidgetPalette
 
   var body: some View {
+    if snapshot == nil {
+      EmptyWidgetView(palette: palette)
+    } else {
+      content
+    }
+  }
+
+  private var content: some View {
     let labels = snapshot?.display.metricLabels
-    HStack(alignment: .top, spacing: WidgetTheme.Layout.gap) {
+    return HStack(alignment: .top, spacing: WidgetTheme.Layout.gap) {
       VStack(alignment: .leading, spacing: 6) {
         if let form = snapshot?.metrics.form {
           MetricColumn(label: labels?.form ?? "Form", metric: form, palette: palette, showTrend: true)
@@ -243,9 +276,17 @@ struct LargeWidgetView: View {
   let palette: WidgetPalette
 
   var body: some View {
+    if snapshot == nil {
+      EmptyWidgetView(palette: palette)
+    } else {
+      content
+    }
+  }
+
+  private var content: some View {
     let m = snapshot?.metrics
     let labels = snapshot?.display.metricLabels
-    VStack(alignment: .leading, spacing: WidgetTheme.Layout.gap) {
+    return VStack(alignment: .leading, spacing: WidgetTheme.Layout.gap) {
       HStack(alignment: .top) {
         if let f = m?.fitness {
           MetricColumn(label: labels?.fitness ?? "Fitness", metric: f, palette: palette)

@@ -26,7 +26,18 @@ class VeloqWidgetModule : Module() {
     Name("VeloqWidget")
 
     Function("writeSnapshot") { json: String ->
-      File(context.filesDir, SNAPSHOT_FILE).writeText(json)
+      // Write to a temp file then rename so a concurrent onUpdate never reads a
+      // half-written snapshot (mirrors the iOS `.atomic` write). renameTo within
+      // filesDir is atomic on the app's internal storage; fall back to a direct
+      // write only if the rename is refused.
+      val dir = context.filesDir
+      val tmp = File(dir, "$SNAPSHOT_FILE.tmp")
+      val dest = File(dir, SNAPSHOT_FILE)
+      tmp.writeText(json)
+      if (!tmp.renameTo(dest)) {
+        dest.writeText(json)
+        tmp.delete()
+      }
     }
 
     Function("reloadWidgets") {
