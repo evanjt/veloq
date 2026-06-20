@@ -6,6 +6,7 @@ import { formatLocalDate } from '@/shared/format/format';
 import { queryKeys } from '@/shared/query/queryKeys';
 import { getRouteEngine } from '@/shared/native/routeEngine';
 import type { WellnessData } from '@/types';
+import type { TimeRange } from '@/shared/app/timeRange';
 
 // Mirror wellness rows into Rust so sparkline + HRV-trend atomics can read
 // from SQLite. Fire-and-forget: failures are logged in dev only (engine may
@@ -38,7 +39,7 @@ function syncWellnessToEngine(rows: WellnessData[]): void {
   }
 }
 
-export type TimeRange = '7d' | '1m' | '42d' | '3m' | '6m' | '1y';
+export type { TimeRange };
 
 const TIME_RANGE_DAYS: Record<TimeRange, number> = {
   '7d': 7,

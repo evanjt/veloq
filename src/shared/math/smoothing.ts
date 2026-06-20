@@ -1,4 +1,4 @@
-import { type TimeRange } from '@/features/wellness';
+import { type TimeRange } from '@/shared/app/timeRange';
 
 export type SmoothingWindow = 'auto' | 'none' | 3 | 7 | 14 | 21 | 28;
 

@@ -1,4 +1,4 @@
-import type { TimeRange } from '@/features/wellness';
+import type { TimeRange } from './timeRange';
 
 /**
  * Shared time range picker options (used by fitness and training screens)
