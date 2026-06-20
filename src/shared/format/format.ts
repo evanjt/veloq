@@ -12,6 +12,13 @@ const KM_TO_MI = 0.621371;
 const M_TO_FT = 3.28084;
 const MPS_TO_MPH = 2.23694;
 
+// Sanity ceilings. A tiny-but-finite speed makes pace/duration overflow to a
+// finite-but-absurd magnitude that slips past the Infinity guard and renders in
+// scientific notation (e.g. "1.66e+301:08"). These bounds are far beyond any real
+// value, so they only ever reject garbage, never a legitimate pace or duration.
+const MAX_PACE_SECONDS = 100 * 3600; // 100 h per km/mile/100m — non-physical
+const MAX_DURATION_SECONDS = 1e9; // ~31 years
+
 /**
  * Map app locale codes to valid Intl/BCP 47 locale codes for date formatting.
  *
@@ -94,7 +101,7 @@ export function formatDistance(meters: number, isMetric = true): string {
  * ```
  */
 export function formatDuration(seconds: number): string {
-  if (!Number.isFinite(seconds) || seconds < 0) {
+  if (!Number.isFinite(seconds) || seconds < 0 || seconds > MAX_DURATION_SECONDS) {
     return '0:00';
   }
   const hours = Math.floor(seconds / 3600);
@@ -112,7 +119,7 @@ export function formatDuration(seconds: number): string {
  * Drops zero trailing components (e.g., "5m" not "5m 0s").
  */
 export function formatDurationHuman(seconds: number): string {
-  if (!Number.isFinite(seconds) || seconds < 0) return '0s';
+  if (!Number.isFinite(seconds) || seconds < 0 || seconds > MAX_DURATION_SECONDS) return '0s';
   const totalSeconds = Math.round(seconds);
   if (totalSeconds < 60) return `${totalSeconds}s`;
   const mins = Math.floor(totalSeconds / 60);
@@ -147,8 +154,9 @@ export function formatPace(metersPerSecond: number, isMetric = true): string {
   const secondsPerKm = 1000 / metersPerSecond;
   // Seconds per mile = seconds per km / KM_TO_MI
   const totalSeconds = isMetric ? secondsPerKm : secondsPerKm / KM_TO_MI;
-  // A tiny-but-positive speed overflows 1000/mps to Infinity; reject the result.
-  if (!Number.isFinite(totalSeconds)) return '--:--';
+  // A tiny-but-positive speed overflows 1000/mps to a finite-but-absurd value;
+  // reject both Infinity and the non-physical range.
+  if (!Number.isFinite(totalSeconds) || totalSeconds > MAX_PACE_SECONDS) return '--:--';
 
   let minutes = Math.floor(totalSeconds / 60);
   let seconds = Math.round(totalSeconds % 60);
@@ -173,7 +181,8 @@ export function formatPace(metersPerSecond: number, isMetric = true): string {
  * @returns Formatted pace string (e.g., "5:30", "--:--")
  */
 export function formatPaceFromSecsPerKm(secondsPerKm: number): string {
-  if (!Number.isFinite(secondsPerKm) || secondsPerKm <= 0) return '--:--';
+  if (!Number.isFinite(secondsPerKm) || secondsPerKm <= 0 || secondsPerKm > MAX_PACE_SECONDS)
+    return '--:--';
 
   let minutes = Math.floor(secondsPerKm / 60);
   let seconds = Math.round(secondsPerKm % 60);
@@ -201,7 +210,7 @@ export function formatPaceCompact(metersPerSecond: number, isMetric = true): str
 
   const secondsPerKm = 1000 / metersPerSecond;
   const totalSeconds = isMetric ? secondsPerKm : secondsPerKm / KM_TO_MI;
-  if (!Number.isFinite(totalSeconds)) return '--:--';
+  if (!Number.isFinite(totalSeconds) || totalSeconds > MAX_PACE_SECONDS) return '--:--';
 
   let minutes = Math.floor(totalSeconds / 60);
   let seconds = Math.round(totalSeconds % 60);
@@ -230,7 +239,7 @@ export function formatSwimPace(metersPerSecond: number, isMetric = true): string
   // 100 yards = 91.44 meters
   const distance = isMetric ? 100 : 91.44;
   const totalSeconds = Math.round(distance / metersPerSecond);
-  if (!Number.isFinite(totalSeconds)) return '--:--';
+  if (!Number.isFinite(totalSeconds) || totalSeconds > MAX_PACE_SECONDS) return '--:--';
 
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;

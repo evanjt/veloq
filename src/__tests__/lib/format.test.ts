@@ -13,6 +13,7 @@ import {
   formatDurationHuman,
   formatPace,
   formatPaceCompact,
+  formatPaceFromSecsPerKm,
   formatSpeed,
   formatPower,
   formatHeartRate,
@@ -384,5 +385,45 @@ describe('NaN/Infinity wall', () => {
       const result = formatTimeDelta(input as unknown as number);
       if (result !== null) expectClean(result);
     });
+  });
+});
+
+describe('extreme finite magnitudes do not leak scientific-notation garbage', () => {
+  // These inputs are finite, so they slip past the Infinity guard: 1000/1e-300 is
+  // 1e303 (finite), which the old code rendered as "1.66e+301:08". The sanity
+  // ceilings must send them to the sentinel instead.
+  const TINY = 5e-324; // smallest positive double (denormal)
+  const SMALL = 1e-300;
+  const HUGE = 1e308;
+
+  it.each([
+    ['formatPace', (v: number) => formatPace(v)],
+    ['formatPace (imperial)', (v: number) => formatPace(v, false)],
+    ['formatPaceCompact', (v: number) => formatPaceCompact(v)],
+    ['formatSwimPace', (v: number) => formatSwimPace(v)],
+  ])('%s returns the sentinel for tiny positive speeds', (_n, fn) => {
+    expect(fn(TINY)).toBe('--:--');
+    expect(fn(SMALL)).toBe('--:--');
+  });
+
+  it('formatPaceFromSecsPerKm rejects an absurdly large seconds-per-km value', () => {
+    expect(formatPaceFromSecsPerKm(HUGE)).toBe('--:--');
+  });
+
+  it('formatDuration / formatDurationHuman reject an absurdly large duration', () => {
+    expect(formatDuration(HUGE)).toBe('0:00');
+    expect(formatDurationHuman(HUGE)).toBe('0s');
+  });
+
+  it('no formatter emits scientific notation for extreme finite inputs', () => {
+    const fns = [
+      (v: number) => formatPace(v),
+      (v: number) => formatPaceCompact(v),
+      (v: number) => formatSwimPace(v),
+      (v: number) => formatPaceFromSecsPerKm(v),
+      (v: number) => formatDuration(v),
+      (v: number) => formatDurationHuman(v),
+    ];
+    [TINY, SMALL, HUGE].forEach((v) => fns.forEach((fn) => expect(fn(v)).not.toMatch(/e[+-]\d/i)));
   });
 });
