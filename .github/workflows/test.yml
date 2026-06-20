@@ -97,6 +97,30 @@ jobs:
         working-directory: modules/veloqrs/rust
         run: cargo clippy --workspace
 
+  guards:
+    name: Guard Scripts
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "${{ env.NODE_VERSION }}"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      # check:expo + ffi:check + crash:guard + lint:engine-bridge — the same guards
+      # the pre-commit hook runs, so a PR can't merge past them with --no-verify.
+      - name: Run guard scripts
+        run: npm run audit
+
   verify-bindings:
     name: Verify Bindings
     runs-on: ubuntu-latest
