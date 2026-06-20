@@ -271,7 +271,19 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
     const bearing = terrainCameraResult?.camera.bearing ?? 0;
     return (
       <View style={[styles.container, { height }]}>
-        <Image source={{ uri: terrainImageUri }} style={styles.terrainImage} resizeMode="cover" />
+        <Image
+          source={{ uri: terrainImageUri }}
+          style={styles.terrainImage}
+          resizeMode="cover"
+          onError={({ nativeEvent }) => {
+            // A missing/undecodable cached snapshot must not leave a blank card —
+            // drop back to the 2D route line so the track always renders.
+            log.log(
+              `terrain image failed (${terrainImageUri}): ${nativeEvent?.error ?? 'unknown'} — falling back to line`
+            );
+            setTerrainImageUri(null);
+          }}
+        />
         {Math.abs(bearing) > 5 && (
           <View style={styles.compassOverlay}>
             <StaticCompassArrow bearing={bearing} size={16} southColor="rgba(255,255,255,0.7)" />
