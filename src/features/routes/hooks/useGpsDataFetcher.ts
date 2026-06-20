@@ -18,7 +18,7 @@ import {
   takeFetchAndStoreResult,
   type ActivitySportMapping,
 } from 'veloqrs';
-import { getStoredCredentials } from '@/features/auth/store';
+import { getStoredCredentials } from '@/shared/app/AuthStore';
 import { getSyncGeneration, useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { isRouteMatchingEnabled } from '@/features/routes/stores/RouteSettingsStore';
 import { toActivityMetrics } from '@/features/activity/lib/activityMetrics';

@@ -7,7 +7,7 @@ import { replaceTo } from '@/shared/app/navigation';
 import { clearAccountData, clearAuthOnly } from '@/shared/storage';
 import { confirmAccountChange, getCachedAthleteId } from '@/features/auth/lib/accountChange';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
-import { useAuthStore } from '@/features/auth/store';
+import { useAuthStore } from '@/shared/app/AuthStore';
 
 interface UseApiKeyLoginParams {
   setError: (message: string | null) => void;

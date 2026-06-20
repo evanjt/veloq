@@ -4,7 +4,7 @@ import { Text } from 'react-native-paper';
 import { useTheme } from '@/shared/app';
 import { useTranslation } from 'react-i18next';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useAuthStore } from '@/features/auth/store';
+import { useAuthStore } from '@/shared/app/AuthStore';
 import { useUploadPermissionStore } from '@/features/recording/stores/UploadPermissionStore';
 import { usePermissionUpgrade } from '@/features/recording/hooks/usePermissionUpgrade';
 import { colors, darkColors, spacing, layout } from '@/theme';

@@ -13,7 +13,7 @@
  */
 
 import { useRef, useEffect, useCallback } from 'react';
-import { useAuthStore } from '@/features/auth/store';
+import { useAuthStore } from '@/shared/app/AuthStore';
 import { useNetwork } from '@/shared/app/NetworkContext';
 
 // Global mutex to prevent concurrent syncs across all hook instances

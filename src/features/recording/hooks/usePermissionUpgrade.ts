@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { useAuthStore } from '@/features/auth/store';
+import { useAuthStore } from '@/shared/app/AuthStore';
 import { useUploadPermissionStore } from '@/features/recording/stores/UploadPermissionStore';
 import {
   startOAuthFlow,

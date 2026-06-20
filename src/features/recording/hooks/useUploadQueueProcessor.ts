@@ -3,7 +3,7 @@ import { AppState } from 'react-native';
 import * as FileSystem from 'expo-file-system/legacy';
 
 import { useNetwork } from '@/shared/app/NetworkContext';
-import { useAuthStore } from '@/features/auth/store';
+import { useAuthStore } from '@/shared/app/AuthStore';
 import { useUploadPermissionStore } from '@/features/recording/stores/UploadPermissionStore';
 import { intervalsApi } from '@/api';
 import {

@@ -2,7 +2,7 @@ import { apiClient, getAthleteId } from './client';
 import { parseStreams } from '@/features/activity/lib/streams';
 import { debug } from '@/shared/debug/debug';
 import { formatLocalDate } from '@/shared/format/format';
-import { useAuthStore, DEMO_ATHLETE_ID } from '@/features/auth/store';
+import { useAuthStore, DEMO_ATHLETE_ID } from '@/shared/app/AuthStore';
 import { mockIntervalsApi } from './mockIntervals';
 import { API_DEFAULTS } from '@/shared/app/constants';
 

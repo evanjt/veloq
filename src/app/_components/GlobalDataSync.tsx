@@ -23,7 +23,7 @@ import {
   getStrictnessFromValue,
 } from '@/shared/native/routeEngine';
 import { toActivityMetrics } from '@/features/activity/lib/activityMetrics';
-import { useAuthStore } from '@/features/auth/store';
+import { useAuthStore } from '@/shared/app/AuthStore';
 import { useRouteSettings } from '@/features/routes/stores/RouteSettingsStore';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import {

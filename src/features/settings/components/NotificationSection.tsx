@@ -4,7 +4,7 @@ import { Text, Switch } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
-import { useAuthStore } from '@/features/auth/store';
+import { useAuthStore } from '@/shared/app/AuthStore';
 import { useNotificationPreferences } from '@/features/settings/stores/NotificationPreferencesStore';
 import {
   requestNotificationPermission,

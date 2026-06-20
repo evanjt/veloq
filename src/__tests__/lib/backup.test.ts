@@ -45,7 +45,7 @@ jest.mock('@/shared/query/QueryProvider', () => ({
   queryClient: { invalidateQueries: jest.fn() },
 }));
 
-jest.mock('@/features/auth/store', () => ({
+jest.mock('@/shared/app/AuthStore', () => ({
   useAuthStore: { getState: () => ({ athleteId: 'athlete-1' }) },
 }));
 

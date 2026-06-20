@@ -10,7 +10,7 @@ import { formatLocalDate } from '@/shared/format/format';
 import { CACHE } from '@/shared/app/constants';
 import { queryKeys } from '@/shared/query/queryKeys';
 import type { Activity, IntervalsDTO } from '@/types';
-import { useAuthStore } from '@/features/auth/store';
+import { useAuthStore } from '@/shared/app/AuthStore';
 
 interface UseActivitiesOptions {
   /** Number of days to fetch (from today backwards) */

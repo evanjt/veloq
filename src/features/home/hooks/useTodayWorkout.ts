@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { intervalsApi } from '@/api';
 import { formatLocalDate } from '@/shared/format/format';
 import { CACHE } from '@/shared/app/constants';
-import { useAuthStore } from '@/features/auth/store';
+import { useAuthStore } from '@/shared/app/AuthStore';
 import { queryKeys } from '@/shared/query/queryKeys';
 import type { CalendarEvent } from '@/types';
 

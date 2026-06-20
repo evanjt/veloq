@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
-import { useAuthStore } from '@/features/auth/store';
+import { useAuthStore } from '@/shared/app/AuthStore';
 import { elevationGain as sumElevationGain } from '@/shared/math/kinematics';
 
 // MET values for calorie estimation

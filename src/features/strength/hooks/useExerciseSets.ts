@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import type { ExerciseSet, MuscleGroup } from 'veloqrs';
 
 import { getRouteEngine } from '@/shared/native/routeEngine';
-import { getStoredCredentials, useAuthStore } from '@/features/auth/store';
+import { getStoredCredentials, useAuthStore } from '@/shared/app/AuthStore';
 import { queryKeys } from '@/shared/query/queryKeys';
 
 import { demoStrengthSets } from '../demo';

@@ -8,7 +8,7 @@ jest.mock('@/api', () => ({
   intervalsApi: {},
 }));
 
-jest.mock('@/features/auth/store', () => ({
+jest.mock('@/shared/app/AuthStore', () => ({
   useAuthStore: jest.fn(),
 }));
 

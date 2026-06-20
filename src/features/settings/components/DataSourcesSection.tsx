@@ -4,7 +4,7 @@ import { Text, Switch } from 'react-native-paper';
 import { useTheme } from '@/shared/app';
 import { useTranslation } from 'react-i18next';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useAuthStore } from '@/features/auth/store';
+import { useAuthStore } from '@/shared/app/AuthStore';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import { settingsStyles, DIVIDER_INSET } from './settingsStyles';
 

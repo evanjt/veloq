@@ -5,7 +5,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 import { useTheme } from '@/shared/app';
-import { useAuthStore } from '@/features/auth/store';
+import { useAuthStore } from '@/shared/app/AuthStore';
 import { useNotificationPreferences } from '@/features/settings/stores/NotificationPreferencesStore';
 import { useNotificationPrompt } from '@/features/settings/stores/NotificationPromptStore';
 import { requestNotificationPermission } from '@/features/settings/lib/notificationService';

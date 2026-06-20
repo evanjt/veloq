@@ -4,7 +4,7 @@ export {
   DEMO_ATHLETE_ID,
   type AuthMethod,
   type SessionExpiredReason,
-} from './store';
+} from '@/shared/app/AuthStore';
 
 export { OAUTH } from './constants';
 

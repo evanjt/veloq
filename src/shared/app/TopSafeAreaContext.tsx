@@ -6,7 +6,7 @@ import React, { createContext, useContext, useMemo, useState, useCallback, React
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { Edge } from 'react-native-safe-area-context';
 
-import { useAuthStore } from '@/features/auth/store';
+import { useAuthStore } from '@/shared/app/AuthStore';
 import { useNetwork } from './NetworkContext';
 
 interface TopSafeAreaContextValue {

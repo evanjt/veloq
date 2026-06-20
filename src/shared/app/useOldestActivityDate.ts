@@ -7,7 +7,7 @@
 
 import { useQuery } from '@tanstack/react-query';
 import { intervalsApi } from '@/api';
-import { useAuthStore } from '@/features/auth/store';
+import { useAuthStore } from '@/shared/app/AuthStore';
 import { queryKeys } from '@/shared/query/queryKeys';
 
 /** Get the oldest activity date from the user's activities */

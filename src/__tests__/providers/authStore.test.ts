@@ -10,7 +10,7 @@
  */
 
 import * as SecureStore from 'expo-secure-store';
-import { useAuthStore, getStoredCredentials, DEMO_ATHLETE_ID } from '@/features/auth/store';
+import { useAuthStore, getStoredCredentials, DEMO_ATHLETE_ID } from '@/shared/app/AuthStore';
 
 // Get mock functions with proper typing
 const mockGetItemAsync = SecureStore.getItemAsync as jest.MockedFunction<

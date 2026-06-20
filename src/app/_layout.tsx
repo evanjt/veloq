@@ -28,7 +28,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { configureReanimatedLogger, ReanimatedLogLevel } from 'react-native-reanimated';
 // Use legacy API for SDK 54 compatibility (new API uses File/Directory classes)
 import MapLibre, { Logger as MapLibreLogger } from '@maplibre/maplibre-react-native';
-import { useAuthStore } from '@/features/auth/store';
+import { useAuthStore } from '@/shared/app/AuthStore';
 import { initializeSportPreference, initializeHRZones } from '@/features/fitness/stores';
 import { initializeDashboardPreferences } from '@/features/home/store';
 import { updateWidgetSnapshot } from '@/features/home';
@@ -492,7 +492,7 @@ export default function RootLayout() {
       getNotificationPreferences,
       retryPendingUnregister,
     } = require('@/features/settings/stores/NotificationPreferencesStore');
-    const { useAuthStore: authStore } = require('@/features/auth/store');
+    const { useAuthStore: authStore } = require('@/shared/app/AuthStore');
     const prefs = getNotificationPreferences();
     const { athleteId, isDemoMode: demo } = authStore.getState();
     if (prefs.enabled && athleteId && !demo) {

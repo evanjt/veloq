@@ -9,7 +9,7 @@
 import * as FileSystem from 'expo-file-system/legacy';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getRouteEngine, getRouteDbPath, getNativeModule } from '@/shared/native/routeEngine';
-import { useAuthStore } from '@/features/auth/store';
+import { useAuthStore } from '@/shared/app/AuthStore';
 import { formatLocalDate } from '@/shared/format/format';
 import { shareFile } from './shareFile';
 import { getSetting, setSetting } from '@/shared/storage';

@@ -17,7 +17,7 @@ import { useTranslation } from 'react-i18next';
 import { navigateTab } from '@/shared/app/navigation';
 import { useTheme } from '@/shared/app';
 import { colors, darkColors, spacing, layout } from '@/theme';
-import { useAuthStore } from '@/features/auth/store';
+import { useAuthStore } from '@/shared/app/AuthStore';
 import { useMapPreferences } from '@/features/maps/stores/MapPreferencesContext';
 import { useWhatsNewStore } from '@/features/settings/stores/WhatsNewStore';
 import { getAllSlides, getSlidesSince } from './slides';

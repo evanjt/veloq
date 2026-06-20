@@ -9,7 +9,7 @@ import {
 } from '@/features/activity/hooks';
 import { useSportSettings, getSettingsForSport } from '@/shared/app/useSportSettings';
 import { usePaceCurve, useSeasonBests } from '@/features/stats';
-import { useAuthStore } from '@/features/auth/store';
+import { useAuthStore } from '@/shared/app/AuthStore';
 import { type PrimarySport } from '@/features/fitness/stores';
 import { useZoneDistribution } from './useZoneDistribution';
 

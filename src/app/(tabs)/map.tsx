@@ -14,7 +14,7 @@ import { logScreenRender } from '@/shared/debug/renderTimer';
 import { useActivityBoundsCache, useActivities } from '@/features/activity/hooks';
 import { useEngineMapActivities } from '@/features/maps/hooks';
 import { useTheme, useMetricSystem } from '@/shared/app';
-import { useAuthStore } from '@/features/auth/store';
+import { useAuthStore } from '@/shared/app/AuthStore';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { colors, darkColors, spacing, typography } from '@/theme';
 import {

@@ -5,7 +5,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app';
-import { useAuthStore } from '@/features/auth/store';
+import { useAuthStore } from '@/shared/app/AuthStore';
 import { useUploadPermissionStore } from '@/features/recording/stores/UploadPermissionStore';
 import { usePermissionUpgrade } from '@/features/recording/hooks/usePermissionUpgrade';
 import { spacing, colors, colorWithOpacity } from '@/theme';

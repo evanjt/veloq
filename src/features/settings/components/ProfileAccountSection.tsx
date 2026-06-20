@@ -6,7 +6,7 @@ import * as WebBrowser from 'expo-web-browser';
 import { useQueryClient } from '@tanstack/react-query';
 import { colors, darkColors, spacing, typography } from '@/theme';
 import { getAthleteId } from '@/api';
-import { useAuthStore } from '@/features/auth/store';
+import { useAuthStore } from '@/shared/app/AuthStore';
 import { useUploadPermissionStore } from '@/features/recording/stores/UploadPermissionStore';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { clearAccountData, clearAuthOnly } from '@/shared/storage';

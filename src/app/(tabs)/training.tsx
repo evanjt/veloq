@@ -34,7 +34,7 @@ import {
   type SmoothingWindow,
 } from '@/shared/math/smoothing';
 import { logScreenRender } from '@/shared/debug/renderTimer';
-import { useAuthStore } from '@/features/auth/store';
+import { useAuthStore } from '@/shared/app/AuthStore';
 
 import { queryKeys } from '@/shared/query/queryKeys';
 import { TIME_RANGES } from '@/shared/app/constants';

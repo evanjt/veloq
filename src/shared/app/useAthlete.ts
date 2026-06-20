@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { intervalsApi } from '@/api';
-import { useAuthStore } from '@/features/auth/store';
+import { useAuthStore } from '@/shared/app/AuthStore';
 import { useUnitPreference } from '@/shared/app/UnitPreferenceStore';
 import { useEffect, useMemo } from 'react';
 import { getRouteEngine } from '@/shared/native/routeEngine';

@@ -81,7 +81,7 @@ export const useNotificationPreferences = create<NotificationPreferencesState>((
 
     // Register/unregister push token with server
     try {
-      const { useAuthStore } = require('@/features/auth/store');
+      const { useAuthStore } = require('@/shared/app/AuthStore');
       const { athleteId } = useAuthStore.getState();
       if (athleteId) {
         if (enabled) {

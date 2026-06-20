@@ -154,7 +154,7 @@ async function runSectionDetection(routeEngine: {
  */
 async function fetchAndIngestActivity(activityId: string): Promise<ActivityInfo | null> {
   try {
-    const { getStoredCredentials } = require('@/features/auth/store');
+    const { getStoredCredentials } = require('@/shared/app/AuthStore');
     const creds = getStoredCredentials();
     if (!creds.athleteId) return null;
 

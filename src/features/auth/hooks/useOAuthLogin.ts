@@ -7,7 +7,7 @@ import { clearAccountData, clearAuthOnly } from '@/shared/storage';
 import { confirmAccountChange, getCachedAthleteId } from '@/features/auth/lib/accountChange';
 import { useUploadPermissionStore } from '@/features/recording/stores/UploadPermissionStore';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
-import { useAuthStore } from '@/features/auth/store';
+import { useAuthStore } from '@/shared/app/AuthStore';
 import {
   startOAuthFlow,
   handleOAuthCallback,

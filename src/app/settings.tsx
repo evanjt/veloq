@@ -7,7 +7,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { useAthlete } from '@/shared/app/useAthlete';
-import { useAuthStore } from '@/features/auth/store';
+import { useAuthStore } from '@/shared/app/AuthStore';
 import { useSportPreference } from '@/features/fitness/stores';
 import { useDashboardPreferences } from '@/features/home/store';
 import { useMapPreferences } from '@/features/maps/stores/MapPreferencesContext';

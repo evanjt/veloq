@@ -11,7 +11,7 @@ import { useSectionSummaries } from '@/features/routes/hooks/useRouteEngine';
 import { useTheme } from '@/shared/app';
 import { formatFullDate } from '@/shared/format/format';
 import { estimateRoutesDatabaseSize } from '@/shared/storage/gpsStorage';
-import { useAuthStore } from '@/features/auth/store';
+import { useAuthStore } from '@/shared/app/AuthStore';
 import { useRouteSettings } from '@/features/routes/stores/RouteSettingsStore';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { useTileCacheStore } from '@/features/maps/stores/TileCacheStore';

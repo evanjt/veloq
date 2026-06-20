@@ -1,6 +1,6 @@
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { intervalsApi } from '@/api';
-import { useAuthStore } from '@/features/auth/store';
+import { useAuthStore } from '@/shared/app/AuthStore';
 import { formatLocalDate, getMonday, getSunday, getIntlLocale } from '@/shared/format/format';
 import { getRouteEngine } from '@/shared/native/routeEngine';
 import { queryKeys } from '@/shared/query/queryKeys';
