@@ -8,7 +8,8 @@
 
 import * as FileSystem from 'expo-file-system/legacy';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { getRouteEngine, getRouteDbPath } from '@/shared/native/routeEngine';
+import { getRouteEngine, getRouteDbPath, getNativeModule } from '@/shared/native/routeEngine';
+import { useAuthStore } from '@/features/auth/store';
 import { formatLocalDate } from '@/shared/format/format';
 import { shareFile } from './shareFile';
 import { getSetting, setSetting } from '@/shared/storage';
@@ -142,8 +143,11 @@ export interface DatabaseRestoreResult {
  * Restore from a .veloqdb SQLite snapshot.
  * This replaces the entire database — all activities, sections, settings.
  *
- * Pre-validates the backup (athlete ID, schema) BEFORE destroying the live
- * database so a mismatch doesn't cause data loss.
+ * Pre-validates the backup (not empty, schema not newer than this build,
+ * athlete ID) BEFORE touching the live database, and snapshots the live DB to
+ * a `.bak` so a failed restore rolls back instead of leaving the user with a
+ * destroyed database. An absent native probe is the only reason validation is
+ * skipped — a probe that rejects or throws refuses the restore.
  */
 export async function restoreDatabaseBackup(fileUri: string): Promise<DatabaseRestoreResult> {
   const dbPath = getRouteDbPath();
@@ -156,51 +160,73 @@ export async function restoreDatabaseBackup(fileUri: string): Promise<DatabaseRe
     return { success: false, activityCount: 0, error: 'Backup file is empty or missing' };
   }
 
-  // Copy to a temp path so Rust can open it (fileUri may be a content:// URI)
-  const tempPath = `${FileSystem.cacheDirectory}restore-validation.veloqdb`;
-  await FileSystem.copyAsync({ from: fileUri, to: tempPath });
-  const plainTempPath = tempPath.startsWith('file://') ? tempPath.slice(7) : tempPath;
-
-  // Pre-validate: open backup read-only to check athlete ID before destroying anything
-  const { useAuthStore } = await import('@/features/auth/store');
-  const currentAthleteId = useAuthStore.getState().athleteId;
-  let backupAthleteId: string | null = null;
+  // Copy to a unique temp path so Rust can open it (fileUri may be a content://
+  // URI). Unique so a stale leftover or a concurrent attempt can't collide.
+  const tempPath = `${FileSystem.cacheDirectory}restore-validation-${Date.now()}.veloqdb`;
+  const cleanupTemp = () => FileSystem.deleteAsync(tempPath, { idempotent: true }).catch(() => {});
 
   try {
-    const { getNativeModule } = await import('@/shared/native/routeEngine');
+    await FileSystem.copyAsync({ from: fileUri, to: tempPath });
+    const plainTempPath = tempPath.startsWith('file://') ? tempPath.slice(7) : tempPath;
+
+    const currentAthleteId = useAuthStore.getState().athleteId;
+    let backupAthleteId: string | null = null;
+
     const nativeModule = getNativeModule();
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const validateFn = (nativeModule as any)?.validateBackupDatabase as
       | ((path: string) => string)
       | undefined;
+
+    // Only skip validation when the native probe is entirely absent (older
+    // binary). If it exists and rejects or throws, refuse — never overwrite the
+    // live DB on a bad backup.
     if (validateFn) {
-      const metaJson = validateFn(plainTempPath);
-      let meta: unknown;
+      let backupMeta: z.infer<typeof BackupValidationSchema>;
       try {
-        meta = JSON.parse(metaJson);
-      } catch {
-        await FileSystem.deleteAsync(tempPath, { idempotent: true });
-        log.warn('Backup metadata is not valid JSON — refusing to restore');
+        backupMeta = BackupValidationSchema.parse(JSON.parse(validateFn(plainTempPath)));
+      } catch (e) {
+        await cleanupTemp();
+        log.warn('Backup validation failed — refusing to restore', e);
         return { success: false, activityCount: 0, error: 'Backup file is corrupt or unreadable' };
       }
-      const parsed = BackupValidationSchema.safeParse(meta);
-      if (!parsed.success) {
-        await FileSystem.deleteAsync(tempPath, { idempotent: true });
-        log.warn('Backup metadata failed validation — refusing to restore');
-        return {
-          success: false,
-          activityCount: 0,
-          error: 'Backup file is corrupt or from an incompatible version',
-        };
+
+      backupAthleteId = backupMeta.athlete_id;
+
+      // An empty/garbage SQLite file reports activity_count 0 — refuse so a bad
+      // file can't silently wipe the live database.
+      if (backupMeta.activity_count <= 0) {
+        await cleanupTemp();
+        log.warn('Backup contains no activities — refusing to restore');
+        return { success: false, activityCount: 0, error: 'Backup file is empty or corrupt' };
       }
-      backupAthleteId = parsed.data.athlete_id;
+
+      // Refuse a backup whose schema is newer than this build can open. We don't
+      // hardcode the current version: probe the live DB with the same fn and
+      // compare. If the live DB can't be read (fresh install), skip this guard —
+      // the activity-count check and the .bak rollback still protect the user.
+      const livePlainPath = dbPath.startsWith('file://') ? dbPath.slice(7) : dbPath;
+      try {
+        const liveMeta = BackupValidationSchema.parse(JSON.parse(validateFn(livePlainPath)));
+        if (Number(backupMeta.schema_version) > Number(liveMeta.schema_version)) {
+          await cleanupTemp();
+          log.warn('Backup schema is newer than this app supports — refusing to restore');
+          return {
+            success: false,
+            activityCount: 0,
+            error: 'Backup is from a newer version of Veloq',
+          };
+        }
+      } catch {
+        // Live schema unreadable (e.g. fresh install) — forward-version guard skipped.
+      }
 
       if (
         currentAthleteId != null &&
         backupAthleteId != null &&
         currentAthleteId !== backupAthleteId
       ) {
-        await FileSystem.deleteAsync(tempPath, { idempotent: true });
+        await cleanupTemp();
         return {
           success: false,
           activityCount: 0,
@@ -210,60 +236,70 @@ export async function restoreDatabaseBackup(fileUri: string): Promise<DatabaseRe
         };
       }
     }
-  } catch {
-    // Validation unavailable (old binary without validateBackupDatabase) — fall through
-  }
 
-  const engine = getRouteEngine();
-  if (engine) {
-    engine.destroyEngine();
-  }
-
-  try {
-    // Replace the database file from the already-copied temp file
-    const dbUri = `file://${dbPath}`;
-    await FileSystem.copyAsync({ from: tempPath, to: dbUri });
-    await FileSystem.deleteAsync(tempPath, { idempotent: true });
-
-    const { getNativeModule } = await import('@/shared/native/routeEngine');
-    const nativeModule = getNativeModule();
-    if (nativeModule) {
-      nativeModule.routeEngine.initWithPath(dbPath);
+    // Snapshot the live DB so a failed restore can roll back. destroyEngine first
+    // so the snapshot is a clean, closed copy.
+    const engine = getRouteEngine();
+    if (engine) {
+      engine.destroyEngine();
     }
 
-    await reinitializeAllStores();
-    await AsyncStorage.removeItem('veloq-query-cache');
+    const liveExists = (await FileSystem.getInfoAsync(`file://${dbPath}`)).exists;
+    const backupPath = `${dbPath}.bak`;
+    if (liveExists) {
+      await FileSystem.copyAsync({ from: `file://${dbPath}`, to: `file://${backupPath}` });
+    }
 
-    const restoredEngine = getRouteEngine();
-    const activityCount = restoredEngine?.getActivityCount() ?? 0;
-
-    // Wake query-on-demand hooks so mounted screens re-query the restored data
-    // instead of showing the pre-restore engine state until the next sync.
-    restoredEngine?.notifyAll('activities', 'groups', 'sections', 'syncReset');
-    queryClient.invalidateQueries();
-
-    return {
-      success: true,
-      activityCount,
-      athleteIdMismatch: false,
-      backupAthleteId,
-    };
-  } catch (error) {
     try {
-      const { getNativeModule } = await import('@/shared/native/routeEngine');
-      const nativeModule = getNativeModule();
+      await FileSystem.copyAsync({ from: tempPath, to: `file://${dbPath}` });
+
       if (nativeModule) {
         nativeModule.routeEngine.initWithPath(dbPath);
       }
-    } catch {
-      // Engine recovery failed — app may need restart
-    }
 
-    return {
-      success: false,
-      activityCount: 0,
-      error: error instanceof Error ? error.message : 'Restore failed',
-    };
+      await reinitializeAllStores();
+      await AsyncStorage.removeItem('veloq-query-cache');
+
+      const restoredEngine = getRouteEngine();
+      const activityCount = restoredEngine?.getActivityCount() ?? 0;
+
+      // Wake query-on-demand hooks so mounted screens re-query the restored data
+      // instead of showing the pre-restore engine state until the next sync.
+      restoredEngine?.notifyAll('activities', 'groups', 'sections', 'syncReset');
+      queryClient.invalidateQueries();
+
+      // Restore succeeded — drop the rollback snapshot.
+      if (liveExists) {
+        await FileSystem.deleteAsync(`file://${backupPath}`, { idempotent: true });
+      }
+
+      return { success: true, activityCount, athleteIdMismatch: false, backupAthleteId };
+    } catch (error) {
+      // Restore failed after the live DB was overwritten — roll back to the snapshot.
+      if (liveExists) {
+        try {
+          await FileSystem.copyAsync({ from: `file://${backupPath}`, to: `file://${dbPath}` });
+          await FileSystem.deleteAsync(`file://${backupPath}`, { idempotent: true });
+        } catch {
+          // Rollback copy failed — leave the .bak in place for manual recovery.
+        }
+      }
+      try {
+        if (nativeModule) {
+          nativeModule.routeEngine.initWithPath(dbPath);
+        }
+      } catch {
+        // Engine recovery failed — app may need restart
+      }
+
+      return {
+        success: false,
+        activityCount: 0,
+        error: error instanceof Error ? error.message : 'Restore failed',
+      };
+    }
+  } finally {
+    await cleanupTemp();
   }
 }
 

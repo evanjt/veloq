@@ -18,10 +18,35 @@ const mockEngine = {
   createSectionFromIndices: jest.fn().mockReturnValue('section-1'),
   setSectionName: jest.fn(),
   setRouteName: jest.fn(),
+  destroyEngine: jest.fn(),
+  getActivityCount: jest.fn().mockReturnValue(100),
+  notifyAll: jest.fn(),
+};
+
+const mockNativeModule = {
+  validateBackupDatabase: jest.fn(),
+  routeEngine: { initWithPath: jest.fn() },
 };
 
 jest.mock('@/shared/native/routeEngine', () => ({
   getRouteEngine: () => mockEngine,
+  getRouteDbPath: () => '/data/veloq.db',
+  getNativeModule: () => mockNativeModule,
+}));
+
+jest.mock('expo-file-system/legacy', () => ({
+  cacheDirectory: 'file:///cache/',
+  getInfoAsync: jest.fn().mockResolvedValue({ exists: true, size: 1024 }),
+  copyAsync: jest.fn().mockResolvedValue(undefined),
+  deleteAsync: jest.fn().mockResolvedValue(undefined),
+}));
+
+jest.mock('@/shared/query/QueryProvider', () => ({
+  queryClient: { invalidateQueries: jest.fn() },
+}));
+
+jest.mock('@/features/auth/store', () => ({
+  useAuthStore: { getState: () => ({ athleteId: 'athlete-1' }) },
 }));
 
 jest.mock('@/features/settings/lib/shareFile', () => ({
@@ -108,7 +133,9 @@ jest.mock('expo-constants', () => ({
   default: { expoConfig: { version: '0.3.0' } },
 }));
 
-import { createBackup, restoreBackup } from '@/features/settings/lib/backup';
+import { createBackup, restoreBackup, restoreDatabaseBackup } from '@/features/settings/lib/backup';
+import * as FileSystem from 'expo-file-system/legacy';
+import { queryClient } from '@/shared/query/QueryProvider';
 
 function makeValidBackup(overrides: Record<string, unknown> = {}): string {
   return JSON.stringify({
@@ -315,6 +342,117 @@ describe('backup corruption resilience', () => {
     delete backup.customSections;
     const result = await restoreBackup(JSON.stringify(backup));
     expect(result.sectionsRestored).toBe(0);
+  });
+});
+
+describe('restoreDatabaseBackup (SQLite snapshot) — data-loss guards', () => {
+  const LIVE_META = JSON.stringify({
+    schema_version: '12',
+    athlete_id: 'athlete-1',
+    activity_count: 100,
+  });
+
+  // validateBackupDatabase is called for both the backup temp file and the live
+  // DB. Route by path: the live DB path contains 'veloq.db'.
+  function mockProbe(backupMeta: string | (() => never)) {
+    mockNativeModule.validateBackupDatabase.mockImplementation((path: string) => {
+      if (path.includes('veloq.db')) return LIVE_META;
+      if (typeof backupMeta === 'function') return backupMeta();
+      return backupMeta;
+    });
+  }
+
+  beforeEach(() => {
+    mockNativeModule.validateBackupDatabase.mockReset();
+    mockNativeModule.routeEngine.initWithPath.mockReset();
+    mockEngine.destroyEngine.mockClear();
+    mockEngine.getActivityCount.mockReturnValue(100);
+    mockEngine.notifyAll.mockClear();
+    (queryClient.invalidateQueries as jest.Mock).mockClear();
+    (FileSystem.getInfoAsync as jest.Mock).mockResolvedValue({ exists: true, size: 1024 });
+    (FileSystem.copyAsync as jest.Mock).mockClear().mockResolvedValue(undefined);
+    (FileSystem.deleteAsync as jest.Mock).mockClear().mockResolvedValue(undefined);
+  });
+
+  it('refuses an empty backup (activity_count 0) without destroying the engine', async () => {
+    mockProbe(JSON.stringify({ schema_version: '12', athlete_id: 'athlete-1', activity_count: 0 }));
+    const result = await restoreDatabaseBackup('file:///in/backup.veloqdb');
+    expect(result.success).toBe(false);
+    expect(mockEngine.destroyEngine).not.toHaveBeenCalled();
+    // The live DB must never be overwritten on a rejected backup.
+    expect(FileSystem.copyAsync).not.toHaveBeenCalledWith(
+      expect.objectContaining({ to: 'file:///data/veloq.db' })
+    );
+  });
+
+  it('refuses a forward-schema backup newer than the live DB', async () => {
+    mockProbe(
+      JSON.stringify({ schema_version: '13', athlete_id: 'athlete-1', activity_count: 50 })
+    );
+    const result = await restoreDatabaseBackup('file:///in/backup.veloqdb');
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/newer version/i);
+    expect(mockEngine.destroyEngine).not.toHaveBeenCalled();
+  });
+
+  it('refuses a corrupt backup when the probe throws (not treated as "probe absent")', async () => {
+    mockProbe(() => {
+      throw new Error('Cannot open backup: file is not a database');
+    });
+    const result = await restoreDatabaseBackup('file:///in/backup.veloqdb');
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/corrupt or unreadable/i);
+    expect(mockEngine.destroyEngine).not.toHaveBeenCalled();
+  });
+
+  it('refuses a backup belonging to a different athlete', async () => {
+    mockProbe(JSON.stringify({ schema_version: '12', athlete_id: 'other', activity_count: 50 }));
+    const result = await restoreDatabaseBackup('file:///in/backup.veloqdb');
+    expect(result.success).toBe(false);
+    expect(result.athleteIdMismatch).toBe(true);
+    expect(mockEngine.destroyEngine).not.toHaveBeenCalled();
+  });
+
+  it('restores a valid backup and clears the rollback snapshot', async () => {
+    mockProbe(
+      JSON.stringify({ schema_version: '12', athlete_id: 'athlete-1', activity_count: 80 })
+    );
+    const result = await restoreDatabaseBackup('file:///in/backup.veloqdb');
+    expect(result.success).toBe(true);
+    expect(mockEngine.destroyEngine).toHaveBeenCalled();
+    expect(FileSystem.copyAsync).toHaveBeenCalledWith({
+      from: 'file:///data/veloq.db',
+      to: 'file:///data/veloq.db.bak',
+    });
+    expect(FileSystem.copyAsync).toHaveBeenCalledWith(
+      expect.objectContaining({
+        from: expect.stringContaining('/cache/'),
+        to: 'file:///data/veloq.db',
+      })
+    );
+    // Snapshot dropped on success.
+    expect(FileSystem.deleteAsync).toHaveBeenCalledWith('file:///data/veloq.db.bak', {
+      idempotent: true,
+    });
+    expect(queryClient.invalidateQueries).toHaveBeenCalled();
+  });
+
+  it('rolls back to the snapshot when initWithPath fails after overwrite', async () => {
+    mockProbe(
+      JSON.stringify({ schema_version: '12', athlete_id: 'athlete-1', activity_count: 80 })
+    );
+    mockNativeModule.routeEngine.initWithPath
+      .mockImplementationOnce(() => {
+        throw new Error('init failed on restored DB');
+      })
+      .mockImplementation(() => {});
+    const result = await restoreDatabaseBackup('file:///in/backup.veloqdb');
+    expect(result.success).toBe(false);
+    // Snapshot copied back over the live DB.
+    expect(FileSystem.copyAsync).toHaveBeenCalledWith({
+      from: 'file:///data/veloq.db.bak',
+      to: 'file:///data/veloq.db',
+    });
   });
 });
 
