@@ -8,7 +8,7 @@
  */
 
 import { useEffect } from 'react';
-import { useSyncDateRange } from '@/features/routes/stores/SyncDateRangeStore';
+import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { getRouteEngine } from '@/shared/native/routeEngine';
 import { debug } from '@/shared/debug/debug';
 

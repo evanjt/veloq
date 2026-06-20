@@ -41,7 +41,7 @@ import { initializeDisabledSections } from '@/features/routes/stores/DisabledSec
 import { useEngineStatus } from '@/features/routes/stores/EngineStatusStore';
 import { initializeRouteSettings } from '@/features/routes/stores/RouteSettingsStore';
 import { initializeSupersededSections } from '@/features/routes/stores/SupersededSectionsStore';
-import { useSyncDateRange } from '@/features/routes/stores/SyncDateRangeStore';
+import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { initializeDebugStore } from '@/features/settings/stores/DebugStore';
 import { initializeNotificationPreferences } from '@/features/settings/stores/NotificationPreferencesStore';
 import { initializeNotificationPrompt } from '@/features/settings/stores/NotificationPromptStore';

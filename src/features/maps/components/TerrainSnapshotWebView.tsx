@@ -51,7 +51,7 @@ import type {
   WebViewBridgeHandlers,
   WebViewBridgeMessage,
 } from '@/features/maps/hooks/useWebViewBridge';
-import { useSyncDateRange } from '@/features/routes/stores/SyncDateRangeStore';
+import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 
 const SNAPSHOT_TIMEOUT_MS = 8000;
 const MAX_QUEUE_SIZE = 15;

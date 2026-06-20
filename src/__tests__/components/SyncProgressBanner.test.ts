@@ -6,7 +6,7 @@
  * to start.
  */
 
-import { useSyncDateRange, GpsSyncProgress } from '@/features/routes/stores/SyncDateRangeStore';
+import { useSyncDateRange, GpsSyncProgress } from '@/shared/app/SyncDateRangeStore';
 import { formatGpsSyncProgress } from '@/features/routes/lib/syncProgressFormat';
 import type { TFunction } from 'i18next';
 

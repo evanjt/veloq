@@ -27,7 +27,7 @@ import { useUserLocation } from '@/shared/app/useUserLocation';
 import { useHasStrengthData } from '@/features/strength';
 import { useEngineStatus } from '@/features/routes/stores/EngineStatusStore';
 import { useRouteSettings } from '@/features/routes/stores/RouteSettingsStore';
-import { useSyncDateRange } from '@/features/routes/stores/SyncDateRangeStore';
+import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { useDebugStore } from '@/features/settings/stores/DebugStore';
 import { logScreenRender } from '@/shared/debug/renderTimer';
 import { colors, darkColors, spacing } from '@/theme';

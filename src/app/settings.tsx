@@ -12,7 +12,7 @@ import { useSportPreference } from '@/features/fitness/stores';
 import { useDashboardPreferences } from '@/features/home/store';
 import { useMapPreferences } from '@/features/maps/stores/MapPreferencesContext';
 import { useRouteSettings } from '@/features/routes/stores/RouteSettingsStore';
-import { useSyncDateRange } from '@/features/routes/stores/SyncDateRangeStore';
+import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { useNotificationPreferences } from '@/features/settings/stores/NotificationPreferencesStore';
 import { useLanguageStore, getAvailableLanguages } from '@/shared/app/LanguageStore';
 import { useThemePreferenceStore } from '@/shared/app/ThemeProvider';

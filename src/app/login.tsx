@@ -7,7 +7,7 @@ import { useQueryClient } from '@tanstack/react-query';
 
 import { ScreenSafeAreaView } from '@/shared/ui';
 import { replaceTo } from '@/shared/app/navigation';
-import { useSyncDateRange } from '@/features/routes/stores/SyncDateRangeStore';
+import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { colors, darkColors, spacing, layout } from '@/theme';
 import { useTheme } from '@/shared/app';
 import { createSharedStyles } from '@/styles';

@@ -5,7 +5,7 @@
  * Bug fix validated: completed > total produces >100%
  */
 
-import type { GpsSyncProgress } from '@/features/routes/stores/SyncDateRangeStore';
+import type { GpsSyncProgress } from '@/shared/app/SyncDateRangeStore';
 import {
   formatGpsSyncProgress,
   formatBoundsSyncProgress,

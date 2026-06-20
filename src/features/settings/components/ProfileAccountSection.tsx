@@ -8,7 +8,7 @@ import { colors, darkColors, spacing, typography } from '@/theme';
 import { getAthleteId } from '@/api';
 import { useAuthStore } from '@/features/auth/store';
 import { useUploadPermissionStore } from '@/features/recording/stores/UploadPermissionStore';
-import { useSyncDateRange } from '@/features/routes/stores/SyncDateRangeStore';
+import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { clearAccountData, clearAuthOnly } from '@/shared/storage';
 import { clearUploadQueue } from '@/features/recording/lib/storage/uploadQueue';
 import { useTranslation } from 'react-i18next';

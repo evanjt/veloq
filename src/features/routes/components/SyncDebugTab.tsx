@@ -6,7 +6,7 @@ import { colors, darkColors, spacing } from '@/theme';
 import { useTheme } from '@/shared/app';
 import { useActivities } from '@/features/activity/hooks';
 import { useEngineSubscription } from '@/features/routes/hooks/useRouteEngine';
-import { useSyncDateRange } from '@/features/routes/stores/SyncDateRangeStore';
+import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { getRouteEngine } from '@/shared/native/routeEngine';
 import { deleteGpsTracks } from '@/shared/storage/gpsStorage';
 import { queryKeys } from '@/shared/query/queryKeys';

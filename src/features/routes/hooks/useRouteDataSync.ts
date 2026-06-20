@@ -49,7 +49,7 @@ import { routeEngine } from 'veloqrs';
 import { intervalsApi } from '@/api';
 import { toActivityMetrics } from '@/features/activity/lib/activityMetrics';
 import { getStoredCredentials } from '@/features/auth/store';
-import { useSyncDateRange } from '@/features/routes/stores/SyncDateRangeStore';
+import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import type { Activity } from '@/types';
 import type { SyncProgress } from './useRouteSyncProgress';
 

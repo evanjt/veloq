@@ -13,7 +13,7 @@ import { formatFullDate } from '@/shared/format/format';
 import { estimateRoutesDatabaseSize } from '@/shared/storage/gpsStorage';
 import { useAuthStore } from '@/features/auth/store';
 import { useRouteSettings } from '@/features/routes/stores/RouteSettingsStore';
-import { useSyncDateRange } from '@/features/routes/stores/SyncDateRangeStore';
+import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { useTileCacheStore } from '@/features/maps/stores/TileCacheStore';
 import {
   emitClearTileCache,

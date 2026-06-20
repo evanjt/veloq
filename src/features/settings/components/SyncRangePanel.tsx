@@ -27,7 +27,7 @@ import { useTheme } from '@/shared/app';
 import { useOldestActivityDate } from '@/shared/app/useOldestActivityDate';
 import { formatLocalDate, formatFileSize } from '@/shared/format/format';
 import { useRouteSettings } from '@/features/routes/stores/RouteSettingsStore';
-import { useSyncDateRange } from '@/features/routes/stores/SyncDateRangeStore';
+import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { DETECTION_PRESETS as PRESETS, getRouteEngine } from '@/shared/native/routeEngine';
 import { HEATMAP_TILES_DIR, getHeatmapTilesCacheSize } from '@/features/maps/hooks/useHeatmapTiles';
 import { settingsStyles } from './settingsStyles';

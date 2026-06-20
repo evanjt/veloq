@@ -12,7 +12,7 @@ import {
   useSyncDateRange,
   getSyncGeneration,
   GpsSyncProgress,
-} from '@/features/routes/stores/SyncDateRangeStore';
+} from '@/shared/app/SyncDateRangeStore';
 
 // Helper to get a date string N days from today
 function daysFromToday(days: number): string {

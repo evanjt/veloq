@@ -6,7 +6,7 @@ import axios from 'axios';
 import { replaceTo } from '@/shared/app/navigation';
 import { clearAccountData, clearAuthOnly } from '@/shared/storage';
 import { confirmAccountChange, getCachedAthleteId } from '@/features/auth/lib/accountChange';
-import { useSyncDateRange } from '@/features/routes/stores/SyncDateRangeStore';
+import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { useAuthStore } from '@/features/auth/store';
 
 interface UseApiKeyLoginParams {

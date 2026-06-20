@@ -4,10 +4,7 @@
  */
 
 import type { TFunction } from 'i18next';
-import type {
-  GpsSyncProgress,
-  TerrainSnapshotProgress,
-} from '@/features/routes/stores/SyncDateRangeStore';
+import type { GpsSyncProgress, TerrainSnapshotProgress } from '@/shared/app/SyncDateRangeStore';
 
 export interface SyncDisplayInfo {
   icon: string;

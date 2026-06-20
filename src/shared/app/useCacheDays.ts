@@ -4,7 +4,7 @@
  * This consolidates the cache days calculation used across multiple pages.
  */
 import { useMemo } from 'react';
-import { useSyncDateRange } from '@/features/routes/stores/SyncDateRangeStore';
+import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { getRouteEngine } from '@/shared/native/routeEngine';
 
 /**

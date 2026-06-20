@@ -25,7 +25,7 @@ import {
 import { toActivityMetrics } from '@/features/activity/lib/activityMetrics';
 import { useAuthStore } from '@/features/auth/store';
 import { useRouteSettings } from '@/features/routes/stores/RouteSettingsStore';
-import { useSyncDateRange } from '@/features/routes/stores/SyncDateRangeStore';
+import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import {
   formatGpsSyncProgress,
   formatBoundsSyncProgress,
