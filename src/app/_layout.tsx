@@ -62,15 +62,10 @@ import { formatLocalDate } from '@/shared/format/format';
 import { queryKeys } from '@/shared/query/queryKeys';
 import { initializeI18n, i18n } from '@/i18n';
 import { lightTheme, darkTheme, colors, darkColors, amberBanner } from '@/theme';
-import {
-  DemoBanner,
-  GlobalDataSync,
-  ShaderWarmup,
-  OfflineBanner,
-  EngineInitBanner,
-  BottomTabBar,
-  GlobalErrorBoundary,
-} from '@/shared/ui';
+import { ShaderWarmup, OfflineBanner, BottomTabBar, GlobalErrorBoundary } from '@/shared/ui';
+import { DemoBanner } from './_components/DemoBanner';
+import { GlobalDataSync } from './_components/GlobalDataSync';
+import { EngineInitBanner } from './_components/EngineInitBanner';
 import { WhatsNewModal, TourReturnPill } from '@/features/settings/components/whatsNew';
 import { useUploadQueueProcessor } from '@/features/recording/hooks/useUploadQueueProcessor';
 import { useRouteReoptimization } from '@/features/routes/hooks/useRouteReoptimization';

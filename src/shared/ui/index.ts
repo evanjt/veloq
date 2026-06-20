@@ -24,9 +24,7 @@ export {
   OfflineState,
 } from './EmptyState';
 export { GarminAttribution, DeviceAttribution, isGarminDevice } from './GarminAttribution';
-export { DemoBanner } from './DemoBanner';
 export { SwipeableTabs, type SwipeableTab } from './SwipeableTabs';
-export { GlobalDataSync } from './GlobalDataSync';
 export { OfflineBanner } from './OfflineBanner';
 export { ShaderWarmup } from './ShaderWarmup';
 export {
@@ -43,5 +41,4 @@ export { GlobalErrorBoundary } from './GlobalErrorBoundary';
 export { ScreenErrorBoundary } from './ScreenErrorBoundary';
 export { CollapsibleSection } from './CollapsibleSection';
 export { ScreenSafeAreaView } from './ScreenSafeAreaView';
-export { EngineInitBanner } from './EngineInitBanner';
 export { TipButtons } from './TipButtons';
