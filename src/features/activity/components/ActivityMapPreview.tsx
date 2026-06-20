@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { View, Image, StyleSheet, ActivityIndicator } from 'react-native';
 import { useIsFocused } from 'expo-router';
-import { Canvas, Path, Circle, Skia } from '@shopify/react-native-skia';
+import { Canvas, Path, Circle, Skia, type SkPath } from '@shopify/react-native-skia';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { getActivityColor } from '@/features/activity/lib/activityUtils';
 import { getMapLibreBounds } from '@/shared/geo/polyline';
@@ -33,6 +33,13 @@ import type { PreviewTrack } from '@/features/home/hooks/useStartupData';
 import { debug } from '@/shared/debug/debug';
 
 const log = debug.create('ActivityMapPreview');
+
+/** Build an SVG path string ("M x y L x y …") for a slice of projected pixel points. */
+function polylineSvg(points: { x: number; y: number }[], start: number, end: number): string {
+  let d = `M${points[start].x} ${points[start].y}`;
+  for (let i = start + 1; i < end; i++) d += `L${points[i].x} ${points[i].y}`;
+  return d;
+}
 
 interface ActivityMapPreviewProps {
   activity: Activity;
@@ -127,26 +134,26 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
     [validCoordinates, boxW, height]
   );
 
+  // Build the route line as an SVG path string + MakeFromSVGString — the supported
+  // Skia 2.x constructor. The imperative Skia.Path.Make().moveTo()/lineTo() API is
+  // deprecated and a path built that way fails to render in the declarative <Path>
+  // tree, taking the whole Canvas blank. The SummaryCard sparkline uses this same
+  // method, which is why it kept rendering across the SDK 56 Skia bump.
   const routePath = useMemo(() => {
     if (routePoints.length < 2) return null;
-    const p = Skia.Path.Make();
-    p.moveTo(routePoints[0].x, routePoints[0].y);
-    for (let i = 1; i < routePoints.length; i++) p.lineTo(routePoints[i].x, routePoints[i].y);
-    return p;
+    return Skia.Path.MakeFromSVGString(polylineSvg(routePoints, 0, routePoints.length));
   }, [routePoints]);
 
   // PR section highlights (gold) — slice the same projected points by index range.
   const prPaths = useMemo(() => {
     if (!prSectionIndices || prSectionIndices.length === 0 || routePoints.length < 2) return [];
-    const paths: ReturnType<typeof Skia.Path.Make>[] = [];
+    const paths: SkPath[] = [];
     for (const range of prSectionIndices) {
       const start = Math.max(0, range.startIndex);
       const end = Math.min(routePoints.length, range.endIndex + 1);
       if (end - start < 2) continue;
-      const p = Skia.Path.Make();
-      p.moveTo(routePoints[start].x, routePoints[start].y);
-      for (let i = start + 1; i < end; i++) p.lineTo(routePoints[i].x, routePoints[i].y);
-      paths.push(p);
+      const p = Skia.Path.MakeFromSVGString(polylineSvg(routePoints, start, end));
+      if (p) paths.push(p);
     }
     return paths;
   }, [prSectionIndices, routePoints]);
@@ -295,14 +302,21 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
 
   // Static route-line preview (no live map / GL context). The detail screen has
   // the full interactive map; the feed just needs a fast, correct route shape.
+  //
+  // The Canvas is always mounted (absoluteFill), never gated behind the
+  // onLayout-measured width. A Skia Canvas that first mounts *after* its parent
+  // has already laid out renders blank on Android — the native surface misses its
+  // first paint. Mounting on the initial render (like the SummaryCard sparkline,
+  // whose width comes from props) avoids that. The route Path just appears once
+  // boxW is measured and the projection produces points.
   return (
     <View
       style={[styles.container, { height, backgroundColor: activityColor + '14' }]}
       onLayout={(e) => setBoxW(e.nativeEvent.layout.width)}
       testID={routePath ? `activity-map-preview-ready-${activity.id}` : undefined}
     >
-      {boxW > 0 && routePath && (
-        <Canvas style={{ width: boxW, height }}>
+      <Canvas style={StyleSheet.absoluteFill}>
+        {routePath && (
           <Path
             path={routePath}
             color={mapPreviewColors.routeHalo}
@@ -311,6 +325,8 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
             strokeJoin="round"
             strokeCap="round"
           />
+        )}
+        {routePath && (
           <Path
             path={routePath}
             color={activityColor}
@@ -319,35 +335,35 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
             strokeJoin="round"
             strokeCap="round"
           />
-          {prPaths.map((p, i) => (
-            <Path
-              key={i}
-              path={p}
-              color={brand.gold}
-              style="stroke"
-              strokeWidth={4}
-              strokeJoin="round"
-              strokeCap="round"
-            />
-          ))}
-          {startPoint && (
-            <Circle
-              cx={startPoint.x}
-              cy={startPoint.y}
-              r={5}
-              color={colorWithOpacity(colors.success, 0.9)}
-            />
-          )}
-          {endPoint && (
-            <Circle
-              cx={endPoint.x}
-              cy={endPoint.y}
-              r={5}
-              color={colorWithOpacity(colors.error, 0.9)}
-            />
-          )}
-        </Canvas>
-      )}
+        )}
+        {prPaths.map((p, i) => (
+          <Path
+            key={i}
+            path={p}
+            color={brand.gold}
+            style="stroke"
+            strokeWidth={4}
+            strokeJoin="round"
+            strokeCap="round"
+          />
+        ))}
+        {startPoint && (
+          <Circle
+            cx={startPoint.x}
+            cy={startPoint.y}
+            r={5}
+            color={colorWithOpacity(colors.success, 0.9)}
+          />
+        )}
+        {endPoint && (
+          <Circle
+            cx={endPoint.x}
+            cy={endPoint.y}
+            r={5}
+            color={colorWithOpacity(colors.error, 0.9)}
+          />
+        )}
+      </Canvas>
     </View>
   );
 });
