@@ -20,6 +20,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { colors, darkColors, spacing, typography } from '@/theme';
 import { ChartCrosshair } from '@/shared/charts';
+import { bandSvgPath, polylineSvgPath } from '@/shared/charts/svgPath';
 import { CHART_CONFIG } from '@/constants';
 import { gaussianSmooth } from '@/shared/math/smoothing';
 import type { RoutePerformancePoint } from '@/features/routes/hooks/useRoutePerformances';
@@ -297,31 +298,14 @@ export function PerformanceChart({
                   const toX = (x: number) => chartBounds.left + ((x - xMin) / xRange) * chartW;
                   const toY = (y: number) => chartBounds.top + ((maxSpeed - y) / yRange) * chartH;
 
-                  const linePath = Skia.Path.Make();
-                  linePath.moveTo(toX(trendPoints[0].x), toY(trendPoints[0].y));
-                  for (let i = 1; i < trendPoints.length; i++) {
-                    linePath.lineTo(toX(trendPoints[i].x), toY(trendPoints[i].y));
-                  }
-
+                  const linePts = trendPoints.map((p) => ({ x: toX(p.x), y: toY(p.y) }));
                   // Confidence band: upper forward, lower backward
-                  const bandPath = Skia.Path.Make();
-                  bandPath.moveTo(
-                    toX(trendPoints[0].x),
-                    toY(trendPoints[0].y + trendPoints[0].std)
-                  );
-                  for (let i = 1; i < trendPoints.length; i++) {
-                    bandPath.lineTo(
-                      toX(trendPoints[i].x),
-                      toY(trendPoints[i].y + trendPoints[i].std)
-                    );
-                  }
-                  for (let i = trendPoints.length - 1; i >= 0; i--) {
-                    bandPath.lineTo(
-                      toX(trendPoints[i].x),
-                      toY(trendPoints[i].y - trendPoints[i].std)
-                    );
-                  }
-                  bandPath.close();
+                  const upperPts = trendPoints.map((p) => ({ x: toX(p.x), y: toY(p.y + p.std) }));
+                  const lowerPts = trendPoints.map((p) => ({ x: toX(p.x), y: toY(p.y - p.std) }));
+
+                  const linePath = Skia.Path.MakeFromSVGString(polylineSvgPath(linePts));
+                  const bandPath = Skia.Path.MakeFromSVGString(bandSvgPath(upperPts, lowerPts));
+                  if (!linePath || !bandPath) return null;
 
                   return { line: linePath, band: bandPath };
                 })();

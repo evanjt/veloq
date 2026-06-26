@@ -28,10 +28,7 @@ import {
  * `requestAnimationFrame` to avoid a first-visit stutter; with it, that
  * defer is no longer needed.
  */
-const warmupPath = Skia.Path.Make();
-warmupPath.moveTo(0, 0);
-warmupPath.lineTo(1, 1);
-warmupPath.close();
+const warmupPath = Skia.Path.MakeFromSVGString('M0 0L1 1Z');
 
 export const ShaderWarmup = React.memo(function ShaderWarmup() {
   return (
@@ -42,9 +39,11 @@ export const ShaderWarmup = React.memo(function ShaderWarmup() {
           <Line p1={vec(0, 0)} p2={vec(1, 1)} color="#888" strokeWidth={1} />
 
           {/* Area (Path + LinearGradient) — fitness chart, HRV sparkline */}
-          <Path path={warmupPath}>
-            <LinearGradient start={vec(0, 0)} end={vec(0, 1)} colors={['#FF0000', '#00FF00']} />
-          </Path>
+          {warmupPath && (
+            <Path path={warmupPath}>
+              <LinearGradient start={vec(0, 0)} end={vec(0, 1)} colors={['#FF0000', '#00FF00']} />
+            </Path>
+          )}
 
           {/* Shadow-backed rect — form-zone chart */}
           <Rect x={0} y={0} width={1} height={1} color="#333">

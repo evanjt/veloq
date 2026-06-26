@@ -89,28 +89,31 @@ function buildSparklinePath(
   const sx = (x: number) => pad.left + (x / xRange) * cw;
   const sy = (y: number) => yOffset + pad.top + ((yMax - y) / yRange) * ch;
 
-  const path = Skia.Path.Make();
-  path.moveTo(sx(data[0].x), sy(data[0].value));
+  // Build the "d" string for Skia.Path.MakeFromSVGString — the imperative
+  // Skia.Path.Make().moveTo()/cubicTo() API is deprecated in react-native-skia 2.x.
+  let d = `M${sx(data[0].x)} ${sy(data[0].value)}`;
 
   if (data.length === 2) {
-    path.lineTo(sx(data[1].x), sy(data[1].value));
-    return { path, sx, sy };
+    d += `L${sx(data[1].x)} ${sy(data[1].value)}`;
+  } else {
+    // Catmull-Rom to cubic Bezier for smooth curves
+    for (let i = 0; i < data.length - 1; i++) {
+      const p0 = i > 0 ? data[i - 1] : data[i];
+      const p1 = data[i];
+      const p2 = data[i + 1];
+      const p3 = i < data.length - 2 ? data[i + 2] : data[i + 1];
+
+      const cp1x = sx(p1.x) + (sx(p2.x) - sx(p0.x)) / 6;
+      const cp1y = sy(p1.value) + (sy(p2.value) - sy(p0.value)) / 6;
+      const cp2x = sx(p2.x) - (sx(p3.x) - sx(p1.x)) / 6;
+      const cp2y = sy(p2.value) - (sy(p3.value) - sy(p1.value)) / 6;
+
+      d += `C${cp1x} ${cp1y} ${cp2x} ${cp2y} ${sx(p2.x)} ${sy(p2.value)}`;
+    }
   }
 
-  // Catmull-Rom to cubic Bezier for smooth curves
-  for (let i = 0; i < data.length - 1; i++) {
-    const p0 = i > 0 ? data[i - 1] : data[i];
-    const p1 = data[i];
-    const p2 = data[i + 1];
-    const p3 = i < data.length - 2 ? data[i + 2] : data[i + 1];
-
-    const cp1x = sx(p1.x) + (sx(p2.x) - sx(p0.x)) / 6;
-    const cp1y = sy(p1.value) + (sy(p2.value) - sy(p0.value)) / 6;
-    const cp2x = sx(p2.x) - (sx(p3.x) - sx(p1.x)) / 6;
-    const cp2y = sy(p2.value) - (sy(p3.value) - sy(p1.value)) / 6;
-
-    path.cubicTo(cp1x, cp1y, cp2x, cp2y, sx(p2.x), sy(p2.value));
-  }
+  const path = Skia.Path.MakeFromSVGString(d);
+  if (!path) return null;
 
   return { path, sx, sy };
 }

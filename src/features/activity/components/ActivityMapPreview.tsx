@@ -8,6 +8,7 @@ import { getMapLibreBounds } from '@/shared/geo/polyline';
 import { useMapPreferences } from '@/features/maps/stores/MapPreferencesContext';
 import { StaticCompassArrow } from '@/shared/ui';
 import { projectRouteToBox } from '@/shared/geo/routePreview';
+import { polylineSvgPath } from '@/shared/charts/svgPath';
 import { useMapPreviewCoordinates } from '../hooks/useMapPreviewCoordinates';
 import {
   hasTerrainPreview,
@@ -33,13 +34,6 @@ import type { PreviewTrack } from '@/features/home/hooks/useStartupData';
 import { debug } from '@/shared/debug/debug';
 
 const log = debug.create('ActivityMapPreview');
-
-/** Build an SVG path string ("M x y L x y …") for a slice of projected pixel points. */
-function polylineSvg(points: { x: number; y: number }[], start: number, end: number): string {
-  let d = `M${points[start].x} ${points[start].y}`;
-  for (let i = start + 1; i < end; i++) d += `L${points[i].x} ${points[i].y}`;
-  return d;
-}
 
 interface ActivityMapPreviewProps {
   activity: Activity;
@@ -141,7 +135,7 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
   // method, which is why it kept rendering across the SDK 56 Skia bump.
   const routePath = useMemo(() => {
     if (routePoints.length < 2) return null;
-    return Skia.Path.MakeFromSVGString(polylineSvg(routePoints, 0, routePoints.length));
+    return Skia.Path.MakeFromSVGString(polylineSvgPath(routePoints));
   }, [routePoints]);
 
   // PR section highlights (gold) — slice the same projected points by index range.
@@ -152,7 +146,7 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
       const start = Math.max(0, range.startIndex);
       const end = Math.min(routePoints.length, range.endIndex + 1);
       if (end - start < 2) continue;
-      const p = Skia.Path.MakeFromSVGString(polylineSvg(routePoints, start, end));
+      const p = Skia.Path.MakeFromSVGString(polylineSvgPath(routePoints.slice(start, end)));
       if (p) paths.push(p);
     }
     return paths;

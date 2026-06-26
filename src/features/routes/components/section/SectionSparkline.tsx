@@ -5,6 +5,7 @@
 
 import React from 'react';
 import { Canvas, Circle, Path, Skia } from '@shopify/react-native-skia';
+import { polylineSvgPath } from '@/shared/charts/svgPath';
 import { colors } from '@/theme';
 import type { PerformanceDataPoint } from '@/types';
 
@@ -38,11 +39,9 @@ export const SectionSparkline = React.memo(function SectionSparkline({
   const toY = (speed: number) => pad.y + ((maxSpeed - speed) / range) * h;
 
   // Build trend line path
-  const trendPath = Skia.Path.Make();
-  trendPath.moveTo(toX(0), toY(data[0].speed));
-  for (let i = 1; i < data.length; i++) {
-    trendPath.lineTo(toX(i), toY(data[i].speed));
-  }
+  const trendPath = Skia.Path.MakeFromSVGString(
+    polylineSvgPath(data.map((d, i) => ({ x: toX(i), y: toY(d.speed) })))
+  );
 
   const dotColor = isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.35)';
   const lineColor = isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.15)';
@@ -50,7 +49,7 @@ export const SectionSparkline = React.memo(function SectionSparkline({
   return (
     <Canvas style={{ width, height }}>
       {/* Trend line */}
-      <Path path={trendPath} color={lineColor} style="stroke" strokeWidth={1.5} />
+      {trendPath && <Path path={trendPath} color={lineColor} style="stroke" strokeWidth={1.5} />}
 
       {/* Data points */}
       {data.map((point, i) => {

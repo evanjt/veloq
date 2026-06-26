@@ -10,6 +10,7 @@ import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { CartesianChart, type PointsArray } from 'victory-native';
 import { Circle, Path, Skia } from '@shopify/react-native-skia';
+import { bandSvgPath, polylineSvgPath } from '@/shared/charts/svgPath';
 import { GestureDetector } from 'react-native-gesture-handler';
 import Animated from 'react-native-reanimated';
 import { isRunningActivity, isSwimmingActivity } from '@/features/activity/lib/activityUtils';
@@ -237,22 +238,14 @@ export function SectionScatterChart({
 
                 const buildPaths = (trend: TrendBandPoint[] | null) => {
                   if (!trend || trend.length < 2) return { line: null, band: null };
-                  const line = Skia.Path.Make();
-                  line.moveTo(xScale(trend[0].x), yScale(trend[0].y));
-                  for (let i = 1; i < trend.length; i++) {
-                    line.lineTo(xScale(trend[i].x), yScale(trend[i].y));
-                  }
+                  const linePts = trend.map((p) => ({ x: xScale(p.x), y: yScale(p.y) }));
                   // Band: upper edge forward, then lower edge backward (closed shape)
-                  const band = Skia.Path.Make();
-                  band.moveTo(xScale(trend[0].x), yScale(trend[0].upper));
-                  for (let i = 1; i < trend.length; i++) {
-                    band.lineTo(xScale(trend[i].x), yScale(trend[i].upper));
-                  }
-                  for (let i = trend.length - 1; i >= 0; i--) {
-                    band.lineTo(xScale(trend[i].x), yScale(trend[i].lower));
-                  }
-                  band.close();
-                  return { line, band };
+                  const upperPts = trend.map((p) => ({ x: xScale(p.x), y: yScale(p.upper) }));
+                  const lowerPts = trend.map((p) => ({ x: xScale(p.x), y: yScale(p.lower) }));
+                  return {
+                    line: Skia.Path.MakeFromSVGString(polylineSvgPath(linePts)),
+                    band: Skia.Path.MakeFromSVGString(bandSvgPath(upperPts, lowerPts)),
+                  };
                 };
 
                 const fwd = buildPaths(forwardTrend);
