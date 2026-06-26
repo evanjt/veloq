@@ -123,7 +123,8 @@
         {
           "android": {},
           "ios": {
-            "deploymentTarget": "16.4"
+            "deploymentTarget": "16.4",
+            "buildReactNativeFromSource": true
           }
         }
       ]
