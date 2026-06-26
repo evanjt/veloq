@@ -235,7 +235,7 @@ pub(crate) async fn perform_sync(svc: &SyncService, transport: Transport, _athle
 /// The FFI service object. The single thing TypeScript calls for I/O.
 #[derive(uniffi::Object)]
 pub struct SyncManager {
-    _private: (),
+    pub(crate) _private: (),
 }
 
 #[uniffi::export]
