@@ -19,4 +19,7 @@ runs:
           curl -Ls "https://get.maestro.mobile.dev" | bash
           echo "$HOME/.maestro/bin" >> $GITHUB_PATH
         fi
+        # $GITHUB_PATH only affects later steps, so put the freshly installed
+        # binary on PATH for the in-step verification below.
+        export PATH="$HOME/.maestro/bin:$PATH"
         maestro --version
