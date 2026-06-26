@@ -24,7 +24,7 @@ jobs:
   # dispatched E2E runs share the cached APK for identical source.
   build-android-dev:
     name: Build Android Dev
-    # Self-hosted gate runner: only run for same-repo PRs, never fork code.
+    # Only run for same-repo PRs: forks get no secrets and shouldn't spend runner minutes.
     if: github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 45
@@ -119,10 +119,8 @@ jobs:
   gate:
     name: Maestro Gate (tier0+tier1)
     needs: build-android-dev
-    runs-on: e2e-android
+    runs-on: macos-26
     timeout-minutes: 45
-    env:
-      ANDROID_HOME: /home/gha-runner/Android/Sdk
     steps:
       - uses: actions/checkout@v4
 
@@ -135,6 +133,15 @@ jobs:
       - name: Install Maestro
         uses: ./.github/actions/install-maestro
 
+      - name: Create AVD
+        run: |
+          SDK="$ANDROID_HOME/cmdline-tools/latest/bin"
+          yes | "$SDK/sdkmanager" --licenses >/dev/null || true
+          "$SDK/sdkmanager" "platform-tools" "emulator" \
+            "system-images;android-35;google_apis;arm64-v8a"
+          echo "no" | "$SDK/avdmanager" create avd \
+            -n e2e-test -k "system-images;android-35;google_apis;arm64-v8a" --force
+
       - name: Boot emulator
         run: |
           ADB=$ANDROID_HOME/platform-tools/adb
@@ -144,7 +151,7 @@ jobs:
           $ADB devices | grep -v emulator | grep -v "List" | grep -v "^$" | awk '{print $1}' | while read dev; do
             $ADB disconnect "$dev" 2>/dev/null || true
           done
-          $ANDROID_HOME/emulator/emulator -avd e2e-test -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot-save -no-metrics &
+          $ANDROID_HOME/emulator/emulator -avd e2e-test -no-window -gpu host -noaudio -no-boot-anim -no-snapshot-save -no-metrics &
           $ADB -s emulator-5554 wait-for-device
           for i in $(seq 1 60); do
             BOOT=$($ADB -s emulator-5554 shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')

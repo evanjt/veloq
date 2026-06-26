@@ -240,10 +240,8 @@ jobs:
     needs: build-android-dev
 
     name: E2E Android (Maestro)
-    runs-on: e2e-android
+    runs-on: macos-26
     timeout-minutes: 120
-    env:
-      ANDROID_HOME: /home/gha-runner/Android/Sdk
     steps:
       - uses: actions/checkout@v4
 
@@ -255,6 +253,15 @@ jobs:
 
       - name: Install Maestro
         uses: ./.github/actions/install-maestro
+
+      - name: Create AVD
+        run: |
+          SDK="$ANDROID_HOME/cmdline-tools/latest/bin"
+          yes | "$SDK/sdkmanager" --licenses >/dev/null || true
+          "$SDK/sdkmanager" "platform-tools" "emulator" \
+            "system-images;android-35;google_apis;arm64-v8a"
+          echo "no" | "$SDK/avdmanager" create avd \
+            -n e2e-test -k "system-images;android-35;google_apis;arm64-v8a" --force
 
       - name: Boot emulator
         run: |
@@ -271,7 +278,7 @@ jobs:
             $ADB disconnect "$dev" 2>/dev/null || true
           done
 
-          $ANDROID_HOME/emulator/emulator -avd e2e-test -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot-save -no-metrics &
+          $ANDROID_HOME/emulator/emulator -avd e2e-test -no-window -gpu host -noaudio -no-boot-anim -no-snapshot-save -no-metrics &
           EMULATOR_PID=$!
           echo "Emulator PID: $EMULATOR_PID"
 
