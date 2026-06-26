@@ -85,6 +85,7 @@ const OBJECT_SOURCE_FILES: Record<string, string> = {
   DetectionManager: 'detection.rs',
   StrengthManager: 'strength.rs',
   HeatmapManager: 'tiles.rs',
+  SyncManager: 'sync.rs',
 };
 
 const STANDALONE_EXPORTS = FFI_EXPORTS.filter((e) => !e.object);
