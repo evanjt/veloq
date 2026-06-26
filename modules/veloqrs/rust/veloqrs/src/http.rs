@@ -338,6 +338,11 @@ impl ActivityFetcher {
     pub async fn download_fit_file(&self, activity_id: &str) -> Result<Vec<u8>, String> {
         let url = format!("https://intervals.icu/api/v1/activity/{}/file", activity_id);
 
+        // FIT downloads flow through the same choke point as GPS maps.
+        crate::governor::GOVERNOR
+            .acquire(crate::governor::Lane::Interactive)
+            .await;
+
         let response = self
             .client
             .get(&url)
@@ -408,7 +413,11 @@ impl ActivityFetcher {
                 let start_time = start;
 
                 async move {
-                    // Wait for our dispatch slot - this spaces out request starts
+                    // Pace through the single shared choke point first (≤8 req/s
+                    // across the whole process), then number the dispatch.
+                    crate::governor::GOVERNOR
+                        .acquire(crate::governor::Lane::Interactive)
+                        .await;
                     let dispatch_num = rate_limiter.wait_for_dispatch_slot().await;
                     let dispatch_time = start_time.elapsed();
 
