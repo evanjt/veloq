@@ -240,10 +240,18 @@ jobs:
     needs: build-android-dev
 
     name: E2E Android (Maestro)
-    runs-on: macos-26
+    # Hosted Ubuntu + KVM (see e2e-gate.yml): hosted macOS can't boot an Android
+    # emulator (nested VM, no HVF -> qemu fails with HV_UNSUPPORTED).
+    runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@v4
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
 
       - name: Download APK
         uses: actions/download-artifact@v8
@@ -251,78 +259,38 @@ jobs:
           name: android-dev-apk
           path: /tmp/android-artifact
 
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 17
+
       - name: Install Maestro
         uses: ./.github/actions/install-maestro
 
-      - name: Create AVD
-        run: |
-          SDK="$ANDROID_HOME/cmdline-tools/latest/bin"
-          yes | "$SDK/sdkmanager" --licenses >/dev/null || true
-          "$SDK/sdkmanager" "platform-tools" "emulator" \
-            "system-images;android-35;google_apis;arm64-v8a"
-          echo "no" | "$SDK/avdmanager" create avd \
-            -n e2e-test -k "system-images;android-35;google_apis;arm64-v8a" --force
-
-      - name: Boot emulator
-        run: |
-          ADB=$ANDROID_HOME/platform-tools/adb
-
-          # Kill any existing emulator and disconnect all devices
-          $ADB kill-server 2>/dev/null || true
-          sleep 1
-          $ADB start-server
-
-          # Disconnect any physical devices before launching emulator
-          $ADB devices | grep -v emulator | grep -v "List" | grep -v "^$" | awk '{print $1}' | while read dev; do
-            echo "Disconnecting non-emulator device: $dev"
-            $ADB disconnect "$dev" 2>/dev/null || true
-          done
-
-          $ANDROID_HOME/emulator/emulator -avd e2e-test -no-window -gpu host -noaudio -no-boot-anim -no-snapshot-save -no-metrics &
-          EMULATOR_PID=$!
-          echo "Emulator PID: $EMULATOR_PID"
-
-          # Wait for the emulator specifically
-          $ADB -s emulator-5554 wait-for-device
-          for i in $(seq 1 60); do
-            BOOT=$($ADB -s emulator-5554 shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')
-            if [ "$BOOT" = "1" ]; then echo "Boot complete after ${i}s"; break; fi
-            echo "Waiting for boot... ($i/60)"
-            sleep 2
-          done
-          sleep 5
-
-          echo "=== Connected devices ==="
-          $ADB devices
-
-          $ADB -s emulator-5554 shell settings put global window_animation_scale 0
-          $ADB -s emulator-5554 shell settings put global transition_animation_scale 0
-          $ADB -s emulator-5554 shell settings put global animator_duration_scale 0
-
-      - name: Install APK and warm up
-        run: |
-          APK=$(find /tmp/android-artifact -name "*.apk" | head -1)
-          $ANDROID_HOME/platform-tools/adb -s emulator-5554 install "$APK"
-          sleep 3
-          $ANDROID_HOME/platform-tools/adb -s emulator-5554 logcat -c
-
-      - name: Run Maestro tests
+      - name: Run Maestro tests on emulator
+        uses: reactivecircus/android-emulator-runner@v2
         env:
           MAESTRO_DRIVER_STARTUP_TIMEOUT: 180000
-        run: |
-          export PATH="$HOME/.maestro/bin:$PATH"
-          maestro test .maestro/ \
-            --include-tags=${{ inputs.tier || 'tier0,tier1,tier2,tier3' }} \
-            --format junit --output maestro-report.xml --no-ansi || echo "MAESTRO_FAILED=true" >> $GITHUB_ENV
+        with:
+          api-level: 35
+          arch: x86_64
+          target: google_apis
+          force-avd-creation: false
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot-save -no-metrics
+          disable-animations: true
+          script: |
+            APK=$(find /tmp/android-artifact -name "*.apk" | head -1)
+            adb install "$APK"
+            adb logcat -c
+            export PATH="$HOME/.maestro/bin:$PATH"
+            maestro test .maestro/ \
+              --include-tags=${{ inputs.tier || 'tier0,tier1,tier2,tier3' }} \
+              --format junit --output maestro-report.xml --no-ansi || echo "MAESTRO_FAILED=true" >> $GITHUB_ENV
+            adb logcat -d > /tmp/logcat.txt 2>&1 || true
 
-      - name: Kill emulator
-        if: always()
-        run: $ANDROID_HOME/platform-tools/adb emu kill 2>/dev/null || true
-
-      - name: Capture diagnostic logs
+      - name: Filter diagnostic logs
         if: always()
         run: |
-          $ANDROID_HOME/platform-tools/adb logcat -d > /tmp/logcat.txt 2>&1 || true
           grep -E "(FATAL|veloqrs|ReactNative|AndroidRuntime|Process:|Signal|crash|panic)" /tmp/logcat.txt > /tmp/logcat-filtered.txt 2>/dev/null || true
 
       - name: Collect screenshots
