@@ -1,10 +1,10 @@
-//! HTTP client for intervals.icu API with rate limiting.
+//! HTTP client for intervals.icu API.
 //!
 //! This module provides high-performance activity fetching with:
 //! - Connection pooling for HTTP/2 multiplexing
-//! - Dispatch rate limiting (spaces out request starts)
+//! - Dispatch pacing through the shared governor choke point
 //! - Parallel fetching with configurable concurrency
-//! - Automatic retry with exponential backoff on 429
+//! - Automatic retry honouring `Retry-After` on 429
 
 use log::{debug, info, warn};
 use once_cell::sync::Lazy;
@@ -14,7 +14,6 @@ use std::sync::Arc;
 use std::sync::Mutex as StdMutex;
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
 use std::time::{Duration, Instant};
-use tokio::sync::Mutex;
 
 /// Helper to calculate elapsed milliseconds from an Instant
 #[inline]
@@ -181,25 +180,10 @@ pub fn take_background_fetch_results() -> Option<Vec<ActivityMapResult>> {
     }
 }
 
-// Rate limits from intervals.icu API: 30/s burst, 132/10s sustained (13.2/s average)
-// In practice, 30/s burst triggers 429s - the API uses a sliding window.
-// Safe rates discovered through testing:
-// - 20 req/s (50ms) works reliably for small batches
-// - 13 req/s (77ms) for sustained large fetches
-const BURST_INTERVAL_MS: u64 = 50; // 1000ms / 20 = 50ms (20 req/s - safe burst)
-const SUSTAINED_INTERVAL_MS: u64 = 77; // 1000ms / 13 = 77ms (13 req/s sustained rate)
-const BURST_THRESHOLD: usize = 100; // Use burst for batches under 100
+// Dispatch pace is the governor's job now (≤8 req/s across the whole process),
+// so this module no longer carries its own burst/sustained intervals.
 const MAX_CONCURRENCY: usize = 50; // Allow many in-flight (network latency ~200-400ms)
 const MAX_RETRIES: u32 = 3;
-
-/// Calculate optimal dispatch interval based on request count
-fn calculate_dispatch_interval(total_requests: usize) -> u64 {
-    if total_requests <= BURST_THRESHOLD {
-        BURST_INTERVAL_MS
-    } else {
-        SUSTAINED_INTERVAL_MS
-    }
-}
 
 /// Result of fetching activity map data
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -234,61 +218,25 @@ struct ApiBounds {
 /// Progress callback type
 pub type ProgressCallback = Arc<dyn Fn(u32, u32) + Send + Sync>;
 
-/// Dispatch rate limiter - spaces out when requests START
-/// This is different from counting requests - it ensures we never dispatch
-/// faster than the configured rate by spacing them apart.
-struct DispatchRateLimiter {
-    next_dispatch: Mutex<Instant>,
+/// Per-fetch counters: the running dispatch number (for the progress log) and
+/// the consecutive-429 tally (for retry logging). Dispatch *pacing* belongs to
+/// the shared governor now; this only counts.
+struct DispatchCounter {
     dispatched_count: AtomicU32,
     consecutive_429s: AtomicU32,
-    interval_ms: u64,
 }
 
-impl DispatchRateLimiter {
-    fn new(interval_ms: u64) -> Self {
+impl DispatchCounter {
+    fn new() -> Self {
         Self {
-            next_dispatch: Mutex::new(Instant::now()),
             dispatched_count: AtomicU32::new(0),
             consecutive_429s: AtomicU32::new(0),
-            interval_ms,
         }
     }
 
-    /// Wait for our dispatch slot. Each caller gets a unique slot
-    /// spaced interval_ms apart.
-    async fn wait_for_dispatch_slot(&self) -> u32 {
-        let (wait_duration, dispatch_num) = {
-            let mut next = self.next_dispatch.lock().await;
-            let now = Instant::now();
-
-            // Calculate when this request can dispatch
-            let dispatch_at = if *next > now { *next } else { now };
-
-            // Reserve the next slot for the next caller
-            *next = dispatch_at + Duration::from_millis(self.interval_ms);
-
-            let num = self.dispatched_count.fetch_add(1, Ordering::Relaxed) + 1;
-
-            // Calculate how long we need to wait
-            let wait = if dispatch_at > now {
-                dispatch_at - now
-            } else {
-                Duration::ZERO
-            };
-
-            (wait, num)
-        };
-
-        // Wait outside the lock
-        if wait_duration > Duration::from_millis(5) {
-            debug!(
-                "[Dispatch #{}] Waiting {:?} for slot",
-                dispatch_num, wait_duration
-            );
-            tokio::time::sleep(wait_duration).await;
-        }
-
-        dispatch_num
+    /// Next 1-based dispatch number, for the progress log.
+    fn next_dispatch_number(&self) -> u32 {
+        self.dispatched_count.fetch_add(1, Ordering::Relaxed) + 1
     }
 
     fn record_success(&self) {
@@ -376,52 +324,37 @@ impl ActivityFetcher {
         let completed = Arc::new(AtomicU32::new(0));
         let total_bytes = Arc::new(AtomicU32::new(0));
 
-        // Dynamic rate limiting: use burst rate for small batches, sustained for large
-        let dispatch_interval = calculate_dispatch_interval(activity_ids.len());
-        let rate_mode = if activity_ids.len() <= BURST_THRESHOLD {
-            "BURST"
-        } else {
-            "SUSTAINED"
-        };
-        let req_per_sec = 1000.0 / dispatch_interval as f64;
-
-        // PERF ASSESSMENT: Using PARALLEL async fetch with rate limiting
         info!(
-            "[RUST: PERF] HTTP Fetch: {} activities, {} mode ({:.0} req/s), max {} concurrent",
-            total, rate_mode, req_per_sec, MAX_CONCURRENCY
-        );
-        let theoretical_dispatch_time = (total as u64 - 1) * dispatch_interval;
-        info!(
-            "[RUST: PERF] Theoretical minimum time: dispatch={}ms + network latency",
-            theoretical_dispatch_time
+            "[RUST: PERF] HTTP Fetch: {} activities, max {} concurrent (governor-paced)",
+            total, MAX_CONCURRENCY
         );
 
         let start = Instant::now();
 
-        // Create rate limiter with the calculated interval
-        let rate_limiter = Arc::new(DispatchRateLimiter::new(dispatch_interval));
+        // Per-fetch counters only; the governor owns dispatch pacing.
+        let counter = Arc::new(DispatchCounter::new());
 
-        // Use buffered stream for parallel execution with dispatch rate limiting
+        // Buffered parallel fetch; the governor paces dispatch across all tasks.
         let results: Vec<ActivityMapResult> = stream::iter(activity_ids)
             .map(|id| {
                 let client = &self.client;
                 let auth = &self.auth_header;
-                let rate_limiter = Arc::clone(&rate_limiter);
+                let counter = Arc::clone(&counter);
                 let completed = Arc::clone(&completed);
                 let total_bytes = Arc::clone(&total_bytes);
                 let callback = on_progress.clone();
                 let start_time = start;
 
                 async move {
-                    // Pace through the single shared choke point first (≤8 req/s
-                    // across the whole process), then number the dispatch.
+                    // Pace through the single shared choke point (≤8 req/s across
+                    // the whole process), then take this request's dispatch number.
                     crate::governor::GOVERNOR
                         .acquire(crate::governor::Lane::Interactive)
                         .await;
-                    let dispatch_num = rate_limiter.wait_for_dispatch_slot().await;
+                    let dispatch_num = counter.next_dispatch_number();
                     let dispatch_time = start_time.elapsed();
 
-                    let result = Self::fetch_single_map(client, auth, &rate_limiter, &id).await;
+                    let result = Self::fetch_single_map(client, auth, &counter, &id).await;
 
                     // Track progress
                     let done = completed.fetch_add(1, Ordering::Relaxed) + 1;
@@ -480,14 +413,6 @@ impl ActivityFetcher {
             elapsed_ms(start)
         );
 
-        // PERF ASSESSMENT: Efficiency analysis
-        let actual_ms = elapsed_ms(start);
-        let overhead_ms = actual_ms.saturating_sub(theoretical_dispatch_time);
-        let efficiency = (theoretical_dispatch_time as f64 / actual_ms as f64 * 100.0).min(100.0);
-        info!(
-            "[RUST: PERF] HTTP efficiency: theoretical={}ms, actual={}ms, overhead={}ms ({:.1}% efficient)",
-            theoretical_dispatch_time, actual_ms, overhead_ms, efficiency
-        );
         info!(
             "[RUST: PERF] Throughput: {:.1} req/s, {:.1} KB/s",
             rate,
@@ -502,7 +427,7 @@ impl ActivityFetcher {
     async fn fetch_single_map(
         client: &Client,
         auth: &str,
-        rate_limiter: &DispatchRateLimiter,
+        counter: &DispatchCounter,
         activity_id: &str,
     ) -> ActivityMapResult {
         let url = format!("https://intervals.icu/api/v1/activity/{}/map", activity_id);
@@ -532,7 +457,7 @@ impl ActivityFetcher {
                             };
                         }
 
-                        let consecutive = rate_limiter.record_429();
+                        let consecutive = counter.record_429();
                         let retry_after = resp
                             .headers()
                             .get(reqwest::header::RETRY_AFTER)
@@ -547,7 +472,7 @@ impl ActivityFetcher {
                         continue;
                     }
 
-                    rate_limiter.record_success();
+                    counter.record_success();
 
                     if !status.is_success() {
                         return ActivityMapResult {
