@@ -429,4 +429,63 @@ mod tests {
         assert_eq!(AuthKind::parse("API_KEY"), Some(AuthKind::ApiKey));
         assert_eq!(AuthKind::parse("nonsense"), None);
     }
+
+    #[test]
+    fn try_begin_is_exclusive_under_contention() {
+        // Race many threads on one service. The running slot is the lock that
+        // stops two concurrent syncs, so exactly one caller may claim it.
+        use std::sync::atomic::{AtomicU32, Ordering};
+        let svc = Arc::new(SyncService::new());
+        let winners = Arc::new(AtomicU32::new(0));
+        let handles: Vec<_> = (0..16)
+            .map(|_| {
+                let svc = svc.clone();
+                let winners = winners.clone();
+                std::thread::spawn(move || {
+                    if svc.try_begin() {
+                        winners.fetch_add(1, Ordering::Relaxed);
+                    }
+                })
+            })
+            .collect();
+        for h in handles {
+            h.join().unwrap();
+        }
+        assert_eq!(winners.load(Ordering::Relaxed), 1);
+        assert_eq!(svc.snapshot().state, "syncing");
+    }
+
+    #[test]
+    fn begin_after_cancel_clears_cancel_flag() {
+        // A soft-cancel must not persist into the next sync, or every future run
+        // would bail immediately at the is_cancelled() gate.
+        let svc = SyncService::new();
+        assert!(svc.try_begin());
+        svc.request_cancel();
+        svc.finish(SyncState::Idle, None, false);
+        assert!(svc.is_cancelled(), "the flag survives until the next begin consumes it");
+        assert!(svc.try_begin());
+        assert!(!svc.is_cancelled(), "a fresh begin clears the prior cancellation");
+    }
+
+    #[test]
+    fn auth_expired_recovers_on_next_begin() {
+        // After a 401 the service rests in authExpired. Once TypeScript re-auths
+        // and issues sync_now again, try_begin moves it back into syncing.
+        let server = MockServer::start();
+        server.mock(|when, then| {
+            when.method(GET).path("/athlete/me");
+            then.status(401);
+        });
+        let svc = SyncService::new();
+        assert!(svc.try_begin());
+        crate::runtime::block_on(perform_sync(
+            &svc,
+            transport_to(server.base_url()),
+            "i1".into(),
+        ));
+        assert_eq!(svc.snapshot().state, "authExpired");
+        assert!(svc.try_begin());
+        assert_eq!(svc.snapshot().state, "syncing");
+    }
 }

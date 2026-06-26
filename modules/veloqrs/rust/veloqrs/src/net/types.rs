@@ -546,4 +546,181 @@ mod tests {
         assert_eq!(pace_minutes_from_speed(f64::NAN, 1000.0), 0.0);
         assert!((pace_minutes_from_speed(5.0, 1000.0) - 3.3333333333).abs() < 1e-6);
     }
+
+    // Golden tests below mirror the real `streams.json`, activities, intervals,
+    // sport-settings, wellness, and curve envelopes captured from intervals.icu.
+    // Values are synthetic/anonymised; the key set, types, and null placement
+    // match the live shapes so the parse stays pinned to the server contract.
+
+    #[test]
+    fn parse_streams_ignores_server_envelope() {
+        // Each live stream carries an envelope (allNull, anomalies, custom, name,
+        // valueType, valueTypeIsArray) and a `data2` that is JSON null on every
+        // non-latlng series. serde must ignore the envelope and treat data2: null
+        // as absent, while still zipping latlng from data (lat) + data2 (lng).
+        let raw: Vec<StreamDto> = serde_json::from_value(json!([
+            {"type": "time", "name": null, "data": [0, 1, 2], "data2": null,
+             "valueType": "INTEGER", "valueTypeIsArray": false, "allNull": false,
+             "anomalies": null, "custom": false},
+            {"type": "latlng", "name": null, "data": [42.5, 42.6, 42.7],
+             "data2": [1.1, 1.2, 1.3], "valueType": "FLOAT", "valueTypeIsArray": true,
+             "allNull": false, "anomalies": null, "custom": false},
+            {"type": "watts", "name": null, "data": [150, 160, 170], "data2": null,
+             "valueType": "INTEGER", "valueTypeIsArray": false, "allNull": false}
+        ]))
+        .unwrap();
+        let s = parse_streams(raw);
+        assert_eq!(s.time, vec![0, 1, 2]);
+        assert_eq!(s.latlng, vec![[42.5, 1.1], [42.6, 1.2], [42.7, 1.3]]);
+        assert_eq!(s.watts, vec![150.0, 160.0, 170.0]);
+    }
+
+    #[test]
+    fn parses_activity_full_server_shape() {
+        // One activity with the live key set: many unmodelled fields, null power
+        // (no power meter), null description. serde ignores the extras, maps null
+        // to None, and renames `type` to activity_type.
+        let body = json!([{
+            "id": "i159922890", "name": "Lunch Run", "type": "Run",
+            "start_date_local": "2026-05-01T12:00:00", "moving_time": 2663,
+            "elapsed_time": 2700, "distance": 6430.24, "total_elevation_gain": 160.9,
+            "average_speed": 2.41, "max_speed": 4.1, "average_heartrate": 145,
+            "icu_average_watts": 210, "average_watts": null, "max_watts": null,
+            "average_cadence": 82, "calories": 541, "icu_training_load": 114,
+            "icu_ftp": 250, "has_weather": true, "average_weather_temp": 18.5,
+            "stream_types": ["time", "heartrate", "latlng", "distance"],
+            "description": null, "device_name": "Garmin",
+            "icu_atl": 40.1, "icu_ctl": 55.2, "decoupling": 3.4, "pace": 415.0,
+            "source": "GARMIN", "timezone": "Europe/Madrid", "strava_id": null,
+            "icu_intervals_edited": false, "tags": []
+        }]);
+        let acts: Vec<ActivityRecord> = serde_json::from_value(body).unwrap();
+        assert_eq!(acts.len(), 1);
+        let a = &acts[0];
+        assert_eq!(a.id, "i159922890");
+        assert_eq!(a.activity_type.as_deref(), Some("Run"));
+        assert_eq!(a.moving_time, Some(2663));
+        assert_eq!(a.icu_average_watts, Some(210.0));
+        assert_eq!(a.average_watts, None); // null power -> None
+        assert_eq!(a.max_watts, None);
+        assert_eq!(a.description, None);
+        assert_eq!(a.device_name.as_deref(), Some("Garmin"));
+        assert_eq!(a.has_weather, Some(true));
+        assert_eq!(a.stream_types.as_ref().unwrap().len(), 4);
+    }
+
+    #[test]
+    fn parses_intervals_envelope() {
+        // The intervals endpoint wraps the laps in `{analyzed, icu_groups,
+        // icu_intervals, id}`; each lap has a large key set with `type`/`zone`.
+        let body = json!({
+            "analyzed": true, "id": "i159922890", "icu_groups": [],
+            "icu_intervals": [{
+                "id": 5386051, "type": "RECOVERY", "label": null,
+                "start_index": 0, "end_index": 16, "distance": 120.0,
+                "moving_time": 17, "elapsed_time": 17, "average_watts": 90.0,
+                "average_heartrate": 110.0, "average_cadence": 70.0, "zone": 6,
+                "average_speed": 7.0, "decoupling": 1.2, "group_id": null,
+                "segment_effort_ids": [], "wbal_start": 20000, "wbal_end": 19500
+            }]
+        });
+        let rec: IntervalsRecord = serde_json::from_value(body).unwrap();
+        assert_eq!(rec.icu_intervals.len(), 1);
+        let iv = &rec.icu_intervals[0];
+        assert_eq!(iv.id, Some(5386051));
+        assert_eq!(iv.interval_type.as_deref(), Some("RECOVERY"));
+        assert_eq!(iv.label, None);
+        assert_eq!(iv.start_index, Some(0));
+        assert_eq!(iv.end_index, Some(16));
+        assert_eq!(iv.zone, Some(6));
+    }
+
+    #[test]
+    fn power_curve_reads_values_not_server_watts() {
+        // list[0] carries both `values` and a separate `watts` field plus many
+        // extras (ranks, powerModels, watts_per_kg). The TS client renames
+        // `values` -> watts, so the parse must read `values`, never the server's
+        // `watts` array. Distinct arrays prove which one is used.
+        let body = json!({
+            "list": [{
+                "secs": [1, 2, 3], "values": [508, 487, 487],
+                "watts": [999, 999, 999], "watts_per_kg": [7.1, 6.8, 6.8],
+                "activity_id": ["i1", "i1", "i2"], "ranks": [1, 2, 3],
+                "powerModels": [], "id": "x", "label": "1 year", "weight": 70
+            }],
+            "activities": {}
+        })
+        .to_string();
+        let pc = parse_power_curve(body.as_bytes()).unwrap();
+        assert_eq!(pc.secs, vec![1, 2, 3]);
+        assert_eq!(pc.watts, vec![508.0, 487.0, 487.0]); // from `values`, not `watts`
+        assert_eq!(pc.activity_ids.as_ref().unwrap()[2], "i2");
+    }
+
+    #[test]
+    fn pace_curve_ignores_extras_and_input_indexes() {
+        // The CS pace model carries an `inputPointIndexes` array alongside the
+        // scalars; the list entry carries label/id/training_load extras. Both
+        // must be ignored while pace = distance/time and the CS scalars extract.
+        let body = json!({
+            "list": [{
+                "distance": [100.0, 200.0, 0.0], "values": [20.0, 50.0, 0.0],
+                "activity_id": ["a", "b", "c"], "type": "Run",
+                "paceModels": [{"type": "CS", "criticalSpeed": 2.85,
+                    "dPrime": 250.6, "r2": 0.999, "inputPointIndexes": [41, 62, 67]}],
+                "start_date_local": "2026-05-01", "end_date_local": "2026-06-26",
+                "days": 56, "id": "x", "label": "56 days", "training_load": 40,
+                "weight": 68, "moving_time": [10, 20, 30]
+            }],
+            "activities": {}
+        })
+        .to_string();
+        let pc = parse_pace_curve(body.as_bytes()).unwrap();
+        assert_eq!(pc.pace[0], 100.0 / 20.0); // 5 m/s
+        assert_eq!(pc.pace[1], 200.0 / 50.0); // 4 m/s
+        assert_eq!(pc.pace[2], 0.0); // div-by-zero guard
+        assert_eq!(pc.critical_speed, Some(2.85));
+        assert_eq!(pc.d_prime, Some(250.6));
+        assert_eq!(pc.r2, Some(0.999));
+        assert_eq!(pc.days, Some(56));
+    }
+
+    #[test]
+    fn parses_sport_settings_all_zones_null() {
+        // A sport with no configured zones sends every zone array as JSON null
+        // (seen on Swim/Other in the live response). null_as_empty_vec turns each
+        // into an empty Vec rather than failing the deserialise.
+        let ss: Vec<SportSettingsRecord> = serde_json::from_value(json!([{
+            "id": 1473692, "types": ["Swim"], "ftp": null, "indoor_ftp": null,
+            "lthr": null, "max_hr": null, "threshold_pace": null,
+            "hr_zones": null, "power_zones": null, "pace_zones": null
+        }]))
+        .unwrap();
+        assert_eq!(ss[0].id, Some(1473692));
+        assert_eq!(ss[0].types, vec!["Swim"]);
+        assert_eq!(ss[0].ftp, None);
+        assert!(ss[0].hr_zones.is_empty());
+        assert!(ss[0].power_zones.is_empty());
+        assert!(ss[0].pace_zones.is_empty());
+    }
+
+    #[test]
+    fn parses_wellness_null_fields_present() {
+        // Wellness rows send unmeasured metrics as explicit null (not absent);
+        // Option fields must accept that. restingHR/sleepSecs arrive as integers.
+        let w: Vec<WellnessRecord> = serde_json::from_value(json!([{
+            "id": "2026-05-01", "ctl": 50.0, "atl": 55.0, "rampRate": null,
+            "hrv": null, "restingHR": 48, "weight": null, "sleepSecs": 27000,
+            "sleepScore": null, "steps": null, "vo2max": null
+        }]))
+        .unwrap();
+        assert_eq!(w[0].id, "2026-05-01");
+        assert_eq!(w[0].ctl, Some(50.0));
+        assert_eq!(w[0].ramp_rate, None);
+        assert_eq!(w[0].hrv, None);
+        assert_eq!(w[0].weight, None);
+        assert_eq!(w[0].vo2max, None);
+        assert_eq!(w[0].resting_hr, Some(48.0));
+        assert_eq!(w[0].sleep_secs, Some(27000.0));
+    }
 }

@@ -6,9 +6,11 @@
  * status snapshot — it never builds an axios request or an auth header itself.
  *
  * Runtime note: `host.engine.sync()` resolves once the UniFFI bindings are
- * regenerated for the new `SyncManager` object (clean rebuild — see
- * modules/veloqrs/CLAUDE.md "FFI Development Rules"). Until then these no-op via
- * the `host.ready` guard. Field casing matches the generated records (camelCase).
+ * regenerated for the new `SyncManager` object (clean rebuild, see
+ * modules/veloqrs/CLAUDE.md "FFI Development Rules"). The `host.ready` guard only
+ * covers calls made before the engine is initialised, returning safe defaults.
+ * Once initialised these need the regenerated bindings. Field casing matches the
+ * generated records (camelCase).
  */
 
 import type { DelegateHost } from './host';
@@ -17,13 +19,16 @@ import type { DelegateHost } from './host';
 export type SyncAuthMethod = 'oauth' | 'api_key';
 
 /** Mirror of the Rust `FfiSyncStatus` record. Replace with the generated
- *  `FfiSyncStatus` type once bindings are regenerated. */
+ *  `FfiSyncStatus` type once bindings are regenerated. `lastError` is optional
+ *  because UniFFI maps `Option<String>` to `field?: T` (`string | undefined`),
+ *  not `string | null`. Keep the mirror faithful so consumers don't test for
+ *  `=== null`. */
 export interface SyncStatus {
   state: 'idle' | 'syncing' | 'paused' | 'authExpired';
   inFlight: number;
   completed: number;
   total: number;
-  lastError: string | null;
+  lastError?: string;
 }
 
 /** Set the credential once. Never passed per request. */

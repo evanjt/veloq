@@ -245,7 +245,7 @@ mod tests {
     #[test]
     fn unauthorized_maps_to_error() {
         let server = MockServer::start();
-        server.mock(|when, then| {
+        let mock = server.mock(|when, then| {
             when.method(GET).path("/x");
             then.status(401);
         });
@@ -253,6 +253,8 @@ mod tests {
         let res: Result<serde_json::Value, _> =
             crate::runtime::block_on(t.get_json("/x", &[], Lane::Interactive));
         assert!(matches!(res, Err(NetError::Unauthorized)));
+        // 401 is terminal: credentials won't improve on retry, so dispatch once.
+        assert_eq!(mock.hits(), 1);
     }
 
     #[test]
@@ -272,19 +274,20 @@ mod tests {
     }
 
     #[test]
-    fn retries_500_then_succeeds() {
+    fn retries_5xx_then_returns_http_error() {
         let server = MockServer::start();
-        // First respond 500, then a second mock for the retry returns 200. httpmock
-        // matches the most-recently-defined mock first, so define 200 with a hit cap.
-        let ok = server.mock(|when, then| {
+        let mock = server.mock(|when, then| {
             when.method(GET).path("/y");
-            then.status(200).json_body(json!({"ok": true}));
+            then.status(503);
         });
         let t = fast_transport(server.base_url(), AuthMethod::ApiKey("k"));
-        let got: serde_json::Value =
-            crate::runtime::block_on(t.get_json("/y", &[], Lane::Interactive)).unwrap();
-        ok.assert();
-        assert_eq!(got["ok"], true);
+        let res: Result<serde_json::Value, _> =
+            crate::runtime::block_on(t.get_json("/y", &[], Lane::Interactive));
+        // A 5xx is retried with exponential backoff, then surfaced as Http once
+        // the retry budget is exhausted (httpmock 0.7 can't sequence a transient
+        // 503-then-200, so the give-up path is what we can assert deterministically).
+        assert!(matches!(res, Err(NetError::Http { status: 503, .. })));
+        assert_eq!(mock.hits(), (MAX_RETRIES + 1) as usize);
     }
 
     #[test]
@@ -298,5 +301,31 @@ mod tests {
         let res: Result<serde_json::Value, _> =
             crate::runtime::block_on(t.get_json("/z", &[], Lane::Interactive));
         assert!(matches!(res, Err(NetError::Decode(_))));
+    }
+
+    #[test]
+    fn each_dispatch_passes_through_the_governor() {
+        let server = MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method(GET).path("/p");
+            then.status(200).json_body(json!({"ok": true}));
+        });
+        // A deliberately slow 4 req/s governor (250ms/slot): the second request
+        // can only fire after waiting a slot, which proves the transport acquires
+        // the shared governor before dispatch rather than sending immediately.
+        let gov = Arc::new(Governor::new(4, Box::new(NoopPolicy)));
+        let t =
+            Transport::with_governor(server.base_url(), AuthMethod::ApiKey("k"), gov).unwrap();
+        let start = std::time::Instant::now();
+        let _: serde_json::Value =
+            crate::runtime::block_on(t.get_json("/p", &[], Lane::Interactive)).unwrap();
+        let _: serde_json::Value =
+            crate::runtime::block_on(t.get_json("/p", &[], Lane::Interactive)).unwrap();
+        assert!(
+            start.elapsed() >= Duration::from_millis(240),
+            "second dispatch was not paced by the governor: {:?}",
+            start.elapsed()
+        );
+        assert_eq!(mock.hits(), 2);
     }
 }

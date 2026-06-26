@@ -287,4 +287,74 @@ mod tests {
         .unwrap();
         assert_eq!(pc.watts, vec![900.0, 800.0]);
     }
+
+    #[test]
+    fn pace_curve_endpoint_sends_params_and_computes_pace() {
+        let server = MockServer::start();
+        server.mock(|when, then| {
+            when.method(GET)
+                .path("/athlete/i1/pace-curves.json")
+                .query_param("type", "Run")
+                .query_param("curves", "42d");
+            then.status(200).json_body(json!({
+                "list": [{
+                    "distance": [100.0, 0.0],
+                    "values": [20.0, 0.0],
+                    "paceModels": [{"type": "CS", "criticalSpeed": 2.85,
+                        "dPrime": 250.6, "r2": 0.999}]
+                }]
+            }));
+        });
+        let t = fast_transport(server.base_url());
+        let pc = crate::runtime::block_on(fetch_pace_curve(
+            &t, "i1", "Run", "42d", Lane::Backfill,
+        ))
+        .unwrap();
+        assert_eq!(pc.pace[0], 5.0); // 100 m / 20 s
+        assert_eq!(pc.pace[1], 0.0); // div-by-zero guard
+        assert_eq!(pc.critical_speed, Some(2.85));
+    }
+
+    #[test]
+    fn wellness_endpoint_sends_date_window() {
+        let server = MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method(GET)
+                .path("/athlete/i1/wellness")
+                .query_param("oldest", "2026-05-01")
+                .query_param("newest", "2026-06-26");
+            then.status(200).json_body(json!([
+                {"id": "2026-05-01", "ctl": 50.0, "restingHR": 48, "sleepSecs": 27000}
+            ]));
+        });
+        let t = fast_transport(server.base_url());
+        let w = crate::runtime::block_on(fetch_wellness(
+            &t, "i1", "2026-05-01", "2026-06-26", Lane::Backfill,
+        ))
+        .unwrap();
+        mock.assert();
+        assert_eq!(w.len(), 1);
+        assert_eq!(w[0].resting_hr, Some(48.0));
+    }
+
+    #[test]
+    fn intervals_endpoint_parses_icu_intervals() {
+        let server = MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method(GET).path("/activity/55/intervals");
+            then.status(200).json_body(json!({
+                "analyzed": true, "id": "55", "icu_groups": [],
+                "icu_intervals": [
+                    {"id": 1, "type": "WORK", "zone": 4, "label": null},
+                    {"id": 2, "type": "RECOVERY", "zone": 1}
+                ]
+            }));
+        });
+        let t = fast_transport(server.base_url());
+        let rec = crate::runtime::block_on(fetch_intervals(&t, "55", Lane::Interactive)).unwrap();
+        mock.assert();
+        assert_eq!(rec.icu_intervals.len(), 2);
+        assert_eq!(rec.icu_intervals[0].interval_type.as_deref(), Some("WORK"));
+        assert_eq!(rec.icu_intervals[1].zone, Some(1));
+    }
 }
