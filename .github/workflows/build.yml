@@ -516,9 +516,11 @@ jobs:
           path: |
             ios/Pods
             ~/Library/Caches/CocoaPods
-          key: cocoapods-${{ runner.os }}-${{ hashFiles('ios/Podfile.lock') }}
-          restore-keys: |
-            cocoapods-${{ runner.os }}-
+          # No restore-keys, and a v2 namespace: switching React Native to build-from-source
+          # changes pod versions (e.g. hermes-engine), so a prefix-restored Pods/ from the
+          # prebuilt era conflicts with the new Podfile ("could not find compatible versions").
+          # Exact-key only avoids restoring an incompatible Pods cache.
+          key: cocoapods-v2-${{ runner.os }}-${{ hashFiles('ios/Podfile.lock') }}
 
       - name: Setup Ruby
         if: steps.app-cache.outputs.cache-hit != 'true' || (github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch' || github.event_name == 'schedule')
