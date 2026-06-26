@@ -496,9 +496,11 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ios
-          key: ios-prebuild-v7-${{ runner.os }}-${{ hashFiles('app.json', 'app.config.js', 'package.json', 'package-lock.json', 'plugins/**', 'expo-modules/**/*.json', 'modules/**/ios/**', 'modules/**/package.json') }}
-          restore-keys: |
-            ios-prebuild-v7-${{ runner.os }}-
+          # No restore-keys: a prefix fallback would restore a stale ios/ from before an
+          # app.json change, and incremental `expo prebuild` reuses it without rewriting
+          # Podfile.properties.json — so a config change (e.g. buildReactNativeFromSource)
+          # silently never reaches the build. Exact-key only forces a fresh prebuild.
+          key: ios-prebuild-v8-${{ runner.os }}-${{ hashFiles('app.json', 'app.config.js', 'package.json', 'package-lock.json', 'plugins/**', 'expo-modules/**/*.json', 'modules/**/ios/**', 'modules/**/package.json') }}
 
       - name: Install dependencies
         run: npm ci
