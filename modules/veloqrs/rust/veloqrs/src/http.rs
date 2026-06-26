@@ -6,7 +6,6 @@
 //! - Parallel fetching with configurable concurrency
 //! - Automatic retry with exponential backoff on 429
 
-use base64::Engine;
 use log::{debug, info, warn};
 use once_cell::sync::Lazy;
 use reqwest::Client;
@@ -102,44 +101,8 @@ pub fn start_background_fetch(auth_header: String, activity_ids: Vec<String>) {
             activity_ids.len()
         );
 
-        // Create runtime in this thread
-        let runtime_start = Instant::now();
-        let rt = match tokio::runtime::Builder::new_multi_thread()
-            .worker_threads(8)
-            .enable_all()
-            .build()
-        {
-            Ok(rt) => {
-                info!(
-                    "[RUST: start_background_fetch] Created tokio runtime ({} ms)",
-                    elapsed_ms(runtime_start)
-                );
-                rt
-            }
-            Err(e) => {
-                warn!(
-                    "[RUST: start_background_fetch] Failed to create runtime: {} ({} ms)",
-                    e,
-                    elapsed_ms(runtime_start)
-                );
-                finish_download_progress();
-                if let Ok(mut results) = BACKGROUND_FETCH_RESULTS.lock() {
-                    *results = Some(
-                        activity_ids
-                            .into_iter()
-                            .map(|id| ActivityMapResult {
-                                activity_id: id,
-                                bounds: None,
-                                latlngs: None,
-                                success: false,
-                                error: Some(format!("Runtime error: {}", e)),
-                            })
-                            .collect(),
-                    );
-                }
-                return;
-            }
-        };
+        // Runs on the shared process runtime instead of building a throwaway
+        // 8-thread runtime per call.
 
         // Create HTTP client
         let client_start = Instant::now();
@@ -178,7 +141,7 @@ pub fn start_background_fetch(auth_header: String, activity_ids: Vec<String>) {
 
         // Run the fetch
         let fetch_start = Instant::now();
-        let fetch_results = rt.block_on(fetcher.fetch_activity_maps(activity_ids, None));
+        let fetch_results = crate::runtime::block_on(fetcher.fetch_activity_maps(activity_ids, None));
         let success_count = fetch_results.iter().filter(|r| r.success).count();
         info!(
             "[RUST: start_background_fetch] Fetch complete: {}/{} successful ({} ms)",
@@ -332,15 +295,10 @@ impl DispatchRateLimiter {
         self.consecutive_429s.store(0, Ordering::Relaxed);
     }
 
-    fn record_429(&self) -> Duration {
-        let count = self.consecutive_429s.fetch_add(1, Ordering::Relaxed) + 1;
-        // Exponential backoff: 500ms, 1s, 2s, 4s max
-        let backoff = Duration::from_millis(500 * (1 << count.min(3)));
-        warn!(
-            "[DispatchRateLimiter] Got 429! Consecutive: {}, backing off {:?}",
-            count, backoff
-        );
-        backoff
+    /// Count a 429 and return the running consecutive total. Backoff timing is
+    /// the governor's job (`decide_backoff`), which honours `Retry-After`.
+    fn record_429(&self) -> u32 {
+        self.consecutive_429s.fetch_add(1, Ordering::Relaxed) + 1
     }
 }
 
@@ -353,8 +311,9 @@ pub struct ActivityFetcher {
 impl ActivityFetcher {
     /// Create a new activity fetcher with the given API key (Basic auth)
     pub fn new(api_key: &str) -> Result<Self, String> {
-        let auth = base64::engine::general_purpose::STANDARD.encode(format!("API_KEY:{}", api_key));
-        Self::with_auth_header(format!("Basic {}", auth))
+        Self::with_auth_header(crate::governor::format_auth_header(
+            crate::governor::AuthMethod::ApiKey(api_key),
+        ))
     }
 
     /// Create a new activity fetcher with a pre-formatted auth header
@@ -564,10 +523,16 @@ impl ActivityFetcher {
                             };
                         }
 
-                        let wait = rate_limiter.record_429();
+                        let consecutive = rate_limiter.record_429();
+                        let retry_after = resp
+                            .headers()
+                            .get(reqwest::header::RETRY_AFTER)
+                            .and_then(|v| v.to_str().ok())
+                            .and_then(|s| s.trim().parse::<u64>().ok());
+                        let wait = crate::governor::decide_backoff(retry_after, retries, true);
                         warn!(
-                            "[Fetch {}] 429 Too Many Requests after {:?}, retry {} with {:?} backoff",
-                            activity_id, headers_elapsed, retries, wait
+                            "[Fetch {}] 429 after {:?} (consecutive {}), retry {} in {:?} (retry-after={:?})",
+                            activity_id, headers_elapsed, consecutive, retries, wait, retry_after
                         );
                         tokio::time::sleep(wait).await;
                         continue;
@@ -662,7 +627,7 @@ impl ActivityFetcher {
                         };
                     }
 
-                    let wait = Duration::from_millis(200 * (1 << retries));
+                    let wait = crate::governor::decide_backoff(None, retries, false);
                     warn!(
                         "[Fetch {}] Error: {}, retry {} after {:?}",
                         activity_id, e, retries, wait
@@ -681,47 +646,12 @@ pub fn fetch_activity_maps_sync(
     activity_ids: Vec<String>,
     on_progress: Option<ProgressCallback>,
 ) -> Vec<ActivityMapResult> {
-    use tokio::runtime::Builder;
-
     let fn_start = Instant::now();
     let activity_count = activity_ids.len();
     info!(
         "[RUST: fetch_activity_maps_sync] Called for {} activities",
         activity_count
     );
-
-    // Create a multi-threaded runtime with enough workers for high concurrency
-    let runtime_start = Instant::now();
-    let rt = match Builder::new_multi_thread()
-        .worker_threads(8)
-        .enable_all()
-        .build()
-    {
-        Ok(rt) => {
-            info!(
-                "[RUST: fetch_activity_maps_sync] Created tokio runtime ({} ms)",
-                elapsed_ms(runtime_start)
-            );
-            rt
-        }
-        Err(e) => {
-            warn!(
-                "[RUST: fetch_activity_maps_sync] Failed to create runtime: {} ({} ms)",
-                e,
-                elapsed_ms(runtime_start)
-            );
-            return activity_ids
-                .into_iter()
-                .map(|id| ActivityMapResult {
-                    activity_id: id,
-                    bounds: None,
-                    latlngs: None,
-                    success: false,
-                    error: Some(format!("Runtime error: {}", e)),
-                })
-                .collect();
-        }
-    };
 
     let client_start = Instant::now();
     let fetcher = match ActivityFetcher::with_auth_header(auth_header) {
@@ -752,7 +682,7 @@ pub fn fetch_activity_maps_sync(
     };
 
     let fetch_start = Instant::now();
-    let results = rt.block_on(fetcher.fetch_activity_maps(activity_ids, on_progress));
+    let results = crate::runtime::block_on(fetcher.fetch_activity_maps(activity_ids, on_progress));
     let success_count = results.iter().filter(|r| r.success).count();
     info!(
         "[RUST: fetch_activity_maps_sync] Fetch complete: {}/{} successful ({} ms)",

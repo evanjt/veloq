@@ -22,6 +22,12 @@ pub use persistence::{
     SectionDetectionHandle, with_persistent_engine,
 };
 
+// Shared process-wide async runtime for all outbound network work
+pub mod runtime;
+
+// Networking governor: the single choke point for outbound requests
+pub mod governor;
+
 // HTTP client for activity fetching
 pub mod http;
 pub use http::{ActivityFetcher, ActivityMapResult, MapBounds};

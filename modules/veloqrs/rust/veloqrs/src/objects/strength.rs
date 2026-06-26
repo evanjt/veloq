@@ -59,19 +59,12 @@ impl StrengthManager {
     ) -> Result<Vec<FfiExerciseSet>, VeloqError> {
         info!("[Strength] Fetching FIT file for {}", activity_id);
 
-        // Download FIT file in a blocking tokio runtime
+        // Download FIT file on the shared process runtime.
         let fit_data = {
-            let rt = tokio::runtime::Builder::new_current_thread()
-                .enable_all()
-                .build()
-                .map_err(|e| VeloqError::Database {
-                    msg: format!("Failed to create runtime: {}", e),
-                })?;
-
             let fetcher = ActivityFetcher::with_auth_header(auth_header)
                 .map_err(|e| VeloqError::Database { msg: e })?;
 
-            rt.block_on(fetcher.download_fit_file(&activity_id))
+            crate::runtime::block_on(fetcher.download_fit_file(&activity_id))
         };
 
         match fit_data {
@@ -157,20 +150,13 @@ impl StrengthManager {
             activity_ids.len()
         );
 
-        let rt = tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .map_err(|e| VeloqError::Database {
-                msg: format!("Failed to create runtime: {}", e),
-            })?;
-
         let fetcher = ActivityFetcher::with_auth_header(auth_header)
             .map_err(|e| VeloqError::Database { msg: e })?;
 
         let mut processed = Vec::new();
 
         for activity_id in &activity_ids {
-            let fit_result = rt.block_on(fetcher.download_fit_file(activity_id));
+            let fit_result = crate::runtime::block_on(fetcher.download_fit_file(activity_id));
 
             match fit_result {
                 Ok(data) => {
