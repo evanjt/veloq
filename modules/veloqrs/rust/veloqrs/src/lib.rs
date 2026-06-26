@@ -28,6 +28,9 @@ pub mod runtime;
 // Networking governor: the single choke point for outbound requests
 pub mod governor;
 
+// Consolidated intervals.icu networking: transport + endpoint fetchers
+pub mod net;
+
 // HTTP client for activity fetching
 pub mod http;
 pub use http::{ActivityFetcher, ActivityMapResult, MapBounds};

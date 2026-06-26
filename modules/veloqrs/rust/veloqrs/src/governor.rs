@@ -9,6 +9,7 @@
 //! plugs into.
 
 use once_cell::sync::Lazy;
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 /// Upper bound on any exponential-backoff wait.
@@ -183,9 +184,11 @@ impl Governor {
 const MAX_DISPATCH_PER_SEC: u32 = 8;
 
 /// The shared process-wide governor. Ships with the baseline no-op policy; the
-/// rate-limit plan replaces the policy with a budget-aware one.
-pub static GOVERNOR: Lazy<Governor> =
-    Lazy::new(|| Governor::new(MAX_DISPATCH_PER_SEC, Box::new(NoopPolicy)));
+/// rate-limit plan replaces the policy with a budget-aware one. Held in an `Arc`
+/// so transports clone a handle to the same limiter (and tests can inject a
+/// fast local one for isolation).
+pub static GOVERNOR: Lazy<Arc<Governor>> =
+    Lazy::new(|| Arc::new(Governor::new(MAX_DISPATCH_PER_SEC, Box::new(NoopPolicy))));
 
 #[cfg(test)]
 mod tests {
