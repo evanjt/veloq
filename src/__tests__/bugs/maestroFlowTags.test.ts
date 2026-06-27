@@ -7,6 +7,9 @@
  * Expected behaviour: every flow carries exactly one tier tag; tier0-3 flows
  * carry exactly one known pack tag; tier4/5 flows carry none; and every
  * demo-prefixed deep link resolves to a real fixture activity ID.
+ * Exception: by-file flows (smoke-build.yaml) are run by build.yml by file, not
+ * by tag, and carry `prod-smoke` (no tier/pack) so no dev gate selects their
+ * production appId.
  */
 
 import * as fs from 'fs';
@@ -28,6 +31,10 @@ const KNOWN_PACKS = new Set([
   'pack-data',
   'pack-stress',
 ]);
+
+// Run by build.yml by file (not by tag); tagged prod-smoke so no tier gate or
+// pack pipeline ever launches its production appId against a dev build.
+const BY_FILE_FLOWS = new Set(['smoke-build.yaml']);
 
 const flowFiles = fs
   .readdirSync(MAESTRO_DIR)
@@ -57,11 +64,21 @@ describe('maestro flow tags', () => {
   });
 
   it.each(flowFiles)('%s has exactly one tier tag', (file) => {
-    expect(tierTags(readFlow(file))).toHaveLength(1);
+    const content = readFlow(file);
+    if (BY_FILE_FLOWS.has(file)) {
+      expect(tierTags(content)).toHaveLength(0);
+      expect(content).toContain('prod-smoke');
+      return;
+    }
+    expect(tierTags(content)).toHaveLength(1);
   });
 
   it.each(flowFiles)('%s pack tagging matches its tier', (file) => {
     const content = readFlow(file);
+    if (BY_FILE_FLOWS.has(file)) {
+      expect(packTags(content)).toHaveLength(0);
+      return;
+    }
     const tier = tierTags(content)[0];
     const packs = packTags(content);
     if (tier === 'tier4' || tier === 'tier5') {
