@@ -168,12 +168,21 @@ jobs:
             adb install "$(find /tmp/apk -name '*.apk' | head -1)"
             "$HOME/.maestro/bin/maestro" test .maestro/ --include-tags=tier0,tier1 --debug-output /tmp/maestro-debug --format junit --output gate-report.xml --no-ansi || echo "MAESTRO_FAILED=true" >> "$GITHUB_ENV"
 
+      - name: Collect Maestro artifacts
+        if: always()
+        run: |
+          mkdir -p /tmp/maestro-artifacts
+          cp -r "$HOME/.maestro/tests" /tmp/maestro-artifacts/tests 2>/dev/null || true
+          cp -r /tmp/maestro-debug /tmp/maestro-artifacts/debug 2>/dev/null || true
+          cp -f "$GITHUB_WORKSPACE"/*.png /tmp/maestro-artifacts/ 2>/dev/null || true
+          find /tmp/maestro-artifacts -name '*.png' | head -50 || true
+
       - name: Upload Maestro debug output
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: e2e-gate-debug
-          path: /tmp/maestro-debug
+          path: /tmp/maestro-artifacts
           retention-days: 7
 
       - name: Upload test report

@@ -122,10 +122,11 @@ tags:
 - tapOn:
     id: "settings-developer-dashboard-link"
 
+# The debug dashboard mounts engine/FFI stats, which is slow under software GPU.
 - extendedWaitUntil:
     visible:
       id: "debug-screen"
-    timeout: 10000
+    timeout: 30000
 
 # ---- Find Support Card section in dev dashboard, expand, set 31d ago ----
 
