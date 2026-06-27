@@ -1,4 +1,4 @@
-import { createAutoPauseDetector, type AutoPauseConfig } from '@/lib/recording/autoPause';
+import { createAutoPauseDetector, type AutoPauseConfig } from '@/features/recording/lib/autoPause';
 
 describe('createAutoPauseDetector', () => {
   const defaultConfig: AutoPauseConfig = {

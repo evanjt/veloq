@@ -7,9 +7,12 @@
 # designed for dev builds in e2e.yml — so setup is inlined here.
 
 appId: com.veloq.app
+# Run ONLY by build.yml via `maestro test .maestro/smoke-build.yaml` (by file).
+# Tagged prod-smoke (which no dev pipeline selects) so the dev gate (tier0+tier1),
+# e2e.yml and the pack runs never launch this production-appId flow against the dev
+# build — com.veloq.app isn't installed there, so it would fail immediately.
 tags:
-  - tier0
-  - pack-nav
+  - prod-smoke
 ---
 # --- Inline setup (production appId) ---
 - launchApp:

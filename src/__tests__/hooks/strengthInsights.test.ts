@@ -1,5 +1,10 @@
-import { generateStrengthInsights } from '@/hooks/insights/strengthInsights';
+import { generateStrengthInsights } from '@/features/strength/hooks/strengthInsights';
 import type { StrengthSummary } from '@/types';
+
+const t = (key: string, params?: Record<string, string | number>) => {
+  if (!params) return key;
+  return `${key}:${JSON.stringify(params)}`;
+};
 
 function makeSummary(
   muscles: Array<{ slug: string; weightedSets: number }>,
@@ -47,7 +52,7 @@ describe('generateStrengthInsights', () => {
       ]),
     ];
 
-    const result = generateStrengthInsights(monthly, weekly, Date.now());
+    const result = generateStrengthInsights(monthly, weekly, Date.now(), t);
     const balance = result.find((insight) => insight.category === 'strength_balance');
     expect(balance!.navigationTarget).toBe('/routes?tab=strength');
     expect(balance!.title).toContain('Quadriceps');
@@ -65,7 +70,7 @@ describe('generateStrengthInsights', () => {
       makeSummary([{ slug: 'hamstring', weightedSets: 7 }], 1),
     ];
 
-    const result = generateStrengthInsights(monthly, weekly, Date.now());
+    const result = generateStrengthInsights(monthly, weekly, Date.now(), t);
     const progression = result.find((insight) => insight.category === 'strength_progression');
     expect(progression!.title).toContain('Hamstrings');
     expect(progression!.supportingData?.sparklineData).toEqual([2, 3, 6, 7]);
@@ -95,7 +100,7 @@ describe('generateStrengthInsights', () => {
       makeSummary([], 0),
     ];
 
-    const result = generateStrengthInsights(monthly, weekly, Date.now());
+    const result = generateStrengthInsights(monthly, weekly, Date.now(), t);
     expect(result).toEqual([]);
   });
 });

@@ -1,59 +1,52 @@
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
-import { View, ScrollView, StyleSheet, Dimensions } from 'react-native';
-import { Text, IconButton, ActivityIndicator, Snackbar } from 'react-native-paper';
+import { View, ScrollView, StyleSheet, Dimensions, InteractionManager } from 'react-native';
+import { Text, IconButton, Snackbar } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { ScreenSafeAreaView } from '@/components/ui';
-import { logScreenRender } from '@/lib/debug/renderTimer';
+import { ScreenSafeAreaView, ChartSkeleton } from '@/shared/ui';
+import { logScreenRender } from '@/shared/debug/renderTimer';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import {
-  useActivity,
-  useActivityStreams,
-  useActivityIntervals,
-  useWellnessForDate,
-  useTheme,
-  useMetricSystem,
-  useCacheDays,
-  useGpxExport,
-  useSectionOverlays,
-  useActivityRematch,
-} from '@/hooks';
-import { useCustomSections } from '@/hooks/routes/useCustomSections';
-import { useRouteMatch } from '@/hooks/routes/useRouteMatch';
-import { useSectionMatches } from '@/hooks/routes/useSectionMatches';
-import { useSectionEncounters } from '@/hooks/routes/useSectionEncounters';
-import { useActivitySectionHighlights } from '@/hooks/activities/useActivitySectionHighlights';
-import {
-  ActivityHeader,
-  ActivityChartsSection,
-  ActivityRoutesSection,
-  ActivitySectionsSection,
-} from '@/components';
-import { useDebugStore, useRouteSettings } from '@/providers';
-import { SwipeableTabs, type SwipeableTab } from '@/components/ui';
+import { useActivity, useActivityStreams, useActivityIntervals } from '@/features/activity/hooks';
+import { useSectionOverlays } from '@/features/activity/hooks/useSectionOverlays';
+import { useActivityRematch } from '@/features/routes/hooks/useActivityRematch';
+import { useWellnessForDate } from '@/features/wellness';
+import { useGpxExport } from '@/features/settings/hooks/exportIndex';
+import { useTheme, useMetricSystem } from '@/shared/app';
+import { useCacheDays } from '@/shared/app/useCacheDays';
+import { useCustomSections } from '@/features/routes/hooks/useCustomSections';
+import { useRouteMatch } from '@/features/routes/hooks/useRouteMatch';
+import { useSectionMatches } from '@/features/routes/hooks/useSectionMatches';
+import { useSectionEncounters } from '@/features/routes/hooks/useSectionEncounters';
+import { useActivitySectionHighlights } from '@/features/activity/hooks/useActivitySectionHighlights';
+import { ActivityChartsSection } from '@/features/activity/components/ActivityChartsSection';
+import { ActivityHeader } from '@/features/activity/components/ActivityHeader';
+import { ActivityRoutesSection } from '@/features/activity/components/ActivityRoutesSection';
+import { ActivitySectionsSection } from '@/features/activity/components/ActivitySectionsSection';
+import { useRouteSettings } from '@/features/routes/stores/RouteSettingsStore';
+import { useDebugStore } from '@/features/settings/stores/DebugStore';
+import { SwipeableTabs, type SwipeableTab } from '@/shared/ui';
 import type {
   SectionCreationResult,
   SectionCreationError,
-} from '@/components/maps/ActivityMapView';
-import type { CreationState } from '@/components/maps/SectionCreationOverlay';
-import { convertLatLngTuples, decodePolyline } from '@/lib';
-import { useExerciseSets } from '@/hooks/activities';
-import { useAthlete } from '@/hooks';
-import { ExerciseTable } from '@/components/activity/ExerciseTable';
-import { MuscleGroupView } from '@/components/activity/MuscleGroupView';
-import { ComponentErrorBoundary } from '@/components/ui';
+} from '@/features/maps/components/ActivityMapView';
+import type { CreationState } from '@/features/maps/components/SectionCreationOverlay';
+import { convertLatLngTuples, decodePolyline } from '@/shared/geo/polyline';
+import { useExerciseSets } from '@/features/strength';
+import { useAthlete } from '@/shared/app/useAthlete';
+import { ExerciseTable, MuscleGroupView } from '@/features/strength';
+import { ComponentErrorBoundary } from '@/shared/ui';
 import { colors, darkColors, spacing } from '@/theme';
-import { ErrorStatePreset } from '@/components/ui';
+import { ErrorStatePreset } from '@/shared/ui';
 import {
   setCameraOverride,
   getCameraOverride,
   deleteCameraOverride,
-} from '@/lib/storage/terrainCameraOverrides';
-import { invalidateTerrainPreview } from '@/lib/storage/terrainPreviewCache';
-import type { TerrainCamera } from '@/lib/utils/cameraAngle';
-import { calculateTerrainCamera } from '@/lib/utils/cameraAngle';
-import { useMapPreferences } from '@/providers';
-import type { MapStyleType } from '@/components/maps/mapStyles';
+} from '@/features/maps/lib/storage/terrainCameraOverrides';
+import { invalidateTerrainPreview } from '@/features/maps/lib/storage/terrainPreviewCache';
+import type { TerrainCamera } from '@/features/maps/lib/cameraAngle';
+import { calculateTerrainCamera } from '@/features/maps/lib/cameraAngle';
+import { useMapPreferences } from '@/features/maps/stores/MapPreferencesContext';
+import type { MapStyleType } from '@/features/maps/components/mapStyles';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 const MAP_HEIGHT = Math.round(SCREEN_HEIGHT * 0.42);
@@ -76,6 +69,15 @@ export default function ActivityDetailScreen() {
   const { data: activity, isLoading, error, refetch } = useActivity(id || '');
   const { data: streams, isLoading: streamsLoading } = useActivityStreams(id || '');
   const { exportGpx, exporting: gpxExporting } = useGpxExport();
+
+  // Defer the cluster of synchronous engine FFI reads (route match/getGroups,
+  // section matches, encounters, highlights) off the push-animation frame so the
+  // screen is interactive immediately. They populate after interactions complete.
+  const [interactive, setInteractive] = useState(false);
+  useEffect(() => {
+    const handle = InteractionManager.runAfterInteractions(() => setInteractive(true));
+    return () => handle.cancel();
+  }, []);
 
   // Get the activity date for wellness lookup
   const activityDate = activity?.start_date_local?.split('T')[0];
@@ -116,11 +118,14 @@ export default function ActivityDetailScreen() {
   const cacheDays = useCacheDays();
 
   // Get matched route for this activity
-  const { routeGroup: matchedRoute, representativeActivityId } = useRouteMatch(id);
+  const { routeGroup: matchedRoute, representativeActivityId } = useRouteMatch(id, interactive);
   const matchedRouteCount = matchedRoute ? 1 : 0;
 
   // Route PR delta for the Routes tab badge (negative = ahead of PR)
-  const activityIdsForHighlights = useMemo(() => (id ? [id] : []), [id]);
+  const activityIdsForHighlights = useMemo(
+    () => (interactive && id ? [id] : []),
+    [interactive, id]
+  );
   const { routes: routeHighlightsMap } = useActivitySectionHighlights(activityIdsForHighlights);
   const routeHighlight = id ? routeHighlightsMap.get(id) : undefined;
 
@@ -154,7 +159,9 @@ export default function ActivityDetailScreen() {
   const hasExercises = (exerciseSets?.length ?? 0) > 0;
 
   // Get auto-detected sections from engine that include this activity
-  const { sections: engineSectionMatches, count: engineSectionCount } = useSectionMatches(id);
+  const { sections: engineSectionMatches, count: engineSectionCount } = useSectionMatches(
+    interactive ? id : undefined
+  );
 
   // Scan for additional section matches
   const {
@@ -165,7 +172,9 @@ export default function ActivityDetailScreen() {
   } = useActivityRematch();
 
   // Section encounters for the sections tab (one entry per section+direction)
-  const { encounters: encountersRaw, isLoading: encountersLoading } = useSectionEncounters(id);
+  const { encounters: encountersRaw, isLoading: encountersLoading } = useSectionEncounters(
+    interactive ? id : undefined
+  );
 
   // Filter custom sections that match this activity (still needed for map overlays)
   const customMatchedSections = useMemo(() => {
@@ -450,8 +459,9 @@ export default function ActivityDetailScreen() {
         testID="activity-detail-screen"
         style={[styles.container, isDark && styles.containerDark]}
       >
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
+        <View style={styles.skeletonLoading}>
+          <ChartSkeleton height={220} />
+          <ChartSkeleton height={160} />
         </View>
       </ScreenSafeAreaView>
     );
@@ -468,6 +478,7 @@ export default function ActivityDetailScreen() {
             icon="arrow-left"
             iconColor={colors.textOnDark}
             onPress={() => router.back()}
+            accessibilityLabel={t('common.back')}
           />
         </View>
         <View style={styles.loadingContainer}>
@@ -491,6 +502,7 @@ export default function ActivityDetailScreen() {
             icon="arrow-left"
             iconColor={isDark ? darkColors.textPrimary : colors.textPrimary}
             onPress={() => router.back()}
+            accessibilityLabel={t('common.back')}
           />
           <View style={styles.noMapHeaderText}>
             <Text
@@ -567,6 +579,7 @@ export default function ActivityDetailScreen() {
         activeTab={activeTab}
         onTabChange={(key) => setActiveTab(key as TabType)}
         isDark={isDark}
+        lazy
       >
         {/* Tab 1: Charts */}
         <ActivityChartsSection
@@ -630,7 +643,7 @@ export default function ActivityDetailScreen() {
             removeSection={removeSection}
             scanMatches={scanMatches}
             isScanning={isRematching}
-            isSectionsLoading={encountersLoading}
+            isSectionsLoading={encountersLoading || !interactive}
             onScan={() => scanForSections(id)}
             onRematch={(sectionId) => rematchSection(id, sectionId)}
           />
@@ -662,6 +675,11 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  skeletonLoading: {
+    flex: 1,
+    padding: spacing.md,
+    gap: spacing.lg,
   },
   floatingHeader: {
     position: 'absolute',

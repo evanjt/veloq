@@ -19,7 +19,7 @@ jest.mock('expo-notifications', () => ({
 }));
 
 jest.mock('expo-router', () => ({
-  router: { push: jest.fn() },
+  router: { push: jest.fn(), navigate: jest.fn() },
 }));
 
 jest.mock('@/theme', () => ({
@@ -30,7 +30,7 @@ import {
   updateSyncNotification,
   dismissSyncNotification,
   initializeNotifications,
-} from '@/lib/notifications/notificationService';
+} from '@/features/settings/lib/notificationService';
 
 describe('updateSyncNotification', () => {
   beforeEach(() => jest.clearAllMocks());
@@ -133,8 +133,12 @@ describe('notification handler differentiation', () => {
 // ============================================================
 
 describe('notification tap handler', () => {
-  let { router } = require('expo-router') as { router: { push: jest.Mock } };
-  const { setupNotificationResponseHandler } = require('@/lib/notifications/notificationService');
+  let { router } = require('expo-router') as {
+    router: { push: jest.Mock; navigate: jest.Mock };
+  };
+  const {
+    setupNotificationResponseHandler,
+  } = require('@/features/settings/lib/notificationService');
   let addListenerMock: jest.Mock;
 
   beforeEach(() => {
@@ -197,7 +201,7 @@ describe('notification tap handler', () => {
     };
 
     callback(response);
-    expect(router.push).toHaveBeenCalledWith('/fitness');
+    expect(router.navigate).toHaveBeenCalledWith('/fitness');
   });
 
   it('gracefully handles missing data in notification response', () => {

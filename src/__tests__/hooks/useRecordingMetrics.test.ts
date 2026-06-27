@@ -6,8 +6,8 @@
  */
 
 import { renderHook } from '@testing-library/react-native';
-import { useRecordingStore } from '@/providers/RecordingStore';
-import { useRecordingMetrics } from '@/hooks/recording/useRecordingMetrics';
+import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
+import { useRecordingMetrics } from '@/features/recording/hooks/useRecordingMetrics';
 import type { RecordingStreams, RecordingLap } from '@/types';
 
 // ---------------------------------------------------------------------------
@@ -174,101 +174,67 @@ describe('useRecordingMetrics', () => {
   // Average speed
   // -------------------------------------------------------------------------
 
-  it('calculates average speed as distance / elapsed seconds', () => {
-    setStoreState({
-      status: 'recording',
-      activityType: 'Ride',
-      startTime: Date.now() - 100000,
-      pausedDuration: 0,
-      laps: [],
-      streams: makeStreams({
-        time: [0, 50, 100], // 100 seconds
-        speed: [5, 8, 10],
-        distance: [0, 400, 1000], // 1000 meters
-        altitude: [0, 0, 0],
-        latlng: [
-          [0, 0],
-          [0.001, 0.001],
-          [0.002, 0.002],
-        ],
-      }),
-    });
+  it('calculates average speed as distance / elapsed seconds, 0 when elapsed is 0', () => {
+    // avgSpeed = last distance / last time; guarded to 0 when elapsed is 0.
+    const cases: { time: number[]; distance: number[]; expected: number }[] = [
+      { time: [0, 50, 100], distance: [0, 400, 1000], expected: 10 }, // 1000m / 100s
+      { time: [0], distance: [0], expected: 0 },
+    ];
 
-    const { result } = renderHook(() => useRecordingMetrics());
+    for (const { time, distance, expected } of cases) {
+      setStoreState({
+        status: 'recording',
+        activityType: 'Ride',
+        startTime: Date.now() - 100000,
+        pausedDuration: 0,
+        laps: [],
+        streams: makeStreams({
+          time,
+          speed: time.map(() => 5),
+          distance,
+          altitude: time.map(() => 0),
+          latlng: time.map((_, i) => [i * 0.001, i * 0.001]),
+        }),
+      });
 
-    // avgSpeed = 1000m / 100s = 10 m/s
-    expect(result.current.avgSpeed).toBe(10);
-  });
-
-  it('returns 0 average speed when elapsed time is 0', () => {
-    setStoreState({
-      status: 'recording',
-      activityType: 'Ride',
-      startTime: Date.now(),
-      pausedDuration: 0,
-      laps: [],
-      streams: makeStreams({
-        time: [0],
-        speed: [0],
-        distance: [0],
-        altitude: [0],
-        latlng: [[0, 0]],
-      }),
-    });
-
-    const { result } = renderHook(() => useRecordingMetrics());
-
-    expect(result.current.avgSpeed).toBe(0);
+      const { result } = renderHook(() => useRecordingMetrics());
+      expect(result.current.avgSpeed).toBe(expected);
+    }
   });
 
   // -------------------------------------------------------------------------
   // Pace
   // -------------------------------------------------------------------------
 
-  it('calculates pace as 1000 / speed (seconds per km)', () => {
-    setStoreState({
-      status: 'recording',
-      activityType: 'Run',
-      startTime: Date.now(),
-      pausedDuration: 0,
-      laps: [],
-      streams: makeStreams({
-        time: [0, 60],
-        speed: [0, 4.0], // 4 m/s
-        distance: [0, 240],
-        altitude: [0, 0],
-        latlng: [
-          [0, 0],
-          [0.001, 0],
-        ],
-      }),
-    });
+  it('calculates pace as 1000 / speed, 0 when speed is 0', () => {
+    // pace (s/km) = 1000 / last speed; guarded to 0 when speed is 0.
+    const cases: { speed: number; expected: number }[] = [
+      { speed: 4.0, expected: 250 }, // 1000 / 4.0
+      { speed: 0, expected: 0 },
+    ];
 
-    const { result } = renderHook(() => useRecordingMetrics());
+    for (const { speed, expected } of cases) {
+      setStoreState({
+        status: 'recording',
+        activityType: 'Run',
+        startTime: Date.now(),
+        pausedDuration: 0,
+        laps: [],
+        streams: makeStreams({
+          time: [0, 60],
+          speed: [0, speed],
+          distance: [0, 240],
+          altitude: [0, 0],
+          latlng: [
+            [0, 0],
+            [0.001, 0],
+          ],
+        }),
+      });
 
-    // pace = 1000 / 4.0 = 250 seconds per km
-    expect(result.current.pace).toBe(250);
-  });
-
-  it('returns 0 pace when speed is 0', () => {
-    setStoreState({
-      status: 'recording',
-      activityType: 'Run',
-      startTime: Date.now(),
-      pausedDuration: 0,
-      laps: [],
-      streams: makeStreams({
-        time: [0],
-        speed: [0],
-        distance: [0],
-        altitude: [0],
-        latlng: [[0, 0]],
-      }),
-    });
-
-    const { result } = renderHook(() => useRecordingMetrics());
-
-    expect(result.current.pace).toBe(0);
+      const { result } = renderHook(() => useRecordingMetrics());
+      expect(result.current.pace).toBe(expected);
+    }
   });
 
   it('calculates average pace from average speed', () => {
@@ -301,210 +267,78 @@ describe('useRecordingMetrics', () => {
   // -------------------------------------------------------------------------
 
   it('sums only positive altitude differences for elevation gain', () => {
-    setStoreState({
-      status: 'recording',
-      activityType: 'Ride',
-      startTime: Date.now(),
-      pausedDuration: 0,
-      laps: [],
-      streams: makeStreams({
-        time: [0, 10, 20, 30, 40],
-        speed: [5, 5, 5, 5, 5],
-        distance: [0, 50, 100, 150, 200],
-        altitude: [100, 120, 110, 130, 125], // +20, -10, +20, -5
-        latlng: [
-          [0, 0],
-          [0.001, 0],
-          [0.002, 0],
-          [0.003, 0],
-          [0.004, 0],
-        ],
-      }),
-    });
+    // Mixed climb/descent counts only the positive diffs; flat and pure-descent
+    // profiles contribute zero gain.
+    const cases: { altitude: number[]; expected: number }[] = [
+      { altitude: [100, 120, 110, 130, 125], expected: 40 }, // +20, -10, +20, -5
+      { altitude: [100, 100, 100], expected: 0 }, // flat
+      { altitude: [300, 200, 100], expected: 0 }, // pure descent
+    ];
 
-    const { result } = renderHook(() => useRecordingMetrics());
+    for (const { altitude, expected } of cases) {
+      setStoreState({
+        status: 'recording',
+        activityType: 'Ride',
+        startTime: Date.now(),
+        pausedDuration: 0,
+        laps: [],
+        streams: makeStreams({
+          time: altitude.map((_, i) => i * 10),
+          speed: altitude.map(() => 5),
+          distance: altitude.map((_, i) => i * 50),
+          altitude,
+          latlng: altitude.map((_, i) => [i * 0.001, 0]),
+        }),
+      });
 
-    // Positive diffs: 20 + 20 = 40
-    expect(result.current.elevationGain).toBe(40);
-  });
-
-  it('returns 0 elevation gain on flat terrain', () => {
-    setStoreState({
-      status: 'recording',
-      activityType: 'Ride',
-      startTime: Date.now(),
-      pausedDuration: 0,
-      laps: [],
-      streams: makeStreams({
-        time: [0, 10, 20],
-        speed: [5, 5, 5],
-        distance: [0, 50, 100],
-        altitude: [100, 100, 100],
-        latlng: [
-          [0, 0],
-          [0.001, 0],
-          [0.002, 0],
-        ],
-      }),
-    });
-
-    const { result } = renderHook(() => useRecordingMetrics());
-
-    expect(result.current.elevationGain).toBe(0);
-  });
-
-  it('returns 0 elevation gain on pure descent', () => {
-    setStoreState({
-      status: 'recording',
-      activityType: 'Ride',
-      startTime: Date.now(),
-      pausedDuration: 0,
-      laps: [],
-      streams: makeStreams({
-        time: [0, 10, 20],
-        speed: [5, 5, 5],
-        distance: [0, 50, 100],
-        altitude: [300, 200, 100],
-        latlng: [
-          [0, 0],
-          [0.001, 0],
-          [0.002, 0],
-        ],
-      }),
-    });
-
-    const { result } = renderHook(() => useRecordingMetrics());
-
-    expect(result.current.elevationGain).toBe(0);
+      const { result } = renderHook(() => useRecordingMetrics());
+      expect(result.current.elevationGain).toBe(expected);
+    }
   });
 
   // -------------------------------------------------------------------------
   // Calories
   // -------------------------------------------------------------------------
 
-  it('estimates calories for cycling (MET 8)', () => {
-    setStoreState({
-      status: 'recording',
-      activityType: 'Ride',
-      startTime: Date.now(),
-      pausedDuration: 0,
-      laps: [],
-      streams: makeStreams({
-        time: [0, 3600], // 1 hour
-        speed: [5, 5],
-        distance: [0, 18000],
-        altitude: [0, 0],
-        latlng: [
-          [0, 0],
-          [0.1, 0],
-        ],
-      }),
-    });
+  it('estimates calories per activity-type MET over elapsed hours', () => {
+    // calories = elapsed_hours * 70 kg * MET. MET resolves by substring match on
+    // activityType: cycling 8, running 10, walking/hiking 4, swimming 7, default 6.
+    // Aliases (VirtualRide, Treadmill, ...) hit the same MET via getMet substrings.
+    const cases: { type: string; seconds: number; expected: number }[] = [
+      { type: 'Ride', seconds: 3600, expected: 560 },
+      { type: 'VirtualRide', seconds: 3600, expected: 560 },
+      { type: 'MountainBikeRide', seconds: 3600, expected: 560 },
+      { type: 'Cycling', seconds: 3600, expected: 560 },
+      { type: 'Run', seconds: 3600, expected: 700 },
+      { type: 'Treadmill', seconds: 3600, expected: 700 },
+      { type: 'Run', seconds: 1800, expected: 350 },
+      { type: 'Hike', seconds: 7200, expected: 560 },
+      { type: 'Swim', seconds: 3600, expected: 490 },
+      { type: 'Other', seconds: 3600, expected: 420 },
+    ];
 
-    const { result } = renderHook(() => useRecordingMetrics());
+    for (const { type, seconds, expected } of cases) {
+      setStoreState({
+        status: 'recording',
+        activityType: type,
+        startTime: Date.now(),
+        pausedDuration: 0,
+        laps: [],
+        streams: makeStreams({
+          time: [0, seconds],
+          speed: [5, 5],
+          distance: [0, 18000],
+          altitude: [0, 0],
+          latlng: [
+            [0, 0],
+            [0.1, 0],
+          ],
+        }),
+      });
 
-    // calories = 1 hour * 70 kg * 8 MET = 560
-    expect(result.current.calories).toBe(560);
-  });
-
-  it('estimates calories for running (MET 10)', () => {
-    setStoreState({
-      status: 'recording',
-      activityType: 'Run',
-      startTime: Date.now(),
-      pausedDuration: 0,
-      laps: [],
-      streams: makeStreams({
-        time: [0, 1800], // 30 minutes
-        speed: [3, 4],
-        distance: [0, 5000],
-        altitude: [0, 0],
-        latlng: [
-          [0, 0],
-          [0.01, 0],
-        ],
-      }),
-    });
-
-    const { result } = renderHook(() => useRecordingMetrics());
-
-    // calories = 0.5 hours * 70 kg * 10 MET = 350
-    expect(result.current.calories).toBe(350);
-  });
-
-  it('estimates calories for walking/hiking (MET 4)', () => {
-    setStoreState({
-      status: 'recording',
-      activityType: 'Hike',
-      startTime: Date.now(),
-      pausedDuration: 0,
-      laps: [],
-      streams: makeStreams({
-        time: [0, 7200], // 2 hours
-        speed: [1.5, 1.5],
-        distance: [0, 10800],
-        altitude: [0, 0],
-        latlng: [
-          [0, 0],
-          [0.01, 0],
-        ],
-      }),
-    });
-
-    const { result } = renderHook(() => useRecordingMetrics());
-
-    // calories = 2 hours * 70 kg * 4 MET = 560
-    expect(result.current.calories).toBe(560);
-  });
-
-  it('estimates calories for swimming (MET 7)', () => {
-    setStoreState({
-      status: 'recording',
-      activityType: 'Swim',
-      startTime: Date.now(),
-      pausedDuration: 0,
-      laps: [],
-      streams: makeStreams({
-        time: [0, 3600],
-        speed: [1, 1.5],
-        distance: [0, 2000],
-        altitude: [0, 0],
-        latlng: [
-          [0, 0],
-          [0.01, 0],
-        ],
-      }),
-    });
-
-    const { result } = renderHook(() => useRecordingMetrics());
-
-    // calories = 1 hour * 70 kg * 7 MET = 490
-    expect(result.current.calories).toBe(490);
-  });
-
-  it('uses default MET (6) for unknown activity types', () => {
-    setStoreState({
-      status: 'recording',
-      activityType: 'Other',
-      startTime: Date.now(),
-      pausedDuration: 0,
-      laps: [],
-      streams: makeStreams({
-        time: [0, 3600],
-        speed: [2, 2],
-        distance: [0, 7200],
-        altitude: [0, 0],
-        latlng: [
-          [0, 0],
-          [0.01, 0],
-        ],
-      }),
-    });
-
-    const { result } = renderHook(() => useRecordingMetrics());
-
-    // calories = 1 hour * 70 kg * 6 MET = 420
-    expect(result.current.calories).toBe(420);
+      const { result } = renderHook(() => useRecordingMetrics());
+      expect(result.current.calories).toBe(expected);
+    }
   });
 
   it('returns 0 calories when elapsed time is 0', () => {
@@ -526,60 +360,6 @@ describe('useRecordingMetrics', () => {
     const { result } = renderHook(() => useRecordingMetrics());
 
     expect(result.current.calories).toBe(0);
-  });
-
-  // -------------------------------------------------------------------------
-  // MET classification by activity type name
-  // -------------------------------------------------------------------------
-
-  it('recognises cycling-related activity types', () => {
-    for (const type of ['Ride', 'VirtualRide', 'MountainBikeRide', 'Cycling']) {
-      setStoreState({
-        activityType: type,
-        streams: makeStreams({
-          time: [0, 3600],
-          speed: [5, 5],
-          distance: [0, 18000],
-          altitude: [0, 0],
-          latlng: [
-            [0, 0],
-            [0.01, 0],
-          ],
-        }),
-        laps: [],
-        pausedDuration: 0,
-        startTime: Date.now(),
-      });
-
-      const { result } = renderHook(() => useRecordingMetrics());
-      // MET 8: 1h * 70kg * 8 = 560
-      expect(result.current.calories).toBe(560);
-    }
-  });
-
-  it('recognises running-related activity types', () => {
-    for (const type of ['Run', 'Treadmill']) {
-      setStoreState({
-        activityType: type,
-        streams: makeStreams({
-          time: [0, 3600],
-          speed: [3, 4],
-          distance: [0, 12600],
-          altitude: [0, 0],
-          latlng: [
-            [0, 0],
-            [0.01, 0],
-          ],
-        }),
-        laps: [],
-        pausedDuration: 0,
-        startTime: Date.now(),
-      });
-
-      const { result } = renderHook(() => useRecordingMetrics());
-      // MET 10: 1h * 70kg * 10 = 700
-      expect(result.current.calories).toBe(700);
-    }
   });
 
   // -------------------------------------------------------------------------
@@ -611,7 +391,7 @@ describe('useRecordingMetrics', () => {
         makeLap({
           index: 0,
           startTime: 0,
-          endTime: 2, // endTime used as index -> streams.distance[2] = 500
+          endTime: 60, // lap ended at t=60s, which is sample index 2 (distance 500)
           distance: 500,
         }),
       ],
@@ -619,8 +399,9 @@ describe('useRecordingMetrics', () => {
 
     const { result } = renderHook(() => useRecordingMetrics());
 
-    // Total distance 1000, lapStartDistance = streams.distance[2] = 500
-    // lapDistance = 1000 - 500 = 500
+    // endTime is a seconds value, not an array index: the last lap ended at
+    // t=60s where cumulative distance is 500, and the current total is 1000, so
+    // the in-progress lap covers 1000 - 500 = 500.
     expect(result.current.lapDistance).toBe(500);
   });
 
@@ -649,110 +430,41 @@ describe('useRecordingMetrics', () => {
     expect(result.current.lapDistance).toBe(500);
   });
 
-  it('calculates lap time from moving time minus last lap endTime', () => {
-    setStoreState({
-      status: 'recording',
-      activityType: 'Ride',
-      startTime: Date.now(),
-      pausedDuration: 0,
-      streams: makeStreams({
-        time: [0, 30, 60, 90, 120],
-        speed: [5, 5, 5, 5, 5],
-        distance: [0, 250, 500, 750, 1000],
-        altitude: [0, 0, 0, 0, 0],
-        latlng: [
-          [0, 0],
-          [0.001, 0],
-          [0.002, 0],
-          [0.003, 0],
-          [0.004, 0],
-        ],
-      }),
-      laps: [
-        makeLap({
-          index: 0,
-          startTime: 0,
-          endTime: 60,
-          distance: 500,
-        }),
+  it('computes lap time as moving time minus last lap endTime, clamped to 0', () => {
+    // lapTime = max(0, (elapsed - paused) - lastLap.endTime). Pause time reduces it;
+    // pause exceeding elapsed clamps it to 0 rather than going negative.
+    const fivePointStream = makeStreams({
+      time: [0, 30, 60, 90, 120],
+      speed: [5, 5, 5, 5, 5],
+      distance: [0, 250, 500, 750, 1000],
+      altitude: [0, 0, 0, 0, 0],
+      latlng: [
+        [0, 0],
+        [0.001, 0],
+        [0.002, 0],
+        [0.003, 0],
+        [0.004, 0],
       ],
     });
+    const cases: { pausedDuration: number; endTime: number; expected: number }[] = [
+      { pausedDuration: 0, endTime: 60, expected: 60 }, // 120 - 60
+      { pausedDuration: 20000, endTime: 60, expected: 40 }, // (120 - 20) - 60
+      { pausedDuration: 100000, endTime: 60, expected: 0 }, // clamped: paused > elapsed
+    ];
 
-    const { result } = renderHook(() => useRecordingMetrics());
+    for (const { pausedDuration, endTime, expected } of cases) {
+      setStoreState({
+        status: 'recording',
+        activityType: 'Ride',
+        startTime: Date.now(),
+        pausedDuration,
+        streams: fivePointStream,
+        laps: [makeLap({ index: 0, startTime: 0, endTime, distance: 500 })],
+      });
 
-    // elapsedSeconds = time[4] = 120, pausedDuration = 0
-    // movingSeconds = 120, lapStartSeconds = 60
-    // lapTime = 120 - 60 = 60
-    expect(result.current.lapTime).toBe(60);
-  });
-
-  it('lap time accounts for paused duration', () => {
-    setStoreState({
-      status: 'recording',
-      activityType: 'Ride',
-      startTime: Date.now(),
-      pausedDuration: 20000, // 20 seconds paused
-      streams: makeStreams({
-        time: [0, 30, 60, 90, 120],
-        speed: [5, 5, 5, 5, 5],
-        distance: [0, 250, 500, 750, 1000],
-        altitude: [0, 0, 0, 0, 0],
-        latlng: [
-          [0, 0],
-          [0.001, 0],
-          [0.002, 0],
-          [0.003, 0],
-          [0.004, 0],
-        ],
-      }),
-      laps: [
-        makeLap({
-          index: 0,
-          startTime: 0,
-          endTime: 60,
-          distance: 500,
-        }),
-      ],
-    });
-
-    const { result } = renderHook(() => useRecordingMetrics());
-
-    // elapsedSeconds = 120, pausedDuration = 20s
-    // movingSeconds = 120 - 20 = 100
-    // lapTime = 100 - 60 = 40
-    expect(result.current.lapTime).toBe(40);
-  });
-
-  it('lap time never goes negative', () => {
-    setStoreState({
-      status: 'recording',
-      activityType: 'Ride',
-      startTime: Date.now(),
-      pausedDuration: 100000, // More than total elapsed
-      streams: makeStreams({
-        time: [0, 30, 60],
-        speed: [5, 5, 5],
-        distance: [0, 250, 500],
-        altitude: [0, 0, 0],
-        latlng: [
-          [0, 0],
-          [0.001, 0],
-          [0.002, 0],
-        ],
-      }),
-      laps: [
-        makeLap({
-          index: 0,
-          startTime: 0,
-          endTime: 30,
-          distance: 250,
-        }),
-      ],
-    });
-
-    const { result } = renderHook(() => useRecordingMetrics());
-
-    expect(result.current.lapTime).toBeGreaterThanOrEqual(0);
+      const { result } = renderHook(() => useRecordingMetrics());
+      expect(result.current.lapTime).toBe(expected);
+    }
   });
 
   // -------------------------------------------------------------------------

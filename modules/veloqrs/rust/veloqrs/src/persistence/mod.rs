@@ -188,8 +188,9 @@ pub struct MapActivityComplete {
 
 #[derive(Debug, Clone)]
 pub struct SectionDetectionProgress {
-    /// Current phase: "loading", "building_rtrees", "finding_overlaps",
-    /// "clustering", "postprocessing", "saving", "complete"
+    /// Current phase: "loading", "analyzing", "building_rtrees",
+    /// "finding_overlaps", "clustering", "postprocessing", "saving",
+    /// "complete"
     pub phase: Arc<std::sync::Mutex<String>>,
     /// Number of items completed in current phase
     pub completed: Arc<AtomicU32>,
@@ -207,7 +208,7 @@ impl SectionDetectionProgress {
     }
 
     pub fn set_phase(&self, phase: &str, total: u32) {
-        *self.phase.lock().unwrap() = phase.to_string();
+        *self.phase.lock().unwrap_or_else(|e| e.into_inner()) = phase.to_string();
         self.completed.store(0, Ordering::SeqCst);
         self.total.store(total, Ordering::SeqCst);
     }
@@ -217,7 +218,7 @@ impl SectionDetectionProgress {
     }
 
     pub fn get_phase(&self) -> String {
-        self.phase.lock().unwrap().clone()
+        self.phase.lock().unwrap_or_else(|e| e.into_inner()).clone()
     }
 
     pub fn get_completed(&self) -> u32 {
@@ -243,16 +244,17 @@ impl SectionDetectionProgress {
         };
 
         let (accumulated, weight) = match phase.as_str() {
-            "loading"                => (0.0,  0.05),
-            "building_rtrees"        => (0.05, 0.10),
-            "finding_overlaps"       => (0.15, 0.55),
-            "clustering"             => (0.70, 0.05),
-            "postprocessing"         => (0.75, 0.10),
-            "saving"                 => (0.85, 0.05),
-            "merging_cross_sport"    => (0.90, 0.03),
+            "loading" => (0.0, 0.04),
+            "analyzing" => (0.04, 0.01),
+            "building_rtrees" => (0.05, 0.10),
+            "finding_overlaps" => (0.15, 0.55),
+            "clustering" => (0.70, 0.05),
+            "postprocessing" => (0.75, 0.10),
+            "saving" => (0.85, 0.05),
+            "merging_cross_sport" => (0.90, 0.03),
             "recomputing_indicators" => (0.93, 0.04),
-            "complete"               => (1.0,  0.0),
-            _                        => return 50,
+            "complete" => (1.0, 0.0),
+            _ => return 50,
         };
         let pct = (accumulated + weight * fraction) * 100.0;
         (pct.round() as u32).min(100)
@@ -401,13 +403,13 @@ fn load_groups_from_db(conn: &Connection) -> Vec<RouteGroup> {
 
     let groups: Vec<RouteGroup> = stmt
         .query_map([], |row| {
-            let activity_ids: Vec<String> =
-                if let Ok(Some(blob)) = row.get::<_, Option<Vec<u8>>>(8) {
-                    codec::deserialize(&blob).unwrap_or_default()
-                } else {
-                    let json: String = row.get(2)?;
-                    serde_json::from_str(&json).unwrap_or_default()
-                };
+            let activity_ids: Vec<String> = if let Ok(Some(blob)) = row.get::<_, Option<Vec<u8>>>(8)
+            {
+                codec::deserialize(&blob).unwrap_or_default()
+            } else {
+                let json: String = row.get(2)?;
+                serde_json::from_str(&json).unwrap_or_default()
+            };
 
             let bounds = match (
                 row.get::<_, Option<f64>>(4)?,
@@ -492,8 +494,11 @@ pub struct PersistentRouteEngine {
     /// Activity metrics for performance calculations
     pub(crate) activity_metrics: HashMap<String, ActivityMetrics>,
 
-    /// Time streams for section performance calculations (activity_id -> cumulative times at each GPS point)
-    time_streams: HashMap<String, Vec<u32>>,
+    /// Tier 2: LRU cached time streams for section performance calculations
+    /// (activity_id -> cumulative times at each GPS point). Bounded so a large
+    /// activity history doesn't grow this cache without limit; misses reload
+    /// from the `time_streams` SQLite table.
+    time_streams: LruCache<String, Vec<u32>>,
 
     /// Cached sections (loaded from DB)
     sections: Vec<FrequentSection>,
@@ -547,7 +552,7 @@ impl PersistentRouteEngine {
             groups: Vec::new(),
             activity_matches: HashMap::new(),
             activity_metrics: HashMap::new(),
-            time_streams: HashMap::new(),
+            time_streams: LruCache::new(std::num::NonZeroUsize::new(200).unwrap()),
             sections: Vec::new(),
             processed_activity_ids: HashSet::new(),
             groups_dirty: false,
@@ -578,8 +583,10 @@ impl PersistentRouteEngine {
         // Backfill activities.duration_secs from activity_metrics.moving_time.
         // Route highlights need duration_secs to compute trends/PRs, but it was
         // historically not populated. This ensures it's always available at startup.
-        let backfilled = self.db.execute(
-            "UPDATE activities SET duration_secs = (
+        let backfilled = self
+            .db
+            .execute(
+                "UPDATE activities SET duration_secs = (
                 SELECT moving_time FROM activity_metrics
                 WHERE activity_metrics.activity_id = activities.id
             )
@@ -588,8 +595,9 @@ impl PersistentRouteEngine {
                 SELECT 1 FROM activity_metrics
                 WHERE activity_metrics.activity_id = activities.id
               )",
-            [],
-        ).unwrap_or(0);
+                [],
+            )
+            .unwrap_or(0);
         if backfilled > 0 {
             log::info!(
                 "tracematch: [PersistentEngine] Backfilled duration_secs for {} activities",
@@ -740,7 +748,10 @@ impl PersistentRouteEngine {
                 })
                 .map(|rows| rows.filter_map(|r| r.ok()).collect())
             })
-            .unwrap_or_default();
+            .unwrap_or_else(|e| {
+                log::warn!("tracematch: debug_clone_activity section query failed: {e:?}");
+                Vec::new()
+            });
 
         // Use epoch millis to ensure unique IDs across invocations
         let batch_ts = std::time::SystemTime::now()
@@ -756,8 +767,9 @@ impl PersistentRouteEngine {
                 continue;
             }
 
-            // Insert activity record
-            let _ = self.db.execute(
+            // Insert activity record; without it the clone doesn't exist, so
+            // skip the dependent inserts rather than counting a phantom clone.
+            if let Err(e) = self.db.execute(
                 "INSERT OR IGNORE INTO activities (id, sport_type, min_lat, max_lat, min_lng, max_lng)
                  VALUES (?, ?, ?, ?, ?, ?)",
                 rusqlite::params![
@@ -768,11 +780,14 @@ impl PersistentRouteEngine {
                     source_meta.bounds.min_lng,
                     source_meta.bounds.max_lng,
                 ],
-            );
+            ) {
+                log::warn!("tracematch: debug_clone_activity activity insert failed: {e:?}");
+                continue;
+            }
 
             // Insert activity metrics if available
             if let Some(ref metrics) = source_metrics {
-                let _ = self.db.execute(
+                if let Err(e) = self.db.execute(
                     "INSERT OR IGNORE INTO activity_metrics
                      (activity_id, name, date, distance, moving_time, elapsed_time,
                       elevation_gain, avg_hr, avg_power, sport_type)
@@ -789,7 +804,9 @@ impl PersistentRouteEngine {
                         metrics.avg_power,
                         metrics.sport_type,
                     ],
-                );
+                ) {
+                    log::warn!("tracematch: debug_clone_activity metrics insert failed: {e:?}");
+                }
 
                 // Add to in-memory metrics
                 let mut clone_metrics = metrics.clone();
@@ -802,7 +819,7 @@ impl PersistentRouteEngine {
             for (section_id, direction, start_idx, end_idx, distance, lap_time, lap_pace) in
                 &section_entries
             {
-                let _ = self.db.execute(
+                if let Err(e) = self.db.execute(
                     "INSERT OR IGNORE INTO section_activities
                      (section_id, activity_id, direction, start_index, end_index, distance_meters, lap_time, lap_pace)
                      VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
@@ -816,7 +833,9 @@ impl PersistentRouteEngine {
                         lap_time,
                         lap_pace
                     ],
-                );
+                ) {
+                    log::warn!("tracematch: debug_clone_activity section insert failed: {e:?}");
+                }
             }
 
             // Add to in-memory metadata
@@ -1135,10 +1154,54 @@ pub mod persistent_engine_ffi {
     use super::*;
     use log::info;
 
+    /// Guards one-time installation of the Rust panic hook.
+    static PANIC_HOOK_INIT: std::sync::Once = std::sync::Once::new();
+
+    /// Install a process-wide panic hook (once) that appends the panic
+    /// message + location to `veloq_panic.log` in the DB directory. Under
+    /// `panic = "abort"` the process dies before any JS handler runs, so this
+    /// file is the only record the JS crash sink (source: 'rust-panic') can
+    /// recover on the next launch. Infallible: write errors are ignored.
+    fn install_panic_hook(db_path: &str) {
+        let log_path = std::path::Path::new(db_path)
+            .parent()
+            .unwrap_or_else(|| std::path::Path::new("."))
+            .join("veloq_panic.log");
+
+        PANIC_HOOK_INIT.call_once(move || {
+            let default_hook = std::panic::take_hook();
+            std::panic::set_hook(Box::new(move |info| {
+                use std::io::Write;
+                let location = info
+                    .location()
+                    .map(|l| format!("{}:{}:{}", l.file(), l.line(), l.column()))
+                    .unwrap_or_else(|| "unknown".to_string());
+                let message = info.payload().downcast_ref::<&str>().map_or_else(
+                    || {
+                        info.payload()
+                            .downcast_ref::<String>()
+                            .cloned()
+                            .unwrap_or_else(|| "<non-string panic payload>".to_string())
+                    },
+                    |s| s.to_string(),
+                );
+                if let Ok(mut file) = std::fs::OpenOptions::new()
+                    .create(true)
+                    .append(true)
+                    .open(&log_path)
+                {
+                    let _ = writeln!(file, "panic at {}: {}", location, message);
+                }
+                default_hook(info);
+            }));
+        });
+    }
+
     /// Initialize the persistent engine with a database path.
     /// Called by VeloqEngine::create() — not exported via FFI directly.
     pub fn persistent_engine_init(db_path: String) -> bool {
         crate::init_logging();
+        install_panic_hook(&db_path);
         info!(
             "tracematch: [PersistentEngine] Initializing with db: {}",
             db_path
@@ -2053,7 +2116,10 @@ mod tests {
         use super::sections::compute_lap_time_from_stream;
 
         // No stream available.
-        assert_eq!(compute_lap_time_from_stream(None, 0, 5, 100.0), (None, None));
+        assert_eq!(
+            compute_lap_time_from_stream(None, 0, 5, 100.0),
+            (None, None)
+        );
 
         // Zero-duration traversal (start == end).
         let times: Vec<u32> = vec![10, 20, 30];

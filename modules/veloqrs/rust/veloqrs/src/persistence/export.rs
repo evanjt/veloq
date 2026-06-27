@@ -43,16 +43,26 @@ impl PersistentRouteEngine {
              ORDER BY m.date DESC"
         ).map_err(|e| format!("Query failed: {}", e))?;
 
-        let rows = stmt.query_map([], |row| {
-            let activity_id: String = row.get(0)?;
-            let track_blob: Vec<u8> = row.get(1)?;
-            let name: Option<String> = row.get(2)?;
-            let sport_type: Option<String> = row.get(3)?;
-            let date: Option<i64> = row.get(4)?;
-            let distance: Option<f64> = row.get(5)?;
-            let moving_time: Option<i64> = row.get(6)?;
-            Ok((activity_id, track_blob, name, sport_type, date, distance, moving_time))
-        }).map_err(|e| format!("Query failed: {}", e))?;
+        let rows = stmt
+            .query_map([], |row| {
+                let activity_id: String = row.get(0)?;
+                let track_blob: Vec<u8> = row.get(1)?;
+                let name: Option<String> = row.get(2)?;
+                let sport_type: Option<String> = row.get(3)?;
+                let date: Option<i64> = row.get(4)?;
+                let distance: Option<f64> = row.get(5)?;
+                let moving_time: Option<i64> = row.get(6)?;
+                Ok((
+                    activity_id,
+                    track_blob,
+                    name,
+                    sport_type,
+                    date,
+                    distance,
+                    moving_time,
+                ))
+            })
+            .map_err(|e| format!("Query failed: {}", e))?;
 
         // Metadata entries for activities.json
         let mut metadata_entries: Vec<serde_json::Value> = Vec::new();
@@ -61,13 +71,19 @@ impl PersistentRouteEngine {
             let (activity_id, track_blob, name, sport_type, date, distance, moving_time) =
                 match row_result {
                     Ok(r) => r,
-                    Err(_) => { skipped += 1; continue; }
+                    Err(_) => {
+                        skipped += 1;
+                        continue;
+                    }
                 };
 
             // Deserialize GPS track
             let points: Vec<GpsPoint> = match codec::deserialize_points(&track_blob) {
                 Ok(p) => p,
-                Err(_) => { skipped += 1; continue; }
+                Err(_) => {
+                    skipped += 1;
+                    continue;
+                }
             };
 
             if points.is_empty() {
@@ -82,11 +98,13 @@ impl PersistentRouteEngine {
                     .map(|dt| dt.format("%Y-%m-%dT%H:%M:%SZ").to_string())
                     .unwrap_or_default()
             });
-            let date_prefix = date.map(|ts| {
-                chrono::DateTime::from_timestamp(ts, 0)
-                    .map(|dt| dt.format("%Y-%m-%d").to_string())
-                    .unwrap_or_else(|| "unknown".to_string())
-            }).unwrap_or_else(|| "unknown".to_string());
+            let date_prefix = date
+                .map(|ts| {
+                    chrono::DateTime::from_timestamp(ts, 0)
+                        .map(|dt| dt.format("%Y-%m-%d").to_string())
+                        .unwrap_or_else(|| "unknown".to_string())
+                })
+                .unwrap_or_else(|| "unknown".to_string());
 
             // Generate GPX XML
             let gpx = generate_gpx(display_name, sport, date_str.as_deref(), &points);
@@ -94,7 +112,13 @@ impl PersistentRouteEngine {
             // Sanitize filename
             let safe_name: String = display_name
                 .chars()
-                .map(|c| if c.is_alphanumeric() || c == '-' || c == '_' { c } else { '_' })
+                .map(|c| {
+                    if c.is_alphanumeric() || c == '-' || c == '_' {
+                        c
+                    } else {
+                        '_'
+                    }
+                })
                 .take(60)
                 .collect();
             let filename = format!("{}_{}.gpx", date_prefix, safe_name);
@@ -127,23 +151,28 @@ impl PersistentRouteEngine {
         }
 
         // Also add activities WITHOUT GPS tracks to metadata
-        let mut no_gps_stmt = self.db.prepare(
-            "SELECT m.activity_id, m.name, m.sport_type, m.date, m.distance, m.moving_time
+        let mut no_gps_stmt = self
+            .db
+            .prepare(
+                "SELECT m.activity_id, m.name, m.sport_type, m.date, m.distance, m.moving_time
              FROM activity_metrics m
              WHERE m.activity_id NOT IN (SELECT activity_id FROM gps_tracks)
-             ORDER BY m.date DESC"
-        ).map_err(|e| format!("No-GPS query failed: {}", e))?;
+             ORDER BY m.date DESC",
+            )
+            .map_err(|e| format!("No-GPS query failed: {}", e))?;
 
-        let no_gps_rows = no_gps_stmt.query_map([], |row| {
-            Ok((
-                row.get::<_, String>(0)?,
-                row.get::<_, Option<String>>(1)?,
-                row.get::<_, Option<String>>(2)?,
-                row.get::<_, Option<i64>>(3)?,
-                row.get::<_, Option<f64>>(4)?,
-                row.get::<_, Option<i64>>(5)?,
-            ))
-        }).map_err(|e| format!("No-GPS query failed: {}", e))?;
+        let no_gps_rows = no_gps_stmt
+            .query_map([], |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, Option<String>>(1)?,
+                    row.get::<_, Option<String>>(2)?,
+                    row.get::<_, Option<i64>>(3)?,
+                    row.get::<_, Option<f64>>(4)?,
+                    row.get::<_, Option<i64>>(5)?,
+                ))
+            })
+            .map_err(|e| format!("No-GPS query failed: {}", e))?;
 
         for row_result in no_gps_rows {
             if let Ok((id, name, sport, date, distance, moving_time)) = row_result {
@@ -165,22 +194,29 @@ impl PersistentRouteEngine {
         }
 
         // Write activities.json metadata
-        let meta_json = serde_json::to_string_pretty(&metadata_entries)
-            .unwrap_or_else(|_| "[]".to_string());
+        let meta_json =
+            serde_json::to_string_pretty(&metadata_entries).unwrap_or_else(|_| "[]".to_string());
         zip.start_file("activities.json", options)
             .map_err(|e| format!("Failed to write metadata: {}", e))?;
         zip.write_all(meta_json.as_bytes())
             .map_err(|e| format!("Failed to write metadata: {}", e))?;
         total_bytes += meta_json.len() as u64;
 
-        zip.finish().map_err(|e| format!("Failed to finalize ZIP: {}", e))?;
+        zip.finish()
+            .map_err(|e| format!("Failed to finalize ZIP: {}", e))?;
 
         log::info!(
             "[BulkExport] Exported {} activities ({} skipped), {} bytes uncompressed",
-            exported, skipped, total_bytes
+            exported,
+            skipped,
+            total_bytes
         );
 
-        Ok(BulkExportResult { exported, skipped, total_bytes })
+        Ok(BulkExportResult {
+            exported,
+            skipped,
+            total_bytes,
+        })
     }
 
     /// Export all activities with GPS data as a single GeoJSON FeatureCollection.
@@ -199,7 +235,8 @@ impl PersistentRouteEngine {
         let mut total_bytes: u64 = 0;
 
         // Write FeatureCollection header
-        writer.write_all(b"{\"type\":\"FeatureCollection\",\"features\":[\n")
+        writer
+            .write_all(b"{\"type\":\"FeatureCollection\",\"features\":[\n")
             .map_err(|e| format!("Write failed: {}", e))?;
 
         let mut stmt = self.db.prepare(
@@ -209,29 +246,37 @@ impl PersistentRouteEngine {
              ORDER BY m.date DESC"
         ).map_err(|e| format!("Query failed: {}", e))?;
 
-        let rows = stmt.query_map([], |row| {
-            Ok((
-                row.get::<_, String>(0)?,
-                row.get::<_, Vec<u8>>(1)?,
-                row.get::<_, Option<String>>(2)?,
-                row.get::<_, Option<String>>(3)?,
-                row.get::<_, Option<i64>>(4)?,
-                row.get::<_, Option<f64>>(5)?,
-                row.get::<_, Option<i64>>(6)?,
-            ))
-        }).map_err(|e| format!("Query failed: {}", e))?;
+        let rows = stmt
+            .query_map([], |row| {
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, Vec<u8>>(1)?,
+                    row.get::<_, Option<String>>(2)?,
+                    row.get::<_, Option<String>>(3)?,
+                    row.get::<_, Option<i64>>(4)?,
+                    row.get::<_, Option<f64>>(5)?,
+                    row.get::<_, Option<i64>>(6)?,
+                ))
+            })
+            .map_err(|e| format!("Query failed: {}", e))?;
 
         let mut first = true;
         for row_result in rows {
             let (activity_id, track_blob, name, sport_type, date, distance, moving_time) =
                 match row_result {
                     Ok(r) => r,
-                    Err(_) => { skipped += 1; continue; }
+                    Err(_) => {
+                        skipped += 1;
+                        continue;
+                    }
                 };
 
             let points: Vec<GpsPoint> = match codec::deserialize_points(&track_blob) {
                 Ok(p) => p,
-                Err(_) => { skipped += 1; continue; }
+                Err(_) => {
+                    skipped += 1;
+                    continue;
+                }
             };
 
             if points.is_empty() {
@@ -247,7 +292,8 @@ impl PersistentRouteEngine {
             });
 
             // Build coordinates array: [[lng, lat], ...]
-            let coords: Vec<[f64; 2]> = points.iter()
+            let coords: Vec<[f64; 2]> = points
+                .iter()
                 .filter(|p| p.latitude.is_finite() && p.longitude.is_finite())
                 .map(|p| [p.longitude, p.latitude])
                 .collect();
@@ -277,10 +323,12 @@ impl PersistentRouteEngine {
                 .map_err(|e| format!("JSON serialization failed: {}", e))?;
 
             if !first {
-                writer.write_all(b",\n")
+                writer
+                    .write_all(b",\n")
                     .map_err(|e| format!("Write failed: {}", e))?;
             }
-            writer.write_all(feature_json.as_bytes())
+            writer
+                .write_all(feature_json.as_bytes())
                 .map_err(|e| format!("Write failed: {}", e))?;
 
             total_bytes += feature_json.len() as u64;
@@ -289,17 +337,23 @@ impl PersistentRouteEngine {
         }
 
         // Close FeatureCollection
-        writer.write_all(b"\n]}")
+        writer
+            .write_all(b"\n]}")
             .map_err(|e| format!("Write failed: {}", e))?;
-        writer.flush()
-            .map_err(|e| format!("Flush failed: {}", e))?;
+        writer.flush().map_err(|e| format!("Flush failed: {}", e))?;
 
         log::info!(
             "[BulkExport] GeoJSON exported {} activities ({} skipped), {} bytes",
-            exported, skipped, total_bytes
+            exported,
+            skipped,
+            total_bytes
         );
 
-        Ok(BulkExportResult { exported, skipped, total_bytes })
+        Ok(BulkExportResult {
+            exported,
+            skipped,
+            total_bytes,
+        })
     }
 }
 

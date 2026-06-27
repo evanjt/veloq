@@ -1,91 +1,10 @@
 /**
  * Regression tests for bugs from docs/AUDIT.md Tier 1.
  * Tests verify that fixes for real crash risks remain in place.
+ *
+ * Note: the Invalid-Date sort guard (safeGetTime) is covered exhaustively in
+ * nanSortComparators.test.ts, so it is not duplicated here.
  */
-
-import { safeGetTime } from '@/lib/utils/format';
-
-describe('AUDIT Bug 10.7: Null date in performance sort', () => {
-  /**
-   * src/hooks/routes/useRoutePerformances.ts:239
-   *
-   * Code: points.sort((a, b) => a.date.getTime() - b.date.getTime())
-   *
-   * If a date is Invalid Date (e.g. from `new Date('invalid')`),
-   * `.getTime()` returns NaN, and NaN comparisons yield undefined
-   * sort behavior per the ECMAScript spec (Array.prototype.sort
-   * with a comparator returning NaN is implementation-defined).
-   */
-
-  // Replicate the fixed sort pattern from useRoutePerformances.ts:239
-  const sortByDate = (points: { date: Date }[]) =>
-    [...points].sort((a, b) => safeGetTime(a.date) - safeGetTime(b.date));
-
-  it('sorts valid dates correctly', () => {
-    const points = [
-      { date: new Date('2026-03-01') },
-      { date: new Date('2026-01-01') },
-      { date: new Date('2026-02-01') },
-    ];
-
-    const sorted = sortByDate(points);
-
-    expect(sorted[0].date.getTime()).toBe(new Date('2026-01-01').getTime());
-    expect(sorted[1].date.getTime()).toBe(new Date('2026-02-01').getTime());
-    expect(sorted[2].date.getTime()).toBe(new Date('2026-03-01').getTime());
-  });
-
-  it('produces deterministic order when some dates are Invalid Date', () => {
-    const points = [
-      { date: new Date('2026-03-01') },
-      { date: new Date('invalid') },
-      { date: new Date('2026-01-01') },
-      { date: new Date('invalid') },
-      { date: new Date('2026-02-01') },
-    ];
-
-    const sorted1 = sortByDate(points);
-    const sorted2 = sortByDate(points);
-
-    // With NaN comparisons, the sort is not guaranteed to be stable or
-    // deterministic across engines. Even if V8 happens to produce
-    // consistent output today, this is undefined behavior.
-    // A correct implementation should handle Invalid Date explicitly.
-    const timestamps1 = sorted1.map((p) => p.date.getTime());
-    const timestamps2 = sorted2.map((p) => p.date.getTime());
-    expect(timestamps1).toEqual(timestamps2);
-
-    // Additionally, valid dates should still be in order relative to each other
-    const validDates = sorted1.filter((p) => !isNaN(p.date.getTime()));
-    for (let i = 1; i < validDates.length; i++) {
-      expect(validDates[i].date.getTime()).toBeGreaterThanOrEqual(validDates[i - 1].date.getTime());
-    }
-  });
-
-  it('confirms Invalid Date getTime() returns NaN (the root cause)', () => {
-    const invalid = new Date('invalid');
-    expect(invalid.getTime()).toBeNaN();
-    expect(invalid.getTime() - 0).toBeNaN();
-    // NaN comparisons are always false
-    expect(NaN < 0).toBe(false);
-    expect(NaN > 0).toBe(false);
-    expect(Number.isNaN(0)).toBe(false);
-  });
-
-  it('confirms NaN in sort comparator breaks ordering guarantees', () => {
-    // This demonstrates the core issue: NaN comparisons don't satisfy
-    // the strict weak ordering requirement of Array.prototype.sort
-    const values = [3, NaN, 1, NaN, 2];
-    const sorted = [...values].sort((a, b) => a - b);
-
-    // We can't assert a specific order because it's undefined behavior.
-    // But we CAN verify that valid numbers may end up out of order,
-    // which is the bug: a non-throwing sort with wrong results.
-    expect(sorted).toHaveLength(5);
-    // The sort completes without throwing - that's the insidious part.
-    // It silently produces wrong results instead of failing loudly.
-  });
-});
 
 describe('AUDIT Bug 10.2: Median of empty array', () => {
   /**
@@ -127,11 +46,6 @@ describe('AUDIT Bug 10.2: Median of empty array', () => {
 
   it('handles unsorted input', () => {
     expect(median([3, 1, 2])).toBe(2);
-  });
-
-  it('empty array returns 0 (fixed)', () => {
-    const result = median([]);
-    expect(result).toBe(0);
   });
 });
 

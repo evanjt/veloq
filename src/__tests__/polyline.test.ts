@@ -4,25 +4,24 @@ import {
   normalizeBounds,
   getBounds,
   getBoundsCenter,
-} from '../lib/geo/polyline';
+} from '@/shared/geo/polyline';
 
 describe('detectCoordinateFormat', () => {
-  it('should detect [lat, lng] format when longitude exceeds 90', () => {
-    // Sydney, Australia: lat ~-33.8, lng ~151.2
-    const coords: [number, number][] = [
-      [-33.8688, 151.2093],
-      [-33.87, 151.21],
-    ];
-    expect(detectCoordinateFormat(coords)).toBe('latLng');
-  });
-
-  it('should detect [lng, lat] format when first value exceeds 90', () => {
-    // Same location but [lng, lat] order
-    const coords: [number, number][] = [
-      [151.2093, -33.8688],
-      [151.21, -33.87],
-    ];
-    expect(detectCoordinateFormat(coords)).toBe('lngLat');
+  it('should detect coordinate order from which value exceeds 90', () => {
+    // Sydney, Australia: lat ~-33.8, lng ~151.2 — longitude > 90 disambiguates.
+    expect(
+      detectCoordinateFormat([
+        [-33.8688, 151.2093],
+        [-33.87, 151.21],
+      ])
+    ).toBe('latLng');
+    // Same location but [lng, lat] order — first value > 90.
+    expect(
+      detectCoordinateFormat([
+        [151.2093, -33.8688],
+        [151.21, -33.87],
+      ])
+    ).toBe('lngLat');
   });
 
   it('should skip invalid coordinates when detecting format', () => {
@@ -36,26 +35,24 @@ describe('detectCoordinateFormat', () => {
 });
 
 describe('convertLatLngTuples', () => {
-  it('should convert [lat, lng] tuples to LatLng objects', () => {
-    const tuples: [number, number][] = [
-      [-33.8688, 151.2093],
-      [-33.87, 151.21],
+  it('should convert tuples to LatLng objects, auto-detecting order', () => {
+    const expected = [
+      { latitude: -33.8688, longitude: 151.2093 },
+      { latitude: -33.87, longitude: 151.21 },
     ];
-    const result = convertLatLngTuples(tuples);
-
-    expect(result[0]).toEqual({ latitude: -33.8688, longitude: 151.2093 });
-    expect(result[1]).toEqual({ latitude: -33.87, longitude: 151.21 });
-  });
-
-  it('should auto-detect and convert [lng, lat] tuples', () => {
-    const tuples: [number, number][] = [
-      [151.2093, -33.8688],
-      [151.21, -33.87],
-    ];
-    const result = convertLatLngTuples(tuples);
-
-    expect(result[0]).toEqual({ latitude: -33.8688, longitude: 151.2093 });
-    expect(result[1]).toEqual({ latitude: -33.87, longitude: 151.21 });
+    expect(
+      convertLatLngTuples([
+        [-33.8688, 151.2093],
+        [-33.87, 151.21],
+      ])
+    ).toEqual(expected);
+    // Same coordinates in [lng, lat] order auto-detect to the same objects.
+    expect(
+      convertLatLngTuples([
+        [151.2093, -33.8688],
+        [151.21, -33.87],
+      ])
+    ).toEqual(expected);
   });
 
   it('should return empty array for empty input', () => {
@@ -64,32 +61,24 @@ describe('convertLatLngTuples', () => {
 });
 
 describe('normalizeBounds', () => {
-  it('should normalize [[lat, lng], [lat, lng]] bounds', () => {
-    // Sydney area bounds in [lat, lng] format
-    const bounds: [[number, number], [number, number]] = [
-      [-34.0, 150.5], // SW corner
-      [-33.5, 151.5], // NE corner
+  it('should normalize bounds regardless of corner order', () => {
+    const corners: [[number, number], [number, number]][] = [
+      [
+        [-34.0, 150.5], // SW corner first
+        [-33.5, 151.5], // NE corner second
+      ],
+      [
+        [-33.5, 151.5], // NE corner first (swapped)
+        [-34.0, 150.5], // SW corner second
+      ],
     ];
-    const result = normalizeBounds(bounds);
-
-    expect(result.minLat).toBe(-34.0);
-    expect(result.maxLat).toBe(-33.5);
-    expect(result.minLng).toBe(150.5);
-    expect(result.maxLng).toBe(151.5);
-  });
-
-  it('should handle bounds where corners are swapped', () => {
-    // NE before SW
-    const bounds: [[number, number], [number, number]] = [
-      [-33.5, 151.5], // NE corner
-      [-34.0, 150.5], // SW corner
-    ];
-    const result = normalizeBounds(bounds);
-
-    expect(result.minLat).toBe(-34.0);
-    expect(result.maxLat).toBe(-33.5);
-    expect(result.minLng).toBe(150.5);
-    expect(result.maxLng).toBe(151.5);
+    for (const bounds of corners) {
+      const result = normalizeBounds(bounds);
+      expect(result.minLat).toBe(-34.0);
+      expect(result.maxLat).toBe(-33.5);
+      expect(result.minLng).toBe(150.5);
+      expect(result.maxLng).toBe(151.5);
+    }
   });
 });
 

@@ -21,9 +21,9 @@ import {
   formatCalories,
   formatLocalDate,
   formatTSS,
-} from '@/lib/utils/format';
-import { parseStreams } from '@/lib/utils/streams';
-import { calculateTSB, getFormZone } from '@/lib/algorithms/fitness';
+} from '@/shared/format/format';
+import { parseStreams } from '@/features/activity/lib/streams';
+import { calculateTSB, getFormZone } from '@/features/fitness/lib/fitness';
 import type { RawStreamItem, WellnessData } from '@/types';
 
 // Mock veloqrs native module — toActivityMetrics imports the type
@@ -31,7 +31,7 @@ jest.mock('veloqrs', () => ({}));
 
 // Import after mock is set up
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const { toActivityMetrics } = require('@/lib/utils/activityMetrics');
+const { toActivityMetrics } = require('@/features/activity/lib/activityMetrics');
 
 // ============================================================================
 // FIXTURES — stable test activities from demo data
@@ -259,39 +259,7 @@ describe('Data Pipeline', () => {
 // ============================================================================
 
 describe('Resilience', () => {
-  // All format functions that accept a single number
-  const numericFormatFunctions: [string, (n: number) => string][] = [
-    ['formatDistance', formatDistance],
-    ['formatDuration', formatDuration],
-    ['formatPace', formatPace],
-    ['formatPaceCompact', formatPaceCompact],
-    ['formatSwimPace', formatSwimPace],
-    ['formatSpeed', formatSpeed],
-    ['formatHeartRate', formatHeartRate],
-    ['formatPower', formatPower],
-    ['formatCalories', formatCalories],
-    ['formatTSS', formatTSS],
-  ];
-
-  // Functions that accept number | undefined | null
-  const nullableFormatFunctions: [string, (n: number | undefined | null) => string][] = [
-    ['formatElevation', formatElevation],
-    ['formatTemperature', formatTemperature],
-  ];
-
-  // Test 13: NaN → no output contains "NaN"
-  it('every format function with NaN → no output contains "NaN"', () => {
-    for (const [name, fn] of numericFormatFunctions) {
-      const result = fn(NaN);
-      expect(result).not.toContain('NaN');
-      // Also verify it's a non-empty string
-      expect(result.length).toBeGreaterThan(0);
-    }
-    for (const [name, fn] of nullableFormatFunctions) {
-      const result = fn(NaN);
-      expect(result).not.toContain('NaN');
-    }
-  });
+  // NaN resilience across every formatter lives in format.test.ts ("NaN/Infinity wall").
 
   // Test 19: formatDuration at hour/minute boundaries
   it('formatDuration: 0, 59, 60, 3599, 3600 → correct format transitions', () => {

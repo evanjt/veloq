@@ -63,9 +63,10 @@ impl VeloqEngine {
     /// Used when route matching is toggled off.
     fn clear_routes_and_sections(&self) -> Result<(), VeloqError> {
         with_engine(|e| {
-            e.clear_routes_and_sections().map_err(|e| VeloqError::Database {
-                msg: format!("{}", e),
-            })
+            e.clear_routes_and_sections()
+                .map_err(|e| VeloqError::Database {
+                    msg: format!("{}", e),
+                })
         })?
     }
 
@@ -167,13 +168,9 @@ impl VeloqEngine {
     fn get_backup_metadata(&self) -> Result<String, VeloqError> {
         with_engine(|e| {
             let stats = e.stats();
-            let athlete_id: Option<String> = e
-                .get_setting("__athlete_id")
-                .ok()
-                .flatten();
-            let schema_version = e
-                .db
-                .query_row(
+            let athlete_id: Option<String> = e.get_setting("__athlete_id").ok().flatten();
+            let schema_version =
+                e.db.query_row(
                     "SELECT value FROM schema_info WHERE key = 'schema_version'",
                     [],
                     |row| row.get::<_, String>(0),
@@ -195,16 +192,24 @@ impl VeloqEngine {
 
     /// Bulk export all activities with GPS data as a ZIP of GPX files.
     /// Streams one track at a time — constant memory regardless of activity count.
-    fn bulk_export_gpx(&self, dest_path: String) -> Result<crate::persistence::export::BulkExportResult, VeloqError> {
+    fn bulk_export_gpx(
+        &self,
+        dest_path: String,
+    ) -> Result<crate::persistence::export::BulkExportResult, VeloqError> {
         with_engine(|e| {
-            e.bulk_export_gpx(&dest_path).map_err(|msg| VeloqError::Database { msg })
+            e.bulk_export_gpx(&dest_path)
+                .map_err(|msg| VeloqError::Database { msg })
         })?
     }
 
     /// Bulk export all activities with GPS data as a single GeoJSON FeatureCollection.
-    fn bulk_export_geojson(&self, dest_path: String) -> Result<crate::persistence::export::BulkExportResult, VeloqError> {
+    fn bulk_export_geojson(
+        &self,
+        dest_path: String,
+    ) -> Result<crate::persistence::export::BulkExportResult, VeloqError> {
         with_engine(|e| {
-            e.bulk_export_geojson(&dest_path).map_err(|msg| VeloqError::Database { msg })
+            e.bulk_export_geojson(&dest_path)
+                .map_err(|msg| VeloqError::Database { msg })
         })?
     }
 }

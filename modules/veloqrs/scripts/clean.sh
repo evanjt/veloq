@@ -73,6 +73,17 @@ if [ -d "$MODULE_DIR/ios/build" ]; then
   rm -rf "$MODULE_DIR/ios/build"
 fi
 
+# Rust source-content hash marker (forces a rebuild on next build)
+rm -f "$MODULE_DIR/.rust-source-hash"
+
+# iOS: the xcframework Xcode actually links lives in DerivedData, not the repo.
+# Clearing ios/Frameworks above leaves a stale copy that relinks against the old
+# .a (undefined-symbol errors), so remove the DerivedData intermediate too.
+if [ "$(uname)" = "Darwin" ]; then
+  echo "  Removing DerivedData Veloqrs xcframework intermediates"
+  rm -rf "$HOME/Library/Developer/Xcode/DerivedData/VeloqDev-"*/Build/Products/*/XCFrameworkIntermediates/Veloqrs 2>/dev/null || true
+fi
+
 if [ "$FULL" = true ]; then
   echo "✅ Full clean complete (including Rust compilation cache). Rebuild will recompile from scratch."
 else

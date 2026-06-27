@@ -6,8 +6,8 @@
  */
 
 import { renderHook, act } from '@testing-library/react-native';
-import { useRecordingStore } from '@/providers/RecordingStore';
-import { useTimer } from '@/hooks/recording/useTimer';
+import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
+import { useTimer } from '@/features/recording/hooks/useTimer';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -42,31 +42,29 @@ describe('useTimer', () => {
   // Idle / stopped state
   // -------------------------------------------------------------------------
 
-  it('returns zeroed values when status is idle', () => {
-    const { result } = renderHook(() => useTimer());
+  it('returns zeroed values for idle, stopped, and null-startTime states', () => {
+    // No active recording -> all times 0 and all formatted fields "00:00".
+    const states: Record<string, unknown>[] = [
+      {}, // default idle
+      { status: 'stopped', startTime: null },
+      { status: 'recording', startTime: null }, // recording but no startTime
+    ];
 
-    expect(result.current.elapsedTime).toBe(0);
-    expect(result.current.movingTime).toBe(0);
-    expect(result.current.lapTime).toBe(0);
-    expect(result.current.formattedElapsed).toBe('00:00');
-    expect(result.current.formattedMoving).toBe('00:00');
-    expect(result.current.formattedLap).toBe('00:00');
-  });
+    for (const state of states) {
+      resetStore();
+      if (Object.keys(state).length > 0) {
+        setStoreState(state);
+      }
 
-  it('returns zeroed values when status is stopped', () => {
-    setStoreState({ status: 'stopped', startTime: null });
-    const { result } = renderHook(() => useTimer());
+      const { result } = renderHook(() => useTimer());
 
-    expect(result.current.elapsedTime).toBe(0);
-    expect(result.current.formattedElapsed).toBe('00:00');
-  });
-
-  it('returns zeroed values when startTime is null even if status is recording', () => {
-    setStoreState({ status: 'recording', startTime: null });
-    const { result } = renderHook(() => useTimer());
-
-    expect(result.current.elapsedTime).toBe(0);
-    expect(result.current.movingTime).toBe(0);
+      expect(result.current.elapsedTime).toBe(0);
+      expect(result.current.movingTime).toBe(0);
+      expect(result.current.lapTime).toBe(0);
+      expect(result.current.formattedElapsed).toBe('00:00');
+      expect(result.current.formattedMoving).toBe('00:00');
+      expect(result.current.formattedLap).toBe('00:00');
+    }
   });
 
   // -------------------------------------------------------------------------
@@ -179,99 +177,72 @@ describe('useTimer', () => {
     expect(result.current.lapTime).toBe(result.current.movingTime);
   });
 
-  it('calculates lap time from last lap endTime', () => {
-    const now = Date.now();
-    setStoreState({
-      status: 'recording',
-      startTime: now - 120000, // 120 seconds ago
-      pausedDuration: 0,
-      laps: [
-        {
-          index: 0,
-          startTime: 0,
-          endTime: 60, // First lap ended at 60s moving time
-          distance: 1000,
-          avgSpeed: 16.67,
-          avgHeartrate: null,
-          avgPower: null,
-          avgCadence: null,
-        },
-      ],
-    });
+  it('computes lap time as moving time minus last lap endTime across lap setups', () => {
+    // lapTime ≈ (elapsed - paused) - lastLap.endTime. Covers a single lap, a paused
+    // recording, and multiple laps (last lap wins).
+    const laps = (...ends: number[]) =>
+      ends.map((endTime, index) => ({
+        index,
+        startTime: index === 0 ? 0 : ends[index - 1],
+        endTime,
+        distance: 500,
+        avgSpeed: 10,
+        avgHeartrate: null,
+        avgPower: null,
+        avgCadence: null,
+      }));
+    const cases: {
+      elapsedMs: number;
+      pausedMs: number;
+      ends: number[];
+      lapRange: [number, number];
+      minMoving?: number;
+    }[] = [
+      { elapsedMs: 120000, pausedMs: 0, ends: [60], lapRange: [58, 62] },
+      { elapsedMs: 120000, pausedMs: 20000, ends: [50], lapRange: [48, 52], minMoving: 98 },
+      { elapsedMs: 300000, pausedMs: 0, ends: [100, 200], lapRange: [98, 102] },
+    ];
 
-    const { result } = renderHook(() => useTimer());
+    for (const { elapsedMs, pausedMs, ends, lapRange, minMoving } of cases) {
+      setStoreState({
+        status: 'recording',
+        startTime: Date.now() - elapsedMs,
+        pausedDuration: pausedMs,
+        laps: laps(...ends),
+      });
 
-    // Moving time ~120s, lap started at 60s, so lap time ~60s
-    expect(result.current.lapTime).toBeGreaterThanOrEqual(58);
-    expect(result.current.lapTime).toBeLessThanOrEqual(62);
-  });
+      const { result } = renderHook(() => useTimer());
 
-  it('lap time accounts for paused duration correctly', () => {
-    const now = Date.now();
-    setStoreState({
-      status: 'recording',
-      startTime: now - 120000, // 120s ago
-      pausedDuration: 20000, // 20s paused
-      laps: [
-        {
-          index: 0,
-          startTime: 0,
-          endTime: 50, // First lap ended at 50s moving time
-          distance: 500,
-          avgSpeed: 10,
-          avgHeartrate: null,
-          avgPower: null,
-          avgCadence: null,
-        },
-      ],
-    });
-
-    const { result } = renderHook(() => useTimer());
-
-    // Elapsed ~120s, moving ~100s (120-20), lap started at 50s -> lap time ~50s
-    expect(result.current.movingTime).toBeGreaterThanOrEqual(98);
-    expect(result.current.lapTime).toBeGreaterThanOrEqual(48);
-    expect(result.current.lapTime).toBeLessThanOrEqual(52);
+      if (minMoving !== undefined) {
+        expect(result.current.movingTime).toBeGreaterThanOrEqual(minMoving);
+      }
+      expect(result.current.lapTime).toBeGreaterThanOrEqual(lapRange[0]);
+      expect(result.current.lapTime).toBeLessThanOrEqual(lapRange[1]);
+    }
   });
 
   // -------------------------------------------------------------------------
   // Time formatting
   // -------------------------------------------------------------------------
 
-  it('formats seconds under an hour as mm:ss', () => {
-    const now = Date.now();
-    setStoreState({
-      status: 'recording',
-      startTime: now - 125000, // 125 seconds = 2:05
-      pausedDuration: 0,
-      laps: [],
-    });
+  it('formats elapsed as mm:ss under an hour and hh:mm:ss over an hour', () => {
+    // Zero formatting ("00:00") is covered by the idle-states test above.
+    const cases: { agoMs: number; pattern: RegExp }[] = [
+      { agoMs: 125000, pattern: /^02:05$/ }, // 2:05
+      { agoMs: 3661000, pattern: /^01:01:01$/ }, // 1h1m1s
+    ];
 
-    const { result } = renderHook(() => useTimer());
+    for (const { agoMs, pattern } of cases) {
+      setStoreState({
+        status: 'recording',
+        startTime: Date.now() - agoMs,
+        pausedDuration: 0,
+        laps: [],
+      });
 
-    expect(result.current.formattedElapsed).toMatch(/^0[2]:0[5]$/);
-  });
-
-  it('formats time over an hour as hh:mm:ss', () => {
-    const now = Date.now();
-    setStoreState({
-      status: 'recording',
-      startTime: now - 3661000, // 1 hour, 1 minute, 1 second
-      pausedDuration: 0,
-      laps: [],
-    });
-
-    const { result } = renderHook(() => useTimer());
-
-    expect(result.current.formattedElapsed).toBe('01:01:01');
-  });
-
-  it('formats zero as 00:00', () => {
-    const { result } = renderHook(() => useTimer());
-
-    expect(result.current.formattedElapsed).toBe('00:00');
-    expect(result.current.formattedMoving).toBe('00:00');
-    expect(result.current.formattedLap).toBe('00:00');
+      const { result } = renderHook(() => useTimer());
+      expect(result.current.formattedElapsed).toMatch(pattern);
+    }
   });
 
   // -------------------------------------------------------------------------
@@ -437,42 +408,5 @@ describe('useTimer', () => {
     expect(result.current.elapsedTime).toBe(0);
     expect(result.current.movingTime).toBe(0);
     expect(result.current.lapTime).toBe(0);
-  });
-
-  it('handles multiple laps correctly (uses last lap)', () => {
-    const now = Date.now();
-    setStoreState({
-      status: 'recording',
-      startTime: now - 300000, // 300 seconds ago
-      pausedDuration: 0,
-      laps: [
-        {
-          index: 0,
-          startTime: 0,
-          endTime: 100,
-          distance: 1000,
-          avgSpeed: 10,
-          avgHeartrate: null,
-          avgPower: null,
-          avgCadence: null,
-        },
-        {
-          index: 1,
-          startTime: 100,
-          endTime: 200,
-          distance: 1000,
-          avgSpeed: 10,
-          avgHeartrate: null,
-          avgPower: null,
-          avgCadence: null,
-        },
-      ],
-    });
-
-    const { result } = renderHook(() => useTimer());
-
-    // Moving time ~300s, last lap endTime is 200s, so lap time ~100s
-    expect(result.current.lapTime).toBeGreaterThanOrEqual(98);
-    expect(result.current.lapTime).toBeLessThanOrEqual(102);
   });
 });

@@ -64,6 +64,17 @@ export function getSectionsForActivity(host: DelegateHost, activityId: string): 
   );
 }
 
+/**
+ * Total section count without deserializing section blobs. Cheap alternative
+ * to `getSectionSummaries().totalCount` / `getSections().length` for callers
+ * that only need to test emptiness or show a count. Backed by
+ * `SectionManager.get_count`.
+ */
+export function getSectionCount(host: DelegateHost): number {
+  if (!host.ready) return 0;
+  return host.timed('getSectionCount', () => host.engine.sections().getCount());
+}
+
 export function getSectionSummaries(
   host: DelegateHost,
   sportType?: string

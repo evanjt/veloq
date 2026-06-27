@@ -382,6 +382,7 @@
   "common": {
     "activities": "aktiviteter",
     "back": "Tilbage",
+    "close": "Luk",
     "cancel": "Annuller",
     "clearSearch": "Ryd søgning",
     "confirm": "Bekræft",
@@ -473,7 +474,10 @@
     "defaultTitle": "Noget gik galt",
     "tryAgain": "Prøv igen",
     "unableToLoad": "Kan ikke indlæse {{componentName}}",
-    "restartHint": "Prøv igen eller genstart appen"
+    "restartHint": "Prøv igen eller genstart appen",
+    "unableToDisplay": "Kan ikke vise {{label}}",
+    "unableToDisplayChart": "Kan ikke vise diagrammet",
+    "tapToRetry": "Tryk for at prøve igen"
   },
   "export": {
     "bulkComplete": "Eksport fuldført",
@@ -631,7 +635,8 @@
       "thresholdSpeedName": "Analyse af tærskelhastighedstendens",
       "thresholdSpeedDescription": "Sammenligner dit seneste tærskelhastighedsestimat med tidligere værdier og formaterer ændringen som atletlæsbart tempo.",
       "fitnessPrName": "Fitness-PR krydsreference",
-      "sectionTrendName": "Tendens i sektionspræstation"
+      "sectionTrendName": "Tendens i sektionspræstation",
+      "stalePrCrossRefName": "{{metric}}-PR-krydsreference"
     },
     "alternatives": {
       "selected": "Nuværende vurdering",
@@ -694,7 +699,10 @@
       "metricGain": "{{metric}} gevinst",
       "prTime": "PR-tid",
       "methodology": "Sammenligner konditionsmålinger ved PR-tidspunkt med nuværende værdier. Viser sektioner hvor konditionsmålinger er ændret siden PR blev sat.",
-      "groupTitle": "{{count}} PR'er med konditionsændringer"
+      "groupTitle": "{{count}} PR'er med konditionsændringer",
+      "metricCyclingFtp": "Cykel-FTP",
+      "metricSwimCss": "Svømme-CSS",
+      "metricRunningThreshold": "Tærskeltempo for løb"
     },
     "disclaimer": "Træningsmålinger er estimater baseret på publiceret sportsvidenskab. Individuelle reaktioner varierer. Ikke medicinsk rådgivning eller træningsrådgivning.",
     "aboutInsights": "Om indsigt",
@@ -727,7 +735,18 @@
       "volumeAppeared": "Volumen dukkede op de seneste to uger efter en roligere start.",
       "volumeUp": "De seneste 2 ugers gennemsnit ligger {{percent}}% over de foregående 2 uger.",
       "volumeDown": "De seneste 2 ugers gennemsnit ligger {{percent}}% under de foregående 2 uger.",
-      "volumeSteady": "De seneste 2 ugers gennemsnit er stabilt sammenlignet med starten af måneden."
+      "volumeSteady": "De seneste 2 ugers gennemsnit er stabilt sammenlignet med starten af måneden.",
+      "oneSidedTitle": "{{pair}} viser en ensidig fordeling",
+      "dominantTitle": "{{dominant}} bærer mere volumen i {{pair}}",
+      "oneSidedBody": "{{dominant}} står for hele det vægtede sætvolumen for {{pair}} gennem de seneste 4 uger.",
+      "ratioBody": "{{pair}} ligger i gennemsnit på {{ratio}} i vægtede sæt i det seneste 4-ugers vindue.",
+      "ratioLabel": "Forhold",
+      "statusLabel": "Status",
+      "formula": "Vægtede sæt pr. antagonistpar",
+      "algorithm": "Sammenligner antallet af vægtede sæt på tværs af almindelige antagonistpar. Primært arbejde tæller som 1.0 og sekundært arbejde som 0.5.",
+      "methodologyName": "Styrkebalancetjek",
+      "methodologyDescription": "Sammenligner vægtede sæt mellem antagonistiske muskelpar over de seneste 4 uger for at opdage skæv belastning.",
+      "ratioFormula": "forhold = dominerende vægtede sæt / sekundære vægtede sæt"
     },
     "quickTake": {
       "howCalculated": "Hvordan blev dette beregnet?",
@@ -793,7 +812,38 @@
     "routesDisabledLine1": "Ruter og sektioner deaktiveret",
     "routesDisabledLine2": "Tryk for at aktivere",
     "sectionDeclining": "{{name}} bliver langsommere",
-    "sectionDecliningBody": "Seneste median: {{median}}. Bedste: {{best}} over {{count}} forsøg."
+    "sectionDecliningBody": "Seneste median: {{median}}. Bedste: {{best}} over {{count}} forsøg.",
+    "strengthProgression": {
+      "upTitle": "Volumen for {{muscle}} er tydeligt stigende",
+      "downTitle": "Volumen for {{muscle}} er aftaget",
+      "newVolumeBody": "{{muscle}} leverede de fleste af de seneste vægtede sæt i de aktuelle 2 uger efter en roligere periode.",
+      "shiftBody": "{{muscle}} gik fra {{from}} til {{to}} vægtede sæt i det aktuelle 2-ugers gennemsnit.",
+      "vsEarlier": "{{change}}% ift. de 2 foregående uger",
+      "fourWeekTotal": "4-ugers total",
+      "sparklineLabel": "Vægtede sæt over 4 uger",
+      "recent2Weeks": "Seneste 2 uger",
+      "earlier2Weeks": "Tidligere 2 uger",
+      "changeLabel": "Ændring",
+      "thisWeek": "Denne uge",
+      "weeksAgo": "-{{n}}u",
+      "formula": "Gennemsnit for de seneste 2 uger vs de 2 foregående uger",
+      "algorithm": "Følger vægtede sæt pr. muskel gennem de seneste 4 uger. Primært arbejde tæller som 1.0 og sekundært arbejde som 0.5.",
+      "methodologyName": "Progression i styrkevolumen",
+      "methodologyDescription": "Sammenligner gennemsnittet for de seneste 2 uger med de 2 foregående uger for at opdage væsentlige ændringer i vægtet sætvolumen."
+    },
+    "strengthSnapshot": {
+      "title_one": "{{count}} styrkesession i de seneste 4 uger",
+      "title_other": "{{count}} styrkesessioner i de seneste 4 uger",
+      "subtitleWithTop": "{{sessions}} sessioner · {{sets}} sæt · top: {{muscle}}",
+      "subtitle": "{{sessions}} sessioner · {{sets}} sæt",
+      "body": "{{sets}} vægtede sæt fordelt på {{groups}} muskelgrupper.",
+      "sessionsLabel": "Sessioner",
+      "setsLabel": "Sæt",
+      "muscleGroupsLabel": "Muskelgrupper",
+      "formula": "Antal styrkesessioner, vægtede sæt og fulgte muskelgrupper",
+      "algorithm": "Samler styrketræninger fra de seneste 4 uger. Primært arbejde tæller som 1.0 og sekundært arbejde som 0.5 pr. muskelgruppe.",
+      "methodologyDescription": "Opsummerer styrkevolumen for de seneste 4 uger: antal træninger, samlede vægtede sæt og antal fulgte muskelgrupper."
+    }
   },
   "licenses": {
     "footer": "Tryk på et licensmærke for at se den fulde licenstekst. Tryk på linkikonet for at besøge projektets repository.",
@@ -1816,6 +1866,8 @@
     "tip_large": "Stor drikkepenge",
     "tipSmall": "Lille",
     "tipMedium": "Mellem",
-    "tipLarge": "Stor"
+    "tipLarge": "Stor",
+    "shareCrashLog": "Del nedbrudslog",
+    "noCrashLog": "Ingen nedbrud registreret"
   }
 }

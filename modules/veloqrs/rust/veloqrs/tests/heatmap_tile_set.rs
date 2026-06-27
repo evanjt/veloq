@@ -70,8 +70,11 @@ fn compare_or_write(fixture: &str, set: &BTreeSet<String>) {
     let path = fixture_path(fixture);
     let joined = set.iter().cloned().collect::<Vec<_>>().join("\n");
     if let Ok(expected) = std::fs::read_to_string(&path) {
-        let expected_lines: BTreeSet<String> =
-            expected.lines().filter(|l| !l.is_empty()).map(|l| l.to_string()).collect();
+        let expected_lines: BTreeSet<String> = expected
+            .lines()
+            .filter(|l| !l.is_empty())
+            .map(|l| l.to_string())
+            .collect();
         if expected_lines != *set {
             let missing: Vec<_> = expected_lines.difference(set).collect();
             let extra: Vec<_> = set.difference(&expected_lines).collect();

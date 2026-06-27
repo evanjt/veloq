@@ -14,11 +14,11 @@ import { router } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useTheme } from '@/hooks';
-import { useRouteSettings } from '@/providers';
-import { useSectionRescan } from '@/hooks/routes/useSectionRescan';
-import { ScreenSafeAreaView, TAB_BAR_SAFE_PADDING } from '@/components/ui';
-import { DetectionMethodIllustration } from '@/components/settings';
+import { useTheme } from '@/shared/app';
+import { useRouteSettings } from '@/features/routes/stores/RouteSettingsStore';
+import { useSectionRescan } from '@/features/routes/hooks/useSectionRescan';
+import { ScreenSafeAreaView, TAB_BAR_SAFE_PADDING } from '@/shared/ui';
+import { DetectionMethodIllustration } from '@/features/settings/components';
 import { colors, darkColors, spacing, layout, typography, brand } from '@/theme';
 import {
   DETECTION_PRESETS,
@@ -30,7 +30,7 @@ import {
   FLOW_GRAPH_PRESETS,
   type DetectionMethod,
   type DetectionStrictness,
-} from '@/lib/native/routeEngine';
+} from '@/shared/native/routeEngine';
 
 const METHOD_LABELS: { key: DetectionMethod; label: string }[] = [
   { key: 'corridor', label: 'settings.methodCorridor' },
@@ -229,6 +229,8 @@ export default function DetectionSettingsScreen() {
           testID="detection-settings-back"
           onPress={() => router.back()}
           style={styles.backButton}
+          accessibilityRole="button"
+          accessibilityLabel={t('common.back')}
         >
           <MaterialCommunityIcons name="arrow-left" size={24} color={textPrimary} />
         </TouchableOpacity>
@@ -502,7 +504,7 @@ function ParamRow({
   isDark: boolean;
 }) {
   const txt = isDark ? darkColors.textSecondary : colors.textSecondary;
-  const trackBg = isDark ? '#333' : '#ddd';
+  const trackBg = isDark ? darkColors.inputTrack : colors.inputTrack;
   return (
     <View style={styles.paramRow}>
       <Text style={[styles.paramLabel, { color: txt }]}>{label}</Text>

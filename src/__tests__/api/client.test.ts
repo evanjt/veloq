@@ -26,7 +26,7 @@ const mockGetStoredCredentials = jest.fn<
 
 const mockHandleSessionExpired = jest.fn().mockResolvedValue(undefined);
 
-jest.mock('@/providers', () => ({
+jest.mock('@/shared/app/AuthStore', () => ({
   getStoredCredentials: (...args: unknown[]) => mockGetStoredCredentials(...(args as [])),
   useAuthStore: {
     getState: () => ({
@@ -241,48 +241,20 @@ describe('API Client', () => {
       jest.useRealTimers();
     });
 
-    it('retries on network error with longer backoff', async () => {
-      jest.useFakeTimers();
+    it('retries on transient network errors with longer backoff', async () => {
+      // Network backoff: max(0, 2000 * 2^0) = 2000ms for every retryable code.
+      for (const code of ['ERR_NETWORK', 'ECONNABORTED', 'ETIMEDOUT']) {
+        (apiClient.request as jest.Mock).mockClear();
+        jest.useFakeTimers();
 
-      const error = makeAxiosError({ code: 'ERR_NETWORK' });
+        const promise = responseInterceptorRejected(makeAxiosError({ code }));
+        jest.advanceTimersByTime(2000);
+        await promise;
 
-      const promise = responseInterceptorRejected(error);
+        expect(apiClient.request).toHaveBeenCalledTimes(1);
 
-      // Network backoff: max(0, 2000 * 2^0) = 2000ms
-      jest.advanceTimersByTime(2000);
-      await promise;
-
-      expect(apiClient.request).toHaveBeenCalledTimes(1);
-
-      jest.useRealTimers();
-    });
-
-    it('retries on ECONNABORTED', async () => {
-      jest.useFakeTimers();
-
-      const error = makeAxiosError({ code: 'ECONNABORTED' });
-
-      const promise = responseInterceptorRejected(error);
-      jest.advanceTimersByTime(2000);
-      await promise;
-
-      expect(apiClient.request).toHaveBeenCalledTimes(1);
-
-      jest.useRealTimers();
-    });
-
-    it('retries on ETIMEDOUT', async () => {
-      jest.useFakeTimers();
-
-      const error = makeAxiosError({ code: 'ETIMEDOUT' });
-
-      const promise = responseInterceptorRejected(error);
-      jest.advanceTimersByTime(2000);
-      await promise;
-
-      expect(apiClient.request).toHaveBeenCalledTimes(1);
-
-      jest.useRealTimers();
+        jest.useRealTimers();
+      }
     });
 
     it('stops after max retries (3)', async () => {
@@ -350,18 +322,12 @@ describe('API Client', () => {
       jest.useRealTimers();
     });
 
-    it('does not retry on 500 server errors', async () => {
-      const error = makeAxiosError({ status: 500 });
-
-      await expect(responseInterceptorRejected(error)).rejects.toThrow();
-      expect(apiClient.request).not.toHaveBeenCalled();
-    });
-
-    it('does not retry on 404 not found', async () => {
-      const error = makeAxiosError({ status: 404 });
-
-      await expect(responseInterceptorRejected(error)).rejects.toThrow();
-      expect(apiClient.request).not.toHaveBeenCalled();
+    it('does not retry on non-retryable HTTP statuses (500, 404)', async () => {
+      for (const status of [500, 404]) {
+        (apiClient.request as jest.Mock).mockClear();
+        await expect(responseInterceptorRejected(makeAxiosError({ status }))).rejects.toThrow();
+        expect(apiClient.request).not.toHaveBeenCalled();
+      }
     });
 
     it('rejects when error has no config', async () => {
@@ -466,15 +432,9 @@ describe('API Client', () => {
   // Client configuration
   // ===========================================================================
   describe('client configuration', () => {
-    it('has correct base URL', () => {
+    it('uses the intervals.icu base URL, 30s timeout, and JSON content type', () => {
       expect(apiClient.defaults.baseURL).toBe('https://intervals.icu/api/v1');
-    });
-
-    it('has 30 second timeout', () => {
       expect(apiClient.defaults.timeout).toBe(30000);
-    });
-
-    it('sets Content-Type to application/json', () => {
       expect(apiClient.defaults.headers['Content-Type']).toBe('application/json');
     });
   });

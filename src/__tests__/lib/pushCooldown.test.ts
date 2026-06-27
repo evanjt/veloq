@@ -1,5 +1,5 @@
-import { isPushAllowed, prunePushHistory } from '@/lib/notifications/insightNotification';
-import { INSIGHTS_CONFIG } from '@/hooks/insights/config';
+import { isPushAllowed, prunePushHistory } from '@/features/insights/notifications';
+import { INSIGHTS_CONFIG } from '@/features/insights/lib/config';
 
 const HOUR = 60 * 60 * 1000;
 const DAY = 24 * HOUR;

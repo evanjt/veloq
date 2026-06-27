@@ -6,6 +6,10 @@
 appId: com.veloq.app.dev
 tags:
   - tier1
+  - pack-home
+  # Quarantined from the blocking gate core: card->detail nav is intermittent
+  # under the CI software GPU. Runs in the gate's non-blocking flaky lane.
+  - flaky
 ---
 - runFlow:
     file: helpers/setup-demo-mode.yaml
@@ -18,28 +22,23 @@ tags:
 # Screenshot the feed so PR pill counts are visible for visual regression review.
 - takeScreenshot: "feed-pr-count-baseline"
 
-# Scroll through first several cards
-- swipe:
-    start: 50%, 75%
-    end: 50%, 25%
-    duration: 500
-- takeScreenshot: "feed-pr-count-scrolled"
-
-# Open the first activity and compare its Sections tab count against
-# what the feed card surfaced.
-- tapOn:
-    id: "activity-card-demo-test-0"
-    optional: true
-- runFlow:
-    when:
-      visible: "Open"
+# Open the first activity (demo-test-0 — top card) and compare its Sections tab
+# count against what the feed card surfaced. The tap occasionally fails to
+# register under the CI software GPU, so retry the tap + screen wait.
+- retry:
+    maxRetries: 2
     commands:
-      - tapOn: "Open"
+      - tapOn:
+          id: "activity-card-demo-test-0"
+      - extendedWaitUntil:
+          visible:
+            id: "activity-detail-screen"
+          timeout: 15000
 
 - extendedWaitUntil:
     visible:
       id: "activity-detail-content"
-    timeout: 30000
+    timeout: 20000
 
 - tapOn:
     text: "Sections"

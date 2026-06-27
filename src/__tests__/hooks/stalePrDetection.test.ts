@@ -3,7 +3,7 @@ import {
   stalePROpportunityToInsight,
   StalePRInput,
   StalePROpportunity,
-} from '@/hooks/insights/stalePrDetection';
+} from '@/features/insights/generators/stalePr';
 
 // Mock translation function — returns key with interpolated params
 const mockT = (key: string, params?: Record<string, string | number>): string => {
@@ -22,281 +22,135 @@ describe('detectStalePROpportunities', () => {
   // NO OPPORTUNITIES
   // ============================================================
 
-  describe('returns no opportunities when', () => {
-    it('ftpTrend is null', () => {
-      const input: StalePRInput = {
-        sections: [
-          {
-            sectionId: 's1',
-            sectionName: 'Hill Climb',
-            bestTimeSecs: 300,
-            traversalCount: 10,
-            lastTraversalTs: NOW_TS - 60 * DAYS,
-            sportType: 'Ride',
-          },
-        ],
-        ftpTrend: null,
-        paceTrend: null,
-        recentPRs: [],
-      };
-      expect(detectStalePROpportunities(input)).toEqual([]);
+  it('returns no opportunities across all non-qualifying inputs', () => {
+    const rideSection = (overrides: Record<string, unknown> = {}) => ({
+      sectionId: 's1',
+      sectionName: 'Hill Climb',
+      bestTimeSecs: 300,
+      traversalCount: 10,
+      lastTraversalTs: NOW_TS - 60 * DAYS,
+      sportType: 'Ride' as const,
+      ...overrides,
     });
+    const ftpGain = {
+      latestFtp: 220,
+      latestDate: NOW_TS,
+      previousFtp: 200,
+      previousDate: NOW_TS - 90 * DAYS,
+    };
 
-    it('FTP has not changed', () => {
-      const input: StalePRInput = {
-        sections: [
-          {
-            sectionId: 's1',
-            sectionName: 'Hill Climb',
-            bestTimeSecs: 300,
-            traversalCount: 10,
-            lastTraversalTs: NOW_TS - 60 * DAYS,
-            sportType: 'Ride',
-          },
-        ],
-        ftpTrend: {
-          latestFtp: 200,
-          latestDate: NOW_TS,
-          previousFtp: 200,
-          previousDate: NOW_TS - 90 * DAYS,
+    const cases: Array<{ name: string; input: StalePRInput }> = [
+      {
+        name: 'ftpTrend is null',
+        input: { sections: [rideSection()], ftpTrend: null, paceTrend: null, recentPRs: [] },
+      },
+      {
+        name: 'FTP has not changed',
+        input: {
+          sections: [rideSection()],
+          ftpTrend: { ...ftpGain, latestFtp: 200 },
+          paceTrend: null,
+          recentPRs: [],
         },
-        paceTrend: null,
-        recentPRs: [],
-      };
-      expect(detectStalePROpportunities(input)).toEqual([]);
-    });
+      },
+      {
+        name: 'FTP decreased',
+        input: {
+          sections: [rideSection()],
+          ftpTrend: { ...ftpGain, latestFtp: 180 },
+          paceTrend: null,
+          recentPRs: [],
+        },
+      },
+      {
+        name: 'FTP gain is below 3% threshold (2%)',
+        input: {
+          sections: [rideSection()],
+          ftpTrend: { ...ftpGain, latestFtp: 204 },
+          paceTrend: null,
+          recentPRs: [],
+        },
+      },
+      {
+        name: 'there are no sections',
+        input: { sections: [], ftpTrend: ftpGain, paceTrend: null, recentPRs: [] },
+      },
+      {
+        name: 'section had a recent PR (within 30 days)',
+        input: {
+          sections: [rideSection({ lastTraversalTs: NOW_TS - 5 * DAYS })],
+          ftpTrend: ftpGain,
+          paceTrend: null,
+          recentPRs: [{ sectionId: 's1', sectionName: 'Hill Climb', bestTime: 300, daysAgo: 5 }],
+        },
+      },
+      {
+        name: 'section was visited recently (within 30 days)',
+        input: {
+          sections: [rideSection({ lastTraversalTs: NOW_TS - 10 * DAYS })],
+          ftpTrend: ftpGain,
+          paceTrend: null,
+          recentPRs: [],
+        },
+      },
+      {
+        name: 'unsupported section sport from cycling FTP alone',
+        input: {
+          sections: [
+            rideSection({
+              sectionId: 'h1',
+              sectionName: 'Alpine Hike',
+              bestTimeSecs: 1800,
+              traversalCount: 6,
+              sportType: 'Hike',
+            }),
+          ],
+          ftpTrend: ftpGain,
+          paceTrend: null,
+          recentPRs: [],
+        },
+      },
+      {
+        name: 'latestFtp is undefined',
+        input: {
+          sections: [rideSection()],
+          ftpTrend: { ...ftpGain, latestFtp: undefined },
+          paceTrend: null,
+          recentPRs: [],
+        },
+      },
+      {
+        name: 'previousFtp is undefined',
+        input: {
+          sections: [rideSection()],
+          ftpTrend: { ...ftpGain, previousFtp: undefined },
+          paceTrend: null,
+          recentPRs: [],
+        },
+      },
+      {
+        name: 'FTP values are NaN',
+        input: {
+          sections: [rideSection()],
+          ftpTrend: { ...ftpGain, latestFtp: NaN },
+          paceTrend: null,
+          recentPRs: [],
+        },
+      },
+      {
+        name: 'section has zero traversals',
+        input: {
+          sections: [rideSection({ traversalCount: 0 })],
+          ftpTrend: ftpGain,
+          paceTrend: null,
+          recentPRs: [],
+        },
+      },
+    ];
 
-    it('FTP decreased', () => {
-      const input: StalePRInput = {
-        sections: [
-          {
-            sectionId: 's1',
-            sectionName: 'Hill Climb',
-            bestTimeSecs: 300,
-            traversalCount: 10,
-            lastTraversalTs: NOW_TS - 60 * DAYS,
-            sportType: 'Ride',
-          },
-        ],
-        ftpTrend: {
-          latestFtp: 180,
-          latestDate: NOW_TS,
-          previousFtp: 200,
-          previousDate: NOW_TS - 90 * DAYS,
-        },
-        paceTrend: null,
-        recentPRs: [],
-      };
-      expect(detectStalePROpportunities(input)).toEqual([]);
-    });
-
-    it('FTP gain is below 3% threshold', () => {
-      const input: StalePRInput = {
-        sections: [
-          {
-            sectionId: 's1',
-            sectionName: 'Hill Climb',
-            bestTimeSecs: 300,
-            traversalCount: 10,
-            lastTraversalTs: NOW_TS - 60 * DAYS,
-            sportType: 'Ride',
-          },
-        ],
-        ftpTrend: {
-          latestFtp: 204,
-          latestDate: NOW_TS,
-          previousFtp: 200,
-          previousDate: NOW_TS - 90 * DAYS,
-        },
-        paceTrend: null,
-        recentPRs: [],
-      };
-      // 2% gain — below threshold
-      expect(detectStalePROpportunities(input)).toEqual([]);
-    });
-
-    it('there are no sections', () => {
-      const input: StalePRInput = {
-        sections: [],
-        ftpTrend: {
-          latestFtp: 220,
-          latestDate: NOW_TS,
-          previousFtp: 200,
-          previousDate: NOW_TS - 90 * DAYS,
-        },
-        paceTrend: null,
-        recentPRs: [],
-      };
-      expect(detectStalePROpportunities(input)).toEqual([]);
-    });
-
-    it('section had a recent PR (within 30 days)', () => {
-      const input: StalePRInput = {
-        sections: [
-          {
-            sectionId: 's1',
-            sectionName: 'Hill Climb',
-            bestTimeSecs: 300,
-            traversalCount: 10,
-            lastTraversalTs: NOW_TS - 5 * DAYS,
-            sportType: 'Ride',
-          },
-        ],
-        ftpTrend: {
-          latestFtp: 220,
-          latestDate: NOW_TS,
-          previousFtp: 200,
-          previousDate: NOW_TS - 90 * DAYS,
-        },
-        paceTrend: null,
-        recentPRs: [{ sectionId: 's1', sectionName: 'Hill Climb', bestTime: 300, daysAgo: 5 }],
-      };
-      expect(detectStalePROpportunities(input)).toEqual([]);
-    });
-
-    it('section was visited recently (within 30 days)', () => {
-      const input: StalePRInput = {
-        sections: [
-          {
-            sectionId: 's1',
-            sectionName: 'Hill Climb',
-            bestTimeSecs: 300,
-            traversalCount: 10,
-            lastTraversalTs: NOW_TS - 10 * DAYS, // only 10 days ago
-            sportType: 'Ride',
-          },
-        ],
-        ftpTrend: {
-          latestFtp: 220,
-          latestDate: NOW_TS,
-          previousFtp: 200,
-          previousDate: NOW_TS - 90 * DAYS,
-        },
-        paceTrend: null,
-        recentPRs: [],
-      };
-      expect(detectStalePROpportunities(input)).toEqual([]);
-    });
-
-    it('does not flag unsupported section sports from cycling FTP alone', () => {
-      const input: StalePRInput = {
-        sections: [
-          {
-            sectionId: 'h1',
-            sectionName: 'Alpine Hike',
-            bestTimeSecs: 1800,
-            traversalCount: 6,
-            lastTraversalTs: NOW_TS - 60 * DAYS,
-            sportType: 'Hike',
-          },
-        ],
-        ftpTrend: {
-          latestFtp: 220,
-          latestDate: NOW_TS,
-          previousFtp: 200,
-          previousDate: NOW_TS - 90 * DAYS,
-        },
-        paceTrend: null,
-        recentPRs: [],
-      };
-      expect(detectStalePROpportunities(input)).toEqual([]);
-    });
-
-    it('latestFtp is undefined', () => {
-      const input: StalePRInput = {
-        sections: [
-          {
-            sectionId: 's1',
-            sectionName: 'Hill Climb',
-            bestTimeSecs: 300,
-            traversalCount: 10,
-            lastTraversalTs: NOW_TS - 60 * DAYS,
-            sportType: 'Ride',
-          },
-        ],
-        ftpTrend: {
-          latestFtp: undefined,
-          latestDate: NOW_TS,
-          previousFtp: 200,
-          previousDate: NOW_TS - 90 * DAYS,
-        },
-        paceTrend: null,
-        recentPRs: [],
-      };
-      expect(detectStalePROpportunities(input)).toEqual([]);
-    });
-
-    it('previousFtp is undefined', () => {
-      const input: StalePRInput = {
-        sections: [
-          {
-            sectionId: 's1',
-            sectionName: 'Hill Climb',
-            bestTimeSecs: 300,
-            traversalCount: 10,
-            lastTraversalTs: NOW_TS - 60 * DAYS,
-            sportType: 'Ride',
-          },
-        ],
-        ftpTrend: {
-          latestFtp: 220,
-          latestDate: NOW_TS,
-          previousFtp: undefined,
-          previousDate: NOW_TS - 90 * DAYS,
-        },
-        paceTrend: null,
-        recentPRs: [],
-      };
-      expect(detectStalePROpportunities(input)).toEqual([]);
-    });
-
-    it('FTP values are NaN', () => {
-      const input: StalePRInput = {
-        sections: [
-          {
-            sectionId: 's1',
-            sectionName: 'Hill Climb',
-            bestTimeSecs: 300,
-            traversalCount: 10,
-            lastTraversalTs: NOW_TS - 60 * DAYS,
-            sportType: 'Ride',
-          },
-        ],
-        ftpTrend: {
-          latestFtp: NaN,
-          latestDate: NOW_TS,
-          previousFtp: 200,
-          previousDate: NOW_TS - 90 * DAYS,
-        },
-        paceTrend: null,
-        recentPRs: [],
-      };
-      expect(detectStalePROpportunities(input)).toEqual([]);
-    });
-
-    it('section has zero traversals', () => {
-      const input: StalePRInput = {
-        sections: [
-          {
-            sectionId: 's1',
-            sectionName: 'Hill Climb',
-            bestTimeSecs: 300,
-            traversalCount: 0,
-            lastTraversalTs: NOW_TS - 60 * DAYS,
-            sportType: 'Ride',
-          },
-        ],
-        ftpTrend: {
-          latestFtp: 220,
-          latestDate: NOW_TS,
-          previousFtp: 200,
-          previousDate: NOW_TS - 90 * DAYS,
-        },
-        paceTrend: null,
-        recentPRs: [],
-      };
-      expect(detectStalePROpportunities(input)).toEqual([]);
-    });
+    for (const { name, input } of cases) {
+      expect({ name, result: detectStalePROpportunities(input) }).toEqual({ name, result: [] });
+    }
   });
 
   // ============================================================
@@ -707,7 +561,9 @@ describe('detectStalePROpportunities', () => {
 
     it('includes methodology', () => {
       const insight = stalePROpportunityToInsight(opportunity, mockT);
-      expect(insight.methodology!.name).toBe('Cycling FTP-PR cross-reference');
+      expect(insight.methodology!.name).toBe(
+        'insights.methodology.stalePrCrossRefName {metric: insights.stalePr.metricCyclingFtp}'
+      );
     });
 
     it('includes fitness values in body', () => {
@@ -737,9 +593,11 @@ describe('detectStalePROpportunities', () => {
         unit: '/km',
       };
       const insight = stalePROpportunityToInsight(paceOpportunity, mockT);
-      expect(insight.methodology!.name).toBe('Running threshold pace-PR cross-reference');
-      expect(insight.body).toContain('Running threshold pace');
-      expect(insight.body).not.toContain('FTP');
+      expect(insight.methodology!.name).toBe(
+        'insights.methodology.stalePrCrossRefName {metric: insights.stalePr.metricRunningThreshold}'
+      );
+      expect(insight.body).toContain('insights.stalePr.metricRunningThreshold');
+      expect(insight.body).not.toContain('metricCyclingFtp');
     });
   });
 });

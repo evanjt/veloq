@@ -251,6 +251,8 @@ class RouteEngineClient implements DelegateHost {
   getSectionsForActivity = (activityId: string): FfiSection[] =>
     sectionDelegates.getSectionsForActivity(this, activityId);
 
+  getSectionCount = (): number => sectionDelegates.getSectionCount(this);
+
   getSectionSummaries = (sportType?: string): { totalCount: number; summaries: SectionSummary[] } =>
     sectionDelegates.getSectionSummaries(this, sportType);
 
@@ -308,6 +310,15 @@ class RouteEngineClient implements DelegateHost {
     centerLat: number;
     centerLng: number;
   }> => mapsDelegates.getAllMapSignatures(this);
+
+  getMapSignaturesForIds = (
+    ids: string[]
+  ): Array<{
+    activityId: string;
+    encodedCoords: ArrayBuffer;
+    centerLat: number;
+    centerLng: number;
+  }> => mapsDelegates.getMapSignaturesForIds(this, ids);
 
   setRouteName = (routeId: string, name: string): void =>
     routeDelegates.setRouteName(this, routeId, name);

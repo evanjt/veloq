@@ -197,9 +197,8 @@ fn post_backfill_incremental_add_stays_in_fast_path() {
     // Simulate upgrade: clear blobs + flag.
     let before = simulate_pre_tier2_state(&path);
     // Seed them back via the upgrade-path backfill.
-    let (seeded, skipped) =
-        veloqrs::persistence::sections::run_accumulator_backfill(&path, false)
-            .expect("backfill ok");
+    let (seeded, skipped) = veloqrs::persistence::sections::run_accumulator_backfill(&path, false)
+        .expect("backfill ok");
     let remaining_null = null_blob_count(&path);
     println!(
         "[post_backfill] before={} seeded={} skipped={} still_null={}",

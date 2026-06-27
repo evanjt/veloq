@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect } from 'expo-router';
 import { View, StyleSheet, Alert, TouchableOpacity } from 'react-native';
 import { Text, IconButton } from 'react-native-paper';
 import { router, useLocalSearchParams } from 'expo-router';
@@ -10,23 +10,26 @@ import {
   ScreenSafeAreaView,
   SwipeableTabs,
   type SwipeableTab,
-} from '@/components/ui';
-import { InsightsPanel } from '@/components/insights';
-import { StrengthTab } from '@/components/insights/StrengthTab';
-import { DateRangeSummary, RoutesList, SectionsList, SyncDebugTab } from '@/components';
-import type { RoutesSortOption } from '@/components/routes/RoutesList';
-import type { SectionsSortOption } from '@/components/routes/SectionsList';
-import {
-  useActivityBoundsCache,
-  useCustomSections,
-  useInsights,
-  useTheme,
-  useRoutesScreenData,
-  useUserLocation,
-} from '@/hooks';
-import { useHasStrengthData } from '@/hooks/activities/useStrengthVolume';
-import { useRouteSettings, useSyncDateRange, useDebugStore, useEngineStatus } from '@/providers';
-import { logScreenRender } from '@/lib/debug/renderTimer';
+} from '@/shared/ui';
+import { InsightsPanel, StrengthTab } from '@/features/insights';
+import { DateRangeSummary } from '@/features/routes/components/DateRangeSummary';
+import { RoutesList } from '@/features/routes/components/RoutesList';
+import { SectionsList } from '@/features/routes/components/SectionsList';
+import { SyncDebugTab } from '@/features/routes/components/SyncDebugTab';
+import type { RoutesSortOption } from '@/features/routes/components/RoutesList';
+import type { SectionsSortOption } from '@/features/routes/components/SectionsList';
+import { useActivityBoundsCache } from '@/features/activity/hooks';
+import { useInsights } from '@/features/insights';
+import { useCustomSections } from '@/features/routes/hooks/useCustomSections';
+import { useRoutesScreenData } from '@/features/routes/hooks/useRoutesScreenData';
+import { useTheme } from '@/shared/app';
+import { useUserLocation } from '@/shared/app/useUserLocation';
+import { useHasStrengthData } from '@/features/strength';
+import { useEngineStatus } from '@/features/routes/stores/EngineStatusStore';
+import { useRouteSettings } from '@/features/routes/stores/RouteSettingsStore';
+import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
+import { useDebugStore } from '@/features/settings/stores/DebugStore';
+import { logScreenRender } from '@/shared/debug/renderTimer';
 import { colors, darkColors, spacing } from '@/theme';
 
 type TabType = 'insights' | 'strength' | 'routes' | 'sections' | 'debug';
@@ -39,7 +42,7 @@ function RouteTabDisabledState({ isDark }: { isDark: boolean }) {
       <MaterialCommunityIcons
         name="map-marker-off"
         size={18}
-        color={isDark ? '#FBBF24' : '#92400E'}
+        color={isDark ? darkColors.warningAmber : colors.warningAmber}
       />
       <View style={styles.routeMessageText}>
         <Text style={[styles.routeMessageTitle, isDark && styles.routeMessageTitleDark]}>
@@ -52,7 +55,7 @@ function RouteTabDisabledState({ isDark }: { isDark: boolean }) {
       <IconButton
         icon="cog"
         size={18}
-        iconColor={isDark ? '#FBBF24' : '#92400E'}
+        iconColor={isDark ? darkColors.warningAmber : colors.warningAmber}
         onPress={() => router.push('/detection-settings')}
         style={styles.routeMessageButton}
       />
@@ -103,7 +106,7 @@ function RouteTabEngineState({
           <MaterialCommunityIcons
             name="alert-outline"
             size={16}
-            color={isDark ? '#FBBF24' : '#92400E'}
+            color={isDark ? darkColors.warningAmber : colors.warningAmber}
           />
           <Text style={[styles.engineBannerText, isDark && styles.engineBannerTextDark]}>
             {t('engine.initFailed')}
@@ -111,7 +114,7 @@ function RouteTabEngineState({
           <IconButton
             icon="close"
             size={16}
-            iconColor={isDark ? '#FBBF24' : '#92400E'}
+            iconColor={isDark ? darkColors.warningAmber : colors.warningAmber}
             onPress={onDismissEngineBanner}
             style={styles.engineBannerClose}
           />
@@ -404,6 +407,7 @@ export default function RoutesScreen() {
             totalGroupCount={routeGroupCount}
             sortOption={routeSort}
             onSortChange={handleRouteSortChange}
+            isLoading={!routesData}
           />
         ) : (
           <RouteTabDisabledState isDark={isDark} />
@@ -413,6 +417,7 @@ export default function RoutesScreen() {
     [
       handleRefresh,
       isDataSyncing,
+      routesData,
       routesData?.groups,
       loadMoreGroups,
       hasMoreGroups,

@@ -1,14 +1,14 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Linking } from 'react-native';
-import { ScreenSafeAreaView } from '@/components/ui';
+import { ScreenSafeAreaView } from '@/shared/ui';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import Constants from 'expo-constants';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import { createSharedStyles } from '@/styles';
-import { useTheme } from '@/hooks';
-import { INTERVALS_URLS } from '@/services/oauth';
+import { useTheme } from '@/shared/app';
+import { INTERVALS_URLS } from '@/features/auth';
 
 const VELOQ_URLS = {
   github: 'https://github.com/evanjt/veloq',

@@ -44,6 +44,14 @@ export function getAllMapSignatures(
   return host.timed('getAllMapSignatures', () => host.engine.maps().getAllSignatures());
 }
 
+export function getMapSignaturesForIds(
+  host: DelegateHost,
+  ids: string[]
+): Array<{ activityId: string; encodedCoords: ArrayBuffer; centerLat: number; centerLng: number }> {
+  if (!host.ready || ids.length === 0) return [];
+  return host.timed('getMapSignaturesForIds', () => host.engine.maps().getSignaturesForIds(ids));
+}
+
 export function queryViewport(
   host: DelegateHost,
   minLat: number,

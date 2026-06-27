@@ -1,0 +1,506 @@
+/**
+ * Row showing a route (during processing or from saved groups).
+ * Displays the route with activity count and preview polyline.
+ */
+
+import React, { memo, useState, useMemo, useId } from 'react';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { useTheme, useMetricSystem } from '@/shared/app';
+import { Text } from 'react-native-paper';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import Svg, { Polyline, Defs, LinearGradient, Stop, Rect, Circle } from 'react-native-svg';
+import { navigateTo } from '@/shared/app/navigation';
+import { useTranslation } from 'react-i18next';
+import {
+  colors,
+  darkColors,
+  opacity,
+  spacing,
+  layout,
+  typography,
+  shadows,
+  mapPreviewColors,
+} from '@/theme';
+import {
+  getActivityColor,
+  getActivityIcon,
+  isRunningActivity,
+} from '@/features/activity/lib/activityUtils';
+import { formatPace, formatSpeed, formatDistance } from '@/shared/format/format';
+import { useConsensusRoute } from '@/features/routes/hooks/useRouteEngine';
+import { toActivityType } from '@/features/routes/types';
+import type { DiscoveredRouteInfo, RouteGroup } from '@/types';
+
+interface RouteRowProps {
+  /** Route data - can be either DiscoveredRouteInfo (during processing) or RouteGroup (saved) */
+  route: DiscoveredRouteInfo | RouteGroup;
+  /** If true, tapping navigates to route detail. If false/undefined, just expands. */
+  navigable?: boolean;
+  /** Distance from user's current location in meters */
+  distanceFromUser?: number;
+}
+
+/** Check if route is a RouteGroup (has signature property) */
+function isRouteGroup(route: DiscoveredRouteInfo | RouteGroup): route is RouteGroup {
+  return 'signature' in route;
+}
+
+/** Convert signature GPS points to normalized preview points (0-1) */
+function normalizePoints(points: { lat: number; lng: number }[]): { x: number; y: number }[] {
+  if (points.length < 2) return [];
+
+  const lats = points.map((p) => p.lat);
+  const lngs = points.map((p) => p.lng);
+  const minLat = Math.min(...lats);
+  const maxLat = Math.max(...lats);
+  const minLng = Math.min(...lngs);
+  const maxLng = Math.max(...lngs);
+
+  const latRange = maxLat - minLat || 1;
+  const lngRange = maxLng - minLng || 1;
+
+  return points.map((p) => ({
+    x: (p.lng - minLng) / lngRange,
+    y: 1 - (p.lat - minLat) / latRange, // Invert Y for screen coordinates
+  }));
+}
+
+interface RoutePreviewProps {
+  points: { x: number; y: number }[];
+  color: string;
+  isDark: boolean;
+}
+
+const RoutePreview = memo(function RoutePreview({ points, color, isDark }: RoutePreviewProps) {
+  // Unique ID for SVG gradient to avoid collisions between multiple instances
+  const uniqueId = useId();
+  const gradientId = `routeGradient-${uniqueId}`;
+
+  if (points.length < 2) return null;
+
+  const width = 48;
+  const height = 36;
+  const padding = 4;
+
+  const scaledPoints = points.map((p) => ({
+    x: p.x * (width - padding * 2) + padding,
+    y: p.y * (height - padding * 2) + padding,
+  }));
+
+  const pointsString = scaledPoints.map((p) => `${p.x},${p.y}`).join(' ');
+  const startPoint = scaledPoints[0];
+  const endPoint = scaledPoints[scaledPoints.length - 1];
+
+  // Background colors for map-like appearance
+  const preview = isDark ? mapPreviewColors.dark : mapPreviewColors.light;
+  const bgColor = preview.bg;
+  const gridColor = preview.grid;
+
+  return (
+    <Svg width={width} height={height}>
+      <Defs>
+        <LinearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+          <Stop offset="0" stopColor={bgColor} stopOpacity="1" />
+          <Stop offset="1" stopColor={preview.bgBottom} stopOpacity="1" />
+        </LinearGradient>
+      </Defs>
+
+      {/* Map-like background */}
+      <Rect x="0" y="0" width={width} height={height} fill={`url(#${gradientId})`} rx="4" />
+
+      {/* Subtle grid lines for map effect */}
+      <Polyline
+        points={`${width / 3},0 ${width / 3},${height}`}
+        stroke={gridColor}
+        strokeWidth={0.5}
+        strokeOpacity={0.5}
+      />
+      <Polyline
+        points={`${(2 * width) / 3},0 ${(2 * width) / 3},${height}`}
+        stroke={gridColor}
+        strokeWidth={0.5}
+        strokeOpacity={0.5}
+      />
+      <Polyline
+        points={`0,${height / 2} ${width},${height / 2}`}
+        stroke={gridColor}
+        strokeWidth={0.5}
+        strokeOpacity={0.5}
+      />
+
+      {/* Route shadow for depth */}
+      <Polyline
+        points={pointsString}
+        fill="none"
+        stroke="#000000"
+        strokeWidth={3}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeOpacity={0.15}
+        transform="translate(0.5, 0.5)"
+      />
+
+      {/* Route line */}
+      <Polyline
+        points={pointsString}
+        fill="none"
+        stroke={color}
+        strokeWidth={2.5}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+
+      {/* Start marker (green) */}
+      <Circle cx={startPoint.x} cy={startPoint.y} r={3} fill={colors.success} />
+      <Circle cx={startPoint.x} cy={startPoint.y} r={2} fill="#FFFFFF" />
+
+      {/* End marker (red) */}
+      <Circle cx={endPoint.x} cy={endPoint.y} r={3} fill={colors.error} />
+      <Circle cx={endPoint.x} cy={endPoint.y} r={2} fill="#FFFFFF" />
+    </Svg>
+  );
+});
+
+function RouteRowComponent({ route, navigable = false, distanceFromUser }: RouteRowProps) {
+  const { t } = useTranslation();
+  const { isDark } = useTheme();
+  const isMetric = useMetricSystem();
+  const [expanded, setExpanded] = useState(false);
+
+  // Use pre-loaded consensus points if available (from batch FFI), otherwise lazy-load
+  const hasPreloadedConsensus =
+    isRouteGroup(route) && route.consensusPoints && route.consensusPoints.length > 0;
+  const { points: lazyConsensusPoints } = useConsensusRoute(
+    isRouteGroup(route) && !hasPreloadedConsensus ? route.id : null
+  );
+  const consensusPoints = hasPreloadedConsensus
+    ? (route as RouteGroup).consensusPoints!
+    : lazyConsensusPoints;
+
+  // Display name comes from parent via route.name (which includes custom name from useRouteGroups)
+  // This ensures reactivity when names change via the hook chain
+  const displayName =
+    route.name || (t('routes.defaultRouteName' as never, { type: route.type }) as string);
+
+  // Get activity color for the route type
+  // RouteGroup.type is ActivityType, DiscoveredRouteInfo.type is string
+  const activityColor = colors.primary;
+
+  // Get preview points - use lazy-loaded consensus for RouteGroup
+  const previewPoints = useMemo(() => {
+    if (isRouteGroup(route)) {
+      // RouteGroup - use lazy-loaded consensus points
+      return consensusPoints ? normalizePoints(consensusPoints) : [];
+    } else {
+      // DiscoveredRouteInfo - use previewPoints directly
+      return route.previewPoints || [];
+    }
+  }, [route, consensusPoints]);
+
+  // Get activity names for expansion
+  const activityNames = useMemo(() => {
+    if (isRouteGroup(route)) {
+      // RouteGroup doesn't have activity names, just IDs
+      return route.activityIds.map(
+        (_, i) => t('routes.defaultActivityName' as never, { number: i + 1 }) as string
+      );
+    }
+    return route.activityNames || [];
+  }, [route, t]);
+
+  const getTypeIcon = (): 'bike' | 'run' | 'swim' | 'walk' | 'map-marker' => {
+    const routeType = route.type?.toLowerCase() || '';
+    if (routeType.includes('ride') || routeType.includes('cycling')) return 'bike';
+    if (routeType.includes('run')) return 'run';
+    if (routeType.includes('swim')) return 'swim';
+    if (routeType.includes('walk') || routeType.includes('hike')) return 'walk';
+    return 'map-marker';
+  };
+
+  // Get distance from either type
+  const distance = isRouteGroup(route) ? route.distance : route.distance;
+
+  // Get match percentage (only available on DiscoveredRouteInfo)
+  const avgMatchPercentage = isRouteGroup(route)
+    ? route.averageMatchQuality
+    : route.avgMatchPercentage;
+
+  // Get best pace (only available on RouteGroup with performance data)
+  const bestPace = isRouteGroup(route) ? route.bestPace : undefined;
+  const routeType = toActivityType(route.type);
+  const showPace = isRunningActivity(routeType);
+
+  // Format pace/speed for display
+  const formattedPace = useMemo(() => {
+    if (!bestPace || bestPace <= 0) return null;
+    return showPace ? formatPace(bestPace, isMetric) : formatSpeed(bestPace, isMetric);
+  }, [bestPace, showPace, isMetric]);
+
+  const handlePress = () => {
+    if (navigable) {
+      navigateTo(`/route/${route.id}`);
+    } else {
+      setExpanded(!expanded);
+    }
+  };
+
+  return (
+    <View style={styles.wrapper} testID={`route-row-${route.id}`}>
+      <TouchableOpacity
+        style={[styles.container, isDark && styles.containerDark]}
+        onPress={handlePress}
+        activeOpacity={0.7}
+        testID={`route-row-${route.id}-touch`}
+      >
+        {/* Route preview with map-like backdrop */}
+        <View style={styles.previewBox}>
+          {previewPoints.length > 1 ? (
+            <RoutePreview points={previewPoints} color={activityColor} isDark={isDark} />
+          ) : (
+            <View style={[styles.previewPlaceholder, isDark && styles.previewPlaceholderDark]}>
+              <MaterialCommunityIcons
+                name={getTypeIcon()}
+                size={18}
+                color={isDark ? darkColors.iconFaint : colors.iconFaint}
+              />
+            </View>
+          )}
+        </View>
+
+        {/* Route info */}
+        <View style={styles.infoContainer}>
+          <View style={styles.nameRow}>
+            <Text style={[styles.routeName, isDark && styles.textLight]} numberOfLines={1}>
+              {displayName}
+            </Text>
+            {/* Show sport type icons for all activity types in this route */}
+            {isRouteGroup(route) && route.sportTypes && route.sportTypes.length > 0 && (
+              <View style={styles.sportTypeIcons}>
+                {route.sportTypes.map((st) => (
+                  <MaterialCommunityIcons
+                    key={st}
+                    name={getActivityIcon(toActivityType(st))}
+                    size={14}
+                    color={getActivityColor(toActivityType(st))}
+                  />
+                ))}
+              </View>
+            )}
+          </View>
+          <View style={styles.metaRow}>
+            {distance && distance > 0 && (
+              <Text style={[styles.metaText, isDark && styles.textMuted]}>
+                {formatDistance(distance, isMetric)}
+              </Text>
+            )}
+            {distanceFromUser != null && Number.isFinite(distanceFromUser) && (
+              <View style={styles.proximityTag}>
+                <MaterialCommunityIcons
+                  name="map-marker-distance"
+                  size={10}
+                  color={isDark ? darkColors.textDisabled : colors.textDisabled}
+                />
+                <Text style={[styles.proximityText, isDark && styles.proximityTextDark]}>
+                  {formatDistance(distanceFromUser, isMetric)}
+                </Text>
+              </View>
+            )}
+            {formattedPace && (
+              <Text style={[styles.paceText, { color: colors.primary }]}>{formattedPace}</Text>
+            )}
+            {avgMatchPercentage !== undefined && avgMatchPercentage > 0 && (
+              <Text style={[styles.matchPercent, { color: colors.success }]}>
+                {Math.round(avgMatchPercentage)}% {t('routes.match')}
+              </Text>
+            )}
+          </View>
+        </View>
+
+        {/* Activity count badge */}
+        <View style={styles.countBadge}>
+          <Text style={styles.countText}>{route.activityCount}</Text>
+          <MaterialCommunityIcons
+            name={navigable ? 'chevron-right' : expanded ? 'chevron-up' : 'chevron-down'}
+            size={16}
+            color={
+              navigable ? colors.textOnDark : isDark ? colors.neutralLine : colors.textSecondary
+            }
+          />
+        </View>
+      </TouchableOpacity>
+
+      {/* Expanded activity list - only show when not navigable */}
+      {expanded && !navigable && (
+        <View style={[styles.expandedList, isDark && styles.expandedListDark]}>
+          {activityNames.slice(0, 5).map((name, idx) => (
+            <View key={route.activityIds[idx] || idx} style={styles.activityItem}>
+              <MaterialCommunityIcons
+                name="checkbox-marked-circle-outline"
+                size={14}
+                color={colors.success}
+              />
+              <Text style={[styles.activityName, isDark && styles.textMuted]} numberOfLines={1}>
+                {name}
+              </Text>
+            </View>
+          ))}
+          {route.activityCount > 5 && (
+            <Text style={[styles.moreText, isDark && styles.textMuted]}>
+              {t('routes.more', { count: route.activityCount - 5 })}
+            </Text>
+          )}
+        </View>
+      )}
+    </View>
+  );
+}
+
+// Memoize - only re-render if route data changes
+export const RouteRow = memo(RouteRowComponent, (prevProps, nextProps) => {
+  const prevSportTypes =
+    'sportTypes' in prevProps.route ? (prevProps.route as RouteGroup).sportTypes : undefined;
+  const nextSportTypes =
+    'sportTypes' in nextProps.route ? (nextProps.route as RouteGroup).sportTypes : undefined;
+  return (
+    prevProps.route.id === nextProps.route.id &&
+    prevProps.route.name === nextProps.route.name &&
+    prevProps.route.activityCount === nextProps.route.activityCount &&
+    prevProps.navigable === nextProps.navigable &&
+    prevProps.distanceFromUser === nextProps.distanceFromUser &&
+    prevSportTypes?.length === nextSportTypes?.length
+  );
+});
+
+const styles = StyleSheet.create({
+  wrapper: {
+    marginHorizontal: spacing.md,
+    marginBottom: 2,
+  },
+  container: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderRadius: 10,
+    padding: 6,
+    ...shadows.pill,
+  },
+  containerDark: {
+    backgroundColor: darkColors.surface,
+  },
+  previewBox: {
+    width: 48,
+    height: 36,
+    borderRadius: 5,
+    overflow: 'hidden',
+  },
+  previewPlaceholder: {
+    width: 48,
+    height: 36,
+    borderRadius: 5,
+    backgroundColor: opacity.overlay.subtle,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  previewPlaceholderDark: {
+    backgroundColor: opacity.overlayDark.light,
+  },
+  infoContainer: {
+    flex: 1,
+    marginLeft: spacing.sm,
+    marginRight: spacing.xs,
+  },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
+  routeName: {
+    fontSize: typography.bodyCompact.fontSize,
+    fontWeight: '600',
+    color: colors.textPrimary,
+    flexShrink: 1,
+  },
+  sportTypeIcons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+  },
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 2,
+    gap: spacing.sm,
+  },
+  metaText: {
+    fontSize: typography.label.fontSize,
+    color: colors.textSecondary,
+  },
+  proximityTag: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    gap: 2,
+  },
+  proximityText: {
+    fontSize: 10,
+    color: colors.textDisabled,
+  },
+  proximityTextDark: {
+    color: darkColors.textDisabled,
+  },
+  paceText: {
+    fontSize: typography.label.fontSize,
+    fontWeight: '600',
+  },
+  matchPercent: {
+    fontSize: typography.label.fontSize,
+    fontWeight: '500',
+  },
+  countBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.primary,
+    borderRadius: layout.borderRadius,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    gap: 2,
+  },
+  countText: {
+    fontSize: typography.bodyCompact.fontSize,
+    fontWeight: '700',
+    color: colors.textOnDark,
+  },
+  textLight: {
+    color: colors.textOnDark,
+  },
+  textMuted: {
+    color: darkColors.textSecondary,
+  },
+  expandedList: {
+    backgroundColor: opacity.overlay.subtle,
+    borderBottomLeftRadius: 10,
+    borderBottomRightRadius: 10,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    marginTop: -2,
+  },
+  expandedListDark: {
+    backgroundColor: opacity.overlayDark.subtle,
+  },
+  activityItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingVertical: 2,
+  },
+  activityName: {
+    flex: 1,
+    fontSize: typography.caption.fontSize,
+    color: colors.textSecondary,
+  },
+  moreText: {
+    fontSize: typography.label.fontSize,
+    color: colors.textSecondary,
+    marginTop: spacing.xs,
+    fontStyle: 'italic',
+  },
+});

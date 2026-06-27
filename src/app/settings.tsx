@@ -1,30 +1,30 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image } from 'react-native';
-import { ScreenSafeAreaView, ScreenErrorBoundary, TAB_BAR_SAFE_PADDING } from '@/components/ui';
-import { logScreenRender } from '@/lib/debug/renderTimer';
+import { ScreenSafeAreaView, ScreenErrorBoundary, TAB_BAR_SAFE_PADDING } from '@/shared/ui';
+import { logScreenRender } from '@/shared/debug/renderTimer';
 import { router } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { useAthlete, useTheme } from '@/hooks';
-import {
-  useThemePreferenceStore,
-  useSportPreference,
-  useLanguageStore,
-  useUnitPreference,
-  useAuthStore,
-  useMapPreferences,
-  useDashboardPreferences,
-  useNotificationPreferences,
-  useRouteSettings,
-  useSyncDateRange,
-  getAvailableLanguages,
-} from '@/providers';
-import { navigateTo, formatFileSize, getAppStorageSize } from '@/lib';
-import { getLastBackupTimestamp } from '@/lib/backup';
+import { useTheme } from '@/shared/app';
+import { useAthlete } from '@/shared/app/useAthlete';
+import { useAuthStore } from '@/shared/app/AuthStore';
+import { useSportPreference } from '@/features/fitness/stores';
+import { useDashboardPreferences } from '@/features/home/store';
+import { useMapPreferences } from '@/features/maps/stores/MapPreferencesContext';
+import { useRouteSettings } from '@/features/routes/stores/RouteSettingsStore';
+import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
+import { useNotificationPreferences } from '@/features/settings/stores/NotificationPreferencesStore';
+import { useLanguageStore, getAvailableLanguages } from '@/shared/app/LanguageStore';
+import { useThemePreferenceStore } from '@/shared/app/ThemeProvider';
+import { useUnitPreference } from '@/shared/app/UnitPreferenceStore';
+import { navigateTo } from '@/shared/app/navigation';
+import { formatFileSize } from '@/shared/format/format';
+import { getAppStorageSize } from '@/shared/storage/gpsStorage';
+import { getLastBackupTimestamp } from '@/features/settings/lib/autobackup';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
-import { SettingsNavRow } from '@/components/settings/SettingsNavRow';
-import { FooterSection, SupportSection } from '@/components/settings';
-import { settingsStyles, DIVIDER_INSET } from '@/components/settings/settingsStyles';
+import { SettingsNavRow } from '@/features/settings/components/SettingsNavRow';
+import { FooterSection, SupportSection } from '@/features/settings/components';
+import { settingsStyles, DIVIDER_INSET } from '@/features/settings/components/settingsStyles';
 
 interface AccountRowProps {
   athlete?: { name?: string; profile?: string; profile_medium?: string };

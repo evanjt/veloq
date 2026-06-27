@@ -5,8 +5,11 @@
  * Bug fix validated: completed > total produces >100%
  */
 
-import type { GpsSyncProgress } from '@/providers/SyncDateRangeStore';
-import { formatGpsSyncProgress, formatBoundsSyncProgress } from '@/lib/utils/syncProgressFormat';
+import type { GpsSyncProgress } from '@/shared/app/SyncDateRangeStore';
+import {
+  formatGpsSyncProgress,
+  formatBoundsSyncProgress,
+} from '@/features/routes/lib/syncProgressFormat';
 
 import type { TFunction } from 'i18next';
 const t = ((key: string, opts?: Record<string, unknown>) =>

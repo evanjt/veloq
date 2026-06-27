@@ -3,7 +3,7 @@ import {
   smoothDataPoints,
   getSmoothingDescription,
   gaussianSmooth,
-} from '@/lib/utils/smoothing';
+} from '@/shared/math/smoothing';
 
 describe('getEffectiveWindow', () => {
   it('"none" returns 0 for any time range', () => {

@@ -3,11 +3,11 @@
 //! Includes time-stream management, backfill, and performance-record computation
 //! for both route groups and detected sections (including their excluded variants).
 
+use crate::persistence::codec;
 use crate::{
     ActivityMetrics, Direction, DirectionStats, RoutePerformance, RoutePerformanceResult,
     SectionLap, SectionPerformanceRecord, SectionPerformanceResult,
 };
-use crate::persistence::codec;
 use rusqlite::params;
 use std::collections::HashMap;
 
@@ -38,7 +38,7 @@ impl PersistentRouteEngine {
             }
 
             // Also keep in memory for fast access
-            self.time_streams.insert(activity_id.clone(), times);
+            self.time_streams.put(activity_id.clone(), times);
         }
         log::debug!(
             "tracematch: [PersistentEngine] Set time streams for {} activities ({} persisted to SQLite)",
@@ -58,7 +58,7 @@ impl PersistentRouteEngine {
             "SELECT DISTINCT sa.activity_id
              FROM section_activities sa
              LEFT JOIN time_streams ts ON sa.activity_id = ts.activity_id
-             WHERE sa.lap_time IS NULL AND sa.excluded = 0 AND ts.activity_id IS NULL"
+             WHERE sa.lap_time IS NULL AND sa.excluded = 0 AND ts.activity_id IS NULL",
         ) {
             Ok(mut stmt) => stmt
                 .query_map([], |row| row.get(0))
@@ -111,7 +111,7 @@ impl PersistentRouteEngine {
 
         let mut db_time_streams: HashMap<String, Vec<u32>> = HashMap::new();
         for activity_id in &activity_ids {
-            if let Some(ts) = self.time_streams.get(activity_id) {
+            if let Some(ts) = self.time_streams.peek(activity_id) {
                 db_time_streams.insert(activity_id.clone(), ts.clone());
             } else if let Ok(stream) = self.db.query_row(
                 "SELECT times FROM time_streams WHERE activity_id = ?",
@@ -325,7 +325,7 @@ impl PersistentRouteEngine {
             .collect();
 
         for activity_id in activity_ids_needing_streams {
-            if !self.time_streams.contains_key(&activity_id) {
+            if !self.time_streams.contains(&activity_id) {
                 self.ensure_time_stream_loaded(&activity_id);
             }
         }
@@ -350,13 +350,14 @@ impl PersistentRouteEngine {
             .iter()
             .filter_map(|(activity_id, portions)| {
                 // Get activity name and date from in-memory cache or DB fallback
-                let (activity_name, activity_date) = if let Some(m) = self.activity_metrics.get(activity_id) {
-                    (m.name.clone(), m.date)
-                } else if let Some((name, date)) = db_metrics.get(activity_id) {
-                    (name.clone(), *date)
-                } else {
-                    return None;
-                };
+                let (activity_name, activity_date) =
+                    if let Some(m) = self.activity_metrics.get(activity_id) {
+                        (m.name.clone(), m.date)
+                    } else if let Some((name, date)) = db_metrics.get(activity_id) {
+                        (name.clone(), *date)
+                    } else {
+                        return None;
+                    };
 
                 let laps: Vec<SectionLap> = portions
                     .iter()
@@ -369,12 +370,13 @@ impl PersistentRouteEngine {
                                 // Fall back to calculation if cache miss
                                 // This handles migration edge case or corrupt data
                                 // Time stream should already be loaded by pre-loading step above
-                                if let Some(times) = self.time_streams.get(activity_id) {
+                                if let Some(times) = self.time_streams.peek(activity_id) {
                                     let start_idx = portion.start_index as usize;
                                     let end_idx = portion.end_index as usize;
 
                                     if start_idx < times.len() && end_idx < times.len() {
-                                        let lap_time = (times[end_idx] as f64 - times[start_idx] as f64).abs();
+                                        let lap_time =
+                                            (times[end_idx] as f64 - times[start_idx] as f64).abs();
                                         if lap_time > 0.0 {
                                             let lap_pace = portion.distance_meters / lap_time;
                                             (lap_time, lap_pace)
@@ -387,7 +389,8 @@ impl PersistentRouteEngine {
                                 } else {
                                     log::debug!(
                                         "No time stream available for {}, lap {} - skipping",
-                                        activity_id, i
+                                        activity_id,
+                                        i
                                     );
                                     return None;
                                 }
@@ -435,7 +438,11 @@ impl PersistentRouteEngine {
                         }
                         min_distance_for_record == 0.0 || lap.distance >= min_distance_for_record
                     })
-                    .max_by(|a, b| a.pace.partial_cmp(&b.pace).unwrap_or(std::cmp::Ordering::Equal));
+                    .max_by(|a, b| {
+                        a.pace
+                            .partial_cmp(&b.pace)
+                            .unwrap_or(std::cmp::Ordering::Equal)
+                    });
                 let (best_time, best_pace) = best_lap
                     .map(|lap| (lap.time, lap.pace))
                     .unwrap_or((0.0, 0.0));
@@ -726,7 +733,7 @@ impl PersistentRouteEngine {
             .collect();
 
         for activity_id in activity_ids_needing_streams {
-            if !self.time_streams.contains_key(&activity_id) {
+            if !self.time_streams.contains(&activity_id) {
                 self.ensure_time_stream_loaded(&activity_id);
             }
         }
@@ -743,7 +750,7 @@ impl PersistentRouteEngine {
                             (Some(t), Some(p)) if t > 0.0 => (t, p),
                             _ => {
                                 // Fall back to time-stream calculation if cache miss
-                                if let Some(times) = self.time_streams.get(activity_id) {
+                                if let Some(times) = self.time_streams.peek(activity_id) {
                                     let start_idx = p.start_index as usize;
                                     let end_idx = p.end_index as usize;
                                     if start_idx < times.len() && end_idx < times.len() {
@@ -927,7 +934,9 @@ impl PersistentRouteEngine {
         // Find best reverse
         let best_reverse = performances
             .iter()
-            .filter(|p| (p.direction == "reverse" || p.direction == "backward") && p.moving_time > 0)
+            .filter(|p| {
+                (p.direction == "reverse" || p.direction == "backward") && p.moving_time > 0
+            })
             .min_by_key(|p| p.moving_time)
             .cloned();
 
@@ -950,8 +959,11 @@ impl PersistentRouteEngine {
             None
         } else {
             let count = forward_perfs.len() as u32;
-            let avg_time =
-                forward_perfs.iter().map(|p| p.moving_time as f64).sum::<f64>() / count as f64;
+            let avg_time = forward_perfs
+                .iter()
+                .map(|p| p.moving_time as f64)
+                .sum::<f64>()
+                / count as f64;
             let valid_speeds: Vec<f64> = forward_perfs
                 .iter()
                 .map(|p| p.speed)
@@ -980,8 +992,11 @@ impl PersistentRouteEngine {
             None
         } else {
             let count = reverse_perfs.len() as u32;
-            let avg_time =
-                reverse_perfs.iter().map(|p| p.moving_time as f64).sum::<f64>() / count as f64;
+            let avg_time = reverse_perfs
+                .iter()
+                .map(|p| p.moving_time as f64)
+                .sum::<f64>()
+                / count as f64;
             let valid_speeds: Vec<f64> = reverse_perfs
                 .iter()
                 .map(|p| p.speed)

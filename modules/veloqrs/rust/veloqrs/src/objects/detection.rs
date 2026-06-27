@@ -63,6 +63,8 @@ impl DetectionManager {
                 // freezing on a stalled "100%" bar.
                 let progress = handle_guard.as_ref().map(|h| h.progress.clone());
 
+                // Hot save under the write lock — sections are queryable as soon
+                // as this returns.
                 with_engine(|e| {
                     if let Err(err) = e.apply_sections_save(sections) {
                         log::error!("apply_sections_save failed: {}", err);
@@ -85,6 +87,13 @@ impl DetectionManager {
                             err
                         );
                     }
+                    Ok(())
+                })??;
+
+                // Release the write lock above before the finalize tail so any
+                // queued reads see the saved sections during the cross-sport
+                // merge + indicator recompute, which re-takes a separate lock.
+                with_engine(|e| {
                     e.apply_sections_finalize_with_progress(progress.as_ref());
                     // Reload groups from DB in case the background thread
                     // recomputed and saved them.
@@ -126,7 +135,9 @@ impl DetectionManager {
                 .lock()
                 .map_err(|_| VeloqError::LockFailed)?;
             if handle_guard.is_some() {
-                info!("tracematch: [DetectionManager] Cannot force redetect: detection already running");
+                info!(
+                    "tracematch: [DetectionManager] Cannot force redetect: detection already running"
+                );
                 return Ok(false);
             }
         }

@@ -382,6 +382,7 @@
   "common": {
     "activities": "attività",
     "back": "Indietro",
+    "close": "Chiudi",
     "cancel": "Annulla",
     "clearSearch": "Cancella ricerca",
     "confirm": "Conferma",
@@ -473,7 +474,10 @@
     "defaultTitle": "Qualcosa è andato storto",
     "tryAgain": "Riprova",
     "unableToLoad": "Impossibile caricare {{componentName}}",
-    "restartHint": "Riprova o riavvia l'app"
+    "restartHint": "Riprova o riavvia l'app",
+    "unableToDisplay": "Impossibile mostrare {{label}}",
+    "unableToDisplayChart": "Impossibile mostrare il grafico",
+    "tapToRetry": "Tocca per riprovare"
   },
   "export": {
     "bulkComplete": "Esportazione completata",
@@ -631,7 +635,8 @@
       "thresholdSpeedName": "Analisi tendenza velocità soglia",
       "thresholdSpeedDescription": "Confronta la tua ultima stima di velocità soglia con i valori precedenti, poi formatta la variazione come passo leggibile per l'atleta.",
       "fitnessPrName": "Incrocio forma-PR",
-      "sectionTrendName": "Trend di performance sui tratti"
+      "sectionTrendName": "Trend di performance sui tratti",
+      "stalePrCrossRefName": "Incrocio PR con {{metric}}"
     },
     "alternatives": {
       "selected": "Valutazione attuale",
@@ -694,7 +699,10 @@
       "metricGain": "Guadagno {{metric}}",
       "prTime": "Tempo PR",
       "methodology": "Confronta le metriche di forma al momento del PR con i valori attuali. Mostra le sezioni dove le metriche di forma sono cambiate da quando è stato stabilito il PR.",
-      "groupTitle": "{{count}} PR con cambiamenti di forma"
+      "groupTitle": "{{count}} PR con cambiamenti di forma",
+      "metricCyclingFtp": "FTP ciclismo",
+      "metricSwimCss": "CSS nuoto",
+      "metricRunningThreshold": "Ritmo soglia di corsa"
     },
     "disclaimer": "Le metriche di allenamento sono stime basate sulla scienza dello sport. Le risposte individuali variano. Non costituiscono consiglio medico o di allenamento.",
     "aboutInsights": "Informazioni sugli approfondimenti",
@@ -727,7 +735,18 @@
       "volumeAppeared": "Volume apparso nelle ultime due settimane dopo un inizio più tranquillo.",
       "volumeUp": "La media delle ultime 2 settimane è {{percent}}% sopra le 2 precedenti.",
       "volumeDown": "La media delle ultime 2 settimane è {{percent}}% sotto le 2 precedenti.",
-      "volumeSteady": "La media delle ultime 2 settimane è stabile rispetto all'inizio del mese."
+      "volumeSteady": "La media delle ultime 2 settimane è stabile rispetto all'inizio del mese.",
+      "oneSidedTitle": "{{pair}} registra una distribuzione unilaterale",
+      "dominantTitle": "{{dominant}} concentra più volume in {{pair}}",
+      "oneSidedBody": "{{dominant}} rappresenta tutto il volume di serie ponderate per {{pair}} nelle ultime 4 settimane.",
+      "ratioBody": "{{pair}} registra una media di {{ratio}} in serie ponderate nella finestra più recente di 4 settimane.",
+      "ratioLabel": "Rapporto",
+      "statusLabel": "Stato",
+      "formula": "Serie ponderate per coppia antagonista",
+      "algorithm": "Confronta il numero di serie ponderate tra coppie antagoniste comuni. Il lavoro primario vale 1.0 e quello secondario 0.5.",
+      "methodologyName": "Controllo equilibrio di forza",
+      "methodologyDescription": "Confronta le serie ponderate tra coppie di muscoli antagonisti nelle ultime 4 settimane per segnalare carichi sbilanciati.",
+      "ratioFormula": "rapporto = serie ponderate dominanti / serie ponderate secondarie"
     },
     "quickTake": {
       "howCalculated": "Come è stato calcolato?",
@@ -793,7 +812,38 @@
     "routesDisabledLine1": "Percorsi e sezioni disabilitati",
     "routesDisabledLine2": "Tocca per attivare",
     "sectionDeclining": "{{name}} sta rallentando",
-    "sectionDecliningBody": "Mediana recente: {{median}}. Migliore: {{best}} su {{count}} tentativi."
+    "sectionDecliningBody": "Mediana recente: {{median}}. Migliore: {{best}} su {{count}} tentativi.",
+    "strengthProgression": {
+      "upTitle": "Il volume di {{muscle}} è in crescita",
+      "downTitle": "Il volume di {{muscle}} è calato",
+      "newVolumeBody": "{{muscle}} ha generato la maggior parte delle serie ponderate recenti nelle 2 settimane attuali, dopo un periodo più tranquillo.",
+      "shiftBody": "{{muscle}} è passato da {{from}} a {{to}} serie ponderate nella media attuale di 2 settimane.",
+      "vsEarlier": "{{change}}% vs 2 settimane precedenti",
+      "fourWeekTotal": "Totale 4 settimane",
+      "sparklineLabel": "Serie ponderate su 4 settimane",
+      "recent2Weeks": "Ultime 2 sett.",
+      "earlier2Weeks": "2 sett. prec.",
+      "changeLabel": "Variazione",
+      "thisWeek": "Questa sett.",
+      "weeksAgo": "-{{n}}sett",
+      "formula": "Media delle ultime 2 settimane vs media delle 2 settimane precedenti",
+      "algorithm": "Monitora le serie ponderate per muscolo nelle ultime 4 settimane. Il lavoro primario vale 1.0 e quello secondario 0.5.",
+      "methodologyName": "Progressione del volume di forza",
+      "methodologyDescription": "Confronta la media delle ultime 2 settimane con quella delle 2 settimane precedenti per rilevare variazioni significative del volume di serie ponderate."
+    },
+    "strengthSnapshot": {
+      "title_one": "{{count}} sessione di forza nelle ultime 4 settimane",
+      "title_other": "{{count}} sessioni di forza nelle ultime 4 settimane",
+      "subtitleWithTop": "{{sessions}} sessioni · {{sets}} serie · top: {{muscle}}",
+      "subtitle": "{{sessions}} sessioni · {{sets}} serie",
+      "body": "{{sets}} serie ponderate su {{groups}} gruppi muscolari.",
+      "sessionsLabel": "Sessioni",
+      "setsLabel": "Serie",
+      "muscleGroupsLabel": "Gruppi muscolari",
+      "formula": "Conteggio di sessioni di forza, serie ponderate e gruppi muscolari monitorati",
+      "algorithm": "Aggrega gli allenamenti di forza delle ultime 4 settimane. Il lavoro primario vale 1.0 e quello secondario 0.5 per ogni gruppo muscolare.",
+      "methodologyDescription": "Riepiloga il volume di forza delle ultime 4 settimane: numero di allenamenti, totale delle serie ponderate e gruppi muscolari monitorati."
+    }
   },
   "licenses": {
     "footer": "Tocca qualsiasi badge di licenza per vedere il testo completo. Tocca l'icona del link per visitare il repository del progetto.",
@@ -1816,6 +1866,8 @@
     "tip_large": "Grande mancia",
     "tipSmall": "Piccola",
     "tipMedium": "Media",
-    "tipLarge": "Grande"
+    "tipLarge": "Grande",
+    "shareCrashLog": "Condividi il log dei crash",
+    "noCrashLog": "Nessun crash registrato"
   }
 }

@@ -1,36 +1,27 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
-import {
-  View,
-  StyleSheet,
-  ActivityIndicator,
-  Text,
-  TouchableOpacity,
-  ScrollView,
-} from 'react-native';
+import { View, StyleSheet, Text, TouchableOpacity, ScrollView } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { useRouter } from 'expo-router';
-import { RegionalMapView, SyncProgressBanner } from '@/components/maps';
+import { RegionalMapView, SyncProgressBanner } from '@/features/maps/components';
 import {
   ComponentErrorBoundary,
   ScreenErrorBoundary,
   ErrorStatePreset,
   TAB_BAR_SAFE_PADDING,
-} from '@/components/ui';
-import { logScreenRender } from '@/lib/debug/renderTimer';
-import {
-  useActivityBoundsCache,
-  useActivities,
-  useTheme,
-  useMetricSystem,
-  useEngineMapActivities,
-} from '@/hooks';
-import { useAuthStore, useSyncDateRange } from '@/providers';
+  Shimmer,
+} from '@/shared/ui';
+import { logScreenRender } from '@/shared/debug/renderTimer';
+import { useActivityBoundsCache, useActivities } from '@/features/activity/hooks';
+import { useEngineMapActivities } from '@/features/maps/hooks';
+import { useTheme, useMetricSystem } from '@/shared/app';
+import { useAuthStore } from '@/shared/app/AuthStore';
+import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { colors, darkColors, spacing, typography } from '@/theme';
 import {
   getActivityTypeConfig,
   groupTypesByCategory,
   ACTIVITY_CATEGORIES,
-} from '@/components/maps/ActivityTypeFilter';
+} from '@/features/maps/components/ActivityTypeFilter';
 
 // Stable date references — creating new Date() in the component body triggers
 // useEngineMapActivities useMemo on every render, causing cascading re-renders
@@ -243,7 +234,7 @@ export default function MapScreen() {
         testID="map-screen"
         style={[styles.loadingContainer, isDark && styles.loadingContainerDark]}
       >
-        <ActivityIndicator size="large" color={colors.primary} />
+        <Shimmer width="100%" height={220} style={styles.loadingShimmer} />
         <Text style={[styles.loadingText, isDark && styles.loadingTextDark]}>
           {t('mapScreen.loadingActivities')}
         </Text>
@@ -432,6 +423,11 @@ const styles = StyleSheet.create({
   },
   loadingContainerDark: {
     backgroundColor: darkColors.background,
+  },
+  loadingShimmer: {
+    alignSelf: 'stretch',
+    marginHorizontal: spacing.md,
+    marginBottom: spacing.md,
   },
   loadingText: {
     marginTop: spacing.md,

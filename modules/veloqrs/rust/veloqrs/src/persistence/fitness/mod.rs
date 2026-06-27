@@ -68,11 +68,9 @@ impl PersistentRouteEngine {
     ) -> SqlResult<()> {
         let new_metrics: Vec<&crate::FfiActivityMetrics> = metrics
             .iter()
-            .filter(|m| {
-                match self.activity_metrics.get(&m.activity_id) {
-                    Some(existing) => existing.date != m.date || existing.moving_time != m.moving_time,
-                    None => true,
-                }
+            .filter(|m| match self.activity_metrics.get(&m.activity_id) {
+                Some(existing) => existing.date != m.date || existing.moving_time != m.moving_time,
+                None => true,
             })
             .collect();
 
@@ -272,4 +270,3 @@ impl PersistentRouteEngine {
         );
     }
 }
-

@@ -126,4 +126,11 @@ impl MapManager {
     fn get_all_signatures(&self) -> Result<Vec<crate::ffi_types::FfiMapSignature>, VeloqError> {
         with_engine(|e| e.get_all_map_signatures())
     }
+
+    fn get_signatures_for_ids(
+        &self,
+        ids: Vec<String>,
+    ) -> Result<Vec<crate::ffi_types::FfiMapSignature>, VeloqError> {
+        with_engine(|e| e.get_map_signatures_for_ids(&ids))
+    }
 }

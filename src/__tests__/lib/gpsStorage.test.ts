@@ -44,7 +44,7 @@ jest.mock('expo-file-system/legacy', () => ({
   }),
 }));
 
-jest.mock('@/lib/native/routeEngine', () => ({
+jest.mock('@/shared/native/routeEngine', () => ({
   getRouteEngine: jest.fn(() => null),
 }));
 
@@ -60,7 +60,7 @@ import {
   getRouteDisplayName,
   saveCustomRouteName,
   loadCustomRouteNames,
-} from '@/lib/storage/gpsStorage';
+} from '@/shared/storage/gpsStorage';
 
 beforeEach(() => {
   mockFileStore.clear();

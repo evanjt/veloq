@@ -1,4 +1,7 @@
-import { buildStrengthBalancePairs, buildStrengthProgression } from '@/lib/strength/analysis';
+import {
+  buildStrengthBalancePairs,
+  buildStrengthProgression,
+} from '@/features/strength/lib/analysis';
 import type { MuscleVolume, StrengthProgressPoint } from '@/types';
 
 function makeMuscle(slug: string, weightedSets: number): MuscleVolume {
