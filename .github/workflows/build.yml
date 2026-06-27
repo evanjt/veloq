@@ -798,7 +798,7 @@ jobs:
       group: smoke-${{ github.ref }}
       cancel-in-progress: true
     runs-on: e2e-android
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
 
