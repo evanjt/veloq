@@ -19,23 +19,9 @@ tags:
 # Screenshot the feed so PR pill counts are visible for visual regression review.
 - takeScreenshot: "feed-pr-count-baseline"
 
-# Scroll through first several cards
-- swipe:
-    start: 50%, 75%
-    end: 50%, 25%
-    duration: 500
-- takeScreenshot: "feed-pr-count-scrolled"
-
-# The swipe above can push demo-test-0 off the top, so bring it back into view
-# before tapping (an optional tap on an off-screen card would silently no-op).
-- scrollUntilVisible:
-    element:
-      id: "activity-card-demo-test-0"
-    direction: UP
-    timeout: 10000
-
-# Open the first activity and compare its Sections tab count against
-# what the feed card surfaced.
+# Open the first activity (demo-test-0 — top card) and compare its Sections tab
+# count against what the feed card surfaced. Tap it directly: a prior swipe used
+# to push it off the top, which silently no-op'd the tap.
 - tapOn:
     id: "activity-card-demo-test-0"
 - runFlow:
