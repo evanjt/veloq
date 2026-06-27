@@ -238,7 +238,8 @@ impl PersistentRouteEngine {
                 if total_deleted > 0 {
                     log::info!(
                         "[heatmap] Invalidated {} tiles for {} new activities",
-                        total_deleted, activity_count
+                        total_deleted,
+                        activity_count
                     );
                 }
             });

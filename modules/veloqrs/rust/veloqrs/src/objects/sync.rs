@@ -225,9 +225,11 @@ pub(crate) async fn perform_sync(svc: &SyncService, transport: Transport, _athle
     }
     match endpoints::fetch_current_athlete(&transport, Lane::Interactive).await {
         Ok(_) => svc.finish(SyncState::Idle, None, true),
-        Err(NetError::Unauthorized) => {
-            svc.finish(SyncState::AuthExpired, Some("unauthorized".to_string()), false)
-        }
+        Err(NetError::Unauthorized) => svc.finish(
+            SyncState::AuthExpired,
+            Some("unauthorized".to_string()),
+            false,
+        ),
         Err(e) => svc.finish(SyncState::Idle, Some(e.to_string()), false),
     }
 }
@@ -463,9 +465,15 @@ mod tests {
         assert!(svc.try_begin());
         svc.request_cancel();
         svc.finish(SyncState::Idle, None, false);
-        assert!(svc.is_cancelled(), "the flag survives until the next begin consumes it");
+        assert!(
+            svc.is_cancelled(),
+            "the flag survives until the next begin consumes it"
+        );
         assert!(svc.try_begin());
-        assert!(!svc.is_cancelled(), "a fresh begin clears the prior cancellation");
+        assert!(
+            !svc.is_cancelled(),
+            "a fresh begin clears the prior cancellation"
+        );
     }
 
     #[test]

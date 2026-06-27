@@ -140,7 +140,8 @@ pub fn start_background_fetch(auth_header: String, activity_ids: Vec<String>) {
 
         // Run the fetch
         let fetch_start = Instant::now();
-        let fetch_results = crate::runtime::block_on(fetcher.fetch_activity_maps(activity_ids, None));
+        let fetch_results =
+            crate::runtime::block_on(fetcher.fetch_activity_maps(activity_ids, None));
         let success_count = fetch_results.iter().filter(|r| r.success).count();
         info!(
             "[RUST: start_background_fetch] Fetch complete: {}/{} successful ({} ms)",

@@ -7,8 +7,7 @@ use crate::net::transport::{NetError, Transport};
 use crate::net::types::*;
 
 /// Streams requested for the detail charts (GPS + the per-metric series).
-pub const DEFAULT_STREAM_TYPES: &str =
-    "time,distance,latlng,velocity_smooth,heartrate,watts,altitude,fixed_altitude,cadence,grade_smooth,temp,w_bal,ga_velocity";
+pub const DEFAULT_STREAM_TYPES: &str = "time,distance,latlng,velocity_smooth,heartrate,watts,altitude,fixed_altitude,cadence,grade_smooth,temp,w_bal,ga_velocity";
 
 /// `GET /athlete/{id}` — full athlete profile.
 pub async fn fetch_athlete(
@@ -16,7 +15,8 @@ pub async fn fetch_athlete(
     athlete_id: &str,
     lane: Lane,
 ) -> Result<AthleteRecord, NetError> {
-    t.get_json(&format!("/athlete/{}", athlete_id), &[], lane).await
+    t.get_json(&format!("/athlete/{}", athlete_id), &[], lane)
+        .await
 }
 
 /// `GET /athlete/me` — discover the current athlete from the credential alone.
@@ -52,7 +52,8 @@ pub async fn fetch_activity(
     activity_id: &str,
     lane: Lane,
 ) -> Result<ActivityRecord, NetError> {
-    t.get_json(&format!("/activity/{}", activity_id), &[], lane).await
+    t.get_json(&format!("/activity/{}", activity_id), &[], lane)
+        .await
 }
 
 /// Oldest activity date across the whole history (cheap two-field pull + reduce).
@@ -125,8 +126,12 @@ pub async fn fetch_sport_settings(
     athlete_id: &str,
     lane: Lane,
 ) -> Result<Vec<SportSettingsRecord>, NetError> {
-    t.get_json(&format!("/athlete/{}/sport-settings", athlete_id), &[], lane)
-        .await
+    t.get_json(
+        &format!("/athlete/{}/sport-settings", athlete_id),
+        &[],
+        lane,
+    )
+    .await
 }
 
 /// `GET /athlete/{id}/power-curves.json` → curve with `values` renamed to watts.
@@ -201,7 +206,12 @@ mod tests {
         });
         let t = fast_transport(server.base_url());
         let acts = crate::runtime::block_on(fetch_activities(
-            &t, "i1", "2026-01-01", "2026-06-26", false, Lane::Backfill,
+            &t,
+            "i1",
+            "2026-01-01",
+            "2026-06-26",
+            false,
+            Lane::Backfill,
         ))
         .unwrap();
         mock.assert();
@@ -221,7 +231,8 @@ mod tests {
                     req.query_params
                         .as_ref()
                         .map(|q| {
-                            q.iter().any(|(k, v)| k == "fields" && v.contains("icu_power_zones"))
+                            q.iter()
+                                .any(|(k, v)| k == "fields" && v.contains("icu_power_zones"))
                         })
                         .unwrap_or(false)
                 });
@@ -229,7 +240,12 @@ mod tests {
         });
         let t = fast_transport(server.base_url());
         let _ = crate::runtime::block_on(fetch_activities(
-            &t, "i1", "2026-01-01", "2026-06-26", true, Lane::Backfill,
+            &t,
+            "i1",
+            "2026-01-01",
+            "2026-06-26",
+            true,
+            Lane::Backfill,
         ))
         .unwrap();
         mock.assert();
@@ -263,7 +279,10 @@ mod tests {
         });
         let t = fast_transport(server.base_url());
         let d = crate::runtime::block_on(fetch_oldest_activity_date(
-            &t, "i1", "2026-06-26", Lane::Backfill,
+            &t,
+            "i1",
+            "2026-06-26",
+            Lane::Backfill,
         ))
         .unwrap();
         assert_eq!(d.as_deref(), Some("2023-02-02T00:00:00"));
@@ -281,10 +300,9 @@ mod tests {
             }));
         });
         let t = fast_transport(server.base_url());
-        let pc = crate::runtime::block_on(fetch_power_curve(
-            &t, "i1", "Ride", "42d", Lane::Backfill,
-        ))
-        .unwrap();
+        let pc =
+            crate::runtime::block_on(fetch_power_curve(&t, "i1", "Ride", "42d", Lane::Backfill))
+                .unwrap();
         assert_eq!(pc.watts, vec![900.0, 800.0]);
     }
 
@@ -306,10 +324,8 @@ mod tests {
             }));
         });
         let t = fast_transport(server.base_url());
-        let pc = crate::runtime::block_on(fetch_pace_curve(
-            &t, "i1", "Run", "42d", Lane::Backfill,
-        ))
-        .unwrap();
+        let pc = crate::runtime::block_on(fetch_pace_curve(&t, "i1", "Run", "42d", Lane::Backfill))
+            .unwrap();
         assert_eq!(pc.pace[0], 5.0); // 100 m / 20 s
         assert_eq!(pc.pace[1], 0.0); // div-by-zero guard
         assert_eq!(pc.critical_speed, Some(2.85));
@@ -329,7 +345,11 @@ mod tests {
         });
         let t = fast_transport(server.base_url());
         let w = crate::runtime::block_on(fetch_wellness(
-            &t, "i1", "2026-05-01", "2026-06-26", Lane::Backfill,
+            &t,
+            "i1",
+            "2026-05-01",
+            "2026-06-26",
+            Lane::Backfill,
         ))
         .unwrap();
         mock.assert();

@@ -138,8 +138,7 @@ impl Transport {
                         if attempt > MAX_RETRIES {
                             return Err(NetError::RateLimited);
                         }
-                        let wait =
-                            governor::decide_backoff(budget.retry_after_secs, attempt, true);
+                        let wait = governor::decide_backoff(budget.retry_after_secs, attempt, true);
                         tokio::time::sleep(wait).await;
                         continue;
                     }
@@ -195,9 +194,10 @@ mod tests {
     fn sends_basic_auth_and_parses_json() {
         let server = MockServer::start();
         let mock = server.mock(|when, then| {
-            when.method(GET)
-                .path("/athlete/i1")
-                .header("authorization", &governor::format_auth_header(AuthMethod::ApiKey("secret")));
+            when.method(GET).path("/athlete/i1").header(
+                "authorization",
+                &governor::format_auth_header(AuthMethod::ApiKey("secret")),
+            );
             then.status(200).json_body(json!({"id": "i1", "name": "x"}));
         });
         let t = fast_transport(server.base_url(), AuthMethod::ApiKey("secret"));
@@ -314,8 +314,7 @@ mod tests {
         // can only fire after waiting a slot, which proves the transport acquires
         // the shared governor before dispatch rather than sending immediately.
         let gov = Arc::new(Governor::new(4, Box::new(NoopPolicy)));
-        let t =
-            Transport::with_governor(server.base_url(), AuthMethod::ApiKey("k"), gov).unwrap();
+        let t = Transport::with_governor(server.base_url(), AuthMethod::ApiKey("k"), gov).unwrap();
         let start = std::time::Instant::now();
         let _: serde_json::Value =
             crate::runtime::block_on(t.get_json("/p", &[], Lane::Interactive)).unwrap();

@@ -228,7 +228,10 @@ mod tests {
 
     #[test]
     fn bearer_header_is_passthrough() {
-        assert_eq!(format_auth_header(AuthMethod::Bearer("abc123")), "Bearer abc123");
+        assert_eq!(
+            format_auth_header(AuthMethod::Bearer("abc123")),
+            "Bearer abc123"
+        );
     }
 
     #[test]
