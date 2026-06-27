@@ -5,7 +5,7 @@
 //!
 //! Run: `cargo test --test merge_sections -p veloqrs`
 
-use rusqlite::{params, Connection};
+use rusqlite::{Connection, params};
 use std::path::PathBuf;
 use tempfile::TempDir;
 use veloqrs::PersistentRouteEngine;
@@ -24,7 +24,11 @@ fn setup() -> Setup {
     let engine = PersistentRouteEngine::new(&path_str).expect("engine new");
     let raw = Connection::open(&path).expect("raw open");
 
-    Setup { engine, raw, _tmp: tmp }
+    Setup {
+        engine,
+        raw,
+        _tmp: tmp,
+    }
 }
 
 fn insert_activity(db: &Connection, id: &str, start_unix: i64) {

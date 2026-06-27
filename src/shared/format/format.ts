@@ -1,0 +1,606 @@
+/**
+ * @fileoverview Formatting utilities for activity data and dates
+ *
+ * Provides consistent formatting for distances, durations, speeds, and dates
+ * across the application. Handles localization and unit conversion.
+ */
+
+import { i18n, getCurrentLanguage } from '@/i18n';
+
+// Unit conversion constants
+const KM_TO_MI = 0.621371;
+const M_TO_FT = 3.28084;
+const MPS_TO_MPH = 2.23694;
+
+// Sanity ceilings. A tiny-but-finite speed makes pace/duration overflow to a
+// finite-but-absurd magnitude that slips past the Infinity guard and renders in
+// scientific notation (e.g. "1.66e+301:08"). These bounds are far beyond any real
+// value, so they only ever reject garbage, never a legitimate pace or duration.
+const MAX_PACE_SECONDS = 100 * 3600; // 100 h per km/mile/100m — non-physical
+const MAX_DURATION_SECONDS = 1e9; // ~31 years
+
+/**
+ * Map app locale codes to valid Intl/BCP 47 locale codes for date formatting.
+ *
+ * Some locales have custom codes that don't match standard BCP 47 format.
+ * This function maps them to valid locale codes for use with Intl.DateTimeFormat.
+ *
+ * @returns Valid BCP 47 locale code
+ *
+ * @example
+ * ```ts
+ * getIntlLocale(); // "zh-CN" for "zh-Hans"
+ * ```
+ */
+export function getIntlLocale(): string {
+  const locale = getCurrentLanguage();
+
+  // Map custom locale codes to valid Intl codes
+  const localeMap: Record<string, string> = {
+    'zh-Hans': 'zh-CN', // Simplified Chinese script → China region
+  };
+
+  return localeMap[locale] || locale;
+}
+
+/**
+ * Format distance in meters/kilometers (metric) or feet/miles (imperial).
+ *
+ * Shows meters for distances < 1km, kilometers with 1 decimal for larger distances.
+ * In imperial mode, shows feet for < 0.25 miles, miles with 1 decimal otherwise.
+ * Handles invalid values gracefully.
+ *
+ * @param meters - Distance in meters
+ * @param isMetric - Whether to use metric units (default: true)
+ * @returns Formatted distance string (e.g., "500 m", "5.2 km", "0.8 mi")
+ *
+ * @example
+ * ```ts
+ * formatDistance(500);          // "500 m"
+ * formatDistance(1500);         // "1.5 km"
+ * formatDistance(1500, false);  // "0.9 mi"
+ * formatDistance(NaN);          // "0 m"
+ * ```
+ */
+export function formatDistance(meters: number, isMetric = true): string {
+  if (!Number.isFinite(meters) || meters < 0) {
+    return isMetric ? '0 m' : '0 ft';
+  }
+
+  if (isMetric) {
+    if (meters < 1000) {
+      return `${Math.round(meters)} m`;
+    }
+    const km = meters / 1000;
+    return `${km.toFixed(1)} km`;
+  } else {
+    const feet = meters * M_TO_FT;
+    const miles = (meters / 1000) * KM_TO_MI;
+    // Show feet for short distances (< 0.25 miles = ~400m)
+    if (miles < 0.25) {
+      return `${Math.round(feet)} ft`;
+    }
+    return `${miles.toFixed(1)} mi`;
+  }
+}
+
+/**
+ * Format duration in hours:minutes:seconds or minutes:seconds.
+ *
+ * Shows HH:MM:SS format for durations >= 1 hour, MM:SS for shorter durations.
+ * Handles invalid values gracefully.
+ *
+ * @param seconds - Duration in seconds
+ * @returns Formatted duration string (e.g., "1:23:45", "45:30")
+ *
+ * @example
+ * ```ts
+ * formatDuration(90);     // "1:30"
+ * formatDuration(3665);   // "1:01:05"
+ * formatDuration(NaN);    // "0:00"
+ * ```
+ */
+export function formatDuration(seconds: number): string {
+  if (!Number.isFinite(seconds) || seconds < 0 || seconds > MAX_DURATION_SECONDS) {
+    return '0:00';
+  }
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const secs = Math.floor(seconds % 60);
+
+  if (hours > 0) {
+    return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  }
+  return `${minutes}:${secs.toString().padStart(2, '0')}`;
+}
+
+/**
+ * Format duration in human-readable form: "45s", "5m 30s", "1h 30m".
+ * Drops zero trailing components (e.g., "5m" not "5m 0s").
+ */
+export function formatDurationHuman(seconds: number): string {
+  if (!Number.isFinite(seconds) || seconds < 0 || seconds > MAX_DURATION_SECONDS) return '0s';
+  const totalSeconds = Math.round(seconds);
+  if (totalSeconds < 60) return `${totalSeconds}s`;
+  const mins = Math.floor(totalSeconds / 60);
+  const secs = totalSeconds % 60;
+  if (mins < 60) return secs > 0 ? `${mins}m ${secs}s` : `${mins}m`;
+  const hrs = Math.floor(mins / 60);
+  const remainingMins = mins % 60;
+  return remainingMins > 0 ? `${hrs}h ${remainingMins}m` : `${hrs}h`;
+}
+
+/**
+ * Format pace as minutes per kilometer (metric) or per mile (imperial).
+ *
+ * Shows running/cycling pace in MM:SS /km or /mi format.
+ * Returns "--:--" for invalid or non-positive values.
+ *
+ * @param metersPerSecond - Speed in meters per second
+ * @param isMetric - Whether to use metric units (default: true)
+ * @returns Formatted pace string (e.g., "5:30 /km", "8:51 /mi", "--:--")
+ *
+ * @example
+ * ```ts
+ * formatPace(3.0);          // "5:33 /km" (≈ 10.8 km/h)
+ * formatPace(3.0, false);   // "8:56 /mi"
+ * formatPace(0);            // "--:--"
+ * ```
+ */
+export function formatPace(metersPerSecond: number, isMetric = true): string {
+  if (!Number.isFinite(metersPerSecond) || metersPerSecond <= 0) return '--:--';
+
+  // Seconds per km
+  const secondsPerKm = 1000 / metersPerSecond;
+  // Seconds per mile = seconds per km / KM_TO_MI
+  const totalSeconds = isMetric ? secondsPerKm : secondsPerKm / KM_TO_MI;
+  // A tiny-but-positive speed overflows 1000/mps to a finite-but-absurd value;
+  // reject both Infinity and the non-physical range.
+  if (!Number.isFinite(totalSeconds) || totalSeconds > MAX_PACE_SECONDS) return '--:--';
+
+  let minutes = Math.floor(totalSeconds / 60);
+  let seconds = Math.round(totalSeconds % 60);
+
+  // Handle rounding edge case: if seconds rounds to 60, roll over to next minute
+  if (seconds === 60) {
+    minutes += 1;
+    seconds = 0;
+  }
+
+  const unit = isMetric ? '/km' : '/mi';
+  return `${minutes}:${seconds.toString().padStart(2, '0')} ${unit}`;
+}
+
+/**
+ * Format a pace value already expressed in seconds per km as M:SS (no unit).
+ *
+ * Single source for pace formatting from a seconds-per-km scalar, so callers
+ * that already hold pace in that unit don't re-roll the min/sec math.
+ *
+ * @param secondsPerKm - Pace in seconds per kilometer
+ * @returns Formatted pace string (e.g., "5:30", "--:--")
+ */
+export function formatPaceFromSecsPerKm(secondsPerKm: number): string {
+  if (!Number.isFinite(secondsPerKm) || secondsPerKm <= 0 || secondsPerKm > MAX_PACE_SECONDS)
+    return '--:--';
+
+  let minutes = Math.floor(secondsPerKm / 60);
+  let seconds = Math.round(secondsPerKm % 60);
+
+  // Handle rounding edge case: if seconds rounds to 60, roll over to next minute
+  if (seconds === 60) {
+    minutes += 1;
+    seconds = 0;
+  }
+
+  return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+}
+
+/**
+ * Compact pace format for UI pills (no units).
+ *
+ * Same as formatPace but without the "/km" or "/mi" suffix for compact display.
+ *
+ * @param metersPerSecond - Speed in meters per second
+ * @param isMetric - Whether to use metric units (default: true)
+ * @returns Formatted pace string (e.g., "5:30", "--:--")
+ */
+export function formatPaceCompact(metersPerSecond: number, isMetric = true): string {
+  if (!Number.isFinite(metersPerSecond) || metersPerSecond <= 0) return '--:--';
+
+  const secondsPerKm = 1000 / metersPerSecond;
+  const totalSeconds = isMetric ? secondsPerKm : secondsPerKm / KM_TO_MI;
+  if (!Number.isFinite(totalSeconds) || totalSeconds > MAX_PACE_SECONDS) return '--:--';
+
+  let minutes = Math.floor(totalSeconds / 60);
+  let seconds = Math.round(totalSeconds % 60);
+
+  // Handle rounding edge case: if seconds rounds to 60, roll over to next minute
+  if (seconds === 60) {
+    minutes += 1;
+    seconds = 0;
+  }
+
+  return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+}
+
+/**
+ * Format swim pace in minutes per 100 meters (metric) or per 100 yards (imperial).
+ *
+ * Swimming uses per-100m or per-100yd pace instead of per-km.
+ *
+ * @param metersPerSecond - Speed in meters per second
+ * @param isMetric - Whether to use metric units (default: true)
+ * @returns Formatted swim pace string (e.g., "2:30", "--:--")
+ */
+export function formatSwimPace(metersPerSecond: number, isMetric = true): string {
+  if (!Number.isFinite(metersPerSecond) || metersPerSecond <= 0) return '--:--';
+
+  // 100 yards = 91.44 meters
+  const distance = isMetric ? 100 : 91.44;
+  const totalSeconds = Math.round(distance / metersPerSecond);
+  if (!Number.isFinite(totalSeconds) || totalSeconds > MAX_PACE_SECONDS) return '--:--';
+
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${seconds.toString().padStart(2, '0')}`;
+}
+
+/**
+ * Format speed in kilometers per hour (metric) or miles per hour (imperial).
+ *
+ * Converts meters per second to km/h or mph with 1 decimal precision.
+ *
+ * @param metersPerSecond - Speed in meters per second
+ * @param isMetric - Whether to use metric units (default: true)
+ * @returns Formatted speed string (e.g., "25.5 km/h", "15.8 mph")
+ *
+ * @example
+ * ```ts
+ * formatSpeed(10);          // "36.0 km/h"
+ * formatSpeed(10, false);   // "22.4 mph"
+ * formatSpeed(-1);          // "0.0 km/h"
+ * ```
+ */
+export function formatSpeed(metersPerSecond: number, isMetric = true): string {
+  if (!Number.isFinite(metersPerSecond) || metersPerSecond < 0) {
+    return isMetric ? '0.0 km/h' : '0.0 mph';
+  }
+
+  const value = isMetric ? metersPerSecond * 3.6 : metersPerSecond * MPS_TO_MPH;
+  // An extreme finite speed can overflow the conversion to Infinity.
+  if (!Number.isFinite(value)) return isMetric ? '0.0 km/h' : '0.0 mph';
+  return `${value.toFixed(1)} ${isMetric ? 'km/h' : 'mph'}`;
+}
+
+/**
+ * Format elevation in meters (metric) or feet (imperial).
+ *
+ * @param meters - Elevation in meters
+ * @param isMetric - Whether to use metric units (default: true)
+ * @returns Formatted elevation string (e.g., "150 m", "492 ft")
+ */
+export function formatElevation(meters: number | undefined | null, isMetric = true): string {
+  if (meters == null || !Number.isFinite(meters)) return isMetric ? '0 m' : '0 ft';
+
+  if (isMetric) {
+    return `${Math.round(meters)} m`;
+  }
+  const feet = Math.round(meters * M_TO_FT);
+  return Number.isFinite(feet) ? `${feet} ft` : '0 ft';
+}
+
+/**
+ * Format temperature in Celsius (metric) or Fahrenheit (imperial).
+ *
+ * @param celsius - Temperature in Celsius
+ * @param isMetric - Whether to use metric units (default: true)
+ * @returns Formatted temperature string (e.g., "20°C", "68°F")
+ */
+export function formatTemperature(celsius: number | undefined | null, isMetric = true): string {
+  if (celsius == null || !Number.isFinite(celsius)) return isMetric ? '--°C' : '--°F';
+
+  if (isMetric) {
+    return `${Math.round(celsius)}°C`;
+  }
+  const fahrenheit = Math.round(celsius * 1.8 + 32);
+  return Number.isFinite(fahrenheit) ? `${fahrenheit}°F` : '--°F';
+}
+
+export function formatHeartRate(bpm: number): string {
+  if (!Number.isFinite(bpm) || bpm < 0) {
+    return '0 bpm';
+  }
+  return `${Math.round(bpm)} bpm`;
+}
+
+export function formatPower(watts: number): string {
+  if (!Number.isFinite(watts) || watts < 0) {
+    return '0 W';
+  }
+  return `${Math.round(watts)} W`;
+}
+
+/**
+ * Format date as relative time or localized date.
+ *
+ * Returns human-readable relative dates:
+ * - "Today" for today
+ * - "Yesterday" for yesterday
+ * - Day of week (e.g., "Friday") for last 7 days
+ * - Short date (e.g., "Jan 5") for earlier this year
+ * - Full date (e.g., "Jan 5, 2023") for previous years
+ *
+ * Uses localized date formats based on app language setting.
+ *
+ * @param dateString - ISO date string to format
+ * @returns Localized relative date string
+ *
+ * @example
+ * ```ts
+ * formatRelativeDate("2024-01-15"); // "Jan 15" (if same year)
+ * formatRelativeDate("2023-06-15"); // "Jun 15, 2023" (if different year)
+ * formatRelativeDate(today);        // "Today"
+ * ```
+ */
+export function formatRelativeDate(dateString: string): string {
+  const date = new Date(dateString);
+  const now = new Date();
+
+  // Compare calendar days, not elapsed time
+  // This ensures "yesterday at 4pm" shows as "Yesterday" even if checked at 8am today
+  const dateDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const nowDay = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const diffDays = Math.round((nowDay.getTime() - dateDay.getTime()) / (1000 * 60 * 60 * 24));
+
+  const isCurrentYear = date.getFullYear() === now.getFullYear();
+  const locale = getIntlLocale();
+
+  if (diffDays === 0) {
+    return i18n.t('time.today') || 'Today';
+  } else if (diffDays === 1) {
+    return i18n.t('time.yesterday') || 'Yesterday';
+  } else if (diffDays < 7) {
+    return date.toLocaleDateString(locale, { weekday: 'long' });
+  } else if (isCurrentYear) {
+    return date.toLocaleDateString(locale, {
+      month: 'short',
+      day: 'numeric',
+    });
+  } else {
+    return date.toLocaleDateString(locale, {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    });
+  }
+}
+
+export function formatDateTime(dateString: string): string {
+  const date = new Date(dateString);
+  const locale = getIntlLocale();
+  return date.toLocaleDateString(locale, {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
+}
+
+/**
+ * Format date as short date (e.g., "Jan 2")
+ */
+export function formatShortDate(date: Date | string): string {
+  const d = typeof date === 'string' ? new Date(date) : date;
+  const locale = getIntlLocale();
+  return d.toLocaleDateString(locale, { month: 'short', day: 'numeric' });
+}
+
+/**
+ * Format date with weekday (e.g., "Fri, Jan 2")
+ */
+export function formatShortDateWithWeekday(date: Date | string): string {
+  const d = typeof date === 'string' ? new Date(date) : date;
+  const locale = getIntlLocale();
+  return d.toLocaleDateString(locale, {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+  });
+}
+
+/**
+ * Format month only (e.g., "Jan")
+ */
+export function formatMonth(date: Date | string): string {
+  const d = typeof date === 'string' ? new Date(date) : date;
+  const locale = getIntlLocale();
+  return d.toLocaleDateString(locale, { month: 'short' });
+}
+
+/**
+ * Format date range (e.g., "Jan 2 - Jan 9")
+ */
+export function formatDateRange(start: Date | string, end: Date | string): string {
+  return `${formatShortDate(start)} - ${formatShortDate(end)}`;
+}
+
+/**
+ * Format full date with year (e.g., "Jan 2, 2024")
+ */
+export function formatFullDate(date: Date | string): string {
+  const d = typeof date === 'string' ? new Date(date) : date;
+  const locale = getIntlLocale();
+  return d.toLocaleDateString(locale, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+}
+
+/**
+ * Format full date with weekday and year (e.g., "Fri, Jan 2, 2024")
+ */
+export function formatFullDateWithWeekday(date: Date | string): string {
+  const d = typeof date === 'string' ? new Date(date) : date;
+  const locale = getIntlLocale();
+  return d.toLocaleDateString(locale, {
+    weekday: 'short',
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+}
+
+export function formatTSS(load: number): string {
+  if (!Number.isFinite(load) || load < 0) return '0 TSS';
+  return `${Math.round(load)} TSS`;
+}
+
+export function formatCalories(kcal: number): string {
+  if (!Number.isFinite(kcal) || kcal < 0) {
+    return '0 cal';
+  }
+  if (kcal >= 1000) {
+    return `${(kcal / 1000).toFixed(1)}k cal`;
+  }
+  return `${Math.round(kcal)} cal`;
+}
+
+/**
+ * Format a date as YYYY-MM-DD using local timezone (not UTC).
+ * Use this instead of toISOString().split('T')[0] to avoid timezone issues.
+ */
+export function formatLocalDate(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+/**
+ * Number of days between a Unix epoch timestamp (in seconds) and now.
+ * Handles both number and bigint (from Rust FFI).
+ */
+export function daysSinceEpoch(epochSeconds: number | bigint): number {
+  return Math.floor((Date.now() - Number(epochSeconds) * 1000) / 86400000);
+}
+
+/**
+ * Clamp a value between min and max bounds
+ */
+export function clamp(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max);
+}
+
+export interface PerformanceDelta {
+  deltaDisplay: string | null;
+  isFaster: boolean;
+}
+
+/**
+ * Format a time delta as a signed duration string (e.g., "+1:30", "-45s").
+ * Returns null if the delta is less than 1 second.
+ */
+export function formatTimeDelta(deltaSeconds: number): string | null {
+  if (!Number.isFinite(deltaSeconds) || Math.abs(deltaSeconds) < 1) return null;
+  const totalSeconds = Math.round(Math.abs(deltaSeconds));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  const sign = deltaSeconds > 0 ? '+' : '-';
+  return minutes > 0
+    ? `${sign}${minutes}:${seconds.toString().padStart(2, '0')}`
+    : `${sign}${seconds}s`;
+}
+
+/**
+ * Compute the performance delta for a section/route traversal.
+ *
+ * For running activities (showPace=true): compares pace (seconds/km).
+ * For other activities: compares elapsed time.
+ *
+ * @param options.isBest - Whether this is the best performance (skip delta)
+ * @param options.showPace - Whether to use pace comparison (running)
+ * @param options.currentSpeed - Current speed in m/s
+ * @param options.bestSpeed - Best speed in m/s
+ * @param options.timeDelta - Pre-computed time delta in seconds (positive = slower)
+ */
+export function formatPerformanceDelta(options: {
+  isBest: boolean;
+  showPace?: boolean;
+  currentSpeed?: number;
+  bestSpeed?: number;
+  timeDelta?: number;
+}): PerformanceDelta {
+  const { isBest, showPace, currentSpeed, bestSpeed, timeDelta } = options;
+
+  if (isBest) return { deltaDisplay: null, isFaster: false };
+
+  // Pace comparison for running activities
+  if (showPace && currentSpeed && currentSpeed > 0 && bestSpeed && bestSpeed > 0) {
+    const paceDelta = 1000 / currentSpeed - 1000 / bestSpeed; // positive = slower
+    return {
+      deltaDisplay: formatTimeDelta(paceDelta),
+      isFaster: paceDelta <= 0,
+    };
+  }
+
+  // Time comparison for other activities
+  if (timeDelta !== undefined && Number.isFinite(timeDelta)) {
+    return {
+      deltaDisplay: formatTimeDelta(timeDelta),
+      isFaster: timeDelta <= 0,
+    };
+  }
+
+  return { deltaDisplay: null, isFaster: false };
+}
+
+/**
+ * Get Monday of the week for a given date (ISO week: Monday-Sunday).
+ */
+export function getMonday(date: Date): Date {
+  const d = new Date(date);
+  const day = d.getDay();
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Adjust when day is Sunday
+  d.setDate(diff);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+/**
+ * Get Sunday of the week for a given date (ISO week: Monday-Sunday).
+ */
+export function getSunday(date: Date): Date {
+  const monday = getMonday(date);
+  const sunday = new Date(monday);
+  sunday.setDate(monday.getDate() + 6);
+  return sunday;
+}
+
+/**
+ * Format byte count as human-readable file size (e.g., "1.5 MB", "2.3 GB").
+ */
+export function formatFileSize(bytes: number): string {
+  if (!Number.isFinite(bytes) || bytes < 0) return '0 B';
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
+}
+
+/**
+ * Convert speed in m/s to pace in seconds per km.
+ */
+export function speedToSecsPerKm(metersPerSecond: number): number {
+  if (!Number.isFinite(metersPerSecond) || metersPerSecond <= 0) return 0;
+  return 1000 / metersPerSecond;
+}
+
+/** Safe getTime() that returns 0 for invalid/missing dates. Use in sort comparators. */
+export function safeGetTime(date: Date | null | undefined): number {
+  const t = date?.getTime?.();
+  return typeof t === 'number' && Number.isFinite(t) ? t : 0;
+}

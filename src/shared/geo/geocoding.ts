@@ -1,0 +1,311 @@
+/**
+ * Geocoding utilities for route naming.
+ * Uses OpenStreetMap Nominatim for free reverse geocoding.
+ *
+ * Nominatim Usage Policy (https://operations.osmfoundation.org/policies/nominatim/):
+ * - Max 1 request per second (must be enforced by any caller — currently no production callers)
+ * - Provide a valid User-Agent identifying the application
+ * - Cache results to avoid repeat lookups (we cache in memory + AsyncStorage)
+ * - No large-scale bulk geocoding
+ * - User can disable geocoding via settings toggle
+ */
+
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+import { debug } from '@/shared/debug/debug';
+import { safeJsonParseWithSchema } from '@/shared/validation/validation';
+
+const log = debug.create('Geocoding');
+
+const NOMINATIM_BASE_URL = 'https://nominatim.openstreetmap.org';
+const GEOCODE_CACHE_KEY = 'veloq_geocode_cache';
+const MAX_CACHE_SIZE = 500;
+const MAX_MEMORY_CACHE_SIZE = 100;
+
+// In-memory cache for quick access (LRU-style with size limit)
+const memoryCache = new Map<string, string>();
+
+interface CacheEntry {
+  name: string;
+  timestamp: number;
+}
+
+interface GeocodeCacheData {
+  entries: Record<string, CacheEntry>;
+}
+
+const DEFAULT_CACHE: GeocodeCacheData = { entries: {} };
+
+/**
+ * Type guard for GeocodeCacheData
+ */
+function isGeocodeCacheData(value: unknown): value is GeocodeCacheData {
+  if (typeof value !== 'object' || value === null) return false;
+  const obj = value as Record<string, unknown>;
+  if (typeof obj.entries !== 'object' || obj.entries === null) return false;
+  // Validate structure of first entry if present
+  const entries = Object.values(obj.entries as Record<string, unknown>);
+  if (entries.length > 0) {
+    const entry = entries[0];
+    if (typeof entry !== 'object' || entry === null) return false;
+    const e = entry as Record<string, unknown>;
+    if (typeof e.name !== 'string' || typeof e.timestamp !== 'number') return false;
+  }
+  return true;
+}
+
+/**
+ * Generate a cache key for a lat/lng point.
+ * Rounds to ~500m precision to group nearby points.
+ */
+function getCacheKey(lat: number, lng: number): string {
+  const roundedLat = Math.round(lat * 200) / 200; // ~500m precision
+  const roundedLng = Math.round(lng * 200) / 200;
+  return `${roundedLat},${roundedLng}`;
+}
+
+/**
+ * Load geocode cache from storage.
+ */
+async function loadCache(): Promise<GeocodeCacheData> {
+  try {
+    const cached = await AsyncStorage.getItem(GEOCODE_CACHE_KEY);
+    if (cached) {
+      const data = safeJsonParseWithSchema(cached, isGeocodeCacheData, DEFAULT_CACHE);
+      // Populate memory cache, trimmed to MAX_MEMORY_CACHE_SIZE
+      // Sort by timestamp descending so we keep the most recent entries
+      const entries = Object.entries(data.entries);
+      entries.sort((a, b) => b[1].timestamp - a[1].timestamp);
+      const toLoad = entries.slice(0, MAX_MEMORY_CACHE_SIZE);
+      for (const [key, entry] of toLoad) {
+        memoryCache.set(key, entry.name);
+      }
+      return data;
+    }
+  } catch {
+    // Ignore cache errors
+  }
+  return DEFAULT_CACHE;
+}
+
+/**
+ * Save geocode cache to storage.
+ */
+async function saveCache(data: GeocodeCacheData): Promise<void> {
+  try {
+    // Prune old entries if cache is too large
+    const entries = Object.entries(data.entries);
+    if (entries.length > MAX_CACHE_SIZE) {
+      // Sort by timestamp and keep newest half
+      entries.sort((a, b) => b[1].timestamp - a[1].timestamp);
+      data.entries = Object.fromEntries(entries.slice(0, MAX_CACHE_SIZE / 2));
+    }
+    await AsyncStorage.setItem(GEOCODE_CACHE_KEY, JSON.stringify(data));
+  } catch {
+    // Ignore save errors
+  }
+}
+
+/**
+ * Extract a meaningful location name from Nominatim response.
+ * Tries to get a short, recognizable name.
+ */
+function extractLocationName(data: {
+  display_name?: string;
+  address?: {
+    road?: string;
+    neighbourhood?: string;
+    suburb?: string;
+    village?: string;
+    town?: string;
+    city?: string;
+    county?: string;
+    state?: string;
+    country?: string;
+  };
+  name?: string;
+}): string | null {
+  const addr = data.address;
+  if (!addr) return null;
+
+  // Priority order for naming:
+  // 1. Specific location (park, trail, etc.) - from display_name
+  // 2. Road/street name
+  // 3. Neighbourhood
+  // 4. Suburb
+  // 5. Village/Town
+  // 6. City with qualifier
+
+  // Check if display_name starts with a specific place name (not just address)
+  if (data.name && !data.name.match(/^\d/)) {
+    // Has a named location (park, trail, etc.)
+    return data.name;
+  }
+
+  if (addr.road) {
+    // Use road name, optionally with neighbourhood/suburb
+    const qualifier = addr.neighbourhood || addr.suburb;
+    if (qualifier && qualifier !== addr.road) {
+      return `${addr.road}, ${qualifier}`;
+    }
+    return addr.road;
+  }
+
+  if (addr.neighbourhood) {
+    return addr.neighbourhood;
+  }
+
+  if (addr.suburb) {
+    return addr.suburb;
+  }
+
+  if (addr.village) {
+    return addr.village;
+  }
+
+  if (addr.town) {
+    return addr.town;
+  }
+
+  if (addr.city) {
+    // City is too generic on its own, add qualifier if available
+    const qualifier = addr.county || addr.state;
+    if (qualifier) {
+      return `${addr.city}, ${qualifier}`;
+    }
+    return addr.city;
+  }
+
+  return null;
+}
+
+/**
+ * Reverse geocode a point to get a location name.
+ * Returns a short, meaningful name for the location.
+ *
+ * @param lat Latitude
+ * @param lng Longitude
+ * @returns Location name or null if geocoding fails
+ */
+export async function reverseGeocode(lat: number, lng: number): Promise<string | null> {
+  const cacheKey = getCacheKey(lat, lng);
+
+  // Check memory cache first
+  if (memoryCache.has(cacheKey)) {
+    return memoryCache.get(cacheKey) || null;
+  }
+
+  // Load persistent cache
+  const cache = await loadCache();
+  if (cache.entries[cacheKey]) {
+    const name = cache.entries[cacheKey].name;
+    memoryCache.set(cacheKey, name);
+    return name;
+  }
+
+  try {
+    // Call Nominatim API
+    const url = `${NOMINATIM_BASE_URL}/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`;
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
+    // Nominatim requires a valid User-Agent identifying the application and
+    // contact info per https://operations.osmfoundation.org/policies/nominatim/
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'Veloq/0.3.0 (https://veloq.fit; https://github.com/evanjt/veloq/issues)',
+        'Accept-Language': 'en',
+      },
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+
+    if (!response.ok) {
+      log.warn(`Nominatim returned ${response.status}`);
+      return null;
+    }
+
+    const data = await response.json();
+    const name = extractLocationName(data);
+
+    if (name) {
+      // Cache the result (with LRU-style eviction for memory cache)
+      if (memoryCache.size >= MAX_MEMORY_CACHE_SIZE) {
+        const firstKey = memoryCache.keys().next().value;
+        if (firstKey) memoryCache.delete(firstKey);
+      }
+      memoryCache.set(cacheKey, name);
+      cache.entries[cacheKey] = {
+        name,
+        timestamp: Date.now(),
+      };
+      await saveCache(cache);
+    }
+
+    return name;
+  } catch (error) {
+    log.warn('Failed to reverse geocode:', error);
+    return null;
+  }
+}
+
+/**
+ * Generate a descriptive route name from start and optionally end points.
+ * If the route is a loop (start ~= end), just uses start location.
+ * Otherwise, creates "StartLocation to EndLocation" format.
+ */
+export async function generateRouteName(
+  startLat: number,
+  startLng: number,
+  endLat: number,
+  endLng: number,
+  isLoop: boolean
+): Promise<string | null> {
+  const startName = await reverseGeocode(startLat, startLng);
+
+  if (!startName) {
+    return null;
+  }
+
+  if (isLoop) {
+    // For loops, just use the start location with "Loop" suffix
+    return `${startName} Loop`;
+  }
+
+  // For point-to-point routes, try to get end location
+  const endName = await reverseGeocode(endLat, endLng);
+
+  if (endName && endName !== startName) {
+    // Shorten if both names are long
+    const maxLen = 25;
+    let start = startName;
+    let end = endName;
+
+    if (start.length + end.length > maxLen * 2) {
+      // Truncate to first part of each
+      if (start.includes(',')) {
+        start = start.split(',')[0].trim();
+      }
+      if (end.includes(',')) {
+        end = end.split(',')[0].trim();
+      }
+    }
+
+    return `${start} to ${end}`;
+  }
+
+  // Just use start location
+  return startName;
+}
+
+/**
+ * Clear the geocoding cache.
+ */
+export async function clearGeocodeCache(): Promise<void> {
+  memoryCache.clear();
+  try {
+    await AsyncStorage.removeItem(GEOCODE_CACHE_KEY);
+  } catch {
+    // Ignore
+  }
+}

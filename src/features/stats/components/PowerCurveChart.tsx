@@ -1,0 +1,487 @@
+import React, { useMemo, useCallback, useState, useRef } from 'react';
+import { View, StyleSheet } from 'react-native';
+import { useTheme } from '@/shared/app';
+import { Text } from 'react-native-paper';
+import { useTranslation } from 'react-i18next';
+import { CartesianChart, Line } from 'victory-native';
+import { DashPathEffect, Line as SkiaLine } from '@shopify/react-native-skia';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import {
+  useSharedValue,
+  useAnimatedReaction,
+  runOnJS,
+  useDerivedValue,
+  useAnimatedStyle,
+} from 'react-native-reanimated';
+import { ChartCrosshair } from '@/shared/charts';
+import { colors, darkColors, typography, spacing, chartStyles } from '@/theme';
+import { CHART_CONFIG } from '@/constants';
+import { usePowerCurve } from '@/features/stats';
+import { formatDurationHuman } from '@/shared/format/format';
+
+interface PowerCurveChartProps {
+  sport?: string;
+  /** Number of days to include (default 365) */
+  days?: number;
+  height?: number;
+  /** Chart color override */
+  color?: string;
+  /** FTP value for threshold line */
+  ftp?: number | null;
+}
+
+// Chart colors
+const DEFAULT_COLOR = '#5B9BD5'; // Brand blue
+const FTP_LINE_COLOR = 'rgba(150, 150, 150, 0.6)';
+
+interface ChartPoint {
+  x: number;
+  y: number;
+  secs: number;
+  watts: number;
+  [key: string]: unknown;
+}
+
+const CHART_PADDING = { left: 0, right: 0, top: 4, bottom: 0 } as const;
+
+export const PowerCurveChart = React.memo(function PowerCurveChart({
+  sport,
+  days = 365,
+  height = 200,
+  color = DEFAULT_COLOR,
+  ftp,
+}: PowerCurveChartProps) {
+  const { t } = useTranslation();
+  const { isDark } = useTheme();
+
+  const { data: curve, isLoading, error } = usePowerCurve({ sport, days });
+
+  const [tooltipData, setTooltipData] = useState<ChartPoint | null>(null);
+  const [isActive, setIsActive] = useState(false);
+
+  // Shared values for gesture tracking
+  const touchX = useSharedValue(-1);
+  const chartBoundsShared = useSharedValue({ left: 0, right: 1 });
+  const pointXCoordsShared = useSharedValue<number[]>([]);
+  const lastNotifiedIdx = useRef<number | null>(null);
+
+  // Process curve data for the line chart
+  const { chartData, ftpValue, yDomain } = useMemo(() => {
+    if (!curve?.secs || !curve?.watts || curve.watts.length === 0) {
+      return {
+        chartData: [],
+        ftpValue: ftp ?? null,
+        yDomain: [0, 400] as [number, number],
+      };
+    }
+
+    // Build data points from the curve
+    const points: { secs: number; watts: number }[] = [];
+
+    for (let i = 0; i < curve.secs.length; i++) {
+      const secs = curve.secs[i];
+      const watts = curve.watts[i];
+      if (watts > 0 && secs > 0) {
+        points.push({ secs, watts });
+      }
+    }
+
+    if (points.length === 0) {
+      return {
+        chartData: [],
+        ftpValue: ftp ?? null,
+        yDomain: [0, 400] as [number, number],
+      };
+    }
+
+    // Sort by duration
+    points.sort((a, b) => a.secs - b.secs);
+
+    // Sample points using logarithmic spacing for smooth curve
+    const sampled: typeof points = [];
+    const logMin = Math.log10(Math.max(1, points[0].secs));
+    const logMax = Math.log10(points[points.length - 1].secs);
+    const numSamples = 60;
+
+    for (let i = 0; i < numSamples; i++) {
+      const logVal = logMin + (logMax - logMin) * (i / (numSamples - 1));
+      const targetSecs = Math.pow(10, logVal);
+
+      // Find closest point
+      let closest = points[0];
+      let minDiff = Math.abs(points[0].secs - targetSecs);
+      for (const p of points) {
+        const diff = Math.abs(p.secs - targetSecs);
+        if (diff < minDiff) {
+          minDiff = diff;
+          closest = p;
+        }
+      }
+
+      // Avoid duplicates
+      if (sampled.length === 0 || sampled[sampled.length - 1].secs !== closest.secs) {
+        sampled.push(closest);
+      }
+    }
+
+    // Convert to chart format (use log of duration for x to spread out short durations)
+    const data: ChartPoint[] = sampled.map((p) => ({
+      x: Math.log10(p.secs),
+      y: p.watts,
+      secs: p.secs,
+      watts: p.watts,
+    }));
+
+    // Calculate Y domain
+    const watts = data.map((d) => d.y);
+    const minWatts = Math.min(...watts);
+    const maxWatts = Math.max(...watts);
+    const padding = (maxWatts - minWatts) * 0.1;
+
+    return {
+      chartData: data,
+      ftpValue: ftp ?? null,
+      yDomain: [Math.max(0, minWatts - padding), maxWatts + padding] as [number, number],
+    };
+  }, [curve, ftp]);
+
+  // Derive selected index
+  const selectedIdx = useDerivedValue(() => {
+    'worklet';
+    const len = chartData.length;
+    const bounds = chartBoundsShared.value;
+    const chartWidth = bounds.right - bounds.left;
+
+    if (touchX.value < 0 || chartWidth <= 0 || len === 0) return -1;
+
+    const chartX = touchX.value - bounds.left;
+    const ratio = Math.max(0, Math.min(1, chartX / chartWidth));
+    const idx = Math.round(ratio * (len - 1));
+
+    return Math.min(Math.max(0, idx), len - 1);
+  }, [chartData.length]);
+
+  const updateTooltipOnJS = useCallback(
+    (idx: number) => {
+      if (idx < 0 || chartData.length === 0) {
+        if (lastNotifiedIdx.current !== null) {
+          setTooltipData(null);
+          setIsActive(false);
+          lastNotifiedIdx.current = null;
+        }
+        return;
+      }
+
+      if (idx === lastNotifiedIdx.current) return;
+      lastNotifiedIdx.current = idx;
+
+      if (!isActive) setIsActive(true);
+
+      const point = chartData[idx];
+      if (point) setTooltipData(point);
+    },
+    [chartData, isActive]
+  );
+
+  useAnimatedReaction(
+    () => selectedIdx.value,
+    (idx) => {
+      runOnJS(updateTooltipOnJS)(idx);
+    },
+    [updateTooltipOnJS]
+  );
+
+  const gesture = Gesture.Pan()
+    .onStart((e) => {
+      'worklet';
+      touchX.value = e.x;
+    })
+    .onUpdate((e) => {
+      'worklet';
+      touchX.value = e.x;
+    })
+    .onEnd(() => {
+      'worklet';
+      touchX.value = -1;
+    })
+    .minDistance(0)
+    .activateAfterLongPress(CHART_CONFIG.LONG_PRESS_DURATION);
+
+  const crosshairStyle = useAnimatedStyle(() => {
+    'worklet';
+    const idx = selectedIdx.value;
+    const coords = pointXCoordsShared.value;
+
+    if (idx < 0 || coords.length === 0 || idx >= coords.length) {
+      return { opacity: 0, transform: [{ translateX: 0 }] };
+    }
+
+    return { opacity: 1, transform: [{ translateX: coords[idx] }] };
+  }, []);
+
+  if (isLoading) {
+    return (
+      <View style={[styles.container, { height }]}>
+        <Text style={[styles.title, isDark && styles.textLight]}>{t('stats.powerCurve')}</Text>
+        <View style={styles.loadingContainer}>
+          <Text style={[styles.loadingText, isDark && chartStyles.textDark]}>
+            {t('common.loading')}
+          </Text>
+        </View>
+      </View>
+    );
+  }
+
+  if (error || chartData.length === 0) {
+    return (
+      <View style={[styles.container, { height }]}>
+        <Text style={[styles.title, isDark && styles.textLight]}>{t('stats.powerCurve')}</Text>
+        <View style={styles.emptyState}>
+          <Text style={[styles.emptyText, isDark && chartStyles.textDark]}>
+            {t('stats.noPowerData')}
+          </Text>
+        </View>
+      </View>
+    );
+  }
+
+  // Display data - either selected point or latest
+  const displayData = tooltipData || chartData[chartData.length - 1];
+
+  return (
+    <View style={[styles.container, { height }]} testID="power-curve-chart">
+      {/* Header with values */}
+      <View style={styles.header}>
+        <Text style={[styles.title, isDark && styles.textLight]}>{t('stats.powerCurve')}</Text>
+        <View style={styles.valuesRow}>
+          <View style={styles.valueItem}>
+            <Text style={[styles.valueLabel, isDark && chartStyles.textDark]}>
+              {t('stats.time')}
+            </Text>
+            <Text testID="power-curve-duration" style={[styles.valueNumber, { color }]}>
+              {formatDurationHuman(displayData.secs)}
+            </Text>
+          </View>
+          <View style={styles.valueItem}>
+            <Text style={[styles.valueLabel, isDark && chartStyles.textDark]}>
+              {t('activity.power')}
+            </Text>
+            <Text testID="power-curve-watts" style={[styles.valueNumber, { color }]}>
+              {Math.round(displayData.watts)}w
+            </Text>
+          </View>
+        </View>
+      </View>
+
+      {/* Chart */}
+      <GestureDetector gesture={gesture}>
+        <View style={chartStyles.chartWrapper}>
+          <CartesianChart
+            data={chartData}
+            xKey="x"
+            yKeys={['y']}
+            domain={{ y: yDomain }}
+            padding={CHART_PADDING}
+          >
+            {({ points, chartBounds }) => {
+              // Sync bounds for gesture
+              if (
+                chartBounds.left !== chartBoundsShared.value.left ||
+                chartBounds.right !== chartBoundsShared.value.right
+              ) {
+                chartBoundsShared.value = {
+                  left: chartBounds.left,
+                  right: chartBounds.right,
+                };
+              }
+              const newCoords = points.y.filter((p) => p.x != null).map((p) => p.x as number);
+              if (newCoords.length !== pointXCoordsShared.value.length) {
+                pointXCoordsShared.value = newCoords;
+              }
+
+              return (
+                <>
+                  {/* FTP horizontal line */}
+                  {ftpValue && ftpValue >= yDomain[0] && ftpValue <= yDomain[1] && (
+                    <SkiaLine
+                      p1={{
+                        x: chartBounds.left,
+                        y:
+                          chartBounds.top +
+                          ((yDomain[1] - ftpValue) / (yDomain[1] - yDomain[0])) *
+                            (chartBounds.bottom - chartBounds.top),
+                      }}
+                      p2={{
+                        x: chartBounds.right,
+                        y:
+                          chartBounds.top +
+                          ((yDomain[1] - ftpValue) / (yDomain[1] - yDomain[0])) *
+                            (chartBounds.bottom - chartBounds.top),
+                      }}
+                      color={FTP_LINE_COLOR}
+                      strokeWidth={1}
+                    >
+                      <DashPathEffect intervals={[6, 4]} />
+                    </SkiaLine>
+                  )}
+
+                  {/* Power curve line with casing */}
+                  <Line
+                    points={points.y}
+                    color={isDark ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.15)'}
+                    strokeWidth={2.5}
+                    curveType="natural"
+                  />
+                  <Line points={points.y} color={color} strokeWidth={1.5} curveType="natural" />
+                </>
+              );
+            }}
+          </CartesianChart>
+
+          {/* Crosshair */}
+          <ChartCrosshair style={crosshairStyle} />
+
+          {/* X-axis labels */}
+          <View style={styles.xAxisOverlay} pointerEvents="none">
+            <Text
+              style={[chartStyles.axisLabelCompact, isDark && chartStyles.axisLabelCompactDark]}
+            >
+              5s
+            </Text>
+            <Text
+              style={[chartStyles.axisLabelCompact, isDark && chartStyles.axisLabelCompactDark]}
+            >
+              1m
+            </Text>
+            <Text
+              style={[chartStyles.axisLabelCompact, isDark && chartStyles.axisLabelCompactDark]}
+            >
+              5m
+            </Text>
+            <Text
+              style={[chartStyles.axisLabelCompact, isDark && chartStyles.axisLabelCompactDark]}
+            >
+              20m
+            </Text>
+            <Text
+              style={[chartStyles.axisLabelCompact, isDark && chartStyles.axisLabelCompactDark]}
+            >
+              1h
+            </Text>
+          </View>
+
+          {/* Y-axis labels */}
+          <View style={styles.yAxisOverlay} pointerEvents="none">
+            <Text
+              style={[chartStyles.axisLabelCompact, isDark && chartStyles.axisLabelCompactDark]}
+            >
+              {Math.round(yDomain[1])}w
+            </Text>
+            <Text
+              style={[chartStyles.axisLabelCompact, isDark && chartStyles.axisLabelCompactDark]}
+            >
+              {Math.round((yDomain[0] + yDomain[1]) / 2)}w
+            </Text>
+            <Text
+              style={[chartStyles.axisLabelCompact, isDark && chartStyles.axisLabelCompactDark]}
+            >
+              {Math.round(yDomain[0])}w
+            </Text>
+          </View>
+        </View>
+      </GestureDetector>
+
+      {/* FTP Legend */}
+      {ftpValue && (
+        <View style={styles.legend}>
+          <View style={[styles.legendDash, { backgroundColor: FTP_LINE_COLOR }]} />
+          <Text style={[styles.legendText, isDark && chartStyles.textDark]}>
+            {t('statsScreen.ftpLabel', { value: ftpValue })}
+          </Text>
+        </View>
+      )}
+    </View>
+  );
+});
+
+const styles = StyleSheet.create({
+  container: {},
+  title: {
+    fontSize: typography.body.fontSize,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  textLight: { color: colors.textOnDark },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+  },
+  valuesRow: {
+    flexDirection: 'row',
+    gap: spacing.md,
+  },
+  valueItem: {
+    alignItems: 'flex-end',
+  },
+  valueLabel: {
+    fontSize: typography.pillLabel.fontSize,
+    color: colors.textSecondary,
+    marginBottom: 1,
+  },
+  valueNumber: {
+    fontSize: typography.bodySmall.fontSize,
+    fontWeight: '700',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    fontSize: typography.caption.fontSize,
+    color: colors.textSecondary,
+  },
+  emptyState: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  emptyText: {
+    fontSize: typography.bodyCompact.fontSize,
+    color: colors.textSecondary,
+  },
+  xAxisOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: spacing.xs,
+  },
+  yAxisOverlay: {
+    position: 'absolute',
+    top: spacing.xs,
+    bottom: 20,
+    left: spacing.xs,
+    justifyContent: 'space-between',
+  },
+  legend: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: spacing.xs,
+    gap: 6,
+  },
+  legendDash: {
+    width: spacing.md,
+    height: 2,
+    borderRadius: 1,
+  },
+  legendText: {
+    fontSize: typography.label.fontSize,
+    color: colors.textSecondary,
+  },
+});

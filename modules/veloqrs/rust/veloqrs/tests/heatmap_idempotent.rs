@@ -43,7 +43,8 @@ fn second_pass_generates_nothing_new() {
     engine.set_heatmap_tiles_path(tiles_dir.to_str().unwrap().to_string());
     // set_heatmap_tiles_path parked the handle in the global; drain it.
     let cold_generated = {
-        if let Ok(mut guard) = veloqrs::persistence::persistent_engine_ffi::TILE_GENERATION_HANDLE.lock()
+        if let Ok(mut guard) =
+            veloqrs::persistence::persistent_engine_ffi::TILE_GENERATION_HANDLE.lock()
         {
             guard
                 .take()
@@ -64,9 +65,7 @@ fn second_pass_generates_nothing_new() {
     let handle = engine
         .generate_tiles_background()
         .expect("background should still spawn — the function is unconditional");
-    let warm_generated = handle
-        .recv_blocking()
-        .expect("warm run should complete");
+    let warm_generated = handle.recv_blocking().expect("warm run should complete");
     let warm_elapsed = start.elapsed();
 
     assert_eq!(

@@ -382,6 +382,7 @@
   "common": {
     "activities": "aktywności",
     "back": "Wstecz",
+    "close": "Zamknij",
     "cancel": "Anuluj",
     "clearSearch": "Wyczyść wyszukiwanie",
     "confirm": "Potwierdź",
@@ -473,7 +474,10 @@
     "defaultTitle": "Coś poszło nie tak",
     "tryAgain": "Spróbuj ponownie",
     "unableToLoad": "Nie można załadować {{componentName}}",
-    "restartHint": "Spróbuj ponownie lub uruchom ponownie aplikację"
+    "restartHint": "Spróbuj ponownie lub uruchom ponownie aplikację",
+    "unableToDisplay": "Nie można wyświetlić {{label}}",
+    "unableToDisplayChart": "Nie można wyświetlić wykresu",
+    "tapToRetry": "Dotknij, aby spróbować ponownie"
   },
   "export": {
     "bulkComplete": "Eksport zakończony",
@@ -631,7 +635,8 @@
       "thresholdSpeedName": "Analiza trendu prędkości progowej",
       "thresholdSpeedDescription": "Porównuje najnowszy szacunek prędkości progowej z poprzednimi wartościami i formatuje zmianę jako czytelne tempo.",
       "fitnessPrName": "Porównanie kondycji z PR",
-      "sectionTrendName": "Trend wydajności na odcinkach"
+      "sectionTrendName": "Trend wydajności na odcinkach",
+      "stalePrCrossRefName": "Porównanie PR z {{metric}}"
     },
     "alternatives": {
       "selected": "Bieżąca ocena",
@@ -694,7 +699,10 @@
       "metricGain": "Zysk {{metric}}",
       "prTime": "Czas PR",
       "methodology": "Porównuje metryki kondycji w momencie PR z bieżącymi wartościami. Pokazuje sekcje, w których metryki kondycji zmieniły się od ustanowienia PR.",
-      "groupTitle": "{{count}} PR ze zmianami kondycji"
+      "groupTitle": "{{count}} PR ze zmianami kondycji",
+      "metricCyclingFtp": "FTP kolarskie",
+      "metricSwimCss": "CSS pływackie",
+      "metricRunningThreshold": "Tempo progowe biegu"
     },
     "disclaimer": "Metryki treningowe to szacunki oparte na opublikowanych badaniach naukowych. Indywidualne reakcje się różnią. Nie stanowi porady medycznej ani trenerskiej.",
     "aboutInsights": "O analizach",
@@ -727,7 +735,18 @@
       "volumeAppeared": "Objętość pojawiła się w ostatnich dwóch tygodniach po spokojniejszym początku.",
       "volumeUp": "Średnia z ostatnich 2 tygodni jest {{percent}}% powyżej poprzednich 2 tygodni.",
       "volumeDown": "Średnia z ostatnich 2 tygodni jest {{percent}}% poniżej poprzednich 2 tygodni.",
-      "volumeSteady": "Średnia z ostatnich 2 tygodni jest stabilna w porównaniu z początkiem miesiąca."
+      "volumeSteady": "Średnia z ostatnich 2 tygodni jest stabilna w porównaniu z początkiem miesiąca.",
+      "oneSidedTitle": "{{pair}} ma jednostronny rozkład",
+      "dominantTitle": "{{dominant}} ma większą objętość w parze {{pair}}",
+      "oneSidedBody": "{{dominant}} odpowiada za całą objętość ważonych serii dla pary {{pair}} z ostatnich 4 tygodni.",
+      "ratioBody": "{{pair}} osiąga średnio {{ratio}} w ważonych seriach w najnowszym oknie 4 tygodni.",
+      "ratioLabel": "Stosunek",
+      "statusLabel": "Status",
+      "formula": "Ważone serie na parę antagonistów",
+      "algorithm": "Porównuje liczbę ważonych serii między typowymi parami antagonistów. Praca główna liczy się jako 1.0, a pomocnicza jako 0.5.",
+      "methodologyName": "Kontrola równowagi siłowej",
+      "methodologyDescription": "Porównuje ważone serie między parami mięśni antagonistycznych z ostatnich 4 tygodni, aby wykryć nierównomierne obciążenie.",
+      "ratioFormula": "stosunek = dominujące ważone serie / drugorzędne ważone serie"
     },
     "quickTake": {
       "howCalculated": "Jak to obliczono?",
@@ -793,7 +812,40 @@
     "routesDisabledLine1": "Trasy i odcinki wyłączone",
     "routesDisabledLine2": "Dotknij, aby włączyć",
     "sectionDeclining": "{{name}} zwalnia",
-    "sectionDecliningBody": "Ostatnia mediana: {{median}}. Najlepszy: {{best}} z {{count}} prób."
+    "sectionDecliningBody": "Ostatnia mediana: {{median}}. Najlepszy: {{best}} z {{count}} prób.",
+    "strengthProgression": {
+      "upTitle": "Widoczny wzrost objętości dla {{muscle}}",
+      "downTitle": "Objętość dla {{muscle}} spadła",
+      "newVolumeBody": "{{muscle}} wykonał większość ostatnich ważonych serii w bieżących 2 tygodniach po spokojniejszym okresie.",
+      "shiftBody": "{{muscle}} przeszedł z {{from}} do {{to}} ważonych serii w bieżącej średniej 2-tygodniowej.",
+      "vsEarlier": "{{change}}% wzgl. wcześniejszych 2 tygodni",
+      "fourWeekTotal": "Suma 4 tygodni",
+      "sparklineLabel": "Ważone serie z 4 tygodni",
+      "recent2Weeks": "Ostatnie 2 tyg.",
+      "earlier2Weeks": "Wcześniejsze 2 tyg.",
+      "changeLabel": "Zmiana",
+      "thisWeek": "Ten tydz.",
+      "weeksAgo": "-{{n}}tyg",
+      "formula": "Średnia z ostatnich 2 tygodni vs średnia z wcześniejszych 2 tygodni",
+      "algorithm": "Śledzi ważone serie dla każdego mięśnia z ostatnich 4 tygodni. Praca główna liczy się jako 1.0, a pomocnicza jako 0.5.",
+      "methodologyName": "Progresja objętości siłowej",
+      "methodologyDescription": "Porównuje średnią z ostatnich 2 tygodni ze średnią z wcześniejszych 2 tygodni, aby wykryć istotne zmiany objętości ważonych serii."
+    },
+    "strengthSnapshot": {
+      "title_one": "{{count}} sesja siłowa w ostatnich 4 tygodniach",
+      "title_few": "{{count}} sesje siłowe w ostatnich 4 tygodniach",
+      "title_many": "{{count}} sesji siłowych w ostatnich 4 tygodniach",
+      "title_other": "{{count}} sesji siłowych w ostatnich 4 tygodniach",
+      "subtitleWithTop": "{{sessions}} sesje · {{sets}} serie · top: {{muscle}}",
+      "subtitle": "{{sessions}} sesje · {{sets}} serie",
+      "body": "{{sets}} ważonych serii w {{groups}} grupach mięśniowych.",
+      "sessionsLabel": "Sesje",
+      "setsLabel": "Serie",
+      "muscleGroupsLabel": "Grupy mięśniowe",
+      "formula": "Liczba sesji siłowych, ważonych serii i śledzonych grup mięśniowych",
+      "algorithm": "Agreguje treningi siłowe z ostatnich 4 tygodni. Praca główna liczy się jako 1.0, a pomocnicza jako 0.5 dla każdej grupy mięśniowej.",
+      "methodologyDescription": "Podsumowuje objętość siłową z ostatnich 4 tygodni: liczbę treningów, łączną liczbę ważonych serii i liczbę śledzonych grup mięśniowych."
+    }
   },
   "licenses": {
     "footer": "Dotknij dowolnej plakietki licencji, aby zobaczyć pełny tekst. Dotknij ikony linku, aby odwiedzić repozytorium projektu.",
@@ -1816,6 +1868,8 @@
     "tip_large": "Duży napiwek",
     "tipSmall": "Mały",
     "tipMedium": "Średni",
-    "tipLarge": "Duży"
+    "tipLarge": "Duży",
+    "shareCrashLog": "Udostępnij dziennik awarii",
+    "noCrashLog": "Nie zarejestrowano awarii"
   }
 }

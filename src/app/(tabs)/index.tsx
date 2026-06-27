@@ -12,45 +12,44 @@ import {
   Platform,
 } from 'react-native';
 import { Text } from 'react-native-paper';
-import { ScreenSafeAreaView } from '@/components/ui';
-import { logScreenRender, PERF_DEBUG } from '@/lib/debug/renderTimer';
-import { isNetworkError } from '@/lib/utils/errorHandler';
-import { navigateTo, queryKeys } from '@/lib';
-import { useIsFocused } from '@react-navigation/core';
+import { ScreenSafeAreaView } from '@/shared/ui';
+import { logScreenRender, PERF_DEBUG } from '@/shared/debug/renderTimer';
+import { isNetworkError } from '@/shared/errors/errorHandler';
+import { navigateTo } from '@/shared/app/navigation';
+import { queryKeys } from '@/shared/query/queryKeys';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
-import {
-  useInfiniteActivities,
-  useTheme,
-  useSummaryCardData,
-  useInsights,
-  isInfiniteActivitiesStale,
-  useActivitySectionHighlights,
-} from '@/hooks';
+import { useInfiniteActivities, useActivitySectionHighlights } from '@/features/activity/hooks';
+import { isInfiniteActivitiesStale } from '@/shared/query/activitiesCache';
+import { useSummaryCardData } from '@/features/home/hooks';
+import { useInsights } from '@/features/insights';
+import { useTheme } from '@/shared/app';
 import type { Activity } from '@/types';
-import { useDashboardPreferences, useMapPreferences } from '@/providers';
-import { ActivityCard } from '@/components/activity';
+import { useDashboardPreferences } from '@/features/home/store';
+import { useMapPreferences } from '@/features/maps/stores/MapPreferencesContext';
+import { ActivityCard } from '@/features/activity/components';
 import {
   NetworkErrorState,
   ErrorStatePreset,
   ScreenErrorBoundary,
   ComponentErrorBoundary,
+  ActivityCardSkeleton,
   TAB_BAR_SAFE_PADDING,
-} from '@/components/ui';
-import { SummaryCard, NotificationOptInCard, SupportCard } from '@/components/home';
-import { useStartupData } from '@/hooks/home/useStartupData';
+} from '@/shared/ui';
+import { SummaryCard, NotificationOptInCard, SupportCard } from '@/features/home/components';
+import { useStartupData } from '@/features/home/hooks/useStartupData';
 import {
   TerrainSnapshotWebView,
   type TerrainSnapshotWebViewRef,
-} from '@/components/maps/TerrainSnapshotWebView';
+} from '@/features/maps/components/TerrainSnapshotWebView';
 import {
   initTerrainPreviewCache,
   consumePendingSnapshots,
   signalSnapshotNeeded,
   setPrioritySnapshotIds,
-} from '@/lib/storage/terrainPreviewCache';
-import { initCameraOverrides } from '@/lib/storage/terrainCameraOverrides';
+} from '@/features/maps/lib/storage/terrainPreviewCache';
+import { initCameraOverrides } from '@/features/maps/lib/storage/terrainCameraOverrides';
 import { colors, darkColors, opacity, spacing, layout, typography } from '@/theme';
 import { createSharedStyles } from '@/styles';
 
@@ -97,7 +96,6 @@ export default function FeedScreen() {
   // 3D terrain snapshot WebView — deferred mount to avoid startup cost
   const { isAnyTerrain3DEnabled } = useMapPreferences();
   const snapshotRef = useRef<TerrainSnapshotWebViewRef | null>(null);
-  const isFeedFocused = useIsFocused();
   const [snapshotWebViewReady, setSnapshotWebViewReady] = useState(false);
   useEffect(() => {
     if (!isAnyTerrain3DEnabled) return;
@@ -127,7 +125,7 @@ export default function FeedScreen() {
   }, [isAnyTerrain3DEnabled]);
 
   // Dashboard preferences for navigation
-  const { summaryCard } = useDashboardPreferences();
+  const summaryCard = useDashboardPreferences((s) => s.summaryCard);
 
   const t1 = PERF_DEBUG ? performance.now() : 0;
   const {
@@ -313,7 +311,6 @@ export default function FeedScreen() {
         activity={item}
         index={index}
         snapshotRef={snapshotRef}
-        screenFocused={isFeedFocused}
         startupTrack={previewTracksRef.current?.get(item.id)}
         snapshotReady={snapshotWebViewReady}
         colorScheme={isDark}
@@ -321,7 +318,7 @@ export default function FeedScreen() {
         routeHighlight={routeHighlightsMap.get(item.id)}
       />
     ),
-    [isFeedFocused, snapshotWebViewReady, isDark, sectionHighlightsMap, routeHighlightsMap]
+    [snapshotWebViewReady, isDark, sectionHighlightsMap, routeHighlightsMap]
   );
 
   const navigateToSettings = useCallback(() => {
@@ -417,6 +414,8 @@ export default function FeedScreen() {
               <TouchableOpacity
                 key={group}
                 testID={`home-filter-${group.toLowerCase()}`}
+                accessibilityRole="button"
+                accessibilityState={{ selected: selectedTypeGroup === group }}
                 style={[
                   styles.filterChip,
                   isDark && styles.filterChipDark,
@@ -476,6 +475,17 @@ export default function FeedScreen() {
     [isDark, searchQuery, selectedTypeGroup, t]
   );
 
+  const renderSkeletons = useCallback(
+    () => (
+      <View testID="home-loading-skeletons">
+        {[0, 1, 2].map((i) => (
+          <ActivityCardSkeleton key={i} />
+        ))}
+      </View>
+    ),
+    []
+  );
+
   const renderError = useCallback(() => {
     if (isNetworkError(error)) {
       return <NetworkErrorState onRetry={() => refetch()} />;
@@ -506,7 +516,6 @@ export default function FeedScreen() {
     isLoading: false,
     actLen: 0,
     insLen: 0,
-    focused: false,
     refetching: false,
     dataRef: null as unknown,
     filteredRef: null as unknown,
@@ -518,7 +527,6 @@ export default function FeedScreen() {
     if (prev.actLen !== allActivities.length)
       changes.push(`activities:${prev.actLen}→${allActivities.length}`);
     if (prev.insLen !== insights.length) changes.push(`insights:${prev.insLen}→${insights.length}`);
-    if (prev.focused !== isFeedFocused) changes.push(`focused:${prev.focused}→${isFeedFocused}`);
     if (prev.refetching !== isRefetching)
       changes.push(`refetching:${prev.refetching}→${isRefetching}`);
     if (prev.dataRef !== data) changes.push('data:newRef');
@@ -526,7 +534,6 @@ export default function FeedScreen() {
     prev.isLoading = isLoading;
     prev.actLen = allActivities.length;
     prev.insLen = insights.length;
-    prev.focused = isFeedFocused;
     prev.refetching = isRefetching;
     prev.dataRef = data;
     prev.filteredRef = filteredActivities;
@@ -579,7 +586,7 @@ export default function FeedScreen() {
           keyExtractor={(item) => item.id}
           extraData={isDark}
           ListHeaderComponent={renderListHeader}
-          ListEmptyComponent={isError ? renderError : renderEmpty}
+          ListEmptyComponent={isError ? renderError : isLoading ? renderSkeletons : renderEmpty}
           ListFooterComponent={renderFooter}
           contentContainerStyle={styles.listContent}
           contentOffset={initialContentOffset}

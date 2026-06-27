@@ -382,6 +382,7 @@
   "common": {
     "activities": "Aktivitäte",
     "back": "Zrugg",
+    "close": "Schliessen",
     "cancel": "Nä, la sy!",
     "clearSearch": "Suechi lösche",
     "confirm": "Passt, lässig!",
@@ -473,7 +474,10 @@
     "defaultTitle": "Gopferteckel!",
     "tryAgain": "Nomol!",
     "unableToLoad": "{{componentName}} cha nöd glade wärde",
-    "restartHint": "Probiers nomol oder start d App nöi"
+    "restartHint": "Probiers nomol oder start d App nöi",
+    "unableToDisplay": "{{label}} kann nicht angezeigt werden",
+    "unableToDisplayChart": "Diagramm kann nicht angezeigt werden",
+    "tapToRetry": "Zum Wiederholen tippen"
   },
   "export": {
     "bulkComplete": "Export fertig",
@@ -632,7 +636,8 @@
       "thresholdSpeedName": "Schwelletempo-Trendanalyse",
       "thresholdSpeedDescription": "Vergliicht dini letschti Schwelletempo-Schätzig mit früheri Wert und zeigts als lesbars Tempo aa.",
       "fitnessPrName": "Fitness-PR Chrüüzreferänz",
-      "sectionTrendName": "Leistigstrend i de Abschnitt"
+      "sectionTrendName": "Leistigstrend i de Abschnitt",
+      "stalePrCrossRefName": "{{metric}}-PR-Abgleich"
     },
     "alternatives": {
       "selected": "Aktuelli Iiischätzig",
@@ -695,7 +700,10 @@
       "metricGain": "{{metric}}-Gwinn",
       "prTime": "PR-Ziit",
       "methodology": "Verglycht Fitnesswert bim PR-Zytpunkt mit aktuelle Wert. Zeigt Sektione wo sich d'Fitnesswert sit em PR veränderet hend.",
-      "groupTitle": "{{count}} PRs mit Fitnessänderige"
+      "groupTitle": "{{count}} PRs mit Fitnessänderige",
+      "metricCyclingFtp": "Rad-FTP",
+      "metricSwimCss": "Schwimm-CSS",
+      "metricRunningThreshold": "Lauf-Schwellentempo"
     },
     "disclaimer": "Trainingsmetrike sind Schätzige basierend uf publizierter Sportwüsseschaft. Individuelli Reaktione variiere. Kei medizinische oder Coaching-Raat.",
     "aboutInsights": "Über Einblicke",
@@ -727,7 +735,18 @@
       "volumeAppeared": "Volume isch ide letzte zwei Wuche ufftaucht nach emene rüehigere Start.",
       "volumeUp": "De 2-Wuche-Schnitt ligt {{percent}}% über de vorherige 2 Wuche.",
       "volumeDown": "De 2-Wuche-Schnitt ligt {{percent}}% unter de vorherige 2 Wuche.",
-      "volumeSteady": "De 2-Wuche-Schnitt isch stabil im Vergliich zum Monatsaafang."
+      "volumeSteady": "De 2-Wuche-Schnitt isch stabil im Vergliich zum Monatsaafang.",
+      "oneSidedTitle": "{{pair}} zeigt eine einseitige Verteilung",
+      "dominantTitle": "{{dominant}} trägt mehr Volumen in {{pair}}",
+      "oneSidedBody": "{{dominant}} stellt das gesamte gewichtete Satzvolumen für {{pair}} der letzten 4 Wochen.",
+      "ratioBody": "{{pair}} liegt im jüngsten 4-Wochen-Fenster bei durchschnittlich {{ratio}} gewichteten Sätzen.",
+      "ratioLabel": "Verhältnis",
+      "statusLabel": "Status",
+      "formula": "Gewichtete Sätze pro Antagonisten-Paar",
+      "algorithm": "Vergleicht gewichtete Satzzahlen über gängige Antagonisten-Paare. Primäre Arbeit zählt 1.0, sekundäre Arbeit 0.5.",
+      "methodologyName": "Kraft-Balance-Prüfung",
+      "methodologyDescription": "Vergleicht gewichtete Satzzahlen zwischen antagonistischen Muskelpaaren der letzten 4 Wochen, um einseitige Belastung zu erkennen.",
+      "ratioFormula": "Verhältnis = dominante gewichtete Sätze / sekundäre gewichtete Sätze"
     },
     "quickTake": {
       "howCalculated": "Wie isch das berechnet worde?",
@@ -793,7 +812,38 @@
     "routesDisabledLine1": "Route & Abschnitt deaktiviert",
     "routesDisabledLine2": "Tipp zum Aktiviere",
     "sectionDeclining": "{{name}} wird langsamer",
-    "sectionDecliningBody": "Letschte Median: {{median}}. Bestziit: {{best}} us {{count}} Versüech."
+    "sectionDecliningBody": "Letschte Median: {{median}}. Bestziit: {{best}} us {{count}} Versüech.",
+    "strengthProgression": {
+      "upTitle": "{{muscle}}-Volumen legt sichtbar zu",
+      "downTitle": "{{muscle}}-Volumen hat nachgelassen",
+      "newVolumeBody": "{{muscle}} erzielte die meisten der jüngsten gewichteten Sätze in den aktuellen 2 Wochen nach einer ruhigeren Phase.",
+      "shiftBody": "{{muscle}} bewegte sich im aktuellen 2-Wochen-Schnitt von {{from}} auf {{to}} gewichtete Sätze.",
+      "vsEarlier": "{{change}}% ggü. den 2 Wochen davor",
+      "fourWeekTotal": "4-Wochen-Summe",
+      "sparklineLabel": "Gewichtete Sätze über 4 Wochen",
+      "recent2Weeks": "Letzte 2 Wo.",
+      "earlier2Weeks": "Frühere 2 Wo.",
+      "changeLabel": "Veränderung",
+      "thisWeek": "Diese Wo.",
+      "weeksAgo": "-{{n}}W",
+      "formula": "Schnitt der letzten 2 Wochen vs. Schnitt der 2 Wochen davor",
+      "algorithm": "Verfolgt gewichtete Sätze pro Muskel über die letzten 4 Wochen. Primäre Arbeit zählt 1.0, sekundäre Arbeit 0.5.",
+      "methodologyName": "Kraftvolumen-Progression",
+      "methodologyDescription": "Vergleicht den Schnitt der letzten 2 Wochen mit dem der 2 Wochen davor, um relevante Änderungen im gewichteten Satzvolumen zu erkennen."
+    },
+    "strengthSnapshot": {
+      "title_one": "{{count}} Krafteinheit in den letzten 4 Wochen",
+      "title_other": "{{count}} Krafteinheiten in den letzten 4 Wochen",
+      "subtitleWithTop": "{{sessions}} Einheiten · {{sets}} Sätze · Top: {{muscle}}",
+      "subtitle": "{{sessions}} Einheiten · {{sets}} Sätze",
+      "body": "{{sets}} gewichtete Sätze über {{groups}} Muskelgruppen.",
+      "sessionsLabel": "Einheiten",
+      "setsLabel": "Sätze",
+      "muscleGroupsLabel": "Muskelgruppen",
+      "formula": "Anzahl der Krafteinheiten, gewichteten Sätze und erfassten Muskelgruppen",
+      "algorithm": "Fasst die Kraftworkouts der letzten 4 Wochen zusammen. Primäre Arbeit zählt 1.0, sekundäre Arbeit 0.5 pro Muskelgruppe.",
+      "methodologyDescription": "Fasst das Kraftvolumen der letzten 4 Wochen zusammen: Anzahl der Workouts, gewichtete Sätze gesamt und erfasste Muskelgruppen."
+    }
   },
   "licenses": {
     "footer": "Tipp uf es Lizenz-Badge um de voll Text z gseh. Tipp ufs Link-Symbol um s Projekt-Repository z bsueche.",
@@ -1816,6 +1866,8 @@
     "tip_large": "Grosses Trinkgeld",
     "tipSmall": "Chli",
     "tipMedium": "Mittel",
-    "tipLarge": "Gross"
+    "tipLarge": "Gross",
+    "shareCrashLog": "Absturzprotokoll teilen",
+    "noCrashLog": "Keine Abstürze aufgezeichnet"
   }
 }

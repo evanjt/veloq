@@ -45,15 +45,21 @@ fn seed_v02x_db(path: &Path) -> SqlResult<()> {
         M::up(include_str!(
             "../src/migrations/004_extend_activity_metrics.sql"
         )),
-        M::up(include_str!("../src/migrations/005_profile_and_settings.sql")),
-        M::up(include_str!("../src/migrations/006_processed_activities.sql")),
+        M::up(include_str!(
+            "../src/migrations/005_profile_and_settings.sql"
+        )),
+        M::up(include_str!(
+            "../src/migrations/006_processed_activities.sql"
+        )),
         M::up(include_str!(
             "../src/migrations/007_cache_section_performances.sql"
         )),
         M::up(include_str!(
             "../src/migrations/008_cache_all_performance_metrics.sql"
         )),
-        M::up(include_str!("../src/migrations/009_section_bounds_cache.sql")),
+        M::up(include_str!(
+            "../src/migrations/009_section_bounds_cache.sql"
+        )),
         M::up(include_str!(
             "../src/migrations/010_route_groups_activity_count.sql"
         )),

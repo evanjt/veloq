@@ -13,12 +13,12 @@
 // useMapGeoJSON transitively imports ActivityTypeFilter which pulls in
 // react-native + @expo/vector-icons. Mock the small piece of that module
 // we actually use so the test doesn't have to bring in the whole RN stack.
-jest.mock('@/components/maps/ActivityTypeFilter', () => ({
+jest.mock('@/features/maps/components/ActivityTypeFilter', () => ({
   getActivityTypeConfig: () => ({ color: '#3B82F6', icon: 'bike', label: 'Ride' }),
 }));
 
 import { renderHook } from '@testing-library/react-native';
-import { useMapGeoJSON } from '@/components/maps/regional/useMapGeoJSON';
+import { useMapGeoJSON } from '@/features/maps/components/regional/useMapGeoJSON';
 import type { FrequentSection } from '@/types';
 
 // Minimal stub TFunction — useMapGeoJSON only calls it for fallback names.

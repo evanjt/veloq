@@ -11,13 +11,13 @@ import {
 } from 'react-native';
 import Constants from 'expo-constants';
 import { Stack } from 'expo-router';
-import { TAB_BAR_SAFE_PADDING } from '@/components/ui';
+import { TAB_BAR_SAFE_PADDING } from '@/shared/ui';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, darkColors, spacing } from '@/theme';
-import { useTheme } from '@/hooks';
-import { getFFIMetricsSummary, clearFFIMetrics } from '@/lib/debug/renderTimer';
-import { useSupportStore, daysSince } from '@/providers';
-import { formatLocalDate } from '@/lib/utils/format';
+import { useTheme } from '@/shared/app';
+import { getFFIMetricsSummary, clearFFIMetrics } from '@/shared/debug/renderTimer';
+import { useSupportStore, daysSince } from '@/shared/app/SupportStore';
+import { formatLocalDate } from '@/shared/format/format';
 import type { PersistentEngineStats } from 'veloqrs';
 
 function getRouteEngine() {
@@ -104,9 +104,9 @@ function StatRow({ label, value, isDark }: StatRowProps) {
 }
 
 function getAvgColor(avgMs: number): string {
-  if (avgMs > 100) return '#ef4444';
-  if (avgMs > 50) return '#f59e0b';
-  return '#22c55e';
+  if (avgMs > 100) return colors.error;
+  if (avgMs > 50) return colors.warning;
+  return colors.success;
 }
 
 function daysAgoLocal(days: number): string {

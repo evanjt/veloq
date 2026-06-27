@@ -4,6 +4,7 @@
 appId: com.veloq.app.dev
 tags:
   - tier1
+  - pack-auth
 ---
 - launchApp:
     clearState: false
@@ -32,8 +33,13 @@ tags:
     id: "login-apikey-section"
 - assertVisible:
     id: "login-apikey-input"
-- assertVisible:
-    id: "login-apikey-button"
+# The connect button sits below the input inside the scrollable login card;
+# scroll it into view rather than asserting at the current scroll position.
+- scrollUntilVisible:
+    element:
+      id: "login-apikey-button"
+    direction: DOWN
+    timeout: 10000
 
 # Test: Enter demo mode
 - tapOn:

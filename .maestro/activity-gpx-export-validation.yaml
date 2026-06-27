@@ -9,7 +9,8 @@
 
 appId: com.veloq.app.dev
 tags:
-  - tier2
+  - tier3
+  - pack-activity
 ---
 - runFlow:
     file: helpers/setup-demo-mode.yaml

@@ -14,24 +14,24 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { useTheme, useMetricSystem } from '@/hooks';
+import { useTheme, useMetricSystem } from '@/shared/app';
 import { colors, darkColors, spacing, layout, typography, brand } from '@/theme';
-import { formatDistance, formatDuration } from '@/lib';
-import { getActivityIcon, getActivityColor } from '@/lib/utils/activityUtils';
+import { formatDistance, formatDuration } from '@/shared/format/format';
+import { getActivityIcon, getActivityColor } from '@/features/activity/lib/activityUtils';
 
-import { useRecordingStore } from '@/providers/RecordingStore';
-import { useReviewSave } from '@/hooks/recording/useReviewSave';
-import { useActivitySummary } from '@/hooks/recording/useActivitySummary';
-import { useDiscardWithAnimation } from '@/hooks/recording/useDiscardWithAnimation';
+import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
+import { useReviewSave } from '@/features/recording/hooks/useReviewSave';
+import { useActivitySummary } from '@/features/recording/hooks/useActivitySummary';
+import { useDiscardWithAnimation } from '@/features/recording/hooks/useDiscardWithAnimation';
 import {
   useActivityNameGeneration,
   getTimeOfDayKey,
-} from '@/hooks/recording/useActivityNameGeneration';
-import { ReviewMapHero } from '@/components/recording/ReviewMapHero';
-import { RpeSlider } from '@/components/recording/RpeSlider';
-import { ActivityTypePickerModal } from '@/components/recording/ActivityTypePickerModal';
-import { ActivityStatsCard } from '@/components/recording/ActivityStatsCard';
-import { SaveErrorBanner } from '@/components/recording/SaveErrorBanner';
+} from '@/features/recording/hooks/useActivityNameGeneration';
+import { ReviewMapHero } from '@/features/recording/components/ReviewMapHero';
+import { RpeSlider } from '@/features/recording/components/RpeSlider';
+import { ActivityTypePickerModal } from '@/features/recording/components/ActivityTypePickerModal';
+import { ActivityStatsCard } from '@/features/recording/components/ActivityStatsCard';
+import { SaveErrorBanner } from '@/features/recording/components/SaveErrorBanner';
 import type { ActivityType } from '@/types';
 
 const SCREEN_HEIGHT = Dimensions.get('window').height;
@@ -107,6 +107,7 @@ export default function ReviewScreen() {
     showPermissionFix,
     isOAuthLoading,
     handleUpgradeToOAuth,
+    canRetry,
   } = useReviewSave({
     isManual,
     type,
@@ -171,6 +172,8 @@ export default function ReviewScreen() {
             onPress={() => router.back()}
             style={styles.backButton}
             disabled={isProcessing}
+            accessibilityRole="button"
+            accessibilityLabel={t('common.back')}
           >
             <MaterialCommunityIcons
               name="arrow-left"
@@ -268,6 +271,8 @@ export default function ReviewScreen() {
           showPermissionFix={showPermissionFix}
           isOAuthLoading={isOAuthLoading}
           onUpgradePermissions={handleUpgradeToOAuth}
+          onRetry={canRetry ? handleSave : undefined}
+          isRetrying={isUploading}
         />
 
         {/* Action Buttons */}

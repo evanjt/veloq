@@ -48,7 +48,10 @@ impl PersistentRouteEngine {
         };
         let base = Path::new(path);
         if let Err(e) = std::fs::create_dir_all(base) {
-            log::warn!("[heatmap] Failed to create tiles directory for dirty marker: {}", e);
+            log::warn!(
+                "[heatmap] Failed to create tiles directory for dirty marker: {}",
+                e
+            );
             return;
         }
         if let Err(e) = std::fs::write(base.join(DIRTY_MARKER), b"") {
@@ -302,9 +305,7 @@ fn background_generate_tiles(
         // each `&[GpsPoint]` impls `AsRef<[GpsPoint]>`, matching the
         // generic bound on `generate_heatmap_tile`.
         let slices: Vec<&[GpsPoint]> = arcs.iter().map(|a| a.as_slice()).collect();
-        if let Some(png_data) =
-            tiles::generate_heatmap_tile(coord.0, coord.1, coord.2, &slices)
-        {
+        if let Some(png_data) = tiles::generate_heatmap_tile(coord.0, coord.1, coord.2, &slices) {
             if tiles::save_tile(base, coord.0, coord.1, coord.2, &png_data).is_ok() {
                 generated.fetch_add(1, Ordering::Relaxed);
             }

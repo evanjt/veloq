@@ -4,6 +4,7 @@
 appId: com.veloq.app.dev
 tags:
   - tier3
+  - pack-stress
 ---
 - runFlow:
     file: helpers/setup-demo-mode.yaml

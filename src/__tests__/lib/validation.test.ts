@@ -3,7 +3,7 @@ import {
   safeJsonParseWithSchema,
   isValidRecord,
   type SchemaValidator,
-} from '@/lib/utils/validation';
+} from '@/shared/validation/validation';
 
 describe('safeJsonParse', () => {
   it('parses valid JSON', () => {
@@ -11,22 +11,11 @@ describe('safeJsonParse', () => {
     expect(result).toEqual({ a: 1, b: 'two' });
   });
 
-  it('returns fallback for invalid JSON', () => {
+  it('returns fallback for invalid JSON, null input, or parsed-null', () => {
     const fallback = { default: true };
-    const result = safeJsonParse('not valid json', fallback);
-    expect(result).toEqual(fallback);
-  });
-
-  it('returns fallback for null input', () => {
-    const fallback = { default: true };
-    const result = safeJsonParse(null, fallback);
-    expect(result).toEqual(fallback);
-  });
-
-  it('returns fallback when parsed value is null', () => {
-    const fallback = { default: true };
-    const result = safeJsonParse('null', fallback);
-    expect(result).toEqual(fallback);
+    expect(safeJsonParse('not valid json', fallback)).toEqual(fallback);
+    expect(safeJsonParse(null, fallback)).toEqual(fallback);
+    expect(safeJsonParse('null', fallback)).toEqual(fallback);
   });
 });
 
@@ -50,15 +39,11 @@ describe('safeJsonParseWithSchema', () => {
     expect(result).toEqual({ name: 'test', value: 42 });
   });
 
-  it('returns fallback for invalid schema', () => {
-    const json = '{"name":"test","value":"not a number"}';
-    const result = safeJsonParseWithSchema(json, isTestData, fallback);
-    expect(result).toEqual(fallback);
-  });
-
-  it('returns fallback for null input', () => {
-    const result = safeJsonParseWithSchema(null, isTestData, fallback);
-    expect(result).toEqual(fallback);
+  it('returns fallback for schema failure or null input', () => {
+    expect(
+      safeJsonParseWithSchema('{"name":"test","value":"not a number"}', isTestData, fallback)
+    ).toEqual(fallback);
+    expect(safeJsonParseWithSchema(null, isTestData, fallback)).toEqual(fallback);
   });
 });
 
@@ -109,7 +94,7 @@ describe('isValidRecord', () => {
 
 describe('validateCustomSection', () => {
   // Migrated from schemas.test.ts — validates size limit enforcement
-  const { validateCustomSection } = require('@/lib/validation/schemas');
+  const { validateCustomSection } = require('@/shared/validation/schemas');
 
   const validSection = {
     id: 'sec1',

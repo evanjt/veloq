@@ -187,9 +187,8 @@ impl PersistentRouteEngine {
     }
 
     fn migrate_route_group_ids_to_blob(conn: &Connection) -> SqlResult<()> {
-        let mut stmt = conn.prepare(
-            "SELECT id, activity_ids FROM route_groups WHERE activity_ids_blob IS NULL",
-        )?;
+        let mut stmt = conn
+            .prepare("SELECT id, activity_ids FROM route_groups WHERE activity_ids_blob IS NULL")?;
         let rows: Vec<(String, String)> = stmt
             .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?
             .filter_map(|r| r.ok())
@@ -204,9 +203,8 @@ impl PersistentRouteEngine {
             rows.len()
         );
 
-        let mut update = conn.prepare(
-            "UPDATE route_groups SET activity_ids_blob = ? WHERE id = ?",
-        )?;
+        let mut update =
+            conn.prepare("UPDATE route_groups SET activity_ids_blob = ? WHERE id = ?")?;
 
         let mut converted = 0u32;
         for (id, json) in &rows {

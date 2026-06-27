@@ -11,7 +11,7 @@
  *   - localBackend.ts:54
  */
 
-import { safeGetTime } from '@/lib/utils/format';
+import { safeGetTime } from '@/shared/format/format';
 
 describe('NaN sort comparator patterns', () => {
   it('NaN comparisons always return false (the root cause)', () => {

@@ -5,7 +5,7 @@ appId: com.veloq.app.dev
 tags:
   - tier5 # Disabled: record-fab removed from UI
 onFlowComplete:
-  - openLink: "veloq://home"
+  - openLink: "veloq://"
   - runFlow:
       when:
         visible: "DISCARD"

@@ -159,6 +159,7 @@ export interface TranslationResource {
     error: string;
     retry: string;
     cancel: string;
+    close: string;
     save: string;
     create: string;
     delete: string;
@@ -1235,6 +1236,9 @@ export interface TranslationResource {
     defaultMessage: string;
     tryAgain: string;
     unableToLoad: string;
+    unableToDisplay: string;
+    unableToDisplayChart: string;
+    tapToRetry: string;
     restartHint: string;
   };
 
@@ -1757,6 +1761,8 @@ export interface TranslationResource {
     tipSmall: string;
     tipMedium: string;
     tipLarge: string;
+    shareCrashLog: string;
+    noCrashLog: string;
   };
 }
 

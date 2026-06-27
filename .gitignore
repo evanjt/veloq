@@ -108,3 +108,8 @@ screenshots/
 .worktrees/
 .claude
 *.md
+
+# Local Expo module build artifacts
+modules/veloq-widget/android/build/
+modules/veloq-widget/android/.gradle/
+modules/veloq-widget/android/.cxx/

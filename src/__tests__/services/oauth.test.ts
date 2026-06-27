@@ -45,17 +45,13 @@ jest.mock('expo-linking', () => ({
 
 import * as WebBrowser from 'expo-web-browser';
 import {
-  isOAuthConfigured,
-  getOAuthClientId,
-  getProxyRedirectUri,
   buildAuthorizationUrl,
   startOAuthFlow,
   parseCallbackUrl,
   validateState,
   handleOAuthCallback,
-  getAppRedirectUri,
-} from '@/services/oauth';
-import { OAUTH } from '@/lib/utils/constants';
+} from '@/features/auth/lib/oauth';
+import { OAUTH } from '@/features/auth/constants';
 
 const mockedOpenAuth = WebBrowser.openAuthSessionAsync as jest.MockedFunction<
   typeof WebBrowser.openAuthSessionAsync
@@ -73,32 +69,6 @@ describe('OAuth service', () => {
 
   afterAll(() => {
     global.fetch = originalFetch;
-  });
-
-  describe('isOAuthConfigured()', () => {
-    it('returns true when CLIENT_ID and PROXY_URL are populated', () => {
-      expect(isOAuthConfigured()).toBe(true);
-      expect(OAUTH.CLIENT_ID).not.toBe('');
-      expect(OAUTH.PROXY_URL).not.toBe('');
-    });
-  });
-
-  describe('getOAuthClientId()', () => {
-    it('returns the configured client ID string', () => {
-      expect(getOAuthClientId()).toBe(OAUTH.CLIENT_ID);
-    });
-  });
-
-  describe('getProxyRedirectUri()', () => {
-    it('returns PROXY_URL + /oauth/callback', () => {
-      expect(getProxyRedirectUri()).toBe(`${OAUTH.PROXY_URL}/oauth/callback`);
-    });
-  });
-
-  describe('getAppRedirectUri()', () => {
-    it('returns APP_SCHEME + ://oauth/callback', () => {
-      expect(getAppRedirectUri()).toBe(`${OAUTH.APP_SCHEME}://oauth/callback`);
-    });
   });
 
   describe('buildAuthorizationUrl()', () => {

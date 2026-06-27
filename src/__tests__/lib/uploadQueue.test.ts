@@ -7,7 +7,7 @@
  */
 
 // Mock the debug module to avoid __DEV__ reference error in node test environment
-jest.mock('@/lib/utils/debug', () => ({
+jest.mock('@/shared/debug/debug', () => ({
   debug: {
     log: () => {},
     warn: () => {},
@@ -58,7 +58,7 @@ import {
   markUploadFailed,
   getQueueSize,
   clearUploadQueue,
-} from '@/lib/storage/uploadQueue';
+} from '@/features/recording/lib/storage/uploadQueue';
 
 const QUEUE_KEY = 'veloq-upload-queue';
 

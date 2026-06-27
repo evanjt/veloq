@@ -59,6 +59,8 @@ import * as routeDelegates from './delegates/routes';
 import * as sectionDelegates from './delegates/sections';
 import * as settingsDelegates from './delegates/settings';
 import * as strengthDelegates from './delegates/strength';
+import * as syncDelegates from './delegates/sync';
+import type { SyncAuthMethod, SyncStatus } from './delegates/sync';
 import type {
   FfiActivityIndicator,
   FfiActivityRouteHighlight,
@@ -241,6 +243,17 @@ class RouteEngineClient implements DelegateHost {
   getSectionDetectionProgress = (): SectionDetectionProgress | null =>
     detectionDelegates.getSectionDetectionProgress(this);
 
+  setSyncCredentials = (method: SyncAuthMethod, secret: string, athleteId: string): void =>
+    syncDelegates.setSyncCredentials(this, method, secret, athleteId);
+
+  clearSyncCredentials = (): void => syncDelegates.clearSyncCredentials(this);
+
+  syncNow = (): boolean => syncDelegates.syncNow(this);
+
+  cancelSync = (): void => syncDelegates.cancelSync(this);
+
+  getSyncStatus = (): SyncStatus | null => syncDelegates.getSyncStatus(this);
+
   getGroups = (): FfiRouteGroup[] => routeDelegates.getGroups(this);
 
   getSections = (): FfiFrequentSection[] => sectionDelegates.getSections(this);
@@ -250,6 +263,8 @@ class RouteEngineClient implements DelegateHost {
 
   getSectionsForActivity = (activityId: string): FfiSection[] =>
     sectionDelegates.getSectionsForActivity(this, activityId);
+
+  getSectionCount = (): number => sectionDelegates.getSectionCount(this);
 
   getSectionSummaries = (sportType?: string): { totalCount: number; summaries: SectionSummary[] } =>
     sectionDelegates.getSectionSummaries(this, sportType);
@@ -308,6 +323,15 @@ class RouteEngineClient implements DelegateHost {
     centerLat: number;
     centerLng: number;
   }> => mapsDelegates.getAllMapSignatures(this);
+
+  getMapSignaturesForIds = (
+    ids: string[]
+  ): Array<{
+    activityId: string;
+    encodedCoords: ArrayBuffer;
+    centerLat: number;
+    centerLng: number;
+  }> => mapsDelegates.getMapSignaturesForIds(this, ids);
 
   setRouteName = (routeId: string, name: string): void =>
     routeDelegates.setRouteName(this, routeId, name);

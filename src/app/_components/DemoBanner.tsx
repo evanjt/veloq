@@ -1,0 +1,110 @@
+import React from 'react';
+import { View, StyleSheet, Pressable, InteractionManager } from 'react-native';
+import Animated, { SlideInUp, SlideOutUp } from 'react-native-reanimated';
+import { Text } from 'react-native-paper';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useQueryClient } from '@tanstack/react-query';
+import { useAuthStore } from '@/shared/app/AuthStore';
+import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
+import { useTheme } from '@/shared/app';
+import { colors, brand } from '@/theme';
+import { clearDemoData } from '@/shared/storage';
+
+export function DemoBanner() {
+  const { t } = useTranslation();
+  const { isDark } = useTheme();
+  const insets = useSafeAreaInsets();
+  const isDemoMode = useAuthStore((state) => state.isDemoMode);
+  const hideDemoBanner = useAuthStore((state) => state.hideDemoBanner);
+  const exitDemoMode = useAuthStore((state) => state.exitDemoMode);
+  const queryClient = useQueryClient();
+  const resetSyncDateRange = useSyncDateRange((state) => state.reset);
+
+  // Don't render if not in demo mode or if banner is hidden
+  if (!isDemoMode || hideDemoBanner) return null;
+
+  const handlePress = () => {
+    // Flip isAuthenticated → false synchronously. AuthGate handles the redirect
+    // to /login after a 100ms defer (lets Android finish the current render pass).
+    exitDemoMode();
+    resetSyncDateRange();
+    // Defer data clearing until the navigation interaction completes. Calling
+    // queryClient.clear() while tab screens are still mounted triggers a mass
+    // re-render cascade that crashes Android with IllegalStateException
+    // (null child in ReactViewGroup during dispatchGetDisplayList).
+    InteractionManager.runAfterInteractions(() => {
+      clearDemoData(queryClient);
+    });
+  };
+
+  return (
+    <Animated.View entering={SlideInUp.duration(250)} exiting={SlideOutUp.duration(200)}>
+      <Pressable
+        testID="demo-mode-banner"
+        onPress={handlePress}
+        style={({ pressed }) => [
+          styles.container,
+          isDark && styles.containerDark,
+          pressed && styles.pressed,
+          { paddingTop: insets.top > 0 ? insets.top : 8 },
+        ]}
+      >
+        <View style={styles.content}>
+          <MaterialCommunityIcons
+            name="information"
+            size={18}
+            color="#FFFFFF"
+            style={styles.icon}
+          />
+          <Text style={styles.text}>{t('demo.banner', { defaultValue: 'Demo Mode' })}</Text>
+          <Text style={styles.subtext}>
+            {t('demo.tapToSignIn', { defaultValue: 'Tap to sign in' })}
+          </Text>
+          <MaterialCommunityIcons
+            name="chevron-right"
+            size={18}
+            color="#FFFFFF"
+            style={styles.chevron}
+          />
+        </View>
+      </Pressable>
+    </Animated.View>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    backgroundColor: brand.blue, // Brand blue for demo mode
+    paddingHorizontal: 16,
+    paddingBottom: 8,
+  },
+  containerDark: {
+    backgroundColor: brand.blueDark, // Darker blue for dark mode
+  },
+  pressed: {
+    opacity: 0.8,
+  },
+  content: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  icon: {
+    marginRight: 8,
+  },
+  text: {
+    color: colors.textOnDark,
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  subtext: {
+    color: 'rgba(255, 255, 255, 0.85)',
+    fontSize: 13,
+    marginLeft: 8,
+  },
+  chevron: {
+    marginLeft: 4,
+  },
+});

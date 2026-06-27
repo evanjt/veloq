@@ -382,6 +382,7 @@
   "common": {
     "activities": "activités",
     "back": "Retour",
+    "close": "Fermer",
     "cancel": "Annuler",
     "clearSearch": "Effacer la recherche",
     "confirm": "Confirmer",
@@ -473,7 +474,10 @@
     "defaultTitle": "Une erreur s'est produite",
     "tryAgain": "Réessayer",
     "unableToLoad": "Impossible de charger {{componentName}}",
-    "restartHint": "Veuillez réessayer ou redémarrer l'application"
+    "restartHint": "Veuillez réessayer ou redémarrer l'application",
+    "unableToDisplay": "Impossible d’afficher {{label}}",
+    "unableToDisplayChart": "Impossible d’afficher le graphique",
+    "tapToRetry": "Touchez pour réessayer"
   },
   "export": {
     "bulkComplete": "Exportation terminée",
@@ -631,7 +635,8 @@
       "thresholdSpeedName": "Analyse de tendance de la vitesse seuil",
       "thresholdSpeedDescription": "Compare votre dernière estimation de vitesse seuil aux valeurs précédentes, puis formate le changement en allure lisible pour l'affichage.",
       "fitnessPrName": "Croisement forme-PR",
-      "sectionTrendName": "Tendance de performance sur les sections"
+      "sectionTrendName": "Tendance de performance sur les sections",
+      "stalePrCrossRefName": "Recoupement PR / {{metric}}"
     },
     "alternatives": {
       "selected": "Évaluation actuelle",
@@ -694,7 +699,10 @@
       "metricGain": "Gain de {{metric}}",
       "prTime": "Temps du PR",
       "methodology": "Compare les métriques de forme au moment du PR avec les valeurs actuelles. Affiche les sections où les métriques de forme ont changé depuis l'établissement du PR.",
-      "groupTitle": "{{count}} PRs avec changements de forme"
+      "groupTitle": "{{count}} PRs avec changements de forme",
+      "metricCyclingFtp": "FTP vélo",
+      "metricSwimCss": "CSS natation",
+      "metricRunningThreshold": "Allure seuil en course"
     },
     "disclaimer": "Les métriques d'entraînement sont des estimations basées sur la science du sport. Les réponses individuelles varient. Ne constitue pas un avis médical ou d'entraînement.",
     "aboutInsights": "À propos des aperçus",
@@ -727,7 +735,18 @@
       "volumeAppeared": "Du volume est apparu ces deux dernières semaines après un début plus calme.",
       "volumeUp": "La moyenne des 2 dernières semaines est {{percent}}% au-dessus des 2 précédentes.",
       "volumeDown": "La moyenne des 2 dernières semaines est {{percent}}% en-dessous des 2 précédentes.",
-      "volumeSteady": "La moyenne des 2 dernières semaines est stable par rapport au début du mois."
+      "volumeSteady": "La moyenne des 2 dernières semaines est stable par rapport au début du mois.",
+      "oneSidedTitle": "{{pair}} affiche une répartition unilatérale",
+      "dominantTitle": "{{dominant}} concentre plus de volume dans {{pair}}",
+      "oneSidedBody": "{{dominant}} représente tout le volume de séries pondérées de {{pair}} sur les 4 dernières semaines.",
+      "ratioBody": "{{pair}} affiche une moyenne de {{ratio}} en séries pondérées sur la fenêtre récente de 4 semaines.",
+      "ratioLabel": "Ratio",
+      "statusLabel": "Statut",
+      "formula": "Séries pondérées par paire antagoniste",
+      "algorithm": "Compare le nombre de séries pondérées entre paires antagonistes courantes. Le travail principal compte pour 1.0 et le travail secondaire pour 0.5.",
+      "methodologyName": "Contrôle d’équilibre musculaire",
+      "methodologyDescription": "Compare les séries pondérées entre paires de muscles antagonistes sur les 4 dernières semaines pour signaler des charges déséquilibrées.",
+      "ratioFormula": "ratio = séries pondérées dominantes / séries pondérées secondaires"
     },
     "quickTake": {
       "howCalculated": "Comment cela a-t-il été calculé ?",
@@ -793,7 +812,38 @@
     "routesDisabledLine1": "Parcours et sections désactivés",
     "routesDisabledLine2": "Appuyez pour activer",
     "sectionDeclining": "{{name}} ralentit",
-    "sectionDecliningBody": "Médiane récente : {{median}}. Meilleur : {{best}} sur {{count}} efforts."
+    "sectionDecliningBody": "Médiane récente : {{median}}. Meilleur : {{best}} sur {{count}} efforts.",
+    "strengthProgression": {
+      "upTitle": "Le volume de {{muscle}} progresse nettement",
+      "downTitle": "Le volume de {{muscle}} a diminué",
+      "newVolumeBody": "{{muscle}} a généré la plupart de ses séries pondérées récentes sur les 2 semaines en cours, après une période plus calme.",
+      "shiftBody": "{{muscle}} est passé de {{from}} à {{to}} séries pondérées en moyenne sur 2 semaines.",
+      "vsEarlier": "{{change}}% vs 2 semaines précédentes",
+      "fourWeekTotal": "Total 4 semaines",
+      "sparklineLabel": "Séries pondérées sur 4 semaines",
+      "recent2Weeks": "2 dern. sem.",
+      "earlier2Weeks": "2 sem. préc.",
+      "changeLabel": "Évolution",
+      "thisWeek": "Cette sem.",
+      "weeksAgo": "-{{n}}sem",
+      "formula": "Moyenne des 2 dernières semaines vs moyenne des 2 semaines précédentes",
+      "algorithm": "Suit les séries pondérées par muscle sur les 4 dernières semaines. Le travail principal compte pour 1.0 et le travail secondaire pour 0.5.",
+      "methodologyName": "Progression du volume de force",
+      "methodologyDescription": "Compare la moyenne des 2 dernières semaines à celle des 2 semaines précédentes pour détecter des évolutions significatives du volume de séries pondérées."
+    },
+    "strengthSnapshot": {
+      "title_one": "{{count}} séance de force sur les 4 dernières semaines",
+      "title_other": "{{count}} séances de force sur les 4 dernières semaines",
+      "subtitleWithTop": "{{sessions}} séances · {{sets}} séries · principal : {{muscle}}",
+      "subtitle": "{{sessions}} séances · {{sets}} séries",
+      "body": "{{sets}} séries pondérées réparties sur {{groups}} groupes musculaires.",
+      "sessionsLabel": "Séances",
+      "setsLabel": "Séries",
+      "muscleGroupsLabel": "Groupes musculaires",
+      "formula": "Décompte des séances de force, séries pondérées et groupes musculaires suivis",
+      "algorithm": "Agrège les entraînements de force des 4 dernières semaines. Le travail principal compte pour 1.0 et le travail secondaire pour 0.5 par groupe musculaire.",
+      "methodologyDescription": "Résume le volume de force des 4 dernières semaines : nombre de séances, total des séries pondérées et groupes musculaires suivis."
+    }
   },
   "licenses": {
     "footer": "Appuyez sur un badge de licence pour voir le texte complet. Appuyez sur l'icône de lien pour visiter le dépôt du projet.",
@@ -1816,6 +1866,8 @@
     "tip_large": "Grand pourboire",
     "tipSmall": "Petit",
     "tipMedium": "Moyen",
-    "tipLarge": "Grand"
+    "tipLarge": "Grand",
+    "shareCrashLog": "Partager le journal des plantages",
+    "noCrashLog": "Aucun plantage enregistré"
   }
 }

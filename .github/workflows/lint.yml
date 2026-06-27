@@ -2,12 +2,19 @@ name: Lint
 
 on:
   push:
-    branches: ["**"]
+    branches: [main]
   pull_request:
     branches: [main]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   NODE_VERSION: "22"
+
+permissions:
+  contents: read
 
 jobs:
   format:

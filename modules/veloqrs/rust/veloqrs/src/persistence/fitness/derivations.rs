@@ -514,8 +514,6 @@ impl PersistentRouteEngine {
         Some(result)
     }
 
-
-
     /// Get aerobic efficiency trend for a section.
     ///
     /// Queries section_activities for traversals that have both lap_time and avg_hr,
@@ -692,7 +690,11 @@ impl PersistentRouteEngine {
         let indicators = self.get_activity_indicators(activity_ids);
 
         // Also need start_index/end_index from section_activities for map highlighting
-        let placeholders: String = activity_ids.iter().map(|_| "?").collect::<Vec<_>>().join(",");
+        let placeholders: String = activity_ids
+            .iter()
+            .map(|_| "?")
+            .collect::<Vec<_>>()
+            .join(",");
         let idx_sql = format!(
             "SELECT activity_id, section_id, start_index, end_index
              FROM section_activities
@@ -774,7 +776,8 @@ impl PersistentRouteEngine {
             return vec![];
         }
 
-        let requested: std::collections::HashSet<&str> = activity_ids.iter().map(|s| s.as_str()).collect();
+        let requested: std::collections::HashSet<&str> =
+            activity_ids.iter().map(|s| s.as_str()).collect();
 
         // Map activity → group from in-memory groups
         let mut activity_to_group: HashMap<&str, &tracematch::RouteGroup> = HashMap::new();
@@ -792,7 +795,10 @@ impl PersistentRouteEngine {
 
         // Route names from DB
         let mut route_names: HashMap<String, String> = HashMap::new();
-        if let Ok(mut stmt) = self.db.prepare("SELECT route_id, custom_name FROM route_names") {
+        if let Ok(mut stmt) = self
+            .db
+            .prepare("SELECT route_id, custom_name FROM route_names")
+        {
             if let Ok(rows) = stmt.query_map([], |row| {
                 Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
             }) {
@@ -889,8 +895,7 @@ impl PersistentRouteEngine {
             }
 
             if let Some((best_moving_time, trends)) = group_cache.get(&cache_key) {
-                let (trend, _speed, moving_time) =
-                    trends.get(aid).copied().unwrap_or((0, 0.0, 0));
+                let (trend, _speed, moving_time) = trends.get(aid).copied().unwrap_or((0, 0.0, 0));
                 let is_pr =
                     moving_time > 0 && *best_moving_time > 0 && moving_time == *best_moving_time;
                 let time_delta_seconds = if moving_time > 0 && *best_moving_time > 0 {
@@ -983,15 +988,11 @@ impl PersistentRouteEngine {
             let mut history_ids: Vec<String> = Vec::new();
             let mut best_time: f64 = f64::MAX;
 
-            if let Ok(rows) = hist_stmt.query_map(
-                rusqlite::params![trav.section_id, trav.direction],
-                |row| {
-                    Ok((
-                        row.get::<_, f64>(0)?,
-                        row.get::<_, String>(1)?,
-                    ))
-                },
-            ) {
+            if let Ok(rows) = hist_stmt
+                .query_map(rusqlite::params![trav.section_id, trav.direction], |row| {
+                    Ok((row.get::<_, f64>(0)?, row.get::<_, String>(1)?))
+                })
+            {
                 for row in rows.flatten() {
                     if row.0 < best_time {
                         best_time = row.0;

@@ -402,8 +402,7 @@ impl PersistentRouteEngine {
 
                 let polyline_json =
                     serde_json::to_string(&new_polyline).unwrap_or_else(|_| "[]".to_string());
-                let polyline_blob =
-                    crate::persistence::codec::serialize_points(&new_polyline).ok();
+                let polyline_blob = crate::persistence::codec::serialize_points(&new_polyline).ok();
                 let bounds = tracematch::geo_utils::compute_bounds(&new_polyline);
 
                 self.db

@@ -4,6 +4,7 @@
 appId: com.veloq.app.dev
 tags:
   - tier3
+  - pack-stress
 ---
 - runFlow:
     file: helpers/setup-demo-mode.yaml
@@ -36,7 +37,7 @@ tags:
           timeout: 5000
           optional: true
 
-      - openLink: "veloq://activity/demo-2"
+      - openLink: "veloq://activity/demo-test-2"
       - runFlow:
           when:
             visible: "Open"
@@ -48,7 +49,7 @@ tags:
           timeout: 5000
           optional: true
 
-      - openLink: "veloq://activity/demo-3"
+      - openLink: "veloq://activity/demo-test-3"
       - runFlow:
           when:
             visible: "Open"
@@ -60,7 +61,7 @@ tags:
           timeout: 5000
           optional: true
 
-      - openLink: "veloq://activity/demo-4"
+      - openLink: "veloq://activity/demo-test-4"
       - runFlow:
           when:
             visible: "Open"
@@ -88,7 +89,7 @@ tags:
             visible: "Open"
           commands:
             - tapOn: "Open"
-      - openLink: "veloq://activity/demo-2"
+      - openLink: "veloq://activity/demo-test-2"
       - runFlow:
           when:
             visible: "Open"

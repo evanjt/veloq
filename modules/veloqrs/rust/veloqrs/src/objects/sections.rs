@@ -1,4 +1,4 @@
-use super::error::{VeloqError, with_engine};
+use super::error::{VeloqError, with_engine, with_engine_read};
 use crate::sections::SectionType;
 use std::sync::Arc;
 
@@ -15,10 +15,12 @@ impl SectionManager {
     }
 
     fn get_all(&self) -> Result<Vec<crate::FfiFrequentSection>, VeloqError> {
-        with_engine(|e| {
+        // Read lock: get_sections() only borrows the in-memory sections Vec (no
+        // self.db), so concurrent reads are sound and no longer serialize on the
+        // engine write lock — this is the hot Routes/section-list path.
+        with_engine_read(|e| {
             e.get_sections()
                 .iter()
-                .cloned()
                 .map(crate::FfiFrequentSection::from)
                 .collect()
         })
@@ -29,7 +31,8 @@ impl SectionManager {
         sport_type: Option<String>,
         min_visits: Option<u32>,
     ) -> Result<Vec<crate::FfiFrequentSection>, VeloqError> {
-        with_engine(|e| {
+        // Read lock: get_sections_filtered() filters the in-memory Vec only.
+        with_engine_read(|e| {
             e.get_sections_filtered(sport_type.as_deref(), min_visits)
                 .into_iter()
                 .map(crate::FfiFrequentSection::from)
@@ -108,6 +111,12 @@ impl SectionManager {
         })
     }
 
+    /// Total number of sections, without deserializing any section blobs.
+    /// Cheap alternative to `get_summaries`/`get_all` for count-only callers.
+    fn get_count(&self) -> Result<u32, VeloqError> {
+        with_engine(|e| e.get_section_count())
+    }
+
     fn get_summaries_with_count(
         &self,
         sport_type: Option<String>,
@@ -161,16 +170,13 @@ impl SectionManager {
     fn prune_overlapping(&self) -> Result<u32, VeloqError> {
         with_engine(|e| {
             let all_sections = e.get_sections().to_vec();
-            let (_, pruneable): (Vec<_>, Vec<_>) = all_sections
-                .into_iter()
-                .partition(|s| s.is_user_defined);
+            let (_, pruneable): (Vec<_>, Vec<_>) =
+                all_sections.into_iter().partition(|s| s.is_user_defined);
 
             let before = pruneable.len();
             let config = e.section_config.clone();
-            let filtered =
-                tracematch::sections::remove_overlapping_sections(pruneable, &config);
-            let filtered =
-                tracematch::sections::merge_nearby_sections(filtered, &config);
+            let filtered = tracematch::sections::remove_overlapping_sections(pruneable, &config);
+            let filtered = tracematch::sections::merge_nearby_sections(filtered, &config);
             let after = filtered.len();
 
             let kept_ids: std::collections::HashSet<&str> =
@@ -324,10 +330,9 @@ impl SectionManager {
 
     fn accept_all(&self) -> Result<u32, VeloqError> {
         with_engine(|e| {
-            e.accept_all_sections()
-                .map_err(|e| VeloqError::Database {
-                    msg: format!("{}", e),
-                })
+            e.accept_all_sections().map_err(|e| VeloqError::Database {
+                msg: format!("{}", e),
+            })
         })?
     }
 
@@ -388,7 +393,10 @@ impl SectionManager {
                 .map_err(|e| VeloqError::Database { msg: e })?;
             // Recompute indicators since exclusion changes PR/trend calculations
             if let Err(err) = e.recompute_activity_indicators() {
-                log::warn!("tracematch: [exclude_activity] Indicator recomputation failed: {}", err);
+                log::warn!(
+                    "tracematch: [exclude_activity] Indicator recomputation failed: {}",
+                    err
+                );
             }
             Ok(())
         })?
@@ -400,7 +408,10 @@ impl SectionManager {
                 .map_err(|e| VeloqError::Database { msg: e })?;
             // Recompute indicators since inclusion changes PR/trend calculations
             if let Err(err) = e.recompute_activity_indicators() {
-                log::warn!("tracematch: [include_activity] Indicator recomputation failed: {}", err);
+                log::warn!(
+                    "tracematch: [include_activity] Indicator recomputation failed: {}",
+                    err
+                );
             }
             Ok(())
         })?
@@ -644,16 +655,13 @@ impl SectionManager {
                 .into_iter()
                 .map(|m| {
                     let section = sections.iter().find(|s| s.id == m.section_id);
-                    let portion_slice = &track
-                        [m.start_index as usize..(m.end_index as usize).min(track.len())];
-                    let distance =
-                        tracematch::matching::calculate_route_distance(portion_slice);
+                    let portion_slice =
+                        &track[m.start_index as usize..(m.end_index as usize).min(track.len())];
+                    let distance = tracematch::matching::calculate_route_distance(portion_slice);
                     crate::FfiSectionMatch {
                         section_id: m.section_id,
                         section_name: section.and_then(|s| s.name.clone()),
-                        sport_type: section
-                            .map(|s| s.sport_type.clone())
-                            .unwrap_or_default(),
+                        sport_type: section.map(|s| s.sport_type.clone()).unwrap_or_default(),
                         start_index: m.start_index,
                         end_index: m.end_index,
                         match_quality: m.match_quality,
@@ -745,9 +753,7 @@ impl SectionManager {
         section_id: String,
         radius_meters: f64,
     ) -> Result<Vec<crate::FfiNearbySectionSummary>, VeloqError> {
-        with_engine(|engine| {
-            engine.get_nearby_sections(&section_id, radius_meters)
-        })
+        with_engine(|engine| engine.get_nearby_sections(&section_id, radius_meters))
     }
 
     /// Find sections that are candidates for merging with the given section.
@@ -756,9 +762,7 @@ impl SectionManager {
         &self,
         section_id: String,
     ) -> Result<Vec<crate::FfiMergeCandidate>, VeloqError> {
-        with_engine(|engine| {
-            engine.get_merge_candidates(&section_id)
-        })
+        with_engine(|engine| engine.get_merge_candidates(&section_id))
     }
 
     /// Merge two sections. Moves all traversal history from secondary into primary.
@@ -864,6 +868,8 @@ impl SectionManager {
         time_range_days: u32,
         sport_filter: Option<String>,
     ) -> Result<crate::FfiSectionChartData, VeloqError> {
-        with_engine(|e| e.get_section_chart_data(&section_id, time_range_days, sport_filter.as_deref()))
+        with_engine(|e| {
+            e.get_section_chart_data(&section_id, time_range_days, sport_filter.as_deref())
+        })
     }
 }

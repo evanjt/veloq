@@ -197,7 +197,10 @@ fn lock_contention_baseline() {
     let max = *sorted.last().unwrap_or(&0);
     let total = all_reader_samples.len();
 
-    println!("[lock_contention] writer apply_sections wall-clock: {:?}", writer_dt);
+    println!(
+        "[lock_contention] writer apply_sections wall-clock: {:?}",
+        writer_dt
+    );
     println!(
         "[lock_contention] reader latencies ({} samples across {} threads): p50={}us p95={}us p99={}us max={}us",
         total, READER_THREADS, p50, p95, p99, max,

@@ -219,10 +219,7 @@ impl FitnessManager {
     /// HRV trend (label + averages + sparkline) over the trailing `days`
     /// window. Returns `None` when there are <5 valid HRV days. TS maps
     /// the returned label to an i18n key and renders.
-    fn compute_hrv_trend(
-        &self,
-        days: u32,
-    ) -> Result<Option<crate::FfiHrvTrend>, VeloqError> {
+    fn compute_hrv_trend(&self, days: u32) -> Result<Option<crate::FfiHrvTrend>, VeloqError> {
         with_engine(|e| {
             e.compute_hrv_trend(days)
                 .map_err(|err| VeloqError::Database {
@@ -520,4 +517,3 @@ impl FitnessManager {
         })
     }
 }
-

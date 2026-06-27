@@ -33,9 +33,7 @@ fn setup_engine(activity_count: usize) -> (PersistentRouteEngine, TempDir) {
     for i in 0..activity_count {
         let id = format!("activity_{}", i);
         let track = make_track(47.0, 7.0, 200, i as f64 * 0.5);
-        engine
-            .add_activity(id, track, "Ride".to_string())
-            .unwrap();
+        engine.add_activity(id, track, "Ride".to_string()).unwrap();
     }
 
     (engine, dir)
@@ -46,7 +44,10 @@ fn match_percentages_nonzero_after_full_grouping() {
     let (mut engine, dir) = setup_engine(5);
 
     let groups = engine.get_groups();
-    assert!(!groups.is_empty(), "Should produce at least one route group");
+    assert!(
+        !groups.is_empty(),
+        "Should produce at least one route group"
+    );
 
     // Read directly from DB to verify persistence (not just in-memory state)
     let db_path = dir.path().join("test.db");
@@ -86,7 +87,8 @@ fn match_percentages_nonzero_after_full_grouping() {
         "Should have non-representative members in groups"
     );
     assert_eq!(
-        nonrep_nonzero, nonrep_count,
+        nonrep_nonzero,
+        nonrep_count,
         "All {} non-representative members should have match_percentage > 0.0, \
          but {} are still zero",
         nonrep_count,
@@ -149,5 +151,51 @@ fn excluded_flags_preserved_across_recompute() {
         excluded_in_db,
         "Excluded flag for {} in group {} should survive save_groups() recompute",
         non_rep, group_id
+    );
+}
+
+#[test]
+fn save_groups_failure_preserves_previous_rows() {
+    let (mut engine, dir) = setup_engine(5);
+
+    // First grouping pass persists route_groups + activity_matches.
+    assert!(!engine.get_groups().is_empty());
+
+    let db_path = dir.path().join("test.db");
+    let conn = rusqlite::Connection::open(&db_path).unwrap();
+    let baseline: i64 = conn
+        .query_row("SELECT COUNT(*) FROM route_groups", [], |r| r.get(0))
+        .unwrap();
+    assert!(baseline > 0, "first save should persist route groups");
+
+    // Sabotage a table save_groups reads AFTER its DELETE statements so the
+    // rewrite fails mid-way. The transaction must roll the DELETEs back.
+    conn.execute("ALTER TABLE route_names RENAME TO route_names_gone", [])
+        .unwrap();
+
+    // A new activity marks groups dirty; the next get_groups re-runs save_groups.
+    engine
+        .add_activity(
+            "activity_extra".to_string(),
+            make_track(47.0, 7.0, 200, 9.0),
+            "Ride".to_string(),
+        )
+        .unwrap();
+    let _ = engine.get_groups();
+
+    let groups_after: i64 = conn
+        .query_row("SELECT COUNT(*) FROM route_groups", [], |r| r.get(0))
+        .unwrap();
+    assert!(
+        groups_after > 0,
+        "a failed save_groups must not wipe route_groups"
+    );
+
+    let matches_after: i64 = conn
+        .query_row("SELECT COUNT(*) FROM activity_matches", [], |r| r.get(0))
+        .unwrap();
+    assert!(
+        matches_after > 0,
+        "a failed save_groups must not wipe activity_matches"
     );
 }

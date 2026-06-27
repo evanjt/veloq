@@ -1,4 +1,4 @@
-import { formatLocalDate } from '@/lib';
+import { formatLocalDate } from '@/shared/format/format';
 import type { CalendarEvent } from '@/types';
 
 /**

@@ -46,8 +46,8 @@ pub fn parse_fit_strength_sets(data: &[u8]) -> Result<Vec<FitExerciseSet>, FitPa
         return Err(FitParseError::Empty);
     }
     let mut cursor = Cursor::new(data);
-    let _ = fitparser::from_reader(&mut cursor)
-        .map_err(|e| FitParseError::Decode(format!("{}", e)))?;
+    let _ =
+        fitparser::from_reader(&mut cursor).map_err(|e| FitParseError::Decode(format!("{}", e)))?;
     Ok(parse_fit_sets(data))
 }
 

@@ -13,6 +13,7 @@ import {
   formatDurationHuman,
   formatPace,
   formatPaceCompact,
+  formatPaceFromSecsPerKm,
   formatSpeed,
   formatPower,
   formatHeartRate,
@@ -28,7 +29,7 @@ import {
   speedToSecsPerKm,
   getMonday,
   getSunday,
-} from '@/lib/utils/format';
+} from '@/shared/format/format';
 
 describe('formatDistance', () => {
   it('shows meters below 1km, kilometers above', () => {
@@ -333,129 +334,96 @@ describe('formatSpeed defensive input', () => {
 // ============================================================
 
 describe('NaN/Infinity wall', () => {
-  const INVALID_INPUTS = [NaN, Infinity, -Infinity];
+  // Every numeric formatter must never leak a banned token for ANY invalid input.
+  // One case per formatter (looping the inputs inside) exercises the full
+  // input × formatter matrix without one assertion per row.
+  const INVALID_INPUTS = [NaN, Infinity, -Infinity, undefined, null];
   const BANNED_STRINGS = ['NaN', 'Infinity', '-Infinity', 'undefined', 'null'];
 
-  // Functions that accept a single number and return a string
-  const stringFormatters: [string, (v: number) => string][] = [
-    ['formatDistance', (v) => formatDistance(v)],
-    ['formatDistance (imperial)', (v) => formatDistance(v, false)],
-    ['formatDuration', (v) => formatDuration(v)],
-    ['formatDurationHuman', (v) => formatDurationHuman(v)],
-    ['formatPace', (v) => formatPace(v)],
-    ['formatPace (imperial)', (v) => formatPace(v, false)],
-    ['formatPaceCompact', (v) => formatPaceCompact(v)],
-    ['formatPaceCompact (imperial)', (v) => formatPaceCompact(v, false)],
-    ['formatSwimPace', (v) => formatSwimPace(v)],
-    ['formatSwimPace (imperial)', (v) => formatSwimPace(v, false)],
-    ['formatSpeed', (v) => formatSpeed(v)],
-    ['formatSpeed (imperial)', (v) => formatSpeed(v, false)],
-    ['formatElevation', (v) => formatElevation(v)],
-    ['formatElevation (imperial)', (v) => formatElevation(v, false)],
-    ['formatTemperature', (v) => formatTemperature(v)],
-    ['formatTemperature (imperial)', (v) => formatTemperature(v, false)],
-    ['formatHeartRate', (v) => formatHeartRate(v)],
-    ['formatPower', (v) => formatPower(v)],
-    ['formatTSS', (v) => formatTSS(v)],
-    ['formatCalories', (v) => formatCalories(v)],
-    ['formatFileSize', (v) => formatFileSize(v)],
-  ];
+  const expectClean = (result: string) => {
+    BANNED_STRINGS.forEach((banned) => expect(result).not.toContain(banned));
+  };
 
-  // speedToSecsPerKm returns a number — coerce to string for banned-string check
-  const numericFormatters: [string, (v: number) => number][] = [
-    ['speedToSecsPerKm', (v) => speedToSecsPerKm(v)],
-  ];
+  // Functions that accept a single number and return a string.
+  it.each([
+    ['formatDistance', (v: number) => formatDistance(v)],
+    ['formatDistance (imperial)', (v: number) => formatDistance(v, false)],
+    ['formatDuration', (v: number) => formatDuration(v)],
+    ['formatDurationHuman', (v: number) => formatDurationHuman(v)],
+    ['formatPace', (v: number) => formatPace(v)],
+    ['formatPace (imperial)', (v: number) => formatPace(v, false)],
+    ['formatPaceCompact', (v: number) => formatPaceCompact(v)],
+    ['formatPaceCompact (imperial)', (v: number) => formatPaceCompact(v, false)],
+    ['formatSwimPace', (v: number) => formatSwimPace(v)],
+    ['formatSwimPace (imperial)', (v: number) => formatSwimPace(v, false)],
+    ['formatSpeed', (v: number) => formatSpeed(v)],
+    ['formatSpeed (imperial)', (v: number) => formatSpeed(v, false)],
+    ['formatElevation', (v: number) => formatElevation(v)],
+    ['formatElevation (imperial)', (v: number) => formatElevation(v, false)],
+    ['formatTemperature', (v: number) => formatTemperature(v)],
+    ['formatTemperature (imperial)', (v: number) => formatTemperature(v, false)],
+    ['formatHeartRate', (v: number) => formatHeartRate(v)],
+    ['formatPower', (v: number) => formatPower(v)],
+    ['formatTSS', (v: number) => formatTSS(v)],
+    ['formatCalories', (v: number) => formatCalories(v)],
+    ['formatFileSize', (v: number) => formatFileSize(v)],
+  ])('%s never leaks a banned token for any invalid input', (_name, fn) => {
+    INVALID_INPUTS.forEach((input) => expectClean(fn(input as unknown as number)));
+  });
+
+  // speedToSecsPerKm returns a number — coerce to string for the banned-token check.
+  it('speedToSecsPerKm never leaks a banned token for any invalid input', () => {
+    INVALID_INPUTS.forEach((input) =>
+      expectClean(String(speedToSecsPerKm(input as unknown as number)))
+    );
+  });
 
   // formatTimeDelta returns string | null — null is a valid "nothing to display"
-  // sentinel, not a leaked value. Check non-null results only.
-  const nullableFormatters: [string, (v: number) => string | null][] = [
-    ['formatTimeDelta', (v) => formatTimeDelta(v)],
-  ];
-
-  stringFormatters.forEach(([name, fn]) => {
-    describe(name, () => {
-      INVALID_INPUTS.forEach((input) => {
-        it(`does not produce banned string for ${input}`, () => {
-          const result = fn(input);
-          BANNED_STRINGS.forEach((banned) => {
-            expect(result).not.toContain(banned);
-          });
-        });
-      });
-
-      it('does not produce banned string for undefined', () => {
-        const result = fn(undefined as unknown as number);
-        BANNED_STRINGS.forEach((banned) => {
-          expect(result).not.toContain(banned);
-        });
-      });
-
-      it('does not produce banned string for null', () => {
-        const result = fn(null as unknown as number);
-        BANNED_STRINGS.forEach((banned) => {
-          expect(result).not.toContain(banned);
-        });
-      });
+  // sentinel, so only non-null results are checked.
+  it('formatTimeDelta returns null or a clean string for any invalid input', () => {
+    INVALID_INPUTS.forEach((input) => {
+      const result = formatTimeDelta(input as unknown as number);
+      if (result !== null) expectClean(result);
     });
   });
+});
 
-  numericFormatters.forEach(([name, fn]) => {
-    describe(name, () => {
-      INVALID_INPUTS.forEach((input) => {
-        it(`does not produce banned string for ${input}`, () => {
-          const result = String(fn(input));
-          BANNED_STRINGS.forEach((banned) => {
-            expect(result).not.toContain(banned);
-          });
-        });
-      });
+describe('extreme finite magnitudes do not leak scientific-notation garbage', () => {
+  // These inputs are finite, so they slip past the Infinity guard: 1000/1e-300 is
+  // 1e303 (finite), which the old code rendered as "1.66e+301:08". The sanity
+  // ceilings must send them to the sentinel instead.
+  const TINY = 5e-324; // smallest positive double (denormal)
+  const SMALL = 1e-300;
+  const HUGE = 1e308;
 
-      it('does not produce banned string for undefined', () => {
-        const result = String(fn(undefined as unknown as number));
-        BANNED_STRINGS.forEach((banned) => {
-          expect(result).not.toContain(banned);
-        });
-      });
-
-      it('does not produce banned string for null', () => {
-        const result = String(fn(null as unknown as number));
-        BANNED_STRINGS.forEach((banned) => {
-          expect(result).not.toContain(banned);
-        });
-      });
-    });
+  it.each([
+    ['formatPace', (v: number) => formatPace(v)],
+    ['formatPace (imperial)', (v: number) => formatPace(v, false)],
+    ['formatPaceCompact', (v: number) => formatPaceCompact(v)],
+    ['formatSwimPace', (v: number) => formatSwimPace(v)],
+  ])('%s returns the sentinel for tiny positive speeds', (_n, fn) => {
+    expect(fn(TINY)).toBe('--:--');
+    expect(fn(SMALL)).toBe('--:--');
   });
 
-  nullableFormatters.forEach(([name, fn]) => {
-    describe(name, () => {
-      INVALID_INPUTS.forEach((input) => {
-        it(`returns null or clean string for ${input}`, () => {
-          const result = fn(input);
-          if (result !== null) {
-            BANNED_STRINGS.forEach((banned) => {
-              expect(result).not.toContain(banned);
-            });
-          }
-        });
-      });
+  it('formatPaceFromSecsPerKm rejects an absurdly large seconds-per-km value', () => {
+    expect(formatPaceFromSecsPerKm(HUGE)).toBe('--:--');
+  });
 
-      it('returns null or clean string for undefined', () => {
-        const result = fn(undefined as unknown as number);
-        if (result !== null) {
-          BANNED_STRINGS.forEach((banned) => {
-            expect(result).not.toContain(banned);
-          });
-        }
-      });
+  it('formatDuration / formatDurationHuman reject an absurdly large duration', () => {
+    expect(formatDuration(HUGE)).toBe('0:00');
+    expect(formatDurationHuman(HUGE)).toBe('0s');
+  });
 
-      it('returns null or clean string for null', () => {
-        const result = fn(null as unknown as number);
-        if (result !== null) {
-          BANNED_STRINGS.forEach((banned) => {
-            expect(result).not.toContain(banned);
-          });
-        }
-      });
-    });
+  it('no formatter emits scientific notation for extreme finite inputs', () => {
+    const fns = [
+      (v: number) => formatPace(v),
+      (v: number) => formatPaceCompact(v),
+      (v: number) => formatSwimPace(v),
+      (v: number) => formatPaceFromSecsPerKm(v),
+      (v: number) => formatDuration(v),
+      (v: number) => formatDurationHuman(v),
+    ];
+    [TINY, SMALL, HUGE].forEach((v) => fns.forEach((fn) => expect(fn(v)).not.toMatch(/e[+-]\d/i)));
   });
 });

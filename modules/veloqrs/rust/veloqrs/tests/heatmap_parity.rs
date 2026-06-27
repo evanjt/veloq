@@ -76,7 +76,11 @@ fn compute_digest(tiles_dir: &Path) -> String {
     let files = walk_tiles(tiles_dir);
     let mut per_tile: BTreeMap<String, String> = BTreeMap::new();
     for p in &files {
-        let rel = p.strip_prefix(tiles_dir).unwrap().to_string_lossy().to_string();
+        let rel = p
+            .strip_prefix(tiles_dir)
+            .unwrap()
+            .to_string_lossy()
+            .to_string();
         per_tile.insert(rel, hash_tile_pixels(p));
     }
     let mut top = Sha256::new();
@@ -115,7 +119,8 @@ fn tile_pixels_match_fixture() {
     if let Ok(expected) = std::fs::read_to_string(&fixture_path) {
         let expected = expected.trim();
         assert_eq!(
-            expected, actual,
+            expected,
+            actual,
             "heatmap pixel digest drift.\n  expected: {expected}\n  actual:   {actual}\n\
              If the change is intentional, delete {} and re-run to regenerate the fixture.",
             fixture_path.display()

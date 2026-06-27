@@ -1,0 +1,545 @@
+/**
+ * Hero map view for route detail page.
+ * Displays the consensus route prominently with faded individual traces behind.
+ * The consensus route is the "common core" that 80%+ of activities pass through.
+ * Supports interaction (zoom/pan) and fullscreen mode like ActivityMapView.
+ */
+
+import React, { useMemo, useRef, useState, useCallback } from 'react';
+import { View, StyleSheet, TouchableOpacity, Modal, StatusBar } from 'react-native';
+import {
+  MapView,
+  Camera,
+  ShapeSource,
+  LineLayer,
+  MarkerView,
+  type CameraBounds,
+} from '@maplibre/maplibre-react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { getActivityColor } from '@/features/activity/lib/activityUtils';
+import { getBoundsFromPoints } from '@/shared/geo/polyline';
+import { colors, spacing, layout } from '@/theme';
+import { useMapPreferences } from '@/features/maps/stores/MapPreferencesContext';
+import { getMapStyle, BaseMapView, isDarkStyle } from '@/features/maps/components';
+import type { RouteGroup, RoutePoint } from '@/types';
+
+/** Minimal route group type for map display - only needs points and distance for signature */
+type RouteGroupForMap = Omit<RouteGroup, 'signature'> & {
+  signature?: { points: RoutePoint[]; distance: number } | null;
+};
+
+interface RouteMapViewProps {
+  routeGroup: RouteGroupForMap;
+  height?: number;
+  /** Enable map interaction (zoom, pan). Default false for preview, true for detail. */
+  interactive?: boolean;
+  /** Activity ID to highlight (show prominently while others fade) */
+  highlightedActivityId?: string | null;
+  /** Specific lap points to highlight (takes precedence over highlightedActivityId) */
+  highlightedLapPoints?: RoutePoint[];
+  /** Enable tap to fullscreen */
+  enableFullscreen?: boolean;
+  /** Callback when map is tapped (only if enableFullscreen is false) */
+  onPress?: () => void;
+  /** Activity signatures for trace rendering (activity ID -> points) */
+  activitySignatures?: Record<string, { points: RoutePoint[] }>;
+}
+
+export function RouteMapView({
+  routeGroup,
+  height = 200,
+  interactive = false,
+  highlightedActivityId = null,
+  highlightedLapPoints,
+  enableFullscreen = false,
+  onPress,
+  activitySignatures = {},
+}: RouteMapViewProps) {
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const { getStyleForActivity } = useMapPreferences();
+  const mapStyle = getStyleForActivity(routeGroup.type);
+  const activityColor = getActivityColor(routeGroup.type);
+  const mapRef = useRef(null);
+
+  // Build activity traces from signatures prop
+  const activityTracesWithIds = useMemo(() => {
+    return Object.entries(activitySignatures)
+      .filter(([_, sig]) => sig.points && sig.points.length > 1)
+      .map(([id, sig]) => ({ id, points: sig.points }));
+  }, [activitySignatures]);
+
+  // Always use the representative signature (the full route)
+  // Consensus points are only for internal lap detection, not for display
+  const displayPoints = routeGroup.signature?.points || [];
+
+  // Calculate bounds from the representative route (10% padding for traces)
+  const bounds = useMemo(() => getBoundsFromPoints(displayPoints, 0.1), [displayPoints]);
+
+  // Helper to filter and convert points to GeoJSON coordinates, removing invalid values
+  const toValidCoordinates = (points: RoutePoint[]): [number, number][] =>
+    points
+      .filter((p) => Number.isFinite(p.lat) && Number.isFinite(p.lng))
+      .map((p) => [p.lng, p.lat]);
+
+  // Minimal valid geometry for iOS crash prevention
+  // Using a real LineString at [0,0] instead of empty features to avoid MapLibre warnings
+  const EMPTY_LINE_GEOJSON: GeoJSON.FeatureCollection = {
+    type: 'FeatureCollection',
+    features: [
+      {
+        type: 'Feature',
+        properties: {},
+        geometry: {
+          type: 'LineString',
+          coordinates: [
+            [0, 0],
+            [0, 0.0001],
+          ],
+        },
+      },
+    ],
+  };
+
+  // Create GeoJSON for individual activity traces - split into highlighted and non-highlighted
+  // iOS crash fix: Always return valid GeoJSON, never null
+  const { fadedTracesGeoJSON, highlightedTraceGeoJSON, hasFadedTraces, hasHighlightedTrace } =
+    useMemo(() => {
+      if (activityTracesWithIds.length === 0) {
+        return {
+          fadedTracesGeoJSON: EMPTY_LINE_GEOJSON,
+          highlightedTraceGeoJSON: EMPTY_LINE_GEOJSON,
+          hasFadedTraces: false,
+          hasHighlightedTrace: false,
+        };
+      }
+
+      // Check if we have lap-specific points to highlight (takes precedence)
+      const hasLapHighlight = highlightedLapPoints && highlightedLapPoints.length > 1;
+
+      // Separate highlighted trace from others
+      const fadedTraces = activityTracesWithIds.filter((t) => t.id !== highlightedActivityId);
+      const highlightedActivity = activityTracesWithIds.find((t) => t.id === highlightedActivityId);
+
+      const fadedFeatures = fadedTraces
+        .map((trace) => {
+          const coords = toValidCoordinates(trace.points);
+          if (coords.length < 2) return null;
+          return {
+            type: 'Feature' as const,
+            properties: { id: trace.id },
+            geometry: {
+              type: 'LineString' as const,
+              coordinates: coords,
+            },
+          };
+        })
+        .filter((f): f is NonNullable<typeof f> => f !== null);
+
+      const faded: GeoJSON.FeatureCollection = {
+        type: 'FeatureCollection',
+        features: fadedFeatures,
+      };
+
+      // Use lap points if available, otherwise use full activity trace
+      let highlightedGeo: GeoJSON.FeatureCollection = EMPTY_LINE_GEOJSON;
+      let hasHighlight = false;
+
+      if (hasLapHighlight) {
+        // Highlight specific lap section - filter out invalid points
+        const coords = toValidCoordinates(highlightedLapPoints!);
+        if (coords.length >= 2) {
+          highlightedGeo = {
+            type: 'FeatureCollection',
+            features: [
+              {
+                type: 'Feature',
+                properties: { id: 'lap' },
+                geometry: {
+                  type: 'LineString',
+                  coordinates: coords,
+                },
+              },
+            ],
+          };
+          hasHighlight = true;
+        }
+      } else if (highlightedActivity) {
+        // Highlight full activity trace
+        const coords = toValidCoordinates(highlightedActivity.points);
+        if (coords.length >= 2) {
+          highlightedGeo = {
+            type: 'FeatureCollection',
+            features: [
+              {
+                type: 'Feature',
+                properties: { id: highlightedActivity.id },
+                geometry: {
+                  type: 'LineString',
+                  coordinates: coords,
+                },
+              },
+            ],
+          };
+          hasHighlight = true;
+        }
+      }
+
+      return {
+        fadedTracesGeoJSON: faded,
+        highlightedTraceGeoJSON: highlightedGeo,
+        hasFadedTraces: fadedFeatures.length > 0,
+        hasHighlightedTrace: hasHighlight,
+      };
+    }, [activityTracesWithIds, highlightedActivityId, highlightedLapPoints]);
+
+  // Create GeoJSON for the consensus/main route
+  // GeoJSON LineString requires minimum 2 coordinates - invalid data causes iOS crash:
+  // -[__NSArrayM insertObject:atIndex:]: object cannot be nil (MLRNMapView.m:207)
+  // iOS crash fix: Always return valid GeoJSON, use hasRouteData flag for visibility
+  const { routeGeoJSON, hasRouteData } = useMemo(() => {
+    // Filter out NaN/Infinity coordinates
+    const validPoints = displayPoints.filter(
+      (p) => Number.isFinite(p.lat) && Number.isFinite(p.lng)
+    );
+    // LineString requires at least 2 valid coordinates
+    if (validPoints.length < 2) {
+      return {
+        routeGeoJSON: EMPTY_LINE_GEOJSON,
+        hasRouteData: false,
+      };
+    }
+    return {
+      routeGeoJSON: {
+        type: 'FeatureCollection' as const,
+        features: [
+          {
+            type: 'Feature' as const,
+            properties: {},
+            geometry: {
+              type: 'LineString' as const,
+              coordinates: validPoints.map((p) => [p.lng, p.lat]),
+            },
+          },
+        ],
+      },
+      hasRouteData: true,
+    };
+  }, [displayPoints]);
+
+  const styleUrl = getMapStyle(mapStyle);
+
+  // Helper to validate a point has valid numeric coordinates
+  const isValidPoint = (p: RoutePoint | undefined): p is RoutePoint =>
+    p != null && Number.isFinite(p.lat) && Number.isFinite(p.lng);
+
+  // Determine which points to use for start/end markers
+  // If an activity is highlighted, show that activity's actual start/end
+  // Otherwise, show the route's start/end
+  const markerPoints = useMemo(() => {
+    // If we have highlighted lap points, use those
+    if (highlightedLapPoints && highlightedLapPoints.length > 1) {
+      const start = highlightedLapPoints[0];
+      const end = highlightedLapPoints[highlightedLapPoints.length - 1];
+      if (isValidPoint(start) && isValidPoint(end)) {
+        return { start, end };
+      }
+    }
+
+    // If we have a highlighted activity, find its trace and use those points
+    if (highlightedActivityId) {
+      const highlightedTrace = activityTracesWithIds.find((t) => t.id === highlightedActivityId);
+      if (highlightedTrace && highlightedTrace.points.length > 1) {
+        const start = highlightedTrace.points[0];
+        const end = highlightedTrace.points[highlightedTrace.points.length - 1];
+        if (isValidPoint(start) && isValidPoint(end)) {
+          return { start, end };
+        }
+      }
+    }
+
+    // Default to route's start/end
+    const start = displayPoints[0];
+    const end = displayPoints[displayPoints.length - 1];
+    return {
+      start: isValidPoint(start) ? start : undefined,
+      end: isValidPoint(end) ? end : undefined,
+    };
+  }, [highlightedLapPoints, highlightedActivityId, activityTracesWithIds, displayPoints]);
+
+  const startPoint = markerPoints.start;
+  const endPoint = markerPoints.end;
+
+  // Handle map press - either open fullscreen or call custom handler
+  // NOTE: All hooks must be called before any early returns
+  const handleMapPress = useCallback(() => {
+    if (enableFullscreen) {
+      setIsFullscreen(true);
+    } else if (onPress) {
+      onPress();
+    }
+  }, [enableFullscreen, onPress]);
+
+  const closeFullscreen = useCallback(() => {
+    setIsFullscreen(false);
+  }, []);
+
+  // Route coordinates for BaseMapView [lng, lat] format
+  const routeCoords = useMemo(() => {
+    return displayPoints.map((p) => [p.lng, p.lat] as [number, number]);
+  }, [displayPoints]);
+
+  const isDark = isDarkStyle(mapStyle);
+
+  if (!bounds || displayPoints.length === 0) {
+    return (
+      <View style={[styles.placeholder, { height, backgroundColor: activityColor + '20' }]}>
+        <MaterialCommunityIcons name="map-marker-off" size={32} color={activityColor} />
+      </View>
+    );
+  }
+
+  // Determine opacity for consensus line based on whether an activity is highlighted
+  const consensusOpacity = highlightedActivityId ? 0.3 : 1;
+  const fadedOpacity = highlightedActivityId ? 0.1 : 0.2;
+
+  const mapContent = (
+    <MapView
+      ref={mapRef}
+      style={styles.map}
+      mapStyle={styleUrl}
+      logoEnabled={false}
+      attributionEnabled={false}
+      compassEnabled={interactive}
+      scrollEnabled={interactive}
+      zoomEnabled={interactive}
+      rotateEnabled={interactive}
+      pitchEnabled={false}
+      onPress={onPress}
+    >
+      <Camera
+        defaultSettings={{
+          bounds: { ne: bounds.ne, sw: bounds.sw },
+          padding: { paddingTop: 40, paddingRight: 40, paddingBottom: 40, paddingLeft: 40 },
+        }}
+      />
+
+      {/* Faded individual activity traces (render first, behind everything) */}
+      {/* iOS crash fix: Always render ShapeSource, control visibility via opacity */}
+      <ShapeSource id="fadedTracesSource" shape={fadedTracesGeoJSON}>
+        <LineLayer
+          id="fadedTracesLine"
+          style={{
+            lineColor: activityColor,
+            lineOpacity: hasFadedTraces ? fadedOpacity : 0,
+            lineWidth: 2,
+            lineCap: 'round',
+            lineJoin: 'round',
+          }}
+        />
+      </ShapeSource>
+
+      {/* Consensus/main route line */}
+      {/* iOS crash fix: Always render ShapeSource */}
+      <ShapeSource id="routeSource" shape={routeGeoJSON}>
+        <LineLayer
+          id="routeLineCasing"
+          style={{
+            lineColor: '#FFFFFF',
+            lineOpacity: hasRouteData ? consensusOpacity : 0,
+            lineWidth: 5,
+            lineCap: 'round',
+            lineJoin: 'round',
+          }}
+        />
+        <LineLayer
+          id="routeLine"
+          style={{
+            lineColor: activityColor,
+            lineOpacity: hasRouteData ? consensusOpacity : 0,
+            lineWidth: 4,
+            lineCap: 'round',
+            lineJoin: 'round',
+          }}
+        />
+      </ShapeSource>
+
+      {/* Highlighted activity trace (render on top, most prominent) */}
+      {/* iOS crash fix: Always render ShapeSource */}
+      <ShapeSource id="highlightedSource" shape={highlightedTraceGeoJSON}>
+        <LineLayer
+          id="highlightedLineCasing"
+          style={{
+            lineColor: '#FFFFFF',
+            lineOpacity: hasHighlightedTrace ? 1 : 0,
+            lineWidth: 5,
+            lineCap: 'round',
+            lineJoin: 'round',
+          }}
+        />
+        <LineLayer
+          id="highlightedLine"
+          style={{
+            lineColor: colors.chartCyan,
+            lineOpacity: hasHighlightedTrace ? 1 : 0,
+            lineWidth: 4,
+            lineCap: 'round',
+            lineJoin: 'round',
+          }}
+        />
+      </ShapeSource>
+
+      {/* Start marker */}
+      {/* iOS CRASH FIX: Always render MarkerView to maintain stable child count */}
+      {/* Use opacity to hide when point is undefined */}
+      <MarkerView coordinate={startPoint ? [startPoint.lng, startPoint.lat] : [0, 0]}>
+        <View style={[styles.markerContainer, { opacity: startPoint ? 1 : 0 }]}>
+          <View style={[styles.marker, styles.startMarker]} />
+        </View>
+      </MarkerView>
+
+      {/* End marker */}
+      {/* iOS CRASH FIX: Always render MarkerView to maintain stable child count */}
+      <MarkerView coordinate={endPoint ? [endPoint.lng, endPoint.lat] : [0, 0]}>
+        <View style={[styles.markerContainer, { opacity: endPoint ? 1 : 0 }]}>
+          <View style={[styles.marker, styles.endMarker]} />
+        </View>
+      </MarkerView>
+    </MapView>
+  );
+
+  // Show fullscreen expand icon if enableFullscreen is true
+  const showExpandIcon = enableFullscreen && !interactive;
+
+  return (
+    <>
+      <TouchableOpacity
+        testID="route-map-container"
+        style={[styles.container, { height }]}
+        onPress={handleMapPress}
+        activeOpacity={enableFullscreen || onPress ? 0.9 : 1}
+        disabled={!enableFullscreen && !onPress}
+      >
+        {mapContent}
+        {/* Expand icon overlay */}
+        {showExpandIcon && (
+          <View style={styles.expandOverlay}>
+            <MaterialCommunityIcons name="fullscreen" size={20} color={colors.textOnDark} />
+          </View>
+        )}
+      </TouchableOpacity>
+
+      {/* Fullscreen modal using BaseMapView */}
+      <Modal
+        visible={isFullscreen}
+        animationType="fade"
+        statusBarTranslucent
+        onRequestClose={closeFullscreen}
+      >
+        <StatusBar barStyle={isDark ? 'light-content' : 'dark-content'} />
+        <BaseMapView
+          routeCoordinates={routeCoords}
+          routeColor={activityColor}
+          bounds={bounds || undefined}
+          initialStyle={mapStyle}
+          onClose={closeFullscreen}
+        >
+          {/* Faded activity traces - iOS crash fix: always render */}
+          <ShapeSource id="fadedTracesSource" shape={fadedTracesGeoJSON}>
+            <LineLayer
+              id="fadedTracesLine"
+              style={{
+                lineColor: activityColor,
+                lineOpacity: hasFadedTraces ? 0.2 : 0,
+                lineWidth: 2,
+                lineCap: 'round',
+                lineJoin: 'round',
+              }}
+            />
+          </ShapeSource>
+
+          {/* Highlighted trace - iOS crash fix: always render */}
+          <ShapeSource id="highlightedSource" shape={highlightedTraceGeoJSON}>
+            <LineLayer
+              id="highlightedLineCasing"
+              style={{
+                lineColor: '#FFFFFF',
+                lineOpacity: hasHighlightedTrace ? 0.5 : 0,
+                lineWidth: 7,
+                lineCap: 'round',
+                lineJoin: 'round',
+              }}
+            />
+            <LineLayer
+              id="highlightedLine"
+              style={{
+                lineColor: colors.chartCyan,
+                lineOpacity: hasHighlightedTrace ? 1 : 0,
+                lineWidth: 4,
+                lineCap: 'round',
+                lineJoin: 'round',
+              }}
+            />
+          </ShapeSource>
+
+          {/* Start marker */}
+          {startPoint && (
+            <MarkerView coordinate={[startPoint.lng, startPoint.lat]}>
+              <View style={styles.markerContainer}>
+                <View style={[styles.marker, styles.startMarker]} />
+              </View>
+            </MarkerView>
+          )}
+
+          {/* End marker */}
+          {endPoint && (
+            <MarkerView coordinate={[endPoint.lng, endPoint.lat]}>
+              <View style={styles.markerContainer}>
+                <View style={[styles.marker, styles.endMarker]} />
+              </View>
+            </MarkerView>
+          )}
+        </BaseMapView>
+      </Modal>
+    </>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    overflow: 'hidden',
+    borderRadius: layout.borderRadius,
+  },
+  map: {
+    flex: 1,
+  },
+  placeholder: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderRadius: layout.borderRadius,
+  },
+  markerContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  marker: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    borderWidth: 1.5,
+    borderColor: colors.textOnDark,
+  },
+  startMarker: {
+    backgroundColor: 'rgba(34,197,94,0.75)',
+  },
+  endMarker: {
+    backgroundColor: 'rgba(239,68,68,0.75)',
+  },
+  expandOverlay: {
+    position: 'absolute',
+    bottom: spacing.sm,
+    right: spacing.sm,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    borderRadius: 6,
+    padding: spacing.xs,
+  },
+});

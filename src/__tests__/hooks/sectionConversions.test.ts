@@ -74,7 +74,7 @@ jest.mock('veloqrs', () => ({
   },
 }));
 
-jest.mock('@/lib/utils/ffiConversions', () => ({
+jest.mock('@/shared/ffi/ffiConversions', () => ({
   convertActivityPortions: (portions: any[]) =>
     portions.map((p) => ({
       ...p,
@@ -82,7 +82,7 @@ jest.mock('@/lib/utils/ffiConversions', () => ({
     })),
 }));
 
-import { convertNativeSectionToApp } from '@/lib/utils/sectionConversions';
+import { convertNativeSectionToApp } from '@/features/routes/lib/sectionConversions';
 
 // ---------------------------------------------------------------------------
 // Helper: build a minimal NativeFrequentSection-like object

@@ -956,6 +956,12 @@ fn compute_time_trend(times: &[(i64, f64)]) -> Option<i8> {
     let older_avg: f64 =
         times[mid..].iter().map(|(_, t)| t).sum::<f64>() / (times.len() - mid) as f64;
 
+    // A non-positive or non-finite baseline (zero-duration laps, corrupt data)
+    // has no meaningful trend.
+    if !older_avg.is_finite() || older_avg <= 0.0 || !recent_avg.is_finite() {
+        return None;
+    }
+
     // Compare: if recent is faster (lower), that's improving
     let change_pct = (recent_avg - older_avg) / older_avg;
 

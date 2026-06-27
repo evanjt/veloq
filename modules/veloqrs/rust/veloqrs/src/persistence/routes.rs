@@ -1,6 +1,8 @@
 //! Route groups: loading, grouping, matching, consensus routes, names.
 
-use crate::{ActivityMatchInfo, Bounds, Direction, GpsPoint, RouteGroup, RouteSignature, geo_utils};
+use crate::{
+    ActivityMatchInfo, Bounds, Direction, GpsPoint, RouteGroup, RouteSignature, geo_utils,
+};
 use rusqlite::{Result as SqlResult, params, types::Type};
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -27,15 +29,16 @@ impl PersistentRouteEngine {
 
             self.groups = stmt
                 .query_map([], |row| {
-                    let activity_ids: Vec<String> =
-                        if let Ok(Some(blob)) = row.get::<_, Option<Vec<u8>>>(8) {
-                            codec::deserialize(&blob).unwrap_or_default()
-                        } else {
-                            let json: String = row.get(2)?;
-                            serde_json::from_str(&json).map_err(|e| {
-                                rusqlite::Error::FromSqlConversionFailure(2, Type::Text, Box::new(e))
-                            })?
-                        };
+                    let activity_ids: Vec<String> = if let Ok(Some(blob)) =
+                        row.get::<_, Option<Vec<u8>>>(8)
+                    {
+                        codec::deserialize(&blob).unwrap_or_default()
+                    } else {
+                        let json: String = row.get(2)?;
+                        serde_json::from_str(&json).map_err(|e| {
+                            rusqlite::Error::FromSqlConversionFailure(2, Type::Text, Box::new(e))
+                        })?
+                    };
 
                     let bounds =
                         if let (Some(min_lat), Some(max_lat), Some(min_lng), Some(max_lng)) = (
@@ -482,9 +485,8 @@ impl PersistentRouteEngine {
 
         // skip the partition + HashSet build when nearly everything is
         // new — full is simpler in that fresh-import case.
-        let use_incremental = !self.groups.is_empty()
-            && new_count > 0
-            && (new_count as f64) < (total as f64 * 0.9);
+        let use_incremental =
+            !self.groups.is_empty() && new_count > 0 && (new_count as f64) < (total as f64 * 0.9);
 
         // Materialize owned Vecs for tracematch (needs &[RouteSignature]).
         // With Arc this is one clone per sig instead of two (cache-hit + partition).
@@ -573,7 +575,10 @@ impl PersistentRouteEngine {
 
         // Recompute materialized PR/trend indicators with updated route groups
         if let Err(e) = self.recompute_activity_indicators() {
-            log::warn!("tracematch: [recompute_groups] Indicator recomputation failed: {}", e);
+            log::warn!(
+                "tracematch: [recompute_groups] Indicator recomputation failed: {}",
+                e
+            );
         }
 
         let total_ms = total_start.elapsed().as_millis();
@@ -771,216 +776,230 @@ impl PersistentRouteEngine {
     }
 
     fn save_groups(&self) -> SqlResult<()> {
-        // Snapshot excluded flags before wiping — user exclusions must survive recompute
-        let excluded_pairs: Vec<(String, String)> = {
-            let mut stmt = self.db.prepare(
-                "SELECT route_id, activity_id FROM activity_matches WHERE excluded = 1",
-            )?;
-            stmt.query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?
-                .filter_map(|r| r.ok())
+        // The DELETE + rebuild below must be atomic: a failure mid-way would
+        // otherwise permanently drop every route group and activity match.
+        self.db.execute_batch("BEGIN IMMEDIATE")?;
+
+        let result = (|| -> SqlResult<()> {
+            // Snapshot excluded flags before wiping — user exclusions must survive recompute
+            let excluded_pairs: Vec<(String, String)> = {
+                let mut stmt = self.db.prepare(
+                    "SELECT route_id, activity_id FROM activity_matches WHERE excluded = 1",
+                )?;
+                stmt.query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?
+                    .filter_map(|r| r.ok())
+                    .collect()
+            };
+
+            self.db.execute("DELETE FROM route_groups", [])?;
+            self.db.execute("DELETE FROM activity_matches", [])?;
+
+            // Load existing route names to preserve user-set names
+            let existing_names: HashMap<String, String> = {
+                let mut stmt = self
+                    .db
+                    .prepare("SELECT route_id, custom_name FROM route_names")?;
+                stmt.query_map([], |row| {
+                    Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+                })?
+                .filter_map(|r| match r {
+                    Ok(v) => Some(v),
+                    Err(e) => {
+                        log::warn!("Skipping malformed row during route name loading: {:?}", e);
+                        None
+                    }
+                })
                 .collect()
-        };
+            };
 
-        self.db.execute("DELETE FROM route_groups", [])?;
-        self.db.execute("DELETE FROM activity_matches", [])?;
+            // Clean up orphaned route_names (names for routes that no longer exist)
+            let current_group_ids: std::collections::HashSet<&str> =
+                self.groups.iter().map(|g| g.group_id.as_str()).collect();
 
-        // Load existing route names to preserve user-set names
-        let existing_names: HashMap<String, String> = {
-            let mut stmt = self
-                .db
-                .prepare("SELECT route_id, custom_name FROM route_names")?;
-            stmt.query_map([], |row| {
-                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
-            })?
-            .filter_map(|r| match r {
-                Ok(v) => Some(v),
-                Err(e) => {
-                    log::warn!("Skipping malformed row during route name loading: {:?}", e);
-                    None
-                }
-            })
-            .collect()
-        };
+            let orphaned_ids: Vec<String> = existing_names
+                .keys()
+                .filter(|id| !current_group_ids.contains(id.as_str()))
+                .cloned()
+                .collect();
 
-        // Clean up orphaned route_names (names for routes that no longer exist)
-        let current_group_ids: std::collections::HashSet<&str> =
-            self.groups.iter().map(|g| g.group_id.as_str()).collect();
-
-        let orphaned_ids: Vec<String> = existing_names
-            .keys()
-            .filter(|id| !current_group_ids.contains(id.as_str()))
-            .cloned()
-            .collect();
-
-        if !orphaned_ids.is_empty() {
-            log::info!(
-                "tracematch: [PersistentEngine] Cleaning up {} orphaned route names",
-                orphaned_ids.len()
-            );
-            let mut delete_stmt = self
-                .db
-                .prepare("DELETE FROM route_names WHERE route_id = ?")?;
-            for id in &orphaned_ids {
-                delete_stmt.execute(params![id])?;
-            }
-        }
-
-        // Rebuild existing_names after cleanup
-        let existing_names: HashMap<String, String> = {
-            let mut stmt = self
-                .db
-                .prepare("SELECT route_id, custom_name FROM route_names")?;
-            stmt.query_map([], |row| {
-                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
-            })?
-            .filter_map(|r| match r {
-                Ok(v) => Some(v),
-                Err(e) => {
-                    log::warn!("Skipping malformed row during route name rebuild: {:?}", e);
-                    None
-                }
-            })
-            .collect()
-        };
-
-        let route_word = get_route_word();
-
-        // Collect which numbers are already taken for each sport type (from user-renamed routes)
-        // Only count names that follow the auto-generated pattern (e.g., "Run Route 1")
-        let mut taken_numbers: HashMap<String, std::collections::HashSet<u32>> = HashMap::new();
-        for name in existing_names.values() {
-            for sport in [
-                "Ride",
-                "Run",
-                "Hike",
-                "Walk",
-                "Swim",
-                "VirtualRide",
-                "VirtualRun",
-            ] {
-                let prefix = format!("{} {} ", sport, route_word);
-                if name.starts_with(&prefix) {
-                    if let Ok(num) = name[prefix.len()..].parse::<u32>() {
-                        taken_numbers
-                            .entry(sport.to_string())
-                            .or_default()
-                            .insert(num);
-                    }
-                }
-            }
-        }
-
-        // Insert groups (dual-write: JSON for backward compat, blob for fast reads)
-        let mut stmt = self.db.prepare(
-            "INSERT INTO route_groups (id, representative_id, activity_ids, sport_type,
-                                        bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng,
-                                        activity_count, activity_ids_blob)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-        )?;
-
-        // Prepare statement for inserting new route names
-        let mut name_stmt = self
-            .db
-            .prepare("INSERT OR IGNORE INTO route_names (route_id, custom_name) VALUES (?, ?)")?;
-
-        // Sort groups by sport type and activity count (most activities first)
-        // This ensures consistent, predictable numbering
-        let mut sorted_groups: Vec<&tracematch::RouteGroup> = self.groups.iter().collect();
-        sorted_groups.sort_by(|a, b| {
-            a.sport_type
-                .cmp(&b.sport_type)
-                .then_with(|| b.activity_ids.len().cmp(&a.activity_ids.len()))
-        });
-
-        // Track next available number for each sport type (for sequential assignment)
-        let mut sport_counters: HashMap<String, u32> = HashMap::new();
-
-        for group in sorted_groups {
-            let activity_ids_json = serde_json::to_string(&group.activity_ids)
-                .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
-            let activity_ids_blob = codec::serialize(&group.activity_ids).ok();
-            stmt.execute(params![
-                group.group_id,
-                group.representative_id,
-                activity_ids_json,
-                group.sport_type,
-                group.bounds.map(|b| b.min_lat),
-                group.bounds.map(|b| b.max_lat),
-                group.bounds.map(|b| b.min_lng),
-                group.bounds.map(|b| b.max_lng),
-                group.activity_ids.len() as u32,
-                activity_ids_blob,
-            ])?;
-
-            // Generate unique name if route doesn't already have one
-            if !existing_names.contains_key(&group.group_id) {
-                let taken = taken_numbers.entry(group.sport_type.clone()).or_default();
-                let counter = sport_counters.entry(group.sport_type.clone()).or_insert(0);
-
-                // Find next available number (skip taken numbers)
-                loop {
-                    *counter += 1;
-                    if !taken.contains(counter) {
-                        break;
-                    }
-                }
-
-                let new_name = format!("{} {} {}", group.sport_type, route_word, counter);
-                name_stmt.execute(params![group.group_id, new_name])?;
-                taken.insert(*counter); // Mark this number as taken
-            }
-        }
-
-        // Insert activity matches
-        let mut match_stmt = self.db.prepare(
-            "INSERT OR IGNORE INTO activity_matches (route_id, activity_id, match_percentage, direction)
-             VALUES (?, ?, ?, ?)",
-        )?;
-
-        for (route_id, matches) in &self.activity_matches {
-            for m in matches {
-                match_stmt.execute(params![
-                    route_id,
-                    m.activity_id,
-                    m.match_percentage,
-                    m.direction.to_string(),
-                ])?;
-            }
-        }
-
-        // Ensure every group member has an activity_matches entry.
-        // The grouping algorithm sometimes produces groups with activity IDs
-        // that don't have corresponding match info (e.g., when activities are
-        // added incrementally). Fill in missing entries with a default.
-        for group in &self.groups {
-            for activity_id in &group.activity_ids {
-                match_stmt.execute(params![
-                    group.group_id,
-                    activity_id,
-                    0.0f64, // default for members not in activity_matches (representatives, tracks not loaded)
-                    "same",
-                ])?;
-            }
-        }
-
-        // Restore excluded flags that were snapshotted before the DELETE
-        if !excluded_pairs.is_empty() {
-            let mut excl_stmt = self.db.prepare(
-                "UPDATE activity_matches SET excluded = 1 WHERE route_id = ? AND activity_id = ?",
-            )?;
-            let mut restored = 0u32;
-            for (route_id, activity_id) in &excluded_pairs {
-                restored += excl_stmt.execute(params![route_id, activity_id])? as u32;
-            }
-            if restored > 0 {
+            if !orphaned_ids.is_empty() {
                 log::info!(
-                    "tracematch: Restored {} excluded flags after save_groups",
-                    restored
+                    "tracematch: [PersistentEngine] Cleaning up {} orphaned route names",
+                    orphaned_ids.len()
                 );
+                let mut delete_stmt = self
+                    .db
+                    .prepare("DELETE FROM route_names WHERE route_id = ?")?;
+                for id in &orphaned_ids {
+                    delete_stmt.execute(params![id])?;
+                }
+            }
+
+            // Rebuild existing_names after cleanup
+            let existing_names: HashMap<String, String> = {
+                let mut stmt = self
+                    .db
+                    .prepare("SELECT route_id, custom_name FROM route_names")?;
+                stmt.query_map([], |row| {
+                    Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+                })?
+                .filter_map(|r| match r {
+                    Ok(v) => Some(v),
+                    Err(e) => {
+                        log::warn!("Skipping malformed row during route name rebuild: {:?}", e);
+                        None
+                    }
+                })
+                .collect()
+            };
+
+            let route_word = get_route_word();
+
+            // Collect which numbers are already taken for each sport type (from user-renamed routes)
+            // Only count names that follow the auto-generated pattern (e.g., "Run Route 1")
+            let mut taken_numbers: HashMap<String, std::collections::HashSet<u32>> = HashMap::new();
+            for name in existing_names.values() {
+                for sport in [
+                    "Ride",
+                    "Run",
+                    "Hike",
+                    "Walk",
+                    "Swim",
+                    "VirtualRide",
+                    "VirtualRun",
+                ] {
+                    let prefix = format!("{} {} ", sport, route_word);
+                    if name.starts_with(&prefix) {
+                        if let Ok(num) = name[prefix.len()..].parse::<u32>() {
+                            taken_numbers
+                                .entry(sport.to_string())
+                                .or_default()
+                                .insert(num);
+                        }
+                    }
+                }
+            }
+
+            // Insert groups (dual-write: JSON for backward compat, blob for fast reads)
+            let mut stmt = self.db.prepare(
+                "INSERT INTO route_groups (id, representative_id, activity_ids, sport_type,
+                                            bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng,
+                                            activity_count, activity_ids_blob)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            )?;
+
+            // Prepare statement for inserting new route names
+            let mut name_stmt = self.db.prepare(
+                "INSERT OR IGNORE INTO route_names (route_id, custom_name) VALUES (?, ?)",
+            )?;
+
+            // Sort groups by sport type and activity count (most activities first)
+            // This ensures consistent, predictable numbering
+            let mut sorted_groups: Vec<&tracematch::RouteGroup> = self.groups.iter().collect();
+            sorted_groups.sort_by(|a, b| {
+                a.sport_type
+                    .cmp(&b.sport_type)
+                    .then_with(|| b.activity_ids.len().cmp(&a.activity_ids.len()))
+            });
+
+            // Track next available number for each sport type (for sequential assignment)
+            let mut sport_counters: HashMap<String, u32> = HashMap::new();
+
+            for group in sorted_groups {
+                let activity_ids_json = serde_json::to_string(&group.activity_ids)
+                    .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
+                let activity_ids_blob = codec::serialize(&group.activity_ids).ok();
+                stmt.execute(params![
+                    group.group_id,
+                    group.representative_id,
+                    activity_ids_json,
+                    group.sport_type,
+                    group.bounds.map(|b| b.min_lat),
+                    group.bounds.map(|b| b.max_lat),
+                    group.bounds.map(|b| b.min_lng),
+                    group.bounds.map(|b| b.max_lng),
+                    group.activity_ids.len() as u32,
+                    activity_ids_blob,
+                ])?;
+
+                // Generate unique name if route doesn't already have one
+                if !existing_names.contains_key(&group.group_id) {
+                    let taken = taken_numbers.entry(group.sport_type.clone()).or_default();
+                    let counter = sport_counters.entry(group.sport_type.clone()).or_insert(0);
+
+                    // Find next available number (skip taken numbers)
+                    loop {
+                        *counter += 1;
+                        if !taken.contains(counter) {
+                            break;
+                        }
+                    }
+
+                    let new_name = format!("{} {} {}", group.sport_type, route_word, counter);
+                    name_stmt.execute(params![group.group_id, new_name])?;
+                    taken.insert(*counter); // Mark this number as taken
+                }
+            }
+
+            // Insert activity matches
+            let mut match_stmt = self.db.prepare(
+                "INSERT OR IGNORE INTO activity_matches (route_id, activity_id, match_percentage, direction)
+                 VALUES (?, ?, ?, ?)",
+            )?;
+
+            for (route_id, matches) in &self.activity_matches {
+                for m in matches {
+                    match_stmt.execute(params![
+                        route_id,
+                        m.activity_id,
+                        m.match_percentage,
+                        m.direction.to_string(),
+                    ])?;
+                }
+            }
+
+            // Ensure every group member has an activity_matches entry.
+            // The grouping algorithm sometimes produces groups with activity IDs
+            // that don't have corresponding match info (e.g., when activities are
+            // added incrementally). Fill in missing entries with a default.
+            for group in &self.groups {
+                for activity_id in &group.activity_ids {
+                    match_stmt.execute(params![
+                        group.group_id,
+                        activity_id,
+                        0.0f64, // default for members not in activity_matches (representatives, tracks not loaded)
+                        "same",
+                    ])?;
+                }
+            }
+
+            // Restore excluded flags that were snapshotted before the DELETE
+            if !excluded_pairs.is_empty() {
+                let mut excl_stmt = self.db.prepare(
+                    "UPDATE activity_matches SET excluded = 1 WHERE route_id = ? AND activity_id = ?",
+                )?;
+                let mut restored = 0u32;
+                for (route_id, activity_id) in &excluded_pairs {
+                    restored += excl_stmt.execute(params![route_id, activity_id])? as u32;
+                }
+                if restored > 0 {
+                    log::info!(
+                        "tracematch: Restored {} excluded flags after save_groups",
+                        restored
+                    );
+                }
+            }
+
+            Ok(())
+        })();
+
+        match result {
+            Ok(()) => self.db.execute_batch("COMMIT"),
+            Err(e) => {
+                let _ = self.db.execute_batch("ROLLBACK");
+                Err(e)
             }
         }
-
-        Ok(())
     }
 
     // ========================================================================
@@ -1143,15 +1162,16 @@ impl PersistentRouteEngine {
                     let representative_id: String = row.get(1)?;
                     let sport_type: String = row.get(3)?;
 
-                    let activity_ids: Vec<String> =
-                        if let Ok(Some(blob)) = row.get::<_, Option<Vec<u8>>>(8) {
-                            codec::deserialize(&blob).unwrap_or_default()
-                        } else {
-                            let json: String = row.get(2)?;
-                            serde_json::from_str(&json).map_err(|e| {
-                                rusqlite::Error::FromSqlConversionFailure(2, Type::Text, Box::new(e))
-                            })?
-                        };
+                    let activity_ids: Vec<String> = if let Ok(Some(blob)) =
+                        row.get::<_, Option<Vec<u8>>>(8)
+                    {
+                        codec::deserialize(&blob).unwrap_or_default()
+                    } else {
+                        let json: String = row.get(2)?;
+                        serde_json::from_str(&json).map_err(|e| {
+                            rusqlite::Error::FromSqlConversionFailure(2, Type::Text, Box::new(e))
+                        })?
+                    };
 
                     let bounds =
                         if let (Some(min_lat), Some(max_lat), Some(min_lng), Some(max_lng)) = (
@@ -1262,13 +1282,10 @@ impl PersistentRouteEngine {
             .query_map(params.as_slice(), |row| {
                 let activity_id: String = row.get(0)?;
                 let points_blob: Vec<u8> = row.get(1)?;
-                let points: Vec<GpsPoint> = codec::deserialize_points(&points_blob).map_err(|e| {
-                    rusqlite::Error::FromSqlConversionFailure(
-                        1,
-                        Type::Blob,
-                        e.into(),
-                    )
-                })?;
+                let points: Vec<GpsPoint> =
+                    codec::deserialize_points(&points_blob).map_err(|e| {
+                        rusqlite::Error::FromSqlConversionFailure(1, Type::Blob, e.into())
+                    })?;
                 Ok((activity_id, crate::coords::encode(&points)))
             })
             .ok()

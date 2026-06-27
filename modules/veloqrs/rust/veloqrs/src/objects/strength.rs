@@ -59,19 +59,12 @@ impl StrengthManager {
     ) -> Result<Vec<FfiExerciseSet>, VeloqError> {
         info!("[Strength] Fetching FIT file for {}", activity_id);
 
-        // Download FIT file in a blocking tokio runtime
+        // Download FIT file on the shared process runtime.
         let fit_data = {
-            let rt = tokio::runtime::Builder::new_current_thread()
-                .enable_all()
-                .build()
-                .map_err(|e| VeloqError::Database {
-                    msg: format!("Failed to create runtime: {}", e),
-                })?;
-
             let fetcher = ActivityFetcher::with_auth_header(auth_header)
                 .map_err(|e| VeloqError::Database { msg: e })?;
 
-            rt.block_on(fetcher.download_fit_file(&activity_id))
+            crate::runtime::block_on(fetcher.download_fit_file(&activity_id))
         };
 
         match fit_data {
@@ -157,20 +150,13 @@ impl StrengthManager {
             activity_ids.len()
         );
 
-        let rt = tokio::runtime::Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .map_err(|e| VeloqError::Database {
-                msg: format!("Failed to create runtime: {}", e),
-            })?;
-
         let fetcher = ActivityFetcher::with_auth_header(auth_header)
             .map_err(|e| VeloqError::Database { msg: e })?;
 
         let mut processed = Vec::new();
 
         for activity_id in &activity_ids {
-            let fit_result = rt.block_on(fetcher.download_fit_file(activity_id));
+            let fit_result = crate::runtime::block_on(fetcher.download_fit_file(activity_id));
 
             match fit_result {
                 Ok(data) => {
@@ -477,9 +463,10 @@ impl StrengthManager {
         activity_id: String,
         fit_bytes: Vec<u8>,
     ) -> Result<u32, VeloqError> {
-        let sets = fit::parse_fit_strength_sets(&fit_bytes).map_err(|e| VeloqError::ParseError {
-            msg: format!("{}", e),
-        })?;
+        let sets =
+            fit::parse_fit_strength_sets(&fit_bytes).map_err(|e| VeloqError::ParseError {
+                msg: format!("{}", e),
+            })?;
         let count = sets.len() as u32;
         let has_sets = !sets.is_empty();
 
@@ -693,7 +680,10 @@ fn aggregate_strength_sets(sets: &[(String, fit::FitExerciseSet)]) -> FfiStrengt
 /// role per exercise against `muscle_slug`, and return aggregated totals.
 /// Skips warmup/cooldown/rest sets (`set_type != 0`). Primary role wins
 /// over secondary when an exercise has multiple sets with differing roles.
-fn aggregate_muscle_detail(muscle_slug: &str, sets: &[fit::FitExerciseSet]) -> FfiMuscleGroupDetail {
+fn aggregate_muscle_detail(
+    muscle_slug: &str,
+    sets: &[fit::FitExerciseSet],
+) -> FfiMuscleGroupDetail {
     struct ExAgg {
         role: String, // "primary" | "secondary"
         sets: u32,

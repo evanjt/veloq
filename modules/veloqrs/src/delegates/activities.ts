@@ -7,7 +7,12 @@
  * invalidates all three caches downstream.
  */
 
-import type { FfiActivityMetrics, FfiGpsPoint } from '../generated/veloqrs';
+import type {
+  FfiActivityIndicator,
+  FfiActivityMetrics,
+  FfiActivityRouteHighlight,
+  FfiGpsPoint,
+} from '../generated/veloqrs';
 import { validateId } from '../conversions';
 import type { DelegateHost } from './host';
 
@@ -124,8 +129,8 @@ export function debugCloneActivity(host: DelegateHost, sourceId: string, count: 
 }
 
 export interface ActivityHighlightsBundle {
-  indicators: any[];
-  routeHighlights: any[];
+  indicators: FfiActivityIndicator[];
+  routeHighlights: FfiActivityRouteHighlight[];
 }
 
 /**

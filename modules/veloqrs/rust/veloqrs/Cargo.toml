@@ -77,6 +77,9 @@ tempfile = "3.27"
 env_logger = "0.11"
 criterion = { version = "0.5", features = ["html_reports"] }
 sha2 = "0.11"
+# Local mock HTTP server for request-path / endpoint tests (services mocked).
+httpmock = "0.7"
+tokio = { version = "1", features = ["rt-multi-thread", "sync", "macros", "time"] }
 
 [[test]]
 name = "persistence_stress"

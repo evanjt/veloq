@@ -7,7 +7,7 @@
 
 // escapeXml is not exported, so we test it indirectly through generateGpx name/sport/time fields.
 // generateGpx is the main export.
-import { generateGpx } from '@/lib/export/gpx';
+import { generateGpx } from '@/features/settings/lib/gpx';
 
 describe('generateGpx', () => {
   it('generates valid GPX 1.1 XML structure', () => {

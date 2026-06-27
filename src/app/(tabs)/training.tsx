@@ -15,25 +15,29 @@ import {
   ScreenErrorBoundary,
   ErrorStatePreset,
   TAB_BAR_SAFE_PADDING,
-} from '@/components/ui';
+  Shimmer,
+} from '@/shared/ui';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
-import { WeeklySummary, ActivityHeatmap, SeasonComparison } from '@/components/stats';
-import { WellnessTrendsChart } from '@/components/wellness';
-import { useActivities, useWellness, useAthleteSummary, useTheme, type TimeRange } from '@/hooks';
+import { WeeklySummary, ActivityHeatmap, SeasonComparison } from '@/features/stats';
+import { WellnessTrendsChart } from '@/features/wellness';
+import { useActivities } from '@/features/activity/hooks';
+import { useAthleteSummary } from '@/features/fitness/hooks';
+import { useWellness, type TimeRange } from '@/features/wellness';
+import { useTheme } from '@/shared/app';
 import { colors, darkColors, spacing, layout, typography, opacity } from '@/theme';
 import { createSharedStyles } from '@/styles';
+import { formatLocalDate } from '@/shared/format/format';
 import {
   SMOOTHING_PRESETS,
   getSmoothingDescription,
-  formatLocalDate,
   type SmoothingWindow,
-} from '@/lib';
-import { logScreenRender } from '@/lib/debug/renderTimer';
-import { useAuthStore } from '@/providers';
+} from '@/shared/math/smoothing';
+import { logScreenRender } from '@/shared/debug/renderTimer';
+import { useAuthStore } from '@/shared/app/AuthStore';
 
-import { queryKeys } from '@/lib/queryKeys';
-import { TIME_RANGES } from '@/lib/utils/constants';
+import { queryKeys } from '@/shared/query/queryKeys';
+import { TIME_RANGES } from '@/shared/app/constants';
 
 export default function HealthScreen() {
   const perfEnd = logScreenRender('HealthScreen');
@@ -189,7 +193,7 @@ export default function HealthScreen() {
           <View style={[styles.card, isDark && styles.cardDark]}>
             {activitiesLoading ? (
               <View style={styles.loadingContainer}>
-                <ActivityIndicator size="small" color={colors.primary} />
+                <Shimmer width="100%" height={110} />
               </View>
             ) : (
               <ActivityHeatmap activities={activities} highlightDate={highlightDate} />

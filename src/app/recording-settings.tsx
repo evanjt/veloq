@@ -1,15 +1,15 @@
 import React, { useCallback, useMemo } from 'react';
 import { View, ScrollView, StyleSheet, TouchableOpacity, Switch } from 'react-native';
 import { Text } from 'react-native-paper';
-import { ScreenSafeAreaView, TAB_BAR_SAFE_PADDING } from '@/components/ui';
+import { ScreenSafeAreaView, TAB_BAR_SAFE_PADDING } from '@/shared/ui';
 import { router } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useTheme } from '@/hooks';
+import { useTheme } from '@/shared/app';
 import { colors, darkColors, spacing, layout, typography, brand } from '@/theme';
-import { navigateTo } from '@/lib';
-import { useRecordingPreferences } from '@/providers/RecordingPreferencesStore';
+import { navigateTo } from '@/shared/app/navigation';
+import { useRecordingPreferences } from '@/features/recording/stores/RecordingPreferencesStore';
 import type { DataFieldType } from '@/types';
 
 const SPORT_THRESHOLDS = [
@@ -92,6 +92,8 @@ export default function RecordingSettingsScreen() {
           testID="recording-settings-back"
           onPress={() => router.back()}
           style={styles.backButton}
+          accessibilityRole="button"
+          accessibilityLabel={t('common.back')}
         >
           <MaterialCommunityIcons name="arrow-left" size={24} color={textPrimary} />
         </TouchableOpacity>

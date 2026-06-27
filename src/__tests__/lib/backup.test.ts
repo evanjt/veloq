@@ -18,39 +18,101 @@ const mockEngine = {
   createSectionFromIndices: jest.fn().mockReturnValue('section-1'),
   setSectionName: jest.fn(),
   setRouteName: jest.fn(),
+  destroyEngine: jest.fn(),
+  getActivityCount: jest.fn().mockReturnValue(100),
+  notifyAll: jest.fn(),
 };
 
-jest.mock('@/lib/native/routeEngine', () => ({
+const mockNativeModule = {
+  validateBackupDatabase: jest.fn(),
+  routeEngine: { initWithPath: jest.fn() },
+};
+
+jest.mock('@/shared/native/routeEngine', () => ({
   getRouteEngine: () => mockEngine,
+  getRouteDbPath: () => '/data/veloq.db',
+  getNativeModule: () => mockNativeModule,
 }));
 
-jest.mock('@/lib/export/shareFile', () => ({
+jest.mock('expo-file-system/legacy', () => ({
+  cacheDirectory: 'file:///cache/',
+  getInfoAsync: jest.fn().mockResolvedValue({ exists: true, size: 1024 }),
+  copyAsync: jest.fn().mockResolvedValue(undefined),
+  deleteAsync: jest.fn().mockResolvedValue(undefined),
+}));
+
+jest.mock('@/shared/query/QueryProvider', () => ({
+  queryClient: { invalidateQueries: jest.fn() },
+}));
+
+jest.mock('@/shared/app/AuthStore', () => ({
+  useAuthStore: { getState: () => ({ athleteId: 'athlete-1' }) },
+}));
+
+jest.mock('@/features/settings/lib/shareFile', () => ({
   shareFile: jest.fn().mockResolvedValue(undefined),
 }));
 
-jest.mock('@/providers', () => ({
+jest.mock('@/shared/app/ThemeProvider', () => ({
   initializeTheme: jest.fn().mockResolvedValue(undefined),
+}));
+jest.mock('@/shared/app/LanguageStore', () => ({
   initializeLanguage: jest.fn().mockResolvedValue(undefined),
+}));
+jest.mock('@/shared/app/UnitPreferenceStore', () => ({
+  initializeUnitPreference: jest.fn().mockResolvedValue(undefined),
+}));
+jest.mock('@/features/fitness/stores', () => ({
   initializeSportPreference: jest.fn().mockResolvedValue(undefined),
   initializeHRZones: jest.fn().mockResolvedValue(undefined),
-  initializeUnitPreference: jest.fn().mockResolvedValue(undefined),
-  initializeRouteSettings: jest.fn().mockResolvedValue(undefined),
-  initializeDisabledSections: jest.fn().mockResolvedValue(undefined),
-  initializeSectionDismissals: jest.fn().mockResolvedValue(undefined),
-  initializeSupersededSections: jest.fn().mockResolvedValue(undefined),
-  initializePotentialSections: jest.fn().mockResolvedValue(undefined),
+}));
+jest.mock('@/features/home/store', () => ({
   initializeDashboardPreferences: jest.fn().mockResolvedValue(undefined),
-  initializeDebugStore: jest.fn().mockResolvedValue(undefined),
-  initializeTileCacheStore: jest.fn().mockResolvedValue(undefined),
-  initializeWhatsNewStore: jest.fn().mockResolvedValue(undefined),
+}));
+jest.mock('@/features/insights/store', () => ({
   initializeInsightsStore: jest.fn().mockResolvedValue(undefined),
+}));
+jest.mock('@/features/maps/stores/TileCacheStore', () => ({
+  initializeTileCacheStore: jest.fn().mockResolvedValue(undefined),
+}));
+jest.mock('@/features/recording/stores/RecordingPreferencesStore', () => ({
   initializeRecordingPreferences: jest.fn().mockResolvedValue(undefined),
+}));
+jest.mock('@/features/routes/stores/DisabledSectionsStore', () => ({
+  initializeDisabledSections: jest.fn().mockResolvedValue(undefined),
+}));
+jest.mock('@/features/routes/stores/PotentialSectionsStore', () => ({
+  initializePotentialSections: jest.fn().mockResolvedValue(undefined),
+}));
+jest.mock('@/features/routes/stores/RouteSettingsStore', () => ({
+  initializeRouteSettings: jest.fn().mockResolvedValue(undefined),
+}));
+jest.mock('@/features/routes/stores/SectionDismissalsStore', () => ({
+  initializeSectionDismissals: jest.fn().mockResolvedValue(undefined),
+}));
+jest.mock('@/features/routes/stores/SupersededSectionsStore', () => ({
+  initializeSupersededSections: jest.fn().mockResolvedValue(undefined),
+}));
+jest.mock('@/features/settings/stores/DebugStore', () => ({
+  initializeDebugStore: jest.fn().mockResolvedValue(undefined),
+}));
+jest.mock('@/features/settings/stores/NotificationPreferencesStore', () => ({
   initializeNotificationPreferences: jest.fn().mockResolvedValue(undefined),
+}));
+jest.mock('@/features/settings/stores/NotificationPromptStore', () => ({
   initializeNotificationPrompt: jest.fn().mockResolvedValue(undefined),
+}));
+jest.mock('@/shared/app/SupportStore', () => ({
   initializeSupportStore: jest.fn().mockResolvedValue(undefined),
 }));
+jest.mock('@/features/settings/stores/WhatsNewStore', () => ({
+  initializeWhatsNewStore: jest.fn().mockResolvedValue(undefined),
+}));
+jest.mock('@/features/maps/lib/storage/mapCameraState', () => ({
+  reloadMapCameraState: jest.fn().mockResolvedValue(undefined),
+}));
 
-jest.mock('@/lib/backup', () => ({
+jest.mock('@/shared/storage', () => ({
   getSetting: jest.fn().mockImplementation((key: string) => {
     const AsyncStorage = require('@react-native-async-storage/async-storage');
     return AsyncStorage.getItem(key);
@@ -62,7 +124,7 @@ jest.mock('@/lib/backup', () => ({
   removeSetting: jest.fn().mockResolvedValue(undefined),
 }));
 
-jest.mock('@/lib/storage/terrainCameraOverrides', () => ({
+jest.mock('@/features/maps/lib/storage/terrainCameraOverrides', () => ({
   reloadCameraOverrides: jest.fn().mockResolvedValue(undefined),
 }));
 
@@ -71,7 +133,9 @@ jest.mock('expo-constants', () => ({
   default: { expoConfig: { version: '0.3.0' } },
 }));
 
-import { createBackup, restoreBackup } from '@/lib/export/backup';
+import { createBackup, restoreBackup, restoreDatabaseBackup } from '@/features/settings/lib/backup';
+import * as FileSystem from 'expo-file-system/legacy';
+import { queryClient } from '@/shared/query/QueryProvider';
 
 function makeValidBackup(overrides: Record<string, unknown> = {}): string {
   return JSON.stringify({
@@ -281,6 +345,117 @@ describe('backup corruption resilience', () => {
   });
 });
 
+describe('restoreDatabaseBackup (SQLite snapshot) — data-loss guards', () => {
+  const LIVE_META = JSON.stringify({
+    schema_version: '12',
+    athlete_id: 'athlete-1',
+    activity_count: 100,
+  });
+
+  // validateBackupDatabase is called for both the backup temp file and the live
+  // DB. Route by path: the live DB path contains 'veloq.db'.
+  function mockProbe(backupMeta: string | (() => never)) {
+    mockNativeModule.validateBackupDatabase.mockImplementation((path: string) => {
+      if (path.includes('veloq.db')) return LIVE_META;
+      if (typeof backupMeta === 'function') return backupMeta();
+      return backupMeta;
+    });
+  }
+
+  beforeEach(() => {
+    mockNativeModule.validateBackupDatabase.mockReset();
+    mockNativeModule.routeEngine.initWithPath.mockReset();
+    mockEngine.destroyEngine.mockClear();
+    mockEngine.getActivityCount.mockReturnValue(100);
+    mockEngine.notifyAll.mockClear();
+    (queryClient.invalidateQueries as jest.Mock).mockClear();
+    (FileSystem.getInfoAsync as jest.Mock).mockResolvedValue({ exists: true, size: 1024 });
+    (FileSystem.copyAsync as jest.Mock).mockClear().mockResolvedValue(undefined);
+    (FileSystem.deleteAsync as jest.Mock).mockClear().mockResolvedValue(undefined);
+  });
+
+  it('refuses an empty backup (activity_count 0) without destroying the engine', async () => {
+    mockProbe(JSON.stringify({ schema_version: '12', athlete_id: 'athlete-1', activity_count: 0 }));
+    const result = await restoreDatabaseBackup('file:///in/backup.veloqdb');
+    expect(result.success).toBe(false);
+    expect(mockEngine.destroyEngine).not.toHaveBeenCalled();
+    // The live DB must never be overwritten on a rejected backup.
+    expect(FileSystem.copyAsync).not.toHaveBeenCalledWith(
+      expect.objectContaining({ to: 'file:///data/veloq.db' })
+    );
+  });
+
+  it('refuses a forward-schema backup newer than the live DB', async () => {
+    mockProbe(
+      JSON.stringify({ schema_version: '13', athlete_id: 'athlete-1', activity_count: 50 })
+    );
+    const result = await restoreDatabaseBackup('file:///in/backup.veloqdb');
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/newer version/i);
+    expect(mockEngine.destroyEngine).not.toHaveBeenCalled();
+  });
+
+  it('refuses a corrupt backup when the probe throws (not treated as "probe absent")', async () => {
+    mockProbe(() => {
+      throw new Error('Cannot open backup: file is not a database');
+    });
+    const result = await restoreDatabaseBackup('file:///in/backup.veloqdb');
+    expect(result.success).toBe(false);
+    expect(result.error).toMatch(/corrupt or unreadable/i);
+    expect(mockEngine.destroyEngine).not.toHaveBeenCalled();
+  });
+
+  it('refuses a backup belonging to a different athlete', async () => {
+    mockProbe(JSON.stringify({ schema_version: '12', athlete_id: 'other', activity_count: 50 }));
+    const result = await restoreDatabaseBackup('file:///in/backup.veloqdb');
+    expect(result.success).toBe(false);
+    expect(result.athleteIdMismatch).toBe(true);
+    expect(mockEngine.destroyEngine).not.toHaveBeenCalled();
+  });
+
+  it('restores a valid backup and clears the rollback snapshot', async () => {
+    mockProbe(
+      JSON.stringify({ schema_version: '12', athlete_id: 'athlete-1', activity_count: 80 })
+    );
+    const result = await restoreDatabaseBackup('file:///in/backup.veloqdb');
+    expect(result.success).toBe(true);
+    expect(mockEngine.destroyEngine).toHaveBeenCalled();
+    expect(FileSystem.copyAsync).toHaveBeenCalledWith({
+      from: 'file:///data/veloq.db',
+      to: 'file:///data/veloq.db.bak',
+    });
+    expect(FileSystem.copyAsync).toHaveBeenCalledWith(
+      expect.objectContaining({
+        from: expect.stringContaining('/cache/'),
+        to: 'file:///data/veloq.db',
+      })
+    );
+    // Snapshot dropped on success.
+    expect(FileSystem.deleteAsync).toHaveBeenCalledWith('file:///data/veloq.db.bak', {
+      idempotent: true,
+    });
+    expect(queryClient.invalidateQueries).toHaveBeenCalled();
+  });
+
+  it('rolls back to the snapshot when initWithPath fails after overwrite', async () => {
+    mockProbe(
+      JSON.stringify({ schema_version: '12', athlete_id: 'athlete-1', activity_count: 80 })
+    );
+    mockNativeModule.routeEngine.initWithPath
+      .mockImplementationOnce(() => {
+        throw new Error('init failed on restored DB');
+      })
+      .mockImplementation(() => {});
+    const result = await restoreDatabaseBackup('file:///in/backup.veloqdb');
+    expect(result.success).toBe(false);
+    // Snapshot copied back over the live DB.
+    expect(FileSystem.copyAsync).toHaveBeenCalledWith({
+      from: 'file:///data/veloq.db.bak',
+      to: 'file:///data/veloq.db',
+    });
+  });
+});
+
 describe('getLastBackupTimestamp falsy zero bug (autoBackup.ts:82)', () => {
   // autoBackup.ts:82 uses: `return value ? Number(value) : null;`
   // The bug: when the stored value is '0', Number('0') === 0 which is falsy,
@@ -291,23 +466,15 @@ describe('getLastBackupTimestamp falsy zero bug (autoBackup.ts:82)', () => {
     return value != null ? Number(value) : null;
   }
 
-  it('parses normal timestamp strings', () => {
+  it('parses stored timestamps, distinguishing zero from null', () => {
     expect(parseStoredTimestamp('1712345678000')).toBe(1712345678000);
     expect(parseStoredTimestamp('42')).toBe(42);
     expect(parseStoredTimestamp('3.14')).toBeCloseTo(3.14);
-  });
-
-  it('returns null for null/undefined input', () => {
     expect(parseStoredTimestamp(null)).toBeNull();
     expect(parseStoredTimestamp(undefined)).toBeNull();
-  });
-
-  it('parses zero correctly', () => {
+    // '0' must stay 0, not null — Number('0') is falsy but value != null guards it.
     expect(parseStoredTimestamp('0')).toBe(0);
-  });
-
-  it('treats empty string as 0 (Number("") = 0)', () => {
-    // With value != null guard, empty string passes through to Number('')
+    // empty string passes the value != null guard through to Number('') = 0.
     expect(parseStoredTimestamp('')).toBe(0);
   });
 });

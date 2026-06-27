@@ -131,7 +131,11 @@ mod tests {
         }
 
         // Verify compression: 1000 points at ~3 bytes each ≈ 6KB, vs 16KB for Vec<f64>
-        assert!(encoded.len() < 8000, "encoded size {} should be < 8000", encoded.len());
+        assert!(
+            encoded.len() < 8000,
+            "encoded size {} should be < 8000",
+            encoded.len()
+        );
     }
 
     #[test]
