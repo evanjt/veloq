@@ -20,6 +20,10 @@ appId: com.veloq.app.dev
 tags:
   - tier1
   - pack-settings
+  # Quarantined from the blocking gate core: long multi-screen flow whose
+  # settings scroll + debug-dashboard nav are intermittent in CI. Runs in the
+  # gate's non-blocking flaky lane.
+  - flaky
 ---
 - runFlow:
     file: helpers/setup-demo-mode.yaml

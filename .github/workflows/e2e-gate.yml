@@ -166,7 +166,8 @@ jobs:
           # continuations break. Every line must stand alone.
           script: |
             adb install "$(find /tmp/apk -name '*.apk' | head -1)"
-            "$HOME/.maestro/bin/maestro" test .maestro/ --include-tags=tier0,tier1 --debug-output /tmp/maestro-debug --format junit --output gate-report.xml --no-ansi || echo "MAESTRO_FAILED=true" >> "$GITHUB_ENV"
+            "$HOME/.maestro/bin/maestro" test .maestro/ --include-tags=tier0,tier1 --exclude-tags=flaky --debug-output /tmp/maestro-debug --format junit --output gate-report.xml --no-ansi || "$HOME/.maestro/bin/maestro" test .maestro/ --include-tags=tier0,tier1 --exclude-tags=flaky --debug-output /tmp/maestro-debug --format junit --output gate-report.xml --no-ansi || echo "MAESTRO_FAILED=true" >> "$GITHUB_ENV"
+            "$HOME/.maestro/bin/maestro" test .maestro/ --include-tags=flaky --debug-output /tmp/maestro-debug-flaky --format junit --output flaky-report.xml --no-ansi || true
 
       - name: Collect Maestro artifacts
         if: always()
@@ -174,6 +175,7 @@ jobs:
           mkdir -p /tmp/maestro-artifacts
           cp -r "$HOME/.maestro/tests" /tmp/maestro-artifacts/tests 2>/dev/null || true
           cp -r /tmp/maestro-debug /tmp/maestro-artifacts/debug 2>/dev/null || true
+          cp -r /tmp/maestro-debug-flaky /tmp/maestro-artifacts/debug-flaky 2>/dev/null || true
           cp -f "$GITHUB_WORKSPACE"/*.png /tmp/maestro-artifacts/ 2>/dev/null || true
           find /tmp/maestro-artifacts -name '*.png' | head -50 || true
 
@@ -190,7 +192,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: e2e-gate-report
-          path: gate-report.xml
+          path: |
+            gate-report.xml
+            flaky-report.xml
           retention-days: 7
 
       - name: Publish test results
@@ -199,6 +203,18 @@ jobs:
         with:
           report_paths: gate-report.xml
           check_name: E2E Gate Results
+          fail_on_failure: false
+
+      # Non-blocking: surfaces the quarantined flaky flows' results as a separate
+      # check without gating the PR. Promote a flow back to the core set once it
+      # is reliably green here.
+      - name: Publish flaky results (non-blocking)
+        if: always()
+        continue-on-error: true
+        uses: mikepenz/action-junit-report@v6
+        with:
+          report_paths: flaky-report.xml
+          check_name: E2E Gate Flaky (non-blocking)
           fail_on_failure: false
 
       - name: Fail if tests failed

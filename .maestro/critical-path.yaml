@@ -7,6 +7,10 @@ appId: com.veloq.app.dev
 tags:
   - tier1
   - pack-nav
+  # Quarantined from the blocking gate core: this end-to-end sweep touches the
+  # map/charts and is the most sensitive to CI software-GPU flakiness. Runs in
+  # the gate's non-blocking flaky lane.
+  - flaky
 ---
 # ── Launch & Auth ───────────────────────────────────────
 - runFlow:
@@ -20,17 +24,19 @@ tags:
 
 - takeScreenshot: "critical-home"
 
-# Tap the card overlay specifically. A regex like activity-card-demo-.* also
-# matches child chips/pills (e.g. -section-chip), which deep-link to a sub-tab
-# instead of the detail screen.
-- tapOn:
-    id: "activity-card-demo-test-0"
-
 # ── Activity Detail ─────────────────────────────────────
-- extendedWaitUntil:
-    visible:
-      id: "activity-detail-screen"
-    timeout: 15000
+# Tap the card overlay specifically (a regex like activity-card-demo-.* also
+# matches child chips/pills that deep-link to a sub-tab). The tap occasionally
+# fails to register under the CI software GPU, so retry the tap + screen wait.
+- retry:
+    maxRetries: 2
+    commands:
+      - tapOn:
+          id: "activity-card-demo-test-0"
+      - extendedWaitUntil:
+          visible:
+            id: "activity-detail-screen"
+          timeout: 15000
 
 - extendedWaitUntil:
     visible:

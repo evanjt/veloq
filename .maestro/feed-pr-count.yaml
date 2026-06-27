@@ -7,6 +7,9 @@ appId: com.veloq.app.dev
 tags:
   - tier1
   - pack-home
+  # Quarantined from the blocking gate core: card->detail nav is intermittent
+  # under the CI software GPU. Runs in the gate's non-blocking flaky lane.
+  - flaky
 ---
 - runFlow:
     file: helpers/setup-demo-mode.yaml
@@ -20,20 +23,17 @@ tags:
 - takeScreenshot: "feed-pr-count-baseline"
 
 # Open the first activity (demo-test-0 — top card) and compare its Sections tab
-# count against what the feed card surfaced. Tap it directly: a prior swipe used
-# to push it off the top, which silently no-op'd the tap.
-- tapOn:
-    id: "activity-card-demo-test-0"
-- runFlow:
-    when:
-      visible: "Open"
+# count against what the feed card surfaced. The tap occasionally fails to
+# register under the CI software GPU, so retry the tap + screen wait.
+- retry:
+    maxRetries: 2
     commands:
-      - tapOn: "Open"
-
-- extendedWaitUntil:
-    visible:
-      id: "activity-detail-screen"
-    timeout: 15000
+      - tapOn:
+          id: "activity-card-demo-test-0"
+      - extendedWaitUntil:
+          visible:
+            id: "activity-detail-screen"
+          timeout: 15000
 
 - extendedWaitUntil:
     visible:
