@@ -2,7 +2,7 @@ name: Build
 
 on:
   push:
-    branches: ["**"]
+    branches: [main]
   pull_request:
     branches: [main]
   schedule:
@@ -18,6 +18,11 @@ on:
           - auto
           - preview
           - production
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  # main builds can feed release artifacts — only auto-cancel branch/PR re-runs
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 permissions:
   contents: read
