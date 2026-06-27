@@ -8,6 +8,10 @@ on:
         required: false
         default: "tier0,tier1,tier2,tier3"
         type: string
+  schedule:
+    # Weekly full tier0-3 drift sweep. Schedule passes no inputs, so the jobs
+    # fall back to the default tier0,tier1,tier2,tier3 on both platforms.
+    - cron: '0 3 * * 0'
 
 permissions:
   contents: read

@@ -260,6 +260,10 @@ interface NativeModuleInterface {
     ptr: bigint,
     uniffi_out_err: UniffiRustCallStatus,
   ): bigint;
+  ubrn_uniffi_veloqrs_fn_method_veloqengine_sync(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): bigint;
   ubrn_uniffi_veloqrs_fn_clone_fitnessmanager(
     handle: bigint,
     uniffi_out_err: UniffiRustCallStatus,
@@ -1004,6 +1008,40 @@ interface NativeModuleInterface {
     activityId: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): number;
+  ubrn_uniffi_veloqrs_fn_clone_syncmanager(
+    handle: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): bigint;
+  ubrn_uniffi_veloqrs_fn_free_syncmanager(
+    handle: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
+  ubrn_uniffi_veloqrs_fn_constructor_syncmanager_new(
+    uniffi_out_err: UniffiRustCallStatus,
+  ): bigint;
+  ubrn_uniffi_veloqrs_fn_method_syncmanager_cancel(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
+  ubrn_uniffi_veloqrs_fn_method_syncmanager_clear_credentials(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
+  ubrn_uniffi_veloqrs_fn_method_syncmanager_get_sync_status(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_syncmanager_set_credentials(
+    ptr: bigint,
+    method: Uint8Array,
+    secret: Uint8Array,
+    athleteId: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
+  ubrn_uniffi_veloqrs_fn_method_syncmanager_sync_now(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): number;
   ubrn_uniffi_veloqrs_fn_clone_heatmapmanager(
     handle: bigint,
     uniffi_out_err: UniffiRustCallStatus,
@@ -1123,6 +1161,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_veloqengine_set_name_translations(): number;
   ubrn_uniffi_veloqrs_checksum_method_veloqengine_settings(): number;
   ubrn_uniffi_veloqrs_checksum_method_veloqengine_strength(): number;
+  ubrn_uniffi_veloqrs_checksum_method_veloqengine_sync(): number;
   ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_compute_hrv_trend(): number;
   ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_find_stale_pr_opportunities(): number;
   ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_activity_heatmap(): number;
@@ -1245,6 +1284,11 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_strengthmanager_has_strength_data(): number;
   ubrn_uniffi_veloqrs_checksum_method_strengthmanager_import_sets_from_fit(): number;
   ubrn_uniffi_veloqrs_checksum_method_strengthmanager_is_fit_processed(): number;
+  ubrn_uniffi_veloqrs_checksum_method_syncmanager_cancel(): number;
+  ubrn_uniffi_veloqrs_checksum_method_syncmanager_clear_credentials(): number;
+  ubrn_uniffi_veloqrs_checksum_method_syncmanager_get_sync_status(): number;
+  ubrn_uniffi_veloqrs_checksum_method_syncmanager_set_credentials(): number;
+  ubrn_uniffi_veloqrs_checksum_method_syncmanager_sync_now(): number;
   ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_clear_tiles(): number;
   ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_clear_tiles_path(): number;
   ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_get_cache_size(): number;
@@ -1261,6 +1305,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_constructor_sectionmanager_new(): number;
   ubrn_uniffi_veloqrs_checksum_constructor_settingsmanager_new(): number;
   ubrn_uniffi_veloqrs_checksum_constructor_strengthmanager_new(): number;
+  ubrn_uniffi_veloqrs_checksum_constructor_syncmanager_new(): number;
   ubrn_uniffi_veloqrs_checksum_constructor_heatmapmanager_new(): number;
   ubrn_ffi_veloqrs_uniffi_contract_version(): number;
   ubrn_uniffi_internal_fn_method_activitymanager_ffi__bless_pointer(
@@ -1296,6 +1341,10 @@ interface NativeModuleInterface {
     uniffi_out_err: UniffiRustCallStatus,
   ): UniffiGcObject;
   ubrn_uniffi_internal_fn_method_strengthmanager_ffi__bless_pointer(
+    pointer: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): UniffiGcObject;
+  ubrn_uniffi_internal_fn_method_syncmanager_ffi__bless_pointer(
     pointer: bigint,
     uniffi_out_err: UniffiRustCallStatus,
   ): UniffiGcObject;

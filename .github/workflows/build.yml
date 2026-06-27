@@ -2,7 +2,7 @@ name: Build
 
 on:
   push:
-    branches: ["**"]
+    branches: [main]
   pull_request:
     branches: [main]
   schedule:
@@ -18,6 +18,11 @@ on:
           - auto
           - preview
           - production
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  # main builds can feed release artifacts — only auto-cancel branch/PR re-runs
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
 permissions:
   contents: read
@@ -302,7 +307,7 @@ jobs:
           retention-days: 30
 
       - name: Upload APK for E2E
-        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        if: github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
         uses: actions/upload-artifact@v4
         with:
           name: android-apk-e2e
@@ -791,9 +796,14 @@ jobs:
   e2e-smoke:
     name: E2E Smoke
     needs: build-android
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'push' || github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    # Per-push heartbeat: cancel a superseded smoke when a newer push lands on the
+    # same ref so the slow self-hosted runner only ever works the latest commit.
+    concurrency:
+      group: smoke-${{ github.ref }}
+      cancel-in-progress: true
     runs-on: e2e-android
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
 
@@ -867,81 +877,4 @@ jobs:
           name: e2e-smoke-report
           path: smoke-report.xml
           retention-days: 7
-
-  # ============================================
-  # E2E Full — daily regression suite
-  # ============================================
-  e2e-full:
-    name: E2E Full (Daily)
-    needs: e2e-smoke
-    if: github.event_name == 'schedule'
-    runs-on: e2e-android
-    timeout-minutes: 60
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Download APK
-        uses: actions/download-artifact@v8
-        with:
-          name: android-apk-e2e
-          path: /tmp/apk
-
-      - name: Install Maestro
-        uses: ./.github/actions/install-maestro
-
-      - name: Boot emulator
-        run: |
-          ADB=$ANDROID_HOME/platform-tools/adb
-          $ADB kill-server 2>/dev/null || true
-          sleep 1
-          $ADB start-server
-          $ADB devices | grep -v emulator | grep -v "List" | grep -v "^$" | awk '{print $1}' | while read dev; do
-            $ADB disconnect "$dev" 2>/dev/null || true
-          done
-          $ANDROID_HOME/emulator/emulator -avd e2e-test -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot-save -no-metrics &
-          $ADB -s emulator-5554 wait-for-device
-          for i in $(seq 1 60); do
-            BOOT=$($ADB -s emulator-5554 shell getprop sys.boot_completed 2>/dev/null | tr -d '\r')
-            [ "$BOOT" = "1" ] && break
-            sleep 2
-          done
-          sleep 5
-          $ADB -s emulator-5554 shell settings put global window_animation_scale 0
-          $ADB -s emulator-5554 shell settings put global transition_animation_scale 0
-          $ADB -s emulator-5554 shell settings put global animator_duration_scale 0
-
-      - name: Install APK
-        run: |
-          APK=$(find /tmp/apk -name "*.apk" | head -1)
-          $ANDROID_HOME/platform-tools/adb -s emulator-5554 install "$APK"
-          sleep 3
-
-      - name: Run production smoke test
-        env:
-          MAESTRO_DRIVER_STARTUP_TIMEOUT: 180000
-        run: |
-          export PATH="$HOME/.maestro/bin:$PATH"
-          maestro test .maestro/smoke-build.yaml --no-ansi \
-            --format junit --output e2e-full-report.xml
-
-      - name: Kill emulator
-        if: always()
-        run: $ANDROID_HOME/platform-tools/adb emu kill 2>/dev/null || true
-
-      - name: Upload screenshots
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: e2e-full-screenshots
-          path: |
-            ~/.maestro/tests/*/screenshots/
-          retention-days: 14
-
-      - name: Upload test report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: e2e-full-report
-          path: e2e-full-report.xml
-          retention-days: 14
 

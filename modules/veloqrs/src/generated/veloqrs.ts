@@ -6371,6 +6371,66 @@ const FfiConverterTypeFfiSupersededEntry = (() => {
 })();
 
 /**
+ * The status fields TypeScript reads / subscribes to.
+ */
+export type FfiSyncStatus = {
+  state: string;
+  inFlight: /*u32*/ number;
+  completed: /*u32*/ number;
+  total: /*u32*/ number;
+  lastError?: string;
+};
+
+/**
+ * Generated factory for {@link FfiSyncStatus} record objects.
+ */
+export const FfiSyncStatus = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiSyncStatus, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiSyncStatus>,
+  });
+})();
+
+const FfiConverterTypeFfiSyncStatus = (() => {
+  type TypeName = FfiSyncStatus;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        state: FfiConverterString.read(from),
+        inFlight: FfiConverterUInt32.read(from),
+        completed: FfiConverterUInt32.read(from),
+        total: FfiConverterUInt32.read(from),
+        lastError: FfiConverterOptionalString.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterString.write(value.state, into);
+      FfiConverterUInt32.write(value.inFlight, into);
+      FfiConverterUInt32.write(value.completed, into);
+      FfiConverterUInt32.write(value.total, into);
+      FfiConverterOptionalString.write(value.lastError, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.state) +
+        FfiConverterUInt32.allocationSize(value.inFlight) +
+        FfiConverterUInt32.allocationSize(value.completed) +
+        FfiConverterUInt32.allocationSize(value.total) +
+        FfiConverterOptionalString.allocationSize(value.lastError)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * Inclusive Unix-second range used for batched summary requests.
  */
 export type FfiTimestampRange = {
@@ -12229,6 +12289,248 @@ const FfiConverterTypeStrengthManager = new FfiConverterObject(
   uniffiTypeStrengthManagerObjectFactory,
 );
 
+/**
+ * The FFI service object. The single thing TypeScript calls for I/O.
+ */
+export interface SyncManagerLike {
+  /**
+   * Soft-cancel the running sync.
+   */
+  cancel(): void;
+  /**
+   * Forget the credential (logout).
+   */
+  clearCredentials(): void;
+  /**
+   * Current status snapshot.
+   */
+  getSyncStatus(): FfiSyncStatus;
+  /**
+   * Set the credential once (method = "oauth" | "api_key"). Never passed per request.
+   */
+  setCredentials(
+    method: string,
+    secret: string,
+    athleteId: string,
+  ) /*throws*/ : void;
+  /**
+   * Start a sync. Returns instantly: true if a new sync started, false if one
+   * was already running or credentials are missing. Work runs on the shared
+   * runtime; observe progress via `get_sync_status`.
+   */
+  syncNow() /*throws*/ : boolean;
+}
+/**
+ * @deprecated Use `SyncManagerLike` instead.
+ */
+export type SyncManagerInterface = SyncManagerLike;
+
+/**
+ * The FFI service object. The single thing TypeScript calls for I/O.
+ */
+export class SyncManager
+  extends UniffiAbstractObject
+  implements SyncManagerLike
+{
+  readonly [uniffiTypeNameSymbol] = "SyncManager";
+  readonly [destructorGuardSymbol]: UniffiGcObject;
+  readonly [pointerLiteralSymbol]: UniffiHandle;
+  constructor() {
+    super();
+    const pointer = uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        return nativeModule().ubrn_uniffi_veloqrs_fn_constructor_syncmanager_new(
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    );
+    this[pointerLiteralSymbol] = pointer;
+    this[destructorGuardSymbol] =
+      uniffiTypeSyncManagerObjectFactory.bless(pointer);
+  }
+
+  /**
+   * Soft-cancel the running sync.
+   */
+  cancel(): void {
+    uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_veloqrs_fn_method_syncmanager_cancel(
+          uniffiTypeSyncManagerObjectFactory.clonePointer(this),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    );
+  }
+
+  /**
+   * Forget the credential (logout).
+   */
+  clearCredentials(): void {
+    uniffiCaller.rustCall(
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_veloqrs_fn_method_syncmanager_clear_credentials(
+          uniffiTypeSyncManagerObjectFactory.clonePointer(this),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    );
+  }
+
+  /**
+   * Current status snapshot.
+   */
+  getSyncStatus(): FfiSyncStatus {
+    return FfiConverterTypeFfiSyncStatus.lift(
+      uniffiCaller.rustCall(
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_syncmanager_get_sync_status(
+            uniffiTypeSyncManagerObjectFactory.clonePointer(this),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * Set the credential once (method = "oauth" | "api_key"). Never passed per request.
+   */
+  setCredentials(
+    method: string,
+    secret: string,
+    athleteId: string,
+  ): void /*throws*/ {
+    uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+        FfiConverterTypeVeloqError,
+      ),
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_veloqrs_fn_method_syncmanager_set_credentials(
+          uniffiTypeSyncManagerObjectFactory.clonePointer(this),
+          FfiConverterString.lower(method),
+          FfiConverterString.lower(secret),
+          FfiConverterString.lower(athleteId),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    );
+  }
+
+  /**
+   * Start a sync. Returns instantly: true if a new sync started, false if one
+   * was already running or credentials are missing. Work runs on the shared
+   * runtime; observe progress via `get_sync_status`.
+   */
+  syncNow(): boolean /*throws*/ {
+    return FfiConverterBool.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_syncmanager_sync_now(
+            uniffiTypeSyncManagerObjectFactory.clonePointer(this),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * {@inheritDoc uniffi-bindgen-react-native#UniffiAbstractObject.uniffiDestroy}
+   */
+  uniffiDestroy(): void {
+    const ptr = (this as any)[destructorGuardSymbol];
+    if (ptr !== undefined) {
+      const pointer = uniffiTypeSyncManagerObjectFactory.pointer(this);
+      uniffiTypeSyncManagerObjectFactory.freePointer(pointer);
+      uniffiTypeSyncManagerObjectFactory.unbless(ptr);
+      delete (this as any)[destructorGuardSymbol];
+    }
+  }
+
+  static instanceOf(obj: any): obj is SyncManager {
+    return uniffiTypeSyncManagerObjectFactory.isConcreteType(obj);
+  }
+}
+
+const uniffiTypeSyncManagerObjectFactory: UniffiObjectFactory<SyncManagerLike> =
+  (() => {
+    return {
+      create(pointer: UniffiHandle): SyncManagerLike {
+        const instance = Object.create(SyncManager.prototype);
+        instance[pointerLiteralSymbol] = pointer;
+        instance[destructorGuardSymbol] = this.bless(pointer);
+        instance[uniffiTypeNameSymbol] = "SyncManager";
+        return instance;
+      },
+
+      bless(p: UniffiHandle): UniffiGcObject {
+        return uniffiCaller.rustCall(
+          /*caller:*/ (status) =>
+            nativeModule().ubrn_uniffi_internal_fn_method_syncmanager_ffi__bless_pointer(
+              p,
+              status,
+            ),
+          /*liftString:*/ FfiConverterString.lift,
+        );
+      },
+
+      unbless(ptr: UniffiGcObject) {
+        ptr.markDestroyed();
+      },
+
+      pointer(obj: SyncManagerLike): UniffiHandle {
+        if ((obj as any)[destructorGuardSymbol] === undefined) {
+          throw new UniffiInternalError.UnexpectedNullPointer();
+        }
+        return (obj as any)[pointerLiteralSymbol];
+      },
+
+      clonePointer(obj: SyncManagerLike): UniffiHandle {
+        const pointer = this.pointer(obj);
+        return uniffiCaller.rustCall(
+          /*caller:*/ (callStatus) =>
+            nativeModule().ubrn_uniffi_veloqrs_fn_clone_syncmanager(
+              pointer,
+              callStatus,
+            ),
+          /*liftString:*/ FfiConverterString.lift,
+        );
+      },
+
+      freePointer(pointer: UniffiHandle): void {
+        uniffiCaller.rustCall(
+          /*caller:*/ (callStatus) =>
+            nativeModule().ubrn_uniffi_veloqrs_fn_free_syncmanager(
+              pointer,
+              callStatus,
+            ),
+          /*liftString:*/ FfiConverterString.lift,
+        );
+      },
+
+      isConcreteType(obj: any): obj is SyncManagerLike {
+        return (
+          obj[destructorGuardSymbol] &&
+          obj[uniffiTypeNameSymbol] === "SyncManager"
+        );
+      },
+    };
+  })();
+// FfiConverter for SyncManagerLike
+const FfiConverterTypeSyncManager = new FfiConverterObject(
+  uniffiTypeSyncManagerObjectFactory,
+);
+
 export interface VeloqEngineLike {
   activities(): ActivityManagerLike;
   /**
@@ -12282,6 +12584,7 @@ export interface VeloqEngineLike {
   setNameTranslations(routeWord: string, sectionWord: string): void;
   settings(): SettingsManagerLike;
   strength(): StrengthManagerLike;
+  sync(): SyncManagerLike;
 }
 /**
  * @deprecated Use `VeloqEngineLike` instead.
@@ -12686,6 +12989,20 @@ export class VeloqEngine
       uniffiCaller.rustCall(
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_veloqengine_strength(
+            uniffiTypeVeloqEngineObjectFactory.clonePointer(this),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  sync(): SyncManagerLike {
+    return FfiConverterTypeSyncManager.lift(
+      uniffiCaller.rustCall(
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_veloqengine_sync(
             uniffiTypeVeloqEngineObjectFactory.clonePointer(this),
             callStatus,
           );
@@ -13561,6 +13878,14 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_veloqengine_strength",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_sync() !==
+    44196
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_veloqengine_sync",
     );
   }
   if (
@@ -14540,6 +14865,46 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_syncmanager_cancel() !==
+    48199
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_syncmanager_cancel",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_syncmanager_clear_credentials() !==
+    55262
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_syncmanager_clear_credentials",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_syncmanager_get_sync_status() !==
+    46855
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_syncmanager_get_sync_status",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_syncmanager_set_credentials() !==
+    22689
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_syncmanager_set_credentials",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_syncmanager_sync_now() !==
+    4704
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_syncmanager_sync_now",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_clear_tiles() !==
     18983
   ) {
@@ -14668,6 +15033,14 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_constructor_syncmanager_new() !==
+    27433
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_constructor_syncmanager_new",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_constructor_heatmapmanager_new() !==
     18819
   ) {
@@ -14763,6 +15136,7 @@ export default Object.freeze({
     FfiConverterTypeFfiStrengthSummary,
     FfiConverterTypeFfiSummaryCardData,
     FfiConverterTypeFfiSupersededEntry,
+    FfiConverterTypeFfiSyncStatus,
     FfiConverterTypeFfiTimestampRange,
     FfiConverterTypeFfiWellnessRow,
     FfiConverterTypeFfiWellnessSparklines,
@@ -14778,6 +15152,7 @@ export default Object.freeze({
     FfiConverterTypeSectionSummary,
     FfiConverterTypeSettingsManager,
     FfiConverterTypeStrengthManager,
+    FfiConverterTypeSyncManager,
     FfiConverterTypeVeloqEngine,
     FfiConverterTypeVeloqError,
   },

@@ -38,6 +38,9 @@ export type {
 // Re-export RouteEngineClient and its locally-defined types
 export { RouteEngineClient, type HeatmapDay, type SectionEncounter } from "./RouteEngineClient";
 
+// Sync service (SyncManager) consumer types
+export type { SyncStatus, SyncAuthMethod } from "./delegates/sync";
+
 // Import generated functions for top-level aliases
 import {
   getDownloadProgress as ffiGetDownloadProgress,

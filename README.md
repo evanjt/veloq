@@ -87,6 +87,17 @@ Run a single flow:
 maestro test .maestro/recording-start-stop.yaml
 ```
 
+### E2E in CI
+
+The same flows run on GitHub Actions. Trigger a run from the Actions tab or the CLI:
+
+```bash
+gh workflow run e2e.yml                      # full suite (tier0-3), Android + iOS
+gh workflow run e2e.yml -f tier=tier0,tier1  # quick core run only
+```
+
+These also run on their own: a smoke check on every push, tier0+1 on every pull request, and the full suite weekly (Sundays). None of them block a merge. A red run is a signal to look, not a gate.
+
 **Stack:** React Native + Expo, TanStack Query, Zustand, Victory Native, MapLibre, Rust (route matching)
 
 ## Debugging
