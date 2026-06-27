@@ -275,6 +275,9 @@ jobs:
           api-level: 35
           arch: x86_64
           target: google_apis
+          # Real phone profile (1080x2400). The default AVD skin is 320x640,
+          # which pushes below-the-fold controls off-screen and breaks flows.
+          profile: pixel_6
           force-avd-creation: false
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot-save -no-metrics
           disable-animations: true
@@ -284,7 +287,7 @@ jobs:
           script: |
             adb install "$(find /tmp/android-artifact -name '*.apk' | head -1)"
             adb logcat -c
-            "$HOME/.maestro/bin/maestro" test .maestro/ --include-tags=${{ inputs.tier || 'tier0,tier1,tier2,tier3' }} --format junit --output maestro-report.xml --no-ansi || echo "MAESTRO_FAILED=true" >> "$GITHUB_ENV"
+            "$HOME/.maestro/bin/maestro" test .maestro/ --include-tags=${{ inputs.tier || 'tier0,tier1,tier2,tier3' }} --debug-output /tmp/maestro-debug --format junit --output maestro-report.xml --no-ansi || echo "MAESTRO_FAILED=true" >> "$GITHUB_ENV"
             adb logcat -d > /tmp/logcat.txt 2>&1 || true
 
       - name: Filter diagnostic logs
@@ -296,7 +299,7 @@ jobs:
         if: always()
         run: |
           mkdir -p screenshots-flat
-          find ~/.maestro -name "*.png" -exec cp {} screenshots-flat/ \; 2>/dev/null || true
+          find ~/.maestro /tmp/maestro-debug -name "*.png" -exec cp {} screenshots-flat/ \; 2>/dev/null || true
           for f in screenshots-flat/*.png; do
             [ -f "$f" ] && mv "$f" "${f%.png}-android.png" 2>/dev/null || true
           done

@@ -155,6 +155,9 @@ jobs:
           api-level: 35
           arch: x86_64
           target: google_apis
+          # Real phone profile (1080x2400). The default AVD skin is 320x640,
+          # which pushes below-the-fold controls off-screen and breaks flows.
+          profile: pixel_6
           force-avd-creation: false
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot-save -no-metrics
           disable-animations: true
@@ -163,15 +166,14 @@ jobs:
           # continuations break. Every line must stand alone.
           script: |
             adb install "$(find /tmp/apk -name '*.apk' | head -1)"
-            "$HOME/.maestro/bin/maestro" test .maestro/ --include-tags=tier0,tier1 --format junit --output gate-report.xml --no-ansi || echo "MAESTRO_FAILED=true" >> "$GITHUB_ENV"
+            "$HOME/.maestro/bin/maestro" test .maestro/ --include-tags=tier0,tier1 --debug-output /tmp/maestro-debug --format junit --output gate-report.xml --no-ansi || echo "MAESTRO_FAILED=true" >> "$GITHUB_ENV"
 
-      - name: Upload screenshots
+      - name: Upload Maestro debug output
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: e2e-gate-screenshots
-          path: |
-            ~/.maestro/tests/*/screenshots/
+          name: e2e-gate-debug
+          path: /tmp/maestro-debug
           retention-days: 7
 
       - name: Upload test report
