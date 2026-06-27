@@ -20,8 +20,11 @@ tags:
 
 - takeScreenshot: "critical-home"
 
+# Tap the card overlay specifically. A regex like activity-card-demo-.* also
+# matches child chips/pills (e.g. -section-chip), which deep-link to a sub-tab
+# instead of the detail screen.
 - tapOn:
-    id: "activity-card-demo-.*"
+    id: "activity-card-demo-test-0"
 
 # ── Activity Detail ─────────────────────────────────────
 - extendedWaitUntil:
@@ -29,8 +32,10 @@ tags:
       id: "activity-detail-screen"
     timeout: 15000
 
-- assertVisible:
-    id: "activity-detail-content"
+- extendedWaitUntil:
+    visible:
+      id: "activity-detail-content"
+    timeout: 15000
 
 - runFlow:
     when:

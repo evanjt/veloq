@@ -79,6 +79,9 @@ tags:
       id: "settings-screen"
     timeout: 10000
 
+# Prime the scroll container before scrollUntilVisible (matches settings-scroll.yaml).
+- scroll
+
 - scrollUntilVisible:
     element:
       id: "settings-version-text"

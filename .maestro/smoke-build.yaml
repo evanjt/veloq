@@ -7,8 +7,11 @@
 # designed for dev builds in e2e.yml — so setup is inlined here.
 
 appId: com.veloq.app
+# NOT tier0/tier1: this is a production-appId post-build smoke that build.yml
+# runs by explicit path (maestro test .maestro/smoke-build.yaml), not by tag.
+# The dev E2E gate installs com.veloq.app.dev, so it must not select this by tag.
 tags:
-  - tier0
+  - pack-build
   - pack-nav
 ---
 # --- Inline setup (production appId) ---

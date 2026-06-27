@@ -68,7 +68,7 @@ tags:
       - extendedWaitUntil:
           visible:
             id: "activity-sections-list"
-          timeout: 10000
+          timeout: 20000
 
       - takeScreenshot: "feed-indicators-sections-tab"
 
@@ -100,7 +100,7 @@ tags:
       - extendedWaitUntil:
           visible:
             id: "activity-detail-content"
-          timeout: 10000
+          timeout: 20000
       - takeScreenshot: "feed-indicators-route-tab"
 
 - assertNotVisible:

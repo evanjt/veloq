@@ -59,9 +59,14 @@ tags:
     id: "login-apikey-input"
 - inputText: "invalid-test-key"
 
-# Dismiss keyboard then tap connect button
-- tapOn:
-    point: "50%,20%"
+# Dismiss keyboard, then scroll the connect button into view before tapping
+# (with the keyboard up it sits below the fold on the login card).
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: "login-apikey-button"
+    direction: DOWN
+    timeout: 10000
 - tapOn:
     id: "login-apikey-button"
 
