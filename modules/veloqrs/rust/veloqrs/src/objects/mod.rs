@@ -8,7 +8,9 @@ mod routes;
 mod sections;
 mod settings;
 pub mod strength;
+mod sync;
 mod tiles;
 
 pub use engine::VeloqEngine;
 pub use error::VeloqError;
+pub use sync::{FfiSyncStatus, SyncManager};

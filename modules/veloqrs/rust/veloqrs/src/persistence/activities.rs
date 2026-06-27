@@ -208,30 +208,41 @@ impl PersistentRouteEngine {
         self.groups_dirty = true;
         self.sections_dirty = true;
 
-        if let Some(ref tiles_path) = self.heatmap_tiles_path {
-            let config = crate::tiles::HeatmapConfig::default();
-            let path = std::path::Path::new(tiles_path);
-            let margin = 0.001;
-            let mut total_deleted = 0;
-            for bounds in &all_bounds {
-                total_deleted += crate::tiles::invalidate_tiles_in_bounds(
-                    path,
-                    bounds.min_lat - margin,
-                    bounds.max_lat + margin,
-                    bounds.min_lng - margin,
-                    bounds.max_lng + margin,
-                    config.min_zoom,
-                    config.max_zoom,
-                );
-            }
-            if total_deleted > 0 {
-                log::info!(
-                    "[heatmap] Invalidated {} tiles for {} new activities",
-                    total_deleted,
-                    activities.len()
-                );
-            }
+        if let Some(tiles_path) = self.heatmap_tiles_path.clone() {
+            // The heatmap regenerates from the dirty flag regardless; set it under
+            // the lock (cheap, in-memory).
             self.mark_heatmap_dirty();
+
+            // Tile invalidation deletes PNGs on disk — slow filesystem I/O. Run it
+            // on a detached thread so it does not happen while the engine write
+            // lock is held (that would convoy every foreground read). The sweep
+            // needs only the path and bounds, never `self`.
+            let bounds_to_clear = all_bounds;
+            let activity_count = activities.len();
+            std::thread::spawn(move || {
+                let config = crate::tiles::HeatmapConfig::default();
+                let path = std::path::Path::new(&tiles_path);
+                let margin = 0.001;
+                let mut total_deleted = 0;
+                for bounds in &bounds_to_clear {
+                    total_deleted += crate::tiles::invalidate_tiles_in_bounds(
+                        path,
+                        bounds.min_lat - margin,
+                        bounds.max_lat + margin,
+                        bounds.min_lng - margin,
+                        bounds.max_lng + margin,
+                        config.min_zoom,
+                        config.max_zoom,
+                    );
+                }
+                if total_deleted > 0 {
+                    log::info!(
+                        "[heatmap] Invalidated {} tiles for {} new activities",
+                        total_deleted,
+                        activity_count
+                    );
+                }
+            });
         }
 
         Ok(())

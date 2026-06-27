@@ -192,40 +192,8 @@ pub fn start_fetch_and_store(
             activity_ids.len()
         );
 
-        // Create tokio runtime for async HTTP
-        let runtime_start = Instant::now();
-        let rt = match tokio::runtime::Builder::new_multi_thread()
-            .worker_threads(4)
-            .enable_all()
-            .build()
-        {
-            Ok(rt) => {
-                info!(
-                    "[RUST: start_fetch_and_store] Created tokio runtime ({} ms)",
-                    elapsed_ms(runtime_start)
-                );
-                rt
-            }
-            Err(e) => {
-                info!(
-                    "[RUST: start_fetch_and_store] Failed to create runtime: {} ({} ms)",
-                    e,
-                    elapsed_ms(runtime_start)
-                );
-                crate::http::finish_download_progress();
-                store_fetch_and_store_result(FetchAndStoreResult {
-                    synced_ids: vec![],
-                    failed_ids: activity_ids,
-                    total: 0,
-                    success_count: 0,
-                    total_points: 0,
-                    fetch_time_ms: 0,
-                    storage_time_ms: 0,
-                    total_time_ms: elapsed_ms(thread_start) as u32,
-                });
-                return;
-            }
-        };
+        // Runs on the shared process runtime instead of building a throwaway
+        // 4-thread runtime per call.
 
         // Create HTTP fetcher
         let client_start = Instant::now();
@@ -261,7 +229,7 @@ pub fn start_fetch_and_store(
         // Fetch GPS data
         let fetch_start = Instant::now();
         let fetch_results =
-            rt.block_on(fetcher.fetch_activity_maps(activity_ids_clone.clone(), None));
+            crate::runtime::block_on(fetcher.fetch_activity_maps(activity_ids_clone.clone(), None));
         let fetch_success_count = fetch_results.iter().filter(|r| r.success).count();
         info!(
             "[RUST: start_fetch_and_store] Fetch complete: {}/{} successful ({} ms)",

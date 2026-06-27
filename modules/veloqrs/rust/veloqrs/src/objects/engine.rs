@@ -143,6 +143,10 @@ impl VeloqEngine {
         Arc::new(super::tiles::HeatmapManager { _private: () })
     }
 
+    fn sync(&self) -> Arc<super::sync::SyncManager> {
+        Arc::new(super::sync::SyncManager { _private: () })
+    }
+
     /// Create an atomic SQLite backup at the given path.
     /// Uses sqlite3_backup API — safe to call while the database is in use.
     fn backup_database(&self, dest_path: String) -> Result<(), VeloqError> {
