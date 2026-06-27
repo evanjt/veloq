@@ -382,6 +382,7 @@
   "common": {
     "activities": "活动",
     "back": "返回",
+    "close": "关闭",
     "cancel": "取消",
     "clearSearch": "清除搜索",
     "confirm": "确认",
@@ -473,7 +474,10 @@
     "defaultTitle": "出错了",
     "tryAgain": "重试",
     "unableToLoad": "无法加载{{componentName}}",
-    "restartHint": "请重试或重启应用"
+    "restartHint": "请重试或重启应用",
+    "unableToDisplay": "无法显示{{label}}",
+    "unableToDisplayChart": "无法显示图表",
+    "tapToRetry": "点按重试"
   },
   "export": {
     "bulkComplete": "导出完成",
@@ -631,7 +635,8 @@
       "thresholdSpeedName": "阈值速度趋势分析",
       "thresholdSpeedDescription": "将最新的阈值速度估算与之前的值进行比较，然后将变化格式化为运动员可读的配速显示。",
       "fitnessPrName": "体能-PR 交叉参考",
-      "sectionTrendName": "路段表现趋势"
+      "sectionTrendName": "路段表现趋势",
+      "stalePrCrossRefName": "{{metric}}与PR交叉对照"
     },
     "alternatives": {
       "selected": "当前评估",
@@ -694,7 +699,10 @@
       "metricGain": "{{metric}}增长",
       "prTime": "PR 时间",
       "methodology": "比较PR时的体能指标与当前值。显示PR设定以来体能指标发生变化的路段。",
-      "groupTitle": "{{count}}个PR有体能变化"
+      "groupTitle": "{{count}}个PR有体能变化",
+      "metricCyclingFtp": "骑行FTP",
+      "metricSwimCss": "游泳CSS",
+      "metricRunningThreshold": "跑步阈值配速"
     },
     "disclaimer": "训练指标是基于已发表的运动科学的估算值。个体反应各异。非医疗或教练建议。",
     "aboutInsights": "关于洞察",
@@ -727,7 +735,18 @@
       "volumeAppeared": "经过较平静的开始后，最近两周出现了训练量。",
       "volumeUp": "最近2周平均值比前2周高{{percent}}%。",
       "volumeDown": "最近2周平均值比前2周低{{percent}}%。",
-      "volumeSteady": "最近2周平均值与月初相比保持稳定。"
+      "volumeSteady": "最近2周平均值与月初相比保持稳定。",
+      "oneSidedTitle": "{{pair}}呈单侧分布",
+      "dominantTitle": "{{pair}}中{{dominant}}的训练量更多",
+      "oneSidedBody": "过去4周{{pair}}的全部加权组数都来自{{dominant}}。",
+      "ratioBody": "最近4周内{{pair}}的加权组数平均比为{{ratio}}。",
+      "ratioLabel": "比例",
+      "statusLabel": "状态",
+      "formula": "每个拮抗肌对的加权组数",
+      "algorithm": "比较常见拮抗肌对之间的加权组数。主要训练计为1.0，辅助训练计为0.5。",
+      "methodologyName": "力量平衡检查",
+      "methodologyDescription": "比较过去4周拮抗肌对之间的加权组数，以发现负荷失衡。",
+      "ratioFormula": "比例 = 优势侧加权组数 / 次要侧加权组数"
     },
     "quickTake": {
       "howCalculated": "这是如何计算的？",
@@ -793,7 +812,38 @@
     "routesDisabledLine1": "路线和路段已禁用",
     "routesDisabledLine2": "点击启用",
     "sectionDeclining": "{{name}}正在变慢",
-    "sectionDecliningBody": "近期中位数: {{median}}。最佳: {{best}}，共{{count}}次。"
+    "sectionDecliningBody": "近期中位数: {{median}}。最佳: {{best}}，共{{count}}次。",
+    "strengthProgression": {
+      "upTitle": "{{muscle}}的训练量明显增长",
+      "downTitle": "{{muscle}}的训练量有所回落",
+      "newVolumeBody": "{{muscle}}在较安静的早期阶段之后，于最近2周完成了大部分加权组数。",
+      "shiftBody": "{{muscle}}的2周平均加权组数从{{from}}变为{{to}}。",
+      "vsEarlier": "较前2周{{change}}%",
+      "fourWeekTotal": "4周总计",
+      "sparklineLabel": "4周加权组数",
+      "recent2Weeks": "近2周",
+      "earlier2Weeks": "前2周",
+      "changeLabel": "变化",
+      "thisWeek": "本周",
+      "weeksAgo": "-{{n}}周",
+      "formula": "近2周平均与前2周平均的比较",
+      "algorithm": "跟踪过去4周每块肌肉的加权组数。主要训练计为1.0，辅助训练计为0.5。",
+      "methodologyName": "力量训练量进展",
+      "methodologyDescription": "将近2周平均与前2周平均进行比较，以检测加权组数量的显著变化。"
+    },
+    "strengthSnapshot": {
+      "title_one": "过去4周完成{{count}}次力量训练",
+      "title_other": "过去4周完成{{count}}次力量训练",
+      "subtitleWithTop": "{{sessions}}次 · {{sets}}组 · 最多: {{muscle}}",
+      "subtitle": "{{sessions}}次 · {{sets}}组",
+      "body": "{{sets}}个加权组，覆盖{{groups}}个肌群。",
+      "sessionsLabel": "训练次数",
+      "setsLabel": "组数",
+      "muscleGroupsLabel": "肌群",
+      "formula": "力量训练次数、加权组数与跟踪肌群数量的统计",
+      "algorithm": "汇总过去4周的力量训练。主要训练计为1.0，辅助训练按0.5计入每个肌群。",
+      "methodologyDescription": "汇总最近4周的力量训练量: 训练次数、加权组总数和跟踪的肌群数量。"
+    }
   },
   "licenses": {
     "footer": "点击任何许可证徽章查看完整许可证文本。点击链接图标访问项目仓库。",
@@ -1816,6 +1866,8 @@
     "tip_large": "大额打赏",
     "tipSmall": "小额",
     "tipMedium": "中额",
-    "tipLarge": "大额"
+    "tipLarge": "大额",
+    "shareCrashLog": "分享崩溃日志",
+    "noCrashLog": "未记录崩溃"
   }
 }

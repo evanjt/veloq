@@ -10,8 +10,8 @@ mod ranking;
 // variant (`run_accumulator_backfill`) is re-exported pub so integration
 // tests in `tests/` can drive it deterministically — it's a test-only
 // entry point, not a FFI surface.
-pub(super) use detection::spawn_accumulator_backfill;
 pub use detection::run_accumulator_backfill;
+pub(super) use detection::spawn_accumulator_backfill;
 
 use crate::{FrequentSection, GpsPoint, SectionPortion};
 use chrono::Utc;
@@ -168,8 +168,18 @@ impl PersistentRouteEngine {
                     });
 
                     let polyline: Vec<GpsPoint> = if let Some(blob) = polyline_blob {
-                        codec::deserialize_points(&blob).unwrap_or_else(|_| {
-                            serde_json::from_str(&polyline_json).unwrap_or_default()
+                        codec::deserialize_points(&blob).unwrap_or_else(|e| {
+                            log::warn!(
+                                "load_sections: polyline blob decode failed ({:?}); falling back to JSON",
+                                e
+                            );
+                            serde_json::from_str(&polyline_json).unwrap_or_else(|e2| {
+                                log::error!(
+                                    "load_sections: polyline JSON fallback also failed ({:?}); section will load with an empty polyline",
+                                    e2
+                                );
+                                Vec::new()
+                            })
                         })
                     } else {
                         serde_json::from_str(&polyline_json)
@@ -328,10 +338,8 @@ impl PersistentRouteEngine {
             section.activity_traces.insert(aid, trace);
         }
 
-        let recalced = tracematch::sections::recalculate_section_polyline(
-            &section,
-            &self.section_config,
-        );
+        let recalced =
+            tracematch::sections::recalculate_section_polyline(&section, &self.section_config);
 
         let result = crate::FfiSectionRecalcResult {
             section_id: recalced.id.clone(),
@@ -370,13 +378,22 @@ impl PersistentRouteEngine {
 
     /// Clear all processed activity IDs to force full re-detection.
     pub(crate) fn clear_processed_activity_ids(&mut self) {
-        let _ = self.db.execute("DELETE FROM processed_activities", []);
-        self.processed_activity_ids.clear();
-        log::info!("tracematch: [PersistentEngine] Cleared all processed activity IDs for forced re-detection");
+        // Only clear the in-memory set when the DB delete succeeds; otherwise
+        // the rows reload on next start and memory would disagree with disk.
+        match self.db.execute("DELETE FROM processed_activities", []) {
+            Ok(_) => {
+                self.processed_activity_ids.clear();
+                log::info!(
+                    "tracematch: [PersistentEngine] Cleared all processed activity IDs for forced re-detection"
+                );
+            }
+            Err(e) => {
+                log::warn!("tracematch: failed to clear processed activity IDs: {e:?}");
+            }
+        }
     }
 
     // Section name migration and management methods live in `naming.rs`.
-
 
     // ========================================================================
     // Sections (Background Detection)
@@ -393,12 +410,11 @@ impl PersistentRouteEngine {
         &self,
         sport_type: Option<&str>,
         min_visits: Option<u32>,
-    ) -> Vec<FrequentSection> {
+    ) -> Vec<&FrequentSection> {
         let min = min_visits.unwrap_or(0);
         self.sections
             .iter()
             .filter(|s| sport_type.map_or(true, |st| s.sport_type == st) && s.visit_count >= min)
-            .cloned()
             .collect()
     }
 
@@ -992,8 +1008,6 @@ impl PersistentRouteEngine {
         results
     }
 
-
-
     /// Insert a single section_activities row for a manually matched activity.
     pub fn insert_section_activity(
         &self,
@@ -1007,8 +1021,8 @@ impl PersistentRouteEngine {
         let dir_str = direction.to_string();
 
         // Compute lap_time from time_stream when available (in-memory or DB)
-        let (lap_time, lap_pace) = self
-            .load_lap_time(activity_id, start_index, end_index, distance_meters);
+        let (lap_time, lap_pace) =
+            self.load_lap_time(activity_id, start_index, end_index, distance_meters);
 
         self.db
             .execute(
@@ -1028,7 +1042,7 @@ impl PersistentRouteEngine {
         end_index: u32,
         distance_meters: f64,
     ) -> (Option<f64>, Option<f64>) {
-        let times = if let Some(ts) = self.time_streams.get(activity_id) {
+        let times = if let Some(ts) = self.time_streams.peek(activity_id) {
             Some(ts.clone())
         } else {
             self.db
@@ -1089,15 +1103,15 @@ impl PersistentRouteEngine {
         let rows = stmt
             .query_map(rusqlite::params![section_id], |row| {
                 Ok((
-                    row.get::<_, String>(0)?,           // id
-                    row.get::<_, String>(1)?,           // section_type
-                    row.get::<_, Option<String>>(2)?,   // name
-                    row.get::<_, String>(3)?,           // sport_type
-                    row.get::<_, f64>(4)?,              // distance_meters
-                    row.get::<_, u32>(5)?,              // visit_count
-                    row.get::<_, f64>(6)?,              // center_lat
-                    row.get::<_, f64>(7)?,              // center_lng
-                    row.get::<_, Option<String>>(8)?,   // polyline_json
+                    row.get::<_, String>(0)?,         // id
+                    row.get::<_, String>(1)?,         // section_type
+                    row.get::<_, Option<String>>(2)?, // name
+                    row.get::<_, String>(3)?,         // sport_type
+                    row.get::<_, f64>(4)?,            // distance_meters
+                    row.get::<_, u32>(5)?,            // visit_count
+                    row.get::<_, f64>(6)?,            // center_lat
+                    row.get::<_, f64>(7)?,            // center_lng
+                    row.get::<_, Option<String>>(8)?, // polyline_json
                 ))
             })
             .ok();
@@ -1106,16 +1120,24 @@ impl PersistentRouteEngine {
 
         if let Some(rows) = rows {
             for row in rows.flatten() {
-                let (id, section_type, name, sport_type, distance_meters, visit_count, lat, lng, polyline_json) = row;
+                let (
+                    id,
+                    section_type,
+                    name,
+                    sport_type,
+                    distance_meters,
+                    visit_count,
+                    lat,
+                    lng,
+                    polyline_json,
+                ) = row;
                 let dist = haversine_distance(center_lat, center_lng, lat, lng);
                 if dist > radius_meters {
                     continue;
                 }
 
                 let encoded_polyline = polyline_json
-                    .and_then(|json| {
-                        serde_json::from_str::<Vec<GpsPoint>>(&json).ok()
-                    })
+                    .and_then(|json| serde_json::from_str::<Vec<GpsPoint>>(&json).ok())
                     .map(|points| crate::coords::encode(&points))
                     .unwrap_or_default();
 
@@ -1140,8 +1162,6 @@ impl PersistentRouteEngine {
         results.truncate(20);
         results
     }
-
-
 
     pub(super) fn save_sections(&self) -> SqlResult<()> {
         let tx = self.db.unchecked_transaction()?;
@@ -1253,7 +1273,7 @@ impl PersistentRouteEngine {
             let mut needed: std::collections::HashSet<&str> = std::collections::HashSet::new();
             for section in &sorted_sections {
                 for portion in &section.activity_portions {
-                    if !self.time_streams.contains_key(&portion.activity_id) {
+                    if !self.time_streams.contains(&portion.activity_id) {
                         needed.insert(portion.activity_id.as_str());
                     }
                 }
@@ -1262,7 +1282,10 @@ impl PersistentRouteEngine {
                 HashMap::new()
             } else {
                 let mut map: HashMap<String, Vec<u32>> = HashMap::with_capacity(needed.len());
-                let placeholders = std::iter::repeat("?").take(needed.len()).collect::<Vec<_>>().join(",");
+                let placeholders = std::iter::repeat("?")
+                    .take(needed.len())
+                    .collect::<Vec<_>>()
+                    .join(",");
                 let sql = format!(
                     "SELECT activity_id, times FROM time_streams WHERE activity_id IN ({})",
                     placeholders
@@ -1347,9 +1370,12 @@ impl PersistentRouteEngine {
 
             // Skip new auto sections whose bbox is mostly covered by an accepted section
             if !section.is_user_defined && !accepted_bounds.is_empty() {
-                if let (Some(mn_lat), Some(mx_lat), Some(mn_lng), Some(mx_lng)) =
-                    (bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng)
-                {
+                if let (Some(mn_lat), Some(mx_lat), Some(mn_lng), Some(mx_lng)) = (
+                    bounds_min_lat,
+                    bounds_max_lat,
+                    bounds_min_lng,
+                    bounds_max_lng,
+                ) {
                     let new_area = (mx_lat - mn_lat) * (mx_lng - mn_lng);
                     if new_area > 0.0 {
                         let dominated = accepted_bounds.iter().any(|ab| {
@@ -1435,7 +1461,7 @@ impl PersistentRouteEngine {
             for portion in &section.activity_portions {
                 let times = self
                     .time_streams
-                    .get(&portion.activity_id)
+                    .peek(&portion.activity_id)
                     .map(|v| v.as_slice())
                     .or_else(|| {
                         db_time_streams

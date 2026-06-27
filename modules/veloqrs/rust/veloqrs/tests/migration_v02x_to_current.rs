@@ -53,15 +53,21 @@ fn seed_v02x_db(path: &Path) -> rusqlite::Result<()> {
         M::up(include_str!(
             "../src/migrations/004_extend_activity_metrics.sql"
         )),
-        M::up(include_str!("../src/migrations/005_profile_and_settings.sql")),
-        M::up(include_str!("../src/migrations/006_processed_activities.sql")),
+        M::up(include_str!(
+            "../src/migrations/005_profile_and_settings.sql"
+        )),
+        M::up(include_str!(
+            "../src/migrations/006_processed_activities.sql"
+        )),
         M::up(include_str!(
             "../src/migrations/007_cache_section_performances.sql"
         )),
         M::up(include_str!(
             "../src/migrations/008_cache_all_performance_metrics.sql"
         )),
-        M::up(include_str!("../src/migrations/009_section_bounds_cache.sql")),
+        M::up(include_str!(
+            "../src/migrations/009_section_bounds_cache.sql"
+        )),
         M::up(include_str!(
             "../src/migrations/010_route_groups_activity_count.sql"
         )),
@@ -166,11 +172,7 @@ fn insert_gps_track(
     Ok(())
 }
 
-fn insert_time_stream(
-    conn: &Connection,
-    activity_id: &str,
-    times: &[u32],
-) -> rusqlite::Result<()> {
+fn insert_time_stream(conn: &Connection, activity_id: &str, times: &[u32]) -> rusqlite::Result<()> {
     let blob = rmp_serde::to_vec(times)
         .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
     conn.execute(
@@ -302,12 +304,24 @@ fn seed_standard_scenario(path: &Path) {
         full_track[START_INDEX as usize..END_INDEX as usize].to_vec();
     let polyline_json = encode_polyline_json(&section_polyline);
 
-    insert_activity(&conn, ACTIVITY_ID, SOURCE_SPORT, &full_track, SEED_ACTIVITY_DATE)
-        .expect("insert activity");
+    insert_activity(
+        &conn,
+        ACTIVITY_ID,
+        SOURCE_SPORT,
+        &full_track,
+        SEED_ACTIVITY_DATE,
+    )
+    .expect("insert activity");
     insert_gps_track(&conn, ACTIVITY_ID, &full_track).expect("insert gps_track");
     insert_time_stream(&conn, ACTIVITY_ID, &sample_times(120)).expect("insert time_stream");
-    insert_activity_metrics(&conn, ACTIVITY_ID, SOURCE_SPORT, "Seed Ride", SEED_ACTIVITY_DATE)
-        .expect("insert activity_metrics");
+    insert_activity_metrics(
+        &conn,
+        ACTIVITY_ID,
+        SOURCE_SPORT,
+        "Seed Ride",
+        SEED_ACTIVITY_DATE,
+    )
+    .expect("insert activity_metrics");
 
     insert_custom_section(
         &conn,
@@ -367,7 +381,10 @@ fn sql_level_custom_section_survives_forward_migration() {
             |r| r.get(0),
         )
         .expect("schema_version present");
-    assert_eq!(schema_version, "12", "schema version should be bumped to 12");
+    assert_eq!(
+        schema_version, "12",
+        "schema version should be bumped to 12"
+    );
 
     // rusqlite_migration tracks progress via SQLite's PRAGMA user_version,
     // so applying 12 migrations leaves user_version = 12.
@@ -392,7 +409,16 @@ fn sql_level_custom_section_survives_forward_migration() {
             "SELECT section_type, source_activity_id, start_index, end_index, name, polyline_json
              FROM sections WHERE id = ?",
             params![SECTION_ID],
-            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?)),
+            |r| {
+                Ok((
+                    r.get(0)?,
+                    r.get(1)?,
+                    r.get(2)?,
+                    r.get(3)?,
+                    r.get(4)?,
+                    r.get(5)?,
+                ))
+            },
         )
         .expect("section row survives");
     assert_eq!(section_type, "custom");
@@ -413,8 +439,14 @@ fn sql_level_custom_section_survives_forward_migration() {
             |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
         )
         .expect("new section columns readable");
-    assert_eq!(disabled, 0, "disabled must default to 0 on pre-migration rows");
-    assert!(superseded_by.is_none(), "superseded_by must default to NULL");
+    assert_eq!(
+        disabled, 0,
+        "disabled must default to 0 on pre-migration rows"
+    );
+    assert!(
+        superseded_by.is_none(),
+        "superseded_by must default to NULL"
+    );
     assert!(
         consensus_state_blob.is_none(),
         "consensus_state_blob must default to NULL on pre-migration custom sections"
@@ -430,7 +462,10 @@ fn sql_level_custom_section_survives_forward_migration() {
         )
         .expect("section_activities row survives");
     assert_eq!(excluded, 0, "excluded must default to 0");
-    assert!(avg_hr.is_none(), "avg_hr backfill is lazy — NULL is acceptable");
+    assert!(
+        avg_hr.is_none(),
+        "avg_hr backfill is lazy — NULL is acceptable"
+    );
     assert_eq!(
         stored_lap_time,
         Some(PORTION_LAP_TIME),
@@ -446,7 +481,10 @@ fn sql_level_custom_section_survives_forward_migration() {
             |r| r.get::<_, i64>(0).map(|_| true),
         )
         .unwrap_or(false);
-    assert!(has_perf_index, "idx_section_activities_perf must exist after migration 024");
+    assert!(
+        has_perf_index,
+        "idx_section_activities_perf must exist after migration 024"
+    );
 }
 
 // ----------------------------------------------------------------------------
@@ -476,7 +514,10 @@ fn ffi_custom_section_readable_after_migration() {
         !section.encoded_polyline.is_empty(),
         "encoded polyline must not be empty"
     );
-    assert!(section.is_user_defined, "custom section must report is_user_defined=true");
+    assert!(
+        section.is_user_defined,
+        "custom section must report is_user_defined=true"
+    );
     assert_eq!(
         section.activity_portions.len(),
         1,
@@ -493,7 +534,11 @@ fn ffi_custom_section_readable_after_migration() {
         .into_iter()
         .map(FfiSection::from)
         .collect();
-    assert_eq!(by_type.len(), 1, "exactly one custom section after migration");
+    assert_eq!(
+        by_type.len(),
+        1,
+        "exactly one custom section after migration"
+    );
     let unified = &by_type[0];
     assert_eq!(unified.id, SECTION_ID);
     assert_eq!(unified.section_type, "custom");
@@ -504,8 +549,14 @@ fn ffi_custom_section_readable_after_migration() {
     );
     assert_eq!(unified.start_index, Some(START_INDEX));
     assert_eq!(unified.end_index, Some(END_INDEX));
-    assert!(!unified.disabled, "disabled default must surface as false through FFI");
-    assert!(unified.superseded_by.is_none(), "superseded_by default must be None");
+    assert!(
+        !unified.disabled,
+        "disabled default must surface as false through FFI"
+    );
+    assert!(
+        unified.superseded_by.is_none(),
+        "superseded_by default must be None"
+    );
 
     // get_for_activity — Activity detail "Sections" tab.
     let for_activity: Vec<FfiSection> = engine
@@ -540,12 +591,20 @@ fn ffi_custom_section_readable_after_migration() {
 
     // get_polyline — section detail + maps.
     let flat = engine.get_section_polyline(SECTION_ID);
-    assert!(!flat.is_empty(), "polyline must be non-empty after migration");
-    assert_eq!(flat.len() % 2, 0, "flat polyline must be pairs of (lat, lng)");
+    assert!(
+        !flat.is_empty(),
+        "polyline must be non-empty after migration"
+    );
+    assert_eq!(
+        flat.len() % 2,
+        0,
+        "flat polyline must be pairs of (lat, lng)"
+    );
 
     // get_performances — section detail performance history.
-    let perf: FfiSectionPerformanceResult =
-        engine.get_section_performances_filtered(SECTION_ID, None).into();
+    let perf: FfiSectionPerformanceResult = engine
+        .get_section_performances_filtered(SECTION_ID, None)
+        .into();
     assert!(
         !perf.records.is_empty(),
         "at least one performance record must be derivable from the seeded portion"
@@ -757,7 +816,10 @@ fn ffi_survives_orphan_and_null_edge_cases() {
         .get_section_by_id("custom_1700000000001__nullnm")
         .map(FfiFrequentSection::from)
         .expect("null-name section retrievable");
-    assert!(null_name_section.name.is_none(), "NULL name must come through as None");
+    assert!(
+        null_name_section.name.is_none(),
+        "NULL name must come through as None"
+    );
 
     // Empty polyline — FFI returns empty vec, not a deserialize error.
     let empty_poly = engine

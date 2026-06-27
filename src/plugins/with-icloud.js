@@ -1,4 +1,4 @@
-const { withEntitlementsPlist, withInfoPlist } = require("@expo/config-plugins");
+const { withEntitlementsPlist, withInfoPlist } = require("expo/config-plugins");
 
 /**
  * Expo config plugin that enables iCloud Document Storage for backup.

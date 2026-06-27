@@ -6,7 +6,7 @@
 //!
 //! Run: `cargo test --test indicators -p veloqrs`
 
-use rusqlite::{params, Connection};
+use rusqlite::{Connection, params};
 use std::path::PathBuf;
 use tempfile::TempDir;
 use veloqrs::PersistentRouteEngine;
@@ -25,7 +25,11 @@ fn setup() -> Setup {
     let path_str = path.to_str().unwrap().to_string();
     let engine = PersistentRouteEngine::new(&path_str).expect("engine new");
     let raw = Connection::open(&path).expect("raw open");
-    Setup { engine, raw, _tmp: tmp }
+    Setup {
+        engine,
+        raw,
+        _tmp: tmp,
+    }
 }
 
 fn set_indicator_version(db: &Connection, version: i32) {

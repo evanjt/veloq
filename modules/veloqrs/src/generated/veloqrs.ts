@@ -9018,6 +9018,7 @@ export interface MapManagerLike {
     endDate: /*i64*/ bigint,
     sportTypes: Array<string>,
   ) /*throws*/ : Array<MapActivityComplete>;
+  getSignaturesForIds(ids: Array<string>) /*throws*/ : Array<FfiMapSignature>;
   queryViewport(
     minLat: /*f64*/ number,
     maxLat: /*f64*/ number,
@@ -9106,6 +9107,24 @@ export class MapManager extends UniffiAbstractObject implements MapManagerLike {
             FfiConverterInt64.lower(startDate),
             FfiConverterInt64.lower(endDate),
             FfiConverterArrayString.lower(sportTypes),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  getSignaturesForIds(ids: Array<string>): Array<FfiMapSignature> /*throws*/ {
+    return FfiConverterArrayTypeFfiMapSignature.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_mapmanager_get_signatures_for_ids(
+            uniffiTypeMapManagerObjectFactory.clonePointer(this),
+            FfiConverterArrayString.lower(ids),
             callStatus,
           );
         },
@@ -9793,6 +9812,11 @@ export interface SectionManagerLike {
     timeRangeDays: /*u32*/ number,
     sportFilter: string | undefined,
   ) /*throws*/ : FfiSectionChartData;
+  /**
+   * Total number of sections, without deserializing any section blobs.
+   * Cheap alternative to `get_summaries`/`get_all` for count-only callers.
+   */
+  getCount() /*throws*/ : /*u32*/ number;
   getEfficiencyTrend(
     sectionId: string,
   ) /*throws*/ : FfiEfficiencyTrend | undefined;
@@ -10408,6 +10432,27 @@ export class SectionManager
             FfiConverterString.lower(sectionId),
             FfiConverterUInt32.lower(timeRangeDays),
             FfiConverterOptionalString.lower(sportFilter),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * Total number of sections, without deserializing any section blobs.
+   * Cheap alternative to `get_summaries`/`get_all` for count-only callers.
+   */
+  getCount(): /*u32*/ number /*throws*/ {
+    return FfiConverterUInt32.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_count(
+            uniffiTypeSectionManagerObjectFactory.clonePointer(this),
             callStatus,
           );
         },
@@ -13687,6 +13732,14 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_mapmanager_get_signatures_for_ids() !==
+    17059
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_mapmanager_get_signatures_for_ids",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_mapmanager_query_viewport() !==
     44013
   ) {
@@ -13996,6 +14049,14 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_sectionmanager_get_chart_data",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_count() !==
+    1440
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_sectionmanager_get_count",
     );
   }
   if (

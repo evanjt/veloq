@@ -382,6 +382,7 @@
   "common": {
     "activities": "activiteiten",
     "back": "Terug",
+    "close": "Sluiten",
     "cancel": "Annuleren",
     "clearSearch": "Zoekopdracht wissen",
     "confirm": "Bevestigen",
@@ -473,7 +474,10 @@
     "defaultTitle": "Er ging iets mis",
     "tryAgain": "Opnieuw proberen",
     "unableToLoad": "Kan {{componentName}} niet laden",
-    "restartHint": "Probeer het opnieuw of herstart de app"
+    "restartHint": "Probeer het opnieuw of herstart de app",
+    "unableToDisplay": "Kan {{label}} niet weergeven",
+    "unableToDisplayChart": "Kan grafiek niet weergeven",
+    "tapToRetry": "Tik om opnieuw te proberen"
   },
   "export": {
     "bulkComplete": "Export voltooid",
@@ -631,7 +635,8 @@
       "thresholdSpeedName": "Drempelsnelheid-trendanalyse",
       "thresholdSpeedDescription": "Vergelijkt je laatste drempelsnelheid-schatting met eerdere waarden en zet het verschil om naar leesbaar tempo.",
       "fitnessPrName": "Fitness-PR kruisverwijzing",
-      "sectionTrendName": "Prestatietrend per sectie"
+      "sectionTrendName": "Prestatietrend per sectie",
+      "stalePrCrossRefName": "{{metric}}-PR-kruisverwijzing"
     },
     "alternatives": {
       "selected": "Huidige beoordeling",
@@ -694,7 +699,10 @@
       "metricGain": "{{metric}}-winst",
       "prTime": "PR-tijd",
       "methodology": "Vergelijkt fitnessmaatstaven op het moment van het PR met huidige waarden. Toont secties waar fitnessmaatstaven zijn veranderd sinds het PR werd gezet.",
-      "groupTitle": "{{count}} PR's met fitnessveranderingen"
+      "groupTitle": "{{count}} PR's met fitnessveranderingen",
+      "metricCyclingFtp": "Fiets-FTP",
+      "metricSwimCss": "Zwem-CSS",
+      "metricRunningThreshold": "Drempeltempo hardlopen"
     },
     "disclaimer": "Trainingsmetrieken zijn schattingen op basis van gepubliceerde sportwetenschappen. Individuele reacties variëren. Geen medisch of coachingadvies.",
     "aboutInsights": "Over inzichten",
@@ -727,7 +735,18 @@
       "volumeAppeared": "Volume verschenen in de afgelopen twee weken na een rustigere start.",
       "volumeUp": "Het 2-weken-gemiddelde ligt {{percent}}% boven de vorige 2 weken.",
       "volumeDown": "Het 2-weken-gemiddelde ligt {{percent}}% onder de vorige 2 weken.",
-      "volumeSteady": "Het 2-weken-gemiddelde is stabiel vergeleken met het begin van de maand."
+      "volumeSteady": "Het 2-weken-gemiddelde is stabiel vergeleken met het begin van de maand.",
+      "oneSidedTitle": "{{pair}} toont een eenzijdige verdeling",
+      "dominantTitle": "{{dominant}} draagt meer volume in {{pair}}",
+      "oneSidedBody": "{{dominant}} vertegenwoordigt al het gewogen setvolume voor {{pair}} in de afgelopen 4 weken.",
+      "ratioBody": "{{pair}} komt in het recentste 4-weekse venster gemiddeld uit op {{ratio}} in gewogen sets.",
+      "ratioLabel": "Verhouding",
+      "statusLabel": "Status",
+      "formula": "Gewogen sets per antagonistenpaar",
+      "algorithm": "Vergelijkt gewogen setaantallen tussen gangbare antagonistenparen. Primair werk telt als 1.0 en secundair werk als 0.5.",
+      "methodologyName": "Krachtbalanscontrole",
+      "methodologyDescription": "Vergelijkt gewogen setaantallen tussen antagonistische spierparen over de laatste 4 weken om scheve belasting te signaleren.",
+      "ratioFormula": "verhouding = dominante gewogen sets / secundaire gewogen sets"
     },
     "quickTake": {
       "howCalculated": "Hoe is dit berekend?",
@@ -793,7 +812,38 @@
     "routesDisabledLine1": "Routes & secties uitgeschakeld",
     "routesDisabledLine2": "Tik om in te schakelen",
     "sectionDeclining": "{{name}} wordt langzamer",
-    "sectionDecliningBody": "Recente mediaan: {{median}}. Beste: {{best}} over {{count}} pogingen."
+    "sectionDecliningBody": "Recente mediaan: {{median}}. Beste: {{best}} over {{count}} pogingen.",
+    "strengthProgression": {
+      "upTitle": "Volumegroei zichtbaar bij {{muscle}}",
+      "downTitle": "Volume van {{muscle}} is afgenomen",
+      "newVolumeBody": "{{muscle}} leverde de meeste recente gewogen sets in de huidige 2 weken na een rustigere periode.",
+      "shiftBody": "{{muscle}} ging van {{from}} naar {{to}} gewogen sets in het huidige 2-weekse gemiddelde.",
+      "vsEarlier": "{{change}}% t.o.v. 2 weken eerder",
+      "fourWeekTotal": "4-weeks totaal",
+      "sparklineLabel": "Gewogen sets over 4 weken",
+      "recent2Weeks": "Recente 2 wk",
+      "earlier2Weeks": "Eerdere 2 wk",
+      "changeLabel": "Verandering",
+      "thisWeek": "Deze wk",
+      "weeksAgo": "-{{n}}w",
+      "formula": "Recent 2-weeks gemiddelde vs eerder 2-weeks gemiddelde",
+      "algorithm": "Volgt gewogen sets per spier over de laatste 4 weken. Primair werk telt als 1.0 en secundair werk als 0.5.",
+      "methodologyName": "Krachtvolume-progressie",
+      "methodologyDescription": "Vergelijkt het recente 2-weekse gemiddelde met het eerdere 2-weekse gemiddelde om betekenisvolle veranderingen in gewogen setvolume te detecteren."
+    },
+    "strengthSnapshot": {
+      "title_one": "{{count}} krachtsessie in de laatste 4 weken",
+      "title_other": "{{count}} krachtsessies in de laatste 4 weken",
+      "subtitleWithTop": "{{sessions}} sessies · {{sets}} sets · top: {{muscle}}",
+      "subtitle": "{{sessions}} sessies · {{sets}} sets",
+      "body": "{{sets}} gewogen sets over {{groups}} spiergroepen.",
+      "sessionsLabel": "Sessies",
+      "setsLabel": "Sets",
+      "muscleGroupsLabel": "Spiergroepen",
+      "formula": "Aantallen krachtsessies, gewogen sets en gevolgde spiergroepen",
+      "algorithm": "Bundelt de krachttrainingen van de laatste 4 weken. Primair werk telt als 1.0 en secundair werk als 0.5 per spiergroep.",
+      "methodologyDescription": "Vat het krachtvolume van de laatste 4 weken samen: aantal workouts, totaal gewogen sets en aantal gevolgde spiergroepen."
+    }
   },
   "licenses": {
     "footer": "Tik op een licentiebadge om de volledige licentietekst te bekijken. Tik op het linkpictogram om de projectrepository te bezoeken.",
@@ -1816,6 +1866,8 @@
     "tip_large": "Grote fooi",
     "tipSmall": "Klein",
     "tipMedium": "Gemiddeld",
-    "tipLarge": "Groot"
+    "tipLarge": "Groot",
+    "shareCrashLog": "Crashlogboek delen",
+    "noCrashLog": "Geen crashes geregistreerd"
   }
 }

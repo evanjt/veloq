@@ -382,6 +382,7 @@
   "common": {
     "activities": "アクティビティ",
     "back": "戻る",
+    "close": "閉じる",
     "cancel": "キャンセル",
     "clearSearch": "検索をクリア",
     "confirm": "確認",
@@ -473,7 +474,10 @@
     "defaultTitle": "問題が発生しました",
     "tryAgain": "再試行",
     "unableToLoad": "{{componentName}}を読み込めません",
-    "restartHint": "もう一度お試しいただくか、アプリを再起動してください"
+    "restartHint": "もう一度お試しいただくか、アプリを再起動してください",
+    "unableToDisplay": "{{label}}を表示できません",
+    "unableToDisplayChart": "チャートを表示できません",
+    "tapToRetry": "タップして再試行"
   },
   "export": {
     "bulkComplete": "エクスポート完了",
@@ -631,7 +635,8 @@
       "thresholdSpeedName": "閾値速度トレンド分析",
       "thresholdSpeedDescription": "最新の閾値速度推定値を以前の値と比較し、変化をペースとして表示します。",
       "fitnessPrName": "フィットネス-PRクロスリファレンス",
-      "sectionTrendName": "区間パフォーマンスの傾向"
+      "sectionTrendName": "区間パフォーマンスの傾向",
+      "stalePrCrossRefName": "{{metric}}とPRの照合"
     },
     "alternatives": {
       "selected": "現在の評価",
@@ -694,7 +699,10 @@
       "metricGain": "{{metric}}の向上",
       "prTime": "PRタイム",
       "methodology": "PR時のフィットネス指標と現在の値を比較。PRが設定されてからフィットネス指標が変化したセクションを表示。",
-      "groupTitle": "{{count}}件のPRにフィットネス変化"
+      "groupTitle": "{{count}}件のPRにフィットネス変化",
+      "metricCyclingFtp": "サイクリングFTP",
+      "metricSwimCss": "スイムCSS",
+      "metricRunningThreshold": "ラン閾値ペース"
     },
     "disclaimer": "トレーニング指標は公開された運動科学に基づく推定値です。個人差があります。医療やコーチングのアドバイスではありません。",
     "aboutInsights": "インサイトについて",
@@ -727,7 +735,18 @@
       "volumeAppeared": "静かな立ち上がりの後、直近2週間でボリュームが現れました。",
       "volumeUp": "直近2週間の平均は前の2週間より{{percent}}%上回っています。",
       "volumeDown": "直近2週間の平均は前の2週間より{{percent}}%下回っています。",
-      "volumeSteady": "直近2週間の平均は月初と比べて安定しています。"
+      "volumeSteady": "直近2週間の平均は月初と比べて安定しています。",
+      "oneSidedTitle": "{{pair}}が片側に偏っています",
+      "dominantTitle": "{{pair}}では{{dominant}}のボリュームが多めです",
+      "oneSidedBody": "過去4週間の{{pair}}の加重セットはすべて{{dominant}}によるものです。",
+      "ratioBody": "直近4週間で{{pair}}の加重セット比は平均{{ratio}}です。",
+      "ratioLabel": "比率",
+      "statusLabel": "ステータス",
+      "formula": "拮抗筋ペアごとの加重セット数",
+      "algorithm": "一般的な拮抗筋ペア間で加重セット数を比較します。主働は1.0、補助は0.5として数えます。",
+      "methodologyName": "筋力バランスチェック",
+      "methodologyDescription": "過去4週間の拮抗筋ペア間で加重セット数を比較し、偏った負荷を検出します。",
+      "ratioFormula": "比率 = 優位側の加重セット ÷ 劣位側の加重セット"
     },
     "quickTake": {
       "howCalculated": "どのように計算されましたか？",
@@ -793,7 +812,38 @@
     "routesDisabledLine1": "ルートとセクションが無効です",
     "routesDisabledLine2": "タップして有効にする",
     "sectionDeclining": "{{name}}が遅くなっています",
-    "sectionDecliningBody": "最近の中央値: {{median}}。ベスト: {{best}}（{{count}}回の走行）。"
+    "sectionDecliningBody": "最近の中央値: {{median}}。ベスト: {{best}}（{{count}}回の走行）。",
+    "strengthProgression": {
+      "upTitle": "{{muscle}}のボリュームが伸びています",
+      "downTitle": "{{muscle}}のボリュームが落ち着きました",
+      "newVolumeBody": "{{muscle}}は、静かな期間のあと直近2週間で加重セットの大半を記録しました。",
+      "shiftBody": "{{muscle}}の2週間平均は{{from}}から{{to}}加重セットに変化しました。",
+      "vsEarlier": "前の2週間比 {{change}}%",
+      "fourWeekTotal": "4週間合計",
+      "sparklineLabel": "4週間の加重セット",
+      "recent2Weeks": "直近2週",
+      "earlier2Weeks": "前の2週",
+      "changeLabel": "変化",
+      "thisWeek": "今週",
+      "weeksAgo": "-{{n}}週",
+      "formula": "直近2週間平均と前の2週間平均の比較",
+      "algorithm": "過去4週間の筋肉ごとの加重セットを追跡します。主働は1.0、補助は0.5として数えます。",
+      "methodologyName": "筋力ボリューム推移",
+      "methodologyDescription": "直近2週間の平均を前の2週間の平均と比較し、加重セット量の意味ある変化を検出します。"
+    },
+    "strengthSnapshot": {
+      "title_one": "過去4週間で{{count}}回の筋力セッション",
+      "title_other": "過去4週間で{{count}}回の筋力セッション",
+      "subtitleWithTop": "{{sessions}}回 · {{sets}}セット · 最多: {{muscle}}",
+      "subtitle": "{{sessions}}回 · {{sets}}セット",
+      "body": "{{groups}}の筋群にわたり{{sets}}加重セット。",
+      "sessionsLabel": "セッション",
+      "setsLabel": "セット",
+      "muscleGroupsLabel": "筋群",
+      "formula": "筋力セッション数・加重セット数・追跡中の筋群数の集計",
+      "algorithm": "過去4週間の筋力ワークアウトを集計します。主働は1.0、補助は0.5として各筋群に数えます。",
+      "methodologyDescription": "直近4週間の筋力ボリュームを要約します: ワークアウト数、加重セット合計、追跡中の筋群数。"
+    }
   },
   "licenses": {
     "footer": "ライセンスバッジをタップすると、完全なライセンステキストが表示されます。リンクアイコンをタップすると、プロジェクトリポジトリにアクセスできます。",
@@ -1816,6 +1866,8 @@
     "tip_large": "高額チップ",
     "tipSmall": "少額",
     "tipMedium": "中額",
-    "tipLarge": "高額"
+    "tipLarge": "高額",
+    "shareCrashLog": "クラッシュログを共有",
+    "noCrashLog": "クラッシュは記録されていません"
   }
 }

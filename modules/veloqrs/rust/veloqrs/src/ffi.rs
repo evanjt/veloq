@@ -90,9 +90,11 @@ pub struct ActivitySportMapping {
 pub fn validate_backup_database(path: String) -> Result<String, crate::VeloqError> {
     use rusqlite::{Connection, OpenFlags};
 
-    let conn = Connection::open_with_flags(&path, OpenFlags::SQLITE_OPEN_READ_ONLY)
-        .map_err(|e| crate::VeloqError::Database {
-            msg: format!("Cannot open backup: {}", e),
+    let conn =
+        Connection::open_with_flags(&path, OpenFlags::SQLITE_OPEN_READ_ONLY).map_err(|e| {
+            crate::VeloqError::Database {
+                msg: format!("Cannot open backup: {}", e),
+            }
         })?;
 
     let schema_version: String = conn
@@ -164,10 +166,12 @@ pub fn start_fetch_and_store(
         elapsed_ms(sport_map_start)
     );
 
-    // Clear any previous results
+    // Clear any previous results. Recover from a poisoned lock instead of
+    // aborting (panic=abort): a poisoned FETCH_AND_STORE_RESULT only means a
+    // prior writer panicked, the inner Option is still safe to read/replace.
     FETCH_AND_STORE_RESULT
         .lock()
-        .expect("FETCH_AND_STORE_RESULT mutex poisoned")
+        .unwrap_or_else(|e| e.into_inner())
         .take();
 
     // Reset progress counters
@@ -391,7 +395,7 @@ pub fn start_fetch_and_store(
             if let Some(Some(h)) = handle {
                 let mut guard = crate::persistence::persistent_engine_ffi::TILE_GENERATION_HANDLE
                     .lock()
-                    .expect("TILE_GENERATION_HANDLE mutex poisoned");
+                    .unwrap_or_else(|e| e.into_inner());
                 *guard = Some(h);
             }
         }
@@ -425,7 +429,7 @@ static FETCH_AND_STORE_RESULT: std::sync::Mutex<Option<FetchAndStoreResult>> =
 fn store_fetch_and_store_result(result: FetchAndStoreResult) {
     let mut guard = FETCH_AND_STORE_RESULT
         .lock()
-        .expect("FETCH_AND_STORE_RESULT mutex poisoned");
+        .unwrap_or_else(|e| e.into_inner());
     *guard = Some(result);
 }
 
@@ -440,7 +444,7 @@ pub fn take_fetch_and_store_result() -> Option<FetchAndStoreResult> {
 
     let result = FETCH_AND_STORE_RESULT
         .lock()
-        .expect("FETCH_AND_STORE_RESULT mutex poisoned")
+        .unwrap_or_else(|e| e.into_inner())
         .take();
 
     if let Some(ref r) = result {
@@ -466,19 +470,17 @@ pub fn detect_sections_standalone(
     config_json: String,
 ) -> Result<String, crate::VeloqError> {
     let tracks: Vec<(String, Vec<GpsPoint>)> = serde_json::from_str(&tracks_json)
-        .map_err(|e| crate::VeloqError::ParseError {
-            msg: e.to_string(),
-        })?;
+        .map_err(|e| crate::VeloqError::ParseError { msg: e.to_string() })?;
     let sport_types: std::collections::HashMap<String, String> =
-        serde_json::from_str(&sport_types_json).map_err(|e| crate::VeloqError::ParseError {
-            msg: e.to_string(),
-        })?;
+        serde_json::from_str(&sport_types_json)
+            .map_err(|e| crate::VeloqError::ParseError { msg: e.to_string() })?;
     let config: tracematch::SectionConfig = serde_json::from_str(&config_json)
-        .map_err(|e| crate::VeloqError::ParseError {
-            msg: e.to_string(),
-        })?;
+        .map_err(|e| crate::VeloqError::ParseError { msg: e.to_string() })?;
 
-    let groups = if matches!(config.detection_method, tracematch::DetectionMethod::DensityGrid) {
+    let groups = if matches!(
+        config.detection_method,
+        tracematch::DetectionMethod::DensityGrid
+    ) {
         let match_config = tracematch::MatchConfig {
             min_route_distance: 100.0,
             endpoint_threshold: 500.0,
@@ -487,9 +489,7 @@ pub fn detect_sections_standalone(
         };
         let sigs: Vec<_> = tracks
             .iter()
-            .filter_map(|(id, pts)| {
-                tracematch::RouteSignature::from_points(id, pts, &match_config)
-            })
+            .filter_map(|(id, pts)| tracematch::RouteSignature::from_points(id, pts, &match_config))
             .collect();
         tracematch::group_signatures(&sigs, &match_config)
     } else {
@@ -497,7 +497,6 @@ pub fn detect_sections_standalone(
     };
 
     let sections = tracematch::detect_sections(&tracks, &sport_types, &groups, &config);
-    serde_json::to_string(&sections).map_err(|e| crate::VeloqError::ParseError {
-        msg: e.to_string(),
-    })
+    serde_json::to_string(&sections)
+        .map_err(|e| crate::VeloqError::ParseError { msg: e.to_string() })
 }

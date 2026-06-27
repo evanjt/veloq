@@ -7,6 +7,7 @@
  */
 
 import type {
+  FfiActivityPattern,
   FfiFtpTrend,
   FfiInsightsData,
   FfiPaceTrend,
@@ -191,14 +192,12 @@ export function getActivityHeatmap(
   );
 }
 
-/* eslint-disable @typescript-eslint/no-explicit-any */
-
 /**
  * Get activity patterns detected via k-means clustering on activity features.
  * Returns patterns meeting confidence >= 0.6 threshold.
  * K-means on [day_of_week, duration, TSS, distance] per sport type.
  */
-export function getActivityPatterns(host: DelegateHost): any[] {
+export function getActivityPatterns(host: DelegateHost): FfiActivityPattern[] {
   if (!host.ready) return [];
   return host.timed('getActivityPatterns', () => host.engine.fitness().getActivityPatterns());
 }
@@ -207,7 +206,7 @@ export function getActivityPatterns(host: DelegateHost): any[] {
  * Get the highest-confidence pattern matching today's day_of_week + season.
  * Convenience method for Feed tab teaser (avoids loading all patterns in JS).
  */
-export function getPatternForToday(host: DelegateHost): any | undefined {
+export function getPatternForToday(host: DelegateHost): FfiActivityPattern | undefined {
   if (!host.ready) return undefined;
   return host.timed(
     'getPatternForToday',
@@ -220,13 +219,14 @@ export function getPatternForToday(host: DelegateHost): any | undefined {
  * Consumed by `useActivityPatterns` so the hook is a thin pass-through.
  */
 export function getActivityPatternsWithToday(host: DelegateHost): {
-  today: any | undefined;
-  all: any[];
+  today: FfiActivityPattern | undefined;
+  all: FfiActivityPattern[];
 } {
   if (!host.ready) return { today: undefined, all: [] };
-  return host.timed('getActivityPatternsWithToday', () =>
-    host.engine.fitness().getActivityPatternsWithToday()
-  );
+  return host.timed('getActivityPatternsWithToday', () => {
+    const bundle = host.engine.fitness().getActivityPatternsWithToday();
+    return { today: bundle.today ?? undefined, all: bundle.all };
+  });
 }
 
 export interface WellnessRowInput {

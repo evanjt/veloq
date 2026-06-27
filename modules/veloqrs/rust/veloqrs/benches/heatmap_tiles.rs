@@ -23,7 +23,12 @@ use veloqrs::{PersistentRouteEngine, tiles};
 
 /// Build a single synthetic track of ~`length_m` around a center lat/lng.
 /// Straight-line path, 10 m point spacing, deterministic.
-fn straight_track(center_lat: f64, center_lng: f64, length_m: f64, bearing_deg: f64) -> Vec<GpsPoint> {
+fn straight_track(
+    center_lat: f64,
+    center_lng: f64,
+    length_m: f64,
+    bearing_deg: f64,
+) -> Vec<GpsPoint> {
     let n = (length_m / 10.0).ceil() as usize;
     let br = bearing_deg.to_radians();
     let meters_per_deg_lat = 111_320.0_f64;
@@ -75,9 +80,13 @@ fn bench_single_tile(c: &mut Criterion) {
         let center_lng = 8.55;
         let (x, y) = tile_xy_for(center_lat, center_lng, 8);
         let tracks = vec![straight_track(center_lat, center_lng, 20_000.0, 30.0)];
-        group.bench_with_input(BenchmarkId::new("z8_sparse", 1), &(8u8, x, y, tracks), |b, (z, x, y, t)| {
-            b.iter(|| tiles::generate_heatmap_tile(*z, *x, *y, t));
-        });
+        group.bench_with_input(
+            BenchmarkId::new("z8_sparse", 1),
+            &(8u8, x, y, tracks),
+            |b, (z, x, y, t)| {
+                b.iter(|| tiles::generate_heatmap_tile(*z, *x, *y, t));
+            },
+        );
     }
 
     // z14 medium: 10 tracks through the same ~1 km area
@@ -86,9 +95,13 @@ fn bench_single_tile(c: &mut Criterion) {
         let center_lng = 8.55;
         let (x, y) = tile_xy_for(center_lat, center_lng, 14);
         let tracks = overlapping_tracks(10, center_lat, center_lng, 1_500.0);
-        group.bench_with_input(BenchmarkId::new("z14_medium", 10), &(14u8, x, y, tracks), |b, (z, x, y, t)| {
-            b.iter(|| tiles::generate_heatmap_tile(*z, *x, *y, t));
-        });
+        group.bench_with_input(
+            BenchmarkId::new("z14_medium", 10),
+            &(14u8, x, y, tracks),
+            |b, (z, x, y, t)| {
+                b.iter(|| tiles::generate_heatmap_tile(*z, *x, *y, t));
+            },
+        );
     }
 
     // z17 dense: 50 tracks through the same ~100 m block
@@ -97,9 +110,13 @@ fn bench_single_tile(c: &mut Criterion) {
         let center_lng = 8.55;
         let (x, y) = tile_xy_for(center_lat, center_lng, 17);
         let tracks = overlapping_tracks(50, center_lat, center_lng, 250.0);
-        group.bench_with_input(BenchmarkId::new("z17_dense", 50), &(17u8, x, y, tracks), |b, (z, x, y, t)| {
-            b.iter(|| tiles::generate_heatmap_tile(*z, *x, *y, t));
-        });
+        group.bench_with_input(
+            BenchmarkId::new("z17_dense", 50),
+            &(17u8, x, y, tracks),
+            |b, (z, x, y, t)| {
+                b.iter(|| tiles::generate_heatmap_tile(*z, *x, *y, t));
+            },
+        );
     }
 
     group.finish();
@@ -128,11 +145,7 @@ fn seed_engine(target_count: usize) -> (PersistentRouteEngine, TempDir, PathBuf)
         ..LifecycleConfig::default()
     };
     let corpus = LifecycleCorpus::generate(&cfg);
-    let activities: Vec<_> = corpus
-        .through_e()
-        .into_iter()
-        .cloned()
-        .collect();
+    let activities: Vec<_> = corpus.through_e().into_iter().cloned().collect();
 
     let tmp = TempDir::new().expect("tempdir");
     let db = tmp.path().join("bench.db");
@@ -173,10 +186,9 @@ fn bench_full_cycle(c: &mut Criterion) {
     // Full cycles are O(seconds); keep sample size tight but measurement long.
     group.warm_up_time(Duration::from_secs(2));
 
-    for (label, target, sample_size, measurement_secs) in [
-        ("100", 100usize, 10, 60u64),
-        ("500", 500usize, 10, 300u64),
-    ] {
+    for (label, target, sample_size, measurement_secs) in
+        [("100", 100usize, 10, 60u64), ("500", 500usize, 10, 300u64)]
+    {
         group.sample_size(sample_size);
         group.measurement_time(Duration::from_secs(measurement_secs));
 
@@ -187,7 +199,9 @@ fn bench_full_cycle(c: &mut Criterion) {
         // `set_heatmap_tiles_path` may have kicked off a background run
         // (format-version write triggers dirty). Drain it.
         {
-            if let Ok(mut guard) = veloqrs::persistence::persistent_engine_ffi::TILE_GENERATION_HANDLE.lock() {
+            if let Ok(mut guard) =
+                veloqrs::persistence::persistent_engine_ffi::TILE_GENERATION_HANDLE.lock()
+            {
                 if let Some(handle) = guard.take() {
                     let _ = handle.recv_blocking();
                 }
@@ -201,9 +215,7 @@ fn bench_full_cycle(c: &mut Criterion) {
                     reset_tiles_dir(&tiles_dir);
                     engine.mark_heatmap_dirty();
                     let start = Instant::now();
-                    let handle = engine
-                        .generate_tiles_background()
-                        .expect("handle returned");
+                    let handle = engine.generate_tiles_background().expect("handle returned");
                     let _ = handle.recv_blocking();
                     total += start.elapsed();
                 }

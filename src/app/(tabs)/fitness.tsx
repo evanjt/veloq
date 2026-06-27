@@ -2,35 +2,39 @@ import React, { useState, useEffect, useRef } from 'react';
 import { View, StyleSheet, TouchableOpacity, RefreshControl } from 'react-native';
 import { ScrollView } from 'react-native-gesture-handler';
 import { Text, ActivityIndicator } from 'react-native-paper';
-import { ScreenSafeAreaView, TAB_BAR_SAFE_PADDING } from '@/components/ui';
-import { logScreenRender, logMemory } from '@/lib/debug/renderTimer';
+import {
+  ScreenSafeAreaView,
+  TAB_BAR_SAFE_PADDING,
+  ChartSkeleton,
+  StatsPillSkeleton,
+} from '@/shared/ui';
+import { logScreenRender, logMemory } from '@/shared/debug/renderTimer';
 import * as WebBrowser from 'expo-web-browser';
 import { useSharedValue } from 'react-native-reanimated';
 import { useTranslation } from 'react-i18next';
-import { NetworkErrorState, ErrorStatePreset, ScreenErrorBoundary } from '@/components/ui';
+import { NetworkErrorState, ErrorStatePreset, ScreenErrorBoundary } from '@/shared/ui';
 import {
   FitnessChartCard,
   PerformanceCurveSection,
   FitnessTrendSections,
-} from '@/components/fitness/sections';
-import { TimeRangeSelector, SportToggleSelector, FitnessHeaderStats } from '@/components/fitness';
+  TimeRangeSelector,
+  SportToggleSelector,
+  FitnessHeaderStats,
+} from '@/features/fitness';
 import {
-  useTheme,
-  useChartInteraction,
-  useCollapsibleSections,
   useFitnessRefresh,
   useFitnessComputations,
   useFitnessScreenData,
-  timeRangeToDays,
-  FORM_ZONE_COLORS,
-  FORM_ZONE_LABELS,
-  type TimeRange,
-} from '@/hooks';
-import { useSportPreference, type PrimarySport } from '@/providers';
+} from '@/features/fitness/hooks';
+import { FORM_ZONE_COLORS, FORM_ZONE_LABELS } from '@/features/fitness/lib/fitness';
+import { timeRangeToDays, type TimeRange } from '@/features/wellness';
+import { useTheme, useCollapsibleSections } from '@/shared/app';
+import { useChartInteraction } from '@/shared/charts/useChartInteraction';
+import { useSportPreference, type PrimarySport } from '@/features/fitness/stores';
 import { colors, darkColors, spacing, layout, typography, opacity } from '@/theme';
 import { createSharedStyles } from '@/styles';
 
-import { isNetworkError } from '@/lib/utils/errorHandler';
+import { isNetworkError } from '@/shared/errors/errorHandler';
 
 export default function FitnessScreen() {
   // Performance timing
@@ -158,11 +162,10 @@ export default function FitnessScreen() {
         <View style={styles.header}>
           <Text style={shared.headerTitle}>{t('fitnessScreen.title')}</Text>
         </View>
-        <View style={shared.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={[styles.loadingText, isDark && styles.loadingTextDark]}>
-            {t('fitnessScreen.loadingData')}
-          </Text>
+        <View style={styles.skeletonContainer}>
+          <StatsPillSkeleton />
+          <ChartSkeleton height={180} />
+          <ChartSkeleton height={120} />
         </View>
       </ScreenSafeAreaView>
     );
@@ -461,6 +464,12 @@ const styles = StyleSheet.create({
     ...typography.caption,
     color: colors.primary,
     paddingVertical: spacing.xs,
+  },
+  skeletonContainer: {
+    flex: 1,
+    paddingHorizontal: spacing.md,
+    paddingTop: spacing.md,
+    gap: spacing.md,
   },
   loadingText: {
     ...typography.bodySmall,

@@ -361,7 +361,10 @@ fn enrich_from_ranked(
         };
     }
 
-    let best = perf.best_record.as_ref().or(perf.best_forward_record.as_ref());
+    let best = perf
+        .best_record
+        .as_ref()
+        .or(perf.best_forward_record.as_ref());
     let pr_time_secs = best.map(|r| r.best_time);
     let pr_days_ago = best.map(|r| days_since_epoch(r.activity_date));
 
@@ -402,7 +405,10 @@ fn enrich_from_summary(
     summary: crate::SectionSummary,
     perf: crate::SectionPerformanceResult,
 ) -> crate::FfiWorkoutSection {
-    let best = perf.best_record.as_ref().or(perf.best_forward_record.as_ref());
+    let best = perf
+        .best_record
+        .as_ref()
+        .or(perf.best_forward_record.as_ref());
     let pr_time_secs = best.map(|r| r.best_time);
     let pr_days_ago = best.map(|r| days_since_epoch(r.activity_date));
 

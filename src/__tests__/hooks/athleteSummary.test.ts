@@ -8,15 +8,15 @@ jest.mock('@/api', () => ({
   intervalsApi: {},
 }));
 
-jest.mock('@/providers', () => ({
+jest.mock('@/shared/app/AuthStore', () => ({
   useAuthStore: jest.fn(),
 }));
 
-jest.mock('@/lib/native/routeEngine', () => ({
+jest.mock('@/shared/native/routeEngine', () => ({
   getRouteEngine: () => null,
 }));
 
-jest.mock('@/lib', () => ({
+jest.mock('@/shared/format/format', () => ({
   formatLocalDate: jest.fn(),
   getMonday: jest.fn(),
   getSunday: (monday: Date) => {
@@ -27,31 +27,23 @@ jest.mock('@/lib', () => ({
   getIntlLocale: () => 'en-US',
 }));
 
-import { getISOWeekNumber, formatWeekRange } from '@/hooks/fitness/useAthleteSummary';
+import { getISOWeekNumber, formatWeekRange } from '@/features/fitness/hooks/useAthleteSummary';
 
 // ---------------------------------------------------------------------------
 // getISOWeekNumber
 // ---------------------------------------------------------------------------
 
 describe('getISOWeekNumber', () => {
-  it('returns week 1 for Jan 1 2024 (Monday)', () => {
-    // 2024-01-01 is a Monday, and it's in ISO week 1
-    expect(getISOWeekNumber(new Date(2024, 0, 1))).toBe(1);
-  });
-
-  it('returns week 52 or 53 for Dec 31 depending on year', () => {
-    // 2024-12-31 is a Tuesday → ISO week 1 of 2025
-    expect(getISOWeekNumber(new Date(2024, 11, 31))).toBe(1);
-  });
-
-  it('returns week 1 for Jan 1 2026 (Thursday)', () => {
-    // 2026-01-01 is a Thursday → week containing first Thursday → week 1
-    expect(getISOWeekNumber(new Date(2026, 0, 1))).toBe(1);
-  });
-
-  it('handles year boundary: Dec 29 2025 (Monday) is week 1 of 2026', () => {
-    // 2025-12-29 is a Monday. The Thursday of that week is Jan 1 2026 → week 1 of 2026
-    expect(getISOWeekNumber(new Date(2025, 11, 29))).toBe(1);
+  it('returns ISO week 1 for week-1 dates across year boundaries', () => {
+    const cases: Array<[Date, string]> = [
+      [new Date(2024, 0, 1), 'Jan 1 2024 (Monday) is ISO week 1'],
+      [new Date(2024, 11, 31), 'Dec 31 2024 (Tuesday) → ISO week 1 of 2025'],
+      [new Date(2026, 0, 1), 'Jan 1 2026 (Thursday) → first-Thursday week is week 1'],
+      [new Date(2025, 11, 29), 'Dec 29 2025 (Monday) → week 1 of 2026'],
+    ];
+    for (const [date, label] of cases) {
+      expect({ label, week: getISOWeekNumber(date) }).toEqual({ label, week: 1 });
+    }
   });
 
   it('returns consistent results for all days in same week', () => {
@@ -68,34 +60,16 @@ describe('getISOWeekNumber', () => {
 // ---------------------------------------------------------------------------
 
 describe('formatWeekRange', () => {
-  it('formats same-month range (e.g., "Jan 20-26")', () => {
-    const monday = new Date(2025, 0, 20); // Jan 20, 2025 (Monday)
-    const result = formatWeekRange(monday);
-    expect(result).toBe('Jan 20-26');
-  });
-
-  it('formats cross-month range (e.g., "Jan 27 - Feb 2")', () => {
-    const monday = new Date(2025, 0, 27); // Jan 27, 2025 (Monday)
-    const result = formatWeekRange(monday);
-    expect(result).toBe('Jan 27 - Feb 2');
-  });
-
-  it('formats cross-year range (e.g., "Dec 29 - Jan 4")', () => {
-    const monday = new Date(2025, 11, 29); // Dec 29, 2025 (Monday)
-    const result = formatWeekRange(monday);
-    expect(result).toBe('Dec 29 - Jan 4');
-  });
-
-  it('formats February week correctly', () => {
-    const monday = new Date(2025, 1, 24); // Feb 24, 2025 (Monday)
-    const result = formatWeekRange(monday);
-    // Feb 24 to Mar 2
-    expect(result).toBe('Feb 24 - Mar 2');
-  });
-
-  it('formats a week entirely within a month', () => {
-    const monday = new Date(2025, 5, 2); // Jun 2, 2025 (Monday)
-    const result = formatWeekRange(monday);
-    expect(result).toBe('Jun 2-8');
+  it('formats same-month, cross-month, and cross-year week ranges', () => {
+    const cases: Array<[Date, string]> = [
+      [new Date(2025, 0, 20), 'Jan 20-26'], // same month
+      [new Date(2025, 0, 27), 'Jan 27 - Feb 2'], // cross month
+      [new Date(2025, 11, 29), 'Dec 29 - Jan 4'], // cross year
+      [new Date(2025, 1, 24), 'Feb 24 - Mar 2'], // February into March
+      [new Date(2025, 5, 2), 'Jun 2-8'], // entirely within a month
+    ];
+    for (const [monday, expected] of cases) {
+      expect(formatWeekRange(monday)).toBe(expected);
+    }
   });
 });

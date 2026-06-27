@@ -7,25 +7,18 @@ describe('Route highlight display logic', () => {
   // ActivityCard renders badge when: routeHighlight.trend !== 0 || routeHighlight.isPr
   const shouldShowBadge = (h: { isPr: boolean; trend: number }) => h.trend !== 0 || h.isPr;
 
-  it('shows badge for PR with positive trend', () => {
-    expect(shouldShowBadge({ isPr: true, trend: 1 })).toBe(true);
-  });
-
-  it('shows badge for PR with zero trend (first traversal)', () => {
-    // A PR can have trend=0 if it's the first or second attempt
-    expect(shouldShowBadge({ isPr: true, trend: 0 })).toBe(true);
-  });
-
-  it('shows badge for improving trend without PR', () => {
-    expect(shouldShowBadge({ isPr: false, trend: 1 })).toBe(true);
-  });
-
-  it('shows badge for declining trend without PR', () => {
-    expect(shouldShowBadge({ isPr: false, trend: -1 })).toBe(true);
-  });
-
-  it('hides badge for neutral trend without PR', () => {
-    expect(shouldShowBadge({ isPr: false, trend: 0 })).toBe(false);
+  it('shows badge when PR or non-neutral trend, hides only for neutral non-PR', () => {
+    // A PR can have trend=0 if it's the first or second attempt.
+    const cases: Array<[{ isPr: boolean; trend: number }, boolean]> = [
+      [{ isPr: true, trend: 1 }, true],
+      [{ isPr: true, trend: 0 }, true],
+      [{ isPr: false, trend: 1 }, true],
+      [{ isPr: false, trend: -1 }, true],
+      [{ isPr: false, trend: 0 }, false],
+    ];
+    for (const [input, expected] of cases) {
+      expect(shouldShowBadge(input)).toBe(expected);
+    }
   });
 });
 

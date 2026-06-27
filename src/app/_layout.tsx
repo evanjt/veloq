@@ -9,6 +9,9 @@ if (!__DEV__) {
   LogBox.ignoreLogs(['Require cycle:', 'Sending `onAnimatedValueUpdate`']);
 }
 
+import { installGlobalCrashHandler, setCrashScreen } from '@/shared/debug/crashLog';
+installGlobalCrashHandler();
+
 import { useEffect, useRef, useState } from 'react';
 import { Stack, useSegments, useRouter, Href } from 'expo-router';
 import { PaperProvider, Text } from 'react-native-paper';
@@ -25,80 +28,70 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { configureReanimatedLogger, ReanimatedLogLevel } from 'react-native-reanimated';
 // Use legacy API for SDK 54 compatibility (new API uses File/Directory classes)
 import MapLibre, { Logger as MapLibreLogger } from '@maplibre/maplibre-react-native';
-import {
-  QueryProvider,
-  queryClient,
-  MapPreferencesProvider,
-  NetworkProvider,
-  TopSafeAreaProvider,
-  initializeTheme,
-  useResolvedColorScheme,
-  useAuthStore,
-  initializeSportPreference,
-  initializeHRZones,
-  initializeRouteSettings,
-  initializeLanguage,
-  initializeSupersededSections,
-  initializeDisabledSections,
-  initializeUnitPreference,
-  initializeDashboardPreferences,
-  initializeDebugStore,
-  initializeTileCacheStore,
-  initializeWhatsNewStore,
-  initializeInsightsStore,
-  initializeRecordingPreferences,
-  initializeUploadPermission,
-  initializeNotificationPreferences,
-  initializeNotificationPrompt,
-  initializeSupportStore,
-  useSupportStore,
-  useSyncDateRange,
-  useEngineStatus,
-} from '@/providers';
+import { useAuthStore } from '@/shared/app/AuthStore';
+import { initializeSportPreference, initializeHRZones } from '@/features/fitness/stores';
+import { initializeDashboardPreferences } from '@/features/home/store';
+import { updateWidgetSnapshot } from '@/features/home';
+import { initializeInsightsStore } from '@/features/insights/store';
+import { MapPreferencesProvider } from '@/features/maps/stores/MapPreferencesContext';
+import { initializeTileCacheStore } from '@/features/maps/stores/TileCacheStore';
+import { initializeRecordingPreferences } from '@/features/recording/stores/RecordingPreferencesStore';
+import { initializeUploadPermission } from '@/features/recording/stores/UploadPermissionStore';
+import { initializeDisabledSections } from '@/features/routes/stores/DisabledSectionsStore';
+import { useEngineStatus } from '@/features/routes/stores/EngineStatusStore';
+import { initializeRouteSettings } from '@/features/routes/stores/RouteSettingsStore';
+import { initializeSupersededSections } from '@/features/routes/stores/SupersededSectionsStore';
+import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
+import { initializeDebugStore } from '@/features/settings/stores/DebugStore';
+import { initializeNotificationPreferences } from '@/features/settings/stores/NotificationPreferencesStore';
+import { initializeNotificationPrompt } from '@/features/settings/stores/NotificationPromptStore';
+import { initializeSupportStore, useSupportStore } from '@/shared/app/SupportStore';
+import { initializeWhatsNewStore } from '@/features/settings/stores/WhatsNewStore';
+import { initializeLanguage } from '@/shared/app/LanguageStore';
+import { NetworkProvider } from '@/shared/app/NetworkContext';
+import { initializeTheme, useResolvedColorScheme } from '@/shared/app/ThemeProvider';
+import { TopSafeAreaProvider } from '@/shared/app/TopSafeAreaContext';
+import { initializeUnitPreference } from '@/shared/app/UnitPreferenceStore';
+import { QueryProvider, queryClient } from '@/shared/query/QueryProvider';
 import {
   isHeatmapEnabled,
   getDetectionStrictness,
   getDetectionMethod,
-} from '@/providers/RouteSettingsStore';
-import { formatLocalDate, queryKeys } from '@/lib';
+} from '@/features/routes/stores/RouteSettingsStore';
+import { formatLocalDate } from '@/shared/format/format';
+import { queryKeys } from '@/shared/query/queryKeys';
 import { initializeI18n, i18n } from '@/i18n';
-import { lightTheme, darkTheme, colors, darkColors } from '@/theme';
-import {
-  DemoBanner,
-  GlobalDataSync,
-  ShaderWarmup,
-  OfflineBanner,
-  EngineInitBanner,
-  BottomTabBar,
-  GlobalErrorBoundary,
-  WhatsNewModal,
-  TourReturnPill,
-} from '@/components/ui';
-import { useUploadQueueProcessor } from '@/hooks/recording/useUploadQueueProcessor';
-import { useRouteReoptimization } from '@/hooks/routes/useRouteReoptimization';
+import { lightTheme, darkTheme, colors, darkColors, amberBanner } from '@/theme';
+import { ShaderWarmup, OfflineBanner, BottomTabBar, GlobalErrorBoundary } from '@/shared/ui';
+import { DemoBanner } from './_components/DemoBanner';
+import { GlobalDataSync } from './_components/GlobalDataSync';
+import { EngineInitBanner } from './_components/EngineInitBanner';
+import { WhatsNewModal, TourReturnPill } from '@/features/settings/components/whatsNew';
+import { useUploadQueueProcessor } from '@/features/recording/hooks/useUploadQueueProcessor';
+import { useRouteReoptimization } from '@/features/routes/hooks/useRouteReoptimization';
 import {
   getRouteEngine,
   getRouteDbPath,
   applyDetectionPresetForMethod,
   getStrictnessFromValue,
-} from '@/lib/native/routeEngine';
+} from '@/shared/native/routeEngine';
+import { migrateSettingsToSqlite } from '@/shared/storage';
 import {
-  migrateSettingsToSqlite,
   onAppBackground,
   onAppForeground,
   initWebdavConfig,
-} from '@/lib/backup';
+} from '@/features/settings/lib/autobackup';
 import {
   initializeNotifications,
   setupNotificationReceivedHandler,
   setupNotificationResponseHandler,
   handleInitialNotificationResponse,
   hasNotificationPermission,
-} from '@/lib/notifications/notificationService';
+} from '@/features/settings/lib/notificationService';
 
 // Register background insight task at module scope (required by TaskManager)
-import '@/lib/notifications/backgroundInsightTask';
-import { registerBackgroundNotificationTask } from '@/lib/notifications/backgroundInsightTask';
+import '@/features/insights/backgroundInsightTask';
+import { registerBackgroundNotificationTask } from '@/features/insights/backgroundInsightTask';
 
 // Suppress Reanimated strict mode warnings from Victory Native charts
 // These occur because Victory uses shared values during render (known library behavior)
@@ -141,6 +134,10 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const isLoading = useAuthStore((s) => s.isLoading);
   const initializeRange = useSyncDateRange((s) => s.initializeRange);
+
+  useEffect(() => {
+    setCrashScreen(routeParts.join('/') || 'root');
+  }, [routeParts]);
 
   // Process queued uploads on network restore / app foreground
   useUploadQueueProcessor();
@@ -264,6 +261,9 @@ function AuthGate({ children }: { children: React.ReactNode }) {
     const sub = AppState.addEventListener('change', (state) => {
       if (state === 'background') {
         onAppBackground();
+        // Refresh the home-screen widget with the latest data while we have the
+        // engine warm. No-op until the native widget module is built in.
+        updateWidgetSnapshot();
       }
       if (state === 'active') {
         onAppForeground();
@@ -280,7 +280,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
         const {
           getNotificationPreferences,
           useNotificationPreferences,
-        } = require('@/providers/NotificationPreferencesStore');
+        } = require('@/features/settings/stores/NotificationPreferencesStore');
         const prefs = getNotificationPreferences();
         if (prefs.enabled) {
           hasNotificationPermission().then((granted) => {
@@ -491,12 +491,12 @@ export default function RootLayout() {
     const {
       getNotificationPreferences,
       retryPendingUnregister,
-    } = require('@/providers/NotificationPreferencesStore');
-    const { useAuthStore: authStore } = require('@/providers/AuthStore');
+    } = require('@/features/settings/stores/NotificationPreferencesStore');
+    const { useAuthStore: authStore } = require('@/shared/app/AuthStore');
     const prefs = getNotificationPreferences();
     const { athleteId, isDemoMode: demo } = authStore.getState();
     if (prefs.enabled && athleteId && !demo) {
-      const { registerPushToken } = require('@/lib/notifications/pushTokenRegistration');
+      const { registerPushToken } = require('@/features/settings/lib/pushTokenRegistration');
       registerPushToken(athleteId);
     } else if (!prefs.enabled && prefs.pendingUnregister && athleteId) {
       retryPendingUnregister(athleteId);
@@ -530,7 +530,6 @@ export default function RootLayout() {
                 <PaperProvider theme={theme}>
                   <StatusBar
                     style={colorScheme === 'dark' ? 'light' : 'dark'}
-                    translucent={Platform.OS === 'ios'}
                     hidden={SCREENSHOT_MODE}
                     animated
                   />
@@ -538,9 +537,13 @@ export default function RootLayout() {
                     {startupError ? (
                       <View
                         style={{
-                          backgroundColor: colorScheme === 'dark' ? '#3F2A17' : '#FEF3C7',
+                          backgroundColor:
+                            colorScheme === 'dark' ? amberBanner.dark.bg : amberBanner.light.bg,
                           borderBottomWidth: 1,
-                          borderBottomColor: colorScheme === 'dark' ? '#92400E' : '#F59E0B',
+                          borderBottomColor:
+                            colorScheme === 'dark'
+                              ? amberBanner.dark.border
+                              : amberBanner.light.border,
                           paddingHorizontal: 16,
                           paddingVertical: 10,
                         }}
@@ -556,7 +559,10 @@ export default function RootLayout() {
                           <Text
                             style={{
                               flex: 1,
-                              color: colorScheme === 'dark' ? '#FDE68A' : '#92400E',
+                              color:
+                                colorScheme === 'dark'
+                                  ? amberBanner.dark.text
+                                  : amberBanner.light.text,
                               fontSize: 13,
                               lineHeight: 18,
                             }}
@@ -568,7 +574,10 @@ export default function RootLayout() {
                           <Text
                             style={{
                               marginTop: 4,
-                              color: colorScheme === 'dark' ? '#FCD34D' : '#B45309',
+                              color:
+                                colorScheme === 'dark'
+                                  ? amberBanner.dark.subtext
+                                  : amberBanner.light.subtext,
                               fontSize: 12,
                             }}
                             numberOfLines={2}

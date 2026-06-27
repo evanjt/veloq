@@ -16,25 +16,28 @@ jest.mock('veloqrs', () => ({
     setDebugEnabled: jest.fn(),
   },
 }));
-jest.mock('@/lib/debug/renderTimer', () => ({
+jest.mock('@/shared/debug/renderTimer', () => ({
   recordFFIMetric: jest.fn(),
 }));
 
-// TileCacheStore imports @/lib which triggers a deep import chain
-// (debug.ts __DEV__, routeEngine.ts -> expo-file-system). Mock the barrel export.
+// TileCacheStore imports debug, whose chain pulls in routeEngine ->
+// expo-file-system. Mock the debug module so the chain stays out of node tests.
 const noop = () => {};
-jest.mock('@/lib', () => ({
+jest.mock('@/shared/debug/debug', () => ({
   debug: { create: () => noop },
 }));
 
 // DebugStore
-import { useDebugStore, isDebugEnabled } from '@/providers/DebugStore';
+import { useDebugStore, isDebugEnabled } from '@/features/settings/stores/DebugStore';
 
 // WhatsNewStore
-import { useWhatsNewStore, initializeWhatsNewStore } from '@/providers/WhatsNewStore';
+import {
+  useWhatsNewStore,
+  initializeWhatsNewStore,
+} from '@/features/settings/stores/WhatsNewStore';
 
 // TileCacheStore
-import { useTileCacheStore, initializeTileCacheStore } from '@/providers/TileCacheStore';
+import { useTileCacheStore, initializeTileCacheStore } from '@/features/maps/stores/TileCacheStore';
 
 // Storage keys (must match store implementations)
 const DEBUG_MODE_KEY = 'veloq-debug-mode';

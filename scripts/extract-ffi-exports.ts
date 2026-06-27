@@ -254,10 +254,13 @@ if (checkMode) {
   }
 
   // Verify all function names match
+  // \b before bare `name` so map keys ending in `_name` (e.g. `set_name:`
+  // in RUST_TO_TS_NAME) don't get captured as a `name:` field, which would
+  // pull the camelCase value into the set and falsely flag it as removed.
   const existingNames = new Set(
     [
       ...existingContent.matchAll(
-        /(?:["']name["']|name)\s*:\s*["']([A-Za-z0-9_]+)["']/g
+        /(?:["']name["']|\bname)\s*:\s*["']([A-Za-z0-9_]+)["']/g
       ),
     ].map((m) => m[1])
   );
@@ -290,7 +293,40 @@ if (checkMode) {
     process.exit(1);
   }
 
-  console.log(`✓ FFI manifest is up to date (${exports.length} exports)`);
+  // Signature drift: compare arity + return type by stable object::name key, so
+  // a parameter or return-type change in Rust fails the check even when the name
+  // and export count are unchanged. Keyed by object::name (not file:line) so an
+  // unrelated code move does not trip a false positive.
+  const sigKey = (e: { object?: string; name: string }) => `${e.object ?? '<standalone>'}::${e.name}`;
+  const manifestArray = existingContent.match(/FFI_EXPORTS:\s*FfiExportInfo\[\]\s*=\s*(\[[\s\S]*?\n\]);/);
+  if (manifestArray) {
+    let manifestEntries: { name: string; object?: string; paramCount?: number; returnType?: string }[] =
+      [];
+    try {
+      manifestEntries = JSON.parse(manifestArray[1]);
+    } catch {
+      manifestEntries = [];
+    }
+    const manifestSig = new Map(manifestEntries.map((e) => [sigKey(e), e]));
+    const drift: string[] = [];
+    for (const exp of exports) {
+      const m = manifestSig.get(sigKey(exp));
+      if (!m || m.paramCount == null) continue; // add/remove handled above; skip legacy entries
+      if (m.paramCount !== exp.params.length || (m.returnType ?? '') !== exp.returnType) {
+        drift.push(
+          `${sigKey(exp)}: manifest ${m.paramCount}p/${m.returnType ?? '?'} vs Rust ${exp.params.length}p/${exp.returnType}`
+        );
+      }
+    }
+    if (drift.length > 0) {
+      console.error('ERROR: FFI signature drift detected (arity/return type changed)!');
+      drift.forEach((d) => console.error('  ' + d));
+      console.error('Run: npm run ffi:manifest');
+      process.exit(1);
+    }
+  }
+
+  console.log(`✓ FFI manifest is up to date (${exports.length} exports, signatures match)`);
   process.exit(0);
 }
 
@@ -363,6 +399,10 @@ export interface FfiExportInfo {
   file: string;
   /** Line number in source file */
   line: number;
+  /** Number of parameters (excluding self). */
+  paramCount: number;
+  /** Raw Rust return type, or 'void'. */
+  returnType: string;
   /** If defined, the UniFFI Object that owns this method. */
   object?: string;
 }
@@ -372,9 +412,10 @@ export interface FfiExportInfo {
  * Total: ${exports.length} exports (${standaloneCount} standalone + ${methodCount} methods)
  */
 export const FFI_EXPORTS: FfiExportInfo[] = ${JSON.stringify(
-    exports.map(({ name, camelName, file, line, object }) =>
-      object ? { name, camelName, file, line, object } : { name, camelName, file, line }
-    ),
+    exports.map(({ name, camelName, file, line, object, params, returnType }) => {
+      const base = { name, camelName, file, line, paramCount: params.length, returnType };
+      return object ? { ...base, object } : base;
+    }),
     null,
     2
   )};

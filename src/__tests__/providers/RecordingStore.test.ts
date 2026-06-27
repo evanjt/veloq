@@ -1,4 +1,4 @@
-import { useRecordingStore, getRecordingStatus } from '@/providers/RecordingStore';
+import { useRecordingStore, getRecordingStatus } from '@/features/recording/stores/RecordingStore';
 import type { RecordingGpsPoint } from '@/types';
 
 function resetStore() {
@@ -397,48 +397,29 @@ describe('RecordingStore', () => {
     });
   });
 
-  describe('addHeartrate()', () => {
-    it('appends HR value while recording', () => {
-      useRecordingStore.getState().startRecording('Ride', 'gps');
-      useRecordingStore.getState().addHeartrate(145, Date.now());
-      useRecordingStore.getState().addHeartrate(150, Date.now());
+  describe('addHeartrate() / addPower() / addCadence()', () => {
+    const sensors = [
+      { stream: 'heartrate' as const, add: 'addHeartrate' as const, values: [145, 150] },
+      { stream: 'power' as const, add: 'addPower' as const, values: [200, 220] },
+      { stream: 'cadence' as const, add: 'addCadence' as const, values: [90, 92] },
+    ];
 
-      expect(useRecordingStore.getState().streams.heartrate).toEqual([145, 150]);
+    it('appends sensor values while recording', () => {
+      for (const { stream, add, values } of sensors) {
+        resetStore();
+        useRecordingStore.getState().startRecording('Ride', 'gps');
+        useRecordingStore.getState()[add](values[0], Date.now());
+        useRecordingStore.getState()[add](values[1], Date.now());
+        expect(useRecordingStore.getState().streams[stream]).toEqual(values);
+      }
     });
 
-    it('is ignored when not recording', () => {
-      useRecordingStore.getState().addHeartrate(145, Date.now());
-      expect(useRecordingStore.getState().streams.heartrate).toEqual([]);
-    });
-  });
-
-  describe('addPower()', () => {
-    it('appends power value while recording', () => {
-      useRecordingStore.getState().startRecording('Ride', 'gps');
-      useRecordingStore.getState().addPower(200, Date.now());
-      useRecordingStore.getState().addPower(220, Date.now());
-
-      expect(useRecordingStore.getState().streams.power).toEqual([200, 220]);
-    });
-
-    it('is ignored when not recording', () => {
-      useRecordingStore.getState().addPower(200, Date.now());
-      expect(useRecordingStore.getState().streams.power).toEqual([]);
-    });
-  });
-
-  describe('addCadence()', () => {
-    it('appends cadence value while recording', () => {
-      useRecordingStore.getState().startRecording('Ride', 'gps');
-      useRecordingStore.getState().addCadence(90, Date.now());
-      useRecordingStore.getState().addCadence(92, Date.now());
-
-      expect(useRecordingStore.getState().streams.cadence).toEqual([90, 92]);
-    });
-
-    it('is ignored when not recording', () => {
-      useRecordingStore.getState().addCadence(90, Date.now());
-      expect(useRecordingStore.getState().streams.cadence).toEqual([]);
+    it('ignores sensor values when not recording', () => {
+      for (const { stream, add, values } of sensors) {
+        resetStore();
+        useRecordingStore.getState()[add](values[0], Date.now());
+        expect(useRecordingStore.getState().streams[stream]).toEqual([]);
+      }
     });
   });
 

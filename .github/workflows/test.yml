@@ -9,6 +9,9 @@ on:
 env:
   NODE_VERSION: "22"
 
+permissions:
+  contents: read
+
 jobs:
   jest:
     name: Jest
@@ -30,7 +33,7 @@ jobs:
         run: npm ci
 
       - name: Run tests
-        run: npm test -- --maxWorkers=2
+        run: npm test -- --coverage --maxWorkers=2
         env:
           # Prevent jest-expo from loading expo/virtual/streams polyfill.
           # The polyfill replaces native ReadableStream and its cancel()
@@ -59,6 +62,64 @@ jobs:
       - name: Run Rust tests
         working-directory: modules/veloqrs/rust
         run: cargo test --workspace
+
+  rust-lint:
+    name: Rust Lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      # Pinned to the toolchain the tree is formatted with; bump this together
+      # with a fresh `cargo fmt` run when the local toolchain moves.
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@1.95.0
+        with:
+          components: rustfmt, clippy
+
+      - name: Cache Rust
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: modules/veloqrs/rust
+          key: lint
+
+      - name: Check formatting
+        working-directory: modules/veloqrs/rust
+        run: cargo fmt --check
+
+      # Informational: the veloqrs crate carries a ~115-lint backlog. Burn it
+      # down, then flip this to `-D warnings` to gate.
+      - name: Clippy (informational)
+        continue-on-error: true
+        working-directory: modules/veloqrs/rust
+        run: cargo clippy --workspace
+
+  guards:
+    name: Guard Scripts
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "${{ env.NODE_VERSION }}"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      # check:expo + ffi:check + crash:guard + lint:engine-bridge — the same guards
+      # the pre-commit hook runs, so a PR can't merge past them with --no-verify.
+      - name: Run guard scripts
+        run: npm run audit
 
   verify-bindings:
     name: Verify Bindings

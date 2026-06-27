@@ -10,29 +10,30 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Text } from 'react-native-paper';
-import { ScreenSafeAreaView, TAB_BAR_SAFE_PADDING } from '@/components/ui';
-import { CollapsibleSection } from '@/components/ui';
+import { ScreenSafeAreaView, TAB_BAR_SAFE_PADDING } from '@/shared/ui';
+import { CollapsibleSection } from '@/shared/ui';
 import { router } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
-import { useTheme } from '@/hooks';
-import { colors, darkColors, spacing, layout, typography, brand } from '@/theme';
-import { getActivityIcon, getActivityColor } from '@/lib/utils/activityUtils';
-import type { MaterialIconName } from '@/lib/utils/activityUtils';
-import { ACTIVITY_CATEGORIES, getRecordingMode } from '@/lib/utils/recordingModes';
-import { useRecordingPreferences } from '@/providers/RecordingPreferencesStore';
-import { useRecordingStore } from '@/providers/RecordingStore';
-import { useCanRecord } from '@/hooks/recording/useCanRecord';
-import { usePermissionUpgrade } from '@/hooks/recording/usePermissionUpgrade';
+import { useTheme } from '@/shared/app';
+import { colors, colorWithOpacity, darkColors, spacing, layout, typography, brand } from '@/theme';
+import { getActivityIcon, getActivityColor } from '@/features/activity/lib/activityUtils';
+import type { MaterialIconName } from '@/features/activity/lib/activityUtils';
+import { ACTIVITY_CATEGORIES, getRecordingMode } from '@/features/recording/lib/recordingModes';
+import { useRecordingPreferences } from '@/features/recording/stores/RecordingPreferencesStore';
+import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
+import { useCanRecord } from '@/features/recording/hooks/useCanRecord';
+import { usePermissionUpgrade } from '@/features/recording/hooks/usePermissionUpgrade';
 import {
   hasRecordingBackup,
   loadRecordingBackup,
   clearRecordingBackup,
-} from '@/lib/storage/recordingBackup';
+} from '@/features/recording/lib/storage/recordingBackup';
 import { intervalsApi } from '@/api';
-import { formatLocalDate, formatDuration, navigateTo } from '@/lib';
+import { navigateTo } from '@/shared/app/navigation';
+import { formatLocalDate, formatDuration } from '@/shared/format/format';
 import type { ActivityType, CalendarEvent } from '@/types';
 
 const DEFAULT_QUICK_TYPES: ActivityType[] = [
@@ -212,6 +213,8 @@ export default function RecordScreen() {
             testID="record-back"
             onPress={() => router.back()}
             style={styles.backButton}
+            accessibilityRole="button"
+            accessibilityLabel={t('common.back', 'Back')}
           >
             <MaterialCommunityIcons name="arrow-left" size={24} color={textPrimary} />
           </TouchableOpacity>
@@ -263,6 +266,8 @@ export default function RecordScreen() {
           testID="record-back"
           onPress={() => router.back()}
           style={styles.backButton}
+          accessibilityRole="button"
+          accessibilityLabel={t('common.back', 'Back')}
         >
           <MaterialCommunityIcons name="arrow-left" size={24} color={textPrimary} />
         </TouchableOpacity>
@@ -275,6 +280,8 @@ export default function RecordScreen() {
           onPress={() => navigateTo('/recording-settings')}
           style={styles.settingsButton}
           activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityLabel={t('settings.title', 'Settings')}
         >
           <MaterialCommunityIcons name="cog-outline" size={22} color={textSecondary} />
         </TouchableOpacity>
@@ -429,27 +436,27 @@ function GpsReadinessBar({
   > = {
     checking: {
       icon: 'crosshairs-question',
-      color: '#9CA3AF',
+      color: colors.iconNeutral,
       text: t('recording.gpsAcquiring'),
-      bgColor: 'rgba(156, 163, 175, 0.1)',
+      bgColor: colorWithOpacity(colors.iconNeutral, 0.1),
     },
     ready: {
       icon: 'crosshairs-gps',
-      color: '#22C55E',
+      color: colors.success,
       text: t('recording.gpsReady'),
-      bgColor: 'rgba(34, 197, 94, 0.1)',
+      bgColor: colorWithOpacity(colors.success, 0.1),
     },
     weak: {
       icon: 'crosshairs',
-      color: '#F59E0B',
+      color: colors.warning,
       text: t('recording.gpsWeakWarning'),
-      bgColor: 'rgba(245, 158, 11, 0.1)',
+      bgColor: colorWithOpacity(colors.warning, 0.1),
     },
     none: {
       icon: 'crosshairs-off',
-      color: '#EF4444',
+      color: colors.error,
       text: t('recording.gpsNone', 'Location denied'),
-      bgColor: 'rgba(239, 68, 68, 0.1)',
+      bgColor: colorWithOpacity(colors.error, 0.1),
     },
   };
 
@@ -659,18 +666,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingVertical: spacing.sm + 2,
     borderRadius: 8,
-    backgroundColor: '#F59E0B',
+    backgroundColor: colors.warning,
     minWidth: 140,
     alignItems: 'center',
   },
   permissionButtonText: {
-    color: '#FFFFFF',
+    color: colors.textOnDark,
     fontSize: 16,
     fontWeight: '600',
   },
   permissionError: {
     fontSize: 13,
-    color: '#DC2626',
+    color: colors.errorDark,
     textAlign: 'center',
   },
 });

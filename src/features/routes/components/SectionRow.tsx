@@ -1,0 +1,591 @@
+/**
+ * Section row component.
+ * Displays a frequently-traveled road section with polyline preview and stats.
+ * Now shows activity traces overlaid on section for richer visualization.
+ *
+ * Supports both full sections (FrequentSection) and lightweight summaries (SectionSummary).
+ * When using summaries, the polyline is lazy-loaded on-demand.
+ */
+
+import React, { memo, useCallback, useMemo, useId } from 'react';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { useSectionPolyline } from '@/features/routes/hooks/useRouteEngine';
+import { useTheme, useMetricSystem } from '@/shared/app';
+import { Text } from 'react-native-paper';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import Svg, { Polyline, G, Defs, LinearGradient, Stop, Rect, Circle } from 'react-native-svg';
+import { useTranslation } from 'react-i18next';
+import {
+  colors,
+  darkColors,
+  spacing,
+  layout,
+  typography,
+  shadows,
+  mapPreviewColors,
+  colorWithOpacity,
+} from '@/theme';
+import { getActivityColor, getActivityIcon } from '@/features/activity/lib/activityUtils';
+import { formatDistance } from '@/shared/format/format';
+import { getBoundsFromPoints } from '@/shared/geo/polyline';
+import type { ActivityType, FrequentSection, RoutePoint } from '@/types';
+import type { SectionSummary } from 'veloqrs';
+
+/** A single activity's trace through the section */
+export interface ActivityTrace {
+  activityId: string;
+  /** The portion of the GPS track that overlaps with the section */
+  points: [number, number][];
+}
+
+/**
+ * Section data that can be displayed in a row.
+ * Supports both full FrequentSection and lightweight SectionSummary.
+ */
+interface SectionRowData {
+  id: string;
+  name?: string;
+  sportType: string;
+  distanceMeters: number;
+  visitCount: number;
+  /** Number of activities (from activityCount or activityIds.length) */
+  activityCount: number;
+  /** Polyline (optional - will be lazy-loaded if not provided) */
+  polyline?: RoutePoint[];
+  /** Section type (auto, custom, potential) */
+  sectionType?: string;
+  /** All sport types present in this section's activities */
+  sportTypes?: string[];
+  /** Whether this section has been accepted/pinned by the user */
+  isUserDefined?: boolean;
+}
+
+interface SectionRowProps {
+  /** Section data - can be FrequentSection or SectionSummary */
+  section: FrequentSection | SectionSummary | SectionRowData;
+  /** Optional pre-loaded activity traces for this section */
+  activityTraces?: ActivityTrace[];
+  /** Whether this section is disabled/hidden */
+  isDisabled?: boolean;
+  /** Distance from user's current location in meters */
+  distanceFromUser?: number;
+  onPress?: (id: string) => void;
+}
+
+/**
+ * Normalize section data to a common format.
+ * Handles both FrequentSection (with polyline, activityIds) and
+ * SectionSummary (lightweight, no polyline).
+ */
+function normalizeSectionData(
+  section: FrequentSection | SectionSummary | SectionRowData
+): SectionRowData {
+  // Check if it's a FrequentSection (has activityIds array)
+  if ('activityIds' in section && Array.isArray(section.activityIds)) {
+    // Use activityCount if available (preserved from SectionSummary), else count array
+    const activityCount =
+      'activityCount' in section && typeof section.activityCount === 'number'
+        ? section.activityCount
+        : section.activityIds.length;
+    return {
+      id: section.id,
+      name: section.name,
+      sportType: section.sportType,
+      distanceMeters: section.distanceMeters,
+      visitCount: section.visitCount,
+      activityCount,
+      polyline: section.polyline,
+      sectionType:
+        'sectionType' in section ? (section as { sectionType: string }).sectionType : undefined,
+      sportTypes:
+        'sportTypes' in section ? (section as { sportTypes: string[] }).sportTypes : undefined,
+      isUserDefined:
+        'isUserDefined' in section
+          ? (section as { isUserDefined: boolean }).isUserDefined
+          : undefined,
+    };
+  }
+  // Check if it's a SectionSummary (has activityCount number)
+  if ('activityCount' in section && typeof section.activityCount === 'number') {
+    return {
+      id: section.id,
+      name: section.name,
+      sportType: section.sportType,
+      distanceMeters: section.distanceMeters,
+      visitCount: section.visitCount,
+      activityCount: section.activityCount,
+      polyline: undefined, // Will be lazy-loaded
+      sectionType:
+        'sectionType' in section ? (section as { sectionType: string }).sectionType : undefined,
+      sportTypes:
+        'sportTypes' in section ? (section as { sportTypes: string[] }).sportTypes : undefined,
+      isUserDefined:
+        'isUserDefined' in section
+          ? (section as { isUserDefined: boolean }).isUserDefined
+          : undefined,
+    };
+  }
+  // Already normalized
+  return section as SectionRowData;
+}
+
+// Activity trace colors - muted versions of the primary color
+const TRACE_COLORS = [
+  'rgba(252, 76, 2, 0.15)', // Primary orange, very muted
+  'rgba(252, 76, 2, 0.20)',
+  'rgba(252, 76, 2, 0.25)',
+  'rgba(252, 76, 2, 0.30)',
+];
+
+const PREVIEW_WIDTH = 48;
+const PREVIEW_HEIGHT = 36;
+const PREVIEW_PADDING = 4;
+
+export const SectionRow = memo(function SectionRow({
+  section: rawSection,
+  activityTraces,
+  isDisabled,
+  distanceFromUser,
+  onPress,
+}: SectionRowProps) {
+  const { t } = useTranslation();
+  const { isDark } = useTheme();
+  const isMetric = useMetricSystem();
+  // Unique ID for SVG gradient to avoid collisions between multiple instances
+  const uniqueId = useId();
+  const gradientId = `sectionGradient-${uniqueId}`;
+
+  // Normalize section data to common format
+  const section = useMemo(() => normalizeSectionData(rawSection), [rawSection]);
+
+  // Lazy-load polyline if not provided (e.g., when using SectionSummary)
+  // This is fast - Rust query with LRU caching
+  // Note: Check length, not truthiness - empty array [] is truthy but means "not loaded"
+  const shouldLazyLoad = !section.polyline?.length;
+  const { polyline: lazyPolyline } = useSectionPolyline(shouldLazyLoad ? section.id : null);
+
+  // Use provided polyline or lazy-loaded one
+  // Note: Check length, not truthiness - empty array [] is truthy
+  const polyline = section.polyline?.length ? section.polyline : lazyPolyline;
+
+  const handlePress = useCallback(() => {
+    onPress?.(section.id);
+  }, [onPress, section.id]);
+
+  // Compute bounds from section polyline only (not activity traces)
+  // This ensures the thumbnail accurately represents the section geometry
+  const bounds = useMemo(() => {
+    if (!polyline?.length) return null;
+
+    // Use utility for bounds calculation
+    const mapBounds = getBoundsFromPoints(polyline);
+    if (!mapBounds) return null;
+
+    // Extract min/max from MapLibre bounds format
+    const [minLng, minLat] = mapBounds.sw;
+    const [maxLng, maxLat] = mapBounds.ne;
+
+    // Calculate range for SVG normalization
+    const latRange = maxLat - minLat || 0.001;
+    const lngRange = maxLng - minLng || 0.001;
+    const range = Math.max(latRange, lngRange);
+
+    return { minLat, maxLat, minLng, maxLng, range };
+  }, [polyline]);
+
+  // Normalize point to SVG coordinates
+  const normalizePoint = (lat: number, lng: number): { x: number; y: number } => {
+    if (!bounds) return { x: 0, y: 0 };
+    return {
+      x:
+        PREVIEW_PADDING +
+        ((lng - bounds.minLng) / bounds.range) * (PREVIEW_WIDTH - 2 * PREVIEW_PADDING),
+      y:
+        PREVIEW_PADDING +
+        (1 - (lat - bounds.minLat) / bounds.range) * (PREVIEW_HEIGHT - 2 * PREVIEW_PADDING),
+    };
+  };
+
+  // Normalize section polyline
+  const sectionPolylineString = useMemo(() => {
+    if (!polyline?.length || !bounds) return '';
+    return polyline
+      .map((p) => {
+        const { x, y } = normalizePoint(p.lat, p.lng);
+        return `${x},${y}`;
+      })
+      .join(' ');
+  }, [polyline, bounds]);
+
+  // Normalize activity traces
+  const normalizedTraces = useMemo(() => {
+    if (!activityTraces?.length || !bounds) return [];
+    return activityTraces.slice(0, 4).map((trace, idx) => ({
+      id: trace.activityId,
+      points: trace.points
+        .map(([lat, lng]) => {
+          const { x, y } = normalizePoint(lat, lng);
+          return `${x},${y}`;
+        })
+        .join(' '),
+      color: TRACE_COLORS[idx % TRACE_COLORS.length],
+    }));
+  }, [activityTraces, bounds]);
+
+  const hasTraces = normalizedTraces.length > 0;
+  const hasSectionPolyline = sectionPolylineString.length > 0;
+  const icon = getActivityIcon(section.sportType);
+
+  // Get activity color for the sport type
+  const activityColor = colors.primary;
+
+  // Background colors for map-like appearance
+  const preview = isDark ? mapPreviewColors.dark : mapPreviewColors.light;
+  const bgColor = preview.bg;
+  const gridColor = preview.grid;
+
+  // Get start/end points for markers
+  const polylinePoints = useMemo(() => {
+    if (!polyline?.length || !bounds) return null;
+    const normalized = polyline.map((p) => normalizePoint(p.lat, p.lng));
+    return {
+      start: normalized[0],
+      end: normalized[normalized.length - 1],
+    };
+  }, [polyline, bounds]);
+
+  return (
+    <TouchableOpacity
+      testID={`section-row-${section.id}`}
+      style={[styles.container, isDark && styles.containerDark]}
+      onPress={handlePress}
+      activeOpacity={0.7}
+    >
+      {/* Section polyline preview with map-like backdrop */}
+      <View style={styles.previewBox} pointerEvents="none">
+        {hasSectionPolyline ? (
+          <Svg width={PREVIEW_WIDTH} height={PREVIEW_HEIGHT}>
+            <Defs>
+              <LinearGradient id={gradientId} x1="0" y1="0" x2="0" y2="1">
+                <Stop offset="0" stopColor={bgColor} stopOpacity="1" />
+                <Stop offset="1" stopColor={preview.bgBottom} stopOpacity="1" />
+              </LinearGradient>
+            </Defs>
+
+            {/* Map-like background */}
+            <Rect
+              x="0"
+              y="0"
+              width={PREVIEW_WIDTH}
+              height={PREVIEW_HEIGHT}
+              fill={`url(#${gradientId})`}
+              rx="4"
+            />
+
+            {/* Subtle grid lines for map effect */}
+            <Polyline
+              points={`${PREVIEW_WIDTH / 3},0 ${PREVIEW_WIDTH / 3},${PREVIEW_HEIGHT}`}
+              stroke={gridColor}
+              strokeWidth={0.5}
+              strokeOpacity={0.5}
+            />
+            <Polyline
+              points={`${(2 * PREVIEW_WIDTH) / 3},0 ${(2 * PREVIEW_WIDTH) / 3},${PREVIEW_HEIGHT}`}
+              stroke={gridColor}
+              strokeWidth={0.5}
+              strokeOpacity={0.5}
+            />
+            <Polyline
+              points={`0,${PREVIEW_HEIGHT / 2} ${PREVIEW_WIDTH},${PREVIEW_HEIGHT / 2}`}
+              stroke={gridColor}
+              strokeWidth={0.5}
+              strokeOpacity={0.5}
+            />
+
+            {/* Activity traces underneath (if any) */}
+            {hasTraces && (
+              <G>
+                {normalizedTraces.map((trace) => (
+                  <Polyline
+                    key={trace.id}
+                    points={trace.points}
+                    fill="none"
+                    stroke={trace.color}
+                    strokeWidth={3}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                ))}
+              </G>
+            )}
+
+            {/* Route shadow for depth */}
+            <Polyline
+              points={sectionPolylineString}
+              fill="none"
+              stroke="#000000"
+              strokeWidth={3}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeOpacity={0.15}
+              transform="translate(0.5, 0.5)"
+            />
+
+            {/* Section polyline on top */}
+            <Polyline
+              points={sectionPolylineString}
+              fill="none"
+              stroke={activityColor}
+              strokeWidth={2.5}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+
+            {/* Start marker (green) */}
+            {polylinePoints && (
+              <>
+                <Circle
+                  cx={polylinePoints.start.x}
+                  cy={polylinePoints.start.y}
+                  r={3}
+                  fill={colors.success}
+                />
+                <Circle
+                  cx={polylinePoints.start.x}
+                  cy={polylinePoints.start.y}
+                  r={2}
+                  fill="#FFFFFF"
+                />
+              </>
+            )}
+
+            {/* End marker (red) */}
+            {polylinePoints && (
+              <>
+                <Circle
+                  cx={polylinePoints.end.x}
+                  cy={polylinePoints.end.y}
+                  r={3}
+                  fill={colors.error}
+                />
+                <Circle cx={polylinePoints.end.x} cy={polylinePoints.end.y} r={2} fill="#FFFFFF" />
+              </>
+            )}
+          </Svg>
+        ) : (
+          <View style={[styles.previewPlaceholder, isDark && styles.previewPlaceholderDark]}>
+            <MaterialCommunityIcons
+              name={icon}
+              size={18}
+              color={isDark ? darkColors.iconFaint : colors.iconFaint}
+            />
+          </View>
+        )}
+      </View>
+
+      {/* Section info */}
+      <View style={styles.infoContainer}>
+        <View style={styles.nameRow}>
+          <Text style={[styles.sectionName, isDark && styles.textLight]} numberOfLines={1}>
+            {section.name || t('sections.defaultName')}
+          </Text>
+          {section.isUserDefined && section.sectionType === 'auto' && (
+            <MaterialCommunityIcons
+              name="pin"
+              size={12}
+              color={isDark ? darkColors.textMuted : colors.textDisabled}
+              style={{ marginLeft: 4 }}
+            />
+          )}
+          {section.sportTypes && section.sportTypes.length > 0 && (
+            <View style={styles.sportIconsRow}>
+              {section.sportTypes.map((st) => (
+                <MaterialCommunityIcons
+                  key={st}
+                  name={getActivityIcon(st)}
+                  size={12}
+                  color={getActivityColor(st as ActivityType)}
+                  style={{ marginLeft: 2 }}
+                />
+              ))}
+            </View>
+          )}
+        </View>
+        <View style={styles.metaRow}>
+          <Text style={[styles.metaText, isDark && styles.textMuted]}>
+            {formatDistance(section.distanceMeters, isMetric)}
+          </Text>
+          {distanceFromUser != null && Number.isFinite(distanceFromUser) && (
+            <View style={styles.proximityTag}>
+              <MaterialCommunityIcons
+                name="map-marker-distance"
+                size={10}
+                color={isDark ? darkColors.textDisabled : colors.textDisabled}
+              />
+              <Text style={[styles.proximityText, isDark && styles.proximityTextDark]}>
+                {formatDistance(distanceFromUser, isMetric)}
+              </Text>
+            </View>
+          )}
+          {section.sectionType === 'custom' && (
+            <View style={[styles.customTag, isDark && styles.customTagDark]}>
+              <Text style={[styles.customTagText, isDark && styles.customTagTextDark]}>
+                {t('routes.custom')}
+              </Text>
+            </View>
+          )}
+          {isDisabled && (
+            <View style={[styles.disabledTag, isDark && styles.disabledTagDark]}>
+              <MaterialCommunityIcons
+                name="eye-off"
+                size={10}
+                color={isDark ? darkColors.amberIcon : colors.amberIcon}
+              />
+              <Text style={[styles.disabledTagText, isDark && styles.disabledTagTextDark]}>
+                {t('sections.disabled')}
+              </Text>
+            </View>
+          )}
+        </View>
+      </View>
+
+      {/* Visit count badge */}
+      <View style={styles.countBadge}>
+        <Text style={styles.countText}>{section.visitCount}</Text>
+        <MaterialCommunityIcons name="chevron-right" size={16} color="#FFFFFF" />
+      </View>
+    </TouchableOpacity>
+  );
+});
+
+const styles = StyleSheet.create({
+  container: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    marginHorizontal: spacing.md,
+    marginBottom: 2,
+    borderRadius: 10,
+    padding: 6,
+    ...shadows.pill,
+  },
+  containerDark: {
+    backgroundColor: darkColors.surface,
+  },
+  previewBox: {
+    width: PREVIEW_WIDTH,
+    height: PREVIEW_HEIGHT,
+    borderRadius: 5,
+    overflow: 'hidden',
+  },
+  previewPlaceholder: {
+    width: PREVIEW_WIDTH,
+    height: PREVIEW_HEIGHT,
+    borderRadius: 5,
+    backgroundColor: 'rgba(0,0,0,0.05)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  previewPlaceholderDark: {
+    backgroundColor: 'rgba(255,255,255,0.08)',
+  },
+  infoContainer: {
+    flex: 1,
+    marginLeft: spacing.sm,
+    marginRight: spacing.xs,
+  },
+  nameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  sportIconsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 4,
+  },
+  sectionName: {
+    flexShrink: 1,
+    fontSize: typography.bodyCompact.fontSize,
+    fontWeight: '600',
+    color: colors.textPrimary,
+  },
+  metaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 2,
+    gap: spacing.sm,
+  },
+  metaText: {
+    fontSize: typography.label.fontSize,
+    color: colors.textSecondary,
+  },
+  countBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.primary,
+    borderRadius: layout.borderRadius,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    gap: 2,
+  },
+  countText: {
+    fontSize: typography.bodyCompact.fontSize,
+    fontWeight: '700',
+    color: colors.textOnDark,
+  },
+  textLight: {
+    color: colors.textOnDark,
+  },
+  textMuted: {
+    color: darkColors.textSecondary,
+  },
+  proximityTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+  },
+  proximityText: {
+    fontSize: 10,
+    color: colors.textDisabled,
+  },
+  proximityTextDark: {
+    color: darkColors.textDisabled,
+  },
+  customTag: {
+    backgroundColor: 'rgba(168, 85, 247, 0.12)',
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 4,
+  },
+  customTagDark: {
+    backgroundColor: 'rgba(192, 132, 252, 0.15)',
+  },
+  customTagText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#A855F7',
+  },
+  customTagTextDark: {
+    color: '#C084FC',
+  },
+  disabledTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: 'rgba(217, 119, 6, 0.12)',
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 4,
+  },
+  disabledTagDark: {
+    backgroundColor: colorWithOpacity(darkColors.amberIcon, 0.15),
+  },
+  disabledTagText: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: colors.amberIcon,
+  },
+  disabledTagTextDark: {
+    color: darkColors.amberIcon,
+  },
+});

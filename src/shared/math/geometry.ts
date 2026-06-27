@@ -1,0 +1,162 @@
+/**
+ * Geometry utilities for GPS coordinate processing.
+ */
+
+import { getRouteEngine } from '@/shared/native/routeEngine';
+
+/**
+ * Haversine distance between two points in meters.
+ * Accepts either two point objects or four raw coordinates.
+ */
+export function haversineDistance(
+  point1: { lat: number; lng: number },
+  point2: { lat: number; lng: number }
+): number;
+export function haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number;
+export function haversineDistance(
+  a: { lat: number; lng: number } | number,
+  b: { lat: number; lng: number } | number,
+  c?: number,
+  d?: number
+): number {
+  let lat1: number, lon1: number, lat2: number, lon2: number;
+  if (typeof a === 'number') {
+    lat1 = a;
+    lon1 = b as number;
+    lat2 = c!;
+    lon2 = d!;
+  } else {
+    lat1 = a.lat;
+    lon1 = a.lng;
+    lat2 = (b as { lat: number; lng: number }).lat;
+    lon2 = (b as { lat: number; lng: number }).lng;
+  }
+  return _haversineDistance(lat1, lon1, lat2, lon2);
+}
+
+function _haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371000; // Earth radius in meters
+  const dLat = ((lat2 - lat1) * Math.PI) / 180;
+  const dLon = ((lon2 - lon1) * Math.PI) / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((lat1 * Math.PI) / 180) *
+      Math.cos((lat2 * Math.PI) / 180) *
+      Math.sin(dLon / 2) *
+      Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+/** Flatten a RoutePoint[] to [lat, lng, lat, lng, ...] for Rust FFI. */
+function flattenPolyline(polyline: Array<{ lat: number; lng: number }>): number[] {
+  const flat = new Array(polyline.length * 2);
+  for (let i = 0; i < polyline.length; i++) {
+    flat[i * 2] = polyline[i].lat;
+    flat[i * 2 + 1] = polyline[i].lng;
+  }
+  return flat;
+}
+
+/**
+ * Compute overlap between two polylines.
+ * Returns 0-1 representing the fraction of polylineA points that are close to polylineB.
+ * Uses Rust R-tree implementation (O(n log m)).
+ *
+ * @param polylineA - First polyline
+ * @param polylineB - Second polyline
+ * @param thresholdMeters - Distance threshold for considering points as matching (default 50m)
+ * @returns Overlap ratio (0-1)
+ */
+export function computePolylineOverlap(
+  polylineA: Array<{ lat: number; lng: number }>,
+  polylineB: Array<{ lat: number; lng: number }>,
+  thresholdMeters = 50
+): number {
+  if (polylineA.length === 0 || polylineB.length === 0) return 0;
+
+  const engine = getRouteEngine();
+  if (!engine) return 0;
+
+  return engine.computePolylineOverlap(
+    flattenPolyline(polylineA),
+    flattenPolyline(polylineB),
+    thresholdMeters
+  );
+}
+
+/**
+ * Calculate perpendicular distance from a point to a line segment.
+ * Uses equirectangular approximation for conversion to meters.
+ */
+function perpendicularDistance(
+  point: { lat: number; lng: number },
+  lineStart: { lat: number; lng: number },
+  lineEnd: { lat: number; lng: number }
+): number {
+  // Convert to meters using simple equirectangular approximation
+  const R = 6371000; // Earth radius in meters
+  const lat = (point.lat * Math.PI) / 180;
+
+  const x = (((point.lng - lineStart.lng) * Math.PI) / 180) * Math.cos(lat) * R;
+  const y = (((point.lat - lineStart.lat) * Math.PI) / 180) * R;
+
+  const x2 = (((lineEnd.lng - lineStart.lng) * Math.PI) / 180) * Math.cos(lat) * R;
+  const y2 = (((lineEnd.lat - lineStart.lat) * Math.PI) / 180) * R;
+
+  const dx = x2;
+  const dy = y2;
+  const len = Math.sqrt(dx * dx + dy * dy);
+
+  // If line has zero length, return distance to point
+  if (len === 0) return Math.sqrt(x * x + y * y);
+
+  // Perpendicular distance formula: |cross product| / |line length|
+  return Math.abs(dy * x - dx * y) / len;
+}
+
+/**
+ * Douglas-Peucker polyline simplification algorithm.
+ * Reduces point count while preserving shape within tolerance.
+ *
+ * @param points - Array of points with lat/lng properties
+ * @param tolerance - Distance tolerance in meters (default 5m)
+ * @returns Simplified array of points
+ *
+ * @example
+ * // Simplify a GPS track to reduce storage size
+ * const simplified = simplifyPolyline(track, 5); // 5m tolerance
+ * console.log(`Reduced ${track.length} → ${simplified.length} points`);
+ */
+export function simplifyPolyline<T extends { lat: number; lng: number }>(
+  points: T[],
+  tolerance: number = 5
+): T[] {
+  // Need at least 2 points to simplify
+  if (points.length <= 2) return points;
+
+  // Find point with maximum perpendicular distance from line
+  let maxDist = 0;
+  let maxIndex = 0;
+  const first = points[0];
+  const last = points[points.length - 1];
+
+  for (let i = 1; i < points.length - 1; i++) {
+    const dist = perpendicularDistance(points[i], first, last);
+    if (dist > maxDist) {
+      maxDist = dist;
+      maxIndex = i;
+    }
+  }
+
+  // If max distance exceeds tolerance, recursively simplify both halves
+  if (maxDist > tolerance) {
+    const left = simplifyPolyline(points.slice(0, maxIndex + 1), tolerance);
+    const right = simplifyPolyline(points.slice(maxIndex), tolerance);
+    // Combine, avoiding duplicate at split point
+    return [...left.slice(0, -1), ...right];
+  }
+
+  // All intermediate points within tolerance - just keep endpoints
+  return [first, last];
+}

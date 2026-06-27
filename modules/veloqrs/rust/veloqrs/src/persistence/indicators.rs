@@ -3,7 +3,7 @@
 //! Computed once after sync/detection, stored in `activity_indicators` table.
 //! Feed card rendering reads from this table — no on-demand computation needed.
 
-use rusqlite::{params, Result as SqlResult};
+use rusqlite::{Result as SqlResult, params};
 use std::collections::HashMap;
 
 use super::{PersistentRouteEngine, codec};
@@ -69,17 +69,12 @@ impl PersistentRouteEngine {
 
     /// Compute section PRs and trends, insert into activity_indicators.
     /// Returns total number of indicators inserted.
-    fn compute_section_indicators(
-        &self,
-        tx: &rusqlite::Transaction,
-        now: i64,
-    ) -> SqlResult<usize> {
+    fn compute_section_indicators(&self, tx: &rusqlite::Transaction, now: i64) -> SqlResult<usize> {
         // Effective time: use lap_time if available, otherwise estimate from
         // activity duration proportional to section distance.
         // This handles the common case where lap_time is NULL (not yet populated
         // from time streams) while still producing useful indicators.
-        let effective_time_expr =
-            "COALESCE(sa.lap_time,
+        let effective_time_expr = "COALESCE(sa.lap_time,
                       CASE WHEN a.distance_meters > 0 AND sa.distance_meters > 0
                            THEN a.duration_secs * (sa.distance_meters / a.distance_meters)
                            ELSE NULL END)";
@@ -169,15 +164,9 @@ impl PersistentRouteEngine {
             }
 
             // Find the global best (minimum lap_time)
-            let best_time = traversals
-                .iter()
-                .map(|(_, t)| *t)
-                .fold(f64::MAX, f64::min);
+            let best_time = traversals.iter().map(|(_, t)| *t).fold(f64::MAX, f64::min);
 
-            let section_name = section_names
-                .get(section_id)
-                .cloned()
-                .unwrap_or_default();
+            let section_name = section_names.get(section_id).cloned().unwrap_or_default();
 
             // Compute running-average trend for each traversal
             let mut running_sum = 0.0f64;
@@ -245,9 +234,8 @@ impl PersistentRouteEngine {
         &self,
         conn: &rusqlite::Connection,
     ) -> SqlResult<HashMap<String, String>> {
-        let mut stmt = conn.prepare(
-            "SELECT id, name FROM sections WHERE name IS NOT NULL AND disabled = 0",
-        )?;
+        let mut stmt =
+            conn.prepare("SELECT id, name FROM sections WHERE name IS NOT NULL AND disabled = 0")?;
         let mut names = HashMap::new();
         let rows = stmt.query_map([], |row| {
             Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
@@ -290,7 +278,11 @@ impl PersistentRouteEngine {
             }
         }
 
-        let placeholders: String = activity_ids.iter().map(|_| "?").collect::<Vec<_>>().join(",");
+        let placeholders: String = activity_ids
+            .iter()
+            .map(|_| "?")
+            .collect::<Vec<_>>()
+            .join(",");
         let sql = format!(
             "SELECT activity_id, indicator_type, target_id, target_name, direction, lap_time, trend
              FROM activity_indicators
@@ -392,8 +384,10 @@ impl PersistentRouteEngine {
         }
 
         // Collect unique activity IDs that need time streams
-        let activity_ids: std::collections::HashSet<String> =
-            portions.iter().map(|(_, aid, _, _, _)| aid.clone()).collect();
+        let activity_ids: std::collections::HashSet<String> = portions
+            .iter()
+            .map(|(_, aid, _, _, _)| aid.clone())
+            .collect();
 
         // Load time streams for those activities
         let mut time_streams: HashMap<String, Vec<u32>> = HashMap::new();
@@ -403,8 +397,8 @@ impl PersistentRouteEngine {
                 [activity_id],
                 |row| {
                     let bytes: Vec<u8> = row.get(0)?;
-                    let times: Vec<u32> = codec::deserialize(&bytes)
-                        .map_err(|_| rusqlite::Error::InvalidQuery)?;
+                    let times: Vec<u32> =
+                        codec::deserialize(&bytes).map_err(|_| rusqlite::Error::InvalidQuery)?;
                     Ok(times)
                 },
             ) {

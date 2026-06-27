@@ -2,7 +2,8 @@ import {
   generateInsights,
   formatDurationCompact,
   InsightInputData,
-} from '@/hooks/insights/generateInsights';
+} from '@/features/insights/lib/generateInsights';
+import { consolidateInsights } from '@/features/insights/lib/computeInsightsData';
 import type { Insight } from '@/types';
 
 // Mock translation function — returns key with interpolated params
@@ -125,22 +126,17 @@ describe('generateInsights', () => {
       expect(result.find((i) => i.id === 'hrv_trend')).toBeUndefined();
     });
 
-    it('detects upward trend', () => {
-      const result = generateInsights(makeHrvInput([40, 45, 50, 55, 60]), mockT);
-      const hrv = result.find((i) => i.id === 'hrv_trend');
-      expect(hrv!.title).toContain('trendingUp');
-    });
-
-    it('detects downward trend', () => {
-      const result = generateInsights(makeHrvInput([60, 55, 50, 45, 40]), mockT);
-      const hrv = result.find((i) => i.id === 'hrv_trend');
-      expect(hrv!.title).toContain('trendingDown');
-    });
-
-    it('detects stable trend', () => {
-      const result = generateInsights(makeHrvInput([50, 50, 50, 50, 50]), mockT);
-      const hrv = result.find((i) => i.id === 'hrv_trend');
-      expect(hrv!.title).toContain('stable');
+    it('detects upward, downward, and stable trends from HRV direction', () => {
+      const cases: Array<[number[], string]> = [
+        [[40, 45, 50, 55, 60], 'trendingUp'],
+        [[60, 55, 50, 45, 40], 'trendingDown'],
+        [[50, 50, 50, 50, 50], 'stable'],
+      ];
+      for (const [values, expected] of cases) {
+        const result = generateInsights(makeHrvInput(values), mockT);
+        const hrv = result.find((i) => i.id === 'hrv_trend');
+        expect(hrv!.title).toContain(expected);
+      }
     });
 
     it('includes HRV sparkline in supporting data', () => {
@@ -956,21 +952,24 @@ describe('generateInsights — boundary conditions', () => {
    * FTP improvement by tiny delta (1W) does not generate insight.
    * The minimum threshold is 5W to filter noise from small fluctuations.
    */
-  it('FTP improvement by exactly 1W does not generate insight (below 5W threshold)', () => {
-    const result = generateInsights(
-      {
-        ...EMPTY_INPUT,
-        ftpTrend: {
-          latestFtp: 251,
-          latestDate: BigInt(1000),
-          previousFtp: 250,
-          previousDate: BigInt(500),
+  it('FTP improvement below 5W threshold does not generate insight', () => {
+    // 1W is below threshold; 0.4W rounds to 0 delta. Both must be suppressed.
+    for (const latestFtp of [251, 250.4]) {
+      const result = generateInsights(
+        {
+          ...EMPTY_INPUT,
+          ftpTrend: {
+            latestFtp,
+            latestDate: BigInt(1000),
+            previousFtp: 250,
+            previousDate: BigInt(500),
+          },
         },
-      },
-      mockT
-    );
-    const ftp = result.find((i) => i.id === 'fitness_milestone-ftp');
-    expect(ftp).toBeUndefined();
+        mockT
+      );
+      const ftp = result.find((i) => i.id === 'fitness_milestone-ftp');
+      expect(ftp).toBeUndefined();
+    }
   });
 
   /**
@@ -991,24 +990,6 @@ describe('generateInsights — boundary conditions', () => {
     );
     const ftp = result.find((i) => i.id === 'fitness_milestone-ftp');
     expect(ftp!.title).toContain('change: 5');
-  });
-
-  it('FTP improvement by sub-watt delta (0.4W) does not generate insight', () => {
-    // Math.round(250.4 - 250) = 0 => delta is 0, should not pass delta > 0 guard
-    const result = generateInsights(
-      {
-        ...EMPTY_INPUT,
-        ftpTrend: {
-          latestFtp: 250.4,
-          latestDate: BigInt(1000),
-          previousFtp: 250,
-          previousDate: BigInt(500),
-        },
-      },
-      mockT
-    );
-    const ftp = result.find((i) => i.id === 'fitness_milestone-ftp');
-    expect(ftp).toBeUndefined();
   });
 
   /**
@@ -1116,20 +1097,21 @@ describe('generateInsights — boundary conditions', () => {
   });
 
   /**
-   * Period comparison at 10% does not trigger (threshold raised to 15%).
-   * 110/100 - 1 = 0.1, which is below the 0.15 threshold.
+   * Period comparison below the 15% threshold does not trigger.
+   * 9% and 10% are both under 0.15.
    */
-  it('period comparison at 10% change does not trigger (below 15% threshold)', () => {
-    const result = generateInsights(
-      {
-        ...EMPTY_INPUT,
-        currentPeriod: { count: 3, totalDuration: 5500, totalDistance: 50000, totalTss: 110 },
-        previousPeriod: { count: 3, totalDuration: 5000, totalDistance: 50000, totalTss: 100 },
-      },
-      mockT
-    );
-    const vol = result.find((i) => i.id === 'period_comparison-volume');
-    expect(vol).toBeUndefined();
+  it('period comparison below 15% threshold does not trigger', () => {
+    for (const totalTss of [109, 110]) {
+      const result = generateInsights(
+        {
+          ...EMPTY_INPUT,
+          currentPeriod: { count: 3, totalDuration: 5450, totalDistance: 50000, totalTss },
+          previousPeriod: { count: 3, totalDuration: 5000, totalDistance: 50000, totalTss: 100 },
+        },
+        mockT
+      );
+      expect(result.find((i) => i.id === 'period_comparison-volume')).toBeUndefined();
+    }
   });
 
   /**
@@ -1148,19 +1130,74 @@ describe('generateInsights — boundary conditions', () => {
     const vol = result.find((i) => i.id === 'period_comparison-volume');
     expect(vol!.icon).toBe('trending-up');
   });
+});
 
-  /**
-   * Period comparison just below threshold — 9% change should not trigger.
-   */
-  it('period comparison at 9% change does not trigger', () => {
-    const result = generateInsights(
-      {
-        ...EMPTY_INPUT,
-        currentPeriod: { count: 3, totalDuration: 5450, totalDistance: 50000, totalTss: 109 },
-        previousPeriod: { count: 3, totalDuration: 5000, totalDistance: 50000, totalTss: 100 },
-      },
-      mockT
-    );
-    expect(result.find((i) => i.id === 'period_comparison-volume')).toBeUndefined();
+// ============================================================
+// Insight consolidation
+// ============================================================
+
+describe('consolidateInsights', () => {
+  function createInsight(
+    id: string,
+    category: Insight['category'],
+    priority: Insight['priority'],
+    options?: {
+      timestamp?: number;
+      sectionIds?: string[];
+      navigationTarget?: string;
+    }
+  ): Insight {
+    return {
+      id,
+      category,
+      priority,
+      title: id,
+      icon: 'star',
+      iconColor: '#000',
+      timestamp: options?.timestamp ?? 0,
+      isNew: false,
+      navigationTarget: options?.navigationTarget,
+      supportingData: options?.sectionIds
+        ? {
+            sections: options.sectionIds.map((sectionId) => ({
+              sectionId,
+              sectionName: sectionId,
+            })),
+          }
+        : undefined,
+    };
+  }
+
+  it('drops overlapping section stories when a recent PR already covers that section', () => {
+    const result = consolidateInsights([
+      createInsight('section-pr', 'section_pr', 1, {
+        navigationTarget: '/section/s1',
+      }),
+      createInsight('efficiency-s1', 'efficiency_trend', 1, {
+        sectionIds: ['s1'],
+      }),
+      createInsight('stale-s2', 'stale_pr', 2, {
+        sectionIds: ['s2'],
+      }),
+    ]);
+
+    expect(result.map((insight) => insight.id)).toEqual(['section-pr', 'stale-s2']);
+  });
+
+  it('keeps only the two strongest non-PR section stories', () => {
+    const result = consolidateInsights([
+      createInsight('stale', 'stale_pr', 2, {
+        sectionIds: ['s2'],
+      }),
+      createInsight('efficiency', 'efficiency_trend', 1, {
+        sectionIds: ['s1'],
+      }),
+      createInsight('efficiency2', 'efficiency_trend', 1, {
+        sectionIds: ['s3'],
+      }),
+      createInsight('fitness', 'fitness_milestone', 2),
+    ]);
+
+    expect(result.map((insight) => insight.id)).toEqual(['efficiency', 'efficiency2', 'fitness']);
   });
 });

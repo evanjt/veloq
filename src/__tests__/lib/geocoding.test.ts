@@ -11,7 +11,7 @@ jest.mock('@react-native-async-storage/async-storage', () =>
 const mockFetch = jest.fn();
 global.fetch = mockFetch;
 
-import { reverseGeocode, generateRouteName, clearGeocodeCache } from '@/lib/geo/geocoding';
+import { reverseGeocode, generateRouteName, clearGeocodeCache } from '@/shared/geo/geocoding';
 
 beforeEach(async () => {
   mockFetch.mockReset();

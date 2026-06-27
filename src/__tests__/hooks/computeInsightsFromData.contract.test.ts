@@ -13,10 +13,10 @@
  * semantics change and needs explicit baseline review, not a silent diff.
  */
 
-jest.mock('@/lib/native/routeEngine', () => ({
+jest.mock('@/shared/native/routeEngine', () => ({
   getRouteEngine: jest.fn(),
 }));
-jest.mock('@/providers/RouteSettingsStore', () => ({
+jest.mock('@/features/routes/stores/RouteSettingsStore', () => ({
   isRouteMatchingEnabled: jest.fn(() => true),
 }));
 
@@ -26,8 +26,8 @@ import {
   type FfiInsightsDataShape,
   type FfiSummaryCardDataShape,
   type WellnessInput,
-} from '@/hooks/insights/computeInsightsData';
-import { getRouteEngine } from '@/lib/native/routeEngine';
+} from '@/features/insights/lib/computeInsightsData';
+import { getRouteEngine } from '@/shared/native/routeEngine';
 
 const t = (key: string, params?: Record<string, string | number>) => {
   if (!params) return key;

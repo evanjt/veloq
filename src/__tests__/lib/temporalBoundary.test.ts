@@ -10,7 +10,7 @@ import {
   getMonday,
   getSunday,
   formatShortDate,
-} from '@/lib/utils/format';
+} from '@/shared/format/format';
 
 describe('temporal boundaries', () => {
   describe('year boundary', () => {

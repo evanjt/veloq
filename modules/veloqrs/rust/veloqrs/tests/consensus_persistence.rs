@@ -145,26 +145,28 @@ fn consensus_accumulator_round_trips_through_sqlite() {
     // populating in-memory state from the DB is `load()`.
     let mut engine_b = PersistentRouteEngine::new(&path_str).expect("reopen engine");
     engine_b.load().expect("load on reopen");
-    let post: std::collections::HashMap<String, Option<(u32, Vec<String>, Option<(f64, f64, u32)>)>> =
-        engine_b
-            .get_sections()
-            .iter()
-            .map(|s| {
-                (
-                    s.id.clone(),
-                    s.consensus_state.as_ref().map(|acc| {
-                        (
-                            acc.trace_count,
-                            acc.absorbed_activity_ids.clone(),
-                            acc.per_point
-                                .iter()
-                                .find(|p| p.total_weight > 0.0)
-                                .map(|p| (p.weighted_lat_sum, p.total_weight, p.observation_count)),
-                        )
-                    }),
-                )
-            })
-            .collect();
+    let post: std::collections::HashMap<
+        String,
+        Option<(u32, Vec<String>, Option<(f64, f64, u32)>)>,
+    > = engine_b
+        .get_sections()
+        .iter()
+        .map(|s| {
+            (
+                s.id.clone(),
+                s.consensus_state.as_ref().map(|acc| {
+                    (
+                        acc.trace_count,
+                        acc.absorbed_activity_ids.clone(),
+                        acc.per_point
+                            .iter()
+                            .find(|p| p.total_weight > 0.0)
+                            .map(|p| (p.weighted_lat_sum, p.total_weight, p.observation_count)),
+                    )
+                }),
+            )
+        })
+        .collect();
 
     // Section IDs may legitimately shift across apply_sections (cross-sport
     // merge or re-sort can rename), so we don't insist on exact id parity.

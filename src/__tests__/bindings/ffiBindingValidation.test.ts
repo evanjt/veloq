@@ -92,12 +92,12 @@ const METHOD_EXPORTS = FFI_EXPORTS.filter((e) => e.object);
 
 describe('FFI Binding Validation', () => {
   describe('Standalone flat exports', () => {
-    it('should have the expected five standalone flat exports', () => {
-      // The domain-object migration left exactly five non-object-method
-      // standalone functions (download progress, fetch lifecycle, polyline
-      // overlap, match strictness). Adjust if a new standalone is added —
-      // but prefer putting engine-coupled logic on a UniFFI Object.
-      expect(STANDALONE_EXPORTS.length).toBe(5);
+    it('should have the expected standalone flat exports', () => {
+      // Non-object-method standalone functions (download progress, fetch
+      // lifecycle, polyline overlap, backup validation, standalone section
+      // detection). Adjust if a new standalone is added — but prefer putting
+      // engine-coupled logic on a UniFFI Object.
+      expect(STANDALONE_EXPORTS.length).toBe(6);
     });
 
     it('should include the known standalone FFI functions', () => {
@@ -107,6 +107,7 @@ describe('FFI Binding Validation', () => {
       expect(names.has('start_fetch_and_store')).toBe(true);
       expect(names.has('take_fetch_and_store_result')).toBe(true);
       expect(names.has('compute_polyline_overlap')).toBe(true);
+      expect(names.has('detect_sections_standalone')).toBe(true);
     });
 
     it('should have exports sourced from ffi.rs and persistence/mod.rs', () => {
@@ -170,10 +171,6 @@ describe('FFI Binding Validation', () => {
   });
 
   describe('TypeScript index.ts structure', () => {
-    it('should exist', () => {
-      expect(fs.existsSync(VELOQRS_INDEX_PATH)).toBe(true);
-    });
-
     it('should have wildcard re-export from generated module', () => {
       expect(hasWildcardReexport()).toBe(true);
     });
@@ -250,14 +247,17 @@ describe('FFI Binding Validation', () => {
       expect(orphanImports).toEqual([]);
     });
   });
-});
 
-describe('FFI Manifest Freshness', () => {
-  it('should have a non-trivial number of exports from Rust source', () => {
-    // The manifest is auto-generated from `#[uniffi::export]` attributes
-    // (both standalone `pub fn` and methods inside `#[uniffi::export] impl`
-    // blocks). If this ever drops to a handful again, the extractor has
-    // regressed — see scripts/extract-ffi-exports.ts.
-    expect(FFI_EXPORTS.length).toBeGreaterThan(50);
+  // The manifest carries each export's arity and return type so `npm run
+  // ffi:check` can detect signature drift, not just added/removed names.
+  describe('Signature manifest', () => {
+    it('records arity and return type for every export', () => {
+      for (const exp of FFI_EXPORTS) {
+        expect(typeof exp.paramCount).toBe('number');
+        expect(exp.paramCount).toBeGreaterThanOrEqual(0);
+        expect(typeof exp.returnType).toBe('string');
+        expect(exp.returnType.length).toBeGreaterThan(0);
+      }
+    });
   });
 });

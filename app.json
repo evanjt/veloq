@@ -25,7 +25,17 @@
           "en-US",
           "en-GB",
           "es",
-          "fr"
+          "es-419",
+          "fr",
+          "de",
+          "nl",
+          "it",
+          "pt",
+          "pt-BR",
+          "ja",
+          "zh-Hans",
+          "pl",
+          "da"
         ],
         "NSLocationWhenInUseUsageDescription": "Veloq uses your location to display activity maps, track routes, and record fitness activities.",
         "NSLocationAlwaysAndWhenInUseUsageDescription": "Veloq uses your location in the background to continue recording fitness activities when the app is not in the foreground.",
@@ -78,6 +88,9 @@
       "./src/plugins/with-maplibre-nil-safety",
       "./src/plugins/with-android-backup",
       "./src/plugins/with-icloud",
+      "./src/plugins/with-app-groups",
+      "./src/plugins/with-android-widget",
+      "./src/plugins/with-ios-widget",
       "expo-router",
       [
         "expo-screen-orientation",
@@ -110,7 +123,8 @@
         {
           "android": {},
           "ios": {
-            "deploymentTarget": "15.1"
+            "deploymentTarget": "16.4",
+            "buildReactNativeFromSource": true
           }
         }
       ]

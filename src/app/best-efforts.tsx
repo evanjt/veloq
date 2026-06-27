@@ -4,10 +4,17 @@ import { Text, ActivityIndicator } from 'react-native-paper';
 import { router } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { ScreenSafeAreaView, ScreenErrorBoundary, TAB_BAR_SAFE_PADDING } from '@/components/ui';
-import { useActivities, useSeasonBests, useTheme, type BestEffort } from '@/hooks';
-import { formatDuration, formatLocalDate, formatPaceCompact, formatSwimPace } from '@/lib';
-import { SPORT_COLORS, type PrimarySport } from '@/providers';
+import { ScreenSafeAreaView, ScreenErrorBoundary, TAB_BAR_SAFE_PADDING } from '@/shared/ui';
+import { useActivities } from '@/features/activity/hooks';
+import { useSeasonBests, type BestEffort } from '@/features/stats';
+import { useTheme } from '@/shared/app';
+import {
+  formatDuration,
+  formatLocalDate,
+  formatPaceCompact,
+  formatSwimPace,
+} from '@/shared/format/format';
+import { SPORT_COLORS, type PrimarySport } from '@/features/fitness/stores';
 import { colors, darkColors, layout, spacing, typography, opacity } from '@/theme';
 
 type TimeRangeKey = 'season' | 'allTime';

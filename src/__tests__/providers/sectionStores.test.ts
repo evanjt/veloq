@@ -9,10 +9,10 @@
  */
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useDisabledSections } from '@/providers/DisabledSectionsStore';
-import { useSectionDismissals } from '@/providers/SectionDismissalsStore';
-import { useSupersededSections } from '@/providers/SupersededSectionsStore';
-import { usePotentialSections } from '@/providers/PotentialSectionsStore';
+import { useDisabledSections } from '@/features/routes/stores/DisabledSectionsStore';
+import { useSectionDismissals } from '@/features/routes/stores/SectionDismissalsStore';
+import { useSupersededSections } from '@/features/routes/stores/SupersededSectionsStore';
+import { usePotentialSections } from '@/features/routes/stores/PotentialSectionsStore';
 
 const DISABLED_SECTIONS_KEY = 'veloq-disabled-sections';
 const DISMISSALS_KEY = 'veloq-section-dismissals';

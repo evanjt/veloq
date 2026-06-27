@@ -141,7 +141,10 @@ impl RouteManager {
             e.exclude_activity_from_route(&route_id, &activity_id)
                 .map_err(|e| VeloqError::Database { msg: e })?;
             if let Err(err) = e.recompute_activity_indicators() {
-                log::warn!("tracematch: [exclude_route_activity] Indicator recomputation failed: {}", err);
+                log::warn!(
+                    "tracematch: [exclude_route_activity] Indicator recomputation failed: {}",
+                    err
+                );
             }
             Ok(())
         })?
@@ -152,7 +155,10 @@ impl RouteManager {
             e.include_activity_in_route(&route_id, &activity_id)
                 .map_err(|e| VeloqError::Database { msg: e })?;
             if let Err(err) = e.recompute_activity_indicators() {
-                log::warn!("tracematch: [include_route_activity] Indicator recomputation failed: {}", err);
+                log::warn!(
+                    "tracematch: [include_route_activity] Indicator recomputation failed: {}",
+                    err
+                );
             }
             Ok(())
         })?
@@ -182,11 +188,7 @@ impl RouteManager {
         with_engine(|e| e.get_activity_route_highlights(&activity_ids))
     }
 
-    fn set_representative(
-        &self,
-        route_id: String,
-        activity_id: String,
-    ) -> Result<(), VeloqError> {
+    fn set_representative(&self, route_id: String, activity_id: String) -> Result<(), VeloqError> {
         with_engine(|e| {
             e.set_route_representative(&route_id, &activity_id)
                 .map_err(|e| VeloqError::Database { msg: e })?;

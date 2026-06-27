@@ -13,7 +13,7 @@ import path from 'path';
 
 describe('US-D3: section map zoom clamp', () => {
   const source = fs.readFileSync(
-    path.resolve(__dirname, '../../components/routes/SectionMapView.tsx'),
+    path.resolve(__dirname, '../../features/routes/components/SectionMapView.tsx'),
     'utf8'
   );
 

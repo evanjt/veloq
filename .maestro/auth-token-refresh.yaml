@@ -38,6 +38,7 @@
 appId: com.veloq.app.dev
 tags:
   - tier2
+  - pack-auth
 
 # Recovery: if this flow leaves us on the login screen (Disconnect tapped but
 # demo re-entry didn't complete), hop back into demo mode so subsequent flows

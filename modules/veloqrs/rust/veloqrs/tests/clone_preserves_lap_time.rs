@@ -8,7 +8,7 @@
 //!
 //! Run: `cargo test --test clone_preserves_lap_time -p veloqrs`
 
-use rusqlite::{params, Connection};
+use rusqlite::{Connection, params};
 use tempfile::TempDir;
 use tracematch::GpsPoint;
 use veloqrs::PersistentRouteEngine;
@@ -17,8 +17,7 @@ use veloqrs::PersistentRouteEngine;
 fn clone_preserves_cached_lap_time_and_pace() {
     let tmp = TempDir::new().expect("temp dir");
     let db_path = tmp.path().join("test.db");
-    let mut engine =
-        PersistentRouteEngine::new(db_path.to_str().unwrap()).expect("engine new");
+    let mut engine = PersistentRouteEngine::new(db_path.to_str().unwrap()).expect("engine new");
 
     // Seed one source activity so activity_metadata has it.
     let source_id = "src-1".to_string();

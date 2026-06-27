@@ -1,7 +1,7 @@
 const {
   withSettingsGradle,
   withGradleProperties,
-} = require("@expo/config-plugins");
+} = require("expo/config-plugins");
 
 /**
  * Expo config plugin that fixes Maven Central 403 errors in GitHub Actions.

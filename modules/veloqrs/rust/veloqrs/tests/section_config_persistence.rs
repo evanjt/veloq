@@ -68,7 +68,10 @@ fn section_config_falls_back_to_default_when_unset() {
         engine.section_config_min_section_length(),
         default.min_section_length,
     );
-    assert_eq!(engine.section_config_min_activities(), default.min_activities);
+    assert_eq!(
+        engine.section_config_min_activities(),
+        default.min_activities
+    );
 }
 
 #[test]

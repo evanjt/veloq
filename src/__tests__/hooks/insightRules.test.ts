@@ -1,5 +1,5 @@
 import type { Insight } from '@/types';
-import { INSIGHTS_CONFIG } from '@/hooks/insights/config';
+import { INSIGHTS_CONFIG } from '@/features/insights/lib/config';
 import {
   applyMixAndCap,
   passesProximity,
@@ -11,10 +11,38 @@ import {
   specificityScore,
   temporalSelfScore,
   type Bbox,
-} from '@/hooks/insights/rules';
+} from '@/features/insights/lib/rules';
+import { generateSectionTrendInsights } from '@/features/insights/generators/sectionTrend';
+import type { SectionTrendData } from '@/features/insights/types';
 
 const DAY_MS = 86_400_000;
 const NOW = 1_700_000_000_000; // fixed epoch for deterministic tests
+
+const mockT = (key: string, params?: Record<string, string | number>): string => {
+  if (!params) return key;
+  const paramStr = Object.entries(params)
+    .map(([k, v]) => `${k}: ${v}`)
+    .join(', ');
+  return `${key} {${paramStr}}`;
+};
+
+function sectionTrend(
+  id: string,
+  daysSinceLast: number | undefined,
+  traversalCount = 5,
+  trendDir: -1 | 0 | 1 = 1
+): SectionTrendData {
+  return {
+    sectionId: id,
+    sectionName: `Section ${id}`,
+    trend: trendDir,
+    medianRecentSecs: 120,
+    bestTimeSecs: 110,
+    traversalCount,
+    daysSinceLast,
+    latestIsPr: false,
+  };
+}
 
 function makeInsight(overrides: Partial<Insight> = {}): Insight {
   return {
@@ -347,5 +375,43 @@ describe('rules.applyMixAndCap (D9, D10)', () => {
     ];
     const { kept } = applyMixAndCap(scored);
     expect(kept.map((i) => i.id)).toEqual(['high', 'mid', 'low']);
+  });
+});
+
+describe('section trend recency (G1 applied to section_trend)', () => {
+  it('drops sections with daysSinceLast outside activeWindowDays', () => {
+    const stale = sectionTrend('stale', 90, 5, 1);
+    const result = generateSectionTrendInsights([stale], new Set(), NOW, mockT);
+    expect(result).toHaveLength(0);
+  });
+
+  it('keeps a recently-visited old section (event recency, not section age)', () => {
+    const freshEffort = sectionTrend('recent', 1, 5, 1);
+    const result = generateSectionTrendInsights([freshEffort], new Set(), NOW, mockT);
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toBe('section_trend-recent');
+  });
+
+  it('keeps section when daysSinceLast is unknown (not filtered out)', () => {
+    const unknown = sectionTrend('unknown', undefined, 5, 1);
+    const result = generateSectionTrendInsights([unknown], new Set(), NOW, mockT);
+    expect(result).toHaveLength(1);
+  });
+
+  it('boundary: exactly at activeWindowDays passes, 1 day beyond rejects', () => {
+    const boundary = INSIGHTS_CONFIG.activeWindowDays;
+    const atBoundary = sectionTrend('at', boundary, 5, 1);
+    const justBeyond = sectionTrend('beyond', boundary + 1, 5, 1);
+
+    expect(generateSectionTrendInsights([atBoundary], new Set(), NOW, mockT)).toHaveLength(1);
+    expect(generateSectionTrendInsights([justBeyond], new Set(), NOW, mockT)).toHaveLength(0);
+  });
+
+  it('attaches meta.sourceTimestamp matching daysSinceLast', () => {
+    const section = sectionTrend('s1', 7, 5, 1);
+    const [insight] = generateSectionTrendInsights([section], new Set(), NOW, mockT);
+    expect(insight.meta?.sourceTimestamp).toBe(NOW - 7 * 86_400_000);
+    expect(insight.meta?.comparisonKind).toBe('self');
+    expect(insight.meta?.repetitionCount).toBe(5);
   });
 });

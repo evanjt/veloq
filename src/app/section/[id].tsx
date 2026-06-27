@@ -3,71 +3,52 @@
  * Shows a frequently-traveled section with all activities that traverse it.
  */
 
-import React, { useMemo, useCallback, useState, useEffect, useRef } from 'react';
-import {
-  View,
-  ScrollView,
-  StyleSheet,
-  StatusBar,
-  TouchableOpacity,
-  InteractionManager,
-} from 'react-native';
+import React, { useCallback, useEffect, useRef } from 'react';
+import { View, ScrollView, StatusBar, TouchableOpacity, InteractionManager } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
-import { logScreenRender } from '@/lib/debug/renderTimer';
+import { logScreenRender } from '@/shared/debug/renderTimer';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import {
-  useSectionPerformances,
-  useTheme,
-  useCacheDays,
-  useGpxExport,
-  useSectionChartData,
-  useNearbySections,
-  useMergeSections,
-  useSectionActions,
-} from '@/hooks';
-import { useSectionDetail } from '@/hooks/routes/useRouteEngine';
-import { useSectionTrim } from '@/hooks/routes/useSectionTrim';
-import { getAllSectionDisplayNames } from '@/hooks/routes/useUnifiedSections';
-import {
-  DataRangeFooter,
-  DebugInfoPanel,
-  DebugWarningBanner,
-  SectionTrimOverlay,
-} from '@/components/routes';
-import { useDebugStore } from '@/providers';
-import { useFFITimer } from '@/hooks/debug/useFFITimer';
-import { TAB_BAR_SAFE_PADDING, ScreenErrorBoundary } from '@/components/ui';
+import { useMergeSections } from '@/features/routes/hooks/useMergeSections';
+import { useNearbySections } from '@/features/routes/hooks/useNearbySections';
+import { useSectionActions } from '@/features/routes/hooks/useSectionActions';
+import { useSectionChartData } from '@/features/routes/hooks/useSectionChartData';
+import { useSectionPerformances } from '@/features/routes/hooks/useSectionPerformances';
+import { useSectionDataRefresh } from '@/features/routes/hooks/useSectionDataRefresh';
+import { useSectionUIState } from '@/features/routes/hooks/useSectionUIState';
+import { useSectionActivityData } from '@/features/routes/hooks/useSectionActivityData';
+import { useSectionChartDataEnriched } from '@/features/routes/hooks/useSectionChartDataEnriched';
+import { useSectionMapData } from '@/features/routes/hooks/useSectionMapData';
+import { useGpxExport } from '@/features/settings/hooks/exportIndex';
+import { useTheme } from '@/shared/app';
+import { useCacheDays } from '@/shared/app/useCacheDays';
+import { useSectionTrim } from '@/features/routes/hooks/useSectionTrim';
+import { DataRangeFooter, SectionTrimOverlay } from '@/features/routes';
+import { useDebugStore } from '@/features/settings/stores/DebugStore';
+import { useFFITimer } from '@/shared/debug/useFFITimer';
+import { ScreenErrorBoundary } from '@/shared/ui';
 import {
   SectionHeader,
-  SectionPerformanceSection,
-  SectionStatsCards,
-  SectionInfoCard,
+  SectionActionRow,
+  SectionContentArea,
+  SectionDebugPanel,
   MergeConfirmDialog,
   MergeCandidatesModal,
-} from '@/components/section';
-import { MAP_HEIGHT_NORMAL, MAP_HEIGHT_EDIT } from '@/components/section/SectionHeader';
-import { getRouteEngine } from '@/lib/native/routeEngine';
-import { decodeCoords } from 'veloqrs';
+} from '@/features/routes/components/section';
 import {
-  formatRelativeDate,
+  MAP_HEIGHT_NORMAL,
+  MAP_HEIGHT_EDIT,
+} from '@/features/routes/components/section/SectionHeader';
+import { styles } from '@/features/routes/components/section/SectionDetail.styles';
+import {
   getActivityIcon,
   getActivityColor,
-  isRunningActivity,
   type MaterialIconName,
-} from '@/lib';
-import { fromUnixSeconds } from '@/lib/utils/ffiConversions';
-import { colors, darkColors, spacing, layout, typography } from '@/theme';
-import { type SectionTimeRange } from '@/constants';
-import type {
-  Activity,
-  ActivityType,
-  RoutePoint,
-  FrequentSection,
-  PerformanceDataPoint,
-} from '@/types';
+} from '@/features/activity/lib/activityUtils';
+import { colors, darkColors } from '@/theme';
+import type { ActivityType, RoutePoint } from '@/types';
 
 export default function SectionDetailScreen() {
   // Performance timing
@@ -76,14 +57,6 @@ export default function SectionDetailScreen() {
   useEffect(() => {
     perfEndRef.current?.();
   });
-
-  // Defer map loading until after interactions complete for faster perceived load
-  useEffect(() => {
-    const handle = InteractionManager.runAfterInteractions(() => {
-      setMapReady(true);
-    });
-    return () => handle.cancel();
-  }, []);
 
   const { t } = useTranslation();
   const { id, activityId: navActivityId } = useLocalSearchParams<{
@@ -103,83 +76,41 @@ export default function SectionDetailScreen() {
   const { nearby } = useNearbySections(id);
   const { candidates: mergeCandidates, merge: mergeSections, isMerging } = useMergeSections(id);
 
-  const [highlightedActivityId, setHighlightedActivityId] = useState<string | null>(null);
-  const [highlightedActivityPoints, setHighlightedActivityPoints] = useState<
-    RoutePoint[] | undefined
-  >(undefined);
-  // Track if user is actively scrubbing - used to defer expensive map updates
-  const [isScrubbing, setIsScrubbing] = useState(false);
-  // Defer map loading until after first paint for faster perceived load
-  const [mapReady, setMapReady] = useState(false);
-  // Merge dialog state
-  const [mergeTarget, setMergeTarget] = useState<(typeof mergeCandidates)[number] | null>(null);
-  // Shown when 2+ candidates — lets user pick which to merge.
-  const [showMergePicker, setShowMergePicker] = useState(false);
+  const {
+    highlightedActivityId,
+    setHighlightedActivityId,
+    highlightedActivityPoints,
+    setHighlightedActivityPoints,
+    isScrubbing,
+    setIsScrubbing,
+    mapReady,
+    setMapReady,
+    mergeTarget,
+    setMergeTarget,
+    showMergePicker,
+    setShowMergePicker,
+    sectionTimeRange,
+    setSectionTimeRange,
+    selectedSportType,
+    setSelectedSportType,
+  } = useSectionUIState();
 
-  // Time range for chart data (passed to useSectionChartData)
-  const [sectionTimeRange, setSectionTimeRange] = useState<SectionTimeRange>('all');
-
-  // Key to force section data refresh after reference change
-  const [sectionRefreshKey, setSectionRefreshKey] = useState(0);
-
-  // Sport type filter for cross-sport sections
-  const [selectedSportType, setSelectedSportType] = useState<string | undefined>(undefined);
+  // Defer map loading until after interactions complete for faster perceived load
+  useEffect(() => {
+    const handle = InteractionManager.runAfterInteractions(() => {
+      setMapReady(true);
+    });
+    return () => handle.cancel();
+  }, [setMapReady]);
 
   // Custom section IDs start with "custom_" (e.g., "custom_1767268142052_qyfoos8")
   const isCustomId = id?.startsWith('custom_');
 
-  // Use useSectionDetail for ALL sections (both auto and custom).
-  // Rust get_section_by_id() handles both types via the unified sections table.
-  const sectionIdWithRefresh = id ? `${id}#${sectionRefreshKey}` : null;
-  const { section: rawEngineSection } = useSectionDetail(id ?? null);
-
-  // Force re-computation when refresh key changes by including it in the memo
-  const section = useMemo(() => {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const _forceRefresh = sectionIdWithRefresh;
-    if (!rawEngineSection) return null;
-
-    // Re-fetch fresh data from engine when refresh key changes
-    // IMPORTANT: Use ALL fresh data, not just polyline - activityIds may have changed
-    if (sectionRefreshKey > 0) {
-      const engine = getRouteEngine();
-      if (engine && id) {
-        const fresh = engine.getSectionById(id);
-        if (fresh && fresh.encodedPolyline && fresh.encodedPolyline.byteLength > 0) {
-          const freshAny = fresh as unknown as Record<string, unknown>;
-          const sectionType: 'auto' | 'custom' =
-            typeof freshAny.sectionType === 'string' && freshAny.sectionType === 'custom'
-              ? 'custom'
-              : 'auto';
-          const createdAt =
-            typeof freshAny.createdAt === 'string' ? freshAny.createdAt : new Date().toISOString();
-          return {
-            ...fresh,
-            sectionType,
-            polyline: decodeCoords(fresh.encodedPolyline).map((p) => ({
-              lat: p.latitude,
-              lng: p.longitude,
-            })),
-            activityPortions: fresh.activityPortions?.map((p) => ({
-              ...p,
-              direction: (p.direction === 'reverse' ? 'reverse' : 'same') as 'same' | 'reverse',
-            })),
-            createdAt,
-          } as FrequentSection;
-        }
-        // If fresh data is invalid/empty, keep using rawEngineSection to avoid map flicker
-      }
-    }
-    return rawEngineSection;
-  }, [rawEngineSection, sectionIdWithRefresh, sectionRefreshKey, id]);
+  const { section, sectionRefreshKey, handleTrimRefresh } = useSectionDataRefresh(id);
 
   // Disabled state from section data
   const isSectionDisabled = !!(section?.disabled || section?.supersededBy);
 
-  // Section bounds trimming
-  const handleTrimRefresh = useCallback(() => {
-    setSectionRefreshKey((k) => k + 1);
-  }, []);
   const {
     isTrimming,
     isExpanded: isExpandMode,
@@ -238,87 +169,18 @@ export default function SectionDetailScreen() {
       setHighlightedActivityId(activityId);
       setHighlightedActivityPoints(activityPoints);
     },
-    []
+    [setHighlightedActivityId, setHighlightedActivityPoints]
   );
 
-  const handleScrubChange = useCallback((scrubbing: boolean) => {
-    setIsScrubbing(scrubbing);
-  }, []);
+  const handleScrubChange = useCallback(
+    (scrubbing: boolean) => {
+      setIsScrubbing(scrubbing);
+    },
+    [setIsScrubbing]
+  );
 
-  // Get section activities from engine metrics (no API call needed).
-  // Activities are already cached in the Rust engine's in-memory HashMap.
-  const sectionActivitiesUnsorted = useMemo(() => {
-    if (!section?.activityIds?.length) return [];
-    const engine = getRouteEngine();
-    if (!engine) return [];
-    return engine.getActivityMetricsForIds(section.activityIds).map(
-      (m): Activity => ({
-        id: m.activityId,
-        name: m.name,
-        type: m.sportType as ActivityType,
-        start_date_local: fromUnixSeconds(m.date)?.toISOString() ?? '',
-        distance: m.distance,
-        moving_time: m.movingTime,
-        elapsed_time: m.elapsedTime,
-        total_elevation_gain: m.elevationGain,
-        average_speed: m.movingTime > 0 ? m.distance / m.movingTime : 0,
-        max_speed: 0,
-        average_heartrate: m.avgHr ?? undefined,
-      })
-    );
-  }, [section?.activityIds]);
-
-  // Load simplified GPS signatures for activity trace display during chart scrubbing
-  const allActivityTraces = useMemo((): Record<string, RoutePoint[]> | undefined => {
-    if (!section?.activityIds?.length) return undefined;
-    try {
-      const engine = getRouteEngine();
-      if (!engine) return undefined;
-      const activityIdSet = new Set(section.activityIds);
-      const allSigs = engine.getAllMapSignatures();
-      const result: Record<string, RoutePoint[]> = {};
-      for (const sig of allSigs) {
-        if (!activityIdSet.has(sig.activityId)) continue;
-        const decoded = decodeCoords(sig.encodedCoords);
-        if (decoded.length < 2) continue;
-        const points: RoutePoint[] = decoded.map((p) => ({ lat: p.latitude, lng: p.longitude }));
-        result[sig.activityId] = points;
-      }
-      return Object.keys(result).length > 0 ? result : undefined;
-    } catch {
-      return undefined;
-    }
-  }, [section?.activityIds]);
-
-  // Compute available sport types with activity counts for cross-sport sections
-  const sportTypeCounts = useMemo(() => {
-    if (!section?.activityIds?.length) return [];
-    const engine = getRouteEngine();
-    if (!engine) return [];
-    try {
-      const metrics = engine.getActivityMetricsForIds(section.activityIds);
-      const counts = new Map<string, number>();
-      for (const m of metrics) {
-        if (m.sportType) counts.set(m.sportType, (counts.get(m.sportType) ?? 0) + 1);
-      }
-      return Array.from(counts.entries())
-        .map(([type, count]) => ({ type, count }))
-        .sort((a, b) => b.count - a.count);
-    } catch {
-      return [{ type: section.sportType, count: section.activityIds?.length ?? 0 }];
-    }
-  }, [section?.id, section?.sportType, section?.activityIds]);
-
-  const availableSportTypes = useMemo(() => sportTypeCounts.map((s) => s.type), [sportTypeCounts]);
-
-  // Effective sport type: matches the visually-selected pill.
-  // When selectedSportType is undefined (initial state), default to section's own sport type
-  // so the chart data matches the highlighted pill.
-  const effectiveSportType = useMemo(() => {
-    if (selectedSportType) return selectedSportType;
-    if (availableSportTypes.length > 1 && section?.sportType) return section.sportType;
-    return undefined;
-  }, [selectedSportType, availableSportTypes.length, section?.sportType]);
+  const { allActivityTraces, sportTypeCounts, effectiveSportType, filteredActivities } =
+    useSectionActivityData(section, selectedSportType);
 
   // Fetch actual section performance times from activity streams
   // This loads in the background - we show estimated times first, then update when ready
@@ -330,12 +192,6 @@ export default function SectionDetailScreen() {
     reverseStats,
   } = useSectionPerformances(section, effectiveSportType);
 
-  // Filter activities by selected sport type for chart data
-  const filteredActivities = useMemo(() => {
-    if (!effectiveSportType) return sectionActivitiesUnsorted;
-    return sectionActivitiesUnsorted.filter((a) => a.type === effectiveSportType);
-  }, [sectionActivitiesUnsorted, effectiveSportType]);
-
   const { chartData } = useSectionChartData({
     section,
     performanceRecords,
@@ -345,141 +201,22 @@ export default function SectionDetailScreen() {
     sportFilter: effectiveSportType,
   });
 
-  // Build chart data points for excluded activities (shown dimmed on scatter chart)
-  const excludedChartData = useMemo((): (PerformanceDataPoint & { x: number })[] => {
-    if (!showExcluded || excludedActivityIds.size === 0 || !id) return [];
-    try {
-      const engine = getRouteEngine();
-      if (!engine) return [];
-      const result = engine.getExcludedSectionPerformances(id);
-      if (!result?.records?.length) return [];
-
-      const points: (PerformanceDataPoint & { x: number })[] = [];
-      for (const r of result.records) {
-        const date = fromUnixSeconds(r.activityDate);
-        if (!date) continue;
-        if (r.laps?.length) {
-          for (const lap of r.laps) {
-            if (lap.pace > 0) {
-              points.push({
-                x: 0,
-                id: lap.id,
-                activityId: r.activityId,
-                speed: lap.pace,
-                date,
-                activityName: r.activityName,
-                direction: (lap.direction === 'reverse' ? 'reverse' : 'same') as 'same' | 'reverse',
-                sectionTime: Math.round(lap.time),
-                sectionDistance: lap.distance || r.sectionDistance,
-                lapCount: 1,
-                isExcluded: true,
-              });
-            }
-          }
-        } else if (r.bestPace > 0) {
-          points.push({
-            x: 0,
-            id: r.activityId,
-            activityId: r.activityId,
-            speed: r.bestPace,
-            date,
-            activityName: r.activityName,
-            direction: (r.direction === 'reverse' ? 'reverse' : 'same') as 'same' | 'reverse',
-            sectionTime: Math.round(r.bestTime),
-            sectionDistance: r.sectionDistance,
-            lapCount: 1,
-            isExcluded: true,
-          });
-        }
-      }
-      return points;
-    } catch (e) {
-      if (__DEV__) console.warn('[SectionDetail] getExcludedSectionPerformances failed:', e);
-      return [];
-    }
-  }, [showExcluded, excludedActivityIds, id]);
+  const { calendarSummary, combinedChartData } = useSectionChartDataEnriched({
+    id,
+    section,
+    chartData,
+    showExcluded,
+    excludedActivityIds,
+  });
 
   const activityCount = sectionTimeRange === 'all' ? (section?.visitCount ?? 0) : chartData.length;
 
-  // Calendar summary: Year > Month performance history
-  const calendarSummary = useMemo(() => {
-    if (!section?.id) return null;
-    try {
-      const engine = getRouteEngine();
-      if (!engine) return null;
-      const t0 = performance.now();
-      const result = engine.getSectionCalendarSummary(section.id);
-      if (__DEV__)
-        console.log(`[PERF] getSectionCalendarSummary: ${(performance.now() - t0).toFixed(1)}ms`);
-      return result ?? null;
-    } catch {
-      return null;
-    }
-  }, [section?.id]);
-
-  // Prepare nearby polylines for map overlay (includes metadata for preview popup)
-  const nearbyPolylines = useMemo(() => {
-    if (!nearby || nearby.length === 0) return undefined;
-    const displayNames = getAllSectionDisplayNames();
-    return nearby.map((n) => ({
-      id: n.id,
-      name: displayNames[n.id] || n.name,
-      sportType: n.sportType,
-      distanceMeters: n.distanceMeters,
-      visitCount: n.visitCount,
-      encodedPolyline: n.encodedPolyline,
-    }));
-  }, [nearby]);
-
-  const isRunning = effectiveSportType
-    ? isRunningActivity(effectiveSportType as ActivityType)
-    : section
-      ? isRunningActivity(section.sportType as ActivityType)
-      : false;
+  const { nearbyPolylines, isRunning } = useSectionMapData(nearby, effectiveSportType, section);
 
   const computedForwardStats = forwardStats;
   const computedReverseStats = reverseStats;
   const computedBestForward = bestForwardRecord ?? null;
   const computedBestReverse = bestReverseRecord ?? null;
-
-  // Enrich chart data with PR info for tooltip display
-  const enrichedChartData = useMemo(() => {
-    if (chartData.length === 0) return chartData;
-
-    // Find best time/speed per direction from non-excluded points
-    let fwdBestTime: number | undefined;
-    let fwdBestSpeed: number | undefined;
-    let revBestTime: number | undefined;
-    let revBestSpeed: number | undefined;
-
-    for (const p of chartData) {
-      if (p.direction === 'reverse') {
-        if (revBestSpeed === undefined || p.speed > revBestSpeed) {
-          revBestSpeed = p.speed;
-          revBestTime = p.sectionTime;
-        }
-      } else {
-        if (fwdBestSpeed === undefined || p.speed > fwdBestSpeed) {
-          fwdBestSpeed = p.speed;
-          fwdBestTime = p.sectionTime;
-        }
-      }
-    }
-
-    return chartData.map((p) => {
-      const isReverse = p.direction === 'reverse';
-      const dirBestTime = isReverse ? revBestTime : fwdBestTime;
-      const dirBestSpeed = isReverse ? revBestSpeed : fwdBestSpeed;
-      const isBest = dirBestSpeed !== undefined && p.speed === dirBestSpeed;
-      return { ...p, bestTime: dirBestTime, bestSpeed: dirBestSpeed, isBest };
-    });
-  }, [chartData]);
-
-  // Merge excluded points into chart data when showing excluded
-  const combinedChartData = useMemo(() => {
-    if (excludedChartData.length === 0) return enrichedChartData;
-    return [...enrichedChartData, ...excludedChartData];
-  }, [enrichedChartData, excludedChartData]);
 
   if (!section) {
     return (
@@ -489,6 +226,8 @@ export default function SectionDetailScreen() {
             style={styles.backButton}
             onPress={() => router.back()}
             activeOpacity={0.7}
+            accessibilityRole="button"
+            accessibilityLabel={t('common.back')}
           >
             <MaterialCommunityIcons
               name="arrow-left"
@@ -564,122 +303,18 @@ export default function SectionDetailScreen() {
 
           {/* Action row — always visible below map, hidden during trim */}
           {!isTrimming && (
-            <View style={styles.actionRow}>
-              <TouchableOpacity
-                testID="section-trim-button"
-                style={[
-                  styles.actionPill,
-                  { backgroundColor: isDark ? darkColors.surface : colors.surface },
-                ]}
-                onPress={startTrim}
-                activeOpacity={0.7}
-              >
-                <MaterialCommunityIcons
-                  name="content-cut"
-                  size={16}
-                  color={isDark ? darkColors.textPrimary : colors.textSecondary}
-                />
-                <Text style={[styles.actionPillText, isDark && { color: darkColors.textPrimary }]}>
-                  {t('sections.editBounds')}
-                </Text>
-              </TouchableOpacity>
-              {isCustomId ? (
-                <TouchableOpacity
-                  style={[
-                    styles.actionCircle,
-                    { backgroundColor: isDark ? darkColors.surface : colors.surface },
-                  ]}
-                  onPress={handleDeleteSection}
-                  activeOpacity={0.7}
-                >
-                  <MaterialCommunityIcons name="delete-outline" size={16} color={colors.error} />
-                </TouchableOpacity>
-              ) : (
-                <TouchableOpacity
-                  style={[
-                    styles.actionCircle,
-                    { backgroundColor: isDark ? darkColors.surface : colors.surface },
-                  ]}
-                  onPress={handleToggleDisable}
-                  activeOpacity={0.7}
-                >
-                  <MaterialCommunityIcons
-                    name={isSectionDisabled ? 'undo' : 'delete-outline'}
-                    size={16}
-                    color={
-                      isSectionDisabled
-                        ? colors.success
-                        : isDark
-                          ? darkColors.textSecondary
-                          : colors.textSecondary
-                    }
-                  />
-                </TouchableOpacity>
-              )}
-              {handleRematchActivities && (
-                <TouchableOpacity
-                  style={[
-                    styles.actionCircle,
-                    { backgroundColor: isDark ? darkColors.surface : colors.surface },
-                  ]}
-                  onPress={handleRematchActivities}
-                  activeOpacity={0.7}
-                  disabled={isRematching}
-                >
-                  <MaterialCommunityIcons
-                    name={isRematching ? 'loading' : 'refresh'}
-                    size={16}
-                    color={isDark ? darkColors.textSecondary : colors.textSecondary}
-                  />
-                </TouchableOpacity>
-              )}
-              {/* Accept/Pin chip — inline with action buttons */}
-              {section &&
-                section.sectionType === 'auto' &&
-                !isCustomId &&
-                (section.isUserDefined ? (
-                  <View
-                    style={[
-                      styles.actionPill,
-                      {
-                        backgroundColor: isDark ? darkColors.surface : colors.surface,
-                        marginLeft: 'auto',
-                      },
-                    ]}
-                  >
-                    <MaterialCommunityIcons
-                      name="pin"
-                      size={14}
-                      color={isDark ? darkColors.textSecondary : colors.textSecondary}
-                    />
-                    <Text
-                      style={[
-                        styles.actionPillText,
-                        { color: isDark ? darkColors.textSecondary : colors.textSecondary },
-                      ]}
-                    >
-                      {t('sections.pinned')}
-                    </Text>
-                  </View>
-                ) : (
-                  <TouchableOpacity
-                    style={[
-                      styles.actionPill,
-                      {
-                        backgroundColor: isDark ? darkColors.surface : colors.surface,
-                        marginLeft: 'auto',
-                      },
-                    ]}
-                    onPress={handleAcceptSection}
-                    activeOpacity={0.7}
-                  >
-                    <MaterialCommunityIcons name="pin-outline" size={14} color={colors.primary} />
-                    <Text style={[styles.actionPillText, { color: colors.primary }]}>
-                      {t('sections.acceptSection')}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-            </View>
+            <SectionActionRow
+              isDark={isDark}
+              isCustomId={!!isCustomId}
+              isSectionDisabled={isSectionDisabled}
+              isRematching={isRematching}
+              section={section}
+              startTrim={startTrim}
+              handleDeleteSection={handleDeleteSection}
+              handleToggleDisable={handleToggleDisable}
+              handleRematchActivities={handleRematchActivities}
+              handleAcceptSection={handleAcceptSection}
+            />
           )}
 
           {/* Trim panel — replaces chart when trimming */}
@@ -752,94 +387,40 @@ export default function SectionDetailScreen() {
 
           {/* Content below hero — hidden during trim */}
           {!isTrimming && (
-            <View style={styles.contentSection}>
-              {/* Disabled banner */}
-              {isSectionDisabled && (
-                <TouchableOpacity
-                  style={[styles.disabledBanner, isDark && styles.disabledBannerDark]}
-                  onPress={handleToggleDisable}
-                  activeOpacity={0.8}
-                >
-                  <MaterialCommunityIcons name="delete-outline" size={18} color={colors.warning} />
-                  <Text style={styles.disabledBannerText}>
-                    {t('sections.removed')} — {t('sections.restoreSection')}
-                  </Text>
-                </TouchableOpacity>
-              )}
-
-              {/* Merge candidates banner */}
-              {mergeCandidates.length > 0 && (
-                <TouchableOpacity
-                  style={[styles.mergeBanner, isDark && styles.mergeBannerDark]}
-                  onPress={() => {
-                    if (mergeCandidates.length === 1) {
-                      setMergeTarget(mergeCandidates[0]);
-                    } else {
-                      setShowMergePicker(true);
-                    }
-                  }}
-                  activeOpacity={0.8}
-                >
-                  <MaterialCommunityIcons name="call-merge" size={18} color={colors.info} />
-                  <Text style={[styles.mergeBannerText, isDark && styles.mergeBannerTextDark]}>
-                    {t('sections.similarNearbyCount', { count: mergeCandidates.length })}
-                  </Text>
-                  <MaterialCommunityIcons
-                    name="chevron-right"
-                    size={18}
-                    color={isDark ? darkColors.textSecondary : colors.textSecondary}
-                  />
-                </TouchableOpacity>
-              )}
-
-              {/* Performance chart with eye toggle — hidden during trim */}
-              {!isTrimming && (
-                <SectionPerformanceSection
-                  isDark={isDark}
-                  section={section}
-                  chartData={combinedChartData}
-                  forwardStats={computedForwardStats}
-                  reverseStats={computedReverseStats}
-                  bestForwardRecord={computedBestForward}
-                  bestReverseRecord={computedBestReverse}
-                  onActivitySelect={handleActivitySelect}
-                  onScrubChange={handleScrubChange}
-                  onExcludeActivity={handleExcludeActivity}
-                  onIncludeActivity={handleIncludeActivity}
-                  onSetAsReference={handleSetAsReference}
-                  referenceActivityId={effectiveReferenceId}
-                  showExcluded={showExcluded}
-                  hasExcluded={excludedActivityIds.size > 0}
-                  onToggleShowExcluded={handleToggleShowExcluded}
-                  highlightedActivityId={navActivityId}
-                  sectionTimeRange={sectionTimeRange}
-                  onTimeRangeChange={setSectionTimeRange}
-                />
-              )}
-
-              {/* Summary card */}
-              <SectionInfoCard
-                chartData={combinedChartData}
-                bestForwardRecord={computedBestForward}
-                bestReverseRecord={computedBestReverse}
-                forwardStats={computedForwardStats}
-                reverseStats={computedReverseStats}
-                sportType={section.sportType}
-                isDark={isDark}
-              />
-
-              {/* Calendar performance history */}
-              {calendarSummary && (
-                <SectionStatsCards
-                  calendarSummary={calendarSummary}
-                  isDark={isDark}
-                  isRunning={isRunning}
-                  activityColor={activityColor}
-                  onSetAsReference={handleSetAsReference}
-                  referenceActivityId={effectiveReferenceId}
-                />
-              )}
-            </View>
+            <SectionContentArea
+              isDark={isDark}
+              section={section}
+              isSectionDisabled={isSectionDisabled}
+              mergeCandidates={mergeCandidates}
+              combinedChartData={combinedChartData}
+              forwardStats={computedForwardStats}
+              reverseStats={computedReverseStats}
+              bestForwardRecord={computedBestForward}
+              bestReverseRecord={computedBestReverse}
+              calendarSummary={calendarSummary}
+              isRunning={isRunning}
+              activityColor={activityColor}
+              navActivityId={navActivityId}
+              effectiveReferenceId={effectiveReferenceId}
+              showExcluded={showExcluded}
+              excludedActivityIds={excludedActivityIds}
+              sectionTimeRange={sectionTimeRange}
+              onActivitySelect={handleActivitySelect}
+              onScrubChange={handleScrubChange}
+              onExcludeActivity={handleExcludeActivity}
+              onIncludeActivity={handleIncludeActivity}
+              onSetAsReference={handleSetAsReference}
+              onToggleShowExcluded={handleToggleShowExcluded}
+              onTimeRangeChange={setSectionTimeRange}
+              onToggleDisable={handleToggleDisable}
+              onMergePress={() => {
+                if (mergeCandidates.length === 1) {
+                  setMergeTarget(mergeCandidates[0]);
+                } else {
+                  setShowMergePicker(true);
+                }
+              }}
+            />
           )}
 
           {!isTrimming && (
@@ -872,119 +453,13 @@ export default function SectionDetailScreen() {
                 </TouchableOpacity>
               )}
               <DataRangeFooter days={cacheDays} isDark={isDark} />
-              {debugEnabled &&
-                section &&
-                (() => {
-                  const pageMetrics = getPageMetrics();
-                  const ffiEntries = pageMetrics.reduce<
-                    Record<string, { calls: number; totalMs: number; maxMs: number }>
-                  >((acc, m) => {
-                    if (!acc[m.name]) acc[m.name] = { calls: 0, totalMs: 0, maxMs: 0 };
-                    acc[m.name].calls++;
-                    acc[m.name].totalMs += m.durationMs;
-                    acc[m.name].maxMs = Math.max(acc[m.name].maxMs, m.durationMs);
-                    return acc;
-                  }, {});
-                  const warnings: Array<{
-                    level: 'warn' | 'error';
-                    message: string;
-                  }> = [];
-                  const actCount = section.activityIds.length;
-                  if (actCount > 500)
-                    warnings.push({
-                      level: 'error',
-                      message: `${actCount} activities (>500)`,
-                    });
-                  else if (actCount > 100)
-                    warnings.push({
-                      level: 'warn',
-                      message: `${actCount} activities (>100)`,
-                    });
-                  if (section.polyline.length > 2000)
-                    warnings.push({
-                      level: 'warn',
-                      message: `${section.polyline.length} polyline points (>2000)`,
-                    });
-                  for (const [name, m] of Object.entries(ffiEntries)) {
-                    if (m.maxMs > 200)
-                      warnings.push({
-                        level: 'error',
-                        message: `${name}: ${m.maxMs.toFixed(0)}ms (max)`,
-                      });
-                  }
-                  return (
-                    <>
-                      {warnings.length > 0 && <DebugWarningBanner warnings={warnings} />}
-                      <DebugInfoPanel
-                        isDark={isDark}
-                        entries={[
-                          {
-                            label: 'ID',
-                            value:
-                              section.id.length > 20 ? section.id.slice(0, 20) + '...' : section.id,
-                          },
-                          { label: 'Type', value: section.sectionType },
-                          {
-                            label: 'Stability',
-                            value: Number.isFinite(section.stability)
-                              ? section.stability!.toFixed(3)
-                              : '-',
-                          },
-                          {
-                            label: 'Version',
-                            value: section.version != null ? String(section.version) : '-',
-                          },
-                          {
-                            label: 'Updated',
-                            value: section.updatedAt ? formatRelativeDate(section.updatedAt) : '-',
-                          },
-                          {
-                            label: 'Created',
-                            value: section.createdAt ? formatRelativeDate(section.createdAt) : '-',
-                          },
-                          {
-                            label: 'Confidence',
-                            value: Number.isFinite(section.confidence)
-                              ? section.confidence!.toFixed(2)
-                              : '-',
-                          },
-                          {
-                            label: 'Observations',
-                            value:
-                              section.observationCount != null
-                                ? String(section.observationCount)
-                                : '-',
-                          },
-                          {
-                            label: 'Avg Spread',
-                            value: Number.isFinite(section.averageSpread)
-                              ? section.averageSpread!.toFixed(1) + 'm'
-                              : '-',
-                          },
-                          {
-                            label: 'Reference',
-                            value: section.representativeActivityId
-                              ? section.representativeActivityId.slice(0, 20) + '...'
-                              : '-',
-                          },
-                          {
-                            label: 'User Defined',
-                            value: section.isUserDefined ? 'Yes' : 'No',
-                          },
-                          { label: 'Activities', value: String(actCount) },
-                          {
-                            label: 'Points',
-                            value: String(section.polyline.length),
-                          },
-                          ...Object.entries(ffiEntries).map(([name, m]) => ({
-                            label: name,
-                            value: `${m.calls}x ${m.totalMs.toFixed(0)}ms`,
-                          })),
-                        ]}
-                      />
-                    </>
-                  );
-                })()}
+              {debugEnabled && section && (
+                <SectionDebugPanel
+                  section={section}
+                  pageMetrics={getPageMetrics()}
+                  isDark={isDark}
+                />
+              )}
             </View>
           )}
         </ScrollView>
@@ -1029,211 +504,3 @@ export default function SectionDetailScreen() {
     </ScreenErrorBoundary>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  containerDark: {
-    backgroundColor: darkColors.background,
-  },
-  textLight: {
-    color: colors.textOnDark,
-  },
-  textMuted: {
-    color: darkColors.textSecondary,
-  },
-  actionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-  },
-  actionPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    borderRadius: 16,
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-  },
-  actionPillText: {
-    fontSize: typography.caption.fontSize,
-    fontWeight: '500',
-    color: colors.textSecondary,
-  },
-  actionCircle: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  acceptRow: {
-    flexDirection: 'row',
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.xs,
-  },
-  acceptChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 16,
-    borderWidth: 1,
-    gap: 4,
-  },
-  acceptText: {
-    fontSize: 13,
-    fontWeight: '500',
-  },
-  pinnedChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  pinnedText: {
-    fontSize: 13,
-    fontWeight: '500',
-  },
-  sportTypePills: {
-    flexDirection: 'row',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    gap: spacing.xs,
-  },
-  sportPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
-    gap: 4,
-  },
-  sportPillDark: {
-    borderColor: darkColors.border,
-  },
-  sportPillText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.textSecondary,
-  },
-  sportPillTextDark: {
-    color: darkColors.textSecondary,
-  },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingBottom: spacing.xl + TAB_BAR_SAFE_PADDING,
-  },
-  listFooterContainer: {
-    marginTop: spacing.md,
-  },
-  exportGpxButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.primary,
-    borderRadius: 24,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.lg,
-    marginHorizontal: spacing.md,
-    marginBottom: spacing.md,
-    gap: spacing.xs,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  exportGpxButtonDark: {
-    backgroundColor: colors.primary,
-  },
-  exportGpxButtonText: {
-    color: colors.textOnPrimary,
-    fontSize: 15,
-    fontWeight: '600' as const,
-  },
-  floatingHeader: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.sm,
-    paddingBottom: spacing.sm,
-  },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  contentSection: {
-    padding: layout.screenPadding,
-    paddingTop: spacing.lg,
-  },
-  disabledBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    backgroundColor: colors.warning + '15',
-    borderWidth: 1,
-    borderColor: colors.warning + '30',
-    borderRadius: layout.borderRadius,
-    padding: spacing.md,
-    marginBottom: spacing.lg,
-  },
-  disabledBannerDark: {
-    backgroundColor: colors.warning + '20',
-    borderColor: colors.warning + '40',
-  },
-  disabledBannerText: {
-    flex: 1,
-    fontSize: typography.bodySmall.fontSize,
-    fontWeight: '500',
-    color: colors.warning,
-  },
-  mergeBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    backgroundColor: colors.info + '10',
-    borderWidth: 1,
-    borderColor: colors.info + '25',
-    borderRadius: layout.borderRadius,
-    padding: spacing.md,
-    marginBottom: spacing.lg,
-  },
-  mergeBannerDark: {
-    backgroundColor: colors.info + '15',
-    borderColor: colors.info + '30',
-  },
-  mergeBannerText: {
-    flex: 1,
-    fontSize: typography.bodySmall.fontSize,
-    fontWeight: '500',
-    color: colors.info,
-  },
-  mergeBannerTextDark: {
-    color: colors.infoLight,
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  emptyText: {
-    fontSize: typography.body.fontSize,
-    color: colors.textPrimary,
-    marginTop: spacing.md,
-  },
-});

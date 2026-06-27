@@ -4,6 +4,7 @@
 appId: com.veloq.app.dev
 tags:
   - tier3
+  - pack-stress
 ---
 - runFlow:
     file: helpers/setup-demo-mode.yaml
@@ -82,7 +83,7 @@ tags:
             visible: "Open"
           commands:
             - tapOn: "Open"
-      - openLink: "veloq://activity/demo-2"
+      - openLink: "veloq://activity/demo-test-2"
       - runFlow:
           when:
             visible: "Open"

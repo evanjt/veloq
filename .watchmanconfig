@@ -1,0 +1,14 @@
+{
+  "ignore_dirs": [
+    "android/build",
+    "android/app/build",
+    "android/.gradle",
+    "android/.cxx",
+    "ios/build",
+    "ios/Pods",
+    "modules/veloqrs/android/build",
+    "modules/veloqrs/android/.cxx",
+    "modules/veloqrs/rust/target",
+    ".expo"
+  ]
+}

@@ -107,6 +107,27 @@ export function sectionPaletteExpression(): unknown {
 }
 
 // =============================================================================
+// MAP PREVIEW COLORS
+// =============================================================================
+
+// Background gradient and grid for the static route/section map previews
+// (MiniTraceView, RouteRow, SectionRow SVGs) and the Skia feed preview halo.
+// Deliberately muted greens — not the brand teal.
+export const mapPreviewColors = {
+  routeHalo: '#FFFFFF', // White outline under the colored route line (theme-independent)
+  light: {
+    bg: '#e8f4e8',
+    bgBottom: '#d4e8d4',
+    grid: '#d0e8d0',
+  },
+  dark: {
+    bg: '#1a2a1a',
+    bgBottom: '#0d1a0d',
+    grid: '#2a3a2a',
+  },
+} as const;
+
+// =============================================================================
 // LIGHT MODE COLORS
 // =============================================================================
 
@@ -136,16 +157,26 @@ export const colors = {
   textMuted: '#71717A',
   textOnDark: '#FFFFFF',
   textOnPrimary: '#18181B', // Dark text on gold
+  iconFaint: '#CCCCCC', // Faint chevrons / placeholder icons (dark counterpart: textMuted)
+  iconNeutral: '#9CA3AF', // Idle/indeterminate status icons (GPS acquiring)
+  chevronMuted: '#999999', // Notice-row chevrons (dark counterpart: #666666)
+  neutralLine: '#888888', // Unselected map lines, non-navigable chevrons on dark surfaces
+  warningAmber: '#92400E', // Amber warning text/icon on light amber surfaces
+  amberIcon: '#D97706', // Amber icons/text on amber-tinted chips (dark counterpart: #FBBF24)
 
   // Semantic
   success: '#22C55E',
   successLight: '#4ADE80',
   error: '#EF4444',
   errorLight: '#F87171',
+  errorDark: '#DC2626',
   warning: '#F59E0B',
   warningLight: '#FBBF24',
   info: brand.blue,
   infoLight: brand.blueLight,
+
+  // Inputs
+  inputTrack: '#DDDDDD', // Slider/progress track (dark counterpart: #333333)
 
   // Borders
   border: '#E4E4E7',
@@ -234,6 +265,74 @@ export const colors = {
 } as const;
 
 // =============================================================================
+// CHART STREAM COLORS
+// =============================================================================
+
+// One colour per activity data stream (activity charts via chartConfig.ts).
+// Picked for contrast against both themes and against each other; wbal shares
+// cadence's orange because the two never plot together.
+export const chartStreamColors = {
+  power: colors.chartYellow,
+  heartrate: '#E63946',
+  cadence: '#F97316',
+  speed: '#2A9D8F',
+  pace: '#818CF8',
+  elevation: '#A3E635',
+  grade: '#6B8E23',
+  wbal: '#F97316',
+  gap: colors.chartCyan,
+  distance: '#457B9D',
+  temp: '#E76F51',
+  time: '#6C757D',
+} as const;
+
+// Style-picker chip swatches (map style selection): one representative
+// background per map style. Theme-independent — each depicts the style itself.
+export const mapStyleSwatch = {
+  light: '#E5E7EB',
+  dark: '#374151',
+  satellite: '#1E6B5A',
+} as const;
+
+// Insight icon tints (insight generators). Theme-independent; positive and
+// info mirror formOptimal and fitnessBlue.
+export const insightIcon = {
+  positive: '#66BB6A',
+  caution: '#FFA726',
+  info: '#42A5F5',
+  opportunity: '#FF9800',
+} as const;
+
+// Status badge palette (strength balance/progression chips): translucent fill
+// (hex alpha) with a deeper text tone of the same hue. The *Strong variants
+// carry the denser 0x26 fill used on progression cards.
+export const statusBadge = {
+  good: { bg: '#22C55E18', text: '#15803D' },
+  alert: { bg: '#F9731618', text: '#B45309' },
+  watch: { bg: '#F59E0B18', text: '#B45309' },
+  bad: { bg: '#EF444418', text: '#B91C1C' },
+  goodStrong: { bg: '#22C55E26', text: '#15803D' },
+  watchStrong: { bg: '#F59E0B26', text: '#B45309' },
+  neutralStrong: { bg: '#64748B26', text: '#475569' },
+} as const;
+
+// Sync-warning banner palette (root layout): amber surfaces with deep amber
+// text, one set per mode.
+export const amberBanner = {
+  light: { bg: '#FEF3C7', border: '#F59E0B', text: '#92400E', subtext: '#B45309' },
+  dark: { bg: '#3F2A17', border: '#92400E', text: '#FDE68A', subtext: '#FCD34D' },
+} as const;
+
+// Loupe magnifier chrome (strength body diagram). The clip background follows
+// the theme; the crosshair dot/ring stay fixed for contrast on body fills.
+export const loupeChrome = {
+  bgLight: '#F0F0F0',
+  bgDark: '#18181B',
+  crosshairDot: '#1A1A1A',
+  crosshairRing: '#FFFFFF',
+} as const;
+
+// =============================================================================
 // DARK MODE COLORS (Whoop-inspired)
 // =============================================================================
 
@@ -276,6 +375,13 @@ export const darkColors = {
   iconSecondary: '#A1A1AA',
   iconMuted: '#71717A',
   iconDisabled: '#52525B',
+  iconFaint: '#71717A', // Faint chevrons / placeholder icons (light counterpart: #CCCCCC)
+  chevronMuted: '#666666', // Notice-row chevrons (light counterpart: #999999)
+  amberIcon: '#FBBF24', // Amber icons/text on amber-tinted chips (light counterpart: #D97706)
+  inputTrack: '#333333', // Slider/progress track (light counterpart: #DDDDDD)
+
+  // Amber warning text/icon (counterpart to light warningAmber)
+  warningAmber: '#FBBF24',
 
   // Interactive states
   buttonSecondary: '#27272A',

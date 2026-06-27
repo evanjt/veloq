@@ -1,0 +1,65 @@
+import { create } from 'zustand';
+import { getSetting, setSetting } from '@/shared/storage';
+
+const SPORT_PREFERENCE_KEY = 'veloq-primary-sport';
+
+export type PrimarySport = 'Cycling' | 'Running' | 'Swimming';
+
+// Map primary sport to activity types used in API calls
+export const SPORT_API_TYPES: Record<PrimarySport, string[]> = {
+  Cycling: ['Ride', 'VirtualRide'],
+  Running: ['Run', 'VirtualRun', 'TrailRun'],
+  Swimming: ['Swim', 'OpenWaterSwim'],
+};
+
+// Sport-specific colors
+export const SPORT_COLORS: Record<PrimarySport, string> = {
+  Cycling: '#3B82F6', // Blue-500 - Royal blue
+  Running: '#10B981', // Emerald-500
+  Swimming: '#06B6D4', // Cyan-500
+};
+
+interface SportPreferenceState {
+  primarySport: PrimarySport;
+  isLoaded: boolean;
+
+  // Actions
+  initialize: () => Promise<void>;
+  setPrimarySport: (sport: PrimarySport) => Promise<void>;
+}
+
+export const useSportPreference = create<SportPreferenceState>((set) => ({
+  primarySport: 'Cycling', // Default
+  isLoaded: false,
+
+  initialize: async () => {
+    try {
+      const stored = await getSetting(SPORT_PREFERENCE_KEY);
+      if (stored && ['Cycling', 'Running', 'Swimming'].includes(stored)) {
+        set({
+          primarySport: stored as PrimarySport,
+          isLoaded: true,
+        });
+      } else {
+        set({ isLoaded: true });
+      }
+    } catch {
+      set({ isLoaded: true });
+    }
+  },
+
+  setPrimarySport: async (sport: PrimarySport) => {
+    await setSetting(SPORT_PREFERENCE_KEY, sport);
+    set({ primarySport: sport });
+  },
+}));
+
+// Helper for synchronous access (e.g., in API calls or non-React contexts)
+export function getPrimarySport(): PrimarySport {
+  return useSportPreference.getState().primarySport;
+}
+
+// Initialize sport preference (call during app startup)
+export async function initializeSportPreference(): Promise<void> {
+  await useSportPreference.getState().initialize();
+}

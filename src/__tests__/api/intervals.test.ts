@@ -10,7 +10,7 @@ jest.mock('@/api/client', () => ({
   getAthleteId: jest.fn(() => 'i12345'),
 }));
 
-jest.mock('@/providers/AuthStore', () => {
+jest.mock('@/shared/app/AuthStore', () => {
   const store = {
     getState: jest.fn(() => ({
       isDemoMode: false,
@@ -184,16 +184,20 @@ describe('intervalsApi.getOldestActivityDate', () => {
 describe('error handling', () => {
   beforeEach(() => mockGet.mockReset());
 
-  it('propagates network errors from getActivities', async () => {
-    mockGet.mockRejectedValueOnce(new Error('401 Unauthorized'));
-    await expect(
-      intervalsApi.getActivities({ oldest: '2024-01-01', newest: '2024-06-01' })
-    ).rejects.toThrow('401 Unauthorized');
-  });
-
-  it('propagates errors from getAthlete', async () => {
-    mockGet.mockRejectedValueOnce(new Error('Network Error'));
-    await expect(intervalsApi.getAthlete()).rejects.toThrow('Network Error');
+  it('propagates request rejections from read methods', async () => {
+    const calls: [() => Promise<unknown>, string][] = [
+      [
+        () => intervalsApi.getActivities({ oldest: '2024-01-01', newest: '2024-06-01' }),
+        '401 Unauthorized',
+      ],
+      [() => intervalsApi.getAthlete(), 'Network Error'],
+      [() => intervalsApi.getActivityStreams('nonexistent'), '404 Not Found'],
+    ];
+    for (const [call, message] of calls) {
+      mockGet.mockReset();
+      mockGet.mockRejectedValueOnce(new Error(message));
+      await expect(call()).rejects.toThrow(message);
+    }
   });
 
   it('handles empty array response from getActivities without crash', async () => {
@@ -220,11 +224,6 @@ describe('error handling', () => {
       newest: '2024-03-01',
     });
     expect(result).toBeNull();
-  });
-
-  it('handles getActivityStreams rejection', async () => {
-    mockGet.mockRejectedValueOnce(new Error('404 Not Found'));
-    await expect(intervalsApi.getActivityStreams('nonexistent')).rejects.toThrow('404 Not Found');
   });
 
   it('handles getSportSettings empty array', async () => {

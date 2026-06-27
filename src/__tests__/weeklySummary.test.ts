@@ -3,7 +3,7 @@
  * Ensures calendar weeks match intervals.icu display
  */
 
-import { getISOWeekNumber, formatWeekRange } from '../hooks/fitness/useAthleteSummary';
+import { getISOWeekNumber, formatWeekRange } from '@/features/fitness/hooks/useAthleteSummary';
 
 // Test helper: Get Monday of ISO week
 function getMonday(date: Date): Date {
@@ -99,8 +99,10 @@ describe('Calendar Week Date Boundaries', () => {
     const weekMonday = getMonday(saturday);
     const weekSunday = getSunday(saturday);
 
+    expect(getISOWeekNumber(saturday)).toBe(4);
     expect(weekMonday.getDate()).toBe(19); // Jan 19
     expect(weekSunday.getDate()).toBe(25); // Jan 25
+    expect(formatWeekRange(weekMonday)).toBe('Jan 19-25');
 
     // Activity timestamp should be within week bounds
     const activityTs = saturday.getTime();
@@ -134,25 +136,5 @@ describe('Rolling vs Calendar Week Difference', () => {
 
     // They should be different
     expect(calendarMonday.getDate()).not.toBe(rollingStart.getDate());
-  });
-});
-
-describe('Bug Report Scenario: Jan 24, 2026', () => {
-  it('should include Sat Jan 24 activity in week 4 calendar view', () => {
-    // This is the scenario from the bug report
-    // User activity on Sat Jan 24 should be in Week 4 (Jan 19-25)
-    const activityDate = new Date(2026, 0, 24, 14, 20, 0); // Sat Jan 24 2:20pm
-
-    const weekNum = getISOWeekNumber(activityDate);
-    const weekMonday = getMonday(activityDate);
-    const weekSunday = getSunday(activityDate);
-
-    expect(weekNum).toBe(4);
-    expect(weekMonday.getDate()).toBe(19);
-    expect(weekSunday.getDate()).toBe(25);
-
-    // The range should show "Jan 19-25"
-    const rangeStr = formatWeekRange(weekMonday);
-    expect(rangeStr).toBe('Jan 19-25');
   });
 });
