@@ -158,13 +158,12 @@ jobs:
           force-avd-creation: false
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot-save -no-metrics
           disable-animations: true
+          # The action runs each script line as a separate `sh -c`, so no shell
+          # state (vars, `export PATH`) survives between lines and `\` line
+          # continuations break. Every line must stand alone.
           script: |
-            APK=$(find /tmp/apk -name "*.apk" | head -1)
-            adb install "$APK"
-            export PATH="$HOME/.maestro/bin:$PATH"
-            maestro test .maestro/ \
-              --include-tags=tier0,tier1 \
-              --format junit --output gate-report.xml --no-ansi || echo "MAESTRO_FAILED=true" >> $GITHUB_ENV
+            adb install "$(find /tmp/apk -name '*.apk' | head -1)"
+            "$HOME/.maestro/bin/maestro" test .maestro/ --include-tags=tier0,tier1 --format junit --output gate-report.xml --no-ansi || echo "MAESTRO_FAILED=true" >> "$GITHUB_ENV"
 
       - name: Upload screenshots
         if: always()

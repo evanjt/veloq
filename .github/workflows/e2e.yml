@@ -278,14 +278,13 @@ jobs:
           force-avd-creation: false
           emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot-save -no-metrics
           disable-animations: true
+          # The action runs each script line as a separate `sh -c`, so no shell
+          # state (vars, `export PATH`) survives between lines and `\` line
+          # continuations break. Every line must stand alone.
           script: |
-            APK=$(find /tmp/android-artifact -name "*.apk" | head -1)
-            adb install "$APK"
+            adb install "$(find /tmp/android-artifact -name '*.apk' | head -1)"
             adb logcat -c
-            export PATH="$HOME/.maestro/bin:$PATH"
-            maestro test .maestro/ \
-              --include-tags=${{ inputs.tier || 'tier0,tier1,tier2,tier3' }} \
-              --format junit --output maestro-report.xml --no-ansi || echo "MAESTRO_FAILED=true" >> $GITHUB_ENV
+            "$HOME/.maestro/bin/maestro" test .maestro/ --include-tags=${{ inputs.tier || 'tier0,tier1,tier2,tier3' }} --format junit --output maestro-report.xml --no-ansi || echo "MAESTRO_FAILED=true" >> "$GITHUB_ENV"
             adb logcat -d > /tmp/logcat.txt 2>&1 || true
 
       - name: Filter diagnostic logs
