@@ -18,7 +18,7 @@
 
 appId: com.veloq.app.dev
 tags:
-  - tier1
+  - tier3
   - pack-settings
   # Quarantined from the blocking gate core: long multi-screen flow whose
   # settings scroll + debug-dashboard nav are intermittent in CI. Runs in the
