@@ -47,3 +47,8 @@ updates:
     groups:
       gha-all:
         patterns: ["*"]
+    ignore:
+      # Toolchains pinned by hand (rustfmt 1.95.0, bindgen 1.93.0). A dependabot
+      # bump points at a nonexistent Rust version and breaks Rust Lint and Verify
+      # Bindings; bump these with a matching cargo fmt / bindings regen instead.
+      - dependency-name: "dtolnay/rust-toolchain"
