@@ -291,8 +291,13 @@ jobs:
           script: |
             adb install "$(find /tmp/android-artifact -name '*.apk' | head -1)"
             adb logcat -c
+            # Stream logcat for the whole suite. A single `-d` dump at the end
+            # only holds the last few minutes (ring buffer) and returns nothing
+            # if the emulator dies mid-suite, which is the failure being chased.
+            nohup sh -c 'adb logcat -v threadtime > /tmp/logcat.txt 2>&1' &
             "$HOME/.maestro/bin/maestro" test .maestro/ --include-tags=${{ inputs.tier || 'tier0,tier1,tier2,tier3' }} --debug-output /tmp/maestro-debug --format junit --output maestro-report.xml --no-ansi || echo "MAESTRO_FAILED=true" >> "$GITHUB_ENV"
-            adb logcat -d > /tmp/logcat.txt 2>&1 || true
+            adb devices -l > /tmp/device-state.txt 2>&1 || true
+            pgrep -af qemu >> /tmp/device-state.txt 2>&1 || true
 
       - name: Filter diagnostic logs
         if: always()
@@ -332,6 +337,7 @@ jobs:
           path: |
             /tmp/logcat.txt
             /tmp/logcat-filtered.txt
+            /tmp/device-state.txt
           retention-days: 7
 
       - name: Publish test results
