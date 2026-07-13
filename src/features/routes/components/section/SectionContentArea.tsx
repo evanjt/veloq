@@ -4,11 +4,9 @@ import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { colors, darkColors } from '@/theme';
-import {
-  SectionPerformanceSection,
-  SectionStatsCards,
-  SectionInfoCard,
-} from '@/features/routes/components/section';
+import { SectionPerformanceSection } from './SectionPerformanceSection';
+import { SectionStatsCards } from './SectionStatsCards';
+import { SectionInfoCard } from './SectionInfoCard';
 import type { SectionPerformanceRecord } from '@/features/routes/hooks/useSectionPerformances';
 import type { SectionTimeRange } from '@/features/routes/constants';
 import type { CalendarSummary } from './SectionStatsCards';

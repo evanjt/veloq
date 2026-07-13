@@ -1,5 +1,6 @@
 import React from 'react';
-import { DebugInfoPanel, DebugWarningBanner } from '@/features/routes';
+import { DebugInfoPanel } from '../DebugInfoPanel';
+import { DebugWarningBanner } from '../DebugWarningBanner';
 import { formatRelativeDate } from '@/shared/format/format';
 import type { FrequentSection } from '@/types';
 

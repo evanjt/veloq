@@ -16,7 +16,7 @@ import {
 import { ChartCrosshair } from '@/shared/charts';
 import { colors, darkColors, typography, spacing, chartStyles } from '@/theme';
 import { CHART_CONFIG } from '@/constants';
-import { usePowerCurve } from '@/features/stats';
+import { usePowerCurve } from '../hooks/usePowerCurve';
 import { formatDurationHuman } from '@/shared/format/format';
 
 interface PowerCurveChartProps {
