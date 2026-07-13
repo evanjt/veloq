@@ -10,7 +10,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useMetricSystem } from '@/shared/app';
-import { SectionMapView } from '@/features/routes';
+import { SectionMapView } from '../SectionMapView';
 import { type MaterialIconName } from '@/features/activity/lib/activityUtils';
 import { formatDistance } from '@/shared/format/format';
 import { colors, darkColors, spacing, typography } from '@/theme';

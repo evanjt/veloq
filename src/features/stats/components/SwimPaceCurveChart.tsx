@@ -16,7 +16,7 @@ import {
 } from 'react-native-reanimated';
 import { colors, typography, spacing, chartStyles } from '@/theme';
 import { CHART_CONFIG } from '@/constants';
-import { usePaceCurve, paceToMinPer100m } from '@/features/stats';
+import { usePaceCurve, paceToMinPer100m } from '../hooks/usePaceCurve';
 import { formatDistance } from '@/shared/format/format';
 
 interface SwimPaceCurveChartProps {

@@ -22,7 +22,7 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const SHARED_APP_DIR = join(ROOT, 'src/shared/app');
 const FEATURES_DIR = join(ROOT, 'src/features');
 const QUERY_KEYS_FILE = join(ROOT, 'src/shared/query/queryKeys.ts');
-const GLOBAL_SYNC_FILE = join(ROOT, 'src/app/_components/GlobalDataSync.tsx');
+const GLOBAL_SYNC_FILE = join(ROOT, 'src/shared/app/GlobalDataSync.tsx');
 const BACKUP_FILE = join(ROOT, 'src/features/settings/lib/backup.ts');
 
 const rel = (p) => relative(ROOT, p);
