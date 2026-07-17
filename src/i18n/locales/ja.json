@@ -1029,6 +1029,20 @@
       "enable": "有効にする",
       "dismiss": "結構です",
       "settingsHint": "通知はいつでも設定から有効にできます"
+    },
+    "activityBody": {
+      "aSection": "セクション",
+      "routePr": "ルート「{{name}}」でPR",
+      "routePrUnnamed": "ルートPR",
+      "sectionPr": "{{name}}でPR",
+      "sectionPrCount": "{{count}}件のセクションでPR",
+      "fasterOnRoute": "「{{name}}」でいつもより速い",
+      "onRoute": "「{{name}}」を走行",
+      "sectionTraversedOne": "1件のセクションを通過",
+      "sectionTraversedMany": "{{count}}件のセクションを通過",
+      "distanceAndTime": "{{km}} km・{{min}}分",
+      "distanceOnly": "{{km}} km",
+      "timeOnly": "{{min}}分"
     }
   },
   "recording": {

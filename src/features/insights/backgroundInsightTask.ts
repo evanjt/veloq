@@ -10,6 +10,8 @@ import {
 } from '@/features/settings/lib/notificationService';
 import type { NotificationPreferences } from '@/features/settings/stores/NotificationPreferencesStore';
 
+import { buildActivityNotificationBody } from './lib/activityNotificationBody';
+import type { ActivityInfo } from './lib/activityNotificationBody';
 import { computeInsightsFromData, fetchInsightsDataFromEngine } from './lib/computeInsightsData';
 import type { WellnessInput } from './lib/computeInsightsData';
 import {
@@ -20,8 +22,6 @@ import {
   prunePushHistory,
 } from './notifications';
 import { computeInsightFingerprint } from './store';
-import type { Insight } from './types';
-
 const log = debug.create('BackgroundInsight');
 
 export const BACKGROUND_INSIGHT_TASK = 'veloq-background-insight';
@@ -78,14 +78,6 @@ async function readPrefsFromStorage(): Promise<NotificationPreferences | null> {
   } catch {
     return null;
   }
-}
-
-interface ActivityInfo {
-  name: string;
-  type: string;
-  ingested: boolean;
-  distance?: number;
-  movingTime?: number;
 }
 
 function sleep(ms: number): Promise<void> {
@@ -246,93 +238,6 @@ async function fetchAndIngestActivity(activityId: string): Promise<ActivityInfo 
 }
 
 /**
- * Build an activity-centric notification body.
- * Queries the engine to find section PRs and matches for THIS specific activity,
- * rather than relying on generic insight fingerprint diffing.
- */
-function formatBasicStat(info: ActivityInfo | null): string | null {
-  if (!info) return null;
-  const km = info.distance && info.distance > 0 ? info.distance / 1000 : 0;
-  const mins = info.movingTime && info.movingTime > 0 ? Math.round(info.movingTime / 60) : 0;
-  if (km >= 1) {
-    return `${km.toFixed(1)} km${mins > 0 ? ` in ${mins} min` : ''}`;
-  }
-  if (mins > 0) {
-    return `${mins} min`;
-  }
-  return null;
-}
-
-function buildActivityNotificationBody(
-  activityId: string,
-  activityName: string,
-  newInsights: Insight[],
-  prefs: NotificationPreferences,
-  activityInfo: ActivityInfo | null
-): string {
-  try {
-    const { routeEngine } = require('veloqrs');
-
-    // Check which sections this activity traversed
-    // Rust already filters out disabled/superseded sections
-    const sections = routeEngine.getSectionsForActivity(activityId);
-    if (sections && sections.length > 0) {
-      // Single batched FFI call instead of one per section. Saves
-      // (N-1) × ~10-30 ms of round-trip overhead in the background task.
-      const sectionIds = sections.map((s: { id: string }) => s.id);
-      type BatchEntry = { sectionId: string; result: { bestRecord?: { activityId?: string } } };
-      const batch: BatchEntry[] = (() => {
-        try {
-          return routeEngine.getPerformancesBatch(sectionIds);
-        } catch {
-          return [];
-        }
-      })();
-      const perfById = new Map(batch.map((entry: BatchEntry) => [entry.sectionId, entry.result]));
-
-      let prCount = 0;
-      let prSectionName = '';
-      for (const section of sections) {
-        const perf = perfById.get(section.id);
-        if (perf?.bestRecord?.activityId === activityId) {
-          prCount++;
-          if (!prSectionName) prSectionName = section.name || 'a section';
-        }
-      }
-
-      if (prCount > 0 && prefs.categories.sectionPr) {
-        if (prCount === 1) {
-          return `${activityName} — PR on ${prSectionName}`;
-        }
-        return `${activityName} — PR on ${prCount} sections`;
-      }
-
-      // No PRs but has section matches
-      if (sections.length === 1) {
-        return `${activityName} — 1 section traversed`;
-      }
-      return `${activityName} — ${sections.length} sections traversed`;
-    }
-  } catch {
-    // Engine query failed, fall through
-  }
-
-  // Check for new insights caused by this activity
-  const milestone = newInsights.find((i) => i.category === 'fitness_milestone');
-  if (milestone) {
-    return `${activityName} — ${milestone.title}`;
-  }
-
-  // Fallback: basic stats so the notification isn't just the activity name
-  const stat = formatBasicStat(activityInfo);
-  if (stat) {
-    return `${activityName} — ${stat}`;
-  }
-
-  return activityName;
-}
-
-/**
  * Background task that processes new activities and generates insight notifications.
  *
  * Called when a silent push arrives from auth.veloq.fit (webhook relay).
@@ -384,6 +289,22 @@ TaskManager.defineTask(BACKGROUND_INSIGHT_TASK, async ({ data, error }) => {
     }
 
     log.log(`Push received: event=${eventType}, activity=${activityId}`);
+
+    // A delivered push proves the pipeline is alive — use it to keep the
+    // server-side token registration (30-day TTL) fresh for users who rarely
+    // open the app. Throttled to once a day inside the helper.
+    try {
+      const { getStoredCredentials } = require('@/shared/app/AuthStore');
+      const athleteId: string | undefined = getStoredCredentials().athleteId;
+      if (athleteId) {
+        const {
+          refreshPushTokenRegistration,
+        } = require('@/features/settings/lib/pushTokenRegistration');
+        refreshPushTokenRegistration(athleteId).catch(() => {});
+      }
+    } catch {
+      // Best-effort — never let token upkeep break notification handling.
+    }
 
     // The visible tray push also wakes this task (Expo delivers `notification`
     // messages through the same TaskBroadcastReceiver as `data` messages), but
@@ -459,7 +380,8 @@ TaskManager.defineTask(BACKGROUND_INSIGHT_TASK, async ({ data, error }) => {
         activityName,
         allowedNewInsights,
         prefs,
-        activityInfo
+        activityInfo,
+        t
       );
 
       // Clear any tray entries for this activity (both the FCM-generated

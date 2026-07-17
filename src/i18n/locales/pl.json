@@ -1031,6 +1031,20 @@
       "enable": "Włącz",
       "dismiss": "Nie, dziękuję",
       "settingsHint": "Możesz włączyć powiadomienia w dowolnym momencie w Ustawieniach"
+    },
+    "activityBody": {
+      "aSection": "odcinku",
+      "routePr": "PR na trasie {{name}}",
+      "routePrUnnamed": "PR trasy",
+      "sectionPr": "PR na {{name}}",
+      "sectionPrCount": "PR na {{count}} odcinkach",
+      "fasterOnRoute": "Szybciej niż zwykle na {{name}}",
+      "onRoute": "Na {{name}}",
+      "sectionTraversedOne": "1 odcinek pokonany",
+      "sectionTraversedMany": "{{count}} odcinków pokonanych",
+      "distanceAndTime": "{{km}} km w {{min}} min",
+      "distanceOnly": "{{km}} km",
+      "timeOnly": "{{min}} min"
     }
   },
   "recording": {

@@ -1029,6 +1029,20 @@
       "enable": "Ativar",
       "dismiss": "Não, obrigado",
       "settingsHint": "Você pode ativar as notificações a qualquer momento em Configurações"
+    },
+    "activityBody": {
+      "aSection": "uma seção",
+      "routePr": "PR na rota {{name}}",
+      "routePrUnnamed": "PR de rota",
+      "sectionPr": "PR em {{name}}",
+      "sectionPrCount": "PR em {{count}} seções",
+      "fasterOnRoute": "Mais rápido que o normal em {{name}}",
+      "onRoute": "Em {{name}}",
+      "sectionTraversedOne": "1 seção percorrida",
+      "sectionTraversedMany": "{{count}} seções percorridas",
+      "distanceAndTime": "{{km}} km em {{min}} min",
+      "distanceOnly": "{{km}} km",
+      "timeOnly": "{{min}} min"
     }
   },
   "recording": {
