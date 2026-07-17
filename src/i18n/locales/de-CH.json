@@ -1029,6 +1029,20 @@
       "enable": "Aktiviere",
       "dismiss": "Nei danke",
       "settingsHint": "Du chasch Benachrichtigunge jederzit i de Iistellige aktiviere"
+    },
+    "activityBody": {
+      "aSection": "einem Abschnitt",
+      "routePr": "Strecken-PR auf {{name}}",
+      "routePrUnnamed": "Strecken-PR",
+      "sectionPr": "PR auf {{name}}",
+      "sectionPrCount": "PR auf {{count}} Abschnitten",
+      "fasterOnRoute": "Schneller als üblich auf {{name}}",
+      "onRoute": "Auf {{name}}",
+      "sectionTraversedOne": "1 Abschnitt absolviert",
+      "sectionTraversedMany": "{{count}} Abschnitte absolviert",
+      "distanceAndTime": "{{km}} km in {{min}} min",
+      "distanceOnly": "{{km}} km",
+      "timeOnly": "{{min}} min"
     }
   },
   "recording": {

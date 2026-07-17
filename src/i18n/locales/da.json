@@ -1029,6 +1029,20 @@
       "enable": "Aktivér",
       "dismiss": "Nej tak",
       "settingsHint": "Du kan aktivere notifikationer når som helst i Indstillinger"
+    },
+    "activityBody": {
+      "aSection": "et afsnit",
+      "routePr": "Rute-PR på {{name}}",
+      "routePrUnnamed": "Rute-PR",
+      "sectionPr": "PR på {{name}}",
+      "sectionPrCount": "PR på {{count}} afsnit",
+      "fasterOnRoute": "Hurtigere end normalt på {{name}}",
+      "onRoute": "På {{name}}",
+      "sectionTraversedOne": "1 afsnit gennemført",
+      "sectionTraversedMany": "{{count}} afsnit gennemført",
+      "distanceAndTime": "{{km}} km på {{min}} min",
+      "distanceOnly": "{{km}} km",
+      "timeOnly": "{{min}} min"
     }
   },
   "recording": {

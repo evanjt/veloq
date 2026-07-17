@@ -288,6 +288,16 @@ function AuthGate({ children }: { children: React.ReactNode }) {
           hasNotificationPermission().then((granted) => {
             if (!granted) {
               useNotificationPreferences.getState().setEnabled(false);
+              return;
+            }
+            // Keep the server-side token registration (30-day TTL) fresh.
+            // Throttled to once a day inside the helper.
+            const athleteId = useAuthStore.getState().athleteId;
+            if (athleteId) {
+              const {
+                refreshPushTokenRegistration,
+              } = require('@/features/settings/lib/pushTokenRegistration');
+              refreshPushTokenRegistration(athleteId).catch(() => {});
             }
           });
         }
