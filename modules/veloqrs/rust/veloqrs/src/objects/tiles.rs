@@ -71,13 +71,19 @@ impl HeatmapManager {
             return Ok("idle".to_string());
         }
 
-        // TileGenerationHandle::try_recv() returns Option<u32>
-        match handle_guard.as_ref().unwrap().try_recv() {
-            Some(_count) => {
+        match handle_guard.as_ref().unwrap().poll_state() {
+            crate::persistence::WorkerPoll::Ready(_count) => {
                 *handle_guard = None;
                 Ok("complete".to_string())
             }
-            None => Ok("running".to_string()),
+            crate::persistence::WorkerPoll::Running => Ok("running".to_string()),
+            crate::persistence::WorkerPoll::Died => {
+                // Worker died without sending — clear the handle so the next
+                // generation attempt can start instead of blocking forever.
+                *handle_guard = None;
+                log::error!("tracematch: [TileManager] Tile generation thread died");
+                Ok("error".to_string())
+            }
         }
     }
 
