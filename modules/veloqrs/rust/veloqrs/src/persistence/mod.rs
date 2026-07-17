@@ -325,11 +325,30 @@ pub struct SectionDetectionHandle {
     pub progress: SectionDetectionProgress,
 }
 
+/// Non-blocking poll result that distinguishes a still-running worker from
+/// one that died without sending (panic, early abort). Collapsing the two
+/// into "running" leaves the handle installed forever: no new detection can
+/// start and sections/routes silently stop updating for the whole session.
+pub enum WorkerPoll<T> {
+    Ready(T),
+    Running,
+    Died,
+}
+
 impl SectionDetectionHandle {
     /// Check if detection is complete (non-blocking).
     /// Returns (sections, all_activity_ids_in_detection_run).
     pub fn try_recv(&self) -> Option<(Vec<FrequentSection>, Vec<String>)> {
         self.receiver.try_recv().ok()
+    }
+
+    /// Non-blocking poll that also reports a dead worker thread.
+    pub fn poll_state(&self) -> WorkerPoll<(Vec<FrequentSection>, Vec<String>)> {
+        match self.receiver.try_recv() {
+            Ok(v) => WorkerPoll::Ready(v),
+            Err(mpsc::TryRecvError::Empty) => WorkerPoll::Running,
+            Err(mpsc::TryRecvError::Disconnected) => WorkerPoll::Died,
+        }
     }
 
     /// Get current progress.
@@ -357,6 +376,15 @@ pub struct TileGenerationHandle {
 }
 
 impl TileGenerationHandle {
+    /// Non-blocking poll that also reports a dead worker thread.
+    pub fn poll_state(&self) -> WorkerPoll<u32> {
+        match self.receiver.try_recv() {
+            Ok(v) => WorkerPoll::Ready(v),
+            Err(mpsc::TryRecvError::Empty) => WorkerPoll::Running,
+            Err(mpsc::TryRecvError::Disconnected) => WorkerPoll::Died,
+        }
+    }
+
     /// Check if generation is complete (non-blocking). Returns tiles generated count.
     pub fn try_recv(&self) -> Option<u32> {
         self.receiver.try_recv().ok()
@@ -374,6 +402,44 @@ impl TileGenerationHandle {
             self.generated.load(Ordering::SeqCst),
             self.total.load(Ordering::SeqCst),
         )
+    }
+}
+
+#[cfg(test)]
+mod worker_poll_tests {
+    use super::*;
+
+    /// Scenario: the detection worker dies (panic, early abort) without
+    /// sending a result. Expected behaviour: poll_state reports Died so the
+    /// caller can clear the handle — never Running, which wedged detection
+    /// for the rest of the session.
+    #[test]
+    fn dead_worker_reports_died_not_running() {
+        let (tx, rx) = mpsc::channel::<(Vec<FrequentSection>, Vec<String>)>();
+        let handle = SectionDetectionHandle {
+            receiver: rx,
+            progress: SectionDetectionProgress::new(),
+        };
+
+        assert!(matches!(handle.poll_state(), WorkerPoll::Running));
+        drop(tx);
+        assert!(matches!(handle.poll_state(), WorkerPoll::Died));
+    }
+
+    #[test]
+    fn finished_worker_reports_ready_then_died() {
+        let (tx, rx) = mpsc::channel::<(Vec<FrequentSection>, Vec<String>)>();
+        let handle = SectionDetectionHandle {
+            receiver: rx,
+            progress: SectionDetectionProgress::new(),
+        };
+
+        tx.send((Vec::new(), vec!["a1".to_string()])).unwrap();
+        drop(tx);
+        assert!(matches!(handle.poll_state(), WorkerPoll::Ready(_)));
+        // Channel now drained and disconnected; callers clear the handle on
+        // Ready so this state is never polled again in production.
+        assert!(matches!(handle.poll_state(), WorkerPoll::Died));
     }
 }
 
@@ -1224,37 +1290,128 @@ pub mod persistent_engine_ffi {
             }
         }
 
-        match PersistentRouteEngine::new(&db_path) {
-            Ok(mut engine) => {
-                if let Err(e) = engine.load() {
-                    info!(
-                        "tracematch: [PersistentEngine] Warning: Failed to load existing data: {:?}",
-                        e
-                    );
-                }
-
-                let mut guard = PERSISTENT_ENGINE.write().unwrap_or_else(|e| e.into_inner());
-                *guard = Some(engine);
-                info!("tracematch: [PersistentEngine] Initialized successfully");
-
-                // Tier 2 upgrade path: spawn a background thread that seeds
-                // consensus_state for any section carrying a NULL blob (users
-                // upgrading from 0.2.2 or earlier). Guarded by a schema_info
-                // flag so it only does the corpus-wide scan once per install.
-                // Drop the write lock before spawning so the backfill thread
-                // can try_write later without racing our own release.
-                drop(guard);
-                super::sections::spawn_accumulator_backfill(db_path.clone());
-
-                true
-            }
+        let mut engine = match PersistentRouteEngine::new(&db_path) {
+            Ok(engine) => engine,
             Err(e) => {
                 log::error!(
-                    "tracematch: [PersistentEngine] Failed to initialize with path '{}': {:?}",
+                    "tracematch: [PersistentEngine] Failed to open database '{}': {:?}",
                     db_path,
                     e
                 );
-                false
+                match reopen_after_quarantine(&db_path) {
+                    Some(engine) => engine,
+                    None => return false,
+                }
+            }
+        };
+
+        if let Err(e) = engine.load() {
+            if is_corruption_error(&e) {
+                log::error!(
+                    "tracematch: [PersistentEngine] Corruption while loading '{}': {:?}",
+                    db_path,
+                    e
+                );
+                // Close the connection before the quarantine rename.
+                drop(engine);
+                engine = match reopen_after_quarantine(&db_path) {
+                    Some(engine) => engine,
+                    None => return false,
+                };
+            } else {
+                info!(
+                    "tracematch: [PersistentEngine] Warning: Failed to load existing data: {:?}",
+                    e
+                );
+            }
+        }
+
+        let mut guard = PERSISTENT_ENGINE.write().unwrap_or_else(|e| e.into_inner());
+        *guard = Some(engine);
+        info!("tracematch: [PersistentEngine] Initialized successfully");
+
+        // Tier 2 upgrade path: spawn a background thread that seeds
+        // consensus_state for any section carrying a NULL blob (users
+        // upgrading from 0.2.2 or earlier). Guarded by a schema_info
+        // flag so it only does the corpus-wide scan once per install.
+        // Drop the write lock before spawning so the backfill thread
+        // can try_write later without racing our own release.
+        drop(guard);
+        super::sections::spawn_accumulator_backfill(db_path.clone());
+
+        true
+    }
+
+    /// SQLite error codes that mean the file itself is unusable, as opposed
+    /// to a transient I/O or logic error.
+    fn is_corruption_error(e: &rusqlite::Error) -> bool {
+        matches!(
+            e.sqlite_error_code(),
+            Some(rusqlite::ErrorCode::DatabaseCorrupt) | Some(rusqlite::ErrorCode::NotADatabase)
+        )
+    }
+
+    /// Move an unusable database aside and open a fresh one in its place.
+    ///
+    /// The database is a re-derivable cache of intervals.icu data. A file
+    /// that cannot be opened or migrated would otherwise brick every
+    /// engine-backed feature on every launch, permanently. Renaming it aside
+    /// loses only the cache, which the next sync repopulates. The quarantined
+    /// copy is kept (one generation) for post-mortem inspection.
+    fn reopen_after_quarantine(db_path: &str) -> Option<PersistentRouteEngine> {
+        let path = std::path::Path::new(db_path);
+        if !path.exists() {
+            // Environmental failure (permissions, missing dir) — nothing to
+            // quarantine, and a fresh open would fail the same way.
+            return None;
+        }
+
+        let ts = std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_secs())
+            .unwrap_or(0);
+
+        // Drop older quarantine generations so the data dir cannot grow
+        // unbounded across repeated corruption events.
+        if let (Some(parent), Some(name)) = (path.parent(), path.file_name()) {
+            let prefix = format!("{}.corrupt-", name.to_string_lossy());
+            if let Ok(entries) = std::fs::read_dir(parent) {
+                for entry in entries.flatten() {
+                    if entry.file_name().to_string_lossy().starts_with(&prefix) {
+                        let _ = std::fs::remove_file(entry.path());
+                    }
+                }
+            }
+        }
+
+        for suffix in ["", "-wal", "-shm"] {
+            let src = format!("{}{}", db_path, suffix);
+            if std::path::Path::new(&src).exists() {
+                let dst = format!("{}.corrupt-{}{}", db_path, ts, suffix);
+                if let Err(e) = std::fs::rename(&src, &dst) {
+                    log::error!(
+                        "tracematch: [PersistentEngine] Could not quarantine '{}': {}",
+                        src,
+                        e
+                    );
+                    return None;
+                }
+            }
+        }
+        log::warn!(
+            "tracematch: [PersistentEngine] Quarantined unusable database to '{}.corrupt-{}', starting fresh",
+            db_path,
+            ts
+        );
+
+        match PersistentRouteEngine::new(db_path) {
+            Ok(engine) => Some(engine),
+            Err(e) => {
+                log::error!(
+                    "tracematch: [PersistentEngine] Fresh database after quarantine also failed: {:?}",
+                    e
+                );
+                None
             }
         }
     }

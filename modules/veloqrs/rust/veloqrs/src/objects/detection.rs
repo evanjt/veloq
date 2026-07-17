@@ -48,10 +48,20 @@ impl DetectionManager {
             return Ok("idle".to_string());
         }
 
-        let result = handle_guard.as_ref().unwrap().try_recv();
+        let result = handle_guard.as_ref().unwrap().poll_state();
 
         match result {
-            Some((sections, detection_activity_ids)) => {
+            crate::persistence::WorkerPoll::Died => {
+                // The worker thread died without sending (panic or early
+                // abort). Clear the handle so the next start() can run —
+                // otherwise detection is blocked for the rest of the session.
+                *handle_guard = None;
+                log::error!(
+                    "tracematch: [DetectionManager] Detection thread died without a result"
+                );
+                Ok("error".to_string())
+            }
+            crate::persistence::WorkerPoll::Ready((sections, detection_activity_ids)) => {
                 // Tier 1.1 split: hot save + processed_ids return synchronously
                 // (sections are queryable immediately), then run the
                 // cross-sport merge + indicator recompute under the engine
@@ -105,7 +115,7 @@ impl DetectionManager {
                 info!("tracematch: [DetectionManager] Section detection complete");
                 Ok("complete".to_string())
             }
-            None => Ok("running".to_string()),
+            crate::persistence::WorkerPoll::Running => Ok("running".to_string()),
         }
     }
 
