@@ -1029,6 +1029,20 @@
       "enable": "Inschakelen",
       "dismiss": "Nee bedankt",
       "settingsHint": "Je kunt meldingen op elk moment inschakelen via Instellingen"
+    },
+    "activityBody": {
+      "aSection": "een sectie",
+      "routePr": "Route-PR op {{name}}",
+      "routePrUnnamed": "Route-PR",
+      "sectionPr": "PR op {{name}}",
+      "sectionPrCount": "PR op {{count}} secties",
+      "fasterOnRoute": "Sneller dan gewoonlijk op {{name}}",
+      "onRoute": "Op {{name}}",
+      "sectionTraversedOne": "1 sectie afgelegd",
+      "sectionTraversedMany": "{{count}} secties afgelegd",
+      "distanceAndTime": "{{km}} km in {{min}} min",
+      "distanceOnly": "{{km}} km",
+      "timeOnly": "{{min}} min"
     }
   },
   "recording": {

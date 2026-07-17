@@ -1029,6 +1029,20 @@
       "enable": "Enable",
       "dismiss": "No thanks",
       "settingsHint": "You can enable notifications anytime in Settings"
+    },
+    "activityBody": {
+      "aSection": "a section",
+      "routePr": "Route PR on {{name}}",
+      "routePrUnnamed": "Route PR",
+      "sectionPr": "PR on {{name}}",
+      "sectionPrCount": "PR on {{count}} sections",
+      "fasterOnRoute": "Faster than usual on {{name}}",
+      "onRoute": "On {{name}}",
+      "sectionTraversedOne": "1 section traversed",
+      "sectionTraversedMany": "{{count}} sections traversed",
+      "distanceAndTime": "{{km}} km in {{min}} min",
+      "distanceOnly": "{{km}} km",
+      "timeOnly": "{{min}} min"
     }
   },
   "recording": {

@@ -1029,6 +1029,20 @@
       "enable": "启用",
       "dismiss": "不用了",
       "settingsHint": "您可以随时在设置中启用通知"
+    },
+    "activityBody": {
+      "aSection": "一个路段",
+      "routePr": "路线「{{name}}」新PR",
+      "routePrUnnamed": "路线PR",
+      "sectionPr": "{{name}} 新PR",
+      "sectionPrCount": "{{count}} 个路段新PR",
+      "fasterOnRoute": "「{{name}}」比平时更快",
+      "onRoute": "途经路线「{{name}}」",
+      "sectionTraversedOne": "经过 1 个路段",
+      "sectionTraversedMany": "经过 {{count}} 个路段",
+      "distanceAndTime": "{{km}} 公里，用时 {{min}} 分钟",
+      "distanceOnly": "{{km}} 公里",
+      "timeOnly": "{{min}} 分钟"
     }
   },
   "recording": {
