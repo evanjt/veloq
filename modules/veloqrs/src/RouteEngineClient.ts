@@ -136,8 +136,23 @@ class RouteEngineClient implements DelegateHost {
   initWithPath(dbPath: string): boolean {
     if (this.initialized && this.dbPath === dbPath) return true;
     const result = this.timed('initWithPath', () => {
-      this.engine = gen().VeloqEngine.create(dbPath);
-      return true;
+      // create() itself never throws — Rust reports open/migration failure
+      // (including quarantine-and-recreate failover) via isInitialized().
+      // Without this check a failed init looks successful and every later
+      // FFI call silently returns empty data.
+      try {
+        const engine = gen().VeloqEngine.create(dbPath);
+        if (!engine.isInitialized()) {
+          console.warn('[RouteEngineClient] Engine reported failed init for', dbPath);
+          return false;
+        }
+        this.engine = engine;
+        return true;
+      } catch (e) {
+        console.warn('[RouteEngineClient] Engine init threw:', e);
+        this.engine = null;
+        return false;
+      }
     });
     if (result) {
       this.initialized = true;

@@ -11,24 +11,18 @@ import { Text, IconButton } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useEngineStatus } from '@/features/routes/stores/EngineStatusStore';
-import { getRouteEngine, getRouteDbPath } from '@/shared/native/routeEngine';
 import { colors } from '@/theme';
 
 export function EngineInitBanner() {
   const { t } = useTranslation();
   const initFailed = useEngineStatus((s) => s.initFailed);
-  const setInitFailed = useEngineStatus((s) => s.setInitFailed);
+  const requestRetry = useEngineStatus((s) => s.requestRetry);
 
   const handleRetry = useCallback(() => {
-    const engine = getRouteEngine();
-    const dbPath = getRouteDbPath();
-    if (engine && dbPath) {
-      const success = engine.initWithPath(dbPath);
-      if (success) {
-        setInitFailed(false);
-      }
-    }
-  }, [setInitFailed]);
+    // Re-runs the root layout's full init effect (open, identity check,
+    // post-init setup), not just a bare re-open.
+    requestRetry();
+  }, [requestRetry]);
 
   if (!initFailed) {
     return null;

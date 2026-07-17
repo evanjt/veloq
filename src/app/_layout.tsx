@@ -148,6 +148,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   // Initialize Rust route engine with persistent storage when authenticated
   // Data persists in SQLite - GPS tracks, routes, sections load instantly
   const setEngineInitFailed = useEngineStatus((s) => s.setInitFailed);
+  const engineRetryNonce = useEngineStatus((s) => s.retryNonce);
   useEffect(() => {
     if (isAuthenticated) {
       const engine = getRouteEngine();
@@ -184,6 +185,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
             }
           }
           if (success) {
+            setEngineInitFailed(false);
             if (__DEV__) {
               console.log(
                 `[RouteEngine] Initialized with persistent storage: ${engine.getActivityCount()} cached activities`
@@ -249,7 +251,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
         tryInit(0);
       }
     }
-  }, [isAuthenticated, initializeRange, setEngineInitFailed]);
+  }, [isAuthenticated, initializeRange, setEngineInitFailed, engineRetryNonce]);
 
   // Reset infinite activities query when the date rolls over while backgrounded.
   // initialPageParam is computed at render time with today's date, but the feed tab
