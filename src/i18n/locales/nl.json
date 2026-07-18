@@ -1193,7 +1193,33 @@
     "writePermissionActive": "Schrijfrechten actief",
     "writePermissionDescription": "Opname vereist schrijfrechten. Tik hieronder om toegang te verlenen.",
     "writePermissionNotGranted": "Schrijfrechten niet verleend",
-    "writePermissionRequired": "Schrijfrechten vereist"
+    "writePermissionRequired": "Schrijfrechten vereist",
+    "savedLocally": "Activiteit opgeslagen op dit apparaat. Je kunt deze altijd uploaden via Mijn opnamen.",
+    "settingsUpload": "Uploaden",
+    "autoUpload": "Automatisch uploaden",
+    "autoUploadDescription": "Opnamen automatisch naar intervals.icu uploaden bij het opslaan. Uitgeschakeld blijven ze op dit apparaat totdat je ze uploadt via Mijn opnamen.",
+    "library": {
+      "title": "Mijn opnamen",
+      "empty": "Nog geen opnamen",
+      "emptyHint": "Opgeslagen opnamen blijven hier op dit apparaat.",
+      "notFound": "Opname niet gevonden",
+      "recorded": "Opgenomen",
+      "statusLabel": "Status",
+      "uploadNow": "Nu uploaden",
+      "share": "FIT-bestand delen",
+      "delete": "Verwijderen",
+      "deleteConfirmTitle": "Opname verwijderen?",
+      "deleteConfirmMessage": "De opname wordt permanent van dit apparaat verwijderd.",
+      "pendingUploads": "{{count}} opname(n) nog niet geüpload",
+      "status": {
+        "localOnly": "Op dit apparaat",
+        "pending": "Wacht op upload",
+        "uploading": "Uploaden…",
+        "uploaded": "Geüpload",
+        "failed": "Upload mislukt",
+        "permissionBlocked": "Toestemming vereist"
+      }
+    }
   },
   "routeDetail": {
     "avgTime": "Gem. tijd",

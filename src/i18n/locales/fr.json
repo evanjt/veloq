@@ -1193,7 +1193,33 @@
     "writePermissionActive": "Autorisation d'écriture active",
     "writePermissionDescription": "L'enregistrement nécessite une autorisation d'écriture. Appuyez ci-dessous pour accorder l'accès.",
     "writePermissionNotGranted": "Autorisation d'écriture non accordée",
-    "writePermissionRequired": "Autorisation d'écriture requise"
+    "writePermissionRequired": "Autorisation d'écriture requise",
+    "savedLocally": "Activité enregistrée sur cet appareil. Vous pouvez la téléverser à tout moment depuis Mes enregistrements.",
+    "settingsUpload": "Téléversement",
+    "autoUpload": "Téléversement automatique",
+    "autoUploadDescription": "Téléverser automatiquement les enregistrements vers intervals.icu lors de la sauvegarde. Sinon, ils restent sur cet appareil jusqu'au téléversement depuis Mes enregistrements.",
+    "library": {
+      "title": "Mes enregistrements",
+      "empty": "Aucun enregistrement",
+      "emptyHint": "Les enregistrements sauvegardés restent ici sur cet appareil.",
+      "notFound": "Enregistrement introuvable",
+      "recorded": "Enregistré",
+      "statusLabel": "Statut",
+      "uploadNow": "Téléverser maintenant",
+      "share": "Partager le fichier FIT",
+      "delete": "Supprimer",
+      "deleteConfirmTitle": "Supprimer l'enregistrement ?",
+      "deleteConfirmMessage": "L'enregistrement sera définitivement supprimé de cet appareil.",
+      "pendingUploads": "{{count}} enregistrement(s) non téléversé(s)",
+      "status": {
+        "localOnly": "Sur cet appareil",
+        "pending": "En attente de téléversement",
+        "uploading": "Téléversement…",
+        "uploaded": "Téléversé",
+        "failed": "Échec du téléversement",
+        "permissionBlocked": "Autorisation requise"
+      }
+    }
   },
   "routeDetail": {
     "avgTime": "Temps moy",

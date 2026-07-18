@@ -1193,7 +1193,33 @@
     "writePermissionActive": "書き込み権限が有効です",
     "writePermissionDescription": "記録には書き込み権限が必要です。下をタップしてアクセスを許可してください。",
     "writePermissionNotGranted": "書き込み権限が付与されていません",
-    "writePermissionRequired": "書き込み権限が必要です"
+    "writePermissionRequired": "書き込み権限が必要です",
+    "savedLocally": "アクティビティをこの端末に保存しました。マイ記録からいつでもアップロードできます。",
+    "settingsUpload": "アップロード",
+    "autoUpload": "自動アップロード",
+    "autoUploadDescription": "保存時に記録を intervals.icu へ自動でアップロードします。オフの場合、マイ記録からアップロードするまでこの端末に保存されます。",
+    "library": {
+      "title": "マイ記録",
+      "empty": "記録はまだありません",
+      "emptyHint": "保存した記録はこの端末に保管されます。",
+      "notFound": "記録が見つかりません",
+      "recorded": "記録日時",
+      "statusLabel": "状態",
+      "uploadNow": "今すぐアップロード",
+      "share": "FITファイルを共有",
+      "delete": "削除",
+      "deleteConfirmTitle": "記録を削除しますか？",
+      "deleteConfirmMessage": "この記録は端末から完全に削除されます。",
+      "pendingUploads": "未アップロードの記録が{{count}}件あります",
+      "status": {
+        "localOnly": "この端末のみ",
+        "pending": "アップロード待ち",
+        "uploading": "アップロード中…",
+        "uploaded": "アップロード済み",
+        "failed": "アップロード失敗",
+        "permissionBlocked": "権限が必要"
+      }
+    }
   },
   "routeDetail": {
     "avgTime": "平均時間",

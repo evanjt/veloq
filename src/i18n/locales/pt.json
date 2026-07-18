@@ -1193,7 +1193,33 @@
     "writePermissionActive": "Permissão de escrita ativa",
     "writePermissionDescription": "A gravação requer permissão de escrita. Toque abaixo para conceder acesso.",
     "writePermissionNotGranted": "Permissão de escrita não concedida",
-    "writePermissionRequired": "Permissão de escrita necessária"
+    "writePermissionRequired": "Permissão de escrita necessária",
+    "savedLocally": "Atividade guardada neste dispositivo. Pode enviá-la a qualquer momento em As minhas gravações.",
+    "settingsUpload": "Envio",
+    "autoUpload": "Envio automático",
+    "autoUploadDescription": "Enviar gravações para o intervals.icu automaticamente ao guardar. Desativado, ficam neste dispositivo até as enviar em As minhas gravações.",
+    "library": {
+      "title": "As minhas gravações",
+      "empty": "Ainda sem gravações",
+      "emptyHint": "As gravações guardadas ficam aqui neste dispositivo.",
+      "notFound": "Gravação não encontrada",
+      "recorded": "Gravada",
+      "statusLabel": "Estado",
+      "uploadNow": "Enviar agora",
+      "share": "Partilhar ficheiro FIT",
+      "delete": "Eliminar",
+      "deleteConfirmTitle": "Eliminar gravação?",
+      "deleteConfirmMessage": "A gravação será removida permanentemente deste dispositivo.",
+      "pendingUploads": "{{count}} gravação(ões) por enviar",
+      "status": {
+        "localOnly": "Neste dispositivo",
+        "pending": "A aguardar envio",
+        "uploading": "A enviar…",
+        "uploaded": "Enviada",
+        "failed": "Falha no envio",
+        "permissionBlocked": "Permissão necessária"
+      }
+    }
   },
   "routeDetail": {
     "avgTime": "Tempo médio",

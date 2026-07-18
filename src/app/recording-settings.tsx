@@ -51,6 +51,7 @@ export default function RecordingSettingsScreen() {
   const autoPauseEnabled = useRecordingPreferences((s) => s.autoPauseEnabled);
   const autoPauseThresholds = useRecordingPreferences((s) => s.autoPauseThresholds);
   const dataFields = useRecordingPreferences((s) => s.dataFields);
+  const autoUploadEnabled = useRecordingPreferences((s) => s.autoUploadEnabled);
 
   const textPrimary = isDark ? darkColors.textPrimary : colors.textPrimary;
   const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
@@ -60,6 +61,10 @@ export default function RecordingSettingsScreen() {
 
   const handleToggleAutoPause = useCallback((value: boolean) => {
     useRecordingPreferences.getState().setAutoPause(value);
+  }, []);
+
+  const handleToggleAutoUpload = useCallback((value: boolean) => {
+    useRecordingPreferences.getState().setAutoUpload(value);
   }, []);
 
   const handleAdjustThreshold = useCallback((sport: string, delta: number) => {
@@ -106,6 +111,50 @@ export default function RecordingSettingsScreen() {
           { paddingBottom: insets.bottom + TAB_BAR_SAFE_PADDING },
         ]}
       >
+        {/* Upload Section */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: textSecondary }]}>
+            {t('recording.settingsUpload', 'Upload')}
+          </Text>
+          <View style={[styles.card, { backgroundColor: surface, borderColor: border }]}>
+            <View style={styles.switchRow}>
+              <View style={styles.switchLabelBlock}>
+                <Text style={[styles.rowLabel, { color: textPrimary }]}>
+                  {t('recording.autoUpload', 'Auto-upload')}
+                </Text>
+                <Text style={[styles.rowDescription, { color: textSecondary }]}>
+                  {t(
+                    'recording.autoUploadDescription',
+                    'Upload recordings to intervals.icu automatically when you save them. Off keeps them on this device until you upload from My Recordings.'
+                  )}
+                </Text>
+              </View>
+              <Switch
+                testID="settings-auto-upload"
+                value={autoUploadEnabled}
+                onValueChange={handleToggleAutoUpload}
+                trackColor={{ false: '#767577', true: brand.teal + '60' }}
+                thumbColor={autoUploadEnabled ? brand.teal : '#f4f3f4'}
+              />
+            </View>
+          </View>
+          <TouchableOpacity
+            testID="settings-recordings-link"
+            style={[
+              styles.linkCard,
+              { backgroundColor: surface, borderColor: border, marginTop: spacing.sm },
+            ]}
+            onPress={() => navigateTo('/recordings')}
+            activeOpacity={0.7}
+          >
+            <MaterialCommunityIcons name="folder-play-outline" size={20} color={textSecondary} />
+            <Text style={[styles.linkText, { color: textPrimary }]}>
+              {t('recording.library.title', 'My Recordings')}
+            </Text>
+            <MaterialCommunityIcons name="chevron-right" size={20} color={textSecondary} />
+          </TouchableOpacity>
+        </View>
+
         {/* Auto-Pause Section */}
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: textSecondary }]}>
@@ -290,6 +339,14 @@ const styles = StyleSheet.create({
   },
   rowLabel: {
     ...typography.body,
+  },
+  switchLabelBlock: {
+    flex: 1,
+    marginRight: spacing.md,
+  },
+  rowDescription: {
+    ...typography.caption,
+    marginTop: 2,
   },
   thresholdList: {
     marginTop: spacing.md,

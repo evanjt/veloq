@@ -1625,6 +1625,32 @@ export interface TranslationResource {
     settingsAutoPauseThreshold: string;
     settingsDataFields: string;
     settingsUnits: string;
+    settingsUpload: string;
+    autoUpload: string;
+    autoUploadDescription: string;
+    savedLocally: string;
+    library: {
+      title: string;
+      empty: string;
+      emptyHint: string;
+      notFound: string;
+      recorded: string;
+      statusLabel: string;
+      uploadNow: string;
+      share: string;
+      delete: string;
+      deleteConfirmTitle: string;
+      deleteConfirmMessage: string;
+      pendingUploads: string;
+      status: {
+        localOnly: string;
+        pending: string;
+        uploading: string;
+        uploaded: string;
+        failed: string;
+        permissionBlocked: string;
+      };
+    };
     timeOfDay: {
       morning: string;
       afternoon: string;
