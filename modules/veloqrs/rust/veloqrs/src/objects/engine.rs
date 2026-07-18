@@ -19,8 +19,8 @@ impl VeloqEngine {
 
         let already = PERSISTENT_ENGINE
             .read()
-            .map(|g| g.is_some())
-            .unwrap_or(false);
+            .unwrap_or_else(|e| e.into_inner())
+            .is_some();
 
         if !already {
             info!("[VeloqEngine] Initializing at {}", db_path);
@@ -33,8 +33,8 @@ impl VeloqEngine {
     fn is_initialized(&self) -> bool {
         PERSISTENT_ENGINE
             .read()
-            .map(|guard| guard.is_some())
-            .unwrap_or(false)
+            .unwrap_or_else(|e| e.into_inner())
+            .is_some()
     }
 
     fn get_stats(&self) -> Result<PersistentEngineStats, VeloqError> {
@@ -73,10 +73,9 @@ impl VeloqEngine {
     /// Drop the persistent engine entirely, closing the SQLite connection.
     /// The next call to `create()` will re-initialize from scratch.
     fn destroy(&self) {
-        if let Ok(mut guard) = PERSISTENT_ENGINE.write() {
-            info!("[VeloqEngine] Destroying persistent engine");
-            *guard = None;
-        }
+        let mut guard = PERSISTENT_ENGINE.write().unwrap_or_else(|e| e.into_inner());
+        info!("[VeloqEngine] Destroying persistent engine");
+        *guard = None;
     }
 
     fn cleanup_old_activities(&self, retention_days: u32) -> Result<u32, VeloqError> {
