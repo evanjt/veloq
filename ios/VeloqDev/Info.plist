@@ -37,7 +37,7 @@
     <key>CFBundlePackageType</key>
     <string>$(PRODUCT_BUNDLE_PACKAGE_TYPE)</string>
     <key>CFBundleShortVersionString</key>
-    <string>0.3.8</string>
+    <string>0.4.0</string>
     <key>CFBundleSignature</key>
     <string>????</string>
     <key>CFBundleURLTypes</key>
@@ -51,7 +51,7 @@
       </dict>
     </array>
     <key>CFBundleVersion</key>
-    <string>27</string>
+    <string>28</string>
     <key>EXDefaultScreenOrientationMask</key>
     <string>UIInterfaceOrientationMaskAllButUpsideDown</string>
     <key>ITSAppUsesNonExemptEncryption</key>
