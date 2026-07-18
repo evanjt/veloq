@@ -212,8 +212,10 @@ export async function generateFitFile(params: {
   streams: RecordingStreams;
   laps: RecordingLap[];
   name?: string;
+  /** Total paused seconds; subtracted from total_timer_time (active time per spec). */
+  pausedTimeSeconds?: number;
 }): Promise<ArrayBuffer> {
-  const { activityType, startTime, streams, laps, name } = params;
+  const { activityType, startTime, streams, laps, name, pausedTimeSeconds = 0 } = params;
   const writer = new FitWriter();
   const [sport, subSport] = getSport(activityType);
   const fitStartTime = dateToFitTimestamp(startTime);
@@ -373,6 +375,8 @@ export async function generateFitFile(params: {
 
   // ── event: timer stop (reuse local 6) ──────────────────────────────────────
   const elapsedTime = numPoints > 0 ? streams.time[numPoints - 1] : 0;
+  // total_timer_time is active (moving) time per the FIT spec; total_elapsed_time is wall time
+  const timerTime = Math.max(0, elapsedTime - Math.max(0, pausedTimeSeconds));
   const sessionEndTimestamp = fitStartTime + elapsedTime;
 
   writer.writeDataHeader(6);
@@ -436,7 +440,7 @@ export async function generateFitFile(params: {
   writer.writeUint32(sessionEndTimestamp);
   writer.writeUint32(fitStartTime);
   writer.writeUint32(Math.round(elapsedTime * 1000));
-  writer.writeUint32(Math.round(elapsedTime * 1000)); // timer_time = elapsed (no paused time subtracted yet)
+  writer.writeUint32(Math.round(timerTime * 1000));
   writer.writeUint32(Math.round(totalDistance * 100));
   writer.writeUint8(sport);
   writer.writeUint8(subSport);
@@ -464,7 +468,7 @@ export async function generateFitFile(params: {
   ]);
   writer.writeDataHeader(4);
   writer.writeUint32(sessionEndTimestamp);
-  writer.writeUint32(Math.round(elapsedTime * 1000));
+  writer.writeUint32(Math.round(timerTime * 1000));
   writer.writeUint16(1); // num_sessions
   writer.writeUint8(0); // type = manual
   writer.writeUint8(26); // event = activity

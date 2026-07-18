@@ -79,24 +79,53 @@ export interface WorkoutTarget {
   units: 'absolute' | 'percentFtp' | 'percentLthr' | 'percentThresholdPace';
 }
 
-/** Upload queue entry for offline sync */
-export interface UploadQueueEntry {
-  id: string; // UUID
-  filePath: string;
+/**
+ * Upload lifecycle of a locally saved recording.
+ * - localOnly: saved on device, auto-upload off or user opted out
+ * - pending: waiting for (re)upload, eligible per backoff
+ * - uploading: upload in flight
+ * - uploaded: on intervals.icu; local copy kept
+ * - failed: exhausted automatic retries or rejected by the server; manual retry only
+ * - permissionBlocked: needs OAuth ACTIVITY:WRITE before it can upload
+ */
+export type RecordingUploadStatus =
+  | 'localOnly'
+  | 'pending'
+  | 'uploading'
+  | 'uploaded'
+  | 'failed'
+  | 'permissionBlocked';
+
+/** A recording saved permanently on device (FIT file + metadata + streams sidecar) */
+export interface RecordingLibraryEntry {
+  id: string;
+  fitPath: string;
+  streamsPath?: string;
   activityType: ActivityType;
   name: string;
+  startTime: number; // ms epoch
+  durationSeconds: number;
+  distanceMeters: number;
+  elevationGain?: number;
+  avgHeartrate?: number | null;
   pairedEventId?: number;
   createdAt: number; // Date.now()
+  uploadStatus: RecordingUploadStatus;
   retryCount: number;
+  lastAttemptAt?: number;
   lastError?: string;
-  permissionBlocked?: boolean;
+  intervalsActivityId?: string;
 }
 
 /** Crash recovery backup */
 export interface RecordingBackup {
   activityType: ActivityType;
   mode: RecordingMode;
+  /** Session state at save time. A 'stopped' backup restores to the review screen. */
+  status: 'recording' | 'paused' | 'stopped';
   startTime: number;
+  stopTime: number | null;
+  /** Includes any in-progress pause up to savedAt, so restore only credits savedAt→now. */
   pausedDuration: number;
   streams: RecordingStreams;
   laps: RecordingLap[];

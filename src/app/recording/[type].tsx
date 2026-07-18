@@ -92,8 +92,12 @@ export default function RecordingScreen() {
   const statusPulse = useStatusPulseAnimation(status);
   useLockOnRecordingEffect(status, setIsLocked);
 
-  const { formattedElapsed, formattedMoving } = useTimer();
-  const metrics = useRecordingMetrics();
+  const { elapsedTime, movingTime, formattedElapsed, formattedMoving } = useTimer();
+  const baseMetrics = useRecordingMetrics();
+  const metrics = useMemo(
+    () => ({ ...baseMetrics, elapsedTime, movingTime }),
+    [baseMetrics, elapsedTime, movingTime]
+  );
   const location = useLocationTracking();
   const { stopTracking, currentLocation, accuracy } = location;
 

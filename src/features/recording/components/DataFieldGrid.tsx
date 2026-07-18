@@ -29,6 +29,8 @@ interface RecordingMetrics {
   calories: number;
   lapDistance: number;
   lapTime: number;
+  elapsedTime: number;
+  movingTime: number;
 }
 
 interface DataFieldGridProps {
@@ -79,8 +81,9 @@ function formatFieldValue(
     case 'lapTime':
       return formatDuration(metrics.lapTime);
     case 'timer':
+      return formatDuration(metrics.elapsedTime);
     case 'movingTime':
-      return formatDuration(0);
+      return formatDuration(metrics.movingTime);
     default:
       return '--';
   }
