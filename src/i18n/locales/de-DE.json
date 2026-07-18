@@ -1193,7 +1193,33 @@
     "writePermissionActive": "Schreibberechtigung aktiv",
     "writePermissionDescription": "Aufzeichnung erfordert Schreibberechtigung. Tippe unten, um Zugriff zu gewähren.",
     "writePermissionNotGranted": "Schreibberechtigung nicht erteilt",
-    "writePermissionRequired": "Schreibberechtigung erforderlich"
+    "writePermissionRequired": "Schreibberechtigung erforderlich",
+    "savedLocally": "Aktivität auf diesem Gerät gespeichert. Du kannst sie jederzeit über Meine Aufzeichnungen hochladen.",
+    "settingsUpload": "Hochladen",
+    "autoUpload": "Automatisch hochladen",
+    "autoUploadDescription": "Aufzeichnungen beim Speichern automatisch zu intervals.icu hochladen. Wenn deaktiviert, bleiben sie auf diesem Gerät, bis du sie über Meine Aufzeichnungen hochlädst.",
+    "library": {
+      "title": "Meine Aufzeichnungen",
+      "empty": "Noch keine Aufzeichnungen",
+      "emptyHint": "Gespeicherte Aufzeichnungen bleiben hier auf diesem Gerät.",
+      "notFound": "Aufzeichnung nicht gefunden",
+      "recorded": "Aufgezeichnet",
+      "statusLabel": "Status",
+      "uploadNow": "Jetzt hochladen",
+      "share": "FIT-Datei teilen",
+      "delete": "Löschen",
+      "deleteConfirmTitle": "Aufzeichnung löschen?",
+      "deleteConfirmMessage": "Die Aufzeichnung wird dauerhaft von diesem Gerät entfernt.",
+      "pendingUploads": "{{count}} Aufzeichnung(en) noch nicht hochgeladen",
+      "status": {
+        "localOnly": "Auf diesem Gerät",
+        "pending": "Wartet auf Upload",
+        "uploading": "Wird hochgeladen…",
+        "uploaded": "Hochgeladen",
+        "failed": "Upload fehlgeschlagen",
+        "permissionBlocked": "Berechtigung erforderlich"
+      }
+    }
   },
   "routeDetail": {
     "avgTime": "Ø Zeit",

@@ -1232,7 +1232,33 @@
     "writePermissionActive": "Write permission active",
     "writePermissionDescription": "Recording requires write permission. Tap below to grant access.",
     "writePermissionNotGranted": "Write permission not granted",
-    "writePermissionRequired": "Write permission required"
+    "writePermissionRequired": "Write permission required",
+    "savedLocally": "Activity saved on this device. Upload it any time from My Recordings.",
+    "settingsUpload": "Upload",
+    "autoUpload": "Auto-upload",
+    "autoUploadDescription": "Upload recordings to intervals.icu automatically when you save them. Off keeps them on this device until you upload from My Recordings.",
+    "library": {
+      "title": "My Recordings",
+      "empty": "No recordings yet",
+      "emptyHint": "Recordings you save are kept here on this device.",
+      "notFound": "Recording not found",
+      "recorded": "Recorded",
+      "statusLabel": "Status",
+      "uploadNow": "Upload now",
+      "share": "Share FIT file",
+      "delete": "Delete",
+      "deleteConfirmTitle": "Delete recording?",
+      "deleteConfirmMessage": "This removes the recording from this device permanently.",
+      "pendingUploads": "{{count}} recording(s) not uploaded yet",
+      "status": {
+        "localOnly": "On this device",
+        "pending": "Waiting to upload",
+        "uploading": "Uploading…",
+        "uploaded": "Uploaded",
+        "failed": "Upload failed",
+        "permissionBlocked": "Needs permission"
+      }
+    }
   },
   "routeDetail": {
     "avgTime": "Avg Time",

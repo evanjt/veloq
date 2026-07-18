@@ -1,23 +1,24 @@
 import { useEffect, useRef, useCallback } from 'react';
 import { AppState } from 'react-native';
-import * as FileSystem from 'expo-file-system/legacy';
 
 import { useNetwork } from '@/shared/app/NetworkContext';
-import { useAuthStore } from '@/shared/app/AuthStore';
 import { useUploadPermissionStore } from '@/features/recording/stores/UploadPermissionStore';
-import { intervalsApi } from '@/api';
 import {
-  dequeueUpload,
-  markUploadComplete,
-  markUploadFailed,
-  markUploadPermissionBlocked,
-} from '@/features/recording/lib/storage/uploadQueue';
+  nextPendingUpload,
+  migrateLegacyUploadQueue,
+} from '@/features/recording/lib/storage/recordingLibrary';
+import { uploadRecording } from '@/features/recording/lib/upload/uploadRecording';
 import { debug } from '@/shared/debug/debug';
 
 const log = debug.create('UploadQueue');
 
+/** Low-frequency safety net so backoff-delayed retries fire without an app event. */
+const RETRY_TICK_MS = 2 * 60 * 1000;
+
 /**
- * Processes queued uploads when connectivity is restored or app comes to foreground.
+ * Drains pending library uploads when connectivity is restored, the app comes
+ * to the foreground, write permission is granted, or on a slow periodic tick
+ * (exponential backoff gates each entry via `nextPendingUpload`).
  * Must be rendered inside NetworkProvider and after auth is established.
  */
 export function useUploadQueueProcessor() {
@@ -25,76 +26,35 @@ export function useUploadQueueProcessor() {
   const needsUpgrade = useUploadPermissionStore((s) => s.needsUpgrade);
   const isProcessing = useRef(false);
 
+  // One-off adoption of the pre-library pending_uploads queue
+  useEffect(() => {
+    migrateLegacyUploadQueue();
+  }, []);
+
   const processQueue = useCallback(async () => {
     if (isProcessing.current) return;
     isProcessing.current = true;
 
     try {
-      let next = await dequeueUpload();
+      let next = await nextPendingUpload();
       while (next) {
-        const entry = next;
-        log.log(`Processing queued upload: ${entry.name} (${entry.id})`);
-        try {
-          const fileInfo = await FileSystem.getInfoAsync(entry.filePath);
-          if (!fileInfo.exists) {
-            log.warn(`File not found, removing from queue: ${entry.filePath}`);
-            await markUploadComplete(entry.id);
-            next = await dequeueUpload();
-            continue;
-          }
+        log.log(`Processing pending upload: ${next.name} (${next.id})`);
+        const result = await uploadRecording(next);
 
-          const base64 = await FileSystem.readAsStringAsync(entry.filePath, {
-            encoding: FileSystem.EncodingType.Base64,
-          });
-          const binary = atob(base64);
-          const bytes = new Uint8Array(binary.length);
-          for (let i = 0; i < binary.length; i++) {
-            bytes[i] = binary.charCodeAt(i);
-          }
-
-          await intervalsApi.uploadActivity(bytes.buffer as ArrayBuffer, `${entry.name}.fit`, {
-            name: entry.name,
-            pairedEventId: entry.pairedEventId,
-          });
-
-          await markUploadComplete(entry.id);
-          log.log(`Upload succeeded: ${entry.name}`);
-        } catch (err: unknown) {
-          const errMsg = err instanceof Error ? err.message : String(err);
-          // Check if this is a non-retriable HTTP error (4xx except 408/429)
-          const status =
-            err && typeof err === 'object' && 'response' in err
-              ? (err as { response?: { status?: number } }).response?.status
-              : undefined;
-
-          // 403: mark as permission-blocked — user needs to re-auth with ACTIVITY:WRITE
-          if (status === 403) {
-            log.warn(`Upload permission-blocked (403): ${entry.name}`);
-            await markUploadPermissionBlocked(entry.id);
-            useUploadPermissionStore.getState().setHasWritePermission(false);
-            break; // All subsequent uploads will also fail
-          }
-
-          const isNonRetriable =
-            status != null && status >= 400 && status < 500 && status !== 408 && status !== 429;
-
-          if (isNonRetriable) {
-            log.warn(`Upload permanently failed (${status}): ${entry.name} — ${errMsg}`);
-            await markUploadComplete(entry.id); // Remove from queue, won't succeed on retry
-          } else {
-            log.warn(`Upload failed: ${entry.name} — ${errMsg}`);
-            await markUploadFailed(entry.id, errMsg);
-          }
-          // Stop processing — will retry retriable errors next trigger
-          break;
+        if (result.outcome === 'permissionBlocked') {
+          useUploadPermissionStore.getState().setHasWritePermission(false);
+          break; // All subsequent uploads would also fail
         }
-
-        next = await dequeueUpload();
+        if (result.outcome === 'network' || result.outcome === 'retriable') {
+          break; // Backoff applies; wait for the next trigger
+        }
+        // uploaded / rejected / missing → move on to the next entry
+        next = await nextPendingUpload();
       }
     } finally {
       isProcessing.current = false;
     }
-  }, [isOnline]);
+  }, []);
 
   // Process when network comes online
   useEffect(() => {
@@ -113,10 +73,17 @@ export function useUploadQueueProcessor() {
     return () => sub.remove();
   }, [isOnline, processQueue]);
 
-  // Re-process queue after successful permission upgrade
+  // Re-process after successful permission upgrade
   useEffect(() => {
     if (!needsUpgrade && isOnline) {
       processQueue();
     }
   }, [needsUpgrade, isOnline, processQueue]);
+
+  // Periodic safety net for backoff-delayed retries
+  useEffect(() => {
+    if (!isOnline) return;
+    const interval = setInterval(processQueue, RETRY_TICK_MS);
+    return () => clearInterval(interval);
+  }, [isOnline, processQueue]);
 }

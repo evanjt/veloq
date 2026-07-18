@@ -10,7 +10,7 @@ import { useAuthStore } from '@/shared/app/AuthStore';
 import { useUploadPermissionStore } from '@/features/recording/stores/UploadPermissionStore';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { clearAccountData, clearAuthOnly } from '@/shared/storage';
-import { clearUploadQueue } from '@/features/recording/lib/storage/uploadQueue';
+import { demotePendingToLocalOnly } from '@/features/recording/lib/storage/recordingLibrary';
 import { useTranslation } from 'react-i18next';
 import { settingsStyles } from './settingsStyles';
 
@@ -45,7 +45,8 @@ function ProfileAccountSectionComponent({ athlete }: ProfileAccountSectionProps)
       } else {
         await clearAuthOnly(queryClient);
       }
-      await clearUploadQueue();
+      // Recordings stay on device; stop auto-upload so nothing lands in another account
+      await demotePendingToLocalOnly();
       resetSyncDateRange();
       useUploadPermissionStore.getState().reset();
       // Clear credentials last — AuthGate detects isAuthenticated=false and

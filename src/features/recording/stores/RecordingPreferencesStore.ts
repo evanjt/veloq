@@ -22,6 +22,8 @@ interface RecordingPreferencesState {
   autoPauseEnabled: boolean;
   autoPauseThresholds: Record<string, number>;
   dataFields: Record<string, DataFieldType[]>;
+  /** Upload recordings to intervals.icu automatically on save. Off = save locally, upload manually from the library. */
+  autoUploadEnabled: boolean;
   isLoaded: boolean;
   // Actions
   initialize: () => Promise<void>;
@@ -29,6 +31,7 @@ interface RecordingPreferencesState {
   setAutoPause: (enabled: boolean) => void;
   setAutoPauseThreshold: (sport: string, kmh: number) => void;
   setDataFields: (mode: string, fields: DataFieldType[]) => void;
+  setAutoUpload: (enabled: boolean) => void;
 }
 
 export const useRecordingPreferences = create<RecordingPreferencesState>((set, get) => ({
@@ -36,6 +39,7 @@ export const useRecordingPreferences = create<RecordingPreferencesState>((set, g
   autoPauseEnabled: true,
   autoPauseThresholds: { ...DEFAULT_AUTO_PAUSE_THRESHOLDS },
   dataFields: { ...DEFAULT_DATA_FIELDS },
+  autoUploadEnabled: true,
   isLoaded: false,
 
   initialize: async () => {
@@ -61,6 +65,8 @@ export const useRecordingPreferences = create<RecordingPreferencesState>((set, g
             !Array.isArray(parsed.dataFields)
               ? parsed.dataFields
               : { ...DEFAULT_DATA_FIELDS },
+          autoUploadEnabled:
+            typeof parsed.autoUploadEnabled === 'boolean' ? parsed.autoUploadEnabled : true,
           isLoaded: true,
         });
       } else {
@@ -106,6 +112,13 @@ export const useRecordingPreferences = create<RecordingPreferencesState>((set, g
       return { dataFields: updated };
     });
   },
+
+  setAutoUpload: (enabled) => {
+    set((state) => {
+      persistPreferences({ ...state, autoUploadEnabled: enabled });
+      return { autoUploadEnabled: enabled };
+    });
+  },
 }));
 
 async function persistPreferences(state: Partial<RecordingPreferencesState>): Promise<void> {
@@ -115,6 +128,7 @@ async function persistPreferences(state: Partial<RecordingPreferencesState>): Pr
       autoPauseEnabled: state.autoPauseEnabled,
       autoPauseThresholds: state.autoPauseThresholds,
       dataFields: state.dataFields,
+      autoUploadEnabled: state.autoUploadEnabled,
     };
     await setSetting(STORAGE_KEY, JSON.stringify(data));
   } catch {

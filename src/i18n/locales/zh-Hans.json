@@ -1193,7 +1193,33 @@
     "writePermissionActive": "写入权限已激活",
     "writePermissionDescription": "录制需要写入权限。点击下方授予访问权限。",
     "writePermissionNotGranted": "写入权限未授予",
-    "writePermissionRequired": "需要写入权限"
+    "writePermissionRequired": "需要写入权限",
+    "savedLocally": "活动已保存到此设备。你可以随时在我的录制中上传。",
+    "settingsUpload": "上传",
+    "autoUpload": "自动上传",
+    "autoUploadDescription": "保存时自动将录制上传到 intervals.icu。关闭后将保留在此设备上，直到你在我的录制中上传。",
+    "library": {
+      "title": "我的录制",
+      "empty": "还没有录制",
+      "emptyHint": "保存的录制会保留在此设备上。",
+      "notFound": "未找到录制",
+      "recorded": "录制时间",
+      "statusLabel": "状态",
+      "uploadNow": "立即上传",
+      "share": "分享 FIT 文件",
+      "delete": "删除",
+      "deleteConfirmTitle": "删除录制？",
+      "deleteConfirmMessage": "该录制将从此设备永久删除。",
+      "pendingUploads": "{{count}} 个录制尚未上传",
+      "status": {
+        "localOnly": "仅本设备",
+        "pending": "等待上传",
+        "uploading": "上传中…",
+        "uploaded": "已上传",
+        "failed": "上传失败",
+        "permissionBlocked": "需要权限"
+      }
+    }
   },
   "routeDetail": {
     "avgTime": "平均时间",

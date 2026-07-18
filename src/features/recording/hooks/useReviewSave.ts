@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -8,12 +8,14 @@ import { queryKeys } from '@/shared/query/queryKeys';
 import { intervalsApi } from '@/api';
 import { debug } from '@/shared/debug/debug';
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
+import { clearRecordingBackup } from '@/features/recording/lib/storage/recordingBackup';
+import { saveRecording } from '@/features/recording/lib/storage/recordingLibrary';
+import { uploadRecording } from '@/features/recording/lib/upload/uploadRecording';
+import { useRecordingPreferences } from '@/features/recording/stores/RecordingPreferencesStore';
 import { useUploadPermissionStore } from '@/features/recording/stores/UploadPermissionStore';
 import { isOAuthConfigured } from '@/features/auth';
 import { usePermissionUpgrade } from '@/features/recording/hooks/usePermissionUpgrade';
-import { useUploadQueue } from '@/features/recording/hooks/useUploadQueue';
-import { classifyUploadError } from '@/features/recording/lib/upload/classifyUploadError';
-import type { ActivityType } from '@/types';
+import type { ActivityType, RecordingLibraryEntry } from '@/types';
 import type { RecordingStreams, RecordingLap } from '@/features/recording/types';
 
 const log = debug.create('Upload');
@@ -26,9 +28,11 @@ export interface UseReviewSaveArgs {
     duration: number;
     distance: number;
     avgHeartrate: number | null;
+    elevationGain: number;
   };
   notes: string;
   startTime: number | null;
+  pausedDuration: number;
   laps: RecordingLap[];
   pairedEventId: number | null;
   getTrimmedStreams: () => RecordingStreams;
@@ -46,27 +50,25 @@ export interface UseReviewSave {
   isOAuthLoading: boolean;
   handleUpgradeToOAuth: () => Promise<void>;
   /**
-   * True when the last failure was a server-side rejection (`apiError`) that
-   * left nothing queued or created — re-running `handleSave` is a safe retry.
-   * Network failures auto-queue and never set this; 403s use the OAuth path.
+   * True when the last failure left the recording safely in the library but
+   * not uploaded — re-running `handleSave` retries the upload without
+   * creating a duplicate entry.
    */
   canRetry: boolean;
 }
 
 /**
- * Orchestrates saving/uploading a recorded or manual activity.
+ * Orchestrates saving a recorded or manual activity — local-save-first.
  *
  * Manual: calls `intervalsApi.createManualActivity` directly.
- * GPS: generates a FIT file and uploads via `intervalsApi.uploadActivity`.
+ * GPS: generates a FIT file, persists it to the recordings library FIRST
+ * (the durable copy — a crash or failed upload can no longer lose data),
+ * then uploads from there when auto-upload is on.
  *
- * On upload failure the outcome depends on the classified error type
- * (see `classifyUploadError`):
- *   - `http403`   → permission store flipped, OAuth upgrade offered
- *   - `apiError`  → surfaced to the user, not queued
- *   - `network`   → FIT persisted + enqueued via `useUploadQueue`
- *
- * On success (or successful queue) the recording store is reset and the
- * user navigates back to `/`.
+ * Upload outcomes only change the library entry's status:
+ *   - permissionBlocked → OAuth upgrade offered; entry waits in the library
+ *   - rejected          → surfaced to the user; manual retry from here or the library
+ *   - network/retriable → "saved, will upload later"; background processor retries
  */
 export function useReviewSave({
   isManual,
@@ -75,6 +77,7 @@ export function useReviewSave({
   summary,
   notes,
   startTime,
+  pausedDuration,
   laps,
   pairedEventId,
   getTrimmedStreams,
@@ -87,8 +90,28 @@ export function useReviewSave({
   const [showPermissionFix, setShowPermissionFix] = useState(false);
   const [canRetry, setCanRetry] = useState(false);
   const { upgradePermissions, isUpgrading: isOAuthLoading } = usePermissionUpgrade();
-  const { queueUpload } = useUploadQueue();
   const queryClient = useQueryClient();
+  // The library entry created on the first save attempt; retries reuse it so a
+  // failed upload never produces a duplicate recording.
+  const savedEntryRef = useRef<RecordingLibraryEntry | null>(null);
+  const fitBufferRef = useRef<ArrayBuffer | null>(null);
+
+  const finishAndGoHome = useCallback(
+    (message: string | null) => {
+      if (message) {
+        setQueuedMessage(message);
+        setIsUploading(false);
+        setTimeout(() => {
+          useRecordingStore.getState().reset();
+          router.replace('/');
+        }, 1500);
+      } else {
+        useRecordingStore.getState().reset();
+        router.replace('/');
+      }
+    },
+    [setQueuedMessage]
+  );
 
   const handleSave = useCallback(async () => {
     setIsUploading(true);
@@ -106,96 +129,126 @@ export function useReviewSave({
           average_heartrate: summary.avgHeartrate ?? undefined,
           description: notes || undefined,
         });
-      } else {
-        const trimmedStreams = getTrimmedStreams();
-        const adjustedStart =
-          canTrim && trimmedStreams.time.length > 0
-            ? new Date(startTime! + trimmedStreams.time[0] * 1000)
-            : new Date(startTime!);
+        queryClient.invalidateQueries({ queryKey: queryKeys.activities.all });
+        queryClient.invalidateQueries({ queryKey: queryKeys.activities.infinite.all });
+        await clearRecordingBackup();
+        setIsUploading(false);
+        finishAndGoHome(null);
+        return;
+      }
+
+      const autoUpload = useRecordingPreferences.getState().autoUploadEnabled;
+
+      if (!savedEntryRef.current) {
+        // Rebase trimmed time/distance to the trim window: the FIT start time
+        // absorbs the offset, so record timestamps and cumulative distance
+        // must start at zero or the offset would be double-counted.
+        const sliced = getTrimmedStreams();
+        const timeBase = canTrim ? (sliced.time[0] ?? 0) : 0;
+        const distBase = canTrim ? (sliced.distance[0] ?? 0) : 0;
+        const trimmedStreams =
+          timeBase > 0 || distBase > 0
+            ? {
+                ...sliced,
+                time: sliced.time.map((tv) => tv - timeBase),
+                distance: sliced.distance.map((d) => d - distBase),
+              }
+            : sliced;
+        const adjustedStart = new Date(startTime! + timeBase * 1000);
         const fitBuffer = await generateFitFile({
           activityType: type,
           startTime: adjustedStart,
           streams: trimmedStreams,
           laps,
           name,
+          pausedTimeSeconds: pausedDuration / 1000,
         });
 
-        try {
-          log.log(`Uploading ${name}.fit...`);
-          await intervalsApi.uploadActivity(fitBuffer, `${name}.fit`, {
-            name,
-            pairedEventId: pairedEventId ?? undefined,
-          });
-          log.log('Upload succeeded');
-        } catch (uploadErr) {
-          const err = classifyUploadError(uploadErr);
-          log.warn(
-            `Upload failed (${err.type}, status=${err.httpStatus ?? 'n/a'}): ${err.apiDetail ?? err.errMsg}`
+        const entry = await saveRecording({
+          fitBuffer,
+          streams: trimmedStreams,
+          activityType: type,
+          name,
+          startTime: adjustedStart.getTime(),
+          durationSeconds: summary.duration,
+          distanceMeters: summary.distance,
+          elevationGain: summary.elevationGain,
+          avgHeartrate: summary.avgHeartrate,
+          pairedEventId: pairedEventId ?? undefined,
+          uploadStatus: autoUpload ? 'pending' : 'localOnly',
+        });
+        if (!entry) {
+          setErrorMessage(t('recording.saveError', 'Could not save activity. Please try again.'));
+          setCanRetry(true);
+          setIsUploading(false);
+          return;
+        }
+        savedEntryRef.current = entry;
+        fitBufferRef.current = fitBuffer;
+        // The recording is durable now — the crash backup has done its job
+        await clearRecordingBackup();
+      }
+
+      if (!autoUpload) {
+        log.log('Auto-upload off — recording saved to library only');
+        finishAndGoHome(
+          t(
+            'recording.savedLocally',
+            'Activity saved on this device. Upload it any time from My Recordings.'
+          )
+        );
+        return;
+      }
+
+      const result = await uploadRecording(
+        savedEntryRef.current,
+        fitBufferRef.current ?? undefined
+      );
+
+      switch (result.outcome) {
+        case 'uploaded':
+          queryClient.invalidateQueries({ queryKey: queryKeys.activities.all });
+          queryClient.invalidateQueries({ queryKey: queryKeys.activities.infinite.all });
+          setIsUploading(false);
+          finishAndGoHome(null);
+          return;
+
+        case 'permissionBlocked':
+          useUploadPermissionStore.getState().setHasWritePermission(false);
+          setErrorMessage(
+            t(
+              'recording.permissionExplanation',
+              'Veloq needs your permission to upload activities to intervals.icu'
+            )
           );
-
-          if (err.type === 'http403') {
-            useUploadPermissionStore.getState().setHasWritePermission(false);
-            setErrorMessage(
-              t(
-                'recording.permissionExplanation',
-                'Veloq needs your permission to upload activities to intervals.icu'
-              )
-            );
-            if (isOAuthConfigured()) {
-              setShowPermissionFix(true);
-            }
-            setIsUploading(false);
-            return;
+          if (isOAuthConfigured()) {
+            setShowPermissionFix(true);
           }
+          setIsUploading(false);
+          return;
 
-          if (err.type === 'apiError') {
-            setErrorMessage(
-              t('recording.uploadErrorMessage', 'Could not upload activity: {{error}}', {
-                error: err.apiDetail ?? err.errMsg,
-              })
-            );
-            // Server rejected the upload — nothing was queued or created, so
-            // re-running handleSave regenerates the FIT and re-uploads cleanly.
-            setCanRetry(true);
-            setIsUploading(false);
-            return;
-          }
+        case 'rejected':
+        case 'missing':
+          setErrorMessage(
+            t('recording.uploadErrorMessage', 'Could not upload activity: {{error}}', {
+              error: result.errorDetail ?? 'unknown',
+            })
+          );
+          setCanRetry(true);
+          setIsUploading(false);
+          return;
 
-          // err.type === 'network' → queue for later
-          log.log(`Network error, queueing for later: ${err.errMsg}`);
-          const queued = await queueUpload({
-            fitBuffer,
-            activityType: type,
-            name,
-            pairedEventId,
-          });
-          if (!queued) {
-            log.warn('Failed to queue upload');
-            setErrorMessage(t('recording.saveError', 'Could not save activity. Please try again.'));
-            setIsUploading(false);
-            return;
-          }
-
-          log.log('Queued successfully');
-          setQueuedMessage(
+        case 'network':
+        case 'retriable':
+          log.log('Upload deferred, recording waits in the library');
+          finishAndGoHome(
             t(
               'recording.savedQueued',
               'Activity saved. It will upload automatically when connectivity is restored.'
             )
           );
-          setIsUploading(false);
-          setTimeout(() => {
-            useRecordingStore.getState().reset();
-            router.replace('/');
-          }, 1500);
           return;
-        }
       }
-
-      queryClient.invalidateQueries({ queryKey: queryKeys.activities.all });
-      queryClient.invalidateQueries({ queryKey: queryKeys.activities.infinite.all });
-      useRecordingStore.getState().reset();
-      router.replace('/');
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown error';
       setErrorMessage(
@@ -203,8 +256,7 @@ export function useReviewSave({
           error: message,
         })
       );
-    } finally {
-      if (!queuedMessage) setIsUploading(false);
+      setIsUploading(false);
     }
   }, [
     isManual,
@@ -213,14 +265,14 @@ export function useReviewSave({
     summary,
     notes,
     startTime,
+    pausedDuration,
     laps,
     pairedEventId,
     t,
     getTrimmedStreams,
     canTrim,
-    queuedMessage,
-    queueUpload,
     queryClient,
+    finishAndGoHome,
   ]);
 
   const handleUpgradeToOAuth = useCallback(async () => {

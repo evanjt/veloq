@@ -115,6 +115,7 @@ export default function ReviewScreen() {
     summary,
     notes,
     startTime,
+    pausedDuration,
     laps,
     pairedEventId,
     getTrimmedStreams,

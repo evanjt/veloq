@@ -1193,7 +1193,33 @@
     "writePermissionActive": "Skrivetilladelse aktiv",
     "writePermissionDescription": "Optagelse kræver skrivetilladelse. Tryk nedenfor for at give adgang.",
     "writePermissionNotGranted": "Skrivetilladelse ikke givet",
-    "writePermissionRequired": "Skrivetilladelse påkrævet"
+    "writePermissionRequired": "Skrivetilladelse påkrævet",
+    "savedLocally": "Aktivitet gemt på denne enhed. Du kan uploade den når som helst fra Mine optagelser.",
+    "settingsUpload": "Upload",
+    "autoUpload": "Automatisk upload",
+    "autoUploadDescription": "Upload optagelser til intervals.icu automatisk, når du gemmer dem. Slået fra bliver de på denne enhed, indtil du uploader fra Mine optagelser.",
+    "library": {
+      "title": "Mine optagelser",
+      "empty": "Ingen optagelser endnu",
+      "emptyHint": "Gemte optagelser opbevares her på denne enhed.",
+      "notFound": "Optagelse ikke fundet",
+      "recorded": "Optaget",
+      "statusLabel": "Status",
+      "uploadNow": "Upload nu",
+      "share": "Del FIT-fil",
+      "delete": "Slet",
+      "deleteConfirmTitle": "Slet optagelse?",
+      "deleteConfirmMessage": "Optagelsen fjernes permanent fra denne enhed.",
+      "pendingUploads": "{{count}} optagelse(r) er ikke uploadet endnu",
+      "status": {
+        "localOnly": "På denne enhed",
+        "pending": "Venter på upload",
+        "uploading": "Uploader…",
+        "uploaded": "Uploadet",
+        "failed": "Upload mislykkedes",
+        "permissionBlocked": "Kræver tilladelse"
+      }
+    }
   },
   "routeDetail": {
     "avgTime": "Gns. tid",

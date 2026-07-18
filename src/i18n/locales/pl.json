@@ -1195,7 +1195,33 @@
     "writePermissionActive": "Uprawnienia do zapisu aktywne",
     "writePermissionDescription": "Nagrywanie wymaga uprawnień do zapisu. Dotknij poniżej, aby przyznać dostęp.",
     "writePermissionNotGranted": "Uprawnienia do zapisu nie przyznane",
-    "writePermissionRequired": "Wymagane uprawnienia do zapisu"
+    "writePermissionRequired": "Wymagane uprawnienia do zapisu",
+    "savedLocally": "Aktywność zapisana na tym urządzeniu. Możesz ją przesłać w dowolnym momencie z Moich nagrań.",
+    "settingsUpload": "Przesyłanie",
+    "autoUpload": "Automatyczne przesyłanie",
+    "autoUploadDescription": "Automatycznie przesyłaj nagrania do intervals.icu podczas zapisywania. Po wyłączeniu pozostają na tym urządzeniu, dopóki nie prześlesz ich z Moich nagrań.",
+    "library": {
+      "title": "Moje nagrania",
+      "empty": "Brak nagrań",
+      "emptyHint": "Zapisane nagrania są przechowywane tutaj, na tym urządzeniu.",
+      "notFound": "Nie znaleziono nagrania",
+      "recorded": "Nagrano",
+      "statusLabel": "Status",
+      "uploadNow": "Prześlij teraz",
+      "share": "Udostępnij plik FIT",
+      "delete": "Usuń",
+      "deleteConfirmTitle": "Usunąć nagranie?",
+      "deleteConfirmMessage": "Nagranie zostanie trwale usunięte z tego urządzenia.",
+      "pendingUploads": "{{count}} nagrania nieprzesłane",
+      "status": {
+        "localOnly": "Na tym urządzeniu",
+        "pending": "Oczekuje na przesłanie",
+        "uploading": "Przesyłanie…",
+        "uploaded": "Przesłano",
+        "failed": "Przesyłanie nie powiodło się",
+        "permissionBlocked": "Wymaga uprawnień"
+      }
+    }
   },
   "routeDetail": {
     "avgTime": "Śr. czas",
