@@ -1232,7 +1232,46 @@
     "writePermissionActive": "Write permission active",
     "writePermissionDescription": "Recording requires write permission. Tap below to grant access.",
     "writePermissionNotGranted": "Write permission not granted",
-    "writePermissionRequired": "Write permission required"
+    "writePermissionRequired": "Write permission required",
+    "savedLocally": "Activity saved on this device. Upload it any time from My Recordings.",
+    "settingsUpload": "Upload",
+    "autoUpload": "Auto-upload",
+    "autoUploadDescription": "Upload recordings to intervals.icu automatically when you save them. Off keeps them on this device until you upload from My Recordings.",
+    "library": {
+      "title": "My Recordings",
+      "empty": "No recordings yet",
+      "emptyHint": "Recordings you save are kept here on this device.",
+      "notFound": "Recording not found",
+      "recorded": "Recorded",
+      "statusLabel": "Status",
+      "uploadNow": "Upload now",
+      "share": "Share FIT file",
+      "delete": "Delete",
+      "deleteConfirmTitle": "Delete recording?",
+      "deleteConfirmMessage": "This removes the recording from this device permanently.",
+      "pendingUploads": "{{count}} recording(s) not uploaded yet",
+      "status": {
+        "localOnly": "On this device",
+        "pending": "Waiting to upload",
+        "uploading": "Uploading…",
+        "uploaded": "Uploaded",
+        "failed": "Upload failed",
+        "permissionBlocked": "Needs permission"
+      }
+    },
+    "settingsGps": "GPS & Battery",
+    "gpsMode": "GPS accuracy",
+    "gpsModeDescription": "Higher accuracy records more points and uses more battery.",
+    "gpsModes": {
+      "high": "High",
+      "balanced": "Balanced",
+      "batterySaver": "Battery saver"
+    },
+    "accuracyFilter": "Accuracy filter",
+    "accuracyFilterDescription": "Discard GPS points less accurate than this.",
+    "autoPauseDelay": "Auto-pause delay",
+    "keepAwake": "Keep screen awake",
+    "keepAwakeDescription": "Prevent the screen from sleeping during recording."
   },
   "routeDetail": {
     "avgTime": "Avg Time",
@@ -1883,5 +1922,30 @@
     "tipLarge": "Large",
     "shareCrashLog": "Share crash log",
     "noCrashLog": "No crashes recorded"
+  },
+  "sensors": {
+    "title": "Sensors",
+    "manageSensors": "Heart rate, power & cadence sensors",
+    "paired": "Paired sensors",
+    "nonePaired": "No sensors paired yet. Scan below to add one.",
+    "addSensor": "Add a sensor",
+    "scan": "Scan for sensors",
+    "stopScan": "Stop scanning",
+    "searching": "Searching for nearby sensors…",
+    "pair": "Pair",
+    "forget": "Forget",
+    "bleUnavailable": "Bluetooth is not available",
+    "bleUnavailableHint": "This build does not include Bluetooth support.",
+    "kinds": {
+      "heartRate": "Heart rate",
+      "power": "Power",
+      "cadence": "Cadence"
+    },
+    "status": {
+      "connecting": "Connecting…",
+      "connected": "Connected",
+      "reconnecting": "Reconnecting…",
+      "disconnected": "Not connected"
+    }
   }
 }

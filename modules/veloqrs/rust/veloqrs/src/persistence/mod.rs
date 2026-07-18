@@ -336,12 +336,6 @@ pub enum WorkerPoll<T> {
 }
 
 impl SectionDetectionHandle {
-    /// Check if detection is complete (non-blocking).
-    /// Returns (sections, all_activity_ids_in_detection_run).
-    pub fn try_recv(&self) -> Option<(Vec<FrequentSection>, Vec<String>)> {
-        self.receiver.try_recv().ok()
-    }
-
     /// Non-blocking poll that also reports a dead worker thread.
     pub fn poll_state(&self) -> WorkerPoll<(Vec<FrequentSection>, Vec<String>)> {
         match self.receiver.try_recv() {
@@ -385,13 +379,8 @@ impl TileGenerationHandle {
         }
     }
 
-    /// Check if generation is complete (non-blocking). Returns tiles generated count.
-    pub fn try_recv(&self) -> Option<u32> {
-        self.receiver.try_recv().ok()
-    }
-
     /// Block until generation completes, returning the tiles-generated count.
-    /// Test and bench path; production uses `try_recv()` via the HeatmapManager poll loop.
+    /// Test and bench path; production uses `poll_state()` via the HeatmapManager poll loop.
     pub fn recv_blocking(&self) -> Option<u32> {
         self.receiver.recv().ok()
     }
@@ -411,7 +400,7 @@ mod worker_poll_tests {
 
     /// Scenario: the detection worker dies (panic, early abort) without
     /// sending a result. Expected behaviour: poll_state reports Died so the
-    /// caller can clear the handle — never Running, which wedged detection
+    /// caller can clear the handle, never Running, which wedged detection
     /// for the rest of the session.
     #[test]
     fn dead_worker_reports_died_not_running() {
@@ -604,6 +593,11 @@ impl PersistentRouteEngine {
     /// Create a new persistent engine with the given database path.
     pub fn new(db_path: &str) -> SqlResult<Self> {
         let mut db = Connection::open(db_path)?;
+        // Background threads (detection, backfill, tiles) open their own
+        // connections. Without a busy timeout their writes make this
+        // connection's queries fail SQLITE_BUSY immediately, which surfaces
+        // as intermittent empty reads in the app during sync.
+        db.busy_timeout(std::time::Duration::from_secs(5))?;
         Self::init_schema(&mut db)?;
 
         Ok(Self {
@@ -637,14 +631,39 @@ impl PersistentRouteEngine {
     }
 
     /// Load all metadata and groups from the database.
+    ///
+    /// Each loader runs independently: one failing (a bad row, a transient
+    /// SQLITE_BUSY) must not abort the rest, or the engine comes up with an
+    /// arbitrarily truncated view of the data. Corruption errors propagate
+    /// so the caller can quarantine the file.
     pub fn load(&mut self) -> SqlResult<()> {
-        self.load_metadata()?;
-        self.load_groups()?;
-        self.load_sections()?;
-        self.load_processed_activity_ids()?;
-        self.load_activity_metrics()?;
-        self.load_match_strictness_from_settings()?;
-        self.load_section_config_from_settings()?;
+        let outcomes = [
+            ("metadata", self.load_metadata()),
+            ("groups", self.load_groups()),
+            ("sections", self.load_sections()),
+            ("processed_activity_ids", self.load_processed_activity_ids()),
+            ("activity_metrics", self.load_activity_metrics()),
+            ("match_strictness", self.load_match_strictness_from_settings()),
+            ("section_config", self.load_section_config_from_settings()),
+        ];
+        let mut first_error: Option<rusqlite::Error> = None;
+        for (name, result) in outcomes {
+            if let Err(e) = result {
+                log::error!(
+                    "tracematch: [PersistentEngine] load: {} failed: {}",
+                    name,
+                    e
+                );
+                if first_error.is_none() {
+                    first_error = Some(e);
+                }
+            }
+        }
+        if let Some(e) = first_error {
+            if is_corruption_error(&e) {
+                return Err(e);
+            }
+        }
 
         // Backfill activities.duration_secs from activity_metrics.moving_time.
         // Route highlights need duration_secs to compute trends/PRs, but it was
@@ -1184,7 +1203,9 @@ pub fn with_persistent_engine<F, R>(f: F) -> Option<R>
 where
     F: FnOnce(&mut PersistentRouteEngine) -> R,
 {
-    let mut guard = PERSISTENT_ENGINE.write().ok()?;
+    // Poison recovery: builds unwind on panic, and refusing a poisoned lock
+    // here would disable the engine for the rest of the session.
+    let mut guard = PERSISTENT_ENGINE.write().unwrap_or_else(|e| e.into_inner());
     guard.as_mut().map(f)
 }
 
@@ -1208,8 +1229,30 @@ pub fn with_persistent_engine_read<F, R>(f: F) -> Option<R>
 where
     F: FnOnce(&PersistentRouteEngine) -> R,
 {
-    let guard = PERSISTENT_ENGINE.read().ok()?;
+    // Same poison recovery as with_persistent_engine.
+    let guard = PERSISTENT_ENGINE.read().unwrap_or_else(|e| e.into_inner());
     guard.as_ref().map(f)
+}
+
+/// SQLite error codes that mean the file itself is unusable, as opposed
+/// to a transient I/O or logic error.
+pub(crate) fn is_corruption_error(e: &rusqlite::Error) -> bool {
+    matches!(
+        e.sqlite_error_code(),
+        Some(rusqlite::ErrorCode::DatabaseCorrupt) | Some(rusqlite::ErrorCode::NotADatabase)
+    )
+}
+
+/// SQLite error codes for failures a later launch can plausibly succeed on
+/// (lock contention, a transient open failure). These must not trigger the
+/// quarantine failover, which would discard a healthy cache.
+pub(crate) fn is_transient_open_error(e: &rusqlite::Error) -> bool {
+    matches!(
+        e.sqlite_error_code(),
+        Some(rusqlite::ErrorCode::DatabaseBusy)
+            | Some(rusqlite::ErrorCode::DatabaseLocked)
+            | Some(rusqlite::ErrorCode::CannotOpen)
+    )
 }
 
 // ============================================================================
@@ -1298,6 +1341,15 @@ pub mod persistent_engine_ffi {
                     db_path,
                     e
                 );
+                if is_transient_open_error(&e) {
+                    // The next launch (or the banner retry) can succeed on the
+                    // same file. Quarantining here would discard a healthy
+                    // cache over lock contention.
+                    return false;
+                }
+                // Corruption or a deterministic open/migration failure: the
+                // same file would fail every launch, bricking the engine
+                // permanently. Quarantine and start fresh.
                 match reopen_after_quarantine(&db_path) {
                     Some(engine) => engine,
                     None => return false,
@@ -1342,15 +1394,6 @@ pub mod persistent_engine_ffi {
         true
     }
 
-    /// SQLite error codes that mean the file itself is unusable, as opposed
-    /// to a transient I/O or logic error.
-    fn is_corruption_error(e: &rusqlite::Error) -> bool {
-        matches!(
-            e.sqlite_error_code(),
-            Some(rusqlite::ErrorCode::DatabaseCorrupt) | Some(rusqlite::ErrorCode::NotADatabase)
-        )
-    }
-
     /// Move an unusable database aside and open a fresh one in its place.
     ///
     /// The database is a re-derivable cache of intervals.icu data. A file
@@ -1361,7 +1404,7 @@ pub mod persistent_engine_ffi {
     fn reopen_after_quarantine(db_path: &str) -> Option<PersistentRouteEngine> {
         let path = std::path::Path::new(db_path);
         if !path.exists() {
-            // Environmental failure (permissions, missing dir) — nothing to
+            // Environmental failure (permissions, missing dir). Nothing to
             // quarantine, and a fresh open would fail the same way.
             return None;
         }

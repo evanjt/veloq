@@ -1193,7 +1193,46 @@
     "writePermissionActive": "写入权限已激活",
     "writePermissionDescription": "录制需要写入权限。点击下方授予访问权限。",
     "writePermissionNotGranted": "写入权限未授予",
-    "writePermissionRequired": "需要写入权限"
+    "writePermissionRequired": "需要写入权限",
+    "savedLocally": "活动已保存到此设备。你可以随时在我的录制中上传。",
+    "settingsUpload": "上传",
+    "autoUpload": "自动上传",
+    "autoUploadDescription": "保存时自动将录制上传到 intervals.icu。关闭后将保留在此设备上，直到你在我的录制中上传。",
+    "library": {
+      "title": "我的录制",
+      "empty": "还没有录制",
+      "emptyHint": "保存的录制会保留在此设备上。",
+      "notFound": "未找到录制",
+      "recorded": "录制时间",
+      "statusLabel": "状态",
+      "uploadNow": "立即上传",
+      "share": "分享 FIT 文件",
+      "delete": "删除",
+      "deleteConfirmTitle": "删除录制？",
+      "deleteConfirmMessage": "该录制将从此设备永久删除。",
+      "pendingUploads": "{{count}} 个录制尚未上传",
+      "status": {
+        "localOnly": "仅本设备",
+        "pending": "等待上传",
+        "uploading": "上传中…",
+        "uploaded": "已上传",
+        "failed": "上传失败",
+        "permissionBlocked": "需要权限"
+      }
+    },
+    "settingsGps": "GPS 与电池",
+    "gpsMode": "GPS 精度",
+    "gpsModeDescription": "精度越高记录的点越多，耗电也越多。",
+    "gpsModes": {
+      "high": "高",
+      "balanced": "均衡",
+      "batterySaver": "省电"
+    },
+    "accuracyFilter": "精度过滤",
+    "accuracyFilterDescription": "丢弃精度低于此值的 GPS 点。",
+    "autoPauseDelay": "自动暂停延迟",
+    "keepAwake": "保持屏幕常亮",
+    "keepAwakeDescription": "防止屏幕在录制期间休眠。"
   },
   "routeDetail": {
     "avgTime": "平均时间",
@@ -1883,5 +1922,30 @@
     "tipLarge": "大额",
     "shareCrashLog": "分享崩溃日志",
     "noCrashLog": "未记录崩溃"
+  },
+  "sensors": {
+    "title": "传感器",
+    "manageSensors": "心率、功率和踏频传感器",
+    "paired": "已配对的传感器",
+    "nonePaired": "还没有配对的传感器。在下方扫描以添加。",
+    "addSensor": "添加传感器",
+    "scan": "扫描传感器",
+    "stopScan": "停止扫描",
+    "searching": "正在搜索附近的传感器…",
+    "pair": "配对",
+    "forget": "忽略",
+    "bleUnavailable": "蓝牙不可用",
+    "bleUnavailableHint": "此版本不包含蓝牙支持。",
+    "kinds": {
+      "heartRate": "心率",
+      "power": "功率",
+      "cadence": "踏频"
+    },
+    "status": {
+      "connecting": "连接中…",
+      "connected": "已连接",
+      "reconnecting": "正在重新连接…",
+      "disconnected": "未连接"
+    }
   }
 }

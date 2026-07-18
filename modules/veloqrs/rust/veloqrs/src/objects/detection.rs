@@ -53,7 +53,7 @@ impl DetectionManager {
         match result {
             crate::persistence::WorkerPoll::Died => {
                 // The worker thread died without sending (panic or early
-                // abort). Clear the handle so the next start() can run —
+                // abort). Clear the handle so the next start() can run,
                 // otherwise detection is blocked for the rest of the session.
                 *handle_guard = None;
                 log::error!(
@@ -72,6 +72,12 @@ impl DetectionManager {
                 // and the UI can keep showing forward motion instead of
                 // freezing on a stalled "100%" bar.
                 let progress = handle_guard.as_ref().map(|h| h.progress.clone());
+
+                // The channel message is consumed, so this run is over whatever
+                // happens next. Clear the handle before the fallible apply so
+                // an apply error cannot leave detection permanently "running"
+                // on a drained channel.
+                *handle_guard = None;
 
                 // Hot save under the write lock — sections are queryable as soon
                 // as this returns.
@@ -111,7 +117,6 @@ impl DetectionManager {
                     Ok(())
                 })??;
 
-                *handle_guard = None;
                 info!("tracematch: [DetectionManager] Section detection complete");
                 Ok("complete".to_string())
             }

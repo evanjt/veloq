@@ -103,9 +103,10 @@ export function useActivitySummary({
       : (streams.distance[streams.distance.length - 1] ?? 0);
     const totalDistance = endDist - startDist;
 
+    // Stream time values are seconds; startTime/stopTime are milliseconds.
     const elapsed = startTime
       ? canTrim && s.time.length >= 2
-        ? (s.time[s.time.length - 1] - s.time[0]) / 1000
+        ? s.time[s.time.length - 1] - s.time[0]
         : ((stopTime ?? Date.now()) - startTime - pausedDuration) / 1000
       : 0;
 
@@ -152,7 +153,7 @@ export function useActivitySummary({
       (streams.distance[streams.distance.length - 1] ?? 0) - (streams.distance[0] ?? 0);
     const fullElapsed =
       startTime && streams.time.length >= 2
-        ? (streams.time[streams.time.length - 1] - streams.time[0]) / 1000
+        ? streams.time[streams.time.length - 1] - streams.time[0]
         : 0;
 
     const distDelta = summary.distance - fullDist;

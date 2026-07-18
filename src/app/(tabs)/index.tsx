@@ -38,6 +38,7 @@ import {
   TAB_BAR_SAFE_PADDING,
 } from '@/shared/ui';
 import { SummaryCard, NotificationOptInCard, SupportCard } from '@/features/home/components';
+import { RecordFAB, PendingUploadsCard } from '@/features/recording';
 import { useStartupData } from '@/features/home/hooks/useStartupData';
 import {
   TerrainSnapshotWebView,
@@ -553,6 +554,7 @@ export default function FeedScreen() {
         {/* Notification opt-in card (OAuth users who haven't enabled yet) */}
         <NotificationOptInCard />
         <SupportCard />
+        <PendingUploadsCard />
 
         {/* Summary card with hero metric and supporting stats */}
         {summaryCard.enabled && (
@@ -601,6 +603,8 @@ export default function FeedScreen() {
           windowSize={Platform.OS === 'ios' ? 7 : 5}
           initialNumToRender={2}
         />
+
+        <RecordFAB />
 
         {/* Hidden WebView for generating 3D terrain snapshots — deferred to avoid startup cost */}
         {snapshotWebViewReady && (

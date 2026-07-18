@@ -1502,6 +1502,31 @@ export interface TranslationResource {
     highRisk: string;
   };
 
+  sensors: {
+    title: string;
+    manageSensors: string;
+    paired: string;
+    nonePaired: string;
+    addSensor: string;
+    scan: string;
+    stopScan: string;
+    searching: string;
+    pair: string;
+    forget: string;
+    bleUnavailable: string;
+    bleUnavailableHint: string;
+    kinds: {
+      heartRate: string;
+      power: string;
+      cadence: string;
+    };
+    status: {
+      connecting: string;
+      connected: string;
+      reconnecting: string;
+      disconnected: string;
+    };
+  };
   recording: {
     activityName: string;
     activityType: string;
@@ -1625,6 +1650,45 @@ export interface TranslationResource {
     settingsAutoPauseThreshold: string;
     settingsDataFields: string;
     settingsUnits: string;
+    settingsUpload: string;
+    autoUpload: string;
+    autoUploadDescription: string;
+    savedLocally: string;
+    settingsGps: string;
+    gpsMode: string;
+    gpsModeDescription: string;
+    gpsModes: {
+      high: string;
+      balanced: string;
+      batterySaver: string;
+    };
+    accuracyFilter: string;
+    accuracyFilterDescription: string;
+    autoPauseDelay: string;
+    keepAwake: string;
+    keepAwakeDescription: string;
+    library: {
+      title: string;
+      empty: string;
+      emptyHint: string;
+      notFound: string;
+      recorded: string;
+      statusLabel: string;
+      uploadNow: string;
+      share: string;
+      delete: string;
+      deleteConfirmTitle: string;
+      deleteConfirmMessage: string;
+      pendingUploads: string;
+      status: {
+        localOnly: string;
+        pending: string;
+        uploading: string;
+        uploaded: string;
+        failed: string;
+        permissionBlocked: string;
+      };
+    };
     timeOfDay: {
       morning: string;
       afternoon: string;

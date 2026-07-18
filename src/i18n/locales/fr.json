@@ -1193,7 +1193,46 @@
     "writePermissionActive": "Autorisation d'écriture active",
     "writePermissionDescription": "L'enregistrement nécessite une autorisation d'écriture. Appuyez ci-dessous pour accorder l'accès.",
     "writePermissionNotGranted": "Autorisation d'écriture non accordée",
-    "writePermissionRequired": "Autorisation d'écriture requise"
+    "writePermissionRequired": "Autorisation d'écriture requise",
+    "savedLocally": "Activité enregistrée sur cet appareil. Vous pouvez la téléverser à tout moment depuis Mes enregistrements.",
+    "settingsUpload": "Téléversement",
+    "autoUpload": "Téléversement automatique",
+    "autoUploadDescription": "Téléverser automatiquement les enregistrements vers intervals.icu lors de la sauvegarde. Sinon, ils restent sur cet appareil jusqu'au téléversement depuis Mes enregistrements.",
+    "library": {
+      "title": "Mes enregistrements",
+      "empty": "Aucun enregistrement",
+      "emptyHint": "Les enregistrements sauvegardés restent ici sur cet appareil.",
+      "notFound": "Enregistrement introuvable",
+      "recorded": "Enregistré",
+      "statusLabel": "Statut",
+      "uploadNow": "Téléverser maintenant",
+      "share": "Partager le fichier FIT",
+      "delete": "Supprimer",
+      "deleteConfirmTitle": "Supprimer l'enregistrement ?",
+      "deleteConfirmMessage": "L'enregistrement sera définitivement supprimé de cet appareil.",
+      "pendingUploads": "{{count}} enregistrement(s) non téléversé(s)",
+      "status": {
+        "localOnly": "Sur cet appareil",
+        "pending": "En attente de téléversement",
+        "uploading": "Téléversement…",
+        "uploaded": "Téléversé",
+        "failed": "Échec du téléversement",
+        "permissionBlocked": "Autorisation requise"
+      }
+    },
+    "settingsGps": "GPS et batterie",
+    "gpsMode": "Précision GPS",
+    "gpsModeDescription": "Une précision plus élevée enregistre plus de points et consomme plus de batterie.",
+    "gpsModes": {
+      "high": "Élevée",
+      "balanced": "Équilibrée",
+      "batterySaver": "Économie de batterie"
+    },
+    "accuracyFilter": "Filtre de précision",
+    "accuracyFilterDescription": "Ignorer les points GPS moins précis que cette valeur.",
+    "autoPauseDelay": "Délai de pause automatique",
+    "keepAwake": "Garder l'écran allumé",
+    "keepAwakeDescription": "Empêche l'écran de se mettre en veille pendant l'enregistrement."
   },
   "routeDetail": {
     "avgTime": "Temps moy",
@@ -1883,5 +1922,30 @@
     "tipLarge": "Grand",
     "shareCrashLog": "Partager le journal des plantages",
     "noCrashLog": "Aucun plantage enregistré"
+  },
+  "sensors": {
+    "title": "Capteurs",
+    "manageSensors": "Capteurs de fréquence cardiaque, puissance et cadence",
+    "paired": "Capteurs associés",
+    "nonePaired": "Aucun capteur associé. Lancez une recherche ci-dessous pour en ajouter un.",
+    "addSensor": "Ajouter un capteur",
+    "scan": "Rechercher des capteurs",
+    "stopScan": "Arrêter la recherche",
+    "searching": "Recherche de capteurs à proximité…",
+    "pair": "Associer",
+    "forget": "Oublier",
+    "bleUnavailable": "Le Bluetooth n'est pas disponible",
+    "bleUnavailableHint": "Cette version ne prend pas en charge le Bluetooth.",
+    "kinds": {
+      "heartRate": "Fréquence cardiaque",
+      "power": "Puissance",
+      "cadence": "Cadence"
+    },
+    "status": {
+      "connecting": "Connexion…",
+      "connected": "Connecté",
+      "reconnecting": "Reconnexion…",
+      "disconnected": "Non connecté"
+    }
   }
 }

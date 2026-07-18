@@ -3,6 +3,7 @@ import * as Location from 'expo-location';
 
 import { debug } from '@/shared/debug/debug';
 import { brand } from '@/theme';
+import { getGpsWatchOptions, getAccuracyRejectThreshold } from './gpsConfig';
 
 const log = debug.create('BackgroundLocation');
 
@@ -24,9 +25,10 @@ TaskManager.defineTask(BACKGROUND_LOCATION_TASK, async ({ data, error }) => {
 
   if (status !== 'recording') return;
 
+  const rejectThreshold = getAccuracyRejectThreshold();
   for (const location of locations) {
-    // Drop low-accuracy points (>30m) to reduce GPS noise
-    if (location.coords.accuracy != null && location.coords.accuracy > 30) continue;
+    // Drop low-accuracy points to reduce GPS noise (threshold is a preference)
+    if (location.coords.accuracy != null && location.coords.accuracy > rejectThreshold) continue;
 
     addGpsPoint({
       latitude: location.coords.latitude,
@@ -47,10 +49,11 @@ export async function startBackgroundLocation(options?: {
   notificationBody?: string;
 }): Promise<void> {
   log.log('Starting background location updates');
+  const watch = getGpsWatchOptions();
   await Location.startLocationUpdatesAsync(BACKGROUND_LOCATION_TASK, {
-    accuracy: Location.Accuracy.BestForNavigation,
-    distanceInterval: 5,
-    timeInterval: 1000,
+    accuracy: watch.accuracy,
+    distanceInterval: watch.distanceInterval,
+    timeInterval: watch.timeInterval,
     foregroundService: {
       notificationTitle: options?.notificationTitle ?? 'Recording activity',
       notificationBody: options?.notificationBody ?? 'Veloq is tracking your location',

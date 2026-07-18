@@ -99,11 +99,22 @@ export function useRecordingMetrics(): {
     // is a real reading, so 0 stays 0 — only missing samples are ignored).
     const elevationGain = sumElevationGain(streams.altitude);
 
-    // Calories estimation: duration_hours * weight_kg * MET
-    const met = getMet(activityType ?? 'Other');
-    const durationHours = elapsedSeconds / 3600;
+    // Calories estimation. With a heart-rate sensor, use the HR-based energy
+    // expenditure regression (Keytel et al., Journal of Sports Sciences, 2005;
+    // age assumed 35 as the athlete's age is not available locally). Without
+    // HR, fall back to duration_hours * weight_kg * MET.
     const weightKg = athleteWeight ?? DEFAULT_WEIGHT_KG;
-    const calories = Math.round(durationHours * weightKg * met);
+    const durationHours = elapsedSeconds / 3600;
+    const hrValues = streams.heartrate.filter((v) => v > 0);
+    let calories: number;
+    if (hrValues.length >= 30) {
+      const avgHr = hrValues.reduce((sum, v) => sum + v, 0) / hrValues.length;
+      const kcalPerMin = (-55.0969 + 0.6309 * avgHr + 0.1988 * weightKg + 0.2017 * 35) / 4.184;
+      calories = Math.round(Math.max(0, kcalPerMin) * (elapsedSeconds / 60));
+    } else {
+      const met = getMet(activityType ?? 'Other');
+      calories = Math.round(durationHours * weightKg * met);
+    }
 
     // Lap metrics
     const lastLap = laps.length > 0 ? laps[laps.length - 1] : null;

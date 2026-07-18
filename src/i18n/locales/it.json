@@ -1193,7 +1193,46 @@
     "writePermissionActive": "Autorizzazione di scrittura attiva",
     "writePermissionDescription": "La registrazione richiede l'autorizzazione di scrittura. Tocca sotto per concedere l'accesso.",
     "writePermissionNotGranted": "Autorizzazione di scrittura non concessa",
-    "writePermissionRequired": "Autorizzazione di scrittura richiesta"
+    "writePermissionRequired": "Autorizzazione di scrittura richiesta",
+    "savedLocally": "Attività salvata su questo dispositivo. Puoi caricarla in qualsiasi momento da Le mie registrazioni.",
+    "settingsUpload": "Caricamento",
+    "autoUpload": "Caricamento automatico",
+    "autoUploadDescription": "Carica automaticamente le registrazioni su intervals.icu al salvataggio. Se disattivato, restano su questo dispositivo finché non le carichi da Le mie registrazioni.",
+    "library": {
+      "title": "Le mie registrazioni",
+      "empty": "Nessuna registrazione",
+      "emptyHint": "Le registrazioni salvate restano qui su questo dispositivo.",
+      "notFound": "Registrazione non trovata",
+      "recorded": "Registrata",
+      "statusLabel": "Stato",
+      "uploadNow": "Carica ora",
+      "share": "Condividi file FIT",
+      "delete": "Elimina",
+      "deleteConfirmTitle": "Eliminare la registrazione?",
+      "deleteConfirmMessage": "La registrazione verrà rimossa definitivamente da questo dispositivo.",
+      "pendingUploads": "{{count}} registrazioni non caricate",
+      "status": {
+        "localOnly": "Su questo dispositivo",
+        "pending": "In attesa di caricamento",
+        "uploading": "Caricamento…",
+        "uploaded": "Caricata",
+        "failed": "Caricamento non riuscito",
+        "permissionBlocked": "Autorizzazione necessaria"
+      }
+    },
+    "settingsGps": "GPS e batteria",
+    "gpsMode": "Precisione GPS",
+    "gpsModeDescription": "Una precisione maggiore registra più punti e consuma più batteria.",
+    "gpsModes": {
+      "high": "Alta",
+      "balanced": "Bilanciata",
+      "batterySaver": "Risparmio batteria"
+    },
+    "accuracyFilter": "Filtro di precisione",
+    "accuracyFilterDescription": "Scarta i punti GPS meno precisi di questo valore.",
+    "autoPauseDelay": "Ritardo pausa automatica",
+    "keepAwake": "Mantieni lo schermo acceso",
+    "keepAwakeDescription": "Impedisce che lo schermo si spenga durante la registrazione."
   },
   "routeDetail": {
     "avgTime": "Tempo medio",
@@ -1883,5 +1922,30 @@
     "tipLarge": "Grande",
     "shareCrashLog": "Condividi il log dei crash",
     "noCrashLog": "Nessun crash registrato"
+  },
+  "sensors": {
+    "title": "Sensori",
+    "manageSensors": "Sensori di frequenza cardiaca, potenza e cadenza",
+    "paired": "Sensori associati",
+    "nonePaired": "Nessun sensore associato. Cerca qui sotto per aggiungerne uno.",
+    "addSensor": "Aggiungi un sensore",
+    "scan": "Cerca sensori",
+    "stopScan": "Interrompi ricerca",
+    "searching": "Ricerca di sensori nelle vicinanze…",
+    "pair": "Associa",
+    "forget": "Dimentica",
+    "bleUnavailable": "Bluetooth non disponibile",
+    "bleUnavailableHint": "Questa build non include il supporto Bluetooth.",
+    "kinds": {
+      "heartRate": "Frequenza cardiaca",
+      "power": "Potenza",
+      "cadence": "Cadenza"
+    },
+    "status": {
+      "connecting": "Connessione…",
+      "connected": "Connesso",
+      "reconnecting": "Riconnessione…",
+      "disconnected": "Non connesso"
+    }
   }
 }

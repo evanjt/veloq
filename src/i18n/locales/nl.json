@@ -1193,7 +1193,46 @@
     "writePermissionActive": "Schrijfrechten actief",
     "writePermissionDescription": "Opname vereist schrijfrechten. Tik hieronder om toegang te verlenen.",
     "writePermissionNotGranted": "Schrijfrechten niet verleend",
-    "writePermissionRequired": "Schrijfrechten vereist"
+    "writePermissionRequired": "Schrijfrechten vereist",
+    "savedLocally": "Activiteit opgeslagen op dit apparaat. Je kunt deze altijd uploaden via Mijn opnamen.",
+    "settingsUpload": "Uploaden",
+    "autoUpload": "Automatisch uploaden",
+    "autoUploadDescription": "Opnamen automatisch naar intervals.icu uploaden bij het opslaan. Uitgeschakeld blijven ze op dit apparaat totdat je ze uploadt via Mijn opnamen.",
+    "library": {
+      "title": "Mijn opnamen",
+      "empty": "Nog geen opnamen",
+      "emptyHint": "Opgeslagen opnamen blijven hier op dit apparaat.",
+      "notFound": "Opname niet gevonden",
+      "recorded": "Opgenomen",
+      "statusLabel": "Status",
+      "uploadNow": "Nu uploaden",
+      "share": "FIT-bestand delen",
+      "delete": "Verwijderen",
+      "deleteConfirmTitle": "Opname verwijderen?",
+      "deleteConfirmMessage": "De opname wordt permanent van dit apparaat verwijderd.",
+      "pendingUploads": "{{count}} opname(n) nog niet geüpload",
+      "status": {
+        "localOnly": "Op dit apparaat",
+        "pending": "Wacht op upload",
+        "uploading": "Uploaden…",
+        "uploaded": "Geüpload",
+        "failed": "Upload mislukt",
+        "permissionBlocked": "Toestemming vereist"
+      }
+    },
+    "settingsGps": "GPS en batterij",
+    "gpsMode": "GPS-nauwkeurigheid",
+    "gpsModeDescription": "Hogere nauwkeurigheid legt meer punten vast en verbruikt meer batterij.",
+    "gpsModes": {
+      "high": "Hoog",
+      "balanced": "Gebalanceerd",
+      "batterySaver": "Batterijbesparing"
+    },
+    "accuracyFilter": "Nauwkeurigheidsfilter",
+    "accuracyFilterDescription": "GPS-punten verwerpen die minder nauwkeurig zijn dan deze waarde.",
+    "autoPauseDelay": "Vertraging automatische pauze",
+    "keepAwake": "Scherm aan houden",
+    "keepAwakeDescription": "Voorkomt dat het scherm uitgaat tijdens het opnemen."
   },
   "routeDetail": {
     "avgTime": "Gem. tijd",
@@ -1883,5 +1922,30 @@
     "tipLarge": "Groot",
     "shareCrashLog": "Crashlogboek delen",
     "noCrashLog": "Geen crashes geregistreerd"
+  },
+  "sensors": {
+    "title": "Sensoren",
+    "manageSensors": "Hartslag-, vermogens- en cadanssensoren",
+    "paired": "Gekoppelde sensoren",
+    "nonePaired": "Nog geen sensoren gekoppeld. Zoek hieronder om er een toe te voegen.",
+    "addSensor": "Sensor toevoegen",
+    "scan": "Zoeken naar sensoren",
+    "stopScan": "Stop met zoeken",
+    "searching": "Zoeken naar sensoren in de buurt…",
+    "pair": "Koppelen",
+    "forget": "Vergeten",
+    "bleUnavailable": "Bluetooth is niet beschikbaar",
+    "bleUnavailableHint": "Deze build bevat geen Bluetooth-ondersteuning.",
+    "kinds": {
+      "heartRate": "Hartslag",
+      "power": "Vermogen",
+      "cadence": "Cadans"
+    },
+    "status": {
+      "connecting": "Verbinden…",
+      "connected": "Verbonden",
+      "reconnecting": "Opnieuw verbinden…",
+      "disconnected": "Niet verbonden"
+    }
   }
 }

@@ -18,6 +18,7 @@ import { initializeDashboardPreferences } from '@/features/home/store';
 import { initializeInsightsStore } from '@/features/insights/store';
 import { initializeTileCacheStore } from '@/features/maps/stores/TileCacheStore';
 import { initializeRecordingPreferences } from '@/features/recording/stores/RecordingPreferencesStore';
+import { initializeKnownSensors } from '@/features/sensors/store';
 import { initializeUploadPermission } from '@/features/recording/stores/UploadPermissionStore';
 import { initializeDisabledSections } from '@/features/routes/stores/DisabledSectionsStore';
 import { initializePotentialSections } from '@/features/routes/stores/PotentialSectionsStore';
@@ -65,6 +66,7 @@ export async function reinitializeAllStores(): Promise<void> {
     initializeWhatsNewStore(),
     initializeInsightsStore(),
     initializeRecordingPreferences(),
+    initializeKnownSensors(),
     initializeUploadPermission(),
     initializeNotificationPreferences(),
     initializeNotificationPrompt(),
@@ -250,11 +252,32 @@ export async function restoreDatabaseBackup(fileUri: string): Promise<DatabaseRe
       await FileSystem.copyAsync({ from: `file://${dbPath}`, to: `file://${backupPath}` });
     }
 
+    // The engine quarantines an unopenable database (renames it aside and
+    // starts fresh), so a corrupt restored file would otherwise read as a
+    // "successful" init with zero data, and the rollback snapshot would be
+    // deleted. Detect a quarantine event during THIS init and treat it as a
+    // failed restore instead.
+    const dbDir = dbPath.substring(0, dbPath.lastIndexOf('/'));
+    const dbBase = dbPath.substring(dbPath.lastIndexOf('/') + 1);
+    const listQuarantined = async (): Promise<string[]> => {
+      try {
+        const names = await FileSystem.readDirectoryAsync(`file://${dbDir}`);
+        return names.filter((n) => n.startsWith(`${dbBase}.corrupt-`));
+      } catch {
+        return [];
+      }
+    };
+    const quarantinedBefore = new Set(await listQuarantined());
+
     try {
       await FileSystem.copyAsync({ from: tempPath, to: `file://${dbPath}` });
 
       if (nativeModule) {
-        nativeModule.routeEngine.initWithPath(dbPath);
+        const ok = nativeModule.routeEngine.initWithPath(dbPath);
+        const newlyQuarantined = (await listQuarantined()).some((n) => !quarantinedBefore.has(n));
+        if (!ok || newlyQuarantined) {
+          throw new Error('Restored database could not be opened');
+        }
       }
 
       await reinitializeAllStores();
@@ -275,7 +298,15 @@ export async function restoreDatabaseBackup(fileUri: string): Promise<DatabaseRe
 
       return { success: true, activityCount, athleteIdMismatch: false, backupAthleteId };
     } catch (error) {
-      // Restore failed after the live DB was overwritten — roll back to the snapshot.
+      // Restore failed after the live DB was overwritten — roll back to the
+      // snapshot. Close the engine first: it may hold an open connection to
+      // the file being replaced (and initWithPath below would otherwise
+      // no-op on its already-initialized guard).
+      try {
+        getRouteEngine()?.destroyEngine();
+      } catch {
+        // Best-effort. Proceed with the rollback copy regardless.
+      }
       if (liveExists) {
         try {
           await FileSystem.copyAsync({ from: `file://${backupPath}`, to: `file://${dbPath}` });
@@ -314,8 +345,10 @@ const LEGACY_BACKUP_VERSION = 2;
  *
  * Deliberately excluded (cache or device state, re-derivable, wrong to restore
  * onto another install): 'veloq-query-cache', 'veloq-pending-terrain-snapshots',
- * 'terrain-preview-cache-version', 'veloq-upload-queue' (points at local FIT
- * files that are not in the backup), 'veloq-section-health-check-v1'.
+ * 'terrain-preview-cache-version', 'veloq-recording-library' (points at local
+ * FIT files that are not in the backup), 'veloq-section-health-check-v1',
+ * 'veloq-push-token-refreshed-at' (device-local refresh throttle; restoring a
+ * stale timestamp could suppress a needed re-registration for a day).
  */
 const LEGACY_PREFERENCE_KEYS = [
   'veloq-theme-preference',
@@ -340,6 +373,7 @@ const LEGACY_PREFERENCE_KEYS = [
   'veloq-insights-fingerprint',
   'veloq-notification-prompt-dismissed',
   'veloq-recording-preferences',
+  'veloq-known-sensors',
   'veloq-geocoded-route-ids',
   'veloq-geocoded-section-ids',
   'veloq-notification-preferences',

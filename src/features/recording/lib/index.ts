@@ -16,25 +16,36 @@ export { generateFitFile } from './fitGenerator';
 export { getRecordingMode, RECORDING_MODE_MAP, ACTIVITY_CATEGORIES } from './recordingModes';
 
 export {
+  buildRecordingBackup,
   saveRecordingBackup,
   loadRecordingBackup,
   clearRecordingBackup,
   hasRecordingBackup,
 } from './storage/recordingBackup';
 export {
-  enqueueUpload,
-  dequeueUpload,
-  markUploadComplete,
-  markUploadFailed,
-  getQueueSize,
-  markUploadPermissionBlocked,
+  saveRecording,
+  listRecordings,
+  getRecording,
+  readRecordingFit,
+  readRecordingStreams,
+  requeueRecording,
+  deleteRecording,
   clearPermissionBlocked,
+  demotePendingToLocalOnly,
+  nextPendingUpload,
+  getUnuploadedCount,
   getPermissionBlockedCount,
-  clearUploadQueue,
-} from './storage/uploadQueue';
+  migrateLegacyUploadQueue,
+  type SaveRecordingParams,
+} from './storage/recordingLibrary';
 
 export {
   classifyUploadError,
   type UploadErrorType,
   type UploadErrorClassification,
 } from './upload/classifyUploadError';
+export {
+  uploadRecording,
+  type UploadRecordingOutcome,
+  type UploadRecordingResult,
+} from './upload/uploadRecording';

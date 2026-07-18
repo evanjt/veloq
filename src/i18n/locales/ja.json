@@ -1193,7 +1193,46 @@
     "writePermissionActive": "書き込み権限が有効です",
     "writePermissionDescription": "記録には書き込み権限が必要です。下をタップしてアクセスを許可してください。",
     "writePermissionNotGranted": "書き込み権限が付与されていません",
-    "writePermissionRequired": "書き込み権限が必要です"
+    "writePermissionRequired": "書き込み権限が必要です",
+    "savedLocally": "アクティビティをこの端末に保存しました。マイ記録からいつでもアップロードできます。",
+    "settingsUpload": "アップロード",
+    "autoUpload": "自動アップロード",
+    "autoUploadDescription": "保存時に記録を intervals.icu へ自動でアップロードします。オフの場合、マイ記録からアップロードするまでこの端末に保存されます。",
+    "library": {
+      "title": "マイ記録",
+      "empty": "記録はまだありません",
+      "emptyHint": "保存した記録はこの端末に保管されます。",
+      "notFound": "記録が見つかりません",
+      "recorded": "記録日時",
+      "statusLabel": "状態",
+      "uploadNow": "今すぐアップロード",
+      "share": "FITファイルを共有",
+      "delete": "削除",
+      "deleteConfirmTitle": "記録を削除しますか？",
+      "deleteConfirmMessage": "この記録は端末から完全に削除されます。",
+      "pendingUploads": "未アップロードの記録が{{count}}件あります",
+      "status": {
+        "localOnly": "この端末のみ",
+        "pending": "アップロード待ち",
+        "uploading": "アップロード中…",
+        "uploaded": "アップロード済み",
+        "failed": "アップロード失敗",
+        "permissionBlocked": "権限が必要"
+      }
+    },
+    "settingsGps": "GPSとバッテリー",
+    "gpsMode": "GPS精度",
+    "gpsModeDescription": "精度が高いほど記録するポイントが増え、バッテリー消費も増えます。",
+    "gpsModes": {
+      "high": "高",
+      "balanced": "バランス",
+      "batterySaver": "省電力"
+    },
+    "accuracyFilter": "精度フィルター",
+    "accuracyFilterDescription": "この値より精度の低いGPSポイントを破棄します。",
+    "autoPauseDelay": "自動一時停止までの時間",
+    "keepAwake": "画面をオンのままにする",
+    "keepAwakeDescription": "記録中に画面がスリープするのを防ぎます。"
   },
   "routeDetail": {
     "avgTime": "平均時間",
@@ -1883,5 +1922,30 @@
     "tipLarge": "高額",
     "shareCrashLog": "クラッシュログを共有",
     "noCrashLog": "クラッシュは記録されていません"
+  },
+  "sensors": {
+    "title": "センサー",
+    "manageSensors": "心拍・パワー・ケイデンスセンサー",
+    "paired": "ペアリング済みセンサー",
+    "nonePaired": "ペアリング済みのセンサーはありません。下でスキャンして追加してください。",
+    "addSensor": "センサーを追加",
+    "scan": "センサーをスキャン",
+    "stopScan": "スキャンを停止",
+    "searching": "近くのセンサーを検索中…",
+    "pair": "ペアリング",
+    "forget": "削除",
+    "bleUnavailable": "Bluetoothを利用できません",
+    "bleUnavailableHint": "このビルドはBluetoothに対応していません。",
+    "kinds": {
+      "heartRate": "心拍数",
+      "power": "パワー",
+      "cadence": "ケイデンス"
+    },
+    "status": {
+      "connecting": "接続中…",
+      "connected": "接続済み",
+      "reconnecting": "再接続中…",
+      "disconnected": "未接続"
+    }
   }
 }

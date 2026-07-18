@@ -3,7 +3,11 @@ import { router } from 'expo-router';
 import type { MutableRefObject } from 'react';
 
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
-import { clearRecordingBackup } from '@/features/recording/lib/storage/recordingBackup';
+import {
+  buildRecordingBackup,
+  clearRecordingBackup,
+  saveRecordingBackup,
+} from '@/features/recording/lib/storage/recordingBackup';
 import { navigateTo } from '@/shared/app/navigation';
 import type { createAutoPauseDetector } from '@/features/recording/lib/autoPause';
 import type { ActivityType } from '@/features/activity/types';
@@ -40,7 +44,10 @@ export function useRecordingHandlers({
   const handleStop = useCallback(async () => {
     useRecordingStore.getState().stopRecording();
     await stopTracking();
-    await clearRecordingBackup();
+    // Persist the stopped session so an app kill on the review screen cannot
+    // lose the recording. Cleared only after a successful save or a discard.
+    const backup = buildRecordingBackup(useRecordingStore.getState());
+    if (backup) await saveRecordingBackup(backup);
     navigateTo('/recording/review');
   }, [stopTracking]);
 

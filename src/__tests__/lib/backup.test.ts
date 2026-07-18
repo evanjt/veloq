@@ -39,6 +39,7 @@ jest.mock('expo-file-system/legacy', () => ({
   getInfoAsync: jest.fn().mockResolvedValue({ exists: true, size: 1024 }),
   copyAsync: jest.fn().mockResolvedValue(undefined),
   deleteAsync: jest.fn().mockResolvedValue(undefined),
+  readDirectoryAsync: jest.fn().mockResolvedValue([]),
 }));
 
 jest.mock('@/shared/query/QueryProvider', () => ({
@@ -364,7 +365,7 @@ describe('restoreDatabaseBackup (SQLite snapshot) — data-loss guards', () => {
 
   beforeEach(() => {
     mockNativeModule.validateBackupDatabase.mockReset();
-    mockNativeModule.routeEngine.initWithPath.mockReset();
+    mockNativeModule.routeEngine.initWithPath.mockReset().mockReturnValue(true);
     mockEngine.destroyEngine.mockClear();
     mockEngine.getActivityCount.mockReturnValue(100);
     mockEngine.notifyAll.mockClear();
@@ -372,6 +373,7 @@ describe('restoreDatabaseBackup (SQLite snapshot) — data-loss guards', () => {
     (FileSystem.getInfoAsync as jest.Mock).mockResolvedValue({ exists: true, size: 1024 });
     (FileSystem.copyAsync as jest.Mock).mockClear().mockResolvedValue(undefined);
     (FileSystem.deleteAsync as jest.Mock).mockClear().mockResolvedValue(undefined);
+    (FileSystem.readDirectoryAsync as jest.Mock).mockReset().mockResolvedValue([]);
   });
 
   it('refuses an empty backup (activity_count 0) without destroying the engine', async () => {
@@ -449,6 +451,24 @@ describe('restoreDatabaseBackup (SQLite snapshot) — data-loss guards', () => {
     const result = await restoreDatabaseBackup('file:///in/backup.veloqdb');
     expect(result.success).toBe(false);
     // Snapshot copied back over the live DB.
+    expect(FileSystem.copyAsync).toHaveBeenCalledWith({
+      from: 'file:///data/veloq.db.bak',
+      to: 'file:///data/veloq.db',
+    });
+  });
+
+  it('rolls back when the engine quarantines the restored DB instead of opening it', async () => {
+    // The engine's failover renames an unopenable DB aside and starts fresh,
+    // so initWithPath returns true with an empty engine. The restore must
+    // detect the new quarantine file and treat this as a failed restore.
+    mockProbe(
+      JSON.stringify({ schema_version: '12', athlete_id: 'athlete-1', activity_count: 80 })
+    );
+    (FileSystem.readDirectoryAsync as jest.Mock)
+      .mockResolvedValueOnce([])
+      .mockResolvedValue(['veloq.db.corrupt-1700000000']);
+    const result = await restoreDatabaseBackup('file:///in/backup.veloqdb');
+    expect(result.success).toBe(false);
     expect(FileSystem.copyAsync).toHaveBeenCalledWith({
       from: 'file:///data/veloq.db.bak',
       to: 'file:///data/veloq.db',
