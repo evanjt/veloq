@@ -155,6 +155,7 @@ export default function RecordScreen() {
             const backup = await loadRecordingBackup();
             if (!backup) return;
 
+            const now = Date.now();
             // Load backup into store
             const store = useRecordingStore.getState();
             store.startRecording(
@@ -162,13 +163,31 @@ export default function RecordScreen() {
               backup.mode,
               backup.pairedEventId ?? undefined
             );
-            // Override streams and timing from backup
+
+            if (backup.status === 'stopped') {
+              // Session was already stopped — restore straight to review
+              useRecordingStore.setState({
+                startTime: backup.startTime,
+                stopTime: backup.stopTime ?? backup.savedAt,
+                pausedDuration: backup.pausedDuration,
+                streams: backup.streams,
+                laps: backup.laps,
+                status: 'stopped',
+              });
+              navigateTo('/recording/review');
+              return;
+            }
+
+            // Credit the offline gap (savedAt → now) as paused time so moving
+            // time does not inflate, and open the ongoing pause so the wait on
+            // this prompt is credited too when the user resumes.
             useRecordingStore.setState({
               startTime: backup.startTime,
-              pausedDuration: backup.pausedDuration,
+              pausedDuration: backup.pausedDuration + Math.max(0, now - backup.savedAt),
               streams: backup.streams,
               laps: backup.laps,
               status: 'paused', // Start paused so user can review before resuming
+              _pauseStart: now,
             });
 
             navigateTo(`/recording/${backup.activityType}`);
@@ -275,6 +294,16 @@ export default function RecordScreen() {
           {t('recording.startActivity', 'Start Activity')}
         </Text>
         <View style={{ flex: 1 }} />
+        <TouchableOpacity
+          testID="record-library"
+          onPress={() => navigateTo('/recordings')}
+          style={styles.settingsButton}
+          activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityLabel={t('recording.library.title', 'My Recordings')}
+        >
+          <MaterialCommunityIcons name="folder-play-outline" size={22} color={textSecondary} />
+        </TouchableOpacity>
         <TouchableOpacity
           testID="record-settings"
           onPress={() => navigateTo('/recording-settings')}

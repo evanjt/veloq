@@ -4,6 +4,7 @@ import { router } from 'expo-router';
 import * as Haptics from 'expo-haptics';
 
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
+import { clearRecordingBackup } from '@/features/recording/lib/storage/recordingBackup';
 
 const DISCARD_HOLD_MS = 1000;
 
@@ -54,6 +55,7 @@ export function useDiscardWithAnimation(): UseDiscardWithAnimation {
       clearDiscardTimer();
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
       useRecordingStore.getState().reset();
+      clearRecordingBackup();
       router.replace('/');
     }, DISCARD_HOLD_MS);
   }, [clearDiscardTimer, discardAnim]);
