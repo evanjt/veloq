@@ -1219,7 +1219,20 @@
         "failed": "上传失败",
         "permissionBlocked": "需要权限"
       }
-    }
+    },
+    "settingsGps": "GPS 与电池",
+    "gpsMode": "GPS 精度",
+    "gpsModeDescription": "精度越高记录的点越多，耗电也越多。",
+    "gpsModes": {
+      "high": "高",
+      "balanced": "均衡",
+      "batterySaver": "省电"
+    },
+    "accuracyFilter": "精度过滤",
+    "accuracyFilterDescription": "丢弃精度低于此值的 GPS 点。",
+    "autoPauseDelay": "自动暂停延迟",
+    "keepAwake": "保持屏幕常亮",
+    "keepAwakeDescription": "防止屏幕在录制期间休眠。"
   },
   "routeDetail": {
     "avgTime": "平均时间",

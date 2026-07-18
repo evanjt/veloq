@@ -1219,7 +1219,20 @@
         "failed": "Échec du téléversement",
         "permissionBlocked": "Autorisation requise"
       }
-    }
+    },
+    "settingsGps": "GPS et batterie",
+    "gpsMode": "Précision GPS",
+    "gpsModeDescription": "Une précision plus élevée enregistre plus de points et consomme plus de batterie.",
+    "gpsModes": {
+      "high": "Élevée",
+      "balanced": "Équilibrée",
+      "batterySaver": "Économie de batterie"
+    },
+    "accuracyFilter": "Filtre de précision",
+    "accuracyFilterDescription": "Ignorer les points GPS moins précis que cette valeur.",
+    "autoPauseDelay": "Délai de pause automatique",
+    "keepAwake": "Garder l'écran allumé",
+    "keepAwakeDescription": "Empêche l'écran de se mettre en veille pendant l'enregistrement."
   },
   "routeDetail": {
     "avgTime": "Temps moy",

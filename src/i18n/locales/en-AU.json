@@ -1219,7 +1219,20 @@
         "failed": "Upload failed",
         "permissionBlocked": "Needs permission"
       }
-    }
+    },
+    "settingsGps": "GPS & Battery",
+    "gpsMode": "GPS accuracy",
+    "gpsModeDescription": "Higher accuracy records more points and uses more battery.",
+    "gpsModes": {
+      "high": "High",
+      "balanced": "Balanced",
+      "batterySaver": "Battery saver"
+    },
+    "accuracyFilter": "Accuracy filter",
+    "accuracyFilterDescription": "Discard GPS points less accurate than this.",
+    "autoPauseDelay": "Auto-pause delay",
+    "keepAwake": "Keep screen awake",
+    "keepAwakeDescription": "Prevent the screen from sleeping during recording."
   },
   "routeDetail": {
     "avgTime": "Avg Time",

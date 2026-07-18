@@ -54,6 +54,22 @@ describe('createAutoPauseDetector', () => {
     });
   });
 
+  describe('resume hysteresis', () => {
+    it('does not resume on speeds between the pause and resume thresholds', () => {
+      const detector = createAutoPauseDetector(defaultConfig);
+      const baseTime = 1000;
+      detector.update(0.5, baseTime);
+      expect(detector.update(0.5, baseTime + 5000)).toBe('pause');
+
+      // 1.0–1.25 m/s is above the pause threshold but inside the hysteresis
+      // band — GPS noise hovering here must not flap resume
+      expect(detector.update(1.1, baseTime + 6000)).toBeNull();
+      expect(detector.update(1.2, baseTime + 7000)).toBeNull();
+      // Clearly moving again → resume
+      expect(detector.update(1.3, baseTime + 8000)).toBe('resume');
+    });
+  });
+
   describe('debounce behavior', () => {
     it('does not pause if speed drops briefly then recovers', () => {
       const detector = createAutoPauseDetector(defaultConfig);

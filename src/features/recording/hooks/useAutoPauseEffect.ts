@@ -25,6 +25,7 @@ export function useAutoPauseEffect({
 }) {
   const autoPauseEnabled = useRecordingPreferences((s) => s.autoPauseEnabled);
   const autoPauseThresholds = useRecordingPreferences((s) => s.autoPauseThresholds);
+  const autoPauseDurationMs = useRecordingPreferences((s) => s.autoPauseDurationMs);
 
   const sportCategory = getSportCategory(activityType);
 
@@ -32,7 +33,7 @@ export function useAutoPauseEffect({
     createAutoPauseDetector({
       enabled: autoPauseEnabled,
       speedThreshold: (autoPauseThresholds[sportCategory] ?? 2) / 3.6, // km/h to m/s
-      durationThreshold: 3000,
+      durationThreshold: autoPauseDurationMs,
     } as AutoPauseConfig)
   );
 
@@ -41,9 +42,9 @@ export function useAutoPauseEffect({
     autoPauseDetectorRef.current = createAutoPauseDetector({
       enabled: autoPauseEnabled,
       speedThreshold: (autoPauseThresholds[sportCategory] ?? 2) / 3.6,
-      durationThreshold: 3000,
+      durationThreshold: autoPauseDurationMs,
     } as AutoPauseConfig);
-  }, [autoPauseEnabled, autoPauseThresholds, sportCategory]);
+  }, [autoPauseEnabled, autoPauseThresholds, autoPauseDurationMs, sportCategory]);
 
   // Auto-pause: check speed on each location update
   useEffect(() => {

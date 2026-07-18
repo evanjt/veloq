@@ -1219,7 +1219,20 @@
         "failed": "Upload mislykkedes",
         "permissionBlocked": "Kræver tilladelse"
       }
-    }
+    },
+    "settingsGps": "GPS og batteri",
+    "gpsMode": "GPS-nøjagtighed",
+    "gpsModeDescription": "Højere nøjagtighed optager flere punkter og bruger mere batteri.",
+    "gpsModes": {
+      "high": "Høj",
+      "balanced": "Balanceret",
+      "batterySaver": "Batterisparing"
+    },
+    "accuracyFilter": "Nøjagtighedsfilter",
+    "accuracyFilterDescription": "Kassér GPS-punkter, der er mindre nøjagtige end denne værdi.",
+    "autoPauseDelay": "Forsinkelse for autopause",
+    "keepAwake": "Hold skærmen tændt",
+    "keepAwakeDescription": "Forhindrer skærmen i at slukke under optagelse."
   },
   "routeDetail": {
     "avgTime": "Gns. tid",

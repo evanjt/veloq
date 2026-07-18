@@ -1629,6 +1629,19 @@ export interface TranslationResource {
     autoUpload: string;
     autoUploadDescription: string;
     savedLocally: string;
+    settingsGps: string;
+    gpsMode: string;
+    gpsModeDescription: string;
+    gpsModes: {
+      high: string;
+      balanced: string;
+      batterySaver: string;
+    };
+    accuracyFilter: string;
+    accuracyFilterDescription: string;
+    autoPauseDelay: string;
+    keepAwake: string;
+    keepAwakeDescription: string;
     library: {
       title: string;
       empty: string;

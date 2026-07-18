@@ -14,6 +14,7 @@ type LocationTracking = {
   stopTracking: () => Promise<void>;
   hasPermission: boolean;
   requestPermission: () => Promise<boolean>;
+  lastFixAtRef: { current: number | null };
 };
 
 // Start location tracking for GPS mode. Keyed on the session being active
@@ -34,9 +35,23 @@ export function useGpsSessionEffect({
   onDiscard: () => void;
 }) {
   const { t } = useTranslation();
-  const { startTracking, stopTracking, hasPermission, requestPermission } = location;
+  const { startTracking, stopTracking, hasPermission, requestPermission, lastFixAtRef } = location;
 
   const gpsSessionActive = mode === 'gps' && (status === 'recording' || status === 'paused');
+
+  // Mid-session signal-loss watchdog. The one-shot timers below only cover a
+  // missing FIRST fix; this covers the signal dropping later (tunnel, canyon,
+  // indoors). Cleared automatically by useGpsWarningClearEffect on regain.
+  useEffect(() => {
+    if (!gpsSessionActive) return;
+    const interval = setInterval(() => {
+      const last = lastFixAtRef.current;
+      if (last != null && Date.now() - last > GPS_WARNING_MS) {
+        setGpsWarning(t('recording.gpsWaiting'));
+      }
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [gpsSessionActive]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     if (!gpsSessionActive) return;
     let cancelled = false;
