@@ -672,7 +672,10 @@ impl PersistentRouteEngine {
             );
 
             let conn = match Connection::open(&db_path) {
-                Ok(c) => c,
+                Ok(c) => {
+                    let _ = c.busy_timeout(std::time::Duration::from_secs(5));
+                    c
+                }
                 Err(e) => {
                     log::info!("tracematch: [SectionDetection] Failed to open DB: {:?}", e);
                     tx.send((Vec::new(), Vec::new())).ok();

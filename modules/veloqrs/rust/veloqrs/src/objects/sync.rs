@@ -276,6 +276,23 @@ impl SyncManager {
         match SYNC_SERVICE.build_transport() {
             Ok((transport, athlete_id)) => {
                 crate::runtime::spawn(async move {
+                    // Release the running slot even if perform_sync panics
+                    // (tokio catches the panic, but a skipped finish() would
+                    // leave state=Syncing and try_begin() refusing every
+                    // future sync for the session).
+                    struct FinishGuard;
+                    impl Drop for FinishGuard {
+                        fn drop(&mut self) {
+                            if std::thread::panicking() {
+                                SYNC_SERVICE.finish(
+                                    SyncState::Idle,
+                                    Some("sync task panicked".to_string()),
+                                    false,
+                                );
+                            }
+                        }
+                    }
+                    let _guard = FinishGuard;
                     perform_sync(&SYNC_SERVICE, transport, athlete_id).await;
                 });
                 Ok(true)

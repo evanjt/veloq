@@ -604,6 +604,11 @@ impl PersistentRouteEngine {
     /// Create a new persistent engine with the given database path.
     pub fn new(db_path: &str) -> SqlResult<Self> {
         let mut db = Connection::open(db_path)?;
+        // Background threads (detection, backfill, tiles) open their own
+        // connections. Without a busy timeout their writes make this
+        // connection's queries fail SQLITE_BUSY immediately, which surfaces
+        // as intermittent empty reads in the app during sync.
+        db.busy_timeout(std::time::Duration::from_secs(5))?;
         Self::init_schema(&mut db)?;
 
         Ok(Self {
@@ -637,14 +642,39 @@ impl PersistentRouteEngine {
     }
 
     /// Load all metadata and groups from the database.
+    ///
+    /// Each loader runs independently: one failing (a bad row, a transient
+    /// SQLITE_BUSY) must not abort the rest, or the engine comes up with an
+    /// arbitrarily truncated view of the data. Corruption errors propagate
+    /// so the caller can quarantine the file.
     pub fn load(&mut self) -> SqlResult<()> {
-        self.load_metadata()?;
-        self.load_groups()?;
-        self.load_sections()?;
-        self.load_processed_activity_ids()?;
-        self.load_activity_metrics()?;
-        self.load_match_strictness_from_settings()?;
-        self.load_section_config_from_settings()?;
+        let outcomes = [
+            ("metadata", self.load_metadata()),
+            ("groups", self.load_groups()),
+            ("sections", self.load_sections()),
+            ("processed_activity_ids", self.load_processed_activity_ids()),
+            ("activity_metrics", self.load_activity_metrics()),
+            ("match_strictness", self.load_match_strictness_from_settings()),
+            ("section_config", self.load_section_config_from_settings()),
+        ];
+        let mut first_error: Option<rusqlite::Error> = None;
+        for (name, result) in outcomes {
+            if let Err(e) = result {
+                log::error!(
+                    "tracematch: [PersistentEngine] load: {} failed: {}",
+                    name,
+                    e
+                );
+                if first_error.is_none() {
+                    first_error = Some(e);
+                }
+            }
+        }
+        if let Some(e) = first_error {
+            if is_corruption_error(&e) {
+                return Err(e);
+            }
+        }
 
         // Backfill activities.duration_secs from activity_metrics.moving_time.
         // Route highlights need duration_secs to compute trends/PRs, but it was
@@ -1184,7 +1214,9 @@ pub fn with_persistent_engine<F, R>(f: F) -> Option<R>
 where
     F: FnOnce(&mut PersistentRouteEngine) -> R,
 {
-    let mut guard = PERSISTENT_ENGINE.write().ok()?;
+    // Poison recovery: builds unwind on panic, and refusing a poisoned lock
+    // here would disable the engine for the rest of the session.
+    let mut guard = PERSISTENT_ENGINE.write().unwrap_or_else(|e| e.into_inner());
     guard.as_mut().map(f)
 }
 
@@ -1208,8 +1240,18 @@ pub fn with_persistent_engine_read<F, R>(f: F) -> Option<R>
 where
     F: FnOnce(&PersistentRouteEngine) -> R,
 {
-    let guard = PERSISTENT_ENGINE.read().ok()?;
+    // Same poison recovery as with_persistent_engine.
+    let guard = PERSISTENT_ENGINE.read().unwrap_or_else(|e| e.into_inner());
     guard.as_ref().map(f)
+}
+
+/// SQLite error codes that mean the file itself is unusable, as opposed
+/// to a transient I/O or logic error.
+pub(crate) fn is_corruption_error(e: &rusqlite::Error) -> bool {
+    matches!(
+        e.sqlite_error_code(),
+        Some(rusqlite::ErrorCode::DatabaseCorrupt) | Some(rusqlite::ErrorCode::NotADatabase)
+    )
 }
 
 // ============================================================================
@@ -1340,15 +1382,6 @@ pub mod persistent_engine_ffi {
         super::sections::spawn_accumulator_backfill(db_path.clone());
 
         true
-    }
-
-    /// SQLite error codes that mean the file itself is unusable, as opposed
-    /// to a transient I/O or logic error.
-    fn is_corruption_error(e: &rusqlite::Error) -> bool {
-        matches!(
-            e.sqlite_error_code(),
-            Some(rusqlite::ErrorCode::DatabaseCorrupt) | Some(rusqlite::ErrorCode::NotADatabase)
-        )
     }
 
     /// Move an unusable database aside and open a fresh one in its place.

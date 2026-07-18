@@ -73,6 +73,12 @@ impl DetectionManager {
                 // freezing on a stalled "100%" bar.
                 let progress = handle_guard.as_ref().map(|h| h.progress.clone());
 
+                // The channel message is consumed — this run is over whatever
+                // happens next. Clear the handle before the fallible apply so
+                // an apply error cannot leave detection permanently "running"
+                // on a drained channel.
+                *handle_guard = None;
+
                 // Hot save under the write lock — sections are queryable as soon
                 // as this returns.
                 with_engine(|e| {
@@ -111,7 +117,6 @@ impl DetectionManager {
                     Ok(())
                 })??;
 
-                *handle_guard = None;
                 info!("tracematch: [DetectionManager] Section detection complete");
                 Ok("complete".to_string())
             }
