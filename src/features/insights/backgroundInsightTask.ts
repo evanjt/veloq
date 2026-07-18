@@ -290,7 +290,7 @@ TaskManager.defineTask(BACKGROUND_INSIGHT_TASK, async ({ data, error }) => {
 
     log.log(`Push received: event=${eventType}, activity=${activityId}`);
 
-    // A delivered push proves the pipeline is alive — use it to keep the
+    // A delivered push proves the pipeline is alive, so use it to keep the
     // server-side token registration (30-day TTL) fresh for users who rarely
     // open the app. Throttled to once a day inside the helper.
     try {
@@ -303,7 +303,7 @@ TaskManager.defineTask(BACKGROUND_INSIGHT_TASK, async ({ data, error }) => {
         refreshPushTokenRegistration(athleteId).catch(() => {});
       }
     } catch {
-      // Best-effort — never let token upkeep break notification handling.
+      // Best-effort. Never let token upkeep break notification handling.
     }
 
     // The visible tray push also wakes this task (Expo delivers `notification`

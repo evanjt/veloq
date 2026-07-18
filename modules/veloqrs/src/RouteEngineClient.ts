@@ -136,7 +136,7 @@ class RouteEngineClient implements DelegateHost {
   initWithPath(dbPath: string): boolean {
     if (this.initialized && this.dbPath === dbPath) return true;
     const result = this.timed('initWithPath', () => {
-      // create() itself never throws — Rust reports open/migration failure
+      // create() itself never throws. Rust reports open/migration failure
       // (including quarantine-and-recreate failover) via isInitialized().
       // Without this check a failed init looks successful and every later
       // FFI call silently returns empty data.

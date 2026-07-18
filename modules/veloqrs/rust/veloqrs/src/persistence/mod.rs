@@ -411,7 +411,7 @@ mod worker_poll_tests {
 
     /// Scenario: the detection worker dies (panic, early abort) without
     /// sending a result. Expected behaviour: poll_state reports Died so the
-    /// caller can clear the handle — never Running, which wedged detection
+    /// caller can clear the handle, never Running, which wedged detection
     /// for the rest of the session.
     #[test]
     fn dead_worker_reports_died_not_running() {
@@ -1394,7 +1394,7 @@ pub mod persistent_engine_ffi {
     fn reopen_after_quarantine(db_path: &str) -> Option<PersistentRouteEngine> {
         let path = std::path::Path::new(db_path);
         if !path.exists() {
-            // Environmental failure (permissions, missing dir) — nothing to
+            // Environmental failure (permissions, missing dir). Nothing to
             // quarantine, and a fresh open would fail the same way.
             return None;
         }
