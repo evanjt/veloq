@@ -1922,5 +1922,30 @@
     "tipLarge": "Gross",
     "shareCrashLog": "Absturzprotokoll teilen",
     "noCrashLog": "Keine Abstürze aufgezeichnet"
+  },
+  "sensors": {
+    "title": "Sensoren",
+    "manageSensors": "Herzfrequenz-, Leistungs- und Trittfrequenzsensoren",
+    "paired": "Gekoppelte Sensoren",
+    "nonePaired": "Noch keine Sensoren gekoppelt. Suche unten, um einen hinzuzufügen.",
+    "addSensor": "Sensor hinzufügen",
+    "scan": "Nach Sensoren suchen",
+    "stopScan": "Suche beenden",
+    "searching": "Suche nach Sensoren in der Nähe…",
+    "pair": "Koppeln",
+    "forget": "Entfernen",
+    "bleUnavailable": "Bluetooth ist nicht verfügbar",
+    "bleUnavailableHint": "Dieser Build enthält keine Bluetooth-Unterstützung.",
+    "kinds": {
+      "heartRate": "Herzfrequenz",
+      "power": "Leistung",
+      "cadence": "Trittfrequenz"
+    },
+    "status": {
+      "connecting": "Verbinden…",
+      "connected": "Verbunden",
+      "reconnecting": "Verbindung wird wiederhergestellt…",
+      "disconnected": "Nicht verbunden"
+    }
   }
 }

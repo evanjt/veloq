@@ -439,6 +439,25 @@ export default function RecordingSettingsScreen() {
           })}
         </View>
 
+        {/* Sensors Link */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: textSecondary }]}>
+            {t('sensors.title', 'Sensors')}
+          </Text>
+          <TouchableOpacity
+            testID="settings-sensors-link"
+            style={[styles.linkCard, { backgroundColor: surface, borderColor: border }]}
+            onPress={() => navigateTo('/sensor-settings')}
+            activeOpacity={0.7}
+          >
+            <MaterialCommunityIcons name="bluetooth" size={20} color={textSecondary} />
+            <Text style={[styles.linkText, { color: textPrimary }]}>
+              {t('sensors.manageSensors', 'Heart rate, power & cadence sensors')}
+            </Text>
+            <MaterialCommunityIcons name="chevron-right" size={20} color={textSecondary} />
+          </TouchableOpacity>
+        </View>
+
         {/* Units Link */}
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: textSecondary }]}>

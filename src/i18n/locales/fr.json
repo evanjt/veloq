@@ -1922,5 +1922,30 @@
     "tipLarge": "Grand",
     "shareCrashLog": "Partager le journal des plantages",
     "noCrashLog": "Aucun plantage enregistré"
+  },
+  "sensors": {
+    "title": "Capteurs",
+    "manageSensors": "Capteurs de fréquence cardiaque, puissance et cadence",
+    "paired": "Capteurs associés",
+    "nonePaired": "Aucun capteur associé. Lancez une recherche ci-dessous pour en ajouter un.",
+    "addSensor": "Ajouter un capteur",
+    "scan": "Rechercher des capteurs",
+    "stopScan": "Arrêter la recherche",
+    "searching": "Recherche de capteurs à proximité…",
+    "pair": "Associer",
+    "forget": "Oublier",
+    "bleUnavailable": "Le Bluetooth n'est pas disponible",
+    "bleUnavailableHint": "Cette version ne prend pas en charge le Bluetooth.",
+    "kinds": {
+      "heartRate": "Fréquence cardiaque",
+      "power": "Puissance",
+      "cadence": "Cadence"
+    },
+    "status": {
+      "connecting": "Connexion…",
+      "connected": "Connecté",
+      "reconnecting": "Reconnexion…",
+      "disconnected": "Non connecté"
+    }
   }
 }

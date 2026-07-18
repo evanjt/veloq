@@ -1922,5 +1922,30 @@
     "tipLarge": "Large",
     "shareCrashLog": "Share crash log",
     "noCrashLog": "No crashes recorded"
+  },
+  "sensors": {
+    "title": "Sensors",
+    "manageSensors": "Heart rate, power & cadence sensors",
+    "paired": "Paired sensors",
+    "nonePaired": "No sensors paired yet. Scan below to add one.",
+    "addSensor": "Add a sensor",
+    "scan": "Scan for sensors",
+    "stopScan": "Stop scanning",
+    "searching": "Searching for nearby sensors…",
+    "pair": "Pair",
+    "forget": "Forget",
+    "bleUnavailable": "Bluetooth is not available",
+    "bleUnavailableHint": "This build does not include Bluetooth support.",
+    "kinds": {
+      "heartRate": "Heart rate",
+      "power": "Power",
+      "cadence": "Cadence"
+    },
+    "status": {
+      "connecting": "Connecting…",
+      "connected": "Connected",
+      "reconnecting": "Reconnecting…",
+      "disconnected": "Not connected"
+    }
   }
 }

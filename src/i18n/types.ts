@@ -1502,6 +1502,31 @@ export interface TranslationResource {
     highRisk: string;
   };
 
+  sensors: {
+    title: string;
+    manageSensors: string;
+    paired: string;
+    nonePaired: string;
+    addSensor: string;
+    scan: string;
+    stopScan: string;
+    searching: string;
+    pair: string;
+    forget: string;
+    bleUnavailable: string;
+    bleUnavailableHint: string;
+    kinds: {
+      heartRate: string;
+      power: string;
+      cadence: string;
+    };
+    status: {
+      connecting: string;
+      connected: string;
+      reconnecting: string;
+      disconnected: string;
+    };
+  };
   recording: {
     activityName: string;
     activityType: string;

@@ -8,8 +8,22 @@ import type {
   RecordingStreams,
   RecordingGpsPoint,
   RecordingLap,
-  SensorInfo,
 } from '@/types';
+
+/** Sensor values older than this are stale and recorded as 0 (FIT no-data). */
+const SENSOR_STALE_MS = 5000;
+
+interface SensorSampleLite {
+  value: number;
+  at: number;
+}
+
+type SensorStreamKind = 'heartrate' | 'power' | 'cadence';
+
+function freshValue(sample: SensorSampleLite | null, now: number): number {
+  if (!sample) return 0;
+  return now - sample.at <= SENSOR_STALE_MS ? sample.value : 0;
+}
 
 const EMPTY_STREAMS: RecordingStreams = {
   time: [],
@@ -46,7 +60,8 @@ interface RecordingState {
   streams: RecordingStreams;
   laps: RecordingLap[];
   pairedEventId: number | null;
-  connectedSensors: SensorInfo[];
+  /** Sample-and-hold of the latest sensor values, written by the sensors feature. */
+  latestSensor: Record<SensorStreamKind, SensorSampleLite | null>;
   // Internal: track pause start for duration accumulation
   _pauseStart: number | null;
   // Actions
@@ -56,9 +71,9 @@ interface RecordingState {
   stopRecording: () => void;
   changeActivityType: (type: ActivityType) => void;
   addGpsPoint: (point: RecordingGpsPoint) => void;
-  addHeartrate: (bpm: number, time: number) => void;
-  addPower: (watts: number, time: number) => void;
-  addCadence: (rpm: number, time: number) => void;
+  setSensorSample: (kind: SensorStreamKind, value: number) => void;
+  /** Indoor mode has no GPS points; a 1 Hz tick appends aligned sensor samples instead. */
+  addIndoorSample: () => void;
   addLap: () => void;
   reset: () => void;
 }
@@ -73,7 +88,7 @@ export const useRecordingStore = create<RecordingState>((set, get) => ({
   streams: { ...EMPTY_STREAMS },
   laps: [],
   pairedEventId: null,
-  connectedSensors: [],
+  latestSensor: { heartrate: null, power: null, cadence: null },
   _pauseStart: null,
 
   startRecording: (type, mode, pairedEventId) => {
@@ -95,7 +110,7 @@ export const useRecordingStore = create<RecordingState>((set, get) => ({
       },
       laps: [],
       pairedEventId: pairedEventId ?? null,
-      connectedSensors: [],
+      latestSensor: { heartrate: null, power: null, cadence: null },
       _pauseStart: null,
     });
   },
@@ -175,32 +190,46 @@ export const useRecordingStore = create<RecordingState>((set, get) => ({
     // subscribers and downstream useMemo deps recompute; effects keyed on
     // `streams.x.length` fire because the length changes. Rebuilding all
     // arrays on every point was O(n) per call, O(n^2) per session.
+    const { latestSensor } = get();
+    const nowMs = Date.now();
     streams.time.push(elapsedSec);
     streams.latlng.push([point.latitude, point.longitude]);
     streams.altitude.push(point.altitude ?? 0);
     streams.speed.push(speed);
     streams.distance.push(dist);
+    // Sensor streams stay index-aligned with time[] — sample-and-hold the
+    // latest value per point, 0 (FIT no-data) when absent or stale.
+    streams.heartrate.push(freshValue(latestSensor.heartrate, nowMs));
+    streams.power.push(freshValue(latestSensor.power, nowMs));
+    streams.cadence.push(freshValue(latestSensor.cadence, nowMs));
     set({ streams: { ...streams } });
   },
 
-  addHeartrate: (bpm, time) => {
-    const { status, startTime, streams } = get();
-    if (status !== 'recording' || !startTime) return;
-    streams.heartrate.push(bpm);
-    set({ streams: { ...streams } });
+  setSensorSample: (kind, value) => {
+    if (!Number.isFinite(value) || value < 0) return;
+    set((state) => ({
+      latestSensor: { ...state.latestSensor, [kind]: { value, at: Date.now() } },
+    }));
   },
 
-  addPower: (watts, time) => {
-    const { status, startTime, streams } = get();
+  addIndoorSample: () => {
+    const { status, startTime, streams, latestSensor } = get();
     if (status !== 'recording' || !startTime) return;
-    streams.power.push(watts);
-    set({ streams: { ...streams } });
-  },
 
-  addCadence: (rpm, time) => {
-    const { status, startTime, streams } = get();
-    if (status !== 'recording' || !startTime) return;
-    streams.cadence.push(rpm);
+    const nowMs = Date.now();
+    const elapsedSec = (nowMs - startTime) / 1000;
+    const lastTime = streams.time[streams.time.length - 1];
+    if (lastTime !== undefined && elapsedSec <= lastTime) return;
+
+    // No position for indoor samples — latlng stays shorter and the FIT
+    // writer emits invalid-position sentinels for the missing indices.
+    streams.time.push(elapsedSec);
+    streams.altitude.push(0);
+    streams.speed.push(0);
+    streams.distance.push(streams.distance[streams.distance.length - 1] ?? 0);
+    streams.heartrate.push(freshValue(latestSensor.heartrate, nowMs));
+    streams.power.push(freshValue(latestSensor.power, nowMs));
+    streams.cadence.push(freshValue(latestSensor.cadence, nowMs));
     set({ streams: { ...streams } });
   },
 
@@ -260,7 +289,7 @@ export const useRecordingStore = create<RecordingState>((set, get) => ({
       },
       laps: [],
       pairedEventId: null,
-      connectedSensors: [],
+      latestSensor: { heartrate: null, power: null, cadence: null },
       _pauseStart: null,
     });
   },
