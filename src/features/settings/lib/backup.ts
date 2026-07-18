@@ -250,11 +250,32 @@ export async function restoreDatabaseBackup(fileUri: string): Promise<DatabaseRe
       await FileSystem.copyAsync({ from: `file://${dbPath}`, to: `file://${backupPath}` });
     }
 
+    // The engine quarantines an unopenable database (renames it aside and
+    // starts fresh), so a corrupt restored file would otherwise read as a
+    // "successful" init with zero data — and the rollback snapshot would be
+    // deleted. Detect a quarantine event during THIS init and treat it as a
+    // failed restore instead.
+    const dbDir = dbPath.substring(0, dbPath.lastIndexOf('/'));
+    const dbBase = dbPath.substring(dbPath.lastIndexOf('/') + 1);
+    const listQuarantined = async (): Promise<string[]> => {
+      try {
+        const names = await FileSystem.readDirectoryAsync(`file://${dbDir}`);
+        return names.filter((n) => n.startsWith(`${dbBase}.corrupt-`));
+      } catch {
+        return [];
+      }
+    };
+    const quarantinedBefore = new Set(await listQuarantined());
+
     try {
       await FileSystem.copyAsync({ from: tempPath, to: `file://${dbPath}` });
 
       if (nativeModule) {
-        nativeModule.routeEngine.initWithPath(dbPath);
+        const ok = nativeModule.routeEngine.initWithPath(dbPath);
+        const newlyQuarantined = (await listQuarantined()).some((n) => !quarantinedBefore.has(n));
+        if (!ok || newlyQuarantined) {
+          throw new Error('Restored database could not be opened');
+        }
       }
 
       await reinitializeAllStores();
@@ -275,7 +296,15 @@ export async function restoreDatabaseBackup(fileUri: string): Promise<DatabaseRe
 
       return { success: true, activityCount, athleteIdMismatch: false, backupAthleteId };
     } catch (error) {
-      // Restore failed after the live DB was overwritten — roll back to the snapshot.
+      // Restore failed after the live DB was overwritten — roll back to the
+      // snapshot. Close the engine first: it may hold an open connection to
+      // the file being replaced (and initWithPath below would otherwise
+      // no-op on its already-initialized guard).
+      try {
+        getRouteEngine()?.destroyEngine();
+      } catch {
+        // Best-effort — proceed with the rollback copy regardless.
+      }
       if (liveExists) {
         try {
           await FileSystem.copyAsync({ from: `file://${backupPath}`, to: `file://${dbPath}` });

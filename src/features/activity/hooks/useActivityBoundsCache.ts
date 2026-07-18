@@ -199,9 +199,15 @@ export function useActivityBoundsCache(): UseActivityBoundsCacheReturn {
       const dbPath = getRouteDbPath();
       engine.destroyEngine();
       if (dbPath) {
-        engine.initWithPath(dbPath);
-        // Re-enable heatmap tiles if setting is on (init doesn't do this automatically)
-        if (isHeatmapEnabled()) {
+        const ok = engine.initWithPath(dbPath);
+        if (!ok) {
+          // Surface the failure banner and its retry, same as the root
+          // layout's init path — otherwise the app silently runs with a
+          // dead engine until restart.
+          const { useEngineStatus } = require('@/features/routes/stores/EngineStatusStore');
+          useEngineStatus.getState().setInitFailed(true);
+        } else if (isHeatmapEnabled()) {
+          // Re-enable heatmap tiles if setting is on (init doesn't do this automatically)
           engine.enableHeatmapTiles();
         }
       }
