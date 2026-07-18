@@ -8,7 +8,9 @@ import {
   startBackgroundLocation,
   stopBackgroundLocation,
 } from '@/features/recording/lib/backgroundLocation';
+import { getGpsWatchOptions, getAccuracyRejectThreshold } from '@/features/recording/lib/gpsConfig';
 import { debug } from '@/shared/debug/debug';
+import type { MutableRefObject } from 'react';
 
 const log = debug.create('LocationTracking');
 
@@ -19,6 +21,8 @@ export function useLocationTracking(): {
   stopTracking: () => Promise<void>;
   currentLocation: { latitude: number; longitude: number } | null;
   accuracy: number | null;
+  /** Wall time of the last location callback (any accuracy); null before the first fix. */
+  lastFixAtRef: MutableRefObject<number | null>;
 } {
   const { t } = useTranslation();
   const [hasPermission, setHasPermission] = useState(false);
@@ -29,6 +33,7 @@ export function useLocationTracking(): {
   const [accuracy, setAccuracy] = useState<number | null>(null);
   const watchRef = useRef<Location.LocationSubscription | null>(null);
   const isTrackingRef = useRef(false);
+  const lastFixAtRef = useRef<number | null>(null);
   const appStateRef = useRef<AppStateStatus>(AppState.currentState);
   const bgNotificationRef = useRef({
     notificationTitle: t('recording.backgroundNotificationTitle', 'Recording activity'),
@@ -59,34 +64,28 @@ export function useLocationTracking(): {
     if (watchRef.current) return;
 
     log.log('Starting foreground location watch');
-    watchRef.current = await Location.watchPositionAsync(
-      {
-        accuracy: Location.Accuracy.BestForNavigation,
-        timeInterval: 1000,
-        distanceInterval: 5,
-      },
-      (location) => {
-        const { latitude, longitude, altitude, accuracy: acc, speed, heading } = location.coords;
-        setCurrentLocation({ latitude, longitude });
-        setAccuracy(acc);
+    watchRef.current = await Location.watchPositionAsync(getGpsWatchOptions(), (location) => {
+      const { latitude, longitude, altitude, accuracy: acc, speed, heading } = location.coords;
+      lastFixAtRef.current = Date.now();
+      setCurrentLocation({ latitude, longitude });
+      setAccuracy(acc);
 
-        // Drop low-accuracy points (>30m) to reduce GPS noise
-        if (acc != null && acc > 30) return;
+      // Drop low-accuracy points to reduce GPS noise (threshold is a preference)
+      if (acc != null && acc > getAccuracyRejectThreshold()) return;
 
-        const { addGpsPoint, status } = useRecordingStore.getState();
-        if (status === 'recording') {
-          addGpsPoint({
-            latitude,
-            longitude,
-            altitude,
-            accuracy: acc,
-            speed,
-            heading,
-            timestamp: location.timestamp,
-          });
-        }
+      const { addGpsPoint, status } = useRecordingStore.getState();
+      if (status === 'recording') {
+        addGpsPoint({
+          latitude,
+          longitude,
+          altitude,
+          accuracy: acc,
+          speed,
+          heading,
+          timestamp: location.timestamp,
+        });
       }
-    );
+    });
   }, []);
 
   const stopForegroundWatch = useCallback(() => {
@@ -172,5 +171,6 @@ export function useLocationTracking(): {
     stopTracking,
     currentLocation,
     accuracy,
+    lastFixAtRef,
   };
 }

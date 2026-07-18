@@ -2,7 +2,7 @@ import React from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { spacing } from '@/theme';
+import { colors, spacing } from '@/theme';
 
 interface GpsSignalIndicatorProps {
   accuracy: number | null;
@@ -14,19 +14,19 @@ export function GpsSignalIndicator({ accuracy }: GpsSignalIndicatorProps) {
   let label: string;
 
   if (accuracy == null) {
-    color = '#9CA3AF';
+    color = colors.iconNeutral;
     icon = 'crosshairs-question';
     label = '--';
   } else if (accuracy < 5) {
-    color = '#22C55E';
+    color = colors.success;
     icon = 'crosshairs-gps';
     label = `${Math.round(accuracy)}m`;
   } else if (accuracy <= 15) {
-    color = '#F59E0B';
+    color = colors.warning;
     icon = 'crosshairs';
     label = `${Math.round(accuracy)}m`;
   } else {
-    color = '#EF4444';
+    color = colors.error;
     icon = 'crosshairs-question';
     label = `${Math.round(accuracy)}m`;
   }

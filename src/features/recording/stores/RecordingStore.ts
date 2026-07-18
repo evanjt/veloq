@@ -1,4 +1,6 @@
 import { create } from 'zustand';
+
+import { getMaxPlausibleSpeed } from '@/features/recording/lib/sportCategoryDetector';
 import type {
   ActivityType,
   RecordingMode,
@@ -134,7 +136,7 @@ export const useRecordingStore = create<RecordingState>((set, get) => ({
   },
 
   addGpsPoint: (point) => {
-    const { status, startTime, streams } = get();
+    const { status, startTime, streams, activityType } = get();
     if (status !== 'recording' || !startTime) return;
 
     const elapsedSec = (point.timestamp - startTime) / 1000;
@@ -156,10 +158,14 @@ export const useRecordingStore = create<RecordingState>((set, get) => ({
         point.latitude,
         point.longitude
       );
-      dist = prevDist + delta;
       const prevTime = streams.time[streams.time.length - 1] ?? 0;
       const dt = elapsedSec - prevTime;
       speed = dt > 0 ? delta / dt : (point.speed ?? 0);
+      // Teleport guard: a jump implying an implausible speed for this sport is
+      // GPS noise (multipath, cold-fix snap), not movement. Drop the point so
+      // distance and pace are not poisoned.
+      if (activityType && dt > 0 && speed > getMaxPlausibleSpeed(activityType)) return;
+      dist = prevDist + delta;
     } else {
       speed = point.speed ?? 0;
     }

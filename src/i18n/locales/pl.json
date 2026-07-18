@@ -1221,7 +1221,20 @@
         "failed": "Przesyłanie nie powiodło się",
         "permissionBlocked": "Wymaga uprawnień"
       }
-    }
+    },
+    "settingsGps": "GPS i bateria",
+    "gpsMode": "Dokładność GPS",
+    "gpsModeDescription": "Wyższa dokładność rejestruje więcej punktów i zużywa więcej baterii.",
+    "gpsModes": {
+      "high": "Wysoka",
+      "balanced": "Zrównoważona",
+      "batterySaver": "Oszczędzanie baterii"
+    },
+    "accuracyFilter": "Filtr dokładności",
+    "accuracyFilterDescription": "Odrzucaj punkty GPS mniej dokładne niż ta wartość.",
+    "autoPauseDelay": "Opóźnienie autopauzy",
+    "keepAwake": "Nie wygaszaj ekranu",
+    "keepAwakeDescription": "Zapobiega wygaszaniu ekranu podczas nagrywania."
   },
   "routeDetail": {
     "avgTime": "Śr. czas",

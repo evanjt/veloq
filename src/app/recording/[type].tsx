@@ -2,7 +2,6 @@ import React, { useMemo } from 'react';
 import { View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams } from 'expo-router';
-import { useKeepAwake } from 'expo-keep-awake';
 
 import { useTheme, useMetricSystem } from '@/shared/app';
 import { TAB_BAR_SAFE_PADDING } from '@/shared/ui';
@@ -37,12 +36,13 @@ import { useHrZoneColorEffect } from '@/features/recording/hooks/useHrZoneColorE
 import { useCrashRecoveryBackupEffect } from '@/features/recording/hooks/useCrashRecoveryBackupEffect';
 import { useGpsSessionEffect } from '@/features/recording/hooks/useGpsSessionEffect';
 import { useInitRecordingEffect } from '@/features/recording/hooks/useInitRecordingEffect';
+import { useRecordingKeepAwake } from '@/features/recording/hooks/useRecordingKeepAwake';
 import { useRecordingHandlers } from '@/features/recording/hooks/useRecordingHandlers';
 import { styles } from '@/features/recording/RecordingScreen.styles';
 import type { ActivityType } from '@/types';
 
 export default function RecordingScreen() {
-  useKeepAwake();
+  useRecordingKeepAwake();
 
   const { isDark } = useTheme();
   const insets = useSafeAreaInsets();

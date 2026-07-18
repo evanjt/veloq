@@ -298,13 +298,15 @@ describe('RecordingStore', () => {
       useRecordingStore.getState().startRecording('Ride', 'gps');
       const startTime = useRecordingStore.getState().startTime!;
 
-      // Two points ~111m apart (0.001° latitude ≈ 111m)
+      // Two points ~111m apart (0.001° latitude ≈ 111m), 10s apart ≈ 11 m/s
       useRecordingStore
         .getState()
         .addGpsPoint(makePoint({ latitude: 45.0, longitude: 10.0, timestamp: startTime + 1000 }));
       useRecordingStore
         .getState()
-        .addGpsPoint(makePoint({ latitude: 45.001, longitude: 10.0, timestamp: startTime + 2000 }));
+        .addGpsPoint(
+          makePoint({ latitude: 45.001, longitude: 10.0, timestamp: startTime + 11_000 })
+        );
 
       const { streams } = useRecordingStore.getState();
       expect(streams.distance).toHaveLength(2);
@@ -322,10 +324,14 @@ describe('RecordingStore', () => {
         .addGpsPoint(makePoint({ latitude: 45.0, longitude: 10.0, timestamp: startTime + 1000 }));
       useRecordingStore
         .getState()
-        .addGpsPoint(makePoint({ latitude: 45.001, longitude: 10.0, timestamp: startTime + 2000 }));
+        .addGpsPoint(
+          makePoint({ latitude: 45.001, longitude: 10.0, timestamp: startTime + 11_000 })
+        );
       useRecordingStore
         .getState()
-        .addGpsPoint(makePoint({ latitude: 45.002, longitude: 10.0, timestamp: startTime + 3000 }));
+        .addGpsPoint(
+          makePoint({ latitude: 45.002, longitude: 10.0, timestamp: startTime + 21_000 })
+        );
 
       const { streams } = useRecordingStore.getState();
       expect(streams.distance[2]).toBeGreaterThan(streams.distance[1]);
@@ -377,12 +383,56 @@ describe('RecordingStore', () => {
         .addGpsPoint(makePoint({ latitude: 45.0, longitude: 10.0, timestamp: startTime + 1000 }));
       useRecordingStore
         .getState()
+        .addGpsPoint(
+          makePoint({ latitude: 45.001, longitude: 10.0, timestamp: startTime + 11_000 })
+        );
+
+      const { streams } = useRecordingStore.getState();
+      // ~111m in 10s ≈ 11.1 m/s — matches delta distance / delta time
+      expect(streams.speed[1]).toBeGreaterThan(10);
+      expect(streams.speed[1]).toBeLessThan(12);
+    });
+
+    it('rejects teleport jumps implying implausible speed', () => {
+      useRecordingStore.getState().startRecording('Ride', 'gps');
+      const startTime = useRecordingStore.getState().startTime!;
+
+      useRecordingStore
+        .getState()
+        .addGpsPoint(makePoint({ latitude: 45.0, longitude: 10.0, timestamp: startTime + 1000 }));
+      // ~111m in 1s = 111 m/s — far above the cycling ceiling, must be dropped
+      useRecordingStore
+        .getState()
         .addGpsPoint(makePoint({ latitude: 45.001, longitude: 10.0, timestamp: startTime + 2000 }));
 
       const { streams } = useRecordingStore.getState();
-      // Speed should be ~111 m/s (111m in 1s) — matches delta distance / delta time
-      expect(streams.speed[1]).toBeGreaterThan(100);
-      expect(streams.speed[1]).toBeLessThan(120);
+      expect(streams.time).toHaveLength(1);
+      expect(streams.distance).toHaveLength(1);
+    });
+
+    it('teleport ceiling is per sport: a running jump passes for cycling speeds only', () => {
+      useRecordingStore.getState().startRecording('Run', 'gps');
+      const startTime = useRecordingStore.getState().startTime!;
+
+      useRecordingStore
+        .getState()
+        .addGpsPoint(makePoint({ latitude: 45.0, longitude: 10.0, timestamp: startTime + 1000 }));
+      // ~111m in 5s = 22 m/s — plausible on a bike, impossible on foot
+      useRecordingStore
+        .getState()
+        .addGpsPoint(makePoint({ latitude: 45.001, longitude: 10.0, timestamp: startTime + 6000 }));
+      expect(useRecordingStore.getState().streams.time).toHaveLength(1);
+
+      useRecordingStore.getState().reset();
+      useRecordingStore.getState().startRecording('Ride', 'gps');
+      const rideStart = useRecordingStore.getState().startTime!;
+      useRecordingStore
+        .getState()
+        .addGpsPoint(makePoint({ latitude: 45.0, longitude: 10.0, timestamp: rideStart + 1000 }));
+      useRecordingStore
+        .getState()
+        .addGpsPoint(makePoint({ latitude: 45.001, longitude: 10.0, timestamp: rideStart + 6000 }));
+      expect(useRecordingStore.getState().streams.time).toHaveLength(2);
     });
 
     it('uses point.speed for first GPS point (no previous reference)', () => {

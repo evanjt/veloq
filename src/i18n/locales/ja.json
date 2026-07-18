@@ -1219,7 +1219,20 @@
         "failed": "アップロード失敗",
         "permissionBlocked": "権限が必要"
       }
-    }
+    },
+    "settingsGps": "GPSとバッテリー",
+    "gpsMode": "GPS精度",
+    "gpsModeDescription": "精度が高いほど記録するポイントが増え、バッテリー消費も増えます。",
+    "gpsModes": {
+      "high": "高",
+      "balanced": "バランス",
+      "batterySaver": "省電力"
+    },
+    "accuracyFilter": "精度フィルター",
+    "accuracyFilterDescription": "この値より精度の低いGPSポイントを破棄します。",
+    "autoPauseDelay": "自動一時停止までの時間",
+    "keepAwake": "画面をオンのままにする",
+    "keepAwakeDescription": "記録中に画面がスリープするのを防ぎます。"
   },
   "routeDetail": {
     "avgTime": "平均時間",

@@ -5,6 +5,12 @@ import type { ActivityType, DataFieldType } from '@/types';
 
 const STORAGE_KEY = 'veloq-recording-preferences';
 
+/** GPS sampling presets: accuracy vs battery. Interval/distance mapping lives in lib/gpsConfig.ts. */
+export type GpsAccuracyMode = 'high' | 'balanced' | 'batterySaver';
+
+const DEFAULT_ACCURACY_REJECT_THRESHOLD_M = 30;
+const DEFAULT_AUTO_PAUSE_DURATION_MS = 3000;
+
 const DEFAULT_AUTO_PAUSE_THRESHOLDS: Record<string, number> = {
   cycling: 2,
   running: 1,
@@ -24,6 +30,12 @@ interface RecordingPreferencesState {
   dataFields: Record<string, DataFieldType[]>;
   /** Upload recordings to intervals.icu automatically on save. Off = save locally, upload manually from the library. */
   autoUploadEnabled: boolean;
+  gpsAccuracyMode: GpsAccuracyMode;
+  /** GPS points less accurate than this (metres) are discarded. */
+  accuracyRejectThreshold: number;
+  /** Time below the speed threshold before auto-pause triggers. */
+  autoPauseDurationMs: number;
+  keepAwakeEnabled: boolean;
   isLoaded: boolean;
   // Actions
   initialize: () => Promise<void>;
@@ -32,6 +44,10 @@ interface RecordingPreferencesState {
   setAutoPauseThreshold: (sport: string, kmh: number) => void;
   setDataFields: (mode: string, fields: DataFieldType[]) => void;
   setAutoUpload: (enabled: boolean) => void;
+  setGpsAccuracyMode: (mode: GpsAccuracyMode) => void;
+  setAccuracyRejectThreshold: (metres: number) => void;
+  setAutoPauseDuration: (ms: number) => void;
+  setKeepAwake: (enabled: boolean) => void;
 }
 
 export const useRecordingPreferences = create<RecordingPreferencesState>((set, get) => ({
@@ -40,6 +56,10 @@ export const useRecordingPreferences = create<RecordingPreferencesState>((set, g
   autoPauseThresholds: { ...DEFAULT_AUTO_PAUSE_THRESHOLDS },
   dataFields: { ...DEFAULT_DATA_FIELDS },
   autoUploadEnabled: true,
+  gpsAccuracyMode: 'high',
+  accuracyRejectThreshold: DEFAULT_ACCURACY_REJECT_THRESHOLD_M,
+  autoPauseDurationMs: DEFAULT_AUTO_PAUSE_DURATION_MS,
+  keepAwakeEnabled: true,
   isLoaded: false,
 
   initialize: async () => {
@@ -67,6 +87,22 @@ export const useRecordingPreferences = create<RecordingPreferencesState>((set, g
               : { ...DEFAULT_DATA_FIELDS },
           autoUploadEnabled:
             typeof parsed.autoUploadEnabled === 'boolean' ? parsed.autoUploadEnabled : true,
+          gpsAccuracyMode:
+            parsed.gpsAccuracyMode === 'balanced' || parsed.gpsAccuracyMode === 'batterySaver'
+              ? parsed.gpsAccuracyMode
+              : 'high',
+          accuracyRejectThreshold:
+            typeof parsed.accuracyRejectThreshold === 'number' &&
+            Number.isFinite(parsed.accuracyRejectThreshold)
+              ? parsed.accuracyRejectThreshold
+              : DEFAULT_ACCURACY_REJECT_THRESHOLD_M,
+          autoPauseDurationMs:
+            typeof parsed.autoPauseDurationMs === 'number' &&
+            Number.isFinite(parsed.autoPauseDurationMs)
+              ? parsed.autoPauseDurationMs
+              : DEFAULT_AUTO_PAUSE_DURATION_MS,
+          keepAwakeEnabled:
+            typeof parsed.keepAwakeEnabled === 'boolean' ? parsed.keepAwakeEnabled : true,
           isLoaded: true,
         });
       } else {
@@ -119,6 +155,36 @@ export const useRecordingPreferences = create<RecordingPreferencesState>((set, g
       return { autoUploadEnabled: enabled };
     });
   },
+
+  setGpsAccuracyMode: (mode) => {
+    set((state) => {
+      persistPreferences({ ...state, gpsAccuracyMode: mode });
+      return { gpsAccuracyMode: mode };
+    });
+  },
+
+  setAccuracyRejectThreshold: (metres) => {
+    if (!Number.isFinite(metres) || metres < 10 || metres > 100) return;
+    set((state) => {
+      persistPreferences({ ...state, accuracyRejectThreshold: metres });
+      return { accuracyRejectThreshold: metres };
+    });
+  },
+
+  setAutoPauseDuration: (ms) => {
+    if (!Number.isFinite(ms) || ms < 1000 || ms > 10_000) return;
+    set((state) => {
+      persistPreferences({ ...state, autoPauseDurationMs: ms });
+      return { autoPauseDurationMs: ms };
+    });
+  },
+
+  setKeepAwake: (enabled) => {
+    set((state) => {
+      persistPreferences({ ...state, keepAwakeEnabled: enabled });
+      return { keepAwakeEnabled: enabled };
+    });
+  },
 }));
 
 async function persistPreferences(state: Partial<RecordingPreferencesState>): Promise<void> {
@@ -129,6 +195,10 @@ async function persistPreferences(state: Partial<RecordingPreferencesState>): Pr
       autoPauseThresholds: state.autoPauseThresholds,
       dataFields: state.dataFields,
       autoUploadEnabled: state.autoUploadEnabled,
+      gpsAccuracyMode: state.gpsAccuracyMode,
+      accuracyRejectThreshold: state.accuracyRejectThreshold,
+      autoPauseDurationMs: state.autoPauseDurationMs,
+      keepAwakeEnabled: state.keepAwakeEnabled,
     };
     await setSetting(STORAGE_KEY, JSON.stringify(data));
   } catch {

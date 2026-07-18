@@ -10,7 +10,10 @@ import { useTheme } from '@/shared/app';
 import { colors, darkColors, spacing, layout, typography, brand } from '@/theme';
 import { navigateTo } from '@/shared/app/navigation';
 import { useRecordingPreferences } from '@/features/recording/stores/RecordingPreferencesStore';
+import type { GpsAccuracyMode } from '@/features/recording/stores/RecordingPreferencesStore';
 import type { DataFieldType } from '@/types';
+
+const GPS_MODES: GpsAccuracyMode[] = ['high', 'balanced', 'batterySaver'];
 
 const SPORT_THRESHOLDS = [
   { key: 'cycling', label: 'Cycling', defaultKmh: 2 },
@@ -52,6 +55,10 @@ export default function RecordingSettingsScreen() {
   const autoPauseThresholds = useRecordingPreferences((s) => s.autoPauseThresholds);
   const dataFields = useRecordingPreferences((s) => s.dataFields);
   const autoUploadEnabled = useRecordingPreferences((s) => s.autoUploadEnabled);
+  const gpsAccuracyMode = useRecordingPreferences((s) => s.gpsAccuracyMode);
+  const accuracyRejectThreshold = useRecordingPreferences((s) => s.accuracyRejectThreshold);
+  const autoPauseDurationMs = useRecordingPreferences((s) => s.autoPauseDurationMs);
+  const keepAwakeEnabled = useRecordingPreferences((s) => s.keepAwakeEnabled);
 
   const textPrimary = isDark ? darkColors.textPrimary : colors.textPrimary;
   const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
@@ -65,6 +72,28 @@ export default function RecordingSettingsScreen() {
 
   const handleToggleAutoUpload = useCallback((value: boolean) => {
     useRecordingPreferences.getState().setAutoUpload(value);
+  }, []);
+
+  const handleToggleKeepAwake = useCallback((value: boolean) => {
+    useRecordingPreferences.getState().setKeepAwake(value);
+  }, []);
+
+  const handleSelectGpsMode = useCallback((mode: GpsAccuracyMode) => {
+    useRecordingPreferences.getState().setGpsAccuracyMode(mode);
+  }, []);
+
+  const handleAdjustAccuracyFilter = useCallback((delta: number) => {
+    const current = useRecordingPreferences.getState().accuracyRejectThreshold;
+    useRecordingPreferences
+      .getState()
+      .setAccuracyRejectThreshold(Math.max(10, Math.min(100, current + delta)));
+  }, []);
+
+  const handleAdjustAutoPauseDelay = useCallback((deltaMs: number) => {
+    const current = useRecordingPreferences.getState().autoPauseDurationMs;
+    useRecordingPreferences
+      .getState()
+      .setAutoPauseDuration(Math.max(1000, Math.min(10_000, current + deltaMs)));
   }, []);
 
   const handleAdjustThreshold = useCallback((sport: string, delta: number) => {
@@ -155,6 +184,114 @@ export default function RecordingSettingsScreen() {
           </TouchableOpacity>
         </View>
 
+        {/* GPS & Battery Section */}
+        <View style={styles.section}>
+          <Text style={[styles.sectionTitle, { color: textSecondary }]}>
+            {t('recording.settingsGps', 'GPS & Battery')}
+          </Text>
+          <View style={[styles.card, { backgroundColor: surface, borderColor: border }]}>
+            <Text style={[styles.rowLabel, { color: textPrimary }]}>
+              {t('recording.gpsMode', 'GPS accuracy')}
+            </Text>
+            <Text style={[styles.rowDescription, { color: textSecondary }]}>
+              {t(
+                'recording.gpsModeDescription',
+                'Higher accuracy records more points and uses more battery.'
+              )}
+            </Text>
+            <View style={styles.gpsModeRow}>
+              {GPS_MODES.map((mode) => {
+                const isSelected = gpsAccuracyMode === mode;
+                return (
+                  <TouchableOpacity
+                    key={mode}
+                    testID={`settings-gps-mode-${mode}`}
+                    style={[
+                      styles.gpsModeChip,
+                      {
+                        backgroundColor: isSelected
+                          ? brand.teal + '20'
+                          : isDark
+                            ? darkColors.background
+                            : colors.background,
+                        borderColor: isSelected ? brand.teal : border,
+                      },
+                    ]}
+                    onPress={() => handleSelectGpsMode(mode)}
+                    activeOpacity={0.7}
+                  >
+                    <Text
+                      style={[
+                        styles.fieldChipText,
+                        { color: isSelected ? brand.teal : textSecondary },
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {t(`recording.gpsModes.${mode}`)}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            <View style={[styles.thresholdRow, { borderTopColor: border }]}>
+              <View style={styles.switchLabelBlock}>
+                <Text style={[styles.thresholdLabel, { color: textPrimary }]}>
+                  {t('recording.accuracyFilter', 'Accuracy filter')}
+                </Text>
+                <Text style={[styles.rowDescription, { color: textSecondary }]}>
+                  {t(
+                    'recording.accuracyFilterDescription',
+                    'Discard GPS points less accurate than this.'
+                  )}
+                </Text>
+              </View>
+              <View style={styles.thresholdControls}>
+                <TouchableOpacity
+                  testID="settings-accuracy-filter-minus"
+                  onPress={() => handleAdjustAccuracyFilter(-5)}
+                  style={[styles.thresholdBtn, { borderColor: border }]}
+                  activeOpacity={0.7}
+                >
+                  <MaterialCommunityIcons name="minus" size={16} color={textSecondary} />
+                </TouchableOpacity>
+                <Text style={[styles.thresholdValue, { color: textPrimary }]}>
+                  {accuracyRejectThreshold} m
+                </Text>
+                <TouchableOpacity
+                  testID="settings-accuracy-filter-plus"
+                  onPress={() => handleAdjustAccuracyFilter(5)}
+                  style={[styles.thresholdBtn, { borderColor: border }]}
+                  activeOpacity={0.7}
+                >
+                  <MaterialCommunityIcons name="plus" size={16} color={textSecondary} />
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <View style={[styles.thresholdRow, { borderTopColor: border }]}>
+              <View style={styles.switchLabelBlock}>
+                <Text style={[styles.thresholdLabel, { color: textPrimary }]}>
+                  {t('recording.keepAwake', 'Keep screen awake')}
+                </Text>
+                <Text style={[styles.rowDescription, { color: textSecondary }]}>
+                  {t(
+                    'recording.keepAwakeDescription',
+                    'Prevent the screen from sleeping during recording.'
+                  )}
+                </Text>
+              </View>
+              <Switch
+                testID="settings-keep-awake"
+                value={keepAwakeEnabled}
+                onValueChange={handleToggleKeepAwake}
+                trackColor={{ false: '#767577', true: brand.teal + '60' }}
+                thumbColor={keepAwakeEnabled ? brand.teal : '#f4f3f4'}
+              />
+            </View>
+          </View>
+        </View>
+
         {/* Auto-Pause Section */}
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: textSecondary }]}>
@@ -177,6 +314,32 @@ export default function RecordingSettingsScreen() {
 
             {autoPauseEnabled && (
               <View style={styles.thresholdList}>
+                <View style={[styles.thresholdRow, { borderTopColor: border }]}>
+                  <Text style={[styles.thresholdLabel, { color: textPrimary }]}>
+                    {t('recording.autoPauseDelay', 'Auto-pause delay')}
+                  </Text>
+                  <View style={styles.thresholdControls}>
+                    <TouchableOpacity
+                      testID="settings-auto-pause-delay-minus"
+                      onPress={() => handleAdjustAutoPauseDelay(-500)}
+                      style={[styles.thresholdBtn, { borderColor: border }]}
+                      activeOpacity={0.7}
+                    >
+                      <MaterialCommunityIcons name="minus" size={16} color={textSecondary} />
+                    </TouchableOpacity>
+                    <Text style={[styles.thresholdValue, { color: textPrimary }]}>
+                      {(autoPauseDurationMs / 1000).toFixed(1)} s
+                    </Text>
+                    <TouchableOpacity
+                      testID="settings-auto-pause-delay-plus"
+                      onPress={() => handleAdjustAutoPauseDelay(500)}
+                      style={[styles.thresholdBtn, { borderColor: border }]}
+                      activeOpacity={0.7}
+                    >
+                      <MaterialCommunityIcons name="plus" size={16} color={textSecondary} />
+                    </TouchableOpacity>
+                  </View>
+                </View>
                 <Text style={[styles.thresholdTitle, { color: textSecondary }]}>
                   {t('recording.settingsAutoPauseThreshold')}
                 </Text>
@@ -402,6 +565,20 @@ const styles = StyleSheet.create({
   fieldChipText: {
     fontSize: 13,
     fontWeight: '500',
+  },
+  gpsModeRow: {
+    flexDirection: 'row',
+    gap: spacing.xs,
+    marginTop: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  gpsModeChip: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.xs,
+    borderRadius: layout.borderRadiusSm,
+    borderWidth: 1,
   },
   linkCard: {
     flexDirection: 'row',

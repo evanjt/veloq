@@ -1219,7 +1219,20 @@
         "failed": "Upload mislukt",
         "permissionBlocked": "Toestemming vereist"
       }
-    }
+    },
+    "settingsGps": "GPS en batterij",
+    "gpsMode": "GPS-nauwkeurigheid",
+    "gpsModeDescription": "Hogere nauwkeurigheid legt meer punten vast en verbruikt meer batterij.",
+    "gpsModes": {
+      "high": "Hoog",
+      "balanced": "Gebalanceerd",
+      "batterySaver": "Batterijbesparing"
+    },
+    "accuracyFilter": "Nauwkeurigheidsfilter",
+    "accuracyFilterDescription": "GPS-punten verwerpen die minder nauwkeurig zijn dan deze waarde.",
+    "autoPauseDelay": "Vertraging automatische pauze",
+    "keepAwake": "Scherm aan houden",
+    "keepAwakeDescription": "Voorkomt dat het scherm uitgaat tijdens het opnemen."
   },
   "routeDetail": {
     "avgTime": "Gem. tijd",
