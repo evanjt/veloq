@@ -78,7 +78,7 @@ impl HeatmapManager {
             }
             crate::persistence::WorkerPoll::Running => Ok("running".to_string()),
             crate::persistence::WorkerPoll::Died => {
-                // Worker died without sending — clear the handle so the next
+                // Worker died without sending. Clear the handle so the next
                 // generation attempt can start instead of blocking forever.
                 *handle_guard = None;
                 log::error!("tracematch: [TileManager] Tile generation thread died");

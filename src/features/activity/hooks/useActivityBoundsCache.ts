@@ -202,7 +202,7 @@ export function useActivityBoundsCache(): UseActivityBoundsCacheReturn {
         const ok = engine.initWithPath(dbPath);
         if (!ok) {
           // Surface the failure banner and its retry, same as the root
-          // layout's init path — otherwise the app silently runs with a
+          // layout's init path, otherwise the app silently runs with a
           // dead engine until restart.
           const { useEngineStatus } = require('@/features/routes/stores/EngineStatusStore');
           useEngineStatus.getState().setInitFailed(true);

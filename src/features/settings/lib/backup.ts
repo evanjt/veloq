@@ -252,7 +252,7 @@ export async function restoreDatabaseBackup(fileUri: string): Promise<DatabaseRe
 
     // The engine quarantines an unopenable database (renames it aside and
     // starts fresh), so a corrupt restored file would otherwise read as a
-    // "successful" init with zero data — and the rollback snapshot would be
+    // "successful" init with zero data, and the rollback snapshot would be
     // deleted. Detect a quarantine event during THIS init and treat it as a
     // failed restore instead.
     const dbDir = dbPath.substring(0, dbPath.lastIndexOf('/'));
@@ -303,7 +303,7 @@ export async function restoreDatabaseBackup(fileUri: string): Promise<DatabaseRe
       try {
         getRouteEngine()?.destroyEngine();
       } catch {
-        // Best-effort — proceed with the rollback copy regardless.
+        // Best-effort. Proceed with the rollback copy regardless.
       }
       if (liveExists) {
         try {
