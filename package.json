@@ -108,6 +108,7 @@
     "react-dom": "19.2.3",
     "react-i18next": "^17.0.6",
     "react-native": "0.85.3",
+    "react-native-ble-plx": "^3.5.1",
     "react-native-body-highlighter": "^3.1.4",
     "react-native-gesture-handler": "~2.31.1",
     "react-native-iap": "^15.2.0",

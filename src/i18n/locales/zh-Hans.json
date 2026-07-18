@@ -1922,5 +1922,30 @@
     "tipLarge": "大额",
     "shareCrashLog": "分享崩溃日志",
     "noCrashLog": "未记录崩溃"
+  },
+  "sensors": {
+    "title": "传感器",
+    "manageSensors": "心率、功率和踏频传感器",
+    "paired": "已配对的传感器",
+    "nonePaired": "还没有配对的传感器。在下方扫描以添加。",
+    "addSensor": "添加传感器",
+    "scan": "扫描传感器",
+    "stopScan": "停止扫描",
+    "searching": "正在搜索附近的传感器…",
+    "pair": "配对",
+    "forget": "忽略",
+    "bleUnavailable": "蓝牙不可用",
+    "bleUnavailableHint": "此版本不包含蓝牙支持。",
+    "kinds": {
+      "heartRate": "心率",
+      "power": "功率",
+      "cadence": "踏频"
+    },
+    "status": {
+      "connecting": "连接中…",
+      "connected": "已连接",
+      "reconnecting": "正在重新连接…",
+      "disconnected": "未连接"
+    }
   }
 }

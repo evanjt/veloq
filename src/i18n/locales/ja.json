@@ -1922,5 +1922,30 @@
     "tipLarge": "高額",
     "shareCrashLog": "クラッシュログを共有",
     "noCrashLog": "クラッシュは記録されていません"
+  },
+  "sensors": {
+    "title": "センサー",
+    "manageSensors": "心拍・パワー・ケイデンスセンサー",
+    "paired": "ペアリング済みセンサー",
+    "nonePaired": "ペアリング済みのセンサーはありません。下でスキャンして追加してください。",
+    "addSensor": "センサーを追加",
+    "scan": "センサーをスキャン",
+    "stopScan": "スキャンを停止",
+    "searching": "近くのセンサーを検索中…",
+    "pair": "ペアリング",
+    "forget": "削除",
+    "bleUnavailable": "Bluetoothを利用できません",
+    "bleUnavailableHint": "このビルドはBluetoothに対応していません。",
+    "kinds": {
+      "heartRate": "心拍数",
+      "power": "パワー",
+      "cadence": "ケイデンス"
+    },
+    "status": {
+      "connecting": "接続中…",
+      "connected": "接続済み",
+      "reconnecting": "再接続中…",
+      "disconnected": "未接続"
+    }
   }
 }

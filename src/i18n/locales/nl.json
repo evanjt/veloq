@@ -1922,5 +1922,30 @@
     "tipLarge": "Groot",
     "shareCrashLog": "Crashlogboek delen",
     "noCrashLog": "Geen crashes geregistreerd"
+  },
+  "sensors": {
+    "title": "Sensoren",
+    "manageSensors": "Hartslag-, vermogens- en cadanssensoren",
+    "paired": "Gekoppelde sensoren",
+    "nonePaired": "Nog geen sensoren gekoppeld. Zoek hieronder om er een toe te voegen.",
+    "addSensor": "Sensor toevoegen",
+    "scan": "Zoeken naar sensoren",
+    "stopScan": "Stop met zoeken",
+    "searching": "Zoeken naar sensoren in de buurt…",
+    "pair": "Koppelen",
+    "forget": "Vergeten",
+    "bleUnavailable": "Bluetooth is niet beschikbaar",
+    "bleUnavailableHint": "Deze build bevat geen Bluetooth-ondersteuning.",
+    "kinds": {
+      "heartRate": "Hartslag",
+      "power": "Vermogen",
+      "cadence": "Cadans"
+    },
+    "status": {
+      "connecting": "Verbinden…",
+      "connected": "Verbonden",
+      "reconnecting": "Opnieuw verbinden…",
+      "disconnected": "Niet verbonden"
+    }
   }
 }

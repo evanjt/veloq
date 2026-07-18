@@ -127,6 +127,16 @@
             "buildReactNativeFromSource": true
           }
         }
+      ],
+      [
+        "react-native-ble-plx",
+        {
+          "isBackgroundEnabled": true,
+          "modes": [
+            "central"
+          ],
+          "bluetoothAlwaysPermission": "Veloq uses Bluetooth to connect to heart rate, power, and cadence sensors during recording."
+        }
       ]
     ],
     "experiments": {

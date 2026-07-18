@@ -51,6 +51,12 @@ export const styles = StyleSheet.create({
   statusText: {
     ...typography.captionBold,
   },
+  sensorChipRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.xs,
+  },
   mainContent: {
     flex: 1,
     minHeight: 200,

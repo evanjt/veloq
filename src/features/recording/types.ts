@@ -41,14 +41,6 @@ export interface RecordingLap {
   avgCadence: number | null;
 }
 
-/** BLE sensor info */
-export interface SensorInfo {
-  id: string;
-  name: string;
-  type: 'heartrate' | 'power' | 'cadence' | 'speed';
-  connected: boolean;
-}
-
 /** Manual activity entry data */
 export interface ManualActivityData {
   type: ActivityType;

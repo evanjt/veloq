@@ -1922,5 +1922,30 @@
     "tipLarge": "Stor",
     "shareCrashLog": "Del nedbrudslog",
     "noCrashLog": "Ingen nedbrud registreret"
+  },
+  "sensors": {
+    "title": "Sensorer",
+    "manageSensors": "Puls-, effekt- og kadencesensorer",
+    "paired": "Parrede sensorer",
+    "nonePaired": "Ingen sensorer parret endnu. Søg nedenfor for at tilføje en.",
+    "addSensor": "Tilføj en sensor",
+    "scan": "Søg efter sensorer",
+    "stopScan": "Stop søgning",
+    "searching": "Søger efter sensorer i nærheden…",
+    "pair": "Par",
+    "forget": "Glem",
+    "bleUnavailable": "Bluetooth er ikke tilgængelig",
+    "bleUnavailableHint": "Denne version understøtter ikke Bluetooth.",
+    "kinds": {
+      "heartRate": "Puls",
+      "power": "Effekt",
+      "cadence": "Kadence"
+    },
+    "status": {
+      "connecting": "Forbinder…",
+      "connected": "Forbundet",
+      "reconnecting": "Genopretter forbindelse…",
+      "disconnected": "Ikke forbundet"
+    }
   }
 }

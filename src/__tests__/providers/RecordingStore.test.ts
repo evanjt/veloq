@@ -252,23 +252,23 @@ describe('RecordingStore', () => {
       expect(state.streams.distance).toEqual([]);
       expect(state.laps).toEqual([]);
       expect(state.pairedEventId).toBeNull();
-      expect(state.connectedSensors).toEqual([]);
+      expect(state.latestSensor).toEqual({ heartrate: null, power: null, cadence: null });
       expect(state._pauseStart).toBeNull();
     });
   });
 
-  describe('addGpsPoint()', () => {
-    const makePoint = (overrides: Partial<RecordingGpsPoint> = {}): RecordingGpsPoint => ({
-      latitude: 45.0,
-      longitude: 10.0,
-      altitude: 100,
-      accuracy: 5,
-      speed: 8,
-      heading: 0,
-      timestamp: Date.now(),
-      ...overrides,
-    });
+  const makePoint = (overrides: Partial<RecordingGpsPoint> = {}): RecordingGpsPoint => ({
+    latitude: 45.0,
+    longitude: 10.0,
+    altitude: 100,
+    accuracy: 5,
+    speed: 8,
+    heading: 0,
+    timestamp: Date.now(),
+    ...overrides,
+  });
 
+  describe('addGpsPoint()', () => {
     it('only adds points while recording', () => {
       const point = makePoint();
 
@@ -447,29 +447,66 @@ describe('RecordingStore', () => {
     });
   });
 
-  describe('addHeartrate() / addPower() / addCadence()', () => {
-    const sensors = [
-      { stream: 'heartrate' as const, add: 'addHeartrate' as const, values: [145, 150] },
-      { stream: 'power' as const, add: 'addPower' as const, values: [200, 220] },
-      { stream: 'cadence' as const, add: 'addCadence' as const, values: [90, 92] },
-    ];
+  describe('sensor sample-and-hold', () => {
+    it('attaches fresh sensor values to each GPS point, aligned with time[]', () => {
+      useRecordingStore.getState().startRecording('Ride', 'gps');
+      const startTime = useRecordingStore.getState().startTime!;
 
-    it('appends sensor values while recording', () => {
-      for (const { stream, add, values } of sensors) {
-        resetStore();
-        useRecordingStore.getState().startRecording('Ride', 'gps');
-        useRecordingStore.getState()[add](values[0], Date.now());
-        useRecordingStore.getState()[add](values[1], Date.now());
-        expect(useRecordingStore.getState().streams[stream]).toEqual(values);
-      }
+      useRecordingStore.getState().setSensorSample('heartrate', 145);
+      useRecordingStore.getState().setSensorSample('power', 210);
+      useRecordingStore.getState().setSensorSample('cadence', 88);
+      useRecordingStore.getState().addGpsPoint(makePoint({ timestamp: startTime + 1000 }));
+
+      const { streams } = useRecordingStore.getState();
+      expect(streams.heartrate).toEqual([145]);
+      expect(streams.power).toEqual([210]);
+      expect(streams.cadence).toEqual([88]);
+      expect(streams.heartrate).toHaveLength(streams.time.length);
     });
 
-    it('ignores sensor values when not recording', () => {
-      for (const { stream, add, values } of sensors) {
-        resetStore();
-        useRecordingStore.getState()[add](values[0], Date.now());
-        expect(useRecordingStore.getState().streams[stream]).toEqual([]);
-      }
+    it('records 0 (FIT no-data) when a sensor value is stale', () => {
+      useRecordingStore.getState().startRecording('Ride', 'gps');
+      const startTime = useRecordingStore.getState().startTime!;
+
+      const dateNowSpy = jest.spyOn(Date, 'now');
+      dateNowSpy.mockReturnValue(startTime);
+      useRecordingStore.getState().setSensorSample('heartrate', 150);
+      // 10s later — sample is past the 5s staleness window
+      dateNowSpy.mockReturnValue(startTime + 10_000);
+      useRecordingStore
+        .getState()
+        .addGpsPoint(
+          makePoint({ latitude: 45.0001, longitude: 10.0, timestamp: startTime + 10_000 })
+        );
+
+      expect(useRecordingStore.getState().streams.heartrate).toEqual([0]);
+    });
+
+    it('rejects non-finite and negative sensor values', () => {
+      useRecordingStore.getState().startRecording('Ride', 'gps');
+      useRecordingStore.getState().setSensorSample('power', NaN);
+      useRecordingStore.getState().setSensorSample('power', -50);
+      expect(useRecordingStore.getState().latestSensor.power).toBeNull();
+    });
+  });
+
+  describe('addIndoorSample()', () => {
+    it('appends aligned samples without positions', () => {
+      useRecordingStore.getState().startRecording('WeightTraining', 'indoor');
+      useRecordingStore.getState().setSensorSample('heartrate', 132);
+
+      useRecordingStore.getState().addIndoorSample();
+
+      const { streams } = useRecordingStore.getState();
+      expect(streams.time).toHaveLength(1);
+      expect(streams.heartrate).toEqual([132]);
+      expect(streams.latlng).toHaveLength(0);
+      expect(streams.distance).toEqual([0]);
+    });
+
+    it('is ignored when not recording', () => {
+      useRecordingStore.getState().addIndoorSample();
+      expect(useRecordingStore.getState().streams.time).toHaveLength(0);
     });
   });
 

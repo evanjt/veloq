@@ -37,6 +37,8 @@ import { useCrashRecoveryBackupEffect } from '@/features/recording/hooks/useCras
 import { useGpsSessionEffect } from '@/features/recording/hooks/useGpsSessionEffect';
 import { useInitRecordingEffect } from '@/features/recording/hooks/useInitRecordingEffect';
 import { useRecordingKeepAwake } from '@/features/recording/hooks/useRecordingKeepAwake';
+import { useIndoorSampleEffect } from '@/features/recording/hooks/useIndoorSampleEffect';
+import { useSensorSession, SensorStatusChip } from '@/features/sensors';
 import { useRecordingHandlers } from '@/features/recording/hooks/useRecordingHandlers';
 import { styles } from '@/features/recording/RecordingScreen.styles';
 import type { ActivityType } from '@/types';
@@ -126,6 +128,8 @@ export default function RecordingScreen() {
 
   useGpsSessionEffect({ mode, status, location, setGpsWarning, onDiscard: handleDiscard });
   useInitRecordingEffect(status, activityType, mode, pairedEventId);
+  useIndoorSampleEffect(mode, status);
+  useSensorSession();
 
   // Read current activity type from store (may change during recording)
   const currentActivityType = useRecordingStore((s) => s.activityType) ?? activityType;
@@ -158,6 +162,9 @@ export default function RecordingScreen() {
 
       <GpsWarningBanner gpsWarning={gpsWarning} setGpsWarning={setGpsWarning} />
       <AutoPauseBanner autoPaused={autoPaused} />
+      <View style={styles.sensorChipRow}>
+        <SensorStatusChip />
+      </View>
       <KmSplitBanner splitBanner={splitBanner} />
 
       {/* Main Content Area */}

@@ -18,6 +18,7 @@ import { initializeDashboardPreferences } from '@/features/home/store';
 import { initializeInsightsStore } from '@/features/insights/store';
 import { initializeTileCacheStore } from '@/features/maps/stores/TileCacheStore';
 import { initializeRecordingPreferences } from '@/features/recording/stores/RecordingPreferencesStore';
+import { initializeKnownSensors } from '@/features/sensors/store';
 import { initializeUploadPermission } from '@/features/recording/stores/UploadPermissionStore';
 import { initializeDisabledSections } from '@/features/routes/stores/DisabledSectionsStore';
 import { initializePotentialSections } from '@/features/routes/stores/PotentialSectionsStore';
@@ -65,6 +66,7 @@ export async function reinitializeAllStores(): Promise<void> {
     initializeWhatsNewStore(),
     initializeInsightsStore(),
     initializeRecordingPreferences(),
+    initializeKnownSensors(),
     initializeUploadPermission(),
     initializeNotificationPreferences(),
     initializeNotificationPrompt(),
@@ -371,6 +373,7 @@ const LEGACY_PREFERENCE_KEYS = [
   'veloq-insights-fingerprint',
   'veloq-notification-prompt-dismissed',
   'veloq-recording-preferences',
+  'veloq-known-sensors',
   'veloq-geocoded-route-ids',
   'veloq-geocoded-section-ids',
   'veloq-notification-preferences',

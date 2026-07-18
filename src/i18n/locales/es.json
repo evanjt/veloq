@@ -1922,5 +1922,30 @@
     "tipLarge": "Grande",
     "shareCrashLog": "Compartir registro de errores",
     "noCrashLog": "No se registraron fallos"
+  },
+  "sensors": {
+    "title": "Sensores",
+    "manageSensors": "Sensores de frecuencia cardíaca, potencia y cadencia",
+    "paired": "Sensores emparejados",
+    "nonePaired": "Aún no hay sensores emparejados. Busca abajo para añadir uno.",
+    "addSensor": "Añadir un sensor",
+    "scan": "Buscar sensores",
+    "stopScan": "Detener búsqueda",
+    "searching": "Buscando sensores cercanos…",
+    "pair": "Emparejar",
+    "forget": "Olvidar",
+    "bleUnavailable": "Bluetooth no disponible",
+    "bleUnavailableHint": "Esta versión no incluye compatibilidad con Bluetooth.",
+    "kinds": {
+      "heartRate": "Frecuencia cardíaca",
+      "power": "Potencia",
+      "cadence": "Cadencia"
+    },
+    "status": {
+      "connecting": "Conectando…",
+      "connected": "Conectado",
+      "reconnecting": "Reconectando…",
+      "disconnected": "No conectado"
+    }
   }
 }

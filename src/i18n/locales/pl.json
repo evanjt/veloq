@@ -1924,5 +1924,30 @@
     "tipLarge": "Duży",
     "shareCrashLog": "Udostępnij dziennik awarii",
     "noCrashLog": "Nie zarejestrowano awarii"
+  },
+  "sensors": {
+    "title": "Czujniki",
+    "manageSensors": "Czujniki tętna, mocy i kadencji",
+    "paired": "Sparowane czujniki",
+    "nonePaired": "Brak sparowanych czujników. Wyszukaj poniżej, aby dodać.",
+    "addSensor": "Dodaj czujnik",
+    "scan": "Szukaj czujników",
+    "stopScan": "Zatrzymaj wyszukiwanie",
+    "searching": "Wyszukiwanie czujników w pobliżu…",
+    "pair": "Sparuj",
+    "forget": "Zapomnij",
+    "bleUnavailable": "Bluetooth jest niedostępny",
+    "bleUnavailableHint": "Ta wersja nie obsługuje Bluetooth.",
+    "kinds": {
+      "heartRate": "Tętno",
+      "power": "Moc",
+      "cadence": "Kadencja"
+    },
+    "status": {
+      "connecting": "Łączenie…",
+      "connected": "Połączono",
+      "reconnecting": "Ponowne łączenie…",
+      "disconnected": "Nie połączono"
+    }
   }
 }
