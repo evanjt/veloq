@@ -290,22 +290,6 @@ TaskManager.defineTask(BACKGROUND_INSIGHT_TASK, async ({ data, error }) => {
 
     log.log(`Push received: event=${eventType}, activity=${activityId}`);
 
-    // A delivered push proves the pipeline is alive, so use it to keep the
-    // server-side token registration (30-day TTL) fresh for users who rarely
-    // open the app. Throttled to once a day inside the helper.
-    try {
-      const { getStoredCredentials } = require('@/shared/app/AuthStore');
-      const athleteId: string | undefined = getStoredCredentials().athleteId;
-      if (athleteId) {
-        const {
-          refreshPushTokenRegistration,
-        } = require('@/features/settings/lib/pushTokenRegistration');
-        refreshPushTokenRegistration(athleteId).catch(() => {});
-      }
-    } catch {
-      // Best-effort. Never let token upkeep break notification handling.
-    }
-
     // The visible tray push also wakes this task (Expo delivers `notification`
     // messages through the same TaskBroadcastReceiver as `data` messages), but
     // with no event_type/activity_id. Bail immediately — the silent push right
@@ -442,6 +426,24 @@ TaskManager.defineTask(BACKGROUND_INSIGHT_TASK, async ({ data, error }) => {
     const currentFingerprint = insights.length > 0 ? computeInsightFingerprint(insights) : '';
     if (currentFingerprint) {
       await AsyncStorage.setItem(FINGERPRINT_KEY, currentFingerprint);
+    }
+
+    // 10. A delivered push proves the pipeline is alive, so use it to keep
+    // the server-side token registration (30-day TTL) fresh for users who
+    // rarely open the app. Runs last: by now the auth store has rehydrated
+    // (a cold headless start reads athleteId as null until then). Throttled
+    // to once a day inside the helper.
+    try {
+      const { getStoredCredentials } = require('@/shared/app/AuthStore');
+      const athleteId: string | null = getStoredCredentials().athleteId;
+      if (athleteId) {
+        const {
+          refreshPushTokenRegistration,
+        } = require('@/features/settings/lib/pushTokenRegistration');
+        await refreshPushTokenRegistration(athleteId);
+      }
+    } catch {
+      // Best-effort. Never let token upkeep break notification handling.
     }
   } catch (e) {
     log.error('Background insight task failed:', e);

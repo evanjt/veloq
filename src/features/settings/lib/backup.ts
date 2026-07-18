@@ -344,7 +344,9 @@ const LEGACY_BACKUP_VERSION = 2;
  * Deliberately excluded (cache or device state, re-derivable, wrong to restore
  * onto another install): 'veloq-query-cache', 'veloq-pending-terrain-snapshots',
  * 'terrain-preview-cache-version', 'veloq-upload-queue' (points at local FIT
- * files that are not in the backup), 'veloq-section-health-check-v1'.
+ * files that are not in the backup), 'veloq-section-health-check-v1',
+ * 'veloq-push-token-refreshed-at' (device-local refresh throttle; restoring a
+ * stale timestamp could suppress a needed re-registration for a day).
  */
 const LEGACY_PREFERENCE_KEYS = [
   'veloq-theme-preference',
