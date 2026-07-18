@@ -336,12 +336,6 @@ pub enum WorkerPoll<T> {
 }
 
 impl SectionDetectionHandle {
-    /// Check if detection is complete (non-blocking).
-    /// Returns (sections, all_activity_ids_in_detection_run).
-    pub fn try_recv(&self) -> Option<(Vec<FrequentSection>, Vec<String>)> {
-        self.receiver.try_recv().ok()
-    }
-
     /// Non-blocking poll that also reports a dead worker thread.
     pub fn poll_state(&self) -> WorkerPoll<(Vec<FrequentSection>, Vec<String>)> {
         match self.receiver.try_recv() {
@@ -385,13 +379,8 @@ impl TileGenerationHandle {
         }
     }
 
-    /// Check if generation is complete (non-blocking). Returns tiles generated count.
-    pub fn try_recv(&self) -> Option<u32> {
-        self.receiver.try_recv().ok()
-    }
-
     /// Block until generation completes, returning the tiles-generated count.
-    /// Test and bench path; production uses `try_recv()` via the HeatmapManager poll loop.
+    /// Test and bench path; production uses `poll_state()` via the HeatmapManager poll loop.
     pub fn recv_blocking(&self) -> Option<u32> {
         self.receiver.recv().ok()
     }
@@ -1254,6 +1243,18 @@ pub(crate) fn is_corruption_error(e: &rusqlite::Error) -> bool {
     )
 }
 
+/// SQLite error codes for failures a later launch can plausibly succeed on
+/// (lock contention, a transient open failure). These must not trigger the
+/// quarantine failover, which would discard a healthy cache.
+pub(crate) fn is_transient_open_error(e: &rusqlite::Error) -> bool {
+    matches!(
+        e.sqlite_error_code(),
+        Some(rusqlite::ErrorCode::DatabaseBusy)
+            | Some(rusqlite::ErrorCode::DatabaseLocked)
+            | Some(rusqlite::ErrorCode::CannotOpen)
+    )
+}
+
 // ============================================================================
 // Internal helpers used by UniFFI Object implementations
 // ============================================================================
@@ -1340,6 +1341,15 @@ pub mod persistent_engine_ffi {
                     db_path,
                     e
                 );
+                if is_transient_open_error(&e) {
+                    // The next launch (or the banner retry) can succeed on the
+                    // same file. Quarantining here would discard a healthy
+                    // cache over lock contention.
+                    return false;
+                }
+                // Corruption or a deterministic open/migration failure: the
+                // same file would fail every launch, bricking the engine
+                // permanently. Quarantine and start fresh.
                 match reopen_after_quarantine(&db_path) {
                     Some(engine) => engine,
                     None => return false,

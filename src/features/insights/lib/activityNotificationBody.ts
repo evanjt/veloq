@@ -1,6 +1,6 @@
 import type { NotificationPreferences } from '@/features/settings/stores/NotificationPreferencesStore';
 
-import type { Insight } from '../types';
+import type { Insight, TFunc } from '../types';
 
 export interface ActivityInfo {
   name: string;
@@ -10,9 +10,7 @@ export interface ActivityInfo {
   movingTime?: number;
 }
 
-export type TranslateFn = (key: string, params?: Record<string, string | number>) => string;
-
-export function formatBasicStat(info: ActivityInfo | null, t: TranslateFn): string | null {
+export function formatBasicStat(info: ActivityInfo | null, t: TFunc): string | null {
   if (!info) return null;
   const km = info.distance && info.distance > 0 ? info.distance / 1000 : 0;
   const mins = info.movingTime && info.movingTime > 0 ? Math.round(info.movingTime / 60) : 0;
@@ -60,7 +58,7 @@ export function buildActivityNotificationBody(
   newInsights: Insight[],
   prefs: NotificationPreferences,
   activityInfo: ActivityInfo | null,
-  t: TranslateFn
+  t: TFunc
 ): string {
   const route = getRouteHighlight(activityId);
 
