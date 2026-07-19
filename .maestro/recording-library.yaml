@@ -1,0 +1,55 @@
+# Recordings Library Test
+# Tests: open the recordings library from the record screen, verify list/empty state
+
+appId: com.veloq.app.dev
+tags:
+  - tier2
+  - pack-recording
+onFlowComplete:
+  - openLink: "veloq://"
+  - runFlow:
+      when:
+        visible: "DISCARD"
+      commands:
+        - tapOn: "DISCARD"
+---
+- runFlow:
+    file: helpers/setup-demo-mode.yaml
+
+# Tap the record FAB on the home screen
+- tapOn:
+    id: "record-fab"
+
+# Dismiss any "Resume previous recording?" dialog
+- runFlow:
+    when:
+      visible: "DISCARD"
+    commands:
+      - tapOn: "DISCARD"
+
+# Wait for record screen
+- extendedWaitUntil:
+    visible:
+      id: "record-type-Ride"
+    timeout: 10000
+
+# Open the recordings library from the header
+- tapOn:
+    id: "record-library"
+
+# Library renders — either the list or the empty state
+- extendedWaitUntil:
+    visible:
+      id: "recordings-list"
+    timeout: 10000
+
+- takeScreenshot: "recordings-library"
+
+# Back to the record screen
+- tapOn:
+    id: "recordings-back"
+
+- extendedWaitUntil:
+    visible:
+      id: "record-type-Ride"
+    timeout: 10000

@@ -30,6 +30,7 @@ const KNOWN_PACKS = new Set([
   'pack-settings',
   'pack-data',
   'pack-stress',
+  'pack-recording',
 ]);
 
 // Run by build.yml by file (not by tag); tagged prod-smoke so no tier gate or
