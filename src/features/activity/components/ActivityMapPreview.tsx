@@ -22,9 +22,13 @@ import {
   onTerrainCacheReady,
 } from '@/features/maps/lib/storage/terrainPreviewCache';
 import { getCameraOverride } from '@/features/maps/lib/storage/terrainCameraOverrides';
-import { subscribeSnapshot } from '@/features/maps/lib/terrainSnapshotEvents';
+import {
+  subscribeSnapshot,
+  subscribeSnapshotFailure,
+} from '@/features/maps/lib/terrainSnapshotEvents';
 import {
   calculateTerrainCamera,
+  calculateFlatCamera,
   isLikelyInterestingTerrain,
 } from '@/features/maps/lib/cameraAngle';
 import type { TerrainSnapshotWebViewRef } from '@/features/maps/components/TerrainSnapshotWebView';
@@ -79,30 +83,49 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
     return onTerrainCacheReady(() => setCacheReady(true));
   }, [cacheReady]);
 
-  // Track whether we have a cached 3D terrain image
+  // Cached basemap snapshot for this activity+style (3D drape or flat)
   const [terrainImageUri, setTerrainImageUri] = useState<string | null>(() => {
-    if (maybeShow3D && hasTerrainPreview(activity.id, mapStyle)) {
+    if (hasTerrainPreview(activity.id, mapStyle)) {
       return getTerrainPreviewUri(activity.id, mapStyle);
     }
     return null;
   });
 
-  // Reset terrain image when map style or 3D preference changes
+  // The snapshot pipeline gave up on this activity (retries exhausted /
+  // timeout) — drop from the loading state to the route-line fallback.
+  const [snapshotFailed, setSnapshotFailed] = useState(false);
+
+  // Reset image when map style or 3D preference changes
   useEffect(() => {
-    if (maybeShow3D && hasTerrainPreview(activity.id, mapStyle)) {
+    if (hasTerrainPreview(activity.id, mapStyle)) {
       setTerrainImageUri(getTerrainPreviewUri(activity.id, mapStyle));
     } else {
       setTerrainImageUri(null);
     }
-  }, [maybeShow3D, mapStyle, activity.id, cacheReady]);
+  }, [mapStyle, activity.id, cacheReady]);
 
-  // Subscribe to snapshot completion events for this activity
+  // Subscribe to snapshot completion/failure events for this activity
   useEffect(() => {
-    if (!maybeShow3D) return;
     return subscribeSnapshot(activity.id, (uri) => {
+      setSnapshotFailed(false);
       setTerrainImageUri(uri);
     });
-  }, [maybeShow3D, activity.id]);
+  }, [activity.id]);
+
+  useEffect(() => {
+    return subscribeSnapshotFailure(activity.id, () => {
+      setSnapshotFailed(true);
+    });
+  }, [activity.id]);
+
+  // Local safety net: if no snapshot arrives (pool crashed, request dropped
+  // from a full queue), fall back rather than spin forever. A later completion
+  // event flips the card back to the image.
+  useEffect(() => {
+    if (terrainImageUri || snapshotFailed) return;
+    const timer = setTimeout(() => setSnapshotFailed(true), 45_000);
+    return () => clearTimeout(timer);
+  }, [terrainImageUri, snapshotFailed]);
 
   // Container width for the static route preview (Skia needs explicit size).
   const [boxW, setBoxW] = useState(0);
@@ -174,19 +197,17 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
     terrain3DMode === 'always' ||
     (terrain3DMode === 'smart' && (cameraConfirmed || (noAltitudeData && maybeShow3D)));
 
-  // Request 3D terrain snapshot when enabled and coordinates are available
-  // Only cards within the first N positions request snapshots to limit queue pressure
-  // Priority activities (from background notification ingestion) bypass the index gate
+  // Request a basemap snapshot for every card with coordinates — the 3D
+  // terrain drape when the activity qualifies, a flat top-down basemap
+  // otherwise. FlatList windowing is the throttle (only near-viewport cards
+  // mount), so there is no index gate.
   // Deferred until the feed screen is focused — avoids competing with the detail view's Map3DWebView
   useEffect(() => {
     if (!screenFocused) return;
-    if (!show3D || !terrainCameraResult) return;
-    const hasPriority = isPrioritySnapshot(activity.id);
-    if (index >= 10 && !hasPriority) return; // Don't queue snapshots for far-off cards
-    // The priority flag exists solely to bypass the index gate above. Clear it
-    // now so a subsequent early return (e.g. snapshotRef not ready on first
-    // render) doesn't leave the flag stuck in the priority set.
-    if (hasPriority) clearPrioritySnapshot(activity.id);
+    if (validCoordinates.length < 2) return;
+    // The priority flag used to bypass the removed index gate; still clear it
+    // so background-ingested IDs don't accumulate in the priority set.
+    if (isPrioritySnapshot(activity.id)) clearPrioritySnapshot(activity.id);
 
     // If dirty (style/3D changed in detail view), delete old preview first
     if (isTerrainPreviewDirty(activity.id)) {
@@ -204,14 +225,17 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
     if (!snapshotRef?.current) return;
 
     const lngLatCoords: [number, number][] = validCoordinates.map((c) => [c.longitude, c.latitude]);
+    const flat = !show3D || !terrainCameraResult;
+    const camera = flat ? calculateFlatCamera(lngLatCoords) : terrainCameraResult.camera;
 
-    log.log(`Requesting 3D snapshot for ${activity.id}`);
+    log.log(`Requesting ${flat ? 'flat' : '3D'} snapshot for ${activity.id}`);
     snapshotRef.current.requestSnapshot({
       activityId: activity.id,
       coordinates: lngLatCoords,
-      camera: terrainCameraResult.camera,
+      camera,
       mapStyle,
       routeColor: activityColor,
+      flat,
     });
   }, [
     screenFocused,
@@ -234,7 +258,7 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
         : isLoading
           ? 'loading'
           : 'none';
-    const render3d = show3D && terrainImageUri ? '3D-cached' : show3D ? '3D-pending' : '2D';
+    const render3d = terrainImageUri ? 'cached' : show3D ? '3D-pending' : 'flat-pending';
     console.log(
       `    🗺️ MapPreview[${index}] hooks: ${hookTime.toFixed(0)}ms | coords: ${validCoordinates.length} | source: ${source} | ${render3d}`
     );
@@ -267,11 +291,14 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
     );
   }
 
-  // Show cached 3D terrain image when available
-  if (show3D && terrainImageUri) {
+  // Show the cached basemap snapshot (3D drape or flat) when available
+  if (terrainImageUri) {
     const bearing = terrainCameraResult?.camera.bearing ?? 0;
     return (
-      <View style={[styles.container, { height }]}>
+      <View
+        style={[styles.container, { height }]}
+        testID={`activity-map-preview-ready-${activity.id}`}
+      >
         <Image
           source={{ uri: terrainImageUri }}
           style={styles.terrainImage}
@@ -294,8 +321,19 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
     );
   }
 
-  // Static route-line preview (no live map / GL context). The detail screen has
-  // the full interactive map; the feed just needs a fast, correct route shape.
+  // Snapshot pending — neutral loading state. The route line below is reserved
+  // for terminal failure (offline, retries exhausted) so a working pipeline
+  // always resolves to a basemap, and a broken one never spins forever.
+  if (!snapshotFailed) {
+    return (
+      <View style={[styles.placeholder, { height, backgroundColor: activityColor + '10' }]}>
+        <ActivityIndicator size="small" color={activityColor} />
+      </View>
+    );
+  }
+
+  // Static route-line fallback (no live map / GL context). Rendered only when
+  // the snapshot pipeline gave up; pull-to-refresh retries failed snapshots.
   //
   // The Canvas is always mounted (absoluteFill), never gated behind the
   // onLayout-measured width. A Skia Canvas that first mounts *after* its parent
