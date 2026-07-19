@@ -16,14 +16,14 @@ import * as FileSystem from 'expo-file-system/legacy';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const TERRAIN_DIR = `${FileSystem.cacheDirectory}terrain_previews/`;
-const MAX_CACHED_PREVIEWS = 50;
+const MAX_CACHED_PREVIEWS = 150;
 
 /**
  * Cache version — increment whenever rendering logic changes
  * (style, hillshade, tile loading, camera, pixel ratio).
  * On mismatch, all cached snapshots are cleared so users get fresh renders.
  */
-const TERRAIN_CACHE_VERSION = 4;
+const TERRAIN_CACHE_VERSION = 5;
 const VERSION_KEY = 'terrain-preview-cache-version';
 
 /** Compound cache key */

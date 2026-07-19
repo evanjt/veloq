@@ -27,7 +27,6 @@ import { useInsights } from '@/features/insights';
 import { useTheme } from '@/shared/app';
 import type { Activity } from '@/types';
 import { useDashboardPreferences } from '@/features/home/store';
-import { useMapPreferences } from '@/features/maps/stores/MapPreferencesContext';
 import { ActivityCard } from '@/features/activity/components';
 import {
   NetworkErrorState,
@@ -94,36 +93,33 @@ export default function FeedScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTypeGroup, setSelectedTypeGroup] = useState<string | null>(null);
 
-  // 3D terrain snapshot WebView — deferred mount to avoid startup cost
-  const { isAnyTerrain3DEnabled } = useMapPreferences();
+  // Basemap snapshot WebView pool — every card gets a snapshot (3D or flat),
+  // so the pool always mounts; deferred so initial renders settle first
+  // (cards check the cache before requesting anyway).
   const snapshotRef = useRef<TerrainSnapshotWebViewRef | null>(null);
   const [snapshotWebViewReady, setSnapshotWebViewReady] = useState(false);
   useEffect(() => {
-    if (!isAnyTerrain3DEnabled) return;
-    // Mount workers after initial renders settle — cards check cache first anyway
     const timeout = setTimeout(() => setSnapshotWebViewReady(true), 500);
     return () => clearTimeout(timeout);
-  }, [isAnyTerrain3DEnabled]);
+  }, []);
 
   // FlatList ref for scroll-to-reveal search
   const listRef = useRef<FlatList>(null);
 
   // Initialize terrain preview cache and camera overrides on mount
   useEffect(() => {
-    if (isAnyTerrain3DEnabled) {
-      initTerrainPreviewCache();
-      initCameraOverrides();
-      // Check for activities ingested by background notification task —
-      // mount WebView workers immediately instead of waiting 500ms
-      consumePendingSnapshots().then((pending) => {
-        if (pending.length > 0) {
-          setPrioritySnapshotIds(pending);
-          setSnapshotWebViewReady(true);
-          signalSnapshotNeeded();
-        }
-      });
-    }
-  }, [isAnyTerrain3DEnabled]);
+    initTerrainPreviewCache();
+    initCameraOverrides();
+    // Check for activities ingested by background notification task —
+    // mount WebView workers immediately instead of waiting 500ms
+    consumePendingSnapshots().then((pending) => {
+      if (pending.length > 0) {
+        setPrioritySnapshotIds(pending);
+        setSnapshotWebViewReady(true);
+        signalSnapshotNeeded();
+      }
+    });
+  }, []);
 
   // Dashboard preferences for navigation
   const summaryCard = useDashboardPreferences((s) => s.summaryCard);

@@ -43,6 +43,40 @@ export function emitSnapshotComplete(activityId: string, uri: string): void {
 }
 
 /**
+ * Snapshot failure events — emitted when a request exhausts its retries so the
+ * card can drop from its loading state to the route-line fallback instead of
+ * spinning forever. A later successful render (pull-to-refresh retry) flips
+ * the card back via the completion event.
+ */
+type FailureListener = () => void;
+const failureListeners = new Map<string, Set<FailureListener>>();
+
+export function subscribeSnapshotFailure(activityId: string, cb: FailureListener): () => void {
+  let set = failureListeners.get(activityId);
+  if (!set) {
+    set = new Set();
+    failureListeners.set(activityId, set);
+  }
+  set.add(cb);
+
+  return () => {
+    set!.delete(cb);
+    if (set!.size === 0) {
+      failureListeners.delete(activityId);
+    }
+  };
+}
+
+export function emitSnapshotFailed(activityId: string): void {
+  const set = failureListeners.get(activityId);
+  if (set) {
+    for (const cb of set) {
+      cb();
+    }
+  }
+}
+
+/**
  * Tile cache clear event — broadcast to all WebView workers to clear
  * the Cache API terrain DEM tile cache.
  */

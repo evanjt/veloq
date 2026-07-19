@@ -48,25 +48,14 @@ const ZOOM_REDUCTION_THRESHOLD = 300;
  * @param altitude - Optional altitude array (meters) matching coordinate indices
  * @returns Camera parameters for 3D terrain view
  */
-export function calculateTerrainCamera(
-  coordinates: [number, number][],
-  altitude?: number[]
-): TerrainCameraResult {
-  if (coordinates.length === 0) {
-    return {
-      camera: { center: [0, 0], zoom: 10, bearing: 0, pitch: 60 },
-      hasInterestingTerrain: false,
-    };
-  }
-
-  if (coordinates.length === 1) {
-    return {
-      camera: { center: coordinates[0], zoom: 13, bearing: 0, pitch: 60 },
-      hasInterestingTerrain: false,
-    };
-  }
-
-  // Calculate bounding box
+/** Bounds midpoint + fitted zoom for a route, shared by the 3D and flat cameras. */
+function computeBoundsAndZoom(coordinates: [number, number][]): {
+  centerLng: number;
+  centerLat: number;
+  latSpan: number;
+  lngSpan: number;
+  zoom: number;
+} | null {
   let minLng = Infinity;
   let maxLng = -Infinity;
   let minLat = Infinity;
@@ -80,12 +69,7 @@ export function calculateTerrainCamera(
     if (lat > maxLat) maxLat = lat;
   }
 
-  if (!isFinite(minLng) || !isFinite(minLat)) {
-    return {
-      camera: { center: [0, 0], zoom: 10, bearing: 0, pitch: 60 },
-      hasInterestingTerrain: false,
-    };
-  }
+  if (!isFinite(minLng) || !isFinite(minLat)) return null;
 
   const centerLng = (minLng + maxLng) / 2;
   const centerLat = (minLat + maxLat) / 2;
@@ -104,6 +88,38 @@ export function calculateTerrainCamera(
     zoom = Math.min(latZoom, lngZoom);
   }
   zoom = Math.max(8, Math.min(15, isFinite(zoom) ? zoom : 10));
+
+  return { centerLng, centerLat, latSpan, lngSpan, zoom };
+}
+
+export function calculateTerrainCamera(
+  coordinates: [number, number][],
+  altitude?: number[]
+): TerrainCameraResult {
+  if (coordinates.length === 0) {
+    return {
+      camera: { center: [0, 0], zoom: 10, bearing: 0, pitch: 60 },
+      hasInterestingTerrain: false,
+    };
+  }
+
+  if (coordinates.length === 1) {
+    return {
+      camera: { center: coordinates[0], zoom: 13, bearing: 0, pitch: 60 },
+      hasInterestingTerrain: false,
+    };
+  }
+
+  const bounds = computeBoundsAndZoom(coordinates);
+  if (!bounds) {
+    return {
+      camera: { center: [0, 0], zoom: 10, bearing: 0, pitch: 60 },
+      hasInterestingTerrain: false,
+    };
+  }
+
+  const { centerLng, centerLat, latSpan, lngSpan } = bounds;
+  let zoom = bounds.zoom;
 
   // Try elevation-aware camera
   const elevationResult = computeElevationCamera(coordinates, altitude, centerLng, centerLat);
@@ -148,6 +164,32 @@ export function calculateTerrainCamera(
       pitch: 60,
     },
     hasInterestingTerrain: false,
+  };
+}
+
+/**
+ * Top-down camera for flat basemap previews: bounds midpoint, fitted zoom,
+ * north-up, no pitch. Used for feed cards whose activity doesn't get the 3D
+ * terrain drape.
+ */
+export function calculateFlatCamera(coordinates: [number, number][]): TerrainCamera {
+  if (coordinates.length === 0) {
+    return { center: [0, 0], zoom: 10, bearing: 0, pitch: 0 };
+  }
+  if (coordinates.length === 1) {
+    return { center: coordinates[0], zoom: 13, bearing: 0, pitch: 0 };
+  }
+
+  const bounds = computeBoundsAndZoom(coordinates);
+  if (!bounds) {
+    return { center: [0, 0], zoom: 10, bearing: 0, pitch: 0 };
+  }
+
+  return {
+    center: [bounds.centerLng, bounds.centerLat],
+    zoom: bounds.zoom,
+    bearing: 0,
+    pitch: 0,
   };
 }
 

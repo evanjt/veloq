@@ -32,6 +32,7 @@ import {
 } from '@/features/maps/lib/storage/terrainPreviewCache';
 import {
   emitSnapshotComplete,
+  emitSnapshotFailed,
   onClearTileCache,
   onTileCacheStatsRequest,
   emitTileCacheStats,
@@ -54,7 +55,7 @@ import type {
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 
 const SNAPSHOT_TIMEOUT_MS = 8000;
-const MAX_QUEUE_SIZE = 15;
+const MAX_QUEUE_SIZE = 30;
 const SCREEN_WIDTH = Dimensions.get('window').width;
 const SNAPSHOT_HEIGHT = 240;
 const POOL_SIZE = 2;
@@ -190,6 +191,8 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
             }
             worker.processingRef.current = false;
             worker.currentRequestRef.current = null;
+            failedRequestsRef.current.push({ ...request, _retryAttempt: 0 });
+            emitSnapshotFailed(request.activityId);
             queueCompletedRef.current++;
             updateProgress();
             processNext();
@@ -329,6 +332,7 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
                 ...currentRequest,
                 _retryAttempt: 0,
               });
+              emitSnapshotFailed(currentRequest.activityId);
             }
             queueCompletedRef.current++;
             updateProgress();

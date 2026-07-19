@@ -1,5 +1,6 @@
 import {
   calculateTerrainCamera,
+  calculateFlatCamera,
   isLikelyInterestingTerrain,
 } from '@/features/maps/lib/cameraAngle';
 
@@ -231,5 +232,58 @@ describe('isLikelyInterestingTerrain', () => {
     expect(isLikelyInterestingTerrain(NaN, 1000)).toBe(false);
     expect(isLikelyInterestingTerrain(100, NaN)).toBe(true); // distance NaN but gain is fine
     expect(isLikelyInterestingTerrain(0, 0)).toBe(false);
+  });
+});
+
+describe('calculateFlatCamera', () => {
+  it('returns a top-down north-up camera centred on the route bounds', () => {
+    const coords: [number, number][] = [
+      [7.0, 46.0],
+      [7.1, 46.05],
+      [7.2, 46.1],
+    ];
+    const camera = calculateFlatCamera(coords);
+    expect(camera.pitch).toBe(0);
+    expect(camera.bearing).toBe(0);
+    expect(camera.center[0]).toBeCloseTo(7.1, 6);
+    expect(camera.center[1]).toBeCloseTo(46.05, 6);
+    expect(camera.zoom).toBeGreaterThanOrEqual(8);
+    expect(camera.zoom).toBeLessThanOrEqual(15);
+  });
+
+  it('matches the 3D camera zoom for the same route', () => {
+    const coords: [number, number][] = [
+      [7.0, 46.0],
+      [7.05, 46.02],
+      [7.1, 46.04],
+    ];
+    const flat = calculateFlatCamera(coords);
+    const terrain = calculateTerrainCamera(coords);
+    expect(flat.zoom).toBeCloseTo(terrain.camera.zoom, 6);
+  });
+
+  it('handles degenerate inputs', () => {
+    expect(calculateFlatCamera([])).toEqual({ center: [0, 0], zoom: 10, bearing: 0, pitch: 0 });
+    expect(calculateFlatCamera([[7.0, 46.0]])).toEqual({
+      center: [7.0, 46.0],
+      zoom: 13,
+      bearing: 0,
+      pitch: 0,
+    });
+    expect(
+      calculateFlatCamera([
+        [NaN, NaN],
+        [NaN, NaN],
+      ])
+    ).toEqual({ center: [0, 0], zoom: 10, bearing: 0, pitch: 0 });
+  });
+
+  it('uses close zoom for a zero-span route', () => {
+    const camera = calculateFlatCamera([
+      [7.0, 46.0],
+      [7.0, 46.0],
+    ]);
+    expect(camera.zoom).toBe(14);
+    expect(camera.pitch).toBe(0);
   });
 });
