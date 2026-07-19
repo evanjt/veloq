@@ -72,6 +72,7 @@
         "ACCESS_NETWORK_STATE",
         "ACCESS_WIFI_STATE",
         "INTERNET",
+        "POST_NOTIFICATIONS",
         "VIBRATE"
       ]
     },

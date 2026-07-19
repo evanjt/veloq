@@ -1238,7 +1238,10 @@
       "none": "Nessun percorso",
       "empty": "Nessun percorso salvato per questo sport.",
       "activities": "{{count}} attività"
-    }
+    },
+    "returnToRecording": "Torna alla registrazione",
+    "batteryOptNudge": "Le registrazioni lunghe funzionano meglio con l'ottimizzazione della batteria disattivata per Veloq.",
+    "batteryOptOpenSettings": "Apri impostazioni batteria"
   },
   "routeDetail": {
     "avgTime": "Tempo medio",

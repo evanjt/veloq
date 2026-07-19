@@ -1238,7 +1238,10 @@
       "none": "Geen route",
       "empty": "Nog geen opgeslagen routes voor deze sport.",
       "activities": "{{count}} activiteiten"
-    }
+    },
+    "returnToRecording": "Terug naar de opname",
+    "batteryOptNudge": "Lange opnames werken het best met batterijoptimalisatie uitgeschakeld voor Veloq.",
+    "batteryOptOpenSettings": "Batterij-instellingen openen"
   },
   "routeDetail": {
     "avgTime": "Gem. tijd",

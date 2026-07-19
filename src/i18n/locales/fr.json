@@ -1238,7 +1238,10 @@
       "none": "Aucun itinéraire",
       "empty": "Aucun itinéraire enregistré pour ce sport pour le moment.",
       "activities": "{{count}} activités"
-    }
+    },
+    "returnToRecording": "Revenir à l'enregistrement",
+    "batteryOptNudge": "Les longs enregistrements fonctionnent mieux avec l'optimisation de la batterie désactivée pour Veloq.",
+    "batteryOptOpenSettings": "Ouvrir les paramètres de batterie"
   },
   "routeDetail": {
     "avgTime": "Temps moy",

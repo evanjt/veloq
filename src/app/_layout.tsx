@@ -67,6 +67,7 @@ import { DemoBanner } from '@/shared/app/DemoBanner';
 import { GlobalDataSync } from '@/shared/app/GlobalDataSync';
 import { EngineInitBanner } from '@/shared/app/EngineInitBanner';
 import { WhatsNewModal, TourReturnPill } from '@/features/settings/components/whatsNew';
+import { RecordingReturnPill } from '@/features/recording/components/RecordingReturnPill';
 import { useUploadQueueProcessor } from '@/features/recording/hooks/useUploadQueueProcessor';
 import { useRouteReoptimization } from '@/features/routes/hooks/useRouteReoptimization';
 import {
@@ -605,6 +606,7 @@ export default function RootLayout() {
                     <DemoBanner />
                     <WhatsNewModal />
                     <TourReturnPill />
+                    <RecordingReturnPill />
                     <ShaderWarmup />
                     <Stack
                       screenOptions={{
