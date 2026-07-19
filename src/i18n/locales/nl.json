@@ -1241,7 +1241,8 @@
     },
     "returnToRecording": "Terug naar de opname",
     "batteryOptNudge": "Lange opnames werken het best met batterijoptimalisatie uitgeschakeld voor Veloq.",
-    "batteryOptOpenSettings": "Batterij-instellingen openen"
+    "batteryOptOpenSettings": "Batterij-instellingen openen",
+    "writeScopeNotGranted": "Schrijfrechten zijn niet verleend"
   },
   "routeDetail": {
     "avgTime": "Gem. tijd",

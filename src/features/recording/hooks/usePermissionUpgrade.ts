@@ -8,6 +8,7 @@ import {
   handleOAuthCallback,
   isOAuthConfigured,
   getAppRedirectUri,
+  OAUTH,
 } from '@/features/auth';
 import { clearPermissionBlocked } from '@/features/recording/lib/storage/recordingLibrary';
 import { debug } from '@/shared/debug/debug';
@@ -35,7 +36,7 @@ export function usePermissionUpgrade(): UsePermissionUpgrade {
     setError(null);
 
     try {
-      const result = await startOAuthFlow();
+      const result = await startOAuthFlow(OAUTH.UPGRADE_SCOPES);
 
       if (result.type === 'success' && result.url) {
         const expectedPrefix = getAppRedirectUri();
@@ -53,20 +54,24 @@ export function usePermissionUpgrade(): UsePermissionUpgrade {
             tokenResponse.athlete_name
           );
 
-        // Clear permission-blocked entries so they retry
-        await clearPermissionBlocked();
+        // Trust only the scope the server actually returned — a missing scope
+        // string means write was NOT confirmed, regardless of what we asked for.
+        useUploadPermissionStore.getState().setFromOAuthScope(tokenResponse.scope ?? '');
+        const granted = useUploadPermissionStore.getState().hasWritePermission === true;
 
-        // Update permission state from the new OAuth scope
-        if (tokenResponse.scope) {
-          useUploadPermissionStore.getState().setFromOAuthScope(tokenResponse.scope);
+        if (granted) {
+          // Requeue permission-blocked entries; the queue processor re-drains
+          // when needsUpgrade flips false.
+          await clearPermissionBlocked();
+          log.log('Successfully upgraded to write scope');
         } else {
-          // No scope info — assume write permission was granted since the upgrade flow
-          // requests ACTIVITY:WRITE
-          useUploadPermissionStore.getState().setHasWritePermission(true);
+          setError(
+            t('recording.writeScopeNotGranted', {
+              defaultValue: 'Write permission was not granted',
+            })
+          );
         }
-
-        log.log('Successfully upgraded to OAuth');
-        return true;
+        return granted;
       }
 
       // User cancelled — preserve API key auth

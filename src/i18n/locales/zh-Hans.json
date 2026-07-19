@@ -1241,7 +1241,8 @@
     },
     "returnToRecording": "返回记录",
     "batteryOptNudge": "关闭 Veloq 的电池优化后，长时间记录效果最佳。",
-    "batteryOptOpenSettings": "打开电池设置"
+    "batteryOptOpenSettings": "打开电池设置",
+    "writeScopeNotGranted": "未授予写入权限"
   },
   "routeDetail": {
     "avgTime": "平均时间",

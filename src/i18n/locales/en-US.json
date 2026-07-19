@@ -1280,7 +1280,8 @@
     },
     "returnToRecording": "Return to recording",
     "batteryOptNudge": "Long recordings work best with battery optimisation off for Veloq.",
-    "batteryOptOpenSettings": "Open battery settings"
+    "batteryOptOpenSettings": "Open battery settings",
+    "writeScopeNotGranted": "Write permission was not granted"
   },
   "routeDetail": {
     "avgTime": "Avg Time",

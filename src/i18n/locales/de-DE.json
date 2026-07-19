@@ -1241,7 +1241,8 @@
     },
     "returnToRecording": "Zurück zur Aufzeichnung",
     "batteryOptNudge": "Lange Aufzeichnungen funktionieren am besten, wenn die Akku-Optimierung für Veloq deaktiviert ist.",
-    "batteryOptOpenSettings": "Akku-Einstellungen öffnen"
+    "batteryOptOpenSettings": "Akku-Einstellungen öffnen",
+    "writeScopeNotGranted": "Schreibberechtigung wurde nicht erteilt"
   },
   "routeDetail": {
     "avgTime": "Ø Zeit",
