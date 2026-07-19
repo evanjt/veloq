@@ -13,6 +13,7 @@ import { colors, darkColors, spacing, layout, typography, colorWithOpacity } fro
 import { formatDistance, formatDuration } from '@/shared/format/format';
 import { getActivityIcon, getActivityColor } from '@/features/activity/lib/activityUtils';
 import { useRecordingLibrary } from '@/features/recording/hooks/useRecordingLibrary';
+import { PermissionUpgradeBanner } from '@/features/recording/components/PermissionUpgradeBanner';
 import type { RecordingLibraryEntry, RecordingUploadStatus } from '@/types';
 
 const STATUS_META: Record<
@@ -109,6 +110,11 @@ export default function RecordingsLibraryScreen() {
           data={entries}
           keyExtractor={(item) => item.id}
           renderItem={renderEntry}
+          ListHeaderComponent={
+            entries.some((e) => e.uploadStatus === 'permissionBlocked') ? (
+              <PermissionUpgradeBanner />
+            ) : null
+          }
           contentContainerStyle={[
             styles.listContent,
             { paddingBottom: insets.bottom + TAB_BAR_SAFE_PADDING },

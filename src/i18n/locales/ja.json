@@ -1238,7 +1238,10 @@
       "none": "ルートなし",
       "empty": "このスポーツの保存済みルートはまだありません。",
       "activities": "{{count}}件のアクティビティ"
-    }
+    },
+    "returnToRecording": "記録に戻る",
+    "batteryOptNudge": "長時間の記録には、Veloqのバッテリー最適化をオフにすることをおすすめします。",
+    "batteryOptOpenSettings": "バッテリー設定を開く"
   },
   "routeDetail": {
     "avgTime": "平均時間",

@@ -1240,7 +1240,10 @@
       "none": "Brak trasy",
       "empty": "Brak zapisanych tras dla tego sportu.",
       "activities": "{{count}} aktywności"
-    }
+    },
+    "returnToRecording": "Wróć do nagrywania",
+    "batteryOptNudge": "Długie nagrania działają najlepiej z wyłączoną optymalizacją baterii dla Veloq.",
+    "batteryOptOpenSettings": "Otwórz ustawienia baterii"
   },
   "routeDetail": {
     "avgTime": "Śr. czas",

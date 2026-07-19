@@ -1238,7 +1238,10 @@
       "none": "No route",
       "empty": "No saved routes for this sport yet.",
       "activities": "{{count}} activities"
-    }
+    },
+    "returnToRecording": "Return to recording",
+    "batteryOptNudge": "Long recordings work best with battery optimisation off for Veloq.",
+    "batteryOptOpenSettings": "Open battery settings"
   },
   "routeDetail": {
     "avgTime": "Avg Time",

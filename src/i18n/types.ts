@@ -1695,6 +1695,9 @@ export interface TranslationResource {
       empty: string;
       activities: string;
     };
+    returnToRecording: string;
+    batteryOptNudge: string;
+    batteryOptOpenSettings: string;
     timeOfDay: {
       morning: string;
       afternoon: string;

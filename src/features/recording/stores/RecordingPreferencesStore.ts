@@ -36,6 +36,8 @@ interface RecordingPreferencesState {
   /** Time below the speed threshold before auto-pause triggers. */
   autoPauseDurationMs: number;
   keepAwakeEnabled: boolean;
+  /** One-time Android battery-optimisation nudge was dismissed. */
+  batteryOptDismissed: boolean;
   isLoaded: boolean;
   // Actions
   initialize: () => Promise<void>;
@@ -48,6 +50,7 @@ interface RecordingPreferencesState {
   setAccuracyRejectThreshold: (metres: number) => void;
   setAutoPauseDuration: (ms: number) => void;
   setKeepAwake: (enabled: boolean) => void;
+  dismissBatteryOptNudge: () => void;
 }
 
 export const useRecordingPreferences = create<RecordingPreferencesState>((set, get) => ({
@@ -60,6 +63,7 @@ export const useRecordingPreferences = create<RecordingPreferencesState>((set, g
   accuracyRejectThreshold: DEFAULT_ACCURACY_REJECT_THRESHOLD_M,
   autoPauseDurationMs: DEFAULT_AUTO_PAUSE_DURATION_MS,
   keepAwakeEnabled: true,
+  batteryOptDismissed: false,
   isLoaded: false,
 
   initialize: async () => {
@@ -103,6 +107,8 @@ export const useRecordingPreferences = create<RecordingPreferencesState>((set, g
               : DEFAULT_AUTO_PAUSE_DURATION_MS,
           keepAwakeEnabled:
             typeof parsed.keepAwakeEnabled === 'boolean' ? parsed.keepAwakeEnabled : true,
+          batteryOptDismissed:
+            typeof parsed.batteryOptDismissed === 'boolean' ? parsed.batteryOptDismissed : false,
           isLoaded: true,
         });
       } else {
@@ -185,6 +191,13 @@ export const useRecordingPreferences = create<RecordingPreferencesState>((set, g
       return { keepAwakeEnabled: enabled };
     });
   },
+
+  dismissBatteryOptNudge: () => {
+    set((state) => {
+      persistPreferences({ ...state, batteryOptDismissed: true });
+      return { batteryOptDismissed: true };
+    });
+  },
 }));
 
 async function persistPreferences(state: Partial<RecordingPreferencesState>): Promise<void> {
@@ -199,6 +212,7 @@ async function persistPreferences(state: Partial<RecordingPreferencesState>): Pr
       accuracyRejectThreshold: state.accuracyRejectThreshold,
       autoPauseDurationMs: state.autoPauseDurationMs,
       keepAwakeEnabled: state.keepAwakeEnabled,
+      batteryOptDismissed: state.batteryOptDismissed,
     };
     await setSetting(STORAGE_KEY, JSON.stringify(data));
   } catch {

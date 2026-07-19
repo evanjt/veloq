@@ -8,6 +8,7 @@ import {
   Alert,
   Linking,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
 import { Text } from 'react-native-paper';
 import { ScreenSafeAreaView, TAB_BAR_SAFE_PADDING } from '@/shared/ui';
@@ -31,6 +32,8 @@ import {
   loadRecordingBackup,
   clearRecordingBackup,
 } from '@/features/recording/lib/storage/recordingBackup';
+import { BatteryOptimisationNudge } from '@/features/recording/components/BatteryOptimisationNudge';
+import { requestNotificationPermission } from '@/features/settings/lib/notificationService';
 import { intervalsApi } from '@/api';
 import { navigateTo } from '@/shared/app/navigation';
 import { formatLocalDate, formatDuration } from '@/shared/format/format';
@@ -82,6 +85,15 @@ export default function RecordScreen() {
 
   // GPS readiness state
   const [gpsState, setGpsState] = useState<'checking' | 'ready' | 'weak' | 'none'>('checking');
+
+  // A session is already active (cold navigation, notification tap, FAB while
+  // recording) — go straight back to the live screen instead of the picker.
+  useEffect(() => {
+    const { status, activityType } = useRecordingStore.getState();
+    if ((status === 'recording' || status === 'paused') && activityType) {
+      router.replace(`/recording/${activityType}`);
+    }
+  }, []);
 
   const quickTypes = useMemo(
     () => (recentTypes.length > 0 ? recentTypes : DEFAULT_QUICK_TYPES),
@@ -140,6 +152,8 @@ export default function RecordScreen() {
   // Crash recovery check
   useEffect(() => {
     (async () => {
+      // An in-memory session owns the backup file — nothing to recover
+      if (useRecordingStore.getState().status !== 'idle') return;
       const hasBackup = await hasRecordingBackup();
       if (!hasBackup) return;
 
@@ -209,6 +223,11 @@ export default function RecordScreen() {
   }, []);
 
   const handleSelectType = useCallback((type: ActivityType, pairedEventId?: number) => {
+    // Android 13+ suppresses the foreground-service notification without this;
+    // fire-and-forget so a denial never blocks the recording itself.
+    if (Platform.OS === 'android') {
+      requestNotificationPermission().catch(() => {});
+    }
     const params = pairedEventId ? `?pairedEventId=${pairedEventId}` : '';
     navigateTo(`/recording/${type}${params}`);
   }, []);
@@ -318,6 +337,8 @@ export default function RecordScreen() {
 
       {/* GPS Readiness Indicator — full-width prominent bar */}
       <GpsReadinessBar state={gpsState} isDark={isDark} testID="record-gps-status" prominent />
+
+      <BatteryOptimisationNudge />
 
       <ScrollView
         contentContainerStyle={[

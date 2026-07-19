@@ -1238,7 +1238,10 @@
       "none": "无路线",
       "empty": "此运动暂无已保存的路线。",
       "activities": "{{count}} 项活动"
-    }
+    },
+    "returnToRecording": "返回记录",
+    "batteryOptNudge": "关闭 Veloq 的电池优化后，长时间记录效果最佳。",
+    "batteryOptOpenSettings": "打开电池设置"
   },
   "routeDetail": {
     "avgTime": "平均时间",

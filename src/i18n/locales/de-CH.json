@@ -1238,7 +1238,10 @@
       "none": "Keine Route",
       "empty": "Noch keine gespeicherten Routen für diese Sportart.",
       "activities": "{{count}} Aktivitäten"
-    }
+    },
+    "returnToRecording": "Zurück zur Aufzeichnung",
+    "batteryOptNudge": "Lange Aufzeichnungen funktionieren am besten, wenn die Akku-Optimierung für Veloq deaktiviert ist.",
+    "batteryOptOpenSettings": "Akku-Einstellungen öffnen"
   },
   "routeDetail": {
     "avgTime": "Ø Ziit",
