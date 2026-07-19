@@ -1232,7 +1232,13 @@
     "accuracyFilterDescription": "丢弃精度低于此值的 GPS 点。",
     "autoPauseDelay": "自动暂停延迟",
     "keepAwake": "保持屏幕常亮",
-    "keepAwakeDescription": "防止屏幕在录制期间休眠。"
+    "keepAwakeDescription": "防止屏幕在录制期间休眠。",
+    "routeOverlay": {
+      "title": "跟随路线",
+      "none": "无路线",
+      "empty": "此运动暂无已保存的路线。",
+      "activities": "{{count}} 项活动"
+    }
   },
   "routeDetail": {
     "avgTime": "平均时间",

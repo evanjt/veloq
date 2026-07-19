@@ -1232,7 +1232,13 @@
     "accuracyFilterDescription": "Descartar pontos GPS menos precisos do que este valor.",
     "autoPauseDelay": "Atraso da pausa automática",
     "keepAwake": "Manter o ecrã ligado",
-    "keepAwakeDescription": "Impede que o ecrã se desligue durante a gravação."
+    "keepAwakeDescription": "Impede que o ecrã se desligue durante a gravação.",
+    "routeOverlay": {
+      "title": "Seguir uma rota",
+      "none": "Sem rota",
+      "empty": "Ainda não há rotas guardadas para este desporto.",
+      "activities": "{{count}} atividades"
+    }
   },
   "routeDetail": {
     "avgTime": "Tempo médio",

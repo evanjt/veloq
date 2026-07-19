@@ -1234,7 +1234,13 @@
     "accuracyFilterDescription": "Odrzucaj punkty GPS mniej dokładne niż ta wartość.",
     "autoPauseDelay": "Opóźnienie autopauzy",
     "keepAwake": "Nie wygaszaj ekranu",
-    "keepAwakeDescription": "Zapobiega wygaszaniu ekranu podczas nagrywania."
+    "keepAwakeDescription": "Zapobiega wygaszaniu ekranu podczas nagrywania.",
+    "routeOverlay": {
+      "title": "Podążaj trasą",
+      "none": "Brak trasy",
+      "empty": "Brak zapisanych tras dla tego sportu.",
+      "activities": "{{count}} aktywności"
+    }
   },
   "routeDetail": {
     "avgTime": "Śr. czas",

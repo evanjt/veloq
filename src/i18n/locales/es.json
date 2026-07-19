@@ -1232,7 +1232,13 @@
     "accuracyFilterDescription": "Descartar los puntos GPS menos precisos que este valor.",
     "autoPauseDelay": "Retraso de pausa automática",
     "keepAwake": "Mantener la pantalla encendida",
-    "keepAwakeDescription": "Evita que la pantalla se apague durante la grabación."
+    "keepAwakeDescription": "Evita que la pantalla se apague durante la grabación.",
+    "routeOverlay": {
+      "title": "Seguir una ruta",
+      "none": "Sin ruta",
+      "empty": "Aún no hay rutas guardadas para este deporte.",
+      "activities": "{{count}} actividades"
+    }
   },
   "routeDetail": {
     "avgTime": "Tiempo promedio",

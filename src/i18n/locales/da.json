@@ -1232,7 +1232,13 @@
     "accuracyFilterDescription": "Kassér GPS-punkter, der er mindre nøjagtige end denne værdi.",
     "autoPauseDelay": "Forsinkelse for autopause",
     "keepAwake": "Hold skærmen tændt",
-    "keepAwakeDescription": "Forhindrer skærmen i at slukke under optagelse."
+    "keepAwakeDescription": "Forhindrer skærmen i at slukke under optagelse.",
+    "routeOverlay": {
+      "title": "Følg en rute",
+      "none": "Ingen rute",
+      "empty": "Ingen gemte ruter for denne sport endnu.",
+      "activities": "{{count}} aktiviteter"
+    }
   },
   "routeDetail": {
     "avgTime": "Gns. tid",

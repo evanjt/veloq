@@ -1,5 +1,5 @@
-import React, { useMemo } from 'react';
-import { View, StyleSheet } from 'react-native';
+import React, { useMemo, useState, useCallback } from 'react';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import type { ViewStyle } from 'react-native';
 import {
   MapView,
@@ -8,14 +8,16 @@ import {
   LineLayer,
   CircleLayer,
 } from '@maplibre/maplibre-react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useMapPreferences } from '@/features/maps/stores/MapPreferencesContext';
 import { getMapStyle } from '@/features/maps/components/mapStyles';
-import { darkColors, brand } from '@/theme';
+import { colors, darkColors, brand, spacing, layout } from '@/theme';
 
 const BRAND_COLOR = brand.tealLight;
 const EXCLUDED_COLOR = 'rgba(150, 150, 150, 0.5)';
-const POSITION_DOT_COLOR = '#2563EB';
-const POSITION_DOT_HALO = '#FFFFFF';
+const POSITION_DOT_COLOR = colors.secondary;
+const POSITION_DOT_HALO = colors.surface;
+const OVERLAY_COLOR = brand.blue;
 
 interface RecordingMapProps {
   coordinates: [number, number][]; // [lat, lng] from recording streams
@@ -23,6 +25,10 @@ interface RecordingMapProps {
   fitBounds?: boolean; // When true, fit camera to route bounds instead of following position
   trimStart?: number; // Index for trim start (used with fitBounds)
   trimEnd?: number; // Index for trim end (used with fitBounds)
+  /** Saved route to follow, drawn under the live trace ([{lat, lng}] from the route engine) */
+  routeOverlay?: Array<{ lat: number; lng: number }> | null;
+  /** Opens the route picker; the layers button only renders when provided */
+  onOpenRoutePicker?: () => void;
   style?: ViewStyle;
 }
 
@@ -32,10 +38,22 @@ function RecordingMapInner({
   fitBounds,
   trimStart,
   trimEnd,
+  routeOverlay,
+  onOpenRoutePicker,
   style,
 }: RecordingMapProps) {
   const { preferences } = useMapPreferences();
   const mapStyleValue = getMapStyle(preferences.defaultStyle);
+  // Camera follows the current position until the user pans; the recenter
+  // button restores following.
+  const [isFollowing, setIsFollowing] = useState(true);
+
+  const handleRegionDidChange = useCallback((feature: GeoJSON.Feature) => {
+    const properties = feature.properties as { isUserInteraction?: boolean } | undefined;
+    if (properties?.isUserInteraction) {
+      setIsFollowing(false);
+    }
+  }, []);
 
   // Convert [lat, lng] → [lng, lat] for GeoJSON
   const validCoords = useMemo(() => {
@@ -103,6 +121,20 @@ function RecordingMapInner({
     return { type: 'FeatureCollection', features };
   }, [validCoords, hasTrim, trimStart, trimEnd]);
 
+  // Saved-route overlay (drawn beneath the live trace)
+  const overlayGeoJSON = useMemo((): GeoJSON.Feature | null => {
+    if (!routeOverlay || routeOverlay.length < 2) return null;
+    const coords = routeOverlay
+      .map((p) => [p.lng, p.lat] as [number, number])
+      .filter(([lng, lat]) => Number.isFinite(lng) && Number.isFinite(lat));
+    if (coords.length < 2) return null;
+    return {
+      type: 'Feature',
+      properties: {},
+      geometry: { type: 'LineString', coordinates: coords },
+    };
+  }, [routeOverlay]);
+
   // Current position as GeoJSON point
   const positionGeoJSON = useMemo((): GeoJSON.Feature | null => {
     if (!currentLocation) return null;
@@ -116,9 +148,10 @@ function RecordingMapInner({
   }, [currentLocation]);
 
   // Camera configuration
-  const cameraCenter = currentLocation
-    ? ([currentLocation.longitude, currentLocation.latitude] as [number, number])
-    : undefined;
+  const cameraCenter =
+    currentLocation && isFollowing
+      ? ([currentLocation.longitude, currentLocation.latitude] as [number, number])
+      : undefined;
 
   const bounds = useMemo(() => {
     if (!fitBounds || validCoords.length < 2) return undefined;
@@ -150,6 +183,7 @@ function RecordingMapInner({
         logoEnabled={false}
         attributionEnabled={false}
         compassEnabled={false}
+        onRegionDidChange={fitBounds ? undefined : handleRegionDidChange}
       >
         {fitBounds && bounds ? (
           <Camera defaultSettings={{ bounds }} bounds={bounds} animationDuration={0} />
@@ -159,9 +193,25 @@ function RecordingMapInner({
               cameraCenter ? { centerCoordinate: cameraCenter, zoomLevel: 15 } : undefined
             }
             centerCoordinate={cameraCenter}
-            zoomLevel={15}
+            zoomLevel={isFollowing ? 15 : undefined}
             animationDuration={500}
           />
+        )}
+
+        {/* Saved-route overlay (beneath everything else) */}
+        {overlayGeoJSON && (
+          <ShapeSource id="routeOverlay" shape={overlayGeoJSON}>
+            <LineLayer
+              id="routeOverlayLine"
+              style={{
+                lineColor: OVERLAY_COLOR,
+                lineOpacity: 0.75,
+                lineWidth: 5,
+                lineCap: 'round',
+                lineJoin: 'round',
+              }}
+            />
+          </ShapeSource>
         )}
 
         {/* Excluded route portions (grey, behind active) */}
@@ -224,6 +274,42 @@ function RecordingMapInner({
           </ShapeSource>
         )}
       </MapView>
+
+      {/* Map controls (live mode only) */}
+      {!fitBounds && (
+        <View style={styles.controls}>
+          {onOpenRoutePicker && (
+            <TouchableOpacity
+              testID="recording-map-route-overlay"
+              style={[styles.controlButton, routeOverlay ? styles.controlButtonActive : null]}
+              onPress={onOpenRoutePicker}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+            >
+              <MaterialCommunityIcons
+                name="map-marker-path"
+                size={20}
+                color={routeOverlay ? colors.textOnDark : darkColors.textPrimary}
+              />
+            </TouchableOpacity>
+          )}
+          {!isFollowing && (
+            <TouchableOpacity
+              testID="recording-map-recenter"
+              style={styles.controlButton}
+              onPress={() => setIsFollowing(true)}
+              activeOpacity={0.7}
+              accessibilityRole="button"
+            >
+              <MaterialCommunityIcons
+                name="crosshairs-gps"
+                size={20}
+                color={darkColors.textPrimary}
+              />
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
     </View>
   );
 }
@@ -237,5 +323,27 @@ const styles = StyleSheet.create({
   },
   map: {
     flex: 1,
+  },
+  controls: {
+    position: 'absolute',
+    right: spacing.sm,
+    top: spacing.sm,
+    gap: spacing.xs,
+  },
+  controlButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: darkColors.surface,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: darkColors.border,
+    minWidth: layout.minTapTarget - 4,
+    minHeight: layout.minTapTarget - 4,
+  },
+  controlButtonActive: {
+    backgroundColor: brand.blue,
+    borderColor: brand.blue,
   },
 });

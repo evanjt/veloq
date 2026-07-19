@@ -1232,7 +1232,13 @@
     "accuracyFilterDescription": "この値より精度の低いGPSポイントを破棄します。",
     "autoPauseDelay": "自動一時停止までの時間",
     "keepAwake": "画面をオンのままにする",
-    "keepAwakeDescription": "記録中に画面がスリープするのを防ぎます。"
+    "keepAwakeDescription": "記録中に画面がスリープするのを防ぎます。",
+    "routeOverlay": {
+      "title": "ルートをたどる",
+      "none": "ルートなし",
+      "empty": "このスポーツの保存済みルートはまだありません。",
+      "activities": "{{count}}件のアクティビティ"
+    }
   },
   "routeDetail": {
     "avgTime": "平均時間",
