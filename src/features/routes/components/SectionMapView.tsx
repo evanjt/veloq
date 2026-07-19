@@ -147,6 +147,39 @@ export const SectionMapView = memo(function SectionMapView({
   const activityColor = getActivityColor(validSportType);
   const mapRef = useRef(null);
 
+  // Style load retry — a transient failure leaves the map on MapLibre's
+  // default empty style (white canvas). Remount to re-apply the style.
+  const [mapKey, setMapKey] = useState(0);
+  const retryCountRef = useRef(0);
+  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const MAX_RETRIES = 3;
+  const RETRY_DELAY_MS = 1000;
+
+  const handleMapLoadError = useCallback(() => {
+    if (retryCountRef.current < MAX_RETRIES) {
+      retryCountRef.current += 1;
+      if (__DEV__) {
+        console.log(
+          `[SectionMap] Load failed, retrying (${retryCountRef.current}/${MAX_RETRIES})...`
+        );
+      }
+      retryTimerRef.current = setTimeout(() => {
+        setMapKey((k) => k + 1);
+      }, RETRY_DELAY_MS * retryCountRef.current);
+    }
+  }, []);
+
+  // Reset retry count when style changes or map remounts; clear pending retry timer
+  useEffect(() => {
+    retryCountRef.current = 0;
+    return () => {
+      if (retryTimerRef.current !== null) {
+        clearTimeout(retryTimerRef.current);
+        retryTimerRef.current = null;
+      }
+    };
+  }, [currentMapStyle, mapKey]);
+
   // Interactive-mode state
   const [is3DMode, setIs3DMode] = useState(false);
   const [is3DReady, setIs3DReady] = useState(false);
@@ -336,6 +369,7 @@ export const SectionMapView = memo(function SectionMapView({
 
   const mapContent = (
     <MapView
+      key={`section-map-${mapKey}`}
       ref={mapRef}
       style={styles.map}
       mapStyle={styleUrl}
@@ -347,6 +381,7 @@ export const SectionMapView = memo(function SectionMapView({
       rotateEnabled={interactive}
       pitchEnabled={false}
       onRegionIsChanging={interactive ? handleRegionIsChanging : undefined}
+      onDidFailLoadingMap={handleMapLoadError}
     >
       <Camera
         maxZoomLevel={16}
