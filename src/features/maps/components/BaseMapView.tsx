@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useRef, useMemo, ReactNode, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Animated, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native';
 import { useTheme } from '@/shared/app';
 import {
   MapView,
@@ -112,14 +112,15 @@ export function BaseMapView({
   const [currentCenter, setCurrentCenter] = useState<[number, number] | null>(null);
   const [currentZoom, setCurrentZoom] = useState(10);
 
-  // iOS simulator tile loading retry mechanism
+  // Style load retry — a transient failure leaves the map on MapLibre's
+  // default empty style (white canvas). Remount to re-apply the style.
   const [mapKey, setMapKey] = useState(0);
   const retryCountRef = useRef(0);
   const MAX_RETRIES = 3;
   const RETRY_DELAY_MS = 1000;
 
   const handleMapLoadError = useCallback(() => {
-    if (Platform.OS === 'ios' && retryCountRef.current < MAX_RETRIES) {
+    if (retryCountRef.current < MAX_RETRIES) {
       retryCountRef.current += 1;
       if (__DEV__) {
         console.log(`[Map] Load failed, retrying (${retryCountRef.current}/${MAX_RETRIES})...`);

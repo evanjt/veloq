@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useCallback } from 'react';
+import React, { useMemo, useState, useCallback, useRef } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import type { ViewStyle } from 'react-native';
 import {
@@ -47,6 +47,22 @@ function RecordingMapInner({
   // Camera follows the current position until the user pans; the recenter
   // button restores following.
   const [isFollowing, setIsFollowing] = useState(true);
+
+  // Style load retry — a transient failure leaves the map on MapLibre's
+  // default empty style (white canvas). Remount to re-apply the style.
+  const [mapKey, setMapKey] = useState(0);
+  const retryCountRef = useRef(0);
+  const MAX_RETRIES = 3;
+  const RETRY_DELAY_MS = 1000;
+
+  const handleMapLoadError = useCallback(() => {
+    if (retryCountRef.current < MAX_RETRIES) {
+      retryCountRef.current += 1;
+      setTimeout(() => {
+        setMapKey((k) => k + 1);
+      }, RETRY_DELAY_MS * retryCountRef.current);
+    }
+  }, []);
 
   const handleRegionDidChange = useCallback((feature: GeoJSON.Feature) => {
     const properties = feature.properties as { isUserInteraction?: boolean } | undefined;
@@ -178,12 +194,14 @@ function RecordingMapInner({
   return (
     <View style={[styles.container, style]}>
       <MapView
+        key={`recording-map-${mapKey}`}
         style={styles.map}
         mapStyle={mapStyleValue}
         logoEnabled={false}
         attributionEnabled={false}
         compassEnabled={false}
         onRegionDidChange={fitBounds ? undefined : handleRegionDidChange}
+        onDidFailLoadingMap={handleMapLoadError}
       >
         {fitBounds && bounds ? (
           <Camera defaultSettings={{ bounds }} bounds={bounds} animationDuration={0} />

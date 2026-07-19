@@ -123,7 +123,8 @@ export function RegionalMapView({
   const cameraRef = useRef<React.ElementRef<typeof Camera>>(null);
   const clusterSourceRef = useRef<React.ElementRef<typeof ShapeSource>>(null);
 
-  // iOS simulator tile loading retry mechanism
+  // Style load retry — a transient failure leaves the map on MapLibre's
+  // default empty style (white canvas). Remount to re-apply the style.
   const [mapKey, setMapKey] = useState(0);
   const retryCountRef = useRef(0);
   const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -131,7 +132,7 @@ export function RegionalMapView({
   const RETRY_DELAY_MS = 1000;
 
   const handleMapLoadError = useCallback(() => {
-    if (Platform.OS === 'ios' && retryCountRef.current < MAX_RETRIES) {
+    if (retryCountRef.current < MAX_RETRIES) {
       retryCountRef.current += 1;
       console.log(
         `[RegionalMap] Load failed, retrying (${retryCountRef.current}/${MAX_RETRIES})...`

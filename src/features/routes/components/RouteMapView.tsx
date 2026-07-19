@@ -5,7 +5,7 @@
  * Supports interaction (zoom/pan) and fullscreen mode like ActivityMapView.
  */
 
-import React, { useMemo, useRef, useState, useCallback } from 'react';
+import React, { useMemo, useRef, useState, useCallback, useEffect } from 'react';
 import { View, StyleSheet, TouchableOpacity, Modal, StatusBar } from 'react-native';
 import {
   MapView,
@@ -60,6 +60,39 @@ export function RouteMapView({
   const mapStyle = getStyleForActivity(routeGroup.type);
   const activityColor = getActivityColor(routeGroup.type);
   const mapRef = useRef(null);
+
+  // Style load retry — a transient failure leaves the map on MapLibre's
+  // default empty style (white canvas). Remount to re-apply the style.
+  const [mapKey, setMapKey] = useState(0);
+  const retryCountRef = useRef(0);
+  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const MAX_RETRIES = 3;
+  const RETRY_DELAY_MS = 1000;
+
+  const handleMapLoadError = useCallback(() => {
+    if (retryCountRef.current < MAX_RETRIES) {
+      retryCountRef.current += 1;
+      if (__DEV__) {
+        console.log(
+          `[RouteMap] Load failed, retrying (${retryCountRef.current}/${MAX_RETRIES})...`
+        );
+      }
+      retryTimerRef.current = setTimeout(() => {
+        setMapKey((k) => k + 1);
+      }, RETRY_DELAY_MS * retryCountRef.current);
+    }
+  }, []);
+
+  // Reset retry count when style changes or map remounts; clear pending retry timer
+  useEffect(() => {
+    retryCountRef.current = 0;
+    return () => {
+      if (retryTimerRef.current !== null) {
+        clearTimeout(retryTimerRef.current);
+        retryTimerRef.current = null;
+      }
+    };
+  }, [mapStyle, mapKey]);
 
   // Build activity traces from signatures prop
   const activityTracesWithIds = useMemo(() => {
@@ -304,6 +337,7 @@ export function RouteMapView({
 
   const mapContent = (
     <MapView
+      key={`route-map-${mapKey}`}
       ref={mapRef}
       style={styles.map}
       mapStyle={styleUrl}
@@ -315,6 +349,7 @@ export function RouteMapView({
       rotateEnabled={interactive}
       pitchEnabled={false}
       onPress={onPress}
+      onDidFailLoadingMap={handleMapLoadError}
     >
       <Camera
         defaultSettings={{
