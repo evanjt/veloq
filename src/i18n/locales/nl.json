@@ -1232,7 +1232,13 @@
     "accuracyFilterDescription": "GPS-punten verwerpen die minder nauwkeurig zijn dan deze waarde.",
     "autoPauseDelay": "Vertraging automatische pauze",
     "keepAwake": "Scherm aan houden",
-    "keepAwakeDescription": "Voorkomt dat het scherm uitgaat tijdens het opnemen."
+    "keepAwakeDescription": "Voorkomt dat het scherm uitgaat tijdens het opnemen.",
+    "routeOverlay": {
+      "title": "Een route volgen",
+      "none": "Geen route",
+      "empty": "Nog geen opgeslagen routes voor deze sport.",
+      "activities": "{{count}} activiteiten"
+    }
   },
   "routeDetail": {
     "avgTime": "Gem. tijd",

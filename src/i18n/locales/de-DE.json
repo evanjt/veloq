@@ -1232,7 +1232,13 @@
     "accuracyFilterDescription": "GPS-Punkte verwerfen, die ungenauer sind als dieser Wert.",
     "autoPauseDelay": "Auto-Pause-Verzögerung",
     "keepAwake": "Bildschirm aktiv halten",
-    "keepAwakeDescription": "Verhindert, dass der Bildschirm während der Aufzeichnung ausgeht."
+    "keepAwakeDescription": "Verhindert, dass der Bildschirm während der Aufzeichnung ausgeht.",
+    "routeOverlay": {
+      "title": "Einer Route folgen",
+      "none": "Keine Route",
+      "empty": "Noch keine gespeicherten Routen für diese Sportart.",
+      "activities": "{{count}} Aktivitäten"
+    }
   },
   "routeDetail": {
     "avgTime": "Ø Zeit",

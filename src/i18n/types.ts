@@ -1689,6 +1689,12 @@ export interface TranslationResource {
         permissionBlocked: string;
       };
     };
+    routeOverlay: {
+      title: string;
+      none: string;
+      empty: string;
+      activities: string;
+    };
     timeOfDay: {
       morning: string;
       afternoon: string;

@@ -1232,7 +1232,13 @@
     "accuracyFilterDescription": "Ignorer les points GPS moins précis que cette valeur.",
     "autoPauseDelay": "Délai de pause automatique",
     "keepAwake": "Garder l'écran allumé",
-    "keepAwakeDescription": "Empêche l'écran de se mettre en veille pendant l'enregistrement."
+    "keepAwakeDescription": "Empêche l'écran de se mettre en veille pendant l'enregistrement.",
+    "routeOverlay": {
+      "title": "Suivre un itinéraire",
+      "none": "Aucun itinéraire",
+      "empty": "Aucun itinéraire enregistré pour ce sport pour le moment.",
+      "activities": "{{count}} activités"
+    }
   },
   "routeDetail": {
     "avgTime": "Temps moy",

@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams } from 'expo-router';
@@ -14,6 +14,7 @@ import { DataFieldGrid } from '@/features/recording/components/DataFieldGrid';
 import { ControlBar } from '@/features/recording/components/ControlBar';
 import { LockOverlay } from '@/features/recording/components/LockOverlay';
 import { ActivityTypePickerModal } from '@/features/recording/components/ActivityTypePickerModal';
+import { RouteOverlayPicker } from '@/features/recording/components/RouteOverlayPicker';
 import { ManualEntry } from '@/features/recording/components/ManualEntry';
 import { TimerHeader } from '@/features/recording/components/TimerHeader';
 import { GpsWarningBanner } from '@/features/recording/components/GpsWarningBanner';
@@ -39,6 +40,7 @@ import { useInitRecordingEffect } from '@/features/recording/hooks/useInitRecord
 import { useRecordingKeepAwake } from '@/features/recording/hooks/useRecordingKeepAwake';
 import { useIndoorSampleEffect } from '@/features/recording/hooks/useIndoorSampleEffect';
 import { useSensorSession, SensorStatusChip } from '@/features/sensors';
+import { useConsensusRoute } from '@/features/routes/hooks/useRouteEngine';
 import { useRecordingHandlers } from '@/features/recording/hooks/useRecordingHandlers';
 import { styles } from '@/features/recording/RecordingScreen.styles';
 import type { ActivityType } from '@/types';
@@ -131,6 +133,11 @@ export default function RecordingScreen() {
   useIndoorSampleEffect(mode, status);
   useSensorSession();
 
+  // Saved-route overlay on the live map (GPS mode only, session-scoped)
+  const [overlayRouteId, setOverlayRouteId] = useState<string | null>(null);
+  const [showRoutePicker, setShowRoutePicker] = useState(false);
+  const { points: overlayPoints } = useConsensusRoute(mode === 'gps' ? overlayRouteId : null);
+
   // Read current activity type from store (may change during recording)
   const currentActivityType = useRecordingStore((s) => s.activityType) ?? activityType;
 
@@ -173,6 +180,8 @@ export default function RecordingScreen() {
           <RecordingMap
             coordinates={coordinates}
             currentLocation={currentLocation}
+            routeOverlay={overlayPoints}
+            onOpenRoutePicker={() => setShowRoutePicker(true)}
             style={styles.map}
           />
         ) : (
@@ -236,6 +245,15 @@ export default function RecordingScreen() {
         onClose={() => setShowTypePicker(false)}
         mode="recording"
         isDark={isDark}
+      />
+
+      {/* Saved-route overlay picker */}
+      <RouteOverlayPicker
+        visible={showRoutePicker}
+        activityType={currentActivityType}
+        selectedRouteId={overlayRouteId}
+        onSelect={setOverlayRouteId}
+        onClose={() => setShowRoutePicker(false)}
       />
     </View>
   );

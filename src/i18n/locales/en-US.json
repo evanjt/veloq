@@ -1271,7 +1271,13 @@
     "accuracyFilterDescription": "Discard GPS points less accurate than this.",
     "autoPauseDelay": "Auto-pause delay",
     "keepAwake": "Keep screen awake",
-    "keepAwakeDescription": "Prevent the screen from sleeping during recording."
+    "keepAwakeDescription": "Prevent the screen from sleeping during recording.",
+    "routeOverlay": {
+      "title": "Follow a route",
+      "none": "No route",
+      "empty": "No saved routes for this sport yet.",
+      "activities": "{{count}} activities"
+    }
   },
   "routeDetail": {
     "avgTime": "Avg Time",
