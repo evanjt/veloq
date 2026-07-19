@@ -8,4 +8,6 @@ export const OAUTH = {
   AUTH_ENDPOINT: 'https://intervals.icu/oauth/authorize',
   APP_SCHEME: 'veloq',
   SCOPES: ['ACTIVITY:READ', 'WELLNESS:READ', 'CALENDAR:READ', 'SETTINGS:READ'],
+  // In-app upgrade on first record. ACTIVITY:WRITE implies ACTIVITY:READ.
+  UPGRADE_SCOPES: ['ACTIVITY:WRITE', 'WELLNESS:READ', 'CALENDAR:READ', 'SETTINGS:READ'],
 } as const;

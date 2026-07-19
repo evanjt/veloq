@@ -1241,7 +1241,8 @@
     },
     "returnToRecording": "Tilbage til optagelsen",
     "batteryOptNudge": "Lange optagelser fungerer bedst med batterioptimering slået fra for Veloq.",
-    "batteryOptOpenSettings": "Åbn batteriindstillinger"
+    "batteryOptOpenSettings": "Åbn batteriindstillinger",
+    "writeScopeNotGranted": "Skrivetilladelse blev ikke givet"
   },
   "routeDetail": {
     "avgTime": "Gns. tid",

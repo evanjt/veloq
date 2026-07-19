@@ -1243,7 +1243,8 @@
     },
     "returnToRecording": "Wróć do nagrywania",
     "batteryOptNudge": "Długie nagrania działają najlepiej z wyłączoną optymalizacją baterii dla Veloq.",
-    "batteryOptOpenSettings": "Otwórz ustawienia baterii"
+    "batteryOptOpenSettings": "Otwórz ustawienia baterii",
+    "writeScopeNotGranted": "Nie przyznano uprawnień do zapisu"
   },
   "routeDetail": {
     "avgTime": "Śr. czas",

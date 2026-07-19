@@ -1241,7 +1241,8 @@
     },
     "returnToRecording": "記録に戻る",
     "batteryOptNudge": "長時間の記録には、Veloqのバッテリー最適化をオフにすることをおすすめします。",
-    "batteryOptOpenSettings": "バッテリー設定を開く"
+    "batteryOptOpenSettings": "バッテリー設定を開く",
+    "writeScopeNotGranted": "書き込み権限が付与されませんでした"
   },
   "routeDetail": {
     "avgTime": "平均時間",

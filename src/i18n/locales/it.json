@@ -1241,7 +1241,8 @@
     },
     "returnToRecording": "Torna alla registrazione",
     "batteryOptNudge": "Le registrazioni lunghe funzionano meglio con l'ottimizzazione della batteria disattivata per Veloq.",
-    "batteryOptOpenSettings": "Apri impostazioni batteria"
+    "batteryOptOpenSettings": "Apri impostazioni batteria",
+    "writeScopeNotGranted": "L'autorizzazione in scrittura non è stata concessa"
   },
   "routeDetail": {
     "avgTime": "Tempo medio",
