@@ -3,7 +3,7 @@
  *
  * Thin wrappers over the Rust `SyncManager` FFI object (the single first-class
  * I/O contract). TypeScript sets credentials once, issues commands, and reads a
- * status snapshot — it never builds an axios request or an auth header itself.
+ * status snapshot - it never builds an axios request or an auth header itself.
  *
  * Runtime note: `host.engine.sync()` resolves once the UniFFI bindings are
  * regenerated for the new `SyncManager` object (clean rebuild, see

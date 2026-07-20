@@ -63,7 +63,7 @@ export function ActivityMapControls({
         />
       </TouchableOpacity>
 
-      {/* Gradient coloring toggle — only shown when gradient data is available; hidden in 3D (no effect there) */}
+      {/* Gradient coloring toggle - only shown when gradient data is available; hidden in 3D (no effect there) */}
       {hasGradientData && !is3DMode && (
         <TouchableOpacity
           testID="activity-map-gradient-toggle"

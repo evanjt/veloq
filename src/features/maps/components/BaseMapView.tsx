@@ -112,7 +112,7 @@ export function BaseMapView({
   const [currentCenter, setCurrentCenter] = useState<[number, number] | null>(null);
   const [currentZoom, setCurrentZoom] = useState(10);
 
-  // Style load retry — a transient failure leaves the map on MapLibre's
+  // Style load retry - a transient failure leaves the map on MapLibre's
   // default empty style (white canvas). Remount to re-apply the style.
   const [mapKey, setMapKey] = useState(0);
   const retryCountRef = useRef(0);

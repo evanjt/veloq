@@ -226,7 +226,7 @@ describe('UnitPreferenceStore', () => {
 });
 
 // ================================================================
-// RouteSettingsStore — Most thorough (representative for persistence patterns)
+// RouteSettingsStore - Most thorough (representative for persistence patterns)
 // ================================================================
 
 describe('RouteSettingsStore', () => {
@@ -418,7 +418,7 @@ describe('SportPreferenceStore', () => {
   });
 
   describe('initialize()', () => {
-    it('rejects invalid sport — falls back to default', async () => {
+    it('rejects invalid sport - falls back to default', async () => {
       await AsyncStorage.setItem(SPORT_PREFERENCE_KEY, 'Skiing');
       await useSportPreference.getState().initialize();
       expect(useSportPreference.getState().primarySport).toBe('Cycling');
@@ -576,7 +576,7 @@ describe('DashboardPreferencesStore', () => {
 
   describe('setSummaryCardPreferences() - Validation', () => {
     /**
-     * BUG: No validation on heroMetric — invalid IDs accepted and stored.
+     * BUG: No validation on heroMetric - invalid IDs accepted and stored.
      */
     it('accepts invalid heroMetric without validation (BUG)', () => {
       useDashboardPreferences

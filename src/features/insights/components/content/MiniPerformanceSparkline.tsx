@@ -93,7 +93,7 @@ export const MiniPerformanceSparkline = React.memo(function MiniPerformanceSpark
           dot.isBest ? null : <Circle key={i} cx={dot.x} cy={dot.y} r={3} color={dotColor} />
         )}
 
-        {/* Best record dot — highlighted */}
+        {/* Best record dot - highlighted */}
         {bestDot ? (
           <>
             <Circle cx={bestDot.x} cy={bestDot.y} r={6} color={`${color}30`} />

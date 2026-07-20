@@ -7,14 +7,14 @@
  * directions. Also provides a Gaussian-kernel trend-line builder with a
  * confidence band.
  *
- * No React, no Victory — pure functions so they can be unit tested in
+ * No React, no Victory - pure functions so they can be unit tested in
  * isolation and reused if another chart needs the same bisected layout.
  */
 
 import { gaussianSmooth, type SmoothedPoint } from '@/shared/math/smoothing';
 import type { PerformanceDataPoint } from '@/types';
 
-/** A performance point as rendered on the chart — base record plus its normalized X. */
+/** A performance point as rendered on the chart - base record plus its normalized X. */
 export type ScatterChartPoint = PerformanceDataPoint & { x: number };
 
 /** Result of splitting chart data into forward + reverse buckets. */

@@ -6,7 +6,7 @@
  *   field 2 (length-delimited packed varints): duration per interval (seconds)
  *   field 3 (length-delimited): intensity values (% FTP or HR metric)
  *   field 4 (length-delimited packed varints): zone number per interval (1-based)
- *   field 5 (varint): zone basis — 1 = power, 2 = HR
+ *   field 5 (varint): zone basis - 1 = power, 2 = HR
  */
 
 export interface SkylineInterval {
@@ -78,7 +78,7 @@ export function decodeSkylineBytes(base64: string): SkylineData | null {
         } else if (fieldNumber === 4) {
           zones = decodePackedVarints(buf, pos, end);
         }
-        // field 3 (intensity) — skip, not needed for color bar
+        // field 3 (intensity) - skip, not needed for color bar
         pos = end;
       } else {
         break;

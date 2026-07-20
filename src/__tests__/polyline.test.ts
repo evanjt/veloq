@@ -8,14 +8,14 @@ import {
 
 describe('detectCoordinateFormat', () => {
   it('should detect coordinate order from which value exceeds 90', () => {
-    // Sydney, Australia: lat ~-33.8, lng ~151.2 — longitude > 90 disambiguates.
+    // Sydney, Australia: lat ~-33.8, lng ~151.2 - longitude > 90 disambiguates.
     expect(
       detectCoordinateFormat([
         [-33.8688, 151.2093],
         [-33.87, 151.21],
       ])
     ).toBe('latLng');
-    // Same location but [lng, lat] order — first value > 90.
+    // Same location but [lng, lat] order - first value > 90.
     expect(
       detectCoordinateFormat([
         [151.2093, -33.8688],
@@ -118,7 +118,7 @@ describe('getBounds', () => {
     expect(result).toBeNull();
   });
 
-  // Gulf of Guinea (0, 0) is a real location — origin coordinates must not
+  // Gulf of Guinea (0, 0) is a real location - origin coordinates must not
   // be mistaken for "no data".
   it('should return valid bounds for coordinates at the origin', () => {
     const coords = [

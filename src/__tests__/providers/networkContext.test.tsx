@@ -187,7 +187,7 @@ describe('NetworkContext', () => {
       expect(result.current.isOnline).toBe(true);
       expect(result.current.connectionType).toBe('WIFI');
 
-      // Advance past the original 3s mark — no offline flip
+      // Advance past the original 3s mark - no offline flip
       act(() => {
         jest.advanceTimersByTime(2000);
       });
@@ -295,7 +295,7 @@ describe('NetworkContext', () => {
       act(() => {
         jest.advanceTimersByTime(5000);
       });
-      // Result from before unmount is a snapshot — should still be optimistic
+      // Result from before unmount is a snapshot - should still be optimistic
       expect(result.current.isOnline).toBe(true);
     });
 

@@ -18,7 +18,7 @@ import { insightIcon } from '@/theme';
  *
  * Data source: getSectionEfficiencyTrend(sectionId) from the Rust engine,
  * which computes linear regression of HR/pace ratio over matched efforts.
- * Returns null for sections without sufficient HR data — the insight simply
+ * Returns null for sections without sufficient HR data - the insight simply
  * does not appear until HR data exists.
  */
 

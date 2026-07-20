@@ -16,24 +16,24 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
 import { formatPace, formatSwimPace, formatDuration } from '@/shared/format/format';
-import { colors, darkColors } from '@/theme';
+import { colors, colorWithOpacity, darkColors, typography } from '@/theme';
 import type {
   DirectionBestRecord,
   DirectionSummaryStats,
-} from '@/features/routes/components/performance';
+} from '@/features/routes/lib/performanceTypes';
 
 export interface StatsRowProps {
   direction: 'forward' | 'reverse';
   stats: DirectionSummaryStats | null;
   bestRecord: DirectionBestRecord | null;
   pointCount: number;
-  /** Direction accent color (orange for forward, reverseDirection for reverse). */
+  /** Direction accent color (activity color for forward, reverseDirection for reverse). */
   color: string;
   /** When true, show pace instead of duration for the avg/best values. */
   showPace: boolean;
   /** When true, format pace as min/100m instead of min/km. */
   isSwimming?: boolean;
-  /** Section distance in meters — used to convert `avgTime` into pace when `showPace` is true. */
+  /** Section distance in meters - used to convert `avgTime` into pace when `showPace` is true. */
   sectionDistance: number;
   isDark: boolean;
 }
@@ -63,7 +63,7 @@ export function StatsRow({
         <Text style={[styles.statsDirection, isDark && styles.textLight]}>
           {direction === 'forward' ? t('sections.forward') : t('sections.reverse')}
         </Text>
-        <View style={[styles.countBadge, { backgroundColor: color + '20' }]}>
+        <View style={[styles.countBadge, { backgroundColor: colorWithOpacity(color, 0.13) }]}>
           <Text style={[styles.countText, { color }]}>{pointCount}</Text>
         </View>
       </View>
@@ -107,7 +107,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   statsDirection: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     fontWeight: '600',
     color: colors.textPrimary,
   },
@@ -118,7 +118,7 @@ const styles = StyleSheet.create({
     marginLeft: 2,
   },
   countText: {
-    fontSize: 10,
+    fontSize: typography.micro.fontSize,
     fontWeight: '700',
   },
   statsMiddle: {
@@ -126,7 +126,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   statsValue: {
-    fontSize: 11,
+    fontSize: typography.label.fontSize,
     color: colors.textMuted,
   },
   prBadge: {
@@ -135,7 +135,7 @@ const styles = StyleSheet.create({
     gap: 3,
   },
   prTime: {
-    fontSize: 12,
+    fontSize: typography.caption.fontSize,
     fontWeight: '600',
     color: colors.chartGold,
   },

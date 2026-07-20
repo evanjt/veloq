@@ -202,7 +202,7 @@ export function ActivityMapLayers({
         />
       </ShapeSource>
 
-      {/* Section boundary ticks — perpendicular short line segments at each
+      {/* Section boundary ticks - perpendicular short line segments at each
           portion's start/end. Always rendered, drawn above portions so section
           breaks are visible even where portions overlap. */}
       <ShapeSource id="section-boundaries" shape={sectionBoundariesGeoJSON}>
@@ -304,7 +304,7 @@ export function ActivityMapLayers({
         </View>
       </MarkerView>
 
-      {/* Numbered section markers — one MarkerView per non-PR section.
+      {/* Numbered section markers - one MarkerView per non-PR section.
           MarkerView is used here (not a ShapeSource + CircleLayer) because
           @maplibre/maplibre-react-native's boolean filters don't reliably
           render on native, and MarkerView with React children always does.
@@ -327,7 +327,7 @@ export function ActivityMapLayers({
           </MarkerView>
         );
       })}
-      {/* PR section markers — vector trophy via MarkerView, matches feed cards. */}
+      {/* PR section markers - vector trophy via MarkerView, matches feed cards. */}
       {sectionPRMarkersGeoJSON.features.map((f) => {
         const geom = f.geometry as GeoJSON.Point;
         const coord = geom?.coordinates as [number, number] | undefined;
@@ -345,7 +345,7 @@ export function ActivityMapLayers({
         );
       })}
 
-      {/* Highlight marker from chart scrubbing — rendered last so it's on top of all layers */}
+      {/* Highlight marker from chart scrubbing - rendered last so it's on top of all layers */}
       {/* Uses ShapeSource + CircleLayer because MarkerView coordinate updates break native position binding */}
       <ShapeSource id="highlightSource" shape={highlightGeoJSON}>
         <CircleLayer

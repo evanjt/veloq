@@ -158,7 +158,7 @@ export async function performBackup(force = false): Promise<boolean> {
     engine.setSetting(SETTING_LAST_BACKUP, String(Date.now()));
 
     // Local backups: enforce retention to prevent silent device storage growth.
-    // Cloud/WebDAV backups: kept indefinitely — storage is the user's responsibility.
+    // Cloud/WebDAV backups: kept indefinitely - storage is the user's responsibility.
     if (backend.id === 'local') {
       await enforceRetention(backend, MAX_LOCAL_BACKUPS);
     }

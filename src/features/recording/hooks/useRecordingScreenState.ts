@@ -1,16 +1,15 @@
 import { useState } from 'react';
 
+import type { HrZoneInfo } from '../components/DataFieldGrid';
+
 export function useRecordingScreenState() {
-  const [isLocked, setIsLocked] = useState(true);
   const [gpsWarning, setGpsWarning] = useState<string | null>(null);
   const [autoPaused, setAutoPaused] = useState(false);
   const [splitBanner, setSplitBanner] = useState<string | null>(null);
   const [showTypePicker, setShowTypePicker] = useState(false);
-  const [hrZoneColor, setHrZoneColor] = useState<string | null>(null);
+  const [hrZone, setHrZone] = useState<HrZoneInfo | null>(null);
 
   return {
-    isLocked,
-    setIsLocked,
     gpsWarning,
     setGpsWarning,
     autoPaused,
@@ -19,7 +18,7 @@ export function useRecordingScreenState() {
     setSplitBanner,
     showTypePicker,
     setShowTypePicker,
-    hrZoneColor,
-    setHrZoneColor,
+    hrZone,
+    setHrZone,
   };
 }

@@ -84,7 +84,7 @@ export function SectionContentArea({
         >
           <MaterialCommunityIcons name="delete-outline" size={18} color={colors.warning} />
           <Text style={styles.disabledBannerText}>
-            {t('sections.removed')} — {t('sections.restoreSection')}
+            {t('sections.removed')} - {t('sections.restoreSection')}
           </Text>
         </TouchableOpacity>
       )}

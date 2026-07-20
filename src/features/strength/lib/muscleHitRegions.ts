@@ -14,7 +14,7 @@ interface HitRegion {
 
 type MusclePositions = Record<string, HitRegion[]>;
 
-/** Front view — SVG-relative positions */
+/** Front view - SVG-relative positions */
 export const FRONT_POSITIONS: MusclePositions = {
   chest: [
     { x: 0.377, y: 0.292 },
@@ -62,7 +62,7 @@ export const FRONT_POSITIONS: MusclePositions = {
   ],
 };
 
-/** Back view — SVG-relative positions */
+/** Back view - SVG-relative positions */
 export const BACK_POSITIONS: MusclePositions = {
   trapezius: [
     { x: 0.479, y: 0.213 },

@@ -86,7 +86,7 @@ export function smoothDataPoints<T extends { x: number; value: number; rawValue:
  * irregular time spacing naturally. No parameter tuning needed.
  *
  * Unlike LOESS (tricube kernel with hard cutoffs), Gaussian tails never
- * reach zero — every observation always contributes, preventing flat
+ * reach zero - every observation always contributes, preventing flat
  * regions and sudden transitions with sparse data.
  *
  * Bandwidth adapts automatically: h = timeSpan / sqrt(n).
@@ -139,7 +139,7 @@ export function gaussianSmooth(
   for (let i = 0; i < safeOutputCount; i++) {
     const x0 = xMin + (i / (safeOutputCount - 1)) * span;
 
-    // Gaussian weights for all observations — single pass accumulates
+    // Gaussian weights for all observations - single pass accumulates
     // both regression sums and sum-of-squared-y for variance derivation
     let sumW = 0,
       sumWx = 0,

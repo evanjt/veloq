@@ -96,7 +96,7 @@ describe('FFI Binding Validation', () => {
     it('should have the expected standalone flat exports', () => {
       // Non-object-method standalone functions (download progress, fetch
       // lifecycle, polyline overlap, backup validation, standalone section
-      // detection). Adjust if a new standalone is added — but prefer putting
+      // detection). Adjust if a new standalone is added - but prefer putting
       // engine-coupled logic on a UniFFI Object.
       expect(STANDALONE_EXPORTS.length).toBe(6);
     });
@@ -126,7 +126,7 @@ describe('FFI Binding Validation', () => {
   describe('UniFFI Objects', () => {
     it('should discover all domain objects from Rust source', () => {
       // Detected by scanning `#[uniffi::export] impl Foo` blocks. The exact
-      // count is whatever the generator found — assert a sensible lower bound
+      // count is whatever the generator found - assert a sensible lower bound
       // and that every discovered object has a file mapping in this test.
       expect(UNIFFI_OBJECTS.length).toBeGreaterThanOrEqual(8);
     });
@@ -205,7 +205,7 @@ describe('FFI Binding Validation', () => {
 
   describe('Strength FFI contract (US-T1/T2)', () => {
     // Guards that the demo-mode insertion path stays wired end-to-end.
-    // Both sides — the Rust method and the TS client method — must exist so
+    // Both sides - the Rust method and the TS client method - must exist so
     // demo fixtures can seed WeightTraining activities without network calls.
     const STRENGTH_RS = path.resolve(
       __dirname,

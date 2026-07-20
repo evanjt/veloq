@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   View,
   Text,
@@ -18,6 +18,8 @@ import { useTheme } from '@/shared/app';
 import { getFFIMetricsSummary, clearFFIMetrics } from '@/shared/debug/renderTimer';
 import { useSupportStore, daysSince } from '@/shared/app/SupportStore';
 import { formatLocalDate } from '@/shared/format/format';
+import { readTaskRuns, clearTaskRuns } from '@/features/insights/lib/taskRunLog';
+import type { TaskRunEntry } from '@/features/insights/lib/taskRunLog';
 import type { PersistentEngineStats } from 'veloqrs';
 
 function getRouteEngine() {
@@ -194,6 +196,70 @@ function SupportCardDebug({ isDark }: { isDark: boolean }) {
           </Text>
         </TouchableOpacity>
       </View>
+    </CollapsibleSection>
+  );
+}
+
+function BackgroundNotificationsDebug({
+  isDark,
+  refreshKey,
+}: {
+  isDark: boolean;
+  refreshKey: number;
+}) {
+  const [runs, setRuns] = useState<TaskRunEntry[]>([]);
+  const mutedColor = isDark ? darkColors.textSecondary : colors.textSecondary;
+  const textColor = isDark ? darkColors.textPrimary : colors.textPrimary;
+
+  useEffect(() => {
+    let cancelled = false;
+    readTaskRuns().then((entries) => {
+      if (!cancelled) setRuns(entries.slice().reverse());
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [refreshKey]);
+
+  const handleClear = useCallback(() => {
+    clearTaskRuns().then(() => setRuns([]));
+  }, []);
+
+  return (
+    <CollapsibleSection
+      title="Background Notifications"
+      icon="bell-badge-outline"
+      isDark={isDark}
+      defaultOpen={false}
+      testID="debug-section-background-notifications"
+    >
+      {runs.length > 0 ? (
+        <>
+          {runs.map((run, idx) => (
+            <View key={`${run.ts}-${idx}`} style={styles.taskRunRow}>
+              <View style={styles.taskRunHeader}>
+                <Text style={[styles.statValue, { color: textColor }]}>{run.stage}</Text>
+                <Text style={[styles.statLabel, { color: mutedColor }]}>
+                  {new Date(run.ts).toLocaleTimeString()}
+                </Text>
+              </View>
+              <Text style={[styles.taskRunDetail, { color: mutedColor }]} numberOfLines={2}>
+                {[run.eventType, run.activityId, run.sourceShape, run.detail]
+                  .filter(Boolean)
+                  .join(' · ') || '-'}
+              </Text>
+            </View>
+          ))}
+          <TouchableOpacity style={styles.actionButton} onPress={handleClear} activeOpacity={0.7}>
+            <MaterialCommunityIcons name="delete-outline" size={16} color={colors.primary} />
+            <Text style={[styles.actionButtonText, { color: colors.primary }]}>Clear Log</Text>
+          </TouchableOpacity>
+        </>
+      ) : (
+        <Text style={[styles.emptyText, { color: mutedColor }]}>
+          No background task runs recorded yet.
+        </Text>
+      )}
     </CollapsibleSection>
   );
 }
@@ -383,6 +449,9 @@ export default function DebugScreen() {
           )}
         </CollapsibleSection>
 
+        {/* Background Notifications */}
+        <BackgroundNotificationsDebug isDark={isDark} refreshKey={refreshKey} />
+
         {/* Support Card Testing */}
         <SupportCardDebug isDark={isDark} />
 
@@ -500,6 +569,19 @@ const styles = StyleSheet.create({
   numCol: {
     width: 48,
     textAlign: 'right',
+  },
+  taskRunRow: {
+    paddingVertical: 4,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.divider,
+  },
+  taskRunHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  taskRunDetail: {
+    fontSize: 11,
+    fontFamily: 'monospace',
   },
   actionButton: {
     flexDirection: 'row',

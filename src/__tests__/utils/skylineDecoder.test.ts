@@ -134,7 +134,7 @@ describe('decodeSkylineBytes', () => {
 
 // Skyline bar colour resolution (palette selection by zone basis, dark-mode Z7
 // swap, out-of-range clamp). Mirrors the SkylineBar component's mapping, which
-// can't render under the Jest transform — kept here as the behavioural home now
+// can't render under the Jest transform - kept here as the behavioural home now
 // that the decoder and the colour mapping live in one suite.
 describe('skyline zone colour mapping', () => {
   const POWER_ZONE_COLORS = [

@@ -9,7 +9,7 @@
  * `activity_indicators` table populated by `compute_section_indicators()` in
  * Rust. The section detail page's calendar shows trophies at year/month
  * aggregation levels, so the user may see 3 trophy icons in the calendar
- * for what is really one all-time PR — that is a visualization artifact in
+ * for what is really one all-time PR - that is a visualization artifact in
  * SectionStatsCards, not a count mismatch in this hook.
  */
 

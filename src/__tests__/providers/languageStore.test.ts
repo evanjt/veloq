@@ -100,7 +100,7 @@ describe('LanguageStore', () => {
 
       const result = await initializeLanguage();
 
-      // 'de' is not a full locale — resolves to 'de-DE' via fallback
+      // 'de' is not a full locale - resolves to 'de-DE' via fallback
       expect(result).toBe('de-DE');
       expect(useLanguageStore.getState().language).toBe('de');
     });
@@ -114,7 +114,7 @@ describe('LanguageStore', () => {
     it('returns resolved locale from current state', () => {
       useLanguageStore.setState({ language: 'de', isInitialized: true });
 
-      // 'de' is not a full locale — resolves to 'de-DE' via fallback
+      // 'de' is not a full locale - resolves to 'de-DE' via fallback
       expect(getEffectiveLanguage()).toBe('de-DE');
     });
 

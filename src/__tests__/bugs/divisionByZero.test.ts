@@ -133,7 +133,7 @@ describe('gaussianSmooth outputCount=1 (smoothing.ts:137)', () => {
 });
 
 describe('toFixed on NaN reaching UI (fitness.tsx:778, section/[id].tsx:1003)', () => {
-  it('NaN.toFixed produces "NaN" string — this is why Number.isFinite guards are needed', () => {
+  it('NaN.toFixed produces "NaN" string - this is why Number.isFinite guards are needed', () => {
     expect(NaN.toFixed(1)).toBe('NaN');
     expect(Infinity.toFixed(1)).toBe('Infinity');
   });

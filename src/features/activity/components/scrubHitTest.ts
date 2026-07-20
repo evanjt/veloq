@@ -24,7 +24,7 @@ export interface ScrubHitTestParams {
 /**
  * Map a finger window-Y to a row index, or `null` if the finger is outside
  * the list. Zones are `[firstRowTopY + N*rowHeight, firstRowTopY + (N+1)*rowHeight)`
- * so a tap anywhere within a row's visible frame — top, middle, or bottom —
+ * so a tap anywhere within a row's visible frame - top, middle, or bottom -
  * resolves to that row.
  */
 export function findRowIndexAtPageY(params: ScrubHitTestParams): number | null {

@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -8,7 +8,8 @@ import { useTheme } from '@/shared/app';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { useUploadPermissionStore } from '@/features/recording/stores/UploadPermissionStore';
 import { usePermissionUpgrade } from '@/features/recording/hooks/usePermissionUpgrade';
-import { spacing, colors, colorWithOpacity } from '@/theme';
+import { spacing, colors, colorWithOpacity, layout, typography } from '@/theme';
+import { GrantAccessButton } from './GrantAccessButton';
 
 const AMBER_BG = colorWithOpacity(colors.warning, 0.12);
 const AMBER_BG_DARK = colorWithOpacity(colors.warning, 0.18);
@@ -38,18 +39,7 @@ function PermissionUpgradeBannerInner() {
           <Text style={[styles.text, { color: AMBER_TEXT }]} numberOfLines={2}>
             {t('recording.permissionNeeded', 'Permission needed to upload activities')}
           </Text>
-          <TouchableOpacity
-            style={styles.button}
-            onPress={upgradePermissions}
-            disabled={isUpgrading}
-            activeOpacity={0.7}
-          >
-            {isUpgrading ? (
-              <ActivityIndicator size="small" color={AMBER_ACCENT} />
-            ) : (
-              <Text style={styles.buttonText}>{t('recording.grantAccess', 'Grant Access')}</Text>
-            )}
-          </TouchableOpacity>
+          <GrantAccessButton onPress={upgradePermissions} loading={isUpgrading} small />
           <TouchableOpacity
             testID="permission-banner-dismiss"
             onPress={dismissBanner}
@@ -74,7 +64,7 @@ const styles = StyleSheet.create({
   container: {
     marginHorizontal: spacing.md,
     marginBottom: spacing.sm,
-    borderRadius: 10,
+    borderRadius: layout.borderRadius,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
   },
@@ -88,25 +78,12 @@ const styles = StyleSheet.create({
   },
   text: {
     flex: 1,
-    fontSize: 13,
+    fontSize: typography.bodyCompact.fontSize,
     fontWeight: '500',
   },
   errorText: {
-    fontSize: 12,
-    color: '#DC2626',
+    fontSize: typography.caption.fontSize,
+    color: colors.errorDark,
     marginLeft: 18 + spacing.sm,
-  },
-  button: {
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 6,
-    borderRadius: 6,
-    backgroundColor: AMBER_ACCENT,
-    minWidth: 80,
-    alignItems: 'center',
-  },
-  buttonText: {
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '600',
   },
 });

@@ -10,7 +10,7 @@ import type { CalendarEvent } from '@/types';
  * Fetch today's and tomorrow's planned workouts from the intervals.icu calendar.
  * Uses CALENDAR:READ scope (already authorized).
  *
- * Calendar events are relatively static — 5min staleTime prevents over-fetching
+ * Calendar events are relatively static - 5min staleTime prevents over-fetching
  * while still reflecting changes if the user edits their plan on intervals.icu.
  */
 export function useTodayWorkout() {
@@ -28,7 +28,7 @@ export function useTodayWorkout() {
         category: 'WORKOUT',
       }),
     enabled: isAuthenticated,
-    staleTime: CACHE.SHORT, // 5 min — planned workouts don't change often
+    staleTime: CACHE.SHORT, // 5 min - planned workouts don't change often
     gcTime: CACHE.HOUR, // 1 hour
   });
 

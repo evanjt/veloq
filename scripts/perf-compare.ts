@@ -117,7 +117,7 @@ const args = process.argv.slice(2);
 const results = loadResults();
 
 if (!results.success) {
-  console.error('Test suite failed — fix failing tests before comparing performance.');
+  console.error('Test suite failed - fix failing tests before comparing performance.');
   process.exit(1);
 }
 

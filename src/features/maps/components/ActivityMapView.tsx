@@ -84,7 +84,7 @@ interface ActivityMapViewProps {
   polyline?: string;
   coordinates?: LatLng[];
   activityType: ActivityType;
-  /** Activity ID — used to resolve per-activity map style overrides */
+  /** Activity ID - used to resolve per-activity map style overrides */
   activityId?: string;
   height?: number;
   showStyleToggle?: boolean;
@@ -130,16 +130,16 @@ interface ActivityMapViewProps {
     bearing: number;
     pitch: number;
   }) => void;
-  /** Saved camera override for 3D mode — restores a previously captured angle */
+  /** Saved camera override for 3D mode - restores a previously captured angle */
   initial3DCamera?: {
     center: [number, number];
     zoom: number;
     bearing: number;
     pitch: number;
   } | null;
-  /** Activity country — used for demo mode satellite default on Swiss activities */
+  /** Activity country - used for demo mode satellite default on Swiss activities */
   country?: string | null;
-  /** Activity streams — required to compute per-point gradient coloring */
+  /** Activity streams - required to compute per-point gradient coloring */
   streams?: ActivityStreams | null;
 }
 
@@ -261,7 +261,7 @@ export const ActivityMapView = memo(function ActivityMapView({
     streams,
   });
 
-  // "Color by gradient" toggle — session-local, per-activity.
+  // "Color by gradient" toggle - session-local, per-activity.
   // Off by default so the normal solid-color experience is unchanged.
   const [colorByGradient, setColorByGradient] = useState(false);
   const hasGradientData = gradientLineExpression != null;
@@ -312,7 +312,7 @@ export const ActivityMapView = memo(function ActivityMapView({
 
   // Notify parent when 3D mode changes (outside of render cycle)
   // Also fire onCameraCapture when exiting 3D mode with a saved camera
-  // Skip initial mount — only user-initiated toggles should save overrides
+  // Skip initial mount - only user-initiated toggles should save overrides
   const modeInitRef = useRef(true);
   useEffect(() => {
     if (modeInitRef.current) {
@@ -327,7 +327,7 @@ export const ActivityMapView = memo(function ActivityMapView({
     on3DModeChange?.(is3DMode);
   }, [is3DMode, on3DModeChange, onCameraCapture]);
 
-  // Notify parent when map style changes (skip initial mount — only user-initiated changes)
+  // Notify parent when map style changes (skip initial mount - only user-initiated changes)
   const styleInitRef = useRef(true);
   useEffect(() => {
     if (styleInitRef.current) {
@@ -345,7 +345,7 @@ export const ActivityMapView = memo(function ActivityMapView({
     }
   }, [is3DMode, map3DOpacity]);
 
-  // Refs used by the attribution pipeline — declared here so the 3D camera
+  // Refs used by the attribution pipeline - declared here so the 3D camera
   // handler below can mirror camera state into them without TDZ issues.
   const attributionRef = useRef<AttributionOverlayRef>(null);
   const initialAttributionRef = useRef(MAP_ATTRIBUTIONS[mapStyle]);
@@ -422,7 +422,7 @@ export const ActivityMapView = memo(function ActivityMapView({
     [bearingAnim]
   );
 
-  // Handle 3D map click — forward to section creation hook
+  // Handle 3D map click - forward to section creation hook
   const handle3DMapClick = useCallback(
     (coordinate: [number, number]) => {
       if (creationMode) {
@@ -432,7 +432,7 @@ export const ActivityMapView = memo(function ActivityMapView({
     [creationMode, handleCreationTap]
   );
 
-  // Handle 3D section click — forward to parent handler
+  // Handle 3D section click - forward to parent handler
   const handle3DSectionClick = useCallback(
     (sectionId: string) => {
       onSectionMarkerPress?.(sectionId);

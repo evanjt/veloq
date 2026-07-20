@@ -8,7 +8,7 @@ const STORAGE_KEY = 'veloq-insights-fingerprint';
 
 /** Compute a stable fingerprint from a list of insights (sorted IDs only).
  *  Titles contain dynamic values (percentages, watts) that change between
- *  sessions — using them caused the "new" dot to fire on every app launch. */
+ *  sessions - using them caused the "new" dot to fire on every app launch. */
 export function computeInsightFingerprint(insights: Insight[]): string {
   return insights
     .map((i) => i.id)

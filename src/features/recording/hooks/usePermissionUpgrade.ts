@@ -54,7 +54,7 @@ export function usePermissionUpgrade(): UsePermissionUpgrade {
             tokenResponse.athlete_name
           );
 
-        // Trust only the scope the server actually returned — a missing scope
+        // Trust only the scope the server actually returned - a missing scope
         // string means write was NOT confirmed, regardless of what we asked for.
         useUploadPermissionStore.getState().setFromOAuthScope(tokenResponse.scope ?? '');
         const granted = useUploadPermissionStore.getState().hasWritePermission === true;
@@ -74,7 +74,7 @@ export function usePermissionUpgrade(): UsePermissionUpgrade {
         return granted;
       }
 
-      // User cancelled — preserve API key auth
+      // User cancelled - preserve API key auth
       return false;
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'OAuth failed';

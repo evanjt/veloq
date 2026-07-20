@@ -49,7 +49,7 @@ function ProfileAccountSectionComponent({ athlete }: ProfileAccountSectionProps)
       await demotePendingToLocalOnly();
       resetSyncDateRange();
       useUploadPermissionStore.getState().reset();
-      // Clear credentials last — AuthGate detects isAuthenticated=false and
+      // Clear credentials last - AuthGate detects isAuthenticated=false and
       // navigates to /login via InteractionManager to avoid an Android crash.
       await clearCredentials();
     } catch {
@@ -57,7 +57,7 @@ function ProfileAccountSectionComponent({ athlete }: ProfileAccountSectionProps)
     }
   };
 
-  // Plain "Sign out" — keep cached activities/GPS/sections so re-login on the
+  // Plain "Sign out" - keep cached activities/GPS/sections so re-login on the
   // same account is instant. Only the auth credentials and the per-user
   // profile blobs (athlete photo, sport settings) are dropped.
   const handleLogout = () => {
@@ -71,7 +71,7 @@ function ProfileAccountSectionComponent({ athlete }: ProfileAccountSectionProps)
     ]);
   };
 
-  // Destructive option — wipe everything. For switching to a different
+  // Destructive option - wipe everything. For switching to a different
   // account, freeing storage, or starting clean.
   const handleLogoutAndClearData = () => {
     Alert.alert(
@@ -217,7 +217,7 @@ function ProfileAccountSectionComponent({ athlete }: ProfileAccountSectionProps)
         )}
       </TouchableOpacity>
 
-      {/* Logout row — keeps cached data for instant re-login */}
+      {/* Logout row - keeps cached data for instant re-login */}
       <View style={[settingsStyles.rowDivider, isDark && settingsStyles.rowDividerDark]} />
       <TouchableOpacity
         testID="settings-logout-button"
@@ -235,7 +235,7 @@ function ProfileAccountSectionComponent({ athlete }: ProfileAccountSectionProps)
         />
       </TouchableOpacity>
 
-      {/* Destructive sign-out — wipes activities/GPS/sections too */}
+      {/* Destructive sign-out - wipes activities/GPS/sections too */}
       {!isDemo && (
         <>
           <View style={[settingsStyles.rowDivider, isDark && settingsStyles.rowDividerDark]} />

@@ -9,7 +9,7 @@
  *
  * Extracted from SectionScatterChart so the chart component focuses on
  * rendering the Skia surface + Victory chart. The component that consumes
- * this hook still owns the local "selected point" state — this hook just
+ * this hook still owns the local "selected point" state - this hook just
  * notifies via the `onPointSelected` callback.
  */
 
@@ -35,17 +35,17 @@ interface ChartPadding {
   bottom: number;
 }
 
-/** A point as rendered on the chart — the base record plus its normalized X. */
+/** A point as rendered on the chart - the base record plus its normalized X. */
 type ChartPoint = PerformanceDataPoint & { x: number };
 
 export interface UseScatterGesturesParams {
   /** All points rendered on the chart, shared across forward/reverse. */
   allPoints: ChartPoint[];
-  /** Chart width in pixels — the raw surface width the gesture targets. */
+  /** Chart width in pixels - the raw surface width the gesture targets. */
   chartWidth: number;
   /** Chart height in pixels (effective, accounting for `mini` mode). */
   chartHeight: number;
-  /** Chart padding — subtracted from the tap location to get chart content coords. */
+  /** Chart padding - subtracted from the tap location to get chart content coords. */
   padding: ChartPadding;
   /** Y-domain minimum (from scatterData). */
   minSpeed: number;
@@ -95,7 +95,7 @@ export function useScatterGestures({
 }: UseScatterGesturesParams): UseScatterGesturesResult {
   // Shared value for scrub crosshair position
   const touchX = useSharedValue(-1);
-  // Not read anywhere — kept because the original component set it, so its
+  // Not read anywhere - kept because the original component set it, so its
   // removal would be a visible behavior change (one extra re-render per
   // scrub start/end). Preserving until we can verify it is truly unused.
   const [, setIsScrubbing] = useState(false);
@@ -217,9 +217,9 @@ export function useScatterGestures({
     [selectPointAtXY]
   );
 
-  // Combined gesture — allows ScrollView to handle scroll momentum
+  // Combined gesture - allows ScrollView to handle scroll momentum
   // In compact mode, skip pan (scrub) gesture entirely; in mini mode, skip all gestures
-  // Note: `Gesture.Native()` must be created per-instance — it carries a handlerTag
+  // Note: `Gesture.Native()` must be created per-instance - it carries a handlerTag
   // that the native side mutates on initialize(). A shared module-level instance
   // causes handler-tag collisions across mounts.
   const nativeGesture = useMemo(() => Gesture.Native(), []);

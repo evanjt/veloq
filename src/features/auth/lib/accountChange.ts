@@ -4,7 +4,7 @@
  * The engine holds at most one account's data at a time. When a user signs
  * into a different account (or enters demo mode while real data is cached),
  * the cached data has to be wiped. We surface that as an explicit confirmation
- * so a deliberate "I'm switching accounts" gesture is required — never
+ * so a deliberate "I'm switching accounts" gesture is required - never
  * silently destroy synced data.
  */
 
@@ -42,7 +42,7 @@ interface ConfirmAccountChangeArgs {
  * they back out.
  *
  * Use the result to gate a `clearAccountData(queryClient)` call. Do NOT
- * proceed with the login / demo entry on `false` — keep the caller on the
+ * proceed with the login / demo entry on `false` - keep the caller on the
  * current screen.
  */
 export function confirmAccountChange(args: ConfirmAccountChangeArgs): Promise<boolean> {

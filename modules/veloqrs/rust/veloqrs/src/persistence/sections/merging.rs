@@ -420,7 +420,7 @@ impl PersistentRouteEngine {
             rusqlite::params![secondary_id],
         )?;
 
-        // visit_count is derived at read-time via COUNT(*) on section_activities —
+        // visit_count is derived at read-time via COUNT(*) on section_activities -
         // there is no stored visit_count column on sections.
         let visit_count: u32 = tx
             .query_row(

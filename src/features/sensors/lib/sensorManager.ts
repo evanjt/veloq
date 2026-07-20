@@ -171,7 +171,7 @@ async function subscribeToSensor(active: ActiveConnection, kinds: SensorKind[]):
     );
   }
 
-  // Battery is optional — read once, ignore absence
+  // Battery is optional - read once, ignore absence
   try {
     const battery = await device.readCharacteristicForService(BATTERY_SERVICE, BATTERY_LEVEL);
     if (battery.value) {
@@ -179,7 +179,7 @@ async function subscribeToSensor(active: ActiveConnection, kinds: SensorKind[]):
       if (percent != null) store().setBattery(device.id, percent);
     }
   } catch {
-    // No battery service — fine
+    // No battery service - fine
   }
 }
 

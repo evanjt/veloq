@@ -29,7 +29,7 @@ apiClient.interceptors.request.use((config) => {
     const encoded = btoa(`API_KEY:${apiKey}`);
     config.headers.Authorization = `Basic ${encoded}`;
   } else {
-    // No valid credentials — reject immediately to prevent unauthenticated requests
+    // No valid credentials - reject immediately to prevent unauthenticated requests
     // during logout teardown when queries may re-fire before cancellation
     return Promise.reject(new axios.Cancel('No credentials available'));
   }

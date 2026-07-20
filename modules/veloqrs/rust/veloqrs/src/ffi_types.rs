@@ -1140,7 +1140,7 @@ pub struct FfiExerciseContribution {
 
 /// Full muscle-group breakdown for one activity, one muscle slug. Rust groups
 /// exercise sets by display name, classifies primary/secondary, and returns
-/// totals — replacing the useMemo grouping/reducing in `useMuscleDetail`.
+/// totals - replacing the useMemo grouping/reducing in `useMuscleDetail`.
 #[derive(Debug, Clone, uniffi::Record)]
 pub struct FfiMuscleGroupDetail {
     pub slug: String,
@@ -1205,7 +1205,7 @@ pub struct FfiWorkoutSection {
     pub last_time_secs: Option<f64>,
     pub days_since_last: Option<i32>,
     pub pr_days_ago: Option<i32>,
-    /// "improving" | "stable" | "declining" — empty string when insufficient data
+    /// "improving" | "stable" | "declining" - empty string when insufficient data
     pub trend: String,
 }
 
@@ -1338,7 +1338,7 @@ impl From<crate::CalendarSummary> for FfiCalendarSummary {
 // ============================================================================
 
 /// One wellness row passed in from TS (intervals.icu sync). Fields outside
-/// this subset (sleepQuality, spO2, etc.) aren't persisted yet — the TS
+/// this subset (sleepQuality, spO2, etc.) aren't persisted yet - the TS
 /// sync helper only forwards the fields the Rust atomics consume.
 #[derive(Debug, Clone, uniffi::Record)]
 pub struct FfiWellnessRow {
@@ -1372,7 +1372,7 @@ pub struct FfiWellnessSparklines {
 }
 
 /// HRV trend summary over a trailing window. `label` is the i18n key suffix
-/// ("trendingUp" | "stable" | "trendingDown") — TS resolves translations.
+/// ("trendingUp" | "stable" | "trendingDown") - TS resolves translations.
 #[derive(Debug, Clone, uniffi::Record)]
 pub struct FfiHrvTrend {
     pub label: String,
@@ -1538,7 +1538,7 @@ pub struct FfiEfficiencyPoint {
     pub pace_secs_per_km: f64,
     /// Average heart rate during this traversal
     pub avg_hr: f64,
-    /// HR/pace ratio: avg_hr / pace_secs_per_km — lower = more efficient
+    /// HR/pace ratio: avg_hr / pace_secs_per_km - lower = more efficient
     pub hr_pace_ratio: f64,
 }
 
@@ -1927,6 +1927,9 @@ pub struct FfiActivityRouteHighlight {
     /// time. Negative = ahead of PR, positive = behind PR. None when there is
     /// no PR comparison available (e.g. first attempt).
     pub time_delta_seconds: Option<i32>,
+    /// When is_pr: seconds faster than the previous best attempt. None when
+    /// this is the only timed attempt, when times tie, or when not a PR.
+    pub pr_improvement_seconds: Option<u32>,
 }
 
 // ============================================================================
@@ -1934,7 +1937,7 @@ pub struct FfiActivityRouteHighlight {
 // ============================================================================
 
 /// Pre-computed PR or trend indicator for an activity.
-/// Read from the `activity_indicators` table — no on-demand computation.
+/// Read from the `activity_indicators` table - no on-demand computation.
 #[derive(Debug, Clone, uniffi::Record)]
 pub struct FfiActivityIndicator {
     pub activity_id: String,
@@ -1988,6 +1991,26 @@ pub struct FfiSectionMatch {
     pub distance_meters: f64,
 }
 
+/// Result of cheap per-activity section indexing after ingest.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiIndexActivitySummary {
+    pub matched_sections: u32,
+    pub inserted_portions: u32,
+    pub regrouped: bool,
+    pub indicators_recomputed: bool,
+}
+
+impl From<crate::sections::IndexActivitySummary> for FfiIndexActivitySummary {
+    fn from(s: crate::sections::IndexActivitySummary) -> Self {
+        Self {
+            matched_sections: s.matched_sections,
+            inserted_portions: s.inserted_portions,
+            regrouped: s.regrouped,
+            indicators_recomputed: s.indicators_recomputed,
+        }
+    }
+}
+
 /// Candidate for merging with another section.
 #[derive(Debug, Clone, uniffi::Record)]
 pub struct FfiMergeCandidate {
@@ -2025,7 +2048,7 @@ pub struct FfiMatchStrictness {
 /// One stale-PR opportunity: a section whose PR might be beatable because
 /// the user's threshold fitness (FTP for cycling, critical speed for run/swim)
 /// has improved since the PR was set, and the section hasn't been visited
-/// recently. Pure pattern recognition — TS formats as an Insight.
+/// recently. Pure pattern recognition - TS formats as an Insight.
 #[derive(Debug, Clone, uniffi::Record)]
 pub struct FfiStalePrOpportunity {
     pub section_id: String,

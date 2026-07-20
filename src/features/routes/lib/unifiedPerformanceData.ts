@@ -6,13 +6,13 @@
  * sizing, identifies the fastest (best) point in each lane, and locates
  * the globally-highlighted "current" point inside each lane when present.
  *
- * No React, no Victory — pure functions so they can be unit tested in
+ * No React, no Victory - pure functions so they can be unit tested in
  * isolation.
  */
 
 import type { PerformanceDataPoint } from '@/types';
 
-/** A point as rendered on the chart — the base record plus its normalized X. */
+/** A point as rendered on the chart - the base record plus its normalized X. */
 export type ChartPoint = PerformanceDataPoint & { x: number };
 
 /** Prepared data for a single direction lane. */
@@ -21,7 +21,7 @@ export interface LaneData {
   points: ChartPoint[];
   /**
    * Index back into the original `chartData` array for each lane point.
-   * Parallel to `points` — `originalIndices[i]` is the source index of
+   * Parallel to `points` - `originalIndices[i]` is the source index of
    * `points[i]`.
    */
   originalIndices: number[];
@@ -93,7 +93,7 @@ export function buildLaneStats(
     }
   });
 
-  // No finite speed observed — return an empty lane rather than an Infinity
+  // No finite speed observed - return an empty lane rather than an Infinity
   // domain that would break the chart's Y axis.
   if (!Number.isFinite(min) || !Number.isFinite(max)) {
     return { ...EMPTY_LANE };

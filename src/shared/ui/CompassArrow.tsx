@@ -45,7 +45,7 @@ export function CompassArrow({
 interface StaticCompassArrowProps {
   /** Size of the compass arrow (default 16) */
   size?: number;
-  /** Map bearing in degrees — arrow rotates to point north */
+  /** Map bearing in degrees - arrow rotates to point north */
   bearing: number;
   /** Color for north (top) half */
   northColor?: string;

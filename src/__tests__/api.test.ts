@@ -70,7 +70,7 @@ describe('parseStreams', () => {
     expect(result.altitude).toEqual([100, 110, 120]);
   });
 
-  // 'parse all stream types' test removed — covered by contracts.test.ts test 7
+  // 'parse all stream types' test removed - covered by contracts.test.ts test 7
 
   it('should ignore unknown stream types', () => {
     const rawStreams: RawStreamItem[] = [

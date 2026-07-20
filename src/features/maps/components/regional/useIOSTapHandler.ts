@@ -109,7 +109,7 @@ export function useIOSTapHandler({
 
         // Build list of layers to query based on visibility
         const layersToQuery: string[] = [];
-        // Spider markers take priority — query them first so they are hit-tested before clusters
+        // Spider markers take priority - query them first so they are hit-tested before clusters
         if (spider) {
           layersToQuery.push('spider-points');
         }
@@ -158,7 +158,7 @@ export function useIOSTapHandler({
           const feature = features.features[0];
           const featureId = feature.properties?.id;
 
-          // Spider marker tap — select the activity and dismiss spider
+          // Spider marker tap - select the activity and dismiss spider
           if (feature.properties?.isSpider === true && featureId) {
             const activity = activities.find((a) => a.id === featureId);
             if (activity) {
@@ -170,7 +170,7 @@ export function useIOSTapHandler({
 
           // Determine feature type by checking geometry and properties
           if (feature.geometry?.type === 'Point' && showActivities) {
-            // Cluster tap — fit the camera to the bounds of the cluster's
+            // Cluster tap - fit the camera to the bounds of the cluster's
             // leaves. Produces a tight zoom that always shows the underlying
             // activities. Falls back to spider-expansion when all the leaves
             // share a location (e.g. repeated starts from the same door).
@@ -284,7 +284,7 @@ export function useIOSTapHandler({
     ]
   );
 
-  // Android uses ShapeSource.onPress — no touch handlers needed
+  // Android uses ShapeSource.onPress - no touch handlers needed
   if (Platform.OS !== 'ios') {
     return { onTouchStart: undefined, onTouchEnd: undefined };
   }

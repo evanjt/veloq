@@ -44,7 +44,7 @@ if [ -f "$SCHEME" ]; then
     echo "Patched scheme to use StoreKit config."
   fi
 else
-  echo "Warning: Scheme not found at $SCHEME — set StoreKit config manually in Xcode."
+  echo "Warning: Scheme not found at $SCHEME - set StoreKit config manually in Xcode."
 fi
 
 echo "Done. Build with Debug configuration to test IAP on the simulator."

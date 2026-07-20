@@ -4,7 +4,8 @@ import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 
-import { colors, spacing, layout, typography, brand } from '@/theme';
+import { brand, colors, colorWithOpacity, spacing, layout, typography } from '@/theme';
+import { GrantAccessButton } from './GrantAccessButton';
 
 export interface SaveErrorBannerProps {
   /** Error text to display. If falsy, the banner renders nothing. */
@@ -48,29 +49,7 @@ export function SaveErrorBanner({
     <View style={styles.errorBanner}>
       <Text style={styles.errorBannerText}>{errorMessage}</Text>
       {showPermissionFix && (
-        <TouchableOpacity
-          style={[styles.oauthUpgradeBtn, { backgroundColor: brand.teal }]}
-          onPress={onUpgradePermissions}
-          disabled={isOAuthLoading}
-          activeOpacity={0.8}
-          accessibilityRole="button"
-          accessibilityLabel={t('recording.grantAccess', 'Grant Access')}
-        >
-          {isOAuthLoading ? (
-            <ActivityIndicator size="small" color={colors.textOnDark} />
-          ) : (
-            <>
-              <MaterialCommunityIcons
-                name="shield-lock-outline"
-                size={16}
-                color={colors.textOnDark}
-              />
-              <Text style={styles.oauthUpgradeBtnText}>
-                {t('recording.grantAccess', 'Grant Access')}
-              </Text>
-            </>
-          )}
-        </TouchableOpacity>
+        <GrantAccessButton onPress={onUpgradePermissions} loading={isOAuthLoading} />
       )}
       {!showPermissionFix && onRetry && (
         <TouchableOpacity
@@ -97,7 +76,7 @@ export function SaveErrorBanner({
 
 const styles = StyleSheet.create({
   errorBanner: {
-    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    backgroundColor: colorWithOpacity(colors.error, 0.1),
     borderRadius: layout.borderRadiusSm,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.sm,

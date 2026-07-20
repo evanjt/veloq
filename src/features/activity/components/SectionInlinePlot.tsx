@@ -15,6 +15,7 @@ import { useTranslation } from 'react-i18next';
 import {
   brand,
   colors,
+  colorWithOpacity,
   darkColors,
   sectionPalette,
   sectionPaletteIndex,
@@ -44,7 +45,7 @@ interface SectionInlinePlotProps {
    *  finger-Y → row-index arithmetically instead of querying per-row layouts. */
   onRowHeight?: (height: number) => void;
   /** Expose the first row's outer View ref to the parent. Only row 0 needs
-   *  to be measured — subsequent rows' positions are pure arithmetic. */
+   *  to be measured - subsequent rows' positions are pure arithmetic. */
   firstRowRef?: (ref: View | null) => void;
   renderRightActions: (
     progress: Animated.AnimatedInterpolation<number>,
@@ -150,7 +151,7 @@ export const SectionInlinePlot = memo(
       [onRowHeight]
     );
 
-    // Only row 0's ref is forwarded to the parent — it's the anchor point the
+    // Only row 0's ref is forwarded to the parent - it's the anchor point the
     // scrub hit-test measures at gesture start. Other rows don't need refs.
     const ownRef = useRef<View | null>(null);
     const handleRef = useCallback(
@@ -263,8 +264,8 @@ const styles = StyleSheet.create({
     backgroundColor: darkColors.surfaceCard,
   },
   cardHighlighted: {
-    backgroundColor: '#00E5FF26',
-    borderColor: '#00E5FF',
+    backgroundColor: colorWithOpacity(colors.chartCyan, 0.15),
+    borderColor: colors.chartCyan,
   },
   header: {
     flexDirection: 'row',
@@ -274,7 +275,7 @@ const styles = StyleSheet.create({
   numberLabel: {
     width: 26,
     textAlign: 'center',
-    fontSize: 18,
+    fontSize: typography.metricValue.fontSize,
     fontWeight: '800',
     color: colors.textSecondary,
     marginRight: spacing.sm,

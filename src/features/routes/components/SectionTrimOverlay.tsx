@@ -73,7 +73,7 @@ export function SectionTrimOverlay({
   const sectionStartFraction = hasWindowMarkers ? (sectionStartInWindow ?? 0) / maxIndex : 0;
   const sectionEndFraction = hasWindowMarkers ? (sectionEndInWindow ?? maxIndex) / maxIndex : 1;
 
-  // ── UI-thread state (SharedValues — 60fps, no bridge) ──
+  // ── UI-thread state (SharedValues - 60fps, no bridge) ──
   const startFrac = useSharedValue(startIndex / maxIndex);
   const endFrac = useSharedValue(endIndex / maxIndex);
   const prevTransX = useSharedValue(0);
@@ -81,7 +81,7 @@ export function SectionTrimOverlay({
   const isDragging = useSharedValue(false);
 
   // Sync SharedValues when props change (e.g. step buttons, expand toggle)
-  // Skip during active drag — the gesture owns the SharedValues then.
+  // Skip during active drag - the gesture owns the SharedValues then.
   useEffect(() => {
     if (!isDragging.value) startFrac.value = startIndex / maxIndex;
   }, [startIndex, maxIndex, startFrac, isDragging]);
@@ -129,7 +129,7 @@ export function SectionTrimOverlay({
     lastPrecisionRef.current = 'normal';
   }, []);
 
-  // ── Step button handlers (JS thread — immediate) ──
+  // ── Step button handlers (JS thread - immediate) ──
   const nudgeStart = useCallback(
     (delta: number) => {
       const newIndex = Math.max(
@@ -253,7 +253,7 @@ export function SectionTrimOverlay({
     ]
   );
 
-  // ── Animated styles (UI thread — instant) ──
+  // ── Animated styles (UI thread - instant) ──
   const startHandleStyle = useAnimatedStyle(() => ({
     left: startFrac.value * trackWidthSV.value - HANDLE_SIZE / 2,
   }));
@@ -267,7 +267,7 @@ export function SectionTrimOverlay({
     width: (endFrac.value - startFrac.value) * trackWidthSV.value,
   }));
 
-  // ── JS-thread derived values (for info display — updates at React render rate) ──
+  // ── JS-thread derived values (for info display - updates at React render rate) ──
   const percentage =
     originalDistance > 0 ? Math.round((trimmedDistance / originalDistance) * 100) : 100;
   const isTrimmed = hasWindowMarkers
@@ -328,7 +328,7 @@ export function SectionTrimOverlay({
         )}
       </View>
 
-      {/* Full-width slider — handles + track driven by SharedValues (60fps) */}
+      {/* Full-width slider - handles + track driven by SharedValues (60fps) */}
       <View style={styles.sliderContainer} onLayout={onTrackLayout}>
         <View style={[styles.trackBackground, isDark && styles.trackBackgroundDark]} />
         {hasWindowMarkers && (

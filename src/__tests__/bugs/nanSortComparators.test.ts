@@ -3,12 +3,11 @@
  * Verifies that safeGetTime prevents NaN from breaking sort comparators.
  *
  * Affected source files (all fixed to use safeGetTime):
- *   - useRoutePerformances.ts:239
- *   - ActivitySectionsSection.tsx:83
- *   - SectionPerformanceTimeline.tsx:47
- *   - UnifiedPerformanceChart.tsx:266,349
- *   - RecentEffortsList.tsx:30
- *   - localBackend.ts:54
+ *   - useRoutePerformances.ts
+ *   - ActivitySectionsSection.tsx
+ *   - SectionPerformanceTimeline.tsx
+ *   - RecentEffortsList.tsx
+ *   - localBackend.ts
  */
 
 import { safeGetTime } from '@/shared/format/format';

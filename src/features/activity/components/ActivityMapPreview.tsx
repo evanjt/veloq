@@ -92,7 +92,7 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
   });
 
   // The snapshot pipeline gave up on this activity (retries exhausted /
-  // timeout) — drop from the loading state to the route-line fallback.
+  // timeout) - drop from the loading state to the route-line fallback.
   const [snapshotFailed, setSnapshotFailed] = useState(false);
 
   // Reset image when map style or 3D preference changes
@@ -143,7 +143,7 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
   const bounds = useMemo(() => getMapLibreBounds(validCoordinates), [validCoordinates]);
 
   // Project the route to pixel points that fit the card box, then build Skia
-  // paths. A static line preview replaces the per-card live MapLibre MapView —
+  // paths. A static line preview replaces the per-card live MapLibre MapView -
   // the GL contexts were the feed's dominant render cost. The full interactive
   // map lives on the activity detail screen.
   const routePoints = useMemo(
@@ -151,7 +151,7 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
     [validCoordinates, boxW, height]
   );
 
-  // Build the route line as an SVG path string + MakeFromSVGString — the supported
+  // Build the route line as an SVG path string + MakeFromSVGString - the supported
   // Skia 2.x constructor. The imperative Skia.Path.Make().moveTo()/lineTo() API is
   // deprecated and a path built that way fails to render in the declarative <Path>
   // tree, taking the whole Canvas blank. The SummaryCard sparkline uses this same
@@ -161,7 +161,7 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
     return Skia.Path.MakeFromSVGString(polylineSvgPath(routePoints));
   }, [routePoints]);
 
-  // PR section highlights (gold) — slice the same projected points by index range.
+  // PR section highlights (gold) - slice the same projected points by index range.
   const prPaths = useMemo(() => {
     if (!prSectionIndices || prSectionIndices.length === 0 || routePoints.length < 2) return [];
     const paths: SkPath[] = [];
@@ -197,11 +197,11 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
     terrain3DMode === 'always' ||
     (terrain3DMode === 'smart' && (cameraConfirmed || (noAltitudeData && maybeShow3D)));
 
-  // Request a basemap snapshot for every card with coordinates — the 3D
+  // Request a basemap snapshot for every card with coordinates - the 3D
   // terrain drape when the activity qualifies, a flat top-down basemap
   // otherwise. FlatList windowing is the throttle (only near-viewport cards
   // mount), so there is no index gate.
-  // Deferred until the feed screen is focused — avoids competing with the detail view's Map3DWebView
+  // Deferred until the feed screen is focused - avoids competing with the detail view's Map3DWebView
   useEffect(() => {
     if (!screenFocused) return;
     if (validCoordinates.length < 2) return;
@@ -220,7 +220,7 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
       return;
     }
 
-    // If WebView workers aren't available yet, skip — they'll mount shortly (500ms deferred)
+    // If WebView workers aren't available yet, skip - they'll mount shortly (500ms deferred)
     // and the effect re-runs when snapshotReady changes
     if (!snapshotRef?.current) return;
 
@@ -304,10 +304,10 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
           style={styles.terrainImage}
           resizeMode="cover"
           onError={({ nativeEvent }) => {
-            // A missing/undecodable cached snapshot must not leave a blank card —
+            // A missing/undecodable cached snapshot must not leave a blank card -
             // drop back to the 2D route line so the track always renders.
             log.log(
-              `terrain image failed (${terrainImageUri}): ${nativeEvent?.error ?? 'unknown'} — falling back to line`
+              `terrain image failed (${terrainImageUri}): ${nativeEvent?.error ?? 'unknown'} - falling back to line`
             );
             setTerrainImageUri(null);
           }}
@@ -321,7 +321,7 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
     );
   }
 
-  // Snapshot pending — neutral loading state. The route line below is reserved
+  // Snapshot pending - neutral loading state. The route line below is reserved
   // for terminal failure (offline, retries exhausted) so a working pipeline
   // always resolves to a basemap, and a broken one never spins forever.
   if (!snapshotFailed) {
@@ -337,7 +337,7 @@ export const ActivityMapPreview = React.memo(function ActivityMapPreview({
   //
   // The Canvas is always mounted (absoluteFill), never gated behind the
   // onLayout-measured width. A Skia Canvas that first mounts *after* its parent
-  // has already laid out renders blank on Android — the native surface misses its
+  // has already laid out renders blank on Android - the native surface misses its
   // first paint. Mounting on the initial render (like the SummaryCard sparkline,
   // whose width comes from props) avoids that. The route Path just appears once
   // boxW is measured and the projection produces points.

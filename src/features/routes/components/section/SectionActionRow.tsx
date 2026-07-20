@@ -104,7 +104,7 @@ export function SectionActionRow({
           />
         </TouchableOpacity>
       )}
-      {/* Accept/Pin chip — inline with action buttons */}
+      {/* Accept/Pin chip - inline with action buttons */}
       {section &&
         section.sectionType === 'auto' &&
         !isCustomId &&

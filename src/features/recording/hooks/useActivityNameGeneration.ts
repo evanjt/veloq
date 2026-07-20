@@ -34,7 +34,7 @@ export interface UseActivityNameGeneration {
  * precedence over the generated default. The user can freely edit the name
  * afterwards via the returned `setName`.
  *
- * Generation runs only once on mount — subsequent prop changes do not
+ * Generation runs only once on mount - subsequent prop changes do not
  * overwrite user edits.
  */
 export function useActivityNameGeneration({

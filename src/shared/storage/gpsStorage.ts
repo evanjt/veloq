@@ -1,7 +1,7 @@
 /**
  * FileSystem-based storage for bounds cache, route names, and database size estimation.
  *
- * GPS track storage functions have been removed — all GPS data is now stored
+ * GPS track storage functions have been removed - all GPS data is now stored
  * exclusively in the Rust SQLite engine (routes.db gps_tracks table).
  * The clearAllGpsTracks() function is retained for cleanup of any legacy files.
  */
@@ -378,7 +378,7 @@ export async function clearAccountData(queryClient: { clear: () => void }): Prom
 
   // Rust engine.clear() now wipes athlete_profile + sport_settings as well as
   // all activity / GPS / section tables (see persistence/activities.rs).
-  // Note: cannot delete the database file — Rust PERSISTENT_ENGINE global holds
+  // Note: cannot delete the database file - Rust PERSISTENT_ENGINE global holds
   // the connection and VeloqEngine.create() skips re-init if the global is Some.
   const routeEngine = getRouteEngine();
   if (routeEngine) routeEngine.clear();
@@ -398,7 +398,7 @@ export async function clearAccountData(queryClient: { clear: () => void }): Prom
  *
  * Used for: leaving demo mode via the "Tap to sign in" banner. The engine
  * only ever holds one identity at a time, so when this fires the engine
- * state IS the demo data — a full clearAccountData wipe is correct. The
+ * state IS the demo data - a full clearAccountData wipe is correct. The
  * dedicated alias documents intent at the call site and lets us swap in
  * a more selective implementation later if the engine ever supports
  * multi-account state.

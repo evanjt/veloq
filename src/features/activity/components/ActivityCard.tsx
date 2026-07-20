@@ -789,7 +789,7 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     borderWidth: 1,
   },
-  // PR pill — solid gold, high contrast
+  // PR pill - solid gold, high contrast
   prPillLight: {
     backgroundColor: '#D4AF37',
     borderColor: '#B8942F',
@@ -798,7 +798,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#D4AF37',
     borderColor: '#E8C96E',
   },
-  // Improving pill — solid green
+  // Improving pill - solid green
   improvingPillLight: {
     backgroundColor: '#22C55E',
     borderColor: '#16A34A',
@@ -807,7 +807,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#22C55E',
     borderColor: '#4ADE80',
   },
-  // Declining pill — solid muted
+  // Declining pill - solid muted
   decliningPillLight: {
     backgroundColor: '#A1A1AA',
     borderColor: '#71717A',

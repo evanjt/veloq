@@ -436,7 +436,7 @@ export default function ActivityDetailScreen() {
     setSectionCreationError(null);
   }, []);
 
-  // Handle section marker press on map — switch to sections tab
+  // Handle section marker press on map - switch to sections tab
   const handleSectionMarkerPress = useCallback((_sectionId: string) => {
     setActiveTab('sections');
   }, []);
@@ -516,7 +516,7 @@ export default function ActivityDetailScreen() {
         </View>
       )}
 
-      {/* Strength Training hero — body diagrams with overlay (back button, name, date, duration) */}
+      {/* Strength Training hero - body diagrams with overlay (back button, name, date, duration) */}
       {isStrength && (
         <ComponentErrorBoundary componentName="Muscle Groups">
           <MuscleGroupView

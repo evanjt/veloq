@@ -42,7 +42,7 @@ export function useWebViewBridge(handlers: WebViewBridgeHandlers) {
           void handler(data as WebViewBridgeMessage);
         }
       } catch {
-        // Ignore parse errors — treat malformed messages as no-ops.
+        // Ignore parse errors - treat malformed messages as no-ops.
       }
     },
     [handlers]

@@ -25,7 +25,7 @@ export function computeTimeAxisLabels<T extends { date: Date }>(points: T[]): Da
 }
 
 /**
- * True when two consecutive axis labels share the same year+month — in
+ * True when two consecutive axis labels share the same year+month - in
  * which case the axis renderer should include the day portion to keep the
  * labels distinguishable.
  */

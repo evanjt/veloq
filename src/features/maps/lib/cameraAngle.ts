@@ -275,7 +275,7 @@ function computeElevationCamera(
 
 /**
  * Quick check using Activity-level data (no altitude stream needed).
- * Uses conservative thresholds so it over-includes rather than excludes —
+ * Uses conservative thresholds so it over-includes rather than excludes -
  * the full camera analysis (calculateTerrainCamera) is the final arbiter.
  */
 export function isLikelyInterestingTerrain(

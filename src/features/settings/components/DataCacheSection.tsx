@@ -177,8 +177,8 @@ export function DataCacheSection({ onLayout }: DataCacheSectionProps) {
             await new Promise((resolve) => setTimeout(resolve, 200));
 
             // 5. Force active queries to refetch fresh data.
-            // DO NOT use clear() — it destroys observers.
-            // DO NOT use invalidateQueries() — it only marks stale, doesn't actively fetch.
+            // DO NOT use clear() - it destroys observers.
+            // DO NOT use invalidateQueries() - it only marks stale, doesn't actively fetch.
             // refetchQueries() actively fetches all mounted queries regardless of state.
             await queryClient.refetchQueries();
 

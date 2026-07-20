@@ -54,7 +54,7 @@ export const InsightDebugPanel = React.memo(function InsightDebugPanel({
                 .sort((a, b) => b.score - a.score)
                 .map((s) => (
                   <Text key={s.insight.id} style={[styles.row, { color: textColor }]}>
-                    {`KEPT  ${s.insight.category}/${s.insight.id} — score=${s.score.toFixed(0)} (cat=${s.breakdown.category} spec=${s.breakdown.specificity} self=${s.breakdown.temporalSelf} sig=${s.breakdown.signal})`}
+                    {`KEPT  ${s.insight.category}/${s.insight.id} - score=${s.score.toFixed(0)} (cat=${s.breakdown.category} spec=${s.breakdown.specificity} self=${s.breakdown.temporalSelf} sig=${s.breakdown.signal})`}
                   </Text>
                 ))}
 
@@ -63,7 +63,7 @@ export const InsightDebugPanel = React.memo(function InsightDebugPanel({
               </Text>
               {outcome.capDropped.map((d) => (
                 <Text key={d.insight.id} style={[styles.row, { color: mutedColor }]}>
-                  {`DROPPED  ${d.insight.category}/${d.insight.id} — score=${d.score.toFixed(0)} (${d.reason})`}
+                  {`DROPPED  ${d.insight.category}/${d.insight.id} - score=${d.score.toFixed(0)} (${d.reason})`}
                 </Text>
               ))}
 
@@ -72,7 +72,7 @@ export const InsightDebugPanel = React.memo(function InsightDebugPanel({
               </Text>
               {outcome.rejected.map((r) => (
                 <Text key={r.insight.id} style={[styles.row, { color: mutedColor }]}>
-                  {`GATED  ${r.insight.category}/${r.insight.id} — ${r.reason}`}
+                  {`GATED  ${r.insight.category}/${r.insight.id} - ${r.reason}`}
                 </Text>
               ))}
             </>

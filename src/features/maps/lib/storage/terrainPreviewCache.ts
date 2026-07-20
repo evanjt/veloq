@@ -19,7 +19,7 @@ const TERRAIN_DIR = `${FileSystem.cacheDirectory}terrain_previews/`;
 const MAX_CACHED_PREVIEWS = 150;
 
 /**
- * Cache version — increment whenever rendering logic changes
+ * Cache version - increment whenever rendering logic changes
  * (style, hillshade, tile loading, camera, pixel ratio).
  * On mismatch, all cached snapshots are cleared so users get fresh renders.
  */
@@ -72,7 +72,7 @@ export function clearTerrainPreviewDirty(activityId: string): void {
  */
 export async function initTerrainPreviewCache(): Promise<void> {
   try {
-    // Check cache version — clear stale snapshots from previous rendering logic
+    // Check cache version - clear stale snapshots from previous rendering logic
     const storedVersion = await AsyncStorage.getItem(VERSION_KEY);
     if (storedVersion !== String(TERRAIN_CACHE_VERSION)) {
       await clearTerrainPreviews();
@@ -168,7 +168,7 @@ export async function saveTerrainPreview(
   cachedKeys = cachedKeys.filter((k) => k !== key);
   cachedKeys.push(key);
 
-  // Clear dirty + priority flags — fresh preview saved
+  // Clear dirty + priority flags - fresh preview saved
   dirtyActivities.delete(activityId);
   prioritySnapshotIds.delete(activityId);
 
@@ -265,7 +265,7 @@ export function getTerrainPreviewCount(): number {
 
 /**
  * Activity IDs that need priority snapshot generation.
- * Populated from consumePendingSnapshots() — cards check this set to bypass
+ * Populated from consumePendingSnapshots() - cards check this set to bypass
  * the index-based throttle (index >= 10 skip) and request snapshots immediately.
  */
 const prioritySnapshotIds = new Set<string>();
@@ -350,7 +350,7 @@ export async function addPendingSnapshot(activityId: string): Promise<void> {
       await AsyncStorage.setItem(PENDING_SNAPSHOTS_KEY, JSON.stringify(trimmed));
     }
   } catch {
-    // Best effort — snapshot will still be generated on scroll
+    // Best effort - snapshot will still be generated on scroll
   }
 }
 

@@ -1,7 +1,7 @@
 /**
  * WebDAV/Nextcloud backup backend.
  *
- * Pure fetch() with WebDAV HTTP methods — no external library needed.
+ * Pure fetch() with WebDAV HTTP methods - no external library needed.
  * User provides server URL + credentials, stored in SecureStore.
  * Backups stored in a /Veloq/ directory on the server.
  */
@@ -37,7 +37,7 @@ export function normalizeWebdavUrl(url: string): string {
   // Common Nextcloud pattern: user gives base URL without /remote.php/dav/files/USER/
   // If URL ends with /remote.php/dav or similar incomplete path, leave it as-is
   // (the user likely knows their path).
-  // But if they just give https://cloud.example.com, don't guess — they need to provide the path.
+  // But if they just give https://cloud.example.com, don't guess - they need to provide the path.
 
   // Ensure trailing slash (WebDAV collections should end with /)
   normalized += '/';
@@ -47,7 +47,7 @@ export function normalizeWebdavUrl(url: string): string {
 
 async function ensureRemoteDir(baseUrl: string, headers: Record<string, string>): Promise<void> {
   const dirUrl = joinUrl(baseUrl, REMOTE_DIR);
-  // MKCOL creates the directory — 201 = created, 405 = already exists, both are fine
+  // MKCOL creates the directory - 201 = created, 405 = already exists, both are fine
   const res = await fetch(dirUrl, { method: 'MKCOL', headers });
   if (res.status !== 201 && res.status !== 405 && res.status !== 301) {
     // 301 is sometimes returned for existing collections
@@ -80,7 +80,7 @@ export async function testWebdavConnection(): Promise<string | null> {
     if (res.status === 207 || res.ok) return null;
     if (res.status === 401) return 'Authentication failed';
     if (res.status === 405)
-      return 'Check your WebDAV URL format — the server does not accept PROPFIND at this path';
+      return 'Check your WebDAV URL format - the server does not accept PROPFIND at this path';
     return `Server returned ${res.status}`;
   } catch (e) {
     return e instanceof Error ? e.message : 'Connection failed';

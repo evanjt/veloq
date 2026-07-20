@@ -16,14 +16,21 @@ const babelTransform = [
   },
 ];
 
+// The main checkout must ignore agent worktrees under .claude/worktrees/, but a
+// jest run started INSIDE one of those worktrees would then match nothing at all
+// (every file path contains the ignored component). Apply the ignore only when
+// running from the main checkout.
+const inWorktree = __dirname.includes(`${require("path").sep}.claude${require("path").sep}`);
+const worktreeIgnores = inWorktree ? [] : ["/.claude/worktrees/"];
+
 module.exports = {
   preset: "jest-expo",
   testEnvironment: "node",
   silent: true,
   rootDir: "..",
   testMatch: ["**/__tests__/**/*.test.ts", "**/__tests__/**/*.test.tsx"],
-  testPathIgnorePatterns: ["/node_modules/", "/__tests__/e2e/", "/.claude/worktrees/"],
-  modulePathIgnorePatterns: ["/.claude/worktrees/"],
+  testPathIgnorePatterns: ["/node_modules/", "/__tests__/e2e/", ...worktreeIgnores],
+  modulePathIgnorePatterns: worktreeIgnores,
   moduleNameMapper: {
     "^@/theme$": "<rootDir>/src/__tests__/__mocks__/theme.js",
     "^@/(.*)$": "<rootDir>/src/$1",

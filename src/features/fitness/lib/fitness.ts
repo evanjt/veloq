@@ -1,4 +1,5 @@
 import type { WellnessData } from '@/types';
+import { colors } from '@/theme/colors';
 import { tsbFromLoads } from '@/shared/math';
 
 /**
@@ -14,7 +15,7 @@ export function calculateTSB(wellness: WellnessData[]): (WellnessData & { tsb: n
 }
 
 /**
- * Form zones based on TSB (Training Stress Balance) — intervals.icu boundaries:
+ * Form zones based on TSB (Training Stress Balance) - intervals.icu boundaries:
  *
  * - highRisk (TSB < -30): Significant accumulated fatigue
  * - optimal (-30 to -10): Where most adaptation occurs
@@ -33,11 +34,11 @@ export function getFormZone(tsb: number): FormZone {
 }
 
 export const FORM_ZONE_COLORS: Record<FormZone, string> = {
-  highRisk: '#EF5350', // Red (matches intervals.icu)
-  optimal: '#66BB6A', // Green (matches intervals.icu)
-  greyZone: '#9E9E9E', // Grey (matches intervals.icu)
-  fresh: '#81C784', // Light green (matches intervals.icu)
-  transition: '#64B5F6', // Light blue (matches intervals.icu)
+  highRisk: colors.formHighRisk,
+  optimal: colors.formOptimal,
+  greyZone: colors.formGreyZone,
+  fresh: colors.formFresh,
+  transition: colors.formTransition,
 };
 
 /** Line/marker colour for a TSB value (the solid FORM_ZONE_COLORS swatch). */

@@ -19,7 +19,7 @@ TaskManager.defineTask(BACKGROUND_LOCATION_TASK, async ({ data, error }) => {
   const { locations } = data as { locations: Location.LocationObject[] };
   if (!locations || locations.length === 0) return;
 
-  // Use require to avoid circular dependency — this runs outside React tree
+  // Use require to avoid circular dependency - this runs outside React tree
   const { useRecordingStore } = require('@/features/recording/stores/RecordingStore');
   const { addGpsPoint, status } = useRecordingStore.getState();
 

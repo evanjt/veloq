@@ -48,6 +48,15 @@ export const brand = {
 
 // Strength volume heatmap: 5-step teal ramp (light to saturated).
 // Used by the muscle body diagram to encode weighted-set volume per muscle.
+// Effort ramp for the RPE slider (easy to maximal, 1-10 mapped in pairs).
+export const rpeRamp = [
+  '#22C55E', // green, RPE 1-2
+  '#84CC16', // lime, RPE 3-4
+  '#EAB308', // yellow, RPE 5-6
+  '#F97316', // orange, RPE 7-8
+  '#EF4444', // red, RPE 9-10
+] as const;
+
 export const strengthRamp = [
   '#CCFBF1', // Teal-100
   '#99F6E4', // Teal-200
@@ -96,7 +105,7 @@ export function sectionPaletteIndex(sectionId: string): number {
 
 // MapLibre expression builder: maps the `colorIndex` feature property to a
 // palette colour. Uses `match` (not `literal` + `at`) because MapLibre only
-// coerces hex strings to colours in direct positions — inside a literal array
+// coerces hex strings to colours in direct positions - inside a literal array
 // they stay typed as strings and trigger "Expected array<color>" errors.
 export function sectionPaletteExpression(): unknown {
   const branches: unknown[] = [];
@@ -112,7 +121,7 @@ export function sectionPaletteExpression(): unknown {
 
 // Background gradient and grid for the static route/section map previews
 // (MiniTraceView, RouteRow, SectionRow SVGs) and the Skia feed preview halo.
-// Deliberately muted greens — not the brand teal.
+// Deliberately muted greens - not the brand teal.
 export const mapPreviewColors = {
   routeHalo: '#FFFFFF', // White outline under the colored route line (theme-independent)
   light: {
@@ -222,6 +231,7 @@ export const colors = {
   chartAmber: '#F59E0B',
   chartGold: brand.gold,
   chartRed: '#EF4444',
+  chartCasing: '#00000026', // Under-stroke behind chart lines for edge contrast
 
   // Semantic UI colors
   highlight: brand.blue,
@@ -253,7 +263,7 @@ export const colors = {
   workoutCooldown: '#8B5CF6',
 
   // Insight category colors
-  insightGold: '#D4AF37', // brand.gold — unified PR color
+  insightGold: '#D4AF37', // brand.gold - unified PR color
   insightStrength: brand.tealLight, // teal for strength progression
 
   // Warning banner colors
@@ -287,7 +297,7 @@ export const chartStreamColors = {
 } as const;
 
 // Style-picker chip swatches (map style selection): one representative
-// background per map style. Theme-independent — each depicts the style itself.
+// background per map style. Theme-independent - each depicts the style itself.
 export const mapStyleSwatch = {
   light: '#E5E7EB',
   dark: '#374151',
@@ -404,6 +414,7 @@ export const darkColors = {
   chartHR: '#F87171', // Red for heart rate
   chartCadence: '#C084FC', // Purple for cadence
   chartElevation: '#94A3B8', // Slate for elevation
+  chartCasing: '#00000080', // Under-stroke behind chart lines for edge contrast
 } as const;
 
 // =============================================================================
@@ -471,6 +482,7 @@ export const opacity = {
     subtle: 'rgba(0, 0, 0, 0.03)',
     light: 'rgba(0, 0, 0, 0.05)',
     medium: 'rgba(0, 0, 0, 0.1)',
+    scrim: 'rgba(0, 0, 0, 0.4)',
     heavy: 'rgba(0, 0, 0, 0.5)',
     full: 'rgba(0, 0, 0, 0.65)',
   },

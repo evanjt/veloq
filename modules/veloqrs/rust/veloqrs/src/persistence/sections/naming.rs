@@ -41,7 +41,7 @@ impl PersistentRouteEngine {
                         taken_numbers.insert(num);
                     }
                 }
-                // Old pattern: "{Sport} Section N" — still recognize for numbering
+                // Old pattern: "{Sport} Section N" - still recognize for numbering
                 for sport in [
                     "Ride",
                     "Run",
@@ -165,7 +165,7 @@ impl PersistentRouteEngine {
         let mut next_counter = renames.iter().map(|(_, _, n)| *n).max().unwrap_or(0);
 
         for (num, mut section_ids) in number_to_sections {
-            // Sort by activity count DESC — keep the one with most activities at this number
+            // Sort by activity count DESC - keep the one with most activities at this number
             section_ids.sort_by(|a, b| b.1.cmp(&a.1));
 
             for (i, (section_id, _)) in section_ids.iter().enumerate() {

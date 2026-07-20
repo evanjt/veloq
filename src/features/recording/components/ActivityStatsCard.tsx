@@ -17,7 +17,7 @@ export interface ActivityStatsCardProps {
 /**
  * Compact horizontal stats row showing duration, distance, and elevation
  * gain for an activity being reviewed. Distance and elevation cells are
- * conditionally rendered — they only appear when the corresponding value
+ * conditionally rendered - they only appear when the corresponding value
  * is > 0.
  */
 export function ActivityStatsCard({ summary, textPrimary, textSecondary }: ActivityStatsCardProps) {

@@ -130,7 +130,7 @@ export function buildUpdateLayersScript({
             // Update routes layer (with outline for visibility) - purple to match 2D
             addLayerWithOutline('routes-source', 'routes-layer', routesData, '#9C27B0', 3, 0.8);
 
-            // Update sections layer — section consensus polylines (used by RegionalMapView
+            // Update sections layer - section consensus polylines (used by RegionalMapView
             // where there is no activity trace to overlay onto). ActivityMapView does not
             // pass sectionsGeoJSON, so this layer is hidden there.
             // Match 2D: per-feature color from getSectionStyle (color property),
@@ -143,7 +143,7 @@ export function buildUpdateLayersScript({
               }
             } catch (e) { /* noop */ }
 
-            // Update traces layer — activity portion cutouts along the activity's own GPS trace.
+            // Update traces layer - activity portion cutouts along the activity's own GPS trace.
             // PR = gold; non-PR = section palette indexed by colorIndex (matches 2D).
             var baseTracesColor = ['case', ['==', ['get', 'isPR'], true], '#D4AF37',
               ['match', ['get', 'colorIndex'],
@@ -152,7 +152,7 @@ export function buildUpdateLayersScript({
                 '#00BCD4']];
             addLayerWithOutline('traces-source', 'traces-layer', tracesData,
               baseTracesColor, 4, 1);
-            // Dashed pattern — overlapping sections let the colour underneath bleed through.
+            // Dashed pattern - overlapping sections let the colour underneath bleed through.
             try {
               if (window.map.getLayer('traces-layer')) {
                 window.map.setPaintProperty('traces-layer', 'line-dasharray', [2, 1.2]);
@@ -183,7 +183,7 @@ export function buildUpdateLayersScript({
               }
             } catch (e) { console.warn('traces-layer paint update failed:', e); }
 
-            // Section boundary ticks — perpendicular marks at each portion's start/end.
+            // Section boundary ticks - perpendicular marks at each portion's start/end.
             // Drawn above traces so boundaries are visible through any overlap.
             try {
               var boundariesSrcExists = !!window.map.getSource('section-boundaries-source');
@@ -321,7 +321,7 @@ export function buildUpdateLayersScript({
               addMarkerLayers();
             }
 
-            // Activity point markers — used by the global map in 3D as a
+            // Activity point markers - used by the global map in 3D as a
             // points-only equivalent of the 2D markers/clusters layer. We
             // intentionally skip MapLibre supercluster here to keep the
             // implementation simple; the marker count on global is in the

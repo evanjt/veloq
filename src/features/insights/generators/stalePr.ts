@@ -22,7 +22,7 @@ const DAY_MS = 86_400_000;
  */
 
 // ---------------------------------------------------------------------------
-// Input types — mirrors structures from generateInsights.ts
+// Input types - mirrors structures from generateInsights.ts
 // ---------------------------------------------------------------------------
 
 export interface StalePRSectionData {
@@ -447,7 +447,7 @@ export function generateStalePRInsights(
       timestamp: now,
       isNew: false,
       meta: {
-        // See note above — stale_pr opts out of G1 via unset sourceTimestamp.
+        // See note above - stale_pr opts out of G1 via unset sourceTimestamp.
         comparisonKind: 'self',
         specificity: { hasNumber: true, hasPlace: false, hasDate: false },
       },

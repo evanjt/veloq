@@ -1,5 +1,5 @@
 /**
- * buildSpiderGeoJSON — pure GeoJSON generator for cluster spider fan-out.
+ * buildSpiderGeoJSON - pure GeoJSON generator for cluster spider fan-out.
  *
  * When a MapLibre cluster cannot expand further at max zoom, we render the
  * underlying points as a spider/fan pattern around the cluster center with
@@ -7,7 +7,7 @@
  * the current map zoom, and returns the point and line FeatureCollections
  * needed to render both.
  *
- * Extracted from RegionalMapView.tsx — pure refactor, no behaviour change.
+ * Extracted from RegionalMapView.tsx - pure refactor, no behaviour change.
  */
 
 /** Structural input required by buildSpiderGeoJSON. */

@@ -241,7 +241,7 @@ export function useMapHandlers({
       const feature = event.features?.[0];
       if (!feature) return;
 
-      // Cluster tap — fetch the leaves and fit the camera to their bounds.
+      // Cluster tap - fetch the leaves and fit the camera to their bounds.
       // This produces a tighter, more predictable zoom than getClusterExpansionZoom,
       // which just returns the next supercluster split point.
       if (feature.properties?.cluster === true) {
@@ -249,7 +249,7 @@ export function useMapHandlers({
           if (clusterSourceRef.current) {
             const coords = (feature.geometry as GeoJSON.Point).coordinates as [number, number];
             const pointCount = (feature.properties?.point_count as number | undefined) ?? 0;
-            // Cap at 100 leaves — plenty for bounds computation, cheap to transfer.
+            // Cap at 100 leaves - plenty for bounds computation, cheap to transfer.
             const limit = Math.max(1, Math.min(pointCount || 100, 100));
             const leaves = await clusterSourceRef.current.getClusterLeaves(feature, limit, 0);
 
@@ -270,7 +270,7 @@ export function useMapHandlers({
                 });
               }, plan.durationMs + 100);
             } else if (leaves.features.length > 0) {
-              // Leaves are stacked on top of each other — fan out into spider
+              // Leaves are stacked on top of each other - fan out into spider
               // pattern so each underlying activity is tappable.
               setSpider({ center: coords, leaves: leaves.features });
             }
@@ -389,7 +389,7 @@ export function useMapHandlers({
         currentZoomLevel.current = zoomLevel;
       }
 
-      // Update zoom/center refs directly — no React state, no re-renders during gestures.
+      // Update zoom/center refs directly - no React state, no re-renders during gestures.
       // State updates from regionDidChange cause React re-renders that disrupt MapLibre
       // gesture handling on Android, causing camera snap-back.
       if (zoomCenterDebounceRef.current) clearTimeout(zoomCenterDebounceRef.current);
@@ -426,7 +426,7 @@ export function useMapHandlers({
       }, 300);
 
       // v10: visibleBounds is [northEast, southWest] where each is [lng, lat]
-      // Skip viewport culling entirely for < 2000 activities — native MapLibre Supercluster
+      // Skip viewport culling entirely for < 2000 activities - native MapLibre Supercluster
       // handles clustering efficiently. The state update from setVisibleActivityIds causes
       // React re-renders that trigger Android MapLibre camera snap-back.
       if (visibleBounds && activities.length >= 2000) {
@@ -447,7 +447,7 @@ export function useMapHandlers({
             const viewport = mapBoundsToViewport([west, south], [east, north]);
             const visibleIds = activitySpatialIndex.queryViewport(viewport);
 
-            // Only update state when content actually changes — creating a new Set
+            // Only update state when content actually changes - creating a new Set
             // with identical content triggers useMemo recomputation → marker re-render
             // → another regionDidChange, causing an infinite loop at wide zoom levels
             const key =

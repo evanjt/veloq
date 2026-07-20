@@ -5,7 +5,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { colors, darkColors, opacity, typography, layout } from '@/theme';
+import { colors, colorWithOpacity, darkColors, opacity, typography, layout } from '@/theme';
 import { CHART_CONFIG } from '@/constants';
 import type { StatDetail } from './types';
 
@@ -132,10 +132,10 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-start',
   },
   comparisonGood: {
-    backgroundColor: 'rgba(76, 175, 80, 0.15)',
+    backgroundColor: colorWithOpacity(colors.success, 0.15),
   },
   comparisonBad: {
-    backgroundColor: 'rgba(244, 67, 54, 0.15)',
+    backgroundColor: colorWithOpacity(colors.error, 0.15),
   },
   comparisonText: {
     fontSize: typography.micro.fontSize,

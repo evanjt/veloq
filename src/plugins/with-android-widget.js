@@ -15,7 +15,22 @@ const path = require("path");
  * which is why the Kotlin uses a __PKG__ placeholder rather than a hardcoded package.
  */
 
-const RECEIVER_NAME = ".widget.VeloqWidgetProvider";
+// Quick-Record stays compiled but out of the gallery until the record surface is
+// ready. Flip to true to register its receiver again.
+const INCLUDE_RECORD_WIDGET = false;
+
+// Dashboard (all sizes, tap-to-cycle hero), Latest Activity, and the flagged-off
+// Quick-Record button. Excluded receivers are actively removed so an incremental
+// prebuild can't keep a stale registration.
+const RECEIVERS = [
+  { name: ".widget.VeloqWidgetProvider", info: "@xml/veloq_widget_info", include: true },
+  { name: ".widget.VeloqActivityWidgetProvider", info: "@xml/widget_activity_info", include: true },
+  {
+    name: ".widget.VeloqRecordWidgetProvider",
+    info: "@xml/widget_record_info",
+    include: INCLUDE_RECORD_WIDGET,
+  },
+];
 
 function copyDir(src, dest) {
   fs.mkdirSync(dest, { recursive: true });
@@ -57,10 +72,17 @@ function withWidgetReceiver(config) {
   return withAndroidManifest(config, (mod) => {
     const app = AndroidConfig.Manifest.getMainApplicationOrThrow(mod.modResults);
     app.receiver = app.receiver || [];
-    const exists = app.receiver.some((r) => r.$?.["android:name"] === RECEIVER_NAME);
-    if (!exists) {
+    for (const { name, include } of RECEIVERS) {
+      if (!include) {
+        app.receiver = app.receiver.filter((r) => r.$?.["android:name"] !== name);
+      }
+    }
+    for (const { name, info, include } of RECEIVERS) {
+      if (!include) continue;
+      const exists = app.receiver.some((r) => r.$?.["android:name"] === name);
+      if (exists) continue;
       app.receiver.push({
-        $: { "android:name": RECEIVER_NAME, "android:exported": "true" },
+        $: { "android:name": name, "android:exported": "true" },
         "intent-filter": [
           {
             action: [{ $: { "android:name": "android.appwidget.action.APPWIDGET_UPDATE" } }],
@@ -70,7 +92,7 @@ function withWidgetReceiver(config) {
           {
             $: {
               "android:name": "android.appwidget.provider",
-              "android:resource": "@xml/veloq_widget_info",
+              "android:resource": info,
             },
           },
         ],

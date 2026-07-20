@@ -18,7 +18,7 @@ interface TrendShape {
  * Fallback TS implementation of the HRV trend math (Kiviniemi 2007).
  * Used when the Rust engine hasn't been initialized yet or hasn't
  * persisted wellness (e.g. jest tests). Mirrors `compute_hrv_trend`
- * in `persistence/wellness.rs` — keep in sync with that logic.
+ * in `persistence/wellness.rs` - keep in sync with that logic.
  */
 function computeHrvTrendFromWindow(
   wellnessWindow: Array<{ date: string; hrv?: number }> | undefined
@@ -60,7 +60,7 @@ function computeHrvTrendFromWindow(
 
 /**
  * HRV Trend Insight
- * Kiviniemi et al., 2007 — HRV-guided training RCT
+ * Kiviniemi et al., 2007 - HRV-guided training RCT
  *
  * Primary path: reads from `engine.computeHrvTrend` (Rust SQLite).
  * Fallback path: computes from the passed-in `wellnessWindow` when the

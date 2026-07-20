@@ -1,6 +1,6 @@
 /**
  * Global banner shown when the Rust route engine fails to initialize.
- * Displays a warning with retry button. Non-dismissible — engine is required
+ * Displays a warning with retry button. Non-dismissible - engine is required
  * for routes, sections, and fitness data.
  */
 

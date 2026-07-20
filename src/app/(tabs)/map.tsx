@@ -23,7 +23,7 @@ import {
   ACTIVITY_CATEGORIES,
 } from '@/features/maps/components/ActivityTypeFilter';
 
-// Stable date references — creating new Date() in the component body triggers
+// Stable date references - creating new Date() in the component body triggers
 // useEngineMapActivities useMemo on every render, causing cascading re-renders
 // that make Android MapLibre snap the camera back.
 const ALL_TIME_START = new Date('2000-01-01');
@@ -75,7 +75,7 @@ function getDistanceOptions(isMetric: boolean): { key: DistanceKey; label: strin
       ];
 }
 
-// Thresholds in meters — imperial uses approximate mile equivalents
+// Thresholds in meters - imperial uses approximate mile equivalents
 function getDistanceThresholds(isMetric: boolean) {
   return isMetric
     ? { xshort: 5000, short: 10000, medium: 50000 }
@@ -126,7 +126,7 @@ export default function MapScreen() {
   // Memoize period start date to keep reference stable across renders
   const periodStart = useMemo(() => getPeriodStart(period), [period]);
 
-  // Get ALL activities from engine (date filtering only — sport+distance filtering in JS
+  // Get ALL activities from engine (date filtering only - sport+distance filtering in JS
   // so we always have full counts for category chips even when some types are deselected)
   const { activities: allActivities, availableTypes } = useEngineMapActivities({
     startDate: periodStart,
@@ -177,7 +177,7 @@ export default function MapScreen() {
   }, [oldestSyncedDate, newestSyncedDate]);
 
   // Group available types by category, count from ALL activities (not filtered by sport type)
-  // so counts stay stable when toggling chips — chips never move position
+  // so counts stay stable when toggling chips - chips never move position
   const categorySorted = useMemo(() => {
     const groups = groupTypesByCategory(availableTypes);
     const counts = new Map<string, number>();

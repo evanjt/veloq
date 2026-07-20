@@ -3,7 +3,7 @@ import type { InsightCategory } from '../types';
 /**
  * Single source of truth for insight curation. Every threshold, cap, window,
  * and score bonus used by the rules pipeline lives here. Generators and the
- * push scheduler both import from this file — one edit affects both.
+ * push scheduler both import from this file - one edit affects both.
  *
  * Each field is annotated with the rule it implements (G1–G4, R5–R8, D9–D12)
  * and the research citation in the plan file
@@ -12,9 +12,9 @@ import type { InsightCategory } from '../types';
 
 /**
  * The one knob that matters most. Drives both the event-recency gate (G1) and
- * the proximity gate (G2). Rationale: Peak-End / Rhodes & Kates 2015 — affective
+ * the proximity gate (G2). Rationale: Peak-End / Rhodes & Kates 2015 - affective
  * recall is short, so an insight's *triggering event* must have happened in the
- * last 4 weeks; Fogg B=MAP / COM-B — a section outside the last-28-day active
+ * last 4 weeks; Fogg B=MAP / COM-B - a section outside the last-28-day active
  * region fails the "opportunity" leg of the action line.
  */
 export const ACTIVE_WINDOW_DAYS = 28;
@@ -24,10 +24,10 @@ export type RecencyBounds = { min?: number; max?: number };
 export interface InsightsConfig {
   activeWindowDays: number;
 
-  /** G1 — per-category max event age, in days. Inherits activeWindowDays unless overridden. */
+  /** G1 - per-category max event age, in days. Inherits activeWindowDays unless overridden. */
   recency: Partial<Record<InsightCategory, RecencyBounds>>;
 
-  /** G3 — minimum lifetime repetitions for trend-type insights. */
+  /** G3 - minimum lifetime repetitions for trend-type insights. */
   repetition: {
     section_trend_min: number;
     efficiency_trend_min: number;
@@ -41,14 +41,14 @@ export interface InsightsConfig {
     minFtpChangeWatts: number;
     minFtpGainPercent: number;
     minProgressChangePct: number;
-    /** R6 — lower/upper bounds of the flow corridor on |delta|/stddev. */
+    /** R6 - lower/upper bounds of the flow corridor on |delta|/stddev. */
     signalFloorDelta: number;
     signalCeilingDelta: number;
-    /** HRV — minimum days of data in the rolling window. */
+    /** HRV - minimum days of data in the rolling window. */
     minHrvDataPoints: number;
   };
 
-  /** G2 — proximity gate. */
+  /** G2 - proximity gate. */
   proximity: {
     enabled: boolean;
     /** km of padding added to the last-28d bbox before rejecting. */
@@ -64,7 +64,7 @@ export interface InsightsConfig {
     categoryBase: Record<InsightCategory, number>;
   };
 
-  /** D9/D10 — panel caps. */
+  /** D9/D10 - panel caps. */
   surface: {
     maxTotal: number;
     /** Default max per category. Overridden by `maxPerCategoryOverride` entries. */
@@ -76,7 +76,7 @@ export interface InsightsConfig {
     maxPerCategoryOverride: Partial<Record<InsightCategory, number>>;
   };
 
-  /** D11 — push notification scheduler. */
+  /** D11 - push notification scheduler. */
   push: {
     enabled: boolean;
     maxPerWeek: number;
@@ -96,11 +96,11 @@ export const INSIGHTS_CONFIG: InsightsConfig = {
   activeWindowDays: ACTIVE_WINDOW_DAYS,
 
   recency: {
-    // A fresh PR is the strongest signal — tighter window than the default.
+    // A fresh PR is the strongest signal - tighter window than the default.
     section_pr: { max: 14 },
     // Inverted: we *want* staleness here. The PR has to be old enough to
     // represent a real opportunity, but not so old the section has changed.
-    // 30 days is the long-standing default — tune via config if needed.
+    // 30 days is the long-standing default - tune via config if needed.
     stale_pr: { min: 30, max: 180 },
     // "This week" loses meaning outside the week.
     period_comparison: { max: 7 },
@@ -108,7 +108,7 @@ export const INSIGHTS_CONFIG: InsightsConfig = {
   },
 
   repetition: {
-    section_trend_min: 3, // Lally 2010 — trend needs ≥3 repetitions
+    section_trend_min: 3, // Lally 2010 - trend needs ≥3 repetitions
     efficiency_trend_min: 3,
     stale_pr_min_lifetime: 2, // had to have been meaningful at least once
     strength_min_sets: 4,
@@ -149,7 +149,7 @@ export const INSIGHTS_CONFIG: InsightsConfig = {
   surface: {
     maxTotal: 8,
     maxPerCategory: 2,
-    // Section/route insights are Veloq's niche — allow a bit more headroom.
+    // Section/route insights are Veloq's niche - allow a bit more headroom.
     maxPerCategoryOverride: {
       section_pr: 3,
       stale_pr: 3,
@@ -180,7 +180,7 @@ export function maxAgeDaysFor(
 }
 
 /**
- * Minimum age (days) required for a category — only meaningful for `stale_pr`,
+ * Minimum age (days) required for a category - only meaningful for `stale_pr`,
  * where *absence* of a recent event is the signal. Zero for everything else.
  */
 export function minAgeDaysFor(

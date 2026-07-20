@@ -99,7 +99,7 @@ export function SeasonComparison({
     setSelectedMonth(null);
   }, []);
 
-  // Gesture.Pan for scrubbing (replaces PanResponder — requires long press to activate)
+  // Gesture.Pan for scrubbing (replaces PanResponder - requires long press to activate)
   const panGesture = useMemo(
     () =>
       Gesture.Pan()
@@ -286,7 +286,7 @@ export function SeasonComparison({
     measuredWidth,
   ]);
 
-  // Month labels — kept as native Text for proper font rendering
+  // Month labels - kept as native Text for proper font rendering
   const monthLabels = useMemo(() => {
     return data.map((d, idx) => ({
       letter: d.month.charAt(0),
@@ -429,7 +429,7 @@ export function SeasonComparison({
         )}
       </View>
 
-      {/* Chart — Skia Picture + gesture overlay */}
+      {/* Chart - Skia Picture + gesture overlay */}
       <GestureDetector gesture={panGesture}>
         <View style={{ height }} onLayout={onChartLayout}>
           {chartPicture && (

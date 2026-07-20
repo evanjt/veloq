@@ -21,7 +21,7 @@ type TimeRangeKey = 'season' | 'allTime';
 
 const SPORTS: PrimarySport[] = ['Cycling', 'Running', 'Swimming'];
 const SEASON_DAYS = 90;
-const ALL_TIME_DAYS = 3650; // 10 years — matches SYNC.MAX_HISTORY_YEARS
+const ALL_TIME_DAYS = 3650; // 10 years - matches SYNC.MAX_HISTORY_YEARS
 
 function sportIcon(sport: PrimarySport): keyof typeof MaterialCommunityIcons.glyphMap {
   if (sport === 'Cycling') return 'bike';

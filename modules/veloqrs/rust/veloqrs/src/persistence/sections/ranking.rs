@@ -508,9 +508,9 @@ impl PersistentRouteEngine {
     /// best/avg/last summary stats and a speed-rank per point. Replaces the
     /// multiple `useMemo` passes in `useSectionChartData.ts`.
     ///
-    /// `time_range_days` — 0 means "all time"; any positive value filters to
+    /// `time_range_days` - 0 means "all time"; any positive value filters to
     /// activity dates within the last N days.
-    /// `sport_filter` — optional sport type (e.g. "Ride") for cross-sport
+    /// `sport_filter` - optional sport type (e.g. "Ride") for cross-sport
     /// sections; `None` keeps everything.
     pub fn get_section_chart_data(
         &mut self,

@@ -16,7 +16,7 @@ const MPS_TO_MPH = 2.23694;
 // finite-but-absurd magnitude that slips past the Infinity guard and renders in
 // scientific notation (e.g. "1.66e+301:08"). These bounds are far beyond any real
 // value, so they only ever reject garbage, never a legitimate pace or duration.
-const MAX_PACE_SECONDS = 100 * 3600; // 100 h per km/mile/100m — non-physical
+const MAX_PACE_SECONDS = 100 * 3600; // 100 h per km/mile/100m - non-physical
 const MAX_DURATION_SECONDS = 1e9; // ~31 years
 
 /**
@@ -112,6 +112,21 @@ export function formatDuration(seconds: number): string {
     return `${hours}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   }
   return `${minutes}:${secs.toString().padStart(2, '0')}`;
+}
+
+/**
+ * Format a time difference compactly: "12s" under a minute, "1:05" at or
+ * above. Unsigned; the surrounding wording carries direction.
+ */
+export function formatDurationDelta(seconds: number): string {
+  if (!Number.isFinite(seconds) || seconds < 0 || seconds > MAX_DURATION_SECONDS) {
+    return '0s';
+  }
+  const total = Math.round(seconds);
+  if (total < 60) {
+    return `${total}s`;
+  }
+  return formatDuration(total);
 }
 
 /**

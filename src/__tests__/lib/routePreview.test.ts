@@ -27,7 +27,7 @@ describe('projectRouteToBox', () => {
   });
 
   it('preserves aspect ratio (no axis-independent stretch)', () => {
-    // A square geographic loop should map to a square pixel extent, centered —
+    // A square geographic loop should map to a square pixel extent, centered -
     // not stretched to fill a wide box.
     const square = [
       { latitude: 0, longitude: 0 },

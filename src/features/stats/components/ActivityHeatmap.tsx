@@ -12,7 +12,7 @@ import type { Activity } from '@/types';
 interface ActivityHeatmapProps {
   /** Activities to display */
   activities?: Activity[];
-  /** Date string (YYYY-MM-DD) to highlight — used for cross-chart scrubbing */
+  /** Date string (YYYY-MM-DD) to highlight - used for cross-chart scrubbing */
   highlightDate?: string | null;
 }
 
@@ -94,7 +94,7 @@ export function ActivityHeatmap({ activities, highlightDate }: ActivityHeatmapPr
     return map;
   }, [activities]);
 
-  // Generate grid data (flat intensity array for Picture — no object allocations)
+  // Generate grid data (flat intensity array for Picture - no object allocations)
   const { intensities, monthLabels, totalActivities } = useMemo(() => {
     const today = new Date();
     // Flat array: intensities[w * 7 + d]

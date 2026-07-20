@@ -4,7 +4,7 @@ import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import { TAB_BAR_SAFE_PADDING } from '@/shared/ui';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
-export const MAP_HEIGHT = Math.round(SCREEN_HEIGHT * 0.45); // 45% of screen for hero map
+export const MAP_HEIGHT = Math.round(SCREEN_HEIGHT * 0.42); // Canonical detail hero map height
 
 export const styles = StyleSheet.create({
   container: {
@@ -27,10 +27,6 @@ export const styles = StyleSheet.create({
     paddingBottom: spacing.xl + TAB_BAR_SAFE_PADDING,
   },
   // Hero section styles
-  heroSection: {
-    height: MAP_HEIGHT,
-    position: 'relative',
-  },
   mapContainer: {
     flex: 1,
   },
@@ -38,13 +34,6 @@ export const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  mapGradient: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    height: 120,
   },
   floatingHeader: {
     position: 'absolute',
@@ -63,83 +52,6 @@ export const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.4)',
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  infoOverlay: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    paddingHorizontal: spacing.md,
-    paddingBottom: spacing.md,
-  },
-  routeNameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-  },
-  typeIcon: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  heroRouteName: {
-    flex: 1,
-    fontSize: typography.statsValue.fontSize,
-    fontWeight: '700',
-    color: colors.textOnDark,
-    textShadowColor: 'rgba(0, 0, 0, 0.5)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 3,
-  },
-  nameEditTouchable: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  editIcon: {
-    marginLeft: 4,
-  },
-  editNameContainer: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.4)',
-    borderRadius: 8,
-    paddingHorizontal: spacing.sm,
-    gap: spacing.xs,
-  },
-  editNameInput: {
-    flex: 1,
-    fontSize: typography.cardTitle.fontSize,
-    fontWeight: '600',
-    color: colors.textOnDark,
-    paddingVertical: spacing.sm,
-  },
-  editNameButton: {
-    padding: 6,
-    borderRadius: 6,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-  },
-  heroStatsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 6,
-    flexWrap: 'wrap',
-  },
-  heroStat: {
-    fontSize: typography.bodySmall.fontSize,
-    color: 'rgba(255, 255, 255, 0.9)',
-    textShadowColor: 'rgba(0, 0, 0, 0.5)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
-  },
-  heroStatDivider: {
-    fontSize: typography.bodySmall.fontSize,
-    color: 'rgba(255, 255, 255, 0.5)',
-    marginHorizontal: spacing.xs,
   },
   // Export GPX button
   exportGpxButton: {
@@ -166,34 +78,6 @@ export const styles = StyleSheet.create({
     color: colors.textOnPrimary,
     fontSize: 15,
     fontWeight: '600' as const,
-  },
-  // Sport type selector
-  sportTypeSelector: {
-    flexDirection: 'row',
-    paddingHorizontal: layout.screenPadding,
-    paddingTop: spacing.md,
-    gap: spacing.sm,
-  },
-  sportTypePill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 6,
-    borderRadius: 20,
-    backgroundColor: colors.surface,
-    gap: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
-    elevation: 1,
-  },
-  sportTypePillDark: {
-    backgroundColor: darkColors.surface,
-  },
-  sportTypePillText: {
-    fontSize: typography.label.fontSize,
-    fontWeight: '600',
   },
   // Content section below hero
   contentSection: {

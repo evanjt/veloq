@@ -25,7 +25,7 @@ interface DateRangeSummaryProps {
 }
 
 function formatDate(dateStr: string | null): string {
-  if (!dateStr) return '—';
+  if (!dateStr) return '-';
   const date = new Date(dateStr);
   return date.toLocaleDateString(getIntlLocale(), {
     month: 'short',
@@ -77,7 +77,7 @@ export function DateRangeSummary({
           </Text>
           {!isLoading && oldestDate && newestDate && (
             <Text style={[styles.dateText, isDark && styles.textMuted]}>
-              {formatDate(oldestDate)} — {formatDate(newestDate)}
+              {formatDate(oldestDate)} - {formatDate(newestDate)}
             </Text>
           )}
         </View>

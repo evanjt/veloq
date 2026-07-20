@@ -61,7 +61,7 @@ describe('findRowIndexAtPageY', () => {
     });
   });
 
-  describe('monotonic scan — no row is ever silently skipped', () => {
+  describe('monotonic scan - no row is ever silently skipped', () => {
     it('a top-to-bottom sweep visits every row in order', () => {
       const visited = new Set<number>();
       let prev = -1;
@@ -79,7 +79,7 @@ describe('findRowIndexAtPageY', () => {
     });
   });
 
-  describe('duplicate sectionId safety — row 0 vs row 1 are independently reachable', () => {
+  describe('duplicate sectionId safety - row 0 vs row 1 are independently reachable', () => {
     // The hit-test returns a bare index; the component keys highlights by
     // `${sectionId}-${direction}` so two rows sharing a sectionId don't
     // both light up. This regression case verifies the two indexes remain
@@ -97,9 +97,9 @@ describe('findRowIndexAtPageY', () => {
     it('shifts the resolved row as the list scrolls', () => {
       // Without scroll, middle of row 0.
       expect(findRowIndexAtPageY({ ...DEFAULT, pageY: 292 })).toBe(0);
-      // List scrolled up by one row — same finger pageY now lands on row 1.
+      // List scrolled up by one row - same finger pageY now lands on row 1.
       expect(findRowIndexAtPageY({ ...DEFAULT, pageY: 292, scrollOffset: 62 })).toBe(1);
-      // Scrolled up by two rows — row 2.
+      // Scrolled up by two rows - row 2.
       expect(findRowIndexAtPageY({ ...DEFAULT, pageY: 292, scrollOffset: 124 })).toBe(2);
     });
   });

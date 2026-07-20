@@ -21,7 +21,7 @@ interface ActivitySectionsProps {
 
 /**
  * Compact PR banner shown on the activity detail page when the activity
- * holds a section PR. Only renders when PRs exist — zero layout impact otherwise.
+ * holds a section PR. Only renders when PRs exist - zero layout impact otherwise.
  *
  * Reads from the materialized `activity_indicators` table via a single FFI call.
  */

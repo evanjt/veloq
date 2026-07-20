@@ -67,14 +67,14 @@ export interface InsightInputData {
   allSectionTrends?: SectionTrendData[];
   efficiencyTrendSectionIds?: string[];
   /**
-   * Bbox of activities in the last `activeWindowDays` — drives the proximity
+   * Bbox of activities in the last `activeWindowDays` - drives the proximity
    * gate (G2). Null disables the gate (insufficient data, gate off, etc.).
    */
   activeRegion?: Bbox | null;
 }
 
 // ---------------------------------------------------------------------------
-// Pipeline outcome — exposed for the debug panel
+// Pipeline outcome - exposed for the debug panel
 // ---------------------------------------------------------------------------
 
 export interface PipelineOutcome {
@@ -85,7 +85,7 @@ export interface PipelineOutcome {
 }
 
 /**
- * Last pipeline outcome — captured so the dev debug panel can render the full
+ * Last pipeline outcome - captured so the dev debug panel can render the full
  * candidate list (kept, rejected, cap-dropped) without re-running generation.
  * Intentionally a module singleton: generation is already memoised upstream.
  */
@@ -108,7 +108,7 @@ function logInsightGeneration(outcome: PipelineOutcome): void {
 
   for (const r of outcome.rejected) {
     // eslint-disable-next-line no-console
-    console.log(`[INSIGHTS] [GATED ] ${r.insight.category}/${r.insight.id} — ${r.reason}`);
+    console.log(`[INSIGHTS] [GATED ] ${r.insight.category}/${r.insight.id} - ${r.reason}`);
   }
   for (const s of outcome.scored) {
     const capped = outcome.capDropped.find((d) => d.insight.id === s.insight.id);
@@ -116,7 +116,7 @@ function logInsightGeneration(outcome: PipelineOutcome): void {
     const reason = capped ? ` (${capped.reason})` : '';
     // eslint-disable-next-line no-console
     console.log(
-      `[INSIGHTS] [${status}] ${s.insight.category}/${s.insight.id} — score=${s.score.toFixed(0)} (base=${s.breakdown.base.toFixed(0)} cat=${s.breakdown.category} spec=${s.breakdown.specificity} self=${s.breakdown.temporalSelf} sig=${s.breakdown.signal})${reason}`
+      `[INSIGHTS] [${status}] ${s.insight.category}/${s.insight.id} - score=${s.score.toFixed(0)} (base=${s.breakdown.base.toFixed(0)} cat=${s.breakdown.category} spec=${s.breakdown.specificity} self=${s.breakdown.temporalSelf} sig=${s.breakdown.signal})${reason}`
     );
   }
   // eslint-disable-next-line no-console
@@ -147,7 +147,7 @@ export function generateInsights(data: InsightInputData, t: TFunc): Insight[] {
   const candidates: Insight[] = [];
   const now = Date.now();
 
-  // 1. Generate candidates — each generator is isolated so a thrown error
+  // 1. Generate candidates - each generator is isolated so a thrown error
   //    from one yields zero insights for that category but does not kill
   //    the rest.
   candidates.push(...safeRun('sectionPR', () => generateSectionPRInsights(data.recentPRs, now, t)));
@@ -217,7 +217,7 @@ export function generateInsights(data: InsightInputData, t: TFunc): Insight[] {
     );
   }
 
-  // 2. Hard gates (G1–G4) — reject before scoring
+  // 2. Hard gates (G1–G4) - reject before scoring
   const activeRegion = data.activeRegion ?? null;
   const rejected: Array<{ insight: Insight; reason: GateReason }> = [];
   const passed: Insight[] = [];

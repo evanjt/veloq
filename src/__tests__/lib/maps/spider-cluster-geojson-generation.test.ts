@@ -1,5 +1,5 @@
 /**
- * Tests for buildSpiderGeoJSON — pure GeoJSON generator for cluster fan-out.
+ * Tests for buildSpiderGeoJSON - pure GeoJSON generator for cluster fan-out.
  * No React / MapLibre / native dependencies, so we test the math directly.
  */
 
@@ -56,7 +56,7 @@ describe('buildSpiderGeoJSON', () => {
 
   it('places points approximately on a circle around the center', () => {
     const leaves = Array.from({ length: 4 }, (_, i) => leaf(String(i)));
-    const center: [number, number] = [0, 0]; // equator — no lngScale distortion
+    const center: [number, number] = [0, 0]; // equator - no lngScale distortion
     const result = buildSpiderGeoJSON({ center, leaves }, 14);
 
     const coords = result.points.features.map((f) => (f.geometry as GeoJSON.Point).coordinates);

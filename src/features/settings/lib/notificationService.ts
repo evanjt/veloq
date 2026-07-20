@@ -102,7 +102,7 @@ export async function presentInsightNotification(
 /**
  * Schedule (or replace) a per-activity notification using a stable identifier.
  * Repeated calls with the same activityId update the existing tray entry in
- * place rather than stacking duplicates — used by the background task to fire
+ * place rather than stacking duplicates - used by the background task to fire
  * a placeholder immediately and then enrich it once GPS + insights are ready.
  */
 export async function presentActivityNotification(
@@ -155,7 +155,7 @@ export async function dismissSyncNotification(): Promise<void> {
  * Set up the foreground notification listener.
  * Fires whenever a notification is delivered while the app is in the foreground
  * (the actual presentation is handled by setNotificationHandler). Currently
- * used for diagnostic logging only — the deep-link flow runs from the tap
+ * used for diagnostic logging only - the deep-link flow runs from the tap
  * handler below, and the background silent-push pipeline runs from the
  * TaskManager task in backgroundInsightTask.ts.
  */
@@ -213,7 +213,7 @@ export function setupNotificationResponseHandler(): Notifications.Subscription {
 
 /**
  * Handle the notification that launched the app (cold-start tap).
- * `addNotificationResponseReceivedListener` registers too late to catch this —
+ * `addNotificationResponseReceivedListener` registers too late to catch this -
  * on Android, FCM posts the tap intent before JS has booted, so we have to
  * explicitly ask expo-notifications what the launching notification was.
  * Returns a promise that resolves once routing has been attempted.

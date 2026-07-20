@@ -12,7 +12,7 @@ type CanRecordResult = {
  * - API key users: always allowed (personal API keys have all permissions)
  * - Demo users: always allowed
  * - OAuth users: allowed only if their token includes ACTIVITY:WRITE scope.
- *   If scope is unknown (null), recording is blocked — better to ask for
+ *   If scope is unknown (null), recording is blocked - better to ask for
  *   permission upfront than let the user record and fail on upload.
  */
 export function useCanRecord(): CanRecordResult {
@@ -20,7 +20,7 @@ export function useCanRecord(): CanRecordResult {
   const needsUpgrade = useUploadPermissionStore((s) => s.needsUpgrade);
   const hasWritePermission = useUploadPermissionStore((s) => s.hasWritePermission);
 
-  // API key users always have full permissions — can't scope API keys
+  // API key users always have full permissions - can't scope API keys
   if (authMethod === 'apiKey') {
     return { canRecord: true, reason: 'ok' };
   }
@@ -35,6 +35,6 @@ export function useCanRecord(): CanRecordResult {
     return { canRecord: true, reason: 'ok' };
   }
 
-  // OAuth user with unknown or denied permission — block recording
+  // OAuth user with unknown or denied permission - block recording
   return { canRecord: false, reason: 'no_permission' };
 }

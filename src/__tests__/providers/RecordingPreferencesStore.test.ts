@@ -73,7 +73,7 @@ describe('RecordingPreferencesStore', () => {
   describe('corrupt AsyncStorage recovery', () => {
     /**
      * BUG FOUND: Broken JSON triggers the catch block, which sets isLoaded=true
-     * but does NOT reset state to defaults — the store keeps whatever state it
+     * but does NOT reset state to defaults - the store keeps whatever state it
      * had before. This is correct behavior (defaults are already set), but
      * let's verify.
      */

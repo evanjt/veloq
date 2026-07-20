@@ -12,7 +12,7 @@ const DAY_MS = 86_400_000;
  * Recency: the triggering event (the declining/improving trend) must be
  * current. A section last visited months ago is not a motivating insight,
  * even if the historic trend is strong. We drop sections whose
- * `daysSinceLast` exceeds `INSIGHTS_CONFIG.activeWindowDays` here — the
+ * `daysSinceLast` exceeds `INSIGHTS_CONFIG.activeWindowDays` here - the
  * rules-pipeline G1 gate will re-check via meta.sourceTimestamp, so this
  * local filter is a pre-selection to avoid wasting one of our 2 candidate
  * slots on a stale section.

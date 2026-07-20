@@ -1,10 +1,10 @@
 /**
- * useMapFullscreen — fullscreen modal state management for map components.
+ * useMapFullscreen - fullscreen modal state management for map components.
  *
  * Tracks whether the map is in fullscreen mode and exposes guarded open/close
  * callbacks. `openFullscreen` is a no-op when `enableFullscreen` is false.
  *
- * Extracted from ActivityMapView.tsx — pure refactor, no behaviour change.
+ * Extracted from ActivityMapView.tsx - pure refactor, no behaviour change.
  */
 
 import { useCallback, useState } from 'react';

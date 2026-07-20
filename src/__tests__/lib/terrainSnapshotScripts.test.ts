@@ -1,7 +1,7 @@
 /**
  * Contract tests for the snapshot render script generator.
  *
- * Scenario: the same generator now produces two render modes — the 3D terrain
+ * Scenario: the same generator now produces two render modes - the 3D terrain
  * drape and a flat top-down basemap for feed cards without interesting terrain.
  * Expected behaviour: flat scripts contain no terrain/sky/hillshade injection,
  * carry pitch 0, and 3D output is unchanged by the flat flag's existence.

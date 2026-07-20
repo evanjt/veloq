@@ -1,6 +1,6 @@
 //! Bulk GPX export: stream GPS tracks from SQLite directly into a ZIP file.
 //!
-//! Processes one activity at a time — peak memory is ~1 track regardless of
+//! Processes one activity at a time - peak memory is ~1 track regardless of
 //! total activity count. Avoids the OOM crash from holding all GPX strings
 //! in the JS heap.
 

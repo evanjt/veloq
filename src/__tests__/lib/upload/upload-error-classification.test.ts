@@ -1,5 +1,5 @@
 /**
- * Tests for classifyUploadError — the categorization that routes upload
+ * Tests for classifyUploadError - the categorization that routes upload
  * failures between "show to user", "queue for later", and "offer OAuth
  * upgrade". Miscategorization here has historically caused data-loss bugs,
  * so the 403-in-message-without-status fallback and the "HTTP status wins

@@ -7,7 +7,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, spacing, layout, typography, brand } from '@/theme';
+import { colors, colorWithOpacity, darkColors, spacing, layout, typography, brand } from '@/theme';
 import { navigateTo } from '@/shared/app/navigation';
 import { useRecordingPreferences } from '@/features/recording/stores/RecordingPreferencesStore';
 import type { GpsAccuracyMode } from '@/features/recording/stores/RecordingPreferencesStore';
@@ -162,8 +162,8 @@ export default function RecordingSettingsScreen() {
                 testID="settings-auto-upload"
                 value={autoUploadEnabled}
                 onValueChange={handleToggleAutoUpload}
-                trackColor={{ false: '#767577', true: brand.teal + '60' }}
-                thumbColor={autoUploadEnabled ? brand.teal : '#f4f3f4'}
+                trackColor={{ false: colors.iconNeutral, true: colorWithOpacity(brand.teal, 0.38) }}
+                thumbColor={autoUploadEnabled ? brand.teal : colors.background}
               />
             </View>
           </View>
@@ -210,7 +210,7 @@ export default function RecordingSettingsScreen() {
                       styles.gpsModeChip,
                       {
                         backgroundColor: isSelected
-                          ? brand.teal + '20'
+                          ? colorWithOpacity(brand.teal, 0.13)
                           : isDark
                             ? darkColors.background
                             : colors.background,
@@ -285,8 +285,8 @@ export default function RecordingSettingsScreen() {
                 testID="settings-keep-awake"
                 value={keepAwakeEnabled}
                 onValueChange={handleToggleKeepAwake}
-                trackColor={{ false: '#767577', true: brand.teal + '60' }}
-                thumbColor={keepAwakeEnabled ? brand.teal : '#f4f3f4'}
+                trackColor={{ false: colors.iconNeutral, true: colorWithOpacity(brand.teal, 0.38) }}
+                thumbColor={keepAwakeEnabled ? brand.teal : colors.background}
               />
             </View>
           </View>
@@ -307,8 +307,8 @@ export default function RecordingSettingsScreen() {
                 testID="settings-auto-pause"
                 value={autoPauseEnabled}
                 onValueChange={handleToggleAutoPause}
-                trackColor={{ false: '#767577', true: brand.teal + '60' }}
-                thumbColor={autoPauseEnabled ? brand.teal : '#f4f3f4'}
+                trackColor={{ false: colors.iconNeutral, true: colorWithOpacity(brand.teal, 0.38) }}
+                thumbColor={autoPauseEnabled ? brand.teal : colors.background}
               />
             </View>
 
@@ -411,7 +411,7 @@ export default function RecordingSettingsScreen() {
                           styles.fieldChip,
                           {
                             backgroundColor: isSelected
-                              ? brand.teal + '20'
+                              ? colorWithOpacity(brand.teal, 0.13)
                               : isDark
                                 ? darkColors.background
                                 : colors.background,
@@ -553,8 +553,8 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   thresholdBtn: {
-    width: 32,
-    height: 32,
+    width: layout.minTapTarget,
+    height: layout.minTapTarget,
     borderRadius: 16,
     borderWidth: StyleSheet.hairlineWidth,
     alignItems: 'center',

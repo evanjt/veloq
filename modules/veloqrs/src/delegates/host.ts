@@ -2,7 +2,7 @@
  * Delegate host interface.
  *
  * RouteEngineClient implements this interface and passes `this` to each
- * delegate module function. Delegates remain stateless — they borrow the
+ * delegate module function. Delegates remain stateless - they borrow the
  * engine reference, timing wrapper, and notification emitters from the host.
  */
 

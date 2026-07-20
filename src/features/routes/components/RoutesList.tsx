@@ -59,7 +59,7 @@ interface RoutesListProps {
   sortOption: RoutesSortOption;
   /** Called when sort changes */
   onSortChange: (next: RoutesSortOption) => void;
-  /** Engine data still loading — show skeletons instead of an empty state */
+  /** Engine data still loading - show skeletons instead of an empty state */
   isLoading?: boolean;
 }
 
@@ -403,7 +403,7 @@ export const RoutesList = memo(function RoutesList({
 
   return (
     <View style={styles.outerContainer}>
-      {/* Search and sport filters — outside FlatList to prevent keyboard dismissal */}
+      {/* Search and sport filters - outside FlatList to prevent keyboard dismissal */}
       {!showProcessing && allGroups.length > 0 && (
         <View style={styles.filterHeader}>
           <View style={[styles.searchContainer, isDark && styles.searchContainerDark]}>

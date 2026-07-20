@@ -10,7 +10,7 @@
  * - Routes messages back via workerId
  *
  * Terrain, hillshade, sky, and route layers are added via the map API after
- * the base style loads — mirrors Map3DWebView so the first terrain drape
+ * the base style loads - mirrors Map3DWebView so the first terrain drape
  * render already includes the route polyline.
  */
 
@@ -79,7 +79,7 @@ interface WorkerState {
 
 export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, object>(
   function TerrainSnapshotWebView(_props, ref) {
-    // Lazy-init worker pool — created once, never recreated
+    // Lazy-init worker pool - created once, never recreated
     const workersRef = useRef<WorkerState[] | null>(null);
     if (workersRef.current === null) {
       workersRef.current = Array.from({ length: POOL_SIZE }, (_, i) => ({
@@ -104,6 +104,36 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
 
     const STALENESS_TIMEOUT_MS = 15000;
 
+    // Watchdog: whenever the pipeline is in the rendering state, an update must
+    // arrive within STALENESS_TIMEOUT_MS (in-flight renders are bounded by the
+    // per-worker timeout). If a worker is mid-render, keep watching; otherwise
+    // nothing can make progress (e.g. no worker ever became ready), so fail the
+    // remaining requests - cards fall back to the route line and pull-to-refresh
+    // re-queues them - instead of leaving a stuck progress notification.
+    const armStalenessTimer = useCallback(
+      function arm() {
+        if (stalenessTimerRef.current) clearTimeout(stalenessTimerRef.current);
+        stalenessTimerRef.current = setTimeout(() => {
+          stalenessTimerRef.current = null;
+          if (workers.some((w) => w.processingRef.current)) {
+            arm();
+            return;
+          }
+          const remaining = queueRef.current.splice(0);
+          for (const req of remaining) {
+            failedRequestsRef.current.push({ ...req, _retryAttempt: 0 });
+            emitSnapshotFailed(req.activityId);
+          }
+          queueTotalRef.current = 0;
+          queueCompletedRef.current = 0;
+          useSyncDateRange
+            .getState()
+            .setTerrainSnapshotProgress({ status: 'idle', completed: 0, total: 0 });
+        }, STALENESS_TIMEOUT_MS);
+      },
+      [workers]
+    );
+
     const updateProgress = useCallback(() => {
       const { setTerrainSnapshotProgress } = useSyncDateRange.getState();
       if (queueTotalRef.current === 0 || queueCompletedRef.current >= queueTotalRef.current) {
@@ -120,36 +150,53 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
           completed: queueCompletedRef.current,
           total: queueTotalRef.current,
         });
-        // Reset staleness timer — if no completion happens within the timeout,
-        // force-dismiss the notification to avoid a permanently stuck banner.
-        if (stalenessTimerRef.current) clearTimeout(stalenessTimerRef.current);
-        stalenessTimerRef.current = setTimeout(() => {
-          const inFlight = workers.some((w) => w.processingRef.current);
-          const queued = queueRef.current.length > 0;
-          if (!inFlight && !queued) {
-            queueTotalRef.current = 0;
-            queueCompletedRef.current = 0;
-            useSyncDateRange
-              .getState()
-              .setTerrainSnapshotProgress({ status: 'idle', completed: 0, total: 0 });
-          }
-        }, STALENESS_TIMEOUT_MS);
+        armStalenessTimer();
       }
-    }, [workers]);
+    }, [workers, armStalenessTimer]);
+
+    // A killed WebView renderer (Android reclaims background webview processes)
+    // would otherwise leave the worker permanently dead: mapReady never re-fires,
+    // queued requests wedge, and the progress notification sticks. Reset the
+    // worker, requeue its in-flight request, and reload - mapReady re-arms it.
+    const handleWorkerGone = useCallback((worker: WorkerState) => {
+      if (__DEV__) {
+        console.warn(`[TerrainSnapshot:${worker.id}] WebView process gone - reloading`);
+      }
+      worker.mapReadyRef.current = false;
+      worker.processingRef.current = false;
+      if (worker.timeoutRef.current) {
+        clearTimeout(worker.timeoutRef.current);
+        worker.timeoutRef.current = null;
+      }
+      const current = worker.currentRequestRef.current;
+      worker.currentRequestRef.current = null;
+      if (current) {
+        queueRef.current.unshift(current);
+      }
+      worker.webViewRef.current?.reload();
+    }, []);
 
     const processNext = useCallback(() => {
       for (const worker of workers) {
         if (worker.processingRef.current || !worker.mapReadyRef.current) continue;
 
-        // Drain already-cached items from front of queue before assigning to this worker
+        // Drain already-cached items from front of queue before assigning to this
+        // worker. They count as completed - otherwise the progress total can never
+        // be reached and the notification lingers at a stale count.
+        let drained = 0;
         while (
           queueRef.current.length > 0 &&
           hasTerrainPreview(queueRef.current[0].activityId, queueRef.current[0].mapStyle)
         ) {
           queueRef.current.shift();
+          drained++;
+        }
+        if (drained > 0) {
+          queueCompletedRef.current += drained;
+          updateProgress();
         }
         if (queueRef.current.length === 0) {
-          // No more snapshots — drain any queued prefetch batches on this idle worker
+          // No more snapshots - drain any queued prefetch batches on this idle worker
           if (pendingPrefetchRef.current.length > 0 && worker.webViewRef.current) {
             worker.webViewRef.current.injectJavaScript('window._prefetchAborted = false; true;');
             const batches = pendingPrefetchRef.current.splice(0);
@@ -175,7 +222,7 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
           );
         }
 
-        // Inject render command — builds complete style with terrain, route, and markers
+        // Inject render command - builds complete style with terrain, route, and markers
         // embedded, then applies atomically via single setStyle() call.
         worker.webViewRef.current?.injectJavaScript(
           buildRenderSnapshotScript(request, workerId, gen)
@@ -201,7 +248,7 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
       }
     }, [workers, updateProgress]);
 
-    // Handle messages from WebView — dispatch via shared bridge.
+    // Handle messages from WebView - dispatch via shared bridge.
     // Each handler does its own worker lookup by `data.workerId` because
     // multiple worker WebViews post through the same `onMessage` callback.
     const bridgeHandlers = useMemo<WebViewBridgeHandlers>(
@@ -253,7 +300,7 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
               `[TerrainSnapshot:${data.workerId}] Captured ${activityId} (${Math.round(base64.length / 1024)}KB base64${data.tileErrors ? `, ${data.tileErrors} tile errors` : ''})`
             );
           }
-          // Save concurrently — card shows loading state until emitSnapshotComplete
+          // Save concurrently - card shows loading state until emitSnapshotComplete
           try {
             const uri = await saveTerrainPreview(activityId, style, base64);
             if (__DEV__)
@@ -321,7 +368,7 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
             // Delay retry to let tile servers recover
             setTimeout(() => processNext(), 2000);
           } else {
-            // Exhausted retries — save for later re-attempt
+            // Exhausted retries - save for later re-attempt
             if (__DEV__) {
               console.warn(
                 `[TerrainSnapshot:${data.workerId}] Giving up on ${data.activityId} (error: ${data.error}, tile errors: ${tileErrors})`
@@ -413,7 +460,7 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
         // Find an idle worker to run the prefetch
         const worker = workers.find((w) => w.mapReadyRef.current && !w.processingRef.current);
         if (!worker?.webViewRef.current) {
-          // All workers busy — queue for later execution when snapshots finish
+          // All workers busy - queue for later execution when snapshots finish
           pendingPrefetchRef.current.push(...batches);
           return;
         }
@@ -428,7 +475,7 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
       });
     }, [workers]);
 
-    // Listen for cancel events — set abort flag in all workers
+    // Listen for cancel events - set abort flag in all workers
     useEffect(() => {
       return onCancelWebViewPrefetch(() => {
         for (const worker of workers) {
@@ -531,6 +578,8 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
             mixedContentMode="always"
             androidLayerType="hardware"
             onMessage={handleMessage}
+            onRenderProcessGone={() => handleWorkerGone(worker)}
+            onContentProcessDidTerminate={() => handleWorkerGone(worker)}
           />
         ))}
       </View>

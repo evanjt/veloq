@@ -15,7 +15,7 @@ import { useLocalSearchParams, router } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useTheme, useMetricSystem } from '@/shared/app';
-import { colors, darkColors, spacing, layout, typography, brand } from '@/theme';
+import { colors, colorWithOpacity, darkColors, spacing, layout, typography, brand } from '@/theme';
 import { formatDistance, formatDuration } from '@/shared/format/format';
 import { getActivityIcon, getActivityColor } from '@/features/activity/lib/activityUtils';
 
@@ -236,7 +236,7 @@ export default function ReviewScreen() {
           <MaterialCommunityIcons name="chevron-down" size={18} color={textSecondary} />
         </TouchableOpacity>
 
-        {/* RPE Slider — only for GPS activities; not applicable to manual entries */}
+        {/* RPE Slider - only for GPS activities; not applicable to manual entries */}
         {!isManual && (
           <RpeSlider value={rpe} onValueChange={setRpe} textSecondary={textSecondary} />
         )}
@@ -261,7 +261,7 @@ export default function ReviewScreen() {
         {/* Queued success message */}
         {queuedMessage && (
           <View style={styles.queuedBanner}>
-            <MaterialCommunityIcons name="check-circle-outline" size={18} color="#22C55E" />
+            <MaterialCommunityIcons name="check-circle-outline" size={18} color={colors.success} />
             <Text style={styles.queuedBannerText}>{queuedMessage}</Text>
           </View>
         )}
@@ -286,7 +286,7 @@ export default function ReviewScreen() {
             activeOpacity={0.8}
           >
             {isUploading ? (
-              <ActivityIndicator size="small" color="#FFFFFF" />
+              <ActivityIndicator size="small" color={colors.textOnDark} />
             ) : (
               <Text style={styles.primaryBtnText}>{t('common.save', 'Save')}</Text>
             )}
@@ -300,7 +300,7 @@ export default function ReviewScreen() {
               {
                 borderColor: discardAnim.interpolate({
                   inputRange: [0, 1],
-                  outputRange: [`rgba(239,68,68,0.3)`, colors.error],
+                  outputRange: [colorWithOpacity(colors.error, 0.3), colors.error],
                 }),
                 borderWidth: 1,
                 overflow: 'hidden' as const,
@@ -408,7 +408,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
-    backgroundColor: 'rgba(34, 197, 94, 0.1)',
+    backgroundColor: colorWithOpacity(colors.success, 0.1),
     borderRadius: layout.borderRadiusSm,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.sm,
@@ -416,7 +416,7 @@ const styles = StyleSheet.create({
   },
   queuedBannerText: {
     ...typography.caption,
-    color: '#22C55E',
+    color: colors.success,
     flex: 1,
   },
   // Actions
@@ -433,7 +433,7 @@ const styles = StyleSheet.create({
   },
   primaryBtnText: {
     ...typography.bodyBold,
-    color: '#FFFFFF',
+    color: colors.textOnDark,
   },
   dangerBtn: {
     borderRadius: layout.borderRadiusSm,

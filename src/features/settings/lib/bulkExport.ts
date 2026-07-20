@@ -38,7 +38,7 @@ export async function bulkExportActivities(
 
   onProgress?.({ phase: 'generating', current: 0, total: 0, sizeBytes: 0 });
 
-  // Single FFI call — Rust streams all tracks into a ZIP on disk
+  // Single FFI call - Rust streams all tracks into a ZIP on disk
   const result = engine.bulkExportGpx(plainPath);
 
   onProgress?.({

@@ -1,7 +1,7 @@
 //! Activity indicators: materialized PR and trend badges.
 //!
 //! Computed once after sync/detection, stored in `activity_indicators` table.
-//! Feed card rendering reads from this table — no on-demand computation needed.
+//! Feed card rendering reads from this table - no on-demand computation needed.
 
 use rusqlite::{Result as SqlResult, params};
 use std::collections::HashMap;
@@ -46,7 +46,7 @@ impl PersistentRouteEngine {
         let tx = self.db.unchecked_transaction()?;
         tx.execute("DELETE FROM activity_indicators", [])?;
 
-        // Section indicators only — route highlights are computed inline
+        // Section indicators only - route highlights are computed inline
         // from in-memory groups + activity_metrics (no table needed).
         let section_count = self.compute_section_indicators(&tx, now)?;
 
@@ -269,7 +269,7 @@ impl PersistentRouteEngine {
 
         if stored_version < INDICATOR_ALGORITHM_VERSION {
             log::info!(
-                "tracematch: [indicators] Version mismatch (stored={}, current={}) — recomputing",
+                "tracematch: [indicators] Version mismatch (stored={}, current={}) - recomputing",
                 stored_version,
                 INDICATOR_ALGORITHM_VERSION
             );

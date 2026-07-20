@@ -1,5 +1,5 @@
 /**
- * Bug 4 regression test — sections must render through useMapGeoJSON
+ * Bug 4 regression test - sections must render through useMapGeoJSON
  *
  * The user reports that sections do not appear on the global/regional map at
  * any zoom level. This test verifies the data-prep layer
@@ -21,7 +21,7 @@ import { renderHook } from '@testing-library/react-native';
 import { useMapGeoJSON } from '@/features/maps/components/regional/useMapGeoJSON';
 import type { FrequentSection } from '@/types';
 
-// Minimal stub TFunction — useMapGeoJSON only calls it for fallback names.
+// Minimal stub TFunction - useMapGeoJSON only calls it for fallback names.
 const t = ((key: string, opts?: { number?: string }) =>
   opts?.number ? `${key}-${opts.number}` : key) as unknown as Parameters<
   typeof useMapGeoJSON
@@ -96,7 +96,7 @@ describe('useMapGeoJSON.sectionsGeoJSON (Bug 4)', () => {
   it('returns an empty FeatureCollection when no sections exist (not null)', () => {
     const { result } = renderHook(() => useMapGeoJSON(buildArgs([])));
 
-    // CRITICAL INVARIANT: never null — keeps ShapeSource mounted to avoid iOS Fabric crash
+    // CRITICAL INVARIANT: never null - keeps ShapeSource mounted to avoid iOS Fabric crash
     expect(result.current.sectionsGeoJSON).toBeDefined();
     expect(result.current.sectionsGeoJSON.type).toBe('FeatureCollection');
     expect(result.current.sectionsGeoJSON.features).toEqual([]);

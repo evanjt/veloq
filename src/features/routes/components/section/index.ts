@@ -4,6 +4,7 @@ export { SectionStatsCards } from './SectionStatsCards';
 export type { SectionStatsCardsProps, CalendarSummary } from './SectionStatsCards';
 export { SectionPerformanceSection } from './SectionPerformanceSection';
 export type { SectionPerformanceSectionProps } from './SectionPerformanceSection';
+export { ScatterLegend } from './ScatterLegend';
 export { SectionScatterChart } from './SectionScatterChart';
 export type { SectionScatterChartProps } from './SectionScatterChart';
 export { SectionInfoCard } from './SectionInfoCard';

@@ -6,16 +6,15 @@
 import React from 'react';
 import { View, Text, Pressable, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
+import { ScatterLegend } from './ScatterLegend';
 import { SectionScatterChart } from './SectionScatterChart';
-import type { DirectionSummaryStats } from '@/features/routes/components/performance';
+import type {
+  DirectionBestRecord,
+  DirectionSummaryStats,
+} from '@/features/routes/lib/performanceTypes';
 import { SECTION_TIME_RANGES, type SectionTimeRange } from '@/features/routes/constants';
-import { brand, colors, darkColors, spacing, typography } from '@/theme';
+import { colors, darkColors, spacing, typography } from '@/theme';
 import type { ActivityType, RoutePoint, PerformanceDataPoint } from '@/types';
-
-interface DirectionBestRecord {
-  bestTime: number;
-  activityDate: Date;
-}
 
 export interface SectionPerformanceSectionProps {
   isDark: boolean;
@@ -120,32 +119,11 @@ export function SectionPerformanceSection({
         onToggleShowExcluded={onToggleShowExcluded}
         highlightedActivityId={highlightedActivityId}
       />
-      <View style={styles.legend}>
-        <View style={styles.legendItem}>
-          <View style={[styles.legendSwatch, { borderColor: brand.gold, borderWidth: 2 }]} />
-          <Text style={[styles.legendText, isDark && styles.legendTextDark]}>
-            {t('sections.legendPr')}
-          </Text>
-        </View>
-        {bestReverseRecord ? (
-          <View style={styles.legendItem}>
-            <View style={[styles.legendSwatch, { backgroundColor: colors.reverseDirection }]} />
-            <Text style={[styles.legendText, isDark && styles.legendTextDark]}>
-              {t('sections.legendReverse')}
-            </Text>
-          </View>
-        ) : null}
-        {highlightedActivityId ? (
-          <View style={styles.legendItem}>
-            <View
-              style={[styles.legendSwatch, { borderColor: colors.chartGreen, borderWidth: 2 }]}
-            />
-            <Text style={[styles.legendText, isDark && styles.legendTextDark]}>
-              {t('sections.legendThisActivity')}
-            </Text>
-          </View>
-        ) : null}
-      </View>
+      <ScatterLegend
+        isDark={isDark}
+        showReverse={!!bestReverseRecord}
+        showThisActivity={!!highlightedActivityId}
+      />
     </View>
   );
 }
@@ -188,30 +166,5 @@ const styles = StyleSheet.create({
   },
   pillTextActive: {
     color: colors.primary,
-  },
-  legend: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-    gap: spacing.md,
-    marginTop: spacing.xs,
-    paddingHorizontal: spacing.md,
-  },
-  legendItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  legendSwatch: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-  },
-  legendText: {
-    fontSize: 11,
-    color: colors.textSecondary,
-  },
-  legendTextDark: {
-    color: darkColors.textSecondary,
   },
 });

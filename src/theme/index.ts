@@ -12,6 +12,7 @@ export {
   zoneColors,
   colorWithOpacity,
   insightCategoryColors,
+  rpeRamp,
   strengthRamp,
   workoutStepColors,
   mapPreviewColors,

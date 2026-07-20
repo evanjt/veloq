@@ -143,13 +143,13 @@ export interface DatabaseRestoreResult {
 
 /**
  * Restore from a .veloqdb SQLite snapshot.
- * This replaces the entire database — all activities, sections, settings.
+ * This replaces the entire database - all activities, sections, settings.
  *
  * Pre-validates the backup (not empty, schema not newer than this build,
  * athlete ID) BEFORE touching the live database, and snapshots the live DB to
  * a `.bak` so a failed restore rolls back instead of leaving the user with a
  * destroyed database. An absent native probe is the only reason validation is
- * skipped — a probe that rejects or throws refuses the restore.
+ * skipped - a probe that rejects or throws refuses the restore.
  */
 export async function restoreDatabaseBackup(fileUri: string): Promise<DatabaseRestoreResult> {
   const dbPath = getRouteDbPath();
@@ -181,7 +181,7 @@ export async function restoreDatabaseBackup(fileUri: string): Promise<DatabaseRe
       | undefined;
 
     // Only skip validation when the native probe is entirely absent (older
-    // binary). If it exists and rejects or throws, refuse — never overwrite the
+    // binary). If it exists and rejects or throws, refuse - never overwrite the
     // live DB on a bad backup.
     if (validateFn) {
       let backupMeta: z.infer<typeof BackupValidationSchema>;
@@ -189,30 +189,30 @@ export async function restoreDatabaseBackup(fileUri: string): Promise<DatabaseRe
         backupMeta = BackupValidationSchema.parse(JSON.parse(validateFn(plainTempPath)));
       } catch (e) {
         await cleanupTemp();
-        log.warn('Backup validation failed — refusing to restore', e);
+        log.warn('Backup validation failed - refusing to restore', e);
         return { success: false, activityCount: 0, error: 'Backup file is corrupt or unreadable' };
       }
 
       backupAthleteId = backupMeta.athlete_id;
 
-      // An empty/garbage SQLite file reports activity_count 0 — refuse so a bad
+      // An empty/garbage SQLite file reports activity_count 0 - refuse so a bad
       // file can't silently wipe the live database.
       if (backupMeta.activity_count <= 0) {
         await cleanupTemp();
-        log.warn('Backup contains no activities — refusing to restore');
+        log.warn('Backup contains no activities - refusing to restore');
         return { success: false, activityCount: 0, error: 'Backup file is empty or corrupt' };
       }
 
       // Refuse a backup whose schema is newer than this build can open. We don't
       // hardcode the current version: probe the live DB with the same fn and
-      // compare. If the live DB can't be read (fresh install), skip this guard —
+      // compare. If the live DB can't be read (fresh install), skip this guard -
       // the activity-count check and the .bak rollback still protect the user.
       const livePlainPath = dbPath.startsWith('file://') ? dbPath.slice(7) : dbPath;
       try {
         const liveMeta = BackupValidationSchema.parse(JSON.parse(validateFn(livePlainPath)));
         if (Number(backupMeta.schema_version) > Number(liveMeta.schema_version)) {
           await cleanupTemp();
-          log.warn('Backup schema is newer than this app supports — refusing to restore');
+          log.warn('Backup schema is newer than this app supports - refusing to restore');
           return {
             success: false,
             activityCount: 0,
@@ -220,7 +220,7 @@ export async function restoreDatabaseBackup(fileUri: string): Promise<DatabaseRe
           };
         }
       } catch {
-        // Live schema unreadable (e.g. fresh install) — forward-version guard skipped.
+        // Live schema unreadable (e.g. fresh install) - forward-version guard skipped.
       }
 
       if (
@@ -291,14 +291,14 @@ export async function restoreDatabaseBackup(fileUri: string): Promise<DatabaseRe
       restoredEngine?.notifyAll('activities', 'groups', 'sections', 'syncReset');
       queryClient.invalidateQueries();
 
-      // Restore succeeded — drop the rollback snapshot.
+      // Restore succeeded - drop the rollback snapshot.
       if (liveExists) {
         await FileSystem.deleteAsync(`file://${backupPath}`, { idempotent: true });
       }
 
       return { success: true, activityCount, athleteIdMismatch: false, backupAthleteId };
     } catch (error) {
-      // Restore failed after the live DB was overwritten — roll back to the
+      // Restore failed after the live DB was overwritten - roll back to the
       // snapshot. Close the engine first: it may hold an open connection to
       // the file being replaced (and initWithPath below would otherwise
       // no-op on its already-initialized guard).
@@ -312,7 +312,7 @@ export async function restoreDatabaseBackup(fileUri: string): Promise<DatabaseRe
           await FileSystem.copyAsync({ from: `file://${backupPath}`, to: `file://${dbPath}` });
           await FileSystem.deleteAsync(`file://${backupPath}`, { idempotent: true });
         } catch {
-          // Rollback copy failed — leave the .bak in place for manual recovery.
+          // Rollback copy failed - leave the .bak in place for manual recovery.
         }
       }
       try {
@@ -320,7 +320,7 @@ export async function restoreDatabaseBackup(fileUri: string): Promise<DatabaseRe
           nativeModule.routeEngine.initWithPath(dbPath);
         }
       } catch {
-        // Engine recovery failed — app may need restart
+        // Engine recovery failed - app may need restart
       }
 
       return {
@@ -335,7 +335,7 @@ export async function restoreDatabaseBackup(fileUri: string): Promise<DatabaseRe
 }
 
 // ============================================================================
-// Legacy JSON backup (.veloq) — kept for backward compatibility
+// Legacy JSON backup (.veloq) - kept for backward compatibility
 // ============================================================================
 
 const LEGACY_BACKUP_VERSION = 2;
@@ -410,7 +410,7 @@ export interface RestoreResult {
 export async function createBackup(): Promise<string> {
   const engine = getRouteEngine();
 
-  // Collect custom sections (slim format — no polyline or distanceMeters)
+  // Collect custom sections (slim format - no polyline or distanceMeters)
   const customSections: BackupCustomSection[] = [];
   if (engine) {
     const sections = engine.getSectionsByType('custom');

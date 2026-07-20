@@ -272,22 +272,22 @@ describe('RecordingStore', () => {
     it('only adds points while recording', () => {
       const point = makePoint();
 
-      // Idle — should not add
+      // Idle - should not add
       useRecordingStore.getState().addGpsPoint(point);
       expect(useRecordingStore.getState().streams.time).toEqual([]);
 
-      // Recording — should add
+      // Recording - should add
       useRecordingStore.getState().startRecording('Ride', 'gps');
       const startTime = useRecordingStore.getState().startTime!;
       useRecordingStore.getState().addGpsPoint(makePoint({ timestamp: startTime + 1000 }));
       expect(useRecordingStore.getState().streams.time).toHaveLength(1);
 
-      // Paused — should not add
+      // Paused - should not add
       useRecordingStore.getState().pauseRecording();
       useRecordingStore.getState().addGpsPoint(makePoint({ timestamp: startTime + 2000 }));
       expect(useRecordingStore.getState().streams.time).toHaveLength(1);
 
-      // Stopped — should not add
+      // Stopped - should not add
       useRecordingStore.getState().resumeRecording();
       useRecordingStore.getState().stopRecording();
       useRecordingStore.getState().addGpsPoint(makePoint({ timestamp: startTime + 3000 }));
@@ -388,7 +388,7 @@ describe('RecordingStore', () => {
         );
 
       const { streams } = useRecordingStore.getState();
-      // ~111m in 10s ≈ 11.1 m/s — matches delta distance / delta time
+      // ~111m in 10s ≈ 11.1 m/s - matches delta distance / delta time
       expect(streams.speed[1]).toBeGreaterThan(10);
       expect(streams.speed[1]).toBeLessThan(12);
     });
@@ -400,7 +400,7 @@ describe('RecordingStore', () => {
       useRecordingStore
         .getState()
         .addGpsPoint(makePoint({ latitude: 45.0, longitude: 10.0, timestamp: startTime + 1000 }));
-      // ~111m in 1s = 111 m/s — far above the cycling ceiling, must be dropped
+      // ~111m in 1s = 111 m/s - far above the cycling ceiling, must be dropped
       useRecordingStore
         .getState()
         .addGpsPoint(makePoint({ latitude: 45.001, longitude: 10.0, timestamp: startTime + 2000 }));
@@ -417,7 +417,7 @@ describe('RecordingStore', () => {
       useRecordingStore
         .getState()
         .addGpsPoint(makePoint({ latitude: 45.0, longitude: 10.0, timestamp: startTime + 1000 }));
-      // ~111m in 5s = 22 m/s — plausible on a bike, impossible on foot
+      // ~111m in 5s = 22 m/s - plausible on a bike, impossible on foot
       useRecordingStore
         .getState()
         .addGpsPoint(makePoint({ latitude: 45.001, longitude: 10.0, timestamp: startTime + 6000 }));
@@ -471,7 +471,7 @@ describe('RecordingStore', () => {
       const dateNowSpy = jest.spyOn(Date, 'now');
       dateNowSpy.mockReturnValue(startTime);
       useRecordingStore.getState().setSensorSample('heartrate', 150);
-      // 10s later — sample is past the 5s staleness window
+      // 10s later - sample is past the 5s staleness window
       dateNowSpy.mockReturnValue(startTime + 10_000);
       useRecordingStore
         .getState()

@@ -7,12 +7,12 @@ import { useTranslation } from 'react-i18next';
 import * as Haptics from 'expo-haptics';
 
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, spacing, layout, brand } from '@/theme';
+import { colors, colorWithOpacity, darkColors, spacing, layout, brand } from '@/theme';
 import type { RecordingStatus, RecordingMode } from '@/types';
 
 const BRAND_COLOR = brand.tealLight;
-const RESUME_COLOR = '#22C55E';
-const STOP_COLOR = '#EF4444';
+const RESUME_COLOR = colors.success;
+const STOP_COLOR = colors.error;
 const LONG_PRESS_MS = 1000;
 
 interface ControlBarProps {
@@ -39,7 +39,7 @@ function ControlBarInner({
   const { t } = useTranslation();
   const { isDark, colors: themeColors } = useTheme();
 
-  // Long-press stop state — fully Animated, no React state re-renders
+  // Long-press stop state - fully Animated, no React state re-renders
   const stopAnim = useRef(new Animated.Value(0)).current;
   const stopTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -103,7 +103,7 @@ function ControlBarInner({
   if (status === 'paused') {
     const stopBorderColor = stopAnim.interpolate({
       inputRange: [0, 1],
-      outputRange: ['rgba(239,68,68,0.3)', STOP_COLOR],
+      outputRange: [colorWithOpacity(colors.error, 0.3), STOP_COLOR],
     });
 
     return (
@@ -125,7 +125,7 @@ function ControlBarInner({
             onTouchCancel={handleStopPressOut}
           >
             <View style={[styles.stopButton, { backgroundColor: secondaryBg }]}>
-              {/* Progress overlay — driven by Animated for smooth 120hz */}
+              {/* Progress overlay - driven by Animated for smooth 120hz */}
               <Animated.View
                 style={[
                   styles.stopProgress,
@@ -209,7 +209,7 @@ function PrimaryButton({
         accessibilityLabel={label}
         accessibilityRole="button"
       >
-        <MaterialCommunityIcons name={icon} size={28} color="#FFFFFF" />
+        <MaterialCommunityIcons name={icon} size={28} color={colors.textOnDark} />
       </TouchableOpacity>
       <Text style={styles.buttonLabel}>{label}</Text>
     </View>

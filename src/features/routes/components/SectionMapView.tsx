@@ -147,7 +147,7 @@ export const SectionMapView = memo(function SectionMapView({
   const activityColor = getActivityColor(validSportType);
   const mapRef = useRef(null);
 
-  // Style load retry — a transient failure leaves the map on MapLibre's
+  // Style load retry - a transient failure leaves the map on MapLibre's
   // default empty style (white canvas). Remount to re-apply the style.
   const [mapKey, setMapKey] = useState(0);
   const retryCountRef = useRef(0);

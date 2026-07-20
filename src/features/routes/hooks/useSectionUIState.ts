@@ -14,7 +14,7 @@ export function useSectionUIState() {
   const [mapReady, setMapReady] = useState(false);
   // Merge dialog state
   const [mergeTarget, setMergeTarget] = useState<MergeCandidate | null>(null);
-  // Shown when 2+ candidates — lets user pick which to merge.
+  // Shown when 2+ candidates - lets user pick which to merge.
   const [showMergePicker, setShowMergePicker] = useState(false);
 
   // Time range for chart data (passed to useSectionChartData)

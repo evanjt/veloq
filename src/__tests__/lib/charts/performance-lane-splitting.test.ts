@@ -1,7 +1,7 @@
 /**
  * Tests for unified-performance lane preparation.
  *
- * Pure functions — no React, no Victory. We stub a minimal
+ * Pure functions - no React, no Victory. We stub a minimal
  * PerformanceDataPoint shape with just the fields the splitter reads.
  */
 
