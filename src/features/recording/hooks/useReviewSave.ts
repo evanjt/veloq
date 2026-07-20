@@ -51,18 +51,18 @@ export interface UseReviewSave {
   handleUpgradeToOAuth: () => Promise<void>;
   /**
    * True when the last failure left the recording safely in the library but
-   * not uploaded — re-running `handleSave` retries the upload without
+   * not uploaded - re-running `handleSave` retries the upload without
    * creating a duplicate entry.
    */
   canRetry: boolean;
 }
 
 /**
- * Orchestrates saving a recorded or manual activity — local-save-first.
+ * Orchestrates saving a recorded or manual activity - local-save-first.
  *
  * Manual: calls `intervalsApi.createManualActivity` directly.
  * GPS: generates a FIT file, persists it to the recordings library FIRST
- * (the durable copy — a crash or failed upload can no longer lose data),
+ * (the durable copy - a crash or failed upload can no longer lose data),
  * then uploads from there when auto-upload is on.
  *
  * Upload outcomes only change the library entry's status:
@@ -185,12 +185,12 @@ export function useReviewSave({
         }
         savedEntryRef.current = entry;
         fitBufferRef.current = fitBuffer;
-        // The recording is durable now — the crash backup has done its job
+        // The recording is durable now - the crash backup has done its job
         await clearRecordingBackup();
       }
 
       if (!autoUpload) {
-        log.log('Auto-upload off — recording saved to library only');
+        log.log('Auto-upload off - recording saved to library only');
         finishAndGoHome(
           t(
             'recording.savedLocally',

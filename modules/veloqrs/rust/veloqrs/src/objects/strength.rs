@@ -51,7 +51,7 @@ impl StrengthManager {
     }
 
     /// Download FIT file, parse exercise sets, store in SQLite, return results.
-    /// The FIT binary is held in memory only — not persisted to disk.
+    /// The FIT binary is held in memory only - not persisted to disk.
     fn fetch_and_parse_exercise_sets(
         &self,
         auth_header: String,
@@ -454,7 +454,7 @@ impl StrengthManager {
     }
 
     /// Parse raw FIT bytes locally and store any strength sets for this
-    /// activity. Returns the number of sets inserted. No network access —
+    /// activity. Returns the number of sets inserted. No network access -
     /// callers supply the bytes (e.g. just-recorded FIT buffer, downloaded
     /// file, backup). Also marks the activity as FIT-processed so the
     /// network path won't attempt to re-download.

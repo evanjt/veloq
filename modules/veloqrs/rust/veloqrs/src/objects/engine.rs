@@ -147,7 +147,7 @@ impl VeloqEngine {
     }
 
     /// Create an atomic SQLite backup at the given path.
-    /// Uses sqlite3_backup API — safe to call while the database is in use.
+    /// Uses sqlite3_backup API - safe to call while the database is in use.
     fn backup_database(&self, dest_path: String) -> Result<(), VeloqError> {
         with_engine(|e| {
             let mut dest =
@@ -194,7 +194,7 @@ impl VeloqEngine {
     }
 
     /// Bulk export all activities with GPS data as a ZIP of GPX files.
-    /// Streams one track at a time — constant memory regardless of activity count.
+    /// Streams one track at a time - constant memory regardless of activity count.
     fn bulk_export_gpx(
         &self,
         dest_path: String,

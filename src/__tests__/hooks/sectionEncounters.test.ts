@@ -487,7 +487,7 @@ describe('Feed card PR count alignment', () => {
     expect(encounterPrCount).toBe(2);
   });
 
-  it('deduplicates by (sectionId, direction) — duplicate indicators merge correctly', () => {
+  it('deduplicates by (sectionId, direction) - duplicate indicators merge correctly', () => {
     // Two indicators for the same (section, direction): one PR, one trend
     const indicators: Indicator[] = [
       {

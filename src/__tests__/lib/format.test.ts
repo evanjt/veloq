@@ -10,6 +10,7 @@
 import {
   formatDistance,
   formatDuration,
+  formatDurationDelta,
   formatDurationHuman,
   formatPace,
   formatPaceCompact,
@@ -193,12 +194,12 @@ describe('getMonday / getSunday', () => {
 });
 
 // ============================================================
-// EDGE CASE BUG HUNTING — invalid inputs should never leak
+// EDGE CASE BUG HUNTING - invalid inputs should never leak
 // "NaN", "undefined", "Infinity", or throw errors
 // ============================================================
 
 // ============================================================
-// Specific-value fallback matrix — each formatter's canonical
+// Specific-value fallback matrix - each formatter's canonical
 // fallback for NaN/Infinity/-Infinity/negative/null/undefined.
 // The "NaN/Infinity wall" below also checks these but only asserts
 // "no banned string". The matrix additionally locks the fallback value.
@@ -307,8 +308,23 @@ describe('formatTimeDelta edge cases', () => {
   });
 });
 
+describe('formatDurationDelta', () => {
+  it.each([
+    [0, '0s'],
+    [12, '12s'],
+    [59, '59s'],
+    [59.6, '1:00'],
+    [60, '1:00'],
+    [65, '1:05'],
+    [3725, '1:02:05'],
+    [-5, '0s'],
+  ])('%p seconds formats as %p', (input, expected) => {
+    expect(formatDurationDelta(input)).toBe(expected);
+  });
+});
+
 /**
- * BUG: formatDurationHuman(59.5) returned "60s" instead of "1m" — the "< 60"
+ * BUG: formatDurationHuman(59.5) returned "60s" instead of "1m" - the "< 60"
  * branch ran before rounding. Locked here so the fix stays in place.
  */
 describe('formatDurationHuman boundary', () => {
@@ -329,7 +345,7 @@ describe('formatSpeed defensive input', () => {
 });
 
 // ============================================================
-// NaN/Infinity WALL — systematic invalid input coverage
+// NaN/Infinity WALL - systematic invalid input coverage
 // Every numeric format function must never leak banned strings
 // ============================================================
 
@@ -349,6 +365,7 @@ describe('NaN/Infinity wall', () => {
     ['formatDistance', (v: number) => formatDistance(v)],
     ['formatDistance (imperial)', (v: number) => formatDistance(v, false)],
     ['formatDuration', (v: number) => formatDuration(v)],
+    ['formatDurationDelta', (v: number) => formatDurationDelta(v)],
     ['formatDurationHuman', (v: number) => formatDurationHuman(v)],
     ['formatPace', (v: number) => formatPace(v)],
     ['formatPace (imperial)', (v: number) => formatPace(v, false)],
@@ -371,14 +388,14 @@ describe('NaN/Infinity wall', () => {
     INVALID_INPUTS.forEach((input) => expectClean(fn(input as unknown as number)));
   });
 
-  // speedToSecsPerKm returns a number — coerce to string for the banned-token check.
+  // speedToSecsPerKm returns a number - coerce to string for the banned-token check.
   it('speedToSecsPerKm never leaks a banned token for any invalid input', () => {
     INVALID_INPUTS.forEach((input) =>
       expectClean(String(speedToSecsPerKm(input as unknown as number)))
     );
   });
 
-  // formatTimeDelta returns string | null — null is a valid "nothing to display"
+  // formatTimeDelta returns string | null - null is a valid "nothing to display"
   // sentinel, so only non-null results are checked.
   it('formatTimeDelta returns null or a clean string for any invalid input', () => {
     INVALID_INPUTS.forEach((input) => {

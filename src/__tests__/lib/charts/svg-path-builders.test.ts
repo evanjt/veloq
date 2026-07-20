@@ -1,6 +1,6 @@
 import { polylineSvgPath, bandSvgPath } from '@/shared/charts/svgPath';
 
-// These builders feed Skia.Path.MakeFromSVGString — the supported constructor after
+// These builders feed Skia.Path.MakeFromSVGString - the supported constructor after
 // the imperative Skia.Path.Make().moveTo()/lineTo() API was deprecated in skia 2.x.
 // Skia is native (unavailable in jest), so we assert the "d" string they produce.
 

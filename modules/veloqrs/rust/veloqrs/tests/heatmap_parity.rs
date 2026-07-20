@@ -61,6 +61,10 @@ fn walk_tiles(base: &Path) -> Vec<PathBuf> {
     out
 }
 
+fn hex(digest: &[u8]) -> String {
+    digest.iter().map(|b| format!("{:02x}", b)).collect()
+}
+
 fn hash_tile_pixels(path: &Path) -> String {
     let img = image::open(path).expect("decode png");
     let rgba = img.to_rgba8();
@@ -69,7 +73,7 @@ fn hash_tile_pixels(path: &Path) -> String {
     hasher.update(w.to_le_bytes());
     hasher.update(h.to_le_bytes());
     hasher.update(rgba.as_raw());
-    format!("{:x}", hasher.finalize())
+    hex(&hasher.finalize())
 }
 
 fn compute_digest(tiles_dir: &Path) -> String {
@@ -91,7 +95,7 @@ fn compute_digest(tiles_dir: &Path) -> String {
         top.update(v.as_bytes());
         top.update(b"\n");
     }
-    format!("{:x} tiles={}", top.finalize(), per_tile.len())
+    format!("{} tiles={}", hex(&top.finalize()), per_tile.len())
 }
 
 #[test]

@@ -26,7 +26,7 @@ import { formatShortDateWithYear } from '@/features/stats';
 import { colors, darkColors } from '@/theme';
 import type { PerformanceDataPoint } from '@/types';
 
-/** Scatter chart point — adds the computed X coordinate to the base record. */
+/** Scatter chart point - adds the computed X coordinate to the base record. */
 type ChartPoint = PerformanceDataPoint & { x: number };
 
 export interface PerformanceTooltipProps {

@@ -1,33 +1,92 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
   android:layout_width="match_parent"
   android:layout_height="match_parent"
-  android:orientation="vertical"
-  android:gravity="center"
-  android:padding="@dimen/widget_padding"
   android:background="@drawable/widget_background">
 
-  <TextView
-    android:id="@+id/small_label"
-    android:layout_width="wrap_content"
-    android:layout_height="wrap_content"
-    android:textSize="@dimen/widget_text_label"
-    android:textColor="@color/widget_text_secondary"
-    android:textAllCaps="true"
-    android:letterSpacing="0.05" />
+  <LinearLayout
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="@dimen/widget_padding">
 
-  <TextView
-    android:id="@+id/small_value"
-    android:layout_width="wrap_content"
-    android:layout_height="wrap_content"
-    android:textSize="@dimen/widget_text_hero"
-    android:textStyle="bold"
-    android:textColor="@color/widget_text_primary" />
+    <LinearLayout
+      android:id="@+id/small_hero"
+      android:layout_width="match_parent"
+      android:layout_height="wrap_content"
+      android:orientation="vertical">
 
-  <TextView
-    android:id="@+id/small_trend"
-    android:layout_width="wrap_content"
-    android:layout_height="wrap_content"
-    android:textSize="@dimen/widget_text_value"
-    android:textColor="@color/widget_trend_flat" />
-</LinearLayout>
+      <TextView
+        android:id="@+id/small_label"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textSize="@dimen/widget_text_label"
+        android:textColor="@color/widget_text_secondary"
+        android:textAllCaps="true"
+        android:letterSpacing="0.05" />
+
+      <TextView
+        android:id="@+id/small_value"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:textSize="@dimen/widget_text_hero"
+        android:textStyle="bold"
+        android:textColor="@color/widget_text_primary" />
+
+      <LinearLayout
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <TextView
+          android:id="@+id/small_zone"
+          android:layout_width="wrap_content"
+          android:layout_height="wrap_content"
+          android:maxLines="1"
+          android:ellipsize="end"
+          android:textSize="@dimen/widget_text_caption"
+          android:textStyle="bold"
+          android:textColor="@color/widget_text_primary" />
+
+        <TextView
+          android:id="@+id/small_trend"
+          android:layout_width="wrap_content"
+          android:layout_height="wrap_content"
+          android:layout_marginStart="6dp"
+          android:textSize="@dimen/widget_text_caption"
+          android:textColor="@color/widget_trend_flat" />
+
+        <TextView
+          android:id="@+id/small_delta"
+          android:layout_width="wrap_content"
+          android:layout_height="wrap_content"
+          android:layout_marginStart="4dp"
+          android:textSize="@dimen/widget_text_caption"
+          android:textColor="@color/widget_text_secondary" />
+      </LinearLayout>
+    </LinearLayout>
+
+    <View
+      android:layout_width="match_parent"
+      android:layout_height="0dp"
+      android:layout_weight="1" />
+
+    <ImageView
+      android:id="@+id/small_sparkline"
+      android:layout_width="match_parent"
+      android:layout_height="40dp"
+      android:layout_marginTop="@dimen/widget_gap"
+      android:scaleType="fitXY"
+      android:contentDescription="@null" />
+  </LinearLayout>
+
+  <ImageView
+    android:id="@+id/small_pr"
+    android:layout_width="8dp"
+    android:layout_height="8dp"
+    android:layout_gravity="top|end"
+    android:layout_margin="@dimen/widget_padding"
+    android:src="@drawable/widget_pr_dot"
+    android:contentDescription="@null" />
+</FrameLayout>

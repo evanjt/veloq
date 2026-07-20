@@ -9,7 +9,7 @@ use crate::net::types::*;
 /// Streams requested for the detail charts (GPS + the per-metric series).
 pub const DEFAULT_STREAM_TYPES: &str = "time,distance,latlng,velocity_smooth,heartrate,watts,altitude,fixed_altitude,cadence,grade_smooth,temp,w_bal,ga_velocity";
 
-/// `GET /athlete/{id}` — full athlete profile.
+/// `GET /athlete/{id}` - full athlete profile.
 pub async fn fetch_athlete(
     t: &Transport,
     athlete_id: &str,
@@ -19,7 +19,7 @@ pub async fn fetch_athlete(
         .await
 }
 
-/// `GET /athlete/me` — discover the current athlete from the credential alone.
+/// `GET /athlete/me` - discover the current athlete from the credential alone.
 pub async fn fetch_current_athlete(t: &Transport, lane: Lane) -> Result<AthleteRecord, NetError> {
     t.get_json("/athlete/me", &[], lane).await
 }
@@ -46,7 +46,7 @@ pub async fn fetch_activities(
     .await
 }
 
-/// `GET /activity/{id}` — full activity detail.
+/// `GET /activity/{id}` - full activity detail.
 pub async fn fetch_activity(
     t: &Transport,
     activity_id: &str,
@@ -94,7 +94,7 @@ pub async fn fetch_streams(
     Ok(parse_streams(raw))
 }
 
-/// `GET /activity/{id}/intervals` — work/recovery intervals.
+/// `GET /activity/{id}/intervals` - work/recovery intervals.
 pub async fn fetch_intervals(
     t: &Transport,
     activity_id: &str,
@@ -170,7 +170,7 @@ pub async fn fetch_pace_curve(
     parse_pace_curve(&body).map_err(|e| NetError::Decode(e.to_string()))
 }
 
-/// `GET /activity/{id}/file` — raw FIT bytes (for strength exercise-set parsing).
+/// `GET /activity/{id}/file` - raw FIT bytes (for strength exercise-set parsing).
 pub async fn fetch_fit_file(
     t: &Transport,
     activity_id: &str,

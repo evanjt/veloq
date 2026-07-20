@@ -1,7 +1,7 @@
 //! Networking governor: the single choke point all outbound intervals.icu
 //! requests pass through.
 //!
-//! This module owns the transport-agnostic *policy* seams — retry backoff,
+//! This module owns the transport-agnostic *policy* seams - retry backoff,
 //! `Authorization` header formatting, and rate-limit-header parsing. They are
 //! pure functions so they can be unit-tested without a network. The richer
 //! policy (a live budget cell, priority lanes, a per-pool reserve) is layered
@@ -16,13 +16,13 @@ use std::time::{Duration, Instant};
 const MAX_BACKOFF: Duration = Duration::from_secs(8);
 
 /// Upper bound on how long we will honour a `Retry-After` inline (longer waits
-/// are the rate-limit plan's job — it pauses the queue rather than blocking a
+/// are the rate-limit plan's job - it pauses the queue rather than blocking a
 /// request).
 const MAX_RETRY_AFTER: Duration = Duration::from_secs(120);
 
 /// Decide how long to wait before retrying a failed request.
 ///
-/// The server's `Retry-After` (seconds) always wins when present — it knows its
+/// The server's `Retry-After` (seconds) always wins when present - it knows its
 /// own reset window. Absent that, fall back to exponential backoff. `attempt` is
 /// the 1-based retry number; `rate_limited` distinguishes a 429 (longer base)
 /// from a transport error.
@@ -108,7 +108,7 @@ pub fn parse_rate_headers(
 pub enum Lane {
     /// A user is waiting on this (a tapped screen, an upload).
     Interactive,
-    /// Opportunistic history backfill — yields to interactive work.
+    /// Opportunistic history backfill - yields to interactive work.
     Backfill,
 }
 

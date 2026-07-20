@@ -39,7 +39,7 @@ export function useMapPreviewCoordinates(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activityId, hasGpsData, startupTrack, trigger]);
 
-  // 3. Lightweight API fallback — only fires when neither startup nor engine has data
+  // 3. Lightweight API fallback - only fires when neither startup nor engine has data
   const needsFetch = hasGpsData && !startupTrack && !engineResult;
   const { data: streams, isLoading: isFetching } = useQuery({
     queryKey: queryKeys.activities.mapPreview(activityId),

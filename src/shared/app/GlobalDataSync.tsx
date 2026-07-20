@@ -64,7 +64,7 @@ export function GlobalDataSync() {
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Single fetch with stats included — provides both GPS sync data and
+  // Single fetch with stats included - provides both GPS sync data and
   // TSS/FTP metrics for the engine. Previously two separate fetches were made
   // (one without stats, one with), doubling the API calls on every launch.
   const { data: activities, isFetching } = useActivities({
@@ -113,7 +113,7 @@ export function GlobalDataSync() {
   }, [isFetching, setFetchingExtended]);
 
   // Use the route data sync hook to automatically sync GPS data.
-  // Always enabled — GPS tracks are needed for heatmap even when route matching is off.
+  // Always enabled - GPS tracks are needed for heatmap even when route matching is off.
   // Section detection is gated separately in useGpsDataFetcher.
   const { progress, isSyncing } = useRouteDataSync(activities, true);
 
@@ -165,7 +165,7 @@ export function GlobalDataSync() {
             }
           }
         } catch {
-          // best-effort — pace milestone will still work when user visits pace curve
+          // best-effort - pace milestone will still work when user visits pace curve
         }
       })();
     }
@@ -202,11 +202,11 @@ export function GlobalDataSync() {
     [terrainSnapshotProgress, t]
   );
 
-  // Pick which info to show — GPS sync > bounds sync > terrain
+  // Pick which info to show - GPS sync > bounds sync > terrain
   const displayInfo = gpsDisplayInfo ?? boundsDisplayInfo ?? terrainDisplayInfo;
 
   // Debounce sync notification: indeterminate states (like "Loading activities..."
-  // during a background refetch) only post after 1.5s — if the fetch completes
+  // during a background refetch) only post after 1.5s - if the fetch completes
   // within that window the notification never shows. Determinate states (with real
   // progress) post immediately so the user sees forward motion.
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);

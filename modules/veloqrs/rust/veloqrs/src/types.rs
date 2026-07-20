@@ -2,7 +2,7 @@
 //!
 //! These types are data containers used by the persistence layer and FFI boundary.
 //! They were moved out of tracematch because they are not produced or consumed
-//! by any tracematch algorithm — they exist solely for the app's storage and UI.
+//! by any tracematch algorithm - they exist solely for the app's storage and UI.
 
 use serde::{Deserialize, Serialize};
 use tracematch::GpsPoint;

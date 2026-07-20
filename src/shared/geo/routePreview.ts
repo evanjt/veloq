@@ -11,7 +11,7 @@ interface LatLng {
 /**
  * Project GPS coordinates into pixel points that fit a width×height box while
  * preserving the route's geographic aspect ratio (longitude compressed by
- * cos(latitude)), centered with padding, north-up. Pure — for a cheap static
+ * cos(latitude)), centered with padding, north-up. Pure - for a cheap static
  * route preview drawn with Skia (no live map / GL context). Returns [] when
  * there is nothing to draw.
  */

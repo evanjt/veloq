@@ -37,7 +37,7 @@ export function useSensorSession(): void {
     }
 
     // Disconnect when the session actually ends, not when the screen unmounts
-    // — the user can navigate away mid-recording and return via the pill.
+    // - the user can navigate away mid-recording and return via the pill.
     const unsubscribe = useRecordingStore.subscribe((state, prev) => {
       if (state.status === 'idle' && prev.status !== 'idle') {
         stopSimulatedSensors();

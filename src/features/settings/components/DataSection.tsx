@@ -118,7 +118,7 @@ export function DataSection() {
           />
         </View>
 
-        {/* Geocoding toggle hidden — Nominatim Usage Policy prohibits periodic app requests
+        {/* Geocoding toggle hidden - Nominatim Usage Policy prohibits periodic app requests
            without a proxy. Will re-enable once we have a caching proxy (Cloudflare worker or
            self-hosted Nominatim). See: https://operations.osmfoundation.org/policies/nominatim/ */}
 

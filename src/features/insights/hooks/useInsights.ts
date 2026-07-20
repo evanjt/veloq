@@ -22,12 +22,12 @@ import type { Insight } from '../types';
  * separate getInsightsData FFI call entirely. Falls back to its own deferred
  * FFI call when no pre-computed data is available (e.g., on routes tab).
  *
- * Uses computeInsightsFromData() — the shared pure function that can also run
+ * Uses computeInsightsFromData() - the shared pure function that can also run
  * in background tasks without React.
  */
 export function useInsights(
   preComputedInsightsData?: FfiInsightsDataShape | null,
-  /** When true, never make own getInsightsData FFI call — wait for preComputedInsightsData */
+  /** When true, never make own getInsightsData FFI call - wait for preComputedInsightsData */
   skipOwnFfiCall = false,
   preComputedSummaryCardData?: FfiSummaryCardDataShape | null
 ): {
@@ -39,7 +39,7 @@ export function useInsights(
   const { t } = useTranslation();
   const trigger = useEngineSubscription(['activities', 'sections']);
 
-  // Re-query on screen focus — handles missed notifications during enableFreeze.
+  // Re-query on screen focus - handles missed notifications during enableFreeze.
   // When the Insights tab is frozen, React state updates from engine notifications
   // are dropped. dirtyRef tracks whether the engine trigger advanced while frozen;
   // useFocusEffect only bumps focusTrigger when there is actually new data.
@@ -71,7 +71,7 @@ export function useInsights(
   // Get wellness data for form/TSB (from TanStack Query, not FFI)
   const { data: wellnessData } = useWellness('1m');
 
-  // Stabilise wellness reference — only update when the latest CTL/ATL values
+  // Stabilise wellness reference - only update when the latest CTL/ATL values
   // actually change.  useWellness returns a new array on every background
   // refetch (refetchOnWindowFocus: true) even when data is identical, which
   // would otherwise trigger a full insights recomputation.
@@ -96,7 +96,7 @@ export function useInsights(
     return wellnessData;
   }, [wellnessData]);
 
-  // Deferred insights computation — starts empty, populates after interactions
+  // Deferred insights computation - starts empty, populates after interactions
   const [insights, setInsights] = useState<Insight[]>([]);
   const isMountedRef = useRef(true);
 
@@ -180,7 +180,7 @@ export function useInsights(
     return stableInsights.map((i) => (changed.has(i.id) ? { ...i, isNew: true } : i));
   }, [stableInsights, lastSeenFingerprint]);
 
-  // Update hasNewInsights flag — reuse fingerprint/diff from above
+  // Update hasNewInsights flag - reuse fingerprint/diff from above
   useEffect(() => {
     const { fingerprint, changed } = lastComputedRef.current;
     if (annotatedInsights.length === 0 || fingerprint === lastSeenFingerprint) {

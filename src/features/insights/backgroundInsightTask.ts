@@ -12,6 +12,8 @@ import type { NotificationPreferences } from '@/features/settings/stores/Notific
 
 import { buildActivityNotificationBody } from './lib/activityNotificationBody';
 import type { ActivityInfo } from './lib/activityNotificationBody';
+import { extractPushPayload } from './lib/pushPayload';
+import { appendTaskRun } from './lib/taskRunLog';
 import { computeInsightsFromData, fetchInsightsDataFromEngine } from './lib/computeInsightsData';
 import type { WellnessInput } from './lib/computeInsightsData';
 import {
@@ -58,15 +60,6 @@ const GPS_DOWNLOAD_TIMEOUT_MS = 15_000;
 const GPS_DOWNLOAD_POLL_MS = 250;
 
 /**
- * Max time to wait for section detection (15 seconds). The OS gives a silent
- * push handler a limited budget, so we bound the wait rather than blocking on a
- * full library re-detection. If detection runs long the engine keeps going in
- * the background; the notification body just falls back to non-PR content.
- */
-const SECTION_DETECTION_TIMEOUT_MS = 15_000;
-const SECTION_DETECTION_POLL_MS = 500;
-
-/**
  * Read notification preferences directly from AsyncStorage.
  * In background context, Zustand store may not be initialized.
  */
@@ -99,45 +92,38 @@ async function waitForDownloadCompletion(
 }
 
 /**
- * Run section detection for a freshly ingested activity so its section PRs are
- * available when buildActivityNotificationBody queries getSectionsForActivity.
- * Without this, a brand-new activity has GPS in the DB but no section rows yet,
- * so the notification omits any PR it just set.
- *
- * Uses the same start/poll loop as the foreground sync path. Bounded by
- * SECTION_DETECTION_TIMEOUT_MS so the background task is not killed.
+ * Attach a freshly ingested activity to existing sections and route groups so
+ * its PRs are available when buildActivityNotificationBody queries the engine.
+ * Cheap (one activity vs existing sections, incremental regroup) so it fits
+ * the background push budget where a full O(N²) detection cannot. New sections
+ * the activity might create wait for the next full detection run.
  */
-async function runSectionDetection(routeEngine: {
-  startSectionDetection: () => boolean;
-  pollSectionDetection: () => string;
-  triggerRefresh: (target: string) => void;
-}): Promise<void> {
-  let started = routeEngine.startSectionDetection();
-  if (!started) {
-    // A stale completed run can block a fresh start. Drain it and retry, same
-    // as the foreground fetcher.
-    const drainStatus = routeEngine.pollSectionDetection();
-    if (drainStatus === 'complete') {
-      routeEngine.triggerRefresh('sections');
-      routeEngine.triggerRefresh('groups');
-      started = routeEngine.startSectionDetection();
-    }
+async function indexActivity(
+  routeEngine: { indexNewActivity: (activityId: string) => unknown },
+  activityId: string
+): Promise<void> {
+  const start = Date.now();
+  try {
+    const summary = routeEngine.indexNewActivity(activityId) as {
+      matchedSections: number;
+      insertedPortions: number;
+      regrouped: boolean;
+    } | null;
+    await appendTaskRun({
+      stage: 'indexed',
+      activityId,
+      detail: summary
+        ? `${summary.matchedSections} sections, ${summary.insertedPortions} portions, regrouped=${summary.regrouped}, ${Date.now() - start}ms`
+        : 'indexing failed',
+    });
+  } catch (e) {
+    log.warn('Activity indexing failed:', e);
+    await appendTaskRun({
+      stage: 'indexed',
+      activityId,
+      detail: `failed: ${e instanceof Error ? e.message : String(e)}`,
+    });
   }
-  if (!started) return;
-
-  const deadline = Date.now() + SECTION_DETECTION_TIMEOUT_MS;
-  while (Date.now() < deadline) {
-    const status = routeEngine.pollSectionDetection();
-    if (status === 'complete' || status === 'idle') {
-      return;
-    }
-    if (status === 'error') {
-      log.warn('Section detection returned error status');
-      return;
-    }
-    await sleep(SECTION_DETECTION_POLL_MS);
-  }
-  log.warn(`Section detection did not finish within ${SECTION_DETECTION_TIMEOUT_MS}ms`);
 }
 
 /**
@@ -181,7 +167,7 @@ async function fetchAndIngestActivity(activityId: string): Promise<ActivityInfo 
       routeEngine,
     } = require('veloqrs');
 
-    // Skip GPS download if we already have this activity in SQLite — the
+    // Skip GPS download if we already have this activity in SQLite - the
     // enrichment path reads sections from the DB, so a re-delivered webhook
     // (or duplicate silent push) produces the same enriched output without
     // a pointless 150–15000ms network roundtrip.
@@ -196,6 +182,8 @@ async function fetchAndIngestActivity(activityId: string): Promise<ActivityInfo 
     if (alreadyIngested) {
       activityInfo.ingested = true;
       log.log(`Activity already in DB, skipping download: ${activityInfo.name}`);
+      // Idempotent, and covers a webhook that arrived before indexing ran.
+      await indexActivity(routeEngine, activityId);
       return activityInfo;
     }
 
@@ -217,13 +205,9 @@ async function fetchAndIngestActivity(activityId: string): Promise<ActivityInfo 
         `Activity ingested: ${activityInfo.name} (${result.totalPoints} GPS points, ${Date.now() - startTime}ms)`
       );
 
-      // Detect sections for the new activity so its PRs are present when the
-      // notification body queries getSectionsForActivity below.
-      try {
-        await runSectionDetection(routeEngine);
-      } catch (e) {
-        log.warn('Section detection after ingest failed:', e);
-      }
+      // Attach the new activity to existing sections and route groups so its
+      // PRs are present when the notification body queries the engine below.
+      await indexActivity(routeEngine, activityId);
 
       // Queue for priority terrain snapshot generation when app opens
       const { addPendingSnapshot } = require('@/features/maps/lib/storage/terrainPreviewCache');
@@ -241,7 +225,7 @@ async function fetchAndIngestActivity(activityId: string): Promise<ActivityInfo 
  * Background task that processes new activities and generates insight notifications.
  *
  * Called when a silent push arrives from auth.veloq.fit (webhook relay).
- * Runs outside React — no hooks, no providers, no context.
+ * Runs outside React - no hooks, no providers, no context.
  *
  * Flow:
  *   1. Check notification preferences
@@ -261,43 +245,38 @@ TaskManager.defineTask(BACKGROUND_INSIGHT_TASK, async ({ data, error }) => {
   }
 
   try {
+    await appendTaskRun({ stage: 'fired' });
+
     // 1. Read preferences directly from AsyncStorage (Zustand may not be hydrated)
     const prefs = await readPrefsFromStorage();
     log.log(`Prefs: enabled=${prefs?.enabled}, hasData=${!!data}`);
     if (!prefs?.enabled) {
       log.log('Notifications disabled, skipping');
+      await appendTaskRun({ stage: 'bailed', detail: 'notifications disabled' });
       return;
     }
 
-    // 2. Extract push payload
-    // expo-notifications wraps data inside data.dataString as a JSON string
-    const taskPayload = data as
-      | { data?: { dataString?: string }; notification?: unknown }
-      | undefined;
-    let activityId: string | undefined;
-    let eventType: string | undefined;
+    // 2. Extract push payload. The delivered shape varies by platform, so the
+    // extractor tries every known wrapping (dataString, body, flat, nested).
+    const payload = extractPushPayload(data);
+    const { eventType, activityId, sourceShape } = payload;
 
-    try {
-      const raw = taskPayload?.data?.dataString;
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        activityId = parsed.activity_id ?? undefined;
-        eventType = parsed.event_type ?? undefined;
-      }
-    } catch {
-      log.warn('Could not parse push payload');
-    }
-
-    log.log(`Push received: event=${eventType}, activity=${activityId}`);
+    log.log(`Push received: event=${eventType}, activity=${activityId}, shape=${sourceShape}`);
 
     // The visible tray push also wakes this task (Expo delivers `notification`
     // messages through the same TaskBroadcastReceiver as `data` messages), but
-    // with no event_type/activity_id. Bail immediately — the silent push right
+    // with no event_type/activity_id. Bail immediately - the silent push right
     // behind it carries the real payload.
     if (!eventType) {
       log.log('No event type (visible-push wake), skipping');
+      await appendTaskRun({
+        stage: 'bailed',
+        sourceShape,
+        detail: `no event type; keys=[${payload.rawKeys.join(',')}]`,
+      });
       return;
     }
+    await appendTaskRun({ stage: 'parsed', eventType, activityId, sourceShape });
 
     const isActivityEvent = eventType === 'ACTIVITY_UPLOADED' || eventType === 'ACTIVITY_ANALYZED';
 
@@ -308,14 +287,23 @@ TaskManager.defineTask(BACKGROUND_INSIGHT_TASK, async ({ data, error }) => {
       params?: Record<string, string | number>
     ) => string;
 
-    // Note: no on-device placeholder notification — the worker's visible push
+    // Note: no on-device placeholder notification - the worker's visible push
     // is already in the tray by the time this task runs. We dismiss that one
     // and present the enriched version below.
 
     // 5. If activity event, fetch metadata + download GPS into engine
     let activityInfo: ActivityInfo | null = null;
     if (isActivityEvent && activityId) {
+      const ingestStart = Date.now();
       activityInfo = await fetchAndIngestActivity(activityId);
+      await appendTaskRun({
+        stage: 'ingested',
+        eventType,
+        activityId,
+        detail: activityInfo
+          ? `${activityInfo.ingested ? 'ingested' : 'metadata only'} in ${Date.now() - ingestStart}ms`
+          : 'fetch failed',
+      });
     }
 
     // 6. Fetch fresh wellness data from intervals.icu API
@@ -339,7 +327,7 @@ TaskManager.defineTask(BACKGROUND_INSIGHT_TASK, async ({ data, error }) => {
         )
       : [];
 
-    // 7b. Refresh the home-screen widget — the engine already holds the newly
+    // 7b. Refresh the home-screen widget - the engine already holds the newly
     // ingested activity, so this is a cheap snapshot write. Lazy-required (deep
     // path, no React components) to keep the headless module graph lean. No-op
     // until the native widget module is built in.
@@ -370,7 +358,7 @@ TaskManager.defineTask(BACKGROUND_INSIGHT_TASK, async ({ data, error }) => {
 
       // Clear any tray entries for this activity (both the FCM-generated
       // visible push and any older on-device one). We re-present below only
-      // if the app is not in foreground — if the user already opened the app
+      // if the app is not in foreground - if the user already opened the app
       // via the notification tap, the in-app UI shows the data and leaving
       // a stale tray entry up is noise.
       try {
@@ -387,12 +375,13 @@ TaskManager.defineTask(BACKGROUND_INSIGHT_TASK, async ({ data, error }) => {
         log.warn('Could not dismiss tray entries:', e);
       }
 
-      // Skip re-presenting if the user has already opened the app — they're
+      // Skip re-presenting if the user has already opened the app - they're
       // looking at the data already, a tray entry is redundant. This is the
       // common case when tapping the generic visible push cold-starts the
       // app and the silent push fires the task a second or two later.
       if (AppState.currentState === 'active') {
         log.log('App foregrounded, skipping enriched notification re-post');
+        await appendTaskRun({ stage: 'notified', activityId, detail: 'skipped (foreground)' });
       } else {
         await presentActivityNotification(
           activityId,
@@ -401,10 +390,11 @@ TaskManager.defineTask(BACKGROUND_INSIGHT_TASK, async ({ data, error }) => {
           { route: `/activity/${activityId}`, activityId }
         );
         log.log(`Notification sent: ${body}`);
+        await appendTaskRun({ stage: 'notified', activityId, detail: body });
       }
     } else if (allowedNewInsights.length > 0) {
       // Non-activity event (fitness update, wellness change) with new insights.
-      // Enforce D11 cooldown — max pushes/week + min spacing — so a flurry of
+      // Enforce D11 cooldown - max pushes/week + min spacing - so a flurry of
       // wellness webhooks can't chain-fire notifications.
       const history = await readPushHistory();
       if (!isPushAllowed(history)) {
@@ -415,11 +405,23 @@ TaskManager.defineTask(BACKGROUND_INSIGHT_TASK, async ({ data, error }) => {
           const content = formatInsightNotification(bestInsight, t);
           await presentInsightNotification(content.title, content.body, content.data);
           await appendPushHistory(Date.now());
-          log.log(`Notification sent: ${content.title} — ${content.body}`);
+          log.log(`Notification sent: ${content.title} - ${content.body}`);
         }
       }
     } else {
       log.log('No notification content to show');
+    }
+
+    // 9b. Kick a full section detection for anything cheap indexing can't do
+    // (genuinely new sections). Fire-and-forget: no polling, the foreground
+    // drain picks up the completed run on next app open.
+    if (isActivityEvent && activityInfo?.ingested) {
+      try {
+        const { routeEngine } = require('veloqrs');
+        routeEngine.startSectionDetection();
+      } catch {
+        // Best-effort.
+      }
     }
 
     // 9. Update stored fingerprint
@@ -447,6 +449,7 @@ TaskManager.defineTask(BACKGROUND_INSIGHT_TASK, async ({ data, error }) => {
     }
   } catch (e) {
     log.error('Background insight task failed:', e);
+    await appendTaskRun({ stage: 'error', detail: e instanceof Error ? e.message : String(e) });
   }
 });
 

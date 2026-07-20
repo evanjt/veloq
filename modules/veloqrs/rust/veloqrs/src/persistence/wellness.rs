@@ -8,7 +8,7 @@ use rusqlite::{Result as SqlResult, params};
 
 use super::PersistentRouteEngine;
 
-/// One wellness record — shape used by upsert and range queries.
+/// One wellness record - shape used by upsert and range queries.
 #[derive(Debug, Clone)]
 pub struct WellnessRow {
     pub date: String,
@@ -225,7 +225,7 @@ where
     let raw: Vec<Option<f64>> = iter.collect();
     let first_real = raw.iter().copied().find(|v| v.is_some()).flatten();
     let Some(mut last) = first_real else {
-        // Every value missing — mirror TS's `undefined` return via empty Vec.
+        // Every value missing - mirror TS's `undefined` return via empty Vec.
         return Vec::new();
     };
     let mut out = Vec::with_capacity(raw.len());

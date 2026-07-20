@@ -1,5 +1,5 @@
 /**
- * Widget bridge — the JS side that pushes a snapshot to the native widget process.
+ * Widget bridge: the JS side that pushes a snapshot to the native widget process.
  *
  * The native module `VeloqWidget` (iOS App Group write + WidgetCenter reload, Android
  * file write + AppWidgetManager update) does not exist yet, so every entry point here

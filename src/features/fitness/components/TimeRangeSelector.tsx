@@ -13,7 +13,7 @@ interface TimeRangeSelectorProps {
 
 /**
  * Pill-button group for selecting a fitness time range (1W/1M/3M/6M/1Y).
- * Extracted from FitnessScreen — uses `TIME_RANGES` from `@/lib/utils/constants`.
+ * Extracted from FitnessScreen - uses `TIME_RANGES` from `@/lib/utils/constants`.
  */
 export const TimeRangeSelector = React.memo(function TimeRangeSelector({
   timeRange,

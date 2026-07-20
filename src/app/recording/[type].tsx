@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams } from 'expo-router';
@@ -6,29 +6,25 @@ import { useLocalSearchParams } from 'expo-router';
 import { useTheme, useMetricSystem } from '@/shared/app';
 import { TAB_BAR_SAFE_PADDING } from '@/shared/ui';
 import { getRecordingMode } from '@/features/recording/lib/recordingModes';
-import { formatDistance, formatSpeed } from '@/shared/format/format';
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
 import { useRecordingPreferences } from '@/features/recording/stores/RecordingPreferencesStore';
 import { RecordingMap } from '@/features/recording/components/RecordingMap';
 import { DataFieldGrid } from '@/features/recording/components/DataFieldGrid';
 import { ControlBar } from '@/features/recording/components/ControlBar';
-import { LockOverlay } from '@/features/recording/components/LockOverlay';
 import { ActivityTypePickerModal } from '@/features/recording/components/ActivityTypePickerModal';
+import { FieldPickerModal } from '@/features/recording/components/FieldPickerModal';
 import { RouteOverlayPicker } from '@/features/recording/components/RouteOverlayPicker';
 import { ManualEntry } from '@/features/recording/components/ManualEntry';
 import { TimerHeader } from '@/features/recording/components/TimerHeader';
-import { GpsWarningBanner } from '@/features/recording/components/GpsWarningBanner';
-import { AutoPauseBanner } from '@/features/recording/components/AutoPauseBanner';
-import { KmSplitBanner } from '@/features/recording/components/KmSplitBanner';
+import { StatusSlot } from '@/features/recording/components/StatusSlot';
+import { UnlockTrack } from '@/features/recording/components/UnlockTrack';
 import { IndoorDisplay } from '@/features/recording/components/IndoorDisplay';
-import { RelockButton } from '@/features/recording/components/RelockButton';
-import { HrZoneBar } from '@/features/recording/components/HrZoneBar';
 import { useTimer } from '@/features/recording/hooks/useTimer';
 import { useLocationTracking } from '@/features/recording/hooks/useLocationTracking';
 import { useRecordingMetrics } from '@/features/recording/hooks/useRecordingMetrics';
 import { useRecordingScreenState } from '@/features/recording/hooks/useRecordingScreenState';
 import { useRecordingScreenColors } from '@/features/recording/hooks/useRecordingScreenColors';
-import { useLockOnRecordingEffect } from '@/features/recording/hooks/useLockOnRecordingEffect';
+import { useRecordingLock } from '@/features/recording/hooks/useRecordingLock';
 import { useStatusPulseAnimation } from '@/features/recording/hooks/useStatusPulseAnimation';
 import { useGpsWarningClearEffect } from '@/features/recording/hooks/useGpsWarningClearEffect';
 import { useAutoPauseEffect } from '@/features/recording/hooks/useAutoPauseEffect';
@@ -39,11 +35,11 @@ import { useGpsSessionEffect } from '@/features/recording/hooks/useGpsSessionEff
 import { useInitRecordingEffect } from '@/features/recording/hooks/useInitRecordingEffect';
 import { useRecordingKeepAwake } from '@/features/recording/hooks/useRecordingKeepAwake';
 import { useIndoorSampleEffect } from '@/features/recording/hooks/useIndoorSampleEffect';
-import { useSensorSession, SensorStatusChip } from '@/features/sensors';
+import { useSensorSession, useSensorIssue } from '@/features/sensors';
 import { useConsensusRoute } from '@/features/routes/hooks/useRouteEngine';
 import { useRecordingHandlers } from '@/features/recording/hooks/useRecordingHandlers';
 import { styles } from '@/features/recording/RecordingScreen.styles';
-import type { ActivityType } from '@/types';
+import type { ActivityType, DataFieldType } from '@/types';
 
 export default function RecordingScreen() {
   useRecordingKeepAwake();
@@ -65,17 +61,15 @@ export default function RecordingScreen() {
   const distanceLength = useRecordingStore((s) => s.streams.distance.length);
   const heartrateLength = useRecordingStore((s) => s.streams.heartrate.length);
 
-  // Snapshot coordinates for the map/lock overlay. Keyed on length because the
-  // underlying latlng array is mutated in place. The slice gives consumers a
-  // stable reference that only changes when a point is added.
+  // Snapshot coordinates for the map. Keyed on length because the underlying
+  // latlng array is mutated in place. The slice gives consumers a stable
+  // reference that only changes when a point is added.
   const coordinates = useMemo(
     () => useRecordingStore.getState().streams.latlng.slice(),
     [latlngLength]
   );
 
   const {
-    isLocked,
-    setIsLocked,
     gpsWarning,
     setGpsWarning,
     autoPaused,
@@ -84,17 +78,17 @@ export default function RecordingScreen() {
     setSplitBanner,
     showTypePicker,
     setShowTypePicker,
-    hrZoneColor,
-    setHrZoneColor,
+    hrZone,
+    setHrZone,
   } = useRecordingScreenState();
 
   const { textPrimary, textSecondary, bg, surface, border } = useRecordingScreenColors();
 
-  // Data fields from store
   const dataFields = useRecordingPreferences((s) => s.dataFields[mode]);
+  const setDataFields = useRecordingPreferences((s) => s.setDataFields);
 
   const statusPulse = useStatusPulseAnimation(status);
-  useLockOnRecordingEffect(status, setIsLocked);
+  const { isLocked, lock, unlock } = useRecordingLock(status);
 
   const { elapsedTime, movingTime, formattedElapsed, formattedMoving } = useTimer();
   const baseMetrics = useRecordingMetrics();
@@ -117,7 +111,7 @@ export default function RecordingScreen() {
   });
 
   useKmSplitBannerEffect({ mode, status, distanceLength, isMetric, setSplitBanner });
-  useHrZoneColorEffect(heartrateLength, setHrZoneColor);
+  useHrZoneColorEffect(heartrateLength, setHrZone);
   useCrashRecoveryBackupEffect(status, activityType, mode);
 
   const { handlePause, handleResume, handleLap, handleStop, handleDiscard, handleChangeType } =
@@ -132,11 +126,38 @@ export default function RecordingScreen() {
   useInitRecordingEffect(status, activityType, mode, pairedEventId);
   useIndoorSampleEffect(mode, status);
   useSensorSession();
+  const sensorIssue = useSensorIssue();
 
   // Saved-route overlay on the live map (GPS mode only, session-scoped)
   const [overlayRouteId, setOverlayRouteId] = useState<string | null>(null);
   const [showRoutePicker, setShowRoutePicker] = useState(false);
   const { points: overlayPoints } = useConsensusRoute(mode === 'gps' ? overlayRouteId : null);
+
+  // In-place tile customisation (long-press a tile while unlocked)
+  const [editingFieldIndex, setEditingFieldIndex] = useState<number | null>(null);
+  const effectiveFields = useMemo(
+    () =>
+      dataFields ??
+      ((mode === 'gps'
+        ? ['speed', 'distance', 'heartrate', 'power']
+        : ['heartrate', 'power', 'cadence', 'timer']) as DataFieldType[]),
+    [dataFields, mode]
+  );
+
+  const handleFieldSelect = useCallback(
+    (field: DataFieldType) => {
+      if (editingFieldIndex == null) return;
+      const next = [...effectiveFields];
+      const existing = next.indexOf(field);
+      if (existing >= 0 && existing !== editingFieldIndex) {
+        next[existing] = next[editingFieldIndex];
+      }
+      next[editingFieldIndex] = field;
+      setDataFields(mode, next);
+      setEditingFieldIndex(null);
+    },
+    [editingFieldIndex, effectiveFields, mode, setDataFields]
+  );
 
   // Read current activity type from store (may change during recording)
   const currentActivityType = useRecordingStore((s) => s.activityType) ?? activityType;
@@ -152,8 +173,6 @@ export default function RecordingScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: bg, paddingTop: insets.top }]}>
-      <HrZoneBar hrZoneColor={hrZoneColor} />
-
       <TimerHeader
         formattedElapsed={formattedElapsed}
         currentActivityType={currentActivityType}
@@ -161,21 +180,24 @@ export default function RecordingScreen() {
         statusPulse={statusPulse}
         mode={mode}
         accuracy={accuracy}
+        autoPaused={autoPaused}
+        isLocked={isLocked}
         textPrimary={textPrimary}
         textSecondary={textSecondary}
         border={border}
         onOpenTypePicker={() => setShowTypePicker(true)}
+        onLock={lock}
       />
 
-      <GpsWarningBanner gpsWarning={gpsWarning} setGpsWarning={setGpsWarning} />
-      <AutoPauseBanner autoPaused={autoPaused} />
-      <View style={styles.sensorChipRow}>
-        <SensorStatusChip />
-      </View>
-      <KmSplitBanner splitBanner={splitBanner} />
+      <StatusSlot
+        gpsWarning={gpsWarning}
+        sensorIssue={sensorIssue}
+        splitBanner={splitBanner}
+        onDismissGpsWarning={() => setGpsWarning(null)}
+      />
 
       {/* Main Content Area */}
-      <View style={styles.mainContent}>
+      <View style={styles.mainContent} pointerEvents={isLocked ? 'none' : 'auto'}>
         {mode === 'gps' ? (
           <RecordingMap
             coordinates={coordinates}
@@ -197,45 +219,30 @@ export default function RecordingScreen() {
 
       {/* Data Fields */}
       <DataFieldGrid
-        fields={
-          dataFields ??
-          (mode === 'gps'
-            ? ['speed', 'distance', 'heartrate', 'power']
-            : ['heartrate', 'power', 'cadence', 'timer'])
-        }
+        fields={effectiveFields}
         metrics={metrics}
         isMetric={isMetric}
+        hrZone={hrZone}
+        onLongPressField={isLocked ? undefined : (index) => setEditingFieldIndex(index)}
       />
 
-      {/* Controls */}
-      <ControlBar
-        status={status}
-        mode={mode}
-        onPause={handlePause}
-        onResume={handleResume}
-        onStop={handleStop}
-        onDiscard={handleDiscard}
-        onLap={handleLap}
-        style={{ paddingBottom: insets.bottom + TAB_BAR_SAFE_PADDING }}
-      />
-
-      <RelockButton isLocked={isLocked} topInset={insets.top} onLock={() => setIsLocked(true)} />
-
-      {/* Lock overlay */}
-      <LockOverlay
-        visible={isLocked}
-        elapsed={formattedElapsed}
-        distance={formatDistance(metrics.distance ?? 0, isMetric)}
-        onUnlock={() => setIsLocked(false)}
-        mode={mode}
-        status={status === 'recording' || status === 'paused' ? status : 'idle'}
-        accuracy={accuracy}
-        coordinates={coordinates}
-        currentLocation={currentLocation}
-        activityType={currentActivityType}
-        speed={metrics.speed > 0 ? formatSpeed(metrics.speed, isMetric) : undefined}
-        heartrate={metrics.heartrate > 0 ? metrics.heartrate : undefined}
-      />
+      {/* Controls, or the unlock track while locked */}
+      {isLocked ? (
+        <View style={{ paddingTop: 8, paddingBottom: insets.bottom + TAB_BAR_SAFE_PADDING }}>
+          <UnlockTrack onUnlock={unlock} />
+        </View>
+      ) : (
+        <ControlBar
+          status={status}
+          mode={mode}
+          onPause={handlePause}
+          onResume={handleResume}
+          onStop={handleStop}
+          onDiscard={handleDiscard}
+          onLap={handleLap}
+          style={{ paddingBottom: insets.bottom + TAB_BAR_SAFE_PADDING }}
+        />
+      )}
 
       {/* Activity type picker modal */}
       <ActivityTypePickerModal
@@ -245,6 +252,17 @@ export default function RecordingScreen() {
         onClose={() => setShowTypePicker(false)}
         mode="recording"
         isDark={isDark}
+      />
+
+      {/* In-place data field picker */}
+      <FieldPickerModal
+        visible={editingFieldIndex != null}
+        selectedField={
+          editingFieldIndex != null ? (effectiveFields[editingFieldIndex] ?? null) : null
+        }
+        isDark={isDark}
+        onSelect={handleFieldSelect}
+        onClose={() => setEditingFieldIndex(null)}
       />
 
       {/* Saved-route overlay picker */}

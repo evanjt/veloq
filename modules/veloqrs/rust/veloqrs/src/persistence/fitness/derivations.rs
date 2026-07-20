@@ -1,6 +1,6 @@
 //! Fitness derivations: trends, aggregates, calendars, highlights.
 //!
-//! Built on top of stored activity metrics and section performances — nothing
+//! Built on top of stored activity metrics and section performances - nothing
 //! here mutates persisted state, with the exception of `save_pace_snapshot`
 //! which records a trend sample.
 
@@ -112,7 +112,7 @@ impl PersistentRouteEngine {
             previous_date: None,
         };
 
-        // Filter to cycling sports only — running/other FTP values are distinct metrics
+        // Filter to cycling sports only - running/other FTP values are distinct metrics
         let mut stmt = match self.db.prepare(
             "SELECT ftp, date FROM ftp_history
              WHERE sport_type IN ('Ride', 'VirtualRide', 'MountainBikeRide', 'GravelRide', 'TrackRide', 'Cyclocross', 'Handcycle', 'Velomobile', 'EBikeRide')
@@ -267,7 +267,7 @@ impl PersistentRouteEngine {
         section_id: &str,
     ) -> Option<crate::CalendarSummary> {
         let start = std::time::Instant::now();
-        // Reuse get_section_performances — single source of truth for section times.
+        // Reuse get_section_performances - single source of truth for section times.
         // This ensures calendar values match chart PRs exactly (no proportional estimates
         // for activities without time streams, matching the strict behavior).
         let perf_result = self.get_section_performances(section_id);
@@ -677,7 +677,7 @@ impl PersistentRouteEngine {
 
     /// Batch-query section highlights (PRs) for a list of activity IDs.
     /// Now reads from the materialized `activity_indicators` table.
-    /// Kept for backwards compatibility — new code should use `get_activity_indicators()`.
+    /// Kept for backwards compatibility - new code should use `get_activity_indicators()`.
     pub fn get_activity_section_highlights(
         &self,
         activity_ids: &[String],
@@ -723,7 +723,7 @@ impl PersistentRouteEngine {
         }
 
         // Convert indicators to the old FfiActivitySectionHighlight format
-        // Merge by (activity_id, section_id) — pick PR over trend, best trend wins
+        // Merge by (activity_id, section_id) - pick PR over trend, best trend wins
         let mut highlight_map: HashMap<(String, String), crate::FfiActivitySectionHighlight> =
             HashMap::new();
 
@@ -767,7 +767,7 @@ impl PersistentRouteEngine {
     }
 
     /// Batch-query route highlights for a list of activity IDs.
-    /// Computes inline from in-memory groups + activity_metrics — no table read.
+    /// Computes inline from in-memory groups + activity_metrics - no table read.
     pub fn get_activity_route_highlights(
         &self,
         activity_ids: &[String],
@@ -821,8 +821,9 @@ impl PersistentRouteEngine {
             }
         }
 
-        // Cache keyed by (group_id, is_forward_like): (best_moving_time, per-activity data)
-        let mut group_cache: HashMap<(&str, bool), (u32, HashMap<&str, (i8, f64, u32)>)> =
+        // Cache keyed by (group_id, is_forward_like):
+        // (best_moving_time, second_best_moving_time, per-activity data)
+        let mut group_cache: HashMap<(&str, bool), (u32, u32, HashMap<&str, (i8, f64, u32)>)> =
             HashMap::new();
         let mut results = Vec::new();
 
@@ -859,9 +860,10 @@ impl PersistentRouteEngine {
                 members.sort_by_key(|m| m.3);
 
                 if members.is_empty() {
-                    group_cache.insert(cache_key, (0u32, HashMap::new()));
+                    group_cache.insert(cache_key, (0u32, u32::MAX, HashMap::new()));
                 } else {
                     let mut best_moving_time: u32 = u32::MAX;
+                    let mut second_best_moving_time: u32 = u32::MAX;
                     let mut trends: HashMap<&str, (i8, f64, u32)> = HashMap::new();
                     let mut sum = 0.0f64;
                     let mut n = 0u32;
@@ -883,18 +885,23 @@ impl PersistentRouteEngine {
                         sum += speed;
                         n += 1;
                         if *moving_time < best_moving_time {
+                            second_best_moving_time = best_moving_time;
                             best_moving_time = *moving_time;
+                        } else if *moving_time < second_best_moving_time {
+                            second_best_moving_time = *moving_time;
                         }
                     }
 
                     if best_moving_time == u32::MAX {
                         best_moving_time = 0;
                     }
-                    group_cache.insert(cache_key, (best_moving_time, trends));
+                    group_cache.insert(cache_key, (best_moving_time, second_best_moving_time, trends));
                 }
             }
 
-            if let Some((best_moving_time, trends)) = group_cache.get(&cache_key) {
+            if let Some((best_moving_time, second_best_moving_time, trends)) =
+                group_cache.get(&cache_key)
+            {
                 let (trend, _speed, moving_time) = trends.get(aid).copied().unwrap_or((0, 0.0, 0));
                 let is_pr =
                     moving_time > 0 && *best_moving_time > 0 && moving_time == *best_moving_time;
@@ -903,6 +910,12 @@ impl PersistentRouteEngine {
                 } else {
                     None
                 };
+                let pr_improvement_seconds =
+                    if is_pr && *second_best_moving_time != u32::MAX && *second_best_moving_time > moving_time {
+                        Some(*second_best_moving_time - moving_time)
+                    } else {
+                        None
+                    };
                 results.push(crate::FfiActivityRouteHighlight {
                     activity_id: aid.to_string(),
                     route_id: gid.to_string(),
@@ -910,6 +923,7 @@ impl PersistentRouteEngine {
                     is_pr,
                     trend,
                     time_delta_seconds,
+                    pr_improvement_seconds,
                 });
             }
         }
@@ -1003,7 +1017,7 @@ impl PersistentRouteEngine {
             }
             debug_assert_eq!(history_times.len(), history_ids.len());
 
-            // PR tolerance: 0.5% relative — matches route PR detection behavior
+            // PR tolerance: 0.5% relative - matches route PR detection behavior
             // and adapts to section length (5s sprint vs 30min climb).
             let is_pr = trav.lap_time > 0.0
                 && best_time < f64::MAX

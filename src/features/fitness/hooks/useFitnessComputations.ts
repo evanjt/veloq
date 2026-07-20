@@ -112,7 +112,7 @@ export function useFitnessComputations({
   const displayDate = selectedDate || currentValues?.date;
   const formZone = displayValues ? getFormZone(displayValues.form) : null;
 
-  // Ramp rate sourced from intervals.icu's wellness payload — keep our
+  // Ramp rate sourced from intervals.icu's wellness payload - keep our
   // representation aligned with what the web UI shows.
   const rampRate = useMemo<number | null>(() => {
     if (!wellness || wellness.length === 0) return null;

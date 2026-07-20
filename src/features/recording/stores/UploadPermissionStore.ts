@@ -16,7 +16,7 @@ interface UploadPermissionState {
   needsUpgrade: boolean;
   /** null = unchecked, true = granted, false = denied */
   hasWritePermission: boolean | null;
-  /** User dismissed the permission banner — don't show again until reset */
+  /** User dismissed the permission banner - don't show again until reset */
   bannerDismissed: boolean;
   /** Raw OAuth scope string, e.g. "ACTIVITY:WRITE,WELLNESS:READ" */
   grantedScopes: string | null;

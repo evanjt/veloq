@@ -1,7 +1,7 @@
 // OAuth configuration for intervals.icu.
 // See oauth-proxy/README.md for registration details.
-// WRITE implies READ — don't request both for the same category.
-// ACTIVITY:WRITE removed for 0.3.0 — recording not shipping yet, no write access needed.
+// WRITE implies READ - don't request both for the same category.
+// ACTIVITY:WRITE removed for 0.3.0 - recording not shipping yet, no write access needed.
 export const OAUTH = {
   CLIENT_ID: '182',
   PROXY_URL: 'https://auth.veloq.fit',

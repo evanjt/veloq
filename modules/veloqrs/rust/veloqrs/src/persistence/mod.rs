@@ -524,12 +524,12 @@ pub struct PersistentRouteEngine {
 
     /// Tier 2: LRU cached signatures (200 max = ~2MB)
     /// `Arc` avoids cloning the full `RouteSignature` (points vec + metadata)
-    /// on every cache hit — callers that only read through a reference pay
+    /// on every cache hit - callers that only read through a reference pay
     /// nothing, and callers that need ownership clone once instead of twice.
     signature_cache: LruCache<String, Arc<RouteSignature>>,
 
     /// Tier 2: LRU cached consensus routes (50 max).
-    /// `Arc` avoids cloning the full `Vec<GpsPoint>` on every read — cache hits
+    /// `Arc` avoids cloning the full `Vec<GpsPoint>` on every read - cache hits
     /// just bump the refcount and callers either consume a clone of the inner
     /// data or iterate via `&*arc`.
     consensus_cache: LruCache<String, Arc<Vec<GpsPoint>>>,
@@ -562,7 +562,7 @@ pub struct PersistentRouteEngine {
     processed_activity_ids: HashSet<String>,
 
     /// Dirty tracking
-    groups_dirty: bool,
+    pub(crate) groups_dirty: bool,
     sections_dirty: bool,
 
     /// Configuration
@@ -694,14 +694,14 @@ impl PersistentRouteEngine {
         // mark sections as dirty so re-detection runs with the updated algorithm.
         if !self.activity_metadata.is_empty() && self.processed_activity_ids.is_empty() {
             log::info!(
-                "tracematch: [PersistentEngine] {} activities but no processed IDs — marking sections dirty for re-detection",
+                "tracematch: [PersistentEngine] {} activities but no processed IDs - marking sections dirty for re-detection",
                 self.activity_metadata.len()
             );
             self.sections_dirty = true;
         }
 
         // Indicator population is handled lazily via version check in get_activity_indicators().
-        // No need to populate here — first read triggers recompute if version mismatches.
+        // No need to populate here - first read triggers recompute if version mismatches.
 
         Ok(())
     }
@@ -990,7 +990,7 @@ impl PersistentRouteEngine {
 
     /// Get all data needed by the Routes screen in a single call.
     /// Returns group summaries with consensus polylines, section summaries with polylines,
-    /// and aggregate counts/stats — all in one mutex acquisition.
+    /// and aggregate counts/stats - all in one mutex acquisition.
     /// Supports pagination via limit/offset for both groups and sections.
     pub fn get_routes_screen_data(
         &mut self,
@@ -1167,8 +1167,8 @@ pub struct PersistentEngineStats {
 /// This singleton allows FFI calls to access a shared persistent engine
 /// without passing state back and forth across the FFI boundary.
 ///
-/// Uses `RwLock` so the common case — read-only queries against in-memory
-/// state — can run concurrently across threads. Mutations acquire the write
+/// Uses `RwLock` so the common case - read-only queries against in-memory
+/// state - can run concurrently across threads. Mutations acquire the write
 /// lock and therefore serialise.
 ///
 /// # Safety invariant
@@ -1192,13 +1192,13 @@ unsafe impl Sync for PersistentRouteEngine {}
 
 /// Acquire the **write** lock on the global persistent engine.
 ///
-/// Required for any closure that needs `&mut PersistentRouteEngine` —
+/// Required for any closure that needs `&mut PersistentRouteEngine` -
 /// includes all mutation FFIs (`add_*`, `set_*`, `save_*`, `clear_*`,
 /// `apply_*`, `remove_*`, `detect_*`) plus read-looking helpers that
 /// mutate LRU caches (`get_signature`, `get_group_by_id`,
 /// `get_section_by_id`, `get_consensus_route`, `get_section_performances`,
 /// `get_groups`) **and any closure that touches `self.db`** (the read lock
-/// is memory-only — see safety invariant above).
+/// is memory-only - see safety invariant above).
 pub fn with_persistent_engine<F, R>(f: F) -> Option<R>
 where
     F: FnOnce(&mut PersistentRouteEngine) -> R,
@@ -1209,7 +1209,7 @@ where
     guard.as_mut().map(f)
 }
 
-/// Alias for `with_persistent_engine` — explicit write semantics.
+/// Alias for `with_persistent_engine` - explicit write semantics.
 pub fn with_persistent_engine_write<F, R>(f: F) -> Option<R>
 where
     F: FnOnce(&mut PersistentRouteEngine) -> R,
@@ -1221,7 +1221,7 @@ where
 ///
 /// Multiple callers can hold the read lock concurrently. The closure
 /// receives `&PersistentRouteEngine`, so any call to a `&mut self` helper
-/// fails to compile — that is the point.
+/// fails to compile - that is the point.
 ///
 /// **Safety**: do not call any method that dereferences `self.db` from
 /// inside this closure. SQLite access goes through the write lock only.
@@ -1307,7 +1307,7 @@ pub mod persistent_engine_ffi {
     }
 
     /// Initialize the persistent engine with a database path.
-    /// Called by VeloqEngine::create() — not exported via FFI directly.
+    /// Called by VeloqEngine::create() - not exported via FFI directly.
     pub fn persistent_engine_init(db_path: String) -> bool {
         crate::init_logging();
         install_panic_hook(&db_path);
@@ -2208,7 +2208,7 @@ mod tests {
     }
 
     /// Regression: a freshly-detected section must have non-NULL `lap_time`/`lap_pace`
-    /// in `section_activities` immediately after `apply_sections()` — no lazy
+    /// in `section_activities` immediately after `apply_sections()` - no lazy
     /// backfill trip on the first `get_section_performances()` call.
     ///
     /// The computation happens inline in `save_sections()` by reading the
@@ -2258,7 +2258,7 @@ mod tests {
             .apply_sections(vec![section])
             .expect("apply_sections");
 
-        // Read back junction rows directly — do NOT call `get_section_performances`
+        // Read back junction rows directly - do NOT call `get_section_performances`
         // (that path does lazy backfill and would mask a missing inline compute).
         let rows: Vec<(String, Option<f64>, Option<f64>)> = engine
             .db
@@ -2309,7 +2309,7 @@ mod tests {
     }
 
     /// Regression: `compute_lap_time_from_stream` handles the zero-span and
-    /// missing-stream edge cases by returning `(None, None)` — never panics
+    /// missing-stream edge cases by returning `(None, None)` - never panics
     /// on out-of-bounds indices.
     #[test]
     fn test_compute_lap_time_from_stream_edge_cases() {

@@ -29,7 +29,7 @@ export function paceMinutesFromSpeed(speedMs: number, referenceMeters = 1000): n
  * Total elevation gain (m): sum of positive deltas between consecutive valid
  * altitude samples. Null/undefined/non-finite samples are skipped without
  * resetting the previous reference, so a dropout doesn't fabricate a gain.
- * With treatZeroAsMissing, 0 is also skipped — the FIT encoding uses 0 for
+ * With treatZeroAsMissing, 0 is also skipped - the FIT encoding uses 0 for
  * no-data, so a missing sample shouldn't read as sea level.
  */
 export function elevationGain(

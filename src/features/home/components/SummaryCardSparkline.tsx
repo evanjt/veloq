@@ -29,7 +29,7 @@ interface SummaryCardSparklineProps {
   fatigueData?: number[];
   formData: number[];
   width: number;
-  /** Show inline labels ("Fitness", "Form") — used in settings preview */
+  /** Show inline labels ("Fitness", "Form") - used in settings preview */
   showLabels?: boolean;
   /** Called during scrub with selected index values, or null on release */
   onScrub?: (values: ScrubValues | null) => void;
@@ -43,7 +43,7 @@ interface SummaryCardSparklineProps {
  * Fitness (CTL) rendered as a blue sparkline, Fatigue (ATL) as a pink sparkline.
  * Below: thin form zone bar colored by zone per day.
  * Right-aligned value labels show latest values (or scrubbed values during interaction).
- * Long-press to scrub — updates hero value via onScrub callback.
+ * Long-press to scrub - updates hero value via onScrub callback.
  */
 export const SummaryCardSparkline = memo(function SummaryCardSparkline({
   fitnessData,
@@ -78,7 +78,7 @@ export const SummaryCardSparkline = memo(function SummaryCardSparkline({
     // Ensure at least 1 unit range to avoid division by zero
     if (min === max) return { y: [min - 1, max + 1] as [number, number] };
     // Buffer the domain so casing strokes at min/max aren't clipped by the Skia clip rect.
-    // CartesianChart clips children to chartBounds — a 2px stroke extends 1px beyond,
+    // CartesianChart clips children to chartBounds - a 2px stroke extends 1px beyond,
     // so we need enough domain headroom that the plotted extremes stay inside the clip.
     const range = max - min;
     return { y: [min - range * 0.06, max + range * 0.04] as [number, number] };
@@ -228,7 +228,7 @@ export const SummaryCardSparkline = memo(function SummaryCardSparkline({
   }
 
   const labelColor = isDark ? darkColors.textMuted : colors.textMuted;
-  const casingColor = isDark ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.15)';
+  const casingColor = isDark ? darkColors.chartCasing : colors.chartCasing;
   const fitnessLineColor = isDark ? colors.fitnessBlue : colorWithOpacity(colors.fitnessBlue, 0.85);
   const fatigueLineColor = isDark ? colors.chartPink : colorWithOpacity(colors.chartPink, 0.75);
 
@@ -247,10 +247,10 @@ export const SummaryCardSparkline = memo(function SummaryCardSparkline({
             </View>
           )}
 
-          {/* Chart area — single Skia canvas: sparklines (top) + form zone bar (bottom) */}
+          {/* Chart area - single Skia canvas: sparklines (top) + form zone bar (bottom) */}
           <View style={{ width: chartWidth, height: totalHeight }}>
             <Canvas style={{ width: chartWidth, height: totalHeight }}>
-              {/* Fatigue (ATL) — drawn first so fitness renders on top */}
+              {/* Fatigue (ATL) - drawn first so fitness renders on top */}
               {linePaths.fatigue && (
                 <Path
                   path={linePaths.fatigue}
@@ -271,7 +271,7 @@ export const SummaryCardSparkline = memo(function SummaryCardSparkline({
                   strokeCap="round"
                 />
               )}
-              {/* Fitness (CTL) — primary line, on top */}
+              {/* Fitness (CTL) - primary line, on top */}
               {linePaths.fitness && (
                 <Path
                   path={linePaths.fitness}
@@ -292,7 +292,7 @@ export const SummaryCardSparkline = memo(function SummaryCardSparkline({
                   strokeCap="round"
                 />
               )}
-              {/* Form zone bar — directly below the chart (y = CHART_HEIGHT) */}
+              {/* Form zone bar - directly below the chart (y = CHART_HEIGHT) */}
               {formBarRects.map((rect, i) => (
                 <Rect
                   key={i}

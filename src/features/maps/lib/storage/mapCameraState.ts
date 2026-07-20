@@ -26,14 +26,14 @@ export function initMapCameraState(): Promise<void> {
       const raw = await getSetting(STORAGE_KEY);
       if (raw) state = JSON.parse(raw);
     } catch {
-      // Best effort — start without saved state
+      // Best effort - start without saved state
     }
     initialized = true;
   })();
   return initPromise;
 }
 
-// Start reading immediately on import — don't wait for useEffect
+// Start reading immediately on import - don't wait for useEffect
 initMapCameraState();
 
 export function getMapCameraState(): MapCameraState | null {

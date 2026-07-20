@@ -419,7 +419,7 @@ impl PersistentRouteEngine {
                 }
 
                 let lap_count = laps.len() as u32;
-                // Find the lap with fastest pace (best performance) — but only
+                // Find the lap with fastest pace (best performance) - but only
                 // among COMPLETE traversals. Partial-direction laps and laps
                 // covering less than 70% of the canonical section distance are
                 // excluded so a 200m partial overlap can't be reported as a PR
@@ -490,13 +490,13 @@ impl PersistentRouteEngine {
         // cross-direction best_time gave wrong per-direction PRs.
         //
         // PR completeness rules (apply to BOTH per-direction best and stats):
-        //  1. Skip "partial" direction laps — by definition a partial overlap
+        //  1. Skip "partial" direction laps - by definition a partial overlap
         //     only covers some of the section, so its lap_time is for that
         //     fragment, not a full traversal. Including it produces
         //     impossibly fast PR times like "1:24" on a section that takes
         //     6 minutes.
         //  2. Skip laps whose actual GPS distance is less than 70% of the
-        //     section's canonical distance — even when the matcher labels
+        //     section's canonical distance - even when the matcher labels
         //     them "same"/"reverse", a substantially short portion is still
         //     an incomplete traversal and shouldn't count as a PR. The 0.7
         //     threshold matches the matcher's own "complete enough" gate.
@@ -632,7 +632,7 @@ impl PersistentRouteEngine {
 
     /// Get performance records for excluded activities in a section.
     /// Only uses cached lap_time/lap_pace (no time stream fallback).
-    /// Returns just the records — no best/stats computation.
+    /// Returns just the records - no best/stats computation.
     pub fn get_excluded_section_performances(
         &mut self,
         section_id: &str,

@@ -4,7 +4,7 @@
  * Camera's maxZoomLevel prop; if that prop is removed or loosened, a short
  * 200m section can zoom in past level 18 where MapLibre tiles become grainy.
  *
- * Static source assertion rather than a runtime check — we don't need to
+ * Static source assertion rather than a runtime check - we don't need to
  * render MapLibre to verify a prop literal, and the cost of a missed
  * regression (broken detail view for short sections) is worth the guard.
  */

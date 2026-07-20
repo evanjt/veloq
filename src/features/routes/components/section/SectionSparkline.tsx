@@ -1,12 +1,12 @@
 /**
- * Minimal sparkline for section performance — just dots and a trend line.
+ * Minimal sparkline for section performance - just dots and a trend line.
  * Purpose-built for compact inline use (no axes, labels, or gestures).
  */
 
 import React from 'react';
 import { Canvas, Circle, Path, Skia } from '@shopify/react-native-skia';
 import { polylineSvgPath } from '@/shared/charts/svgPath';
-import { colors } from '@/theme';
+import { colors, colorWithOpacity } from '@/theme';
 import type { PerformanceDataPoint } from '@/types';
 
 interface SectionSparklineProps {
@@ -43,8 +43,12 @@ export const SectionSparkline = React.memo(function SectionSparkline({
     polylineSvgPath(data.map((d, i) => ({ x: toX(i), y: toY(d.speed) })))
   );
 
-  const dotColor = isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.35)';
-  const lineColor = isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.15)';
+  const dotColor = isDark
+    ? colorWithOpacity(colors.textOnDark, 0.6)
+    : colorWithOpacity(colors.shadowBlack, 0.35);
+  const lineColor = isDark
+    ? colorWithOpacity(colors.textOnDark, 0.35)
+    : colorWithOpacity(colors.shadowBlack, 0.15);
 
   return (
     <Canvas style={{ width, height }}>

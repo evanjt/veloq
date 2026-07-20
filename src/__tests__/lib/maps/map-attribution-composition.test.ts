@@ -1,5 +1,5 @@
 /**
- * Tests for computeAttribution — pure attribution-text computation.
+ * Tests for computeAttribution - pure attribution-text computation.
  * Imports from `@/features/maps/components/mapStyles`, which pulls only JSON and
  * pure geometry helpers (no MapLibre). No mocking needed.
  */

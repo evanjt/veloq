@@ -26,7 +26,7 @@ const BACKOFF_CAP_MS = 60 * 60 * 1000;
 // load-modify-save over a single AsyncStorage key, so concurrent callers (the
 // upload processor draining while a freshly-saved recording is added) would
 // otherwise read the same snapshot and the later write would clobber the
-// earlier one — silently dropping a recording that has no server backstop.
+// earlier one - silently dropping a recording that has no server backstop.
 let libraryLock: Promise<unknown> = Promise.resolve();
 function withLibraryLock<T>(fn: () => Promise<T>): Promise<T> {
   const run = libraryLock.then(fn, fn);
@@ -106,7 +106,7 @@ export interface SaveRecordingParams {
 
 /**
  * Persist a completed recording: FIT file (+ optional streams sidecar for the
- * detail view) plus an index entry. This is the durable copy — upload is an
+ * detail view) plus an index entry. This is the durable copy - upload is an
  * optional step over it and nothing here is ever deleted by retry logic.
  */
 export async function saveRecording(

@@ -109,12 +109,12 @@ describe('Demo data integrity', () => {
 });
 
 describe('Demo data realism (periodization model)', () => {
-  it('FTP varies across activities — not all 250W', () => {
+  it('FTP varies across activities - not all 250W', () => {
     const ftpValues = new Set(demoActivities.map((a) => a.icu_ftp));
     expect(ftpValues.size).toBeGreaterThan(3);
   });
 
-  it('CTL has a visible dip from illness block — not monotonically increasing', () => {
+  it('CTL has a visible dip from illness block - not monotonically increasing', () => {
     const wellness = fixtures.wellness;
     const ctlValues = wellness.map((w) => w.ctl);
     let hasDecline = false;
@@ -127,7 +127,7 @@ describe('Demo data realism (periodization model)', () => {
     expect(hasDecline).toBe(true);
   });
 
-  it('activity count per week varies — irregular cadence', () => {
+  it('activity count per week varies - irregular cadence', () => {
     const weekCounts = new Map<string, number>();
     const dateBased = demoActivities.filter(
       (a) => !a.id.startsWith('demo-test-') && !a.id.startsWith('demo-stress-')
@@ -175,7 +175,7 @@ describe('Demo data realism (periodization model)', () => {
     expect(max - min).toBeGreaterThan(0.1);
   });
 
-  it('weight trends downward during training season — not periodic sine wave', () => {
+  it('weight trends downward during training season - not periodic sine wave', () => {
     const wellness = fixtures.wellness;
     const firstQuarterAvg = wellness.slice(0, 90).reduce((s, w) => s + (w.weight ?? 75), 0) / 90;
     const thirdQuarterAvg = wellness.slice(180, 270).reduce((s, w) => s + (w.weight ?? 75), 0) / 90;

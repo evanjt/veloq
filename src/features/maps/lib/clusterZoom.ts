@@ -1,5 +1,5 @@
 /**
- * clusterZoom — pure helpers for zooming into a MapLibre cluster.
+ * clusterZoom - pure helpers for zooming into a MapLibre cluster.
  *
  * When the user taps a cluster on the regional map we prefer the most
  * predictable outcome: fit the camera to the bounds of the leaves that
@@ -15,7 +15,7 @@
  * that all start at the same garage door).
  */
 
-/** Small epsilon — leaves within this span are considered "stacked". */
+/** Small epsilon - leaves within this span are considered "stacked". */
 const STACKED_LEAF_SPAN_DEG = 0.0002; // ≈20m at most latitudes
 
 /** Threshold below which we treat the cluster as "small" (task spec). */
@@ -64,7 +64,7 @@ export interface ClusterZoomPlanSmall {
   kind: 'fitBounds';
   bounds: LeafBounds;
   leafCount: number;
-  /** Animation duration in ms — shorter for small clusters, longer for large ones. */
+  /** Animation duration in ms - shorter for small clusters, longer for large ones. */
   durationMs: number;
 }
 

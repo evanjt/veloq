@@ -34,7 +34,7 @@ export const PeriodComparisonContent = React.memo(function PeriodComparisonConte
   const previousVal =
     typeof comparison?.previous.value === 'number' ? comparison.previous.value : 0;
 
-  // Hooks must run every render — keep them above the !comparison early return
+  // Hooks must run every render - keep them above the !comparison early return
   // and tolerate a null comparison (empty bars) so the hook order is stable.
   const bars = useMemo(
     (): WeekBar[] =>

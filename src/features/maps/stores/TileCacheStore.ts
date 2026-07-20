@@ -20,14 +20,14 @@
  *
  * Options to unblock this:
  *   1. Upstream PR adding `getAmbientCacheSize()` to OfflineManager on both
- *      platforms (MapLibre core has the info — Android: `OfflineManager.getOfflineRegions`
+ *      platforms (MapLibre core has the info - Android: `OfflineManager.getOfflineRegions`
  *      + `FileSource` db path; iOS: similar via `MLNOfflineStorage`).
  *   2. Patch-package the MapLibre RN module locally to add a bridged method
  *      that calls `context.getDatabasePath(OFFLINE_DB)` on Android and reads
  *      the SQLite file size via `RNFS`/`expo-file-system`, and the equivalent
  *      on iOS (`~/Library/Application Support/.mapbox/cache.db`-style path).
  *   3. Use our own Rust FFI to `stat(2)` MapLibre's cache DB file once its
- *      path is known per-platform (brittle — path changes between SDK versions).
+ *      path is known per-platform (brittle - path changes between SDK versions).
  *
  * Until one of these lands, `nativeSizeEstimate` stays pack-only and the
  * settings breakdown shows ambient cache growth only via the WebView-side

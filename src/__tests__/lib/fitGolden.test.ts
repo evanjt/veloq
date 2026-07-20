@@ -4,7 +4,7 @@ import type { RecordingStreams } from '@/types';
 /**
  * Golden file test for FIT binary format.
  * Detects silent encoding regressions by comparing output byte-for-byte.
- * If this test fails, the FIT encoding has changed — verify the change is intentional.
+ * If this test fails, the FIT encoding has changed - verify the change is intentional.
  */
 describe('FIT golden file', () => {
   const FROZEN_INPUT = {

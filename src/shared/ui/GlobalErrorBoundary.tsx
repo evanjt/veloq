@@ -13,7 +13,7 @@ interface State {
 
 /**
  * Top-level error boundary that wraps the entire app.
- * Uses only raw react-native primitives — no providers, no theme, no translations.
+ * Uses only raw react-native primitives - no providers, no theme, no translations.
  * This must never crash itself.
  */
 export class GlobalErrorBoundary extends Component<Props, State> {

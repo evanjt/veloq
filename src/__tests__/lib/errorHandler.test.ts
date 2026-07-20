@@ -47,7 +47,7 @@ describe('errorHandler', () => {
     });
 
     it('log=false suppresses console.warn for warning level', async () => {
-      // console.warn is already jest.fn() from jest.setup.js — clear accumulated calls
+      // console.warn is already jest.fn() from jest.setup.js - clear accumulated calls
       (console.warn as jest.Mock).mockClear();
       await handleAsyncError(Promise.reject(new Error('test')), 'ctx', {
         level: 'warning',

@@ -5,7 +5,7 @@
  *
  * Tier 3.3 consolidates 8 FFI calls into one (`get_insights_inputs`), but
  * the *output* of `computeInsightsFromData` should not change. This test is
- * the regression net for that work — it mocks the FFI surface, exercises
+ * the regression net for that work - it mocks the FFI surface, exercises
  * the pure compute path with deterministic inputs, and asserts on stable
  * insight IDs / categories / titles.
  *

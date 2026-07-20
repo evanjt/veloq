@@ -4,7 +4,7 @@ import { decodeCoords } from 'veloqrs';
 
 import type { FrequentSection, RoutePoint } from '@/types';
 
-// Module-level stable reference — avoids creating a new object each render which
+// Module-level stable reference - avoids creating a new object each render which
 // would trigger ShapeSource native reconciliation updates when layers are inactive.
 const EMPTY_COLLECTION: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: [] };
 

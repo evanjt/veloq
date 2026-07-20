@@ -36,7 +36,7 @@ export function lng2tile(lng: number, z: number): number {
   return Math.floor(((lng + 180) / 360) * Math.pow(2, z));
 }
 
-/** Web Mercator safe latitude range — tan/cos overflow at ±90° */
+/** Web Mercator safe latitude range - tan/cos overflow at ±90° */
 const MAX_MERCATOR_LAT = 85.051129;
 function clampLat(lat: number): number {
   return Math.max(-MAX_MERCATOR_LAT, Math.min(MAX_MERCATOR_LAT, lat));

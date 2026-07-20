@@ -123,7 +123,7 @@ export function RegionalMapView({
   const cameraRef = useRef<React.ElementRef<typeof Camera>>(null);
   const clusterSourceRef = useRef<React.ElementRef<typeof ShapeSource>>(null);
 
-  // Style load retry — a transient failure leaves the map on MapLibre's
+  // Style load retry - a transient failure leaves the map on MapLibre's
   // default empty style (white canvas). Remount to re-apply the style.
   const [mapKey, setMapKey] = useState(0);
   const retryCountRef = useRef(0);
@@ -169,7 +169,7 @@ export function RegionalMapView({
   // all sections regardless of repeat-count.
   // Gated on showSections: the polylines are only needed when the sections
   // layer is visible (2D overlay or 3D sectionsGeoJSON). The toggle button no
-  // longer depends on this load — it reads sectionCount — so gating here can't
+  // longer depends on this load - it reads sectionCount - so gating here can't
   // deadlock the button. The auto-toggle flips showSections on when zoomed in,
   // which triggers the load on demand.
   const { sections } = useEngineSections({
@@ -181,7 +181,7 @@ export function RegionalMapView({
   const { activityCenters, mapCenter, currentZoomRef, currentCenterRef, markUserInteracted } =
     useMapCamera({ activities, routeSignatures, mapKey, cameraRef });
 
-  // Trace zoom threshold — passed to handlers for zoom tracking but visibility
+  // Trace zoom threshold - passed to handlers for zoom tracking but visibility
   // is handled by native minZoomLevel on layers (not React state) to avoid
   // re-renders that cause Android MapLibre camera snap-back.
   const TRACE_ZOOM_THRESHOLD = 11;
@@ -352,7 +352,7 @@ export function RegionalMapView({
     });
 
   // Wrap the region-change handler to also refresh the cluster-count overlay.
-  // MapLibre's native SymbolLayer renders cluster counts in bitmap form — those
+  // MapLibre's native SymbolLayer renders cluster counts in bitmap form - those
   // glyphs are invisible to accessibility tools (Maestro, TalkBack). The React
   // overlay (`<ClusterCountOverlay>`) queries the rendered cluster features and
   // places matching Text nodes at the same screen positions, giving tests and
@@ -367,7 +367,7 @@ export function RegionalMapView({
   );
 
   // Clear selections when their corresponding group visibility is turned off.
-  // Spider expansion (cluster fan-out) is part of the activities layer — when
+  // Spider expansion (cluster fan-out) is part of the activities layer - when
   // activities are hidden, the spider markers/legs must clear too, otherwise
   // they linger and look like rogue activity markers.
   useEffect(() => {
@@ -391,7 +391,7 @@ export function RegionalMapView({
     });
   };
 
-  // Handle 3D section click — receives section ID string, looks up section to select
+  // Handle 3D section click - receives section ID string, looks up section to select
   const handle3DSectionClick = useCallback(
     (sectionId: string) => {
       const section = sections.find((s) => s.id === sectionId);
@@ -651,7 +651,7 @@ export function RegionalMapView({
           {/* CRITICAL: followUserLocation must be explicitly false to prevent auto-centering */}
           <Camera ref={cameraRef} followUserLocation={false} />
 
-          {/* Activity markers — clustered ShapeSource with native MapLibre clustering */}
+          {/* Activity markers - clustered ShapeSource with native MapLibre clustering */}
           {/* Replaces individual MarkerViews for better performance (GPU-rendered) */}
           {/* CRITICAL: Always render ShapeSource to avoid iOS crash during view reconciliation */}
           <ShapeSource
@@ -666,19 +666,19 @@ export function RegionalMapView({
             }
             hitbox={{ width: 44, height: 44 }}
           >
-            {/* Cluster circles — primary color, radius scales by count */}
+            {/* Cluster circles - primary color, radius scales by count */}
             <CircleLayer
               id="cluster-circles"
               filter={['has', 'point_count']}
               style={clusterCircleStyle}
             />
-            {/* Cluster count labels — textFont MUST match glyph server (Noto Sans) */}
+            {/* Cluster count labels - textFont MUST match glyph server (Noto Sans) */}
             <SymbolLayer
               id="cluster-count"
               filter={['has', 'point_count']}
               style={clusterCountStyle}
             />
-            {/* Individual unclustered activity points — colored by sport type */}
+            {/* Individual unclustered activity points - colored by sport type */}
             {/* Only visible at zoom >= 10 to keep low-zoom view clean (clusters only) */}
             <CircleLayer
               id="unclustered-point"
@@ -697,7 +697,7 @@ export function RegionalMapView({
             onPress={handleSectionPress}
             hitbox={{ width: 44, height: 44 }}
           >
-            {/* Thin dashed section line — matches the dashed traces used in the
+            {/* Thin dashed section line - matches the dashed traces used in the
                 activity-detail map view. Width is intentionally modest so a
                 long section doesn't dominate the screen. */}
             <LineLayer
@@ -727,7 +727,7 @@ export function RegionalMapView({
                 lineJoin: 'round',
               }}
             />
-            {/* Subtle outline only when a section is selected — not on every
+            {/* Subtle outline only when a section is selected - not on every
                 section, otherwise the lines look bulky again. */}
             <LineLayer
               id="sectionsOutline"
@@ -744,7 +744,7 @@ export function RegionalMapView({
             />
           </ShapeSource>
 
-          {/* Raster heatmap tiles — only rendered when heatmap generation is enabled */}
+          {/* Raster heatmap tiles - only rendered when heatmap generation is enabled */}
           {isHeatmapEnabled() && (
             <RasterSource
               id="heatmap-tiles"
@@ -769,11 +769,11 @@ export function RegionalMapView({
           )}
 
           {/* CRITICAL: Always render ShapeSource to avoid iOS MapLibre crash */}
-          {/* Vector traces fully replaced by raster heatmap — no LineLayer needed */}
+          {/* Vector traces fully replaced by raster heatmap - no LineLayer needed */}
           {/* ShapeSource kept mounted (empty) to prevent Fabric view reconciliation crash */}
           <ShapeSource id="activity-traces" shape={tracesGeoJSON} />
 
-          {/* Activity start-point markers — small dots at the first GPS coordinate */}
+          {/* Activity start-point markers - small dots at the first GPS coordinate */}
           {/* Visible when zoomed in past trace threshold and activities are shown */}
           {/* Start-point markers: use native minZoomLevel instead of React state
               to avoid re-renders that cause Android MapLibre camera snap-back */}
@@ -811,7 +811,7 @@ export function RegionalMapView({
             />
           </ShapeSource>
 
-          {/* Spider fan-out layers — show when a cluster can't expand further at max zoom */}
+          {/* Spider fan-out layers - show when a cluster can't expand further at max zoom */}
           {/* CRITICAL: Always render ShapeSource to avoid iOS crash during reconciliation */}
           <ShapeSource id="spider-legs" shape={spiderLinesGeoJSON}>
             <LineLayer id="spider-lines" style={spiderLinesStyle} />
@@ -887,7 +887,7 @@ export function RegionalMapView({
           <Text style={styles.attributionText}>{attributionText}</Text>
         </View>
       )}
-      {/* Selected activity popup — sits just above the bottom info bar
+      {/* Selected activity popup - sits just above the bottom info bar
           (attribution pill + filter chips). Tuned to leave a small breathing
           gap above the attribution pill rather than the previous large
           floating-mid-screen position. */}
@@ -900,7 +900,7 @@ export function RegionalMapView({
           onViewDetails={handleViewDetails}
         />
       )}
-      {/* Section popup — same vertical anchor as ActivityPopup. */}
+      {/* Section popup - same vertical anchor as ActivityPopup. */}
       {selectedSection && (
         <SectionPopup
           section={selectedSection}

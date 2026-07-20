@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, Pressable, StyleSheet } from 'react-native';
 import type { ViewStyle } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
@@ -12,8 +12,13 @@ import {
   formatPace,
   formatElevation,
 } from '@/shared/format/format';
-import { colors, darkColors, spacing } from '@/theme';
+import { colors, colorWithOpacity, darkColors, spacing } from '@/theme';
 import type { DataFieldType } from '@/types';
+
+export interface HrZoneInfo {
+  color: string;
+  zone: number;
+}
 
 interface RecordingMetrics {
   speed: number;
@@ -37,6 +42,10 @@ interface DataFieldGridProps {
   fields: DataFieldType[];
   metrics: RecordingMetrics;
   isMetric: boolean;
+  /** Live HR zone; tints the heart-rate tile so effort reads at a glance. */
+  hrZone?: HrZoneInfo | null;
+  /** Long-press a tile to swap its field in place. */
+  onLongPressField?: (index: number, field: DataFieldType) => void;
   style?: ViewStyle;
 }
 
@@ -89,32 +98,53 @@ function formatFieldValue(
   }
 }
 
-function DataFieldGridInner({ fields, metrics, isMetric, style }: DataFieldGridProps) {
+function DataFieldGridInner({
+  fields,
+  metrics,
+  isMetric,
+  hrZone,
+  onLongPressField,
+  style,
+}: DataFieldGridProps) {
   const { t } = useTranslation();
   const { isDark, colors: themeColors } = useTheme();
 
   return (
     <View style={[styles.grid, style]}>
-      {fields.map((field) => (
-        <View
-          key={field}
-          testID={`data-field-${field}`}
-          style={[
-            styles.cell,
-            {
-              backgroundColor: isDark ? darkColors.surfaceElevated : colors.surface,
-              borderColor: isDark ? darkColors.border : colors.border,
-            },
-          ]}
-        >
-          <Text style={[styles.value, { color: themeColors.text }]} numberOfLines={1}>
-            {formatFieldValue(field, metrics, isMetric)}
-          </Text>
-          <Text style={[styles.label, { color: themeColors.textMuted }]} numberOfLines={1}>
-            {t(`recording.fields.${field}`)}
-          </Text>
-        </View>
-      ))}
+      {fields.map((field, index) => {
+        const zoned = field === 'heartrate' && hrZone != null;
+        return (
+          <Pressable
+            key={field}
+            testID={`data-field-${field}`}
+            onLongPress={onLongPressField ? () => onLongPressField(index, field) : undefined}
+            delayLongPress={350}
+            style={[
+              styles.cell,
+              {
+                backgroundColor: zoned
+                  ? colorWithOpacity(hrZone.color, isDark ? 0.28 : 0.18)
+                  : isDark
+                    ? darkColors.surfaceElevated
+                    : colors.surface,
+                borderColor: isDark ? darkColors.border : colors.border,
+              },
+            ]}
+          >
+            <Text
+              style={[styles.value, { color: zoned ? hrZone.color : themeColors.text }]}
+              numberOfLines={1}
+            >
+              {formatFieldValue(field, metrics, isMetric)}
+            </Text>
+            <Text style={[styles.label, { color: themeColors.textMuted }]} numberOfLines={1}>
+              {zoned
+                ? `${t(`recording.fields.${field}`)} · Z${hrZone.zone}`
+                : t(`recording.fields.${field}`)}
+            </Text>
+          </Pressable>
+        );
+      })}
     </View>
   );
 }

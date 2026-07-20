@@ -264,7 +264,7 @@ export function MapControlStack({
         )}
       </View>
 
-      {/* Combined layer toggles — stacked when multiple exist */}
+      {/* Combined layer toggles - stacked when multiple exist */}
       {(activityCount > 0 || sectionCount > 0 || routeCount > 0) && (
         <LayerToggleGroup isDark={isDark}>
           {activityCount > 0 && (

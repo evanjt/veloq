@@ -16,7 +16,7 @@ const HOUR_MS = 60 * 60 * 1000;
 const WEEK_MS = 7 * 24 * HOUR_MS;
 
 /**
- * D11 — push frequency cooldown. Given a history of recent push timestamps
+ * D11 - push frequency cooldown. Given a history of recent push timestamps
  * (ms epoch), returns true if a new push is allowed right now.
  *
  * Rules:
@@ -80,7 +80,7 @@ export function filterInsightsForNotificationPreferences(
 
 /**
  * Format an Insight into notification content.
- * Pure function — no React dependencies, safe for background task use.
+ * Pure function - no React dependencies, safe for background task use.
  */
 export function formatInsightNotification(insight: Insight, t: TFunc): NotificationContent {
   const route = insight.navigationTarget ?? '/routes';

@@ -213,7 +213,7 @@ impl PersistentRouteEngine {
             // the lock (cheap, in-memory).
             self.mark_heatmap_dirty();
 
-            // Tile invalidation deletes PNGs on disk — slow filesystem I/O. Run it
+            // Tile invalidation deletes PNGs on disk - slow filesystem I/O. Run it
             // on a detached thread so it does not happen while the engine write
             // lock is held (that would convoy every foreground read). The sweep
             // needs only the path and bounds, never `self`.

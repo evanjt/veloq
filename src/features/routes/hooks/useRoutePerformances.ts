@@ -13,6 +13,7 @@ import type { RoutePerformanceResult, FfiActivityMetrics } from 'veloqrs';
 import { toDirectionStats, fromUnixSeconds } from '@/shared/ffi/ffiConversions';
 import { safeGetTime } from '@/shared/format/format';
 import { calculateSpeed } from '@/shared/math';
+import type { DirectionBestRecord } from '../lib/performanceTypes';
 
 /** Match info returned from the Rust engine (uses camelCase from serde) */
 interface RustMatchInfo {
@@ -45,13 +46,6 @@ export interface RoutePerformancePoint {
   direction: MatchDirection;
   /** Match percentage (0-100), undefined if no match data */
   matchPercentage?: number;
-}
-
-/** Per-direction best record for UI display */
-export interface DirectionBestRecord {
-  bestTime: number;
-  bestSpeed?: number; // Speed (m/s) for routes where distance varies
-  activityDate: Date;
 }
 
 interface UseRoutePerformancesResult {
@@ -291,7 +285,7 @@ export function useRoutePerformances(
     };
   }, [engineGroup, activityId, matchInfoMap, activityMetrics]);
 
-  // avg_speed now comes pre-computed from Rust's DirectionStats — no TS
+  // avg_speed now comes pre-computed from Rust's DirectionStats - no TS
   // augmentation needed.
 
   return {

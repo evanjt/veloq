@@ -43,7 +43,7 @@ export function TopSafeAreaProvider({ children }: { children: ReactNode }) {
       activeBanner = 'demo';
     }
 
-    // Sync banner is now an overlay — doesn't affect layout or safe area
+    // Sync banner is now an overlay - doesn't affect layout or safe area
     const hasTopBanner = activeBanner !== null;
 
     // When a banner is showing, screens should exclude top edge

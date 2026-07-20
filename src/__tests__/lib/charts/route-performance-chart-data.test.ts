@@ -29,7 +29,7 @@ describe('splitAndPositionChartData', () => {
 
   it('returns EMPTY_SPLIT when no points have valid dates', () => {
     const result = splitAndPositionChartData([
-      // @ts-expect-error — deliberately invalid date
+      // @ts-expect-error - deliberately invalid date
       point({ date: 'not-a-date' }),
       point({ date: new Date('not a date') }),
     ]);

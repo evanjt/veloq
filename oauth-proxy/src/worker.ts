@@ -552,10 +552,11 @@ async function handleIntervalsWebhook(
         event_type: event.type,
         athlete_id: event.athlete_id,
         activity_id: event.activity?.id ?? null,
+        sent_at: Date.now(),
       };
       const visible = visibleContentForEvent(event.type, event.activity?.id);
       const perDeviceResults = tokens.map((device) =>
-        sendExpoPush(device.token, pushData, visible)
+        sendExpoPush(device.token, pushData, visible, device.platform)
           .then((alive) => ({ token: device.token, alive }))
           .catch((err) => {
             console.error(`Push failed for ${device.platform}:`, err);
@@ -609,7 +610,8 @@ async function handleIntervalsWebhook(
 async function sendExpoPush(
   token: string,
   data: Record<string, unknown>,
-  visible: { title: string; body: string } | null
+  visible: { title: string; body: string } | null,
+  platform?: string
 ): Promise<boolean> {
   const channelId = "veloq-insights";
 
@@ -657,10 +659,14 @@ async function sendExpoPush(
   // that would make Expo emit an FCM notification message. We want a pure
   // `data` FCM message so ExpoFirebaseMessagingService delivers it to the
   // TaskManager task instead of the OS rendering a blank tray entry.
+  // iOS: APNs requires apns-priority 5 for content-available background
+  // pushes — "high" (10) risks throttling or silent drops. Expo derives
+  // apns-push-type: background from _contentAvailable. Android keeps high
+  // priority so aggressive OEMs deliver the data message promptly.
   messages.push({
     to: token,
     data,
-    priority: "high",
+    priority: platform === "ios" ? "normal" : "high",
     _contentAvailable: true,
   });
 

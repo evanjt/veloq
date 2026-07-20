@@ -52,7 +52,7 @@ function providerCapture() {
   return (globalThis as any).__providerCapture as { props: any };
 }
 
-// Don't mock @tanstack/react-query — use the real QueryClient / focusManager
+// Don't mock @tanstack/react-query - use the real QueryClient / focusManager
 
 // Stub isInfiniteActivitiesStale so onSuccess can be exercised without pulling in
 // the auth store / queryKeys module tree.
@@ -309,7 +309,7 @@ describe('QueryProvider', () => {
 
     it('swallows (does not throw) when AsyncStorage.removeItem also fails', async () => {
       jest.spyOn(AsyncStorage, 'removeItem').mockRejectedValueOnce(new Error('disk full'));
-      // Should not throw synchronously — error is handled in the .catch()
+      // Should not throw synchronously - error is handled in the .catch()
       expect(() => providerCapture().props.onError()).not.toThrow();
       await Promise.resolve();
       await Promise.resolve();

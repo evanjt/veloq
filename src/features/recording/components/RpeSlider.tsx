@@ -4,7 +4,7 @@ import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, spacing, typography } from '@/theme';
+import { colors, darkColors, rpeRamp, spacing, typography } from '@/theme';
 
 type RpeLabelKey = 'easy' | 'moderate' | 'hard' | 'veryHard' | 'max';
 
@@ -17,11 +17,7 @@ function getRpeLabelKey(value: number): RpeLabelKey {
 }
 
 function getRpeColor(value: number): string {
-  if (value <= 2) return '#22C55E';
-  if (value <= 4) return '#84CC16';
-  if (value <= 6) return '#EAB308';
-  if (value <= 8) return '#F97316';
-  return '#EF4444';
+  return rpeRamp[Math.min(4, Math.floor((Math.max(1, value) - 1) / 2))];
 }
 
 interface RpeSliderProps {
@@ -71,7 +67,7 @@ function RpeSliderInner({ value, onValueChange, textSecondary }: RpeSliderProps)
       <View style={styles.rpeHeader}>
         <Text style={[styles.label, { color: textSecondary }]}>{t('recording.rpe', 'RPE')}</Text>
         <Text style={[styles.rpeValue, { color: getRpeColor(value) }]}>
-          {value} — {t(`recording.rpeLabels.${getRpeLabelKey(value)}`)}
+          {value} - {t(`recording.rpeLabels.${getRpeLabelKey(value)}`)}
         </Text>
       </View>
       <Text style={[styles.rpeDescription, { color: textSecondary }]}>

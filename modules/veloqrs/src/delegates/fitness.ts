@@ -167,7 +167,7 @@ export function savePaceSnapshot(
       host.engine.fitness().savePaceSnapshot(sportType, criticalSpeed, dPrime, r2, BigInt(ts))
     );
   } catch {
-    // Pace snapshot save failed — non-critical
+    // Pace snapshot save failed - non-critical
   }
 }
 

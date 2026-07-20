@@ -12,7 +12,7 @@ const path = require("path");
  *      deployment target, and depends the app target on it.
  *
  * `addTarget('app_extension', …)` from cordova-node-xcode already creates the product,
- * the embed (Copy Files) phase in the app target, and a default build-config list — so
+ * the embed (Copy Files) phase in the app target, and a default build-config list, so
  * this only fills in the phases, the source files, and the extension-specific settings.
  *
  * The App Group entitlement on both the app and this extension is added by

@@ -78,7 +78,7 @@ const SEARCH_SECTION_HEIGHT = 78;
 const INITIAL_CONTENT_OFFSET = { x: 0, y: SEARCH_SECTION_HEIGHT } as const;
 
 export default function FeedScreen() {
-  // Performance timing — tracks total render time and sub-component costs
+  // Performance timing - tracks total render time and sub-component costs
   const renderStart = PERF_DEBUG ? performance.now() : 0;
   const perfEndRef = useRef<(() => void) | null>(null);
   perfEndRef.current = logScreenRender('FeedScreen');
@@ -93,7 +93,7 @@ export default function FeedScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTypeGroup, setSelectedTypeGroup] = useState<string | null>(null);
 
-  // Basemap snapshot WebView pool — every card gets a snapshot (3D or flat),
+  // Basemap snapshot WebView pool - every card gets a snapshot (3D or flat),
   // so the pool always mounts; deferred so initial renders settle first
   // (cards check the cache before requesting anyway).
   const snapshotRef = useRef<TerrainSnapshotWebViewRef | null>(null);
@@ -110,7 +110,7 @@ export default function FeedScreen() {
   useEffect(() => {
     initTerrainPreviewCache();
     initCameraOverrides();
-    // Check for activities ingested by background notification task —
+    // Check for activities ingested by background notification task -
     // mount WebView workers immediately instead of waiting 500ms
     consumePendingSnapshots().then((pending) => {
       if (pending.length > 0) {
@@ -139,7 +139,7 @@ export default function FeedScreen() {
   if (PERF_DEBUG && performance.now() - t1 > 5)
     console.log(`  ⏱ useInfiniteActivities: ${(performance.now() - t1).toFixed(1)}ms`);
 
-  // Flatten all pages into a single array — stabilize reference to prevent
+  // Flatten all pages into a single array - stabilize reference to prevent
   // FlatList re-renders when TanStack Query refetches with identical data
   const allActivitiesRaw = useMemo(() => {
     if (!data?.pages) return [];
@@ -170,7 +170,7 @@ export default function FeedScreen() {
   if (PERF_DEBUG && performance.now() - t2 > 5)
     console.log(`  ⏱ useStartupData: ${(performance.now() - t2).toFixed(1)}ms`);
 
-  // Summary card data — uses precomputed data from getStartupData to skip redundant FFI
+  // Summary card data - uses precomputed data from getStartupData to skip redundant FFI
   const t0 = PERF_DEBUG ? performance.now() : 0;
   const {
     profileUrl,
@@ -193,7 +193,7 @@ export default function FeedScreen() {
   if (PERF_DEBUG && performance.now() - t0 > 5)
     console.log(`  ⏱ useSummaryCardData: ${(performance.now() - t0).toFixed(1)}ms`);
 
-  // useInsights uses pre-computed data from startup — never makes its own FFI call on feed
+  // useInsights uses pre-computed data from startup - never makes its own FFI call on feed
   const t3 = PERF_DEBUG ? performance.now() : 0;
   const { insights } = useInsights(startupData?.insightsData, true, startupData?.summaryCardData);
   if (PERF_DEBUG && performance.now() - t3 > 5)
@@ -347,7 +347,7 @@ export default function FeedScreen() {
   const renderListHeader = useCallback(
     () => (
       <>
-        {/* Search bar + filter chips — initially hidden by scrollToOffset */}
+        {/* Search bar + filter chips - initially hidden by scrollToOffset */}
         <View style={styles.searchSection}>
           <View style={styles.searchContainer}>
             <View style={[styles.searchBar, isDark && styles.searchBarDark]}>
@@ -405,7 +405,7 @@ export default function FeedScreen() {
             )}
           </View>
 
-          {/* Filter chips — always visible below search */}
+          {/* Filter chips - always visible below search */}
           <View style={styles.filterChips}>
             {Object.keys(ACTIVITY_TYPE_GROUPS).map((group) => (
               <TouchableOpacity
@@ -543,7 +543,7 @@ export default function FeedScreen() {
     if (changes.length > 0) console.log(`  🔄 State changes: ${changes.join(', ')}`);
   }
 
-  // Single layout path — no separate loading tree to avoid component tree swap and layout bounce
+  // Single layout path - no separate loading tree to avoid component tree swap and layout bounce
   return (
     <ScreenErrorBoundary screenName="Feed">
       <ScreenSafeAreaView style={shared.container} testID="home-screen">
@@ -602,7 +602,7 @@ export default function FeedScreen() {
 
         <RecordFAB />
 
-        {/* Hidden WebView for generating 3D terrain snapshots — deferred to avoid startup cost */}
+        {/* Hidden WebView for generating 3D terrain snapshots - deferred to avoid startup cost */}
         {snapshotWebViewReady && (
           <ComponentErrorBoundary
             componentName="3D Terrain Snapshots"

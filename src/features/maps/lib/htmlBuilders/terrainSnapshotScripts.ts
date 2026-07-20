@@ -13,13 +13,13 @@ export interface SnapshotRequest {
   camera: TerrainCamera;
   mapStyle: MapStyleType;
   routeColor: string;
-  /** Flat top-down basemap — no terrain drape, sky, or hillshade */
+  /** Flat top-down basemap - no terrain drape, sky, or hillshade */
   flat?: boolean;
   _retryAttempt?: number;
 }
 
-// Builds the injected JS that renders one snapshot request — a 3D terrain
-// drape, or a flat top-down basemap when request.flat — and posts the captured
+// Builds the injected JS that renders one snapshot request - a 3D terrain
+// drape, or a flat top-down basemap when request.flat - and posts the captured
 // JPEG back to the worker bridge. Derives the base style, terrain, sky, and
 // hillshade config from the request.
 export function buildRenderSnapshotScript(
@@ -35,7 +35,7 @@ export function buildRenderSnapshotScript(
   // Light: fetch full Liberty style from URL (same as detail 3D view).
   const isLight = !isSatellite && request.mapStyle !== 'dark';
   // Satellite: rewrite to cached protocol for tile caching.
-  // Dark: keep original TileJSON URL — let MapLibre fetch tiles natively
+  // Dark: keep original TileJSON URL - let MapLibre fetch tiles natively
   // (cached-vector:// rewrite was causing blank features after setStyle).
   // Light: fetch URL-based style in JS.
   const styleConfig = isSatellite
@@ -105,7 +105,7 @@ export function buildRenderSnapshotScript(
                   var w = canvas.width;
                   var h = canvas.height;
 
-                  // Sample edge pixels for white-tile detection — regional sources
+                  // Sample edge pixels for white-tile detection - regional sources
                   // (e.g. Swisstopo) return opaque white JPEGs outside coverage area
                   var ctx = canvas.getContext('webgl2') || canvas.getContext('webgl');
                   // Flat light/dark basemaps have legitimately pale/uniform areas;
@@ -144,7 +144,7 @@ export function buildRenderSnapshotScript(
 
                   if (ctx && !isFlat) {
                     var pixel = new Uint8Array(4);
-                    // Gap pixel detection — sample 6 interior points in the terrain area
+                    // Gap pixel detection - sample 6 interior points in the terrain area
                     var gapCount = 0;
                     var interiorPoints = [
                       [Math.floor(w * 0.3), Math.floor(h * 0.5)],
@@ -184,7 +184,7 @@ export function buildRenderSnapshotScript(
                     }
                   }
 
-                  // Tile error count gate — catches gaps outside sampled pixel locations
+                  // Tile error count gate - catches gaps outside sampled pixel locations
                   if (window._tileErrorCount >= 2) {
                     window._rn_log('Tile errors detected (' + window._tileErrorCount + '), rejecting');
                     window.ReactNativeWebView.postMessage(JSON.stringify({
@@ -326,7 +326,7 @@ export function buildRenderSnapshotScript(
                     });
                   }
 
-                  // Fast path: idle event — deferred by one frame so MapLibre
+                  // Fast path: idle event - deferred by one frame so MapLibre
                   // processes the camera change and queues tile requests first.
                   requestAnimationFrame(function() {
                     window.map.once('idle', function() {
@@ -388,7 +388,7 @@ export function buildRenderSnapshotScript(
 
               // Embed terrain, hillshade, and route directly in the style JSON
               // so the drape texture includes the route from the very first render.
-              // Flat mode: plain basemap — no terrain, sky, or hillshade.
+              // Flat mode: plain basemap - no terrain, sky, or hillshade.
               if (!isFlat) {
                 styleObj.sources['terrain'] = terrainSource;
                 styleObj.terrain = { source: 'terrain', exaggeration: ${TERRAIN_3D_CONFIG.defaultExaggeration} };
@@ -514,7 +514,7 @@ export function buildRenderSnapshotScript(
               } // end applyStyle
 
               // Light mode: fetch full Liberty style from URL, then apply.
-              // Don't rewrite vector URLs — let MapLibre handle TileJSON natively.
+              // Don't rewrite vector URLs - let MapLibre handle TileJSON natively.
               // Dark/satellite: use the inline style object directly.
               if (lightStyleUrl) {
                 window._rn_log('Fetching Liberty style for light mode...');

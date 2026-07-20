@@ -197,7 +197,7 @@ export const useRecordingStore = create<RecordingState>((set, get) => ({
     streams.altitude.push(point.altitude ?? 0);
     streams.speed.push(speed);
     streams.distance.push(dist);
-    // Sensor streams stay index-aligned with time[] — sample-and-hold the
+    // Sensor streams stay index-aligned with time[] - sample-and-hold the
     // latest value per point, 0 (FIT no-data) when absent or stale.
     streams.heartrate.push(freshValue(latestSensor.heartrate, nowMs));
     streams.power.push(freshValue(latestSensor.power, nowMs));
@@ -221,7 +221,7 @@ export const useRecordingStore = create<RecordingState>((set, get) => ({
     const lastTime = streams.time[streams.time.length - 1];
     if (lastTime !== undefined && elapsedSec <= lastTime) return;
 
-    // No position for indoor samples — latlng stays shorter and the FIT
+    // No position for indoor samples - latlng stays shorter and the FIT
     // writer emits invalid-position sentinels for the missing indices.
     streams.time.push(elapsedSec);
     streams.altitude.push(0);

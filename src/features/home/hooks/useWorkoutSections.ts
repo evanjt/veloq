@@ -18,7 +18,7 @@ export interface WorkoutSection {
 /**
  * Home-screen "Sections for you" list.
  *
- * Thin pass-through to `engine.getWorkoutSections` — ranking, PR lookup,
+ * Thin pass-through to `engine.getWorkoutSections` - ranking, PR lookup,
  * previous-best, trend computation all happen in Rust in a single FFI
  * round-trip (was previously an N+1 loop calling `getSectionPerformances`
  * per ranked section from TS).

@@ -31,7 +31,7 @@ import type { ActivityType, RoutePoint, PerformanceDataPoint } from '@/types';
 import type {
   DirectionBestRecord,
   DirectionSummaryStats,
-} from '@/features/routes/components/performance';
+} from '@/features/routes/lib/performanceTypes';
 import { StatsRow } from './StatsRow';
 import { PerformanceTooltip } from './PerformanceTooltip';
 
@@ -148,7 +148,7 @@ export function SectionScatterChart({
     [forwardPoints, reversePoints]
   );
 
-  // Time axis labels: start, middle, end — include day when months repeat
+  // Time axis labels: start, middle, end - include day when months repeat
   const timeAxisLabels = useMemo(() => computeTimeAxisLabels(allPoints), [allPoints]);
   const needsDayLabel = useMemo(() => axisLabelsNeedDay(timeAxisLabels), [timeAxisLabels]);
 
@@ -341,7 +341,7 @@ export function SectionScatterChart({
                           );
                         }
 
-                        // Skip highlighted point in main loop — rendered on top below
+                        // Skip highlighted point in main loop - rendered on top below
                         if (isHighlighted) return null;
 
                         if (isPointExcluded) {
@@ -474,7 +474,7 @@ export function SectionScatterChart({
         />
       )}
 
-      {/* Tooltip — hidden in compact mode */}
+      {/* Tooltip - hidden in compact mode */}
       {!compact && (
         <PerformanceTooltip
           selectedPoint={selectedPoint}

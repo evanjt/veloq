@@ -1,9 +1,9 @@
 /**
  * Tests for storage utilities (bounds cache, route names, checkpoint).
- * GPS track storage functions were removed — GPS data is now in Rust SQLite.
+ * GPS track storage functions were removed - GPS data is now in Rust SQLite.
  */
 
-// In-memory file system for testing — prefixed with "mock" for jest.mock scope rules
+// In-memory file system for testing - prefixed with "mock" for jest.mock scope rules
 const mockFileStore = new Map<string, string>();
 const mockDirStore = new Set<string>();
 

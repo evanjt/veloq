@@ -8,7 +8,7 @@ import type { ActivityPattern } from '@/types';
  * Patterns are computed from all activities in SQLite, grouped by sport type.
  *
  * Only surfaces patterns meeting confidence >= 0.6 threshold.
- * (Unobtrusiveness is the strongest predictor of continued app use —
+ * (Unobtrusiveness is the strongest predictor of continued app use -
  * JMIR mHealth 2022, PSD in Mobile Health)
  *
  * Subscribes to engine activity events so patterns refresh after sync.

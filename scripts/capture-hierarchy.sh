@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# capture-hierarchy.sh — Capture UI hierarchy snapshots for visual regression diffing.
+# capture-hierarchy.sh - Capture UI hierarchy snapshots for visual regression diffing.
 #
 # Navigates to each screen via Maestro deep links, captures the element tree,
 # and saves it to .maestro/snapshots/. Committed snapshots can be git-diffed

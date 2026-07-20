@@ -428,7 +428,7 @@ const RUST_HASH_FILE = path.join(MODULE_DIR, '.rust-source-hash');
 /**
  * Hash every Rust source / manifest / lockfile under rust/ (excluding build
  * output). Content-based, so a git checkout, branch switch, or submodule
- * update is detected even when file mtimes are misleading — the failure mode
+ * update is detected even when file mtimes are misleading - the failure mode
  * that previously left a stale .a linked (undefined-symbol errors).
  */
 function hashRustSources() {
@@ -513,7 +513,7 @@ function generateBindings(quiet) {
   const libPath = path.join(RUST_DIR, 'target/release', `libveloqrs.${libExt}`);
 
   if (!existsSync(libPath)) {
-    throw new Error(`Host library not found at ${libPath} — cargo build may have failed`);
+    throw new Error(`Host library not found at ${libPath} - cargo build may have failed`);
   }
 
   // Generate TypeScript and C++ bindings
@@ -541,7 +541,7 @@ async function runPreBuildSetup(platform) {
   const hasPatches = allPatchesApplied(platform);
   // Rebuild bindings AND binaries when the Rust *content* changed. The old
   // mtime comparison missed git checkouts/branch switches (which reset mtimes)
-  // and left a stale .a linked — the undefined-symbol failure. CI pre-builds
+  // and left a stale .a linked - the undefined-symbol failure. CI pre-builds
   // binaries in a separate job, so never rebuild from source there.
   const canBuildLocally = hasLocalRust() && !isCI();
   const sourcesChanged = canBuildLocally && rustSourcesChanged();
@@ -567,7 +567,7 @@ async function runPreBuildSetup(platform) {
       if (!quiet) console.log('  Bindings missing, regenerating...');
       generateBindings(quiet);
     } else if (isCI()) {
-      throw new Error('Bindings not found in CI — they should be committed to the repo');
+      throw new Error('Bindings not found in CI - they should be committed to the repo');
     } else {
       throw new Error(
         'Bindings not found and no Rust toolchain available.\n' +

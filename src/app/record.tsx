@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { Text } from 'react-native-paper';
 import { ScreenSafeAreaView, TAB_BAR_SAFE_PADDING } from '@/shared/ui';
-import { CollapsibleSection } from '@/shared/ui';
+import { CollapsibleSection, SignalStatus, signalColor, type SignalLevel } from '@/shared/ui';
 import { router } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
@@ -22,7 +22,7 @@ import { useTheme } from '@/shared/app';
 import { colors, colorWithOpacity, darkColors, spacing, layout, typography, brand } from '@/theme';
 import { getActivityIcon, getActivityColor } from '@/features/activity/lib/activityUtils';
 import type { MaterialIconName } from '@/features/activity/lib/activityUtils';
-import { ACTIVITY_CATEGORIES, getRecordingMode } from '@/features/recording/lib/recordingModes';
+import { ACTIVITY_CATEGORIES } from '@/features/recording/lib/recordingModes';
 import { useRecordingPreferences } from '@/features/recording/stores/RecordingPreferencesStore';
 import { useRecordingStore } from '@/features/recording/stores/RecordingStore';
 import { useCanRecord } from '@/features/recording/hooks/useCanRecord';
@@ -33,6 +33,7 @@ import {
   clearRecordingBackup,
 } from '@/features/recording/lib/storage/recordingBackup';
 import { BatteryOptimisationNudge } from '@/features/recording/components/BatteryOptimisationNudge';
+import { GrantAccessButton } from '@/features/recording/components/GrantAccessButton';
 import { requestNotificationPermission } from '@/features/settings/lib/notificationService';
 import { intervalsApi } from '@/api';
 import { navigateTo } from '@/shared/app/navigation';
@@ -81,13 +82,14 @@ export default function RecordScreen() {
   const recentTypes = useRecordingPreferences((s) => s.recentActivityTypes);
   const isLoaded = useRecordingPreferences((s) => s.isLoaded);
   const [expandedCategories, setExpandedCategories] = useState<Record<string, boolean>>({});
+  const [showAllActivities, setShowAllActivities] = useState(false);
   const [todayEvents, setTodayEvents] = useState<CalendarEvent[]>([]);
 
   // GPS readiness state
   const [gpsState, setGpsState] = useState<'checking' | 'ready' | 'weak' | 'none'>('checking');
 
   // A session is already active (cold navigation, notification tap, FAB while
-  // recording) — go straight back to the live screen instead of the picker.
+  // recording) - go straight back to the live screen instead of the picker.
   useEffect(() => {
     const { status, activityType } = useRecordingStore.getState();
     if ((status === 'recording' || status === 'paused') && activityType) {
@@ -152,7 +154,7 @@ export default function RecordScreen() {
   // Crash recovery check
   useEffect(() => {
     (async () => {
-      // An in-memory session owns the backup file — nothing to recover
+      // An in-memory session owns the backup file - nothing to recover
       if (useRecordingStore.getState().status !== 'idle') return;
       const hasBackup = await hasRecordingBackup();
       if (!hasBackup) return;
@@ -179,7 +181,7 @@ export default function RecordScreen() {
             );
 
             if (backup.status === 'stopped') {
-              // Session was already stopped — restore straight to review
+              // Session was already stopped - restore straight to review
               useRecordingStore.setState({
                 startTime: backup.startTime,
                 stopTime: backup.stopTime ?? backup.savedAt,
@@ -218,7 +220,7 @@ export default function RecordScreen() {
       .getCalendarEvents({ oldest: today, newest: today })
       .then(setTodayEvents)
       .catch(() => {
-        // Silently ignore — events section just won't show
+        // Silently ignore - events section just won't show
       });
   }, []);
 
@@ -262,7 +264,7 @@ export default function RecordScreen() {
           <View style={{ flex: 1 }} />
         </View>
         <View style={styles.permissionGate}>
-          <MaterialCommunityIcons name="shield-lock-outline" size={48} color="#F59E0B" />
+          <MaterialCommunityIcons name="shield-lock-outline" size={48} color={colors.warning} />
           <Text style={[styles.permissionTitle, { color: textPrimary }]}>
             {t('recording.writePermissionRequired', 'Write permission required')}
           </Text>
@@ -272,21 +274,11 @@ export default function RecordScreen() {
               'Recording requires write permission. Tap below to grant access.'
             )}
           </Text>
-          <TouchableOpacity
+          <GrantAccessButton
             testID="record-grant-access"
-            style={styles.permissionButton}
             onPress={upgradePermissions}
-            disabled={isUpgrading}
-            activeOpacity={0.7}
-          >
-            {isUpgrading ? (
-              <ActivityIndicator size="small" color="#FFFFFF" />
-            ) : (
-              <Text style={styles.permissionButtonText}>
-                {t('recording.grantAccess', 'Grant Access')}
-              </Text>
-            )}
-          </TouchableOpacity>
+            loading={isUpgrading}
+          />
           {upgradeError ? (
             <Text style={styles.permissionError} numberOfLines={2}>
               {upgradeError}
@@ -335,8 +327,10 @@ export default function RecordScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* GPS Readiness Indicator — full-width prominent bar */}
-      <GpsReadinessBar state={gpsState} isDark={isDark} testID="record-gps-status" prominent />
+      {/* GPS readiness line */}
+      <View style={styles.gpsReadinessWrap}>
+        <GpsReadinessBar state={gpsState} testID="record-gps-status" />
+      </View>
 
       <BatteryOptimisationNudge />
 
@@ -377,13 +371,13 @@ export default function RecordScreen() {
           />
         </View>
 
-        {/* Today's Workouts */}
-        <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: textSecondary }]}>
-            {t('recording.todaysWorkouts', "Today's Workouts")}
-          </Text>
-          {todayEvents.length > 0 ? (
-            todayEvents.map((event) => (
+        {/* Today's Workouts - only when something is planned */}
+        {todayEvents.length > 0 && (
+          <View style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: textSecondary }]}>
+              {t('recording.todaysWorkouts', "Today's Workouts")}
+            </Text>
+            {todayEvents.map((event) => (
               <TouchableOpacity
                 key={event.id}
                 testID={`record-event-${event.id}`}
@@ -409,69 +403,75 @@ export default function RecordScreen() {
                 </View>
                 <MaterialCommunityIcons name="chevron-right" size={20} color={textSecondary} />
               </TouchableOpacity>
-            ))
-          ) : (
-            <Text style={[styles.noWorkoutsText, { color: textSecondary }]}>
-              {t('recording.noWorkoutsPlanned', 'No workouts planned for today')}
-            </Text>
-          )}
-        </View>
+            ))}
+          </View>
+        )}
 
-        {/* All Activities */}
+        {/* All Activities - tucked behind one expander */}
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: textSecondary }]}>
-            {t('recording.allActivities', 'All Activities')}
-          </Text>
-          {Object.entries(ACTIVITY_CATEGORIES).map(([category, types]) => (
-            <CollapsibleSection
-              key={category}
-              title={t(`recording.categories.${category}`, CATEGORY_LABELS[category] ?? category)}
-              icon={CATEGORY_ICONS[category]}
-              expanded={expandedCategories[category] ?? false}
-              onToggle={() => toggleCategory(category)}
-              style={[styles.categorySection, { backgroundColor: surface, borderColor: border }]}
-              subtitle={`${types.length} ${t('recording.types', 'types')}`}
-            >
-              <View style={styles.typeGrid}>
-                {(types as readonly ActivityType[]).map((type) => (
-                  <TouchableOpacity
-                    key={type}
-                    testID={`record-type-${type}`}
-                    style={[styles.typeItem, { borderBottomColor: border }]}
-                    onPress={() => handleSelectType(type)}
-                    activeOpacity={0.7}
-                  >
-                    <MaterialCommunityIcons
-                      name={getActivityIcon(type)}
-                      size={22}
-                      color={getActivityColor(type)}
-                      style={styles.typeIcon}
-                    />
-                    <Text style={[styles.typeLabel, { color: textPrimary }]}>
-                      {t(`activityTypes.${type}`, type)}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </CollapsibleSection>
-          ))}
+          <TouchableOpacity
+            testID="record-all-activities"
+            style={styles.allActivitiesHeader}
+            onPress={() => setShowAllActivities((v) => !v)}
+            activeOpacity={0.7}
+            accessibilityRole="button"
+          >
+            <Text style={[styles.sectionTitle, { color: textSecondary }]}>
+              {t('recording.allActivities', 'All Activities')}
+            </Text>
+            <MaterialCommunityIcons
+              name={showAllActivities ? 'chevron-up' : 'chevron-down'}
+              size={20}
+              color={textSecondary}
+            />
+          </TouchableOpacity>
+          {showAllActivities &&
+            Object.entries(ACTIVITY_CATEGORIES).map(([category, types]) => (
+              <CollapsibleSection
+                key={category}
+                title={t(`recording.categories.${category}`, CATEGORY_LABELS[category] ?? category)}
+                icon={CATEGORY_ICONS[category]}
+                expanded={expandedCategories[category] ?? false}
+                onToggle={() => toggleCategory(category)}
+                style={[styles.categorySection, { backgroundColor: surface, borderColor: border }]}
+                subtitle={`${types.length} ${t('recording.types', 'types')}`}
+              >
+                <View style={styles.typeGrid}>
+                  {(types as readonly ActivityType[]).map((type) => (
+                    <TouchableOpacity
+                      key={type}
+                      testID={`record-type-${type}`}
+                      style={[styles.typeItem, { borderBottomColor: border }]}
+                      onPress={() => handleSelectType(type)}
+                      activeOpacity={0.7}
+                    >
+                      <MaterialCommunityIcons
+                        name={getActivityIcon(type)}
+                        size={22}
+                        color={getActivityColor(type)}
+                        style={styles.typeIcon}
+                      />
+                      <Text style={[styles.typeLabel, { color: textPrimary }]}>
+                        {t(`activityTypes.${type}`, type)}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </CollapsibleSection>
+            ))}
         </View>
       </ScrollView>
     </ScreenSafeAreaView>
   );
 }
 
-/** GPS readiness indicator bar */
+/** GPS readiness line for the pre-start screen */
 function GpsReadinessBar({
   state,
-  isDark,
   testID,
-  prominent,
 }: {
   state: 'checking' | 'ready' | 'weak' | 'none';
-  isDark: boolean;
   testID?: string;
-  prominent?: boolean;
 }) {
   const { t } = useTranslation();
 
@@ -479,81 +479,54 @@ function GpsReadinessBar({
     string,
     {
       icon: React.ComponentProps<typeof MaterialCommunityIcons>['name'];
-      color: string;
+      level: SignalLevel;
       text: string;
-      bgColor: string;
     }
   > = {
     checking: {
       icon: 'crosshairs-question',
-      color: colors.iconNeutral,
+      level: 'idle',
       text: t('recording.gpsAcquiring'),
-      bgColor: colorWithOpacity(colors.iconNeutral, 0.1),
     },
     ready: {
       icon: 'crosshairs-gps',
-      color: colors.success,
+      level: 'ok',
       text: t('recording.gpsReady'),
-      bgColor: colorWithOpacity(colors.success, 0.1),
     },
     weak: {
       icon: 'crosshairs',
-      color: colors.warning,
+      level: 'warn',
       text: t('recording.gpsWeakWarning'),
-      bgColor: colorWithOpacity(colors.warning, 0.1),
     },
     none: {
       icon: 'crosshairs-off',
-      color: colors.error,
+      level: 'bad',
       text: t('recording.gpsNone', 'Location denied'),
-      bgColor: colorWithOpacity(colors.error, 0.1),
     },
   };
 
   const config = configs[state];
   if (!config) return null;
+  const tint = signalColor(config.level);
 
   return (
-    <View
+    <SignalStatus
       testID={testID}
-      style={[
-        styles.gpsReadinessBar,
-        prominent && styles.gpsReadinessBarProminent,
-        {
-          backgroundColor: prominent
-            ? config.bgColor
-            : isDark
-              ? darkColors.surface
-              : colors.surface,
-        },
-      ]}
+      variant="line"
+      level={config.level}
+      icon={config.icon}
+      label={config.text}
     >
-      <MaterialCommunityIcons name={config.icon} size={prominent ? 18 : 16} color={config.color} />
-      <Text
-        style={[
-          styles.gpsReadinessText,
-          prominent && styles.gpsReadinessTextProminent,
-          { color: config.color },
-        ]}
-      >
-        {config.text}
-      </Text>
-      {state === 'checking' && prominent && (
-        <View style={styles.gpsSpinner}>
-          <MaterialCommunityIcons name="loading" size={14} color={config.color} />
-        </View>
-      )}
-      {state === 'ready' && prominent && (
-        <MaterialCommunityIcons name="check-circle" size={14} color={config.color} />
-      )}
-      {state === 'none' && prominent && (
+      {state === 'checking' && <MaterialCommunityIcons name="loading" size={14} color={tint} />}
+      {state === 'ready' && <MaterialCommunityIcons name="check-circle" size={14} color={tint} />}
+      {state === 'none' && (
         <TouchableOpacity onPress={() => Linking.openSettings()}>
-          <Text style={[styles.gpsSettingsLink, { color: config.color }]}>
+          <Text style={[styles.gpsSettingsLink, { color: tint }]}>
             {t('recording.gpsAlertSettings', 'Open Settings')}
           </Text>
         </TouchableOpacity>
       )}
-    </View>
+    </SignalStatus>
   );
 }
 
@@ -583,38 +556,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  gpsReadinessBar: {
+  gpsReadinessWrap: {
+    marginHorizontal: spacing.md,
+    marginBottom: spacing.sm,
+  },
+  allActivitiesHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.xs,
-    marginHorizontal: spacing.md,
-    marginBottom: spacing.xs,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs + 2,
-    borderRadius: layout.borderRadiusSm,
-  },
-  gpsReadinessBarProminent: {
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    marginBottom: spacing.sm,
-    borderRadius: layout.borderRadius,
-  },
-  gpsReadinessText: {
-    fontSize: 13,
-    fontWeight: '500',
-  },
-  gpsReadinessTextProminent: {
-    fontSize: 14,
-    fontWeight: '600',
-    flex: 1,
-  },
-  gpsSpinner: {
-    marginLeft: spacing.xs,
-  },
-  noWorkoutsText: {
-    fontSize: 13,
-    fontStyle: 'italic',
-    paddingVertical: spacing.sm,
+    justifyContent: 'space-between',
+    minHeight: layout.minTapTarget,
   },
   gpsSettingsLink: {
     fontSize: 13,
@@ -710,20 +660,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     textAlign: 'center',
     lineHeight: 22,
-  },
-  permissionButton: {
-    marginTop: spacing.sm,
-    paddingHorizontal: spacing.lg,
-    paddingVertical: spacing.sm + 2,
-    borderRadius: 8,
-    backgroundColor: colors.warning,
-    minWidth: 140,
-    alignItems: 'center',
-  },
-  permissionButtonText: {
-    color: colors.textOnDark,
-    fontSize: 16,
-    fontWeight: '600',
   },
   permissionError: {
     fontSize: 13,

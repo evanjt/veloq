@@ -79,7 +79,7 @@ function buildPreviewTracks(
 
 /**
  * Fetch startup data from the engine using current timestamps.
- * Shared by initial useMemo and manual refresh — single source of truth
+ * Shared by initial useMemo and manual refresh - single source of truth
  * for the computeTimestamps + getStartupData + result-building pipeline.
  */
 function fetchStartupData(previewActivityIds: string[]): StartupResult | null {
@@ -115,7 +115,7 @@ function fetchStartupData(previewActivityIds: string[]): StartupResult | null {
  * insights, summary card, GPS preview tracks, and cached metric IDs.
  *
  * Called synchronously in useMemo (not deferred) so data is available
- * on the very first render — eliminates duplicate getInsightsData calls.
+ * on the very first render - eliminates duplicate getInsightsData calls.
  */
 export function useStartupData(previewActivityIds: string[]): {
   data: StartupResult | null;
@@ -131,7 +131,7 @@ export function useStartupData(previewActivityIds: string[]): {
     };
   }, []);
 
-  // Synchronous initial call — provides insights/summary immediately
+  // Synchronous initial call - provides insights/summary immediately
   const initialData = useMemo(
     () => fetchStartupData(previewActivityIds),
     // Only re-run when engine data changes or preview IDs change

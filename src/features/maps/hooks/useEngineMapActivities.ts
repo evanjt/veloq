@@ -40,7 +40,7 @@ export function useEngineMapActivities({
 }: UseEngineMapActivitiesOptions): UseEngineMapActivitiesReturn {
   const [activityCount, setActivityCount] = useState(0);
 
-  // Subscribe to engine activity changes — retry if engine not ready on mount
+  // Subscribe to engine activity changes - retry if engine not ready on mount
   useEffect(() => {
     if (!enabled) return;
 

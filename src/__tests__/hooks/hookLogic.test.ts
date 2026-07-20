@@ -191,7 +191,7 @@ describe('getZoneColor', () => {
   });
 
   it('returns correct palette for power vs HR at same index', () => {
-    // Both palettes now use intervals.icu colors — same color at shared indices
+    // Both palettes now use intervals.icu colors - same color at shared indices
     expect(getZoneColor(4, 'power')).toBe(POWER_ZONE_COLORS[4]);
     expect(getZoneColor(4, 'hr')).toBe(HR_ZONE_COLORS[4]);
   });

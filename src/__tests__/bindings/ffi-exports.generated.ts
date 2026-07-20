@@ -6,7 +6,7 @@
  * Used by tests to validate TypeScript bindings match Rust exports.
  *
  * 6 standalone `#[uniffi::export]` functions plus
- * 190 methods inside `#[uniffi::export] impl` blocks across
+ * 191 methods inside `#[uniffi::export] impl` blocks across
  * 11 UniFFI Objects.
  */
 
@@ -29,7 +29,7 @@ export interface FfiExportInfo {
 
 /**
  * All FFI exports from Rust source.
- * Total: 196 exports (6 standalone + 190 methods)
+ * Total: 197 exports (6 standalone + 191 methods)
  */
 export const FFI_EXPORTS: FfiExportInfo[] = [
   {
@@ -1297,10 +1297,19 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     object: 'SectionManager',
   },
   {
+    name: 'index_new_activity',
+    camelName: 'indexNewActivity',
+    file: 'objects/sections.rs',
+    line: 680,
+    paramCount: 1,
+    returnType: 'Result<crate::FfiIndexActivitySummary, VeloqError>',
+    object: 'SectionManager',
+  },
+  {
     name: 'rematch_activity_to_section',
     camelName: 'rematchActivityToSection',
     file: 'objects/sections.rs',
-    line: 678,
+    line: 694,
     paramCount: 2,
     returnType: 'Result<bool, VeloqError>',
     object: 'SectionManager',
@@ -1309,7 +1318,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'get_nearby_sections',
     camelName: 'getNearbySections',
     file: 'objects/sections.rs',
-    line: 751,
+    line: 767,
     paramCount: 2,
     returnType: 'Result<Vec<crate::FfiNearbySectionSummary>, VeloqError>',
     object: 'SectionManager',
@@ -1318,7 +1327,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'get_merge_candidates',
     camelName: 'getMergeCandidates',
     file: 'objects/sections.rs',
-    line: 761,
+    line: 777,
     paramCount: 1,
     returnType: 'Result<Vec<crate::FfiMergeCandidate>, VeloqError>',
     object: 'SectionManager',
@@ -1327,7 +1336,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'merge_sections',
     camelName: 'mergeSections',
     file: 'objects/sections.rs',
-    line: 770,
+    line: 786,
     paramCount: 2,
     returnType: 'Result<String, VeloqError>',
     object: 'SectionManager',
@@ -1336,7 +1345,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'get_activity_section_highlights',
     camelName: 'getActivitySectionHighlights',
     file: 'objects/sections.rs',
-    line: 785,
+    line: 801,
     paramCount: 1,
     returnType: 'Result<Vec<crate::FfiActivitySectionHighlight>, VeloqError>',
     object: 'SectionManager',
@@ -1345,7 +1354,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'get_activity_indicators',
     camelName: 'getActivityIndicators',
     file: 'objects/sections.rs',
-    line: 795,
+    line: 811,
     paramCount: 1,
     returnType: 'Result<Vec<crate::FfiActivityIndicator>, VeloqError>',
     object: 'SectionManager',
@@ -1354,7 +1363,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'get_indicators_for_activity',
     camelName: 'getIndicatorsForActivity',
     file: 'objects/sections.rs',
-    line: 803,
+    line: 819,
     paramCount: 1,
     returnType: 'Result<Vec<crate::FfiActivityIndicator>, VeloqError>',
     object: 'SectionManager',
@@ -1363,7 +1372,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'get_activity_section_encounters',
     camelName: 'getActivitySectionEncounters',
     file: 'objects/sections.rs',
-    line: 812,
+    line: 828,
     paramCount: 1,
     returnType: 'Result<Vec<crate::FfiSectionEncounter>, VeloqError>',
     object: 'SectionManager',
@@ -1372,7 +1381,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'recompute_indicators',
     camelName: 'recomputeIndicators',
     file: 'objects/sections.rs',
-    line: 821,
+    line: 837,
     paramCount: 0,
     returnType: 'Result<(), VeloqError>',
     object: 'SectionManager',
@@ -1381,7 +1390,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'get_activity_pr_sections',
     camelName: 'getActivityPrSections',
     file: 'objects/sections.rs',
-    line: 833,
+    line: 849,
     paramCount: 2,
     returnType: 'Result<Vec<String>, VeloqError>',
     object: 'SectionManager',
@@ -1390,7 +1399,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'get_workout_sections',
     camelName: 'getWorkoutSections',
     file: 'objects/sections.rs',
-    line: 854,
+    line: 870,
     paramCount: 2,
     returnType: 'Result<Vec<crate::FfiWorkoutSection>, VeloqError>',
     object: 'SectionManager',
@@ -1399,7 +1408,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'get_chart_data',
     camelName: 'getChartData',
     file: 'objects/sections.rs',
-    line: 865,
+    line: 881,
     paramCount: 3,
     returnType: 'Result<crate::FfiSectionChartData, VeloqError>',
     object: 'SectionManager',
@@ -1786,7 +1795,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'compute_polyline_overlap',
     camelName: 'computePolylineOverlap',
     file: 'persistence/mod.rs',
-    line: 1467,
+    line: 1477,
     paramCount: 3,
     returnType: 'f64',
   },
@@ -1937,6 +1946,7 @@ export const EXPECTED_TS_FUNCTIONS = new Set<string>([
   'getAllSummariesIncludingHidden',
   'extractTracesBatch',
   'matchActivityToSections',
+  'indexNewActivity',
   'rematchActivityToSection',
   'getNearbySections',
   'getMergeCandidates',
@@ -2123,6 +2133,7 @@ export const RUST_TO_TS_NAME: Record<string, string> = {
   get_all_summaries_including_hidden: 'getAllSummariesIncludingHidden',
   extract_traces_batch: 'extractTracesBatch',
   match_activity_to_sections: 'matchActivityToSections',
+  index_new_activity: 'indexNewActivity',
   rematch_activity_to_section: 'rematchActivityToSection',
   get_nearby_sections: 'getNearbySections',
   get_merge_candidates: 'getMergeCandidates',

@@ -68,7 +68,7 @@ describe('calculateTerrainCamera', () => {
     });
 
     it('handles two identical coordinates with altitude', () => {
-      // Same location but different altitudes — gradient magnitude is zero
+      // Same location but different altitudes - gradient magnitude is zero
       // because (lng - centerLng) and (lat - centerLat) are both 0
       const result = calculateTerrainCamera(
         [
@@ -99,7 +99,7 @@ describe('calculateTerrainCamera', () => {
   describe('flat route fallback (<30m range)', () => {
     it('falls back to perpendicular bearing when elevation range < 30m', () => {
       const coords = line(10, 45, 11, 45, 10);
-      // 20m range — below threshold
+      // 20m range - below threshold
       const altitude = Array.from({ length: 10 }, (_, i) => 100 + (i / 9) * 20);
       const result = calculateTerrainCamera(coords, altitude);
       expect(result.camera.pitch).toBe(60); // fallback pitch
@@ -165,7 +165,7 @@ describe('calculateTerrainCamera', () => {
   describe('adaptive pitch', () => {
     it('uses 62° pitch for moderate elevation (< 100m range)', () => {
       const coords = line(10, 45, 10.1, 45.1, 20);
-      // 80m range — above flat threshold, below medium
+      // 80m range - above flat threshold, below medium
       const altitude = Array.from({ length: 20 }, (_, i) => 200 + (i / 19) * 80);
       const result = calculateTerrainCamera(coords, altitude);
       expect(result.camera.pitch).toBe(62);

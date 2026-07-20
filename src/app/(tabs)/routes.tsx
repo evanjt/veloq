@@ -225,7 +225,7 @@ export default function RoutesScreen() {
 
   const availableTabKeys = useMemo(() => new Set(tabs.map((entry) => entry.key)), [tabs]);
   const [activeTab, setActiveTab] = useState<TabType>(() => {
-    // Deep-link from home insight chip — always lands on insights tab.
+    // Deep-link from home insight chip - always lands on insights tab.
     if (insightId) return 'insights';
     if (tab === 'strength' && hasStrength) return 'strength';
     if (tab === 'routes' || tab === 'sections' || tab === 'debug' || tab === 'insights') {

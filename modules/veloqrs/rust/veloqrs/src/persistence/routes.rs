@@ -266,7 +266,7 @@ impl PersistentRouteEngine {
                         taken_numbers.insert(num);
                     }
                 }
-                // Old pattern: "{Sport} Route N" — still recognize for numbering
+                // Old pattern: "{Sport} Route N" - still recognize for numbering
                 for sport in [
                     "Ride",
                     "Run",
@@ -462,7 +462,7 @@ impl PersistentRouteEngine {
         // Take the incremental path when we have existing groups AND the
         // new-to-total ratio is small. `group_incremental` is O(N × M) vs
         // the full path's O(N²). For 550 activities with 3 new, that's
-        // ~10× less work — this was the dominant slice of scenario E
+        // ~10× less work - this was the dominant slice of scenario E
         // before the change (4s of the 9s wall-clock).
         let group_start = Instant::now();
 
@@ -477,14 +477,14 @@ impl PersistentRouteEngine {
         // (existing groups stay valid; we only add new edges). The
         // benchmark shows it's faster than full at every ratio measured
         // (60+90 → −37%, 154+396 → −19%). The 90% gate exists only to
-        // Count new (ungrouped) sigs cheaply via Arc references — no clone yet.
+        // Count new (ungrouped) sigs cheaply via Arc references - no clone yet.
         let new_count = arc_sigs
             .iter()
             .filter(|s| !already_grouped.contains(s.activity_id.as_str()))
             .count();
 
         // skip the partition + HashSet build when nearly everything is
-        // new — full is simpler in that fresh-import case.
+        // new - full is simpler in that fresh-import case.
         let use_incremental =
             !self.groups.is_empty() && new_count > 0 && (new_count as f64) < (total as f64 * 0.9);
 
@@ -623,7 +623,7 @@ impl PersistentRouteEngine {
 
             // Load all member tracks in this group (use group.activity_ids,
             // not self.activity_matches, so this works even when the match
-            // map is empty — e.g. after the incremental grouping path)
+            // map is empty - e.g. after the incremental grouping path)
             for activity_id in &group.activity_ids {
                 if !tracks.contains_key(activity_id)
                     && let Some(track) = self.load_gps_track_from_db(activity_id)
@@ -751,7 +751,7 @@ impl PersistentRouteEngine {
 
     /// Write in-memory match percentages back to SQLite.
     /// Only updates rows where the computed percentage is non-zero
-    /// (representatives stay at 0.0 by design — they are the reference track).
+    /// (representatives stay at 0.0 by design - they are the reference track).
     fn persist_match_percentages(&self) -> SqlResult<()> {
         let mut stmt = self.db.prepare(
             "UPDATE activity_matches SET match_percentage = ?
@@ -781,7 +781,7 @@ impl PersistentRouteEngine {
         self.db.execute_batch("BEGIN IMMEDIATE")?;
 
         let result = (|| -> SqlResult<()> {
-            // Snapshot excluded flags before wiping — user exclusions must survive recompute
+            // Snapshot excluded flags before wiping - user exclusions must survive recompute
             let excluded_pairs: Vec<(String, String)> = {
                 let mut stmt = self.db.prepare(
                     "SELECT route_id, activity_id FROM activity_matches WHERE excluded = 1",

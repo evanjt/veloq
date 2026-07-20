@@ -189,7 +189,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     // If the user previously opted into push notifications (e.g. restored a
     // backup or logged back in after a logout), re-register the push token so
     // the worker knows where to deliver webhook-driven notifications for this
-    // athlete. Fire-and-forget — OAuth login must not block on push setup.
+    // athlete. Fire-and-forget - OAuth login must not block on push setup.
     try {
       const {
         getNotificationPreferences,

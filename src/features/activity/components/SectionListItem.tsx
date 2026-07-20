@@ -117,7 +117,7 @@ export const SectionListItem = memo(
             ]}
           >
             <View style={styles.sectionCardContent}>
-              {/* Numbered badge matching map marker — neutral gray so it doesn't
+              {/* Numbered badge matching map marker - neutral gray so it doesn't
                   compete with PR gold. Inline color to bypass any parent theme. */}
               <View style={[styles.sectionNumberBadge, isDark && styles.sectionNumberBadgeDark]}>
                 <RNText

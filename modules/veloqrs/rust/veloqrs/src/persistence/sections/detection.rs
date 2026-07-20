@@ -185,7 +185,7 @@ fn save_groups_to_db(conn: &Connection, groups: &[RouteGroup]) -> SqlResult<()> 
 ///   meantime we don't clobber it.
 /// - If the user syncs during backfill, the engine's in-memory copy still
 ///   has None accumulators and will hit today's backfill branch in
-///   incremental detection — correct but slow. Subsequent syncs pick up
+///   incremental detection - correct but slow. Subsequent syncs pick up
 ///   the persisted blobs on next engine reload.
 /// - `try_write` at the end is best-effort: if the engine lock is taken
 ///   by an active operation we skip the in-memory reload; the fresh blobs
@@ -204,7 +204,7 @@ pub fn spawn_accumulator_backfill(db_path: String) {
 ///
 /// When `refresh_engine` is true and any section got seeded, best-effort
 /// acquires the global engine write lock and reloads sections. Tests pass
-/// `false` — they hold their own engine and don't need the singleton.
+/// `false` - they hold their own engine and don't need the singleton.
 pub fn run_accumulator_backfill(db_path: &str, refresh_engine: bool) -> Result<(u32, u32), String> {
     let start = std::time::Instant::now();
     let conn = match Connection::open(db_path) {
@@ -294,7 +294,7 @@ pub fn run_accumulator_backfill(db_path: &str, refresh_engine: bool) -> Result<(
         }
 
         // Load full GPS tracks for the section's activities in a single IN(...)
-        // query — cheaper than N separate query_row round-trips, especially on
+        // query - cheaper than N separate query_row round-trips, especially on
         // sections with many traversals.
         let mut track_map_owned: HashMap<String, Vec<tracematch::GpsPoint>> = HashMap::new();
         {
@@ -374,7 +374,7 @@ pub fn run_accumulator_backfill(db_path: &str, refresh_engine: bool) -> Result<(
         }
     }
 
-    // Mark the flag even if some were skipped — we only want to pay the
+    // Mark the flag even if some were skipped - we only want to pay the
     // corpus-wide scan once. Sections we skipped here (e.g., no GPS data on
     // disk) will get their accumulators built by the ordinary incremental
     // backfill path if/when they're ever touched.
@@ -393,7 +393,7 @@ pub fn run_accumulator_backfill(db_path: &str, refresh_engine: bool) -> Result<(
 
     // Best-effort: refresh the engine's in-memory copy so the new blobs
     // become usable without requiring an app restart. If the write lock is
-    // held by a concurrent operation, skip — the engine will pick them up
+    // held by a concurrent operation, skip - the engine will pick them up
     // on next `load_sections` call / next app start.
     if refresh_engine && seeded > 0 {
         if let Ok(mut guard) = super::super::PERSISTENT_ENGINE.try_write() {
@@ -541,7 +541,7 @@ impl PersistentRouteEngine {
 
         // Threshold tuned for correctness, not just perf. Tried raising
         // 0.5 → 0.9 (mirroring the grouping fix) but scenario F drift
-        // went from 2% to 73% — incremental on 72% new misses sections
+        // went from 2% to 73% - incremental on 72% new misses sections
         // because the unmatched-pool's full detection only sees the new
         // tracks, not the existing 28% they should pair with. Grouping
         // doesn't have this issue because group_incremental queries new
@@ -575,7 +575,7 @@ impl PersistentRouteEngine {
         // subset of section-referenced activities whose sections could
         // geographically overlap the new activities. The naive approach
         // (load every section-referenced activity) loaded ~500 tracks for a
-        // 500-activity corpus even when only 1 activity was new — the
+        // 500-activity corpus even when only 1 activity was new - the
         // dominant cost in the "add 1 activity" lag path. The bbox
         // pre-filter typically cuts this to dozens.
         let ids_to_load = if use_incremental {
@@ -647,7 +647,7 @@ impl PersistentRouteEngine {
                         naive.len()
                     };
                     log::info!(
-                        "tracematch: [SectionDetection] bbox pre-filter: {} of {} existing sections nearby — loading {} tracks (naive {})",
+                        "tracematch: [SectionDetection] bbox pre-filter: {} of {} existing sections nearby - loading {} tracks (naive {})",
                         sections_loaded,
                         existing_sections.len(),
                         needed.len(),
@@ -702,7 +702,7 @@ impl PersistentRouteEngine {
             // #21: chunk the track load to bound the transient SQL/parse
             // spike. The detection algorithm consumes full-resolution tracks
             // (the multiscale/incremental entry points borrow each track's
-            // points directly into their `track_map` — see
+            // points directly into their `track_map` - see
             // tracematch::sections::detect_sections_multiscale_with_progress),
             // and `seed_consensus_state` below also needs them, so all tracks
             // must still be resident simultaneously when detection runs. We
@@ -717,7 +717,7 @@ impl PersistentRouteEngine {
             // is byte-identical to before, so the detection input is unchanged.
             //
             // PARTIAL: this only trims the transient spike. The dominant
-            // resident cost — every full-resolution track held at once — is
+            // resident cost - every full-resolution track held at once - is
             // inherent to the all-pairs algorithm and can only be removed by
             // a streaming/downsampling change inside the tracematch submodule
             // (out of scope here).
@@ -726,7 +726,7 @@ impl PersistentRouteEngine {
 
             if ids_to_load.len() > MEMORY_WARN_THRESHOLD {
                 log::warn!(
-                    "tracematch: [SectionDetection] Loading {} full-resolution tracks for detection — all must stay resident simultaneously (all-pairs algorithm). Peak memory may be high (~{}MB est.); chunked load bounds only the transient spike, not the resident set.",
+                    "tracematch: [SectionDetection] Loading {} full-resolution tracks for detection - all must stay resident simultaneously (all-pairs algorithm). Peak memory may be high (~{}MB est.); chunked load bounds only the transient spike, not the resident set.",
                     ids_to_load.len(),
                     // Rough estimate: ~64KB resident per track at ~1k points.
                     ids_to_load.len() * 64 / 1024,
@@ -832,7 +832,7 @@ impl PersistentRouteEngine {
             // seconds before any per-item tick lands. Without this marker the
             // bar sits frozen at the end of "loading" and a long large-corpus
             // detection reads as a crash. We use the existing progress handle
-            // only — no tracematch change. The ClusteringAwareProgress passed
+            // only - no tracematch change. The ClusteringAwareProgress passed
             // into detect overwrites the phase on its first on_phase callback.
             progress_clone.set_phase("analyzing", tracks.len() as u32);
 
@@ -869,7 +869,7 @@ impl PersistentRouteEngine {
                     result.unmatched_activity_ids.len(),
                 );
 
-                // Quality filter only the newly discovered sections — the
+                // Quality filter only the newly discovered sections - the
                 // updated_sections come from the existing in-memory set and
                 // have already passed the filter (or been user-accepted), so
                 // re-filtering them risks deleting valid sections that
@@ -1065,11 +1065,11 @@ impl PersistentRouteEngine {
     /// them to SQLite, clear the relevant LRU caches. Returns as soon as
     /// the new section set is durably saved and queryable from in-memory
     /// reads. Does NOT do the cross-sport merge or the indicator
-    /// recompute — those are the deferred tail
+    /// recompute - those are the deferred tail
     /// (`apply_sections_finalize`) so callers that want the UI interactive
     /// can return after `_save` and do the tail on a background thread.
     ///
-    /// If `save_sections` fails the prior in-memory state is restored —
+    /// If `save_sections` fails the prior in-memory state is restored -
     /// the rollback contract is unchanged from the monolithic
     /// `apply_sections`.
     pub fn apply_sections_save(&mut self, sections: Vec<FrequentSection>) -> SqlResult<()> {
@@ -1099,7 +1099,7 @@ impl PersistentRouteEngine {
     /// Deferred tail of apply_sections: cross-sport merge + activity-
     /// indicator recompute. Both are best-effort (errors are logged, not
     /// returned) because they don't affect the ability to query the just-
-    /// saved sections — they only refine derived state. Safe to invoke on
+    /// saved sections - they only refine derived state. Safe to invoke on
     /// a background thread after `apply_sections_save` returns.
     pub fn apply_sections_finalize(&mut self) {
         self.apply_sections_finalize_with_progress(None);

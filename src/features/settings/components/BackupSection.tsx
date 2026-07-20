@@ -57,7 +57,7 @@ export function BackupSection() {
         try {
           await performBackup(true);
         } catch {
-          // Silent — auto-backup will retry on next trigger
+          // Silent - auto-backup will retry on next trigger
         } finally {
           setBackingUp(false);
         }

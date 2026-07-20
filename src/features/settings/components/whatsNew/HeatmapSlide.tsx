@@ -46,7 +46,7 @@ const GRID: number[][] = [
   [1, 4, 0, 2, 1, 0, 3],
 ];
 
-// Selected cell position (row 2, col 2 — a high-intensity day)
+// Selected cell position (row 2, col 2 - a high-intensity day)
 const SELECTED_ROW = 2;
 const SELECTED_COL = 2;
 

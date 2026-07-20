@@ -65,7 +65,7 @@ export function useGpsSessionEffect({
           const granted = await requestPermission();
           if (!granted) {
             if (!cancelled) {
-              log.warn('Location permission denied — pausing recording');
+              log.warn('Location permission denied - pausing recording');
               setGpsWarning(t('recording.gpsPermissionDenied'));
               useRecordingStore.getState().pauseRecording();
             }

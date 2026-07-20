@@ -260,7 +260,7 @@ describe('useTimer', () => {
 
     const { result, rerender } = renderHook(() => useTimer());
 
-    // Initially idle — no ticking
+    // Initially idle - no ticking
     expect(result.current.elapsedTime).toBe(0);
 
     // Switch to recording
@@ -304,7 +304,7 @@ describe('useTimer', () => {
 
     rerender({});
 
-    // Advance time — interval should be cleared, but Date.now() still advances
+    // Advance time - interval should be cleared, but Date.now() still advances
     act(() => {
       jest.advanceTimersByTime(5000);
     });

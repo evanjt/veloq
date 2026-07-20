@@ -40,5 +40,7 @@ export { ComponentErrorBoundary } from './ComponentErrorBoundary';
 export { GlobalErrorBoundary } from './GlobalErrorBoundary';
 export { ScreenErrorBoundary } from './ScreenErrorBoundary';
 export { CollapsibleSection } from './CollapsibleSection';
+export { DetailHero, HeroNameRow, HeroStatsRow } from './DetailHero';
+export { SignalStatus, signalColor, type SignalLevel } from './SignalStatus';
 export { ScreenSafeAreaView } from './ScreenSafeAreaView';
 export { TipButtons } from './TipButtons';

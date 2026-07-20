@@ -89,7 +89,7 @@ function buildSparklinePath(
   const sx = (x: number) => pad.left + (x / xRange) * cw;
   const sy = (y: number) => yOffset + pad.top + ((yMax - y) / yRange) * ch;
 
-  // Build the "d" string for Skia.Path.MakeFromSVGString — the imperative
+  // Build the "d" string for Skia.Path.MakeFromSVGString - the imperative
   // Skia.Path.Make().moveTo()/cubicTo() API is deprecated in react-native-skia 2.x.
   let d = `M${sx(data[0].x)} ${sy(data[0].value)}`;
 

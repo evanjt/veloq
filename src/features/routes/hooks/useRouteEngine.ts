@@ -63,7 +63,7 @@ export function useEngineSubscription(events: EngineEvent[]): number {
     }
 
     if (!trySubscribe()) {
-      // Engine not ready yet — poll until available
+      // Engine not ready yet - poll until available
       const interval = setInterval(() => {
         if (trySubscribe()) {
           clearInterval(interval);
@@ -195,7 +195,7 @@ export function useRouteEngine(): UseRouteEngineResult {
     setActivityCount(0);
   }, []);
 
-  // Subscribe to activity changes — retry if engine not ready on mount
+  // Subscribe to activity changes - retry if engine not ready on mount
   useEffect(() => {
     let cancelled = false;
     let unsubscribe: (() => void) | null = null;
@@ -424,7 +424,7 @@ export function useSectionSummaries(
 interface UseGroupSummariesOptions {
   /** Minimum number of activities in group */
   minActivities?: number;
-  /** Sort order — 'count' (default) or 'name' (alphabetical by groupId) */
+  /** Sort order - 'count' (default) or 'name' (alphabetical by groupId) */
   sortBy?: 'count' | 'name';
 }
 

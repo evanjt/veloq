@@ -45,7 +45,7 @@ export const MethodologySection = React.memo(function MethodologySection({
       </Text>
 
       <View style={styles.body}>
-        {/* Algorithm description as plain text — the simple explanation */}
+        {/* Algorithm description as plain text - the simple explanation */}
         {algorithmDescription ? (
           <Text style={[styles.algorithmText, isDark && styles.algorithmTextDark]}>
             {algorithmDescription}

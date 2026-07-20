@@ -24,7 +24,7 @@ import type { RouteSignature } from '@/features/routes/hooks';
 interface UseMapCameraOptions {
   activities: ActivityBoundsItem[];
   routeSignatures: Record<string, RouteSignature>;
-  /** Incremented on iOS retry — resets camera state so initial position is reapplied */
+  /** Incremented on iOS retry - resets camera state so initial position is reapplied */
   mapKey: number;
   cameraRef: React.RefObject<React.ElementRef<typeof Camera> | null>;
 }
@@ -174,7 +174,7 @@ export function useMapCamera({
       const centerLng = (minLng + maxLng) / 2;
       const centerLat = (minLat + maxLat) / 2;
 
-      // Check if cluster covers most activities (>= 70%) — if so, just use it.
+      // Check if cluster covers most activities (>= 70%) - if so, just use it.
       // Otherwise fall back to the cluster anyway (better than an ocean view).
       const latSpan = maxLat - minLat;
       const lngSpan = maxLng - minLng;
@@ -245,18 +245,18 @@ export function useMapCamera({
     }
   }, [mapKey]);
 
-  /** Apply the computed camera position — fit all activities with padding.
+  /** Apply the computed camera position - fit all activities with padding.
    *  Uses fitBounds for proper pixel-based padding, then releases MapLibre
    *  tracking state to prevent snap-back (same pattern as handleFitAll). */
   const applyPosition = useCallback(
     (data: BoundsData) => {
-      // Guard against null camera ref during iOS Fabric reconciliation —
+      // Guard against null camera ref during iOS Fabric reconciliation -
       // the ref can be null between map unmount/remount cycles (e.g. mapKey change).
       if (!cameraRef.current) return;
 
       if (__DEV__) {
         console.log(
-          `[CAM] applyPosition — worldSpanning=${data.worldSpanning} zoom=${data.zoomLevel.toFixed(1)} center=[${data.center[0].toFixed(3)},${data.center[1].toFixed(3)}]`
+          `[CAM] applyPosition - worldSpanning=${data.worldSpanning} zoom=${data.zoomLevel.toFixed(1)} center=[${data.center[0].toFixed(3)},${data.center[1].toFixed(3)}]`
         );
       }
       hasAutoRepositionedRef.current = true;
@@ -280,14 +280,14 @@ export function useMapCamera({
         }, 100);
       } else {
         // Compact area: fitBounds to show all activities with proper padding.
-        // Padding: [top, right, bottom, left] in pixels — bottom accounts for timeline slider.
+        // Padding: [top, right, bottom, left] in pixels - bottom accounts for timeline slider.
         cameraRef.current?.fitBounds(
           data.targetBounds.ne,
           data.targetBounds.sw,
           [100, 60, 280, 60],
           500
         );
-        // Release MapLibre tracking state after animation completes — without this,
+        // Release MapLibre tracking state after animation completes - without this,
         // the camera snaps back to the bounds after any user gesture.
         setTimeout(() => {
           cameraRef.current?.setCamera({
@@ -311,7 +311,7 @@ export function useMapCamera({
   const markUserInteracted = useCallback(() => {
     if (__DEV__) {
       console.log(
-        `[CAM] markUserInteracted — programmatic=${programmaticMoveRef.current} settled=${settledAfterInitialRef.current} autoRepos=${hasAutoRepositionedRef.current} activities=${activitiesRef.current.length}`
+        `[CAM] markUserInteracted - programmatic=${programmaticMoveRef.current} settled=${settledAfterInitialRef.current} autoRepos=${hasAutoRepositionedRef.current} activities=${activitiesRef.current.length}`
       );
     }
     if (programmaticMoveRef.current) return;
@@ -335,7 +335,7 @@ export function useMapCamera({
   useEffect(() => {
     if (__DEV__) {
       console.log(
-        `[CAM] fallback effect — settled=${hasCameraSettled} autoRepos=${hasAutoRepositionedRef.current} activities=${activities.length}`
+        `[CAM] fallback effect - settled=${hasCameraSettled} autoRepos=${hasAutoRepositionedRef.current} activities=${activities.length}`
       );
     }
     if (!hasCameraSettled) return;

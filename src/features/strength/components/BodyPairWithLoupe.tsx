@@ -159,7 +159,7 @@ export const BodyPairWithLoupe = React.memo(function BodyPairWithLoupe({
 
   const scrubEnabled = !!(scrubCallback && tappableSlugs && tappableSlugs.size > 0);
 
-  // LongPress gates activation — ScrollView can claim touch before this fires
+  // LongPress gates activation - ScrollView can claim touch before this fires
   const longPressGesture = Gesture.LongPress()
     .minDuration(CHART_CONFIG.LONG_PRESS_DURATION)
     .enabled(scrubEnabled)
@@ -171,7 +171,7 @@ export const BodyPairWithLoupe = React.memo(function BodyPairWithLoupe({
     })
     .shouldCancelWhenOutside(false);
 
-  // Pan with manual activation — only activates after long-press shows loupe
+  // Pan with manual activation - only activates after long-press shows loupe
   const panGesture = Gesture.Pan()
     .manualActivation(true)
     .enabled(scrubEnabled)
@@ -211,7 +211,7 @@ export const BodyPairWithLoupe = React.memo(function BodyPairWithLoupe({
     };
   });
 
-  // Loupe bodies use only translate (no scale transform — body is rendered at loupeScale directly)
+  // Loupe bodies use only translate (no scale transform - body is rendered at loupeScale directly)
   const loupeFrontStyle = useAnimatedStyle(() => {
     'worklet';
     return {
@@ -257,7 +257,7 @@ export const BodyPairWithLoupe = React.memo(function BodyPairWithLoupe({
             />
           </View>
 
-          {/* Magnifying loupe — bodies rendered at larger scale, no CSS scale transform */}
+          {/* Magnifying loupe - bodies rendered at larger scale, no CSS scale transform */}
           <Animated.View style={[styles.loupeContainer, loupeContainerStyle]} pointerEvents="none">
             <View style={[styles.loupeClip, isDark && styles.loupeClipDark]}>
               <Animated.View style={[styles.loupeBody, loupeFrontStyle]}>

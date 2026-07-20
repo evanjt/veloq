@@ -48,10 +48,10 @@ export function useRoutesScreenData(opts?: {
   const userLat = opts?.userLocation?.lat ?? Number.NaN;
   const userLng = opts?.userLocation?.lng ?? Number.NaN;
 
-  // Subscribe to engine events — triggers re-render when data changes
+  // Subscribe to engine events - triggers re-render when data changes
   const trigger = useEngineSubscription(['groups', 'sections', 'activities']);
 
-  // Re-query on screen focus — handles missed notifications during enableFreeze.
+  // Re-query on screen focus - handles missed notifications during enableFreeze.
   // When the Routes tab is frozen, React state updates from engine notifications
   // are dropped. dirtyRef tracks whether the engine trigger advanced while frozen;
   // useFocusEffect only bumps focusTrigger when there is actually new data.
@@ -83,7 +83,7 @@ export function useRoutesScreenData(opts?: {
   const hasMoreGroupsRef = useRef(false);
   const hasMoreSectionsRef = useRef(false);
 
-  // Loading guards — prevent onEndReached from firing multiple times between renders
+  // Loading guards - prevent onEndReached from firing multiple times between renders
   const isLoadingGroupsRef = useRef(false);
   const isLoadingSectionsRef = useRef(false);
 
@@ -94,7 +94,7 @@ export function useRoutesScreenData(opts?: {
   // Track last successful result for error recovery
   const lastResultRef = useRef<PaginatedRoutesData | null>(null);
 
-  // Combined trigger — engine events OR tab focus
+  // Combined trigger - engine events OR tab focus
   const combinedTrigger = trigger + focusTrigger;
 
   // Reset pagination on engine events (new sync, etc.)

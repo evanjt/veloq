@@ -70,33 +70,6 @@ export const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '500',
   },
-  sportTypePills: {
-    flexDirection: 'row',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.xs,
-    gap: spacing.xs,
-  },
-  sportPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: colors.border,
-    gap: 4,
-  },
-  sportPillDark: {
-    borderColor: darkColors.border,
-  },
-  sportPillText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.textSecondary,
-  },
-  sportPillTextDark: {
-    color: darkColors.textSecondary,
-  },
   scrollView: {
     flex: 1,
   },

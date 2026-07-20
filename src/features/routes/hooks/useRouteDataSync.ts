@@ -300,7 +300,7 @@ export function useRouteDataSync(
           if (stats?.sectionsDirty && isMountedRef.current) {
             if (__DEV__) {
               console.log(
-                '[RouteDataSync] No new GPS, but sectionsDirty — triggering section detection'
+                '[RouteDataSync] No new GPS, but sectionsDirty - triggering section detection'
               );
             }
             updateProgress({
@@ -445,7 +445,7 @@ export function useRouteDataSync(
                 }
               }
             } catch {
-              // Non-critical — will retry next sync
+              // Non-critical - will retry next sync
             }
           }
 

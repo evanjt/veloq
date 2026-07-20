@@ -24,7 +24,7 @@ export function pollSectionDetection(host: DelegateHost): string {
     }
     return status;
   } catch (e) {
-    // Logging the underlying error before collapsing to "error" — without
+    // Logging the underlying error before collapsing to "error" - without
     // this, a Rust-side panic or DB failure in the detection apply path
     // disappeared into the void and the UI just showed a status string
     // with no context for debugging.

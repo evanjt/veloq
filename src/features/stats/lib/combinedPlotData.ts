@@ -3,7 +3,7 @@
  *
  * Extracts normalization, averages, and interval band math out of
  * `CombinedPlot.tsx` so the component focuses on rendering. No React,
- * no Victory, no Skia — pure TypeScript so these can be unit tested in
+ * no Victory, no Skia - pure TypeScript so these can be unit tested in
  * isolation.
  */
 
@@ -215,7 +215,7 @@ export function computeAllAverages(
     // Compute widest formatted value for stable chip width
     let maxFormatted: string;
     if (config.defaultMetric === 'gain') {
-      // Gain is fixed — use it as max width; also check max altitude for scrub case
+      // Gain is fixed - use it as max width; also check max altitude for scrub case
       let maxRaw = Math.max(...validValues);
       if (!isMetric && config.convertToImperial) {
         maxRaw = config.convertToImperial(maxRaw);

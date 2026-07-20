@@ -210,7 +210,7 @@ export const SectionPerformanceTimeline = React.memo(function SectionPerformance
             </Canvas>
           ) : null}
 
-          {/* Y-axis labels (time values) — faster at bottom, slower at top */}
+          {/* Y-axis labels (time values) - faster at bottom, slower at top */}
           {yTicks.map((tick, i) => {
             const y = CHART_PADDING.top + ((tick - yMin) / yRange) * drawH;
             return (

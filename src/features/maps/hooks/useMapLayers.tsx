@@ -5,7 +5,7 @@
  * route line, route overlay, section overlays (consolidated), highlight point,
  * and section marker elements.
  *
- * Extracted from ActivityMapView.tsx — pure refactor, no behaviour change.
+ * Extracted from ActivityMapView.tsx - pure refactor, no behaviour change.
  */
 
 import { useMemo } from 'react';
@@ -26,7 +26,7 @@ export interface SectionOverlayGeoJSON {
 interface UseMapLayersParams {
   /** Decoded and validated coordinates for the activity track */
   validCoordinates: LatLng[];
-  /** All decoded coordinates (including invalid — used for highlight index lookup) */
+  /** All decoded coordinates (including invalid - used for highlight index lookup) */
   coordinates: LatLng[];
   /** Route overlay coordinates (e.g., matched route trace) */
   routeOverlay?: LatLng[] | null;
@@ -34,9 +34,9 @@ interface UseMapLayersParams {
   sectionOverlays?: SectionOverlay[] | null;
   /** Index into coordinates to highlight (from chart scrubbing) */
   highlightIndex?: number | null;
-  /** Active tab — controls marker style (numbered on sections, PR on charts) */
+  /** Active tab - controls marker style (numbered on sections, PR on charts) */
   activeTab?: string;
-  /** Activity streams — used to build per-point gradient colors */
+  /** Activity streams - used to build per-point gradient colors */
   streams?: ActivityStreams | null;
 }
 
@@ -61,7 +61,7 @@ interface UseMapLayersResult {
   /** GeoJSON for geo-anchored section markers (ShapeSource + CircleLayer + SymbolLayer) */
   sectionMarkersGeoJSON: GeoJSON.FeatureCollection;
   /** Subset of sectionMarkersGeoJSON containing only numbered (non-PR) markers.
-   *  Pre-filtered at the feature level so CircleLayer doesn't need a filter prop —
+   *  Pre-filtered at the feature level so CircleLayer doesn't need a filter prop -
    *  @maplibre/maplibre-react-native's filter handling is unreliable for boolean
    *  property comparisons on some native versions. */
   sectionNumberedMarkersGeoJSON: GeoJSON.FeatureCollection;
@@ -83,7 +83,7 @@ interface UseMapLayersResult {
   gradientLineExpression: unknown | null;
 }
 
-/** Minimal valid geometry placeholder — prevents Fabric add/remove crashes */
+/** Minimal valid geometry placeholder - prevents Fabric add/remove crashes */
 const MINIMAL_LINE: GeoJSON.FeatureCollection = {
   type: 'FeatureCollection',
   features: [

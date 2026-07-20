@@ -40,7 +40,7 @@ export const ChartYAxisLabel = React.memo(function ChartYAxisLabel({
 
   return (
     <>
-      {/* Max label — on the max reference line at chart top */}
+      {/* Max label - on the max reference line at chart top */}
       <Text
         style={[
           styles.yLabel,
@@ -52,7 +52,7 @@ export const ChartYAxisLabel = React.memo(function ChartYAxisLabel({
       >
         {formatYAxisValue(yAxisSeries.range.max, yAxisSeries)}
       </Text>
-      {/* Min label — on the min reference line at chart bottom */}
+      {/* Min label - on the min reference line at chart bottom */}
       <Text
         style={[
           styles.yLabel,
@@ -64,7 +64,7 @@ export const ChartYAxisLabel = React.memo(function ChartYAxisLabel({
       >
         {formatYAxisValue(yAxisSeries.range.min, yAxisSeries)}
       </Text>
-      {/* Avg label — on the dashed average line */}
+      {/* Avg label - on the dashed average line */}
       {yAxisAvgInfo && (
         <Text
           style={[

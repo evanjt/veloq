@@ -12,7 +12,7 @@ function dateToMs(d: bigint | number | undefined): number | undefined {
   if (!Number.isFinite(n) || n <= 0) return undefined;
   // Heuristic: values under 1e12 look like seconds, otherwise ms.
   const ms = n < 1e12 ? n * 1000 : n;
-  // Reject implausibly old dates (test placeholders, corrupt data) — real
+  // Reject implausibly old dates (test placeholders, corrupt data) - real
   // activity dates are post-2000. Without this, a BigInt(1000) in a test
   // becomes 1970-01-01 and fails the recency gate.
   if (ms < YEAR_2000_MS) return undefined;

@@ -2,7 +2,7 @@
  * Module-level event emitter for terrain snapshot completions.
  *
  * Each ActivityMapPreview subscribes to its own activity ID. When a snapshot
- * completes, only the one card whose image is ready re-renders — instead of
+ * completes, only the one card whose image is ready re-renders - instead of
  * the entire FlatList via a version counter.
  */
 
@@ -43,7 +43,7 @@ export function emitSnapshotComplete(activityId: string, uri: string): void {
 }
 
 /**
- * Snapshot failure events — emitted when a request exhausts its retries so the
+ * Snapshot failure events - emitted when a request exhausts its retries so the
  * card can drop from its loading state to the route-line fallback instead of
  * spinning forever. A later successful render (pull-to-refresh retry) flips
  * the card back via the completion event.
@@ -77,7 +77,7 @@ export function emitSnapshotFailed(activityId: string): void {
 }
 
 /**
- * Tile cache clear event — broadcast to all WebView workers to clear
+ * Tile cache clear event - broadcast to all WebView workers to clear
  * the Cache API terrain DEM tile cache.
  */
 type TileCacheClearListener = () => void;
@@ -95,7 +95,7 @@ export function emitClearTileCache(): void {
 }
 
 /**
- * Tile cache stats — request/response pair for querying DEM tile count and size.
+ * Tile cache stats - request/response pair for querying DEM tile count and size.
  * MapsSection requests stats, TerrainSnapshotWebView responds.
  */
 export interface TileCacheStats {
@@ -135,7 +135,7 @@ export function emitTileCacheStats(stats: TileCacheStats): void {
 }
 
 /**
- * Prefetch tiles event — sends tile URL batches to TerrainSnapshotWebView
+ * Prefetch tiles event - sends tile URL batches to TerrainSnapshotWebView
  * for background downloading into the Cache API.
  */
 export interface PrefetchTilesBatch {
@@ -173,7 +173,7 @@ export function emitPrefetchTilesProgress(downloaded: number, total: number): vo
 }
 
 /**
- * Cancel WebView prefetch event — sets abort flag in all WebView workers
+ * Cancel WebView prefetch event - sets abort flag in all WebView workers
  * to stop in-flight tile fetches.
  */
 type CancelWebViewPrefetchListener = () => void;

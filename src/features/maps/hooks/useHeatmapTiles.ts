@@ -2,7 +2,7 @@
  * Provides the file:// URL template for MapLibre to consume heatmap tiles,
  * and a clear function for the settings cache panel.
  *
- * Tile generation is handled entirely in Rust on a background thread —
+ * Tile generation is handled entirely in Rust on a background thread -
  * triggered by the same events as section detection (GPS sync, section apply).
  * No JS-side generation logic needed.
  */
@@ -21,7 +21,7 @@ export const HEATMAP_TILES_DIR = HEATMAP_DIR;
 
 /**
  * Get total size of heatmap tile cache in bytes.
- * Uses native Rust directory scan for speed — no JS filesystem calls.
+ * Uses native Rust directory scan for speed - no JS filesystem calls.
  */
 export function getHeatmapTilesCacheSize(): number {
   try {

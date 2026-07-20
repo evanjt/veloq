@@ -184,7 +184,7 @@ export default function DetectionSettingsScreen() {
       method,
       params: paramsForMethod(method, activeStrictness),
     };
-    // Only reset when method/strictness changes — not on every param tweak.
+    // Only reset when method/strictness changes - not on every param tweak.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [method, activeStrictness]);
 

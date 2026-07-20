@@ -1,5 +1,5 @@
 /**
- * Recording trim slider — dual-handle range slider for trimming GPS recordings.
+ * Recording trim slider - dual-handle range slider for trimming GPS recordings.
  * Uses react-native-gesture-handler for reliable pan handling that doesn't
  * conflict with Android's edge-swipe back gesture.
  * Design cues from SectionTrimOverlay: pill container, round handles, hit slop.
@@ -13,7 +13,7 @@ import Animated, { useSharedValue, useAnimatedStyle, runOnJS } from 'react-nativ
 import { useTranslation } from 'react-i18next';
 
 import { useTheme } from '@/shared/app';
-import { colors, darkColors, spacing, brand, shadows } from '@/theme';
+import { colors, colorWithOpacity, darkColors, spacing, brand, shadows } from '@/theme';
 import { formatDuration } from '@/shared/format/format';
 
 const HANDLE_SIZE = 28;
@@ -98,7 +98,9 @@ export function TrimSlider({
     left: endFraction * trackWidth - HANDLE_SIZE / 2,
   }));
 
-  const pillBg = isDark ? 'rgba(30, 30, 30, 0.92)' : 'rgba(255, 255, 255, 0.95)';
+  const pillBg = isDark
+    ? colorWithOpacity(darkColors.surfaceElevated, 0.92)
+    : colorWithOpacity(colors.surface, 0.95);
   const textPrimary = isDark ? darkColors.textPrimary : colors.textPrimary;
   const textSecondary = isDark ? darkColors.textSecondary : colors.textSecondary;
 
@@ -110,7 +112,7 @@ export function TrimSlider({
           {t('recording.trimActivity', 'Trim Activity')}
         </Text>
         <Text style={[styles.timeRange, { color: isTrimmed ? brand.teal : textSecondary }]}>
-          {formatDuration(startTime)} — {formatDuration(endTime)}
+          {formatDuration(startTime)} - {formatDuration(endTime)}
         </Text>
       </View>
 
@@ -214,7 +216,7 @@ const styles = StyleSheet.create({
     width: 22,
     height: 22,
     borderRadius: 11,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.textOnDark,
     borderWidth: 2,
     justifyContent: 'center',
     alignItems: 'center',

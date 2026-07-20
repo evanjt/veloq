@@ -48,7 +48,7 @@ function RecordingMapInner({
   // button restores following.
   const [isFollowing, setIsFollowing] = useState(true);
 
-  // Style load retry — a transient failure leaves the map on MapLibre's
+  // Style load retry - a transient failure leaves the map on MapLibre's
   // default empty style (white canvas). Remount to re-apply the style.
   const [mapKey, setMapKey] = useState(0);
   const retryCountRef = useRef(0);
@@ -79,7 +79,7 @@ function RecordingMapInner({
       .filter(([lng, lat]) => Number.isFinite(lng) && Number.isFinite(lat));
   }, [coordinates]);
 
-  // Build route GeoJSON — when trimming, split into active and excluded portions
+  // Build route GeoJSON - when trimming, split into active and excluded portions
   const hasTrim =
     fitBounds &&
     trimStart != null &&

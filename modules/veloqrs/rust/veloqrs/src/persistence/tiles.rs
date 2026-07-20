@@ -16,7 +16,7 @@ use std::sync::atomic::{AtomicU32, Ordering};
 use std::sync::mpsc;
 use tracematch::{Bounds, GpsPoint};
 
-/// Tile format version — increment when tile size, zoom range, or rendering changes.
+/// Tile format version - increment when tile size, zoom range, or rendering changes.
 /// Triggers automatic cache clear + regeneration on app upgrade.
 const TILE_FORMAT_VERSION: &str = "7";
 
@@ -66,7 +66,7 @@ impl PersistentRouteEngine {
         info!("[heatmap] Tiles path set to: {}", path);
         self.heatmap_tiles_path = Some(path.clone());
 
-        // Check tile format version — clear stale tiles on upgrade
+        // Check tile format version - clear stale tiles on upgrade
         let version_file = Path::new(&path).join("version.txt");
         let current_version = std::fs::read_to_string(&version_file).unwrap_or_default();
         if current_version.trim() != TILE_FORMAT_VERSION {
@@ -90,21 +90,21 @@ impl PersistentRouteEngine {
                     e
                 );
             }
-            // Format changed — mark dirty so generation runs
+            // Format changed - mark dirty so generation runs
             self.mark_heatmap_dirty();
         }
 
         // Only generate if tiles are stale (new data, format change, first time, or cache cleared).
         // Skips the expensive tile enumeration + file-existence checks on normal app restart.
         if !self.activity_metadata.is_empty() && self.is_heatmap_dirty() {
-            info!("[heatmap] Tiles are stale — spawning background generation");
+            info!("[heatmap] Tiles are stale - spawning background generation");
             if let Some(handle) = self.generate_tiles_background() {
                 if let Ok(mut guard) = super::persistent_engine_ffi::TILE_GENERATION_HANDLE.lock() {
                     *guard = Some(handle);
                 }
             }
         } else if !self.activity_metadata.is_empty() {
-            info!("[heatmap] Tiles are up to date — skipping generation");
+            info!("[heatmap] Tiles are up to date - skipping generation");
         }
     }
 
@@ -158,7 +158,7 @@ impl PersistentRouteEngine {
     /// Disable heatmap tile generation by clearing the tiles path.
     /// Prevents regeneration on next sync.
     pub fn clear_heatmap_tiles_path(&mut self) {
-        info!("[heatmap] Tiles path cleared — generation disabled");
+        info!("[heatmap] Tiles path cleared - generation disabled");
         self.heatmap_tiles_path = None;
     }
 
@@ -202,7 +202,7 @@ fn clear_dirty_marker(tiles_path: &str) {
 }
 
 /// Generate heatmap tiles on a background thread.
-/// Opens its own SQLite connection — does NOT touch PERSISTENT_ENGINE.
+/// Opens its own SQLite connection - does NOT touch PERSISTENT_ENGINE.
 ///
 /// Pipeline (rewritten for Tier 1.1/1.3):
 /// 1. Bulk-load every activity's GPS track into an in-memory Arc-cache.
@@ -269,7 +269,7 @@ fn background_generate_tiles(
         .into_iter()
         .filter(|(coord, _)| !tiles::tile_exists(base, coord.0, coord.1, coord.2))
         .collect();
-    // Deterministic ordering keeps progress reporting stable across runs —
+    // Deterministic ordering keeps progress reporting stable across runs -
     // otherwise HashMap iteration order shuffles `processed_counter` deltas.
     pending.sort_unstable_by_key(|((z, x, y), _)| (*z, *x, *y));
 

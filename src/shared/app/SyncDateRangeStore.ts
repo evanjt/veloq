@@ -109,7 +109,7 @@ export function getSyncGeneration(): number {
   return useSyncDateRange.getState().syncGeneration;
 }
 
-/** Module-level timeout ID — kept outside Zustand to avoid triggering re-renders */
+/** Module-level timeout ID - kept outside Zustand to avoid triggering re-renders */
 let _unlockTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
 export const useSyncDateRange = create<SyncDateRangeState>((set, get) => ({

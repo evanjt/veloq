@@ -7,10 +7,10 @@
  * 'sections' notification so consumers re-fetch summaries.
  *
  * This barrel mirrors the `persistence/sections/` Rust split:
- *   - queries.ts    — read-only lookups
- *   - mutations.ts  — CRUD-style changes (create, rename, delete, merge, ...)
- *   - visibility.ts — disable/supersede/exclude toggles and imports
- *   - bounds.ts     — trim/reset/expand section geometry
+ *   - queries.ts    - read-only lookups
+ *   - mutations.ts  - CRUD-style changes (create, rename, delete, merge, ...)
+ *   - visibility.ts - disable/supersede/exclude toggles and imports
+ *   - bounds.ts     - trim/reset/expand section geometry
  */
 
 export * from './queries';
