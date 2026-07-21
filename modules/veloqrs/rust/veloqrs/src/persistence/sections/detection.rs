@@ -945,6 +945,17 @@ impl PersistentRouteEngine {
                             );
                             result.sections
                         }
+                        tracematch::DetectionMethod::Unified => {
+                            log::info!(
+                                "tracematch: [SectionDetection] Unified detection on {} tracks",
+                                tracks.len()
+                            );
+                            tracematch::detect_sections_unified(
+                                &tracks,
+                                &sport_map,
+                                &section_config,
+                            )
+                        }
                     };
 
                     log::info!(
