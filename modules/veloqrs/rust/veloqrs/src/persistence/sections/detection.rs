@@ -952,6 +952,7 @@ impl PersistentRouteEngine {
                             );
                             tracematch::detect_sections_unified(
                                 &tracks,
+                                &[],
                                 &sport_map,
                                 &section_config,
                             )
