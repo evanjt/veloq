@@ -265,12 +265,16 @@ pub fn try_ingest_step(
 
     let detect_start = Instant::now();
     let handle = engine.detect_sections_background(None);
-    let (sections, processed_ids) = handle.recv().unwrap_or_default();
+    // Cache-aware recv so a Unified drip actually folds through the evidence
+    // cache; Control produces no cache update, so this is identical to the plain
+    // path for the Control arm.
+    let (main, cache_update) = handle.recv_with_cache();
+    let (sections, processed_ids) = main.unwrap_or_default();
     let detection_ms = detect_start.elapsed().as_millis();
 
     let apply_start = Instant::now();
     engine
-        .apply_sections(sections)
+        .apply_sections_with_cache(sections, cache_update)
         .map_err(|e| format!("apply_sections: {e:?}"))?;
     engine
         .save_processed_activity_ids(&processed_ids)

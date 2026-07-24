@@ -27,7 +27,7 @@ use std::sync::{Arc, Mutex, RwLock};
 use crate::sections::SectionSummary;
 use crate::{
     ActivityMatchInfo, ActivityMetrics, Bounds, FrequentSection, GpsPoint, MatchConfig, RouteGroup,
-    RouteSignature, SectionConfig, SectionPerformanceResult,
+    RouteSignature, SectionConfig, SectionEvidenceCache, SectionPerformanceResult,
 };
 use lru::LruCache;
 use once_cell::sync::Lazy;
@@ -317,10 +317,32 @@ impl tracematch::DetectionProgressCallback for ClusteringAwareProgress {
     }
 }
 
+/// The Unified detector's evidence cache after a fold, plus the id set it now
+/// reflects. Carried out-of-band from the section result so the legacy
+/// detectors need no channel change. The cache-aware apply stores it on the
+/// engine only after `apply_sections` succeeds, so the cache can never get
+/// ahead of the applied catalogue.
+pub struct CacheUpdate {
+    /// The per-(sport, cluster) evidence after routing this fold's new
+    /// activities. Becomes the engine's `section_evidence_cache` on success.
+    pub cache: SectionEvidenceCache,
+    /// The activity ids the cache now folds — an engine-side shadow of the
+    /// cache's per-cluster membership (tracematch does not expose it). Becomes
+    /// `cache_folded_ids` on success and drives the next detect's new-id set.
+    pub folded_ids: HashSet<String>,
+}
+
 /// Handle for background section detection.
 
 pub struct SectionDetectionHandle {
     receiver: mpsc::Receiver<(Vec<FrequentSection>, Vec<String>)>,
+    /// Out-of-band channel for the Unified detector's evidence-cache update.
+    /// The worker sends this BEFORE the section result on `receiver`, so a
+    /// `Ready`/`recv` on the main channel guarantees the cache is already
+    /// available to `take_cache`. The legacy detectors and the no-new-activities
+    /// short-circuit never send here, so `take_cache` returns None and the
+    /// caller leaves the engine cache untouched.
+    cache_receiver: mpsc::Receiver<CacheUpdate>,
     /// Shared progress state
     pub progress: SectionDetectionProgress,
 }
@@ -357,6 +379,28 @@ impl SectionDetectionHandle {
     /// Wait for detection to complete (blocking).
     pub fn recv(self) -> Option<(Vec<FrequentSection>, Vec<String>)> {
         self.receiver.recv().ok()
+    }
+
+    /// Take the Unified detector's evidence-cache update, if any. Only the
+    /// Unified path sends one; the legacy detectors and the short-circuit do
+    /// not, so this returns None and the caller leaves the engine cache as-is.
+    /// Call only after the main result is `Ready`/recv'd — the worker sends the
+    /// cache first, so by then it is present.
+    pub fn take_cache(&self) -> Option<CacheUpdate> {
+        self.cache_receiver.try_recv().ok()
+    }
+
+    /// Block for the section result AND collect the evidence-cache update in one
+    /// call (the harness/test path; production polls via `poll_state` +
+    /// `take_cache`). `recv()` blocks until the worker has sent the main result,
+    /// which it does AFTER the cache, so the non-blocking cache `try_recv` here
+    /// is guaranteed to observe a cache when the Unified path produced one.
+    pub fn recv_with_cache(
+        self,
+    ) -> (Option<(Vec<FrequentSection>, Vec<String>)>, Option<CacheUpdate>) {
+        let main = self.receiver.recv().ok();
+        let cache = self.cache_receiver.try_recv().ok();
+        (main, cache)
     }
 }
 
@@ -405,8 +449,10 @@ mod worker_poll_tests {
     #[test]
     fn dead_worker_reports_died_not_running() {
         let (tx, rx) = mpsc::channel::<(Vec<FrequentSection>, Vec<String>)>();
+        let (_cache_tx, cache_rx) = mpsc::channel::<CacheUpdate>();
         let handle = SectionDetectionHandle {
             receiver: rx,
+            cache_receiver: cache_rx,
             progress: SectionDetectionProgress::new(),
         };
 
@@ -418,8 +464,10 @@ mod worker_poll_tests {
     #[test]
     fn finished_worker_reports_ready_then_died() {
         let (tx, rx) = mpsc::channel::<(Vec<FrequentSection>, Vec<String>)>();
+        let (_cache_tx, cache_rx) = mpsc::channel::<CacheUpdate>();
         let handle = SectionDetectionHandle {
             receiver: rx,
+            cache_receiver: cache_rx,
             progress: SectionDetectionProgress::new(),
         };
 
@@ -561,6 +609,25 @@ pub struct PersistentRouteEngine {
     /// Activities that have been through section detection (persisted in SQLite)
     processed_activity_ids: HashSet<String>,
 
+    /// In-memory per-(sport, cluster) evidence for the Unified incremental
+    /// detector. Holds each cluster's last catalogue so a sync recomputes only
+    /// the cluster(s) a new activity touches (O(touched-cluster), not O(pool)).
+    /// NOT persisted — B4 owns durability. A fresh engine starts empty, so the
+    /// first detect cold-rebatches the whole pool = the batch, and the catalogue
+    /// itself lives durably in SQLite. Only the Unified detection path reads or
+    /// writes it; the legacy detectors never touch it. Moves in lockstep with
+    /// `cache_folded_ids`.
+    section_evidence_cache: SectionEvidenceCache,
+
+    /// The activity ids `section_evidence_cache` has folded — an engine-side
+    /// shadow of the cache's per-cluster membership (tracematch does not expose
+    /// it). Drives which ids a detect routes as "new": `pool − cache_folded_ids`.
+    /// Empty ⇒ the cache is cold ⇒ the next detect cold-rebatches every cluster.
+    /// Cleared together with the cache at every invalidation point so the two can
+    /// never disagree. Not persisted, so a restart starts cold and rebuilds from
+    /// the DB catalogue.
+    cache_folded_ids: HashSet<String>,
+
     /// Dirty tracking
     pub(crate) groups_dirty: bool,
     sections_dirty: bool,
@@ -584,6 +651,19 @@ impl PersistentRouteEngine {
     fn invalidate_perf_cache(&mut self) {
         self.perf_cache_section_id = None;
         self.perf_cache_result = None;
+    }
+
+    /// Drop the Unified evidence cache (and its folded-id shadow) so the next
+    /// detect cold-rebatches every cluster from the current DB state. Called at
+    /// every point the detection base changes out from under the cache: config
+    /// change, activity mutation/removal, and the section-clearing paths. The
+    /// cache holds no queryable member ids and cannot surgically drop one
+    /// activity's cluster, so any such change clears the whole cache; the next
+    /// detect rebuilds it from the real pool. Clearing the two fields together
+    /// is what stops the cache from ever disagreeing with the applied catalogue.
+    pub(crate) fn invalidate_evidence_cache(&mut self) {
+        self.section_evidence_cache = SectionEvidenceCache::new();
+        self.cache_folded_ids.clear();
     }
 
     // ========================================================================
@@ -615,6 +695,8 @@ impl PersistentRouteEngine {
             time_streams: LruCache::new(std::num::NonZeroUsize::new(200).unwrap()),
             sections: Vec::new(),
             processed_activity_ids: HashSet::new(),
+            section_evidence_cache: SectionEvidenceCache::new(),
+            cache_folded_ids: HashSet::new(),
             groups_dirty: false,
             sections_dirty: false,
             match_config: MatchConfig::default(),

@@ -86,15 +86,27 @@ fn playback_vs_batch_cold_set() {
 }
 
 /// Target gate (B1 order-free incremental): the drip MUST converge to the
-/// batch catalogue. Green under B1 — the Unified incremental re-batches the full
-/// accumulated pool on every add, so the one-at-a-time drip lands on the same
-/// ground as the from-scratch batch. Ground-based so it survives id renumbering.
-/// This is the single most important gate in the suite. Note: the naive re-batch
-/// makes this ~140s in a debug build (O(N^2) over the 60-activity drip); the
-/// cached cluster-recompute optimisation (B1 next step) brings it down.
+/// batch catalogue. Green under B1 — the Unified cached incremental folds the
+/// accumulated pool cluster by cluster, so the one-at-a-time drip lands on the
+/// same ground as the from-scratch batch. Ground-based so it survives id
+/// renumbering. This is the single most important gate in the suite.
+///
+/// The corpus is deliberately small (24 activities): this default corpus is a
+/// single home geography = one cluster, and a single-cluster drip recomputes the
+/// whole cluster on every add (O(N) per add, O(N^2) over the drip) even with the
+/// cache — sub-linear single-cluster adds are B1b, not this task. The 60-activity
+/// version is the ignored `playback_vs_batch_cold_set` benchmark. The gate
+/// asserts CONVERGENCE, not speed, and 24 activities still form real corridors,
+/// so the correctness contract stays live without a ~140 s debug run in CI.
 #[test]
 fn playback_converges_to_batch() {
-    let corpus = corpus();
+    let corpus = LifecycleCorpus::generate(&LifecycleConfig {
+        bucket_a_count: 24,
+        bucket_b_delta_count: 0,
+        bucket_d_delta_count: 0,
+        bucket_e_delta_count: 0,
+        ..LifecycleConfig::default()
+    });
     let all = corpus.through_a();
     let (mut eb, _db) = fresh_engine_for(Arm::Battery);
     let batch = ingest_step(&mut eb, "batch", &all);

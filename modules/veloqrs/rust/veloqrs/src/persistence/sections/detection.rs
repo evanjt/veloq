@@ -1,7 +1,7 @@
 //! Background section detection and application.
 
 use crate::persistence::codec;
-use crate::{FrequentSection, GpsPoint};
+use crate::{FrequentSection, GpsPoint, SectionEvidenceCache};
 use rusqlite::{Connection, Result as SqlResult, params};
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
@@ -10,7 +10,7 @@ use std::thread;
 use tracematch::{Bounds, MatchConfig, RouteGroup, RouteSignature};
 
 use super::super::{
-    ClusteringAwareProgress, PersistentRouteEngine, SectionDetectionHandle,
+    CacheUpdate, ClusteringAwareProgress, PersistentRouteEngine, SectionDetectionHandle,
     SectionDetectionProgress, load_groups_from_db,
 };
 
@@ -484,8 +484,32 @@ impl PersistentRouteEngine {
         sport_filter: Option<String>,
     ) -> SectionDetectionHandle {
         let (tx, rx) = mpsc::channel();
+        // Out-of-band channel for the Unified detector's evidence-cache update.
+        // Left unsent by the legacy detectors and the short-circuit, so the
+        // caller's `take_cache` returns None and the engine cache is untouched.
+        let (cache_tx, cache_rx) = mpsc::channel::<CacheUpdate>();
         let db_path = self.db_path.clone();
         let section_config = self.section_config.clone();
+
+        // The Unified incremental folds new activities into a per-cluster
+        // evidence cache. Clone the current cache + its folded-id shadow into the
+        // worker only when Unified is the active method — the legacy detectors
+        // never touch it, so they pay nothing to clone. The worker mutates its
+        // clone and ships it back via `cache_tx`; the cache-aware apply stores it
+        // only if the save succeeds, so `self`'s cache can never advance past the
+        // applied catalogue.
+        let unified = matches!(
+            section_config.detection_method,
+            tracematch::DetectionMethod::Unified
+        );
+        let (cache_at_spawn, folded_at_spawn) = if unified {
+            (
+                self.section_evidence_cache.clone(),
+                self.cache_folded_ids.clone(),
+            )
+        } else {
+            (SectionEvidenceCache::new(), HashSet::new())
+        };
 
         // Create shared progress tracker
         let progress = SectionDetectionProgress::new();
@@ -532,8 +556,12 @@ impl PersistentRouteEngine {
             let sections_copy = existing_sections.clone();
             let all_ids = activity_ids.clone();
             tx.send((sections_copy, all_ids)).ok();
+            // No detection ran, so the evidence cache is unchanged: `cache_tx` is
+            // dropped unsent, `take_cache` returns None, and the caller leaves the
+            // engine cache as-is.
             return SectionDetectionHandle {
                 receiver: rx,
+                cache_receiver: cache_rx,
                 progress,
             };
         }
@@ -720,35 +748,71 @@ impl PersistentRouteEngine {
             // into detect overwrites the phase on its first on_phase callback.
             progress_clone.set_phase("analyzing", tracks.len() as u32);
 
-            if matches!(
-                section_config.detection_method,
-                tracematch::DetectionMethod::Unified
-            ) {
-                // Unified: the order-free incremental. It re-batches the full
-                // pool and converges to the Unified batch by construction — a
-                // cold start (empty `existing_sections`) yields the full batch,
-                // and a drip converges as the pool grows, so the catalogue is
-                // set-determined, not arrival-ordered. Seconds streams are wired
-                // in B3, so pass none here.
+            if unified {
+                // Unified: the order-free CACHED incremental. It folds only the
+                // activities not yet in the evidence cache and recomputes just the
+                // cluster(s) they touch, reusing every untouched cluster verbatim,
+                // so a multi-cluster sync is O(touched-cluster) not O(pool). The
+                // result is identical to the batch by construction (each cluster
+                // is an order-free pure function of its set).
+                //
+                // The new-id set is derived from the cache's own folded shadow,
+                // NOT from `processed_activity_ids`: `pool − folded_at_spawn`. On a
+                // cold cache (fresh engine, restart, or any invalidation) that is
+                // the whole pool, so the fold seeds every cluster = the full batch;
+                // on a warm cache it is just the genuinely new activities. This is
+                // what makes a restart self-heal (the DB holds the catalogue; the
+                // cache rebuilds) without ever double-routing an already-folded id.
+                // Seconds streams are wired in B3, so pass none here.
+                let new_ids_for_cache: Vec<String> = tracks
+                    .iter()
+                    .map(|(id, _)| id.clone())
+                    .filter(|id| !folded_at_spawn.contains(id))
+                    .collect();
+                let new_id_refs: Vec<&str> =
+                    new_ids_for_cache.iter().map(|s| s.as_str()).collect();
+
                 log::info!(
-                    "tracematch: [SectionDetection] Unified incremental on {} tracks against {} existing sections",
+                    "tracematch: [SectionDetection] Unified cached incremental: {} new of {} pool tracks against {} existing sections ({} folded in cache)",
+                    new_id_refs.len(),
                     tracks.len(),
-                    existing_sections.len()
+                    existing_sections.len(),
+                    folded_at_spawn.len(),
                 );
 
-                let mut sections_to_send = tracematch::detect_sections_unified_incremental(
+                let mut cache = cache_at_spawn;
+                let mut sections_to_send = tracematch::detect_sections_unified_incremental_cached(
+                    &mut cache,
                     &existing_sections,
                     &tracks,
+                    &new_id_refs,
                     &[],
                     &sport_map,
                     &section_config,
                 )
                 .catalogue;
 
+                // The cache now folds everything it did before plus the new pool
+                // ids just routed (each present in the pool, so actually folded).
+                // Keeping this shadow set in step with the returned cache is what
+                // lets the next detect compute `pool − folded` correctly.
+                let mut folded_after = folded_at_spawn;
+                folded_after.extend(new_ids_for_cache);
+
                 log::info!(
-                    "tracematch: [SectionDetection] Unified incremental complete: {} sections",
+                    "tracematch: [SectionDetection] Unified cached incremental complete: {} sections",
                     sections_to_send.len()
                 );
+
+                // Ship the cache update BEFORE the main result. `recv`/`poll_state`
+                // on the main channel is the caller's signal to `take_cache`, so
+                // sending the cache first guarantees it is present by then.
+                cache_tx
+                    .send(CacheUpdate {
+                        cache,
+                        folded_ids: folded_after,
+                    })
+                    .ok();
 
                 // Seed consensus_state for the fresh sections, mirroring the
                 // full-detection path (the sections arrive from detection
@@ -926,6 +990,7 @@ impl PersistentRouteEngine {
 
         SectionDetectionHandle {
             receiver: rx,
+            cache_receiver: cache_rx,
             progress,
         }
     }
@@ -963,6 +1028,53 @@ impl PersistentRouteEngine {
                 Err(e)
             }
         }
+    }
+
+    /// Cache-aware hot save: `apply_sections_save`, then advance the Unified
+    /// evidence cache iff the save succeeded. `update` is the worker's
+    /// `CacheUpdate` for the Unified path, or None for the legacy detectors and
+    /// the no-new-activities short-circuit (nothing to advance — the cache is
+    /// left as-is).
+    ///
+    /// The consistency contract: the cache must never get ahead of the applied
+    /// catalogue. On success the returned cache exactly reflects the sections
+    /// just persisted, so it is adopted wholesale. On failure `apply_sections_save`
+    /// has already rolled the in-memory sections back to the prior state, so the
+    /// cache is dropped (`invalidate_evidence_cache`) and the next detect
+    /// cold-rebatches from the real DB state rather than from a catalogue that was
+    /// never durably saved.
+    pub fn apply_sections_save_with_cache(
+        &mut self,
+        sections: Vec<FrequentSection>,
+        update: Option<CacheUpdate>,
+    ) -> SqlResult<()> {
+        match self.apply_sections_save(sections) {
+            Ok(()) => {
+                if let Some(u) = update {
+                    self.section_evidence_cache = u.cache;
+                    self.cache_folded_ids = u.folded_ids;
+                }
+                Ok(())
+            }
+            Err(e) => {
+                self.invalidate_evidence_cache();
+                Err(e)
+            }
+        }
+    }
+
+    /// Cache-aware equivalent of `apply_sections`: the hot save-with-cache
+    /// followed by the deferred finalize tail. The harness/test ingest path uses
+    /// this so a Unified drip actually exercises the cache; production splits the
+    /// two halves across separate engine locks (see `objects/detection.rs`).
+    pub fn apply_sections_with_cache(
+        &mut self,
+        sections: Vec<FrequentSection>,
+        update: Option<CacheUpdate>,
+    ) -> SqlResult<()> {
+        self.apply_sections_save_with_cache(sections, update)?;
+        self.apply_sections_finalize();
+        Ok(())
     }
 
     /// Deferred tail of apply_sections: cross-sport merge + activity-

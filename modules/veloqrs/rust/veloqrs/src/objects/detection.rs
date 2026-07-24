@@ -73,6 +73,12 @@ impl DetectionManager {
                 // freezing on a stalled "100%" bar.
                 let progress = handle_guard.as_ref().map(|h| h.progress.clone());
 
+                // Take the Unified evidence-cache update (None for the legacy
+                // detectors and the short-circuit) BEFORE clearing the handle. The
+                // main result is already Ready, and the worker sends the cache
+                // first, so it is present now.
+                let cache_update = handle_guard.as_ref().and_then(|h| h.take_cache());
+
                 // The channel message is consumed, so this run is over whatever
                 // happens next. Clear the handle before the fallible apply so
                 // an apply error cannot leave detection permanently "running"
@@ -80,9 +86,11 @@ impl DetectionManager {
                 *handle_guard = None;
 
                 // Hot save under the write lock - sections are queryable as soon
-                // as this returns.
+                // as this returns. The cache is adopted only if the save succeeds
+                // and dropped if it fails, so it never outruns the applied
+                // catalogue.
                 with_engine(|e| {
-                    if let Err(err) = e.apply_sections_save(sections) {
+                    if let Err(err) = e.apply_sections_save_with_cache(sections, cache_update) {
                         log::error!("apply_sections_save failed: {}", err);
                         return Err(VeloqError::Database {
                             msg: format!("apply_sections_save failed: {}", err),
