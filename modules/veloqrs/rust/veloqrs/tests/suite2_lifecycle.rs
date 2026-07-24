@@ -39,10 +39,10 @@ fn config_change_effect_today() {
 /// Target gate (B1 config invalidation): changing to a far stricter config must
 /// re-analyse the existing library, not silently keep stale sections. With
 /// min_activities=50 on a ~60-activity corpus the correct catalogue is empty.
-/// Fails today — `set_section_config` doesn't clear `processed_activity_ids`, so
-/// the next trigger runs incrementally and the stale sections survive.
+/// Green under B1 — `set_section_config` now clears `processed_activity_ids`, so
+/// the next trigger re-detects the whole library under the new config instead of
+/// short-circuiting on the seen activities.
 #[test]
-#[ignore = "B1 config invalidation not built — config change doesn't re-analyse existing sections"]
 fn config_change_reanalyses() {
     let corpus = corpus();
     let (mut engine, _dir) = fresh_engine_for(Arm::Control);

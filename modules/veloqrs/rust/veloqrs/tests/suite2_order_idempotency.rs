@@ -169,13 +169,12 @@ fn drip_order_permutations_measured() {
 }
 
 /// Target gate (B1 order-free incremental): the one-at-a-time drip must land on
-/// the same catalogue regardless of arrival order. Fails today — the incremental
-/// orchestration (50% threshold + match-new-against-existing + full-wipe persist)
-/// resolves differently depending on which activities are already resident when
-/// each new one arrives. Green when B1's order-free incremental lands. Battery is
-/// the gated arm (mirrors `order_free_cold_batch`); Control is measured above.
+/// the same catalogue regardless of arrival order. Green under B1 — the Unified
+/// incremental re-batches the full accumulated pool on every add, so the final
+/// catalogue is a pure function of the activity SET, not of arrival order.
+/// Battery is the gated arm (mirrors `order_free_cold_batch`); Control is
+/// measured above.
 #[test]
-#[ignore = "B1 order-free incremental not built — drip catalogue depends on one-at-a-time arrival order"]
 fn drip_order_is_set_invariant() {
     let corpus = cold_only_corpus(DRIP_N);
     let pool: Vec<&LifecycleActivity> = corpus.bucket_a.iter().collect();
@@ -303,12 +302,12 @@ fn reingest_different_track_measured() {
 
 /// Target gate: replacing a seen activity's track with different ground must
 /// perturb the catalogue (the section it fed can no longer describe the old
-/// corridor unchanged). Fails today — NEW-R4: the mutated id is still marked
-/// processed, so the empty-new short-circuit returns the stale sections and the
-/// new track is silently ignored. Green when a track change re-derives the
-/// touched sections (B1/B4).
+/// corridor unchanged). Green under B1 — `add_activity` compares the incoming
+/// track against the stored one and evicts the id from the processed set on a
+/// genuine change, so the next detect re-derives the touched sections instead of
+/// short-circuiting. A verbatim re-ingest is unchanged and stays idempotent
+/// (`reingest_same_id_is_idempotent`).
 #[test]
-#[ignore = "NEW-R4 processed-set freeze — a changed track for a seen activity is ignored (empty-new short-circuit); B1/B4"]
 fn reingest_different_track_updates_catalogue() {
     let corpus = cold_only_corpus(COLD_N);
     let pool: Vec<&LifecycleActivity> = corpus.bucket_a.iter().collect();
@@ -380,19 +379,22 @@ fn remove_readd_roundtrip_measured() {
 
 /// Target gate: a remove-then-re-add round trip must pass THROUGH an effective
 /// removal — after removing a contributor the catalogue must stop referencing it
-/// (S1) before the re-add restores S0. Fails today — NEW-R4: `remove_activity`
-/// leaves the id in `processed_activities`, so the empty-new short-circuit
-/// freezes the catalogue and the removal never lands (S1 == S0, victim still
-/// referenced). The naive S2 == S0 "round-trip" therefore holds for the wrong
-/// reason. Green when removal evicts the processed mark and re-derives the
-/// touched sections (B1/B4). (The evidence-purge view of the same stale rows is
-/// `remove_activity_purges_evidence` in suite2_lifecycle.)
+/// (S1) before the re-add restores S0. Green under B1: `remove_activity` now
+/// evicts the processed set, so the after-remove detect re-derives the catalogue
+/// without the victim (S1 drops it) instead of short-circuiting on the stale
+/// processed mark. The S2 == S0 round-trip asserts catalogue-signature EQUALITY,
+/// so it gates the Battery (Unified) arm — mirroring `drip_order_is_set_invariant`
+/// — because the Control/Corridor detector is run-to-run non-deterministic (see
+/// `duplicate_in_batch_measured`: two identical Control batches already differ),
+/// which would make an exact-catalogue round-trip flaky for reasons orthogonal to
+/// removal freshness. (The evidence-purge view of the same stale rows is
+/// `remove_activity_purges_evidence` in suite2_lifecycle, still red pending the B4
+/// junction-FK fix.)
 #[test]
-#[ignore = "NEW-R4 processed-set freeze — remove of a seen activity is a no-op on the catalogue (insert-only processed set); B1/B4"]
 fn remove_readd_roundtrips_through_effective_removal() {
     let corpus = cold_only_corpus(COLD_N);
     let pool: Vec<&LifecycleActivity> = corpus.bucket_a.iter().collect();
-    let (mut engine, _dir) = fresh_engine_for(Arm::Control);
+    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
     let s0 = ingest_step(&mut engine, "cold", &pool).snapshot;
     let victim = activity_by_id(
         &pool,

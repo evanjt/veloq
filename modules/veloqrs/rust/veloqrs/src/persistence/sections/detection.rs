@@ -512,10 +512,9 @@ impl PersistentRouteEngine {
             }
         }
 
-        // Determine if incremental detection is possible:
-        // - Must have existing sections
-        // - New (unprocessed) activities must be < 50% of total
-        // Use persistent tracking table (includes activities that didn't match any section)
+        // The catalogue this detect re-derives from. It seeds the Unified
+        // incremental (its add/dissolve diff is computed against this prior
+        // catalogue) and gates the no-new-activities short-circuit below.
         let existing_sections = self.sections.clone();
 
         let new_activity_ids: Vec<String> = activity_ids
@@ -539,127 +538,12 @@ impl PersistentRouteEngine {
             };
         }
 
-        // Threshold tuned for correctness, not just perf. Tried raising
-        // 0.5 → 0.9 (mirroring the grouping fix) but scenario F drift
-        // went from 2% to 73% - incremental on 72% new misses sections
-        // because the unmatched-pool's full detection only sees the new
-        // tracks, not the existing 28% they should pair with. Grouping
-        // doesn't have this issue because group_incremental queries new
-        // signatures against the union R-tree of existing+new. Section
-        // incremental's "match new against existing sections, then full
-        // on unmatched" loses cross-pairs at the boundary.
-        const INCREMENTAL_THRESHOLD: f64 = 0.5;
-
-        let use_incremental = !existing_sections.is_empty()
-            && !new_activity_ids.is_empty()
-            && (new_activity_ids.len() as f64)
-                < (activity_ids.len() as f64 * INCREMENTAL_THRESHOLD);
-
-        if use_incremental {
-            log::info!(
-                "tracematch: [SectionDetection] Using INCREMENTAL mode: {} new of {} total activities, {} existing sections",
-                new_activity_ids.len(),
-                activity_ids.len(),
-                existing_sections.len()
-            );
-        } else if !new_activity_ids.is_empty() && !existing_sections.is_empty() {
-            log::info!(
-                "tracematch: [SectionDetection] Using FULL mode: {} new of {} total activities (>{:.0}% threshold)",
-                new_activity_ids.len(),
-                activity_ids.len(),
-                INCREMENTAL_THRESHOLD * 100.0,
-            );
-        }
-
-        // For incremental mode, only load tracks for new activities + the
-        // subset of section-referenced activities whose sections could
-        // geographically overlap the new activities. The naive approach
-        // (load every section-referenced activity) loaded ~500 tracks for a
-        // 500-activity corpus even when only 1 activity was new - the
-        // dominant cost in the "add 1 activity" lag path. The bbox
-        // pre-filter typically cuts this to dozens.
-        let ids_to_load = if use_incremental {
-            let mut needed: HashSet<String> = new_activity_ids.iter().cloned().collect();
-
-            // 1. Compute new-activity bbox set from cached activity_metadata
-            //    bounds (no DB read, no GPS parse).
-            let new_bounds: Vec<tracematch::Bounds> = new_activity_ids
-                .iter()
-                .filter_map(|id| self.activity_metadata.get(id).map(|m| m.bounds.clone()))
-                .collect();
-
-            if new_bounds.is_empty() {
-                // No bounds metadata for new activities (shouldn't happen
-                // for synced activities but guard anyway). Fall back to the
-                // safe-but-slow path: load every section-referenced track.
-                for section in &existing_sections {
-                    for aid in &section.activity_ids {
-                        needed.insert(aid.clone());
-                    }
-                }
-            } else {
-                // 2. For each existing section, compute its bbox from the
-                //    polyline (small allocation, well under detection cost)
-                //    and check whether any new-activity bbox overlaps it
-                //    within 2x the proximity threshold (matches the buffer
-                //    used by the overlap detector itself).
-                let buffer_meters = section_config.proximity_threshold * 2.0;
-
-                let mut sections_loaded = 0usize;
-                for section in &existing_sections {
-                    if section.polyline.len() < 2 {
-                        // Defensive: include polyline-less sections so we
-                        // don't drop their consensus state by accident.
-                        for aid in &section.activity_ids {
-                            needed.insert(aid.clone());
-                        }
-                        sections_loaded += 1;
-                        continue;
-                    }
-                    let section_bounds = tracematch::geo_utils::compute_bounds(&section.polyline);
-                    let ref_lat = (section_bounds.min_lat + section_bounds.max_lat) / 2.0;
-
-                    let overlaps = new_bounds.iter().any(|b| {
-                        tracematch::geo_utils::bounds_overlap(
-                            b,
-                            &section_bounds,
-                            buffer_meters,
-                            ref_lat,
-                        )
-                    });
-
-                    if overlaps {
-                        for aid in &section.activity_ids {
-                            needed.insert(aid.clone());
-                        }
-                        sections_loaded += 1;
-                    }
-                }
-
-                if log::log_enabled!(log::Level::Info) {
-                    let naive_count = {
-                        let mut naive: HashSet<&String> = new_activity_ids.iter().collect();
-                        for s in &existing_sections {
-                            for a in &s.activity_ids {
-                                naive.insert(a);
-                            }
-                        }
-                        naive.len()
-                    };
-                    log::info!(
-                        "tracematch: [SectionDetection] bbox pre-filter: {} of {} existing sections nearby - loading {} tracks (naive {})",
-                        sections_loaded,
-                        existing_sections.len(),
-                        needed.len(),
-                        naive_count,
-                    );
-                }
-            }
-
-            needed.into_iter().collect()
-        } else {
-            activity_ids.clone()
-        };
+        // Load every activity's track. Both detection paths need the full pool:
+        // the Unified incremental re-batches it (converging to the batch), and
+        // the legacy detectors run full detection each sync. The old bbox
+        // pre-filter only made sense for the deleted threshold-incremental path,
+        // which loaded just the new + geographically-nearby subset.
+        let ids_to_load = activity_ids.clone();
         progress.set_phase("loading", ids_to_load.len() as u32);
 
         // Clone activity_ids for the background thread (to persist as processed after detection)
@@ -836,66 +720,48 @@ impl PersistentRouteEngine {
             // into detect overwrites the phase on its first on_phase callback.
             progress_clone.set_phase("analyzing", tracks.len() as u32);
 
-            if use_incremental {
-                // Incremental mode: match new activities against existing sections
-                let new_set: HashSet<String> = new_activity_ids.into_iter().collect();
-                let new_tracks: Vec<(String, Vec<GpsPoint>)> = tracks
-                    .iter()
-                    .filter(|(id, _)| new_set.contains(id))
-                    .cloned()
-                    .collect();
-
+            if matches!(
+                section_config.detection_method,
+                tracematch::DetectionMethod::Unified
+            ) {
+                // Unified: the order-free incremental. It re-batches the full
+                // pool and converges to the Unified batch by construction — a
+                // cold start (empty `existing_sections`) yields the full batch,
+                // and a drip converges as the pool grows, so the catalogue is
+                // set-determined, not arrival-ordered. Seconds streams are wired
+                // in B3, so pass none here.
                 log::info!(
-                    "tracematch: [SectionDetection] Incremental: {} new tracks to match against {} sections",
-                    new_tracks.len(),
+                    "tracematch: [SectionDetection] Unified incremental on {} tracks against {} existing sections",
+                    tracks.len(),
                     existing_sections.len()
                 );
 
-                let result = tracematch::sections::incremental::detect_sections_incremental(
-                    &new_tracks,
+                let mut sections_to_send = tracematch::detect_sections_unified_incremental(
                     &existing_sections,
-                    &tracks, // all tracks for consensus recalc
+                    &tracks,
+                    &[],
                     &sport_map,
-                    &groups,
                     &section_config,
-                    Arc::new(ClusteringAwareProgress::new(progress_clone.clone())),
-                );
+                )
+                .catalogue;
 
                 log::info!(
-                    "tracematch: [SectionDetection] Incremental complete: {} updated, {} new, {} matched, {} unmatched",
-                    result.updated_sections.len(),
-                    result.new_sections.len(),
-                    result.matched_activity_ids.len(),
-                    result.unmatched_activity_ids.len(),
+                    "tracematch: [SectionDetection] Unified incremental complete: {} sections",
+                    sections_to_send.len()
                 );
 
-                // Quality filter only the newly discovered sections - the
-                // updated_sections come from the existing in-memory set and
-                // have already passed the filter (or been user-accepted), so
-                // re-filtering them risks deleting valid sections that
-                // temporarily dip below threshold. Mirrors the full-detection
-                // path which only filters fresh output.
-                let filtered_new = tracematch::sections::filter_low_quality_sections(
-                    result.new_sections,
-                    tracks.len(),
-                );
-
-                // Merge: updated existing + filtered newly-discovered
-                let mut all_sections = result.updated_sections;
-                all_sections.extend(filtered_new);
-
-                // Tier 2: seed consensus_state for any newly-discovered section
-                // that lacks one. Incremental-path updates already carry an
-                // accumulator, so this only touches new_sections.
+                // Seed consensus_state for the fresh sections, mirroring the
+                // full-detection path (the sections arrive from detection
+                // without an accumulator).
                 seed_consensus_state(
-                    &mut all_sections,
+                    &mut sections_to_send,
                     &tracks,
                     section_config.proximity_threshold,
                 );
 
                 // Signal saving phase before sending results for DB persistence
                 progress_clone.set_phase("saving", 1);
-                tx.send((all_sections, all_activity_ids)).ok();
+                tx.send((sections_to_send, all_activity_ids)).ok();
             } else {
                 // Full detection mode with batching for large datasets.
                 // Cap full pairwise detection at BATCH_CAP activities per batch.
@@ -945,18 +811,9 @@ impl PersistentRouteEngine {
                             );
                             result.sections
                         }
-                        tracematch::DetectionMethod::Unified => {
-                            log::info!(
-                                "tracematch: [SectionDetection] Unified detection on {} tracks",
-                                tracks.len()
-                            );
-                            tracematch::detect_sections_unified(
-                                &tracks,
-                                &[],
-                                &sport_map,
-                                &section_config,
-                            )
-                        }
+                        tracematch::DetectionMethod::Unified => unreachable!(
+                            "Unified runs the order-free incremental in the branch above"
+                        ),
                     };
 
                     log::info!(

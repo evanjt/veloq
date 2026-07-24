@@ -86,13 +86,13 @@ fn playback_vs_batch_cold_set() {
 }
 
 /// Target gate (B1 order-free incremental): the drip MUST converge to the
-/// batch catalogue. Today it does not — the engine's incremental orchestration
-/// (50% threshold + delta compute + full-wipe persist) collapses the drip to a
-/// near-empty, unrelated catalogue. Ground-based so it survives id renumbering.
-/// Red now (~0% convergence); flips green when B1's order-free incremental
-/// persist lands. This is the single most important gate in the suite.
+/// batch catalogue. Green under B1 — the Unified incremental re-batches the full
+/// accumulated pool on every add, so the one-at-a-time drip lands on the same
+/// ground as the from-scratch batch. Ground-based so it survives id renumbering.
+/// This is the single most important gate in the suite. Note: the naive re-batch
+/// makes this ~140s in a debug build (O(N^2) over the 60-activity drip); the
+/// cached cluster-recompute optimisation (B1 next step) brings it down.
 #[test]
-#[ignore = "B1 order-free incremental not built — target gate (drip currently drifts to ~0%)"]
 fn playback_converges_to_batch() {
     let corpus = corpus();
     let all = corpus.through_a();

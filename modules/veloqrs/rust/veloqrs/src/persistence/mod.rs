@@ -788,6 +788,11 @@ impl PersistentRouteEngine {
         }
 
         self.section_config = config;
+        // R6 freshness: a config change alters what detection would find, so the
+        // whole library must be re-analysed. The processed set is insert-only and
+        // would otherwise short-circuit the next detect on the seen activities;
+        // clearing it forces a full re-detect under the new config.
+        self.clear_processed_activity_ids();
         self.sections_dirty = true;
     }
 

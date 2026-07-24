@@ -393,6 +393,44 @@ impl PersistentRouteEngine {
         }
     }
 
+    /// Evict specific activity IDs from the processed set (DB + in memory) so a
+    /// GPS mutation forces the next detect to re-analyse just those activities,
+    /// leaving the rest processed. A no-op for IDs not currently processed (e.g.
+    /// brand-new adds). Mirrors `clear_processed_activity_ids`: the in-memory set
+    /// is only mutated when the DB delete commits, so memory can't disagree with
+    /// disk after a failed write.
+    pub(crate) fn evict_processed_activity_ids(&mut self, activity_ids: &[String]) {
+        if activity_ids.is_empty() {
+            return;
+        }
+        let tx = match self.db.unchecked_transaction() {
+            Ok(tx) => tx,
+            Err(e) => {
+                log::warn!("tracematch: processed-id eviction begin failed: {e:?}");
+                return;
+            }
+        };
+        let mut ok = true;
+        match tx.prepare("DELETE FROM processed_activities WHERE activity_id = ?") {
+            Ok(mut stmt) => {
+                for id in activity_ids {
+                    if stmt.execute(params![id]).is_err() {
+                        ok = false;
+                        break;
+                    }
+                }
+            }
+            Err(_) => ok = false,
+        }
+        if ok && tx.commit().is_ok() {
+            for id in activity_ids {
+                self.processed_activity_ids.remove(id);
+            }
+        } else {
+            log::warn!("tracematch: processed-id eviction failed; in-memory set left intact");
+        }
+    }
+
     // Section name migration and management methods live in `naming.rs`.
 
     // ========================================================================
