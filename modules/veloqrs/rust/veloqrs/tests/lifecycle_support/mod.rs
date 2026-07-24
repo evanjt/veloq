@@ -151,8 +151,15 @@ pub fn ground_matches(a: &SectionFingerprint, b: &SectionFingerprint) -> bool {
         || coverage(&b.polyline, &a.polyline, GROUND_TOL_M) >= 0.6
 }
 
+/// Snapshot the USER-VISIBLE catalogue: the DB view the app actually renders
+/// (`get_sections_by_type(None)`), which excludes disabled/superseded and
+/// includes custom sections. Deliberately NOT the in-memory `get_sections()`
+/// detection cache: `apply_sections_save` sets that cache to the fresh
+/// detection result and never reloads from DB, so the cache and the visible
+/// view can diverge (the seam B4 must close). The suite measures what the user
+/// experiences, so it reads the visible view.
 pub fn snapshot(engine: &mut PersistentRouteEngine) -> SectionSnapshot {
-    let sections = engine.get_sections();
+    let sections = engine.get_sections_by_type(None);
     SectionSnapshot {
         sections: sections
             .into_iter()
