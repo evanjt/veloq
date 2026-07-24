@@ -239,24 +239,27 @@ impl StepMeasurement {
     }
 }
 
-/// One user-visible step: ingest `activities`, run background detection, apply,
-/// snapshot. Mirrors the production poll path (`objects/detection.rs`) including
+/// Fallible ingest step: returns `Err` instead of panicking if any engine call
+/// fails, so a suite can assert that a step completes WITHOUT crashing. Mirrors
+/// the production poll path (`objects/detection.rs`) including
 /// `save_processed_activity_ids` so the next step enters incremental mode.
-pub fn ingest_step(
+/// (Today a resync after `accept_section` fails here with a UNIQUE
+/// `sections.id` violation — a positional-id collision.)
+pub fn try_ingest_step(
     engine: &mut PersistentRouteEngine,
     label: &str,
     activities: &[&LifecycleActivity],
-) -> StepMeasurement {
+) -> Result<StepMeasurement, String> {
     let new_activities_in_step = activities.len();
 
     let ingest_start = Instant::now();
     for a in activities {
         engine
             .add_activity(a.id.clone(), a.gps_points.clone(), a.sport_type.clone())
-            .expect("add_activity");
+            .map_err(|e| format!("add_activity: {e:?}"))?;
         engine
             .update_activity_metadata(&a.id, Some(a.start_date_unix), None, None, None)
-            .expect("update_activity_metadata");
+            .map_err(|e| format!("update_activity_metadata: {e:?}"))?;
     }
     let ingest_ms = ingest_start.elapsed().as_millis();
 
@@ -266,16 +269,18 @@ pub fn ingest_step(
     let detection_ms = detect_start.elapsed().as_millis();
 
     let apply_start = Instant::now();
-    engine.apply_sections(sections).expect("apply_sections");
+    engine
+        .apply_sections(sections)
+        .map_err(|e| format!("apply_sections: {e:?}"))?;
     engine
         .save_processed_activity_ids(&processed_ids)
-        .expect("save_processed_activity_ids");
+        .map_err(|e| format!("save_processed_activity_ids: {e:?}"))?;
     let apply_ms = apply_start.elapsed().as_millis();
 
     let total_ms = ingest_start.elapsed().as_millis();
 
     let snap = snapshot(engine);
-    StepMeasurement {
+    Ok(StepMeasurement {
         label: label.to_string(),
         activity_count: engine.get_activity_ids().len(),
         new_activities_in_step,
@@ -285,7 +290,18 @@ pub fn ingest_step(
         apply_ms,
         total_ms,
         snapshot: snap,
-    }
+    })
+}
+
+/// One user-visible step. Panics on any engine error (the common case for the
+/// growth scenarios). Use `try_ingest_step` when a test must assert the step
+/// does not crash.
+pub fn ingest_step(
+    engine: &mut PersistentRouteEngine,
+    label: &str,
+    activities: &[&LifecycleActivity],
+) -> StepMeasurement {
+    try_ingest_step(engine, label, activities).expect("ingest_step")
 }
 
 /// Convenience: collect an owned bucket into the borrowed slice `ingest_step`
@@ -353,6 +369,15 @@ pub fn identity_retention(before: &SectionSnapshot, after: &SectionSnapshot) -> 
         })
         .count();
     kept as f64 / survivors.len() as f64
+}
+
+/// The busiest section (highest visit count, most robust ground), for edit
+/// scenarios that need a real, reliably-reforming section to act on.
+pub fn busiest_section(snap: &SectionSnapshot) -> Option<(String, SectionFingerprint)> {
+    snap.sections
+        .iter()
+        .max_by_key(|(_, f)| f.visit_count)
+        .map(|(id, f)| (id.clone(), f.clone()))
 }
 
 // ============================================================================
