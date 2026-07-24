@@ -60,3 +60,45 @@ fn config_change_reanalyses() {
         after.count(),
     );
 }
+
+/// Target gate: removing an activity must purge its contribution from the
+/// sections it fed (invariant 6: deleting activities is the only way evidence
+/// leaves). Fails today — `remove_activity` deletes the activity and its GPS
+/// but leaves the stale `section_activities` rows, so a deleted ride keeps
+/// counting toward section membership and visit totals until (if ever) a full
+/// re-detect. Green when removal purges the junction and re-derives the touched
+/// sections (B1/B4).
+#[test]
+#[ignore = "B1/B4 evidence removal not built — remove_activity leaves stale section_activities rows"]
+fn remove_activity_purges_evidence() {
+    let corpus = corpus();
+    let (mut engine, _dir) = fresh_engine_for(Arm::Control);
+    let cold = ingest_step(&mut engine, "cold", &corpus.through_a()).snapshot;
+
+    let victim = cold
+        .sections
+        .values()
+        .flat_map(|s| s.activity_ids.iter())
+        .next()
+        .cloned()
+        .expect("a section with a contributing activity");
+
+    engine.remove_activity(&victim).expect("remove_activity");
+    let after = snapshot(&mut engine);
+
+    let still_referenced: Vec<String> = after
+        .sections
+        .iter()
+        .filter(|(_, s)| s.activity_ids.contains(&victim))
+        .map(|(id, _)| id.clone())
+        .collect();
+    println!(
+        "[control] removed activity {victim}: still referenced by {} section(s) {:?}",
+        still_referenced.len(),
+        still_referenced,
+    );
+    assert!(
+        still_referenced.is_empty(),
+        "removed activity {victim} still contributes to sections {still_referenced:?} (evidence not purged)"
+    );
+}
