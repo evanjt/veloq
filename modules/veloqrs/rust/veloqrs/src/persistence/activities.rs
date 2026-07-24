@@ -168,6 +168,24 @@ impl PersistentRouteEngine {
             return Ok(());
         }
 
+        // R6 freshness: an add that REPLACES a previously-synced activity with a
+        // DIFFERENT track is a GPS mutation the catalogue must re-derive. Detect
+        // it here, before the store overwrites the old track, so the ids can be
+        // evicted from the processed set after commit (below). A verbatim
+        // re-ingest (identical points) is NOT a mutation and must stay
+        // idempotent, so compare the stored track, not just the id.
+        let mutated_ids: Vec<String> = activities
+            .iter()
+            .filter(|(id, coords, _)| {
+                self.activity_metadata.contains_key(id)
+                    && self
+                        .load_gps_track_from_db(id)
+                        .map(|stored| stored != *coords)
+                        .unwrap_or(true)
+            })
+            .map(|(id, _, _)| id.clone())
+            .collect();
+
         self.db.execute_batch("BEGIN IMMEDIATE")?;
 
         let mut all_bounds: Vec<Bounds> = Vec::with_capacity(activities.len());
@@ -204,6 +222,13 @@ impl PersistentRouteEngine {
         self.db.execute_batch("COMMIT")?;
 
         self.rebuild_spatial_index();
+
+        // Evict the mutated activities so the next detect re-analyses them
+        // (their new tracks now count as unprocessed). No-op when nothing
+        // changed, so a routine re-sync of unchanged activities stays free.
+        if !mutated_ids.is_empty() {
+            self.evict_processed_activity_ids(&mutated_ids);
+        }
 
         self.groups_dirty = true;
         self.sections_dirty = true;
@@ -267,6 +292,14 @@ impl PersistentRouteEngine {
 
         self.groups_dirty = true;
         self.sections_dirty = true;
+
+        // R6 freshness: the removed activity may have contributed to any section,
+        // so the next detect must re-derive the catalogue without it. Its id is
+        // now gone from `activity_metadata`, so it can never re-enter
+        // `new_activity_ids` — a targeted eviction can't defeat the
+        // no-new-activities short-circuit. Clear the whole processed set so the
+        // next detect re-analyses the remaining library.
+        self.clear_processed_activity_ids();
 
         // Invalidate heatmap tiles covering the removed activity
         // Add small margin (~100m) to catch edge tiles where GPS points bled into neighbors
