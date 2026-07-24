@@ -63,6 +63,40 @@ fn expand_window_discontinuity_is_measured() {
     }
 }
 
+/// Invariant 4 — order-free catalogue. A single cold batch must yield the same
+/// catalogue no matter the ingest order. This is the property that makes
+/// incremental == batch and lets an expand ADD rather than reshuffle, so it is
+/// the foundation the whole redesign stands on. Battery (unified) is order-free
+/// by construction; Control is measured alongside.
+#[test]
+fn order_free_cold_batch() {
+    let corpus = corpus();
+    let forward = corpus.through_a();
+    let mut reversed = forward.clone();
+    reversed.reverse();
+
+    for arm in [Arm::Control, Arm::Battery] {
+        let (mut e1, _d1) = fresh_engine_for(arm);
+        let s1 = ingest_step(&mut e1, "forward", &forward).snapshot;
+        let (mut e2, _d2) = fresh_engine_for(arm);
+        let s2 = ingest_step(&mut e2, "reversed", &reversed).snapshot;
+        let same = s1.catalogue_signature() == s2.catalogue_signature();
+        println!(
+            "[{}] order-free cold batch: {}  ({} vs {} sections)",
+            arm.label(),
+            if same { "YES" } else { "NO — order-dependent" },
+            s1.count(),
+            s2.count(),
+        );
+        if arm == Arm::Battery {
+            assert!(
+                same,
+                "battery cold-batch catalogue depends on ingest order (violates invariant 4)"
+            );
+        }
+    }
+}
+
 /// Target gate (B2 identity layer): the Battery keeps section identity across
 /// an expand — most cold-catalogue ids still address the same ground
 /// afterwards. Fails today because ids are still positional and renumber on
