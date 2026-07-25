@@ -53,10 +53,12 @@ fn init_survives_corrupt_database() {
         "corrupt file must be renamed aside, got {:?}",
         generation_one
     );
+    // The stale wal must leave the live namespace. Whether quarantine renames
+    // it or SQLite deletes it during a racing open attempt is timing; what
+    // matters is that no stale sibling sits beside the fresh database.
     assert!(
-        generation_one.iter().any(|n| n.ends_with("-wal")),
-        "wal sibling must be quarantined too, got {:?}",
-        generation_one
+        !Path::new(&format!("{}-wal", db_str)).exists(),
+        "stale wal must not survive beside the fresh database"
     );
 
     // The fresh database is functional (schema created, zero activities).

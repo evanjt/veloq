@@ -1580,15 +1580,29 @@ pub mod persistent_engine_ffi {
 
         for suffix in ["", "-wal", "-shm"] {
             let src = format!("{}{}", db_path, suffix);
-            if std::path::Path::new(&src).exists() {
-                let dst = format!("{}.corrupt-{}{}", db_path, ts, suffix);
-                if let Err(e) = std::fs::rename(&src, &dst) {
-                    log::error!(
-                        "tracematch: [PersistentEngine] Could not quarantine '{}': {}",
-                        src,
-                        e
-                    );
-                    return None;
+            if !std::path::Path::new(&src).exists() {
+                continue;
+            }
+            let dst = format!("{}.corrupt-{}{}", db_path, ts, suffix);
+            match std::fs::rename(&src, &dst) {
+                Ok(()) => {}
+                // SQLite deletes a stale wal/shm itself when a concurrent
+                // connection opens the corrupt file; a sibling that vanished
+                // between the exists check and the rename is already gone
+                // from the live namespace, which is all quarantine needs.
+                Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+                Err(e) => {
+                    // A sibling we can neither move nor remove would sit
+                    // beside the fresh database, so removal is the fallback;
+                    // only when both fail is the failover abandoned.
+                    if suffix.is_empty() || std::fs::remove_file(&src).is_err() {
+                        log::error!(
+                            "tracematch: [PersistentEngine] Could not quarantine '{}': {}",
+                            src,
+                            e
+                        );
+                        return None;
+                    }
                 }
             }
         }
