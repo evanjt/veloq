@@ -1,9 +1,12 @@
 //! Section management: loading, queries, detection, save/apply, names.
 
 mod detection;
+mod identity;
 mod merging;
 mod naming;
 mod ranking;
+
+pub(crate) use identity::SectionIdentity;
 
 // Re-export the Tier 2 upgrade-path backfill so `persistent_engine_ffi::init`
 // can trigger it without reaching through private module paths. The sync
@@ -383,6 +386,10 @@ impl PersistentRouteEngine {
         match self.db.execute("DELETE FROM processed_activities", []) {
             Ok(_) => {
                 self.processed_activity_ids.clear();
+                // The processed set and the evidence cache are two shadows of the
+                // same "what has detection already folded" state; clear them in
+                // lockstep so the next detect cold-rebatches under the new base.
+                self.invalidate_evidence_cache();
                 log::info!(
                     "tracematch: [PersistentEngine] Cleared all processed activity IDs for forced re-detection"
                 );
@@ -426,6 +433,10 @@ impl PersistentRouteEngine {
             for id in activity_ids {
                 self.processed_activity_ids.remove(id);
             }
+            // A mutated activity's cluster in the evidence cache is now stale and
+            // the cache cannot drop one member surgically, so clear the whole
+            // cache; the next detect cold-rebatches the correct pool.
+            self.invalidate_evidence_cache();
         } else {
             log::warn!("tracematch: processed-id eviction failed; in-memory set left intact");
         }

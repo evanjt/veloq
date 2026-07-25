@@ -187,6 +187,9 @@ impl PersistentRouteEngine {
         }
         self.mark_section_accepted_in_memory(section_id);
         self.invalidate_section_cache(section_id);
+        // The section is now a durable intent row; the registry relinquishes it
+        // so auto detection stops re-emitting (and colliding on) its ground.
+        self.section_identity_relinquish(section_id);
         Ok(())
     }
 
@@ -203,6 +206,9 @@ impl PersistentRouteEngine {
             .map_err(|e| format!("Failed to accept sections: {}", e))?;
         self.mark_all_auto_sections_accepted();
         self.invalidate_all_section_caches();
+        // Every managed auto section is now durable; reseed so the registry holds
+        // only the (now empty) non-user-defined set and carries none of them.
+        self.section_identity_reseed();
         Ok(count as u32)
     }
 
@@ -225,6 +231,8 @@ impl PersistentRouteEngine {
         self.invalidate_section_cache(section_id);
         self.update_section_name_in_memory(section_id, name);
         self.mark_section_accepted_in_memory(section_id);
+        // Rename auto-promotes to user-defined; relinquish from the registry.
+        self.section_identity_relinquish(section_id);
 
         Ok(())
     }
@@ -474,6 +482,10 @@ impl PersistentRouteEngine {
 
         // Refresh in-memory section (for auto sections)
         self.refresh_section_in_memory(section_id);
+
+        // Setting a reference promotes an auto section to user-defined; relinquish
+        // it from the registry so detection stops re-emitting its (edited) ground.
+        self.section_identity_relinquish(section_id);
 
         Ok(())
     }

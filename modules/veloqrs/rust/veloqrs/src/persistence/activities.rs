@@ -357,6 +357,7 @@ impl PersistentRouteEngine {
         self.groups.clear();
         self.sections.clear();
         self.processed_activity_ids.clear();
+        self.invalidate_evidence_cache();
         self.time_streams.clear();
         self.groups_dirty = false;
         self.sections_dirty = false;
@@ -380,6 +381,7 @@ impl PersistentRouteEngine {
         self.groups.clear();
         self.sections.clear();
         self.consensus_cache.clear();
+        self.invalidate_evidence_cache();
         self.groups_dirty = true;
         self.sections_dirty = true;
         self.invalidate_perf_cache();

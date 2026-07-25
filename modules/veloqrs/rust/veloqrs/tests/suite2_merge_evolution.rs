@@ -213,7 +213,6 @@ fn merge_leaves_no_orphaned_junction_rows() {
 /// user-defined and still hold the union. Green when a merge is recorded as
 /// durable user intent (B4) and stable identity (B2) stops the wipe undoing it.
 #[test]
-#[ignore = "B2/B4 not built: merge confers no durable status (is_user_defined stays 0); the id only reappears via positional re-detection, the merge itself is undone"]
 fn merge_survives_resync() {
     let corpus = corpus();
     let (mut engine, _dir) = fresh_engine_for(Arm::Control);
@@ -431,7 +430,6 @@ fn unpinned_section_evolution_today() {
 /// every detect, so a growing set reshuffles ids off their ground. Green when
 /// B2's assign-once identity layer carries the id with the corridor.
 #[test]
-#[ignore = "B2 hysteresis not built: positional ids renumber on every detect, so an evolving section loses its identity"]
 fn unpinned_evolution_keeps_identity() {
     let corpus = corpus();
     let (mut engine, _dir) = fresh_engine_for(Arm::Control);

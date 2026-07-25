@@ -18,7 +18,7 @@ use tracematch::{GpsPoint, SectionPortion};
 
 /// Compute all traversals (laps) of an activity over a section polyline.
 /// Uses the tracematch lap-splitting algorithm.
-pub(super) fn compute_section_portions(
+pub(crate) fn compute_section_portions(
     activity_id: &str,
     track: &[GpsPoint],
     section_polyline: &[GpsPoint],

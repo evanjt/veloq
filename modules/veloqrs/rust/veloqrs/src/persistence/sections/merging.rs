@@ -403,6 +403,14 @@ impl PersistentRouteEngine {
             }
         }
 
+        // A merge is durable user intent: mark the primary user-defined so the
+        // detection wipe spares it and B2 suppression keeps auto detection from
+        // re-emitting (and colliding on) its ground on the next resync.
+        tx.execute(
+            "UPDATE sections SET is_user_defined = 1 WHERE id = ?",
+            rusqlite::params![primary_id],
+        )?;
+
         // Move secondary's activities to primary
         tx.execute(
             "UPDATE OR IGNORE section_activities SET section_id = ? WHERE section_id = ?",
@@ -445,6 +453,12 @@ impl PersistentRouteEngine {
         self.section_cache.clear();
         self.invalidate_perf_cache();
         self.load_sections()?;
+
+        // Identity ownership of both grounds now belongs to the durable primary
+        // row: relinquish them from the registry so the next detect neither
+        // carries nor debounce-dissolves a ground the DB row now owns.
+        self.section_identity_relinquish(primary_id);
+        self.section_identity_relinquish(secondary_id);
 
         log::info!(
             "tracematch: [merge] Merged section {} into {} ({} activities)",

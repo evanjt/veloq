@@ -18,7 +18,7 @@ pub use ffi_types::*;
 // Persistence layer with SQLite storage
 pub mod persistence;
 pub use persistence::{
-    GroupSummary, PERSISTENT_ENGINE, PersistentEngineStats, PersistentRouteEngine,
+    CacheUpdate, GroupSummary, PERSISTENT_ENGINE, PersistentEngineStats, PersistentRouteEngine,
     SectionDetectionHandle, with_persistent_engine,
 };
 

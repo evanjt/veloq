@@ -117,6 +117,74 @@ required-features = ["synthetic"]
 name = "heatmap_tile_set"
 required-features = ["synthetic"]
 
+[[test]]
+name = "index_new_activity"
+required-features = ["synthetic"]
+
+[[test]]
+name = "playback_vs_batch"
+required-features = ["synthetic"]
+
+[[test]]
+name = "accumulator_backfill"
+required-features = ["synthetic"]
+
+[[test]]
+name = "section_portions_roundtrip"
+required-features = ["synthetic"]
+
+[[test]]
+name = "suite2_battery"
+required-features = ["synthetic"]
+
+[[test]]
+name = "suite2_cache_coherence"
+required-features = ["synthetic"]
+
+[[test]]
+name = "suite2_concurrency_durability"
+required-features = ["synthetic"]
+
+[[test]]
+name = "suite2_config_stability"
+required-features = ["synthetic"]
+
+[[test]]
+name = "suite2_determinism"
+required-features = ["synthetic"]
+
+[[test]]
+name = "suite2_edits"
+required-features = ["synthetic"]
+
+[[test]]
+name = "suite2_edits_geometry"
+required-features = ["synthetic"]
+
+[[test]]
+name = "suite2_engine_cache"
+required-features = ["synthetic"]
+
+[[test]]
+name = "suite2_lifecycle"
+required-features = ["synthetic"]
+
+[[test]]
+name = "suite2_merge_evolution"
+required-features = ["synthetic"]
+
+[[test]]
+name = "suite2_multigeo_sport"
+required-features = ["synthetic"]
+
+[[test]]
+name = "suite2_order_idempotency"
+required-features = ["synthetic"]
+
+[[test]]
+name = "suite2_routes_lifecycle"
+required-features = ["synthetic"]
+
 [[bench]]
 name = "heatmap_tiles"
 harness = false

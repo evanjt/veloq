@@ -421,7 +421,6 @@ fn reset_bounds_disarms_the_resync_crash() {
 /// sections.id` (root R2, same as accept). Green when stable identity (B2) stops
 /// ids colliding and/or persistence upserts (B4).
 #[test]
-#[ignore = "R2 positional-id collision — a trimmed section arms the same UNIQUE sections.id crash accept does; must also keep the trimmed extent (not snap back)"]
 fn gate_edited_section_survives_resync() {
     let corpus = corpus();
     let (mut engine, _dir) = fresh_engine_for(Arm::Control);

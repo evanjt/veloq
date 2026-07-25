@@ -27,7 +27,7 @@ use std::sync::{Arc, Mutex, RwLock};
 use crate::sections::SectionSummary;
 use crate::{
     ActivityMatchInfo, ActivityMetrics, Bounds, FrequentSection, GpsPoint, MatchConfig, RouteGroup,
-    RouteSignature, SectionConfig, SectionPerformanceResult,
+    RouteSignature, SectionConfig, SectionEvidenceCache, SectionPerformanceResult,
 };
 use lru::LruCache;
 use once_cell::sync::Lazy;
@@ -317,10 +317,32 @@ impl tracematch::DetectionProgressCallback for ClusteringAwareProgress {
     }
 }
 
+/// The Unified detector's evidence cache after a fold, plus the id set it now
+/// reflects. Carried out-of-band from the section result so the legacy
+/// detectors need no channel change. The cache-aware apply stores it on the
+/// engine only after `apply_sections` succeeds, so the cache can never get
+/// ahead of the applied catalogue.
+pub struct CacheUpdate {
+    /// The per-(sport, cluster) evidence after routing this fold's new
+    /// activities. Becomes the engine's `section_evidence_cache` on success.
+    pub cache: SectionEvidenceCache,
+    /// The activity ids the cache now folds — an engine-side shadow of the
+    /// cache's per-cluster membership (tracematch does not expose it). Becomes
+    /// `cache_folded_ids` on success and drives the next detect's new-id set.
+    pub folded_ids: HashSet<String>,
+}
+
 /// Handle for background section detection.
 
 pub struct SectionDetectionHandle {
     receiver: mpsc::Receiver<(Vec<FrequentSection>, Vec<String>)>,
+    /// Out-of-band channel for the Unified detector's evidence-cache update.
+    /// The worker sends this BEFORE the section result on `receiver`, so a
+    /// `Ready`/`recv` on the main channel guarantees the cache is already
+    /// available to `take_cache`. The legacy detectors and the no-new-activities
+    /// short-circuit never send here, so `take_cache` returns None and the
+    /// caller leaves the engine cache untouched.
+    cache_receiver: mpsc::Receiver<CacheUpdate>,
     /// Shared progress state
     pub progress: SectionDetectionProgress,
 }
@@ -357,6 +379,28 @@ impl SectionDetectionHandle {
     /// Wait for detection to complete (blocking).
     pub fn recv(self) -> Option<(Vec<FrequentSection>, Vec<String>)> {
         self.receiver.recv().ok()
+    }
+
+    /// Take the Unified detector's evidence-cache update, if any. Only the
+    /// Unified path sends one; the legacy detectors and the short-circuit do
+    /// not, so this returns None and the caller leaves the engine cache as-is.
+    /// Call only after the main result is `Ready`/recv'd — the worker sends the
+    /// cache first, so by then it is present.
+    pub fn take_cache(&self) -> Option<CacheUpdate> {
+        self.cache_receiver.try_recv().ok()
+    }
+
+    /// Block for the section result AND collect the evidence-cache update in one
+    /// call (the harness/test path; production polls via `poll_state` +
+    /// `take_cache`). `recv()` blocks until the worker has sent the main result,
+    /// which it does AFTER the cache, so the non-blocking cache `try_recv` here
+    /// is guaranteed to observe a cache when the Unified path produced one.
+    pub fn recv_with_cache(
+        self,
+    ) -> (Option<(Vec<FrequentSection>, Vec<String>)>, Option<CacheUpdate>) {
+        let main = self.receiver.recv().ok();
+        let cache = self.cache_receiver.try_recv().ok();
+        (main, cache)
     }
 }
 
@@ -405,8 +449,10 @@ mod worker_poll_tests {
     #[test]
     fn dead_worker_reports_died_not_running() {
         let (tx, rx) = mpsc::channel::<(Vec<FrequentSection>, Vec<String>)>();
+        let (_cache_tx, cache_rx) = mpsc::channel::<CacheUpdate>();
         let handle = SectionDetectionHandle {
             receiver: rx,
+            cache_receiver: cache_rx,
             progress: SectionDetectionProgress::new(),
         };
 
@@ -418,8 +464,10 @@ mod worker_poll_tests {
     #[test]
     fn finished_worker_reports_ready_then_died() {
         let (tx, rx) = mpsc::channel::<(Vec<FrequentSection>, Vec<String>)>();
+        let (_cache_tx, cache_rx) = mpsc::channel::<CacheUpdate>();
         let handle = SectionDetectionHandle {
             receiver: rx,
+            cache_receiver: cache_rx,
             progress: SectionDetectionProgress::new(),
         };
 
@@ -555,11 +603,46 @@ pub struct PersistentRouteEngine {
     /// from the `time_streams` SQLite table.
     time_streams: LruCache<String, Vec<u32>>,
 
-    /// Cached sections (loaded from DB)
+    /// Cached sections (loaded from DB). Since B2 this is the identity-stable,
+    /// hysteresis-DAMPED visible catalogue the app renders, not the raw detection
+    /// batch — `sections::SectionIdentity` remaps ids and debounces churn between
+    /// the worker's raw catalogue and this field.
     sections: Vec<FrequentSection>,
+
+    /// Assign-once section identity registry + hysteresis debounce (B2). Owns the
+    /// stable opaque id over time and damps the non-monotone batch into the
+    /// visible `sections` above. In-memory pre-B4; reseeded from the DB on open.
+    identity: sections::SectionIdentity,
+
+    /// The last RAW detection catalogue applied, before the identity + hysteresis
+    /// remap. `sections` is the DAMPED view the app renders; this is the B1
+    /// convergence truth (order-free, tracks the batch every step) the parity
+    /// gates compare against. The two DIFFER by design: the damped view can hold a
+    /// section a debounced dissolve has not yet retired, so it lags the raw batch
+    /// by up to `k` steps. In-memory only.
+    raw_sections: Vec<FrequentSection>,
 
     /// Activities that have been through section detection (persisted in SQLite)
     processed_activity_ids: HashSet<String>,
+
+    /// In-memory per-(sport, cluster) evidence for the Unified incremental
+    /// detector. Holds each cluster's last catalogue so a sync recomputes only
+    /// the cluster(s) a new activity touches (O(touched-cluster), not O(pool)).
+    /// NOT persisted — B4 owns durability. A fresh engine starts empty, so the
+    /// first detect cold-rebatches the whole pool = the batch, and the catalogue
+    /// itself lives durably in SQLite. Only the Unified detection path reads or
+    /// writes it; the legacy detectors never touch it. Moves in lockstep with
+    /// `cache_folded_ids`.
+    section_evidence_cache: SectionEvidenceCache,
+
+    /// The activity ids `section_evidence_cache` has folded — an engine-side
+    /// shadow of the cache's per-cluster membership (tracematch does not expose
+    /// it). Drives which ids a detect routes as "new": `pool − cache_folded_ids`.
+    /// Empty ⇒ the cache is cold ⇒ the next detect cold-rebatches every cluster.
+    /// Cleared together with the cache at every invalidation point so the two can
+    /// never disagree. Not persisted, so a restart starts cold and rebuilds from
+    /// the DB catalogue.
+    cache_folded_ids: HashSet<String>,
 
     /// Dirty tracking
     pub(crate) groups_dirty: bool,
@@ -584,6 +667,19 @@ impl PersistentRouteEngine {
     fn invalidate_perf_cache(&mut self) {
         self.perf_cache_section_id = None;
         self.perf_cache_result = None;
+    }
+
+    /// Drop the Unified evidence cache (and its folded-id shadow) so the next
+    /// detect cold-rebatches every cluster from the current DB state. Called at
+    /// every point the detection base changes out from under the cache: config
+    /// change, activity mutation/removal, and the section-clearing paths. The
+    /// cache holds no queryable member ids and cannot surgically drop one
+    /// activity's cluster, so any such change clears the whole cache; the next
+    /// detect rebuilds it from the real pool. Clearing the two fields together
+    /// is what stops the cache from ever disagreeing with the applied catalogue.
+    pub(crate) fn invalidate_evidence_cache(&mut self) {
+        self.section_evidence_cache = SectionEvidenceCache::new();
+        self.cache_folded_ids.clear();
     }
 
     // ========================================================================
@@ -614,7 +710,11 @@ impl PersistentRouteEngine {
             activity_metrics: HashMap::new(),
             time_streams: LruCache::new(std::num::NonZeroUsize::new(200).unwrap()),
             sections: Vec::new(),
+            identity: sections::SectionIdentity::default(),
+            raw_sections: Vec::new(),
             processed_activity_ids: HashSet::new(),
+            section_evidence_cache: SectionEvidenceCache::new(),
+            cache_folded_ids: HashSet::new(),
             groups_dirty: false,
             sections_dirty: false,
             match_config: MatchConfig::default(),
@@ -664,6 +764,14 @@ impl PersistentRouteEngine {
                 return Err(e);
             }
         }
+
+        // B2: seed the identity registry from the sections just loaded so an
+        // existing install adopts its current ids as stable seeds. The evidence
+        // cache stays cold (the next detect cold-rebatches), but identity is
+        // preserved: a resync carries the seeded ids onto their surviving ground
+        // rather than re-deriving them. Must run after both `sections` and
+        // `metadata` load so it sees the managed catalogue and the activity set.
+        self.section_identity_reseed();
 
         // Backfill activities.duration_secs from activity_metrics.moving_time.
         // Route highlights need duration_secs to compute trends/PRs, but it was
@@ -745,6 +853,20 @@ impl PersistentRouteEngine {
 
     /// Set section configuration.
     pub fn set_section_config(&mut self, config: SectionConfig) {
+        // A config identical to the active one is a NO-OP. The TS init path
+        // re-sends the persisted config on every launch (GlobalDataSync applies
+        // the strictness preset whenever detectionStrictness != 60), so without
+        // this guard every launch would clear the processed set, force a full
+        // re-detect, and — since B2 — reset the identity registry, renumbering
+        // every section on each open for any user who has ever moved the
+        // strictness slider. Only a GENUINE change runs the re-analysis tail
+        // below (which arms config_change_reanalyses). Equality is exact, but the
+        // config round-trips through the settings table as the same f64/u32
+        // strings, so a re-sent config compares equal.
+        if config == self.section_config {
+            return;
+        }
+
         // Persist the user's chosen detection params alongside MatchConfig
         // strictness so a fresh engine load reflects the same choices without
         // a TS round-trip. set_setting errors are logged but not propagated:
@@ -786,6 +908,23 @@ impl PersistentRouteEngine {
                 e
             );
         }
+        // Persist the WHOLE config so a restart restores every field, not just the
+        // four slider keys above. This is what makes the TS launch re-apply a true
+        // no-op (see the SECTION_CONFIG_JSON key doc); the loader prefers it.
+        match serde_json::to_string(&config) {
+            Ok(json) => {
+                if let Err(e) = self.set_setting(settings_keys::SECTION_CONFIG_JSON, &json) {
+                    log::warn!(
+                        "tracematch: [set_section_config] failed to persist config blob: {}",
+                        e
+                    );
+                }
+            }
+            Err(e) => log::warn!(
+                "tracematch: [set_section_config] failed to serialise config blob: {}",
+                e
+            ),
+        }
 
         self.section_config = config;
         // R6 freshness: a config change alters what detection would find, so the
@@ -794,6 +933,13 @@ impl PersistentRouteEngine {
         // clearing it forces a full re-detect under the new config.
         self.clear_processed_activity_ids();
         self.sections_dirty = true;
+        // B2: a config change also invalidates the identity BASIS — the stable
+        // ids and debounce counters were assigned to ground detected under the
+        // old params, which the new params may not even find. Reset the registry
+        // so the re-analysed catalogue reflects the new config at once instead of
+        // debounce-holding sections the old config produced (mirrors the evidence
+        // cache reset on the same event). The next detect reseeds it from scratch.
+        self.identity = sections::SectionIdentity::default();
     }
 
     // ========================================================================
@@ -1434,15 +1580,29 @@ pub mod persistent_engine_ffi {
 
         for suffix in ["", "-wal", "-shm"] {
             let src = format!("{}{}", db_path, suffix);
-            if std::path::Path::new(&src).exists() {
-                let dst = format!("{}.corrupt-{}{}", db_path, ts, suffix);
-                if let Err(e) = std::fs::rename(&src, &dst) {
-                    log::error!(
-                        "tracematch: [PersistentEngine] Could not quarantine '{}': {}",
-                        src,
-                        e
-                    );
-                    return None;
+            if !std::path::Path::new(&src).exists() {
+                continue;
+            }
+            let dst = format!("{}.corrupt-{}{}", db_path, ts, suffix);
+            match std::fs::rename(&src, &dst) {
+                Ok(()) => {}
+                // SQLite deletes a stale wal/shm itself when a concurrent
+                // connection opens the corrupt file; a sibling that vanished
+                // between the exists check and the rename is already gone
+                // from the live namespace, which is all quarantine needs.
+                Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
+                Err(e) => {
+                    // A sibling we can neither move nor remove would sit
+                    // beside the fresh database, so removal is the fallback;
+                    // only when both fail is the failover abandoned.
+                    if suffix.is_empty() || std::fs::remove_file(&src).is_err() {
+                        log::error!(
+                            "tracematch: [PersistentEngine] Could not quarantine '{}': {}",
+                            src,
+                            e
+                        );
+                        return None;
+                    }
                 }
             }
         }
@@ -1743,10 +1903,12 @@ mod tests {
             coords.clone(),
         );
         engine.apply_sections(vec![section]).unwrap();
+        // The registry assigns a stable opaque id; look it up (was "sec_cycling_1").
+        let sid = engine.get_sections()[0].id.clone();
 
         // Verify initial state (from DATABASE, not in-memory cache)
         let db_section = engine
-            .get_section("sec_cycling_1")
+            .get_section(&sid)
             .expect("Section should exist");
         assert_eq!(
             db_section.representative_activity_id,
@@ -1755,7 +1917,7 @@ mod tests {
         assert!(!db_section.is_user_defined);
 
         // Set activity-2 as the new reference
-        let result = engine.set_section_reference("sec_cycling_1", "activity-2");
+        let result = engine.set_section_reference(&sid, "activity-2");
         assert!(
             result.is_ok(),
             "set_section_reference should succeed for auto-detected sections"
@@ -1763,7 +1925,7 @@ mod tests {
 
         // Verify the reference was changed (from DATABASE)
         let db_section = engine
-            .get_section("sec_cycling_1")
+            .get_section(&sid)
             .expect("Section should exist");
         assert_eq!(
             db_section.representative_activity_id,
@@ -1823,10 +1985,12 @@ mod tests {
             section_coords.clone(),
         );
         engine.apply_sections(vec![section]).unwrap();
+        // Registry-assigned stable id (was "sec_cycling_auto").
+        let sid = engine.get_sections()[0].id.clone();
 
         // Verify initial state from DATABASE (not in-memory cache)
         let db_section = engine
-            .get_section("sec_cycling_auto")
+            .get_section(&sid)
             .expect("Section should exist in DB");
         assert_eq!(
             db_section.polyline.len(),
@@ -1836,12 +2000,12 @@ mod tests {
         let initial_distance = compute_test_polyline_distance(&db_section.polyline);
 
         // Set the LONG activity as the new reference
-        let result = engine.set_section_reference("sec_cycling_auto", "activity-long");
+        let result = engine.set_section_reference(&sid, "activity-long");
         assert!(result.is_ok());
 
         // CRITICAL ASSERTION: Read from DATABASE after update
         let db_section = engine
-            .get_section("sec_cycling_auto")
+            .get_section(&sid)
             .expect("Section should exist in DB");
 
         // Polyline should be approximately the same length (NOT the full 200 points)
@@ -1927,15 +2091,17 @@ mod tests {
             consensus_polyline.clone(),
         );
         engine.apply_sections(vec![section]).unwrap();
+        // Registry-assigned stable id (was "sec_cycling_consensus").
+        let sid = engine.get_sections()[0].id.clone();
 
         // Set reference to activity-1 (marks as user_defined)
         engine
-            .set_section_reference("sec_cycling_consensus", "activity-1")
+            .set_section_reference(&sid, "activity-1")
             .unwrap();
 
         // Verify it's now user-defined (from DATABASE)
         let db_section = engine
-            .get_section("sec_cycling_consensus")
+            .get_section(&sid)
             .expect("Section should exist");
         assert!(
             db_section.is_user_defined,
@@ -1943,12 +2109,12 @@ mod tests {
         );
 
         // Now reset the reference
-        let result = engine.reset_section_reference("sec_cycling_consensus");
+        let result = engine.reset_section_reference(&sid);
         assert!(result.is_ok());
 
         // CRITICAL ASSERTION: After reset, read from DATABASE
         let db_section = engine
-            .get_section("sec_cycling_consensus")
+            .get_section(&sid)
             .expect("Section should exist");
 
         // Should not be user-defined anymore
@@ -2051,21 +2217,23 @@ mod tests {
         // Fix the distance to match the actual polyline
         section.distance_meters = compute_test_polyline_distance(&coords);
         engine.apply_sections(vec![section]).unwrap();
+        // Registry-assigned stable id (was "sec_integrity").
+        let sid = engine.get_sections()[0].id.clone();
 
         // Get initial state from DB
         let db_section_before = engine
-            .get_section("sec_integrity")
+            .get_section(&sid)
             .expect("Section should exist");
         let initial_distance = db_section_before.distance_meters;
 
         // Set reference to the longer activity
         engine
-            .set_section_reference("sec_integrity", "activity-long")
+            .set_section_reference(&sid, "activity-long")
             .unwrap();
 
         // Read from DATABASE after update
         let db_section = engine
-            .get_section("sec_integrity")
+            .get_section(&sid)
             .expect("Section should exist");
 
         // Distance should be approximately the same (within 20% since we're extracting matching portion)
@@ -2173,10 +2341,12 @@ mod tests {
             section_coords.clone(),
         );
         engine.apply_sections(vec![section]).unwrap();
+        // Registry-assigned stable id (was "sec_rematch_test").
+        let sid = engine.get_sections()[0].id.clone();
 
         // Verify initial state: all 3 activities are associated
         let db_section = engine
-            .get_section("sec_rematch_test")
+            .get_section(&sid)
             .expect("Section should exist");
         assert_eq!(
             db_section.activity_ids.len(),
@@ -2186,13 +2356,13 @@ mod tests {
 
         // Set activity-1 as reference (this triggers re-matching)
         engine
-            .set_section_reference("sec_rematch_test", "activity-1")
+            .set_section_reference(&sid, "activity-1")
             .unwrap();
 
         // After re-matching, only activities 1 and 2 should remain (they overlap)
         // Activity 3 should be removed (it's in a completely different area)
         let db_section = engine
-            .get_section("sec_rematch_test")
+            .get_section(&sid)
             .expect("Section should exist");
 
         // Activity-3 should have been removed (doesn't overlap)
@@ -2262,6 +2432,8 @@ mod tests {
         engine
             .apply_sections(vec![section])
             .expect("apply_sections");
+        // Registry-assigned stable id (was "sec_lap_time").
+        let sid = engine.get_sections()[0].id.clone();
 
         // Read back junction rows directly - do NOT call `get_section_performances`
         // (that path does lazy backfill and would mask a missing inline compute).
@@ -2269,11 +2441,11 @@ mod tests {
             .db
             .prepare(
                 "SELECT activity_id, lap_time, lap_pace
-                 FROM section_activities WHERE section_id = 'sec_lap_time'
+                 FROM section_activities WHERE section_id = ?
                  ORDER BY activity_id",
             )
             .and_then(|mut stmt| {
-                stmt.query_map([], |row| {
+                stmt.query_map([&sid], |row| {
                     Ok((
                         row.get::<_, String>(0)?,
                         row.get::<_, Option<f64>>(1)?,
