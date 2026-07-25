@@ -38,13 +38,19 @@ use crate::persistence::codec;
 use tracematch::RouteGroup;
 
 /// `identity_state.key` for the route registry blob (B4 migration 013).
-const ROUTE_IDENTITY_KEY: &str = "route_identity";
+pub(crate) const ROUTE_IDENTITY_KEY: &str = "route_identity";
+
+/// Version byte on the persisted route-registry blob. Bump on any
+/// serialisation-breaking change to [`RouteIdentity`]; an old byte then reseeds.
+pub(crate) const ROUTE_IDENTITY_BLOB_VERSION: u8 = 1;
 
 /// Per-route identity state: the seniority ordinal of each live stable id plus
 /// the monotonic counter that both mints `r_<n>` ids and stamps `first_seen`.
 /// In-memory pre-B4 (reseeded from the DB groups on open); serde-ready so B4 can
-/// persist it as one blob.
+/// persist it as one blob. `#[serde(default)]` + the blob version tag keep an
+/// older persisted blob readable (or gracefully reseeding) across a field change.
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[serde(default)]
 pub(crate) struct RouteIdentity {
     /// Stable route id -> seniority ordinal (lower = more senior, wins a merge).
     /// Holds exactly the currently-live ids; a dropped route's id is pruned (no
@@ -63,31 +69,22 @@ impl PersistentRouteEngine {
         codec::serialize(&self.route_identity).unwrap_or_default()
     }
 
-    /// Persist the route registry (first_seen ordinals + mint counter) as one
-    /// serde blob (B4). Best-effort, mirroring the section registry: a write
-    /// failure logs and leaves the prior blob for the next open to restore.
-    pub(crate) fn route_identity_persist(&self) {
-        match codec::serialize(&self.route_identity) {
-            Ok(blob) => {
-                if let Err(e) = self.db.execute(
-                    "INSERT INTO identity_state (key, blob, updated_at)
-                     VALUES (?, ?, datetime('now'))
-                     ON CONFLICT(key) DO UPDATE SET blob = excluded.blob, updated_at = excluded.updated_at",
-                    rusqlite::params![ROUTE_IDENTITY_KEY, blob],
-                ) {
-                    log::warn!("tracematch: [route_identity_persist] write failed: {e}");
-                }
-            }
-            Err(e) => log::warn!("tracematch: [route_identity_persist] serialise failed: {e}"),
-        }
+    /// The route registry as a version-tagged serde blob, or None on failure.
+    /// Written INSIDE the `save_groups` transaction so the registry commits
+    /// atomically with the groups it describes.
+    pub(crate) fn route_identity_blob(&self) -> Option<Vec<u8>> {
+        codec::serialize(&self.route_identity)
+            .map(|body| codec::tag_blob(ROUTE_IDENTITY_BLOB_VERSION, body))
+            .ok()
     }
 
-    /// Restore the route registry from its persisted blob. Returns false when no
-    /// blob exists or it fails to decode, so the caller reseeds from the DB groups
-    /// instead. On success the mint counter and seniority survive the restart, so
-    /// a group minted after the restart cannot re-use a live ordinal.
+    /// Restore the route registry from its persisted blob. Returns false — so the
+    /// caller reseeds from the DB groups — when there is no blob, the version byte
+    /// mismatches, or it fails to decode. An unreadable blob heals to a reseed,
+    /// never a failed load. On a clean restore the mint counter and seniority
+    /// survive, so a group minted after the restart cannot re-use a live ordinal.
     pub(crate) fn route_identity_restore(&mut self) -> bool {
-        let blob: Option<Vec<u8>> = self
+        let bytes: Option<Vec<u8>> = self
             .db
             .query_row(
                 "SELECT blob FROM identity_state WHERE key = ?",
@@ -95,16 +92,22 @@ impl PersistentRouteEngine {
                 |row| row.get(0),
             )
             .ok();
-        match blob.as_deref().map(codec::deserialize::<RouteIdentity>) {
-            Some(Ok(state)) => {
+        let Some(bytes) = bytes else {
+            return false;
+        };
+        let Some(body) = codec::untag_blob(ROUTE_IDENTITY_BLOB_VERSION, &bytes) else {
+            log::warn!("tracematch: [route_identity_restore] blob version mismatch, reseeding");
+            return false;
+        };
+        match codec::deserialize::<RouteIdentity>(body) {
+            Ok(state) => {
                 self.route_identity = state;
                 true
             }
-            Some(Err(e)) => {
+            Err(e) => {
                 log::warn!("tracematch: [route_identity_restore] decode failed, reseeding: {e}");
                 false
             }
-            None => false,
         }
     }
 

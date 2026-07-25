@@ -14,6 +14,24 @@ pub fn deserialize<T: DeserializeOwned>(bytes: &[u8]) -> Result<T, String> {
         .or_else(|_| rmp_serde::from_slice(bytes).map_err(|e| e.to_string()))
 }
 
+/// Prefix a serialised body with a one-byte version tag. postcard is positional,
+/// not self-describing, so a struct shape change would misparse an old blob;
+/// the tag lets a reader detect the mismatch and heal (reseed) instead. Used for
+/// the persisted identity-registry blobs (B4 migration 013).
+pub fn tag_blob(version: u8, mut body: Vec<u8>) -> Vec<u8> {
+    body.insert(0, version);
+    body
+}
+
+/// The body of a version-tagged blob, or None if the tag byte is absent or does
+/// not match `version` — the caller treats None like a missing blob and reseeds.
+pub fn untag_blob(version: u8, bytes: &[u8]) -> Option<&[u8]> {
+    match bytes.split_first() {
+        Some((&v, rest)) if v == version => Some(rest),
+        _ => None,
+    }
+}
+
 /// GpsPoint wrapper that always serializes elevation (no skip_serializing_if).
 /// GpsPoint in tracematch uses #[serde(skip_serializing_if = "Option::is_none")]
 /// on elevation, which breaks postcard (a non-self-describing format).

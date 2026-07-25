@@ -582,12 +582,11 @@ impl PersistentRouteEngine {
 
         // Phase 4: Save to database
         let save_start = Instant::now();
+        // B4: `save_groups` writes the route registry blob in its own transaction
+        // (mint counter + seniority), atomic with the groups it describes.
         if let Err(e) = self.save_groups() {
             log::error!("tracematch: Failed to save groups to database: {}", e);
         }
-        // B4: persist the route registry (mint counter + seniority) so a group
-        // minted after a restart cannot re-use a live ordinal.
-        self.route_identity_persist();
         let save_ms = save_start.elapsed().as_millis();
         self.groups_dirty = false;
 
@@ -1006,6 +1005,17 @@ impl PersistentRouteEngine {
                         restored
                     );
                 }
+            }
+
+            // B4: write the route registry blob in THIS transaction so it commits
+            // atomically with the groups.
+            if let Some(blob) = self.route_identity_blob() {
+                self.db.execute(
+                    "INSERT INTO identity_state (key, blob, updated_at)
+                     VALUES (?, ?, datetime('now'))
+                     ON CONFLICT(key) DO UPDATE SET blob = excluded.blob, updated_at = excluded.updated_at",
+                    params![super::route_identity::ROUTE_IDENTITY_KEY, blob],
+                )?;
             }
 
             Ok(())

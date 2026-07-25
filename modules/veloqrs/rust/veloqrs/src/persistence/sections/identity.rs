@@ -47,7 +47,12 @@ use tracematch::{
 };
 
 /// `identity_state.key` for the section registry blob (B4 migration 013).
-const SECTION_IDENTITY_KEY: &str = "section_identity";
+pub(super) const SECTION_IDENTITY_KEY: &str = "section_identity";
+
+/// Version byte on the persisted section-registry blob. Bump on any
+/// serialisation-breaking change to [`SectionIdentity`]; an old byte then reseeds
+/// gracefully instead of misparsing (postcard is positional).
+pub(super) const SECTION_IDENTITY_BLOB_VERSION: u8 = 1;
 
 /// Merge-candidacy mutual-overlap floor for the registry's hysteresis. SHIPS AT
 /// 0.0 (the pure-layer default): a prior competes for a candidate's merge
@@ -85,7 +90,12 @@ pub(crate) struct IdentityRow {
 /// now so that migration is a straight `serde` of this type. `Default` is hand
 /// written (below) so the hysteresis tunables — the merge floor especially — are
 /// an explicit knob at the one construction site, not a buried derive.
+///
+/// `#[serde(default)]` so a field added in a later version deserialises from an
+/// older blob (paired with the version tag on the persisted bytes, which reseeds
+/// on a hard shape change since postcard is positional, not self-describing).
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(default)]
 pub(crate) struct SectionIdentity {
     /// Pure churn damping over grounds. Its internal `s_<n>` ids are the join key
     /// into [`rows`](Self::rows)/[`graves`](Self::graves), never persisted.
@@ -148,35 +158,28 @@ impl PersistentRouteEngine {
         codec::serialize(&self.identity).unwrap_or_default()
     }
 
-    /// Persist the whole section identity registry as one serde blob (B4). The
-    /// hysteresis debounce streaks and the tombstones a dissolved ground
-    /// re-emerges under are otherwise in-memory only and lost on restart; the
-    /// blob carries the exact state forward. Best-effort: a write failure logs and
-    /// leaves the prior blob, so the next open restores that (or reseeds) rather
-    /// than crashing the apply.
-    pub(crate) fn section_identity_persist(&self) {
-        match codec::serialize(&self.identity) {
-            Ok(blob) => {
-                if let Err(e) = self.db.execute(
-                    "INSERT INTO identity_state (key, blob, updated_at)
-                     VALUES (?, ?, datetime('now'))
-                     ON CONFLICT(key) DO UPDATE SET blob = excluded.blob, updated_at = excluded.updated_at",
-                    rusqlite::params![SECTION_IDENTITY_KEY, blob],
-                ) {
-                    log::warn!("tracematch: [section_identity_persist] write failed: {e}");
-                }
-            }
-            Err(e) => log::warn!("tracematch: [section_identity_persist] serialise failed: {e}"),
-        }
+    /// The whole section registry as a version-tagged serde blob, or None if
+    /// serialisation fails. Written INSIDE the `save_sections` transaction (via
+    /// `write_identity_state`) so the registry and the catalogue it describes
+    /// commit atomically — a crash cannot leave the blob ahead of the DB. The
+    /// leading byte is [`SECTION_IDENTITY_BLOB_VERSION`]; a mismatch on restore
+    /// reseeds rather than misparsing (postcard is positional).
+    pub(crate) fn section_identity_blob(&self) -> Option<Vec<u8>> {
+        codec::serialize(&self.identity)
+            .map(|body| codec::tag_blob(SECTION_IDENTITY_BLOB_VERSION, body))
+            .ok()
     }
 
-    /// Restore the section registry from its persisted blob. Returns false when no
-    /// blob exists (fresh or pre-B4 install) or it fails to decode, so the caller
-    /// falls back to reseeding from the DB rows. On success the exact debounce +
+    /// Restore the section registry from its persisted blob. Returns false — so
+    /// the caller reseeds from the DB rows — when there is no blob (fresh or
+    /// pre-B4 install), the version byte does not match, or it fails to decode.
+    /// Treating an UNREADABLE blob exactly like a missing one is crash-consistency
+    /// healing, not just the migration path: a torn or stale blob self-heals to a
+    /// reseed, never a failed load. On a clean restore the exact debounce +
     /// tombstone state is back, so a pending dissolve resumes its streak and a
-    /// tombstoned ground still re-emerges under its old id after a restart.
+    /// tombstoned ground still re-emerges under its old id.
     pub(crate) fn section_identity_restore(&mut self) -> bool {
-        let blob: Option<Vec<u8>> = self
+        let bytes: Option<Vec<u8>> = self
             .db
             .query_row(
                 "SELECT blob FROM identity_state WHERE key = ?",
@@ -184,16 +187,22 @@ impl PersistentRouteEngine {
                 |row| row.get(0),
             )
             .ok();
-        match blob.as_deref().map(codec::deserialize::<SectionIdentity>) {
-            Some(Ok(state)) => {
+        let Some(bytes) = bytes else {
+            return false;
+        };
+        let Some(body) = codec::untag_blob(SECTION_IDENTITY_BLOB_VERSION, &bytes) else {
+            log::warn!("tracematch: [section_identity_restore] blob version mismatch, reseeding");
+            return false;
+        };
+        match codec::deserialize::<SectionIdentity>(body) {
+            Ok(state) => {
                 self.identity = state;
                 true
             }
-            Some(Err(e)) => {
+            Err(e) => {
                 log::warn!("tracematch: [section_identity_restore] decode failed, reseeding: {e}");
                 false
             }
-            None => false,
         }
     }
 

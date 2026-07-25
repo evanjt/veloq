@@ -1014,15 +1014,14 @@ impl PersistentRouteEngine {
         let raw_for_convergence = sections.clone();
         let visible = self.section_identity_apply_into(&mut trial_identity, sections);
         let old_sections = std::mem::replace(&mut self.sections, visible);
+        // Make the trial registry live BEFORE the save: `save_sections` writes its
+        // blob (B4) inside the same transaction as the catalogue, so the two
+        // commit atomically and a crash cannot leave the registry ahead of the DB.
+        let old_identity = std::mem::replace(&mut self.identity, trial_identity);
         match self.save_sections() {
             Ok(()) => {
-                self.identity = trial_identity;
                 self.raw_sections = raw_for_convergence;
                 self.sections_dirty = false;
-                // B4: persist the just-committed registry so its debounce +
-                // tombstone state survives a restart (best-effort, after the
-                // durable section save).
-                self.section_identity_persist();
                 // Clear activity_traces to prevent memory leak. These GPS
                 // traces were used for consensus computation but aren't
                 // persisted; shrink_to_fit() releases the bucket
@@ -1036,7 +1035,10 @@ impl PersistentRouteEngine {
                 Ok(())
             }
             Err(e) => {
+                // The transaction rolled back both the catalogue and the blob;
+                // roll the in-memory registry back to match.
                 self.sections = old_sections;
+                self.identity = old_identity;
                 Err(e)
             }
         }

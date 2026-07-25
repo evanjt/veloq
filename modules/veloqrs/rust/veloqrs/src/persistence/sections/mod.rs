@@ -1541,6 +1541,18 @@ impl PersistentRouteEngine {
         // Drop prepared statements before committing (they hold borrows on tx)
         drop(section_stmt);
         drop(junction_stmt);
+
+        // B4: write the identity-registry blob in THIS transaction so the
+        // registry and the catalogue it describes commit (or roll back) together.
+        if let Some(blob) = self.section_identity_blob() {
+            tx.execute(
+                "INSERT INTO identity_state (key, blob, updated_at)
+                 VALUES (?, ?, datetime('now'))
+                 ON CONFLICT(key) DO UPDATE SET blob = excluded.blob, updated_at = excluded.updated_at",
+                params![identity::SECTION_IDENTITY_KEY, blob],
+            )?;
+        }
+
         tx.commit()?;
 
         Ok(())
