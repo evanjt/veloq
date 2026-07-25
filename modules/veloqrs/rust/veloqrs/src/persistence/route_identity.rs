@@ -102,6 +102,18 @@ impl PersistentRouteEngine {
         match codec::deserialize::<RouteIdentity>(body) {
             Ok(state) => {
                 self.route_identity = state;
+                // Crash-window reconcile. The blob can lag `route_groups` by one
+                // save generation: a crash (or a torn write) between the group
+                // commit and the registry write leaves a stale blob whose ordinal
+                // sits BELOW an `r_<n>` already persisted as a group PK. Restore
+                // then succeeds, so reseed's counter-lift never runs, and the next
+                // mint would collide with that live id. Lift the counter past the
+                // max adopted id here — the same scan reseed does — so a stale blob
+                // heals to a safe counter rather than a duplicate-PK save.
+                let floor = self.max_adopted_route_ordinal();
+                if self.route_identity.ordinal < floor {
+                    self.route_identity.ordinal = floor;
+                }
                 true
             }
             Err(e) => {
@@ -109,6 +121,18 @@ impl PersistentRouteEngine {
                 false
             }
         }
+    }
+
+    /// The highest ordinal already baked into a loaded `r_<n>` group id, or 0.
+    /// Both reseed (fresh adoption) and restore (crash-window reconcile) lift the
+    /// mint counter past this so a later mint cannot collide with an id already
+    /// persisted in `route_groups`, whose PK is `group_id`.
+    fn max_adopted_route_ordinal(&self) -> u64 {
+        self.groups
+            .iter()
+            .filter_map(|g| g.group_id.strip_prefix("r_").and_then(|n| n.parse().ok()))
+            .max()
+            .unwrap_or(0)
     }
 
     /// Seed the registry from the groups already loaded from the DB, adopting each
@@ -125,12 +149,7 @@ impl PersistentRouteEngine {
             ri.ordinal += 1;
             ri.first_seen.insert(id.clone(), ri.ordinal);
         }
-        let max_minted = ids
-            .iter()
-            .filter_map(|id| id.strip_prefix("r_").and_then(|n| n.parse::<u64>().ok()))
-            .max()
-            .unwrap_or(0);
-        ri.ordinal = ri.ordinal.max(max_minted);
+        ri.ordinal = ri.ordinal.max(self.max_adopted_route_ordinal());
         self.route_identity = ri;
     }
 
@@ -345,5 +364,106 @@ fn better_candidate(
                 std::cmp::Ordering::Equal => j < b,
             },
         },
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::persistence::PersistentRouteEngine;
+
+    fn group(id: &str, members: &[&str]) -> RouteGroup {
+        RouteGroup {
+            group_id: id.to_string(),
+            representative_id: members[0].to_string(),
+            activity_ids: members.iter().map(|s| s.to_string()).collect(),
+            sport_type: "Ride".to_string(),
+            bounds: None,
+            custom_name: None,
+            best_time: None,
+            avg_time: None,
+            best_pace: None,
+            best_activity_id: None,
+        }
+    }
+
+    /// Crash between the group commit and the registry blob write: `route_groups`
+    /// holds `r_5` but the surviving blob's counter is still at a pre-crash 2.
+    /// Restore succeeds (skipping reseed's counter-lift), so without a reconcile
+    /// the next mint would re-issue `r_5` and collide with a live group PK.
+    #[test]
+    fn restore_reconciles_ordinal_past_saved_groups() {
+        let mut engine = PersistentRouteEngine::in_memory().unwrap();
+
+        // A group `r_5` survived the crash (in memory here it stands for the
+        // committed route_groups row load() would have read before restore runs).
+        engine.groups = vec![group("r_5", &["a1", "a2"])];
+
+        // Persist a STALE blob: a pre-crash generation whose counter never learned
+        // about the r_5 mint.
+        engine.route_identity = RouteIdentity {
+            first_seen: [("r_2".to_string(), 2u64)].into_iter().collect(),
+            ordinal: 2,
+        };
+        let stale = engine.route_identity_blob().expect("blob serialises");
+        engine
+            .db
+            .execute(
+                "INSERT INTO identity_state (key, blob, updated_at)
+                 VALUES (?, ?, datetime('now'))
+                 ON CONFLICT(key) DO UPDATE SET blob = excluded.blob",
+                rusqlite::params![ROUTE_IDENTITY_KEY, stale],
+            )
+            .unwrap();
+        engine.route_identity = RouteIdentity::default();
+
+        assert!(
+            engine.route_identity_restore(),
+            "a stale blob still decodes"
+        );
+        assert_eq!(
+            engine.route_identity.ordinal, 5,
+            "restore must lift the counter past the saved r_5, not trust the stale 2"
+        );
+
+        // A brand-new disjoint group must mint past the reconciled floor, never
+        // re-issuing the live r_5.
+        let prior = engine.groups.clone();
+        let (remapped, _id_map) = engine.route_identity_remap(prior, vec![group("uf_x", &["b1"])]);
+        assert_eq!(remapped.len(), 1);
+        assert_ne!(
+            remapped[0].group_id, "r_5",
+            "a fresh mint must not collide with the live group id"
+        );
+        assert_eq!(remapped[0].group_id, "r_6");
+    }
+
+    /// A restored blob AHEAD of the loaded groups keeps its counter — the
+    /// reconcile only lifts, never rewinds, so live seniority is preserved.
+    #[test]
+    fn restore_keeps_counter_when_blob_leads_groups() {
+        let mut engine = PersistentRouteEngine::in_memory().unwrap();
+        engine.groups = vec![group("r_3", &["a1"])];
+        engine.route_identity = RouteIdentity {
+            first_seen: [("r_3".to_string(), 3u64)].into_iter().collect(),
+            ordinal: 9,
+        };
+        let blob = engine.route_identity_blob().expect("blob serialises");
+        engine
+            .db
+            .execute(
+                "INSERT INTO identity_state (key, blob, updated_at)
+                 VALUES (?, ?, datetime('now'))
+                 ON CONFLICT(key) DO UPDATE SET blob = excluded.blob",
+                rusqlite::params![ROUTE_IDENTITY_KEY, blob],
+            )
+            .unwrap();
+        engine.route_identity = RouteIdentity::default();
+
+        assert!(engine.route_identity_restore());
+        assert_eq!(
+            engine.route_identity.ordinal, 9,
+            "the counter must not rewind to the max adopted id when the blob leads"
+        );
     }
 }

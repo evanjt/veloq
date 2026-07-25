@@ -197,6 +197,13 @@ impl PersistentRouteEngine {
         match codec::deserialize::<SectionIdentity>(body) {
             Ok(state) => {
                 self.identity = state;
+                // No counter-reconcile equivalent to the route registry's. Section
+                // ids are `s_<ts>__<rand>`, collision-free by construction, so the
+                // same one-generation stale-blob window cannot mint a duplicate PK.
+                // The window can leave a catalogue id unknown to the restored
+                // registry (a section saved after the stale blob), but that section
+                // is simply re-matched by ground on the next apply's step_assign —
+                // it self-heals through remap, not a failed load.
                 true
             }
             Err(e) => {
