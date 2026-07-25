@@ -1511,6 +1511,14 @@ impl PersistentRouteEngine {
             // Time streams come from `self.time_streams` (warm cache) or
             // the pre-fetched `db_time_streams` batch above (cold).
             for portion in &section.activity_portions {
+                // Never emit a junction row for an activity the pool no longer
+                // holds. The activity_id foreign key would reject it and abort the
+                // entire apply (a single stale carried member bricking detection
+                // for the session). The identity purge on remove keeps this from
+                // arising; this is the failover-safe backstop for any it misses.
+                if !self.activity_metadata.contains_key(&portion.activity_id) {
+                    continue;
+                }
                 let times = self
                     .time_streams
                     .peek(&portion.activity_id)

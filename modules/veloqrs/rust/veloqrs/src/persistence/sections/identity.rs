@@ -391,6 +391,35 @@ impl PersistentRouteEngine {
         }
     }
 
+    /// Drop a removed activity from every section the registry carries (visible
+    /// rows and tombstoned graves) and from the in-memory catalogue, and forget it
+    /// as seen so a later re-add folds it back in. The append-only fold otherwise
+    /// keeps a removed contributor as a phantom member, which the activity_id
+    /// foreign key now (correctly) refuses to persist — aborting the whole
+    /// detection apply. Called by remove_activity. Ground is untouched: only the
+    /// gone activity leaves; the section's geometry and other members stay.
+    pub(crate) fn section_identity_purge_activity(&mut self, activity_id: &str) {
+        fn drop_from(section: &mut FrequentSection, activity_id: &str) {
+            section.activity_ids.retain(|a| a != activity_id);
+            let before = section.activity_portions.len();
+            section
+                .activity_portions
+                .retain(|p| p.activity_id != activity_id);
+            let dropped = (before - section.activity_portions.len()) as u32;
+            section.visit_count = section.visit_count.saturating_sub(dropped);
+        }
+        for row in self.identity.rows.values_mut() {
+            drop_from(&mut row.section, activity_id);
+        }
+        for row in self.identity.graves.values_mut() {
+            drop_from(&mut row.section, activity_id);
+        }
+        self.identity.seen.remove(activity_id);
+        for section in &mut self.sections {
+            drop_from(section, activity_id);
+        }
+    }
+
     /// Record a durable suppression intent for a corridor the user hid
     /// (`kind = "disabled"`) or removed (`kind = "deleted"`), capturing the
     /// section's current ground so the emitter never re-detects it (invariant 6).
