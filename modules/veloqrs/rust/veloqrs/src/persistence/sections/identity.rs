@@ -40,10 +40,19 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use serde::{Deserialize, Serialize};
 
 use crate::persistence::PersistentRouteEngine;
+use crate::persistence::codec;
 use crate::sections::crud::compute_section_portions;
 use tracematch::{
     CandidateSection, FrequentSection, GpsPoint, HysteresisParams, HysteresisState, shares_ground,
 };
+
+/// `identity_state.key` for the section registry blob (B4 migration 013).
+pub(super) const SECTION_IDENTITY_KEY: &str = "section_identity";
+
+/// Version byte on the persisted section-registry blob. Bump on any
+/// serialisation-breaking change to [`SectionIdentity`]; an old byte then reseeds
+/// gracefully instead of misparsing (postcard is positional).
+pub(super) const SECTION_IDENTITY_BLOB_VERSION: u8 = 1;
 
 /// Merge-candidacy mutual-overlap floor for the registry's hysteresis. SHIPS AT
 /// 0.0 (the pure-layer default): a prior competes for a candidate's merge
@@ -81,7 +90,12 @@ pub(crate) struct IdentityRow {
 /// now so that migration is a straight `serde` of this type. `Default` is hand
 /// written (below) so the hysteresis tunables — the merge floor especially — are
 /// an explicit knob at the one construction site, not a buried derive.
+///
+/// `#[serde(default)]` so a field added in a later version deserialises from an
+/// older blob (paired with the version tag on the persisted bytes, which reseeds
+/// on a hard shape change since postcard is positional, not self-describing).
 #[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(default)]
 pub(crate) struct SectionIdentity {
     /// Pure churn damping over grounds. Its internal `s_<n>` ids are the join key
     /// into [`rows`](Self::rows)/[`graves`](Self::graves), never persisted.
@@ -136,6 +150,69 @@ impl PersistentRouteEngine {
         &self.raw_sections
     }
 
+    /// Test-only fingerprint of the full section registry state (visible ids,
+    /// tombstones, debounce, seen, ordinal), for asserting a restart restores it
+    /// exactly. Behind `synthetic` so it never reaches the shipped API.
+    #[cfg(feature = "synthetic")]
+    pub fn section_identity_fingerprint(&self) -> Vec<u8> {
+        codec::serialize(&self.identity).unwrap_or_default()
+    }
+
+    /// The whole section registry as a version-tagged serde blob, or None if
+    /// serialisation fails. Written INSIDE the `save_sections` transaction (via
+    /// `write_identity_state`) so the registry and the catalogue it describes
+    /// commit atomically — a crash cannot leave the blob ahead of the DB. The
+    /// leading byte is [`SECTION_IDENTITY_BLOB_VERSION`]; a mismatch on restore
+    /// reseeds rather than misparsing (postcard is positional).
+    pub(crate) fn section_identity_blob(&self) -> Option<Vec<u8>> {
+        codec::serialize(&self.identity)
+            .map(|body| codec::tag_blob(SECTION_IDENTITY_BLOB_VERSION, body))
+            .ok()
+    }
+
+    /// Restore the section registry from its persisted blob. Returns false — so
+    /// the caller reseeds from the DB rows — when there is no blob (fresh or
+    /// pre-B4 install), the version byte does not match, or it fails to decode.
+    /// Treating an UNREADABLE blob exactly like a missing one is crash-consistency
+    /// healing, not just the migration path: a torn or stale blob self-heals to a
+    /// reseed, never a failed load. On a clean restore the exact debounce +
+    /// tombstone state is back, so a pending dissolve resumes its streak and a
+    /// tombstoned ground still re-emerges under its old id.
+    pub(crate) fn section_identity_restore(&mut self) -> bool {
+        let bytes: Option<Vec<u8>> = self
+            .db
+            .query_row(
+                "SELECT blob FROM identity_state WHERE key = ?",
+                rusqlite::params![SECTION_IDENTITY_KEY],
+                |row| row.get(0),
+            )
+            .ok();
+        let Some(bytes) = bytes else {
+            return false;
+        };
+        let Some(body) = codec::untag_blob(SECTION_IDENTITY_BLOB_VERSION, &bytes) else {
+            log::warn!("tracematch: [section_identity_restore] blob version mismatch, reseeding");
+            return false;
+        };
+        match codec::deserialize::<SectionIdentity>(body) {
+            Ok(state) => {
+                self.identity = state;
+                // No counter-reconcile equivalent to the route registry's. Section
+                // ids are `s_<ts>__<rand>`, collision-free by construction, so the
+                // same one-generation stale-blob window cannot mint a duplicate PK.
+                // The window can leave a catalogue id unknown to the restored
+                // registry (a section saved after the stale blob), but that section
+                // is simply re-matched by ground on the next apply's step_assign —
+                // it self-heals through remap, not a failed load.
+                true
+            }
+            Err(e) => {
+                log::warn!("tracematch: [section_identity_restore] decode failed, reseeding: {e}");
+                false
+            }
+        }
+    }
+
     /// Seed the registry from the sections already loaded from the DB, adopting
     /// each existing id as a stable seed. Called once after `load_sections` so an
     /// existing install keeps its ids (positional, custom, or previously minted)
@@ -162,10 +239,9 @@ impl PersistentRouteEngine {
         let (_out, pure_ids) = identity.hysteresis.step_assign(&candidates);
         for (j, section) in managed.into_iter().enumerate() {
             let real_id = section.id.clone();
-            identity.rows.insert(
-                pure_ids[j].clone(),
-                IdentityRow { real_id, section },
-            );
+            identity
+                .rows
+                .insert(pure_ids[j].clone(), IdentityRow { real_id, section });
         }
         identity.seen = self.activity_metadata.keys().cloned().collect();
         self.identity = identity;
@@ -208,9 +284,7 @@ impl PersistentRouteEngine {
         // it is the collision. This is the custom-section rule generalised.
         let raw: Vec<FrequentSection> = raw
             .into_iter()
-            .filter(|s| {
-                !s.is_user_defined && !ground_owned_by_intent(&s.polyline, &intent_grounds)
-            })
+            .filter(|s| !s.is_user_defined && !ground_owned_by_intent(&s.polyline, &intent_grounds))
             .collect();
 
         // Step the pure hysteresis and learn which visible id each candidate
@@ -294,11 +368,7 @@ impl PersistentRouteEngine {
         identity.rows = new_rows;
         identity.seen = now_seen;
 
-        identity
-            .rows
-            .values()
-            .map(|r| r.section.clone())
-            .collect()
+        identity.rows.values().map(|r| r.section.clone()).collect()
     }
 
     /// Relinquish a registry row whose ground has just passed to a durable intent
@@ -321,31 +391,131 @@ impl PersistentRouteEngine {
         }
     }
 
-    /// Grounds (polylines) and ids of the durable-intent DB rows the detection
-    /// wipe spares: custom, backed-up (trimmed/set-ref), or user-defined
-    /// (accepted/renamed/merged). Read raw from the DB because these rows are the
-    /// authority the registry defers to.
+    /// Drop a removed activity from every section the registry carries (visible
+    /// rows and tombstoned graves) and from the in-memory catalogue, and forget it
+    /// as seen so a later re-add folds it back in. The append-only fold otherwise
+    /// keeps a removed contributor as a phantom member, which the activity_id
+    /// foreign key now (correctly) refuses to persist — aborting the whole
+    /// detection apply. Called by remove_activity. Ground is untouched: only the
+    /// gone activity leaves; the section's geometry and other members stay.
+    pub(crate) fn section_identity_purge_activity(&mut self, activity_id: &str) {
+        fn drop_from(section: &mut FrequentSection, activity_id: &str) {
+            section.activity_ids.retain(|a| a != activity_id);
+            let before = section.activity_portions.len();
+            section
+                .activity_portions
+                .retain(|p| p.activity_id != activity_id);
+            let dropped = (before - section.activity_portions.len()) as u32;
+            section.visit_count = section.visit_count.saturating_sub(dropped);
+        }
+        for row in self.identity.rows.values_mut() {
+            drop_from(&mut row.section, activity_id);
+        }
+        for row in self.identity.graves.values_mut() {
+            drop_from(&mut row.section, activity_id);
+        }
+        self.identity.seen.remove(activity_id);
+        for section in &mut self.sections {
+            drop_from(section, activity_id);
+        }
+    }
+
+    /// Record a durable suppression intent for a corridor the user hid
+    /// (`kind = "disabled"`) or removed (`kind = "deleted"`), capturing the
+    /// section's current ground so the emitter never re-detects it (invariant 6).
+    /// Best-effort: a missing section is a no-op (nothing to suppress) and a write
+    /// failure logs rather than propagates — the worst case is the pre-B4
+    /// behaviour where the corridor could re-emerge, never a crash. For a delete,
+    /// call this BEFORE the row is gone.
+    pub(crate) fn record_section_intent(&self, section_id: &str, kind: &str) {
+        let polyline_json: Option<String> = self
+            .db
+            .query_row(
+                "SELECT polyline_json FROM sections WHERE id = ?",
+                rusqlite::params![section_id],
+                |row| row.get(0),
+            )
+            .ok();
+        let Some(polyline_json) = polyline_json else {
+            return;
+        };
+        if let Err(e) = self.db.execute(
+            "INSERT INTO section_intents (id, kind, polyline_json, created_at)
+             VALUES (?, ?, ?, datetime('now'))
+             ON CONFLICT(id) DO UPDATE SET
+                kind = excluded.kind,
+                polyline_json = excluded.polyline_json,
+                created_at = excluded.created_at",
+            rusqlite::params![section_id, kind, polyline_json],
+        ) {
+            log::warn!("tracematch: [record_section_intent] {section_id} ({kind}): {e}");
+        }
+    }
+
+    /// Clear a section's suppression intent (on enable), so its corridor can be
+    /// detected again. Best-effort.
+    pub(crate) fn clear_section_intent(&self, section_id: &str) {
+        if let Err(e) = self.db.execute(
+            "DELETE FROM section_intents WHERE id = ?",
+            rusqlite::params![section_id],
+        ) {
+            log::warn!("tracematch: [clear_section_intent] {section_id}: {e}");
+        }
+    }
+
+    /// Grounds (polylines) and ids of the durable-intent DB rows the emitter must
+    /// not re-emit. Two sources, both read raw from the DB because they are the
+    /// authority the registry defers to:
+    ///
+    /// - The wipe-spared section rows — custom, backed-up (trimmed/set-ref), or
+    ///   user-defined (accepted/renamed/merged) — whose ground a fresh auto
+    ///   section would collide with on `UNIQUE sections.id`.
+    /// - The `section_intents` suppression records — user-disabled and
+    ///   user-deleted corridors that must stay hidden across restart (invariant 6).
+    ///   The disabled section's own row is is_user_defined=0 and the deleted row
+    ///   is gone, so neither is caught by the first query; the retained intent
+    ///   ground is what keeps the corridor from re-emerging.
     fn durable_intent_rows(&self) -> (Vec<Vec<GpsPoint>>, BTreeSet<String>) {
         let mut grounds = Vec::new();
         let mut ids = BTreeSet::new();
-        let mut stmt = match self.db.prepare(
-            "SELECT id, polyline_json FROM sections
-             WHERE section_type = 'custom'
-                OR original_polyline_json IS NOT NULL
-                OR is_user_defined = 1",
-        ) {
-            Ok(s) => s,
-            Err(_) => return (grounds, ids),
-        };
-        let rows = stmt.query_map([], |row| {
-            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
-        });
-        if let Ok(iter) = rows {
-            for (id, polyline_json) in iter.flatten() {
-                ids.insert(id);
-                if let Ok(pts) = serde_json::from_str::<Vec<GpsPoint>>(&polyline_json) {
-                    if !pts.is_empty() {
-                        grounds.push(pts);
+        {
+            let mut stmt = match self.db.prepare(
+                "SELECT id, polyline_json FROM sections
+                 WHERE section_type = 'custom'
+                    OR original_polyline_json IS NOT NULL
+                    OR is_user_defined = 1",
+            ) {
+                Ok(s) => s,
+                Err(_) => return (grounds, ids),
+            };
+            let rows = stmt.query_map([], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+            });
+            if let Ok(iter) = rows {
+                for (id, polyline_json) in iter.flatten() {
+                    ids.insert(id);
+                    if let Ok(pts) = serde_json::from_str::<Vec<GpsPoint>>(&polyline_json) {
+                        if !pts.is_empty() {
+                            grounds.push(pts);
+                        }
+                    }
+                }
+            }
+        }
+        if let Ok(mut stmt) = self
+            .db
+            .prepare("SELECT id, polyline_json FROM section_intents")
+        {
+            let rows = stmt.query_map([], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+            });
+            if let Ok(iter) = rows {
+                for (id, polyline_json) in iter.flatten() {
+                    ids.insert(id);
+                    if let Ok(pts) = serde_json::from_str::<Vec<GpsPoint>>(&polyline_json) {
+                        if !pts.is_empty() {
+                            grounds.push(pts);
+                        }
                     }
                 }
             }

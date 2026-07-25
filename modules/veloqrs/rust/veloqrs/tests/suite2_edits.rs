@@ -79,7 +79,6 @@ fn disabled_corridor_reemerges_today() {
 /// fresh visible section (violates invariant 6). Green when disabled sections
 /// become honoured intent records whose corridor the emitter suppresses.
 #[test]
-#[ignore = "B4 intent records not built — target gate (disabled corridor re-emerges today)"]
 fn disabled_corridor_stays_hidden() {
     let corpus = corpus();
     let (mut engine, _dir) = fresh_engine_for(Arm::Control);

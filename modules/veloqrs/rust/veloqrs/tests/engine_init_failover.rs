@@ -49,7 +49,9 @@ fn init_survives_corrupt_database() {
     assert!(db_path.exists(), "a fresh database must exist");
     let generation_one = quarantine_files(tmp.path());
     assert!(
-        generation_one.iter().any(|n| n.starts_with("routes.db.corrupt-")),
+        generation_one
+            .iter()
+            .any(|n| n.starts_with("routes.db.corrupt-")),
         "corrupt file must be renamed aside, got {:?}",
         generation_one
     );

@@ -417,6 +417,14 @@ impl PersistentRouteEngine {
     // -----------------------------------------------------------------------
 
     /// Disable a section (hide from all queries except restore UI).
+    ///
+    /// The DB row is kept (disabled = 1) so enable can restore it with members
+    /// intact, but it is dropped from the in-memory cache and the identity
+    /// registry, and a durable suppression intent is recorded. Together these
+    /// stop the corridor from re-emerging on the next detect (invariant 6) and
+    /// close the in-mem/DB seam: the visible view already hides a disabled
+    /// section, so the in-memory cache must too, or detection keeps matching on
+    /// a corridor the user hid.
     pub fn disable_section(&mut self, section_id: &str) -> Result<(), String> {
         let rows = self
             .db
@@ -428,12 +436,16 @@ impl PersistentRouteEngine {
         if rows == 0 {
             return Err(format!("Section not found: {}", section_id));
         }
+        self.record_section_intent(section_id, "disabled");
         self.invalidate_section_cache(section_id);
-        self.refresh_section_in_memory(section_id);
+        self.remove_section_from_memory(section_id);
+        self.section_identity_relinquish(section_id);
         Ok(())
     }
 
-    /// Re-enable a previously disabled section.
+    /// Re-enable a previously disabled section: clear its suppression intent,
+    /// unhide the row, and restore it to the in-memory cache so the seam stays
+    /// coherent and the corridor can be detected again.
     pub fn enable_section(&mut self, section_id: &str) -> Result<(), String> {
         let rows = self
             .db
@@ -445,6 +457,7 @@ impl PersistentRouteEngine {
         if rows == 0 {
             return Err(format!("Section not found: {}", section_id));
         }
+        self.clear_section_intent(section_id);
         self.invalidate_section_cache(section_id);
         self.refresh_section_in_memory(section_id);
         Ok(())

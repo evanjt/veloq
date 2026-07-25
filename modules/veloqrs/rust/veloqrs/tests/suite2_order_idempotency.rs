@@ -102,7 +102,13 @@ fn with_shifted_track(a: &LifecycleActivity, dlat_deg: f64) -> LifecycleActivity
         gps_points: a
             .gps_points
             .iter()
-            .map(|p| GpsPoint::with_elevation(p.latitude + dlat_deg, p.longitude, p.elevation.unwrap_or(300.0)))
+            .map(|p| {
+                GpsPoint::with_elevation(
+                    p.latitude + dlat_deg,
+                    p.longitude,
+                    p.elevation.unwrap_or(300.0),
+                )
+            })
             .collect(),
     }
 }
@@ -162,7 +168,11 @@ fn drip_order_permutations_measured() {
         );
         println!(
             "  same-order determinism (forward on two fresh engines): {}",
-            if sig_f == fwd2.catalogue_signature() { "DETERMINISTIC" } else { "NON-DETERMINISTIC (HashMap-seed)" },
+            if sig_f == fwd2.catalogue_signature() {
+                "DETERMINISTIC"
+            } else {
+                "NON-DETERMINISTIC (HashMap-seed)"
+            },
         );
         println!(
             "  forward-drip vs batch: ground recovered={:.0}%  catalogue identical={}",
@@ -218,14 +228,20 @@ fn reingest_same_id_measured() {
     let (mut engine, _dir) = fresh_engine_for(Arm::Control);
     let cold = ingest_step(&mut engine, "cold", &pool).snapshot;
     let (id, before) = busiest_section(&cold).expect("cold detect produced a section");
-    let victim = activity_by_id(&pool, before.activity_ids.iter().next().expect("a contributor"));
+    let victim = activity_by_id(
+        &pool,
+        before.activity_ids.iter().next().expect("a contributor"),
+    );
 
     let after = try_ingest_step(&mut engine, "reingest", &[victim])
         .expect("re-ingesting an identical activity must not crash")
         .snapshot;
 
     let after_sec = after.sections.get(&id);
-    println!("\n[control] re-ingest same id, same track — activity {}", victim.id);
+    println!(
+        "\n[control] re-ingest same id, same track — activity {}",
+        victim.id
+    );
     println!(
         "  sections {} -> {}   catalogue identical: {}",
         cold.count(),
@@ -255,7 +271,13 @@ fn reingest_same_id_is_idempotent() {
     let cold = ingest_step(&mut engine, "cold", &pool).snapshot;
     let victim = activity_by_id(
         &pool,
-        busiest_section(&cold).expect("a section").1.activity_ids.iter().next().expect("a contributor"),
+        busiest_section(&cold)
+            .expect("a section")
+            .1
+            .activity_ids
+            .iter()
+            .next()
+            .expect("a contributor"),
     );
 
     let after = try_ingest_step(&mut engine, "reingest", &[victim])
@@ -283,7 +305,10 @@ fn reingest_different_track_measured() {
     let (mut engine, _dir) = fresh_engine_for(Arm::Control);
     let cold = ingest_step(&mut engine, "cold", &pool).snapshot;
     let (id, before) = busiest_section(&cold).expect("cold detect produced a section");
-    let original = activity_by_id(&pool, before.activity_ids.iter().next().expect("a contributor"));
+    let original = activity_by_id(
+        &pool,
+        before.activity_ids.iter().next().expect("a contributor"),
+    );
     let mutated = with_shifted_track(original, 0.02);
 
     let after = try_ingest_step(&mut engine, "reingest-moved", &[&mutated])
@@ -294,7 +319,10 @@ fn reingest_different_track_measured() {
         .sections
         .get(&id)
         .is_some_and(|s| ground_matches(&before, s));
-    println!("\n[control] re-ingest same id, track moved ~2.2km — activity {}", original.id);
+    println!(
+        "\n[control] re-ingest same id, track moved ~2.2km — activity {}",
+        original.id
+    );
     println!(
         "  catalogue changed: {}   fed section still on the OLD corridor: {}",
         cold.catalogue_signature() != after.catalogue_signature(),
@@ -327,7 +355,13 @@ fn reingest_different_track_updates_catalogue() {
     let cold = raw_snapshot(&engine);
     let original = activity_by_id(
         &pool,
-        busiest_section(&cold).expect("a section").1.activity_ids.iter().next().expect("a contributor"),
+        busiest_section(&cold)
+            .expect("a section")
+            .1
+            .activity_ids
+            .iter()
+            .next()
+            .expect("a contributor"),
     );
     let mutated = with_shifted_track(original, 0.02);
 
@@ -356,7 +390,10 @@ fn remove_readd_roundtrip_measured() {
     let (mut engine, _dir) = fresh_engine_for(Arm::Control);
     let s0 = ingest_step(&mut engine, "cold", &pool).snapshot;
     let (_id, before) = busiest_section(&s0).expect("cold detect produced a section");
-    let victim = activity_by_id(&pool, before.activity_ids.iter().next().expect("a contributor"));
+    let victim = activity_by_id(
+        &pool,
+        before.activity_ids.iter().next().expect("a contributor"),
+    );
 
     engine.remove_activity(&victim.id).expect("remove_activity");
     let s1 = try_ingest_step(&mut engine, "after-remove", &[])
@@ -367,8 +404,15 @@ fn remove_readd_roundtrip_measured() {
         .expect("detect after re-add must not crash")
         .snapshot;
 
-    let refs_victim = |snap: &SectionSnapshot| snap.sections.values().any(|s| s.activity_ids.contains(&victim.id));
-    println!("\n[control] remove -> re-add round trip — activity {}", victim.id);
+    let refs_victim = |snap: &SectionSnapshot| {
+        snap.sections
+            .values()
+            .any(|s| s.activity_ids.contains(&victim.id))
+    };
+    println!(
+        "\n[control] remove -> re-add round trip — activity {}",
+        victim.id
+    );
     println!(
         "  S0 cold={} sections (refs victim {})",
         s0.count(),
@@ -414,21 +458,31 @@ fn remove_readd_roundtrips_through_effective_removal() {
     let s0 = raw_snapshot(&engine);
     let victim = activity_by_id(
         &pool,
-        busiest_section(&s0).expect("a section").1.activity_ids.iter().next().expect("a contributor"),
+        busiest_section(&s0)
+            .expect("a section")
+            .1
+            .activity_ids
+            .iter()
+            .next()
+            .expect("a contributor"),
     );
 
     engine.remove_activity(&victim.id).expect("remove_activity");
     try_ingest_step(&mut engine, "after-remove", &[]).expect("detect after remove must not crash");
     let s1 = raw_snapshot(&engine);
 
-    let still_referenced = s1.sections.values().any(|s| s.activity_ids.contains(&victim.id));
+    let still_referenced = s1
+        .sections
+        .values()
+        .any(|s| s.activity_ids.contains(&victim.id));
     assert!(
         !still_referenced,
         "removed activity {} still contributes to the catalogue — removal never reached it",
         victim.id,
     );
 
-    try_ingest_step(&mut engine, "after-readd", &[victim]).expect("detect after re-add must not crash");
+    try_ingest_step(&mut engine, "after-readd", &[victim])
+        .expect("detect after re-add must not crash");
     let s2 = raw_snapshot(&engine);
     assert_eq!(
         s0.catalogue_signature(),
@@ -465,7 +519,10 @@ fn duplicate_in_batch_measured() {
     let dup = try_ingest_step(&mut e_dup, "dup", &doubled)
         .expect("a duplicate id in one batch must not crash");
 
-    println!("\n[control] duplicate id inside one batch — {} listed twice", pool[0].id);
+    println!(
+        "\n[control] duplicate id inside one batch — {} listed twice",
+        pool[0].id
+    );
     println!(
         "  batch slice len: single={} dup={}   distinct activities stored: single={} dup={}",
         pool.len(),
@@ -480,8 +537,7 @@ fn duplicate_in_batch_measured() {
     );
     println!(
         "  => the duplicate collapses storage (distinct {}=={}); any catalogue diff is the seed-order confound above, not the duplicate",
-        single.activity_count,
-        dup.activity_count,
+        single.activity_count, dup.activity_count,
     );
 }
 

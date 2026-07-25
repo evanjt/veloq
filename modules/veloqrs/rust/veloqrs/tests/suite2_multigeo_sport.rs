@@ -31,8 +31,8 @@ mod lifecycle_support;
 
 use lifecycle_support::*;
 use std::collections::{BTreeSet, HashMap};
-use tracematch::scenarios::{LifecycleActivity, LifecycleConfig, LifecycleCorpus};
 use tracematch::GpsPoint;
+use tracematch::scenarios::{LifecycleActivity, LifecycleConfig, LifecycleCorpus};
 
 // ============================================================================
 // Inlined helpers (the harness is read-only; these are private to this suite)
@@ -155,7 +155,10 @@ fn is_reverse_pair(a: &SectionFingerprint, b: &SectionFingerprint) -> bool {
 /// Real traversals of one ground-truth corridor, pulled from a generously
 /// sized corpus so the shared/cross-sport corridors have plenty of overlap.
 /// Returns the traversals plus the canonical corridor polyline (the ground).
-fn corridor_source(corridor_idx: usize, min_needed: usize) -> (Vec<LifecycleActivity>, Vec<GpsPoint>) {
+fn corridor_source(
+    corridor_idx: usize,
+    min_needed: usize,
+) -> (Vec<LifecycleActivity>, Vec<GpsPoint>) {
     // One big cold bucket: the 18% cross-sport roll needs volume to seed both
     // sports onto corridor 2. Detection never runs on all of these; tests
     // ingest a handful of the returned traversals.
@@ -206,7 +209,11 @@ fn corridor_source(corridor_idx: usize, min_needed: usize) -> (Vec<LifecycleActi
 /// geography 1 so the add crosses the 50%-new line into FULL re-detection
 /// (the path that re-runs the SW-corner cluster ordering). Returns the cold
 /// snapshot and the after snapshot.
-fn geo_scenario(geo2_origin_lat: f64, geo2_seed: u64, prefix: &str) -> (SectionSnapshot, SectionSnapshot) {
+fn geo_scenario(
+    geo2_origin_lat: f64,
+    geo2_seed: u64,
+    prefix: &str,
+) -> (SectionSnapshot, SectionSnapshot) {
     let geo1 = LifecycleCorpus::generate(&LifecycleConfig {
         bucket_a_count: 18,
         ..LifecycleConfig::default()
@@ -258,7 +265,9 @@ fn geography_perturbation_today() {
         let ground = ground_fp(cold.polyline.clone());
         let same_id_now = s_south.sections.get(&cold_id);
         let ground_now = busiest_on_ground(&s_south, &ground).map(|(id, _)| id);
-        let same_id_still_on_ground = same_id_now.map(|f| ground_matches(&cold, f)).unwrap_or(false);
+        let same_id_still_on_ground = same_id_now
+            .map(|f| ground_matches(&cold, f))
+            .unwrap_or(false);
         println!(
             "[battery] south: geography-1 busiest was {cold_id}; after the add, id {cold_id} \
              still covers that ground = {same_id_still_on_ground}; the ground now lives under {ground_now:?}",
@@ -302,10 +311,19 @@ fn distant_geography_must_not_reshuffle_ids() {
 
 /// Ingest `ride_n` + `run_n` traversals of corridor 2, same ground, only the
 /// sport labels differ, and return the post-pipeline snapshot plus the ground.
-fn cross_flip_snapshot(ride_n: usize, run_n: usize, prefix: &str) -> (SectionSnapshot, Vec<GpsPoint>) {
+fn cross_flip_snapshot(
+    ride_n: usize,
+    run_n: usize,
+    prefix: &str,
+) -> (SectionSnapshot, Vec<GpsPoint>) {
     let (src, ground) = corridor_source(2, ride_n + run_n);
     let rides = labelled(&src, 0..ride_n, &format!("{prefix}ride_"), "Ride");
-    let runs = labelled(&src, ride_n..ride_n + run_n, &format!("{prefix}run_"), "Run");
+    let runs = labelled(
+        &src,
+        ride_n..ride_n + run_n,
+        &format!("{prefix}run_"),
+        "Run",
+    );
 
     let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
     ingest_step(&mut engine, "cross/ride", &refs(&rides));
@@ -437,7 +455,9 @@ fn add_second_sport_identity_today() {
                  cold id was {cold_id}; after add the ground carries {} section(s): {:?}\n  \
                  same id survives = {}",
                 on.len(),
-                on.iter().map(|(id, f)| (id.clone(), f.sport_type.clone())).collect::<Vec<_>>(),
+                on.iter()
+                    .map(|(id, f)| (id.clone(), f.sport_type.clone()))
+                    .collect::<Vec<_>>(),
                 on.iter().any(|(id, _)| *id == cold_id),
             );
         }
@@ -521,7 +541,9 @@ fn section_id_survives_sport_addition() {
         "adding a second sport on the same ground broke identity: cold id {cold_id} now maps to \
          {} section(s) {:?} (want exactly 1, keeping {cold_id})",
         on.len(),
-        on.iter().map(|(id, f)| (id.clone(), f.sport_type.clone())).collect::<Vec<_>>(),
+        on.iter()
+            .map(|(id, f)| (id.clone(), f.sport_type.clone()))
+            .collect::<Vec<_>>(),
     );
 }
 

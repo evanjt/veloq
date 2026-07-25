@@ -18,8 +18,8 @@ use lifecycle_support::*;
 use rusqlite::Connection;
 use std::collections::{BTreeSet, HashMap};
 use std::path::Path;
-use tracematch::scenarios::{LifecycleConfig, LifecycleCorpus};
 use tracematch::GpsPoint;
+use tracematch::scenarios::{LifecycleConfig, LifecycleCorpus};
 
 /// Corpus generator constant, mirrored so the parallel-street ground can be
 /// reconstructed exactly (the generator offsets in latitude only).
@@ -483,7 +483,6 @@ fn delete_corridor_reemerges_today() {
 /// visible section. Green when deletion becomes an honoured suppression the
 /// emitter respects (like disable, but tombstoned).
 #[test]
-#[ignore = "B4 intent records not built: delete_section is a hard row delete, so the corridor re-emerges on resync"]
 fn deleted_corridor_stays_deleted() {
     let corpus = corpus();
     let (mut engine, _dir) = fresh_engine_for(Arm::Control);

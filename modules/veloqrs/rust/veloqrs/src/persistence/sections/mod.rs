@@ -145,7 +145,7 @@ impl PersistentRouteEngine {
                         point_density_json, scale, version, is_user_defined, stability,
                         created_at, updated_at, consensus_state_blob,
                         polyline_blob, point_density_blob
-                 FROM sections WHERE section_type = 'auto'",
+                 FROM sections WHERE section_type = 'auto' AND disabled = 0",
             )?;
 
             self.sections = stmt
@@ -1215,10 +1215,13 @@ impl PersistentRouteEngine {
     pub(super) fn save_sections(&self) -> SqlResult<()> {
         let tx = self.db.unchecked_transaction()?;
 
-        // Clear existing auto sections (keep custom, trimmed, and accepted sections)
-        tx.execute("DELETE FROM section_activities WHERE section_id IN (SELECT id FROM sections WHERE section_type = 'auto' AND original_polyline_json IS NULL AND is_user_defined = 0)", [])?;
+        // Clear existing auto sections (keep custom, trimmed, and accepted
+        // sections — and disabled ones, whose row is retained so enable can
+        // restore it with members intact; the disabled corridor is separately
+        // suppressed via section_intents, so sparing the row cannot resurrect it).
+        tx.execute("DELETE FROM section_activities WHERE section_id IN (SELECT id FROM sections WHERE section_type = 'auto' AND original_polyline_json IS NULL AND is_user_defined = 0 AND disabled = 0)", [])?;
         tx.execute(
-            "DELETE FROM sections WHERE section_type = 'auto' AND original_polyline_json IS NULL AND is_user_defined = 0",
+            "DELETE FROM sections WHERE section_type = 'auto' AND original_polyline_json IS NULL AND is_user_defined = 0 AND disabled = 0",
             [],
         )?;
 
@@ -1508,6 +1511,14 @@ impl PersistentRouteEngine {
             // Time streams come from `self.time_streams` (warm cache) or
             // the pre-fetched `db_time_streams` batch above (cold).
             for portion in &section.activity_portions {
+                // Never emit a junction row for an activity the pool no longer
+                // holds. The activity_id foreign key would reject it and abort the
+                // entire apply (a single stale carried member bricking detection
+                // for the session). The identity purge on remove keeps this from
+                // arising; this is the failover-safe backstop for any it misses.
+                if !self.activity_metadata.contains_key(&portion.activity_id) {
+                    continue;
+                }
                 let times = self
                     .time_streams
                     .peek(&portion.activity_id)
@@ -1541,6 +1552,18 @@ impl PersistentRouteEngine {
         // Drop prepared statements before committing (they hold borrows on tx)
         drop(section_stmt);
         drop(junction_stmt);
+
+        // B4: write the identity-registry blob in THIS transaction so the
+        // registry and the catalogue it describes commit (or roll back) together.
+        if let Some(blob) = self.section_identity_blob() {
+            tx.execute(
+                "INSERT INTO identity_state (key, blob, updated_at)
+                 VALUES (?, ?, datetime('now'))
+                 ON CONFLICT(key) DO UPDATE SET blob = excluded.blob, updated_at = excluded.updated_at",
+                params![identity::SECTION_IDENTITY_KEY, blob],
+            )?;
+        }
+
         tx.commit()?;
 
         Ok(())

@@ -39,6 +39,7 @@ pub(crate) mod codec;
 pub(crate) mod export;
 mod fitness;
 mod indicators;
+mod route_identity;
 mod routes;
 mod schema;
 pub mod sections;
@@ -397,7 +398,10 @@ impl SectionDetectionHandle {
     /// is guaranteed to observe a cache when the Unified path produced one.
     pub fn recv_with_cache(
         self,
-    ) -> (Option<(Vec<FrequentSection>, Vec<String>)>, Option<CacheUpdate>) {
+    ) -> (
+        Option<(Vec<FrequentSection>, Vec<String>)>,
+        Option<CacheUpdate>,
+    ) {
         let main = self.receiver.recv().ok();
         let cache = self.cache_receiver.try_recv().ok();
         (main, cache)
@@ -588,8 +592,14 @@ pub struct PersistentRouteEngine {
     /// Tier 2: LRU cached groups for single-item lookups (100 max = ~1MB)
     group_cache: LruCache<String, RouteGroup>,
 
-    /// Cached route groups (loaded from DB)
+    /// Cached route groups (loaded from DB). Since B2 their `group_id` is a stable
+    /// assign-once id carried by `route_identity`, not the churning Union-Find root.
     groups: Vec<RouteGroup>,
+
+    /// Assign-once route identity registry (B2 step 3). Owns the stable route id
+    /// over time and carries it (plus the representative) onto the recomputed
+    /// group by member overlap. In-memory pre-B4; reseeded from the DB on open.
+    route_identity: route_identity::RouteIdentity,
 
     /// Per-activity match info: route_id -> Vec<ActivityMatchInfo>
     activity_matches: HashMap<String, Vec<ActivityMatchInfo>>,
@@ -706,6 +716,7 @@ impl PersistentRouteEngine {
             section_cache: LruCache::new(std::num::NonZeroUsize::new(50).unwrap()),
             group_cache: LruCache::new(std::num::NonZeroUsize::new(100).unwrap()),
             groups: Vec::new(),
+            route_identity: route_identity::RouteIdentity::default(),
             activity_matches: HashMap::new(),
             activity_metrics: HashMap::new(),
             time_streams: LruCache::new(std::num::NonZeroUsize::new(200).unwrap()),
@@ -743,7 +754,10 @@ impl PersistentRouteEngine {
             ("sections", self.load_sections()),
             ("processed_activity_ids", self.load_processed_activity_ids()),
             ("activity_metrics", self.load_activity_metrics()),
-            ("match_strictness", self.load_match_strictness_from_settings()),
+            (
+                "match_strictness",
+                self.load_match_strictness_from_settings(),
+            ),
             ("section_config", self.load_section_config_from_settings()),
         ];
         let mut first_error: Option<rusqlite::Error> = None;
@@ -771,7 +785,19 @@ impl PersistentRouteEngine {
         // preserved: a resync carries the seeded ids onto their surviving ground
         // rather than re-deriving them. Must run after both `sections` and
         // `metadata` load so it sees the managed catalogue and the activity set.
-        self.section_identity_reseed();
+        // B4: prefer the persisted registry blob (exact debounce + tombstone
+        // state) and fall back to reseeding from the DB rows for a fresh or
+        // pre-B4 install.
+        if !self.section_identity_restore() {
+            self.section_identity_reseed();
+        }
+
+        // B2 step 3 + B4: same for routes — restore the persisted registry
+        // (mint counter + seniority), else adopt the loaded group_ids as stable
+        // seeds. Must run after `groups` load.
+        if !self.route_identity_restore() {
+            self.route_identity_reseed();
+        }
 
         // Backfill activities.duration_secs from activity_metrics.moving_time.
         // Route highlights need duration_secs to compute trends/PRs, but it was
@@ -1907,9 +1933,7 @@ mod tests {
         let sid = engine.get_sections()[0].id.clone();
 
         // Verify initial state (from DATABASE, not in-memory cache)
-        let db_section = engine
-            .get_section(&sid)
-            .expect("Section should exist");
+        let db_section = engine.get_section(&sid).expect("Section should exist");
         assert_eq!(
             db_section.representative_activity_id,
             Some("activity-1".to_string())
@@ -1924,9 +1948,7 @@ mod tests {
         );
 
         // Verify the reference was changed (from DATABASE)
-        let db_section = engine
-            .get_section(&sid)
-            .expect("Section should exist");
+        let db_section = engine.get_section(&sid).expect("Section should exist");
         assert_eq!(
             db_section.representative_activity_id,
             Some("activity-2".to_string())
@@ -2095,14 +2117,10 @@ mod tests {
         let sid = engine.get_sections()[0].id.clone();
 
         // Set reference to activity-1 (marks as user_defined)
-        engine
-            .set_section_reference(&sid, "activity-1")
-            .unwrap();
+        engine.set_section_reference(&sid, "activity-1").unwrap();
 
         // Verify it's now user-defined (from DATABASE)
-        let db_section = engine
-            .get_section(&sid)
-            .expect("Section should exist");
+        let db_section = engine.get_section(&sid).expect("Section should exist");
         assert!(
             db_section.is_user_defined,
             "Section should be user-defined after set_section_reference"
@@ -2113,9 +2131,7 @@ mod tests {
         assert!(result.is_ok());
 
         // CRITICAL ASSERTION: After reset, read from DATABASE
-        let db_section = engine
-            .get_section(&sid)
-            .expect("Section should exist");
+        let db_section = engine.get_section(&sid).expect("Section should exist");
 
         // Should not be user-defined anymore
         assert!(
@@ -2221,20 +2237,14 @@ mod tests {
         let sid = engine.get_sections()[0].id.clone();
 
         // Get initial state from DB
-        let db_section_before = engine
-            .get_section(&sid)
-            .expect("Section should exist");
+        let db_section_before = engine.get_section(&sid).expect("Section should exist");
         let initial_distance = db_section_before.distance_meters;
 
         // Set reference to the longer activity
-        engine
-            .set_section_reference(&sid, "activity-long")
-            .unwrap();
+        engine.set_section_reference(&sid, "activity-long").unwrap();
 
         // Read from DATABASE after update
-        let db_section = engine
-            .get_section(&sid)
-            .expect("Section should exist");
+        let db_section = engine.get_section(&sid).expect("Section should exist");
 
         // Distance should be approximately the same (within 20% since we're extracting matching portion)
         let distance_ratio = db_section.distance_meters / initial_distance;
@@ -2345,9 +2355,7 @@ mod tests {
         let sid = engine.get_sections()[0].id.clone();
 
         // Verify initial state: all 3 activities are associated
-        let db_section = engine
-            .get_section(&sid)
-            .expect("Section should exist");
+        let db_section = engine.get_section(&sid).expect("Section should exist");
         assert_eq!(
             db_section.activity_ids.len(),
             3,
@@ -2355,15 +2363,11 @@ mod tests {
         );
 
         // Set activity-1 as reference (this triggers re-matching)
-        engine
-            .set_section_reference(&sid, "activity-1")
-            .unwrap();
+        engine.set_section_reference(&sid, "activity-1").unwrap();
 
         // After re-matching, only activities 1 and 2 should remain (they overlap)
         // Activity 3 should be removed (it's in a completely different area)
-        let db_section = engine
-            .get_section(&sid)
-            .expect("Section should exist");
+        let db_section = engine.get_section(&sid).expect("Section should exist");
 
         // Activity-3 should have been removed (doesn't overlap)
         assert!(

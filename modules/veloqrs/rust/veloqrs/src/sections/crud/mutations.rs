@@ -532,7 +532,10 @@ impl PersistentRouteEngine {
     /// Cost is O(1 activity × M sections) plus an incremental regroup, so it
     /// fits inside a background push handler where a full O(N²) detection
     /// cannot.
-    pub fn index_new_activity(&mut self, activity_id: &str) -> Result<IndexActivitySummary, String> {
+    pub fn index_new_activity(
+        &mut self,
+        activity_id: &str,
+    ) -> Result<IndexActivitySummary, String> {
         let mut summary = IndexActivitySummary::default();
 
         let track = match self.get_gps_track(activity_id) {
@@ -540,7 +543,10 @@ impl PersistentRouteEngine {
             _ => return Ok(summary),
         };
 
-        let sport_type = self.activity_metrics.get(activity_id).map(|m| m.sport_type.clone());
+        let sport_type = self
+            .activity_metrics
+            .get(activity_id)
+            .map(|m| m.sport_type.clone());
 
         // Collect matched section polylines up front: get_sections() borrows the
         // in-memory Vec, and the insert loop below needs &mut self.
@@ -708,6 +714,11 @@ impl PersistentRouteEngine {
 
     /// Delete a section.
     pub fn delete_section(&mut self, section_id: &str) -> Result<(), String> {
+        // Record the durable delete intent BEFORE the row is gone, so the deleted
+        // corridor stays deleted across a resync (invariant 6). A missing section
+        // is a no-op here, so nothing is stranded if the DELETE below finds none.
+        self.record_section_intent(section_id, "deleted");
+
         // Junction table entries are deleted via CASCADE
         let rows = self
             .db
@@ -721,8 +732,10 @@ impl PersistentRouteEngine {
         // Invalidate cache
         self.invalidate_section_cache(section_id);
 
-        // Remove from in-memory cache
+        // Remove from in-memory cache and relinquish from the identity registry so
+        // a later detect neither carries nor re-mints the removed section.
         self.remove_section_from_memory(section_id);
+        self.section_identity_relinquish(section_id);
 
         // Drop the now-orphaned section_pr / section_trend rows from the
         // materialized indicators table so feed cards stop showing chips

@@ -105,7 +105,9 @@ fn seed_metrics_and_streams(engine: &mut PersistentRouteEngine, activities: &[&L
         });
     }
     offsets.push(times.len() as u32);
-    engine.set_activity_metrics(metrics).expect("set_activity_metrics");
+    engine
+        .set_activity_metrics(metrics)
+        .expect("set_activity_metrics");
     engine.set_time_streams_flat(&ids, &times, &offsets);
 }
 
@@ -124,7 +126,9 @@ fn rename_survives_locally_but_resync_crashes() {
     let cold = ingest_step(&mut engine, "cold", &corpus.through_a());
     let (id, _f) = busiest_section(&cold.snapshot).expect("cold detect produced a section");
 
-    engine.rename_section(&id, "My Climb").expect("rename_section");
+    engine
+        .rename_section(&id, "My Climb")
+        .expect("rename_section");
     let renamed = engine.get_section(&id).expect("get_section after rename");
     println!(
         "[rename] name={:?} user_defined={} (auto-promoted by a metadata-only edit)",
@@ -153,7 +157,9 @@ fn set_reference_keeps_junction_consistent_but_resync_crashes() {
     let (id, before) = busiest_section(&cold.snapshot).expect("cold detect produced a section");
     let new_ref = before.activity_ids.iter().next().unwrap().clone();
 
-    engine.set_section_reference(&id, &new_ref).expect("set_section_reference");
+    engine
+        .set_section_reference(&id, &new_ref)
+        .expect("set_section_reference");
     let after = engine.get_section(&id).expect("get_section");
     println!(
         "[set_ref] visits={} acts={} rep={:?} (visits >> acts would flag duplicate junction rows)",
@@ -181,10 +187,14 @@ fn reset_reference_is_a_half_reset() {
     let (id, before) = busiest_section(&cold.snapshot).expect("cold detect produced a section");
     let new_ref = before.activity_ids.iter().next().unwrap().clone();
 
-    engine.set_section_reference(&id, &new_ref).expect("set_section_reference");
+    engine
+        .set_section_reference(&id, &new_ref)
+        .expect("set_section_reference");
     let replaced_dist = engine.get_section(&id).unwrap().distance_meters;
 
-    engine.reset_section_reference(&id).expect("reset_section_reference");
+    engine
+        .reset_section_reference(&id)
+        .expect("reset_section_reference");
     let reset = engine.get_section(&id).unwrap();
     println!(
         "[reset_ref] user_defined={} dist={:.0}m orig_dist={:.0}m geometry_restored={} backup_cleared={}",
@@ -245,7 +255,9 @@ fn reset_bounds_snaps_geometry_back() {
 
     engine.trim_section(&id, start, end).expect("trim_section");
     let trimmed_dist = engine.get_section(&id).unwrap().distance_meters;
-    engine.reset_section_bounds(&id).expect("reset_section_bounds");
+    engine
+        .reset_section_bounds(&id)
+        .expect("reset_section_bounds");
     let reset = engine.get_section(&id).unwrap();
     println!(
         "[reset_bounds] trimmed={:.0}m reset={:.0}m orig={:.0}m restored={} user_defined={} backup_cleared={}",
@@ -258,7 +270,10 @@ fn reset_bounds_snaps_geometry_back() {
     );
 
     match try_ingest_step(&mut engine, "resync", &refs(&corpus.bucket_d_delta)) {
-        Ok(step) => println!("[resync] OK sections={} (crash disarmed)", step.snapshot.count()),
+        Ok(step) => println!(
+            "[resync] OK sections={} (crash disarmed)",
+            step.snapshot.count()
+        ),
         Err(e) => println!("[resync] CRASH: {e}"),
     }
 }
@@ -286,8 +301,12 @@ fn recalculate_drifts_and_can_collapse() {
         "[recalc] cold={}pts/{:.0}m  #1={:?}  #2={:?}  idempotent={}",
         before.polyline_point_count,
         before.distance_meters,
-        first.as_ref().map(|r| (r.polyline_point_count, r.distance_meters.round())),
-        second.as_ref().map(|r| (r.polyline_point_count, r.distance_meters.round())),
+        first
+            .as_ref()
+            .map(|r| (r.polyline_point_count, r.distance_meters.round())),
+        second
+            .as_ref()
+            .map(|r| (r.polyline_point_count, r.distance_meters.round())),
         match (&first, &second) {
             (Some(a), Some(b)) => a.polyline_point_count == b.polyline_point_count,
             _ => false,
@@ -370,7 +389,9 @@ fn set_reference_polyline_stays_within_one_source_activity() {
     let new_ref = before.activity_ids.iter().next().unwrap().clone();
     let track = engine.get_gps_track(&new_ref).expect("reference track");
 
-    engine.set_section_reference(&id, &new_ref).expect("set_section_reference");
+    engine
+        .set_section_reference(&id, &new_ref)
+        .expect("set_section_reference");
     let after = engine.get_section(&id).expect("get_section");
 
     let cov = coverage(&after.polyline, &track, 50.0);
@@ -400,7 +421,9 @@ fn reset_bounds_disarms_the_resync_crash() {
     let (start, end) = middle_trim(before.polyline_point_count);
 
     engine.trim_section(&id, start, end).expect("trim_section");
-    engine.reset_section_bounds(&id).expect("reset_section_bounds");
+    engine
+        .reset_section_bounds(&id)
+        .expect("reset_section_bounds");
     assert!(
         !engine.has_original_bounds(&id),
         "reset_section_bounds left the backup in place"
@@ -460,8 +483,12 @@ fn gate_reset_reference_fully_resets_like_reset_bounds() {
     let (id, before) = busiest_section(&cold.snapshot).expect("cold detect produced a section");
     let new_ref = before.activity_ids.iter().next().unwrap().clone();
 
-    engine.set_section_reference(&id, &new_ref).expect("set_section_reference");
-    engine.reset_section_reference(&id).expect("reset_section_reference");
+    engine
+        .set_section_reference(&id, &new_ref)
+        .expect("set_section_reference");
+    engine
+        .reset_section_reference(&id)
+        .expect("reset_section_reference");
     let reset = engine.get_section(&id).expect("get_section");
 
     assert!(

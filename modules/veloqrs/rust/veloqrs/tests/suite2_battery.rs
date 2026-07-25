@@ -84,7 +84,11 @@ fn order_free_cold_batch() {
         println!(
             "[{}] order-free cold batch: {}  ({} vs {} sections)",
             arm.label(),
-            if same { "YES" } else { "NO — order-dependent" },
+            if same {
+                "YES"
+            } else {
+                "NO — order-dependent"
+            },
             s1.count(),
             s2.count(),
         );

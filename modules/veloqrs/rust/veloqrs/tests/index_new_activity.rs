@@ -71,9 +71,20 @@ fn indexes_new_activity_against_existing_sections() {
         "new corridor activity should match at least one existing section; got {:?}",
         summary
     );
-    assert!(summary.inserted_portions >= 1, "expected junction rows: {:?}", summary);
-    assert!(summary.regrouped, "ingest sets groups_dirty, so indexing must regroup");
-    assert!(summary.indicators_recomputed, "indicators must refresh: {:?}", summary);
+    assert!(
+        summary.inserted_portions >= 1,
+        "expected junction rows: {:?}",
+        summary
+    );
+    assert!(
+        summary.regrouped,
+        "ingest sets groups_dirty, so indexing must regroup"
+    );
+    assert!(
+        summary.indicators_recomputed,
+        "indicators must refresh: {:?}",
+        summary
+    );
 
     let attached = engine.get_sections_for_activity(&new_activity.id);
     assert_eq!(

@@ -293,6 +293,14 @@ impl PersistentRouteEngine {
         self.groups_dirty = true;
         self.sections_dirty = true;
 
+        // Drop the gone activity from the identity registry's carried sections and
+        // the in-memory catalogue. The junction rows are cascade-deleted by the
+        // activity_id foreign key, but the append-only fold would keep the activity
+        // as a phantom member of a carried section, and the next detect's save would
+        // then try to re-insert its junction row against a deleted activity —
+        // aborting the whole apply on a foreign-key violation.
+        self.section_identity_purge_activity(id);
+
         // R6 freshness: the removed activity may have contributed to any section,
         // so the next detect must re-derive the catalogue without it. Its id is
         // now gone from `activity_metadata`, so it can never re-enter
