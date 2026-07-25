@@ -549,9 +549,7 @@ impl PersistentRouteEngine {
             self.activity_matches = result
                 .activity_matches
                 .into_iter()
-                .map(|(old_id, matches)| {
-                    (id_map.get(&old_id).cloned().unwrap_or(old_id), matches)
-                })
+                .map(|(old_id, matches)| (id_map.get(&old_id).cloned().unwrap_or(old_id), matches))
                 .collect();
         }
 

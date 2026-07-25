@@ -236,11 +236,23 @@ impl PersistentRouteEngine {
             std::cmp::Ordering::Greater => true,
             std::cmp::Ordering::Less => false,
             std::cmp::Ordering::Equal => {
-                let fi = self.route_identity.first_seen.get(&prior[i].group_id).copied();
-                let fb = self.route_identity.first_seen.get(&prior[b].group_id).copied();
+                let fi = self
+                    .route_identity
+                    .first_seen
+                    .get(&prior[i].group_id)
+                    .copied();
+                let fb = self
+                    .route_identity
+                    .first_seen
+                    .get(&prior[b].group_id)
+                    .copied();
                 match (fi, fb) {
                     (Some(a), Some(c)) if a != c => a < c,
-                    _ => match prior[i].activity_ids.len().cmp(&prior[b].activity_ids.len()) {
+                    _ => match prior[i]
+                        .activity_ids
+                        .len()
+                        .cmp(&prior[b].activity_ids.len())
+                    {
                         std::cmp::Ordering::Greater => true,
                         std::cmp::Ordering::Less => false,
                         std::cmp::Ordering::Equal => prior[i].group_id < prior[b].group_id,
