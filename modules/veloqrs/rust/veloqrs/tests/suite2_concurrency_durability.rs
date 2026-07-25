@@ -170,6 +170,45 @@ fn restart_preserves_catalogue() {
     );
 }
 
+/// Gate (B4 durability): the identity REGISTRIES survive a restart intact — not
+/// just the ids (a reseed from the DB rows already adopts those) but the
+/// hysteresis debounce streaks and the tombstones a dissolved ground re-emerges
+/// under, which live only in the registry blob. A multi-step drip builds that
+/// state; migration 013 persists it, and `load` restores it byte-for-byte where a
+/// reseed could not (a reseed sees only the final rows, losing the debounce and
+/// the tombstones). Fingerprint = the serialised registry, so equality is exact.
+#[test]
+fn identity_registries_survive_restart() {
+    let corpus = corpus();
+    let (mut e1, dir) = fresh_engine_for(Arm::Battery);
+    ingest_step(&mut e1, "cold", &corpus.through_a());
+    ingest_step(&mut e1, "expand", &refs(&corpus.bucket_b_delta));
+    ingest_step(&mut e1, "single", &[&corpus.bucket_c_single]);
+    let section_fp = e1.section_identity_fingerprint();
+    // Force route grouping so the route registry exists and is persisted.
+    e1.get_groups();
+    let route_fp = e1.route_identity_fingerprint();
+    drop(e1);
+
+    let mut e2 = PersistentRouteEngine::new(&db_path(&dir)).expect("reopen");
+    e2.load().expect("load after reopen");
+
+    assert!(
+        !section_fp.is_empty(),
+        "section registry produced no state to persist"
+    );
+    assert_eq!(
+        e2.section_identity_fingerprint(),
+        section_fp,
+        "section identity registry (debounce + tombstones) did not survive the restart",
+    );
+    assert_eq!(
+        e2.route_identity_fingerprint(),
+        route_fp,
+        "route identity registry (mint counter + seniority) did not survive the restart",
+    );
+}
+
 // ============================================================================
 // Curiosity 2: in-memory cache vs DB view seam (B4)
 //

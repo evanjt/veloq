@@ -357,6 +357,99 @@ fn open_current_engine(path: &Path) -> PersistentRouteEngine {
 }
 
 // ----------------------------------------------------------------------------
+// Migration 013 (B4): the forward migration adds the identity_state table and
+// must NOT touch a user's ACCEPTED (auto + is_user_defined) or NAMED sections,
+// nor their CUSTOM sections. Tests the upgrade preserves user data, not only a
+// fresh install. 013 is purely additive (CREATE TABLE identity_state), so this
+// is the guard that keeps it that way.
+// ----------------------------------------------------------------------------
+
+#[test]
+fn migration_013_preserves_user_sections_and_adds_identity_state() {
+    let dir = TempDir::new().expect("tempdir");
+    let path = dir.path().join("v_pre013.db");
+    seed_v02x_db(&path).expect("build pre-013 schema");
+
+    {
+        let conn = Connection::open(&path).expect("seed");
+        let track = sample_gps_points(120);
+        insert_activity(&conn, "act_ride_1", "Ride", &track, SEED_ACTIVITY_DATE).expect("activity");
+        let poly = encode_polyline_json(&track[10..80]);
+
+        // An ACCEPTED auto section (is_user_defined = 1) with a user name.
+        conn.execute(
+            "INSERT INTO sections(id, section_type, name, sport_type, polyline_json,
+                distance_meters, is_user_defined, version, created_at)
+             VALUES ('sec_accepted_1', 'auto', 'My Named Climb', 'Ride', ?, 5000.0, 1, 1, datetime('now'))",
+            params![poly],
+        )
+        .expect("accepted section");
+
+        // A CUSTOM section.
+        insert_custom_section(
+            &conn,
+            "custom_1700000000000__zzzzz",
+            Some("My Custom Loop"),
+            "Ride",
+            &poly,
+            5000.0,
+            "act_ride_1",
+            10,
+            80,
+        )
+        .expect("custom section");
+    }
+
+    // Run the full forward migration (…012, 013) + post-migration hooks.
+    drop(open_current_engine(&path));
+
+    let conn = Connection::open(&path).expect("reopen");
+
+    // The identity_state table now exists (migration 013).
+    let has_identity_state: bool = conn
+        .query_row(
+            "SELECT 1 FROM sqlite_master WHERE type='table' AND name='identity_state'",
+            [],
+            |_| Ok(true),
+        )
+        .unwrap_or(false);
+    assert!(
+        has_identity_state,
+        "migration 013 did not create identity_state"
+    );
+
+    // The accepted auto section survives with its flag and name.
+    let (accepted_udf, accepted_name): (i64, Option<String>) = conn
+        .query_row(
+            "SELECT is_user_defined, name FROM sections WHERE id = 'sec_accepted_1'",
+            [],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )
+        .expect("accepted section survives the migration");
+    assert_eq!(accepted_udf, 1, "accepted section lost is_user_defined");
+    assert_eq!(
+        accepted_name.as_deref(),
+        Some("My Named Climb"),
+        "accepted section lost its user name",
+    );
+
+    // The custom section survives with its name and type.
+    let (custom_type, custom_name): (String, Option<String>) = conn
+        .query_row(
+            "SELECT section_type, name FROM sections WHERE id = 'custom_1700000000000__zzzzz'",
+            [],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )
+        .expect("custom section survives the migration");
+    assert_eq!(custom_type, "custom", "custom section lost its type");
+    assert_eq!(
+        custom_name.as_deref(),
+        Some("My Custom Loop"),
+        "custom section lost its name",
+    );
+}
+
+// ----------------------------------------------------------------------------
 // Test 1 — SQL-level survival of the custom section row.
 //
 // Asserts against raw SQLite so a future refactor of the FFI types cannot
@@ -382,18 +475,18 @@ fn sql_level_custom_section_survives_forward_migration() {
         )
         .expect("schema_version present");
     assert_eq!(
-        schema_version, "12",
-        "schema version should be bumped to 12"
+        schema_version, "13",
+        "schema version should be bumped to 13"
     );
 
     // rusqlite_migration tracks progress via SQLite's PRAGMA user_version,
-    // so applying 12 migrations leaves user_version = 12.
+    // so applying 13 migrations leaves user_version = 13.
     let pragma_user_version: i64 = conn
         .query_row("PRAGMA user_version", [], |r| r.get(0))
         .expect("PRAGMA user_version readable");
     assert_eq!(
-        pragma_user_version, 12,
-        "rusqlite_migration should have advanced PRAGMA user_version to 12"
+        pragma_user_version, 13,
+        "rusqlite_migration should have advanced PRAGMA user_version to 13"
     );
 
     // Section row preserved.
