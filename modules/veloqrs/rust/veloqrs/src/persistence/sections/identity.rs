@@ -41,7 +41,27 @@ use serde::{Deserialize, Serialize};
 
 use crate::persistence::PersistentRouteEngine;
 use crate::sections::crud::compute_section_portions;
-use tracematch::{CandidateSection, FrequentSection, GpsPoint, HysteresisState, shares_ground};
+use tracematch::{
+    CandidateSection, FrequentSection, GpsPoint, HysteresisParams, HysteresisState, shares_ground,
+};
+
+/// Merge-candidacy mutual-overlap floor for the registry's hysteresis. SHIPS AT
+/// 0.0 (the pure-layer default): a prior competes for a candidate's merge
+/// nomination on same-corridor coverage alone, seniority deciding.
+///
+/// A non-zero floor was trialled to tame the synthetic marginal-capture
+/// pathology — a short senior prior with marginal one-sided overlap capturing or
+/// blocking a dominant candidate (`tracematch/tests/b2_inheritance_stress.rs`),
+/// which at defaults can mint a duplicate every detect on an unchanged catalogue.
+/// But 0.4 failed to generalise: on GeoLife dense-urban data (204 trajectories)
+/// it broke ~7 legitimate low-overlap carries into mints/merges and worsened
+/// churn, WITHOUT reducing the real duplication. Constants discipline: a value
+/// that fails generalisation does not ship. The duplication family — visible-
+/// catalogue inflation from the re-cut debounce holding stale covered geometry
+/// (see the seam note in `section_identity_apply_into`) — is a FOLD-level fix in
+/// the pure layer (task pending), not a merge floor. Kept as an explicit knob so
+/// GATE-2 can revisit with a TARGETED trigger, not a blanket floor.
+const MERGE_MUTUAL_FLOOR: f64 = 0.0;
 
 /// One visible or tombstoned section the registry manages: the durable opaque id
 /// the DB carries, and the full payload persisted under it. Keyed elsewhere by
@@ -58,8 +78,10 @@ pub(crate) struct IdentityRow {
 /// The engine-held section identity registry: the pure churn brain plus the
 /// veloqrs payloads it carries. In-memory pre-B4 (reseeded from the DB on open);
 /// B4 persists the whole blob so a debounce survives an app kill. Serde-derived
-/// now so that migration is a straight `serde` of this type.
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+/// now so that migration is a straight `serde` of this type. `Default` is hand
+/// written (below) so the hysteresis tunables — the merge floor especially — are
+/// an explicit knob at the one construction site, not a buried derive.
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub(crate) struct SectionIdentity {
     /// Pure churn damping over grounds. Its internal `s_<n>` ids are the join key
     /// into [`rows`](Self::rows)/[`graves`](Self::graves), never persisted.
@@ -77,6 +99,25 @@ pub(crate) struct SectionIdentity {
     /// Monotonic salt guaranteeing a fresh real id is unique even for many mints
     /// inside one millisecond. Only grows within a session.
     mint_seq: u64,
+}
+
+impl Default for SectionIdentity {
+    fn default() -> Self {
+        Self {
+            // The one place the registry's hysteresis is tuned. k and the
+            // dissolve/re-cut thresholds ride the pure-layer defaults; the merge
+            // floor is stated EXPLICITLY at [`MERGE_MUTUAL_FLOOR`] (0.0 today) so
+            // a GATE-2 change is a one-line edit here, not a hunt through derives.
+            hysteresis: HysteresisState::new(HysteresisParams {
+                merge_mutual_floor: MERGE_MUTUAL_FLOOR,
+                ..HysteresisParams::default()
+            }),
+            rows: BTreeMap::new(),
+            graves: BTreeMap::new(),
+            seen: BTreeSet::new(),
+            mint_seq: 0,
+        }
+    }
 }
 
 impl PersistentRouteEngine {
@@ -174,6 +215,19 @@ impl PersistentRouteEngine {
 
         // Step the pure hysteresis and learn which visible id each candidate
         // resolved to (carry/split/merge -> inherited id, new/restore -> fresh).
+        //
+        // ROOT-CAUSE NOTE (the merge-floor's real target; not fixed here). The
+        // priors `step_assign` matches against are this registry's HELD view,
+        // which includes sections frozen mid re-cut debounce — their FROZEN,
+        // now-stale footprint. That stale footprint keeps COMPETING for foreign
+        // candidates in `plan_identity`, and a marginal one-sided overlap from it
+        // is what lets a short senior prior capture or block a dominant candidate
+        // (and inflates the visible catalogue with duplicates the tombstone can't
+        // reclaim, since dissolve_pressure stays low while the ground is partly
+        // covered). Excluding a re-cut-debounced section from foreign-candidate
+        // competition would attack that root directly. The merge floor only
+        // blunts the symptom; the durable fix is a FOLD-level change in the pure
+        // layer (task pending). See [`MERGE_MUTUAL_FLOOR`].
         let candidates: Vec<CandidateSection> =
             raw.iter().map(CandidateSection::from_section).collect();
         let (_out, candidate_ids) = identity.hysteresis.step_assign(&candidates);
