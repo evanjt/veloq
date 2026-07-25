@@ -102,7 +102,6 @@ fn order_free_cold_batch() {
 /// afterwards. Fails today because ids are still positional and renumber on
 /// every set change; flips green when the assign-once identity layer lands.
 #[test]
-#[ignore = "B2 identity layer not built yet — target gate"]
 fn battery_expand_preserves_identity() {
     let corpus = corpus();
     let (mut engine, _dir) = fresh_engine_for(Arm::Battery);

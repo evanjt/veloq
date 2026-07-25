@@ -65,11 +65,22 @@ fn namespaced(prefix: &str, acts: &[&LifecycleActivity]) -> Vec<LifecycleActivit
 }
 
 /// The from-scratch batch catalogue over `activities`: a fresh Battery engine,
-/// one batch ingest, the user-visible DB snapshot. This is the ground truth the
-/// cached drip must match at every step.
+/// one batch ingest, the RAW detection catalogue. This is the B1 convergence
+/// ground truth the cached drip must match at every step.
+///
+/// Reads the raw (pre-hysteresis) catalogue, not the damped visible view: this
+/// suite is the B1 evidence-cache parity contract (detection == batch), and since
+/// B2 the damped view legitimately lags the raw batch by up to `k` steps while a
+/// dissolve debounces (a drip that has seen a section dissolve holds it a few more
+/// detects, so its DAMPED count can exceed the batch's — that is B2 working, not a
+/// cache desync). DETECTION stays order-free every step, so both sides compare the
+/// raw catalogue. B2 identity stability is gated separately (suite2_battery et al.,
+/// on the visible view). A one-step batch from empty has no lag, so its raw and
+/// damped views are identical anyway.
 fn batch_snapshot(activities: &[&LifecycleActivity]) -> SectionSnapshot {
     let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
-    ingest_step(&mut engine, "batch", activities).snapshot
+    ingest_step(&mut engine, "batch", activities);
+    raw_snapshot(&engine)
 }
 
 /// Assert the cached-drip catalogue and the batch catalogue describe the same
@@ -112,7 +123,7 @@ fn single_cluster_drip_matches_batch_every_step() {
         ingest_step(&mut drip_engine, "drip", &[a]);
         seen.push(a);
 
-        let drip = snapshot(&mut drip_engine);
+        let drip = raw_snapshot(&drip_engine);
         let batch = batch_snapshot(&seen);
         assert_ground_match(i + 1, &batch, &drip);
     }
@@ -156,7 +167,7 @@ fn multi_cluster_interleaved_drip_matches_batch_every_step() {
         ingest_step(&mut drip_engine, "drip", &[a]);
         seen.push(a);
 
-        let drip = snapshot(&mut drip_engine);
+        let drip = raw_snapshot(&drip_engine);
         let batch = batch_snapshot(&seen);
         assert_ground_match(i + 1, &batch, &drip);
     }
@@ -203,7 +214,7 @@ fn restart_then_add_cold_rebatches_to_batch() {
 
     let mut full = first.to_vec();
     full.push(new_id);
-    let drip = snapshot(&mut e2);
+    let drip = raw_snapshot(&e2);
     let batch = batch_snapshot(&full);
     assert_ground_match(full.len(), &batch, &drip);
 }
@@ -291,13 +302,14 @@ fn apply_failure_drops_cache_then_recovers() {
         // The intended path: apply failed, sections rolled back, cache dropped.
         // The next detect must cold-rebatch the whole pool to the batch answer.
         // processed was never advanced for `new_id`, so detection re-runs.
-        let recovered = ingest_step(&mut engine, "recover", &[]);
-        assert_ground_match(full.len(), &batch, &recovered.snapshot);
+        ingest_step(&mut engine, "recover", &[]);
+        let recovered = raw_snapshot(&engine);
+        assert_ground_match(full.len(), &batch, &recovered);
     } else {
         // The platform ignored the read-only (e.g. running as root): the apply
         // succeeded and advanced the cache. Correctness must still hold — the
         // catalogue matches the batch over the full set.
-        let drip = snapshot(&mut engine);
+        let drip = raw_snapshot(&engine);
         assert_ground_match(full.len(), &batch, &drip);
     }
 }

@@ -27,7 +27,6 @@ fn corpus() -> LifecycleCorpus {
 /// A pinned section can therefore break the next sync. Green when stable
 /// identity (B2) stops ids colliding and/or persistence upserts (B4).
 #[test]
-#[ignore = "B2/B4 not built — accept+resync crashes on positional id collision (UNIQUE sections.id)"]
 fn accept_survives_resync() {
     let corpus = corpus();
     let (mut engine, _dir) = fresh_engine_for(Arm::Control);

@@ -347,11 +347,12 @@ fn scenario_b_expand_to_1y_baseline() {
     assert_sport_types_stable(&step_a.snapshot, &step_b.snapshot);
 }
 
+// B1's order-free batch is non-monotone (a full re-detect on the expand can
+// reshuffle raw sections), so this was #[ignore] after B1. B2's hysteresis damps
+// that: the visible catalogue `get_sections()` reads carries stable ids, holds a
+// debounced dissolve, and only ever appends members on an add, so the expand no
+// longer removes an activity or regresses the count. Green as a B2 headline gate.
 #[test]
-#[ignore] // strict — B's 90/150 = 60% triggers FULL detection mode where
-// sections legitimately reshuffle. Stable activity_ids in FULL
-// mode is gated on Tier 2.1's incremental-consensus accumulator,
-// which would let FULL mode also reuse existing section IDs.
 fn scenario_b_expand_to_1y_stable() {
     let cfg = LifecycleConfig {
         bucket_a_count: 60,
@@ -413,13 +414,13 @@ fn scenario_c_single_add_baseline() {
     assert_sport_types_stable(&step_b.snapshot, &step_c.snapshot);
 }
 
+// The single add re-runs full order-free detection, whose raw batch is
+// non-monotone (an add can dissolve a section). B2's hysteresis is exactly what
+// makes the VISIBLE view stable across that: a debounce (streak 1 < k=3) never
+// dissolves on one add, and the append-only fold only adds the new activity to
+// the corridors it traverses. `assert_single_add_stability` holds on the damped
+// `get_sections()` view. Green as a B2 headline gate.
 #[test]
-#[ignore] // B1 deletes the legacy monotone incremental, so every add now re-runs
-          // full order-free detection, whose batch is non-monotone: a single add
-          // can dissolve a section (the documented churn). Strict single-add
-          // identity stability is B2's hysteresis job, not B1's — reverts this
-          // `_stable` test to the file's #[ignore] convention (see
-          // scenario_b_expand_to_1y_stable, ignored for the same FULL-detect reason).
 fn scenario_c_single_add_stable() {
     let cfg = LifecycleConfig {
         bucket_a_count: 60,
@@ -478,11 +479,11 @@ fn scenario_d_small_batch_baseline() {
     assert_sport_types_stable(&step_c.snapshot, &step_d.snapshot);
 }
 
+// A 3-activity batch is one detect: streak 1 < k=3, so nothing dissolves, and
+// the append-only fold adds only the three new activities to the corridors they
+// traverse. B2's hysteresis keeps the visible catalogue from losing any activity
+// across the batch (`assert_no_activity_removed`). Green as a B2 headline gate.
 #[test]
-#[ignore] // Same as scenario_c_single_add_stable: full order-free re-detect per
-          // add is non-monotone (and Corridor is run-nondeterministic), so a
-          // surviving section can lose an activity across an add. B2 hysteresis
-          // restores this; reverts to the `_stable` = #[ignore] convention.
 fn scenario_d_small_batch_stable() {
     let cfg = LifecycleConfig {
         bucket_a_count: 60,

@@ -181,6 +181,38 @@ pub fn snapshot(engine: &mut PersistentRouteEngine) -> SectionSnapshot {
     }
 }
 
+/// Snapshot the RAW detection catalogue (pre-identity, pre-hysteresis) instead of
+/// the DAMPED visible view `snapshot` reads. Since B2 the two DIFFER on purpose:
+/// the damped view carries stable ids and can hold a section a debounced dissolve
+/// has not yet retired (or a member an append-only fold has not dropped), so it
+/// lags the raw batch by up to `k` steps. DETECTION itself stays order-free and
+/// tracks the batch every step, so the B1 convergence / order-invariance /
+/// freshness gates read this raw view — comparing the damped view there would
+/// score a legitimate hysteresis lag as a detection desync. B2 identity/stability
+/// gates keep reading `snapshot` (the visible view the app renders).
+pub fn raw_snapshot(engine: &PersistentRouteEngine) -> SectionSnapshot {
+    SectionSnapshot {
+        sections: engine
+            .raw_detection_catalogue()
+            .iter()
+            .map(|s| {
+                (
+                    s.id.clone(),
+                    SectionFingerprint {
+                        activity_ids: s.activity_ids.iter().cloned().collect(),
+                        visit_count: s.visit_count,
+                        polyline_point_count: s.polyline.len(),
+                        distance_meters: s.distance_meters,
+                        polyline: s.polyline.clone(),
+                        sport_type: s.sport_type.clone(),
+                        is_user_defined: s.is_user_defined,
+                    },
+                )
+            })
+            .collect(),
+    }
+}
+
 // ============================================================================
 // Engine construction per arm
 // ============================================================================

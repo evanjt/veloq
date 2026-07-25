@@ -274,7 +274,6 @@ fn geography_perturbation_today() {
 /// identity is assigned once and carried with the ground (B2), independent of
 /// what else the catalogue contains.
 #[test]
-#[ignore = "R2 positional ids — the per-sport counter numbers clusters by SW corner across the whole catalogue, so a distant southern geography renumbers an unrelated one (global reshuffle). Needs assign-once identity (B2)."]
 fn distant_geography_must_not_reshuffle_ids() {
     let (g1a, g1b) = geo_scenario(46.37, 0x5150, "g2s_");
     let retention = identity_retention(&g1a, &g1b);
@@ -481,14 +480,19 @@ fn add_second_sport_identity_today() {
 }
 
 /// Gate (invariant 2 — id survives a sport addition): adding a second sport on
-/// the same ground must leave exactly one section that keeps its id. Red today
-/// under the full-re-detect path — the count-based cross-sport merge makes the
-/// newly-majority Run section primary and deletes the original Ride section, so
-/// the cold id vanishes (and if the merge gates miss, the ground splits into
-/// two sections). Green when a section is the ground and sport is derived onto
-/// it without re-minting identity.
+/// the same ground must leave exactly one section that keeps its id.
+///
+/// The IDENTITY half is B2's: when the Run pass arrives, detection splits the
+/// shared ground into a Ride and a Run candidate, and B2's split resolution
+/// hands the cold id to the higher-support candidate (its tie-break is
+/// majority-visits, identical to the cross-sport merge's majority primary on
+/// this relabelled identical-ground corpus, so the id always lands on the
+/// survivor). The SINGLE-SECTION half still comes from the apply-tail cross-sport
+/// merge collapsing the two per-sport sections into one; B3's pooled detection
+/// will make that structural rather than incidental (and delete the merge), and
+/// the gate stays green across it because pooled detection also yields one
+/// section on the ground.
 #[test]
-#[ignore = "invariant 2 — a sport addition that tips past the 50% incremental line forces full re-detect; the count-based cross-sport merge then makes the new sport primary and deletes the original section, so its id does not survive."]
 fn section_id_survives_sport_addition() {
     let (src, ground) = corridor_source(2, 11);
     let g = ground_fp(ground);

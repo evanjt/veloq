@@ -67,14 +67,21 @@ fn deterministic_shuffle(n: usize) -> Vec<usize> {
 }
 
 /// Ingest `pool` one activity at a time in `order`, detecting + persisting after
-/// every add (the daily-drip path). Returns the final visible catalogue. A crash
-/// mid-drip is itself a finding and is surfaced, not swallowed.
+/// every add (the daily-drip path). Returns the final RAW detection catalogue. A
+/// crash mid-drip is itself a finding and is surfaced, not swallowed.
+///
+/// Reads the raw (pre-hysteresis) catalogue: invariant 4 (order-free) is a
+/// property of DETECTION, which the raw catalogue is. Since B2 the damped visible
+/// view is deliberately path-dependent — the debounce state at the end of a drip
+/// depends on the arrival order, so its final catalogue can differ fwd-vs-rev even
+/// though detection converged to the same set. Comparing the damped view here
+/// would gate B2's intentional path-dependence as a B1 order violation.
 fn drip(arm: Arm, pool: &[&LifecycleActivity], order: &[usize]) -> SectionSnapshot {
     let (mut engine, _dir) = fresh_engine_for(arm);
     for &i in order {
         try_ingest_step(&mut engine, "drip", &[pool[i]]).expect("drip step must not crash");
     }
-    snapshot(&mut engine)
+    raw_snapshot(&engine)
 }
 
 /// The activity in `pool` with the given id (its GPS is what we re-ingest).
@@ -312,16 +319,20 @@ fn reingest_different_track_updates_catalogue() {
     let corpus = cold_only_corpus(COLD_N);
     let pool: Vec<&LifecycleActivity> = corpus.bucket_a.iter().collect();
     let (mut engine, _dir) = fresh_engine_for(Arm::Control);
-    let cold = ingest_step(&mut engine, "cold", &pool).snapshot;
+    ingest_step(&mut engine, "cold", &pool);
+    // Freshness is a DETECTION property, so compare the RAW catalogue: an
+    // append-only damped fold never drops the moved contributor from the section
+    // it fed, so the visible view legitimately would not change on a single move
+    // (that member-level purge is B4). Detection re-derives immediately.
+    let cold = raw_snapshot(&engine);
     let original = activity_by_id(
         &pool,
         busiest_section(&cold).expect("a section").1.activity_ids.iter().next().expect("a contributor"),
     );
     let mutated = with_shifted_track(original, 0.02);
 
-    let after = try_ingest_step(&mut engine, "reingest-moved", &[&mutated])
-        .expect("re-ingest must not crash")
-        .snapshot;
+    try_ingest_step(&mut engine, "reingest-moved", &[&mutated]).expect("re-ingest must not crash");
+    let after = raw_snapshot(&engine);
 
     assert_ne!(
         cold.catalogue_signature(),
@@ -395,16 +406,20 @@ fn remove_readd_roundtrips_through_effective_removal() {
     let corpus = cold_only_corpus(COLD_N);
     let pool: Vec<&LifecycleActivity> = corpus.bucket_a.iter().collect();
     let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
-    let s0 = ingest_step(&mut engine, "cold", &pool).snapshot;
+    ingest_step(&mut engine, "cold", &pool);
+    // Detection-freshness gate, so read the RAW catalogue: the damped fold is
+    // append-only and would keep the removed victim as a phantom member of a
+    // surviving section (member-level purge on remove is the B4 junction-FK fix),
+    // but DETECTION re-derives the catalogue without it immediately.
+    let s0 = raw_snapshot(&engine);
     let victim = activity_by_id(
         &pool,
         busiest_section(&s0).expect("a section").1.activity_ids.iter().next().expect("a contributor"),
     );
 
     engine.remove_activity(&victim.id).expect("remove_activity");
-    let s1 = try_ingest_step(&mut engine, "after-remove", &[])
-        .expect("detect after remove must not crash")
-        .snapshot;
+    try_ingest_step(&mut engine, "after-remove", &[]).expect("detect after remove must not crash");
+    let s1 = raw_snapshot(&engine);
 
     let still_referenced = s1.sections.values().any(|s| s.activity_ids.contains(&victim.id));
     assert!(
@@ -413,9 +428,8 @@ fn remove_readd_roundtrips_through_effective_removal() {
         victim.id,
     );
 
-    let s2 = try_ingest_step(&mut engine, "after-readd", &[victim])
-        .expect("detect after re-add must not crash")
-        .snapshot;
+    try_ingest_step(&mut engine, "after-readd", &[victim]).expect("detect after re-add must not crash");
+    let s2 = raw_snapshot(&engine);
     assert_eq!(
         s0.catalogue_signature(),
         s2.catalogue_signature(),
