@@ -769,8 +769,7 @@ impl PersistentRouteEngine {
                     .map(|(id, _)| id.clone())
                     .filter(|id| !folded_at_spawn.contains(id))
                     .collect();
-                let new_id_refs: Vec<&str> =
-                    new_ids_for_cache.iter().map(|s| s.as_str()).collect();
+                let new_id_refs: Vec<&str> = new_ids_for_cache.iter().map(|s| s.as_str()).collect();
 
                 log::info!(
                     "tracematch: [SectionDetection] Unified cached incremental: {} new of {} pool tracks against {} existing sections ({} folded in cache)",

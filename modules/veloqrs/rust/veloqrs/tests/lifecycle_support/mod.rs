@@ -23,9 +23,9 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::time::Instant;
 
 use tempfile::TempDir;
+use tracematch::GpsPoint;
 use tracematch::scenarios::LifecycleActivity;
 use tracematch::sections::{DetectionMethod, SectionConfig};
-use tracematch::GpsPoint;
 use veloqrs::PersistentRouteEngine;
 
 /// Which detection engine an arm drives.
@@ -97,11 +97,7 @@ impl SectionSnapshot {
                     f.visit_count,
                     f.distance_meters.round() as i64,
                     f.polyline_point_count,
-                    f.activity_ids
-                        .iter()
-                        .cloned()
-                        .collect::<Vec<_>>()
-                        .join(","),
+                    f.activity_ids.iter().cloned().collect::<Vec<_>>().join(","),
                 )
             })
             .collect();
@@ -511,7 +507,10 @@ pub fn assert_no_activity_removed(before: &SectionSnapshot, after: &SectionSnaps
         if let Some(now) = after.sections.get(id) {
             let removed: BTreeSet<&String> =
                 prev.activity_ids.difference(&now.activity_ids).collect();
-            assert!(removed.is_empty(), "section {id} lost activities {removed:?}");
+            assert!(
+                removed.is_empty(),
+                "section {id} lost activities {removed:?}"
+            );
         }
     }
 }

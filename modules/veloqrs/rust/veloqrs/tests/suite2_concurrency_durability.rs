@@ -26,8 +26,8 @@
 
 mod lifecycle_support;
 
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -160,7 +160,10 @@ fn restart_durability_today() {
 #[test]
 fn restart_preserves_catalogue() {
     let (before, after, _e1, _e2) = restart_state();
-    assert!(!before.is_empty(), "cold detect produced no catalogue to persist");
+    assert!(
+        !before.is_empty(),
+        "cold detect produced no catalogue to persist"
+    );
     assert_eq!(
         before, after,
         "catalogue changed across a fresh open, detection did not durably persist"

@@ -150,7 +150,10 @@ fn battery_cold_rebuild_is_byte_stable() {
 /// short-circuits (no new activities) and returns the existing sections, so the
 /// only thing exercised is the save/reload path. Returns the before/after
 /// snapshots and how many sections the detector handed back.
-fn redetect_same_set(arm: Arm, set: &[&LifecycleActivity]) -> (SectionSnapshot, SectionSnapshot, usize) {
+fn redetect_same_set(
+    arm: Arm,
+    set: &[&LifecycleActivity],
+) -> (SectionSnapshot, SectionSnapshot, usize) {
     let (mut engine, _dir) = fresh_engine_for(arm);
     let before = ingest_step(&mut engine, "cold", set).snapshot;
 

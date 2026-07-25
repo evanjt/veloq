@@ -100,7 +100,11 @@ fn seam(p: &Probe) -> String {
         (Some(a), Some(b)) if a == b => "coherent".to_string(),
         (Some(a), Some(b)) => format!("DIST-DIVERGENT(mem={a},view={b})"),
         (None, None) => "coherent(absent)".to_string(),
-        (a, b) => format!("PRESENCE-DIVERGENT(mem={},view={})", a.is_some(), b.is_some()),
+        (a, b) => format!(
+            "PRESENCE-DIVERGENT(mem={},view={})",
+            a.is_some(),
+            b.is_some()
+        ),
     }
 }
 
@@ -141,7 +145,9 @@ fn seed_perf(engine: &mut PersistentRouteEngine, activities: &[&LifecycleActivit
         });
     }
     offsets.push(times.len() as u32);
-    engine.set_activity_metrics(metrics).expect("set_activity_metrics");
+    engine
+        .set_activity_metrics(metrics)
+        .expect("set_activity_metrics");
     engine.set_time_streams_flat(&ids, &times, &offsets);
 }
 
@@ -176,7 +182,9 @@ fn force_perf_invalidation(engine: &mut PersistentRouteEngine, activity_id: &str
 #[test]
 fn cache_coherence_matrix() {
     println!("\n=== EDIT-TEARDOWN CACHE-COHERENCE MATRIX (Control) ===");
-    println!("op                       | perf      | seam                         | members       | backup        | note");
+    println!(
+        "op                       | perf      | seam                         | members       | backup        | note"
+    );
 
     // add_activity — defers to detection; nothing on the existing section moves.
     {
@@ -191,7 +199,13 @@ fn cache_coherence_matrix() {
             corpus.bucket_c_single.sport_type.clone(),
         )
         .expect("add_activity");
-        row("add_activity", &b, &probe(&mut e, &id), "n/a", "defers to detection");
+        row(
+            "add_activity",
+            &b,
+            &probe(&mut e, &id),
+            "n/a",
+            "defers to detection",
+        );
     }
 
     // remove_activity — phantom member (junction FK is on section_id only).
@@ -201,7 +215,13 @@ fn cache_coherence_matrix() {
         let victim = e.get_section(&id).unwrap().activity_ids[0].clone();
         e.remove_activity(&victim).expect("remove_activity");
         let still = e.get_section(&id).unwrap().activity_ids.contains(&victim);
-        row("remove_activity", &b, &probe(&mut e, &id), "STALE", &format!("phantom member kept={still}"));
+        row(
+            "remove_activity",
+            &b,
+            &probe(&mut e, &id),
+            "STALE",
+            &format!("phantom member kept={still}"),
+        );
     }
 
     macro_rules! op_row {
@@ -214,37 +234,79 @@ fn cache_coherence_matrix() {
         }};
     }
 
-    op_row!("trim_section", "STALE", "geometry edit", |e: &mut PersistentRouteEngine, id: &str| {
-        let n = e.get_section(id).unwrap().polyline.len();
-        e.trim_section(id, (n / 5) as u32, (n * 4 / 5) as u32).expect("trim");
-    });
-    op_row!("set_section_reference", "STALE", "geometry edit", |e: &mut PersistentRouteEngine, id: &str| {
-        let a = e.get_section(id).unwrap().activity_ids[0].clone();
-        e.set_section_reference(id, &a).expect("set_ref");
-    });
-    op_row!("reset_section_reference", "STALE", "HALF-RESET (see suite2_edits_geometry)", |e: &mut PersistentRouteEngine, id: &str| {
-        let a = e.get_section(id).unwrap().activity_ids[0].clone();
-        e.set_section_reference(id, &a).expect("set_ref");
-        e.reset_section_reference(id).expect("reset_ref");
-    });
-    op_row!("reset_section_bounds", "STALE", "KNOWN-GOOD template", |e: &mut PersistentRouteEngine, id: &str| {
-        let n = e.get_section(id).unwrap().polyline.len();
-        e.trim_section(id, (n / 5) as u32, (n * 4 / 5) as u32).expect("trim");
-        e.reset_section_bounds(id).expect("reset_bounds");
-    });
-    op_row!("rename_section", "stale(harmless)", "metadata only", |e: &mut PersistentRouteEngine, id: &str| {
-        e.rename_section(id, "Renamed").expect("rename");
-    });
-    op_row!("disable_section", "stale(harmless)", "SEAM DIVERGES", |e: &mut PersistentRouteEngine, id: &str| {
-        e.disable_section(id).expect("disable");
-    });
-    op_row!("enable_section", "stale(harmless)", "restores seam", |e: &mut PersistentRouteEngine, id: &str| {
-        e.disable_section(id).expect("disable");
-        e.enable_section(id).expect("enable");
-    });
-    op_row!("recalculate_polyline", "STALE", "non-idempotent (see suite2_edits_geometry)", |e: &mut PersistentRouteEngine, id: &str| {
-        e.recalculate_section_polyline(id);
-    });
+    op_row!(
+        "trim_section",
+        "STALE",
+        "geometry edit",
+        |e: &mut PersistentRouteEngine, id: &str| {
+            let n = e.get_section(id).unwrap().polyline.len();
+            e.trim_section(id, (n / 5) as u32, (n * 4 / 5) as u32)
+                .expect("trim");
+        }
+    );
+    op_row!(
+        "set_section_reference",
+        "STALE",
+        "geometry edit",
+        |e: &mut PersistentRouteEngine, id: &str| {
+            let a = e.get_section(id).unwrap().activity_ids[0].clone();
+            e.set_section_reference(id, &a).expect("set_ref");
+        }
+    );
+    op_row!(
+        "reset_section_reference",
+        "STALE",
+        "HALF-RESET (see suite2_edits_geometry)",
+        |e: &mut PersistentRouteEngine, id: &str| {
+            let a = e.get_section(id).unwrap().activity_ids[0].clone();
+            e.set_section_reference(id, &a).expect("set_ref");
+            e.reset_section_reference(id).expect("reset_ref");
+        }
+    );
+    op_row!(
+        "reset_section_bounds",
+        "STALE",
+        "KNOWN-GOOD template",
+        |e: &mut PersistentRouteEngine, id: &str| {
+            let n = e.get_section(id).unwrap().polyline.len();
+            e.trim_section(id, (n / 5) as u32, (n * 4 / 5) as u32)
+                .expect("trim");
+            e.reset_section_bounds(id).expect("reset_bounds");
+        }
+    );
+    op_row!(
+        "rename_section",
+        "stale(harmless)",
+        "metadata only",
+        |e: &mut PersistentRouteEngine, id: &str| {
+            e.rename_section(id, "Renamed").expect("rename");
+        }
+    );
+    op_row!(
+        "disable_section",
+        "stale(harmless)",
+        "SEAM DIVERGES",
+        |e: &mut PersistentRouteEngine, id: &str| {
+            e.disable_section(id).expect("disable");
+        }
+    );
+    op_row!(
+        "enable_section",
+        "stale(harmless)",
+        "restores seam",
+        |e: &mut PersistentRouteEngine, id: &str| {
+            e.disable_section(id).expect("disable");
+            e.enable_section(id).expect("enable");
+        }
+    );
+    op_row!(
+        "recalculate_polyline",
+        "STALE",
+        "non-idempotent (see suite2_edits_geometry)",
+        |e: &mut PersistentRouteEngine, id: &str| {
+            e.recalculate_section_polyline(id);
+        }
+    );
 
     // merge_user_sections — invalidates perf, repoints junction, drops secondary.
     {
@@ -255,7 +317,13 @@ fn cache_coherence_matrix() {
         ids.sort();
         let b = probe(&mut e, &ids[0]);
         e.merge_user_sections(&ids[0], &ids[1]).expect("merge");
-        row("merge_user_sections", &b, &probe(&mut e, &ids[0]), "invalidates", "primary absorbs secondary");
+        row(
+            "merge_user_sections",
+            &b,
+            &probe(&mut e, &ids[0]),
+            "invalidates",
+            "primary absorbs secondary",
+        );
     }
 
     // delete_section — invalidates perf, CASCADE purges junction (FK enforced).
@@ -263,7 +331,13 @@ fn cache_coherence_matrix() {
         let (mut e, _d, id) = cold();
         let b = probe(&mut e, &id);
         e.delete_section(&id).expect("delete");
-        row("delete_section", &b, &probe(&mut e, &id), "invalidates", "CASCADE purges junction");
+        row(
+            "delete_section",
+            &b,
+            &probe(&mut e, &id),
+            "invalidates",
+            "CASCADE purges junction",
+        );
     }
 
     // custom create — visible in DB, never in the in-memory cache (seam).
@@ -273,7 +347,13 @@ fn cache_coherence_matrix() {
         ingest_step(&mut e, "cold", &corpus.through_a());
         let cid = create_custom(&mut e, &corpus);
         let p = probe(&mut e, &cid);
-        row("create_section(custom)", &p, &p, "n/a", "custom absent from in-mem cache");
+        row(
+            "create_section(custom)",
+            &p,
+            &p,
+            "n/a",
+            "custom absent from in-mem cache",
+        );
     }
     println!("=== end matrix ===\n");
 }
@@ -322,7 +402,10 @@ fn custom_section_creation_and_resync() {
         created.is_user_defined,
         created.activity_ids.len(),
         created.distance_meters,
-        engine.get_sections_by_type(None).iter().any(|s| s.id == cid),
+        engine
+            .get_sections_by_type(None)
+            .iter()
+            .any(|s| s.id == cid),
         engine.get_sections().iter().any(|s| s.id == cid),
         auto_ids.contains(&cid),
     );
@@ -378,7 +461,10 @@ fn custom_section_survives_resync_intact() {
         members0,
         after.activity_ids.len(),
     );
-    assert!(after.is_user_defined, "custom lost its user-defined flag on resync");
+    assert!(
+        after.is_user_defined,
+        "custom lost its user-defined flag on resync"
+    );
 }
 
 /// Foreign keys are enforced on the engine connection, so delete_section's
@@ -411,7 +497,11 @@ fn gate_remove_activity_purges_section_membership() {
     let victim = engine.get_section(&id).unwrap().activity_ids[0].clone();
     engine.remove_activity(&victim).expect("remove_activity");
     assert!(
-        !engine.get_section(&id).unwrap().activity_ids.contains(&victim),
+        !engine
+            .get_section(&id)
+            .unwrap()
+            .activity_ids
+            .contains(&victim),
         "section {id} still lists removed activity {victim} as a member"
     );
 }

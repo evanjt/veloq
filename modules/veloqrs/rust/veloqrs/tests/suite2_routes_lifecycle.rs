@@ -63,7 +63,10 @@ impl RouteSnapshot {
         self.groups.len()
     }
     fn multi_member(&self) -> usize {
-        self.groups.values().filter(|g| g.activity_ids.len() > 1).count()
+        self.groups
+            .values()
+            .filter(|g| g.activity_ids.len() > 1)
+            .count()
     }
     /// Order-free, keyed by group_id + representative + members.
     fn catalogue_signature(&self) -> String {
@@ -92,7 +95,12 @@ impl RouteSnapshot {
         let mut rows: Vec<String> = self
             .groups
             .values()
-            .map(|g| format!("[{}]", g.activity_ids.iter().cloned().collect::<Vec<_>>().join(",")))
+            .map(|g| {
+                format!(
+                    "[{}]",
+                    g.activity_ids.iter().cloned().collect::<Vec<_>>().join(",")
+                )
+            })
             .collect();
         rows.sort();
         rows.join("\n")
@@ -134,7 +142,10 @@ fn busiest_route(snap: &RouteSnapshot) -> Option<(String, RouteFingerprint)> {
 /// The group in `snap` that best carries `members` (largest intersection).
 /// Membership is deterministic even when group_id is not, so this is the stable
 /// way to follow "the same route" across a regroup.
-fn group_carrying(snap: &RouteSnapshot, members: &BTreeSet<String>) -> Option<(String, RouteFingerprint)> {
+fn group_carrying(
+    snap: &RouteSnapshot,
+    members: &BTreeSet<String>,
+) -> Option<(String, RouteFingerprint)> {
     snap.groups
         .iter()
         .max_by_key(|(_, g)| g.activity_ids.intersection(members).count())
@@ -147,7 +158,11 @@ fn route_id_survival(before: &RouteSnapshot, after: &RouteSnapshot) -> f64 {
     if before.groups.is_empty() {
         return 1.0;
     }
-    let kept = before.groups.keys().filter(|id| after.groups.contains_key(*id)).count();
+    let kept = before
+        .groups
+        .keys()
+        .filter(|id| after.groups.contains_key(*id))
+        .count();
     kept as f64 / before.groups.len() as f64
 }
 
@@ -189,8 +204,16 @@ fn route_formation_measured() {
     ingest_step(&mut engine, "cold", &corpus.through_a());
     let routes = route_snapshot(&mut engine);
 
-    let largest = routes.groups.values().map(|g| g.activity_ids.len()).max().unwrap_or(0);
-    println!("\n[control] route formation over {} activities", corpus.through_a().len());
+    let largest = routes
+        .groups
+        .values()
+        .map(|g| g.activity_ids.len())
+        .max()
+        .unwrap_or(0);
+    println!(
+        "\n[control] route formation over {} activities",
+        corpus.through_a().len()
+    );
     println!(
         "  route groups={}  multi-member={}  largest group={} members",
         routes.count(),
@@ -205,7 +228,9 @@ fn route_formation_measured() {
             f.sport_type,
         );
     } else {
-        println!("  NO multi-member route groups — corpus is section-oriented; route CRUD gates cannot target a real route");
+        println!(
+            "  NO multi-member route groups — corpus is section-oriented; route CRUD gates cannot target a real route"
+        );
     }
 }
 
@@ -263,22 +288,31 @@ fn route_identity_across_resync_measured() {
 
     // Membership-anchored: which group now carries the cold route's members?
     let anchored = group_carrying(&after, &busiest.activity_ids);
-    let min_member = busiest.activity_ids.iter().min().cloned().unwrap_or_default();
-    println!("\n[control] route identity across resync (+{} activities)", corpus.bucket_d_delta.len());
+    let min_member = busiest
+        .activity_ids
+        .iter()
+        .min()
+        .cloned()
+        .unwrap_or_default();
+    println!(
+        "\n[control] route identity across resync (+{} activities)",
+        corpus.bucket_d_delta.len()
+    );
     println!(
         "  groups {} -> {}   id survival = {:.0}%",
         before.count(),
         after.count(),
         route_id_survival(&before, &after) * 100.0,
     );
-    println!(
-        "  busiest cold id={busiest_id}  min-member={min_member}",
-    );
+    println!("  busiest cold id={busiest_id}  min-member={min_member}",);
     println!(
         "  cold id still addresses the route: {}   membership-anchored new id: {:?}   new id == min-member: {}",
         after.groups.contains_key(&busiest_id),
         anchored.as_ref().map(|(id, _)| id.clone()),
-        anchored.as_ref().map(|(id, _)| *id == min_member).unwrap_or(false),
+        anchored
+            .as_ref()
+            .map(|(id, _)| *id == min_member)
+            .unwrap_or(false),
     );
 }
 
@@ -307,8 +341,14 @@ fn route_identity_survives_resync() {
 
     // The route still exists by membership; the defect is that its id is now the
     // positional min-member, not a stable opaque identity.
-    let (new_id, _f) = group_carrying(&after, &busiest.activity_ids).expect("route survives by membership");
-    let min_member = busiest.activity_ids.iter().min().cloned().unwrap_or_default();
+    let (new_id, _f) =
+        group_carrying(&after, &busiest.activity_ids).expect("route survives by membership");
+    let min_member = busiest
+        .activity_ids
+        .iter()
+        .min()
+        .cloned()
+        .unwrap_or_default();
     assert_ne!(
         new_id, min_member,
         "route identity is positional (the min-member id) after a resync — it is not a stable id (R2 reaches routes)",
@@ -337,24 +377,31 @@ fn route_representative_survival_measured() {
         .find(|m| **m != busiest.representative_id)
         .expect("a second member to promote")
         .clone();
-    engine.set_route_representative(&busiest_id, &chosen).expect("set_route_representative");
+    engine
+        .set_route_representative(&busiest_id, &chosen)
+        .expect("set_route_representative");
 
     ingest_step(&mut engine, "resync", &refs(&corpus.bucket_d_delta));
     let after = route_snapshot(&mut engine);
 
     let anchored = group_carrying(&after, &busiest.activity_ids);
     println!("\n[control] representative survival — route {busiest_id}");
-    println!(
-        "  chose rep {chosen} (was {})",
-        busiest.representative_id,
-    );
+    println!("  chose rep {chosen} (was {})", busiest.representative_id,);
     println!(
         "  after resync: by old id rep={:?}   membership-anchored rep={:?}   stuck={}",
-        after.groups.get(&busiest_id).map(|g| g.representative_id.clone()),
+        after
+            .groups
+            .get(&busiest_id)
+            .map(|g| g.representative_id.clone()),
         anchored.as_ref().map(|(_, g)| g.representative_id.clone()),
-        anchored.as_ref().map(|(_, g)| g.representative_id == chosen).unwrap_or(false),
+        anchored
+            .as_ref()
+            .map(|(_, g)| g.representative_id == chosen)
+            .unwrap_or(false),
     );
-    println!("  => the re-keyed group misses existing_reps (keyed by the vanished cold id) and falls back to the min-member medoid");
+    println!(
+        "  => the re-keyed group misses existing_reps (keyed by the vanished cold id) and falls back to the min-member medoid"
+    );
 }
 
 /// Target gate: a user-chosen route representative survives a resync. Fails on
@@ -382,7 +429,9 @@ fn route_representative_survives_resync() {
         .find(|m| **m != busiest.representative_id)
         .expect("a second member to promote")
         .clone();
-    engine.set_route_representative(&busiest_id, &chosen).expect("set_route_representative");
+    engine
+        .set_route_representative(&busiest_id, &chosen)
+        .expect("set_route_representative");
 
     ingest_step(&mut engine, "resync", &refs(&corpus.bucket_d_delta));
     let after = route_snapshot(&mut engine);
@@ -411,9 +460,14 @@ fn route_name_survival_measured() {
     let before = route_snapshot(&mut engine);
     let (busiest_id, busiest) = busiest_route(&before).expect("a multi-member route");
 
-    engine.set_route_name(&busiest_id, Some("My Climb")).expect("set_route_name");
+    engine
+        .set_route_name(&busiest_id, Some("My Climb"))
+        .expect("set_route_name");
     println!("\n[control] name survival — route {busiest_id} named \"My Climb\"");
-    println!("  before resync: get_route_name = {:?}", engine.get_route_name(&busiest_id));
+    println!(
+        "  before resync: get_route_name = {:?}",
+        engine.get_route_name(&busiest_id)
+    );
 
     ingest_step(&mut engine, "resync", &refs(&corpus.bucket_d_delta));
     let after = route_snapshot(&mut engine);
@@ -426,7 +480,9 @@ fn route_name_survival_measured() {
         "  after resync:  get_route_name (in-memory)={:?}   get_all_route_names[old id] (DB)={:?}   name under the re-keyed route={:?}",
         in_memory, in_db, anchored_name,
     );
-    println!("  => the name was stored against the cold id, which the resync re-keys; the route_names row is orphaned AND recompute never re-hydrates custom_name, so the name is gone from every surface");
+    println!(
+        "  => the name was stored against the cold id, which the resync re-keys; the route_names row is orphaned AND recompute never re-hydrates custom_name, so the name is gone from every surface"
+    );
 }
 
 /// Target gate: a user's custom route name survives a resync. Fails today, and
@@ -445,7 +501,9 @@ fn route_name_survives_resync() {
     let before = route_snapshot(&mut engine);
     let (busiest_id, _busiest) = busiest_route(&before).expect("a multi-member route");
 
-    engine.set_route_name(&busiest_id, Some("My Climb")).expect("set_route_name");
+    engine
+        .set_route_name(&busiest_id, Some("My Climb"))
+        .expect("set_route_name");
     ingest_step(&mut engine, "resync", &refs(&corpus.bucket_d_delta));
     let _after = route_snapshot(&mut engine);
 
@@ -485,14 +543,25 @@ fn route_membership_update_measured() {
 
     // Membership-anchored (the group_id re-keys on regroup, curiosity 1).
     let anchored = group_carrying(&after, &busiest.activity_ids);
-    println!("\n[control] does the freeze reach routes — added an identical-GPS repeat of {}", member.id);
+    println!(
+        "\n[control] does the freeze reach routes — added an identical-GPS repeat of {}",
+        member.id
+    );
     println!(
         "  route carrying the cold members: {} -> {} members   contains the repeat = {}",
         busiest.activity_ids.len(),
-        anchored.as_ref().map(|(_, g)| g.activity_ids.len()).unwrap_or(0),
-        anchored.as_ref().map(|(_, g)| g.activity_ids.contains("route_repeat_clone")).unwrap_or(false),
+        anchored
+            .as_ref()
+            .map(|(_, g)| g.activity_ids.len())
+            .unwrap_or(0),
+        anchored
+            .as_ref()
+            .map(|(_, g)| g.activity_ids.contains("route_repeat_clone"))
+            .unwrap_or(false),
     );
-    println!("  => route grouping keys off membership, not processed_activity_ids, so NEW-R4 does not freeze it");
+    println!(
+        "  => route grouping keys off membership, not processed_activity_ids, so NEW-R4 does not freeze it"
+    );
 }
 
 /// Guard: a new activity on an existing route's ground joins that route on
@@ -556,12 +625,17 @@ fn route_highlights_first_attempt_measured() {
         .enumerate()
         .map(|(i, id)| metrics_for(corpus_activity(&corpus, id), times[i.min(times.len() - 1)]))
         .collect();
-    engine.set_activity_metrics(metrics).expect("set_activity_metrics");
+    engine
+        .set_activity_metrics(metrics)
+        .expect("set_activity_metrics");
 
     let ids: Vec<String> = members.iter().map(|s| (*s).clone()).collect();
     let highlights = engine.get_activity_route_highlights(&ids);
 
-    println!("\n[control] route highlights — {} timed attempts on the busiest route", ids.len());
+    println!(
+        "\n[control] route highlights — {} timed attempts on the busiest route",
+        ids.len()
+    );
     for h in &highlights {
         println!(
             "  {} trend={:>2} is_pr={} time_delta={:?} pr_improvement={:?}",
@@ -572,12 +646,21 @@ fn route_highlights_first_attempt_measured() {
     // First (earliest) attempt.
     let first = &ids[0];
     let first_h = highlights.iter().find(|h| &h.activity_id == first);
-    println!("  first attempt {first}: trend = {:?} (expect 0)", first_h.map(|h| h.trend));
+    println!(
+        "  first attempt {first}: trend = {:?} (expect 0)",
+        first_h.map(|h| h.trend)
+    );
 
     // Single-attempt route: any singleton group.
-    if let Some((sid, sfp)) = routes.groups.iter().find(|(_, g)| g.activity_ids.len() == 1) {
+    if let Some((sid, sfp)) = routes
+        .groups
+        .iter()
+        .find(|(_, g)| g.activity_ids.len() == 1)
+    {
         let only = sfp.activity_ids.iter().next().unwrap().clone();
-        engine.set_activity_metrics(vec![metrics_for(corpus_activity(&corpus, &only), 900)]).expect("metrics");
+        engine
+            .set_activity_metrics(vec![metrics_for(corpus_activity(&corpus, &only), 900)])
+            .expect("metrics");
         let sh = engine.get_activity_route_highlights(&[only.clone()]);
         println!(
             "  single-attempt route {sid}: {} highlight(s), trend={:?}, is_pr={:?} (no crash / NaN)",
@@ -619,30 +702,56 @@ fn route_highlights_trend_is_running_average_safe() {
         .enumerate()
         .map(|(i, id)| metrics_for(corpus_activity(&corpus, id), times[i.min(times.len() - 1)]))
         .collect();
-    engine.set_activity_metrics(metrics).expect("set_activity_metrics");
+    engine
+        .set_activity_metrics(metrics)
+        .expect("set_activity_metrics");
 
     let ids: Vec<String> = members.iter().map(|s| (*s).clone()).collect();
     let highlights = engine.get_activity_route_highlights(&ids);
-    assert!(!highlights.is_empty(), "expected highlights for a timed multi-member route");
+    assert!(
+        !highlights.is_empty(),
+        "expected highlights for a timed multi-member route"
+    );
 
     for h in &highlights {
-        assert!((-1..=1).contains(&h.trend), "trend {} out of range for {}", h.trend, h.activity_id);
+        assert!(
+            (-1..=1).contains(&h.trend),
+            "trend {} out of range for {}",
+            h.trend,
+            h.activity_id
+        );
     }
-    let first = highlights.iter().find(|h| h.activity_id == ids[0]).expect("first attempt highlight");
-    assert_eq!(first.trend, 0, "earliest attempt must be trend 0 (n == 0 branch), got {}", first.trend);
+    let first = highlights
+        .iter()
+        .find(|h| h.activity_id == ids[0])
+        .expect("first attempt highlight");
+    assert_eq!(
+        first.trend, 0,
+        "earliest attempt must be trend 0 (n == 0 branch), got {}",
+        first.trend
+    );
     assert!(
         highlights.iter().any(|h| h.is_pr && h.trend != 1),
         "a PR attempt should be able to have trend != 1 — trend must not be derived from the PR",
     );
 
     // Single-attempt (singleton) route: exercised safely, trend 0, is_pr true.
-    let single = routes.groups.values().find(|g| g.activity_ids.len() == 1).expect("a singleton route");
+    let single = routes
+        .groups
+        .values()
+        .find(|g| g.activity_ids.len() == 1)
+        .expect("a singleton route");
     let only = single.activity_ids.iter().next().unwrap().clone();
-    engine.set_activity_metrics(vec![metrics_for(corpus_activity(&corpus, &only), 900)]).expect("metrics");
+    engine
+        .set_activity_metrics(vec![metrics_for(corpus_activity(&corpus, &only), 900)])
+        .expect("metrics");
     let sh = engine.get_activity_route_highlights(&[only.clone()]);
     if let Some(h) = sh.first() {
         assert_eq!(h.trend, 0, "single attempt must be trend 0");
         assert!(h.is_pr, "single attempt is trivially its own PR");
-        assert_eq!(h.pr_improvement_seconds, None, "single attempt has no previous best to improve on");
+        assert_eq!(
+            h.pr_improvement_seconds, None,
+            "single attempt has no previous best to improve on"
+        );
     }
 }

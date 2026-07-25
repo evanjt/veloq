@@ -162,10 +162,9 @@ impl PersistentRouteEngine {
         let (_out, pure_ids) = identity.hysteresis.step_assign(&candidates);
         for (j, section) in managed.into_iter().enumerate() {
             let real_id = section.id.clone();
-            identity.rows.insert(
-                pure_ids[j].clone(),
-                IdentityRow { real_id, section },
-            );
+            identity
+                .rows
+                .insert(pure_ids[j].clone(), IdentityRow { real_id, section });
         }
         identity.seen = self.activity_metadata.keys().cloned().collect();
         self.identity = identity;
@@ -208,9 +207,7 @@ impl PersistentRouteEngine {
         // it is the collision. This is the custom-section rule generalised.
         let raw: Vec<FrequentSection> = raw
             .into_iter()
-            .filter(|s| {
-                !s.is_user_defined && !ground_owned_by_intent(&s.polyline, &intent_grounds)
-            })
+            .filter(|s| !s.is_user_defined && !ground_owned_by_intent(&s.polyline, &intent_grounds))
             .collect();
 
         // Step the pure hysteresis and learn which visible id each candidate
@@ -294,11 +291,7 @@ impl PersistentRouteEngine {
         identity.rows = new_rows;
         identity.seen = now_seen;
 
-        identity
-            .rows
-            .values()
-            .map(|r| r.section.clone())
-            .collect()
+        identity.rows.values().map(|r| r.section.clone()).collect()
     }
 
     /// Relinquish a registry row whose ground has just passed to a durable intent
