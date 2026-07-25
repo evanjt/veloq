@@ -450,6 +450,201 @@ fn migration_013_preserves_user_sections_and_adds_identity_state() {
 }
 
 // ----------------------------------------------------------------------------
+// Migration 013 (B4) Phase 2: section_activities gains ON DELETE CASCADE on
+// activity_id via a table rebuild (SQLite cannot ADD a constraint). The rebuild
+// must preserve a valid junction row's data, DROP an orphan row whose activity is
+// gone (cleaning a phantom member a pre-fix remove_activity stranded), and leave
+// the cascade live. This is the upgrade-path guard the design mandates for the
+// rebuild — the fresh-install path is covered by the coherence gates.
+// ----------------------------------------------------------------------------
+
+#[test]
+fn migration_013_rebuilds_junction_with_activity_cascade() {
+    let dir = TempDir::new().expect("tempdir");
+    let path = dir.path().join("v_pre013_junction.db");
+    seed_v02x_db(&path).expect("build pre-013 schema");
+
+    {
+        let conn = Connection::open(&path).expect("seed");
+        let track = sample_gps_points(120);
+        insert_activity(&conn, "act_keep", "Ride", &track, SEED_ACTIVITY_DATE).expect("activity");
+        let poly = encode_polyline_json(&track[10..80]);
+
+        conn.execute(
+            "INSERT INTO sections(id, section_type, name, sport_type, polyline_json,
+                distance_meters, version, created_at)
+             VALUES ('sec_junction_1', 'auto', NULL, 'Ride', ?, 5000.0, 1, datetime('now'))",
+            params![poly],
+        )
+        .expect("auto section");
+
+        // A valid junction row. Seeded at v11, so it predates the excluded/avg_hr
+        // columns 012 adds — the rebuild must carry it plus those 012 defaults.
+        conn.execute(
+            "INSERT INTO section_activities(section_id, activity_id, direction,
+                start_index, end_index, distance_meters, lap_time, lap_pace)
+             VALUES ('sec_junction_1', 'act_keep', 'same', 10, 80, 5000.0, 421.0, 11.9)",
+            [],
+        )
+        .expect("valid junction row");
+
+        // An orphan row whose activity no longer exists. The pre-013 junction had
+        // no activity_id FK, so this insert is permitted — it reproduces the
+        // phantom member an old remove_activity left behind. The rebuild's copy
+        // filters it out.
+        conn.execute(
+            "INSERT INTO section_activities(section_id, activity_id, direction,
+                start_index, end_index, distance_meters)
+             VALUES ('sec_junction_1', 'act_ghost_removed', 'same', 20, 90, 4000.0)",
+            [],
+        )
+        .expect("orphan junction row");
+    }
+
+    // Run the forward migration (…012, 013 rebuild) + post-migration hooks.
+    drop(open_current_engine(&path));
+
+    let conn = Connection::open(&path).expect("reopen");
+
+    // The valid row survived the rebuild with every perf column intact.
+    #[allow(clippy::type_complexity)]
+    let (direction, si, ei, dist, lap_time, lap_pace, excluded, avg_hr): (
+        String,
+        i64,
+        i64,
+        f64,
+        Option<f64>,
+        Option<f64>,
+        i64,
+        Option<f64>,
+    ) = conn
+        .query_row(
+            "SELECT direction, start_index, end_index, distance_meters,
+                    lap_time, lap_pace, excluded, avg_hr
+             FROM section_activities
+             WHERE section_id = 'sec_junction_1' AND activity_id = 'act_keep'",
+            [],
+            |r| {
+                Ok((
+                    r.get(0)?,
+                    r.get(1)?,
+                    r.get(2)?,
+                    r.get(3)?,
+                    r.get(4)?,
+                    r.get(5)?,
+                    r.get(6)?,
+                    r.get(7)?,
+                ))
+            },
+        )
+        .expect("valid junction row survives the rebuild");
+    assert_eq!(direction, "same");
+    assert_eq!((si, ei), (10, 80));
+    assert!((dist - 5000.0).abs() < 1.0);
+    assert_eq!(lap_time, Some(421.0), "lap_time lost in rebuild");
+    assert_eq!(lap_pace, Some(11.9), "lap_pace lost in rebuild");
+    assert_eq!(
+        excluded, 0,
+        "012 excluded default not carried through rebuild"
+    );
+    assert!(
+        avg_hr.is_none(),
+        "012 avg_hr default not carried through rebuild"
+    );
+
+    // The orphan row was filtered out by the copy.
+    let orphan_count: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM section_activities WHERE activity_id = 'act_ghost_removed'",
+            [],
+            |r| r.get(0),
+        )
+        .expect("count");
+    assert_eq!(
+        orphan_count, 0,
+        "rebuild must drop the orphaned junction row"
+    );
+
+    // The activity_id FK now cascades: deleting the activity purges its junction.
+    conn.execute("PRAGMA foreign_keys = ON", [])
+        .expect("enable FK enforcement");
+    conn.execute("DELETE FROM activities WHERE id = 'act_keep'", [])
+        .expect("delete activity");
+    let remaining: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM section_activities WHERE activity_id = 'act_keep'",
+            [],
+            |r| r.get(0),
+        )
+        .expect("count after delete");
+    assert_eq!(
+        remaining, 0,
+        "ON DELETE CASCADE on activity_id did not fire after the rebuild"
+    );
+}
+
+/// The 013 rebuild must be safe to run more than once. rusqlite_migration runs
+/// each migration in a transaction (a crash rolls back and re-runs 013 from v12),
+/// so literal re-runnability is belt-and-braces — but the team-lead required it.
+/// We exercise the raw SQL directly (user_version would otherwise gate a second
+/// application): apply 013 twice more to a migrated DB and assert each run is a
+/// clean no-op that leaves the both-FK table, its data, and the cascade intact.
+#[test]
+fn migration_013_is_rerunnable() {
+    let dir = TempDir::new().expect("tempdir");
+    let path = dir.path().join("v13_rerun.db");
+    seed_v02x_db(&path).expect("pre-013 schema");
+    {
+        let conn = Connection::open(&path).expect("seed");
+        let track = sample_gps_points(60);
+        insert_activity(&conn, "act_r", "Ride", &track, SEED_ACTIVITY_DATE).expect("activity");
+        conn.execute(
+            "INSERT INTO sections(id, section_type, sport_type, polyline_json,
+                distance_meters, version, created_at)
+             VALUES ('sec_r', 'auto', 'Ride', '[]', 100.0, 1, datetime('now'))",
+            [],
+        )
+        .expect("section");
+        conn.execute(
+            "INSERT INTO section_activities(section_id, activity_id, direction,
+                start_index, end_index, distance_meters, lap_time)
+             VALUES ('sec_r', 'act_r', 'same', 0, 30, 100.0, 300.0)",
+            [],
+        )
+        .expect("junction");
+    }
+    drop(open_current_engine(&path));
+
+    let conn = Connection::open(&path).expect("reopen");
+    let sql = include_str!("../src/migrations/013_b4_core.sql");
+    conn.execute_batch(sql)
+        .expect("013 second run must not error");
+    conn.execute_batch(sql)
+        .expect("013 third run must not error");
+
+    let lap: Option<f64> = conn
+        .query_row(
+            "SELECT lap_time FROM section_activities WHERE section_id='sec_r' AND activity_id='act_r'",
+            [],
+            |r| r.get(0),
+        )
+        .expect("row survives repeated 013 runs");
+    assert_eq!(lap, Some(300.0), "repeated 013 must not lose data");
+
+    conn.execute("PRAGMA foreign_keys = ON", []).unwrap();
+    conn.execute("DELETE FROM activities WHERE id='act_r'", [])
+        .expect("delete");
+    let n: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM section_activities WHERE activity_id='act_r'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(n, 0, "cascade must still fire after repeated 013 runs");
+}
+
+// ----------------------------------------------------------------------------
 // Test 1 — SQL-level survival of the custom section row.
 //
 // Asserts against raw SQLite so a future refactor of the FFI types cannot

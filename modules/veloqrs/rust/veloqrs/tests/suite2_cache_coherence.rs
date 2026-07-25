@@ -491,7 +491,6 @@ fn delete_section_cascade_is_enforced() {
 /// performance row for a GPS track that no longer exists). Green when
 /// remove_activity also deletes the activity's section_activities rows.
 #[test]
-#[ignore = "remove_activity leaves a phantom section member — junction FK is on section_id, not activity_id, so the row is never cascade-deleted"]
 fn gate_remove_activity_purges_section_membership() {
     let (mut engine, _dir, id) = cold();
     let victim = engine.get_section(&id).unwrap().activity_ids[0].clone();
@@ -531,7 +530,6 @@ fn gate_disable_section_stays_consistent_across_caches() {
 /// gone. The perf cache invalidation is beside the point — the underlying
 /// junction is never cleaned. Green when remove_activity purges the junction.
 #[test]
-#[ignore = "remove_activity leaves the phantom junction row, so get_section_performances keeps surfacing the deleted activity's laps even after a fresh recompute"]
 fn gate_remove_activity_drops_performance_record() {
     let corpus = corpus();
     let (mut engine, _dir) = fresh_engine_for(Arm::Control);
