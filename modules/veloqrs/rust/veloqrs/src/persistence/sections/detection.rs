@@ -1019,6 +1019,10 @@ impl PersistentRouteEngine {
                 self.identity = trial_identity;
                 self.raw_sections = raw_for_convergence;
                 self.sections_dirty = false;
+                // B4: persist the just-committed registry so its debounce +
+                // tombstone state survives a restart (best-effort, after the
+                // durable section save).
+                self.section_identity_persist();
                 // Clear activity_traces to prevent memory leak. These GPS
                 // traces were used for consensus computation but aren't
                 // persisted; shrink_to_fit() releases the bucket

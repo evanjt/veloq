@@ -585,6 +585,9 @@ impl PersistentRouteEngine {
         if let Err(e) = self.save_groups() {
             log::error!("tracematch: Failed to save groups to database: {}", e);
         }
+        // B4: persist the route registry (mint counter + seniority) so a group
+        // minted after a restart cannot re-use a live ordinal.
+        self.route_identity_persist();
         let save_ms = save_start.elapsed().as_millis();
         self.groups_dirty = false;
 

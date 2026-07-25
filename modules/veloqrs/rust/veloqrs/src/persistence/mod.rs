@@ -785,13 +785,19 @@ impl PersistentRouteEngine {
         // preserved: a resync carries the seeded ids onto their surviving ground
         // rather than re-deriving them. Must run after both `sections` and
         // `metadata` load so it sees the managed catalogue and the activity set.
-        self.section_identity_reseed();
+        // B4: prefer the persisted registry blob (exact debounce + tombstone
+        // state) and fall back to reseeding from the DB rows for a fresh or
+        // pre-B4 install.
+        if !self.section_identity_restore() {
+            self.section_identity_reseed();
+        }
 
-        // B2 step 3: same adoption for routes — seed the route registry from the
-        // loaded groups so an existing install keeps its route ids (they simply
-        // stop being re-derived from the Union-Find root from that point). Must
-        // run after `groups` load.
-        self.route_identity_reseed();
+        // B2 step 3 + B4: same for routes — restore the persisted registry
+        // (mint counter + seniority), else adopt the loaded group_ids as stable
+        // seeds. Must run after `groups` load.
+        if !self.route_identity_restore() {
+            self.route_identity_reseed();
+        }
 
         // Backfill activities.duration_secs from activity_metrics.moving_time.
         // Route highlights need duration_secs to compute trends/PRs, but it was

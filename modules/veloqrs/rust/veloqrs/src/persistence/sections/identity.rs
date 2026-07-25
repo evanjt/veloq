@@ -40,10 +40,14 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use serde::{Deserialize, Serialize};
 
 use crate::persistence::PersistentRouteEngine;
+use crate::persistence::codec;
 use crate::sections::crud::compute_section_portions;
 use tracematch::{
     CandidateSection, FrequentSection, GpsPoint, HysteresisParams, HysteresisState, shares_ground,
 };
+
+/// `identity_state.key` for the section registry blob (B4 migration 013).
+const SECTION_IDENTITY_KEY: &str = "section_identity";
 
 /// Merge-candidacy mutual-overlap floor for the registry's hysteresis. SHIPS AT
 /// 0.0 (the pure-layer default): a prior competes for a candidate's merge
@@ -134,6 +138,63 @@ impl PersistentRouteEngine {
     /// detection desync.
     pub fn raw_detection_catalogue(&self) -> &[FrequentSection] {
         &self.raw_sections
+    }
+
+    /// Test-only fingerprint of the full section registry state (visible ids,
+    /// tombstones, debounce, seen, ordinal), for asserting a restart restores it
+    /// exactly. Behind `synthetic` so it never reaches the shipped API.
+    #[cfg(feature = "synthetic")]
+    pub fn section_identity_fingerprint(&self) -> Vec<u8> {
+        codec::serialize(&self.identity).unwrap_or_default()
+    }
+
+    /// Persist the whole section identity registry as one serde blob (B4). The
+    /// hysteresis debounce streaks and the tombstones a dissolved ground
+    /// re-emerges under are otherwise in-memory only and lost on restart; the
+    /// blob carries the exact state forward. Best-effort: a write failure logs and
+    /// leaves the prior blob, so the next open restores that (or reseeds) rather
+    /// than crashing the apply.
+    pub(crate) fn section_identity_persist(&self) {
+        match codec::serialize(&self.identity) {
+            Ok(blob) => {
+                if let Err(e) = self.db.execute(
+                    "INSERT INTO identity_state (key, blob, updated_at)
+                     VALUES (?, ?, datetime('now'))
+                     ON CONFLICT(key) DO UPDATE SET blob = excluded.blob, updated_at = excluded.updated_at",
+                    rusqlite::params![SECTION_IDENTITY_KEY, blob],
+                ) {
+                    log::warn!("tracematch: [section_identity_persist] write failed: {e}");
+                }
+            }
+            Err(e) => log::warn!("tracematch: [section_identity_persist] serialise failed: {e}"),
+        }
+    }
+
+    /// Restore the section registry from its persisted blob. Returns false when no
+    /// blob exists (fresh or pre-B4 install) or it fails to decode, so the caller
+    /// falls back to reseeding from the DB rows. On success the exact debounce +
+    /// tombstone state is back, so a pending dissolve resumes its streak and a
+    /// tombstoned ground still re-emerges under its old id after a restart.
+    pub(crate) fn section_identity_restore(&mut self) -> bool {
+        let blob: Option<Vec<u8>> = self
+            .db
+            .query_row(
+                "SELECT blob FROM identity_state WHERE key = ?",
+                rusqlite::params![SECTION_IDENTITY_KEY],
+                |row| row.get(0),
+            )
+            .ok();
+        match blob.as_deref().map(codec::deserialize::<SectionIdentity>) {
+            Some(Ok(state)) => {
+                self.identity = state;
+                true
+            }
+            Some(Err(e)) => {
+                log::warn!("tracematch: [section_identity_restore] decode failed, reseeding: {e}");
+                false
+            }
+            None => false,
+        }
     }
 
     /// Seed the registry from the sections already loaded from the DB, adopting

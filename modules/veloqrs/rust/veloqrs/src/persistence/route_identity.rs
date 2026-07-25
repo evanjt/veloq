@@ -34,7 +34,11 @@ use std::collections::{BTreeMap, BTreeSet, HashMap};
 use serde::{Deserialize, Serialize};
 
 use crate::persistence::PersistentRouteEngine;
+use crate::persistence::codec;
 use tracematch::RouteGroup;
+
+/// `identity_state.key` for the route registry blob (B4 migration 013).
+const ROUTE_IDENTITY_KEY: &str = "route_identity";
 
 /// Per-route identity state: the seniority ordinal of each live stable id plus
 /// the monotonic counter that both mints `r_<n>` ids and stamps `first_seen`.
@@ -52,6 +56,58 @@ pub(crate) struct RouteIdentity {
 }
 
 impl PersistentRouteEngine {
+    /// Test-only fingerprint of the route registry state (first_seen + ordinal),
+    /// for asserting a restart restores it exactly. Behind `synthetic`.
+    #[cfg(feature = "synthetic")]
+    pub fn route_identity_fingerprint(&self) -> Vec<u8> {
+        codec::serialize(&self.route_identity).unwrap_or_default()
+    }
+
+    /// Persist the route registry (first_seen ordinals + mint counter) as one
+    /// serde blob (B4). Best-effort, mirroring the section registry: a write
+    /// failure logs and leaves the prior blob for the next open to restore.
+    pub(crate) fn route_identity_persist(&self) {
+        match codec::serialize(&self.route_identity) {
+            Ok(blob) => {
+                if let Err(e) = self.db.execute(
+                    "INSERT INTO identity_state (key, blob, updated_at)
+                     VALUES (?, ?, datetime('now'))
+                     ON CONFLICT(key) DO UPDATE SET blob = excluded.blob, updated_at = excluded.updated_at",
+                    rusqlite::params![ROUTE_IDENTITY_KEY, blob],
+                ) {
+                    log::warn!("tracematch: [route_identity_persist] write failed: {e}");
+                }
+            }
+            Err(e) => log::warn!("tracematch: [route_identity_persist] serialise failed: {e}"),
+        }
+    }
+
+    /// Restore the route registry from its persisted blob. Returns false when no
+    /// blob exists or it fails to decode, so the caller reseeds from the DB groups
+    /// instead. On success the mint counter and seniority survive the restart, so
+    /// a group minted after the restart cannot re-use a live ordinal.
+    pub(crate) fn route_identity_restore(&mut self) -> bool {
+        let blob: Option<Vec<u8>> = self
+            .db
+            .query_row(
+                "SELECT blob FROM identity_state WHERE key = ?",
+                rusqlite::params![ROUTE_IDENTITY_KEY],
+                |row| row.get(0),
+            )
+            .ok();
+        match blob.as_deref().map(codec::deserialize::<RouteIdentity>) {
+            Some(Ok(state)) => {
+                self.route_identity = state;
+                true
+            }
+            Some(Err(e)) => {
+                log::warn!("tracematch: [route_identity_restore] decode failed, reseeding: {e}");
+                false
+            }
+            None => false,
+        }
+    }
+
     /// Seed the registry from the groups already loaded from the DB, adopting each
     /// existing `group_id` as its stable id so an install keeps its route ids and
     /// simply stops re-deriving them — no migration. Seniority is assigned in
