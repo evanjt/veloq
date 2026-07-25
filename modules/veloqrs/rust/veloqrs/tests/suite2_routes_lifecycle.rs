@@ -259,6 +259,32 @@ fn route_grouping_determinism_measured() {
     );
 }
 
+/// Gate (determinism): the WHOLE route catalogue — group ids and representatives
+/// included — is byte-stable across two fresh engines over the same set. Unlike
+/// sections (whose signature is id-free), the route snapshot's signature carries
+/// the id, so identity had to become deterministic, not just stable: B2 mints an
+/// ORDINAL `r_<n>` in sorted-member order (no HashMap-seed leak into the id) and a
+/// cold group's representative is already the sorted-min member, so the two
+/// catalogues match to the byte. Red before B2 — the group_id was the Union-Find
+/// root, seed-dependent across engines.
+#[test]
+fn route_snapshot_is_byte_stable_across_engines() {
+    let corpus = route_corpus(COLD_N);
+    let (mut e1, _d1) = fresh_engine_for(Arm::Control);
+    ingest_step(&mut e1, "cold", &corpus.through_a());
+    let a = route_snapshot(&mut e1);
+    let (mut e2, _d2) = fresh_engine_for(Arm::Control);
+    ingest_step(&mut e2, "cold", &corpus.through_a());
+    let b = route_snapshot(&mut e2);
+
+    assert!(a.count() > 0, "expected route groups to form");
+    assert_eq!(
+        a.catalogue_signature(),
+        b.catalogue_signature(),
+        "route catalogue (ids + representatives) is not byte-stable across two fresh engines",
+    );
+}
+
 /// Find a corpus activity by id (its GPS is what we clone / re-travel).
 fn corpus_activity<'a>(corpus: &'a LifecycleCorpus, id: &str) -> &'a LifecycleActivity {
     corpus
@@ -328,7 +354,6 @@ fn route_identity_across_resync_measured() {
 /// gates). Deterministic: post-resync the id is the min member. Green when routes
 /// carry an assign-once opaque id (B2).
 #[test]
-#[ignore = "R2 reaches routes — group_id is a positional Union-Find root (min member after an incremental resync), not a stable identity, so it moves on resync"]
 fn route_identity_survives_resync() {
     let corpus = route_corpus(COLD_N);
     let (mut engine, _dir) = fresh_engine_for(Arm::Control);
@@ -415,7 +440,6 @@ fn route_representative_survival_measured() {
 /// otherwise. Green unconditionally once identity is a stable assign-once id (B2)
 /// or the representative is stored against a stable key.
 #[test]
-#[ignore = "route representative lost on resync (seed-conditional) — existing_reps is keyed by the group_id, which the resync re-roots, so the user's pick is discarded unless the cold root happens to equal the min-member; depends on B2 identity"]
 fn route_representative_survives_resync() {
     let corpus = route_corpus(COLD_N);
     let (mut engine, _dir) = fresh_engine_for(Arm::Control);
@@ -486,14 +510,16 @@ fn route_name_survival_measured() {
 }
 
 /// Target gate: a user's custom route name survives a resync. Fails today, and
-/// worse than expected — the name is lost from EVERY surface. Two compounding
-/// causes: (1) the name is stored in `route_names` keyed by the group_id, which
-/// the resync re-keys (curiosity 1), orphaning the row; (2) `recompute_groups`
-/// rebuilds groups with `custom_name = None` and never re-hydrates from
-/// `route_names`, so even the re-keyed route shows no name. Green needs a stable
-/// route identity (B2) plus a re-hydrate on recompute.
+/// Two compounding causes, one now fixed. (1) The name was stored in
+/// `route_names` keyed by the group_id, which the resync re-keyed (curiosity 1),
+/// orphaning the row — FIXED by B2: the stable route id survives the resync, so
+/// the `route_names` row is no longer orphaned (`get_all_route_names` under the
+/// stable id keeps the name). (2) `recompute_groups` still rebuilds the in-memory
+/// groups with `custom_name = None` and never re-hydrates from `route_names`, so
+/// `get_route_name` (which reads the in-memory group) returns None. That
+/// re-hydration is B4's job, so this stays red on the in-memory surface only.
 #[test]
-#[ignore = "route name lost on resync from every surface — stored against a re-keyed group_id (orphaned) and recompute never re-hydrates custom_name (depends on B2 identity)"]
+#[ignore = "B4: the route_names row now survives (B2 stable id, no longer orphaned), but recompute_groups still does not re-hydrate custom_name into the in-memory group, so get_route_name is None until B4 adds the re-hydrate"]
 fn route_name_survives_resync() {
     let corpus = route_corpus(COLD_N);
     let (mut engine, _dir) = fresh_engine_for(Arm::Control);
