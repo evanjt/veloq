@@ -1,0 +1,278 @@
+//! Assign-once route identity: the route half of B2 (design 2.3 / Part 4 step 3).
+//!
+//! A route group's `group_id` was the Union-Find ROOT of its member set, which
+//! the full and incremental grouping paths pick differently — so the first
+//! incremental resync re-keys a group to its MIN member, orphaning anything keyed
+//! to the old id (the representative via `existing_reps`, the name via
+//! `route_names`). That is R2 reaching routes. This layer mirrors the section
+//! registry: it owns a stable id per route over time, carried forward by MEMBER
+//! overlap rather than re-derived from the churning root.
+//!
+//! Two deliberate differences from the section registry:
+//!
+//! - MATCH METRIC. A route IS its member set, so identity is carried by Jaccard of
+//!   `activity_ids` (local set math here — no geometry, no tracematch round-trip),
+//!   not ground coverage. Mutual-best pairing with total tie-breaks, so the plan
+//!   is a deterministic function of the two member-set families (no HashMap-order
+//!   leak into the persisted id).
+//! - ID SCHEME. Routes mint a DETERMINISTIC ordinal `r_<n>`, not the sections'
+//!   `s_<ts>__<rand>`. The route snapshot's signature is id-INCLUDED (a cold
+//!   group's representative is already the deterministic sorted-min member), so a
+//!   deterministic id makes the whole route catalogue byte-stable across two runs
+//!   — the double-run determinism routes are held to. A ts+rand id could not.
+//!   Minted in sorted-member order so the assignment does not depend on the
+//!   grouping HashMap's iteration order. Per-device ids need no global uniqueness;
+//!   reseed adopts existing ids and continues the counter past them.
+//!
+//! Scope is identity + keying only (no hysteresis debounce — a route has no
+//! non-monotone reform to damp). The custom-name re-hydration on recompute stays
+//! B4; this layer only stops the `route_names` row being orphaned by keying it to
+//! the surviving stable id.
+
+use std::collections::{BTreeMap, BTreeSet, HashMap};
+
+use serde::{Deserialize, Serialize};
+
+use crate::persistence::PersistentRouteEngine;
+use tracematch::RouteGroup;
+
+/// Per-route identity state: the seniority ordinal of each live stable id plus
+/// the monotonic counter that both mints `r_<n>` ids and stamps `first_seen`.
+/// In-memory pre-B4 (reseeded from the DB groups on open); serde-ready so B4 can
+/// persist it as one blob.
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+pub(crate) struct RouteIdentity {
+    /// Stable route id -> seniority ordinal (lower = more senior, wins a merge).
+    /// Holds exactly the currently-live ids; a dropped route's id is pruned (no
+    /// tombstone — routes carry no re-emergence machinery).
+    first_seen: BTreeMap<String, u64>,
+    /// Monotonic: the source of both a fresh `r_<n>` id and a fresh `first_seen`.
+    /// Only grows within a session; reseed lifts it past any adopted `r_<n>`.
+    ordinal: u64,
+}
+
+impl PersistentRouteEngine {
+    /// Seed the registry from the groups already loaded from the DB, adopting each
+    /// existing `group_id` as its stable id so an install keeps its route ids and
+    /// simply stops re-deriving them — no migration. Seniority is assigned in
+    /// sorted-id order (a deterministic proxy for age at adoption time); the mint
+    /// counter is lifted past any adopted `r_<n>` so a later mint cannot collide.
+    pub(crate) fn route_identity_reseed(&mut self) {
+        let mut ids: Vec<String> = self.groups.iter().map(|g| g.group_id.clone()).collect();
+        ids.sort();
+
+        let mut ri = RouteIdentity::default();
+        for id in &ids {
+            ri.ordinal += 1;
+            ri.first_seen.insert(id.clone(), ri.ordinal);
+        }
+        let max_minted = ids
+            .iter()
+            .filter_map(|id| id.strip_prefix("r_").and_then(|n| n.parse::<u64>().ok()))
+            .max()
+            .unwrap_or(0);
+        ri.ordinal = ri.ordinal.max(max_minted);
+        self.route_identity = ri;
+    }
+
+    /// Remap a freshly-grouped catalogue (`new_groups`, still carrying churning
+    /// UF-root ids and fresh min-member representatives) onto stable ids, matching
+    /// each group to a prior by member-set overlap. A carry inherits the prior's
+    /// stable id AND its representative (so a user's pick survives the regroup); a
+    /// group matching no prior mints a fresh deterministic id. `prior` is the
+    /// previous `self.groups`, the source of the ids and reps being carried.
+    ///
+    /// Returns the remapped groups and the `old_group_id -> stable_id` map, so the
+    /// caller can re-key anything the grouping keyed by the old UF-root id — chiefly
+    /// `activity_matches`, whose per-member DIRECTION would otherwise be orphaned
+    /// (leaving route highlights to read a wrong forward/back split).
+    pub(crate) fn route_identity_remap(
+        &mut self,
+        prior: Vec<RouteGroup>,
+        new_groups: Vec<RouteGroup>,
+    ) -> (Vec<RouteGroup>, HashMap<String, String>) {
+        let np = prior.len();
+        let nc = new_groups.len();
+        let prior_members: Vec<BTreeSet<String>> = prior
+            .iter()
+            .map(|g| g.activity_ids.iter().cloned().collect())
+            .collect();
+        let new_members: Vec<BTreeSet<String>> = new_groups
+            .iter()
+            .map(|g| g.activity_ids.iter().cloned().collect())
+            .collect();
+
+        // Jaccard overlap of every prior/candidate pair. Disjoint pairs score 0.
+        let mut jac = vec![vec![0.0_f64; nc]; np];
+        for i in 0..np {
+            for j in 0..nc {
+                let inter = prior_members[i].intersection(&new_members[j]).count();
+                if inter == 0 {
+                    continue;
+                }
+                let uni = prior_members[i].union(&new_members[j]).count();
+                jac[i][j] = inter as f64 / uni as f64;
+            }
+        }
+
+        // Each candidate nominates the SENIOR prior it best overlaps (merge rule):
+        // more overlap, then earlier first_seen, then more members, then smaller id.
+        let cand_pick: Vec<Option<usize>> = (0..nc)
+            .map(|j| {
+                let mut best: Option<usize> = None;
+                for i in 0..np {
+                    if jac[i][j] <= 0.0 {
+                        continue;
+                    }
+                    let take = match best {
+                        None => true,
+                        Some(b) => self.senior_prior_wins(jac[i][j], i, jac[b][j], b, &prior),
+                    };
+                    if take {
+                        best = Some(i);
+                    }
+                }
+                best
+            })
+            .collect();
+
+        // Each prior nominates the candidate it best overlaps (split rule): more
+        // overlap, then more members, then the smaller member set, then index.
+        let prior_pick: Vec<Option<usize>> = (0..np)
+            .map(|i| {
+                let mut best: Option<usize> = None;
+                for j in 0..nc {
+                    if jac[i][j] <= 0.0 {
+                        continue;
+                    }
+                    let take = match best {
+                        None => true,
+                        Some(b) => better_candidate(
+                            jac[i][j],
+                            &new_members[j],
+                            j,
+                            jac[i][b],
+                            &new_members[b],
+                            b,
+                        ),
+                    };
+                    if take {
+                        best = Some(j);
+                    }
+                }
+                best
+            })
+            .collect();
+
+        // A carry is confirmed only where the two nominations agree.
+        let mut carrier_of: Vec<Option<usize>> = vec![None; nc];
+        for (i, &pick) in prior_pick.iter().enumerate() {
+            if let Some(j) = pick {
+                if cand_pick[j] == Some(i) {
+                    carrier_of[j] = Some(i);
+                }
+            }
+        }
+
+        let mut out: Vec<Option<RouteGroup>> = vec![None; nc];
+        let mut new_first_seen: BTreeMap<String, u64> = BTreeMap::new();
+        let mut id_map: HashMap<String, String> = HashMap::with_capacity(nc);
+
+        // Carries first: inherit the prior's stable id, seniority, and rep.
+        for j in 0..nc {
+            let Some(i) = carrier_of[j] else { continue };
+            let stable_id = prior[i].group_id.clone();
+            let mut g = new_groups[j].clone();
+            g.representative_id = if new_members[j].contains(&prior[i].representative_id) {
+                prior[i].representative_id.clone()
+            } else {
+                g.representative_id
+            };
+            id_map.insert(g.group_id.clone(), stable_id.clone());
+            g.group_id = stable_id.clone();
+            let fs = self
+                .route_identity
+                .first_seen
+                .get(&stable_id)
+                .copied()
+                .unwrap_or_else(|| {
+                    self.route_identity.ordinal += 1;
+                    self.route_identity.ordinal
+                });
+            new_first_seen.insert(stable_id, fs);
+            out[j] = Some(g);
+        }
+
+        // Mints, in sorted-member order so the id assignment is independent of the
+        // grouping HashMap's iteration order.
+        let mut mint_order: Vec<usize> = (0..nc).filter(|&j| carrier_of[j].is_none()).collect();
+        mint_order.sort_by(|&a, &b| new_members[a].cmp(&new_members[b]));
+        for j in mint_order {
+            self.route_identity.ordinal += 1;
+            let id = format!("r_{}", self.route_identity.ordinal);
+            let mut g = new_groups[j].clone();
+            id_map.insert(g.group_id.clone(), id.clone());
+            g.group_id = id.clone();
+            new_first_seen.insert(id, self.route_identity.ordinal);
+            out[j] = Some(g);
+        }
+
+        self.route_identity.first_seen = new_first_seen;
+        (out.into_iter().flatten().collect(), id_map)
+    }
+
+    /// Whether prior `i` beats prior `b` for a candidate's merge nomination: more
+    /// overlap, then more senior (earlier first_seen), then more members, then a
+    /// smaller id. Total, so the nomination never depends on iteration order.
+    fn senior_prior_wins(
+        &self,
+        jac_i: f64,
+        i: usize,
+        jac_b: f64,
+        b: usize,
+        prior: &[RouteGroup],
+    ) -> bool {
+        match jac_i.total_cmp(&jac_b) {
+            std::cmp::Ordering::Greater => true,
+            std::cmp::Ordering::Less => false,
+            std::cmp::Ordering::Equal => {
+                let fi = self.route_identity.first_seen.get(&prior[i].group_id).copied();
+                let fb = self.route_identity.first_seen.get(&prior[b].group_id).copied();
+                match (fi, fb) {
+                    (Some(a), Some(c)) if a != c => a < c,
+                    _ => match prior[i].activity_ids.len().cmp(&prior[b].activity_ids.len()) {
+                        std::cmp::Ordering::Greater => true,
+                        std::cmp::Ordering::Less => false,
+                        std::cmp::Ordering::Equal => prior[i].group_id < prior[b].group_id,
+                    },
+                }
+            }
+        }
+    }
+}
+
+/// Whether candidate `(jac_j, mj)` at index `j` beats `(jac_b, mb)` at index `b`
+/// for a prior's split nomination: more overlap, then more members, then the
+/// smaller member set (lexicographic), then a smaller index. Total.
+fn better_candidate(
+    jac_j: f64,
+    mj: &BTreeSet<String>,
+    j: usize,
+    jac_b: f64,
+    mb: &BTreeSet<String>,
+    b: usize,
+) -> bool {
+    match jac_j.total_cmp(&jac_b) {
+        std::cmp::Ordering::Greater => true,
+        std::cmp::Ordering::Less => false,
+        std::cmp::Ordering::Equal => match mj.len().cmp(&mb.len()) {
+            std::cmp::Ordering::Greater => true,
+            std::cmp::Ordering::Less => false,
+            std::cmp::Ordering::Equal => match mj.cmp(mb) {
+                std::cmp::Ordering::Less => true,
+                std::cmp::Ordering::Greater => false,
+                std::cmp::Ordering::Equal => j < b,
+            },
+        },
+    }
+}

@@ -39,6 +39,7 @@ pub(crate) mod codec;
 pub(crate) mod export;
 mod fitness;
 mod indicators;
+mod route_identity;
 mod routes;
 mod schema;
 pub mod sections;
@@ -591,8 +592,14 @@ pub struct PersistentRouteEngine {
     /// Tier 2: LRU cached groups for single-item lookups (100 max = ~1MB)
     group_cache: LruCache<String, RouteGroup>,
 
-    /// Cached route groups (loaded from DB)
+    /// Cached route groups (loaded from DB). Since B2 their `group_id` is a stable
+    /// assign-once id carried by `route_identity`, not the churning Union-Find root.
     groups: Vec<RouteGroup>,
+
+    /// Assign-once route identity registry (B2 step 3). Owns the stable route id
+    /// over time and carries it (plus the representative) onto the recomputed
+    /// group by member overlap. In-memory pre-B4; reseeded from the DB on open.
+    route_identity: route_identity::RouteIdentity,
 
     /// Per-activity match info: route_id -> Vec<ActivityMatchInfo>
     activity_matches: HashMap<String, Vec<ActivityMatchInfo>>,
@@ -709,6 +716,7 @@ impl PersistentRouteEngine {
             section_cache: LruCache::new(std::num::NonZeroUsize::new(50).unwrap()),
             group_cache: LruCache::new(std::num::NonZeroUsize::new(100).unwrap()),
             groups: Vec::new(),
+            route_identity: route_identity::RouteIdentity::default(),
             activity_matches: HashMap::new(),
             activity_metrics: HashMap::new(),
             time_streams: LruCache::new(std::num::NonZeroUsize::new(200).unwrap()),
@@ -778,6 +786,12 @@ impl PersistentRouteEngine {
         // rather than re-deriving them. Must run after both `sections` and
         // `metadata` load so it sees the managed catalogue and the activity set.
         self.section_identity_reseed();
+
+        // B2 step 3: same adoption for routes — seed the route registry from the
+        // loaded groups so an existing install keeps its route ids (they simply
+        // stop being re-derived from the Union-Find root from that point). Must
+        // run after `groups` load.
+        self.route_identity_reseed();
 
         // Backfill activities.duration_secs from activity_metrics.moving_time.
         // Route highlights need duration_secs to compute trends/PRs, but it was

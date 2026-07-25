@@ -533,9 +533,26 @@ impl PersistentRouteEngine {
             group_ms
         );
 
-        self.groups = result.groups;
+        // B2: remap the freshly-grouped catalogue onto stable assign-once ids. The
+        // grouping assigned each group the Union-Find root as its id (which the
+        // full and incremental paths pick differently, re-keying to the min member
+        // on a resync); the registry carries the prior stable id and the user's
+        // representative onto the matching group by member overlap instead.
+        let prior_groups = std::mem::take(&mut self.groups);
+        let (remapped, id_map) = self.route_identity_remap(prior_groups, result.groups);
+        self.groups = remapped;
         if !result.activity_matches.is_empty() {
-            self.activity_matches = result.activity_matches;
+            // Re-key the grouping's match info (which carries each member's
+            // direction) by the stable ids the remap assigned, or the direction
+            // lookup in route highlights would miss the new id and default every
+            // traversal to forward.
+            self.activity_matches = result
+                .activity_matches
+                .into_iter()
+                .map(|(old_id, matches)| {
+                    (id_map.get(&old_id).cloned().unwrap_or(old_id), matches)
+                })
+                .collect();
         }
 
         // Phase 3: Recalculate match percentages using ORIGINAL GPS tracks (not simplified signatures)
