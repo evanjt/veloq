@@ -25,6 +25,16 @@ pub mod settings_keys {
     pub const SECTION_MIN_ACTIVITIES: &str = "__section_min_activities";
     /// SectionConfig.detection_method (string: "corridor", "density_grid", "flow_graph").
     pub const SECTION_DETECTION_METHOD: &str = "__section_detection_method";
+    /// The WHOLE SectionConfig as a JSON blob. The individual keys above persist
+    /// the strictness-slider fields; this captures every field so a restart
+    /// restores the EXACT config that was last set. Without it the load path
+    /// rebuilds `default()` + the four slider fields, and the TS launch re-apply
+    /// (which spreads the current config and re-sets preset-only fields like
+    /// `preserve_hierarchy` / `min_corridor_tracks`) then reads as a genuine
+    /// change every boot — clearing the processed set and, since B2, renumbering
+    /// every section. Preferred by the loader; the individual keys remain as a
+    /// pre-blob-install fallback.
+    pub const SECTION_CONFIG_JSON: &str = "__section_config_json";
 }
 
 impl PersistentRouteEngine {
@@ -111,6 +121,23 @@ impl PersistentRouteEngine {
     /// Missing or unparseable values fall back to the default SectionConfig
     /// fields already in place (set during `PersistentRouteEngine::new`).
     pub(super) fn load_section_config_from_settings(&mut self) -> SqlResult<()> {
+        // Prefer the whole-config blob: it restores EVERY field, so the TS launch
+        // re-apply of the same preset compares equal and no-ops (no re-detect, no
+        // section renumber). Fall back to the individual slider keys below for
+        // installs written before the blob key existed.
+        if let Some(json) = self.get_setting(settings_keys::SECTION_CONFIG_JSON)? {
+            match serde_json::from_str::<tracematch::SectionConfig>(&json) {
+                Ok(cfg) => {
+                    self.section_config = cfg;
+                    return Ok(());
+                }
+                Err(e) => log::warn!(
+                    "tracematch: [load_section_config] config blob unparseable, falling back to slider keys: {}",
+                    e
+                ),
+            }
+        }
+
         if let Some(raw) = self.get_setting(settings_keys::SECTION_PROXIMITY_THRESHOLD)? {
             if let Ok(v) = raw.parse::<f64>() {
                 self.section_config.proximity_threshold = v;

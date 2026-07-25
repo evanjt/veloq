@@ -853,6 +853,20 @@ impl PersistentRouteEngine {
 
     /// Set section configuration.
     pub fn set_section_config(&mut self, config: SectionConfig) {
+        // A config identical to the active one is a NO-OP. The TS init path
+        // re-sends the persisted config on every launch (GlobalDataSync applies
+        // the strictness preset whenever detectionStrictness != 60), so without
+        // this guard every launch would clear the processed set, force a full
+        // re-detect, and — since B2 — reset the identity registry, renumbering
+        // every section on each open for any user who has ever moved the
+        // strictness slider. Only a GENUINE change runs the re-analysis tail
+        // below (which arms config_change_reanalyses). Equality is exact, but the
+        // config round-trips through the settings table as the same f64/u32
+        // strings, so a re-sent config compares equal.
+        if config == self.section_config {
+            return;
+        }
+
         // Persist the user's chosen detection params alongside MatchConfig
         // strictness so a fresh engine load reflects the same choices without
         // a TS round-trip. set_setting errors are logged but not propagated:
@@ -893,6 +907,23 @@ impl PersistentRouteEngine {
                 "tracematch: [set_section_config] failed to persist detection_method: {}",
                 e
             );
+        }
+        // Persist the WHOLE config so a restart restores every field, not just the
+        // four slider keys above. This is what makes the TS launch re-apply a true
+        // no-op (see the SECTION_CONFIG_JSON key doc); the loader prefers it.
+        match serde_json::to_string(&config) {
+            Ok(json) => {
+                if let Err(e) = self.set_setting(settings_keys::SECTION_CONFIG_JSON, &json) {
+                    log::warn!(
+                        "tracematch: [set_section_config] failed to persist config blob: {}",
+                        e
+                    );
+                }
+            }
+            Err(e) => log::warn!(
+                "tracematch: [set_section_config] failed to serialise config blob: {}",
+                e
+            ),
         }
 
         self.section_config = config;
