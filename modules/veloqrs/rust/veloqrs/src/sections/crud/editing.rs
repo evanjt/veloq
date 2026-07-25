@@ -214,6 +214,10 @@ impl PersistentRouteEngine {
         self.invalidate_section_cache(section_id);
         self.refresh_section_in_memory(section_id);
 
+        // Trim promotes to user-defined (durable, backed-up); relinquish from the
+        // registry so detection stops re-emitting its ground and colliding on it.
+        self.section_identity_relinquish(section_id);
+
         Ok(())
     }
 

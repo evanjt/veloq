@@ -1007,9 +1007,18 @@ impl PersistentRouteEngine {
     /// the rollback contract is unchanged from the monolithic
     /// `apply_sections`.
     pub fn apply_sections_save(&mut self, sections: Vec<FrequentSection>) -> SqlResult<()> {
-        let old_sections = std::mem::replace(&mut self.sections, sections);
+        // B2: remap the raw detection batch through the assign-once identity +
+        // hysteresis registry into the id-stable, churn-damped VISIBLE catalogue
+        // the app renders. Run on a clone of the registry so a failed save never
+        // advances identity past what is durable in the DB; commit it only on Ok.
+        let mut trial_identity = self.identity.clone();
+        let raw_for_convergence = sections.clone();
+        let visible = self.section_identity_apply_into(&mut trial_identity, sections);
+        let old_sections = std::mem::replace(&mut self.sections, visible);
         match self.save_sections() {
             Ok(()) => {
+                self.identity = trial_identity;
+                self.raw_sections = raw_for_convergence;
                 self.sections_dirty = false;
                 // Clear activity_traces to prevent memory leak. These GPS
                 // traces were used for consensus computation but aren't

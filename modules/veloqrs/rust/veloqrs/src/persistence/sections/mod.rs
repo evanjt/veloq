@@ -1,9 +1,12 @@
 //! Section management: loading, queries, detection, save/apply, names.
 
 mod detection;
+mod identity;
 mod merging;
 mod naming;
 mod ranking;
+
+pub(crate) use identity::SectionIdentity;
 
 // Re-export the Tier 2 upgrade-path backfill so `persistent_engine_ffi::init`
 // can trigger it without reaching through private module paths. The sync

@@ -603,8 +603,24 @@ pub struct PersistentRouteEngine {
     /// from the `time_streams` SQLite table.
     time_streams: LruCache<String, Vec<u32>>,
 
-    /// Cached sections (loaded from DB)
+    /// Cached sections (loaded from DB). Since B2 this is the identity-stable,
+    /// hysteresis-DAMPED visible catalogue the app renders, not the raw detection
+    /// batch — `sections::SectionIdentity` remaps ids and debounces churn between
+    /// the worker's raw catalogue and this field.
     sections: Vec<FrequentSection>,
+
+    /// Assign-once section identity registry + hysteresis debounce (B2). Owns the
+    /// stable opaque id over time and damps the non-monotone batch into the
+    /// visible `sections` above. In-memory pre-B4; reseeded from the DB on open.
+    identity: sections::SectionIdentity,
+
+    /// The last RAW detection catalogue applied, before the identity + hysteresis
+    /// remap. `sections` is the DAMPED view the app renders; this is the B1
+    /// convergence truth (order-free, tracks the batch every step) the parity
+    /// gates compare against. The two DIFFER by design: the damped view can hold a
+    /// section a debounced dissolve has not yet retired, so it lags the raw batch
+    /// by up to `k` steps. In-memory only.
+    raw_sections: Vec<FrequentSection>,
 
     /// Activities that have been through section detection (persisted in SQLite)
     processed_activity_ids: HashSet<String>,
@@ -694,6 +710,8 @@ impl PersistentRouteEngine {
             activity_metrics: HashMap::new(),
             time_streams: LruCache::new(std::num::NonZeroUsize::new(200).unwrap()),
             sections: Vec::new(),
+            identity: sections::SectionIdentity::default(),
+            raw_sections: Vec::new(),
             processed_activity_ids: HashSet::new(),
             section_evidence_cache: SectionEvidenceCache::new(),
             cache_folded_ids: HashSet::new(),
@@ -746,6 +764,14 @@ impl PersistentRouteEngine {
                 return Err(e);
             }
         }
+
+        // B2: seed the identity registry from the sections just loaded so an
+        // existing install adopts its current ids as stable seeds. The evidence
+        // cache stays cold (the next detect cold-rebatches), but identity is
+        // preserved: a resync carries the seeded ids onto their surviving ground
+        // rather than re-deriving them. Must run after both `sections` and
+        // `metadata` load so it sees the managed catalogue and the activity set.
+        self.section_identity_reseed();
 
         // Backfill activities.duration_secs from activity_metrics.moving_time.
         // Route highlights need duration_secs to compute trends/PRs, but it was
@@ -876,6 +902,13 @@ impl PersistentRouteEngine {
         // clearing it forces a full re-detect under the new config.
         self.clear_processed_activity_ids();
         self.sections_dirty = true;
+        // B2: a config change also invalidates the identity BASIS — the stable
+        // ids and debounce counters were assigned to ground detected under the
+        // old params, which the new params may not even find. Reset the registry
+        // so the re-analysed catalogue reflects the new config at once instead of
+        // debounce-holding sections the old config produced (mirrors the evidence
+        // cache reset on the same event). The next detect reseeds it from scratch.
+        self.identity = sections::SectionIdentity::default();
     }
 
     // ========================================================================
@@ -1825,10 +1858,12 @@ mod tests {
             coords.clone(),
         );
         engine.apply_sections(vec![section]).unwrap();
+        // The registry assigns a stable opaque id; look it up (was "sec_cycling_1").
+        let sid = engine.get_sections()[0].id.clone();
 
         // Verify initial state (from DATABASE, not in-memory cache)
         let db_section = engine
-            .get_section("sec_cycling_1")
+            .get_section(&sid)
             .expect("Section should exist");
         assert_eq!(
             db_section.representative_activity_id,
@@ -1837,7 +1872,7 @@ mod tests {
         assert!(!db_section.is_user_defined);
 
         // Set activity-2 as the new reference
-        let result = engine.set_section_reference("sec_cycling_1", "activity-2");
+        let result = engine.set_section_reference(&sid, "activity-2");
         assert!(
             result.is_ok(),
             "set_section_reference should succeed for auto-detected sections"
@@ -1845,7 +1880,7 @@ mod tests {
 
         // Verify the reference was changed (from DATABASE)
         let db_section = engine
-            .get_section("sec_cycling_1")
+            .get_section(&sid)
             .expect("Section should exist");
         assert_eq!(
             db_section.representative_activity_id,
@@ -1905,10 +1940,12 @@ mod tests {
             section_coords.clone(),
         );
         engine.apply_sections(vec![section]).unwrap();
+        // Registry-assigned stable id (was "sec_cycling_auto").
+        let sid = engine.get_sections()[0].id.clone();
 
         // Verify initial state from DATABASE (not in-memory cache)
         let db_section = engine
-            .get_section("sec_cycling_auto")
+            .get_section(&sid)
             .expect("Section should exist in DB");
         assert_eq!(
             db_section.polyline.len(),
@@ -1918,12 +1955,12 @@ mod tests {
         let initial_distance = compute_test_polyline_distance(&db_section.polyline);
 
         // Set the LONG activity as the new reference
-        let result = engine.set_section_reference("sec_cycling_auto", "activity-long");
+        let result = engine.set_section_reference(&sid, "activity-long");
         assert!(result.is_ok());
 
         // CRITICAL ASSERTION: Read from DATABASE after update
         let db_section = engine
-            .get_section("sec_cycling_auto")
+            .get_section(&sid)
             .expect("Section should exist in DB");
 
         // Polyline should be approximately the same length (NOT the full 200 points)
@@ -2009,15 +2046,17 @@ mod tests {
             consensus_polyline.clone(),
         );
         engine.apply_sections(vec![section]).unwrap();
+        // Registry-assigned stable id (was "sec_cycling_consensus").
+        let sid = engine.get_sections()[0].id.clone();
 
         // Set reference to activity-1 (marks as user_defined)
         engine
-            .set_section_reference("sec_cycling_consensus", "activity-1")
+            .set_section_reference(&sid, "activity-1")
             .unwrap();
 
         // Verify it's now user-defined (from DATABASE)
         let db_section = engine
-            .get_section("sec_cycling_consensus")
+            .get_section(&sid)
             .expect("Section should exist");
         assert!(
             db_section.is_user_defined,
@@ -2025,12 +2064,12 @@ mod tests {
         );
 
         // Now reset the reference
-        let result = engine.reset_section_reference("sec_cycling_consensus");
+        let result = engine.reset_section_reference(&sid);
         assert!(result.is_ok());
 
         // CRITICAL ASSERTION: After reset, read from DATABASE
         let db_section = engine
-            .get_section("sec_cycling_consensus")
+            .get_section(&sid)
             .expect("Section should exist");
 
         // Should not be user-defined anymore
@@ -2133,21 +2172,23 @@ mod tests {
         // Fix the distance to match the actual polyline
         section.distance_meters = compute_test_polyline_distance(&coords);
         engine.apply_sections(vec![section]).unwrap();
+        // Registry-assigned stable id (was "sec_integrity").
+        let sid = engine.get_sections()[0].id.clone();
 
         // Get initial state from DB
         let db_section_before = engine
-            .get_section("sec_integrity")
+            .get_section(&sid)
             .expect("Section should exist");
         let initial_distance = db_section_before.distance_meters;
 
         // Set reference to the longer activity
         engine
-            .set_section_reference("sec_integrity", "activity-long")
+            .set_section_reference(&sid, "activity-long")
             .unwrap();
 
         // Read from DATABASE after update
         let db_section = engine
-            .get_section("sec_integrity")
+            .get_section(&sid)
             .expect("Section should exist");
 
         // Distance should be approximately the same (within 20% since we're extracting matching portion)
@@ -2255,10 +2296,12 @@ mod tests {
             section_coords.clone(),
         );
         engine.apply_sections(vec![section]).unwrap();
+        // Registry-assigned stable id (was "sec_rematch_test").
+        let sid = engine.get_sections()[0].id.clone();
 
         // Verify initial state: all 3 activities are associated
         let db_section = engine
-            .get_section("sec_rematch_test")
+            .get_section(&sid)
             .expect("Section should exist");
         assert_eq!(
             db_section.activity_ids.len(),
@@ -2268,13 +2311,13 @@ mod tests {
 
         // Set activity-1 as reference (this triggers re-matching)
         engine
-            .set_section_reference("sec_rematch_test", "activity-1")
+            .set_section_reference(&sid, "activity-1")
             .unwrap();
 
         // After re-matching, only activities 1 and 2 should remain (they overlap)
         // Activity 3 should be removed (it's in a completely different area)
         let db_section = engine
-            .get_section("sec_rematch_test")
+            .get_section(&sid)
             .expect("Section should exist");
 
         // Activity-3 should have been removed (doesn't overlap)
@@ -2344,6 +2387,8 @@ mod tests {
         engine
             .apply_sections(vec![section])
             .expect("apply_sections");
+        // Registry-assigned stable id (was "sec_lap_time").
+        let sid = engine.get_sections()[0].id.clone();
 
         // Read back junction rows directly - do NOT call `get_section_performances`
         // (that path does lazy backfill and would mask a missing inline compute).
@@ -2351,11 +2396,11 @@ mod tests {
             .db
             .prepare(
                 "SELECT activity_id, lap_time, lap_pace
-                 FROM section_activities WHERE section_id = 'sec_lap_time'
+                 FROM section_activities WHERE section_id = ?
                  ORDER BY activity_id",
             )
             .and_then(|mut stmt| {
-                stmt.query_map([], |row| {
+                stmt.query_map([&sid], |row| {
                     Ok((
                         row.get::<_, String>(0)?,
                         row.get::<_, Option<f64>>(1)?,
