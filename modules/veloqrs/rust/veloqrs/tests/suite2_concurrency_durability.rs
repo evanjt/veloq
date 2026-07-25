@@ -278,7 +278,6 @@ fn apply_path_keeps_cache_coherent() {
 /// when the cache is kept in lockstep with (or reloaded from) the DB after any
 /// mutation, not just re-assigned wholesale on apply.
 #[test]
-#[ignore = "B4 seam: get_sections() cache does not reflect DB-only edits like disable, so it drifts from get_sections_by_type()"]
 fn cache_reflects_db_only_edits() {
     let corpus = corpus();
     let (mut e, _dir) = fresh_engine_for(Arm::Control);

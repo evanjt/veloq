@@ -714,6 +714,11 @@ impl PersistentRouteEngine {
 
     /// Delete a section.
     pub fn delete_section(&mut self, section_id: &str) -> Result<(), String> {
+        // Record the durable delete intent BEFORE the row is gone, so the deleted
+        // corridor stays deleted across a resync (invariant 6). A missing section
+        // is a no-op here, so nothing is stranded if the DELETE below finds none.
+        self.record_section_intent(section_id, "deleted");
+
         // Junction table entries are deleted via CASCADE
         let rows = self
             .db
@@ -727,8 +732,10 @@ impl PersistentRouteEngine {
         // Invalidate cache
         self.invalidate_section_cache(section_id);
 
-        // Remove from in-memory cache
+        // Remove from in-memory cache and relinquish from the identity registry so
+        // a later detect neither carries nor re-mints the removed section.
         self.remove_section_from_memory(section_id);
+        self.section_identity_relinquish(section_id);
 
         // Drop the now-orphaned section_pr / section_trend rows from the
         // materialized indicators table so feed cards stop showing chips

@@ -391,31 +391,102 @@ impl PersistentRouteEngine {
         }
     }
 
-    /// Grounds (polylines) and ids of the durable-intent DB rows the detection
-    /// wipe spares: custom, backed-up (trimmed/set-ref), or user-defined
-    /// (accepted/renamed/merged). Read raw from the DB because these rows are the
-    /// authority the registry defers to.
+    /// Record a durable suppression intent for a corridor the user hid
+    /// (`kind = "disabled"`) or removed (`kind = "deleted"`), capturing the
+    /// section's current ground so the emitter never re-detects it (invariant 6).
+    /// Best-effort: a missing section is a no-op (nothing to suppress) and a write
+    /// failure logs rather than propagates — the worst case is the pre-B4
+    /// behaviour where the corridor could re-emerge, never a crash. For a delete,
+    /// call this BEFORE the row is gone.
+    pub(crate) fn record_section_intent(&self, section_id: &str, kind: &str) {
+        let polyline_json: Option<String> = self
+            .db
+            .query_row(
+                "SELECT polyline_json FROM sections WHERE id = ?",
+                rusqlite::params![section_id],
+                |row| row.get(0),
+            )
+            .ok();
+        let Some(polyline_json) = polyline_json else {
+            return;
+        };
+        if let Err(e) = self.db.execute(
+            "INSERT INTO section_intents (id, kind, polyline_json, created_at)
+             VALUES (?, ?, ?, datetime('now'))
+             ON CONFLICT(id) DO UPDATE SET
+                kind = excluded.kind,
+                polyline_json = excluded.polyline_json,
+                created_at = excluded.created_at",
+            rusqlite::params![section_id, kind, polyline_json],
+        ) {
+            log::warn!("tracematch: [record_section_intent] {section_id} ({kind}): {e}");
+        }
+    }
+
+    /// Clear a section's suppression intent (on enable), so its corridor can be
+    /// detected again. Best-effort.
+    pub(crate) fn clear_section_intent(&self, section_id: &str) {
+        if let Err(e) = self.db.execute(
+            "DELETE FROM section_intents WHERE id = ?",
+            rusqlite::params![section_id],
+        ) {
+            log::warn!("tracematch: [clear_section_intent] {section_id}: {e}");
+        }
+    }
+
+    /// Grounds (polylines) and ids of the durable-intent DB rows the emitter must
+    /// not re-emit. Two sources, both read raw from the DB because they are the
+    /// authority the registry defers to:
+    ///
+    /// - The wipe-spared section rows — custom, backed-up (trimmed/set-ref), or
+    ///   user-defined (accepted/renamed/merged) — whose ground a fresh auto
+    ///   section would collide with on `UNIQUE sections.id`.
+    /// - The `section_intents` suppression records — user-disabled and
+    ///   user-deleted corridors that must stay hidden across restart (invariant 6).
+    ///   The disabled section's own row is is_user_defined=0 and the deleted row
+    ///   is gone, so neither is caught by the first query; the retained intent
+    ///   ground is what keeps the corridor from re-emerging.
     fn durable_intent_rows(&self) -> (Vec<Vec<GpsPoint>>, BTreeSet<String>) {
         let mut grounds = Vec::new();
         let mut ids = BTreeSet::new();
-        let mut stmt = match self.db.prepare(
-            "SELECT id, polyline_json FROM sections
-             WHERE section_type = 'custom'
-                OR original_polyline_json IS NOT NULL
-                OR is_user_defined = 1",
-        ) {
-            Ok(s) => s,
-            Err(_) => return (grounds, ids),
-        };
-        let rows = stmt.query_map([], |row| {
-            Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
-        });
-        if let Ok(iter) = rows {
-            for (id, polyline_json) in iter.flatten() {
-                ids.insert(id);
-                if let Ok(pts) = serde_json::from_str::<Vec<GpsPoint>>(&polyline_json) {
-                    if !pts.is_empty() {
-                        grounds.push(pts);
+        {
+            let mut stmt = match self.db.prepare(
+                "SELECT id, polyline_json FROM sections
+                 WHERE section_type = 'custom'
+                    OR original_polyline_json IS NOT NULL
+                    OR is_user_defined = 1",
+            ) {
+                Ok(s) => s,
+                Err(_) => return (grounds, ids),
+            };
+            let rows = stmt.query_map([], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+            });
+            if let Ok(iter) = rows {
+                for (id, polyline_json) in iter.flatten() {
+                    ids.insert(id);
+                    if let Ok(pts) = serde_json::from_str::<Vec<GpsPoint>>(&polyline_json) {
+                        if !pts.is_empty() {
+                            grounds.push(pts);
+                        }
+                    }
+                }
+            }
+        }
+        if let Ok(mut stmt) = self
+            .db
+            .prepare("SELECT id, polyline_json FROM section_intents")
+        {
+            let rows = stmt.query_map([], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+            });
+            if let Ok(iter) = rows {
+                for (id, polyline_json) in iter.flatten() {
+                    ids.insert(id);
+                    if let Ok(pts) = serde_json::from_str::<Vec<GpsPoint>>(&polyline_json) {
+                        if !pts.is_empty() {
+                            grounds.push(pts);
+                        }
                     }
                 }
             }

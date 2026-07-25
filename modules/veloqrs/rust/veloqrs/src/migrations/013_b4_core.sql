@@ -23,6 +23,10 @@ CREATE TABLE IF NOT EXISTS identity_state (
 -- whole migration is one transaction, where a PRAGMA toggle would be a no-op), so
 -- the copy FILTERS orphans rather than aborting the insert on one. That filter
 -- also cleans any phantom rows an earlier remove_activity already stranded.
+-- Ground truth (behavioural probe): rusqlite's bundled SQLite defaults foreign
+-- keys ON per connection, so enforcement is live for FRESH and REOPENED engines
+-- alike — the activity_id cascade fires at runtime for existing users too, not
+-- only for the fresh install that ran migration 001's explicit PRAGMA.
 --
 -- Re-runnable by design: the DROP … _rebuild guard makes a repeat run rebuild
 -- from whatever section_activities currently is and land on the same both-FK
@@ -62,3 +66,22 @@ CREATE INDEX IF NOT EXISTS idx_section_activities_activity
     ON section_activities(activity_id);
 CREATE INDEX IF NOT EXISTS idx_section_activities_perf
     ON section_activities(section_id, excluded, lap_time);
+
+-- Phase 2: durable suppression records for user-disabled and user-deleted
+-- corridors (invariant 6: evidence is permanent, sections are views; a
+-- user-hidden or user-removed corridor must NOT re-emerge from detection, ever,
+-- while ground evidence keeps counting). The per-save section wipe cannot hold
+-- this intent: a disabled auto row is is_user_defined=0 and a deleted row is
+-- gone, so both would be re-detected and re-emerge. The ground lives here, in a
+-- table the wipe never touches, and the identity emitter drops any fresh
+-- candidate whose ground matches a row here (the same suppression that already
+-- spares custom/accepted grounds, generalised to hide intent). `kind` separates
+-- a re-enableable hide from a permanent delete; `id` is the section id at intent
+-- time, kept for dedup and so enable can clear its own row. Survives restart
+-- because it is read fresh from the DB on every detect, needing no in-memory state.
+CREATE TABLE IF NOT EXISTS section_intents (
+    id TEXT PRIMARY KEY,
+    kind TEXT NOT NULL CHECK(kind IN ('disabled', 'deleted')),
+    polyline_json TEXT NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);

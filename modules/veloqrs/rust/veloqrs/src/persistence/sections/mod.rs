@@ -145,7 +145,7 @@ impl PersistentRouteEngine {
                         point_density_json, scale, version, is_user_defined, stability,
                         created_at, updated_at, consensus_state_blob,
                         polyline_blob, point_density_blob
-                 FROM sections WHERE section_type = 'auto'",
+                 FROM sections WHERE section_type = 'auto' AND disabled = 0",
             )?;
 
             self.sections = stmt
@@ -1215,10 +1215,13 @@ impl PersistentRouteEngine {
     pub(super) fn save_sections(&self) -> SqlResult<()> {
         let tx = self.db.unchecked_transaction()?;
 
-        // Clear existing auto sections (keep custom, trimmed, and accepted sections)
-        tx.execute("DELETE FROM section_activities WHERE section_id IN (SELECT id FROM sections WHERE section_type = 'auto' AND original_polyline_json IS NULL AND is_user_defined = 0)", [])?;
+        // Clear existing auto sections (keep custom, trimmed, and accepted
+        // sections — and disabled ones, whose row is retained so enable can
+        // restore it with members intact; the disabled corridor is separately
+        // suppressed via section_intents, so sparing the row cannot resurrect it).
+        tx.execute("DELETE FROM section_activities WHERE section_id IN (SELECT id FROM sections WHERE section_type = 'auto' AND original_polyline_json IS NULL AND is_user_defined = 0 AND disabled = 0)", [])?;
         tx.execute(
-            "DELETE FROM sections WHERE section_type = 'auto' AND original_polyline_json IS NULL AND is_user_defined = 0",
+            "DELETE FROM sections WHERE section_type = 'auto' AND original_polyline_json IS NULL AND is_user_defined = 0 AND disabled = 0",
             [],
         )?;
 

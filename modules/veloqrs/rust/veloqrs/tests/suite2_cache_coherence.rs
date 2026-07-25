@@ -511,7 +511,6 @@ fn gate_remove_activity_purges_section_membership() {
 /// index_new_activity) still act on a section the user hid. Green when disable
 /// updates both surfaces.
 #[test]
-#[ignore = "disable_section diverges the seam — the disabled section stays in the in-memory cache but leaves the visible view"]
 fn gate_disable_section_stays_consistent_across_caches() {
     let (mut engine, _dir, id) = cold();
     engine.disable_section(&id).expect("disable");
