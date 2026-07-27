@@ -5,7 +5,7 @@ import {
   StalePROpportunity,
 } from '@/features/insights/generators/stalePr';
 
-// Mock translation function — returns key with interpolated params
+// Mock translation function - returns key with interpolated params
 const mockT = (key: string, params?: Record<string, string | number>): string => {
   if (!params) return key;
   const paramStr = Object.entries(params)

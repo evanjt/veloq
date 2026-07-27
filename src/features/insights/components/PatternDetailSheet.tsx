@@ -281,7 +281,7 @@ export const PatternDetailSheet = React.memo(function PatternDetailSheet({
             ) : null}
           </View>
 
-          {/* Your typical week — bubble chart */}
+          {/* Your typical week - bubble chart */}
           <TypicalWeekChart
             sparklineData={insight.supportingData?.sparklineData}
             sparklineLabel={insight.supportingData?.sparklineLabel}

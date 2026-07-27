@@ -210,7 +210,7 @@ export function WeeklySummary({
 
   // Use externally-provided summary data if available, otherwise fetch internally.
   // When parent provides data, the internal hook still runs but TanStack Query
-  // deduplicates — same queryKey means zero extra network requests.
+  // deduplicates - same queryKey means zero extra network requests.
   const { data: internalSummaryData, isLoading: internalSummaryLoading } = useAthleteSummary(4);
   const summaryData = externalSummaryData ?? internalSummaryData;
   const isLoadingSummary = externalSummaryLoading ?? internalSummaryLoading;

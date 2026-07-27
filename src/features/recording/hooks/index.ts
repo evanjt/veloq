@@ -5,7 +5,7 @@ export { useGpsWarningClearEffect } from './useGpsWarningClearEffect';
 export { useHrZoneColorEffect } from './useHrZoneColorEffect';
 export { useInitRecordingEffect } from './useInitRecordingEffect';
 export { useKmSplitBannerEffect } from './useKmSplitBannerEffect';
-export { useLockOnRecordingEffect } from './useLockOnRecordingEffect';
+export { useRecordingLock } from './useRecordingLock';
 export { useRecordingHandlers } from './useRecordingHandlers';
 export { useRecordingScreenColors } from './useRecordingScreenColors';
 export { useRecordingScreenState } from './useRecordingScreenState';

@@ -144,13 +144,13 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
   const [highlightedRowKey, setHighlightedRowKey] = useState<string | null>(null);
   const isScrubbingRef = useRef(false);
   isScrubbingRef.current = isScrubbing;
-  // Shared value mirror of isScrubbing — gesture worklets run on the UI thread
+  // Shared value mirror of isScrubbing - gesture worklets run on the UI thread
   // where JS refs aren't visible, so we need a SharedValue they can read.
   const isScrubbingSV = useSharedValue(false);
 
   const flatListRef = useRef<FlatList<SectionEncounter> | null>(null);
   const listContainerRef = useRef<View | null>(null);
-  // Window-Y of the list container — only used for the auto-scroll edge
+  // Window-Y of the list container - only used for the auto-scroll edge
   // detection (am I near the top/bottom of the visible list area?).
   const listTopYRef = useRef(0);
   const listHeightRef = useRef(0);
@@ -200,7 +200,7 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
 
   // Map a finger window-Y to an encounter index using fixed-row arithmetic.
   // Returns both the rowKey (for exact row highlight) and the sectionId
-  // (for upstream consumers that key off sectionId — e.g. the map).
+  // (for upstream consumers that key off sectionId - e.g. the map).
   const nullMatchLoggedRef = useRef(false);
   const findRowAtPageY = useCallback(
     (pageY: number): { rowKey: string; sectionId: string } | null => {
@@ -224,7 +224,7 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
     [encounters]
   );
 
-  // Only log when the resolved row actually changes — keeps drag output readable.
+  // Only log when the resolved row actually changes - keeps drag output readable.
   const lastLoggedRowRef = useRef<string | null>(null);
 
   const stopAutoScroll = useCallback(() => {
@@ -303,7 +303,7 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
   // Start scrub from a page-Y position (invoked from Pan onStart after activateAfterLongPress).
   const startScrubAt = useCallback(
     (pageY: number) => {
-      // Refresh row 0's window-Y once — the outer activity page may have
+      // Refresh row 0's window-Y once - the outer activity page may have
       // scrolled since mount. Single measureInWindow round-trip, not one per row.
       remeasureFirstRow().then(() => {
         const row = findRowAtPageY(pageY);

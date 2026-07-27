@@ -30,7 +30,7 @@ impl HeatmapManager {
     }
 
     /// Get total size of heatmap tile cache in bytes.
-    /// Walks the z/x/y directory tree natively — much faster than JS filesystem calls.
+    /// Walks the z/x/y directory tree natively - much faster than JS filesystem calls.
     fn get_cache_size(&self, base_path: String) -> Result<u64, VeloqError> {
         let path = std::path::Path::new(&base_path);
         if !path.exists() {

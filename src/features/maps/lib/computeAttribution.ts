@@ -1,5 +1,5 @@
 /**
- * computeAttribution — pure attribution text computation for map contexts.
+ * computeAttribution - pure attribution text computation for map contexts.
  *
  * Combines the style-specific attribution with dynamic satellite-source
  * attribution (when `style === 'satellite'` and a viewport is known) and

@@ -14,7 +14,7 @@ export function generateSectionPRInsights(
   if (!recentPRs || recentPRs.length === 0) return [];
 
   const insights: Insight[] = [];
-  // Emit up to the surface cap for this category — pipeline will dedupe/re-rank.
+  // Emit up to the surface cap for this category - pipeline will dedupe/re-rank.
   const prs = recentPRs.slice(0, maxPerCategoryFor('section_pr'));
 
   for (const pr of prs) {

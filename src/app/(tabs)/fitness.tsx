@@ -130,7 +130,7 @@ export default function FitnessScreen() {
   useEffect(() => {
     if (wellness) logMemory('FitnessScreen:wellnessLoaded');
   }, [wellness]);
-  // Handle pull-to-refresh — invalidate all fitness-related queries
+  // Handle pull-to-refresh - invalidate all fitness-related queries
   const { isRefreshing, onRefresh } = useFitnessRefresh(refetch);
 
   // Memoized derivations (FTP trend, dominant zone, decoupling, form zone, display values)

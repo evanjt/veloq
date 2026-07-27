@@ -1689,6 +1689,16 @@ export interface TranslationResource {
         permissionBlocked: string;
       };
     };
+    routeOverlay: {
+      title: string;
+      none: string;
+      empty: string;
+      activities: string;
+    };
+    returnToRecording: string;
+    batteryOptNudge: string;
+    batteryOptOpenSettings: string;
+    writeScopeNotGranted: string;
     timeOfDay: {
       morning: string;
       afternoon: string;

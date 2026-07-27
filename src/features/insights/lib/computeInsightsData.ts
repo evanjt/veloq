@@ -278,7 +278,7 @@ export function consolidateInsights(insights: Insight[]): Insight[] {
   if (__DEV__ && dropped.length > 0) {
     console.log(`[INSIGHTS] Consolidation dropped ${dropped.length} insights:`);
     for (const d of dropped) {
-      console.log(`[INSIGHTS]   ${d.category}/${d.id} — ${d.reason}`);
+      console.log(`[INSIGHTS]   ${d.category}/${d.id} - ${d.reason}`);
     }
   }
 
@@ -288,7 +288,7 @@ export function consolidateInsights(insights: Insight[]): Insight[] {
 /**
  * Compute insights from engine data + wellness data.
  *
- * Pure function — no React hooks, no context, no side effects.
+ * Pure function - no React hooks, no context, no side effects.
  * Can be called from:
  *   - useInsights() hook (React context)
  *   - backgroundInsightTask (TaskManager context, no React)
@@ -331,7 +331,7 @@ export function computeInsightsFromData(
     const atl = latestWellness?.atl ?? latestWellness?.atlLoad ?? 0;
     const tsb = ctl - atl;
 
-    // Section readiness check — skip when route matching is disabled
+    // Section readiness check - skip when route matching is disabled
     const engine = getRouteEngine();
     const routeMatchingOn = isRouteMatchingEnabled();
     const sectionCount = routeMatchingOn ? (engine?.getStats()?.sectionCount ?? 0) : 0;
@@ -432,7 +432,7 @@ export function computeInsightsFromData(
 
       sectionTrends = Array.from(sectionTrendMap.values());
 
-      // Aerobic efficiency section IDs — reuse cached ranked sections, but
+      // Aerobic efficiency section IDs - reuse cached ranked sections, but
       // drop sections outside the active window. An efficiency trend on a
       // section you haven't touched in months is historical curiosity, not
       // a motivating insight. See G1 (event recency) in the rules pipeline.
@@ -536,7 +536,7 @@ export function computeInsightsFromData(
       );
       for (const i of consolidated) {
         console.log(
-          `[INSIGHTS]   ${i.category}/${i.id} — P${i.priority} "${i.title.slice(0, 60)}"`
+          `[INSIGHTS]   ${i.category}/${i.id} - P${i.priority} "${i.title.slice(0, 60)}"`
         );
       }
     }
@@ -553,7 +553,7 @@ export function computeInsightsFromData(
 
 /**
  * Fetch FFI insights data from the engine.
- * Pure function — calls synchronous FFI, no React.
+ * Pure function - calls synchronous FFI, no React.
  *
  * Results are cached for 30 seconds to avoid redundant FFI calls when
  * the routes tab re-renders without engine data having changed.

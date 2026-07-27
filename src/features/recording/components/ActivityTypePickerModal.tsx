@@ -26,7 +26,7 @@ import type { ActivityType } from '@/types';
  * undefined the component falls back to the theme hook.
  */
 
-// Curated set shown on the review screen — ordered by popularity.
+// Curated set shown on the review screen - ordered by popularity.
 const REVIEW_ACTIVITY_TYPES: ActivityType[] = [
   'Ride',
   'Run',

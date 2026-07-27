@@ -203,7 +203,7 @@ impl FitnessManager {
     /// Sparkline arrays (fitness/fatigue/form/hrv/rhr) over the trailing
     /// `days` window. Returns `None` until wellness has been synced at
     /// least once. Replaces the 5 parallel useMemo passes in
-    /// `useSummaryCardData.ts` — TS is now a thin pass-through.
+    /// `useSummaryCardData.ts` - TS is now a thin pass-through.
     fn get_wellness_sparklines(
         &self,
         days: u32,
@@ -238,7 +238,7 @@ impl FitnessManager {
     /// swimming at swim pace.
     ///
     /// `exclude_section_ids` is the set of section IDs already surfaced by
-    /// other insights (e.g. recent section_pr cards) — we don't want to
+    /// other insights (e.g. recent section_pr cards) - we don't want to
     /// double-surface the same section in the same insights feed.
     ///
     /// Returns up to `max_opportunities` opportunities, sorted by
@@ -334,7 +334,7 @@ impl FitnessManager {
                 crate::patterns::compute_activity_patterns(&e.db, &e.activity_metrics);
             let today_pattern = crate::patterns::get_pattern_for_today(&e.db, &e.activity_metrics);
 
-            // Recent PRs — loop stays in Rust, never crosses FFI
+            // Recent PRs - loop stays in Rust, never crosses FFI
             let seven_days_ago = now_ts - 7 * 86400;
             let mut recent_prs = Vec::new();
             let sport_types = e.get_available_sport_types();

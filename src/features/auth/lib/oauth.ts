@@ -66,7 +66,7 @@ export function getProxyRedirectUri(): string {
  * Redirects to the proxy, which then redirects to the app with the token
  * Note: oauthState must be set before calling this function
  */
-export function buildAuthorizationUrl(): string {
+export function buildAuthorizationUrl(scopes: readonly string[] = OAUTH.SCOPES): string {
   if (!oauthState) {
     throw new Error('OAuth state not initialized. Call startOAuthFlow() instead.');
   }
@@ -77,7 +77,7 @@ export function buildAuthorizationUrl(): string {
   const params = new URLSearchParams({
     client_id: OAUTH.CLIENT_ID,
     redirect_uri: proxyRedirectUri,
-    scope: OAUTH.SCOPES.join(','),
+    scope: scopes.join(','),
     response_type: 'code',
     state: oauthState,
   });
@@ -114,7 +114,9 @@ async function registerStateWithProxy(state: string): Promise<void> {
  * 5. Proxy validates state, exchanges code for token (with client_secret)
  * 6. Proxy redirects to app with token via deep link
  */
-export async function startOAuthFlow(): Promise<WebBrowser.WebBrowserAuthSessionResult> {
+export async function startOAuthFlow(
+  scopes: readonly string[] = OAUTH.SCOPES
+): Promise<WebBrowser.WebBrowserAuthSessionResult> {
   if (!isOAuthConfigured()) {
     throw new Error(
       'OAuth is not configured. Set CLIENT_ID and PROXY_URL in src/lib/utils/constants.ts'
@@ -128,7 +130,7 @@ export async function startOAuthFlow(): Promise<WebBrowser.WebBrowserAuthSession
   // Register state with proxy for server-side validation
   await registerStateWithProxy(state);
 
-  const authUrl = buildAuthorizationUrl();
+  const authUrl = buildAuthorizationUrl(scopes);
   const appCallbackUrl = `${OAUTH.APP_SCHEME}://oauth/callback`;
 
   // Open browser for authorization

@@ -223,7 +223,7 @@ export async function initializeDashboardPreferences(
       ? { ...DEFAULT_SUMMARY_CARD, ...JSON.parse(storedSummaryCard) }
       : DEFAULT_SUMMARY_CARD;
 
-    // Migration: form is no longer a hero metric option — combined into sparkline
+    // Migration: form is no longer a hero metric option - combined into sparkline
     if (summaryCard.heroMetric === 'form') {
       summaryCard = { ...summaryCard, heroMetric: 'fitness' };
       persistSummaryCard(summaryCard);

@@ -25,7 +25,13 @@ import { useGpxExport } from '@/features/settings/hooks/exportIndex';
 import { useTheme } from '@/shared/app';
 import { useCacheDays } from '@/shared/app/useCacheDays';
 import { useSectionTrim } from '@/features/routes/hooks/useSectionTrim';
-import { DataRangeFooter, SectionTrimOverlay } from '@/features/routes';
+import {
+  DataRangeFooter,
+  DetailFallback,
+  SectionTrimOverlay,
+  SportTypeSelector,
+} from '@/features/routes';
+import { getRouteEngine } from '@/shared/native/routeEngine';
 import { useDebugStore } from '@/features/settings/stores/DebugStore';
 import { useFFITimer } from '@/shared/debug/useFFITimer';
 import { ScreenErrorBoundary } from '@/shared/ui';
@@ -47,7 +53,7 @@ import {
   getActivityColor,
   type MaterialIconName,
 } from '@/features/activity/lib/activityUtils';
-import { colors, darkColors } from '@/theme';
+import { colors } from '@/theme';
 import type { ActivityType, RoutePoint } from '@/types';
 
 export default function SectionDetailScreen() {
@@ -133,7 +139,7 @@ export default function SectionDetailScreen() {
   } = useSectionTrim(section, handleTrimRefresh);
 
   // Section CRUD actions (rename, delete, toggle disable, exclude/include,
-  // reference activity, rematch) — extracted into a hook for clarity.
+  // reference activity, rematch) - extracted into a hook for clarity.
   const {
     isEditing,
     editName,
@@ -220,33 +226,13 @@ export default function SectionDetailScreen() {
 
   if (!section) {
     return (
-      <View style={[styles.container, isDark && styles.containerDark]}>
-        <View style={[styles.floatingHeader, { paddingTop: insets.top }]}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => router.back()}
-            activeOpacity={0.7}
-            accessibilityRole="button"
-            accessibilityLabel={t('common.back')}
-          >
-            <MaterialCommunityIcons
-              name="arrow-left"
-              size={24}
-              color={isDark ? colors.textOnDark : colors.textPrimary}
-            />
-          </TouchableOpacity>
-        </View>
-        <View style={styles.emptyContainer}>
-          <MaterialCommunityIcons
-            name="map-marker-question-outline"
-            size={48}
-            color={isDark ? darkColors.border : colors.divider}
-          />
-          <Text style={[styles.emptyText, isDark && styles.textLight]}>
-            {t('sections.sectionNotFound')}
-          </Text>
-        </View>
-      </View>
+      <DetailFallback
+        isDark={isDark}
+        insetTop={insets.top}
+        onBack={() => router.back()}
+        loading={getRouteEngine() == null}
+        notFoundMessage={t('sections.sectionNotFound')}
+      />
     );
   }
 
@@ -266,7 +252,7 @@ export default function SectionDetailScreen() {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          {/* Hero Map Section — expands when editing */}
+          {/* Hero Map Section - expands when editing */}
           <SectionHeader
             section={section}
             isDark={isDark}
@@ -301,7 +287,7 @@ export default function SectionDetailScreen() {
             onEditNameChange={setEditName}
           />
 
-          {/* Action row — always visible below map, hidden during trim */}
+          {/* Action row - always visible below map, hidden during trim */}
           {!isTrimming && (
             <SectionActionRow
               isDark={isDark}
@@ -317,7 +303,7 @@ export default function SectionDetailScreen() {
             />
           )}
 
-          {/* Trim panel — replaces chart when trimming */}
+          {/* Trim panel - replaces chart when trimming */}
           {isTrimming && (
             <SectionTrimOverlay
               pointCount={effectivePointCount || section.polyline?.length || 0}
@@ -342,50 +328,19 @@ export default function SectionDetailScreen() {
 
           {/* Sport type pills for cross-sport sections */}
           {!isTrimming && sportTypeCounts.length > 1 && (
-            <View style={styles.sportTypePills}>
-              {sportTypeCounts.map(({ type: st, count }) => {
+            <SportTypeSelector
+              options={sportTypeCounts.map(({ type, count }) => ({ type, count }))}
+              selectedType={selectedSportType ?? section?.sportType}
+              onSelect={(st) => {
                 const isSelected =
                   selectedSportType === st || (!selectedSportType && st === section?.sportType);
-                const sportColor = getActivityColor(st as ActivityType);
-                return (
-                  <TouchableOpacity
-                    key={st}
-                    onPress={() =>
-                      setSelectedSportType(isSelected && selectedSportType ? undefined : st)
-                    }
-                    style={[
-                      styles.sportPill,
-                      isSelected && { backgroundColor: sportColor + '20', borderColor: sportColor },
-                      isDark && styles.sportPillDark,
-                    ]}
-                  >
-                    <MaterialCommunityIcons
-                      name={getActivityIcon(st as ActivityType)}
-                      size={14}
-                      color={
-                        isSelected
-                          ? sportColor
-                          : isDark
-                            ? darkColors.textSecondary
-                            : colors.textSecondary
-                      }
-                    />
-                    <Text
-                      style={[
-                        styles.sportPillText,
-                        isSelected && { color: sportColor },
-                        isDark && styles.sportPillTextDark,
-                      ]}
-                    >
-                      {t(`activityTypes.${st}`, st)} {count}
-                    </Text>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
+                setSelectedSportType(isSelected && selectedSportType ? undefined : st);
+              }}
+              isDark={isDark}
+            />
           )}
 
-          {/* Content below hero — hidden during trim */}
+          {/* Content below hero - hidden during trim */}
           {!isTrimming && (
             <SectionContentArea
               isDark={isDark}

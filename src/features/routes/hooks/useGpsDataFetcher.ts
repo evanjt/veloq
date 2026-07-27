@@ -58,7 +58,7 @@ function scalePercent(rustPercent: number, rangeStart: number, rangeEnd: number)
 /**
  * Poll heatmap tile generation until complete, surfacing progress to
  * the sync banner. Foreground wait is capped at 5 s regardless of tile
- * count — tile generation continues on a Rust background thread after
+ * count - tile generation continues on a Rust background thread after
  * the cap and the map view picks up fresh tiles as they render.
  */
 async function pollTileGeneration(
@@ -913,7 +913,7 @@ export function useGpsDataFetcher() {
             }
           }
         } catch {
-          // Non-critical — will retry on next sync
+          // Non-critical - will retry on next sync
         }
       }
 

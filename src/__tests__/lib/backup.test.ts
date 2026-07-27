@@ -346,7 +346,7 @@ describe('backup corruption resilience', () => {
   });
 });
 
-describe('restoreDatabaseBackup (SQLite snapshot) — data-loss guards', () => {
+describe('restoreDatabaseBackup (SQLite snapshot) - data-loss guards', () => {
   const LIVE_META = JSON.stringify({
     schema_version: '12',
     athlete_id: 'athlete-1',
@@ -492,7 +492,7 @@ describe('getLastBackupTimestamp falsy zero bug (autoBackup.ts:82)', () => {
     expect(parseStoredTimestamp('3.14')).toBeCloseTo(3.14);
     expect(parseStoredTimestamp(null)).toBeNull();
     expect(parseStoredTimestamp(undefined)).toBeNull();
-    // '0' must stay 0, not null — Number('0') is falsy but value != null guards it.
+    // '0' must stay 0, not null - Number('0') is falsy but value != null guards it.
     expect(parseStoredTimestamp('0')).toBe(0);
     // empty string passes the value != null guard through to Number('') = 0.
     expect(parseStoredTimestamp('')).toBe(0);

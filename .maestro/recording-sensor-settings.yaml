@@ -1,0 +1,71 @@
+# Sensor Settings Test
+# Tests: open sensor settings from recording settings, verify paired list and scan UI
+
+appId: com.veloq.app.dev
+tags:
+  - tier2
+  - pack-recording
+onFlowComplete:
+  - openLink: "veloq://"
+  - runFlow:
+      when:
+        visible: "DISCARD"
+      commands:
+        - tapOn: "DISCARD"
+---
+- runFlow:
+    file: helpers/setup-demo-mode.yaml
+
+# Tap the record FAB on the home screen
+- tapOn:
+    id: "record-fab"
+
+# Dismiss any "Resume previous recording?" dialog
+- runFlow:
+    when:
+      visible: "DISCARD"
+    commands:
+      - tapOn: "DISCARD"
+
+# Wait for record screen
+- extendedWaitUntil:
+    visible:
+      id: "record-type-Ride"
+    timeout: 10000
+
+# Into recording settings
+- tapOn:
+    id: "record-settings"
+
+- extendedWaitUntil:
+    visible:
+      id: "recording-settings-screen"
+    timeout: 10000
+
+# Open sensor settings
+- scrollUntilVisible:
+    element:
+      id: "settings-sensors-link"
+    direction: DOWN
+    timeout: 5000
+    speed: 40
+    centerElement: true
+
+- tapOn:
+    id: "settings-sensors-link"
+
+- extendedWaitUntil:
+    visible:
+      id: "sensor-settings-screen"
+    timeout: 10000
+
+- takeScreenshot: "sensor-settings"
+
+# Back out
+- tapOn:
+    id: "sensor-settings-back"
+
+- extendedWaitUntil:
+    visible:
+      id: "recording-settings-screen"
+    timeout: 10000

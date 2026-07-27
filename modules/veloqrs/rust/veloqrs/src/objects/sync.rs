@@ -1,4 +1,4 @@
-//! The intervals.icu sync service — the single first-class FFI contract for all
+//! The intervals.icu sync service - the single first-class FFI contract for all
 //! network I/O.
 //!
 //! TypeScript holds no axios client and constructs no per-call auth header. It

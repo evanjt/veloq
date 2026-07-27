@@ -79,7 +79,7 @@ impl DetectionManager {
                 // on a drained channel.
                 *handle_guard = None;
 
-                // Hot save under the write lock — sections are queryable as soon
+                // Hot save under the write lock - sections are queryable as soon
                 // as this returns.
                 with_engine(|e| {
                     if let Err(err) = e.apply_sections_save(sections) {
@@ -97,7 +97,7 @@ impl DetectionManager {
                         // apply_sections_save case above.
                         log::warn!(
                             "tracematch: [DetectionManager] poll: detection apply partially \
-                             succeeded — sections saved but save_processed_activity_ids \
+                             succeeded - sections saved but save_processed_activity_ids \
                              failed ({} ids): {}. Next sync will re-process these activities.",
                             detection_activity_ids.len(),
                             err

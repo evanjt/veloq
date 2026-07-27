@@ -17,7 +17,7 @@ impl SectionManager {
     fn get_all(&self) -> Result<Vec<crate::FfiFrequentSection>, VeloqError> {
         // Read lock: get_sections() only borrows the in-memory sections Vec (no
         // self.db), so concurrent reads are sound and no longer serialize on the
-        // engine write lock — this is the hot Routes/section-list path.
+        // engine write lock - this is the hot Routes/section-list path.
         with_engine_read(|e| {
             e.get_sections()
                 .iter()
@@ -673,6 +673,22 @@ impl SectionManager {
         })
     }
 
+    /// Cheap post-ingest indexing for one freshly downloaded activity: match it
+    /// against existing sections, insert junction rows, regroup incrementally,
+    /// and refresh indicators. Does not create new sections - those wait for
+    /// the next full detection run.
+    fn index_new_activity(
+        &self,
+        activity_id: String,
+    ) -> Result<crate::FfiIndexActivitySummary, VeloqError> {
+        with_engine(|engine| {
+            engine
+                .index_new_activity(&activity_id)
+                .map(crate::FfiIndexActivitySummary::from)
+        })?
+        .map_err(|e| VeloqError::Database { msg: e })
+    }
+
     /// Force-match a single activity to a specific section with relaxed thresholds.
     /// Returns true if a match was found and the section_activities row was inserted.
     fn rematch_activity_to_section(
@@ -860,7 +876,7 @@ impl SectionManager {
     }
 
     /// Pre-computed chart payload for the section-detail screen: per-lap
-    /// points, speed ranks, best/avg/last stats — all in one FFI round-trip.
+    /// points, speed ranks, best/avg/last stats - all in one FFI round-trip.
     /// Replaces the 3+ useMemo aggregations in `useSectionChartData`.
     fn get_chart_data(
         &self,

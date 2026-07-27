@@ -1,8 +1,8 @@
 /**
  * Data Contract Tests
  *
- * Verify that the data pipeline — format functions, stream parsing,
- * activity metrics conversion, and fitness calculations — produces
+ * Verify that the data pipeline - format functions, stream parsing,
+ * activity metrics conversion, and fitness calculations - produces
  * correct values given known inputs. These tests catch the bugs that
  * matter most: wrong numbers on screen.
  */
@@ -26,7 +26,7 @@ import { parseStreams } from '@/features/activity/lib/streams';
 import { calculateTSB, getFormZone } from '@/features/fitness/lib/fitness';
 import type { RawStreamItem, WellnessData } from '@/types';
 
-// Mock veloqrs native module — toActivityMetrics imports the type
+// Mock veloqrs native module - toActivityMetrics imports the type
 jest.mock('veloqrs', () => ({}));
 
 // Import after mock is set up
@@ -34,7 +34,7 @@ jest.mock('veloqrs', () => ({}));
 const { toActivityMetrics } = require('@/features/activity/lib/activityMetrics');
 
 // ============================================================================
-// FIXTURES — stable test activities from demo data
+// FIXTURES - stable test activities from demo data
 // ============================================================================
 
 /** Ride fixture matching demo-test-0 shape */

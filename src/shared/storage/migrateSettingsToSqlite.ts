@@ -1,7 +1,7 @@
 /**
  * One-time migration: AsyncStorage preferences → SQLite settings table.
  *
- * Runs on app boot after the Rust engine initializes. Idempotent — uses
+ * Runs on app boot after the Rust engine initializes. Idempotent - uses
  * a sentinel key (__settings_migrated) to skip on subsequent boots.
  * Does NOT delete AsyncStorage keys (backward compat for one release).
  */
@@ -49,7 +49,7 @@ export async function migrateSettingsToSqlite(): Promise<void> {
   const engine = getRouteEngine();
   if (!engine) return;
 
-  // Check sentinel — skip if already migrated
+  // Check sentinel - skip if already migrated
   const alreadyMigrated = engine.getSetting(SENTINEL_KEY);
   if (alreadyMigrated) return;
 

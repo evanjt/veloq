@@ -109,7 +109,7 @@ export function useSummaryCardData(precomputedCardData?: PrecomputedCardData): S
   const hasPaceMetric = summaryCard.supportingMetrics.includes('thresholdPace');
   const hasCssMetric = summaryCard.supportingMetrics.includes('css');
 
-  // Fetch pace curves — also triggers snapshot of critical speed for trend tracking
+  // Fetch pace curves - also triggers snapshot of critical speed for trend tracking
   const { data: runPaceCurve } = usePaceCurve({
     sport: 'Run',
     enabled: primarySport === 'Running' || hasPaceMetric,
@@ -129,7 +129,7 @@ export function useSummaryCardData(precomputedCardData?: PrecomputedCardData): S
     refetch: refetchWellness,
   } = useWellness('1m');
 
-  // Subscribe to engine activity events — re-query when activity_metrics are populated
+  // Subscribe to engine activity events - re-query when activity_metrics are populated
   const engineTrigger = useEngineSubscription(['activities']);
 
   const isLoading = wellnessLoading;
@@ -188,7 +188,7 @@ export function useSummaryCardData(precomputedCardData?: PrecomputedCardData): S
     };
   }, [wellnessData]);
 
-  // Engine-derived stats — uses precomputed data from getStartupData when available,
+  // Engine-derived stats - uses precomputed data from getStartupData when available,
   // falls back to direct FFI call (settings preview, non-feed contexts)
   const engineStats = useMemo(() => {
     const defaults = {
@@ -286,7 +286,7 @@ export function useSummaryCardData(precomputedCardData?: PrecomputedCardData): S
     };
   }, [precomputedCardData, engineTrigger]);
 
-  // Merged quick stats — recomputes only when either source changes
+  // Merged quick stats - recomputes only when either source changes
   const quickStats = useMemo(
     () => ({ ...wellnessStats, ...engineStats }),
     [wellnessStats, engineStats]

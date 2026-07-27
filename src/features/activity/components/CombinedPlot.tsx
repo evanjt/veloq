@@ -53,9 +53,9 @@ interface CombinedPlotProps {
   onXAxisModeToggle?: () => void;
   /** Whether the x-axis mode can be toggled (has both distance and time data) */
   canToggleXAxis?: boolean;
-  /** Interval data — when provided, renders zone-colored bands behind the chart */
+  /** Interval data - when provided, renders zone-colored bands behind the chart */
   intervals?: ActivityInterval[];
-  /** Activity type — needed for zone color selection (power vs HR) */
+  /** Activity type - needed for zone color selection (power vs HR) */
   activityType?: ActivityType;
   /** Called with per-series values when scrubbing or averages when idle */
   onMetricsChange?: (metrics: ChartMetricValue[], isScrubbing: boolean) => void;
@@ -402,7 +402,7 @@ export const CombinedPlot = React.memo(function CombinedPlot({
   return (
     <ChartErrorBoundary height={height} label="Activity Chart">
       <View style={[styles.container, { height }]}>
-        {/* Chart area — full height, metrics displayed in parent chips */}
+        {/* Chart area - full height, metrics displayed in parent chips */}
         <GestureDetector gesture={gesture}>
           <View style={[chartStyles.chartWrapper, { height }]}>
             {/* Victory Native requires string literal types for yKeys,
@@ -492,7 +492,7 @@ export const CombinedPlot = React.memo(function CombinedPlot({
                       );
                     })}
 
-                    {/* Stream area fills — rich gradient beneath lines */}
+                    {/* Stream area fills - rich gradient beneath lines */}
                     {seriesInfo.map((series) => {
                       const isMulti = seriesInfo.length > 1;
                       const topAlpha = series.isPreview ? '30' : isMulti ? '70' : '90';
@@ -513,7 +513,7 @@ export const CombinedPlot = React.memo(function CombinedPlot({
                       );
                     })}
 
-                    {/* Stream line strokes — hairline casing for clarity */}
+                    {/* Stream line strokes - hairline casing for clarity */}
                     {seriesInfo.map((series) => {
                       const width = series.isPreview ? 0.75 : 1;
                       return (

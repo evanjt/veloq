@@ -88,7 +88,7 @@ export function useMap3DBridge({
         if (!data.requestId || !data.tilePath) return;
         const requestId = data.requestId as string;
         const tilePath = data.tilePath as string;
-        // Heatmap tile request from WebView — read PNG from filesystem, return as base64
+        // Heatmap tile request from WebView - read PNG from filesystem, return as base64
         const fullPath = `${HEATMAP_TILES_DIR}${tilePath}`;
         FileSystem.getInfoAsync(fullPath)
           .then((info) => {
@@ -105,7 +105,7 @@ export function useMap3DBridge({
               // MapLibre's addProtocol expects { data: ArrayBuffer } for raster
               // tiles. The previous implementation passed an Image (decode
               // failed) and built a Blob via `new Blob([atob(b64)])` which
-              // re-encodes the binary string as UTF-8 — the PNG bytes get
+              // re-encodes the binary string as UTF-8 - the PNG bytes get
               // mangled. Convert base64 → Uint8Array → ArrayBuffer manually
               // by walking charCodeAt to preserve raw bytes.
               webViewRef.current.injectJavaScript(`

@@ -8,7 +8,7 @@ mod ranking;
 // Re-export the Tier 2 upgrade-path backfill so `persistent_engine_ffi::init`
 // can trigger it without reaching through private module paths. The sync
 // variant (`run_accumulator_backfill`) is re-exported pub so integration
-// tests in `tests/` can drive it deterministically — it's a test-only
+// tests in `tests/` can drive it deterministically - it's a test-only
 // entry point, not a FFI surface.
 pub use detection::run_accumulator_backfill;
 pub(super) use detection::spawn_accumulator_backfill;
@@ -1220,7 +1220,7 @@ impl PersistentRouteEngine {
                     taken_numbers.insert(num);
                 }
             }
-            // Old pattern: "{Sport} Section N" — still recognize for numbering
+            // Old pattern: "{Sport} Section N" - still recognize for numbering
             for sport in [
                 "Ride",
                 "Run",
@@ -1391,7 +1391,7 @@ impl PersistentRouteEngine {
                         });
                         if dominated {
                             log::debug!(
-                                "save_sections: skipping auto section {} — overlaps accepted section",
+                                "save_sections: skipping auto section {} - overlaps accepted section",
                                 section.id
                             );
                             continue;
@@ -1448,7 +1448,7 @@ impl PersistentRouteEngine {
             if !section.activity_ids.is_empty() && section.activity_portions.is_empty() {
                 log::warn!(
                     "tracematch: [save_sections] section {} has {} activity_ids \
-                     but 0 activity_portions — junction table will get 0 rows for this section. \
+                     but 0 activity_portions - junction table will get 0 rows for this section. \
                      Detection-side bug.",
                     section.id,
                     section.activity_ids.len(),

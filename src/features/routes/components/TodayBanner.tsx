@@ -31,7 +31,7 @@ const DAY_NAMES_PLURAL = [
 
 /**
  * Routes page banner showing today's context: planned workout, activity patterns, or readiness.
- * Gracefully degrades — shows nothing when there's no relevant content.
+ * Gracefully degrades - shows nothing when there's no relevant content.
  */
 export const TodayBanner = React.memo(function TodayBanner() {
   const { isDark } = useTheme();

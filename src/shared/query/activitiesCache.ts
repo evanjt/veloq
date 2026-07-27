@@ -6,7 +6,7 @@ import { queryKeys } from './queryKeys';
 /**
  * Check if the persisted activities-infinite query has stale page params
  * (first page doesn't cover today's date). When stale, `invalidateQueries`
- * won't help because it refetches with the stored params — `resetQueries`
+ * won't help because it refetches with the stored params - `resetQueries`
  * is needed to re-evaluate `initialPageParam` with today's date.
  *
  * Lives in shared/query because it operates on the shared `queryKeys.activities`

@@ -15,7 +15,7 @@ import { consoleBridgeScript, mapLibreHead } from './shared';
 
 /**
  * Snapshot viewport height in CSS pixels. Mirrors the value in
- * `TerrainSnapshotWebView` — kept here so the builder stays self-contained
+ * `TerrainSnapshotWebView` - kept here so the builder stays self-contained
  * and can be called without the container's module state.
  */
 const SNAPSHOT_HEIGHT = 240;
@@ -31,7 +31,7 @@ export function buildSnapshotWorkerHtml(workerId: number): string {
 <body>
   <div id="map"></div>
   <script>
-    // Worker identity — used to route messages back to the correct handler
+    // Worker identity - used to route messages back to the correct handler
     window._workerId = ${workerId};
 
     // Bridge console to React Native
@@ -63,7 +63,7 @@ export function buildSnapshotWorkerHtml(workerId: number): string {
       });
     }
 
-    // Cache terrain DEM tiles via Cache API — persists across snapshot requests.
+    // Cache terrain DEM tiles via Cache API - persists across snapshot requests.
     // MapLibre v5.19.0 uses promise-based addProtocol.
     var TERRAIN_CACHE = 'veloq-terrain-dem-v1';
 
@@ -96,7 +96,7 @@ export function buildSnapshotWorkerHtml(workerId: number): string {
       });
     });
 
-    // Cache satellite tiles via Cache API — same pattern as terrain DEM tiles.
+    // Cache satellite tiles via Cache API - same pattern as terrain DEM tiles.
     var SATELLITE_CACHE = 'veloq-satellite-v1';
     maplibregl.addProtocol('cached-satellite', function(params) {
       var realUrl = 'https://' + params.url.substring('cached-satellite://'.length);
@@ -130,7 +130,7 @@ export function buildSnapshotWorkerHtml(workerId: number): string {
       });
     });
 
-    // Cache eviction — FIFO, size-based. Checked every 50 inserts per cache.
+    // Cache eviction - FIFO, size-based. Checked every 50 inserts per cache.
     var _insertCounts = {};
     var CACHE_BUDGETS = {
       'veloq-satellite-v1': 120 * 1024 * 1024,
@@ -233,7 +233,7 @@ export function buildSnapshotWorkerHtml(workerId: number): string {
       }
     });
 
-    // rAF heartbeat — confirms rendering loop is alive
+    // rAF heartbeat - confirms rendering loop is alive
     var _rafCount = 0;
     function rafHeartbeat() {
       _rafCount++;

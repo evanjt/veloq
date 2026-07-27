@@ -101,7 +101,7 @@ export function useSectionMatches(activityId: string | undefined): UseSectionMat
     }, 10000);
 
     if (!trySubscribe()) {
-      // Engine not ready yet — poll until it becomes available
+      // Engine not ready yet - poll until it becomes available
       const interval = setInterval(() => {
         if (trySubscribe()) {
           clearInterval(interval);
@@ -122,7 +122,7 @@ export function useSectionMatches(activityId: string | undefined): UseSectionMat
       cancelled = true;
       unsubscribeRef.current?.();
     };
-  }, []); // Stable — refreshRef avoids stale closure
+  }, []); // Stable - refreshRef avoids stale closure
 
   // Check if engine has any sections. Count-only: avoids the heavy
   // getSectionSummaries() deserialization just to read totalCount.

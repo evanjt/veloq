@@ -116,7 +116,7 @@ export default function HealthScreen() {
   const isLoading = activitiesLoading || wellnessLoading;
   const isFetching = activitiesFetching || wellnessFetching;
 
-  // Handle pull-to-refresh — invalidate all training-related queries
+  // Handle pull-to-refresh - invalidate all training-related queries
   const onRefresh = useCallback(async () => {
     setIsRefreshing(true);
     await Promise.all([
@@ -189,7 +189,7 @@ export default function HealthScreen() {
             />
           }
         >
-          {/* Activity Heatmap — promoted to top (Skia Picture, lightweight) */}
+          {/* Activity Heatmap - promoted to top (Skia Picture, lightweight) */}
           <View style={[styles.card, isDark && styles.cardDark]}>
             {activitiesLoading ? (
               <View style={styles.loadingContainer}>
@@ -268,8 +268,8 @@ export default function HealthScreen() {
             )}
           </View>
 
-          {/* Below-fold cards — frame 1: WeeklySummary (pure RN).
-              Always mount once belowFoldReady — the component renders its own
+          {/* Below-fold cards - frame 1: WeeklySummary (pure RN).
+              Always mount once belowFoldReady - the component renders its own
               empty/loading states and the testID must be present for automated
               tests to find the widget during data load. */}
           {belowFoldReady && (
@@ -282,7 +282,7 @@ export default function HealthScreen() {
             </View>
           )}
 
-          {/* Below-fold Skia card — frame 2: SeasonComparison */}
+          {/* Below-fold Skia card - frame 2: SeasonComparison */}
           {chartsReady && (
             <View style={[styles.card, isDark && styles.cardDark]}>
               {activitiesLoading ? (
@@ -300,7 +300,7 @@ export default function HealthScreen() {
           )}
         </ScrollView>
 
-        {/* Smoothing Config Modal — only mount children when visible */}
+        {/* Smoothing Config Modal - only mount children when visible */}
         {showSmoothingModal && (
           <Modal
             visible

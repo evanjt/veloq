@@ -28,8 +28,8 @@ interface SummaryCardHRVSparklineProps {
  * HRV + Resting HR sparkline chart for the SummaryCard.
  *
  * HRV rendered as a pink sparkline with gradient fill.
- * RHR as a subtle red sparkline (inverted — high RHR = low position).
- * Long-press to scrub — updates hero value via onScrub callback.
+ * RHR as a subtle red sparkline (inverted - high RHR = low position).
+ * Long-press to scrub - updates hero value via onScrub callback.
  */
 export const SummaryCardHRVSparkline = memo(function SummaryCardHRVSparkline({
   hrvData,
@@ -53,7 +53,7 @@ export const SummaryCardHRVSparkline = memo(function SummaryCardHRVSparkline({
   const hasRhr = rhrData && rhrData.length === hrvData.length;
 
   // HRV and RHR live on independent y-scales. Normalize both to 0-100 so they
-  // share one domain ([-6, 106]) — RHR inverted (higher HR = worse = lower).
+  // share one domain ([-6, 106]) - RHR inverted (higher HR = worse = lower).
   const normalized = useMemo(() => {
     const hrvMin = Math.min(...hrvData);
     const hrvMax = Math.max(...hrvData);
@@ -268,7 +268,7 @@ export const SummaryCardHRVSparkline = memo(function SummaryCardHRVSparkline({
                 />
               )}
 
-              {/* HRV line — primary, on top */}
+              {/* HRV line - primary, on top */}
               {skiaPaths.hrv && (
                 <Path
                   path={skiaPaths.hrv}

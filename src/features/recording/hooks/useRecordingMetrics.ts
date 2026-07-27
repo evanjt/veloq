@@ -96,7 +96,7 @@ export function useRecordingMetrics(): {
     const avgPace = avgSpeed > 0 ? 1000 / avgSpeed : 0;
 
     // Sum positive deltas; dropouts are skipped, not read as 0 (live altitude
-    // is a real reading, so 0 stays 0 — only missing samples are ignored).
+    // is a real reading, so 0 stays 0 - only missing samples are ignored).
     const elevationGain = sumElevationGain(streams.altitude);
 
     // Calories estimation. With a heart-rate sensor, use the HR-based energy

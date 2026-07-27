@@ -54,7 +54,7 @@ export function formatGpsSyncProgress(
   if (progress.status === 'computing' || progress.status === 'processing') {
     // If the caller supplied a message (e.g. heatmap tile finalization
     // passes its own percent-formatted string), trust it and drop the
-    // count suffix — otherwise we'd render both "75%" and "12400/51500".
+    // count suffix - otherwise we'd render both "75%" and "12400/51500".
     const hasCustomMessage = Boolean(progress.message);
     return {
       icon: 'map-marker-path',

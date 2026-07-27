@@ -1,5 +1,5 @@
 /**
- * useIOSMapTap — iOS-specific tap handling for MapLibre.
+ * useIOSMapTap - iOS-specific tap handling for MapLibre.
  *
  * MapView.onPress does not fire reliably on iOS with the Fabric renderer, so
  * we attach `onTouchStart` / `onTouchEnd` to the map container and detect tap
@@ -7,7 +7,7 @@
  * map coordinates via `mapRef.getCoordinateFromView()` and calls through to
  * `onMapPress` with a synthesised `Point` feature.
  *
- * Extracted from ActivityMapView.tsx — pure refactor, no behaviour change.
+ * Extracted from ActivityMapView.tsx - pure refactor, no behaviour change.
  */
 
 import { useCallback, useRef } from 'react';
@@ -61,7 +61,7 @@ export function useIOSMapTap({ mapRef, onMapPress }: UseIOSMapTapParams): UseIOS
 
         onMapPress(feature);
       } catch {
-        // Silently fail — tap handling is best effort
+        // Silently fail - tap handling is best effort
       }
     },
     [mapRef, onMapPress]

@@ -8,7 +8,7 @@
  */
 
 import { validateId, validateName } from '../../conversions';
-import type { FfiGpsPoint } from '../../generated/veloqrs';
+import type { FfiGpsPoint, FfiIndexActivitySummary } from '../../generated/veloqrs';
 import type { DelegateHost } from '../host';
 
 export function setSectionName(host: DelegateHost, sectionId: string, name: string): boolean {
@@ -133,6 +133,27 @@ export function rematchActivityToSection(
   } catch (e) {
     console.error('[RouteEngine] rematchActivityToSection failed:', e);
     return false;
+  }
+}
+
+export function indexNewActivity(
+  host: DelegateHost,
+  activityId: string
+): FfiIndexActivitySummary | null {
+  if (!host.ready) return null;
+  validateId(activityId, 'activity ID');
+  try {
+    const summary = host.timed('indexNewActivity', () =>
+      host.engine.sections().indexNewActivity(activityId)
+    );
+    if (summary.insertedPortions > 0 || summary.regrouped) {
+      host.notify('sections');
+      host.notify('groups');
+    }
+    return summary;
+  } catch (e) {
+    console.error('[RouteEngine] indexNewActivity failed:', activityId, e);
+    return null;
   }
 }
 

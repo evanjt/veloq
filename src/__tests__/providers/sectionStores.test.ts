@@ -36,7 +36,7 @@ function makePotentialSection(id: string) {
 }
 
 // ================================================================
-// DisabledSectionsStore — Full Suite (Representative for Set-based stores)
+// DisabledSectionsStore - Full Suite (Representative for Set-based stores)
 // ================================================================
 
 describe('DisabledSectionsStore', () => {
@@ -72,7 +72,7 @@ describe('DisabledSectionsStore', () => {
       expect(useDisabledSections.getState().disabledIds.has('section-1')).toBe(true);
     });
 
-    it('is idempotent — disabling same ID twice does not duplicate', async () => {
+    it('is idempotent - disabling same ID twice does not duplicate', async () => {
       await useDisabledSections.getState().disable('section-1');
       await useDisabledSections.getState().disable('section-1');
       expect(useDisabledSections.getState().disabledIds.size).toBe(1);
@@ -110,7 +110,7 @@ describe('DisabledSectionsStore', () => {
 });
 
 // ================================================================
-// SectionDismissalsStore — Unique behaviors only
+// SectionDismissalsStore - Unique behaviors only
 // ================================================================
 
 describe('SectionDismissalsStore', () => {
@@ -146,7 +146,7 @@ describe('SectionDismissalsStore', () => {
 });
 
 // ================================================================
-// SupersededSectionsStore — Unique: record-based, cross-section queries
+// SupersededSectionsStore - Unique: record-based, cross-section queries
 // ================================================================
 
 describe('SupersededSectionsStore', () => {
@@ -204,7 +204,7 @@ describe('SupersededSectionsStore', () => {
 });
 
 // ================================================================
-// PotentialSectionsStore — Unique: array storage, schema validation, timestamps
+// PotentialSectionsStore - Unique: array storage, schema validation, timestamps
 // ================================================================
 
 describe('PotentialSectionsStore', () => {

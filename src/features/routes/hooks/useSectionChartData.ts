@@ -4,11 +4,11 @@
  * Thin pass-through to the Rust atomic `getSectionChartData`, which emits
  * per-lap chart points + speed ranks + best/avg/last stats in one FFI
  * round-trip. Conversion here is strictly shape-matching (Rust types →
- * UI types) and null-safe defaulting — no aggregation.
+ * UI types) and null-safe defaulting - no aggregation.
  */
 
 import { useMemo } from 'react';
-import { type ChartSummaryStats } from '@/features/routes/components/performance';
+import { type ChartSummaryStats } from '@/features/routes/lib/performanceTypes';
 import { RANGE_DAYS } from '@/features/routes/constants';
 import { getRouteEngine } from '@/shared/native/routeEngine';
 import { fromUnixSeconds, castDirection, ensureFinite } from '@/shared/ffi/ffiConversions';
@@ -31,7 +31,7 @@ interface UseSectionChartDataParams {
 }
 
 export interface UseSectionChartDataResult {
-  // Lookups (still derived in TS — cheap maps)
+  // Lookups (still derived in TS - cheap maps)
   portionMap: Map<string, { activityId: string; direction?: string; distanceMeters?: number }>;
   performanceRecordMap: Map<string, SectionPerformanceRecord>;
   sectionActivities: Activity[];
@@ -61,7 +61,7 @@ export function useSectionChartData({
   sectionTimeRange,
   sportFilter,
 }: UseSectionChartDataParams): UseSectionChartDataResult {
-  // Cheap O(n) lookup maps — keep in TS, consumed by the section detail screen.
+  // Cheap O(n) lookup maps - keep in TS, consumed by the section detail screen.
   const portionMap = useMemo(() => {
     if (!section?.activityPortions) return new Map();
     return new Map(section.activityPortions.map((p: { activityId: string }) => [p.activityId, p]));
@@ -106,7 +106,7 @@ export function useSectionChartData({
       };
     }
 
-    // Sanitise raw Rust speeds before deriving axis bounds — a non-finite
+    // Sanitise raw Rust speeds before deriving axis bounds - a non-finite
     // min/max would poison padding and the whole y-axis range.
     const minSpeed = ensureFinite(rustChart.minSpeed, 0);
     const maxSpeed = ensureFinite(rustChart.maxSpeed, 1);

@@ -41,7 +41,7 @@ const queryClient = new QueryClient({
 // Export for manual cache management (e.g., clearing on navigation)
 export { queryClient };
 
-/** Empty cache payload — reused to avoid allocating a new string each write */
+/** Empty cache payload - reused to avoid allocating a new string each write */
 const EMPTY_CACHE = '{"clientState":{"queries":[],"mutations":[]}}';
 
 const asyncStoragePersister = createAsyncStoragePersister({
@@ -49,7 +49,7 @@ const asyncStoragePersister = createAsyncStoragePersister({
   key: 'veloq-query-cache',
   // Throttle writes to prevent overwhelming storage
   throttleTime: 2000,
-  // Serialize with size limit — skip entire write when over 1MB.
+  // Serialize with size limit - skip entire write when over 1MB.
   // The persister calls serialize() every throttleTime (2s). Without the
   // query-count guard, JSON.stringify on a large cache allocates a multi-MB
   // string every 2s only to discard it when it exceeds the limit.
@@ -82,7 +82,7 @@ export function QueryProvider({ children }: QueryProviderProps) {
       client={queryClient}
       persistOptions={{
         persister: asyncStoragePersister,
-        maxAge: 1000 * 60 * 60 * 24, // 24 hours — match default gcTime
+        maxAge: 1000 * 60 * 60 * 24, // 24 hours - match default gcTime
         // Don't persist activity streams (large data)
         dehydrateOptions: {
           shouldDehydrateQuery: (query) => {
@@ -104,7 +104,7 @@ export function QueryProvider({ children }: QueryProviderProps) {
       onSuccess={() => {
         // After restoring persisted cache, check if the infinite activities query
         // has stale page params (newest date is not today). If so, reset it so
-        // initialPageParam is re-evaluated with today's date — otherwise the feed
+        // initialPageParam is re-evaluated with today's date - otherwise the feed
         // will never fetch today's activities since invalidateQueries reuses stored params.
         if (isInfiniteActivitiesStale(queryClient)) {
           queryClient.resetQueries({ queryKey: queryKeys.activities.infinite.all });

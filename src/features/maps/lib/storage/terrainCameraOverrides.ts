@@ -36,7 +36,7 @@ export async function initCameraOverrides(): Promise<void> {
       }
     }
   } catch {
-    // Best effort — start with empty overrides
+    // Best effort - start with empty overrides
   }
   initialized = true;
 }

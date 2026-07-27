@@ -1,5 +1,5 @@
 /**
- * Hook for section encounters — one entry per (section, direction) for an activity.
+ * Hook for section encounters - one entry per (section, direction) for an activity.
  * This is the canonical data source for the activity sections tab.
  */
 

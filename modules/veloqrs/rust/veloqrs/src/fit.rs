@@ -99,7 +99,7 @@ pub fn parse_fit_sets(data: &[u8]) -> Vec<FitExerciseSet> {
                             });
                         }
                         fitparser::Value::UInt8(v) => {
-                            // Raw FIT enum: 0=active, 1=rest — matches our convention
+                            // Raw FIT enum: 0=active, 1=rest - matches our convention
                             set_type = Some(*v);
                         }
                         _ => {}

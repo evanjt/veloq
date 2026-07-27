@@ -32,10 +32,11 @@ import type {
   FfiRoutesScreenData,
   FfiPotentialSection,
   FfiSectionConfig,
+  FfiIndexActivitySummary,
   DownloadProgressResult,
 } from './generated/veloqrs';
 
-// Types for new FFI methods — will be auto-generated after Rust rebuild.
+// Types for new FFI methods - will be auto-generated after Rust rebuild.
 // Declarations moved to ./delegates/shared-types.ts; re-exported here so
 // existing consumers (e.g. `import { FfiSectionMatch } from '...'`) keep working.
 export type {
@@ -157,7 +158,7 @@ class RouteEngineClient implements DelegateHost {
     if (result) {
       this.initialized = true;
       this.dbPath = dbPath;
-      // Heatmap tiles path is set lazily via enableHeatmapTiles() — called from app
+      // Heatmap tiles path is set lazily via enableHeatmapTiles() - called from app
       // code when the heatmap setting is enabled. This avoids importing provider stores
       // in the native module.
       if (this.pendingMetrics) {
@@ -207,7 +208,7 @@ class RouteEngineClient implements DelegateHost {
     try {
       this.timed('clear', () => this.engine?.clear());
     } catch {
-      // Best-effort clear — reset local state regardless
+      // Best-effort clear - reset local state regardless
     }
     try {
       // Drop the Rust PERSISTENT_ENGINE global so the next create() re-initializes
@@ -246,7 +247,7 @@ class RouteEngineClient implements DelegateHost {
     try {
       this.timed('markForRecomputation', () => this.engine.markForRecomputation());
     } catch {
-      // Best-effort — engine may have been cleared
+      // Best-effort - engine may have been cleared
     }
   }
 
@@ -393,7 +394,7 @@ class RouteEngineClient implements DelegateHost {
     sectionDelegates.getSectionPerformances(this, sectionId, sportType);
 
   /**
-   * Batched section-performance fetch — one FFI call for many section IDs.
+   * Batched section-performance fetch - one FFI call for many section IDs.
    * Use this anywhere a `for (id of ids) getSectionPerformances(id)` loop
    * would otherwise pay N round-trips of FFI overhead (~10-30 ms each).
    */
@@ -682,7 +683,7 @@ class RouteEngineClient implements DelegateHost {
     }
   }
 
-  /** Bulk export all GPS activities as a ZIP of GPX files. Streams in Rust — constant memory. */
+  /** Bulk export all GPS activities as a ZIP of GPX files. Streams in Rust - constant memory. */
   bulkExportGpx(destPath: string): { exported: number; skipped: number; totalBytes: number } {
     if (!this.ready) throw new Error('Engine not initialized');
     const result = this.timed('bulkExportGpx', () => this.engine.bulkExportGpx(destPath));
@@ -827,7 +828,7 @@ class RouteEngineClient implements DelegateHost {
 
   /**
    * Insert pre-parsed exercise sets for an activity without touching the
-   * network. Demo-mode only — production uses fetchAndParseExerciseSets.
+   * network. Demo-mode only - production uses fetchAndParseExerciseSets.
    */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   bulkInsertExerciseSets(activityId: string, sets: any[]): void {
@@ -848,7 +849,7 @@ class RouteEngineClient implements DelegateHost {
 
   /**
    * Parse FIT bytes locally and store strength sets. Returns the number of
-   * sets inserted. No network — used when the FIT buffer is already
+   * sets inserted. No network - used when the FIT buffer is already
    * available (recording upload, local backup replay).
    */
   importSetsFromFit = (activityId: string, fitBytes: Uint8Array): number =>
@@ -897,6 +898,9 @@ class RouteEngineClient implements DelegateHost {
 
   rematchActivityToSection = (activityId: string, sectionId: string): boolean =>
     sectionDelegates.rematchActivityToSection(this, activityId, sectionId);
+
+  indexNewActivity = (activityId: string): FfiIndexActivitySummary | null =>
+    sectionDelegates.indexNewActivity(this, activityId);
 
   getNearbySections = (sectionId: string, radiusMeters: number = 500): FfiNearbySectionSummary[] =>
     sectionDelegates.getNearbySections(this, sectionId, radiusMeters);

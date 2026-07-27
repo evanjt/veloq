@@ -2,7 +2,7 @@
  * Settings delegates.
  *
  * Wraps SQLite-backed user preferences, athlete profile, sport settings, and
- * name translations. All writes are best-effort — failures log but don't throw.
+ * name translations. All writes are best-effort - failures log but don't throw.
  */
 
 import type { DelegateHost } from './host';
@@ -21,7 +21,7 @@ export function setAthleteProfile(host: DelegateHost, json: string): void {
   try {
     host.timed('setAthleteProfile', () => host.engine.settings().setAthleteProfile(json));
   } catch {
-    // Settings write failed — non-critical
+    // Settings write failed - non-critical
   }
 }
 
@@ -39,7 +39,7 @@ export function setSportSettings(host: DelegateHost, json: string): void {
   try {
     host.timed('setSportSettings', () => host.engine.settings().setSportSettings(json));
   } catch {
-    // Settings write failed — non-critical
+    // Settings write failed - non-critical
   }
 }
 
@@ -55,7 +55,7 @@ export function getSportSettings(host: DelegateHost): string {
 export function clearUserProfileCaches(host: DelegateHost): void {
   if (!host.ready) return;
   try {
-    // Cast to bypass stale generated bindings — the regenerated SettingsManager
+    // Cast to bypass stale generated bindings - the regenerated SettingsManager
     // (after `npm run clean:rust && npx expo run:android`) has this method, but
     // tsc would fail against the pre-rebuild .d.ts. Method binding via UniFFI
     // resolves at runtime, and the catch below absorbs the case where Rust
@@ -67,7 +67,7 @@ export function clearUserProfileCaches(host: DelegateHost): void {
       settings.clearUserProfileCaches?.();
     });
   } catch {
-    // Best-effort — failures here just leave stale rows that engine.clear() would catch later.
+    // Best-effort - failures here just leave stale rows that engine.clear() would catch later.
   }
 }
 
@@ -85,7 +85,7 @@ export function setSetting(host: DelegateHost, key: string, value: string): void
   try {
     host.engine.settings().setSetting(key, value);
   } catch {
-    // Settings write failed — non-critical
+    // Settings write failed - non-critical
   }
 }
 
@@ -104,7 +104,7 @@ export function setAllSettings(host: DelegateHost, settings: Record<string, stri
   try {
     host.engine.settings().setAllSettings(JSON.stringify(settings));
   } catch {
-    // Settings write failed — non-critical
+    // Settings write failed - non-critical
   }
 }
 
@@ -113,6 +113,6 @@ export function deleteSetting(host: DelegateHost, key: string): void {
   try {
     host.engine.settings().deleteSetting(key);
   } catch {
-    // Settings delete failed — non-critical
+    // Settings delete failed - non-critical
   }
 }

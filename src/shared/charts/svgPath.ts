@@ -5,7 +5,7 @@
  * The imperative `Skia.Path.Make().moveTo()/lineTo()/cubicTo()` API is deprecated
  * in react-native-skia 2.x and a path built that way fails to paint in the
  * declarative <Path> tree on Android (it silently blanks the whole Canvas). Build
- * the "d" string and parse it instead — the method the SummaryCard sparkline has
+ * the "d" string and parse it instead - the method the SummaryCard sparkline has
  * always used, which is why it kept rendering across the SDK 56 Skia bump.
  */
 

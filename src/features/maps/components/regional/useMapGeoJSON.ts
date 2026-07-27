@@ -49,7 +49,7 @@ export interface RouteMarker {
   sportType: string;
 }
 
-// Size based on distance (always returns 24 — kept as function for future scaling)
+// Size based on distance (always returns 24 - kept as function for future scaling)
 const MARKER_SIZE = 24;
 export function getMarkerSize(_distance: number): number {
   return MARKER_SIZE;
@@ -129,7 +129,7 @@ export function useMapGeoJSON({
 
         return {
           type: 'Feature' as const,
-          // No top-level `id` — string IDs break MapLibre Supercluster clustering.
+          // No top-level `id` - string IDs break MapLibre Supercluster clustering.
           // Use properties.id for tap handlers and selection expressions.
           properties: {
             id: activity.id,

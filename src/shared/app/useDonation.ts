@@ -17,7 +17,7 @@ export function useDonation() {
       try {
         await finishTransaction({ purchase, isConsumable: true });
       } catch {
-        // ignore — purchase still succeeded from user perspective
+        // ignore - purchase still succeeded from user perspective
       }
       recordAction();
       setIsPurchasing(false);

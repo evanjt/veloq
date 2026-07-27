@@ -2,7 +2,7 @@
 //!
 //! Fetching sections by type or activity, summaries, counts, bounds checks,
 //! and the reference-activity extension track. All functions here are pure
-//! reads — they never mutate section state.
+//! reads - they never mutate section state.
 
 use super::super::{Section, SectionSummary, SectionType};
 use crate::persistence::PersistentRouteEngine;
@@ -128,7 +128,7 @@ impl PersistentRouteEngine {
             }
         }
 
-        // Sort by visit count descending — most-traversed sections first.
+        // Sort by visit count descending - most-traversed sections first.
         // Stable order, ties broken by section id for determinism.
         sections.sort_by(|a, b| {
             b.visit_count
@@ -311,7 +311,7 @@ impl PersistentRouteEngine {
             .unwrap_or_default()
     }
 
-    /// Get a single section by ID (includes disabled/superseded — needed for detail/restore).
+    /// Get a single section by ID (includes disabled/superseded - needed for detail/restore).
     pub fn get_section(&self, section_id: &str) -> Option<Section> {
         let query = format!(
             "SELECT {} FROM sections WHERE id = ?",

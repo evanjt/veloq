@@ -125,7 +125,7 @@ describe('SyncProgressBanner display logic', () => {
     });
     expect(phase1).toBe('extended');
 
-    // Phase 2: GPS sync starts — takes over from extended fetch
+    // Phase 2: GPS sync starts - takes over from extended fetch
     const phase2 = computeDisplayInfo({
       isFetchingExtended: true,
       gpsSyncProgress: fetchingProgress,

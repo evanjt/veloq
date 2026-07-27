@@ -48,7 +48,7 @@ describe('createAutoPauseDetector', () => {
       detector.update(0.5, 5000);
       detector.update(2.0, 6000);
 
-      // Continued above threshold — no signal
+      // Continued above threshold - no signal
       expect(detector.update(2.0, 7000)).toBeNull();
       expect(detector.update(3.0, 8000)).toBeNull();
     });
@@ -62,7 +62,7 @@ describe('createAutoPauseDetector', () => {
       expect(detector.update(0.5, baseTime + 5000)).toBe('pause');
 
       // 1.0–1.25 m/s is above the pause threshold but inside the hysteresis
-      // band — GPS noise hovering here must not flap resume
+      // band - GPS noise hovering here must not flap resume
       expect(detector.update(1.1, baseTime + 6000)).toBeNull();
       expect(detector.update(1.2, baseTime + 7000)).toBeNull();
       // Clearly moving again → resume
@@ -81,7 +81,7 @@ describe('createAutoPauseDetector', () => {
       // Speed recovers before duration threshold
       expect(detector.update(3.0, 3000)).toBeNull();
 
-      // Speed drops again — timer resets
+      // Speed drops again - timer resets
       expect(detector.update(0.5, 4000)).toBeNull();
       expect(detector.update(0.5, 7000)).toBeNull();
 
@@ -95,10 +95,10 @@ describe('createAutoPauseDetector', () => {
       // Alternating below/above keeps resetting the timer
       detector.update(0.5, 0);
       detector.update(0.5, 2000);
-      detector.update(1.5, 3000); // above threshold — resets timer
+      detector.update(1.5, 3000); // above threshold - resets timer
       detector.update(0.5, 4000);
       detector.update(0.5, 6000);
-      detector.update(1.5, 7000); // above threshold — resets timer
+      detector.update(1.5, 7000); // above threshold - resets timer
       detector.update(0.5, 8000);
 
       // Only 5000ms have passed since last above-threshold at 7000, so at 12000:
@@ -191,7 +191,7 @@ describe('createAutoPauseDetector', () => {
       detector.update(0.5, 0);
       expect(detector.update(0.5, 5000)).toBe('pause');
 
-      // Already paused — no repeat signal
+      // Already paused - no repeat signal
       expect(detector.update(0.5, 6000)).toBeNull();
 
       // Reset
@@ -226,7 +226,7 @@ describe('createAutoPauseDetector', () => {
       detector.update(0.5, 0);
       expect(detector.update(0.5, 5000)).toBe('pause');
 
-      // Already paused — should not return pause again
+      // Already paused - should not return pause again
       expect(detector.update(0.5, 6000)).toBeNull();
       expect(detector.update(0.5, 10000)).toBeNull();
       expect(detector.update(0.5, 100000)).toBeNull();

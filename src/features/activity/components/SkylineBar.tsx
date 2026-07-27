@@ -27,7 +27,7 @@ export const SkylineBar = React.memo(function SkylineBar({
       {decoded.intervals.map((interval, i) => {
         const zoneIndex = Math.min(Math.max(interval.zone - 1, 0), palette.length - 1);
         let color = palette[zoneIndex];
-        // Z7 is near-black — swap to light grey in dark mode for visibility
+        // Z7 is near-black - swap to light grey in dark mode for visibility
         if (isDark && interval.zone === 7 && decoded.zoneBasis === 'power') {
           color = darkColors.zone7;
         }

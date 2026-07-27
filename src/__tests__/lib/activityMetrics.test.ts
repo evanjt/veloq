@@ -143,7 +143,7 @@ describe('date edge cases', () => {
       expect(() => toActivityMetrics(activity)).not.toThrow();
       expect(toActivityMetrics(activity).date).toBe(BigInt(0));
     }
-    // Empty string parses to epoch in some environments — only assert bigint.
+    // Empty string parses to epoch in some environments - only assert bigint.
     const emptyActivity = makeActivity({ start_date_local: '' });
     expect(() => toActivityMetrics(emptyActivity)).not.toThrow();
     expect(typeof toActivityMetrics(emptyActivity).date).toBe('bigint');

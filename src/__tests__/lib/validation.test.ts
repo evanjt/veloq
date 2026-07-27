@@ -93,7 +93,7 @@ describe('isValidRecord', () => {
 });
 
 describe('validateCustomSection', () => {
-  // Migrated from schemas.test.ts — validates size limit enforcement
+  // Migrated from schemas.test.ts - validates size limit enforcement
   const { validateCustomSection } = require('@/shared/validation/schemas');
 
   const validSection = {

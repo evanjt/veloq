@@ -8,7 +8,7 @@ export interface NotificationPreferences {
   enabled: boolean;
   /** User has accepted the privacy notice (required before enabling) */
   privacyAccepted: boolean;
-  /** Unregister request failed (e.g. offline) — retry on next app open */
+  /** Unregister request failed (e.g. offline) - retry on next app open */
   pendingUnregister: boolean;
   /** Per-category toggles */
   categories: {

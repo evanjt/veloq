@@ -1,7 +1,7 @@
 import { View } from 'react-native';
 
 import type { ActivityType, PerformanceDataPoint, RoutePoint } from '@/types';
-import { SectionScatterChart } from './section';
+import { ScatterLegend, SectionScatterChart } from './section';
 import type { SectionScatterChartProps } from './section';
 import { styles } from './RouteDetailScreen.styles';
 
@@ -62,6 +62,11 @@ export function RouteDetailChart({
         hasExcluded={hasExcluded}
         onToggleShowExcluded={onToggleShowExcluded}
         highlightedActivityId={highlightedActivityId}
+      />
+      <ScatterLegend
+        isDark={isDark}
+        showReverse={!!bestReverseRecord}
+        showThisActivity={!!highlightedActivityId}
       />
     </View>
   );

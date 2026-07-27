@@ -11,7 +11,7 @@ trap 'rm -rf "$WORK"' EXIT
 
 NEWEST=$(adb shell "run-as $PKG ls -1t cache/" 2>/dev/null | tr -d '\r' | grep -E '\.gpx$' | head -n1 || true)
 if [ -z "${NEWEST:-}" ]; then
-  echo "FAIL: no .gpx file in cache/ — did the export flow run?"
+  echo "FAIL: no .gpx file in cache/ - did the export flow run?"
   exit 1
 fi
 echo "Found: $NEWEST"

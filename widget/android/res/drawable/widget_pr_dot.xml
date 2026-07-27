@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Gold dot marking a PR moment (achievements only). -->
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="oval">
+  <solid android:color="@color/widget_gold" />
+</shape>

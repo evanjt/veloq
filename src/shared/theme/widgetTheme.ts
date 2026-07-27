@@ -1,11 +1,11 @@
 /**
- * Widget theme — the single source of truth for home-screen widget colours and
+ * Widget theme: the single source of truth for home-screen widget colours and
  * styles. Native widget code (Swift WidgetKit / Kotlin RemoteViews) cannot import
  * the app theme, so the widget snapshot carries the resolved `light`/`dark` palette
  * below and the native side renders from it. `scripts/gen-widget-theme.ts` emits the
  * same values as committed native constants for static/placeholder chrome.
  *
- * Never hardcode a hex or size in widget native files — extend this module instead.
+ * Never hardcode a hex or size in widget native files; extend this module instead.
  * Derived only from `@/theme/colors` + `@/theme/spacing` (both pure, no react-native
  * import) so the codegen can run outside the RN runtime.
  */
@@ -18,15 +18,31 @@ export interface WidgetPalette {
   surface: string;
   textPrimary: string;
   textSecondary: string;
-  /** Teal — values, accents, selected state. */
+  /** Teal: values, accents, selected state. */
   primary: string;
-  /** Gold — achievements / PR moments ONLY. */
+  /** Gold: achievements / PR moments ONLY. */
   gold: string;
-  /** Blue — CTL / data-viz series. */
+  /** Blue: CTL / data-viz series. */
   blue: string;
+  /** Purple: ATL / fatigue series. */
+  fatigue: string;
+  /** Fitness (CTL) chart line, matching the feed summary-card sparkline. */
+  chartFitness: string;
+  /** Fatigue (ATL) chart line, matching the feed summary-card sparkline. */
+  chartFatigue: string;
+  /** Under-stroke behind chart lines for edge contrast (RRGGBBAA). */
+  chartCasing: string;
+  /** Axis value labels on the trend chart. */
+  textMuted: string;
+  /** Form zone colours keyed by the snapshot's `metrics.form.zone` enum. */
+  formHighRisk: string;
+  formOptimal: string;
+  formGreyZone: string;
+  formFresh: string;
+  formTransition: string;
   /** Trend up (green). */
   trendUp: string;
-  /** Trend down (neutral grey — down is not "bad"). */
+  /** Trend down (neutral grey; down is not "bad"). */
   trendDown: string;
   /** Trend flat (faint grey). */
   trendFlat: string;
@@ -42,6 +58,16 @@ export const widgetPalette: { light: WidgetPalette; dark: WidgetPalette } = {
     primary: brand.tealLight,
     gold: brand.gold,
     blue: brand.blueDark,
+    fatigue: colors.fatigue,
+    chartFitness: colors.fitnessBlue,
+    chartFatigue: colors.chartPink,
+    chartCasing: colors.chartCasing,
+    textMuted: colors.textMuted,
+    formHighRisk: colors.formHighRisk,
+    formOptimal: colors.formOptimal,
+    formGreyZone: colors.formGreyZone,
+    formFresh: colors.formFresh,
+    formTransition: colors.formTransition,
     trendUp: colors.success,
     trendDown: colors.textSecondary,
     trendFlat: colors.textDisabled,
@@ -55,6 +81,16 @@ export const widgetPalette: { light: WidgetPalette; dark: WidgetPalette } = {
     primary: brand.tealDark,
     gold: brand.gold,
     blue: brand.blue,
+    fatigue: darkColors.chartFatigue,
+    chartFitness: colors.fitnessBlue,
+    chartFatigue: colors.chartPink,
+    chartCasing: darkColors.chartCasing,
+    textMuted: darkColors.textMuted,
+    formHighRisk: colors.formHighRisk,
+    formOptimal: colors.formOptimal,
+    formGreyZone: colors.formGreyZone,
+    formFresh: colors.formFresh,
+    formTransition: colors.formTransition,
     trendUp: darkColors.success,
     trendDown: darkColors.textSecondary,
     trendFlat: darkColors.textDisabled,
@@ -62,12 +98,22 @@ export const widgetPalette: { light: WidgetPalette; dark: WidgetPalette } = {
   },
 };
 
+/**
+ * Quick-Record widget chrome. Static (no snapshot behind it), scheme-independent:
+ * a teal gradient surface with white glyph/label, same in light and dark.
+ */
+export const widgetRecord = {
+  gradientStart: brand.teal,
+  gradientEnd: brand.tealLight,
+  foreground: colors.textOnDark,
+} as const;
+
 /** Per-sport tint, mirroring the app's activity-type colours. */
 export function widgetActivityTint(sportType: string): string {
   return activityTypeColors[sportType] ?? activityTypeColors.Other;
 }
 
-/** Widget layout constants (8px grid, 16px card radius — same as the home cards). */
+/** Widget layout constants (8px grid, 16px card radius, same as the home cards). */
 export const widgetLayout = {
   radius: layout.borderRadius, // 16
   radiusInner: layout.borderRadiusSm, // 8

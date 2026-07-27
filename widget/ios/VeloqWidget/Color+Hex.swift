@@ -1,6 +1,6 @@
 import SwiftUI
 
-// Builds a Color from a "#RRGGBB"/"#RRGGBBAA" string. Holds no colour literal itself —
+// Builds a Color from a "#RRGGBB"/"#RRGGBBAA" string. Holds no colour literal itself;
 // the hex strings come from the snapshot's theme block or the generated WidgetTheme,
 // both rooted in src/theme/colors.ts. This keeps widget colour out of hand-typed hex.
 extension Color {

@@ -147,7 +147,7 @@ describe('createCrankCadenceCalculator', () => {
     const calc = createCrankCadenceCalculator({ zeroAfterMs: 3000 });
     calc.update({ cumulativeRevs: 100, eventTime1024: 0 }, 1000);
     calc.update({ cumulativeRevs: 103, eventTime1024: 2048 }, 3000);
-    // Same sample repeated — no new crank events
+    // Same sample repeated - no new crank events
     expect(calc.update({ cumulativeRevs: 103, eventTime1024: 2048 }, 4000)).toBeNull();
     expect(calc.update({ cumulativeRevs: 103, eventTime1024: 2048 }, 6500)).toBe(0);
   });
@@ -155,7 +155,7 @@ describe('createCrankCadenceCalculator', () => {
   it('rejects implausible cadence', () => {
     const calc = createCrankCadenceCalculator();
     calc.update({ cumulativeRevs: 0, eventTime1024: 0 }, 1000);
-    // 100 revs in 1s = 6000 rpm — noise
+    // 100 revs in 1s = 6000 rpm - noise
     expect(calc.update({ cumulativeRevs: 100, eventTime1024: 1024 }, 2000)).toBeNull();
   });
 });

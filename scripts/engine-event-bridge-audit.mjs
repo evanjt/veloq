@@ -70,11 +70,11 @@ const ENGINE_READ = /\bgetRouteEngine\s*\(|\bengine\.get[A-Z]|\brouteEngine\.\w/
 // the subscription helpers, a raw engine.subscribe(...), or a call into one of
 // the useEngine*/useSection*/useGroup*/useRoute* hooks that subscribe internally.
 // useMemo recomputes from its own inputs, not on sync, so a useMemo-only hook is
-// query-on-demand, not the data-sync shape these bugs lived in — out of scope.
+// query-on-demand, not the data-sync shape these bugs lived in - out of scope.
 const SUBSCRIBES =
   /\buseEngineSubscription\b|\bcreateEngineHook\b|\.subscribe\s*\(|\buse(?:Engine|Section|Group|Route)[A-Z]\w*\s*\(/;
 
-// Hooks whose queryFn fetches from intervalsApi are API-sourced — the engine
+// Hooks whose queryFn fetches from intervalsApi are API-sourced - the engine
 // read is a write-through cache fallback. They refresh on their own staleTime,
 // not on activity sync, so they aren't the sync-derived shape these bugs had.
 const API_BACKED = /\bintervalsApi\./;
@@ -88,7 +88,7 @@ const EXEMPT = new Set(['src/features/routes/hooks/useCustomSections.ts']);
 // engine data, keyed on a centralized queryKeys.<group>, with that group missing
 // from GlobalDataSync's invalidation set. We scope the audit to exactly that
 // shape: useQuery + centralized query key. Derive-from-input useMemo hooks and
-// action hooks are excluded — they have no sync-driven refresh expectation.
+// action hooks are excluded - they have no sync-driven refresh expectation.
 function findEngineHookOrphans(knownGroups, invalidatedGroups) {
   const orphans = [];
   for (const file of [...walk(SHARED_APP_DIR), ...walk(FEATURES_DIR)]) {
@@ -169,7 +169,7 @@ function main() {
   const { missing, noBody } = findReinitGaps(backupSrc);
   if (noBody) {
     failed = true;
-    console.error('Could not locate reinitializeAllStores in backup.ts — restore reinit check skipped.');
+    console.error('Could not locate reinitializeAllStores in backup.ts - restore reinit check skipped.');
   } else if (missing.length > 0) {
     failed = true;
     console.error('Imported store initializers never called in reinitializeAllStores:');

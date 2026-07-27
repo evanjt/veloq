@@ -260,7 +260,7 @@ export function generateStrengthInsights(
 
   const insights: Insight[] = [];
 
-  // Surface a snapshot only when there is enough volume to be informative —
+  // Surface a snapshot only when there is enough volume to be informative -
   // mirrors the per-muscle gate used by the other strength insights.
   if (monthlySummary.totalSets > INSIGHTS_CONFIG.repetition.strength_min_sets) {
     insights.push(buildStrengthSnapshotInsight(monthlySummary, now, t));

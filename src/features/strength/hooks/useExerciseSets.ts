@@ -27,7 +27,7 @@ function buildAuthHeader(): string {
  *
  * On first view: downloads FIT file from intervals.icu, parses in Rust,
  * stores in SQLite, returns structured data. Subsequent views read from cache.
- * The FIT binary is not persisted — only the parsed set data.
+ * The FIT binary is not persisted - only the parsed set data.
  */
 export function useExerciseSets(activityId: string, activityType: string) {
   return useQuery<ExerciseSet[]>({
@@ -42,7 +42,7 @@ export function useExerciseSets(activityId: string, activityType: string) {
 
       // Check if strength() method exists (requires Rust rebuild with StrengthManager)
       if (typeof engine.getExerciseSets !== 'function') {
-        console.log('[ExerciseSets] getExerciseSets not available — rebuild required');
+        console.log('[ExerciseSets] getExerciseSets not available - rebuild required');
         return [];
       }
 
@@ -58,11 +58,11 @@ export function useExerciseSets(activityId: string, activityType: string) {
         console.log(`[ExerciseSets] Processed: ${processed}`);
         if (processed) return [];
 
-        // Demo mode has no FIT file — seed synthetic sets for any fixture
+        // Demo mode has no FIT file - seed synthetic sets for any fixture
         // activity that carries one, then read back through the normal path.
         if (isDemo() && demoStrengthSets[activityId]) {
           if (typeof engine.bulkInsertExerciseSets !== 'function') {
-            console.log('[ExerciseSets] bulkInsertExerciseSets not available — rebuild required');
+            console.log('[ExerciseSets] bulkInsertExerciseSets not available - rebuild required');
             return [];
           }
           engine.bulkInsertExerciseSets(activityId, demoStrengthSets[activityId]);

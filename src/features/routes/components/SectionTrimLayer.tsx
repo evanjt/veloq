@@ -22,7 +22,7 @@ interface SectionTrimLayerProps {
 
 // Bounds-editing overlays: the faded shadow/extension context and the
 // highlighted trimmed portion. Rendered in both the inline and fullscreen maps.
-// All ShapeSources always render — conditional removal crashes iOS MapLibre
+// All ShapeSources always render - conditional removal crashes iOS MapLibre
 // during view reconciliation, so visibility is driven by lineOpacity.
 export function SectionTrimLayer({
   idPrefix,

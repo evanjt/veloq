@@ -17,7 +17,7 @@ interface SportToggleSelectorProps {
 
 /**
  * Pill-button group for selecting the active fitness sport (Cycling/Running/Swimming).
- * Extracted from FitnessScreen — uses `SPORT_COLORS` from `@/providers`.
+ * Extracted from FitnessScreen - uses `SPORT_COLORS` from `@/providers`.
  */
 export const SportToggleSelector = React.memo(function SportToggleSelector({
   sportMode,

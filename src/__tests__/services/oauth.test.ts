@@ -5,7 +5,7 @@
  * state registration with proxy, callback parsing, and validation.
  *
  * The OAuth flow uses a proxy (Cloudflare Worker) that holds the
- * client_secret — the proxy exchanges the code for a token and
+ * client_secret - the proxy exchanges the code for a token and
  * redirects back to the app with token params in the URL.
  */
 
@@ -248,7 +248,7 @@ describe('OAuth service', () => {
       const body = JSON.parse((global.fetch as jest.Mock).mock.calls[0][1].body);
       const state = body.state;
       expect(validateState(state)).toBe(true);
-      // State is cleared after validation — calling again returns false
+      // State is cleared after validation - calling again returns false
       expect(validateState(state)).toBe(false);
     });
   });

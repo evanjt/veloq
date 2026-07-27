@@ -5,7 +5,7 @@ const { withEntitlementsPlist } = require("expo/config-plugins");
  *
  * The home-screen widget runs in a separate process and reads a snapshot file the
  * main app writes. An App Group is the shared sandbox both sides use. This is the
- * only new iOS capability the widget needs — no user-facing permission, no runtime
+ * only new iOS capability the widget needs - no user-facing permission, no runtime
  * prompt. Automatic signing (Xcode / EAS) registers the group at build time.
  *
  * The id is FIXED (`group.com.veloq.app`), mirroring `with-icloud.js` which pins

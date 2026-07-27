@@ -46,7 +46,7 @@ export function SyncProgressBanner({ visible = true }: SyncProgressBannerProps) 
   // Show immediate feedback when fetching extended date range (before GPS sync starts)
   const isLoadingExtended = isFetchingExtended && !isSyncingBounds && !isProcessingRoutes;
 
-  // Use shared formatter — bounds syncing takes priority, then GPS sync, then extended fetch
+  // Use shared formatter - bounds syncing takes priority, then GPS sync, then extended fetch
   const displayInfo = useMemo(() => {
     if (isSyncingBounds) {
       return formatBoundsSyncProgress(boundsProgress, t);

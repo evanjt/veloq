@@ -8,7 +8,7 @@
  *
  * The builder is intentionally a pure function so callers can compose it from
  * `useMemo` with whatever dependency array they need. Keep all React-specific
- * state (refs, savedCameraRef, etc.) on the caller's side — pass only resolved
+ * state (refs, savedCameraRef, etc.) on the caller's side - pass only resolved
  * values here.
  */
 import {
@@ -43,7 +43,7 @@ export interface Map3DHtmlConfig {
   terrainExaggeration: number;
   /**
    * Initial base style for the map. Subsequent style changes happen via
-   * `setStyle()` injection in the caller — this only influences the first
+   * `setStyle()` injection in the caller - this only influences the first
    * render so switching styles doesn't regenerate the HTML.
    */
   initStyle: MapStyleType;
@@ -112,7 +112,7 @@ export function buildMap3DHtml(config: Map3DHtmlConfig): string {
     ? JSON.stringify(rewriteSatelliteUrls(getCombinedSatelliteStyle3D()))
     : initStyle === 'dark'
       ? JSON.stringify(rewriteVectorUrls(DARK_MATTER_STYLE))
-      : `null`; // light uses URL-based style — fetched and rewritten in JS init
+      : `null`; // light uses URL-based style - fetched and rewritten in JS init
 
   return `
 <!DOCTYPE html>
@@ -175,7 +175,7 @@ export function buildMap3DHtml(config: Map3DHtmlConfig): string {
       });
     }
 
-    // Cache eviction — FIFO, size-based. Checked every 50 inserts per cache.
+    // Cache eviction - FIFO, size-based. Checked every 50 inserts per cache.
     var _insertCounts = {};
     var CACHE_BUDGETS = {
       'veloq-satellite-v1': 120 * 1024 * 1024,
@@ -212,7 +212,7 @@ export function buildMap3DHtml(config: Map3DHtmlConfig): string {
       });
     }
 
-    // Cache terrain DEM tiles via Cache API — persists across WebView recreations
+    // Cache terrain DEM tiles via Cache API - persists across WebView recreations
     // because baseUrl is https://veloq.fit/ (stable HTTPS origin).
     // MapLibre v5.19.0 uses promise-based addProtocol.
     var TERRAIN_CACHE = 'veloq-terrain-dem-v1';
@@ -274,7 +274,7 @@ export function buildMap3DHtml(config: Map3DHtmlConfig): string {
       });
     });
 
-    // Heatmap tile protocol — reads PNG tiles from device filesystem via RN bridge
+    // Heatmap tile protocol - reads PNG tiles from device filesystem via RN bridge
     window._heatmapRequests = {};
     maplibregl.addProtocol('heatmap-file', function(params) {
       var tilePath = params.url.replace('heatmap-file://', '');
@@ -334,7 +334,7 @@ export function buildMap3DHtml(config: Map3DHtmlConfig): string {
 
     // Satellite/dark use inline style JSON; light uses URL directly.
     // Light mode URL-based init lets MapLibre handle TileJSON resolution
-    // and vector tile loading natively — more reliable than fetch+rewrite.
+    // and vector tile loading natively - more reliable than fetch+rewrite.
     try {
     var styleJSON = ${styleConfig};
     if (styleJSON) {
@@ -399,7 +399,7 @@ export function buildMap3DHtml(config: Map3DHtmlConfig): string {
       });
       window._rn_log('terrain set, exaggeration=${terrainExaggeration}');
 
-      // Sky/fog from shared config — setSky may not be available, cosmetic only
+      // Sky/fog from shared config - setSky may not be available, cosmetic only
       try {
         map.setSky(_skyConfig);
         window._rn_log('sky set');
@@ -507,7 +507,7 @@ export function buildMap3DHtml(config: Map3DHtmlConfig): string {
         });
       }
 
-      // Create highlight marker as map layers (not DOM marker — immune to terrain occlusion)
+      // Create highlight marker as map layers (not DOM marker - immune to terrain occlusion)
       map.addSource('highlight-point', {
         type: 'geojson',
         data: { type: 'Point', coordinates: [0, 0] },
@@ -527,7 +527,7 @@ export function buildMap3DHtml(config: Map3DHtmlConfig): string {
         layout: { visibility: 'none' },
       });
 
-      // Section creation layers — used for interactive section creation in 3D mode
+      // Section creation layers - used for interactive section creation in 3D mode
       // Line showing the selected section portion
       map.addSource('section-creation-line', {
         type: 'geojson',
@@ -586,7 +586,7 @@ export function buildMap3DHtml(config: Map3DHtmlConfig): string {
         paint: { 'text-color': '#FFFFFF' },
       });
 
-      // Click handler — posts map coordinates back to React Native
+      // Click handler - posts map coordinates back to React Native
       map.on('click', function(e) {
         // Check if the click hit an activity point marker first (global map points)
         try {
@@ -605,7 +605,7 @@ export function buildMap3DHtml(config: Map3DHtmlConfig): string {
             }
           }
         } catch (err) {
-          // queryRenderedFeatures may fail if layer was just removed — ignore
+          // queryRenderedFeatures may fail if layer was just removed - ignore
         }
         // Then check section line features
         try {
@@ -624,7 +624,7 @@ export function buildMap3DHtml(config: Map3DHtmlConfig): string {
             }
           }
         } catch (err) {
-          // queryRenderedFeatures may fail if layer was just removed — ignore
+          // queryRenderedFeatures may fail if layer was just removed - ignore
         }
         // Otherwise, send a generic map click with coordinates
         if (window.ReactNativeWebView) {
@@ -664,14 +664,14 @@ export function buildMap3DHtml(config: Map3DHtmlConfig): string {
         }
       }, heatmapBeforeId);
 
-      // Terrain-first ready detection — only wait for DEM terrain and route sources,
+      // Terrain-first ready detection - only wait for DEM terrain and route sources,
       // not ALL tiles. At 60° pitch, horizon vector/label tiles are deprioritized and
       // may never fully load, causing the old areTilesLoaded() to always hit the timeout.
       var mapReadySent = false;
       function sendMapReady() {
         if (mapReadySent) return;
         mapReadySent = true;
-        window._rn_log('sending mapReady — terrain:' + terrainHits + '/' + terrainMisses + ' sat:' + satHits + '/' + satMisses + ' vec:' + vecHits + '/' + vecMisses);
+        window._rn_log('sending mapReady - terrain:' + terrainHits + '/' + terrainMisses + ' sat:' + satHits + '/' + satMisses + ' vec:' + vecHits + '/' + vecMisses);
         if (window.ReactNativeWebView) {
           window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'mapReady' }));
         }
@@ -698,16 +698,16 @@ export function buildMap3DHtml(config: Map3DHtmlConfig): string {
 
       map.resize(); // Ensure MapLibre knows full WebView dimensions
 
-      // Hard fallback — reduced from 8s to 4s since we no longer wait for all tiles.
+      // Hard fallback - reduced from 8s to 4s since we no longer wait for all tiles.
       // Terrain + route sources load much faster than full vector tile sets.
       setTimeout(function() {
         if (!mapReadySent) {
-          window._rn_log('hard timeout — sending mapReady after 4s');
+          window._rn_log('hard timeout - sending mapReady after 4s');
           sendMapReady();
         }
       }, 4000);
 
-      // Preload adjacent DEM zoom levels after map settles — populates Cache API
+      // Preload adjacent DEM zoom levels after map settles - populates Cache API
       // so zoom in/out has instant terrain. Uses cached-terrain:// protocol.
       map.once('idle', function() {
         setTimeout(function() {

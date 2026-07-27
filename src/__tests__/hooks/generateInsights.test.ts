@@ -6,7 +6,7 @@ import {
 import { consolidateInsights } from '@/features/insights/lib/computeInsightsData';
 import type { Insight } from '@/types';
 
-// Mock translation function — returns key with interpolated params
+// Mock translation function - returns key with interpolated params
 const mockT = (key: string, params?: Record<string, string | number>): string => {
   if (!params) return key;
   const paramStr = Object.entries(params)
@@ -102,7 +102,7 @@ describe('generateInsights', () => {
   });
 
   // ============================================================
-  // HRV TREND (Priority 2) — replaces recovery readiness
+  // HRV TREND (Priority 2) - replaces recovery readiness
   // ============================================================
 
   describe('HRV trend', () => {
@@ -338,7 +338,7 @@ describe('generateInsights', () => {
   });
 
   // ============================================================
-  // REMOVED INSIGHTS — ensure they are gone
+  // REMOVED INSIGHTS - ensure they are gone
   // ============================================================
 
   describe('removed insights', () => {
@@ -601,7 +601,7 @@ describe('generateInsights', () => {
   });
 
   // ============================================================
-  // INFORMATIONAL FRAMING — no prescriptive text
+  // INFORMATIONAL FRAMING - no prescriptive text
   // ============================================================
 
   describe('informational framing', () => {
@@ -672,7 +672,7 @@ describe('formatDurationCompact', () => {
 // ADDITIONAL EDGE CASE BUG HUNTING
 // ============================================================
 
-describe('generateInsights — additional edge cases', () => {
+describe('generateInsights - additional edge cases', () => {
   /**
    * All-zero metrics: CTL=0, ATL=0, TSB=0 should NOT generate a TSB form
    * insight because there is no wellness data to report on.
@@ -722,7 +722,7 @@ describe('generateInsights — additional edge cases', () => {
 
   /**
    * Pace trend with zero values should not generate a milestone.
-   * pace.latestPace = 0 means 0 m/s — effectively no movement.
+   * pace.latestPace = 0 means 0 m/s - effectively no movement.
    */
   it('pace trend with zero latestPace does not generate insight', () => {
     const result = generateInsights(
@@ -887,7 +887,7 @@ describe('generateInsights — additional edge cases', () => {
 // BOUNDARY CONDITION TESTS
 // ============================================================
 
-describe('generateInsights — boundary conditions', () => {
+describe('generateInsights - boundary conditions', () => {
   /**
    * HRV trend with exactly 3 values (minimum for trend detection).
    * The guard requires >= 5 HRV values for a reliable trend.
@@ -1039,7 +1039,7 @@ describe('generateInsights — boundary conditions', () => {
   });
 
   /**
-   * All-zero wellness window — verify no division by zero.
+   * All-zero wellness window - verify no division by zero.
    * The HRV filter `w.hrv > 0` removes all entries, leaving fewer than 3,
    * so no HRV insight is generated. Additionally the avg check `avg <= 0`
    * is a second guard.

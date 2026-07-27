@@ -137,14 +137,14 @@ export function SyncDebugTab() {
   const handleForceSync = useCallback(() => {
     const missing = alignment.missingFromEngine.length;
     if (missing > 0) {
-      setForceSyncStatus(`${missing} activities missing — sync triggered`);
+      setForceSyncStatus(`${missing} activities missing - sync triggered`);
       Alert.alert(
         'Force Sync',
-        `${missing} activities missing from engine — sync triggered.\n\nWatch Sync Status section for progress.`
+        `${missing} activities missing from engine - sync triggered.\n\nWatch Sync Status section for progress.`
       );
     } else {
       setForceSyncStatus('All activities already synced');
-      Alert.alert('Force Sync', 'All activities already synced — nothing to fetch.');
+      Alert.alert('Force Sync', 'All activities already synced - nothing to fetch.');
     }
     // Invalidate cache to fetch fresh activity list from API
     queryClient.invalidateQueries({ queryKey: queryKeys.activities.all });

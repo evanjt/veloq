@@ -167,7 +167,7 @@ export const SATELLITE_SOURCES: Record<SatelliteSourceId, SatelliteSource> = {
     bounds: [-9.4, 36.0, 4.4, 43.8],
   },
   // Austria: basemap.at Orthophoto (CC BY 4.0 OGD Austria - commercial OK)
-  // maps{1-4}.wien.gv.at subdomains have DNS issues — use maps.wien.gv.at (load-balanced)
+  // maps{1-4}.wien.gv.at subdomains have DNS issues - use maps.wien.gv.at (load-balanced)
   austria: {
     tiles: ['https://maps.wien.gv.at/basemap/bmaporthofoto30cm/normal/google3857/{z}/{y}/{x}.jpeg'],
     tileSize: 64,
@@ -224,7 +224,7 @@ export const SATELLITE_SOURCES: Record<SatelliteSourceId, SatelliteSource> = {
     tiles: ['https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless_3857/default/g/{z}/{y}/{x}.jpg'],
     tileSize: 64,
     maxzoom: 14,
-    attribution: 'Sentinel-2 cloudless — s2maps.eu by EOX, Copernicus Sentinel data 2017',
+    attribution: 'Sentinel-2 cloudless - s2maps.eu by EOX, Copernicus Sentinel data 2017',
     // No bounds - global coverage
   },
 };
@@ -499,7 +499,7 @@ export function getCombinedSatelliteStyle(): CombinedSatelliteMapStyle {
 /**
  * Build a combined satellite style for 3D contexts (Map3DWebView, TerrainSnapshotWebView).
  *
- * Uses the same tileSize: 64 as 2D — MapLibre GL JS v5.x (#3983) fixed the terrain LOD
+ * Uses the same tileSize: 64 as 2D - MapLibre GL JS v5.x (#3983) fixed the terrain LOD
  * bug that caused blurry tiles with terrain enabled. The v5.x distance-based LOD also
  * handles horizon tiles at 60° pitch (lower zoom for distant tiles), so the previous
  * concern about 16x more tile requests no longer applies.
@@ -668,7 +668,7 @@ export function rewriteVectorUrls<T extends object>(style: T): T {
 export const TERRAIN_ATTRIBUTION = 'Terrain: USGS, NOAA (Mapzen Terrain Tiles)';
 
 /**
- * Shared 3D terrain configuration — single source of truth for both
+ * Shared 3D terrain configuration - single source of truth for both
  * Map3DWebView (interactive detail) and TerrainSnapshotWebView (feed previews).
  * Keeps terrain source, sky, and hillshade definitions in sync.
  */
@@ -726,7 +726,7 @@ export const TERRAIN_3D_CONFIG = {
   },
   /**
    * Insert hillshade before the first transportation/building layer found.
-   * In Liberty, 'building' is after all roads (layer ~85) — using it would
+   * In Liberty, 'building' is after all roads (layer ~85) - using it would
    * put hillshade ON TOP of roads. In Dark Matter, 'building' is before roads
    * (layer ~10). This list catches the correct insertion point in both styles.
    */
@@ -748,7 +748,7 @@ export const TERRAIN_3D_CONFIG = {
  *
  * Full vector styles (Liberty, Dark Matter) have dozens of layers (roads, labels,
  * railways, aeroways) that render flat at 60-degree pitch, clashing with 3D terrain.
- * This style keeps only background, water, and country boundaries — the terrain
+ * This style keeps only background, water, and country boundaries - the terrain
  * hillshade provides all the visual detail needed for a 160px preview card.
  *
  * Bonus: fewer vector layers = fewer tiles to load = faster + more reliable rendering.
@@ -770,7 +770,7 @@ export function getTerrainSnapshotStyle(mode: 'light' | 'dark') {
         type: 'background' as const,
         paint: { 'background-color': isLight ? '#E8E0D8' : '#1A1A1A' },
       },
-      // Landcover — broad natural areas
+      // Landcover - broad natural areas
       {
         id: 'landcover_wood',
         type: 'fill' as const,
@@ -787,7 +787,7 @@ export function getTerrainSnapshotStyle(mode: 'light' | 'dark') {
         filter: ['all', ['==', '$type', 'Polygon'], ['in', 'subclass', 'grass', 'farmland']],
         paint: { 'fill-color': isLight ? '#D2E4B0' : '#1E2A16', 'fill-opacity': 0.6 },
       },
-      // Landuse — human areas
+      // Landuse - human areas
       {
         id: 'landuse_residential',
         type: 'fill' as const,
@@ -833,7 +833,7 @@ export function getTerrainSnapshotStyle(mode: 'light' | 'dark') {
           'line-opacity': 0.6,
         },
       },
-      // Roads — major roads only, follow terrain for geographic context
+      // Roads - major roads only, follow terrain for geographic context
       {
         id: 'road_motorway_casing',
         type: 'line' as const,

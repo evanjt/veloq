@@ -95,7 +95,7 @@ export function useActivityBoundsCache(): UseActivityBoundsCacheReturn {
   const [engineGeneration, setEngineGeneration] = useState(0);
 
   // True once we've successfully subscribed to the engine. Distinct from
-  // "has activities" — an engine with zero activities is still ready, just
+  // "has activities" - an engine with zero activities is still ready, just
   // empty. Using activityCount as the readiness gate strands new/cleared
   // installs on a perpetual "Loading activities..." screen because the
   // count never climbs above zero until a sync completes.
@@ -110,7 +110,7 @@ export function useActivityBoundsCache(): UseActivityBoundsCacheReturn {
     };
   }, []);
 
-  // Subscribe to Rust engine activity changes — retry if engine not ready on mount
+  // Subscribe to Rust engine activity changes - retry if engine not ready on mount
   useEffect(() => {
     let cancelled = false;
     let unsubscribe: (() => void) | null = null;
@@ -193,7 +193,7 @@ export function useActivityBoundsCache(): UseActivityBoundsCacheReturn {
 
   const clearCache = useCallback(async () => {
     // Destroy and re-init engine to get a clean state.
-    // DO NOT use engine.clear() — it corrupts sub-objects (strength() returns null).
+    // DO NOT use engine.clear() - it corrupts sub-objects (strength() returns null).
     const engine = getRouteEngine();
     if (engine) {
       const dbPath = getRouteDbPath();

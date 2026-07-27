@@ -593,7 +593,7 @@ const FfiConverterTypeFfiActivityHighlightsBundle = (() => {
 
 /**
  * Pre-computed PR or trend indicator for an activity.
- * Read from the `activity_indicators` table — no on-demand computation.
+ * Read from the `activity_indicators` table - no on-demand computation.
  */
 export type FfiActivityIndicator = {
   activityId: string;
@@ -1007,6 +1007,11 @@ export type FfiActivityRouteHighlight = {
    * no PR comparison available (e.g. first attempt).
    */
   timeDeltaSeconds?: /*i32*/ number;
+  /**
+   * When is_pr: seconds faster than the previous best attempt. None when
+   * this is the only timed attempt, when times tie, or when not a PR.
+   */
+  prImprovementSeconds?: /*u32*/ number;
 };
 
 /**
@@ -1039,6 +1044,7 @@ const FfiConverterTypeFfiActivityRouteHighlight = (() => {
         isPr: FfiConverterBool.read(from),
         trend: FfiConverterInt8.read(from),
         timeDeltaSeconds: FfiConverterOptionalInt32.read(from),
+        prImprovementSeconds: FfiConverterOptionalUInt32.read(from),
       };
     }
     write(value: TypeName, into: RustBuffer): void {
@@ -1048,6 +1054,7 @@ const FfiConverterTypeFfiActivityRouteHighlight = (() => {
       FfiConverterBool.write(value.isPr, into);
       FfiConverterInt8.write(value.trend, into);
       FfiConverterOptionalInt32.write(value.timeDeltaSeconds, into);
+      FfiConverterOptionalUInt32.write(value.prImprovementSeconds, into);
     }
     allocationSize(value: TypeName): number {
       return (
@@ -1056,7 +1063,8 @@ const FfiConverterTypeFfiActivityRouteHighlight = (() => {
         FfiConverterString.allocationSize(value.routeName) +
         FfiConverterBool.allocationSize(value.isPr) +
         FfiConverterInt8.allocationSize(value.trend) +
-        FfiConverterOptionalInt32.allocationSize(value.timeDeltaSeconds)
+        FfiConverterOptionalInt32.allocationSize(value.timeDeltaSeconds) +
+        FfiConverterOptionalUInt32.allocationSize(value.prImprovementSeconds)
       );
     }
   }
@@ -1805,7 +1813,7 @@ export type FfiEfficiencyPoint = {
    */
   avgHr: /*f64*/ number;
   /**
-   * HR/pace ratio: avg_hr / pace_secs_per_km — lower = more efficient
+   * HR/pace ratio: avg_hr / pace_secs_per_km - lower = more efficient
    */
   hrPaceRatio: /*f64*/ number;
 };
@@ -2771,7 +2779,7 @@ const FfiConverterTypeFfiHeatmapDay = (() => {
 
 /**
  * HRV trend summary over a trailing window. `label` is the i18n key suffix
- * ("trendingUp" | "stable" | "trendingDown") — TS resolves translations.
+ * ("trendingUp" | "stable" | "trendingDown") - TS resolves translations.
  */
 export type FfiHrvTrend = {
   label: string;
@@ -2824,6 +2832,64 @@ const FfiConverterTypeFfiHrvTrend = (() => {
         FfiConverterFloat64.allocationSize(value.latest) +
         FfiConverterUInt32.allocationSize(value.dataPoints) +
         FfiConverterArrayFloat64.allocationSize(value.sparkline)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * Result of cheap per-activity section indexing after ingest.
+ */
+export type FfiIndexActivitySummary = {
+  matchedSections: /*u32*/ number;
+  insertedPortions: /*u32*/ number;
+  regrouped: boolean;
+  indicatorsRecomputed: boolean;
+};
+
+/**
+ * Generated factory for {@link FfiIndexActivitySummary} record objects.
+ */
+export const FfiIndexActivitySummary = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<
+      FfiIndexActivitySummary,
+      ReturnType<typeof defaults>
+    >(defaults);
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () =>
+      Object.freeze(defaults()) as Partial<FfiIndexActivitySummary>,
+  });
+})();
+
+const FfiConverterTypeFfiIndexActivitySummary = (() => {
+  type TypeName = FfiIndexActivitySummary;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        matchedSections: FfiConverterUInt32.read(from),
+        insertedPortions: FfiConverterUInt32.read(from),
+        regrouped: FfiConverterBool.read(from),
+        indicatorsRecomputed: FfiConverterBool.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterUInt32.write(value.matchedSections, into);
+      FfiConverterUInt32.write(value.insertedPortions, into);
+      FfiConverterBool.write(value.regrouped, into);
+      FfiConverterBool.write(value.indicatorsRecomputed, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterUInt32.allocationSize(value.matchedSections) +
+        FfiConverterUInt32.allocationSize(value.insertedPortions) +
+        FfiConverterBool.allocationSize(value.regrouped) +
+        FfiConverterBool.allocationSize(value.indicatorsRecomputed)
       );
     }
   }
@@ -3288,7 +3354,7 @@ const FfiConverterTypeFfiMuscleGroup = (() => {
 /**
  * Full muscle-group breakdown for one activity, one muscle slug. Rust groups
  * exercise sets by display name, classifies primary/secondary, and returns
- * totals — replacing the useMemo grouping/reducing in `useMuscleDetail`.
+ * totals - replacing the useMemo grouping/reducing in `useMuscleDetail`.
  */
 export type FfiMuscleGroupDetail = {
   slug: string;
@@ -5993,7 +6059,7 @@ const FfiConverterTypeFfiSectionWithPolyline = (() => {
  * One stale-PR opportunity: a section whose PR might be beatable because
  * the user's threshold fitness (FTP for cycling, critical speed for run/swim)
  * has improved since the PR was set, and the section hasn't been visited
- * recently. Pure pattern recognition — TS formats as an Insight.
+ * recently. Pure pattern recognition - TS formats as an Insight.
  */
 export type FfiStalePrOpportunity = {
   sectionId: string;
@@ -6480,7 +6546,7 @@ const FfiConverterTypeFfiTimestampRange = (() => {
 
 /**
  * One wellness row passed in from TS (intervals.icu sync). Fields outside
- * this subset (sleepQuality, spO2, etc.) aren't persisted yet — the TS
+ * this subset (sleepQuality, spO2, etc.) aren't persisted yet - the TS
  * sync helper only forwards the fields the Rust atomics consume.
  */
 export type FfiWellnessRow = {
@@ -6659,7 +6725,7 @@ export type FfiWorkoutSection = {
   daysSinceLast?: /*i32*/ number;
   prDaysAgo?: /*i32*/ number;
   /**
-   * "improving" | "stable" | "declining" — empty string when insufficient data
+   * "improving" | "stable" | "declining" - empty string when insufficient data
    */
   trend: string;
 };
@@ -8145,7 +8211,7 @@ export interface FitnessManagerLike {
    * swimming at swim pace.
    *
    * `exclude_section_ids` is the set of section IDs already surfaced by
-   * other insights (e.g. recent section_pr cards) — we don't want to
+   * other insights (e.g. recent section_pr cards) - we don't want to
    * double-surface the same section in the same insights feed.
    *
    * Returns up to `max_opportunities` opportunities, sorted by
@@ -8215,7 +8281,7 @@ export interface FitnessManagerLike {
    * Sparkline arrays (fitness/fatigue/form/hrv/rhr) over the trailing
    * `days` window. Returns `None` until wellness has been synced at
    * least once. Replaces the 5 parallel useMemo passes in
-   * `useSummaryCardData.ts` — TS is now a thin pass-through.
+   * `useSummaryCardData.ts` - TS is now a thin pass-through.
    */
   getWellnessSparklines(
     days: /*u32*/ number,
@@ -8298,7 +8364,7 @@ export class FitnessManager
    * swimming at swim pace.
    *
    * `exclude_section_ids` is the set of section IDs already surfaced by
-   * other insights (e.g. recent section_pr cards) — we don't want to
+   * other insights (e.g. recent section_pr cards) - we don't want to
    * double-surface the same section in the same insights feed.
    *
    * Returns up to `max_opportunities` opportunities, sorted by
@@ -8602,7 +8668,7 @@ export class FitnessManager
    * Sparkline arrays (fitness/fatigue/form/hrv/rhr) over the trailing
    * `days` window. Returns `None` until wellness has been synced at
    * least once. Replaces the 5 parallel useMemo passes in
-   * `useSummaryCardData.ts` — TS is now a thin pass-through.
+   * `useSummaryCardData.ts` - TS is now a thin pass-through.
    */
   getWellnessSparklines(
     days: /*u32*/ number,
@@ -8790,7 +8856,7 @@ export interface HeatmapManagerLike {
   clearTilesPath() /*throws*/ : void;
   /**
    * Get total size of heatmap tile cache in bytes.
-   * Walks the z/x/y directory tree natively — much faster than JS filesystem calls.
+   * Walks the z/x/y directory tree natively - much faster than JS filesystem calls.
    */
   getCacheSize(basePath: string) /*throws*/ : /*u64*/ bigint;
   /**
@@ -8879,7 +8945,7 @@ export class HeatmapManager
 
   /**
    * Get total size of heatmap tile cache in bytes.
-   * Walks the z/x/y directory tree natively — much faster than JS filesystem calls.
+   * Walks the z/x/y directory tree natively - much faster than JS filesystem calls.
    */
   getCacheSize(basePath: string): /*u64*/ bigint /*throws*/ {
     return FfiConverterUInt64.lift(
@@ -9864,7 +9930,7 @@ export interface SectionManagerLike {
   ) /*throws*/ : FfiCalendarSummary | undefined;
   /**
    * Pre-computed chart payload for the section-detail screen: per-lap
-   * points, speed ranks, best/avg/last stats — all in one FFI round-trip.
+   * points, speed ranks, best/avg/last stats - all in one FFI round-trip.
    * Replaces the 3+ useMemo aggregations in `useSectionChartData`.
    */
   getChartData(
@@ -9969,6 +10035,13 @@ export interface SectionManagerLike {
     entries: Array<FfiSupersededEntry>,
   ) /*throws*/ : /*u32*/ number;
   includeActivity(sectionId: string, activityId: string) /*throws*/ : void;
+  /**
+   * Cheap post-ingest indexing for one freshly downloaded activity: match it
+   * against existing sections, insert junction rows, regroup incrementally,
+   * and refresh indicators. Does not create new sections - those wait for
+   * the next full detection run.
+   */
+  indexNewActivity(activityId: string) /*throws*/ : FfiIndexActivitySummary;
   /**
    * Match an activity's GPS track against all existing sections.
    * Returns all matches found (may be empty if activity doesn't traverse any section).
@@ -10473,7 +10546,7 @@ export class SectionManager
 
   /**
    * Pre-computed chart payload for the section-detail screen: per-lap
-   * points, speed ranks, best/avg/last stats — all in one FFI round-trip.
+   * points, speed ranks, best/avg/last stats - all in one FFI round-trip.
    * Replaces the 3+ useMemo aggregations in `useSectionChartData`.
    */
   getChartData(
@@ -11009,6 +11082,30 @@ export class SectionManager
         );
       },
       /*liftString:*/ FfiConverterString.lift,
+    );
+  }
+
+  /**
+   * Cheap post-ingest indexing for one freshly downloaded activity: match it
+   * against existing sections, insert junction rows, regroup incrementally,
+   * and refresh indicators. Does not create new sections - those wait for
+   * the next full detection run.
+   */
+  indexNewActivity(activityId: string): FfiIndexActivitySummary /*throws*/ {
+    return FfiConverterTypeFfiIndexActivitySummary.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_index_new_activity(
+            uniffiTypeSectionManagerObjectFactory.clonePointer(this),
+            FfiConverterString.lower(activityId),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
     );
   }
 
@@ -11699,7 +11796,7 @@ export interface StrengthManagerLike {
   ) /*throws*/ : void;
   /**
    * Download FIT file, parse exercise sets, store in SQLite, return results.
-   * The FIT binary is held in memory only — not persisted to disk.
+   * The FIT binary is held in memory only - not persisted to disk.
    */
   fetchAndParseExerciseSets(
     authHeader: string,
@@ -11781,7 +11878,7 @@ export interface StrengthManagerLike {
   hasStrengthData() /*throws*/ : boolean;
   /**
    * Parse raw FIT bytes locally and store any strength sets for this
-   * activity. Returns the number of sets inserted. No network access —
+   * activity. Returns the number of sets inserted. No network access -
    * callers supply the bytes (e.g. just-recorded FIT buffer, downloaded
    * file, backup). Also marks the activity as FIT-processed so the
    * network path won't attempt to re-download.
@@ -11877,7 +11974,7 @@ export class StrengthManager
 
   /**
    * Download FIT file, parse exercise sets, store in SQLite, return results.
-   * The FIT binary is held in memory only — not persisted to disk.
+   * The FIT binary is held in memory only - not persisted to disk.
    */
   fetchAndParseExerciseSets(
     authHeader: string,
@@ -12154,7 +12251,7 @@ export class StrengthManager
 
   /**
    * Parse raw FIT bytes locally and store any strength sets for this
-   * activity. Returns the number of sets inserted. No network access —
+   * activity. Returns the number of sets inserted. No network access -
    * callers supply the bytes (e.g. just-recorded FIT buffer, downloaded
    * file, backup). Also marks the activity as FIT-processed so the
    * network path won't attempt to re-download.
@@ -12535,7 +12632,7 @@ export interface VeloqEngineLike {
   activities(): ActivityManagerLike;
   /**
    * Create an atomic SQLite backup at the given path.
-   * Uses sqlite3_backup API — safe to call while the database is in use.
+   * Uses sqlite3_backup API - safe to call while the database is in use.
    */
   backupDatabase(destPath: string) /*throws*/ : void;
   /**
@@ -12544,7 +12641,7 @@ export interface VeloqEngineLike {
   bulkExportGeojson(destPath: string) /*throws*/ : BulkExportResult;
   /**
    * Bulk export all activities with GPS data as a ZIP of GPX files.
-   * Streams one track at a time — constant memory regardless of activity count.
+   * Streams one track at a time - constant memory regardless of activity count.
    */
   bulkExportGpx(destPath: string) /*throws*/ : BulkExportResult;
   cleanupOldActivities(
@@ -12636,7 +12733,7 @@ export class VeloqEngine
 
   /**
    * Create an atomic SQLite backup at the given path.
-   * Uses sqlite3_backup API — safe to call while the database is in use.
+   * Uses sqlite3_backup API - safe to call while the database is in use.
    */
   backupDatabase(destPath: string): void /*throws*/ {
     uniffiCaller.rustCallWithError(
@@ -12677,7 +12774,7 @@ export class VeloqEngine
 
   /**
    * Bulk export all activities with GPS data as a ZIP of GPX files.
-   * Streams one track at a time — constant memory regardless of activity count.
+   * Streams one track at a time - constant memory regardless of activity count.
    */
   bulkExportGpx(destPath: string): BulkExportResult /*throws*/ {
     return FfiConverterTypeBulkExportResult.lift(
@@ -13706,7 +13803,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_backup_database() !==
-    16136
+    50995
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_veloqengine_backup_database",
@@ -13722,7 +13819,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_veloqengine_bulk_export_gpx() !==
-    45501
+    30765
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_veloqengine_bulk_export_gpx",
@@ -13898,7 +13995,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_find_stale_pr_opportunities() !==
-    12323
+    46931
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_fitnessmanager_find_stale_pr_opportunities",
@@ -14002,7 +14099,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_wellness_sparklines() !==
-    1657
+    14877
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_fitnessmanager_get_wellness_sparklines",
@@ -14370,7 +14467,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_chart_data() !==
-    24788
+    27343
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_sectionmanager_get_chart_data",
@@ -14569,6 +14666,14 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_index_new_activity() !==
+    6116
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_sectionmanager_index_new_activity",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_match_activity_to_sections() !==
     26456
   ) {
@@ -14762,7 +14867,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_strengthmanager_fetch_and_parse_exercise_sets() !==
-    17688
+    20346
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_strengthmanager_fetch_and_parse_exercise_sets",
@@ -14850,7 +14955,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_strengthmanager_import_sets_from_fit() !==
-    7636
+    8018
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_strengthmanager_import_sets_from_fit",
@@ -14922,7 +15027,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_get_cache_size() !==
-    58894
+    11524
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_heatmapmanager_get_cache_size",
@@ -15090,6 +15195,7 @@ export default Object.freeze({
     FfiConverterTypeFfiGroupWithPolyline,
     FfiConverterTypeFfiHeatmapDay,
     FfiConverterTypeFfiHrvTrend,
+    FfiConverterTypeFfiIndexActivitySummary,
     FfiConverterTypeFfiInsightsData,
     FfiConverterTypeFfiMapSignature,
     FfiConverterTypeFfiMatchStrictness,

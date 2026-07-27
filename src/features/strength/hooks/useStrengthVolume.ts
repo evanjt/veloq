@@ -20,7 +20,7 @@ import type {
  * Seed synthetic strength sets for demo activities once per session. The
  * Strength tab queries aggregate summaries directly (not per-activity) so
  * the demo-mode seed path in useExerciseSets doesn't cover this entry
- * point. Idempotent — bulk_insert_exercise_sets uses INSERT OR REPLACE.
+ * point. Idempotent - bulk_insert_exercise_sets uses INSERT OR REPLACE.
  */
 let demoStrengthSeedAttempted = false;
 function ensureDemoStrengthSeeded(): void {
@@ -342,8 +342,8 @@ export function useHasStrengthData(): boolean {
     const engine = getRouteEngine();
     if (!engine || typeof engine.hasStrengthData !== 'function') return false;
     // Seed demo fixtures before the first hasStrengthData check, otherwise
-    // the Strength tab never appears (and useStrengthVolume — which also
-    // seeds — never mounts).
+    // the Strength tab never appears (and useStrengthVolume - which also
+    // seeds - never mounts).
     ensureDemoStrengthSeeded();
     try {
       return engine.hasStrengthData();

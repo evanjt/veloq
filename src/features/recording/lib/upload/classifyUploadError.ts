@@ -2,11 +2,11 @@
  * Classify an upload error so the caller can branch on the user-facing
  * consequence:
  *
- * - `http403` — the server rejected the upload because Veloq doesn't have
+ * - `http403` - the server rejected the upload because Veloq doesn't have
  *   write permission. Offer the OAuth upgrade flow.
- * - `network` — no response reached the server. Queue for later and tell the
+ * - `network` - no response reached the server. Queue for later and tell the
  *   user the activity is saved offline.
- * - `apiError` — any other response (400/500/etc.). Surface the server
+ * - `apiError` - any other response (400/500/etc.). Surface the server
  *   message to the user; do not queue (re-uploading won't help).
  *
  * Historically the detection had two subtleties that caused data-loss bugs:
@@ -14,7 +14,7 @@
  *      even if their top-level message mentions "network" (they are not
  *      retry-worthy).
  *   2. When `response` is missing, the literal string "status code 403" can
- *      still appear in the error message — we must pick that up so a 403
+ *      still appear in the error message - we must pick that up so a 403
  *      doesn't get mis-classified as a network error and silently queued.
  */
 
@@ -26,7 +26,7 @@ export interface UploadErrorClassification {
   httpStatus?: number;
   /** Server-provided message/description when the response body includes one. */
   apiDetail?: string;
-  /** The original error's message — always present, used for logging/diagnostics. */
+  /** The original error's message - always present, used for logging/diagnostics. */
   errMsg: string;
 }
 
@@ -77,7 +77,7 @@ export function classifyUploadError(err: unknown): UploadErrorClassification {
     return { type: 'network', errMsg };
   }
 
-  // Unknown shape (no status, no network pattern) — treat as API error so the
+  // Unknown shape (no status, no network pattern) - treat as API error so the
   // user sees the raw message rather than having it silently queued.
   return { type: 'apiError', apiDetail, errMsg };
 }

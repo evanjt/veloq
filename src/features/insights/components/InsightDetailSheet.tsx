@@ -109,7 +109,7 @@ export const InsightDetailSheet = React.memo(function InsightDetailSheet({
             <InsightDetailContent insight={insight} />
           </View>
 
-          {/* Methodology transparency — single "How was this calculated?" block */}
+          {/* Methodology transparency - single "How was this calculated?" block */}
           {insight.methodology ||
           insight.supportingData?.formula ||
           insight.supportingData?.algorithmDescription ? (

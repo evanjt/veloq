@@ -6,24 +6,23 @@ import { useLocalSearchParams, router } from 'expo-router';
 import { logScreenRender } from '@/shared/debug/renderTimer';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useConsensusRoute, useGroupDetail } from '@/features/routes/hooks/useRouteEngine';
+import { getRouteEngine } from '@/shared/native/routeEngine';
 import { useRoutePerformances } from '@/features/routes/hooks/useRoutePerformances';
 import { useGpxExport } from '@/features/settings/hooks/exportIndex';
 import { useTheme, useMetricSystem } from '@/shared/app';
 import { useCacheDays } from '@/shared/app/useCacheDays';
-import { ScreenErrorBoundary } from '@/shared/ui';
+import { DetailHero, HeroNameRow, HeroStatsRow, ScreenErrorBoundary } from '@/shared/ui';
 
 import {
   DataRangeFooter,
-  RouteDetailLoading,
+  DetailFallback,
   RouteDetailMap,
-  RouteDetailHeroHeader,
-  RouteDetailHeaderInfo,
   SportTypeSelector,
   RouteDetailChart,
   RouteDetailDebugPanel,
   routeDetailScreenStyles as styles,
+  MAP_HEIGHT,
 } from '@/features/routes';
 import {
   useRouteHighlight,
@@ -37,7 +36,8 @@ import { buildRouteGroupBase, buildFinalRouteGroup } from '@/features/routes/lib
 import { computeRouteStats } from '@/features/routes/lib/computeRouteStats';
 import { useDebugStore } from '@/features/settings/stores/DebugStore';
 import { useFFITimer } from '@/shared/debug/useFFITimer';
-import { getActivityColor } from '@/features/activity/lib/activityUtils';
+import { getActivityColor, getActivityIcon } from '@/features/activity/lib/activityUtils';
+import { formatDistance, formatRelativeDate } from '@/shared/format/format';
 import { colors } from '@/theme';
 import { toActivityType } from '@/features/routes/types';
 
@@ -138,7 +138,15 @@ export default function RouteDetailScreen() {
   );
 
   if (!routeGroup) {
-    return <RouteDetailLoading isDark={isDark} insets={insets} onBackPress={() => router.back()} />;
+    return (
+      <DetailFallback
+        isDark={isDark}
+        insetTop={insets.top}
+        onBack={() => router.back()}
+        loading={getRouteEngine() == null}
+        notFoundMessage={t('routeDetail.routeNotFound')}
+      />
+    );
   }
 
   // Use selected sport type for color/icon when filtering
@@ -158,7 +166,39 @@ export default function RouteDetailScreen() {
           keyboardShouldPersistTaps="handled"
         >
           {/* Hero Map Section */}
-          <View style={styles.heroSection}>
+          <DetailHero
+            height={MAP_HEIGHT}
+            insetTop={insets.top}
+            onBack={() => router.back()}
+            overlay={
+              <>
+                <HeroNameRow
+                  name={customName || routeGroup.name}
+                  nameTestID="route-detail-name"
+                  icon={{ name: getActivityIcon(displayType), color: activityColor }}
+                  editable={{
+                    isEditing,
+                    editName,
+                    inputRef: nameInputRef,
+                    placeholder: t('routes.routeNamePlaceholder'),
+                    testIDPrefix: 'route',
+                    onStartEdit: handleStartEditing,
+                    onSave: handleSaveName,
+                    onCancel: handleCancelEdit,
+                    onChange: setEditName,
+                  }}
+                />
+                <HeroStatsRow
+                  testID="route-detail-stats"
+                  stats={[
+                    formatDistance(routeStats.distance, isMetric),
+                    `${routeGroup.activityCount} ${t('routes.activities')}`,
+                    routeStats.lastDate ? formatRelativeDate(routeStats.lastDate) : '-',
+                  ]}
+                />
+              </>
+            }
+          >
             <RouteDetailMap
               routeGroup={routeGroup}
               highlightedActivityId={highlightedActivityId}
@@ -167,39 +207,13 @@ export default function RouteDetailScreen() {
               hasMapData={hasMapData}
               activityColor={activityColor}
             />
+          </DetailHero>
 
-            {/* Gradient overlay at bottom */}
-            <LinearGradient
-              colors={['transparent', 'rgba(0,0,0,0.7)']}
-              style={styles.mapGradient}
-              pointerEvents="none"
-            />
-
-            <RouteDetailHeroHeader onBackPress={() => router.back()} insets={insets} />
-
-            <RouteDetailHeaderInfo
-              customName={customName}
-              routeName={routeGroup.name}
-              isEditing={isEditing}
-              editName={editName}
-              nameInputRef={nameInputRef}
-              displayType={displayType}
-              activityColor={activityColor}
-              routeStats={routeStats}
-              activityCount={routeGroup.activityCount}
-              isMetric={isMetric}
-              onStartEdit={handleStartEditing}
-              onSaveName={handleSaveName}
-              onCancelEdit={handleCancelEdit}
-              onEditNameChange={setEditName}
-            />
-          </View>
-
-          {/* Sport type selector — shown when route has multiple sport types */}
+          {/* Sport type selector - shown when route has multiple sport types */}
           {availableSportTypes.length > 1 && (
             <SportTypeSelector
-              availableSportTypes={availableSportTypes}
-              selectedSportType={selectedSportType}
+              options={availableSportTypes.map((type) => ({ type }))}
+              selectedType={selectedSportType}
               onSelect={setSelectedSportType}
               isDark={isDark}
             />

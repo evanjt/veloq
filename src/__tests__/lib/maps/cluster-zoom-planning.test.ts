@@ -1,5 +1,5 @@
 /**
- * Tests for clusterZoom — pure logic that decides how to zoom into a cluster.
+ * Tests for clusterZoom - pure logic that decides how to zoom into a cluster.
  * No React / MapLibre dependencies, so we test the math directly.
  */
 

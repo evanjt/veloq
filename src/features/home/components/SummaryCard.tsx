@@ -45,11 +45,11 @@ export interface SummaryCardProps {
   heroTrend?: '↑' | '↓' | '';
   onHeroPress?: () => void;
 
-  // Sparkline data (30 days) — fitness line + fatigue line + form zone bar
+  // Sparkline data (30 days) - fitness line + fatigue line + form zone bar
   fitnessData?: number[];
   fatigueData?: number[];
   formData?: number[];
-  // HRV sparkline data — HRV line + RHR line
+  // HRV sparkline data - HRV line + RHR line
   hrvData?: number[];
   rhrData?: number[];
   showSparkline: boolean;
@@ -122,7 +122,7 @@ export const SummaryCard = React.memo(function SummaryCard({
   const hasValidProfileUrl =
     profileUrl && typeof profileUrl === 'string' && profileUrl.startsWith('http');
 
-  // Determine which sparkline to show — deferred until after first frame
+  // Determine which sparkline to show - deferred until after first frame
   const isHrvMode = heroMetric === 'hrv';
   const fitnessSparklineVisible =
     sparklinesReady &&
@@ -145,7 +145,7 @@ export const SummaryCard = React.memo(function SummaryCard({
   const displayColor =
     scrubValues !== null ? (isHrvMode ? colors.chartPink : colors.fitnessBlue) : heroColor;
 
-  // Format hero value (no sign prefix — CTL/fitness/HRV values are always positive)
+  // Format hero value (no sign prefix - CTL/fitness/HRV values are always positive)
   const formattedHeroValue = String(displayValue);
 
   // Current fitness sparkline values (latest or scrubbed)
@@ -166,7 +166,7 @@ export const SummaryCard = React.memo(function SummaryCard({
 
   return (
     <View style={[styles.card, isDark ? styles.cardDark : styles.cardLight]}>
-      {/* Scrub date label — top right of card */}
+      {/* Scrub date label - top right of card */}
       {scrubValues && (
         <Text
           style={[styles.scrubDate, { color: isDark ? darkColors.textMuted : colors.textMuted }]}
@@ -272,7 +272,7 @@ export const SummaryCard = React.memo(function SummaryCard({
         {insightLine && <View style={styles.insightSlot}>{insightLine}</View>}
       </View>
 
-      {/* Sparkline row — fitness or HRV depending on hero metric */}
+      {/* Sparkline row - fitness or HRV depending on hero metric */}
       {fitnessSparklineVisible && (
         <View testID="summary-card-sparkline" style={styles.sparklineRow}>
           <SummaryCardSparkline
@@ -299,7 +299,7 @@ export const SummaryCard = React.memo(function SummaryCard({
         </View>
       )}
 
-      {/* Supporting metrics row — each metric tappable */}
+      {/* Supporting metrics row - each metric tappable */}
       <View style={styles.supportingRow}>
         {supportingMetrics.slice(0, 4).map((metric, index) => (
           <React.Fragment key={metric.label}>
@@ -369,7 +369,7 @@ const styles = StyleSheet.create({
     borderColor: darkColors.border,
   },
 
-  // Scrub date — top right corner
+  // Scrub date - top right corner
   scrubDate: {
     position: 'absolute',
     top: spacing.xs,
@@ -446,7 +446,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '500',
   },
-  // Insight slot — fills remaining space in topRow, right-aligned
+  // Insight slot - fills remaining space in topRow, right-aligned
   insightSlot: {
     flex: 1,
     alignItems: 'flex-end',
@@ -500,7 +500,7 @@ const styles = StyleSheet.create({
     borderRadius: 3,
   },
 
-  // Sparkline — own row, full width
+  // Sparkline - own row, full width
   sparklineRow: {
     marginTop: spacing.xs,
   },

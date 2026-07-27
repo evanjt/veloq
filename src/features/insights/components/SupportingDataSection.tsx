@@ -109,7 +109,7 @@ export const SupportingDataSection = React.memo(function SupportingDataSection({
         ? data.dataPoints!.map((dp, i) => <DataPointRow key={`dp-${i}`} dataPoint={dp} />)
         : null}
 
-      {/* Sparkline — Skia Canvas with gradient fill */}
+      {/* Sparkline - Skia Canvas with gradient fill */}
       {hasSparkline ? (
         <View style={[styles.sparklineCard, isDark && styles.sparklineCardDark]}>
           <View style={styles.sparklineHeader}>

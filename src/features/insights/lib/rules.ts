@@ -47,7 +47,7 @@ const DAY_MS = 86_400_000;
 // ---------------------------------------------------------------------------
 
 /**
- * G1 — event recency. Opt-in: only checked when `insight.meta.sourceTimestamp`
+ * G1 - event recency. Opt-in: only checked when `insight.meta.sourceTimestamp`
  * is set. Generators that already enforce recency internally (e.g. stale_pr's
  * detector) can omit sourceTimestamp to skip this gate. Rejects both too-old
  * (most categories) and too-recent (stale_pr, where staleness is the signal).
@@ -70,7 +70,7 @@ export function passesRecency(
 }
 
 /**
- * G2 — proximity. Only enforced for location-bound insights (meta.location
+ * G2 - proximity. Only enforced for location-bound insights (meta.location
  * present). Rejects if centroid lies outside activeRegion + paddingKm.
  * Returns passed=true when gate is disabled or region is unknown.
  */
@@ -99,7 +99,7 @@ export function passesProximity(
 }
 
 /**
- * G3 — repetition floor. Trend-type insights require enough lifetime efforts
+ * G3 - repetition floor. Trend-type insights require enough lifetime efforts
  * for the trend to be real signal (Lally 2010). Other categories pass through.
  */
 export function passesRepetition(
@@ -116,7 +116,7 @@ export function passesRepetition(
 }
 
 /**
- * G4 — valence. Scans title/body for punitive patterns. Copy review is the
+ * G4 - valence. Scans title/body for punitive patterns. Copy review is the
  * primary defence; this is a safety net.
  */
 const PUNITIVE_PATTERNS = [
@@ -139,7 +139,7 @@ export function passesValence(insight: Insight): GateOutcome {
 // ---------------------------------------------------------------------------
 
 /**
- * R5 — proximal specificity (Bandura & Schunk 1981). +10 if all three of
+ * R5 - proximal specificity (Bandura & Schunk 1981). +10 if all three of
  * {concrete number, concrete place, recent date}; +5 for two; 0 otherwise.
  */
 export function specificityScore(insight: Insight, cfg: InsightsConfig = INSIGHTS_CONFIG): number {
@@ -152,7 +152,7 @@ export function specificityScore(insight: Insight, cfg: InsightsConfig = INSIGHT
 }
 
 /**
- * R6 — signal-to-noise (Csikszentmihalyi flow corridor). Peaks in
+ * R6 - signal-to-noise (Csikszentmihalyi flow corridor). Peaks in
  * [floorDelta, ceilingDelta]; penalises below-floor noise; small credit above
  * ceiling ("surprising but possibly outlier").
  */
@@ -163,11 +163,11 @@ export function signalScore(insight: Insight, cfg: InsightsConfig = INSIGHTS_CON
   const { signalFloorDelta: floor, signalCeilingDelta: ceiling } = cfg.thresholds;
   if (abs >= floor && abs <= ceiling) return 10;
   if (abs > ceiling) return 3;
-  return -5; // below floor — actively suppress noise-level signals
+  return -5; // below floor - actively suppress noise-level signals
 }
 
 /**
- * R7 — temporal-self framing bonus (Kappen 2018).
+ * R7 - temporal-self framing bonus (Kappen 2018).
  */
 export function temporalSelfScore(insight: Insight, cfg: InsightsConfig = INSIGHTS_CONFIG): number {
   if (insight.meta?.comparisonKind === 'self') return cfg.scoring.temporalSelfBonus;
@@ -215,7 +215,7 @@ export interface DropRecord {
 }
 
 /**
- * D9 + D10 — sort by score, enforce per-category cap, then total cap.
+ * D9 + D10 - sort by score, enforce per-category cap, then total cap.
  * Returns the kept list and dropped records (with reasons) for the debug panel.
  */
 export function applyMixAndCap(

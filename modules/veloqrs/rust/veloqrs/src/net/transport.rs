@@ -2,7 +2,7 @@
 //!
 //! Every request passes through the shared `Governor` (dispatch pace + policy
 //! hook) and a unified retry loop that honours `Retry-After`. The auth header is
-//! built once from the credential the transport holds — callers never pass an
+//! built once from the credential the transport holds - callers never pass an
 //! `auth_header` per request.
 
 use crate::governor::{self, AuthMethod, Governor, Lane, RateBudget};
@@ -19,7 +19,7 @@ const MAX_RETRIES: u32 = 3;
 /// drives the `authExpired` status).
 #[derive(Debug)]
 pub enum NetError {
-    /// 401 — credentials rejected; the service emits `authExpired`.
+    /// 401 - credentials rejected; the service emits `authExpired`.
     Unauthorized,
     /// 429 after exhausting retries.
     RateLimited,

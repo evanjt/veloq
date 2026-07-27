@@ -1,7 +1,7 @@
 /**
  * Hook to get the user's current location for proximity sorting.
  * Uses cached/last-known position first, falls back to a balanced GPS fix.
- * Does not prompt for permission — degrades silently if denied.
+ * Does not prompt for permission - degrades silently if denied.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react';

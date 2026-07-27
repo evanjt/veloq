@@ -214,7 +214,7 @@ export function getFFIMetrics(): FFIMetricEntry[] {
   if (ffiMetricsCount <= FFI_RING_BUFFER_SIZE) {
     return [...ffiMetrics];
   }
-  // Ring buffer wrapped — return in chronological order
+  // Ring buffer wrapped - return in chronological order
   return [...ffiMetrics.slice(ffiMetricsIndex), ...ffiMetrics.slice(0, ffiMetricsIndex)];
 }
 

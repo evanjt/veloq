@@ -75,7 +75,7 @@ CREATE TABLE IF NOT EXISTS wellness (
     -- ISO-8601 YYYY-MM-DD day key (matches WellnessData.id in TS)
     date TEXT PRIMARY KEY,
     -- Training load metrics (either ctl/atl or ctlLoad/atlLoad depending on
-    -- the intervals.icu athlete's settings — TS callers already coalesce
+    -- the intervals.icu athlete's settings - TS callers already coalesce
     -- these, so we store whichever is provided in the single column).
     ctl REAL,
     atl REAL,

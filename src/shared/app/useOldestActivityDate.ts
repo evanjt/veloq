@@ -21,7 +21,7 @@ export function useOldestActivityDate() {
       return dateStr ? new Date(dateStr) : null;
     },
     enabled: isAuthenticated,
-    staleTime: 0, // Always refetch on mount — prevents stale null from persisting
+    staleTime: 0, // Always refetch on mount - prevents stale null from persisting
     gcTime: 7 * 24 * 60 * 60 * 1000, // Keep in cache for 7 days
   });
 }

@@ -74,6 +74,15 @@ export const typography = {
   },
 
   // Stats & Metrics (large numbers use displayFamily)
+  // Hero timer for the recording screen; tabular numerals stop width jitter.
+  statsHero: {
+    fontFamily: displayFamily,
+    fontSize: 44,
+    fontWeight: '700' as const,
+    lineHeight: 50,
+    letterSpacing: -0.5,
+    fontVariant: ['tabular-nums'] as TextStyle['fontVariant'],
+  },
   heroNumber: {
     fontFamily: displayFamily,
     fontSize: 48,

@@ -1,53 +1,35 @@
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
-import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { colors, spacing } from '@/theme';
+
+import { SignalStatus, type SignalLevel } from '@/shared/ui';
 
 interface GpsSignalIndicatorProps {
   accuracy: number | null;
 }
 
 export function GpsSignalIndicator({ accuracy }: GpsSignalIndicatorProps) {
-  let color: string;
+  let level: SignalLevel;
   let icon: React.ComponentProps<typeof MaterialCommunityIcons>['name'];
-  let label: string;
 
   if (accuracy == null) {
-    color = colors.iconNeutral;
+    level = 'idle';
     icon = 'crosshairs-question';
-    label = '--';
   } else if (accuracy < 5) {
-    color = colors.success;
+    level = 'ok';
     icon = 'crosshairs-gps';
-    label = `${Math.round(accuracy)}m`;
   } else if (accuracy <= 15) {
-    color = colors.warning;
+    level = 'warn';
     icon = 'crosshairs';
-    label = `${Math.round(accuracy)}m`;
   } else {
-    color = colors.error;
+    level = 'bad';
     icon = 'crosshairs-question';
-    label = `${Math.round(accuracy)}m`;
   }
 
   return (
-    <View style={styles.container}>
-      <MaterialCommunityIcons name={icon} size={14} color={color} />
-      <Text style={[styles.label, { color }]}>{label}</Text>
-    </View>
+    <SignalStatus
+      level={level}
+      icon={icon}
+      label={accuracy == null ? '--' : `${Math.round(accuracy)}m`}
+    />
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs / 2,
-  },
-  label: {
-    fontSize: 11,
-    fontWeight: '600',
-    fontVariant: ['tabular-nums'],
-  },
-});

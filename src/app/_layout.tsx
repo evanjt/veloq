@@ -67,6 +67,7 @@ import { DemoBanner } from '@/shared/app/DemoBanner';
 import { GlobalDataSync } from '@/shared/app/GlobalDataSync';
 import { EngineInitBanner } from '@/shared/app/EngineInitBanner';
 import { WhatsNewModal, TourReturnPill } from '@/features/settings/components/whatsNew';
+import { RecordingReturnPill } from '@/features/recording/components/RecordingReturnPill';
 import { useUploadQueueProcessor } from '@/features/recording/hooks/useUploadQueueProcessor';
 import { useRouteReoptimization } from '@/features/routes/hooks/useRouteReoptimization';
 import {
@@ -231,7 +232,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
               }
             }
           } else if (attempt < 2) {
-            // Retry once after delay — handles transient FS issues on first launch
+            // Retry once after delay - handles transient FS issues on first launch
             if (__DEV__) {
               console.warn(
                 `[RouteEngine] Init attempt ${attempt + 1} failed, retrying in 500ms...`
@@ -343,7 +344,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
               text: i18n.t('common.cancel'),
               style: 'cancel',
               onPress: () => {
-                // Sign out — return to login
+                // Sign out - return to login
                 useAuthStore.getState().clearCredentials();
               },
             },
@@ -444,7 +445,7 @@ export default function RootLayout() {
               support.setLegacyPurchaser();
             }
           } catch {
-            // Engine not available yet — skip, will be a new user
+            // Engine not available yet - skip, will be a new user
           }
         }
 
@@ -487,7 +488,7 @@ export default function RootLayout() {
     };
   }, []);
 
-  // Handle cold-start taps — addNotificationResponseReceivedListener misses
+  // Handle cold-start taps - addNotificationResponseReceivedListener misses
   // these on Android because it registers after JS has booted, but the tap
   // intent was already delivered. Gate on appReady so the router is mounted
   // when we call router.push.
@@ -605,6 +606,7 @@ export default function RootLayout() {
                     <DemoBanner />
                     <WhatsNewModal />
                     <TourReturnPill />
+                    <RecordingReturnPill />
                     <ShaderWarmup />
                     <Stack
                       screenOptions={{

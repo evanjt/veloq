@@ -216,7 +216,7 @@ export function useSectionTrim(
       return;
     }
 
-    // Switch to expand mode — load extension track and compute padded window
+    // Switch to expand mode - load extension track and compute padded window
     const engine = getRouteEngine();
     if (!engine) return;
 
@@ -303,13 +303,13 @@ export function useSectionTrim(
         }
         success = engine.expandSectionBounds(section.id, newPolylineFlat);
       } else {
-        // User shrunk within section — map window indices back to section polyline indices
+        // User shrunk within section - map window indices back to section polyline indices
         const sectionStart = trimStart - expandContext.sectionStartInWindow;
         const sectionEnd = trimEnd - expandContext.sectionStartInWindow;
         success = engine.trimSection(section.id, sectionStart, sectionEnd);
       }
     } else {
-      // Trim mode — pure trim on section polyline
+      // Trim mode - pure trim on section polyline
       success = engine.trimSection(section.id, trimStart, trimEnd);
     }
 

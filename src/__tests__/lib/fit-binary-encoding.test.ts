@@ -506,6 +506,43 @@ describe('generateFitFile', () => {
       expect(bytes.includes(160)).toBe(true);
     });
 
+    it('subtracts paused time from total_timer_time but not total_elapsed_time', async () => {
+      const streams = makeStreams({
+        time: [0, 50, 100],
+        latlng: [
+          [45.0, 10.0],
+          [45.001, 10.001],
+          [45.002, 10.002],
+        ],
+        altitude: [100, 100, 100],
+        heartrate: [0, 0, 0],
+        power: [0, 0, 0],
+        cadence: [0, 0, 0],
+        speed: [8.0, 8.0, 8.0],
+        distance: [0, 400, 800],
+      });
+
+      const buffer = await generateFitFile({
+        activityType: 'Ride',
+        startTime,
+        streams,
+        laps: [],
+        pausedTimeSeconds: 40,
+      });
+
+      const view = new DataView(buffer);
+      const hasUint32 = (value: number) => {
+        for (let i = 14; i <= buffer.byteLength - 4; i++) {
+          if (view.getUint32(i, true) === value) return true;
+        }
+        return false;
+      };
+
+      // total_timer_time = (100 - 40)s = 60000ms; total_elapsed_time = 100000ms
+      expect(hasUint32(60_000)).toBe(true);
+      expect(hasUint32(100_000)).toBe(true);
+    });
+
     it('writes invalid markers when no HR/power data', async () => {
       const streams = makeStreams({
         time: [0, 1],

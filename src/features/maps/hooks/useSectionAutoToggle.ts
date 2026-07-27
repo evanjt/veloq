@@ -1,5 +1,5 @@
 /**
- * useSectionAutoToggle — auto-show/hide section overlays based on map zoom.
+ * useSectionAutoToggle - auto-show/hide section overlays based on map zoom.
  *
  * When the map zooms past a threshold, sections are shown; when zoomed out,
  * they are hidden. Once the user manually toggles sections, auto-behaviour is
@@ -8,10 +8,10 @@
  * which can cause Android MapLibre to snap the camera back.
  *
  * The hook composes with the existing `handleRegionDidChange` handler from
- * `useMapHandlers` and the existing `toggleSections` callback — it wraps both
+ * `useMapHandlers` and the existing `toggleSections` callback - it wraps both
  * with the auto-toggle concern while preserving identity stability.
  *
- * Extracted from RegionalMapView.tsx — pure refactor, no behaviour change.
+ * Extracted from RegionalMapView.tsx - pure refactor, no behaviour change.
  */
 
 import { useCallback, useRef } from 'react';
@@ -47,7 +47,7 @@ export function useSectionAutoToggle({
   baseHandleRegionDidChange,
   baseToggleSections,
 }: UseSectionAutoToggleParams): UseSectionAutoToggleResult {
-  // Ref mirror for showSections — read inside handleRegionDidChange to keep
+  // Ref mirror for showSections - read inside handleRegionDidChange to keep
   // callback identity stable. Changing onRegionDidChange prop causes Android
   // MapLibre to re-render the native view and snap the camera back.
   const showSectionsRef = useRef(showSections);
@@ -56,7 +56,7 @@ export function useSectionAutoToggle({
   // Track whether user manually toggled sections (if so, don't auto-show/hide).
   const userToggledSectionsRef = useRef(false);
 
-  // Debounce timer for auto-show/hide sections — defers setShowSections to
+  // Debounce timer for auto-show/hide sections - defers setShowSections to
   // avoid React re-renders during gesture momentum that cause Android MapLibre
   // snap-back.
   const showSectionsDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);

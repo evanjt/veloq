@@ -13,12 +13,15 @@ export interface SnapshotRequest {
   camera: TerrainCamera;
   mapStyle: MapStyleType;
   routeColor: string;
+  /** Flat top-down basemap - no terrain drape, sky, or hillshade */
+  flat?: boolean;
   _retryAttempt?: number;
 }
 
-// Builds the injected JS that renders a 3D terrain drape for one snapshot
-// request and posts the captured JPEG back to the worker bridge. Derives the
-// base style, terrain, sky, and hillshade config from the request.
+// Builds the injected JS that renders one snapshot request - a 3D terrain
+// drape, or a flat top-down basemap when request.flat - and posts the captured
+// JPEG back to the worker bridge. Derives the base style, terrain, sky, and
+// hillshade config from the request.
 export function buildRenderSnapshotScript(
   request: SnapshotRequest,
   workerId: number,
@@ -26,12 +29,13 @@ export function buildRenderSnapshotScript(
 ): string {
   const isSatellite = request.mapStyle === 'satellite';
   const isDark = request.mapStyle === 'dark' || request.mapStyle === 'satellite';
+  const isFlat = request.flat === true;
 
   // Satellite and dark: use inline style objects.
   // Light: fetch full Liberty style from URL (same as detail 3D view).
   const isLight = !isSatellite && request.mapStyle !== 'dark';
   // Satellite: rewrite to cached protocol for tile caching.
-  // Dark: keep original TileJSON URL — let MapLibre fetch tiles natively
+  // Dark: keep original TileJSON URL - let MapLibre fetch tiles natively
   // (cached-vector:// rewrite was causing blank features after setStyle).
   // Light: fetch URL-based style in JS.
   const styleConfig = isSatellite
@@ -73,6 +77,7 @@ export function buildRenderSnapshotScript(
               var camera = ${cameraJSON};
               var isSatellite = ${isSatellite};
               var isDark = ${isDark};
+              var isFlat = ${isFlat};
               var routeColor = '${request.routeColor}';
               var lightStyleUrl = '${lightStyleUrl}';
               var inlineStyle = ${styleConfig};
@@ -91,7 +96,7 @@ export function buildRenderSnapshotScript(
                 return window._snapshotGen !== myGen;
               }
 
-              window._rn_log('Snapshot ' + activityId + ' gen=' + myGen + ': ' + coords.length + ' coords, style=' + mapStyle);
+              window._rn_log('Snapshot ' + activityId + ' gen=' + myGen + ': ' + coords.length + ' coords, style=' + mapStyle + (isFlat ? ' (flat)' : ' (3d)'));
 
               function captureSnapshot() {
                 if (isStale()) { window._rn_log('gen=' + myGen + ' superseded, aborting'); return; }
@@ -100,10 +105,13 @@ export function buildRenderSnapshotScript(
                   var w = canvas.width;
                   var h = canvas.height;
 
-                  // Sample edge pixels for white-tile detection — regional sources
+                  // Sample edge pixels for white-tile detection - regional sources
                   // (e.g. Swisstopo) return opaque white JPEGs outside coverage area
                   var ctx = canvas.getContext('webgl2') || canvas.getContext('webgl');
-                  if (ctx) {
+                  // Flat light/dark basemaps have legitimately pale/uniform areas;
+                  // white-tile detection only applies to satellite imagery there,
+                  // and gap detection (DEM/sky artefacts) only to 3D renders.
+                  if (ctx && (!isFlat || isSatellite)) {
                     var pixel = new Uint8Array(4);
                     var whiteCount = 0;
                     var samplePoints = [
@@ -132,8 +140,11 @@ export function buildRenderSnapshotScript(
                       }));
                       return;
                     }
+                  }
 
-                    // Gap pixel detection — sample 6 interior points in the terrain area
+                  if (ctx && !isFlat) {
+                    var pixel = new Uint8Array(4);
+                    // Gap pixel detection - sample 6 interior points in the terrain area
                     var gapCount = 0;
                     var interiorPoints = [
                       [Math.floor(w * 0.3), Math.floor(h * 0.5)],
@@ -171,20 +182,20 @@ export function buildRenderSnapshotScript(
                       }));
                       return;
                     }
+                  }
 
-                    // Tile error count gate — catches gaps outside sampled pixel locations
-                    if (window._tileErrorCount >= 2) {
-                      window._rn_log('Tile errors detected (' + window._tileErrorCount + '), rejecting');
-                      window.ReactNativeWebView.postMessage(JSON.stringify({
-                        type: 'snapshotError',
-                        workerId: workerId,
-                        activityId: activityId,
-                        gen: myGen,
-                        error: 'Tile errors: ' + window._tileErrorCount,
-                        tileErrors: window._tileErrorCount,
-                      }));
-                      return;
-                    }
+                  // Tile error count gate - catches gaps outside sampled pixel locations
+                  if (window._tileErrorCount >= 2) {
+                    window._rn_log('Tile errors detected (' + window._tileErrorCount + '), rejecting');
+                    window.ReactNativeWebView.postMessage(JSON.stringify({
+                      type: 'snapshotError',
+                      workerId: workerId,
+                      activityId: activityId,
+                      gen: myGen,
+                      error: 'Tile errors: ' + window._tileErrorCount,
+                      tileErrors: window._tileErrorCount,
+                    }));
+                    return;
                   }
 
                   var dataUrl = canvas.toDataURL('image/jpeg', 0.95);
@@ -289,9 +300,10 @@ export function buildRenderSnapshotScript(
                 window._rn_log('Terrain + hillshade added via API');
               }
 
-              // --- Fast path: same base style, just update camera + route ---
-              if (window._currentBaseStyle === mapStyle && coords.length > 0) {
-                if (window.map.getSource('terrain')) {
+              // --- Fast path: same base style + mode, just update camera + route ---
+              var baseMode = isFlat ? 'flat' : '3d';
+              if (window._currentBaseStyle === mapStyle && window._currentBaseMode === baseMode && coords.length > 0) {
+                if (isFlat || window.map.getSource('terrain')) {
                   window.map.jumpTo({
                     center: camera.center, zoom: camera.zoom,
                     bearing: camera.bearing, pitch: camera.pitch,
@@ -314,7 +326,7 @@ export function buildRenderSnapshotScript(
                     });
                   }
 
-                  // Fast path: idle event — deferred by one frame so MapLibre
+                  // Fast path: idle event - deferred by one frame so MapLibre
                   // processes the camera change and queues tile requests first.
                   requestAnimationFrame(function() {
                     window.map.once('idle', function() {
@@ -376,12 +388,15 @@ export function buildRenderSnapshotScript(
 
               // Embed terrain, hillshade, and route directly in the style JSON
               // so the drape texture includes the route from the very first render.
-              styleObj.sources['terrain'] = terrainSource;
-              styleObj.terrain = { source: 'terrain', exaggeration: ${TERRAIN_3D_CONFIG.defaultExaggeration} };
-              styleObj.sky = skyConfig;
+              // Flat mode: plain basemap - no terrain, sky, or hillshade.
+              if (!isFlat) {
+                styleObj.sources['terrain'] = terrainSource;
+                styleObj.terrain = { source: 'terrain', exaggeration: ${TERRAIN_3D_CONFIG.defaultExaggeration} };
+                styleObj.sky = skyConfig;
+              }
 
               // Insert hillshade before the first transportation/building layer
-              if (!isSatellite) {
+              if (!isFlat && !isSatellite) {
                 var candidateSet = {};
                 for (var ci = 0; ci < hillshadeInsertCandidates.length; ci++) {
                   candidateSet[hillshadeInsertCandidates[ci]] = true;
@@ -472,6 +487,7 @@ export function buildRenderSnapshotScript(
                   done = true;
                   clearInterval(readyPoll);
                   window._currentBaseStyle = mapStyle;
+                  window._currentBaseMode = baseMode;
                   window._rn_log('All loaded after ' + elapsed + 'ms, capturing...');
                   requestAnimationFrame(function() { setTimeout(captureSnapshot, 50); });
                   return;
@@ -498,7 +514,7 @@ export function buildRenderSnapshotScript(
               } // end applyStyle
 
               // Light mode: fetch full Liberty style from URL, then apply.
-              // Don't rewrite vector URLs — let MapLibre handle TileJSON natively.
+              // Don't rewrite vector URLs - let MapLibre handle TileJSON natively.
               // Dark/satellite: use the inline style object directly.
               if (lightStyleUrl) {
                 window._rn_log('Fetching Liberty style for light mode...');

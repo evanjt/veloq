@@ -105,7 +105,7 @@ export function useLocationTracking(): {
       if (!isTrackingRef.current) return;
 
       if (prevState === 'active' && nextState.match(/inactive|background/)) {
-        // App going to background — switch to background location
+        // App going to background - switch to background location
         log.log('App backgrounded, switching to background location');
         stopForegroundWatch();
         try {
@@ -114,7 +114,7 @@ export function useLocationTracking(): {
           log.error('Failed to start background location:', e);
         }
       } else if (prevState.match(/inactive|background/) && nextState === 'active') {
-        // App coming to foreground — switch back to foreground watch
+        // App coming to foreground - switch back to foreground watch
         log.log('App foregrounded, switching to foreground location');
         try {
           await stopBackgroundLocation();

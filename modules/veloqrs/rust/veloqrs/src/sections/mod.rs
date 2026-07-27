@@ -86,6 +86,15 @@ pub struct Section {
     pub superseded_by: Option<String>,
 }
 
+/// Result of cheap per-activity section indexing (post-ingest).
+#[derive(Debug, Default, Clone)]
+pub struct IndexActivitySummary {
+    pub matched_sections: u32,
+    pub inserted_portions: u32,
+    pub regrouped: bool,
+    pub indicators_recomputed: bool,
+}
+
 /// Parameters for creating a new section.
 #[derive(Debug, Clone)]
 pub struct CreateSectionParams {

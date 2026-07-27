@@ -12,7 +12,7 @@ use std::path::Path;
 use tracematch::GpsPoint;
 
 /// Tile size in pixels (512 for retina/2x quality on high-DPI mobile screens).
-/// MapLibre tileSize stays 256 — it treats 512px images as @2x automatically.
+/// MapLibre tileSize stays 256 - it treats 512px images as @2x automatically.
 pub const TILE_SIZE: u32 = 512;
 
 /// Heatmap configuration

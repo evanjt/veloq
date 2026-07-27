@@ -35,22 +35,22 @@ export const ShaderWarmup = React.memo(function ShaderWarmup() {
     <View style={styles.container} pointerEvents="none" accessibilityElementsHidden>
       <Canvas style={styles.canvas}>
         <Group>
-          {/* Line — used by every line chart */}
+          {/* Line - used by every line chart */}
           <Line p1={vec(0, 0)} p2={vec(1, 1)} color="#888" strokeWidth={1} />
 
-          {/* Area (Path + LinearGradient) — fitness chart, HRV sparkline */}
+          {/* Area (Path + LinearGradient) - fitness chart, HRV sparkline */}
           {warmupPath && (
             <Path path={warmupPath}>
               <LinearGradient start={vec(0, 0)} end={vec(0, 1)} colors={['#FF0000', '#00FF00']} />
             </Path>
           )}
 
-          {/* Shadow-backed rect — form-zone chart */}
+          {/* Shadow-backed rect - form-zone chart */}
           <Rect x={0} y={0} width={1} height={1} color="#333">
             <Shadow dx={0} dy={0} blur={1} color="#000" />
           </Rect>
 
-          {/* Circle — scatter chart dots */}
+          {/* Circle - scatter chart dots */}
           <Circle cx={0.5} cy={0.5} r={0.25} color="#0D9488" />
         </Group>
       </Canvas>

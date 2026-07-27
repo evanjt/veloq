@@ -43,7 +43,7 @@ export function getHeatmapCacheSize(host: DelegateHost, basePath: string): numbe
 /** Clear all heatmap tiles from disk. */
 export function clearHeatmapTiles(host: DelegateHost, basePath: string): number {
   if (!host.ready) return 0;
-  // Normalize file:// URLs — Rust expects plain filesystem paths
+  // Normalize file:// URLs - Rust expects plain filesystem paths
   const normalizedPath = basePath.startsWith('file://') ? basePath.slice(7) : basePath;
   return host.timed('clearHeatmapTiles', () => host.engine.heatmap().clearTiles(normalizedPath));
 }

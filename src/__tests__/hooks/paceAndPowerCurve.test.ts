@@ -242,7 +242,7 @@ describe('formatPowerCurveForChart', () => {
   it('returns entries with undefined power for curve with empty arrays', () => {
     // When secs/watts are empty arrays (truthy), getPowerAtDuration falls through
     // to closest-match logic which returns undefined (not null), so filter(d !== null)
-    // doesn't remove them. This is actual behavior — entries have power: undefined.
+    // doesn't remove them. This is actual behavior - entries have power: undefined.
     const emptyCurve: PowerCurve = { type: 'power', sport: 'Ride', secs: [], watts: [] };
     const result = formatPowerCurveForChart(emptyCurve);
     expect(result).toHaveLength(POWER_CURVE_DURATIONS.length);

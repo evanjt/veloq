@@ -14,9 +14,9 @@ import { useTranslation } from 'react-i18next';
 import { useRoutePerformances } from '@/features/routes/hooks/useRoutePerformances';
 import { getActivityColor } from '@/features/activity/lib/activityUtils';
 import { formatDuration } from '@/shared/format/format';
-import { brand, colors, darkColors, spacing, layout, typography } from '@/theme';
+import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import type { ActivityType, PerformanceDataPoint } from '@/types';
-import { SectionScatterChart } from '@/features/routes/components/section';
+import { SectionScatterChart, ScatterLegend } from '@/features/routes/components/section';
 
 interface RoutePerformanceSectionProps {
   activityId: string;
@@ -132,30 +132,7 @@ export function RoutePerformanceSection({
             reverseStats={reverseStats}
             highlightedActivityId={activityId}
           />
-          <View style={styles.legend}>
-            <View style={styles.legendItem}>
-              <View style={[styles.legendSwatch, { borderColor: brand.gold, borderWidth: 2 }]} />
-              <Text style={[styles.legendText, isDark && styles.textMuted]}>
-                {t('sections.legendPr')}
-              </Text>
-            </View>
-            {bestReverseRecord ? (
-              <View style={styles.legendItem}>
-                <View style={[styles.legendSwatch, { backgroundColor: colors.reverseDirection }]} />
-                <Text style={[styles.legendText, isDark && styles.textMuted]}>
-                  {t('sections.legendReverse')}
-                </Text>
-              </View>
-            ) : null}
-            <View style={styles.legendItem}>
-              <View
-                style={[styles.legendSwatch, { borderColor: colors.chartGreen, borderWidth: 2 }]}
-              />
-              <Text style={[styles.legendText, isDark && styles.textMuted]}>
-                {t('sections.legendThisActivity')}
-              </Text>
-            </View>
-          </View>
+          <ScatterLegend isDark={isDark} showReverse={!!bestReverseRecord} showThisActivity />
         </View>
       )}
     </View>
@@ -214,28 +191,6 @@ const styles = StyleSheet.create({
   chartWrap: {
     paddingTop: spacing.sm,
     paddingBottom: spacing.sm,
-  },
-  legend: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-    gap: spacing.md,
-    marginTop: spacing.xs,
-    paddingHorizontal: spacing.md,
-  },
-  legendItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  legendSwatch: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-  },
-  legendText: {
-    fontSize: 11,
-    color: colors.textSecondary,
   },
   textLight: {
     color: darkColors.textPrimary,

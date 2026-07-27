@@ -5,11 +5,11 @@
  * style-change camera restoration, bearing/compass sync, location lookup,
  * map-ready state, and iOS tile-retry logic.
  *
- * Extracted from ActivityMapView.tsx — pure refactor, no behaviour change.
+ * Extracted from ActivityMapView.tsx - pure refactor, no behaviour change.
  */
 
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react';
-import { Animated, Platform } from 'react-native';
+import { Animated } from 'react-native';
 import { Camera, type MapView } from '@maplibre/maplibre-react-native';
 import * as Location from 'expo-location';
 import { type LatLng } from '@/shared/geo/polyline';
@@ -84,7 +84,7 @@ export function useMapCamera({
   const [mapReady, setMapReady] = useState(false);
   const retryCountRef = useRef(0);
 
-  // ----- camera position tracking (refs, not state — avoids re-renders during gestures) -----
+  // ----- camera position tracking (refs, not state - avoids re-renders during gestures) -----
   const pendingCameraRestoreRef = useRef<{ center: [number, number]; zoom: number } | null>(null);
   const isInitialMountRef = useRef(true);
   const initialCameraAppliedRef = useRef(false);
@@ -120,9 +120,12 @@ export function useMapCamera({
     };
   }, [bearingAnim]);
 
-  // ----- iOS tile retry -----
+  // ----- style load retry -----
+  // Android can drop a style load transiently (network blip during the style
+  // fetch); the map is then stuck on MapLibre's default empty style - white
+  // canvas with only the overlay layers. Remount to re-apply the style.
   const handleMapLoadError = useCallback(() => {
-    if (Platform.OS === 'ios' && retryCountRef.current < MAX_RETRIES) {
+    if (retryCountRef.current < MAX_RETRIES) {
       retryCountRef.current += 1;
       if (__DEV__) {
         console.log(

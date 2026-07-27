@@ -26,7 +26,7 @@ export interface MuscleGroupDetail {
 /**
  * Per-activity, per-muscle-group breakdown of exercise contributions.
  *
- * Thin pass-through to `engine.getMuscleDetail` — grouping, role
+ * Thin pass-through to `engine.getMuscleDetail` - grouping, role
  * classification, and sorting all happen in Rust. TS only tacks on the
  * localized muscle display name.
  */

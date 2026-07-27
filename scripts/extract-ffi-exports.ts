@@ -126,7 +126,7 @@ function extractExportsFromFile(filePath: string): FfiExport[] {
 
     const firstDeclLine = lines[declStart].trim();
 
-    // Case 1: `impl Foo {` block — iterate its methods.
+    // Case 1: `impl Foo {` block - iterate its methods.
     if (/^impl(?:\s|<)/.test(firstDeclLine) || /^unsafe\s+impl/.test(firstDeclLine)) {
       // Extract the type name. Handles `impl Foo`, `impl<T> Foo<T>`, and
       // `impl TraitName for Foo`. For trait impls we want the concrete type.
@@ -142,7 +142,7 @@ function extractExportsFromFile(filePath: string): FfiExport[] {
         const raw = lines[j];
         const trimmed = raw.trim();
         // Only consider lines that begin a fn declaration. `fn` must be
-        // preceded by start-of-line, whitespace, or `pub` — we reject occurrences
+        // preceded by start-of-line, whitespace, or `pub` - we reject occurrences
         // inside comments or within parameter/type positions.
         if (trimmed.startsWith('//')) continue;
         if (!/^(?:pub\s+)?fn\s+\w/.test(trimmed)) continue;
@@ -430,7 +430,7 @@ ${exports.map((e) => `  '${e.camelName}',`).join('\n')}
 /**
  * Rust to TypeScript name mapping.
  *
- * Deduplicated — UniFFI objects share method names like \`new\`, \`remove\`,
+ * Deduplicated - UniFFI objects share method names like \`new\`, \`remove\`,
  * \`create\`, etc. Use \`FFI_EXPORTS\` with \`file\`/\`line\` when the caller
  * needs to distinguish across objects.
  */

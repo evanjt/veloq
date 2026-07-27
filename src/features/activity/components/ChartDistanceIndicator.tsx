@@ -9,7 +9,7 @@ interface ChartDistanceIndicatorProps {
   xAxisMode: 'distance' | 'time';
   /** Live scrub value along the x-axis (distance in display units, or time in seconds). */
   currentX: number | null;
-  /** Whether the user is currently scrubbing — drives display of currentX vs maxX. */
+  /** Whether the user is currently scrubbing - drives display of currentX vs maxX. */
   isActive: boolean;
   /** Maximum x-axis value, used as the default display when not scrubbing. */
   maxX: number;
@@ -24,7 +24,7 @@ interface ChartDistanceIndicatorProps {
  * Bottom-right pill that shows the current x-axis value (distance or time).
  *
  * Tappable when {@link canToggleXAxis} is true and a toggle callback is
- * provided — the activity has both distance and time streams, so the user
+ * provided - the activity has both distance and time streams, so the user
  * can swap between modes. Otherwise renders as a static display.
  */
 export const ChartDistanceIndicator = React.memo(function ChartDistanceIndicator({

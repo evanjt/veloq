@@ -64,6 +64,10 @@ export interface FfiActivityRouteHighlight {
   routeName: string;
   isPr: boolean;
   trend: number;
+  /** Seconds vs the route PR. Negative = ahead of PR. */
+  timeDeltaSeconds?: number;
+  /** When isPr: seconds faster than the previous best attempt. */
+  prImprovementSeconds?: number;
 }
 
 export interface FfiActivityIndicator {

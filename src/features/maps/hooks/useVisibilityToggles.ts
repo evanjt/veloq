@@ -1,5 +1,5 @@
 /**
- * useVisibilityToggles — grouped state for map overlay visibility toggles.
+ * useVisibilityToggles - grouped state for map overlay visibility toggles.
  *
  * Consolidates the five independent visibility toggles used by RegionalMapView:
  *   - `showActivities` (activity markers + traces)
@@ -12,7 +12,7 @@
  * (notably `useMapHandlers`) can still drive them directly, while simple
  * inline toggles are provided via `toggle*` callbacks.
  *
- * Extracted from RegionalMapView.tsx — pure refactor, no behaviour change.
+ * Extracted from RegionalMapView.tsx - pure refactor, no behaviour change.
  */
 
 import { useCallback, useState, type Dispatch, type SetStateAction } from 'react';
@@ -25,7 +25,7 @@ interface UseVisibilityTogglesResult {
   showRoutes: boolean;
   is3DMode: boolean;
 
-  // Setters (kept explicit — useMapHandlers, useEffects, and error boundaries
+  // Setters (kept explicit - useMapHandlers, useEffects, and error boundaries
   // drive these directly rather than only through the toggle callbacks).
   setShowActivities: Dispatch<SetStateAction<boolean>>;
   setShowHeatmap: Dispatch<SetStateAction<boolean>>;

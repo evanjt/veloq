@@ -6,14 +6,14 @@ import { colors } from '@/theme';
 /**
  * Overlay of React Text nodes showing cluster counts on top of the regional map.
  *
- * The map's native SymbolLayer renders the same counts in bitmap form — nicely
+ * The map's native SymbolLayer renders the same counts in bitmap form - nicely
  * themed, but invisible to accessibility tools (e.g. Maestro, TalkBack). This
  * component queries the map's rendered features and positions React Text elements
  * at the same screen coordinates. Each text node carries a testID so automated
  * tests can assert on cluster visibility, and the node participates in the
  * accessibility tree.
  *
- * The overlay is visually transparent (opacity: 0) — it does not duplicate the
+ * The overlay is visually transparent (opacity: 0) - it does not duplicate the
  * native glyphs. Set `visible` to `true` to show it on top of or instead of the
  * native SymbolLayer for debugging / design exploration.
  */

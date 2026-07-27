@@ -5,7 +5,7 @@ const HOUR = 60 * 60 * 1000;
 const DAY = 24 * HOUR;
 const NOW = 1_700_000_000_000;
 
-describe('isPushAllowed — D11 cooldown', () => {
+describe('isPushAllowed - D11 cooldown', () => {
   it('always allows the first push', () => {
     expect(isPushAllowed([], NOW)).toBe(true);
   });

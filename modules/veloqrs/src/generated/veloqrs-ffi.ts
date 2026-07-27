@@ -788,6 +788,11 @@ interface NativeModuleInterface {
     activityId: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): void;
+  ubrn_uniffi_veloqrs_fn_method_sectionmanager_index_new_activity(
+    ptr: bigint,
+    activityId: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_match_activity_to_sections(
     ptr: bigint,
     activityId: Uint8Array,
@@ -1247,6 +1252,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_import_disabled_ids(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_import_superseded_map(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_include_activity(): number;
+  ubrn_uniffi_veloqrs_checksum_method_sectionmanager_index_new_activity(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_match_activity_to_sections(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_merge_sections(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_prune_overlapping(): number;

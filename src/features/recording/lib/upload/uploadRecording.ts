@@ -82,7 +82,7 @@ export async function uploadRecording(
       return { outcome: 'retriable', errorDetail: detail };
     }
 
-    // Client-side rejection (4xx) — retrying the same bytes cannot succeed;
+    // Client-side rejection (4xx) - retrying the same bytes cannot succeed;
     // park for the user, keep the file.
     await markRecordingRejected(entry.id, detail);
     return { outcome: 'rejected', errorDetail: detail };

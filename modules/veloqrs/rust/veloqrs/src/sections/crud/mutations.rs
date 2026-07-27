@@ -4,7 +4,7 @@
 //! auto-vs-custom matching logic), junction-table additions, rename, delete, and
 //! the activity-to-section matching helpers used by the editing submodule.
 
-use super::super::{CreateSectionParams, Section, SectionType};
+use super::super::{CreateSectionParams, IndexActivitySummary, Section, SectionType};
 use super::{compute_section_portions, compute_section_portions_strict};
 use crate::persistence::PersistentRouteEngine;
 use rusqlite::params;
@@ -510,6 +510,111 @@ impl PersistentRouteEngine {
         }
 
         Ok(())
+    }
+
+    /// Cheap post-ingest indexing for one freshly downloaded activity: match it
+    /// against existing sections, insert junction rows with portions, regroup
+    /// incrementally, and refresh indicators. Does NOT create new sections - a
+    /// genuinely new repeated stretch waits for the next full detection run.
+    ///
+    /// Cost is O(1 activity × M sections) plus an incremental regroup, so it
+    /// fits inside a background push handler where a full O(N²) detection
+    /// cannot.
+    pub fn index_new_activity(&mut self, activity_id: &str) -> Result<IndexActivitySummary, String> {
+        let mut summary = IndexActivitySummary::default();
+
+        let track = match self.get_gps_track(activity_id) {
+            Some(t) if t.len() >= 3 => t,
+            _ => return Ok(summary),
+        };
+
+        let sport_type = self.activity_metrics.get(activity_id).map(|m| m.sport_type.clone());
+
+        // Collect matched section polylines up front: get_sections() borrows the
+        // in-memory Vec, and the insert loop below needs &mut self.
+        let matched: Vec<(String, Vec<GpsPoint>)> = {
+            let sections = self.get_sections();
+            if sections.is_empty() {
+                vec![]
+            } else {
+                let config = tracematch::SectionConfig::default();
+                let matches = tracematch::sections::optimized::find_sections_in_route(
+                    &track, sections, &config,
+                );
+                let mut seen = std::collections::HashSet::new();
+                matches
+                    .into_iter()
+                    .filter(|m| seen.insert(m.section_id.clone()))
+                    .filter_map(|m| {
+                        let section = sections.iter().find(|s| s.id == m.section_id)?;
+                        if let Some(sport) = &sport_type {
+                            if &section.sport_type != sport {
+                                return None;
+                            }
+                        }
+                        Some((section.id.clone(), section.polyline.clone()))
+                    })
+                    .collect()
+            }
+        };
+
+        for (section_id, polyline) in &matched {
+            let portions = compute_section_portions(activity_id, &track, polyline);
+            if portions.is_empty() {
+                continue;
+            }
+            summary.matched_sections += 1;
+
+            // Replace any rows a previous run (or a later full detection) left
+            // for this pair, so near-duplicate start_index rows can't stack up.
+            self.db
+                .execute(
+                    "DELETE FROM section_activities WHERE section_id = ? AND activity_id = ?",
+                    params![section_id, activity_id],
+                )
+                .map_err(|e| format!("Failed to clear section_activities: {}", e))?;
+
+            for portion in &portions {
+                self.insert_section_activity(
+                    section_id,
+                    activity_id,
+                    &portion.direction,
+                    portion.start_index,
+                    portion.end_index,
+                    portion.distance_meters,
+                )?;
+                summary.inserted_portions += 1;
+            }
+            self.refresh_section_in_memory(section_id);
+            self.invalidate_section_cache(section_id);
+        }
+
+        // Ingest marked groups dirty, so this takes the incremental regroup
+        // path and places the new activity in a route group. recompute_groups
+        // also refreshes activity indicators at its end.
+        if self.groups_dirty {
+            self.get_groups();
+            summary.regrouped = true;
+            summary.indicators_recomputed = true;
+        } else if summary.inserted_portions > 0 {
+            match self.recompute_activity_indicators() {
+                Ok(()) => summary.indicators_recomputed = true,
+                Err(e) => log::warn!(
+                    "tracematch: [index_new_activity] indicator recompute failed: {}",
+                    e
+                ),
+            }
+        }
+
+        log::info!(
+            "tracematch: [index_new_activity] {} matched {} sections ({} portions, regrouped={})",
+            activity_id,
+            summary.matched_sections,
+            summary.inserted_portions,
+            summary.regrouped
+        );
+
+        Ok(summary)
     }
 
     /// Match all activities with the same sport type against a section polyline.

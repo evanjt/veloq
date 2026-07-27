@@ -73,7 +73,7 @@ export interface InsightMeta {
   /**
    * Epoch ms when the triggering event occurred (PR date, trend-window end,
    * milestone date). Drives the recency gate (G1). Falls back to
-   * `Insight.timestamp` (generation time) when unset — treat unset as "fresh".
+   * `Insight.timestamp` (generation time) when unset - treat unset as "fresh".
    */
   sourceTimestamp?: number;
   /**
@@ -83,15 +83,15 @@ export interface InsightMeta {
    */
   location?: { lat: number; lng: number };
   /**
-   * 'self' compares the user to their own past (Kappen 2018 — preferred).
+   * 'self' compares the user to their own past (Kappen 2018 - preferred).
    * 'other' compares to population/others. 'none' for pure status facts.
    */
   comparisonKind?: 'self' | 'other' | 'none';
-  /** Lifetime count of the repeated behaviour — drives repetition gate (G3). */
+  /** Lifetime count of the repeated behaviour - drives repetition gate (G3). */
   repetitionCount?: number;
-  /** Proximal-specificity tags — drives R5 ranking bonus. */
+  /** Proximal-specificity tags - drives R5 ranking bonus. */
   specificity?: { hasNumber: boolean; hasPlace: boolean; hasDate: boolean };
-  /** Optional signal-to-noise delta (|value − baseline| / stddev) — drives R6. */
+  /** Optional signal-to-noise delta (|value − baseline| / stddev) - drives R6. */
   signalDelta?: number;
 }
 

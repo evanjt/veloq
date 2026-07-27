@@ -45,7 +45,7 @@ interface Map3DWebViewProps {
   sectionBoundariesGeoJSON?: GeoJSON.FeatureCollection;
   /** GeoJSON for section marker circles (numbered/PR labels) */
   sectionMarkersGeoJSON?: GeoJSON.FeatureCollection;
-  /** GeoJSON for activity point markers — colored circles per activity, used by
+  /** GeoJSON for activity point markers - colored circles per activity, used by
    *  the global map in 3D so the view matches the 2D markers/clusters paradigm
    *  instead of drawing every full activity polyline. Features must carry
    *  `properties.color` (hex string) and may carry `properties.size`. */
@@ -75,7 +75,7 @@ interface Map3DWebViewPropsInternal extends Map3DWebViewProps {
     bearing: number;
     pitch: number;
   }) => void;
-  /** Saved camera override — if provided, skips fitBounds and uses this on first load */
+  /** Saved camera override - if provided, skips fitBounds and uses this on first load */
   initialCamera?: {
     center: [number, number];
     zoom: number;
@@ -170,11 +170,11 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
     const initialCenterRef = useRef(initialCenter);
     const initialZoomRef = useRef(initialZoom);
     const initialCameraRef = useRef(initialCamera);
-    // Track mapStyle in ref — style changes are applied via setStyle() injection
+    // Track mapStyle in ref - style changes are applied via setStyle() injection
     const mapStyleRef = useRef(mapStyle);
     const initialMapStyleRef = useRef(mapStyle);
 
-    // Cleanup on unmount — stop WebView loading and mark map as not ready
+    // Cleanup on unmount - stop WebView loading and mark map as not ready
     useEffect(() => {
       return () => {
         mapReadyRef.current = false;
@@ -220,7 +220,7 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       );
     }, []);
 
-    // Handle messages from WebView — dispatch via the shared 3D bridge.
+    // Handle messages from WebView - dispatch via the shared 3D bridge.
     const handleMessage = useMap3DBridge({
       webViewRef,
       mapReadyRef,
@@ -250,7 +250,7 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       updateLayers,
     ]);
 
-    // Apply style changes via setStyle() injection — avoids full WebView reload.
+    // Apply style changes via setStyle() injection - avoids full WebView reload.
     // Builds a complete style object with terrain, sky, hillshade, and route layers,
     // then applies atomically via map.setStyle() (same pattern as TerrainSnapshotWebView).
     useEffect(() => {
@@ -264,7 +264,7 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       const isDark = mapStyle === 'dark' || mapStyle === 'satellite';
 
       // Satellite: rewrite to cached protocol for tile caching.
-      // Dark: keep original TileJSON URL — let MapLibre fetch tiles natively
+      // Dark: keep original TileJSON URL - let MapLibre fetch tiles natively
       // (cached-vector:// rewrite was causing blank features after setStyle).
       // Light: fetch URL-based style in JS.
       const styleConfig = isSatellite
@@ -366,7 +366,7 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
             console.log('[3D] Style changed via setStyle()');
 
             // Re-add heatmap raster overlay (setStyle clears all sources/layers).
-            // Probe for 'route-outline' before inserting under it — it's only
+            // Probe for 'route-outline' before inserting under it - it's only
             // present in activity-detail mode (when route coordinates exist).
             window.map.once('style.load', function() {
               if (!window.map.getSource('heatmap-tiles')) {
@@ -400,7 +400,7 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
           if (styleJSON) {
             applyNewStyle(styleJSON);
           } else {
-            // Light style is URL-based — fetch and apply without rewriting vector URLs.
+            // Light style is URL-based - fetch and apply without rewriting vector URLs.
             // Let MapLibre handle TileJSON resolution natively for reliable tile loading.
             fetch('${lightStyleUrl}')
               .then(function(r) { return r.json(); })
@@ -504,7 +504,7 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
         (function() {
           if (!window.map) return;
           try {
-            // Update section creation line — re-create source/layers after setStyle wipes them
+            // Update section creation line - re-create source/layers after setStyle wipes them
             var lineData = ${lineJSON};
             var lineSource = window.map.getSource('section-creation-line');
             if (lineSource) {
@@ -529,7 +529,7 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
                 paint: { 'line-color': '#22C55E', 'line-width': 6, 'line-opacity': 1 },
               });
             }
-            // Update section creation markers — re-create if missing
+            // Update section creation markers - re-create if missing
             var markersData = ${markersJSON};
             var markerSource = window.map.getSource('section-creation-markers');
             if (markerSource) {
@@ -623,7 +623,7 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
         pitch,
         hasSavedCamera: !!savedCamera,
         terrainExaggeration,
-        // Use initial style ref — subsequent style changes are handled via
+        // Use initial style ref - subsequent style changes are handled via
         // setStyle() injection without regenerating HTML.
         initStyle: initialMapStyleRef.current,
         // mapStyle (current prop) is intentionally captured via closure here,
