@@ -238,31 +238,9 @@ export function getWorkoutSections(
   );
 }
 
-export interface FfiSectionChartPoint {
-  lapId: string;
-  activityId: string;
-  activityName: string;
-  activityDate: number;
-  speed: number;
-  sectionTime: number;
-  sectionDistance: number;
-  direction: string;
-  rank: number;
-}
-
-export interface FfiSectionChartData {
-  points: FfiSectionChartPoint[];
-  minSpeed: number;
-  maxSpeed: number;
-  bestIndex: number;
-  hasReverseRuns: boolean;
-  bestActivityId?: string;
-  bestTimeSecs?: number;
-  bestPace?: number;
-  averageTimeSecs?: number;
-  lastActivityDate?: number;
-  totalActivities: number;
-}
+import type { FfiSectionChartData } from '../../generated/veloqrs';
+export type { FfiSectionChartData };
+export type { FfiSectionChartPoint } from '../../generated/veloqrs';
 
 const EMPTY_CHART: FfiSectionChartData = {
   points: [],

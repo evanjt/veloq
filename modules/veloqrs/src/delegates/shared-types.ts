@@ -3,9 +3,16 @@
  * for public consumption (via `export { type Foo } from '...'`).
  *
  * These are the JS-side shapes for FFI methods whose auto-generated UniFFI
- * types are not yet available in `./generated/veloqrs.ts`. When the Rust
- * bindings are regenerated, these may be replaced by the generated types.
+ * types are not yet available in `./generated/veloqrs.ts`. Once a type IS
+ * generated, re-export the generated truth here instead of hand-maintaining
+ * a shadow copy that drifts.
  */
+
+export type {
+  FfiMergeCandidate,
+  FfiNearbySectionSummary,
+  FfiSectionMatch,
+} from '../generated/veloqrs';
 
 /** Pre-computed daily activity intensity from Rust heatmap cache. */
 export interface HeatmapDay {
@@ -13,38 +20,6 @@ export interface HeatmapDay {
   intensity: number;
   maxDuration: bigint;
   activityCount: number;
-}
-
-export interface FfiSectionMatch {
-  sectionId: string;
-  sectionName: string | undefined;
-  sportType: string;
-  startIndex: bigint;
-  endIndex: bigint;
-  matchQuality: number;
-  sameDirection: boolean;
-  distanceMeters: number;
-}
-
-export interface FfiMergeCandidate {
-  sectionId: string;
-  name: string | undefined;
-  sportType: string;
-  distanceMeters: number;
-  visitCount: number;
-  overlapPct: number;
-  centerDistanceMeters: number;
-}
-
-export interface FfiNearbySectionSummary {
-  id: string;
-  sectionType: string;
-  name: string | undefined;
-  sportType: string;
-  distanceMeters: number;
-  visitCount: number;
-  centerDistanceMeters: number;
-  encodedPolyline: ArrayBuffer;
 }
 
 export interface FfiActivitySectionHighlight {
