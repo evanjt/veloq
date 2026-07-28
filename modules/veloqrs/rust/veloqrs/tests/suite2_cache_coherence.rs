@@ -275,11 +275,11 @@ fn cache_coherence_matrix() {
         }
     );
     op_row!(
-        "rename_section",
+        "set_section_name",
         "stale(harmless)",
         "metadata only",
         |e: &mut PersistentRouteEngine, id: &str| {
-            e.rename_section(id, "Renamed").expect("rename");
+            e.set_section_name(id, Some("Renamed")).expect("rename");
         }
     );
     op_row!(

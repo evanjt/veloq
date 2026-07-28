@@ -115,34 +115,33 @@ fn seed_metrics_and_streams(engine: &mut PersistentRouteEngine, activities: &[&L
 // Measurements — never fail, document today's reality.
 // ============================================================================
 
-/// A rename edits metadata only, yet it silently auto-promotes the auto section
-/// to user-defined. That spares its row from the detection wipe but leaves its
-/// positional id in place, so the next resync collides on INSERT (root R2). A
-/// bare rename is therefore enough to break the following sync.
+/// A rename is metadata only: it must NOT promote the auto section to
+/// user-defined, so the section stays in the ordinary detection flow and the
+/// following resync completes. The old promote-on-rename path parked the row
+/// under a positional id and crashed the next resync on INSERT (root R2).
 #[test]
-fn rename_survives_locally_but_resync_crashes() {
+fn rename_stays_metadata_only_and_resync_survives() {
     let corpus = corpus();
     let (mut engine, _dir) = fresh_engine_for(Arm::Control);
     let cold = ingest_step(&mut engine, "cold", &corpus.through_a());
     let (id, _f) = busiest_section(&cold.snapshot).expect("cold detect produced a section");
 
     engine
-        .rename_section(&id, "My Climb")
-        .expect("rename_section");
+        .set_section_name(&id, Some("My Climb"))
+        .expect("set_section_name");
     let renamed = engine.get_section(&id).expect("get_section after rename");
-    println!(
-        "[rename] name={:?} user_defined={} (auto-promoted by a metadata-only edit)",
-        renamed.name, renamed.is_user_defined,
+    assert!(
+        !renamed.is_user_defined,
+        "a bare rename must not promote the section to user-defined"
     );
 
-    match try_ingest_step(&mut engine, "resync", &refs(&corpus.bucket_d_delta)) {
-        Ok(step) => println!(
-            "[resync] OK sections={} name_survived={:?}",
-            step.snapshot.count(),
-            engine.get_section(&id).and_then(|s| s.name),
-        ),
-        Err(e) => println!("[resync] CRASH (root R2): {e}"),
-    }
+    let step = try_ingest_step(&mut engine, "resync", &refs(&corpus.bucket_d_delta))
+        .expect("resync after a bare rename must not crash");
+    println!(
+        "[rename] resync OK sections={} name_now={:?}",
+        step.snapshot.count(),
+        engine.get_section(&id).and_then(|s| s.name),
+    );
 }
 
 /// set_section_reference on an auto section extracts the matching portion of the

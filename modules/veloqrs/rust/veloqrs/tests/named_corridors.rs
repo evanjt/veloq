@@ -6,19 +6,14 @@
 //! On a split, the piece covering the largest share of the named ground keeps
 //! the name.
 //!
-//! Two blocks:
-//! - GUARDS: green on current main and load-bearing after D1. Never ignored.
-//! - GATES: red on current main by design (`#[ignore]`), ungated when the
-//!   implementation lands. One gate belongs to D2 (geometry adoption), not D1.
-//!
-//! Routine run (guards only):
-//!   cargo test -p veloqrs --features synthetic --test named_corridors
-//! Red-baseline audit (expects gate failures on a pre-D1 tree):
-//!   cargo test -p veloqrs --features synthetic --test named_corridors -- --include-ignored
+//! One `#[ignore]` remains: the no-freeze gate belongs to D2 (geometry
+//! adoption), not D1, and stays red until the registry adopts re-cut
+//! geometry.
 
 mod lifecycle_support;
 
 use lifecycle_support::*;
+use rusqlite::params;
 use tracematch::GpsPoint;
 use tracematch::scenarios::{LifecycleActivity, LifecycleConfig, LifecycleCorpus};
 use veloqrs::PersistentRouteEngine;
@@ -415,14 +410,13 @@ fn dissolved_named_corridor_leaves_other_ground_unnamed() {
 }
 
 // ============================================================================
-// GATES — red on current main by design. Ungate with D1 (one with D2).
+// Durability contracts — the reason names are intents, not row data.
 // ============================================================================
 
 /// A full cache clear plus re-detect loses every auto row and its name today.
 /// After D1 the name is an intent row that resolves onto the re-detected
 /// corridor.
 #[test]
-#[ignore = "target gate: green when D1 named corridors ship"]
 fn name_survives_cache_clear_and_redetect() {
     let corpus = corpus();
     let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
@@ -440,7 +434,6 @@ fn name_survives_cache_clear_and_redetect() {
 /// An ordinary incremental resync wipes non-durable auto rows before names
 /// are re-read, so the name dies today. After D1 it follows the ground.
 #[test]
-#[ignore = "target gate: green when D1 named corridors ship"]
 fn name_survives_resync() {
     let corpus = corpus();
     let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
@@ -456,7 +449,6 @@ fn name_survives_resync() {
 /// catalogue from the DB plus a cold evidence cache. The name must ride
 /// through both.
 #[test]
-#[ignore = "target gate: green when D1 named corridors ship"]
 fn name_survives_restart_and_resync() {
     let corpus = corpus();
     let (mut engine, dir) = fresh_engine_for(Arm::Battery);
@@ -475,7 +467,6 @@ fn name_survives_restart_and_resync() {
 /// The name rides the ground through the growth buckets, sitting on exactly
 /// one visible section at every step even as the cut evolves.
 #[test]
-#[ignore = "target gate: green when D1 named corridors ship"]
 fn name_follows_ground_through_recut() {
     let corpus = corpus();
     let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
@@ -500,7 +491,6 @@ fn name_follows_ground_through_recut() {
 /// name, and no other piece carries it. The junction geometry puts the trunk
 /// midpoint inside the smallest piece, so a midpoint rule fails here.
 #[test]
-#[ignore = "target gate: green when D1 named corridors ship"]
 fn split_gives_name_to_largest_share_piece() {
     let (engine, _dir, snap, trunk) = run_junction_scenario();
 
@@ -557,4 +547,402 @@ fn naming_does_not_freeze_geometry() {
             "raw piece {raw_id} has no visible counterpart within {GROUND_TOL_M} m: geometry is frozen"
         );
     }
+}
+
+// ============================================================================
+// Corridor listing, dormancy, migration, and raw-row contracts.
+// ============================================================================
+
+/// A named corridor whose evidence is deleted goes dormant, stays listed, and
+/// resurfaces with no user action once its ground re-emerges.
+#[test]
+fn dormancy_roundtrip_resurfaces_name() {
+    let corpus = corpus();
+    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
+    let cold = ingest_step(&mut engine, "cold", &corpus.through_a());
+    let (id, fp) = busiest_section(&cold.snapshot).expect("cold detect produced a section");
+    engine.set_section_name(&id, Some(NAME)).expect("set name");
+
+    let listed = engine.get_named_corridors();
+    assert_eq!(listed.len(), 1);
+    assert_eq!(listed[0].name, NAME);
+    assert_eq!(listed[0].section_id.as_deref(), Some(id.as_str()));
+    assert!(listed[0].primary);
+    assert!(listed[0].coverage >= 0.6);
+
+    let removed: Vec<String> = fp.activity_ids.iter().cloned().collect();
+    for aid in &removed {
+        engine.remove_activity(aid).expect("remove_activity");
+    }
+    let mut snap = ingest_step(&mut engine, "drain_0", &[&corpus.bucket_c_single]).snapshot;
+    for (i, a) in corpus.bucket_d_delta.iter().enumerate() {
+        snap = ingest_step(&mut engine, &format!("drain_{}", i + 1), &[a]).snapshot;
+    }
+    assert!(
+        !snap.sections.values().any(|s| ground_matches(&fp, s)),
+        "scenario failed to dissolve the named corridor"
+    );
+    let listed = engine.get_named_corridors();
+    assert_eq!(listed.len(), 1, "a dormant intent must stay listed");
+    assert_eq!(
+        listed[0].section_id, None,
+        "a dissolved corridor's name must be dormant, not attached"
+    );
+
+    let restore: Vec<&LifecycleActivity> = corpus
+        .bucket_a
+        .iter()
+        .filter(|a| removed.contains(&a.id))
+        .collect();
+    assert!(!restore.is_empty(), "the removed evidence must exist in bucket a");
+    let mut snap = ingest_step(&mut engine, "restore", &restore).snapshot;
+    // Re-emergence after a debounced dissolve is itself debounced (anti-flap),
+    // so hold the returned evidence over the sustain window with far-away
+    // filler steps that cannot touch this corridor.
+    for i in 0..3 {
+        let filler = act(format!("far_{i}"), 60 + i, vec![pt(300_000.0, 0.0), pt(300_500.0, 0.0)]);
+        snap = ingest_step(&mut engine, &format!("hold_{i}"), &[&filler]).snapshot;
+    }
+    assert_single_carrier(&engine, &snap, &fp, "after the evidence returns");
+    let listed = engine.get_named_corridors();
+    assert!(
+        listed[0].section_id.is_some(),
+        "the name must resurface once its ground re-emerges"
+    );
+}
+
+/// Unnaming deletes the intent outright, and so does the explicit corridor
+/// removal API.
+#[test]
+fn unname_and_remove_delete_the_intent() {
+    let corpus = corpus();
+    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
+    ingest_step(&mut engine, "cold", &corpus.through_a());
+    let (id, _) = busiest_section(&snapshot(&mut engine)).expect("cold detect produced a section");
+
+    engine.set_section_name(&id, Some(NAME)).expect("set name");
+    assert_eq!(engine.get_named_corridors().len(), 1);
+    engine.set_section_name(&id, None).expect("unname");
+    assert!(engine.get_named_corridors().is_empty());
+
+    engine.set_section_name(&id, Some(NAME)).expect("re-name");
+    let intent_id = engine.get_named_corridors()[0].intent_id.clone();
+    engine
+        .remove_named_corridor(&intent_id)
+        .expect("remove_named_corridor");
+    assert!(engine.get_named_corridors().is_empty());
+    assert_ne!(section_name(&engine, &id).as_deref(), Some(NAME));
+}
+
+/// Renaming a section that already carries a named intent relabels the SAME
+/// intent (the referent stays the originally named ground), rather than
+/// stacking a second one.
+#[test]
+fn renaming_updates_the_existing_intent() {
+    let corpus = corpus();
+    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
+    ingest_step(&mut engine, "cold", &corpus.through_a());
+    let (id, _) = busiest_section(&snapshot(&mut engine)).expect("cold detect produced a section");
+
+    engine.set_section_name(&id, Some(NAME)).expect("first name");
+    let first = engine.get_named_corridors()[0].intent_id.clone();
+    engine.set_section_name(&id, Some(ROW_NAME)).expect("second name");
+    let listed = engine.get_named_corridors();
+    assert_eq!(listed.len(), 1, "a rename must not stack a second intent");
+    assert_eq!(listed[0].intent_id, first);
+    assert_eq!(listed[0].name, ROW_NAME);
+}
+
+/// The migration hook rebuilds an old-CHECK section_intents table in place,
+/// preserving disabled/deleted rows, promoting legacy user names on auto rows
+/// to named intents exactly once, and staying idempotent across reopens.
+#[test]
+fn migration_hook_rebuilds_old_intents_table_and_backfills() {
+    let corpus = corpus();
+    let (mut engine, dir) = fresh_engine_for(Arm::Battery);
+    ingest_step(&mut engine, "cold", &corpus.through_a());
+    let (id, _) = busiest_section(&snapshot(&mut engine)).expect("cold detect produced a section");
+    drop(engine);
+
+    let path = dir.path().join("lifecycle.db");
+    {
+        let db = rusqlite::Connection::open(&path).expect("raw open");
+        db.execute_batch(
+            "DROP TABLE section_intents;
+             CREATE TABLE section_intents (
+                 id TEXT PRIMARY KEY,
+                 kind TEXT NOT NULL CHECK(kind IN ('disabled', 'deleted')),
+                 polyline_json TEXT NOT NULL,
+                 created_at TEXT NOT NULL DEFAULT (datetime('now'))
+             );
+             INSERT INTO section_intents (id, kind, polyline_json)
+                 VALUES ('legacy_disabled', 'disabled', '[]');
+             DELETE FROM schema_info WHERE key = 'named_backfill_done';",
+        )
+        .expect("downgrade to the old shape");
+        db.execute(
+            "UPDATE sections SET name = 'Morning Berg', is_user_defined = 0 WHERE id = ?",
+            params![id],
+        )
+        .expect("seed a legacy user name");
+    }
+
+    let mut engine = PersistentRouteEngine::new(path.to_str().unwrap()).expect("reopen");
+    engine.load().expect("load after reopen");
+    let listed = engine.get_named_corridors();
+    assert_eq!(
+        listed.iter().filter(|c| c.name == "Morning Berg").count(),
+        1,
+        "the legacy name must be promoted to a named intent"
+    );
+    assert_eq!(section_name(&engine, &id).as_deref(), Some("Morning Berg"));
+    engine
+        .set_section_name(&id, Some(NAME))
+        .expect("a kind='named' write must pass the rebuilt CHECK");
+    drop(engine);
+
+    let engine = {
+        let mut e = PersistentRouteEngine::new(path.to_str().unwrap()).expect("second reopen");
+        e.load().expect("load again");
+        e
+    };
+    let db = rusqlite::Connection::open(&path).expect("raw verify open");
+    let disabled: i64 = db
+        .query_row(
+            "SELECT COUNT(*) FROM section_intents WHERE id = 'legacy_disabled' AND kind = 'disabled'",
+            [],
+            |r| r.get(0),
+        )
+        .expect("count");
+    assert_eq!(disabled, 1, "disabled rows must survive the rebuild and reopens");
+    let named: i64 = db
+        .query_row("SELECT COUNT(*) FROM section_intents WHERE kind = 'named'", [], |r| {
+            r.get(0)
+        })
+        .expect("count");
+    assert_eq!(named, 1, "the backfill must not duplicate on later reopens");
+    drop(engine);
+}
+
+/// The suppression kind filter, exercised on the raw row: a kind='named'
+/// intent planted directly in the table must not stop its corridor from
+/// being detected, while flipping the same row to 'disabled' must.
+#[test]
+fn raw_named_row_never_suppresses_but_disabled_does() {
+    let corpus = corpus();
+    let (mut engine, dir) = fresh_engine_for(Arm::Battery);
+    let cold = ingest_step(&mut engine, "cold", &corpus.through_a());
+    let (_, fp) = busiest_section(&cold.snapshot).expect("cold detect produced a section");
+    drop(engine);
+
+    let path = dir.path().join("lifecycle.db");
+    let polyline_json = {
+        let pts: Vec<serde_json::Value> = fp
+            .polyline
+            .iter()
+            .map(|p| {
+                serde_json::json!({
+                    "latitude": p.latitude,
+                    "longitude": p.longitude,
+                    "elevation": p.elevation,
+                })
+            })
+            .collect();
+        serde_json::to_string(&pts).expect("encode footprint")
+    };
+    {
+        let db = rusqlite::Connection::open(&path).expect("raw open");
+        db.execute(
+            "INSERT INTO section_intents (id, kind, polyline_json, created_at, name)
+             VALUES ('ni_raw', 'named', ?, datetime('now'), ?)",
+            params![polyline_json, NAME],
+        )
+        .expect("plant the named row");
+    }
+
+    let mut engine = PersistentRouteEngine::new(path.to_str().unwrap()).expect("reopen");
+    engine.load().expect("load");
+    engine
+        .clear_routes_and_sections()
+        .expect("clear_routes_and_sections");
+    let after = ingest_step(&mut engine, "resync", &refs(&corpus.bucket_b_delta)).snapshot;
+    assert!(
+        after.sections.values().any(|s| ground_matches(&fp, s)),
+        "a named row must never suppress its corridor's detection"
+    );
+    drop(engine);
+
+    {
+        let db = rusqlite::Connection::open(&path).expect("raw open");
+        db.execute("UPDATE section_intents SET kind = 'disabled' WHERE id = 'ni_raw'", [])
+            .expect("flip to disabled");
+    }
+    let mut engine = PersistentRouteEngine::new(path.to_str().unwrap()).expect("reopen");
+    engine.load().expect("load");
+    engine
+        .clear_routes_and_sections()
+        .expect("clear_routes_and_sections");
+    // The raw flip never went through disable_section, so the registry row was
+    // not relinquished: the suppression starves the carried row of candidates
+    // and the debounced dissolve needs its sustain window before it retires.
+    let mut after = SectionSnapshot {
+        sections: std::collections::BTreeMap::new(),
+    };
+    for (i, a) in corpus.bucket_d_delta.iter().enumerate() {
+        after = ingest_step(&mut engine, &format!("resync_2_{i}"), &[a]).snapshot;
+    }
+    assert!(
+        !after.sections.values().any(|s| ground_matches(&fp, s)),
+        "the same ground flipped to 'disabled' must be suppressed"
+    );
+}
+
+/// Two intents resolving to one section: the better-covering one displays,
+/// both persist in the listing.
+#[test]
+fn two_names_one_section_keeps_both() {
+    let corpus = corpus();
+    let (mut engine, dir) = fresh_engine_for(Arm::Battery);
+    ingest_step(&mut engine, "cold", &corpus.through_a());
+    let (id, fp) = busiest_section(&snapshot(&mut engine)).expect("cold detect produced a section");
+    engine.set_section_name(&id, Some(NAME)).expect("first intent");
+    drop(engine);
+
+    // A second intent over a sub-stretch of the same corridor, planted raw:
+    // its core covers the section fully but the first intent covers at least
+    // as well, so the first stays primary.
+    let path = dir.path().join("lifecycle.db");
+    {
+        let db = rusqlite::Connection::open(&path).expect("raw open");
+        let sub: Vec<serde_json::Value> = fp
+            .polyline
+            .iter()
+            .map(|p| {
+                serde_json::json!({
+                    "latitude": p.latitude,
+                    "longitude": p.longitude,
+                    "elevation": p.elevation,
+                })
+            })
+            .collect();
+        db.execute(
+            "INSERT INTO section_intents (id, kind, polyline_json, created_at, name)
+             VALUES ('ni_second', 'named', ?, datetime('now', '+1 hour'), ?)",
+            params![serde_json::to_string(&sub).expect("encode"), ROW_NAME],
+        )
+        .expect("plant the second intent");
+    }
+
+    let mut engine = PersistentRouteEngine::new(path.to_str().unwrap()).expect("reopen");
+    engine.load().expect("load");
+    let listed = engine.get_named_corridors();
+    assert_eq!(listed.len(), 2, "both intents must persist");
+    let primaries: Vec<_> = listed.iter().filter(|c| c.primary).collect();
+    assert_eq!(primaries.len(), 1, "exactly one primary per section");
+    assert_eq!(
+        primaries[0].name, NAME,
+        "the older equally-covering intent keeps display"
+    );
+    assert_eq!(section_name(&engine, &id).as_deref(), Some(NAME));
+}
+
+/// The name-write routing reads is_user_defined from the DB ROW, not the
+/// in-memory copy: with the row flipped user-defined behind the engine's
+/// back, a rename must write the row, not an intent.
+#[test]
+fn set_name_routes_by_the_db_row_not_memory() {
+    let corpus = corpus();
+    let (mut engine, dir) = fresh_engine_for(Arm::Battery);
+    ingest_step(&mut engine, "cold", &corpus.through_a());
+    let (id, _) = busiest_section(&snapshot(&mut engine)).expect("cold detect produced a section");
+
+    let path = dir.path().join("lifecycle.db");
+    {
+        let db = rusqlite::Connection::open(&path).expect("raw open");
+        db.execute(
+            "UPDATE sections SET is_user_defined = 1 WHERE id = ?",
+            params![id],
+        )
+        .expect("flip the row behind the engine's back");
+    }
+
+    engine.set_section_name(&id, Some(ROW_NAME)).expect("rename");
+    assert!(
+        engine.get_named_corridors().is_empty(),
+        "a user-defined ROW must take the name on the row, not as an intent"
+    );
+    let db = rusqlite::Connection::open(&path).expect("raw verify");
+    let row_name: Option<String> = db
+        .query_row("SELECT name FROM sections WHERE id = ?", params![id], |r| r.get(0))
+        .expect("read row name");
+    assert_eq!(row_name.as_deref(), Some(ROW_NAME));
+}
+
+/// Promotion handoff: accepting a named auto section moves the corridor
+/// name onto the row (its permanent home) and retires the intent, so the
+/// name survives the accept and every later restart.
+#[test]
+fn accepting_a_named_section_keeps_the_name() {
+    let corpus = corpus();
+    let (mut engine, dir) = fresh_engine_for(Arm::Battery);
+    ingest_step(&mut engine, "cold", &corpus.through_a());
+    let (id, _) = busiest_section(&snapshot(&mut engine)).expect("cold detect produced a section");
+
+    engine.set_section_name(&id, Some(NAME)).expect("set name");
+    engine.accept_section(&id).expect("accept_section");
+    assert_eq!(section_name(&engine, &id).as_deref(), Some(NAME));
+    assert_eq!(summary_name(&engine, &id).as_deref(), Some(NAME));
+    assert!(
+        engine.get_named_corridors().is_empty(),
+        "the intent must retire once the row owns the name"
+    );
+    drop(engine);
+
+    let path = dir.path().join("lifecycle.db");
+    let mut engine = PersistentRouteEngine::new(path.to_str().unwrap()).expect("reopen");
+    engine.load().expect("load after reopen");
+    assert_eq!(section_name(&engine, &id).as_deref(), Some(NAME));
+    let _ = snapshot(&mut engine);
+}
+
+/// Generated-shaped names ("Section 7") are the engine's own labels, not
+/// user data: writing one to an auto section stays row-local and must never
+/// mint a durable intent — a backup restore replays every generated name
+/// through this path.
+#[test]
+fn generated_shaped_names_stay_row_local() {
+    let corpus = corpus();
+    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
+    ingest_step(&mut engine, "cold", &corpus.through_a());
+    let (id, _) = busiest_section(&snapshot(&mut engine)).expect("cold detect produced a section");
+
+    engine.set_section_name(&id, Some("Section 7")).expect("set name");
+    assert!(
+        engine.get_named_corridors().is_empty(),
+        "a generated-shaped name must not become a durable intent"
+    );
+    assert_eq!(section_name(&engine, &id).as_deref(), Some("Section 7"));
+}
+
+/// The rename originator's own detail screen must show the new name even
+/// when a list read consumed the overlay refresh first: the section LRU
+/// stores raw rows and overlays on the way out.
+#[test]
+fn rename_shows_fresh_name_after_list_and_detail_reads() {
+    let corpus = corpus();
+    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
+    ingest_step(&mut engine, "cold", &corpus.through_a());
+    let (id, _) = busiest_section(&snapshot(&mut engine)).expect("cold detect produced a section");
+
+    let cached = engine.get_section_by_id(&id).expect("detail read caches the row");
+    assert_ne!(cached.name.as_deref(), Some(NAME));
+
+    engine.set_section_name(&id, Some(NAME)).expect("rename");
+    let _ = engine.get_section_summaries();
+    let detail = engine.get_section_by_id(&id).expect("detail after rename");
+    assert_eq!(
+        detail.name.as_deref(),
+        Some(NAME),
+        "the cached detail row served a stale baked name"
+    );
 }
