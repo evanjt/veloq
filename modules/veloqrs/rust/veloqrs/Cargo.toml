@@ -86,6 +86,10 @@ name = "persistence_stress"
 required-features = ["synthetic"]
 
 [[test]]
+name = "named_corridors"
+required-features = ["synthetic"]
+
+[[test]]
 name = "lifecycle_scenarios"
 required-features = ["synthetic"]
 
