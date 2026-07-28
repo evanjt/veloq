@@ -12,10 +12,15 @@ impl PersistentRouteEngine {
 
     /// Migration: Generate names for sections that don't have names.
     pub(super) fn migrate_section_names(&mut self) -> SqlResult<()> {
+        // Only auto sections are auto-named. Custom and accepted sections carry
+        // user-managed names — a custom section legitimately keeps a NULL name and
+        // must never be handed a generated "Section N" (they now share the
+        // in-memory catalogue with auto sections, so this filter is what keeps the
+        // migration from renaming them).
         let sections_without_names: Vec<(String, String)> = self
             .sections
             .iter()
-            .filter(|s| s.name.is_none())
+            .filter(|s| s.name.is_none() && !s.is_user_defined)
             .map(|s| (s.id.clone(), s.sport_type.clone()))
             .collect();
 
@@ -110,9 +115,14 @@ impl PersistentRouteEngine {
             "VirtualRun",
         ];
 
-        // Find sections with old-style "{Sport} {Word} N" names
+        // Find sections with old-style "{Sport} {Word} N" names. Auto sections
+        // only: a user-managed (custom/accepted) name is never rewritten, even if
+        // it happens to match the old auto pattern.
         let mut renames: Vec<(String, String, u32)> = Vec::new(); // (section_id, new_name, number)
         for section in &self.sections {
+            if section.is_user_defined {
+                continue;
+            }
             if let Some(ref name) = section.name {
                 for sport in &sports {
                     let prefix = format!("{} {} ", sport, section_word);

@@ -145,7 +145,8 @@ impl PersistentRouteEngine {
                         point_density_json, scale, version, is_user_defined, stability,
                         created_at, updated_at, consensus_state_blob,
                         polyline_blob, point_density_blob
-                 FROM sections WHERE section_type = 'auto' AND disabled = 0",
+                 FROM sections
+                 WHERE (section_type = 'auto' OR section_type = 'custom') AND disabled = 0",
             )?;
 
             self.sections = stmt
@@ -541,7 +542,7 @@ impl PersistentRouteEngine {
         };
 
         let (
-            section_type,
+            _section_type,
             sport_type,
             name,
             polyline_json,
@@ -562,10 +563,11 @@ impl PersistentRouteEngine {
             None => return, // Section not found
         };
 
-        // Only auto sections are cached in memory
-        if section_type != "auto" {
-            return;
-        }
+        // Both auto and custom sections are cached in memory now: the in-memory
+        // matcher (index_new_activity) scans get_sections(), so a custom section
+        // must be there for a new activity to join it. save_sections skips
+        // user-defined rows, so caching custom here cannot round-trip into an
+        // 'auto' re-insert.
 
         // Get activity IDs from junction table (deduplicated)
         let activity_ids: Vec<String> = {
@@ -1304,8 +1306,16 @@ impl PersistentRouteEngine {
         let mut junction_stmt = tx
             .prepare("INSERT INTO section_activities (section_id, activity_id, direction, start_index, end_index, distance_meters, lap_time, lap_pace) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")?;
 
-        // Sort sections by sport type and activity count for consistent numbering
-        let mut sorted_sections: Vec<&FrequentSection> = self.sections.iter().collect();
+        // Persist only the auto (non-user-defined) catalogue. Custom and accepted
+        // sections are durable rows the wipe above spares and are managed by their
+        // own CRUD paths; since they now also live in the in-memory `self.sections`
+        // (so the matcher and get_sections() see them), they must be filtered out
+        // here or they would be re-inserted under 'auto' — a UNIQUE-id collision.
+        let mut sorted_sections: Vec<&FrequentSection> = self
+            .sections
+            .iter()
+            .filter(|s| !s.is_user_defined)
+            .collect();
         sorted_sections.sort_by(|a, b| {
             a.sport_type
                 .cmp(&b.sport_type)

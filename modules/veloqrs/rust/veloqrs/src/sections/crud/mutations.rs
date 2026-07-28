@@ -120,6 +120,11 @@ impl PersistentRouteEngine {
         // with proper portion details (direction, indices, distance)
         let _ = self.match_activities_to_section(&id, &params.polyline, &params.sport_type);
 
+        // Cache the new custom section in memory so the in-memory matcher
+        // (index_new_activity) can add future activities to it, and so
+        // get_sections() reflects it without a reload.
+        self.refresh_section_in_memory(&id);
+
         // Refresh the materialized activity_indicators table so feed cards
         // pick up section_pr / section_trend chips for the new section without
         // requiring an app restart.
