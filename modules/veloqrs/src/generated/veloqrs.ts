@@ -3514,6 +3514,80 @@ const FfiConverterTypeFfiMuscleVolume = (() => {
 })();
 
 /**
+ * A named corridor: a durable user name keyed to ground, with its current
+ * resolution onto the visible catalogue. `section_id` is None while the
+ * name is dormant (no visible section covers its ground).
+ */
+export type FfiNamedCorridor = {
+  intentId: string;
+  name: string;
+  encodedFootprint: ArrayBuffer;
+  sportType?: string;
+  createdAt: string;
+  sectionId?: string;
+  coverage: /*f64*/ number;
+  primary: boolean;
+};
+
+/**
+ * Generated factory for {@link FfiNamedCorridor} record objects.
+ */
+export const FfiNamedCorridor = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiNamedCorridor, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiNamedCorridor>,
+  });
+})();
+
+const FfiConverterTypeFfiNamedCorridor = (() => {
+  type TypeName = FfiNamedCorridor;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        intentId: FfiConverterString.read(from),
+        name: FfiConverterString.read(from),
+        encodedFootprint: FfiConverterArrayBuffer.read(from),
+        sportType: FfiConverterOptionalString.read(from),
+        createdAt: FfiConverterString.read(from),
+        sectionId: FfiConverterOptionalString.read(from),
+        coverage: FfiConverterFloat64.read(from),
+        primary: FfiConverterBool.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterString.write(value.intentId, into);
+      FfiConverterString.write(value.name, into);
+      FfiConverterArrayBuffer.write(value.encodedFootprint, into);
+      FfiConverterOptionalString.write(value.sportType, into);
+      FfiConverterString.write(value.createdAt, into);
+      FfiConverterOptionalString.write(value.sectionId, into);
+      FfiConverterFloat64.write(value.coverage, into);
+      FfiConverterBool.write(value.primary, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.intentId) +
+        FfiConverterString.allocationSize(value.name) +
+        FfiConverterArrayBuffer.allocationSize(value.encodedFootprint) +
+        FfiConverterOptionalString.allocationSize(value.sportType) +
+        FfiConverterString.allocationSize(value.createdAt) +
+        FfiConverterOptionalString.allocationSize(value.sectionId) +
+        FfiConverterFloat64.allocationSize(value.coverage) +
+        FfiConverterBool.allocationSize(value.primary)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * Nearby section summary with distance info and polyline for map rendering.
  */
 export type FfiNearbySectionSummary = {
@@ -9978,6 +10052,7 @@ export interface SectionManagerLike {
    * Candidates have >30% polyline overlap or centers within 300m with similar distances.
    */
   getMergeCandidates(sectionId: string) /*throws*/ : Array<FfiMergeCandidate>;
+  getNamedCorridors() /*throws*/ : Array<FfiNamedCorridor>;
   /**
    * Get sections near a given section within a radius.
    * Returns summaries with polyline coordinates for map overlay rendering.
@@ -10081,6 +10156,7 @@ export interface SectionManagerLike {
     activityId: string,
     sectionId: string,
   ) /*throws*/ : boolean;
+  removeNamedCorridor(intentId: string) /*throws*/ : void;
   resetBounds(sectionId: string) /*throws*/ : void;
   resetReference(sectionId: string) /*throws*/ : void;
   setName(sectionId: string, name: string) /*throws*/ : void;
@@ -10785,6 +10861,23 @@ export class SectionManager
     );
   }
 
+  getNamedCorridors(): Array<FfiNamedCorridor> /*throws*/ {
+    return FfiConverterArrayTypeFfiNamedCorridor.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_named_corridors(
+            uniffiTypeSectionManagerObjectFactory.clonePointer(this),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
   /**
    * Get sections near a given section within a radius.
    * Returns summaries with polyline coordinates for map overlay rendering.
@@ -11245,6 +11338,22 @@ export class SectionManager
         },
         /*liftString:*/ FfiConverterString.lift,
       ),
+    );
+  }
+
+  removeNamedCorridor(intentId: string): void /*throws*/ {
+    uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+        FfiConverterTypeVeloqError,
+      ),
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_remove_named_corridor(
+          uniffiTypeSectionManagerObjectFactory.clonePointer(this),
+          FfiConverterString.lower(intentId),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
     );
   }
 
@@ -13408,6 +13517,11 @@ const FfiConverterArrayTypeFfiMuscleVolume = new FfiConverterArray(
   FfiConverterTypeFfiMuscleVolume,
 );
 
+// FfiConverter for Array<FfiNamedCorridor>
+const FfiConverterArrayTypeFfiNamedCorridor = new FfiConverterArray(
+  FfiConverterTypeFfiNamedCorridor,
+);
+
 // FfiConverter for Array<FfiNearbySectionSummary>
 const FfiConverterArrayTypeFfiNearbySectionSummary = new FfiConverterArray(
   FfiConverterTypeFfiNearbySectionSummary,
@@ -14554,6 +14668,14 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_named_corridors() !==
+    6713
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_sectionmanager_get_named_corridors",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_nearby_sections() !==
     8280
   ) {
@@ -14719,6 +14841,14 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_sectionmanager_rematch_activity_to_section",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_remove_named_corridor() !==
+    55247
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_sectionmanager_remove_named_corridor",
     );
   }
   if (
@@ -15205,6 +15335,7 @@ export default Object.freeze({
     FfiConverterTypeFfiMuscleGroup,
     FfiConverterTypeFfiMuscleGroupDetail,
     FfiConverterTypeFfiMuscleVolume,
+    FfiConverterTypeFfiNamedCorridor,
     FfiConverterTypeFfiNearbySectionSummary,
     FfiConverterTypeFfiPaceTrend,
     FfiConverterTypeFfiPatternSection,

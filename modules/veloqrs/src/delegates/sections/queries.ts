@@ -15,6 +15,7 @@ import type {
   FfiEfficiencyTrend,
   FfiFrequentSection,
   FfiGpsPoint,
+  FfiNamedCorridor,
   FfiRankedSection,
   FfiSection,
   FfiSectionPerformanceResult,
@@ -83,6 +84,15 @@ export function getSectionSummaries(
   return host.timed('getSectionSummaries', () =>
     host.engine.sections().getSummariesWithCount(sportType)
   );
+}
+
+/**
+ * Every named corridor with its current resolution, dormant ones included
+ * (sectionId is undefined while no visible section covers the named ground).
+ */
+export function getNamedCorridors(host: DelegateHost): FfiNamedCorridor[] {
+  if (!host.ready) return [];
+  return host.timed('getNamedCorridors', () => host.engine.sections().getNamedCorridors());
 }
 
 export type SectionSortKey = 'visits' | 'distance' | 'name';

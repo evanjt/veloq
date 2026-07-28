@@ -711,6 +711,10 @@ interface NativeModuleInterface {
     sectionId: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_named_corridors(
+    ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_nearby_sections(
     ptr: bigint,
     sectionId: Uint8Array,
@@ -823,6 +827,11 @@ interface NativeModuleInterface {
     sectionId: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): number;
+  ubrn_uniffi_veloqrs_fn_method_sectionmanager_remove_named_corridor(
+    ptr: bigint,
+    intentId: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_reset_bounds(
     ptr: bigint,
     sectionId: Uint8Array,
@@ -1238,6 +1247,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_for_activity(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_indicators_for_activity(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_merge_candidates(): number;
+  ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_named_corridors(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_nearby_sections(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_performances(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_performances_batch(): number;
@@ -1259,6 +1269,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_recalculate_polyline(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_recompute_indicators(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_rematch_activity_to_section(): number;
+  ubrn_uniffi_veloqrs_checksum_method_sectionmanager_remove_named_corridor(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_reset_bounds(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_reset_reference(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_set_name(): number;

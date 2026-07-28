@@ -15,6 +15,7 @@ import type {
   FfiGpsPoint,
   FfiRouteGroup,
   FfiFrequentSection,
+  FfiNamedCorridor,
   FfiSection,
   FfiSectionPerformanceResult,
   FfiCalendarSummary,
@@ -357,6 +358,11 @@ class RouteEngineClient implements DelegateHost {
 
   setSectionName = (sectionId: string, name: string): boolean =>
     sectionDelegates.setSectionName(this, sectionId, name);
+
+  getNamedCorridors = (): FfiNamedCorridor[] => sectionDelegates.getNamedCorridors(this);
+
+  removeNamedCorridor = (intentId: string): boolean =>
+    sectionDelegates.removeNamedCorridor(this, intentId);
 
   setNameTranslations = (routeWord: string, sectionWord: string): void =>
     settingsDelegates.setNameTranslations(this, routeWord, sectionWord);
@@ -911,8 +917,7 @@ class RouteEngineClient implements DelegateHost {
   mergeSections = (primaryId: string, secondaryId: string): string | null =>
     sectionDelegates.mergeSections(this, primaryId, secondaryId);
 
-  acceptSection = (sectionId: string): boolean =>
-    sectionDelegates.acceptSection(this, sectionId);
+  acceptSection = (sectionId: string): boolean => sectionDelegates.acceptSection(this, sectionId);
 
   acceptAllSections = (): number => sectionDelegates.acceptAllSections(this);
 
@@ -989,7 +994,9 @@ class RouteEngineClient implements DelegateHost {
   }
 
   notifyAll(...events: string[]): void {
-    events.forEach((event) => this.triggerRefresh(event as 'groups' | 'sections' | 'activities' | 'syncReset'));
+    events.forEach((event) =>
+      this.triggerRefresh(event as 'groups' | 'sections' | 'activities' | 'syncReset')
+    );
   }
 }
 

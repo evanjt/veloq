@@ -452,6 +452,8 @@ RustBuffer uniffi_veloqrs_fn_method_sectionmanager_get_indicators_for_activity(
 RustBuffer uniffi_veloqrs_fn_method_sectionmanager_get_merge_candidates(
     /*handle*/ uint64_t ptr, RustBuffer section_id,
     RustCallStatus *uniffi_out_err);
+RustBuffer uniffi_veloqrs_fn_method_sectionmanager_get_named_corridors(
+    /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_sectionmanager_get_nearby_sections(
     /*handle*/ uint64_t ptr, RustBuffer section_id, double radius_meters,
     RustCallStatus *uniffi_out_err);
@@ -511,6 +513,9 @@ void uniffi_veloqrs_fn_method_sectionmanager_recompute_indicators(
     /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
 int8_t uniffi_veloqrs_fn_method_sectionmanager_rematch_activity_to_section(
     /*handle*/ uint64_t ptr, RustBuffer activity_id, RustBuffer section_id,
+    RustCallStatus *uniffi_out_err);
+void uniffi_veloqrs_fn_method_sectionmanager_remove_named_corridor(
+    /*handle*/ uint64_t ptr, RustBuffer intent_id,
     RustCallStatus *uniffi_out_err);
 void uniffi_veloqrs_fn_method_sectionmanager_reset_bounds(
     /*handle*/ uint64_t ptr, RustBuffer section_id,
@@ -918,6 +923,7 @@ uint16_t uniffi_veloqrs_checksum_method_sectionmanager_get_for_activity();
 uint16_t
 uniffi_veloqrs_checksum_method_sectionmanager_get_indicators_for_activity();
 uint16_t uniffi_veloqrs_checksum_method_sectionmanager_get_merge_candidates();
+uint16_t uniffi_veloqrs_checksum_method_sectionmanager_get_named_corridors();
 uint16_t uniffi_veloqrs_checksum_method_sectionmanager_get_nearby_sections();
 uint16_t uniffi_veloqrs_checksum_method_sectionmanager_get_performances();
 uint16_t uniffi_veloqrs_checksum_method_sectionmanager_get_performances_batch();
@@ -942,6 +948,7 @@ uint16_t uniffi_veloqrs_checksum_method_sectionmanager_recalculate_polyline();
 uint16_t uniffi_veloqrs_checksum_method_sectionmanager_recompute_indicators();
 uint16_t
 uniffi_veloqrs_checksum_method_sectionmanager_rematch_activity_to_section();
+uint16_t uniffi_veloqrs_checksum_method_sectionmanager_remove_named_corridor();
 uint16_t uniffi_veloqrs_checksum_method_sectionmanager_reset_bounds();
 uint16_t uniffi_veloqrs_checksum_method_sectionmanager_reset_reference();
 uint16_t uniffi_veloqrs_checksum_method_sectionmanager_set_name();
@@ -3937,6 +3944,18 @@ NativeVeloqrs::NativeVeloqrs(
                 ->cpp_uniffi_veloqrs_fn_method_sectionmanager_get_merge_candidates(
                     rt, thisVal, args, count);
           });
+  props["ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_named_corridors"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_fn_method_"
+                                        "sectionmanager_get_named_corridors"),
+          1,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_fn_method_sectionmanager_get_named_corridors(
+                    rt, thisVal, args, count);
+          });
   props["ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_nearby_sections"] =
       jsi::Function::createFromHostFunction(
           rt,
@@ -4196,6 +4215,18 @@ NativeVeloqrs::NativeVeloqrs(
             ->cpp_uniffi_veloqrs_fn_method_sectionmanager_rematch_activity_to_section(
                 rt, thisVal, args, count);
       });
+  props["ubrn_uniffi_veloqrs_fn_method_sectionmanager_remove_named_corridor"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_fn_method_"
+                                        "sectionmanager_remove_named_corridor"),
+          2,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_fn_method_sectionmanager_remove_named_corridor(
+                    rt, thisVal, args, count);
+          });
   props["ubrn_uniffi_veloqrs_fn_method_sectionmanager_reset_bounds"] =
       jsi::Function::createFromHostFunction(
           rt,
@@ -6386,6 +6417,18 @@ NativeVeloqrs::NativeVeloqrs(
             ->cpp_uniffi_veloqrs_checksum_method_sectionmanager_get_merge_candidates(
                 rt, thisVal, args, count);
       });
+  props["ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_named_"
+        "corridors"] = jsi::Function::createFromHostFunction(
+      rt,
+      jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_checksum_method_"
+                                    "sectionmanager_get_named_corridors"),
+      0,
+      [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+             const jsi::Value *args, size_t count) -> jsi::Value {
+        return this
+            ->cpp_uniffi_veloqrs_checksum_method_sectionmanager_get_named_corridors(
+                rt, thisVal, args, count);
+      });
   props["ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_nearby_"
         "sections"] = jsi::Function::createFromHostFunction(
       rt,
@@ -6639,6 +6682,18 @@ NativeVeloqrs::NativeVeloqrs(
              const jsi::Value *args, size_t count) -> jsi::Value {
         return this
             ->cpp_uniffi_veloqrs_checksum_method_sectionmanager_rematch_activity_to_section(
+                rt, thisVal, args, count);
+      });
+  props["ubrn_uniffi_veloqrs_checksum_method_sectionmanager_remove_named_"
+        "corridor"] = jsi::Function::createFromHostFunction(
+      rt,
+      jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_checksum_method_"
+                                    "sectionmanager_remove_named_corridor"),
+      0,
+      [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+             const jsi::Value *args, size_t count) -> jsi::Value {
+        return this
+            ->cpp_uniffi_veloqrs_checksum_method_sectionmanager_remove_named_corridor(
                 rt, thisVal, args, count);
       });
   props["ubrn_uniffi_veloqrs_checksum_method_sectionmanager_reset_bounds"] =
@@ -9837,6 +9892,21 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_sectionmanager_get_merge_candidates(
   return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
 }
 jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_sectionmanager_get_named_corridors(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value = uniffi_veloqrs_fn_method_sectionmanager_get_named_corridors(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
+}
+jsi::Value
 NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_sectionmanager_get_nearby_sections(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
     size_t count) {
@@ -10182,6 +10252,22 @@ jsi::Value NativeVeloqrs::
                                                         args[count - 1]);
 
   return uniffi_jsi::Bridging<int8_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeVeloqrs::
+    cpp_uniffi_veloqrs_fn_method_sectionmanager_remove_named_corridor(
+        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+        size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  uniffi_veloqrs_fn_method_sectionmanager_remove_named_corridor(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
+      &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return jsi::Value::undefined();
 }
 jsi::Value
 NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_sectionmanager_reset_bounds(
@@ -12144,6 +12230,15 @@ jsi::Value NativeVeloqrs::
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
 jsi::Value NativeVeloqrs::
+    cpp_uniffi_veloqrs_checksum_method_sectionmanager_get_named_corridors(
+        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+        size_t count) {
+  auto value =
+      uniffi_veloqrs_checksum_method_sectionmanager_get_named_corridors();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeVeloqrs::
     cpp_uniffi_veloqrs_checksum_method_sectionmanager_get_nearby_sections(
         jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
         size_t count) {
@@ -12322,6 +12417,15 @@ jsi::Value NativeVeloqrs::
         size_t count) {
   auto value =
       uniffi_veloqrs_checksum_method_sectionmanager_rematch_activity_to_section();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeVeloqrs::
+    cpp_uniffi_veloqrs_checksum_method_sectionmanager_remove_named_corridor(
+        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+        size_t count) {
+  auto value =
+      uniffi_veloqrs_checksum_method_sectionmanager_remove_named_corridor();
 
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
