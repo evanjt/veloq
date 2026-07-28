@@ -477,11 +477,9 @@ fn delete_corridor_reemerges_today() {
     );
 }
 
-/// Target gate (invariant 6 / B4 intent records): a deleted corridor must not
-/// re-emerge on resync. Red today. `delete_section` is a plain row delete with
-/// no intent record, so the next detect re-creates the corridor as a fresh
-/// visible section. Green when deletion becomes an honoured suppression the
-/// emitter respects (like disable, but tombstoned).
+/// A deleted corridor must not re-emerge on resync (invariant 6).
+/// `delete_section` records a durable `section_intents` row before the row
+/// delete, and the emitter suppresses that ground on every later detect.
 #[test]
 fn deleted_corridor_stays_deleted() {
     let corpus = corpus();
