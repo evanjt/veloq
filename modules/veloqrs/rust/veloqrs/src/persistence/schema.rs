@@ -107,6 +107,13 @@ impl PersistentRouteEngine {
             Self::migrate_route_group_ids_to_blob(conn)?;
         }
 
+        // Phase 3 (B4): the visit_count denormalisation column and its recompute
+        // triggers live here rather than in 013.sql because ADD COLUMN is not
+        // idempotent under the raw repeated apply that migration_013_is_rerunnable
+        // does. The hook is pragma-guarded and self-healing, so it is safe to run
+        // unconditionally after every migration pass.
+        Self::ensure_visit_count_denormalisation(conn)?;
+
         // Post-migration data population for pre-0.2.2 databases.
         // Users on 0.2.2+ (schema_version >= 7) skip this block entirely.
         if current_version < 7 {
@@ -222,6 +229,59 @@ impl PersistentRouteEngine {
             converted,
             rows.len()
         );
+        Ok(())
+    }
+
+    /// Add the Phase 3 (B4) visit_count column, backfill it once, and create the
+    /// recompute triggers. Idempotent and self-healing: the column is added only
+    /// when absent (SQLite has no ADD COLUMN IF NOT EXISTS), the backfill runs only
+    /// on that first add (a fresh column is all-zero), and the triggers use
+    /// CREATE ... IF NOT EXISTS. get_section_summaries then reads visit_count
+    /// straight off the row instead of a per-open GROUP BY over the junction; the
+    /// triggers keep it correct on every DIRECT section_activities write. The one
+    /// write they cannot see is the activity_id foreign-key cascade
+    /// (recursive_triggers is off), so remove_activity recomputes the affected
+    /// sections itself.
+    fn ensure_visit_count_denormalisation(conn: &Connection) -> SqlResult<()> {
+        let has_column = conn
+            .prepare("SELECT visit_count FROM sections LIMIT 0")
+            .is_ok();
+        if !has_column {
+            conn.execute(
+                "ALTER TABLE sections ADD COLUMN visit_count INTEGER NOT NULL DEFAULT 0",
+                [],
+            )?;
+            conn.execute(
+                "UPDATE sections SET visit_count = (
+                    SELECT COUNT(*) FROM section_activities sa
+                    WHERE sa.section_id = sections.id AND sa.excluded = 0
+                )",
+                [],
+            )?;
+        }
+        conn.execute_batch(
+            "CREATE TRIGGER IF NOT EXISTS section_activities_visit_count_ai
+             AFTER INSERT ON section_activities BEGIN
+                 UPDATE sections SET visit_count = (
+                     SELECT COUNT(*) FROM section_activities
+                     WHERE section_id = NEW.section_id AND excluded = 0
+                 ) WHERE id = NEW.section_id;
+             END;
+             CREATE TRIGGER IF NOT EXISTS section_activities_visit_count_ad
+             AFTER DELETE ON section_activities BEGIN
+                 UPDATE sections SET visit_count = (
+                     SELECT COUNT(*) FROM section_activities
+                     WHERE section_id = OLD.section_id AND excluded = 0
+                 ) WHERE id = OLD.section_id;
+             END;
+             CREATE TRIGGER IF NOT EXISTS section_activities_visit_count_au
+             AFTER UPDATE OF excluded ON section_activities BEGIN
+                 UPDATE sections SET visit_count = (
+                     SELECT COUNT(*) FROM section_activities
+                     WHERE section_id = NEW.section_id AND excluded = 0
+                 ) WHERE id = NEW.section_id;
+             END;",
+        )?;
         Ok(())
     }
 

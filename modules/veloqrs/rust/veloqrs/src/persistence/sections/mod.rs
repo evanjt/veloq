@@ -685,23 +685,9 @@ impl PersistentRouteEngine {
     /// Queries SQLite and extracts only summary fields, skipping heavy data like
     /// polylines, activityTraces, and pointDensity.
     pub fn get_section_summaries(&self) -> Vec<SectionSummary> {
-        // Get activity counts per section from junction table
-        let activity_counts: HashMap<String, u32> = {
-            let mut stmt = match self.db.prepare(
-                "SELECT sa.section_id, COUNT(*) FROM section_activities sa
-                 WHERE sa.excluded = 0
-                 GROUP BY sa.section_id",
-            ) {
-                Ok(s) => s,
-                Err(_) => return Vec::new(),
-            };
-            stmt.query_map([], |row| {
-                Ok((row.get::<_, String>(0)?, row.get::<_, u32>(1)?))
-            })
-            .ok()
-            .map(|iter| iter.filter_map(|r| r.ok()).collect())
-            .unwrap_or_default()
-        };
+        // visit_count is a denormalised column on sections now (kept correct by
+        // the section_activities recompute triggers in migration 013), so it comes
+        // straight off the main row below — no per-open GROUP BY over the junction.
 
         // Get distinct sport types per section from activities
         let section_sport_types: HashMap<String, Vec<String>> = {
@@ -733,7 +719,7 @@ impl PersistentRouteEngine {
             "SELECT id, name, sport_type, distance_meters, confidence, scale,
                     bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng,
                     section_type, representative_activity_id, created_at,
-                    is_user_defined, disabled, superseded_by
+                    is_user_defined, disabled, superseded_by, visit_count
              FROM sections
              WHERE disabled = 0 AND superseded_by IS NULL",
         ) {
@@ -769,7 +755,7 @@ impl PersistentRouteEngine {
                     _ => None,
                 };
 
-                let activity_count = activity_counts.get(&id).copied().unwrap_or(0);
+                let visit_count: u32 = row.get::<_, Option<u32>>(16)?.unwrap_or(0);
                 let sport_types = section_sport_types.get(&id).cloned().unwrap_or_default();
 
                 Ok(SectionSummary {
@@ -780,8 +766,8 @@ impl PersistentRouteEngine {
                     name: row.get(1)?,
                     sport_type: row.get(2)?,
                     distance_meters: row.get(3)?,
-                    visit_count: activity_count,
-                    activity_count,
+                    visit_count,
+                    activity_count: visit_count,
                     representative_activity_id: row.get(11)?,
                     confidence: row.get::<_, Option<f64>>(4)?.unwrap_or(0.0),
                     scale: row.get(5)?,
@@ -1221,7 +1207,10 @@ impl PersistentRouteEngine {
         // sections — and disabled ones, whose row is retained so enable can
         // restore it with members intact; the disabled corridor is separately
         // suppressed via section_intents, so sparing the row cannot resurrect it).
-        tx.execute("DELETE FROM section_activities WHERE section_id IN (SELECT id FROM sections WHERE section_type = 'auto' AND original_polyline_json IS NULL AND is_user_defined = 0 AND disabled = 0)", [])?;
+        // Deleting the section cascades its section_activities rows (FK ON DELETE
+        // CASCADE), so this needs no separate junction delete. The cascade also
+        // does NOT fire the visit_count recompute triggers (recursive_triggers is
+        // off), so a full re-detect pays no per-row trigger cost on the wipe.
         tx.execute(
             "DELETE FROM sections WHERE section_type = 'auto' AND original_polyline_json IS NULL AND is_user_defined = 0 AND disabled = 0",
             [],

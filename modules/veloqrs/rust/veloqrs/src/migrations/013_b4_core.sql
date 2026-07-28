@@ -67,6 +67,13 @@ CREATE INDEX IF NOT EXISTS idx_section_activities_activity
 CREATE INDEX IF NOT EXISTS idx_section_activities_perf
     ON section_activities(section_id, excluded, lap_time);
 
+-- The Phase 3 visit_count column + its recompute triggers are added by the
+-- post-migration Rust hook `ensure_visit_count_denormalisation` rather than here:
+-- SQLite has no `ALTER TABLE ... ADD COLUMN IF NOT EXISTS`, and this file is run
+-- verbatim and repeatedly by migration_013_is_rerunnable, so a bare ADD COLUMN
+-- would fail the second pass. The hook is pragma-guarded and idempotent, and it
+-- runs after the junction rebuild so the triggers bind the rebuilt table.
+
 -- Phase 2: durable suppression records for user-disabled and user-deleted
 -- corridors (invariant 6: evidence is permanent, sections are views; a
 -- user-hidden or user-removed corridor must NOT re-emerge from detection, ever,
