@@ -90,6 +90,10 @@ name = "named_corridors"
 required-features = ["synthetic"]
 
 [[test]]
+name = "registry_adoption"
+required-features = ["synthetic"]
+
+[[test]]
 name = "lifecycle_scenarios"
 required-features = ["synthetic"]
 
