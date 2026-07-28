@@ -665,18 +665,18 @@ pub struct PersistentRouteEngine {
     /// Path for heatmap tile output (set from JS at init)
     pub(crate) heatmap_tiles_path: Option<String>,
 
-    /// Single-entry cache for get_section_performances (avoids redundant computation
-    /// when buckets + calendar both call it for the same section on detail load)
-    perf_cache_section_id: Option<String>,
-    perf_cache_result: Option<SectionPerformanceResult>,
+    /// Small LRU cache for get_section_performances, keyed by section id (+ sport
+    /// filter). A section detail load calls it twice for the same section (buckets
+    /// + calendar); navigating between a handful of sections keeps them all warm
+    /// where the old single entry evicted on every hop.
+    perf_cache: LruCache<String, SectionPerformanceResult>,
 }
 
 impl PersistentRouteEngine {
-    /// Invalidate the single-entry performance cache.
+    /// Invalidate the performance cache.
     /// Call after any mutation that affects sections, time streams, or activity metrics.
     fn invalidate_perf_cache(&mut self) {
-        self.perf_cache_section_id = None;
-        self.perf_cache_result = None;
+        self.perf_cache.clear();
     }
 
     /// Drop the Unified evidence cache (and its folded-id shadow) so the next
@@ -731,8 +731,7 @@ impl PersistentRouteEngine {
             match_config: MatchConfig::default(),
             section_config: SectionConfig::default(),
             heatmap_tiles_path: None,
-            perf_cache_section_id: None,
-            perf_cache_result: None,
+            perf_cache: LruCache::new(std::num::NonZeroUsize::new(8).unwrap()),
         })
     }
 

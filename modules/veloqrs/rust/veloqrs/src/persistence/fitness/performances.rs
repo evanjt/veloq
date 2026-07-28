@@ -173,15 +173,14 @@ impl PersistentRouteEngine {
             Some(st) => format!("{}:{}", section_id, st),
             None => section_id.to_string(),
         };
-        if self.perf_cache_section_id.as_deref() == Some(&cache_key) {
-            if let Some(ref cached) = self.perf_cache_result {
-                log::info!(
-                    "[PERF] get_section_performances({}) -> cached in {:?}",
-                    cache_key,
-                    start.elapsed()
-                );
-                return cached.clone();
-            }
+        if let Some(cached) = self.perf_cache.get(&cache_key) {
+            let cached = cached.clone();
+            log::info!(
+                "[PERF] get_section_performances({}) -> cached in {:?}",
+                cache_key,
+                start.elapsed()
+            );
+            return cached;
         }
 
         // Find the section (in-memory for auto, fallback to DB for custom)
@@ -624,8 +623,7 @@ impl PersistentRouteEngine {
         );
 
         // Cache for reuse by buckets/calendar (includes sport type filter in key)
-        self.perf_cache_section_id = Some(cache_key);
-        self.perf_cache_result = Some(result.clone());
+        self.perf_cache.put(cache_key, result.clone());
 
         result
     }
