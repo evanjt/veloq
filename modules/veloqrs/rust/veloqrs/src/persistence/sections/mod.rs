@@ -3,10 +3,13 @@
 mod detection;
 mod identity;
 mod merging;
+mod named;
 mod naming;
 mod ranking;
 
 pub(crate) use identity::SectionIdentity;
+pub(crate) use named::looks_generated;
+pub use named::{NamedCorridor, NamedOverlay};
 
 // Re-export the Tier 2 upgrade-path backfill so `persistent_engine_ffi::init`
 // can trigger it without reaching through private module paths. The sync
@@ -733,7 +736,7 @@ impl PersistentRouteEngine {
             }
         };
 
-        let results: Vec<SectionSummary> = stmt
+        let mut results: Vec<SectionSummary> = stmt
             .query_map([], |row| {
                 let id: String = row.get(0)?;
 
@@ -794,6 +797,10 @@ impl PersistentRouteEngine {
             })
             .unwrap_or_default();
 
+        for summary in &mut results {
+            self.apply_named_overlay_to_summary(summary);
+        }
+
         // Log section type breakdown for debugging
         let auto_count = results
             .iter()
@@ -835,17 +842,23 @@ impl PersistentRouteEngine {
     /// Delegates to crud.rs get_section() which handles both auto and custom sections
     /// reliably, then loads activity portions from the junction table.
     pub fn get_section_by_id(&mut self, section_id: &str) -> Option<FrequentSection> {
-        // Check LRU cache first
-        if let Some(section) = self.section_cache.get(&section_id.to_string()) {
+        // Cached entries bake the named-corridor overlay of their read; drop
+        // them whenever the overlay had to recompute.
+        // The LRU stores RAW rows; the corridor-name overlay is applied on
+        // the way out of every call, so an overlay change can never leave a
+        // baked stale name behind in the cache.
+        let cached = self.section_cache.get(&section_id.to_string()).cloned();
+        if let Some(mut section) = cached {
             log::debug!(
                 "tracematch: [PersistentEngine] get_section_by_id cache hit for {}",
                 section_id
             );
-            return Some(section.clone());
+            self.apply_named_overlay_to_frequent(&mut section);
+            return Some(section);
         }
 
-        // Use crud.rs get_section() which is proven to work for both auto and custom sections
-        let section = match self.get_section(section_id) {
+        // Use crud.rs get_section_raw() which is proven to work for both auto and custom sections
+        let section = match self.get_section_raw(section_id) {
             Some(s) => s,
             None => {
                 log::info!(
@@ -885,7 +898,7 @@ impl PersistentRouteEngine {
             consensus_state: None,
         };
 
-        // Cache for future access
+        // Cache the raw row for future access; overlay applies per read.
         self.section_cache
             .put(section_id.to_string(), frequent.clone());
         log::info!(
@@ -894,7 +907,9 @@ impl PersistentRouteEngine {
             frequent.is_user_defined
         );
 
-        Some(frequent)
+        let mut out = frequent;
+        self.apply_named_overlay_to_frequent(&mut out);
+        Some(out)
     }
 
     /// Load activity portions for a section from the junction table.

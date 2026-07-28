@@ -1,6 +1,6 @@
 //! Section name persistence and migration helpers.
 
-use rusqlite::{Result as SqlResult, params};
+use rusqlite::{OptionalExtension, Result as SqlResult, params};
 use std::collections::HashMap;
 
 use super::super::{PersistentRouteEngine, get_section_word};
@@ -217,48 +217,70 @@ impl PersistentRouteEngine {
     // Section Names
     // ========================================================================
 
-    /// Set the name for a section.
-    /// Pass None to clear the name.
+    /// Set the name for a section. Pass None to clear the name.
+    ///
+    /// User-owned rows (custom, accepted) keep their name on the row: they are
+    /// durable already. Naming an AUTO section records a durable named intent
+    /// instead — auto rows are wiped and re-cut by detection, so a row name
+    /// would die with the next apply. The routing decision reads the DB row,
+    /// not the in-memory copy, which can lag it transiently.
     pub fn set_section_name(&mut self, section_id: &str, name: Option<&str>) -> SqlResult<()> {
+        let row: Option<(String, bool)> = self
+            .db
+            .query_row(
+                "SELECT section_type, is_user_defined FROM sections WHERE id = ?",
+                params![section_id],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .optional()?;
+        let Some((section_type, is_user_defined)) = row else {
+            return Ok(());
+        };
+
+        if is_user_defined || section_type == "custom" {
+            self.db.execute(
+                "UPDATE sections SET name = ? WHERE id = ?",
+                params![name, section_id],
+            )?;
+            if let Some(section) = self.sections.iter_mut().find(|s| s.id == section_id) {
+                section.name = name.map(str::to_string);
+            }
+            return Ok(());
+        }
+
         match name {
-            Some(n) => {
-                self.db.execute(
-                    "UPDATE sections SET name = ? WHERE id = ?",
-                    params![n, section_id],
-                )?;
-                // Update in-memory section
-                if let Some(section) = self.sections.iter_mut().find(|s| s.id == section_id) {
-                    section.name = Some(n.to_string());
-                }
-            }
-            None => {
-                self.db.execute(
-                    "UPDATE sections SET name = NULL WHERE id = ?",
-                    params![section_id],
-                )?;
-                // Update in-memory section
-                if let Some(section) = self.sections.iter_mut().find(|s| s.id == section_id) {
-                    section.name = None;
-                }
-            }
+            Some(n) => self.upsert_named_intent_for(section_id, n)?,
+            None => self.delete_named_intent_for(section_id)?,
         }
         Ok(())
     }
 
-    /// Get the name for a section (if any).
+    /// Get the name for a section (if any), with corridor-name precedence:
+    /// a user-defined row keeps its own name, an auto row shows its resolved
+    /// corridor name over the generated one.
     pub fn get_section_name(&self, section_id: &str) -> Option<String> {
-        // Check in-memory sections first
-        self.sections
-            .iter()
-            .find(|s| s.id == section_id)
-            .and_then(|s| s.name.clone())
+        let section = self.sections.iter().find(|s| s.id == section_id)?;
+        if !section.is_user_defined {
+            if let Some(name) = self.named_overlay_name(section_id) {
+                return Some(name);
+            }
+        }
+        section.name.clone()
     }
 
-    /// Get all section names.
+    /// Get all section names, with the same corridor-name precedence as
+    /// `get_section_name`.
     pub fn get_all_section_names(&self) -> HashMap<String, String> {
         self.sections
             .iter()
-            .filter_map(|s| s.name.as_ref().map(|n| (s.id.clone(), n.clone())))
+            .filter_map(|s| {
+                let name = if s.is_user_defined {
+                    s.name.clone()
+                } else {
+                    self.named_overlay_name(&s.id).or_else(|| s.name.clone())
+                };
+                name.map(|n| (s.id.clone(), n))
+            })
             .collect()
     }
 }

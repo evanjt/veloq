@@ -453,10 +453,11 @@ impl PersistentRouteEngine {
     }
 
     /// Clear a section's suppression intent (on enable), so its corridor can be
-    /// detected again. Best-effort.
+    /// detected again. Best-effort. Kind-scoped so an enable can never take a
+    /// named intent with it.
     pub(crate) fn clear_section_intent(&self, section_id: &str) {
         if let Err(e) = self.db.execute(
-            "DELETE FROM section_intents WHERE id = ?",
+            "DELETE FROM section_intents WHERE id = ? AND kind IN ('disabled', 'deleted')",
             rusqlite::params![section_id],
         ) {
             log::warn!("tracematch: [clear_section_intent] {section_id}: {e}");
@@ -502,10 +503,15 @@ impl PersistentRouteEngine {
                 }
             }
         }
-        if let Ok(mut stmt) = self
-            .db
-            .prepare("SELECT id, polyline_json FROM section_intents")
-        {
+        // INVARIANT: suppression reads disabled/deleted rows ONLY. kind='named'
+        // rows share this table but are the opposite of suppression — a named
+        // corridor must keep detecting and evolving. Widening this query back to
+        // all kinds would make naming a corridor silently hide it
+        // (`naming_never_suppresses_corridor` is the regression gate).
+        if let Ok(mut stmt) = self.db.prepare(
+            "SELECT id, polyline_json FROM section_intents
+             WHERE kind IN ('disabled', 'deleted')",
+        ) {
             let rows = stmt.query_map([], |row| {
                 Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
             });

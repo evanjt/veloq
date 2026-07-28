@@ -87,6 +87,7 @@ impl PersistentRouteEngine {
                 .map(|mut s| {
                     // Count total traversals (laps), not unique activities
                     s.visit_count = self.get_section_visit_count(&s.id);
+                    self.apply_named_overlay_to_section(&mut s);
                     s
                 })
                 .collect(),
@@ -311,8 +312,17 @@ impl PersistentRouteEngine {
             .unwrap_or_default()
     }
 
-    /// Get a single section by ID (includes disabled/superseded - needed for detail/restore).
+    /// Get a single section by ID with the corridor-name overlay applied
+    /// (includes disabled/superseded - needed for detail/restore).
     pub fn get_section(&self, section_id: &str) -> Option<Section> {
+        let mut section = self.get_section_raw(section_id)?;
+        self.apply_named_overlay_to_section(&mut section);
+        Some(section)
+    }
+
+    /// The raw DB row without the overlay — what caches must store, so a
+    /// later overlay change never serves a baked stale name.
+    pub(crate) fn get_section_raw(&self, section_id: &str) -> Option<Section> {
         let query = format!(
             "SELECT {} FROM sections WHERE id = ?",
             Self::SECTION_COLUMNS

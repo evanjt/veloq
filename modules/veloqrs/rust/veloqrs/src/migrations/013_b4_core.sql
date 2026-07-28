@@ -86,9 +86,18 @@ CREATE INDEX IF NOT EXISTS idx_section_activities_perf
 -- a re-enableable hide from a permanent delete; `id` is the section id at intent
 -- time, kept for dedup and so enable can clear its own row. Survives restart
 -- because it is read fresh from the DB on every detect, needing no in-memory state.
+--
+-- kind = 'named' rows are the third intent class: a corridor name is permanent
+-- user data keyed to ground, not to a catalogue row. The footprint records what
+-- the user named; the name is resolved at read time onto whichever visible
+-- section best covers it. Named rows carry a minted `ni_` id (never a section
+-- id), NEVER suppress detection (the emitter reads suppression grounds from
+-- disabled/deleted rows only), and outlive every catalogue rebuild.
 CREATE TABLE IF NOT EXISTS section_intents (
     id TEXT PRIMARY KEY,
-    kind TEXT NOT NULL CHECK(kind IN ('disabled', 'deleted')),
+    kind TEXT NOT NULL CHECK(kind IN ('disabled', 'deleted', 'named')),
     polyline_json TEXT NOT NULL,
-    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    name TEXT,
+    sport_type TEXT
 );

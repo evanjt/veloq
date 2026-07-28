@@ -113,6 +113,7 @@ impl PersistentRouteEngine {
         // does. The hook is pragma-guarded and self-healing, so it is safe to run
         // unconditionally after every migration pass.
         Self::ensure_visit_count_denormalisation(conn)?;
+        Self::ensure_section_intents_named_shape(conn)?;
 
         // Post-migration data population for pre-0.2.2 databases.
         // Users on 0.2.2+ (schema_version >= 7) skip this block entirely.
@@ -282,6 +283,107 @@ impl PersistentRouteEngine {
                  ) WHERE id = NEW.section_id;
              END;",
         )?;
+        Ok(())
+    }
+
+    /// Bring `section_intents` to the named-corridor shape (kind 'named' plus
+    /// `name`/`sport_type` columns) and backfill legacy user names once.
+    /// Idempotent: the rebuild runs only while sqlite_master shows the old
+    /// CHECK, preserving every disabled/deleted row so user suppression
+    /// survives the shape change; the backfill is guarded by a schema_info
+    /// marker so a v12 upgrade (whose 013 already creates the extended table)
+    /// still promotes its legacy names exactly once.
+    fn ensure_section_intents_named_shape(conn: &Connection) -> SqlResult<()> {
+        let table_sql: Option<String> = conn
+            .query_row(
+                "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'section_intents'",
+                [],
+                |row| row.get(0),
+            )
+            .ok();
+        let Some(table_sql) = table_sql else {
+            return Ok(());
+        };
+        if !table_sql.contains("'named'") {
+            conn.execute_batch(
+                "BEGIN;
+                 DROP TABLE IF EXISTS section_intents_named_shape;
+                 CREATE TABLE section_intents_named_shape (
+                     id TEXT PRIMARY KEY,
+                     kind TEXT NOT NULL CHECK(kind IN ('disabled', 'deleted', 'named')),
+                     polyline_json TEXT NOT NULL,
+                     created_at TEXT NOT NULL DEFAULT (datetime('now')),
+                     name TEXT,
+                     sport_type TEXT
+                 );
+                 INSERT INTO section_intents_named_shape (id, kind, polyline_json, created_at)
+                     SELECT id, kind, polyline_json, created_at FROM section_intents;
+                 DROP TABLE section_intents;
+                 ALTER TABLE section_intents_named_shape RENAME TO section_intents;
+                 COMMIT;",
+            )?;
+        }
+
+        let backfill_done: Option<String> = conn
+            .query_row(
+                "SELECT value FROM schema_info WHERE key = 'named_backfill_done'",
+                [],
+                |row| row.get(0),
+            )
+            .ok();
+        if backfill_done.is_none() {
+            Self::backfill_named_intents(conn)?;
+            conn.execute(
+                "INSERT OR REPLACE INTO schema_info (key, value) VALUES ('named_backfill_done', '1')",
+                [],
+            )?;
+        }
+        Ok(())
+    }
+
+    /// Promote legacy user names on auto rows into named intents. Before named
+    /// corridors, `set_section_name` wrote plain row names that die with the
+    /// row on the next re-cut; any auto-row name that does not match the
+    /// generated patterns ("<word> N", legacy "<sport> <word> N") is user data
+    /// and becomes a durable intent seeded with the row's footprint. A user
+    /// name that happens to match a generated pattern stays row-local, no
+    /// worse than before.
+    fn backfill_named_intents(conn: &Connection) -> SqlResult<()> {
+        use super::sections::looks_generated;
+
+        let mut stmt = conn.prepare(
+            "SELECT id, name, polyline_json, sport_type FROM sections
+             WHERE section_type = 'auto' AND is_user_defined = 0 AND name IS NOT NULL",
+        )?;
+        let rows: Vec<(String, String, String, String)> = stmt
+            .query_map([], |row| {
+                Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?))
+            })?
+            .flatten()
+            .collect();
+        let mut promoted = 0usize;
+        for (section_id, name, polyline_json, sport_type) in rows {
+            if looks_generated(&name) {
+                continue;
+            }
+            conn.execute(
+                "INSERT OR IGNORE INTO section_intents (id, kind, polyline_json, created_at, name, sport_type)
+                 VALUES (?, 'named', ?, datetime('now'), ?, ?)",
+                params![format!("ni_bf_{section_id}"), polyline_json, name, sport_type],
+            )?;
+            // The intent is the name's home now; a surviving row copy would
+            // resurface after an unname and make the name unremovable.
+            conn.execute(
+                "UPDATE sections SET name = NULL WHERE id = ?",
+                params![section_id],
+            )?;
+            promoted += 1;
+        }
+        if promoted > 0 {
+            log::info!(
+                "tracematch: [Schema] Promoted {promoted} legacy section names to named intents"
+            );
+        }
         Ok(())
     }
 

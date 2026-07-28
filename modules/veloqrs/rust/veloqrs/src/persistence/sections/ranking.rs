@@ -67,6 +67,18 @@ impl PersistentRouteEngine {
             }
         };
 
+        // Corridor names outrank generated row names on the ranked cards.
+        let mut rows = rows;
+        self.ensure_named_overlay();
+        {
+            let overlay = self.named_overlay.read().unwrap_or_else(|e| e.into_inner());
+            for row in &mut rows {
+                if let Some(name) = overlay.by_section.get(&row.section_id) {
+                    row.section_name = name.clone();
+                }
+            }
+        }
+
         if rows.is_empty() {
             log::info!(
                 "tracematch: [RankedSections] No traversals found for sport_type={}",

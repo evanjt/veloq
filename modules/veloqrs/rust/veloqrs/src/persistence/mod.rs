@@ -619,6 +619,17 @@ pub struct PersistentRouteEngine {
     /// the worker's raw catalogue and this field.
     sections: Vec<FrequentSection>,
 
+    /// Named-corridor resolution: display name per visible section plus the
+    /// full corridor listing. A pure function of DB state, refreshed lazily
+    /// behind `named_overlay_stamp` — the connection's `total_changes()`
+    /// counter at last compute, so any write through this connection
+    /// invalidates it and no mutation site needs remembering. Sync-honest
+    /// under the engine's `unsafe impl Sync`: the refresh queries `self.db`
+    /// and so belongs to the write-lock class like every other db method;
+    /// read-lock paths may only read the cached map through the inner lock.
+    pub(crate) named_overlay: std::sync::RwLock<sections::NamedOverlay>,
+    pub(crate) named_overlay_stamp: std::sync::atomic::AtomicI64,
+
     /// Assign-once section identity registry + hysteresis debounce (B2). Owns the
     /// stable opaque id over time and damps the non-monotone batch into the
     /// visible `sections` above. In-memory pre-B4; reseeded from the DB on open.
@@ -721,6 +732,8 @@ impl PersistentRouteEngine {
             activity_metrics: HashMap::new(),
             time_streams: LruCache::new(std::num::NonZeroUsize::new(200).unwrap()),
             sections: Vec::new(),
+            named_overlay: std::sync::RwLock::new(sections::NamedOverlay::default()),
+            named_overlay_stamp: std::sync::atomic::AtomicI64::new(-1),
             identity: sections::SectionIdentity::default(),
             raw_sections: Vec::new(),
             processed_activity_ids: HashSet::new(),
@@ -832,6 +845,11 @@ impl PersistentRouteEngine {
             );
             self.sections_dirty = true;
         }
+
+        // Warm the named-corridor overlay so read-lock listings (which may not
+        // refresh it themselves) start correct rather than empty. One EXISTS
+        // probe when no names exist.
+        self.ensure_named_overlay();
 
         // Indicator population is handled lazily via version check in get_activity_indicators().
         // No need to populate here - first read triggers recompute if version mismatches.

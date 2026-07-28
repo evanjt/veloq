@@ -569,6 +569,37 @@ impl From<tracematch::FrequentSection> for FfiFrequentSection {
     }
 }
 
+/// A named corridor: a durable user name keyed to ground, with its current
+/// resolution onto the visible catalogue. `section_id` is None while the
+/// name is dormant (no visible section covers its ground).
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiNamedCorridor {
+    pub intent_id: String,
+    pub name: String,
+    pub encoded_footprint: Vec<u8>,
+    pub sport_type: Option<String>,
+    pub created_at: String,
+    pub section_id: Option<String>,
+    pub coverage: f64,
+    pub primary: bool,
+}
+
+impl From<crate::persistence::sections::NamedCorridor> for FfiNamedCorridor {
+    fn from(c: crate::persistence::sections::NamedCorridor) -> Self {
+        Self {
+            intent_id: c.intent_id,
+            name: c.name,
+            encoded_footprint: crate::coords::encode(&c.footprint),
+            sport_type: c.sport_type,
+            created_at: c.created_at,
+            section_id: c.section_id,
+            coverage: c.coverage,
+            primary: c.primary,
+        }
+    }
+}
+
 // Borrow-based conversion so get-all / get-filtered paths don't deep-copy the
 // large `activity_traces` HashMap that the FFI struct never carries.
 impl From<&tracematch::FrequentSection> for FfiFrequentSection {

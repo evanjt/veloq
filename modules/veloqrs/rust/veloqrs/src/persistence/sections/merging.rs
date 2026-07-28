@@ -267,9 +267,13 @@ impl PersistentRouteEngine {
 
         let mut candidates: Vec<crate::FfiMergeCandidate> = Vec::new();
 
+        self.ensure_named_overlay();
+        let corridor_names = self.named_overlay_cached_names();
         if let Some(rows) = rows {
             for row in rows.flatten() {
                 let (id, name, sport_type, distance_meters, visit_count, lat, lng) = row;
+                // Corridor names outrank generated row names on auto sections.
+                let name = corridor_names.get(&id).cloned().or(name);
 
                 let center_dist = haversine_distance(center_lat, center_lng, lat, lng);
                 if center_dist > 300.0 {
@@ -354,6 +358,13 @@ impl PersistentRouteEngine {
                 |row| row.get(0),
             )
             .unwrap_or(false);
+
+        // Both rows become user-owned by the merge: land any resolved
+        // corridor names on the rows first (before the transaction borrows
+        // the connection), so the primary keeps its name and the secondary's
+        // can propagate through the inheritance block below.
+        self.adopt_corridor_name(primary_id);
+        self.adopt_corridor_name(secondary_id);
 
         if !primary_exists || !secondary_exists {
             return Err(rusqlite::Error::InvalidParameterName(
