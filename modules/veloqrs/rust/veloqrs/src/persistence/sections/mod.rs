@@ -471,7 +471,6 @@ impl PersistentRouteEngine {
             .collect()
     }
 
-
     pub fn mark_section_accepted_in_memory(&mut self, section_id: &str) {
         if let Some(section) = self.sections.iter_mut().find(|s| s.id == section_id) {
             section.is_user_defined = true;
@@ -1212,6 +1211,20 @@ impl PersistentRouteEngine {
     pub(super) fn save_sections(&self) -> SqlResult<()> {
         let tx = self.db.unchecked_transaction()?;
 
+        // Birth dates of every current row, read BEFORE the wipe. New payloads
+        // stamp created_at at mint, but payloads persisted before that change
+        // carry None forever (the registry blob round-trips it); without this
+        // fallback such rows would re-stamp on every save.
+        let existing_created: HashMap<String, String> = {
+            let mut stmt =
+                tx.prepare("SELECT id, created_at FROM sections WHERE created_at IS NOT NULL")?;
+            stmt.query_map([], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+            })?
+            .filter_map(|r| r.ok())
+            .collect()
+        };
+
         // Clear existing auto sections (keep custom, trimmed, and accepted
         // sections — and disabled ones, whose row is retained so enable can
         // restore it with members intact; the disabled corridor is separately
@@ -1387,6 +1400,7 @@ impl PersistentRouteEngine {
             let created_at = section
                 .created_at
                 .clone()
+                .or_else(|| existing_created.get(&section.id).cloned())
                 .unwrap_or_else(|| Utc::now().to_rfc3339());
 
             // Determine the name to use: preserve existing names, generate new ones

@@ -5,7 +5,8 @@
 //! batch's coherent geometry family (polyline, distance, consensus state,
 //! portions) while carrying the row's identity: id, created_at, name.
 //!
-//! Gates are `#[ignore]`d until the registry adopts, red-baselined first.
+//! The gates were written first and red-baselined against the frozen
+//! registry, then ungated when adoption landed.
 //! Membership monotonicity across adoption is carried by the lifecycle
 //! stability gates, not duplicated here. The pure layer's own adoption
 //! behaviour (agreement threshold, k-streak firing) is covered by tracematch
@@ -106,13 +107,24 @@ fn ground_pieces(snap: &SectionSnapshot, ground: &[GpsPoint]) -> Vec<(String, f6
     pieces
 }
 
-/// The visible section whose polyline is exactly `poly`, if any. Adoption is
-/// a wholesale clone of the batch section, so the mirrored geometry must be
-/// bit-identical, not merely close.
+/// The visible section holding the same geometry as `poly`, if any. Adoption
+/// is a wholesale clone of the batch section, but the visible snapshot has
+/// been through the sections table's JSON read path, whose float parse is up
+/// to one ULP off (serde_json without `float_roundtrip`). So counterpart
+/// matching requires the same point count with every coordinate within
+/// ~0.1 mm — still orders of magnitude tighter than any genuine geometry
+/// change, which moves whole points and extents.
 fn exact_counterpart<'a>(snap: &'a SectionSnapshot, poly: &[GpsPoint]) -> Option<&'a String> {
+    const ULP_TOL_DEG: f64 = 1.0e-9;
     snap.sections
         .iter()
-        .find(|(_, f)| f.polyline == poly)
+        .find(|(_, f)| {
+            f.polyline.len() == poly.len()
+                && f.polyline.iter().zip(poly).all(|(a, b)| {
+                    (a.latitude - b.latitude).abs() <= ULP_TOL_DEG
+                        && (a.longitude - b.longitude).abs() <= ULP_TOL_DEG
+                })
+        })
         .map(|(id, _)| id)
 }
 
@@ -121,33 +133,61 @@ fn created_at_of(engine: &mut PersistentRouteEngine, id: &str) -> Option<String>
 }
 
 // ============================================================================
-// Corpora. The extension corpus produces an AGREEMENT-level change: the batch
-// cut extends from 2.0 km to ~2.15 km once the majority rides the extension
-// (mutual overlap ~0.93, above the 0.85 agreement threshold, so the pure
-// layer adopts immediately with no debounce). The junction corpus produces a
-// MATERIAL re-cut: branches peeling at 45% and 60% split the trunk into
-// pieces (mutual overlap of any piece against the full trunk is well below
-// 0.85), so the pure layer debounces and fires at k = 3.
+// Corpora. The agreement corpus produces an AGREEMENT-level change through a
+// reference re-pick: cold rides spread laterally across the corridor, the
+// later wave clusters a few metres east of their centre, so the medoid of the
+// grown set re-picks to a wave ride and the reference polyline moves by
+// metres while the extent stays put (mutual overlap ~1.0, far above the 0.85
+// agreement threshold — adopts with no debounce). The junction corpus
+// produces a MATERIAL re-cut: branches peeling at 45% and 60% split the
+// trunk into pieces (mutual overlap of any piece against the full trunk is
+// well below 0.85), so the pure layer debounces and fires at k = 3.
 // ============================================================================
 
-struct ExtensionCorpus {
+/// Full trunk ridden at a constant lateral offset east of the base line.
+fn jittered_trunk(offset_m: f64) -> Vec<GpsPoint> {
+    let mut pts = Vec::new();
+    let mut d = 0.0;
+    while d <= TRUNK_LEN_M {
+        pts.push(pt(d, offset_m));
+        d += STEP_M;
+    }
+    pts
+}
+
+struct AgreementCorpus {
     cold: Vec<LifecycleActivity>,
-    extension: Vec<LifecycleActivity>,
+    wave: Vec<LifecycleActivity>,
     trunk_ground: Vec<GpsPoint>,
 }
 
-fn extension_corpus() -> ExtensionCorpus {
+fn agreement_corpus() -> AgreementCorpus {
     let cold = (0..9)
-        .map(|i| act(format!("cold_{i:02}"), i, trunk_then_spur(TRUNK_LEN_M, 0.0)))
+        .map(|i| {
+            let offset = (i as f64 - 4.0) * 1.5;
+            act(format!("cold_{i:02}"), i, jittered_trunk(offset))
+        })
         .collect();
-    let extension = (0..15)
-        .map(|i| act(format!("ext_{i:02}"), 9 + i, trunk_then_spur(TRUNK_LEN_M + 150.0, 0.0)))
+    let wave = (0..15)
+        .map(|i| {
+            let offset = 4.0 + 0.2 * (i % 3) as f64;
+            act(format!("wave_{i:02}"), 9 + i, jittered_trunk(offset))
+        })
         .collect();
-    ExtensionCorpus {
+    AgreementCorpus {
         cold,
-        extension,
+        wave,
         trunk_ground: trunk_then_spur(TRUNK_LEN_M, 0.0),
     }
+}
+
+/// Whether two polylines differ by more than serialisation noise anywhere: a
+/// point count change, or any coordinate moving over ~0.1 m.
+fn geometry_differs(a: &[GpsPoint], b: &[GpsPoint]) -> bool {
+    a.len() != b.len()
+        || a.iter().zip(b).any(|(x, y)| {
+            (x.latitude - y.latitude).abs() > 1.0e-6 || (x.longitude - y.longitude).abs() > 1.0e-6
+        })
 }
 
 struct JunctionCorpus {
@@ -159,13 +199,31 @@ struct JunctionCorpus {
 fn junction_corpus() -> JunctionCorpus {
     let trunk_ground = trunk_then_spur(TRUNK_LEN_M, 0.0);
     let trunk_outings = (0..21)
-        .map(|i| act(format!("trunk_{i:02}"), i, trunk_then_spur(TRUNK_LEN_M, 0.0)))
+        .map(|i| {
+            act(
+                format!("trunk_{i:02}"),
+                i,
+                trunk_then_spur(TRUNK_LEN_M, 0.0),
+            )
+        })
         .collect();
     let lower: Vec<LifecycleActivity> = (0..13)
-        .map(|i| act(format!("lower_{i:02}"), 21 + i, trunk_then_spur(0.45 * TRUNK_LEN_M, 800.0)))
+        .map(|i| {
+            act(
+                format!("lower_{i:02}"),
+                21 + i,
+                trunk_then_spur(0.45 * TRUNK_LEN_M, 800.0),
+            )
+        })
         .collect();
     let upper: Vec<LifecycleActivity> = (0..6)
-        .map(|i| act(format!("upper_{i:02}"), 34 + i, trunk_then_spur(0.60 * TRUNK_LEN_M, 800.0)))
+        .map(|i| {
+            act(
+                format!("upper_{i:02}"),
+                34 + i,
+                trunk_then_spur(0.60 * TRUNK_LEN_M, 800.0),
+            )
+        })
         .collect();
     let branch_chunks = vec![
         lower[0..5].to_vec(),
@@ -188,7 +246,6 @@ struct JunctionRun {
     _dir: tempfile::TempDir,
     /// Polyline of the visible trunk section before any branch chunk.
     cold_trunk_polyline: Vec<GpsPoint>,
-    cold_trunk_id: String,
     /// Chunk index at which the raw catalogue first held >= 2 trunk pieces.
     first_split_step: Option<usize>,
     /// Visible snapshot after each chunk.
@@ -202,8 +259,7 @@ fn run_junction() -> JunctionRun {
     let jc = junction_corpus();
     let (mut engine, dir) = fresh_engine_for(Arm::Battery);
     let cold = ingest_step(&mut engine, "trunk", &refs(&jc.trunk_outings));
-    let (cold_trunk_id, cold_fp) =
-        busiest_section(&cold.snapshot).expect("cold detect produced a trunk section");
+    let (_, cold_fp) = busiest_section(&cold.snapshot).expect("cold detect produced a trunk section");
     let cold_trunk_polyline = cold_fp.polyline.clone();
 
     let mut first_split_step = None;
@@ -218,11 +274,23 @@ fn run_junction() -> JunctionRun {
         visible_per_step.push(step.snapshot);
         raw_per_step.push(raw);
     }
+    // The upper branch lands late in the corpus, so its re-cut is still mid
+    // debounce at the last chunk. Far-away hold steps let every debounce
+    // sustain k detects and fire; the convergence gates assert after these.
+    for i in 0..3 {
+        let filler = act(
+            format!("hold_{i}"),
+            40 + i,
+            vec![pt(300_000.0, 0.0), pt(300_500.0, 0.0)],
+        );
+        let step = ingest_step(&mut engine, &format!("hold_{i}"), &[&filler]);
+        visible_per_step.push(step.snapshot);
+        raw_per_step.push(raw_snapshot(&engine));
+    }
     JunctionRun {
         engine,
         _dir: dir,
         cold_trunk_polyline,
-        cold_trunk_id,
         first_split_step,
         visible_per_step,
         raw_per_step,
@@ -237,7 +305,12 @@ fn final_raw_pieces(run: &JunctionRun) -> Vec<(String, Vec<GpsPoint>)> {
     ground_pieces(raw, &run.trunk_ground)
         .into_iter()
         .map(|(id, _)| {
-            let poly = raw.sections.get(&id).expect("raw id in snapshot").polyline.clone();
+            let poly = raw
+                .sections
+                .get(&id)
+                .expect("raw id in snapshot")
+                .polyline
+                .clone();
             (id, poly)
         })
         .collect()
@@ -329,31 +402,29 @@ fn accepted_section_never_adopts() {
 // the assertion it must fail at today; ungate when D2 lands.
 // ============================================================================
 
-/// Scenario: the majority starts riding 150 m past the old end of a section;
-/// the batch cut extends within the agreement threshold.
+/// Scenario: a wave of new rides re-picks the section's reference trace a
+/// few metres east; the extent holds, so the change is agreement-level.
 /// Expected behaviour: the visible section adopts the batch geometry on that
-/// very step (agreement carries never debounce), bit-identical to the raw
-/// counterpart, under its existing id.
+/// very step (agreement carries never debounce), under its existing id.
 #[test]
-#[ignore = "D2 gate: red at the adoption assert until the registry adopts agreement-carry geometry"]
 fn agreement_carry_adopts_batch_geometry_immediately() {
-    let c = extension_corpus();
+    let c = agreement_corpus();
     let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
     let cold = ingest_step(&mut engine, "cold", &refs(&c.cold));
     let (id, cold_fp) = busiest_section(&cold.snapshot).expect("cold trunk section");
 
-    let step = ingest_step(&mut engine, "extension", &refs(&c.extension));
+    let step = ingest_step(&mut engine, "wave", &refs(&c.wave));
     let raw = raw_snapshot(&engine);
     let raw_pieces = ground_pieces(&raw, &c.trunk_ground);
     assert_eq!(
         raw_pieces.len(),
         1,
-        "corpus fault: the extension must stay one section in the raw catalogue, got {raw_pieces:?}"
+        "corpus fault: the wave must stay one section in the raw catalogue, got {raw_pieces:?}"
     );
     let raw_poly = raw.sections[&raw_pieces[0].0].polyline.clone();
     assert!(
-        raw_poly != cold_fp.polyline,
-        "corpus fault: the extension produced no geometry change in the raw catalogue"
+        geometry_differs(&raw_poly, &cold_fp.polyline),
+        "corpus fault: the wave produced no genuine geometry change in the raw catalogue"
     );
 
     let visible = step.snapshot;
@@ -375,7 +446,6 @@ fn agreement_carry_adopts_batch_geometry_immediately() {
 /// visible counterpart and the pre-split trunk geometry is gone from the
 /// visible catalogue.
 #[test]
-#[ignore = "D2 gate: red at the piece-adoption assert until fired re-cuts adopt"]
 fn fired_recut_adopts_batch_pieces() {
     let run = run_junction();
     let s = run.first_split_step.expect("corpus never split the trunk");
@@ -384,7 +454,10 @@ fn fired_recut_adopts_batch_pieces() {
         "split appeared too late ({s}) for the k = 3 debounce to fire within the corpus"
     );
     let pieces = final_raw_pieces(&run);
-    assert!(pieces.len() >= 2, "raw catalogue lost the split by the final step");
+    assert!(
+        pieces.len() >= 2,
+        "raw catalogue lost the split by the final step"
+    );
 
     let visible = run.visible_per_step.last().expect("steps ran");
     for (raw_id, raw_poly) in &pieces {
@@ -410,7 +483,6 @@ fn fired_recut_adopts_batch_pieces() {
 /// Expected behaviour: the adopted geometry is persisted, survives the load
 /// round-trip, and a detect over the unchanged activity set does not move it.
 #[test]
-#[ignore = "D2 gate: fails at the fired-adoption precondition today; its own asserts are the restart and resync round-trips"]
 fn adopted_geometry_survives_restart_and_resync() {
     let run = run_junction();
     let pieces = final_raw_pieces(&run);
@@ -460,7 +532,6 @@ fn adopted_geometry_survives_restart_and_resync() {
 /// (spans measured against the old geometry) would silently poison the PR
 /// completeness filter and every pace readout.
 #[test]
-#[ignore = "D2 gate: fails at the fired-adoption precondition today; its own asserts are the portion-coherence bounds"]
 fn adoption_recomputes_portions_against_new_geometry() {
     let run = run_junction();
     let pieces = final_raw_pieces(&run);
@@ -468,7 +539,8 @@ fn adoption_recomputes_portions_against_new_geometry() {
     let (largest_raw_id, largest_poly) = pieces
         .iter()
         .max_by(|a, b| {
-            coverage_frac(&run.trunk_ground, &a.1).total_cmp(&coverage_frac(&run.trunk_ground, &b.1))
+            coverage_frac(&run.trunk_ground, &a.1)
+                .total_cmp(&coverage_frac(&run.trunk_ground, &b.1))
         })
         .expect("raw pieces exist");
     let visible_id = exact_counterpart(visible, largest_poly)
@@ -517,15 +589,18 @@ fn adoption_recomputes_portions_against_new_geometry() {
 /// never re-stamps while the id lives. Today the registry payload never
 /// learns the stamped value, so every save re-stamps it.
 #[test]
-#[ignore = "D2 gate: red at the stability assert until the stamped created_at is carried on the payload"]
 fn created_at_is_stable_across_applies() {
-    let c = extension_corpus();
+    let c = agreement_corpus();
     let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
     let cold = ingest_step(&mut engine, "cold", &refs(&c.cold));
     let (id, _fp) = busiest_section(&cold.snapshot).expect("cold trunk section");
     let born = created_at_of(&mut engine, &id).expect("created_at stamped on first save");
 
-    let filler = act("far_0".to_string(), 40, vec![pt(300_000.0, 0.0), pt(300_500.0, 0.0)]);
+    let filler = act(
+        "far_0".to_string(),
+        40,
+        vec![pt(300_000.0, 0.0), pt(300_500.0, 0.0)],
+    );
     ingest_step(&mut engine, "carry", &[&filler]);
     assert_eq!(
         created_at_of(&mut engine, &id).as_deref(),
@@ -533,7 +608,7 @@ fn created_at_is_stable_across_applies() {
         "a plain carry re-stamped created_at"
     );
 
-    ingest_step(&mut engine, "adopt", &refs(&c.extension));
+    ingest_step(&mut engine, "adopt", &refs(&c.wave));
     assert_eq!(
         created_at_of(&mut engine, &id).as_deref(),
         Some(born.as_str()),
@@ -546,9 +621,8 @@ fn created_at_is_stable_across_applies() {
 /// Expected behaviour: the section comes back as itself, id AND birth date.
 /// The grave payload is the only carrier of created_at once the row is gone.
 #[test]
-#[ignore = "D2 gate: red at the created_at assert until the grave payload carries the stamp through restore"]
 fn restored_section_keeps_created_at() {
-    let c = extension_corpus();
+    let c = agreement_corpus();
     let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
     let cold = ingest_step(&mut engine, "cold", &refs(&c.cold));
     let (id, fp) = busiest_section(&cold.snapshot).expect("cold trunk section");
@@ -567,7 +641,10 @@ fn restored_section_keeps_created_at() {
         snap = ingest_step(&mut engine, &format!("drain_{i}"), &[&filler]).snapshot;
     }
     assert!(
-        !snap.sections.values().any(|s| coverage_frac(&c.trunk_ground, &s.polyline) > 0.5),
+        !snap
+            .sections
+            .values()
+            .any(|s| coverage_frac(&c.trunk_ground, &s.polyline) > 0.5),
         "scenario failed to dissolve the section"
     );
 
@@ -592,8 +669,15 @@ fn restored_section_keeps_created_at() {
         .filter(|(_, f)| coverage_frac(&c.trunk_ground, &f.polyline) > 0.5)
         .map(|(sid, _)| sid)
         .collect();
-    assert_eq!(returned.len(), 1, "the ground did not re-emerge as one section");
-    assert_eq!(returned[0], &id, "the section did not come back under its own id");
+    assert_eq!(
+        returned.len(),
+        1,
+        "the ground did not re-emerge as one section"
+    );
+    assert_eq!(
+        returned[0], &id,
+        "the section did not come back under its own id"
+    );
     assert_eq!(
         created_at_of(&mut engine, &id).as_deref(),
         Some(born.as_str()),

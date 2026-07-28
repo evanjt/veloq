@@ -129,7 +129,11 @@ fn trim_core(footprint: &[GpsPoint]) -> Vec<GpsPoint> {
         .filter(|(_, d)| **d >= lo && **d <= hi)
         .map(|(p, _)| p.clone())
         .collect();
-    if core.len() < 2 { footprint.to_vec() } else { core }
+    if core.len() < 2 {
+        footprint.to_vec()
+    } else {
+        core
+    }
 }
 
 /// Coverage of `core` by `line` at the ground tolerance, and the mean
@@ -162,7 +166,12 @@ fn coverage_and_offset(core: &[GpsPoint], line: &[GpsPoint]) -> (f64, f64) {
 }
 
 fn bbox(points: &[GpsPoint]) -> (f64, f64, f64, f64) {
-    let mut b = (f64::INFINITY, f64::NEG_INFINITY, f64::INFINITY, f64::NEG_INFINITY);
+    let mut b = (
+        f64::INFINITY,
+        f64::NEG_INFINITY,
+        f64::INFINITY,
+        f64::NEG_INFINITY,
+    );
     for p in points {
         b.0 = b.0.min(p.latitude);
         b.1 = b.1.max(p.latitude);
@@ -255,7 +264,10 @@ impl PersistentRouteEngine {
             )
             .unwrap_or(false);
         if !has_named {
-            let mut overlay = self.named_overlay.write().unwrap_or_else(|e| e.into_inner());
+            let mut overlay = self
+                .named_overlay
+                .write()
+                .unwrap_or_else(|e| e.into_inner());
             let was_empty = overlay.by_section.is_empty() && overlay.corridors.is_empty();
             *overlay = NamedOverlay::default();
             drop(overlay);
@@ -441,8 +453,7 @@ impl PersistentRouteEngine {
                 let bb = match (lat0, lat1, lng0, lng1) {
                     (Some(a), Some(b), Some(c), Some(d)) => (a, b, c, d),
                     _ => {
-                        let polyline: Vec<GpsPoint> =
-                            serde_json::from_str(&polyline_json).ok()?;
+                        let polyline: Vec<GpsPoint> = serde_json::from_str(&polyline_json).ok()?;
                         if polyline.is_empty() {
                             return None;
                         }
@@ -474,7 +485,10 @@ impl PersistentRouteEngine {
     }
 
     /// Same precedence on the summaries read the list UI uses.
-    pub(crate) fn apply_named_overlay_to_summary(&self, summary: &mut crate::sections::SectionSummary) {
+    pub(crate) fn apply_named_overlay_to_summary(
+        &self,
+        summary: &mut crate::sections::SectionSummary,
+    ) {
         if summary.is_user_defined || summary.section_type != "auto" {
             return;
         }
@@ -541,7 +555,11 @@ impl PersistentRouteEngine {
     /// row-local: they are the engine's own labels, not user data, and a
     /// durable intent for one would freeze every "Section N" a backup
     /// restore replays through this path.
-    pub(crate) fn upsert_named_intent_for(&mut self, section_id: &str, name: &str) -> rusqlite::Result<()> {
+    pub(crate) fn upsert_named_intent_for(
+        &mut self,
+        section_id: &str,
+        name: &str,
+    ) -> rusqlite::Result<()> {
         if looks_generated(name) {
             self.db.execute(
                 "UPDATE sections SET name = ? WHERE id = ?",
@@ -718,7 +736,10 @@ mod tests {
         // input order.
         let a = vec![(0usize, 0.34, 10.0), (1, 0.30, 5.0), (2, 0.26, 1.0)];
         let b = vec![(2usize, 0.26, 1.0), (1, 0.30, 5.0), (0, 0.34, 10.0)];
-        assert_eq!(select_candidate(&a, &visible), select_candidate(&b, &visible));
+        assert_eq!(
+            select_candidate(&a, &visible),
+            select_candidate(&b, &visible)
+        );
         // Band anchors at the maximum: 0.26 falls outside 0.34 - 0.05, so the
         // winner is the lower-offset member of {0.34, 0.30}.
         assert_eq!(select_candidate(&a, &visible).0, Some(1));

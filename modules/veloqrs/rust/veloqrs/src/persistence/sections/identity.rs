@@ -17,11 +17,15 @@
 //!   real opaque id (`s_<ts>__<rand>`) and joins it onto the pure plan by the
 //!   `s_<n>` key returned from [`HysteresisState::step_assign`].
 //! - THE VELOQRS PAYLOAD. A section is more than a polyline: members, portions,
-//!   name. On a CARRY the registry keeps the prior payload and folds in only the
-//!   genuinely-new activities that traverse it (append-only — never adopts the
-//!   batch's re-clustered membership, which the non-monotone B1 batch may shrink),
-//!   so a carried section can never lose a member across an add. A mint/restore
-//!   takes the fresh batch payload.
+//!   name. The payload mirrors the pure layer's held ground through the
+//!   [`CandidateFate`] on each carry: a FROZEN carry (mid re-cut debounce) keeps
+//!   the prior payload and folds in only the genuinely-new activities that
+//!   traverse it; an ADOPTED carry (extents agreed, or a sustained re-cut fired)
+//!   takes the batch payload wholesale — polyline, portions, and consensus
+//!   family are one coherent unit — under the carried identity (real id, name,
+//!   created_at, version), grafting back any prior member the non-monotone
+//!   batch re-clustering dropped whose track still matches the new geometry.
+//!   A mint/restore takes the fresh batch payload under the same identity rule.
 //!
 //! INTENT SUPPRESSION generalises the custom-section rule that already dodges the
 //! R2 crash: before the plan runs, any candidate whose ground is owned by a
@@ -43,7 +47,8 @@ use crate::persistence::PersistentRouteEngine;
 use crate::persistence::codec;
 use crate::sections::crud::compute_section_portions;
 use tracematch::{
-    CandidateSection, FrequentSection, GpsPoint, HysteresisParams, HysteresisState, shares_ground,
+    CandidateFate, CandidateSection, FrequentSection, GpsPoint, HysteresisParams, HysteresisState,
+    shares_ground,
 };
 
 /// `identity_state.key` for the section registry blob (B4 migration 013).
@@ -236,12 +241,12 @@ impl PersistentRouteEngine {
         let candidates: Vec<CandidateSection> =
             managed.iter().map(CandidateSection::from_section).collect();
         // A fresh state mints one pure id per seed; join the real DB id onto each.
-        let (_out, pure_ids) = identity.hysteresis.step_assign(&candidates);
+        let (_out, resolutions) = identity.hysteresis.step_assign(&candidates);
         for (j, section) in managed.into_iter().enumerate() {
             let real_id = section.id.clone();
             identity
                 .rows
-                .insert(pure_ids[j].clone(), IdentityRow { real_id, section });
+                .insert(resolutions[j].id.clone(), IdentityRow { real_id, section });
         }
         identity.seen = self.activity_metadata.keys().cloned().collect();
         self.identity = identity;
@@ -288,23 +293,22 @@ impl PersistentRouteEngine {
             .collect();
 
         // Step the pure hysteresis and learn which visible id each candidate
-        // resolved to (carry/split/merge -> inherited id, new/restore -> fresh).
+        // resolved to (carry/split/merge -> inherited id, new/restore -> fresh)
+        // and whether the pure layer adopted the candidate's geometry.
         //
-        // ROOT-CAUSE NOTE (the merge-floor's real target; not fixed here). The
-        // priors `step_assign` matches against are this registry's HELD view,
-        // which includes sections frozen mid re-cut debounce — their FROZEN,
-        // now-stale footprint. That stale footprint keeps COMPETING for foreign
-        // candidates in `plan_identity`, and a marginal one-sided overlap from it
-        // is what lets a short senior prior capture or block a dominant candidate
-        // (and inflates the visible catalogue with duplicates the tombstone can't
-        // reclaim, since dissolve_pressure stays low while the ground is partly
-        // covered). Excluding a re-cut-debounced section from foreign-candidate
-        // competition would attack that root directly. The merge floor only
-        // blunts the symptom; the durable fix is a FOLD-level change in the pure
-        // layer (task pending). See [`MERGE_MUTUAL_FLOOR`].
+        // COMPETITION NOTE. A prior mid re-cut debounce competes in
+        // `plan_identity` on the batch geometry it is re-cutting TO (its
+        // pending target), not its frozen footprint — the FOLD-level fix an
+        // older note here still called pending. Residual exposure, verified
+        // and deliberately open: the FIRST divergent step competes on the held
+        // footprint (the pending target only exists from the following step),
+        // a dissolve-pending prior competes on its stale ground and a foreign
+        // capture resets its dissolve streak, and a marginal one-sided senior
+        // capture needs no debounce at all — the merge floor is that clause's
+        // only mitigation and ships at 0.0 (see [`MERGE_MUTUAL_FLOOR`]).
         let candidates: Vec<CandidateSection> =
             raw.iter().map(CandidateSection::from_section).collect();
-        let (_out, candidate_ids) = identity.hysteresis.step_assign(&candidates);
+        let (_out, resolutions) = identity.hysteresis.step_assign(&candidates);
 
         // Activities new since the last apply, and their tracks, for the fold.
         // Read up front so the reconcile below borrows nothing from `self`.
@@ -319,24 +323,64 @@ impl PersistentRouteEngine {
         let old_graves = std::mem::take(&mut identity.graves);
         let mut new_rows: BTreeMap<String, IdentityRow> = BTreeMap::new();
 
-        // Candidates: a carry keeps the prior payload and folds new activities; a
+        // Candidates: a frozen carry keeps the prior payload and folds new
+        // activities; an adopted carry mirrors the pure layer's held ground by
+        // taking the batch payload wholesale under the carried identity; a
         // mint/restore takes the batch payload under a fresh/restored real id.
         for (j, section) in raw.into_iter().enumerate() {
-            let pid = &candidate_ids[j];
+            let pid = &resolutions[j].id;
             if let Some(mut row) = old_rows.get(pid).cloned() {
-                fold_new_activities(&mut row.section, &new_tracks);
+                if resolutions[j].fate == CandidateFate::CarriedFrozen {
+                    fold_new_activities(&mut row.section, &new_tracks);
+                } else {
+                    // The batch's polyline, portions, and consensus family are
+                    // one coherent unit, so adoption is wholesale; identity
+                    // fields carry, and prior members the non-monotone batch
+                    // re-clustering dropped are grafted back against the NEW
+                    // geometry so membership stays monotone across the adopt.
+                    let prior = std::mem::replace(&mut row.section, section);
+                    row.section.id = row.real_id.clone();
+                    row.section.name = prior.name.clone();
+                    row.section.created_at = prior.created_at.clone();
+                    row.section.version = prior.version;
+                    row.section.updated_at = prior.updated_at.clone();
+                    // Sport stays with the identity, not the winning candidate:
+                    // per-sport detection can hand a prior to another sport's
+                    // cut of the same ground, and a single add must never flip
+                    // a visible section's sport. Pooled detection (B3) makes
+                    // sport derived and retires this carry.
+                    row.section.sport_type = prior.sport_type.clone();
+                    graft_prior_members(self, &mut row.section, &prior);
+                    // An adopted carry keeps learning new traffic exactly as a
+                    // frozen one does: the batch candidate only carries its own
+                    // sport's members, but a new activity of another sport on
+                    // the same ground must still join the row this step, or the
+                    // cross-sport merge's majority pick hands the corridor to a
+                    // freshly minted id and identity breaks on a sport addition.
+                    fold_new_activities(&mut row.section, &new_tracks);
+                }
                 new_rows.insert(pid.clone(), row);
             } else if let Some(mut row) = old_graves.get(pid).cloned() {
                 // Restore: the ground re-emerged; adopt the batch geometry and
-                // members but keep the OLD real id (comes back as itself).
+                // members but keep the OLD real id and birth date (comes back
+                // as itself).
                 let real_id = row.real_id.clone();
-                row.section = section;
+                let grave = std::mem::replace(&mut row.section, section);
                 row.section.id = real_id;
+                row.section.name = grave.name.clone();
+                row.section.created_at = grave.created_at.clone();
+                row.section.version = grave.version;
+                row.section.updated_at = grave.updated_at.clone();
                 new_rows.insert(pid.clone(), row);
             } else {
                 let real_id = mint_real_id(&mut identity.mint_seq);
                 let mut section = section;
                 section.id = real_id.clone();
+                // Birth is stamped on the payload at mint so it rides the
+                // registry blob and the graves: created_at then survives
+                // carries, dissolves, and restores instead of re-stamping at
+                // every save.
+                section.created_at = Some(chrono::Utc::now().to_rfc3339());
                 new_rows.insert(pid.clone(), IdentityRow { real_id, section });
             }
         }
@@ -554,6 +598,39 @@ fn fold_new_activities(
             continue;
         }
         section.activity_ids.push(aid.clone());
+        section.visit_count += portions.len() as u32;
+        section.activity_portions.extend(portions);
+    }
+}
+
+/// Append `prior` members missing from an adopted batch payload whose tracks
+/// still match the new polyline. The batch re-clustering is not monotone: a
+/// member can drop out of the fresh cut while its traversals still cover the
+/// adopted ground, and losing it would break the single-add stability the
+/// lifecycle gates assert. Portions are computed against the NEW geometry so
+/// the junction rows `save_sections` writes stay coherent; a member whose
+/// track genuinely left the adopted ground stays dropped.
+fn graft_prior_members(
+    engine: &PersistentRouteEngine,
+    section: &mut FrequentSection,
+    prior: &FrequentSection,
+) {
+    let have: BTreeSet<&str> = section.activity_ids.iter().map(String::as_str).collect();
+    let missing: Vec<String> = prior
+        .activity_ids
+        .iter()
+        .filter(|aid| !have.contains(aid.as_str()))
+        .cloned()
+        .collect();
+    for aid in missing {
+        let Some(track) = engine.get_gps_track(&aid) else {
+            continue;
+        };
+        let portions = compute_section_portions(&aid, &track, &section.polyline);
+        if portions.is_empty() {
+            continue;
+        }
+        section.activity_ids.push(aid);
         section.visit_count += portions.len() as u32;
         section.activity_portions.extend(portions);
     }

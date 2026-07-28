@@ -6,9 +6,8 @@
 //! On a split, the piece covering the largest share of the named ground keeps
 //! the name.
 //!
-//! One `#[ignore]` remains: the no-freeze gate belongs to D2 (geometry
-//! adoption), not D1, and stays red until the registry adopts re-cut
-//! geometry.
+//! The no-freeze gate was written here as D1's forward contract and stayed
+//! red until D2 landed geometry adoption in the registry; it is live now.
 
 mod lifecycle_support;
 
@@ -44,7 +43,11 @@ fn summary_name(engine: &PersistentRouteEngine, id: &str) -> Option<String> {
 }
 
 /// Ids of visible sections currently carrying `name`.
-fn sections_named(engine: &PersistentRouteEngine, snap: &SectionSnapshot, name: &str) -> Vec<String> {
+fn sections_named(
+    engine: &PersistentRouteEngine,
+    snap: &SectionSnapshot,
+    name: &str,
+) -> Vec<String> {
     snap.sections
         .keys()
         .filter(|id| section_name(engine, id).as_deref() == Some(name))
@@ -53,7 +56,12 @@ fn sections_named(engine: &PersistentRouteEngine, snap: &SectionSnapshot, name: 
 }
 
 /// Exactly one visible section carries `NAME`, and it sits on `fp`'s ground.
-fn assert_single_carrier(engine: &PersistentRouteEngine, snap: &SectionSnapshot, fp: &SectionFingerprint, ctx: &str) {
+fn assert_single_carrier(
+    engine: &PersistentRouteEngine,
+    snap: &SectionSnapshot,
+    fp: &SectionFingerprint,
+    ctx: &str,
+) {
     let named = sections_named(engine, snap, NAME);
     assert_eq!(
         named.len(),
@@ -103,7 +111,8 @@ fn coverage_frac(samples: &[GpsPoint], line: &[GpsPoint]) -> f64 {
 
 /// Worse of the two endpoint gaps between two polylines, orientation-tolerant.
 fn endpoint_distance(a: &[GpsPoint], b: &[GpsPoint]) -> f64 {
-    let (Some(a0), Some(a1), Some(b0), Some(b1)) = (a.first(), a.last(), b.first(), b.last()) else {
+    let (Some(a0), Some(a1), Some(b0), Some(b1)) = (a.first(), a.last(), b.first(), b.last())
+    else {
         return f64::INFINITY;
     };
     let forward = haversine_m(a0, b0).max(haversine_m(a1, b1));
@@ -178,13 +187,31 @@ struct JunctionCorpus {
 fn junction_corpus() -> JunctionCorpus {
     let trunk_ground = trunk_then_spur(TRUNK_LEN_M, 0.0);
     let trunk_outings = (0..21)
-        .map(|i| act(format!("trunk_{i:02}"), i, trunk_then_spur(TRUNK_LEN_M, 0.0)))
+        .map(|i| {
+            act(
+                format!("trunk_{i:02}"),
+                i,
+                trunk_then_spur(TRUNK_LEN_M, 0.0),
+            )
+        })
         .collect();
     let lower: Vec<LifecycleActivity> = (0..13)
-        .map(|i| act(format!("lower_{i:02}"), 21 + i, trunk_then_spur(0.45 * TRUNK_LEN_M, 800.0)))
+        .map(|i| {
+            act(
+                format!("lower_{i:02}"),
+                21 + i,
+                trunk_then_spur(0.45 * TRUNK_LEN_M, 800.0),
+            )
+        })
         .collect();
     let upper: Vec<LifecycleActivity> = (0..6)
-        .map(|i| act(format!("upper_{i:02}"), 34 + i, trunk_then_spur(0.60 * TRUNK_LEN_M, 800.0)))
+        .map(|i| {
+            act(
+                format!("upper_{i:02}"),
+                34 + i,
+                trunk_then_spur(0.60 * TRUNK_LEN_M, 800.0),
+            )
+        })
         .collect();
     let branch_chunks = vec![
         lower[0..5].to_vec(),
@@ -202,7 +229,12 @@ fn junction_corpus() -> JunctionCorpus {
 
 /// Cold-ingest the trunk, name its section, then feed the branch chunks.
 /// Returns the engine and the final snapshot.
-fn run_junction_scenario() -> (PersistentRouteEngine, tempfile::TempDir, SectionSnapshot, Vec<GpsPoint>) {
+fn run_junction_scenario() -> (
+    PersistentRouteEngine,
+    tempfile::TempDir,
+    SectionSnapshot,
+    Vec<GpsPoint>,
+) {
     let jc = junction_corpus();
     let (mut engine, dir) = fresh_engine_for(Arm::Battery);
     let cold = ingest_step(&mut engine, "trunk", &refs(&jc.trunk_outings));
@@ -213,6 +245,17 @@ fn run_junction_scenario() -> (PersistentRouteEngine, tempfile::TempDir, Section
     let mut snap = cold.snapshot;
     for (i, chunk) in jc.branch_chunks.iter().enumerate() {
         snap = ingest_step(&mut engine, &format!("branch_{i}"), &refs(chunk)).snapshot;
+    }
+    // The upper branch lands late in the corpus, so its re-cut is still mid
+    // debounce at the last chunk. Far-away hold steps let every debounce
+    // sustain k detects and fire before the scenario's asserts.
+    for i in 0..3 {
+        let filler = act(
+            format!("far_{i}"),
+            60 + i,
+            vec![pt(300_000.0, 0.0), pt(300_500.0, 0.0)],
+        );
+        snap = ingest_step(&mut engine, &format!("hold_{i}"), &[&filler]).snapshot;
     }
     (engine, dir, snap, jc.trunk_ground)
 }
@@ -314,13 +357,17 @@ fn accepted_section_name_stays_row_local_across_restart() {
     let (id, _) = busiest_section(&snapshot(&mut engine)).expect("cold detect produced a section");
 
     engine.accept_section(&id).expect("accept_section");
-    engine.set_section_name(&id, Some(ROW_NAME)).expect("set name");
+    engine
+        .set_section_name(&id, Some(ROW_NAME))
+        .expect("set name");
     drop(engine);
 
     let path = dir.path().join("lifecycle.db");
     let mut engine = PersistentRouteEngine::new(path.to_str().unwrap()).expect("reopen");
     engine.load().expect("load after reopen");
-    let section = engine.get_section(&id).expect("accepted section survives restart");
+    let section = engine
+        .get_section(&id)
+        .expect("accepted section survives restart");
     assert_eq!(section.name.as_deref(), Some(ROW_NAME));
     assert!(section.is_user_defined, "accept flag lost across restart");
     let _ = snapshot(&mut engine);
@@ -336,9 +383,13 @@ fn row_name_beats_corridor_name_on_same_section() {
     ingest_step(&mut engine, "cold", &corpus.through_a());
     let (id, _) = busiest_section(&snapshot(&mut engine)).expect("cold detect produced a section");
 
-    engine.set_section_name(&id, Some(NAME)).expect("corridor name");
+    engine
+        .set_section_name(&id, Some(NAME))
+        .expect("corridor name");
     engine.accept_section(&id).expect("accept_section");
-    engine.set_section_name(&id, Some(ROW_NAME)).expect("row name");
+    engine
+        .set_section_name(&id, Some(ROW_NAME))
+        .expect("row name");
     drop(engine);
 
     let path = dir.path().join("lifecycle.db");
@@ -507,7 +558,8 @@ fn split_gives_name_to_largest_share_piece() {
         "expected exactly one piece named {NAME:?}, found {named:?}"
     );
     assert_eq!(
-        named[0], pieces[0].0,
+        named[0],
+        pieces[0].0,
         "the name must sit on the largest-share piece ({} at {:.0}%), not on {}",
         pieces[0].0,
         pieces[0].1 * 100.0,
@@ -520,7 +572,6 @@ fn split_gives_name_to_largest_share_piece() {
 /// Frozen for every section on current main because the registry keeps its
 /// prior polyline on every carry and never adopts the re-cut.
 #[test]
-#[ignore = "target gate: green when D2 adopts re-cut geometry into the visible registry"]
 fn naming_does_not_freeze_geometry() {
     let (engine, _dir, snap, trunk) = run_junction_scenario();
 
@@ -594,13 +645,20 @@ fn dormancy_roundtrip_resurfaces_name() {
         .iter()
         .filter(|a| removed.contains(&a.id))
         .collect();
-    assert!(!restore.is_empty(), "the removed evidence must exist in bucket a");
+    assert!(
+        !restore.is_empty(),
+        "the removed evidence must exist in bucket a"
+    );
     let mut snap = ingest_step(&mut engine, "restore", &restore).snapshot;
     // Re-emergence after a debounced dissolve is itself debounced (anti-flap),
     // so hold the returned evidence over the sustain window with far-away
     // filler steps that cannot touch this corridor.
     for i in 0..3 {
-        let filler = act(format!("far_{i}"), 60 + i, vec![pt(300_000.0, 0.0), pt(300_500.0, 0.0)]);
+        let filler = act(
+            format!("far_{i}"),
+            60 + i,
+            vec![pt(300_000.0, 0.0), pt(300_500.0, 0.0)],
+        );
         snap = ingest_step(&mut engine, &format!("hold_{i}"), &[&filler]).snapshot;
     }
     assert_single_carrier(&engine, &snap, &fp, "after the evidence returns");
@@ -644,9 +702,13 @@ fn renaming_updates_the_existing_intent() {
     ingest_step(&mut engine, "cold", &corpus.through_a());
     let (id, _) = busiest_section(&snapshot(&mut engine)).expect("cold detect produced a section");
 
-    engine.set_section_name(&id, Some(NAME)).expect("first name");
+    engine
+        .set_section_name(&id, Some(NAME))
+        .expect("first name");
     let first = engine.get_named_corridors()[0].intent_id.clone();
-    engine.set_section_name(&id, Some(ROW_NAME)).expect("second name");
+    engine
+        .set_section_name(&id, Some(ROW_NAME))
+        .expect("second name");
     let listed = engine.get_named_corridors();
     assert_eq!(listed.len(), 1, "a rename must not stack a second intent");
     assert_eq!(listed[0].intent_id, first);
@@ -714,11 +776,16 @@ fn migration_hook_rebuilds_old_intents_table_and_backfills() {
             |r| r.get(0),
         )
         .expect("count");
-    assert_eq!(disabled, 1, "disabled rows must survive the rebuild and reopens");
+    assert_eq!(
+        disabled, 1,
+        "disabled rows must survive the rebuild and reopens"
+    );
     let named: i64 = db
-        .query_row("SELECT COUNT(*) FROM section_intents WHERE kind = 'named'", [], |r| {
-            r.get(0)
-        })
+        .query_row(
+            "SELECT COUNT(*) FROM section_intents WHERE kind = 'named'",
+            [],
+            |r| r.get(0),
+        )
         .expect("count");
     assert_eq!(named, 1, "the backfill must not duplicate on later reopens");
     drop(engine);
@@ -774,8 +841,11 @@ fn raw_named_row_never_suppresses_but_disabled_does() {
 
     {
         let db = rusqlite::Connection::open(&path).expect("raw open");
-        db.execute("UPDATE section_intents SET kind = 'disabled' WHERE id = 'ni_raw'", [])
-            .expect("flip to disabled");
+        db.execute(
+            "UPDATE section_intents SET kind = 'disabled' WHERE id = 'ni_raw'",
+            [],
+        )
+        .expect("flip to disabled");
     }
     let mut engine = PersistentRouteEngine::new(path.to_str().unwrap()).expect("reopen");
     engine.load().expect("load");
@@ -805,7 +875,9 @@ fn two_names_one_section_keeps_both() {
     let (mut engine, dir) = fresh_engine_for(Arm::Battery);
     ingest_step(&mut engine, "cold", &corpus.through_a());
     let (id, fp) = busiest_section(&snapshot(&mut engine)).expect("cold detect produced a section");
-    engine.set_section_name(&id, Some(NAME)).expect("first intent");
+    engine
+        .set_section_name(&id, Some(NAME))
+        .expect("first intent");
     drop(engine);
 
     // A second intent over a sub-stretch of the same corridor, planted raw:
@@ -866,14 +938,18 @@ fn set_name_routes_by_the_db_row_not_memory() {
         .expect("flip the row behind the engine's back");
     }
 
-    engine.set_section_name(&id, Some(ROW_NAME)).expect("rename");
+    engine
+        .set_section_name(&id, Some(ROW_NAME))
+        .expect("rename");
     assert!(
         engine.get_named_corridors().is_empty(),
         "a user-defined ROW must take the name on the row, not as an intent"
     );
     let db = rusqlite::Connection::open(&path).expect("raw verify");
     let row_name: Option<String> = db
-        .query_row("SELECT name FROM sections WHERE id = ?", params![id], |r| r.get(0))
+        .query_row("SELECT name FROM sections WHERE id = ?", params![id], |r| {
+            r.get(0)
+        })
         .expect("read row name");
     assert_eq!(row_name.as_deref(), Some(ROW_NAME));
 }
@@ -916,7 +992,9 @@ fn generated_shaped_names_stay_row_local() {
     ingest_step(&mut engine, "cold", &corpus.through_a());
     let (id, _) = busiest_section(&snapshot(&mut engine)).expect("cold detect produced a section");
 
-    engine.set_section_name(&id, Some("Section 7")).expect("set name");
+    engine
+        .set_section_name(&id, Some("Section 7"))
+        .expect("set name");
     assert!(
         engine.get_named_corridors().is_empty(),
         "a generated-shaped name must not become a durable intent"
@@ -934,7 +1012,9 @@ fn rename_shows_fresh_name_after_list_and_detail_reads() {
     ingest_step(&mut engine, "cold", &corpus.through_a());
     let (id, _) = busiest_section(&snapshot(&mut engine)).expect("cold detect produced a section");
 
-    let cached = engine.get_section_by_id(&id).expect("detail read caches the row");
+    let cached = engine
+        .get_section_by_id(&id)
+        .expect("detail read caches the row");
     assert_ne!(cached.name.as_deref(), Some(NAME));
 
     engine.set_section_name(&id, Some(NAME)).expect("rename");
