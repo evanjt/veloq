@@ -471,12 +471,6 @@ impl PersistentRouteEngine {
             .collect()
     }
 
-    /// Update a section's name in memory (for immediate visibility after rename).
-    pub fn update_section_name_in_memory(&mut self, section_id: &str, name: &str) {
-        if let Some(section) = self.sections.iter_mut().find(|s| s.id == section_id) {
-            section.name = Some(name.to_string());
-        }
-    }
 
     pub fn mark_section_accepted_in_memory(&mut self, section_id: &str) {
         if let Some(section) = self.sections.iter_mut().find(|s| s.id == section_id) {

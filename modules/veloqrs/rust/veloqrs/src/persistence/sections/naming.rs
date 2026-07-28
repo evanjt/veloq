@@ -255,21 +255,9 @@ impl PersistentRouteEngine {
         Ok(())
     }
 
-    /// Get the name for a section (if any), with corridor-name precedence:
-    /// a user-defined row keeps its own name, an auto row shows its resolved
-    /// corridor name over the generated one.
-    pub fn get_section_name(&self, section_id: &str) -> Option<String> {
-        let section = self.sections.iter().find(|s| s.id == section_id)?;
-        if !section.is_user_defined {
-            if let Some(name) = self.named_overlay_name(section_id) {
-                return Some(name);
-            }
-        }
-        section.name.clone()
-    }
-
-    /// Get all section names, with the same corridor-name precedence as
-    /// `get_section_name`.
+    /// Get all section names, with corridor-name precedence: a user-defined
+    /// row keeps its own name, an auto row shows its resolved corridor name
+    /// over the generated one.
     pub fn get_all_section_names(&self) -> HashMap<String, String> {
         self.sections
             .iter()
