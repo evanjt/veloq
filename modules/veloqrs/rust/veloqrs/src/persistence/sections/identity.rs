@@ -163,6 +163,65 @@ impl PersistentRouteEngine {
         codec::serialize(&self.identity).unwrap_or_default()
     }
 
+    /// Test-only view of the graves as (pure join id, real id) pairs. The seam
+    /// tests assert these track the pure layer's tombstones exactly, which no
+    /// public read exposes.
+    #[cfg(feature = "synthetic")]
+    pub fn section_identity_grave_rows(&self) -> Vec<(String, String)> {
+        self.identity
+            .graves
+            .iter()
+            .map(|(pid, r)| (pid.clone(), r.real_id.clone()))
+            .collect()
+    }
+
+    /// Test-only view of the pure layer's tombstoned join ids, sorted.
+    #[cfg(feature = "synthetic")]
+    pub fn section_identity_tombstone_ids(&self) -> Vec<String> {
+        self.identity.hysteresis.tombstone_ids()
+    }
+
+    /// Test-only view of the pure layer's visible join ids, sorted.
+    #[cfg(feature = "synthetic")]
+    pub fn section_identity_pure_visible_ids(&self) -> Vec<String> {
+        self.identity.hysteresis.visible_ids()
+    }
+
+    /// Test-only count of pure-layer ids with an active debounce.
+    #[cfg(feature = "synthetic")]
+    pub fn section_identity_pending_len(&self) -> usize {
+        self.identity.hysteresis.pending_len()
+    }
+
+    /// Test-only mirror view, one tuple per visible registry row: the pure join
+    /// id, the real DB id, the ground the pure layer holds under that join id
+    /// (empty when it holds none, itself a seam breach), and the payload
+    /// polyline persisted under the real id. The seam tests assert the two
+    /// geometries are equal after every apply.
+    #[cfg(feature = "synthetic")]
+    pub fn section_identity_mirror_rows(
+        &self,
+    ) -> Vec<(String, String, Vec<GpsPoint>, Vec<GpsPoint>)> {
+        self.identity
+            .rows
+            .iter()
+            .map(|(pid, r)| {
+                let pure_ground = self
+                    .identity
+                    .hysteresis
+                    .ground_of(pid)
+                    .map(<[GpsPoint]>::to_vec)
+                    .unwrap_or_default();
+                (
+                    pid.clone(),
+                    r.real_id.clone(),
+                    pure_ground,
+                    r.section.polyline.clone(),
+                )
+            })
+            .collect()
+    }
+
     /// The whole section registry as a version-tagged serde blob, or None if
     /// serialisation fails. Written INSIDE the `save_sections` transaction (via
     /// `write_identity_state`) so the registry and the catalogue it describes

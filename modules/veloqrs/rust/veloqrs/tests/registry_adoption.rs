@@ -259,7 +259,8 @@ fn run_junction() -> JunctionRun {
     let jc = junction_corpus();
     let (mut engine, dir) = fresh_engine_for(Arm::Battery);
     let cold = ingest_step(&mut engine, "trunk", &refs(&jc.trunk_outings));
-    let (_, cold_fp) = busiest_section(&cold.snapshot).expect("cold detect produced a trunk section");
+    let (_, cold_fp) =
+        busiest_section(&cold.snapshot).expect("cold detect produced a trunk section");
     let cold_trunk_polyline = cold_fp.polyline.clone();
 
     let mut first_split_step = None;

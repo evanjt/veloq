@@ -193,6 +193,10 @@ required-features = ["synthetic"]
 name = "suite2_routes_lifecycle"
 required-features = ["synthetic"]
 
+[[test]]
+name = "identity_seam"
+required-features = ["synthetic"]
+
 [[bench]]
 name = "heatmap_tiles"
 harness = false
