@@ -382,22 +382,53 @@ impl PersistentRouteEngine {
         let old_graves = std::mem::take(&mut identity.graves);
         let mut new_rows: BTreeMap<String, IdentityRow> = BTreeMap::new();
 
-        // Candidates: a frozen carry keeps the prior payload and folds new
-        // activities; an adopted carry mirrors the pure layer's held ground by
-        // taking the batch payload wholesale under the carried identity; a
-        // mint/restore takes the batch payload under a fresh/restored real id.
+        // Candidates: the pure layer's per-candidate fate drives the branch, so
+        // the registry mirrors what the pure layer decided rather than
+        // re-deriving carry/restore/mint from its own map membership. A frozen
+        // carry keeps the prior payload and folds new activities; an adopted
+        // carry mirrors the pure layer's held ground by taking the batch payload
+        // wholesale under the carried identity; a restore re-uses the grave's
+        // real id; a mint takes a fresh one.
+        //
+        // The fate and the registry mirror must agree: a carry names a live row,
+        // a restore names a grave, a mint names neither. The pure-side
+        // `fate_membership_property` proves the fates are membership-honest, so a
+        // disagreement here is a mirror desync (a dropped grave from a corrupt
+        // identity blob is the known one, task #13). Loud in tests via
+        // `debug_assert`, degraded to a safe mint in release so a corrupt blob
+        // re-mints a fresh id rather than bricking the engine.
         for (j, section) in raw.into_iter().enumerate() {
-            let pid = &resolutions[j].id;
-            if let Some(mut row) = old_rows.get(pid).cloned() {
-                if resolutions[j].fate == CandidateFate::CarriedFrozen {
+            let pid = resolutions[j].id.clone();
+            let membership_ok = match resolutions[j].fate {
+                CandidateFate::CarriedFrozen | CandidateFate::CarriedAdopted => {
+                    old_rows.contains_key(&pid)
+                }
+                CandidateFate::Restored => old_graves.contains_key(&pid),
+                CandidateFate::Minted => {
+                    !old_rows.contains_key(&pid) && !old_graves.contains_key(&pid)
+                }
+            };
+            debug_assert!(
+                membership_ok,
+                "identity fate {:?} for {pid} disagrees with the registry mirror",
+                resolutions[j].fate
+            );
+
+            // Moved into whichever branch consumes it (adopt, restore, or the
+            // mint fallback); a divergence leaves it for the fallback.
+            let mut payload = Some(section);
+            let carried = match resolutions[j].fate {
+                CandidateFate::CarriedFrozen => old_rows.get(&pid).cloned().map(|mut row| {
                     fold_new_activities(&mut row.section, &new_tracks);
-                } else {
+                    row
+                }),
+                CandidateFate::CarriedAdopted => old_rows.get(&pid).cloned().map(|mut row| {
                     // The batch's polyline, portions, and consensus family are
                     // one coherent unit, so adoption is wholesale; identity
                     // fields carry, and prior members the non-monotone batch
                     // re-clustering dropped are grafted back against the NEW
                     // geometry so membership stays monotone across the adopt.
-                    let prior = std::mem::replace(&mut row.section, section);
+                    let prior = std::mem::replace(&mut row.section, payload.take().unwrap());
                     row.section.id = row.real_id.clone();
                     row.section.name = prior.name.clone();
                     row.section.created_at = prior.created_at.clone();
@@ -417,31 +448,36 @@ impl PersistentRouteEngine {
                     // cross-sport merge's majority pick hands the corridor to a
                     // freshly minted id and identity breaks on a sport addition.
                     fold_new_activities(&mut row.section, &new_tracks);
-                }
-                new_rows.insert(pid.clone(), row);
-            } else if let Some(mut row) = old_graves.get(pid).cloned() {
-                // Restore: the ground re-emerged; adopt the batch geometry and
-                // members but keep the OLD real id and birth date (comes back
-                // as itself).
-                let real_id = row.real_id.clone();
-                let grave = std::mem::replace(&mut row.section, section);
-                row.section.id = real_id;
-                row.section.name = grave.name.clone();
-                row.section.created_at = grave.created_at.clone();
-                row.section.version = grave.version;
-                row.section.updated_at = grave.updated_at.clone();
-                new_rows.insert(pid.clone(), row);
-            } else {
+                    row
+                }),
+                CandidateFate::Restored => old_graves.get(&pid).cloned().map(|mut row| {
+                    // The ground re-emerged; adopt the batch geometry and members
+                    // but keep the OLD real id and birth date (comes back as
+                    // itself).
+                    let real_id = row.real_id.clone();
+                    let grave = std::mem::replace(&mut row.section, payload.take().unwrap());
+                    row.section.id = real_id;
+                    row.section.name = grave.name.clone();
+                    row.section.created_at = grave.created_at.clone();
+                    row.section.version = grave.version;
+                    row.section.updated_at = grave.updated_at.clone();
+                    row
+                }),
+                CandidateFate::Minted => None,
+            };
+
+            let row = carried.unwrap_or_else(|| {
                 let real_id = mint_real_id(&mut identity.mint_seq);
-                let mut section = section;
+                let mut section = payload.take().expect("payload consumed once");
                 section.id = real_id.clone();
                 // Birth is stamped on the payload at mint so it rides the
                 // registry blob and the graves: created_at then survives
                 // carries, dissolves, and restores instead of re-stamping at
                 // every save.
                 section.created_at = Some(chrono::Utc::now().to_rfc3339());
-                new_rows.insert(pid.clone(), IdentityRow { real_id, section });
-            }
+                IdentityRow { real_id, section }
+            });
+            new_rows.insert(pid, row);
         }
 
         // Pending-frozen visible ids (a debounced dissolve or re-cut with no
