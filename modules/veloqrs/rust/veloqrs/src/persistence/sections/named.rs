@@ -18,6 +18,10 @@
 //! evolution proceed as if the name did not exist (the emitter's suppression
 //! read is kind-filtered, see `durable_intent_rows`).
 //!
+//! The scoring itself (core trimming, coverage and offset, qualification,
+//! tie-broken selection) is the pure layer's: `tracematch::sections::naming`.
+//! This module owns intent storage, SQL, and the lazy overlay cache.
+//!
 //! The overlay is a pure function of DB state (intent rows + visible section
 //! rows), refreshed lazily: it is recomputed whenever the connection's
 //! `total_changes()` counter has moved since the last compute. Every write to
@@ -29,7 +33,10 @@ use std::collections::BTreeMap;
 
 use rusqlite::{OptionalExtension, params};
 use tracematch::GpsPoint;
-use tracematch::sections::{CARRY_COVERAGE, GROUND_TOL_M, shares_ground};
+use tracematch::sections::{
+    GROUND_TOL_M, NamedCandidate, score_named_candidate, select_candidate, shares_ground,
+    trim_core,
+};
 
 use super::super::PersistentRouteEngine;
 
@@ -59,37 +66,6 @@ pub struct NamedOverlay {
     pub corridors: Vec<NamedCorridor>,
 }
 
-/// Core floor: three ~100 m evidence cells, expressed through the ground
-/// tolerance anchor (`GROUND_TOL_M` is half a cell).
-const CORE_FLOOR_M: f64 = 6.0 * GROUND_TOL_M;
-/// Fraction trimmed from each end of the footprint to form the resolution
-/// core. Extent drift concentrates at endpoints (29% median early, 10%
-/// settled), so resolving on the middle keeps a name attached through the
-/// re-cuts that motivated this feature.
-const CORE_TRIM_FRAC: f64 = 0.15;
-/// Coverage scores within this of the best are ties, broken by lateral
-/// offset.
-const COVERAGE_TIE: f64 = 0.05;
-/// Resolution refuses a section whose covered core sits further away than
-/// this on average. Half the ground tolerance: a name must bind finer than
-/// the 50 m same-corridor metric or a 30 m parallel twin would satisfy it,
-/// while same-line GPS noise stays well under.
-const OFFSET_CEILING_M: f64 = GROUND_TOL_M / 2.0;
-/// A section covering less core than this cannot carry the name even when it
-/// is a contained sub-piece of the named ground. Matches the quarter-share
-/// floor a split piece needs before it is associated with the name at all.
-const PART_FLOOR: f64 = 0.25;
-
-fn haversine_m(a: &GpsPoint, b: &GpsPoint) -> f64 {
-    let r = 6_371_000.0_f64;
-    let (la1, lo1) = (a.latitude.to_radians(), a.longitude.to_radians());
-    let (la2, lo2) = (b.latitude.to_radians(), b.longitude.to_radians());
-    let dla = la2 - la1;
-    let dlo = lo2 - lo1;
-    let h = (dla / 2.0).sin().powi(2) + la1.cos() * la2.cos() * (dlo / 2.0).sin().powi(2);
-    2.0 * r * h.sqrt().asin()
-}
-
 /// Whether a name has the shape of the engine's own generated labels:
 /// "<word> N" or the legacy "<sport> <word> N", language-agnostic by token
 /// shape. Such names are never user data: the naming path keeps them
@@ -102,67 +78,6 @@ pub(crate) fn looks_generated(name: &str) -> bool {
         && tokens
             .last()
             .is_some_and(|t| !t.is_empty() && t.chars().all(|c| c.is_ascii_digit()))
-}
-
-/// The middle of the footprint by arc length: trim `CORE_TRIM_FRAC` from each
-/// end, never below `CORE_FLOOR_M` of retained length. Short footprints are
-/// their own core.
-fn trim_core(footprint: &[GpsPoint]) -> Vec<GpsPoint> {
-    if footprint.len() < 3 {
-        return footprint.to_vec();
-    }
-    let mut cum = Vec::with_capacity(footprint.len());
-    let mut total = 0.0;
-    cum.push(0.0);
-    for w in footprint.windows(2) {
-        total += haversine_m(&w[0], &w[1]);
-        cum.push(total);
-    }
-    if total <= CORE_FLOOR_M {
-        return footprint.to_vec();
-    }
-    let trim = (CORE_TRIM_FRAC * total).min((total - CORE_FLOOR_M) / 2.0);
-    let (lo, hi) = (trim, total - trim);
-    let core: Vec<GpsPoint> = footprint
-        .iter()
-        .zip(&cum)
-        .filter(|(_, d)| **d >= lo && **d <= hi)
-        .map(|(p, _)| p.clone())
-        .collect();
-    if core.len() < 2 {
-        footprint.to_vec()
-    } else {
-        core
-    }
-}
-
-/// Coverage of `core` by `line` at the ground tolerance, and the mean
-/// distance of the covered points to the line. The mean offset is the
-/// twin-lane discriminator: a 30 m parallel can reach coverage at a 50 m
-/// tolerance, but its offset gives it away.
-fn coverage_and_offset(core: &[GpsPoint], line: &[GpsPoint]) -> (f64, f64) {
-    if core.is_empty() || line.is_empty() {
-        return (0.0, f64::INFINITY);
-    }
-    let mut covered = 0usize;
-    let mut offset_sum = 0.0;
-    for s in core {
-        let d = line
-            .iter()
-            .map(|p| haversine_m(s, p))
-            .fold(f64::INFINITY, f64::min);
-        if d <= GROUND_TOL_M {
-            covered += 1;
-            offset_sum += d;
-        }
-    }
-    if covered == 0 {
-        return (0.0, f64::INFINITY);
-    }
-    (
-        covered as f64 / core.len() as f64,
-        offset_sum / covered as f64,
-    )
 }
 
 fn bbox(points: &[GpsPoint]) -> (f64, f64, f64, f64) {
@@ -202,36 +117,6 @@ struct VisibleRow {
     polyline_json: String,
     created_at: String,
     bbox: (f64, f64, f64, f64),
-}
-
-/// The winning candidate for one intent: largest core coverage (the split
-/// ruling), with candidates within `COVERAGE_TIE` of the maximum treated as
-/// a band whose winner is the smallest lateral offset, then the older
-/// section, then id. Two deterministic total-order passes — a single
-/// comparator with a tie band is not a strict weak ordering and `sort_by`
-/// may panic on one.
-fn select_candidate(
-    candidates: &[(usize, f64, f64)],
-    visible: &[VisibleRow],
-) -> (Option<usize>, f64) {
-    let Some(top_cov) = candidates
-        .iter()
-        .map(|c| c.1)
-        .fold(None::<f64>, |m, c| Some(m.map_or(c, |m| m.max(c))))
-    else {
-        return (None, 0.0);
-    };
-    let floor = top_cov - COVERAGE_TIE;
-    candidates
-        .iter()
-        .filter(|c| c.1 >= floor)
-        .min_by(|a, b| {
-            a.2.total_cmp(&b.2)
-                .then_with(|| visible[a.0].created_at.cmp(&visible[b.0].created_at))
-                .then_with(|| visible[a.0].id.cmp(&visible[b.0].id))
-        })
-        .map(|&(vi, cov, _)| (Some(vi), cov))
-        .unwrap_or((None, 0.0))
 }
 
 impl PersistentRouteEngine {
@@ -315,7 +200,7 @@ impl PersistentRouteEngine {
             let core = trim_core(&intent.footprint);
             let core_bbox = bbox(&core);
             let mid_lat = (core_bbox.0 + core_bbox.1) / 2.0;
-            let mut candidates: Vec<(usize, f64, f64)> = Vec::new();
+            let mut candidates: Vec<(usize, tracematch::sections::NamedScore)> = Vec::new();
             for (vi, row) in visible.iter().enumerate() {
                 if !bboxes_touch(core_bbox, row.bbox, mid_lat) {
                     continue;
@@ -326,23 +211,23 @@ impl PersistentRouteEngine {
                         .filter(|p| !p.is_empty())
                 });
                 let Some(polyline) = polyline else { continue };
-                let (cov, offset) = coverage_and_offset(&core, polyline);
-                if offset > OFFSET_CEILING_M {
+                let Some(score) = score_named_candidate(&core, &intent.footprint, polyline) else {
                     continue;
-                }
-                // Qualify on covering most of the core, or on being a
-                // contained sub-piece of the named ground carrying at least a
-                // quarter of the core — a corridor that re-emerges shorter
-                // than what the user named still deserves its name.
-                let qualifies = cov >= CARRY_COVERAGE
-                    || (cov >= PART_FLOOR
-                        && coverage_and_offset(polyline, &intent.footprint).0 >= CARRY_COVERAGE);
-                if !qualifies {
-                    continue;
-                }
-                candidates.push((vi, cov, offset));
+                };
+                candidates.push((vi, score));
             }
-            resolved.push(select_candidate(&candidates, &visible));
+            let scored: Vec<NamedCandidate> = candidates
+                .iter()
+                .map(|&(vi, score)| NamedCandidate {
+                    score,
+                    created_at: &visible[vi].created_at,
+                    id: &visible[vi].id,
+                })
+                .collect();
+            resolved.push(match select_candidate(&scored) {
+                Some((i, cov)) => (Some(candidates[i].0), cov),
+                None => (None, 0.0),
+            });
         }
 
         // Two intents on one section: the better-covering one displays, ties
@@ -690,61 +575,6 @@ impl PersistentRouteEngine {
 mod tests {
     use super::*;
 
-    fn pt(lat: f64, lng: f64) -> GpsPoint {
-        GpsPoint {
-            latitude: lat,
-            longitude: lng,
-            elevation: Some(500.0),
-        }
-    }
-
-    /// A straight north line of `n` points spaced ~`step_m`.
-    fn line(n: usize, step_m: f64, east_m: f64) -> Vec<GpsPoint> {
-        (0..n)
-            .map(|i| {
-                pt(
-                    46.0 + (i as f64 * step_m) / 111_320.0,
-                    7.0 + east_m / (111_320.0 * 46.0_f64.to_radians().cos()),
-                )
-            })
-            .collect()
-    }
-
-    #[test]
-    fn core_trims_ends_but_never_below_floor() {
-        let long = line(200, 10.0, 0.0); // ~2 km
-        let core = trim_core(&long);
-        assert!(core.len() < long.len(), "a long footprint must trim");
-        assert!(core.len() > long.len() / 2, "the core keeps the middle 70%");
-
-        let short = line(10, 10.0, 0.0); // ~90 m, under the floor
-        assert_eq!(trim_core(&short).len(), short.len());
-    }
-
-    #[test]
-    fn candidate_selection_is_order_independent() {
-        let visible: Vec<VisibleRow> = (0..3)
-            .map(|i| VisibleRow {
-                id: format!("s{i}"),
-                polyline_json: String::new(),
-                created_at: format!("2026-01-0{}", i + 1),
-                bbox: (0.0, 0.0, 0.0, 0.0),
-            })
-            .collect();
-        // Pathological near-tie chain: pairwise tie bands overlap so a naive
-        // banded comparator is intransitive. The winner must not depend on
-        // input order.
-        let a = vec![(0usize, 0.34, 10.0), (1, 0.30, 5.0), (2, 0.26, 1.0)];
-        let b = vec![(2usize, 0.26, 1.0), (1, 0.30, 5.0), (0, 0.34, 10.0)];
-        assert_eq!(
-            select_candidate(&a, &visible),
-            select_candidate(&b, &visible)
-        );
-        // Band anchors at the maximum: 0.26 falls outside 0.34 - 0.05, so the
-        // winner is the lower-offset member of {0.34, 0.30}.
-        assert_eq!(select_candidate(&a, &visible).0, Some(1));
-    }
-
     #[test]
     fn generated_shapes_are_recognised() {
         assert!(looks_generated("Section 7"));
@@ -752,23 +582,5 @@ mod tests {
         assert!(!looks_generated("Col des Planches"));
         assert!(!looks_generated("Evening loop"));
         assert!(!looks_generated("7"));
-    }
-
-    #[test]
-    fn offset_discriminates_a_parallel_twin() {
-        let named = line(100, 10.0, 0.0);
-        let twin = line(100, 10.0, 30.0);
-        let (cov_self, off_self) = coverage_and_offset(&named, &named);
-        let (cov_twin, off_twin) = coverage_and_offset(&named, &twin);
-        assert!(cov_self >= 0.99);
-        assert!(off_self < 1.0);
-        assert!(
-            cov_twin > CARRY_COVERAGE,
-            "the twin must clear coverage at the 50 m tolerance for the offset ceiling to matter"
-        );
-        assert!(
-            off_self < OFFSET_CEILING_M && off_twin > OFFSET_CEILING_M,
-            "the ceiling must separate the named line ({off_self:.1} m) from the twin ({off_twin:.1} m)"
-        );
     }
 }
