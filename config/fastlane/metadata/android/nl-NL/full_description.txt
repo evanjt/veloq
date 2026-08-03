@@ -1,26 +1,38 @@
-Je trainingsdata, gevisualiseerd. Veloq combineert opnames, kaarten, grafieken, inzichten en fitnesstracking in één snelle app.
+Veloq leest je intervals.icu account en tekent het op je telefoon: activiteiten, kaarten, grafieken, fitness en vorm. Het vindt ook de routes en secties die je vaker rijdt en zet elke poging naast de vorige. De analyse draait op het apparaat. Je trainingsdata blijft daar.
 
-<b>Opnemen</b>
-Registreer activiteiten met GPS, automatische pauze, km-splits en hartslagzonedisplay. Trim je opname voordat je opslaat. Upload als FIT-bestanden, of zet in de wachtrij voor later. Handmatige invoer voor indooractiviteiten.
+<b>Routes</b>
+Veloq zoekt naar wegen die je vaker rijdt, zonder iets te markeren of in te stellen. Pogingen staan naast elkaar, zodat je ziet of een klim sneller wordt.
 
-<b>Inzichten</b>
-Dagelijkse gepersonaliseerde inzichten op basis van je training: sectie-PR's, fitnessmijlpalen, weekvergelijkingen, activiteitspatronen en vormadvies. Positieve, rustdag-bewuste insteek.
+<b>Secties</b>
+Kortere stukken binnen die routes worden op dezelfde manier herkend. Rangschik je inspanningen op een favoriete klim en zie welke de beste waren.
 
 <b>Kaarten</b>
-Bekijk je activiteiten op interactieve kaarten met 3D-terrein, route-heatmaps en tijdlijnfiltering. Kies uit lichte, donkere en satellietstijlen. Blader door grafieken en volg je positie in realtime op de kaart.
+3D-terrein, route-heatmaps en een filterbare tijdlijn. Licht, donker en satelliet. Sleep over de grafiek en je positie beweegt mee over de kaart.
 
-<b>Routeregistratie</b>
-Detecteer automatisch herhaalde routes en secties in je activiteitengeschiedenis. Vergelijk prestaties in de tijd om je voortgang op favoriete beklimmingen en trajecten te zien.
-
-<b>Grafieken en analyse</b>
-Hartslag, vermogen, tempo, hoogte en cadans — alles gesynchroniseerd met de kaart. Bekijk zoneverdeling, TSS, intensiteitsfactor en ronde-overzichten.
+<b>Grafieken</b>
+Hartslag, vermogen, tempo, hoogte en cadans op een tijdlijn. Zoneverdeling, trainingsbelasting, intensiteit en rondetijden.
 
 <b>Fitness</b>
-Volg je vorm met CTL/ATL/TSB-tracking en visuele zones. Monitor HRV, rusthartslag, slaap en welzijn. Bekijk vermogens- en tempocurves per sport.
+Fitness, vermoeidheid en vorm in een grafiek met de zones erin getekend. Volg HRV, rusthartslag, slaap en gewicht. Vermogens- en tempocurves per sport.
+
+<b>Inzichten</b>
+Elke dag een korte lezing van je training. Een nieuw record op een sectie, een fitnessmijlpaal, deze week naast vorige week. Rustdagen gelden als rust.
+
+<b>Opnemen</b>
+Start een rit of hardloopsessie met GPS, autopauze en kilometertijden. Knip de uiteinden bij voor het opslaan. Upload als FIT-bestand, of zet hem in de wachtrij tot je weer bereik hebt. Indoorsessies voer je met de hand in.
+
+<b>Kracht</b>
+Leg krachttraining vast en zie welke spieren belast zijn, en welke niet.
+
+<b>Widgets</b>
+Zet je vorm en laatste activiteit op het beginscherm, op de achtergrond bijgewerkt.
 
 <b>Privacy</b>
-Alle gegevens blijven op je apparaat. Geen analyses, geen tracking. Optionele pushmeldingen slaan een apparaattoken op onze server op met automatische vervaldatum na 30 dagen — er worden geen persoonlijke gegevens bewaard. Open source onder Apache 2.0.
+Je trainingsdata blijft op het apparaat. Geen analytics, geen tracking, geen advertenties. Optionele pushmeldingen bewaren een apparaattoken dat na 30 dagen verloopt, zonder persoonlijke gegevens.
 
-Ondersteunt fietsen, hardlopen, zwemmen en meer dan 20 activiteitstypen. Probeer de ingebouwde demomodus om te verkennen zonder account.
+<b>Open source</b>
+Veloq is open source onder Apache 2.0.
 
-Vereist een Intervals.icu-account voor live gegevens. Niet gelieerd aan Intervals.icu.
+Fietsen, hardlopen, zwemmen en 20+ activiteitstypen. Probeer de demomodus om rond te kijken zonder account.
+
+Voor livedata is een intervals.icu account vereist. Veloq is een client van derden, niet verbonden aan intervals.icu.

@@ -1,1 +1,1 @@
-cykling,løb,triatlon,fitness,CTL,TSB,power,kort,GPS,ruter,diagrammer,træning,optagelse,indsigter
+watt,tempo,kadence,puls,zoner,ftp,hrv,gpx,stigning,rute,omgang,svømning,triatlon,styrke

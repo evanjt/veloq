@@ -52,8 +52,15 @@ export const MIRRORS: Record<string, string[]> = {
   'en-AU': ['en-GB'],
 };
 
+// Store locales with no app locale behind them. en-CA exists because Apple
+// defaults the Canadian storefront to English (Canada), which otherwise falls
+// back to the primary language.
+export const EXTRA_IOS_LOCALES = ['en-CA'];
+
 export function uniqueStoreLocales(platform: 'android' | 'ios'): string[] {
-  return [...new Set(LOCALE_MAPPINGS.map((m) => m[platform]))];
+  const locales = new Set(LOCALE_MAPPINGS.map((m) => m[platform]));
+  if (platform === 'ios') for (const l of EXTRA_IOS_LOCALES) locales.add(l);
+  return [...locales];
 }
 
 export function appleLocaleFor(playLocale: string): string {

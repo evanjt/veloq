@@ -1,26 +1,38 @@
-Vos donnees d'entrainement, visualisees. Veloq reunit enregistrement, cartes, graphiques, insights et suivi de la condition physique dans une application rapide.
+Veloq lit votre compte intervals.icu et le dessine sur votre téléphone : activités, cartes, graphiques, fitness et forme. Il repère aussi les routes et les sections que vous parcourez plus d'une fois et aligne chaque tentative face aux précédentes. L'analyse tourne sur l'appareil. Vos données d'entraînement y restent.
 
-<b>Enregistrement</b>
-Suivez vos activites avec GPS, pause automatique, splits au kilometre et affichage des zones de frequence cardiaque. Decoupez votre enregistrement avant de le sauvegarder. Exportez en fichiers FIT, ou mettez en file d'attente pour plus tard. Saisie manuelle pour les activites en interieur.
+<b>Routes</b>
+Veloq cherche les routes que vous parcourez plus d'une fois, sans rien marquer ni configurer. Les tentatives s'alignent les unes contre les autres, et vous voyez si une montée devient plus rapide.
 
-<b>Insights</b>
-Des insights personnalises quotidiens bases sur votre entrainement : records personnels de sections, jalons de condition physique, comparaisons hebdomadaires, tendances d'activite et conseils de forme. Un ton toujours positif, adapte aux jours de repos.
+<b>Sections</b>
+Les portions plus courtes à l'intérieur de ces routes sont détectées de la même manière. Classez vos efforts sur une montée favorite et voyez lesquels étaient les meilleurs.
 
 <b>Cartes</b>
-Visualisez vos activites sur des cartes interactives avec terrain 3D, cartes de chaleur des itineraires et filtrage temporel. Choisissez entre les styles clair, sombre et satellite. Parcourez les graphiques et suivez votre position en temps reel sur la carte.
+Terrain 3D, heatmaps de vos routes et une chronologie filtrable. Clair, sombre et satellite. Faites glisser le graphique et votre position se déplace sur la carte.
 
-<b>Suivi d'itineraires</b>
-Detectez automatiquement les itineraires et sections repetes dans votre historique d'activites. Comparez vos efforts au fil du temps pour suivre vos progres sur vos montees et parcours favoris.
+<b>Graphiques</b>
+Fréquence cardiaque, puissance, allure, altitude et cadence, sur une seule chronologie. Répartition par zones, charge d'entraînement, intensité et détail par tour.
 
-<b>Graphiques et analyse</b>
-Frequence cardiaque, puissance, allure, altitude et cadence — le tout synchronise avec la carte. Consultez les distributions de zones, TSS, facteur d'intensite et details par tour.
+<b>Fitness</b>
+Fitness, fatigue et forme sur un seul graphique avec les zones tracées. Suivez la VFC, la fréquence cardiaque au repos, le sommeil et le poids. Courbes de puissance et d'allure par sport.
 
-<b>Condition physique</b>
-Suivez votre forme avec le suivi CTL/ATL/TSB et les zones visuelles. Surveillez la HRV, la frequence cardiaque au repos, le sommeil et le bien-etre. Consultez les courbes de puissance et d'allure par sport.
+<b>Aperçus</b>
+Une courte lecture de votre entraînement chaque jour. Un nouveau record sur une section, un jalon de fitness, cette semaine face à la précédente. Les jours de repos sont lus comme du repos.
 
-<b>Confidentialite</b>
-Toutes les donnees restent sur votre appareil. Pas d'analyse, pas de suivi. Les notifications push optionnelles stockent un jeton d'appareil sur notre serveur avec une expiration automatique de 30 jours — aucune donnee personnelle n'est conservee. Code source ouvert sous Apache 2.0.
+<b>Enregistrer</b>
+Lancez une sortie vélo ou course avec GPS, pause automatique et temps au kilomètre. Coupez les extrémités avant d'enregistrer. Envoyez en fichier FIT, ou mettez-le en attente jusqu'au retour du réseau. Les séances en intérieur se saisissent à la main.
 
-Compatible avec le cyclisme, la course, la natation et plus de 20 types d'activites. Essayez le mode demo integre pour explorer sans compte.
+<b>Force</b>
+Consignez vos séances de force et voyez quels muscles ont travaillé, et lesquels non.
 
-Necessite un compte Intervals.icu pour les donnees en direct. Non affilie a Intervals.icu.
+<b>Widgets</b>
+Placez votre forme et votre dernière activité sur l'écran d'accueil, mises à jour en arrière-plan.
+
+<b>Confidentialité</b>
+Vos données d'entraînement restent sur l'appareil. Pas d'analytique, pas de pistage, pas de publicité. Les notifications push optionnelles stockent un jeton d'appareil qui expire après 30 jours, sans aucune donnée personnelle.
+
+<b>Open source</b>
+Veloq est open source sous licence Apache 2.0.
+
+Vélo, course à pied, natation et plus de 20 types d'activités. Essayez le mode démo pour explorer sans compte.
+
+Un compte intervals.icu est requis pour les données en direct. Veloq est un client tiers, non affilié à intervals.icu.

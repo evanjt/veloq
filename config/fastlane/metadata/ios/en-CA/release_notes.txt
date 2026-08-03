@@ -1,0 +1,1 @@
+Home-screen widgets for your fitness stats on iOS and Android. Notifications now name the route you rode and any route or section PRs, in your language. The engine recovers automatically from a damaged database instead of losing routes and sections. Fixed route matching and section detection silently stopping. Push notifications no longer expire after 30 days of inactivity.

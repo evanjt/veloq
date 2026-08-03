@@ -1,26 +1,38 @@
-Tus datos de entrenamiento, visualizados. Veloq reúne grabación, mapas, gráficas, insights y seguimiento de fitness en una app rápida.
+Veloq lee tu cuenta de intervals.icu y la dibuja en tu teléfono: actividades, mapas, gráficas, fitness y forma. También busca las rutas y secciones que repites más de una vez y pone cada intento junto a los anteriores. El análisis se ejecuta en el dispositivo. Tus datos de entrenamiento se quedan ahí.
 
-Grabación
-Registra actividades con GPS, pausa automática, parciales por km y visualización de zonas de frecuencia cardíaca. Recorta tu grabación antes de guardar. Sube como archivos FIT, o ponlos en cola para después. Entrada manual para actividades en interior.
+RUTAS
+Veloq busca las carreteras que recorres más de una vez, sin marcar ni configurar nada. Los intentos se alinean entre sí, y ves si una subida va siendo más rápida.
 
-Insights
-Insights diarios personalizados basados en tu entrenamiento: récords en secciones, hitos de fitness, comparaciones semanales, patrones de actividad y consejos de forma. Enfoque positivo y consciente de los días de descanso.
+SECCIONES
+Los tramos más cortos dentro de esas rutas se detectan de la misma manera. Ordena tus esfuerzos en una subida favorita y mira cuáles fueron los mejores.
 
-Mapas
-Visualiza tus actividades en mapas interactivos con terreno 3D, mapas de calor de rutas y filtrado por línea de tiempo. Elige entre estilos claro, oscuro y satélite. Desplázate por las gráficas y observa tu posición actualizarse en el mapa en tiempo real.
+MAPAS
+Terreno 3D, heatmaps de rutas y una línea temporal filtrable. Claro, oscuro y satélite. Arrastra la gráfica y tu posición se mueve por el mapa.
 
-Seguimiento de rutas
-Detecta automáticamente rutas y secciones repetidas en tu historial de actividades. Compara esfuerzos a lo largo del tiempo para ver tu progreso en subidas y tramos favoritos.
+GRÁFICAS
+Frecuencia cardiaca, potencia, ritmo, altitud y cadencia en una sola línea temporal. Distribución por zonas, carga de entrenamiento, intensidad y desglose por vueltas.
 
-Gráficas y análisis
-Frecuencia cardíaca, potencia, ritmo, elevación y cadencia — todo sincronizado con el mapa. Consulta distribuciones de zonas, TSS, factor de intensidad y desgloses por vuelta.
+FITNESS
+Fitness, fatiga y forma en una sola gráfica con las zonas dibujadas. Sigue la VFC, el pulso en reposo, el sueño y el peso. Curvas de potencia y ritmo por deporte.
 
-Fitness
-Sigue tu forma con seguimiento CTL/ATL/TSB y zonas visuales. Monitorea HRV, frecuencia cardíaca en reposo, sueño y bienestar. Consulta curvas de potencia y ritmo por deporte.
+CLAVES
+Una lectura breve de tu entrenamiento cada día. Un nuevo récord en una sección, un hito de fitness, esta semana frente a la anterior. Los días de descanso se leen como descanso.
 
-Privacidad
-Todos los datos permanecen en tu dispositivo. Sin analíticas, sin rastreo. Las notificaciones push opcionales almacenan un token de dispositivo en nuestro servidor con caducidad automática de 30 días — no se conservan datos personales. Código abierto bajo Apache 2.0.
+GRABAR
+Inicia una salida o una carrera con GPS, pausa automática y parciales por kilómetro. Recorta los extremos antes de guardar. Sube como archivo FIT, o déjalo en cola hasta que vuelva la señal. Las sesiones indoor se apuntan a mano.
 
-Compatible con ciclismo, carrera, natación y más de 20 tipos de actividad. Prueba el modo demo integrado para explorar sin cuenta.
+FUERZA
+Registra el trabajo de fuerza y mira qué músculos cargó, y cuáles no.
 
-Requiere una cuenta de Intervals.icu para datos en vivo. No afiliado a Intervals.icu.
+WIDGETS
+Pon tu forma y tu última actividad en la pantalla de inicio, actualizadas en segundo plano.
+
+PRIVACIDAD
+Tus datos de entrenamiento se quedan en el dispositivo. Sin analíticas, sin rastreo, sin anuncios. Las notificaciones push opcionales guardan un token del dispositivo que caduca a los 30 días, sin datos personales.
+
+CÓDIGO ABIERTO
+Veloq es de código abierto bajo Apache 2.0.
+
+Ciclismo, carrera, natación y más de 20 tipos de actividad. Prueba el modo demo para curiosear sin cuenta.
+
+Para datos en vivo hace falta una cuenta de intervals.icu. Veloq es un cliente de terceros, no afiliado a intervals.icu.

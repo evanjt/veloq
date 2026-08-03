@@ -1,26 +1,38 @@
-Os seus dados de treino, visualizados. Veloq reúne gravação, mapas, gráficos, insights e monitorização de fitness numa aplicação rápida.
+O Veloq lê a sua conta intervals.icu e desenha-a no seu telemóvel: atividades, mapas, gráficos, fitness e forma. Também procura as rotas e secções que repete mais do que uma vez e alinha cada tentativa com as anteriores. A análise corre no dispositivo. Os seus dados de treino ficam lá.
 
-<b>Gravação</b>
-Registe atividades com GPS, pausa automática, splits por km e exibição de zonas de frequência cardíaca. Recorte a sua gravação antes de guardar. Envie como ficheiros FIT ou coloque na fila para mais tarde. Entrada manual para atividades indoor.
+<b>Rotas</b>
+O Veloq procura estradas que percorre mais do que uma vez, sem marcar nem configurar nada. As tentativas alinham-se entre si, e vê se uma subida está a ficar mais rápida.
 
-<b>Insights</b>
-Insights diários personalizados com base no seu treino: recordes em troços, marcos de fitness, comparações semanais, padrões de atividade e orientações sobre forma. Enquadramento positivo e consciente dos dias de descanso.
+<b>Secções</b>
+Os troços mais curtos dentro dessas rotas são detetados da mesma forma. Ordene os seus esforços numa subida favorita e veja quais foram os melhores.
 
 <b>Mapas</b>
-Visualize as suas atividades em mapas interativos com terreno 3D, mapas de calor de rotas e filtragem por linha temporal. Escolha entre estilos claro, escuro e satélite. Percorra os gráficos e acompanhe a sua posição a atualizar no mapa em tempo real.
+Terreno 3D, heatmaps das rotas e uma linha temporal com filtros. Claro, escuro e satélite. Arraste o gráfico e a sua posição desloca-se no mapa.
 
-<b>Rastreamento de rotas</b>
-Detete automaticamente rotas e troços repetidos no seu histórico de atividades. Compare esforços ao longo do tempo para ver o seu progresso em subidas e percursos favoritos.
-
-<b>Gráficos e análise</b>
-Frequência cardíaca, potência, ritmo, elevação e cadência — tudo sincronizado com o mapa. Consulte distribuições de zonas, TSS, fator de intensidade e detalhes por volta.
+<b>Gráficos</b>
+Frequência cardíaca, potência, ritmo, altitude e cadência numa só linha temporal. Distribuição por zonas, carga de treino, intensidade e parciais por volta.
 
 <b>Fitness</b>
-Acompanhe a sua forma com rastreamento CTL/ATL/TSB e zonas visuais. Monitorize HRV, frequência cardíaca em repouso, sono e bem-estar. Consulte curvas de potência e ritmo por desporto.
+Fitness, fadiga e forma num só gráfico com as zonas desenhadas. Acompanhe a VFC, a frequência cardíaca em repouso, o sono e o peso. Curvas de potência e ritmo por desporto.
+
+<b>Destaques</b>
+Uma leitura curta do seu treino todos os dias. Um novo recorde numa secção, um marco de fitness, esta semana face à anterior. Os dias de descanso são lidos como descanso.
+
+<b>Gravar</b>
+Comece uma volta ou uma corrida com GPS, pausa automática e parciais ao quilómetro. Apare as pontas antes de guardar. Envie como ficheiro FIT, ou deixe em fila até voltar a ter rede. As sessões indoor registam-se à mão.
+
+<b>Força</b>
+Registe o trabalho de força e veja que músculos foram trabalhados, e quais não.
+
+<b>Widgets</b>
+Coloque a forma e a última atividade no ecrã principal, atualizadas em segundo plano.
 
 <b>Privacidade</b>
-Todos os dados permanecem no seu dispositivo. Sem análises, sem rastreamento. As notificações push opcionais armazenam um token do dispositivo no nosso servidor com expiração automática de 30 dias — nenhum dado pessoal é retido. Código aberto sob licença Apache 2.0.
+Os seus dados de treino ficam no dispositivo. Sem análises, sem rastreio, sem anúncios. As notificações push opcionais guardam um token do dispositivo que expira ao fim de 30 dias, sem dados pessoais.
 
-Compatível com ciclismo, corrida, natação e mais de 20 tipos de atividade. Experimente o modo de demonstração integrado para explorar sem criar conta.
+<b>Código aberto</b>
+O Veloq é código aberto sob a licença Apache 2.0.
 
-Requer uma conta Intervals.icu para dados em tempo real. Não é afiliado ao Intervals.icu.
+Ciclismo, corrida, natação e mais de 20 tipos de atividade. Experimente o modo de demonstração para explorar sem conta.
+
+Os dados em direto exigem uma conta intervals.icu. O Veloq é um cliente de terceiros, não afiliado ao intervals.icu.

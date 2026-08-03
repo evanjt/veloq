@@ -1,1 +1,1 @@
-fietsen,hardlopen,triatlon,fitness,CTL,TSB,vermogen,kaarten,GPS,routes,grafieken,training,inzichten
+vermogen,tempo,cadans,hartslag,zones,ftp,hrv,gpx,klim,route,ronde,zwemmen,triatlon,kracht

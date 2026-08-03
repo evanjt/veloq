@@ -1,26 +1,38 @@
-Twoje dane treningowe, zwizualizowane. Veloq łączy nagrywanie, mapy, wykresy, analizy i śledzenie kondycji w jednej szybkiej aplikacji.
+Veloq odczytuje Twoje konto intervals.icu i rysuje je na telefonie: aktywności, mapy, wykresy, kondycję i formę. Znajduje też trasy i sekcje, które pokonujesz więcej niż raz, i zestawia każdą próbę z poprzednimi. Analiza działa na urządzeniu. Twoje dane treningowe tam zostają.
 
-<b>Nagrywanie</b>
-Śledź aktywności z GPS, automatyczną pauzą, podziałem na kilometry i wyświetlaniem stref tętna. Przytnij nagranie przed zapisem. Przesyłaj jako pliki FIT lub kolejkuj do wysłania później. Ręczne wprowadzanie dla aktywności halowych.
+<b>Trasy</b>
+Veloq szuka dróg, które pokonujesz więcej niż raz, bez oznaczania i konfigurowania czegokolwiek. Próby stają obok siebie, więc widzisz, czy podjazd robi się szybszy.
 
-<b>Spostrzeżenia</b>
-Codzienne spersonalizowane analizy na podstawie Twojego treningu: rekordy na odcinkach, kamienie milowe kondycji, porównania tygodniowe, wzorce aktywności i porady dotyczące formy. Pozytywne komunikaty uwzględniające dni odpoczynku.
+<b>Sekcje</b>
+Krótsze odcinki w obrębie tych tras są wykrywane tak samo. Uszereguj swoje wysiłki na ulubionym podjeździe i zobacz, które były najlepsze.
 
 <b>Mapy</b>
-Przeglądaj swoje aktywności na interaktywnych mapach z terenem 3D, mapami ciepła tras i filtrowaniem osi czasu. Wybieraj między jasnymi, ciemnymi i satelitarnymi stylami. Przewijaj wykresy i obserwuj aktualizację pozycji na mapie w czasie rzeczywistym.
+Teren 3D, heatmapy tras i oś czasu z filtrami. Jasny, ciemny i satelitarny. Przeciągnij po wykresie, a Twoja pozycja przesuwa się po mapie.
 
-<b>Śledzenie tras</b>
-Automatycznie wykrywaj powtarzające się trasy i odcinki w historii aktywności. Porównuj wysiłki w czasie, aby śledzić postępy na ulubionych podjazdach i trasach.
-
-<b>Wykresy i analiza</b>
-Tętno, moc, tempo, wysokość i kadencja — wszystko zsynchronizowane z mapą. Przeglądaj rozkłady stref, TSS, współczynnik intensywności i podsumowania okrążeń.
+<b>Wykresy</b>
+Tętno, moc, tempo, wysokość i kadencja na jednej osi czasu. Rozkład stref, obciążenie treningowe, intensywność i podział na okrążenia.
 
 <b>Kondycja</b>
-Śledź swoją formę dzięki śledzeniu CTL/ATL/TSB i wizualnym strefom. Monitoruj HRV, tętno spoczynkowe, sen i samopoczucie. Przeglądaj krzywe mocy i tempa według dyscypliny.
+Kondycja, zmęczenie i forma na jednym wykresie z narysowanymi strefami. Śledź HRV, tętno spoczynkowe, sen i wagę. Krzywe mocy i tempa dla każdego sportu.
+
+<b>Wgląd</b>
+Codziennie krótkie odczytanie Twojego treningu. Nowy rekord na sekcji, kamień milowy kondycji, ten tydzień na tle poprzedniego. Dni odpoczynku są czytane jako odpoczynek.
+
+<b>Nagrywanie</b>
+Rozpocznij jazdę lub bieg z GPS, autopauzą i międzyczasami co kilometr. Przytnij końce przed zapisaniem. Wyślij jako plik FIT albo ustaw w kolejce, aż wróci zasięg. Sesje w pomieszczeniu wpisujesz ręcznie.
+
+<b>Siła</b>
+Zapisuj trening siłowy i zobacz, które mięśnie pracowały, a które nie.
+
+<b>Widżety</b>
+Umieść formę i ostatnią aktywność na ekranie głównym, aktualizowane w tle.
 
 <b>Prywatność</b>
-Wszystkie dane pozostają na Twoim urządzeniu. Brak analityki, brak śledzenia. Opcjonalne powiadomienia push przechowują token urządzenia na naszym serwerze z automatycznym wygaśnięciem po 30 dniach — żadne dane osobowe nie są zachowywane. Otwarte źródło na licencji Apache 2.0.
+Twoje dane treningowe zostają na urządzeniu. Bez analityki, bez śledzenia, bez reklam. Opcjonalne powiadomienia push zapisują token urządzenia, który wygasa po 30 dniach, bez danych osobowych.
 
-Obsługuje kolarstwo, bieganie, pływanie i ponad 20 typów aktywności. Wypróbuj wbudowany tryb demo, aby poznać aplikację bez zakładania konta.
+<b>Open source</b>
+Veloq jest open source na licencji Apache 2.0.
 
-Wymaga konta Intervals.icu do danych na żywo. Nie jest powiązany z Intervals.icu.
+Kolarstwo, bieganie, pływanie i ponad 20 typów aktywności. Wypróbuj tryb demo i rozejrzyj się bez konta.
+
+Dane na żywo wymagają konta intervals.icu. Veloq to klient zewnętrzny, niepowiązany z intervals.icu.
