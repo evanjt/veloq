@@ -1,0 +1,77 @@
+appId: com.veloq.app.dev
+name: Store capture
+tags:
+  - tier4
+# Raw captures for the store screenshot compositor. Run by path via
+# scripts/store-capture.sh, never by tag from CI cron. Output lands in
+# artifacts/store-capture/ (the script creates it and moves files into
+# artifacts/store/raw/<platform>/). Status bar cleanup happens outside
+# Maestro, in the wrapper script.
+---
+- runFlow: helpers/setup-demo-mode.yaml
+
+# Force dark theme: the store set uses the night palette.
+- openLink: "veloq://display-settings"
+- tapOn:
+    id: "theme-button-dark"
+
+# Hide the demo banner for clean captures. The switch is gated on demo mode
+# and persists in AuthStore, so one tap covers the whole run.
+- openLink: "veloq://settings"
+- scrollUntilVisible:
+    element:
+      id: "hide-demo-banner-switch"
+    direction: DOWN
+- tapOn:
+    id: "hide-demo-banner-switch"
+
+# 01 activity feed
+- openLink: "veloq://"
+- extendedWaitUntil:
+    visible:
+      id: "home-activity-list"
+    timeout: 15000
+- takeScreenshot: "artifacts/store-capture/01-feed"
+
+# 02 activity detail
+- openLink: "veloq://activity/demo-test-0"
+- extendedWaitUntil:
+    visible:
+      id: "activity-detail-content"
+    timeout: 15000
+- takeScreenshot: "artifacts/store-capture/02-activity"
+
+# 03 fitness
+- openLink: "veloq://fitness"
+- extendedWaitUntil:
+    visible:
+      id: "fitness-ctl-value"
+    timeout: 15000
+- takeScreenshot: "artifacts/store-capture/03-fitness"
+
+# 04 regional map. MapLibre tile loading has no deterministic hook, so wait
+# for the ready marker then give tiles a settle window.
+- openLink: "veloq://map"
+- extendedWaitUntil:
+    visible:
+      id: "regional-map-ready"
+    timeout: 15000
+- waitForAnimationToEnd:
+    timeout: 8000
+- takeScreenshot: "artifacts/store-capture/04-map"
+
+# 05 routes
+- openLink: "veloq://routes?tab=routes"
+- extendedWaitUntil:
+    visible:
+      id: "routes-list"
+    timeout: 15000
+- takeScreenshot: "artifacts/store-capture/05-routes"
+
+# 06 insights
+- openLink: "veloq://routes"
+- extendedWaitUntil:
+    visible:
+      id: "insights-panel"
+    timeout: 15000
+- takeScreenshot: "artifacts/store-capture/06-insights"

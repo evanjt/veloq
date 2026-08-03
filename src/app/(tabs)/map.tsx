@@ -248,6 +248,9 @@ export default function MapScreen() {
   return (
     <ScreenErrorBoundary screenName="Map">
       <View style={styles.container} testID="map-screen">
+        {/* map-screen sits on the loading and error branches too, so flows
+            that need the loaded map wait on this marker instead. */}
+        <View testID="regional-map-ready" />
         {/* Main map view */}
         <ComponentErrorBoundary componentName="Map">
           <RegionalMapView
