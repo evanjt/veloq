@@ -101,3 +101,50 @@ CREATE TABLE IF NOT EXISTS section_intents (
     name TEXT,
     sport_type TEXT
 );
+
+-- D4: section history, versioned geometry, and pins. All three key on the
+-- durable real section id with NO foreign key to sections: that table is
+-- wipe-managed per save, and history must outlive any catalogue rebuild —
+-- events are kept forever, geometry versions survive a re-cut of the row
+-- they describe. Ships dark: the D5 emitter writes these rows.
+
+-- One row per lifecycle event (re-cut, split, merge, dissolve, restore,
+-- pin, ...). `kind` vocabulary and `details` payload shape belong to the
+-- emitter; `geometry_version` names the section_geometry row in force
+-- after the event when it changed geometry.
+CREATE TABLE IF NOT EXISTS section_history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    section_id TEXT NOT NULL,
+    at TEXT NOT NULL DEFAULT (datetime('now')),
+    kind TEXT NOT NULL,
+    details TEXT,
+    geometry_version INTEGER
+);
+CREATE INDEX IF NOT EXISTS idx_section_history_section
+    ON section_history(section_id, at);
+
+-- Versioned polylines. encoding 1 = quantised zigzag-varint stream
+-- (codec.rs encode_polyline: 1e-6 deg, 0.1 m elevation, ~3 B/point on the
+-- measured corpora vs ~62 B/point JSON). Versions are independent — each
+-- row decodes alone, no delta chains — so a revert needs no chain walk
+-- and a quarantine salvage cannot lose a version to a torn predecessor.
+-- Retention on write: version 1 (birth geometry), milestones, the pinned
+-- version, and the newest three always survive; other versions are pruned.
+CREATE TABLE IF NOT EXISTS section_geometry (
+    section_id TEXT NOT NULL,
+    version INTEGER NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    encoding INTEGER NOT NULL DEFAULT 1,
+    blob BLOB NOT NULL,
+    milestone INTEGER NOT NULL DEFAULT 0,
+    PRIMARY KEY (section_id, version)
+);
+
+-- Revert = pin at version: the user freezes a section at a stored
+-- geometry. Separate from section_intents (a pin is not a suppression and
+-- must not enter the emitter's intent reads); one pin per section.
+CREATE TABLE IF NOT EXISTS section_pins (
+    section_id TEXT PRIMARY KEY,
+    version INTEGER NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);

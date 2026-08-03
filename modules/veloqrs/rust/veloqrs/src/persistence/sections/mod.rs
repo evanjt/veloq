@@ -1,6 +1,7 @@
 //! Section management: loading, queries, detection, save/apply, names.
 
 mod detection;
+mod history;
 mod identity;
 mod merging;
 mod named;
@@ -9,6 +10,7 @@ mod ranking;
 
 pub(crate) use identity::SectionIdentity;
 pub(crate) use named::looks_generated;
+pub use history::{SectionGeometryVersion, SectionHistoryEvent};
 pub use named::{NamedCorridor, NamedOverlay};
 
 // Re-export the Tier 2 upgrade-path backfill so `persistent_engine_ffi::init`
