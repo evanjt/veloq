@@ -283,3 +283,15 @@ See: https://www.unicode.org/license.txt
 ---
 
 *Last updated: 2026-01-24*
+
+## Store Marketing Fonts
+
+Inter (Bold, Regular) is bundled at `assets/store-fonts/` for rendering store
+screenshots and the Play feature graphic (`scripts/store-screenshots.ts`). It is
+not shipped in the app binary.
+
+| Font | License | Source |
+|------|---------|--------|
+| Inter 4.1 | SIL Open Font License 1.1 | https://github.com/rsms/inter |
+
+The full licence text is at `assets/store-fonts/OFL.txt`.
