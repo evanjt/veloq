@@ -56,8 +56,14 @@ pub(super) const SECTION_IDENTITY_KEY: &str = "section_identity";
 
 /// Version byte on the persisted section-registry blob. Bump on any
 /// serialisation-breaking change to [`SectionIdentity`]; an old byte then reseeds
-/// gracefully instead of misparsing (postcard is positional).
-pub(super) const SECTION_IDENTITY_BLOB_VERSION: u8 = 1;
+/// gracefully instead of misparsing. Version 2 is rmp-encoded: the payload
+/// carries [`FrequentSection`]s whose trailing skip-if-None fields
+/// (`GpsPoint.elevation`, `consensus_state`) desync postcard's positional
+/// stream, so a v1 postcard blob never decoded and always fell back to a
+/// reseed — dropping graves, tombstones, and debounce streaks on every
+/// restart. rmp's length-prefixed arrays recover a skipped trailing field
+/// through its serde default.
+pub(super) const SECTION_IDENTITY_BLOB_VERSION: u8 = 2;
 
 /// Merge-candidacy mutual-overlap floor for the registry's hysteresis. SHIPS AT
 /// 0.0 (the pure-layer default): a prior competes for a candidate's merge
@@ -160,7 +166,7 @@ impl PersistentRouteEngine {
     /// exactly. Behind `synthetic` so it never reaches the shipped API.
     #[cfg(feature = "synthetic")]
     pub fn section_identity_fingerprint(&self) -> Vec<u8> {
-        codec::serialize(&self.identity).unwrap_or_default()
+        codec::serialize_gps_composite(&self.identity).unwrap_or_default()
     }
 
     /// Test-only view of the graves as (pure join id, real id) pairs. The seam
@@ -227,9 +233,10 @@ impl PersistentRouteEngine {
     /// `write_identity_state`) so the registry and the catalogue it describes
     /// commit atomically — a crash cannot leave the blob ahead of the DB. The
     /// leading byte is [`SECTION_IDENTITY_BLOB_VERSION`]; a mismatch on restore
-    /// reseeds rather than misparsing (postcard is positional).
+    /// reseeds rather than misparsing. rmp-encoded, not postcard: the payload
+    /// carries GpsPoint composites (see the version-constant note).
     pub(crate) fn section_identity_blob(&self) -> Option<Vec<u8>> {
-        codec::serialize(&self.identity)
+        codec::serialize_gps_composite(&self.identity)
             .map(|body| codec::tag_blob(SECTION_IDENTITY_BLOB_VERSION, body))
             .ok()
     }
@@ -258,7 +265,7 @@ impl PersistentRouteEngine {
             log::warn!("tracematch: [section_identity_restore] blob version mismatch, reseeding");
             return false;
         };
-        match codec::deserialize::<SectionIdentity>(body) {
+        match codec::deserialize_gps_composite::<SectionIdentity>(body) {
             Ok(state) => {
                 self.identity = state;
                 // No counter-reconcile equivalent to the route registry's. Section

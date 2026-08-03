@@ -381,16 +381,13 @@ fn graves_track_tombstones_exactly() {
 /// evidence returns.
 /// Expected behaviour: the identity_state blob restores the registry exactly
 /// (graves and tombstones included), so the ground still re-emerges under its
-/// old real id and birth date. Today the blob is written correctly but fails
-/// its own postcard round-trip on decode (skip_serializing_if fields inside
-/// the payload, `GpsPoint.elevation` and `FrequentSection.consensus_state`,
-/// desync the positional stream), so restore falls back to a reseed that can
-/// only see the DB rows: graves, tombstones, and debounce streaks are lost and
-/// the re-emerged ground mints a fresh id. The green
-/// `identity_registries_survive_restart` gate never catches this because its
-/// grave-free growth state is one a reseed reproduces byte-for-byte.
+/// old real id and birth date. This is the gate a reseed cannot pass: a
+/// reseed sees only the DB rows, so graves, tombstones, and debounce streaks
+/// would be lost and the re-emerged ground would mint a fresh id. The green
+/// `identity_registries_survive_restart` gate never catches a broken decode
+/// because its grave-free growth state is one a reseed reproduces
+/// byte-for-byte; this one holds the blob to a real round-trip.
 #[test]
-#[ignore = "red gate for D5: the section identity blob fails its own postcard round-trip on a real detection payload, so a restart reseeds and drops every grave and tombstone; stale identity state that can never drain is the D2 replay's headline failure (pinned visible-only sections: sion 10 of 66, fullcorpus 22 of 217, settle flat 72->67->66)"]
 fn grave_restore_survives_restart() {
     let run = run_graves_scenario(false);
     let registry_before = run.engine.section_identity_fingerprint();
