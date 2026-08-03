@@ -39,6 +39,9 @@ const FASTLANE = path.join(ROOT, 'config', 'fastlane');
 // Assigned after CLI parsing; --out and VELOQ_STORE_DIR both override.
 let STORE = path.join(ROOT, 'artifacts', 'store');
 const CHROMIUM = process.env.CHROMIUM ?? 'chromium';
+// ImageMagick 6 (GitHub ubuntu runners) has no `magick` binary; set
+// MAGICK=convert there.
+const MAGICK = process.env.MAGICK ?? 'magick';
 
 // Exact store pixel sizes. Play phone is 9:16, clear of Play's 2:1 aspect cap
 // and inside its featuring-eligibility bar. iPad is the 13" class, the only
@@ -324,7 +327,7 @@ function render(html: string, width: number, height: number, outPng: string): vo
 // commit: a 1320x2868 gradient-over-map PNG is 1.5-3 MB, the JPEG ~0.5 MB.
 function toJpeg(png: string, dest: string, bg: string): void {
   fs.mkdirSync(path.dirname(dest), { recursive: true });
-  execFileSync('magick', [
+  execFileSync(MAGICK, [
     png,
     '-background',
     bg,
@@ -423,7 +426,7 @@ function buildWeb(): void {
     const dest = WEB_MAP[stem];
     if (!dest) continue;
     const out = path.join(ROOT, 'docs', 'screenshots', `${dest}.png`);
-    execFileSync('magick', [
+    execFileSync(MAGICK, [
       raw,
       '-resize',
       `${SIZES.web.width}x${SIZES.web.height}`,

@@ -1,5 +1,16 @@
 default_platform(:android)
 
+# Promotions move an existing release between tracks; every upload must be
+# off or supply hunts for release notes with no version code and aborts.
+PROMOTE_SKIPS = {
+  skip_upload_aab: true,
+  skip_upload_apk: true,
+  skip_upload_metadata: true,
+  skip_upload_changelogs: true,
+  skip_upload_images: true,
+  skip_upload_screenshots: true,
+}.freeze
+
 # ==============================
 # Android Lanes
 # ==============================
@@ -30,8 +41,8 @@ platform :android do
       mapping: mapping_path,
       metadata_path: File.expand_path("metadata/android", __dir__),
       skip_upload_metadata: false,
-      skip_upload_images: true,
-      skip_upload_screenshots: true,
+      skip_upload_images: false,
+      skip_upload_screenshots: false,
       release_status: "completed"
     )
   end
@@ -41,11 +52,7 @@ platform :android do
     supply(
       track: "internal",
       track_promote_to: "beta",
-      skip_upload_aab: true,
-      skip_upload_metadata: false,
-      metadata_path: File.expand_path("metadata/android", __dir__),
-      skip_upload_images: true,
-      skip_upload_screenshots: true
+      **PROMOTE_SKIPS
     )
   end
 
@@ -54,12 +61,8 @@ platform :android do
     supply(
       track: "beta",
       track_promote_to: "production",
-      skip_upload_aab: true,
-      skip_upload_metadata: false,
-      metadata_path: File.expand_path("metadata/android", __dir__),
-      skip_upload_images: true,
-      skip_upload_screenshots: true,
-      rollout: "0.1"
+      rollout: "0.1",
+      **PROMOTE_SKIPS
     )
   end
 
@@ -69,9 +72,61 @@ platform :android do
       metadata_path: File.expand_path("metadata/android", __dir__),
       skip_upload_apk: true,
       skip_upload_aab: true,
-      skip_upload_images: true,
-      skip_upload_screenshots: true
+      skip_upload_images: false,
+      skip_upload_screenshots: false
     )
+  end
+
+  desc "Upload store images only: feature graphic, icon and phone screenshots"
+  lane :screenshots do |options|
+    # supply resolves a single track release even for a listing-only push, so
+    # anchor to a version code when a track holds more than one.
+    params = {
+      metadata_path: File.expand_path("metadata/android", __dir__),
+      track: options[:track] || "internal",
+      skip_upload_aab: true,
+      skip_upload_apk: true,
+      skip_upload_metadata: true,
+      skip_upload_changelogs: true,
+      skip_upload_images: false,
+      skip_upload_screenshots: false,
+    }
+    params[:version_code] = options[:version_code].to_i if options[:version_code]
+    supply(params)
+  end
+
+  desc "Print what Play currently holds: every track, release status and version code"
+  lane :play_state do
+    require "supply"
+    require "supply/client"
+    Supply.config = FastlaneCore::Configuration.create(
+      Supply::Options.available_options,
+      json_key: ENV.fetch("SUPPLY_JSON_KEY"),
+      package_name: "com.veloq.app",
+    )
+    client = Supply::Client.make_from_config
+    client.begin_edit(package_name: Supply.config[:package_name])
+    UI.message("Bundles in library: #{client.aab_version_codes.inspect}")
+    client.tracks.each do |track|
+      releases = track.releases.to_a
+      UI.message("#{track.track}: (no releases)") if releases.empty?
+      releases.each do |rel|
+        UI.message("#{track.track}: status=#{rel.status} codes=#{(rel.version_codes || []).join(',')} name=#{rel.name.inspect}")
+      end
+    end
+    # Live listing images against the repo, so a stale upload is obvious. Play
+    # reports a sha256 of the bytes it stored, which matches the file we sent.
+    require "digest"
+    Dir[File.expand_path("metadata/android/*/", __dir__)].sort.each do |dir|
+      lang = File.basename(dir)
+      live = client.fetch_images(image_type: "phoneScreenshots", language: lang).to_a
+      local = Dir[File.join(dir, "images", "phoneScreenshots", "*.{png,jpg}")].sort
+      local_hashes = local.map { |f| Digest::SHA256.file(f).hexdigest }
+      matched = live.count { |img| local_hashes.include?(img.sha256) }
+      state = matched == local.size && live.size == local.size ? "in sync" : "STALE"
+      UI.message("#{lang} phoneScreenshots: live=#{live.size} repo=#{local.size} matching=#{matched} #{state}")
+    end
+    client.abort_current_edit
   end
 end
 
@@ -185,6 +240,38 @@ platform :ios do
       force: true,
       run_precheck_before_submit: false,
       metadata_path: File.expand_path("metadata/ios", __dir__)
+    }
+
+    if options[:app_version]
+      deliver_params[:app_version] = options[:app_version]
+    end
+
+    deliver(deliver_params)
+  end
+
+  desc "Upload App Store screenshots only (no binary, no metadata, no review submission)"
+  lane :screenshots do |options|
+    api_key = app_store_connect_api_key(
+      key_id: ENV["ASC_KEY_ID"],
+      issuer_id: ENV["ASC_ISSUER_ID"],
+      key_content: ENV["ASC_API_KEY"],
+      is_key_content_base64: true
+    )
+
+    deliver_params = {
+      api_key: api_key,
+      screenshots_path: File.expand_path("screenshots", __dir__),
+      skip_binary_upload: true,
+      skip_metadata: true,
+      skip_screenshots: false,
+      # sync_screenshots diffs against what ASC already holds and skips
+      # unchanged files; overwrite replaces the live set with the repo's.
+      sync_screenshots: true,
+      overwrite_screenshots: true,
+      submit_for_review: false,
+      automatic_release: false,
+      force: true,
+      run_precheck_before_submit: false
     }
 
     if options[:app_version]

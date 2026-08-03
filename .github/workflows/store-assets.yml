@@ -1,0 +1,304 @@
+name: Store Assets
+
+# Manual only. Store screenshots are approved creative, not a build output:
+# this workflow captures on both platforms, composites, and opens a pull
+# request for review. Nothing reaches a live listing from here.
+on:
+  workflow_dispatch:
+    inputs:
+      palette:
+        description: Palette for the composites
+        type: choice
+        default: night
+        options: [night, day]
+      locales:
+        description: Space-separated caption locales (en-AU it-IT fr-FR es-ES)
+        type: string
+        default: en-AU
+      e2e_run_id:
+        description: e2e.yml run to pull app binaries from (blank = latest successful)
+        type: string
+        default: ""
+
+permissions:
+  contents: write
+  pull-requests: write
+  actions: read
+
+jobs:
+  resolve-binaries:
+    name: Resolve app binaries
+    runs-on: ubuntu-latest
+    outputs:
+      run_id: ${{ steps.find.outputs.run_id }}
+    steps:
+      - name: Find e2e build run
+        id: find
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ -n "${{ inputs.e2e_run_id }}" ]; then
+            echo "run_id=${{ inputs.e2e_run_id }}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          RUN_ID=$(gh api "repos/${{ github.repository }}/actions/workflows/e2e.yml/runs?status=success&per_page=1" \
+            --jq '.workflow_runs[0].id')
+          if [ -z "$RUN_ID" ] || [ "$RUN_ID" = "null" ]; then
+            echo "::error::No successful e2e.yml run found. Run e2e.yml first or pass e2e_run_id."
+            exit 1
+          fi
+          echo "run_id=$RUN_ID" >> "$GITHUB_OUTPUT"
+
+  capture-android:
+    name: Capture Android
+    needs: resolve-binaries
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Download APK
+        uses: actions/download-artifact@v8
+        with:
+          name: android-dev-apk
+          path: /tmp/android-artifact
+          run-id: ${{ needs.resolve-binaries.outputs.run_id }}
+          github-token: ${{ github.token }}
+
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Install Maestro
+        uses: ./.github/actions/install-maestro
+
+      - name: Capture on emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        env:
+          MAESTRO_DRIVER_STARTUP_TIMEOUT: 180000
+        with:
+          api-level: 35
+          arch: x86_64
+          target: google_apis
+          profile: pixel_6
+          force-avd-creation: false
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -no-snapshot-save -no-metrics
+          disable-animations: true
+          # The action runs each script line as a separate `sh -c`, so no
+          # shell state survives between lines. Every line stands alone.
+          script: |
+            adb install "$(find /tmp/android-artifact -name '*.apk' | head -1)"
+            mkdir -p artifacts/store-capture
+            adb shell settings put global sysui_demo_allowed 1
+            adb shell am broadcast -a com.android.systemui.demo -e command enter
+            adb shell am broadcast -a com.android.systemui.demo -e command clock -e hhmm 0941
+            adb shell am broadcast -a com.android.systemui.demo -e command battery -e level 100 -e plugged false
+            adb shell am broadcast -a com.android.systemui.demo -e command network -e wifi show -e level 4
+            adb shell am broadcast -a com.android.systemui.demo -e command network -e mobile hide
+            adb shell am broadcast -a com.android.systemui.demo -e command notifications -e visible false
+            adb shell cmd uimode night yes
+            "$HOME/.maestro/bin/maestro" test .maestro/store-capture.yaml --no-ansi
+            adb shell am broadcast -a com.android.systemui.demo -e command exit
+
+      - name: Upload raw captures
+        uses: actions/upload-artifact@v4
+        with:
+          name: store-raw-android
+          path: artifacts/store-capture/
+          retention-days: 14
+
+  capture-ios:
+    name: Capture iOS
+    needs: resolve-binaries
+    runs-on: macos-26
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download iOS app
+        uses: actions/download-artifact@v8
+        with:
+          name: ios-dev-simulator
+          path: /tmp/ios-artifact
+          run-id: ${{ needs.resolve-binaries.outputs.run_id }}
+          github-token: ${{ github.token }}
+
+      - name: Extract iOS app
+        run: |
+          mkdir -p /tmp/app
+          ZIP=$(find /tmp/ios-artifact -name "*.zip" | head -1)
+          unzip -q "$ZIP" -d /tmp/app
+
+      - name: Install Maestro
+        uses: ./.github/actions/install-maestro
+
+      - name: Capture iPhone and iPad
+        env:
+          MAESTRO_DRIVER_STARTUP_TIMEOUT: "180000"
+        run: |
+          export PATH="$PATH:$HOME/.maestro/bin"
+          capture() {
+            DEVICE="$1"
+            DEST="$2"
+            UDID=$(xcrun simctl list devices available | grep "$DEVICE" | head -1 | sed -E 's/.*\(([A-F0-9-]+)\).*/\1/')
+            if [ -z "$UDID" ]; then
+              echo "::error::Simulator not found: $DEVICE"
+              exit 1
+            fi
+            xcrun simctl boot "$UDID" || true
+            for i in $(seq 1 30); do
+              xcrun simctl spawn "$UDID" launchctl list 2>/dev/null | grep -q SpringBoard && break
+              sleep 2
+            done
+            sleep 5
+            xcrun simctl install "$UDID" /tmp/app/VeloqDev.app
+            xcrun simctl status_bar "$UDID" override \
+              --time "9:41" --batteryState charged --batteryLevel 100 \
+              --wifiMode active --wifiBars 3 --cellularMode notSupported
+            mkdir -p artifacts/store-capture
+            # One simulator is booted at a time, so maestro picks it up itself.
+            maestro test .maestro/store-capture.yaml --no-ansi
+            xcrun simctl status_bar "$UDID" clear
+            xcrun simctl shutdown "$UDID" || true
+            mkdir -p "$DEST"
+            mv artifacts/store-capture/*.png "$DEST"/
+          }
+          capture "iPhone 17 Pro Max" artifacts/raw/ios
+          capture "iPad Pro 13-inch" artifacts/raw/ipad
+
+      - name: Upload raw captures
+        uses: actions/upload-artifact@v4
+        with:
+          name: store-raw-ios
+          path: artifacts/raw/
+          retention-days: 14
+
+  composite:
+    name: Composite and open PR
+    needs: [capture-android, capture-ios]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      CHROMIUM: google-chrome
+      MAGICK: convert
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Download Android captures
+        uses: actions/download-artifact@v4
+        with:
+          name: store-raw-android
+          path: artifacts/store/raw/android
+
+      - name: Download iOS captures
+        uses: actions/download-artifact@v4
+        with:
+          name: store-raw-ios
+          path: artifacts/store/raw
+
+      - name: Snapshot current assets
+        run: |
+          mkdir -p /tmp/current
+          cp -r config/fastlane/screenshots /tmp/current/appstore 2>/dev/null || true
+          for d in config/fastlane/metadata/android/*/images; do
+            LOC=$(basename "$(dirname "$d")")
+            mkdir -p "/tmp/current/play/$LOC"
+            cp -r "$d"/. "/tmp/current/play/$LOC/" 2>/dev/null || true
+          done
+
+      - name: Render and install
+        run: |
+          npx tsx scripts/store-screenshots.ts --palette ${{ inputs.palette }} --target all ${{ inputs.locales }}
+          npx tsx scripts/store-screenshots.ts --target web
+          npx tsx scripts/store-screenshots.ts --install ${{ inputs.locales }}
+
+      - name: Validate
+        run: npx tsx scripts/validate-store-metadata.ts
+
+      - name: Build review bundle
+        run: |
+          # Per locale: current against updating, so the change is browsable
+          # before merging. A locale with no current set gets a NEW marker.
+          mkdir -p /tmp/review /tmp/sheets
+          for LOC_DIR in artifacts/store/play/*/; do
+            LOC=$(basename "$LOC_DIR")
+            for TARGET in play appstore ipad feature; do
+              SRC="artifacts/store/$TARGET/$LOC"
+              [ -d "$SRC" ] || continue
+              OUT="/tmp/review/$LOC/$TARGET"
+              mkdir -p "$OUT"
+              for f in "$SRC"/*.jpg; do
+                cp "$f" "$OUT/$(basename "${f%.jpg}")-updating.jpg"
+              done
+              case "$TARGET" in
+                play) CUR="/tmp/current/play/$LOC/phoneScreenshots" ;;
+                feature) CUR="/tmp/current/play/$LOC" ;;
+                *) CUR="/tmp/current/appstore/$LOC" ;;
+              esac
+              if [ -d "$CUR" ] && ls "$CUR"/*.jpg >/dev/null 2>&1; then
+                for f in "$CUR"/*.jpg; do
+                  cp "$f" "$OUT/$(basename "${f%.jpg}")-current.jpg"
+                done
+              else
+                touch "$OUT/NEW"
+              fi
+              montage "$OUT"/*.jpg -tile 6x -geometry 320x+6+6 -background '#111114' "/tmp/sheets/$LOC-$TARGET.jpg" || true
+            done
+          done
+
+      - name: Upload composited tree
+        uses: actions/upload-artifact@v4
+        with:
+          name: store-screenshots
+          path: artifacts/store/
+          retention-days: 14
+
+      - name: Upload review bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: store-review
+          path: /tmp/review/
+          retention-days: 14
+
+      - name: Upload contact sheets
+        uses: actions/upload-artifact@v4
+        with:
+          name: store-contact-sheets
+          path: /tmp/sheets/
+          retention-days: 14
+
+      - name: Open pull request
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          BRANCH="store-screenshots-${{ github.run_number }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git switch -c "$BRANCH"
+          git add config/fastlane/screenshots config/fastlane/metadata docs/screenshots docs/index.html
+          if git diff --cached --quiet; then
+            echo "No asset changes to propose."
+            exit 0
+          fi
+          git commit --no-gpg-sign -m "Regenerate store screenshots (${{ inputs.palette }}, ${{ inputs.locales }})"
+          git push -u origin "$BRANCH"
+          gh pr create \
+            --base "${{ github.ref_name }}" \
+            --head "$BRANCH" \
+            --title "Store screenshots: ${{ inputs.palette }} palette, ${{ inputs.locales }}" \
+            --body "$(printf 'Regenerated store assets from workflow run %s.\n\nReview the image diff in Files, or download the store-review artifact for per-locale current-vs-updating pairs and store-contact-sheets for one-image-per-locale overviews.\n\nUploads to the stores remain manual: fastlane android screenshots / fastlane ios screenshots.' "${{ github.run_id }}")"
