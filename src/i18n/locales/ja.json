@@ -86,7 +86,7 @@
       "hrv": "HRV",
       "hrvToday": "今日のHRV",
       "humidity": "湿度",
-      "intensityFactor": "強度係数",
+      "intensityFactor": "強度",
       "kcalPerHr": "kcal/時",
       "max": "最大 {{value}}",
       "maxLabel": "最大",

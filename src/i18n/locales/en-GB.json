@@ -86,7 +86,7 @@
       "hrv": "HRV",
       "hrvToday": "HRV today",
       "humidity": "Humidity",
-      "intensityFactor": "Intensity Factor",
+      "intensityFactor": "Intensity",
       "kcalPerHr": "kcal/hr",
       "max": "Max {{value}}",
       "maxLabel": "Max",

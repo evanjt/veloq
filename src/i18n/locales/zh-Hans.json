@@ -86,7 +86,7 @@
       "hrv": "HRV",
       "hrvToday": "今日心率变异性",
       "humidity": "湿度",
-      "intensityFactor": "强度因子",
+      "intensityFactor": "强度",
       "kcalPerHr": "千卡/小时",
       "max": "最大 {{value}}",
       "maxLabel": "最大值",
