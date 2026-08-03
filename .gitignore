@@ -100,9 +100,12 @@ config/fastlane/vendor/bundle
 
 # E2E test artifacts
 artifacts/
-screenshots/
+/screenshots/
 *.png
-!docs/badges/google-play.png 
+!docs/badges/google-play.png
+!docs/screenshots/*.png
+!src/assets/*.png
+!config/fastlane/metadata/android/*/images/*.png
 
 # Worktrees
 .worktrees/
