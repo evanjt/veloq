@@ -8,9 +8,9 @@ mod named;
 mod naming;
 mod ranking;
 
+pub use history::{SectionGeometryVersion, SectionHistoryEvent};
 pub(crate) use identity::SectionIdentity;
 pub(crate) use named::looks_generated;
-pub use history::{SectionGeometryVersion, SectionHistoryEvent};
 pub use named::{NamedCorridor, NamedOverlay};
 
 // Re-export the Tier 2 upgrade-path backfill so `persistent_engine_ffi::init`
@@ -1211,6 +1211,17 @@ impl PersistentRouteEngine {
     }
 
     pub(super) fn save_sections(&self) -> SqlResult<()> {
+        self.save_sections_with_events(&[])
+    }
+
+    /// [`save_sections`](Self::save_sections) plus the lifecycle events the
+    /// identity apply fired this step: geometry versions and history rows land
+    /// in the SAME transaction as the catalogue and the registry blob, so a
+    /// rolled-back save leaves no orphan narrative behind.
+    pub(super) fn save_sections_with_events(
+        &self,
+        events: &[identity::SectionLifecycleEvent],
+    ) -> SqlResult<()> {
         let tx = self.db.unchecked_transaction()?;
 
         // Birth dates of every current row, read BEFORE the wipe. New payloads
@@ -1585,6 +1596,28 @@ impl PersistentRouteEngine {
                  VALUES (?, ?, datetime('now'))
                  ON CONFLICT(key) DO UPDATE SET blob = excluded.blob, updated_at = excluded.updated_at",
                 params![identity::SECTION_IDENTITY_KEY, blob],
+            )?;
+        }
+
+        // D5: the emitter's fired lifecycle events, durable with the
+        // catalogue they narrate. A geometry-bearing event versions its
+        // polyline first and the history row links the version.
+        for event in events {
+            let version = match &event.geometry {
+                Some(polyline) => Some(history::record_geometry_on(
+                    &tx,
+                    &event.real_id,
+                    polyline,
+                    false,
+                )?),
+                None => None,
+            };
+            history::append_history_on(
+                &tx,
+                &event.real_id,
+                event.kind,
+                event.details.as_deref(),
+                version,
             )?;
         }
 

@@ -54,6 +54,20 @@ use tracematch::{
 /// `identity_state.key` for the section registry blob (B4 migration 013).
 pub(super) const SECTION_IDENTITY_KEY: &str = "section_identity";
 
+/// One fired lifecycle change, keyed by real id, produced by the identity
+/// apply (the one emitter) and written to `section_history` /
+/// `section_geometry` inside the catalogue-save transaction. `kind` is the
+/// durable event vocabulary: formed, split, merged, dissolved, restored,
+/// recut. `details` is a JSON object (era snapshot, lineage links);
+/// `geometry` is versioned by the save when present and linked from the
+/// event row.
+pub(crate) struct SectionLifecycleEvent {
+    pub real_id: String,
+    pub kind: &'static str,
+    pub details: Option<String>,
+    pub geometry: Option<Vec<GpsPoint>>,
+}
+
 /// Version byte on the persisted section-registry blob. Bump on any
 /// serialisation-breaking change to [`SectionIdentity`]; an old byte then reseeds
 /// gracefully instead of misparsing. Version 2 moved to rmp encoding: the
@@ -322,15 +336,17 @@ impl PersistentRouteEngine {
     }
 
     /// Run a fresh detection catalogue through the identity + hysteresis layer,
-    /// returning the VISIBLE catalogue to persist: stable ids carried onto
-    /// surviving ground, fresh ids minted for new ground, dissolves and re-cuts
-    /// debounced. Operates on `identity` (a clone the caller commits only on a
-    /// durable save) so a failed save never advances the registry past the DB.
+    /// returning the VISIBLE catalogue to persist plus the lifecycle events the
+    /// step fired: stable ids carried onto surviving ground, fresh ids minted
+    /// for new ground, dissolves and re-cuts debounced. Operates on `identity`
+    /// (a clone the caller commits only on a durable save) so a failed save
+    /// never advances the registry past the DB; the events become durable in
+    /// the same save transaction, so a rolled-back save also drops them.
     pub(crate) fn section_identity_apply_into(
         &self,
         identity: &mut SectionIdentity,
         raw: Vec<FrequentSection>,
-    ) -> Vec<FrequentSection> {
+    ) -> (Vec<FrequentSection>, Vec<SectionLifecycleEvent>) {
         // Durable-intent grounds + ids: exactly the rows the detection wipe
         // spares (custom, trimmed/backed-up, or accepted/user-defined). Their
         // ground must not be re-emitted (that is the UNIQUE-id collision the R2
@@ -402,7 +418,7 @@ impl PersistentRouteEngine {
         // only mitigation and ships at 0.0 (see [`MERGE_MUTUAL_FLOOR`]).
         let candidates: Vec<CandidateSection> =
             raw.iter().map(CandidateSection::from_section).collect();
-        let (_out, resolutions) = identity.hysteresis.step_assign(&candidates);
+        let (out, resolutions) = identity.hysteresis.step_assign(&candidates);
 
         // Activities new since the last apply, and their tracks, for the fold.
         // Read up front so the reconcile below borrows nothing from `self`.
@@ -415,6 +431,13 @@ impl PersistentRouteEngine {
         // Reconcile the payload map to the pure layer's post-step visible set.
         let old_rows = std::mem::take(&mut identity.rows);
         let old_graves = std::mem::take(&mut identity.graves);
+        // Pure id -> real id of every pre-step visible row, captured before
+        // the reconcile consumes the map: the emitter translates fired
+        // retirements and re-cuts (which name pre-step pure ids) through it.
+        let old_real: BTreeMap<String, String> = old_rows
+            .iter()
+            .map(|(pid, r)| (pid.clone(), r.real_id.clone()))
+            .collect();
         let mut new_rows: BTreeMap<String, IdentityRow> = BTreeMap::new();
 
         // Candidates: the pure layer's per-candidate fate drives the branch, so
@@ -539,10 +562,179 @@ impl PersistentRouteEngine {
             }
         }
 
+        // THE EMITTER: one place turns the step's fired changes into durable
+        // lifecycle events, keyed by real id. Debounced-but-unfired changes
+        // emit nothing (the view has not moved); agreement refinements emit
+        // nothing (no visible change to narrate). Reasons and era snapshots
+        // are taken at fire time: what was true when the change became
+        // visible, not when its streak began.
+        let mut events: Vec<SectionLifecycleEvent> = Vec::new();
+        // Split lineage, aggregated parent-side so history reads "split into
+        // X and Y": parent real id -> freshly minted sibling real ids.
+        let mut split_children: BTreeMap<String, Vec<String>> = BTreeMap::new();
+        for res in &resolutions {
+            let Some(row) = new_rows.get(&res.id) else {
+                continue;
+            };
+            match res.fate {
+                CandidateFate::Minted => {
+                    // A split loser records its parent and a discriminator the
+                    // read path renders in-locale: a cardinal when the two
+                    // pieces separate cleanly, else its ordinal among the
+                    // parent's siblings (the parent piece itself is 1).
+                    let details = res.split_from.as_ref().and_then(|ppid| {
+                        let parent_real = old_real.get(ppid)?;
+                        let siblings = split_children.entry(parent_real.clone()).or_default();
+                        siblings.push(row.real_id.clone());
+                        let discriminator = new_rows
+                            .get(ppid)
+                            .and_then(|p| {
+                                tracematch::sections::split_direction(
+                                    &p.section.polyline,
+                                    &row.section.polyline,
+                                )
+                            })
+                            .map(str::to_string)
+                            .unwrap_or_else(|| (siblings.len() + 1).to_string());
+                        Some(
+                            serde_json::json!({
+                                "split_from": parent_real,
+                                "discriminator": discriminator,
+                            })
+                            .to_string(),
+                        )
+                    });
+                    events.push(SectionLifecycleEvent {
+                        real_id: row.real_id.clone(),
+                        kind: "formed",
+                        details,
+                        geometry: Some(row.section.polyline.clone()),
+                    });
+                }
+                CandidateFate::Restored => {
+                    events.push(SectionLifecycleEvent {
+                        real_id: row.real_id.clone(),
+                        kind: "restored",
+                        details: None,
+                        geometry: Some(row.section.polyline.clone()),
+                    });
+                }
+                CandidateFate::CarriedAdopted | CandidateFate::CarriedFrozen => {}
+            }
+        }
+        for (parent_real, siblings) in split_children {
+            let mut details = self.section_era_snapshot(&parent_real);
+            details.insert("siblings".into(), serde_json::json!(siblings));
+            events.push(SectionLifecycleEvent {
+                real_id: parent_real,
+                kind: "split",
+                details: Some(serde_json::Value::Object(details).to_string()),
+                geometry: None,
+            });
+        }
+        for pid in &out.recut_ids {
+            let (Some(real_id), Some(row)) = (old_real.get(pid), new_rows.get(pid)) else {
+                continue;
+            };
+            events.push(SectionLifecycleEvent {
+                real_id: real_id.clone(),
+                kind: "recut",
+                details: Some(
+                    serde_json::Value::Object(self.section_era_snapshot(real_id)).to_string(),
+                ),
+                geometry: Some(row.section.polyline.clone()),
+            });
+        }
+        for retirement in &out.retired {
+            let Some(real_id) = old_real.get(&retirement.id) else {
+                continue;
+            };
+            let mut details = self.section_era_snapshot(real_id);
+            let kind = match &retirement.reason {
+                tracematch::RetireReason::Dissolved => "dissolved",
+                tracematch::RetireReason::MergedInto { id } => {
+                    if let Some(winner) = old_real.get(id) {
+                        details.insert("into".into(), serde_json::json!(winner));
+                    }
+                    "merged"
+                }
+            };
+            events.push(SectionLifecycleEvent {
+                real_id: real_id.clone(),
+                kind,
+                details: Some(serde_json::Value::Object(details).to_string()),
+                geometry: None,
+            });
+        }
+
         identity.rows = new_rows;
         identity.seen = now_seen;
 
-        identity.rows.values().map(|r| r.section.clone()).collect()
+        (
+            identity.rows.values().map(|r| r.section.clone()).collect(),
+            events,
+        )
+    }
+
+    /// The era snapshot of one section as it stands NOW, before the change
+    /// this event narrates lands: the PR and its activity, the mean time, and
+    /// the visit cadence. Read from the junction cache and activity dates the
+    /// save has not yet rewritten, so a dissolved section's final era survives
+    /// the cascade that removes its rows. Fields are null when the era had no
+    /// cached times (lap times fill lazily on first performance read).
+    fn section_era_snapshot(&self, real_id: &str) -> serde_json::Map<String, serde_json::Value> {
+        let mut snap = serde_json::Map::new();
+        let pr: Option<(String, f64)> = self
+            .db
+            .query_row(
+                "SELECT activity_id, lap_time FROM section_activities
+                 WHERE section_id = ? AND excluded = 0 AND lap_time IS NOT NULL
+                 ORDER BY lap_time ASC LIMIT 1",
+                rusqlite::params![real_id],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .ok();
+        let avg: Option<f64> = self
+            .db
+            .query_row(
+                "SELECT AVG(lap_time) FROM section_activities
+                 WHERE section_id = ? AND excluded = 0 AND lap_time IS NOT NULL",
+                rusqlite::params![real_id],
+                |row| row.get(0),
+            )
+            .ok()
+            .flatten();
+        let cadence: Option<(i64, Option<i64>, Option<i64>)> = self
+            .db
+            .query_row(
+                "SELECT COUNT(*), MIN(a.start_date), MAX(a.start_date)
+                 FROM section_activities sa JOIN activities a ON a.id = sa.activity_id
+                 WHERE sa.section_id = ?",
+                rusqlite::params![real_id],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+            )
+            .ok();
+        let visits_per_month = cadence.and_then(|(count, min_d, max_d)| {
+            if count == 0 {
+                return None;
+            }
+            let span_days = (max_d? - min_d?) as f64 / 86_400.0;
+            Some(count as f64 / (span_days / 30.44).max(1.0))
+        });
+        snap.insert(
+            "pr_activity_id".into(),
+            serde_json::json!(pr.as_ref().map(|p| &p.0)),
+        );
+        snap.insert(
+            "pr_time".into(),
+            serde_json::json!(pr.as_ref().map(|p| p.1)),
+        );
+        snap.insert("avg_time".into(), serde_json::json!(avg));
+        snap.insert(
+            "visits_per_month".into(),
+            serde_json::json!(visits_per_month),
+        );
+        snap
     }
 
     /// Relinquish a registry row whose ground has just passed to a durable intent

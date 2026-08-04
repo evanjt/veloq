@@ -1021,7 +1021,7 @@ impl PersistentRouteEngine {
         // advances identity past what is durable in the DB; commit it only on Ok.
         let mut trial_identity = self.identity.clone();
         let raw_for_convergence = sections.clone();
-        let mut visible = self.section_identity_apply_into(&mut trial_identity, sections);
+        let (mut visible, events) = self.section_identity_apply_into(&mut trial_identity, sections);
         // The identity layer owns only the auto catalogue. Carry the durable
         // user-defined sections (custom + accepted) already held in memory across
         // the apply so get_sections() keeps mirroring the full visible catalogue —
@@ -1037,7 +1037,7 @@ impl PersistentRouteEngine {
         // blob (B4) inside the same transaction as the catalogue, so the two
         // commit atomically and a crash cannot leave the registry ahead of the DB.
         let old_identity = std::mem::replace(&mut self.identity, trial_identity);
-        match self.save_sections() {
+        match self.save_sections_with_events(&events) {
             Ok(()) => {
                 self.raw_sections = raw_for_convergence;
                 self.sections_dirty = false;

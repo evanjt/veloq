@@ -45,6 +45,64 @@ pub struct SectionHistoryEvent {
     pub geometry_version: Option<i64>,
 }
 
+/// Store `polyline` as the next geometry version of `section_id` and prune
+/// per the retention policy. Returns the version number written. Takes a bare
+/// connection so the emitter can write inside the catalogue-save transaction;
+/// statements on the connection join whatever transaction is open on it.
+pub(super) fn record_geometry_on(
+    conn: &rusqlite::Connection,
+    section_id: &str,
+    polyline: &[GpsPoint],
+    milestone: bool,
+) -> rusqlite::Result<i64> {
+    let version: i64 = conn.query_row(
+        "SELECT COALESCE(MAX(version), 0) + 1 FROM section_geometry WHERE section_id = ?",
+        params![section_id],
+        |row| row.get(0),
+    )?;
+    conn.execute(
+        "INSERT INTO section_geometry (section_id, version, encoding, blob, milestone)
+         VALUES (?, ?, ?, ?, ?)",
+        params![
+            section_id,
+            version,
+            ENCODING_QUANTISED,
+            codec::encode_polyline(polyline),
+            milestone as i64,
+        ],
+    )?;
+    // Newest-N is by surviving version rank, not version arithmetic:
+    // earlier pruning leaves gaps, so `version > max - N` would under-keep.
+    conn.execute(
+        "DELETE FROM section_geometry
+         WHERE section_id = ?1 AND milestone = 0 AND version > 1
+           AND version NOT IN (
+               SELECT version FROM section_geometry WHERE section_id = ?1
+               ORDER BY version DESC LIMIT ?2)
+           AND version != COALESCE(
+               (SELECT version FROM section_pins WHERE section_id = ?1), -1)",
+        params![section_id, GEOMETRY_KEEP_RECENT as i64],
+    )?;
+    Ok(version)
+}
+
+/// Append one lifecycle event row. Returns the event row id. Connection-level
+/// for the same transactional reason as [`record_geometry_on`].
+pub(super) fn append_history_on(
+    conn: &rusqlite::Connection,
+    section_id: &str,
+    kind: &str,
+    details: Option<&str>,
+    geometry_version: Option<i64>,
+) -> rusqlite::Result<i64> {
+    conn.execute(
+        "INSERT INTO section_history (section_id, kind, details, geometry_version)
+         VALUES (?, ?, ?, ?)",
+        params![section_id, kind, details, geometry_version],
+    )?;
+    Ok(conn.last_insert_rowid())
+}
+
 impl PersistentRouteEngine {
     /// Store `polyline` as the next geometry version of `section_id` and
     /// prune per the retention policy. Returns the version number written.
@@ -54,40 +112,16 @@ impl PersistentRouteEngine {
         polyline: &[GpsPoint],
         milestone: bool,
     ) -> rusqlite::Result<i64> {
-        let version: i64 = self.db.query_row(
-            "SELECT COALESCE(MAX(version), 0) + 1 FROM section_geometry WHERE section_id = ?",
-            params![section_id],
-            |row| row.get(0),
-        )?;
-        self.db.execute(
-            "INSERT INTO section_geometry (section_id, version, encoding, blob, milestone)
-             VALUES (?, ?, ?, ?, ?)",
-            params![
-                section_id,
-                version,
-                ENCODING_QUANTISED,
-                codec::encode_polyline(polyline),
-                milestone as i64,
-            ],
-        )?;
-        // Newest-N is by surviving version rank, not version arithmetic:
-        // earlier pruning leaves gaps, so `version > max - N` would under-keep.
-        self.db.execute(
-            "DELETE FROM section_geometry
-             WHERE section_id = ?1 AND milestone = 0 AND version > 1
-               AND version NOT IN (
-                   SELECT version FROM section_geometry WHERE section_id = ?1
-                   ORDER BY version DESC LIMIT ?2)
-               AND version != COALESCE(
-                   (SELECT version FROM section_pins WHERE section_id = ?1), -1)",
-            params![section_id, GEOMETRY_KEEP_RECENT as i64],
-        )?;
-        Ok(version)
+        record_geometry_on(&self.db, section_id, polyline, milestone)
     }
 
     /// Decode one stored geometry version. None when the version is absent,
     /// pruned, or carries an unknown encoding.
-    pub fn section_geometry_polyline(&self, section_id: &str, version: i64) -> Option<Vec<GpsPoint>> {
+    pub fn section_geometry_polyline(
+        &self,
+        section_id: &str,
+        version: i64,
+    ) -> Option<Vec<GpsPoint>> {
         let (encoding, blob): (i64, Vec<u8>) = self
             .db
             .query_row(
@@ -121,7 +155,8 @@ impl PersistentRouteEngine {
                 milestone: row.get::<_, i64>(2)? != 0,
             })
         });
-        rows.map(|iter| iter.flatten().collect()).unwrap_or_default()
+        rows.map(|iter| iter.flatten().collect())
+            .unwrap_or_default()
     }
 
     /// Append one lifecycle event. Returns the event row id.
@@ -132,12 +167,7 @@ impl PersistentRouteEngine {
         details: Option<&str>,
         geometry_version: Option<i64>,
     ) -> rusqlite::Result<i64> {
-        self.db.execute(
-            "INSERT INTO section_history (section_id, kind, details, geometry_version)
-             VALUES (?, ?, ?, ?)",
-            params![section_id, kind, details, geometry_version],
-        )?;
-        Ok(self.db.last_insert_rowid())
+        append_history_on(&self.db, section_id, kind, details, geometry_version)
     }
 
     /// Every event of one section, oldest first.
@@ -157,7 +187,8 @@ impl PersistentRouteEngine {
                 geometry_version: row.get(4)?,
             })
         });
-        rows.map(|iter| iter.flatten().collect()).unwrap_or_default()
+        rows.map(|iter| iter.flatten().collect())
+            .unwrap_or_default()
     }
 
     /// Pin `section_id` at a stored geometry version. Returns false without
