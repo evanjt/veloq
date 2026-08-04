@@ -56,14 +56,17 @@ pub(super) const SECTION_IDENTITY_KEY: &str = "section_identity";
 
 /// Version byte on the persisted section-registry blob. Bump on any
 /// serialisation-breaking change to [`SectionIdentity`]; an old byte then reseeds
-/// gracefully instead of misparsing. Version 2 is rmp-encoded: the payload
-/// carries [`FrequentSection`]s whose trailing skip-if-None fields
+/// gracefully instead of misparsing. Version 2 moved to rmp encoding: the
+/// payload carries [`FrequentSection`]s whose trailing skip-if-None fields
 /// (`GpsPoint.elevation`, `consensus_state`) desync postcard's positional
 /// stream, so a v1 postcard blob never decoded and always fell back to a
 /// reseed — dropping graves, tombstones, and debounce streaks on every
 /// restart. rmp's length-prefixed arrays recover a skipped trailing field
-/// through its serde default.
-pub(super) const SECTION_IDENTITY_BLOB_VERSION: u8 = 2;
+/// through its serde default. Version 3 reshaped the hysteresis debounce
+/// record (the D5 streak ledger holds both directions' streaks in place of
+/// one kind + one streak), which rmp encodes positionally, so a v2 blob
+/// reseeds rather than misreading a kind byte as a streak.
+pub(super) const SECTION_IDENTITY_BLOB_VERSION: u8 = 3;
 
 /// Merge-candidacy mutual-overlap floor for the registry's hysteresis. SHIPS AT
 /// 0.0 (the pure-layer default): a prior competes for a candidate's merge
@@ -346,6 +349,31 @@ impl PersistentRouteEngine {
             .collect();
         for pid in relinquish {
             identity.rows.remove(&pid);
+            identity.graves.remove(&pid);
+            identity.hysteresis.forget(&pid);
+        }
+
+        // A durable claim can also land on DEAD ground: the corridor
+        // tombstoned, its payload moved to the graves, and the user then
+        // claimed the ground with a custom or accepted row. Relinquish by
+        // real id cannot reach it (the claim minted its own DB id), so sweep
+        // by ground: any tombstone whose retained ground a durable-intent row
+        // now owns is forgotten, grave included. Without this the grave pins
+        // the dead id forever, and a later re-emergence would restore a
+        // ground the DB row already represents — the same double-ownership
+        // the live-row relinquish prevents.
+        let claimed: Vec<String> = identity
+            .hysteresis
+            .tombstone_ids()
+            .into_iter()
+            .filter(|pid| {
+                identity
+                    .hysteresis
+                    .tombstone_ground_of(pid)
+                    .is_some_and(|g| ground_owned_by_intent(g, &intent_grounds))
+            })
+            .collect();
+        for pid in claimed {
             identity.graves.remove(&pid);
             identity.hysteresis.forget(&pid);
         }

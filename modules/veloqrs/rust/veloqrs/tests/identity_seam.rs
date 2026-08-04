@@ -442,12 +442,11 @@ fn grave_restore_survives_restart() {
 /// Scenario: corridor A is tombstoned, then a durable custom claim lands on
 /// its ground (the only public relinquish trigger once the DB row is gone).
 /// Expected behaviour: identity ownership has passed to the durable row, so
-/// the next apply clears both the grave and the pure tombstone. Neither
-/// relinquish (visible rows only) nor suppression (candidates only) reaches a
-/// grave today, and with the corridor suppressed no restore can ever drain it,
-/// so the pair pins forever.
+/// the next apply clears both the grave and the pure tombstone. Relinquish by
+/// real id cannot reach a grave (the claim minted its own DB id), so the
+/// apply sweeps tombstoned ground against the durable-intent grounds; with
+/// the corridor suppressed no restore could ever have drained the pair.
 #[test]
-#[ignore = "red gate for D5: a durable claim on a tombstoned ground never clears the grave/tombstone pair; relinquish scans visible rows only and suppression drops candidates only, so the pair pins across every later apply, the grave-side twin of the D2 replay's pinned stale sections (sion 10 of 66 visible, fullcorpus 22 of 217, settle flat 72->67->66)"]
 fn durable_claim_mid_tombstone_clears_the_grave() {
     let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
     let ground_a = corridor_ground(0.0);
