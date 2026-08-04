@@ -38,7 +38,10 @@ fn geometry_versions_increment_and_round_trip_exactly() {
     let (mut engine, _dir) = fresh_engine();
     let first = poly(0);
     let second = poly(1);
-    assert_eq!(engine.record_section_geometry(SID, &first, false).unwrap(), 1);
+    assert_eq!(
+        engine.record_section_geometry(SID, &first, false).unwrap(),
+        1
+    );
     assert_eq!(
         engine.record_section_geometry(SID, &second, false).unwrap(),
         2
@@ -87,12 +90,16 @@ fn unpin_releases_the_version_to_retention() {
             .unwrap();
     }
     assert!(engine.pin_section_geometry(SID, 3).unwrap());
-    engine.record_section_geometry(SID, &poly(5), false).unwrap();
+    engine
+        .record_section_geometry(SID, &poly(5), false)
+        .unwrap();
     assert_eq!(versions_of(&engine, SID), vec![1, 3, 4, 5]);
 
     engine.unpin_section_geometry(SID).unwrap();
     assert_eq!(engine.pinned_section_version(SID), None);
-    engine.record_section_geometry(SID, &poly(6), false).unwrap();
+    engine
+        .record_section_geometry(SID, &poly(6), false)
+        .unwrap();
     assert_eq!(versions_of(&engine, SID), vec![1, 4, 5, 6]);
 }
 
@@ -101,7 +108,9 @@ fn unpin_releases_the_version_to_retention() {
 #[test]
 fn pin_refuses_a_missing_version() {
     let (mut engine, _dir) = fresh_engine();
-    engine.record_section_geometry(SID, &poly(1), false).unwrap();
+    engine
+        .record_section_geometry(SID, &poly(1), false)
+        .unwrap();
     assert!(!engine.pin_section_geometry(SID, 7).unwrap());
     assert_eq!(engine.pinned_section_version(SID), None);
 
@@ -122,7 +131,9 @@ fn pin_refuses_a_missing_version() {
 #[test]
 fn history_events_append_in_order_and_read_back() {
     let (mut engine, _dir) = fresh_engine();
-    let v = engine.record_section_geometry(SID, &poly(1), false).unwrap();
+    let v = engine
+        .record_section_geometry(SID, &poly(1), false)
+        .unwrap();
     engine
         .append_section_history(SID, "recut", Some(r#"{"shift_m":44}"#), Some(v))
         .unwrap();
@@ -150,7 +161,9 @@ fn history_events_append_in_order_and_read_back() {
 #[test]
 fn history_geometry_and_pin_survive_restart() {
     let (mut engine, dir) = fresh_engine();
-    engine.record_section_geometry(SID, &poly(1), false).unwrap();
+    engine
+        .record_section_geometry(SID, &poly(1), false)
+        .unwrap();
     engine.record_section_geometry(SID, &poly(2), true).unwrap();
     assert!(engine.pin_section_geometry(SID, 1).unwrap());
     engine

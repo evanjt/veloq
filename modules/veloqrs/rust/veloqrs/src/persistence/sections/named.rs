@@ -34,8 +34,7 @@ use std::collections::BTreeMap;
 use rusqlite::{OptionalExtension, params};
 use tracematch::GpsPoint;
 use tracematch::sections::{
-    GROUND_TOL_M, NamedCandidate, score_named_candidate, select_candidate, shares_ground,
-    trim_core,
+    GROUND_TOL_M, NamedCandidate, score_named_candidate, select_candidate, shares_ground, trim_core,
 };
 
 use super::super::PersistentRouteEngine;
