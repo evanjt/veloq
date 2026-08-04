@@ -243,6 +243,19 @@ impl PersistentRouteEngine {
         for r in rows.flatten() {
             names.insert(r.0, r.1);
         }
+        // Corridor names outrank generated row names on auto sections, so the
+        // section-PR chips and notification bodies built from these show what
+        // the user actually called the section.
+        self.ensure_named_overlay();
+        for (id, name) in self
+            .named_overlay
+            .read()
+            .unwrap_or_else(|e| e.into_inner())
+            .by_section
+            .iter()
+        {
+            names.insert(id.clone(), name.clone());
+        }
         Ok(names)
     }
 

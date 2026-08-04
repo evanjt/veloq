@@ -17,11 +17,21 @@ impl SectionManager {
     fn get_all(&self) -> Result<Vec<crate::FfiFrequentSection>, VeloqError> {
         // Read lock: get_sections() only borrows the in-memory sections Vec (no
         // self.db), so concurrent reads are sound and no longer serialize on the
-        // engine write lock - this is the hot Routes/section-list path.
+        // engine write lock - this is the hot Routes/section-list path. Corridor
+        // names come from the cached overlay (no refresh under the read lock).
         with_engine_read(|e| {
+            let names = e.named_overlay_cached_names();
             e.get_sections()
                 .iter()
-                .map(crate::FfiFrequentSection::from)
+                .map(|s| {
+                    let mut f = crate::FfiFrequentSection::from(s);
+                    if !s.is_user_defined {
+                        if let Some(n) = names.get(&s.id) {
+                            f.name = Some(n.clone());
+                        }
+                    }
+                    f
+                })
                 .collect()
         })
     }
@@ -32,10 +42,20 @@ impl SectionManager {
         min_visits: Option<u32>,
     ) -> Result<Vec<crate::FfiFrequentSection>, VeloqError> {
         // Read lock: get_sections_filtered() filters the in-memory Vec only.
+        // Corridor names from the cached overlay, as in get_all.
         with_engine_read(|e| {
+            let names = e.named_overlay_cached_names();
             e.get_sections_filtered(sport_type.as_deref(), min_visits)
                 .into_iter()
-                .map(crate::FfiFrequentSection::from)
+                .map(|s| {
+                    let mut f = crate::FfiFrequentSection::from(s);
+                    if !s.is_user_defined {
+                        if let Some(n) = names.get(&s.id) {
+                            f.name = Some(n.clone());
+                        }
+                    }
+                    f
+                })
                 .collect()
         })
     }
@@ -344,6 +364,24 @@ impl SectionManager {
         };
         with_engine(|e| {
             e.set_section_name(&section_id, name_opt)
+                .map_err(|e| VeloqError::Database {
+                    msg: format!("{}", e),
+                })
+        })?
+    }
+
+    fn get_named_corridors(&self) -> Result<Vec<crate::FfiNamedCorridor>, VeloqError> {
+        with_engine(|e| {
+            e.get_named_corridors()
+                .into_iter()
+                .map(crate::FfiNamedCorridor::from)
+                .collect()
+        })
+    }
+
+    fn remove_named_corridor(&self, intent_id: String) -> Result<(), VeloqError> {
+        with_engine(|e| {
+            e.remove_named_corridor(&intent_id)
                 .map_err(|e| VeloqError::Database {
                     msg: format!("{}", e),
                 })

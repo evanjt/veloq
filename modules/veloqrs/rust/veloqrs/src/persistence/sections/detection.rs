@@ -538,8 +538,17 @@ impl PersistentRouteEngine {
 
         // The catalogue this detect re-derives from. It seeds the Unified
         // incremental (its add/dissolve diff is computed against this prior
-        // catalogue) and gates the no-new-activities short-circuit below.
-        let existing_sections = self.sections.clone();
+        // catalogue) and gates the no-new-activities short-circuit below. Only the
+        // auto catalogue belongs here: `self.sections` also carries the durable
+        // user-defined sections (custom + accepted) for the matcher, but the
+        // incremental converges the AUTO batch and must not treat a custom section
+        // as an auto prior.
+        let existing_sections: Vec<FrequentSection> = self
+            .sections
+            .iter()
+            .filter(|s| !s.is_user_defined)
+            .cloned()
+            .collect();
 
         let new_activity_ids: Vec<String> = activity_ids
             .iter()
@@ -1012,13 +1021,23 @@ impl PersistentRouteEngine {
         // advances identity past what is durable in the DB; commit it only on Ok.
         let mut trial_identity = self.identity.clone();
         let raw_for_convergence = sections.clone();
-        let visible = self.section_identity_apply_into(&mut trial_identity, sections);
+        let (mut visible, events) = self.section_identity_apply_into(&mut trial_identity, sections);
+        // The identity layer owns only the auto catalogue. Carry the durable
+        // user-defined sections (custom + accepted) already held in memory across
+        // the apply so get_sections() keeps mirroring the full visible catalogue —
+        // the in-memory matcher must keep seeing custom sections after a detect.
+        // save_sections skips them (durable rows), so this touches only the view.
+        for s in &self.sections {
+            if s.is_user_defined && !visible.iter().any(|v| v.id == s.id) {
+                visible.push(s.clone());
+            }
+        }
         let old_sections = std::mem::replace(&mut self.sections, visible);
         // Make the trial registry live BEFORE the save: `save_sections` writes its
         // blob (B4) inside the same transaction as the catalogue, so the two
         // commit atomically and a crash cannot leave the registry ahead of the DB.
         let old_identity = std::mem::replace(&mut self.identity, trial_identity);
-        match self.save_sections() {
+        match self.save_sections_with_events(&events) {
             Ok(()) => {
                 self.raw_sections = raw_for_convergence;
                 self.sections_dirty = false;

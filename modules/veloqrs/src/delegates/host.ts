@@ -6,8 +6,15 @@
  * engine reference, timing wrapper, and notification emitters from the host.
  */
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export type EngineHandle = any;
+import type { VeloqEngineLike } from '../generated/veloqrs';
+
+/**
+ * The typed UniFFI engine handle. Typing this against the generated
+ * bindings makes tsc the FFI contract: a delegate calling a method the
+ * bindings no longer export fails the pre-commit typecheck instead of the
+ * user's session.
+ */
+export type EngineHandle = VeloqEngineLike;
 
 export interface DelegateHost {
   /** Cached UniFFI VeloqEngine handle. Null before initWithPath(). */

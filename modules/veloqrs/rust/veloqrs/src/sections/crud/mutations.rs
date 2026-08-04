@@ -120,6 +120,11 @@ impl PersistentRouteEngine {
         // with proper portion details (direction, indices, distance)
         let _ = self.match_activities_to_section(&id, &params.polyline, &params.sport_type);
 
+        // Cache the new custom section in memory so the in-memory matcher
+        // (index_new_activity) can add future activities to it, and so
+        // get_sections() reflects it without a reload.
+        self.refresh_section_in_memory(&id);
+
         // Refresh the materialized activity_indicators table so feed cards
         // pick up section_pr / section_trend chips for the new section without
         // requiring an app restart.
@@ -174,6 +179,10 @@ impl PersistentRouteEngine {
     /// Accept (pin) an auto-detected section so it survives re-detection
     /// and its consensus polyline stops evolving.
     pub fn accept_section(&mut self, section_id: &str) -> Result<(), String> {
+        // The row becomes user-owned: the resolved corridor name (if any)
+        // moves onto it and the intent retires, before the flag flip hides
+        // the row from resolution.
+        self.adopt_corridor_name(section_id);
         let updated_at = chrono::Utc::now().to_rfc3339();
         let rows = self
             .db
@@ -195,6 +204,17 @@ impl PersistentRouteEngine {
 
     /// Accept all current auto-detected sections.
     pub fn accept_all_sections(&mut self) -> Result<u32, String> {
+        // Land every resolved corridor name on its row before the bulk
+        // promotion hides those rows from resolution.
+        let named: Vec<String> = self
+            .get_named_corridors()
+            .into_iter()
+            .filter(|c| c.primary)
+            .filter_map(|c| c.section_id)
+            .collect();
+        for id in &named {
+            self.adopt_corridor_name(id);
+        }
         let updated_at = chrono::Utc::now().to_rfc3339();
         let count = self
             .db
@@ -212,31 +232,6 @@ impl PersistentRouteEngine {
         Ok(count as u32)
     }
 
-    /// Rename a section. Auto-promotes to accepted if it's an auto-detected section.
-    pub fn rename_section(&mut self, section_id: &str, name: &str) -> Result<(), String> {
-        let updated_at = chrono::Utc::now().to_rfc3339();
-
-        let rows = self
-            .db
-            .execute(
-                "UPDATE sections SET name = ?, is_user_defined = 1, updated_at = ? WHERE id = ?",
-                params![name, updated_at, section_id],
-            )
-            .map_err(|e| format!("Failed to rename section: {}", e))?;
-
-        if rows == 0 {
-            return Err(format!("Section not found: {}", section_id));
-        }
-
-        self.invalidate_section_cache(section_id);
-        self.update_section_name_in_memory(section_id, name);
-        self.mark_section_accepted_in_memory(section_id);
-        // Rename auto-promotes to user-defined; relinquish from the registry.
-        self.section_identity_relinquish(section_id);
-
-        Ok(())
-    }
-
     /// Set a new reference activity for a section.
     ///
     /// For **auto-detected sections**: Updates `representative_activity_id` and replaces the
@@ -249,6 +244,9 @@ impl PersistentRouteEngine {
         section_id: &str,
         activity_id: &str,
     ) -> Result<(), String> {
+        // Every branch below promotes the row to user-defined; the resolved
+        // corridor name lands on the row first so the promotion keeps it.
+        self.adopt_corridor_name(section_id);
         // Verify activity exists and get its track
         let track = self
             .get_gps_track(activity_id)

@@ -1,12 +1,17 @@
 //! Section management: loading, queries, detection, save/apply, names.
 
 mod detection;
+mod history;
 mod identity;
 mod merging;
+mod named;
 mod naming;
 mod ranking;
 
+pub use history::{SectionGeometryVersion, SectionHistoryEvent};
 pub(crate) use identity::SectionIdentity;
+pub(crate) use named::looks_generated;
+pub use named::{NamedCorridor, NamedOverlay};
 
 // Re-export the Tier 2 upgrade-path backfill so `persistent_engine_ffi::init`
 // can trigger it without reaching through private module paths. The sync
@@ -145,7 +150,8 @@ impl PersistentRouteEngine {
                         point_density_json, scale, version, is_user_defined, stability,
                         created_at, updated_at, consensus_state_blob,
                         polyline_blob, point_density_blob
-                 FROM sections WHERE section_type = 'auto' AND disabled = 0",
+                 FROM sections
+                 WHERE (section_type = 'auto' OR section_type = 'custom') AND disabled = 0",
             )?;
 
             self.sections = stmt
@@ -467,13 +473,6 @@ impl PersistentRouteEngine {
             .collect()
     }
 
-    /// Update a section's name in memory (for immediate visibility after rename).
-    pub fn update_section_name_in_memory(&mut self, section_id: &str, name: &str) {
-        if let Some(section) = self.sections.iter_mut().find(|s| s.id == section_id) {
-            section.name = Some(name.to_string());
-        }
-    }
-
     pub fn mark_section_accepted_in_memory(&mut self, section_id: &str) {
         if let Some(section) = self.sections.iter_mut().find(|s| s.id == section_id) {
             section.is_user_defined = true;
@@ -541,7 +540,7 @@ impl PersistentRouteEngine {
         };
 
         let (
-            section_type,
+            _section_type,
             sport_type,
             name,
             polyline_json,
@@ -562,10 +561,11 @@ impl PersistentRouteEngine {
             None => return, // Section not found
         };
 
-        // Only auto sections are cached in memory
-        if section_type != "auto" {
-            return;
-        }
+        // Both auto and custom sections are cached in memory now: the in-memory
+        // matcher (index_new_activity) scans get_sections(), so a custom section
+        // must be there for a new activity to join it. save_sections skips
+        // user-defined rows, so caching custom here cannot round-trip into an
+        // 'auto' re-insert.
 
         // Get activity IDs from junction table (deduplicated)
         let activity_ids: Vec<String> = {
@@ -683,23 +683,9 @@ impl PersistentRouteEngine {
     /// Queries SQLite and extracts only summary fields, skipping heavy data like
     /// polylines, activityTraces, and pointDensity.
     pub fn get_section_summaries(&self) -> Vec<SectionSummary> {
-        // Get activity counts per section from junction table
-        let activity_counts: HashMap<String, u32> = {
-            let mut stmt = match self.db.prepare(
-                "SELECT sa.section_id, COUNT(*) FROM section_activities sa
-                 WHERE sa.excluded = 0
-                 GROUP BY sa.section_id",
-            ) {
-                Ok(s) => s,
-                Err(_) => return Vec::new(),
-            };
-            stmt.query_map([], |row| {
-                Ok((row.get::<_, String>(0)?, row.get::<_, u32>(1)?))
-            })
-            .ok()
-            .map(|iter| iter.filter_map(|r| r.ok()).collect())
-            .unwrap_or_default()
-        };
+        // visit_count is a denormalised column on sections now (kept correct by
+        // the section_activities recompute triggers in migration 013), so it comes
+        // straight off the main row below — no per-open GROUP BY over the junction.
 
         // Get distinct sport types per section from activities
         let section_sport_types: HashMap<String, Vec<String>> = {
@@ -731,7 +717,7 @@ impl PersistentRouteEngine {
             "SELECT id, name, sport_type, distance_meters, confidence, scale,
                     bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng,
                     section_type, representative_activity_id, created_at,
-                    is_user_defined, disabled, superseded_by
+                    is_user_defined, disabled, superseded_by, visit_count
              FROM sections
              WHERE disabled = 0 AND superseded_by IS NULL",
         ) {
@@ -745,7 +731,7 @@ impl PersistentRouteEngine {
             }
         };
 
-        let results: Vec<SectionSummary> = stmt
+        let mut results: Vec<SectionSummary> = stmt
             .query_map([], |row| {
                 let id: String = row.get(0)?;
 
@@ -767,7 +753,7 @@ impl PersistentRouteEngine {
                     _ => None,
                 };
 
-                let activity_count = activity_counts.get(&id).copied().unwrap_or(0);
+                let visit_count: u32 = row.get::<_, Option<u32>>(16)?.unwrap_or(0);
                 let sport_types = section_sport_types.get(&id).cloned().unwrap_or_default();
 
                 Ok(SectionSummary {
@@ -778,8 +764,8 @@ impl PersistentRouteEngine {
                     name: row.get(1)?,
                     sport_type: row.get(2)?,
                     distance_meters: row.get(3)?,
-                    visit_count: activity_count,
-                    activity_count,
+                    visit_count,
+                    activity_count: visit_count,
                     representative_activity_id: row.get(11)?,
                     confidence: row.get::<_, Option<f64>>(4)?.unwrap_or(0.0),
                     scale: row.get(5)?,
@@ -805,6 +791,10 @@ impl PersistentRouteEngine {
                 .collect()
             })
             .unwrap_or_default();
+
+        for summary in &mut results {
+            self.apply_named_overlay_to_summary(summary);
+        }
 
         // Log section type breakdown for debugging
         let auto_count = results
@@ -847,17 +837,23 @@ impl PersistentRouteEngine {
     /// Delegates to crud.rs get_section() which handles both auto and custom sections
     /// reliably, then loads activity portions from the junction table.
     pub fn get_section_by_id(&mut self, section_id: &str) -> Option<FrequentSection> {
-        // Check LRU cache first
-        if let Some(section) = self.section_cache.get(&section_id.to_string()) {
+        // Cached entries bake the named-corridor overlay of their read; drop
+        // them whenever the overlay had to recompute.
+        // The LRU stores RAW rows; the corridor-name overlay is applied on
+        // the way out of every call, so an overlay change can never leave a
+        // baked stale name behind in the cache.
+        let cached = self.section_cache.get(&section_id.to_string()).cloned();
+        if let Some(mut section) = cached {
             log::debug!(
                 "tracematch: [PersistentEngine] get_section_by_id cache hit for {}",
                 section_id
             );
-            return Some(section.clone());
+            self.apply_named_overlay_to_frequent(&mut section);
+            return Some(section);
         }
 
-        // Use crud.rs get_section() which is proven to work for both auto and custom sections
-        let section = match self.get_section(section_id) {
+        // Use crud.rs get_section_raw() which is proven to work for both auto and custom sections
+        let section = match self.get_section_raw(section_id) {
             Some(s) => s,
             None => {
                 log::info!(
@@ -897,7 +893,7 @@ impl PersistentRouteEngine {
             consensus_state: None,
         };
 
-        // Cache for future access
+        // Cache the raw row for future access; overlay applies per read.
         self.section_cache
             .put(section_id.to_string(), frequent.clone());
         log::info!(
@@ -906,7 +902,9 @@ impl PersistentRouteEngine {
             frequent.is_user_defined
         );
 
-        Some(frequent)
+        let mut out = frequent;
+        self.apply_named_overlay_to_frequent(&mut out);
+        Some(out)
     }
 
     /// Load activity portions for a section from the junction table.
@@ -1213,13 +1211,41 @@ impl PersistentRouteEngine {
     }
 
     pub(super) fn save_sections(&self) -> SqlResult<()> {
+        self.save_sections_with_events(&[])
+    }
+
+    /// [`save_sections`](Self::save_sections) plus the lifecycle events the
+    /// identity apply fired this step: geometry versions and history rows land
+    /// in the SAME transaction as the catalogue and the registry blob, so a
+    /// rolled-back save leaves no orphan narrative behind.
+    pub(super) fn save_sections_with_events(
+        &self,
+        events: &[identity::SectionLifecycleEvent],
+    ) -> SqlResult<()> {
         let tx = self.db.unchecked_transaction()?;
+
+        // Birth dates of every current row, read BEFORE the wipe. New payloads
+        // stamp created_at at mint, but payloads persisted before that change
+        // carry None forever (the registry blob round-trips it); without this
+        // fallback such rows would re-stamp on every save.
+        let existing_created: HashMap<String, String> = {
+            let mut stmt =
+                tx.prepare("SELECT id, created_at FROM sections WHERE created_at IS NOT NULL")?;
+            stmt.query_map([], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+            })?
+            .filter_map(|r| r.ok())
+            .collect()
+        };
 
         // Clear existing auto sections (keep custom, trimmed, and accepted
         // sections — and disabled ones, whose row is retained so enable can
         // restore it with members intact; the disabled corridor is separately
         // suppressed via section_intents, so sparing the row cannot resurrect it).
-        tx.execute("DELETE FROM section_activities WHERE section_id IN (SELECT id FROM sections WHERE section_type = 'auto' AND original_polyline_json IS NULL AND is_user_defined = 0 AND disabled = 0)", [])?;
+        // Deleting the section cascades its section_activities rows (FK ON DELETE
+        // CASCADE), so this needs no separate junction delete. The cascade also
+        // does NOT fire the visit_count recompute triggers (recursive_triggers is
+        // off), so a full re-detect pays no per-row trigger cost on the wipe.
         tx.execute(
             "DELETE FROM sections WHERE section_type = 'auto' AND original_polyline_json IS NULL AND is_user_defined = 0 AND disabled = 0",
             [],
@@ -1304,8 +1330,16 @@ impl PersistentRouteEngine {
         let mut junction_stmt = tx
             .prepare("INSERT INTO section_activities (section_id, activity_id, direction, start_index, end_index, distance_meters, lap_time, lap_pace) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")?;
 
-        // Sort sections by sport type and activity count for consistent numbering
-        let mut sorted_sections: Vec<&FrequentSection> = self.sections.iter().collect();
+        // Persist only the auto (non-user-defined) catalogue. Custom and accepted
+        // sections are durable rows the wipe above spares and are managed by their
+        // own CRUD paths; since they now also live in the in-memory `self.sections`
+        // (so the matcher and get_sections() see them), they must be filtered out
+        // here or they would be re-inserted under 'auto' — a UNIQUE-id collision.
+        let mut sorted_sections: Vec<&FrequentSection> = self
+            .sections
+            .iter()
+            .filter(|s| !s.is_user_defined)
+            .collect();
         sorted_sections.sort_by(|a, b| {
             a.sport_type
                 .cmp(&b.sport_type)
@@ -1379,6 +1413,7 @@ impl PersistentRouteEngine {
             let created_at = section
                 .created_at
                 .clone()
+                .or_else(|| existing_created.get(&section.id).cloned())
                 .unwrap_or_else(|| Utc::now().to_rfc3339());
 
             // Determine the name to use: preserve existing names, generate new ones
@@ -1561,6 +1596,28 @@ impl PersistentRouteEngine {
                  VALUES (?, ?, datetime('now'))
                  ON CONFLICT(key) DO UPDATE SET blob = excluded.blob, updated_at = excluded.updated_at",
                 params![identity::SECTION_IDENTITY_KEY, blob],
+            )?;
+        }
+
+        // D5: the emitter's fired lifecycle events, durable with the
+        // catalogue they narrate. A geometry-bearing event versions its
+        // polyline first and the history row links the version.
+        for event in events {
+            let version = match &event.geometry {
+                Some(polyline) => Some(history::record_geometry_on(
+                    &tx,
+                    &event.real_id,
+                    polyline,
+                    false,
+                )?),
+                None => None,
+            };
+            history::append_history_on(
+                &tx,
+                &event.real_id,
+                event.kind,
+                event.details.as_deref(),
+                version,
             )?;
         }
 

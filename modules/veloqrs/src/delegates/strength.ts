@@ -66,8 +66,14 @@ export function importSetsFromFit(
   activityId: string,
   fitBytes: Uint8Array
 ): number {
+  // The binding takes an ArrayBuffer; a Uint8Array view over a larger or
+  // offset buffer would hand the native side the wrong bytes.
+  const buffer = fitBytes.buffer.slice(
+    fitBytes.byteOffset,
+    fitBytes.byteOffset + fitBytes.byteLength
+  ) as ArrayBuffer;
   return host.timed('importSetsFromFit', () =>
-    host.engine.strength().importSetsFromFit(activityId, fitBytes)
+    host.engine.strength().importSetsFromFit(activityId, buffer)
   );
 }
 
@@ -112,9 +118,11 @@ export function getStrengthSummaryBatch(
 ): FfiStrengthSummary[] {
   if (ranges.length === 0) return [];
   return host.timed('getStrengthSummaryBatch', () =>
-    host.engine.strength().getStrengthSummaryBatch(
-      ranges.map((r) => ({ startTs: BigInt(r.startTs), endTs: BigInt(r.endTs) }))
-    )
+    host.engine
+      .strength()
+      .getStrengthSummaryBatch(
+        ranges.map((r) => ({ startTs: BigInt(r.startTs), endTs: BigInt(r.endTs) }))
+      )
   );
 }
 

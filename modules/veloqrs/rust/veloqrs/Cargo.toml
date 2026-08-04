@@ -86,6 +86,14 @@ name = "persistence_stress"
 required-features = ["synthetic"]
 
 [[test]]
+name = "named_corridors"
+required-features = ["synthetic"]
+
+[[test]]
+name = "registry_adoption"
+required-features = ["synthetic"]
+
+[[test]]
 name = "lifecycle_scenarios"
 required-features = ["synthetic"]
 
@@ -183,6 +191,10 @@ required-features = ["synthetic"]
 
 [[test]]
 name = "suite2_routes_lifecycle"
+required-features = ["synthetic"]
+
+[[test]]
+name = "identity_seam"
 required-features = ["synthetic"]
 
 [[bench]]

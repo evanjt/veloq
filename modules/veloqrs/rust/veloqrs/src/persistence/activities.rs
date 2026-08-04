@@ -279,9 +279,33 @@ impl PersistentRouteEngine {
         // Capture bounds before removal for heatmap tile invalidation
         let removed_bounds = self.activity_metadata.get(id).map(|m| m.bounds.clone());
 
+        // Sections this activity contributes to, captured before the cascade
+        // removes its junction rows. Their denormalised visit_count needs a manual
+        // recompute below: the activity_id cascade fires no triggers (recursive
+        // triggers are off), so the count would otherwise stay stale.
+        let affected_sections: Vec<String> = self
+            .db
+            .prepare("SELECT DISTINCT section_id FROM section_activities WHERE activity_id = ?")
+            .and_then(|mut stmt| {
+                stmt.query_map([id], |row| row.get::<_, String>(0))
+                    .map(|rows| rows.filter_map(|r| r.ok()).collect())
+            })
+            .unwrap_or_default();
+
         // Remove from database (cascade deletes signature and track)
         self.db
             .execute("DELETE FROM activities WHERE id = ?", params![id])?;
+
+        // Recompute visit_count on the sections the removed activity was in.
+        for sid in &affected_sections {
+            let _ = self.db.execute(
+                "UPDATE sections SET visit_count = (
+                    SELECT COUNT(*) FROM section_activities
+                    WHERE section_id = ? AND excluded = 0
+                 ) WHERE id = ?",
+                params![sid, sid],
+            );
+        }
 
         // Remove from memory
         self.activity_metadata.remove(id);

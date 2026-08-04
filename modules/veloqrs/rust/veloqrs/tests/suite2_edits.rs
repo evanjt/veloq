@@ -73,11 +73,10 @@ fn disabled_corridor_reemerges_today() {
     );
 }
 
-/// Target gate (B4 intent records): a disabled corridor must NOT re-emerge on
-/// resync. Fails today — a disabled-only section is still `is_user_defined = 0`,
-/// so the re-detect wipe deletes it and detection re-creates the corridor as a
-/// fresh visible section (violates invariant 6). Green when disabled sections
-/// become honoured intent records whose corridor the emitter suppresses.
+/// A disabled corridor must NOT re-emerge on resync (invariant 6). The
+/// disabled-only section row is `is_user_defined = 0` and dies in the
+/// re-detect wipe; what keeps the corridor hidden is the retained
+/// `section_intents` record, whose ground the emitter suppresses.
 #[test]
 fn disabled_corridor_stays_hidden() {
     let corpus = corpus();

@@ -15,6 +15,7 @@ import type {
   FfiEfficiencyTrend,
   FfiFrequentSection,
   FfiGpsPoint,
+  FfiNamedCorridor,
   FfiRankedSection,
   FfiSection,
   FfiSectionPerformanceResult,
@@ -83,6 +84,15 @@ export function getSectionSummaries(
   return host.timed('getSectionSummaries', () =>
     host.engine.sections().getSummariesWithCount(sportType)
   );
+}
+
+/**
+ * Every named corridor with its current resolution, dormant ones included
+ * (sectionId is undefined while no visible section covers the named ground).
+ */
+export function getNamedCorridors(host: DelegateHost): FfiNamedCorridor[] {
+  if (!host.ready) return [];
+  return host.timed('getNamedCorridors', () => host.engine.sections().getNamedCorridors());
 }
 
 export type SectionSortKey = 'visits' | 'distance' | 'name';
@@ -228,31 +238,9 @@ export function getWorkoutSections(
   );
 }
 
-export interface FfiSectionChartPoint {
-  lapId: string;
-  activityId: string;
-  activityName: string;
-  activityDate: number;
-  speed: number;
-  sectionTime: number;
-  sectionDistance: number;
-  direction: string;
-  rank: number;
-}
-
-export interface FfiSectionChartData {
-  points: FfiSectionChartPoint[];
-  minSpeed: number;
-  maxSpeed: number;
-  bestIndex: number;
-  hasReverseRuns: boolean;
-  bestActivityId?: string;
-  bestTimeSecs?: number;
-  bestPace?: number;
-  averageTimeSecs?: number;
-  lastActivityDate?: number;
-  totalActivities: number;
-}
+import type { FfiSectionChartData } from '../../generated/veloqrs';
+export type { FfiSectionChartData };
+export type { FfiSectionChartPoint } from '../../generated/veloqrs';
 
 const EMPTY_CHART: FfiSectionChartData = {
   points: [],

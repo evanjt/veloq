@@ -26,6 +26,20 @@ export function setSectionName(host: DelegateHost, sectionId: string, name: stri
   }
 }
 
+/** Delete a named corridor intent outright; its section falls back to the generated name. */
+export function removeNamedCorridor(host: DelegateHost, intentId: string): boolean {
+  if (!host.ready) return false;
+  validateId(intentId, 'named corridor ID');
+  try {
+    host.timed('removeNamedCorridor', () => host.engine.sections().removeNamedCorridor(intentId));
+    host.notify('sections');
+    return true;
+  } catch (e) {
+    console.error('[RouteEngine] removeNamedCorridor failed:', intentId, e);
+    return false;
+  }
+}
+
 /**
  * Build a new custom section from a slice of an activity's GPS track.
  * The caller must provide `getGpsTrack` (the facade supplies it) so this

@@ -17,11 +17,15 @@
 //!   real opaque id (`s_<ts>__<rand>`) and joins it onto the pure plan by the
 //!   `s_<n>` key returned from [`HysteresisState::step_assign`].
 //! - THE VELOQRS PAYLOAD. A section is more than a polyline: members, portions,
-//!   name. On a CARRY the registry keeps the prior payload and folds in only the
-//!   genuinely-new activities that traverse it (append-only — never adopts the
-//!   batch's re-clustered membership, which the non-monotone B1 batch may shrink),
-//!   so a carried section can never lose a member across an add. A mint/restore
-//!   takes the fresh batch payload.
+//!   name. The payload mirrors the pure layer's held ground through the
+//!   [`CandidateFate`] on each carry: a FROZEN carry (mid re-cut debounce) keeps
+//!   the prior payload and folds in only the genuinely-new activities that
+//!   traverse it; an ADOPTED carry (extents agreed, or a sustained re-cut fired)
+//!   takes the batch payload wholesale — polyline, portions, and consensus
+//!   family are one coherent unit — under the carried identity (real id, name,
+//!   created_at, version), grafting back any prior member the non-monotone
+//!   batch re-clustering dropped whose track still matches the new geometry.
+//!   A mint/restore takes the fresh batch payload under the same identity rule.
 //!
 //! INTENT SUPPRESSION generalises the custom-section rule that already dodges the
 //! R2 crash: before the plan runs, any candidate whose ground is owned by a
@@ -43,16 +47,40 @@ use crate::persistence::PersistentRouteEngine;
 use crate::persistence::codec;
 use crate::sections::crud::compute_section_portions;
 use tracematch::{
-    CandidateSection, FrequentSection, GpsPoint, HysteresisParams, HysteresisState, shares_ground,
+    CandidateFate, CandidateSection, FrequentSection, GpsPoint, HysteresisParams, HysteresisState,
+    shares_ground,
 };
 
 /// `identity_state.key` for the section registry blob (B4 migration 013).
 pub(super) const SECTION_IDENTITY_KEY: &str = "section_identity";
 
+/// One fired lifecycle change, keyed by real id, produced by the identity
+/// apply (the one emitter) and written to `section_history` /
+/// `section_geometry` inside the catalogue-save transaction. `kind` is the
+/// durable event vocabulary: formed, split, merged, dissolved, restored,
+/// recut. `details` is a JSON object (era snapshot, lineage links);
+/// `geometry` is versioned by the save when present and linked from the
+/// event row.
+pub(crate) struct SectionLifecycleEvent {
+    pub real_id: String,
+    pub kind: &'static str,
+    pub details: Option<String>,
+    pub geometry: Option<Vec<GpsPoint>>,
+}
+
 /// Version byte on the persisted section-registry blob. Bump on any
 /// serialisation-breaking change to [`SectionIdentity`]; an old byte then reseeds
-/// gracefully instead of misparsing (postcard is positional).
-pub(super) const SECTION_IDENTITY_BLOB_VERSION: u8 = 1;
+/// gracefully instead of misparsing. Version 2 moved to rmp encoding: the
+/// payload carries [`FrequentSection`]s whose trailing skip-if-None fields
+/// (`GpsPoint.elevation`, `consensus_state`) desync postcard's positional
+/// stream, so a v1 postcard blob never decoded and always fell back to a
+/// reseed — dropping graves, tombstones, and debounce streaks on every
+/// restart. rmp's length-prefixed arrays recover a skipped trailing field
+/// through its serde default. Version 3 reshaped the hysteresis debounce
+/// record (the D5 streak ledger holds both directions' streaks in place of
+/// one kind + one streak), which rmp encodes positionally, so a v2 blob
+/// reseeds rather than misreading a kind byte as a streak.
+pub(super) const SECTION_IDENTITY_BLOB_VERSION: u8 = 3;
 
 /// Merge-candidacy mutual-overlap floor for the registry's hysteresis. SHIPS AT
 /// 0.0 (the pure-layer default): a prior competes for a candidate's merge
@@ -155,7 +183,66 @@ impl PersistentRouteEngine {
     /// exactly. Behind `synthetic` so it never reaches the shipped API.
     #[cfg(feature = "synthetic")]
     pub fn section_identity_fingerprint(&self) -> Vec<u8> {
-        codec::serialize(&self.identity).unwrap_or_default()
+        codec::serialize_gps_composite(&self.identity).unwrap_or_default()
+    }
+
+    /// Test-only view of the graves as (pure join id, real id) pairs. The seam
+    /// tests assert these track the pure layer's tombstones exactly, which no
+    /// public read exposes.
+    #[cfg(feature = "synthetic")]
+    pub fn section_identity_grave_rows(&self) -> Vec<(String, String)> {
+        self.identity
+            .graves
+            .iter()
+            .map(|(pid, r)| (pid.clone(), r.real_id.clone()))
+            .collect()
+    }
+
+    /// Test-only view of the pure layer's tombstoned join ids, sorted.
+    #[cfg(feature = "synthetic")]
+    pub fn section_identity_tombstone_ids(&self) -> Vec<String> {
+        self.identity.hysteresis.tombstone_ids()
+    }
+
+    /// Test-only view of the pure layer's visible join ids, sorted.
+    #[cfg(feature = "synthetic")]
+    pub fn section_identity_pure_visible_ids(&self) -> Vec<String> {
+        self.identity.hysteresis.visible_ids()
+    }
+
+    /// Test-only count of pure-layer ids with an active debounce.
+    #[cfg(feature = "synthetic")]
+    pub fn section_identity_pending_len(&self) -> usize {
+        self.identity.hysteresis.pending_len()
+    }
+
+    /// Test-only mirror view, one tuple per visible registry row: the pure join
+    /// id, the real DB id, the ground the pure layer holds under that join id
+    /// (empty when it holds none, itself a seam breach), and the payload
+    /// polyline persisted under the real id. The seam tests assert the two
+    /// geometries are equal after every apply.
+    #[cfg(feature = "synthetic")]
+    pub fn section_identity_mirror_rows(
+        &self,
+    ) -> Vec<(String, String, Vec<GpsPoint>, Vec<GpsPoint>)> {
+        self.identity
+            .rows
+            .iter()
+            .map(|(pid, r)| {
+                let pure_ground = self
+                    .identity
+                    .hysteresis
+                    .ground_of(pid)
+                    .map(<[GpsPoint]>::to_vec)
+                    .unwrap_or_default();
+                (
+                    pid.clone(),
+                    r.real_id.clone(),
+                    pure_ground,
+                    r.section.polyline.clone(),
+                )
+            })
+            .collect()
     }
 
     /// The whole section registry as a version-tagged serde blob, or None if
@@ -163,9 +250,10 @@ impl PersistentRouteEngine {
     /// `write_identity_state`) so the registry and the catalogue it describes
     /// commit atomically — a crash cannot leave the blob ahead of the DB. The
     /// leading byte is [`SECTION_IDENTITY_BLOB_VERSION`]; a mismatch on restore
-    /// reseeds rather than misparsing (postcard is positional).
+    /// reseeds rather than misparsing. rmp-encoded, not postcard: the payload
+    /// carries GpsPoint composites (see the version-constant note).
     pub(crate) fn section_identity_blob(&self) -> Option<Vec<u8>> {
-        codec::serialize(&self.identity)
+        codec::serialize_gps_composite(&self.identity)
             .map(|body| codec::tag_blob(SECTION_IDENTITY_BLOB_VERSION, body))
             .ok()
     }
@@ -194,7 +282,7 @@ impl PersistentRouteEngine {
             log::warn!("tracematch: [section_identity_restore] blob version mismatch, reseeding");
             return false;
         };
-        match codec::deserialize::<SectionIdentity>(body) {
+        match codec::deserialize_gps_composite::<SectionIdentity>(body) {
             Ok(state) => {
                 self.identity = state;
                 // No counter-reconcile equivalent to the route registry's. Section
@@ -236,27 +324,29 @@ impl PersistentRouteEngine {
         let candidates: Vec<CandidateSection> =
             managed.iter().map(CandidateSection::from_section).collect();
         // A fresh state mints one pure id per seed; join the real DB id onto each.
-        let (_out, pure_ids) = identity.hysteresis.step_assign(&candidates);
+        let (_out, resolutions) = identity.hysteresis.step_assign(&candidates);
         for (j, section) in managed.into_iter().enumerate() {
             let real_id = section.id.clone();
             identity
                 .rows
-                .insert(pure_ids[j].clone(), IdentityRow { real_id, section });
+                .insert(resolutions[j].id.clone(), IdentityRow { real_id, section });
         }
         identity.seen = self.activity_metadata.keys().cloned().collect();
         self.identity = identity;
     }
 
     /// Run a fresh detection catalogue through the identity + hysteresis layer,
-    /// returning the VISIBLE catalogue to persist: stable ids carried onto
-    /// surviving ground, fresh ids minted for new ground, dissolves and re-cuts
-    /// debounced. Operates on `identity` (a clone the caller commits only on a
-    /// durable save) so a failed save never advances the registry past the DB.
+    /// returning the VISIBLE catalogue to persist plus the lifecycle events the
+    /// step fired: stable ids carried onto surviving ground, fresh ids minted
+    /// for new ground, dissolves and re-cuts debounced. Operates on `identity`
+    /// (a clone the caller commits only on a durable save) so a failed save
+    /// never advances the registry past the DB; the events become durable in
+    /// the same save transaction, so a rolled-back save also drops them.
     pub(crate) fn section_identity_apply_into(
         &self,
         identity: &mut SectionIdentity,
         raw: Vec<FrequentSection>,
-    ) -> Vec<FrequentSection> {
+    ) -> (Vec<FrequentSection>, Vec<SectionLifecycleEvent>) {
         // Durable-intent grounds + ids: exactly the rows the detection wipe
         // spares (custom, trimmed/backed-up, or accepted/user-defined). Their
         // ground must not be re-emitted (that is the UNIQUE-id collision the R2
@@ -279,6 +369,31 @@ impl PersistentRouteEngine {
             identity.hysteresis.forget(&pid);
         }
 
+        // A durable claim can also land on DEAD ground: the corridor
+        // tombstoned, its payload moved to the graves, and the user then
+        // claimed the ground with a custom or accepted row. Relinquish by
+        // real id cannot reach it (the claim minted its own DB id), so sweep
+        // by ground: any tombstone whose retained ground a durable-intent row
+        // now owns is forgotten, grave included. Without this the grave pins
+        // the dead id forever, and a later re-emergence would restore a
+        // ground the DB row already represents — the same double-ownership
+        // the live-row relinquish prevents.
+        let claimed: Vec<String> = identity
+            .hysteresis
+            .tombstone_ids()
+            .into_iter()
+            .filter(|pid| {
+                identity
+                    .hysteresis
+                    .tombstone_ground_of(pid)
+                    .is_some_and(|g| ground_owned_by_intent(g, &intent_grounds))
+            })
+            .collect();
+        for pid in claimed {
+            identity.graves.remove(&pid);
+            identity.hysteresis.forget(&pid);
+        }
+
         // SUPPRESS: drop any candidate whose ground a durable-intent row already
         // owns. The durable row represents that ground; a fresh auto section for
         // it is the collision. This is the custom-section rule generalised.
@@ -288,23 +403,22 @@ impl PersistentRouteEngine {
             .collect();
 
         // Step the pure hysteresis and learn which visible id each candidate
-        // resolved to (carry/split/merge -> inherited id, new/restore -> fresh).
+        // resolved to (carry/split/merge -> inherited id, new/restore -> fresh)
+        // and whether the pure layer adopted the candidate's geometry.
         //
-        // ROOT-CAUSE NOTE (the merge-floor's real target; not fixed here). The
-        // priors `step_assign` matches against are this registry's HELD view,
-        // which includes sections frozen mid re-cut debounce — their FROZEN,
-        // now-stale footprint. That stale footprint keeps COMPETING for foreign
-        // candidates in `plan_identity`, and a marginal one-sided overlap from it
-        // is what lets a short senior prior capture or block a dominant candidate
-        // (and inflates the visible catalogue with duplicates the tombstone can't
-        // reclaim, since dissolve_pressure stays low while the ground is partly
-        // covered). Excluding a re-cut-debounced section from foreign-candidate
-        // competition would attack that root directly. The merge floor only
-        // blunts the symptom; the durable fix is a FOLD-level change in the pure
-        // layer (task pending). See [`MERGE_MUTUAL_FLOOR`].
+        // COMPETITION NOTE. A prior mid re-cut debounce competes in
+        // `plan_identity` on the batch geometry it is re-cutting TO (its
+        // pending target), not its frozen footprint — the FOLD-level fix an
+        // older note here still called pending. Residual exposure, verified
+        // and deliberately open: the FIRST divergent step competes on the held
+        // footprint (the pending target only exists from the following step),
+        // a dissolve-pending prior competes on its stale ground and a foreign
+        // capture resets its dissolve streak, and a marginal one-sided senior
+        // capture needs no debounce at all — the merge floor is that clause's
+        // only mitigation and ships at 0.0 (see [`MERGE_MUTUAL_FLOOR`]).
         let candidates: Vec<CandidateSection> =
             raw.iter().map(CandidateSection::from_section).collect();
-        let (_out, candidate_ids) = identity.hysteresis.step_assign(&candidates);
+        let (out, resolutions) = identity.hysteresis.step_assign(&candidates);
 
         // Activities new since the last apply, and their tracks, for the fold.
         // Read up front so the reconcile below borrows nothing from `self`.
@@ -317,28 +431,111 @@ impl PersistentRouteEngine {
         // Reconcile the payload map to the pure layer's post-step visible set.
         let old_rows = std::mem::take(&mut identity.rows);
         let old_graves = std::mem::take(&mut identity.graves);
+        // Pure id -> real id of every pre-step visible row, captured before
+        // the reconcile consumes the map: the emitter translates fired
+        // retirements and re-cuts (which name pre-step pure ids) through it.
+        let old_real: BTreeMap<String, String> = old_rows
+            .iter()
+            .map(|(pid, r)| (pid.clone(), r.real_id.clone()))
+            .collect();
         let mut new_rows: BTreeMap<String, IdentityRow> = BTreeMap::new();
 
-        // Candidates: a carry keeps the prior payload and folds new activities; a
-        // mint/restore takes the batch payload under a fresh/restored real id.
+        // Candidates: the pure layer's per-candidate fate drives the branch, so
+        // the registry mirrors what the pure layer decided rather than
+        // re-deriving carry/restore/mint from its own map membership. A frozen
+        // carry keeps the prior payload and folds new activities; an adopted
+        // carry mirrors the pure layer's held ground by taking the batch payload
+        // wholesale under the carried identity; a restore re-uses the grave's
+        // real id; a mint takes a fresh one.
+        //
+        // The fate and the registry mirror must agree: a carry names a live row,
+        // a restore names a grave, a mint names neither. The pure-side
+        // `fate_membership_property` proves the fates are membership-honest, so a
+        // disagreement here is a mirror desync (a dropped grave from a corrupt
+        // identity blob is the known one, task #13). Loud in tests via
+        // `debug_assert`, degraded to a safe mint in release so a corrupt blob
+        // re-mints a fresh id rather than bricking the engine.
         for (j, section) in raw.into_iter().enumerate() {
-            let pid = &candidate_ids[j];
-            if let Some(mut row) = old_rows.get(pid).cloned() {
-                fold_new_activities(&mut row.section, &new_tracks);
-                new_rows.insert(pid.clone(), row);
-            } else if let Some(mut row) = old_graves.get(pid).cloned() {
-                // Restore: the ground re-emerged; adopt the batch geometry and
-                // members but keep the OLD real id (comes back as itself).
-                let real_id = row.real_id.clone();
-                row.section = section;
-                row.section.id = real_id;
-                new_rows.insert(pid.clone(), row);
-            } else {
+            let pid = resolutions[j].id.clone();
+            let membership_ok = match resolutions[j].fate {
+                CandidateFate::CarriedFrozen | CandidateFate::CarriedAdopted => {
+                    old_rows.contains_key(&pid)
+                }
+                CandidateFate::Restored => old_graves.contains_key(&pid),
+                CandidateFate::Minted => {
+                    !old_rows.contains_key(&pid) && !old_graves.contains_key(&pid)
+                }
+            };
+            debug_assert!(
+                membership_ok,
+                "identity fate {:?} for {pid} disagrees with the registry mirror",
+                resolutions[j].fate
+            );
+
+            // Moved into whichever branch consumes it (adopt, restore, or the
+            // mint fallback); a divergence leaves it for the fallback.
+            let mut payload = Some(section);
+            let carried = match resolutions[j].fate {
+                CandidateFate::CarriedFrozen => old_rows.get(&pid).cloned().map(|mut row| {
+                    fold_new_activities(&mut row.section, &new_tracks);
+                    row
+                }),
+                CandidateFate::CarriedAdopted => old_rows.get(&pid).cloned().map(|mut row| {
+                    // The batch's polyline, portions, and consensus family are
+                    // one coherent unit, so adoption is wholesale; identity
+                    // fields carry, and prior members the non-monotone batch
+                    // re-clustering dropped are grafted back against the NEW
+                    // geometry so membership stays monotone across the adopt.
+                    let prior = std::mem::replace(&mut row.section, payload.take().unwrap());
+                    row.section.id = row.real_id.clone();
+                    row.section.name = prior.name.clone();
+                    row.section.created_at = prior.created_at.clone();
+                    row.section.version = prior.version;
+                    row.section.updated_at = prior.updated_at.clone();
+                    // Sport stays with the identity, not the winning candidate:
+                    // per-sport detection can hand a prior to another sport's
+                    // cut of the same ground, and a single add must never flip
+                    // a visible section's sport. Pooled detection (B3) makes
+                    // sport derived and retires this carry.
+                    row.section.sport_type = prior.sport_type.clone();
+                    graft_prior_members(self, &mut row.section, &prior);
+                    // An adopted carry keeps learning new traffic exactly as a
+                    // frozen one does: the batch candidate only carries its own
+                    // sport's members, but a new activity of another sport on
+                    // the same ground must still join the row this step, or the
+                    // cross-sport merge's majority pick hands the corridor to a
+                    // freshly minted id and identity breaks on a sport addition.
+                    fold_new_activities(&mut row.section, &new_tracks);
+                    row
+                }),
+                CandidateFate::Restored => old_graves.get(&pid).cloned().map(|mut row| {
+                    // The ground re-emerged; adopt the batch geometry and members
+                    // but keep the OLD real id and birth date (comes back as
+                    // itself).
+                    let real_id = row.real_id.clone();
+                    let grave = std::mem::replace(&mut row.section, payload.take().unwrap());
+                    row.section.id = real_id;
+                    row.section.name = grave.name.clone();
+                    row.section.created_at = grave.created_at.clone();
+                    row.section.version = grave.version;
+                    row.section.updated_at = grave.updated_at.clone();
+                    row
+                }),
+                CandidateFate::Minted => None,
+            };
+
+            let row = carried.unwrap_or_else(|| {
                 let real_id = mint_real_id(&mut identity.mint_seq);
-                let mut section = section;
+                let mut section = payload.take().expect("payload consumed once");
                 section.id = real_id.clone();
-                new_rows.insert(pid.clone(), IdentityRow { real_id, section });
-            }
+                // Birth is stamped on the payload at mint so it rides the
+                // registry blob and the graves: created_at then survives
+                // carries, dissolves, and restores instead of re-stamping at
+                // every save.
+                section.created_at = Some(chrono::Utc::now().to_rfc3339());
+                IdentityRow { real_id, section }
+            });
+            new_rows.insert(pid, row);
         }
 
         // Pending-frozen visible ids (a debounced dissolve or re-cut with no
@@ -365,10 +562,179 @@ impl PersistentRouteEngine {
             }
         }
 
+        // THE EMITTER: one place turns the step's fired changes into durable
+        // lifecycle events, keyed by real id. Debounced-but-unfired changes
+        // emit nothing (the view has not moved); agreement refinements emit
+        // nothing (no visible change to narrate). Reasons and era snapshots
+        // are taken at fire time: what was true when the change became
+        // visible, not when its streak began.
+        let mut events: Vec<SectionLifecycleEvent> = Vec::new();
+        // Split lineage, aggregated parent-side so history reads "split into
+        // X and Y": parent real id -> freshly minted sibling real ids.
+        let mut split_children: BTreeMap<String, Vec<String>> = BTreeMap::new();
+        for res in &resolutions {
+            let Some(row) = new_rows.get(&res.id) else {
+                continue;
+            };
+            match res.fate {
+                CandidateFate::Minted => {
+                    // A split loser records its parent and a discriminator the
+                    // read path renders in-locale: a cardinal when the two
+                    // pieces separate cleanly, else its ordinal among the
+                    // parent's siblings (the parent piece itself is 1).
+                    let details = res.split_from.as_ref().and_then(|ppid| {
+                        let parent_real = old_real.get(ppid)?;
+                        let siblings = split_children.entry(parent_real.clone()).or_default();
+                        siblings.push(row.real_id.clone());
+                        let discriminator = new_rows
+                            .get(ppid)
+                            .and_then(|p| {
+                                tracematch::sections::split_direction(
+                                    &p.section.polyline,
+                                    &row.section.polyline,
+                                )
+                            })
+                            .map(str::to_string)
+                            .unwrap_or_else(|| (siblings.len() + 1).to_string());
+                        Some(
+                            serde_json::json!({
+                                "split_from": parent_real,
+                                "discriminator": discriminator,
+                            })
+                            .to_string(),
+                        )
+                    });
+                    events.push(SectionLifecycleEvent {
+                        real_id: row.real_id.clone(),
+                        kind: "formed",
+                        details,
+                        geometry: Some(row.section.polyline.clone()),
+                    });
+                }
+                CandidateFate::Restored => {
+                    events.push(SectionLifecycleEvent {
+                        real_id: row.real_id.clone(),
+                        kind: "restored",
+                        details: None,
+                        geometry: Some(row.section.polyline.clone()),
+                    });
+                }
+                CandidateFate::CarriedAdopted | CandidateFate::CarriedFrozen => {}
+            }
+        }
+        for (parent_real, siblings) in split_children {
+            let mut details = self.section_era_snapshot(&parent_real);
+            details.insert("siblings".into(), serde_json::json!(siblings));
+            events.push(SectionLifecycleEvent {
+                real_id: parent_real,
+                kind: "split",
+                details: Some(serde_json::Value::Object(details).to_string()),
+                geometry: None,
+            });
+        }
+        for pid in &out.recut_ids {
+            let (Some(real_id), Some(row)) = (old_real.get(pid), new_rows.get(pid)) else {
+                continue;
+            };
+            events.push(SectionLifecycleEvent {
+                real_id: real_id.clone(),
+                kind: "recut",
+                details: Some(
+                    serde_json::Value::Object(self.section_era_snapshot(real_id)).to_string(),
+                ),
+                geometry: Some(row.section.polyline.clone()),
+            });
+        }
+        for retirement in &out.retired {
+            let Some(real_id) = old_real.get(&retirement.id) else {
+                continue;
+            };
+            let mut details = self.section_era_snapshot(real_id);
+            let kind = match &retirement.reason {
+                tracematch::RetireReason::Dissolved => "dissolved",
+                tracematch::RetireReason::MergedInto { id } => {
+                    if let Some(winner) = old_real.get(id) {
+                        details.insert("into".into(), serde_json::json!(winner));
+                    }
+                    "merged"
+                }
+            };
+            events.push(SectionLifecycleEvent {
+                real_id: real_id.clone(),
+                kind,
+                details: Some(serde_json::Value::Object(details).to_string()),
+                geometry: None,
+            });
+        }
+
         identity.rows = new_rows;
         identity.seen = now_seen;
 
-        identity.rows.values().map(|r| r.section.clone()).collect()
+        (
+            identity.rows.values().map(|r| r.section.clone()).collect(),
+            events,
+        )
+    }
+
+    /// The era snapshot of one section as it stands NOW, before the change
+    /// this event narrates lands: the PR and its activity, the mean time, and
+    /// the visit cadence. Read from the junction cache and activity dates the
+    /// save has not yet rewritten, so a dissolved section's final era survives
+    /// the cascade that removes its rows. Fields are null when the era had no
+    /// cached times (lap times fill lazily on first performance read).
+    fn section_era_snapshot(&self, real_id: &str) -> serde_json::Map<String, serde_json::Value> {
+        let mut snap = serde_json::Map::new();
+        let pr: Option<(String, f64)> = self
+            .db
+            .query_row(
+                "SELECT activity_id, lap_time FROM section_activities
+                 WHERE section_id = ? AND excluded = 0 AND lap_time IS NOT NULL
+                 ORDER BY lap_time ASC LIMIT 1",
+                rusqlite::params![real_id],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .ok();
+        let avg: Option<f64> = self
+            .db
+            .query_row(
+                "SELECT AVG(lap_time) FROM section_activities
+                 WHERE section_id = ? AND excluded = 0 AND lap_time IS NOT NULL",
+                rusqlite::params![real_id],
+                |row| row.get(0),
+            )
+            .ok()
+            .flatten();
+        let cadence: Option<(i64, Option<i64>, Option<i64>)> = self
+            .db
+            .query_row(
+                "SELECT COUNT(*), MIN(a.start_date), MAX(a.start_date)
+                 FROM section_activities sa JOIN activities a ON a.id = sa.activity_id
+                 WHERE sa.section_id = ?",
+                rusqlite::params![real_id],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+            )
+            .ok();
+        let visits_per_month = cadence.and_then(|(count, min_d, max_d)| {
+            if count == 0 {
+                return None;
+            }
+            let span_days = (max_d? - min_d?) as f64 / 86_400.0;
+            Some(count as f64 / (span_days / 30.44).max(1.0))
+        });
+        snap.insert(
+            "pr_activity_id".into(),
+            serde_json::json!(pr.as_ref().map(|p| &p.0)),
+        );
+        snap.insert(
+            "pr_time".into(),
+            serde_json::json!(pr.as_ref().map(|p| p.1)),
+        );
+        snap.insert("avg_time".into(), serde_json::json!(avg));
+        snap.insert(
+            "visits_per_month".into(),
+            serde_json::json!(visits_per_month),
+        );
+        snap
     }
 
     /// Relinquish a registry row whose ground has just passed to a durable intent
@@ -453,10 +819,11 @@ impl PersistentRouteEngine {
     }
 
     /// Clear a section's suppression intent (on enable), so its corridor can be
-    /// detected again. Best-effort.
+    /// detected again. Best-effort. Kind-scoped so an enable can never take a
+    /// named intent with it.
     pub(crate) fn clear_section_intent(&self, section_id: &str) {
         if let Err(e) = self.db.execute(
-            "DELETE FROM section_intents WHERE id = ?",
+            "DELETE FROM section_intents WHERE id = ? AND kind IN ('disabled', 'deleted')",
             rusqlite::params![section_id],
         ) {
             log::warn!("tracematch: [clear_section_intent] {section_id}: {e}");
@@ -502,10 +869,15 @@ impl PersistentRouteEngine {
                 }
             }
         }
-        if let Ok(mut stmt) = self
-            .db
-            .prepare("SELECT id, polyline_json FROM section_intents")
-        {
+        // INVARIANT: suppression reads disabled/deleted rows ONLY. kind='named'
+        // rows share this table but are the opposite of suppression — a named
+        // corridor must keep detecting and evolving. Widening this query back to
+        // all kinds would make naming a corridor silently hide it
+        // (`naming_never_suppresses_corridor` is the regression gate).
+        if let Ok(mut stmt) = self.db.prepare(
+            "SELECT id, polyline_json FROM section_intents
+             WHERE kind IN ('disabled', 'deleted')",
+        ) {
             let rows = stmt.query_map([], |row| {
                 Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
             });
@@ -548,6 +920,39 @@ fn fold_new_activities(
             continue;
         }
         section.activity_ids.push(aid.clone());
+        section.visit_count += portions.len() as u32;
+        section.activity_portions.extend(portions);
+    }
+}
+
+/// Append `prior` members missing from an adopted batch payload whose tracks
+/// still match the new polyline. The batch re-clustering is not monotone: a
+/// member can drop out of the fresh cut while its traversals still cover the
+/// adopted ground, and losing it would break the single-add stability the
+/// lifecycle gates assert. Portions are computed against the NEW geometry so
+/// the junction rows `save_sections` writes stay coherent; a member whose
+/// track genuinely left the adopted ground stays dropped.
+fn graft_prior_members(
+    engine: &PersistentRouteEngine,
+    section: &mut FrequentSection,
+    prior: &FrequentSection,
+) {
+    let have: BTreeSet<&str> = section.activity_ids.iter().map(String::as_str).collect();
+    let missing: Vec<String> = prior
+        .activity_ids
+        .iter()
+        .filter(|aid| !have.contains(aid.as_str()))
+        .cloned()
+        .collect();
+    for aid in missing {
+        let Some(track) = engine.get_gps_track(&aid) else {
+            continue;
+        };
+        let portions = compute_section_portions(&aid, &track, &section.polyline);
+        if portions.is_empty() {
+            continue;
+        }
+        section.activity_ids.push(aid);
         section.visit_count += portions.len() as u32;
         section.activity_portions.extend(portions);
     }

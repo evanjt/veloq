@@ -275,11 +275,11 @@ fn cache_coherence_matrix() {
         }
     );
     op_row!(
-        "rename_section",
+        "set_section_name",
         "stale(harmless)",
         "metadata only",
         |e: &mut PersistentRouteEngine, id: &str| {
-            e.rename_section(id, "Renamed").expect("rename");
+            e.set_section_name(id, Some("Renamed")).expect("rename");
         }
     );
     op_row!(
@@ -561,7 +561,6 @@ fn gate_remove_activity_drops_performance_record() {
 /// membership is frozen at creation. Green when custom sections are visible to
 /// the in-memory matcher.
 #[test]
-#[ignore = "custom sections are never in the in-memory cache — index_new_activity cannot match new activities to them, freezing membership"]
 fn gate_custom_section_reaches_in_memory_matcher() {
     let corpus = corpus();
     let (mut engine, _dir) = fresh_engine_for(Arm::Control);
