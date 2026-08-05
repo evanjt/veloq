@@ -484,18 +484,8 @@ impl PersistentRouteEngine {
     /// Recompute a section's bounds and distance from its current polyline.
     /// Called after merge to ensure bounds reflect the primary section's polyline.
     fn recompute_section_bounds(&self, section_id: &str) {
-        let polyline_json: Option<String> = self
-            .db
-            .query_row(
-                "SELECT polyline_json FROM sections WHERE id = ?",
-                rusqlite::params![section_id],
-                |row| row.get(0),
-            )
-            .ok();
-
-        let points: Vec<tracematch::GpsPoint> = polyline_json
-            .and_then(|json| serde_json::from_str(&json).ok())
-            .unwrap_or_default();
+        let points: Vec<tracematch::GpsPoint> =
+            self.stored_section_polyline(section_id).unwrap_or_default();
 
         if points.len() < 2 {
             return;

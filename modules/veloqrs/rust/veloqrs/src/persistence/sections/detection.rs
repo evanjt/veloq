@@ -231,22 +231,22 @@ pub fn run_accumulator_backfill(db_path: &str, refresh_engine: bool) -> Result<(
     let sections_to_seed: Vec<(String, Vec<tracematch::GpsPoint>)> = {
         let mut stmt = conn
             .prepare(
-                "SELECT id, polyline_json FROM sections
+                "SELECT id, polyline_blob, polyline_json FROM sections
                  WHERE consensus_state_blob IS NULL
-                   AND polyline_json IS NOT NULL
                    AND disabled = 0",
             )
             .map_err(|e| format!("prepare failed: {}", e))?;
         stmt.query_map([], |row| {
             let id: String = row.get(0)?;
-            let polyline_json: String = row.get(1)?;
-            Ok((id, polyline_json))
+            let blob: Option<Vec<u8>> = row.get(1)?;
+            let json: Option<String> = row.get(2)?;
+            Ok((id, blob, json))
         })
         .ok()
         .map(|rows| {
             rows.filter_map(|r| r.ok())
-                .filter_map(|(id, json)| {
-                    serde_json::from_str::<Vec<tracematch::GpsPoint>>(&json)
+                .filter_map(|(id, blob, json)| {
+                    codec::decode_polyline_row(blob.as_deref(), json.as_deref())
                         .ok()
                         .map(|p| (id, p))
                 })

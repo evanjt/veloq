@@ -794,15 +794,23 @@ impl PersistentRouteEngine {
     /// behaviour where the corridor could re-emerge, never a crash. For a delete,
     /// call this BEFORE the row is gone.
     pub(crate) fn record_section_intent(&self, section_id: &str, kind: &str) {
-        let polyline_json: Option<String> = self
+        // A missing row is a no-op; a row whose geometry will not decode still
+        // gets its intent, so suppression by id survives as it did before.
+        let exists: bool = self
             .db
             .query_row(
-                "SELECT polyline_json FROM sections WHERE id = ?",
+                "SELECT 1 FROM sections WHERE id = ?",
                 rusqlite::params![section_id],
-                |row| row.get(0),
+                |_| Ok(true),
             )
-            .ok();
-        let Some(polyline_json) = polyline_json else {
+            .unwrap_or(false);
+        if !exists {
+            return;
+        }
+        // The intent keeps its own JSON footprint, so serialise the section's
+        // decoded geometry rather than copying the now-placeholder column.
+        let polyline = self.stored_section_polyline(section_id).unwrap_or_default();
+        let Ok(polyline_json) = serde_json::to_string(&polyline) else {
             return;
         };
         if let Err(e) = self.db.execute(
@@ -847,7 +855,7 @@ impl PersistentRouteEngine {
         let mut ids = BTreeSet::new();
         {
             let mut stmt = match self.db.prepare(
-                "SELECT id, polyline_json FROM sections
+                "SELECT id, polyline_blob, polyline_json FROM sections
                  WHERE section_type = 'custom'
                     OR original_polyline_json IS NOT NULL
                     OR is_user_defined = 1",
@@ -856,12 +864,16 @@ impl PersistentRouteEngine {
                 Err(_) => return (grounds, ids),
             };
             let rows = stmt.query_map([], |row| {
-                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, Option<Vec<u8>>>(1)?,
+                    row.get::<_, Option<String>>(2)?,
+                ))
             });
             if let Ok(iter) = rows {
-                for (id, polyline_json) in iter.flatten() {
+                for (id, blob, json) in iter.flatten() {
                     ids.insert(id);
-                    if let Ok(pts) = serde_json::from_str::<Vec<GpsPoint>>(&polyline_json) {
+                    if let Ok(pts) = codec::decode_polyline_row(blob.as_deref(), json.as_deref()) {
                         if !pts.is_empty() {
                             grounds.push(pts);
                         }

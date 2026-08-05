@@ -5,7 +5,7 @@
 //! reads - they never mutate section state.
 
 use super::super::{Section, SectionSummary, SectionType};
-use crate::persistence::PersistentRouteEngine;
+use crate::persistence::{PersistentRouteEngine, codec};
 use rusqlite::params;
 use tracematch::GpsPoint;
 use tracematch::sections::{build_rtree, find_all_track_portions};
@@ -17,7 +17,7 @@ impl PersistentRouteEngine {
          representative_activity_id, confidence, observation_count, average_spread,
          point_density_json, scale, version, is_user_defined, stability,
          source_activity_id, start_index, end_index, created_at, updated_at,
-         disabled, superseded_by";
+         disabled, superseded_by, polyline_blob, point_density_blob";
 
     /// Visibility filter: exclude disabled and superseded sections.
     pub(super) const VISIBLE_FILTER: &'static str = "disabled = 0 AND superseded_by IS NULL";
@@ -48,6 +48,8 @@ impl PersistentRouteEngine {
             let section_type_str: String = row.get(1)?;
             let polyline_json: String = row.get(4)?;
             let point_density_json: Option<String> = row.get(10)?;
+            let polyline_blob: Option<Vec<u8>> = row.get(22)?;
+            let point_density_blob: Option<Vec<u8>> = row.get(23)?;
 
             // Get activity IDs from junction table
             let activity_ids = self.get_section_activity_ids(&id);
@@ -57,7 +59,11 @@ impl PersistentRouteEngine {
                 section_type: SectionType::from_str(&section_type_str).unwrap_or(SectionType::Auto),
                 name: row.get(2)?,
                 sport_type: row.get(3)?,
-                polyline: serde_json::from_str(&polyline_json).unwrap_or_default(),
+                polyline: codec::decode_polyline_row(
+                    polyline_blob.as_deref(),
+                    Some(&polyline_json),
+                )
+                .unwrap_or_default(),
                 distance_meters: row.get(5)?,
                 representative_activity_id: row.get(6)?,
                 activity_ids,
@@ -65,7 +71,9 @@ impl PersistentRouteEngine {
                 confidence: row.get(7)?,
                 observation_count: row.get(8)?,
                 average_spread: row.get(9)?,
-                point_density: point_density_json.and_then(|j| serde_json::from_str(&j).ok()),
+                point_density: point_density_blob
+                    .and_then(|b| codec::deserialize(&b).ok())
+                    .or_else(|| point_density_json.and_then(|j| serde_json::from_str(&j).ok())),
                 scale: row.get(11)?,
                 is_user_defined: row.get::<_, Option<i32>>(13)?.unwrap_or(0) != 0,
                 stability: row.get(14)?,
@@ -334,6 +342,8 @@ impl PersistentRouteEngine {
             let section_type_str: String = row.get(1)?;
             let polyline_json: String = row.get(4)?;
             let point_density_json: Option<String> = row.get(10)?;
+            let polyline_blob: Option<Vec<u8>> = row.get(22)?;
+            let point_density_blob: Option<Vec<u8>> = row.get(23)?;
 
             let activity_ids = self.get_section_activity_ids(&id);
             let visit_count = self.get_section_visit_count(&id);
@@ -343,7 +353,11 @@ impl PersistentRouteEngine {
                 section_type: SectionType::from_str(&section_type_str).unwrap_or(SectionType::Auto),
                 name: row.get(2)?,
                 sport_type: row.get(3)?,
-                polyline: serde_json::from_str(&polyline_json).unwrap_or_default(),
+                polyline: codec::decode_polyline_row(
+                    polyline_blob.as_deref(),
+                    Some(&polyline_json),
+                )
+                .unwrap_or_default(),
                 distance_meters: row.get(5)?,
                 representative_activity_id: row.get(6)?,
                 activity_ids: activity_ids.clone(),
@@ -351,7 +365,9 @@ impl PersistentRouteEngine {
                 confidence: row.get(7)?,
                 observation_count: row.get(8)?,
                 average_spread: row.get(9)?,
-                point_density: point_density_json.and_then(|j| serde_json::from_str(&j).ok()),
+                point_density: point_density_blob
+                    .and_then(|b| codec::deserialize(&b).ok())
+                    .or_else(|| point_density_json.and_then(|j| serde_json::from_str(&j).ok())),
                 scale: row.get(11)?,
                 is_user_defined: row.get::<_, Option<i32>>(13)?.unwrap_or(0) != 0,
                 stability: row.get(14)?,
@@ -367,6 +383,23 @@ impl PersistentRouteEngine {
             })
         })
         .ok()
+    }
+
+    /// Load a section's stored polyline (blob authoritative, JSON fallback for
+    /// legacy rows). Shared by the geometry-editing and intent-capture paths.
+    pub(crate) fn stored_section_polyline(
+        &self,
+        section_id: &str,
+    ) -> Result<Vec<GpsPoint>, String> {
+        let (blob, json): (Option<Vec<u8>>, Option<String>) = self
+            .db
+            .query_row(
+                "SELECT polyline_blob, polyline_json FROM sections WHERE id = ?",
+                params![section_id],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .map_err(|_| format!("Section not found: {}", section_id))?;
+        codec::decode_polyline_row(blob.as_deref(), json.as_deref())
     }
 
     /// Check if a section has original (pre-trim) bounds that can be restored.
@@ -388,12 +421,12 @@ impl PersistentRouteEngine {
         section_id: &str,
     ) -> Result<(Vec<GpsPoint>, u32, u32), String> {
         // Load section data: representative activity ID + current polyline
-        let (rep_id, polyline_json): (Option<String>, String) = self
+        let rep_id: Option<String> = self
             .db
             .query_row(
-                "SELECT representative_activity_id, polyline_json FROM sections WHERE id = ?",
+                "SELECT representative_activity_id FROM sections WHERE id = ?",
                 params![section_id],
-                |row| Ok((row.get(0)?, row.get(1)?)),
+                |row| row.get(0),
             )
             .map_err(|_| format!("Section not found: {}", section_id))?;
 
@@ -408,8 +441,7 @@ impl PersistentRouteEngine {
             return Err("Representative activity track too short".to_string());
         }
 
-        let polyline: Vec<GpsPoint> = serde_json::from_str(&polyline_json)
-            .map_err(|e| format!("Failed to parse polyline: {}", e))?;
+        let polyline: Vec<GpsPoint> = self.stored_section_polyline(section_id)?;
 
         if polyline.len() < 2 {
             return Err("Section polyline too short".to_string());

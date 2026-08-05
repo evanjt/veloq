@@ -79,6 +79,35 @@ pub fn deserialize_gps_composite<T: DeserializeOwned>(bytes: &[u8]) -> Result<T,
     rmp_serde::from_slice(bytes).map_err(|e| e.to_string())
 }
 
+/// Placeholder written to the NOT NULL `sections.polyline_json` column. The
+/// blob is the authoritative geometry; only rows written before blob authority
+/// carry real JSON, which readers use as a fallback.
+pub const NO_POLYLINE_JSON: &str = "";
+
+/// Decode a section polyline row: blob first (authoritative), JSON fallback for
+/// legacy rows. A decodable blob always wins; the JSON path only runs when the
+/// blob is missing or corrupt.
+pub fn decode_polyline_row(
+    blob: Option<&[u8]>,
+    json: Option<&str>,
+) -> Result<Vec<crate::GpsPoint>, String> {
+    if let Some(bytes) = blob {
+        match deserialize_points(bytes) {
+            Ok(points) => return Ok(points),
+            Err(e) => log::warn!(
+                "decode_polyline_row: blob decode failed ({}); trying JSON fallback",
+                e
+            ),
+        }
+    }
+    match json {
+        Some(j) if !j.trim().is_empty() => {
+            serde_json::from_str(j).map_err(|e| format!("polyline JSON decode failed: {}", e))
+        }
+        _ => Err("no stored polyline (blob missing and JSON empty)".to_string()),
+    }
+}
+
 // ------------------------------------------------- quantised polylines
 // `section_geometry` (encoding 1). Corpus-measured (lab geometry_codec,
 // REPORT round 10): ~3.1 B/point vs ~62 B/point JSON, and 1e-6 deg

@@ -113,6 +113,7 @@ struct IntentRow {
 
 struct VisibleRow {
     id: String,
+    polyline_blob: Option<Vec<u8>>,
     polyline_json: String,
     created_at: String,
     bbox: (f64, f64, f64, f64),
@@ -205,9 +206,12 @@ impl PersistentRouteEngine {
                     continue;
                 }
                 let polyline = parsed.entry(vi).or_insert_with(|| {
-                    serde_json::from_str::<Vec<GpsPoint>>(&row.polyline_json)
-                        .ok()
-                        .filter(|p| !p.is_empty())
+                    crate::persistence::codec::decode_polyline_row(
+                        row.polyline_blob.as_deref(),
+                        Some(&row.polyline_json),
+                    )
+                    .ok()
+                    .filter(|p| !p.is_empty())
                 });
                 let Some(polyline) = polyline else { continue };
                 let Some(score) = score_named_candidate(&core, &intent.footprint, polyline) else {
@@ -313,7 +317,8 @@ impl PersistentRouteEngine {
     fn visible_rows_for_resolution(&self) -> Vec<VisibleRow> {
         let Ok(mut stmt) = self.db.prepare(
             "SELECT id, polyline_json, created_at,
-                    bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng
+                    bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng,
+                    polyline_blob
              FROM sections
              WHERE disabled = 0 AND superseded_by IS NULL
                AND is_user_defined = 0 AND section_type = 'auto'",
@@ -329,28 +334,36 @@ impl PersistentRouteEngine {
                 row.get::<_, Option<f64>>(4)?,
                 row.get::<_, Option<f64>>(5)?,
                 row.get::<_, Option<f64>>(6)?,
+                row.get::<_, Option<Vec<u8>>>(7)?,
             ))
         });
         let Ok(iter) = rows else { return Vec::new() };
         iter.flatten()
-            .filter_map(|(id, polyline_json, created_at, lat0, lat1, lng0, lng1)| {
-                let bb = match (lat0, lat1, lng0, lng1) {
-                    (Some(a), Some(b), Some(c), Some(d)) => (a, b, c, d),
-                    _ => {
-                        let polyline: Vec<GpsPoint> = serde_json::from_str(&polyline_json).ok()?;
-                        if polyline.is_empty() {
-                            return None;
+            .filter_map(
+                |(id, polyline_json, created_at, lat0, lat1, lng0, lng1, polyline_blob)| {
+                    let bb = match (lat0, lat1, lng0, lng1) {
+                        (Some(a), Some(b), Some(c), Some(d)) => (a, b, c, d),
+                        _ => {
+                            let polyline = crate::persistence::codec::decode_polyline_row(
+                                polyline_blob.as_deref(),
+                                Some(&polyline_json),
+                            )
+                            .ok()?;
+                            if polyline.is_empty() {
+                                return None;
+                            }
+                            bbox(&polyline)
                         }
-                        bbox(&polyline)
-                    }
-                };
-                Some(VisibleRow {
-                    id,
-                    polyline_json,
-                    created_at,
-                    bbox: bb,
-                })
-            })
+                    };
+                    Some(VisibleRow {
+                        id,
+                        polyline_blob,
+                        polyline_json,
+                        created_at,
+                        bbox: bb,
+                    })
+                },
+            )
             .collect()
     }
 
@@ -455,17 +468,23 @@ impl PersistentRouteEngine {
             return Ok(());
         }
 
-        let row: Option<(String, Option<String>)> = self
+        let sport_type: Option<Option<String>> = self
             .db
             .query_row(
-                "SELECT polyline_json, sport_type FROM sections WHERE id = ?",
+                "SELECT sport_type FROM sections WHERE id = ?",
                 params![section_id],
-                |row| Ok((row.get(0)?, row.get(1)?)),
+                |row| row.get(0),
             )
             .optional()?;
-        let Some((polyline_json, sport_type)) = row else {
+        let Some(sport_type) = sport_type else {
             return Ok(());
         };
+        // The intent carries its own JSON footprint, so serialise the section's
+        // decoded geometry rather than copying the now-placeholder column.
+        let polyline: Vec<GpsPoint> = self
+            .stored_section_polyline(section_id)
+            .unwrap_or_default();
+        let polyline_json = serde_json::to_string(&polyline).unwrap_or_else(|_| "[]".to_string());
 
         self.ensure_named_overlay();
         let existing = {
@@ -479,8 +498,6 @@ impl PersistentRouteEngine {
                     // No live resolution (dormant, disabled, superseded):
                     // fall back to the ground so repeated renames relabel one
                     // intent instead of stacking new ones.
-                    let polyline: Vec<GpsPoint> =
-                        serde_json::from_str(&polyline_json).unwrap_or_default();
                     overlay
                         .corridors
                         .iter()

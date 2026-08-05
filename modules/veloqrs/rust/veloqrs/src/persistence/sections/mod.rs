@@ -176,31 +176,23 @@ impl PersistentRouteEngine {
                         }
                     });
 
-                    let polyline: Vec<GpsPoint> = if let Some(blob) = polyline_blob {
-                        codec::deserialize_points(&blob).unwrap_or_else(|e| {
-                            log::warn!(
-                                "load_sections: polyline blob decode failed ({:?}); falling back to JSON",
-                                e
-                            );
-                            serde_json::from_str(&polyline_json).unwrap_or_else(|e2| {
-                                log::error!(
-                                    "load_sections: polyline JSON fallback also failed ({:?}); section will load with an empty polyline",
-                                    e2
-                                );
-                                Vec::new()
-                            })
+                    let polyline: Vec<GpsPoint> = codec::decode_polyline_row(
+                        polyline_blob.as_deref(),
+                        Some(&polyline_json),
+                    )
+                    .unwrap_or_else(|e| {
+                        log::error!(
+                            "load_sections: polyline decode failed for section {} ({}); section will load with an empty polyline",
+                            id, e
+                        );
+                        Vec::new()
+                    });
+                    let point_density: Vec<u32> = point_density_blob
+                        .and_then(|b| codec::deserialize(&b).ok())
+                        .or_else(|| {
+                            point_density_json.and_then(|j| serde_json::from_str(&j).ok())
                         })
-                    } else {
-                        serde_json::from_str(&polyline_json)
-                            .map_err(|e| rusqlite::Error::FromSqlConversionFailure(4, Type::Text, Box::new(e)))?
-                    };
-                    let point_density: Vec<u32> = if let Some(blob) = point_density_blob {
-                        codec::deserialize(&blob).unwrap_or_default()
-                    } else {
-                        point_density_json
-                            .and_then(|j| serde_json::from_str(&j).ok())
-                            .unwrap_or_default()
-                    };
+                        .unwrap_or_default();
 
                     let portions = section_portions.get(&id)
                         .cloned()
@@ -504,12 +496,14 @@ impl PersistentRouteEngine {
             Option<f64>,
             Option<String>,
             Option<String>,
+            Option<Vec<u8>>,
+            Option<Vec<u8>>,
         )> = {
             let mut stmt = match self.db.prepare(
                 "SELECT section_type, sport_type, name, polyline_json, distance_meters,
                         representative_activity_id, confidence, observation_count, average_spread,
                         point_density_json, scale, version, is_user_defined, stability,
-                        created_at, updated_at
+                        created_at, updated_at, polyline_blob, point_density_blob
                  FROM sections WHERE id = ?",
             ) {
                 Ok(s) => s,
@@ -532,8 +526,10 @@ impl PersistentRouteEngine {
                     row.get::<_, Option<u32>>(11)?,    // version
                     row.get::<_, Option<i32>>(12)?,    // is_user_defined
                     row.get::<_, Option<f64>>(13)?,    // stability
-                    row.get::<_, Option<String>>(14)?, // created_at
-                    row.get::<_, Option<String>>(15)?, // updated_at
+                    row.get::<_, Option<String>>(14)?,  // created_at
+                    row.get::<_, Option<String>>(15)?,  // updated_at
+                    row.get::<_, Option<Vec<u8>>>(16)?, // polyline_blob
+                    row.get::<_, Option<Vec<u8>>>(17)?, // point_density_blob
                 ))
             })
             .ok()
@@ -556,6 +552,8 @@ impl PersistentRouteEngine {
             stability,
             created_at,
             updated_at,
+            polyline_blob,
+            point_density_blob,
         ) = match section_data {
             Some(data) => data,
             None => return, // Section not found
@@ -581,20 +579,22 @@ impl PersistentRouteEngine {
                 .unwrap_or_default()
         };
 
-        // Parse polyline and point density
-        let polyline: Vec<GpsPoint> = match serde_json::from_str(&polyline_json) {
-            Ok(p) => p,
-            Err(e) => {
-                log::error!(
-                    "tracematch: [refresh_section_in_memory] Failed to parse polyline for {}: {}",
-                    section_id,
-                    e
-                );
-                return;
-            }
-        };
-        let point_density: Vec<u32> = point_density_json
-            .and_then(|j| serde_json::from_str(&j).ok())
+        // Decode polyline (blob authoritative, JSON fallback for legacy rows)
+        let polyline: Vec<GpsPoint> =
+            match codec::decode_polyline_row(polyline_blob.as_deref(), Some(&polyline_json)) {
+                Ok(p) => p,
+                Err(e) => {
+                    log::error!(
+                        "tracematch: [refresh_section_in_memory] Failed to decode polyline for {}: {}",
+                        section_id,
+                        e
+                    );
+                    return;
+                }
+            };
+        let point_density: Vec<u32> = point_density_blob
+            .and_then(|b| codec::deserialize(&b).ok())
+            .or_else(|| point_density_json.and_then(|j| serde_json::from_str(&j).ok()))
             .unwrap_or_default();
 
         // Count total traversals (laps) with valid performance data
@@ -969,33 +969,27 @@ impl PersistentRouteEngine {
         let result: Option<Vec<f64>> = self
             .db
             .query_row(
-                "SELECT polyline_json FROM sections WHERE id = ?",
+                "SELECT polyline_blob, polyline_json FROM sections WHERE id = ?",
                 params![section_id],
                 |row| {
-                    let polyline_json: String = row.get(0)?;
-                    let points: Vec<serde_json::Value> = match serde_json::from_str(&polyline_json)
-                    {
-                        Ok(v) => v,
+                    let blob: Option<Vec<u8>> = row.get(0)?;
+                    let json: String = row.get(1)?;
+                    match codec::decode_polyline_row(blob.as_deref(), Some(&json)) {
+                        Ok(points) => Ok(Some(
+                            points
+                                .iter()
+                                .flat_map(|p| [p.latitude, p.longitude])
+                                .collect(),
+                        )),
                         Err(e) => {
                             log::error!(
-                                "tracematch: get_section_polyline JSON parse error for {}: {}",
+                                "tracematch: get_section_polyline decode error for {}: {}",
                                 section_id,
                                 e
                             );
-                            return Ok(None);
+                            Ok(None)
                         }
-                    };
-
-                    let coords: Vec<f64> = points
-                        .iter()
-                        .flat_map(|p| {
-                            let lat = p["latitude"].as_f64().unwrap_or(0.0);
-                            let lng = p["longitude"].as_f64().unwrap_or(0.0);
-                            vec![lat, lng]
-                        })
-                        .collect();
-
-                    Ok(Some(coords))
+                    }
                 },
             )
             .ok()
@@ -1040,12 +1034,10 @@ impl PersistentRouteEngine {
             .query_map(params.as_slice(), |row| {
                 let section_id: String = row.get(0)?;
                 let polyline_blob: Option<Vec<u8>> = row.get(1)?;
-                let points: Vec<GpsPoint> = if let Some(blob) = polyline_blob {
-                    codec::deserialize_points(&blob).unwrap_or_default()
-                } else {
-                    let polyline_json: String = row.get(2)?;
-                    serde_json::from_str(&polyline_json).unwrap_or_default()
-                };
+                let polyline_json: String = row.get(2)?;
+                let points =
+                    codec::decode_polyline_row(polyline_blob.as_deref(), Some(&polyline_json))
+                        .unwrap_or_default();
                 Ok((section_id, crate::coords::encode(&points)))
             })
             .ok()
@@ -1138,7 +1130,7 @@ impl PersistentRouteEngine {
                     (SELECT COUNT(*) FROM section_activities sa WHERE sa.section_id = s.id AND sa.excluded = 0) as visit_count,
                     (COALESCE(s.bounds_min_lat, 0) + COALESCE(s.bounds_max_lat, 0)) / 2.0 as center_lat,
                     (COALESCE(s.bounds_min_lng, 0) + COALESCE(s.bounds_max_lng, 0)) / 2.0 as center_lng,
-                    s.polyline_json
+                    s.polyline_json, s.polyline_blob
              FROM sections s
              WHERE s.id != ? AND s.disabled = 0 AND s.superseded_by IS NULL
                AND s.bounds_min_lat IS NOT NULL",
@@ -1150,15 +1142,16 @@ impl PersistentRouteEngine {
         let rows = stmt
             .query_map(rusqlite::params![section_id], |row| {
                 Ok((
-                    row.get::<_, String>(0)?,         // id
-                    row.get::<_, String>(1)?,         // section_type
-                    row.get::<_, Option<String>>(2)?, // name
-                    row.get::<_, String>(3)?,         // sport_type
-                    row.get::<_, f64>(4)?,            // distance_meters
-                    row.get::<_, u32>(5)?,            // visit_count
-                    row.get::<_, f64>(6)?,            // center_lat
-                    row.get::<_, f64>(7)?,            // center_lng
-                    row.get::<_, Option<String>>(8)?, // polyline_json
+                    row.get::<_, String>(0)?,          // id
+                    row.get::<_, String>(1)?,          // section_type
+                    row.get::<_, Option<String>>(2)?,  // name
+                    row.get::<_, String>(3)?,          // sport_type
+                    row.get::<_, f64>(4)?,             // distance_meters
+                    row.get::<_, u32>(5)?,             // visit_count
+                    row.get::<_, f64>(6)?,             // center_lat
+                    row.get::<_, f64>(7)?,             // center_lng
+                    row.get::<_, Option<String>>(8)?,  // polyline_json
+                    row.get::<_, Option<Vec<u8>>>(9)?, // polyline_blob
                 ))
             })
             .ok();
@@ -1177,16 +1170,17 @@ impl PersistentRouteEngine {
                     lat,
                     lng,
                     polyline_json,
+                    polyline_blob,
                 ) = row;
                 let dist = haversine_distance(center_lat, center_lng, lat, lng);
                 if dist > radius_meters {
                     continue;
                 }
 
-                let encoded_polyline = polyline_json
-                    .and_then(|json| serde_json::from_str::<Vec<GpsPoint>>(&json).ok())
-                    .map(|points| crate::coords::encode(&points))
-                    .unwrap_or_default();
+                let encoded_polyline =
+                    codec::decode_polyline_row(polyline_blob.as_deref(), polyline_json.as_deref())
+                        .map(|points| crate::coords::encode(&points))
+                        .unwrap_or_default();
 
                 results.push(crate::FfiNearbySectionSummary {
                     id,
@@ -1397,18 +1391,18 @@ impl PersistentRouteEngine {
         };
 
         for section in sorted_sections {
-            let polyline_json = serde_json::to_string(&section.polyline)
-                .map_err(|e| rusqlite::Error::ToSqlConversionFailure(Box::new(e)))?;
-            let polyline_blob = codec::serialize_points(&section.polyline).ok();
-            let point_density_json = if section.point_density.is_empty() {
-                None
-            } else {
-                serde_json::to_string(&section.point_density).ok()
-            };
+            // Blob is the authoritative geometry. The NOT NULL polyline_json
+            // column gets an empty placeholder; only legacy rows carry real
+            // JSON, which readers use as a fallback.
+            let polyline_blob = codec::serialize_points(&section.polyline)
+                .map_err(|e| rusqlite::Error::ToSqlConversionFailure(e.into()))?;
             let point_density_blob = if section.point_density.is_empty() {
                 None
             } else {
-                codec::serialize(&section.point_density).ok()
+                Some(
+                    codec::serialize(&section.point_density)
+                        .map_err(|e| rusqlite::Error::ToSqlConversionFailure(e.into()))?,
+                )
             };
             let created_at = section
                 .created_at
@@ -1500,7 +1494,7 @@ impl PersistentRouteEngine {
                 section.id,
                 name_to_save,
                 section.sport_type,
-                polyline_json,
+                codec::NO_POLYLINE_JSON,
                 section.distance_meters,
                 if section.representative_activity_id.is_empty() {
                     None
@@ -1510,7 +1504,7 @@ impl PersistentRouteEngine {
                 section.confidence,
                 section.observation_count,
                 section.average_spread,
-                point_density_json,
+                None::<String>, // point_density_json: legacy column, blob is authoritative
                 section.scale.map(|s| s.to_string()),
                 section.version,
                 if section.is_user_defined { 1 } else { 0 },

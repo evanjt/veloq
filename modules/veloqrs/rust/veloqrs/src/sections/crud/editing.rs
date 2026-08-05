@@ -85,18 +85,8 @@ impl PersistentRouteEngine {
         start_index: u32,
         end_index: u32,
     ) -> Result<(), String> {
-        // Load current polyline
-        let polyline_json: String = self
-            .db
-            .query_row(
-                "SELECT polyline_json FROM sections WHERE id = ?",
-                params![section_id],
-                |row| row.get(0),
-            )
-            .map_err(|_| format!("Section not found: {}", section_id))?;
-
-        let polyline: Vec<GpsPoint> = serde_json::from_str(&polyline_json)
-            .map_err(|e| format!("Failed to parse polyline: {}", e))?;
+        // Load current polyline (blob authoritative, JSON fallback)
+        let polyline: Vec<GpsPoint> = self.stored_section_polyline(section_id)?;
 
         // Validate indices
         let start = start_index as usize;
@@ -135,18 +125,22 @@ impl PersistentRouteEngine {
             .unwrap_or(false);
 
         if !has_original {
+            // The polyline_json column no longer carries geometry on new rows,
+            // so serialise the decoded polyline for the backup.
+            let original_json = serde_json::to_string(&polyline)
+                .map_err(|e| format!("Failed to backup original polyline: {}", e))?;
             self.db
                 .execute(
-                    "UPDATE sections SET original_polyline_json = polyline_json WHERE id = ?",
-                    params![section_id],
+                    "UPDATE sections SET original_polyline_json = ? WHERE id = ?",
+                    params![original_json, section_id],
                 )
                 .map_err(|e| format!("Failed to backup original polyline: {}", e))?;
         }
 
         // Compute new bounds and distance
         let bounds = tracematch::geo_utils::compute_bounds(&trimmed);
-        let trimmed_json = serde_json::to_string(&trimmed).unwrap_or_else(|_| "[]".to_string());
-        let trimmed_blob = crate::persistence::codec::serialize_points(&trimmed).ok();
+        let trimmed_blob = crate::persistence::codec::serialize_points(&trimmed)
+            .map_err(|e| format!("Failed to encode polyline: {}", e))?;
         let updated_at = chrono::Utc::now().to_rfc3339();
 
         // Update section
@@ -164,7 +158,7 @@ impl PersistentRouteEngine {
                     bounds_max_lng = ?
                  WHERE id = ?",
                 params![
-                    trimmed_json,
+                    crate::persistence::codec::NO_POLYLINE_JSON,
                     trimmed_blob,
                     distance,
                     updated_at,
@@ -249,7 +243,8 @@ impl PersistentRouteEngine {
         // Custom sections are always user-defined; auto sections revert to algorithm-defined
         let is_user_defined = if section_type == "custom" { 1 } else { 0 };
 
-        let original_blob = crate::persistence::codec::serialize_points(&original).ok();
+        let original_blob = crate::persistence::codec::serialize_points(&original)
+            .map_err(|e| format!("Failed to encode polyline: {}", e))?;
 
         // Restore polyline and clear original backup
         self.db
@@ -267,7 +262,7 @@ impl PersistentRouteEngine {
                     bounds_max_lng = ?
                  WHERE id = ?",
                 params![
-                    original_json,
+                    crate::persistence::codec::NO_POLYLINE_JSON,
                     original_blob,
                     distance,
                     is_user_defined,
@@ -331,10 +326,15 @@ impl PersistentRouteEngine {
             .unwrap_or(false);
 
         if !has_original {
+            // The polyline_json column no longer carries geometry on new rows,
+            // so serialise the decoded current polyline for the backup.
+            let current = self.stored_section_polyline(section_id)?;
+            let original_json = serde_json::to_string(&current)
+                .map_err(|e| format!("Failed to backup original polyline: {}", e))?;
             self.db
                 .execute(
-                    "UPDATE sections SET original_polyline_json = polyline_json WHERE id = ?",
-                    params![section_id],
+                    "UPDATE sections SET original_polyline_json = ? WHERE id = ?",
+                    params![original_json, section_id],
                 )
                 .map_err(|e| format!("Failed to backup original polyline: {}", e))?;
         }
@@ -342,9 +342,8 @@ impl PersistentRouteEngine {
         // Compute new bounds and distance
         let bounds = tracematch::geo_utils::compute_bounds(new_polyline);
         let updated_at = chrono::Utc::now().to_rfc3339();
-        let polyline_json = serde_json::to_string(new_polyline)
-            .map_err(|e| format!("Failed to serialize polyline: {}", e))?;
-        let polyline_blob = crate::persistence::codec::serialize_points(new_polyline).ok();
+        let polyline_blob = crate::persistence::codec::serialize_points(new_polyline)
+            .map_err(|e| format!("Failed to encode polyline: {}", e))?;
 
         // Update section
         self.db
@@ -361,7 +360,7 @@ impl PersistentRouteEngine {
                     bounds_max_lng = ?
                  WHERE id = ?",
                 params![
-                    polyline_json,
+                    crate::persistence::codec::NO_POLYLINE_JSON,
                     polyline_blob,
                     distance,
                     updated_at,

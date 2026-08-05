@@ -67,9 +67,8 @@ impl PersistentRouteEngine {
 
         let id = format!("{}_{}__{:05}", id_prefix, ts, rand_suffix);
         let created_at = chrono::Utc::now().to_rfc3339();
-        let polyline_json =
-            serde_json::to_string(&params.polyline).unwrap_or_else(|_| "[]".to_string());
-        let polyline_blob = crate::persistence::codec::serialize_points(&params.polyline).ok();
+        let polyline_blob = crate::persistence::codec::serialize_points(&params.polyline)
+            .map_err(|e| format!("Failed to encode polyline: {}", e))?;
 
         // Compute bounds from polyline
         let (bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng) =
@@ -98,7 +97,7 @@ impl PersistentRouteEngine {
                     section_type.as_str(),
                     params.name,
                     params.sport_type,
-                    polyline_json,
+                    crate::persistence::codec::NO_POLYLINE_JSON,
                     polyline_blob,
                     params.distance_meters,
                     params.source_activity_id.as_ref(),
@@ -252,18 +251,11 @@ impl PersistentRouteEngine {
             .get_gps_track(activity_id)
             .ok_or_else(|| format!("Activity not found: {}", activity_id))?;
 
-        // Get current section to determine type, indices, and current polyline
-        let (start_index, end_index, section_type, current_polyline_json): (
-            Option<u32>,
-            Option<u32>,
-            String,
-            String,
-        ) = {
+        // Get current section to determine type and indices
+        let (start_index, end_index, section_type): (Option<u32>, Option<u32>, String) = {
             let mut stmt = self
                 .db
-                .prepare(
-                    "SELECT start_index, end_index, section_type, polyline_json FROM sections WHERE id = ?",
-                )
+                .prepare("SELECT start_index, end_index, section_type FROM sections WHERE id = ?")
                 .map_err(|e| e.to_string())?;
 
             stmt.query_row(params![section_id], |row| {
@@ -271,7 +263,6 @@ impl PersistentRouteEngine {
                     row.get::<_, Option<u32>>(0)?,
                     row.get::<_, Option<u32>>(1)?,
                     row.get::<_, String>(2)?,
-                    row.get::<_, String>(3)?,
                 ))
             })
             .map_err(|_| format!("Section not found: {}", section_id))?
@@ -288,9 +279,8 @@ impl PersistentRouteEngine {
                 .unwrap_or(&[])
                 .to_vec();
 
-            let polyline_json =
-                serde_json::to_string(&polyline).unwrap_or_else(|_| "[]".to_string());
-            let polyline_blob = crate::persistence::codec::serialize_points(&polyline).ok();
+            let polyline_blob = crate::persistence::codec::serialize_points(&polyline)
+                .map_err(|e| format!("Failed to encode polyline: {}", e))?;
             let distance = calculate_route_distance(&polyline);
             let bounds = tracematch::geo_utils::compute_bounds(&polyline);
 
@@ -312,7 +302,7 @@ impl PersistentRouteEngine {
                     params![
                         activity_id,
                         activity_id,
-                        polyline_json,
+                        crate::persistence::codec::NO_POLYLINE_JSON,
                         polyline_blob,
                         distance,
                         updated_at,
@@ -327,7 +317,7 @@ impl PersistentRouteEngine {
         } else {
             // For auto sections, extract the section-matching portion from the new activity's track
             let current_polyline: Vec<GpsPoint> =
-                serde_json::from_str(&current_polyline_json).unwrap_or_default();
+                self.stored_section_polyline(section_id).unwrap_or_default();
 
             if current_polyline.is_empty() {
                 return Err("Section has no polyline to match against".to_string());
@@ -398,17 +388,20 @@ impl PersistentRouteEngine {
                     .unwrap_or(false);
 
                 if !has_original {
+                    // The polyline_json column no longer carries geometry on new
+                    // rows, so serialise the decoded current polyline.
+                    let original_json = serde_json::to_string(&current_polyline)
+                        .map_err(|e| format!("Failed to backup original polyline: {}", e))?;
                     self.db
                         .execute(
-                            "UPDATE sections SET original_polyline_json = polyline_json WHERE id = ?",
-                            params![section_id],
+                            "UPDATE sections SET original_polyline_json = ? WHERE id = ?",
+                            params![original_json, section_id],
                         )
                         .map_err(|e| format!("Failed to backup original polyline: {}", e))?;
                 }
 
-                let polyline_json =
-                    serde_json::to_string(&new_polyline).unwrap_or_else(|_| "[]".to_string());
-                let polyline_blob = crate::persistence::codec::serialize_points(&new_polyline).ok();
+                let polyline_blob = crate::persistence::codec::serialize_points(&new_polyline)
+                    .map_err(|e| format!("Failed to encode polyline: {}", e))?;
                 let bounds = tracematch::geo_utils::compute_bounds(&new_polyline);
 
                 self.db
@@ -427,7 +420,7 @@ impl PersistentRouteEngine {
                          WHERE id = ?",
                         params![
                             activity_id,
-                            polyline_json,
+                            crate::persistence::codec::NO_POLYLINE_JSON,
                             polyline_blob,
                             new_distance,
                             updated_at,
@@ -454,15 +447,8 @@ impl PersistentRouteEngine {
         // For custom sections, add the reference activity with portion details
         if section_type == "custom" {
             // Get the updated polyline for custom section
-            let polyline_json: String = self
-                .db
-                .query_row(
-                    "SELECT polyline_json FROM sections WHERE id = ?",
-                    params![section_id],
-                    |row| row.get(0),
-                )
-                .map_err(|e| format!("Failed to get section polyline: {}", e))?;
-            let polyline: Vec<GpsPoint> = serde_json::from_str(&polyline_json).unwrap_or_default();
+            let polyline: Vec<GpsPoint> =
+                self.stored_section_polyline(section_id).unwrap_or_default();
 
             let portions = compute_section_portions(activity_id, &track, &polyline);
             if portions.is_empty() {
@@ -751,12 +737,15 @@ impl PersistentRouteEngine {
     /// Save a section (insert or update).
     /// Used by section detection to persist auto-detected sections.
     pub fn save_section(&mut self, section: &Section) -> Result<(), String> {
-        let polyline_json =
-            serde_json::to_string(&section.polyline).unwrap_or_else(|_| "[]".to_string());
-        let point_density_json = section
-            .point_density
-            .as_ref()
-            .and_then(|pd| serde_json::to_string(pd).ok());
+        let polyline_blob = crate::persistence::codec::serialize_points(&section.polyline)
+            .map_err(|e| format!("Failed to encode polyline: {}", e))?;
+        let point_density_blob = match section.point_density.as_ref() {
+            Some(pd) => Some(
+                crate::persistence::codec::serialize(pd)
+                    .map_err(|e| format!("Failed to encode point density: {}", e))?,
+            ),
+            None => None,
+        };
 
         // Compute bounds from polyline
         let (bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng) =
@@ -779,20 +768,21 @@ impl PersistentRouteEngine {
                     representative_activity_id, confidence, observation_count, average_spread,
                     point_density_json, scale, version, is_user_defined, stability,
                     source_activity_id, start_index, end_index, created_at, updated_at,
-                    bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng,
+                    polyline_blob, point_density_blob
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 params![
                     section.id,
                     section.section_type.as_str(),
                     section.name,
                     section.sport_type,
-                    polyline_json,
+                    crate::persistence::codec::NO_POLYLINE_JSON,
                     section.distance_meters,
                     section.representative_activity_id,
                     section.confidence,
                     section.observation_count,
                     section.average_spread,
-                    point_density_json,
+                    None::<String>, // point_density_json: legacy column, blob is authoritative
                     section.scale,
                     section.version.unwrap_or(1),
                     if section.is_user_defined { 1 } else { 0 },
@@ -806,6 +796,8 @@ impl PersistentRouteEngine {
                     bounds_max_lat,
                     bounds_min_lng,
                     bounds_max_lng,
+                    polyline_blob,
+                    point_density_blob,
                 ],
             )
             .map_err(|e| format!("Failed to save section: {}", e))?;
