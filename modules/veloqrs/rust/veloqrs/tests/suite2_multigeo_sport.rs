@@ -101,7 +101,10 @@ fn reversed_clone(src: &LifecycleActivity, new_id: String) -> LifecycleActivity 
     }
 }
 
-/// Relabel a slice of a source pool into one sport under a prefix.
+/// Relabel a slice of a source pool into one sport under a prefix. Starts
+/// are respaced three days apart so a handful of traversals always spans
+/// past the occasion floor's one-stay window — these scenarios exercise
+/// sport identity, not occasion support.
 fn labelled(
     src: &[LifecycleActivity],
     range: std::ops::Range<usize>,
@@ -111,7 +114,11 @@ fn labelled(
     src[range]
         .iter()
         .enumerate()
-        .map(|(i, a)| relabel(a, format!("{prefix}{i:03}"), sport))
+        .map(|(i, a)| {
+            let mut act = relabel(a, format!("{prefix}{i:03}"), sport);
+            act.start_date_unix = 1_600_000_000 + i as i64 * 3 * 86_400;
+            act
+        })
         .collect()
 }
 

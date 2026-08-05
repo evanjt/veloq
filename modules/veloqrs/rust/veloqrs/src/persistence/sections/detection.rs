@@ -536,6 +536,25 @@ impl PersistentRouteEngine {
             }
         }
 
+        // Activity start times for the occasion support floor: ground
+        // visited only within one stay is a trip, not repetition. Dates
+        // before 2000 are treated as unknown (each its own occasion),
+        // mirroring how anonymised exports are handled corpus-side.
+        let mut start_epochs: HashMap<String, i64> = HashMap::new();
+        if let Ok(mut stmt) = self
+            .db
+            .prepare("SELECT id, start_date FROM activities WHERE start_date >= 946684800")
+        {
+            let rows = stmt.query_map([], |row| {
+                Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?))
+            });
+            if let Ok(rows) = rows {
+                for (id, e) in rows.flatten() {
+                    start_epochs.insert(id, e);
+                }
+            }
+        }
+
         // The catalogue this detect re-derives from. It seeds the Unified
         // incremental (its add/dissolve diff is computed against this prior
         // catalogue) and gates the no-new-activities short-circuit below. Only the
@@ -789,14 +808,16 @@ impl PersistentRouteEngine {
                 );
 
                 let mut cache = cache_at_spawn;
-                let mut sections_to_send = tracematch::detect_sections_unified_incremental_cached(
+                let mut sections_to_send = tracematch::detect_sections_unified_incremental_dated(
                     &mut cache,
                     &existing_sections,
                     &tracks,
                     &new_id_refs,
                     &[],
                     &sport_map,
+                    &start_epochs,
                     &section_config,
+                    &tracematch::SectionUpdatePolicy::default(),
                 )
                 .catalogue;
 

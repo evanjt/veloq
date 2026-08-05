@@ -194,6 +194,14 @@ name = "suite2_routes_lifecycle"
 required-features = ["synthetic"]
 
 [[test]]
+name = "section_events"
+required-features = ["synthetic"]
+
+[[test]]
+name = "section_history"
+required-features = ["synthetic"]
+
+[[test]]
 name = "identity_seam"
 required-features = ["synthetic"]
 
