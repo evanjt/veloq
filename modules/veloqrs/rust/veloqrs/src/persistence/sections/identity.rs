@@ -449,7 +449,8 @@ impl PersistentRouteEngine {
         // real id; a mint takes a fresh one.
         //
         // The fate and the registry mirror must agree: a carry names a live row,
-        // a restore names a grave, a mint names neither. The pure-side
+        // a restore names a grave (or, on a same-step dissolve-and-re-form
+        // bounce, the still-live row), a mint names neither. The pure-side
         // `fate_membership_property` proves the fates are membership-honest, so a
         // disagreement here is a mirror desync (a dropped grave from a corrupt
         // identity blob is the known one, task #13). Loud in tests via
@@ -461,7 +462,14 @@ impl PersistentRouteEngine {
                 CandidateFate::CarriedFrozen | CandidateFate::CarriedAdopted => {
                     old_rows.contains_key(&pid)
                 }
-                CandidateFate::Restored => old_graves.contains_key(&pid),
+                // A restore normally names a grave. It names a still-live row
+                // when the sustained dissolve fired and the ground re-formed
+                // within the SAME step (the pure layer tombstones mid-step and
+                // the mint pass matches that fresh tombstone) - the row
+                // bounces without ever leaving the registry.
+                CandidateFate::Restored => {
+                    old_graves.contains_key(&pid) || old_rows.contains_key(&pid)
+                }
                 CandidateFate::Minted => {
                     !old_rows.contains_key(&pid) && !old_graves.contains_key(&pid)
                 }
@@ -508,19 +516,24 @@ impl PersistentRouteEngine {
                     fold_new_activities(&mut row.section, &new_tracks);
                     row
                 }),
-                CandidateFate::Restored => old_graves.get(&pid).cloned().map(|mut row| {
-                    // The ground re-emerged; adopt the batch geometry and members
-                    // but keep the OLD real id and birth date (comes back as
-                    // itself).
-                    let real_id = row.real_id.clone();
-                    let grave = std::mem::replace(&mut row.section, payload.take().unwrap());
-                    row.section.id = real_id;
-                    row.section.name = grave.name.clone();
-                    row.section.created_at = grave.created_at.clone();
-                    row.section.version = grave.version;
-                    row.section.updated_at = grave.updated_at.clone();
-                    row
-                }),
+                CandidateFate::Restored => old_graves
+                    .get(&pid)
+                    .or_else(|| old_rows.get(&pid))
+                    .cloned()
+                    .map(|mut row| {
+                        // The ground re-emerged; adopt the batch geometry and
+                        // members but keep the OLD real id and birth date
+                        // (comes back as itself). The prior is the grave, or
+                        // the live row on a same-step bounce.
+                        let real_id = row.real_id.clone();
+                        let prior = std::mem::replace(&mut row.section, payload.take().unwrap());
+                        row.section.id = real_id;
+                        row.section.name = prior.name.clone();
+                        row.section.created_at = prior.created_at.clone();
+                        row.section.version = prior.version;
+                        row.section.updated_at = prior.updated_at.clone();
+                        row
+                    }),
                 CandidateFate::Minted => None,
             };
 
@@ -569,6 +582,15 @@ impl PersistentRouteEngine {
         // are taken at fire time: what was true when the change became
         // visible, not when its streak began.
         let mut events: Vec<SectionLifecycleEvent> = Vec::new();
+        // Same-step bounces: restored pids that were still live rows (only a
+        // pre-step row appears in old_real; a grave never does). The section
+        // visibly never left, so neither the fired dissolve nor the restore
+        // is narrated - like an adopted carry, there is no event.
+        let bounced: BTreeSet<&String> = resolutions
+            .iter()
+            .filter(|r| r.fate == CandidateFate::Restored && old_real.contains_key(&r.id))
+            .map(|r| &r.id)
+            .collect();
         // Split lineage, aggregated parent-side so history reads "split into
         // X and Y": parent real id -> freshly minted sibling real ids.
         let mut split_children: BTreeMap<String, Vec<String>> = BTreeMap::new();
@@ -612,12 +634,14 @@ impl PersistentRouteEngine {
                     });
                 }
                 CandidateFate::Restored => {
-                    events.push(SectionLifecycleEvent {
-                        real_id: row.real_id.clone(),
-                        kind: "restored",
-                        details: None,
-                        geometry: Some(row.section.polyline.clone()),
-                    });
+                    if !bounced.contains(&res.id) {
+                        events.push(SectionLifecycleEvent {
+                            real_id: row.real_id.clone(),
+                            kind: "restored",
+                            details: None,
+                            geometry: Some(row.section.polyline.clone()),
+                        });
+                    }
                 }
                 CandidateFate::CarriedAdopted | CandidateFate::CarriedFrozen => {}
             }
@@ -646,6 +670,9 @@ impl PersistentRouteEngine {
             });
         }
         for retirement in &out.retired {
+            if bounced.contains(&retirement.id) {
+                continue;
+            }
             let Some(real_id) = old_real.get(&retirement.id) else {
                 continue;
             };
