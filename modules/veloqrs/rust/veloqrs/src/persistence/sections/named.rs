@@ -481,9 +481,7 @@ impl PersistentRouteEngine {
         };
         // The intent carries its own JSON footprint, so serialise the section's
         // decoded geometry rather than copying the now-placeholder column.
-        let polyline: Vec<GpsPoint> = self
-            .stored_section_polyline(section_id)
-            .unwrap_or_default();
+        let polyline: Vec<GpsPoint> = self.stored_section_polyline(section_id).unwrap_or_default();
         let polyline_json = serde_json::to_string(&polyline).unwrap_or_else(|_| "[]".to_string());
 
         self.ensure_named_overlay();

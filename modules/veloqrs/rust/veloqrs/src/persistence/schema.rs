@@ -374,10 +374,9 @@ impl PersistentRouteEngine {
             }
             // The intent keeps its own JSON footprint, so decode the row's
             // authoritative geometry rather than copying the column.
-            let Ok(polyline) = super::codec::decode_polyline_row(
-                polyline_blob.as_deref(),
-                Some(&polyline_json),
-            ) else {
+            let Ok(polyline) =
+                super::codec::decode_polyline_row(polyline_blob.as_deref(), Some(&polyline_json))
+            else {
                 continue;
             };
             let Ok(polyline_json) = serde_json::to_string(&polyline) else {

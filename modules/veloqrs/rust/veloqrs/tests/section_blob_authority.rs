@@ -231,7 +231,9 @@ fn unreadable_row_does_not_abort_the_catalogue_load() {
 
     drop(s.engine);
     let mut engine = PersistentRouteEngine::new(&s.db_path).unwrap();
-    engine.load().expect("load must succeed despite the bad row");
+    engine
+        .load()
+        .expect("load must succeed despite the bad row");
 
     let sections = engine.get_sections();
     let good = sections
