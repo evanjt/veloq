@@ -95,6 +95,16 @@ pub struct IndexActivitySummary {
     pub indicators_recomputed: bool,
 }
 
+/// Result of attaching a stored batch to the catalogue (two-tier ingest).
+#[derive(Debug, Default, Clone)]
+pub struct BatchAttachSummary {
+    /// Activities that matched at least one existing section.
+    pub attached_activities: u32,
+    pub inserted_portions: u32,
+    pub regrouped: bool,
+    pub indicators_recomputed: bool,
+}
+
 /// Parameters for creating a new section.
 #[derive(Debug, Clone)]
 pub struct CreateSectionParams {

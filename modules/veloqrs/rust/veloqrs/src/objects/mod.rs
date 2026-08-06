@@ -1,5 +1,5 @@
 mod activities;
-mod detection;
+pub(crate) mod detection;
 mod engine;
 pub mod error;
 mod fitness;

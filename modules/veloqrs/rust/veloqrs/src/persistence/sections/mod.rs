@@ -1,5 +1,6 @@
 //! Section management: loading, queries, detection, save/apply, names.
 
+pub mod conditioning;
 mod detection;
 mod history;
 mod identity;
@@ -512,20 +513,20 @@ impl PersistentRouteEngine {
 
             stmt.query_row(params![section_id], |row| {
                 Ok((
-                    row.get::<_, String>(0)?,          // section_type
-                    row.get::<_, String>(1)?,          // sport_type
-                    row.get::<_, Option<String>>(2)?,  // name
-                    row.get::<_, String>(3)?,          // polyline_json
-                    row.get::<_, f64>(4)?,             // distance_meters
-                    row.get::<_, Option<String>>(5)?,  // representative_activity_id
-                    row.get::<_, Option<f64>>(6)?,     // confidence
-                    row.get::<_, Option<u32>>(7)?,     // observation_count
-                    row.get::<_, Option<f64>>(8)?,     // average_spread
-                    row.get::<_, Option<String>>(9)?,  // point_density_json
-                    row.get::<_, Option<String>>(10)?, // scale
-                    row.get::<_, Option<u32>>(11)?,    // version
-                    row.get::<_, Option<i32>>(12)?,    // is_user_defined
-                    row.get::<_, Option<f64>>(13)?,    // stability
+                    row.get::<_, String>(0)?,           // section_type
+                    row.get::<_, String>(1)?,           // sport_type
+                    row.get::<_, Option<String>>(2)?,   // name
+                    row.get::<_, String>(3)?,           // polyline_json
+                    row.get::<_, f64>(4)?,              // distance_meters
+                    row.get::<_, Option<String>>(5)?,   // representative_activity_id
+                    row.get::<_, Option<f64>>(6)?,      // confidence
+                    row.get::<_, Option<u32>>(7)?,      // observation_count
+                    row.get::<_, Option<f64>>(8)?,      // average_spread
+                    row.get::<_, Option<String>>(9)?,   // point_density_json
+                    row.get::<_, Option<String>>(10)?,  // scale
+                    row.get::<_, Option<u32>>(11)?,     // version
+                    row.get::<_, Option<i32>>(12)?,     // is_user_defined
+                    row.get::<_, Option<f64>>(13)?,     // stability
                     row.get::<_, Option<String>>(14)?,  // created_at
                     row.get::<_, Option<String>>(15)?,  // updated_at
                     row.get::<_, Option<Vec<u8>>>(16)?, // polyline_blob
@@ -580,18 +581,20 @@ impl PersistentRouteEngine {
         };
 
         // Decode polyline (blob authoritative, JSON fallback for legacy rows)
-        let polyline: Vec<GpsPoint> =
-            match codec::decode_polyline_row(polyline_blob.as_deref(), Some(&polyline_json)) {
-                Ok(p) => p,
-                Err(e) => {
-                    log::error!(
-                        "tracematch: [refresh_section_in_memory] Failed to decode polyline for {}: {}",
-                        section_id,
-                        e
-                    );
-                    return;
-                }
-            };
+        let polyline: Vec<GpsPoint> = match codec::decode_polyline_row(
+            polyline_blob.as_deref(),
+            Some(&polyline_json),
+        ) {
+            Ok(p) => p,
+            Err(e) => {
+                log::error!(
+                    "tracematch: [refresh_section_in_memory] Failed to decode polyline for {}: {}",
+                    section_id,
+                    e
+                );
+                return;
+            }
+        };
         let point_density: Vec<u32> = point_density_blob
             .and_then(|b| codec::deserialize(&b).ok())
             .or_else(|| point_density_json.and_then(|j| serde_json::from_str(&j).ok()))

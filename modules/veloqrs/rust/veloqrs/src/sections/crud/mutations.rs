@@ -4,7 +4,9 @@
 //! auto-vs-custom matching logic), junction-table additions, rename, delete, and
 //! the activity-to-section matching helpers used by the editing submodule.
 
-use super::super::{CreateSectionParams, IndexActivitySummary, Section, SectionType};
+use super::super::{
+    BatchAttachSummary, CreateSectionParams, IndexActivitySummary, Section, SectionType,
+};
 use super::{compute_section_portions, compute_section_portions_strict};
 use crate::persistence::PersistentRouteEngine;
 use rusqlite::params;
@@ -521,10 +523,46 @@ impl PersistentRouteEngine {
         activity_id: &str,
     ) -> Result<IndexActivitySummary, String> {
         let mut summary = IndexActivitySummary::default();
+        let (matched, portions) = self.attach_activity_junctions(activity_id)?;
+        summary.matched_sections = matched;
+        summary.inserted_portions = portions;
 
+        // Ingest marked groups dirty, so this takes the incremental regroup
+        // path and places the new activity in a route group. recompute_groups
+        // also refreshes activity indicators at its end.
+        if self.groups_dirty {
+            self.get_groups();
+            summary.regrouped = true;
+            summary.indicators_recomputed = true;
+        } else if summary.inserted_portions > 0 {
+            match self.recompute_activity_indicators() {
+                Ok(()) => summary.indicators_recomputed = true,
+                Err(e) => log::warn!(
+                    "tracematch: [index_new_activity] indicator recompute failed: {}",
+                    e
+                ),
+            }
+        }
+
+        log::info!(
+            "tracematch: [index_new_activity] {} matched {} sections ({} portions, regrouped={})",
+            activity_id,
+            summary.matched_sections,
+            summary.inserted_portions,
+            summary.regrouped
+        );
+
+        Ok(summary)
+    }
+
+    /// Junction-matching core of the attach tier: match one activity against
+    /// the existing catalogue and (re)write its junction rows with portions.
+    /// Never creates sections and never regroups - callers own the tail.
+    /// Returns (matched section count, inserted portion count).
+    fn attach_activity_junctions(&mut self, activity_id: &str) -> Result<(u32, u32), String> {
         let track = match self.get_gps_track(activity_id) {
             Some(t) if t.len() >= 3 => t,
-            _ => return Ok(summary),
+            _ => return Ok((0, 0)),
         };
 
         let sport_type = self
@@ -560,12 +598,14 @@ impl PersistentRouteEngine {
             }
         };
 
+        let mut matched_sections = 0;
+        let mut inserted_portions = 0;
         for (section_id, polyline) in &matched {
             let portions = compute_section_portions(activity_id, &track, polyline);
             if portions.is_empty() {
                 continue;
             }
-            summary.matched_sections += 1;
+            matched_sections += 1;
 
             // Replace any rows a previous run (or a later full detection) left
             // for this pair, so near-duplicate start_index rows can't stack up.
@@ -585,38 +625,74 @@ impl PersistentRouteEngine {
                     portion.end_index,
                     portion.distance_meters,
                 )?;
-                summary.inserted_portions += 1;
+                inserted_portions += 1;
             }
             self.refresh_section_in_memory(section_id);
             self.invalidate_section_cache(section_id);
         }
 
-        // Ingest marked groups dirty, so this takes the incremental regroup
-        // path and places the new activity in a route group. recompute_groups
-        // also refreshes activity indicators at its end.
+        Ok((matched_sections, inserted_portions))
+    }
+
+    /// Per-add half of the attach tier: junction rows for one just-stored
+    /// activity, errors logged (ingest must not abort on one bad track).
+    /// Returns (matched sections, inserted portions).
+    pub fn attach_stored_activity(&mut self, activity_id: &str) -> (u32, u32) {
+        match self.attach_activity_junctions(activity_id) {
+            Ok(counts) => counts,
+            Err(e) => {
+                log::warn!("tracematch: [attach] {} failed: {}", activity_id, e);
+                (0, 0)
+            }
+        }
+    }
+
+    /// Batch tail of the attach tier: one regroup (ingest marks groups
+    /// dirty) or, failing that, one indicator recompute when any junction
+    /// rows landed. Returns (regrouped, indicators_recomputed).
+    pub fn attach_finalize(&mut self, inserted_portions: u32) -> (bool, bool) {
         if self.groups_dirty {
             self.get_groups();
-            summary.regrouped = true;
-            summary.indicators_recomputed = true;
-        } else if summary.inserted_portions > 0 {
+            (true, true)
+        } else if inserted_portions > 0 {
             match self.recompute_activity_indicators() {
-                Ok(()) => summary.indicators_recomputed = true,
-                Err(e) => log::warn!(
-                    "tracematch: [index_new_activity] indicator recompute failed: {}",
-                    e
-                ),
+                Ok(()) => (false, true),
+                Err(e) => {
+                    log::warn!("tracematch: [attach] indicator recompute failed: {}", e);
+                    (false, false)
+                }
+            }
+        } else {
+            (false, false)
+        }
+    }
+
+    /// Attach tier of the two-tier ingest: junction rows for every stored
+    /// activity in the batch, then ONE regroup/indicator tail. Visits, laps,
+    /// and PRs read from the junction table are current the moment this
+    /// returns; new sections wait for the conditioning run.
+    pub fn attach_new_activities(&mut self, activity_ids: &[String]) -> BatchAttachSummary {
+        let mut summary = BatchAttachSummary::default();
+        for id in activity_ids {
+            let (matched, portions) = self.attach_stored_activity(id);
+            if matched > 0 {
+                summary.attached_activities += 1;
+                summary.inserted_portions += portions;
             }
         }
 
+        let (regrouped, indicators) = self.attach_finalize(summary.inserted_portions);
+        summary.regrouped = regrouped;
+        summary.indicators_recomputed = indicators;
+
         log::info!(
-            "tracematch: [index_new_activity] {} matched {} sections ({} portions, regrouped={})",
-            activity_id,
-            summary.matched_sections,
+            "tracematch: [attach] {}/{} activities attached ({} portions, regrouped={})",
+            summary.attached_activities,
+            activity_ids.len(),
             summary.inserted_portions,
             summary.regrouped
         );
-
-        Ok(summary)
+        summary
     }
 
     /// Match all activities with the same sport type against a section polyline.

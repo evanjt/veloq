@@ -239,10 +239,12 @@ pub fn start_fetch_and_store(
         );
 
         // Store directly in persistent engine (NO FFI round-trip!)
+        use crate::persistence::sections::conditioning;
         let storage_start = Instant::now();
         let mut synced_ids = Vec::new();
         let mut failed_ids = Vec::new();
         let mut total_points: usize = 0;
+        let mut total_attached_portions: u32 = 0;
         let num_results = fetch_results.len();
 
         // PERF ASSESSMENT: Storage is currently SEQUENTIAL (one activity at a time)
@@ -288,13 +290,24 @@ pub fn start_fetch_and_store(
                             // Capture point count before moving coords
                             let point_count = coords.len();
 
-                            // Store directly in engine
-                            let stored = crate::persistence::with_persistent_engine(|engine| {
-                                engine
-                                    .add_activity(result.activity_id.clone(), coords, sport)
-                                    .is_ok()
-                            })
-                            .unwrap_or(false);
+                            // Store directly in engine, then attach: junction
+                            // rows against the existing catalogue so visits
+                            // and laps are current while the download runs.
+                            // New sections wait for conditioning.
+                            let (stored, attached_portions) =
+                                crate::persistence::with_persistent_engine(|engine| {
+                                    let ok = engine
+                                        .add_activity(result.activity_id.clone(), coords, sport)
+                                        .is_ok();
+                                    let portions = if ok {
+                                        engine.attach_stored_activity(&result.activity_id).1
+                                    } else {
+                                        0
+                                    };
+                                    (ok, portions)
+                                })
+                                .unwrap_or((false, 0));
+                            total_attached_portions += attached_portions;
 
                             let activity_time = elapsed_ms(activity_start);
                             if stored {
@@ -309,6 +322,12 @@ pub fn start_fetch_and_store(
                                     );
                                 }
                                 synced_ids.push(result.activity_id);
+                                // Conditioning cadence: during a long
+                                // backfill, a detection run fires every
+                                // CONDITIONING_BATCH_ADDS stores so the
+                                // catalogue grows while the download runs.
+                                conditioning::note_stored(1);
+                                conditioning::maybe_condition_backfill();
                             } else {
                                 failed_ids.push(result.activity_id);
                             }
@@ -324,6 +343,14 @@ pub fn start_fetch_and_store(
             } else {
                 failed_ids.push(result.activity_id);
             }
+        }
+
+        // Attach batch tail: one regroup (ingest marked groups dirty) or
+        // one indicator recompute for the whole batch, never per activity.
+        if !synced_ids.is_empty() {
+            crate::persistence::with_persistent_engine(|engine| {
+                engine.attach_finalize(total_attached_portions)
+            });
         }
 
         let storage_time = elapsed_ms(storage_start);
