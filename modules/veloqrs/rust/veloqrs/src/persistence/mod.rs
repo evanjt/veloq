@@ -41,6 +41,7 @@ mod fitness;
 mod indicators;
 mod routes;
 mod schema;
+mod screens;
 pub mod sections;
 pub mod settings;
 pub use settings::settings_keys;

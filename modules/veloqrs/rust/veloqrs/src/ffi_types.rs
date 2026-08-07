@@ -1551,6 +1551,45 @@ pub struct FfiStartupData {
 }
 
 // ============================================================================
+// Activity Detail Batch Types
+// ============================================================================
+
+/// One activity's portion of a single section, delta+varint encoded.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiSectionTrace {
+    /// Section the trace belongs to
+    pub section_id: String,
+    /// Delta+varint encoded coordinates of the activity's portion
+    pub encoded_coords: Vec<u8>,
+}
+
+/// All data needed to paint the activity detail screen in one call.
+/// Replaces a fan-out that grew one trace extraction per matched section.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiActivityDetailData {
+    /// Total activities held by the engine
+    pub activity_count: u32,
+    /// Total sections held by the engine
+    pub section_count: u32,
+    /// Route groups meeting the caller's minimum, most attempts first
+    pub route_groups: Vec<FfiRouteGroup>,
+    /// Route group total before the minimum-activity filter
+    pub total_route_group_count: u32,
+    /// Visible sections this activity traverses, most-visited first
+    pub matched_sections: Vec<FfiSection>,
+    /// Every visible custom section, matched or not
+    pub custom_sections: Vec<FfiSection>,
+    /// One entry per (section, direction) this activity encountered
+    pub encounters: Vec<FfiSectionEncounter>,
+    /// Section indicators and route highlights for this activity
+    pub highlights: FfiActivityHighlightsBundle,
+    /// This activity's portion of every section it matches
+    pub section_traces: Vec<FfiSectionTrace>,
+    /// Sections where this activity currently holds the best record
+    pub pr_section_ids: Vec<String>,
+}
+
+// ============================================================================
 // Helper functions
 // ============================================================================
 

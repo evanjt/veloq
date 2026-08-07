@@ -268,6 +268,21 @@ impl ActivityManager {
             route_highlights: e.get_activity_route_highlights(&activity_ids),
         })
     }
+
+    /// Everything the activity detail screen paints with, in one engine lock:
+    /// engine counts, route groups, matched and custom sections, encounters,
+    /// indicator highlights, this activity's portion of each section it
+    /// traverses, and the sections where it holds the record.
+    ///
+    /// `min_route_activities` filters the returned route groups the same way
+    /// the screen used to filter them after the fact.
+    fn get_detail_data(
+        &self,
+        activity_id: String,
+        min_route_activities: u32,
+    ) -> Result<crate::FfiActivityDetailData, VeloqError> {
+        with_engine(|e| e.activity_detail_data(&activity_id, min_route_activities))
+    }
 }
 
 #[cfg(test)]
