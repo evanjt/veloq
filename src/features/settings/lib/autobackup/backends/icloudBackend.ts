@@ -23,10 +23,11 @@ const DB_MIME_TYPE = 'application/octet-stream';
 let scopeConfigured = false;
 
 /** Lazy-load the cloud storage module (iOS only), pinned to the Documents scope. */
-async function getCloudStorage() {
+function getCloudStorage() {
   if (Platform.OS !== 'ios') return null;
   try {
-    const mod = await import('react-native-cloud-storage');
+    const mod =
+      require('react-native-cloud-storage') as typeof import('react-native-cloud-storage');
     const scope = mod.CloudStorageScope.Documents;
     if (!scopeConfigured) {
       // The provider defaults to app_data, which hides backups from the Files
@@ -72,7 +73,7 @@ export const icloudBackend: BackupBackend = {
   async isAvailable(): Promise<boolean> {
     if (Platform.OS !== 'ios') return false;
     try {
-      const api = await getCloudStorage();
+      const api = getCloudStorage();
       if (!api) return false;
       return await api.cs.isCloudAvailable();
     } catch {
@@ -81,7 +82,7 @@ export const icloudBackend: BackupBackend = {
   },
 
   async listBackups(): Promise<BackupEntry[]> {
-    const api = await getCloudStorage();
+    const api = getCloudStorage();
     if (!api) return [];
     const { cs } = api;
 
@@ -109,7 +110,7 @@ export const icloudBackend: BackupBackend = {
   },
 
   async upload(localPath: string, metadata: Omit<BackupEntry, 'id'>): Promise<void> {
-    const api = await getCloudStorage();
+    const api = getCloudStorage();
     if (!api) throw new Error('iCloud not available');
     const { cs } = api;
 
@@ -145,7 +146,7 @@ export const icloudBackend: BackupBackend = {
   },
 
   async download(backupId: string, destPath: string): Promise<void> {
-    const api = await getCloudStorage();
+    const api = getCloudStorage();
     if (!api) throw new Error('iCloud not available');
     const { cs, scope } = api;
 
@@ -164,7 +165,7 @@ export const icloudBackend: BackupBackend = {
   },
 
   async delete(backupId: string): Promise<void> {
-    const api = await getCloudStorage();
+    const api = getCloudStorage();
     if (!api) return;
     const { cs } = api;
 
