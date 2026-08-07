@@ -929,7 +929,6 @@ interface NativeModuleInterface {
   ): bigint;
   ubrn_uniffi_veloqrs_fn_method_strengthmanager_batch_fetch_exercise_sets(
     ptr: bigint,
-    authHeader: Uint8Array,
     activityIds: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
@@ -941,7 +940,6 @@ interface NativeModuleInterface {
   ): void;
   ubrn_uniffi_veloqrs_fn_method_strengthmanager_fetch_and_parse_exercise_sets(
     ptr: bigint,
-    authHeader: Uint8Array,
     activityId: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
@@ -1099,7 +1097,6 @@ interface NativeModuleInterface {
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_func_start_fetch_and_store(
-    authHeader: Uint8Array,
     activityIds: Uint8Array,
     sportTypes: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,

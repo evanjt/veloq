@@ -142,14 +142,12 @@ export function getDownloadProgress(): DownloadProgressResult {
  * - Direct storage in SQLite without serialization overhead
  */
 export function startFetchAndStore(
-  authHeader: string,
   activityIds: Array<string>,
   sportTypes: Array<ActivitySportMapping>,
 ): void {
   uniffiCaller.rustCall(
     /*caller:*/ (callStatus) => {
       nativeModule().ubrn_uniffi_veloqrs_fn_func_start_fetch_and_store(
-        FfiConverterString.lower(authHeader),
         FfiConverterArrayString.lower(activityIds),
         FfiConverterArrayTypeActivitySportMapping.lower(sportTypes),
         callStatus,
@@ -11779,10 +11777,7 @@ export interface StrengthManagerLike {
    * Batch download and parse FIT files for multiple activities.
    * Returns the list of successfully processed activity IDs.
    */
-  batchFetchExerciseSets(
-    authHeader: string,
-    activityIds: Array<string>,
-  ) /*throws*/ : Array<string>;
+  batchFetchExerciseSets(activityIds: Array<string>) /*throws*/ : Array<string>;
   /**
    * Insert pre-parsed exercise sets for an activity without touching the
    * network or FIT-file pipeline. Demo mode uses this to seed synthetic
@@ -11799,7 +11794,6 @@ export interface StrengthManagerLike {
    * The FIT binary is held in memory only - not persisted to disk.
    */
   fetchAndParseExerciseSets(
-    authHeader: string,
     activityId: string,
   ) /*throws*/ : Array<FfiExerciseSet>;
   /**
@@ -11923,10 +11917,7 @@ export class StrengthManager
    * Batch download and parse FIT files for multiple activities.
    * Returns the list of successfully processed activity IDs.
    */
-  batchFetchExerciseSets(
-    authHeader: string,
-    activityIds: Array<string>,
-  ): Array<string> /*throws*/ {
+  batchFetchExerciseSets(activityIds: Array<string>): Array<string> /*throws*/ {
     return FfiConverterArrayString.lift(
       uniffiCaller.rustCallWithError(
         /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
@@ -11935,7 +11926,6 @@ export class StrengthManager
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_strengthmanager_batch_fetch_exercise_sets(
             uniffiTypeStrengthManagerObjectFactory.clonePointer(this),
-            FfiConverterString.lower(authHeader),
             FfiConverterArrayString.lower(activityIds),
             callStatus,
           );
@@ -11977,7 +11967,6 @@ export class StrengthManager
    * The FIT binary is held in memory only - not persisted to disk.
    */
   fetchAndParseExerciseSets(
-    authHeader: string,
     activityId: string,
   ): Array<FfiExerciseSet> /*throws*/ {
     return FfiConverterArrayTypeFfiExerciseSet.lift(
@@ -11988,7 +11977,6 @@ export class StrengthManager
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_strengthmanager_fetch_and_parse_exercise_sets(
             uniffiTypeStrengthManagerObjectFactory.clonePointer(this),
-            FfiConverterString.lower(authHeader),
             FfiConverterString.lower(activityId),
             callStatus,
           );
@@ -13603,7 +13591,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_func_start_fetch_and_store() !==
-    52399
+    62119
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_func_start_fetch_and_store",
@@ -14851,7 +14839,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_strengthmanager_batch_fetch_exercise_sets() !==
-    41253
+    36478
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_strengthmanager_batch_fetch_exercise_sets",
@@ -14867,7 +14855,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_strengthmanager_fetch_and_parse_exercise_sets() !==
-    20346
+    10165
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_strengthmanager_fetch_and_parse_exercise_sets",

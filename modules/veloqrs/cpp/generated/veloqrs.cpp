@@ -564,14 +564,14 @@ void uniffi_veloqrs_fn_free_strengthmanager(
 /*handle*/ uint64_t uniffi_veloqrs_fn_constructor_strengthmanager_new(
     RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_strengthmanager_batch_fetch_exercise_sets(
-    /*handle*/ uint64_t ptr, RustBuffer auth_header, RustBuffer activity_ids,
+    /*handle*/ uint64_t ptr, RustBuffer activity_ids,
     RustCallStatus *uniffi_out_err);
 void uniffi_veloqrs_fn_method_strengthmanager_bulk_insert_exercise_sets(
     /*handle*/ uint64_t ptr, RustBuffer activity_id, RustBuffer sets,
     RustCallStatus *uniffi_out_err);
 RustBuffer
 uniffi_veloqrs_fn_method_strengthmanager_fetch_and_parse_exercise_sets(
-    /*handle*/ uint64_t ptr, RustBuffer auth_header, RustBuffer activity_id,
+    /*handle*/ uint64_t ptr, RustBuffer activity_id,
     RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_strengthmanager_get_activities_for_exercise(
     /*handle*/ uint64_t ptr, int64_t start_ts, int64_t end_ts,
@@ -654,7 +654,7 @@ RustBuffer uniffi_veloqrs_fn_func_detect_sections_standalone(
 RustBuffer
 uniffi_veloqrs_fn_func_get_download_progress(RustCallStatus *uniffi_out_err);
 void uniffi_veloqrs_fn_func_start_fetch_and_store(
-    RustBuffer auth_header, RustBuffer activity_ids, RustBuffer sport_types,
+    RustBuffer activity_ids, RustBuffer sport_types,
     RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_func_take_fetch_and_store_result(
     RustCallStatus *uniffi_out_err);
@@ -4464,7 +4464,7 @@ NativeVeloqrs::NativeVeloqrs(
       jsi::PropNameID::forAscii(rt,
                                 "ubrn_uniffi_veloqrs_fn_method_strengthmanager_"
                                 "batch_fetch_exercise_sets"),
-      3,
+      2,
       [this](jsi::Runtime &rt, const jsi::Value &thisVal,
              const jsi::Value *args, size_t count) -> jsi::Value {
         return this
@@ -4490,7 +4490,7 @@ NativeVeloqrs::NativeVeloqrs(
       jsi::PropNameID::forAscii(rt,
                                 "ubrn_uniffi_veloqrs_fn_method_strengthmanager_"
                                 "fetch_and_parse_exercise_sets"),
-      3,
+      2,
       [this](jsi::Runtime &rt, const jsi::Value &thisVal,
              const jsi::Value *args, size_t count) -> jsi::Value {
         return this
@@ -4884,7 +4884,7 @@ NativeVeloqrs::NativeVeloqrs(
           rt,
           jsi::PropNameID::forAscii(
               rt, "ubrn_uniffi_veloqrs_fn_func_start_fetch_and_store"),
-          3,
+          2,
           [this](jsi::Runtime &rt, const jsi::Value &thisVal,
                  const jsi::Value *args, size_t count) -> jsi::Value {
             return this->cpp_uniffi_veloqrs_fn_func_start_fetch_and_store(
@@ -10533,8 +10533,6 @@ jsi::Value NativeVeloqrs::
                                                             args[0]),
           uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker,
                                                         args[1]),
-          uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker,
-                                                        args[2]),
           &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);
@@ -10570,8 +10568,6 @@ jsi::Value NativeVeloqrs::
                                                             args[0]),
           uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker,
                                                         args[1]),
-          uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker,
-                                                        args[2]),
           &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);
@@ -11087,7 +11083,6 @@ jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_func_start_fetch_and_store(
   uniffi_veloqrs_fn_func_start_fetch_and_store(
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[0]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
-      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[2]),
       &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);
