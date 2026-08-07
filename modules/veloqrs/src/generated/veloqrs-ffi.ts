@@ -374,12 +374,7 @@ interface NativeModuleInterface {
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_insights_data(
     ptr: bigint,
-    currentStart: bigint,
-    currentEnd: bigint,
-    prevStart: bigint,
-    prevEnd: bigint,
-    chronicStart: bigint,
-    todayStart: bigint,
+    params: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_interval_body(
@@ -417,12 +412,7 @@ interface NativeModuleInterface {
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_startup_data(
     ptr: bigint,
-    currentStart: bigint,
-    currentEnd: bigint,
-    prevStart: bigint,
-    prevEnd: bigint,
-    chronicStart: bigint,
-    todayStart: bigint,
+    params: Uint8Array,
     previewActivityIds: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;

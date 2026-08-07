@@ -272,9 +272,7 @@ RustBuffer uniffi_veloqrs_fn_method_fitnessmanager_get_calendar_event_bodies(
 RustBuffer uniffi_veloqrs_fn_method_fitnessmanager_get_ftp_trend(
     /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_fitnessmanager_get_insights_data(
-    /*handle*/ uint64_t ptr, int64_t current_start, int64_t current_end,
-    int64_t prev_start, int64_t prev_end, int64_t chronic_start,
-    int64_t today_start, RustCallStatus *uniffi_out_err);
+    /*handle*/ uint64_t ptr, RustBuffer params, RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_fitnessmanager_get_interval_body(
     /*handle*/ uint64_t ptr, RustBuffer activity_id,
     RustCallStatus *uniffi_out_err);
@@ -293,9 +291,7 @@ RustBuffer uniffi_veloqrs_fn_method_fitnessmanager_get_power_curve_body(
     /*handle*/ uint64_t ptr, RustBuffer sport, int64_t days,
     RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_fitnessmanager_get_startup_data(
-    /*handle*/ uint64_t ptr, int64_t current_start, int64_t current_end,
-    int64_t prev_start, int64_t prev_end, int64_t chronic_start,
-    int64_t today_start, RustBuffer preview_activity_ids,
+    /*handle*/ uint64_t ptr, RustBuffer params, RustBuffer preview_activity_ids,
     RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_fitnessmanager_get_summary_card_data(
     /*handle*/ uint64_t ptr, int64_t current_start, int64_t current_end,
@@ -3289,7 +3285,7 @@ NativeVeloqrs::NativeVeloqrs(
           jsi::PropNameID::forAscii(
               rt,
               "ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_insights_data"),
-          7,
+          2,
           [this](jsi::Runtime &rt, const jsi::Value &thisVal,
                  const jsi::Value *args, size_t count) -> jsi::Value {
             return this
@@ -3377,7 +3373,7 @@ NativeVeloqrs::NativeVeloqrs(
           jsi::PropNameID::forAscii(
               rt,
               "ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_startup_data"),
-          8,
+          3,
           [this](jsi::Runtime &rt, const jsi::Value &thisVal,
                  const jsi::Value *args, size_t count) -> jsi::Value {
             return this
@@ -9512,12 +9508,8 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_fitnessmanager_get_insights_data(
   auto value = uniffi_veloqrs_fn_method_fitnessmanager_get_insights_data(
       uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
                                                         args[0]),
-      uniffi_jsi::Bridging<int64_t>::fromJs(rt, callInvoker, args[1]),
-      uniffi_jsi::Bridging<int64_t>::fromJs(rt, callInvoker, args[2]),
-      uniffi_jsi::Bridging<int64_t>::fromJs(rt, callInvoker, args[3]),
-      uniffi_jsi::Bridging<int64_t>::fromJs(rt, callInvoker, args[4]),
-      uniffi_jsi::Bridging<int64_t>::fromJs(rt, callInvoker, args[5]),
-      uniffi_jsi::Bridging<int64_t>::fromJs(rt, callInvoker, args[6]), &status);
+      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
+      &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);
 
@@ -9628,13 +9620,8 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_fitnessmanager_get_startup_data(
   auto value = uniffi_veloqrs_fn_method_fitnessmanager_get_startup_data(
       uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
                                                         args[0]),
-      uniffi_jsi::Bridging<int64_t>::fromJs(rt, callInvoker, args[1]),
-      uniffi_jsi::Bridging<int64_t>::fromJs(rt, callInvoker, args[2]),
-      uniffi_jsi::Bridging<int64_t>::fromJs(rt, callInvoker, args[3]),
-      uniffi_jsi::Bridging<int64_t>::fromJs(rt, callInvoker, args[4]),
-      uniffi_jsi::Bridging<int64_t>::fromJs(rt, callInvoker, args[5]),
-      uniffi_jsi::Bridging<int64_t>::fromJs(rt, callInvoker, args[6]),
-      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[7]),
+      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
+      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[2]),
       &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);

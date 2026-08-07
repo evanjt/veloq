@@ -3168,6 +3168,30 @@ export type FfiInsightsData = {
    * Up to 3 recent section PRs (best times set in last 7 days)
    */
   recentPrs: Array<FfiRecentPr>;
+  /**
+   * Sections held by the engine, for the section-readiness check
+   */
+  sectionCount: /*u32*/ number;
+  /**
+   * Sport types the ranked-section lists were built for
+   */
+  sportTypes: Array<string>;
+  /**
+   * ML-ranked sections per sport, empty when sections were not requested
+   */
+  rankedSections: Array<FfiRankedSectionsBySport>;
+  /**
+   * Aerobic efficiency trends worth surfacing, already filtered and capped
+   */
+  efficiencyTrends: Array<FfiEfficiencyTrend>;
+  /**
+   * Whether any strength activity exists
+   */
+  hasStrengthData: boolean;
+  /**
+   * Strength volume over the requested month and weeks, when data exists
+   */
+  strengthSeries?: FfiStrengthInsightSeries;
 };
 
 /**
@@ -3201,6 +3225,14 @@ const FfiConverterTypeFfiInsightsData = (() => {
         allPatterns: FfiConverterArrayTypeFfiActivityPattern.read(from),
         todayPattern: FfiConverterOptionalTypeFfiActivityPattern.read(from),
         recentPrs: FfiConverterArrayTypeFfiRecentPR.read(from),
+        sectionCount: FfiConverterUInt32.read(from),
+        sportTypes: FfiConverterArrayString.read(from),
+        rankedSections:
+          FfiConverterArrayTypeFfiRankedSectionsBySport.read(from),
+        efficiencyTrends: FfiConverterArrayTypeFfiEfficiencyTrend.read(from),
+        hasStrengthData: FfiConverterBool.read(from),
+        strengthSeries:
+          FfiConverterOptionalTypeFfiStrengthInsightSeries.read(from),
       };
     }
     write(value: TypeName, into: RustBuffer): void {
@@ -3216,6 +3248,21 @@ const FfiConverterTypeFfiInsightsData = (() => {
         into,
       );
       FfiConverterArrayTypeFfiRecentPR.write(value.recentPrs, into);
+      FfiConverterUInt32.write(value.sectionCount, into);
+      FfiConverterArrayString.write(value.sportTypes, into);
+      FfiConverterArrayTypeFfiRankedSectionsBySport.write(
+        value.rankedSections,
+        into,
+      );
+      FfiConverterArrayTypeFfiEfficiencyTrend.write(
+        value.efficiencyTrends,
+        into,
+      );
+      FfiConverterBool.write(value.hasStrengthData, into);
+      FfiConverterOptionalTypeFfiStrengthInsightSeries.write(
+        value.strengthSeries,
+        into,
+      );
     }
     allocationSize(value: TypeName): number {
       return (
@@ -3231,7 +3278,159 @@ const FfiConverterTypeFfiInsightsData = (() => {
         FfiConverterOptionalTypeFfiActivityPattern.allocationSize(
           value.todayPattern,
         ) +
-        FfiConverterArrayTypeFfiRecentPR.allocationSize(value.recentPrs)
+        FfiConverterArrayTypeFfiRecentPR.allocationSize(value.recentPrs) +
+        FfiConverterUInt32.allocationSize(value.sectionCount) +
+        FfiConverterArrayString.allocationSize(value.sportTypes) +
+        FfiConverterArrayTypeFfiRankedSectionsBySport.allocationSize(
+          value.rankedSections,
+        ) +
+        FfiConverterArrayTypeFfiEfficiencyTrend.allocationSize(
+          value.efficiencyTrends,
+        ) +
+        FfiConverterBool.allocationSize(value.hasStrengthData) +
+        FfiConverterOptionalTypeFfiStrengthInsightSeries.allocationSize(
+          value.strengthSeries,
+        )
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * Scalar inputs for the insights bundle.
+ */
+export type FfiInsightsParams = {
+  /**
+   * Start of the current week
+   */
+  currentStart: /*i64*/ bigint;
+  /**
+   * Now
+   */
+  currentEnd: /*i64*/ bigint;
+  /**
+   * Start of the previous week
+   */
+  prevStart: /*i64*/ bigint;
+  /**
+   * End of the previous week
+   */
+  prevEnd: /*i64*/ bigint;
+  /**
+   * Start of the four-week chronic window
+   */
+  chronicStart: /*i64*/ bigint;
+  /**
+   * Start of today
+   */
+  todayStart: /*i64*/ bigint;
+  /**
+   * Whether section-derived insights are wanted at all
+   */
+  includeSections: boolean;
+  /**
+   * Ranked sections requested per sport
+   */
+  rankedLimit: /*u32*/ number;
+  /**
+   * Sections last visited beyond this many days get no efficiency trend
+   */
+  activeWindowDays: /*u32*/ number;
+  /**
+   * Efficiency candidates taken from each sport's ranked list
+   */
+  efficiencyPerSport: /*u32*/ number;
+  /**
+   * Efficiency trends to return at most
+   */
+  efficiencyLimit: /*u32*/ number;
+  /**
+   * Minimum matched efforts before an efficiency trend counts
+   */
+  efficiencyMinEfforts: /*u32*/ number;
+  /**
+   * Trailing month the strength summary covers
+   */
+  strengthMonth: FfiTimestampRange;
+  /**
+   * Trailing weeks the strength summary covers
+   */
+  strengthWeeks: Array<FfiTimestampRange>;
+};
+
+/**
+ * Generated factory for {@link FfiInsightsParams} record objects.
+ */
+export const FfiInsightsParams = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiInsightsParams, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiInsightsParams>,
+  });
+})();
+
+const FfiConverterTypeFfiInsightsParams = (() => {
+  type TypeName = FfiInsightsParams;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        currentStart: FfiConverterInt64.read(from),
+        currentEnd: FfiConverterInt64.read(from),
+        prevStart: FfiConverterInt64.read(from),
+        prevEnd: FfiConverterInt64.read(from),
+        chronicStart: FfiConverterInt64.read(from),
+        todayStart: FfiConverterInt64.read(from),
+        includeSections: FfiConverterBool.read(from),
+        rankedLimit: FfiConverterUInt32.read(from),
+        activeWindowDays: FfiConverterUInt32.read(from),
+        efficiencyPerSport: FfiConverterUInt32.read(from),
+        efficiencyLimit: FfiConverterUInt32.read(from),
+        efficiencyMinEfforts: FfiConverterUInt32.read(from),
+        strengthMonth: FfiConverterTypeFfiTimestampRange.read(from),
+        strengthWeeks: FfiConverterArrayTypeFfiTimestampRange.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterInt64.write(value.currentStart, into);
+      FfiConverterInt64.write(value.currentEnd, into);
+      FfiConverterInt64.write(value.prevStart, into);
+      FfiConverterInt64.write(value.prevEnd, into);
+      FfiConverterInt64.write(value.chronicStart, into);
+      FfiConverterInt64.write(value.todayStart, into);
+      FfiConverterBool.write(value.includeSections, into);
+      FfiConverterUInt32.write(value.rankedLimit, into);
+      FfiConverterUInt32.write(value.activeWindowDays, into);
+      FfiConverterUInt32.write(value.efficiencyPerSport, into);
+      FfiConverterUInt32.write(value.efficiencyLimit, into);
+      FfiConverterUInt32.write(value.efficiencyMinEfforts, into);
+      FfiConverterTypeFfiTimestampRange.write(value.strengthMonth, into);
+      FfiConverterArrayTypeFfiTimestampRange.write(value.strengthWeeks, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterInt64.allocationSize(value.currentStart) +
+        FfiConverterInt64.allocationSize(value.currentEnd) +
+        FfiConverterInt64.allocationSize(value.prevStart) +
+        FfiConverterInt64.allocationSize(value.prevEnd) +
+        FfiConverterInt64.allocationSize(value.chronicStart) +
+        FfiConverterInt64.allocationSize(value.todayStart) +
+        FfiConverterBool.allocationSize(value.includeSections) +
+        FfiConverterUInt32.allocationSize(value.rankedLimit) +
+        FfiConverterUInt32.allocationSize(value.activeWindowDays) +
+        FfiConverterUInt32.allocationSize(value.efficiencyPerSport) +
+        FfiConverterUInt32.allocationSize(value.efficiencyLimit) +
+        FfiConverterUInt32.allocationSize(value.efficiencyMinEfforts) +
+        FfiConverterTypeFfiTimestampRange.allocationSize(value.strengthMonth) +
+        FfiConverterArrayTypeFfiTimestampRange.allocationSize(
+          value.strengthWeeks,
+        )
       );
     }
   }
@@ -9076,17 +9275,11 @@ export interface FitnessManagerLike {
   ) /*throws*/ : Array<string>;
   getFtpTrend() /*throws*/ : FfiFtpTrend;
   /**
-   * Batch insights data: combines period stats, trends, patterns, and recent PRs
-   * in a single engine lock. Reduces Insights hook FFI calls from 13-16 to 1.
+   * Batch insights data: combines period stats, trends, patterns, recent PRs
+   * and the section and strength tail the pipeline used to fetch one call at
+   * a time. Reduces the Insights hook to a single round-trip.
    */
-  getInsightsData(
-    currentStart: /*i64*/ bigint,
-    currentEnd: /*i64*/ bigint,
-    prevStart: /*i64*/ bigint,
-    prevEnd: /*i64*/ bigint,
-    chronicStart: /*i64*/ bigint,
-    todayStart: /*i64*/ bigint,
-  ) /*throws*/ : FfiInsightsData;
+  getInsightsData(params: FfiInsightsParams) /*throws*/ : FfiInsightsData;
   /**
    * An activity's stored interval body, or `None` if never fetched.
    */
@@ -9119,12 +9312,7 @@ export interface FitnessManagerLike {
    * Reduces 20+ FFI calls to 1.
    */
   getStartupData(
-    currentStart: /*i64*/ bigint,
-    currentEnd: /*i64*/ bigint,
-    prevStart: /*i64*/ bigint,
-    prevEnd: /*i64*/ bigint,
-    chronicStart: /*i64*/ bigint,
-    todayStart: /*i64*/ bigint,
+    params: FfiInsightsParams,
     previewActivityIds: Array<string>,
   ) /*throws*/ : FfiStartupData;
   getSummaryCardData(
@@ -9410,17 +9598,11 @@ export class FitnessManager
   }
 
   /**
-   * Batch insights data: combines period stats, trends, patterns, and recent PRs
-   * in a single engine lock. Reduces Insights hook FFI calls from 13-16 to 1.
+   * Batch insights data: combines period stats, trends, patterns, recent PRs
+   * and the section and strength tail the pipeline used to fetch one call at
+   * a time. Reduces the Insights hook to a single round-trip.
    */
-  getInsightsData(
-    currentStart: /*i64*/ bigint,
-    currentEnd: /*i64*/ bigint,
-    prevStart: /*i64*/ bigint,
-    prevEnd: /*i64*/ bigint,
-    chronicStart: /*i64*/ bigint,
-    todayStart: /*i64*/ bigint,
-  ): FfiInsightsData /*throws*/ {
+  getInsightsData(params: FfiInsightsParams): FfiInsightsData /*throws*/ {
     return FfiConverterTypeFfiInsightsData.lift(
       uniffiCaller.rustCallWithError(
         /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
@@ -9429,12 +9611,7 @@ export class FitnessManager
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_insights_data(
             uniffiTypeFitnessManagerObjectFactory.clonePointer(this),
-            FfiConverterInt64.lower(currentStart),
-            FfiConverterInt64.lower(currentEnd),
-            FfiConverterInt64.lower(prevStart),
-            FfiConverterInt64.lower(prevEnd),
-            FfiConverterInt64.lower(chronicStart),
-            FfiConverterInt64.lower(todayStart),
+            FfiConverterTypeFfiInsightsParams.lower(params),
             callStatus,
           );
         },
@@ -9580,12 +9757,7 @@ export class FitnessManager
    * Reduces 20+ FFI calls to 1.
    */
   getStartupData(
-    currentStart: /*i64*/ bigint,
-    currentEnd: /*i64*/ bigint,
-    prevStart: /*i64*/ bigint,
-    prevEnd: /*i64*/ bigint,
-    chronicStart: /*i64*/ bigint,
-    todayStart: /*i64*/ bigint,
+    params: FfiInsightsParams,
     previewActivityIds: Array<string>,
   ): FfiStartupData /*throws*/ {
     return FfiConverterTypeFfiStartupData.lift(
@@ -9596,12 +9768,7 @@ export class FitnessManager
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_startup_data(
             uniffiTypeFitnessManagerObjectFactory.clonePointer(this),
-            FfiConverterInt64.lower(currentStart),
-            FfiConverterInt64.lower(currentEnd),
-            FfiConverterInt64.lower(prevStart),
-            FfiConverterInt64.lower(prevEnd),
-            FfiConverterInt64.lower(chronicStart),
-            FfiConverterInt64.lower(todayStart),
+            FfiConverterTypeFfiInsightsParams.lower(params),
             FfiConverterArrayString.lower(previewActivityIds),
             callStatus,
           );
@@ -14575,6 +14742,10 @@ const FfiConverterOptionalTypeFfiSectionRecalcResult = new FfiConverterOptional(
   FfiConverterTypeFfiSectionRecalcResult,
 );
 
+// FfiConverter for FfiStrengthInsightSeries | undefined
+const FfiConverterOptionalTypeFfiStrengthInsightSeries =
+  new FfiConverterOptional(FfiConverterTypeFfiStrengthInsightSeries);
+
 // FfiConverter for FfiWellnessSparklines | undefined
 const FfiConverterOptionalTypeFfiWellnessSparklines = new FfiConverterOptional(
   FfiConverterTypeFfiWellnessSparklines,
@@ -14656,6 +14827,11 @@ const FfiConverterArrayTypeFfiCalendarYearSummary = new FfiConverterArray(
 // FfiConverter for Array<FfiEfficiencyPoint>
 const FfiConverterArrayTypeFfiEfficiencyPoint = new FfiConverterArray(
   FfiConverterTypeFfiEfficiencyPoint,
+);
+
+// FfiConverter for Array<FfiEfficiencyTrend>
+const FfiConverterArrayTypeFfiEfficiencyTrend = new FfiConverterArray(
+  FfiConverterTypeFfiEfficiencyTrend,
 );
 
 // FfiConverter for Array<FfiExerciseActivity>
@@ -15443,7 +15619,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_insights_data() !==
-    30558
+    49373
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_fitnessmanager_get_insights_data",
@@ -15499,7 +15675,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_startup_data() !==
-    18424
+    7146
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_fitnessmanager_get_startup_data",
@@ -16712,6 +16888,7 @@ export default Object.freeze({
     FfiConverterTypeFfiHrvTrend,
     FfiConverterTypeFfiIndexActivitySummary,
     FfiConverterTypeFfiInsightsData,
+    FfiConverterTypeFfiInsightsParams,
     FfiConverterTypeFfiMapSignature,
     FfiConverterTypeFfiMatchStrictness,
     FfiConverterTypeFfiMergeCandidate,
