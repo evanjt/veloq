@@ -275,6 +275,114 @@ fn activity_detail_route_groups_honour_the_minimum() {
 }
 
 // ============================================================================
+// Insights
+// ============================================================================
+
+fn insights_params() -> veloqrs::FfiInsightsParams {
+    let now = 1_700_200_000;
+    veloqrs::FfiInsightsParams {
+        current_start: now - 7 * 86_400,
+        current_end: now,
+        prev_start: now - 14 * 86_400,
+        prev_end: now - 7 * 86_400,
+        chronic_start: now - 35 * 86_400,
+        today_start: now - 86_400,
+        include_sections: true,
+        ranked_limit: 50,
+        active_window_days: 90,
+        efficiency_per_sport: 5,
+        efficiency_limit: 2,
+        efficiency_min_efforts: 3,
+        strength_month: veloqrs::FfiTimestampRange {
+            start_ts: now - 28 * 86_400,
+            end_ts: now,
+        },
+        strength_weeks: vec![veloqrs::FfiTimestampRange {
+            start_ts: now - 7 * 86_400,
+            end_ts: now,
+        }],
+    }
+}
+
+#[test]
+fn insights_matches_the_calls_it_replaces() {
+    let mut s = populated();
+    let p = insights_params();
+    let bundle = s.engine.insights_data(&p);
+
+    assert_eq!(
+        bundle.current_week.count,
+        s.engine
+            .get_period_stats(p.current_start, p.current_end)
+            .count
+    );
+    assert_eq!(
+        bundle.previous_week.count,
+        s.engine.get_period_stats(p.prev_start, p.prev_end).count
+    );
+    assert_eq!(bundle.section_count, s.engine.get_section_count());
+    assert_eq!(
+        bundle.ftp_trend.latest_ftp,
+        s.engine.get_ftp_trend().latest_ftp
+    );
+    assert_eq!(
+        bundle.has_strength_data,
+        s.engine.get_strength_activity_count().unwrap_or(0) > 0
+    );
+
+    for batch in &bundle.ranked_sections {
+        let direct = s
+            .engine
+            .get_ranked_sections(&batch.sport_type, p.ranked_limit);
+        let bundled: Vec<&str> = batch
+            .sections
+            .iter()
+            .map(|r| r.section_id.as_str())
+            .collect();
+        let expected: Vec<&str> = direct.iter().map(|r| r.section_id.as_str()).collect();
+        assert_eq!(bundled, expected);
+    }
+}
+
+#[test]
+fn insights_skips_sections_when_the_caller_opts_out() {
+    let mut s = populated();
+    let mut p = insights_params();
+    p.include_sections = false;
+
+    let bundle = s.engine.insights_data(&p);
+    assert!(bundle.ranked_sections.is_empty());
+    assert!(bundle.efficiency_trends.is_empty());
+    // The count is still reported, so the caller can tell sections exist.
+    assert_eq!(bundle.section_count, s.engine.get_section_count());
+}
+
+#[test]
+fn insights_caps_the_efficiency_trends() {
+    let mut s = populated();
+    let mut p = insights_params();
+    p.efficiency_limit = 1;
+
+    let bundle = s.engine.insights_data(&p);
+    assert!(bundle.efficiency_trends.len() <= 1);
+    for trend in &bundle.efficiency_trends {
+        assert!(trend.is_improving);
+        assert!(trend.effort_count >= p.efficiency_min_efforts);
+    }
+}
+
+#[test]
+fn insights_falls_back_to_the_engine_sport_types() {
+    let mut s = populated();
+    let bundle = s.engine.insights_data(&insights_params());
+
+    // The fixture is too small for k-means to emit a pattern, so the sport
+    // types must come from what the engine holds.
+    assert!(bundle.all_patterns.is_empty());
+    assert_eq!(bundle.sport_types, s.engine.get_available_sport_types());
+}
+
+// ============================================================================
 // Section detail
 // ============================================================================
 

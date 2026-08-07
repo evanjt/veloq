@@ -604,7 +604,9 @@ fn sets_to_ffi(activity_id: &str, sets: &[fit::FitExerciseSet]) -> Vec<FfiExerci
 /// Aggregate a slice of (activity_id, exercise_set) into a strength summary.
 /// Extracted from `get_strength_summary` so batch callers can reuse the loop
 /// without paying N engine locks.
-fn aggregate_strength_sets(sets: &[(String, fit::FitExerciseSet)]) -> FfiStrengthSummary {
+pub(crate) fn aggregate_strength_sets(
+    sets: &[(String, fit::FitExerciseSet)],
+) -> FfiStrengthSummary {
     struct MuscleAgg {
         primary_sets: u32,
         secondary_sets: u32,

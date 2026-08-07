@@ -5,9 +5,192 @@
 //! objects thin and lets tests compare a bundle against the individual calls
 //! it replaces without standing up the global engine.
 
+use crate::objects::strength::aggregate_strength_sets;
 use crate::sections::SectionType;
 
 impl super::PersistentRouteEngine {
+    /// Everything the insights pipeline reads from the engine.
+    ///
+    /// Period stats, trends and patterns, plus the section and strength tail
+    /// the pipeline used to fetch one call at a time. The efficiency trends
+    /// arrive already filtered and capped, so the generator renders what it is
+    /// given rather than probing sections one by one.
+    pub fn insights_data(&mut self, p: &crate::FfiInsightsParams) -> crate::FfiInsightsData {
+        let now_ts = p.current_end;
+
+        // Period stats (4 queries, all in one engine lock)
+        let current_week = self.get_period_stats(p.current_start, p.current_end);
+        let previous_week = self.get_period_stats(p.prev_start, p.prev_end);
+        let chronic_period = self.get_period_stats(p.chronic_start, p.prev_start);
+        let today_period = self.get_period_stats(p.today_start, now_ts);
+
+        // Trends
+        let ftp_trend = self.get_ftp_trend();
+        let run_pace_trend = self.get_pace_trend("Run");
+
+        // Activity patterns
+        let all_patterns =
+            crate::patterns::compute_activity_patterns(&self.db, &self.activity_metrics);
+        let today_pattern =
+            crate::patterns::get_pattern_for_today(&self.db, &self.activity_metrics);
+
+        // Recent PRs - loop stays in Rust, never crosses FFI
+        let seven_days_ago = now_ts - 7 * 86400;
+        let mut recent_prs = Vec::new();
+        let available_sports = self.get_available_sport_types();
+        let mut all_summaries: Vec<_> = available_sports
+            .iter()
+            .flat_map(|sport| self.get_section_summaries_for_sport(sport))
+            .filter(|s| s.visit_count >= 3)
+            .collect();
+        all_summaries.sort_by_key(|s| std::cmp::Reverse(s.visit_count));
+
+        for s in &all_summaries {
+            let perf = self.get_section_performances_filtered(&s.id, None);
+            // Prefer per-direction bests: they're computed lap-by-lap and
+            // line up with what the section detail page shows. The combined
+            // `best_record` is each activity's minimum lap, which can pick
+            // a partial / unusually short portion (yielding implausible
+            // times like "1:24" for a section that's normally ~6 minutes).
+            // Take the faster of forward/reverse so we mirror what the
+            // user would see as "the PR" on the section detail screen.
+            let best = match (
+                perf.best_forward_record.as_ref(),
+                perf.best_reverse_record.as_ref(),
+            ) {
+                (Some(fwd), Some(rev)) => Some(if fwd.best_time <= rev.best_time {
+                    fwd
+                } else {
+                    rev
+                }),
+                (Some(fwd), None) => Some(fwd),
+                (None, Some(rev)) => Some(rev),
+                (None, None) => perf.best_record.as_ref(),
+            };
+            if let Some(record) = best
+                && record.activity_date >= seven_days_ago
+            {
+                let days_ago = crate::calendar_days_between(record.activity_date, now_ts);
+                recent_prs.push(crate::FfiRecentPR {
+                    section_id: s.id.clone(),
+                    section_name: s.name.clone().unwrap_or_else(|| "Section".to_string()),
+                    best_time: record.best_time,
+                    days_ago,
+                });
+            }
+        }
+
+        // Sport types follow the observed patterns, falling back to whatever
+        // the engine holds when no pattern has emerged yet.
+        let mut sport_types: Vec<String> = Vec::new();
+        for pattern in &all_patterns {
+            if !sport_types.contains(&pattern.sport_type) {
+                sport_types.push(pattern.sport_type.clone());
+            }
+        }
+        if sport_types.is_empty() {
+            sport_types = available_sports;
+        }
+
+        let section_count = self.get_section_count();
+        let sections_ready = p.include_sections && section_count > 0;
+
+        let ranked_sections: Vec<crate::FfiRankedSectionsBySport> = if sections_ready {
+            sport_types
+                .iter()
+                .map(|sport| crate::FfiRankedSectionsBySport {
+                    sections: self.get_ranked_sections(sport, p.ranked_limit),
+                    sport_type: sport.clone(),
+                })
+                .collect()
+        } else {
+            Vec::new()
+        };
+
+        // Efficiency candidates: the most recently visited ranked sections.
+        // A trend on a section untouched for months is a curiosity, not an
+        // insight, so anything outside the active window is dropped.
+        let mut candidate_ids: Vec<String> = Vec::new();
+        for batch in &ranked_sections {
+            let recent = batch
+                .sections
+                .iter()
+                .filter(|rs| rs.days_since_last <= p.active_window_days)
+                .take(p.efficiency_per_sport as usize);
+            for rs in recent {
+                if !candidate_ids.contains(&rs.section_id) {
+                    candidate_ids.push(rs.section_id.clone());
+                }
+            }
+        }
+
+        let mut efficiency_trends: Vec<crate::FfiEfficiencyTrend> = Vec::new();
+        for section_id in &candidate_ids {
+            if efficiency_trends.len() >= p.efficiency_limit as usize {
+                break;
+            }
+            let Some(trend) = self.get_section_efficiency_trend(section_id) else {
+                continue;
+            };
+            if !trend.is_improving || trend.effort_count < p.efficiency_min_efforts {
+                continue;
+            }
+            // Matches the rounding the generator applied: a sub-1bpm change
+            // reads as noise rather than adaptation.
+            if (trend.hr_change_bpm + 0.5).floor().abs() < 1.0 {
+                continue;
+            }
+            efficiency_trends.push(trend);
+        }
+
+        let has_strength_data = self.get_strength_activity_count().unwrap_or(0) > 0;
+        let strength_series = if has_strength_data {
+            self.strength_insight_series(&p.strength_month, &p.strength_weeks)
+        } else {
+            None
+        };
+
+        crate::FfiInsightsData {
+            current_week,
+            previous_week,
+            chronic_period,
+            today_period,
+            ftp_trend,
+            run_pace_trend,
+            all_patterns,
+            today_pattern,
+            recent_prs,
+            section_count,
+            sport_types,
+            ranked_sections,
+            efficiency_trends,
+            has_strength_data,
+            strength_series,
+        }
+    }
+
+    /// Strength volume over one month and a set of weeks, or `None` when a
+    /// range cannot be read.
+    fn strength_insight_series(
+        &self,
+        month: &crate::FfiTimestampRange,
+        weeks: &[crate::FfiTimestampRange],
+    ) -> Option<crate::FfiStrengthInsightSeries> {
+        let monthly = aggregate_strength_sets(
+            &self
+                .get_exercise_sets_in_range(month.start_ts, month.end_ts)
+                .ok()?,
+        );
+        let mut weekly = Vec::with_capacity(weeks.len());
+        for range in weeks {
+            let sets = self
+                .get_exercise_sets_in_range(range.start_ts, range.end_ts)
+                .ok()?;
+            weekly.push(aggregate_strength_sets(&sets));
+        }
+        Some(crate::FfiStrengthInsightSeries { monthly, weekly })
+    }
+
     /// Everything the activity detail screen paints with.
     ///
     /// `min_route_activities` filters the route groups the way the screen used

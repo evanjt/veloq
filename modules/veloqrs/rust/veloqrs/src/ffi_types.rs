@@ -1522,6 +1522,51 @@ pub struct FfiInsightsData {
     pub today_pattern: Option<FfiActivityPattern>,
     /// Up to 3 recent section PRs (best times set in last 7 days)
     pub recent_prs: Vec<FfiRecentPR>,
+    /// Sections held by the engine, for the section-readiness check
+    pub section_count: u32,
+    /// Sport types the ranked-section lists were built for
+    pub sport_types: Vec<String>,
+    /// ML-ranked sections per sport, empty when sections were not requested
+    pub ranked_sections: Vec<FfiRankedSectionsBySport>,
+    /// Aerobic efficiency trends worth surfacing, already filtered and capped
+    pub efficiency_trends: Vec<FfiEfficiencyTrend>,
+    /// Whether any strength activity exists
+    pub has_strength_data: bool,
+    /// Strength volume over the requested month and weeks, when data exists
+    pub strength_series: Option<FfiStrengthInsightSeries>,
+}
+
+/// Scalar inputs for the insights bundle.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiInsightsParams {
+    /// Start of the current week
+    pub current_start: i64,
+    /// Now
+    pub current_end: i64,
+    /// Start of the previous week
+    pub prev_start: i64,
+    /// End of the previous week
+    pub prev_end: i64,
+    /// Start of the four-week chronic window
+    pub chronic_start: i64,
+    /// Start of today
+    pub today_start: i64,
+    /// Whether section-derived insights are wanted at all
+    pub include_sections: bool,
+    /// Ranked sections requested per sport
+    pub ranked_limit: u32,
+    /// Sections last visited beyond this many days get no efficiency trend
+    pub active_window_days: u32,
+    /// Efficiency candidates taken from each sport's ranked list
+    pub efficiency_per_sport: u32,
+    /// Efficiency trends to return at most
+    pub efficiency_limit: u32,
+    /// Minimum matched efforts before an efficiency trend counts
+    pub efficiency_min_efforts: u32,
+    /// Trailing month the strength summary covers
+    pub strength_month: FfiTimestampRange,
+    /// Trailing weeks the strength summary covers
+    pub strength_weeks: Vec<FfiTimestampRange>,
 }
 
 // ============================================================================
