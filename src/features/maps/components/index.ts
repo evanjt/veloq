@@ -9,7 +9,6 @@ export {
   ACTIVITY_CATEGORIES,
 } from './ActivityTypeFilter';
 export { Map3DWebView, type Map3DWebViewRef } from './Map3DWebView';
-export { NativeSpecLayers } from './NativeSpecLayers';
 export {
   MapSurface,
   MAP_SURFACE_TEST_ID,

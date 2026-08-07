@@ -17,3 +17,6 @@ export const TRIM_UPDATE_THROTTLE_MS = 100;
 
 /** Camera reporting while a gesture is still in flight. */
 export const REGION_CHANGE_DEBOUNCE_MS = 200;
+
+/** Work deferred until a gesture has settled, such as recomputing attribution. */
+export const REGION_SETTLE_DEBOUNCE_MS = 300;

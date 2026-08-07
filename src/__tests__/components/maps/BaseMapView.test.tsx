@@ -37,6 +37,17 @@ const ROUTE: [number, number][] = [
 
 const BOUNDS = { ne: [7.449, 46.95] as [number, number], sw: [7.447, 46.948] as [number, number] };
 
+const OVERLAY_SOURCES: NonNullable<BaseMapViewProps['overlaySources']> = {
+  marks: {
+    kind: 'geojson',
+    data: { type: 'FeatureCollection', features: [] },
+  },
+};
+
+const OVERLAY_LAYERS: NonNullable<BaseMapViewProps['overlayLayers']> = [
+  { id: 'marks-line', type: 'line', source: 'marks', paint: { 'line-width': 2 } },
+];
+
 function renderMap(props: Partial<BaseMapViewProps> = {}) {
   return render(
     <SafeAreaProvider initialMetrics={METRICS}>
@@ -50,7 +61,6 @@ describe('BaseMapView', () => {
     renderMap({ routeCoordinates: ROUTE, bounds: BOUNDS });
 
     expect(screen.getByTestId('maplibre-map')).toBeTruthy();
-    expect(screen.getByTestId('maplibre-camera')).toBeTruthy();
   });
 
   it('shows the close control only when a close handler is supplied', () => {
@@ -114,17 +124,22 @@ describe('BaseMapView', () => {
     const onPress = jest.fn();
     renderMap({ routeCoordinates: ROUTE, onPress });
 
-    fireEvent(screen.getByTestId('maplibre-map'), 'press', {});
+    pressMapAt([7.447, 46.948]);
+
     expect(onPress).toHaveBeenCalledTimes(1);
+    expect(onPress.mock.calls[0][0].coordinate).toEqual([7.447, 46.948]);
   });
 
-  it('renders children alongside the route', () => {
-    renderMap({
-      routeCoordinates: ROUTE,
-      children: <MarkerStub />,
-    });
+  it('accepts overlay sources and layers alongside the route', () => {
+    expect(() =>
+      renderMap({
+        routeCoordinates: ROUTE,
+        overlaySources: OVERLAY_SOURCES,
+        overlayLayers: OVERLAY_LAYERS,
+      })
+    ).not.toThrow();
 
-    expect(screen.getByTestId('base-map-child')).toBeTruthy();
+    expect(screen.getByTestId('maplibre-map')).toBeTruthy();
   });
 
   describe('degenerate input', () => {
@@ -143,7 +158,7 @@ describe('BaseMapView', () => {
       ],
       ['missing bounds', { routeCoordinates: ROUTE, bounds: undefined }],
       ['collapsed bounds', { routeCoordinates: ROUTE, bounds: { ne: ROUTE[0], sw: ROUTE[0] } }],
-      ['a null child', { routeCoordinates: ROUTE, children: null }],
+      ['empty overlays', { routeCoordinates: ROUTE, overlaySources: {}, overlayLayers: [] }],
     ];
 
     it.each(cases)('survives %s', (_label, props) => {
@@ -153,7 +168,12 @@ describe('BaseMapView', () => {
   });
 });
 
-function MarkerStub() {
-  const { View } = require('react-native');
-  return <View testID="base-map-child" />;
+// The surface reports a tap as a bridge message, so a press test drives the
+// same message the page would post rather than a renderer-specific event.
+function pressMapAt(coordinate: [number, number]) {
+  fireEvent(screen.getByTestId('maplibre-map'), 'message', {
+    nativeEvent: {
+      data: JSON.stringify({ type: 'mapClick', coordinate, point: [0, 0], feature: null }),
+    },
+  });
 }

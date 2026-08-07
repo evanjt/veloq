@@ -7,7 +7,6 @@
 
 import React, { useMemo, useState, useCallback } from 'react';
 import { View, StyleSheet, TouchableOpacity, Modal, StatusBar } from 'react-native';
-import { CircleLayer, LineLayer, ShapeSource } from '@maplibre/maplibre-react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { getActivityColor } from '@/features/activity/lib/activityUtils';
 import { colors, mapLayerColors, spacing, layout } from '@/theme';
@@ -116,14 +115,20 @@ export function RouteMapView({
     ]);
   }, [activityTraces, highlightedActivityId, highlightedLapPoints, routeCoords]);
 
-  const sources = useMemo<Record<string, MapSourceSpec>>(
+  // Fullscreen reuses everything except the route itself, which BaseMapView
+  // already draws from the coordinates it is given.
+  const overlaySources = useMemo<Record<string, MapSourceSpec>>(
     () => ({
       'faded-traces': { kind: 'geojson', data: fadedTraces },
-      route: { kind: 'geojson', data: routeLine },
       'highlighted-trace': { kind: 'geojson', data: highlightedTrace },
       endpoints: { kind: 'geojson', data: endpoints },
     }),
-    [fadedTraces, routeLine, highlightedTrace, endpoints]
+    [fadedTraces, highlightedTrace, endpoints]
+  );
+
+  const sources = useMemo<Record<string, MapSourceSpec>>(
+    () => ({ ...overlaySources, route: { kind: 'geojson', data: routeLine } }),
+    [overlaySources, routeLine]
   );
 
   // Highlighting one activity pushes everything else back rather than hiding it.
@@ -131,8 +136,20 @@ export function RouteMapView({
   const fadedOpacity = highlightedActivityId ? 0.1 : 0.2;
 
   const layers = useMemo<MapLayerSpec[]>(
-    () => buildRouteLayers({ activityColor, consensusOpacity, fadedOpacity }),
+    () => buildRouteLayers({ activityColor, consensusOpacity, fadedOpacity, includeRoute: true }),
     [activityColor, consensusOpacity, fadedOpacity]
+  );
+
+  // Fullscreen has room to show the other attempts at full strength.
+  const fullscreenLayers = useMemo<MapLayerSpec[]>(
+    () =>
+      buildRouteLayers({
+        activityColor,
+        consensusOpacity: 1,
+        fadedOpacity: 0.2,
+        includeRoute: false,
+      }),
+    [activityColor]
   );
 
   const handleMapPress = useCallback(() => {
@@ -197,61 +214,9 @@ export function RouteMapView({
           bounds={bounds ?? undefined}
           initialStyle={mapStyle}
           onClose={closeFullscreen}
-        >
-          <ShapeSource id="fadedTracesSource" shape={fadedTraces}>
-            <LineLayer
-              id="fadedTracesLine"
-              style={{
-                lineColor: activityColor,
-                lineOpacity: 0.2,
-                lineWidth: 2,
-                lineCap: 'round',
-                lineJoin: 'round',
-              }}
-            />
-          </ShapeSource>
-
-          <ShapeSource id="highlightedSource" shape={highlightedTrace}>
-            <LineLayer
-              id="highlightedLineCasing"
-              style={{
-                lineColor: mapLayerColors.casing,
-                lineOpacity: 0.5,
-                lineWidth: 7,
-                lineCap: 'round',
-                lineJoin: 'round',
-              }}
-            />
-            <LineLayer
-              id="highlightedLine"
-              style={{
-                lineColor: colors.chartCyan,
-                lineWidth: 4,
-                lineCap: 'round',
-                lineJoin: 'round',
-              }}
-            />
-          </ShapeSource>
-
-          <ShapeSource id="endpointsSource" shape={endpoints}>
-            <CircleLayer
-              id="endpointBorder"
-              style={{ circleRadius: 7.5, circleColor: mapLayerColors.casing }}
-            />
-            <CircleLayer
-              id="endpointFill"
-              style={{
-                circleRadius: 6,
-                circleColor: [
-                  'case',
-                  ['==', ['get', 'position'], 'start'],
-                  mapLayerColors.start,
-                  mapLayerColors.end,
-                ],
-              }}
-            />
-          </ShapeSource>
-        </BaseMapView>
+          overlaySources={overlaySources}
+          overlayLayers={fullscreenLayers}
+        />
       </Modal>
     </>
   );
@@ -267,11 +232,41 @@ function buildRouteLayers({
   activityColor,
   consensusOpacity,
   fadedOpacity,
+  includeRoute,
 }: {
   activityColor: string;
   consensusOpacity: number;
   fadedOpacity: number;
+  /** Off in fullscreen, where the shell draws the route itself. */
+  includeRoute: boolean;
 }): MapLayerSpec[] {
+  const routeLayers: MapLayerSpec[] = includeRoute
+    ? [
+        {
+          id: 'route-casing',
+          type: 'line',
+          source: 'route',
+          layout: { 'line-cap': 'round', 'line-join': 'round' },
+          paint: {
+            'line-color': mapLayerColors.casing,
+            'line-opacity': consensusOpacity,
+            'line-width': 5,
+          },
+        },
+        {
+          id: 'route-line',
+          type: 'line',
+          source: 'route',
+          layout: { 'line-cap': 'round', 'line-join': 'round' },
+          paint: {
+            'line-color': activityColor,
+            'line-opacity': consensusOpacity,
+            'line-width': 4,
+          },
+        },
+      ]
+    : [];
+
   return [
     {
       id: 'faded-traces-line',
@@ -284,28 +279,7 @@ function buildRouteLayers({
         'line-width': 2,
       },
     },
-    {
-      id: 'route-casing',
-      type: 'line',
-      source: 'route',
-      layout: { 'line-cap': 'round', 'line-join': 'round' },
-      paint: {
-        'line-color': mapLayerColors.casing,
-        'line-opacity': consensusOpacity,
-        'line-width': 5,
-      },
-    },
-    {
-      id: 'route-line',
-      type: 'line',
-      source: 'route',
-      layout: { 'line-cap': 'round', 'line-join': 'round' },
-      paint: {
-        'line-color': activityColor,
-        'line-opacity': consensusOpacity,
-        'line-width': 4,
-      },
-    },
+    ...routeLayers,
     {
       id: 'highlighted-casing',
       type: 'line',

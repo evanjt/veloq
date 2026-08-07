@@ -34,12 +34,12 @@ import {
   getNextStyle,
   getStyleIcon,
   MapSurface,
-  NativeSpecLayers,
   type MapSurfaceRef,
 } from '@/features/maps/components';
 import { Map3DWebView, type Map3DWebViewRef } from '@/features/maps/components/Map3DWebView';
 import { CompassArrow, ComponentErrorBoundary } from '@/shared/ui';
 import { useMapFullscreen } from '@/features/maps/hooks/useMapFullscreen';
+import { useThrottledValue } from '@/features/maps/hooks/useThrottledValue';
 import {
   boundsOfLngLat,
   featureCollection,
@@ -331,7 +331,10 @@ export const SectionMapView = memo(function SectionMapView({
 
   // Trim drags arrive faster than the map needs. The slider stays smooth on the
   // UI thread while the geometry that reaches the surface is held to a budget.
-  const trimmedGeoJSON = useThrottled(sectionLayerData.trimmedGeoJSON, TRIM_UPDATE_THROTTLE_MS);
+  const trimmedGeoJSON = useThrottledValue(
+    sectionLayerData.trimmedGeoJSON,
+    TRIM_UPDATE_THROTTLE_MS
+  );
 
   const specInput = useMemo(
     () => ({
@@ -396,6 +399,15 @@ export const SectionMapView = memo(function SectionMapView({
       traceLineWidth: 5,
     }),
     [specInput]
+  );
+
+  const fullscreenSources = useMemo(
+    () => buildSectionSources(fullscreenSpecArgs),
+    [fullscreenSpecArgs]
+  );
+  const fullscreenLayers = useMemo(
+    () => buildSectionLayers(fullscreenSpecArgs),
+    [fullscreenSpecArgs]
   );
 
   const handleSurfacePress = useCallback(
@@ -677,44 +689,12 @@ export const SectionMapView = memo(function SectionMapView({
           bounds={bounds || undefined}
           initialStyle={currentMapStyle}
           onClose={closeFullscreen}
-        >
-          <NativeSpecLayers
-            idPrefix="fullscreen"
-            sources={buildSectionSources(fullscreenSpecArgs)}
-            layers={buildSectionLayers(fullscreenSpecArgs)}
-          />
-        </BaseMapView>
+          overlaySources={fullscreenSources}
+          overlayLayers={fullscreenLayers}
+        />
       </Modal>
     </>
   );
 });
 
 const NEARBY_INTERACTIVE_LAYERS = [NEARBY_LINE_LAYER_ID];
-
-/**
- * Holds a value at no more than one change per `intervalMs`, keeping the last
- * one that arrives. Used so a drag on the trim slider cannot outrun the map.
- */
-function useThrottled<T>(value: T, intervalMs: number): T {
-  const [held, setHeld] = useState(value);
-  const lastAppliedRef = useRef(0);
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  useEffect(() => {
-    const elapsed = Date.now() - lastAppliedRef.current;
-    if (elapsed >= intervalMs) {
-      lastAppliedRef.current = Date.now();
-      setHeld(value);
-      return;
-    }
-    timerRef.current = setTimeout(() => {
-      lastAppliedRef.current = Date.now();
-      setHeld(value);
-    }, intervalMs - elapsed);
-    return () => {
-      if (timerRef.current !== null) clearTimeout(timerRef.current);
-    };
-  }, [value, intervalMs]);
-
-  return held;
-}
