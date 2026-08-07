@@ -62,6 +62,12 @@ interface NativeModuleInterface {
     ptr: bigint,
     uniffi_out_err: UniffiRustCallStatus,
   ): number;
+  ubrn_uniffi_veloqrs_fn_method_activitymanager_get_detail_data(
+    ptr: bigint,
+    activityId: Uint8Array,
+    minRouteActivities: number,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_activitymanager_get_gps_track(
     ptr: bigint,
     activityId: Uint8Array,
@@ -1252,6 +1258,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_activitymanager_debug_clone(): number;
   ubrn_uniffi_veloqrs_checksum_method_activitymanager_get_activity_bodies(): number;
   ubrn_uniffi_veloqrs_checksum_method_activitymanager_get_count(): number;
+  ubrn_uniffi_veloqrs_checksum_method_activitymanager_get_detail_data(): number;
   ubrn_uniffi_veloqrs_checksum_method_activitymanager_get_gps_track(): number;
   ubrn_uniffi_veloqrs_checksum_method_activitymanager_get_highlights_bundle(): number;
   ubrn_uniffi_veloqrs_checksum_method_activitymanager_get_ids(): number;

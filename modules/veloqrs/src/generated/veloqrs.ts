@@ -589,6 +589,124 @@ const FfiConverterTypeFfiActivityBody = (() => {
 })();
 
 /**
+ * All data needed to paint the activity detail screen in one call.
+ * Replaces a fan-out that grew one trace extraction per matched section.
+ */
+export type FfiActivityDetailData = {
+  /**
+   * Total activities held by the engine
+   */
+  activityCount: /*u32*/ number;
+  /**
+   * Total sections held by the engine
+   */
+  sectionCount: /*u32*/ number;
+  /**
+   * Route groups meeting the caller's minimum, most attempts first
+   */
+  routeGroups: Array<FfiRouteGroup>;
+  /**
+   * Route group total before the minimum-activity filter
+   */
+  totalRouteGroupCount: /*u32*/ number;
+  /**
+   * Visible sections this activity traverses, most-visited first
+   */
+  matchedSections: Array<FfiSection>;
+  /**
+   * Every visible custom section, matched or not
+   */
+  customSections: Array<FfiSection>;
+  /**
+   * One entry per (section, direction) this activity encountered
+   */
+  encounters: Array<FfiSectionEncounter>;
+  /**
+   * Section indicators and route highlights for this activity
+   */
+  highlights: FfiActivityHighlightsBundle;
+  /**
+   * This activity's portion of every section it matches
+   */
+  sectionTraces: Array<FfiSectionTrace>;
+  /**
+   * Sections where this activity currently holds the best record
+   */
+  prSectionIds: Array<string>;
+};
+
+/**
+ * Generated factory for {@link FfiActivityDetailData} record objects.
+ */
+export const FfiActivityDetailData = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<
+      FfiActivityDetailData,
+      ReturnType<typeof defaults>
+    >(defaults);
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiActivityDetailData>,
+  });
+})();
+
+const FfiConverterTypeFfiActivityDetailData = (() => {
+  type TypeName = FfiActivityDetailData;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        activityCount: FfiConverterUInt32.read(from),
+        sectionCount: FfiConverterUInt32.read(from),
+        routeGroups: FfiConverterArrayTypeFfiRouteGroup.read(from),
+        totalRouteGroupCount: FfiConverterUInt32.read(from),
+        matchedSections: FfiConverterArrayTypeFfiSection.read(from),
+        customSections: FfiConverterArrayTypeFfiSection.read(from),
+        encounters: FfiConverterArrayTypeFfiSectionEncounter.read(from),
+        highlights: FfiConverterTypeFfiActivityHighlightsBundle.read(from),
+        sectionTraces: FfiConverterArrayTypeFfiSectionTrace.read(from),
+        prSectionIds: FfiConverterArrayString.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterUInt32.write(value.activityCount, into);
+      FfiConverterUInt32.write(value.sectionCount, into);
+      FfiConverterArrayTypeFfiRouteGroup.write(value.routeGroups, into);
+      FfiConverterUInt32.write(value.totalRouteGroupCount, into);
+      FfiConverterArrayTypeFfiSection.write(value.matchedSections, into);
+      FfiConverterArrayTypeFfiSection.write(value.customSections, into);
+      FfiConverterArrayTypeFfiSectionEncounter.write(value.encounters, into);
+      FfiConverterTypeFfiActivityHighlightsBundle.write(value.highlights, into);
+      FfiConverterArrayTypeFfiSectionTrace.write(value.sectionTraces, into);
+      FfiConverterArrayString.write(value.prSectionIds, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterUInt32.allocationSize(value.activityCount) +
+        FfiConverterUInt32.allocationSize(value.sectionCount) +
+        FfiConverterArrayTypeFfiRouteGroup.allocationSize(value.routeGroups) +
+        FfiConverterUInt32.allocationSize(value.totalRouteGroupCount) +
+        FfiConverterArrayTypeFfiSection.allocationSize(value.matchedSections) +
+        FfiConverterArrayTypeFfiSection.allocationSize(value.customSections) +
+        FfiConverterArrayTypeFfiSectionEncounter.allocationSize(
+          value.encounters,
+        ) +
+        FfiConverterTypeFfiActivityHighlightsBundle.allocationSize(
+          value.highlights,
+        ) +
+        FfiConverterArrayTypeFfiSectionTrace.allocationSize(
+          value.sectionTraces,
+        ) +
+        FfiConverterArrayString.allocationSize(value.prSectionIds)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * Combined payload for batched activity-list highlights: pre-computed
  * section indicators (PRs + trends) and route highlights for the same
  * activity IDs, delivered in a single FFI round-trip.
@@ -6064,6 +6182,60 @@ const FfiConverterTypeFfiSectionSummariesResult = (() => {
 })();
 
 /**
+ * One activity's portion of a single section, delta+varint encoded.
+ */
+export type FfiSectionTrace = {
+  /**
+   * Section the trace belongs to
+   */
+  sectionId: string;
+  /**
+   * Delta+varint encoded coordinates of the activity's portion
+   */
+  encodedCoords: ArrayBuffer;
+};
+
+/**
+ * Generated factory for {@link FfiSectionTrace} record objects.
+ */
+export const FfiSectionTrace = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiSectionTrace, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiSectionTrace>,
+  });
+})();
+
+const FfiConverterTypeFfiSectionTrace = (() => {
+  type TypeName = FfiSectionTrace;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        sectionId: FfiConverterString.read(from),
+        encodedCoords: FfiConverterArrayBuffer.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterString.write(value.sectionId, into);
+      FfiConverterArrayBuffer.write(value.encodedCoords, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.sectionId) +
+        FfiConverterArrayBuffer.allocationSize(value.encodedCoords)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * Section summary with embedded polyline for the Routes screen.
  * Avoids N separate getSectionPolyline() calls.
  */
@@ -7750,6 +7922,19 @@ export interface ActivityManagerLike {
     newestTs: /*i64*/ bigint,
   ) /*throws*/ : Array<string>;
   getCount() /*throws*/ : /*u32*/ number;
+  /**
+   * Everything the activity detail screen paints with, in one engine lock:
+   * engine counts, route groups, matched and custom sections, encounters,
+   * indicator highlights, this activity's portion of each section it
+   * traverses, and the sections where it holds the record.
+   *
+   * `min_route_activities` filters the returned route groups the same way
+   * the screen used to filter them after the fact.
+   */
+  getDetailData(
+    activityId: string,
+    minRouteActivities: /*u32*/ number,
+  ) /*throws*/ : FfiActivityDetailData;
   getGpsTrack(activityId: string) /*throws*/ : Array<FfiGpsPoint>;
   /**
    * Combined activity-list highlight bundle: section indicators (PRs +
@@ -7924,6 +8109,37 @@ export class ActivityManager
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_activitymanager_get_count(
             uniffiTypeActivityManagerObjectFactory.clonePointer(this),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * Everything the activity detail screen paints with, in one engine lock:
+   * engine counts, route groups, matched and custom sections, encounters,
+   * indicator highlights, this activity's portion of each section it
+   * traverses, and the sections where it holds the record.
+   *
+   * `min_route_activities` filters the returned route groups the same way
+   * the screen used to filter them after the fact.
+   */
+  getDetailData(
+    activityId: string,
+    minRouteActivities: /*u32*/ number,
+  ): FfiActivityDetailData /*throws*/ {
+    return FfiConverterTypeFfiActivityDetailData.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_activitymanager_get_detail_data(
+            uniffiTypeActivityManagerObjectFactory.clonePointer(this),
+            FfiConverterString.lower(activityId),
+            FfiConverterUInt32.lower(minRouteActivities),
             callStatus,
           );
         },
@@ -14324,6 +14540,11 @@ const FfiConverterArrayTypeFfiSectionPortion = new FfiConverterArray(
   FfiConverterTypeFfiSectionPortion,
 );
 
+// FfiConverter for Array<FfiSectionTrace>
+const FfiConverterArrayTypeFfiSectionTrace = new FfiConverterArray(
+  FfiConverterTypeFfiSectionTrace,
+);
+
 // FfiConverter for Array<FfiSectionWithPolyline>
 const FfiConverterArrayTypeFfiSectionWithPolyline = new FfiConverterArray(
   FfiConverterTypeFfiSectionWithPolyline,
@@ -14495,6 +14716,14 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_activitymanager_get_count",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_activitymanager_get_detail_data() !==
+    44125
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_activitymanager_get_detail_data",
     );
   }
   if (
@@ -16166,6 +16395,7 @@ export default Object.freeze({
     FfiConverterTypeDownloadProgressResult,
     FfiConverterTypeFetchAndStoreResult,
     FfiConverterTypeFfiActivityBody,
+    FfiConverterTypeFfiActivityDetailData,
     FfiConverterTypeFfiActivityHighlightsBundle,
     FfiConverterTypeFfiActivityIndicator,
     FfiConverterTypeFfiActivityMetrics,
@@ -16237,6 +16467,7 @@ export default Object.freeze({
     FfiConverterTypeFfiSectionRecalcResult,
     FfiConverterTypeFfiSectionReferenceInfo,
     FfiConverterTypeFfiSectionSummariesResult,
+    FfiConverterTypeFfiSectionTrace,
     FfiConverterTypeFfiSectionWithPolyline,
     FfiConverterTypeFfiStalePrOpportunity,
     FfiConverterTypeFfiStartupData,

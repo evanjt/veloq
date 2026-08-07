@@ -6,7 +6,7 @@
  * Used by tests to validate TypeScript bindings match Rust exports.
  *
  * 6 standalone `#[uniffi::export]` functions plus
- * 213 methods inside `#[uniffi::export] impl` blocks across
+ * 214 methods inside `#[uniffi::export] impl` blocks across
  * 11 UniFFI Objects.
  */
 
@@ -29,7 +29,7 @@ export interface FfiExportInfo {
 
 /**
  * All FFI exports from Rust source.
- * Total: 219 exports (6 standalone + 213 methods)
+ * Total: 220 exports (6 standalone + 214 methods)
  */
 export const FFI_EXPORTS: FfiExportInfo[] = [
   {
@@ -241,6 +241,15 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 262,
     paramCount: 1,
     returnType: 'Result<crate::FfiActivityHighlightsBundle, VeloqError>',
+    object: 'ActivityManager',
+  },
+  {
+    name: 'get_detail_data',
+    camelName: 'getDetailData',
+    file: 'objects/activities.rs',
+    line: 279,
+    paramCount: 2,
+    returnType: 'Result<crate::FfiActivityDetailData, VeloqError>',
     object: 'ActivityManager',
   },
   {
@@ -1993,7 +2002,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'compute_polyline_overlap',
     camelName: 'computePolylineOverlap',
     file: 'persistence/mod.rs',
-    line: 1478,
+    line: 1479,
     paramCount: 3,
     returnType: 'f64',
   },
@@ -2027,6 +2036,7 @@ export const EXPECTED_TS_FUNCTIONS = new Set<string>([
   'remove',
   'debugClone',
   'getHighlightsBundle',
+  'getDetailData',
   'new',
   'start',
   'poll',
@@ -2256,6 +2266,7 @@ export const RUST_TO_TS_NAME: Record<string, string> = {
   remove: 'remove',
   debug_clone: 'debugClone',
   get_highlights_bundle: 'getHighlightsBundle',
+  get_detail_data: 'getDetailData',
   start: 'start',
   poll: 'poll',
   get_progress: 'getProgress',
