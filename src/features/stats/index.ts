@@ -38,6 +38,8 @@ export {
   type ChartMetricValue,
   type ChartDataResult,
   type IntervalBand,
+  type BandColourToken,
+  resolveBandColour,
   computeTimeAxisLabels,
   axisLabelsNeedDay,
   formatAxisDate,

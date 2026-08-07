@@ -247,6 +247,11 @@ export const colors = {
   chartMutedBar: 'rgba(0, 0, 0, 0.12)', // Comparison bar for the weaker period
   chartDotMuted: 'rgba(0, 0, 0, 0.25)', // Scatter dots that are not the record
 
+  // Interval band backgrounds on the combined activity chart
+  chartBandWarmup: '#22C55E', // Green-500
+  chartBandCooldown: '#8B5CF6', // Violet-500
+  chartBandNeutral: '#808080', // Grey - recovery, rest and anything unclassified
+
   // Semantic UI colors
   highlight: brand.blue,
   highlightAlt: brand.blueLight,

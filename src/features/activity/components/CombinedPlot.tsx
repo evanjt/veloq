@@ -30,6 +30,7 @@ import {
   buildChartData,
   computeAllAverages,
   computeIntervalBands,
+  resolveBandColour,
   type ChartMetricValue,
 } from '@/features/stats';
 import { ChartXAxisLabel } from './ChartXAxisLabel';
@@ -224,7 +225,7 @@ export const CombinedPlot = React.memo(function CombinedPlot({
           label: s.config.label,
           value: formatted,
           unit: isMetric ? s.config.unit || '' : s.config.unitImperial || s.config.unit || '',
-          color: s.color,
+          color: s.config.color,
         };
       });
 
@@ -379,11 +380,10 @@ export const CombinedPlot = React.memo(function CombinedPlot({
         streams,
         xAxisMode,
         isMetric,
-        isDark,
         activityType,
         seriesInfo
       ),
-    [intervals, chartData, streams, xAxisMode, isMetric, isDark, activityType, seriesInfo]
+    [intervals, chartData, streams, xAxisMode, isMetric, activityType, seriesInfo]
   );
 
   if (chartData.length === 0 || seriesInfo.length === 0) {
@@ -468,7 +468,7 @@ export const CombinedPlot = React.memo(function CombinedPlot({
                           y={chartBounds.top}
                           width={Math.max(1, x2 - x1)}
                           height={chartH}
-                          color={band.bandColor}
+                          color={resolveBandColour(band.bandColour, isDark)}
                           opacity={band.bandOpacity}
                         />
                       );
@@ -486,7 +486,7 @@ export const CombinedPlot = React.memo(function CombinedPlot({
                           y={chartBounds.bottom - 4}
                           width={Math.max(1, x2 - x1)}
                           height={4}
-                          color={band.bandColor}
+                          color={resolveBandColour(band.bandColour, isDark)}
                           opacity={0.85}
                         />
                       );
@@ -507,7 +507,10 @@ export const CombinedPlot = React.memo(function CombinedPlot({
                           <LinearGradient
                             start={vec(0, chartBounds.top)}
                             end={vec(0, chartBounds.bottom)}
-                            colors={[series.color + topAlpha, series.color + bottomAlpha]}
+                            colors={[
+                              series.config.color + topAlpha,
+                              series.config.color + bottomAlpha,
+                            ]}
                           />
                         </Area>
                       );
@@ -526,7 +529,7 @@ export const CombinedPlot = React.memo(function CombinedPlot({
                           />
                           <Line
                             points={points[series.id] as Parameters<typeof Line>[0]['points']}
-                            color={series.color}
+                            color={series.config.color}
                             strokeWidth={width}
                             curveType="natural"
                           />
@@ -545,7 +548,7 @@ export const CombinedPlot = React.memo(function CombinedPlot({
                           key={`ia-${i}`}
                           p1={vec(x1, y)}
                           p2={vec(x2, y)}
-                          color={band.bandColor}
+                          color={resolveBandColour(band.bandColour, isDark)}
                           strokeWidth={2}
                           opacity={0.8}
                         >
@@ -561,7 +564,7 @@ export const CombinedPlot = React.memo(function CombinedPlot({
                         <SkiaLine
                           p1={vec(chartBounds.left, chartBounds.top)}
                           p2={vec(chartBounds.right, chartBounds.top)}
-                          color={yAxisSeries.color}
+                          color={yAxisSeries.config.color}
                           strokeWidth={0.5}
                           opacity={0.2}
                         />
@@ -569,7 +572,7 @@ export const CombinedPlot = React.memo(function CombinedPlot({
                         <SkiaLine
                           p1={vec(chartBounds.left, chartBounds.bottom)}
                           p2={vec(chartBounds.right, chartBounds.bottom)}
-                          color={yAxisSeries.color}
+                          color={yAxisSeries.config.color}
                           strokeWidth={0.5}
                           opacity={0.2}
                         />
@@ -588,7 +591,7 @@ export const CombinedPlot = React.memo(function CombinedPlot({
                                 (1 - yAxisAvgInfo.normalized) *
                                   (chartBounds.bottom - chartBounds.top)
                             )}
-                            color={yAxisSeries.color}
+                            color={yAxisSeries.config.color}
                             strokeWidth={1}
                             opacity={0.4}
                           >
