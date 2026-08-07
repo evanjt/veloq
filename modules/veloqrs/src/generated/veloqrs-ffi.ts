@@ -1144,6 +1144,10 @@ interface NativeModuleInterface {
     ptr: bigint,
     uniffi_out_err: UniffiRustCallStatus,
   ): void;
+  ubrn_uniffi_veloqrs_fn_method_syncmanager_create_manual_activity(
+    ptr: bigint,
+    activity: Uint8Array,
+  ): bigint;
   ubrn_uniffi_veloqrs_fn_method_syncmanager_get_sync_status(
     ptr: bigint,
     uniffi_out_err: UniffiRustCallStatus,
@@ -1205,6 +1209,18 @@ interface NativeModuleInterface {
     activityIds: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): number;
+  ubrn_uniffi_veloqrs_fn_method_syncmanager_upload_activity(
+    ptr: bigint,
+    filePath: Uint8Array,
+    filename: Uint8Array,
+    name: Uint8Array,
+    pairedEventId: Uint8Array,
+  ): bigint;
+  ubrn_uniffi_veloqrs_fn_method_syncmanager_validate_credentials(
+    ptr: bigint,
+    method: Uint8Array,
+    secret: Uint8Array,
+  ): bigint;
   ubrn_uniffi_veloqrs_fn_clone_heatmapmanager(
     handle: bigint,
     uniffi_out_err: UniffiRustCallStatus,
@@ -1274,6 +1290,138 @@ interface NativeModuleInterface {
     thresholdMeters: number,
     uniffi_out_err: UniffiRustCallStatus,
   ): number;
+  ubrn_ffi_veloqrs_rust_future_poll_u8(
+    handle: bigint,
+    callback: UniffiRustFutureContinuationCallback,
+    callbackData: bigint,
+  ): void;
+  ubrn_ffi_veloqrs_rust_future_cancel_u8(handle: bigint): void;
+  ubrn_ffi_veloqrs_rust_future_free_u8(handle: bigint): void;
+  ubrn_ffi_veloqrs_rust_future_complete_u8(
+    handle: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): number;
+  ubrn_ffi_veloqrs_rust_future_poll_i8(
+    handle: bigint,
+    callback: UniffiRustFutureContinuationCallback,
+    callbackData: bigint,
+  ): void;
+  ubrn_ffi_veloqrs_rust_future_cancel_i8(handle: bigint): void;
+  ubrn_ffi_veloqrs_rust_future_free_i8(handle: bigint): void;
+  ubrn_ffi_veloqrs_rust_future_complete_i8(
+    handle: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): number;
+  ubrn_ffi_veloqrs_rust_future_poll_u16(
+    handle: bigint,
+    callback: UniffiRustFutureContinuationCallback,
+    callbackData: bigint,
+  ): void;
+  ubrn_ffi_veloqrs_rust_future_cancel_u16(handle: bigint): void;
+  ubrn_ffi_veloqrs_rust_future_free_u16(handle: bigint): void;
+  ubrn_ffi_veloqrs_rust_future_complete_u16(
+    handle: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): number;
+  ubrn_ffi_veloqrs_rust_future_poll_i16(
+    handle: bigint,
+    callback: UniffiRustFutureContinuationCallback,
+    callbackData: bigint,
+  ): void;
+  ubrn_ffi_veloqrs_rust_future_cancel_i16(handle: bigint): void;
+  ubrn_ffi_veloqrs_rust_future_free_i16(handle: bigint): void;
+  ubrn_ffi_veloqrs_rust_future_complete_i16(
+    handle: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): number;
+  ubrn_ffi_veloqrs_rust_future_poll_u32(
+    handle: bigint,
+    callback: UniffiRustFutureContinuationCallback,
+    callbackData: bigint,
+  ): void;
+  ubrn_ffi_veloqrs_rust_future_cancel_u32(handle: bigint): void;
+  ubrn_ffi_veloqrs_rust_future_free_u32(handle: bigint): void;
+  ubrn_ffi_veloqrs_rust_future_complete_u32(
+    handle: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): number;
+  ubrn_ffi_veloqrs_rust_future_poll_i32(
+    handle: bigint,
+    callback: UniffiRustFutureContinuationCallback,
+    callbackData: bigint,
+  ): void;
+  ubrn_ffi_veloqrs_rust_future_cancel_i32(handle: bigint): void;
+  ubrn_ffi_veloqrs_rust_future_free_i32(handle: bigint): void;
+  ubrn_ffi_veloqrs_rust_future_complete_i32(
+    handle: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): number;
+  ubrn_ffi_veloqrs_rust_future_poll_u64(
+    handle: bigint,
+    callback: UniffiRustFutureContinuationCallback,
+    callbackData: bigint,
+  ): void;
+  ubrn_ffi_veloqrs_rust_future_cancel_u64(handle: bigint): void;
+  ubrn_ffi_veloqrs_rust_future_free_u64(handle: bigint): void;
+  ubrn_ffi_veloqrs_rust_future_complete_u64(
+    handle: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): bigint;
+  ubrn_ffi_veloqrs_rust_future_poll_i64(
+    handle: bigint,
+    callback: UniffiRustFutureContinuationCallback,
+    callbackData: bigint,
+  ): void;
+  ubrn_ffi_veloqrs_rust_future_cancel_i64(handle: bigint): void;
+  ubrn_ffi_veloqrs_rust_future_free_i64(handle: bigint): void;
+  ubrn_ffi_veloqrs_rust_future_complete_i64(
+    handle: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): bigint;
+  ubrn_ffi_veloqrs_rust_future_poll_f32(
+    handle: bigint,
+    callback: UniffiRustFutureContinuationCallback,
+    callbackData: bigint,
+  ): void;
+  ubrn_ffi_veloqrs_rust_future_cancel_f32(handle: bigint): void;
+  ubrn_ffi_veloqrs_rust_future_free_f32(handle: bigint): void;
+  ubrn_ffi_veloqrs_rust_future_complete_f32(
+    handle: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): number;
+  ubrn_ffi_veloqrs_rust_future_poll_f64(
+    handle: bigint,
+    callback: UniffiRustFutureContinuationCallback,
+    callbackData: bigint,
+  ): void;
+  ubrn_ffi_veloqrs_rust_future_cancel_f64(handle: bigint): void;
+  ubrn_ffi_veloqrs_rust_future_free_f64(handle: bigint): void;
+  ubrn_ffi_veloqrs_rust_future_complete_f64(
+    handle: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): number;
+  ubrn_ffi_veloqrs_rust_future_poll_rust_buffer(
+    handle: bigint,
+    callback: UniffiRustFutureContinuationCallback,
+    callbackData: bigint,
+  ): void;
+  ubrn_ffi_veloqrs_rust_future_cancel_rust_buffer(handle: bigint): void;
+  ubrn_ffi_veloqrs_rust_future_free_rust_buffer(handle: bigint): void;
+  ubrn_ffi_veloqrs_rust_future_complete_rust_buffer(
+    handle: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_ffi_veloqrs_rust_future_poll_void(
+    handle: bigint,
+    callback: UniffiRustFutureContinuationCallback,
+    callbackData: bigint,
+  ): void;
+  ubrn_ffi_veloqrs_rust_future_cancel_void(handle: bigint): void;
+  ubrn_ffi_veloqrs_rust_future_free_void(handle: bigint): void;
+  ubrn_ffi_veloqrs_rust_future_complete_void(
+    handle: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
   ubrn_uniffi_veloqrs_checksum_func_detect_sections_standalone(): number;
   ubrn_uniffi_veloqrs_checksum_func_get_download_progress(): number;
   ubrn_uniffi_veloqrs_checksum_func_start_fetch_and_store(): number;
@@ -1468,6 +1616,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_strengthmanager_is_fit_processed(): number;
   ubrn_uniffi_veloqrs_checksum_method_syncmanager_cancel(): number;
   ubrn_uniffi_veloqrs_checksum_method_syncmanager_clear_credentials(): number;
+  ubrn_uniffi_veloqrs_checksum_method_syncmanager_create_manual_activity(): number;
   ubrn_uniffi_veloqrs_checksum_method_syncmanager_get_sync_status(): number;
   ubrn_uniffi_veloqrs_checksum_method_syncmanager_set_credentials(): number;
   ubrn_uniffi_veloqrs_checksum_method_syncmanager_sync_activities_window(): number;
@@ -1479,6 +1628,8 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_syncmanager_sync_pace_curve(): number;
   ubrn_uniffi_veloqrs_checksum_method_syncmanager_sync_power_curve(): number;
   ubrn_uniffi_veloqrs_checksum_method_syncmanager_sync_time_streams(): number;
+  ubrn_uniffi_veloqrs_checksum_method_syncmanager_upload_activity(): number;
+  ubrn_uniffi_veloqrs_checksum_method_syncmanager_validate_credentials(): number;
   ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_clear_tiles(): number;
   ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_clear_tiles_path(): number;
   ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_get_cache_size(): number;

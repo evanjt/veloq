@@ -64,6 +64,7 @@ import {
   pointerLiteralSymbol,
   uniffiCreateFfiConverterString,
   uniffiCreateRecord,
+  uniffiRustCallAsync,
   uniffiTypeNameSymbol,
   variantOrdinalSymbol,
 } from "uniffi-bindgen-react-native";
@@ -1831,6 +1832,87 @@ const FfiConverterTypeFfiCalendarYearSummary = (() => {
 })();
 
 /**
+ * The outcome of a write, or of a credential check.
+ *
+ * Failures come back as data rather than as a thrown error, because the caller
+ * has to branch on the status: a 403 asks for write permission, a 5xx waits for
+ * the queue's next attempt, and a 400 parks the recording for the athlete to
+ * look at. Getting that wrong costs someone a ride, so the classification is
+ * explicit here rather than inferred from an error message downstream.
+ */
+export type FfiCallOutcome = {
+  /**
+   * "ok", "unauthorized", "rateLimited", "http", "network" or "internal".
+   */
+  kind: string;
+  /**
+   * The id the call produced or confirmed, when `kind` is "ok".
+   */
+  id?: string;
+  /**
+   * The status the server answered with, when it answered at all.
+   */
+  status?: /*u16*/ number;
+  /**
+   * The server's own message, when the body carried one.
+   */
+  detail?: string;
+  /**
+   * Diagnostic text. Always present.
+   */
+  message: string;
+};
+
+/**
+ * Generated factory for {@link FfiCallOutcome} record objects.
+ */
+export const FfiCallOutcome = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiCallOutcome, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiCallOutcome>,
+  });
+})();
+
+const FfiConverterTypeFfiCallOutcome = (() => {
+  type TypeName = FfiCallOutcome;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        kind: FfiConverterString.read(from),
+        id: FfiConverterOptionalString.read(from),
+        status: FfiConverterOptionalUInt16.read(from),
+        detail: FfiConverterOptionalString.read(from),
+        message: FfiConverterString.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterString.write(value.kind, into);
+      FfiConverterOptionalString.write(value.id, into);
+      FfiConverterOptionalUInt16.write(value.status, into);
+      FfiConverterOptionalString.write(value.detail, into);
+      FfiConverterString.write(value.message, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.kind) +
+        FfiConverterOptionalString.allocationSize(value.id) +
+        FfiConverterOptionalUInt16.allocationSize(value.status) +
+        FfiConverterOptionalString.allocationSize(value.detail) +
+        FfiConverterString.allocationSize(value.message)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * Section detection progress info.
  */
 export type FfiDetectionProgress = {
@@ -3431,6 +3513,96 @@ const FfiConverterTypeFfiInsightsParams = (() => {
         FfiConverterArrayTypeFfiTimestampRange.allocationSize(
           value.strengthWeeks,
         )
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * A manual activity entry: an activity with no file behind it.
+ */
+export type FfiManualActivity = {
+  activityType: string;
+  name: string;
+  startDateLocal: string;
+  elapsedTime: /*i64*/ bigint;
+  movingTime?: /*i64*/ bigint;
+  distance?: /*f64*/ number;
+  totalElevationGain?: /*f64*/ number;
+  averageHeartrate?: /*f64*/ number;
+  description?: string;
+  /**
+   * Unset counts as false, so an entry is only ever flagged deliberately.
+   */
+  trainer?: boolean;
+  /**
+   * Unset counts as false.
+   */
+  commute?: boolean;
+};
+
+/**
+ * Generated factory for {@link FfiManualActivity} record objects.
+ */
+export const FfiManualActivity = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiManualActivity, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiManualActivity>,
+  });
+})();
+
+const FfiConverterTypeFfiManualActivity = (() => {
+  type TypeName = FfiManualActivity;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        activityType: FfiConverterString.read(from),
+        name: FfiConverterString.read(from),
+        startDateLocal: FfiConverterString.read(from),
+        elapsedTime: FfiConverterInt64.read(from),
+        movingTime: FfiConverterOptionalInt64.read(from),
+        distance: FfiConverterOptionalFloat64.read(from),
+        totalElevationGain: FfiConverterOptionalFloat64.read(from),
+        averageHeartrate: FfiConverterOptionalFloat64.read(from),
+        description: FfiConverterOptionalString.read(from),
+        trainer: FfiConverterOptionalBool.read(from),
+        commute: FfiConverterOptionalBool.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterString.write(value.activityType, into);
+      FfiConverterString.write(value.name, into);
+      FfiConverterString.write(value.startDateLocal, into);
+      FfiConverterInt64.write(value.elapsedTime, into);
+      FfiConverterOptionalInt64.write(value.movingTime, into);
+      FfiConverterOptionalFloat64.write(value.distance, into);
+      FfiConverterOptionalFloat64.write(value.totalElevationGain, into);
+      FfiConverterOptionalFloat64.write(value.averageHeartrate, into);
+      FfiConverterOptionalString.write(value.description, into);
+      FfiConverterOptionalBool.write(value.trainer, into);
+      FfiConverterOptionalBool.write(value.commute, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.activityType) +
+        FfiConverterString.allocationSize(value.name) +
+        FfiConverterString.allocationSize(value.startDateLocal) +
+        FfiConverterInt64.allocationSize(value.elapsedTime) +
+        FfiConverterOptionalInt64.allocationSize(value.movingTime) +
+        FfiConverterOptionalFloat64.allocationSize(value.distance) +
+        FfiConverterOptionalFloat64.allocationSize(value.totalElevationGain) +
+        FfiConverterOptionalFloat64.allocationSize(value.averageHeartrate) +
+        FfiConverterOptionalString.allocationSize(value.description) +
+        FfiConverterOptionalBool.allocationSize(value.trainer) +
+        FfiConverterOptionalBool.allocationSize(value.commute)
       );
     }
   }
@@ -14031,6 +14203,13 @@ export interface SyncManagerLike {
    */
   clearCredentials(): void;
   /**
+   * Create an activity with no file behind it, for indoor entries.
+   */
+  createManualActivity(
+    activity: FfiManualActivity,
+    asyncOpts_?: { signal: AbortSignal },
+  ): Promise<FfiCallOutcome>;
+  /**
    * Current status snapshot.
    */
   getSyncStatus(): FfiSyncStatus;
@@ -14089,6 +14268,30 @@ export interface SyncManagerLike {
    * same list costs nothing.
    */
   syncTimeStreams(activityIds: Array<string>): boolean;
+  /**
+   * Upload a recorded activity file.
+   *
+   * The FIT streams from `file_path`, so a long ride never crosses FFI as
+   * bytes and never lands in memory. The call resolves when the server has
+   * answered; failures come back as an outcome, not as a thrown error.
+   */
+  uploadActivity(
+    filePath: string,
+    filename: string,
+    name: string | undefined,
+    pairedEventId: /*i64*/ bigint | undefined,
+    asyncOpts_?: { signal: AbortSignal },
+  ): Promise<FfiCallOutcome>;
+  /**
+   * Check a credential against `/athlete/me` and report the athlete it
+   * belongs to. Login confirms a key this way before committing it, so the
+   * credential under test is deliberately not the one the service holds.
+   */
+  validateCredentials(
+    method: string,
+    secret: string,
+    asyncOpts_?: { signal: AbortSignal },
+  ): Promise<FfiCallOutcome>;
 }
 /**
  * @deprecated Use `SyncManagerLike` instead.
@@ -14148,6 +14351,45 @@ export class SyncManager
       },
       /*liftString:*/ FfiConverterString.lift,
     );
+  }
+
+  /**
+   * Create an activity with no file behind it, for indoor entries.
+   */
+  async createManualActivity(
+    activity: FfiManualActivity,
+    asyncOpts_?: { signal: AbortSignal },
+  ): Promise<FfiCallOutcome> {
+    const __stack = uniffiIsDebug ? new Error().stack : undefined;
+    try {
+      return await uniffiRustCallAsync(
+        /*rustCaller:*/ uniffiCaller,
+        /*rustFutureFunc:*/ () => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_syncmanager_create_manual_activity(
+            uniffiTypeSyncManagerObjectFactory.clonePointer(this),
+            FfiConverterTypeFfiManualActivity.lower(activity),
+          );
+        },
+        /*pollFunc:*/ nativeModule()
+          .ubrn_ffi_veloqrs_rust_future_poll_rust_buffer,
+        /*cancelFunc:*/ nativeModule()
+          .ubrn_ffi_veloqrs_rust_future_cancel_rust_buffer,
+        /*completeFunc:*/ nativeModule()
+          .ubrn_ffi_veloqrs_rust_future_complete_rust_buffer,
+        /*freeFunc:*/ nativeModule()
+          .ubrn_ffi_veloqrs_rust_future_free_rust_buffer,
+        /*liftFunc:*/ FfiConverterTypeFfiCallOutcome.lift.bind(
+          FfiConverterTypeFfiCallOutcome,
+        ),
+        /*liftString:*/ FfiConverterString.lift,
+        /*asyncOpts:*/ asyncOpts_,
+      );
+    } catch (__error: any) {
+      if (uniffiIsDebug && __error instanceof Error) {
+        __error.stack = __stack;
+      }
+      throw __error;
+    }
   }
 
   /**
@@ -14374,6 +14616,98 @@ export class SyncManager
         /*liftString:*/ FfiConverterString.lift,
       ),
     );
+  }
+
+  /**
+   * Upload a recorded activity file.
+   *
+   * The FIT streams from `file_path`, so a long ride never crosses FFI as
+   * bytes and never lands in memory. The call resolves when the server has
+   * answered; failures come back as an outcome, not as a thrown error.
+   */
+  async uploadActivity(
+    filePath: string,
+    filename: string,
+    name: string | undefined,
+    pairedEventId: /*i64*/ bigint | undefined,
+    asyncOpts_?: { signal: AbortSignal },
+  ): Promise<FfiCallOutcome> {
+    const __stack = uniffiIsDebug ? new Error().stack : undefined;
+    try {
+      return await uniffiRustCallAsync(
+        /*rustCaller:*/ uniffiCaller,
+        /*rustFutureFunc:*/ () => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_syncmanager_upload_activity(
+            uniffiTypeSyncManagerObjectFactory.clonePointer(this),
+            FfiConverterString.lower(filePath),
+            FfiConverterString.lower(filename),
+            FfiConverterOptionalString.lower(name),
+            FfiConverterOptionalInt64.lower(pairedEventId),
+          );
+        },
+        /*pollFunc:*/ nativeModule()
+          .ubrn_ffi_veloqrs_rust_future_poll_rust_buffer,
+        /*cancelFunc:*/ nativeModule()
+          .ubrn_ffi_veloqrs_rust_future_cancel_rust_buffer,
+        /*completeFunc:*/ nativeModule()
+          .ubrn_ffi_veloqrs_rust_future_complete_rust_buffer,
+        /*freeFunc:*/ nativeModule()
+          .ubrn_ffi_veloqrs_rust_future_free_rust_buffer,
+        /*liftFunc:*/ FfiConverterTypeFfiCallOutcome.lift.bind(
+          FfiConverterTypeFfiCallOutcome,
+        ),
+        /*liftString:*/ FfiConverterString.lift,
+        /*asyncOpts:*/ asyncOpts_,
+      );
+    } catch (__error: any) {
+      if (uniffiIsDebug && __error instanceof Error) {
+        __error.stack = __stack;
+      }
+      throw __error;
+    }
+  }
+
+  /**
+   * Check a credential against `/athlete/me` and report the athlete it
+   * belongs to. Login confirms a key this way before committing it, so the
+   * credential under test is deliberately not the one the service holds.
+   */
+  async validateCredentials(
+    method: string,
+    secret: string,
+    asyncOpts_?: { signal: AbortSignal },
+  ): Promise<FfiCallOutcome> {
+    const __stack = uniffiIsDebug ? new Error().stack : undefined;
+    try {
+      return await uniffiRustCallAsync(
+        /*rustCaller:*/ uniffiCaller,
+        /*rustFutureFunc:*/ () => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_syncmanager_validate_credentials(
+            uniffiTypeSyncManagerObjectFactory.clonePointer(this),
+            FfiConverterString.lower(method),
+            FfiConverterString.lower(secret),
+          );
+        },
+        /*pollFunc:*/ nativeModule()
+          .ubrn_ffi_veloqrs_rust_future_poll_rust_buffer,
+        /*cancelFunc:*/ nativeModule()
+          .ubrn_ffi_veloqrs_rust_future_cancel_rust_buffer,
+        /*completeFunc:*/ nativeModule()
+          .ubrn_ffi_veloqrs_rust_future_complete_rust_buffer,
+        /*freeFunc:*/ nativeModule()
+          .ubrn_ffi_veloqrs_rust_future_free_rust_buffer,
+        /*liftFunc:*/ FfiConverterTypeFfiCallOutcome.lift.bind(
+          FfiConverterTypeFfiCallOutcome,
+        ),
+        /*liftString:*/ FfiConverterString.lift,
+        /*asyncOpts:*/ asyncOpts_,
+      );
+    } catch (__error: any) {
+      if (uniffiIsDebug && __error instanceof Error) {
+        __error.stack = __stack;
+      }
+      throw __error;
+    }
   }
 
   /**
@@ -15030,6 +15364,9 @@ const uniffiTypeVeloqEngineObjectFactory: UniffiObjectFactory<VeloqEngineLike> =
 const FfiConverterTypeVeloqEngine = new FfiConverterObject(
   uniffiTypeVeloqEngineObjectFactory,
 );
+
+// FfiConverter for boolean | undefined
+const FfiConverterOptionalBool = new FfiConverterOptional(FfiConverterBool);
 
 // FfiConverter for /*f64*/number | undefined
 const FfiConverterOptionalFloat64 = new FfiConverterOptional(
@@ -17010,6 +17347,14 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_syncmanager_create_manual_activity() !==
+    62031
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_syncmanager_create_manual_activity",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_syncmanager_get_sync_status() !==
     46855
   ) {
@@ -17095,6 +17440,22 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_syncmanager_sync_time_streams",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_syncmanager_upload_activity() !==
+    17894
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_syncmanager_upload_activity",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_syncmanager_validate_credentials() !==
+    26740
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_syncmanager_validate_credentials",
     );
   }
   if (
@@ -17269,6 +17630,7 @@ export default Object.freeze({
     FfiConverterTypeFfiCalendarMonthSummary,
     FfiConverterTypeFfiCalendarSummary,
     FfiConverterTypeFfiCalendarYearSummary,
+    FfiConverterTypeFfiCallOutcome,
     FfiConverterTypeFfiDetectionProgress,
     FfiConverterTypeFfiDetectionStats,
     FfiConverterTypeFfiDirectionStats,
@@ -17289,6 +17651,7 @@ export default Object.freeze({
     FfiConverterTypeFfiIndexActivitySummary,
     FfiConverterTypeFfiInsightsData,
     FfiConverterTypeFfiInsightsParams,
+    FfiConverterTypeFfiManualActivity,
     FfiConverterTypeFfiMapScreenData,
     FfiConverterTypeFfiMapSignature,
     FfiConverterTypeFfiMatchStrictness,

@@ -673,6 +673,8 @@ void uniffi_veloqrs_fn_method_syncmanager_cancel(
     /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
 void uniffi_veloqrs_fn_method_syncmanager_clear_credentials(
     /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
+/*handle*/ uint64_t uniffi_veloqrs_fn_method_syncmanager_create_manual_activity(
+    /*handle*/ uint64_t ptr, RustBuffer activity);
 RustBuffer uniffi_veloqrs_fn_method_syncmanager_get_sync_status(
     /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
 void uniffi_veloqrs_fn_method_syncmanager_set_credentials(
@@ -704,6 +706,11 @@ int8_t uniffi_veloqrs_fn_method_syncmanager_sync_power_curve(
 int8_t uniffi_veloqrs_fn_method_syncmanager_sync_time_streams(
     /*handle*/ uint64_t ptr, RustBuffer activity_ids,
     RustCallStatus *uniffi_out_err);
+/*handle*/ uint64_t uniffi_veloqrs_fn_method_syncmanager_upload_activity(
+    /*handle*/ uint64_t ptr, RustBuffer file_path, RustBuffer filename,
+    RustBuffer name, RustBuffer paired_event_id);
+/*handle*/ uint64_t uniffi_veloqrs_fn_method_syncmanager_validate_credentials(
+    /*handle*/ uint64_t ptr, RustBuffer method, RustBuffer secret);
 /*handle*/ uint64_t uniffi_veloqrs_fn_clone_heatmapmanager(
     /*handle*/ uint64_t handle, RustCallStatus *uniffi_out_err);
 void uniffi_veloqrs_fn_free_heatmapmanager(
@@ -1084,6 +1091,7 @@ uint16_t uniffi_veloqrs_checksum_method_strengthmanager_import_sets_from_fit();
 uint16_t uniffi_veloqrs_checksum_method_strengthmanager_is_fit_processed();
 uint16_t uniffi_veloqrs_checksum_method_syncmanager_cancel();
 uint16_t uniffi_veloqrs_checksum_method_syncmanager_clear_credentials();
+uint16_t uniffi_veloqrs_checksum_method_syncmanager_create_manual_activity();
 uint16_t uniffi_veloqrs_checksum_method_syncmanager_get_sync_status();
 uint16_t uniffi_veloqrs_checksum_method_syncmanager_set_credentials();
 uint16_t uniffi_veloqrs_checksum_method_syncmanager_sync_activities_window();
@@ -1095,6 +1103,8 @@ uint16_t uniffi_veloqrs_checksum_method_syncmanager_sync_now();
 uint16_t uniffi_veloqrs_checksum_method_syncmanager_sync_pace_curve();
 uint16_t uniffi_veloqrs_checksum_method_syncmanager_sync_power_curve();
 uint16_t uniffi_veloqrs_checksum_method_syncmanager_sync_time_streams();
+uint16_t uniffi_veloqrs_checksum_method_syncmanager_upload_activity();
+uint16_t uniffi_veloqrs_checksum_method_syncmanager_validate_credentials();
 uint16_t uniffi_veloqrs_checksum_method_heatmapmanager_clear_tiles();
 uint16_t uniffi_veloqrs_checksum_method_heatmapmanager_clear_tiles_path();
 uint16_t uniffi_veloqrs_checksum_method_heatmapmanager_get_cache_size();
@@ -5046,6 +5056,18 @@ NativeVeloqrs::NativeVeloqrs(
                 ->cpp_uniffi_veloqrs_fn_method_syncmanager_clear_credentials(
                     rt, thisVal, args, count);
           });
+  props["ubrn_uniffi_veloqrs_fn_method_syncmanager_create_manual_activity"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_fn_method_"
+                                        "syncmanager_create_manual_activity"),
+          2,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_fn_method_syncmanager_create_manual_activity(
+                    rt, thisVal, args, count);
+          });
   props["ubrn_uniffi_veloqrs_fn_method_syncmanager_get_sync_status"] =
       jsi::Function::createFromHostFunction(
           rt,
@@ -5178,6 +5200,31 @@ NativeVeloqrs::NativeVeloqrs(
                  const jsi::Value *args, size_t count) -> jsi::Value {
             return this
                 ->cpp_uniffi_veloqrs_fn_method_syncmanager_sync_time_streams(
+                    rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_fn_method_syncmanager_upload_activity"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt, "ubrn_uniffi_veloqrs_fn_method_syncmanager_upload_activity"),
+          5,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_fn_method_syncmanager_upload_activity(
+                    rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_fn_method_syncmanager_validate_credentials"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt,
+              "ubrn_uniffi_veloqrs_fn_method_syncmanager_validate_credentials"),
+          3,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_fn_method_syncmanager_validate_credentials(
                     rt, thisVal, args, count);
           });
   props["ubrn_uniffi_veloqrs_fn_clone_heatmapmanager"] =
@@ -5364,6 +5411,530 @@ NativeVeloqrs::NativeVeloqrs(
                  const jsi::Value *args, size_t count) -> jsi::Value {
             return this->cpp_uniffi_veloqrs_fn_func_compute_polyline_overlap(
                 rt, thisVal, args, count);
+          });
+  props["ubrn_ffi_veloqrs_rust_future_poll_u8"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(rt, "ubrn_ffi_veloqrs_rust_future_poll_u8"),
+          3,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_ffi_veloqrs_rust_future_poll_u8(rt, thisVal, args,
+                                                             count);
+          });
+  props["ubrn_ffi_veloqrs_rust_future_cancel_u8"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(rt,
+                                    "ubrn_ffi_veloqrs_rust_future_cancel_u8"),
+          1,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_ffi_veloqrs_rust_future_cancel_u8(rt, thisVal,
+                                                               args, count);
+          });
+  props["ubrn_ffi_veloqrs_rust_future_free_u8"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(rt, "ubrn_ffi_veloqrs_rust_future_free_u8"),
+          1,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_ffi_veloqrs_rust_future_free_u8(rt, thisVal, args,
+                                                             count);
+          });
+  props["ubrn_ffi_veloqrs_rust_future_complete_u8"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(rt,
+                                    "ubrn_ffi_veloqrs_rust_future_complete_u8"),
+          1,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_ffi_veloqrs_rust_future_complete_u8(rt, thisVal,
+                                                                 args, count);
+          });
+  props["ubrn_ffi_veloqrs_rust_future_poll_i8"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(rt, "ubrn_ffi_veloqrs_rust_future_poll_i8"),
+          3,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_ffi_veloqrs_rust_future_poll_i8(rt, thisVal, args,
+                                                             count);
+          });
+  props["ubrn_ffi_veloqrs_rust_future_cancel_i8"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(rt,
+                                    "ubrn_ffi_veloqrs_rust_future_cancel_i8"),
+          1,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_ffi_veloqrs_rust_future_cancel_i8(rt, thisVal,
+                                                               args, count);
+          });
+  props["ubrn_ffi_veloqrs_rust_future_free_i8"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(rt, "ubrn_ffi_veloqrs_rust_future_free_i8"),
+          1,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_ffi_veloqrs_rust_future_free_i8(rt, thisVal, args,
+                                                             count);
+          });
+  props["ubrn_ffi_veloqrs_rust_future_complete_i8"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(rt,
+                                    "ubrn_ffi_veloqrs_rust_future_complete_i8"),
+          1,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_ffi_veloqrs_rust_future_complete_i8(rt, thisVal,
+                                                                 args, count);
+          });
+  props["ubrn_ffi_veloqrs_rust_future_poll_u16"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(rt,
+                                    "ubrn_ffi_veloqrs_rust_future_poll_u16"),
+          3,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_ffi_veloqrs_rust_future_poll_u16(rt, thisVal, args,
+                                                              count);
+          });
+  props["ubrn_ffi_veloqrs_rust_future_cancel_u16"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(rt,
+                                    "ubrn_ffi_veloqrs_rust_future_cancel_u16"),
+          1,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_ffi_veloqrs_rust_future_cancel_u16(rt, thisVal,
+                                                                args, count);
+          });
+  props["ubrn_ffi_veloqrs_rust_future_free_u16"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(rt,
+                                    "ubrn_ffi_veloqrs_rust_future_free_u16"),
+          1,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_ffi_veloqrs_rust_future_free_u16(rt, thisVal, args,
+                                                              count);
+          });
+  props["ubrn_ffi_veloqrs_rust_future_complete_u16"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt, "ubrn_ffi_veloqrs_rust_future_complete_u16"),
+          1,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_ffi_veloqrs_rust_future_complete_u16(rt, thisVal,
+                                                                  args, count);
+          });
+  props["ubrn_ffi_veloqrs_rust_future_poll_i16"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(rt,
+                                    "ubrn_ffi_veloqrs_rust_future_poll_i16"),
+          3,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_ffi_veloqrs_rust_future_poll_i16(rt, thisVal, args,
+                                                              count);
+          });
+  props["ubrn_ffi_veloqrs_rust_future_cancel_i16"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(rt,
+                                    "ubrn_ffi_veloqrs_rust_future_cancel_i16"),
+          1,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_ffi_veloqrs_rust_future_cancel_i16(rt, thisVal,
+                                                                args, count);
+          });
+  props["ubrn_ffi_veloqrs_rust_future_free_i16"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(rt,
+                                    "ubrn_ffi_veloqrs_rust_future_free_i16"),
+          1,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_ffi_veloqrs_rust_future_free_i16(rt, thisVal, args,
+                                                              count);
+          });
+  props["ubrn_ffi_veloqrs_rust_future_complete_i16"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt, "ubrn_ffi_veloqrs_rust_future_complete_i16"),
+          1,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_ffi_veloqrs_rust_future_complete_i16(rt, thisVal,
+                                                                  args, count);
+          });
+  props["ubrn_ffi_veloqrs_rust_future_poll_u32"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(rt,
+                                    "ubrn_ffi_veloqrs_rust_future_poll_u32"),
+          3,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_ffi_veloqrs_rust_future_poll_u32(rt, thisVal, args,
+                                                              count);
+          });
+  props["ubrn_ffi_veloqrs_rust_future_cancel_u32"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(rt,
+                                    "ubrn_ffi_veloqrs_rust_future_cancel_u32"),
+          1,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_ffi_veloqrs_rust_future_cancel_u32(rt, thisVal,
+                                                                args, count);
+          });
+  props["ubrn_ffi_veloqrs_rust_future_free_u32"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(rt,
+                                    "ubrn_ffi_veloqrs_rust_future_free_u32"),
+          1,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_ffi_veloqrs_rust_future_free_u32(rt, thisVal, args,
+                                                              count);
+          });
+  props["ubrn_ffi_veloqrs_rust_future_complete_u32"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt, "ubrn_ffi_veloqrs_rust_future_complete_u32"),
+          1,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_ffi_veloqrs_rust_future_complete_u32(rt, thisVal,
+                                                                  args, count);
+          });
+  props["ubrn_ffi_veloqrs_rust_future_poll_i32"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(rt,
+                                    "ubrn_ffi_veloqrs_rust_future_poll_i32"),
+          3,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_ffi_veloqrs_rust_future_poll_i32(rt, thisVal, args,
+                                                              count);
+          });
+  props["ubrn_ffi_veloqrs_rust_future_cancel_i32"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(rt,
+                                    "ubrn_ffi_veloqrs_rust_future_cancel_i32"),
+          1,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_ffi_veloqrs_rust_future_cancel_i32(rt, thisVal,
+                                                                args, count);
+          });
+  props["ubrn_ffi_veloqrs_rust_future_free_i32"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(rt,
+                                    "ubrn_ffi_veloqrs_rust_future_free_i32"),
+          1,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_ffi_veloqrs_rust_future_free_i32(rt, thisVal, args,
+                                                              count);
+          });
+  props["ubrn_ffi_veloqrs_rust_future_complete_i32"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt, "ubrn_ffi_veloqrs_rust_future_complete_i32"),
+          1,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_ffi_veloqrs_rust_future_complete_i32(rt, thisVal,
+                                                                  args, count);
+          });
+  props["ubrn_ffi_veloqrs_rust_future_poll_u64"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(rt,
+                                    "ubrn_ffi_veloqrs_rust_future_poll_u64"),
+          3,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_ffi_veloqrs_rust_future_poll_u64(rt, thisVal, args,
+                                                              count);
+          });
+  props["ubrn_ffi_veloqrs_rust_future_cancel_u64"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(rt,
+                                    "ubrn_ffi_veloqrs_rust_future_cancel_u64"),
+          1,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_ffi_veloqrs_rust_future_cancel_u64(rt, thisVal,
+                                                                args, count);
+          });
+  props["ubrn_ffi_veloqrs_rust_future_free_u64"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(rt,
+                                    "ubrn_ffi_veloqrs_rust_future_free_u64"),
+          1,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_ffi_veloqrs_rust_future_free_u64(rt, thisVal, args,
+                                                              count);
+          });
+  props["ubrn_ffi_veloqrs_rust_future_complete_u64"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt, "ubrn_ffi_veloqrs_rust_future_complete_u64"),
+          1,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_ffi_veloqrs_rust_future_complete_u64(rt, thisVal,
+                                                                  args, count);
+          });
+  props["ubrn_ffi_veloqrs_rust_future_poll_i64"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(rt,
+                                    "ubrn_ffi_veloqrs_rust_future_poll_i64"),
+          3,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_ffi_veloqrs_rust_future_poll_i64(rt, thisVal, args,
+                                                              count);
+          });
+  props["ubrn_ffi_veloqrs_rust_future_cancel_i64"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(rt,
+                                    "ubrn_ffi_veloqrs_rust_future_cancel_i64"),
+          1,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_ffi_veloqrs_rust_future_cancel_i64(rt, thisVal,
+                                                                args, count);
+          });
+  props["ubrn_ffi_veloqrs_rust_future_free_i64"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(rt,
+                                    "ubrn_ffi_veloqrs_rust_future_free_i64"),
+          1,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_ffi_veloqrs_rust_future_free_i64(rt, thisVal, args,
+                                                              count);
+          });
+  props["ubrn_ffi_veloqrs_rust_future_complete_i64"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt, "ubrn_ffi_veloqrs_rust_future_complete_i64"),
+          1,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_ffi_veloqrs_rust_future_complete_i64(rt, thisVal,
+                                                                  args, count);
+          });
+  props["ubrn_ffi_veloqrs_rust_future_poll_f32"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(rt,
+                                    "ubrn_ffi_veloqrs_rust_future_poll_f32"),
+          3,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_ffi_veloqrs_rust_future_poll_f32(rt, thisVal, args,
+                                                              count);
+          });
+  props["ubrn_ffi_veloqrs_rust_future_cancel_f32"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(rt,
+                                    "ubrn_ffi_veloqrs_rust_future_cancel_f32"),
+          1,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_ffi_veloqrs_rust_future_cancel_f32(rt, thisVal,
+                                                                args, count);
+          });
+  props["ubrn_ffi_veloqrs_rust_future_free_f32"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(rt,
+                                    "ubrn_ffi_veloqrs_rust_future_free_f32"),
+          1,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_ffi_veloqrs_rust_future_free_f32(rt, thisVal, args,
+                                                              count);
+          });
+  props["ubrn_ffi_veloqrs_rust_future_complete_f32"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt, "ubrn_ffi_veloqrs_rust_future_complete_f32"),
+          1,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_ffi_veloqrs_rust_future_complete_f32(rt, thisVal,
+                                                                  args, count);
+          });
+  props["ubrn_ffi_veloqrs_rust_future_poll_f64"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(rt,
+                                    "ubrn_ffi_veloqrs_rust_future_poll_f64"),
+          3,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_ffi_veloqrs_rust_future_poll_f64(rt, thisVal, args,
+                                                              count);
+          });
+  props["ubrn_ffi_veloqrs_rust_future_cancel_f64"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(rt,
+                                    "ubrn_ffi_veloqrs_rust_future_cancel_f64"),
+          1,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_ffi_veloqrs_rust_future_cancel_f64(rt, thisVal,
+                                                                args, count);
+          });
+  props["ubrn_ffi_veloqrs_rust_future_free_f64"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(rt,
+                                    "ubrn_ffi_veloqrs_rust_future_free_f64"),
+          1,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_ffi_veloqrs_rust_future_free_f64(rt, thisVal, args,
+                                                              count);
+          });
+  props["ubrn_ffi_veloqrs_rust_future_complete_f64"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt, "ubrn_ffi_veloqrs_rust_future_complete_f64"),
+          1,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_ffi_veloqrs_rust_future_complete_f64(rt, thisVal,
+                                                                  args, count);
+          });
+  props["ubrn_ffi_veloqrs_rust_future_poll_rust_buffer"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt, "ubrn_ffi_veloqrs_rust_future_poll_rust_buffer"),
+          3,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_ffi_veloqrs_rust_future_poll_rust_buffer(
+                rt, thisVal, args, count);
+          });
+  props["ubrn_ffi_veloqrs_rust_future_cancel_rust_buffer"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt, "ubrn_ffi_veloqrs_rust_future_cancel_rust_buffer"),
+          1,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_ffi_veloqrs_rust_future_cancel_rust_buffer(
+                rt, thisVal, args, count);
+          });
+  props["ubrn_ffi_veloqrs_rust_future_free_rust_buffer"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt, "ubrn_ffi_veloqrs_rust_future_free_rust_buffer"),
+          1,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_ffi_veloqrs_rust_future_free_rust_buffer(
+                rt, thisVal, args, count);
+          });
+  props["ubrn_ffi_veloqrs_rust_future_complete_rust_buffer"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt, "ubrn_ffi_veloqrs_rust_future_complete_rust_buffer"),
+          1,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_ffi_veloqrs_rust_future_complete_rust_buffer(
+                rt, thisVal, args, count);
+          });
+  props["ubrn_ffi_veloqrs_rust_future_poll_void"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(rt,
+                                    "ubrn_ffi_veloqrs_rust_future_poll_void"),
+          3,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_ffi_veloqrs_rust_future_poll_void(rt, thisVal,
+                                                               args, count);
+          });
+  props["ubrn_ffi_veloqrs_rust_future_cancel_void"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(rt,
+                                    "ubrn_ffi_veloqrs_rust_future_cancel_void"),
+          1,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_ffi_veloqrs_rust_future_cancel_void(rt, thisVal,
+                                                                 args, count);
+          });
+  props["ubrn_ffi_veloqrs_rust_future_free_void"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(rt,
+                                    "ubrn_ffi_veloqrs_rust_future_free_void"),
+          1,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_ffi_veloqrs_rust_future_free_void(rt, thisVal,
+                                                               args, count);
+          });
+  props["ubrn_ffi_veloqrs_rust_future_complete_void"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt, "ubrn_ffi_veloqrs_rust_future_complete_void"),
+          1,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this->cpp_ffi_veloqrs_rust_future_complete_void(rt, thisVal,
+                                                                   args, count);
           });
   props["ubrn_uniffi_veloqrs_checksum_func_detect_sections_standalone"] =
       jsi::Function::createFromHostFunction(
@@ -7715,6 +8286,18 @@ NativeVeloqrs::NativeVeloqrs(
                 ->cpp_uniffi_veloqrs_checksum_method_syncmanager_clear_credentials(
                     rt, thisVal, args, count);
           });
+  props["ubrn_uniffi_veloqrs_checksum_method_syncmanager_create_manual_"
+        "activity"] = jsi::Function::createFromHostFunction(
+      rt,
+      jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_checksum_method_"
+                                    "syncmanager_create_manual_activity"),
+      0,
+      [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+             const jsi::Value *args, size_t count) -> jsi::Value {
+        return this
+            ->cpp_uniffi_veloqrs_checksum_method_syncmanager_create_manual_activity(
+                rt, thisVal, args, count);
+      });
   props["ubrn_uniffi_veloqrs_checksum_method_syncmanager_get_sync_status"] =
       jsi::Function::createFromHostFunction(
           rt,
@@ -7847,6 +8430,30 @@ NativeVeloqrs::NativeVeloqrs(
                 ->cpp_uniffi_veloqrs_checksum_method_syncmanager_sync_time_streams(
                     rt, thisVal, args, count);
           });
+  props["ubrn_uniffi_veloqrs_checksum_method_syncmanager_upload_activity"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_checksum_method_"
+                                        "syncmanager_upload_activity"),
+          0,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_checksum_method_syncmanager_upload_activity(
+                    rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_checksum_method_syncmanager_validate_"
+        "credentials"] = jsi::Function::createFromHostFunction(
+      rt,
+      jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_checksum_method_"
+                                    "syncmanager_validate_credentials"),
+      0,
+      [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+             const jsi::Value *args, size_t count) -> jsi::Value {
+        return this
+            ->cpp_uniffi_veloqrs_checksum_method_syncmanager_validate_credentials(
+                rt, thisVal, args, count);
+      });
   props["ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_clear_tiles"] =
       jsi::Function::createFromHostFunction(
           rt,
@@ -11942,6 +12549,18 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_syncmanager_clear_credentials(
   return jsi::Value::undefined();
 }
 jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_syncmanager_create_manual_activity(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  auto value = uniffi_veloqrs_fn_method_syncmanager_create_manual_activity(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]));
+
+  return uniffi_jsi::Bridging</*handle*/ uint64_t>::toJs(rt, callInvoker,
+                                                         value);
+}
+jsi::Value
 NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_syncmanager_get_sync_status(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
     size_t count) {
@@ -12119,6 +12738,34 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_syncmanager_sync_time_streams(
                                                         args[count - 1]);
 
   return uniffi_jsi::Bridging<int8_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_syncmanager_upload_activity(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  auto value = uniffi_veloqrs_fn_method_syncmanager_upload_activity(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
+      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[2]),
+      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[3]),
+      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[4]));
+
+  return uniffi_jsi::Bridging</*handle*/ uint64_t>::toJs(rt, callInvoker,
+                                                         value);
+}
+jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_syncmanager_validate_credentials(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  auto value = uniffi_veloqrs_fn_method_syncmanager_validate_credentials(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
+      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[2]));
+
+  return uniffi_jsi::Bridging</*handle*/ uint64_t>::toJs(rt, callInvoker,
+                                                         value);
 }
 jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_clone_heatmapmanager(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
@@ -12346,6 +12993,546 @@ jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_func_compute_polyline_overlap(
                                                         args[count - 1]);
 
   return uniffi_jsi::Bridging<double>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeVeloqrs::cpp_ffi_veloqrs_rust_future_poll_u8(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  ffi_veloqrs_rust_future_poll_u8(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      uniffi::veloqrs::Bridging<UniffiRustFutureContinuationCallback>::fromJs(
+          rt, callInvoker, args[1]),
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[2]));
+
+  return jsi::Value::undefined();
+}
+jsi::Value NativeVeloqrs::cpp_ffi_veloqrs_rust_future_cancel_u8(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  ffi_veloqrs_rust_future_cancel_u8(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]));
+
+  return jsi::Value::undefined();
+}
+jsi::Value NativeVeloqrs::cpp_ffi_veloqrs_rust_future_free_u8(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  ffi_veloqrs_rust_future_free_u8(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]));
+
+  return jsi::Value::undefined();
+}
+jsi::Value NativeVeloqrs::cpp_ffi_veloqrs_rust_future_complete_u8(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value = ffi_veloqrs_rust_future_complete_u8(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return uniffi_jsi::Bridging<uint8_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeVeloqrs::cpp_ffi_veloqrs_rust_future_poll_i8(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  ffi_veloqrs_rust_future_poll_i8(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      uniffi::veloqrs::Bridging<UniffiRustFutureContinuationCallback>::fromJs(
+          rt, callInvoker, args[1]),
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[2]));
+
+  return jsi::Value::undefined();
+}
+jsi::Value NativeVeloqrs::cpp_ffi_veloqrs_rust_future_cancel_i8(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  ffi_veloqrs_rust_future_cancel_i8(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]));
+
+  return jsi::Value::undefined();
+}
+jsi::Value NativeVeloqrs::cpp_ffi_veloqrs_rust_future_free_i8(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  ffi_veloqrs_rust_future_free_i8(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]));
+
+  return jsi::Value::undefined();
+}
+jsi::Value NativeVeloqrs::cpp_ffi_veloqrs_rust_future_complete_i8(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value = ffi_veloqrs_rust_future_complete_i8(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return uniffi_jsi::Bridging<int8_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeVeloqrs::cpp_ffi_veloqrs_rust_future_poll_u16(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  ffi_veloqrs_rust_future_poll_u16(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      uniffi::veloqrs::Bridging<UniffiRustFutureContinuationCallback>::fromJs(
+          rt, callInvoker, args[1]),
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[2]));
+
+  return jsi::Value::undefined();
+}
+jsi::Value NativeVeloqrs::cpp_ffi_veloqrs_rust_future_cancel_u16(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  ffi_veloqrs_rust_future_cancel_u16(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]));
+
+  return jsi::Value::undefined();
+}
+jsi::Value NativeVeloqrs::cpp_ffi_veloqrs_rust_future_free_u16(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  ffi_veloqrs_rust_future_free_u16(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]));
+
+  return jsi::Value::undefined();
+}
+jsi::Value NativeVeloqrs::cpp_ffi_veloqrs_rust_future_complete_u16(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value = ffi_veloqrs_rust_future_complete_u16(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeVeloqrs::cpp_ffi_veloqrs_rust_future_poll_i16(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  ffi_veloqrs_rust_future_poll_i16(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      uniffi::veloqrs::Bridging<UniffiRustFutureContinuationCallback>::fromJs(
+          rt, callInvoker, args[1]),
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[2]));
+
+  return jsi::Value::undefined();
+}
+jsi::Value NativeVeloqrs::cpp_ffi_veloqrs_rust_future_cancel_i16(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  ffi_veloqrs_rust_future_cancel_i16(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]));
+
+  return jsi::Value::undefined();
+}
+jsi::Value NativeVeloqrs::cpp_ffi_veloqrs_rust_future_free_i16(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  ffi_veloqrs_rust_future_free_i16(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]));
+
+  return jsi::Value::undefined();
+}
+jsi::Value NativeVeloqrs::cpp_ffi_veloqrs_rust_future_complete_i16(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value = ffi_veloqrs_rust_future_complete_i16(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return uniffi_jsi::Bridging<int16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeVeloqrs::cpp_ffi_veloqrs_rust_future_poll_u32(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  ffi_veloqrs_rust_future_poll_u32(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      uniffi::veloqrs::Bridging<UniffiRustFutureContinuationCallback>::fromJs(
+          rt, callInvoker, args[1]),
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[2]));
+
+  return jsi::Value::undefined();
+}
+jsi::Value NativeVeloqrs::cpp_ffi_veloqrs_rust_future_cancel_u32(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  ffi_veloqrs_rust_future_cancel_u32(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]));
+
+  return jsi::Value::undefined();
+}
+jsi::Value NativeVeloqrs::cpp_ffi_veloqrs_rust_future_free_u32(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  ffi_veloqrs_rust_future_free_u32(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]));
+
+  return jsi::Value::undefined();
+}
+jsi::Value NativeVeloqrs::cpp_ffi_veloqrs_rust_future_complete_u32(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value = ffi_veloqrs_rust_future_complete_u32(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return uniffi_jsi::Bridging<uint32_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeVeloqrs::cpp_ffi_veloqrs_rust_future_poll_i32(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  ffi_veloqrs_rust_future_poll_i32(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      uniffi::veloqrs::Bridging<UniffiRustFutureContinuationCallback>::fromJs(
+          rt, callInvoker, args[1]),
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[2]));
+
+  return jsi::Value::undefined();
+}
+jsi::Value NativeVeloqrs::cpp_ffi_veloqrs_rust_future_cancel_i32(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  ffi_veloqrs_rust_future_cancel_i32(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]));
+
+  return jsi::Value::undefined();
+}
+jsi::Value NativeVeloqrs::cpp_ffi_veloqrs_rust_future_free_i32(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  ffi_veloqrs_rust_future_free_i32(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]));
+
+  return jsi::Value::undefined();
+}
+jsi::Value NativeVeloqrs::cpp_ffi_veloqrs_rust_future_complete_i32(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value = ffi_veloqrs_rust_future_complete_i32(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return uniffi_jsi::Bridging<int32_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeVeloqrs::cpp_ffi_veloqrs_rust_future_poll_u64(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  ffi_veloqrs_rust_future_poll_u64(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      uniffi::veloqrs::Bridging<UniffiRustFutureContinuationCallback>::fromJs(
+          rt, callInvoker, args[1]),
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[2]));
+
+  return jsi::Value::undefined();
+}
+jsi::Value NativeVeloqrs::cpp_ffi_veloqrs_rust_future_cancel_u64(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  ffi_veloqrs_rust_future_cancel_u64(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]));
+
+  return jsi::Value::undefined();
+}
+jsi::Value NativeVeloqrs::cpp_ffi_veloqrs_rust_future_free_u64(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  ffi_veloqrs_rust_future_free_u64(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]));
+
+  return jsi::Value::undefined();
+}
+jsi::Value NativeVeloqrs::cpp_ffi_veloqrs_rust_future_complete_u64(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value = ffi_veloqrs_rust_future_complete_u64(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return uniffi_jsi::Bridging<uint64_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeVeloqrs::cpp_ffi_veloqrs_rust_future_poll_i64(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  ffi_veloqrs_rust_future_poll_i64(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      uniffi::veloqrs::Bridging<UniffiRustFutureContinuationCallback>::fromJs(
+          rt, callInvoker, args[1]),
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[2]));
+
+  return jsi::Value::undefined();
+}
+jsi::Value NativeVeloqrs::cpp_ffi_veloqrs_rust_future_cancel_i64(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  ffi_veloqrs_rust_future_cancel_i64(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]));
+
+  return jsi::Value::undefined();
+}
+jsi::Value NativeVeloqrs::cpp_ffi_veloqrs_rust_future_free_i64(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  ffi_veloqrs_rust_future_free_i64(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]));
+
+  return jsi::Value::undefined();
+}
+jsi::Value NativeVeloqrs::cpp_ffi_veloqrs_rust_future_complete_i64(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value = ffi_veloqrs_rust_future_complete_i64(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return uniffi_jsi::Bridging<int64_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeVeloqrs::cpp_ffi_veloqrs_rust_future_poll_f32(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  ffi_veloqrs_rust_future_poll_f32(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      uniffi::veloqrs::Bridging<UniffiRustFutureContinuationCallback>::fromJs(
+          rt, callInvoker, args[1]),
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[2]));
+
+  return jsi::Value::undefined();
+}
+jsi::Value NativeVeloqrs::cpp_ffi_veloqrs_rust_future_cancel_f32(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  ffi_veloqrs_rust_future_cancel_f32(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]));
+
+  return jsi::Value::undefined();
+}
+jsi::Value NativeVeloqrs::cpp_ffi_veloqrs_rust_future_free_f32(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  ffi_veloqrs_rust_future_free_f32(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]));
+
+  return jsi::Value::undefined();
+}
+jsi::Value NativeVeloqrs::cpp_ffi_veloqrs_rust_future_complete_f32(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value = ffi_veloqrs_rust_future_complete_f32(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return uniffi_jsi::Bridging<float>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeVeloqrs::cpp_ffi_veloqrs_rust_future_poll_f64(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  ffi_veloqrs_rust_future_poll_f64(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      uniffi::veloqrs::Bridging<UniffiRustFutureContinuationCallback>::fromJs(
+          rt, callInvoker, args[1]),
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[2]));
+
+  return jsi::Value::undefined();
+}
+jsi::Value NativeVeloqrs::cpp_ffi_veloqrs_rust_future_cancel_f64(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  ffi_veloqrs_rust_future_cancel_f64(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]));
+
+  return jsi::Value::undefined();
+}
+jsi::Value NativeVeloqrs::cpp_ffi_veloqrs_rust_future_free_f64(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  ffi_veloqrs_rust_future_free_f64(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]));
+
+  return jsi::Value::undefined();
+}
+jsi::Value NativeVeloqrs::cpp_ffi_veloqrs_rust_future_complete_f64(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value = ffi_veloqrs_rust_future_complete_f64(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return uniffi_jsi::Bridging<double>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeVeloqrs::cpp_ffi_veloqrs_rust_future_poll_rust_buffer(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  ffi_veloqrs_rust_future_poll_rust_buffer(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      uniffi::veloqrs::Bridging<UniffiRustFutureContinuationCallback>::fromJs(
+          rt, callInvoker, args[1]),
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[2]));
+
+  return jsi::Value::undefined();
+}
+jsi::Value NativeVeloqrs::cpp_ffi_veloqrs_rust_future_cancel_rust_buffer(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  ffi_veloqrs_rust_future_cancel_rust_buffer(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]));
+
+  return jsi::Value::undefined();
+}
+jsi::Value NativeVeloqrs::cpp_ffi_veloqrs_rust_future_free_rust_buffer(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  ffi_veloqrs_rust_future_free_rust_buffer(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]));
+
+  return jsi::Value::undefined();
+}
+jsi::Value NativeVeloqrs::cpp_ffi_veloqrs_rust_future_complete_rust_buffer(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value = ffi_veloqrs_rust_future_complete_rust_buffer(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeVeloqrs::cpp_ffi_veloqrs_rust_future_poll_void(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  ffi_veloqrs_rust_future_poll_void(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      uniffi::veloqrs::Bridging<UniffiRustFutureContinuationCallback>::fromJs(
+          rt, callInvoker, args[1]),
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[2]));
+
+  return jsi::Value::undefined();
+}
+jsi::Value NativeVeloqrs::cpp_ffi_veloqrs_rust_future_cancel_void(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  ffi_veloqrs_rust_future_cancel_void(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]));
+
+  return jsi::Value::undefined();
+}
+jsi::Value NativeVeloqrs::cpp_ffi_veloqrs_rust_future_free_void(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  ffi_veloqrs_rust_future_free_void(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]));
+
+  return jsi::Value::undefined();
+}
+jsi::Value NativeVeloqrs::cpp_ffi_veloqrs_rust_future_complete_void(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  ffi_veloqrs_rust_future_complete_void(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return jsi::Value::undefined();
 }
 jsi::Value
 NativeVeloqrs::cpp_uniffi_veloqrs_checksum_func_detect_sections_standalone(
@@ -13988,6 +15175,15 @@ NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_syncmanager_clear_credentials(
 
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
+jsi::Value NativeVeloqrs::
+    cpp_uniffi_veloqrs_checksum_method_syncmanager_create_manual_activity(
+        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+        size_t count) {
+  auto value =
+      uniffi_veloqrs_checksum_method_syncmanager_create_manual_activity();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
 jsi::Value
 NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_syncmanager_get_sync_status(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
@@ -14078,6 +15274,23 @@ NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_syncmanager_sync_time_streams(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
     size_t count) {
   auto value = uniffi_veloqrs_checksum_method_syncmanager_sync_time_streams();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_syncmanager_upload_activity(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  auto value = uniffi_veloqrs_checksum_method_syncmanager_upload_activity();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeVeloqrs::
+    cpp_uniffi_veloqrs_checksum_method_syncmanager_validate_credentials(
+        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+        size_t count) {
+  auto value =
+      uniffi_veloqrs_checksum_method_syncmanager_validate_credentials();
 
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }

@@ -722,6 +722,9 @@ protected:
   jsi::Value cpp_uniffi_veloqrs_fn_method_syncmanager_clear_credentials(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
+  jsi::Value cpp_uniffi_veloqrs_fn_method_syncmanager_create_manual_activity(
+      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+      size_t count);
   jsi::Value cpp_uniffi_veloqrs_fn_method_syncmanager_get_sync_status(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
@@ -753,6 +756,12 @@ protected:
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value cpp_uniffi_veloqrs_fn_method_syncmanager_sync_time_streams(
+      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+      size_t count);
+  jsi::Value cpp_uniffi_veloqrs_fn_method_syncmanager_upload_activity(
+      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+      size_t count);
+  jsi::Value cpp_uniffi_veloqrs_fn_method_syncmanager_validate_credentials(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value cpp_uniffi_veloqrs_fn_clone_heatmapmanager(
@@ -801,6 +810,193 @@ protected:
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value cpp_uniffi_veloqrs_fn_func_compute_polyline_overlap(
+      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+      size_t count);
+  jsi::Value cpp_ffi_veloqrs_rust_future_poll_u8(jsi::Runtime &rt,
+                                                 const jsi::Value &thisVal,
+                                                 const jsi::Value *args,
+                                                 size_t count);
+  jsi::Value cpp_ffi_veloqrs_rust_future_cancel_u8(jsi::Runtime &rt,
+                                                   const jsi::Value &thisVal,
+                                                   const jsi::Value *args,
+                                                   size_t count);
+  jsi::Value cpp_ffi_veloqrs_rust_future_free_u8(jsi::Runtime &rt,
+                                                 const jsi::Value &thisVal,
+                                                 const jsi::Value *args,
+                                                 size_t count);
+  jsi::Value cpp_ffi_veloqrs_rust_future_complete_u8(jsi::Runtime &rt,
+                                                     const jsi::Value &thisVal,
+                                                     const jsi::Value *args,
+                                                     size_t count);
+  jsi::Value cpp_ffi_veloqrs_rust_future_poll_i8(jsi::Runtime &rt,
+                                                 const jsi::Value &thisVal,
+                                                 const jsi::Value *args,
+                                                 size_t count);
+  jsi::Value cpp_ffi_veloqrs_rust_future_cancel_i8(jsi::Runtime &rt,
+                                                   const jsi::Value &thisVal,
+                                                   const jsi::Value *args,
+                                                   size_t count);
+  jsi::Value cpp_ffi_veloqrs_rust_future_free_i8(jsi::Runtime &rt,
+                                                 const jsi::Value &thisVal,
+                                                 const jsi::Value *args,
+                                                 size_t count);
+  jsi::Value cpp_ffi_veloqrs_rust_future_complete_i8(jsi::Runtime &rt,
+                                                     const jsi::Value &thisVal,
+                                                     const jsi::Value *args,
+                                                     size_t count);
+  jsi::Value cpp_ffi_veloqrs_rust_future_poll_u16(jsi::Runtime &rt,
+                                                  const jsi::Value &thisVal,
+                                                  const jsi::Value *args,
+                                                  size_t count);
+  jsi::Value cpp_ffi_veloqrs_rust_future_cancel_u16(jsi::Runtime &rt,
+                                                    const jsi::Value &thisVal,
+                                                    const jsi::Value *args,
+                                                    size_t count);
+  jsi::Value cpp_ffi_veloqrs_rust_future_free_u16(jsi::Runtime &rt,
+                                                  const jsi::Value &thisVal,
+                                                  const jsi::Value *args,
+                                                  size_t count);
+  jsi::Value cpp_ffi_veloqrs_rust_future_complete_u16(jsi::Runtime &rt,
+                                                      const jsi::Value &thisVal,
+                                                      const jsi::Value *args,
+                                                      size_t count);
+  jsi::Value cpp_ffi_veloqrs_rust_future_poll_i16(jsi::Runtime &rt,
+                                                  const jsi::Value &thisVal,
+                                                  const jsi::Value *args,
+                                                  size_t count);
+  jsi::Value cpp_ffi_veloqrs_rust_future_cancel_i16(jsi::Runtime &rt,
+                                                    const jsi::Value &thisVal,
+                                                    const jsi::Value *args,
+                                                    size_t count);
+  jsi::Value cpp_ffi_veloqrs_rust_future_free_i16(jsi::Runtime &rt,
+                                                  const jsi::Value &thisVal,
+                                                  const jsi::Value *args,
+                                                  size_t count);
+  jsi::Value cpp_ffi_veloqrs_rust_future_complete_i16(jsi::Runtime &rt,
+                                                      const jsi::Value &thisVal,
+                                                      const jsi::Value *args,
+                                                      size_t count);
+  jsi::Value cpp_ffi_veloqrs_rust_future_poll_u32(jsi::Runtime &rt,
+                                                  const jsi::Value &thisVal,
+                                                  const jsi::Value *args,
+                                                  size_t count);
+  jsi::Value cpp_ffi_veloqrs_rust_future_cancel_u32(jsi::Runtime &rt,
+                                                    const jsi::Value &thisVal,
+                                                    const jsi::Value *args,
+                                                    size_t count);
+  jsi::Value cpp_ffi_veloqrs_rust_future_free_u32(jsi::Runtime &rt,
+                                                  const jsi::Value &thisVal,
+                                                  const jsi::Value *args,
+                                                  size_t count);
+  jsi::Value cpp_ffi_veloqrs_rust_future_complete_u32(jsi::Runtime &rt,
+                                                      const jsi::Value &thisVal,
+                                                      const jsi::Value *args,
+                                                      size_t count);
+  jsi::Value cpp_ffi_veloqrs_rust_future_poll_i32(jsi::Runtime &rt,
+                                                  const jsi::Value &thisVal,
+                                                  const jsi::Value *args,
+                                                  size_t count);
+  jsi::Value cpp_ffi_veloqrs_rust_future_cancel_i32(jsi::Runtime &rt,
+                                                    const jsi::Value &thisVal,
+                                                    const jsi::Value *args,
+                                                    size_t count);
+  jsi::Value cpp_ffi_veloqrs_rust_future_free_i32(jsi::Runtime &rt,
+                                                  const jsi::Value &thisVal,
+                                                  const jsi::Value *args,
+                                                  size_t count);
+  jsi::Value cpp_ffi_veloqrs_rust_future_complete_i32(jsi::Runtime &rt,
+                                                      const jsi::Value &thisVal,
+                                                      const jsi::Value *args,
+                                                      size_t count);
+  jsi::Value cpp_ffi_veloqrs_rust_future_poll_u64(jsi::Runtime &rt,
+                                                  const jsi::Value &thisVal,
+                                                  const jsi::Value *args,
+                                                  size_t count);
+  jsi::Value cpp_ffi_veloqrs_rust_future_cancel_u64(jsi::Runtime &rt,
+                                                    const jsi::Value &thisVal,
+                                                    const jsi::Value *args,
+                                                    size_t count);
+  jsi::Value cpp_ffi_veloqrs_rust_future_free_u64(jsi::Runtime &rt,
+                                                  const jsi::Value &thisVal,
+                                                  const jsi::Value *args,
+                                                  size_t count);
+  jsi::Value cpp_ffi_veloqrs_rust_future_complete_u64(jsi::Runtime &rt,
+                                                      const jsi::Value &thisVal,
+                                                      const jsi::Value *args,
+                                                      size_t count);
+  jsi::Value cpp_ffi_veloqrs_rust_future_poll_i64(jsi::Runtime &rt,
+                                                  const jsi::Value &thisVal,
+                                                  const jsi::Value *args,
+                                                  size_t count);
+  jsi::Value cpp_ffi_veloqrs_rust_future_cancel_i64(jsi::Runtime &rt,
+                                                    const jsi::Value &thisVal,
+                                                    const jsi::Value *args,
+                                                    size_t count);
+  jsi::Value cpp_ffi_veloqrs_rust_future_free_i64(jsi::Runtime &rt,
+                                                  const jsi::Value &thisVal,
+                                                  const jsi::Value *args,
+                                                  size_t count);
+  jsi::Value cpp_ffi_veloqrs_rust_future_complete_i64(jsi::Runtime &rt,
+                                                      const jsi::Value &thisVal,
+                                                      const jsi::Value *args,
+                                                      size_t count);
+  jsi::Value cpp_ffi_veloqrs_rust_future_poll_f32(jsi::Runtime &rt,
+                                                  const jsi::Value &thisVal,
+                                                  const jsi::Value *args,
+                                                  size_t count);
+  jsi::Value cpp_ffi_veloqrs_rust_future_cancel_f32(jsi::Runtime &rt,
+                                                    const jsi::Value &thisVal,
+                                                    const jsi::Value *args,
+                                                    size_t count);
+  jsi::Value cpp_ffi_veloqrs_rust_future_free_f32(jsi::Runtime &rt,
+                                                  const jsi::Value &thisVal,
+                                                  const jsi::Value *args,
+                                                  size_t count);
+  jsi::Value cpp_ffi_veloqrs_rust_future_complete_f32(jsi::Runtime &rt,
+                                                      const jsi::Value &thisVal,
+                                                      const jsi::Value *args,
+                                                      size_t count);
+  jsi::Value cpp_ffi_veloqrs_rust_future_poll_f64(jsi::Runtime &rt,
+                                                  const jsi::Value &thisVal,
+                                                  const jsi::Value *args,
+                                                  size_t count);
+  jsi::Value cpp_ffi_veloqrs_rust_future_cancel_f64(jsi::Runtime &rt,
+                                                    const jsi::Value &thisVal,
+                                                    const jsi::Value *args,
+                                                    size_t count);
+  jsi::Value cpp_ffi_veloqrs_rust_future_free_f64(jsi::Runtime &rt,
+                                                  const jsi::Value &thisVal,
+                                                  const jsi::Value *args,
+                                                  size_t count);
+  jsi::Value cpp_ffi_veloqrs_rust_future_complete_f64(jsi::Runtime &rt,
+                                                      const jsi::Value &thisVal,
+                                                      const jsi::Value *args,
+                                                      size_t count);
+  jsi::Value cpp_ffi_veloqrs_rust_future_poll_rust_buffer(
+      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+      size_t count);
+  jsi::Value cpp_ffi_veloqrs_rust_future_cancel_rust_buffer(
+      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+      size_t count);
+  jsi::Value cpp_ffi_veloqrs_rust_future_free_rust_buffer(
+      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+      size_t count);
+  jsi::Value cpp_ffi_veloqrs_rust_future_complete_rust_buffer(
+      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+      size_t count);
+  jsi::Value cpp_ffi_veloqrs_rust_future_poll_void(jsi::Runtime &rt,
+                                                   const jsi::Value &thisVal,
+                                                   const jsi::Value *args,
+                                                   size_t count);
+  jsi::Value cpp_ffi_veloqrs_rust_future_cancel_void(jsi::Runtime &rt,
+                                                     const jsi::Value &thisVal,
+                                                     const jsi::Value *args,
+                                                     size_t count);
+  jsi::Value cpp_ffi_veloqrs_rust_future_free_void(jsi::Runtime &rt,
+                                                   const jsi::Value &thisVal,
+                                                   const jsi::Value *args,
+                                                   size_t count);
+  jsi::Value cpp_ffi_veloqrs_rust_future_complete_void(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value cpp_uniffi_veloqrs_checksum_func_detect_sections_standalone(
@@ -1479,6 +1675,10 @@ protected:
   jsi::Value cpp_uniffi_veloqrs_checksum_method_syncmanager_clear_credentials(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
+  jsi::Value
+  cpp_uniffi_veloqrs_checksum_method_syncmanager_create_manual_activity(
+      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+      size_t count);
   jsi::Value cpp_uniffi_veloqrs_checksum_method_syncmanager_get_sync_status(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
@@ -1515,6 +1715,13 @@ protected:
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value cpp_uniffi_veloqrs_checksum_method_syncmanager_sync_time_streams(
+      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+      size_t count);
+  jsi::Value cpp_uniffi_veloqrs_checksum_method_syncmanager_upload_activity(
+      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+      size_t count);
+  jsi::Value
+  cpp_uniffi_veloqrs_checksum_method_syncmanager_validate_credentials(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value cpp_uniffi_veloqrs_checksum_method_heatmapmanager_clear_tiles(
