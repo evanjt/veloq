@@ -6,7 +6,7 @@
  * Used by tests to validate TypeScript bindings match Rust exports.
  *
  * 6 standalone `#[uniffi::export]` functions plus
- * 216 methods inside `#[uniffi::export] impl` blocks across
+ * 217 methods inside `#[uniffi::export] impl` blocks across
  * 11 UniFFI Objects.
  */
 
@@ -29,7 +29,7 @@ export interface FfiExportInfo {
 
 /**
  * All FFI exports from Rust source.
- * Total: 222 exports (6 standalone + 216 methods)
+ * Total: 223 exports (6 standalone + 217 methods)
  */
 export const FFI_EXPORTS: FfiExportInfo[] = [
   {
@@ -991,10 +991,19 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     object: 'RouteManager',
   },
   {
+    name: 'get_detail_data',
+    camelName: 'getDetailData',
+    file: 'objects/routes.rs',
+    line: 194,
+    paramCount: 3,
+    returnType: 'Result<crate::FfiRouteDetailData, VeloqError>',
+    object: 'RouteManager',
+  },
+  {
     name: 'set_representative',
     camelName: 'setRepresentative',
     file: 'objects/routes.rs',
-    line: 191,
+    line: 209,
     paramCount: 2,
     returnType: 'Result<(), VeloqError>',
     object: 'RouteManager',
@@ -2137,6 +2146,7 @@ export const EXPECTED_TS_FUNCTIONS = new Set<string>([
   'getExcludedActivities',
   'getExcludedPerformances',
   'getActivityRouteHighlights',
+  'getDetailData',
   'setRepresentative',
   'new',
   'getAll',

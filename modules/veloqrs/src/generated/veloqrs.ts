@@ -4575,6 +4575,107 @@ const FfiConverterTypeFfiRecentPR = (() => {
 })();
 
 /**
+ * Everything the route detail screen paints with in one call.
+ *
+ * The performances are unfiltered: the screen derives its sport pills from
+ * them and only asks for a filtered read once the user picks a sport.
+ */
+export type FfiRouteDetailData = {
+  /**
+   * Total activities held by the engine
+   */
+  activityCount: /*u32*/ number;
+  /**
+   * The route itself, or `None` when the ID is unknown
+   */
+  group?: FfiRouteGroup;
+  /**
+   * Route groups above the caller's minimum, most attempts first
+   */
+  groups: Array<FfiRouteGroup>;
+  /**
+   * Every attempt on the route, across sports
+   */
+  performances: FfiRoutePerformanceResult;
+  /**
+   * Consensus polyline, delta+varint encoded
+   */
+  encodedConsensus: ArrayBuffer;
+  /**
+   * User-set route names by route ID
+   */
+  routeNames: Map<string, string>;
+  /**
+   * Activities the user excluded from this route
+   */
+  excludedActivityIds: Array<string>;
+  /**
+   * Simplified GPS signatures for the route's activities
+   */
+  mapSignatures: Array<FfiMapSignature>;
+};
+
+/**
+ * Generated factory for {@link FfiRouteDetailData} record objects.
+ */
+export const FfiRouteDetailData = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiRouteDetailData, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiRouteDetailData>,
+  });
+})();
+
+const FfiConverterTypeFfiRouteDetailData = (() => {
+  type TypeName = FfiRouteDetailData;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        activityCount: FfiConverterUInt32.read(from),
+        group: FfiConverterOptionalTypeFfiRouteGroup.read(from),
+        groups: FfiConverterArrayTypeFfiRouteGroup.read(from),
+        performances: FfiConverterTypeFfiRoutePerformanceResult.read(from),
+        encodedConsensus: FfiConverterArrayBuffer.read(from),
+        routeNames: FfiConverterMapStringString.read(from),
+        excludedActivityIds: FfiConverterArrayString.read(from),
+        mapSignatures: FfiConverterArrayTypeFfiMapSignature.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterUInt32.write(value.activityCount, into);
+      FfiConverterOptionalTypeFfiRouteGroup.write(value.group, into);
+      FfiConverterArrayTypeFfiRouteGroup.write(value.groups, into);
+      FfiConverterTypeFfiRoutePerformanceResult.write(value.performances, into);
+      FfiConverterArrayBuffer.write(value.encodedConsensus, into);
+      FfiConverterMapStringString.write(value.routeNames, into);
+      FfiConverterArrayString.write(value.excludedActivityIds, into);
+      FfiConverterArrayTypeFfiMapSignature.write(value.mapSignatures, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterUInt32.allocationSize(value.activityCount) +
+        FfiConverterOptionalTypeFfiRouteGroup.allocationSize(value.group) +
+        FfiConverterArrayTypeFfiRouteGroup.allocationSize(value.groups) +
+        FfiConverterTypeFfiRoutePerformanceResult.allocationSize(
+          value.performances,
+        ) +
+        FfiConverterArrayBuffer.allocationSize(value.encodedConsensus) +
+        FfiConverterMapStringString.allocationSize(value.routeNames) +
+        FfiConverterArrayString.allocationSize(value.excludedActivityIds) +
+        FfiConverterArrayTypeFfiMapSignature.allocationSize(value.mapSignatures)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * Route group for FFI
  */
 export type FfiRouteGroup = {
@@ -10578,6 +10679,16 @@ export interface RouteManagerLike {
   getAllNames() /*throws*/ : Map<string, string>;
   getById(groupId: string) /*throws*/ : FfiRouteGroup | undefined;
   getConsensusRoute(groupId: string) /*throws*/ : Array<FfiGpsPoint>;
+  /**
+   * Everything the route detail screen paints with: engine counts, the
+   * route and the group list it is ranked within, every attempt across
+   * sports, the consensus polyline, names, exclusions and signatures.
+   */
+  getDetailData(
+    groupId: string,
+    currentActivityId: string | undefined,
+    minGroupActivities: /*u32*/ number,
+  ) /*throws*/ : FfiRouteDetailData;
   getExcludedActivities(routeId: string) /*throws*/ : Array<string>;
   getExcludedPerformances(
     routeId: string,
@@ -10743,6 +10854,35 @@ export class RouteManager
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_routemanager_get_consensus_route(
             uniffiTypeRouteManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(groupId),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * Everything the route detail screen paints with: engine counts, the
+   * route and the group list it is ranked within, every attempt across
+   * sports, the consensus polyline, names, exclusions and signatures.
+   */
+  getDetailData(
+    groupId: string,
+    currentActivityId: string | undefined,
+    minGroupActivities: /*u32*/ number,
+  ): FfiRouteDetailData /*throws*/ {
+    return FfiConverterTypeFfiRouteDetailData.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_routemanager_get_detail_data(
+            uniffiTypeRouteManagerObjectFactory.clonePointer(this),
+            FfiConverterString.lower(groupId),
+            FfiConverterOptionalString.lower(currentActivityId),
+            FfiConverterUInt32.lower(minGroupActivities),
             callStatus,
           );
         },
@@ -15826,6 +15966,14 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_routemanager_get_detail_data() !==
+    12067
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_routemanager_get_detail_data",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_routemanager_get_excluded_activities() !==
     49615
   ) {
@@ -16906,6 +17054,7 @@ export default Object.freeze({
     FfiConverterTypeFfiRankedSection,
     FfiConverterTypeFfiRankedSectionsBySport,
     FfiConverterTypeFfiRecentPR,
+    FfiConverterTypeFfiRouteDetailData,
     FfiConverterTypeFfiRouteGroup,
     FfiConverterTypeFfiRoutePerformance,
     FfiConverterTypeFfiRoutePerformanceResult,
