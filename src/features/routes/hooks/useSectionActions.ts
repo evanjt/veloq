@@ -36,6 +36,8 @@ interface UseSectionActionsArgs {
    * Typically a setter that increments a refresh key counter.
    */
   onSectionRefresh: () => void;
+  /** Exclusions a caller already read, so this hook skips its own FFI call. */
+  preComputedExcludedActivityIds?: string[];
   /**
    * Refresh signal owned by the container. Re-reads excluded activity ids
    * from the engine whenever this value changes (so external mutations via
@@ -102,6 +104,7 @@ export function useSectionActions({
   isSectionDisabled,
   onSectionRefresh,
   sectionRefreshKey,
+  preComputedExcludedActivityIds,
 }: UseSectionActionsArgs): UseSectionActionsResult {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
@@ -135,11 +138,15 @@ export function useSectionActions({
   // refresh (via `sectionRefreshKey` bump).
   useEffect(() => {
     if (!id) return;
+    if (preComputedExcludedActivityIds) {
+      setExcludedActivityIds(new Set(preComputedExcludedActivityIds));
+      return;
+    }
     const engine = getRouteEngine();
     if (!engine) return;
     const ids = engine.getExcludedActivityIds(id);
     setExcludedActivityIds(new Set(ids));
-  }, [id, sectionRefreshKey]);
+  }, [id, sectionRefreshKey, preComputedExcludedActivityIds]);
 
   // --- name edit actions ---
   const handleStartEditing = useCallback(() => {

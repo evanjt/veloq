@@ -17,6 +17,8 @@ import type {
   FfiRouteGroup,
   FfiFrequentSection,
   FfiSection,
+  FfiSectionDetailData,
+  FfiSectionPerformanceData,
   FfiSectionPerformanceResult,
   FfiCalendarSummary,
   FfiRoutePerformanceResult,
@@ -459,6 +461,19 @@ class RouteEngineClient implements DelegateHost {
 
   getSectionCalendarSummary = (sectionId: string): FfiCalendarSummary | null =>
     sectionDelegates.getSectionCalendarSummary(this, sectionId);
+
+  getSectionDetailData = (
+    sectionId: string,
+    nearbyRadiusMeters: number
+  ): FfiSectionDetailData | undefined =>
+    sectionDelegates.getSectionDetailData(this, sectionId, nearbyRadiusMeters);
+
+  getSectionDetailPerformance = (
+    sectionId: string,
+    timeRangeDays: number,
+    sportFilter?: string
+  ): FfiSectionPerformanceData | undefined =>
+    sectionDelegates.getSectionDetailPerformance(this, sectionId, timeRangeDays, sportFilter);
 
   /** Queues metrics until init completes, then delegates to activities module. */
   setActivityMetrics(metrics: FfiActivityMetrics[]): void {

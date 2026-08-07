@@ -77,32 +77,88 @@ interface UseSectionPerformancesResult {
   refetch: () => void;
 }
 
+/** Performance records in the shape the section screens render. */
+export interface SectionPerformanceView {
+  records: SectionPerformanceRecord[];
+  bestRecord: SectionPerformanceRecord | null;
+  bestForwardRecord: SectionPerformanceRecord | null;
+  bestReverseRecord: SectionPerformanceRecord | null;
+  forwardStats: DirectionStats | null;
+  reverseStats: DirectionStats | null;
+}
+
+export const EMPTY_PERFORMANCE_VIEW: SectionPerformanceView = {
+  records: [],
+  bestRecord: null,
+  bestForwardRecord: null,
+  bestReverseRecord: null,
+  forwardStats: null,
+  reverseStats: null,
+};
+
+/** Convert FFI records to the render shape (Date conversion, direction cast). */
+export function toPerformanceView(result: SectionPerformanceResult): SectionPerformanceView {
+  const toActivityRecord = (
+    r: SectionPerformanceResult['records'][0]
+  ): SectionPerformanceRecord => ({
+    activityId: r.activityId,
+    activityName: r.activityName,
+    activityDate: fromUnixSeconds(r.activityDate) ?? new Date(),
+    laps: (r.laps || []).map((l) => ({
+      id: l.id,
+      activityId: l.activityId,
+      time: l.time,
+      pace: l.pace,
+      distance: l.distance,
+      direction: castDirection(l.direction),
+      startIndex: l.startIndex,
+      endIndex: l.endIndex,
+    })),
+    lapCount: r.lapCount,
+    bestTime: r.bestTime,
+    bestPace: r.bestPace,
+    avgTime: r.avgTime,
+    avgPace: r.avgPace,
+    direction: castDirection(r.direction),
+    sectionDistance: r.sectionDistance,
+  });
+
+  return {
+    records: result.records.map(toActivityRecord),
+    bestRecord: result.bestRecord ? toActivityRecord(result.bestRecord) : null,
+    bestForwardRecord: result.bestForwardRecord ? toActivityRecord(result.bestForwardRecord) : null,
+    bestReverseRecord: result.bestReverseRecord ? toActivityRecord(result.bestReverseRecord) : null,
+    forwardStats: toDirectionStats(result.forwardStats),
+    reverseStats: toDirectionStats(result.reverseStats),
+  };
+}
+
+export interface UseSectionTimeStreamSyncResult {
+  /** Whether every stream the records need has landed (or timed out) */
+  ready: boolean;
+  /** Whether streams are currently being fetched */
+  isFetching: boolean;
+  /** Error message when the fetch failed */
+  error: string | null;
+  /** Re-run the sync */
+  refetch: () => void;
+}
+
 /**
- * Hook for calculating accurate section performance times.
- * Uses cached time streams from Rust engine (SQLite) when available.
- * Only fetches from API for activities missing from cache.
+ * Wait for the time streams a section's records depend on.
  *
- * @param section - The section to calculate performances for
- * @param sportType - Optional sport type filter for cross-sport sections
+ * `knownMissingIds` lets a caller that already read the gap skip the first
+ * `getActivitiesMissingTimeStreams` round-trip. The poll that observes
+ * completion still runs, since Rust cannot push into the JS listener map.
  */
-export function useSectionPerformances(
-  section: FrequentSection | null,
-  sportType?: string
-): UseSectionPerformancesResult {
+export function useSectionTimeStreamSync(
+  allActivityIds: string[],
+  knownMissingIds?: string[]
+): UseSectionTimeStreamSyncResult {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fetchKey, setFetchKey] = useState(0); // For refetch
   const [fetchComplete, setFetchComplete] = useState(false);
-
-  // Get unique activity IDs from section portions (engine already validated these)
-  const allActivityIds = useMemo(() => {
-    if (!section?.activityPortions) return [];
-    const ids = new Set<string>();
-    for (const p of section.activityPortions) {
-      ids.add(p.activityId);
-    }
-    return Array.from(ids);
-  }, [section?.activityPortions]);
 
   // Fetch ONLY missing streams from API (ones not in Rust cache/SQLite)
   const fetchMissingStreams = useCallback(async () => {
@@ -112,7 +168,8 @@ export function useSectionPerformances(
     }
 
     // Check which activities are missing from cache (memory + SQLite)
-    const missingIds = routeEngine.getActivitiesMissingTimeStreams(allActivityIds);
+    const missingIds =
+      knownMissingIds ?? routeEngine.getActivitiesMissingTimeStreams(allActivityIds);
 
     // If all time streams are cached, we're done immediately
     if (missingIds.length === 0) {
@@ -142,9 +199,9 @@ export function useSectionPerformances(
     } finally {
       setIsLoading(false);
     }
-  }, [allActivityIds]);
+  }, [allActivityIds, knownMissingIds]);
 
-  // Fetch missing streams when section/activities change or refetch is triggered
+  // Fetch missing streams when the activity set changes or refetch is triggered
   useEffect(() => {
     setFetchComplete(false);
     if (allActivityIds.length > 0) {
@@ -153,79 +210,59 @@ export function useSectionPerformances(
       setFetchComplete(true);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [section?.id, allActivityIds, fetchKey]);
+  }, [allActivityIds, fetchKey]);
+
+  const refetch = useCallback(() => {
+    setFetchKey((k) => k + 1);
+  }, []);
+
+  return { ready: fetchComplete, isFetching: isLoading, error, refetch };
+}
+
+/**
+ * Hook for calculating accurate section performance times.
+ * Uses cached time streams from Rust engine (SQLite) when available.
+ * Only fetches from API for activities missing from cache.
+ *
+ * @param section - The section to calculate performances for
+ * @param sportType - Optional sport type filter for cross-sport sections
+ */
+export function useSectionPerformances(
+  section: FrequentSection | null,
+  sportType?: string
+): UseSectionPerformancesResult {
+  // Get unique activity IDs from section portions (engine already validated these)
+  const allActivityIds = useMemo(() => {
+    if (!section?.activityPortions) return [];
+    const ids = new Set<string>();
+    for (const p of section.activityPortions) {
+      ids.add(p.activityId);
+    }
+    return Array.from(ids);
+  }, [section?.activityPortions]);
+
+  const {
+    ready: fetchComplete,
+    isFetching: isLoading,
+    error,
+    refetch,
+  } = useSectionTimeStreamSync(allActivityIds);
 
   // Get performance records from Rust engine
   // Rust auto-loads time streams from SQLite if not in memory
   const { records, bestRecord, bestForwardRecord, bestReverseRecord, forwardStats, reverseStats } =
     useMemo(() => {
-      const emptyResult = {
-        records: [] as SectionPerformanceRecord[],
-        bestRecord: null as SectionPerformanceRecord | null,
-        bestForwardRecord: null as SectionPerformanceRecord | null,
-        bestReverseRecord: null as SectionPerformanceRecord | null,
-        forwardStats: null as DirectionStats | null,
-        reverseStats: null as DirectionStats | null,
-      };
-
       if (!section || !fetchComplete) {
-        return emptyResult;
+        return EMPTY_PERFORMANCE_VIEW;
       }
-
       try {
         // Get typed performance result directly from Rust engine (no JSON parsing)
-        const result: SectionPerformanceResult = routeEngine.getSectionPerformances(
-          section.id,
-          sportType
-        );
-
-        // Convert FFI record to SectionPerformanceRecord (Date conversion)
-        const toActivityRecord = (
-          r: SectionPerformanceResult['records'][0]
-        ): SectionPerformanceRecord => ({
-          activityId: r.activityId,
-          activityName: r.activityName,
-          activityDate: fromUnixSeconds(r.activityDate) ?? new Date(),
-          laps: (r.laps || []).map((l) => ({
-            id: l.id,
-            activityId: l.activityId,
-            time: l.time,
-            pace: l.pace,
-            distance: l.distance,
-            direction: castDirection(l.direction),
-            startIndex: l.startIndex,
-            endIndex: l.endIndex,
-          })),
-          lapCount: r.lapCount,
-          bestTime: r.bestTime,
-          bestPace: r.bestPace,
-          avgTime: r.avgTime,
-          avgPace: r.avgPace,
-          direction: castDirection(r.direction),
-          sectionDistance: r.sectionDistance,
-        });
-
-        return {
-          records: result.records.map(toActivityRecord),
-          bestRecord: result.bestRecord ? toActivityRecord(result.bestRecord) : null,
-          bestForwardRecord: result.bestForwardRecord
-            ? toActivityRecord(result.bestForwardRecord)
-            : null,
-          bestReverseRecord: result.bestReverseRecord
-            ? toActivityRecord(result.bestReverseRecord)
-            : null,
-          forwardStats: toDirectionStats(result.forwardStats),
-          reverseStats: toDirectionStats(result.reverseStats),
-        };
+        return toPerformanceView(routeEngine.getSectionPerformances(section.id, sportType));
       } catch {
         // Engine may not have data yet - return empty
-        return emptyResult;
+        return EMPTY_PERFORMANCE_VIEW;
       }
     }, [section, fetchComplete, sportType]);
-
-  const refetch = useCallback(() => {
-    setFetchKey((k) => k + 1);
-  }, []);
 
   return {
     records,

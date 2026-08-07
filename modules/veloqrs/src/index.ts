@@ -75,6 +75,8 @@ import {
   type FfiPreviewTrack,
   type FfiActivityDetailData,
   type FfiSectionTrace,
+  type FfiSectionDetailData,
+  type FfiSectionPerformanceData,
   type FfiRoutesScreenData,
   type FfiGroupWithPolyline,
   type FfiSectionWithPolyline,
@@ -120,6 +122,9 @@ export type PreviewTrack = FfiPreviewTrack;
 // Activity detail batch types
 export type ActivityDetailData = FfiActivityDetailData;
 export type SectionTrace = FfiSectionTrace;
+// Section detail batch types
+export type SectionDetailData = FfiSectionDetailData;
+export type SectionPerformanceData = FfiSectionPerformanceData;
 // Routes screen batch types
 export type RoutesScreenData = FfiRoutesScreenData;
 export type GroupWithPolyline = FfiGroupWithPolyline;

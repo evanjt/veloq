@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { getRouteEngine } from '@/shared/native/routeEngine';
 import { fromUnixSeconds } from '@/shared/ffi/ffiConversions';
+import type { FfiCalendarSummary } from 'veloqrs';
 import type { FrequentSection, PerformanceDataPoint } from '@/types';
 
 interface UseSectionChartDataEnrichedArgs {
@@ -9,6 +10,8 @@ interface UseSectionChartDataEnrichedArgs {
   chartData: (PerformanceDataPoint & { x: number })[];
   showExcluded: boolean;
   excludedActivityIds: Set<string>;
+  /** Calendar summary a caller already read, so this hook skips its own FFI call. */
+  preComputedCalendarSummary?: FfiCalendarSummary | null;
 }
 
 export function useSectionChartDataEnriched({
@@ -17,6 +20,7 @@ export function useSectionChartDataEnriched({
   chartData,
   showExcluded,
   excludedActivityIds,
+  preComputedCalendarSummary,
 }: UseSectionChartDataEnrichedArgs) {
   // Build chart data points for excluded activities (shown dimmed on scatter chart)
   const excludedChartData = useMemo((): (PerformanceDataPoint & { x: number })[] => {
@@ -74,6 +78,7 @@ export function useSectionChartDataEnriched({
 
   // Calendar summary: Year > Month performance history
   const calendarSummary = useMemo(() => {
+    if (preComputedCalendarSummary !== undefined) return preComputedCalendarSummary;
     if (!section?.id) return null;
     try {
       const engine = getRouteEngine();
@@ -86,7 +91,7 @@ export function useSectionChartDataEnriched({
     } catch {
       return null;
     }
-  }, [section?.id]);
+  }, [section?.id, preComputedCalendarSummary]);
 
   // Enrich chart data with PR info for tooltip display
   const enrichedChartData = useMemo(() => {
