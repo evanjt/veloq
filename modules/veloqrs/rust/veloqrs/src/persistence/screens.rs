@@ -93,4 +93,80 @@ impl super::PersistentRouteEngine {
             pr_section_ids,
         }
     }
+
+    /// Everything the section detail screen can paint before time streams land.
+    ///
+    /// The stream sync is asynchronous, so the reads that depend on lap times
+    /// live in [`Self::section_detail_performance`] instead. This half covers
+    /// the section itself, its neighbours, its activities and the stream gap
+    /// the caller has to close.
+    pub fn section_detail_data(
+        &mut self,
+        section_id: &str,
+        nearby_radius_meters: f64,
+    ) -> crate::FfiSectionDetailData {
+        let section = self.get_section_by_id(section_id);
+
+        let activity_ids: Vec<String> = section
+            .as_ref()
+            .map(|s| s.activity_ids.clone())
+            .unwrap_or_default();
+        let portion_activity_ids: Vec<String> = section
+            .as_ref()
+            .map(|s| {
+                let mut seen = std::collections::HashSet::new();
+                s.activity_portions
+                    .iter()
+                    .filter(|p| seen.insert(p.activity_id.clone()))
+                    .map(|p| p.activity_id.clone())
+                    .collect()
+            })
+            .unwrap_or_default();
+
+        let activity_metrics: Vec<crate::FfiActivityMetrics> = activity_ids
+            .iter()
+            .filter_map(|id| self.activity_metrics.get(id).cloned())
+            .map(crate::FfiActivityMetrics::from)
+            .collect();
+
+        crate::FfiSectionDetailData {
+            activity_count: self.activity_count() as u32,
+            nearby: self.get_nearby_sections(section_id, nearby_radius_meters),
+            merge_candidates: self.get_merge_candidates(section_id),
+            excluded_activity_ids: self.get_excluded_activity_ids(section_id),
+            has_original_bounds: self.has_original_bounds(section_id),
+            activity_metrics,
+            map_signatures: self.get_map_signatures_for_ids(&activity_ids),
+            missing_time_stream_ids: self
+                .get_activities_missing_time_streams(&portion_activity_ids),
+            section: section.map(crate::FfiFrequentSection::from),
+        }
+    }
+
+    /// The section detail reads that need lap times, so the caller runs this
+    /// once the missing time streams have been fetched.
+    ///
+    /// The calendar summary is computed first because it reads the unfiltered
+    /// performances; the filtered read that follows then hits the performance
+    /// cache whenever no sport filter is in play.
+    pub fn section_detail_performance(
+        &mut self,
+        section_id: &str,
+        time_range_days: u32,
+        sport_filter: Option<&str>,
+    ) -> crate::FfiSectionPerformanceData {
+        let calendar_summary = self
+            .get_section_calendar_summary(section_id)
+            .map(crate::FfiCalendarSummary::from);
+        let performances = crate::FfiSectionPerformanceResult::from(
+            self.get_section_performances_filtered(section_id, sport_filter),
+        );
+        let chart_data = self.get_section_chart_data(section_id, time_range_days, sport_filter);
+
+        crate::FfiSectionPerformanceData {
+            calendar_summary,
+            performances,
+            chart_data,
+        }
+    }
 }

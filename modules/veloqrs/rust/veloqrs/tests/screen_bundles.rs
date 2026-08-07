@@ -117,7 +117,14 @@ fn populated() -> Setup {
 
     let polyline = line(46.2, 7.35, 30);
     insert_section(&s.raw, "auto1", "auto", "Auto Climb", &polyline, None);
-    insert_section(&s.raw, "cust1", "custom", "My Portion", &polyline, Some("a1"));
+    insert_section(
+        &s.raw,
+        "cust1",
+        "custom",
+        "My Portion",
+        &polyline,
+        Some("a1"),
+    );
 
     insert_traversal(&s.raw, "auto1", "a1", 200.0);
     insert_traversal(&s.raw, "auto1", "a2", 240.0);
@@ -265,6 +272,129 @@ fn activity_detail_route_groups_honour_the_minimum() {
         counts.windows(2).all(|w| w[0] >= w[1]),
         "route groups must arrive sorted by attempt count"
     );
+}
+
+// ============================================================================
+// Section detail
+// ============================================================================
+
+#[test]
+fn section_detail_matches_the_calls_it_replaces() {
+    let mut s = populated();
+    let bundle = s.engine.section_detail_data("auto1", 500.0);
+
+    assert_eq!(bundle.activity_count, s.engine.activity_count() as u32);
+    assert_eq!(
+        bundle.section.as_ref().map(|sec| sec.id.clone()),
+        s.engine.get_section_by_id("auto1").map(|sec| sec.id)
+    );
+    assert_eq!(
+        bundle.nearby.len(),
+        s.engine.get_nearby_sections("auto1", 500.0).len()
+    );
+    assert_eq!(
+        bundle.merge_candidates.len(),
+        s.engine.get_merge_candidates("auto1").len()
+    );
+    assert_eq!(
+        bundle.excluded_activity_ids,
+        s.engine.get_excluded_activity_ids("auto1")
+    );
+    assert_eq!(
+        bundle.has_original_bounds,
+        s.engine.has_original_bounds("auto1")
+    );
+
+    let activity_ids = s
+        .engine
+        .get_section_by_id("auto1")
+        .map(|sec| sec.activity_ids)
+        .unwrap_or_default();
+    assert_eq!(
+        bundle.map_signatures.len(),
+        s.engine.get_map_signatures_for_ids(&activity_ids).len()
+    );
+    let bundled_metric_ids: Vec<String> = bundle
+        .activity_metrics
+        .iter()
+        .map(|m| m.activity_id.clone())
+        .collect();
+    assert_eq!(bundled_metric_ids, activity_ids);
+}
+
+#[test]
+fn section_detail_reports_the_streams_the_caller_must_fetch() {
+    let mut s = populated();
+    let bundle = s.engine.section_detail_data("auto1", 500.0);
+
+    let portion_ids: Vec<String> = s
+        .engine
+        .get_section_by_id("auto1")
+        .map(|sec| {
+            let mut seen = std::collections::HashSet::new();
+            sec.activity_portions
+                .into_iter()
+                .filter(|p| seen.insert(p.activity_id.clone()))
+                .map(|p| p.activity_id)
+                .collect()
+        })
+        .unwrap_or_default();
+
+    assert_eq!(
+        bundle.missing_time_stream_ids,
+        s.engine.get_activities_missing_time_streams(&portion_ids)
+    );
+}
+
+#[test]
+fn section_performance_matches_the_calls_it_replaces() {
+    let mut s = populated();
+    let bundle = s.engine.section_detail_performance("auto1", 0, None);
+
+    let calendar = s.engine.get_section_calendar_summary("auto1");
+    assert_eq!(bundle.calendar_summary.is_some(), calendar.is_some());
+
+    let direct = s.engine.get_section_performances_filtered("auto1", None);
+    assert_eq!(bundle.performances.records.len(), direct.records.len());
+    assert_eq!(
+        bundle
+            .performances
+            .best_record
+            .as_ref()
+            .map(|r| r.best_time),
+        direct.best_record.as_ref().map(|r| r.best_time)
+    );
+
+    let chart = s.engine.get_section_chart_data("auto1", 0, None);
+    assert_eq!(bundle.chart_data.points.len(), chart.points.len());
+    assert_eq!(bundle.chart_data.best_pace, chart.best_pace);
+}
+
+#[test]
+fn section_performance_honours_the_sport_filter() {
+    let mut s = populated();
+    let bundle = s.engine.section_detail_performance("auto1", 0, Some("Run"));
+
+    let direct = s
+        .engine
+        .get_section_performances_filtered("auto1", Some("Run"));
+    assert_eq!(bundle.performances.records.len(), direct.records.len());
+    assert!(
+        bundle.performances.records.is_empty(),
+        "the fixture holds only rides, so a run filter must exclude everything"
+    );
+}
+
+#[test]
+fn section_detail_is_empty_for_an_unknown_section() {
+    let mut s = populated();
+    let bundle = s.engine.section_detail_data("nope", 500.0);
+
+    assert!(bundle.section.is_none());
+    assert!(bundle.activity_metrics.is_empty());
+    assert!(bundle.map_signatures.is_empty());
+    assert!(bundle.missing_time_stream_ids.is_empty());
+    assert!(bundle.excluded_activity_ids.is_empty());
 }
 
 #[test]

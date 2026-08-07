@@ -1590,6 +1590,44 @@ pub struct FfiActivityDetailData {
 }
 
 // ============================================================================
+// Section Detail Batch Types
+// ============================================================================
+
+/// The section detail reads that do not depend on time streams.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiSectionDetailData {
+    /// Total activities held by the engine
+    pub activity_count: u32,
+    /// The section itself, or `None` when the ID is unknown
+    pub section: Option<FfiFrequentSection>,
+    /// Sections within the requested radius, for the map overlay
+    pub nearby: Vec<FfiNearbySectionSummary>,
+    /// Sections this one could merge with
+    pub merge_candidates: Vec<FfiMergeCandidate>,
+    /// Activities the user excluded from this section
+    pub excluded_activity_ids: Vec<String>,
+    /// Whether the original bounds can still be restored
+    pub has_original_bounds: bool,
+    /// Metrics for every activity on the section
+    pub activity_metrics: Vec<FfiActivityMetrics>,
+    /// Simplified GPS signatures for scrub-time trace display
+    pub map_signatures: Vec<FfiMapSignature>,
+    /// Activities whose time streams still have to be fetched
+    pub missing_time_stream_ids: Vec<String>,
+}
+
+/// The section detail reads that need lap times.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiSectionPerformanceData {
+    /// Year and month performance history, or `None` with no records
+    pub calendar_summary: Option<FfiCalendarSummary>,
+    /// Per-activity performance records for the requested sport
+    pub performances: FfiSectionPerformanceResult,
+    /// Pre-computed chart payload for the requested range and sport
+    pub chart_data: FfiSectionChartData,
+}
+
+// ============================================================================
 // Helper functions
 // ============================================================================
 

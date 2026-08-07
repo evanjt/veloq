@@ -888,4 +888,30 @@ impl SectionManager {
             e.get_section_chart_data(&section_id, time_range_days, sport_filter.as_deref())
         })
     }
+
+    /// Everything the section detail screen can paint before its time streams
+    /// have been fetched: the section, its neighbours and merge candidates,
+    /// exclusions, bounds state, per-activity metrics and signatures, and the
+    /// activities whose streams are still missing.
+    fn get_detail_data(
+        &self,
+        section_id: String,
+        nearby_radius_meters: f64,
+    ) -> Result<crate::FfiSectionDetailData, VeloqError> {
+        with_engine(|e| e.section_detail_data(&section_id, nearby_radius_meters))
+    }
+
+    /// The lap-time reads for the section detail screen: calendar summary,
+    /// performance records and chart payload. Call once the streams reported
+    /// by `get_detail_data` have landed.
+    fn get_detail_performance(
+        &self,
+        section_id: String,
+        time_range_days: u32,
+        sport_filter: Option<String>,
+    ) -> Result<crate::FfiSectionPerformanceData, VeloqError> {
+        with_engine(|e| {
+            e.section_detail_performance(&section_id, time_range_days, sport_filter.as_deref())
+        })
+    }
 }
