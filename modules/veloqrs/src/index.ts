@@ -76,6 +76,7 @@ import {
   type FfiRecentPr,
   type FfiStartupData,
   type FfiWidgetSnapshotData,
+  type FfiMapScreenData,
   type FfiPreviewTrack,
   type FfiActivityDetailData,
   type FfiSectionTrace,
@@ -125,6 +126,7 @@ export type RecentPR = FfiRecentPr;
 // Startup batch types
 export type StartupData = FfiStartupData;
 export type WidgetSnapshotData = FfiWidgetSnapshotData;
+export type MapScreenData = FfiMapScreenData;
 export type PreviewTrack = FfiPreviewTrack;
 // Activity detail batch types
 export type ActivityDetailData = FfiActivityDetailData;

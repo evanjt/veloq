@@ -14,6 +14,7 @@ import type {
   FfiActivityMetrics,
   FfiBounds,
   FfiGpsPoint,
+  FfiMapScreenData,
   FfiRouteGroup,
   FfiFrequentSection,
   FfiSection,
@@ -354,6 +355,13 @@ class RouteEngineClient implements DelegateHost {
     sportTypesArray?: string[]
   ): MapActivityComplete[] =>
     mapsDelegates.getMapActivitiesFiltered(this, startDate, endDate, sportTypesArray);
+
+  getMapScreenData = (
+    startDate: Date,
+    endDate: Date,
+    sportTypesArray?: string[]
+  ): FfiMapScreenData | undefined =>
+    mapsDelegates.getMapScreenData(this, startDate, endDate, sportTypesArray);
 
   getActivityBoundsForRange = (
     startDate: Date,
