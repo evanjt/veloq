@@ -8,12 +8,12 @@
  * must never be silently re-queued. The FIT file is never deleted.
  */
 
-jest.mock('@/api', () => ({
-  intervalsApi: { uploadActivity: jest.fn() },
+jest.mock('@/features/recording/lib/upload/intervalsUploads', () => ({
+  uploadActivityFile: jest.fn(),
 }));
 
 jest.mock('@/features/recording/lib/storage/recordingLibrary', () => ({
-  readRecordingFit: jest.fn(),
+  recordingFitExists: jest.fn(),
   markRecordingUploading: jest.fn().mockResolvedValue(undefined),
   markRecordingUploaded: jest.fn().mockResolvedValue(undefined),
   markRecordingUploadFailed: jest.fn().mockResolvedValue(undefined),
@@ -21,10 +21,10 @@ jest.mock('@/features/recording/lib/storage/recordingLibrary', () => ({
   markRecordingPermissionBlocked: jest.fn().mockResolvedValue(undefined),
 }));
 
-import { intervalsApi } from '@/api';
+import { uploadActivityFile } from '@/features/recording/lib/upload/intervalsUploads';
 import { uploadRecording } from '@/features/recording/lib/upload/uploadRecording';
 import {
-  readRecordingFit,
+  recordingFitExists,
   markRecordingUploading,
   markRecordingUploaded,
   markRecordingUploadFailed,
@@ -33,8 +33,8 @@ import {
 } from '@/features/recording/lib/storage/recordingLibrary';
 import type { RecordingLibraryEntry } from '@/types';
 
-const mockUpload = intervalsApi.uploadActivity as jest.Mock;
-const mockRead = readRecordingFit as jest.Mock;
+const mockUpload = uploadActivityFile as jest.Mock;
+const mockExists = recordingFitExists as jest.Mock;
 
 const ENTRY: RecordingLibraryEntry = {
   id: 'rec-1',
@@ -49,18 +49,20 @@ const ENTRY: RecordingLibraryEntry = {
   retryCount: 0,
 };
 
-const BUFFER = new Uint8Array([1, 2, 3, 4]).buffer;
-
-function axiosLikeError(status: number, data?: unknown) {
-  return Object.assign(new Error(`Request failed with status code ${status}`), {
-    response: { status, data },
+/**
+ * The engine reports a refused write as an outcome carried on the thrown
+ * error, so the queue branches on a status rather than on a message.
+ */
+function refused(kind: string, status?: number, detail?: string, message?: string) {
+  return Object.assign(new Error(message ?? `HTTP ${status ?? '?'}: ${detail ?? ''}`), {
+    outcome: { kind, status, detail, message: message ?? `HTTP ${status ?? '?'}: ${detail ?? ''}` },
   });
 }
 
 beforeEach(() => {
   jest.clearAllMocks();
-  mockRead.mockResolvedValue(BUFFER);
-  mockUpload.mockResolvedValue({ id: 'i999' });
+  mockExists.mockResolvedValue(true);
+  mockUpload.mockResolvedValue('i999');
 });
 
 describe('uploadRecording', () => {
@@ -68,7 +70,7 @@ describe('uploadRecording', () => {
     const result = await uploadRecording(ENTRY);
 
     expect(result).toEqual({ outcome: 'uploaded' });
-    expect(mockUpload).toHaveBeenCalledWith(BUFFER, 'Morning Ride.fit', {
+    expect(mockUpload).toHaveBeenCalledWith('file:///recordings/rec-1.fit', 'Morning Ride.fit', {
       name: 'Morning Ride',
       pairedEventId: undefined,
     });
@@ -79,23 +81,21 @@ describe('uploadRecording', () => {
   it('forwards a paired calendar event', async () => {
     await uploadRecording({ ...ENTRY, pairedEventId: 4321 });
 
-    expect(mockUpload).toHaveBeenCalledWith(BUFFER, 'Morning Ride.fit', {
+    expect(mockUpload).toHaveBeenCalledWith('file:///recordings/rec-1.fit', 'Morning Ride.fit', {
       name: 'Morning Ride',
       pairedEventId: 4321,
     });
   });
 
-  it('uses a caller-supplied buffer instead of reading from disk', async () => {
-    const inMemory = new Uint8Array([9, 9]).buffer;
+  it('uploads from the path on disk without reading the file', async () => {
+    await uploadRecording(ENTRY);
 
-    await uploadRecording(ENTRY, inMemory);
-
-    expect(mockRead).not.toHaveBeenCalled();
-    expect(mockUpload).toHaveBeenCalledWith(inMemory, 'Morning Ride.fit', expect.anything());
+    const [path] = mockUpload.mock.calls[0];
+    expect(path).toBe(ENTRY.fitPath);
   });
 
   it('rejects the entry when the FIT file is gone', async () => {
-    mockRead.mockResolvedValue(null);
+    mockExists.mockResolvedValue(false);
 
     const result = await uploadRecording(ENTRY);
 
@@ -106,7 +106,7 @@ describe('uploadRecording', () => {
   });
 
   it('routes a 403 to the permission upgrade path', async () => {
-    mockUpload.mockRejectedValue(axiosLikeError(403, { message: 'write scope required' }));
+    mockUpload.mockRejectedValue(refused('http', 403, 'write scope required'));
 
     const result = await uploadRecording(ENTRY);
 
@@ -117,16 +117,24 @@ describe('uploadRecording', () => {
   });
 
   it('queues a network failure for a later attempt', async () => {
-    mockUpload.mockRejectedValue(new Error('Network Error'));
+    mockUpload.mockRejectedValue(
+      refused('network', undefined, undefined, 'transport error: connection reset')
+    );
 
     const result = await uploadRecording(ENTRY);
 
-    expect(result).toEqual({ outcome: 'network', errorDetail: 'Network Error' });
-    expect(markRecordingUploadFailed).toHaveBeenCalledWith('rec-1', 'Network Error');
+    expect(result).toEqual({
+      outcome: 'network',
+      errorDetail: 'transport error: connection reset',
+    });
+    expect(markRecordingUploadFailed).toHaveBeenCalledWith(
+      'rec-1',
+      'transport error: connection reset'
+    );
   });
 
   it('surfaces the server message on a hard rejection', async () => {
-    mockUpload.mockRejectedValue(axiosLikeError(400, { message: 'Corrupt FIT file' }));
+    mockUpload.mockRejectedValue(refused('http', 400, 'Corrupt FIT file'));
 
     const result = await uploadRecording(ENTRY);
 
@@ -140,7 +148,7 @@ describe('uploadRecording', () => {
     const terminal = [400, 401, 404, 409, 413, 422];
 
     it.each(retriable)('keeps %s retriable', async (status) => {
-      mockUpload.mockRejectedValue(axiosLikeError(status, { message: 'try again' }));
+      mockUpload.mockRejectedValue(refused('http', status, 'try again'));
 
       const result = await uploadRecording(ENTRY);
 
@@ -149,12 +157,43 @@ describe('uploadRecording', () => {
     });
 
     it.each(terminal)('treats %s as a rejection', async (status) => {
-      mockUpload.mockRejectedValue(axiosLikeError(status, { message: 'no' }));
+      mockUpload.mockRejectedValue(refused('http', status, 'no'));
 
       const result = await uploadRecording(ENTRY);
 
       expect(result.outcome).toBe('rejected');
       expect(markRecordingRejected).toHaveBeenCalledWith('rec-1', 'no');
+    });
+  });
+
+  it('treats a rejected credential as terminal, not as something to retry', async () => {
+    mockUpload.mockRejectedValue(refused('unauthorized', 401, undefined, 'unauthorized (401)'));
+
+    const result = await uploadRecording(ENTRY);
+
+    expect(result.outcome).toBe('rejected');
+  });
+
+  it('keeps a rate-limited upload retriable', async () => {
+    mockUpload.mockRejectedValue(
+      refused('rateLimited', 429, undefined, 'rate limited (429) after retries')
+    );
+
+    const result = await uploadRecording(ENTRY);
+
+    expect(result.outcome).toBe('retriable');
+  });
+
+  it('keeps a local engine failure retriable rather than calling it offline', async () => {
+    mockUpload.mockRejectedValue(
+      refused('internal', undefined, undefined, 'the engine is not ready to upload')
+    );
+
+    const result = await uploadRecording(ENTRY);
+
+    expect(result).toEqual({
+      outcome: 'retriable',
+      errorDetail: 'the engine is not ready to upload',
     });
   });
 
@@ -168,16 +207,16 @@ describe('uploadRecording', () => {
   });
 
   it('falls back to the raw error message when the body carries no detail', async () => {
-    mockUpload.mockRejectedValue(axiosLikeError(422));
+    mockUpload.mockRejectedValue(refused('http', 422, undefined, 'HTTP 422: '));
 
     const result = await uploadRecording(ENTRY);
 
     expect(result.outcome).toBe('rejected');
-    expect(result.errorDetail).toBe('Request failed with status code 422');
+    expect(result.errorDetail).toBe('HTTP 422: ');
   });
 
   it('marks the entry uploading before every attempt', async () => {
-    mockUpload.mockRejectedValue(axiosLikeError(500));
+    mockUpload.mockRejectedValue(refused('http', 500, 'boom'));
 
     await uploadRecording(ENTRY);
 
