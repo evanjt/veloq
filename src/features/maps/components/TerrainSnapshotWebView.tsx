@@ -454,7 +454,7 @@ export const TerrainSnapshotWebView = forwardRef<TerrainSnapshotWebViewRef, obje
       });
     }, [workers]);
 
-    // Listen for prefetch tile requests from TileCacheService
+    // Listen for prefetch tile requests
     useEffect(() => {
       return onPrefetchTilesRequest((batches: PrefetchTilesBatch[]) => {
         // Find an idle worker to run the prefetch

@@ -6,5 +6,4 @@ export { useMapLayers } from './useMapLayers';
 export { useMapFullscreen } from './useMapFullscreen';
 export { useSectionAutoToggle } from './useSectionAutoToggle';
 export { useSectionCreation } from './useSectionCreation';
-export { useTilePrefetch } from './useTilePrefetch';
 export { useVisibilityToggles } from './useVisibilityToggles';

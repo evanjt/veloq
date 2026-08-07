@@ -1,15 +1,15 @@
-// Mocks for the four packages that need a native surface: MapLibre, WebView,
-// Skia and Victory. Each renders as a plain View that keeps its children and
-// its callbacks, so a render test can walk the tree and fire events without a
-// GL context.
+// Mocks for the three packages that need a native surface: WebView, Skia and
+// Victory. Each renders as a plain View that keeps its children and its
+// callbacks, so a render test can walk the tree and fire events without a GL
+// context.
 //
-// Keep these free of MapLibre-specific behaviour. A component test built on
-// them has to stay valid if the map implementation changes underneath.
+// Keep these free of renderer-specific behaviour. A component test built on
+// them has to stay valid if the implementation changes underneath.
 
 const React = require("react");
 const { View } = require("react-native");
 
-// Style props on map layers are MapLibre style objects, not React Native
+// Style props on a map surface are MapLibre style objects, not React Native
 // styles, so only callbacks and the testID are forwarded to the View.
 function viewProps(props, fallbackTestID) {
   const forwarded = { testID: props.testID ?? fallbackTestID };
@@ -75,58 +75,6 @@ jest.mock("@expo/vector-icons", () => {
   }
   return exports;
 });
-
-jest.mock("@maplibre/maplibre-react-native", () => ({
-  MapView: mockViewWithHandle("MapView", "maplibre-map", () => ({
-    getCoordinateFromView: jest.fn().mockResolvedValue([0, 0]),
-    getPointInView: jest.fn().mockResolvedValue([0, 0]),
-    queryRenderedFeaturesAtPoint: jest
-      .fn()
-      .mockResolvedValue({ type: "FeatureCollection", features: [] }),
-    queryRenderedFeaturesInRect: jest
-      .fn()
-      .mockResolvedValue({ type: "FeatureCollection", features: [] }),
-    getVisibleBounds: jest.fn().mockResolvedValue([
-      [0, 0],
-      [0, 0],
-    ]),
-    getZoom: jest.fn().mockResolvedValue(10),
-    getCenter: jest.fn().mockResolvedValue([0, 0]),
-  })),
-  Camera: mockViewWithHandle("Camera", "maplibre-camera", () => ({
-    setCamera: jest.fn(),
-    fitBounds: jest.fn(),
-    flyTo: jest.fn(),
-    moveTo: jest.fn(),
-    zoomTo: jest.fn(),
-  })),
-  ShapeSource: mockViewWithHandle("ShapeSource", "maplibre-shape-source", () => ({
-    features: jest.fn().mockResolvedValue([]),
-    getClusterExpansionZoom: jest.fn().mockResolvedValue(10),
-    getClusterLeaves: jest
-      .fn()
-      .mockResolvedValue({ type: "FeatureCollection", features: [] }),
-    getClusterChildren: jest
-      .fn()
-      .mockResolvedValue({ type: "FeatureCollection", features: [] }),
-  })),
-  RasterSource: mockView("RasterSource", "maplibre-raster-source"),
-  LineLayer: mockView("LineLayer", "maplibre-line-layer"),
-  CircleLayer: mockView("CircleLayer", "maplibre-circle-layer"),
-  SymbolLayer: mockView("SymbolLayer", "maplibre-symbol-layer"),
-  FillLayer: mockView("FillLayer", "maplibre-fill-layer"),
-  RasterLayer: mockView("RasterLayer", "maplibre-raster-layer"),
-  BackgroundLayer: mockView("BackgroundLayer", "maplibre-background-layer"),
-  HeatmapLayer: mockView("HeatmapLayer", "maplibre-heatmap-layer"),
-  MarkerView: mockView("MarkerView", "maplibre-marker"),
-  PointAnnotation: mockView("PointAnnotation", "maplibre-point-annotation"),
-  UserLocation: mockView("UserLocation", "maplibre-user-location"),
-  Images: mockView("Images", "maplibre-images"),
-  Terrain: mockView("Terrain", "maplibre-terrain"),
-  Light: mockView("Light", "maplibre-light"),
-  setAccessToken: jest.fn(),
-  Logger: { setLogLevel: jest.fn(), setLogCallback: jest.fn() },
-}));
 
 jest.mock("react-native-webview", () => ({
   WebView: mockViewWithHandle("WebView", "webview", () => ({

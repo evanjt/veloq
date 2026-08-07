@@ -86,7 +86,6 @@
       "./src/plugins/with-packaging-options",
       "./src/plugins/with-veloqrs",
       "./src/plugins/with-r8-config",
-      "./src/plugins/with-maplibre-nil-safety",
       "./src/plugins/with-android-backup",
       "./src/plugins/with-icloud",
       "./src/plugins/with-app-groups",
@@ -107,7 +106,6 @@
           "isAndroidForegroundServiceEnabled": true
         }
       ],
-      "@maplibre/maplibre-react-native",
       "expo-web-browser",
       "expo-secure-store",
       "expo-font",
