@@ -6,7 +6,7 @@
  * Used by tests to validate TypeScript bindings match Rust exports.
  *
  * 6 standalone `#[uniffi::export]` functions plus
- * 217 methods inside `#[uniffi::export] impl` blocks across
+ * 218 methods inside `#[uniffi::export] impl` blocks across
  * 11 UniFFI Objects.
  */
 
@@ -29,7 +29,7 @@ export interface FfiExportInfo {
 
 /**
  * All FFI exports from Rust source.
- * Total: 223 exports (6 standalone + 217 methods)
+ * Total: 224 exports (6 standalone + 218 methods)
  */
 export const FFI_EXPORTS: FfiExportInfo[] = [
   {
@@ -790,6 +790,15 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     line: 426,
     paramCount: 2,
     returnType: 'Result<crate::FfiStartupData, VeloqError>',
+    object: 'FitnessManager',
+  },
+  {
+    name: 'get_widget_snapshot',
+    camelName: 'getWidgetSnapshot',
+    file: 'objects/fitness.rs',
+    line: 474,
+    paramCount: 5,
+    returnType: 'Result<crate::FfiWidgetSnapshotData, VeloqError>',
     object: 'FitnessManager',
   },
   {
@@ -2124,6 +2133,7 @@ export const EXPECTED_TS_FUNCTIONS = new Set<string>([
   'findStalePrOpportunities',
   'getInsightsData',
   'getStartupData',
+  'getWidgetSnapshot',
   'new',
   'queryViewport',
   'getFiltered',
@@ -2355,6 +2365,7 @@ export const RUST_TO_TS_NAME: Record<string, string> = {
   find_stale_pr_opportunities: 'findStalePrOpportunities',
   get_insights_data: 'getInsightsData',
   get_startup_data: 'getStartupData',
+  get_widget_snapshot: 'getWidgetSnapshot',
   query_viewport: 'queryViewport',
   get_filtered: 'getFiltered',
   get_bounds_for_range: 'getBoundsForRange',

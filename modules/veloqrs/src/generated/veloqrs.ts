@@ -7566,6 +7566,92 @@ const FfiConverterTypeFfiWellnessSparklines = (() => {
 })();
 
 /**
+ * Everything the home-screen widget snapshot is composed from.
+ *
+ * Widgets run in a separate process and cannot reach the engine, so the app
+ * bakes their content. This is the single read that feeds it.
+ */
+export type FfiWidgetSnapshotData = {
+  /**
+   * Trailing wellness sparklines, `None` until wellness has synced
+   */
+  sparklines?: FfiWellnessSparklines;
+  /**
+   * This week and last week, with the trends the widget shows
+   */
+  summary: FfiSummaryCardData;
+  /**
+   * The most recent activity, or `None` when there are none
+   */
+  latest?: FfiActivityMetrics;
+  /**
+   * Whether the latest activity carries a route or section record
+   */
+  latestIsPr: boolean;
+  /**
+   * The latest activity's GPS track, empty for indoor activities
+   */
+  latestGps: Array<FfiGpsPoint>;
+};
+
+/**
+ * Generated factory for {@link FfiWidgetSnapshotData} record objects.
+ */
+export const FfiWidgetSnapshotData = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<
+      FfiWidgetSnapshotData,
+      ReturnType<typeof defaults>
+    >(defaults);
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiWidgetSnapshotData>,
+  });
+})();
+
+const FfiConverterTypeFfiWidgetSnapshotData = (() => {
+  type TypeName = FfiWidgetSnapshotData;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        sparklines: FfiConverterOptionalTypeFfiWellnessSparklines.read(from),
+        summary: FfiConverterTypeFfiSummaryCardData.read(from),
+        latest: FfiConverterOptionalTypeFfiActivityMetrics.read(from),
+        latestIsPr: FfiConverterBool.read(from),
+        latestGps: FfiConverterArrayTypeFfiGpsPoint.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterOptionalTypeFfiWellnessSparklines.write(
+        value.sparklines,
+        into,
+      );
+      FfiConverterTypeFfiSummaryCardData.write(value.summary, into);
+      FfiConverterOptionalTypeFfiActivityMetrics.write(value.latest, into);
+      FfiConverterBool.write(value.latestIsPr, into);
+      FfiConverterArrayTypeFfiGpsPoint.write(value.latestGps, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterOptionalTypeFfiWellnessSparklines.allocationSize(
+          value.sparklines,
+        ) +
+        FfiConverterTypeFfiSummaryCardData.allocationSize(value.summary) +
+        FfiConverterOptionalTypeFfiActivityMetrics.allocationSize(
+          value.latest,
+        ) +
+        FfiConverterBool.allocationSize(value.latestIsPr) +
+        FfiConverterArrayTypeFfiGpsPoint.allocationSize(value.latestGps)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * Enriched workout section for the home-screen "Sections for you" list.
  * Composes ranking + performance lookups server-side so the TS hook is a
  * thin pass-through instead of a per-section FFI loop.
@@ -9449,6 +9535,18 @@ export interface FitnessManagerLike {
   getWellnessSparklines(
     days: /*u32*/ number,
   ) /*throws*/ : FfiWellnessSparklines | undefined;
+  /**
+   * Everything the home-screen widget snapshot is composed from: wellness
+   * sparklines, the summary card, and the latest activity with its record
+   * flag and GPS track. Replaces the six-call gather in the widget writer.
+   */
+  getWidgetSnapshot(
+    currentStart: /*i64*/ bigint,
+    currentEnd: /*i64*/ bigint,
+    prevStart: /*i64*/ bigint,
+    prevEnd: /*i64*/ bigint,
+    sparklineDays: /*u32*/ number,
+  ) /*throws*/ : FfiWidgetSnapshotData;
   getZoneDistribution(
     sportType: string,
     zoneType: string,
@@ -9977,6 +10075,39 @@ export class FitnessManager
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_wellness_sparklines(
             uniffiTypeFitnessManagerObjectFactory.clonePointer(this),
             FfiConverterUInt32.lower(days),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * Everything the home-screen widget snapshot is composed from: wellness
+   * sparklines, the summary card, and the latest activity with its record
+   * flag and GPS track. Replaces the six-call gather in the widget writer.
+   */
+  getWidgetSnapshot(
+    currentStart: /*i64*/ bigint,
+    currentEnd: /*i64*/ bigint,
+    prevStart: /*i64*/ bigint,
+    prevEnd: /*i64*/ bigint,
+    sparklineDays: /*u32*/ number,
+  ): FfiWidgetSnapshotData /*throws*/ {
+    return FfiConverterTypeFfiWidgetSnapshotData.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_widget_snapshot(
+            uniffiTypeFitnessManagerObjectFactory.clonePointer(this),
+            FfiConverterInt64.lower(currentStart),
+            FfiConverterInt64.lower(currentEnd),
+            FfiConverterInt64.lower(prevStart),
+            FfiConverterInt64.lower(prevEnd),
+            FfiConverterUInt32.lower(sparklineDays),
             callStatus,
           );
         },
@@ -14819,6 +14950,11 @@ const FfiConverterOptionalTypeFetchAndStoreResult = new FfiConverterOptional(
   FfiConverterTypeFetchAndStoreResult,
 );
 
+// FfiConverter for FfiActivityMetrics | undefined
+const FfiConverterOptionalTypeFfiActivityMetrics = new FfiConverterOptional(
+  FfiConverterTypeFfiActivityMetrics,
+);
+
 // FfiConverter for FfiActivityPattern | undefined
 const FfiConverterOptionalTypeFfiActivityPattern = new FfiConverterOptional(
   FfiConverterTypeFfiActivityPattern,
@@ -15851,6 +15987,14 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_fitnessmanager_get_wellness_sparklines",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_widget_snapshot() !==
+    54490
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_fitnessmanager_get_widget_snapshot",
     );
   }
   if (
@@ -17091,6 +17235,7 @@ export default Object.freeze({
     FfiConverterTypeFfiWeeklySummary,
     FfiConverterTypeFfiWellnessRow,
     FfiConverterTypeFfiWellnessSparklines,
+    FfiConverterTypeFfiWidgetSnapshotData,
     FfiConverterTypeFfiWorkoutSection,
     FfiConverterTypeFitnessManager,
     FfiConverterTypeGroupSummary,
