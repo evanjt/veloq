@@ -3,6 +3,7 @@ import * as SecureStore from 'expo-secure-store';
 
 import type { Athlete } from '@/types';
 import { getRouteEngine } from '@/shared/native/routeEngine';
+import { seedDemoEngine } from '@/shared/app/seedDemoEngine';
 
 const API_KEY_STORAGE_KEY = 'intervals_api_key';
 const ATHLETE_ID_STORAGE_KEY = 'intervals_athlete_id';
@@ -283,6 +284,9 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     });
     // Demo mode has no upstream credential, so the engine must hold none.
     pushCredentialsToEngine();
+    // The engine usually does not exist yet on first entry; the layout init
+    // effect seeds again once it does.
+    seedDemoEngine();
   },
 
   exitDemoMode: () => {
