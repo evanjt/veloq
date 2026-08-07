@@ -65,6 +65,26 @@ export function transferFailure(
   );
 }
 
+export type BackupFailureMessageKey =
+  | 'backup.backupFailedAuth'
+  | 'backup.backupFailedQuota'
+  | 'backup.backupFailedPath'
+  | 'backup.backupFailedServer'
+  | 'backup.backupFailedTransport';
+
+const MESSAGE_KEYS: Record<BackupFailureKind, BackupFailureMessageKey> = {
+  auth: 'backup.backupFailedAuth',
+  quota: 'backup.backupFailedQuota',
+  path: 'backup.backupFailedPath',
+  server: 'backup.backupFailedServer',
+  transport: 'backup.backupFailedTransport',
+};
+
+/** Translation key describing a failure in terms of what the user can do about it. */
+export function failureMessageKey(kind: BackupFailureKind): BackupFailureMessageKey {
+  return MESSAGE_KEYS[kind];
+}
+
 /** Wrap a thrown network error, which is never a decision the server made. */
 export function transportFailure(operation: string, cause: unknown): BackupTransferError {
   const detail = cause instanceof Error ? cause.message : String(cause);

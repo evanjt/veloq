@@ -23,6 +23,9 @@ import {
   isAutoBackupEnabled,
   setAutoBackupEnabled,
   getLastBackupTimestamp,
+  getLastBackupFailure,
+  failureMessageKey,
+  isBackupTransferError,
   performBackup,
   getConfiguredBackend,
   setBackendPreference,
@@ -55,28 +58,19 @@ export function BackupSection() {
   const [backupResult, setBackupResult] = useState<'success' | 'error' | null>(null);
   const [backupError, setBackupError] = useState<string | null>(null);
   const lastBackupTs = useMemo(() => getLastBackupTimestamp(), [backingUp]);
+  // A failure the user has to act on survives leaving the screen, so an
+  // unattended backup that was rejected is not invisible.
+  const lastFailure = useMemo(() => getLastBackupFailure(), [backingUp]);
 
-  const handleToggleAutoBackup = useCallback(
-    async (value: boolean) => {
-      setAutoBackupEnabled(value);
-      setAutoEnabled(value);
-      // Trigger immediate backup when enabling auto-backup
-      if (value) {
-        setBackingUp(true);
-        try {
-          await performBackup(true);
-        } catch {
-          // Silent - auto-backup will retry on next trigger
-        } finally {
-          setBackingUp(false);
-        }
-      }
+  const describeBackupError = useCallback(
+    (error: unknown): string => {
+      if (isBackupTransferError(error)) return t(failureMessageKey(error.kind));
+      return error instanceof Error ? error.message : t('backup.backupFailedMessage');
     },
-    [backingUp]
+    [t]
   );
 
-  const handleBackupNow = useCallback(async () => {
-    if (backingUp) return;
+  const runBackup = useCallback(async () => {
     setBackingUp(true);
     setBackupResult(null);
     setBackupError(null);
@@ -86,11 +80,26 @@ export function BackupSection() {
       if (!success) setBackupError(t('backup.backupFailedMessage'));
     } catch (error) {
       setBackupResult('error');
-      setBackupError(error instanceof Error ? error.message : t('backup.backupFailedMessage'));
+      setBackupError(describeBackupError(error));
     } finally {
       setBackingUp(false);
     }
-  }, [backingUp, t]);
+  }, [describeBackupError, t]);
+
+  const handleToggleAutoBackup = useCallback(
+    async (value: boolean) => {
+      setAutoBackupEnabled(value);
+      setAutoEnabled(value);
+      // Trigger immediate backup when enabling auto-backup
+      if (value) await runBackup();
+    },
+    [runBackup]
+  );
+
+  const handleBackupNow = useCallback(async () => {
+    if (backingUp) return;
+    await runBackup();
+  }, [backingUp, runBackup]);
 
   // Backend picker state
   const [currentBackend, setCurrentBackend] = useState(() => getConfiguredBackend());
@@ -443,6 +452,15 @@ export function BackupSection() {
             {backupResult === 'error' && (
               <Text testID="backup-error-message" style={styles.connectionError}>
                 {backupError}
+              </Text>
+            )}
+            {backupResult === null && lastFailure && (
+              <Text testID="backup-failure-notice" style={styles.connectionError}>
+                {t('backup.lastAttemptFailed', {
+                  date: new Date(lastFailure.at).toLocaleDateString(),
+                })}
+                {'\n'}
+                {t(failureMessageKey(lastFailure.kind))}
               </Text>
             )}
           </View>
