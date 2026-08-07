@@ -10,7 +10,7 @@ import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { CartesianChart, type PointsArray } from 'victory-native';
 import { Circle, Path, Skia } from '@shopify/react-native-skia';
-import { bandSvgPath, polylineSvgPath } from '@/shared/charts/svgPath';
+import { bandSvgPath, polylineSvgPath } from '@/shared/charts';
 import { GestureDetector } from 'react-native-gesture-handler';
 import Animated from 'react-native-reanimated';
 import { isRunningActivity, isSwimmingActivity } from '@/features/activity/lib/activityUtils';
