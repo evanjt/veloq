@@ -132,20 +132,12 @@ async function indexActivity(
  */
 async function fetchAndIngestActivity(activityId: string): Promise<ActivityInfo | null> {
   try {
-    const { getStoredCredentials } = require('@/shared/app/AuthStore');
-    const creds = getStoredCredentials();
-    if (!creds.athleteId) return null;
+    const { getStoredCredentials, pushCredentialsToEngine } = require('@/shared/app/AuthStore');
+    if (!getStoredCredentials().athleteId) return null;
 
-    // Build auth header
-    let authHeader: string;
-    if (creds.authMethod === 'oauth' && creds.accessToken) {
-      authHeader = `Bearer ${creds.accessToken}`;
-    } else if (creds.apiKey) {
-      const encoded = btoa(`API_KEY:${creds.apiKey}`);
-      authHeader = `Basic ${encoded}`;
-    } else {
-      return null;
-    }
+    // A headless start may reach the engine before the layout init effect has,
+    // so hand it the rehydrated credential before asking it to fetch.
+    pushCredentialsToEngine();
 
     // Fetch activity metadata
     const { intervalsApi } = require('@/api');
@@ -187,7 +179,7 @@ async function fetchAndIngestActivity(activityId: string): Promise<ActivityInfo 
       return activityInfo;
     }
 
-    startFetchAndStore(authHeader, [activityId], [{ activityId, sportType: activityInfo.type }]);
+    startFetchAndStore([activityId], [{ activityId, sportType: activityInfo.type }]);
 
     const startTime = Date.now();
     const completed = await waitForDownloadCompletion(getDownloadProgress);

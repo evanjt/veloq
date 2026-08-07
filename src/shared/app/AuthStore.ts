@@ -22,6 +22,32 @@ export const DEMO_ATHLETE_ID = 'demo';
 // Auth method type
 export type AuthMethod = 'oauth' | 'apiKey' | 'demo' | null;
 
+/**
+ * Hand the current credential to the Rust sync service, the single owner of
+ * outbound intervals.icu auth. This is the only place the store's `apiKey`
+ * method name is translated to the engine's `api_key`.
+ *
+ * Safe to call before the engine exists: the delegate no-ops until
+ * `initWithPath` has run, and the layout init effect calls this again once it
+ * has. A credential the engine cannot use is cleared rather than left stale.
+ */
+export function pushCredentialsToEngine(): void {
+  const engine = getRouteEngine();
+  if (!engine) return;
+
+  const { apiKey, accessToken, athleteId, authMethod } = getStoredCredentials();
+
+  if (athleteId && authMethod === 'oauth' && isValidCredential(accessToken)) {
+    engine.setSyncCredentials('oauth', accessToken, athleteId);
+    return;
+  }
+  if (athleteId && authMethod === 'apiKey' && isValidCredential(apiKey)) {
+    engine.setSyncCredentials('api_key', apiKey, athleteId);
+    return;
+  }
+  engine.clearSyncCredentials();
+}
+
 // Session expiry reason
 export type SessionExpiredReason = 'token_expired' | 'token_revoked' | null;
 
@@ -109,6 +135,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         isDemoMode: false,
         authMethod,
       });
+      pushCredentialsToEngine();
     } catch {
       set({
         isLoading: false,
@@ -150,6 +177,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       isDemoMode: false,
       authMethod: 'apiKey',
     });
+    pushCredentialsToEngine();
   },
 
   setOAuthCredentials: async (accessToken: string, athleteId: string, athleteName?: string) => {
@@ -185,6 +213,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       // Set basic athlete info if provided
       athlete: athleteName ? ({ id: trimmedAthleteId, name: athleteName } as Athlete) : null,
     });
+    pushCredentialsToEngine();
 
     // If the user previously opted into push notifications (e.g. restored a
     // backup or logged back in after a logout), re-register the push token so
@@ -237,6 +266,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       isDemoMode: false,
       authMethod: null,
     });
+    pushCredentialsToEngine();
   },
 
   setAthlete: (athlete: Athlete) => {
@@ -251,6 +281,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       authMethod: 'demo',
       athlete: null,
     });
+    // Demo mode has no upstream credential, so the engine must hold none.
+    pushCredentialsToEngine();
   },
 
   exitDemoMode: () => {
@@ -262,6 +294,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       authMethod: null,
       athlete: null,
     });
+    pushCredentialsToEngine();
   },
 
   setHideDemoBanner: (hide: boolean) => {
@@ -309,6 +342,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       authMethod: null,
       sessionExpired: reason,
     });
+    pushCredentialsToEngine();
   },
 
   clearSessionExpired: () => {

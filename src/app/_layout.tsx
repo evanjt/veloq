@@ -28,7 +28,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { configureReanimatedLogger, ReanimatedLogLevel } from 'react-native-reanimated';
 // Use legacy API for SDK 54 compatibility (new API uses File/Directory classes)
 import MapLibre, { Logger as MapLibreLogger } from '@maplibre/maplibre-react-native';
-import { useAuthStore } from '@/shared/app/AuthStore';
+import { pushCredentialsToEngine, useAuthStore } from '@/shared/app/AuthStore';
 import { initializeSportPreference, initializeHRZones } from '@/features/fitness/stores';
 import { initializeDashboardPreferences } from '@/features/home/store';
 import { updateWidgetSnapshot } from '@/features/home';
@@ -219,6 +219,9 @@ function AuthGate({ children }: { children: React.ReactNode }) {
             if (athleteId) {
               engine.setSetting('__athlete_id', athleteId);
             }
+            // AuthStore.initialize() usually runs before the engine exists, so
+            // its credential push was a no-op. Repeat it now the engine is up.
+            pushCredentialsToEngine();
             // Initialize SyncDateRangeStore from engine's actual cached data
             const stats = engine.getStats();
             if (stats?.oldestDate && stats?.newestDate) {

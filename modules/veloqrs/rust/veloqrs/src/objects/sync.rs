@@ -12,7 +12,7 @@
 //! instant-return-plus-status form, so a later async-FFI swap is invisible to TS.
 
 use super::error::VeloqError;
-use crate::governor::{AuthMethod, Lane};
+use crate::governor::{self, AuthMethod, Lane};
 use crate::net::endpoints;
 use crate::net::transport::{NetError, Transport};
 use once_cell::sync::Lazy;
@@ -132,6 +132,21 @@ impl SyncService {
         *g = None;
     }
 
+    /// The `Authorization` header value for the held credential, if any.
+    fn auth_header(&self) -> Option<String> {
+        let g = self.creds.lock().unwrap_or_else(|e| e.into_inner());
+        g.as_ref().map(|c| match c.method {
+            AuthKind::OAuth => governor::format_auth_header(AuthMethod::Bearer(&c.secret)),
+            AuthKind::ApiKey => governor::format_auth_header(AuthMethod::ApiKey(&c.secret)),
+        })
+    }
+
+    /// The athlete id the held credential belongs to, if any.
+    fn athlete_id(&self) -> Option<String> {
+        let g = self.creds.lock().unwrap_or_else(|e| e.into_inner());
+        g.as_ref().map(|c| c.athlete_id.clone())
+    }
+
     /// Build a transport from the held credentials and base URL.
     fn build_transport(&self) -> Result<(Transport, String), String> {
         let creds_guard = self.creds.lock().unwrap_or_else(|e| e.into_inner());
@@ -210,6 +225,18 @@ impl SyncService {
 
 /// The process-wide sync service.
 pub static SYNC_SERVICE: Lazy<SyncService> = Lazy::new(SyncService::new);
+
+/// The `Authorization` header for the process-wide credential, or `None` before
+/// TypeScript has called `set_credentials`. Every Rust I/O path resolves its
+/// header here rather than accepting one across FFI.
+pub fn current_auth_header() -> Option<String> {
+    SYNC_SERVICE.auth_header()
+}
+
+/// The athlete id the process-wide credential belongs to.
+pub fn current_athlete_id() -> Option<String> {
+    SYNC_SERVICE.athlete_id()
+}
 
 /// The sync job. Phase 1 performs a credential + connectivity check (a cheap
 /// `/athlete/me`), proving the command → runtime → transport → governor → status
@@ -440,6 +467,26 @@ mod tests {
         assert!(svc.build_transport().is_ok());
         svc.clear_credentials();
         assert!(svc.build_transport().is_err());
+    }
+
+    #[test]
+    fn auth_header_matches_the_held_scheme() {
+        let svc = SyncService::new();
+        assert!(svc.auth_header().is_none());
+        assert!(svc.athlete_id().is_none());
+
+        svc.set_credentials(AuthKind::OAuth, "tok".into(), "i9".into());
+        assert_eq!(svc.auth_header().as_deref(), Some("Bearer tok"));
+        assert_eq!(svc.athlete_id().as_deref(), Some("i9"));
+
+        svc.set_credentials(AuthKind::ApiKey, "secret".into(), "i9".into());
+        assert_eq!(
+            svc.auth_header(),
+            Some(governor::format_auth_header(AuthMethod::ApiKey("secret")))
+        );
+
+        svc.clear_credentials();
+        assert!(svc.auth_header().is_none());
     }
 
     #[test]

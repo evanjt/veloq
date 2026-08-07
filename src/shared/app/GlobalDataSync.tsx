@@ -21,6 +21,7 @@ import {
 } from '@/shared/native/routeEngine';
 import { toActivityMetrics } from '@/features/activity/lib/activityMetrics';
 import { useAuthStore } from '@/shared/app/AuthStore';
+import { useSyncAuthExpiry } from '@/shared/native/useSyncAuthExpiry';
 import { useRouteSettings } from '@/features/routes/stores/RouteSettingsStore';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import {
@@ -45,6 +46,9 @@ export function GlobalDataSync() {
   const setFetchingExtended = useSyncDateRange((s) => s.setFetchingExtended);
   const isExpansionLocked = useSyncDateRange((s) => s.isExpansionLocked);
   const delayedUnlockExpansion = useSyncDateRange((s) => s.delayedUnlockExpansion);
+
+  // Log the user out when the Rust transport reports an expired OAuth session.
+  useSyncAuthExpiry();
 
   // Startup alignment: invalidate activities on mount to force a fresh API fetch.
   useEffect(() => {

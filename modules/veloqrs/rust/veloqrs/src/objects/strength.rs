@@ -20,6 +20,14 @@ pub struct StrengthManager {
     pub(crate) _private: (),
 }
 
+/// The header for the credential held by the sync service, or a hard error when
+/// none is set. FIT downloads never take a header across FFI.
+fn require_auth_header() -> Result<String, VeloqError> {
+    super::current_auth_header().ok_or_else(|| VeloqError::NotFound {
+        msg: "no credentials set".to_string(),
+    })
+}
+
 #[uniffi::export]
 impl StrengthManager {
     #[uniffi::constructor]
@@ -54,14 +62,13 @@ impl StrengthManager {
     /// The FIT binary is held in memory only - not persisted to disk.
     fn fetch_and_parse_exercise_sets(
         &self,
-        auth_header: String,
         activity_id: String,
     ) -> Result<Vec<FfiExerciseSet>, VeloqError> {
         info!("[Strength] Fetching FIT file for {}", activity_id);
 
         // Download FIT file on the shared process runtime.
         let fit_data = {
-            let fetcher = ActivityFetcher::with_auth_header(auth_header)
+            let fetcher = ActivityFetcher::with_auth_header(require_auth_header()?)
                 .map_err(|e| VeloqError::Database { msg: e })?;
 
             crate::runtime::block_on(fetcher.download_fit_file(&activity_id))
@@ -138,7 +145,6 @@ impl StrengthManager {
     /// Returns the list of successfully processed activity IDs.
     fn batch_fetch_exercise_sets(
         &self,
-        auth_header: String,
         activity_ids: Vec<String>,
     ) -> Result<Vec<String>, VeloqError> {
         if activity_ids.is_empty() {
@@ -150,7 +156,7 @@ impl StrengthManager {
             activity_ids.len()
         );
 
-        let fetcher = ActivityFetcher::with_auth_header(auth_header)
+        let fetcher = ActivityFetcher::with_auth_header(require_auth_header()?)
             .map_err(|e| VeloqError::Database { msg: e })?;
 
         let mut processed = Vec::new();

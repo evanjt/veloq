@@ -138,11 +138,7 @@ pub fn validate_backup_database(path: String) -> Result<String, crate::VeloqErro
 /// - Direct storage in SQLite without serialization overhead
 
 #[uniffi::export]
-pub fn start_fetch_and_store(
-    auth_header: String,
-    activity_ids: Vec<String>,
-    sport_types: Vec<ActivitySportMapping>,
-) {
+pub fn start_fetch_and_store(activity_ids: Vec<String>, sport_types: Vec<ActivitySportMapping>) {
     use crate::elapsed_ms;
     use std::collections::HashMap;
     init_logging();
@@ -153,6 +149,26 @@ pub fn start_fetch_and_store(
         "[RUST: start_fetch_and_store] FFI called with {} activities",
         activity_count
     );
+
+    // Credentials are held by the sync service, never passed per call. Without
+    // one there is nothing to fetch, so settle the progress + result contract
+    // immediately rather than spawning a thread that can only fail.
+    let Some(auth_header) = crate::objects::current_auth_header() else {
+        info!("[RUST: start_fetch_and_store] No credentials set");
+        crate::http::reset_download_progress(activity_count as u32);
+        store_fetch_and_store_result(FetchAndStoreResult {
+            synced_ids: vec![],
+            failed_ids: activity_ids,
+            total: activity_count as u32,
+            success_count: 0,
+            total_points: 0,
+            fetch_time_ms: 0,
+            storage_time_ms: 0,
+            total_time_ms: 0,
+        });
+        crate::http::finish_download_progress();
+        return;
+    };
 
     // Build sport type lookup
     let sport_map_start = Instant::now();
