@@ -12,7 +12,8 @@ import { ProfileAccountSection } from '@/features/settings/components';
 export default function AccountScreen() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
-  const { data: athlete } = useAthlete();
+  const { data: athleteRow } = useAthlete();
+  const athlete = athleteRow ?? undefined;
 
   return (
     <ScreenErrorBoundary screenName="Account">

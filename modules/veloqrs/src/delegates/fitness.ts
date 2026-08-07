@@ -244,6 +244,8 @@ export interface WellnessRowInput {
   stress?: number;
   mood?: number;
   motivation?: number;
+  /** The untyped intervals.icu body for this day, when the caller has it. */
+  raw?: string;
 }
 
 export interface WellnessSparklines {
@@ -286,8 +288,25 @@ export function upsertWellness(host: DelegateHost, rows: WellnessRowInput[]): vo
         stress: r.stress ?? undefined,
         mood: r.mood ?? undefined,
         motivation: r.motivation ?? undefined,
+        raw: r.raw ?? undefined,
       }))
     )
+  );
+}
+
+/**
+ * Untyped wellness bodies over an inclusive date window, oldest first.
+ *
+ * The wellness screens read fields the typed row does not model (hrr,
+ * hrvSDNN), so they parse these rather than a lossy reconstruction. Days
+ * synced before the body column existed are absent rather than partial.
+ */
+export function getWellnessBodies(host: DelegateHost, oldest: string, newest: string): string[] {
+  if (!host.ready) return [];
+  return (
+    host.timed('getWellnessBodies', () =>
+      host.engine.fitness().getWellnessBodies(oldest, newest)
+    ) ?? []
   );
 }
 
@@ -323,4 +342,3 @@ export function findStalePrOpportunities(
       )
   );
 }
-

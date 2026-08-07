@@ -60,6 +60,40 @@ fn previous_version_migrations() -> Migrations<'static> {
     ])
 }
 
+/// The migration set one version behind the current one, matching a database
+/// written by the last release before the wellness body column.
+fn one_behind_migrations() -> Migrations<'static> {
+    let mut set = vec![
+        M::up(include_str!("../src/migrations/001_initial_schema.sql")),
+        M::up(include_str!("../src/migrations/002_unified_sections.sql")),
+        M::up(include_str!("../src/migrations/003_drop_section_names.sql")),
+        M::up(include_str!(
+            "../src/migrations/004_extend_activity_metrics.sql"
+        )),
+        M::up(include_str!(
+            "../src/migrations/005_profile_and_settings.sql"
+        )),
+        M::up(include_str!(
+            "../src/migrations/006_processed_activities.sql"
+        )),
+        M::up(include_str!(
+            "../src/migrations/007_cache_section_performances.sql"
+        )),
+        M::up(include_str!(
+            "../src/migrations/008_cache_all_performance_metrics.sql"
+        )),
+        M::up(include_str!(
+            "../src/migrations/009_section_bounds_cache.sql"
+        )),
+        M::up(include_str!(
+            "../src/migrations/010_route_groups_activity_count.sql"
+        )),
+        M::up(include_str!("../src/migrations/011_pace_history.sql")),
+    ];
+    set.push(M::up(include_str!("../src/migrations/012_v030.sql")));
+    Migrations::new(set)
+}
+
 const ACTIVITY_ID: &str = "i2200001";
 const SECOND_ACTIVITY_ID: &str = "i2200002";
 const ROUTE_ID: &str = "route_bern_loop";
@@ -387,6 +421,140 @@ fn reopening_an_already_current_database_is_a_no_op() {
     assert_eq!(count(&conn, "activities"), 2);
     assert_eq!(count(&conn, "sections"), 1);
     assert_eq!(count(&conn, "section_activities"), 2);
+}
+
+const WELLNESS_DATE: &str = "2026-07-04";
+const WELLNESS_CTL: f64 = 62.4;
+const WELLNESS_HRV: f64 = 78.0;
+
+/// A database one version behind, carrying wellness written before the body
+/// column existed.
+fn seed_one_version_behind_db(path: &Path) -> rusqlite::Result<()> {
+    let mut conn = Connection::open(path)?;
+    one_behind_migrations()
+        .to_latest(&mut conn)
+        .expect("apply one-behind migrations");
+
+    conn.execute(
+        "CREATE TABLE IF NOT EXISTS schema_info (key TEXT PRIMARY KEY, value TEXT NOT NULL)",
+        [],
+    )?;
+    conn.execute(
+        "INSERT OR REPLACE INTO schema_info(key, value) VALUES ('schema_version', '12')",
+        [],
+    )?;
+
+    conn.execute(
+        "INSERT INTO wellness(date, ctl, atl, hrv, resting_hr, updated_at)
+         VALUES (?,?,?,?,?, strftime('%s','now'))",
+        params![
+            WELLNESS_DATE,
+            WELLNESS_CTL,
+            41.0_f64,
+            WELLNESS_HRV,
+            47.0_f64
+        ],
+    )?;
+
+    conn.execute(
+        "INSERT INTO settings(key, value) VALUES ('athlete_profile', ?)",
+        params![r#"{"id":"i1","name":"Demo"}"#],
+    )?;
+
+    Ok(())
+}
+
+#[test]
+fn upgrade_to_the_wellness_body_column_keeps_existing_days() {
+    let tmp = TempDir::new().unwrap();
+    let db_path = tmp.path().join("routes.db");
+    seed_one_version_behind_db(&db_path).expect("seed");
+
+    let engine = PersistentRouteEngine::new(db_path.to_str().unwrap()).expect("open and migrate");
+    drop(engine);
+
+    let conn = Connection::open(&db_path).expect("reopen");
+
+    let (ctl, hrv, raw): (f64, f64, Option<String>) = conn
+        .query_row(
+            "SELECT ctl, hrv, raw FROM wellness WHERE date = ?",
+            [WELLNESS_DATE],
+            |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+        )
+        .expect("read wellness");
+    assert_eq!(ctl, WELLNESS_CTL, "typed wellness values must survive");
+    assert_eq!(hrv, WELLNESS_HRV);
+    assert!(
+        raw.is_none(),
+        "a day synced before the column existed has no body, and must not be faked"
+    );
+
+    let profile: String = conn
+        .query_row(
+            "SELECT value FROM settings WHERE key = 'athlete_profile'",
+            [],
+            |row| row.get(0),
+        )
+        .expect("read athlete profile");
+    assert!(profile.contains("\"id\":\"i1\""));
+}
+
+#[test]
+fn the_wellness_body_column_survives_a_typed_only_rewrite() {
+    // The write-through path still upserts typed values without a body. That
+    // must not erase a body an earlier sync stored, or the wellness screens
+    // lose the fields only the body carries.
+    let tmp = TempDir::new().unwrap();
+    let db_path = tmp.path().join("routes.db");
+    seed_one_version_behind_db(&db_path).expect("seed");
+
+    let mut engine = PersistentRouteEngine::new(db_path.to_str().unwrap()).expect("migrate");
+    let body = r#"{"id":"2026-07-04","ctl":62.4,"hrr":18}"#;
+
+    engine
+        .upsert_wellness(&[veloqrs::persistence::wellness::WellnessRow {
+            date: WELLNESS_DATE.to_string(),
+            ctl: Some(WELLNESS_CTL),
+            atl: None,
+            ramp_rate: None,
+            hrv: Some(WELLNESS_HRV),
+            resting_hr: None,
+            weight: None,
+            sleep_secs: None,
+            sleep_score: None,
+            soreness: None,
+            fatigue: None,
+            stress: None,
+            mood: None,
+            motivation: None,
+            raw: Some(body.to_string()),
+        }])
+        .expect("store body");
+
+    engine
+        .upsert_wellness(&[veloqrs::persistence::wellness::WellnessRow {
+            date: WELLNESS_DATE.to_string(),
+            ctl: Some(70.0),
+            atl: None,
+            ramp_rate: None,
+            hrv: None,
+            resting_hr: None,
+            weight: None,
+            sleep_secs: None,
+            sleep_score: None,
+            soreness: None,
+            fatigue: None,
+            stress: None,
+            mood: None,
+            motivation: None,
+            raw: None,
+        }])
+        .expect("typed-only rewrite");
+
+    let bodies = engine
+        .get_wellness_bodies(WELLNESS_DATE, WELLNESS_DATE)
+        .expect("read bodies");
+    assert_eq!(bodies, vec![body.to_string()]);
 }
 
 /// Reproduce the interrupted pre-0.3.0 beta: half of migration 12's column

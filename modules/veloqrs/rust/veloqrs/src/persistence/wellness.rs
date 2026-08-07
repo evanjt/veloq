@@ -25,6 +25,9 @@ pub struct WellnessRow {
     pub stress: Option<i32>,
     pub mood: Option<i32>,
     pub motivation: Option<i32>,
+    /// The untyped intervals.icu body for this day. The typed columns above
+    /// are what Rust computes on; the UI reads fields beyond them.
+    pub raw: Option<String>,
 }
 
 /// Drop non-finite floats (NaN / +/-Inf) to NULL so corrupt API values never
@@ -46,8 +49,8 @@ impl PersistentRouteEngine {
                 "INSERT INTO wellness (
                     date, ctl, atl, ramp_rate, hrv, resting_hr, weight,
                     sleep_secs, sleep_score, soreness, fatigue, stress,
-                    mood, motivation, updated_at
-                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, strftime('%s', 'now'))
+                    mood, motivation, raw, updated_at
+                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, strftime('%s', 'now'))
                  ON CONFLICT(date) DO UPDATE SET
                     ctl = excluded.ctl,
                     atl = excluded.atl,
@@ -62,6 +65,9 @@ impl PersistentRouteEngine {
                     stress = excluded.stress,
                     mood = excluded.mood,
                     motivation = excluded.motivation,
+                    -- A caller that only has typed values must not erase a
+                    -- body a previous sync stored.
+                    raw = COALESCE(excluded.raw, wellness.raw),
                     updated_at = excluded.updated_at",
             )?;
             for row in rows {
@@ -80,6 +86,7 @@ impl PersistentRouteEngine {
                     row.stress,
                     row.mood,
                     row.motivation,
+                    row.raw,
                 ])?;
             }
         }
@@ -91,7 +98,7 @@ impl PersistentRouteEngine {
         let mut stmt = self.db.prepare(
             "SELECT date, ctl, atl, ramp_rate, hrv, resting_hr, weight,
                     sleep_secs, sleep_score, soreness, fatigue, stress,
-                    mood, motivation
+                    mood, motivation, raw
              FROM wellness
              ORDER BY date DESC
              LIMIT ?",
@@ -112,11 +119,25 @@ impl PersistentRouteEngine {
                 stress: r.get(11)?,
                 mood: r.get(12)?,
                 motivation: r.get(13)?,
+                raw: r.get(14)?,
             })
         })?;
         let mut out: Vec<WellnessRow> = rows.collect::<SqlResult<Vec<_>>>()?;
         out.reverse(); // oldest first so callers can render left-to-right
         Ok(out)
+    }
+
+    /// Untyped wellness bodies over an inclusive date window, oldest first.
+    /// Days synced before the body column existed are skipped rather than
+    /// returned as a lossy typed reconstruction.
+    pub fn get_wellness_bodies(&self, oldest: &str, newest: &str) -> SqlResult<Vec<String>> {
+        let mut stmt = self.db.prepare(
+            "SELECT raw FROM wellness
+             WHERE raw IS NOT NULL AND date >= ? AND date <= ?
+             ORDER BY date ASC",
+        )?;
+        let rows = stmt.query_map(params![oldest, newest], |r| r.get::<_, String>(0))?;
+        rows.collect()
     }
 
     /// Sparkline arrays for the summary card: fitness/fatigue/form/hrv/rhr

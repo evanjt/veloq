@@ -46,7 +46,7 @@ pub mod settings;
 pub use settings::settings_keys;
 mod strength;
 mod tiles;
-pub(crate) mod wellness;
+pub mod wellness;
 
 // ============================================================================
 // Name Translation Support

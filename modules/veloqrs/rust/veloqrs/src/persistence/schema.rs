@@ -9,13 +9,14 @@ use super::{PersistentRouteEngine, codec};
 
 impl PersistentRouteEngine {
     /// App-level schema version for post-migration Rust hooks.
-    /// Independent of rusqlite_migration's PRAGMA user_version (currently 12).
+    /// Independent of rusqlite_migration's PRAGMA user_version (currently 13).
     /// Hooks <= 7 are dead code for any user on 0.2.2+.
-    pub(super) const SCHEMA_VERSION: i32 = 12;
+    pub(super) const SCHEMA_VERSION: i32 = 13;
 
     /// Database migrations, tracked in `__rusqlite_migrations` table.
     /// M1–M11: shipped in 0.2.2 (PRAGMA user_version = 11).
     /// M12: consolidated 0.2.2 → 0.3.0 upgrade.
+    /// M13: untyped wellness body.
     pub(super) fn migrations() -> Migrations<'static> {
         Migrations::new(vec![
             M::up(include_str!("../migrations/001_initial_schema.sql")),
@@ -38,6 +39,7 @@ impl PersistentRouteEngine {
             )),
             M::up(include_str!("../migrations/011_pace_history.sql")),
             M::up(include_str!("../migrations/012_v030.sql")),
+            M::up(include_str!("../migrations/013_wellness_raw_body.sql")),
         ])
     }
 

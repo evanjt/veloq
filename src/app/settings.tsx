@@ -111,7 +111,8 @@ export default function SettingsScreen() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
 
-  const { data: athlete } = useAthlete();
+  const { data: athleteRow } = useAthlete();
+  const athlete = athleteRow ?? undefined;
   const authMethod = useAuthStore((state) => state.authMethod);
   const [profileImageError, setProfileImageError] = useState(false);
 

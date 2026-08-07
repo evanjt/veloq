@@ -32,15 +32,6 @@ beforeEach(() => {
   mockGet.mockReset();
 });
 
-describe('intervalsApi.getAthlete', () => {
-  it('calls correct endpoint', async () => {
-    mockGet.mockResolvedValue({ data: { id: 'i12345', name: 'Test' } });
-    const result = await intervalsApi.getAthlete();
-    expect(mockGet).toHaveBeenCalledWith('/athlete/i12345');
-    expect(result.name).toBe('Test');
-  });
-});
-
 describe('intervalsApi.getActivity', () => {
   it('calls correct endpoint with activity ID', async () => {
     mockGet.mockResolvedValue({ data: { id: 'act1', name: 'Morning Ride' } });
@@ -71,19 +62,6 @@ describe('intervalsApi.getActivityStreams', () => {
     mockGet.mockResolvedValue({ data: [] });
     await intervalsApi.getActivityStreams('act1');
     expect(mockGet).toHaveBeenCalledWith('/activity/act1/streams.json', expect.anything());
-  });
-});
-
-describe('intervalsApi.getWellness', () => {
-  it('calls wellness endpoint with date params', async () => {
-    mockGet.mockResolvedValue({ data: [] });
-    await intervalsApi.getWellness({ oldest: '2024-01-01', newest: '2024-03-01' });
-    expect(mockGet).toHaveBeenCalledWith(
-      '/athlete/i12345/wellness',
-      expect.objectContaining({
-        params: { oldest: '2024-01-01', newest: '2024-03-01' },
-      })
-    );
   });
 });
 
@@ -120,15 +98,6 @@ describe('intervalsApi.getPaceCurve', () => {
     expect(result.pace[1]).toBe(4);
     expect(result.distances).toEqual([100, 200]);
     expect(result.times).toEqual([20, 50]);
-  });
-});
-
-describe('intervalsApi.getSportSettings', () => {
-  it('calls sport-settings endpoint', async () => {
-    mockGet.mockResolvedValue({ data: [{ sport: 'Ride' }] });
-    const result = await intervalsApi.getSportSettings();
-    expect(mockGet).toHaveBeenCalledWith('/athlete/i12345/sport-settings');
-    expect(result).toHaveLength(1);
   });
 });
 
@@ -190,7 +159,6 @@ describe('error handling', () => {
         () => intervalsApi.getActivities({ oldest: '2024-01-01', newest: '2024-06-01' }),
         '401 Unauthorized',
       ],
-      [() => intervalsApi.getAthlete(), 'Network Error'],
       [() => intervalsApi.getActivityStreams('nonexistent'), '404 Not Found'],
     ];
     for (const [call, message] of calls) {
@@ -215,20 +183,5 @@ describe('error handling', () => {
     const result = await intervalsApi.getActivity('act1');
     expect(result.id).toBe('act1');
     expect(result.name).toBeUndefined();
-  });
-
-  it('handles null data from getWellness', async () => {
-    mockGet.mockResolvedValueOnce({ data: null });
-    const result = await intervalsApi.getWellness({
-      oldest: '2024-01-01',
-      newest: '2024-03-01',
-    });
-    expect(result).toBeNull();
-  });
-
-  it('handles getSportSettings empty array', async () => {
-    mockGet.mockResolvedValueOnce({ data: [] });
-    const result = await intervalsApi.getSportSettings();
-    expect(result).toEqual([]);
   });
 });

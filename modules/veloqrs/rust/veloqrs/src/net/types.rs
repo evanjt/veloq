@@ -242,6 +242,16 @@ pub struct WellnessRecord {
     pub steps: Option<f64>,
     #[serde(default)]
     pub vo2max: Option<f64>,
+    #[serde(default)]
+    pub soreness: Option<i32>,
+    #[serde(default)]
+    pub fatigue: Option<i32>,
+    #[serde(default)]
+    pub stress: Option<i32>,
+    #[serde(default)]
+    pub mood: Option<i32>,
+    #[serde(default)]
+    pub motivation: Option<i32>,
 }
 
 // ===========================================================================
