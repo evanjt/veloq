@@ -823,8 +823,8 @@ class RouteEngineClient implements DelegateHost {
     strengthDelegates.isFitProcessed(this, activityId);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  fetchAndParseExerciseSets = (authHeader: string, activityId: string): any[] =>
-    strengthDelegates.fetchAndParseExerciseSets(this, authHeader, activityId);
+  fetchAndParseExerciseSets = (activityId: string): any[] =>
+    strengthDelegates.fetchAndParseExerciseSets(this, activityId);
 
   /**
    * Insert pre-parsed exercise sets for an activity without touching the
@@ -844,8 +844,8 @@ class RouteEngineClient implements DelegateHost {
   getUnprocessedStrengthIds = (activityIds: string[]): string[] =>
     strengthDelegates.getUnprocessedStrengthIds(this, activityIds);
 
-  batchFetchExerciseSets = (authHeader: string, activityIds: string[]): string[] =>
-    strengthDelegates.batchFetchExerciseSets(this, authHeader, activityIds);
+  batchFetchExerciseSets = (activityIds: string[]): string[] =>
+    strengthDelegates.batchFetchExerciseSets(this, activityIds);
 
   /**
    * Parse FIT bytes locally and store strength sets. Returns the number of

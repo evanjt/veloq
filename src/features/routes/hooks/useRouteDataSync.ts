@@ -48,7 +48,6 @@ import { getNativeModule } from '@/shared/native/routeEngine';
 import { routeEngine } from 'veloqrs';
 import { intervalsApi } from '@/api';
 import { toActivityMetrics } from '@/features/activity/lib/activityMetrics';
-import { getStoredCredentials } from '@/shared/app/AuthStore';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import type { Activity } from '@/types';
 import type { SyncProgress } from './useRouteSyncProgress';
@@ -253,25 +252,11 @@ export function useRouteDataSync(
                 );
               }
               try {
-                const creds = getStoredCredentials();
-                let authHeader: string;
-                if (creds.authMethod === 'oauth' && creds.accessToken) {
-                  authHeader = `Bearer ${creds.accessToken}`;
-                } else if (creds.apiKey) {
-                  authHeader = `Basic ${btoa(`API_KEY:${creds.apiKey}`)}`;
-                } else {
-                  authHeader = '';
-                }
-                if (authHeader) {
-                  const processed = nativeModule.routeEngine.batchFetchExerciseSets(
-                    authHeader,
-                    unprocessed
+                const processed = nativeModule.routeEngine.batchFetchExerciseSets(unprocessed);
+                if (__DEV__) {
+                  console.log(
+                    `[RouteDataSync] FIT batch complete: ${processed.length}/${unprocessed.length}`
                   );
-                  if (__DEV__) {
-                    console.log(
-                      `[RouteDataSync] FIT batch complete: ${processed.length}/${unprocessed.length}`
-                    );
-                  }
                 }
               } catch (err) {
                 if (__DEV__) {

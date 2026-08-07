@@ -2,24 +2,13 @@ import { useQuery } from '@tanstack/react-query';
 import type { ExerciseSet, MuscleGroup } from 'veloqrs';
 
 import { getRouteEngine } from '@/shared/native/routeEngine';
-import { getStoredCredentials, useAuthStore } from '@/shared/app/AuthStore';
+import { useAuthStore } from '@/shared/app/AuthStore';
 import { queryKeys } from '@/shared/query/queryKeys';
 
 import { demoStrengthSets } from '../demo';
 
 function isDemo(): boolean {
   return useAuthStore.getState().isDemoMode;
-}
-
-function buildAuthHeader(): string {
-  const creds = getStoredCredentials();
-  if (creds.authMethod === 'oauth' && creds.accessToken) {
-    return `Bearer ${creds.accessToken}`;
-  } else if (creds.apiKey) {
-    const encoded = btoa(`API_KEY:${creds.apiKey}`);
-    return `Basic ${encoded}`;
-  }
-  throw new Error('No credentials available');
 }
 
 /**
@@ -71,8 +60,7 @@ export function useExerciseSets(activityId: string, activityType: string) {
 
         // Download, parse, store, return
         console.log(`[ExerciseSets] Fetching FIT file for ${activityId}...`);
-        const authHeader = buildAuthHeader();
-        const result = engine.fetchAndParseExerciseSets(authHeader, activityId);
+        const result = engine.fetchAndParseExerciseSets(activityId);
         console.log(`[ExerciseSets] Parsed ${result.length} sets`);
         return result;
       } catch (err) {

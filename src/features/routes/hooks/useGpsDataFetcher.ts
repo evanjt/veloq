@@ -18,7 +18,6 @@ import {
   takeFetchAndStoreResult,
   type ActivitySportMapping,
 } from 'veloqrs';
-import { getStoredCredentials } from '@/shared/app/AuthStore';
 import { getSyncGeneration, useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { isRouteMatchingEnabled } from '@/features/routes/stores/RouteSettingsStore';
 import { toActivityMetrics } from '@/features/activity/lib/activityMetrics';
@@ -450,27 +449,8 @@ export function useGpsDataFetcher() {
         };
       }
 
-      if (__DEV__) {
-        console.log('[fetchApiGps] Getting credentials...');
-      }
-
-      // Get API credentials (synchronous - uses Zustand getState)
-      const creds = getStoredCredentials();
       if (!isMountedRef.current || abortSignal.aborted) {
         return { syncedIds: [], withGpsCount: 0, message: 'Cancelled' };
-      }
-
-      // Build auth header based on auth method
-      let authHeader: string;
-      if (creds.authMethod === 'oauth' && creds.accessToken) {
-        // OAuth: Bearer token
-        authHeader = `Bearer ${creds.accessToken}`;
-      } else if (creds.apiKey) {
-        // API key: Basic auth with "API_KEY" as username
-        const encoded = btoa(`API_KEY:${creds.apiKey}`);
-        authHeader = `Basic ${encoded}`;
-      } else {
-        throw new Error('No credentials available');
       }
 
       // Update progress
@@ -512,7 +492,7 @@ export function useGpsDataFetcher() {
 
       // Start combined fetch+store - Rust downloads GPS data and stores directly
       // NO FFI round-trip: GPS data never crosses to TypeScript and back
-      startFetchAndStore(authHeader, activityIds, sportTypes);
+      startFetchAndStore(activityIds, sportTypes);
 
       // Tier 1.1: kick off time-stream HTTP fetches concurrently with GPS download.
       // Previously these ran sequentially AFTER GPS completed, adding ~20 s silent tail
