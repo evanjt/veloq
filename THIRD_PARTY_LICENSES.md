@@ -172,7 +172,6 @@ For a complete list, run: `cargo tree --format "{p} {l}"` in the tracematch dire
 
 | Package | License | Repository |
 |---------|---------|------------|
-| axios | MIT | https://github.com/axios/axios |
 | i18next | MIT | https://github.com/i18next/i18next |
 | react-i18next | MIT | https://github.com/i18next/react-i18next |
 | intl-pluralrules | ISC | https://github.com/nicolo-ribaudo/intl-pluralrules |

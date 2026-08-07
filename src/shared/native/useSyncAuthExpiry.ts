@@ -1,11 +1,9 @@
 /**
  * Bridge the Rust sync service's `authExpired` state onto the auth store.
  *
- * The Rust transport classifies a 401 and parks the service in `authExpired`,
- * but nothing observed that state, so an expired OAuth session was only ever
- * noticed by the axios interceptor. As reads move into Rust that interceptor
- * stops seeing most traffic, and this hook becomes the path that logs the user
- * out and shows the re-login prompt.
+ * The Rust transport classifies a 401 and parks the service in `authExpired`.
+ * Every intervals.icu call, read and write, now goes through it, so this hook is
+ * the single path that logs the user out and shows the re-login prompt.
  *
  * `handleSessionExpired` is a no-op for API-key sessions, which never expire.
  */

@@ -56,14 +56,6 @@ export interface ManualActivityData {
   commute?: boolean;
 }
 
-/** Response from intervals.icu file upload */
-export interface UploadResponse {
-  id: string;
-  name: string;
-  type: string;
-  start_date_local: string;
-}
-
 /** Target range for a workout step */
 export interface WorkoutTarget {
   min: number;

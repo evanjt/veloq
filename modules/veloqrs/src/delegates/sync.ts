@@ -2,15 +2,17 @@
  * Sync service delegates.
  *
  * Thin wrappers over the Rust `SyncManager` FFI object (the single first-class
- * I/O contract). TypeScript sets credentials once, issues commands, and reads a
- * status snapshot - it never builds an axios request or an auth header itself.
+ * I/O contract). TypeScript sets credentials once, issues commands, reads a
+ * status snapshot, and awaits the writes - it never builds an HTTP request or an
+ * auth header itself.
  *
- * Runtime note: `host.engine.sync()` resolves once the UniFFI bindings are
- * regenerated for the new `SyncManager` object (clean rebuild, see
- * modules/veloqrs/CLAUDE.md "FFI Development Rules"). The `host.ready` guard only
- * covers calls made before the engine is initialised, returning safe defaults.
- * Once initialised these need the regenerated bindings. Field casing matches the
- * generated records (camelCase).
+ * Reads are fire-and-forget: the command returns instantly and progress surfaces
+ * through the status snapshot. Writes are awaited, because whether an upload was
+ * accepted decides what happens to the file on the device.
+ *
+ * The `host.ready` guard only covers calls made before the engine is
+ * initialised, returning safe defaults. Field casing matches the generated
+ * records (camelCase).
  */
 
 import type { FfiCallOutcome, FfiManualActivity } from '../generated/veloqrs';
