@@ -9,5 +9,11 @@
 /** Chart-scrub highlight updates. One frame at 60fps. */
 export const HIGHLIGHT_THROTTLE_MS = 16;
 
+/**
+ * Section trim map updates. The Reanimated slider stays on the UI thread at
+ * 60fps and emits sparsely, so the map only has to keep up coarsely.
+ */
+export const TRIM_UPDATE_THROTTLE_MS = 100;
+
 /** Camera reporting while a gesture is still in flight. */
 export const REGION_CHANGE_DEBOUNCE_MS = 200;

@@ -164,6 +164,11 @@ export const mapLayerColors = {
   boundaryCasing: '#000000',
   /** Live section creation line. */
   sectionCreation: '#22C55E',
+  /** Context track shown beyond a section while its bounds are being expanded. */
+  extension: '#FF6B00',
+  /** Endpoints of a neighbouring section, muted so they read as background. */
+  nearbyStart: 'rgba(34,197,94,0.6)',
+  nearbyEnd: 'rgba(239,68,68,0.6)',
   /** Live recording position dot. */
   userLocation: '#2196F3',
 } as const;

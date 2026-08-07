@@ -63,6 +63,9 @@ module.exports = {
     personalRecord: "#D4AF37",
     boundaryCasing: "#000000",
     sectionCreation: "#22C55E",
+    extension: "#FF6B00",
+    nearbyStart: "rgba(34,197,94,0.6)",
+    nearbyEnd: "rgba(239,68,68,0.6)",
     userLocation: "#2196F3",
   },
   mapPreviewColors: {

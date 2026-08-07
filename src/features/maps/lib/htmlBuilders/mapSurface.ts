@@ -27,6 +27,8 @@ export interface MapCameraSpec {
   /** Fit these bounds instead of using `center`/`zoom`. */
   bounds?: LngLatBounds;
   padding?: MapPadding;
+  /** Clamp, so fitting a tiny bounding box cannot zoom past useful detail. */
+  maxZoom?: number;
 }
 
 /** A GeoJSON source, optionally clustered. */
@@ -630,6 +632,9 @@ ${tileProtocolsScript()}
     var _bounds = ${boundsJSON};
     var _center = ${centerJSON};
     var _fitPadding = ${paddingExpression(camera.padding, 40)};
+    var _maxZoom = ${camera.maxZoom ?? 'null'};
+    window._veloqMaxZoom = _maxZoom;
+    window._veloqFitPadding = _fitPadding;
 
     function _mapOptions(style) {
       var options = {
@@ -650,6 +655,7 @@ ${tileProtocolsScript()}
         touchPitch: ${interaction.pitch},
         keyboard: false,
       };
+      if (_maxZoom !== null) options.maxZoom = _maxZoom;
       if (_bounds) {
         options.bounds = [_bounds.sw, _bounds.ne];
         options.fitBoundsOptions = { padding: _fitPadding };
