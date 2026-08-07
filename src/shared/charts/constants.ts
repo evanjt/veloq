@@ -41,6 +41,15 @@ export const CHART_CONFIG = {
    * @defaultValue 10
    */
   PAN_THRESHOLD: 10,
+
+  /**
+   * Longest touch still treated as a tap.
+   *
+   * In milliseconds. Anything held longer belongs to the scrub gesture.
+   *
+   * @defaultValue 200
+   */
+  TAP_MAX_DURATION: 200,
 } as const;
 
 /**
