@@ -530,6 +530,65 @@ const FfiConverterTypeFetchAndStoreResult = (() => {
 })();
 
 /**
+ * One untyped activity payload, keyed by id and start time. Demo seeding
+ * writes these; a live sync writes them from the same shape.
+ */
+export type FfiActivityBody = {
+  activityId: string;
+  /**
+   * Start time as epoch seconds.
+   */
+  date: /*i64*/ bigint;
+  /**
+   * The untyped intervals.icu activity payload.
+   */
+  raw: string;
+};
+
+/**
+ * Generated factory for {@link FfiActivityBody} record objects.
+ */
+export const FfiActivityBody = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiActivityBody, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiActivityBody>,
+  });
+})();
+
+const FfiConverterTypeFfiActivityBody = (() => {
+  type TypeName = FfiActivityBody;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        activityId: FfiConverterString.read(from),
+        date: FfiConverterInt64.read(from),
+        raw: FfiConverterString.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterString.write(value.activityId, into);
+      FfiConverterInt64.write(value.date, into);
+      FfiConverterString.write(value.raw, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.activityId) +
+        FfiConverterInt64.allocationSize(value.date) +
+        FfiConverterString.allocationSize(value.raw)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * Combined payload for batched activity-list highlights: pre-computed
  * section indicators (PRs + trends) and route highlights for the same
  * activity IDs, delivered in a single FFI round-trip.
@@ -7551,6 +7610,15 @@ export interface ActivityManagerLike {
     sourceId: string,
     count: /*u32*/ number,
   ) /*throws*/ : /*u32*/ number;
+  /**
+   * Untyped activity bodies over an inclusive timestamp window, newest
+   * first. The feed and detail screens read fields no Rust type models, so
+   * they parse these rather than a reconstruction from `activity_metrics`.
+   */
+  getActivityBodies(
+    oldestTs: /*i64*/ bigint,
+    newestTs: /*i64*/ bigint,
+  ) /*throws*/ : Array<string>;
   getCount() /*throws*/ : /*u32*/ number;
   getGpsTrack(activityId: string) /*throws*/ : Array<FfiGpsPoint>;
   /**
@@ -7571,6 +7639,11 @@ export interface ActivityManagerLike {
     allTimes: Array</*u32*/ number>,
     offsets: Array</*u32*/ number>,
   ) /*throws*/ : void;
+  /**
+   * Store untyped activity bodies. Demo mode seeds the same table a live
+   * sync writes, so every downstream read is identical in both modes.
+   */
+  upsertActivityBodies(rows: Array<FfiActivityBody>) /*throws*/ : void;
 }
 /**
  * @deprecated Use `ActivityManagerLike` instead.
@@ -7637,6 +7710,33 @@ export class ActivityManager
             uniffiTypeActivityManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(sourceId),
             FfiConverterUInt32.lower(count),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * Untyped activity bodies over an inclusive timestamp window, newest
+   * first. The feed and detail screens read fields no Rust type models, so
+   * they parse these rather than a reconstruction from `activity_metrics`.
+   */
+  getActivityBodies(
+    oldestTs: /*i64*/ bigint,
+    newestTs: /*i64*/ bigint,
+  ): Array<string> /*throws*/ {
+    return FfiConverterArrayString.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_activitymanager_get_activity_bodies(
+            uniffiTypeActivityManagerObjectFactory.clonePointer(this),
+            FfiConverterInt64.lower(oldestTs),
+            FfiConverterInt64.lower(newestTs),
             callStatus,
           );
         },
@@ -7805,6 +7905,26 @@ export class ActivityManager
           FfiConverterArrayString.lower(activityIds),
           FfiConverterArrayUInt32.lower(allTimes),
           FfiConverterArrayUInt32.lower(offsets),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    );
+  }
+
+  /**
+   * Store untyped activity bodies. Demo mode seeds the same table a live
+   * sync writes, so every downstream read is identical in both modes.
+   */
+  upsertActivityBodies(rows: Array<FfiActivityBody>): void /*throws*/ {
+    uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+        FfiConverterTypeVeloqError,
+      ),
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_veloqrs_fn_method_activitymanager_upsert_activity_bodies(
+          uniffiTypeActivityManagerObjectFactory.clonePointer(this),
+          FfiConverterArrayTypeFfiActivityBody.lower(rows),
           callStatus,
         );
       },
@@ -12437,6 +12557,12 @@ export interface SyncManagerLike {
     athleteId: string,
   ) /*throws*/ : void;
   /**
+   * Fetch and store one date window of activities. Returns instantly: true
+   * if the job started, false if a sync is already running or credentials
+   * are missing. The feed calls this for windows the default sync misses.
+   */
+  syncActivitiesWindow(oldest: string, newest: string) /*throws*/ : boolean;
+  /**
    * Start a sync. Returns instantly: true if a new sync started, false if one
    * was already running or credentials are missing. Work runs on the shared
    * runtime; observe progress via `get_sync_status`.
@@ -12542,6 +12668,30 @@ export class SyncManager
         );
       },
       /*liftString:*/ FfiConverterString.lift,
+    );
+  }
+
+  /**
+   * Fetch and store one date window of activities. Returns instantly: true
+   * if the job started, false if a sync is already running or credentials
+   * are missing. The feed calls this for windows the default sync misses.
+   */
+  syncActivitiesWindow(oldest: string, newest: string): boolean /*throws*/ {
+    return FfiConverterBool.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_syncmanager_sync_activities_window(
+            uniffiTypeSyncManagerObjectFactory.clonePointer(this),
+            FfiConverterString.lower(oldest),
+            FfiConverterString.lower(newest),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
     );
   }
 
@@ -13329,6 +13479,11 @@ const FfiConverterArrayTypeActivitySportMapping = new FfiConverterArray(
   FfiConverterTypeActivitySportMapping,
 );
 
+// FfiConverter for Array<FfiActivityBody>
+const FfiConverterArrayTypeFfiActivityBody = new FfiConverterArray(
+  FfiConverterTypeFfiActivityBody,
+);
+
 // FfiConverter for Array<FfiActivityIndicator>
 const FfiConverterArrayTypeFfiActivityIndicator = new FfiConverterArray(
   FfiConverterTypeFfiActivityIndicator,
@@ -13676,6 +13831,14 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_activitymanager_get_activity_bodies() !==
+    4630
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_activitymanager_get_activity_bodies",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_activitymanager_get_count() !==
     22460
   ) {
@@ -13745,6 +13908,14 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_activitymanager_set_time_streams",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_activitymanager_upsert_activity_bodies() !==
+    56169
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_activitymanager_upsert_activity_bodies",
     );
   }
   if (
@@ -15036,6 +15207,14 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_syncmanager_sync_activities_window() !==
+    20311
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_syncmanager_sync_activities_window",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_syncmanager_sync_now() !==
     4704
   ) {
@@ -15199,6 +15378,7 @@ export default Object.freeze({
     FfiConverterTypeDetectionManager,
     FfiConverterTypeDownloadProgressResult,
     FfiConverterTypeFetchAndStoreResult,
+    FfiConverterTypeFfiActivityBody,
     FfiConverterTypeFfiActivityHighlightsBundle,
     FfiConverterTypeFfiActivityIndicator,
     FfiConverterTypeFfiActivityMetrics,
