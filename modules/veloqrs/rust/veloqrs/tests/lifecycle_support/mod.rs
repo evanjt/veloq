@@ -147,6 +147,15 @@ pub fn ground_matches(a: &SectionFingerprint, b: &SectionFingerprint) -> bool {
         || coverage(&b.polyline, &a.polyline, GROUND_TOL_M) >= 0.6
 }
 
+/// Whether an activity's track lends support to a section's ground: any
+/// contact beyond noise with the footprint counts, because even a short
+/// overlap can seed a small honest section inside the corridor now that
+/// orphaned ground re-queues. Dissolution scaffolding uses this to pick
+/// what to remove and which drain activities cannot keep ground alive.
+pub fn lends_ground(fp: &SectionFingerprint, track: &[GpsPoint]) -> bool {
+    coverage(&fp.polyline, track, GROUND_TOL_M) >= 0.02
+}
+
 /// Snapshot the USER-VISIBLE catalogue: the DB view the app actually renders
 /// (`get_sections_by_type(None)`), which excludes disabled/superseded and
 /// includes custom sections. Deliberately NOT the in-memory `get_sections()`
