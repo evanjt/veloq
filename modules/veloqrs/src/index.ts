@@ -40,6 +40,10 @@ export { RouteEngineClient, type HeatmapDay, type SectionEncounter } from "./Rou
 
 // Sync service (SyncManager) consumer types
 export type { SyncStatus, SyncAuthMethod } from "./delegates/sync";
+export type {
+  FfiCallOutcome as CallOutcome,
+  FfiManualActivity as ManualActivity,
+} from "./generated/veloqrs";
 
 // Delegate-shaped bundles returned by the façade
 export type { ActivityHighlightsBundle } from "./delegates/activities";

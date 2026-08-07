@@ -14,6 +14,8 @@ import type {
   FfiActivityMetrics,
   FfiActivityPattern,
   FfiBounds,
+  FfiCallOutcome,
+  FfiManualActivity,
   FfiExerciseActivities,
   FfiExerciseSet,
   FfiMuscleExerciseSummary,
@@ -301,6 +303,20 @@ class RouteEngineClient implements DelegateHost {
 
   syncTimeStreams = (activityIds: string[]): boolean =>
     syncDelegates.syncTimeStreams(this, activityIds);
+
+  uploadActivityFile = (
+    filePath: string,
+    filename: string,
+    name?: string,
+    pairedEventId?: number
+  ): Promise<FfiCallOutcome> =>
+    syncDelegates.uploadActivityFile(this, filePath, filename, name, pairedEventId);
+
+  createManualActivity = (activity: FfiManualActivity): Promise<FfiCallOutcome> =>
+    syncDelegates.createManualActivity(this, activity);
+
+  validateSyncCredentials = (method: SyncAuthMethod, secret: string): Promise<FfiCallOutcome> =>
+    syncDelegates.validateSyncCredentials(this, method, secret);
 
   cancelSync = (): void => syncDelegates.cancelSync(this);
 
