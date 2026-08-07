@@ -10,6 +10,7 @@
 
 import type {
   PersistentEngineStats,
+  FfiActivityDetailData,
   FfiActivityMetrics,
   FfiBounds,
   FfiGpsPoint,
@@ -884,6 +885,12 @@ class RouteEngineClient implements DelegateHost {
     activityIds: string[]
   ): activityDelegates.ActivityHighlightsBundle =>
     activityDelegates.getActivityHighlightsBundle(this, activityIds);
+
+  getActivityDetailData = (
+    activityId: string,
+    minRouteActivities: number
+  ): FfiActivityDetailData | undefined =>
+    activityDelegates.getActivityDetailData(this, activityId, minRouteActivities);
 
   // ========================================================================
   // Strength Training

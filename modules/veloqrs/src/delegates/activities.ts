@@ -8,6 +8,7 @@
  */
 
 import type {
+  FfiActivityDetailData,
   FfiActivityIndicator,
   FfiActivityMetrics,
   FfiActivityRouteHighlight,
@@ -147,6 +148,23 @@ export function getActivityHighlightsBundle(
   }
   return host.timed('getActivityHighlightsBundle', () =>
     host.engine.activities().getHighlightsBundle(activityIds)
+  );
+}
+
+/**
+ * Every read the activity detail screen paints with, in one round-trip:
+ * engine counts, route groups, matched and custom sections, encounters,
+ * indicator highlights, per-section traces and the sections this activity
+ * holds the record on.
+ */
+export function getActivityDetailData(
+  host: DelegateHost,
+  activityId: string,
+  minRouteActivities: number
+): FfiActivityDetailData | undefined {
+  if (!host.ready || !activityId) return undefined;
+  return host.timed('getActivityDetailData', () =>
+    host.engine.activities().getDetailData(activityId, minRouteActivities)
   );
 }
 

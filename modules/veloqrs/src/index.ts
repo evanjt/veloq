@@ -41,6 +41,9 @@ export { RouteEngineClient, type HeatmapDay, type SectionEncounter } from "./Rou
 // Sync service (SyncManager) consumer types
 export type { SyncStatus, SyncAuthMethod } from "./delegates/sync";
 
+// Delegate-shaped bundles returned by the façade
+export type { ActivityHighlightsBundle } from "./delegates/activities";
+
 // Import generated functions for top-level aliases
 import {
   getDownloadProgress as ffiGetDownloadProgress,
@@ -70,6 +73,8 @@ import {
   type FfiRecentPr,
   type FfiStartupData,
   type FfiPreviewTrack,
+  type FfiActivityDetailData,
+  type FfiSectionTrace,
   type FfiRoutesScreenData,
   type FfiGroupWithPolyline,
   type FfiSectionWithPolyline,
@@ -112,6 +117,9 @@ export type RecentPR = FfiRecentPr;
 // Startup batch types
 export type StartupData = FfiStartupData;
 export type PreviewTrack = FfiPreviewTrack;
+// Activity detail batch types
+export type ActivityDetailData = FfiActivityDetailData;
+export type SectionTrace = FfiSectionTrace;
 // Routes screen batch types
 export type RoutesScreenData = FfiRoutesScreenData;
 export type GroupWithPolyline = FfiGroupWithPolyline;

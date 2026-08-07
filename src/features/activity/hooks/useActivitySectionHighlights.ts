@@ -14,6 +14,7 @@
  */
 
 import { useMemo } from 'react';
+import type { ActivityHighlightsBundle } from 'veloqrs';
 import { getRouteEngine } from '@/shared/native/routeEngine';
 import { isRouteMatchingEnabled } from '@/features/routes/stores/RouteSettingsStore';
 import { useEngineSubscription } from '@/features/routes/hooks/useRouteEngine';
@@ -42,7 +43,10 @@ export interface ActivityRouteHighlight {
  * Returns maps of activity ID → section/route highlights for a batch of activities.
  * Re-queries when section data changes (engine subscription).
  */
-export function useActivitySectionHighlights(activityIds: string[]): {
+export function useActivitySectionHighlights(
+  activityIds: string[],
+  preComputedBundle?: ActivityHighlightsBundle
+): {
   sections: Map<string, ActivitySectionHighlight[]>;
   routes: Map<string, ActivityRouteHighlight>;
 } {
@@ -56,12 +60,15 @@ export function useActivitySectionHighlights(activityIds: string[]): {
 
     if (!isRouteMatchingEnabled() || activityIds.length === 0) return empty;
 
-    const engine = getRouteEngine();
-    if (!engine) return empty;
-
     try {
-      // Single FFI call returns both section indicators and route highlights.
-      const bundle = engine.getActivityHighlightsBundle(activityIds);
+      // Single FFI call returns both section indicators and route highlights,
+      // unless the caller already has the bundle.
+      let bundle = preComputedBundle;
+      if (!bundle) {
+        const engine = getRouteEngine();
+        if (!engine) return empty;
+        bundle = engine.getActivityHighlightsBundle(activityIds);
+      }
       const indicators = bundle.indicators;
       const rawRoutes = bundle.routeHighlights;
       const sectionMap = new Map<string, ActivitySectionHighlight[]>();
@@ -137,5 +144,5 @@ export function useActivitySectionHighlights(activityIds: string[]): {
       return empty;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activityIds.join(','), trigger]);
+  }, [activityIds.join(','), trigger, preComputedBundle]);
 }
