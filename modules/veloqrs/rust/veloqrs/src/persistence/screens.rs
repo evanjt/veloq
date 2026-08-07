@@ -400,4 +400,66 @@ impl super::PersistentRouteEngine {
             group,
         }
     }
+
+    /// Everything the home-screen widget snapshot is composed from.
+    ///
+    /// The latest activity is picked here rather than by handing every metric
+    /// row across the boundary, which is what the widget writer used to do.
+    pub fn widget_snapshot_data(
+        &mut self,
+        current_start: i64,
+        current_end: i64,
+        prev_start: i64,
+        prev_end: i64,
+        sparkline_days: u32,
+    ) -> crate::FfiWidgetSnapshotData {
+        let sparklines = self.get_wellness_sparklines(sparkline_days).ok().flatten();
+
+        let summary = crate::FfiSummaryCardData {
+            current_week: self.get_period_stats(current_start, current_end),
+            prev_week: self.get_period_stats(prev_start, prev_end),
+            ftp_trend: self.get_ftp_trend(),
+            run_pace_trend: self.get_pace_trend("Run"),
+            swim_pace_trend: self.get_pace_trend("Swim"),
+        };
+
+        // Strictly-greater keeps the first of any tie, matching the scan this
+        // replaces.
+        let mut latest: Option<crate::ActivityMetrics> = None;
+        for id in self.get_activity_ids() {
+            let Some(m) = self.activity_metrics.get(&id) else {
+                continue;
+            };
+            if latest.as_ref().is_none_or(|best| m.date > best.date) {
+                latest = Some(m.clone());
+            }
+        }
+
+        let (latest_is_pr, latest_gps) = match latest.as_ref() {
+            Some(m) => {
+                let ids = [m.activity_id.clone()];
+                let is_pr = self
+                    .get_activity_route_highlights(&ids)
+                    .iter()
+                    .any(|r| r.is_pr)
+                    || self.get_activity_indicators(&ids).iter().any(|i| {
+                        i.indicator_type == "section_pr" || i.indicator_type == "route_pr"
+                    });
+                let gps = self
+                    .get_gps_track(&m.activity_id)
+                    .map(|points| points.into_iter().map(crate::FfiGpsPoint::from).collect())
+                    .unwrap_or_default();
+                (is_pr, gps)
+            }
+            None => (false, Vec::new()),
+        };
+
+        crate::FfiWidgetSnapshotData {
+            sparklines,
+            summary,
+            latest: latest.map(crate::FfiActivityMetrics::from),
+            latest_is_pr,
+            latest_gps,
+        }
+    }
 }

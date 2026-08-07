@@ -1701,6 +1701,28 @@ pub struct FfiRouteDetailData {
 }
 
 // ============================================================================
+// Widget Snapshot Batch Types
+// ============================================================================
+
+/// Everything the home-screen widget snapshot is composed from.
+///
+/// Widgets run in a separate process and cannot reach the engine, so the app
+/// bakes their content. This is the single read that feeds it.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiWidgetSnapshotData {
+    /// Trailing wellness sparklines, `None` until wellness has synced
+    pub sparklines: Option<FfiWellnessSparklines>,
+    /// This week and last week, with the trends the widget shows
+    pub summary: FfiSummaryCardData,
+    /// The most recent activity, or `None` when there are none
+    pub latest: Option<FfiActivityMetrics>,
+    /// Whether the latest activity carries a route or section record
+    pub latest_is_pr: bool,
+    /// The latest activity's GPS track, empty for indoor activities
+    pub latest_gps: Vec<FfiGpsPoint>,
+}
+
+// ============================================================================
 // Helper functions
 // ============================================================================
 

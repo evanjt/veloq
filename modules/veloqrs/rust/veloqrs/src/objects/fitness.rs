@@ -467,4 +467,26 @@ impl FitnessManager {
             }
         })
     }
+
+    /// Everything the home-screen widget snapshot is composed from: wellness
+    /// sparklines, the summary card, and the latest activity with its record
+    /// flag and GPS track. Replaces the six-call gather in the widget writer.
+    fn get_widget_snapshot(
+        &self,
+        current_start: i64,
+        current_end: i64,
+        prev_start: i64,
+        prev_end: i64,
+        sparkline_days: u32,
+    ) -> Result<crate::FfiWidgetSnapshotData, VeloqError> {
+        with_engine(|e| {
+            e.widget_snapshot_data(
+                current_start,
+                current_end,
+                prev_start,
+                prev_end,
+                sparkline_days,
+            )
+        })
+    }
 }

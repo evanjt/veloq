@@ -275,6 +275,68 @@ fn activity_detail_route_groups_honour_the_minimum() {
 }
 
 // ============================================================================
+// Widget snapshot
+// ============================================================================
+
+#[test]
+fn widget_snapshot_matches_the_calls_it_replaces() {
+    let mut s = populated();
+    let now = 1_700_200_000;
+    let bundle = s.engine.widget_snapshot_data(
+        now - 7 * 86_400,
+        now,
+        now - 14 * 86_400,
+        now - 7 * 86_400,
+        30,
+    );
+
+    assert_eq!(
+        bundle.summary.current_week.count,
+        s.engine.get_period_stats(now - 7 * 86_400, now).count
+    );
+    assert_eq!(
+        bundle.summary.ftp_trend.latest_ftp,
+        s.engine.get_ftp_trend().latest_ftp
+    );
+
+    // a2 is the newer of the two fixture activities.
+    let latest = bundle.latest.expect("a latest activity");
+    assert_eq!(latest.activity_id, "a2");
+
+    let expected_gps: Vec<(f64, f64)> = s
+        .engine
+        .get_gps_track("a2")
+        .unwrap_or_default()
+        .iter()
+        .map(|p| (p.latitude, p.longitude))
+        .collect();
+    let bundled_gps: Vec<(f64, f64)> = bundle
+        .latest_gps
+        .iter()
+        .map(|p| (p.latitude, p.longitude))
+        .collect();
+    assert_eq!(bundled_gps, expected_gps);
+}
+
+#[test]
+fn widget_snapshot_is_empty_without_activities() {
+    let mut s = setup();
+    let now = 1_700_200_000;
+    let bundle = s.engine.widget_snapshot_data(
+        now - 7 * 86_400,
+        now,
+        now - 14 * 86_400,
+        now - 7 * 86_400,
+        30,
+    );
+
+    assert!(bundle.latest.is_none());
+    assert!(bundle.latest_gps.is_empty());
+    assert!(!bundle.latest_is_pr);
+    assert_eq!(bundle.summary.current_week.count, 0);
+}
+
+// ============================================================================
 // Route detail
 // ============================================================================
 
