@@ -36,10 +36,10 @@ onFlowComplete:
       id: "recording-timer"
     timeout: 10000
 
-# Unlock the lock overlay (auto-engaged on recording start)
+# Unlock the screen (the lock auto-engages on recording start)
 - swipe:
     from:
-      id: "lock-overlay-unlock"
+      id: "unlock-track-handle"
     direction: RIGHT
     duration: 800
 

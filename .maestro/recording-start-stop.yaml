@@ -63,10 +63,10 @@ onFlowComplete:
 
 - takeScreenshot: "recording-active"
 
-# Unlock the lock overlay by swiping the handle right
+# Unlock by sliding the track handle right
 - swipe:
     from:
-      id: "lock-overlay-unlock"
+      id: "unlock-track-handle"
     direction: RIGHT
     duration: 800
 

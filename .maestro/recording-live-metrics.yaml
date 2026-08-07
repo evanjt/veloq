@@ -1,5 +1,5 @@
 # Recording Live Metrics Test
-# Tests: data field grid visibility, GPS indicator, HR zone bar during recording
+# Tests: data field grid visibility, GPS indicator during recording
 
 appId: com.veloq.app.dev
 tags:
@@ -75,17 +75,12 @@ onFlowComplete:
     id: "data-field-distance"
     optional: true
 
-# Check HR zone bar (optional — depends on simulated sensor data)
-- assertVisible:
-    id: "hr-zone-bar"
-    optional: true
-
 - takeScreenshot: "recording-live-metrics"
 
 # Clean up: unlock, pause, stop, discard
 - swipe:
     from:
-      id: "lock-overlay-unlock"
+      id: "unlock-track-handle"
     direction: RIGHT
     duration: 800
 

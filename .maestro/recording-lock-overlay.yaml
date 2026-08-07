@@ -1,5 +1,5 @@
-# Recording Lock Overlay Test
-# Tests: lock overlay display, unlock swipe, re-lock, timer visibility through overlay
+# Recording Lock Test
+# Tests: locked state display, slide to unlock, re-lock, timer visibility while locked
 
 appId: com.veloq.app.dev
 tags:
@@ -59,20 +59,20 @@ onFlowComplete:
       id: "recording-timer"
     timeout: 10000
 
-# Lock overlay should be auto-engaged
+# The slide-to-unlock track replaces the controls while locked
 - assertVisible:
-    id: "lock-overlay"
+    id: "unlock-track"
 
-# Timer should be visible through the overlay
+# The timer stays visible while locked
 - assertVisible:
     id: "recording-timer"
 
-- takeScreenshot: "lock-overlay-active"
+- takeScreenshot: "recording-locked"
 
-# Unlock by swiping
+# Unlock by sliding the handle right
 - swipe:
     from:
-      id: "lock-overlay-unlock"
+      id: "unlock-track-handle"
     direction: RIGHT
     duration: 800
 
@@ -82,24 +82,24 @@ onFlowComplete:
       id: "control-pause"
     timeout: 5000
 
-- takeScreenshot: "lock-overlay-unlocked"
+- takeScreenshot: "recording-unlocked"
 
-# Re-lock by tapping lock button
+# Re-lock from the header chip
 - tapOn:
-    id: "control-lock"
+    id: "recording-lock-toggle"
 
-# Lock overlay should reappear
+# The slide track should come back
 - extendedWaitUntil:
     visible:
-      id: "lock-overlay"
+      id: "unlock-track"
     timeout: 5000
 
-- takeScreenshot: "lock-overlay-relocked"
+- takeScreenshot: "recording-relocked"
 
 # Clean up: unlock, pause, stop, discard
 - swipe:
     from:
-      id: "lock-overlay-unlock"
+      id: "unlock-track-handle"
     direction: RIGHT
     duration: 800
 
@@ -132,4 +132,4 @@ onFlowComplete:
       id: "home-screen"
     timeout: 10000
 
-- takeScreenshot: "lock-overlay-complete"
+- takeScreenshot: "recording-lock-complete"
