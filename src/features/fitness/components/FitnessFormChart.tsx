@@ -15,7 +15,7 @@ import {
 } from 'react-native-reanimated';
 import * as Haptics from 'expo-haptics';
 import { colors, darkColors, opacity, spacing, layout, typography, chartStyles } from '@/theme';
-import { ChartCrosshair } from '@/shared/charts';
+import { ChartCrosshair, useChartColors } from '@/shared/charts';
 import { CHART_CONFIG } from '@/constants';
 import {
   calculateTSB,
@@ -28,13 +28,6 @@ import {
 import { sortByDateId } from '@/features/activity/lib/activityUtils';
 import { formatShortDate, formatShortDateWithWeekday } from '@/shared/format/format';
 import type { WellnessData } from '@/types';
-
-// Chart colors matching intervals.icu
-const COLORS = {
-  fitness: colors.fitness, // Blue - CTL
-  fatigue: colors.chartPurple, // Purple - ATL
-  load: 'rgba(200, 100, 100, 0.6)', // Red dots for daily load
-};
 
 // Form zone backgrounds (matching intervals.icu)
 const FORM_ZONE_FILLS: Record<FormZone, string> = {
@@ -78,6 +71,7 @@ export const FitnessFormChart = memo(function FitnessFormChart({
 }: FitnessFormChartProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
+  const chartColors = useChartColors();
   const [tooltipData, setTooltipData] = useState<ChartDataPoint | null>(null);
   const [isActive, setIsActive] = useState(false);
 
@@ -320,7 +314,7 @@ export const FitnessFormChart = memo(function FitnessFormChart({
             <Text style={[styles.valueLabel, isDark && styles.textMuted]}>
               {t('metrics.fitness')}
             </Text>
-            <Text style={[styles.valueNumber, { color: COLORS.fitness }]}>
+            <Text style={[styles.valueNumber, { color: chartColors.fitness }]}>
               {Math.round(displayData.fitness)}
             </Text>
           </View>
@@ -328,7 +322,7 @@ export const FitnessFormChart = memo(function FitnessFormChart({
             <Text style={[styles.valueLabel, isDark && styles.textMuted]}>
               {t('metrics.fatigue')}
             </Text>
-            <Text style={[styles.valueNumber, { color: COLORS.fatigue }]}>
+            <Text style={[styles.valueNumber, { color: chartColors.fatigue }]}>
               {Math.round(displayData.fatigue)}
             </Text>
           </View>
@@ -379,7 +373,7 @@ export const FitnessFormChart = memo(function FitnessFormChart({
                       <LinearGradient
                         start={vec(0, chartBounds.top)}
                         end={vec(0, chartBounds.bottom)}
-                        colors={[COLORS.fitness + '60', COLORS.fitness + '10']}
+                        colors={[chartColors.fitness + '60', chartColors.fitness + '10']}
                       />
                     </Area>
 
@@ -392,7 +386,7 @@ export const FitnessFormChart = memo(function FitnessFormChart({
                     />
                     <Line
                       points={points.fitness}
-                      color={COLORS.fitness}
+                      color={chartColors.fitness}
                       strokeWidth={1.5}
                       curveType="natural"
                     />
@@ -406,7 +400,7 @@ export const FitnessFormChart = memo(function FitnessFormChart({
                     />
                     <Line
                       points={points.fatigue}
-                      color={COLORS.fatigue}
+                      color={chartColors.fatigue}
                       strokeWidth={1}
                       curveType="natural"
                     />
@@ -558,13 +552,13 @@ export const FitnessFormChart = memo(function FitnessFormChart({
       {/* Legend */}
       <View style={styles.legend}>
         <View style={styles.legendItem}>
-          <View style={[styles.legendLine, { backgroundColor: COLORS.fitness }]} />
+          <View style={[styles.legendLine, { backgroundColor: chartColors.fitness }]} />
           <Text style={[styles.legendText, isDark && styles.textMuted]}>
             {t('metrics.fitness')}
           </Text>
         </View>
         <View style={styles.legendItem}>
-          <View style={[styles.legendLine, { backgroundColor: COLORS.fatigue }]} />
+          <View style={[styles.legendLine, { backgroundColor: chartColors.fatigue }]} />
           <Text style={[styles.legendText, isDark && styles.textMuted]}>
             {t('metrics.fatigue')}
           </Text>

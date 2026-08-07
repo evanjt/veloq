@@ -21,14 +21,8 @@ import { calculateTSB } from '@/features/fitness/lib/fitness';
 import { sortByDateId } from '@/features/activity/lib/activityUtils';
 import { formatShortDate } from '@/shared/format/format';
 import { ChartErrorBoundary } from '@/shared/ui';
-import { ChartCrosshair } from '@/shared/charts';
+import { ChartCrosshair, useChartColors } from '@/shared/charts';
 import type { WellnessData } from '@/types';
-
-// Chart colors
-const COLORS = {
-  fitness: colors.fitness, // Blue - CTL
-  fatigue: colors.chartPurple, // Purple - ATL
-};
 
 interface FitnessChartProps {
   data: WellnessData[];
@@ -65,6 +59,7 @@ export const FitnessChart = React.memo(function FitnessChart({
 }: FitnessChartProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
+  const chartColors = useChartColors();
   const [tooltipData, setTooltipData] = useState<ChartDataPoint | null>(null);
   const [isActive, setIsActive] = useState(false);
   const [visibleLines, setVisibleLines] = useState({
@@ -356,7 +351,7 @@ export const FitnessChart = React.memo(function FitnessChart({
               </Text>
               <Text
                 testID="fitness-ctl-value"
-                style={[styles.valueNumber, { color: COLORS.fitness }]}
+                style={[styles.valueNumber, { color: chartColors.fitness }]}
               >
                 {Math.round(displayData.fitness)}
               </Text>
@@ -367,7 +362,7 @@ export const FitnessChart = React.memo(function FitnessChart({
               </Text>
               <Text
                 testID="fitness-atl-value"
-                style={[styles.valueNumber, { color: COLORS.fatigue }]}
+                style={[styles.valueNumber, { color: chartColors.fatigue }]}
               >
                 {Math.round(displayData.fatigue)}
               </Text>
@@ -413,7 +408,7 @@ export const FitnessChart = React.memo(function FitnessChart({
                         <LinearGradient
                           start={vec(0, chartBounds.top)}
                           end={vec(0, chartBounds.bottom)}
-                          colors={[COLORS.fitness + '40', COLORS.fitness + '05']}
+                          colors={[chartColors.fitness + '40', chartColors.fitness + '05']}
                         />
                       </Area>
                     )}
@@ -429,7 +424,7 @@ export const FitnessChart = React.memo(function FitnessChart({
                         />
                         <Line
                           points={points.fitness}
-                          color={COLORS.fitness}
+                          color={chartColors.fitness}
                           strokeWidth={1.5}
                           curveType="natural"
                         />
@@ -447,7 +442,7 @@ export const FitnessChart = React.memo(function FitnessChart({
                         />
                         <Line
                           points={points.fatigue}
-                          color={COLORS.fatigue}
+                          color={chartColors.fatigue}
                           strokeWidth={1}
                           curveType="natural"
                         />
@@ -483,7 +478,7 @@ export const FitnessChart = React.memo(function FitnessChart({
             <View
               style={[
                 styles.legendDot,
-                { backgroundColor: COLORS.fitness },
+                { backgroundColor: chartColors.fitness },
                 !visibleLines.fitness && styles.legendDotDisabled,
               ]}
             />
@@ -505,7 +500,7 @@ export const FitnessChart = React.memo(function FitnessChart({
             <View
               style={[
                 styles.legendDot,
-                { backgroundColor: COLORS.fatigue },
+                { backgroundColor: chartColors.fatigue },
                 !visibleLines.fatigue && styles.legendDotDisabled,
               ]}
             />
