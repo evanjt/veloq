@@ -91,6 +91,9 @@ fn one_behind_migrations() -> Migrations<'static> {
         M::up(include_str!("../src/migrations/011_pace_history.sql")),
     ];
     set.push(M::up(include_str!("../src/migrations/012_v030.sql")));
+    set.push(M::up(include_str!(
+        "../src/migrations/013_wellness_raw_body.sql"
+    )));
     Migrations::new(set)
 }
 
@@ -440,7 +443,7 @@ fn seed_one_version_behind_db(path: &Path) -> rusqlite::Result<()> {
         [],
     )?;
     conn.execute(
-        "INSERT OR REPLACE INTO schema_info(key, value) VALUES ('schema_version', '12')",
+        "INSERT OR REPLACE INTO schema_info(key, value) VALUES ('schema_version', '13')",
         [],
     )?;
 
@@ -465,7 +468,91 @@ fn seed_one_version_behind_db(path: &Path) -> rusqlite::Result<()> {
 }
 
 #[test]
-fn upgrade_to_the_wellness_body_column_keeps_existing_days() {
+fn upgrade_to_the_activity_bodies_table_keeps_existing_data() {
+    let tmp = TempDir::new().unwrap();
+    let db_path = tmp.path().join("routes.db");
+    seed_one_version_behind_db(&db_path).expect("seed");
+
+    // Metrics written before the table existed must still be there afterwards,
+    // and the new table must arrive empty rather than absent.
+    let conn = Connection::open(&db_path).unwrap();
+    conn.execute(
+        "INSERT INTO activity_metrics(activity_id, name, date, distance, moving_time,
+                                      elapsed_time, elevation_gain, sport_type)
+         VALUES (?,?,?,?,?,?,?,?)",
+        params![
+            ACTIVITY_ID,
+            ACTIVITY_NAME,
+            START_DATE,
+            28_400.0_f64,
+            4_215_i64,
+            4_390_i64,
+            412.0_f64,
+            SPORT
+        ],
+    )
+    .expect("seed metrics");
+    drop(conn);
+
+    drop(PersistentRouteEngine::new(db_path.to_str().unwrap()).expect("open and migrate"));
+
+    let conn = Connection::open(&db_path).expect("reopen");
+    assert_eq!(
+        count(&conn, "activity_bodies"),
+        0,
+        "activity_bodies must exist and start empty"
+    );
+
+    let name: String = conn
+        .query_row(
+            "SELECT name FROM activity_metrics WHERE activity_id = ?",
+            [ACTIVITY_ID],
+            |row| row.get(0),
+        )
+        .expect("read metrics");
+    assert_eq!(name, ACTIVITY_NAME, "activity metrics must survive");
+}
+
+#[test]
+fn activity_bodies_round_trip_within_a_date_window() {
+    let tmp = TempDir::new().unwrap();
+    let db_path = tmp.path().join("routes.db");
+    let mut engine = PersistentRouteEngine::new(db_path.to_str().unwrap()).expect("open");
+
+    let older = r#"{"id":"a1","name":"Older","locality":"Bern"}"#;
+    let newer = r#"{"id":"a2","name":"Newer","locality":"Sion"}"#;
+    engine
+        .upsert_activity_bodies(&[
+            ("a1".to_string(), 1_700_000_000, older.to_string()),
+            ("a2".to_string(), 1_700_100_000, newer.to_string()),
+        ])
+        .expect("store bodies");
+
+    // Newest first, matching what intervals.icu returns and the feed renders.
+    let all = engine
+        .get_activity_bodies(1_699_000_000, 1_701_000_000)
+        .expect("read");
+    assert_eq!(all, vec![newer.to_string(), older.to_string()]);
+
+    // The window is inclusive and actually filters.
+    let narrow = engine
+        .get_activity_bodies(1_700_050_000, 1_701_000_000)
+        .expect("read narrow");
+    assert_eq!(narrow, vec![newer.to_string()]);
+
+    // A re-sync replaces the payload rather than duplicating the activity.
+    let revised = r#"{"id":"a1","name":"Renamed"}"#;
+    engine
+        .upsert_activity_bodies(&[("a1".to_string(), 1_700_000_000, revised.to_string())])
+        .expect("re-store");
+    let after = engine
+        .get_activity_bodies(1_699_000_000, 1_701_000_000)
+        .expect("read again");
+    assert_eq!(after, vec![newer.to_string(), revised.to_string()]);
+}
+
+#[test]
+fn upgrading_keeps_wellness_days_written_before_the_body_column() {
     let tmp = TempDir::new().unwrap();
     let db_path = tmp.path().join("routes.db");
     seed_one_version_behind_db(&db_path).expect("seed");

@@ -253,12 +253,31 @@ pub fn current_athlete_id() -> Option<String> {
     SYNC_SERVICE.athlete_id()
 }
 
+/// A transport built from the process-wide credential, so every outbound
+/// request in the app shares one client, pool, governor and retry policy.
+/// `None` before TypeScript has called `set_credentials`.
+pub fn current_transport() -> Option<Result<Transport, String>> {
+    let creds_present = SYNC_SERVICE
+        .creds
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .is_some();
+    if !creds_present {
+        return None;
+    }
+    Some(SYNC_SERVICE.build_transport().map(|(t, _athlete)| t))
+}
+
 /// How many days of wellness one sync pulls. Matches the widest range the
 /// fitness screens offer, so a range change never needs a fresh request.
 const WELLNESS_DAYS: i64 = 365;
 
+/// How many days of activities one sync pulls. The timeline slider can widen
+/// the app's own range beyond this; that expansion is still TypeScript's job.
+const ACTIVITY_DAYS: i64 = 365;
+
 /// The steps `perform_sync` runs, for the progress counters TypeScript polls.
-const SYNC_STEPS: u32 = 3;
+const SYNC_STEPS: u32 = 5;
 
 /// The sync job: fetch the profile slice and write it into SQLite. Every step
 /// is independent, so one failing endpoint does not cost the others their data.
@@ -301,6 +320,8 @@ pub(crate) async fn perform_sync(svc: &SyncService, transport: Transport, athlet
     step!(sync_athlete(&transport, &athlete_id).await);
     step!(sync_sport_settings(&transport, &athlete_id).await);
     step!(sync_wellness(&transport, &athlete_id).await);
+    step!(sync_activities(&transport, &athlete_id).await);
+    step!(sync_oldest_activity_date(&transport, &athlete_id).await);
 
     let success = last_error.is_none();
     svc.finish(SyncState::Idle, last_error, success);
@@ -318,6 +339,113 @@ async fn sync_sport_settings(transport: &Transport, athlete_id: &str) -> Result<
     let body =
         endpoints::fetch_sport_settings_body(transport, athlete_id, Lane::Interactive).await?;
     crate::persistence::with_persistent_engine(|engine| engine.set_sport_settings(&body));
+    Ok(())
+}
+
+/// `start_date_local` as epoch seconds. intervals.icu sends local wall-clock
+/// with no zone, which is how the rest of the app already treats it.
+fn start_date_to_timestamp(start_date_local: Option<&str>) -> Option<i64> {
+    let raw = start_date_local?;
+    let trimmed = raw.split('.').next().unwrap_or(raw);
+    chrono::NaiveDateTime::parse_from_str(trimmed, "%Y-%m-%dT%H:%M:%S")
+        .ok()
+        .map(|dt| dt.and_utc().timestamp())
+}
+
+/// Persist the activity list: aggregate metrics for Rust, plus the untyped
+/// body per activity for the screens. No GPS required, so activities that
+/// never reach the `activities` table still show up in the feed.
+async fn sync_activities(transport: &Transport, athlete_id: &str) -> Result<(), NetError> {
+    let newest = chrono::Local::now().date_naive();
+    let oldest = newest - chrono::Duration::days(ACTIVITY_DAYS);
+    sync_activity_window(
+        transport,
+        athlete_id,
+        &oldest.to_string(),
+        &newest.to_string(),
+    )
+    .await
+}
+
+/// Persist one date window of activities. The default sync covers a year; the
+/// feed asks for older windows as the reader scrolls past it.
+async fn sync_activity_window(
+    transport: &Transport,
+    athlete_id: &str,
+    oldest: &str,
+    newest: &str,
+) -> Result<(), NetError> {
+    let items = endpoints::fetch_activities_with_bodies(
+        transport,
+        athlete_id,
+        oldest,
+        newest,
+        true,
+        Lane::Backfill,
+    )
+    .await?;
+    if items.is_empty() {
+        return Ok(());
+    }
+
+    let mut bodies = Vec::with_capacity(items.len());
+    let mut metrics = Vec::with_capacity(items.len());
+    for (record, body) in items {
+        let Some(date) = start_date_to_timestamp(record.start_date_local.as_deref()) else {
+            // Without a start time the row cannot be windowed or ordered, and
+            // a fabricated one would sort into the wrong week.
+            continue;
+        };
+        bodies.push((record.id.clone(), date, body));
+        metrics.push(crate::ActivityMetrics {
+            activity_id: record.id,
+            name: record.name.unwrap_or_default(),
+            date,
+            distance: record.distance.unwrap_or(0.0),
+            moving_time: record.moving_time.unwrap_or(0).max(0) as u32,
+            elapsed_time: record.elapsed_time.unwrap_or(0).max(0) as u32,
+            elevation_gain: record.total_elevation_gain.unwrap_or(0.0),
+            avg_hr: record.average_heartrate.map(|v| v.round() as u16),
+            avg_power: record
+                .icu_average_watts
+                .or(record.average_watts)
+                .map(|v| v.round() as u16),
+            sport_type: record.activity_type.unwrap_or_else(|| "Ride".to_string()),
+        });
+    }
+
+    crate::persistence::with_persistent_engine(|engine| {
+        if let Err(e) = engine.upsert_activity_bodies(&bodies) {
+            log::warn!("[Sync] activity body upsert failed: {}", e);
+        }
+        if let Err(e) = engine.set_activity_metrics(metrics) {
+            log::warn!("[Sync] activity metrics upsert failed: {}", e);
+        }
+    });
+    Ok(())
+}
+
+/// Settings key holding the athlete's first-ever activity date.
+pub const OLDEST_ACTIVITY_DATE_KEY: &str = "oldest_activity_date";
+
+/// Persist the athlete's oldest activity date. This spans all history, not the
+/// synced window, so the timeline slider knows how far back it may reach.
+async fn sync_oldest_activity_date(
+    transport: &Transport,
+    athlete_id: &str,
+) -> Result<(), NetError> {
+    let today = chrono::Local::now().date_naive().to_string();
+    let oldest =
+        endpoints::fetch_oldest_activity_date(transport, athlete_id, &today, Lane::Backfill)
+            .await?;
+    let Some(oldest) = oldest else {
+        return Ok(());
+    };
+    crate::persistence::with_persistent_engine(|engine| {
+        if let Err(e) = engine.set_setting(OLDEST_ACTIVITY_DATE_KEY, &oldest) {
+            log::warn!("[Sync] oldest activity date write failed: {}", e);
+        }
+    });
     Ok(())
 }
 
@@ -436,6 +564,52 @@ impl SyncManager {
         }
     }
 
+    /// Fetch and store one date window of activities. Returns instantly: true
+    /// if the job started, false if a sync is already running or credentials
+    /// are missing. The feed calls this for windows the default sync misses.
+    fn sync_activities_window(&self, oldest: String, newest: String) -> Result<bool, VeloqError> {
+        if !SYNC_SERVICE.try_begin() {
+            return Ok(false);
+        }
+        match SYNC_SERVICE.build_transport() {
+            Ok((transport, athlete_id)) => {
+                crate::runtime::spawn(async move {
+                    struct FinishGuard;
+                    impl Drop for FinishGuard {
+                        fn drop(&mut self) {
+                            if std::thread::panicking() {
+                                SYNC_SERVICE.finish(
+                                    SyncState::Idle,
+                                    Some("sync task panicked".to_string()),
+                                    false,
+                                );
+                            }
+                        }
+                    }
+                    let _guard = FinishGuard;
+                    SYNC_SERVICE.begin_steps(1);
+                    match sync_activity_window(&transport, &athlete_id, &oldest, &newest).await {
+                        Ok(()) => {
+                            SYNC_SERVICE.complete_step();
+                            SYNC_SERVICE.finish(SyncState::Idle, None, true);
+                        }
+                        Err(NetError::Unauthorized) => SYNC_SERVICE.finish(
+                            SyncState::AuthExpired,
+                            Some("unauthorized".to_string()),
+                            false,
+                        ),
+                        Err(e) => SYNC_SERVICE.finish(SyncState::Idle, Some(e.to_string()), false),
+                    }
+                });
+                Ok(true)
+            }
+            Err(e) => {
+                SYNC_SERVICE.finish(SyncState::Idle, Some(e), false);
+                Ok(false)
+            }
+        }
+    }
+
     /// Soft-cancel the running sync.
     fn cancel(&self) {
         SYNC_SERVICE.request_cancel();
@@ -499,6 +673,12 @@ mod tests {
         });
         server.mock(|when, then| {
             when.method(GET).path("/athlete/i1/wellness");
+            then.status(status).json_body(json!([]));
+        });
+        // The oldest-date step hits the same path with a different window, so
+        // one mock covers both activity pulls.
+        server.mock(|when, then| {
+            when.method(GET).path("/athlete/i1/activities");
             then.status(status).json_body(json!([]));
         });
     }
@@ -573,6 +753,10 @@ mod tests {
             when.method(GET).path("/athlete/i1/wellness");
             then.status(200).json_body(json!([]));
         });
+        server.mock(|when, then| {
+            when.method(GET).path("/athlete/i1/activities");
+            then.status(200).json_body(json!([]));
+        });
 
         let svc = SyncService::new();
         assert!(svc.try_begin());
@@ -612,6 +796,65 @@ mod tests {
         assert!(svc.build_transport().is_ok());
         svc.clear_credentials();
         assert!(svc.build_transport().is_err());
+    }
+
+    #[test]
+    fn activity_window_sync_stores_bodies_and_metrics() {
+        let server = MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method(GET)
+                .path("/athlete/i1/activities")
+                .query_param("oldest", "2025-01-01")
+                .query_param("newest", "2025-01-31");
+            then.status(200).json_body(json!([
+                {"id": "a1", "type": "Ride", "name": "Loop",
+                 "start_date_local": "2025-01-15T08:30:00", "distance": 28400.0}
+            ]));
+        });
+
+        crate::runtime::block_on(sync_activity_window(
+            &transport_to(server.base_url()),
+            "i1",
+            "2025-01-01",
+            "2025-01-31",
+        ))
+        .expect("window sync");
+        mock.assert();
+    }
+
+    #[test]
+    fn activity_without_a_start_time_is_skipped() {
+        // A row with no start time cannot be windowed or ordered, and a
+        // fabricated timestamp would sort it into the wrong week.
+        let server = MockServer::start();
+        server.mock(|when, then| {
+            when.method(GET).path("/athlete/i1/activities");
+            then.status(200)
+                .json_body(json!([{"id": "a1", "type": "Ride"}]));
+        });
+
+        crate::runtime::block_on(sync_activity_window(
+            &transport_to(server.base_url()),
+            "i1",
+            "2025-01-01",
+            "2025-01-31",
+        ))
+        .expect("window sync tolerates the gap");
+    }
+
+    #[test]
+    fn start_date_parsing_handles_the_intervals_shapes() {
+        assert_eq!(
+            start_date_to_timestamp(Some("2025-01-15T08:30:00")),
+            Some(1_736_929_800)
+        );
+        // Fractional seconds are trimmed rather than failing the row.
+        assert_eq!(
+            start_date_to_timestamp(Some("2025-01-15T08:30:00.000")),
+            start_date_to_timestamp(Some("2025-01-15T08:30:00"))
+        );
+        assert_eq!(start_date_to_timestamp(None), None);
+        assert_eq!(start_date_to_timestamp(Some("not a date")), None);
     }
 
     #[test]

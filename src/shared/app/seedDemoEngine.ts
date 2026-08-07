@@ -65,6 +65,20 @@ export function seedDemoEngine(): void {
     const activities = fixtures.activities as unknown as Activity[];
     if (activities.length > 0) {
       engine.setActivityMetrics(activities.map(toActivityMetrics));
+      // The feed reads bodies, not the typed metrics row, so a demo activity
+      // without one would not appear at all.
+      engine.upsertActivityBodies(
+        activities.map((a) => ({
+          activityId: a.id,
+          date: Math.floor(new Date(a.start_date_local).getTime() / 1000),
+          raw: JSON.stringify(a),
+        }))
+      );
+      const oldest = activities.reduce(
+        (min, a) => (a.start_date_local < min ? a.start_date_local : min),
+        activities[0].start_date_local
+      );
+      engine.setSetting('oldest_activity_date', oldest);
     }
 
     const { criticalSpeed, dPrime, r2 } = curves.demoPaceCurve;

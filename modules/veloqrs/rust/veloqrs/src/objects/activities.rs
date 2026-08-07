@@ -96,6 +96,40 @@ impl ActivityManager {
         })
     }
 
+    /// Store untyped activity bodies. Demo mode seeds the same table a live
+    /// sync writes, so every downstream read is identical in both modes.
+    fn upsert_activity_bodies(&self, rows: Vec<crate::FfiActivityBody>) -> Result<(), VeloqError> {
+        if rows.is_empty() {
+            return Ok(());
+        }
+        with_engine(|e| {
+            let mapped: Vec<(String, i64, String)> = rows
+                .into_iter()
+                .map(|r| (r.activity_id, r.date, r.raw))
+                .collect();
+            e.upsert_activity_bodies(&mapped)
+                .map_err(|err| VeloqError::Database {
+                    msg: format!("{}", err),
+                })
+        })?
+    }
+
+    /// Untyped activity bodies over an inclusive timestamp window, newest
+    /// first. The feed and detail screens read fields no Rust type models, so
+    /// they parse these rather than a reconstruction from `activity_metrics`.
+    fn get_activity_bodies(
+        &self,
+        oldest_ts: i64,
+        newest_ts: i64,
+    ) -> Result<Vec<String>, VeloqError> {
+        with_engine(|e| {
+            e.get_activity_bodies(oldest_ts, newest_ts)
+                .map_err(|err| VeloqError::Database {
+                    msg: format!("{}", err),
+                })
+        })?
+    }
+
     fn set_time_streams(
         &self,
         activity_ids: Vec<String>,

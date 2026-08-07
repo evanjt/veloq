@@ -20,12 +20,10 @@ pub struct StrengthManager {
     pub(crate) _private: (),
 }
 
-/// The header for the credential held by the sync service, or a hard error when
+/// A fetcher over the credential the sync service holds, or a hard error when
 /// none is set. FIT downloads never take a header across FFI.
-fn require_auth_header() -> Result<String, VeloqError> {
-    super::current_auth_header().ok_or_else(|| VeloqError::NotFound {
-        msg: "no credentials set".to_string(),
-    })
+fn fetcher() -> Result<ActivityFetcher, VeloqError> {
+    ActivityFetcher::from_credentials().map_err(|msg| VeloqError::NotFound { msg })
 }
 
 #[uniffi::export]
@@ -68,9 +66,7 @@ impl StrengthManager {
 
         // Download FIT file on the shared process runtime.
         let fit_data = {
-            let fetcher = ActivityFetcher::with_auth_header(require_auth_header()?)
-                .map_err(|e| VeloqError::Database { msg: e })?;
-
+            let fetcher = fetcher()?;
             crate::runtime::block_on(fetcher.download_fit_file(&activity_id))
         };
 
@@ -156,8 +152,7 @@ impl StrengthManager {
             activity_ids.len()
         );
 
-        let fetcher = ActivityFetcher::with_auth_header(require_auth_header()?)
-            .map_err(|e| VeloqError::Database { msg: e })?;
+        let fetcher = fetcher()?;
 
         let mut processed = Vec::new();
 

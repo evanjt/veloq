@@ -41,22 +41,6 @@ describe('intervalsApi.getActivity', () => {
   });
 });
 
-describe('intervalsApi.getActivities', () => {
-  it('includes date range and fields params', async () => {
-    mockGet.mockResolvedValue({ data: [] });
-    await intervalsApi.getActivities({ oldest: '2024-01-01', newest: '2024-06-01' });
-    expect(mockGet).toHaveBeenCalledWith(
-      '/athlete/i12345/activities',
-      expect.objectContaining({
-        params: expect.objectContaining({
-          oldest: '2024-01-01',
-          newest: '2024-06-01',
-        }),
-      })
-    );
-  });
-});
-
 describe('intervalsApi.getActivityStreams', () => {
   it('calls streams endpoint with .json suffix', async () => {
     mockGet.mockResolvedValue({ data: [] });
@@ -126,26 +110,6 @@ describe('intervalsApi.getAthleteSummary', () => {
   });
 });
 
-describe('intervalsApi.getOldestActivityDate', () => {
-  it('returns oldest date from activities', async () => {
-    mockGet.mockResolvedValue({
-      data: [
-        { start_date_local: '2024-06-01' },
-        { start_date_local: '2020-01-15' },
-        { start_date_local: '2023-03-10' },
-      ],
-    });
-    const result = await intervalsApi.getOldestActivityDate();
-    expect(result).toBe('2020-01-15');
-  });
-
-  it('returns null for empty activities', async () => {
-    mockGet.mockResolvedValue({ data: [] });
-    const result = await intervalsApi.getOldestActivityDate();
-    expect(result).toBeNull();
-  });
-});
-
 // ============================================================
 // ERROR HANDLING EDGE CASES
 // ============================================================
@@ -155,10 +119,6 @@ describe('error handling', () => {
 
   it('propagates request rejections from read methods', async () => {
     const calls: [() => Promise<unknown>, string][] = [
-      [
-        () => intervalsApi.getActivities({ oldest: '2024-01-01', newest: '2024-06-01' }),
-        '401 Unauthorized',
-      ],
       [() => intervalsApi.getActivityStreams('nonexistent'), '404 Not Found'],
     ];
     for (const [call, message] of calls) {
@@ -166,15 +126,6 @@ describe('error handling', () => {
       mockGet.mockRejectedValueOnce(new Error(message));
       await expect(call()).rejects.toThrow(message);
     }
-  });
-
-  it('handles empty array response from getActivities without crash', async () => {
-    mockGet.mockResolvedValueOnce({ data: [] });
-    const result = await intervalsApi.getActivities({
-      oldest: '2024-01-01',
-      newest: '2024-06-01',
-    });
-    expect(result).toEqual([]);
   });
 
   it('handles malformed API response from getActivity', async () => {

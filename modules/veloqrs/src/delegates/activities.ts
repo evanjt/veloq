@@ -149,3 +149,48 @@ export function getActivityHighlightsBundle(
     host.engine.activities().getHighlightsBundle(activityIds)
   );
 }
+
+export interface ActivityBodyInput {
+  activityId: string;
+  /** Start time as epoch seconds. */
+  date: number;
+  /** The untyped intervals.icu activity payload. */
+  raw: string;
+}
+
+/**
+ * Store untyped activity bodies. Demo seeding writes the same table a live
+ * sync fills, so every downstream read is identical in both modes.
+ */
+export function upsertActivityBodies(host: DelegateHost, rows: ActivityBodyInput[]): void {
+  if (!host.ready || rows.length === 0) return;
+  host.timed('upsertActivityBodies', () =>
+    host.engine.activities().upsertActivityBodies(
+      rows.map((r) => ({
+        activityId: r.activityId,
+        date: BigInt(r.date),
+        raw: r.raw,
+      }))
+    )
+  );
+}
+
+/**
+ * Untyped activity bodies over an inclusive timestamp window, newest first.
+ *
+ * The feed and detail screens read fields no Rust type models (locality,
+ * calories, weather, stream_types), so they parse these rather than a
+ * reconstruction from `activity_metrics`.
+ */
+export function getActivityBodies(
+  host: DelegateHost,
+  oldestTs: number,
+  newestTs: number
+): string[] {
+  if (!host.ready) return [];
+  return (
+    host.timed('getActivityBodies', () =>
+      host.engine.activities().getActivityBodies(BigInt(oldestTs), BigInt(newestTs))
+    ) ?? []
+  );
+}

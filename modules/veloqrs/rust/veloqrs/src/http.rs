@@ -1,19 +1,18 @@
-//! HTTP client for intervals.icu API.
+//! Bulk GPS-map and FIT downloads for intervals.icu.
 //!
-//! This module provides high-performance activity fetching with:
-//! - Connection pooling for HTTP/2 multiplexing
-//! - Dispatch pacing through the shared governor choke point
-//! - Parallel fetching with configurable concurrency
-//! - Automatic retry honouring `Retry-After` on 429
+//! Everything here goes through the shared `Transport`, so there is one client
+//! in the process: one connection pool, one governor choke point, one retry
+//! and `Retry-After` policy, and one place that classifies a 401. This module
+//! keeps only what `Transport` does not do - fanning a batch out across
+//! `MAX_CONCURRENCY` tasks and reporting progress to the FFI poll.
 
-use log::{debug, info, warn};
-use once_cell::sync::Lazy;
-use reqwest::Client;
+use crate::governor::Lane;
+use crate::net::transport::{NetError, Transport};
+use log::{debug, info};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use std::sync::Mutex as StdMutex;
 use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 /// Helper to calculate elapsed milliseconds from an Instant
 #[inline]
@@ -68,123 +67,11 @@ pub fn get_download_progress() -> (u32, u32, bool) {
     )
 }
 
-/// Storage for background fetch results
-static BACKGROUND_FETCH_RESULTS: Lazy<StdMutex<Option<Vec<ActivityMapResult>>>> =
-    Lazy::new(|| StdMutex::new(None));
-
-/// Start a background fetch operation (returns immediately, doesn't block)
-/// Call get_download_progress() to monitor progress
-/// Call take_background_fetch_results() when active becomes false to get results
-pub fn start_background_fetch(auth_header: String, activity_ids: Vec<String>) {
-    let fn_start = Instant::now();
-    let activity_count = activity_ids.len();
-
-    // Clear any previous results
-    if let Ok(mut results) = BACKGROUND_FETCH_RESULTS.lock() {
-        *results = None;
-    }
-
-    // Reset progress counters
-    reset_download_progress(activity_ids.len() as u32);
-
-    info!(
-        "[RUST: start_background_fetch] Spawning thread for {} activities",
-        activity_count
-    );
-
-    // Spawn background thread to do the actual work
-    std::thread::spawn(move || {
-        let thread_start = Instant::now();
-        info!(
-            "[RUST: start_background_fetch] Thread started for {} activities",
-            activity_ids.len()
-        );
-
-        // Runs on the shared process runtime instead of building a throwaway
-        // 8-thread runtime per call.
-
-        // Create HTTP client
-        let client_start = Instant::now();
-        let fetcher = match ActivityFetcher::with_auth_header(auth_header) {
-            Ok(f) => {
-                info!(
-                    "[RUST: start_background_fetch] Created HTTP client ({} ms)",
-                    elapsed_ms(client_start)
-                );
-                f
-            }
-            Err(e) => {
-                warn!(
-                    "[RUST: start_background_fetch] Failed to create HTTP client: {} ({} ms)",
-                    e,
-                    elapsed_ms(client_start)
-                );
-                finish_download_progress();
-                if let Ok(mut results) = BACKGROUND_FETCH_RESULTS.lock() {
-                    *results = Some(
-                        activity_ids
-                            .into_iter()
-                            .map(|id| ActivityMapResult {
-                                activity_id: id,
-                                bounds: None,
-                                latlngs: None,
-                                success: false,
-                                error: Some(e.clone()),
-                            })
-                            .collect(),
-                    );
-                }
-                return;
-            }
-        };
-
-        // Run the fetch
-        let fetch_start = Instant::now();
-        let fetch_results =
-            crate::runtime::block_on(fetcher.fetch_activity_maps(activity_ids, None));
-        let success_count = fetch_results.iter().filter(|r| r.success).count();
-        info!(
-            "[RUST: start_background_fetch] Fetch complete: {}/{} successful ({} ms)",
-            success_count,
-            fetch_results.len(),
-            elapsed_ms(fetch_start)
-        );
-
-        // Store results
-        if let Ok(mut results) = BACKGROUND_FETCH_RESULTS.lock() {
-            *results = Some(fetch_results);
-        }
-
-        // Mark as complete (active = false)
-        finish_download_progress();
-
-        info!(
-            "[RUST: start_background_fetch] Thread complete ({} ms)",
-            elapsed_ms(thread_start)
-        );
-    });
-
-    info!(
-        "[RUST: start_background_fetch] Thread spawned, returning to caller ({} ms)",
-        elapsed_ms(fn_start)
-    );
-}
-
-/// Take the results from a completed background fetch
-/// Returns None if fetch is still in progress or no fetch was started
-/// Returns Some(results) and clears the storage
-pub fn take_background_fetch_results() -> Option<Vec<ActivityMapResult>> {
-    if let Ok(mut results) = BACKGROUND_FETCH_RESULTS.lock() {
-        results.take()
-    } else {
-        None
-    }
-}
-
 // Dispatch pace is the governor's job now (≤8 req/s across the whole process),
 // so this module no longer carries its own burst/sustained intervals.
-const MAX_CONCURRENCY: usize = 50; // Allow many in-flight (network latency ~200-400ms)
-const MAX_RETRIES: u32 = 3;
+// Retry and dispatch pace are the transport's job now, so this module only
+// decides how many activities may be in flight at once.
+const MAX_CONCURRENCY: usize = 50; // Network latency ~200-400ms per activity
 
 /// Result of fetching activity map data
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -219,96 +106,56 @@ struct ApiBounds {
 /// Progress callback type
 pub type ProgressCallback = Arc<dyn Fn(u32, u32) + Send + Sync>;
 
-/// Per-fetch counters: the running dispatch number (for the progress log) and
-/// the consecutive-429 tally (for retry logging). Dispatch *pacing* belongs to
-/// the shared governor now; this only counts.
+/// Running dispatch number, for the progress log only. Pacing, retry and
+/// `Retry-After` all belong to the transport now.
 struct DispatchCounter {
     dispatched_count: AtomicU32,
-    consecutive_429s: AtomicU32,
 }
 
 impl DispatchCounter {
     fn new() -> Self {
         Self {
             dispatched_count: AtomicU32::new(0),
-            consecutive_429s: AtomicU32::new(0),
         }
     }
 
-    /// Next 1-based dispatch number, for the progress log.
+    /// Next 1-based dispatch number.
     fn next_dispatch_number(&self) -> u32 {
         self.dispatched_count.fetch_add(1, Ordering::Relaxed) + 1
     }
-
-    fn record_success(&self) {
-        self.consecutive_429s.store(0, Ordering::Relaxed);
-    }
-
-    /// Count a 429 and return the running consecutive total. Backoff timing is
-    /// the governor's job (`decide_backoff`), which honours `Retry-After`.
-    fn record_429(&self) -> u32 {
-        self.consecutive_429s.fetch_add(1, Ordering::Relaxed) + 1
-    }
 }
 
-/// High-performance activity fetcher
+/// Batch fetcher for activity maps and FIT files.
 pub struct ActivityFetcher {
-    client: Client,
-    auth_header: String,
+    transport: Transport,
 }
 
 impl ActivityFetcher {
-    /// Create a new activity fetcher with the given API key (Basic auth)
-    pub fn new(api_key: &str) -> Result<Self, String> {
-        Self::with_auth_header(crate::governor::format_auth_header(
-            crate::governor::AuthMethod::ApiKey(api_key),
-        ))
+    /// Build a fetcher from the credential the sync service holds. Errors when
+    /// no credential is set, rather than issuing an unauthenticated request.
+    pub fn from_credentials() -> Result<Self, String> {
+        let transport = crate::objects::current_transport()
+            .ok_or_else(|| "no credentials set".to_string())??;
+        Ok(Self { transport })
     }
 
-    /// Create a new activity fetcher with a pre-formatted auth header
-    /// Supports both "Basic ..." and "Bearer ..." formats
-    pub fn with_auth_header(auth_header: String) -> Result<Self, String> {
-        let client = Client::builder()
-            .pool_max_idle_per_host(MAX_CONCURRENCY * 2)
-            .pool_idle_timeout(Duration::from_secs(60))
-            .tcp_keepalive(Duration::from_secs(30))
-            .timeout(Duration::from_secs(30))
-            .build()
-            .map_err(|e| format!("Failed to create HTTP client: {}", e))?;
-
-        Ok(Self {
-            client,
-            auth_header,
-        })
+    /// Build a fetcher over a caller-supplied transport, so tests can point it
+    /// at a mock server.
+    pub fn with_transport(transport: Transport) -> Self {
+        Self { transport }
     }
 
     /// Download the raw FIT file for an activity.
     /// Returns the binary data or an error message.
     pub async fn download_fit_file(&self, activity_id: &str) -> Result<Vec<u8>, String> {
-        let url = format!("https://intervals.icu/api/v1/activity/{}/file", activity_id);
-
-        // FIT downloads flow through the same choke point as GPS maps.
-        crate::governor::GOVERNOR
-            .acquire(crate::governor::Lane::Interactive)
-            .await;
-
-        let response = self
-            .client
-            .get(&url)
-            .header("Authorization", &self.auth_header)
-            .send()
+        self.transport
+            .get_bytes(
+                &format!("/activity/{}/file", activity_id),
+                &[],
+                Lane::Interactive,
+            )
             .await
-            .map_err(|e| format!("FIT download error: {}", e))?;
-
-        if !response.status().is_success() {
-            return Err(format!("HTTP {}", response.status()));
-        }
-
-        response
-            .bytes()
-            .await
-            .map(|b| b.to_vec())
-            .map_err(|e| format!("FIT body error: {}", e))
+            .map_err(|e| e.to_string())
     }
 
     /// Fetch map data for multiple activities in parallel
@@ -338,8 +185,7 @@ impl ActivityFetcher {
         // Buffered parallel fetch; the governor paces dispatch across all tasks.
         let results: Vec<ActivityMapResult> = stream::iter(activity_ids)
             .map(|id| {
-                let client = &self.client;
-                let auth = &self.auth_header;
+                let transport = &self.transport;
                 let counter = Arc::clone(&counter);
                 let completed = Arc::clone(&completed);
                 let total_bytes = Arc::clone(&total_bytes);
@@ -347,15 +193,12 @@ impl ActivityFetcher {
                 let start_time = start;
 
                 async move {
-                    // Pace through the single shared choke point (≤8 req/s across
-                    // the whole process), then take this request's dispatch number.
-                    crate::governor::GOVERNOR
-                        .acquire(crate::governor::Lane::Interactive)
-                        .await;
+                    // Transport paces every dispatch through the shared choke
+                    // point, so this only numbers them for the log.
                     let dispatch_num = counter.next_dispatch_number();
                     let dispatch_time = start_time.elapsed();
 
-                    let result = Self::fetch_single_map(client, auth, &counter, &id).await;
+                    let result = Self::fetch_single_map(transport, &id).await;
 
                     // Track progress
                     let done = completed.fetch_add(1, Ordering::Relaxed) + 1;
@@ -425,218 +268,84 @@ impl ActivityFetcher {
         results
     }
 
-    async fn fetch_single_map(
-        client: &Client,
-        auth: &str,
-        counter: &DispatchCounter,
-        activity_id: &str,
-    ) -> ActivityMapResult {
-        let url = format!("https://intervals.icu/api/v1/activity/{}/map", activity_id);
-
-        let mut retries = 0;
+    /// One activity's map. Transport owns pacing, retry, `Retry-After` and
+    /// 401 classification, so this is request, decode, flatten.
+    async fn fetch_single_map(transport: &Transport, activity_id: &str) -> ActivityMapResult {
         let req_start = Instant::now();
 
-        loop {
-            // Phase 1: Send request, receive headers
-            let response = client.get(&url).header("Authorization", auth).send().await;
+        let failed = |error: String| ActivityMapResult {
+            activity_id: activity_id.to_string(),
+            bounds: None,
+            latlngs: None,
+            success: false,
+            error: Some(error),
+        };
 
-            let headers_elapsed = req_start.elapsed();
+        let bytes = match transport
+            .get_bytes(
+                &format!("/activity/{}/map", activity_id),
+                &[],
+                Lane::Interactive,
+            )
+            .await
+        {
+            Ok(b) => b,
+            // Unauthorized is worth naming: it means the whole batch will fail
+            // the same way, and the sync service turns it into a re-login.
+            Err(NetError::Unauthorized) => return failed("unauthorized".to_string()),
+            Err(e) => return failed(e.to_string()),
+        };
+        let body_elapsed = req_start.elapsed();
+        let body_size = bytes.len();
 
-            match response {
-                Ok(resp) => {
-                    let status = resp.status();
+        let json_start = Instant::now();
+        let data: MapApiResponse = match serde_json::from_slice(&bytes) {
+            Ok(d) => d,
+            Err(e) => return failed(format!("JSON parse error: {}", e)),
+        };
+        let json_elapsed = json_start.elapsed();
+        let point_count = data.latlngs.as_ref().map_or(0, |v| v.len());
 
-                    if status == reqwest::StatusCode::TOO_MANY_REQUESTS {
-                        retries += 1;
-                        if retries > MAX_RETRIES {
-                            return ActivityMapResult {
-                                activity_id: activity_id.to_string(),
-                                bounds: None,
-                                latlngs: None,
-                                success: false,
-                                error: Some("Max retries exceeded (429)".to_string()),
-                            };
-                        }
+        let bounds = data.bounds.map(|b| MapBounds { ne: b.ne, sw: b.sw });
+        let latlngs = data
+            .latlngs
+            .map(|coords| coords.into_iter().flatten().collect());
 
-                        let consecutive = counter.record_429();
-                        let retry_after = resp
-                            .headers()
-                            .get(reqwest::header::RETRY_AFTER)
-                            .and_then(|v| v.to_str().ok())
-                            .and_then(|s| s.trim().parse::<u64>().ok());
-                        let wait = crate::governor::decide_backoff(retry_after, retries, true);
-                        warn!(
-                            "[Fetch {}] 429 after {:?} (consecutive {}), retry {} in {:?} (retry-after={:?})",
-                            activity_id, headers_elapsed, consecutive, retries, wait, retry_after
-                        );
-                        tokio::time::sleep(wait).await;
-                        continue;
-                    }
+        debug!(
+            "[Fetch {}] body={:?}({:.1}KB) json={:?} total={:?} points={}",
+            activity_id,
+            body_elapsed,
+            body_size as f64 / 1024.0,
+            json_elapsed,
+            req_start.elapsed(),
+            point_count
+        );
 
-                    counter.record_success();
-
-                    if !status.is_success() {
-                        return ActivityMapResult {
-                            activity_id: activity_id.to_string(),
-                            bounds: None,
-                            latlngs: None,
-                            success: false,
-                            error: Some(format!("HTTP {}", status)),
-                        };
-                    }
-
-                    // Phase 2: Download response body (this is network time!)
-                    let body_start = Instant::now();
-                    let bytes = match resp.bytes().await {
-                        Ok(b) => b,
-                        Err(e) => {
-                            return ActivityMapResult {
-                                activity_id: activity_id.to_string(),
-                                bounds: None,
-                                latlngs: None,
-                                success: false,
-                                error: Some(format!("Body download error: {}", e)),
-                            };
-                        }
-                    };
-                    let body_elapsed = body_start.elapsed();
-                    let body_size = bytes.len();
-
-                    // Phase 3: JSON deserialization (pure CPU)
-                    let json_start = Instant::now();
-                    let data: MapApiResponse = match serde_json::from_slice(&bytes) {
-                        Ok(d) => d,
-                        Err(e) => {
-                            return ActivityMapResult {
-                                activity_id: activity_id.to_string(),
-                                bounds: None,
-                                latlngs: None,
-                                success: false,
-                                error: Some(format!("JSON parse error: {}", e)),
-                            };
-                        }
-                    };
-                    let json_elapsed = json_start.elapsed();
-                    let point_count = data.latlngs.as_ref().map_or(0, |v| v.len());
-
-                    // Phase 4: Data transformation (flatten coords)
-                    let transform_start = Instant::now();
-                    let bounds = data.bounds.map(|b| MapBounds { ne: b.ne, sw: b.sw });
-                    let latlngs = data
-                        .latlngs
-                        .map(|coords| coords.into_iter().flatten().collect());
-                    let transform_elapsed = transform_start.elapsed();
-
-                    let total_elapsed = req_start.elapsed();
-
-                    // Detailed timing breakdown
-                    debug!(
-                        "[Fetch {}] headers={:?} body={:?}({:.1}KB) json={:?} transform={:?} total={:?} points={}",
-                        activity_id,
-                        headers_elapsed,
-                        body_elapsed,
-                        body_size as f64 / 1024.0,
-                        json_elapsed,
-                        transform_elapsed,
-                        total_elapsed,
-                        point_count
-                    );
-
-                    return ActivityMapResult {
-                        activity_id: activity_id.to_string(),
-                        bounds,
-                        latlngs,
-                        success: true,
-                        error: None,
-                    };
-                }
-                Err(e) => {
-                    retries += 1;
-                    if retries > MAX_RETRIES {
-                        return ActivityMapResult {
-                            activity_id: activity_id.to_string(),
-                            bounds: None,
-                            latlngs: None,
-                            success: false,
-                            error: Some(format!("Request error: {}", e)),
-                        };
-                    }
-
-                    let wait = crate::governor::decide_backoff(None, retries, false);
-                    warn!(
-                        "[Fetch {}] Error: {}, retry {} after {:?}",
-                        activity_id, e, retries, wait
-                    );
-                    tokio::time::sleep(wait).await;
-                }
-            }
+        ActivityMapResult {
+            activity_id: activity_id.to_string(),
+            bounds,
+            latlngs,
+            success: true,
+            error: None,
         }
     }
-}
-
-/// Synchronous wrapper for FFI - runs the async code on a tokio runtime
-/// Accepts a pre-formatted auth header (e.g., "Basic ..." or "Bearer ...")
-pub fn fetch_activity_maps_sync(
-    auth_header: String,
-    activity_ids: Vec<String>,
-    on_progress: Option<ProgressCallback>,
-) -> Vec<ActivityMapResult> {
-    let fn_start = Instant::now();
-    let activity_count = activity_ids.len();
-    info!(
-        "[RUST: fetch_activity_maps_sync] Called for {} activities",
-        activity_count
-    );
-
-    let client_start = Instant::now();
-    let fetcher = match ActivityFetcher::with_auth_header(auth_header) {
-        Ok(f) => {
-            info!(
-                "[RUST: fetch_activity_maps_sync] Created HTTP client ({} ms)",
-                elapsed_ms(client_start)
-            );
-            f
-        }
-        Err(e) => {
-            warn!(
-                "[RUST: fetch_activity_maps_sync] Failed to create HTTP client: {} ({} ms)",
-                e,
-                elapsed_ms(client_start)
-            );
-            return activity_ids
-                .into_iter()
-                .map(|id| ActivityMapResult {
-                    activity_id: id,
-                    bounds: None,
-                    latlngs: None,
-                    success: false,
-                    error: Some(e.clone()),
-                })
-                .collect();
-        }
-    };
-
-    let fetch_start = Instant::now();
-    let results = crate::runtime::block_on(fetcher.fetch_activity_maps(activity_ids, on_progress));
-    let success_count = results.iter().filter(|r| r.success).count();
-    info!(
-        "[RUST: fetch_activity_maps_sync] Fetch complete: {}/{} successful ({} ms)",
-        success_count,
-        activity_count,
-        elapsed_ms(fetch_start)
-    );
-
-    info!(
-        "[RUST: fetch_activity_maps_sync] Complete ({} ms)",
-        elapsed_ms(fn_start)
-    );
-
-    results
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::governor::{AuthMethod, Governor, NoopPolicy};
+    use httpmock::prelude::*;
+    use serde_json::json;
+
+    /// A fetcher pointed at a mock server. Folding this module onto Transport
+    /// is what makes that possible: the URL used to be hardcoded.
+    fn fetcher_to(base: String) -> ActivityFetcher {
+        let gov = Arc::new(Governor::new(1000, Box::new(NoopPolicy)));
+        ActivityFetcher::with_transport(
+            Transport::with_governor(base, AuthMethod::ApiKey("k"), gov).unwrap(),
+        )
+    }
 
     #[test]
     fn test_activity_map_result_serialization() {
@@ -658,5 +367,117 @@ mod tests {
         assert!(parsed.success);
         assert!(parsed.bounds.is_some());
         assert_eq!(parsed.latlngs.as_ref().unwrap().len(), 2);
+    }
+
+    #[test]
+    fn map_fetch_flattens_coordinates_and_bounds() {
+        let server = MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method(GET).path("/activity/a1/map");
+            then.status(200).json_body(json!({
+                "bounds": {"ne": [46.95, 7.45], "sw": [46.94, 7.44]},
+                "latlngs": [[46.941, 7.441], null, [46.942, 7.442]]
+            }));
+        });
+
+        let f = fetcher_to(server.base_url());
+        let results = crate::runtime::block_on(f.fetch_activity_maps(vec!["a1".into()], None));
+
+        mock.assert();
+        assert!(results[0].success);
+        // The null hole is dropped, not carried through as a gap.
+        assert_eq!(
+            results[0].latlngs.as_ref().unwrap(),
+            &vec![[46.941, 7.441], [46.942, 7.442]]
+        );
+        assert_eq!(results[0].bounds.as_ref().unwrap().ne, [46.95, 7.45]);
+    }
+
+    #[test]
+    fn map_fetch_names_unauthorized_rather_than_a_bare_http_code() {
+        // 401 classification is what the sync service turns into a re-login,
+        // and this path could not see it before it went through Transport.
+        let server = MockServer::start();
+        server.mock(|when, then| {
+            when.method(GET).path("/activity/a1/map");
+            then.status(401);
+        });
+
+        let f = fetcher_to(server.base_url());
+        let results = crate::runtime::block_on(f.fetch_activity_maps(vec!["a1".into()], None));
+
+        assert!(!results[0].success);
+        assert_eq!(results[0].error.as_deref(), Some("unauthorized"));
+    }
+
+    #[test]
+    fn a_failing_activity_does_not_sink_the_batch() {
+        let server = MockServer::start();
+        server.mock(|when, then| {
+            when.method(GET).path("/activity/good/map");
+            then.status(200)
+                .json_body(json!({"latlngs": [[46.9, 7.4], [46.91, 7.41]]}));
+        });
+        server.mock(|when, then| {
+            when.method(GET).path("/activity/gone/map");
+            then.status(404);
+        });
+
+        let f = fetcher_to(server.base_url());
+        let results = crate::runtime::block_on(
+            f.fetch_activity_maps(vec!["good".into(), "gone".into()], None),
+        );
+
+        let good = results.iter().find(|r| r.activity_id == "good").unwrap();
+        let gone = results.iter().find(|r| r.activity_id == "gone").unwrap();
+        assert!(good.success);
+        assert!(!gone.success);
+    }
+
+    #[test]
+    fn map_fetch_reports_progress_per_activity() {
+        let server = MockServer::start();
+        server.mock(|when, then| {
+            when.method(GET).path_contains("/map");
+            then.status(200).json_body(json!({"latlngs": []}));
+        });
+
+        let seen = Arc::new(AtomicU32::new(0));
+        let counter = Arc::clone(&seen);
+        let f = fetcher_to(server.base_url());
+        crate::runtime::block_on(f.fetch_activity_maps(
+            vec!["a".into(), "b".into(), "c".into()],
+            Some(Arc::new(move |_done, _total| {
+                counter.fetch_add(1, Ordering::Relaxed);
+            })),
+        ));
+
+        assert_eq!(seen.load(Ordering::Relaxed), 3);
+    }
+
+    #[test]
+    fn fit_download_returns_the_raw_bytes() {
+        let server = MockServer::start();
+        server.mock(|when, then| {
+            when.method(GET).path("/activity/a1/file");
+            then.status(200).body(vec![0x0Eu8, 0x10, 0x00, 0x00]);
+        });
+
+        let f = fetcher_to(server.base_url());
+        let bytes = crate::runtime::block_on(f.download_fit_file("a1")).unwrap();
+
+        assert_eq!(bytes, vec![0x0E, 0x10, 0x00, 0x00]);
+    }
+
+    #[test]
+    fn fit_download_surfaces_a_missing_file_as_an_error() {
+        let server = MockServer::start();
+        server.mock(|when, then| {
+            when.method(GET).path("/activity/a1/file");
+            then.status(404);
+        });
+
+        let f = fetcher_to(server.base_url());
+        assert!(crate::runtime::block_on(f.download_fit_file("a1")).is_err());
     }
 }

@@ -266,6 +266,9 @@ class RouteEngineClient implements DelegateHost {
 
   syncNow = (): boolean => syncDelegates.syncNow(this);
 
+  syncActivitiesWindow = (oldest: string, newest: string): boolean =>
+    syncDelegates.syncActivitiesWindow(this, oldest, newest);
+
   cancelSync = (): void => syncDelegates.cancelSync(this);
 
   getSyncStatus = (): SyncStatus | null => syncDelegates.getSyncStatus(this);
@@ -617,6 +620,12 @@ class RouteEngineClient implements DelegateHost {
 
   getWellnessBodies = (oldest: string, newest: string): string[] =>
     fitnessDelegates.getWellnessBodies(this, oldest, newest);
+
+  getActivityBodies = (oldestTs: number, newestTs: number): string[] =>
+    activityDelegates.getActivityBodies(this, oldestTs, newestTs);
+
+  upsertActivityBodies = (rows: activityDelegates.ActivityBodyInput[]): void =>
+    activityDelegates.upsertActivityBodies(this, rows);
 
   getWellnessSparklines = (days: number): fitnessDelegates.WellnessSparklines | null =>
     fitnessDelegates.getWellnessSparklines(this, days);

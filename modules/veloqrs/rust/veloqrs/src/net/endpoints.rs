@@ -113,6 +113,42 @@ pub async fn fetch_activities(
     .await
 }
 
+/// `GET /athlete/{id}/activities` returning each activity both typed and as
+/// its own body. Rust aggregates on the typed values; the feed and detail
+/// screens read fields the record does not model.
+pub async fn fetch_activities_with_bodies(
+    t: &Transport,
+    athlete_id: &str,
+    oldest: &str,
+    newest: &str,
+    include_stats: bool,
+    lane: Lane,
+) -> Result<Vec<(ActivityRecord, String)>, NetError> {
+    let fields = if include_stats {
+        format!("{},{}", ACTIVITY_FIELDS, ACTIVITY_STATS_EXTRA)
+    } else {
+        ACTIVITY_FIELDS.to_string()
+    };
+    let bytes = t
+        .get_bytes(
+            &format!("/athlete/{}/activities", athlete_id),
+            &[("oldest", oldest), ("newest", newest), ("fields", &fields)],
+            lane,
+        )
+        .await?;
+    let items: Vec<serde_json::Value> =
+        serde_json::from_slice(&bytes).map_err(|e| NetError::Decode(e.to_string()))?;
+
+    let mut out = Vec::with_capacity(items.len());
+    for item in items {
+        let body = item.to_string();
+        let record: ActivityRecord =
+            serde_json::from_value(item).map_err(|e| NetError::Decode(e.to_string()))?;
+        out.push((record, body));
+    }
+    Ok(out)
+}
+
 /// `GET /activity/{id}` - full activity detail.
 pub async fn fetch_activity(
     t: &Transport,

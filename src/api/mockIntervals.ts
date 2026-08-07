@@ -59,23 +59,6 @@ export const mockIntervalsApi = {
   },
 
   /**
-   * Get activities with optional date filtering
-   */
-  async getActivities(params?: {
-    oldest?: string;
-    newest?: string;
-    includeStats?: boolean;
-  }): Promise<Activity[]> {
-    await delay(200);
-    const { getActivities } = await loadFixtures();
-    const activities = getActivities({
-      oldest: params?.oldest,
-      newest: params?.newest,
-    });
-    return activities as Activity[];
-  },
-
-  /**
    * Get a single activity by ID
    */
   async getActivity(id: string): Promise<ActivityDetail> {
@@ -84,17 +67,6 @@ export const mockIntervalsApi = {
     const activity = getActivity(id);
     if (!activity) throw new Error('Activity not found');
     return activity as ActivityDetail;
-  },
-
-  /**
-   * Get the oldest activity date
-   */
-  async getOldestActivityDate(): Promise<string | null> {
-    await delay(50);
-    const { fixtures } = await loadFixtures();
-    const activities = fixtures.activities;
-    if (activities.length === 0) return null;
-    return activities[0].start_date_local;
   },
 
   /**

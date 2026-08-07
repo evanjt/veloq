@@ -16,6 +16,8 @@ const engine = {
   setSportSettings: jest.fn(),
   upsertWellness: jest.fn(),
   setActivityMetrics: jest.fn(),
+  upsertActivityBodies: jest.fn(),
+  setSetting: jest.fn(),
   savePaceSnapshot: jest.fn(),
   triggerRefresh: jest.fn(),
 };
@@ -59,6 +61,25 @@ describe('seedDemoEngine', () => {
     expect(metrics.length).toBeGreaterThan(0);
     expect(metrics[0]).toHaveProperty('activityId');
     expect(metrics[0]).toHaveProperty('sportType');
+  });
+
+  it('stores an activity body for every fixture activity', () => {
+    seedDemoEngine();
+
+    const rows = engine.upsertActivityBodies.mock.calls[0][0];
+    expect(rows.length).toBeGreaterThan(0);
+    expect(rows[0]).toHaveProperty('activityId');
+    expect(typeof rows[0].date).toBe('number');
+    expect(JSON.parse(rows[0].raw).id).toBe(rows[0].activityId);
+  });
+
+  it('records the oldest activity date the timeline slider reads', () => {
+    seedDemoEngine();
+
+    expect(engine.setSetting).toHaveBeenCalledWith(
+      'oldest_activity_date',
+      expect.stringMatching(/^\d{4}-\d{2}-\d{2}/)
+    );
   });
 
   it('records a pace snapshot so trend tracking has a baseline', () => {

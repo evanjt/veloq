@@ -59,6 +59,18 @@ export function syncNow(host: DelegateHost): boolean {
   return started;
 }
 
+/** Fetch and store one date window of activities. Returns instantly; false if
+ *  a sync is already running or no credentials are set. The feed asks for
+ *  windows older than the default sync covers. */
+export function syncActivitiesWindow(host: DelegateHost, oldest: string, newest: string): boolean {
+  if (!host.ready) return false;
+  const started = host.timed('syncActivitiesWindow', () =>
+    host.engine.sync().syncActivitiesWindow(oldest, newest)
+  ) as boolean;
+  if (started) host.notify('sync');
+  return started;
+}
+
 /** Soft-cancel the running sync. */
 export function cancelSync(host: DelegateHost): void {
   if (!host.ready) return;

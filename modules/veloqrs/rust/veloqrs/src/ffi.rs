@@ -153,7 +153,7 @@ pub fn start_fetch_and_store(activity_ids: Vec<String>, sport_types: Vec<Activit
     // Credentials are held by the sync service, never passed per call. Without
     // one there is nothing to fetch, so settle the progress + result contract
     // immediately rather than spawning a thread that can only fail.
-    let Some(auth_header) = crate::objects::current_auth_header() else {
+    let Ok(fetcher) = crate::http::ActivityFetcher::from_credentials() else {
         info!("[RUST: start_fetch_and_store] No credentials set");
         crate::http::reset_download_progress(activity_count as u32);
         store_fetch_and_store_result(FetchAndStoreResult {
@@ -210,37 +210,6 @@ pub fn start_fetch_and_store(activity_ids: Vec<String>, sport_types: Vec<Activit
 
         // Runs on the shared process runtime instead of building a throwaway
         // 4-thread runtime per call.
-
-        // Create HTTP fetcher
-        let client_start = Instant::now();
-        let fetcher = match crate::http::ActivityFetcher::with_auth_header(auth_header) {
-            Ok(f) => {
-                info!(
-                    "[RUST: start_fetch_and_store] Created HTTP client ({} ms)",
-                    elapsed_ms(client_start)
-                );
-                f
-            }
-            Err(e) => {
-                info!(
-                    "[RUST: start_fetch_and_store] Failed to create HTTP client: {} ({} ms)",
-                    e,
-                    elapsed_ms(client_start)
-                );
-                crate::http::finish_download_progress();
-                store_fetch_and_store_result(FetchAndStoreResult {
-                    synced_ids: vec![],
-                    failed_ids: activity_ids,
-                    total: 0,
-                    success_count: 0,
-                    total_points: 0,
-                    fetch_time_ms: 0,
-                    storage_time_ms: 0,
-                    total_time_ms: elapsed_ms(thread_start) as u32,
-                });
-                return;
-            }
-        };
 
         // Fetch GPS data
         let fetch_start = Instant::now();

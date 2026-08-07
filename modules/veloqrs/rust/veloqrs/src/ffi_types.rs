@@ -1337,6 +1337,17 @@ impl From<crate::CalendarSummary> for FfiCalendarSummary {
 // Activity Pattern Types
 // ============================================================================
 
+/// One untyped activity payload, keyed by id and start time. Demo seeding
+/// writes these; a live sync writes them from the same shape.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiActivityBody {
+    pub activity_id: String,
+    /// Start time as epoch seconds.
+    pub date: i64,
+    /// The untyped intervals.icu activity payload.
+    pub raw: String,
+}
+
 /// One wellness row passed in from TS (intervals.icu sync). Fields outside
 /// this subset (sleepQuality, spO2, etc.) aren't persisted yet - the TS
 /// sync helper only forwards the fields the Rust atomics consume.
