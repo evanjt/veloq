@@ -5,18 +5,10 @@ import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { CartesianChart, Line } from 'victory-native';
 import { Circle, DashPathEffect, Line as SkiaLine } from '@shopify/react-native-skia';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import {
-  useSharedValue,
-  useAnimatedReaction,
-  runOnJS,
-  useDerivedValue,
-  useAnimatedStyle,
-} from 'react-native-reanimated';
+import { GestureDetector } from 'react-native-gesture-handler';
 import { router } from 'expo-router';
 import { colors, darkColors, typography, spacing, layout, chartStyles } from '@/theme';
-import { ChartCrosshair } from '@/shared/charts';
-import { CHART_CONFIG } from '@/constants';
+import { ChartCrosshair, useChartGestures } from '@/shared/charts';
 import { usePaceCurve } from '../hooks/usePaceCurve';
 import { useActivities } from '@/features/activity/hooks';
 import {
@@ -87,19 +79,13 @@ export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceC
 
   const [tooltipData, setTooltipData] = useState<ChartPoint | null>(null);
   const [persistedTooltip, setPersistedTooltip] = useState<ChartPoint | null>(null);
-  const [isActive, setIsActive] = useState(false);
   // Track actual chart bounds from Victory Native for accurate axis label positioning
   const [actualChartBounds, setActualChartBounds] = useState({
     left: 0,
     right: 0,
   });
 
-  // Shared values for gesture tracking
-  const touchX = useSharedValue(-1);
-  const chartBoundsShared = useSharedValue({ left: 0, right: 1 });
-  const xDomainShared = useSharedValue<[number, number]>([0, 1]);
-  const xValuesShared = useSharedValue<number[]>([]);
-  const lastNotifiedIdx = useRef<number | null>(null);
+  const lastPointRef = useRef<ChartPoint | null>(null);
 
   // Build activity lookup map
   const activityMap = useMemo(() => {
@@ -198,12 +184,6 @@ export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceC
     };
   }, [curve]);
 
-  // Sync xDomain and x values to shared values for worklet access
-  React.useEffect(() => {
-    xDomainShared.value = xDomain;
-    xValuesShared.value = chartData.map((d) => d.x);
-  }, [xDomain, chartData, xDomainShared, xValuesShared]);
-
   // Calculate x-axis label positions based on actual chart bounds from Victory Native
   const xAxisLabelPositions = useMemo(() => {
     const chartAreaWidth = actualChartBounds.right - actualChartBounds.left;
@@ -225,103 +205,29 @@ export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceC
     }).filter(Boolean) as { label: string; position: number }[];
   }, [actualChartBounds, xDomain, chartData.length]);
 
-  // Derive selected index from touch position using log-scale x values
-  const selectedIdx = useDerivedValue(() => {
-    'worklet';
-    const xValues = xValuesShared.value;
-    const len = xValues.length;
-    const bounds = chartBoundsShared.value;
-    const chartWidthVal = bounds.right - bounds.left;
-    const [xMin, xMax] = xDomainShared.value;
-
-    if (touchX.value < 0 || chartWidthVal <= 0 || len === 0) return -1;
-
-    // Convert touch position to log-scale x value
-    const chartX = touchX.value - bounds.left;
-    const ratio = Math.max(0, Math.min(1, chartX / chartWidthVal));
-    const targetX = xMin + ratio * (xMax - xMin);
-
-    // Find the closest data point by x value (binary search would be better but this is simple)
-    let closestIdx = 0;
-    let closestDiff = Math.abs(xValues[0] - targetX);
-    for (let i = 1; i < len; i++) {
-      const diff = Math.abs(xValues[i] - targetX);
-      if (diff < closestDiff) {
-        closestDiff = diff;
-        closestIdx = i;
-      }
-    }
-
-    return closestIdx;
+  const handleSelect = useCallback((point: ChartPoint) => {
+    lastPointRef.current = point;
+    setTooltipData(point);
   }, []);
 
-  const updateTooltipOnJS = useCallback(
-    (idx: number) => {
-      if (idx < 0 || chartData.length === 0) {
-        if (lastNotifiedIdx.current !== null) {
-          // Persist the last selected point when scrub ends
-          if (tooltipData) {
-            setPersistedTooltip(tooltipData);
-          }
-          setTooltipData(null);
-          setIsActive(false);
-          lastNotifiedIdx.current = null;
-        }
-        return;
-      }
-
-      if (idx === lastNotifiedIdx.current) return;
-      lastNotifiedIdx.current = idx;
-
-      if (!isActive) {
-        setIsActive(true);
-        // Clear persisted when starting a new scrub
-        setPersistedTooltip(null);
-      }
-
-      const point = chartData[idx];
-      if (point) setTooltipData(point);
-    },
-    [chartData, isActive, tooltipData]
-  );
-
-  useAnimatedReaction(
-    () => selectedIdx.value,
-    (idx) => {
-      runOnJS(updateTooltipOnJS)(idx);
-    },
-    [updateTooltipOnJS]
-  );
-
-  const gesture = Gesture.Pan()
-    .onStart((e) => {
-      'worklet';
-      touchX.value = e.x;
-    })
-    .onUpdate((e) => {
-      'worklet';
-      touchX.value = e.x;
-    })
-    .onEnd(() => {
-      'worklet';
-      touchX.value = -1;
-    })
-    .minDistance(0)
-    .activateAfterLongPress(CHART_CONFIG.LONG_PRESS_DURATION);
-
-  const crosshairStyle = useAnimatedStyle(() => {
-    'worklet';
-    // Use touchX directly so crosshair always follows the finger exactly
-    if (touchX.value < 0) {
-      return { opacity: 0, transform: [{ translateX: 0 }] };
+  // The last scrubbed point stays on screen after release, so the reader can
+  // let go and still see what they landed on.
+  const handleInteractionChange = useCallback((active: boolean) => {
+    if (active) {
+      setPersistedTooltip(null);
+      return;
     }
-
-    // Clamp to chart bounds
-    const bounds = chartBoundsShared.value;
-    const xPos = Math.max(bounds.left, Math.min(bounds.right, touchX.value));
-
-    return { opacity: 1, transform: [{ translateX: xPos }] };
+    if (lastPointRef.current) setPersistedTooltip(lastPointRef.current);
+    setTooltipData(null);
   }, []);
+
+  const { gesture, isActive, crosshairStyle, syncBounds, syncXCoords } =
+    useChartGestures<ChartPoint>({
+      data: chartData,
+      onSelect: handleSelect,
+      onInteractionChange: handleInteractionChange,
+      crosshairMode: 'finger',
+    });
 
   if (isLoading) {
     return (
@@ -439,27 +345,20 @@ export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceC
             padding={CHART_PADDING}
           >
             {({ points, chartBounds }) => {
-              // Sync bounds for gesture and x-axis label positioning
+              syncBounds(chartBounds);
+              syncXCoords(points.y, (p) => p.x);
+              // The x-axis labels are laid out in React, so the bounds have to
+              // reach state too. Deferred to keep it out of the render pass.
               if (
-                chartBounds.left !== chartBoundsShared.value.left ||
-                chartBounds.right !== chartBoundsShared.value.right
+                chartBounds.left !== actualChartBounds.left ||
+                chartBounds.right !== actualChartBounds.right
               ) {
-                chartBoundsShared.value = {
-                  left: chartBounds.left,
-                  right: chartBounds.right,
-                };
-                // Also sync to React state for x-axis labels (defer to avoid setState during render)
-                if (
-                  chartBounds.left !== actualChartBounds.left ||
-                  chartBounds.right !== actualChartBounds.right
-                ) {
-                  queueMicrotask(() => {
-                    setActualChartBounds({
-                      left: chartBounds.left,
-                      right: chartBounds.right,
-                    });
+                queueMicrotask(() => {
+                  setActualChartBounds({
+                    left: chartBounds.left,
+                    right: chartBounds.right,
                   });
-                }
+                });
               }
 
               return (
