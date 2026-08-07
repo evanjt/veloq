@@ -11,7 +11,10 @@ import { useMemo } from 'react';
 import { type ChartSummaryStats } from '@/features/routes/lib/performanceTypes';
 import { RANGE_DAYS } from '@/features/routes/constants';
 import { getRouteEngine } from '@/shared/native/routeEngine';
-import { fromUnixSeconds, castDirection, ensureFinite } from '@/shared/ffi/ffiConversions';
+import {
+  buildSectionChartShape,
+  buildSectionChartStats,
+} from '@/features/routes/lib/sectionChartData';
 import type { Activity, FrequentSection, PerformanceDataPoint, RoutePoint } from '@/types';
 import type { SectionPerformanceRecord } from './useSectionPerformances';
 import type { SectionTimeRange } from '@/features/routes/constants';
@@ -95,78 +98,13 @@ export function useSectionChartData({
     }
   }, [section, sectionTimeRange, sportFilter, performanceRecords]);
 
-  const { chartData, minSpeed, maxSpeed, bestIndex, hasReverseRuns } = useMemo(() => {
-    if (!rustChart) {
-      return {
-        chartData: [] as (PerformanceDataPoint & { x: number })[],
-        minSpeed: 0,
-        maxSpeed: 1,
-        bestIndex: 0,
-        hasReverseRuns: false,
-      };
-    }
-
-    // Sanitise raw Rust speeds before deriving axis bounds - a non-finite
-    // min/max would poison padding and the whole y-axis range.
-    const minSpeed = ensureFinite(rustChart.minSpeed, 0);
-    const maxSpeed = ensureFinite(rustChart.maxSpeed, 1);
-    const padding = (maxSpeed - minSpeed) * 0.15 || 0.5;
-    const chartData: (PerformanceDataPoint & { x: number })[] = rustChart.points.map((p, idx) => ({
-      x: idx,
-      id: p.lapId,
-      activityId: p.activityId,
-      speed: ensureFinite(p.speed, 0),
-      date: fromUnixSeconds(p.activityDate) ?? new Date(),
-      activityName: p.activityName,
-      direction: castDirection(p.direction),
-      lapPoints: sectionWithTraces?.activityTraces?.[p.activityId],
-      sectionTime: ensureFinite(p.sectionTime, 0),
-      sectionDistance: ensureFinite(p.sectionDistance, 0),
-      lapCount: 1,
-    }));
-
-    return {
-      chartData,
-      minSpeed: Math.max(0, minSpeed - padding),
-      maxSpeed: maxSpeed + padding,
-      bestIndex: rustChart.bestIndex,
-      hasReverseRuns: rustChart.hasReverseRuns,
-    };
-  }, [rustChart, sectionWithTraces]);
+  const { chartData, minSpeed, maxSpeed, bestIndex, hasReverseRuns } = useMemo(
+    () => buildSectionChartShape(rustChart, sectionWithTraces?.activityTraces),
+    [rustChart, sectionWithTraces]
+  );
 
   const { rankMap, bestActivityId, bestTimeValue, bestPaceValue, averageTime, lastActivityDate } =
-    useMemo(() => {
-      if (!rustChart) {
-        return {
-          rankMap: new Map<string, number>(),
-          bestActivityId: null as string | null,
-          bestTimeValue: undefined as number | undefined,
-          bestPaceValue: undefined as number | undefined,
-          averageTime: undefined as number | undefined,
-          lastActivityDate: undefined as string | undefined,
-        };
-      }
-      const rankMap = new Map<string, number>();
-      for (const p of rustChart.points) {
-        if (!rankMap.has(p.activityId)) rankMap.set(p.activityId, p.rank);
-      }
-      // Preserve nullable semantics: a missing field stays undefined; a
-      // present-but-non-finite Rust value (e.g. 0/0 pace) collapses to
-      // undefined so the UI sees a clean absent stat, not 'NaN'.
-      const sanitizeStat = (v: number | undefined): number | undefined =>
-        v == null ? undefined : Number.isFinite(v) ? v : undefined;
-      return {
-        rankMap,
-        bestActivityId: rustChart.bestActivityId ?? null,
-        bestTimeValue: sanitizeStat(rustChart.bestTimeSecs),
-        bestPaceValue: sanitizeStat(rustChart.bestPace),
-        averageTime: sanitizeStat(rustChart.averageTimeSecs),
-        lastActivityDate:
-          rustChart.lastActivityDate != null
-            ? (fromUnixSeconds(rustChart.lastActivityDate)?.toISOString() ?? undefined)
-            : undefined,
-      };
-    }, [rustChart]);
+    useMemo(() => buildSectionChartStats(rustChart), [rustChart]);
 
   const summaryStats = useMemo((): ChartSummaryStats => {
     return {
