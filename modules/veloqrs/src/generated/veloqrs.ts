@@ -6602,6 +6602,80 @@ const FfiConverterTypeFfiTimestampRange = (() => {
 })();
 
 /**
+ * One Monday-anchored week of training totals, derived from
+ * `activity_metrics`. Replaces the intervals.icu athlete-summary endpoint:
+ * the screens read only these four numbers.
+ */
+export type FfiWeeklySummary = {
+  /**
+   * Monday of the week, epoch seconds at local midnight.
+   */
+  weekStart: /*i64*/ bigint;
+  count: /*u32*/ number;
+  /**
+   * Moving time in seconds.
+   */
+  movingTime: /*i64*/ bigint;
+  /**
+   * Distance in metres.
+   */
+  distance: /*f64*/ number;
+  /**
+   * Training load (TSS).
+   */
+  trainingLoad: /*f64*/ number;
+};
+
+/**
+ * Generated factory for {@link FfiWeeklySummary} record objects.
+ */
+export const FfiWeeklySummary = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiWeeklySummary, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiWeeklySummary>,
+  });
+})();
+
+const FfiConverterTypeFfiWeeklySummary = (() => {
+  type TypeName = FfiWeeklySummary;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        weekStart: FfiConverterInt64.read(from),
+        count: FfiConverterUInt32.read(from),
+        movingTime: FfiConverterInt64.read(from),
+        distance: FfiConverterFloat64.read(from),
+        trainingLoad: FfiConverterFloat64.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterInt64.write(value.weekStart, into);
+      FfiConverterUInt32.write(value.count, into);
+      FfiConverterInt64.write(value.movingTime, into);
+      FfiConverterFloat64.write(value.distance, into);
+      FfiConverterFloat64.write(value.trainingLoad, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterInt64.allocationSize(value.weekStart) +
+        FfiConverterUInt32.allocationSize(value.count) +
+        FfiConverterInt64.allocationSize(value.movingTime) +
+        FfiConverterFloat64.allocationSize(value.distance) +
+        FfiConverterFloat64.allocationSize(value.trainingLoad)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * One wellness row passed in from TS (intervals.icu sync). Fields outside
  * this subset (sleepQuality, spO2, etc.) aren't persisted yet - the TS
  * sync helper only forwards the fields the Rust atomics consume.
@@ -8364,6 +8438,13 @@ export interface FitnessManagerLike {
    */
   getActivityPatternsWithToday() /*throws*/ : FfiActivityPatternsBundle;
   getAvailableSportTypes() /*throws*/ : Array<string>;
+  /**
+   * Calendar event bodies over an inclusive window, oldest first.
+   */
+  getCalendarEventBodies(
+    oldestTs: /*i64*/ bigint,
+    newestTs: /*i64*/ bigint,
+  ) /*throws*/ : Array<string>;
   getFtpTrend() /*throws*/ : FfiFtpTrend;
   /**
    * Batch insights data: combines period stats, trends, patterns, and recent PRs
@@ -8377,12 +8458,32 @@ export interface FitnessManagerLike {
     chronicStart: /*i64*/ bigint,
     todayStart: /*i64*/ bigint,
   ) /*throws*/ : FfiInsightsData;
+  /**
+   * An activity's stored interval body, or `None` if never fetched.
+   */
+  getIntervalBody(activityId: string) /*throws*/ : string | undefined;
+  /**
+   * A stored pace curve body, keyed by sport, window and the gap flag.
+   */
+  getPaceCurveBody(
+    sport: string,
+    days: /*i64*/ bigint,
+    gap: boolean,
+  ) /*throws*/ : string | undefined;
   getPaceTrend(sportType: string) /*throws*/ : FfiPaceTrend;
   getPatternForToday() /*throws*/ : FfiActivityPattern | undefined;
   getPeriodStats(
     startTs: /*i64*/ bigint,
     endTs: /*i64*/ bigint,
   ) /*throws*/ : FfiPeriodStats;
+  /**
+   * A stored power curve body, or `None` when that sport and window have
+   * never been fetched. `None` means "ask for it", not "no data".
+   */
+  getPowerCurveBody(
+    sport: string,
+    days: /*i64*/ bigint,
+  ) /*throws*/ : string | undefined;
   /**
    * All data the feed screen needs in a single engine lock.
    * Combines insights + summary card + GPS preview tracks + cached metric IDs.
@@ -8403,6 +8504,18 @@ export interface FitnessManagerLike {
     prevStart: /*i64*/ bigint,
     prevEnd: /*i64*/ bigint,
   ) /*throws*/ : FfiSummaryCardData;
+  /**
+   * Weekly training totals over a range, one entry per Monday-anchored
+   * week that has activities. Derived from `activity_metrics` rather than
+   * fetched, so there is no athlete-summary endpoint to keep in sync.
+   *
+   * `week_starts` are supplied by the caller because week boundaries are a
+   * local-calendar question, and Rust has no view of the device timezone.
+   */
+  getWeeklySummaries(
+    weekStarts: Array</*i64*/ bigint>,
+    weekLengthSecs: /*i64*/ bigint,
+  ) /*throws*/ : Array<FfiWeeklySummary>;
   /**
    * Untyped wellness bodies over an inclusive date window, oldest first.
    * The wellness screens read fields the typed row does not model, so they
@@ -8625,6 +8738,31 @@ export class FitnessManager
     );
   }
 
+  /**
+   * Calendar event bodies over an inclusive window, oldest first.
+   */
+  getCalendarEventBodies(
+    oldestTs: /*i64*/ bigint,
+    newestTs: /*i64*/ bigint,
+  ): Array<string> /*throws*/ {
+    return FfiConverterArrayString.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_calendar_event_bodies(
+            uniffiTypeFitnessManagerObjectFactory.clonePointer(this),
+            FfiConverterInt64.lower(oldestTs),
+            FfiConverterInt64.lower(newestTs),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
   getFtpTrend(): FfiFtpTrend /*throws*/ {
     return FfiConverterTypeFfiFtpTrend.lift(
       uniffiCaller.rustCallWithError(
@@ -8668,6 +8806,54 @@ export class FitnessManager
             FfiConverterInt64.lower(prevEnd),
             FfiConverterInt64.lower(chronicStart),
             FfiConverterInt64.lower(todayStart),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * An activity's stored interval body, or `None` if never fetched.
+   */
+  getIntervalBody(activityId: string): string | undefined /*throws*/ {
+    return FfiConverterOptionalString.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_interval_body(
+            uniffiTypeFitnessManagerObjectFactory.clonePointer(this),
+            FfiConverterString.lower(activityId),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * A stored pace curve body, keyed by sport, window and the gap flag.
+   */
+  getPaceCurveBody(
+    sport: string,
+    days: /*i64*/ bigint,
+    gap: boolean,
+  ): string | undefined /*throws*/ {
+    return FfiConverterOptionalString.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_pace_curve_body(
+            uniffiTypeFitnessManagerObjectFactory.clonePointer(this),
+            FfiConverterString.lower(sport),
+            FfiConverterInt64.lower(days),
+            FfiConverterBool.lower(gap),
             callStatus,
           );
         },
@@ -8734,6 +8920,32 @@ export class FitnessManager
   }
 
   /**
+   * A stored power curve body, or `None` when that sport and window have
+   * never been fetched. `None` means "ask for it", not "no data".
+   */
+  getPowerCurveBody(
+    sport: string,
+    days: /*i64*/ bigint,
+  ): string | undefined /*throws*/ {
+    return FfiConverterOptionalString.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_power_curve_body(
+            uniffiTypeFitnessManagerObjectFactory.clonePointer(this),
+            FfiConverterString.lower(sport),
+            FfiConverterInt64.lower(days),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
    * All data the feed screen needs in a single engine lock.
    * Combines insights + summary card + GPS preview tracks + cached metric IDs.
    * Reduces 20+ FFI calls to 1.
@@ -8788,6 +9000,36 @@ export class FitnessManager
             FfiConverterInt64.lower(currentEnd),
             FfiConverterInt64.lower(prevStart),
             FfiConverterInt64.lower(prevEnd),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * Weekly training totals over a range, one entry per Monday-anchored
+   * week that has activities. Derived from `activity_metrics` rather than
+   * fetched, so there is no athlete-summary endpoint to keep in sync.
+   *
+   * `week_starts` are supplied by the caller because week boundaries are a
+   * local-calendar question, and Rust has no view of the device timezone.
+   */
+  getWeeklySummaries(
+    weekStarts: Array</*i64*/ bigint>,
+    weekLengthSecs: /*i64*/ bigint,
+  ): Array<FfiWeeklySummary> /*throws*/ {
+    return FfiConverterArrayTypeFfiWeeklySummary.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_weekly_summaries(
+            uniffiTypeFitnessManagerObjectFactory.clonePointer(this),
+            FfiConverterArrayInt64.lower(weekStarts),
+            FfiConverterInt64.lower(weekLengthSecs),
             callStatus,
           );
         },
@@ -12563,11 +12805,30 @@ export interface SyncManagerLike {
    */
   syncActivitiesWindow(oldest: string, newest: string) /*throws*/ : boolean;
   /**
+   * Fetch and store an activity's work/recovery intervals.
+   */
+  syncActivityIntervals(activityId: string): boolean;
+  /**
+   * Fetch and store the calendar events in a date window, replacing what
+   * was there so an event cancelled upstream disappears here too.
+   */
+  syncCalendarEvents(oldest: string, newest: string): boolean;
+  /**
    * Start a sync. Returns instantly: true if a new sync started, false if one
    * was already running or credentials are missing. Work runs on the shared
    * runtime; observe progress via `get_sync_status`.
    */
   syncNow() /*throws*/ : boolean;
+  /**
+   * Fetch and store a pace curve. `gap` asks for gradient-adjusted pace and
+   * is only honoured for running.
+   */
+  syncPaceCurve(sport: string, days: /*i64*/ bigint, gap: boolean): boolean;
+  /**
+   * Fetch and store a power curve for a sport and window. Returns false if
+   * the same curve is already being fetched or no credentials are set.
+   */
+  syncPowerCurve(sport: string, days: /*i64*/ bigint): boolean;
 }
 /**
  * @deprecated Use `SyncManagerLike` instead.
@@ -12696,6 +12957,44 @@ export class SyncManager
   }
 
   /**
+   * Fetch and store an activity's work/recovery intervals.
+   */
+  syncActivityIntervals(activityId: string): boolean {
+    return FfiConverterBool.lift(
+      uniffiCaller.rustCall(
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_syncmanager_sync_activity_intervals(
+            uniffiTypeSyncManagerObjectFactory.clonePointer(this),
+            FfiConverterString.lower(activityId),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * Fetch and store the calendar events in a date window, replacing what
+   * was there so an event cancelled upstream disappears here too.
+   */
+  syncCalendarEvents(oldest: string, newest: string): boolean {
+    return FfiConverterBool.lift(
+      uniffiCaller.rustCall(
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_syncmanager_sync_calendar_events(
+            uniffiTypeSyncManagerObjectFactory.clonePointer(this),
+            FfiConverterString.lower(oldest),
+            FfiConverterString.lower(newest),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
    * Start a sync. Returns instantly: true if a new sync started, false if one
    * was already running or credentials are missing. Work runs on the shared
    * runtime; observe progress via `get_sync_status`.
@@ -12709,6 +13008,47 @@ export class SyncManager
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_syncmanager_sync_now(
             uniffiTypeSyncManagerObjectFactory.clonePointer(this),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * Fetch and store a pace curve. `gap` asks for gradient-adjusted pace and
+   * is only honoured for running.
+   */
+  syncPaceCurve(sport: string, days: /*i64*/ bigint, gap: boolean): boolean {
+    return FfiConverterBool.lift(
+      uniffiCaller.rustCall(
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_syncmanager_sync_pace_curve(
+            uniffiTypeSyncManagerObjectFactory.clonePointer(this),
+            FfiConverterString.lower(sport),
+            FfiConverterInt64.lower(days),
+            FfiConverterBool.lower(gap),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * Fetch and store a power curve for a sport and window. Returns false if
+   * the same curve is already being fetched or no credentials are set.
+   */
+  syncPowerCurve(sport: string, days: /*i64*/ bigint): boolean {
+    return FfiConverterBool.lift(
+      uniffiCaller.rustCall(
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_syncmanager_sync_power_curve(
+            uniffiTypeSyncManagerObjectFactory.clonePointer(this),
+            FfiConverterString.lower(sport),
+            FfiConverterInt64.lower(days),
             callStatus,
           );
         },
@@ -13474,6 +13814,9 @@ const FfiConverterArrayFloat64 = new FfiConverterArray(FfiConverterFloat64);
 // FfiConverter for Array</*i32*/number>
 const FfiConverterArrayInt32 = new FfiConverterArray(FfiConverterInt32);
 
+// FfiConverter for Array</*i64*/bigint>
+const FfiConverterArrayInt64 = new FfiConverterArray(FfiConverterInt64);
+
 // FfiConverter for Array<ActivitySportMapping>
 const FfiConverterArrayTypeActivitySportMapping = new FfiConverterArray(
   FfiConverterTypeActivitySportMapping,
@@ -13701,6 +14044,11 @@ const FfiConverterArrayTypeFfiSupersededEntry = new FfiConverterArray(
 // FfiConverter for Array<FfiTimestampRange>
 const FfiConverterArrayTypeFfiTimestampRange = new FfiConverterArray(
   FfiConverterTypeFfiTimestampRange,
+);
+
+// FfiConverter for Array<FfiWeeklySummary>
+const FfiConverterArrayTypeFfiWeeklySummary = new FfiConverterArray(
+  FfiConverterTypeFfiWeeklySummary,
 );
 
 // FfiConverter for Array<FfiWellnessRow>
@@ -14239,6 +14587,14 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_calendar_event_bodies() !==
+    15334
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_fitnessmanager_get_calendar_event_bodies",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_ftp_trend() !==
     22469
   ) {
@@ -14252,6 +14608,22 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_fitnessmanager_get_insights_data",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_interval_body() !==
+    18920
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_fitnessmanager_get_interval_body",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_pace_curve_body() !==
+    31854
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_fitnessmanager_get_pace_curve_body",
     );
   }
   if (
@@ -14279,6 +14651,14 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_power_curve_body() !==
+    6853
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_fitnessmanager_get_power_curve_body",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_startup_data() !==
     18424
   ) {
@@ -14292,6 +14672,14 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_fitnessmanager_get_summary_card_data",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_weekly_summaries() !==
+    26182
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_fitnessmanager_get_weekly_summaries",
     );
   }
   if (
@@ -15215,11 +15603,43 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_syncmanager_sync_activity_intervals() !==
+    1542
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_syncmanager_sync_activity_intervals",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_syncmanager_sync_calendar_events() !==
+    3539
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_syncmanager_sync_calendar_events",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_syncmanager_sync_now() !==
     4704
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_syncmanager_sync_now",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_syncmanager_sync_pace_curve() !==
+    23002
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_syncmanager_sync_pace_curve",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_syncmanager_sync_power_curve() !==
+    11625
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_syncmanager_sync_power_curve",
     );
   }
   if (
@@ -15458,6 +15878,7 @@ export default Object.freeze({
     FfiConverterTypeFfiSupersededEntry,
     FfiConverterTypeFfiSyncStatus,
     FfiConverterTypeFfiTimestampRange,
+    FfiConverterTypeFfiWeeklySummary,
     FfiConverterTypeFfiWellnessRow,
     FfiConverterTypeFfiWellnessSparklines,
     FfiConverterTypeFfiWorkoutSection,

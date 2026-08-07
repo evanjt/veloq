@@ -321,6 +321,12 @@ interface NativeModuleInterface {
     ptr: bigint,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_calendar_event_bodies(
+    ptr: bigint,
+    oldestTs: bigint,
+    newestTs: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_ftp_trend(
     ptr: bigint,
     uniffi_out_err: UniffiRustCallStatus,
@@ -333,6 +339,18 @@ interface NativeModuleInterface {
     prevEnd: bigint,
     chronicStart: bigint,
     todayStart: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_interval_body(
+    ptr: bigint,
+    activityId: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_pace_curve_body(
+    ptr: bigint,
+    sport: Uint8Array,
+    days: bigint,
+    gap: number,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_pace_trend(
@@ -348,6 +366,12 @@ interface NativeModuleInterface {
     ptr: bigint,
     startTs: bigint,
     endTs: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_power_curve_body(
+    ptr: bigint,
+    sport: Uint8Array,
+    days: bigint,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_startup_data(
@@ -367,6 +391,12 @@ interface NativeModuleInterface {
     currentEnd: bigint,
     prevStart: bigint,
     prevEnd: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_weekly_summaries(
+    ptr: bigint,
+    weekStarts: Uint8Array,
+    weekLengthSecs: bigint,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_wellness_bodies(
@@ -1064,8 +1094,32 @@ interface NativeModuleInterface {
     newest: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): number;
+  ubrn_uniffi_veloqrs_fn_method_syncmanager_sync_activity_intervals(
+    ptr: bigint,
+    activityId: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): number;
+  ubrn_uniffi_veloqrs_fn_method_syncmanager_sync_calendar_events(
+    ptr: bigint,
+    oldest: Uint8Array,
+    newest: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): number;
   ubrn_uniffi_veloqrs_fn_method_syncmanager_sync_now(
     ptr: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): number;
+  ubrn_uniffi_veloqrs_fn_method_syncmanager_sync_pace_curve(
+    ptr: bigint,
+    sport: Uint8Array,
+    days: bigint,
+    gap: number,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): number;
+  ubrn_uniffi_veloqrs_fn_method_syncmanager_sync_power_curve(
+    ptr: bigint,
+    sport: Uint8Array,
+    days: bigint,
     uniffi_out_err: UniffiRustCallStatus,
   ): number;
   ubrn_uniffi_veloqrs_fn_clone_heatmapmanager(
@@ -1196,13 +1250,18 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_activity_patterns(): number;
   ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_activity_patterns_with_today(): number;
   ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_available_sport_types(): number;
+  ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_calendar_event_bodies(): number;
   ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_ftp_trend(): number;
   ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_insights_data(): number;
+  ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_interval_body(): number;
+  ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_pace_curve_body(): number;
   ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_pace_trend(): number;
   ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_pattern_for_today(): number;
   ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_period_stats(): number;
+  ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_power_curve_body(): number;
   ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_startup_data(): number;
   ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_summary_card_data(): number;
+  ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_weekly_summaries(): number;
   ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_wellness_bodies(): number;
   ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_wellness_sparklines(): number;
   ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_zone_distribution(): number;
@@ -1318,7 +1377,11 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_syncmanager_get_sync_status(): number;
   ubrn_uniffi_veloqrs_checksum_method_syncmanager_set_credentials(): number;
   ubrn_uniffi_veloqrs_checksum_method_syncmanager_sync_activities_window(): number;
+  ubrn_uniffi_veloqrs_checksum_method_syncmanager_sync_activity_intervals(): number;
+  ubrn_uniffi_veloqrs_checksum_method_syncmanager_sync_calendar_events(): number;
   ubrn_uniffi_veloqrs_checksum_method_syncmanager_sync_now(): number;
+  ubrn_uniffi_veloqrs_checksum_method_syncmanager_sync_pace_curve(): number;
+  ubrn_uniffi_veloqrs_checksum_method_syncmanager_sync_power_curve(): number;
   ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_clear_tiles(): number;
   ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_clear_tiles_path(): number;
   ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_get_cache_size(): number;
