@@ -143,7 +143,6 @@ const LICENSE_DATA: LicenseSection[] = [
     entries: [
       { name: 'Axios', license: 'MIT', repository: 'https://github.com/axios/axios' },
       { name: 'i18next', license: 'MIT', repository: 'https://github.com/i18next/i18next' },
-      { name: 'JSZip', license: 'MIT', repository: 'https://github.com/Stuk/jszip' },
     ],
   },
   {
