@@ -1723,6 +1723,21 @@ pub struct FfiWidgetSnapshotData {
 }
 
 // ============================================================================
+// Map Screen Batch Types
+// ============================================================================
+
+/// Everything the map tab paints with in one call.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiMapScreenData {
+    /// Total activities held by the engine, before the date and sport filters
+    pub activity_count: u32,
+    /// Sport types with at least one activity
+    pub available_sport_types: Vec<String>,
+    /// Activities inside the requested window and sport filter
+    pub activities: Vec<crate::persistence::MapActivityComplete>,
+}
+
+// ============================================================================
 // Helper functions
 // ============================================================================
 

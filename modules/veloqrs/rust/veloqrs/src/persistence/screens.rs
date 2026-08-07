@@ -462,4 +462,56 @@ impl super::PersistentRouteEngine {
             latest_gps,
         }
     }
+
+    /// Everything the map tab paints with: the engine total, the sport types
+    /// the filter chips offer, and the activities inside the window.
+    pub fn map_screen_data(
+        &self,
+        start_date: i64,
+        end_date: i64,
+        sport_types: Vec<String>,
+    ) -> crate::FfiMapScreenData {
+        crate::FfiMapScreenData {
+            activity_count: self.activity_count() as u32,
+            available_sport_types: self.get_available_sport_types(),
+            activities: self.map_activities_filtered(start_date, end_date, sport_types),
+        }
+    }
+
+    /// Activities inside a date window, optionally narrowed to a sport set.
+    pub fn map_activities_filtered(
+        &self,
+        start_date: i64,
+        end_date: i64,
+        sport_types: Vec<String>,
+    ) -> Vec<crate::persistence::MapActivityComplete> {
+        let sport_filter: Option<std::collections::HashSet<String>> = if sport_types.is_empty() {
+            None
+        } else {
+            Some(sport_types.into_iter().collect())
+        };
+        self.activity_metadata
+            .iter()
+            .filter_map(|(id, meta)| {
+                let metrics = self.activity_metrics.get(id)?;
+                if metrics.date < start_date || metrics.date > end_date {
+                    return None;
+                }
+                if let Some(ref filter) = sport_filter
+                    && !filter.contains(&meta.sport_type)
+                {
+                    return None;
+                }
+                Some(crate::persistence::MapActivityComplete {
+                    activity_id: id.clone(),
+                    name: metrics.name.clone(),
+                    sport_type: meta.sport_type.clone(),
+                    date: metrics.date,
+                    distance: metrics.distance,
+                    duration: metrics.moving_time,
+                    bounds: meta.bounds.into(),
+                })
+            })
+            .collect()
+    }
 }

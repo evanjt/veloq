@@ -275,6 +275,47 @@ fn activity_detail_route_groups_honour_the_minimum() {
 }
 
 // ============================================================================
+// Map tab
+// ============================================================================
+
+#[test]
+fn map_screen_matches_the_calls_it_replaces() {
+    let s = populated();
+    let start = 1_600_000_000;
+    let end = 1_800_000_000;
+    let bundle = s.engine.map_screen_data(start, end, Vec::new());
+
+    assert_eq!(bundle.activity_count, s.engine.activity_count() as u32);
+    assert_eq!(
+        bundle.available_sport_types,
+        s.engine.get_available_sport_types()
+    );
+
+    let direct = s.engine.map_activities_filtered(start, end, Vec::new());
+    assert_eq!(bundle.activities.len(), direct.len());
+    assert_eq!(bundle.activities.len(), 2);
+}
+
+#[test]
+fn map_screen_honours_the_sport_filter() {
+    let s = populated();
+    let start = 1_600_000_000;
+    let end = 1_800_000_000;
+
+    let rides = s
+        .engine
+        .map_screen_data(start, end, vec!["Ride".to_string()]);
+    assert_eq!(rides.activities.len(), 2);
+
+    let runs = s
+        .engine
+        .map_screen_data(start, end, vec!["Run".to_string()]);
+    assert!(runs.activities.is_empty());
+    // The unfiltered total is still reported so the chips can show it.
+    assert_eq!(runs.activity_count, 2);
+}
+
+// ============================================================================
 // Widget snapshot
 // ============================================================================
 
