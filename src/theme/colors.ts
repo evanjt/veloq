@@ -137,6 +137,38 @@ export const mapPreviewColors = {
 } as const;
 
 // =============================================================================
+// MAP LAYER COLORS
+// =============================================================================
+
+// Colours for MapLibre layer paint, shared by every map surface. They are
+// theme-independent on purpose: a route has to read against light, dark and
+// satellite basemaps, so it carries its own contrast rather than following the
+// app theme. Semi-transparent entries are rgba because MapLibre paint takes a
+// colour string, not a colour plus a separate opacity.
+export const mapLayerColors = {
+  /** White casing drawn under every coloured line. */
+  casing: '#FFFFFF',
+  /** Start and end of a track. */
+  start: 'rgba(34,197,94,0.75)',
+  end: 'rgba(239,68,68,0.75)',
+  /** Section creation handles, which sit above the trace and need more weight. */
+  startSolid: 'rgba(34,197,94,0.9)',
+  endSolid: 'rgba(239,68,68,0.9)',
+  /** The one selected trace among many. */
+  highlight: '#00E5FF',
+  /** A saved route drawn behind the activity that matched it. */
+  routeOverlay: '#9C27B0',
+  /** Personal record. Gold is reserved for achievements. */
+  personalRecord: '#D4AF37',
+  /** Section boundary ticks, drawn as a dark casing under white marks. */
+  boundaryCasing: '#000000',
+  /** Live section creation line. */
+  sectionCreation: '#22C55E',
+  /** Live recording position dot. */
+  userLocation: '#2196F3',
+} as const;
+
+// =============================================================================
 // LIGHT MODE COLORS
 // =============================================================================
 
