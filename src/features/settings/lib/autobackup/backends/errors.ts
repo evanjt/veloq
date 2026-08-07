@@ -1,0 +1,72 @@
+/**
+ * Typed failures for backup transfers.
+ *
+ * The caller needs to know whether a failure will still be there tomorrow.
+ * Wrong credentials or a full remote directory need the user to act, so they
+ * are worth putting on the settings screen. A 5xx or a dropped connection is
+ * not, because the next scheduled attempt will most likely succeed and a
+ * standing "your backup is broken" would be a lie.
+ */
+
+export type BackupFailureKind = 'auth' | 'quota' | 'path' | 'server' | 'transport';
+
+const PERMANENT_KINDS: readonly BackupFailureKind[] = ['auth', 'quota', 'path'];
+
+export class BackupTransferError extends Error {
+  readonly kind: BackupFailureKind;
+  readonly status: number | null;
+  readonly operation: string;
+
+  constructor(operation: string, kind: BackupFailureKind, message: string, status?: number) {
+    super(message);
+    this.name = 'BackupTransferError';
+    this.operation = operation;
+    this.kind = kind;
+    this.status = status ?? null;
+  }
+
+  /** True when retrying without the user changing something will fail the same way. */
+  get permanent(): boolean {
+    return PERMANENT_KINDS.includes(this.kind);
+  }
+}
+
+export function isBackupTransferError(error: unknown): error is BackupTransferError {
+  return error instanceof BackupTransferError;
+}
+
+/**
+ * Map an HTTP status onto a failure kind.
+ *
+ * Anything in the 4xx range that is not recognised is treated as permanent,
+ * because a malformed request repeated tomorrow is still malformed.
+ */
+export function classifyStatus(status: number): BackupFailureKind {
+  if (status === 401 || status === 403) return 'auth';
+  if (status === 413 || status === 507) return 'quota';
+  if (status === 408 || status === 429) return 'server';
+  if (status >= 500) return 'server';
+  if (status >= 400) return 'path';
+  return 'server';
+}
+
+export function transferFailure(
+  operation: string,
+  status: number,
+  detail?: string
+): BackupTransferError {
+  const kind = classifyStatus(status);
+  const suffix = detail ? `: ${detail}` : '';
+  return new BackupTransferError(
+    operation,
+    kind,
+    `${operation} failed (${status})${suffix}`,
+    status
+  );
+}
+
+/** Wrap a thrown network error, which is never a decision the server made. */
+export function transportFailure(operation: string, cause: unknown): BackupTransferError {
+  const detail = cause instanceof Error ? cause.message : String(cause);
+  return new BackupTransferError(operation, 'transport', `${operation} failed: ${detail}`);
+}

@@ -2,8 +2,9 @@
  * Auto-backup orchestration.
  *
  * Creates SQLite snapshots and uploads them to the configured backend.
- * Handles scheduling (throttled to once per 24h), retention (keep last 3),
- * and metadata collection.
+ * Handles scheduling (throttled to once per 24h), retention (local storage
+ * keeps the last MAX_LOCAL_BACKUPS, cloud backends keep everything), and
+ * metadata collection.
  *
  * Triggers:
  * 1. After sync completion (new data arrived)
@@ -184,7 +185,8 @@ export async function performBackup(force = false): Promise<boolean> {
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
     log.warn('Auto-backup failed:', msg);
-    throw new Error(msg);
+    // Rethrow the original so the caller keeps the failure kind
+    throw error instanceof Error ? error : new Error(msg);
   }
 }
 
