@@ -1,8 +1,8 @@
 import React, { useMemo } from 'react';
 import { View } from 'react-native';
 import { Canvas, Path, Circle, LinearGradient, vec } from '@shopify/react-native-skia';
-import { useTheme } from '@/shared/app';
 import { brand } from '@/theme';
+import { polylineSvgPath, useChartColors } from '@/shared/charts';
 
 interface DataPoint {
   date: Date;
@@ -22,7 +22,7 @@ export const MiniPerformanceSparkline = React.memo(function MiniPerformanceSpark
   height = 100,
   color = brand.tealLight,
 }: MiniPerformanceSparklineProps) {
-  const { isDark } = useTheme();
+  const chartColors = useChartColors();
 
   const { linePath, areaPath, dots, bestDot } = useMemo(() => {
     if (data.length < 2) {
@@ -47,11 +47,7 @@ export const MiniPerformanceSparkline = React.memo(function MiniPerformanceSpark
       y: PADDING_Y + ((d.time - minTime) / range) * drawH,
     }));
 
-    // Build line path
-    let line = `M ${points[0].x} ${points[0].y}`;
-    for (let i = 1; i < points.length; i++) {
-      line += ` L ${points[i].x} ${points[i].y}`;
-    }
+    const line = polylineSvgPath(points);
 
     // Build area path (fill under line)
     const lastX = points[points.length - 1].x;
@@ -71,8 +67,6 @@ export const MiniPerformanceSparkline = React.memo(function MiniPerformanceSpark
 
   if (data.length < 2 || !linePath) return null;
 
-  const dotColor = isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.25)';
-
   return (
     <View style={{ height }}>
       <Canvas style={{ width: 280, height }}>
@@ -90,7 +84,9 @@ export const MiniPerformanceSparkline = React.memo(function MiniPerformanceSpark
 
         {/* Scatter dots */}
         {dots.map((dot, i) =>
-          dot.isBest ? null : <Circle key={i} cx={dot.x} cy={dot.y} r={3} color={dotColor} />
+          dot.isBest ? null : (
+            <Circle key={i} cx={dot.x} cy={dot.y} r={3} color={chartColors.dotMuted} />
+          )
         )}
 
         {/* Best record dot - highlighted */}

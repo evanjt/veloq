@@ -6,6 +6,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '@/shared/app';
 import { colors, darkColors, spacing, opacity } from '@/theme';
 import { ChartErrorBoundary } from '@/shared/ui';
+import { polylineSvgPath, useChartColors } from '@/shared/charts';
 import type { Insight } from '@/types';
 import type { LayoutChangeEvent } from 'react-native';
 
@@ -29,11 +30,7 @@ function buildPath(
     x: padding.left + i * stepX,
     y: padding.top + drawH - ((v - yMin) / yRange) * drawH,
   }));
-  let d = `M ${points[0].x} ${points[0].y}`;
-  for (let i = 1; i < points.length; i++) {
-    d += ` L ${points[i].x} ${points[i].y}`;
-  }
-  return d;
+  return polylineSvgPath(points);
 }
 
 function buildAreaPath(
@@ -58,6 +55,7 @@ export const HrvTrendContent = React.memo(function HrvTrendContent({
   insight,
 }: HrvTrendContentProps) {
   const { isDark } = useTheme();
+  const chartColors = useChartColors();
   const [chartWidth, setChartWidth] = useState(0);
 
   const onChartLayout = useCallback((e: LayoutChangeEvent) => {
@@ -108,7 +106,7 @@ export const HrvTrendContent = React.memo(function HrvTrendContent({
   }, [sparklineData, chartWidth]);
 
   const textMuted = isDark ? darkColors.textMuted : colors.textMuted;
-  const gridColor = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
+  const gridColor = chartColors.gridFaint;
 
   return (
     <View style={styles.container}>
