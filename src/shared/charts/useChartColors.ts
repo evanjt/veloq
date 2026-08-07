@@ -30,6 +30,7 @@ export interface ChartColorScheme {
   sleep: string;
   sleepScore: string;
   weight: string;
+  ftp: string;
 
   // General chart colors
   primary: string;
@@ -39,10 +40,15 @@ export interface ChartColorScheme {
 
   // Chart UI elements
   grid: string;
+  gridFaint: string;
   axis: string;
   label: string;
   tooltip: string;
   tooltipText: string;
+  casing: string;
+  zeroLine: string;
+  mutedBar: string;
+  dotMuted: string;
 
   // Zone colors (power/HR)
   zone1: string;
@@ -89,6 +95,7 @@ export function useChartColors(): ChartColorScheme {
       sleep: isDark ? darkColors.chartSleep : colors.chartSleep,
       sleepScore: isDark ? darkColors.chartSleepScore : colors.chartSleepScore,
       weight: isDark ? darkColors.chartWeight : colors.chartWeight,
+      ftp: colors.chartFtp,
 
       // General chart colors
       primary: isDark ? brand.tealDark : brand.tealLight,
@@ -98,10 +105,15 @@ export function useChartColors(): ChartColorScheme {
 
       // Chart UI elements
       grid: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)',
+      gridFaint: isDark ? darkColors.chartGridFaint : colors.chartGridFaint,
       axis: isDark ? darkColors.textMuted : colors.textSecondary,
       label: isDark ? darkColors.textSecondary : colors.textSecondary,
       tooltip: isDark ? darkColors.surfaceElevated : colors.surface,
       tooltipText: isDark ? darkColors.textPrimary : colors.textPrimary,
+      casing: isDark ? darkColors.chartCasing : colors.chartCasing,
+      zeroLine: isDark ? darkColors.chartZeroLine : colors.chartZeroLine,
+      mutedBar: isDark ? darkColors.chartMutedBar : colors.chartMutedBar,
+      dotMuted: isDark ? darkColors.chartDotMuted : colors.chartDotMuted,
 
       // Zone colors (consistent across themes for recognition)
       zone1: zoneColors.zone1,

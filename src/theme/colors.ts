@@ -239,6 +239,13 @@ export const colors = {
   chartSleep: '#A855F7', // Purple-500
   chartSleepScore: '#6366F1', // Indigo-500
   chartWeight: '#64748B', // Slate-500
+  chartFtp: '#FFB300', // Amber - FTP trend (stable across themes)
+
+  // Neutral chart overlays
+  chartGridFaint: 'rgba(0, 0, 0, 0.06)', // Axis gridlines on an insight card
+  chartZeroLine: 'rgba(0, 0, 0, 0.15)', // Baseline rule through zero
+  chartMutedBar: 'rgba(0, 0, 0, 0.12)', // Comparison bar for the weaker period
+  chartDotMuted: 'rgba(0, 0, 0, 0.25)', // Scatter dots that are not the record
 
   // Semantic UI colors
   highlight: brand.blue,
@@ -429,6 +436,12 @@ export const darkColors = {
   chartSleep: '#C084FC', // Purple-400
   chartSleepScore: '#818CF8', // Indigo-400
   chartWeight: '#94A3B8', // Slate-400
+
+  // Neutral chart overlays for dark mode
+  chartGridFaint: 'rgba(255, 255, 255, 0.06)',
+  chartZeroLine: 'rgba(255, 255, 255, 0.25)',
+  chartMutedBar: 'rgba(255, 255, 255, 0.15)',
+  chartDotMuted: 'rgba(255, 255, 255, 0.5)',
 } as const;
 
 // =============================================================================
