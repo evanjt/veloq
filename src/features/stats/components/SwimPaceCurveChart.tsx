@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { CartesianChart, Line } from 'victory-native';
 import { DashPathEffect, Line as SkiaLine } from '@shopify/react-native-skia';
 import { GestureDetector } from 'react-native-gesture-handler';
-import { ChartCrosshair, useChartGestures } from '@/shared/charts';
+import { ChartCrosshair, useChartColors, useChartGestures } from '@/shared/charts';
 import { colors, typography, spacing, chartStyles } from '@/theme';
 import { usePaceCurve, paceToMinPer100m } from '../hooks/usePaceCurve';
 import { formatDistance } from '@/shared/format/format';
@@ -17,7 +17,6 @@ interface SwimPaceCurveChartProps {
   height?: number;
 }
 
-const CHART_COLOR = '#2196F3';
 const CSS_LINE_COLOR = 'rgba(150, 150, 150, 0.6)';
 
 // Format pace as min:sec per 100m
@@ -58,6 +57,7 @@ interface ChartPoint {
 export function SwimPaceCurveChart({ days = 365, height = 200 }: SwimPaceCurveChartProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
+  const chartColors = useChartColors();
   const isMetric = useMetricSystem();
 
   const { data: curve, isLoading, error } = usePaceCurve({ sport: 'Swim', days });
@@ -186,7 +186,7 @@ export function SwimPaceCurveChart({ days = 365, height = 200 }: SwimPaceCurveCh
             <Text style={[styles.valueLabel, isDark && chartStyles.textDark]}>
               {t('activity.distance')}
             </Text>
-            <Text style={[styles.valueNumber, { color: CHART_COLOR }]}>
+            <Text style={[styles.valueNumber, { color: chartColors.swimCurve }]}>
               {formatDistance(displayData.distance, isMetric)}
             </Text>
           </View>
@@ -202,7 +202,7 @@ export function SwimPaceCurveChart({ days = 365, height = 200 }: SwimPaceCurveCh
             <Text style={[styles.valueLabel, isDark && chartStyles.textDark]}>
               {t('metrics.pace')}
             </Text>
-            <Text style={[styles.valueNumber, { color: CHART_COLOR }]}>
+            <Text style={[styles.valueNumber, { color: chartColors.swimCurve }]}>
               {formatPace100m(displayData.paceMs)}/100m
             </Text>
           </View>
@@ -258,7 +258,7 @@ export function SwimPaceCurveChart({ days = 365, height = 200 }: SwimPaceCurveCh
                   />
                   <Line
                     points={points.y}
-                    color={CHART_COLOR}
+                    color={chartColors.swimCurve}
                     strokeWidth={1.5}
                     curveType="natural"
                   />

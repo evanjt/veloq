@@ -30,7 +30,12 @@ export interface ChartColorScheme {
   sleep: string;
   sleepScore: string;
   weight: string;
+
+  // Single-series curve charts
   ftp: string;
+  powerCurve: string;
+  paceCurve: string;
+  swimCurve: string;
 
   // General chart colors
   primary: string;
@@ -47,6 +52,8 @@ export interface ChartColorScheme {
   tooltipText: string;
   casing: string;
   zeroLine: string;
+  zeroLineSolid: string;
+  formLine: string;
   mutedBar: string;
   dotMuted: string;
 
@@ -95,7 +102,12 @@ export function useChartColors(): ChartColorScheme {
       sleep: isDark ? darkColors.chartSleep : colors.chartSleep,
       sleepScore: isDark ? darkColors.chartSleepScore : colors.chartSleepScore,
       weight: isDark ? darkColors.chartWeight : colors.chartWeight,
+
+      // Single-series curve charts, stable across themes
       ftp: colors.chartFtp,
+      powerCurve: colors.chartPowerCurve,
+      paceCurve: colors.chartPaceCurve,
+      swimCurve: colors.chartSwimCurve,
 
       // General chart colors
       primary: isDark ? brand.tealDark : brand.tealLight,
@@ -112,6 +124,8 @@ export function useChartColors(): ChartColorScheme {
       tooltipText: isDark ? darkColors.textPrimary : colors.textPrimary,
       casing: isDark ? darkColors.chartCasing : colors.chartCasing,
       zeroLine: isDark ? darkColors.chartZeroLine : colors.chartZeroLine,
+      zeroLineSolid: isDark ? darkColors.chartZeroLineSolid : colors.chartZeroLineSolid,
+      formLine: isDark ? darkColors.chartFormLine : colors.chartFormLine,
       mutedBar: isDark ? darkColors.chartMutedBar : colors.chartMutedBar,
       dotMuted: isDark ? darkColors.chartDotMuted : colors.chartDotMuted,
 

@@ -240,6 +240,9 @@ export const colors = {
   chartSleepScore: '#6366F1', // Indigo-500
   chartWeight: '#64748B', // Slate-500
   chartFtp: '#FFB300', // Amber - FTP trend (stable across themes)
+  chartPowerCurve: brand.blue, // Power curve line
+  chartPaceCurve: '#4CAF50', // Green - pace curve line
+  chartSwimCurve: '#2196F3', // Blue - swim pace curve line
 
   // Neutral chart overlays
   chartGridFaint: 'rgba(0, 0, 0, 0.06)', // Axis gridlines on an insight card
@@ -251,6 +254,10 @@ export const colors = {
   chartBandWarmup: '#22C55E', // Green-500
   chartBandCooldown: '#8B5CF6', // Violet-500
   chartBandNeutral: '#808080', // Grey - recovery, rest and anything unclassified
+
+  // Form zone chart, drawn over opaque zone fills so these stay solid
+  chartZeroLineSolid: '#CCCCCC',
+  chartFormLine: '#333333',
 
   // Semantic UI colors
   highlight: brand.blue,
@@ -447,6 +454,8 @@ export const darkColors = {
   chartZeroLine: 'rgba(255, 255, 255, 0.25)',
   chartMutedBar: 'rgba(255, 255, 255, 0.15)',
   chartDotMuted: 'rgba(255, 255, 255, 0.5)',
+  chartZeroLineSolid: '#71717A',
+  chartFormLine: '#FFFFFF',
 } as const;
 
 // =============================================================================

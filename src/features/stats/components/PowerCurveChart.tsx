@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 import { CartesianChart, Line } from 'victory-native';
 import { DashPathEffect, Line as SkiaLine } from '@shopify/react-native-skia';
 import { GestureDetector } from 'react-native-gesture-handler';
-import { ChartCrosshair, useChartGestures } from '@/shared/charts';
+import { ChartCrosshair, useChartColors, useChartGestures } from '@/shared/charts';
 import { colors, darkColors, typography, spacing, chartStyles } from '@/theme';
 import { usePowerCurve } from '../hooks/usePowerCurve';
 import { formatDurationHuman } from '@/shared/format/format';
@@ -23,7 +23,6 @@ interface PowerCurveChartProps {
 }
 
 // Chart colors
-const DEFAULT_COLOR = '#5B9BD5'; // Brand blue
 const FTP_LINE_COLOR = 'rgba(150, 150, 150, 0.6)';
 
 interface ChartPoint {
@@ -40,11 +39,13 @@ export const PowerCurveChart = React.memo(function PowerCurveChart({
   sport,
   days = 365,
   height = 200,
-  color = DEFAULT_COLOR,
+  color,
   ftp,
 }: PowerCurveChartProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
+  const chartColors = useChartColors();
+  const lineColour = color ?? chartColors.powerCurve;
 
   const { data: curve, isLoading, error } = usePowerCurve({ sport, days });
 

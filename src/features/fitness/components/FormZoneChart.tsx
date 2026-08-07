@@ -8,7 +8,7 @@ import { Line as SkiaLine, Rect, vec } from '@shopify/react-native-skia';
 import { GestureDetector } from 'react-native-gesture-handler';
 import { SharedValue, useSharedValue } from 'react-native-reanimated';
 import { colors, darkColors, opacity, typography, spacing, layout, chartStyles } from '@/theme';
-import { ChartCrosshair, useChartGestures } from '@/shared/charts';
+import { ChartCrosshair, useChartColors, useChartGestures } from '@/shared/charts';
 import {
   calculateTSB,
   getFormZone,
@@ -54,6 +54,7 @@ export const FormZoneChart = React.memo(function FormZoneChart({
 }: FormZoneChartProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
+  const chartColors = useChartColors();
   const [selectedData, setSelectedData] = useState<ChartDataPoint | null>(null);
   const onDateSelectRef = useRef(onDateSelect);
   const onInteractionChangeRef = useRef(onInteractionChange);
@@ -221,7 +222,7 @@ export const FormZoneChart = React.memo(function FormZoneChart({
                   <SkiaLine
                     p1={vec(chartBounds.left, getZoneY(0))}
                     p2={vec(chartBounds.right, getZoneY(0))}
-                    color={isDark ? '#71717A' : '#CCC'}
+                    color={chartColors.zeroLineSolid}
                     strokeWidth={1}
                     style="stroke"
                   />
@@ -229,13 +230,13 @@ export const FormZoneChart = React.memo(function FormZoneChart({
                   {/* Form line with casing */}
                   <Line
                     points={points.form}
-                    color={isDark ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.15)'}
+                    color={chartColors.casing}
                     strokeWidth={2}
                     curveType="natural"
                   />
                   <Line
                     points={points.form}
-                    color={isDark ? '#FFFFFF' : '#333333'}
+                    color={chartColors.formLine}
                     strokeWidth={1}
                     curveType="natural"
                   />

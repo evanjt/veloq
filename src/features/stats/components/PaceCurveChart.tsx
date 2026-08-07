@@ -8,7 +8,7 @@ import { Circle, DashPathEffect, Line as SkiaLine } from '@shopify/react-native-
 import { GestureDetector } from 'react-native-gesture-handler';
 import { router } from 'expo-router';
 import { colors, darkColors, typography, spacing, layout, chartStyles } from '@/theme';
-import { ChartCrosshair, useChartGestures } from '@/shared/charts';
+import { ChartCrosshair, useChartColors, useChartGestures } from '@/shared/charts';
 import { usePaceCurve } from '../hooks/usePaceCurve';
 import { useActivities } from '@/features/activity/hooks';
 import {
@@ -26,7 +26,6 @@ interface PaceCurveChartProps {
   height?: number;
 }
 
-const CHART_COLOR = '#4CAF50';
 const CS_LINE_COLOR = 'rgba(150, 150, 150, 0.6)';
 
 // Standard distance markers for x-axis (in meters)
@@ -53,6 +52,7 @@ const CHART_PADDING = { left: 0, right: 0, top: 4, bottom: 0 } as const;
 export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceCurveChartProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
+  const chartColors = useChartColors();
   const isMetric = useMetricSystem();
   const isRunning = sport === 'Run';
 
@@ -299,7 +299,7 @@ export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceC
           <Text style={[styles.valueLabel, isDark && chartStyles.textDark]}>
             {t('activity.distance')}
           </Text>
-          <Text style={[styles.valueNumber, { color: CHART_COLOR }]}>
+          <Text style={[styles.valueNumber, { color: chartColors.paceCurve }]}>
             {formatDistance(displayData.distance, isMetric)}
           </Text>
         </View>
@@ -313,7 +313,7 @@ export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceC
           <Text style={[styles.valueLabel, isDark && chartStyles.textDark]}>
             {t('metrics.pace')}
           </Text>
-          <Text style={[styles.valueNumber, { color: CHART_COLOR }]}>
+          <Text style={[styles.valueNumber, { color: chartColors.paceCurve }]}>
             {formatPaceFromSecsPerKm(displayData.paceSecsPerKm)}/km
           </Text>
         </View>
@@ -398,7 +398,7 @@ export function PaceCurveChart({ sport = 'Run', days = 42, height = 220 }: PaceC
                   />
                   <Line
                     points={points.y}
-                    color={CHART_COLOR}
+                    color={chartColors.paceCurve}
                     strokeWidth={1.5}
                     curveType="natural"
                   />
