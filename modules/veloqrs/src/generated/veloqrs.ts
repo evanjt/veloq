@@ -6565,6 +6565,11 @@ export type FfiWellnessRow = {
   stress?: /*i32*/ number;
   mood?: /*i32*/ number;
   motivation?: /*i32*/ number;
+  /**
+   * The untyped intervals.icu body for this day, when the caller has it.
+   * Omitting it leaves any previously stored body intact.
+   */
+  raw?: string;
 };
 
 /**
@@ -6603,6 +6608,7 @@ const FfiConverterTypeFfiWellnessRow = (() => {
         stress: FfiConverterOptionalInt32.read(from),
         mood: FfiConverterOptionalInt32.read(from),
         motivation: FfiConverterOptionalInt32.read(from),
+        raw: FfiConverterOptionalString.read(from),
       };
     }
     write(value: TypeName, into: RustBuffer): void {
@@ -6620,6 +6626,7 @@ const FfiConverterTypeFfiWellnessRow = (() => {
       FfiConverterOptionalInt32.write(value.stress, into);
       FfiConverterOptionalInt32.write(value.mood, into);
       FfiConverterOptionalInt32.write(value.motivation, into);
+      FfiConverterOptionalString.write(value.raw, into);
     }
     allocationSize(value: TypeName): number {
       return (
@@ -6636,7 +6643,8 @@ const FfiConverterTypeFfiWellnessRow = (() => {
         FfiConverterOptionalInt32.allocationSize(value.fatigue) +
         FfiConverterOptionalInt32.allocationSize(value.stress) +
         FfiConverterOptionalInt32.allocationSize(value.mood) +
-        FfiConverterOptionalInt32.allocationSize(value.motivation)
+        FfiConverterOptionalInt32.allocationSize(value.motivation) +
+        FfiConverterOptionalString.allocationSize(value.raw)
       );
     }
   }
@@ -8276,6 +8284,12 @@ export interface FitnessManagerLike {
     prevEnd: /*i64*/ bigint,
   ) /*throws*/ : FfiSummaryCardData;
   /**
+   * Untyped wellness bodies over an inclusive date window, oldest first.
+   * The wellness screens read fields the typed row does not model, so they
+   * parse these rather than a reconstruction.
+   */
+  getWellnessBodies(oldest: string, newest: string) /*throws*/ : Array<string>;
+  /**
    * Sparkline arrays (fitness/fatigue/form/hrv/rhr) over the trailing
    * `days` window. Returns `None` until wellness has been synced at
    * least once. Replaces the 5 parallel useMemo passes in
@@ -8654,6 +8668,30 @@ export class FitnessManager
             FfiConverterInt64.lower(currentEnd),
             FfiConverterInt64.lower(prevStart),
             FfiConverterInt64.lower(prevEnd),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * Untyped wellness bodies over an inclusive date window, oldest first.
+   * The wellness screens read fields the typed row does not model, so they
+   * parse these rather than a reconstruction.
+   */
+  getWellnessBodies(oldest: string, newest: string): Array<string> /*throws*/ {
+    return FfiConverterArrayString.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_fitnessmanager_get_wellness_bodies(
+            uniffiTypeFitnessManagerObjectFactory.clonePointer(this),
+            FfiConverterString.lower(oldest),
+            FfiConverterString.lower(newest),
             callStatus,
           );
         },
@@ -14083,6 +14121,14 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_fitnessmanager_get_summary_card_data",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_fitnessmanager_get_wellness_bodies() !==
+    17656
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_fitnessmanager_get_wellness_bodies",
     );
   }
   if (

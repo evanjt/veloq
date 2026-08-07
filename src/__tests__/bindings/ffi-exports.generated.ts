@@ -6,7 +6,7 @@
  * Used by tests to validate TypeScript bindings match Rust exports.
  *
  * 6 standalone `#[uniffi::export]` functions plus
- * 191 methods inside `#[uniffi::export] impl` blocks across
+ * 192 methods inside `#[uniffi::export] impl` blocks across
  * 11 UniFFI Objects.
  */
 
@@ -29,7 +29,7 @@ export interface FfiExportInfo {
 
 /**
  * All FFI exports from Rust source.
- * Total: 197 exports (6 standalone + 191 methods)
+ * Total: 198 exports (6 standalone + 192 methods)
  */
 export const FFI_EXPORTS: FfiExportInfo[] = [
   {
@@ -622,10 +622,19 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     object: 'FitnessManager',
   },
   {
+    name: 'get_wellness_bodies',
+    camelName: 'getWellnessBodies',
+    file: 'objects/fitness.rs',
+    line: 207,
+    paramCount: 2,
+    returnType: 'Result<Vec<String>, VeloqError>',
+    object: 'FitnessManager',
+  },
+  {
     name: 'get_wellness_sparklines',
     camelName: 'getWellnessSparklines',
     file: 'objects/fitness.rs',
-    line: 207,
+    line: 224,
     paramCount: 1,
     returnType: 'Result<Option<crate::FfiWellnessSparklines>, VeloqError>',
     object: 'FitnessManager',
@@ -634,7 +643,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'compute_hrv_trend',
     camelName: 'computeHrvTrend',
     file: 'objects/fitness.rs',
-    line: 222,
+    line: 239,
     paramCount: 1,
     returnType: 'Result<Option<crate::FfiHrvTrend>, VeloqError>',
     object: 'FitnessManager',
@@ -643,7 +652,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'find_stale_pr_opportunities',
     camelName: 'findStalePrOpportunities',
     file: 'objects/fitness.rs',
-    line: 246,
+    line: 263,
     paramCount: 4,
     returnType: 'Result<Vec<crate::FfiStalePrOpportunity>, VeloqError>',
     object: 'FitnessManager',
@@ -652,7 +661,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'get_insights_data',
     camelName: 'getInsightsData',
     file: 'objects/fitness.rs',
-    line: 310,
+    line: 327,
     paramCount: 6,
     returnType: 'Result<crate::FfiInsightsData, VeloqError>',
     object: 'FitnessManager',
@@ -661,7 +670,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'get_startup_data',
     camelName: 'getStartupData',
     file: 'objects/fitness.rs',
-    line: 400,
+    line: 417,
     paramCount: 7,
     returnType: 'Result<crate::FfiStartupData, VeloqError>',
     object: 'FitnessManager',
@@ -1660,7 +1669,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'new',
     camelName: 'new',
     file: 'objects/sync.rs',
-    line: 273,
+    line: 378,
     paramCount: 0,
     returnType: 'Arc<Self>',
     object: 'SyncManager',
@@ -1669,7 +1678,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'set_credentials',
     camelName: 'setCredentials',
     file: 'objects/sync.rs',
-    line: 278,
+    line: 383,
     paramCount: 3,
     returnType: 'Result<(), VeloqError>',
     object: 'SyncManager',
@@ -1678,7 +1687,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'clear_credentials',
     camelName: 'clearCredentials',
     file: 'objects/sync.rs',
-    line: 292,
+    line: 397,
     paramCount: 0,
     returnType: 'void',
     object: 'SyncManager',
@@ -1687,7 +1696,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'sync_now',
     camelName: 'syncNow',
     file: 'objects/sync.rs',
-    line: 299,
+    line: 404,
     paramCount: 0,
     returnType: 'Result<bool, VeloqError>',
     object: 'SyncManager',
@@ -1696,7 +1705,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'drop',
     camelName: 'drop',
     file: 'objects/sync.rs',
-    line: 312,
+    line: 417,
     paramCount: 0,
     returnType: 'void',
     object: 'SyncManager',
@@ -1705,7 +1714,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'cancel',
     camelName: 'cancel',
     file: 'objects/sync.rs',
-    line: 335,
+    line: 440,
     paramCount: 0,
     returnType: 'void',
     object: 'SyncManager',
@@ -1714,7 +1723,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'get_sync_status',
     camelName: 'getSyncStatus',
     file: 'objects/sync.rs',
-    line: 340,
+    line: 445,
     paramCount: 0,
     returnType: 'FfiSyncStatus',
     object: 'SyncManager',
@@ -1871,6 +1880,7 @@ export const EXPECTED_TS_FUNCTIONS = new Set<string>([
   'getPatternForToday',
   'getActivityPatternsWithToday',
   'upsertWellness',
+  'getWellnessBodies',
   'getWellnessSparklines',
   'computeHrvTrend',
   'findStalePrOpportunities',
@@ -2076,6 +2086,7 @@ export const RUST_TO_TS_NAME: Record<string, string> = {
   get_pattern_for_today: 'getPatternForToday',
   get_activity_patterns_with_today: 'getActivityPatternsWithToday',
   upsert_wellness: 'upsertWellness',
+  get_wellness_bodies: 'getWellnessBodies',
   get_wellness_sparklines: 'getWellnessSparklines',
   compute_hrv_trend: 'computeHrvTrend',
   find_stale_pr_opportunities: 'findStalePrOpportunities',
