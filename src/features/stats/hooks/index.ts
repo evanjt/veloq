@@ -16,4 +16,3 @@ export {
   formatPowerCurveForChart,
 } from './usePowerCurve';
 export { useSeasonBests, type BestEffort, type UseSeasonBestsResult } from './useSeasonBests';
-export { useScatterGestures } from './useScatterGestures';

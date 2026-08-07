@@ -27,7 +27,6 @@ export {
   useSeasonBests,
   type BestEffort,
   type UseSeasonBestsResult,
-  useScatterGestures,
 } from './hooks';
 
 export {
