@@ -12,7 +12,13 @@ import type {
   PersistentEngineStats,
   FfiActivityDetailData,
   FfiActivityMetrics,
+  FfiActivityPattern,
   FfiBounds,
+  FfiExerciseActivities,
+  FfiExerciseSet,
+  FfiMuscleExerciseSummary,
+  FfiMuscleGroup,
+  FfiStrengthSummary,
   FfiGpsPoint,
   FfiMapScreenData,
   FfiRouteGroup,
@@ -650,14 +656,15 @@ class RouteEngineClient implements DelegateHost {
   // Activity Pattern Detection (K-means clustering)
   // ==========================================================================
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  getActivityPatterns = (): any[] => fitnessDelegates.getActivityPatterns(this);
+  getActivityPatterns = (): FfiActivityPattern[] => fitnessDelegates.getActivityPatterns(this);
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  getPatternForToday = (): any | undefined => fitnessDelegates.getPatternForToday(this);
+  getPatternForToday = (): FfiActivityPattern | undefined =>
+    fitnessDelegates.getPatternForToday(this);
 
-  getActivityPatternsWithToday = (): { today: any | undefined; all: any[] } =>
-    fitnessDelegates.getActivityPatternsWithToday(this);
+  getActivityPatternsWithToday = (): {
+    today: FfiActivityPattern | undefined;
+    all: FfiActivityPattern[];
+  } => fitnessDelegates.getActivityPatternsWithToday(this);
 
   upsertWellness = (rows: fitnessDelegates.WellnessRowInput[]): void =>
     fitnessDelegates.upsertWellness(this, rows);
@@ -915,30 +922,26 @@ class RouteEngineClient implements DelegateHost {
   // Strength Training
   // ========================================================================
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  getExerciseSets = (activityId: string): any[] =>
+  getExerciseSets = (activityId: string): FfiExerciseSet[] =>
     strengthDelegates.getExerciseSets(this, activityId);
 
   isFitProcessed = (activityId: string): boolean =>
     strengthDelegates.isFitProcessed(this, activityId);
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  fetchAndParseExerciseSets = (activityId: string): any[] =>
+  fetchAndParseExerciseSets = (activityId: string): FfiExerciseSet[] =>
     strengthDelegates.fetchAndParseExerciseSets(this, activityId);
 
   /**
    * Insert pre-parsed exercise sets for an activity without touching the
    * network. Demo-mode only - production uses fetchAndParseExerciseSets.
    */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  bulkInsertExerciseSets(activityId: string, sets: any[]): void {
+  bulkInsertExerciseSets(activityId: string, sets: FfiExerciseSet[]): void {
     return this.timed('bulkInsertExerciseSets', () =>
       this.engine.strength().bulkInsertExerciseSets(activityId, sets)
     );
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  getMuscleGroups = (activityId: string): any[] =>
+  getMuscleGroups = (activityId: string): FfiMuscleGroup[] =>
     strengthDelegates.getMuscleGroups(this, activityId);
 
   getUnprocessedStrengthIds = (activityIds: string[]): string[] =>
@@ -955,8 +958,7 @@ class RouteEngineClient implements DelegateHost {
   importSetsFromFit = (activityId: string, fitBytes: Uint8Array): number =>
     strengthDelegates.importSetsFromFit(this, activityId, fitBytes);
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  getStrengthSummary = (startTs: number, endTs: number): any =>
+  getStrengthSummary = (startTs: number, endTs: number): FfiStrengthSummary =>
     strengthDelegates.getStrengthSummary(this, startTs, endTs);
 
   getStrengthInsightSeries = (
@@ -965,8 +967,9 @@ class RouteEngineClient implements DelegateHost {
   ): strengthDelegates.StrengthInsightSeries =>
     strengthDelegates.getStrengthInsightSeries(this, monthly, weekly);
 
-  getStrengthSummaryBatch = (ranges: Array<{ startTs: number; endTs: number }>): any[] =>
-    strengthDelegates.getStrengthSummaryBatch(this, ranges);
+  getStrengthSummaryBatch = (
+    ranges: Array<{ startTs: number; endTs: number }>
+  ): FfiStrengthSummary[] => strengthDelegates.getStrengthSummaryBatch(this, ranges);
 
   getMuscleDetail = (
     activityId: string,
@@ -976,17 +979,19 @@ class RouteEngineClient implements DelegateHost {
 
   hasStrengthData = (): boolean => strengthDelegates.hasStrengthData(this);
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  getExercisesForMuscle = (startTs: number, endTs: number, muscleSlug: string): any =>
+  getExercisesForMuscle = (
+    startTs: number,
+    endTs: number,
+    muscleSlug: string
+  ): FfiMuscleExerciseSummary =>
     strengthDelegates.getExercisesForMuscle(this, startTs, endTs, muscleSlug);
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   getActivitiesForExercise = (
     startTs: number,
     endTs: number,
     muscleSlug: string,
     exerciseCategory: number
-  ): any =>
+  ): FfiExerciseActivities =>
     strengthDelegates.getActivitiesForExercise(this, startTs, endTs, muscleSlug, exerciseCategory);
 
   // ========================================================================

@@ -22,10 +22,9 @@ jest.mock('@/features/routes/stores/RouteSettingsStore', () => ({
 
 import {
   computeInsightsFromData,
-  type FfiInsightsDataShape,
-  type FfiSummaryCardDataShape,
   type WellnessInput,
 } from '@/features/insights/lib/computeInsightsData';
+import type { InsightsData, SummaryCardData } from 'veloqrs';
 import { getRouteEngine } from '@/shared/native/routeEngine';
 
 const t = (key: string, params?: Record<string, string | number>) => {
@@ -48,8 +47,8 @@ function makePattern(
   confidence: number,
   avgDurationSecs: number,
   activityCount: number,
-  commonSections: FfiInsightsDataShape['allPatterns'][0]['commonSections']
-): FfiInsightsDataShape['allPatterns'][0] {
+  commonSections: InsightsData['allPatterns'][0]['commonSections']
+): InsightsData['allPatterns'][0] {
   return {
     sportType,
     clusterId: 0,
@@ -102,7 +101,7 @@ function makeRankedSections(sportType: string) {
   ];
 }
 
-function buildFfiData(): FfiInsightsDataShape {
+function buildFfiData(): InsightsData {
   return {
     currentWeek: makePeriod(5, 4 * 3600, 80_000, 320),
     previousWeek: makePeriod(3, 2.5 * 3600, 50_000, 220),
@@ -155,7 +154,7 @@ function buildFfiData(): FfiInsightsDataShape {
   };
 }
 
-function buildSummaryCardData(): FfiSummaryCardDataShape {
+function buildSummaryCardData(): SummaryCardData {
   return {
     currentWeek: makePeriod(5, 4 * 3600, 80_000, 320),
     prevWeek: makePeriod(3, 2.5 * 3600, 50_000, 220),

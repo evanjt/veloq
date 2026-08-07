@@ -55,12 +55,9 @@ export interface WellnessInput {
   sleepSecs?: number | null;
 }
 
-export type FfiInsightsDataShape = InsightsData;
-export type FfiSummaryCardDataShape = SummaryCardData;
-
 interface InsightsEnginePayload {
-  insightsData: FfiInsightsDataShape;
-  summaryCardData: FfiSummaryCardDataShape | null;
+  insightsData: InsightsData;
+  summaryCardData: SummaryCardData | null;
 }
 
 const MAX_SECTION_STORY_INSIGHTS = 2;
@@ -154,10 +151,10 @@ export function consolidateInsights(insights: Insight[]): Insight[] {
  * @returns Ranked array of insights
  */
 export function computeInsightsFromData(
-  ffiData: FfiInsightsDataShape | null,
+  ffiData: InsightsData | null,
   wellnessData: WellnessInput[] | null,
   t: TFunc,
-  summaryCardData?: FfiSummaryCardDataShape | null
+  summaryCardData?: SummaryCardData | null
 ): Insight[] {
   if (!ffiData) return [];
 

@@ -147,22 +147,11 @@ export type {
   FfiActivitySectionHighlight as ActivitySectionHighlight,
   FfiActivityRouteHighlight as ActivityRouteHighlight,
 } from './RouteEngineClient';
-// Strength training types (generated after Rust rebuild)
-export interface ExerciseSet {
-  activityId: string;
-  setOrder: number;
-  exerciseCategory: number;
-  exerciseName: number | undefined;
-  displayName: string;
-  setType: number;
-  repetitions: number | undefined;
-  weightKg: number | undefined;
-  durationSecs: number | undefined;
-}
-export interface MuscleGroup {
-  slug: string;
-  intensity: number;
-}
+// Strength training types
+export type {
+  FfiExerciseSet as ExerciseSet,
+  FfiMuscleGroup as MuscleGroup,
+} from "./generated/veloqrs";
 
 export function getDownloadProgress(): DownloadProgressResult {
   return ffiGetDownloadProgress();

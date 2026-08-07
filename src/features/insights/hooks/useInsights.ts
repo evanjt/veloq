@@ -8,7 +8,7 @@ import { useWellness } from '@/features/wellness';
 
 import { useInsightsStore, computeInsightFingerprint, diffInsights } from '../store';
 import { computeInsightsFromData, fetchInsightsDataFromEngine } from '../lib/computeInsightsData';
-import type { FfiInsightsDataShape, FfiSummaryCardDataShape } from '../lib/computeInsightsData';
+import type { InsightsData, SummaryCardData } from 'veloqrs';
 import type { Insight } from '../types';
 
 /**
@@ -22,10 +22,10 @@ import type { Insight } from '../types';
  * in background tasks without React.
  */
 export function useInsights(
-  preComputedInsightsData?: FfiInsightsDataShape | null,
+  preComputedInsightsData?: InsightsData | null,
   /** When true, never make own getInsightsData FFI call - wait for preComputedInsightsData */
   skipOwnFfiCall = false,
-  preComputedSummaryCardData?: FfiSummaryCardDataShape | null
+  preComputedSummaryCardData?: SummaryCardData | null
 ): {
   insights: Insight[];
   topInsight: Insight | null;
