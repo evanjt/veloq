@@ -43,6 +43,7 @@ export type { SyncStatus, SyncAuthMethod } from "./delegates/sync";
 
 // Delegate-shaped bundles returned by the façade
 export type { ActivityHighlightsBundle } from "./delegates/activities";
+export type { RouteDetailData } from "./delegates/routes";
 
 // Import generated functions for top-level aliases
 import {

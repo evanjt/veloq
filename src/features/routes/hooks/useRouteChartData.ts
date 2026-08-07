@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { decodeCoords } from 'veloqrs';
-import type { RouteGroup as EngineRouteGroup } from 'veloqrs';
+import type { RouteGroup as EngineRouteGroup, FfiMapSignature } from 'veloqrs';
 import { getRouteEngine } from '@/shared/native/routeEngine';
 import type { PerformanceDataPoint } from '../types';
 import type { RoutePerformancePoint } from './useRoutePerformances';
@@ -9,17 +9,21 @@ export function useRouteChartData(
   performances: RoutePerformancePoint[],
   bestPerformance: RoutePerformancePoint | null,
   engineGroup: EngineRouteGroup | null | undefined,
-  excludedChartData: (PerformanceDataPoint & { x: number })[]
+  excludedChartData: (PerformanceDataPoint & { x: number })[],
+  preComputedSignatures?: FfiMapSignature[]
 ) {
   // Load simplified GPS signatures for mini trace preview (single batch FFI call)
   const signatures = useMemo(() => {
     if (!engineGroup?.activityIds?.length) return {};
     try {
-      const engine = getRouteEngine();
-      if (!engine) return {};
+      let allSigs = preComputedSignatures;
+      if (!allSigs) {
+        const engine = getRouteEngine();
+        if (!engine) return {};
+        allSigs = engine.getAllMapSignatures();
+      }
 
       const activityIdSet = new Set(engineGroup.activityIds);
-      const allSigs = engine.getAllMapSignatures();
       const result: Record<string, { points: Array<{ lat: number; lng: number }> }> = {};
 
       for (const sig of allSigs) {
@@ -33,7 +37,7 @@ export function useRouteChartData(
     } catch {
       return {};
     }
-  }, [engineGroup?.activityIds]);
+  }, [engineGroup?.activityIds, preComputedSignatures]);
 
   // Prepare chart data using Rust engine performance data
   const { chartData, minSpeed, maxSpeed, bestIndex, hasReverseRuns } = useMemo(() => {

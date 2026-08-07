@@ -463,6 +463,13 @@ class RouteEngineClient implements DelegateHost {
   getSectionCalendarSummary = (sectionId: string): FfiCalendarSummary | null =>
     sectionDelegates.getSectionCalendarSummary(this, sectionId);
 
+  getRouteDetailData = (
+    groupId: string,
+    currentActivityId: string | undefined,
+    minGroupActivities: number
+  ): routeDelegates.RouteDetailData | undefined =>
+    routeDelegates.getRouteDetailData(this, groupId, currentActivityId, minGroupActivities);
+
   getSectionDetailData = (
     sectionId: string,
     nearbyRadiusMeters: number

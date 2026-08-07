@@ -9,7 +9,11 @@ import { useEngineGroups } from './useRouteEngine';
 import { getRouteEngine } from '@/shared/native/routeEngine';
 import type { RouteGroup, MatchDirection, DirectionStats } from '@/types';
 import { toActivityType } from '@/types';
-import type { RoutePerformanceResult, FfiActivityMetrics } from 'veloqrs';
+import type {
+  RouteGroup as EngineRouteGroup,
+  RoutePerformanceResult,
+  FfiActivityMetrics,
+} from 'veloqrs';
 import { toDirectionStats, fromUnixSeconds } from '@/shared/ffi/ffiConversions';
 import { safeGetTime } from '@/shared/format/format';
 import { calculateSpeed } from '@/shared/math';
@@ -71,12 +75,24 @@ interface UseRoutePerformancesResult {
   activityMetrics: Map<string, FfiActivityMetrics>;
 }
 
+/** Groups and performances a caller already read as part of a screen bundle. */
+export interface PreComputedRoutePerformances {
+  groups: readonly EngineRouteGroup[];
+  /** The result for this exact sport filter, when the caller has it. */
+  result?: RoutePerformanceResult;
+}
+
 export function useRoutePerformances(
   activityId: string | undefined,
   routeGroupId?: string,
-  sportType?: string
+  sportType?: string,
+  preComputed?: PreComputedRoutePerformances
 ): UseRoutePerformancesResult {
-  const { groups } = useEngineGroups({ minActivities: 1 });
+  const { groups: queriedGroups } = useEngineGroups({
+    minActivities: 1,
+    enabled: preComputed === undefined,
+  });
+  const groups = preComputed?.groups ?? queriedGroups;
 
   // Find route group - either from provided ID or by looking up activity
   const engineGroup = useMemo(() => {
@@ -135,15 +151,13 @@ export function useRoutePerformances(
     if (!engineGroup) return emptyResult;
 
     try {
-      const engine = getRouteEngine();
-      if (!engine) return emptyResult;
-
       // Get typed performance data directly from Rust engine (now includes metrics)
-      const result: RoutePerformanceResult = engine.getRoutePerformances(
-        engineGroup.groupId,
-        activityId || '',
-        sportType
-      );
+      let result = preComputed?.result;
+      if (!result) {
+        const engine = getRouteEngine();
+        if (!engine) return emptyResult;
+        result = engine.getRoutePerformances(engineGroup.groupId, activityId || '', sportType);
+      }
       const performances = result.performances || [];
 
       // Build lookup map by activity ID
@@ -174,7 +188,7 @@ export function useRoutePerformances(
     } catch {
       return emptyResult;
     }
-  }, [engineGroup, activityId, sportType]);
+  }, [engineGroup, activityId, sportType, preComputed]);
 
   const {
     matchInfoMap,
