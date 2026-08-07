@@ -75,6 +75,7 @@ import {
   type FfiInsightsParams,
   type FfiRecentPr,
   type FfiStartupData,
+  type FfiWidgetSnapshotData,
   type FfiPreviewTrack,
   type FfiActivityDetailData,
   type FfiSectionTrace,
@@ -123,6 +124,7 @@ export type InsightsParams = FfiInsightsParams;
 export type RecentPR = FfiRecentPr;
 // Startup batch types
 export type StartupData = FfiStartupData;
+export type WidgetSnapshotData = FfiWidgetSnapshotData;
 export type PreviewTrack = FfiPreviewTrack;
 // Activity detail batch types
 export type ActivityDetailData = FfiActivityDetailData;

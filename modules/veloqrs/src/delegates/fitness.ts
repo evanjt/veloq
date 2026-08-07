@@ -15,6 +15,7 @@ import type {
   FfiPeriodStats,
   FfiStalePrOpportunity,
   FfiStartupData,
+  FfiWidgetSnapshotData,
 } from '../generated/veloqrs';
 import type { DelegateHost } from './host';
 import type { HeatmapDay } from './shared-types';
@@ -397,4 +398,31 @@ export function getWeeklySummaries(
     distance: r.distance,
     trainingLoad: r.trainingLoad,
   }));
+}
+
+/**
+ * Everything the home-screen widget snapshot is composed from, in one
+ * round-trip: wellness sparklines, the summary card, and the latest activity
+ * with its record flag and GPS track.
+ */
+export function getWidgetSnapshot(
+  host: DelegateHost,
+  currentStart: number,
+  currentEnd: number,
+  prevStart: number,
+  prevEnd: number,
+  sparklineDays: number
+): FfiWidgetSnapshotData | undefined {
+  if (!host.ready) return undefined;
+  return host.timed('getWidgetSnapshot', () =>
+    host.engine
+      .fitness()
+      .getWidgetSnapshot(
+        BigInt(currentStart),
+        BigInt(currentEnd),
+        BigInt(prevStart),
+        BigInt(prevEnd),
+        sparklineDays
+      )
+  );
 }

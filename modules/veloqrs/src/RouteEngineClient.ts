@@ -33,6 +33,7 @@ import type {
   FfiInsightsData,
   FfiInsightsParams,
   FfiStartupData,
+  FfiWidgetSnapshotData,
   FfiRoutesScreenData,
   FfiPotentialSection,
   FfiSectionConfig,
@@ -570,6 +571,22 @@ class RouteEngineClient implements DelegateHost {
     previewActivityIds: string[]
   ): FfiStartupData | undefined =>
     fitnessDelegates.getStartupData(this, params, previewActivityIds);
+
+  getWidgetSnapshot = (
+    currentStart: number,
+    currentEnd: number,
+    prevStart: number,
+    prevEnd: number,
+    sparklineDays: number
+  ): FfiWidgetSnapshotData | undefined =>
+    fitnessDelegates.getWidgetSnapshot(
+      this,
+      currentStart,
+      currentEnd,
+      prevStart,
+      prevEnd,
+      sparklineDays
+    );
 
   getPeriodStats = (startTs: number, endTs: number): FfiPeriodStats =>
     fitnessDelegates.getPeriodStats(this, startTs, endTs);
