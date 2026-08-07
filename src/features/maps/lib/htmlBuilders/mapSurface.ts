@@ -571,6 +571,39 @@ function surfaceRuntimeScript(config: MapSurfaceHtmlConfig): string {
       });
     };
 
+    // Everything currently drawn in the named layers, with each point feature's
+    // screen position, so a React overlay can sit exactly on top of it.
+    window._veloq.queryViewportFeatures = function(requestId, layers) {
+      var map = window.map;
+      var available = (layers || []).filter(function(id) { return !!map.getLayer(id); });
+      var features = [];
+      try {
+        if (available.length > 0) {
+          features = map.queryRenderedFeatures({ layers: available }) || [];
+        }
+      } catch (e) {
+        features = [];
+      }
+      _post({
+        type: 'queryResult',
+        requestId: requestId,
+        features: features.map(function(feature) {
+          var screen = null;
+          if (feature.geometry && feature.geometry.type === 'Point') {
+            var projected = map.project(feature.geometry.coordinates);
+            screen = { x: projected.x, y: projected.y };
+          }
+          return {
+            layerId: feature.layer ? feature.layer.id : null,
+            id: feature.id !== undefined ? feature.id : null,
+            properties: feature.properties || {},
+            geometry: feature.geometry || null,
+            screen: screen,
+          };
+        }),
+      });
+    };
+
     window._veloq.clusterLeaves = function(requestId, sourceId, clusterId, limit, offset) {
       var source = window.map.getSource(sourceId);
       if (!source || !source.getClusterLeaves) {
@@ -794,6 +827,15 @@ export function buildQueryFeaturesScript(
     window._veloq && window._veloq.queryFeatures(${JSON.stringify(requestId)}, ${JSON.stringify(
       point
     )}, ${JSON.stringify(layers)}, ${radius});
+    true;
+  `;
+}
+
+export function buildQueryViewportFeaturesScript(requestId: string, layers: string[]): string {
+  return `
+    window._veloq && window._veloq.queryViewportFeatures(${JSON.stringify(
+      requestId
+    )}, ${JSON.stringify(layers)});
     true;
   `;
 }

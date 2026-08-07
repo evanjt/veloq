@@ -43,6 +43,7 @@ import {
   buildMapSurfaceHtml,
   buildProjectPointsScript,
   buildQueryFeaturesScript,
+  buildQueryViewportFeaturesScript,
   buildResetOrientationScript,
   buildSetCameraScript,
   buildSetStyleScript,
@@ -82,6 +83,8 @@ export interface MapFeatureHit {
   id: string | number | null;
   properties: Record<string, unknown>;
   geometry: GeoJSON.Geometry | null;
+  /** Screen position of a point feature, present on viewport queries. */
+  screen?: { x: number; y: number } | null;
 }
 
 export interface MapPressEvent {
@@ -99,6 +102,8 @@ export interface MapSurfaceRef {
     layers: string[],
     radius?: number
   ) => Promise<MapFeatureHit[]>;
+  /** Everything drawn in these layers right now, with screen positions. */
+  queryViewportFeatures: (layers: string[]) => Promise<MapFeatureHit[]>;
   getClusterLeaves: (
     sourceId: string,
     clusterId: number,
@@ -417,6 +422,10 @@ export const MapSurface = forwardRef<MapSurfaceRef, MapSurfaceProps>(function Ma
       queryFeatures: (point, queryLayers, radius) =>
         request<MapFeatureHit[]>((requestId) =>
           buildQueryFeaturesScript(requestId, point, queryLayers, radius)
+        ),
+      queryViewportFeatures: (queryLayers) =>
+        request<MapFeatureHit[]>((requestId) =>
+          buildQueryViewportFeaturesScript(requestId, queryLayers)
         ),
       getClusterLeaves: (sourceId, clusterId, limit = 100, offset = 0) =>
         request<GeoJSON.Feature[]>((requestId) =>

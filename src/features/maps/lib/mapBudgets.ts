@@ -20,3 +20,12 @@ export const REGION_CHANGE_DEBOUNCE_MS = 200;
 
 /** Work deferred until a gesture has settled, such as recomputing attribution. */
 export const REGION_SETTLE_DEBOUNCE_MS = 300;
+
+/**
+ * Activity count above which the regional map culls to the viewport. Below it
+ * the whole set is drawn, because filtering costs more than it saves.
+ */
+export const VIEWPORT_CULLING_THRESHOLD = 2000;
+
+/** Zoom at which the regional map starts drawing per-activity detail. */
+export const TRACE_ZOOM_THRESHOLD = 11;
