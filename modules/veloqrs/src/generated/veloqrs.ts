@@ -1408,6 +1408,62 @@ const FfiConverterTypeFfiCalendarDirectionBest = (() => {
 })();
 
 /**
+ * One untyped calendar event payload, keyed by id and day.
+ */
+export type FfiCalendarEventBody = {
+  eventId: string;
+  /**
+   * Event day as epoch seconds.
+   */
+  date: /*i64*/ bigint;
+  raw: string;
+};
+
+/**
+ * Generated factory for {@link FfiCalendarEventBody} record objects.
+ */
+export const FfiCalendarEventBody = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<
+      FfiCalendarEventBody,
+      ReturnType<typeof defaults>
+    >(defaults);
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiCalendarEventBody>,
+  });
+})();
+
+const FfiConverterTypeFfiCalendarEventBody = (() => {
+  type TypeName = FfiCalendarEventBody;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        eventId: FfiConverterString.read(from),
+        date: FfiConverterInt64.read(from),
+        raw: FfiConverterString.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterString.write(value.eventId, into);
+      FfiConverterInt64.write(value.date, into);
+      FfiConverterString.write(value.raw, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.eventId) +
+        FfiConverterInt64.allocationSize(value.date) +
+        FfiConverterString.allocationSize(value.raw)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * Best performance in a calendar month for FFI.
  */
 export type FfiCalendarMonthSummary = {
@@ -7706,8 +7762,48 @@ export interface ActivityManagerLike {
   getIds() /*throws*/ : Array<string>;
   getMetricsForIds(ids: Array<string>) /*throws*/ : Array<FfiActivityMetrics>;
   getMissingTimeStreams(activityIds: Array<string>) /*throws*/ : Array<string>;
+  /**
+   * A stored stream payload for an activity and series selection, or
+   * `None` when it has not been fetched or has aged out of the cache.
+   */
+  getStreamBody(
+    activityId: string,
+    types: string,
+  ) /*throws*/ : string | undefined;
   remove(activityId: string) /*throws*/ : void;
+  /**
+   * Replace the calendar events in a window, for demo seeding.
+   */
+  replaceCalendarEvents(
+    oldestTs: /*i64*/ bigint,
+    newestTs: /*i64*/ bigint,
+    rows: Array<FfiCalendarEventBody>,
+  ) /*throws*/ : void;
+  /**
+   * Store a curve payload directly, for demo seeding. `kind` is
+   * "power" or "pace".
+   */
+  setCurveBody(
+    kind: string,
+    sport: string,
+    days: /*i64*/ bigint,
+    gap: boolean,
+    raw: string,
+  ) /*throws*/ : void;
+  /**
+   * Store an activity's interval payload directly, for demo seeding.
+   */
+  setIntervalBody(activityId: string, raw: string) /*throws*/ : void;
   setMetrics(metrics: Array<FfiActivityMetrics>) /*throws*/ : void;
+  /**
+   * Store a stream payload directly. Demo seeding writes the same table a
+   * live fetch fills, so every downstream read is identical in both modes.
+   */
+  setStreamBody(
+    activityId: string,
+    types: string,
+    raw: string,
+  ) /*throws*/ : void;
   setTimeStreams(
     activityIds: Array<string>,
     allTimes: Array</*u32*/ number>,
@@ -7932,6 +8028,32 @@ export class ActivityManager
     );
   }
 
+  /**
+   * A stored stream payload for an activity and series selection, or
+   * `None` when it has not been fetched or has aged out of the cache.
+   */
+  getStreamBody(
+    activityId: string,
+    types: string,
+  ): string | undefined /*throws*/ {
+    return FfiConverterOptionalString.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_activitymanager_get_stream_body(
+            uniffiTypeActivityManagerObjectFactory.clonePointer(this),
+            FfiConverterString.lower(activityId),
+            FfiConverterString.lower(types),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
   remove(activityId: string): void /*throws*/ {
     uniffiCaller.rustCallWithError(
       /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
@@ -7948,6 +8070,81 @@ export class ActivityManager
     );
   }
 
+  /**
+   * Replace the calendar events in a window, for demo seeding.
+   */
+  replaceCalendarEvents(
+    oldestTs: /*i64*/ bigint,
+    newestTs: /*i64*/ bigint,
+    rows: Array<FfiCalendarEventBody>,
+  ): void /*throws*/ {
+    uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+        FfiConverterTypeVeloqError,
+      ),
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_veloqrs_fn_method_activitymanager_replace_calendar_events(
+          uniffiTypeActivityManagerObjectFactory.clonePointer(this),
+          FfiConverterInt64.lower(oldestTs),
+          FfiConverterInt64.lower(newestTs),
+          FfiConverterArrayTypeFfiCalendarEventBody.lower(rows),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    );
+  }
+
+  /**
+   * Store a curve payload directly, for demo seeding. `kind` is
+   * "power" or "pace".
+   */
+  setCurveBody(
+    kind: string,
+    sport: string,
+    days: /*i64*/ bigint,
+    gap: boolean,
+    raw: string,
+  ): void /*throws*/ {
+    uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+        FfiConverterTypeVeloqError,
+      ),
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_veloqrs_fn_method_activitymanager_set_curve_body(
+          uniffiTypeActivityManagerObjectFactory.clonePointer(this),
+          FfiConverterString.lower(kind),
+          FfiConverterString.lower(sport),
+          FfiConverterInt64.lower(days),
+          FfiConverterBool.lower(gap),
+          FfiConverterString.lower(raw),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    );
+  }
+
+  /**
+   * Store an activity's interval payload directly, for demo seeding.
+   */
+  setIntervalBody(activityId: string, raw: string): void /*throws*/ {
+    uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+        FfiConverterTypeVeloqError,
+      ),
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_veloqrs_fn_method_activitymanager_set_interval_body(
+          uniffiTypeActivityManagerObjectFactory.clonePointer(this),
+          FfiConverterString.lower(activityId),
+          FfiConverterString.lower(raw),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    );
+  }
+
   setMetrics(metrics: Array<FfiActivityMetrics>): void /*throws*/ {
     uniffiCaller.rustCallWithError(
       /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
@@ -7957,6 +8154,32 @@ export class ActivityManager
         nativeModule().ubrn_uniffi_veloqrs_fn_method_activitymanager_set_metrics(
           uniffiTypeActivityManagerObjectFactory.clonePointer(this),
           FfiConverterArrayTypeFfiActivityMetrics.lower(metrics),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    );
+  }
+
+  /**
+   * Store a stream payload directly. Demo seeding writes the same table a
+   * live fetch fills, so every downstream read is identical in both modes.
+   */
+  setStreamBody(
+    activityId: string,
+    types: string,
+    raw: string,
+  ): void /*throws*/ {
+    uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+        FfiConverterTypeVeloqError,
+      ),
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_veloqrs_fn_method_activitymanager_set_stream_body(
+          uniffiTypeActivityManagerObjectFactory.clonePointer(this),
+          FfiConverterString.lower(activityId),
+          FfiConverterString.lower(types),
+          FfiConverterString.lower(raw),
           callStatus,
         );
       },
@@ -12805,9 +13028,19 @@ export interface SyncManagerLike {
    */
   syncActivitiesWindow(oldest: string, newest: string) /*throws*/ : boolean;
   /**
+   * Fetch and store an activity's full detail body, replacing the lighter
+   * row the list sync wrote.
+   */
+  syncActivityDetail(activityId: string): boolean;
+  /**
    * Fetch and store an activity's work/recovery intervals.
    */
   syncActivityIntervals(activityId: string): boolean;
+  /**
+   * Fetch and store an activity's streams for a series selection. The
+   * types string is the cache key, so callers must pass it consistently.
+   */
+  syncActivityStreams(activityId: string, types: string): boolean;
   /**
    * Fetch and store the calendar events in a date window, replacing what
    * was there so an event cancelled upstream disappears here too.
@@ -12829,6 +13062,12 @@ export interface SyncManagerLike {
    * the same curve is already being fetched or no credentials are set.
    */
   syncPowerCurve(sport: string, days: /*i64*/ bigint): boolean;
+  /**
+   * Fetch and store the `time` streams the section-performance maths needs.
+   * Activities that already have one are skipped, so a repeat call over the
+   * same list costs nothing.
+   */
+  syncTimeStreams(activityIds: Array<string>): boolean;
 }
 /**
  * @deprecated Use `SyncManagerLike` instead.
@@ -12957,6 +13196,25 @@ export class SyncManager
   }
 
   /**
+   * Fetch and store an activity's full detail body, replacing the lighter
+   * row the list sync wrote.
+   */
+  syncActivityDetail(activityId: string): boolean {
+    return FfiConverterBool.lift(
+      uniffiCaller.rustCall(
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_syncmanager_sync_activity_detail(
+            uniffiTypeSyncManagerObjectFactory.clonePointer(this),
+            FfiConverterString.lower(activityId),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
    * Fetch and store an activity's work/recovery intervals.
    */
   syncActivityIntervals(activityId: string): boolean {
@@ -12966,6 +13224,26 @@ export class SyncManager
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_syncmanager_sync_activity_intervals(
             uniffiTypeSyncManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(activityId),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * Fetch and store an activity's streams for a series selection. The
+   * types string is the cache key, so callers must pass it consistently.
+   */
+  syncActivityStreams(activityId: string, types: string): boolean {
+    return FfiConverterBool.lift(
+      uniffiCaller.rustCall(
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_syncmanager_sync_activity_streams(
+            uniffiTypeSyncManagerObjectFactory.clonePointer(this),
+            FfiConverterString.lower(activityId),
+            FfiConverterString.lower(types),
             callStatus,
           );
         },
@@ -13049,6 +13327,26 @@ export class SyncManager
             uniffiTypeSyncManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(sport),
             FfiConverterInt64.lower(days),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * Fetch and store the `time` streams the section-performance maths needs.
+   * Activities that already have one are skipped, so a repeat call over the
+   * same list costs nothing.
+   */
+  syncTimeStreams(activityIds: Array<string>): boolean {
+    return FfiConverterBool.lift(
+      uniffiCaller.rustCall(
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_syncmanager_sync_time_streams(
+            uniffiTypeSyncManagerObjectFactory.clonePointer(this),
+            FfiConverterArrayString.lower(activityIds),
             callStatus,
           );
         },
@@ -13857,6 +14155,11 @@ const FfiConverterArrayTypeFfiBatchTrace = new FfiConverterArray(
   FfiConverterTypeFfiBatchTrace,
 );
 
+// FfiConverter for Array<FfiCalendarEventBody>
+const FfiConverterArrayTypeFfiCalendarEventBody = new FfiConverterArray(
+  FfiConverterTypeFfiCalendarEventBody,
+);
+
 // FfiConverter for Array<FfiCalendarMonthSummary>
 const FfiConverterArrayTypeFfiCalendarMonthSummary = new FfiConverterArray(
   FfiConverterTypeFfiCalendarMonthSummary,
@@ -14235,6 +14538,14 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_activitymanager_get_stream_body() !==
+    23303
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_activitymanager_get_stream_body",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_activitymanager_remove() !==
     58571
   ) {
@@ -14243,11 +14554,43 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_activitymanager_replace_calendar_events() !==
+    59578
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_activitymanager_replace_calendar_events",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_activitymanager_set_curve_body() !==
+    14622
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_activitymanager_set_curve_body",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_activitymanager_set_interval_body() !==
+    56739
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_activitymanager_set_interval_body",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_activitymanager_set_metrics() !==
     35728
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_activitymanager_set_metrics",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_activitymanager_set_stream_body() !==
+    52263
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_activitymanager_set_stream_body",
     );
   }
   if (
@@ -15603,11 +15946,27 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_syncmanager_sync_activity_detail() !==
+    9245
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_syncmanager_sync_activity_detail",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_syncmanager_sync_activity_intervals() !==
     1542
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_syncmanager_sync_activity_intervals",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_syncmanager_sync_activity_streams() !==
+    63568
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_syncmanager_sync_activity_streams",
     );
   }
   if (
@@ -15640,6 +15999,14 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_syncmanager_sync_power_curve",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_syncmanager_sync_time_streams() !==
+    13380
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_syncmanager_sync_time_streams",
     );
   }
   if (
@@ -15809,6 +16176,7 @@ export default Object.freeze({
     FfiConverterTypeFfiBatchTrace,
     FfiConverterTypeFfiBounds,
     FfiConverterTypeFfiCalendarDirectionBest,
+    FfiConverterTypeFfiCalendarEventBody,
     FfiConverterTypeFfiCalendarMonthSummary,
     FfiConverterTypeFfiCalendarSummary,
     FfiConverterTypeFfiCalendarYearSummary,

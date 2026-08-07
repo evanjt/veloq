@@ -86,14 +86,49 @@ interface NativeModuleInterface {
     activityIds: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_activitymanager_get_stream_body(
+    ptr: bigint,
+    activityId: Uint8Array,
+    types: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_activitymanager_remove(
     ptr: bigint,
     activityId: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): void;
+  ubrn_uniffi_veloqrs_fn_method_activitymanager_replace_calendar_events(
+    ptr: bigint,
+    oldestTs: bigint,
+    newestTs: bigint,
+    rows: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
+  ubrn_uniffi_veloqrs_fn_method_activitymanager_set_curve_body(
+    ptr: bigint,
+    kind: Uint8Array,
+    sport: Uint8Array,
+    days: bigint,
+    gap: number,
+    raw: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
+  ubrn_uniffi_veloqrs_fn_method_activitymanager_set_interval_body(
+    ptr: bigint,
+    activityId: Uint8Array,
+    raw: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
   ubrn_uniffi_veloqrs_fn_method_activitymanager_set_metrics(
     ptr: bigint,
     metrics: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): void;
+  ubrn_uniffi_veloqrs_fn_method_activitymanager_set_stream_body(
+    ptr: bigint,
+    activityId: Uint8Array,
+    types: Uint8Array,
+    raw: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): void;
   ubrn_uniffi_veloqrs_fn_method_activitymanager_set_time_streams(
@@ -1094,9 +1129,20 @@ interface NativeModuleInterface {
     newest: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): number;
+  ubrn_uniffi_veloqrs_fn_method_syncmanager_sync_activity_detail(
+    ptr: bigint,
+    activityId: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): number;
   ubrn_uniffi_veloqrs_fn_method_syncmanager_sync_activity_intervals(
     ptr: bigint,
     activityId: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): number;
+  ubrn_uniffi_veloqrs_fn_method_syncmanager_sync_activity_streams(
+    ptr: bigint,
+    activityId: Uint8Array,
+    types: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): number;
   ubrn_uniffi_veloqrs_fn_method_syncmanager_sync_calendar_events(
@@ -1120,6 +1166,11 @@ interface NativeModuleInterface {
     ptr: bigint,
     sport: Uint8Array,
     days: bigint,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): number;
+  ubrn_uniffi_veloqrs_fn_method_syncmanager_sync_time_streams(
+    ptr: bigint,
+    activityIds: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): number;
   ubrn_uniffi_veloqrs_fn_clone_heatmapmanager(
@@ -1206,8 +1257,13 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_activitymanager_get_ids(): number;
   ubrn_uniffi_veloqrs_checksum_method_activitymanager_get_metrics_for_ids(): number;
   ubrn_uniffi_veloqrs_checksum_method_activitymanager_get_missing_time_streams(): number;
+  ubrn_uniffi_veloqrs_checksum_method_activitymanager_get_stream_body(): number;
   ubrn_uniffi_veloqrs_checksum_method_activitymanager_remove(): number;
+  ubrn_uniffi_veloqrs_checksum_method_activitymanager_replace_calendar_events(): number;
+  ubrn_uniffi_veloqrs_checksum_method_activitymanager_set_curve_body(): number;
+  ubrn_uniffi_veloqrs_checksum_method_activitymanager_set_interval_body(): number;
   ubrn_uniffi_veloqrs_checksum_method_activitymanager_set_metrics(): number;
+  ubrn_uniffi_veloqrs_checksum_method_activitymanager_set_stream_body(): number;
   ubrn_uniffi_veloqrs_checksum_method_activitymanager_set_time_streams(): number;
   ubrn_uniffi_veloqrs_checksum_method_activitymanager_upsert_activity_bodies(): number;
   ubrn_uniffi_veloqrs_checksum_method_detectionmanager_detect_potentials(): number;
@@ -1377,11 +1433,14 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_syncmanager_get_sync_status(): number;
   ubrn_uniffi_veloqrs_checksum_method_syncmanager_set_credentials(): number;
   ubrn_uniffi_veloqrs_checksum_method_syncmanager_sync_activities_window(): number;
+  ubrn_uniffi_veloqrs_checksum_method_syncmanager_sync_activity_detail(): number;
   ubrn_uniffi_veloqrs_checksum_method_syncmanager_sync_activity_intervals(): number;
+  ubrn_uniffi_veloqrs_checksum_method_syncmanager_sync_activity_streams(): number;
   ubrn_uniffi_veloqrs_checksum_method_syncmanager_sync_calendar_events(): number;
   ubrn_uniffi_veloqrs_checksum_method_syncmanager_sync_now(): number;
   ubrn_uniffi_veloqrs_checksum_method_syncmanager_sync_pace_curve(): number;
   ubrn_uniffi_veloqrs_checksum_method_syncmanager_sync_power_curve(): number;
+  ubrn_uniffi_veloqrs_checksum_method_syncmanager_sync_time_streams(): number;
   ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_clear_tiles(): number;
   ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_clear_tiles_path(): number;
   ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_get_cache_size(): number;
