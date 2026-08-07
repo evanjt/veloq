@@ -269,6 +269,18 @@ class RouteEngineClient implements DelegateHost {
   syncActivitiesWindow = (oldest: string, newest: string): boolean =>
     syncDelegates.syncActivitiesWindow(this, oldest, newest);
 
+  syncPowerCurve = (sport: string, days: number): boolean =>
+    syncDelegates.syncPowerCurve(this, sport, days);
+
+  syncPaceCurve = (sport: string, days: number, gap: boolean): boolean =>
+    syncDelegates.syncPaceCurve(this, sport, days, gap);
+
+  syncActivityIntervals = (activityId: string): boolean =>
+    syncDelegates.syncActivityIntervals(this, activityId);
+
+  syncCalendarEvents = (oldest: string, newest: string): boolean =>
+    syncDelegates.syncCalendarEvents(this, oldest, newest);
+
   cancelSync = (): void => syncDelegates.cancelSync(this);
 
   getSyncStatus = (): SyncStatus | null => syncDelegates.getSyncStatus(this);
@@ -626,6 +638,21 @@ class RouteEngineClient implements DelegateHost {
 
   upsertActivityBodies = (rows: activityDelegates.ActivityBodyInput[]): void =>
     activityDelegates.upsertActivityBodies(this, rows);
+
+  getPowerCurveBody = (sport: string, days: number): string | null =>
+    fitnessDelegates.getPowerCurveBody(this, sport, days);
+
+  getPaceCurveBody = (sport: string, days: number, gap: boolean): string | null =>
+    fitnessDelegates.getPaceCurveBody(this, sport, days, gap);
+
+  getIntervalBody = (activityId: string): string | null =>
+    fitnessDelegates.getIntervalBody(this, activityId);
+
+  getCalendarEventBodies = (oldestTs: number, newestTs: number): string[] =>
+    fitnessDelegates.getCalendarEventBodies(this, oldestTs, newestTs);
+
+  getWeeklySummaries = (weekStarts: number[], weekLengthSecs: number) =>
+    fitnessDelegates.getWeeklySummaries(this, weekStarts, weekLengthSecs);
 
   getWellnessSparklines = (days: number): fitnessDelegates.WellnessSparklines | null =>
     fitnessDelegates.getWellnessSparklines(this, days);

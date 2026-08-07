@@ -35,7 +35,8 @@ import {
 import { BatteryOptimisationNudge } from '@/features/recording/components/BatteryOptimisationNudge';
 import { GrantAccessButton } from '@/features/recording/components/GrantAccessButton';
 import { requestNotificationPermission } from '@/features/settings/lib/notificationService';
-import { intervalsApi } from '@/api';
+import { getRouteEngine } from '@/shared/native/routeEngine';
+import { readCalendarEvents } from '@/features/home/lib/calendarEvents';
 import { navigateTo } from '@/shared/app/navigation';
 import { formatLocalDate, formatDuration } from '@/shared/format/format';
 import type { ActivityType, CalendarEvent } from '@/types';
@@ -213,15 +214,18 @@ export default function RecordScreen() {
     })();
   }, [t]);
 
-  // Fetch today's planned workouts
+  // Today's planned workouts. Ask Rust to refresh the day, then read what is
+  // stored; the engine event brings in anything the refresh adds.
   useEffect(() => {
     const today = formatLocalDate(new Date());
-    intervalsApi
-      .getCalendarEvents({ oldest: today, newest: today })
-      .then(setTodayEvents)
-      .catch(() => {
-        // Silently ignore - events section just won't show
-      });
+    const engine = getRouteEngine();
+    engine?.syncCalendarEvents(today, today);
+    setTodayEvents(readCalendarEvents(today, today));
+
+    if (!engine) return;
+    return engine.subscribe('activities', () => {
+      setTodayEvents(readCalendarEvents(today, today));
+    });
   }, []);
 
   const handleSelectType = useCallback((type: ActivityType, pairedEventId?: number) => {

@@ -15,7 +15,9 @@ use super::error::VeloqError;
 use crate::governor::{self, AuthMethod, Lane};
 use crate::net::endpoints;
 use crate::net::transport::{NetError, Transport};
+use crate::persistence::bodies::CurveKind;
 use once_cell::sync::Lazy;
+use std::collections::HashSet;
 use std::sync::Arc;
 use std::sync::Mutex;
 
@@ -241,6 +243,58 @@ impl SyncService {
 /// The process-wide sync service.
 pub static SYNC_SERVICE: Lazy<SyncService> = Lazy::new(SyncService::new);
 
+/// Keys for on-demand fetches currently in flight.
+///
+/// These do not take the exclusive sync slot: a screen asking for a power
+/// curve must not be refused because the launch sync is still running. What it
+/// must not do is stack one request per render, so each key is admitted once
+/// until its job finishes.
+static IN_FLIGHT: Lazy<Mutex<HashSet<String>>> = Lazy::new(|| Mutex::new(HashSet::new()));
+
+/// Run an on-demand fetch unless one with the same key is already running.
+/// Returns false when the request was folded into an in-flight one, or when
+/// there are no credentials to fetch with.
+fn spawn_once<F, Fut>(key: String, job: F) -> bool
+where
+    F: FnOnce(Transport, String) -> Fut + Send + 'static,
+    Fut: std::future::Future<Output = Result<(), NetError>> + Send,
+{
+    let Ok((transport, athlete_id)) = SYNC_SERVICE.build_transport() else {
+        return false;
+    };
+    {
+        let mut guard = IN_FLIGHT.lock().unwrap_or_else(|e| e.into_inner());
+        if !guard.insert(key.clone()) {
+            return false;
+        }
+    }
+    crate::runtime::spawn(async move {
+        // Release the key even if the job panics, or that resource could
+        // never be requested again for the rest of the session.
+        struct ReleaseGuard(String);
+        impl Drop for ReleaseGuard {
+            fn drop(&mut self) {
+                IN_FLIGHT
+                    .lock()
+                    .unwrap_or_else(|e| e.into_inner())
+                    .remove(&self.0);
+            }
+        }
+        let _guard = ReleaseGuard(key);
+
+        match job(transport, athlete_id).await {
+            Ok(()) => {}
+            Err(NetError::Unauthorized) => SYNC_SERVICE.finish(
+                SyncState::AuthExpired,
+                Some("unauthorized".to_string()),
+                false,
+            ),
+            Err(e) => log::warn!("[Sync] on-demand fetch failed: {}", e),
+        }
+    });
+    true
+}
+
 /// The `Authorization` header for the process-wide credential, or `None` before
 /// TypeScript has called `set_credentials`. Every Rust I/O path resolves its
 /// header here rather than accepting one across FFI.
@@ -423,6 +477,11 @@ async fn sync_activity_window(
         }
     });
     Ok(())
+}
+
+/// Midnight for a YYYY-MM-DD day, as epoch seconds.
+fn day_start_timestamp(day: &str) -> Option<i64> {
+    start_date_to_timestamp(Some(&format!("{}T00:00:00", day)))
 }
 
 /// Settings key holding the athlete's first-ever activity date.
@@ -608,6 +667,112 @@ impl SyncManager {
                 Ok(false)
             }
         }
+    }
+
+    /// Fetch and store a power curve for a sport and window. Returns false if
+    /// the same curve is already being fetched or no credentials are set.
+    fn sync_power_curve(&self, sport: String, days: i64) -> bool {
+        spawn_once(
+            format!("power:{}:{}", sport, days),
+            move |transport, athlete_id| async move {
+                let body = endpoints::fetch_power_curve_body(
+                    &transport,
+                    &athlete_id,
+                    &sport,
+                    &format!("{}d", days),
+                    Lane::Interactive,
+                )
+                .await?;
+                crate::persistence::with_persistent_engine(|engine| {
+                    if let Err(e) =
+                        engine.set_curve_body(CurveKind::Power, &sport, days, false, &body)
+                    {
+                        log::warn!("[Sync] power curve store failed: {}", e);
+                    }
+                });
+                Ok(())
+            },
+        )
+    }
+
+    /// Fetch and store a pace curve. `gap` asks for gradient-adjusted pace and
+    /// is only honoured for running.
+    fn sync_pace_curve(&self, sport: String, days: i64, gap: bool) -> bool {
+        spawn_once(
+            format!("pace:{}:{}:{}", sport, days, gap),
+            move |transport, athlete_id| async move {
+                let body = endpoints::fetch_pace_curve_body(
+                    &transport,
+                    &athlete_id,
+                    &sport,
+                    &format!("{}d", days),
+                    gap,
+                    Lane::Interactive,
+                )
+                .await?;
+                crate::persistence::with_persistent_engine(|engine| {
+                    if let Err(e) = engine.set_curve_body(CurveKind::Pace, &sport, days, gap, &body)
+                    {
+                        log::warn!("[Sync] pace curve store failed: {}", e);
+                    }
+                });
+                Ok(())
+            },
+        )
+    }
+
+    /// Fetch and store an activity's work/recovery intervals.
+    fn sync_activity_intervals(&self, activity_id: String) -> bool {
+        spawn_once(
+            format!("intervals:{}", activity_id),
+            move |transport, _athlete_id| async move {
+                let body =
+                    endpoints::fetch_intervals_body(&transport, &activity_id, Lane::Interactive)
+                        .await?;
+                crate::persistence::with_persistent_engine(|engine| {
+                    if let Err(e) = engine.set_interval_body(&activity_id, &body) {
+                        log::warn!("[Sync] interval body store failed: {}", e);
+                    }
+                });
+                Ok(())
+            },
+        )
+    }
+
+    /// Fetch and store the calendar events in a date window, replacing what
+    /// was there so an event cancelled upstream disappears here too.
+    fn sync_calendar_events(&self, oldest: String, newest: String) -> bool {
+        spawn_once(
+            format!("calendar:{}:{}", oldest, newest),
+            move |transport, athlete_id| async move {
+                let items = endpoints::fetch_calendar_events_bodies(
+                    &transport,
+                    &athlete_id,
+                    &oldest,
+                    &newest,
+                    Lane::Interactive,
+                )
+                .await?;
+                let rows: Vec<(String, i64, String)> = items
+                    .into_iter()
+                    .filter_map(|(id, start, raw)| {
+                        start_date_to_timestamp(Some(&start)).map(|ts| (id, ts, raw))
+                    })
+                    .collect();
+                let (Some(oldest_ts), Some(newest_ts)) = (
+                    day_start_timestamp(&oldest),
+                    day_start_timestamp(&newest).map(|t| t + 86_399),
+                ) else {
+                    return Ok(());
+                };
+                crate::persistence::with_persistent_engine(|engine| {
+                    if let Err(e) = engine.replace_calendar_events(oldest_ts, newest_ts, &rows) {
+                        log::warn!("[Sync] calendar event store failed: {}", e);
+                    }
+                });
+                Ok(())
+            },
+        )
     }
 
     /// Soft-cancel the running sync.

@@ -94,6 +94,94 @@ impl FitnessManager {
         with_engine(|e| e.get_period_stats(start_ts, end_ts))
     }
 
+    /// Weekly training totals over a range, one entry per Monday-anchored
+    /// week that has activities. Derived from `activity_metrics` rather than
+    /// fetched, so there is no athlete-summary endpoint to keep in sync.
+    ///
+    /// `week_starts` are supplied by the caller because week boundaries are a
+    /// local-calendar question, and Rust has no view of the device timezone.
+    fn get_weekly_summaries(
+        &self,
+        week_starts: Vec<i64>,
+        week_length_secs: i64,
+    ) -> Result<Vec<crate::FfiWeeklySummary>, VeloqError> {
+        with_engine(|e| {
+            week_starts
+                .into_iter()
+                .map(|start| {
+                    let stats = e.get_period_stats(start, start + week_length_secs);
+                    crate::FfiWeeklySummary {
+                        week_start: start,
+                        count: stats.count,
+                        moving_time: stats.total_duration,
+                        distance: stats.total_distance,
+                        training_load: stats.total_tss,
+                    }
+                })
+                .collect()
+        })
+    }
+
+    /// A stored power curve body, or `None` when that sport and window have
+    /// never been fetched. `None` means "ask for it", not "no data".
+    fn get_power_curve_body(&self, sport: String, days: i64) -> Result<Option<String>, VeloqError> {
+        with_engine(|e| {
+            e.get_curve_body(
+                crate::persistence::bodies::CurveKind::Power,
+                &sport,
+                days,
+                false,
+            )
+            .map_err(|err| VeloqError::Database {
+                msg: format!("{}", err),
+            })
+        })?
+    }
+
+    /// A stored pace curve body, keyed by sport, window and the gap flag.
+    fn get_pace_curve_body(
+        &self,
+        sport: String,
+        days: i64,
+        gap: bool,
+    ) -> Result<Option<String>, VeloqError> {
+        with_engine(|e| {
+            e.get_curve_body(
+                crate::persistence::bodies::CurveKind::Pace,
+                &sport,
+                days,
+                gap,
+            )
+            .map_err(|err| VeloqError::Database {
+                msg: format!("{}", err),
+            })
+        })?
+    }
+
+    /// An activity's stored interval body, or `None` if never fetched.
+    fn get_interval_body(&self, activity_id: String) -> Result<Option<String>, VeloqError> {
+        with_engine(|e| {
+            e.get_interval_body(&activity_id)
+                .map_err(|err| VeloqError::Database {
+                    msg: format!("{}", err),
+                })
+        })?
+    }
+
+    /// Calendar event bodies over an inclusive window, oldest first.
+    fn get_calendar_event_bodies(
+        &self,
+        oldest_ts: i64,
+        newest_ts: i64,
+    ) -> Result<Vec<String>, VeloqError> {
+        with_engine(|e| {
+            e.get_calendar_event_bodies(oldest_ts, newest_ts)
+                .map_err(|err| VeloqError::Database {
+                    msg: format!("{}", err),
+                })
+        })?
+    }
+
     fn get_zone_distribution(
         &self,
         sport_type: String,

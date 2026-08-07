@@ -46,6 +46,7 @@ pub mod settings;
 pub use settings::settings_keys;
 mod strength;
 mod tiles;
+pub mod bodies;
 pub mod wellness;
 
 // ============================================================================

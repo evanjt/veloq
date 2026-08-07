@@ -71,6 +71,44 @@ export function syncActivitiesWindow(host: DelegateHost, oldest: string, newest:
   return started;
 }
 
+/** Ask Rust to fetch and store a power curve. Returns false when the same
+ *  curve is already in flight or no credentials are set. */
+export function syncPowerCurve(host: DelegateHost, sport: string, days: number): boolean {
+  if (!host.ready) return false;
+  return host.timed('syncPowerCurve', () =>
+    host.engine.sync().syncPowerCurve(sport, BigInt(days))
+  ) as boolean;
+}
+
+/** Ask Rust to fetch and store a pace curve. `gap` is honoured for running only. */
+export function syncPaceCurve(
+  host: DelegateHost,
+  sport: string,
+  days: number,
+  gap: boolean
+): boolean {
+  if (!host.ready) return false;
+  return host.timed('syncPaceCurve', () =>
+    host.engine.sync().syncPaceCurve(sport, BigInt(days), gap)
+  ) as boolean;
+}
+
+/** Ask Rust to fetch and store an activity's work/recovery intervals. */
+export function syncActivityIntervals(host: DelegateHost, activityId: string): boolean {
+  if (!host.ready) return false;
+  return host.timed('syncActivityIntervals', () =>
+    host.engine.sync().syncActivityIntervals(activityId)
+  ) as boolean;
+}
+
+/** Ask Rust to refresh the calendar events in a date window. */
+export function syncCalendarEvents(host: DelegateHost, oldest: string, newest: string): boolean {
+  if (!host.ready) return false;
+  return host.timed('syncCalendarEvents', () =>
+    host.engine.sync().syncCalendarEvents(oldest, newest)
+  ) as boolean;
+}
+
 /** Soft-cancel the running sync. */
 export function cancelSync(host: DelegateHost): void {
   if (!host.ready) return;

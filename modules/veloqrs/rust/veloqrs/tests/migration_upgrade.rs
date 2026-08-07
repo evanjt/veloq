@@ -94,6 +94,9 @@ fn one_behind_migrations() -> Migrations<'static> {
     set.push(M::up(include_str!(
         "../src/migrations/013_wellness_raw_body.sql"
     )));
+    set.push(M::up(include_str!(
+        "../src/migrations/014_activity_bodies.sql"
+    )));
     Migrations::new(set)
 }
 
@@ -443,7 +446,7 @@ fn seed_one_version_behind_db(path: &Path) -> rusqlite::Result<()> {
         [],
     )?;
     conn.execute(
-        "INSERT OR REPLACE INTO schema_info(key, value) VALUES ('schema_version', '13')",
+        "INSERT OR REPLACE INTO schema_info(key, value) VALUES ('schema_version', '14')",
         [],
     )?;
 
@@ -465,6 +468,38 @@ fn seed_one_version_behind_db(path: &Path) -> rusqlite::Result<()> {
     )?;
 
     Ok(())
+}
+
+#[test]
+fn upgrade_to_the_on_demand_body_tables_keeps_existing_data() {
+    let tmp = TempDir::new().unwrap();
+    let db_path = tmp.path().join("routes.db");
+    seed_one_version_behind_db(&db_path).expect("seed");
+
+    let conn = Connection::open(&db_path).unwrap();
+    conn.execute(
+        "INSERT INTO activity_bodies(activity_id, date, raw) VALUES (?,?,?)",
+        params![ACTIVITY_ID, START_DATE, r#"{"id":"i2200001"}"#],
+    )
+    .expect("seed a body written before the upgrade");
+    drop(conn);
+
+    drop(PersistentRouteEngine::new(db_path.to_str().unwrap()).expect("open and migrate"));
+
+    let conn = Connection::open(&db_path).expect("reopen");
+    for table in ["curve_bodies", "interval_bodies", "calendar_event_bodies"] {
+        assert_eq!(
+            count(&conn, table),
+            0,
+            "{} must exist and start empty",
+            table
+        );
+    }
+    assert_eq!(
+        count(&conn, "activity_bodies"),
+        1,
+        "bodies written before the upgrade must survive"
+    );
 }
 
 #[test]

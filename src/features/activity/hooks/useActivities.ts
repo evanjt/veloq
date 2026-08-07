@@ -5,6 +5,7 @@ import { formatLocalDate } from '@/shared/format/format';
 import { CACHE } from '@/shared/app/constants';
 import { queryKeys } from '@/shared/query/queryKeys';
 import { getRouteEngine } from '@/shared/native/routeEngine';
+import { useEngineBody } from '@/shared/native/engineBodies';
 import { useEngineChannel } from '@/shared/native/useEngineChannel';
 import type { Activity, IntervalsDTO } from '@/types';
 import { useAuthStore } from '@/shared/app/AuthStore';
@@ -232,12 +233,28 @@ export function useActivityStreams(id: string) {
 }
 
 export function useActivityIntervals(id: string) {
+  const queryKey = queryKeys.activities.intervals(id);
+
+  const body = id ? (getRouteEngine()?.getIntervalBody(id) ?? null) : null;
+  useEngineBody(body !== null, () => getRouteEngine()?.syncActivityIntervals(id), queryKey, !!id);
+
   return useQuery<IntervalsDTO>({
-    queryKey: queryKeys.activities.intervals(id),
-    queryFn: () => intervalsApi.getActivityIntervals(id),
+    queryKey,
+    queryFn: () => {
+      const stored = getRouteEngine()?.getIntervalBody(id);
+      if (!stored) return EMPTY_INTERVALS;
+      try {
+        return JSON.parse(stored) as IntervalsDTO;
+      } catch {
+        return EMPTY_INTERVALS;
+      }
+    },
     // Intervals never change
     staleTime: Infinity,
     gcTime: CACHE.HOUR * 2,
     enabled: !!id,
   });
 }
+
+/** Rendered as "no intervals" rather than an error while the fetch is in flight. */
+const EMPTY_INTERVALS = { icu_intervals: [], icu_groups: [] } as unknown as IntervalsDTO;

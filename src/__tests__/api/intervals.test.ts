@@ -49,64 +49,11 @@ describe('intervalsApi.getActivityStreams', () => {
   });
 });
 
-describe('intervalsApi.getPowerCurve', () => {
-  it('calls power-curves endpoint', async () => {
-    mockGet.mockResolvedValue({ data: { list: [{ secs: [1, 5], values: [400, 350] }] } });
-    const result = await intervalsApi.getPowerCurve({ sport: 'Ride', days: 365 });
-    expect(mockGet).toHaveBeenCalledWith(
-      '/athlete/i12345/power-curves.json',
-      expect.objectContaining({
-        params: { type: 'Ride', curves: '365d' },
-      })
-    );
-    expect(result.secs).toEqual([1, 5]);
-    expect(result.watts).toEqual([400, 350]);
-  });
-});
-
-describe('intervalsApi.getPaceCurve', () => {
-  it('computes pace from distance and time', async () => {
-    mockGet.mockResolvedValue({
-      data: {
-        list: [
-          {
-            distance: [100, 200],
-            values: [20, 50], // seconds
-          },
-        ],
-      },
-    });
-    const result = await intervalsApi.getPaceCurve({ sport: 'Run' });
-    // pace = distance / time → 100/20=5, 200/50=4
-    expect(result.pace[0]).toBe(5);
-    expect(result.pace[1]).toBe(4);
-    expect(result.distances).toEqual([100, 200]);
-    expect(result.times).toEqual([20, 50]);
-  });
-});
-
 describe('intervalsApi.getActivityMap', () => {
   it('calls map endpoint', async () => {
     mockGet.mockResolvedValue({ data: { bounds: [1, 2, 3, 4], latlngs: [] } });
     await intervalsApi.getActivityMap('act1');
     expect(mockGet).toHaveBeenCalledWith('/activity/act1/map', expect.anything());
-  });
-});
-
-describe('intervalsApi.getAthleteSummary', () => {
-  it('calls athlete-summary with date range', async () => {
-    mockGet.mockResolvedValue({ data: [{ week: '2024-W01' }] });
-    const result = await intervalsApi.getAthleteSummary({
-      start: '2024-01-01',
-      end: '2024-01-07',
-    });
-    expect(mockGet).toHaveBeenCalledWith(
-      '/athlete/i12345/athlete-summary',
-      expect.objectContaining({
-        params: { start: '2024-01-01', end: '2024-01-07' },
-      })
-    );
-    expect(result).toHaveLength(1);
   });
 });
 

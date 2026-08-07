@@ -1337,6 +1337,22 @@ impl From<crate::CalendarSummary> for FfiCalendarSummary {
 // Activity Pattern Types
 // ============================================================================
 
+/// One Monday-anchored week of training totals, derived from
+/// `activity_metrics`. Replaces the intervals.icu athlete-summary endpoint:
+/// the screens read only these four numbers.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiWeeklySummary {
+    /// Monday of the week, epoch seconds at local midnight.
+    pub week_start: i64,
+    pub count: u32,
+    /// Moving time in seconds.
+    pub moving_time: i64,
+    /// Distance in metres.
+    pub distance: f64,
+    /// Training load (TSS).
+    pub training_load: f64,
+}
+
 /// One untyped activity payload, keyed by id and start time. Demo seeding
 /// writes these; a live sync writes them from the same shape.
 #[derive(Debug, Clone, uniffi::Record)]

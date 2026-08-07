@@ -256,21 +256,129 @@ pub async fn fetch_power_curve(
 }
 
 /// `GET /athlete/{id}/pace-curves.json` → curve with pace computed as distance/time.
+///
+/// `gap` asks for gradient-adjusted pace. intervals.icu only offers it for
+/// running, so it is dropped for any other sport rather than sent and ignored.
 pub async fn fetch_pace_curve(
     t: &Transport,
     athlete_id: &str,
     sport: &str,
     curves: &str,
+    gap: bool,
     lane: Lane,
 ) -> Result<PaceCurve, NetError> {
+    let mut query: Vec<(&str, &str)> = vec![("type", sport), ("curves", curves)];
+    if gap && sport == "Run" {
+        query.push(("gap", "true"));
+    }
     let body = t
         .get_bytes(
             &format!("/athlete/{}/pace-curves.json", athlete_id),
-            &[("type", sport), ("curves", curves)],
+            &query,
             lane,
         )
         .await?;
     parse_pace_curve(&body).map_err(|e| NetError::Decode(e.to_string()))
+}
+
+/// `GET /athlete/{id}/events` - calendar events (planned workouts, notes,
+/// targets) over a date window, as untyped bodies. `resolve=true` expands the
+/// workout document the planner screens render.
+pub async fn fetch_calendar_events_bodies(
+    t: &Transport,
+    athlete_id: &str,
+    oldest: &str,
+    newest: &str,
+    lane: Lane,
+) -> Result<Vec<(String, String, String)>, NetError> {
+    let bytes = t
+        .get_bytes(
+            &format!("/athlete/{}/events", athlete_id),
+            &[("oldest", oldest), ("newest", newest), ("resolve", "true")],
+            lane,
+        )
+        .await?;
+    let items: Vec<serde_json::Value> =
+        serde_json::from_slice(&bytes).map_err(|e| NetError::Decode(e.to_string()))?;
+
+    let mut out = Vec::with_capacity(items.len());
+    for item in items {
+        // An event with no id cannot be keyed, and one with no date cannot be
+        // windowed. Either way it would be unreachable, so skip it.
+        let Some(id) = item.get("id").map(value_to_id) else {
+            continue;
+        };
+        let Some(start) = item
+            .get("start_date_local")
+            .and_then(|v| v.as_str())
+            .map(str::to_string)
+        else {
+            continue;
+        };
+        out.push((id, start, item.to_string()));
+    }
+    Ok(out)
+}
+
+/// intervals.icu sends event ids as numbers; the store keys them as text.
+fn value_to_id(v: &serde_json::Value) -> String {
+    v.as_str()
+        .map(str::to_string)
+        .unwrap_or_else(|| v.to_string())
+}
+
+/// `GET /athlete/{id}/power-curves.json` as the untyped body.
+pub async fn fetch_power_curve_body(
+    t: &Transport,
+    athlete_id: &str,
+    sport: &str,
+    curves: &str,
+    lane: Lane,
+) -> Result<String, NetError> {
+    let bytes = t
+        .get_bytes(
+            &format!("/athlete/{}/power-curves.json", athlete_id),
+            &[("type", sport), ("curves", curves)],
+            lane,
+        )
+        .await?;
+    decode_body(bytes)
+}
+
+/// `GET /athlete/{id}/pace-curves.json` as the untyped body, with the same
+/// running-only `gap` rule as `fetch_pace_curve`.
+pub async fn fetch_pace_curve_body(
+    t: &Transport,
+    athlete_id: &str,
+    sport: &str,
+    curves: &str,
+    gap: bool,
+    lane: Lane,
+) -> Result<String, NetError> {
+    let mut query: Vec<(&str, &str)> = vec![("type", sport), ("curves", curves)];
+    if gap && sport == "Run" {
+        query.push(("gap", "true"));
+    }
+    let bytes = t
+        .get_bytes(
+            &format!("/athlete/{}/pace-curves.json", athlete_id),
+            &query,
+            lane,
+        )
+        .await?;
+    decode_body(bytes)
+}
+
+/// `GET /activity/{id}/intervals` as the untyped body.
+pub async fn fetch_intervals_body(
+    t: &Transport,
+    activity_id: &str,
+    lane: Lane,
+) -> Result<String, NetError> {
+    let bytes = t
+        .get_bytes(&format!("/activity/{}/intervals", activity_id), &[], lane)
+        .await?;
+    decode_body(bytes)
 }
 
 /// `GET /activity/{id}/file` - raw FIT bytes (for strength exercise-set parsing).
@@ -427,11 +535,68 @@ mod tests {
             }));
         });
         let t = fast_transport(server.base_url());
-        let pc = crate::runtime::block_on(fetch_pace_curve(&t, "i1", "Run", "42d", Lane::Backfill))
-            .unwrap();
+        let pc = crate::runtime::block_on(fetch_pace_curve(
+            &t,
+            "i1",
+            "Run",
+            "42d",
+            false,
+            Lane::Backfill,
+        ))
+        .unwrap();
         assert_eq!(pc.pace[0], 5.0); // 100 m / 20 s
         assert_eq!(pc.pace[1], 0.0); // div-by-zero guard
         assert_eq!(pc.critical_speed, Some(2.85));
+    }
+
+    #[test]
+    fn pace_curve_sends_gap_only_for_running() {
+        let server = MockServer::start();
+        let with_gap = server.mock(|when, then| {
+            when.method(GET)
+                .path("/athlete/i1/pace-curves.json")
+                .query_param("type", "Run")
+                .query_param("gap", "true");
+            then.status(200).json_body(json!({"list": []}));
+        });
+        let t = fast_transport(server.base_url());
+        crate::runtime::block_on(fetch_pace_curve(
+            &t,
+            "i1",
+            "Run",
+            "42d",
+            true,
+            Lane::Backfill,
+        ))
+        .unwrap();
+        with_gap.assert();
+
+        // intervals.icu only computes GAP for running, so asking for it on a
+        // swim would be a parameter the server ignores.
+        let server = MockServer::start();
+        let without_gap = server.mock(|when, then| {
+            when.method(GET)
+                .path("/athlete/i1/pace-curves.json")
+                .query_param("type", "Swim")
+                .matches(|req| {
+                    req.query_params
+                        .as_ref()
+                        .map(|q| !q.iter().any(|(k, _)| k == "gap"))
+                        .unwrap_or(true)
+                });
+            then.status(200).json_body(json!({"list": []}));
+        });
+        let t = fast_transport(server.base_url());
+        crate::runtime::block_on(fetch_pace_curve(
+            &t,
+            "i1",
+            "Swim",
+            "42d",
+            true,
+            Lane::Backfill,
+        ))
+        .unwrap();
+        without_gap.assert();
     }
 
     #[test]

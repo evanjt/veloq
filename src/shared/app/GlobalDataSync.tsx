@@ -13,7 +13,7 @@ import { useRouteDataSync } from '@/features/routes/hooks/useRouteDataSync';
 import { useSectionHealthCheck } from '@/features/routes/hooks/useSectionHealthCheck';
 import { queryKeys } from '@/shared/query/queryKeys';
 import { onSyncComplete } from '@/features/settings/lib/autobackup';
-import { intervalsApi } from '@/api';
+import { parsePaceCurveBody } from '@/features/stats/lib/curveBodies';
 import {
   getRouteEngine,
   applyDetectionPresetForMethod,
@@ -154,16 +154,22 @@ export function GlobalDataSync() {
       // pace_history is normally only populated when viewing the pace curve screen.
       // Seeding here ensures a baseline exists after first sync so pace milestones
       // can appear once critical speed changes.
-      (async () => {
-        try {
-          const engine = getRouteEngine();
-          if (!engine) return;
+      try {
+        const engine = getRouteEngine();
+        if (engine) {
           const sportTypes = engine.getAvailableSportTypes?.() ?? [];
           const todayTs = Math.floor(new Date().setHours(0, 0, 0, 0) / 1000);
 
           for (const sport of ['Run', 'Swim'] as const) {
             if (!sportTypes.includes(sport)) continue;
-            const curve = await intervalsApi.getPaceCurve({ sport, days: 42 });
+            const stored = engine.getPaceCurveBody(sport, 42, false);
+            if (!stored) {
+              // Not fetched yet. Ask for it; the next sync-complete pass seeds
+              // the snapshot, and the pace curve screen would anyway.
+              engine.syncPaceCurve(sport, 42, false);
+              continue;
+            }
+            const curve = parsePaceCurveBody(stored, sport);
             if (curve?.criticalSpeed && curve.criticalSpeed > 0) {
               engine.savePaceSnapshot(
                 sport,
@@ -174,10 +180,10 @@ export function GlobalDataSync() {
               );
             }
           }
-        } catch {
-          // best-effort - pace milestone will still work when user visits pace curve
         }
-      })();
+      } catch {
+        // best-effort - pace milestone will still work when user visits pace curve
+      }
     }
   }, [progress.status, queryClient]);
 

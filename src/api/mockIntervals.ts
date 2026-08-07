@@ -50,15 +50,6 @@ async function loadCalendarEvents() {
  */
 export const mockIntervalsApi = {
   /**
-   * Get current athlete (same as getAthlete for demo)
-   */
-  async getCurrentAthlete(): Promise<Athlete> {
-    await delay(100);
-    const { fixtures } = await loadFixtures();
-    return fixtures.athlete as Athlete;
-  },
-
-  /**
    * Get a single activity by ID
    */
   async getActivity(id: string): Promise<ActivityDetail> {
@@ -84,37 +75,6 @@ export const mockIntervalsApi = {
   },
 
   /**
-   * Get activity intervals (laps/work-rest intervals)
-   */
-  async getActivityIntervals(id: string): Promise<IntervalsDTO> {
-    await delay(100);
-    const { getActivityIntervals } = await loadFixtures();
-    return getActivityIntervals(id);
-  },
-
-  /**
-   * Get power curve data
-   */
-  async getPowerCurve(_params?: { sport?: string; days?: number }): Promise<PowerCurve> {
-    await delay(100);
-    const { demoPowerCurve } = await loadCurves();
-    return demoPowerCurve;
-  },
-
-  /**
-   * Get pace curve data
-   */
-  async getPaceCurve(_params?: {
-    sport?: string;
-    days?: number;
-    gap?: boolean;
-  }): Promise<PaceCurve> {
-    await delay(100);
-    const { demoPaceCurve } = await loadCurves();
-    return demoPaceCurve;
-  },
-
-  /**
    * Get activity map data (GPS coordinates and bounds)
    */
   async getActivityMap(id: string, boundsOnly = false): Promise<ActivityMapData | null> {
@@ -122,95 +82,5 @@ export const mockIntervalsApi = {
     const { getActivityMap } = await loadFixtures();
     const map = getActivityMap(id, boundsOnly);
     return map as ActivityMapData | null;
-  },
-
-  /**
-   * Get athlete summary (weekly stats aggregated by calendar week)
-   * Generates mock data from demo activities
-   */
-  async getAthleteSummary(params: { start: string; end: string }): Promise<AthleteSummary[]> {
-    await delay(100);
-    const { getActivities } = await loadFixtures();
-    const activities = getActivities({
-      oldest: params.start,
-      newest: params.end,
-    }) as Activity[];
-
-    // Group activities by ISO week (Monday-Sunday)
-    const weekMap = new Map<string, Activity[]>();
-    for (const activity of activities) {
-      const date = new Date(activity.start_date_local);
-      const monday = getMonday(date);
-      const weekKey = formatLocalDate(monday);
-      if (!weekMap.has(weekKey)) {
-        weekMap.set(weekKey, []);
-      }
-      weekMap.get(weekKey)!.push(activity);
-    }
-
-    // Convert to AthleteSummary array
-    const summaries: AthleteSummary[] = [];
-    for (const [weekDate, weekActivities] of weekMap) {
-      const totalTime = weekActivities.reduce((sum, a) => sum + (a.moving_time || 0), 0);
-      const totalDistance = weekActivities.reduce((sum, a) => sum + (a.distance || 0), 0);
-      const totalLoad = weekActivities.reduce((sum, a) => sum + (a.icu_training_load || 0), 0);
-      const totalCalories = weekActivities.reduce((sum, a) => sum + (a.calories || 0), 0);
-      const totalElevation = weekActivities.reduce(
-        (sum, a) => sum + (a.total_elevation_gain || 0),
-        0
-      );
-
-      summaries.push({
-        date: weekDate,
-        count: weekActivities.length,
-        time: totalTime,
-        moving_time: totalTime,
-        elapsed_time: totalTime,
-        calories: totalCalories,
-        total_elevation_gain: totalElevation,
-        training_load: totalLoad,
-        srpe: 0,
-        distance: totalDistance,
-        eftp: null,
-        eftpPerKg: null,
-        athlete_id: 'demo',
-        athlete_name: 'Demo User',
-        fitness: 50,
-        fatigue: 30,
-        form: 20,
-        rampRate: 0,
-        weight: 70,
-        timeInZones: [],
-        timeInZonesTot: totalTime,
-        byCategory: [],
-        mostRecentWellnessId: weekDate,
-      });
-    }
-
-    // Sort by date descending (newest first)
-    return summaries.sort((a, b) => b.date.localeCompare(a.date));
-  },
-
-  /**
-   * Get calendar events (planned workouts)
-   */
-  async getCalendarEvents(params?: {
-    oldest?: string;
-    newest?: string;
-    category?: string;
-  }): Promise<CalendarEvent[]> {
-    await delay(100);
-    const { getDemoCalendarEvents } = await loadCalendarEvents();
-    const events = getDemoCalendarEvents();
-    // Filter by date range if provided
-    if (params?.oldest || params?.newest) {
-      return events.filter((e) => {
-        const date = e.start_date_local.split('T')[0];
-        if (params.oldest && date < params.oldest) return false;
-        if (params.newest && date > params.newest) return false;
-        return true;
-      });
-    }
-    return events;
   },
 };
