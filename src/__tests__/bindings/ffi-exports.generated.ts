@@ -6,7 +6,7 @@
  * Used by tests to validate TypeScript bindings match Rust exports.
  *
  * 6 standalone `#[uniffi::export]` functions plus
- * 218 methods inside `#[uniffi::export] impl` blocks across
+ * 219 methods inside `#[uniffi::export] impl` blocks across
  * 11 UniFFI Objects.
  */
 
@@ -29,7 +29,7 @@ export interface FfiExportInfo {
 
 /**
  * All FFI exports from Rust source.
- * Total: 224 exports (6 standalone + 218 methods)
+ * Total: 225 exports (6 standalone + 219 methods)
  */
 export const FFI_EXPORTS: FfiExportInfo[] = [
   {
@@ -829,10 +829,19 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     object: 'MapManager',
   },
   {
+    name: 'get_screen_data',
+    camelName: 'getScreenData',
+    file: 'objects/maps.rs',
+    line: 45,
+    paramCount: 3,
+    returnType: 'Result<crate::FfiMapScreenData, VeloqError>',
+    object: 'MapManager',
+  },
+  {
     name: 'get_bounds_for_range',
     camelName: 'getBoundsForRange',
     file: 'objects/maps.rs',
-    line: 73,
+    line: 54,
     paramCount: 3,
     returnType: 'Result<Option<crate::ffi_types::FfiBounds>, VeloqError>',
     object: 'MapManager',
@@ -841,7 +850,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'get_all_signatures',
     camelName: 'getAllSignatures',
     file: 'objects/maps.rs',
-    line: 126,
+    line: 107,
     paramCount: 0,
     returnType: 'Result<Vec<crate::ffi_types::FfiMapSignature>, VeloqError>',
     object: 'MapManager',
@@ -850,7 +859,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'get_signatures_for_ids',
     camelName: 'getSignaturesForIds',
     file: 'objects/maps.rs',
-    line: 130,
+    line: 111,
     paramCount: 1,
     returnType: 'Result<Vec<crate::ffi_types::FfiMapSignature>, VeloqError>',
     object: 'MapManager',
@@ -2137,6 +2146,7 @@ export const EXPECTED_TS_FUNCTIONS = new Set<string>([
   'new',
   'queryViewport',
   'getFiltered',
+  'getScreenData',
   'getBoundsForRange',
   'getAllSignatures',
   'getSignaturesForIds',
@@ -2368,6 +2378,7 @@ export const RUST_TO_TS_NAME: Record<string, string> = {
   get_widget_snapshot: 'getWidgetSnapshot',
   query_viewport: 'queryViewport',
   get_filtered: 'getFiltered',
+  get_screen_data: 'getScreenData',
   get_bounds_for_range: 'getBoundsForRange',
   get_all_signatures: 'getAllSignatures',
   get_signatures_for_ids: 'getSignaturesForIds',
@@ -2378,7 +2389,6 @@ export const RUST_TO_TS_NAME: Record<string, string> = {
   get_filtered_summaries: 'getFilteredSummaries',
   get_consensus_route: 'getConsensusRoute',
   get_performances: 'getPerformances',
-  get_screen_data: 'getScreenData',
   set_name: 'setName',
   get_all_names: 'getAllNames',
   exclude_activity: 'excludeActivity',

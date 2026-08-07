@@ -3438,6 +3438,69 @@ const FfiConverterTypeFfiInsightsParams = (() => {
 })();
 
 /**
+ * Everything the map tab paints with in one call.
+ */
+export type FfiMapScreenData = {
+  /**
+   * Total activities held by the engine, before the date and sport filters
+   */
+  activityCount: /*u32*/ number;
+  /**
+   * Sport types with at least one activity
+   */
+  availableSportTypes: Array<string>;
+  /**
+   * Activities inside the requested window and sport filter
+   */
+  activities: Array<MapActivityComplete>;
+};
+
+/**
+ * Generated factory for {@link FfiMapScreenData} record objects.
+ */
+export const FfiMapScreenData = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiMapScreenData, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiMapScreenData>,
+  });
+})();
+
+const FfiConverterTypeFfiMapScreenData = (() => {
+  type TypeName = FfiMapScreenData;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        activityCount: FfiConverterUInt32.read(from),
+        availableSportTypes: FfiConverterArrayString.read(from),
+        activities: FfiConverterArrayTypeMapActivityComplete.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterUInt32.write(value.activityCount, into);
+      FfiConverterArrayString.write(value.availableSportTypes, into);
+      FfiConverterArrayTypeMapActivityComplete.write(value.activities, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterUInt32.allocationSize(value.activityCount) +
+        FfiConverterArrayString.allocationSize(value.availableSportTypes) +
+        FfiConverterArrayTypeMapActivityComplete.allocationSize(
+          value.activities,
+        )
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * Lightweight map signature for rendering activity traces on the map.
  * Contains simplified GPS points (max ~100 via Douglas-Peucker) as encoded coords.
  */
@@ -10570,6 +10633,15 @@ export interface MapManagerLike {
     endDate: /*i64*/ bigint,
     sportTypes: Array<string>,
   ) /*throws*/ : Array<MapActivityComplete>;
+  /**
+   * Everything the map tab paints with: the engine total, the sport types
+   * the filter chips offer, and the activities inside the window.
+   */
+  getScreenData(
+    startDate: /*i64*/ bigint,
+    endDate: /*i64*/ bigint,
+    sportTypes: Array<string>,
+  ) /*throws*/ : FfiMapScreenData;
   getSignaturesForIds(ids: Array<string>) /*throws*/ : Array<FfiMapSignature>;
   queryViewport(
     minLat: /*f64*/ number,
@@ -10655,6 +10727,34 @@ export class MapManager extends UniffiAbstractObject implements MapManagerLike {
         ),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_mapmanager_get_filtered(
+            uniffiTypeMapManagerObjectFactory.clonePointer(this),
+            FfiConverterInt64.lower(startDate),
+            FfiConverterInt64.lower(endDate),
+            FfiConverterArrayString.lower(sportTypes),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * Everything the map tab paints with: the engine total, the sport types
+   * the filter chips offer, and the activities inside the window.
+   */
+  getScreenData(
+    startDate: /*i64*/ bigint,
+    endDate: /*i64*/ bigint,
+    sportTypes: Array<string>,
+  ): FfiMapScreenData /*throws*/ {
+    return FfiConverterTypeFfiMapScreenData.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_mapmanager_get_screen_data(
             uniffiTypeMapManagerObjectFactory.clonePointer(this),
             FfiConverterInt64.lower(startDate),
             FfiConverterInt64.lower(endDate),
@@ -16046,6 +16146,14 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_mapmanager_get_screen_data() !==
+    16743
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_mapmanager_get_screen_data",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_mapmanager_get_signatures_for_ids() !==
     17059
   ) {
@@ -17181,6 +17289,7 @@ export default Object.freeze({
     FfiConverterTypeFfiIndexActivitySummary,
     FfiConverterTypeFfiInsightsData,
     FfiConverterTypeFfiInsightsParams,
+    FfiConverterTypeFfiMapScreenData,
     FfiConverterTypeFfiMapSignature,
     FfiConverterTypeFfiMatchStrictness,
     FfiConverterTypeFfiMergeCandidate,
