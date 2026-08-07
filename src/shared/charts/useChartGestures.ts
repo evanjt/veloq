@@ -109,6 +109,13 @@ export interface ChartGestureOptions<T> {
 
   /** Longest touch still counted as a tap. */
   tapMaxDuration?: number;
+
+  /**
+   * Where the crosshair sits. `point` snaps to the selected point, which reads
+   * best when the points are far apart. `finger` tracks the touch, which reads
+   * best on a dense curve where snapping looks like lag.
+   */
+  crosshairMode?: 'point' | 'finger';
 }
 
 export interface ChartGestureResult<T> {
@@ -133,8 +140,12 @@ export interface ChartGestureResult<T> {
   /** Feed the plot area rectangle in from the render callback. */
   syncBounds: (bounds: ChartBounds) => void;
 
-  /** Feed per-point pixel x-coordinates in from the render callback. */
-  syncXCoords: (coords: number[]) => void;
+  /**
+   * Feed per-point pixel x-coordinates in from the render callback. Takes the
+   * renderer's own point array and a selector so the guard runs before the
+   * map, which matters on a path that fires every frame.
+   */
+  syncXCoords: <P>(points: readonly P[], getX: (point: P) => number) => void;
 }
 
 // ============================================================================
@@ -158,6 +169,7 @@ export function useChartGestures<T>(options: ChartGestureOptions<T>): ChartGestu
     resolveTapIndex,
     onTap,
     tapMaxDuration = CHART_CONFIG.TAP_MAX_DURATION,
+    crosshairMode = 'point',
   } = options;
 
   const [isActive, setIsActive] = useState(false);
@@ -212,7 +224,10 @@ export function useChartGestures<T>(options: ChartGestureOptions<T>): ChartGestu
     return Math.round(ratio * (len - 1));
   }, [data.length]);
 
-  const applySelection = useCallback((idx: number, force: boolean) => {
+  // A tap is a one-shot selection, so it never opens or closes an interaction.
+  // Only the scrub does, otherwise a tap-only chart would report a scrub that
+  // never ends.
+  const applySelection = useCallback((idx: number, source: 'scrub' | 'tap') => {
     const points = dataRef.current;
 
     if (idx < 0 || points.length === 0) {
@@ -226,10 +241,10 @@ export function useChartGestures<T>(options: ChartGestureOptions<T>): ChartGestu
       return;
     }
 
-    if (!force && idx === lastNotifiedIdx.current) return;
+    if (source === 'scrub' && idx === lastNotifiedIdx.current) return;
     lastNotifiedIdx.current = idx;
 
-    if (!isActiveRef.current) {
+    if (source === 'scrub' && !isActiveRef.current) {
       isActiveRef.current = true;
       setIsActive(true);
       onInteractionChangeRef.current?.(true);
@@ -243,7 +258,7 @@ export function useChartGestures<T>(options: ChartGestureOptions<T>): ChartGestu
   }, []);
 
   const handleScrubIndex = useCallback(
-    (idx: number) => applySelection(idx, false),
+    (idx: number) => applySelection(idx, 'scrub'),
     [applySelection]
   );
 
@@ -368,7 +383,7 @@ export function useChartGestures<T>(options: ChartGestureOptions<T>): ChartGestu
       const resolve = resolveTapIndexRef.current;
       if (resolve) {
         const idx = resolve(x, y);
-        if (idx >= 0) applySelection(idx, true);
+        if (idx >= 0) applySelection(idx, 'tap');
         return;
       }
       onTapRef.current?.();
@@ -410,6 +425,14 @@ export function useChartGestures<T>(options: ChartGestureOptions<T>): ChartGestu
   // Priority: the finger, then a sibling chart, then whatever the screen set.
   const crosshairStyle = useAnimatedStyle(() => {
     'worklet';
+    const bounds = boundsShared.value;
+
+    // While the finger is down these charts track it rather than snapping.
+    if (crosshairMode === 'finger' && touchX.value >= 0) {
+      const clamped = Math.max(bounds.left, Math.min(bounds.right, touchX.value));
+      return { opacity: 1, transform: [{ translateX: clamped }] };
+    }
+
     let idx = selectedIndex.value;
     if (idx < 0 && sharedSelectedIdx) idx = sharedSelectedIdx.value;
     if (idx < 0) idx = externalIdx.value;
@@ -421,10 +444,9 @@ export function useChartGestures<T>(options: ChartGestureOptions<T>): ChartGestu
     }
 
     if (touchX.value < 0) return { opacity: 0, transform: [{ translateX: 0 }] };
-    const bounds = boundsShared.value;
     const clamped = Math.max(bounds.left, Math.min(bounds.right, touchX.value));
     return { opacity: 1, transform: [{ translateX: clamped }] };
-  }, [sharedSelectedIdx]);
+  }, [sharedSelectedIdx, crosshairMode]);
 
   const syncBounds = useCallback(
     (bounds: ChartBounds) => {
@@ -441,14 +463,14 @@ export function useChartGestures<T>(options: ChartGestureOptions<T>): ChartGestu
     [boundsShared]
   );
 
-  // Guard before comparing contents so the render callback allocates nothing
-  // on the frames where the layout has not moved.
+  // Guard before mapping so the render callback allocates nothing on the frames
+  // where the layout has not moved.
   const syncXCoords = useCallback(
-    (coords: number[]) => {
+    <P>(points: readonly P[], getX: (point: P) => number) => {
       const current = xCoordsShared.value;
-      if (coords.length !== current.length || coords[0] !== current[0]) {
-        xCoordsShared.value = coords;
-      }
+      const unchanged =
+        points.length === current.length && (points.length === 0 || getX(points[0]) === current[0]);
+      if (!unchanged) xCoordsShared.value = points.map(getX);
     },
     [xCoordsShared]
   );
