@@ -520,7 +520,10 @@ impl PersistentRouteEngine {
     /// Cost is O(1 activity × M sections) plus an incremental regroup, so it
     /// fits inside a background push handler where a full O(N²) detection
     /// cannot.
-    pub fn index_new_activity(&mut self, activity_id: &str) -> Result<IndexActivitySummary, String> {
+    pub fn index_new_activity(
+        &mut self,
+        activity_id: &str,
+    ) -> Result<IndexActivitySummary, String> {
         let mut summary = IndexActivitySummary::default();
 
         let track = match self.get_gps_track(activity_id) {
@@ -528,7 +531,10 @@ impl PersistentRouteEngine {
             _ => return Ok(summary),
         };
 
-        let sport_type = self.activity_metrics.get(activity_id).map(|m| m.sport_type.clone());
+        let sport_type = self
+            .activity_metrics
+            .get(activity_id)
+            .map(|m| m.sport_type.clone());
 
         // Collect matched section polylines up front: get_sections() borrows the
         // in-memory Vec, and the insert loop below needs &mut self.

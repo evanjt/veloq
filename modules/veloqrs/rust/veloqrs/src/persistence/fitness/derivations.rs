@@ -895,7 +895,10 @@ impl PersistentRouteEngine {
                     if best_moving_time == u32::MAX {
                         best_moving_time = 0;
                     }
-                    group_cache.insert(cache_key, (best_moving_time, second_best_moving_time, trends));
+                    group_cache.insert(
+                        cache_key,
+                        (best_moving_time, second_best_moving_time, trends),
+                    );
                 }
             }
 
@@ -910,12 +913,14 @@ impl PersistentRouteEngine {
                 } else {
                     None
                 };
-                let pr_improvement_seconds =
-                    if is_pr && *second_best_moving_time != u32::MAX && *second_best_moving_time > moving_time {
-                        Some(*second_best_moving_time - moving_time)
-                    } else {
-                        None
-                    };
+                let pr_improvement_seconds = if is_pr
+                    && *second_best_moving_time != u32::MAX
+                    && *second_best_moving_time > moving_time
+                {
+                    Some(*second_best_moving_time - moving_time)
+                } else {
+                    None
+                };
                 results.push(crate::FfiActivityRouteHighlight {
                     activity_id: aid.to_string(),
                     route_id: gid.to_string(),

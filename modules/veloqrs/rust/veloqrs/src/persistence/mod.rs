@@ -45,9 +45,9 @@ mod screens;
 pub mod sections;
 pub mod settings;
 pub use settings::settings_keys;
+pub mod bodies;
 mod strength;
 mod tiles;
-pub mod bodies;
 pub mod wellness;
 
 // ============================================================================
@@ -645,7 +645,10 @@ impl PersistentRouteEngine {
             ("sections", self.load_sections()),
             ("processed_activity_ids", self.load_processed_activity_ids()),
             ("activity_metrics", self.load_activity_metrics()),
-            ("match_strictness", self.load_match_strictness_from_settings()),
+            (
+                "match_strictness",
+                self.load_match_strictness_from_settings(),
+            ),
             ("section_config", self.load_section_config_from_settings()),
         ];
         let mut first_error: Option<rusqlite::Error> = None;
