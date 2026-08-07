@@ -135,3 +135,146 @@ describe('splitIntoLanes', () => {
     expect(reverseLane.points).toEqual([]);
   });
 });
+
+/**
+ * Golden baseline for the lane split the unified performance chart consumes.
+ *
+ * The fixture is a season of traversals in both directions, with excluded
+ * efforts, laps and a personal best, so a change to lane ordering, domain
+ * padding or best-point selection shows up as a diff.
+ */
+describe('lane preparation golden', () => {
+  const SEASON: PerformanceDataPoint[] = [
+    {
+      id: 'e1',
+      activityId: 'a1',
+      activityName: 'Winter base',
+      speed: 5.4,
+      sectionTime: 812,
+      sectionDistance: 4380,
+      date: new Date('2025-01-06T08:12:00Z'),
+      direction: 'same',
+      lapNumber: 1,
+      totalLaps: 1,
+    },
+    {
+      id: 'e2',
+      activityId: 'a2',
+      activityName: 'Club run',
+      speed: 6.1,
+      sectionTime: 718,
+      sectionDistance: 4380,
+      date: new Date('2025-02-11T17:03:00Z'),
+      direction: 'same',
+      matchPercentage: 96,
+    },
+    {
+      id: 'e3',
+      activityId: 'a3',
+      activityName: 'Reverse recce',
+      speed: 5.0,
+      sectionTime: 876,
+      sectionDistance: 4380,
+      date: new Date('2025-03-02T09:41:00Z'),
+      direction: 'reverse',
+    },
+    {
+      id: 'e4',
+      activityId: 'a4',
+      activityName: 'Threshold day',
+      speed: 6.9,
+      sectionTime: 635,
+      sectionDistance: 4380,
+      date: new Date('2025-04-19T06:55:00Z'),
+      direction: 'same',
+      isBest: true,
+    },
+    {
+      id: 'e5',
+      activityId: 'a5',
+      activityName: 'Easy spin',
+      speed: 4.2,
+      sectionTime: 1043,
+      sectionDistance: 4380,
+      date: new Date('2025-05-24T15:20:00Z'),
+      direction: 'same',
+      isExcluded: true,
+    },
+    {
+      id: 'e6',
+      activityId: 'a6',
+      activityName: 'Reverse repeat',
+      speed: 5.8,
+      sectionTime: 755,
+      sectionDistance: 4380,
+      date: new Date('2025-06-08T07:30:00Z'),
+      direction: 'reverse',
+      lapNumber: 2,
+      totalLaps: 3,
+    },
+    {
+      id: 'e7',
+      activityId: 'a7',
+      activityName: 'Autumn tempo',
+      speed: 6.4,
+      sectionTime: 684,
+      sectionDistance: 4380,
+      date: new Date('2025-09-14T10:05:00Z'),
+      direction: 'same',
+    },
+    {
+      id: 'e8',
+      activityId: 'a8',
+      activityName: 'Reverse tempo',
+      speed: 6.2,
+      sectionTime: 706,
+      sectionDistance: 4380,
+      date: new Date('2025-10-27T16:48:00Z'),
+      direction: 'reverse',
+    },
+  ];
+
+  // Evenly spaced normalised positions, the same gap-compressed shape the
+  // chart uses, without pulling the axis builder into the fixture.
+  const spread = (date: Date) => {
+    const index = SEASON.findIndex((p) => p.date.getTime() === date.getTime());
+    return index < 0 ? 0.5 : index / (SEASON.length - 1);
+  };
+
+  function summarise(lane: ReturnType<typeof buildLaneStats>) {
+    return {
+      originalIndices: lane.originalIndices,
+      bestIndex: lane.bestIndex,
+      currentIndex: lane.currentIndex,
+      minSpeed: lane.minSpeed,
+      maxSpeed: lane.maxSpeed,
+      points: lane.points.map((p) => ({
+        id: p.id,
+        x: p.x,
+        speed: p.speed,
+        sectionTime: p.sectionTime,
+        direction: p.direction,
+        isExcluded: p.isExcluded ?? false,
+        isBest: p.isBest ?? false,
+      })),
+    };
+  }
+
+  it('matches the golden with no highlighted point', () => {
+    const { forwardLane, reverseLane } = splitIntoLanes(SEASON, spread, undefined);
+
+    expect({
+      forwardLane: summarise(forwardLane),
+      reverseLane: summarise(reverseLane),
+    }).toMatchSnapshot();
+  });
+
+  it('matches the golden with a highlighted reverse traversal', () => {
+    const { forwardLane, reverseLane } = splitIntoLanes(SEASON, spread, 5);
+
+    expect({
+      forwardLane: summarise(forwardLane),
+      reverseLane: summarise(reverseLane),
+    }).toMatchSnapshot();
+  });
+});

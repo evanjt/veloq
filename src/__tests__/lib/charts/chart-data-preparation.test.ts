@@ -344,3 +344,91 @@ describe('computeIntervalBands', () => {
     expect(bands[0].bandColor).toBeDefined();
   });
 });
+
+/**
+ * Golden baseline for the shape `buildChartData` hands to the chart layer.
+ *
+ * The fixture is a 900-sample ride, long enough to exercise downsampling and
+ * varied enough that a normalisation or colour-resolution change moves the
+ * numbers. Regenerate by deleting the snapshot file and re-running.
+ */
+describe('buildChartData golden', () => {
+  function rideStreams(): ActivityStreams {
+    const samples = 900;
+    const time: number[] = [];
+    const distance: number[] = [];
+    const watts: number[] = [];
+    const heartrate: number[] = [];
+    const altitude: number[] = [];
+
+    for (let i = 0; i < samples; i++) {
+      const t = i;
+      const climb = Math.sin(i / 140) * 60;
+      const surge = Math.sin(i / 23) * 45;
+      time.push(t);
+      distance.push(Math.round(i * 7.8 * 100) / 100);
+      watts.push(Math.round(195 + surge + climb * 0.8));
+      heartrate.push(Math.round(142 + surge * 0.28 + climb * 0.2));
+      altitude.push(Math.round((540 + climb + Math.sin(i / 47) * 8) * 10) / 10);
+    }
+
+    return { time, distance, watts, heartrate, altitude } as ActivityStreams;
+  }
+
+  function goldenConfigs(): Record<ChartTypeId, ChartConfig> {
+    return {
+      power: powerConfig(),
+      heartrate: heartRateConfig(),
+      elevation: altitudeConfig(),
+    } as unknown as Record<ChartTypeId, ChartConfig>;
+  }
+
+  // The config objects carry functions, which serialise as [Function] and say
+  // nothing. Project the series down to the fields the chart layer reads, and
+  // flatten each point to one line so a diff stays readable.
+  function summarise(result: ReturnType<typeof buildChartData>) {
+    return {
+      maxX: result.maxX,
+      pointCount: result.chartData.length,
+      indexMap: result.indexMap.join(','),
+      chartData: result.chartData.map((point) =>
+        Object.entries(point)
+          .map(([key, value]) => `${key}=${value.toFixed(6)}`)
+          .join(' ')
+      ),
+      seriesInfo: result.seriesInfo.map((s) => ({
+        id: s.id,
+        color: s.color,
+        range: s.range,
+        isPreview: s.isPreview ?? false,
+        rawDataLength: s.rawData.length,
+      })),
+    };
+  }
+
+  it('matches the golden for a metric distance axis', () => {
+    const result = buildChartData(
+      rideStreams(),
+      ['power', 'heartrate', 'elevation'],
+      goldenConfigs(),
+      true,
+      null,
+      'distance'
+    );
+
+    expect(summarise(result)).toMatchSnapshot();
+  });
+
+  it('matches the golden for an imperial time axis with a preview series', () => {
+    const result = buildChartData(
+      rideStreams(),
+      ['power', 'heartrate'],
+      goldenConfigs(),
+      false,
+      'elevation',
+      'time'
+    );
+
+    expect(summarise(result)).toMatchSnapshot();
+  });
+});
