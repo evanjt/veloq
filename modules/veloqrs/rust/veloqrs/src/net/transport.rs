@@ -183,10 +183,23 @@ impl Transport {
         lane: Lane,
     ) -> Result<Vec<u8>, NetError> {
         let url = self.url(path);
-        self.send_write(lane, None, || async {
-            Ok(self.client.post(&url).json(body))
-        })
-        .await
+        let mut attempt = 0u32;
+        loop {
+            // Same single choke point as the reads: writes share the pace.
+            self.governor.acquire(lane).await;
+            let req = self
+                .client
+                .post(&url)
+                .header("Authorization", &self.auth_header)
+                .json(body);
+            match self.settle_write(req.send().await, attempt).await {
+                WriteStep::Done(result) => return result,
+                WriteStep::Backoff(wait) => {
+                    attempt += 1;
+                    tokio::time::sleep(wait).await;
+                }
+            }
+        }
     }
 
     /// POST a multipart body whose file part streams straight off the device
@@ -203,71 +216,76 @@ impl Transport {
         timeout: Duration,
     ) -> Result<Vec<u8>, NetError> {
         let url = self.url(path);
-        self.send_write(lane, Some(timeout), || async {
+        let mut attempt = 0u32;
+        loop {
+            self.governor.acquire(lane).await;
+            // Rebuilt every attempt: a streamed body cannot be replayed.
             let mut form = reqwest::multipart::Form::new()
                 .part(file.field.to_string(), streamed_file_part(file).await?);
             for (name, value) in fields {
                 form = form.text((*name).to_string(), value.clone());
             }
-            Ok(self.client.post(&url).multipart(form))
-        })
-        .await
-    }
-
-    /// Dispatch a write, rebuilding the request per attempt because a streamed
-    /// body cannot be cloned.
-    async fn send_write<F>(
-        &self,
-        lane: Lane,
-        timeout: Option<Duration>,
-        build: F,
-    ) -> Result<Vec<u8>, NetError>
-    where
-        F: AsyncFn() -> Result<reqwest::RequestBuilder, NetError>,
-    {
-        let mut attempt = 0u32;
-        loop {
-            // Same single choke point as the reads: writes share the pace.
-            self.governor.acquire(lane).await;
-
-            let mut req = build().await?.header("Authorization", &self.auth_header);
-            if let Some(t) = timeout {
-                req = req.timeout(t);
-            }
-
-            match req.send().await {
-                Ok(resp) => {
-                    let status = resp.status();
-                    let budget = parse_budget(resp.headers());
-                    self.governor.observe(&budget);
-
-                    if status.is_success() {
-                        return resp
-                            .bytes()
-                            .await
-                            .map(|b| b.to_vec())
-                            .map_err(|e| NetError::Transport(e.to_string()));
-                    }
-                    if status == reqwest::StatusCode::UNAUTHORIZED {
-                        return Err(NetError::Unauthorized);
-                    }
-                    if status == reqwest::StatusCode::TOO_MANY_REQUESTS {
-                        attempt += 1;
-                        if attempt > MAX_RETRIES {
-                            return Err(NetError::RateLimited);
-                        }
-                        let wait = governor::decide_backoff(budget.retry_after_secs, attempt, true);
-                        tokio::time::sleep(wait).await;
-                        continue;
-                    }
-                    let code = status.as_u16();
-                    let body = resp.text().await.unwrap_or_default();
-                    return Err(NetError::Http { status: code, body });
+            let req = self
+                .client
+                .post(&url)
+                .header("Authorization", &self.auth_header)
+                .timeout(timeout)
+                .multipart(form);
+            match self.settle_write(req.send().await, attempt).await {
+                WriteStep::Done(result) => return result,
+                WriteStep::Backoff(wait) => {
+                    attempt += 1;
+                    tokio::time::sleep(wait).await;
                 }
-                Err(e) => return Err(NetError::Transport(e.to_string())),
             }
         }
     }
+
+    /// Classify a write response under the write retry policy.
+    async fn settle_write(
+        &self,
+        send: Result<reqwest::Response, reqwest::Error>,
+        attempt: u32,
+    ) -> WriteStep {
+        let resp = match send {
+            Ok(resp) => resp,
+            Err(e) => return WriteStep::Done(Err(NetError::Transport(e.to_string()))),
+        };
+        let status = resp.status();
+        let budget = parse_budget(resp.headers());
+        self.governor.observe(&budget);
+
+        if status.is_success() {
+            return WriteStep::Done(
+                resp.bytes()
+                    .await
+                    .map(|b| b.to_vec())
+                    .map_err(|e| NetError::Transport(e.to_string())),
+            );
+        }
+        if status == reqwest::StatusCode::UNAUTHORIZED {
+            return WriteStep::Done(Err(NetError::Unauthorized));
+        }
+        if status == reqwest::StatusCode::TOO_MANY_REQUESTS {
+            if attempt >= MAX_RETRIES {
+                return WriteStep::Done(Err(NetError::RateLimited));
+            }
+            return WriteStep::Backoff(governor::decide_backoff(
+                budget.retry_after_secs,
+                attempt + 1,
+                true,
+            ));
+        }
+        let code = status.as_u16();
+        let body = resp.text().await.unwrap_or_default();
+        WriteStep::Done(Err(NetError::Http { status: code, body }))
+    }
+}
+
+/// What a write response asks the caller to do next.
+enum WriteStep {
+    Done(Result<Vec<u8>, NetError>),
+    Backoff(Duration),
 }
 
 /// A file part sourced from a path on the device rather than from memory.

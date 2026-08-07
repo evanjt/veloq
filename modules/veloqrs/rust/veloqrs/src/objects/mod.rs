@@ -14,5 +14,6 @@ mod tiles;
 pub use engine::VeloqEngine;
 pub use error::VeloqError;
 pub use sync::{
-    FfiSyncStatus, SyncManager, current_athlete_id, current_auth_header, current_transport,
+    FfiCallOutcome, FfiManualActivity, FfiSyncStatus, SyncManager, current_athlete_id,
+    current_auth_header, current_transport,
 };

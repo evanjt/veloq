@@ -7,14 +7,17 @@
 //! on the shared `ASYNC_RUNTIME`, and never blocks the JS thread: commands return
 //! instantly after posting to the runtime; results surface through status.
 //!
-//! This is the command + status boundary. The contract (commands + status) is
-//! identical whether the underlying transport is a true async FFI future or this
-//! instant-return-plus-status form, so a later async-FFI swap is invisible to TS.
+//! Reads follow that command + status boundary. Writes cannot: whether a
+//! recording was accepted, rejected or merely delayed decides what happens to
+//! the file on the device, and the caller needs that answer inline. So the
+//! upload verbs are async and resolve to an `FfiCallOutcome` the caller branches
+//! on, while still running their I/O on the shared runtime.
 
 use super::error::VeloqError;
 use crate::governor::{self, AuthMethod, Lane};
 use crate::net::endpoints;
 use crate::net::transport::{NetError, Transport};
+use crate::net::types::ManualActivityBody;
 use crate::persistence::bodies::CurveKind;
 use once_cell::sync::Lazy;
 use std::collections::HashSet;
@@ -77,6 +80,128 @@ pub struct FfiSyncStatus {
     pub completed: u32,
     pub total: u32,
     pub last_error: Option<String>,
+}
+
+/// The outcome of a write, or of a credential check.
+///
+/// Failures come back as data rather than as a thrown error, because the caller
+/// has to branch on the status: a 403 asks for write permission, a 5xx waits for
+/// the queue's next attempt, and a 400 parks the recording for the athlete to
+/// look at. Getting that wrong costs someone a ride, so the classification is
+/// explicit here rather than inferred from an error message downstream.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiCallOutcome {
+    /// "ok", "unauthorized", "rateLimited", "http", "network" or "internal".
+    pub kind: String,
+    /// The id the call produced or confirmed, when `kind` is "ok".
+    pub id: Option<String>,
+    /// The status the server answered with, when it answered at all.
+    pub status: Option<u16>,
+    /// The server's own message, when the body carried one.
+    pub detail: Option<String>,
+    /// Diagnostic text. Always present.
+    pub message: String,
+}
+
+impl FfiCallOutcome {
+    fn ok(id: Option<String>) -> Self {
+        FfiCallOutcome {
+            kind: "ok".to_string(),
+            id,
+            status: None,
+            detail: None,
+            message: "ok".to_string(),
+        }
+    }
+
+    /// A failure that never reached the network: no credentials, an unreadable
+    /// file, a body that would not serialize.
+    fn internal(message: impl Into<String>) -> Self {
+        FfiCallOutcome {
+            kind: "internal".to_string(),
+            id: None,
+            status: None,
+            detail: None,
+            message: message.into(),
+        }
+    }
+
+    fn from_error(e: &NetError) -> Self {
+        let message = e.to_string();
+        let (kind, status, detail) = match e {
+            NetError::Unauthorized => ("unauthorized", Some(401), None),
+            NetError::RateLimited => ("rateLimited", Some(429), None),
+            NetError::Http { status, body } => ("http", Some(*status), server_detail(body)),
+            NetError::Transport(_) => ("network", None, None),
+            // A decode or file failure is local. Calling it a network error
+            // would queue the item for a connectivity retry that cannot help.
+            NetError::Decode(_) | NetError::Io(_) => ("internal", None, None),
+        };
+        FfiCallOutcome {
+            kind: kind.to_string(),
+            id: None,
+            status,
+            detail,
+            message,
+        }
+    }
+}
+
+/// How long a body may be and still be worth showing someone. Past this it is
+/// an error page rather than a message.
+const MAX_DETAIL_LEN: usize = 500;
+
+/// The user-facing part of an error body: a `message` or `error` field if the
+/// body is JSON, otherwise the body itself when it is short enough to read.
+fn server_detail(body: &str) -> Option<String> {
+    if let Ok(value) = serde_json::from_str::<serde_json::Value>(body) {
+        for key in ["message", "error"] {
+            if let Some(found) = value.get(key) {
+                return Some(match found {
+                    serde_json::Value::String(s) => s.clone(),
+                    other => other.to_string(),
+                });
+            }
+        }
+    }
+    let trimmed = body.trim();
+    (!trimmed.is_empty() && trimmed.len() < MAX_DETAIL_LEN).then(|| trimmed.to_string())
+}
+
+/// A manual activity entry: an activity with no file behind it.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiManualActivity {
+    pub activity_type: String,
+    pub name: String,
+    pub start_date_local: String,
+    pub elapsed_time: i64,
+    pub moving_time: Option<i64>,
+    pub distance: Option<f64>,
+    pub total_elevation_gain: Option<f64>,
+    pub average_heartrate: Option<f64>,
+    pub description: Option<String>,
+    /// Unset counts as false, so an entry is only ever flagged deliberately.
+    pub trainer: Option<bool>,
+    /// Unset counts as false.
+    pub commute: Option<bool>,
+}
+
+impl FfiManualActivity {
+    fn into_body(self) -> ManualActivityBody {
+        ManualActivityBody {
+            activity_type: self.activity_type,
+            name: self.name,
+            start_date_local: self.start_date_local,
+            elapsed_time: self.elapsed_time,
+            moving_time: self.moving_time,
+            distance: self.distance,
+            total_elevation_gain: self.total_elevation_gain,
+            average_heartrate: self.average_heartrate,
+            description: self.description,
+            trainer: self.trainer.unwrap_or(false),
+            commute: self.commute.unwrap_or(false),
+        }
+    }
 }
 
 struct SyncInner {
@@ -320,6 +445,51 @@ pub fn current_transport() -> Option<Result<Transport, String>> {
         return None;
     }
     Some(SYNC_SERVICE.build_transport().map(|(t, _athlete)| t))
+}
+
+/// Drive a request on the shared runtime and await its outcome.
+///
+/// The work is spawned rather than awaited in place for two reasons: this future
+/// is polled by the foreign executor, which is not a tokio context, and the JS
+/// thread has to stay free while a large FIT goes up.
+async fn run_on_runtime<Fut>(job: Fut) -> FfiCallOutcome
+where
+    Fut: std::future::Future<Output = Result<Option<String>, NetError>> + Send + 'static,
+{
+    let (tx, rx) = tokio::sync::oneshot::channel();
+    crate::runtime::spawn(async move {
+        let _ = tx.send(job.await);
+    });
+    match rx.await {
+        Ok(Ok(id)) => FfiCallOutcome::ok(id),
+        Ok(Err(e)) => FfiCallOutcome::from_error(&e),
+        // The task died without answering. Report it as local rather than as a
+        // network failure: nothing is known about whether the write landed.
+        Err(_) => FfiCallOutcome::internal("the request ended without reporting"),
+    }
+}
+
+/// Run a write against the held credential.
+async fn run_write<F, Fut>(job: F) -> FfiCallOutcome
+where
+    F: FnOnce(Transport, String) -> Fut + Send + 'static,
+    Fut: std::future::Future<Output = Result<Option<String>, NetError>> + Send + 'static,
+{
+    let (transport, athlete_id) = match SYNC_SERVICE.build_transport() {
+        Ok(pair) => pair,
+        Err(e) => return FfiCallOutcome::internal(e),
+    };
+    let outcome = run_on_runtime(job(transport, athlete_id)).await;
+    // A write refused for a dead credential parks the service, so an upload
+    // reaches the same session-expiry path a failed sync already does.
+    if outcome.kind == "unauthorized" {
+        SYNC_SERVICE.finish(
+            SyncState::AuthExpired,
+            Some("unauthorized".to_string()),
+            false,
+        );
+    }
+    outcome
 }
 
 /// How many days of wellness one sync pulls. Matches the widest range the
@@ -861,6 +1031,77 @@ impl SyncManager {
         })
     }
 
+    /// Upload a recorded activity file.
+    ///
+    /// The FIT streams from `file_path`, so a long ride never crosses FFI as
+    /// bytes and never lands in memory. The call resolves when the server has
+    /// answered; failures come back as an outcome, not as a thrown error.
+    async fn upload_activity(
+        &self,
+        file_path: String,
+        filename: String,
+        name: Option<String>,
+        paired_event_id: Option<i64>,
+    ) -> FfiCallOutcome {
+        run_write(move |transport, athlete_id| async move {
+            endpoints::upload_activity(
+                &transport,
+                &athlete_id,
+                &file_path,
+                &filename,
+                name.as_deref(),
+                paired_event_id,
+                Lane::Interactive,
+            )
+            .await
+        })
+        .await
+    }
+
+    /// Create an activity with no file behind it, for indoor entries.
+    async fn create_manual_activity(&self, activity: FfiManualActivity) -> FfiCallOutcome {
+        run_write(move |transport, athlete_id| async move {
+            endpoints::create_activity(
+                &transport,
+                &athlete_id,
+                &activity.into_body(),
+                Lane::Interactive,
+            )
+            .await
+        })
+        .await
+    }
+
+    /// Check a credential against `/athlete/me` and report the athlete it
+    /// belongs to. Login confirms a key this way before committing it, so the
+    /// credential under test is deliberately not the one the service holds.
+    async fn validate_credentials(&self, method: String, secret: String) -> FfiCallOutcome {
+        let Some(kind) = AuthKind::parse(&method) else {
+            return FfiCallOutcome::internal(format!("unknown auth method: {}", method));
+        };
+        let base = SYNC_SERVICE
+            .base_url
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .clone();
+        let auth = match kind {
+            AuthKind::OAuth => AuthMethod::Bearer(&secret),
+            AuthKind::ApiKey => AuthMethod::ApiKey(&secret),
+        };
+        let transport = match Transport::new(base, auth) {
+            Ok(t) => t,
+            Err(e) => return FfiCallOutcome::internal(e),
+        };
+        // A rejected candidate is not an expired session, so unlike a write
+        // this deliberately leaves the service state alone.
+        run_on_runtime(async move {
+            endpoints::fetch_current_athlete(&transport, Lane::Interactive)
+                .await
+                .map(|athlete| Some(athlete.id))
+        })
+        .await
+    }
+
     /// Soft-cancel the running sync.
     fn cancel(&self) {
         SYNC_SERVICE.request_cancel();
@@ -1177,6 +1418,88 @@ mod tests {
             !svc.is_cancelled(),
             "a fresh begin clears the prior cancellation"
         );
+    }
+
+    #[test]
+    fn write_failures_carry_the_status_the_caller_branches_on() {
+        // These five mappings decide whether a recording is retried, parked or
+        // sent back for a permission upgrade.
+        let unauthorized = FfiCallOutcome::from_error(&NetError::Unauthorized);
+        assert_eq!(unauthorized.kind, "unauthorized");
+        assert_eq!(unauthorized.status, Some(401));
+
+        let limited = FfiCallOutcome::from_error(&NetError::RateLimited);
+        assert_eq!(limited.kind, "rateLimited");
+        assert_eq!(limited.status, Some(429));
+
+        let forbidden = FfiCallOutcome::from_error(&NetError::Http {
+            status: 403,
+            body: r#"{"error":"No permission"}"#.to_string(),
+        });
+        assert_eq!(forbidden.kind, "http");
+        assert_eq!(forbidden.status, Some(403));
+        assert_eq!(forbidden.detail.as_deref(), Some("No permission"));
+
+        let offline = FfiCallOutcome::from_error(&NetError::Transport("dns".to_string()));
+        assert_eq!(offline.kind, "network");
+        assert_eq!(offline.status, None);
+
+        // A missing file is local, not a connectivity problem: queuing it for a
+        // network retry would wait forever on a file that will not appear.
+        let missing = FfiCallOutcome::from_error(&NetError::Io("no such file".to_string()));
+        assert_eq!(missing.kind, "internal");
+        assert_eq!(missing.status, None);
+    }
+
+    #[test]
+    fn a_successful_write_reports_the_created_id() {
+        let ok = FfiCallOutcome::ok(Some("i999".to_string()));
+        assert_eq!(ok.kind, "ok");
+        assert_eq!(ok.id.as_deref(), Some("i999"));
+        assert!(ok.status.is_none());
+    }
+
+    #[test]
+    fn server_detail_prefers_the_message_the_server_wrote() {
+        assert_eq!(
+            server_detail(r#"{"message":"Bad request"}"#).as_deref(),
+            Some("Bad request")
+        );
+        assert_eq!(
+            server_detail(r#"{"error":"Invalid activity"}"#).as_deref(),
+            Some("Invalid activity")
+        );
+        assert_eq!(
+            server_detail("Internal error").as_deref(),
+            Some("Internal error")
+        );
+        assert_eq!(server_detail("   ").as_deref(), None);
+        // An error page is not a message worth showing.
+        assert_eq!(server_detail(&"x".repeat(600)), None);
+    }
+
+    #[test]
+    fn a_manual_entry_is_only_flagged_when_it_says_so() {
+        let entry = FfiManualActivity {
+            activity_type: "Yoga".to_string(),
+            name: "Evening".to_string(),
+            start_date_local: "2026-08-05T18:00:00".to_string(),
+            elapsed_time: 1800,
+            moving_time: None,
+            distance: None,
+            total_elevation_gain: None,
+            average_heartrate: None,
+            description: None,
+            trainer: None,
+            commute: None,
+        };
+        let body = entry.into_body();
+        assert!(!body.trainer);
+        assert!(!body.commute);
+        // An unset optional is omitted rather than sent as null.
+        let json = serde_json::to_value(&body).unwrap();
+        assert!(json.get("distance").is_none());
+        assert_eq!(json["type"], "Yoga");
     }
 
     #[test]

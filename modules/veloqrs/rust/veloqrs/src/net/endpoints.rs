@@ -3,8 +3,9 @@
 //! Credentials live on the `Transport`; callers pass only ids and params.
 
 use crate::governor::Lane;
-use crate::net::transport::{NetError, Transport};
+use crate::net::transport::{FilePart, NetError, Transport};
 use crate::net::types::*;
+use std::time::Duration;
 
 /// Streams requested for the detail charts (GPS + the per-metric series).
 pub const DEFAULT_STREAM_TYPES: &str = "time,distance,latlng,velocity_smooth,heartrate,watts,altitude,fixed_altitude,cadence,grade_smooth,temp,w_bal,ga_velocity";
@@ -439,6 +440,85 @@ pub async fn fetch_fit_file(
         .await
 }
 
+/// The multipart field holding the activity file. Taken from the upload path
+/// the app has been shipping, not from documentation.
+const UPLOAD_FILE_FIELD: &str = "file";
+
+/// What intervals.icu records as the source of an uploaded activity.
+const DEVICE_NAME: &str = "Veloq";
+
+/// Uploads get 60 seconds instead of the transport's 30. A large FIT on a slow
+/// connection needs the headroom, and a timeout here costs the athlete a retry.
+const UPLOAD_TIMEOUT: Duration = Duration::from_secs(60);
+
+/// `POST /athlete/{id}/activities` with the file streamed from disk.
+///
+/// Returns the created activity id when the response carries one. An
+/// unreadable body is not a failure: the upload already succeeded, and
+/// reporting otherwise would have the queue post the same ride twice.
+pub async fn upload_activity(
+    t: &Transport,
+    athlete_id: &str,
+    file_path: &str,
+    filename: &str,
+    name: Option<&str>,
+    paired_event_id: Option<i64>,
+    lane: Lane,
+) -> Result<Option<String>, NetError> {
+    let mut fields: Vec<(&str, String)> = Vec::new();
+    if let Some(name) = name.filter(|n| !n.is_empty()) {
+        fields.push(("name", name.to_string()));
+    }
+    if let Some(event) = paired_event_id.filter(|id| *id != 0) {
+        fields.push(("paired_event_id", event.to_string()));
+    }
+    fields.push(("device_name", DEVICE_NAME.to_string()));
+
+    let part = FilePart {
+        field: UPLOAD_FILE_FIELD,
+        path: file_path,
+        filename,
+    };
+    let body = t
+        .post_multipart(
+            &format!("/athlete/{}/activities", athlete_id),
+            &part,
+            &fields,
+            lane,
+            UPLOAD_TIMEOUT,
+        )
+        .await?;
+    Ok(created_activity_id(&body))
+}
+
+/// `POST /athlete/{id}/activities` with a JSON body, for an entry with no file.
+pub async fn create_activity(
+    t: &Transport,
+    athlete_id: &str,
+    activity: &ManualActivityBody,
+    lane: Lane,
+) -> Result<Option<String>, NetError> {
+    let body = serde_json::to_value(activity).map_err(|e| NetError::Decode(e.to_string()))?;
+    let response = t
+        .post_json(&format!("/athlete/{}/activities", athlete_id), &body, lane)
+        .await?;
+    Ok(created_activity_id(&response))
+}
+
+/// Best-effort id from a create response, which comes back as either the
+/// activity object or a one-element list of them.
+fn created_activity_id(body: &[u8]) -> Option<String> {
+    let value: serde_json::Value = serde_json::from_slice(body).ok()?;
+    let object = match &value {
+        serde_json::Value::Array(items) => items.first()?,
+        other => other,
+    };
+    match object.get("id")? {
+        serde_json::Value::String(s) => Some(s.clone()),
+        other => Some(other.to_string()),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -692,5 +772,193 @@ mod tests {
         assert_eq!(rec.icu_intervals.len(), 2);
         assert_eq!(rec.icu_intervals[0].interval_type.as_deref(), Some("WORK"));
         assert_eq!(rec.icu_intervals[1].zone, Some(1));
+    }
+
+    /// A FIT file on disk, plus the handle keeping it alive for the test.
+    fn staged_fit() -> (tempfile::NamedTempFile, String) {
+        use std::io::Write;
+        let mut f = tempfile::NamedTempFile::new().unwrap();
+        f.write_all(&[0x0e, 0x20, 0x00, 0x00, 0x2e, 0x46, 0x49, 0x54])
+            .unwrap();
+        f.flush().unwrap();
+        let path = f.path().to_string_lossy().into_owned();
+        (f, path)
+    }
+
+    #[test]
+    fn upload_names_the_file_part_and_tags_the_device() {
+        let server = MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method(POST)
+                .path("/athlete/i1/activities")
+                .body_contains("name=\"file\"")
+                .body_contains("filename=\"Bern loop.fit\"")
+                .body_contains("name=\"name\"")
+                .body_contains("Bern loop")
+                .body_contains("name=\"paired_event_id\"")
+                .body_contains("4321")
+                .body_contains("name=\"device_name\"")
+                .body_contains("Veloq");
+            then.status(200).json_body(json!({"id": "i999"}));
+        });
+        let (_file, path) = staged_fit();
+        let t = fast_transport(server.base_url());
+        let id = crate::runtime::block_on(upload_activity(
+            &t,
+            "i1",
+            &path,
+            "Bern loop.fit",
+            Some("Bern loop"),
+            Some(4321),
+            Lane::Interactive,
+        ))
+        .unwrap();
+        mock.assert();
+        assert_eq!(id.as_deref(), Some("i999"));
+    }
+
+    /// True when the multipart body carries neither optional text part. The
+    /// file part declares `name="file"`, so `name="name"` only appears when the
+    /// title part was actually added.
+    fn without_optional_parts(body: Option<&Vec<u8>>) -> bool {
+        let text = String::from_utf8_lossy(body.map_or(&[][..], |b| b.as_slice())).into_owned();
+        !text.contains("name=\"name\"")
+            && !text.contains("name=\"paired_event_id\"")
+            && text.contains("name=\"device_name\"")
+    }
+
+    #[test]
+    fn upload_omits_the_optional_parts_when_unset() {
+        let server = MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method(POST)
+                .path("/athlete/i1/activities")
+                .matches(|req| without_optional_parts(req.body.as_ref()));
+            then.status(200).json_body(json!({"id": "i999"}));
+        });
+        let (_file, path) = staged_fit();
+        let t = fast_transport(server.base_url());
+        crate::runtime::block_on(upload_activity(
+            &t,
+            "i1",
+            &path,
+            "ride.fit",
+            None,
+            None,
+            Lane::Interactive,
+        ))
+        .unwrap();
+        mock.assert();
+    }
+
+    #[test]
+    fn upload_treats_an_empty_name_and_a_zero_event_as_unset() {
+        let server = MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method(POST)
+                .path("/athlete/i1/activities")
+                .matches(|req| without_optional_parts(req.body.as_ref()));
+            then.status(200).json_body(json!({"id": "i999"}));
+        });
+        let (_file, path) = staged_fit();
+        let t = fast_transport(server.base_url());
+        crate::runtime::block_on(upload_activity(
+            &t,
+            "i1",
+            &path,
+            "ride.fit",
+            Some(""),
+            Some(0),
+            Lane::Interactive,
+        ))
+        .unwrap();
+        mock.assert();
+    }
+
+    #[test]
+    fn an_unreadable_upload_response_is_still_a_success() {
+        // The activity is already on the server by the time the body arrives.
+        // Failing here would have the queue upload the same ride again.
+        let server = MockServer::start();
+        server.mock(|when, then| {
+            when.method(POST).path("/athlete/i1/activities");
+            then.status(200).body("OK");
+        });
+        let (_file, path) = staged_fit();
+        let t = fast_transport(server.base_url());
+        let id = crate::runtime::block_on(upload_activity(
+            &t,
+            "i1",
+            &path,
+            "ride.fit",
+            None,
+            None,
+            Lane::Interactive,
+        ))
+        .unwrap();
+        assert_eq!(id, None);
+    }
+
+    #[test]
+    fn a_list_response_yields_the_first_activity_id() {
+        let server = MockServer::start();
+        server.mock(|when, then| {
+            when.method(POST).path("/athlete/i1/activities");
+            then.status(200).json_body(json!([{"id": "i123"}]));
+        });
+        let (_file, path) = staged_fit();
+        let t = fast_transport(server.base_url());
+        let id = crate::runtime::block_on(upload_activity(
+            &t,
+            "i1",
+            &path,
+            "ride.fit",
+            None,
+            None,
+            Lane::Interactive,
+        ))
+        .unwrap();
+        assert_eq!(id.as_deref(), Some("i123"));
+    }
+
+    fn manual_body() -> ManualActivityBody {
+        ManualActivityBody {
+            activity_type: "WeightTraining".to_string(),
+            name: "Gym".to_string(),
+            start_date_local: "2026-08-05T18:00:00".to_string(),
+            elapsed_time: 3600,
+            moving_time: None,
+            distance: None,
+            total_elevation_gain: None,
+            average_heartrate: Some(112.0),
+            description: None,
+            trainer: false,
+            commute: false,
+        }
+    }
+
+    #[test]
+    fn manual_activity_posts_json_with_the_flags_present() {
+        let server = MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method(POST)
+                .path("/athlete/i1/activities")
+                .json_body(json!({
+                    "type": "WeightTraining",
+                    "name": "Gym",
+                    "start_date_local": "2026-08-05T18:00:00",
+                    "elapsed_time": 3600,
+                    "average_heartrate": 112.0,
+                    "trainer": false,
+                    "commute": false
+                }));
+            then.status(200).json_body(json!({"id": "i55"}));
+        });
+        let t = fast_transport(server.base_url());
+        let id =
+            crate::runtime::block_on(create_activity(&t, "i1", &manual_body(), Lane::Interactive))
+                .unwrap();
+        mock.assert();
+        assert_eq!(id.as_deref(), Some("i55"));
     }
 }
