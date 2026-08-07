@@ -40,6 +40,7 @@ export {
   isAutoBackupEnabled,
   setAutoBackupEnabled,
   getAvailableBackends,
+  getOfferableBackends,
   getLastBackupTimestamp,
   registerBackend,
   getWebdavConfig,

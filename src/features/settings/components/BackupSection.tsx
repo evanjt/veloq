@@ -1,5 +1,4 @@
 import React, { useMemo, useState, useCallback, useEffect } from 'react';
-import { Platform } from 'react-native';
 import {
   View,
   Text,
@@ -27,7 +26,7 @@ import {
   performBackup,
   getConfiguredBackend,
   setBackendPreference,
-  getAvailableBackends,
+  getOfferableBackends,
   getWebdavConfig,
   setWebdavConfig,
   testWebdavConnection,
@@ -35,6 +34,16 @@ import {
 } from '@/features/settings/lib/autobackup';
 import { colors, darkColors, spacing, layout } from '@/theme';
 import { NextcloudQrScanner } from './NextcloudQrScanner';
+
+const BACKEND_LABELS = {
+  local: { labelKey: 'backup.backendLocal', icon: 'cellphone' },
+  webdav: { labelKey: 'backup.backendWebdav', icon: 'server-network' },
+  icloud: { labelKey: 'backup.backendIcloud', icon: 'apple-icloud' },
+} as const;
+
+function backendLabel(id: string) {
+  return id in BACKEND_LABELS ? BACKEND_LABELS[id as keyof typeof BACKEND_LABELS] : undefined;
+}
 
 export function BackupSection() {
   const { isDark } = useTheme();
@@ -86,7 +95,7 @@ export function BackupSection() {
   // Backend picker state
   const [currentBackend, setCurrentBackend] = useState(() => getConfiguredBackend());
   const [showBackendPicker, setShowBackendPicker] = useState(false);
-  const [availableBackends, setAvailableBackends] = useState<BackupBackend[]>([]);
+  const [offerableBackends, setOfferableBackends] = useState<BackupBackend[]>([]);
 
   // WebDAV config state
   const [webdavUrl, setWebdavUrl] = useState('');
@@ -98,7 +107,7 @@ export function BackupSection() {
   const [showQrScanner, setShowQrScanner] = useState(false);
 
   useEffect(() => {
-    getAvailableBackends().then(setAvailableBackends);
+    getOfferableBackends().then(setOfferableBackends);
     const config = getWebdavConfig();
     if (config) {
       setWebdavUrl(config.url);
@@ -116,8 +125,8 @@ export function BackupSection() {
   const handleSaveWebdav = useCallback(async () => {
     if (!webdavUrl || !webdavUser || !webdavPass) return;
     await setWebdavConfig(webdavUrl, webdavUser, webdavPass);
-    // Refresh available backends since WebDAV is now configured
-    getAvailableBackends().then(setAvailableBackends);
+    // Refresh the offer list since WebDAV is now configured
+    getOfferableBackends().then(setOfferableBackends);
   }, [webdavUrl, webdavUser, webdavPass]);
 
   const handleQrScanned = useCallback(
@@ -156,7 +165,7 @@ export function BackupSection() {
       setConnectionResult(null);
       // Auto-save config
       setWebdavConfig(webdavEndpoint, user, password).then(() => {
-        getAvailableBackends().then(setAvailableBackends);
+        getOfferableBackends().then(setOfferableBackends);
       });
     },
     [t]
@@ -356,60 +365,43 @@ export function BackupSection() {
               <Text style={[styles.modalTitle, isDark && styles.textLight]}>
                 {t('backup.selectBackend')}
               </Text>
-              {[
-                { id: 'local', name: t('backup.backendLocal'), icon: 'cellphone' as const },
-                { id: 'webdav', name: t('backup.backendWebdav'), icon: 'server-network' as const },
-                ...(Platform.OS === 'ios'
-                  ? [
-                      {
-                        id: 'icloud',
-                        name: t('backup.backendIcloud'),
-                        icon: 'apple-icloud' as const,
-                      },
-                    ]
-                  : []),
-              ].map((option) => (
-                <TouchableOpacity
-                  key={option.id}
-                  style={[
-                    styles.modalOption,
-                    currentBackend.id === option.id && styles.modalOptionSelected,
-                  ]}
-                  onPress={() => {
-                    const backend =
-                      availableBackends.find((b) => b.id === option.id) ??
-                      (option.id === 'webdav'
-                        ? { id: 'webdav', name: 'WebDAV' }
-                        : { id: 'local', name: 'Local Storage' });
-                    handleSelectBackend(backend as BackupBackend);
-                  }}
-                  activeOpacity={0.6}
-                >
-                  <MaterialCommunityIcons
-                    name={option.icon}
-                    size={20}
-                    color={
-                      currentBackend.id === option.id
-                        ? colors.primary
-                        : isDark
-                          ? darkColors.textSecondary
-                          : colors.textSecondary
-                    }
-                  />
-                  <Text
-                    style={[
-                      styles.modalOptionText,
-                      isDark && styles.textLight,
-                      currentBackend.id === option.id && { color: colors.primary },
-                    ]}
+              {offerableBackends.map((backend) => {
+                const label = backendLabel(backend.id);
+                if (!label) return null;
+                const selected = currentBackend.id === backend.id;
+                return (
+                  <TouchableOpacity
+                    key={backend.id}
+                    style={[styles.modalOption, selected && styles.modalOptionSelected]}
+                    onPress={() => handleSelectBackend(backend)}
+                    activeOpacity={0.6}
                   >
-                    {option.name}
-                  </Text>
-                  {currentBackend.id === option.id && (
-                    <MaterialCommunityIcons name="check" size={18} color={colors.primary} />
-                  )}
-                </TouchableOpacity>
-              ))}
+                    <MaterialCommunityIcons
+                      name={label.icon}
+                      size={20}
+                      color={
+                        selected
+                          ? colors.primary
+                          : isDark
+                            ? darkColors.textSecondary
+                            : colors.textSecondary
+                      }
+                    />
+                    <Text
+                      style={[
+                        styles.modalOptionText,
+                        isDark && styles.textLight,
+                        selected && { color: colors.primary },
+                      ]}
+                    >
+                      {t(label.labelKey)}
+                    </Text>
+                    {selected && (
+                      <MaterialCommunityIcons name="check" size={18} color={colors.primary} />
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
             </View>
           </TouchableOpacity>
         </Modal>

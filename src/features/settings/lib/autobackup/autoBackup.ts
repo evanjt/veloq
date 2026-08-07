@@ -80,6 +80,22 @@ export async function getAvailableBackends(): Promise<BackupBackend[]> {
   return available;
 }
 
+/**
+ * Backends the picker may offer, which is wider than the set that is ready
+ * to run. WebDAV reports unavailable until it has credentials, but the user
+ * enters those in the backup screen itself, so it has to stay selectable.
+ * iCloud has no such in-app step, so it is only offered once available.
+ */
+const ALWAYS_OFFERABLE = new Set(['local', 'webdav']);
+
+export async function getOfferableBackends(): Promise<BackupBackend[]> {
+  const available = await getAvailableBackends();
+  return Object.values(backends).filter(
+    (backend) =>
+      ALWAYS_OFFERABLE.has(backend.id) || available.some((ready) => ready.id === backend.id)
+  );
+}
+
 /** Get timestamp of the last auto-backup, or null if never. */
 export function getLastBackupTimestamp(): number | null {
   const engine = getRouteEngine();
