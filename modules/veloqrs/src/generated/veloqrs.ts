@@ -5357,6 +5357,123 @@ const FfiConverterTypeFfiSectionConfig = (() => {
 })();
 
 /**
+ * The section detail reads that do not depend on time streams.
+ */
+export type FfiSectionDetailData = {
+  /**
+   * Total activities held by the engine
+   */
+  activityCount: /*u32*/ number;
+  /**
+   * The section itself, or `None` when the ID is unknown
+   */
+  section?: FfiFrequentSection;
+  /**
+   * Sections within the requested radius, for the map overlay
+   */
+  nearby: Array<FfiNearbySectionSummary>;
+  /**
+   * Sections this one could merge with
+   */
+  mergeCandidates: Array<FfiMergeCandidate>;
+  /**
+   * Activities the user excluded from this section
+   */
+  excludedActivityIds: Array<string>;
+  /**
+   * Whether the original bounds can still be restored
+   */
+  hasOriginalBounds: boolean;
+  /**
+   * Metrics for every activity on the section
+   */
+  activityMetrics: Array<FfiActivityMetrics>;
+  /**
+   * Simplified GPS signatures for scrub-time trace display
+   */
+  mapSignatures: Array<FfiMapSignature>;
+  /**
+   * Activities whose time streams still have to be fetched
+   */
+  missingTimeStreamIds: Array<string>;
+};
+
+/**
+ * Generated factory for {@link FfiSectionDetailData} record objects.
+ */
+export const FfiSectionDetailData = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<
+      FfiSectionDetailData,
+      ReturnType<typeof defaults>
+    >(defaults);
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiSectionDetailData>,
+  });
+})();
+
+const FfiConverterTypeFfiSectionDetailData = (() => {
+  type TypeName = FfiSectionDetailData;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        activityCount: FfiConverterUInt32.read(from),
+        section: FfiConverterOptionalTypeFfiFrequentSection.read(from),
+        nearby: FfiConverterArrayTypeFfiNearbySectionSummary.read(from),
+        mergeCandidates: FfiConverterArrayTypeFfiMergeCandidate.read(from),
+        excludedActivityIds: FfiConverterArrayString.read(from),
+        hasOriginalBounds: FfiConverterBool.read(from),
+        activityMetrics: FfiConverterArrayTypeFfiActivityMetrics.read(from),
+        mapSignatures: FfiConverterArrayTypeFfiMapSignature.read(from),
+        missingTimeStreamIds: FfiConverterArrayString.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterUInt32.write(value.activityCount, into);
+      FfiConverterOptionalTypeFfiFrequentSection.write(value.section, into);
+      FfiConverterArrayTypeFfiNearbySectionSummary.write(value.nearby, into);
+      FfiConverterArrayTypeFfiMergeCandidate.write(value.mergeCandidates, into);
+      FfiConverterArrayString.write(value.excludedActivityIds, into);
+      FfiConverterBool.write(value.hasOriginalBounds, into);
+      FfiConverterArrayTypeFfiActivityMetrics.write(
+        value.activityMetrics,
+        into,
+      );
+      FfiConverterArrayTypeFfiMapSignature.write(value.mapSignatures, into);
+      FfiConverterArrayString.write(value.missingTimeStreamIds, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterUInt32.allocationSize(value.activityCount) +
+        FfiConverterOptionalTypeFfiFrequentSection.allocationSize(
+          value.section,
+        ) +
+        FfiConverterArrayTypeFfiNearbySectionSummary.allocationSize(
+          value.nearby,
+        ) +
+        FfiConverterArrayTypeFfiMergeCandidate.allocationSize(
+          value.mergeCandidates,
+        ) +
+        FfiConverterArrayString.allocationSize(value.excludedActivityIds) +
+        FfiConverterBool.allocationSize(value.hasOriginalBounds) +
+        FfiConverterArrayTypeFfiActivityMetrics.allocationSize(
+          value.activityMetrics,
+        ) +
+        FfiConverterArrayTypeFfiMapSignature.allocationSize(
+          value.mapSignatures,
+        ) +
+        FfiConverterArrayString.allocationSize(value.missingTimeStreamIds)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * A section encounter: one (section, direction) pair for a given activity.
  * This is the canonical unit for displaying section data in the activity detail.
  */
@@ -5728,6 +5845,79 @@ const FfiConverterTypeFfiSectionPerformanceBatchEntry = (() => {
       return (
         FfiConverterString.allocationSize(value.sectionId) +
         FfiConverterTypeFfiSectionPerformanceResult.allocationSize(value.result)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
+ * The section detail reads that need lap times.
+ */
+export type FfiSectionPerformanceData = {
+  /**
+   * Year and month performance history, or `None` with no records
+   */
+  calendarSummary?: FfiCalendarSummary;
+  /**
+   * Per-activity performance records for the requested sport
+   */
+  performances: FfiSectionPerformanceResult;
+  /**
+   * Pre-computed chart payload for the requested range and sport
+   */
+  chartData: FfiSectionChartData;
+};
+
+/**
+ * Generated factory for {@link FfiSectionPerformanceData} record objects.
+ */
+export const FfiSectionPerformanceData = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<
+      FfiSectionPerformanceData,
+      ReturnType<typeof defaults>
+    >(defaults);
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () =>
+      Object.freeze(defaults()) as Partial<FfiSectionPerformanceData>,
+  });
+})();
+
+const FfiConverterTypeFfiSectionPerformanceData = (() => {
+  type TypeName = FfiSectionPerformanceData;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        calendarSummary: FfiConverterOptionalTypeFfiCalendarSummary.read(from),
+        performances: FfiConverterTypeFfiSectionPerformanceResult.read(from),
+        chartData: FfiConverterTypeFfiSectionChartData.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterOptionalTypeFfiCalendarSummary.write(
+        value.calendarSummary,
+        into,
+      );
+      FfiConverterTypeFfiSectionPerformanceResult.write(
+        value.performances,
+        into,
+      );
+      FfiConverterTypeFfiSectionChartData.write(value.chartData, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterOptionalTypeFfiCalendarSummary.allocationSize(
+          value.calendarSummary,
+        ) +
+        FfiConverterTypeFfiSectionPerformanceResult.allocationSize(
+          value.performances,
+        ) +
+        FfiConverterTypeFfiSectionChartData.allocationSize(value.chartData)
       );
     }
   }
@@ -10780,6 +10970,26 @@ export interface SectionManagerLike {
    * Cheap alternative to `get_summaries`/`get_all` for count-only callers.
    */
   getCount() /*throws*/ : /*u32*/ number;
+  /**
+   * Everything the section detail screen can paint before its time streams
+   * have been fetched: the section, its neighbours and merge candidates,
+   * exclusions, bounds state, per-activity metrics and signatures, and the
+   * activities whose streams are still missing.
+   */
+  getDetailData(
+    sectionId: string,
+    nearbyRadiusMeters: /*f64*/ number,
+  ) /*throws*/ : FfiSectionDetailData;
+  /**
+   * The lap-time reads for the section detail screen: calendar summary,
+   * performance records and chart payload. Call once the streams reported
+   * by `get_detail_data` have landed.
+   */
+  getDetailPerformance(
+    sectionId: string,
+    timeRangeDays: /*u32*/ number,
+    sportFilter: string | undefined,
+  ) /*throws*/ : FfiSectionPerformanceData;
   getEfficiencyTrend(
     sectionId: string,
   ) /*throws*/ : FfiEfficiencyTrend | undefined;
@@ -11423,6 +11633,63 @@ export class SectionManager
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_count(
             uniffiTypeSectionManagerObjectFactory.clonePointer(this),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * Everything the section detail screen can paint before its time streams
+   * have been fetched: the section, its neighbours and merge candidates,
+   * exclusions, bounds state, per-activity metrics and signatures, and the
+   * activities whose streams are still missing.
+   */
+  getDetailData(
+    sectionId: string,
+    nearbyRadiusMeters: /*f64*/ number,
+  ): FfiSectionDetailData /*throws*/ {
+    return FfiConverterTypeFfiSectionDetailData.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_detail_data(
+            uniffiTypeSectionManagerObjectFactory.clonePointer(this),
+            FfiConverterString.lower(sectionId),
+            FfiConverterFloat64.lower(nearbyRadiusMeters),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * The lap-time reads for the section detail screen: calendar summary,
+   * performance records and chart payload. Call once the streams reported
+   * by `get_detail_data` have landed.
+   */
+  getDetailPerformance(
+    sectionId: string,
+    timeRangeDays: /*u32*/ number,
+    sportFilter: string | undefined,
+  ): FfiSectionPerformanceData /*throws*/ {
+    return FfiConverterTypeFfiSectionPerformanceData.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_detail_performance(
+            uniffiTypeSectionManagerObjectFactory.clonePointer(this),
+            FfiConverterString.lower(sectionId),
+            FfiConverterUInt32.lower(timeRangeDays),
+            FfiConverterOptionalString.lower(sportFilter),
             callStatus,
           );
         },
@@ -15647,6 +15914,22 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_detail_data() !==
+    58379
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_sectionmanager_get_detail_data",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_detail_performance() !==
+    55694
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_sectionmanager_get_detail_performance",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_efficiency_trend() !==
     39610
   ) {
@@ -16456,11 +16739,13 @@ export default Object.freeze({
     FfiConverterTypeFfiSectionChartData,
     FfiConverterTypeFfiSectionChartPoint,
     FfiConverterTypeFfiSectionConfig,
+    FfiConverterTypeFfiSectionDetailData,
     FfiConverterTypeFfiSectionEncounter,
     FfiConverterTypeFfiSectionExtensionTrack,
     FfiConverterTypeFfiSectionLap,
     FfiConverterTypeFfiSectionMatch,
     FfiConverterTypeFfiSectionPerformanceBatchEntry,
+    FfiConverterTypeFfiSectionPerformanceData,
     FfiConverterTypeFfiSectionPerformanceRecord,
     FfiConverterTypeFfiSectionPerformanceResult,
     FfiConverterTypeFfiSectionPortion,

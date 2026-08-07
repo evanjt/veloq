@@ -6,7 +6,7 @@
  * Used by tests to validate TypeScript bindings match Rust exports.
  *
  * 6 standalone `#[uniffi::export]` functions plus
- * 214 methods inside `#[uniffi::export] impl` blocks across
+ * 216 methods inside `#[uniffi::export] impl` blocks across
  * 11 UniFFI Objects.
  */
 
@@ -29,7 +29,7 @@ export interface FfiExportInfo {
 
 /**
  * All FFI exports from Rust source.
- * Total: 220 exports (6 standalone + 214 methods)
+ * Total: 222 exports (6 standalone + 216 methods)
  */
 export const FFI_EXPORTS: FfiExportInfo[] = [
   {
@@ -1540,6 +1540,24 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     object: 'SectionManager',
   },
   {
+    name: 'get_detail_data',
+    camelName: 'getDetailData',
+    file: 'objects/sections.rs',
+    line: 896,
+    paramCount: 2,
+    returnType: 'Result<crate::FfiSectionDetailData, VeloqError>',
+    object: 'SectionManager',
+  },
+  {
+    name: 'get_detail_performance',
+    camelName: 'getDetailPerformance',
+    file: 'objects/sections.rs',
+    line: 907,
+    paramCount: 3,
+    returnType: 'Result<crate::FfiSectionPerformanceData, VeloqError>',
+    object: 'SectionManager',
+  },
+  {
     name: 'new',
     camelName: 'new',
     file: 'objects/settings.rs',
@@ -2180,6 +2198,8 @@ export const EXPECTED_TS_FUNCTIONS = new Set<string>([
   'getActivityPrSections',
   'getWorkoutSections',
   'getChartData',
+  'getDetailData',
+  'getDetailPerformance',
   'new',
   'getAthleteProfile',
   'setAthleteProfile',
@@ -2390,6 +2410,7 @@ export const RUST_TO_TS_NAME: Record<string, string> = {
   get_activity_pr_sections: 'getActivityPrSections',
   get_workout_sections: 'getWorkoutSections',
   get_chart_data: 'getChartData',
+  get_detail_performance: 'getDetailPerformance',
   get_athlete_profile: 'getAthleteProfile',
   set_athlete_profile: 'setAthleteProfile',
   get_sport_settings: 'getSportSettings',

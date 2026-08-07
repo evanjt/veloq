@@ -751,6 +751,19 @@ interface NativeModuleInterface {
     ptr: bigint,
     uniffi_out_err: UniffiRustCallStatus,
   ): number;
+  ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_detail_data(
+    ptr: bigint,
+    sectionId: Uint8Array,
+    nearbyRadiusMeters: number,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
+  ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_detail_performance(
+    ptr: bigint,
+    sectionId: Uint8Array,
+    timeRangeDays: number,
+    sportFilter: Uint8Array,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_efficiency_trend(
     ptr: bigint,
     sectionId: Uint8Array,
@@ -1374,6 +1387,8 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_calendar_summary(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_chart_data(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_count(): number;
+  ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_detail_data(): number;
+  ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_detail_performance(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_efficiency_trend(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_excluded_activities(): number;
   ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_excluded_performances(): number;
