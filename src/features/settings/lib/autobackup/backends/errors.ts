@@ -90,3 +90,29 @@ export function transportFailure(operation: string, cause: unknown): BackupTrans
   const detail = cause instanceof Error ? cause.message : String(cause);
   return new BackupTransferError(operation, 'transport', `${operation} failed: ${detail}`);
 }
+
+const CLOUD_STORAGE_KINDS: Record<string, BackupFailureKind> = {
+  ERR_AUTHENTICATION_FAILED: 'auth',
+  ERR_ACCESS_TOKEN_MISSING: 'auth',
+  ERR_FILE_NOT_FOUND: 'path',
+  ERR_DIRECTORY_NOT_FOUND: 'path',
+  ERR_INVALID_SCOPE: 'path',
+  ERR_INVALID_URL: 'path',
+  ERR_PATH_IS_FILE: 'path',
+  ERR_PATH_IS_DIRECTORY: 'path',
+  ERR_NETWORK_ERROR: 'transport',
+};
+
+/**
+ * Classify a CloudStorageError by its code.
+ *
+ * There is no quota code, so a full iCloud account arrives as a write error
+ * and stays retryable. That errs towards silence, which is the safer side.
+ */
+export function cloudFailure(operation: string, cause: unknown): BackupTransferError {
+  if (cause instanceof BackupTransferError) return cause;
+  const raw = (cause as { code?: unknown } | null)?.code;
+  const kind = (typeof raw === 'string' ? CLOUD_STORAGE_KINDS[raw] : undefined) ?? 'server';
+  const detail = cause instanceof Error ? cause.message : String(cause);
+  return new BackupTransferError(operation, kind, `${operation} failed: ${detail}`);
+}

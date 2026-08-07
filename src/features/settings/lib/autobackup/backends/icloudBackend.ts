@@ -5,9 +5,8 @@
  * Lazy-loaded to avoid crashes on Android where the native module isn't available.
  *
  * Prerequisites:
- * - npm install react-native-cloud-storage
- * - with-icloud.js Expo config plugin registered in app.json
- * - iCloud capability enabled in Xcode
+ * - The react-native-cloud-storage Expo config plugin registered in app.json
+ * - An iCloud.com.veloq.app container provisioned for the bundle identifier
  */
 
 import { Platform } from 'react-native';
@@ -16,11 +15,19 @@ import type { BackupBackend, BackupEntry } from './types';
 
 const REMOTE_DIR = '/Veloq';
 
+let scopeConfigured = false;
+
 /** Lazy-load the cloud storage module (iOS only). */
 async function getCloudStorage() {
   if (Platform.OS !== 'ios') return null;
   try {
     const mod = await import('react-native-cloud-storage');
+    if (!scopeConfigured) {
+      // The provider defaults to app_data, which hides backups from the Files
+      // app. A backup is worth having precisely when the app is not.
+      mod.CloudStorage.setProviderOptions({ scope: mod.CloudStorageScope.Documents });
+      scopeConfigured = true;
+    }
     return mod.CloudStorage;
   } catch {
     return null;
