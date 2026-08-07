@@ -382,18 +382,18 @@ fn sql_level_custom_section_survives_forward_migration() {
         )
         .expect("schema_version present");
     assert_eq!(
-        schema_version, "15",
-        "schema version should be bumped to 15"
+        schema_version, "16",
+        "schema version should be bumped to 16"
     );
 
     // rusqlite_migration tracks progress via SQLite's PRAGMA user_version,
-    // so applying 15 migrations leaves user_version = 15.
+    // so applying 16 migrations leaves user_version = 16.
     let pragma_user_version: i64 = conn
         .query_row("PRAGMA user_version", [], |r| r.get(0))
         .expect("PRAGMA user_version readable");
     assert_eq!(
-        pragma_user_version, 15,
-        "rusqlite_migration should have advanced PRAGMA user_version to 15"
+        pragma_user_version, 16,
+        "rusqlite_migration should have advanced PRAGMA user_version to 16"
     );
 
     // Section row preserved.

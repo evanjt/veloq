@@ -109,6 +109,36 @@ export function syncCalendarEvents(host: DelegateHost, oldest: string, newest: s
   ) as boolean;
 }
 
+/** Ask Rust to fetch and store an activity's streams for a series selection.
+ *  The types string is the cache key, so callers must pass it consistently. */
+export function syncActivityStreams(
+  host: DelegateHost,
+  activityId: string,
+  types: string
+): boolean {
+  if (!host.ready) return false;
+  return host.timed('syncActivityStreams', () =>
+    host.engine.sync().syncActivityStreams(activityId, types)
+  ) as boolean;
+}
+
+/** Ask Rust to fetch and store an activity's full detail body. */
+export function syncActivityDetail(host: DelegateHost, activityId: string): boolean {
+  if (!host.ready) return false;
+  return host.timed('syncActivityDetail', () =>
+    host.engine.sync().syncActivityDetail(activityId)
+  ) as boolean;
+}
+
+/** Ask Rust to fetch the `time` streams the section maths needs. Activities
+ *  that already have one are skipped inside Rust. */
+export function syncTimeStreams(host: DelegateHost, activityIds: string[]): boolean {
+  if (!host.ready || activityIds.length === 0) return false;
+  return host.timed('syncTimeStreams', () =>
+    host.engine.sync().syncTimeStreams(activityIds)
+  ) as boolean;
+}
+
 /** Soft-cancel the running sync. */
 export function cancelSync(host: DelegateHost): void {
   if (!host.ready) return;

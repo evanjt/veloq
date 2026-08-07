@@ -1,8 +1,12 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { routeEngine } from 'veloqrs';
-import { intervalsApi } from '@/api';
 import type { SectionMatch } from '@/features/routes/hooks/useSectionMatches';
 import type { Section } from '@/types';
+
+/** How long to wait for Rust to finish a time-stream batch before rendering
+ *  whatever landed. Section times only sharpen as more streams arrive. */
+const TIME_STREAM_TIMEOUT_MS = 30_000;
+const TIME_STREAM_POLL_MS = 400;
 
 /**
  * Fetches time streams for all activities in matched sections and syncs them
@@ -42,40 +46,23 @@ export function useSectionTimeStreams(
     }
 
     let cancelled = false;
+    // Rust fetches only the activities that have no stored stream, through
+    // the same governor as every other request, and persists them itself.
     const fetchTimeStreams = async () => {
-      try {
-        const streamsToSync: Array<{ activityId: string; times: number[] }> = [];
+      routeEngine.syncTimeStreams(sectionActivityIds);
 
-        // Fetch in batches of 5 to avoid overwhelming the API
-        const batchSize = 5;
-        for (let i = 0; i < sectionActivityIds.length && !cancelled; i += batchSize) {
-          const batch = sectionActivityIds.slice(i, i + batchSize);
-          const results = await Promise.all(
-            batch.map(async (activityId) => {
-              try {
-                const apiStreams = await intervalsApi.getActivityStreams(activityId, ['time']);
-                return { activityId, times: apiStreams.time || [] };
-              } catch {
-                return { activityId, times: [] as number[] };
-              }
-            })
-          );
-
-          for (const result of results) {
-            if (result.times.length > 0) {
-              streamsToSync.push(result);
-            }
-          }
+      // Poll until nothing is missing. There is no push from Rust into the JS
+      // listener map, so completion is observed rather than delivered.
+      const deadline = Date.now() + TIME_STREAM_TIMEOUT_MS;
+      while (!cancelled && Date.now() < deadline) {
+        if (routeEngine.getMissingTimeStreams(sectionActivityIds).length === 0) {
+          if (!cancelled) setPerformanceDataReady(true);
+          return;
         }
-
-        if (!cancelled && streamsToSync.length > 0) {
-          // Sync time streams to Rust engine
-          routeEngine.setTimeStreams(streamsToSync);
-          setPerformanceDataReady(true);
-        }
-      } catch {
-        // Ignore errors
+        await new Promise((resolve) => setTimeout(resolve, TIME_STREAM_POLL_MS));
       }
+      // A partial fetch still helps: the sections that did land can render.
+      if (!cancelled) setPerformanceDataReady(true);
     };
 
     fetchTimeStreams();

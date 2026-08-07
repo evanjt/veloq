@@ -12,8 +12,20 @@
  */
 
 import { toActivityMetrics } from '@/features/activity/lib/activityMetrics';
+import {
+  DETAIL_STREAM_TYPES,
+  PREVIEW_STREAM_TYPES,
+  streamTypesKey,
+} from '@/features/activity/lib/engineStreams';
 import { getRouteEngine } from '@/shared/native/routeEngine';
 import type { Activity, WellnessData } from '@/types';
+
+/** The curve windows the stats screens request. */
+const POWER_CURVE_WINDOWS = [42, 90, 365];
+const PACE_CURVE_WINDOWS = [42, 90, 365];
+
+type DemoEngine = NonNullable<ReturnType<typeof getRouteEngine>>;
+type DemoCurves = typeof import('@/features/fitness/demo/curves');
 
 /** Midnight today, in the epoch seconds the pace snapshot table keys on. */
 function todayTimestamp(): number {
@@ -81,6 +93,10 @@ export function seedDemoEngine(): void {
       engine.setSetting('oldest_activity_date', oldest);
     }
 
+    seedActivityBodies(engine, activities);
+    seedCurves(engine, curves);
+    seedCalendarEvents(engine);
+
     const { criticalSpeed, dPrime, r2 } = curves.demoPaceCurve;
     if (criticalSpeed && criticalSpeed > 0) {
       engine.savePaceSnapshot(
@@ -96,4 +112,83 @@ export function seedDemoEngine(): void {
   } catch (err) {
     if (__DEV__) console.warn('[seedDemoEngine] Failed to seed demo fixtures:', err);
   }
+}
+
+/** Streams and intervals for every fixture activity, in the tables the charts
+ *  read. Without these the detail screen would be blank in demo only. */
+function seedActivityBodies(engine: DemoEngine, activities: Activity[]): void {
+  const { getActivityStreams, getActivityIntervals } =
+    require('@/data/demo/fixtures') as typeof import('@/data/demo/fixtures');
+
+  for (const activity of activities) {
+    const streams = getActivityStreams(activity.id);
+    if (streams) {
+      const body = JSON.stringify(streams);
+      // The same payload answers both series selections the app asks for;
+      // the fixtures do not vary by requested type.
+      engine.setStreamBody(activity.id, streamTypesKey(DETAIL_STREAM_TYPES), body);
+      engine.setStreamBody(activity.id, streamTypesKey(PREVIEW_STREAM_TYPES), body);
+    }
+    const intervals = getActivityIntervals(activity.id);
+    if (intervals) {
+      engine.setIntervalBody(activity.id, JSON.stringify(intervals));
+    }
+  }
+}
+
+/** The power and pace curves the stats screens request, under the windows
+ *  those screens ask for. */
+function seedCurves(engine: DemoEngine, curves: DemoCurves): void {
+  const power = JSON.stringify({
+    list: [{ secs: curves.demoPowerCurve.secs, values: curves.demoPowerCurve.watts }],
+  });
+  const pace = JSON.stringify({
+    list: [
+      {
+        distance: curves.demoPaceCurve.distances,
+        values: curves.demoPaceCurve.times,
+        paceModels: [
+          {
+            type: 'CS',
+            criticalSpeed: curves.demoPaceCurve.criticalSpeed,
+            dPrime: curves.demoPaceCurve.dPrime,
+            r2: curves.demoPaceCurve.r2,
+          },
+        ],
+      },
+    ],
+  });
+
+  for (const days of POWER_CURVE_WINDOWS) {
+    for (const sport of ['Ride', 'VirtualRide']) {
+      engine.setCurveBody('power', sport, days, false, power);
+    }
+  }
+  for (const days of PACE_CURVE_WINDOWS) {
+    for (const sport of ['Run', 'Swim']) {
+      engine.setCurveBody('pace', sport, days, false, pace);
+      if (sport === 'Run') engine.setCurveBody('pace', sport, days, true, pace);
+    }
+  }
+}
+
+/** Planned workouts, over a window wide enough to cover the screens that
+ *  read them (today, tomorrow, and the record screen's single day). */
+function seedCalendarEvents(engine: DemoEngine): void {
+  const { getDemoCalendarEvents } =
+    require('@/data/demo/calendarEvents') as typeof import('@/data/demo/calendarEvents');
+
+  const events = getDemoCalendarEvents();
+  if (events.length === 0) return;
+
+  const dates = events.map((e) => Math.floor(new Date(e.start_date_local).getTime() / 1000));
+  engine.replaceCalendarEvents(
+    Math.min(...dates) - 86400,
+    Math.max(...dates) + 86400,
+    events.map((e, i) => ({
+      eventId: String(e.id),
+      date: dates[i],
+      raw: JSON.stringify(e),
+    }))
+  );
 }

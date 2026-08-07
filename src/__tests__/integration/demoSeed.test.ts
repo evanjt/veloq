@@ -18,6 +18,10 @@ const engine = {
   setActivityMetrics: jest.fn(),
   upsertActivityBodies: jest.fn(),
   setSetting: jest.fn(),
+  setStreamBody: jest.fn(),
+  setIntervalBody: jest.fn(),
+  setCurveBody: jest.fn(),
+  replaceCalendarEvents: jest.fn(),
   savePaceSnapshot: jest.fn(),
   triggerRefresh: jest.fn(),
 };
@@ -80,6 +84,35 @@ describe('seedDemoEngine', () => {
       'oldest_activity_date',
       expect.stringMatching(/^\d{4}-\d{2}-\d{2}/)
     );
+  });
+
+  it('stores streams for every fixture activity so the charts render', () => {
+    seedDemoEngine();
+
+    expect(engine.setStreamBody.mock.calls.length).toBeGreaterThan(0);
+    const [activityId, types, raw] = engine.setStreamBody.mock.calls[0];
+    expect(typeof activityId).toBe('string');
+    expect(types).toContain('time');
+    expect(JSON.parse(raw)).toBeDefined();
+  });
+
+  it('stores both curve kinds under the windows the stats screens ask for', () => {
+    seedDemoEngine();
+
+    const kinds = new Set(engine.setCurveBody.mock.calls.map((c: unknown[]) => c[0]));
+    expect(kinds).toEqual(new Set(['power', 'pace']));
+    const paceWindows = engine.setCurveBody.mock.calls
+      .filter((c: unknown[]) => c[0] === 'pace')
+      .map((c: unknown[]) => c[2]);
+    expect(paceWindows).toContain(42);
+  });
+
+  it('stores planned workouts so the record screen can show them', () => {
+    seedDemoEngine();
+
+    expect(engine.replaceCalendarEvents).toHaveBeenCalled();
+    const [, , rows] = engine.replaceCalendarEvents.mock.calls[0];
+    expect(Array.isArray(rows)).toBe(true);
   });
 
   it('records a pace snapshot so trend tracking has a baseline', () => {

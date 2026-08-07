@@ -1,85 +1,114 @@
 /**
- * Tests for intervals.icu API methods.
- * Mocks apiClient to test request construction and response handling.
+ * Tests for the intervals.icu write surface.
+ *
+ * Every read moved into the Rust engine, so what is left to cover here is the
+ * two writes: that they post where they say they do, and that demo mode
+ * acknowledges locally instead of sending anything upstream.
  */
 
 jest.mock('@/api/client', () => ({
   apiClient: {
-    get: jest.fn(),
+    post: jest.fn(),
   },
   getAthleteId: jest.fn(() => 'i12345'),
 }));
 
-jest.mock('@/shared/app/AuthStore', () => {
-  const store = {
-    getState: jest.fn(() => ({
-      isDemoMode: false,
-      athleteId: 'i12345',
-    })),
-  };
-  return {
-    useAuthStore: store,
-    DEMO_ATHLETE_ID: 'demo',
-  };
-});
+const authState = { isDemoMode: false, athleteId: 'i12345' };
+
+jest.mock('@/shared/app/AuthStore', () => ({
+  useAuthStore: { getState: jest.fn(() => authState) },
+  DEMO_ATHLETE_ID: 'demo',
+}));
+
+jest.mock('expo-file-system/legacy', () => ({
+  cacheDirectory: '/tmp/',
+  EncodingType: { Base64: 'base64' },
+  writeAsStringAsync: jest.fn().mockResolvedValue(undefined),
+  deleteAsync: jest.fn().mockResolvedValue(undefined),
+}));
 
 import { intervalsApi } from '@/api/intervals';
 import { apiClient } from '@/api/client';
 
-const mockGet = apiClient.get as jest.MockedFunction<typeof apiClient.get>;
+const mockPost = apiClient.post as jest.MockedFunction<typeof apiClient.post>;
 
 beforeEach(() => {
-  mockGet.mockReset();
+  mockPost.mockReset();
+  authState.isDemoMode = false;
+  authState.athleteId = 'i12345';
 });
 
-describe('intervalsApi.getActivity', () => {
-  it('calls correct endpoint with activity ID', async () => {
-    mockGet.mockResolvedValue({ data: { id: 'act1', name: 'Morning Ride' } });
-    const result = await intervalsApi.getActivity('act1');
-    expect(mockGet).toHaveBeenCalledWith('/activity/act1');
-    expect(result.name).toBe('Morning Ride');
+describe('intervalsApi.createManualActivity', () => {
+  it('posts the activity to the athlete collection', async () => {
+    mockPost.mockResolvedValue({ data: { id: 'new1' } });
+
+    await intervalsApi.createManualActivity({
+      name: 'Gym',
+      type: 'WeightTraining',
+      start_date_local: '2026-01-02T07:00:00',
+      moving_time: 3600,
+    } as never);
+
+    expect(mockPost).toHaveBeenCalledWith(
+      '/athlete/i12345/activities',
+      expect.objectContaining({ name: 'Gym', type: 'WeightTraining' })
+    );
+  });
+
+  it('defaults the trainer and commute flags rather than sending undefined', async () => {
+    mockPost.mockResolvedValue({ data: { id: 'new1' } });
+
+    await intervalsApi.createManualActivity({
+      name: 'Gym',
+      type: 'WeightTraining',
+      start_date_local: '2026-01-02T07:00:00',
+      moving_time: 3600,
+    } as never);
+
+    expect(mockPost.mock.calls[0][1]).toMatchObject({ trainer: false, commute: false });
+  });
+
+  it('acknowledges locally in demo mode without posting', async () => {
+    authState.isDemoMode = true;
+
+    const result = await intervalsApi.createManualActivity({
+      name: 'Gym',
+      type: 'WeightTraining',
+      start_date_local: '2026-01-02T07:00:00',
+      moving_time: 3600,
+    } as never);
+
+    expect(mockPost).not.toHaveBeenCalled();
+    expect(result.id).toMatch(/^demo-/);
+    expect(result.name).toBe('Gym');
   });
 });
 
-describe('intervalsApi.getActivityStreams', () => {
-  it('calls streams endpoint with .json suffix', async () => {
-    mockGet.mockResolvedValue({ data: [] });
-    await intervalsApi.getActivityStreams('act1');
-    expect(mockGet).toHaveBeenCalledWith('/activity/act1/streams.json', expect.anything());
-  });
-});
+describe('intervalsApi.uploadActivity', () => {
+  it('posts multipart form data with the device name', async () => {
+    mockPost.mockResolvedValue({ data: { id: 'up1' } });
 
-describe('intervalsApi.getActivityMap', () => {
-  it('calls map endpoint', async () => {
-    mockGet.mockResolvedValue({ data: { bounds: [1, 2, 3, 4], latlngs: [] } });
-    await intervalsApi.getActivityMap('act1');
-    expect(mockGet).toHaveBeenCalledWith('/activity/act1/map', expect.anything());
-  });
-});
+    await intervalsApi.uploadActivity(new ArrayBuffer(4), 'ride.fit', { name: 'Ride' });
 
-// ============================================================
-// ERROR HANDLING EDGE CASES
-// ============================================================
-
-describe('error handling', () => {
-  beforeEach(() => mockGet.mockReset());
-
-  it('propagates request rejections from read methods', async () => {
-    const calls: [() => Promise<unknown>, string][] = [
-      [() => intervalsApi.getActivityStreams('nonexistent'), '404 Not Found'],
-    ];
-    for (const [call, message] of calls) {
-      mockGet.mockReset();
-      mockGet.mockRejectedValueOnce(new Error(message));
-      await expect(call()).rejects.toThrow(message);
-    }
+    const [url, , config] = mockPost.mock.calls[0];
+    expect(url).toBe('/athlete/i12345/activities');
+    expect(config?.headers).toMatchObject({ 'Content-Type': 'multipart/form-data' });
   });
 
-  it('handles malformed API response from getActivity', async () => {
-    // Response with missing expected fields should still resolve (no client-side validation)
-    mockGet.mockResolvedValueOnce({ data: { id: 'act1' } });
-    const result = await intervalsApi.getActivity('act1');
-    expect(result.id).toBe('act1');
-    expect(result.name).toBeUndefined();
+  it('propagates an upload rejection to the caller', async () => {
+    mockPost.mockRejectedValueOnce(new Error('413 Payload Too Large'));
+
+    await expect(intervalsApi.uploadActivity(new ArrayBuffer(4), 'ride.fit')).rejects.toThrow(
+      '413 Payload Too Large'
+    );
+  });
+
+  it('acknowledges locally in demo mode without posting', async () => {
+    authState.isDemoMode = true;
+
+    const result = await intervalsApi.uploadActivity(new ArrayBuffer(4), 'ride.fit');
+
+    expect(mockPost).not.toHaveBeenCalled();
+    expect(result.id).toMatch(/^demo-/);
   });
 });

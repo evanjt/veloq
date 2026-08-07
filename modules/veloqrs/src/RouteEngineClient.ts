@@ -281,6 +281,15 @@ class RouteEngineClient implements DelegateHost {
   syncCalendarEvents = (oldest: string, newest: string): boolean =>
     syncDelegates.syncCalendarEvents(this, oldest, newest);
 
+  syncActivityStreams = (activityId: string, types: string): boolean =>
+    syncDelegates.syncActivityStreams(this, activityId, types);
+
+  syncActivityDetail = (activityId: string): boolean =>
+    syncDelegates.syncActivityDetail(this, activityId);
+
+  syncTimeStreams = (activityIds: string[]): boolean =>
+    syncDelegates.syncTimeStreams(this, activityIds);
+
   cancelSync = (): void => syncDelegates.cancelSync(this);
 
   getSyncStatus = (): SyncStatus | null => syncDelegates.getSyncStatus(this);
@@ -462,6 +471,9 @@ class RouteEngineClient implements DelegateHost {
   setTimeStreams = (streams: Array<{ activityId: string; times: number[] }>): void =>
     activityDelegates.setTimeStreams(this, streams);
 
+  getMissingTimeStreams = (activityIds: string[]): string[] =>
+    activityDelegates.getActivitiesMissingTimeStreams(this, activityIds);
+
   getActivitiesMissingTimeStreams = (activityIds: string[]): string[] =>
     activityDelegates.getActivitiesMissingTimeStreams(this, activityIds);
 
@@ -638,6 +650,29 @@ class RouteEngineClient implements DelegateHost {
 
   upsertActivityBodies = (rows: activityDelegates.ActivityBodyInput[]): void =>
     activityDelegates.upsertActivityBodies(this, rows);
+
+  setStreamBody = (activityId: string, types: string, raw: string): void =>
+    activityDelegates.setStreamBody(this, activityId, types, raw);
+
+  setIntervalBody = (activityId: string, raw: string): void =>
+    activityDelegates.setIntervalBody(this, activityId, raw);
+
+  setCurveBody = (
+    kind: 'power' | 'pace',
+    sport: string,
+    days: number,
+    gap: boolean,
+    raw: string
+  ): void => activityDelegates.setCurveBody(this, kind, sport, days, gap, raw);
+
+  replaceCalendarEvents = (
+    oldestTs: number,
+    newestTs: number,
+    rows: activityDelegates.CalendarEventBodyInput[]
+  ): void => activityDelegates.replaceCalendarEvents(this, oldestTs, newestTs, rows);
+
+  getStreamBody = (activityId: string, types: string): string | null =>
+    activityDelegates.getStreamBody(this, activityId, types);
 
   getPowerCurveBody = (sport: string, days: number): string | null =>
     fitnessDelegates.getPowerCurveBody(this, sport, days);

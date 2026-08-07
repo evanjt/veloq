@@ -46,9 +46,13 @@ import { useGpsDataFetcher } from './useGpsDataFetcher';
 import { i18n } from '@/i18n';
 import { getNativeModule } from '@/shared/native/routeEngine';
 import { routeEngine } from 'veloqrs';
-import { intervalsApi } from '@/api';
 import { toActivityMetrics } from '@/features/activity/lib/activityMetrics';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
+
+/** How long to let the Rust time-stream backfill run before moving on. It
+ *  resumes on the next sync, so a slow drain never blocks the banner. */
+const STREAM_BACKFILL_TIMEOUT_MS = 60_000;
+const STREAM_BACKFILL_POLL_MS = 500;
 import type { Activity } from '@/types';
 import type { SyncProgress } from './useRouteSyncProgress';
 
@@ -354,9 +358,9 @@ export function useRouteDataSync(
             console.log('[RouteDataSync] No new activities to sync');
           }
 
-          // Backfill: fetch time streams for activities with NULL lap_time (upgrade path).
-          // Report progress per-batch so the sync banner keeps moving; the loop is up to
-          // ~20 s on a large cache and previously reported nothing.
+          // Backfill: time streams for activities with NULL lap_time (upgrade
+          // path). Rust fetches and persists them behind the shared governor,
+          // so this only reports progress while it drains.
           if (isMountedRef.current && !isDemo && !abortController.signal.aborted) {
             try {
               const needingStreams = routeEngine.getActivitiesNeedingTimeStreams();
@@ -366,67 +370,37 @@ export function useRouteDataSync(
                     `[RouteDataSync] Backfilling time streams for ${needingStreams.length} activities`
                   );
                 }
-                const batchSize = 10;
                 const totalStreams = needingStreams.length;
-                const backfillStreams: Array<{ activityId: string; times: number[] }> = [];
-                let completedStreams = 0;
+                routeEngine.syncTimeStreams(needingStreams);
 
-                if (isMountedRef.current) {
-                  updateProgress({
-                    status: 'fetching',
-                    completed: 0,
-                    total: totalStreams,
-                    percent: 50,
-                    message: i18n.t('cache.fetchingTimeStreams', {
-                      percent: 50,
-                      completed: 0,
-                      total: totalStreams,
-                    }),
-                  });
-                }
-
-                for (let i = 0; i < needingStreams.length; i += batchSize) {
-                  if (!isMountedRef.current || abortController.signal.aborted) break;
-                  const batch = needingStreams.slice(i, i + batchSize);
-                  const results = await Promise.all(
-                    batch.map(async (activityId) => {
-                      try {
-                        const streams = await intervalsApi.getActivityStreams(activityId, ['time']);
-                        return { activityId, times: (streams.time as number[]) || [] };
-                      } catch {
-                        return { activityId, times: [] as number[] };
-                      }
-                    })
-                  );
-                  for (const r of results) {
-                    if (r.times.length > 0) backfillStreams.push(r);
-                  }
-                  completedStreams += batch.length;
+                const deadline = Date.now() + STREAM_BACKFILL_TIMEOUT_MS;
+                let remaining = totalStreams;
+                while (
+                  Date.now() < deadline &&
+                  isMountedRef.current &&
+                  !abortController.signal.aborted
+                ) {
+                  remaining = routeEngine.getMissingTimeStreams(needingStreams).length;
+                  if (remaining === 0) break;
                   if (isMountedRef.current) {
                     updateProgress({
                       status: 'fetching',
-                      completed: completedStreams,
+                      completed: totalStreams - remaining,
                       total: totalStreams,
                       percent: 50,
                       message: i18n.t('cache.fetchingTimeStreams', {
                         percent: 50,
-                        completed: completedStreams,
+                        completed: totalStreams - remaining,
                         total: totalStreams,
                       }),
                     });
                   }
+                  await new Promise((resolve) => setTimeout(resolve, STREAM_BACKFILL_POLL_MS));
                 }
-                if (
-                  backfillStreams.length > 0 &&
-                  isMountedRef.current &&
-                  !abortController.signal.aborted
-                ) {
-                  routeEngine.setTimeStreams(backfillStreams);
-                  if (__DEV__) {
-                    console.log(
-                      `[RouteDataSync] Backfilled ${backfillStreams.length}/${needingStreams.length} time streams`
-                    );
-                  }
+                if (__DEV__) {
+                  console.log(
+                    `[RouteDataSync] Backfilled ${totalStreams - remaining}/${totalStreams} time streams`
+                  );
                 }
               }
             } catch {

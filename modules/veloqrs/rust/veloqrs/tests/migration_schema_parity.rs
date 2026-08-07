@@ -351,5 +351,5 @@ fn fresh_and_migrated_share_user_version() {
         .unwrap();
 
     assert_eq!(fresh_v, migrated_v, "user_version must match");
-    assert_eq!(fresh_v, 15, "user_version is 15 after all migrations");
+    assert_eq!(fresh_v, 16, "user_version is 16 after all migrations");
 }

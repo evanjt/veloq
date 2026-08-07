@@ -1,8 +1,12 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { intervalsApi } from '@/api';
 import { routeEngine, type SectionPerformanceResult } from 'veloqrs';
-import type { FrequentSection, ActivityStreams, DirectionStats } from '@/types';
+import type { FrequentSection, DirectionStats } from '@/types';
 import { toDirectionStats, castDirection, fromUnixSeconds } from '@/shared/ffi/ffiConversions';
+
+/** How long to wait for Rust to finish a time-stream batch before rendering
+ *  whatever landed. Missing streams only cost precision, not correctness. */
+const TIME_STREAM_TIMEOUT_MS = 30_000;
+const TIME_STREAM_POLL_MS = 400;
 
 /**
  * Individual lap/traversal of a section
@@ -121,38 +125,15 @@ export function useSectionPerformances(
     setError(null);
 
     try {
-      const streams: Array<{ activityId: string; times: number[] }> = [];
+      // Rust fetches the missing streams behind the shared governor and
+      // persists them. Completion is observed, since Rust cannot push into
+      // the JS listener map.
+      routeEngine.syncTimeStreams(missingIds);
 
-      // Fetch ONLY missing streams in parallel with concurrency limit
-      const batchSize = 5;
-      for (let i = 0; i < missingIds.length; i += batchSize) {
-        const batch = missingIds.slice(i, i + batchSize);
-        const results = await Promise.all(
-          batch.map(async (activityId) => {
-            try {
-              const apiStreams: ActivityStreams = await intervalsApi.getActivityStreams(
-                activityId,
-                ['time']
-              );
-              return { activityId, times: apiStreams.time || [] };
-            } catch {
-              // Skip failed fetches
-              return { activityId, times: [] as number[] };
-            }
-          })
-        );
-
-        // Collect valid streams
-        for (const result of results) {
-          if (result.times.length > 0) {
-            streams.push(result);
-          }
-        }
-      }
-
-      // Sync newly fetched time streams to Rust engine (will persist to SQLite)
-      if (streams.length > 0) {
-        routeEngine.setTimeStreams(streams);
+      const deadline = Date.now() + TIME_STREAM_TIMEOUT_MS;
+      while (Date.now() < deadline) {
+        if (routeEngine.getActivitiesMissingTimeStreams(allActivityIds).length === 0) break;
+        await new Promise((resolve) => setTimeout(resolve, TIME_STREAM_POLL_MS));
       }
 
       setFetchComplete(true);

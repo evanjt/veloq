@@ -311,6 +311,35 @@ pub fn start_fetch_and_store(activity_ids: Vec<String>, sport_types: Vec<Activit
             }
         }
 
+        // Time streams for the activities that landed. TypeScript used to
+        // fetch these itself, concurrently with this download; doing it here
+        // keeps every request behind the one governor and leaves the section
+        // maths with nothing left to fetch.
+        if !synced_ids.is_empty() {
+            let missing = crate::persistence::with_persistent_engine(|engine| {
+                engine.get_activities_missing_time_streams(&synced_ids)
+            })
+            .unwrap_or_default();
+            for activity_id in missing {
+                match crate::runtime::block_on(crate::net::endpoints::fetch_time_stream(
+                    fetcher.transport(),
+                    &activity_id,
+                    crate::governor::Lane::Backfill,
+                )) {
+                    Ok(times) if !times.is_empty() => {
+                        crate::persistence::with_persistent_engine(|engine| {
+                            engine.set_time_streams_flat(&[activity_id.clone()], &times, &[0]);
+                        });
+                    }
+                    Ok(_) => {}
+                    Err(e) => info!(
+                        "[RUST: start_fetch_and_store] Time stream {} failed: {}",
+                        activity_id, e
+                    ),
+                }
+            }
+        }
+
         let storage_time = elapsed_ms(storage_start);
         let avg_per_activity = if !synced_ids.is_empty() {
             storage_time / synced_ids.len() as u64

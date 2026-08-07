@@ -775,6 +775,92 @@ impl SyncManager {
         )
     }
 
+    /// Fetch and store an activity's streams for a series selection. The
+    /// types string is the cache key, so callers must pass it consistently.
+    fn sync_activity_streams(&self, activity_id: String, types: String) -> bool {
+        spawn_once(
+            format!("streams:{}:{}", activity_id, types),
+            move |transport, _athlete_id| async move {
+                let body = endpoints::fetch_streams_body(
+                    &transport,
+                    &activity_id,
+                    &types,
+                    Lane::Interactive,
+                )
+                .await?;
+                crate::persistence::with_persistent_engine(|engine| {
+                    if let Err(e) = engine.set_stream_body(&activity_id, &types, &body) {
+                        log::warn!("[Sync] stream body store failed: {}", e);
+                    }
+                });
+                Ok(())
+            },
+        )
+    }
+
+    /// Fetch and store an activity's full detail body, replacing the lighter
+    /// row the list sync wrote.
+    fn sync_activity_detail(&self, activity_id: String) -> bool {
+        spawn_once(
+            format!("detail:{}", activity_id),
+            move |transport, _athlete_id| async move {
+                let body =
+                    endpoints::fetch_activity_body(&transport, &activity_id, Lane::Interactive)
+                        .await?;
+                let date = serde_json::from_str::<serde_json::Value>(&body)
+                    .ok()
+                    .and_then(|v| {
+                        v.get("start_date_local")
+                            .and_then(|d| d.as_str())
+                            .and_then(|d| start_date_to_timestamp(Some(d)))
+                    });
+                let Some(date) = date else {
+                    return Ok(());
+                };
+                crate::persistence::with_persistent_engine(|engine| {
+                    if let Err(e) =
+                        engine.upsert_activity_bodies(&[(activity_id.clone(), date, body)])
+                    {
+                        log::warn!("[Sync] activity detail store failed: {}", e);
+                    }
+                });
+                Ok(())
+            },
+        )
+    }
+
+    /// Fetch and store the `time` streams the section-performance maths needs.
+    /// Activities that already have one are skipped, so a repeat call over the
+    /// same list costs nothing.
+    fn sync_time_streams(&self, activity_ids: Vec<String>) -> bool {
+        if activity_ids.is_empty() {
+            return false;
+        }
+        let key = format!("timestreams:{}", activity_ids.join(","));
+        spawn_once(key, move |transport, _athlete_id| async move {
+            let missing = crate::persistence::with_persistent_engine(|engine| {
+                engine.get_activities_missing_time_streams(&activity_ids)
+            })
+            .unwrap_or_default();
+
+            for activity_id in missing {
+                match endpoints::fetch_time_stream(&transport, &activity_id, Lane::Backfill).await {
+                    Ok(times) if !times.is_empty() => {
+                        crate::persistence::with_persistent_engine(|engine| {
+                            engine.set_time_streams_flat(&[activity_id.clone()], &times, &[0]);
+                        });
+                    }
+                    Ok(_) => {}
+                    // One activity without streams must not stop the batch;
+                    // the section list would stay stuck on "loading".
+                    Err(NetError::Unauthorized) => return Err(NetError::Unauthorized),
+                    Err(e) => log::warn!("[Sync] time stream {} failed: {}", activity_id, e),
+                }
+            }
+            Ok(())
+        })
+    }
+
     /// Soft-cancel the running sync.
     fn cancel(&self) {
         SYNC_SERVICE.request_cancel();

@@ -1,13 +1,17 @@
 import { useQuery, useInfiniteQuery, keepPreviousData } from '@tanstack/react-query';
 import { useEffect, useMemo } from 'react';
-import { intervalsApi } from '@/api';
+import {
+  DETAIL_STREAM_TYPES,
+  readStreams,
+  requestStreams,
+} from '@/features/activity/lib/engineStreams';
 import { formatLocalDate } from '@/shared/format/format';
 import { CACHE } from '@/shared/app/constants';
 import { queryKeys } from '@/shared/query/queryKeys';
 import { getRouteEngine } from '@/shared/native/routeEngine';
 import { useEngineBody } from '@/shared/native/engineBodies';
 import { useEngineChannel } from '@/shared/native/useEngineChannel';
-import type { Activity, IntervalsDTO } from '@/types';
+import type { Activity, ActivityDetail, IntervalsDTO } from '@/types';
 import { useAuthStore } from '@/shared/app/AuthStore';
 
 /** Local midnight for a YYYY-MM-DD day, as the epoch seconds the engine keys on. */
@@ -192,36 +196,52 @@ export function useInfiniteActivities(options: { includeStats?: boolean } = {}) 
 }
 
 export function useActivity(id: string) {
-  return useQuery({
-    queryKey: queryKeys.activities.detail(id),
-    queryFn: () => intervalsApi.getActivity(id),
-    // Single activity - cache for 1 hour, rarely changes
-    staleTime: CACHE.HOUR,
+  const queryKey = queryKeys.activities.detail(id);
+
+  // The list sync stores a lighter body for every activity. Opening one asks
+  // for the full detail, which replaces that row in place.
+  useEngineBody(false, () => getRouteEngine()?.syncActivityDetail(id), queryKey, !!id);
+
+  return useQuery<ActivityDetail | null>({
+    queryKey,
+    queryFn: () => {
+      const stored = readActivityBody(id);
+      return (stored as ActivityDetail | null) ?? null;
+    },
+    // SQLite is the source, so a sync decides freshness, not a clock.
+    staleTime: Infinity,
     // GC after 4 hours to prevent memory bloat when viewing many activities
     gcTime: CACHE.HOUR * 4,
     enabled: !!id,
   });
 }
 
+/** The stored body for one activity, from the window that contains its day. */
+function readActivityBody(id: string): Activity | null {
+  const engine = getRouteEngine();
+  if (!engine?.getActivityBodies || !id) return null;
+  // The store is keyed by id but queried by window, so scan the widest range
+  // the app ever shows. The table holds one row per activity, not per day.
+  for (const body of engine.getActivityBodies(0, Math.floor(Date.now() / 1000) + 86400)) {
+    try {
+      const parsed = JSON.parse(body) as Activity;
+      if (parsed.id === id) return parsed;
+    } catch {
+      // Skip a corrupt row rather than failing the lookup.
+    }
+  }
+  return null;
+}
+
 export function useActivityStreams(id: string) {
+  const queryKey = queryKeys.activities.streams(id);
+
+  const stored = id ? readStreams(id, DETAIL_STREAM_TYPES) : null;
+  useEngineBody(stored !== null, () => requestStreams(id, DETAIL_STREAM_TYPES), queryKey, !!id);
+
   return useQuery({
-    queryKey: queryKeys.activities.streams(id),
-    queryFn: () =>
-      intervalsApi.getActivityStreams(id, [
-        'latlng',
-        'altitude',
-        'fixed_altitude',
-        'heartrate',
-        'watts',
-        'cadence',
-        'distance',
-        'time',
-        'velocity_smooth',
-        'grade_smooth',
-        'temp',
-        'w_bal',
-        'ga_velocity',
-      ]),
+    queryKey,
+    queryFn: () => readStreams(id, DETAIL_STREAM_TYPES) ?? {},
     // Streams NEVER change - infinite staleTime prevents refetching
     staleTime: Infinity,
     // Streams are the largest payloads (100-500KB each). GC them sooner so

@@ -144,6 +144,48 @@ impl PersistentRouteEngine {
     }
 }
 
+/// How many stream payloads to keep. Streams are 100-500KB each, so this is a
+/// cache with a ceiling, not a mirror of the athlete's history.
+const MAX_STREAM_BODIES: i64 = 50;
+
+impl PersistentRouteEngine {
+    /// Store a stream payload for an activity and series selection, then drop
+    /// the least recently stored ones beyond the cache ceiling.
+    pub fn set_stream_body(&self, activity_id: &str, types: &str, raw: &str) -> SqlResult<()> {
+        self.db.execute(
+            "INSERT INTO stream_bodies (activity_id, types, raw, updated_at)
+             VALUES (?, ?, ?, strftime('%s', 'now'))
+             ON CONFLICT(activity_id, types) DO UPDATE SET
+                raw = excluded.raw,
+                updated_at = excluded.updated_at",
+            params![activity_id, types, raw],
+        )?;
+        self.db.execute(
+            "DELETE FROM stream_bodies WHERE rowid NOT IN (
+                 SELECT rowid FROM stream_bodies ORDER BY updated_at DESC, rowid DESC LIMIT ?
+             )",
+            params![MAX_STREAM_BODIES],
+        )?;
+        Ok(())
+    }
+
+    /// A stored stream payload, or `None` when this activity and series
+    /// selection has not been fetched or has aged out of the cache.
+    pub fn get_stream_body(&self, activity_id: &str, types: &str) -> SqlResult<Option<String>> {
+        self.db
+            .query_row(
+                "SELECT raw FROM stream_bodies WHERE activity_id = ? AND types = ?",
+                params![activity_id, types],
+                |row| row.get(0),
+            )
+            .map(Some)
+            .or_else(|e| match e {
+                rusqlite::Error::QueryReturnedNoRows => Ok(None),
+                other => Err(other),
+            })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -217,6 +259,55 @@ mod tests {
                 .unwrap()
                 .as_deref(),
             Some("new")
+        );
+    }
+
+    #[test]
+    fn stream_bodies_are_keyed_by_series_selection() {
+        let (_dir, engine) = engine();
+
+        engine
+            .set_stream_body("a1", "latlng,altitude", "preview")
+            .unwrap();
+        engine.set_stream_body("a1", "time", "just-time").unwrap();
+
+        // A latlng preview and a full chart pull are different payloads for
+        // the same activity, so one must never be served for the other.
+        assert_eq!(
+            engine
+                .get_stream_body("a1", "latlng,altitude")
+                .unwrap()
+                .as_deref(),
+            Some("preview")
+        );
+        assert_eq!(
+            engine.get_stream_body("a1", "time").unwrap().as_deref(),
+            Some("just-time")
+        );
+        assert!(engine.get_stream_body("a1", "watts").unwrap().is_none());
+    }
+
+    #[test]
+    fn stream_bodies_stay_under_the_cache_ceiling() {
+        let (_dir, engine) = engine();
+        for i in 0..(MAX_STREAM_BODIES + 10) {
+            engine
+                .set_stream_body(&format!("a{}", i), "time", "payload")
+                .unwrap();
+        }
+
+        let count: i64 = engine
+            .db
+            .query_row("SELECT COUNT(*) FROM stream_bodies", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(count, MAX_STREAM_BODIES, "streams are a bounded cache");
+
+        // The most recent write survives the prune.
+        assert!(
+            engine
+                .get_stream_body(&format!("a{}", MAX_STREAM_BODIES + 9), "time")
+                .unwrap()
+                .is_some()
         );
     }
 

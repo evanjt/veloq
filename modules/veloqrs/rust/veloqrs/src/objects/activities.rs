@@ -130,6 +130,93 @@ impl ActivityManager {
         })?
     }
 
+    /// Store a stream payload directly. Demo seeding writes the same table a
+    /// live fetch fills, so every downstream read is identical in both modes.
+    fn set_stream_body(
+        &self,
+        activity_id: String,
+        types: String,
+        raw: String,
+    ) -> Result<(), VeloqError> {
+        with_engine(|e| {
+            e.set_stream_body(&activity_id, &types, &raw)
+                .map_err(|err| VeloqError::Database {
+                    msg: format!("{}", err),
+                })
+        })?
+    }
+
+    /// Store an activity's interval payload directly, for demo seeding.
+    fn set_interval_body(&self, activity_id: String, raw: String) -> Result<(), VeloqError> {
+        with_engine(|e| {
+            e.set_interval_body(&activity_id, &raw)
+                .map_err(|err| VeloqError::Database {
+                    msg: format!("{}", err),
+                })
+        })?
+    }
+
+    /// Store a curve payload directly, for demo seeding. `kind` is
+    /// "power" or "pace".
+    fn set_curve_body(
+        &self,
+        kind: String,
+        sport: String,
+        days: i64,
+        gap: bool,
+        raw: String,
+    ) -> Result<(), VeloqError> {
+        let kind = match kind.as_str() {
+            "power" => crate::persistence::bodies::CurveKind::Power,
+            "pace" => crate::persistence::bodies::CurveKind::Pace,
+            other => {
+                return Err(VeloqError::ParseError {
+                    msg: format!("unknown curve kind: {}", other),
+                });
+            }
+        };
+        with_engine(|e| {
+            e.set_curve_body(kind, &sport, days, gap, &raw)
+                .map_err(|err| VeloqError::Database {
+                    msg: format!("{}", err),
+                })
+        })?
+    }
+
+    /// Replace the calendar events in a window, for demo seeding.
+    fn replace_calendar_events(
+        &self,
+        oldest_ts: i64,
+        newest_ts: i64,
+        rows: Vec<crate::FfiCalendarEventBody>,
+    ) -> Result<(), VeloqError> {
+        with_engine(|e| {
+            let mapped: Vec<(String, i64, String)> = rows
+                .into_iter()
+                .map(|r| (r.event_id, r.date, r.raw))
+                .collect();
+            e.replace_calendar_events(oldest_ts, newest_ts, &mapped)
+                .map_err(|err| VeloqError::Database {
+                    msg: format!("{}", err),
+                })
+        })?
+    }
+
+    /// A stored stream payload for an activity and series selection, or
+    /// `None` when it has not been fetched or has aged out of the cache.
+    fn get_stream_body(
+        &self,
+        activity_id: String,
+        types: String,
+    ) -> Result<Option<String>, VeloqError> {
+        with_engine(|e| {
+            e.get_stream_body(&activity_id, &types)
+                .map_err(|err| VeloqError::Database {
+                    msg: format!("{}", err),
+                })
+        })?
+    }
+
     fn set_time_streams(
         &self,
         activity_ids: Vec<String>,

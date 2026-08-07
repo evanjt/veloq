@@ -145,6 +145,12 @@ impl ActivityFetcher {
         Self { transport }
     }
 
+    /// The shared transport, so callers can issue their own paced requests
+    /// against the same client rather than building a second one.
+    pub fn transport(&self) -> &Transport {
+        &self.transport
+    }
+
     /// Download the raw FIT file for an activity.
     /// Returns the binary data or an error message.
     pub async fn download_fit_file(&self, activity_id: &str) -> Result<Vec<u8>, String> {

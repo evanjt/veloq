@@ -194,3 +194,79 @@ export function getActivityBodies(
     ) ?? []
   );
 }
+
+/**
+ * A stored stream payload for an activity and series selection, or null when
+ * it has not been fetched or has aged out of the bounded cache.
+ */
+export function getStreamBody(
+  host: DelegateHost,
+  activityId: string,
+  types: string
+): string | null {
+  if (!host.ready) return null;
+  return (
+    (host.timed('getStreamBody', () =>
+      host.engine.activities().getStreamBody(activityId, types)
+    ) as string | undefined) ?? null
+  );
+}
+
+export interface CalendarEventBodyInput {
+  eventId: string;
+  /** Event day as epoch seconds. */
+  date: number;
+  raw: string;
+}
+
+/** Store a stream payload directly. Demo seeding writes the same table a live
+ *  fetch fills, so every downstream read is identical in both modes. */
+export function setStreamBody(
+  host: DelegateHost,
+  activityId: string,
+  types: string,
+  raw: string
+): void {
+  if (!host.ready) return;
+  host.timed('setStreamBody', () =>
+    host.engine.activities().setStreamBody(activityId, types, raw)
+  );
+}
+
+/** Store an activity's interval payload directly, for demo seeding. */
+export function setIntervalBody(host: DelegateHost, activityId: string, raw: string): void {
+  if (!host.ready) return;
+  host.timed('setIntervalBody', () => host.engine.activities().setIntervalBody(activityId, raw));
+}
+
+/** Store a curve payload directly, for demo seeding. */
+export function setCurveBody(
+  host: DelegateHost,
+  kind: 'power' | 'pace',
+  sport: string,
+  days: number,
+  gap: boolean,
+  raw: string
+): void {
+  if (!host.ready) return;
+  host.timed('setCurveBody', () =>
+    host.engine.activities().setCurveBody(kind, sport, BigInt(days), gap, raw)
+  );
+}
+
+/** Replace the calendar events in a window, for demo seeding. */
+export function replaceCalendarEvents(
+  host: DelegateHost,
+  oldestTs: number,
+  newestTs: number,
+  rows: CalendarEventBodyInput[]
+): void {
+  if (!host.ready) return;
+  host.timed('replaceCalendarEvents', () =>
+    host.engine.activities().replaceCalendarEvents(
+      BigInt(oldestTs),
+      BigInt(newestTs),
+      rows.map((r) => ({ eventId: r.eventId, date: BigInt(r.date), raw: r.raw }))
+    )
+  );
+}

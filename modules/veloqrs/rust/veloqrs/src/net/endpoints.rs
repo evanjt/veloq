@@ -197,6 +197,54 @@ pub async fn fetch_streams(
     Ok(parse_streams(raw))
 }
 
+/// `GET /activity/{id}/streams.json` as the untyped body. TypeScript's
+/// `parseStreams` stays the single transform, so what the charts render is
+/// byte-for-byte what it rendered before the read moved.
+pub async fn fetch_streams_body(
+    t: &Transport,
+    activity_id: &str,
+    types: &str,
+    lane: Lane,
+) -> Result<String, NetError> {
+    let bytes = t
+        .get_bytes(
+            &format!("/activity/{}/streams.json", activity_id),
+            &[("types", types)],
+            lane,
+        )
+        .await?;
+    decode_body(bytes)
+}
+
+/// `GET /activity/{id}` as the untyped body. The detail screen reads far more
+/// than `ActivityRecord` models.
+pub async fn fetch_activity_body(
+    t: &Transport,
+    activity_id: &str,
+    lane: Lane,
+) -> Result<String, NetError> {
+    let bytes = t
+        .get_bytes(&format!("/activity/{}", activity_id), &[], lane)
+        .await?;
+    decode_body(bytes)
+}
+
+/// An activity's `time` stream as whole seconds, for the section-performance
+/// lap maths. Non-finite and negative samples are dropped rather than cast.
+pub async fn fetch_time_stream(
+    t: &Transport,
+    activity_id: &str,
+    lane: Lane,
+) -> Result<Vec<u32>, NetError> {
+    let parsed = fetch_streams(t, activity_id, Some("time"), lane).await?;
+    Ok(parsed
+        .time
+        .into_iter()
+        .filter(|v| *v >= 0)
+        .map(|v| v as u32)
+        .collect())
+}
+
 /// `GET /activity/{id}/intervals` - work/recovery intervals.
 pub async fn fetch_intervals(
     t: &Transport,

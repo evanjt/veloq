@@ -1353,6 +1353,15 @@ pub struct FfiWeeklySummary {
     pub training_load: f64,
 }
 
+/// One untyped calendar event payload, keyed by id and day.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiCalendarEventBody {
+    pub event_id: String,
+    /// Event day as epoch seconds.
+    pub date: i64,
+    pub raw: String,
+}
+
 /// One untyped activity payload, keyed by id and start time. Demo seeding
 /// writes these; a live sync writes them from the same shape.
 #[derive(Debug, Clone, uniffi::Record)]

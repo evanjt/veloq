@@ -16,12 +16,32 @@ import { normalizeBounds } from '@/shared/geo/polyline';
 import { activitySpatialIndex, mapBoundsToViewport } from '@/shared/geo/spatialIndex';
 import { planClusterZoom } from '@/features/maps/lib/clusterZoom';
 import { saveMapCameraState } from '@/features/maps/lib/storage/mapCameraState';
-import { intervalsApi } from '@/api';
+import { startFetchAndStore } from 'veloqrs';
 import { getRouteEngine } from '@/shared/native/routeEngine';
 import type { ActivityBoundsItem } from '@/types';
 import type { FrequentSection } from '@/types';
 import type { SelectedActivity } from './ActivityPopup';
 import type { Map3DWebViewRef } from '../Map3DWebView';
+
+/** How long to wait for a single on-demand GPS download before giving up. */
+const GPS_WAIT_TIMEOUT_MS = 15_000;
+const GPS_WAIT_POLL_MS = 250;
+
+/**
+ * Poll the engine for an activity's track after asking Rust to download it.
+ * Rust cannot push into the JS listener map, so arrival is observed.
+ */
+async function waitForGpsTrack(activityId: string): Promise<Array<[number, number]> | null> {
+  const deadline = Date.now() + GPS_WAIT_TIMEOUT_MS;
+  while (Date.now() < deadline) {
+    const points = getRouteEngine()?.getGpsTrack(activityId);
+    if (points && points.length > 0) {
+      return points.map((p) => [p.latitude, p.longitude] as [number, number]);
+    }
+    await new Promise((resolve) => setTimeout(resolve, GPS_WAIT_POLL_MS));
+  }
+  return null;
+}
 
 /** State for spider/fan-out expansion of clusters at max zoom */
 export interface SpiderState {
@@ -180,15 +200,22 @@ export function useMapHandlers({
             isLoading: false,
           });
         } else {
-          // Fallback to API if local data not available
-          intervalsApi
-            .getActivityMap(activity.id, false)
-            .then((mapData) => {
-              setSelected({ activity, mapData, isLoading: false });
-            })
-            .catch(() => {
-              setSelected({ activity, mapData: null, isLoading: false });
+          // No local track yet. Ask Rust to download and store this one
+          // activity's GPS, then read it back the same way as any other.
+          startFetchAndStore(
+            [activity.id],
+            [{ activityId: activity.id, sportType: activity.type }]
+          );
+          setSelected({ activity, mapData: null, isLoading: true });
+          waitForGpsTrack(activity.id).then((coords) => {
+            setSelected({
+              activity,
+              mapData: coords
+                ? { bounds: activity.bounds, latlngs: coords, route: null, weather: null }
+                : null,
+              isLoading: false,
             });
+          });
         }
       });
     },

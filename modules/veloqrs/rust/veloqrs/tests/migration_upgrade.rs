@@ -97,6 +97,9 @@ fn one_behind_migrations() -> Migrations<'static> {
     set.push(M::up(include_str!(
         "../src/migrations/014_activity_bodies.sql"
     )));
+    set.push(M::up(include_str!(
+        "../src/migrations/015_curve_interval_calendar_bodies.sql"
+    )));
     Migrations::new(set)
 }
 
@@ -446,7 +449,7 @@ fn seed_one_version_behind_db(path: &Path) -> rusqlite::Result<()> {
         [],
     )?;
     conn.execute(
-        "INSERT OR REPLACE INTO schema_info(key, value) VALUES ('schema_version', '14')",
+        "INSERT OR REPLACE INTO schema_info(key, value) VALUES ('schema_version', '15')",
         [],
     )?;
 
@@ -468,6 +471,35 @@ fn seed_one_version_behind_db(path: &Path) -> rusqlite::Result<()> {
     )?;
 
     Ok(())
+}
+
+#[test]
+fn upgrade_to_the_stream_cache_keeps_existing_bodies() {
+    let tmp = TempDir::new().unwrap();
+    let db_path = tmp.path().join("routes.db");
+    seed_one_version_behind_db(&db_path).expect("seed");
+
+    let conn = Connection::open(&db_path).unwrap();
+    conn.execute(
+        "INSERT INTO curve_bodies(kind, sport, days, gap, raw) VALUES ('power','Ride',90,0,?)",
+        params![r#"{"list":[]}"#],
+    )
+    .expect("seed a curve written before the upgrade");
+    drop(conn);
+
+    drop(PersistentRouteEngine::new(db_path.to_str().unwrap()).expect("open and migrate"));
+
+    let conn = Connection::open(&db_path).expect("reopen");
+    assert_eq!(
+        count(&conn, "stream_bodies"),
+        0,
+        "stream_bodies must exist and start empty"
+    );
+    assert_eq!(
+        count(&conn, "curve_bodies"),
+        1,
+        "curves stored before the upgrade must survive"
+    );
 }
 
 #[test]
