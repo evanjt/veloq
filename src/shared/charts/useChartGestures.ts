@@ -11,6 +11,10 @@
  * the nearest of those, which makes log-scaled axes work without a separate
  * domain mode, and the crosshair sits exactly on the point rather than under
  * the finger.
+ *
+ * Small charts that fill a tappable card use `scrubActivation: 'drag'` instead.
+ * There the surface behind answers the tap, so waiting would only delay the
+ * scrub, and the tap is composed exclusively against the pan.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -65,11 +69,21 @@ export interface ChartGestureOptions<T> {
   /** Keep the tap but drop the scrub, for compact renderings. */
   scrubEnabled?: boolean;
 
+  /**
+   * How the scrub claims the touch. `longPress` waits, which is what a chart
+   * inside a scrolling page needs. `drag` claims as soon as the finger moves,
+   * for a small chart whose whole card is also tappable.
+   */
+  scrubActivation?: 'longPress' | 'drag';
+
   /** Long-press wait before the scrub claims the touch. */
   activationDelay?: number;
 
   /** Vertical travel that hands the touch back to the scroll parent. */
   verticalSlop?: number;
+
+  /** Movement that starts a drag-activated scrub. */
+  dragSlop?: number;
 
   /** Fire a light impact when the scrub activates. */
   haptics?: boolean;
@@ -86,6 +100,15 @@ export interface ChartGestureOptions<T> {
    * both axes use it to match on 2D distance instead of x alone.
    */
   resolveTapIndex?: (x: number, y: number) => number;
+
+  /**
+   * Tap that does something other than select a point, typically opening the
+   * screen behind the chart. Mutually exclusive with `resolveTapIndex`.
+   */
+  onTap?: () => void;
+
+  /** Longest touch still counted as a tap. */
+  tapMaxDuration?: number;
 }
 
 export interface ChartGestureResult<T> {
@@ -125,12 +148,16 @@ export function useChartGestures<T>(options: ChartGestureOptions<T>): ChartGestu
     onInteractionChange,
     enabled = true,
     scrubEnabled = true,
+    scrubActivation = 'longPress',
     activationDelay = CHART_CONFIG.LONG_PRESS_DURATION,
     verticalSlop = CHART_CONFIG.PAN_THRESHOLD,
+    dragSlop = CHART_CONFIG.DRAG_SLOP,
     haptics = true,
     sharedSelectedIdx,
     externalSelectedIdx,
     resolveTapIndex,
+    onTap,
+    tapMaxDuration = CHART_CONFIG.TAP_MAX_DURATION,
   } = options;
 
   const [isActive, setIsActive] = useState(false);
@@ -148,11 +175,13 @@ export function useChartGestures<T>(options: ChartGestureOptions<T>): ChartGestu
   const onSelectRef = useRef(onSelect);
   const onInteractionChangeRef = useRef(onInteractionChange);
   const resolveTapIndexRef = useRef(resolveTapIndex);
+  const onTapRef = useRef(onTap);
   useEffect(() => {
     onSelectRef.current = onSelect;
     onInteractionChangeRef.current = onInteractionChange;
     resolveTapIndexRef.current = resolveTapIndex;
-  }, [onSelect, onInteractionChange, resolveTapIndex]);
+    onTapRef.current = onTap;
+  }, [onSelect, onInteractionChange, resolveTapIndex, onTap]);
 
   const dataRef = useRef(data);
   dataRef.current = data;
@@ -253,7 +282,7 @@ export function useChartGestures<T>(options: ChartGestureOptions<T>): ChartGestu
 
   useEffect(() => () => clearTimeout(longPressTimer.current), []);
 
-  const panGesture = useMemo(
+  const longPressPan = useMemo(
     () =>
       Gesture.Pan()
         .manualActivation(true)
@@ -310,10 +339,39 @@ export function useChartGestures<T>(options: ChartGestureOptions<T>): ChartGestu
     ]
   );
 
+  // Drag activation: the scrub takes the touch as soon as the finger moves past
+  // the slop, which lets a stationary touch stay a tap on the surface behind.
+  const dragPan = useMemo(
+    () =>
+      Gesture.Pan()
+        .activeOffsetX([-dragSlop, dragSlop])
+        .activeOffsetY([-dragSlop, dragSlop])
+        .onStart((e) => {
+          'worklet';
+          touchX.value = e.x;
+        })
+        .onUpdate((e) => {
+          'worklet';
+          touchX.value = e.x;
+        })
+        .onFinalize(() => {
+          'worklet';
+          touchX.value = -1;
+        }),
+    [dragSlop, touchX]
+  );
+
+  const panGesture = scrubActivation === 'drag' ? dragPan : longPressPan;
+
   const handleTap = useCallback(
     (x: number, y: number) => {
-      const idx = resolveTapIndexRef.current?.(x, y) ?? -1;
-      if (idx >= 0) applySelection(idx, true);
+      const resolve = resolveTapIndexRef.current;
+      if (resolve) {
+        const idx = resolve(x, y);
+        if (idx >= 0) applySelection(idx, true);
+        return;
+      }
+      onTapRef.current?.();
     },
     [applySelection]
   );
@@ -321,28 +379,33 @@ export function useChartGestures<T>(options: ChartGestureOptions<T>): ChartGestu
   const tapGesture = useMemo(
     () =>
       Gesture.Tap()
-        .maxDuration(CHART_CONFIG.TAP_MAX_DURATION)
+        .maxDuration(tapMaxDuration)
         .onEnd((e) => {
           'worklet';
           runOnJS(handleTap)(e.x, e.y);
         }),
-    [handleTap]
+    [handleTap, tapMaxDuration]
   );
 
   // A native gesture must be per-instance: it carries a handler tag the native
   // side mutates on initialize, so a shared one collides across mounts.
   const nativeGesture = useMemo(() => Gesture.Native(), []);
-  const wantsTap = resolveTapIndex !== undefined;
+  const wantsTap = resolveTapIndex !== undefined || onTap !== undefined;
 
   const gesture = useMemo<ChartGesture>(() => {
     if (!enabled) return nativeGesture;
-    if (wantsTap && scrubEnabled) {
+    if (!scrubEnabled)
+      return wantsTap ? Gesture.Simultaneous(nativeGesture, tapGesture) : nativeGesture;
+    // Drag activation races the tap, so the two must be exclusive or a scrub
+    // would also fire the tap on release.
+    if (scrubActivation === 'drag') {
+      return wantsTap ? Gesture.Exclusive(panGesture, tapGesture) : panGesture;
+    }
+    if (wantsTap) {
       return Gesture.Simultaneous(nativeGesture, Gesture.Simultaneous(tapGesture, panGesture));
     }
-    if (wantsTap) return Gesture.Simultaneous(nativeGesture, tapGesture);
-    if (!scrubEnabled) return nativeGesture;
     return panGesture;
-  }, [enabled, scrubEnabled, wantsTap, nativeGesture, tapGesture, panGesture]);
+  }, [enabled, scrubEnabled, scrubActivation, wantsTap, nativeGesture, tapGesture, panGesture]);
 
   // Priority: the finger, then a sibling chart, then whatever the screen set.
   const crosshairStyle = useAnimatedStyle(() => {
