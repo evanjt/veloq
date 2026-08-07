@@ -10,6 +10,7 @@ import type {
   FfiActivityPattern,
   FfiFtpTrend,
   FfiInsightsData,
+  FfiInsightsParams,
   FfiPaceTrend,
   FfiPeriodStats,
   FfiStalePrOpportunity,
@@ -81,51 +82,20 @@ export function getSummaryCardData(
 
 export function getInsightsData(
   host: DelegateHost,
-  currentStart: number,
-  currentEnd: number,
-  prevStart: number,
-  prevEnd: number,
-  chronicStart: number,
-  todayStart: number
+  params: FfiInsightsParams
 ): FfiInsightsData | undefined {
   if (!host.ready) return undefined;
-  return host.timed('getInsightsData', () =>
-    host.engine
-      .fitness()
-      .getInsightsData(
-        BigInt(currentStart),
-        BigInt(currentEnd),
-        BigInt(prevStart),
-        BigInt(prevEnd),
-        BigInt(chronicStart),
-        BigInt(todayStart)
-      )
-  );
+  return host.timed('getInsightsData', () => host.engine.fitness().getInsightsData(params));
 }
 
 export function getStartupData(
   host: DelegateHost,
-  currentStart: number,
-  currentEnd: number,
-  prevStart: number,
-  prevEnd: number,
-  chronicStart: number,
-  todayStart: number,
+  params: FfiInsightsParams,
   previewActivityIds: string[]
 ): FfiStartupData | undefined {
   if (!host.ready) return undefined;
   return host.timed('getStartupData', () =>
-    host.engine
-      .fitness()
-      .getStartupData(
-        BigInt(currentStart),
-        BigInt(currentEnd),
-        BigInt(prevStart),
-        BigInt(prevEnd),
-        BigInt(chronicStart),
-        BigInt(todayStart),
-        previewActivityIds
-      )
+    host.engine.fitness().getStartupData(params, previewActivityIds)
   );
 }
 

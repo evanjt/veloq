@@ -17,7 +17,6 @@ export { generateInsights, getLastInsightOutcome } from './lib/generateInsights'
 export {
   computeInsightsFromData,
   fetchInsightsDataFromEngine,
-  invalidateInsightsCache,
   consolidateInsights,
 } from './lib/computeInsightsData';
 export type {

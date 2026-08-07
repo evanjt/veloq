@@ -1,3 +1,5 @@
+import type { EfficiencyTrend } from 'veloqrs';
+
 import { generateStalePRInsights } from '../generators/stalePr';
 import { generateEfficiencyTrendInsights } from '../generators/efficiencyTrend';
 import { generateSectionPRInsights } from '../generators/sectionPR';
@@ -65,7 +67,8 @@ export interface InsightInputData {
   }>;
   chronicPeriod?: PeriodStats | null;
   allSectionTrends?: SectionTrendData[];
-  efficiencyTrendSectionIds?: string[];
+  /** Efficiency trends from the engine, already filtered and capped. */
+  efficiencyTrends?: EfficiencyTrend[];
   /**
    * Bbox of activities in the last `activeWindowDays` - drives the proximity
    * gate (G2). Null disables the gate (insufficient data, gate off, etc.).
@@ -210,10 +213,10 @@ export function generateInsights(data: InsightInputData, t: TFunc): Insight[] {
     )
   );
 
-  const sectionIds = data.efficiencyTrendSectionIds;
-  if (sectionIds && sectionIds.length > 0) {
+  const efficiencyTrends = data.efficiencyTrends;
+  if (efficiencyTrends && efficiencyTrends.length > 0) {
     candidates.push(
-      ...safeRun('efficiencyTrend', () => generateEfficiencyTrendInsights(sectionIds, now, t))
+      ...safeRun('efficiencyTrend', () => generateEfficiencyTrendInsights(efficiencyTrends, now, t))
     );
   }
 

@@ -67,9 +67,11 @@ import {
   type GroupSummary,
   type MapActivityComplete,
   type FfiPeriodStats,
+  type FfiSummaryCardData,
   type FfiFtpTrend,
   type FfiPaceTrend,
   type FfiInsightsData,
+  type FfiInsightsParams,
   type FfiRecentPr,
   type FfiStartupData,
   type FfiPreviewTrack,
@@ -111,10 +113,12 @@ export type {
 };
 // Aggregate query types
 export type PeriodStats = FfiPeriodStats;
+export type SummaryCardData = FfiSummaryCardData;
 export type FtpTrend = FfiFtpTrend;
 export type PaceTrend = FfiPaceTrend;
 // Insights batch types
 export type InsightsData = FfiInsightsData;
+export type InsightsParams = FfiInsightsParams;
 export type RecentPR = FfiRecentPr;
 // Startup batch types
 export type StartupData = FfiStartupData;

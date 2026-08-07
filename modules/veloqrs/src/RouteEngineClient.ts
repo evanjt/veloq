@@ -31,6 +31,7 @@ import type {
   FfiFtpTrend,
   FfiPaceTrend,
   FfiInsightsData,
+  FfiInsightsParams,
   FfiStartupData,
   FfiRoutesScreenData,
   FfiPotentialSection,
@@ -554,43 +555,14 @@ class RouteEngineClient implements DelegateHost {
     swimPaceTrend: FfiPaceTrend;
   } => fitnessDelegates.getSummaryCardData(this, currentStart, currentEnd, prevStart, prevEnd);
 
-  getInsightsData = (
-    currentStart: number,
-    currentEnd: number,
-    prevStart: number,
-    prevEnd: number,
-    chronicStart: number,
-    todayStart: number
-  ): FfiInsightsData | undefined =>
-    fitnessDelegates.getInsightsData(
-      this,
-      currentStart,
-      currentEnd,
-      prevStart,
-      prevEnd,
-      chronicStart,
-      todayStart
-    );
+  getInsightsData = (params: FfiInsightsParams): FfiInsightsData | undefined =>
+    fitnessDelegates.getInsightsData(this, params);
 
   getStartupData = (
-    currentStart: number,
-    currentEnd: number,
-    prevStart: number,
-    prevEnd: number,
-    chronicStart: number,
-    todayStart: number,
+    params: FfiInsightsParams,
     previewActivityIds: string[]
   ): FfiStartupData | undefined =>
-    fitnessDelegates.getStartupData(
-      this,
-      currentStart,
-      currentEnd,
-      prevStart,
-      prevEnd,
-      chronicStart,
-      todayStart,
-      previewActivityIds
-    );
+    fitnessDelegates.getStartupData(this, params, previewActivityIds);
 
   getPeriodStats = (startTs: number, endTs: number): FfiPeriodStats =>
     fitnessDelegates.getPeriodStats(this, startTs, endTs);
