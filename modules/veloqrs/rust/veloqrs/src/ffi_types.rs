@@ -1673,6 +1673,34 @@ pub struct FfiSectionPerformanceData {
 }
 
 // ============================================================================
+// Route Detail Batch Types
+// ============================================================================
+
+/// Everything the route detail screen paints with in one call.
+///
+/// The performances are unfiltered: the screen derives its sport pills from
+/// them and only asks for a filtered read once the user picks a sport.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiRouteDetailData {
+    /// Total activities held by the engine
+    pub activity_count: u32,
+    /// The route itself, or `None` when the ID is unknown
+    pub group: Option<FfiRouteGroup>,
+    /// Route groups above the caller's minimum, most attempts first
+    pub groups: Vec<FfiRouteGroup>,
+    /// Every attempt on the route, across sports
+    pub performances: FfiRoutePerformanceResult,
+    /// Consensus polyline, delta+varint encoded
+    pub encoded_consensus: Vec<u8>,
+    /// User-set route names by route ID
+    pub route_names: std::collections::HashMap<String, String>,
+    /// Activities the user excluded from this route
+    pub excluded_activity_ids: Vec<String>,
+    /// Simplified GPS signatures for the route's activities
+    pub map_signatures: Vec<FfiMapSignature>,
+}
+
+// ============================================================================
 // Helper functions
 // ============================================================================
 

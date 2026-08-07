@@ -188,6 +188,24 @@ impl RouteManager {
         with_engine(|e| e.get_activity_route_highlights(&activity_ids))
     }
 
+    /// Everything the route detail screen paints with: engine counts, the
+    /// route and the group list it is ranked within, every attempt across
+    /// sports, the consensus polyline, names, exclusions and signatures.
+    fn get_detail_data(
+        &self,
+        group_id: String,
+        current_activity_id: Option<String>,
+        min_group_activities: u32,
+    ) -> Result<crate::FfiRouteDetailData, VeloqError> {
+        with_engine(|e| {
+            e.route_detail_data(
+                &group_id,
+                current_activity_id.as_deref(),
+                min_group_activities,
+            )
+        })
+    }
+
     fn set_representative(&self, route_id: String, activity_id: String) -> Result<(), VeloqError> {
         with_engine(|e| {
             e.set_route_representative(&route_id, &activity_id)

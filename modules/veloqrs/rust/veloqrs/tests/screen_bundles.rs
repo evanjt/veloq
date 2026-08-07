@@ -275,6 +275,58 @@ fn activity_detail_route_groups_honour_the_minimum() {
 }
 
 // ============================================================================
+// Route detail
+// ============================================================================
+
+#[test]
+fn route_detail_matches_the_calls_it_replaces() {
+    let mut s = populated();
+    // Any group the engine holds; an unknown ID exercises the empty path below.
+    let group_id = s
+        .engine
+        .get_groups()
+        .first()
+        .map(|g| g.group_id.clone())
+        .unwrap_or_else(|| "no-group".to_string());
+
+    let bundle = s.engine.route_detail_data(&group_id, None, 1);
+
+    assert_eq!(bundle.activity_count, s.engine.activity_count() as u32);
+    assert_eq!(bundle.route_names, s.engine.get_all_route_names());
+    assert_eq!(
+        bundle.excluded_activity_ids,
+        s.engine.get_excluded_route_activity_ids(&group_id)
+    );
+    assert_eq!(
+        bundle.group.as_ref().map(|g| g.group_id.clone()),
+        s.engine.get_group_by_id(&group_id).map(|g| g.group_id)
+    );
+
+    let direct = s.engine.get_route_performances(&group_id, None, None);
+    assert_eq!(
+        bundle.performances.performances.len(),
+        direct.performances.len()
+    );
+
+    let expected_consensus = s
+        .engine
+        .get_consensus_route(&group_id)
+        .map(|points| veloqrs::coords::encode(points.as_slice()))
+        .unwrap_or_default();
+    assert_eq!(bundle.encoded_consensus, expected_consensus);
+}
+
+#[test]
+fn route_detail_honours_the_group_minimum() {
+    let mut s = populated();
+    let bundle = s.engine.route_detail_data("no-group", None, 3);
+
+    assert!(bundle.group.is_none());
+    assert!(bundle.map_signatures.is_empty());
+    assert!(bundle.groups.iter().all(|g| g.activity_ids.len() >= 3));
+}
+
+// ============================================================================
 // Insights
 // ============================================================================
 

@@ -352,4 +352,52 @@ impl super::PersistentRouteEngine {
             chart_data,
         }
     }
+
+    /// Everything the route detail screen paints with.
+    ///
+    /// The performances come back unfiltered so the screen can build its sport
+    /// pills without a second read. A sport-filtered read is only worth making
+    /// once the user picks one.
+    pub fn route_detail_data(
+        &mut self,
+        group_id: &str,
+        current_activity_id: Option<&str>,
+        min_group_activities: u32,
+    ) -> crate::FfiRouteDetailData {
+        let all_groups = self.get_groups().to_vec();
+        let mut groups: Vec<crate::FfiRouteGroup> = all_groups
+            .into_iter()
+            .filter(|g| g.activity_ids.len() as u32 >= min_group_activities)
+            .map(crate::FfiRouteGroup::from)
+            .collect();
+        groups.sort_by_key(|g| std::cmp::Reverse(g.activity_ids.len()));
+
+        let group = self
+            .get_group_by_id(group_id)
+            .map(crate::FfiRouteGroup::from);
+        let activity_ids: Vec<String> = group
+            .as_ref()
+            .map(|g| g.activity_ids.clone())
+            .unwrap_or_default();
+
+        let encoded_consensus = self
+            .get_consensus_route(group_id)
+            .map(|points| crate::coords::encode(points.as_slice()))
+            .unwrap_or_default();
+
+        crate::FfiRouteDetailData {
+            activity_count: self.activity_count() as u32,
+            groups,
+            performances: crate::FfiRoutePerformanceResult::from(self.get_route_performances(
+                group_id,
+                current_activity_id,
+                None,
+            )),
+            encoded_consensus,
+            route_names: self.get_all_route_names(),
+            excluded_activity_ids: self.get_excluded_route_activity_ids(group_id),
+            map_signatures: self.get_map_signatures_for_ids(&activity_ids),
+            group,
+        }
+    }
 }
