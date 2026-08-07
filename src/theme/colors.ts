@@ -341,6 +341,15 @@ export const mapStyleSwatch = {
   satellite: '#1E6B5A',
 } as const;
 
+// Static thumbnails for the map style picker. Each is the style's own land,
+// water and road tint, so a viewer recognises the style without the app having
+// to run three live maps to draw three 70px circles.
+export const mapStylePreview = {
+  light: { land: '#EFEDE7', water: '#A5CFE3', road: '#FFFFFF' },
+  dark: { land: '#1F2933', water: '#20405C', road: '#3E4C59' },
+  satellite: { land: '#2F5E3A', water: '#1B4A63', road: '#C9BFA5' },
+} as const;
+
 // Insight icon tints (insight generators). Theme-independent; positive and
 // info mirror formOptimal and fitnessBlue.
 export const insightIcon = {

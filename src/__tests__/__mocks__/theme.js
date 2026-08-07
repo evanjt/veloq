@@ -68,6 +68,12 @@ module.exports = {
     nearbyEnd: "rgba(239,68,68,0.6)",
     userLocation: "#2196F3",
   },
+  mapStyleSwatch: { light: "#E5E7EB", dark: "#374151", satellite: "#1E6B5A" },
+  mapStylePreview: {
+    light: { land: "#EFEDE7", water: "#A5CFE3", road: "#FFFFFF" },
+    dark: { land: "#1F2933", water: "#20405C", road: "#3E4C59" },
+    satellite: { land: "#2F5E3A", water: "#1B4A63", road: "#C9BFA5" },
+  },
   mapPreviewColors: {
     routeHalo: "#FFFFFF",
     light: { bg: "#e8f4e8", bgBottom: "#d4e8d4", grid: "#d0e8d0" },

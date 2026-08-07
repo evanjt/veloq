@@ -11,6 +11,10 @@ jest.mock('@/features/maps/stores/MapPreferencesContext', () => ({
   useMapPreferences: () => ({ preferences: { defaultStyle: 'light' } }),
 }));
 
+jest.mock('@/shared/app', () => ({
+  useTheme: () => ({ isDark: false }),
+}));
+
 import React from 'react';
 import { render, fireEvent, screen } from '@testing-library/react-native';
 import { RecordingMap } from '@/features/recording/components/RecordingMap';
@@ -23,11 +27,24 @@ const TRACK: [number, number][] = [
 
 const HERE = { latitude: 46.948, longitude: 7.447 };
 
+// A pan reaches React Native as a bridge message from the map surface, so the
+// test posts the same message the page would.
 function panTheMap() {
-  fireEvent(screen.getByTestId('maplibre-map'), 'regionDidChange', {
-    type: 'Feature',
-    properties: { isUserInteraction: true },
-    geometry: { type: 'Point', coordinates: [7.447, 46.948] },
+  fireEvent(screen.getByTestId('maplibre-map'), 'message', {
+    nativeEvent: {
+      data: JSON.stringify({
+        type: 'regionDidChange',
+        isUserInteraction: true,
+        center: [7.447, 46.948],
+        zoom: 15,
+        bearing: 0,
+        pitch: 0,
+        bounds: {
+          sw: [7.44, 46.94],
+          ne: [7.46, 46.96],
+        },
+      }),
+    },
   });
 }
 

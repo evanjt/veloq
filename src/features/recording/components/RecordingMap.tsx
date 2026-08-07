@@ -1,16 +1,19 @@
-import React, { useMemo, useState, useCallback, useRef } from 'react';
+import React, { useMemo, useState, useCallback, useEffect, useRef } from 'react';
 import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import type { ViewStyle } from 'react-native';
-import {
-  MapView,
-  Camera,
-  ShapeSource,
-  LineLayer,
-  CircleLayer,
-} from '@maplibre/maplibre-react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useMapPreferences } from '@/features/maps/stores/MapPreferencesContext';
-import { getMapStyle } from '@/features/maps/components/mapStyles';
+import { MapSurface, type MapSurfaceRef } from '@/features/maps/components/MapSurface';
+import {
+  boundsOfLngLat,
+  featureCollection,
+  lineFeature,
+  lngLatFromLatLngTuples,
+  lngLatFromShort,
+  pointFeature,
+  type LngLat,
+} from '@/features/maps/lib/coordinates';
+import type { MapLayerSpec, MapSourceSpec } from '@/features/maps/lib/htmlBuilders';
 import { colors, darkColors, brand, spacing, layout } from '@/theme';
 
 const BRAND_COLOR = brand.tealLight;
@@ -18,6 +21,14 @@ const EXCLUDED_COLOR = 'rgba(150, 150, 150, 0.5)';
 const POSITION_DOT_COLOR = colors.secondary;
 const POSITION_DOT_HALO = colors.surface;
 const OVERLAY_COLOR = brand.blue;
+
+/** Zoom held while the camera follows the current position. */
+const FOLLOW_ZOOM = 15;
+
+/** Room around the finished track in review mode, in pixels. */
+const REVIEW_FIT_PADDING = { top: 40, right: 40, bottom: 60, left: 40 } as const;
+
+const SURFACE_STYLE_OPTIONS = { bundledLightStyle: true, cacheVectorTiles: true } as const;
 
 interface RecordingMapProps {
   coordinates: [number, number][]; // [lat, lng] from recording streams
@@ -43,41 +54,21 @@ function RecordingMapInner({
   style,
 }: RecordingMapProps) {
   const { preferences } = useMapPreferences();
-  const mapStyleValue = getMapStyle(preferences.defaultStyle);
+  const surfaceRef = useRef<MapSurfaceRef>(null);
   // Camera follows the current position until the user pans; the recenter
   // button restores following.
   const [isFollowing, setIsFollowing] = useState(true);
 
-  // Style load retry - a transient failure leaves the map on MapLibre's
-  // default empty style (white canvas). Remount to re-apply the style.
-  const [mapKey, setMapKey] = useState(0);
-  const retryCountRef = useRef(0);
-  const MAX_RETRIES = 3;
-  const RETRY_DELAY_MS = 1000;
-
-  const handleMapLoadError = useCallback(() => {
-    if (retryCountRef.current < MAX_RETRIES) {
-      retryCountRef.current += 1;
-      setTimeout(() => {
-        setMapKey((k) => k + 1);
-      }, RETRY_DELAY_MS * retryCountRef.current);
-    }
+  // Only a gesture breaks the follow. A camera move we asked for does not.
+  const handleRegionDidChange = useCallback((_state: unknown, isUserInteraction: boolean) => {
+    if (isUserInteraction) setIsFollowing(false);
   }, []);
 
-  const handleRegionDidChange = useCallback((feature: GeoJSON.Feature) => {
-    const properties = feature.properties as { isUserInteraction?: boolean } | undefined;
-    if (properties?.isUserInteraction) {
-      setIsFollowing(false);
-    }
-  }, []);
-
-  // Convert [lat, lng] → [lng, lat] for GeoJSON
-  const validCoords = useMemo(() => {
-    if (!coordinates || coordinates.length < 2) return [];
-    return coordinates
-      .map(([lat, lng]) => [lng, lat] as [number, number])
-      .filter(([lng, lat]) => Number.isFinite(lng) && Number.isFinite(lat));
-  }, [coordinates]);
+  // Recording streams arrive as [lat, lng]; the map wants [lng, lat].
+  const validCoords = useMemo(
+    () => (coordinates && coordinates.length >= 2 ? lngLatFromLatLngTuples(coordinates) : []),
+    [coordinates]
+  );
 
   // Build route GeoJSON - when trimming, split into active and excluded portions
   const hasTrim =
@@ -86,212 +77,135 @@ function RecordingMapInner({
     trimEnd != null &&
     (trimStart > 0 || trimEnd < coordinates.length - 1);
 
-  const activeRouteGeoJSON = useMemo((): GeoJSON.Feature | GeoJSON.FeatureCollection => {
-    const empty: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: [] };
-    if (validCoords.length < 2) return empty;
-
-    if (hasTrim) {
-      const activeCoords = validCoords.slice(trimStart!, trimEnd! + 1);
-      if (activeCoords.length < 2) return empty;
-      return {
-        type: 'Feature',
-        properties: {},
-        geometry: { type: 'LineString', coordinates: activeCoords },
-      };
-    }
-
-    return {
-      type: 'Feature',
-      properties: {},
-      geometry: { type: 'LineString', coordinates: validCoords },
-    };
+  const activeRoute = useMemo(() => {
+    if (validCoords.length < 2) return featureCollection([]);
+    const active = hasTrim ? validCoords.slice(trimStart!, trimEnd! + 1) : validCoords;
+    return featureCollection([lineFeature(active)]);
   }, [validCoords, hasTrim, trimStart, trimEnd]);
 
-  const excludedRouteGeoJSON = useMemo((): GeoJSON.FeatureCollection => {
-    const empty: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: [] };
-    if (!hasTrim || validCoords.length < 2) return empty;
-
-    const features: GeoJSON.Feature[] = [];
-    // Before trim start
-    if (trimStart! > 0) {
-      const beforeCoords = validCoords.slice(0, trimStart! + 1);
-      if (beforeCoords.length >= 2) {
-        features.push({
-          type: 'Feature',
-          properties: {},
-          geometry: { type: 'LineString', coordinates: beforeCoords },
-        });
-      }
-    }
-    // After trim end
-    if (trimEnd! < validCoords.length - 1) {
-      const afterCoords = validCoords.slice(trimEnd!);
-      if (afterCoords.length >= 2) {
-        features.push({
-          type: 'Feature',
-          properties: {},
-          geometry: { type: 'LineString', coordinates: afterCoords },
-        });
-      }
-    }
-    return { type: 'FeatureCollection', features };
+  const excludedRoute = useMemo(() => {
+    if (!hasTrim || validCoords.length < 2) return featureCollection([]);
+    return featureCollection([
+      trimStart! > 0 ? lineFeature(validCoords.slice(0, trimStart! + 1)) : null,
+      trimEnd! < validCoords.length - 1 ? lineFeature(validCoords.slice(trimEnd!)) : null,
+    ]);
   }, [validCoords, hasTrim, trimStart, trimEnd]);
 
-  // Saved-route overlay (drawn beneath the live trace)
-  const overlayGeoJSON = useMemo((): GeoJSON.Feature | null => {
-    if (!routeOverlay || routeOverlay.length < 2) return null;
-    const coords = routeOverlay
-      .map((p) => [p.lng, p.lat] as [number, number])
-      .filter(([lng, lat]) => Number.isFinite(lng) && Number.isFinite(lat));
-    if (coords.length < 2) return null;
-    return {
-      type: 'Feature',
-      properties: {},
-      geometry: { type: 'LineString', coordinates: coords },
-    };
-  }, [routeOverlay]);
+  const overlayRoute = useMemo(
+    () => featureCollection([lineFeature(routeOverlay ? lngLatFromShort(routeOverlay) : [])]),
+    [routeOverlay]
+  );
 
-  // Current position as GeoJSON point
-  const positionGeoJSON = useMemo((): GeoJSON.Feature | null => {
-    if (!currentLocation) return null;
+  const position = useMemo(() => {
+    if (!currentLocation) return featureCollection([]);
     const { latitude, longitude } = currentLocation;
-    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return null;
-    return {
-      type: 'Feature',
-      properties: {},
-      geometry: { type: 'Point', coordinates: [longitude, latitude] },
-    };
+    if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) return featureCollection([]);
+    return featureCollection([pointFeature([longitude, latitude])]);
   }, [currentLocation]);
 
-  // Camera configuration
-  const cameraCenter =
-    currentLocation && isFollowing
-      ? ([currentLocation.longitude, currentLocation.latitude] as [number, number])
-      : undefined;
+  const followTarget: LngLat | null =
+    currentLocation &&
+    Number.isFinite(currentLocation.latitude) &&
+    Number.isFinite(currentLocation.longitude)
+      ? [currentLocation.longitude, currentLocation.latitude]
+      : null;
 
-  const bounds = useMemo(() => {
-    if (!fitBounds || validCoords.length < 2) return undefined;
-    let minLng = Infinity,
-      maxLng = -Infinity,
-      minLat = Infinity,
-      maxLat = -Infinity;
-    for (const [lng, lat] of validCoords) {
-      if (lng < minLng) minLng = lng;
-      if (lng > maxLng) maxLng = lng;
-      if (lat < minLat) minLat = lat;
-      if (lat > maxLat) maxLat = lat;
-    }
-    return {
-      ne: [maxLng, maxLat] as [number, number],
-      sw: [minLng, minLat] as [number, number],
-      paddingLeft: 40,
-      paddingRight: 40,
-      paddingTop: 40,
-      paddingBottom: 60,
-    };
-  }, [fitBounds, validCoords]);
+  const reviewBounds = useMemo(
+    () => (fitBounds ? boundsOfLngLat(validCoords) : null),
+    [fitBounds, validCoords]
+  );
+
+  // Live mode: keep the camera on the current position until the user pans.
+  useEffect(() => {
+    if (fitBounds || !isFollowing || !followTarget) return;
+    surfaceRef.current?.setCamera({ center: followTarget, zoom: FOLLOW_ZOOM }, 500);
+  }, [fitBounds, isFollowing, followTarget]);
+
+  // Review mode: frame the whole track once it is known.
+  useEffect(() => {
+    if (!fitBounds || !reviewBounds) return;
+    surfaceRef.current?.fitBounds(reviewBounds, REVIEW_FIT_PADDING);
+  }, [fitBounds, reviewBounds]);
+
+  const sources = useMemo<Record<string, MapSourceSpec>>(
+    () => ({
+      'route-overlay': { kind: 'geojson', data: overlayRoute },
+      'excluded-route': { kind: 'geojson', data: excludedRoute },
+      'recording-route': { kind: 'geojson', data: activeRoute },
+      'current-position': { kind: 'geojson', data: position },
+    }),
+    [overlayRoute, excludedRoute, activeRoute, position]
+  );
+
+  const layers = useMemo<MapLayerSpec[]>(() => {
+    const roundLine = { 'line-cap': 'round', 'line-join': 'round' };
+    return [
+      {
+        id: 'route-overlay-line',
+        type: 'line',
+        source: 'route-overlay',
+        layout: roundLine,
+        paint: { 'line-color': OVERLAY_COLOR, 'line-opacity': 0.75, 'line-width': 5 },
+      },
+      {
+        id: 'excluded-route-line',
+        type: 'line',
+        source: 'excluded-route',
+        layout: roundLine,
+        paint: { 'line-color': EXCLUDED_COLOR, 'line-width': 4 },
+      },
+      {
+        id: 'recording-route-casing',
+        type: 'line',
+        source: 'recording-route',
+        layout: roundLine,
+        paint: { 'line-color': POSITION_DOT_HALO, 'line-width': 5 },
+      },
+      {
+        id: 'recording-route-line',
+        type: 'line',
+        source: 'recording-route',
+        layout: roundLine,
+        paint: { 'line-color': BRAND_COLOR, 'line-width': 4 },
+      },
+      {
+        id: 'current-position-halo',
+        type: 'circle',
+        source: 'current-position',
+        paint: { 'circle-radius': 10, 'circle-color': POSITION_DOT_HALO, 'circle-opacity': 0.9 },
+      },
+      {
+        id: 'current-position-dot',
+        type: 'circle',
+        source: 'current-position',
+        paint: { 'circle-radius': 7, 'circle-color': POSITION_DOT_COLOR },
+      },
+    ];
+  }, []);
+
+  const initialCamera = useMemo(
+    () =>
+      reviewBounds
+        ? { bounds: reviewBounds, padding: REVIEW_FIT_PADDING }
+        : followTarget
+          ? { center: followTarget, zoom: FOLLOW_ZOOM }
+          : { center: [0, 0] as LngLat, zoom: 2 },
+    // Only the first value matters: later moves go through the ref.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    []
+  );
 
   return (
     <View style={[styles.container, style]}>
-      <MapView
-        key={`recording-map-${mapKey}`}
-        style={styles.map}
-        mapStyle={mapStyleValue}
-        logoEnabled={false}
-        attributionEnabled={false}
-        compassEnabled={false}
+      <MapSurface
+        ref={surfaceRef}
+        mapStyle={preferences.defaultStyle}
+        styleOptions={SURFACE_STYLE_OPTIONS}
+        initialCamera={initialCamera}
+        sources={sources}
+        layers={layers}
         onRegionDidChange={fitBounds ? undefined : handleRegionDidChange}
-        onDidFailLoadingMap={handleMapLoadError}
-      >
-        {fitBounds && bounds ? (
-          <Camera defaultSettings={{ bounds }} bounds={bounds} animationDuration={0} />
-        ) : (
-          <Camera
-            defaultSettings={
-              cameraCenter ? { centerCoordinate: cameraCenter, zoomLevel: 15 } : undefined
-            }
-            centerCoordinate={cameraCenter}
-            zoomLevel={isFollowing ? 15 : undefined}
-            animationDuration={500}
-          />
-        )}
-
-        {/* Saved-route overlay (beneath everything else) */}
-        {overlayGeoJSON && (
-          <ShapeSource id="routeOverlay" shape={overlayGeoJSON}>
-            <LineLayer
-              id="routeOverlayLine"
-              style={{
-                lineColor: OVERLAY_COLOR,
-                lineOpacity: 0.75,
-                lineWidth: 5,
-                lineCap: 'round',
-                lineJoin: 'round',
-              }}
-            />
-          </ShapeSource>
-        )}
-
-        {/* Excluded route portions (grey, behind active) */}
-        {hasTrim && (
-          <ShapeSource id="excludedRoute" shape={excludedRouteGeoJSON}>
-            <LineLayer
-              id="excludedRouteLine"
-              style={{
-                lineColor: EXCLUDED_COLOR,
-                lineWidth: 4,
-                lineCap: 'round',
-                lineJoin: 'round',
-              }}
-            />
-          </ShapeSource>
-        )}
-
-        {/* Active route trace */}
-        <ShapeSource id="recordingRoute" shape={activeRouteGeoJSON}>
-          <LineLayer
-            id="recordingRouteCasing"
-            style={{
-              lineColor: POSITION_DOT_HALO,
-              lineOpacity: 1,
-              lineWidth: 5,
-              lineCap: 'round',
-              lineJoin: 'round',
-            }}
-          />
-          <LineLayer
-            id="recordingRouteLine"
-            style={{
-              lineColor: BRAND_COLOR,
-              lineWidth: 4,
-              lineCap: 'round',
-              lineJoin: 'round',
-            }}
-          />
-        </ShapeSource>
-
-        {/* Current position dot */}
-        {positionGeoJSON && (
-          <ShapeSource id="currentPosition" shape={positionGeoJSON}>
-            <CircleLayer
-              id="currentPositionHalo"
-              style={{
-                circleRadius: 10,
-                circleColor: POSITION_DOT_HALO,
-                circleOpacity: 0.9,
-              }}
-            />
-            <CircleLayer
-              id="currentPositionDot"
-              style={{
-                circleRadius: 7,
-                circleColor: POSITION_DOT_COLOR,
-                circleOpacity: 1,
-              }}
-            />
-          </ShapeSource>
-        )}
-      </MapView>
+      />
 
       {/* Map controls (live mode only) */}
       {!fitBounds && (
@@ -338,9 +252,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: darkColors.background,
-  },
-  map: {
-    flex: 1,
   },
   controls: {
     position: 'absolute',

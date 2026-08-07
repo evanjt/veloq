@@ -19,6 +19,7 @@ export {
   mapLayerColors,
   chartStreamColors,
   mapStyleSwatch,
+  mapStylePreview,
   insightIcon,
   statusBadge,
   amberBanner,
