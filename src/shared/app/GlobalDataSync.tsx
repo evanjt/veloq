@@ -21,6 +21,7 @@ import {
 } from '@/shared/native/routeEngine';
 import { toActivityMetrics } from '@/features/activity/lib/activityMetrics';
 import { useAuthStore } from '@/shared/app/AuthStore';
+import { useEngineSync } from '@/shared/native/useEngineSync';
 import { useSyncAuthExpiry } from '@/shared/native/useSyncAuthExpiry';
 import { useRouteSettings } from '@/features/routes/stores/RouteSettingsStore';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
@@ -49,6 +50,9 @@ export function GlobalDataSync() {
 
   // Log the user out when the Rust transport reports an expired OAuth session.
   useSyncAuthExpiry();
+
+  // Fill the engine-backed tables and wake their readers when the sync lands.
+  useEngineSync();
 
   // Startup alignment: invalidate activities on mount to force a fresh API fetch.
   useEffect(() => {
@@ -136,6 +140,8 @@ export function GlobalDataSync() {
       queryClient.invalidateQueries({ queryKey: queryKeys.wellness.all });
       queryClient.invalidateQueries({ queryKey: queryKeys.strength.all });
       queryClient.invalidateQueries({ queryKey: queryKeys.athleteSummary.all });
+      queryClient.invalidateQueries({ queryKey: queryKeys.profile.athlete });
+      queryClient.invalidateQueries({ queryKey: queryKeys.profile.sportSettings });
       queryClient.invalidateQueries({
         queryKey: queryKeys.charts.powerCurve.all,
       });

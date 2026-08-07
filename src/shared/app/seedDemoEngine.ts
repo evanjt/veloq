@@ -55,6 +55,9 @@ export function seedDemoEngine(): void {
           stress: w.stress,
           mood: w.mood,
           motivation: w.motivation,
+          // The wellness screens read the body, not the typed columns, so a
+          // demo day without one would render as a gap.
+          raw: JSON.stringify(w),
         }))
       );
     }

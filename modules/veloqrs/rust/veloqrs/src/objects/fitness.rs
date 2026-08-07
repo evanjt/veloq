@@ -191,9 +191,26 @@ impl FitnessManager {
                     stress: r.stress,
                     mood: r.mood,
                     motivation: r.motivation,
+                    raw: r.raw,
                 })
                 .collect();
             e.upsert_wellness(&mapped)
+                .map_err(|err| VeloqError::Database {
+                    msg: format!("{}", err),
+                })
+        })?
+    }
+
+    /// Untyped wellness bodies over an inclusive date window, oldest first.
+    /// The wellness screens read fields the typed row does not model, so they
+    /// parse these rather than a reconstruction.
+    fn get_wellness_bodies(
+        &self,
+        oldest: String,
+        newest: String,
+    ) -> Result<Vec<String>, VeloqError> {
+        with_engine(|e| {
+            e.get_wellness_bodies(&oldest, &newest)
                 .map_err(|err| VeloqError::Database {
                     msg: format!("{}", err),
                 })

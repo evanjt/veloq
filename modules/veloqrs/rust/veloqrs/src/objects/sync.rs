@@ -183,6 +183,21 @@ impl SyncService {
         true
     }
 
+    /// Declare how many steps the job will run, so a poll of the status shows
+    /// real progress instead of a single opaque unit.
+    fn begin_steps(&self, total: u32) {
+        let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
+        inner.total = total;
+        inner.completed = 0;
+        inner.in_flight = 1;
+    }
+
+    /// Advance the completed counter by one step.
+    fn complete_step(&self) {
+        let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
+        inner.completed = (inner.completed + 1).min(inner.total);
+    }
+
     /// Terminal transition for a finished job.
     fn finish(&self, state: SyncState, last_error: Option<String>, success: bool) {
         let mut inner = self.inner.lock().unwrap_or_else(|e| e.into_inner());
@@ -238,27 +253,117 @@ pub fn current_athlete_id() -> Option<String> {
     SYNC_SERVICE.athlete_id()
 }
 
-/// The sync job. Phase 1 performs a credential + connectivity check (a cheap
-/// `/athlete/me`), proving the command → runtime → transport → governor → status
-/// path end-to-end without touching the engine. Per-endpoint slices extend this
-/// into the full activities / wellness / streams sync that writes the engine.
+/// How many days of wellness one sync pulls. Matches the widest range the
+/// fitness screens offer, so a range change never needs a fresh request.
+const WELLNESS_DAYS: i64 = 365;
+
+/// The steps `perform_sync` runs, for the progress counters TypeScript polls.
+const SYNC_STEPS: u32 = 3;
+
+/// The sync job: fetch the profile slice and write it into SQLite. Every step
+/// is independent, so one failing endpoint does not cost the others their data.
+/// A 401 is terminal, because no later step can succeed with a dead credential.
 ///
 /// Free function over `&SyncService` so tests can drive it with a mock-server
 /// transport against a local service instance.
-pub(crate) async fn perform_sync(svc: &SyncService, transport: Transport, _athlete_id: String) {
+pub(crate) async fn perform_sync(svc: &SyncService, transport: Transport, athlete_id: String) {
     if svc.is_cancelled() {
         svc.finish(SyncState::Idle, None, false);
         return;
     }
-    match endpoints::fetch_current_athlete(&transport, Lane::Interactive).await {
-        Ok(_) => svc.finish(SyncState::Idle, None, true),
-        Err(NetError::Unauthorized) => svc.finish(
-            SyncState::AuthExpired,
-            Some("unauthorized".to_string()),
-            false,
-        ),
-        Err(e) => svc.finish(SyncState::Idle, Some(e.to_string()), false),
+    svc.begin_steps(SYNC_STEPS);
+
+    let mut last_error: Option<String> = None;
+
+    macro_rules! step {
+        ($body:expr) => {
+            if svc.is_cancelled() {
+                svc.finish(SyncState::Idle, last_error, false);
+                return;
+            }
+            match $body {
+                Ok(()) => svc.complete_step(),
+                Err(NetError::Unauthorized) => {
+                    svc.finish(
+                        SyncState::AuthExpired,
+                        Some("unauthorized".to_string()),
+                        false,
+                    );
+                    return;
+                }
+                // A failed step is not a completed one, so the counter stays
+                // an honest count of what actually landed in SQLite.
+                Err(e) => last_error = Some(e.to_string()),
+            }
+        };
     }
+
+    step!(sync_athlete(&transport, &athlete_id).await);
+    step!(sync_sport_settings(&transport, &athlete_id).await);
+    step!(sync_wellness(&transport, &athlete_id).await);
+
+    let success = last_error.is_none();
+    svc.finish(SyncState::Idle, last_error, success);
+}
+
+/// Persist the athlete profile body.
+async fn sync_athlete(transport: &Transport, athlete_id: &str) -> Result<(), NetError> {
+    let body = endpoints::fetch_athlete_body(transport, athlete_id, Lane::Interactive).await?;
+    crate::persistence::with_persistent_engine(|engine| engine.set_athlete_profile(&body));
+    Ok(())
+}
+
+/// Persist the sport settings body.
+async fn sync_sport_settings(transport: &Transport, athlete_id: &str) -> Result<(), NetError> {
+    let body =
+        endpoints::fetch_sport_settings_body(transport, athlete_id, Lane::Interactive).await?;
+    crate::persistence::with_persistent_engine(|engine| engine.set_sport_settings(&body));
+    Ok(())
+}
+
+/// Persist a year of wellness, typed columns plus the untyped body per day.
+async fn sync_wellness(transport: &Transport, athlete_id: &str) -> Result<(), NetError> {
+    let newest = chrono::Local::now().date_naive();
+    let oldest = newest - chrono::Duration::days(WELLNESS_DAYS);
+    let days = endpoints::fetch_wellness_with_bodies(
+        transport,
+        athlete_id,
+        &oldest.to_string(),
+        &newest.to_string(),
+        Lane::Backfill,
+    )
+    .await?;
+    if days.is_empty() {
+        return Ok(());
+    }
+
+    let rows: Vec<crate::persistence::wellness::WellnessRow> = days
+        .into_iter()
+        .map(|(r, body)| crate::persistence::wellness::WellnessRow {
+            date: r.id,
+            ctl: r.ctl,
+            atl: r.atl,
+            ramp_rate: r.ramp_rate,
+            hrv: r.hrv,
+            resting_hr: r.resting_hr,
+            weight: r.weight,
+            sleep_secs: r.sleep_secs.map(|s| s as i64),
+            sleep_score: r.sleep_score,
+            soreness: r.soreness,
+            fatigue: r.fatigue,
+            stress: r.stress,
+            mood: r.mood,
+            motivation: r.motivation,
+            raw: Some(body),
+        })
+        .collect();
+
+    crate::persistence::with_persistent_engine(|engine| {
+        if let Err(e) = engine.upsert_wellness(&rows) {
+            log::warn!("[Sync] wellness upsert failed: {}", e);
+        }
+    });
+    Ok(())
 }
 
 /// The FFI service object. The single thing TypeScript calls for I/O.
@@ -381,13 +486,27 @@ mod tests {
         assert_eq!(athlete, "i1");
     }
 
+    /// Answer every endpoint the profile slice fetches with `status`.
+    fn mock_profile_slice(server: &MockServer, status: u16) {
+        server.mock(|when, then| {
+            when.method(GET).path("/athlete/i1");
+            then.status(status)
+                .json_body(json!({"id": "i1", "name": "x"}));
+        });
+        server.mock(|when, then| {
+            when.method(GET).path("/athlete/i1/sport-settings");
+            then.status(status).json_body(json!([]));
+        });
+        server.mock(|when, then| {
+            when.method(GET).path("/athlete/i1/wellness");
+            then.status(status).json_body(json!([]));
+        });
+    }
+
     #[test]
     fn successful_sync_returns_to_idle_completed() {
         let server = MockServer::start();
-        server.mock(|when, then| {
-            when.method(GET).path("/athlete/me");
-            then.status(200).json_body(json!({"id": "i1", "name": "x"}));
-        });
+        mock_profile_slice(&server, 200);
         let svc = SyncService::new();
         assert!(svc.try_begin());
         crate::runtime::block_on(perform_sync(
@@ -397,7 +516,8 @@ mod tests {
         ));
         let s = svc.snapshot();
         assert_eq!(s.state, "idle");
-        assert_eq!(s.completed, 1);
+        assert_eq!(s.total, SYNC_STEPS);
+        assert_eq!(s.completed, SYNC_STEPS);
         assert_eq!(s.in_flight, 0);
         assert!(s.last_error.is_none());
     }
@@ -405,10 +525,7 @@ mod tests {
     #[test]
     fn unauthorized_sync_moves_to_auth_expired() {
         let server = MockServer::start();
-        server.mock(|when, then| {
-            when.method(GET).path("/athlete/me");
-            then.status(401);
-        });
+        mock_profile_slice(&server, 401);
         let svc = SyncService::new();
         assert!(svc.try_begin());
         crate::runtime::block_on(perform_sync(
@@ -425,10 +542,7 @@ mod tests {
     #[test]
     fn server_error_records_error_but_returns_idle() {
         let server = MockServer::start();
-        server.mock(|when, then| {
-            when.method(GET).path("/athlete/me");
-            then.status(500);
-        });
+        mock_profile_slice(&server, 500);
         let svc = SyncService::new();
         assert!(svc.try_begin());
         crate::runtime::block_on(perform_sync(
@@ -439,6 +553,37 @@ mod tests {
         let s = svc.snapshot();
         assert_eq!(s.state, "idle");
         assert_eq!(s.completed, 0);
+        assert!(s.last_error.is_some());
+    }
+
+    #[test]
+    fn one_failing_endpoint_does_not_cost_the_others() {
+        // Steps are independent, so a broken sport-settings response must not
+        // stop the athlete profile and wellness from landing.
+        let server = MockServer::start();
+        server.mock(|when, then| {
+            when.method(GET).path("/athlete/i1");
+            then.status(200).json_body(json!({"id": "i1", "name": "x"}));
+        });
+        server.mock(|when, then| {
+            when.method(GET).path("/athlete/i1/sport-settings");
+            then.status(500);
+        });
+        server.mock(|when, then| {
+            when.method(GET).path("/athlete/i1/wellness");
+            then.status(200).json_body(json!([]));
+        });
+
+        let svc = SyncService::new();
+        assert!(svc.try_begin());
+        crate::runtime::block_on(perform_sync(
+            &svc,
+            transport_to(server.base_url()),
+            "i1".into(),
+        ));
+        let s = svc.snapshot();
+        assert_eq!(s.state, "idle");
+        assert_eq!(s.completed, SYNC_STEPS - 1);
         assert!(s.last_error.is_some());
     }
 
@@ -545,10 +690,7 @@ mod tests {
         // After a 401 the service rests in authExpired. Once TypeScript re-auths
         // and issues sync_now again, try_begin moves it back into syncing.
         let server = MockServer::start();
-        server.mock(|when, then| {
-            when.method(GET).path("/athlete/me");
-            then.status(401);
-        });
+        mock_profile_slice(&server, 401);
         let svc = SyncService::new();
         assert!(svc.try_begin());
         crate::runtime::block_on(perform_sync(

@@ -32,13 +32,6 @@ function isDemoMode(): boolean {
 }
 
 export const intervalsApi = {
-  async getAthlete(): Promise<Athlete> {
-    if (isDemoMode()) return mockIntervalsApi.getAthlete();
-    const athleteId = getAthleteId();
-    const response = await apiClient.get(`/athlete/${athleteId}`);
-    return response.data;
-  },
-
   /**
    * Get the current authenticated athlete using /athlete/me
    * This endpoint works with just the API key (no athlete ID needed)
@@ -172,26 +165,6 @@ export const intervalsApi = {
     return response.data;
   },
 
-  async getWellness(params?: { oldest?: string; newest?: string }): Promise<WellnessData[]> {
-    if (isDemoMode()) return mockIntervalsApi.getWellness(params);
-    const athleteId = getAthleteId();
-
-    // Default to last N days if no params provided
-    const today = new Date();
-    const defaultStart = new Date(today);
-    defaultStart.setDate(defaultStart.getDate() - API_DEFAULTS.WELLNESS_DAYS);
-
-    const queryParams = {
-      oldest: params?.oldest || formatLocalDate(defaultStart),
-      newest: params?.newest || formatLocalDate(today),
-    };
-
-    const response = await apiClient.get<WellnessData[]>(`/athlete/${athleteId}/wellness`, {
-      params: queryParams,
-    });
-    return response.data;
-  },
-
   /**
    * Get power curve (best efforts) for the athlete
    * @param sport - Sport type filter (e.g., 'Ride', 'Run')
@@ -297,16 +270,6 @@ export const intervalsApi = {
       endDate: curve?.end_date_local,
       days: curve?.days,
     };
-  },
-
-  /**
-   * Get sport settings including zones
-   */
-  async getSportSettings(): Promise<SportSettings[]> {
-    if (isDemoMode()) return mockIntervalsApi.getSportSettings();
-    const athleteId = getAthleteId();
-    const response = await apiClient.get<SportSettings[]>(`/athlete/${athleteId}/sport-settings`);
-    return response.data;
   },
 
   /**

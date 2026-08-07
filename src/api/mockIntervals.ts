@@ -52,15 +52,6 @@ async function loadCalendarEvents() {
  */
 export const mockIntervalsApi = {
   /**
-   * Get athlete profile
-   */
-  async getAthlete(): Promise<Athlete> {
-    await delay(100);
-    const { fixtures } = await loadFixtures();
-    return fixtures.athlete as Athlete;
-  },
-
-  /**
    * Get current athlete (same as getAthlete for demo)
    */
   async getCurrentAthlete(): Promise<Athlete> {
@@ -132,19 +123,6 @@ export const mockIntervalsApi = {
   },
 
   /**
-   * Get wellness data with optional date filtering
-   */
-  async getWellness(params?: { oldest?: string; newest?: string }): Promise<WellnessData[]> {
-    await delay(150);
-    const { getWellness } = await loadFixtures();
-    const wellness = getWellness({
-      oldest: params?.oldest,
-      newest: params?.newest,
-    });
-    return wellness as WellnessData[];
-  },
-
-  /**
    * Get power curve data
    */
   async getPowerCurve(_params?: { sport?: string; days?: number }): Promise<PowerCurve> {
@@ -164,15 +142,6 @@ export const mockIntervalsApi = {
     await delay(100);
     const { demoPaceCurve } = await loadCurves();
     return demoPaceCurve;
-  },
-
-  /**
-   * Get sport settings (power zones, HR zones, etc.)
-   */
-  async getSportSettings(): Promise<SportSettings[]> {
-    await delay(100);
-    const { demoSportSettings } = await loadCurves();
-    return demoSportSettings as SportSettings[];
   },
 
   /**

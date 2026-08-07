@@ -55,6 +55,9 @@ async function appendPushHistory(ts: number): Promise<void> {
   }
 }
 
+/** Wellness window the insight generators need, matching the app's '1m' range. */
+const WELLNESS_WINDOW_DAYS = 30;
+
 /** Max time to wait for GPS download (15 seconds) */
 const GPS_DOWNLOAD_TIMEOUT_MS = 15_000;
 const GPS_DOWNLOAD_POLL_MS = 250;
@@ -298,14 +301,28 @@ TaskManager.defineTask(BACKGROUND_INSIGHT_TASK, async ({ data, error }) => {
       });
     }
 
-    // 6. Fetch fresh wellness data from intervals.icu API
+    // 6. Read wellness from the engine, refreshed by the sync above
     let wellnessData: WellnessInput[] | null = null;
     try {
-      const { intervalsApi } = require('@/api');
-      const wellness = await intervalsApi.getWellness();
-      wellnessData = wellness as WellnessInput[];
+      const { routeEngine } = require('veloqrs');
+      const newest = new Date();
+      const oldest = new Date(newest);
+      oldest.setDate(oldest.getDate() - WELLNESS_WINDOW_DAYS);
+      const bodies: string[] = routeEngine.getWellnessBodies(
+        oldest.toISOString().split('T')[0],
+        newest.toISOString().split('T')[0]
+      );
+      wellnessData = bodies
+        .map((body) => {
+          try {
+            return JSON.parse(body) as WellnessInput;
+          } catch {
+            return null;
+          }
+        })
+        .filter((row): row is WellnessInput => row !== null);
     } catch (e) {
-      log.warn('Could not fetch wellness data:', e);
+      log.warn('Could not read wellness data:', e);
     }
 
     // 7. Generate insights (now includes new activity if ingested)

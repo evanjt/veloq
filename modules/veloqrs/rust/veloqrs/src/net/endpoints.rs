@@ -19,6 +19,73 @@ pub async fn fetch_athlete(
         .await
 }
 
+/// `GET /athlete/{id}` as the untyped body. `AthleteRecord` models three
+/// fields; the profile screens read unit preferences beyond them, so the body
+/// is what gets persisted.
+pub async fn fetch_athlete_body(
+    t: &Transport,
+    athlete_id: &str,
+    lane: Lane,
+) -> Result<String, NetError> {
+    let bytes = t
+        .get_bytes(&format!("/athlete/{}", athlete_id), &[], lane)
+        .await?;
+    decode_body(bytes)
+}
+
+/// `GET /athlete/{id}/sport-settings` as the untyped body, for the same reason
+/// as `fetch_athlete_body`.
+pub async fn fetch_sport_settings_body(
+    t: &Transport,
+    athlete_id: &str,
+    lane: Lane,
+) -> Result<String, NetError> {
+    let bytes = t
+        .get_bytes(
+            &format!("/athlete/{}/sport-settings", athlete_id),
+            &[],
+            lane,
+        )
+        .await?;
+    decode_body(bytes)
+}
+
+/// `GET /athlete/{id}/wellness` returning each day both typed and as its own
+/// body, from a single request. Rust computes on the typed values; the UI
+/// reads fields the record does not model.
+pub async fn fetch_wellness_with_bodies(
+    t: &Transport,
+    athlete_id: &str,
+    oldest: &str,
+    newest: &str,
+    lane: Lane,
+) -> Result<Vec<(WellnessRecord, String)>, NetError> {
+    let bytes = t
+        .get_bytes(
+            &format!("/athlete/{}/wellness", athlete_id),
+            &[("oldest", oldest), ("newest", newest)],
+            lane,
+        )
+        .await?;
+    let days: Vec<serde_json::Value> =
+        serde_json::from_slice(&bytes).map_err(|e| NetError::Decode(e.to_string()))?;
+
+    let mut out = Vec::with_capacity(days.len());
+    for day in days {
+        let body = day.to_string();
+        let record: WellnessRecord =
+            serde_json::from_value(day).map_err(|e| NetError::Decode(e.to_string()))?;
+        out.push((record, body));
+    }
+    Ok(out)
+}
+
+/// Response bytes as UTF-8. intervals.icu always answers JSON, so a body that
+/// is not valid UTF-8 is a decode failure rather than something to store.
+fn decode_body(bytes: Vec<u8>) -> Result<String, NetError> {
+    String::from_utf8(bytes).map_err(|e| NetError::Decode(e.to_string()))
+}
+
 /// `GET /athlete/me` - discover the current athlete from the credential alone.
 pub async fn fetch_current_athlete(t: &Transport, lane: Lane) -> Result<AthleteRecord, NetError> {
     t.get_json("/athlete/me", &[], lane).await

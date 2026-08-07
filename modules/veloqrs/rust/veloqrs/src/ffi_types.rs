@@ -1357,6 +1357,9 @@ pub struct FfiWellnessRow {
     pub stress: Option<i32>,
     pub mood: Option<i32>,
     pub motivation: Option<i32>,
+    /// The untyped intervals.icu body for this day, when the caller has it.
+    /// Omitting it leaves any previously stored body intact.
+    pub raw: Option<String>,
 }
 
 /// Sparkline payload for the SummaryCard: rounded integer arrays, oldest

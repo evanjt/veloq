@@ -615,6 +615,9 @@ class RouteEngineClient implements DelegateHost {
   upsertWellness = (rows: fitnessDelegates.WellnessRowInput[]): void =>
     fitnessDelegates.upsertWellness(this, rows);
 
+  getWellnessBodies = (oldest: string, newest: string): string[] =>
+    fitnessDelegates.getWellnessBodies(this, oldest, newest);
+
   getWellnessSparklines = (days: number): fitnessDelegates.WellnessSparklines | null =>
     fitnessDelegates.getWellnessSparklines(this, days);
 
@@ -911,8 +914,7 @@ class RouteEngineClient implements DelegateHost {
   mergeSections = (primaryId: string, secondaryId: string): string | null =>
     sectionDelegates.mergeSections(this, primaryId, secondaryId);
 
-  acceptSection = (sectionId: string): boolean =>
-    sectionDelegates.acceptSection(this, sectionId);
+  acceptSection = (sectionId: string): boolean => sectionDelegates.acceptSection(this, sectionId);
 
   acceptAllSections = (): number => sectionDelegates.acceptAllSections(this);
 
@@ -989,7 +991,9 @@ class RouteEngineClient implements DelegateHost {
   }
 
   notifyAll(...events: string[]): void {
-    events.forEach((event) => this.triggerRefresh(event as 'groups' | 'sections' | 'activities' | 'syncReset'));
+    events.forEach((event) =>
+      this.triggerRefresh(event as 'groups' | 'sections' | 'activities' | 'syncReset')
+    );
   }
 }
 
