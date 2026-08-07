@@ -233,6 +233,13 @@ export const colors = {
   chartRed: '#EF4444',
   chartCasing: '#00000026', // Under-stroke behind chart lines for edge contrast
 
+  // Wellness metric colors
+  chartHrv: '#EC4899', // Pink-500
+  chartRhr: '#EF4444', // Red-500
+  chartSleep: '#A855F7', // Purple-500
+  chartSleepScore: '#6366F1', // Indigo-500
+  chartWeight: '#64748B', // Slate-500
+
   // Semantic UI colors
   highlight: brand.blue,
   highlightAlt: brand.blueLight,
@@ -415,6 +422,13 @@ export const darkColors = {
   chartCadence: '#C084FC', // Purple for cadence
   chartElevation: '#94A3B8', // Slate for elevation
   chartCasing: '#00000080', // Under-stroke behind chart lines for edge contrast
+
+  // Wellness metric colors for dark mode (one Tailwind step lighter)
+  chartHrv: '#F472B6', // Pink-400
+  chartRhr: '#F87171', // Red-400
+  chartSleep: '#C084FC', // Purple-400
+  chartSleepScore: '#818CF8', // Indigo-400
+  chartWeight: '#94A3B8', // Slate-400
 } as const;
 
 // =============================================================================

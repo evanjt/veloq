@@ -24,6 +24,13 @@ export interface ChartColorScheme {
   cadence: string;
   elevation: string;
 
+  // Wellness metrics
+  hrv: string;
+  rhr: string;
+  sleep: string;
+  sleepScore: string;
+  weight: string;
+
   // General chart colors
   primary: string;
   secondary: string;
@@ -45,6 +52,13 @@ export interface ChartColorScheme {
   zone5: string;
   zone6: string;
   zone7: string;
+
+  // Form zones (TSB)
+  formHighRisk: string;
+  formOptimal: string;
+  formGreyZone: string;
+  formFresh: string;
+  formTransition: string;
 }
 
 /**
@@ -69,10 +83,17 @@ export function useChartColors(): ChartColorScheme {
       cadence: isDark ? darkColors.chartCadence : colors.chartPurple,
       elevation: isDark ? darkColors.chartElevation : colors.gray600,
 
+      // Wellness metrics
+      hrv: isDark ? darkColors.chartHrv : colors.chartHrv,
+      rhr: isDark ? darkColors.chartRhr : colors.chartRhr,
+      sleep: isDark ? darkColors.chartSleep : colors.chartSleep,
+      sleepScore: isDark ? darkColors.chartSleepScore : colors.chartSleepScore,
+      weight: isDark ? darkColors.chartWeight : colors.chartWeight,
+
       // General chart colors
       primary: isDark ? brand.tealDark : brand.tealLight,
       secondary: isDark ? brand.blueLight : brand.blue,
-      tertiary: isDark ? '#4ADE80' : colors.chartGreen,
+      tertiary: isDark ? darkColors.success : colors.chartGreen,
       accent: isDark ? brand.tealDark : brand.tealLight,
 
       // Chart UI elements
@@ -90,6 +111,13 @@ export function useChartColors(): ChartColorScheme {
       zone5: zoneColors.zone5,
       zone6: zoneColors.zone6,
       zone7: zoneColors.zone7,
+
+      // Form zones (also theme-stable, they read as a traffic light)
+      formHighRisk: colors.formHighRisk,
+      formOptimal: colors.formOptimal,
+      formGreyZone: colors.formGreyZone,
+      formFresh: colors.formFresh,
+      formTransition: colors.formTransition,
     }),
     [isDark]
   );
@@ -106,7 +134,12 @@ export type ChartMetricType =
   | 'pace'
   | 'heartRate'
   | 'cadence'
-  | 'elevation';
+  | 'elevation'
+  | 'hrv'
+  | 'rhr'
+  | 'sleep'
+  | 'sleepScore'
+  | 'weight';
 
 export function useChartColor(metric: ChartMetricType): string {
   const chartColors = useChartColors();
