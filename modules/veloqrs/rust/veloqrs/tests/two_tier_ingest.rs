@@ -132,3 +132,163 @@ fn attach_ignores_unknown_and_tiny_activities() {
     assert_eq!(summary.attached_activities, 0);
     assert_eq!(summary.inserted_portions, 0);
 }
+
+// --- Lapped activities attach every pass ---
+//
+// A track crossing sectioned ground several times owes one junction row per
+// pass, and the attach path must agree with what a full detection over the
+// same set assigns it.
+
+/// Out, back, out again over `base`: three passes of the same corridor.
+fn lapped_track(base: &tracematch::scenarios::LifecycleActivity) -> Vec<tracematch::GpsPoint> {
+    let mut points = base.gps_points.clone();
+    let mut back = base.gps_points.clone();
+    back.reverse();
+    points.extend(back);
+    points.extend(base.gps_points.clone());
+    points
+}
+
+fn lapped_corpus() -> LifecycleCorpus {
+    LifecycleCorpus::generate(&LifecycleConfig {
+        bucket_a_count: 30,
+        bucket_b_delta_count: 0,
+        bucket_e_delta_count: 0,
+        parallel_street_count: 0,
+        ..LifecycleConfig::default()
+    })
+}
+
+/// Passes `activity_id` owns in each section it appears in.
+fn passes_per_section(engine: &mut PersistentRouteEngine, activity_id: &str) -> Vec<usize> {
+    let ids: Vec<String> = engine
+        .get_sections_for_activity(activity_id)
+        .iter()
+        .map(|s| s.id.clone())
+        .collect();
+    ids.iter()
+        .map(|id| {
+            engine
+                .get_section_by_id(id)
+                .map(|s| {
+                    s.activity_portions
+                        .iter()
+                        .filter(|p| p.activity_id == activity_id)
+                        .count()
+                })
+                .unwrap_or(0)
+        })
+        .collect()
+}
+
+/// Passes `activity_id` owns across every section it appears in.
+fn passes_for(engine: &mut PersistentRouteEngine, activity_id: &str) -> usize {
+    passes_per_section(engine, activity_id).iter().sum()
+}
+
+fn store(
+    engine: &mut PersistentRouteEngine,
+    id: &str,
+    points: Vec<tracematch::GpsPoint>,
+    a: &tracematch::scenarios::LifecycleActivity,
+) {
+    engine
+        .add_activity(id.to_string(), points, a.sport_type.clone())
+        .unwrap();
+    engine
+        .update_activity_metadata(id, Some(a.start_date_unix), None, None, None)
+        .unwrap();
+}
+
+#[test]
+fn attach_inserts_a_junction_row_for_every_lap() {
+    let dir = TempDir::new().unwrap();
+    let corpus = lapped_corpus();
+    let mut engine = engine_with_sections(&dir, &corpus);
+    let section_count = engine.get_sections().len();
+
+    let base = &corpus.bucket_c_single;
+    store(&mut engine, "act_lapped", lapped_track(base), base);
+    let summary = engine.attach_new_activities(&["act_lapped".to_string()]);
+
+    assert_eq!(summary.attached_activities, 1);
+
+    // The corridor may be cut into several sections. Whichever ground a
+    // section covers, all three crossings of it are owed a row.
+    let per_section = passes_per_section(&mut engine, "act_lapped");
+    assert!(!per_section.is_empty(), "the corridor must be sectioned");
+    for passes in &per_section {
+        assert_eq!(
+            *passes, 3,
+            "every section the track crosses owes one row per crossing, got {:?}",
+            per_section
+        );
+    }
+    assert_eq!(
+        summary.inserted_portions as usize,
+        per_section.iter().sum::<usize>(),
+        "attach must report exactly the rows it stored"
+    );
+    assert_eq!(
+        engine.get_sections().len(),
+        section_count,
+        "attach never creates or destroys sections"
+    );
+}
+
+#[test]
+fn a_lapped_attach_matches_what_batch_detection_assigns() {
+    let corpus = lapped_corpus();
+    let base = &corpus.bucket_c_single;
+
+    let incremental_dir = TempDir::new().unwrap();
+    let mut incremental = engine_with_sections(&incremental_dir, &corpus);
+    store(&mut incremental, "act_lapped", lapped_track(base), base);
+    incremental.attach_new_activities(&["act_lapped".to_string()]);
+
+    let batch_dir = TempDir::new().unwrap();
+    let batch_path = batch_dir.path().join("batch.db");
+    let mut batch = PersistentRouteEngine::new(batch_path.to_str().unwrap()).unwrap();
+    for activity in corpus.through_a() {
+        let id = activity.id.clone();
+        store(&mut batch, &id, activity.gps_points.clone(), activity);
+    }
+    store(&mut batch, "act_lapped", lapped_track(base), base);
+    let handle = batch.detect_sections_background(None);
+    let (sections, _) = handle.recv().unwrap_or_default();
+    batch.apply_sections(sections).unwrap();
+
+    // How many sections the corridor is cut into is a detection decision and
+    // varies between the two engines. What must not vary is how completely a
+    // section records the crossings it covers.
+    let from_attach = passes_per_section(&mut incremental, "act_lapped");
+    let from_detection = passes_per_section(&mut batch, "act_lapped");
+    assert!(!from_attach.is_empty() && !from_detection.is_empty());
+    for passes in from_attach.iter().chain(from_detection.iter()) {
+        assert_eq!(
+            *passes, 3,
+            "laps must count the same whether the activity arrived during ingest \
+             ({from_attach:?}) or was present when detection ran ({from_detection:?})"
+        );
+    }
+}
+
+#[test]
+fn re_attaching_a_lapped_activity_does_not_stack_rows() {
+    let dir = TempDir::new().unwrap();
+    let corpus = lapped_corpus();
+    let mut engine = engine_with_sections(&dir, &corpus);
+
+    let base = &corpus.bucket_c_single;
+    store(&mut engine, "act_lapped", lapped_track(base), base);
+    let first = engine.attach_new_activities(&["act_lapped".to_string()]);
+    let again = engine.attach_new_activities(&["act_lapped".to_string()]);
+
+    assert_eq!(
+        again.inserted_portions, first.inserted_portions,
+        "re-attach replaces the lap rows, never stacks them"
+    );
+    for passes in passes_per_section(&mut engine, "act_lapped") {
+        assert_eq!(passes, 3, "three laps stay three after a repeated attach");
+    }
+}
