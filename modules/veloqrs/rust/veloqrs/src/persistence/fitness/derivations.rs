@@ -695,12 +695,8 @@ impl PersistentRouteEngine {
             .map(|_| "?")
             .collect::<Vec<_>>()
             .join(",");
-        // Fastest lap first, so the stretch drawn on the map is the one the
-        // badge is about. These rows are per-pass, so an interval session
-        // offers several per section; taking them in table order highlighted
-        // whichever the scan happened to reach last. The ordering mirrors the
-        // effective time the indicators are computed from, NULL lap times
-        // included, so the two cannot pick different laps.
+        // Fastest lap first, so the highlighted stretch is the one the badge is
+        // about. Mirrors the effective time the indicators are computed from.
         let idx_sql = format!(
             "SELECT sa.activity_id, sa.section_id, sa.start_index, sa.end_index
              FROM section_activities sa
@@ -728,7 +724,6 @@ impl PersistentRouteEngine {
                 ))
             }) {
                 for r in rows.flatten() {
-                    // First wins: the query hands them over fastest first.
                     idx_map.entry((r.0, r.1)).or_insert((r.2, r.3));
                 }
             }
@@ -948,16 +943,10 @@ impl PersistentRouteEngine {
         results
     }
 
-    /// Get section encounters for an activity: one entry per (section,
-    /// direction), represented by the activity's fastest pass over it.
+    /// Get section encounters for an activity: one entry per
+    /// `(section, direction)`, represented by the activity's fastest pass.
     /// Includes this activity's time, PR status, visit count, and sparkline
-    /// history.
-    ///
-    /// The junction holds a row per pass, so the query below can return several
-    /// per pair for a lapped section. Collapsing them here is what keeps the
-    /// promise in the first line, and it keeps the per-pair history query to
-    /// one run rather than one per lap. Individual laps are the `FfiSectionLap`
-    /// surface, not this one.
+    /// history. Individual laps are the `FfiSectionLap` surface.
     pub fn get_activity_section_encounters(
         &self,
         activity_id: &str,
@@ -1008,8 +997,7 @@ impl PersistentRouteEngine {
             .map(|rows| rows.filter_map(|r| r.ok()).collect())
             .unwrap_or_default();
 
-        // The query hands each pair over best-timed first, so the first pass of
-        // a pair is the one that represents it.
+        // Best-timed first, so the first pass of a pair represents it.
         let mut seen_pairs: HashSet<(String, String)> = HashSet::new();
         let traversals: Vec<Traversal> = passes
             .into_iter()

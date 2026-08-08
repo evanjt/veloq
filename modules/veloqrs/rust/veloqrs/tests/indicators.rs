@@ -152,15 +152,10 @@ fn empty_activity_id_list_short_circuits() {
     );
 }
 
-// ============================================================================
-// Pass-level traversals: an activity earns ONE badge, for its FASTEST lap.
+// --- One badge per activity, earned by its fastest lap ---
 //
-// The junction carries a row per pass, so an interval session offers the
-// indicator computation ten candidates for one primary key. Before the
-// best-per-activity reduction the surviving row was whichever the tie-broken
-// date ordering happened to write last, and the trend compared laps of one
-// session against each other.
-// ============================================================================
+// The junction carries a row per pass, so a lapped session offers many
+// candidates for one indicator key.
 
 fn insert_dated_activity(db: &Connection, id: &str, start_unix: i64) {
     db.execute(
@@ -182,7 +177,7 @@ fn insert_oval(db: &Connection) {
     .expect("insert section");
 }
 
-/// One timed pass over the oval. `start_index` is what tells laps apart.
+/// One timed pass over the oval, keyed apart by `start_index`.
 fn insert_timed_pass(db: &Connection, activity_id: &str, start_index: i64, lap_time: f64) {
     db.execute(
         "INSERT INTO section_activities (section_id, activity_id, direction, start_index,
@@ -207,10 +202,8 @@ fn indicator_rows(db: &Connection, activity_id: &str) -> Vec<(String, f64)> {
         .collect()
 }
 
-/// A first outing, then an interval session whose laps straddle it: some
-/// slower than the earlier outing, one clearly faster. Written deliberately so
-/// the fastest lap is NOT the last row inserted, which is what an
-/// INSERT OR REPLACE race would keep.
+/// A first outing, then a lapped session straddling it. The fastest lap is
+/// deliberately not the last row inserted.
 fn setup_interval_session() -> Setup {
     let s = setup();
     insert_oval(&s.raw);
@@ -245,10 +238,8 @@ fn an_interval_session_earns_one_row_per_indicator_not_one_per_lap() {
 
 #[test]
 fn every_indicator_row_carries_the_fastest_lap_not_the_last_one() {
-    // The session's laps are 110, 90, 105 in that order, so the slowest lap is
-    // written last. An unreduced run leaves 105 on the trend row: it walks the
-    // passes in date order and the final INSERT OR REPLACE wins. Only the
-    // best-per-activity reduction puts 90 on both rows.
+    // Laps run 110, 90, 105, so the slowest is written last and a per-pass
+    // walk would leave 105 on the trend row.
     let setup = setup_interval_session();
 
     let _ = setup
@@ -266,9 +257,7 @@ fn every_indicator_row_carries_the_fastest_lap_not_the_last_one() {
 #[test]
 fn a_faded_session_is_not_judged_on_the_lap_it_faded_to() {
     // Every lap beats the earlier outing, but the session fades across them.
-    // Judged on its last lap the session merely holds a PR; judged on its best
-    // it also trends upward. The reduction is what makes the trend agree with
-    // the PR the same run just awarded.
+    // The trend must agree with the PR the same run awards.
     let s = setup();
     insert_oval(&s.raw);
     insert_dated_activity(&s.raw, "act_first", 1_700_000_000);

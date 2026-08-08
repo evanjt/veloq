@@ -245,14 +245,8 @@ impl PersistentRouteEngine {
         Ok(())
     }
 
-    /// Add the untyped wellness body column when migration 013 could not.
-    ///
-    /// 013 is the one migration in the set that is a bare ADD COLUMN rather than
-    /// a CREATE ... IF NOT EXISTS, so it is the one that cannot recover from a
-    /// user_version that overstates what was applied. A database written by a
-    /// build where 013 was a different migration reports user_version >= 13 and
-    /// so is never offered this column, leaving every wellness read broken.
-    /// Column presence is the only trustworthy signal, so test that directly.
+    /// Add `wellness.raw` when a `user_version` overstating what was applied
+    /// skipped migration 013. Keyed on column presence, not on the version.
     fn ensure_wellness_raw_column(conn: &Connection) -> SqlResult<()> {
         if conn.prepare("SELECT raw FROM wellness LIMIT 0").is_err() {
             conn.execute("ALTER TABLE wellness ADD COLUMN raw TEXT", [])?;

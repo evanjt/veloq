@@ -8333,11 +8333,12 @@ export type SectionSummary = {
    */
   distanceMeters: /*f64*/ number;
   /**
-   * Number of times this section was visited
+   * Traversals: one per pass, so ten laps count ten. Never below
+   * `activity_count`.
    */
   visitCount: /*u32*/ number;
   /**
-   * Number of activities that traverse this section
+   * Outings: distinct activities traversing this section.
    */
   activityCount: /*u32*/ number;
   /**

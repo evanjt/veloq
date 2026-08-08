@@ -280,11 +280,10 @@ fn pr_independent_per_direction() {
     assert!(!rev.is_pr, "reverse 95s vs reverse best 80s (18%) → not PR");
 }
 
-// ============================================================================
-// Pass-level traversals: the junction holds a row per lap, but an encounter is
-// still one per (section, direction), represented by the activity's fastest
-// pass. Individual laps belong to the FfiSectionLap surface.
-// ============================================================================
+// --- One encounter per (section, direction) ---
+//
+// The junction holds a row per lap; laps themselves are the FfiSectionLap
+// surface.
 
 #[test]
 fn a_lapped_section_is_one_encounter_carrying_the_fastest_lap() {

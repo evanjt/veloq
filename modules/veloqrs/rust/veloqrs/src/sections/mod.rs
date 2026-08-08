@@ -132,12 +132,10 @@ pub struct SectionSummary {
     pub sport_type: String,
     /// Section length in meters
     pub distance_meters: f64,
-    /// Traversals: one per PASS over the section, so ten laps of an oval in
-    /// one session count ten. Never equal to `activity_count` for repeat
-    /// structures, and never less than it.
+    /// Traversals: one per pass, so ten laps count ten. Never below
+    /// `activity_count`.
     pub visit_count: u32,
-    /// Outings: distinct activities that traverse this section, whatever the
-    /// number of passes each made.
+    /// Outings: distinct activities traversing this section.
     pub activity_count: u32,
     /// Activity that provides the representative polyline
     pub representative_activity_id: Option<String>,

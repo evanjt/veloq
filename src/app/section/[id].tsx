@@ -273,8 +273,6 @@ export default function SectionDetailScreen() {
     preComputedCalendarSummary: performance?.calendarSummary ?? null,
   });
 
-  // Traversals, not outings: visitCount counts every pass, so a lapped section
-  // reports each revolution. The header labels it as such.
   const traversalCount = sectionTimeRange === 'all' ? (section?.visitCount ?? 0) : chartData.length;
 
   const { nearbyPolylines, isRunning } = useSectionMapData(nearby, effectiveSportType, section);

@@ -1137,17 +1137,14 @@ fn ffi_survives_orphan_and_null_edge_cases() {
     let _ = engine.get_sections_for_activity(ACTIVITY_ID); // must not panic
 }
 
-// ----------------------------------------------------------------------------
-// Renumbering guard. B4 core shipped to dev devices as migration 013 before the
-// untyped-body migrations claimed 013-016 and pushed it to 017. Those devices
-// report user_version = 13, so rusqlite_migration offers them 014 onward and
-// they never see 013's `ALTER TABLE wellness ADD COLUMN raw`. Every other
-// migration in the range is CREATE ... IF NOT EXISTS and recovers on its own;
-// this one cannot, so a post-migration hook adds it on column presence instead.
-// ----------------------------------------------------------------------------
+// --- Renumbering guard ---
+//
+// A database reporting `user_version = 13` from a build where B4 core held that
+// number is offered 014 onward, so it never sees 013's
+// `ALTER TABLE wellness ADD COLUMN raw`. Every other migration in the range is
+// CREATE ... IF NOT EXISTS and recovers on its own; that one needs the hook.
 
-/// Apply migrations 1-11, 012 and B4 core as the thirteenth, reproducing the
-/// database a build with the old numbering left behind.
+/// Apply migrations 1-11, 012 and B4 core as the thirteenth.
 fn seed_db_stranded_at_old_013(path: &Path) {
     seed_v02x_db(path).expect("v0.2.x schema");
     let mut conn = Connection::open(path).expect("open seed");

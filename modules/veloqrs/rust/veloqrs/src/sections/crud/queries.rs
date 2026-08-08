@@ -246,9 +246,7 @@ impl PersistentRouteEngine {
         let rows = stmt.query_map([], |row| {
             let id: String = row.get(0)?;
 
-            // Traversals off the denormalised column (one junction row is one
-            // pass), outings from the DISTINCT count. Both fields used to carry
-            // the activity count, which under-reported every lapped section.
+            // Traversals off the denormalised column, outings from a DISTINCT.
             let visit_count: u32 = row.get::<_, Option<u32>>(16)?.unwrap_or(0);
             let activity_count = self.get_section_activity_count(&id);
 

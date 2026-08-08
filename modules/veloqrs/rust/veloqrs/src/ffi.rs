@@ -360,8 +360,7 @@ pub fn start_fetch_and_store(activity_ids: Vec<String>, sport_types: Vec<Activit
 
             // Attach batch tail: one regroup (ingest marked groups dirty) or
             // one indicator recompute for the whole batch, never per activity.
-            // Runs after the time streams land so lap times are timed, not
-            // recomputed on the next sync.
+            // Runs after the time streams so lap times are real, not estimated.
             crate::persistence::with_persistent_engine(|engine| {
                 engine.attach_finalize(total_attached_portions)
             });
