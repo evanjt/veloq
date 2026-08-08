@@ -557,6 +557,58 @@ fn the_wellness_body_column_survives_a_typed_only_rewrite() {
     assert_eq!(bodies, vec![body.to_string()]);
 }
 
+/// Scenario: a user upgrades with a year of wellness rows the old TypeScript
+/// mirror wrote, none of which carry a body.
+/// Expected behaviour: the fitness charts still have data to draw before the
+/// first sync of the new build lands, including offline.
+#[test]
+fn rows_without_a_body_are_rebuilt_from_the_typed_columns() {
+    let tmp = TempDir::new().unwrap();
+    let db_path = tmp.path().join("routes.db");
+    seed_one_version_behind_db(&db_path).expect("seed");
+
+    let mut engine = PersistentRouteEngine::new(db_path.to_str().unwrap()).expect("migrate");
+
+    engine
+        .upsert_wellness(&[veloqrs::persistence::wellness::WellnessRow {
+            date: WELLNESS_DATE.to_string(),
+            ctl: Some(WELLNESS_CTL),
+            atl: Some(48.0),
+            ramp_rate: None,
+            hrv: Some(WELLNESS_HRV),
+            resting_hr: Some(52.0),
+            weight: None,
+            sleep_secs: Some(27000),
+            sleep_score: None,
+            soreness: None,
+            fatigue: Some(2),
+            stress: None,
+            mood: None,
+            motivation: None,
+            raw: None,
+        }])
+        .expect("store typed-only row");
+
+    let bodies = engine
+        .get_wellness_bodies(WELLNESS_DATE, WELLNESS_DATE)
+        .expect("read bodies");
+    assert_eq!(bodies.len(), 1, "the bodyless row must not be skipped");
+
+    let parsed: serde_json::Value = serde_json::from_str(&bodies[0]).expect("valid json");
+    assert_eq!(parsed["id"], WELLNESS_DATE);
+    assert_eq!(parsed["ctl"], WELLNESS_CTL);
+    assert_eq!(parsed["atl"], 48.0);
+    assert_eq!(parsed["hrv"], WELLNESS_HRV);
+    assert_eq!(parsed["restingHR"], 52.0);
+    assert_eq!(parsed["sleepSecs"], 27000);
+    assert_eq!(parsed["fatigue"], 2);
+
+    // Absent values stay absent rather than becoming null, so optional fields
+    // read as undefined in TypeScript exactly as they do from a real body.
+    assert!(parsed.get("weight").is_none());
+    assert!(parsed.get("rampRate").is_none());
+}
+
 /// Reproduce the interrupted pre-0.3.0 beta: half of migration 12's column
 /// additions are already on disk, but the migration was never recorded.
 fn seed_interrupted_beta_db(path: &Path) -> rusqlite::Result<()> {
