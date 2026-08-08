@@ -10,7 +10,7 @@ use super::{PersistentRouteEngine, codec};
 
 /// Bump this when the indicator computation algorithm changes.
 /// On next read, a version mismatch triggers a full clean recompute.
-const INDICATOR_ALGORITHM_VERSION: i32 = 4;
+const INDICATOR_ALGORITHM_VERSION: i32 = 5;
 
 impl PersistentRouteEngine {
     /// Recompute all activity indicators (PRs and trends) from scratch.
@@ -79,7 +79,10 @@ impl PersistentRouteEngine {
                            THEN a.duration_secs * (sa.distance_meters / a.distance_meters)
                            ELSE NULL END)";
 
-        // Get all (section_id, direction) pairs with 2+ non-excluded traversals.
+        // Get all (section_id, direction) pairs with 2+ non-excluded ACTIVITIES.
+        // Counting rows here would let one interval session qualify on its own
+        // laps, and a badge that compares a session against itself is not a
+        // trend.
         //
         // PR completeness rules (apply to both the pair list AND the per-pair
         // traversal scan below):
@@ -90,7 +93,7 @@ impl PersistentRouteEngine {
         //  - Skip rows whose actual GPS distance is < 70% of the section's
         //    canonical distance (matches `get_section_performances_filtered`).
         let pair_sql = format!(
-            "SELECT sa.section_id, sa.direction, COUNT(*) as cnt
+            "SELECT sa.section_id, sa.direction, COUNT(DISTINCT sa.activity_id) as cnt
              FROM section_activities sa
              JOIN sections s ON s.id = sa.section_id
              JOIN activities a ON a.id = sa.activity_id
@@ -150,7 +153,7 @@ impl PersistentRouteEngine {
         let mut traversal_stmt = tx.prepare(&traversal_sql)?;
 
         for (section_id, direction) in &pairs {
-            let traversals: Vec<(String, f64)> = traversal_stmt
+            let passes: Vec<(String, f64)> = traversal_stmt
                 .query_map(params![section_id, direction], |row| {
                     let time: Option<f64> = row.get(1)?;
                     Ok((row.get::<_, String>(0)?, time.unwrap_or(0.0)))
@@ -158,6 +161,37 @@ impl PersistentRouteEngine {
                 .filter_map(|r| r.ok())
                 .filter(|(_, t)| *t > 0.0)
                 .collect();
+
+            // One badge per activity, earned by its FASTEST pass.
+            //
+            // The rows above are per-pass, so an interval session contributes
+            // one per lap. Three things go wrong if they reach the loop below
+            // unreduced. The indicator primary key is
+            // (activity_id, indicator_type, target_id, direction), so ten laps
+            // INSERT OR REPLACE over each other and the row that survives is
+            // whichever the tie-broken date ordering wrote last, not the best.
+            // The running average would compare a lap against earlier laps of
+            // its own session, which measures fading within a session rather
+            // than progress across them. And every consumer of the table
+            // expects one row per activity to render one badge.
+            //
+            // Collapsing here keeps the key's uniqueness deliberate. First
+            // appearance sets the order, so the sequence stays chronological.
+            let mut traversals: Vec<(String, f64)> = Vec::new();
+            let mut seen: HashMap<&str, usize> = HashMap::new();
+            for (activity_id, time) in &passes {
+                match seen.get(activity_id.as_str()) {
+                    Some(&i) => {
+                        if *time < traversals[i].1 {
+                            traversals[i].1 = *time;
+                        }
+                    }
+                    None => {
+                        seen.insert(activity_id.as_str(), traversals.len());
+                        traversals.push((activity_id.clone(), *time));
+                    }
+                }
+            }
 
             if traversals.len() < 2 {
                 continue;
