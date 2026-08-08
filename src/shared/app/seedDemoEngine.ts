@@ -12,11 +12,6 @@
  */
 
 import { toActivityMetrics } from '@/features/activity/lib/activityMetrics';
-import {
-  DETAIL_STREAM_TYPES,
-  PREVIEW_STREAM_TYPES,
-  streamTypesKey,
-} from '@/features/activity/lib/engineStreams';
 import { getRouteEngine } from '@/shared/native/routeEngine';
 import type { Activity, WellnessData } from '@/types';
 
@@ -117,18 +112,14 @@ export function seedDemoEngine(): void {
 /** Streams and intervals for every fixture activity, in the tables the charts
  *  read. Without these the detail screen would be blank in demo only. */
 function seedActivityBodies(engine: DemoEngine, activities: Activity[]): void {
-  const { getActivityStreams, getActivityIntervals } =
+  const { getActivityIntervals } =
     require('@/data/demo/fixtures') as typeof import('@/data/demo/fixtures');
 
+  // Streams are deliberately not seeded. The engine's stream store is a
+  // bounded LRU far smaller than the fixture set, so seeding every activity
+  // evicts all but the tail of the pass. `readStreams` answers demo misses
+  // from the generator instead.
   for (const activity of activities) {
-    const streams = getActivityStreams(activity.id);
-    if (streams) {
-      const body = JSON.stringify(streams);
-      // The same payload answers both series selections the app asks for;
-      // the fixtures do not vary by requested type.
-      engine.setStreamBody(activity.id, streamTypesKey(DETAIL_STREAM_TYPES), body);
-      engine.setStreamBody(activity.id, streamTypesKey(PREVIEW_STREAM_TYPES), body);
-    }
     const intervals = getActivityIntervals(activity.id);
     if (intervals) {
       engine.setIntervalBody(activity.id, JSON.stringify(intervals));

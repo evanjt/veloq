@@ -9,6 +9,7 @@
  */
 
 import { parseStreams } from '@/features/activity/lib/streams';
+import { useAuthStore } from '@/shared/app/AuthStore';
 import { getRouteEngine } from '@/shared/native/routeEngine';
 import type { ActivityStreams, RawStreamItem } from '@/types';
 
@@ -46,12 +47,10 @@ export function readStreams(activityId: string, types: readonly string[]): Activ
   if (!engine?.getStreamBody || !activityId) return null;
 
   const body = engine.getStreamBody(activityId, streamTypesKey(types));
-  if (!body) return null;
+  if (!body) return demoStreams(activityId);
   try {
     const parsed = JSON.parse(body);
-    // A live fetch stores the intervals.icu array untouched. The demo seed
-    // stores the already-parsed object, because the fixtures generate that
-    // shape directly rather than the wire format.
+    // A live fetch stores the intervals.icu array untouched.
     return Array.isArray(parsed)
       ? parseStreams(parsed as RawStreamItem[])
       : (parsed as ActivityStreams);
@@ -61,8 +60,25 @@ export function readStreams(activityId: string, types: readonly string[]): Activ
   }
 }
 
+/**
+ * Demo streams straight from the generator, or null outside demo mode.
+ *
+ * The engine's stream store is a bounded LRU sized for one user's recent
+ * activities, far smaller than the demo fixture set. Seeding every fixture
+ * would only evict itself, so demo reads fall through to the generator, which
+ * is deterministic per activity id and needs no network.
+ */
+function demoStreams(activityId: string): ActivityStreams | null {
+  if (!useAuthStore.getState().isDemoMode) return null;
+  const { getActivityStreams } =
+    require('@/features/activity/demo') as typeof import('@/features/activity/demo');
+  return (getActivityStreams(activityId) as ActivityStreams | null) ?? null;
+}
+
 /** Ask Rust to fetch and store a series selection for an activity. */
 export function requestStreams(activityId: string, types: readonly string[]): void {
   if (!activityId) return;
+  // Demo mode has no account to fetch against, the generator answers instead.
+  if (useAuthStore.getState().isDemoMode) return;
   getRouteEngine()?.syncActivityStreams(activityId, streamTypesKey(types));
 }
