@@ -59,7 +59,17 @@ function withWidgetSources(config) {
       const javaDest = path.join(mainSrc, "java", pkg.replace(/\./g, "/"), "widget");
       fs.mkdirSync(javaDest, { recursive: true });
       const javaSrc = path.join(widgetSrc, "java");
-      for (const file of fs.readdirSync(javaSrc)) {
+      const sources = fs.readdirSync(javaSrc);
+
+      // This directory holds nothing but the generated widget sources, so a
+      // file no longer in widget/android/java is stale and must go. Copying
+      // alone is additive and would keep compiling deleted Kotlin.
+      const kept = new Set(sources);
+      for (const file of fs.readdirSync(javaDest)) {
+        if (!kept.has(file)) fs.rmSync(path.join(javaDest, file), { force: true });
+      }
+
+      for (const file of sources) {
         const templated = fs.readFileSync(path.join(javaSrc, file), "utf8").replace(/__PKG__/g, pkg);
         fs.writeFileSync(path.join(javaDest, file), templated);
       }
