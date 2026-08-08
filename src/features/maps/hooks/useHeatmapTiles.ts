@@ -16,6 +16,13 @@ const HEATMAP_DIR = `${FileSystem.cacheDirectory}heatmap-tiles/`;
 /** file:// URL template for MapLibre RasterSource */
 export const HEATMAP_TILE_URL_TEMPLATE = `${HEATMAP_DIR}{z}/{x}/{y}.png`;
 
+/**
+ * Tile template for the WebView surfaces. A page cannot read the app's cache
+ * directory, so tiles come back over the bridge through the `heatmap-file`
+ * protocol registered on the page.
+ */
+export const HEATMAP_TILE_PROTOCOL_URL = 'heatmap-file://{z}/{x}/{y}.png';
+
 /** The base directory where heatmap tiles are stored */
 export const HEATMAP_TILES_DIR = HEATMAP_DIR;
 

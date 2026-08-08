@@ -1,31 +1,16 @@
 import React, { useState, useMemo, useCallback, useRef, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Animated, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native';
 import { useRouter, usePathname } from 'expo-router';
 import { useMapPreferences } from '@/features/maps/stores/MapPreferencesContext';
-import {
-  MapView,
-  Camera,
-  ShapeSource,
-  LineLayer,
-  CircleLayer,
-  SymbolLayer,
-  RasterSource,
-  RasterLayer,
-} from '@maplibre/maplibre-react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTranslation } from 'react-i18next';
-import { colors, darkColors, spacing, layout, shadows, brand } from '@/theme';
+import { colors, darkColors, spacing, layout, shadows } from '@/theme';
 import { getActivityTypeConfig } from './ActivityTypeFilter';
 import { Map3DWebView, type Map3DWebViewRef } from './Map3DWebView';
 import { ComponentErrorBoundary } from '@/shared/ui';
-import {
-  type MapStyleType,
-  getMapStyle,
-  isDarkStyle,
-  getNextStyle,
-  getStyleIcon,
-} from './mapStyles';
+import { type MapStyleType, isDarkStyle, getNextStyle, getStyleIcon } from './mapStyles';
+import { MapSurface, type MapCameraState, type MapSurfaceRef } from './MapSurface';
 import { computeAttribution } from '@/features/maps/lib/computeAttribution';
 import type { ActivityBoundsItem } from '@/types';
 import {
@@ -33,8 +18,8 @@ import {
   useEngineSectionCount,
   useRouteSignatures,
 } from '@/features/routes/hooks';
-import { HEATMAP_TILE_URL_TEMPLATE } from '@/features/maps/hooks/useHeatmapTiles';
 import { useSectionAutoToggle, useVisibilityToggles } from '@/features/maps/hooks';
+import { TRACE_ZOOM_THRESHOLD, VIEWPORT_CULLING_THRESHOLD } from '@/features/maps/lib/mapBudgets';
 import { buildSpiderGeoJSON } from '@/features/maps/lib/buildSpiderGeoJSON';
 import { isHeatmapEnabled } from '@/features/routes/stores/RouteSettingsStore';
 import type { FrequentSection } from '@/types';
@@ -47,15 +32,25 @@ import {
   useMapHandlers,
   useMapCamera,
   useMapGeoJSON,
-  useIOSTapHandler,
   type SelectedActivity,
   type SpiderState,
 } from './regional';
+import {
+  buildRegionalLayers,
+  buildRegionalSources,
+  HEATMAP_ROUTE_COLOR,
+  REGIONAL_INTERACTIVE_LAYERS,
+} from './regional/regionalMapLayerSpecs';
 
 const EMPTY_FEATURE_COLLECTION: GeoJSON.FeatureCollection = {
   type: 'FeatureCollection',
   features: [],
 };
+
+const SURFACE_STYLE_OPTIONS = { bundledLightStyle: true, cacheVectorTiles: true } as const;
+
+/** World view until the camera hook fits the activities it finds. */
+const WORLD_CAMERA = { center: [0, 0] as [number, number], zoom: 2 };
 
 // Stable no-op function reference for disabled callbacks.
 // Inline `() => {}` creates a new reference every render, which destabilises
@@ -63,23 +58,19 @@ const EMPTY_FEATURE_COLLECTION: GeoJSON.FeatureCollection = {
 const NOOP = () => {};
 
 /**
- * 120Hz OPTIMIZATION SUMMARY:
+ * Global map of every activity, clustered.
  *
- * This component has been optimized for smooth 120fps pan/zoom by:
+ * Three things keep pan and zoom smooth with thousands of points:
  *
- * 1. Pre-computed centers: Activity centers are computed once in useMapCamera
- *    (using Rust-computed centers from RouteSignature when available),
- *    avoiding getBoundsCenter() format detection during render.
+ * 1. Activity centres are computed once in useMapCamera, from the Rust-side
+ *    RouteSignature where one exists, so no format detection runs per frame.
  *
- * 2. Stable GeoJSON: markersGeoJSON and tracesGeoJSON no longer depend on
- *    selection state. Instead, MapLibre expressions use selectedActivityId
- *    directly, preventing GeoJSON rebuilds on selection change.
+ * 2. The marker and trace collections never depend on selection. Selection is
+ *    a paint expression over the selected id, so choosing an activity does not
+ *    re-upload the point set.
  *
- * 3. Stable marker order: MarkerViews are rendered in stable order to avoid
- *    iOS crash (NSRangeException in MLRNMapView insertReactSubview:atIndex:).
- *
- * 4. Viewport culling: Uses spatial index (R-tree) to filter activities
- *    to only those in current viewport before rendering.
+ * 3. Above VIEWPORT_CULLING_THRESHOLD activities, a spatial index narrows the
+ *    set to the viewport. Below it, culling costs more than it saves.
  */
 interface RegionalMapViewProps {
   /** Activities to display */
@@ -120,39 +111,7 @@ export function RegionalMapView({
   const [visibleActivityIds, setVisibleActivityIds] = useState<Set<string> | null>(null);
   const [selectedSection, setSelectedSection] = useState<FrequentSection | null>(null);
   const [spider, setSpider] = useState<SpiderState | null>(null);
-  const cameraRef = useRef<React.ElementRef<typeof Camera>>(null);
-  const clusterSourceRef = useRef<React.ElementRef<typeof ShapeSource>>(null);
-
-  // Style load retry - a transient failure leaves the map on MapLibre's
-  // default empty style (white canvas). Remount to re-apply the style.
-  const [mapKey, setMapKey] = useState(0);
-  const retryCountRef = useRef(0);
-  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const MAX_RETRIES = 3;
-  const RETRY_DELAY_MS = 1000;
-
-  const handleMapLoadError = useCallback(() => {
-    if (retryCountRef.current < MAX_RETRIES) {
-      retryCountRef.current += 1;
-      console.log(
-        `[RegionalMap] Load failed, retrying (${retryCountRef.current}/${MAX_RETRIES})...`
-      );
-      retryTimerRef.current = setTimeout(() => {
-        setMapKey((k) => k + 1);
-      }, RETRY_DELAY_MS * retryCountRef.current);
-    }
-  }, []);
-
-  // Reset retry count when style changes or map remounts; clear pending retry timer
-  useEffect(() => {
-    retryCountRef.current = 0;
-    return () => {
-      if (retryTimerRef.current !== null) {
-        clearTimeout(retryTimerRef.current);
-        retryTimerRef.current = null;
-      }
-    };
-  }, [mapStyle, mapKey]);
+  const surfaceRef = useRef<MapSurfaceRef>(null);
 
   // Only load route signatures when the map tab is focused
   // This prevents 80+ getGpsTrack FFI calls when switching to other tabs
@@ -179,13 +138,8 @@ export function RegionalMapView({
 
   // Camera, bounds, and pre-computed activity centers
   const { activityCenters, mapCenter, currentZoomRef, currentCenterRef, markUserInteracted } =
-    useMapCamera({ activities, routeSignatures, mapKey, cameraRef });
+    useMapCamera({ activities, routeSignatures, surfaceRef });
 
-  // Trace zoom threshold - passed to handlers for zoom tracking but visibility
-  // is handled by native minZoomLevel on layers (not React state) to avoid
-  // re-renders that cause Android MapLibre camera snap-back.
-  const TRACE_ZOOM_THRESHOLD = 11;
-  const mapRef = useRef<React.ElementRef<typeof MapView>>(null);
   const map3DRef = useRef<Map3DWebViewRef>(null);
   const clusterOverlayRef = useRef<ClusterCountOverlayRef>(null);
   const bearingAnim = useRef(new Animated.Value(0)).current;
@@ -202,11 +156,6 @@ export function RegionalMapView({
   const currentZoomLevel = useRef(10); // Track current zoom for compass updates
 
   const isDark = isDarkStyle(mapStyle);
-
-  // Get map style value - combined satellite style includes all regional sources
-  const mapStyleValue = useMemo(() => {
-    return getMapStyle(mapStyle);
-  }, [mapStyle]);
 
   // Camera position for satellite attribution (updated by onCameraSettled callback, not on every gesture)
   const [cameraForAttribution, setCameraForAttribution] = useState<{
@@ -252,13 +201,9 @@ export function RegionalMapView({
     onAttributionChange?.(attributionText);
   }, [attributionText, onAttributionChange]);
 
-  // Native MapLibre Supercluster handles large point counts efficiently (1000+).
-  // JS-side viewport culling creates new array references via .filter() that cascade
-  // through all GeoJSON builders, causing render loops via onRegionDidChange on Android.
-  // Only enable for very large datasets where trace rendering is the bottleneck.
-  const VIEWPORT_CULLING_THRESHOLD = 2000;
+  // Clustering handles large point counts on its own. Culling below the
+  // threshold just churns array references through every GeoJSON builder.
   const visibleActivities = useMemo(() => {
-    // Skip viewport culling for small activity counts - prevents marker flashing during pan
     if (activities.length < VIEWPORT_CULLING_THRESHOLD) {
       return activities;
     }
@@ -298,10 +243,7 @@ export function RegionalMapView({
     handleClosePopup,
     handleViewDetails,
     handleZoomToActivity,
-    handleClusterOrMarkerPress,
-    handleSpiderMarkerPress,
-    handleMapPress,
-    handleSectionPress,
+    handleSurfacePress,
     handleRegionIsChanging,
     handleRegionDidChange: baseHandleRegionDidChange,
     handleGetLocation,
@@ -328,11 +270,10 @@ export function RegionalMapView({
     setVisibleActivityIds,
     currentZoomRef,
     currentCenterRef,
-    setAboveTraceZoom: NOOP, // No-op: visibility handled by native minZoomLevel
+    setAboveTraceZoom: NOOP, // Visibility is a zoom expression on the layer
     traceZoomThreshold: TRACE_ZOOM_THRESHOLD,
     onCameraSettled: handleCameraSettled,
-    cameraRef,
-    clusterSourceRef,
+    surfaceRef,
     map3DRef,
     bearingAnim,
     currentZoomLevel,
@@ -352,15 +293,12 @@ export function RegionalMapView({
     });
 
   // Wrap the region-change handler to also refresh the cluster-count overlay.
-  // MapLibre's native SymbolLayer renders cluster counts in bitmap form - those
-  // glyphs are invisible to accessibility tools (Maestro, TalkBack). The React
-  // overlay (`<ClusterCountOverlay>`) queries the rendered cluster features and
-  // places matching Text nodes at the same screen positions, giving tests and
-  // assistive tech an accessible handle on cluster counts.
+  // The map draws cluster counts as glyphs inside the WebView canvas, which no
+  // accessibility tool can see. The overlay asks the page which clusters are
+  // drawn and where, then places matching nodes over them.
   const handleRegionDidChange = useCallback(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (e: any) => {
-      autoToggleHandleRegionDidChange(e);
+    (state: MapCameraState) => {
+      autoToggleHandleRegionDidChange(state);
       clusterOverlayRef.current?.refresh();
     },
     [autoToggleHandleRegionDidChange]
@@ -440,162 +378,76 @@ export function RegionalMapView({
   // Show 3D view when enabled
   const show3D = is3DMode && can3D;
 
-  // ========================================================================
-  // Memoized marker style objects
-  // ------------------------------------------------------------------------
-  // Inline style={{...}} objects are a fresh reference every render, which
-  // causes MapLibre to diff and re-apply layer styles even when nothing
-  // changed. Memoising each distinct marker-layer style object keeps
-  // references stable across renders when their dependencies haven't changed.
-  // ========================================================================
+  const heatmapEnabled = isHeatmapEnabled();
 
-  const clusterCircleStyle = useMemo(
-    () => ({
-      circleColor: colors.primary,
-      circleRadius: [
-        'step',
-        ['get', 'point_count'],
-        20, // <10 activities
-        10,
-        25, // 10-49
-        50,
-        30, // 50+
-      ] as unknown as number,
-      circleOpacity: showActivities ? 0.8 : 0,
-      visibility: (showActivities ? 'visible' : 'none') as 'visible' | 'none',
-    }),
-    [showActivities]
+  const sources = useMemo(
+    () =>
+      buildRegionalSources({
+        markersGeoJSON,
+        tracesGeoJSON,
+        startPointsGeoJSON,
+        sectionsGeoJSON,
+        userLocationGeoJSON,
+        routeGeoJSON,
+        spiderPointsGeoJSON,
+        spiderLinesGeoJSON,
+        heatmapEnabled,
+      }),
+    [
+      markersGeoJSON,
+      tracesGeoJSON,
+      startPointsGeoJSON,
+      sectionsGeoJSON,
+      userLocationGeoJSON,
+      routeGeoJSON,
+      spiderPointsGeoJSON,
+      spiderLinesGeoJSON,
+      heatmapEnabled,
+    ]
   );
 
-  const clusterCountStyle = useMemo(
-    () => ({
-      textField: ['get', 'point_count_abbreviated'] as unknown as string,
-      textFont: ['Noto Sans Regular'],
-      textSize: 12,
-      textColor: '#FFFFFF',
-      textAllowOverlap: true,
-      textIgnorePlacement: true,
-      visibility: (showActivities ? 'visible' : 'none') as 'visible' | 'none',
-    }),
-    [showActivities]
-  );
+  // Sport colours wash out against the teal heatmap, so the selected route
+  // switches to the brand tint while the heatmap is drawn underneath it.
+  const selectedRouteColor = selected
+    ? heatmapEnabled && showActivities
+      ? HEATMAP_ROUTE_COLOR
+      : getActivityTypeConfig(selected.activity.type).color
+    : colors.textPrimary;
 
-  const unclusteredPointStyle = useMemo(
-    () => ({
-      circleColor: ['get', 'color'] as unknown as string,
-      circleRadius: selectedActivityId
-        ? ([
-            'case',
-            ['==', ['get', 'id'], selectedActivityId],
-            12, // Selected: larger
-            8,
-          ] as unknown as number)
-        : 8,
-      // Recency fade: recent activities full opacity, 1+ year old at 35%
-      circleOpacity: showActivities
-        ? (['interpolate', ['linear'], ['get', 'age'], 0, 1, 1, 0.35] as unknown as number)
-        : 0,
-      circleStrokeWidth: selectedActivityId
-        ? (['case', ['==', ['get', 'id'], selectedActivityId], 2.5, 1.5] as unknown as number)
-        : 1.5,
-      circleStrokeColor: selectedActivityId
-        ? ([
-            'case',
-            ['==', ['get', 'id'], selectedActivityId],
-            colors.primary,
-            'rgba(255, 255, 255, 0.8)',
-          ] as unknown as string)
-        : 'rgba(255, 255, 255, 0.8)',
-      circleStrokeOpacity: showActivities ? 1 : 0,
-      visibility: (showActivities ? 'visible' : 'none') as 'visible' | 'none',
-    }),
-    [selectedActivityId, showActivities]
+  const layers = useMemo(
+    () =>
+      buildRegionalLayers({
+        isDark,
+        mapStyle,
+        showActivities,
+        showSections,
+        showHeatmap,
+        heatmapEnabled,
+        hasSpider: !!spider,
+        hasUserLocation: !!userLocation,
+        hasRouteData: routeHasData,
+        selectedActivityId,
+        selectedSectionId: selectedSection?.id ?? null,
+        routeColor: selectedRouteColor,
+      }),
+    [
+      isDark,
+      mapStyle,
+      showActivities,
+      showSections,
+      showHeatmap,
+      heatmapEnabled,
+      spider,
+      userLocation,
+      routeHasData,
+      selectedActivityId,
+      selectedSection,
+      selectedRouteColor,
+    ]
   );
-
-  const startPointStyle = useMemo(
-    () => ({
-      circleRadius: 5,
-      circleColor: ['get', 'color'] as unknown as string,
-      circleOpacity: showActivities ? 0.9 : 0,
-      circleStrokeWidth: 1.5,
-      circleStrokeColor: '#FFFFFF',
-      circleStrokeOpacity: showActivities ? 1 : 0,
-      visibility: (showActivities ? 'visible' : 'none') as 'visible' | 'none',
-    }),
-    [showActivities]
-  );
-
-  const spiderLinesStyle = useMemo(
-    () => ({
-      lineColor: isDark ? 'rgba(255, 255, 255, 0.5)' : 'rgba(0, 0, 0, 0.3)',
-      lineWidth: 1.5,
-      lineOpacity: spider && showActivities ? 1 : 0,
-      visibility: (spider && showActivities ? 'visible' : 'none') as 'visible' | 'none',
-    }),
-    [isDark, spider, showActivities]
-  );
-
-  const spiderPointsStyle = useMemo(
-    () => ({
-      circleColor: ['get', 'color'] as unknown as string,
-      circleRadius: 10,
-      circleOpacity: spider && showActivities ? 1 : 0,
-      circleStrokeWidth: 2,
-      circleStrokeColor: '#FFFFFF',
-      circleStrokeOpacity: spider && showActivities ? 1 : 0,
-      visibility: (spider && showActivities ? 'visible' : 'none') as 'visible' | 'none',
-    }),
-    [spider, showActivities]
-  );
-
-  const userLocationOuterStyle = useMemo(
-    () => ({
-      circleRadius: 12,
-      circleColor: colors.primary,
-      circleOpacity: userLocation ? 0.3 : 0,
-      circleStrokeWidth: 0,
-    }),
-    [userLocation]
-  );
-
-  const userLocationInnerStyle = useMemo(
-    () => ({
-      circleRadius: 6,
-      circleColor: colors.primary,
-      circleOpacity: userLocation ? 1 : 0,
-      circleStrokeWidth: 2,
-      circleStrokeColor: colors.textOnDark,
-    }),
-    [userLocation]
-  );
-
-  // iOS tap handling (no-op on Android)
-  const { onTouchStart, onTouchEnd } = useIOSTapHandler({
-    mapRef,
-    activities,
-    sections,
-    routeGroups: [],
-    selected,
-    selectedSection,
-    selectedRoute: null,
-    setSelected,
-    setSelectedSection,
-    setSelectedRoute: NOOP,
-    showActivities,
-    showSections,
-    showRoutes: false,
-    show3D,
-    handleMarkerTap,
-    clusterSourceRef,
-    cameraRef,
-    currentZoomLevel,
-    insetTop: insets.top,
-    spider,
-    setSpider,
-  });
 
   return (
-    <View style={styles.container} onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+    <View style={styles.container}>
       {show3D ? (
         <ComponentErrorBoundary
           componentName="3D Map"
@@ -632,211 +484,36 @@ export function RegionalMapView({
           />
         </ComponentErrorBoundary>
       ) : (
-        <MapView
-          key={`regional-map-${mapKey}`}
-          ref={mapRef}
-          style={styles.map}
-          mapStyle={mapStyleValue}
-          logoEnabled={false}
-          attributionEnabled={false}
-          compassEnabled={false}
-          onPress={Platform.OS === 'android' ? handleMapPress : undefined}
+        <MapSurface
+          ref={surfaceRef}
+          mapStyle={mapStyle}
+          styleOptions={SURFACE_STYLE_OPTIONS}
+          initialCamera={WORLD_CAMERA}
+          sources={sources}
+          layers={layers}
+          interactiveLayers={REGIONAL_INTERACTIVE_LAYERS}
+          serveHeatmapTiles={heatmapEnabled}
+          onMapReady={markUserInteracted}
+          onPress={handleSurfacePress}
           onRegionIsChanging={handleRegionIsChanging}
           onRegionDidChange={handleRegionDidChange}
-          onDidFailLoadingMap={handleMapLoadError}
-        >
-          {/* Camera with ref for programmatic control */}
-          {/* No defaultSettings: Android MapLibre re-applies it on every render, causing snapback. */}
-          {/* Initial positioning is done imperatively via fitBounds in useMapCamera.markUserInteracted. */}
-          {/* CRITICAL: followUserLocation must be explicitly false to prevent auto-centering */}
-          <Camera ref={cameraRef} followUserLocation={false} />
-
-          {/* Activity markers - clustered ShapeSource with native MapLibre clustering */}
-          {/* Replaces individual MarkerViews for better performance (GPU-rendered) */}
-          {/* CRITICAL: Always render ShapeSource to avoid iOS crash during view reconciliation */}
-          <ShapeSource
-            ref={clusterSourceRef}
-            id="activity-clusters"
-            shape={markersGeoJSON}
-            cluster={true}
-            clusterRadius={50}
-            clusterMaxZoomLevel={14}
-            onPress={
-              Platform.OS === 'android' && showActivities ? handleClusterOrMarkerPress : undefined
-            }
-            hitbox={{ width: 44, height: 44 }}
-          >
-            {/* Cluster circles - primary color, radius scales by count */}
-            <CircleLayer
-              id="cluster-circles"
-              filter={['has', 'point_count']}
-              style={clusterCircleStyle}
-            />
-            {/* Cluster count labels - textFont MUST match glyph server (Noto Sans) */}
-            <SymbolLayer
-              id="cluster-count"
-              filter={['has', 'point_count']}
-              style={clusterCountStyle}
-            />
-            {/* Individual unclustered activity points - colored by sport type */}
-            {/* Only visible at zoom >= 10 to keep low-zoom view clean (clusters only) */}
-            <CircleLayer
-              id="unclustered-point"
-              filter={['!', ['has', 'point_count']]}
-              minZoomLevel={10}
-              style={unclusteredPointStyle}
-            />
-          </ShapeSource>
-
-          {/* Sections layer - frequent road/trail sections (primary content on global map) */}
-          {/* CRITICAL: Always render ShapeSource to avoid iOS MapLibre crash */}
-          <ShapeSource
-            id="sections"
-            testID="regional-map-sections-overlay"
-            shape={sectionsGeoJSON}
-            onPress={handleSectionPress}
-            hitbox={{ width: 44, height: 44 }}
-          >
-            {/* Thin dashed section line - matches the dashed traces used in the
-                activity-detail map view. Width is intentionally modest so a
-                long section doesn't dominate the screen. */}
-            <LineLayer
-              id="sectionsLine"
-              style={{
-                lineColor: ['get', 'color'],
-                lineWidth: selectedSection
-                  ? [
-                      'case',
-                      ['==', ['get', 'id'], selectedSection.id],
-                      4, // Slight emphasis when selected
-                      2,
-                    ]
-                  : ['interpolate', ['linear'], ['zoom'], 6, 1.2, 10, 1.8, 14, 2.4, 18, 3.2],
-                lineDasharray: [2, 1.2],
-                lineOpacity: showSections
-                  ? selectedSection
-                    ? ([
-                        'case',
-                        ['==', ['get', 'id'], selectedSection.id],
-                        1,
-                        0.55,
-                      ] as unknown as number)
-                    : 0.95
-                  : 0,
-                lineCap: 'butt',
-                lineJoin: 'round',
-              }}
-            />
-            {/* Subtle outline only when a section is selected - not on every
-                section, otherwise the lines look bulky again. */}
-            <LineLayer
-              id="sectionsOutline"
-              style={{
-                lineColor: '#FFFFFF',
-                lineWidth: selectedSection
-                  ? (['case', ['==', ['get', 'id'], selectedSection.id], 6, 0] as unknown as number)
-                  : 0,
-                lineOpacity: selectedSection && showSections ? 0.8 : 0,
-                lineCap: 'round',
-                lineJoin: 'round',
-              }}
-              belowLayerID="sectionsLine"
-            />
-          </ShapeSource>
-
-          {/* Raster heatmap tiles - only rendered when heatmap generation is enabled */}
-          {isHeatmapEnabled() && (
-            <RasterSource
-              id="heatmap-tiles"
-              tileUrlTemplates={[HEATMAP_TILE_URL_TEMPLATE]}
-              minZoomLevel={0}
-              maxZoomLevel={17}
-              tileSize={256}
-            >
-              <RasterLayer
-                id="heatmap-layer"
-                style={{
-                  rasterOpacity: showHeatmap ? (mapStyle === 'light' ? 0.92 : 0.72) : 0,
-                  rasterContrast: mapStyle === 'light' ? 0.45 : 0,
-                  rasterBrightnessMax: mapStyle === 'light' ? 0.55 : 1,
-                  rasterSaturation: mapStyle === 'light' ? 0.6 : 0,
-                  rasterResampling: 'linear',
-                  rasterFadeDuration: 0,
-                }}
-                belowLayerID="cluster-circles"
-              />
-            </RasterSource>
-          )}
-
-          {/* CRITICAL: Always render ShapeSource to avoid iOS MapLibre crash */}
-          {/* Vector traces fully replaced by raster heatmap - no LineLayer needed */}
-          {/* ShapeSource kept mounted (empty) to prevent Fabric view reconciliation crash */}
-          <ShapeSource id="activity-traces" shape={tracesGeoJSON} />
-
-          {/* Activity start-point markers - small dots at the first GPS coordinate */}
-          {/* Visible when zoomed in past trace threshold and activities are shown */}
-          {/* Start-point markers: use native minZoomLevel instead of React state
-              to avoid re-renders that cause Android MapLibre camera snap-back */}
-          <ShapeSource id="activity-start-points" shape={startPointsGeoJSON}>
-            <CircleLayer id="start-point-outer" minZoomLevel={11} style={startPointStyle} />
-          </ShapeSource>
-
-          {/* Selected activity route */}
-          {/* CRITICAL: Always render with fixed ID to avoid iOS MapLibre crash */}
-          <ShapeSource id="selected-route" shape={routeGeoJSON}>
-            {/* Dark casing + brand-orange trace when heatmap is on (sport colors blend into teal) */}
-            <LineLayer
-              id="selected-routeOutline"
-              style={{
-                lineColor: 'rgba(0, 0, 0, 0.4)',
-                lineWidth: 8,
-                lineCap: 'round',
-                lineJoin: 'round',
-                lineOpacity: routeHasData ? 1 : 0,
-              }}
-            />
-            <LineLayer
-              id="selected-routeLine"
-              style={{
-                lineColor: selected
-                  ? isHeatmapEnabled() && showActivities
-                    ? brand.tealLight
-                    : getActivityTypeConfig(selected.activity.type).color
-                  : '#000',
-                lineWidth: 5,
-                lineCap: 'round',
-                lineJoin: 'round',
-                lineOpacity: routeHasData ? 1 : 0,
-              }}
-            />
-          </ShapeSource>
-
-          {/* Spider fan-out layers - show when a cluster can't expand further at max zoom */}
-          {/* CRITICAL: Always render ShapeSource to avoid iOS crash during reconciliation */}
-          <ShapeSource id="spider-legs" shape={spiderLinesGeoJSON}>
-            <LineLayer id="spider-lines" style={spiderLinesStyle} />
-          </ShapeSource>
-          <ShapeSource
-            id="spider-markers"
-            shape={spiderPointsGeoJSON}
-            onPress={Platform.OS === 'android' && spider ? handleSpiderMarkerPress : undefined}
-            hitbox={{ width: 44, height: 44 }}
-          >
-            <CircleLayer id="spider-points" style={spiderPointsStyle} />
-          </ShapeSource>
-
-          {/* User location marker - using ShapeSource + CircleLayer to avoid Fabric crash */}
-          {/* CRITICAL: Always render to prevent add/remove cycles that crash iOS */}
-          <ShapeSource id="user-location" shape={userLocationGeoJSON}>
-            <CircleLayer id="user-location-outer" style={userLocationOuterStyle} />
-            <CircleLayer id="user-location-inner" style={userLocationInnerStyle} />
-          </ShapeSource>
-        </MapView>
+        />
       )}
 
-      {/* Accessibility + test-ID overlay for cluster counts (invisible to users;
-          the native SymbolLayer above renders the visible glyphs). */}
-      {!show3D && <ClusterCountOverlay mapRef={mapRef} ref={clusterOverlayRef} />}
+      {/* Accessibility and test handle for cluster counts. Invisible to users -
+          the map draws the glyphs itself, inside a canvas nothing else can see. */}
+      {!show3D && <ClusterCountOverlay surfaceRef={surfaceRef} ref={clusterOverlayRef} />}
+
+      {/* Same idea for the sections layer: something outside the canvas that
+          says whether sections are currently drawn. */}
+      {!show3D && showSections && (
+        <View
+          testID="regional-map-sections-overlay"
+          accessibilityLabel={t('maps.showSections')}
+          style={styles.layerMarker}
+          pointerEvents="none"
+        />
+      )}
 
       {/* Style toggle */}
       <TouchableOpacity
@@ -939,6 +616,12 @@ const styles = StyleSheet.create({
   },
   styleButton: {
     right: spacing.md,
+  },
+  layerMarker: {
+    position: 'absolute',
+    width: 1,
+    height: 1,
+    opacity: 0,
   },
   attribution: {
     position: 'absolute',

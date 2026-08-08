@@ -51,9 +51,9 @@ const LICENSE_DATA: LicenseSection[] = [
     titleKey: 'licenses.sectionMapsGraphics',
     entries: [
       {
-        name: 'MapLibre React Native',
-        license: 'MIT',
-        repository: 'https://github.com/maplibre/maplibre-react-native',
+        name: 'MapLibre GL JS',
+        license: 'BSD-3-Clause',
+        repository: 'https://github.com/maplibre/maplibre-gl-js',
       },
       {
         name: '@mapbox/polyline',

@@ -137,6 +137,43 @@ export const mapPreviewColors = {
 } as const;
 
 // =============================================================================
+// MAP LAYER COLORS
+// =============================================================================
+
+// Colours for MapLibre layer paint, shared by every map surface. They are
+// theme-independent on purpose: a route has to read against light, dark and
+// satellite basemaps, so it carries its own contrast rather than following the
+// app theme. Semi-transparent entries are rgba because MapLibre paint takes a
+// colour string, not a colour plus a separate opacity.
+export const mapLayerColors = {
+  /** White casing drawn under every coloured line. */
+  casing: '#FFFFFF',
+  /** Start and end of a track. */
+  start: 'rgba(34,197,94,0.75)',
+  end: 'rgba(239,68,68,0.75)',
+  /** Section creation handles, which sit above the trace and need more weight. */
+  startSolid: 'rgba(34,197,94,0.9)',
+  endSolid: 'rgba(239,68,68,0.9)',
+  /** The one selected trace among many. */
+  highlight: '#00E5FF',
+  /** A saved route drawn behind the activity that matched it. */
+  routeOverlay: '#9C27B0',
+  /** Personal record. Gold is reserved for achievements. */
+  personalRecord: '#D4AF37',
+  /** Section boundary ticks, drawn as a dark casing under white marks. */
+  boundaryCasing: '#000000',
+  /** Live section creation line. */
+  sectionCreation: '#22C55E',
+  /** Context track shown beyond a section while its bounds are being expanded. */
+  extension: '#FF6B00',
+  /** Endpoints of a neighbouring section, muted so they read as background. */
+  nearbyStart: 'rgba(34,197,94,0.6)',
+  nearbyEnd: 'rgba(239,68,68,0.6)',
+  /** Live recording position dot. */
+  userLocation: '#2196F3',
+} as const;
+
+// =============================================================================
 // LIGHT MODE COLORS
 // =============================================================================
 
@@ -302,6 +339,15 @@ export const mapStyleSwatch = {
   light: '#E5E7EB',
   dark: '#374151',
   satellite: '#1E6B5A',
+} as const;
+
+// Static thumbnails for the map style picker. Each is the style's own land,
+// water and road tint, so a viewer recognises the style without the app having
+// to run three live maps to draw three 70px circles.
+export const mapStylePreview = {
+  light: { land: '#EFEDE7', water: '#A5CFE3', road: '#FFFFFF' },
+  dark: { land: '#1F2933', water: '#20405C', road: '#3E4C59' },
+  satellite: { land: '#2F5E3A', water: '#1B4A63', road: '#C9BFA5' },
 } as const;
 
 // Insight icon tints (insight generators). Theme-independent; positive and

@@ -1,31 +1,48 @@
 /**
- * Regression guard for US-D3: the section detail map must clamp zoom so short
- * sections don't over-zoom past street level. The clamp is enforced by the
- * Camera's maxZoomLevel prop; if that prop is removed or loosened, a short
- * 200m section can zoom in past level 18 where MapLibre tiles become grainy.
+ * Scenario: the section detail map fits sections whose bounding box can be only
+ * a couple of hundred metres across.
  *
- * Static source assertion rather than a runtime check - we don't need to
- * render MapLibre to verify a prop literal, and the cost of a missed
- * regression (broken detail view for short sections) is worth the guard.
+ * Expected behaviour: the camera fits the supplied bounds, keeps room around
+ * them for the controls, and clamps zoom at street level so a short section
+ * does not push past the point where basemap tiles turn grainy.
  */
-import fs from 'fs';
-import path from 'path';
+import {
+  SECTION_MAP_BOUNDS_PADDING,
+  SECTION_MAP_FIT_PADDING,
+  SECTION_MAP_MAX_ZOOM,
+  sectionCameraSpec,
+} from '@/features/routes/lib/sectionMapCamera';
+import { boundsOfLngLat } from '@/features/maps/lib/coordinates';
 
-describe('US-D3: section map zoom clamp', () => {
-  const source = fs.readFileSync(
-    path.resolve(__dirname, '../../features/routes/components/SectionMapView.tsx'),
-    'utf8'
-  );
+const SHORT_SECTION: [number, number][] = [
+  [7.447, 46.948],
+  [7.4485, 46.9492],
+];
 
-  it('Camera enforces maxZoomLevel of 16', () => {
-    const match = source.match(/maxZoomLevel=\{(\d+)\}/);
-    expect(match).not.toBeNull();
-    const max = Number(match![1]);
-    expect(max).toBeLessThanOrEqual(16);
+describe('section map camera', () => {
+  it('clamps zoom at street level', () => {
+    expect(SECTION_MAP_MAX_ZOOM).toBeLessThanOrEqual(16);
   });
 
-  it('Camera has a defaultSettings bounds prop so short sections auto-fit', () => {
-    expect(source).toContain('defaultSettings={');
-    expect(source).toContain('bounds: { ne: bounds.ne, sw: bounds.sw }');
+  it('fits the supplied bounds with room for the controls', () => {
+    const bounds = boundsOfLngLat(SHORT_SECTION, SECTION_MAP_BOUNDS_PADDING);
+    expect(bounds).not.toBeNull();
+
+    const camera = sectionCameraSpec(bounds!);
+
+    expect(camera.bounds).toEqual(bounds);
+    expect(camera.padding).toBe(SECTION_MAP_FIT_PADDING);
+    expect(camera.center).toBeUndefined();
+    expect(camera.zoom).toBeUndefined();
+  });
+
+  it('pads a short section beyond its raw extent', () => {
+    const raw = boundsOfLngLat(SHORT_SECTION)!;
+    const padded = boundsOfLngLat(SHORT_SECTION, SECTION_MAP_BOUNDS_PADDING)!;
+
+    expect(padded.sw[0]).toBeLessThan(raw.sw[0]);
+    expect(padded.sw[1]).toBeLessThan(raw.sw[1]);
+    expect(padded.ne[0]).toBeGreaterThan(raw.ne[0]);
+    expect(padded.ne[1]).toBeGreaterThan(raw.ne[1]);
   });
 });
