@@ -513,6 +513,12 @@ export interface TranslationResource {
     backupSuccessMessage: string;
     backupFailedTitle: string;
     backupFailedMessage: string;
+    backupFailedAuth: string;
+    backupFailedQuota: string;
+    backupFailedPath: string;
+    backupFailedServer: string;
+    backupFailedTransport: string;
+    lastAttemptFailed: string;
     legacyImportNotice: string;
   };
 

@@ -87,7 +87,12 @@
       "./src/plugins/with-veloqrs",
       "./src/plugins/with-r8-config",
       "./src/plugins/with-android-backup",
-      "./src/plugins/with-icloud",
+      [
+        "react-native-cloud-storage",
+        {
+          "iCloudContainerIdentifier": "iCloud.com.veloq.app"
+        }
+      ],
       "./src/plugins/with-app-groups",
       "./src/plugins/with-android-widget",
       "./src/plugins/with-ios-widget",
@@ -108,7 +113,6 @@
       ],
       "expo-web-browser",
       "expo-secure-store",
-      "expo-font",
       "react-native-iap",
       [
         "expo-notifications",
