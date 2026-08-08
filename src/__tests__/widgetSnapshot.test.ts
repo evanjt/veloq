@@ -342,6 +342,35 @@ describe('composeRoutePreview', () => {
     expect(last).toEqual([1, 0]);
   });
 
+  // Regression: the builder documented these arrays as newest-first and read
+  // index 0 as today, while Rust returns them oldest-first. The widget showed
+  // the oldest day of a 30-day window with every trend arrow inverted. The
+  // fixture is a real intervals.icu week, where CTL falls and form rises, so a
+  // reversed read is unmistakable rather than merely off by a little.
+  it('reports the newest day, matching what the fitness tab shows', () => {
+    const raw = makeRaw();
+    raw.sparklines = {
+      fitness: [37, 36, 35, 34, 35, 34, 33, 32],
+      fatigue: [34, 29, 25, 22, 25, 21, 19, 16],
+      form: [3, 7, 10, 12, 10, 13, 14, 16],
+      hrv: [60, 61, 62, 63, 64, 65, 66, 67],
+      rhr: [50, 50, 49, 49, 48, 48, 47, 46],
+    };
+    const s = composeSnapshot(raw);
+
+    expect(s.metrics.fitness.value).toBe(32);
+    expect(s.metrics.fatigue.value).toBe(16);
+    expect(s.metrics.form.value).toBe(16);
+    expect(s.metrics.hrv.value).toBe(67);
+    expect(s.metrics.rhr.value).toBe(46);
+
+    // Fitness is falling and form is rising across this week.
+    expect(s.metrics.fitness.trendDir).toBe('down');
+    expect(s.metrics.form.trendDir).toBe('up');
+    // CTL ramp looks back 6 days: 32 today against 36 then.
+    expect(s.metrics.rampRate.value).toBe(-4);
+  });
+
   it('returns null for missing, short, or degenerate tracks', () => {
     expect(composeRoutePreview(null)).toBeNull();
     expect(composeRoutePreview([])).toBeNull();
