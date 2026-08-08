@@ -239,19 +239,32 @@ impl PersistentRouteEngine {
     /// on that first add (a fresh column is all-zero), and the triggers use
     /// CREATE ... IF NOT EXISTS. get_section_summaries then reads visit_count
     /// straight off the row instead of a per-open GROUP BY over the junction; the
-    /// triggers keep it correct on every DIRECT section_activities write. The one
-    /// write they cannot see is the activity_id foreign-key cascade
-    /// (recursive_triggers is off), so remove_activity recomputes the affected
-    /// sections itself.
+    /// triggers keep it correct on every DIRECT section_activities write,
+    /// including the merge paths that reassign rows with UPDATE ... SET
+    /// section_id (both sides recompute). The one write they cannot see is the
+    /// activity_id foreign-key cascade (recursive_triggers is off), so
+    /// remove_activity recomputes the affected sections itself.
     fn ensure_visit_count_denormalisation(conn: &Connection) -> SqlResult<()> {
         let has_column = conn
             .prepare("SELECT visit_count FROM sections LIMIT 0")
             .is_ok();
+        // A database opened by a build whose trigger set missed row moves can
+        // hold counts a merge left behind, so repair alongside the first add.
+        let has_move_trigger: bool = conn
+            .query_row(
+                "SELECT COUNT(*) > 0 FROM sqlite_master
+                 WHERE type = 'trigger' AND name = 'section_activities_visit_count_amove'",
+                [],
+                |row| row.get(0),
+            )
+            .unwrap_or(false);
         if !has_column {
             conn.execute(
                 "ALTER TABLE sections ADD COLUMN visit_count INTEGER NOT NULL DEFAULT 0",
                 [],
             )?;
+        }
+        if !has_column || !has_move_trigger {
             conn.execute(
                 "UPDATE sections SET visit_count = (
                     SELECT COUNT(*) FROM section_activities sa
@@ -281,6 +294,17 @@ impl PersistentRouteEngine {
                      SELECT COUNT(*) FROM section_activities
                      WHERE section_id = NEW.section_id AND excluded = 0
                  ) WHERE id = NEW.section_id;
+             END;
+             CREATE TRIGGER IF NOT EXISTS section_activities_visit_count_amove
+             AFTER UPDATE OF section_id ON section_activities BEGIN
+                 UPDATE sections SET visit_count = (
+                     SELECT COUNT(*) FROM section_activities
+                     WHERE section_id = NEW.section_id AND excluded = 0
+                 ) WHERE id = NEW.section_id;
+                 UPDATE sections SET visit_count = (
+                     SELECT COUNT(*) FROM section_activities
+                     WHERE section_id = OLD.section_id AND excluded = 0
+                 ) WHERE id = OLD.section_id;
              END;",
         )?;
         Ok(())

@@ -439,8 +439,8 @@ impl PersistentRouteEngine {
             rusqlite::params![secondary_id],
         )?;
 
-        // visit_count is derived at read-time via COUNT(*) on section_activities -
-        // there is no stored visit_count column on sections.
+        // Counted for the returned summary. The stored sections.visit_count is
+        // the junction triggers' business, including the move above.
         let visit_count: u32 = tx
             .query_row(
                 "SELECT COUNT(DISTINCT activity_id) FROM section_activities WHERE section_id = ? AND excluded = 0",
