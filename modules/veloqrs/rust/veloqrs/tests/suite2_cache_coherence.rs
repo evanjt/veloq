@@ -19,13 +19,13 @@
 //!   - remove_activity leaves a PHANTOM member: the activity and its GPS track
 //!     are gone, but the section still counts it (junction FK is on section_id,
 //!     not activity_id).
-//!   - disable_section diverges the SEAM: the disabled section stays in the
-//!     in-memory cache while the visible view drops it.
+//!   - Hiding is consistent across the SEAM: disabled sections leave the
+//!     in-memory catalogue, and superseded ones stay (they are still detection
+//!     priors) but are dropped by the visible readers.
 //!   - Foreign keys ARE enforced on the engine connection, so delete_section's
 //!     CASCADE genuinely purges the junction (no orphan rows). Guarded green.
 //!   - Custom sections SURVIVE resync intact (timestamp id, never positional,
-//!     never wiped) but are never in the in-memory cache, so the in-memory
-//!     matcher (index_new_activity) cannot see them.
+//!     never wiped) and reach the in-memory matcher (index_new_activity).
 //!
 //! Run: `cargo test -p veloqrs --features synthetic --test suite2_cache_coherence \
 //!       -- --nocapture --include-ignored`
@@ -352,7 +352,7 @@ fn cache_coherence_matrix() {
             &p,
             &p,
             "n/a",
-            "custom absent from in-mem cache",
+            "custom reaches the in-mem matcher",
         );
     }
     println!("=== end matrix ===\n");
@@ -505,11 +505,29 @@ fn gate_remove_activity_purges_section_membership() {
     );
 }
 
-/// A disabled section must be consistently hidden across caches. Fails today: the
-/// in-memory get_sections() cache keeps the disabled section while the DB visible
-/// view drops it, so in-memory consumers (detection's existing_sections,
-/// index_new_activity) still act on a section the user hid. Green when disable
-/// updates both surfaces.
+/// A superseded section must be hidden wherever a disabled one is. Supersession
+/// only hides: the ground stays a detection prior, so the section stays in the
+/// in-memory catalogue and the visible readers are what must agree.
+#[test]
+fn gate_supersede_section_stays_consistent_across_caches() {
+    let (mut engine, _dir, id) = cold();
+    engine
+        .set_superseded(&id, "custom-replacement")
+        .expect("set_superseded");
+    let in_mem = engine.get_visible_sections().iter().any(|s| s.id == id);
+    let visible = engine.get_sections_by_type(None).iter().any(|s| s.id == id);
+    assert_eq!(
+        in_mem, visible,
+        "seam divergence: in_mem view has superseded section {id} = {in_mem}, visible view = {visible}"
+    );
+    assert!(
+        engine.get_sections().iter().any(|s| s.id == id),
+        "the raw catalogue must keep {id} as a detection prior, or the next detect re-mints its ground"
+    );
+}
+
+/// A disabled section must be consistently hidden across caches: in-memory
+/// consumers must not act on a section the user hid.
 #[test]
 fn gate_disable_section_stays_consistent_across_caches() {
     let (mut engine, _dir, id) = cold();

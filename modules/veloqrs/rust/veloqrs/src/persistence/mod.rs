@@ -621,6 +621,12 @@ pub struct PersistentRouteEngine {
     /// the worker's raw catalogue and this field.
     sections: Vec<FrequentSection>,
 
+    /// Sections a custom section has replaced. They stay in `sections` because
+    /// supersession only hides: the ground is still a detection prior, and
+    /// dropping it would re-mint it under a new id on the next detect. Held in
+    /// memory so the read-lock views can hide them without touching `self.db`.
+    superseded_ids: std::collections::HashSet<String>,
+
     /// Named-corridor resolution: display name per visible section plus the
     /// full corridor listing. A pure function of DB state, refreshed lazily
     /// behind `named_overlay_stamp` — the connection's `total_changes()`
@@ -734,6 +740,7 @@ impl PersistentRouteEngine {
             activity_metrics: HashMap::new(),
             time_streams: LruCache::new(std::num::NonZeroUsize::new(200).unwrap()),
             sections: Vec::new(),
+            superseded_ids: HashSet::new(),
             named_overlay: std::sync::RwLock::new(sections::NamedOverlay::default()),
             named_overlay_stamp: std::sync::atomic::AtomicI64::new(-1),
             identity: sections::SectionIdentity::default(),

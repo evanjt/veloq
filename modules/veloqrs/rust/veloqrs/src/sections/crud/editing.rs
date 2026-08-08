@@ -475,6 +475,7 @@ impl PersistentRouteEngine {
             )
             .map_err(|e| format!("Failed to set superseded: {}", e))?;
         self.invalidate_section_cache(auto_section_id);
+        self.refresh_superseded_ids();
         Ok(())
     }
 
@@ -487,6 +488,7 @@ impl PersistentRouteEngine {
                 params![custom_section_id],
             )
             .map_err(|e| format!("Failed to clear superseded: {}", e))?;
+        self.refresh_superseded_ids();
         Ok(())
     }
 
@@ -521,6 +523,7 @@ impl PersistentRouteEngine {
                 count += rows as u32;
             }
         }
+        self.refresh_superseded_ids();
         Ok(count)
     }
 }

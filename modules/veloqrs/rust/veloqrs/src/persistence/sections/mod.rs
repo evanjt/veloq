@@ -282,6 +282,8 @@ impl PersistentRouteEngine {
         // Handles migration edge cases and activities synced after section detection
         self.backfill_section_performance_cache();
 
+        self.refresh_superseded_ids();
+
         self.sections_dirty = false;
         Ok(())
     }
@@ -447,9 +449,38 @@ impl PersistentRouteEngine {
     // Sections (Background Detection)
     // ========================================================================
 
-    /// Get sections (must call detect_sections first or load from DB).
+    /// Get sections (must call detect_sections first or load from DB). The whole
+    /// catalogue, superseded entries included: they are still detection priors,
+    /// so dropping them here would re-mint their ground under a new id. Reads
+    /// that answer a user use [`get_visible_sections`](Self::get_visible_sections).
     pub fn get_sections(&self) -> &[FrequentSection] {
         &self.sections
+    }
+
+    /// Re-read which sections a custom section has replaced. Queries `self.db`,
+    /// so it belongs to the WRITE-lock class of engine methods; every path that
+    /// writes `superseded_by` calls it so the read-lock views stay pure memory.
+    pub(crate) fn refresh_superseded_ids(&mut self) {
+        let Ok(mut stmt) = self
+            .db
+            .prepare("SELECT id FROM sections WHERE superseded_by IS NOT NULL")
+        else {
+            return;
+        };
+        self.superseded_ids = stmt
+            .query_map([], |row| row.get::<_, String>(0))
+            .map(|rows| rows.filter_map(|r| r.ok()).collect())
+            .unwrap_or_default();
+    }
+
+    /// The catalogue as a user should see it: superseded sections hidden, matching
+    /// the DB visible view. Disabled sections are already absent (the loader
+    /// filters them). Pure memory, so a read-lock caller may use it.
+    pub fn get_visible_sections(&self) -> Vec<&FrequentSection> {
+        self.sections
+            .iter()
+            .filter(|s| !self.superseded_ids.contains(&s.id))
+            .collect()
     }
 
     /// Get sections filtered by sport type and/or minimum visit count.
@@ -463,6 +494,7 @@ impl PersistentRouteEngine {
         self.sections
             .iter()
             .filter(|s| sport_type.map_or(true, |st| s.sport_type == st) && s.visit_count >= min)
+            .filter(|s| !self.superseded_ids.contains(&s.id))
             .collect()
     }
 

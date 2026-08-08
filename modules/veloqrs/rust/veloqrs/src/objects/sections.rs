@@ -15,14 +15,14 @@ impl SectionManager {
     }
 
     fn get_all(&self) -> Result<Vec<crate::FfiFrequentSection>, VeloqError> {
-        // Read lock: get_sections() only borrows the in-memory sections Vec (no
+        // Read lock: get_visible_sections() only borrows in-memory state (no
         // self.db), so concurrent reads are sound and no longer serialize on the
         // engine write lock - this is the hot Routes/section-list path. Corridor
         // names come from the cached overlay (no refresh under the read lock).
         with_engine_read(|e| {
             let names = e.named_overlay_cached_names();
-            e.get_sections()
-                .iter()
+            e.get_visible_sections()
+                .into_iter()
                 .map(|s| {
                     let mut f = crate::FfiFrequentSection::from(s);
                     if !s.is_user_defined {
