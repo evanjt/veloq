@@ -86,14 +86,10 @@ describe('seedDemoEngine', () => {
     );
   });
 
-  it('stores streams for every fixture activity so the charts render', () => {
+  it('never writes stream bodies, whose bounded store a full seed would evict', () => {
     seedDemoEngine();
 
-    expect(engine.setStreamBody.mock.calls.length).toBeGreaterThan(0);
-    const [activityId, types, raw] = engine.setStreamBody.mock.calls[0];
-    expect(typeof activityId).toBe('string');
-    expect(types).toContain('time');
-    expect(JSON.parse(raw)).toBeDefined();
+    expect(engine.setStreamBody).not.toHaveBeenCalled();
   });
 
   it('stores both curve kinds under the windows the stats screens ask for', () => {
