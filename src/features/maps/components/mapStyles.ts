@@ -30,7 +30,9 @@ export type SatelliteSourceId =
   | 'poland'
   | 'luxembourg';
 
-// Map styles - liberty is embedded locally to avoid CDN serving stale font references
+// Base styles the surfaces load. Liberty is embedded locally rather than
+// fetched, so a cold map does not wait on a style request and the CDN cannot
+// serve a build with fonts removed from under us.
 export const MAP_STYLE_URLS = {
   light: LIBERTY_STYLE,
 } as const;
@@ -494,72 +496,6 @@ export function getCombinedSatelliteStyle(): CombinedSatelliteMapStyle {
       },
     ],
   };
-}
-
-/**
- * Build a combined satellite style for 3D contexts (Map3DWebView, TerrainSnapshotWebView).
- *
- * Uses the same tileSize: 64 as 2D - MapLibre GL JS v5.x (#3983) fixed the terrain LOD
- * bug that caused blurry tiles with terrain enabled. The v5.x distance-based LOD also
- * handles horizon tiles at 60° pitch (lower zoom for distant tiles), so the previous
- * concern about 16x more tile requests no longer applies.
- */
-export function getCombinedSatelliteStyle3D(): CombinedSatelliteMapStyle {
-  return getCombinedSatelliteStyle();
-}
-
-/**
- * Build a satellite style for snapshot rendering.
- * Uses the full combined style (all regional sources with bounds).
- * MapLibre only requests tiles from sources whose bounds overlap the viewport,
- * so irrelevant sources add zero network overhead.
- */
-export function getSnapshotSatelliteStyle(
-  _lat: number,
-  _lng: number,
-  _zoom: number
-): CombinedSatelliteMapStyle {
-  return getCombinedSatelliteStyle();
-}
-
-/**
- * Build a MapLibre style object for satellite imagery at a given location.
- * @deprecated Use getCombinedSatelliteStyle() for multi-region support
- */
-export function getSatelliteStyle(
-  lat: number,
-  lng: number,
-  zoom: number
-): { style: CombinedSatelliteMapStyle; sourceId: SatelliteSourceId } {
-  // Return combined style - sourceId indicates which regional source is primary
-  const sourceId = getSatelliteSourceId(lat, lng, zoom);
-  return { style: getCombinedSatelliteStyle(), sourceId };
-}
-
-// Combined satellite style with all regional sources
-const SATELLITE_STYLE_BASE: CombinedSatelliteMapStyle = getCombinedSatelliteStyle();
-
-// Legacy export for backward compatibility
-export const SATELLITE_STYLE = SATELLITE_STYLE_BASE;
-
-// Union type for all possible map styles (all inline JSON objects, no URL strings)
-export type MapStyleValue = SatelliteMapStyle | typeof DARK_MATTER_STYLE | typeof LIBERTY_STYLE;
-
-// Get the MapLibre style value for a given style type
-export function getMapStyle(
-  style: MapStyleType,
-  location?: { lat: number; lng: number; zoom: number }
-): MapStyleValue {
-  if (style === 'satellite') {
-    if (location) {
-      return getSatelliteStyle(location.lat, location.lng, location.zoom).style;
-    }
-    return SATELLITE_STYLE_BASE;
-  }
-  if (style === 'dark') {
-    return DARK_MATTER_STYLE;
-  }
-  return MAP_STYLE_URLS.light;
 }
 
 // Check if a style should use dark UI elements

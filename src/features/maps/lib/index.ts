@@ -6,6 +6,5 @@ export * from './tileGeometry';
 export * from './tilePreloader';
 export * from './cameraAngle';
 export * from './terrainSnapshotEvents';
-export * as TileCacheService from './tileCacheService';
 export * from './htmlBuilders';
 export * from './storage';

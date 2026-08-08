@@ -94,6 +94,94 @@ impl FitnessManager {
         with_engine(|e| e.get_period_stats(start_ts, end_ts))
     }
 
+    /// Weekly training totals over a range, one entry per Monday-anchored
+    /// week that has activities. Derived from `activity_metrics` rather than
+    /// fetched, so there is no athlete-summary endpoint to keep in sync.
+    ///
+    /// `week_starts` are supplied by the caller because week boundaries are a
+    /// local-calendar question, and Rust has no view of the device timezone.
+    fn get_weekly_summaries(
+        &self,
+        week_starts: Vec<i64>,
+        week_length_secs: i64,
+    ) -> Result<Vec<crate::FfiWeeklySummary>, VeloqError> {
+        with_engine(|e| {
+            week_starts
+                .into_iter()
+                .map(|start| {
+                    let stats = e.get_period_stats(start, start + week_length_secs);
+                    crate::FfiWeeklySummary {
+                        week_start: start,
+                        count: stats.count,
+                        moving_time: stats.total_duration,
+                        distance: stats.total_distance,
+                        training_load: stats.total_tss,
+                    }
+                })
+                .collect()
+        })
+    }
+
+    /// A stored power curve body, or `None` when that sport and window have
+    /// never been fetched. `None` means "ask for it", not "no data".
+    fn get_power_curve_body(&self, sport: String, days: i64) -> Result<Option<String>, VeloqError> {
+        with_engine(|e| {
+            e.get_curve_body(
+                crate::persistence::bodies::CurveKind::Power,
+                &sport,
+                days,
+                false,
+            )
+            .map_err(|err| VeloqError::Database {
+                msg: format!("{}", err),
+            })
+        })?
+    }
+
+    /// A stored pace curve body, keyed by sport, window and the gap flag.
+    fn get_pace_curve_body(
+        &self,
+        sport: String,
+        days: i64,
+        gap: bool,
+    ) -> Result<Option<String>, VeloqError> {
+        with_engine(|e| {
+            e.get_curve_body(
+                crate::persistence::bodies::CurveKind::Pace,
+                &sport,
+                days,
+                gap,
+            )
+            .map_err(|err| VeloqError::Database {
+                msg: format!("{}", err),
+            })
+        })?
+    }
+
+    /// An activity's stored interval body, or `None` if never fetched.
+    fn get_interval_body(&self, activity_id: String) -> Result<Option<String>, VeloqError> {
+        with_engine(|e| {
+            e.get_interval_body(&activity_id)
+                .map_err(|err| VeloqError::Database {
+                    msg: format!("{}", err),
+                })
+        })?
+    }
+
+    /// Calendar event bodies over an inclusive window, oldest first.
+    fn get_calendar_event_bodies(
+        &self,
+        oldest_ts: i64,
+        newest_ts: i64,
+    ) -> Result<Vec<String>, VeloqError> {
+        with_engine(|e| {
+            e.get_calendar_event_bodies(oldest_ts, newest_ts)
+                .map_err(|err| VeloqError::Database {
+                    msg: format!("{}", err),
+                })
+        })?
+    }
+
     fn get_zone_distribution(
         &self,
         sport_type: String,
@@ -191,9 +279,26 @@ impl FitnessManager {
                     stress: r.stress,
                     mood: r.mood,
                     motivation: r.motivation,
+                    raw: r.raw,
                 })
                 .collect();
             e.upsert_wellness(&mapped)
+                .map_err(|err| VeloqError::Database {
+                    msg: format!("{}", err),
+                })
+        })?
+    }
+
+    /// Untyped wellness bodies over an inclusive date window, oldest first.
+    /// The wellness screens read fields the typed row does not model, so they
+    /// parse these rather than a reconstruction.
+    fn get_wellness_bodies(
+        &self,
+        oldest: String,
+        newest: String,
+    ) -> Result<Vec<String>, VeloqError> {
+        with_engine(|e| {
+            e.get_wellness_bodies(&oldest, &newest)
                 .map_err(|err| VeloqError::Database {
                     msg: format!("{}", err),
                 })
@@ -305,93 +410,14 @@ impl FitnessManager {
         })
     }
 
-    /// Batch insights data: combines period stats, trends, patterns, and recent PRs
-    /// in a single engine lock. Reduces Insights hook FFI calls from 13-16 to 1.
+    /// Batch insights data: combines period stats, trends, patterns, recent PRs
+    /// and the section and strength tail the pipeline used to fetch one call at
+    /// a time. Reduces the Insights hook to a single round-trip.
     fn get_insights_data(
         &self,
-        current_start: i64,
-        current_end: i64,
-        prev_start: i64,
-        prev_end: i64,
-        chronic_start: i64,
-        today_start: i64,
+        params: crate::FfiInsightsParams,
     ) -> Result<crate::FfiInsightsData, VeloqError> {
-        with_engine(|e| {
-            let now_ts = current_end;
-
-            // Period stats (4 queries, all in one engine lock)
-            let current_week = e.get_period_stats(current_start, current_end);
-            let previous_week = e.get_period_stats(prev_start, prev_end);
-            let chronic_period = e.get_period_stats(chronic_start, prev_start);
-            let today_period = e.get_period_stats(today_start, now_ts);
-
-            // Trends
-            let ftp_trend = e.get_ftp_trend();
-            let run_pace_trend = e.get_pace_trend("Run");
-
-            // Activity patterns
-            let all_patterns =
-                crate::patterns::compute_activity_patterns(&e.db, &e.activity_metrics);
-            let today_pattern = crate::patterns::get_pattern_for_today(&e.db, &e.activity_metrics);
-
-            // Recent PRs - loop stays in Rust, never crosses FFI
-            let seven_days_ago = now_ts - 7 * 86400;
-            let mut recent_prs = Vec::new();
-            let sport_types = e.get_available_sport_types();
-            let mut all_summaries: Vec<_> = sport_types
-                .iter()
-                .flat_map(|sport| e.get_section_summaries_for_sport(sport))
-                .filter(|s| s.visit_count >= 3)
-                .collect();
-            all_summaries.sort_by(|a, b| b.visit_count.cmp(&a.visit_count));
-
-            for s in &all_summaries {
-                let perf = e.get_section_performances_filtered(&s.id, None);
-                // Prefer per-direction bests: they're computed lap-by-lap and
-                // line up with what the section detail page shows. The combined
-                // `best_record` is each activity's minimum lap, which can pick
-                // a partial / unusually short portion (yielding implausible
-                // times like "1:24" for a section that's normally ~6 minutes).
-                // Take the faster of forward/reverse so we mirror what the
-                // user would see as "the PR" on the section detail screen.
-                let best = match (
-                    perf.best_forward_record.as_ref(),
-                    perf.best_reverse_record.as_ref(),
-                ) {
-                    (Some(fwd), Some(rev)) => Some(if fwd.best_time <= rev.best_time {
-                        fwd
-                    } else {
-                        rev
-                    }),
-                    (Some(fwd), None) => Some(fwd),
-                    (None, Some(rev)) => Some(rev),
-                    (None, None) => perf.best_record.as_ref(),
-                };
-                if let Some(record) = best {
-                    if record.activity_date >= seven_days_ago {
-                        let days_ago = crate::calendar_days_between(record.activity_date, now_ts);
-                        recent_prs.push(crate::FfiRecentPR {
-                            section_id: s.id.clone(),
-                            section_name: s.name.clone().unwrap_or_else(|| "Section".to_string()),
-                            best_time: record.best_time,
-                            days_ago,
-                        });
-                    }
-                }
-            }
-
-            crate::FfiInsightsData {
-                current_week,
-                previous_week,
-                chronic_period,
-                today_period,
-                ftp_trend,
-                run_pace_trend,
-                all_patterns,
-                today_pattern,
-                recent_prs,
-            }
-        })
+        with_engine(|e| e.insights_data(&params))
     }
 
     /// All data the feed screen needs in a single engine lock.
@@ -399,94 +425,19 @@ impl FitnessManager {
     /// Reduces 20+ FFI calls to 1.
     fn get_startup_data(
         &self,
-        current_start: i64,
-        current_end: i64,
-        prev_start: i64,
-        prev_end: i64,
-        chronic_start: i64,
-        today_start: i64,
+        params: crate::FfiInsightsParams,
         preview_activity_ids: Vec<String>,
     ) -> Result<crate::FfiStartupData, VeloqError> {
         with_engine(|e| {
-            let now_ts = current_end;
+            let insights = e.insights_data(&params);
 
-            // === Insights data ===
-            let current_week = e.get_period_stats(current_start, current_end);
-            let previous_week = e.get_period_stats(prev_start, prev_end);
-            let chronic_period = e.get_period_stats(chronic_start, prev_start);
-            let today_period = e.get_period_stats(today_start, now_ts);
-            let ftp_trend = e.get_ftp_trend();
-            let run_pace_trend = e.get_pace_trend("Run");
-            let all_patterns =
-                crate::patterns::compute_activity_patterns(&e.db, &e.activity_metrics);
-            let today_pattern = crate::patterns::get_pattern_for_today(&e.db, &e.activity_metrics);
-
-            // Recent PRs
-            let seven_days_ago = now_ts - 7 * 86400;
-            let mut recent_prs = Vec::new();
-            let sport_types = e.get_available_sport_types();
-            let mut all_summaries: Vec<_> = sport_types
-                .iter()
-                .flat_map(|sport| e.get_section_summaries_for_sport(sport))
-                .filter(|s| s.visit_count >= 3)
-                .collect();
-            all_summaries.sort_by(|a, b| b.visit_count.cmp(&a.visit_count));
-
-            for s in &all_summaries {
-                let perf = e.get_section_performances_filtered(&s.id, None);
-                // Prefer per-direction bests: they're computed lap-by-lap and
-                // line up with what the section detail page shows. The combined
-                // `best_record` is each activity's minimum lap, which can pick
-                // a partial / unusually short portion (yielding implausible
-                // times like "1:24" for a section that's normally ~6 minutes).
-                // Take the faster of forward/reverse so we mirror what the
-                // user would see as "the PR" on the section detail screen.
-                let best = match (
-                    perf.best_forward_record.as_ref(),
-                    perf.best_reverse_record.as_ref(),
-                ) {
-                    (Some(fwd), Some(rev)) => Some(if fwd.best_time <= rev.best_time {
-                        fwd
-                    } else {
-                        rev
-                    }),
-                    (Some(fwd), None) => Some(fwd),
-                    (None, Some(rev)) => Some(rev),
-                    (None, None) => perf.best_record.as_ref(),
-                };
-                if let Some(record) = best {
-                    if record.activity_date >= seven_days_ago {
-                        let days_ago = crate::calendar_days_between(record.activity_date, now_ts);
-                        recent_prs.push(crate::FfiRecentPR {
-                            section_id: s.id.clone(),
-                            section_name: s.name.clone().unwrap_or_else(|| "Section".to_string()),
-                            best_time: record.best_time,
-                            days_ago,
-                        });
-                    }
-                }
-            }
-
-            let insights = crate::FfiInsightsData {
-                current_week: current_week.clone(),
-                previous_week: previous_week.clone(),
-                chronic_period,
-                today_period,
-                ftp_trend: ftp_trend.clone(),
-                run_pace_trend: run_pace_trend.clone(),
-                all_patterns,
-                today_pattern,
-                recent_prs,
-            };
-
-            // === Summary card data (reuses period stats + trends from insights) ===
-            let swim_pace_trend = e.get_pace_trend("Swim");
+            // Summary card reuses the period stats and trends just computed.
             let summary_card = crate::FfiSummaryCardData {
-                current_week,
-                prev_week: previous_week,
-                ftp_trend,
-                run_pace_trend,
-                swim_pace_trend,
+                current_week: insights.current_week.clone(),
+                prev_week: insights.previous_week.clone(),
+                ftp_trend: insights.ftp_trend.clone(),
+                run_pace_trend: insights.run_pace_trend.clone(),
+                swim_pace_trend: e.get_pace_trend("Swim"),
             };
 
             // === GPS preview tracks (simplified ~100 points via Douglas-Peucker) ===
@@ -514,6 +465,28 @@ impl FitnessManager {
                 preview_tracks,
                 cached_metric_ids,
             }
+        })
+    }
+
+    /// Everything the home-screen widget snapshot is composed from: wellness
+    /// sparklines, the summary card, and the latest activity with its record
+    /// flag and GPS track. Replaces the six-call gather in the widget writer.
+    fn get_widget_snapshot(
+        &self,
+        current_start: i64,
+        current_end: i64,
+        prev_start: i64,
+        prev_end: i64,
+        sparkline_days: u32,
+    ) -> Result<crate::FfiWidgetSnapshotData, VeloqError> {
+        with_engine(|e| {
+            e.widget_snapshot_data(
+                current_start,
+                current_end,
+                prev_start,
+                prev_end,
+                sparkline_days,
+            )
         })
     }
 }

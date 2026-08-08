@@ -3,7 +3,7 @@
  * Shows a frequently-traveled section with all activities that traverse it.
  */
 
-import React, { useCallback, useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, ScrollView, StatusBar, TouchableOpacity, InteractionManager } from 'react-native';
 import { Text } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -15,7 +15,17 @@ import { useMergeSections } from '@/features/routes/hooks/useMergeSections';
 import { useNearbySections } from '@/features/routes/hooks/useNearbySections';
 import { useSectionActions } from '@/features/routes/hooks/useSectionActions';
 import { useSectionChartData } from '@/features/routes/hooks/useSectionChartData';
-import { useSectionPerformances } from '@/features/routes/hooks/useSectionPerformances';
+import {
+  useSectionTimeStreamSync,
+  toPerformanceView,
+  EMPTY_PERFORMANCE_VIEW,
+} from '@/features/routes/hooks/useSectionPerformances';
+import { RANGE_DAYS } from '@/features/routes/constants';
+import {
+  useSectionDetailData,
+  useSectionDetailPerformance,
+  NEARBY_RADIUS_METERS,
+} from '@/features/routes/hooks/useSectionDetailData';
 import { useSectionDataRefresh } from '@/features/routes/hooks/useSectionDataRefresh';
 import { useSectionUIState } from '@/features/routes/hooks/useSectionUIState';
 import { useSectionActivityData } from '@/features/routes/hooks/useSectionActivityData';
@@ -72,15 +82,24 @@ export default function SectionDetailScreen() {
   const { isDark } = useTheme();
   const insets = useSafeAreaInsets();
 
+  // Everything the screen can paint before its time streams land, in one call.
+  const [sectionRefreshTick, setSectionRefreshTick] = useState(0);
+  const bumpSectionRefresh = useCallback(() => setSectionRefreshTick((k) => k + 1), []);
+  const { data: detail } = useSectionDetailData(id, sectionRefreshTick);
+
   // Get cached date range from sync store (consolidated calculation)
-  const cacheDays = useCacheDays();
+  const cacheDays = useCacheDays(detail?.activityCount);
   const debugEnabled = useDebugStore((s) => s.enabled);
   const { getPageMetrics } = useFFITimer();
   const { exportGpx, exporting: gpxExporting } = useGpxExport();
 
   // Nearby sections and merge candidates
-  const { nearby } = useNearbySections(id);
-  const { candidates: mergeCandidates, merge: mergeSections, isMerging } = useMergeSections(id);
+  const { nearby } = useNearbySections(id, NEARBY_RADIUS_METERS, detail?.nearby);
+  const {
+    candidates: mergeCandidates,
+    merge: mergeSections,
+    isMerging,
+  } = useMergeSections(id, detail?.mergeCandidates);
 
   const {
     highlightedActivityId,
@@ -112,7 +131,17 @@ export default function SectionDetailScreen() {
   // Custom section IDs start with "custom_" (e.g., "custom_1767268142052_qyfoos8")
   const isCustomId = id?.startsWith('custom_');
 
-  const { section, sectionRefreshKey, handleTrimRefresh } = useSectionDataRefresh(id);
+  const { section, sectionRefreshKey, handleTrimRefresh } = useSectionDataRefresh(
+    id,
+    detail?.section
+  );
+
+  // Trims, renames and exclusions invalidate the bundle as well as the hook's
+  // own key, so both move together.
+  const handleSectionRefresh = useCallback(() => {
+    handleTrimRefresh();
+    bumpSectionRefresh();
+  }, [handleTrimRefresh, bumpSectionRefresh]);
 
   // Disabled state from section data
   const isSectionDisabled = !!(section?.disabled || section?.supersededBy);
@@ -136,7 +165,7 @@ export default function SectionDetailScreen() {
     toggleExpand,
     setTrimStart,
     setTrimEnd,
-  } = useSectionTrim(section, handleTrimRefresh);
+  } = useSectionTrim(section, handleSectionRefresh, detail?.hasOriginalBounds);
 
   // Section CRUD actions (rename, delete, toggle disable, exclude/include,
   // reference activity, rematch) - extracted into a hook for clarity.
@@ -166,8 +195,9 @@ export default function SectionDetailScreen() {
     isCustomId: !!isCustomId,
     section,
     isSectionDisabled,
-    onSectionRefresh: handleTrimRefresh,
+    onSectionRefresh: handleSectionRefresh,
     sectionRefreshKey,
+    preComputedExcludedActivityIds: detail?.excludedActivityIds,
   });
 
   const handleActivitySelect = useCallback(
@@ -186,17 +216,43 @@ export default function SectionDetailScreen() {
   );
 
   const { allActivityTraces, sportTypeCounts, effectiveSportType, filteredActivities } =
-    useSectionActivityData(section, selectedSportType);
+    useSectionActivityData(
+      section,
+      selectedSportType,
+      detail
+        ? { activityMetrics: detail.activityMetrics, mapSignatures: detail.mapSignatures }
+        : undefined
+    );
 
-  // Fetch actual section performance times from activity streams
-  // This loads in the background - we show estimated times first, then update when ready
+  // Section times come from activity streams, so wait for the gap the bundle
+  // reported to close before reading the records.
+  const portionActivityIds = useMemo(() => {
+    if (!section?.activityPortions) return [];
+    return Array.from(new Set(section.activityPortions.map((p) => p.activityId)));
+  }, [section?.activityPortions]);
+  const { ready: streamsReady } = useSectionTimeStreamSync(
+    portionActivityIds,
+    detail?.missingTimeStreamIds
+  );
+
+  // Second call: everything that needs lap times.
+  const performance = useSectionDetailPerformance(
+    id,
+    RANGE_DAYS[sectionTimeRange],
+    effectiveSportType,
+    streamsReady
+  );
+
   const {
     records: performanceRecords,
     bestForwardRecord,
     bestReverseRecord,
     forwardStats,
     reverseStats,
-  } = useSectionPerformances(section, effectiveSportType);
+  } = useMemo(
+    () => (performance ? toPerformanceView(performance.performances) : EMPTY_PERFORMANCE_VIEW),
+    [performance]
+  );
 
   const { chartData } = useSectionChartData({
     section,
@@ -205,6 +261,7 @@ export default function SectionDetailScreen() {
     sectionWithTraces: null,
     sectionTimeRange,
     sportFilter: effectiveSportType,
+    preComputedChart: performance?.chartData ?? null,
   });
 
   const { calendarSummary, combinedChartData } = useSectionChartDataEnriched({
@@ -213,6 +270,7 @@ export default function SectionDetailScreen() {
     chartData,
     showExcluded,
     excludedActivityIds,
+    preComputedCalendarSummary: performance?.calendarSummary ?? null,
   });
 
   const activityCount = sectionTimeRange === 'all' ? (section?.visitCount ?? 0) : chartData.length;

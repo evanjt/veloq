@@ -1,7 +1,7 @@
 import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
-import axios from 'axios';
+import { routeEngine } from 'veloqrs';
 
 import { replaceTo } from '@/shared/app/navigation';
 import { clearAccountData, clearAuthOnly } from '@/shared/storage';
@@ -32,16 +32,12 @@ export function useApiKeyLogin({ setError }: UseApiKeyLoginParams) {
       setError(null);
 
       try {
-        const response = await axios.get('https://intervals.icu/api/v1/athlete/me', {
-          headers: {
-            Authorization: `Basic ${btoa('API_KEY:' + apiKey.trim())}`,
-          },
-          timeout: 10000,
-        });
-
-        const athlete = response.data;
-        if (!athlete?.id) {
-          throw new Error('Invalid response');
+        // The engine checks the key against /athlete/me without storing it, so
+        // a rejected key never becomes the credential the app syncs with.
+        const check = await routeEngine.validateSyncCredentials('api_key', apiKey.trim());
+        if (check.kind !== 'ok' || !check.id) {
+          setError(check.status === 401 ? t('login.invalidApiKey') : t('login.connectionFailed'));
+          return;
         }
 
         // Account-identity check. Engine holds at most one account at a time,
@@ -49,7 +45,7 @@ export function useApiKeyLogin({ setError }: UseApiKeyLoginParams) {
         // before letting the new identity in. Same-account login keeps data
         // for instant resume; only the auth/profile blobs are dropped so the
         // previous user's avatar can't bleed through.
-        const incomingId = String(athlete.id);
+        const incomingId = check.id;
         const cachedId = getCachedAthleteId();
         if (cachedId && cachedId !== incomingId) {
           const proceed = await confirmAccountChange({
@@ -65,14 +61,10 @@ export function useApiKeyLogin({ setError }: UseApiKeyLoginParams) {
           await clearAuthOnly(queryClient);
         }
         resetSyncDateRange();
-        await setCredentials(apiKey.trim(), athlete.id);
+        await setCredentials(apiKey.trim(), incomingId);
         replaceTo('/');
-      } catch (err: unknown) {
-        if (axios.isAxiosError(err) && err.response?.status === 401) {
-          setError(t('login.invalidApiKey'));
-        } else {
-          setError(t('login.connectionFailed'));
-        }
+      } catch {
+        setError(t('login.connectionFailed'));
       } finally {
         setIsApiKeyLoading(false);
       }

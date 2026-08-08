@@ -10,10 +10,11 @@
 import React, { ReactNode } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
-import { GestureDetector, GestureType } from 'react-native-gesture-handler';
+import { GestureDetector } from 'react-native-gesture-handler';
 import { colors, typography, chartStyles } from '@/theme';
 import { useTheme } from '@/shared/app';
 import { useTranslation } from 'react-i18next';
+import type { ChartGesture } from './useChartGestures';
 
 export interface ChartPadding {
   top?: number;
@@ -28,7 +29,7 @@ export interface ChartContainerProps {
   /** Chart title */
   title?: string;
   /** Gesture from useChartGestures */
-  gesture?: GestureType;
+  gesture?: ChartGesture;
   /** Loading state */
   isLoading?: boolean;
   /** Loading text */

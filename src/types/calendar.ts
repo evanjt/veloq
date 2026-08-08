@@ -38,28 +38,11 @@ export interface WorkoutStep {
   steps?: WorkoutStep[]; // nested for repeat blocks
 }
 
-export interface ActivityPattern {
-  sportType: string;
-  clusterId: number;
-  primaryDay: number; // 0=Mon..6=Sun
-  seasonLabel: string; // 'winter', 'spring', 'summer', 'autumn'
-  activityCount: number;
-  avgDurationSecs: number;
-  avgTss: number;
-  avgDistanceMeters: number;
-  frequencyPerMonth: number;
-  confidence: number; // 0.0-1.0, UI threshold: >=0.6
-  silhouetteScore: number;
-  daysSinceLast: number;
-  commonSections: PatternSection[];
-}
-
-export interface PatternSection {
-  sectionId: string;
-  sectionName: string;
-  appearanceRate: number; // 0.0-1.0
-  bestTimeSecs: number;
-  medianRecentSecs: number; // median of last 5 traversals
-  trend: number | null | undefined; // null/undefined=insufficient data, -1=declining, 0=stable, 1=improving
-  traversalCount: number;
-}
+/**
+ * Activity patterns and their sections come straight from the engine's k-means
+ * clustering, so the generated records are the app types.
+ */
+export type {
+  FfiActivityPattern as ActivityPattern,
+  FfiPatternSection as PatternSection,
+} from 'veloqrs';

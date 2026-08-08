@@ -58,8 +58,8 @@ jest.mock('@/features/recording/hooks/usePermissionUpgrade', () => ({
   }),
 }));
 
-jest.mock('@/api', () => ({
-  intervalsApi: { createManualActivity: jest.fn() },
+jest.mock('@/features/recording/lib/upload/intervalsUploads', () => ({
+  createManualActivity: jest.fn(),
 }));
 
 const mockSaveRecording = saveRecording as jest.Mock;

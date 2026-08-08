@@ -12,10 +12,14 @@ import { WebView } from 'react-native-webview';
 import { colors, darkColors } from '@/theme';
 import { getBoundsFromPoints } from '@/shared/geo/polyline';
 import { useMap3DBridge } from '@/features/maps/hooks/useMap3DBridge';
-import { buildMap3DHtml, buildUpdateLayersScript } from '@/features/maps/lib/htmlBuilders';
+import { HIGHLIGHT_THROTTLE_MS } from '@/features/maps/lib/mapBudgets';
+import {
+  buildMap3DHtml,
+  buildUpdateLayersScript,
+  resolveStyleExpression,
+} from '@/features/maps/lib/htmlBuilders';
 import type { MapStyleType } from './mapStyles';
-import { getCombinedSatelliteStyle3D, rewriteSatelliteUrls, TERRAIN_3D_CONFIG } from './mapStyles';
-import { DARK_MATTER_STYLE } from './darkMatterStyle';
+import { TERRAIN_3D_CONFIG } from './mapStyles';
 
 // Stable empty array to prevent unnecessary re-renders when coordinates prop is undefined
 const EMPTY_COORDS: [number, number][] = [];
@@ -263,17 +267,10 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       const isSatellite = mapStyle === 'satellite';
       const isDark = mapStyle === 'dark' || mapStyle === 'satellite';
 
-      // Satellite: rewrite to cached protocol for tile caching.
-      // Dark: keep original TileJSON URL - let MapLibre fetch tiles natively
-      // (cached-vector:// rewrite was causing blank features after setStyle).
-      // Light: fetch URL-based style in JS.
-      const styleConfig = isSatellite
-        ? JSON.stringify(rewriteSatelliteUrls(getCombinedSatelliteStyle3D()))
-        : mapStyle === 'dark'
-          ? JSON.stringify(DARK_MATTER_STYLE)
-          : `null`;
-
-      const lightStyleUrl = 'https://tiles.openfreemap.org/styles/liberty';
+      // Vector tiles stay on their TileJSON URL here: rewriting them to
+      // cached-vector:// after a setStyle left features blank until the cache
+      // warmed, which is only tolerable on a cold page load.
+      const { styleJSON: styleConfig, url: lightStyleUrl } = resolveStyleExpression(mapStyle);
 
       // Serialize shared terrain config for injection
       const terrainSourceJSON = JSON.stringify(TERRAIN_3D_CONFIG.source);
@@ -437,13 +434,13 @@ export const Map3DWebView = forwardRef<Map3DWebViewRef, Map3DWebViewPropsInterna
       []
     );
 
-    // Update highlight marker position in WebView (from chart scrubbing)
-    // Throttled to ~16ms to avoid flooding the JS bridge at 60fps
+    // Update highlight marker position in WebView (from chart scrubbing).
+    // Throttled so the bridge is not flooded at 60fps.
     const lastHighlightRef = useRef<number>(0);
     useEffect(() => {
       if (!webViewRef.current || !mapReadyRef.current) return;
       const now = Date.now();
-      if (now - lastHighlightRef.current < 16) return;
+      if (now - lastHighlightRef.current < HIGHLIGHT_THROTTLE_MS) return;
       lastHighlightRef.current = now;
 
       if (highlightCoordinate) {

@@ -242,11 +242,47 @@ pub struct WellnessRecord {
     pub steps: Option<f64>,
     #[serde(default)]
     pub vo2max: Option<f64>,
+    #[serde(default)]
+    pub soreness: Option<i32>,
+    #[serde(default)]
+    pub fatigue: Option<i32>,
+    #[serde(default)]
+    pub stress: Option<i32>,
+    #[serde(default)]
+    pub mood: Option<i32>,
+    #[serde(default)]
+    pub motivation: Option<i32>,
 }
 
 // ===========================================================================
 // Athlete + sport settings
 // ===========================================================================
+
+/// The JSON body for a manual activity entry, an activity with no file behind
+/// it. Field names are the wire names, and an unset optional is omitted rather
+/// than sent as null, matching what the app has always posted.
+#[derive(Debug, Clone, Serialize, PartialEq)]
+pub struct ManualActivityBody {
+    #[serde(rename = "type")]
+    pub activity_type: String,
+    pub name: String,
+    pub start_date_local: String,
+    pub elapsed_time: i64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub moving_time: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub distance: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub total_elevation_gain: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub average_heartrate: Option<f64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    /// Always sent, defaulted false by the caller.
+    pub trainer: bool,
+    /// Always sent, defaulted false by the caller.
+    pub commute: bool,
+}
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize, PartialEq)]
 pub struct AthleteRecord {

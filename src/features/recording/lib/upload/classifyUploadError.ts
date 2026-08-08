@@ -9,14 +9,19 @@
  * - `apiError` - any other response (400/500/etc.). Surface the server
  *   message to the user; do not queue (re-uploading won't help).
  *
- * Historically the detection had two subtleties that caused data-loss bugs:
- *   1. axios errors with a `response.status` should be treated as API errors
- *      even if their top-level message mentions "network" (they are not
- *      retry-worthy).
- *   2. When `response` is missing, the literal string "status code 403" can
- *      still appear in the error message - we must pick that up so a 403
- *      doesn't get mis-classified as a network error and silently queued.
+ * The classification now comes from the engine: Rust knows whether a write was
+ * refused, rate limited or never dispatched, and says so on the outcome carried
+ * by an `UploadFailure`. The message-reading fallback below stays for throws the
+ * upload seam did not produce, and preserves two subtleties that caused
+ * data-loss bugs before:
+ *   1. an error carrying an HTTP status is an API error even when its message
+ *      mentions "network" (it is not retry-worthy).
+ *   2. when no status is available, the literal string "status code 403" in the
+ *      message must still be picked up, or a 403 gets mis-classified as a
+ *      network error and silently queued.
  */
+
+import type { CallOutcome } from 'veloqrs';
 
 export type UploadErrorType = 'network' | 'http403' | 'apiError';
 
@@ -33,51 +38,46 @@ export interface UploadErrorClassification {
 const NETWORK_ERROR_REGEX = /network\s*(error|request\s*failed)|timeout|ERR_NETWORK|ECONNABORTED/i;
 const STATUS_403_IN_MESSAGE = /status code 403/i;
 
-/** Extract an axios-style `response` object if present on the error. */
-function getResponse(err: unknown): { status?: number; data?: unknown } | undefined {
-  if (err && typeof err === 'object' && 'response' in err) {
-    return (err as { response?: { status?: number; data?: unknown } }).response;
-  }
-  return undefined;
+/** The engine outcome carried by an `UploadFailure`, if that is what threw. */
+function getOutcome(err: unknown): CallOutcome | undefined {
+  if (!err || typeof err !== 'object' || !('outcome' in err)) return undefined;
+  const outcome = (err as { outcome?: unknown }).outcome;
+  if (!outcome || typeof outcome !== 'object') return undefined;
+  return typeof (outcome as CallOutcome).kind === 'string' ? (outcome as CallOutcome) : undefined;
 }
 
-/** Pull a user-facing detail string out of a response body, if one is there. */
-function extractApiDetail(data: unknown): string | undefined {
-  if (data && typeof data === 'object' && 'message' in data) {
-    return String((data as Record<string, unknown>).message);
+function fromOutcome(outcome: CallOutcome, errMsg: string): UploadErrorClassification {
+  const httpStatus = outcome.status;
+  const apiDetail = outcome.detail;
+
+  if (httpStatus === 403) {
+    return { type: 'http403', httpStatus: 403, apiDetail, errMsg };
   }
-  if (data && typeof data === 'object' && 'error' in data) {
-    return String((data as Record<string, unknown>).error);
+  // Only a request that never reached the server is a network failure. A
+  // refused, rate-limited or locally-failed write is not, and queueing one for
+  // a connectivity retry would wait on a change that cannot help it.
+  if (outcome.kind === 'network') {
+    return { type: 'network', errMsg };
   }
-  if (typeof data === 'string' && data.length > 0 && data.length < 500) {
-    return data;
-  }
-  return undefined;
+  return { type: 'apiError', httpStatus, apiDetail, errMsg };
 }
 
 export function classifyUploadError(err: unknown): UploadErrorClassification {
   const errMsg = err instanceof Error ? err.message : String(err);
-  const response = getResponse(err);
-  const httpStatus = response?.status;
-  const apiDetail = extractApiDetail(response?.data);
 
-  const is403 =
-    httpStatus === 403 || (httpStatus === undefined && STATUS_403_IN_MESSAGE.test(errMsg));
+  const outcome = getOutcome(err);
+  if (outcome) return fromOutcome(outcome, errMsg);
+
+  const is403 = STATUS_403_IN_MESSAGE.test(errMsg);
   if (is403) {
-    return { type: 'http403', httpStatus: httpStatus ?? 403, apiDetail, errMsg };
+    return { type: 'http403', httpStatus: 403, errMsg };
   }
 
-  // Any HTTP status (other than 403 handled above) is an API error, not network.
-  if (httpStatus !== undefined) {
-    return { type: 'apiError', httpStatus, apiDetail, errMsg };
-  }
-
-  // No HTTP status → network failure if the message looks like one.
   if (NETWORK_ERROR_REGEX.test(errMsg)) {
     return { type: 'network', errMsg };
   }
 
-  // Unknown shape (no status, no network pattern) - treat as API error so the
+  // Unknown shape (no outcome, no network pattern) - treat as API error so the
   // user sees the raw message rather than having it silently queued.
-  return { type: 'apiError', apiDetail, errMsg };
+  return { type: 'apiError', errMsg };
 }

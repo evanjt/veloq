@@ -27,8 +27,8 @@ import {
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { configureReanimatedLogger, ReanimatedLogLevel } from 'react-native-reanimated';
 // Use legacy API for SDK 54 compatibility (new API uses File/Directory classes)
-import MapLibre, { Logger as MapLibreLogger } from '@maplibre/maplibre-react-native';
-import { useAuthStore } from '@/shared/app/AuthStore';
+import { pushCredentialsToEngine, useAuthStore } from '@/shared/app/AuthStore';
+import { seedDemoEngine } from '@/shared/app/seedDemoEngine';
 import { initializeSportPreference, initializeHRZones } from '@/features/fitness/stores';
 import { initializeDashboardPreferences } from '@/features/home/store';
 import { updateWidgetSnapshot } from '@/features/home';
@@ -97,37 +97,6 @@ import { registerBackgroundNotificationTask } from '@/features/insights/backgrou
 // Suppress Reanimated strict mode warnings from Victory Native charts
 // These occur because Victory uses shared values during render (known library behavior)
 configureReanimatedLogger({ level: ReanimatedLogLevel.error, strict: false });
-
-// Configure MapLibre to only log errors, with HTTP 404s downgraded to warnings
-// (prevents red screen in dev mode from transient tile/font 404s)
-let mapLibreLoggerConfigured = false;
-function configureMapLibreLogger() {
-  if (mapLibreLoggerConfigured) return;
-  try {
-    MapLibreLogger.setLogLevel('error');
-    MapLibreLogger.setLogCallback((log: { message: string; level: string; tag?: string }) => {
-      if (
-        log.level === 'error' &&
-        (log.tag === 'Mbgl-HttpRequest' ||
-          log.message.includes('404') ||
-          log.message.includes('not found') ||
-          log.message.includes('Unable to resolve host') ||
-          log.message.includes('Failed to load tile'))
-      ) {
-        if (__DEV__) {
-          console.warn('MapLibre HTTP warning:', log.message);
-        }
-        return true;
-      }
-      return false;
-    });
-    mapLibreLoggerConfigured = true;
-  } catch (error) {
-    if (__DEV__) {
-      console.warn('[MapLibre] Failed to configure logger:', error);
-    }
-  }
-}
 
 function AuthGate({ children }: { children: React.ReactNode }) {
   const routeParts = useSegments();
@@ -218,6 +187,14 @@ function AuthGate({ children }: { children: React.ReactNode }) {
             const athleteId = useAuthStore.getState().athleteId;
             if (athleteId) {
               engine.setSetting('__athlete_id', athleteId);
+            }
+            // AuthStore.initialize() usually runs before the engine exists, so
+            // its credential push was a no-op. Repeat it now the engine is up.
+            pushCredentialsToEngine();
+            // Demo mode reads the same tables as live mode, so the fixtures
+            // have to be in SQLite before any screen queries the engine.
+            if (useAuthStore.getState().isDemoMode) {
+              seedDemoEngine();
             }
             // Initialize SyncDateRangeStore from engine's actual cached data
             const stats = engine.getStats();
@@ -405,9 +382,6 @@ export default function RootLayout() {
   useEffect(() => {
     async function initialize() {
       try {
-        // Configure MapLibre logger early (safe to do now that native modules are loaded)
-        configureMapLibreLogger();
-
         // Initialize language first to get the saved locale
         const savedLocale = await initializeLanguage();
         // Then initialize i18n with the saved locale
@@ -627,6 +601,17 @@ export default function RootLayout() {
                         name="(tabs)"
                         options={{
                           animation: 'none',
+                        }}
+                      />
+                      {/* An active recording must not be swipeable away. The
+                          back gesture runs in the same direction as the
+                          slide-to-unlock track, so a stray palm swipe would
+                          drop the rider out of the screen mid-ride. Leaving is
+                          deliberate: stop the recording, or use the header. */}
+                      <Stack.Screen
+                        name="recording/[type]"
+                        options={{
+                          gestureEnabled: false,
                         }}
                       />
                     </Stack>

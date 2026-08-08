@@ -22,34 +22,46 @@ import {
   Animated,
   ActivityIndicator,
 } from 'react-native';
-import {
-  MapView,
-  Camera,
-  ShapeSource,
-  LineLayer,
-  MarkerView,
-} from '@maplibre/maplibre-react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import * as Location from 'expo-location';
 import { getActivityColor } from '@/features/activity/lib/activityUtils';
-import { getBoundsFromPoints } from '@/shared/geo/polyline';
-import { colors, darkColors, mapPreviewColors } from '@/theme';
+import { colors, darkColors } from '@/theme';
 import { useMapPreferences } from '@/features/maps/stores/MapPreferencesContext';
 import {
-  getMapStyle,
   BaseMapView,
   isDarkStyle,
   getNextStyle,
   getStyleIcon,
+  MapSurface,
+  type MapSurfaceRef,
 } from '@/features/maps/components';
 import { Map3DWebView, type Map3DWebViewRef } from '@/features/maps/components/Map3DWebView';
 import { CompassArrow, ComponentErrorBoundary } from '@/shared/ui';
 import { useMapFullscreen } from '@/features/maps/hooks/useMapFullscreen';
+import { useThrottledValue } from '@/features/maps/hooks/useThrottledValue';
+import {
+  boundsOfLngLat,
+  featureCollection,
+  lngLatFromShort,
+  lngLatFromShortPoint,
+  pointFeature,
+} from '@/features/maps/lib/coordinates';
+import { TRIM_UPDATE_THROTTLE_MS } from '@/features/maps/lib/mapBudgets';
 import { decodeCoords } from 'veloqrs';
 import type { FrequentSection, RoutePoint, ActivityType } from '@/types';
 import { useSectionMapLayers, type NearbyPolyline } from './useSectionMapLayers';
-import { SectionTrimLayer } from './SectionTrimLayer';
+import {
+  buildSectionLayers,
+  buildSectionSources,
+  NEARBY_LINE_LAYER_ID,
+} from './sectionMapLayerSpecs';
+import {
+  SECTION_MAP_BOUNDS_PADDING,
+  SECTION_MAP_FIT_PADDING,
+  SECTION_MAP_MAX_ZOOM,
+  sectionCameraSpec,
+} from '@/features/routes/lib/sectionMapCamera';
 import { styles } from './sectionMapView.styles';
 
 /**
@@ -83,6 +95,8 @@ function isValidActivityType(sportType: string): sportType is ActivityType {
   ]);
   return validTypes.has(sportType);
 }
+
+const SURFACE_STYLE_OPTIONS = { bundledLightStyle: true, cacheVectorTiles: true } as const;
 
 interface SectionMapViewProps {
   section: FrequentSection;
@@ -125,7 +139,6 @@ export const SectionMapView = memo(function SectionMapView({
   highlightedActivityId = null,
   highlightedLapPoints,
   allActivityTraces,
-  isScrubbing = false,
   trimRange = null,
   extensionTrack = null,
   nearbyPolylines,
@@ -145,40 +158,7 @@ export const SectionMapView = memo(function SectionMapView({
   const preferredStyle = getStyleForActivity(validSportType);
   const [currentMapStyle, setCurrentMapStyle] = useState(preferredStyle);
   const activityColor = getActivityColor(validSportType);
-  const mapRef = useRef(null);
-
-  // Style load retry - a transient failure leaves the map on MapLibre's
-  // default empty style (white canvas). Remount to re-apply the style.
-  const [mapKey, setMapKey] = useState(0);
-  const retryCountRef = useRef(0);
-  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const MAX_RETRIES = 3;
-  const RETRY_DELAY_MS = 1000;
-
-  const handleMapLoadError = useCallback(() => {
-    if (retryCountRef.current < MAX_RETRIES) {
-      retryCountRef.current += 1;
-      if (__DEV__) {
-        console.log(
-          `[SectionMap] Load failed, retrying (${retryCountRef.current}/${MAX_RETRIES})...`
-        );
-      }
-      retryTimerRef.current = setTimeout(() => {
-        setMapKey((k) => k + 1);
-      }, RETRY_DELAY_MS * retryCountRef.current);
-    }
-  }, []);
-
-  // Reset retry count when style changes or map remounts; clear pending retry timer
-  useEffect(() => {
-    retryCountRef.current = 0;
-    return () => {
-      if (retryTimerRef.current !== null) {
-        clearTimeout(retryTimerRef.current);
-        retryTimerRef.current = null;
-      }
-    };
-  }, [currentMapStyle, mapKey]);
+  const surfaceRef = useRef<MapSurfaceRef>(null);
 
   // Interactive-mode state
   const [is3DMode, setIs3DMode] = useState(false);
@@ -187,25 +167,24 @@ export const SectionMapView = memo(function SectionMapView({
   const map3DRef = useRef<Map3DWebViewRef>(null);
   const map3DOpacity = useRef(new Animated.Value(0)).current;
   const bearingAnim = useRef(new Animated.Value(0)).current;
-  const cameraRef = useRef<React.ElementRef<typeof Camera>>(null);
 
   const displayPoints = section.polyline || [];
+  const sectionCoords = useMemo(() => lngLatFromShort(displayPoints), [displayPoints]);
 
-  // When extension track is active (expand mode), calculate bounds from the full context window
-  // so the camera shows the entire expandable area, not just the section portion
-  const boundsPoints = useMemo(() => {
-    if (extensionTrack && extensionTrack.length > 0) {
-      return extensionTrack;
-    }
-    return displayPoints;
-  }, [extensionTrack, displayPoints]);
-
-  const bounds = useMemo(() => getBoundsFromPoints(boundsPoints, 0.15), [boundsPoints]);
-
-  // Section coordinates for 3D map and BaseMapView [lng, lat] format
-  const sectionCoords = useMemo(() => {
-    return displayPoints.map((p) => [p.lng, p.lat] as [number, number]);
-  }, [displayPoints]);
+  // Expand mode fits the whole context window, not just the section portion, so
+  // the user can see what there is to expand into.
+  const extensionCoords = useMemo(
+    () => (extensionTrack ? lngLatFromShort(extensionTrack) : []),
+    [extensionTrack]
+  );
+  const bounds = useMemo(
+    () =>
+      boundsOfLngLat(
+        extensionCoords.length > 0 ? extensionCoords : sectionCoords,
+        SECTION_MAP_BOUNDS_PADDING
+      ),
+    [extensionCoords, sectionCoords]
+  );
 
   const hasRoute = sectionCoords.length > 0;
   const isDark = isDarkStyle(currentMapStyle);
@@ -220,19 +199,14 @@ export const SectionMapView = memo(function SectionMapView({
 
   // Refit camera when extension track changes (entering/leaving expand mode)
   useEffect(() => {
-    if (!cameraRef.current) return;
-    const newBounds =
-      extensionTrack && extensionTrack.length > 0
-        ? getBoundsFromPoints(extensionTrack, 0.15)
-        : getBoundsFromPoints(displayPoints, 0.15);
-    if (newBounds) {
-      cameraRef.current.setCamera({
-        bounds: { ne: newBounds.ne, sw: newBounds.sw },
-        padding: { paddingTop: 80, paddingRight: 80, paddingBottom: 80, paddingLeft: 80 },
-        animationDuration: 500,
-      });
+    const nextBounds = boundsOfLngLat(
+      extensionCoords.length > 0 ? extensionCoords : sectionCoords,
+      SECTION_MAP_BOUNDS_PADDING
+    );
+    if (nextBounds) {
+      surfaceRef.current?.fitBounds(nextBounds, SECTION_MAP_FIT_PADDING, 500);
     }
-  }, [extensionTrack, displayPoints]);
+  }, [extensionCoords, sectionCoords]);
 
   // Reset 3D ready state when toggling off
   useEffect(() => {
@@ -252,21 +226,10 @@ export const SectionMapView = memo(function SectionMapView({
     }).start();
   }, [map3DOpacity]);
 
-  // Handle 3D map bearing changes (for compass sync)
+  // Handle bearing changes from either renderer (for compass sync)
   const handleBearingChange = useCallback(
     (bearing: number) => {
       bearingAnim.setValue(-bearing);
-    },
-    [bearingAnim]
-  );
-
-  // Handle region change for compass (real-time during gesture)
-  const handleRegionIsChanging = useCallback(
-    (feature: GeoJSON.Feature) => {
-      const properties = feature.properties as { heading?: number } | undefined;
-      if (properties?.heading !== undefined) {
-        bearingAnim.setValue(-properties.heading);
-      }
     },
     [bearingAnim]
   );
@@ -286,10 +249,7 @@ export const SectionMapView = memo(function SectionMapView({
     if (is3DMode && is3DReady) {
       map3DRef.current?.resetOrientation();
     } else {
-      cameraRef.current?.setCamera({
-        heading: 0,
-        animationDuration: 300,
-      });
+      surfaceRef.current?.resetOrientation();
     }
     Animated.timing(bearingAnim, {
       toValue: 0,
@@ -310,30 +270,17 @@ export const SectionMapView = memo(function SectionMapView({
       const location = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.Balanced,
       });
-      const coords: [number, number] = [location.coords.longitude, location.coords.latitude];
       setLocationLoading(false);
-      cameraRef.current?.setCamera({
-        centerCoordinate: coords,
-        zoomLevel: 14,
-        animationDuration: 500,
-      });
+      surfaceRef.current?.setCamera(
+        { center: [location.coords.longitude, location.coords.latitude], zoom: 14 },
+        500
+      );
     } catch {
       setLocationLoading(false);
     }
   }, []);
 
-  const {
-    sectionGeoJSON,
-    trimmedGeoJSON,
-    shadowGeoJSON,
-    extensionGeoJSON,
-    nearbyGeoJSON,
-    allTracesFeatureCollection,
-    hasAllTraces,
-    highlightedTraceFilter,
-    highlightedTraceGeoJSON,
-    highlightedLapGeoJSON,
-  } = useSectionMapLayers({
+  const sectionLayerData = useSectionMapLayers({
     section,
     displayPoints,
     shadowTrack,
@@ -348,16 +295,130 @@ export const SectionMapView = memo(function SectionMapView({
   // Adjust opacity when something is highlighted or trimming
   const sectionOpacity = highlightedActivityId || highlightedLapPoints || trimRange ? 0.4 : 1;
 
-  const styleUrl = getMapStyle(currentMapStyle);
-
   // Use trimmed positions for markers when trimming
   // In expand mode, indices are relative to the extension track, not the section polyline
-  const markerSource =
-    trimRange && extensionTrack && extensionTrack.length > 0 ? extensionTrack : displayPoints;
+  const markerSource = trimRange && extensionTrack?.length ? extensionTrack : displayPoints;
   const startPoint = trimRange ? markerSource[trimRange.start] : displayPoints[0];
   const endPoint = trimRange
     ? markerSource[trimRange.end]
     : displayPoints[displayPoints.length - 1];
+
+  const endpoints = useMemo(() => {
+    const start = lngLatFromShortPoint(startPoint);
+    const end = lngLatFromShortPoint(endPoint);
+    return featureCollection([
+      start ? pointFeature(start, { position: 'start' }) : null,
+      end ? pointFeature(end, { position: 'end' }) : null,
+    ]);
+  }, [startPoint, endPoint]);
+
+  const nearbyEndpoints = useMemo(() => {
+    if (!nearbyPolylines || nearbyPolylines.length === 0) return featureCollection([]);
+    return featureCollection(
+      nearbyPolylines.flatMap((entry) => {
+        if (!entry.encodedPolyline) return [];
+        const decoded = decodeCoords(entry.encodedPolyline);
+        if (decoded.length < 2) return [];
+        const first = decoded[0];
+        const last = decoded[decoded.length - 1];
+        return [
+          pointFeature([first.longitude, first.latitude], { position: 'start' }),
+          pointFeature([last.longitude, last.latitude], { position: 'end' }),
+        ];
+      })
+    );
+  }, [nearbyPolylines]);
+
+  // Trim drags arrive faster than the map needs. The slider stays smooth on the
+  // UI thread while the geometry that reaches the surface is held to a budget.
+  const trimmedGeoJSON = useThrottledValue(
+    sectionLayerData.trimmedGeoJSON,
+    TRIM_UPDATE_THROTTLE_MS
+  );
+
+  const specInput = useMemo(
+    () => ({
+      ...sectionLayerData,
+      trimmedGeoJSON,
+      nearbyEndpoints,
+      endpoints,
+      activityColor,
+      sectionOpacity,
+      trimRange,
+      hasExtension: extensionCoords.length > 0,
+      selectedNearbyId: selectedNearby,
+    }),
+    [
+      sectionLayerData,
+      trimmedGeoJSON,
+      nearbyEndpoints,
+      endpoints,
+      activityColor,
+      sectionOpacity,
+      trimRange,
+      extensionCoords.length,
+      selectedNearby,
+    ]
+  );
+
+  const inlineSources = useMemo(
+    () =>
+      buildSectionSources({
+        ...specInput,
+        showExtensionAndSection: true,
+        trimCasingWidth: 5,
+        trimLineWidth: 4,
+        traceCasingWidth: 5,
+        traceLineWidth: 4,
+      }),
+    [specInput]
+  );
+
+  const inlineLayers = useMemo(
+    () =>
+      buildSectionLayers({
+        ...specInput,
+        showExtensionAndSection: true,
+        trimCasingWidth: 5,
+        trimLineWidth: 4,
+        traceCasingWidth: 5,
+        traceLineWidth: 4,
+      }),
+    [specInput]
+  );
+
+  // Fullscreen already draws the section through BaseMapView's own route line,
+  // so it only adds the overlays and draws the trim a touch heavier.
+  const fullscreenSpecArgs = useMemo(
+    () => ({
+      ...specInput,
+      showExtensionAndSection: false,
+      trimCasingWidth: 6,
+      trimLineWidth: 5,
+      traceCasingWidth: 6,
+      traceLineWidth: 5,
+    }),
+    [specInput]
+  );
+
+  const fullscreenSources = useMemo(
+    () => buildSectionSources(fullscreenSpecArgs),
+    [fullscreenSpecArgs]
+  );
+  const fullscreenLayers = useMemo(
+    () => buildSectionLayers(fullscreenSpecArgs),
+    [fullscreenSpecArgs]
+  );
+
+  const handleSurfacePress = useCallback(
+    ({ feature }: { feature: { properties: Record<string, unknown> } | null }) => {
+      const sectionId = feature?.properties?.sectionId;
+      if (typeof sectionId === 'string') {
+        setSelectedNearby((current) => (current === sectionId ? null : sectionId));
+      }
+    },
+    []
+  );
 
   if (!bounds || displayPoints.length === 0) {
     return (
@@ -368,189 +429,20 @@ export const SectionMapView = memo(function SectionMapView({
   }
 
   const mapContent = (
-    <MapView
-      key={`section-map-${mapKey}`}
-      ref={mapRef}
-      style={styles.map}
-      mapStyle={styleUrl}
-      logoEnabled={false}
-      attributionEnabled={false}
-      compassEnabled={false}
+    <MapSurface
+      ref={surfaceRef}
+      mapStyle={currentMapStyle}
+      styleOptions={SURFACE_STYLE_OPTIONS}
+      initialCamera={{ ...sectionCameraSpec(bounds), maxZoom: SECTION_MAP_MAX_ZOOM }}
+      sources={inlineSources}
+      layers={inlineLayers}
+      interactiveLayers={NEARBY_INTERACTIVE_LAYERS}
       scrollEnabled={interactive}
       zoomEnabled={interactive}
       rotateEnabled={interactive}
-      pitchEnabled={false}
-      onRegionIsChanging={interactive ? handleRegionIsChanging : undefined}
-      onDidFailLoadingMap={handleMapLoadError}
-    >
-      <Camera
-        maxZoomLevel={16}
-        ref={interactive ? cameraRef : undefined}
-        defaultSettings={{
-          bounds: { ne: bounds.ne, sw: bounds.sw },
-          padding: { paddingTop: 80, paddingRight: 80, paddingBottom: 80, paddingLeft: 80 },
-        }}
-      />
-
-      {/* Nearby section polylines (muted gray, tappable for preview) */}
-      <ShapeSource
-        id="nearbySource"
-        shape={nearbyGeoJSON}
-        onPress={(e) => {
-          const feature = e?.features?.[0];
-          const sectionId = feature?.properties?.sectionId;
-          if (sectionId) {
-            setSelectedNearby(selectedNearby === sectionId ? null : sectionId);
-          }
-        }}
-        hitbox={{ width: 20, height: 20 }}
-      >
-        <LineLayer
-          id="nearbyLine"
-          style={{
-            lineColor: [
-              'case',
-              ['==', ['get', 'sectionId'], selectedNearby ?? ''],
-              colors.primary,
-              colors.neutralLine,
-            ],
-            lineOpacity: ['case', ['==', ['get', 'sectionId'], selectedNearby ?? ''], 0.8, 0.4],
-            lineWidth: ['case', ['==', ['get', 'sectionId'], selectedNearby ?? ''], 5, 3],
-            lineCap: 'round',
-            lineJoin: 'round',
-            lineDasharray: [2, 2],
-          }}
-        />
-      </ShapeSource>
-
-      {/* Start/end markers for nearby sections */}
-      {nearbyPolylines?.map((entry) => {
-        if (!entry.encodedPolyline) return null;
-        const decoded = decodeCoords(entry.encodedPolyline);
-        if (decoded.length < 2) return null;
-        const startCoord: [number, number] = [decoded[0].longitude, decoded[0].latitude];
-        const last = decoded[decoded.length - 1];
-        const endCoord: [number, number] = [last.longitude, last.latitude];
-        return (
-          <React.Fragment key={`nearby-markers-${entry.id}`}>
-            <MarkerView coordinate={startCoord}>
-              <View style={styles.markerContainer}>
-                <View style={[styles.nearbyMarker, styles.nearbyStartMarker]} />
-              </View>
-            </MarkerView>
-            <MarkerView coordinate={endCoord}>
-              <View style={styles.markerContainer}>
-                <View style={[styles.nearbyMarker, styles.nearbyEndMarker]} />
-              </View>
-            </MarkerView>
-          </React.Fragment>
-        );
-      })}
-
-      <SectionTrimLayer
-        idPrefix="inline"
-        shadowGeoJSON={shadowGeoJSON}
-        extensionGeoJSON={extensionGeoJSON}
-        sectionGeoJSON={sectionGeoJSON}
-        trimmedGeoJSON={trimmedGeoJSON}
-        activityColor={activityColor}
-        sectionOpacity={sectionOpacity}
-        trimRange={trimRange}
-        extensionTrack={extensionTrack}
-        showExtensionAndSection
-        trimCasingWidth={5}
-        trimLineWidth={4}
-      />
-
-      {/* Pre-loaded activity traces with filter */}
-      <ShapeSource id="allTracesSource" shape={allTracesFeatureCollection}>
-        <LineLayer
-          id="allTracesLineCasing"
-          filter={highlightedTraceFilter}
-          style={{
-            lineColor: mapPreviewColors.routeHalo,
-            lineWidth: 5,
-            lineCap: 'round',
-            lineJoin: 'round',
-            lineOpacity: hasAllTraces && highlightedTraceFilter ? 1 : 0,
-          }}
-        />
-        <LineLayer
-          id="allTracesLine"
-          filter={highlightedTraceFilter}
-          style={{
-            lineColor: colors.chartCyan,
-            lineWidth: 4,
-            lineCap: 'round',
-            lineJoin: 'round',
-            lineOpacity: hasAllTraces && highlightedTraceFilter ? 1 : 0,
-          }}
-        />
-      </ShapeSource>
-
-      {/* Highlighted lap points overlay */}
-      <ShapeSource id="highlightedLapSource" shape={highlightedLapGeoJSON}>
-        <LineLayer
-          id="highlightedLapLineCasing"
-          style={{
-            lineColor: mapPreviewColors.routeHalo,
-            lineOpacity: 1,
-            lineWidth: 6,
-            lineCap: 'round',
-            lineJoin: 'round',
-          }}
-        />
-        <LineLayer
-          id="highlightedLapLine"
-          style={{
-            lineColor: colors.chartCyan,
-            lineWidth: 5,
-            lineCap: 'round',
-            lineJoin: 'round',
-          }}
-        />
-      </ShapeSource>
-
-      {/* Fallback: Highlighted activity trace */}
-      <ShapeSource id="highlightedSource" shape={highlightedTraceGeoJSON}>
-        <LineLayer
-          id="highlightedLineCasing"
-          style={{
-            lineColor: mapPreviewColors.routeHalo,
-            lineOpacity: 1,
-            lineWidth: 5,
-            lineCap: 'round',
-            lineJoin: 'round',
-          }}
-        />
-        <LineLayer
-          id="highlightedLine"
-          style={{
-            lineColor: colors.chartCyan,
-            lineWidth: 4,
-            lineCap: 'round',
-            lineJoin: 'round',
-          }}
-        />
-      </ShapeSource>
-
-      {/* Start marker */}
-      {/* iOS CRASH FIX: Always render MarkerView to maintain stable child count */}
-      {/* Use opacity to hide when point is undefined */}
-      <MarkerView coordinate={startPoint ? [startPoint.lng, startPoint.lat] : [0, 0]}>
-        <View style={[styles.markerContainer, { opacity: startPoint ? 1 : 0 }]}>
-          <View style={[styles.marker, styles.startMarker]} />
-        </View>
-      </MarkerView>
-
-      {/* End marker */}
-      {/* iOS CRASH FIX: Always render MarkerView to maintain stable child count */}
-      <MarkerView coordinate={endPoint ? [endPoint.lng, endPoint.lat] : [0, 0]}>
-        <View style={[styles.markerContainer, { opacity: endPoint ? 1 : 0 }]}>
-          <View style={[styles.marker, styles.endMarker]} />
-        </View>
-      </MarkerView>
-    </MapView>
+      onPress={handleSurfacePress}
+      onBearingChange={interactive ? handleBearingChange : undefined}
+    />
   );
 
   // Whether to show the interactive control stack (not during trim mode)
@@ -790,119 +682,19 @@ export const SectionMapView = memo(function SectionMapView({
         <BaseMapView
           routeCoordinates={sectionCoords}
           routeColor={
-            highlightedActivityId || highlightedTraceGeoJSON ? activityColor + '66' : activityColor
+            highlightedActivityId || sectionLayerData.highlightedTraceGeoJSON
+              ? activityColor + '66'
+              : activityColor
           }
           bounds={bounds || undefined}
           initialStyle={currentMapStyle}
           onClose={closeFullscreen}
-        >
-          {/* CRITICAL: Always render all ShapeSources to avoid iOS crash */}
-          <SectionTrimLayer
-            idPrefix="fullscreen"
-            shadowGeoJSON={shadowGeoJSON}
-            extensionGeoJSON={extensionGeoJSON}
-            sectionGeoJSON={sectionGeoJSON}
-            trimmedGeoJSON={trimmedGeoJSON}
-            activityColor={activityColor}
-            sectionOpacity={sectionOpacity}
-            trimRange={trimRange}
-            extensionTrack={extensionTrack}
-            showExtensionAndSection={false}
-            trimCasingWidth={6}
-            trimLineWidth={5}
-          />
-
-          {/* Pre-loaded activity traces with filter */}
-          <ShapeSource id="fullscreenAllTracesSource" shape={allTracesFeatureCollection}>
-            <LineLayer
-              id="fullscreenAllTracesLineCasing"
-              filter={highlightedTraceFilter}
-              style={{
-                lineColor: mapPreviewColors.routeHalo,
-                lineWidth: 6,
-                lineCap: 'round',
-                lineJoin: 'round',
-                lineOpacity: hasAllTraces && highlightedTraceFilter ? 1 : 0,
-              }}
-            />
-            <LineLayer
-              id="fullscreenAllTracesLine"
-              filter={highlightedTraceFilter}
-              style={{
-                lineColor: colors.chartCyan,
-                lineWidth: 5,
-                lineCap: 'round',
-                lineJoin: 'round',
-                lineOpacity: hasAllTraces && highlightedTraceFilter ? 1 : 0,
-              }}
-            />
-          </ShapeSource>
-
-          {/* Highlighted lap points overlay */}
-          <ShapeSource id="fullscreenHighlightedLapSource" shape={highlightedLapGeoJSON}>
-            <LineLayer
-              id="fullscreenHighlightedLapLineCasing"
-              style={{
-                lineColor: mapPreviewColors.routeHalo,
-                lineOpacity: 1,
-                lineWidth: 6,
-                lineCap: 'round',
-                lineJoin: 'round',
-              }}
-            />
-            <LineLayer
-              id="fullscreenHighlightedLapLine"
-              style={{
-                lineColor: colors.chartCyan,
-                lineWidth: 5,
-                lineCap: 'round',
-                lineJoin: 'round',
-              }}
-            />
-          </ShapeSource>
-
-          {/* Fallback: Highlighted activity trace */}
-          <ShapeSource id="fullscreenHighlightedSource" shape={highlightedTraceGeoJSON}>
-            <LineLayer
-              id="fullscreenHighlightedLineCasing"
-              style={{
-                lineColor: mapPreviewColors.routeHalo,
-                lineOpacity: 1,
-                lineWidth: 5,
-                lineCap: 'round',
-                lineJoin: 'round',
-              }}
-            />
-            <LineLayer
-              id="fullscreenHighlightedLine"
-              style={{
-                lineColor: colors.chartCyan,
-                lineWidth: 4,
-                lineCap: 'round',
-                lineJoin: 'round',
-              }}
-            />
-          </ShapeSource>
-
-          {/* Start marker */}
-          {startPoint && (
-            <MarkerView coordinate={[startPoint.lng, startPoint.lat]}>
-              <View style={styles.markerContainer}>
-                <View style={[styles.marker, styles.startMarker]} />
-              </View>
-            </MarkerView>
-          )}
-
-          {/* End marker */}
-          {endPoint && (
-            <MarkerView coordinate={[endPoint.lng, endPoint.lat]}>
-              <View style={styles.markerContainer}>
-                <View style={[styles.marker, styles.endMarker]} />
-              </View>
-            </MarkerView>
-          )}
-        </BaseMapView>
+          overlaySources={fullscreenSources}
+          overlayLayers={fullscreenLayers}
+        />
       </Modal>
     </>
   );
 });
+
+const NEARBY_INTERACTIVE_LAYERS = [NEARBY_LINE_LAYER_ID];

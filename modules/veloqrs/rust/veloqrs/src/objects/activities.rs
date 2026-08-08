@@ -96,6 +96,127 @@ impl ActivityManager {
         })
     }
 
+    /// Store untyped activity bodies. Demo mode seeds the same table a live
+    /// sync writes, so every downstream read is identical in both modes.
+    fn upsert_activity_bodies(&self, rows: Vec<crate::FfiActivityBody>) -> Result<(), VeloqError> {
+        if rows.is_empty() {
+            return Ok(());
+        }
+        with_engine(|e| {
+            let mapped: Vec<(String, i64, String)> = rows
+                .into_iter()
+                .map(|r| (r.activity_id, r.date, r.raw))
+                .collect();
+            e.upsert_activity_bodies(&mapped)
+                .map_err(|err| VeloqError::Database {
+                    msg: format!("{}", err),
+                })
+        })?
+    }
+
+    /// Untyped activity bodies over an inclusive timestamp window, newest
+    /// first. The feed and detail screens read fields no Rust type models, so
+    /// they parse these rather than a reconstruction from `activity_metrics`.
+    fn get_activity_bodies(
+        &self,
+        oldest_ts: i64,
+        newest_ts: i64,
+    ) -> Result<Vec<String>, VeloqError> {
+        with_engine(|e| {
+            e.get_activity_bodies(oldest_ts, newest_ts)
+                .map_err(|err| VeloqError::Database {
+                    msg: format!("{}", err),
+                })
+        })?
+    }
+
+    /// Store a stream payload directly. Demo seeding writes the same table a
+    /// live fetch fills, so every downstream read is identical in both modes.
+    fn set_stream_body(
+        &self,
+        activity_id: String,
+        types: String,
+        raw: String,
+    ) -> Result<(), VeloqError> {
+        with_engine(|e| {
+            e.set_stream_body(&activity_id, &types, &raw)
+                .map_err(|err| VeloqError::Database {
+                    msg: format!("{}", err),
+                })
+        })?
+    }
+
+    /// Store an activity's interval payload directly, for demo seeding.
+    fn set_interval_body(&self, activity_id: String, raw: String) -> Result<(), VeloqError> {
+        with_engine(|e| {
+            e.set_interval_body(&activity_id, &raw)
+                .map_err(|err| VeloqError::Database {
+                    msg: format!("{}", err),
+                })
+        })?
+    }
+
+    /// Store a curve payload directly, for demo seeding. `kind` is
+    /// "power" or "pace".
+    fn set_curve_body(
+        &self,
+        kind: String,
+        sport: String,
+        days: i64,
+        gap: bool,
+        raw: String,
+    ) -> Result<(), VeloqError> {
+        let kind = match kind.as_str() {
+            "power" => crate::persistence::bodies::CurveKind::Power,
+            "pace" => crate::persistence::bodies::CurveKind::Pace,
+            other => {
+                return Err(VeloqError::ParseError {
+                    msg: format!("unknown curve kind: {}", other),
+                });
+            }
+        };
+        with_engine(|e| {
+            e.set_curve_body(kind, &sport, days, gap, &raw)
+                .map_err(|err| VeloqError::Database {
+                    msg: format!("{}", err),
+                })
+        })?
+    }
+
+    /// Replace the calendar events in a window, for demo seeding.
+    fn replace_calendar_events(
+        &self,
+        oldest_ts: i64,
+        newest_ts: i64,
+        rows: Vec<crate::FfiCalendarEventBody>,
+    ) -> Result<(), VeloqError> {
+        with_engine(|e| {
+            let mapped: Vec<(String, i64, String)> = rows
+                .into_iter()
+                .map(|r| (r.event_id, r.date, r.raw))
+                .collect();
+            e.replace_calendar_events(oldest_ts, newest_ts, &mapped)
+                .map_err(|err| VeloqError::Database {
+                    msg: format!("{}", err),
+                })
+        })?
+    }
+
+    /// A stored stream payload for an activity and series selection, or
+    /// `None` when it has not been fetched or has aged out of the cache.
+    fn get_stream_body(
+        &self,
+        activity_id: String,
+        types: String,
+    ) -> Result<Option<String>, VeloqError> {
+        with_engine(|e| {
+            e.get_stream_body(&activity_id, &types)
+                .map_err(|err| VeloqError::Database {
+                    msg: format!("{}", err),
+                })
+        })?
+    }
+
     fn set_time_streams(
         &self,
         activity_ids: Vec<String>,
@@ -146,6 +267,21 @@ impl ActivityManager {
             indicators: e.get_activity_indicators(&activity_ids),
             route_highlights: e.get_activity_route_highlights(&activity_ids),
         })
+    }
+
+    /// Everything the activity detail screen paints with, in one engine lock:
+    /// engine counts, route groups, matched and custom sections, encounters,
+    /// indicator highlights, this activity's portion of each section it
+    /// traverses, and the sections where it holds the record.
+    ///
+    /// `min_route_activities` filters the returned route groups the same way
+    /// the screen used to filter them after the fact.
+    fn get_detail_data(
+        &self,
+        activity_id: String,
+        min_route_activities: u32,
+    ) -> Result<crate::FfiActivityDetailData, VeloqError> {
+        with_engine(|e| e.activity_detail_data(&activity_id, min_route_activities))
     }
 }
 

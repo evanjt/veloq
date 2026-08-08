@@ -1,7 +1,7 @@
-import { intervalsApi } from '@/api';
 import { debug } from '@/shared/debug/debug';
+import { uploadActivityFile } from './intervalsUploads';
 import {
-  readRecordingFit,
+  recordingFitExists,
   markRecordingUploading,
   markRecordingUploaded,
   markRecordingUploadFailed,
@@ -33,14 +33,13 @@ export interface UploadRecordingResult {
  * background processor, and the library's manual "upload now".
  *
  * The FIT file on disk is the source of truth; nothing is deleted here on any
- * outcome.
+ * outcome. The engine streams it straight off disk, so a long ride never has to
+ * fit in memory to be uploaded.
  */
 export async function uploadRecording(
-  entry: RecordingLibraryEntry,
-  fitBuffer?: ArrayBuffer
+  entry: RecordingLibraryEntry
 ): Promise<UploadRecordingResult> {
-  const buffer = fitBuffer ?? (await readRecordingFit(entry));
-  if (!buffer) {
+  if (!(await recordingFitExists(entry))) {
     log.warn(`FIT file missing for ${entry.id}`);
     await markRecordingRejected(entry.id, 'FIT file missing on device');
     return { outcome: 'missing' };
@@ -49,7 +48,7 @@ export async function uploadRecording(
   await markRecordingUploading(entry.id);
   try {
     log.log(`Uploading ${entry.name}.fit (${entry.id})...`);
-    await intervalsApi.uploadActivity(buffer, `${entry.name}.fit`, {
+    await uploadActivityFile(entry.fitPath, `${entry.name}.fit`, {
       name: entry.name,
       pairedEventId: entry.pairedEventId,
     });

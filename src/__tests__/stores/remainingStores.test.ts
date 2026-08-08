@@ -288,21 +288,14 @@ describe('WhatsNewStore', () => {
 
 describe('TileCacheStore', () => {
   beforeEach(async () => {
-    useTileCacheStore.setState({
-      isLoaded: false,
-      nativePackCount: 0,
-      nativeSizeEstimate: 0,
-    });
+    useTileCacheStore.setState({ isLoaded: false });
     await AsyncStorage.clear();
     jest.clearAllMocks();
   });
 
   describe('initial state', () => {
     it('has correct defaults', () => {
-      const state = useTileCacheStore.getState();
-      expect(state.isLoaded).toBe(false);
-      expect(state.nativePackCount).toBe(0);
-      expect(state.nativeSizeEstimate).toBe(0);
+      expect(useTileCacheStore.getState().isLoaded).toBe(false);
     });
   });
 
@@ -351,28 +344,6 @@ describe('TileCacheStore', () => {
       (AsyncStorage.getItem as jest.Mock).mockRejectedValueOnce(new Error('fail'));
       await initializeTileCacheStore();
       expect(useTileCacheStore.getState().isLoaded).toBe(true);
-    });
-  });
-
-  describe('setNativePackInfo()', () => {
-    it('updates pack count and size estimate', () => {
-      useTileCacheStore.getState().setNativePackInfo(5, 1024000);
-      const state = useTileCacheStore.getState();
-      expect(state.nativePackCount).toBe(5);
-      expect(state.nativeSizeEstimate).toBe(1024000);
-    });
-
-    it('can update to zero values', () => {
-      useTileCacheStore.getState().setNativePackInfo(5, 1024000);
-      useTileCacheStore.getState().setNativePackInfo(0, 0);
-      const state = useTileCacheStore.getState();
-      expect(state.nativePackCount).toBe(0);
-      expect(state.nativeSizeEstimate).toBe(0);
-    });
-
-    it('does not affect isLoaded', () => {
-      useTileCacheStore.getState().setNativePackInfo(3, 500000);
-      expect(useTileCacheStore.getState().isLoaded).toBe(false);
     });
   });
 });

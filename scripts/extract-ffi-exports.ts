@@ -72,10 +72,12 @@ function parseFnDecl(
   }
   signature = signature.replace(/\s+/g, ' ').trim();
 
-  // Matches both `pub fn name(...)` and `fn name(...)` (methods inside impl
-  // blocks often omit `pub`). Optional return type after `->`.
+  // Matches `pub fn name(...)`, `fn name(...)` and the async forms of both
+  // (methods inside impl blocks often omit `pub`). Optional return type after
+  // `->`. An async export resolves to a promise on the TypeScript side, which
+  // the manifest records as the awaited type.
   const match = signature.match(
-    /(?:pub\s+)?fn\s+(\w+)\s*(?:<[^>]*>)?\s*\(([\s\S]*?)\)(?:\s*->\s*([^{;]+?))?\s*[{;]/
+    /(?:pub\s+)?(?:async\s+)?fn\s+(\w+)\s*(?:<[^>]*>)?\s*\(([\s\S]*?)\)(?:\s*->\s*([^{;]+?))?\s*[{;]/
   );
   if (!match) return null;
 
@@ -145,7 +147,7 @@ function extractExportsFromFile(filePath: string): FfiExport[] {
         // preceded by start-of-line, whitespace, or `pub` - we reject occurrences
         // inside comments or within parameter/type positions.
         if (trimmed.startsWith('//')) continue;
-        if (!/^(?:pub\s+)?fn\s+\w/.test(trimmed)) continue;
+        if (!/^(?:pub\s+)?(?:async\s+)?fn\s+\w/.test(trimmed)) continue;
 
         const decl = parseFnDecl(lines, j);
         if (!decl) continue;
@@ -164,7 +166,7 @@ function extractExportsFromFile(filePath: string): FfiExport[] {
     }
 
     // Case 2: standalone function.
-    if (/^(?:pub\s+)?fn\s+\w/.test(firstDeclLine)) {
+    if (/^(?:pub\s+)?(?:async\s+)?fn\s+\w/.test(firstDeclLine)) {
       const decl = parseFnDecl(lines, declStart);
       if (!decl) continue;
       exports.push({

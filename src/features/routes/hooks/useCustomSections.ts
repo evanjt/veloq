@@ -8,6 +8,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getRouteEngine } from '@/shared/native/routeEngine';
 import { computePolylineOverlap } from '@/shared/math/geometry';
 import { decodeCoords } from 'veloqrs';
+import type { Section as NativeSection } from 'veloqrs';
 import { queryKeys } from '@/shared/query/queryKeys';
 import type { Section, RoutePoint } from '@/types';
 
@@ -16,6 +17,8 @@ export interface UseCustomSectionsOptions {
   sportType?: string;
   /** Whether to run the hook (default: true). When false, returns empty defaults without FFI calls. */
   enabled?: boolean;
+  /** Custom sections a caller already read, seeded so the query skips its own FFI call. */
+  preComputedSections?: NativeSection[];
 }
 
 export interface UseCustomSectionsResult {
@@ -75,12 +78,27 @@ function findSupersededSections(
   return superseded;
 }
 
+/** Engine sections in the app's shape: decoded polyline, custom type, created stamp. */
+function toAppSections(sections: NativeSection[]): Section[] {
+  // Note: FfiSection doesn't have activityPortions - it's optional in the app type
+  return sections.map((s) => ({
+    ...s,
+    polyline: decodeCoords(s.encodedPolyline).map((pt) => ({
+      lat: pt.latitude,
+      lng: pt.longitude,
+    })),
+    sectionType: 'custom' as const,
+    createdAt: s.createdAt || new Date().toISOString(),
+    activityPortions: undefined,
+  })) as Section[];
+}
+
 /**
  * Hook for managing custom sections with React Query caching.
  * Uses Rust engine unified sections table.
  */
 export function useCustomSections(options: UseCustomSectionsOptions = {}): UseCustomSectionsResult {
-  const { sportType, enabled = true } = options;
+  const { sportType, enabled = true, preComputedSections } = options;
   const queryClient = useQueryClient();
 
   // Load custom sections from unified sections table
@@ -99,22 +117,9 @@ export function useCustomSections(options: UseCustomSectionsOptions = {}): UseCu
       }
 
       // Get custom sections from unified table
-      const sections = engine.getSectionsByType('custom');
-
-      // Convert polylines to RoutePoint format
-      // Note: FfiSection doesn't have activityPortions - it's optional in the app type
-      return sections.map((s) => ({
-        ...s,
-        polyline: decodeCoords(s.encodedPolyline).map((pt) => ({
-          lat: pt.latitude,
-          lng: pt.longitude,
-        })),
-        sectionType: 'custom' as const,
-        createdAt: s.createdAt || new Date().toISOString(),
-        // FfiSection doesn't have activityPortions
-        activityPortions: undefined,
-      })) as Section[];
+      return toAppSections(engine.getSectionsByType('custom'));
     },
+    initialData: preComputedSections ? () => toAppSections(preComputedSections) : undefined,
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
 

@@ -10,10 +10,12 @@ import type {
   FfiActivityPattern,
   FfiFtpTrend,
   FfiInsightsData,
+  FfiInsightsParams,
   FfiPaceTrend,
   FfiPeriodStats,
   FfiStalePrOpportunity,
   FfiStartupData,
+  FfiWidgetSnapshotData,
 } from '../generated/veloqrs';
 import type { DelegateHost } from './host';
 import type { HeatmapDay } from './shared-types';
@@ -81,51 +83,20 @@ export function getSummaryCardData(
 
 export function getInsightsData(
   host: DelegateHost,
-  currentStart: number,
-  currentEnd: number,
-  prevStart: number,
-  prevEnd: number,
-  chronicStart: number,
-  todayStart: number
+  params: FfiInsightsParams
 ): FfiInsightsData | undefined {
   if (!host.ready) return undefined;
-  return host.timed('getInsightsData', () =>
-    host.engine
-      .fitness()
-      .getInsightsData(
-        BigInt(currentStart),
-        BigInt(currentEnd),
-        BigInt(prevStart),
-        BigInt(prevEnd),
-        BigInt(chronicStart),
-        BigInt(todayStart)
-      )
-  );
+  return host.timed('getInsightsData', () => host.engine.fitness().getInsightsData(params));
 }
 
 export function getStartupData(
   host: DelegateHost,
-  currentStart: number,
-  currentEnd: number,
-  prevStart: number,
-  prevEnd: number,
-  chronicStart: number,
-  todayStart: number,
+  params: FfiInsightsParams,
   previewActivityIds: string[]
 ): FfiStartupData | undefined {
   if (!host.ready) return undefined;
   return host.timed('getStartupData', () =>
-    host.engine
-      .fitness()
-      .getStartupData(
-        BigInt(currentStart),
-        BigInt(currentEnd),
-        BigInt(prevStart),
-        BigInt(prevEnd),
-        BigInt(chronicStart),
-        BigInt(todayStart),
-        previewActivityIds
-      )
+    host.engine.fitness().getStartupData(params, previewActivityIds)
   );
 }
 
@@ -244,6 +215,8 @@ export interface WellnessRowInput {
   stress?: number;
   mood?: number;
   motivation?: number;
+  /** The untyped intervals.icu body for this day, when the caller has it. */
+  raw?: string;
 }
 
 export interface WellnessSparklines {
@@ -286,8 +259,25 @@ export function upsertWellness(host: DelegateHost, rows: WellnessRowInput[]): vo
         stress: r.stress ?? undefined,
         mood: r.mood ?? undefined,
         motivation: r.motivation ?? undefined,
+        raw: r.raw ?? undefined,
       }))
     )
+  );
+}
+
+/**
+ * Untyped wellness bodies over an inclusive date window, oldest first.
+ *
+ * The wellness screens read fields the typed row does not model (hrr,
+ * hrvSDNN), so they parse these rather than a lossy reconstruction. Days
+ * synced before the body column existed are absent rather than partial.
+ */
+export function getWellnessBodies(host: DelegateHost, oldest: string, newest: string): string[] {
+  if (!host.ready) return [];
+  return (
+    host.timed('getWellnessBodies', () =>
+      host.engine.fitness().getWellnessBodies(oldest, newest)
+    ) ?? []
   );
 }
 
@@ -324,3 +314,115 @@ export function findStalePrOpportunities(
   );
 }
 
+/** A stored power curve body, or null when it has never been fetched. */
+export function getPowerCurveBody(host: DelegateHost, sport: string, days: number): string | null {
+  if (!host.ready) return null;
+  return (
+    (host.timed('getPowerCurveBody', () =>
+      host.engine.fitness().getPowerCurveBody(sport, BigInt(days))
+    ) as string | undefined) ?? null
+  );
+}
+
+/** A stored pace curve body, keyed by sport, window and the gap flag. */
+export function getPaceCurveBody(
+  host: DelegateHost,
+  sport: string,
+  days: number,
+  gap: boolean
+): string | null {
+  if (!host.ready) return null;
+  return (
+    (host.timed('getPaceCurveBody', () =>
+      host.engine.fitness().getPaceCurveBody(sport, BigInt(days), gap)
+    ) as string | undefined) ?? null
+  );
+}
+
+/** An activity's stored interval body, or null if never fetched. */
+export function getIntervalBody(host: DelegateHost, activityId: string): string | null {
+  if (!host.ready) return null;
+  return (
+    (host.timed('getIntervalBody', () =>
+      host.engine.fitness().getIntervalBody(activityId)
+    ) as string | undefined) ?? null
+  );
+}
+
+/** Calendar event bodies over an inclusive window, oldest first. */
+export function getCalendarEventBodies(
+  host: DelegateHost,
+  oldestTs: number,
+  newestTs: number
+): string[] {
+  if (!host.ready) return [];
+  return (
+    host.timed('getCalendarEventBodies', () =>
+      host.engine.fitness().getCalendarEventBodies(BigInt(oldestTs), BigInt(newestTs))
+    ) ?? []
+  );
+}
+
+/**
+ * Weekly training totals derived from `activity_metrics`, one entry per
+ * supplied Monday. Week boundaries are a local-calendar question, so the
+ * caller computes them and Rust only aggregates.
+ */
+export function getWeeklySummaries(
+  host: DelegateHost,
+  weekStarts: number[],
+  weekLengthSecs: number
+): Array<{
+  weekStart: number;
+  count: number;
+  movingTime: number;
+  distance: number;
+  trainingLoad: number;
+}> {
+  if (!host.ready || weekStarts.length === 0) return [];
+  const rows = host.timed('getWeeklySummaries', () =>
+    host.engine
+      .fitness()
+      .getWeeklySummaries(weekStarts.map(BigInt), BigInt(weekLengthSecs))
+  ) as Array<{
+    weekStart: bigint;
+    count: number;
+    movingTime: bigint;
+    distance: number;
+    trainingLoad: number;
+  }>;
+  return rows.map((r) => ({
+    weekStart: Number(r.weekStart),
+    count: r.count,
+    movingTime: Number(r.movingTime),
+    distance: r.distance,
+    trainingLoad: r.trainingLoad,
+  }));
+}
+
+/**
+ * Everything the home-screen widget snapshot is composed from, in one
+ * round-trip: wellness sparklines, the summary card, and the latest activity
+ * with its record flag and GPS track.
+ */
+export function getWidgetSnapshot(
+  host: DelegateHost,
+  currentStart: number,
+  currentEnd: number,
+  prevStart: number,
+  prevEnd: number,
+  sparklineDays: number
+): FfiWidgetSnapshotData | undefined {
+  if (!host.ready) return undefined;
+  return host.timed('getWidgetSnapshot', () =>
+    host.engine
+      .fitness()
+      .getWidgetSnapshot(
+        BigInt(currentStart),
+        BigInt(currentEnd),
+        BigInt(prevStart),
+        BigInt(prevEnd),
+        sparklineDays
+      )
+  );
+}

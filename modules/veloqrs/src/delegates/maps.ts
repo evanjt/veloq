@@ -5,7 +5,7 @@
  * index. Date inputs are converted to Unix seconds before crossing the FFI.
  */
 
-import type { FfiBounds, MapActivityComplete } from '../generated/veloqrs';
+import type { FfiBounds, FfiMapScreenData, MapActivityComplete } from '../generated/veloqrs';
 import type { DelegateHost } from './host';
 
 export function getMapActivitiesFiltered(
@@ -19,6 +19,24 @@ export function getMapActivitiesFiltered(
   const endTs = BigInt(Math.floor(endDate.getTime() / 1000));
   return host.timed('getMapActivitiesFiltered', () =>
     host.engine.maps().getFiltered(startTs, endTs, sportTypesArray ?? [])
+  );
+}
+
+/**
+ * Everything the map tab paints with in one round-trip: the engine total, the
+ * sport types the filter chips offer, and the activities inside the window.
+ */
+export function getMapScreenData(
+  host: DelegateHost,
+  startDate: Date,
+  endDate: Date,
+  sportTypesArray?: string[]
+): FfiMapScreenData | undefined {
+  if (!host.ready) return undefined;
+  const startTs = BigInt(Math.floor(startDate.getTime() / 1000));
+  const endTs = BigInt(Math.floor(endDate.getTime() / 1000));
+  return host.timed('getMapScreenData', () =>
+    host.engine.maps().getScreenData(startTs, endTs, sportTypesArray ?? [])
   );
 }
 

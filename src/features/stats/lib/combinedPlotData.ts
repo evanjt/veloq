@@ -11,15 +11,16 @@ import { type ChartConfig, type ChartTypeId } from '@/features/activity/lib/char
 import { isCyclingActivity } from '@/features/activity/lib/activityUtils';
 import type { ActivityStreams, ActivityInterval, ActivityType } from '@/types';
 import { CHART_CONFIG } from '@/constants';
-import { colors, darkColors } from '@/theme';
-import { POWER_ZONE_COLORS, HR_ZONE_COLORS } from '@/shared/app/useSportSettings';
 
-/** One input series derived from a chart config + streams. */
+/**
+ * One input series derived from a chart config + streams. The colour is not
+ * copied out of the config: the chart layer already holds the config and
+ * resolves the colour itself.
+ */
 export interface DataSeries {
   id: ChartTypeId;
   config: ChartConfig;
   rawData: number[];
-  color: string;
 }
 
 /** A series with its min/max range and an optional "preview" flag. */
@@ -47,11 +48,19 @@ export interface ChartDataResult {
   maxX: number;
 }
 
+/**
+ * What a band's colour means, rather than what it looks like. The chart layer
+ * turns this into a swatch through `resolveBandColour`.
+ */
+export type BandColourToken =
+  | { kind: 'zone'; scale: 'power' | 'hr'; zone: number }
+  | { kind: 'role'; role: 'work' | 'recovery' | 'warmup' | 'cooldown' | 'other' };
+
 /** Zone-colored band behind the chart for a single interval. */
 export interface IntervalBand {
   startX: number;
   endX: number;
-  bandColor: string;
+  bandColour: BandColourToken;
   bandOpacity: number;
   /** Normalized Y (0..1) of the interval's average value, or null for non-WORK intervals. */
   avgNormY: number | null;
@@ -105,7 +114,6 @@ export function buildChartData(
       id: chartId,
       config,
       rawData,
-      color: config.color,
       isPreview: chartId === previewMetricId && !selectedCharts.includes(chartId),
     });
   }
@@ -250,12 +258,12 @@ export function computeAllAverages(
 }
 
 /**
- * Compute zone-colored interval bands for the chart.
+ * Compute the interval bands behind the chart.
  *
- * Each interval is mapped to a background color (WORK gets the power/HR
- * zone color, RECOVERY/REST get a neutral gray, WARMUP/COOLDOWN get
- * distinct colors) plus an opacity and a normalized Y position for the
- * dashed-line indicator (WORK only).
+ * Each interval becomes a colour token plus an opacity and a normalized Y
+ * position for the dashed-line indicator (WORK only). A WORK interval inside
+ * a zone carries the zone number and which scale it indexes, so the chart
+ * layer can pick the swatch for the current theme.
  */
 export function computeIntervalBands(
   intervals: ActivityInterval[] | undefined,
@@ -263,7 +271,6 @@ export function computeIntervalBands(
   streams: ActivityStreams,
   xAxisMode: 'distance' | 'time',
   isMetric: boolean,
-  isDark: boolean,
   activityType: ActivityType | undefined,
   seriesInfo: SeriesInfo[]
 ): IntervalBand[] {
@@ -298,28 +305,25 @@ export function computeIntervalBands(
     const isWork = interval.type === 'WORK';
     const isRecovery = interval.type === 'RECOVERY' || interval.type === 'REST';
 
-    // Zone color
-    let bandColor: string;
+    let bandColour: BandColourToken;
     let bandOpacity: number;
     if (isWork && interval.zone != null && interval.zone >= 1) {
-      const zoneArr = isCycling ? POWER_ZONE_COLORS : HR_ZONE_COLORS;
-      bandColor = zoneArr[Math.min(interval.zone - 1, zoneArr.length - 1)];
-      if (isDark && interval.zone === 7) bandColor = darkColors.zone7;
+      bandColour = { kind: 'zone', scale: isCycling ? 'power' : 'hr', zone: interval.zone };
       bandOpacity = 0.35;
     } else if (isWork) {
-      bandColor = colors.primary;
+      bandColour = { kind: 'role', role: 'work' };
       bandOpacity = 0.3;
     } else if (isRecovery) {
-      bandColor = '#808080';
+      bandColour = { kind: 'role', role: 'recovery' };
       bandOpacity = 0.15;
     } else if (interval.type === 'WARMUP') {
-      bandColor = '#22C55E';
+      bandColour = { kind: 'role', role: 'warmup' };
       bandOpacity = 0.15;
     } else if (interval.type === 'COOLDOWN') {
-      bandColor = '#8B5CF6';
+      bandColour = { kind: 'role', role: 'cooldown' };
       bandOpacity = 0.15;
     } else {
-      bandColor = '#808080';
+      bandColour = { kind: 'role', role: 'other' };
       bandOpacity = 0.08;
     }
 
@@ -339,6 +343,6 @@ export function computeIntervalBands(
       }
     }
 
-    return { startX, endX, bandColor, bandOpacity, avgNormY, isWork };
+    return { startX, endX, bandColour, bandOpacity, avgNormY, isWork };
   });
 }

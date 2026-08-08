@@ -4,20 +4,11 @@ import { useTheme } from '@/shared/app';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { Canvas, Circle, Group } from '@shopify/react-native-skia';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import {
-  SharedValue,
-  useSharedValue,
-  useAnimatedReaction,
-  runOnJS,
-  useDerivedValue,
-  useAnimatedStyle,
-} from 'react-native-reanimated';
-import * as Haptics from 'expo-haptics';
+import { GestureDetector } from 'react-native-gesture-handler';
+import { SharedValue, useSharedValue, useAnimatedReaction, runOnJS } from 'react-native-reanimated';
 import { router } from 'expo-router';
-import { ChartCrosshair } from '@/shared/charts';
+import { ChartCrosshair, useChartGestures } from '@/shared/charts';
 import { colors, darkColors, opacity, spacing, layout, typography, chartStyles } from '@/theme';
-import { CHART_CONFIG } from '@/constants';
 import { getActivityColor, sortByDateId } from '@/features/activity/lib/activityUtils';
 import type { Activity, ActivityType, WellnessData } from '@/types';
 
@@ -81,7 +72,6 @@ export const ActivityDotsChart = React.memo(function ActivityDotsChart({
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const [selectedData, setSelectedData] = useState<DotData | null>(null);
-  const [isActive, setIsActive] = useState(false);
   const [chartWidth, setChartWidth] = useState(0);
   // Persisted activities after scrub ends (for tappable label)
   const [persistedActivities, setPersistedActivities] = useState<Array<{
@@ -96,11 +86,8 @@ export const ActivityDotsChart = React.memo(function ActivityDotsChart({
   onDateSelectRef.current = onDateSelect;
   onInteractionChangeRef.current = onInteractionChange;
 
-  const touchX = useSharedValue(-1);
-  const lastNotifiedIdx = useRef<number | null>(null);
+  const selectedDataRef = useRef<DotData | null>(null);
   const externalSelectedIdx = useSharedValue(-1);
-  const dataLengthShared = useSharedValue(0);
-  const chartWidthShared = useSharedValue(0);
 
   // Build a map of activities by date
   const activitiesByDate = useMemo(() => {
@@ -149,10 +136,40 @@ export const ActivityDotsChart = React.memo(function ActivityDotsChart({
     });
   }, [data, activitiesByDate]);
 
-  // Sync data length to shared value for worklets
-  React.useEffect(() => {
-    dataLengthShared.value = dotData.length;
-  }, [dotData.length, dataLengthShared]);
+  const handleSelect = useCallback((point: DotData) => {
+    selectedDataRef.current = point;
+    setSelectedData(point);
+    setPersistedActivities(null);
+    onDateSelectRef.current?.(point.date, {
+      fitness: point.fitness,
+      fatigue: point.fatigue,
+      form: point.form,
+    });
+  }, []);
+
+  // On release the activities stay on screen so the label remains tappable.
+  const handleInteractionChange = useCallback((active: boolean) => {
+    onInteractionChangeRef.current?.(active);
+    if (active) {
+      setPersistedActivities(null);
+      return;
+    }
+    const last = selectedDataRef.current;
+    if (last?.activities.length) setPersistedActivities(last.activities);
+    selectedDataRef.current = null;
+    setSelectedData(null);
+    onDateSelectRef.current?.(null, null);
+  }, []);
+
+  const { gesture, isActive, crosshairX, crosshairStyle, syncBounds, syncXCoords } =
+    useChartGestures<DotData>({
+      data: dotData,
+      onSelect: handleSelect,
+      onInteractionChange: handleInteractionChange,
+      sharedSelectedIdx,
+      externalSelectedIdx,
+      crosshairMode: 'finger',
+    });
 
   // Sync with external selectedDate
   React.useEffect(() => {
@@ -172,72 +189,17 @@ export const ActivityDotsChart = React.memo(function ActivityDotsChart({
     }
   }, [selectedDate, dotData, isActive, externalSelectedIdx, selectedData]);
 
-  const selectedIdx = useDerivedValue(() => {
-    'worklet';
-    const len = dataLengthShared.value;
-    const width = chartWidthShared.value;
-    if (touchX.value < 0 || width <= 0 || len === 0) return -1;
-
-    const ratio = Math.max(0, Math.min(1, touchX.value / width));
-    const idx = Math.round(ratio * (len - 1));
-
-    return Math.min(Math.max(0, idx), len - 1);
-  }, []);
-
-  const updateTooltipOnJS = useCallback(
-    (idx: number) => {
-      if (idx < 0 || dotData.length === 0) {
-        if (lastNotifiedIdx.current !== null) {
-          setSelectedData(null);
-          setIsActive(false);
-          lastNotifiedIdx.current = null;
-          if (onDateSelectRef.current) onDateSelectRef.current(null, null);
-          if (onInteractionChangeRef.current) onInteractionChangeRef.current(false);
-        }
-        return;
-      }
-
-      if (idx === lastNotifiedIdx.current) return;
-      lastNotifiedIdx.current = idx;
-
-      if (!isActive) {
-        setIsActive(true);
-        if (onInteractionChangeRef.current) onInteractionChangeRef.current(true);
-      }
-
-      const point = dotData[idx];
-      if (point) {
-        setSelectedData(point);
-        if (onDateSelectRef.current) {
-          onDateSelectRef.current(point.date, {
-            fitness: point.fitness,
-            fatigue: point.fatigue,
-            form: point.form,
-          });
-        }
-      }
-    },
-    [dotData, isActive]
+  // Dots sit on an even split of the width, so the crosshair can land on one
+  // even when the selection came from another chart.
+  const dotXCoords = useMemo(
+    () => dotData.map((_, idx) => (idx / (dotData.length - 1 || 1)) * chartWidth),
+    [dotData, chartWidth]
   );
 
-  useAnimatedReaction(
-    () => selectedIdx.value,
-    (idx) => {
-      runOnJS(updateTooltipOnJS)(idx);
-    },
-    [updateTooltipOnJS]
-  );
-
-  // Update shared selected index when this chart is being scrubbed
-  useAnimatedReaction(
-    () => selectedIdx.value,
-    (idx) => {
-      if (sharedSelectedIdx && idx >= 0) {
-        sharedSelectedIdx.value = idx;
-      }
-    },
-    [sharedSelectedIdx]
-  );
+  React.useEffect(() => {
+    syncBounds({ left: 0, right: chartWidth, top: 0, bottom: height });
+    syncXCoords(dotXCoords, (x) => x);
+  }, [syncBounds, syncXCoords, dotXCoords, chartWidth, height]);
 
   // React to shared index changes from OTHER charts (when not scrubbing this chart)
   const updateFromSharedIdx = useCallback(
@@ -267,121 +229,13 @@ export const ActivityDotsChart = React.memo(function ActivityDotsChart({
   useAnimatedReaction(
     () => sharedSelectedIdx?.value ?? -1,
     (idx, prevIdx) => {
-      // Only react if this chart isn't being scrubbed (touchX < 0)
-      if (touchX.value < 0 && idx !== prevIdx) {
+      // Only react while this chart is not the one being scrubbed.
+      if (crosshairX.value < 0 && idx !== prevIdx) {
         runOnJS(updateFromSharedIdx)(idx, prevIdx ?? -1);
       }
     },
-    [updateFromSharedIdx]
+    [updateFromSharedIdx, crosshairX]
   );
-
-  // Called when pan starts - clear any persisted activities
-  const onPanStart = useCallback(() => {
-    setPersistedActivities(null);
-  }, []);
-
-  // Called when pan ends - persist activities if any
-  const onPanEnd = useCallback(() => {
-    if (selectedData && selectedData.activities.length > 0) {
-      setPersistedActivities(selectedData.activities);
-    }
-  }, [selectedData]);
-
-  // Manual activation so the ScrollView can scroll freely during the long-press wait.
-  // JS setTimeout handles the 200ms timer so haptic + crosshair fire even when still.
-  const gestureStartY = useSharedValue(0);
-  const gestureInitialX = useSharedValue(0);
-  const gestureReady = useSharedValue(false);
-  const gestureActive = useSharedValue(false);
-  const longPressTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
-  const fireLongPress = useCallback(() => {
-    longPressTimer.current = setTimeout(() => {
-      touchX.value = gestureInitialX.value;
-      gestureReady.value = true;
-      Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    }, CHART_CONFIG.LONG_PRESS_DURATION);
-  }, [touchX, gestureInitialX, gestureReady]);
-  const cancelLongPress = useCallback(() => {
-    clearTimeout(longPressTimer.current);
-    gestureReady.value = false;
-  }, [gestureReady]);
-  const gesture = Gesture.Pan()
-    .manualActivation(true)
-    .onTouchesDown((e) => {
-      'worklet';
-      gestureStartY.value = e.allTouches[0].absoluteY;
-      gestureInitialX.value = e.allTouches[0].x;
-      gestureReady.value = false;
-      gestureActive.value = false;
-      runOnJS(fireLongPress)();
-    })
-    .onTouchesMove((e, mgr) => {
-      'worklet';
-      if (gestureActive.value) return;
-      if (Math.abs(e.allTouches[0].absoluteY - gestureStartY.value) > 10) {
-        runOnJS(cancelLongPress)();
-        mgr.fail();
-        return;
-      }
-      if (gestureReady.value) {
-        gestureActive.value = true;
-        mgr.activate();
-      }
-    })
-    .onTouchesUp((_e, mgr) => {
-      'worklet';
-      if (gestureActive.value) return;
-      runOnJS(cancelLongPress)();
-      touchX.value = -1;
-      mgr.fail();
-    })
-    .onStart((e) => {
-      'worklet';
-      touchX.value = e.x;
-      runOnJS(onPanStart)();
-    })
-    .onUpdate((e) => {
-      'worklet';
-      touchX.value = e.x;
-    })
-    .onEnd(() => {
-      'worklet';
-      runOnJS(onPanEnd)();
-      touchX.value = -1;
-      gestureActive.value = false;
-    });
-
-  const crosshairStyle = useAnimatedStyle(() => {
-    'worklet';
-    const len = dataLengthShared.value;
-    const width = chartWidthShared.value;
-
-    // If user is touching this chart, use touch position directly
-    if (touchX.value >= 0 && width > 0) {
-      const xPos = Math.max(0, Math.min(width, touchX.value));
-      return { opacity: 1, transform: [{ translateX: xPos }] };
-    }
-
-    // Otherwise, check for external selection (from other charts)
-    let idx = -1;
-    if (sharedSelectedIdx && sharedSelectedIdx.value >= 0) {
-      idx = sharedSelectedIdx.value;
-    }
-    if (idx < 0 && externalSelectedIdx.value >= 0) {
-      idx = externalSelectedIdx.value;
-    }
-
-    if (idx < 0 || len === 0 || width <= 0) {
-      return { opacity: 0, transform: [{ translateX: 0 }] };
-    }
-
-    // For external selection, use index-based position
-    const x = (idx / (len - 1)) * width;
-    return {
-      opacity: 1,
-      transform: [{ translateX: x }],
-    };
-  }, [sharedSelectedIdx]);
 
   if (dotData.length === 0) {
     return null;
@@ -519,9 +373,7 @@ export const ActivityDotsChart = React.memo(function ActivityDotsChart({
         <View
           style={[styles.chartWrapper, { height }]}
           onLayout={(e) => {
-            const width = e.nativeEvent.layout.width;
-            setChartWidth(width);
-            chartWidthShared.value = width;
+            setChartWidth(e.nativeEvent.layout.width);
           }}
         >
           {chartWidth > 0 && (

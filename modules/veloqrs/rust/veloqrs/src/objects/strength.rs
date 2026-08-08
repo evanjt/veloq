@@ -20,6 +20,12 @@ pub struct StrengthManager {
     pub(crate) _private: (),
 }
 
+/// A fetcher over the credential the sync service holds, or a hard error when
+/// none is set. FIT downloads never take a header across FFI.
+fn fetcher() -> Result<ActivityFetcher, VeloqError> {
+    ActivityFetcher::from_credentials().map_err(|msg| VeloqError::NotFound { msg })
+}
+
 #[uniffi::export]
 impl StrengthManager {
     #[uniffi::constructor]
@@ -54,16 +60,13 @@ impl StrengthManager {
     /// The FIT binary is held in memory only - not persisted to disk.
     fn fetch_and_parse_exercise_sets(
         &self,
-        auth_header: String,
         activity_id: String,
     ) -> Result<Vec<FfiExerciseSet>, VeloqError> {
         info!("[Strength] Fetching FIT file for {}", activity_id);
 
         // Download FIT file on the shared process runtime.
         let fit_data = {
-            let fetcher = ActivityFetcher::with_auth_header(auth_header)
-                .map_err(|e| VeloqError::Database { msg: e })?;
-
+            let fetcher = fetcher()?;
             crate::runtime::block_on(fetcher.download_fit_file(&activity_id))
         };
 
@@ -138,7 +141,6 @@ impl StrengthManager {
     /// Returns the list of successfully processed activity IDs.
     fn batch_fetch_exercise_sets(
         &self,
-        auth_header: String,
         activity_ids: Vec<String>,
     ) -> Result<Vec<String>, VeloqError> {
         if activity_ids.is_empty() {
@@ -150,8 +152,7 @@ impl StrengthManager {
             activity_ids.len()
         );
 
-        let fetcher = ActivityFetcher::with_auth_header(auth_header)
-            .map_err(|e| VeloqError::Database { msg: e })?;
+        let fetcher = fetcher()?;
 
         let mut processed = Vec::new();
 
@@ -603,7 +604,9 @@ fn sets_to_ffi(activity_id: &str, sets: &[fit::FitExerciseSet]) -> Vec<FfiExerci
 /// Aggregate a slice of (activity_id, exercise_set) into a strength summary.
 /// Extracted from `get_strength_summary` so batch callers can reuse the loop
 /// without paying N engine locks.
-fn aggregate_strength_sets(sets: &[(String, fit::FitExerciseSet)]) -> FfiStrengthSummary {
+pub(crate) fn aggregate_strength_sets(
+    sets: &[(String, fit::FitExerciseSet)],
+) -> FfiStrengthSummary {
     struct MuscleAgg {
         primary_sets: u32,
         secondary_sets: u32,

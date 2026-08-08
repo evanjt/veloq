@@ -22,11 +22,9 @@ jest.mock('@/features/routes/stores/RouteSettingsStore', () => ({
 
 import {
   computeInsightsFromData,
-  invalidateInsightsCache,
-  type FfiInsightsDataShape,
-  type FfiSummaryCardDataShape,
   type WellnessInput,
 } from '@/features/insights/lib/computeInsightsData';
+import type { InsightsData, SummaryCardData } from 'veloqrs';
 import { getRouteEngine } from '@/shared/native/routeEngine';
 
 const t = (key: string, params?: Record<string, string | number>) => {
@@ -37,13 +35,73 @@ const t = (key: string, params?: Record<string, string | number>) => {
 function makePeriod(count: number, durationSecs: number, distanceM: number, tss: number) {
   return {
     count,
-    totalDuration: durationSecs,
+    totalDuration: BigInt(Math.round(durationSecs)),
     totalDistance: distanceM,
     totalTss: tss,
   };
 }
 
-function buildFfiData(): FfiInsightsDataShape {
+function makePattern(
+  sportType: string,
+  primaryDay: number,
+  confidence: number,
+  avgDurationSecs: number,
+  activityCount: number,
+  commonSections: InsightsData['allPatterns'][0]['commonSections']
+): InsightsData['allPatterns'][0] {
+  return {
+    sportType,
+    clusterId: 0,
+    primaryDay,
+    seasonLabel: 'all',
+    activityCount,
+    avgDurationSecs,
+    avgTss: 80,
+    avgDistanceMeters: 40_000,
+    frequencyPerMonth: 4,
+    confidence,
+    silhouetteScore: 0.7,
+    daysSinceLast: 3,
+    commonSections,
+  };
+}
+
+function makeRankedSections(sportType: string) {
+  return [
+    {
+      sectionId: `sec-${sportType.toLowerCase()}-climb-A`,
+      sectionName: `${sportType} Climb A`,
+      relevanceScore: 0.9,
+      recencyScore: 0.8,
+      improvementScore: 0.6,
+      anomalyScore: 0.1,
+      engagementScore: 0.7,
+      traversalCount: 18,
+      bestTimeSecs: 680,
+      medianRecentSecs: 700,
+      daysSinceLast: 4,
+      trend: -0.04,
+      latestIsPr: true,
+    },
+    {
+      sectionId: `sec-${sportType.toLowerCase()}-flat-B`,
+      sectionName: `${sportType} Flat B`,
+      relevanceScore: 0.5,
+      recencyScore: 0.3,
+      improvementScore: 0.2,
+      anomalyScore: 0.1,
+      engagementScore: 0.4,
+      traversalCount: 9,
+      bestTimeSecs: 305,
+      medianRecentSecs: 320,
+      daysSinceLast: 12,
+      trend: 0.02,
+      latestIsPr: false,
+    },
+  ];
+}
+
+function buildFfiData(): InsightsData {
   return {
     currentWeek: makePeriod(5, 4 * 3600, 80_000, 320),
     previousWeek: makePeriod(3, 2.5 * 3600, 50_000, 220),
@@ -51,45 +109,31 @@ function buildFfiData(): FfiInsightsDataShape {
     todayPeriod: makePeriod(1, 1.2 * 3600, 22_000, 90),
     ftpTrend: {
       latestFtp: 285,
-      latestDate: 1_745_000_000,
+      latestDate: BigInt(1_745_000_000),
       previousFtp: 270,
-      previousDate: 1_700_000_000,
+      previousDate: BigInt(1_700_000_000),
     },
     runPaceTrend: {
       latestPace: 4.55,
-      latestDate: 1_745_000_000,
+      latestDate: BigInt(1_745_000_000),
       previousPace: 4.7,
-      previousDate: 1_700_000_000,
+      previousDate: BigInt(1_700_000_000),
     },
-    swimPaceTrend: undefined,
     allPatterns: [
-      {
-        primaryDay: 6, // Saturday
-        confidence: 0.9,
-        sportType: 'Ride',
-        avgDurationSecs: 3 * 3600,
-        activityCount: 12,
-        commonSections: [
-          {
-            sectionId: 'sec-ride-climb-A',
-            sectionName: 'Sunday Climb',
-            trend: -0.05,
-            medianRecentSecs: 720,
-            bestTimeSecs: 690,
-            traversalCount: 14,
-          },
-        ],
-      },
-      {
-        primaryDay: 2, // Tuesday
-        confidence: 0.8,
-        sportType: 'Run',
-        avgDurationSecs: 45 * 60,
-        activityCount: 9,
-        commonSections: [],
-      },
+      makePattern('Ride', 6, 0.9, 3 * 3600, 12, [
+        {
+          sectionId: 'sec-ride-climb-A',
+          sectionName: 'Sunday Climb',
+          appearanceRate: 0.8,
+          trend: -0.05,
+          medianRecentSecs: 720,
+          bestTimeSecs: 690,
+          traversalCount: 14,
+        },
+      ]),
+      makePattern('Run', 2, 0.8, 45 * 60, 9, []),
     ],
-    todayPattern: null,
+    todayPattern: undefined,
     recentPrs: [
       {
         sectionId: 'sec-ride-climb-A',
@@ -98,24 +142,33 @@ function buildFfiData(): FfiInsightsDataShape {
         daysAgo: 3,
       },
     ],
+    sectionCount: 42,
+    sportTypes: ['Ride', 'Run'],
+    rankedSections: [
+      { sportType: 'Ride', sections: makeRankedSections('Ride') },
+      { sportType: 'Run', sections: makeRankedSections('Run') },
+    ],
+    efficiencyTrends: [],
+    hasStrengthData: false,
+    strengthSeries: undefined,
   };
 }
 
-function buildSummaryCardData(): FfiSummaryCardDataShape {
+function buildSummaryCardData(): SummaryCardData {
   return {
     currentWeek: makePeriod(5, 4 * 3600, 80_000, 320),
     prevWeek: makePeriod(3, 2.5 * 3600, 50_000, 220),
     ftpTrend: {
       latestFtp: 285,
-      latestDate: 1_745_000_000,
+      latestDate: BigInt(1_745_000_000),
       previousFtp: 270,
-      previousDate: 1_700_000_000,
+      previousDate: BigInt(1_700_000_000),
     },
     runPaceTrend: {
       latestPace: 4.55,
-      latestDate: 1_745_000_000,
+      latestDate: BigInt(1_745_000_000),
       previousPace: 4.7,
-      previousDate: 1_700_000_000,
+      previousDate: BigInt(1_700_000_000),
     },
     swimPaceTrend: {
       latestPace: undefined,
@@ -147,51 +200,13 @@ function buildWellness(): WellnessInput[] {
 }
 
 function buildMockEngine(): unknown {
-  return {
-    getStats: () => ({
-      sectionCount: 42,
-      activityCount: 150,
-      groupCount: 8,
-    }),
-    getAvailableSportTypes: () => ['Ride', 'Run'],
-    getRankedSectionsBatch: (sportTypes: string[]) =>
-      sportTypes.map((sportType) => ({
-        sportType,
-        sections: [
-          {
-            sectionId: `sec-${sportType.toLowerCase()}-climb-A`,
-            sectionName: `${sportType} Climb A`,
-            trend: -0.04,
-            medianRecentSecs: 700,
-            bestTimeSecs: 680,
-            traversalCount: 18,
-            daysSinceLast: 4,
-            latestIsPr: true,
-          },
-          {
-            sectionId: `sec-${sportType.toLowerCase()}-flat-B`,
-            sectionName: `${sportType} Flat B`,
-            trend: 0.02,
-            medianRecentSecs: 320,
-            bestTimeSecs: 305,
-            traversalCount: 9,
-            daysSinceLast: 12,
-            latestIsPr: false,
-          },
-        ],
-      })),
-    getStrengthInsightSeries: () => null,
-    getStrengthSummary: () => ({
-      muscleVolumes: [],
-      activityCount: 0,
-      totalSets: 0,
-    }),
-  };
+  // The bundle now carries the section and strength data, so the engine mock
+  // only has to exist for the stale-PR generator's optional lookup.
+  return {};
 }
 
 describe('Tier 0.6 contract: computeInsightsFromData', () => {
   beforeEach(() => {
-    invalidateInsightsCache();
     (getRouteEngine as jest.Mock).mockReturnValue(buildMockEngine());
   });
 

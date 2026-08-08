@@ -58,32 +58,27 @@ export function useActivityBoundsCache(): UseActivityBoundsCacheReturn {
     status: 'idle',
   });
 
-  // Initialize activity count and date range synchronously from engine
-  const [activityCount, setActivityCount] = useState(() => {
+  // One stats read covers both the count and the persisted date range.
+  const initialStats = useMemo(() => {
     try {
-      const engine = getRouteEngine();
-      return engine ? engine.getActivityCount() : 0;
+      return getRouteEngine()?.getStats() ?? null;
     } catch {
-      return 0;
+      return null;
     }
-  });
+  }, []);
+
+  const [activityCount, setActivityCount] = useState(() => initialStats?.activityCount ?? 0);
 
   // Track engine's actual date range (from persisted data)
   const [engineDateRange, setEngineDateRange] = useState<{
     oldest: string | null;
     newest: string | null;
   }>(() => {
-    try {
-      const engine = getRouteEngine();
-      const stats = engine?.getStats();
-      if (stats?.oldestDate && stats?.newestDate) {
-        return {
-          oldest: formatLocalDate(new Date(Number(stats.oldestDate) * 1000)),
-          newest: formatLocalDate(new Date(Number(stats.newestDate) * 1000)),
-        };
-      }
-    } catch {
-      // Ignore
+    if (initialStats?.oldestDate && initialStats?.newestDate) {
+      return {
+        oldest: formatLocalDate(new Date(Number(initialStats.oldestDate) * 1000)),
+        newest: formatLocalDate(new Date(Number(initialStats.newestDate) * 1000)),
+      };
     }
     return { oldest: null, newest: null };
   });

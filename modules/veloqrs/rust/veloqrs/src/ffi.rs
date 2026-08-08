@@ -138,11 +138,7 @@ pub fn validate_backup_database(path: String) -> Result<String, crate::VeloqErro
 /// - Direct storage in SQLite without serialization overhead
 
 #[uniffi::export]
-pub fn start_fetch_and_store(
-    auth_header: String,
-    activity_ids: Vec<String>,
-    sport_types: Vec<ActivitySportMapping>,
-) {
+pub fn start_fetch_and_store(activity_ids: Vec<String>, sport_types: Vec<ActivitySportMapping>) {
     use crate::elapsed_ms;
     use std::collections::HashMap;
     init_logging();
@@ -153,6 +149,26 @@ pub fn start_fetch_and_store(
         "[RUST: start_fetch_and_store] FFI called with {} activities",
         activity_count
     );
+
+    // Credentials are held by the sync service, never passed per call. Without
+    // one there is nothing to fetch, so settle the progress + result contract
+    // immediately rather than spawning a thread that can only fail.
+    let Ok(fetcher) = crate::http::ActivityFetcher::from_credentials() else {
+        info!("[RUST: start_fetch_and_store] No credentials set");
+        crate::http::reset_download_progress(activity_count as u32);
+        store_fetch_and_store_result(FetchAndStoreResult {
+            synced_ids: vec![],
+            failed_ids: activity_ids,
+            total: activity_count as u32,
+            success_count: 0,
+            total_points: 0,
+            fetch_time_ms: 0,
+            storage_time_ms: 0,
+            total_time_ms: 0,
+        });
+        crate::http::finish_download_progress();
+        return;
+    };
 
     // Build sport type lookup
     let sport_map_start = Instant::now();
@@ -194,37 +210,6 @@ pub fn start_fetch_and_store(
 
         // Runs on the shared process runtime instead of building a throwaway
         // 4-thread runtime per call.
-
-        // Create HTTP fetcher
-        let client_start = Instant::now();
-        let fetcher = match crate::http::ActivityFetcher::with_auth_header(auth_header) {
-            Ok(f) => {
-                info!(
-                    "[RUST: start_fetch_and_store] Created HTTP client ({} ms)",
-                    elapsed_ms(client_start)
-                );
-                f
-            }
-            Err(e) => {
-                info!(
-                    "[RUST: start_fetch_and_store] Failed to create HTTP client: {} ({} ms)",
-                    e,
-                    elapsed_ms(client_start)
-                );
-                crate::http::finish_download_progress();
-                store_fetch_and_store_result(FetchAndStoreResult {
-                    synced_ids: vec![],
-                    failed_ids: activity_ids,
-                    total: 0,
-                    success_count: 0,
-                    total_points: 0,
-                    fetch_time_ms: 0,
-                    storage_time_ms: 0,
-                    total_time_ms: elapsed_ms(thread_start) as u32,
-                });
-                return;
-            }
-        };
 
         // Fetch GPS data
         let fetch_start = Instant::now();
@@ -345,9 +330,38 @@ pub fn start_fetch_and_store(
             }
         }
 
-        // Attach batch tail: one regroup (ingest marked groups dirty) or
-        // one indicator recompute for the whole batch, never per activity.
+        // Time streams for the activities that landed. TypeScript used to
+        // fetch these itself, concurrently with this download; doing it here
+        // keeps every request behind the one governor and leaves the section
+        // maths with nothing left to fetch.
         if !synced_ids.is_empty() {
+            let missing = crate::persistence::with_persistent_engine(|engine| {
+                engine.get_activities_missing_time_streams(&synced_ids)
+            })
+            .unwrap_or_default();
+            for activity_id in missing {
+                match crate::runtime::block_on(crate::net::endpoints::fetch_time_stream(
+                    fetcher.transport(),
+                    &activity_id,
+                    crate::governor::Lane::Backfill,
+                )) {
+                    Ok(times) if !times.is_empty() => {
+                        crate::persistence::with_persistent_engine(|engine| {
+                            engine.set_time_streams_flat(&[activity_id.clone()], &times, &[0]);
+                        });
+                    }
+                    Ok(_) => {}
+                    Err(e) => info!(
+                        "[RUST: start_fetch_and_store] Time stream {} failed: {}",
+                        activity_id, e
+                    ),
+                }
+            }
+
+            // Attach batch tail: one regroup (ingest marked groups dirty) or
+            // one indicator recompute for the whole batch, never per activity.
+            // Runs after the time streams land so lap times are timed, not
+            // recomputed on the next sync.
             crate::persistence::with_persistent_engine(|engine| {
                 engine.attach_finalize(total_attached_portions)
             });

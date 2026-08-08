@@ -55,9 +55,23 @@ async function appendPushHistory(ts: number): Promise<void> {
   }
 }
 
+/** Wellness window the insight generators need, matching the app's '1m' range. */
+const WELLNESS_WINDOW_DAYS = 30;
+
 /** Max time to wait for GPS download (15 seconds) */
 const GPS_DOWNLOAD_TIMEOUT_MS = 15_000;
 const GPS_DOWNLOAD_POLL_MS = 250;
+
+/** Max time to wait for the engine to store the activity's detail body. */
+const ACTIVITY_DETAIL_TIMEOUT_MS = 15_000;
+const ACTIVITY_DETAIL_POLL_MS = 250;
+
+/**
+ * How far back to look for the activity the push is about. A webhook fires on a
+ * fresh activity, so a month is generous, and a bounded window keeps the scan
+ * off a year of stored bodies.
+ */
+const ACTIVITY_LOOKBACK_DAYS = 30;
 
 /**
  * Read notification preferences directly from AsyncStorage.
@@ -89,6 +103,52 @@ async function waitForDownloadCompletion(
     await sleep(GPS_DOWNLOAD_POLL_MS);
   }
   return false;
+}
+
+/** The engine methods the activity-body lookup needs. */
+interface ActivityBodyReader {
+  getActivityBodies: (oldestTs: number, newestTs: number) => string[];
+  syncActivityDetail: (activityId: string) => boolean;
+}
+
+/** The stored body for one activity, or null if the engine has not got it. */
+function readStoredActivity(
+  engine: ActivityBodyReader,
+  activityId: string
+): Record<string, unknown> | null {
+  const newest = Math.floor(Date.now() / 1000) + 86_400;
+  const oldest = newest - ACTIVITY_LOOKBACK_DAYS * 86_400;
+  for (const body of engine.getActivityBodies(oldest, newest)) {
+    try {
+      const parsed = JSON.parse(body) as Record<string, unknown>;
+      if (parsed?.id === activityId) return parsed;
+    } catch {
+      // A body that will not parse is not the one we are after.
+    }
+  }
+  return null;
+}
+
+/**
+ * The activity's metadata, asking the engine to fetch it when it is not already
+ * stored. The engine owns the request; this waits for the body to land because
+ * the notification cannot be written without a name and a type.
+ */
+async function loadActivityMetadata(
+  engine: ActivityBodyReader,
+  activityId: string
+): Promise<Record<string, unknown> | null> {
+  const stored = readStoredActivity(engine, activityId);
+  if (stored) return stored;
+
+  engine.syncActivityDetail(activityId);
+  const deadline = Date.now() + ACTIVITY_DETAIL_TIMEOUT_MS;
+  while (Date.now() < deadline) {
+    await sleep(ACTIVITY_DETAIL_POLL_MS);
+    const found = readStoredActivity(engine, activityId);
+    if (found) return found;
+  }
+  return null;
 }
 
 /**
@@ -132,33 +192,12 @@ async function indexActivity(
  */
 async function fetchAndIngestActivity(activityId: string): Promise<ActivityInfo | null> {
   try {
-    const { getStoredCredentials } = require('@/shared/app/AuthStore');
-    const creds = getStoredCredentials();
-    if (!creds.athleteId) return null;
+    const { getStoredCredentials, pushCredentialsToEngine } = require('@/shared/app/AuthStore');
+    if (!getStoredCredentials().athleteId) return null;
 
-    // Build auth header
-    let authHeader: string;
-    if (creds.authMethod === 'oauth' && creds.accessToken) {
-      authHeader = `Bearer ${creds.accessToken}`;
-    } else if (creds.apiKey) {
-      const encoded = btoa(`API_KEY:${creds.apiKey}`);
-      authHeader = `Basic ${encoded}`;
-    } else {
-      return null;
-    }
-
-    // Fetch activity metadata
-    const { intervalsApi } = require('@/api');
-    const activity = await intervalsApi.getActivity(activityId);
-    if (!activity) return null;
-
-    const activityInfo: ActivityInfo = {
-      name: activity.name ?? 'Activity',
-      type: activity.type ?? 'Ride',
-      ingested: false,
-      distance: typeof activity.distance === 'number' ? activity.distance : undefined,
-      movingTime: typeof activity.moving_time === 'number' ? activity.moving_time : undefined,
-    };
+    // A headless start may reach the engine before the layout init effect has,
+    // so hand it the rehydrated credential before asking it to fetch.
+    pushCredentialsToEngine();
 
     const {
       startFetchAndStore,
@@ -166,6 +205,17 @@ async function fetchAndIngestActivity(activityId: string): Promise<ActivityInfo 
       takeFetchAndStoreResult,
       routeEngine,
     } = require('veloqrs');
+
+    const activity = await loadActivityMetadata(routeEngine, activityId);
+    if (!activity) return null;
+
+    const activityInfo: ActivityInfo = {
+      name: typeof activity.name === 'string' ? activity.name : 'Activity',
+      type: typeof activity.type === 'string' ? activity.type : 'Ride',
+      ingested: false,
+      distance: typeof activity.distance === 'number' ? activity.distance : undefined,
+      movingTime: typeof activity.moving_time === 'number' ? activity.moving_time : undefined,
+    };
 
     // Skip GPS download if we already have this activity in SQLite - the
     // enrichment path reads sections from the DB, so a re-delivered webhook
@@ -187,7 +237,7 @@ async function fetchAndIngestActivity(activityId: string): Promise<ActivityInfo 
       return activityInfo;
     }
 
-    startFetchAndStore(authHeader, [activityId], [{ activityId, sportType: activityInfo.type }]);
+    startFetchAndStore([activityId], [{ activityId, sportType: activityInfo.type }]);
 
     const startTime = Date.now();
     const completed = await waitForDownloadCompletion(getDownloadProgress);
@@ -306,14 +356,28 @@ TaskManager.defineTask(BACKGROUND_INSIGHT_TASK, async ({ data, error }) => {
       });
     }
 
-    // 6. Fetch fresh wellness data from intervals.icu API
+    // 6. Read wellness from the engine, refreshed by the sync above
     let wellnessData: WellnessInput[] | null = null;
     try {
-      const { intervalsApi } = require('@/api');
-      const wellness = await intervalsApi.getWellness();
-      wellnessData = wellness as WellnessInput[];
+      const { routeEngine } = require('veloqrs');
+      const newest = new Date();
+      const oldest = new Date(newest);
+      oldest.setDate(oldest.getDate() - WELLNESS_WINDOW_DAYS);
+      const bodies: string[] = routeEngine.getWellnessBodies(
+        oldest.toISOString().split('T')[0],
+        newest.toISOString().split('T')[0]
+      );
+      wellnessData = bodies
+        .map((body) => {
+          try {
+            return JSON.parse(body) as WellnessInput;
+          } catch {
+            return null;
+          }
+        })
+        .filter((row): row is WellnessInput => row !== null);
     } catch (e) {
-      log.warn('Could not fetch wellness data:', e);
+      log.warn('Could not read wellness data:', e);
     }
 
     // 7. Generate insights (now includes new activity if ingested)

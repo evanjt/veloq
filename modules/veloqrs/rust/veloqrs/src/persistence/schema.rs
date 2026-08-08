@@ -9,13 +9,18 @@ use super::{PersistentRouteEngine, codec};
 
 impl PersistentRouteEngine {
     /// App-level schema version for post-migration Rust hooks.
-    /// Independent of rusqlite_migration's PRAGMA user_version (currently 13).
+    /// Independent of rusqlite_migration's PRAGMA user_version (currently 17).
     /// Hooks <= 7 are dead code for any user on 0.2.2+.
-    pub(super) const SCHEMA_VERSION: i32 = 13;
+    pub(super) const SCHEMA_VERSION: i32 = 17;
 
     /// Database migrations, tracked in `__rusqlite_migrations` table.
     /// M1–M11: shipped in 0.2.2 (PRAGMA user_version = 11).
     /// M12: consolidated 0.2.2 → 0.3.0 upgrade.
+    /// M13: untyped wellness body.
+    /// M14: untyped activity bodies.
+    /// M15: untyped curve, interval and calendar bodies.
+    /// M16: bounded activity stream body cache.
+    /// M17: section history, geometry versions and pins (B4 core).
     pub(super) fn migrations() -> Migrations<'static> {
         Migrations::new(vec![
             M::up(include_str!("../migrations/001_initial_schema.sql")),
@@ -38,7 +43,13 @@ impl PersistentRouteEngine {
             )),
             M::up(include_str!("../migrations/011_pace_history.sql")),
             M::up(include_str!("../migrations/012_v030.sql")),
-            M::up(include_str!("../migrations/013_b4_core.sql")),
+            M::up(include_str!("../migrations/013_wellness_raw_body.sql")),
+            M::up(include_str!("../migrations/014_activity_bodies.sql")),
+            M::up(include_str!(
+                "../migrations/015_curve_interval_calendar_bodies.sql"
+            )),
+            M::up(include_str!("../migrations/016_stream_bodies.sql")),
+            M::up(include_str!("../migrations/017_b4_core.sql")),
         ])
     }
 
@@ -108,12 +119,13 @@ impl PersistentRouteEngine {
         }
 
         // Phase 3 (B4): the visit_count denormalisation column and its recompute
-        // triggers live here rather than in 013.sql because ADD COLUMN is not
-        // idempotent under the raw repeated apply that migration_013_is_rerunnable
+        // triggers live here rather than in 017.sql because ADD COLUMN is not
+        // idempotent under the raw repeated apply that migration_017_is_rerunnable
         // does. The hook is pragma-guarded and self-healing, so it is safe to run
         // unconditionally after every migration pass.
         Self::ensure_visit_count_denormalisation(conn)?;
         Self::ensure_section_intents_named_shape(conn)?;
+        Self::ensure_wellness_raw_column(conn)?;
 
         // Post-migration data population for pre-0.2.2 databases.
         // Users on 0.2.2+ (schema_version >= 7) skip this block entirely.
@@ -230,6 +242,21 @@ impl PersistentRouteEngine {
             converted,
             rows.len()
         );
+        Ok(())
+    }
+
+    /// Add the untyped wellness body column when migration 013 could not.
+    ///
+    /// 013 is the one migration in the set that is a bare ADD COLUMN rather than
+    /// a CREATE ... IF NOT EXISTS, so it is the one that cannot recover from a
+    /// user_version that overstates what was applied. A database written by a
+    /// build where 013 was a different migration reports user_version >= 13 and
+    /// so is never offered this column, leaving every wellness read broken.
+    /// Column presence is the only trustworthy signal, so test that directly.
+    fn ensure_wellness_raw_column(conn: &Connection) -> SqlResult<()> {
+        if conn.prepare("SELECT raw FROM wellness LIMIT 0").is_err() {
+            conn.execute("ALTER TABLE wellness ADD COLUMN raw TEXT", [])?;
+        }
         Ok(())
     }
 

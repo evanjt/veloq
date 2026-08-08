@@ -1368,6 +1368,42 @@ impl From<crate::CalendarSummary> for FfiCalendarSummary {
 // Activity Pattern Types
 // ============================================================================
 
+/// One Monday-anchored week of training totals, derived from
+/// `activity_metrics`. Replaces the intervals.icu athlete-summary endpoint:
+/// the screens read only these four numbers.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiWeeklySummary {
+    /// Monday of the week, epoch seconds at local midnight.
+    pub week_start: i64,
+    pub count: u32,
+    /// Moving time in seconds.
+    pub moving_time: i64,
+    /// Distance in metres.
+    pub distance: f64,
+    /// Training load (TSS).
+    pub training_load: f64,
+}
+
+/// One untyped calendar event payload, keyed by id and day.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiCalendarEventBody {
+    pub event_id: String,
+    /// Event day as epoch seconds.
+    pub date: i64,
+    pub raw: String,
+}
+
+/// One untyped activity payload, keyed by id and start time. Demo seeding
+/// writes these; a live sync writes them from the same shape.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiActivityBody {
+    pub activity_id: String,
+    /// Start time as epoch seconds.
+    pub date: i64,
+    /// The untyped intervals.icu activity payload.
+    pub raw: String,
+}
+
 /// One wellness row passed in from TS (intervals.icu sync). Fields outside
 /// this subset (sleepQuality, spO2, etc.) aren't persisted yet - the TS
 /// sync helper only forwards the fields the Rust atomics consume.
@@ -1388,6 +1424,9 @@ pub struct FfiWellnessRow {
     pub stress: Option<i32>,
     pub mood: Option<i32>,
     pub motivation: Option<i32>,
+    /// The untyped intervals.icu body for this day, when the caller has it.
+    /// Omitting it leaves any previously stored body intact.
+    pub raw: Option<String>,
 }
 
 /// Sparkline payload for the SummaryCard: rounded integer arrays, oldest
@@ -1514,6 +1553,51 @@ pub struct FfiInsightsData {
     pub today_pattern: Option<FfiActivityPattern>,
     /// Up to 3 recent section PRs (best times set in last 7 days)
     pub recent_prs: Vec<FfiRecentPR>,
+    /// Sections held by the engine, for the section-readiness check
+    pub section_count: u32,
+    /// Sport types the ranked-section lists were built for
+    pub sport_types: Vec<String>,
+    /// ML-ranked sections per sport, empty when sections were not requested
+    pub ranked_sections: Vec<FfiRankedSectionsBySport>,
+    /// Aerobic efficiency trends worth surfacing, already filtered and capped
+    pub efficiency_trends: Vec<FfiEfficiencyTrend>,
+    /// Whether any strength activity exists
+    pub has_strength_data: bool,
+    /// Strength volume over the requested month and weeks, when data exists
+    pub strength_series: Option<FfiStrengthInsightSeries>,
+}
+
+/// Scalar inputs for the insights bundle.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiInsightsParams {
+    /// Start of the current week
+    pub current_start: i64,
+    /// Now
+    pub current_end: i64,
+    /// Start of the previous week
+    pub prev_start: i64,
+    /// End of the previous week
+    pub prev_end: i64,
+    /// Start of the four-week chronic window
+    pub chronic_start: i64,
+    /// Start of today
+    pub today_start: i64,
+    /// Whether section-derived insights are wanted at all
+    pub include_sections: bool,
+    /// Ranked sections requested per sport
+    pub ranked_limit: u32,
+    /// Sections last visited beyond this many days get no efficiency trend
+    pub active_window_days: u32,
+    /// Efficiency candidates taken from each sport's ranked list
+    pub efficiency_per_sport: u32,
+    /// Efficiency trends to return at most
+    pub efficiency_limit: u32,
+    /// Minimum matched efforts before an efficiency trend counts
+    pub efficiency_min_efforts: u32,
+    /// Trailing month the strength summary covers
+    pub strength_month: FfiTimestampRange,
+    /// Trailing weeks the strength summary covers
+    pub strength_weeks: Vec<FfiTimestampRange>,
 }
 
 // ============================================================================
@@ -1540,6 +1624,148 @@ pub struct FfiStartupData {
     pub preview_tracks: Vec<FfiPreviewTrack>,
     /// Activity IDs with cached metrics (for sync skip check)
     pub cached_metric_ids: Vec<String>,
+}
+
+// ============================================================================
+// Activity Detail Batch Types
+// ============================================================================
+
+/// One activity's portion of a single section, delta+varint encoded.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiSectionTrace {
+    /// Section the trace belongs to
+    pub section_id: String,
+    /// Delta+varint encoded coordinates of the activity's portion
+    pub encoded_coords: Vec<u8>,
+}
+
+/// All data needed to paint the activity detail screen in one call.
+/// Replaces a fan-out that grew one trace extraction per matched section.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiActivityDetailData {
+    /// Total activities held by the engine
+    pub activity_count: u32,
+    /// Total sections held by the engine
+    pub section_count: u32,
+    /// Route groups meeting the caller's minimum, most attempts first
+    pub route_groups: Vec<FfiRouteGroup>,
+    /// Route group total before the minimum-activity filter
+    pub total_route_group_count: u32,
+    /// Visible sections this activity traverses, most-visited first
+    pub matched_sections: Vec<FfiSection>,
+    /// Every visible custom section, matched or not
+    pub custom_sections: Vec<FfiSection>,
+    /// One entry per (section, direction) this activity encountered
+    pub encounters: Vec<FfiSectionEncounter>,
+    /// Section indicators and route highlights for this activity
+    pub highlights: FfiActivityHighlightsBundle,
+    /// This activity's portion of every section it matches
+    pub section_traces: Vec<FfiSectionTrace>,
+    /// Sections where this activity currently holds the best record
+    pub pr_section_ids: Vec<String>,
+}
+
+// ============================================================================
+// Section Detail Batch Types
+// ============================================================================
+
+/// The section detail reads that do not depend on time streams.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiSectionDetailData {
+    /// Total activities held by the engine
+    pub activity_count: u32,
+    /// The section itself, or `None` when the ID is unknown
+    pub section: Option<FfiFrequentSection>,
+    /// Sections within the requested radius, for the map overlay
+    pub nearby: Vec<FfiNearbySectionSummary>,
+    /// Sections this one could merge with
+    pub merge_candidates: Vec<FfiMergeCandidate>,
+    /// Activities the user excluded from this section
+    pub excluded_activity_ids: Vec<String>,
+    /// Whether the original bounds can still be restored
+    pub has_original_bounds: bool,
+    /// Metrics for every activity on the section
+    pub activity_metrics: Vec<FfiActivityMetrics>,
+    /// Simplified GPS signatures for scrub-time trace display
+    pub map_signatures: Vec<FfiMapSignature>,
+    /// Activities whose time streams still have to be fetched
+    pub missing_time_stream_ids: Vec<String>,
+}
+
+/// The section detail reads that need lap times.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiSectionPerformanceData {
+    /// Year and month performance history, or `None` with no records
+    pub calendar_summary: Option<FfiCalendarSummary>,
+    /// Per-activity performance records for the requested sport
+    pub performances: FfiSectionPerformanceResult,
+    /// Pre-computed chart payload for the requested range and sport
+    pub chart_data: FfiSectionChartData,
+}
+
+// ============================================================================
+// Route Detail Batch Types
+// ============================================================================
+
+/// Everything the route detail screen paints with in one call.
+///
+/// The performances are unfiltered: the screen derives its sport pills from
+/// them and only asks for a filtered read once the user picks a sport.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiRouteDetailData {
+    /// Total activities held by the engine
+    pub activity_count: u32,
+    /// The route itself, or `None` when the ID is unknown
+    pub group: Option<FfiRouteGroup>,
+    /// Route groups above the caller's minimum, most attempts first
+    pub groups: Vec<FfiRouteGroup>,
+    /// Every attempt on the route, across sports
+    pub performances: FfiRoutePerformanceResult,
+    /// Consensus polyline, delta+varint encoded
+    pub encoded_consensus: Vec<u8>,
+    /// User-set route names by route ID
+    pub route_names: std::collections::HashMap<String, String>,
+    /// Activities the user excluded from this route
+    pub excluded_activity_ids: Vec<String>,
+    /// Simplified GPS signatures for the route's activities
+    pub map_signatures: Vec<FfiMapSignature>,
+}
+
+// ============================================================================
+// Widget Snapshot Batch Types
+// ============================================================================
+
+/// Everything the home-screen widget snapshot is composed from.
+///
+/// Widgets run in a separate process and cannot reach the engine, so the app
+/// bakes their content. This is the single read that feeds it.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiWidgetSnapshotData {
+    /// Trailing wellness sparklines, `None` until wellness has synced
+    pub sparklines: Option<FfiWellnessSparklines>,
+    /// This week and last week, with the trends the widget shows
+    pub summary: FfiSummaryCardData,
+    /// The most recent activity, or `None` when there are none
+    pub latest: Option<FfiActivityMetrics>,
+    /// Whether the latest activity carries a route or section record
+    pub latest_is_pr: bool,
+    /// The latest activity's GPS track, empty for indoor activities
+    pub latest_gps: Vec<FfiGpsPoint>,
+}
+
+// ============================================================================
+// Map Screen Batch Types
+// ============================================================================
+
+/// Everything the map tab paints with in one call.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct FfiMapScreenData {
+    /// Total activities held by the engine, before the date and sport filters
+    pub activity_count: u32,
+    /// Sport types with at least one activity
+    pub available_sport_types: Vec<String>,
+    /// Activities inside the requested window and sport filter
+    pub activities: Vec<crate::persistence::MapActivityComplete>,
 }
 
 // ============================================================================

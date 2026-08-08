@@ -17,14 +17,9 @@ export { generateInsights, getLastInsightOutcome } from './lib/generateInsights'
 export {
   computeInsightsFromData,
   fetchInsightsDataFromEngine,
-  invalidateInsightsCache,
   consolidateInsights,
 } from './lib/computeInsightsData';
-export type {
-  FfiInsightsDataShape,
-  FfiSummaryCardDataShape,
-  WellnessInput,
-} from './lib/computeInsightsData';
+export type { WellnessInput } from './lib/computeInsightsData';
 export { INSIGHTS_CONFIG } from './lib/config';
 
 export { detectStalePROpportunities, stalePROpportunityToInsight } from './generators/stalePr';

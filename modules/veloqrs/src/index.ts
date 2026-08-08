@@ -40,6 +40,14 @@ export { RouteEngineClient, type HeatmapDay, type SectionEncounter } from "./Rou
 
 // Sync service (SyncManager) consumer types
 export type { SyncStatus, SyncAuthMethod } from "./delegates/sync";
+export type {
+  FfiCallOutcome as CallOutcome,
+  FfiManualActivity as ManualActivity,
+} from "./generated/veloqrs";
+
+// Delegate-shaped bundles returned by the façade
+export type { ActivityHighlightsBundle } from "./delegates/activities";
+export type { RouteDetailData } from "./delegates/routes";
 
 // Import generated functions for top-level aliases
 import {
@@ -64,12 +72,20 @@ import {
   type GroupSummary,
   type MapActivityComplete,
   type FfiPeriodStats,
+  type FfiSummaryCardData,
   type FfiFtpTrend,
   type FfiPaceTrend,
   type FfiInsightsData,
+  type FfiInsightsParams,
   type FfiRecentPr,
   type FfiStartupData,
+  type FfiWidgetSnapshotData,
+  type FfiMapScreenData,
   type FfiPreviewTrack,
+  type FfiActivityDetailData,
+  type FfiSectionTrace,
+  type FfiSectionDetailData,
+  type FfiSectionPerformanceData,
   type FfiRoutesScreenData,
   type FfiGroupWithPolyline,
   type FfiSectionWithPolyline,
@@ -104,14 +120,24 @@ export type {
 };
 // Aggregate query types
 export type PeriodStats = FfiPeriodStats;
+export type SummaryCardData = FfiSummaryCardData;
 export type FtpTrend = FfiFtpTrend;
 export type PaceTrend = FfiPaceTrend;
 // Insights batch types
 export type InsightsData = FfiInsightsData;
+export type InsightsParams = FfiInsightsParams;
 export type RecentPR = FfiRecentPr;
 // Startup batch types
 export type StartupData = FfiStartupData;
+export type WidgetSnapshotData = FfiWidgetSnapshotData;
+export type MapScreenData = FfiMapScreenData;
 export type PreviewTrack = FfiPreviewTrack;
+// Activity detail batch types
+export type ActivityDetailData = FfiActivityDetailData;
+export type SectionTrace = FfiSectionTrace;
+// Section detail batch types
+export type SectionDetailData = FfiSectionDetailData;
+export type SectionPerformanceData = FfiSectionPerformanceData;
 // Routes screen batch types
 export type RoutesScreenData = FfiRoutesScreenData;
 export type GroupWithPolyline = FfiGroupWithPolyline;
@@ -125,22 +151,11 @@ export type {
   FfiActivitySectionHighlight as ActivitySectionHighlight,
   FfiActivityRouteHighlight as ActivityRouteHighlight,
 } from './RouteEngineClient';
-// Strength training types (generated after Rust rebuild)
-export interface ExerciseSet {
-  activityId: string;
-  setOrder: number;
-  exerciseCategory: number;
-  exerciseName: number | undefined;
-  displayName: string;
-  setType: number;
-  repetitions: number | undefined;
-  weightKg: number | undefined;
-  durationSecs: number | undefined;
-}
-export interface MuscleGroup {
-  slug: string;
-  intensity: number;
-}
+// Strength training types
+export type {
+  FfiExerciseSet as ExerciseSet,
+  FfiMuscleGroup as MuscleGroup,
+} from "./generated/veloqrs";
 
 export function getDownloadProgress(): DownloadProgressResult {
   return ffiGetDownloadProgress();

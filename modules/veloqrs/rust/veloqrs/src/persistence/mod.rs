@@ -44,12 +44,14 @@ mod indicators;
 mod route_identity;
 mod routes;
 mod schema;
+mod screens;
 pub mod sections;
 pub mod settings;
 pub use settings::settings_keys;
+pub mod bodies;
 mod strength;
 mod tiles;
-pub(crate) mod wellness;
+pub mod wellness;
 
 // ============================================================================
 // Name Translation Support

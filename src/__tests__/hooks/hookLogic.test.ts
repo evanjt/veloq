@@ -1,9 +1,5 @@
 // Mock modules that pull in react-native through their import chains.
 // These mocks must be declared before any imports that trigger the chains.
-jest.mock('@/api', () => ({
-  intervalsApi: {},
-}));
-
 jest.mock('@/shared/native/routeEngine', () => ({
   getRouteEngine: () => null,
 }));

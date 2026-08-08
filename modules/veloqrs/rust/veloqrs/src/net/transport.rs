@@ -29,6 +29,9 @@ pub enum NetError {
     Transport(String),
     /// Body did not deserialize into the expected shape.
     Decode(String),
+    /// A local file backing a request body could not be read. Not a network
+    /// failure, so it must never be queued for a connectivity retry.
+    Io(String),
 }
 
 impl std::fmt::Display for NetError {
@@ -39,6 +42,7 @@ impl std::fmt::Display for NetError {
             NetError::Http { status, body } => write!(f, "HTTP {}: {}", status, body),
             NetError::Transport(e) => write!(f, "transport error: {}", e),
             NetError::Decode(e) => write!(f, "decode error: {}", e),
+            NetError::Io(e) => write!(f, "file error: {}", e),
         }
     }
 }
@@ -163,6 +167,162 @@ impl Transport {
             }
         }
     }
+
+    /// POST a JSON body and return the raw response bytes.
+    ///
+    /// Write retry policy, deliberately narrower than the GET path: only a 429
+    /// is retried. A POST that creates an activity may already have been applied
+    /// when a 5xx or a dropped connection comes back, so retrying it here risks
+    /// a duplicate activity. Those surface to the caller instead, and the upload
+    /// queue decides whether to try again on its own backoff. A 429 is the one
+    /// safe retry, because the server rejected the request outright.
+    pub async fn post_json(
+        &self,
+        path: &str,
+        body: &serde_json::Value,
+        lane: Lane,
+    ) -> Result<Vec<u8>, NetError> {
+        let url = self.url(path);
+        let mut attempt = 0u32;
+        loop {
+            // Same single choke point as the reads: writes share the pace.
+            self.governor.acquire(lane).await;
+            let req = self
+                .client
+                .post(&url)
+                .header("Authorization", &self.auth_header)
+                .json(body);
+            match self.settle_write(req.send().await, attempt).await {
+                WriteStep::Done(result) => return result,
+                WriteStep::Backoff(wait) => {
+                    attempt += 1;
+                    tokio::time::sleep(wait).await;
+                }
+            }
+        }
+    }
+
+    /// POST a multipart body whose file part streams straight off the device
+    /// filesystem, so a large FIT never lands in memory as bytes.
+    ///
+    /// `fields` are the plain text parts, in the order the server should see
+    /// them. Same write retry policy as `post_json`: 429 only.
+    pub async fn post_multipart(
+        &self,
+        path: &str,
+        file: &FilePart<'_>,
+        fields: &[(&str, String)],
+        lane: Lane,
+        timeout: Duration,
+    ) -> Result<Vec<u8>, NetError> {
+        let url = self.url(path);
+        let mut attempt = 0u32;
+        loop {
+            self.governor.acquire(lane).await;
+            // Rebuilt every attempt: a streamed body cannot be replayed.
+            let mut form = reqwest::multipart::Form::new()
+                .part(file.field.to_string(), streamed_file_part(file).await?);
+            for (name, value) in fields {
+                form = form.text((*name).to_string(), value.clone());
+            }
+            let req = self
+                .client
+                .post(&url)
+                .header("Authorization", &self.auth_header)
+                .timeout(timeout)
+                .multipart(form);
+            match self.settle_write(req.send().await, attempt).await {
+                WriteStep::Done(result) => return result,
+                WriteStep::Backoff(wait) => {
+                    attempt += 1;
+                    tokio::time::sleep(wait).await;
+                }
+            }
+        }
+    }
+
+    /// Classify a write response under the write retry policy.
+    async fn settle_write(
+        &self,
+        send: Result<reqwest::Response, reqwest::Error>,
+        attempt: u32,
+    ) -> WriteStep {
+        let resp = match send {
+            Ok(resp) => resp,
+            Err(e) => return WriteStep::Done(Err(NetError::Transport(e.to_string()))),
+        };
+        let status = resp.status();
+        let budget = parse_budget(resp.headers());
+        self.governor.observe(&budget);
+
+        if status.is_success() {
+            return WriteStep::Done(
+                resp.bytes()
+                    .await
+                    .map(|b| b.to_vec())
+                    .map_err(|e| NetError::Transport(e.to_string())),
+            );
+        }
+        if status == reqwest::StatusCode::UNAUTHORIZED {
+            return WriteStep::Done(Err(NetError::Unauthorized));
+        }
+        if status == reqwest::StatusCode::TOO_MANY_REQUESTS {
+            if attempt >= MAX_RETRIES {
+                return WriteStep::Done(Err(NetError::RateLimited));
+            }
+            return WriteStep::Backoff(governor::decide_backoff(
+                budget.retry_after_secs,
+                attempt + 1,
+                true,
+            ));
+        }
+        let code = status.as_u16();
+        let body = resp.text().await.unwrap_or_default();
+        WriteStep::Done(Err(NetError::Http { status: code, body }))
+    }
+}
+
+/// What a write response asks the caller to do next.
+enum WriteStep {
+    Done(Result<Vec<u8>, NetError>),
+    Backoff(Duration),
+}
+
+/// A file part sourced from a path on the device rather than from memory.
+pub struct FilePart<'a> {
+    /// Multipart field name the server expects.
+    pub field: &'a str,
+    /// Where the file sits on the device. A `file://` URI is accepted, since
+    /// that is the form the app's storage layer hands around.
+    pub path: &'a str,
+    /// The filename recorded against the upload.
+    pub filename: &'a str,
+}
+
+/// Open a file part and wrap it as a length-known stream. The length keeps the
+/// request on `Content-Length` rather than chunked encoding.
+async fn streamed_file_part(file: &FilePart<'_>) -> Result<reqwest::multipart::Part, NetError> {
+    let path = strip_file_scheme(file.path);
+    let handle = tokio::fs::File::open(path)
+        .await
+        .map_err(|e| NetError::Io(format!("cannot open {}: {}", path, e)))?;
+    let len = handle
+        .metadata()
+        .await
+        .map_err(|e| NetError::Io(format!("cannot size {}: {}", path, e)))?
+        .len();
+    let body = reqwest::Body::wrap_stream(tokio_util::io::ReaderStream::new(handle));
+    reqwest::multipart::Part::stream_with_length(body, len)
+        .file_name(file.filename.to_string())
+        .mime_str("application/octet-stream")
+        .map_err(|e| NetError::Io(e.to_string()))
+}
+
+/// Drop a `file://` scheme so an app storage URI opens as a filesystem path.
+/// No percent-decoding: the paths that reach here are generated ids under the
+/// app's own document directory, never user-typed text.
+fn strip_file_scheme(path: &str) -> &str {
+    path.strip_prefix("file://").unwrap_or(path)
 }
 
 /// Extract intervals.icu rate headers (it sends `Retry-After` on 429; the
@@ -326,5 +486,270 @@ mod tests {
             start.elapsed()
         );
         assert_eq!(mock.hits(), 2);
+    }
+
+    #[test]
+    fn drops_the_file_scheme_from_a_storage_uri() {
+        assert_eq!(
+            strip_file_scheme("file:///data/rec/1.fit"),
+            "/data/rec/1.fit"
+        );
+        assert_eq!(strip_file_scheme("/data/rec/1.fit"), "/data/rec/1.fit");
+    }
+
+    /// A FIT file on disk, plus the handle that keeps it alive for the test.
+    fn staged_fit() -> (tempfile::NamedTempFile, String) {
+        use std::io::Write;
+        let mut f = tempfile::NamedTempFile::new().unwrap();
+        f.write_all(&[0x0e, 0x20, 0x00, 0x00, 0x2e, 0x46, 0x49, 0x54])
+            .unwrap();
+        f.flush().unwrap();
+        let path = f.path().to_string_lossy().into_owned();
+        (f, path)
+    }
+
+    fn upload_parts() -> Vec<(&'static str, String)> {
+        vec![
+            ("name", "Bern loop".to_string()),
+            ("paired_event_id", "4321".to_string()),
+            ("device_name", "Veloq".to_string()),
+        ]
+    }
+
+    #[test]
+    fn multipart_streams_the_file_and_names_every_part() {
+        let server = MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method(POST)
+                .path("/athlete/i1/activities")
+                .header(
+                    "authorization",
+                    governor::format_auth_header(AuthMethod::ApiKey("k")),
+                )
+                // The field names intervals.icu expects. A rename here silently
+                // loses the activity, so each part is asserted by name.
+                .body_contains("name=\"file\"")
+                .body_contains("filename=\"Morning Ride.fit\"")
+                .body_contains("name=\"name\"")
+                .body_contains("Bern loop")
+                .body_contains("name=\"paired_event_id\"")
+                .body_contains("4321")
+                .body_contains("name=\"device_name\"")
+                .body_contains("Veloq")
+                // The streamed bytes arrive intact.
+                .body_contains(".FIT");
+            then.status(200).json_body(json!({"id": "i999"}));
+        });
+
+        let (_file, path) = staged_fit();
+        let t = fast_transport(server.base_url(), AuthMethod::ApiKey("k"));
+        let part = FilePart {
+            field: "file",
+            path: &path,
+            filename: "Morning Ride.fit",
+        };
+        let body = crate::runtime::block_on(t.post_multipart(
+            "/athlete/i1/activities",
+            &part,
+            &upload_parts(),
+            Lane::Interactive,
+            Duration::from_secs(60),
+        ))
+        .unwrap();
+        mock.assert();
+        assert!(String::from_utf8_lossy(&body).contains("i999"));
+    }
+
+    #[test]
+    fn multipart_accepts_a_file_scheme_path() {
+        let server = MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method(POST).path("/athlete/i1/activities");
+            then.status(200).json_body(json!({"id": "i999"}));
+        });
+
+        let (_file, path) = staged_fit();
+        let uri = format!("file://{}", path);
+        let t = fast_transport(server.base_url(), AuthMethod::ApiKey("k"));
+        let part = FilePart {
+            field: "file",
+            path: &uri,
+            filename: "ride.fit",
+        };
+        crate::runtime::block_on(t.post_multipart(
+            "/athlete/i1/activities",
+            &part,
+            &[],
+            Lane::Interactive,
+            Duration::from_secs(60),
+        ))
+        .unwrap();
+        mock.assert();
+    }
+
+    #[test]
+    fn multipart_403_surfaces_once_with_its_body() {
+        let server = MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method(POST).path("/athlete/i1/activities");
+            then.status(403)
+                .json_body(json!({"error": "No permission"}));
+        });
+
+        let (_file, path) = staged_fit();
+        let t = fast_transport(server.base_url(), AuthMethod::ApiKey("k"));
+        let part = FilePart {
+            field: "file",
+            path: &path,
+            filename: "ride.fit",
+        };
+        let res = crate::runtime::block_on(t.post_multipart(
+            "/athlete/i1/activities",
+            &part,
+            &upload_parts(),
+            Lane::Interactive,
+            Duration::from_secs(60),
+        ));
+        match res {
+            Err(NetError::Http { status, body }) => {
+                assert_eq!(status, 403);
+                assert!(body.contains("No permission"));
+            }
+            other => panic!("expected a 403, got {:?}", other),
+        }
+        // A rejected upload is dispatched once: the queue owns the retry.
+        assert_eq!(mock.hits(), 1);
+    }
+
+    #[test]
+    fn multipart_429_honours_retry_after_then_gives_up() {
+        let server = MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method(POST).path("/athlete/i1/activities");
+            then.status(429).header("retry-after", "0");
+        });
+
+        let (_file, path) = staged_fit();
+        let t = fast_transport(server.base_url(), AuthMethod::ApiKey("k"));
+        let part = FilePart {
+            field: "file",
+            path: &path,
+            filename: "ride.fit",
+        };
+        let res = crate::runtime::block_on(t.post_multipart(
+            "/athlete/i1/activities",
+            &part,
+            &upload_parts(),
+            Lane::Backfill,
+            Duration::from_secs(60),
+        ));
+        assert!(matches!(res, Err(NetError::RateLimited)));
+        // A 429 was refused outright, so re-sending cannot duplicate anything.
+        assert_eq!(mock.hits(), (MAX_RETRIES + 1) as usize);
+    }
+
+    #[test]
+    fn multipart_5xx_is_not_retried() {
+        let server = MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method(POST).path("/athlete/i1/activities");
+            then.status(503);
+        });
+
+        let (_file, path) = staged_fit();
+        let t = fast_transport(server.base_url(), AuthMethod::ApiKey("k"));
+        let part = FilePart {
+            field: "file",
+            path: &path,
+            filename: "ride.fit",
+        };
+        let res = crate::runtime::block_on(t.post_multipart(
+            "/athlete/i1/activities",
+            &part,
+            &[],
+            Lane::Interactive,
+            Duration::from_secs(60),
+        ));
+        assert!(matches!(res, Err(NetError::Http { status: 503, .. })));
+        // The server may have applied the write before failing, so a blind
+        // resend could double-post. One dispatch, then surface.
+        assert_eq!(mock.hits(), 1);
+    }
+
+    #[test]
+    fn multipart_transport_failure_surfaces_immediately() {
+        let (_file, path) = staged_fit();
+        let t = fast_transport("http://127.0.0.1:1".to_string(), AuthMethod::ApiKey("k"));
+        let part = FilePart {
+            field: "file",
+            path: &path,
+            filename: "ride.fit",
+        };
+        let res = crate::runtime::block_on(t.post_multipart(
+            "/athlete/i1/activities",
+            &part,
+            &[],
+            Lane::Interactive,
+            Duration::from_secs(60),
+        ));
+        assert!(matches!(res, Err(NetError::Transport(_))));
+    }
+
+    #[test]
+    fn a_missing_file_is_an_io_error_not_a_network_one() {
+        // Misreading this as a network failure would queue the upload forever
+        // against a file that will never appear.
+        let t = fast_transport("http://127.0.0.1:1".to_string(), AuthMethod::ApiKey("k"));
+        let part = FilePart {
+            field: "file",
+            path: "/nonexistent/ride.fit",
+            filename: "ride.fit",
+        };
+        let res = crate::runtime::block_on(t.post_multipart(
+            "/athlete/i1/activities",
+            &part,
+            &[],
+            Lane::Interactive,
+            Duration::from_secs(60),
+        ));
+        assert!(matches!(res, Err(NetError::Io(_))));
+    }
+
+    #[test]
+    fn post_json_sends_the_body_and_returns_the_response() {
+        let server = MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method(POST)
+                .path("/athlete/i1/activities")
+                .header("authorization", "Bearer tok")
+                .json_body(json!({"name": "Yoga", "trainer": false}));
+            then.status(200).json_body(json!({"id": "i77"}));
+        });
+        let t = fast_transport(server.base_url(), AuthMethod::Bearer("tok"));
+        let body = crate::runtime::block_on(t.post_json(
+            "/athlete/i1/activities",
+            &json!({"name": "Yoga", "trainer": false}),
+            Lane::Interactive,
+        ))
+        .unwrap();
+        mock.assert();
+        assert!(String::from_utf8_lossy(&body).contains("i77"));
+    }
+
+    #[test]
+    fn post_json_401_is_terminal() {
+        let server = MockServer::start();
+        let mock = server.mock(|when, then| {
+            when.method(POST).path("/athlete/i1/activities");
+            then.status(401);
+        });
+        let t = fast_transport(server.base_url(), AuthMethod::ApiKey("k"));
+        let res = crate::runtime::block_on(t.post_json(
+            "/athlete/i1/activities",
+            &json!({}),
+            Lane::Interactive,
+        ));
+        assert!(matches!(res, Err(NetError::Unauthorized)));
+        assert_eq!(mock.hits(), 1);
     }
 }

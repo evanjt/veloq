@@ -18,6 +18,8 @@ import type {
   FfiNamedCorridor,
   FfiRankedSection,
   FfiSection,
+  FfiSectionDetailData,
+  FfiSectionPerformanceData,
   FfiSectionPerformanceResult,
   SectionSummary,
 } from '../../generated/veloqrs';
@@ -476,4 +478,36 @@ export function extractSectionTracesBatch(
     }
   }
   return traces;
+}
+
+/**
+ * The section detail reads that do not depend on time streams: the section,
+ * its neighbours and merge candidates, exclusions, bounds state, per-activity
+ * metrics and signatures, and the streams still to be fetched.
+ */
+export function getSectionDetailData(
+  host: DelegateHost,
+  sectionId: string,
+  nearbyRadiusMeters: number
+): FfiSectionDetailData | undefined {
+  if (!host.ready || !sectionId) return undefined;
+  return host.timed('getSectionDetailData', () =>
+    host.engine.sections().getDetailData(sectionId, nearbyRadiusMeters)
+  );
+}
+
+/**
+ * The section detail reads that need lap times. Call once the streams named
+ * by `getSectionDetailData` have landed.
+ */
+export function getSectionDetailPerformance(
+  host: DelegateHost,
+  sectionId: string,
+  timeRangeDays: number,
+  sportFilter?: string
+): FfiSectionPerformanceData | undefined {
+  if (!host.ready || !sectionId) return undefined;
+  return host.timed('getSectionDetailPerformance', () =>
+    host.engine.sections().getDetailPerformance(sectionId, timeRangeDays, sportFilter)
+  );
 }

@@ -26,11 +26,10 @@ export function isFitProcessed(host: DelegateHost, activityId: string): boolean 
 
 export function fetchAndParseExerciseSets(
   host: DelegateHost,
-  authHeader: string,
   activityId: string
 ): FfiExerciseSet[] {
   return host.timed('fetchAndParseExerciseSets', () =>
-    host.engine.strength().fetchAndParseExerciseSets(authHeader, activityId)
+    host.engine.strength().fetchAndParseExerciseSets(activityId)
   );
 }
 
@@ -44,13 +43,9 @@ export function getUnprocessedStrengthIds(host: DelegateHost, activityIds: strin
   );
 }
 
-export function batchFetchExerciseSets(
-  host: DelegateHost,
-  authHeader: string,
-  activityIds: string[]
-): string[] {
+export function batchFetchExerciseSets(host: DelegateHost, activityIds: string[]): string[] {
   return host.timed('batchFetchExerciseSets', () =>
-    host.engine.strength().batchFetchExerciseSets(authHeader, activityIds)
+    host.engine.strength().batchFetchExerciseSets(activityIds)
   );
 }
 

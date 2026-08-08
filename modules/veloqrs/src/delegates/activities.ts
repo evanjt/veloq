@@ -8,6 +8,7 @@
  */
 
 import type {
+  FfiActivityDetailData,
   FfiActivityIndicator,
   FfiActivityMetrics,
   FfiActivityRouteHighlight,
@@ -147,5 +148,143 @@ export function getActivityHighlightsBundle(
   }
   return host.timed('getActivityHighlightsBundle', () =>
     host.engine.activities().getHighlightsBundle(activityIds)
+  );
+}
+
+/**
+ * Every read the activity detail screen paints with, in one round-trip:
+ * engine counts, route groups, matched and custom sections, encounters,
+ * indicator highlights, per-section traces and the sections this activity
+ * holds the record on.
+ */
+export function getActivityDetailData(
+  host: DelegateHost,
+  activityId: string,
+  minRouteActivities: number
+): FfiActivityDetailData | undefined {
+  if (!host.ready || !activityId) return undefined;
+  return host.timed('getActivityDetailData', () =>
+    host.engine.activities().getDetailData(activityId, minRouteActivities)
+  );
+}
+
+export interface ActivityBodyInput {
+  activityId: string;
+  /** Start time as epoch seconds. */
+  date: number;
+  /** The untyped intervals.icu activity payload. */
+  raw: string;
+}
+
+/**
+ * Store untyped activity bodies. Demo seeding writes the same table a live
+ * sync fills, so every downstream read is identical in both modes.
+ */
+export function upsertActivityBodies(host: DelegateHost, rows: ActivityBodyInput[]): void {
+  if (!host.ready || rows.length === 0) return;
+  host.timed('upsertActivityBodies', () =>
+    host.engine.activities().upsertActivityBodies(
+      rows.map((r) => ({
+        activityId: r.activityId,
+        date: BigInt(r.date),
+        raw: r.raw,
+      }))
+    )
+  );
+}
+
+/**
+ * Untyped activity bodies over an inclusive timestamp window, newest first.
+ *
+ * The feed and detail screens read fields no Rust type models (locality,
+ * calories, weather, stream_types), so they parse these rather than a
+ * reconstruction from `activity_metrics`.
+ */
+export function getActivityBodies(
+  host: DelegateHost,
+  oldestTs: number,
+  newestTs: number
+): string[] {
+  if (!host.ready) return [];
+  return (
+    host.timed('getActivityBodies', () =>
+      host.engine.activities().getActivityBodies(BigInt(oldestTs), BigInt(newestTs))
+    ) ?? []
+  );
+}
+
+/**
+ * A stored stream payload for an activity and series selection, or null when
+ * it has not been fetched or has aged out of the bounded cache.
+ */
+export function getStreamBody(
+  host: DelegateHost,
+  activityId: string,
+  types: string
+): string | null {
+  if (!host.ready) return null;
+  return (
+    (host.timed('getStreamBody', () =>
+      host.engine.activities().getStreamBody(activityId, types)
+    ) as string | undefined) ?? null
+  );
+}
+
+export interface CalendarEventBodyInput {
+  eventId: string;
+  /** Event day as epoch seconds. */
+  date: number;
+  raw: string;
+}
+
+/** Store a stream payload directly. Demo seeding writes the same table a live
+ *  fetch fills, so every downstream read is identical in both modes. */
+export function setStreamBody(
+  host: DelegateHost,
+  activityId: string,
+  types: string,
+  raw: string
+): void {
+  if (!host.ready) return;
+  host.timed('setStreamBody', () =>
+    host.engine.activities().setStreamBody(activityId, types, raw)
+  );
+}
+
+/** Store an activity's interval payload directly, for demo seeding. */
+export function setIntervalBody(host: DelegateHost, activityId: string, raw: string): void {
+  if (!host.ready) return;
+  host.timed('setIntervalBody', () => host.engine.activities().setIntervalBody(activityId, raw));
+}
+
+/** Store a curve payload directly, for demo seeding. */
+export function setCurveBody(
+  host: DelegateHost,
+  kind: 'power' | 'pace',
+  sport: string,
+  days: number,
+  gap: boolean,
+  raw: string
+): void {
+  if (!host.ready) return;
+  host.timed('setCurveBody', () =>
+    host.engine.activities().setCurveBody(kind, sport, BigInt(days), gap, raw)
+  );
+}
+
+/** Replace the calendar events in a window, for demo seeding. */
+export function replaceCalendarEvents(
+  host: DelegateHost,
+  oldestTs: number,
+  newestTs: number,
+  rows: CalendarEventBodyInput[]
+): void {
+  if (!host.ready) return;
+  host.timed('replaceCalendarEvents', () =>
+    host.engine.activities().replaceCalendarEvents(
+      BigInt(oldestTs),
+      BigInt(newestTs),
+      rows.map((r) => ({ eventId: r.eventId, date: BigInt(r.date), raw: r.raw }))
+    )
   );
 }

@@ -8,7 +8,7 @@ import { getMapLibreBounds } from '@/shared/geo/polyline';
 import { useMapPreferences } from '@/features/maps/stores/MapPreferencesContext';
 import { StaticCompassArrow } from '@/shared/ui';
 import { projectRouteToBox } from '@/shared/geo/routePreview';
-import { polylineSvgPath } from '@/shared/charts/svgPath';
+import { polylineSvgPath } from '@/shared/charts';
 import { useMapPreviewCoordinates } from '../hooks/useMapPreviewCoordinates';
 import {
   hasTerrainPreview,

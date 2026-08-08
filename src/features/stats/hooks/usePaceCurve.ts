@@ -1,7 +1,8 @@
 import { useEffect, useRef } from 'react';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
-import { intervalsApi } from '@/api';
 import { getRouteEngine } from '@/shared/native/routeEngine';
+import { useEngineBody } from '@/shared/native/engineBodies';
+import { parsePaceCurveBody } from '@/features/stats/lib/curveBodies';
 import { queryKeys } from '@/shared/query/queryKeys';
 import type { PaceCurve } from '@/types';
 
@@ -17,12 +18,26 @@ interface UsePaceCurveOptions {
 export function usePaceCurve(options: UsePaceCurveOptions = {}) {
   const { sport = 'Run', days = 42, gap = false, enabled = true } = options;
 
+  const queryKey = queryKeys.charts.paceCurve.bySport(sport, days, gap);
+
+  const body = getRouteEngine()?.getPaceCurveBody(sport, days, gap) ?? null;
+  useEngineBody(
+    body !== null,
+    () => getRouteEngine()?.syncPaceCurve(sport, days, gap),
+    queryKey,
+    enabled
+  );
+
   const result = useQuery<PaceCurve>({
-    queryKey: queryKeys.charts.paceCurve.bySport(sport, days, gap),
-    queryFn: () => intervalsApi.getPaceCurve({ sport, days, gap }),
+    queryKey,
+    queryFn: () => {
+      const stored = getRouteEngine()?.getPaceCurveBody(sport, days, gap);
+      const parsed = stored ? parsePaceCurveBody(stored, sport) : null;
+      return parsed ?? emptyPaceCurve(sport);
+    },
     enabled,
-    staleTime: 1000 * 60 * 15, // 15 minutes - curves change infrequently
-    retry: 1,
+    // SQLite is the source, so a sync decides freshness, not a clock.
+    staleTime: Infinity,
     placeholderData: keepPreviousData,
   });
 
@@ -41,6 +56,11 @@ export function usePaceCurve(options: UsePaceCurveOptions = {}) {
   }, [result.data?.criticalSpeed, sport, result.data?.dPrime, result.data?.r2]);
 
   return result;
+}
+
+/** Rendered as "no data yet" rather than an error while the fetch is in flight. */
+function emptyPaceCurve(sport: string): PaceCurve {
+  return { type: 'pace', sport, distances: [], times: [], pace: [] };
 }
 
 // Standard distances for running pace curve (in meters)

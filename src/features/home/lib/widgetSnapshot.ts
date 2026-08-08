@@ -4,9 +4,8 @@
  * process and cannot call the Rust FFI, so everything they show is baked here.
  *
  * `composeSnapshot` is pure (fully unit-tested). `gatherWidgetSnapshot` reads the
- * engine singleton and is the entry point the write hooks call. A consolidating
- * Rust `getWidgetSnapshot()` FFI will later replace the multi-call gather, but the
- * snapshot shape it returns stays the same.
+ * engine singleton through one `getWidgetSnapshot()` call and is the entry point
+ * the write hooks call.
  *
  * Sparkline arrays from `getWellnessSparklines` are ordered NEWEST-FIRST
  * (`ORDER BY date DESC`), so index 0 = today, index 1 = yesterday.
@@ -20,11 +19,15 @@ import {
   formatSwimPace,
 } from '@/shared/format';
 import { getRouteEngine } from '@/shared/native/routeEngine';
+import type { WidgetSnapshotData } from 'veloqrs';
 import { widgetActivityTint, widgetPalette, type WidgetPalette } from '@/shared/theme/widgetTheme';
 
 import { useDashboardPreferences, type SummaryCardPreferences } from '../store';
 
 export const WIDGET_SNAPSHOT_SCHEMA_VERSION = 4;
+
+/** Trailing wellness window the widget sparklines cover. */
+const SPARKLINE_DAYS = 30;
 
 export type TrendDir = 'up' | 'down' | 'flat';
 
@@ -631,8 +634,7 @@ function relativeDateLabel(unixSeconds: number): string {
 
 /**
  * Read the engine and build the snapshot. Returns null when the engine isn't ready
- * (e.g. very early startup) so callers can no-op. The multi-call gather here is the
- * Phase-1 path; a consolidating `getWidgetSnapshot()` FFI supersedes it later.
+ * (e.g. very early startup) so callers can no-op.
  */
 export function gatherWidgetSnapshot(opts: {
   locale: string;
@@ -646,102 +648,42 @@ export function gatherWidgetSnapshot(opts: {
   const now = opts.now ?? new Date();
   const nowSeconds = Math.floor(now.getTime() / 1000);
 
-  let sparklines: RawSparklines | null = null;
-  let summary: RawSummary | null = null;
-  let latest: RawLatestActivity | null = null;
-  let latestGps: RawGpsPoint[] | null = null;
-  let summaryPrefs: SummaryCardPreferences | null = null;
-
-  try {
-    sparklines = engine.getWellnessSparklines?.(30) ?? null;
-  } catch {
-    sparklines = null;
-  }
-
+  let data: WidgetSnapshotData | undefined;
   try {
     const b = weekBounds(now);
-    summary =
-      (engine.getSummaryCardData?.(
-        b.currentStart,
-        b.currentEnd,
-        b.prevStart,
-        b.prevEnd
-      ) as RawSummary) ?? null;
+    data = engine.getWidgetSnapshot(
+      b.currentStart,
+      b.currentEnd,
+      b.prevStart,
+      b.prevEnd,
+      SPARKLINE_DAYS
+    );
   } catch {
-    summary = null;
+    data = undefined;
   }
 
-  try {
-    const ids = engine.getActivityIds?.() ?? [];
-    if (ids.length > 0) {
-      const metrics = (engine.getActivityMetricsForIds?.(ids) ?? []) as RawLatestActivity[];
-      latest = mostRecent(metrics);
-    }
-  } catch {
-    latest = null;
-  }
-
-  if (latest) {
-    latest = { ...latest, isPr: latestIsPr(engine, latest.activityId) };
-    try {
-      latestGps = (engine.getGpsTrack?.(latest.activityId) as RawGpsPoint[]) ?? null;
-    } catch {
-      latestGps = null;
-    }
-  }
-
+  let summaryPrefs: SummaryCardPreferences | null = null;
   try {
     summaryPrefs = useDashboardPreferences.getState().summaryCard;
   } catch {
     summaryPrefs = null;
   }
 
+  const latest = data?.latest
+    ? ({ ...data.latest, isPr: data.latestIsPr } as RawLatestActivity)
+    : null;
+
   return composeSnapshot({
-    sparklines,
-    summary,
+    sparklines: (data?.sparklines as RawSparklines | undefined) ?? null,
+    summary: (data?.summary as RawSummary | undefined) ?? null,
     latest,
-    latestGps,
+    latestGps: latest ? ((data?.latestGps as RawGpsPoint[]) ?? null) : null,
     summaryPrefs,
     locale: opts.locale,
     isMetric: opts.isMetric,
     nowSeconds,
     translate: opts.translate,
   });
-}
-
-/**
- * True when the activity carries a route or section PR, read from the same
- * highlights bundle the feed badges use.
- */
-function latestIsPr(
-  engine: NonNullable<ReturnType<typeof getRouteEngine>>,
-  activityId: string
-): boolean {
-  try {
-    const bundle = engine.getActivityHighlightsBundle?.([activityId]);
-    if (!bundle) return false;
-    return (
-      bundle.routeHighlights.some((r) => r.isPr) ||
-      bundle.indicators.some(
-        (i) => i.indicatorType === 'section_pr' || i.indicatorType === 'route_pr'
-      )
-    );
-  } catch {
-    return false;
-  }
-}
-
-function mostRecent(metrics: RawLatestActivity[]): RawLatestActivity | null {
-  let best: RawLatestActivity | null = null;
-  let bestDate = -Infinity;
-  for (const m of metrics) {
-    const d = num(m.date);
-    if (d > bestDate) {
-      bestDate = d;
-      best = m;
-    }
-  }
-  return best;
 }
 
 /** Current and previous ISO-week (Monday to today) bounds, mirroring useStartupData. */

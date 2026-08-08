@@ -1003,6 +1003,45 @@ impl PersistentRouteEngine {
     }
 
     // ========================================================================
+    // Activity Bodies (untyped intervals.icu payloads)
+    // ========================================================================
+
+    /// Store the untyped body for each activity, keyed by id. Idempotent: a
+    /// re-sync overwrites the day's payload in place.
+    pub fn upsert_activity_bodies(&mut self, rows: &[(String, i64, String)]) -> SqlResult<()> {
+        if rows.is_empty() {
+            return Ok(());
+        }
+        let tx = self.db.transaction()?;
+        {
+            let mut stmt = tx.prepare(
+                "INSERT INTO activity_bodies (activity_id, date, raw, updated_at)
+                 VALUES (?, ?, ?, strftime('%s', 'now'))
+                 ON CONFLICT(activity_id) DO UPDATE SET
+                    date = excluded.date,
+                    raw = excluded.raw,
+                    updated_at = excluded.updated_at",
+            )?;
+            for (activity_id, date, raw) in rows {
+                stmt.execute(params![activity_id, date, raw])?;
+            }
+        }
+        tx.commit()
+    }
+
+    /// Untyped activity bodies over an inclusive timestamp window, newest
+    /// first to match the order intervals.icu returns and the feed renders.
+    pub fn get_activity_bodies(&self, oldest_ts: i64, newest_ts: i64) -> SqlResult<Vec<String>> {
+        let mut stmt = self.db.prepare(
+            "SELECT raw FROM activity_bodies
+             WHERE date >= ? AND date <= ?
+             ORDER BY date DESC",
+        )?;
+        let rows = stmt.query_map(params![oldest_ts, newest_ts], |r| r.get::<_, String>(0))?;
+        rows.collect()
+    }
+
+    // ========================================================================
     // Time Streams (for section performance calculations)
     // ========================================================================
 

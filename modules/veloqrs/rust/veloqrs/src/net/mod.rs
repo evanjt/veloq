@@ -10,7 +10,7 @@
 //! reads status.
 
 pub mod transport;
-pub use transport::{NetError, Transport};
+pub use transport::{FilePart, NetError, Transport};
 
 pub mod types;
 

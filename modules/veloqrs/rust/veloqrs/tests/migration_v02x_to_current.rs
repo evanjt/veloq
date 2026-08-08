@@ -357,18 +357,18 @@ fn open_current_engine(path: &Path) -> PersistentRouteEngine {
 }
 
 // ----------------------------------------------------------------------------
-// Migration 013 (B4): the forward migration adds the identity_state table and
+// Migration 017 (B4): the forward migration adds the identity_state table and
 // must NOT touch a user's ACCEPTED (auto + is_user_defined) or NAMED sections,
 // nor their CUSTOM sections. Tests the upgrade preserves user data, not only a
-// fresh install. 013 is purely additive (CREATE TABLE identity_state), so this
+// fresh install. 017 is purely additive (CREATE TABLE identity_state), so this
 // is the guard that keeps it that way.
 // ----------------------------------------------------------------------------
 
 #[test]
-fn migration_013_preserves_user_sections_and_adds_identity_state() {
+fn migration_017_preserves_user_sections_and_adds_identity_state() {
     let dir = TempDir::new().expect("tempdir");
-    let path = dir.path().join("v_pre013.db");
-    seed_v02x_db(&path).expect("build pre-013 schema");
+    let path = dir.path().join("v_pre017.db");
+    seed_v02x_db(&path).expect("build pre-017 schema");
 
     {
         let conn = Connection::open(&path).expect("seed");
@@ -400,12 +400,12 @@ fn migration_013_preserves_user_sections_and_adds_identity_state() {
         .expect("custom section");
     }
 
-    // Run the full forward migration (…012, 013) + post-migration hooks.
+    // Run the full forward migration (…016, 017) + post-migration hooks.
     drop(open_current_engine(&path));
 
     let conn = Connection::open(&path).expect("reopen");
 
-    // The identity_state table now exists (migration 013).
+    // The identity_state table now exists (migration 017).
     let has_identity_state: bool = conn
         .query_row(
             "SELECT 1 FROM sqlite_master WHERE type='table' AND name='identity_state'",
@@ -415,7 +415,7 @@ fn migration_013_preserves_user_sections_and_adds_identity_state() {
         .unwrap_or(false);
     assert!(
         has_identity_state,
-        "migration 013 did not create identity_state"
+        "migration 017 did not create identity_state"
     );
 
     // The accepted auto section survives with its flag and name.
@@ -450,7 +450,7 @@ fn migration_013_preserves_user_sections_and_adds_identity_state() {
 }
 
 // ----------------------------------------------------------------------------
-// Migration 013 (B4) Phase 2: section_activities gains ON DELETE CASCADE on
+// Migration 017 (B4) Phase 2: section_activities gains ON DELETE CASCADE on
 // activity_id via a table rebuild (SQLite cannot ADD a constraint). The rebuild
 // must preserve a valid junction row's data, DROP an orphan row whose activity is
 // gone (cleaning a phantom member a pre-fix remove_activity stranded), and leave
@@ -459,10 +459,10 @@ fn migration_013_preserves_user_sections_and_adds_identity_state() {
 // ----------------------------------------------------------------------------
 
 #[test]
-fn migration_013_rebuilds_junction_with_activity_cascade() {
+fn migration_017_rebuilds_junction_with_activity_cascade() {
     let dir = TempDir::new().expect("tempdir");
-    let path = dir.path().join("v_pre013_junction.db");
-    seed_v02x_db(&path).expect("build pre-013 schema");
+    let path = dir.path().join("v_pre017_junction.db");
+    seed_v02x_db(&path).expect("build pre-017 schema");
 
     {
         let conn = Connection::open(&path).expect("seed");
@@ -488,7 +488,7 @@ fn migration_013_rebuilds_junction_with_activity_cascade() {
         )
         .expect("valid junction row");
 
-        // An orphan row whose activity no longer exists. The pre-013 junction had
+        // An orphan row whose activity no longer exists. The pre-017 junction had
         // no activity_id FK, so this insert is permitted — it reproduces the
         // phantom member an old remove_activity left behind. The rebuild's copy
         // filters it out.
@@ -501,7 +501,7 @@ fn migration_013_rebuilds_junction_with_activity_cascade() {
         .expect("orphan junction row");
     }
 
-    // Run the forward migration (…012, 013 rebuild) + post-migration hooks.
+    // Run the forward migration (…016, 017 rebuild) + post-migration hooks.
     drop(open_current_engine(&path));
 
     let conn = Connection::open(&path).expect("reopen");
@@ -583,17 +583,17 @@ fn migration_013_rebuilds_junction_with_activity_cascade() {
     );
 }
 
-/// The 013 rebuild must be safe to run more than once. rusqlite_migration runs
-/// each migration in a transaction (a crash rolls back and re-runs 013 from v12),
+/// The 017 rebuild must be safe to run more than once. rusqlite_migration runs
+/// each migration in a transaction (a crash rolls back and re-runs 017 from v16),
 /// so literal re-runnability is belt-and-braces — but the team-lead required it.
 /// We exercise the raw SQL directly (user_version would otherwise gate a second
-/// application): apply 013 twice more to a migrated DB and assert each run is a
+/// application): apply 017 twice more to a migrated DB and assert each run is a
 /// clean no-op that leaves the both-FK table, its data, and the cascade intact.
 #[test]
-fn migration_013_is_rerunnable() {
+fn migration_017_is_rerunnable() {
     let dir = TempDir::new().expect("tempdir");
-    let path = dir.path().join("v13_rerun.db");
-    seed_v02x_db(&path).expect("pre-013 schema");
+    let path = dir.path().join("v17_rerun.db");
+    seed_v02x_db(&path).expect("pre-017 schema");
     {
         let conn = Connection::open(&path).expect("seed");
         let track = sample_gps_points(60);
@@ -616,11 +616,11 @@ fn migration_013_is_rerunnable() {
     drop(open_current_engine(&path));
 
     let conn = Connection::open(&path).expect("reopen");
-    let sql = include_str!("../src/migrations/013_b4_core.sql");
+    let sql = include_str!("../src/migrations/017_b4_core.sql");
     conn.execute_batch(sql)
-        .expect("013 second run must not error");
+        .expect("017 second run must not error");
     conn.execute_batch(sql)
-        .expect("013 third run must not error");
+        .expect("017 third run must not error");
 
     let lap: Option<f64> = conn
         .query_row(
@@ -628,8 +628,8 @@ fn migration_013_is_rerunnable() {
             [],
             |r| r.get(0),
         )
-        .expect("row survives repeated 013 runs");
-    assert_eq!(lap, Some(300.0), "repeated 013 must not lose data");
+        .expect("row survives repeated 017 runs");
+    assert_eq!(lap, Some(300.0), "repeated 017 must not lose data");
 
     conn.execute("PRAGMA foreign_keys = ON", []).unwrap();
     conn.execute("DELETE FROM activities WHERE id='act_r'", [])
@@ -641,7 +641,7 @@ fn migration_013_is_rerunnable() {
             |r| r.get(0),
         )
         .unwrap();
-    assert_eq!(n, 0, "cascade must still fire after repeated 013 runs");
+    assert_eq!(n, 0, "cascade must still fire after repeated 017 runs");
 }
 
 // ----------------------------------------------------------------------------
@@ -670,18 +670,18 @@ fn sql_level_custom_section_survives_forward_migration() {
         )
         .expect("schema_version present");
     assert_eq!(
-        schema_version, "13",
-        "schema version should be bumped to 13"
+        schema_version, "17",
+        "schema version should be bumped to 17"
     );
 
     // rusqlite_migration tracks progress via SQLite's PRAGMA user_version,
-    // so applying 13 migrations leaves user_version = 13.
+    // so applying 17 migrations leaves user_version = 17.
     let pragma_user_version: i64 = conn
         .query_row("PRAGMA user_version", [], |r| r.get(0))
         .expect("PRAGMA user_version readable");
     assert_eq!(
-        pragma_user_version, 13,
-        "rusqlite_migration should have advanced PRAGMA user_version to 13"
+        pragma_user_version, 17,
+        "rusqlite_migration should have advanced PRAGMA user_version to 17"
     );
 
     // Section row preserved.
@@ -1135,4 +1135,105 @@ fn ffi_survives_orphan_and_null_edge_cases() {
         "standard summary still present"
     );
     let _ = engine.get_sections_for_activity(ACTIVITY_ID); // must not panic
+}
+
+// ----------------------------------------------------------------------------
+// Renumbering guard. B4 core shipped to dev devices as migration 013 before the
+// untyped-body migrations claimed 013-016 and pushed it to 017. Those devices
+// report user_version = 13, so rusqlite_migration offers them 014 onward and
+// they never see 013's `ALTER TABLE wellness ADD COLUMN raw`. Every other
+// migration in the range is CREATE ... IF NOT EXISTS and recovers on its own;
+// this one cannot, so a post-migration hook adds it on column presence instead.
+// ----------------------------------------------------------------------------
+
+/// Apply migrations 1-11, 012 and B4 core as the thirteenth, reproducing the
+/// database a build with the old numbering left behind.
+fn seed_db_stranded_at_old_013(path: &Path) {
+    seed_v02x_db(path).expect("v0.2.x schema");
+    let mut conn = Connection::open(path).expect("open seed");
+    let old_numbering = Migrations::new(vec![
+        M::up(include_str!("../src/migrations/001_initial_schema.sql")),
+        M::up(include_str!("../src/migrations/002_unified_sections.sql")),
+        M::up(include_str!("../src/migrations/003_drop_section_names.sql")),
+        M::up(include_str!(
+            "../src/migrations/004_extend_activity_metrics.sql"
+        )),
+        M::up(include_str!(
+            "../src/migrations/005_profile_and_settings.sql"
+        )),
+        M::up(include_str!(
+            "../src/migrations/006_processed_activities.sql"
+        )),
+        M::up(include_str!(
+            "../src/migrations/007_cache_section_performances.sql"
+        )),
+        M::up(include_str!(
+            "../src/migrations/008_cache_all_performance_metrics.sql"
+        )),
+        M::up(include_str!("../src/migrations/009_section_bounds_cache.sql")),
+        M::up(include_str!(
+            "../src/migrations/010_route_groups_activity_count.sql"
+        )),
+        M::up(include_str!("../src/migrations/011_pace_history.sql")),
+        M::up(include_str!("../src/migrations/012_v030.sql")),
+        M::up(include_str!("../src/migrations/017_b4_core.sql")),
+    ]);
+    old_numbering.to_latest(&mut conn).expect("old 013 applies");
+
+    let stranded: i64 = conn
+        .query_row("PRAGMA user_version", [], |r| r.get(0))
+        .expect("user_version");
+    assert_eq!(stranded, 13, "the stranded database claims thirteen applied");
+    assert!(
+        conn.prepare("SELECT raw FROM wellness LIMIT 0").is_err(),
+        "the stranded database must genuinely lack the column"
+    );
+}
+
+#[test]
+fn a_database_stranded_at_the_old_013_gains_the_wellness_body_column() {
+    let dir = TempDir::new().expect("tempdir");
+    let path = dir.path().join("stranded.db");
+    seed_db_stranded_at_old_013(&path);
+
+    drop(open_current_engine(&path));
+
+    let conn = Connection::open(&path).expect("reopen");
+    assert!(
+        conn.prepare("SELECT raw FROM wellness LIMIT 0").is_ok(),
+        "the post-migration hook must add the column the renumber skipped"
+    );
+    conn.execute(
+        "INSERT INTO wellness(date, raw) VALUES ('2026-08-08', '{\"vo2max\":52}')",
+        [],
+    )
+    .expect("the column must be writable, not merely present");
+}
+
+#[test]
+fn a_database_stranded_at_the_old_013_still_reaches_the_current_version() {
+    let dir = TempDir::new().expect("tempdir");
+    let path = dir.path().join("stranded_version.db");
+    seed_db_stranded_at_old_013(&path);
+
+    drop(open_current_engine(&path));
+
+    let conn = Connection::open(&path).expect("reopen");
+    let user_version: i64 = conn
+        .query_row("PRAGMA user_version", [], |r| r.get(0))
+        .expect("user_version");
+    assert_eq!(user_version, 17, "remaining migrations still apply");
+
+    // B4 core ran under the old number, so its tables must survive the second
+    // pass 017 makes over them rather than being rebuilt empty.
+    for table in ["identity_state", "section_history", "section_geometry"] {
+        let present: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=?1",
+                [table],
+                |r| r.get(0),
+            )
+            .expect("sqlite_master readable");
+        assert_eq!(present, 1, "{table} must survive the renumbered re-apply");
+    }
 }

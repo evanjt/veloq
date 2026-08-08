@@ -3,11 +3,6 @@
  * Tests getISOWeekNumber and formatWeekRange without React hooks.
  */
 
-// Mock the full import chain that useAthleteSummary pulls in
-jest.mock('@/api', () => ({
-  intervalsApi: {},
-}));
-
 jest.mock('@/shared/app/AuthStore', () => ({
   useAuthStore: jest.fn(),
 }));
