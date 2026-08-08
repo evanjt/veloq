@@ -9,9 +9,9 @@ onFlowComplete:
   - openLink: "veloq://"
   - runFlow:
       when:
-        visible: "DISCARD"
+        visible: "(?i)discard"
       commands:
-        - tapOn: "DISCARD"
+        - tapOn: "(?i)discard"
 ---
 - runFlow:
     file: helpers/setup-demo-mode.yaml
@@ -23,9 +23,9 @@ onFlowComplete:
 # Dismiss any "Resume previous recording?" dialog
 - runFlow:
     when:
-      visible: "Discard"
+      visible: "(?i)discard"
     commands:
-      - tapOn: "Discard"
+      - tapOn: "(?i)discard"
 
 # The categories live behind the All Activities disclosure, which starts
 # closed, so nothing under it is in the tree until this is tapped.

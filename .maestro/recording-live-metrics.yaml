@@ -9,9 +9,9 @@ onFlowComplete:
   - openLink: "veloq://"
   - runFlow:
       when:
-        visible: "DISCARD"
+        visible: "(?i)discard"
       commands:
-        - tapOn: "DISCARD"
+        - tapOn: "(?i)discard"
 ---
 - runFlow:
     file: helpers/setup-demo-mode.yaml
@@ -23,9 +23,9 @@ onFlowComplete:
 # Dismiss any resume dialog
 - runFlow:
     when:
-      visible: "DISCARD"
+      visible: "(?i)discard"
     commands:
-      - tapOn: "DISCARD"
+      - tapOn: "(?i)discard"
 
 # Verify GPS readiness indicator on record screen
 - assertVisible:

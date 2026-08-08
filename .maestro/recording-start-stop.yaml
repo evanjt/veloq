@@ -9,9 +9,9 @@ onFlowComplete:
   - openLink: "veloq://"
   - runFlow:
       when:
-        visible: "DISCARD"
+        visible: "(?i)discard"
       commands:
-        - tapOn: "DISCARD"
+        - tapOn: "(?i)discard"
 ---
 - runFlow:
     file: helpers/setup-demo-mode.yaml
@@ -23,9 +23,9 @@ onFlowComplete:
 # Dismiss any "Resume previous recording?" dialog
 - runFlow:
     when:
-      visible: "DISCARD"
+      visible: "(?i)discard"
     commands:
-      - tapOn: "DISCARD"
+      - tapOn: "(?i)discard"
 
 # Expand Cycling category if Ride isn't directly visible (may be collapsed due to
 # a previous test selecting a different activity type, e.g. WeightTraining)
