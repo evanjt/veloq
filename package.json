@@ -75,6 +75,7 @@
     "babel-preset-expo": "~56.0.0",
     "d3-shape": "^3.2.0",
     "expo": "^56",
+    "expo-background-task": "~56.0.25",
     "expo-blur": "~56.0.3",
     "expo-build-properties": "~56.0.16",
     "expo-camera": "~56.0.7",

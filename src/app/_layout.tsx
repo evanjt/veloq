@@ -32,7 +32,7 @@ import { pushCredentialsToEngine, useAuthStore } from '@/shared/app/AuthStore';
 import { seedDemoEngine } from '@/shared/app/seedDemoEngine';
 import { initializeSportPreference, initializeHRZones } from '@/features/fitness/stores';
 import { initializeDashboardPreferences } from '@/features/home/store';
-import { updateWidgetSnapshot } from '@/features/home';
+import { updateWidgetSnapshot, registerWidgetRefreshTask } from '@/features/home';
 import { refreshWellness } from '@/shared/native/refreshWellness';
 import { initializeInsightsStore } from '@/features/insights/store';
 import { MapPreferencesProvider } from '@/features/maps/stores/MapPreferencesContext';
@@ -496,6 +496,7 @@ export default function RootLayout() {
   useEffect(() => {
     initializeNotifications();
     registerBackgroundNotificationTask();
+    registerWidgetRefreshTask();
     const receivedSub = setupNotificationReceivedHandler();
     const responseSub = setupNotificationResponseHandler();
     return () => {

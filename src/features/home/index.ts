@@ -38,6 +38,11 @@ export {
   isWidgetBridgeAvailable,
 } from './lib/widgetBridge';
 export {
+  registerWidgetRefreshTask,
+  WIDGET_REFRESH_TASK,
+  WIDGET_REFRESH_INTERVAL_MINUTES,
+} from './lib/widgetRefreshTask';
+export {
   composeSnapshot,
   gatherWidgetSnapshot,
   WIDGET_SNAPSHOT_SCHEMA_VERSION,

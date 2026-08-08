@@ -2,6 +2,10 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
   <dict>
+    <key>BGTaskSchedulerPermittedIdentifiers</key>
+    <array>
+      <string>com.expo.modules.backgroundtask.processing</string>
+    </array>
     <key>CADisableMinimumFrameDurationOnPhone</key>
     <true/>
     <key>CFBundleDevelopmentRegion</key>
@@ -67,6 +71,10 @@
       <key>NSAllowsLocalNetworking</key>
       <true/>
     </dict>
+    <key>NSBluetoothAlwaysUsageDescription</key>
+    <string>Veloq uses Bluetooth to connect to heart rate, power, and cadence sensors during recording.</string>
+    <key>NSCameraUsageDescription</key>
+    <string>Allow $(PRODUCT_NAME) to access your camera</string>
     <key>NSFaceIDUsageDescription</key>
     <string>Allow $(PRODUCT_NAME) to access your Face ID biometric data.</string>
     <key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
@@ -75,6 +83,10 @@
     <string>Allow $(PRODUCT_NAME) to access your location</string>
     <key>NSLocationWhenInUseUsageDescription</key>
     <string>Veloq uses your location to display activity maps, track routes, and record fitness activities.</string>
+    <key>NSMicrophoneUsageDescription</key>
+    <string>Allow $(PRODUCT_NAME) to access your microphone</string>
+    <key>NSMotionUsageDescription</key>
+    <string>Allow $(PRODUCT_NAME) to detect your current motion activity</string>
     <key>NSUbiquitousContainers</key>
     <dict>
       <key>iCloud.com.veloq.app</key>
@@ -98,6 +110,8 @@
       <string>location</string>
       <string>fetch</string>
       <string>remote-notification</string>
+      <string>bluetooth-central</string>
+      <string>processing</string>
     </array>
     <key>UILaunchStoryboardName</key>
     <string>SplashScreen</string>

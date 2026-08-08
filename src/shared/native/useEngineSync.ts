@@ -13,6 +13,7 @@
 import { useEffect, useRef } from 'react';
 
 import { useAuthStore } from '@/shared/app/AuthStore';
+import { updateWidgetSnapshot } from '@/features/home';
 
 import { getRouteEngine } from './routeEngine';
 import { useSyncStatus } from './useSyncStatus';
@@ -45,9 +46,14 @@ export function useEngineSync(): void {
     if (!wasSyncingRef.current) return;
     wasSyncingRef.current = false;
     // Both channels: 'activities' wakes the profile and sport-settings readers,
-    // 'wellness' wakes the fitness charts, the summary card and the widget.
+    // 'wellness' wakes the fitness charts and the summary card.
     const engine = getRouteEngine();
     engine?.triggerRefresh('activities');
     engine?.triggerRefresh('wellness');
+    // The widget runs in another process and cannot subscribe, so its snapshot
+    // is rewritten here. Every Rust sync settles through this transition, which
+    // makes it the one place that covers foreground, pull-to-refresh and the
+    // periodic background refresh alike.
+    updateWidgetSnapshot();
   }, [state]);
 }
