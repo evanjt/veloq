@@ -41,7 +41,8 @@ impl super::PersistentRouteEngine {
         let mut all_summaries: Vec<_> = available_sports
             .iter()
             .flat_map(|sport| self.get_section_summaries_for_sport(sport))
-            .filter(|s| s.visit_count >= 3)
+            // Outings, not passes: a PR slot is earned by returning.
+            .filter(|s| s.activity_count >= 3)
             .collect();
         all_summaries.sort_by_key(|s| std::cmp::Reverse(s.visit_count));
 

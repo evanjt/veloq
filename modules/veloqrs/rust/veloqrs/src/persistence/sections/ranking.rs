@@ -330,11 +330,11 @@ impl PersistentRouteEngine {
                 .collect();
         }
 
-        // Fallback: visit-count sort over summaries (matches prior TS fallback).
+        // Fallback: traversal sort over summaries, floored on outings.
         let mut summaries: Vec<_> = self
             .get_section_summaries_for_sport(sport_type)
             .into_iter()
-            .filter(|s| s.visit_count >= 5)
+            .filter(|s| s.activity_count >= 5)
             .collect();
         summaries.sort_by(|a, b| b.visit_count.cmp(&a.visit_count));
         summaries.truncate(limit as usize);

@@ -250,16 +250,12 @@ fn deleting_a_section_leaves_no_orphan_rows() {
     assert_eq!(orphan_junction_rows(&s.raw), 0, "cascade left orphan rows");
 }
 
-// ----------------------------------------------------------------------------
-// visit_count and activity_count answer different questions and must not be
-// aliased to each other. Both summary read paths used to report the SAME
-// number: the persistence path sent traversals through both fields, the CRUD
-// path sent distinct activities through both. A lapped section is the case
-// that separates them, and neither path had a test with one.
-// ----------------------------------------------------------------------------
+// --- Traversals vs outings ---
+//
+// A lapped section is the only case that separates the two counts, and both
+// summary read paths must report it the same way.
 
-/// One pass over `section_id`, distinguished by `start_index` because that is
-/// what the junction primary key uses to tell laps apart.
+/// One pass over `section_id`, keyed apart by `start_index`.
 fn insert_pass(db: &Connection, section_id: &str, activity_id: &str, start_index: i64) {
     db.execute(
         "INSERT INTO section_activities (section_id, activity_id, direction, start_index,
@@ -270,8 +266,7 @@ fn insert_pass(db: &Connection, section_id: &str, activity_id: &str, start_index
     .expect("insert pass");
 }
 
-/// An interval session: one activity round the oval three times, plus a second
-/// activity that passes once. Four traversals across two outings.
+/// Four traversals across two outings: three laps plus a single pass.
 fn setup_lapped_oval() -> Setup {
     let s = setup();
     insert_activity(&s.raw, "act_intervals", 1_700_000_000);
@@ -366,5 +361,59 @@ fn excluding_a_lap_drops_one_traversal_but_keeps_the_outing() {
     assert_eq!(
         summary.activity_count, 2,
         "its activity still traverses the section on its other laps"
+    );
+}
+
+// --- Repetition floors count outings ---
+//
+// Laps say how much ground was covered in one go, never that the athlete came
+// back. Every "minimum visits" floor is a question about returning.
+
+/// A section reached once, lapped many times.
+fn insert_single_session_lapped_section(db: &Connection) {
+    insert_activity(db, "act_one_session", 1_700_000_000);
+    insert_section(db, "sec_single_session", "Run");
+    for start in [0, 100, 200, 300, 400, 500] {
+        insert_pass(db, "sec_single_session", "act_one_session", start);
+    }
+}
+
+#[test]
+fn one_lapped_session_does_not_clear_a_repetition_floor() {
+    let mut s = setup();
+    insert_single_session_lapped_section(&s.raw);
+    s.engine.load().expect("load");
+
+    let summary = s
+        .engine
+        .get_section_summaries()
+        .into_iter()
+        .find(|x| x.id == "sec_single_session")
+        .expect("summary present");
+    assert_eq!(summary.visit_count, 6, "six passes");
+    assert_eq!(summary.activity_count, 1, "one outing");
+
+    let passing = s.engine.get_sections_filtered(None, Some(5));
+    assert!(
+        !passing.iter().any(|x| x.id == "sec_single_session"),
+        "six laps of one session are not five visits to a place"
+    );
+}
+
+#[test]
+fn returning_often_enough_clears_the_floor() {
+    let mut s = setup();
+    insert_section(&s.raw, "sec_commute", "Run");
+    for i in 0..5 {
+        let aid = format!("act_{i}");
+        insert_activity(&s.raw, &aid, 1_700_000_000 + i * 86_400);
+        insert_pass(&s.raw, "sec_commute", &aid, 0);
+    }
+    s.engine.load().expect("load");
+
+    let passing = s.engine.get_sections_filtered(None, Some(5));
+    assert!(
+        passing.iter().any(|x| x.id == "sec_commute"),
+        "five separate outings clear a floor of five"
     );
 }

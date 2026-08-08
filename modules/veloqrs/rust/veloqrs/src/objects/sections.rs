@@ -170,7 +170,9 @@ impl SectionManager {
                 Some(ref sport) => e.get_section_summaries_for_sport(sport),
                 None => e.get_section_summaries(),
             };
-            summaries.retain(|s| s.visit_count >= min_visits);
+            // The floor counts outings, the sort counts traversals: laps show
+            // ground covered, not that the athlete came back.
+            summaries.retain(|s| s.activity_count >= min_visits);
             match sort_key.as_str() {
                 "distance" => summaries.sort_by(|a, b| {
                     b.distance_meters

@@ -483,7 +483,7 @@ impl PersistentRouteEngine {
             .collect()
     }
 
-    /// Get sections filtered by sport type and/or minimum visit count.
+    /// Get sections filtered by sport type and/or minimum outings.
     /// Filters in-memory sections to avoid FFI overhead for non-matching entries.
     pub fn get_sections_filtered(
         &self,
@@ -491,9 +491,14 @@ impl PersistentRouteEngine {
         min_visits: Option<u32>,
     ) -> Vec<&FrequentSection> {
         let min = min_visits.unwrap_or(0);
+        // Outings, not passes: laps show ground covered, not that the athlete
+        // came back.
         self.sections
             .iter()
-            .filter(|s| sport_type.map_or(true, |st| s.sport_type == st) && s.visit_count >= min)
+            .filter(|s| {
+                sport_type.map_or(true, |st| s.sport_type == st)
+                    && s.activity_ids.len() as u32 >= min
+            })
             .filter(|s| !self.superseded_ids.contains(&s.id))
             .collect()
     }
@@ -718,13 +723,10 @@ impl PersistentRouteEngine {
     /// Queries SQLite and extracts only summary fields, skipping heavy data like
     /// polylines, activityTraces, and pointDensity.
     pub fn get_section_summaries(&self) -> Vec<SectionSummary> {
-        // visit_count is a denormalised column on sections now (kept correct by
-        // the section_activities recompute triggers in migration 017), so it comes
-        // straight off the main row below — no per-open GROUP BY over the junction.
-        // One junction row is one PASS, so that column counts traversals; an
-        // athlete's ten laps of an oval are ten. activity_count answers the other
-        // question ("how many outings"), so it needs its own DISTINCT and cannot
-        // be aliased to the same number.
+        // `visit_count` is denormalised onto the row, kept correct by the
+        // `section_activities` recompute triggers, so it needs no GROUP BY here.
+        // One junction row is one pass, so it counts traversals; outings are a
+        // separate DISTINCT.
         let section_activity_counts: HashMap<String, u32> = {
             let mut stmt = match self.db.prepare(
                 "SELECT section_id, COUNT(DISTINCT activity_id) FROM section_activities
@@ -1375,12 +1377,8 @@ impl PersistentRouteEngine {
                 consensus_state_blob, polyline_blob, point_density_blob
             ) VALUES (?, 'auto', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
         )?;
-        // OR REPLACE, not a bare INSERT. The junction key is
-        // (section_id, activity_id, start_index), and now that a track
-        // contributes one row per pass, two passes of one activity can round to
-        // the same start index on a short section. A bare INSERT turns that
-        // into a UNIQUE violation that aborts the whole detection apply, losing
-        // the entire catalogue over one duplicated index.
+        // OR REPLACE: two passes of one activity can share a `start_index` on a
+        // short section, and a UNIQUE violation would abort the whole apply.
         let mut junction_stmt = tx
             .prepare("INSERT OR REPLACE INTO section_activities (section_id, activity_id, direction, start_index, end_index, distance_meters, lap_time, lap_pace) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")?;
 
