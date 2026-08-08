@@ -629,6 +629,8 @@ void uniffi_veloqrs_fn_method_syncmanager_set_credentials(
     RustBuffer athlete_id, RustCallStatus *uniffi_out_err);
 int8_t uniffi_veloqrs_fn_method_syncmanager_sync_now(
     /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
+int8_t uniffi_veloqrs_fn_method_syncmanager_sync_wellness_now(
+    /*handle*/ uint64_t ptr, uint32_t days, RustCallStatus *uniffi_out_err);
 /*handle*/ uint64_t uniffi_veloqrs_fn_clone_heatmapmanager(
     /*handle*/ uint64_t handle, RustCallStatus *uniffi_out_err);
 void uniffi_veloqrs_fn_free_heatmapmanager(
@@ -991,6 +993,7 @@ uint16_t uniffi_veloqrs_checksum_method_syncmanager_clear_credentials();
 uint16_t uniffi_veloqrs_checksum_method_syncmanager_get_sync_status();
 uint16_t uniffi_veloqrs_checksum_method_syncmanager_set_credentials();
 uint16_t uniffi_veloqrs_checksum_method_syncmanager_sync_now();
+uint16_t uniffi_veloqrs_checksum_method_syncmanager_sync_wellness_now();
 uint16_t uniffi_veloqrs_checksum_method_heatmapmanager_clear_tiles();
 uint16_t uniffi_veloqrs_checksum_method_heatmapmanager_clear_tiles_path();
 uint16_t uniffi_veloqrs_checksum_method_heatmapmanager_get_cache_size();
@@ -4754,6 +4757,19 @@ NativeVeloqrs::NativeVeloqrs(
             return this->cpp_uniffi_veloqrs_fn_method_syncmanager_sync_now(
                 rt, thisVal, args, count);
           });
+  props["ubrn_uniffi_veloqrs_fn_method_syncmanager_sync_wellness_now"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt,
+              "ubrn_uniffi_veloqrs_fn_method_syncmanager_sync_wellness_now"),
+          2,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_fn_method_syncmanager_sync_wellness_now(
+                    rt, thisVal, args, count);
+          });
   props["ubrn_uniffi_veloqrs_fn_clone_heatmapmanager"] =
       jsi::Function::createFromHostFunction(
           rt,
@@ -7106,6 +7122,18 @@ NativeVeloqrs::NativeVeloqrs(
                  const jsi::Value *args, size_t count) -> jsi::Value {
             return this
                 ->cpp_uniffi_veloqrs_checksum_method_syncmanager_sync_now(
+                    rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_checksum_method_syncmanager_sync_wellness_now"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_checksum_method_"
+                                        "syncmanager_sync_wellness_now"),
+          0,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_checksum_method_syncmanager_sync_wellness_now(
                     rt, thisVal, args, count);
           });
   props["ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_clear_tiles"] =
@@ -10946,6 +10974,22 @@ jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_syncmanager_sync_now(
 
   return uniffi_jsi::Bridging<int8_t>::toJs(rt, callInvoker, value);
 }
+jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_syncmanager_sync_wellness_now(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value = uniffi_veloqrs_fn_method_syncmanager_sync_wellness_now(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      uniffi_jsi::Bridging<uint32_t>::fromJs(rt, callInvoker, args[1]),
+      &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return uniffi_jsi::Bridging<int8_t>::toJs(rt, callInvoker, value);
+}
 jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_clone_heatmapmanager(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
     size_t count) {
@@ -12680,6 +12724,14 @@ NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_syncmanager_sync_now(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
     size_t count) {
   auto value = uniffi_veloqrs_checksum_method_syncmanager_sync_now();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_syncmanager_sync_wellness_now(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  auto value = uniffi_veloqrs_checksum_method_syncmanager_sync_wellness_now();
 
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }

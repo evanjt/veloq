@@ -253,9 +253,10 @@ pub fn current_athlete_id() -> Option<String> {
     SYNC_SERVICE.athlete_id()
 }
 
-/// How many days of wellness one sync pulls. Matches the widest range the
-/// fitness screens offer, so a range change never needs a fresh request.
-const WELLNESS_DAYS: i64 = 365;
+/// How many days of wellness one full sync pulls. The widest range the fitness
+/// screens offer is a year; the extra days are slack so the oldest day of a
+/// '1y' window still resolves when the app runs past midnight without resyncing.
+const WELLNESS_DAYS: i64 = 370;
 
 /// The steps `perform_sync` runs, for the progress counters TypeScript polls.
 const SYNC_STEPS: u32 = 3;
@@ -300,7 +301,7 @@ pub(crate) async fn perform_sync(svc: &SyncService, transport: Transport, athlet
 
     step!(sync_athlete(&transport, &athlete_id).await);
     step!(sync_sport_settings(&transport, &athlete_id).await);
-    step!(sync_wellness(&transport, &athlete_id).await);
+    step!(sync_wellness(&transport, &athlete_id, WELLNESS_DAYS, Lane::Backfill).await);
 
     let success = last_error.is_none();
     svc.finish(SyncState::Idle, last_error, success);
@@ -321,16 +322,23 @@ async fn sync_sport_settings(transport: &Transport, athlete_id: &str) -> Result<
     Ok(())
 }
 
-/// Persist a year of wellness, typed columns plus the untyped body per day.
-async fn sync_wellness(transport: &Transport, athlete_id: &str) -> Result<(), NetError> {
+/// Persist the trailing `days` of wellness, typed columns plus the untyped body
+/// per day. The upsert is keyed on date, so a narrow refresh window merges into
+/// a previously stored wide one instead of replacing it.
+async fn sync_wellness(
+    transport: &Transport,
+    athlete_id: &str,
+    days: i64,
+    lane: Lane,
+) -> Result<(), NetError> {
     let newest = chrono::Local::now().date_naive();
-    let oldest = newest - chrono::Duration::days(WELLNESS_DAYS);
+    let oldest = newest - chrono::Duration::days(days);
     let days = endpoints::fetch_wellness_with_bodies(
         transport,
         athlete_id,
         &oldest.to_string(),
         &newest.to_string(),
-        Lane::Backfill,
+        lane,
     )
     .await?;
     if days.is_empty() {
@@ -358,12 +366,52 @@ async fn sync_wellness(transport: &Transport, athlete_id: &str) -> Result<(), Ne
         })
         .collect();
 
-    crate::persistence::with_persistent_engine(|engine| {
-        if let Err(e) = engine.upsert_wellness(&rows) {
-            log::warn!("[Sync] wellness upsert failed: {}", e);
-        }
-    });
+    // `with_persistent_engine` takes a blocking write lock the synchronous FFI
+    // entry points also hold. Parking a runtime worker on it would stall every
+    // other in-flight request, so the upsert runs on the blocking pool.
+    let _ = tokio::task::spawn_blocking(move || {
+        crate::persistence::with_persistent_engine(|engine| {
+            if let Err(e) = engine.upsert_wellness(&rows) {
+                log::warn!("[Sync] wellness upsert failed: {}", e);
+            }
+        });
+    })
+    .await;
     Ok(())
+}
+
+/// The refresh window for a user-initiated or foreground wellness sync. Only
+/// the last fortnight can have changed in a way the screens show, and the
+/// upsert merges it into whatever the full sync already stored.
+const WELLNESS_REFRESH_DAYS: i64 = 14;
+
+/// The targeted wellness refresh: one step, interactive lane, narrow window.
+/// Shares the whole status, cancellation and auth-expiry machinery with
+/// `perform_sync` so TypeScript observes it through the same snapshot.
+pub(crate) async fn perform_wellness_sync(
+    svc: &SyncService,
+    transport: Transport,
+    athlete_id: String,
+    days: i64,
+) {
+    if svc.is_cancelled() {
+        svc.finish(SyncState::Idle, None, false);
+        return;
+    }
+    svc.begin_steps(1);
+
+    match sync_wellness(&transport, &athlete_id, days, Lane::Interactive).await {
+        Ok(()) => {
+            svc.complete_step();
+            svc.finish(SyncState::Idle, None, true);
+        }
+        Err(NetError::Unauthorized) => svc.finish(
+            SyncState::AuthExpired,
+            Some("unauthorized".to_string()),
+            false,
+        ),
+        Err(e) => svc.finish(SyncState::Idle, Some(e.to_string()), false),
+    }
 }
 
 /// The FFI service object. The single thing TypeScript calls for I/O.
@@ -426,6 +474,48 @@ impl SyncManager {
                     }
                     let _guard = FinishGuard;
                     perform_sync(&SYNC_SERVICE, transport, athlete_id).await;
+                });
+                Ok(true)
+            }
+            Err(e) => {
+                SYNC_SERVICE.finish(SyncState::Idle, Some(e), false);
+                Ok(false)
+            }
+        }
+    }
+
+    /// Refresh just the trailing wellness window. Same contract as `sync_now`:
+    /// returns instantly, false if a sync is already running or credentials are
+    /// missing. This is what foreground and pull-to-refresh call, so CTL/ATL
+    /// move without paying for a full profile sync.
+    fn sync_wellness_now(&self, days: u32) -> Result<bool, VeloqError> {
+        if !SYNC_SERVICE.try_begin() {
+            return Ok(false);
+        }
+        match SYNC_SERVICE.build_transport() {
+            Ok((transport, athlete_id)) => {
+                let days = if days == 0 {
+                    WELLNESS_REFRESH_DAYS
+                } else {
+                    days as i64
+                };
+                crate::runtime::spawn(async move {
+                    // Same reasoning as sync_now: a skipped finish() would wedge
+                    // try_begin() in Syncing for the rest of the session.
+                    struct FinishGuard;
+                    impl Drop for FinishGuard {
+                        fn drop(&mut self) {
+                            if std::thread::panicking() {
+                                SYNC_SERVICE.finish(
+                                    SyncState::Idle,
+                                    Some("wellness sync task panicked".to_string()),
+                                    false,
+                                );
+                            }
+                        }
+                    }
+                    let _guard = FinishGuard;
+                    perform_wellness_sync(&SYNC_SERVICE, transport, athlete_id, days).await;
                 });
                 Ok(true)
             }
@@ -585,6 +675,61 @@ mod tests {
         assert_eq!(s.state, "idle");
         assert_eq!(s.completed, SYNC_STEPS - 1);
         assert!(s.last_error.is_some());
+    }
+
+    #[test]
+    fn targeted_wellness_sync_runs_one_step_and_asks_for_the_narrow_window() {
+        let server = MockServer::start();
+        let wellness = server.mock(|when, then| {
+            when.method(GET).path("/athlete/i1/wellness");
+            then.status(200).json_body(json!([]));
+        });
+        let profile = server.mock(|when, then| {
+            when.method(GET).path("/athlete/i1");
+            then.status(200).json_body(json!({"id": "i1"}));
+        });
+
+        let svc = SyncService::new();
+        assert!(svc.try_begin());
+        crate::runtime::block_on(perform_wellness_sync(
+            &svc,
+            transport_to(server.base_url()),
+            "i1".into(),
+            WELLNESS_REFRESH_DAYS,
+        ));
+
+        wellness.assert();
+        // The point of the targeted command: it does not pay for the rest of
+        // the profile slice.
+        profile.assert_hits(0);
+
+        let s = svc.snapshot();
+        assert_eq!(s.state, "idle");
+        assert_eq!(s.total, 1);
+        assert_eq!(s.completed, 1);
+        assert!(s.last_error.is_none());
+    }
+
+    #[test]
+    fn targeted_wellness_sync_surfaces_an_expired_credential() {
+        let server = MockServer::start();
+        server.mock(|when, then| {
+            when.method(GET).path("/athlete/i1/wellness");
+            then.status(401);
+        });
+
+        let svc = SyncService::new();
+        assert!(svc.try_begin());
+        crate::runtime::block_on(perform_wellness_sync(
+            &svc,
+            transport_to(server.base_url()),
+            "i1".into(),
+            WELLNESS_REFRESH_DAYS,
+        ));
+
+        let s = svc.snapshot();
+        assert_eq!(s.state, "authExpired");
+        assert_eq!(s.last_error.as_deref(), Some("unauthorized"));
     }
 
     #[test]

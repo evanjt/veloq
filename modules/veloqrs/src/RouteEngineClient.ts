@@ -266,6 +266,8 @@ class RouteEngineClient implements DelegateHost {
 
   syncNow = (): boolean => syncDelegates.syncNow(this);
 
+  syncWellnessNow = (days: number): boolean => syncDelegates.syncWellnessNow(this, days);
+
   cancelSync = (): void => syncDelegates.cancelSync(this);
 
   getSyncStatus = (): SyncStatus | null => syncDelegates.getSyncStatus(this);

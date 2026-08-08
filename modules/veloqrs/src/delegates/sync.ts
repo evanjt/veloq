@@ -59,6 +59,19 @@ export function syncNow(host: DelegateHost): boolean {
   return started;
 }
 
+/** Refresh only the trailing `days` of wellness. Same instant-return contract as
+ *  `syncNow`; false if a sync is already running or no credentials are set.
+ *  This is what foreground and pull-to-refresh call so CTL/ATL move without
+ *  paying for a full profile sync. */
+export function syncWellnessNow(host: DelegateHost, days: number): boolean {
+  if (!host.ready) return false;
+  const started = host.timed('syncWellnessNow', () =>
+    host.engine.sync().syncWellnessNow(days)
+  ) as boolean;
+  if (started) host.notify('sync');
+  return started;
+}
+
 /** Soft-cancel the running sync. */
 export function cancelSync(host: DelegateHost): void {
   if (!host.ready) return;

@@ -12442,6 +12442,13 @@ export interface SyncManagerLike {
    * runtime; observe progress via `get_sync_status`.
    */
   syncNow() /*throws*/ : boolean;
+  /**
+   * Refresh just the trailing wellness window. Same contract as `sync_now`:
+   * returns instantly, false if a sync is already running or credentials are
+   * missing. This is what foreground and pull-to-refresh call, so CTL/ATL
+   * move without paying for a full profile sync.
+   */
+  syncWellnessNow(days: /*u32*/ number) /*throws*/ : boolean;
 }
 /**
  * @deprecated Use `SyncManagerLike` instead.
@@ -12559,6 +12566,30 @@ export class SyncManager
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_syncmanager_sync_now(
             uniffiTypeSyncManagerObjectFactory.clonePointer(this),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  /**
+   * Refresh just the trailing wellness window. Same contract as `sync_now`:
+   * returns instantly, false if a sync is already running or credentials are
+   * missing. This is what foreground and pull-to-refresh call, so CTL/ATL
+   * move without paying for a full profile sync.
+   */
+  syncWellnessNow(days: /*u32*/ number): boolean /*throws*/ {
+    return FfiConverterBool.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_syncmanager_sync_wellness_now(
+            uniffiTypeSyncManagerObjectFactory.clonePointer(this),
+            FfiConverterUInt32.lower(days),
             callStatus,
           );
         },
@@ -15041,6 +15072,14 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_syncmanager_sync_now",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_syncmanager_sync_wellness_now() !==
+    35119
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_syncmanager_sync_wellness_now",
     );
   }
   if (

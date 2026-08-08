@@ -6,7 +6,7 @@
  * Used by tests to validate TypeScript bindings match Rust exports.
  *
  * 6 standalone `#[uniffi::export]` functions plus
- * 192 methods inside `#[uniffi::export] impl` blocks across
+ * 194 methods inside `#[uniffi::export] impl` blocks across
  * 11 UniFFI Objects.
  */
 
@@ -29,7 +29,7 @@ export interface FfiExportInfo {
 
 /**
  * All FFI exports from Rust source.
- * Total: 198 exports (6 standalone + 192 methods)
+ * Total: 200 exports (6 standalone + 194 methods)
  */
 export const FFI_EXPORTS: FfiExportInfo[] = [
   {
@@ -1669,7 +1669,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'new',
     camelName: 'new',
     file: 'objects/sync.rs',
-    line: 378,
+    line: 426,
     paramCount: 0,
     returnType: 'Arc<Self>',
     object: 'SyncManager',
@@ -1678,7 +1678,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'set_credentials',
     camelName: 'setCredentials',
     file: 'objects/sync.rs',
-    line: 383,
+    line: 431,
     paramCount: 3,
     returnType: 'Result<(), VeloqError>',
     object: 'SyncManager',
@@ -1687,7 +1687,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'clear_credentials',
     camelName: 'clearCredentials',
     file: 'objects/sync.rs',
-    line: 397,
+    line: 445,
     paramCount: 0,
     returnType: 'void',
     object: 'SyncManager',
@@ -1696,7 +1696,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'sync_now',
     camelName: 'syncNow',
     file: 'objects/sync.rs',
-    line: 404,
+    line: 452,
     paramCount: 0,
     returnType: 'Result<bool, VeloqError>',
     object: 'SyncManager',
@@ -1705,7 +1705,25 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'drop',
     camelName: 'drop',
     file: 'objects/sync.rs',
-    line: 417,
+    line: 465,
+    paramCount: 0,
+    returnType: 'void',
+    object: 'SyncManager',
+  },
+  {
+    name: 'sync_wellness_now',
+    camelName: 'syncWellnessNow',
+    file: 'objects/sync.rs',
+    line: 491,
+    paramCount: 1,
+    returnType: 'Result<bool, VeloqError>',
+    object: 'SyncManager',
+  },
+  {
+    name: 'drop',
+    camelName: 'drop',
+    file: 'objects/sync.rs',
+    line: 507,
     paramCount: 0,
     returnType: 'void',
     object: 'SyncManager',
@@ -1714,7 +1732,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'cancel',
     camelName: 'cancel',
     file: 'objects/sync.rs',
-    line: 440,
+    line: 530,
     paramCount: 0,
     returnType: 'void',
     object: 'SyncManager',
@@ -1723,7 +1741,7 @@ export const FFI_EXPORTS: FfiExportInfo[] = [
     name: 'get_sync_status',
     camelName: 'getSyncStatus',
     file: 'objects/sync.rs',
-    line: 445,
+    line: 535,
     paramCount: 0,
     returnType: 'FfiSyncStatus',
     object: 'SyncManager',
@@ -2001,6 +2019,8 @@ export const EXPECTED_TS_FUNCTIONS = new Set<string>([
   'clearCredentials',
   'syncNow',
   'drop',
+  'syncWellnessNow',
+  'drop',
   'cancel',
   'getSyncStatus',
   'new',
@@ -2186,6 +2206,7 @@ export const RUST_TO_TS_NAME: Record<string, string> = {
   clear_credentials: 'clearCredentials',
   sync_now: 'syncNow',
   drop: 'drop',
+  sync_wellness_now: 'syncWellnessNow',
   cancel: 'cancel',
   get_sync_status: 'getSyncStatus',
   set_tiles_path: 'setTilesPath',

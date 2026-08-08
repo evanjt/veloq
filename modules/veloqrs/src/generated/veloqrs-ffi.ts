@@ -1051,6 +1051,11 @@ interface NativeModuleInterface {
     ptr: bigint,
     uniffi_out_err: UniffiRustCallStatus,
   ): number;
+  ubrn_uniffi_veloqrs_fn_method_syncmanager_sync_wellness_now(
+    ptr: bigint,
+    days: number,
+    uniffi_out_err: UniffiRustCallStatus,
+  ): number;
   ubrn_uniffi_veloqrs_fn_clone_heatmapmanager(
     handle: bigint,
     uniffi_out_err: UniffiRustCallStatus,
@@ -1299,6 +1304,7 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_checksum_method_syncmanager_get_sync_status(): number;
   ubrn_uniffi_veloqrs_checksum_method_syncmanager_set_credentials(): number;
   ubrn_uniffi_veloqrs_checksum_method_syncmanager_sync_now(): number;
+  ubrn_uniffi_veloqrs_checksum_method_syncmanager_sync_wellness_now(): number;
   ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_clear_tiles(): number;
   ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_clear_tiles_path(): number;
   ubrn_uniffi_veloqrs_checksum_method_heatmapmanager_get_cache_size(): number;
