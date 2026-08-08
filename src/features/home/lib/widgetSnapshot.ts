@@ -8,8 +8,10 @@
  * Rust `getWidgetSnapshot()` FFI will later replace the multi-call gather, but the
  * snapshot shape it returns stays the same.
  *
- * Sparkline arrays from `getWellnessSparklines` are ordered NEWEST-FIRST
- * (`ORDER BY date DESC`), so index 0 = today, index 1 = yesterday.
+ * Sparkline arrays from `getWellnessSparklines` are ordered OLDEST-FIRST, which
+ * is also the order the native charts draw. Rust selects `ORDER BY date DESC`
+ * then reverses (`persistence/wellness.rs`), so the LAST element is today and
+ * the second-to-last is yesterday.
  */
 import { getFormZone, type FormZone } from '@/features/fitness/lib/fitness';
 import {
@@ -255,12 +257,12 @@ function trendOfNullable(
   return trendOf(current, prev, deadband);
 }
 
-/** Build a MetricValue from a newest-first series. Safe on empty/short arrays. */
+/** Build a MetricValue from an oldest-first series. Safe on empty/short arrays. */
 function metricFrom(series: number[], deadband = FORM_DEADBAND): MetricValue {
   if (!series || series.length === 0) return { value: 0, trendDir: 'flat' };
-  const today = num(series[0]);
+  const today = num(series[series.length - 1]);
   if (series.length === 1) return { value: today, trendDir: 'flat' };
-  const yesterday = num(series[1]);
+  const yesterday = num(series[series.length - 2]);
   return {
     value: today,
     trendDir: trendOf(today, yesterday, deadband),
@@ -271,8 +273,9 @@ function metricFrom(series: number[], deadband = FORM_DEADBAND): MetricValue {
 /** CTL ramp: change in fitness across the trailing ~7 days of the series. */
 function rampRateFrom(fitness: number[]): number {
   if (!fitness || fitness.length < 2) return 0;
-  const today = num(fitness[0]);
-  const past = num(fitness[Math.min(6, fitness.length - 1)]);
+  const last = fitness.length - 1;
+  const today = num(fitness[last]);
+  const past = num(fitness[Math.max(0, last - 6)]);
   return Math.round((today - past) * 10) / 10;
 }
 
@@ -312,12 +315,12 @@ export function composeSnapshot(raw: RawWidgetData): WidgetSnapshot {
       rhr: metricFrom(rhr),
     },
     sparklines: {
-      // Reverse to oldest-first so the native chart draws left-to-right in time.
-      form: [...form].reverse(),
-      fitness: [...fitness].reverse(),
-      fatigue: [...fatigue].reverse(),
-      hrv: [...hrv].reverse(),
-      formZones: [...form].reverse().map((v) => getFormZone(num(v))),
+      // Already oldest-first from Rust, which is how the native chart draws.
+      form: [...form],
+      fitness: [...fitness],
+      fatigue: [...fatigue],
+      hrv: [...hrv],
+      formZones: form.map((v) => getFormZone(num(v))),
     },
     weekly: {
       tss: Math.round(curTss),
@@ -331,7 +334,7 @@ export function composeSnapshot(raw: RawWidgetData): WidgetSnapshot {
     latest,
     impact,
     summaryCard: composeSummaryCard(raw, t),
-    display: buildDisplay(t, impact, getFormZone(num(form[0]))),
+    display: buildDisplay(t, impact, getFormZone(num(form[form.length - 1]))),
     theme: { light: widgetPalette.light, dark: widgetPalette.dark },
   };
 }
@@ -610,13 +613,17 @@ function composeImpact(
   if (form.length < 2 || fitness.length < 2 || fatigue.length < 2) return null;
   const ageDays = (raw.nowSeconds - latest.date) / 86400;
   if (ageDays < 0 || ageDays > IMPACT_MAX_AGE_DAYS) return null;
+  // Oldest-first: today is the last element, yesterday the one before it.
+  const today = form.length - 1;
+  const formAfter = num(form[today]);
+  const formBefore = num(form[today - 1]);
   return {
-    formBefore: num(form[1]),
-    formAfter: num(form[0]),
-    formBeforeZone: getFormZone(num(form[1])),
-    formAfterZone: getFormZone(num(form[0])),
-    ctlDelta: num(fitness[0]) - num(fitness[1]),
-    atlDelta: num(fatigue[0]) - num(fatigue[1]),
+    formBefore,
+    formAfter,
+    formBeforeZone: getFormZone(formBefore),
+    formAfterZone: getFormZone(formAfter),
+    ctlDelta: num(fitness[fitness.length - 1]) - num(fitness[fitness.length - 2]),
+    atlDelta: num(fatigue[fatigue.length - 1]) - num(fatigue[fatigue.length - 2]),
     tssAdded: latest.trainingLoad,
     dateLabel: latest.dateLabel,
   };
