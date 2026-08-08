@@ -30,14 +30,14 @@ onFlowComplete:
 # Scroll down to reach the All Activities collapsible sections
 - scrollUntilVisible:
     element:
-      text: "Gym & Fitness"
+      id: "record-category-gym"
     direction: DOWN
     timeout: 10000
     speed: 40
 
-# Expand the Gym & Fitness category to access WeightTraining
+# Expand the gym category to access WeightTraining
 - tapOn:
-    text: "Gym & Fitness"
+    id: "record-category-gym"
 
 # Scroll WeightTraining to center of screen (away from tab bar overlap at bottom)
 - scrollUntilVisible:

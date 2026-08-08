@@ -36,12 +36,12 @@ onFlowComplete:
     commands:
       - scrollUntilVisible:
           element:
-            text: "Cycling"
+            id: "record-category-cycling"
           direction: DOWN
           timeout: 5000
           speed: 40
       - tapOn:
-          text: "Cycling"
+          id: "record-category-cycling"
 
 # Select Ride activity type
 - scrollUntilVisible:

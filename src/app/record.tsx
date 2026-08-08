@@ -433,6 +433,7 @@ export default function RecordScreen() {
             Object.entries(ACTIVITY_CATEGORIES).map(([category, types]) => (
               <CollapsibleSection
                 key={category}
+                testID={`record-category-${category}`}
                 title={t(`recording.categories.${category}`, CATEGORY_LABELS[category] ?? category)}
                 icon={CATEGORY_ICONS[category]}
                 expanded={expandedCategories[category] ?? false}
