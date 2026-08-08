@@ -603,6 +603,17 @@ export default function RootLayout() {
                           animation: 'none',
                         }}
                       />
+                      {/* An active recording must not be swipeable away. The
+                          back gesture runs in the same direction as the
+                          slide-to-unlock track, so a stray palm swipe would
+                          drop the rider out of the screen mid-ride. Leaving is
+                          deliberate: stop the recording, or use the header. */}
+                      <Stack.Screen
+                        name="recording/[type]"
+                        options={{
+                          gestureEnabled: false,
+                        }}
+                      />
                     </Stack>
                     <BottomTabBar />
                   </AuthGate>
