@@ -37,10 +37,11 @@ onFlowComplete:
     timeout: 10000
 
 # Unlock the screen (the lock auto-engages on recording start)
+# Swipe the full width of the track. A direction swipe anchored to the handle
+# only travels the handle's own width, far short of the unlock threshold.
 - swipe:
-    from:
-      id: "unlock-track-handle"
-    direction: RIGHT
+    start: 12%, 82%
+    end: 90%, 82%
     duration: 800
 
 # Wait for controls to appear after unlock
