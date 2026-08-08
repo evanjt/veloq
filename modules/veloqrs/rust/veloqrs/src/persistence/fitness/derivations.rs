@@ -6,7 +6,7 @@
 
 use chrono::{DateTime, Datelike};
 use rusqlite::params;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use super::super::PersistentRouteEngine;
 
@@ -695,10 +695,21 @@ impl PersistentRouteEngine {
             .map(|_| "?")
             .collect::<Vec<_>>()
             .join(",");
+        // Fastest lap first, so the stretch drawn on the map is the one the
+        // badge is about. These rows are per-pass, so an interval session
+        // offers several per section; taking them in table order highlighted
+        // whichever the scan happened to reach last. The ordering mirrors the
+        // effective time the indicators are computed from, NULL lap times
+        // included, so the two cannot pick different laps.
         let idx_sql = format!(
-            "SELECT activity_id, section_id, start_index, end_index
-             FROM section_activities
-             WHERE activity_id IN ({}) AND excluded = 0",
+            "SELECT sa.activity_id, sa.section_id, sa.start_index, sa.end_index
+             FROM section_activities sa
+             JOIN activities a ON a.id = sa.activity_id
+             WHERE sa.activity_id IN ({}) AND sa.excluded = 0
+             ORDER BY COALESCE(sa.lap_time,
+                      CASE WHEN a.distance_meters > 0 AND sa.distance_meters > 0
+                           THEN a.duration_secs * (sa.distance_meters / a.distance_meters)
+                           ELSE NULL END) ASC",
             placeholders
         );
 
@@ -717,7 +728,8 @@ impl PersistentRouteEngine {
                 ))
             }) {
                 for r in rows.flatten() {
-                    idx_map.insert((r.0, r.1), (r.2, r.3));
+                    // First wins: the query hands them over fastest first.
+                    idx_map.entry((r.0, r.1)).or_insert((r.2, r.3));
                 }
             }
         }
@@ -936,8 +948,16 @@ impl PersistentRouteEngine {
         results
     }
 
-    /// Get section encounters for an activity: one entry per (section, direction).
-    /// Includes this activity's time, PR status, visit count, and sparkline history.
+    /// Get section encounters for an activity: one entry per (section,
+    /// direction), represented by the activity's fastest pass over it.
+    /// Includes this activity's time, PR status, visit count, and sparkline
+    /// history.
+    ///
+    /// The junction holds a row per pass, so the query below can return several
+    /// per pair for a lapped section. Collapsing them here is what keeps the
+    /// promise in the first line, and it keeps the per-pair history query to
+    /// one run rather than one per lap. Individual laps are the `FfiSectionLap`
+    /// surface, not this one.
     pub fn get_activity_section_encounters(
         &self,
         activity_id: &str,
@@ -953,7 +973,9 @@ impl PersistentRouteEngine {
              FROM section_activities sa
              JOIN sections s ON s.id = sa.section_id
              WHERE sa.activity_id = ?1 AND sa.excluded = 0 AND {}
-             ORDER BY sa.section_id, sa.direction",
+             ORDER BY sa.section_id, sa.direction,
+                      CASE WHEN sa.lap_time IS NULL OR sa.lap_time <= 0 THEN 1 ELSE 0 END,
+                      sa.lap_time ASC",
             visible_filter
         );
 
@@ -971,7 +993,7 @@ impl PersistentRouteEngine {
             lap_pace: f64,
         }
 
-        let traversals: Vec<Traversal> = stmt
+        let passes: Vec<Traversal> = stmt
             .query_map(rusqlite::params![activity_id], |row| {
                 Ok(Traversal {
                     section_id: row.get(0)?,
@@ -985,6 +1007,14 @@ impl PersistentRouteEngine {
             .ok()
             .map(|rows| rows.filter_map(|r| r.ok()).collect())
             .unwrap_or_default();
+
+        // The query hands each pair over best-timed first, so the first pass of
+        // a pair is the one that represents it.
+        let mut seen_pairs: HashSet<(String, String)> = HashSet::new();
+        let traversals: Vec<Traversal> = passes
+            .into_iter()
+            .filter(|t| seen_pairs.insert((t.section_id.clone(), t.direction.clone())))
+            .collect();
 
         let mut encounters = Vec::new();
 

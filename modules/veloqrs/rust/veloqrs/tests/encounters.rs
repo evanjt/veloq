@@ -279,3 +279,90 @@ fn pr_independent_per_direction() {
     assert!(same.is_pr, "forward direction has only this attempt → PR");
     assert!(!rev.is_pr, "reverse 95s vs reverse best 80s (18%) → not PR");
 }
+
+// ============================================================================
+// Pass-level traversals: the junction holds a row per lap, but an encounter is
+// still one per (section, direction), represented by the activity's fastest
+// pass. Individual laps belong to the FfiSectionLap surface.
+// ============================================================================
+
+#[test]
+fn a_lapped_section_is_one_encounter_carrying_the_fastest_lap() {
+    let s = setup();
+    insert_activity(&s.raw, "act_intervals", 1_700_000_000, 10_000.0, 3_000);
+    insert_section(&s.raw, "sec_oval", "Oval", 400.0);
+
+    // Deliberately not in time order, and the slowest lap is written last.
+    insert_traversal(&s.raw, "sec_oval", "act_intervals", "same", 0, 400.0, 110.0);
+    insert_traversal(&s.raw, "sec_oval", "act_intervals", "same", 100, 400.0, 90.0);
+    insert_traversal(&s.raw, "sec_oval", "act_intervals", "same", 200, 400.0, 105.0);
+
+    let encounters = s.engine.get_activity_section_encounters("act_intervals");
+
+    assert_eq!(
+        encounters.len(),
+        1,
+        "three laps of one section are one encounter, got {encounters:?}"
+    );
+    assert_eq!(
+        encounters[0].lap_time, 90.0,
+        "the encounter must be represented by the fastest lap"
+    );
+    assert_eq!(
+        encounters[0].visit_count, 3,
+        "the count still reports every pass"
+    );
+}
+
+#[test]
+fn opposite_directions_stay_separate_encounters() {
+    let s = setup();
+    insert_activity(&s.raw, "act_out_and_back", 1_700_000_000, 10_000.0, 3_000);
+    insert_section(&s.raw, "sec_strip", "Strip", 400.0);
+
+    insert_traversal(
+        &s.raw,
+        "sec_strip",
+        "act_out_and_back",
+        "same",
+        0,
+        400.0,
+        100.0,
+    );
+    insert_traversal(
+        &s.raw,
+        "sec_strip",
+        "act_out_and_back",
+        "reverse",
+        200,
+        400.0,
+        95.0,
+    );
+
+    let encounters = s.engine.get_activity_section_encounters("act_out_and_back");
+
+    assert_eq!(
+        encounters.len(),
+        2,
+        "an out-and-back is two encounters, not one collapsed pair"
+    );
+}
+
+#[test]
+fn an_untimed_lap_never_displaces_a_timed_one() {
+    let s = setup();
+    insert_activity(&s.raw, "act_mixed", 1_700_000_000, 10_000.0, 3_000);
+    insert_section(&s.raw, "sec_oval", "Oval", 400.0);
+
+    // A zero lap_time sorts ahead of every real time on a naive ascending sort.
+    insert_traversal(&s.raw, "sec_oval", "act_mixed", "same", 0, 400.0, 0.0);
+    insert_traversal(&s.raw, "sec_oval", "act_mixed", "same", 100, 400.0, 95.0);
+
+    let encounters = s.engine.get_activity_section_encounters("act_mixed");
+
+    assert_eq!(encounters.len(), 1, "one section, one encounter");
+    assert_eq!(
+        encounters[0].lap_time, 95.0,
+        "the timed lap must represent the encounter"
+    );
+}
