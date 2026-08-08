@@ -38,11 +38,25 @@ onFlowComplete:
 
 # Unlock the screen (the lock auto-engages on recording start)
 # Swipe the full width of the track. A direction swipe anchored to the handle
-# only travels the handle's own width, far short of the unlock threshold.
-- swipe:
-    start: 12%, 82%
-    end: 90%, 82%
-    duration: 800
+# only travels the handle's own width, far short of the unlock threshold, so
+# the sweep is explicit. The track sits above the bottom inset, which differs
+# per platform: measured centre is 82% on Android and 85% on iOS.
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - swipe:
+          start: 12%, 82%
+          end: 90%, 82%
+          duration: 800
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - swipe:
+          start: 12%, 85%
+          end: 90%, 85%
+          duration: 800
 
 # Wait for controls to appear after unlock
 - extendedWaitUntil:
