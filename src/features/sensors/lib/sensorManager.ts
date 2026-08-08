@@ -35,7 +35,6 @@ function getBle(): BleManager | null {
   if (bleManager) return bleManager;
   if (bleUnavailable) return null;
   try {
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
     const { BleManager: Manager } = require('react-native-ble-plx');
     bleManager = new Manager();
     return bleManager;

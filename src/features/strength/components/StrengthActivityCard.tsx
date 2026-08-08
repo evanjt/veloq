@@ -68,7 +68,7 @@ function StrengthActivityCardInner({ activity, strengthData }: StrengthActivityC
   const scrollRef = useRef<ScrollView>(null);
   const hasFlashed = useRef(false);
 
-  const handleContentSizeChange = useCallback((contentWidth: number, _contentHeight: number) => {
+  const handleContentSizeChange = useCallback((_contentWidth: number, _contentHeight: number) => {
     if (!hasFlashed.current && scrollRef.current) {
       hasFlashed.current = true;
       setTimeout(() => scrollRef.current?.flashScrollIndicators(), 400);

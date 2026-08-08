@@ -17,14 +17,22 @@ tags:
 
 - extendedWaitUntil:
     visible:
-      id: "activity-card-demo-.*"
+      id: "activity-card-demo-test-0"
     timeout: 10000
+
+# The record FAB floats over the bottom-right of the feed and can sit over a
+# card, so a tap there opens the record screen instead of the detail.
+- swipe:
+    start: 50%, 60%
+    end: 50%, 42%
+    duration: 400
 
 - takeScreenshot: "activity-card-stats-list-loaded"
 
-# Tap on the first visible activity card
+# Tap the card itself, not a regex: a pattern like activity-card-demo-.* also
+# matches the child chips, which deep-link to a sub-tab instead of the charts.
 - tapOn:
-    id: "activity-card-demo-.*"
+    id: "activity-card-demo-test-0"
 
 - extendedWaitUntil:
     visible:

@@ -1,15 +1,10 @@
 import React, { useMemo } from 'react';
-import { View, StyleSheet, Pressable } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { useTheme } from '@/shared/app';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { colors, darkColors, typography, spacing, layout } from '@/theme';
-import {
-  POWER_ZONE_COLORS,
-  HR_ZONE_COLORS,
-  DEFAULT_POWER_ZONES,
-  DEFAULT_HR_ZONES,
-} from '@/shared/app/useSportSettings';
+
 import type { ZoneDistribution } from '@/types';
 import { formatDurationHuman } from '@/shared/format/format';
 
@@ -18,8 +13,6 @@ interface ZoneDistributionChartProps {
   data?: ZoneDistribution[];
   /** Type of zones to display */
   type?: 'power' | 'hr';
-  /** Chart height */
-  height?: number;
   /** Title override */
   title?: string;
   /** Time period label */
@@ -29,7 +22,6 @@ interface ZoneDistributionChartProps {
 export const ZoneDistributionChart = React.memo(function ZoneDistributionChart({
   data,
   type = 'power',
-  height = 200,
   title,
   periodLabel,
 }: ZoneDistributionChartProps) {
@@ -87,7 +79,7 @@ export const ZoneDistributionChart = React.memo(function ZoneDistributionChart({
 
       {/* Zone bars */}
       <View style={styles.barsContainer}>
-        {processedData.map((zone, idx) => (
+        {processedData.map((zone) => (
           <View key={zone.zone} style={styles.barRow}>
             {/* Zone label */}
             <View style={styles.barLabel}>

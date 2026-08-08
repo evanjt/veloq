@@ -1,13 +1,13 @@
-import React, { memo, useMemo, useRef } from 'react';
+import React, { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 import { View, StyleSheet, Text as RNText } from 'react-native';
 import { Canvas, Rect, Line as SkiaLine, Path, Skia, vec } from '@shopify/react-native-skia';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, { useSharedValue, useAnimatedStyle, runOnJS } from 'react-native-reanimated';
+import { GestureDetector } from 'react-native-gesture-handler';
+import Animated from 'react-native-reanimated';
 import { useTheme } from '@/shared/app';
 import { darkColors, colors, colorWithOpacity } from '@/theme';
 import { getFormZone, FORM_ZONE_COLORS } from '@/features/fitness/lib/fitness';
 import { getIntlLocale } from '@/shared/format/format';
-import { buildMonotoneSvg } from '@/shared/charts/sparklinePath';
+import { buildMonotoneSvg, useChartGestures } from '@/shared/charts';
 
 const PLOT_TOP = 2;
 const PLOT_BOTTOM = 2;
@@ -84,11 +84,13 @@ export const SummaryCardSparkline = memo(function SummaryCardSparkline({
     return { y: [min - range * 0.06, max + range * 0.04] as [number, number] };
   }, [fitnessData, fatigueData, hasFatigue]);
 
-  // Crosshair position shared value
-  const crosshairX = useSharedValue(-1);
+  const labelWidth = showLabels ? 42 : 0;
+  const chartWidth = width - labelWidth;
+  const totalHeight = CHART_HEIGHT + FORM_BAR_HEIGHT;
 
-  // JS-side scrub notification (called via runOnJS from worklet)
-  const notifyScrub = (index: number) => {
+  // Index maps over the full chart width so the crosshair lines up with the
+  // form bar rects, which are laid out on the same N-1 interval spacing.
+  const notifyScrub = useCallback((_point: number, index: number) => {
     const fitness = fitnessRef.current;
     const fatigue = fatigueRef.current;
     const form = formRef.current;
@@ -107,82 +109,29 @@ export const SummaryCardSparkline = memo(function SummaryCardSparkline({
       form: form[index],
       dateLabel,
     });
-  };
+  }, []);
 
-  const clearScrub = () => {
-    onScrubRef.current?.(null);
-  };
+  const handleInteractionChange = useCallback((active: boolean) => {
+    if (!active) onScrubRef.current?.(null);
+  }, []);
 
-  // Compute index from touch position (worklet)
-  // Uses full chart width (0 → chartWidth) to match form bar rect positions
-  const dataLength = useSharedValue(fitnessData.length);
-  dataLength.value = fitnessData.length;
-  const cWidth = useSharedValue(width);
-  cWidth.value = width - (showLabels ? 42 : 0);
-
-  const computeIndex = (x: number): number => {
-    'worklet';
-    const w = cWidth.value;
-    if (w <= 0) return 0;
-    const ratio = Math.max(0, Math.min(1, x / w));
-    return Math.round(ratio * (dataLength.value - 1));
-  };
-
-  // Quick tap navigates; press-and-drag scrubs. Pan auto-activates on movement
-  // so a stationary tap stays a tap.
-  const scrubEnabled = !!onScrub;
-  const fireTap = () => {
+  const fireTap = useCallback(() => {
     onTapRef.current?.();
-  };
+  }, []);
 
-  const tap = Gesture.Tap()
-    .enabled(!!onTap)
-    .maxDuration(500)
-    .onEnd(() => {
-      'worklet';
-      runOnJS(fireTap)();
-    });
-
-  const pan = Gesture.Pan()
-    .enabled(scrubEnabled)
-    .activeOffsetX([-4, 4])
-    .activeOffsetY([-4, 4])
-    .onStart((e) => {
-      'worklet';
-      crosshairX.value = e.x;
-      const idx = computeIndex(e.x);
-      runOnJS(notifyScrub)(idx);
-    })
-    .onUpdate((e) => {
-      'worklet';
-      crosshairX.value = e.x;
-      const idx = computeIndex(e.x);
-      runOnJS(notifyScrub)(idx);
-    })
-    .onEnd(() => {
-      'worklet';
-      crosshairX.value = -1;
-      runOnJS(clearScrub)();
-    })
-    .onFinalize(() => {
-      'worklet';
-      crosshairX.value = -1;
-      runOnJS(clearScrub)();
-    });
-
-  const composed = Gesture.Exclusive(pan, tap);
-
-  const crosshairStyle = useAnimatedStyle(() => {
-    if (crosshairX.value < 0) {
-      return { opacity: 0, transform: [{ translateX: 0 }] };
-    }
-    const xPos = Math.max(0, Math.min(cWidth.value, crosshairX.value));
-    return { opacity: 1, transform: [{ translateX: xPos }] };
+  const { gesture, crosshairStyle, syncBounds } = useChartGestures<number>({
+    data: fitnessData,
+    scrubEnabled: !!onScrub,
+    scrubActivation: 'drag',
+    tapMaxDuration: 500,
+    onSelect: notifyScrub,
+    onInteractionChange: handleInteractionChange,
+    onTap: onTap ? fireTap : undefined,
   });
 
-  const labelWidth = showLabels ? 42 : 0;
-  const chartWidth = width - labelWidth;
-  const totalHeight = CHART_HEIGHT + FORM_BAR_HEIGHT;
+  useEffect(() => {
+    syncBounds({ left: 0, right: chartWidth, top: 0, bottom: totalHeight });
+  }, [syncBounds, chartWidth, totalHeight]);
 
   const { formBarRects, transitions } = useMemo(() => {
     const N = formData.length;
@@ -235,7 +184,7 @@ export const SummaryCardSparkline = memo(function SummaryCardSparkline({
   const dividerColor = isDark ? darkColors.surface : colors.surface;
 
   return (
-    <GestureDetector gesture={composed}>
+    <GestureDetector gesture={gesture}>
       <View style={[styles.container, { width, height: totalHeight }]}>
         <View style={styles.chartRow}>
           {/* Optional inline labels (settings preview only) */}

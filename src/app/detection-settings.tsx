@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import { Text, Switch } from 'react-native-paper';
 import Slider from '@react-native-community/slider';
-import { router } from 'expo-router';
+import { router, type Href } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -18,101 +18,50 @@ import { useTheme } from '@/shared/app';
 import { useRouteSettings } from '@/features/routes/stores/RouteSettingsStore';
 import { useSectionRescan } from '@/features/routes/hooks/useSectionRescan';
 import { ScreenSafeAreaView, TAB_BAR_SAFE_PADDING } from '@/shared/ui';
-import { DetectionMethodIllustration } from '@/features/settings/components';
+import {
+  DetectionMethodIllustration,
+  ElevationBackfillStatus,
+} from '@/features/settings/components';
 import { colors, darkColors, spacing, layout, typography, brand } from '@/theme';
 import {
   DETECTION_PRESETS,
-  applyDetectionPresetForMethod,
+  applyDetectionStrictness,
   getDetectionPresetByValue,
   getRouteEngine,
-  CORRIDOR_PRESETS,
-  DENSITY_GRID_PRESETS,
-  FLOW_GRAPH_PRESETS,
-  type DetectionMethod,
+  UNIFIED_CONFIG,
   type DetectionStrictness,
 } from '@/shared/native/routeEngine';
 
-const METHOD_LABELS: { key: DetectionMethod; label: string }[] = [
-  { key: 'corridor', label: 'settings.methodCorridor' },
-  { key: 'density', label: 'settings.methodDensity' },
-  { key: 'flow', label: 'settings.methodFlow' },
-];
-
-const METHOD_DESCS: Record<DetectionMethod, string> = {
-  corridor: 'settings.methodCorridorDesc',
-  density: 'settings.methodDensityDesc',
-  flow: 'settings.methodFlowDesc',
-};
-
-type MethodParams = {
+type DetectionParams = {
   proximityThreshold: number;
   minSectionLength: number;
   minActivities: number;
-  minCorridorTracks: number;
-  minRoutes: number;
-  jaccardThreshold: number;
-  minCellVisits: number;
   divergenceThreshold: number;
 };
 
-function paramsForMethod(method: DetectionMethod, strictness: DetectionStrictness): MethodParams {
-  const corridor = CORRIDOR_PRESETS[strictness];
-  const density = DENSITY_GRID_PRESETS[strictness];
-  const flow = FLOW_GRAPH_PRESETS[strictness];
-  if (method === 'corridor') {
-    return {
-      proximityThreshold: corridor.proximityThreshold,
-      minSectionLength: corridor.minSectionLength,
-      minActivities: corridor.minActivities,
-      minCorridorTracks: corridor.minCorridorTracks,
-      minRoutes: density.minRoutes,
-      jaccardThreshold: density.jaccardThreshold,
-      minCellVisits: flow.minCellVisits,
-      divergenceThreshold: flow.divergenceThreshold,
-    };
-  }
-  if (method === 'density') {
-    return {
-      proximityThreshold: density.proximityThreshold,
-      minSectionLength: density.minSectionLength,
-      minActivities: density.minActivities,
-      minCorridorTracks: corridor.minCorridorTracks,
-      minRoutes: density.minRoutes,
-      jaccardThreshold: density.jaccardThreshold,
-      minCellVisits: flow.minCellVisits,
-      divergenceThreshold: flow.divergenceThreshold,
-    };
-  }
+/** The configuration the detector is validated at. Strictness moves route
+ *  grouping, not these, so the sliders start here however it is set. */
+function defaultParams(): DetectionParams {
   return {
-    proximityThreshold: flow.proximityThreshold,
-    minSectionLength: flow.minSectionLength,
-    minActivities: flow.minActivities,
-    minCorridorTracks: corridor.minCorridorTracks,
-    minRoutes: density.minRoutes,
-    jaccardThreshold: density.jaccardThreshold,
-    minCellVisits: flow.minCellVisits,
-    divergenceThreshold: flow.divergenceThreshold,
+    proximityThreshold: UNIFIED_CONFIG.proximityThreshold,
+    minSectionLength: UNIFIED_CONFIG.minSectionLength,
+    minActivities: UNIFIED_CONFIG.minActivities,
+    divergenceThreshold: UNIFIED_CONFIG.divergenceThreshold,
   };
 }
 
-/** Params that are user-visible (and dirty-tracked) for the active method. */
-function visibleKeysForMethod(method: DetectionMethod): (keyof MethodParams)[] {
-  const shared: (keyof MethodParams)[] = [
-    'proximityThreshold',
-    'minSectionLength',
-    'minActivities',
-  ];
-  if (method === 'corridor') return [...shared, 'minCorridorTracks'];
-  if (method === 'density') return [...shared, 'minRoutes', 'jaccardThreshold'];
-  return [...shared, 'minCellVisits', 'divergenceThreshold'];
-}
+const VISIBLE_KEYS: (keyof DetectionParams)[] = [
+  'proximityThreshold',
+  'minSectionLength',
+  'minActivities',
+  'divergenceThreshold',
+];
 
 export default function DetectionSettingsScreen() {
   const { t } = useTranslation();
   const { isDark } = useTheme();
   const insets = useSafeAreaInsets();
 
-  const method = useRouteSettings((s) => s.settings.detectionMethod);
   const strictnessValue = useRouteSettings((s) => s.settings.detectionStrictness);
   const routeMatchingEnabled = useRouteSettings((s) => s.settings.enabled);
   const setRouteMatchingEnabled = useRouteSettings((s) => s.setEnabled);
@@ -121,6 +70,7 @@ export default function DetectionSettingsScreen() {
   const bg = isDark ? darkColors.background : colors.background;
   const surface = isDark ? darkColors.surface : colors.surface;
   const border = isDark ? darkColors.border : colors.border;
+  const danger = isDark ? darkColors.error : colors.error;
 
   const activePreset = useMemo(() => getDetectionPresetByValue(strictnessValue), [strictnessValue]);
   const activeStrictness: DetectionStrictness = activePreset.strictness;
@@ -129,31 +79,16 @@ export default function DetectionSettingsScreen() {
     [activePreset]
   );
 
-  const [params, setParams] = useState<MethodParams>(() =>
-    paramsForMethod(method, activeStrictness)
-  );
+  const [params, setParams] = useState<DetectionParams>(defaultParams);
 
-  const handleMethodSelect = useCallback(
-    (m: DetectionMethod) => {
-      useRouteSettings.getState().setDetectionMethod(m);
-      // Re-seed visible param state and push to engine in one go.
-      applyDetectionPresetForMethod(m, activeStrictness);
-      setParams(paramsForMethod(m, activeStrictness));
-    },
-    [activeStrictness]
-  );
+  const handlePresetSelect = useCallback((index: number) => {
+    const preset = DETECTION_PRESETS[index];
+    useRouteSettings.getState().setDetectionStrictness(preset.value);
+    applyDetectionStrictness(preset.strictness);
+    setParams(defaultParams());
+  }, []);
 
-  const handlePresetSelect = useCallback(
-    (index: number) => {
-      const preset = DETECTION_PRESETS[index];
-      useRouteSettings.getState().setDetectionStrictness(preset.value);
-      applyDetectionPresetForMethod(method, preset.strictness);
-      setParams(paramsForMethod(method, preset.strictness));
-    },
-    [method]
-  );
-
-  const applyParam = useCallback((key: keyof MethodParams, value: number) => {
+  const applyParam = useCallback((key: keyof DetectionParams, value: number) => {
     const engine = getRouteEngine();
     if (!engine) return;
     const config = engine.getSectionConfig();
@@ -162,55 +97,39 @@ export default function DetectionSettingsScreen() {
   }, []);
 
   const setParam = useCallback(
-    (key: keyof MethodParams, value: number) => {
+    (key: keyof DetectionParams, value: number) => {
       setParams((prev) => ({ ...prev, [key]: value }));
       applyParam(key, value);
     },
     [applyParam]
   );
 
-  // Track initial config to detect changes. Reset when the user switches method
-  // so the rescan button only lights up for unsaved tweaks to the *current*
-  // method's params, not for method switches (which apply immediately).
-  const initialConfig = useRef<{
-    method: DetectionMethod;
-    params: MethodParams;
-  }>({
-    method,
-    params,
-  });
+  // The rescan button lights up only for unsaved slider tweaks.
+  const initialConfig = useRef<DetectionParams>(params);
   useEffect(() => {
-    initialConfig.current = {
-      method,
-      params: paramsForMethod(method, activeStrictness),
-    };
-    // Only reset when method/strictness changes - not on every param tweak.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [method, activeStrictness]);
+    initialConfig.current = defaultParams();
+    // Only reset when strictness changes, not on every param tweak.
+  }, [activeStrictness]);
 
-  const isDirty = useMemo(() => {
-    if (method !== initialConfig.current.method) return true;
-    const visible = visibleKeysForMethod(method);
-    for (const k of visible) {
-      if (params[k] !== initialConfig.current.params[k]) return true;
-    }
-    return false;
-  }, [method, params]);
+  const isDirty = useMemo(
+    () => VISIBLE_KEYS.some((k) => params[k] !== initialConfig.current[k]),
+    [params]
+  );
 
   const {
     forceRescan,
     isScanning,
-    progress: rescanProgress,
     result: rescanResult,
+    failed: rescanFailed,
     clearResult,
   } = useSectionRescan();
 
   useEffect(() => {
     if (rescanResult === null) return;
-    initialConfig.current = { method, params };
+    initialConfig.current = params;
     const timer = setTimeout(clearResult, 5000);
     return () => clearTimeout(timer);
-  }, [rescanResult, clearResult, method, params]);
+  }, [rescanResult, clearResult, params]);
 
   const handleRescan = useCallback(() => {
     Alert.alert(t('settings.reanalyzeSections'), t('settings.reanalyzeWarning'), [
@@ -264,47 +183,10 @@ export default function DetectionSettingsScreen() {
           style={{ opacity: routeMatchingEnabled ? 1 : 0.4 }}
           pointerEvents={routeMatchingEnabled ? 'auto' : 'none'}
         >
-          <View style={styles.chipRow} testID="detection-method-chips">
-            {METHOD_LABELS.map((m) => {
-              const active = method === m.key;
-              return (
-                <Pressable
-                  key={m.key}
-                  style={[
-                    styles.chip,
-                    { borderColor: border, backgroundColor: surface },
-                    active && styles.chipActive,
-                  ]}
-                  onPress={() => handleMethodSelect(m.key)}
-                  testID={`detection-method-${m.key}`}
-                >
-                  <Text
-                    style={[
-                      styles.chipText,
-                      { color: textSecondary },
-                      active && styles.chipTextActive,
-                    ]}
-                  >
-                    {t(m.label as never)}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-
-          <Text style={[styles.modeDescription, { color: textSecondary }]}>
-            {t(METHOD_DESCS[method] as never)}
-          </Text>
-
           <DetectionMethodIllustration
-            method={method}
             proximity={params.proximityThreshold}
             minSectionLength={params.minSectionLength}
             minActivities={params.minActivities}
-            minCorridorTracks={params.minCorridorTracks}
-            minRoutes={params.minRoutes}
-            jaccardThreshold={params.jaccardThreshold}
-            minCellVisits={params.minCellVisits}
             divergenceThreshold={params.divergenceThreshold}
           />
 
@@ -375,73 +257,17 @@ export default function DetectionSettingsScreen() {
               isDark={isDark}
             />
 
-            {method === 'corridor' && (
-              <ParamRow
-                label={t('settings.sectionMinCorridorTracks', {
-                  count: params.minCorridorTracks,
-                })}
-                value={params.minCorridorTracks}
-                min={2}
-                max={8}
-                step={1}
-                onChange={(v) => setParam('minCorridorTracks', v)}
-                isDark={isDark}
-              />
-            )}
-
-            {method === 'density' && (
-              <>
-                <ParamRow
-                  label={t('settings.sectionMinRoutes', {
-                    count: params.minRoutes,
-                  })}
-                  value={params.minRoutes}
-                  min={2}
-                  max={6}
-                  step={1}
-                  onChange={(v) => setParam('minRoutes', v)}
-                  isDark={isDark}
-                />
-                <ParamRow
-                  label={t('settings.sectionJaccard', {
-                    value: params.jaccardThreshold.toFixed(2),
-                  })}
-                  value={params.jaccardThreshold}
-                  min={0.2}
-                  max={0.8}
-                  step={0.05}
-                  onChange={(v) => setParam('jaccardThreshold', v)}
-                  isDark={isDark}
-                />
-              </>
-            )}
-
-            {method === 'flow' && (
-              <>
-                <ParamRow
-                  label={t('settings.sectionMinCellVisits', {
-                    count: params.minCellVisits,
-                  })}
-                  value={params.minCellVisits}
-                  min={10}
-                  max={150}
-                  step={5}
-                  onChange={(v) => setParam('minCellVisits', v)}
-                  isDark={isDark}
-                />
-                <ParamRow
-                  label={t('settings.sectionDivergence', {
-                    value: params.divergenceThreshold.toFixed(2),
-                  })}
-                  value={params.divergenceThreshold}
-                  min={0.05}
-                  max={0.5}
-                  step={0.05}
-                  onChange={(v) => setParam('divergenceThreshold', v)}
-                  isDark={isDark}
-                />
-              </>
-            )}
+            <ParamRow
+              label={t('settings.sectionDivergence', {
+                value: params.divergenceThreshold.toFixed(2),
+              })}
+              value={params.divergenceThreshold}
+              min={0.05}
+              max={0.5}
+              step={0.05}
+              onChange={(v) => setParam('divergenceThreshold', v)}
+              isDark={isDark}
+            />
           </View>
 
           <Pressable
@@ -480,6 +306,29 @@ export default function DetectionSettingsScreen() {
               {rescanResult.after} {t('settings.sectionsDetected', 'sections detected')}
             </Text>
           )}
+
+          {rescanFailed && (
+            <Text style={[styles.rescanResult, { color: danger }]}>
+              {t(
+                'settings.rescanFailed',
+                'The rescan could not finish. Some activity tracks could not be read.'
+              )}
+            </Text>
+          )}
+
+          <Pressable
+            style={[styles.previewRow, { backgroundColor: surface, borderColor: border }]}
+            onPress={() => router.push('/detection-preview' as Href)}
+            testID="detection-preview-row"
+          >
+            <MaterialCommunityIcons name="map-search-outline" size={20} color={textSecondary} />
+            <Text style={[styles.previewRowText, { color: textPrimary }]}>
+              {t('settings.previewSections')}
+            </Text>
+            <MaterialCommunityIcons name="chevron-right" size={22} color={textSecondary} />
+          </Pressable>
+
+          <ElevationBackfillStatus />
         </View>
       </ScrollView>
     </ScreenSafeAreaView>
@@ -629,5 +478,20 @@ const styles = StyleSheet.create({
     ...typography.bodySmall,
     textAlign: 'center',
     marginTop: spacing.sm,
+  },
+  previewRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    minHeight: 44,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: layout.borderRadius,
+    borderWidth: StyleSheet.hairlineWidth,
+    marginTop: spacing.md,
+  },
+  previewRowText: {
+    ...typography.body,
+    flex: 1,
   },
 });

@@ -45,6 +45,57 @@ export function includeActivityInSection(
   }
 }
 
+export function excludeSectionLap(
+  host: DelegateHost,
+  sectionId: string,
+  activityId: string,
+  startIndex: number
+): boolean {
+  if (!host.ready) return false;
+  try {
+    host.timed('excludeSectionLap', () =>
+      host.engine.sections().excludeLap(sectionId, activityId, startIndex)
+    );
+    host.notify('sections');
+    return true;
+  } catch (e) {
+    console.error('[RouteEngine] excludeSectionLap failed:', sectionId, activityId, startIndex, e);
+    return false;
+  }
+}
+
+export function includeSectionLap(
+  host: DelegateHost,
+  sectionId: string,
+  activityId: string,
+  startIndex: number
+): boolean {
+  if (!host.ready) return false;
+  try {
+    host.timed('includeSectionLap', () =>
+      host.engine.sections().includeLap(sectionId, activityId, startIndex)
+    );
+    host.notify('sections');
+    return true;
+  } catch (e) {
+    console.error('[RouteEngine] includeSectionLap failed:', sectionId, activityId, startIndex, e);
+    return false;
+  }
+}
+
+export function getExcludedSectionLaps(
+  host: DelegateHost,
+  sectionId: string
+): { activityId: string; startIndex: number }[] {
+  if (!host.ready) return [];
+  try {
+    return host.engine.sections().getExcludedLaps(sectionId);
+  } catch (e) {
+    console.error('[RouteEngine] getExcludedSectionLaps failed:', sectionId, e);
+    return [];
+  }
+}
+
 export function disableSection(host: DelegateHost, sectionId: string): boolean {
   if (!host.ready) return false;
   try {

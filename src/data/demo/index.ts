@@ -1,5 +1,4 @@
 // Demo data exports
-export { demoAthlete } from './athlete';
 export { demoWellness } from '@/features/fitness/demo/wellness';
 export { demoPowerCurve, demoPaceCurve, demoSportSettings } from '@/features/fitness/demo/curves';
 export {
@@ -7,8 +6,6 @@ export {
   getRouteCoordinates,
   getRouteCoordinatesWithVariation,
   getRouteBounds,
-  getRouteForActivity,
-  getRouteById,
   getRouteLocation,
 } from '@/features/routes/demo/routes';
 

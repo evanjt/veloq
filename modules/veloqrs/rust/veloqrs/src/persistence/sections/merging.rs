@@ -1,209 +1,11 @@
-//! Section merging: cross-sport auto-merge, user-initiated merges, merge candidates.
+//! Section merging: user-initiated merges and merge candidates.
 
-use rusqlite::{Result as SqlResult, params};
-use std::collections::HashMap;
+use rusqlite::Result as SqlResult;
 
 use super::super::{PersistentRouteEngine, get_section_word};
 use super::haversine_distance;
 
 impl PersistentRouteEngine {
-    /// Merge sections that overlap geographically across different sport types.
-    /// Two sections are candidates for merge if:
-    /// - They are both auto-detected (not user-created)
-    /// - They have different sport types
-    /// - Their bounds centers are within 200m (Haversine)
-    /// - Their distances are within 25% of each other
-    ///
-    /// The primary section (most activities) absorbs the secondary's activities.
-    pub fn merge_cross_sport_sections(&mut self) -> SqlResult<()> {
-        // Load all auto sections with bounds
-        let sections: Vec<(String, String, f64, f64, f64, u32)> = {
-            let mut stmt = self.db.prepare(
-                "SELECT s.id, s.sport_type, s.distance_meters,
-                        (COALESCE(s.bounds_min_lat, 0) + COALESCE(s.bounds_max_lat, 0)) / 2.0,
-                        (COALESCE(s.bounds_min_lng, 0) + COALESCE(s.bounds_max_lng, 0)) / 2.0,
-                        (SELECT COUNT(*) FROM section_activities sa WHERE sa.section_id = s.id AND sa.excluded = 0)
-                 FROM sections s
-                 WHERE s.section_type = 'auto' AND s.original_polyline_json IS NULL
-                   AND s.bounds_min_lat IS NOT NULL"
-            )?;
-            stmt.query_map([], |row| {
-                Ok((
-                    row.get::<_, String>(0)?, // id
-                    row.get::<_, String>(1)?, // sport_type
-                    row.get::<_, f64>(2)?,    // distance_meters
-                    row.get::<_, f64>(3)?,    // center_lat
-                    row.get::<_, f64>(4)?,    // center_lng
-                    row.get::<_, u32>(5)?,    // activity_count
-                ))
-            })?
-            .filter_map(|r| r.ok())
-            .collect()
-        };
-
-        if sections.len() < 2 {
-            return Ok(());
-        }
-
-        // Find merge candidates: different sport types, close centers, similar distances
-        let mut merge_pairs: Vec<(usize, usize)> = Vec::new();
-        for i in 0..sections.len() {
-            for j in (i + 1)..sections.len() {
-                let (_, ref sport_i, dist_i, lat_i, lng_i, _) = sections[i];
-                let (_, ref sport_j, dist_j, lat_j, lng_j, _) = sections[j];
-
-                // Skip same sport type
-                if sport_i == sport_j {
-                    continue;
-                }
-
-                // Check distance similarity (within 25%)
-                let max_dist = dist_i.max(dist_j);
-                let min_dist = dist_i.min(dist_j);
-                if max_dist > 0.0 && (max_dist - min_dist) / max_dist > 0.25 {
-                    continue;
-                }
-
-                // Haversine distance between centers
-                let center_distance = haversine_distance(lat_i, lng_i, lat_j, lng_j);
-                if center_distance > 200.0 {
-                    continue;
-                }
-
-                merge_pairs.push((i, j));
-            }
-        }
-
-        if merge_pairs.is_empty() {
-            return Ok(());
-        }
-
-        log::info!(
-            "tracematch: [merge_cross_sport] Found {} cross-sport merge candidates",
-            merge_pairs.len()
-        );
-
-        // Build merge groups using union-find
-        let mut parent: Vec<usize> = (0..sections.len()).collect();
-        fn find(parent: &mut [usize], i: usize) -> usize {
-            if parent[i] != i {
-                parent[i] = find(parent, parent[i]);
-            }
-            parent[i]
-        }
-        for &(i, j) in &merge_pairs {
-            let pi = find(&mut parent, i);
-            let pj = find(&mut parent, j);
-            if pi != pj {
-                // Merge into the one with more activities
-                if sections[pi].5 >= sections[pj].5 {
-                    parent[pj] = pi;
-                } else {
-                    parent[pi] = pj;
-                }
-            }
-        }
-
-        // Group sections by their root
-        let mut groups: HashMap<usize, Vec<usize>> = HashMap::new();
-        for i in 0..sections.len() {
-            let root = find(&mut parent, i);
-            groups.entry(root).or_default().push(i);
-        }
-
-        let tx = self.db.unchecked_transaction()?;
-
-        for (_, members) in &groups {
-            if members.len() < 2 {
-                continue;
-            }
-
-            // Primary = member with most activities
-            let primary_idx = *members.iter().max_by_key(|&&idx| sections[idx].5).unwrap();
-            let primary_id = &sections[primary_idx].0;
-
-            // Check if primary has a user-set name (non-auto-generated)
-            let primary_name: Option<String> = tx
-                .query_row(
-                    "SELECT name FROM sections WHERE id = ?",
-                    params![primary_id],
-                    |row| row.get(0),
-                )
-                .ok()
-                .flatten();
-
-            for &idx in members {
-                if idx == primary_idx {
-                    continue;
-                }
-                let secondary_id = &sections[idx].0;
-
-                // If secondary has a user-set name and primary doesn't, preserve it
-                if primary_name.is_none() {
-                    if let Ok(Some(sec_name)) = tx.query_row(
-                        "SELECT name FROM sections WHERE id = ?",
-                        params![secondary_id],
-                        |row| row.get::<_, Option<String>>(0),
-                    ) {
-                        let section_word = get_section_word();
-                        // Check if it's NOT auto-generated (doesn't match "{Sport} {Word} {N}" pattern)
-                        let is_auto = [
-                            "Ride",
-                            "Run",
-                            "Hike",
-                            "Walk",
-                            "Swim",
-                            "VirtualRide",
-                            "VirtualRun",
-                        ]
-                        .iter()
-                        .any(|sport| {
-                            let prefix = format!("{} {} ", sport, section_word);
-                            sec_name.starts_with(&prefix)
-                                && sec_name[prefix.len()..].parse::<u32>().is_ok()
-                        });
-                        if !is_auto {
-                            tx.execute(
-                                "UPDATE sections SET name = ? WHERE id = ?",
-                                params![&sec_name, primary_id],
-                            )?;
-                        }
-                    }
-                }
-
-                // Move secondary's activities to primary
-                tx.execute(
-                    "UPDATE OR IGNORE section_activities SET section_id = ? WHERE section_id = ?",
-                    params![primary_id, secondary_id],
-                )?;
-                // Delete any that couldn't be moved (duplicate activity_id + section_id)
-                tx.execute(
-                    "DELETE FROM section_activities WHERE section_id = ?",
-                    params![secondary_id],
-                )?;
-                // Delete secondary section
-                tx.execute("DELETE FROM sections WHERE id = ?", params![secondary_id])?;
-
-                log::info!(
-                    "tracematch: [merge_cross_sport] Merged {} ({}) into {} ({})",
-                    secondary_id,
-                    sections[idx].1,
-                    primary_id,
-                    sections[primary_idx].1
-                );
-            }
-        }
-
-        tx.commit()?;
-
-        // Reload sections into memory
-        self.section_cache.clear();
-        self.invalidate_perf_cache();
-        self.load_sections()?;
-
-        Ok(())
-    }
-
     /// Find merge candidates for a section.
     /// Returns sections with >30% polyline overlap or close centers with similar distances.
     pub fn get_merge_candidates(&self, section_id: &str) -> Vec<crate::FfiMergeCandidate> {
@@ -240,7 +42,7 @@ impl PersistentRouteEngine {
         // Find nearby sections (within 300m center distance)
         let mut stmt = match self.db.prepare(
             "SELECT s.id, s.name, s.sport_type, s.distance_meters,
-                    (SELECT COUNT(*) FROM section_activities sa WHERE sa.section_id = s.id AND sa.excluded = 0),
+                    s.visit_count,
                     (COALESCE(s.bounds_min_lat, 0) + COALESCE(s.bounds_max_lat, 0)) / 2.0,
                     (COALESCE(s.bounds_min_lng, 0) + COALESCE(s.bounds_max_lng, 0)) / 2.0
              FROM sections s
@@ -439,9 +241,9 @@ impl PersistentRouteEngine {
             rusqlite::params![secondary_id],
         )?;
 
-        // visit_count is derived at read-time via COUNT(*) on section_activities -
-        // there is no stored visit_count column on sections.
-        let visit_count: u32 = tx
+        // Outings, for the log line only. The stored sections.visit_count is
+        // the junction triggers' business, including the move above.
+        let merged_outings: u32 = tx
             .query_row(
                 "SELECT COUNT(DISTINCT activity_id) FROM section_activities WHERE section_id = ? AND excluded = 0",
                 rusqlite::params![primary_id],
@@ -475,7 +277,7 @@ impl PersistentRouteEngine {
             "tracematch: [merge] Merged section {} into {} ({} activities)",
             secondary_id,
             primary_id,
-            visit_count
+            merged_outings
         );
 
         Ok(primary_id.to_string())
@@ -484,18 +286,8 @@ impl PersistentRouteEngine {
     /// Recompute a section's bounds and distance from its current polyline.
     /// Called after merge to ensure bounds reflect the primary section's polyline.
     fn recompute_section_bounds(&self, section_id: &str) {
-        let polyline_json: Option<String> = self
-            .db
-            .query_row(
-                "SELECT polyline_json FROM sections WHERE id = ?",
-                rusqlite::params![section_id],
-                |row| row.get(0),
-            )
-            .ok();
-
-        let points: Vec<tracematch::GpsPoint> = polyline_json
-            .and_then(|json| serde_json::from_str(&json).ok())
-            .unwrap_or_default();
+        let points: Vec<tracematch::GpsPoint> =
+            self.stored_section_polyline(section_id).unwrap_or_default();
 
         if points.len() < 2 {
             return;

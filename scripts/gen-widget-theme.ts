@@ -135,7 +135,7 @@ function emit(rel: string, contents: string): void {
   const abs = join(ROOT, rel);
   mkdirSync(join(abs, '..'), { recursive: true });
   writeFileSync(abs, contents);
-  // eslint-disable-next-line no-console
+   
   console.log(`  wrote ${rel}`);
 }
 
@@ -144,5 +144,5 @@ function emit(rel: string, contents: string): void {
 emit('widget/ios/VeloqWidget/WidgetTheme.swift', iosFile());
 emit('widget/android/res/values/widget_theme.xml', androidLight());
 emit('widget/android/res/values-night/widget_theme.xml', androidNight());
-// eslint-disable-next-line no-console
+ 
 console.log('widget theme generated.');

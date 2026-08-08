@@ -1,3 +1,5 @@
+import type { EfficiencyTrend } from 'veloqrs';
+
 import { generateStalePRInsights } from '../generators/stalePr';
 import { generateEfficiencyTrendInsights } from '../generators/efficiencyTrend';
 import { generateSectionPRInsights } from '../generators/sectionPR';
@@ -55,17 +57,18 @@ export interface InsightInputData {
   formAtl: number | null;
   peakCtl: number | null;
   currentCtl: number | null;
-  wellnessWindow?: Array<{
+  wellnessWindow?: {
     date: string;
     hrv?: number;
     restingHR?: number;
     sleepSecs?: number;
     ctl?: number;
     atl?: number;
-  }>;
+  }[];
   chronicPeriod?: PeriodStats | null;
   allSectionTrends?: SectionTrendData[];
-  efficiencyTrendSectionIds?: string[];
+  /** Efficiency trends from the engine, already filtered and capped. */
+  efficiencyTrends?: EfficiencyTrend[];
   /**
    * Bbox of activities in the last `activeWindowDays` - drives the proximity
    * gate (G2). Null disables the gate (insufficient data, gate off, etc.).
@@ -79,7 +82,7 @@ export interface InsightInputData {
 
 export interface PipelineOutcome {
   kept: Insight[];
-  rejected: Array<{ insight: Insight; reason: GateReason }>;
+  rejected: { insight: Insight; reason: GateReason }[];
   scored: ScoredInsight[];
   capDropped: DropRecord[];
 }
@@ -136,7 +139,6 @@ function safeRun<T>(label: string, fn: () => T[], fallback: T[] = []): T[] {
       process.env &&
       (process.env.VELOQ_INSIGHTS_DEBUG || process.env.NODE_ENV === 'test')
     ) {
-      // eslint-disable-next-line no-console
       console.warn(`[insights/${label}] generator failed; isolating:`, err);
     }
     return fallback;
@@ -177,6 +179,7 @@ export function generateInsights(data: InsightInputData, t: TFunc): Insight[] {
       sectionName: s.sectionName,
       bestTimeSecs: s.bestTimeSecs,
       traversalCount: s.traversalCount,
+      daysSinceLast: s.daysSinceLast,
       sportType: s.sportType,
     }));
     const existingStalePrIds = new Set(candidates.map((i) => i.id));
@@ -188,7 +191,6 @@ export function generateInsights(data: InsightInputData, t: TFunc): Insight[] {
             ftpTrend: data.ftpTrend,
             runPaceTrend: data.paceTrend,
             swimPaceTrend: data.swimPaceTrend ?? null,
-            recentPRs: data.recentPRs,
             existingInsightIds: existingStalePrIds,
           },
           t,
@@ -210,16 +212,16 @@ export function generateInsights(data: InsightInputData, t: TFunc): Insight[] {
     )
   );
 
-  const sectionIds = data.efficiencyTrendSectionIds;
-  if (sectionIds && sectionIds.length > 0) {
+  const efficiencyTrends = data.efficiencyTrends;
+  if (efficiencyTrends && efficiencyTrends.length > 0) {
     candidates.push(
-      ...safeRun('efficiencyTrend', () => generateEfficiencyTrendInsights(sectionIds, now, t))
+      ...safeRun('efficiencyTrend', () => generateEfficiencyTrendInsights(efficiencyTrends, now, t))
     );
   }
 
   // 2. Hard gates (G1–G4) - reject before scoring
   const activeRegion = data.activeRegion ?? null;
-  const rejected: Array<{ insight: Insight; reason: GateReason }> = [];
+  const rejected: { insight: Insight; reason: GateReason }[] = [];
   const passed: Insight[] = [];
 
   for (const insight of candidates) {

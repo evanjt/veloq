@@ -2,16 +2,7 @@
  * Tests for CombinedPlot data-prep helpers.
  * Pure functions, but we need to provide minimal chart-config mocks because
  * the helpers consume a config record keyed by ChartTypeId.
- *
- * `@/shared/app/useSportSettings` is mocked to avoid pulling the `veloqrs`
- * native TurboModule into the node-based test environment. `combinedPlotData.ts`
- * only needs the zone-color constants from it.
  */
-
-jest.mock('@/shared/app/useSportSettings', () => ({
-  POWER_ZONE_COLORS: ['#808080', '#3B82F6', '#22C55E', '#F59E0B', '#EF4444', '#8B5CF6', '#DB2777'],
-  HR_ZONE_COLORS: ['#808080', '#3B82F6', '#22C55E', '#F59E0B', '#EF4444', '#8B5CF6', '#DB2777'],
-}));
 
 import {
   buildChartData,
@@ -253,30 +244,20 @@ describe('computeIntervalBands', () => {
       id: 'power',
       config: powerConfig(),
       rawData: [100, 200, 300],
-      color: '#FB923C',
       range: { min: 100, max: 300, range: 200 },
     },
   ];
 
   it('returns empty array when intervals is empty or chart data length is zero', () => {
     expect(
-      computeIntervalBands([], 0, streams(), 'distance', true, false, 'Ride', defaultSeriesInfo)
+      computeIntervalBands([], 0, streams(), 'distance', true, 'Ride', defaultSeriesInfo)
     ).toEqual([]);
     expect(
-      computeIntervalBands(
-        undefined,
-        5,
-        streams(),
-        'distance',
-        true,
-        false,
-        'Ride',
-        defaultSeriesInfo
-      )
+      computeIntervalBands(undefined, 5, streams(), 'distance', true, 'Ride', defaultSeriesInfo)
     ).toEqual([]);
   });
 
-  it('assigns distinct colors to WORK/RECOVERY/WARMUP/COOLDOWN', () => {
+  it('assigns a distinct colour token to WORK/RECOVERY/WARMUP/COOLDOWN', () => {
     const intervals: ActivityInterval[] = [
       { type: 'WARMUP', start_index: 0, end_index: 2 } as ActivityInterval,
       { type: 'WORK', start_index: 2, end_index: 5, zone: 3 } as ActivityInterval,
@@ -289,15 +270,15 @@ describe('computeIntervalBands', () => {
       streams(),
       'distance',
       true,
-      false,
       'Ride',
       defaultSeriesInfo
     );
     expect(bands).toHaveLength(4);
-    expect(bands[0].bandColor).toBe('#22C55E'); // WARMUP green
+    expect(bands[0].bandColour).toEqual({ kind: 'role', role: 'warmup' });
+    expect(bands[1].bandColour).toEqual({ kind: 'zone', scale: 'power', zone: 3 });
     expect(bands[1].isWork).toBe(true);
-    expect(bands[2].bandColor).toBe('#808080'); // RECOVERY gray
-    expect(bands[3].bandColor).toBe('#8B5CF6'); // COOLDOWN purple
+    expect(bands[2].bandColour).toEqual({ kind: 'role', role: 'recovery' });
+    expect(bands[3].bandColour).toEqual({ kind: 'role', role: 'cooldown' });
   });
 
   it('computes avgNormY only for WORK intervals with a primary series', () => {
@@ -317,7 +298,6 @@ describe('computeIntervalBands', () => {
       streams(),
       'distance',
       true,
-      false,
       'Ride',
       defaultSeriesInfo
     );
@@ -326,7 +306,7 @@ describe('computeIntervalBands', () => {
     expect(bands[1].avgNormY).toBeNull();
   });
 
-  it('falls back to primary color when WORK interval has no zone', () => {
+  it('falls back to the work role when a WORK interval has no zone', () => {
     const intervals: ActivityInterval[] = [
       { type: 'WORK', start_index: 0, end_index: 2 } as ActivityInterval,
     ];
@@ -336,11 +316,98 @@ describe('computeIntervalBands', () => {
       streams(),
       'distance',
       true,
-      false,
       'Ride',
       defaultSeriesInfo
     );
     expect(bands[0].isWork).toBe(true);
-    expect(bands[0].bandColor).toBeDefined();
+    expect(bands[0].bandColour).toEqual({ kind: 'role', role: 'work' });
+  });
+});
+
+/**
+ * Golden baseline for the shape `buildChartData` hands to the chart layer.
+ *
+ * The fixture is a 900-sample ride, long enough to exercise downsampling and
+ * varied enough that a normalisation or colour-resolution change moves the
+ * numbers. Regenerate by deleting the snapshot file and re-running.
+ */
+describe('buildChartData golden', () => {
+  function rideStreams(): ActivityStreams {
+    const samples = 900;
+    const time: number[] = [];
+    const distance: number[] = [];
+    const watts: number[] = [];
+    const heartrate: number[] = [];
+    const altitude: number[] = [];
+
+    for (let i = 0; i < samples; i++) {
+      const t = i;
+      const climb = Math.sin(i / 140) * 60;
+      const surge = Math.sin(i / 23) * 45;
+      time.push(t);
+      distance.push(Math.round(i * 7.8 * 100) / 100);
+      watts.push(Math.round(195 + surge + climb * 0.8));
+      heartrate.push(Math.round(142 + surge * 0.28 + climb * 0.2));
+      altitude.push(Math.round((540 + climb + Math.sin(i / 47) * 8) * 10) / 10);
+    }
+
+    return { time, distance, watts, heartrate, altitude } as ActivityStreams;
+  }
+
+  function goldenConfigs(): Record<ChartTypeId, ChartConfig> {
+    return {
+      power: powerConfig(),
+      heartrate: heartRateConfig(),
+      elevation: altitudeConfig(),
+    } as unknown as Record<ChartTypeId, ChartConfig>;
+  }
+
+  // The config objects carry functions, which serialise as [Function] and say
+  // nothing. Project the series down to the fields the chart layer reads, and
+  // flatten each point to one line so a diff stays readable.
+  function summarise(result: ReturnType<typeof buildChartData>) {
+    return {
+      maxX: result.maxX,
+      pointCount: result.chartData.length,
+      indexMap: result.indexMap.join(','),
+      chartData: result.chartData.map((point) =>
+        Object.entries(point)
+          .map(([key, value]) => `${key}=${value.toFixed(6)}`)
+          .join(' ')
+      ),
+      seriesInfo: result.seriesInfo.map((s) => ({
+        id: s.id,
+        color: s.config.color,
+        range: s.range,
+        isPreview: s.isPreview ?? false,
+        rawDataLength: s.rawData.length,
+      })),
+    };
+  }
+
+  it('matches the golden for a metric distance axis', () => {
+    const result = buildChartData(
+      rideStreams(),
+      ['power', 'heartrate', 'elevation'],
+      goldenConfigs(),
+      true,
+      null,
+      'distance'
+    );
+
+    expect(summarise(result)).toMatchSnapshot();
+  });
+
+  it('matches the golden for an imperial time axis with a preview series', () => {
+    const result = buildChartData(
+      rideStreams(),
+      ['power', 'heartrate'],
+      goldenConfigs(),
+      false,
+      'elevation',
+      'time'
+    );
+
+    expect(summarise(result)).toMatchSnapshot();
   });
 });

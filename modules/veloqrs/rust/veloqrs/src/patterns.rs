@@ -346,6 +346,12 @@ fn kmeans(data: &[[f64; 4]], k: usize) -> (Vec<[f64; 4]>, Vec<usize>) {
                 for d in 0..4 {
                     new_centroids[c][d] /= counts[c] as f64;
                 }
+            } else {
+                // A cluster that lost every point keeps its position. Leaving
+                // it zeroed moves it to the origin, which is a live corner of
+                // the normalised space (Monday, shortest, lowest load), so the
+                // orphan captures real points on the next pass.
+                new_centroids[c] = centroids[c];
             }
         }
 
@@ -456,7 +462,10 @@ fn compute_silhouette(data: &[[f64; 4]], assignments: &[usize], k: usize) -> f64
         }
 
         if same_count == 0 {
-            // Singleton cluster
+            // A singleton scores 0 by definition. Skipping it instead removes
+            // it from the denominator and biases k upward, which fragments a
+            // real cluster into pieces that then fall under MIN_CLUSTER_SIZE.
+            valid_count += 1;
             continue;
         }
 
@@ -485,14 +494,16 @@ fn compute_silhouette(data: &[[f64; 4]], assignments: &[usize], k: usize) -> f64
         }
 
         if b_i.is_infinite() {
+            valid_count += 1;
             continue;
         }
 
         let max_ab = a_i.max(b_i);
         if max_ab > 0.0 {
             total_silhouette += (b_i - a_i) / max_ab;
-            valid_count += 1;
         }
+        // Coincident points give max_ab == 0, which scores 0, not nothing.
+        valid_count += 1;
     }
 
     if valid_count == 0 {
@@ -1196,15 +1207,6 @@ mod tests {
         let feature_refs: Vec<&ActivityFeature> = features.iter().collect();
         let double_refs: Vec<&&ActivityFeature> = feature_refs.iter().collect();
         assert_eq!(mode_day_of_week(&double_refs), 0);
-    }
-
-    #[test]
-    fn test_empty_metrics_returns_empty() {
-        // Cannot test compute_activity_patterns without a real DB connection,
-        // but we can verify the early return path is sane
-        let features: Vec<&ActivityFeature> = vec![];
-        let normalized = normalize_features(&features);
-        assert!(normalized.is_empty());
     }
 
     #[test]

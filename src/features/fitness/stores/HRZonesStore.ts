@@ -118,13 +118,6 @@ export const useHRZones = create<HRZonesState>((set, get) => ({
   },
 }));
 
-// Helper for synchronous access
-export function getHRZones(): { maxHR: number; zones: HRZone[] } {
-  const state = useHRZones.getState();
-  return { maxHR: state.maxHR, zones: state.zones };
-}
-
-// Initialize HR zones (call during app startup)
 export async function initializeHRZones(): Promise<void> {
   await useHRZones.getState().initialize();
 }

@@ -8,7 +8,7 @@
 //! Snapshots read the user-visible DB view, so an accepted section shows up and
 //! a disabled one drops out exactly as the app renders them.
 //!
-//! Run: `cargo test -p veloqrs --features synthetic --test suite2_edits -- --nocapture`
+//! Run: `cargo test -p veloqrs --features synthetic --test suite2_edits`
 
 mod lifecycle_support;
 
@@ -19,13 +19,10 @@ fn corpus() -> LifecycleCorpus {
     LifecycleCorpus::generate(&LifecycleConfig::default())
 }
 
-/// Target gate: accepting (pinning) a section must survive a later resync
-/// without crashing, and stay user-defined. Fails today — the resync dies in
-/// `apply_sections` with `UNIQUE constraint failed: sections.id`, because the
-/// spared accepted section keeps its positional id (`sec_ride_0`) and fresh
-/// detection assigns the SAME id to a different section, colliding on INSERT.
-/// A pinned section can therefore break the next sync. Green when stable
-/// identity (B2) stops ids colliding and/or persistence upserts (B4).
+/// Accepting (pinning) a section survives a later resync without crashing and
+/// stays user-defined. The spared accepted row keeps a stable id (B2), so fresh
+/// detection cannot re-mint that id for different ground and collide on INSERT.
+/// A red here means a pinned section breaks the next sync.
 #[test]
 fn accept_survives_resync() {
     let corpus = corpus();
@@ -45,31 +42,6 @@ fn accept_survives_resync() {
     assert!(
         kept.is_user_defined,
         "accepted section {id} survived but lost its user-defined flag"
-    );
-}
-
-/// Measurement: hide a section, then resync with activities that re-travel its
-/// corridor. Does the corridor re-emerge as a fresh visible section? Prints the
-/// outcome; the gate below owns the assertion.
-#[test]
-fn disabled_corridor_reemerges_today() {
-    let corpus = corpus();
-    let (mut engine, _dir) = fresh_engine_for(Arm::Control);
-    let cold = ingest_step(&mut engine, "cold", &corpus.through_a());
-    let (id, disabled_ground) =
-        busiest_section(&cold.snapshot).expect("cold detect produced a section");
-
-    engine.disable_section(&id).expect("disable_section");
-    let after = ingest_step(&mut engine, "resync", &refs(&corpus.bucket_b_delta)).snapshot;
-
-    let reemerged = after
-        .sections
-        .values()
-        .any(|s| ground_matches(&disabled_ground, s));
-    println!(
-        "[control] hid section {id}: same-id visible after resync = {}, ground re-emerged under a new id = {}",
-        after.sections.contains_key(&id),
-        reemerged,
     );
 }
 

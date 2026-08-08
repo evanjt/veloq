@@ -42,7 +42,7 @@ interface RouteGroupExtended {
   sportTypes?: string[];
   /** Route signature with points for mini-trace preview */
   signature?: {
-    points: Array<{ lat: number; lng: number }>;
+    points: { lat: number; lng: number }[];
     distance: number;
   } | null;
   /** Best moving time in seconds (fastest completion) */

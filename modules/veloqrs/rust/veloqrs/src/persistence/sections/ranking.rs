@@ -9,7 +9,7 @@ impl PersistentRouteEngine {
     /// Get sections ranked by ML-driven composite relevance score.
     ///
     /// For each section matching the sport type, computes a weighted score from:
-    /// - Recency (0.35): exp(-days_since_last / 14.0), 2-week half-life
+    /// - Recency (0.35): exp(-days_since_last / 180.0), half-life ~125 days
     /// - Improvement signal (0.30): median of last 3 vs previous 3 efforts
     /// - Anomaly detection (0.20): z-score of most recent effort
     /// - Engagement (0.15): ln(traversal_count) / ln(max_traversal_count)
@@ -22,8 +22,8 @@ impl PersistentRouteEngine {
     ) -> Vec<crate::FfiRankedSection> {
         let start = std::time::Instant::now();
 
-        // Query all sections for this sport type with their traversal data
-        // Join section_activities with activity_metrics to get dates and lap times
+        // Rank within one sport: a run's lap and a ride's over the same ground
+        // are not comparable efforts.
         struct TraversalRow {
             section_id: String,
             section_name: String,
@@ -37,7 +37,8 @@ impl PersistentRouteEngine {
                  FROM sections s
                  JOIN section_activities sa ON s.id = sa.section_id
                  JOIN activity_metrics am ON sa.activity_id = am.activity_id
-                 WHERE s.sport_type = ? AND sa.excluded = 0 AND sa.lap_time IS NOT NULL
+                 JOIN activities a ON sa.activity_id = a.id
+                 WHERE a.sport_type = ? AND sa.excluded = 0 AND sa.lap_time IS NOT NULL
                    AND s.disabled = 0 AND s.superseded_by IS NULL
                  ORDER BY s.id, am.date ASC",
             ) {
@@ -125,8 +126,7 @@ impl PersistentRouteEngine {
                 let days_since_last = crate::calendar_days_between(last_date, now_secs);
 
                 // --- Recency score (weight 0.35) ---
-                // exp(-days / 14): half-life of ~2 weeks
-                let recency_score = (-1.0 * days_since_last as f64 / 14.0).exp();
+                let recency_score = recency_score(days_since_last);
 
                 // --- Improvement signal (weight 0.30) ---
                 // Compare median of last 3 efforts to median of previous 3
@@ -324,17 +324,18 @@ impl PersistentRouteEngine {
             return ranked
                 .into_iter()
                 .map(|rs| {
-                    let perf = self.get_section_performances(&rs.section_id);
+                    let perf =
+                        self.get_section_performances_filtered(&rs.section_id, Some(sport_type));
                     enrich_from_ranked(rs, perf)
                 })
                 .collect();
         }
 
-        // Fallback: visit-count sort over summaries (matches prior TS fallback).
+        // Fallback: traversal sort over summaries, floored on outings.
         let mut summaries: Vec<_> = self
             .get_section_summaries_for_sport(sport_type)
             .into_iter()
-            .filter(|s| s.visit_count >= 5)
+            .filter(|s| s.activity_count >= 5)
             .collect();
         summaries.sort_by(|a, b| b.visit_count.cmp(&a.visit_count));
         summaries.truncate(limit as usize);
@@ -342,7 +343,7 @@ impl PersistentRouteEngine {
         summaries
             .into_iter()
             .filter_map(|summary| {
-                let perf = self.get_section_performances(&summary.id);
+                let perf = self.get_section_performances_filtered(&summary.id, Some(sport_type));
                 if perf.records.is_empty() {
                     return None;
                 }
@@ -494,6 +495,17 @@ fn trend_label(trend: i32) -> String {
         t if t < 0 => String::from("declining"),
         _ => String::from("stable"),
     }
+}
+
+/// Freshness of a section's last traversal, the largest single term in the
+/// relevance score.
+///
+/// 180 is the time constant, so the half-life is 180*ln2, about 125 days. A
+/// fortnight-scale constant saturates within weeks, which flattens every
+/// section that has gone unridden long enough to be worth resurfacing into the
+/// same near-zero score and stops the term ranking anything.
+pub(crate) fn recency_score(days_since_last: u32) -> f64 {
+    (-f64::from(days_since_last) / 180.0).exp()
 }
 
 fn days_since_epoch(unix_seconds: i64) -> i32 {
@@ -686,6 +698,41 @@ impl PersistentRouteEngine {
             average_time_secs,
             last_activity_date,
             total_activities,
+        }
+    }
+}
+
+/// The recency term has to separate sections across the range over which one can
+/// go unridden. A fortnight-scale constant saturates within weeks, so every stale
+/// section scores the same near-zero and the term stops ranking anything.
+#[cfg(test)]
+mod recency_decay_tests {
+    use super::recency_score;
+
+    #[test]
+    fn separates_sections_across_a_year() {
+        let year = recency_score(365);
+        assert!(
+            year > 0.05,
+            "a year-old section scored {year}, too flat to rank"
+        );
+        for (near, far) in [(30, 90), (90, 180), (180, 365)] {
+            let gap = recency_score(near) - recency_score(far);
+            assert!(
+                gap > 0.05,
+                "{near}d and {far}d differ by only {gap}, indistinguishable"
+            );
+        }
+    }
+
+    #[test]
+    fn decays_monotonically_from_one() {
+        assert!((recency_score(0) - 1.0).abs() < f64::EPSILON);
+        let mut previous = f64::INFINITY;
+        for days in [0, 30, 90, 180, 365, 730] {
+            let score = recency_score(days);
+            assert!(score < previous, "not monotonic at {days}d");
+            previous = score;
         }
     }
 }

@@ -1,32 +1,24 @@
 /**
  * Hook for camera, bounds, and zoom logic in RegionalMapView.
- * Pre-computes activity centers, calculates initial bounds,
- * and manages camera settings to prevent Android re-centering.
+ * Pre-computes activity centers, calculates initial bounds, and positions the
+ * camera once the map has settled.
  *
- * ANDROID BUG: MapLibre re-applies `defaultSettings` on every Camera re-render,
- * even when the JS prop reference is stable. This causes the camera to snap back
- * to the initial position after any state update. Fix: don't use `defaultSettings`
- * at all. Use only the imperative camera API, fired synchronously on first
- * regionDidChange (initial settle), before the user can interact.
- *
- * WORLD-SPANNING DATA: When activities span multiple continents, fitBounds
- * produces a useless world-zoom view and its 500ms animation fights user pan
- * gestures. Instead, use setCamera (instant) to the most recent activity's
- * center at a sensible zoom level.
+ * WORLD-SPANNING DATA: When activities span multiple continents, fitting the
+ * bounds produces a useless world-zoom view and its animation fights user pan
+ * gestures. Jump straight to the densest cluster at a sensible zoom instead.
  */
 
 import { useMemo, useRef, useEffect, useState, useCallback } from 'react';
-import type { Camera } from '@maplibre/maplibre-react-native';
 import { normalizeBounds, getBoundsCenter } from '@/shared/geo/polyline';
 import type { ActivityBoundsItem } from '@/types';
 import type { RouteSignature } from '@/features/routes/hooks';
+import type { MapSurfaceRef } from '@/features/maps/components/MapSurface';
+import { REGIONAL_FIT_PADDING } from './regionalCamera';
 
 interface UseMapCameraOptions {
   activities: ActivityBoundsItem[];
   routeSignatures: Record<string, RouteSignature>;
-  /** Incremented on iOS retry - resets camera state so initial position is reapplied */
-  mapKey: number;
-  cameraRef: React.RefObject<React.ElementRef<typeof Camera> | null>;
+  surfaceRef: React.RefObject<MapSurfaceRef | null>;
 }
 
 interface UseMapCameraResult {
@@ -51,8 +43,7 @@ interface BoundsData {
 export function useMapCamera({
   activities,
   routeSignatures,
-  mapKey,
-  cameraRef,
+  surfaceRef,
 }: UseMapCameraOptions): UseMapCameraResult {
   // Refs for zoom/center avoid re-renders during map gestures.
   // State updates from regionDidChange cause React re-renders that disrupt
@@ -236,69 +227,31 @@ export function useMapCamera({
   const calculateBoundsRef = useRef(calculateBoundsAndCenter);
   calculateBoundsRef.current = calculateBoundsAndCenter;
 
-  // Reset camera state when map remounts (iOS retry) so initial position is reapplied
-  useEffect(() => {
-    if (mapKey > 0) {
-      hasAutoRepositionedRef.current = false;
-      settledAfterInitialRef.current = false;
-      setHasCameraSettled(false);
-    }
-  }, [mapKey]);
-
-  /** Apply the computed camera position - fit all activities with padding.
-   *  Uses fitBounds for proper pixel-based padding, then releases MapLibre
-   *  tracking state to prevent snap-back (same pattern as handleFitAll). */
+  /** Apply the computed camera position - fit all activities with padding. */
   const applyPosition = useCallback(
     (data: BoundsData) => {
-      // Guard against null camera ref during iOS Fabric reconciliation -
-      // the ref can be null between map unmount/remount cycles (e.g. mapKey change).
-      if (!cameraRef.current) return;
+      if (!surfaceRef.current) return;
 
-      if (__DEV__) {
-        console.log(
-          `[CAM] applyPosition - worldSpanning=${data.worldSpanning} zoom=${data.zoomLevel.toFixed(1)} center=[${data.center[0].toFixed(3)},${data.center[1].toFixed(3)}]`
-        );
-      }
       hasAutoRepositionedRef.current = true;
       programmaticMoveRef.current = true;
 
       if (data.worldSpanning) {
-        // Multi-continent data: jump instantly to the most recent activity's area.
-        // fitBounds on world-spanning data produces an ocean view, so use setCamera.
-        cameraRef.current?.setCamera({
-          centerCoordinate: data.center,
-          zoomLevel: data.recentZoom,
-          animationDuration: 0,
-          animationMode: 'moveTo',
-        });
-        setTimeout(() => {
-          cameraRef.current?.setCamera({
-            animationDuration: 0,
-            animationMode: 'moveTo',
-          });
-          programmaticMoveRef.current = false;
-        }, 100);
+        // Multi-continent data: jump instantly to the densest cluster. Fitting
+        // world-spanning bounds produces an ocean view.
+        surfaceRef.current.setCamera({ center: data.center, zoom: data.recentZoom });
+        programmaticMoveRef.current = false;
       } else {
-        // Compact area: fitBounds to show all activities with proper padding.
-        // Padding: [top, right, bottom, left] in pixels - bottom accounts for timeline slider.
-        cameraRef.current?.fitBounds(
-          data.targetBounds.ne,
-          data.targetBounds.sw,
-          [100, 60, 280, 60],
+        surfaceRef.current.fitBounds(
+          { sw: data.targetBounds.sw, ne: data.targetBounds.ne },
+          REGIONAL_FIT_PADDING,
           500
         );
-        // Release MapLibre tracking state after animation completes - without this,
-        // the camera snaps back to the bounds after any user gesture.
         setTimeout(() => {
-          cameraRef.current?.setCamera({
-            animationDuration: 0,
-            animationMode: 'moveTo',
-          });
           programmaticMoveRef.current = false;
         }, 600);
       }
     },
-    [cameraRef]
+    [surfaceRef]
   );
 
   // Callback for handlers to signal when the region changes.
@@ -306,14 +259,9 @@ export function useMapCamera({
   // region. Subsequent calls while programmaticMoveRef is false = genuine user pan/zoom (no-op).
   //
   // Camera command is fired here (not in a useEffect) to avoid a render-cycle delay between
-  // the initial settle and repositioning. cameraRef.current is guaranteed non-null here
-  // because Camera must be mounted to fire onRegionDidChange.
+  // the initial settle and repositioning. The surface must be mounted to have
+  // reported a region change at all, so its ref is populated by now.
   const markUserInteracted = useCallback(() => {
-    if (__DEV__) {
-      console.log(
-        `[CAM] markUserInteracted - programmatic=${programmaticMoveRef.current} settled=${settledAfterInitialRef.current} autoRepos=${hasAutoRepositionedRef.current} activities=${activitiesRef.current.length}`
-      );
-    }
     if (programmaticMoveRef.current) return;
     if (!settledAfterInitialRef.current) {
       settledAfterInitialRef.current = true;
@@ -327,17 +275,12 @@ export function useMapCamera({
       }
       return;
     }
-  }, [cameraRef, applyPosition]);
+  }, [applyPosition]);
 
   // Fallback: auto-reposition if activities arrived AFTER the initial settle.
   // The common path fires the camera command synchronously in markUserInteracted above.
   // This effect only runs when hasCameraSettled becomes true AND activities were empty at settle time.
   useEffect(() => {
-    if (__DEV__) {
-      console.log(
-        `[CAM] fallback effect - settled=${hasCameraSettled} autoRepos=${hasAutoRepositionedRef.current} activities=${activities.length}`
-      );
-    }
     if (!hasCameraSettled) return;
     if (hasAutoRepositionedRef.current) return;
     if (activities.length === 0) return;
@@ -345,7 +288,6 @@ export function useMapCamera({
     const data = calculateBoundsAndCenter(activities);
     if (!data) return;
 
-    if (__DEV__) console.log('[CAM] fallback effect → calling applyPosition');
     applyPosition(data);
   }, [activities, hasCameraSettled, calculateBoundsAndCenter, applyPosition]);
 

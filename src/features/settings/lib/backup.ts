@@ -20,11 +20,9 @@ import { initializeTileCacheStore } from '@/features/maps/stores/TileCacheStore'
 import { initializeRecordingPreferences } from '@/features/recording/stores/RecordingPreferencesStore';
 import { initializeKnownSensors } from '@/features/sensors/store';
 import { initializeUploadPermission } from '@/features/recording/stores/UploadPermissionStore';
-import { initializeDisabledSections } from '@/features/routes/stores/DisabledSectionsStore';
 import { initializePotentialSections } from '@/features/routes/stores/PotentialSectionsStore';
 import { initializeRouteSettings } from '@/features/routes/stores/RouteSettingsStore';
 import { initializeSectionDismissals } from '@/features/routes/stores/SectionDismissalsStore';
-import { initializeSupersededSections } from '@/features/routes/stores/SupersededSectionsStore';
 import { initializeDebugStore } from '@/features/settings/stores/DebugStore';
 import { initializeNotificationPreferences } from '@/features/settings/stores/NotificationPreferencesStore';
 import { initializeNotificationPrompt } from '@/features/settings/stores/NotificationPromptStore';
@@ -56,9 +54,7 @@ export async function reinitializeAllStores(): Promise<void> {
     initializeHRZones(),
     initializeUnitPreference(),
     initializeRouteSettings(),
-    initializeDisabledSections(),
     initializeSectionDismissals(),
-    initializeSupersededSections(),
     initializePotentialSections(),
     initializeDashboardPreferences(),
     initializeDebugStore(),
@@ -76,25 +72,6 @@ export async function reinitializeAllStores(): Promise<void> {
   ]);
 }
 
-// ============================================================================
-// SQLite database backup (.veloqdb)
-// ============================================================================
-
-const DatabaseBackupMetadataSchema = z.object({
-  schema_version: z.coerce.string(),
-  activity_count: z.number(),
-  section_count: z.number(),
-  gps_track_count: z.number(),
-  oldest_date: z.number().nullable(),
-  newest_date: z.number().nullable(),
-  athlete_id: z.string().nullable(),
-});
-
-export type DatabaseBackupMetadata = z.infer<typeof DatabaseBackupMetadataSchema>;
-
-// Shape returned by the native `validateBackupDatabase` pre-restore probe.
-// Narrower than DatabaseBackupMetadataSchema: the probe only reads the three
-// fields it needs to gate the restore, so validate against exactly those.
 const BackupValidationSchema = z.object({
   schema_version: z.coerce.string(),
   athlete_id: z.string().nullable(),
@@ -120,15 +97,6 @@ export async function exportDatabaseBackup(): Promise<void> {
     mimeType: 'application/octet-stream',
     UTI: 'public.database',
   });
-}
-
-/** Get metadata about the current database (for UI display). */
-export function getDatabaseBackupMetadata(): DatabaseBackupMetadata | null {
-  const engine = getRouteEngine();
-  if (!engine) return null;
-  const raw = engine.getBackupMetadata();
-  const result = DatabaseBackupMetadataSchema.safeParse(raw);
-  return result.success ? result.data : null;
 }
 
 export interface DatabaseRestoreResult {
@@ -348,7 +316,9 @@ const LEGACY_BACKUP_VERSION = 2;
  * 'terrain-preview-cache-version', 'veloq-recording-library' (points at local
  * FIT files that are not in the backup), 'veloq-section-health-check-v1',
  * 'veloq-push-token-refreshed-at' (device-local refresh throttle; restoring a
- * stale timestamp could suppress a needed re-registration for a day).
+ * stale timestamp could suppress a needed re-registration for a day),
+ * 'veloq-elevation-backfill-version' (device-local completion marker; restoring
+ * it onto another install would suppress that device's own backfill).
  */
 const LEGACY_PREFERENCE_KEYS = [
   'veloq-theme-preference',
@@ -470,16 +440,21 @@ export async function exportBackup(): Promise<void> {
 }
 
 export async function restoreBackup(json: string): Promise<RestoreResult> {
-  let backup: BackupData;
+  let parsed: unknown;
   try {
-    backup = JSON.parse(json);
+    parsed = JSON.parse(json);
   } catch {
     throw new Error('Invalid backup file format');
   }
 
-  if (backup.version === undefined || backup.version === null) {
+  // The file is user-picked, so nothing about its shape is guaranteed. A bare
+  // `null` parses fine and then throws on any property access.
+  const envelope = z.object({ version: z.number() }).safeParse(parsed);
+  if (!envelope.success) {
     throw new Error('Corrupt backup: missing version field');
   }
+
+  const backup = parsed as BackupData;
 
   if (backup.version > LEGACY_BACKUP_VERSION) {
     throw new Error(
@@ -587,7 +562,11 @@ export async function restoreBackup(json: string): Promise<RestoreResult> {
 
   // Restore preferences
   if (backup.preferences) {
+    // Only keys the export writes. Without this a hand-edited file can put any
+    // key into SQLite, and reinitializeAllStores then loads it into a store.
+    const restorable = new Set<string>(LEGACY_PREFERENCE_KEYS);
     for (const [key, value] of Object.entries(backup.preferences)) {
+      if (!restorable.has(key)) continue;
       try {
         const stringValue = typeof value === 'string' ? value : JSON.stringify(value);
         await setSetting(key, stringValue);

@@ -9,6 +9,18 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+// DebugStore
+import { useDebugStore, isDebugEnabled } from '@/features/settings/stores/DebugStore';
+
+// WhatsNewStore
+import {
+  useWhatsNewStore,
+  initializeWhatsNewStore,
+} from '@/features/settings/stores/WhatsNewStore';
+
+// TileCacheStore
+import { useTileCacheStore, initializeTileCacheStore } from '@/features/maps/stores/TileCacheStore';
+
 // Mock veloqrs and renderTimer so syncDebugToFFI doesn't crash
 jest.mock('veloqrs', () => ({
   RouteEngineClient: {
@@ -27,22 +39,58 @@ jest.mock('@/shared/debug/debug', () => ({
   debug: { create: () => noop },
 }));
 
-// DebugStore
-import { useDebugStore, isDebugEnabled } from '@/features/settings/stores/DebugStore';
-
-// WhatsNewStore
-import {
-  useWhatsNewStore,
-  initializeWhatsNewStore,
-} from '@/features/settings/stores/WhatsNewStore';
-
-// TileCacheStore
-import { useTileCacheStore, initializeTileCacheStore } from '@/features/maps/stores/TileCacheStore';
-
 // Storage keys (must match store implementations)
 const DEBUG_MODE_KEY = 'veloq-debug-mode';
 const WHATS_NEW_KEY = 'veloq-whats-new-seen';
 const TILE_CACHE_KEY = 'veloq-tile-cache';
+
+// ================================================================
+// Declared defaults
+// ================================================================
+
+/**
+ * Expected behaviour: every store declares un-loaded, inert defaults so callers gate
+ * on isLoaded instead of rendering persisted-looking state before initialize() runs.
+ * Each test dirties the shared singleton first, then reads a store built from a fresh
+ * module registry, so what is asserted is the declaration and not leftover state.
+ */
+describe('declared defaults', () => {
+  function freshState(path: string, hookName: string): Record<string, unknown> {
+    let state: Record<string, unknown> = {};
+    jest.isolateModules(() => {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const mod = require(path) as Record<string, { getState: () => Record<string, unknown> }>;
+      state = mod[hookName].getState();
+    });
+    return state;
+  }
+
+  it('DebugStore starts locked, disabled, and un-loaded', () => {
+    useDebugStore.setState({ unlocked: true, enabled: true, isLoaded: true });
+    const state = freshState('@/features/settings/stores/DebugStore', 'useDebugStore');
+    expect(state.unlocked).toBe(false);
+    expect(state.enabled).toBe(false);
+    expect(state.isLoaded).toBe(false);
+  });
+
+  it('WhatsNewStore starts with no seen version, no tour, and un-loaded', () => {
+    useWhatsNewStore.setState({
+      lastSeenVersion: '9.9.9',
+      isLoaded: true,
+      tourState: { mode: 'tutorial', resumeIndex: 4, exploring: true, tip: null },
+    });
+    const state = freshState('@/features/settings/stores/WhatsNewStore', 'useWhatsNewStore');
+    expect(state.lastSeenVersion).toBeNull();
+    expect(state.tourState).toBeNull();
+    expect(state.isLoaded).toBe(false);
+  });
+
+  it('TileCacheStore starts un-loaded', () => {
+    useTileCacheStore.setState({ isLoaded: true });
+    const state = freshState('@/features/maps/stores/TileCacheStore', 'useTileCacheStore');
+    expect(state.isLoaded).toBe(false);
+  });
+});
 
 // ================================================================
 // DebugStore
@@ -57,15 +105,6 @@ describe('DebugStore', () => {
     });
     await AsyncStorage.clear();
     jest.clearAllMocks();
-  });
-
-  describe('initial state', () => {
-    it('has correct defaults', () => {
-      const state = useDebugStore.getState();
-      expect(state.unlocked).toBe(false);
-      expect(state.enabled).toBe(false);
-      expect(state.isLoaded).toBe(false);
-    });
   });
 
   describe('initialize()', () => {
@@ -162,15 +201,6 @@ describe('WhatsNewStore', () => {
     });
     await AsyncStorage.clear();
     jest.clearAllMocks();
-  });
-
-  describe('initial state', () => {
-    it('has correct defaults', () => {
-      const state = useWhatsNewStore.getState();
-      expect(state.lastSeenVersion).toBeNull();
-      expect(state.isLoaded).toBe(false);
-      expect(state.tourState).toBeNull();
-    });
   });
 
   describe('initialize()', () => {
@@ -288,22 +318,9 @@ describe('WhatsNewStore', () => {
 
 describe('TileCacheStore', () => {
   beforeEach(async () => {
-    useTileCacheStore.setState({
-      isLoaded: false,
-      nativePackCount: 0,
-      nativeSizeEstimate: 0,
-    });
+    useTileCacheStore.setState({ isLoaded: false });
     await AsyncStorage.clear();
     jest.clearAllMocks();
-  });
-
-  describe('initial state', () => {
-    it('has correct defaults', () => {
-      const state = useTileCacheStore.getState();
-      expect(state.isLoaded).toBe(false);
-      expect(state.nativePackCount).toBe(0);
-      expect(state.nativeSizeEstimate).toBe(0);
-    });
   });
 
   describe('initialize()', () => {
@@ -351,28 +368,6 @@ describe('TileCacheStore', () => {
       (AsyncStorage.getItem as jest.Mock).mockRejectedValueOnce(new Error('fail'));
       await initializeTileCacheStore();
       expect(useTileCacheStore.getState().isLoaded).toBe(true);
-    });
-  });
-
-  describe('setNativePackInfo()', () => {
-    it('updates pack count and size estimate', () => {
-      useTileCacheStore.getState().setNativePackInfo(5, 1024000);
-      const state = useTileCacheStore.getState();
-      expect(state.nativePackCount).toBe(5);
-      expect(state.nativeSizeEstimate).toBe(1024000);
-    });
-
-    it('can update to zero values', () => {
-      useTileCacheStore.getState().setNativePackInfo(5, 1024000);
-      useTileCacheStore.getState().setNativePackInfo(0, 0);
-      const state = useTileCacheStore.getState();
-      expect(state.nativePackCount).toBe(0);
-      expect(state.nativeSizeEstimate).toBe(0);
-    });
-
-    it('does not affect isLoaded', () => {
-      useTileCacheStore.getState().setNativePackInfo(3, 500000);
-      expect(useTileCacheStore.getState().isLoaded).toBe(false);
     });
   });
 });

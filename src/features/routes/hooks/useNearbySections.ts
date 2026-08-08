@@ -13,18 +13,24 @@ interface UseNearbySectionsResult {
   isLoading: boolean;
 }
 
+/**
+ * `preComputed` lets a caller that already read the neighbours as part of a
+ * screen bundle skip this hook's own FFI call.
+ */
 export function useNearbySections(
   sectionId: string | undefined,
-  radiusMeters: number = 500
+  radiusMeters: number = 500,
+  preComputed?: NearbySectionSummary[]
 ): UseNearbySectionsResult {
   const trigger = useEngineSubscription(['sections']);
 
   const nearby = useMemo(() => {
+    if (preComputed) return preComputed;
     if (!sectionId) return [];
     const engine = getRouteEngine();
     if (!engine) return [];
     return engine.getNearbySections(sectionId, radiusMeters);
-  }, [sectionId, radiusMeters, trigger]);
+  }, [sectionId, radiusMeters, trigger, preComputed]);
 
   return { nearby, isLoading: false };
 }

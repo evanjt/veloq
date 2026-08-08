@@ -50,7 +50,7 @@ export function extractPushPayload(taskData: unknown): PushEventPayload {
   const data =
     outer?.data && typeof outer.data === 'object' ? (outer.data as Record<string, unknown>) : null;
 
-  const candidates: Array<{ shape: PushPayloadShape; obj: WorkerPayload | null }> = [
+  const candidates: { shape: PushPayloadShape; obj: WorkerPayload | null }[] = [
     { shape: 'dataString', obj: parseJsonObject(data?.dataString) },
     { shape: 'body', obj: parseJsonObject(data?.body) },
     { shape: 'flat', obj: data },

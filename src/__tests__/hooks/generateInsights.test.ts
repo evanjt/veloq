@@ -127,7 +127,7 @@ describe('generateInsights', () => {
     });
 
     it('detects upward, downward, and stable trends from HRV direction', () => {
-      const cases: Array<[number[], string]> = [
+      const cases: [number[], string][] = [
         [[40, 45, 50, 55, 60], 'trendingUp'],
         [[60, 55, 50, 45, 40], 'trendingDown'],
         [[50, 50, 50, 50, 50], 'stable'],
@@ -452,6 +452,7 @@ describe('generateInsights', () => {
               medianRecentSecs: 620,
               bestTimeSecs: 590,
               traversalCount: 8,
+              daysSinceLast: 60,
               sportType: 'Ride',
             },
             {
@@ -461,6 +462,7 @@ describe('generateInsights', () => {
               medianRecentSecs: 390,
               bestTimeSecs: 360,
               traversalCount: 5,
+              daysSinceLast: 75,
               sportType: 'Swim',
             },
           ],

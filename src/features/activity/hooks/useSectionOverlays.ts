@@ -9,6 +9,14 @@ interface LatLng {
   longitude: number;
 }
 
+/** Traces and record holders a caller already read from the engine. */
+export interface PreComputedOverlays {
+  /** This activity's portion of each section, keyed by section ID */
+  sectionTraces: Record<string, LatLng[]>;
+  /** Sections where this activity holds the record */
+  prSectionIds: Set<string>;
+}
+
 /**
  * Computes section trace overlays for an activity.
  *
@@ -21,8 +29,11 @@ export function useSectionOverlays(
   activityId: string | undefined,
   engineSectionMatches: SectionMatch[],
   customMatchedSections: Section[],
-  coordinates: LatLng[]
+  coordinates: LatLng[],
+  preComputed?: PreComputedOverlays
 ) {
+  const skipOwnFfiCall = preComputed !== undefined;
+
   // Internal state for computed traces
   const [computedActivityTraces, setComputedActivityTraces] = useState<Record<string, LatLng[]>>(
     {}
@@ -49,7 +60,7 @@ export function useSectionOverlays(
   // Compute activity traces using Rust engine's extractSectionTrace
   // Always compute traces (not just on sections tab) so overlays show on the map immediately
   useEffect(() => {
-    if (!activityId) {
+    if (!activityId || skipOwnFfiCall) {
       return;
     }
 
@@ -101,11 +112,14 @@ export function useSectionOverlays(
     setComputedActivityTraces(traces);
     // Use stable string IDs instead of array references to prevent infinite loops
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activityId, engineSectionIds, customSectionIds]);
+  }, [activityId, engineSectionIds, customSectionIds, skipOwnFfiCall]);
+
+  const activityTraces = preComputed?.sectionTraces ?? computedActivityTraces;
 
   // Determine which sections this activity holds the PR for.
   // Single FFI call instead of per-section getSectionPerformances loop.
   const prSectionIds = useMemo((): Set<string> => {
+    if (preComputed) return preComputed.prSectionIds;
     if (!activityId) return new Set();
     const allIds = [
       ...engineSectionMatches.map((m) => m.section.id),
@@ -117,7 +131,7 @@ export function useSectionOverlays(
     } catch {
       return new Set();
     }
-  }, [engineSectionMatches, customMatchedSections, activityId]);
+  }, [engineSectionMatches, customMatchedSections, activityId, preComputed]);
 
   // Build section overlays for map display (always computed, shown on all tabs)
   const sectionOverlays = useMemo((): SectionOverlay[] | null => {
@@ -145,13 +159,13 @@ export function useSectionOverlays(
       );
 
       // Try to get activity's portion from multiple sources (in order of preference):
-      // 1. computedActivityTraces (extracted via engine.extractSectionTrace - most accurate)
+      // 1. activityTraces (extracted by the engine - most accurate)
       // 2. activityTraces from section data (pre-computed by engine)
       // 3. portion indices (slice from coordinates - least accurate)
       let activityPortion;
 
       // First try computed traces - these use extractSectionTrace for accuracy
-      const computedTrace = computedActivityTraces[match.section.id];
+      const computedTrace = activityTraces[match.section.id];
       if (computedTrace && computedTrace.length > 0) {
         activityPortion = computedTrace;
       } else {
@@ -189,7 +203,7 @@ export function useSectionOverlays(
 
       // Try computed traces first (from extractSectionTrace)
       let activityPortion;
-      const computedTrace = computedActivityTraces[section.id];
+      const computedTrace = activityTraces[section.id];
       if (computedTrace && computedTrace.length > 0) {
         activityPortion = computedTrace;
       } else {
@@ -265,7 +279,7 @@ export function useSectionOverlays(
     customMatchedSections,
     coordinates,
     activityId,
-    computedActivityTraces,
+    activityTraces,
     prSectionIds,
   ]);
 
@@ -274,7 +288,7 @@ export function useSectionOverlays(
   const getActivityPortion = useCallback(
     (sectionId: string, portion?: { startIndex?: number; endIndex?: number }) => {
       // First try computed traces
-      const computedTrace = computedActivityTraces[sectionId];
+      const computedTrace = activityTraces[sectionId];
       if (computedTrace && computedTrace.length > 0) {
         return computedTrace.map((c) => ({
           lat: c.latitude,
@@ -288,7 +302,7 @@ export function useSectionOverlays(
       if (end <= start || coordinates.length === 0) return undefined;
       return coordinates.slice(start, end + 1).map((c) => ({ lat: c.latitude, lng: c.longitude }));
     },
-    [coordinates, computedActivityTraces]
+    [coordinates, activityTraces]
   );
 
   return { sectionOverlays, getActivityPortion };

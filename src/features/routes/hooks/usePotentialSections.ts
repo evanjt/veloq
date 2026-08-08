@@ -16,8 +16,6 @@ interface UsePotentialSectionsOptions {
   sportType?: string;
   /** Minimum number of activities before running detection (default: 10) */
   minActivities?: number;
-  /** Whether to run detection automatically (default: true) */
-  autoDetect?: boolean;
   /** Whether to run the hook (default: true). When false, returns empty defaults. */
   enabled?: boolean;
 }
@@ -63,7 +61,7 @@ interface UsePotentialSectionsResult {
 export function usePotentialSections(
   options: UsePotentialSectionsOptions = {}
 ): UsePotentialSectionsResult {
-  const { sportType, minActivities = 10, autoDetect = true, enabled = true } = options;
+  const { sportType, minActivities = 10, enabled = true } = options;
 
   const {
     potentials: storedPotentials,
@@ -73,26 +71,6 @@ export function usePotentialSections(
   } = usePotentialSectionsStore();
   const [isDetecting, setIsDetecting] = useState(false);
   const isMountedRef = useRef(true);
-  const hasDetectedRef = useRef(false);
-
-  // Filter by sport type
-  const potentials = useState(() => {
-    let filtered = storedPotentials;
-    if (sportType) {
-      filtered = filtered.filter((p) => p.sportType === sportType);
-    }
-    return filtered;
-  })[0];
-
-  // Update filtered potentials when stored potentials or sport type changes
-  useEffect(() => {
-    let filtered = storedPotentials;
-    if (sportType) {
-      filtered = filtered.filter((p) => p.sportType === sportType);
-    }
-    // Note: In a real app you'd use useState for filtered potentials
-    // For simplicity, we're using the store directly
-  }, [storedPotentials, sportType]);
 
   /**
    * Run potential section detection.
@@ -156,7 +134,6 @@ export function usePotentialSections(
   // This prevents expensive computation during UI navigation.
   // Manual detection can still be triggered via the detect() function.
   //
-  // NOTE: The autoDetect option is kept for backward compatibility but is ignored.
   // Detection happens in the background during GPS sync, not on component mount.
 
   // Cleanup on unmount

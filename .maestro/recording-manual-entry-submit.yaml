@@ -9,9 +9,9 @@ onFlowComplete:
   - openLink: "veloq://"
   - runFlow:
       when:
-        visible: "DISCARD"
+        visible: "(?i)discard"
       commands:
-        - tapOn: "DISCARD"
+        - tapOn: "(?i)discard"
 ---
 - runFlow:
     file: helpers/setup-demo-mode.yaml
@@ -23,9 +23,9 @@ onFlowComplete:
 # Dismiss any resume dialog
 - runFlow:
     when:
-      visible: "DISCARD"
+      visible: "(?i)discard"
     commands:
-      - tapOn: "DISCARD"
+      - tapOn: "(?i)discard"
 
 # Look for an indoor activity type — scroll to find WeightTraining or similar
 - scrollUntilVisible:
@@ -56,9 +56,9 @@ onFlowComplete:
           id: "record-fab"
       - runFlow:
           when:
-            visible: "DISCARD"
+            visible: "(?i)discard"
           commands:
-            - tapOn: "DISCARD"
+            - tapOn: "(?i)discard"
       - scrollUntilVisible:
           element:
             id: "record-type-WeightTraining"

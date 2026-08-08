@@ -3,10 +3,12 @@
  * Controls whether route matching is enabled and other route-related preferences.
  */
 
+import { DETECTION_METHODS } from '@/shared/native/routeEngine';
 import { create } from 'zustand';
 import { getSetting, setSetting } from '@/shared/storage';
 import { debug } from '@/shared/debug/debug';
 import { safeJsonParseWithSchema } from '@/shared/validation/validation';
+import type { DetectionMethod } from '@/shared/native/routeEngine';
 
 const log = debug.create('RouteSettings');
 
@@ -26,7 +28,7 @@ interface RouteSettings {
   /** Detection sensitivity slider value (0=relaxed, 100=strict, default: 60) */
   detectionStrictness: number;
   /** Detection algorithm (corridor, density, flow). Default: corridor */
-  detectionMethod: 'corridor' | 'density' | 'flow';
+  detectionMethod: DetectionMethod;
 }
 
 const DEFAULT_SETTINGS: RouteSettings = {
@@ -38,6 +40,8 @@ const DEFAULT_SETTINGS: RouteSettings = {
   detectionStrictness: 60,
   detectionMethod: 'corridor',
 };
+
+const VALID_DETECTION_METHODS = new Set<string>(DETECTION_METHODS);
 
 /**
  * Type guard for RouteSettings
@@ -55,8 +59,16 @@ function isRouteSettings(value: unknown): value is RouteSettings {
   if ('geocodingEnabled' in obj && typeof obj.geocodingEnabled !== 'boolean') return false;
   // heatmapEnabled must be boolean if present
   if ('heatmapEnabled' in obj && typeof obj.heatmapEnabled !== 'boolean') return false;
-  if ('detectionStrictness' in obj && typeof obj.detectionStrictness !== 'number') return false;
-  if ('detectionMethod' in obj && typeof obj.detectionMethod !== 'string') return false;
+  // A value of the right type is not necessarily a valid one. An unknown method
+  // resolves to undefined inside applyDetectionPresetForMethod.
+  if ('detectionStrictness' in obj) {
+    const strictness = obj.detectionStrictness;
+    if (typeof strictness !== 'number' || !Number.isFinite(strictness)) return false;
+    if (strictness < 0 || strictness > 100) return false;
+  }
+  if ('detectionMethod' in obj && !VALID_DETECTION_METHODS.has(obj.detectionMethod as string)) {
+    return false;
+  }
   return true;
 }
 
@@ -72,10 +84,10 @@ interface RouteSettingsState {
   setGeocodingEnabled: (enabled: boolean) => Promise<void>;
   setHeatmapEnabled: (enabled: boolean) => Promise<void>;
   setDetectionStrictness: (value: number) => Promise<void>;
-  setDetectionMethod: (method: 'corridor' | 'density' | 'flow') => Promise<void>;
+  setDetectionMethod: (method: DetectionMethod) => Promise<void>;
 }
 
-export const useRouteSettings = create<RouteSettingsState>((set, get) => ({
+export const useRouteSettings = create<RouteSettingsState>((set) => ({
   settings: DEFAULT_SETTINGS,
   isLoaded: false,
 
@@ -194,7 +206,7 @@ export const useRouteSettings = create<RouteSettingsState>((set, get) => ({
     });
   },
 
-  setDetectionMethod: async (method: 'corridor' | 'density' | 'flow') => {
+  setDetectionMethod: async (method: DetectionMethod) => {
     set((state) => {
       const newSettings = { ...state.settings, detectionMethod: method };
       setSetting(ROUTE_SETTINGS_KEY, JSON.stringify(newSettings)).catch((error) => {
@@ -229,7 +241,7 @@ export function getDetectionStrictness(): number {
   return useRouteSettings.getState().settings.detectionStrictness;
 }
 
-export function getDetectionMethod(): 'corridor' | 'density' | 'flow' {
+export function getDetectionMethod(): DetectionMethod {
   return useRouteSettings.getState().settings.detectionMethod;
 }
 

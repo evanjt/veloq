@@ -60,13 +60,6 @@ interface UseMapLayersResult {
   sectionBoundariesGeoJSON: GeoJSON.FeatureCollection;
   /** GeoJSON for geo-anchored section markers (ShapeSource + CircleLayer + SymbolLayer) */
   sectionMarkersGeoJSON: GeoJSON.FeatureCollection;
-  /** Subset of sectionMarkersGeoJSON containing only numbered (non-PR) markers.
-   *  Pre-filtered at the feature level so CircleLayer doesn't need a filter prop -
-   *  @maplibre/maplibre-react-native's filter handling is unreliable for boolean
-   *  property comparisons on some native versions. */
-  sectionNumberedMarkersGeoJSON: GeoJSON.FeatureCollection;
-  /** Subset of sectionMarkersGeoJSON containing only PR markers. */
-  sectionPRMarkersGeoJSON: GeoJSON.FeatureCollection;
   /** GeoJSON for PR-only section markers in fullscreen modal */
   fullscreenPRMarkersGeoJSON: GeoJSON.FeatureCollection;
   /** Route coordinates in [lng, lat] format for BaseMapView / Map3DWebView */
@@ -277,8 +270,7 @@ export function useMapLayers({
   // ----- section marker GeoJSON -----
   // Sections tab: numbered markers (1, 2, 3...) for all sections
   // Charts tab: PR markers for PR sections only
-  // Uses GeoJSON + ShapeSource/CircleLayer/SymbolLayer so markers geo-anchor and track with pan/zoom.
-  // MarkerView was previously used but its coordinate updates break native position binding.
+  // Markers are geo-anchored features so they track pan and zoom.
   const sectionMarkersGeoJSON = useMemo((): GeoJSON.FeatureCollection => {
     if (!sectionOverlaysGeoJSON) return EMPTY_COLLECTION;
 
@@ -339,18 +331,6 @@ export function useMapLayers({
 
     return { type: 'FeatureCollection', features };
   }, [sectionOverlaysGeoJSON, activeTab]);
-
-  // Split the combined markers into two pre-filtered collections so the 2D map
-  // doesn't need filter expressions on its layers (they don't consistently work
-  // on @maplibre/maplibre-react-native for boolean properties).
-  const sectionNumberedMarkersGeoJSON = useMemo((): GeoJSON.FeatureCollection => {
-    const features = sectionMarkersGeoJSON.features.filter((f) => f.properties?.isPR !== true);
-    return { type: 'FeatureCollection', features };
-  }, [sectionMarkersGeoJSON]);
-  const sectionPRMarkersGeoJSON = useMemo((): GeoJSON.FeatureCollection => {
-    const features = sectionMarkersGeoJSON.features.filter((f) => f.properties?.isPR === true);
-    return { type: 'FeatureCollection', features };
-  }, [sectionMarkersGeoJSON]);
 
   // ----- section boundary ticks -----
   // Perpendicular short line segments at each section's start and end.
@@ -474,8 +454,6 @@ export function useMapLayers({
     consolidatedPortionsGeoJSON,
     sectionBoundariesGeoJSON,
     sectionMarkersGeoJSON,
-    sectionNumberedMarkersGeoJSON,
-    sectionPRMarkersGeoJSON,
     fullscreenPRMarkersGeoJSON,
     routeCoords,
     highlightPoint,

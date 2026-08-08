@@ -1,21 +1,13 @@
-import React, { useMemo, useCallback, useState, useRef } from 'react';
+import React, { useMemo } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useTheme } from '@/shared/app';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { CartesianChart, Line } from 'victory-native';
 import { DashPathEffect, Line as SkiaLine } from '@shopify/react-native-skia';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import {
-  useSharedValue,
-  useAnimatedReaction,
-  runOnJS,
-  useDerivedValue,
-  useAnimatedStyle,
-} from 'react-native-reanimated';
-import { ChartCrosshair } from '@/shared/charts';
-import { colors, darkColors, typography, spacing, chartStyles } from '@/theme';
-import { CHART_CONFIG } from '@/constants';
+import { GestureDetector } from 'react-native-gesture-handler';
+import { ChartCrosshair, useChartGestures } from '@/shared/charts';
+import { colors, typography, spacing, chartStyles } from '@/theme';
 import { usePowerCurve } from '../hooks/usePowerCurve';
 import { formatDurationHuman } from '@/shared/format/format';
 
@@ -31,7 +23,6 @@ interface PowerCurveChartProps {
 }
 
 // Chart colors
-const DEFAULT_COLOR = '#5B9BD5'; // Brand blue
 const FTP_LINE_COLOR = 'rgba(150, 150, 150, 0.6)';
 
 interface ChartPoint {
@@ -48,22 +39,13 @@ export const PowerCurveChart = React.memo(function PowerCurveChart({
   sport,
   days = 365,
   height = 200,
-  color = DEFAULT_COLOR,
+  color,
   ftp,
 }: PowerCurveChartProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
 
   const { data: curve, isLoading, error } = usePowerCurve({ sport, days });
-
-  const [tooltipData, setTooltipData] = useState<ChartPoint | null>(null);
-  const [isActive, setIsActive] = useState(false);
-
-  // Shared values for gesture tracking
-  const touchX = useSharedValue(-1);
-  const chartBoundsShared = useSharedValue({ left: 0, right: 1 });
-  const pointXCoordsShared = useSharedValue<number[]>([]);
-  const lastNotifiedIdx = useRef<number | null>(null);
 
   // Process curve data for the line chart
   const { chartData, ftpValue, yDomain } = useMemo(() => {
@@ -145,79 +127,13 @@ export const PowerCurveChart = React.memo(function PowerCurveChart({
     };
   }, [curve, ftp]);
 
-  // Derive selected index
-  const selectedIdx = useDerivedValue(() => {
-    'worklet';
-    const len = chartData.length;
-    const bounds = chartBoundsShared.value;
-    const chartWidth = bounds.right - bounds.left;
-
-    if (touchX.value < 0 || chartWidth <= 0 || len === 0) return -1;
-
-    const chartX = touchX.value - bounds.left;
-    const ratio = Math.max(0, Math.min(1, chartX / chartWidth));
-    const idx = Math.round(ratio * (len - 1));
-
-    return Math.min(Math.max(0, idx), len - 1);
-  }, [chartData.length]);
-
-  const updateTooltipOnJS = useCallback(
-    (idx: number) => {
-      if (idx < 0 || chartData.length === 0) {
-        if (lastNotifiedIdx.current !== null) {
-          setTooltipData(null);
-          setIsActive(false);
-          lastNotifiedIdx.current = null;
-        }
-        return;
-      }
-
-      if (idx === lastNotifiedIdx.current) return;
-      lastNotifiedIdx.current = idx;
-
-      if (!isActive) setIsActive(true);
-
-      const point = chartData[idx];
-      if (point) setTooltipData(point);
-    },
-    [chartData, isActive]
-  );
-
-  useAnimatedReaction(
-    () => selectedIdx.value,
-    (idx) => {
-      runOnJS(updateTooltipOnJS)(idx);
-    },
-    [updateTooltipOnJS]
-  );
-
-  const gesture = Gesture.Pan()
-    .onStart((e) => {
-      'worklet';
-      touchX.value = e.x;
-    })
-    .onUpdate((e) => {
-      'worklet';
-      touchX.value = e.x;
-    })
-    .onEnd(() => {
-      'worklet';
-      touchX.value = -1;
-    })
-    .minDistance(0)
-    .activateAfterLongPress(CHART_CONFIG.LONG_PRESS_DURATION);
-
-  const crosshairStyle = useAnimatedStyle(() => {
-    'worklet';
-    const idx = selectedIdx.value;
-    const coords = pointXCoordsShared.value;
-
-    if (idx < 0 || coords.length === 0 || idx >= coords.length) {
-      return { opacity: 0, transform: [{ translateX: 0 }] };
-    }
-
-    return { opacity: 1, transform: [{ translateX: coords[idx] }] };
-  }, []);
+  const {
+    gesture,
+    selectedPoint: tooltipData,
+    crosshairStyle,
+    syncBounds,
+    syncXCoords,
+  } = useChartGestures<ChartPoint>({ data: chartData });
 
   if (isLoading) {
     return (
@@ -284,20 +200,8 @@ export const PowerCurveChart = React.memo(function PowerCurveChart({
             padding={CHART_PADDING}
           >
             {({ points, chartBounds }) => {
-              // Sync bounds for gesture
-              if (
-                chartBounds.left !== chartBoundsShared.value.left ||
-                chartBounds.right !== chartBoundsShared.value.right
-              ) {
-                chartBoundsShared.value = {
-                  left: chartBounds.left,
-                  right: chartBounds.right,
-                };
-              }
-              const newCoords = points.y.filter((p) => p.x != null).map((p) => p.x as number);
-              if (newCoords.length !== pointXCoordsShared.value.length) {
-                pointXCoordsShared.value = newCoords;
-              }
+              syncBounds(chartBounds);
+              syncXCoords(points.y, (p) => p.x);
 
               return (
                 <>

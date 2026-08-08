@@ -32,7 +32,6 @@ interface FitnessTrendSectionsProps {
   // Running thresholds
   thresholdPace: number | undefined;
   runLthr: number | undefined;
-  runMaxHr: number | undefined;
   // Decoupling (cycling)
   decouplingStreams: ActivityStreams | undefined;
   decouplingValue: { value: number; isGood: boolean } | null;

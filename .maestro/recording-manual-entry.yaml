@@ -9,9 +9,9 @@ onFlowComplete:
   - openLink: "veloq://"
   - runFlow:
       when:
-        visible: "DISCARD"
+        visible: "(?i)discard"
       commands:
-        - tapOn: "DISCARD"
+        - tapOn: "(?i)discard"
 ---
 - runFlow:
     file: helpers/setup-demo-mode.yaml
@@ -23,21 +23,37 @@ onFlowComplete:
 # Dismiss any "Resume previous recording?" dialog
 - runFlow:
     when:
-      visible: "Discard"
+      visible: "(?i)discard"
     commands:
-      - tapOn: "Discard"
+      - tapOn: "(?i)discard"
 
-# Scroll down to reach the All Activities collapsible sections
+# The categories live behind the All Activities disclosure, which starts
+# closed, so nothing under it is in the tree until this is tapped.
 - scrollUntilVisible:
     element:
-      text: "Gym & Fitness"
+      id: "record-all-activities"
     direction: DOWN
     timeout: 10000
     speed: 40
 
-# Expand the Gym & Fitness category to access WeightTraining
+- runFlow:
+    when:
+      notVisible:
+        id: "record-category-gym"
+    commands:
+      - tapOn:
+          id: "record-all-activities"
+
+- scrollUntilVisible:
+    element:
+      id: "record-category-gym"
+    direction: DOWN
+    timeout: 10000
+    speed: 40
+
+# Expand the gym category to access WeightTraining
 - tapOn:
-    text: "Gym & Fitness"
+    id: "record-category-gym"
 
 # Scroll WeightTraining to center of screen (away from tab bar overlap at bottom)
 - scrollUntilVisible:

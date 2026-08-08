@@ -56,10 +56,6 @@ const RUN_NAMES: Record<SessionType, string[]> = {
   race: ['Race Pace Run', 'Race Simulation', 'Parkrun'],
 };
 
-function pickFromArray<T>(arr: T[], rng: () => number): T {
-  return arr[Math.floor(rng() * arr.length)];
-}
-
 function generateActivityName(
   type: string,
   hour: number,

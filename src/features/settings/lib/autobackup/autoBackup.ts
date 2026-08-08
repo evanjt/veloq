@@ -2,8 +2,9 @@
  * Auto-backup orchestration.
  *
  * Creates SQLite snapshots and uploads them to the configured backend.
- * Handles scheduling (throttled to once per 24h), retention (keep last 3),
- * and metadata collection.
+ * Handles scheduling (throttled to once per 24h), retention (local storage
+ * keeps the last MAX_LOCAL_BACKUPS, cloud backends keep everything), and
+ * metadata collection.
  *
  * Triggers:
  * 1. After sync completion (new data arrived)
@@ -20,6 +21,7 @@ import { Platform } from 'react-native';
 import { localBackend } from './backends/localBackend';
 import { webdavBackend } from './backends/webdavBackend';
 import { icloudBackend } from './backends/icloudBackend';
+import { isBackupTransferError, type BackupFailureKind } from './backends/errors';
 
 const log = debug.create('AutoBackup');
 const APP_VERSION = Constants.expoConfig?.version ?? '0.0.0';
@@ -27,6 +29,8 @@ const APP_VERSION = Constants.expoConfig?.version ?? '0.0.0';
 const SETTING_LAST_BACKUP = '__last_auto_backup';
 const SETTING_BACKEND_ID = '__backup_backend';
 const SETTING_AUTO_BACKUP_ENABLED = '__auto_backup_enabled';
+// Diagnostic state rather than a preference, so deliberately not in PREFERENCE_KEYS
+const SETTING_LAST_FAILURE = '__last_backup_failure';
 
 const MIN_INTERVAL_MS = 24 * 60 * 60 * 1000; // 24 hours
 const STALE_INTERVAL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
@@ -80,11 +84,63 @@ export async function getAvailableBackends(): Promise<BackupBackend[]> {
   return available;
 }
 
+/**
+ * Backends the picker may offer, which is wider than the set that is ready
+ * to run. WebDAV reports unavailable until it has credentials, but the user
+ * enters those in the backup screen itself, so it has to stay selectable.
+ * iCloud has no such in-app step, so it is only offered once available.
+ */
+const ALWAYS_OFFERABLE = new Set(['local', 'webdav']);
+
+export async function getOfferableBackends(): Promise<BackupBackend[]> {
+  const available = await getAvailableBackends();
+  return Object.values(backends).filter(
+    (backend) =>
+      ALWAYS_OFFERABLE.has(backend.id) || available.some((ready) => ready.id === backend.id)
+  );
+}
+
 /** Get timestamp of the last auto-backup, or null if never. */
 export function getLastBackupTimestamp(): number | null {
   const engine = getRouteEngine();
   const value = engine?.getSetting(SETTING_LAST_BACKUP);
   return value != null ? Number(value) : null;
+}
+
+export interface BackupFailure {
+  kind: BackupFailureKind;
+  status: number | null;
+  /** Epoch millis of the attempt */
+  at: number;
+}
+
+/**
+ * The last failure that needs the user to act, or null.
+ *
+ * Only permanent failures are kept. A backup that lost the network will be
+ * retried without anyone doing anything, so standing text about it would be
+ * noise rather than information.
+ */
+export function getLastBackupFailure(): BackupFailure | null {
+  const engine = getRouteEngine();
+  const raw = engine?.getSetting(SETTING_LAST_FAILURE);
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as BackupFailure;
+    return typeof parsed?.kind === 'string' ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function clearBackupFailure(): void {
+  getRouteEngine()?.setSetting(SETTING_LAST_FAILURE, '');
+}
+
+function recordBackupFailure(error: unknown): void {
+  if (!isBackupTransferError(error) || !error.permanent) return;
+  const failure: BackupFailure = { kind: error.kind, status: error.status, at: Date.now() };
+  getRouteEngine()?.setSetting(SETTING_LAST_FAILURE, JSON.stringify(failure));
 }
 
 /**
@@ -156,6 +212,7 @@ export async function performBackup(force = false): Promise<boolean> {
 
     // Update last backup timestamp
     engine.setSetting(SETTING_LAST_BACKUP, String(Date.now()));
+    clearBackupFailure();
 
     // Local backups: enforce retention to prevent silent device storage growth.
     // Cloud/WebDAV backups: kept indefinitely - storage is the user's responsibility.
@@ -168,7 +225,9 @@ export async function performBackup(force = false): Promise<boolean> {
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
     log.warn('Auto-backup failed:', msg);
-    throw new Error(msg);
+    recordBackupFailure(error);
+    // Rethrow the original so the caller keeps the failure kind
+    throw error instanceof Error ? error : new Error(msg);
   }
 }
 

@@ -2,7 +2,12 @@ import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { getRouteEngine } from '@/shared/native/routeEngine';
 import { useEngineSubscription } from '@/features/routes/hooks/useRouteEngine';
-import { intervalsApi } from '@/api';
+import {
+  PREVIEW_STREAM_TYPES,
+  readStreams,
+  requestStreams,
+} from '@/features/activity/lib/engineStreams';
+import { useEngineBody } from '@/shared/native/engineBodies';
 import { queryKeys } from '@/shared/query/queryKeys';
 import { convertLatLngTuples } from '@/shared/geo/polyline';
 import type { LatLng } from '@/shared/geo/polyline';
@@ -41,9 +46,17 @@ export function useMapPreviewCoordinates(
 
   // 3. Lightweight API fallback - only fires when neither startup nor engine has data
   const needsFetch = hasGpsData && !startupTrack && !engineResult;
+  const storedPreview = needsFetch ? readStreams(activityId, PREVIEW_STREAM_TYPES) : null;
+  useEngineBody(
+    storedPreview !== null,
+    () => requestStreams(activityId, PREVIEW_STREAM_TYPES),
+    queryKeys.activities.mapPreview(activityId),
+    needsFetch
+  );
+
   const { data: streams, isLoading: isFetching } = useQuery({
     queryKey: queryKeys.activities.mapPreview(activityId),
-    queryFn: () => intervalsApi.getActivityStreams(activityId, ['latlng', 'altitude']),
+    queryFn: () => readStreams(activityId, PREVIEW_STREAM_TYPES) ?? {},
     staleTime: Infinity,
     gcTime: 1000 * 60 * 10,
     enabled: needsFetch,

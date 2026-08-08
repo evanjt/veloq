@@ -11,15 +11,17 @@ import { type ChartConfig, type ChartTypeId } from '@/features/activity/lib/char
 import { isCyclingActivity } from '@/features/activity/lib/activityUtils';
 import type { ActivityStreams, ActivityInterval, ActivityType } from '@/types';
 import { CHART_CONFIG } from '@/constants';
-import { colors, darkColors } from '@/theme';
-import { POWER_ZONE_COLORS, HR_ZONE_COLORS } from '@/shared/app/useSportSettings';
+import { finiteExtent } from '@/shared/charts/extent';
 
-/** One input series derived from a chart config + streams. */
+/**
+ * One input series derived from a chart config + streams. The colour is not
+ * copied out of the config: the chart layer already holds the config and
+ * resolves the colour itself.
+ */
 export interface DataSeries {
   id: ChartTypeId;
   config: ChartConfig;
   rawData: number[];
-  color: string;
 }
 
 /** A series with its min/max range and an optional "preview" flag. */
@@ -47,11 +49,19 @@ export interface ChartDataResult {
   maxX: number;
 }
 
+/**
+ * What a band's colour means, rather than what it looks like. The chart layer
+ * turns this into a swatch through `resolveBandColour`.
+ */
+export type BandColourToken =
+  | { kind: 'zone'; scale: 'power' | 'hr'; zone: number }
+  | { kind: 'role'; role: 'work' | 'recovery' | 'warmup' | 'cooldown' | 'other' };
+
 /** Zone-colored band behind the chart for a single interval. */
 export interface IntervalBand {
   startX: number;
   endX: number;
-  bandColor: string;
+  bandColour: BandColourToken;
   bandOpacity: number;
   /** Normalized Y (0..1) of the interval's average value, or null for non-WORK intervals. */
   avgNormY: number | null;
@@ -105,7 +115,6 @@ export function buildChartData(
       id: chartId,
       config,
       rawData,
-      color: config.color,
       isPreview: chartId === previewMetricId && !selectedCharts.includes(chartId),
     });
   }
@@ -120,10 +129,11 @@ export function buildChartData(
 
   // Calculate min/max for each series for normalization
   const seriesRanges = series.map((s) => {
-    const values = s.rawData.filter((v) => !isNaN(v) && isFinite(v));
-    const min = Math.min(...values);
-    const max = Math.max(...values);
-    return { min, max, range: max - min || 1 };
+    // A stream with no finite sample normalises against a flat range. Its points
+    // are non-finite anyway, so the chart draws a gap rather than a floor line.
+    const extent = finiteExtent(s.rawData);
+    if (!extent) return { min: 0, max: 0, range: 1 };
+    return { min: extent.min, max: extent.max, range: extent.max - extent.min || 1 };
   });
 
   for (let i = 0; i < xSource.length; i += step) {
@@ -151,8 +161,8 @@ export function buildChartData(
     indices.push(i);
   }
 
-  const xValues = points.map((p) => p.x);
-  const computedMaxX = Math.max(...xValues);
+  // A non-finite x sample would otherwise carry NaN into the axis domain.
+  const computedMaxX = finiteExtent(points.map((p) => p.x))?.max ?? 1;
 
   return {
     chartData: points,
@@ -184,8 +194,9 @@ export function computeAllAverages(
     const rawData = config.getStream?.(streams);
     if (!rawData || rawData.length === 0) continue;
 
-    const validValues = rawData.filter((v) => !isNaN(v) && isFinite(v));
-    if (validValues.length === 0) continue;
+    const validValues = rawData.filter((v) => Number.isFinite(v));
+    const extent = finiteExtent(validValues);
+    if (!extent) continue;
 
     let computed: number;
     let valuePrefix = '';
@@ -194,8 +205,11 @@ export function computeAllAverages(
       // Sum of positive deltas (elevation gain)
       let gain = 0;
       for (let i = 1; i < rawData.length; i++) {
+        // Both samples must be real. A null neighbour differences to a whole
+        // sample's worth of fabricated gain.
+        if (!Number.isFinite(rawData[i]) || !Number.isFinite(rawData[i - 1])) continue;
         const delta = rawData[i] - rawData[i - 1];
-        if (delta > 0 && isFinite(delta)) gain += delta;
+        if (delta > 0) gain += delta;
       }
       computed = gain;
       valuePrefix = '+';
@@ -216,7 +230,7 @@ export function computeAllAverages(
     let maxFormatted: string;
     if (config.defaultMetric === 'gain') {
       // Gain is fixed - use it as max width; also check max altitude for scrub case
-      let maxRaw = Math.max(...validValues);
+      let maxRaw = extent.max;
       if (!isMetric && config.convertToImperial) {
         maxRaw = config.convertToImperial(maxRaw);
       }
@@ -226,7 +240,7 @@ export function computeAllAverages(
       // Use the wider of gain formatted or max altitude formatted
       maxFormatted = formatted.length >= maxAltFormatted.length ? formatted : maxAltFormatted;
     } else {
-      let maxRaw = Math.max(...validValues);
+      let maxRaw = extent.max;
       if (!isMetric && config.convertToImperial) {
         maxRaw = config.convertToImperial(maxRaw);
       }
@@ -250,12 +264,12 @@ export function computeAllAverages(
 }
 
 /**
- * Compute zone-colored interval bands for the chart.
+ * Compute the interval bands behind the chart.
  *
- * Each interval is mapped to a background color (WORK gets the power/HR
- * zone color, RECOVERY/REST get a neutral gray, WARMUP/COOLDOWN get
- * distinct colors) plus an opacity and a normalized Y position for the
- * dashed-line indicator (WORK only).
+ * Each interval becomes a colour token plus an opacity and a normalized Y
+ * position for the dashed-line indicator (WORK only). A WORK interval inside
+ * a zone carries the zone number and which scale it indexes, so the chart
+ * layer can pick the swatch for the current theme.
  */
 export function computeIntervalBands(
   intervals: ActivityInterval[] | undefined,
@@ -263,7 +277,6 @@ export function computeIntervalBands(
   streams: ActivityStreams,
   xAxisMode: 'distance' | 'time',
   isMetric: boolean,
-  isDark: boolean,
   activityType: ActivityType | undefined,
   seriesInfo: SeriesInfo[]
 ): IntervalBand[] {
@@ -298,28 +311,25 @@ export function computeIntervalBands(
     const isWork = interval.type === 'WORK';
     const isRecovery = interval.type === 'RECOVERY' || interval.type === 'REST';
 
-    // Zone color
-    let bandColor: string;
+    let bandColour: BandColourToken;
     let bandOpacity: number;
     if (isWork && interval.zone != null && interval.zone >= 1) {
-      const zoneArr = isCycling ? POWER_ZONE_COLORS : HR_ZONE_COLORS;
-      bandColor = zoneArr[Math.min(interval.zone - 1, zoneArr.length - 1)];
-      if (isDark && interval.zone === 7) bandColor = darkColors.zone7;
+      bandColour = { kind: 'zone', scale: isCycling ? 'power' : 'hr', zone: interval.zone };
       bandOpacity = 0.35;
     } else if (isWork) {
-      bandColor = colors.primary;
+      bandColour = { kind: 'role', role: 'work' };
       bandOpacity = 0.3;
     } else if (isRecovery) {
-      bandColor = '#808080';
+      bandColour = { kind: 'role', role: 'recovery' };
       bandOpacity = 0.15;
     } else if (interval.type === 'WARMUP') {
-      bandColor = '#22C55E';
+      bandColour = { kind: 'role', role: 'warmup' };
       bandOpacity = 0.15;
     } else if (interval.type === 'COOLDOWN') {
-      bandColor = '#8B5CF6';
+      bandColour = { kind: 'role', role: 'cooldown' };
       bandOpacity = 0.15;
     } else {
-      bandColor = '#808080';
+      bandColour = { kind: 'role', role: 'other' };
       bandOpacity = 0.08;
     }
 
@@ -333,12 +343,12 @@ export function computeIntervalBands(
           : primarySeries.id === 'heartrate'
             ? interval.average_heartrate
             : null;
-      if (avgRaw != null && isFinite(avgRaw)) {
+      if (avgRaw != null && Number.isFinite(avgRaw)) {
         const { min, range } = primarySeries.range;
         avgNormY = Math.max(0, Math.min(1, (avgRaw - min) / range));
       }
     }
 
-    return { startX, endX, bandColor, bandOpacity, avgNormY, isWork };
+    return { startX, endX, bandColour, bandOpacity, avgNormY, isWork };
   });
 }

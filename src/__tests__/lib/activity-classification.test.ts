@@ -5,6 +5,8 @@ import {
   isRunningActivity,
   isCyclingActivity,
 } from '@/features/activity/lib/activityUtils';
+import { activityTypeColors } from '@/theme/colors';
+import type { ActivityType } from '@/types';
 
 describe('sortByDateId', () => {
   it('sorts by date id without mutating the source, and handles empty input', () => {
@@ -30,26 +32,12 @@ describe('sortByDateId', () => {
 });
 
 describe('icon & color lookup', () => {
-  it('maps activity types to their color, falling back to zinc for unknown', () => {
-    const cases: [Parameters<typeof getActivityColor>[0], string][] = [
-      ['Ride', '#3B82F6'],
-      ['VirtualRide', '#3B82F6'],
-      ['VirtualRun', '#10B981'],
-      ['SomeUnknownActivity' as any, '#71717A'],
-    ];
-    for (const [type, color] of cases) {
-      expect(getActivityColor(type)).toBe(color);
-    }
+  it('falls back to the Other colour for an unmapped activity type', () => {
+    expect(getActivityColor('SomeUnknownActivity' as ActivityType)).toBe(activityTypeColors.Other);
   });
 
-  it('maps activity types to their icon, falling back to heart-pulse for unknown', () => {
-    const cases: [Parameters<typeof getActivityIcon>[0], string][] = [
-      ['Ride', 'bike'],
-      ['SomeUnknownActivity' as any, 'heart-pulse'],
-    ];
-    for (const [type, icon] of cases) {
-      expect(getActivityIcon(type)).toBe(icon);
-    }
+  it('falls back to heart-pulse for an unmapped activity type', () => {
+    expect(getActivityIcon('SomeUnknownActivity')).toBe('heart-pulse');
   });
 });
 

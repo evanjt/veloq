@@ -1,9 +1,10 @@
 mod activities;
-mod detection;
+pub(crate) mod detection;
 mod engine;
 pub mod error;
 mod fitness;
 mod maps;
+mod preview;
 mod routes;
 mod sections;
 mod settings;
@@ -13,4 +14,8 @@ mod tiles;
 
 pub use engine::VeloqEngine;
 pub use error::VeloqError;
-pub use sync::{FfiSyncStatus, SyncManager};
+pub use preview::SectionPreview;
+pub use sync::{
+    FfiCallOutcome, FfiManualActivity, FfiSyncStatus, SyncManager, current_athlete_id,
+    current_auth_header, current_transport,
+};

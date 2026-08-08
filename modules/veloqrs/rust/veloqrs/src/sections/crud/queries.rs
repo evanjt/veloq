@@ -5,7 +5,7 @@
 //! reads - they never mutate section state.
 
 use super::super::{Section, SectionSummary, SectionType};
-use crate::persistence::PersistentRouteEngine;
+use crate::persistence::{PersistentRouteEngine, codec};
 use rusqlite::params;
 use tracematch::GpsPoint;
 use tracematch::sections::{build_rtree, find_all_track_portions};
@@ -17,7 +17,8 @@ impl PersistentRouteEngine {
          representative_activity_id, confidence, observation_count, average_spread,
          point_density_json, scale, version, is_user_defined, stability,
          source_activity_id, start_index, end_index, created_at, updated_at,
-         disabled, superseded_by";
+         disabled, superseded_by, polyline_blob, point_density_blob,
+         elevation_gain_m, avg_grade_percent";
 
     /// Visibility filter: exclude disabled and superseded sections.
     pub(super) const VISIBLE_FILTER: &'static str = "disabled = 0 AND superseded_by IS NULL";
@@ -48,6 +49,8 @@ impl PersistentRouteEngine {
             let section_type_str: String = row.get(1)?;
             let polyline_json: String = row.get(4)?;
             let point_density_json: Option<String> = row.get(10)?;
+            let polyline_blob: Option<Vec<u8>> = row.get(22)?;
+            let point_density_blob: Option<Vec<u8>> = row.get(23)?;
 
             // Get activity IDs from junction table
             let activity_ids = self.get_section_activity_ids(&id);
@@ -57,7 +60,11 @@ impl PersistentRouteEngine {
                 section_type: SectionType::from_str(&section_type_str).unwrap_or(SectionType::Auto),
                 name: row.get(2)?,
                 sport_type: row.get(3)?,
-                polyline: serde_json::from_str(&polyline_json).unwrap_or_default(),
+                polyline: codec::decode_polyline_row(
+                    polyline_blob.as_deref(),
+                    Some(&polyline_json),
+                )
+                .unwrap_or_default(),
                 distance_meters: row.get(5)?,
                 representative_activity_id: row.get(6)?,
                 activity_ids,
@@ -65,10 +72,14 @@ impl PersistentRouteEngine {
                 confidence: row.get(7)?,
                 observation_count: row.get(8)?,
                 average_spread: row.get(9)?,
-                point_density: point_density_json.and_then(|j| serde_json::from_str(&j).ok()),
+                point_density: point_density_blob
+                    .and_then(|b| codec::deserialize(&b).ok())
+                    .or_else(|| point_density_json.and_then(|j| serde_json::from_str(&j).ok())),
                 scale: row.get(11)?,
                 is_user_defined: row.get::<_, Option<i32>>(13)?.unwrap_or(0) != 0,
                 stability: row.get(14)?,
+                elevation_gain_m: row.get(24)?,
+                avg_grade_percent: row.get(25)?,
                 version: row.get(12)?,
                 updated_at: row.get(19)?,
                 source_activity_id: row.get(15)?,
@@ -155,11 +166,12 @@ impl PersistentRouteEngine {
     }
 
     /// Get total visit count (number of traversals/laps) for a section.
+    /// Reads the trigger-maintained column: the junction triggers are the
+    /// one owner of this number, never an independent recount.
     pub(super) fn get_section_visit_count(&self, section_id: &str) -> u32 {
         self.db
             .query_row(
-                "SELECT COUNT(*) FROM section_activities sa
-                 WHERE sa.section_id = ? AND sa.excluded = 0",
+                "SELECT visit_count FROM sections WHERE id = ?",
                 params![section_id],
                 |row| row.get(0),
             )
@@ -206,10 +218,38 @@ impl PersistentRouteEngine {
         section_type: Option<SectionType>,
         visible_only: bool,
     ) -> Vec<SectionSummary> {
+        // Same junction-derived sport list the canonical summaries read uses.
+        let section_sport_types: std::collections::HashMap<String, Vec<String>> = {
+            let mut stmt = match self.db.prepare(
+                "SELECT sa.section_id, GROUP_CONCAT(DISTINCT am.sport_type)
+                 FROM section_activities sa
+                 JOIN activity_metrics am ON sa.activity_id = am.activity_id
+                 WHERE sa.excluded = 0
+                 GROUP BY sa.section_id",
+            ) {
+                Ok(s) => s,
+                Err(_) => return Vec::new(),
+            };
+            stmt.query_map([], |row| {
+                let id: String = row.get(0)?;
+                let types_csv: String = row.get::<_, Option<String>>(1)?.unwrap_or_default();
+                let types: Vec<String> = types_csv
+                    .split(',')
+                    .filter(|s| !s.is_empty())
+                    .map(|s| s.to_string())
+                    .collect();
+                Ok((id, types))
+            })
+            .ok()
+            .map(|iter| iter.filter_map(|r| r.ok()).collect())
+            .unwrap_or_default()
+        };
+
         let base_cols = "id, section_type, name, sport_type, distance_meters,
                          representative_activity_id, created_at, confidence, scale,
                          bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng,
-                         is_user_defined, disabled, superseded_by";
+                         is_user_defined, disabled, superseded_by, visit_count,
+                         elevation_gain_m, avg_grade_percent";
         let query = match (section_type, visible_only) {
             (Some(st), true) => format!(
                 "SELECT {} FROM sections WHERE section_type = '{}' AND {}",
@@ -238,8 +278,9 @@ impl PersistentRouteEngine {
         let rows = stmt.query_map([], |row| {
             let id: String = row.get(0)?;
 
-            // Count activities from junction table
-            let visit_count = self.get_section_activity_count(&id);
+            // Traversals off the denormalised column, outings from a DISTINCT.
+            let visit_count: u32 = row.get::<_, Option<u32>>(16)?.unwrap_or(0);
+            let activity_count = self.get_section_activity_count(&id);
 
             let bounds = match (
                 row.get::<_, Option<f64>>(9)?,
@@ -259,6 +300,10 @@ impl PersistentRouteEngine {
             };
 
             let sport_type: String = row.get(3)?;
+            let sport_types = section_sport_types
+                .get(&id)
+                .cloned()
+                .unwrap_or_else(|| vec![sport_type.clone()]);
             Ok(SectionSummary {
                 id,
                 section_type: row
@@ -268,23 +313,29 @@ impl PersistentRouteEngine {
                 sport_type: sport_type.clone(),
                 distance_meters: row.get(4)?,
                 visit_count,
-                activity_count: visit_count,
+                activity_count,
                 representative_activity_id: row.get(5)?,
                 confidence: row.get::<_, Option<f64>>(7)?.unwrap_or(0.0),
                 scale: row.get(8)?,
                 bounds,
+                elevation_gain_m: row.get(17)?,
+                avg_grade_percent: row.get(18)?,
                 created_at: row.get::<_, Option<String>>(6)?.unwrap_or_default(),
-                sport_types: vec![sport_type],
+                sport_types,
                 is_user_defined: row.get::<_, Option<i32>>(13)?.unwrap_or(0) != 0,
                 disabled: row.get::<_, Option<i32>>(14)?.unwrap_or(0) != 0,
                 superseded_by: row.get(15)?,
             })
         });
 
-        match rows {
+        let mut results: Vec<SectionSummary> = match rows {
             Ok(iter) => iter.filter_map(|r| r.ok()).collect(),
             Err(_) => Vec::new(),
+        };
+        for summary in &mut results {
+            self.apply_named_overlay_to_summary(summary);
         }
+        results
     }
 
     /// Get distinct activity count for a section.
@@ -299,15 +350,34 @@ impl PersistentRouteEngine {
             .unwrap_or(0)
     }
 
-    /// Get activity IDs that are excluded from a section.
+    /// Activity IDs fully excluded from a section: no included row remains.
+    /// An activity with only some laps excluded is per-lap state, served by
+    /// `get_excluded_section_laps`.
     pub fn get_excluded_activity_ids(&self, section_id: &str) -> Vec<String> {
         let mut stmt = match self.db.prepare(
-            "SELECT DISTINCT activity_id FROM section_activities WHERE section_id = ? AND excluded = 1"
+            "SELECT activity_id FROM section_activities WHERE section_id = ?
+             GROUP BY activity_id HAVING SUM(excluded = 0) = 0",
         ) {
             Ok(s) => s,
             Err(_) => return Vec::new(),
         };
         stmt.query_map(params![section_id], |row| row.get(0))
+            .map(|rows| rows.filter_map(|r| r.ok()).collect())
+            .unwrap_or_default()
+    }
+
+    /// Every excluded junction row as an (activity, start_index) pair, the
+    /// per-lap state the lap rows render.
+    pub fn get_excluded_section_laps(&self, section_id: &str) -> Vec<(String, u32)> {
+        let mut stmt = match self.db.prepare(
+            "SELECT activity_id, start_index FROM section_activities
+             WHERE section_id = ? AND excluded = 1
+             ORDER BY activity_id, start_index",
+        ) {
+            Ok(s) => s,
+            Err(_) => return Vec::new(),
+        };
+        stmt.query_map(params![section_id], |row| Ok((row.get(0)?, row.get(1)?)))
             .map(|rows| rows.filter_map(|r| r.ok()).collect())
             .unwrap_or_default()
     }
@@ -334,6 +404,8 @@ impl PersistentRouteEngine {
             let section_type_str: String = row.get(1)?;
             let polyline_json: String = row.get(4)?;
             let point_density_json: Option<String> = row.get(10)?;
+            let polyline_blob: Option<Vec<u8>> = row.get(22)?;
+            let point_density_blob: Option<Vec<u8>> = row.get(23)?;
 
             let activity_ids = self.get_section_activity_ids(&id);
             let visit_count = self.get_section_visit_count(&id);
@@ -343,7 +415,11 @@ impl PersistentRouteEngine {
                 section_type: SectionType::from_str(&section_type_str).unwrap_or(SectionType::Auto),
                 name: row.get(2)?,
                 sport_type: row.get(3)?,
-                polyline: serde_json::from_str(&polyline_json).unwrap_or_default(),
+                polyline: codec::decode_polyline_row(
+                    polyline_blob.as_deref(),
+                    Some(&polyline_json),
+                )
+                .unwrap_or_default(),
                 distance_meters: row.get(5)?,
                 representative_activity_id: row.get(6)?,
                 activity_ids: activity_ids.clone(),
@@ -351,10 +427,14 @@ impl PersistentRouteEngine {
                 confidence: row.get(7)?,
                 observation_count: row.get(8)?,
                 average_spread: row.get(9)?,
-                point_density: point_density_json.and_then(|j| serde_json::from_str(&j).ok()),
+                point_density: point_density_blob
+                    .and_then(|b| codec::deserialize(&b).ok())
+                    .or_else(|| point_density_json.and_then(|j| serde_json::from_str(&j).ok())),
                 scale: row.get(11)?,
                 is_user_defined: row.get::<_, Option<i32>>(13)?.unwrap_or(0) != 0,
                 stability: row.get(14)?,
+                elevation_gain_m: row.get(24)?,
+                avg_grade_percent: row.get(25)?,
                 version: row.get(12)?,
                 updated_at: row.get(19)?,
                 source_activity_id: row.get(15)?,
@@ -367,6 +447,23 @@ impl PersistentRouteEngine {
             })
         })
         .ok()
+    }
+
+    /// Load a section's stored polyline (blob authoritative, JSON fallback for
+    /// legacy rows). Shared by the geometry-editing and intent-capture paths.
+    pub(crate) fn stored_section_polyline(
+        &self,
+        section_id: &str,
+    ) -> Result<Vec<GpsPoint>, String> {
+        let (blob, json): (Option<Vec<u8>>, Option<String>) = self
+            .db
+            .query_row(
+                "SELECT polyline_blob, polyline_json FROM sections WHERE id = ?",
+                params![section_id],
+                |row| Ok((row.get(0)?, row.get(1)?)),
+            )
+            .map_err(|_| format!("Section not found: {}", section_id))?;
+        codec::decode_polyline_row(blob.as_deref(), json.as_deref())
     }
 
     /// Check if a section has original (pre-trim) bounds that can be restored.
@@ -388,12 +485,12 @@ impl PersistentRouteEngine {
         section_id: &str,
     ) -> Result<(Vec<GpsPoint>, u32, u32), String> {
         // Load section data: representative activity ID + current polyline
-        let (rep_id, polyline_json): (Option<String>, String) = self
+        let rep_id: Option<String> = self
             .db
             .query_row(
-                "SELECT representative_activity_id, polyline_json FROM sections WHERE id = ?",
+                "SELECT representative_activity_id FROM sections WHERE id = ?",
                 params![section_id],
-                |row| Ok((row.get(0)?, row.get(1)?)),
+                |row| row.get(0),
             )
             .map_err(|_| format!("Section not found: {}", section_id))?;
 
@@ -408,16 +505,21 @@ impl PersistentRouteEngine {
             return Err("Representative activity track too short".to_string());
         }
 
-        let polyline: Vec<GpsPoint> = serde_json::from_str(&polyline_json)
-            .map_err(|e| format!("Failed to parse polyline: {}", e))?;
+        let polyline: Vec<GpsPoint> = self.stored_section_polyline(section_id)?;
 
         if polyline.len() < 2 {
             return Err("Section polyline too short".to_string());
         }
 
-        // Find where the section starts/ends in the representative activity's track
-        // Use find_all_track_portions with a generous threshold to locate the section
-        let portions = find_all_track_portions(&track, &polyline, 100.0);
+        // Find where the section starts/ends in the representative activity's
+        // track. Generous bar, half the proximity anchor (100 m at the
+        // default 200 m), derived so it co-varies with the slider like every
+        // other matching window.
+        let portions = find_all_track_portions(
+            &track,
+            &polyline,
+            self.section_config.proximity_threshold * 0.5,
+        );
 
         if portions.is_empty() {
             // Fallback: use nearest-point matching for start and end

@@ -16,16 +16,24 @@ interface UseMergeSectionsResult {
   isMerging: boolean;
 }
 
-export function useMergeSections(sectionId: string | undefined): UseMergeSectionsResult {
+/**
+ * `preComputed` lets a caller that already read the candidates as part of a
+ * screen bundle skip this hook's own FFI call.
+ */
+export function useMergeSections(
+  sectionId: string | undefined,
+  preComputed?: MergeCandidate[]
+): UseMergeSectionsResult {
   const trigger = useEngineSubscription(['sections']);
   const [isMerging, setIsMerging] = useState(false);
 
   const candidates = useMemo(() => {
+    if (preComputed) return preComputed;
     if (!sectionId) return [];
     const engine = getRouteEngine();
     if (!engine) return [];
     return engine.getMergeCandidates(sectionId);
-  }, [sectionId, trigger]);
+  }, [sectionId, trigger, preComputed]);
 
   const merge = useCallback((primaryId: string, secondaryId: string): string | null => {
     const engine = getRouteEngine();

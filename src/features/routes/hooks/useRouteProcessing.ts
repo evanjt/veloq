@@ -5,7 +5,6 @@
 
 import { useCallback, useState } from 'react';
 import { i18n } from '@/i18n';
-import type { ActivityType } from '@/types';
 import { getRouteEngine } from '@/shared/native/routeEngine';
 
 interface RouteProcessingProgress {

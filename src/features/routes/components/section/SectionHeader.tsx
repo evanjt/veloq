@@ -11,7 +11,7 @@ import { useMetricSystem } from '@/shared/app';
 import { DetailHero, HeroNameRow, HeroStatsRow } from '@/shared/ui';
 import { SectionMapView } from '../SectionMapView';
 import { type MaterialIconName } from '@/features/activity/lib/activityUtils';
-import { formatDistance } from '@/shared/format/format';
+import { formatDistance, formatElevation } from '@/shared/format/format';
 import { colors, darkColors } from '@/theme';
 import type { RoutePoint, FrequentSection } from '@/types';
 
@@ -23,7 +23,6 @@ export { MAP_HEIGHT_NORMAL, MAP_HEIGHT_EDIT };
 export interface SectionHeaderProps {
   section: FrequentSection;
   mapHeight?: number;
-  isDark: boolean;
   insetTop: number;
   activityColor: string;
   iconName: MaterialIconName;
@@ -43,14 +42,14 @@ export interface SectionHeaderProps {
   highlightedLapPoints?: RoutePoint[];
   allActivityTraces?: Record<string, RoutePoint[]>;
   isScrubbing: boolean;
-  nearbyPolylines?: Array<{
+  nearbyPolylines?: {
     id: string;
     name?: string;
     sportType: string;
     distanceMeters: number;
     visitCount: number;
     encodedPolyline: ArrayBuffer;
-  }>;
+  }[];
   onNearbyPress?: (sectionId: string) => void;
   onBack: () => void;
   onStartEditing: () => void;
@@ -118,6 +117,15 @@ export function SectionHeader({
             stats={[
               formatDistance(section.distanceMeters, isMetric),
               `${activityCount} ${t('sections.traversals')}`,
+              ...(section.elevationGainM != null && section.elevationGainM >= 10
+                ? [formatElevation(section.elevationGainM, isMetric)]
+                : []),
+              ...(section.elevationGainM != null &&
+              section.elevationGainM >= 10 &&
+              section.avgGradePercent != null &&
+              Math.abs(section.avgGradePercent) >= 1.0
+                ? [`${section.avgGradePercent.toFixed(1)}%`]
+                : []),
             ]}
           />
         </>

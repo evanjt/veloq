@@ -1,11 +1,7 @@
 import type { MapStyleType } from '@/features/maps/components/mapStyles';
-import {
-  getSnapshotSatelliteStyle,
-  rewriteSatelliteUrls,
-  TERRAIN_3D_CONFIG,
-} from '@/features/maps/components/mapStyles';
-import { DARK_MATTER_STYLE } from '@/features/maps/components/darkMatterStyle';
+import { TERRAIN_3D_CONFIG } from '@/features/maps/components/mapStyles';
 import type { TerrainCamera } from '@/features/maps/lib/cameraAngle';
+import { resolveStyleExpression } from './styleResolution';
 
 export interface SnapshotRequest {
   activityId: string;
@@ -31,27 +27,10 @@ export function buildRenderSnapshotScript(
   const isDark = request.mapStyle === 'dark' || request.mapStyle === 'satellite';
   const isFlat = request.flat === true;
 
-  // Satellite and dark: use inline style objects.
-  // Light: fetch full Liberty style from URL (same as detail 3D view).
-  const isLight = !isSatellite && request.mapStyle !== 'dark';
-  // Satellite: rewrite to cached protocol for tile caching.
-  // Dark: keep original TileJSON URL - let MapLibre fetch tiles natively
-  // (cached-vector:// rewrite was causing blank features after setStyle).
-  // Light: fetch URL-based style in JS.
-  const styleConfig = isSatellite
-    ? JSON.stringify(
-        rewriteSatelliteUrls(
-          getSnapshotSatelliteStyle(
-            request.camera.center[1],
-            request.camera.center[0],
-            request.camera.zoom
-          )
-        )
-      )
-    : isLight
-      ? 'null'
-      : JSON.stringify(DARK_MATTER_STYLE);
-  const lightStyleUrl = isLight ? 'https://tiles.openfreemap.org/styles/liberty' : '';
+  // Satellite and dark are inline objects; light is fetched from its URL so
+  // MapLibre resolves the TileJSON itself, the same as the detail 3D view.
+  const { styleJSON: styleConfig, url } = resolveStyleExpression(request.mapStyle);
+  const lightStyleUrl = url ?? '';
 
   const coordsJSON = JSON.stringify(request.coordinates);
   const cameraJSON = JSON.stringify(request.camera);

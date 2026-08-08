@@ -16,6 +16,125 @@ function makeStreams(overrides: Partial<RecordingStreams> = {}): RecordingStream
   return { ...EMPTY_STREAMS, ...overrides };
 }
 
+// Global message numbers, from the FIT profile.
+const MESG_RECORD = 20;
+const MESG_LAP = 19;
+const MESG_SESSION = 18;
+
+// Field numbers within those messages.
+const RECORD_POSITION_LAT = 0;
+const RECORD_POSITION_LONG = 1;
+const RECORD_ALTITUDE = 2;
+const RECORD_ENHANCED_ALTITUDE = 78;
+const RECORD_HEART_RATE = 3;
+const RECORD_CADENCE = 4;
+const RECORD_SPEED = 6;
+const RECORD_POWER = 7;
+const LAP_TOTAL_ELAPSED = 7;
+const LAP_AVG_HEART_RATE = 15;
+const SESSION_TOTAL_ELAPSED = 7;
+const SESSION_TOTAL_TIMER = 8;
+const SESSION_SPORT = 5;
+const SESSION_SUB_SPORT = 6;
+const SESSION_MAX_SPEED = 15;
+const SESSION_AVG_HEART_RATE = 16;
+const SESSION_MAX_HEART_RATE = 17;
+const SESSION_AVG_POWER = 20;
+
+const INVALID_UINT8 = 0xff;
+const INVALID_UINT16 = 0xffff;
+const INVALID_SINT32 = 0x7fffffff;
+
+// Record message: 1 header byte plus the eleven fields of the record definition.
+const RECORD_MESSAGE_BYTES = 33;
+
+const BASE_TYPE_STRING = 7;
+const BASE_TYPE_UINT16 = 132;
+const BASE_TYPE_SINT32 = 133;
+const BASE_TYPE_UINT32 = 134;
+
+interface DecodedMessage {
+  globalMesgNum: number;
+  fields: Map<number, number>;
+}
+
+function readFieldValue(view: DataView, offset: number, baseType: number): number {
+  switch (baseType) {
+    case BASE_TYPE_SINT32:
+      return view.getInt32(offset, true);
+    case BASE_TYPE_UINT32:
+      return view.getUint32(offset, true);
+    case BASE_TYPE_UINT16:
+      return view.getUint16(offset, true);
+    default:
+      return view.getUint8(offset);
+  }
+}
+
+/**
+ * Decode the message stream so assertions can name a message and a field
+ * instead of scanning the file for a byte pattern that may appear anywhere.
+ */
+function decodeFit(buffer: ArrayBuffer): DecodedMessage[] {
+  const view = new DataView(buffer);
+  const dataEnd = 14 + view.getUint32(4, true);
+  const definitions = new Map<
+    number,
+    { globalMesgNum: number; fields: { num: number; size: number; baseType: number }[] }
+  >();
+  const messages: DecodedMessage[] = [];
+
+  let offset = 14;
+  while (offset < dataEnd) {
+    const header = view.getUint8(offset);
+    offset += 1;
+    const localType = header & 0x0f;
+
+    if (header & 0x40) {
+      offset += 2; // reserved + architecture
+      const globalMesgNum = view.getUint16(offset, true);
+      offset += 2;
+      const fieldCount = view.getUint8(offset);
+      offset += 1;
+      const fields = [];
+      for (let i = 0; i < fieldCount; i++) {
+        fields.push({
+          num: view.getUint8(offset),
+          size: view.getUint8(offset + 1),
+          baseType: view.getUint8(offset + 2),
+        });
+        offset += 3;
+      }
+      definitions.set(localType, { globalMesgNum, fields });
+      continue;
+    }
+
+    const definition = definitions.get(localType);
+    if (!definition) throw new Error(`data message for undefined local type ${localType}`);
+
+    const fields = new Map<number, number>();
+    for (const field of definition.fields) {
+      if (field.baseType !== BASE_TYPE_STRING) {
+        fields.set(field.num, readFieldValue(view, offset, field.baseType));
+      }
+      offset += field.size;
+    }
+    messages.push({ globalMesgNum: definition.globalMesgNum, fields });
+  }
+
+  return messages;
+}
+
+function messagesOfType(buffer: ArrayBuffer, globalMesgNum: number): DecodedMessage[] {
+  return decodeFit(buffer).filter((message) => message.globalMesgNum === globalMesgNum);
+}
+
+function onlyMessage(buffer: ArrayBuffer, globalMesgNum: number): DecodedMessage {
+  const found = messagesOfType(buffer, globalMesgNum);
+  expect(found).toHaveLength(1);
+  return found[0];
+}
+
 describe('generateFitFile', () => {
   const startTime = new Date('2026-01-15T10:00:00Z');
 
@@ -118,20 +237,9 @@ describe('generateFitFile', () => {
       });
 
       const SEMICIRCLE_FACTOR = 2147483648 / 180;
-      const expectedLat = Math.round(lat * SEMICIRCLE_FACTOR);
-      const expectedLng = Math.round(lng * SEMICIRCLE_FACTOR);
-
-      // Scan for encoded semicircle values in message data
-      const view = new DataView(buffer);
-      let foundLat = false;
-      let foundLng = false;
-      for (let i = 14; i <= buffer.byteLength - 4; i++) {
-        const val = view.getInt32(i, true);
-        if (val === expectedLat) foundLat = true;
-        if (val === expectedLng) foundLng = true;
-      }
-      expect(foundLat).toBe(true);
-      expect(foundLng).toBe(true);
+      const record = onlyMessage(buffer, MESG_RECORD);
+      expect(record.fields.get(RECORD_POSITION_LAT)).toBe(Math.round(lat * SEMICIRCLE_FACTOR));
+      expect(record.fields.get(RECORD_POSITION_LONG)).toBe(Math.round(lng * SEMICIRCLE_FACTOR));
     });
 
     it('writes invalid marker (0x7FFFFFFF) for zero coordinates', async () => {
@@ -153,15 +261,9 @@ describe('generateFitFile', () => {
         laps: [],
       });
 
-      const view = new DataView(buffer);
-      let foundInvalid = false;
-      for (let i = 14; i <= buffer.byteLength - 4; i++) {
-        if (view.getInt32(i, true) === 0x7fffffff) {
-          foundInvalid = true;
-          break;
-        }
-      }
-      expect(foundInvalid).toBe(true);
+      const record = onlyMessage(buffer, MESG_RECORD);
+      expect(record.fields.get(RECORD_POSITION_LAT)).toBe(INVALID_SINT32);
+      expect(record.fields.get(RECORD_POSITION_LONG)).toBe(INVALID_SINT32);
     });
   });
 
@@ -186,24 +288,16 @@ describe('generateFitFile', () => {
         laps: [],
       });
 
-      // Expected: (100 + 500) * 5 = 3000
-      const expectedAlt = Math.round((altitude + 500) * 5);
-      const view = new DataView(buffer);
-      let foundAlt = false;
-      for (let i = 14; i <= buffer.byteLength - 2; i++) {
-        if (view.getUint16(i, true) === expectedAlt) {
-          foundAlt = true;
-          break;
-        }
-      }
-      expect(foundAlt).toBe(true);
+      const record = onlyMessage(buffer, MESG_RECORD);
+      expect(record.fields.get(RECORD_ALTITUDE)).toBe((altitude + 500) * 5);
+      expect(record.fields.get(RECORD_ENHANCED_ALTITUDE)).toBe((altitude + 500) * 5);
     });
 
-    it('clamps negative altitudes to valid range', async () => {
+    it('clamps altitudes below the -500m offset floor to zero', async () => {
       const streams = makeStreams({
         time: [0],
         latlng: [[45.0, 10.0]],
-        altitude: [-600], // Would give (-600 + 500) * 5 = -500 → clamped to 0
+        altitude: [-600], // (-600 + 500) * 5 = -500, below the unsigned floor
         heartrate: [0],
         power: [0],
         cadence: [0],
@@ -218,8 +312,9 @@ describe('generateFitFile', () => {
         laps: [],
       });
 
-      // Should not throw - file is still valid
-      expect(buffer.byteLength).toBeGreaterThan(14);
+      const record = onlyMessage(buffer, MESG_RECORD);
+      expect(record.fields.get(RECORD_ALTITUDE)).toBe(0);
+      expect(record.fields.get(RECORD_ENHANCED_ALTITUDE)).toBe(0);
     });
   });
 
@@ -232,8 +327,8 @@ describe('generateFitFile', () => {
         laps: [],
       });
 
-      // Must have at least: header (14) + file_id + session + activity + CRC (2)
-      expect(buffer.byteLength).toBeGreaterThan(16);
+      expect(messagesOfType(buffer, MESG_RECORD)).toHaveLength(0);
+      expect(messagesOfType(buffer, MESG_SESSION)).toHaveLength(1);
       const bytes = new Uint8Array(buffer);
       expect(String.fromCharCode(bytes[8], bytes[9], bytes[10], bytes[11])).toBe('.FIT');
     });
@@ -296,33 +391,22 @@ describe('generateFitFile', () => {
         laps: [],
       });
 
-      const bytes = new Uint8Array(buffer);
-      const view = new DataView(buffer);
-
-      // HR values appear as uint8
-      for (const hr of [130, 135, 140, 145, 150]) {
-        expect(bytes.includes(hr)).toBe(true);
-      }
-
-      // Power values appear as uint16 LE
-      for (const pwr of [200, 210, 220, 230, 240]) {
-        let found = false;
-        for (let i = 14; i <= buffer.byteLength - 2; i++) {
-          if (view.getUint16(i, true) === pwr) {
-            found = true;
-            break;
-          }
-        }
-        expect(found).toBe(true);
-      }
-
-      // Cadence values appear as uint8
-      for (const cad of [85, 86, 87, 88, 89]) {
-        expect(bytes.includes(cad)).toBe(true);
-      }
+      const records = messagesOfType(buffer, MESG_RECORD);
+      expect(records).toHaveLength(5);
+      expect(records.map((r) => r.fields.get(RECORD_HEART_RATE))).toEqual([
+        130, 135, 140, 145, 150,
+      ]);
+      expect(records.map((r) => r.fields.get(RECORD_POWER))).toEqual([200, 210, 220, 230, 240]);
+      expect(records.map((r) => r.fields.get(RECORD_CADENCE))).toEqual([85, 86, 87, 88, 89]);
+      expect(records.map((r) => r.fields.get(RECORD_ALTITUDE))).toEqual([
+        3000, 3005, 3010, 3015, 3020,
+      ]);
+      expect(records.map((r) => r.fields.get(RECORD_SPEED))).toEqual([
+        8000, 8200, 8400, 8600, 8800,
+      ]);
     });
 
-    it('grows file size proportionally to record count', async () => {
+    it('grows file size by one fixed-width record per point', async () => {
       const make = (n: number) =>
         makeStreams({
           time: Array.from({ length: n }, (_, i) => i),
@@ -349,17 +433,14 @@ describe('generateFitFile', () => {
         laps: [],
       });
 
-      // 20 records should be significantly larger than 5
-      expect(buf20.byteLength).toBeGreaterThan(buf5.byteLength);
-      // Each record has 9 fields (timestamp + lat + lng + alt + hr + cad + dist + speed + power)
-      // totaling about 24 bytes per record
-      const diff = buf20.byteLength - buf5.byteLength;
-      expect(diff).toBeGreaterThan(15 * 20); // At least ~20 bytes per extra record
+      expect(messagesOfType(buf5, MESG_RECORD)).toHaveLength(5);
+      expect(messagesOfType(buf20, MESG_RECORD)).toHaveLength(20);
+      expect(buf20.byteLength - buf5.byteLength).toBe(15 * RECORD_MESSAGE_BYTES);
     });
   });
 
   describe('lap records', () => {
-    it('increases file size when laps are provided', async () => {
+    it('writes one lap message per supplied lap', async () => {
       const streams = makeStreams({
         time: [0, 1, 2, 3],
         latlng: [
@@ -413,7 +494,10 @@ describe('generateFitFile', () => {
         laps: [],
       });
 
-      expect(withLaps.byteLength).toBeGreaterThan(withoutLaps.byteLength);
+      expect(messagesOfType(withoutLaps, MESG_LAP)).toHaveLength(0);
+      const lapMessages = messagesOfType(withLaps, MESG_LAP);
+      expect(lapMessages).toHaveLength(2);
+      expect(lapMessages.map((l) => l.fields.get(LAP_AVG_HEART_RATE))).toEqual([135, 155]);
     });
 
     it('encodes lap elapsed time with ×1000 scale', async () => {
@@ -451,16 +535,8 @@ describe('generateFitFile', () => {
         laps,
       });
 
-      // Lap elapsed = (5 - 0) * 1000 = 5000
-      const view = new DataView(buffer);
-      let found = false;
-      for (let i = 14; i <= buffer.byteLength - 4; i++) {
-        if (view.getUint32(i, true) === 5000) {
-          found = true;
-          break;
-        }
-      }
-      expect(found).toBe(true);
+      const lap = onlyMessage(buffer, MESG_LAP);
+      expect(lap.fields.get(LAP_TOTAL_ELAPSED)).toBe(5000);
     });
   });
 
@@ -488,22 +564,11 @@ describe('generateFitFile', () => {
         laps: [],
       });
 
-      const bytes = new Uint8Array(buffer);
-      const view = new DataView(buffer);
-
-      // Max speed = 11.0 m/s, encoded as 11000 (scale 1000)
-      let foundMaxSpeed = false;
-      for (let i = 14; i <= buffer.byteLength - 2; i++) {
-        if (view.getUint16(i, true) === 11000) {
-          foundMaxSpeed = true;
-          break;
-        }
-      }
-      expect(foundMaxSpeed).toBe(true);
-
-      // Avg HR = round((120+140+160)/3) = 140, appears as uint8
-      // Max HR = 160, appears as uint8
-      expect(bytes.includes(160)).toBe(true);
+      const session = onlyMessage(buffer, MESG_SESSION);
+      expect(session.fields.get(SESSION_MAX_SPEED)).toBe(11000);
+      expect(session.fields.get(SESSION_AVG_HEART_RATE)).toBe(140);
+      expect(session.fields.get(SESSION_MAX_HEART_RATE)).toBe(160);
+      expect(session.fields.get(SESSION_AVG_POWER)).toBe(200);
     });
 
     it('subtracts paused time from total_timer_time but not total_elapsed_time', async () => {
@@ -530,17 +595,9 @@ describe('generateFitFile', () => {
         pausedTimeSeconds: 40,
       });
 
-      const view = new DataView(buffer);
-      const hasUint32 = (value: number) => {
-        for (let i = 14; i <= buffer.byteLength - 4; i++) {
-          if (view.getUint32(i, true) === value) return true;
-        }
-        return false;
-      };
-
-      // total_timer_time = (100 - 40)s = 60000ms; total_elapsed_time = 100000ms
-      expect(hasUint32(60_000)).toBe(true);
-      expect(hasUint32(100_000)).toBe(true);
+      const session = onlyMessage(buffer, MESG_SESSION);
+      expect(session.fields.get(SESSION_TOTAL_TIMER)).toBe(60_000);
+      expect(session.fields.get(SESSION_TOTAL_ELAPSED)).toBe(100_000);
     });
 
     it('writes invalid markers when no HR/power data', async () => {
@@ -565,23 +622,31 @@ describe('generateFitFile', () => {
         laps: [],
       });
 
-      // 0xFF (255) is used as invalid marker for uint8 fields
-      // 0xFFFF (65535) is used as invalid marker for uint16 fields
-      const bytes = new Uint8Array(buffer);
-      expect(bytes.includes(0xff)).toBe(true);
+      for (const record of messagesOfType(buffer, MESG_RECORD)) {
+        expect(record.fields.get(RECORD_HEART_RATE)).toBe(INVALID_UINT8);
+        expect(record.fields.get(RECORD_CADENCE)).toBe(INVALID_UINT8);
+        expect(record.fields.get(RECORD_POWER)).toBe(INVALID_UINT16);
+      }
+
+      const session = onlyMessage(buffer, MESG_SESSION);
+      expect(session.fields.get(SESSION_AVG_HEART_RATE)).toBe(INVALID_UINT8);
+      expect(session.fields.get(SESSION_AVG_POWER)).toBe(INVALID_UINT16);
     });
   });
 
   describe('sport type mapping', () => {
     it.each([
-      ['Ride', 2],
-      ['Run', 1],
-      ['Swim', 5],
-      ['Walk', 11],
-      ['Hike', 17],
-    ] as [ActivityType, number][])(
-      'maps %s to sport type %d',
-      async (activityType, expectedSport) => {
+      ['Ride', 2, 0],
+      ['VirtualRide', 2, 58],
+      ['Run', 1, 0],
+      ['TrailRun', 1, 1],
+      ['Swim', 5, 0],
+      ['Walk', 11, 0],
+      ['Hike', 17, 0],
+      ['Yoga', 4, 15],
+    ] as [ActivityType, number, number][])(
+      'maps %s to sport %d / sub-sport %d',
+      async (activityType, expectedSport, expectedSubSport) => {
         const buffer = await generateFitFile({
           activityType,
           startTime,
@@ -589,8 +654,9 @@ describe('generateFitFile', () => {
           laps: [],
         });
 
-        const bytes = new Uint8Array(buffer);
-        expect(bytes.includes(expectedSport)).toBe(true);
+        const session = onlyMessage(buffer, MESG_SESSION);
+        expect(session.fields.get(SESSION_SPORT)).toBe(expectedSport);
+        expect(session.fields.get(SESSION_SUB_SPORT)).toBe(expectedSubSport);
       }
     );
 
@@ -602,29 +668,57 @@ describe('generateFitFile', () => {
         laps: [],
       });
 
-      // Should not throw
-      expect(buffer.byteLength).toBeGreaterThan(14);
+      const session = onlyMessage(buffer, MESG_SESSION);
+      expect(session.fields.get(SESSION_SPORT)).toBe(0);
+      expect(session.fields.get(SESSION_SUB_SPORT)).toBe(0);
     });
   });
 
   describe('NaN in sensor data', () => {
-    it('produces a valid FIT for NaN values in altitude or heartrate streams', async () => {
-      const base = {
-        time: [0, 1, 2],
-        latlng: [
-          [45.0, 10.0],
-          [45.001, 10.001],
-          [45.002, 10.002],
-        ] as [number, number][],
-        power: [200, 210, 220],
-        cadence: [85, 86, 87],
-        speed: [8.0, 8.2, 8.4],
-        distance: [0, 8.0, 16.2],
-      };
-      const variants: Partial<RecordingStreams>[] = [
-        { ...base, altitude: [100, NaN, 200], heartrate: [130, 140, 150] },
-        { ...base, altitude: [NaN, NaN, NaN], heartrate: [130, 140, 150] },
-        {
+    const base = {
+      time: [0, 1, 2],
+      latlng: [
+        [45.0, 10.0],
+        [45.001, 10.001],
+        [45.002, 10.002],
+      ] as [number, number][],
+      power: [200, 210, 220],
+      cadence: [85, 86, 87],
+      speed: [8.0, 8.2, 8.4],
+      distance: [0, 8.0, 16.2],
+    };
+
+    it('writes a zeroed altitude rather than NaN bytes', async () => {
+      const buffer = await generateFitFile({
+        activityType: 'Ride',
+        startTime,
+        streams: makeStreams({ ...base, altitude: [100, NaN, 200], heartrate: [130, 140, 150] }),
+        laps: [],
+      });
+
+      const records = messagesOfType(buffer, MESG_RECORD);
+      expect(records.map((r) => r.fields.get(RECORD_ALTITUDE))).toEqual([3000, 0, 3500]);
+      expect(records.map((r) => r.fields.get(RECORD_ENHANCED_ALTITUDE))).toEqual([3000, 0, 3500]);
+      expect(records.map((r) => r.fields.get(RECORD_HEART_RATE))).toEqual([130, 140, 150]);
+    });
+
+    it('survives an altitude stream that is entirely NaN', async () => {
+      const buffer = await generateFitFile({
+        activityType: 'Ride',
+        startTime,
+        streams: makeStreams({ ...base, altitude: [NaN, NaN, NaN], heartrate: [130, 140, 150] }),
+        laps: [],
+      });
+
+      const records = messagesOfType(buffer, MESG_RECORD);
+      expect(records.map((r) => r.fields.get(RECORD_ALTITUDE))).toEqual([0, 0, 0]);
+    });
+
+    it('treats a NaN heart rate as no reading', async () => {
+      const buffer = await generateFitFile({
+        activityType: 'Ride',
+        startTime,
+        streams: makeStreams({
           time: [0, 1],
           latlng: [
             [45.0, 10.0],
@@ -636,25 +730,18 @@ describe('generateFitFile', () => {
           cadence: [85, 86],
           speed: [8.0, 8.2],
           distance: [0, 8.0],
-        },
-      ];
+        }),
+        laps: [],
+      });
 
-      for (const overrides of variants) {
-        const buffer = await generateFitFile({
-          activityType: 'Ride',
-          startTime,
-          streams: makeStreams(overrides),
-          laps: [],
-        });
-        expect(buffer.byteLength).toBeGreaterThan(14);
-        const bytes = new Uint8Array(buffer);
-        expect(String.fromCharCode(bytes[8], bytes[9], bytes[10], bytes[11])).toBe('.FIT');
-      }
+      const records = messagesOfType(buffer, MESG_RECORD);
+      expect(records.map((r) => r.fields.get(RECORD_HEART_RATE))).toEqual([INVALID_UINT8, 140]);
+      expect(records.map((r) => r.fields.get(RECORD_ALTITUDE))).toEqual([3000, 3005]);
     });
   });
 
   describe('missing sensor streams', () => {
-    it('handles undefined altitude stream', async () => {
+    it('falls back to zero altitude when the stream is undefined', async () => {
       const streams = makeStreams({
         time: [0, 1],
         latlng: [
@@ -676,12 +763,15 @@ describe('generateFitFile', () => {
         laps: [],
       });
 
-      expect(buffer.byteLength).toBeGreaterThan(14);
+      const records = messagesOfType(buffer, MESG_RECORD);
+      expect(records).toHaveLength(2);
+      // 0m altitude still carries the +500 offset and ×5 scale.
+      expect(records.map((r) => r.fields.get(RECORD_ALTITUDE))).toEqual([2500, 2500]);
     });
   });
 
   describe('sensor value overflow', () => {
-    it('handles heart rate > 255 (uint8 max)', async () => {
+    it('caps heart rate at the uint8 ceiling', async () => {
       const streams = makeStreams({
         time: [0],
         latlng: [[45.0, 10.0]],
@@ -700,8 +790,9 @@ describe('generateFitFile', () => {
         laps: [],
       });
 
-      // Should not throw
-      expect(buffer.byteLength).toBeGreaterThan(14);
+      const record = onlyMessage(buffer, MESG_RECORD);
+      expect(record.fields.get(RECORD_HEART_RATE)).toBe(255);
+      expect(onlyMessage(buffer, MESG_SESSION).fields.get(SESSION_MAX_HEART_RATE)).toBe(255);
     });
   });
 
@@ -729,9 +820,8 @@ describe('generateFitFile', () => {
         laps: [],
       });
 
-      expect(buffer.byteLength).toBeGreaterThan(14);
-      // Should be substantially larger than an empty file
-      expect(buffer.byteLength).toBeGreaterThan(10000);
+      expect(messagesOfType(buffer, MESG_RECORD)).toHaveLength(n);
+      expect(buffer.byteLength).toBeGreaterThan(n * RECORD_MESSAGE_BYTES);
     }, 10000); // 10s timeout for large file
   });
 });

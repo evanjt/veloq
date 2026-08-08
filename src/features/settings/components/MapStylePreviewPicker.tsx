@@ -1,14 +1,10 @@
 import React, { memo } from 'react';
 import { View, StyleSheet, TouchableOpacity, Text } from 'react-native';
-import { MapView, Camera } from '@maplibre/maplibre-react-native';
 import { useTheme } from '@/shared/app';
 import { useTranslation } from 'react-i18next';
-import { colors, darkColors, spacing } from '@/theme';
-import { type MapStyleType, getMapStyle } from '@/features/maps/components/mapStyles';
+import { colors, darkColors, mapStylePreview, spacing } from '@/theme';
+import { type MapStyleType } from '@/features/maps/components/mapStyles';
 
-// Bern, Switzerland coordinates - centered on the Aare river bend around the old town
-const BERN_CENTER: [number, number] = [7.457, 46.947];
-const PREVIEW_ZOOM = 12.5;
 const CIRCLE_SIZE = 70;
 
 interface MapStylePreviewPickerProps {
@@ -16,6 +12,8 @@ interface MapStylePreviewPickerProps {
   onValueChange: (style: MapStyleType) => void;
 }
 
+/** Static thumbnails - three live maps to fill three 70px circles was the
+ *  single most expensive thing on the settings screen. */
 const MAP_STYLES: { style: MapStyleType; labelKey: string }[] = [
   { style: 'light', labelKey: 'settings.light' },
   { style: 'dark', labelKey: 'settings.dark' },
@@ -30,11 +28,7 @@ function MapStylePreviewPickerComponent({ value, onValueChange }: MapStylePrevie
     <View style={styles.container}>
       {MAP_STYLES.map(({ style, labelKey }) => {
         const isSelected = value === style;
-        const mapStyleValue = getMapStyle(style, {
-          lat: BERN_CENTER[1],
-          lng: BERN_CENTER[0],
-          zoom: PREVIEW_ZOOM,
-        });
+        const preview = mapStylePreview[style];
 
         return (
           <TouchableOpacity
@@ -50,25 +44,10 @@ function MapStylePreviewPickerComponent({ value, onValueChange }: MapStylePrevie
                 isDark && styles.circleContainerDark,
               ]}
             >
-              <View style={styles.mapCircle}>
-                <MapView
-                  style={styles.mapView}
-                  mapStyle={mapStyleValue}
-                  logoEnabled={false}
-                  attributionEnabled={false}
-                  compassEnabled={false}
-                  scrollEnabled={false}
-                  pitchEnabled={false}
-                  rotateEnabled={false}
-                  zoomEnabled={false}
-                >
-                  <Camera
-                    defaultSettings={{
-                      centerCoordinate: BERN_CENTER,
-                      zoomLevel: PREVIEW_ZOOM,
-                    }}
-                  />
-                </MapView>
+              <View style={[styles.mapCircle, { backgroundColor: preview.land }]}>
+                <View style={[styles.previewWater, { backgroundColor: preview.water }]} />
+                <View style={[styles.previewRoad, { backgroundColor: preview.road }]} />
+                <View style={[styles.previewRoadCross, { backgroundColor: preview.road }]} />
               </View>
             </View>
             <Text
@@ -122,9 +101,31 @@ const styles = StyleSheet.create({
     borderRadius: CIRCLE_SIZE / 2,
     overflow: 'hidden',
   },
-  mapView: {
-    width: CIRCLE_SIZE,
-    height: CIRCLE_SIZE,
+  // A river band and two roads. Enough for the eye to read "map" at 70px,
+  // without three live renderers running to draw three thumbnails.
+  previewWater: {
+    position: 'absolute',
+    left: -CIRCLE_SIZE * 0.2,
+    top: CIRCLE_SIZE * 0.52,
+    width: CIRCLE_SIZE * 1.4,
+    height: CIRCLE_SIZE * 0.26,
+    transform: [{ rotate: '-14deg' }],
+  },
+  previewRoad: {
+    position: 'absolute',
+    left: -CIRCLE_SIZE * 0.2,
+    top: CIRCLE_SIZE * 0.3,
+    width: CIRCLE_SIZE * 1.4,
+    height: 3,
+    transform: [{ rotate: '18deg' }],
+  },
+  previewRoadCross: {
+    position: 'absolute',
+    left: CIRCLE_SIZE * 0.44,
+    top: -CIRCLE_SIZE * 0.2,
+    width: 3,
+    height: CIRCLE_SIZE * 1.4,
+    transform: [{ rotate: '10deg' }],
   },
   label: {
     fontSize: 12,

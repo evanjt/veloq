@@ -299,6 +299,67 @@ fn naming_roundtrip_and_unname() {
     assert_ne!(summary_name(&engine, &id).as_deref(), Some(NAME));
 }
 
+/// The restore list reads `get_all_section_summaries`, a different code path
+/// from `get_section_summaries`. Both must resolve the corridor name, or the
+/// hidden-sections sheet shows the generated "Section N" for a named corridor.
+#[test]
+fn restore_list_shows_the_corridor_name() {
+    let corpus = corpus();
+    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
+    let cold = ingest_step(&mut engine, "cold", &corpus.through_a());
+    let (id, _) = busiest_section(&cold.snapshot).expect("cold detect produced a section");
+
+    engine.set_section_name(&id, Some(NAME)).expect("set name");
+    assert_eq!(summary_name(&engine, &id).as_deref(), Some(NAME));
+
+    let all_name = engine
+        .get_all_section_summaries(None)
+        .into_iter()
+        .find(|s| s.id == id)
+        .and_then(|s| s.name);
+    assert_eq!(
+        all_name.as_deref(),
+        Some(NAME),
+        "get_all_section_summaries does not resolve the corridor name"
+    );
+
+    let typed_name = engine
+        .get_section_summaries_by_type(None)
+        .into_iter()
+        .find(|s| s.id == id)
+        .and_then(|s| s.name);
+    assert_eq!(
+        typed_name.as_deref(),
+        Some(NAME),
+        "get_section_summaries_by_type does not resolve the corridor name"
+    );
+}
+
+/// The restore list exists to show disabled rows, so a named-then-disabled
+/// corridor must keep its name there: the overlay resolves only against
+/// visible rows, and a disabled row is exactly the row that list shows.
+#[test]
+fn restore_list_names_a_disabled_corridor() {
+    let corpus = corpus();
+    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
+    let cold = ingest_step(&mut engine, "cold", &corpus.through_a());
+    let (id, _) = busiest_section(&cold.snapshot).expect("cold detect produced a section");
+
+    engine.set_section_name(&id, Some(NAME)).expect("set name");
+    engine.disable_section(&id).expect("disable_section");
+
+    let all_name = engine
+        .get_all_section_summaries(None)
+        .into_iter()
+        .find(|s| s.id == id)
+        .and_then(|s| s.name);
+    assert_eq!(
+        all_name.as_deref(),
+        Some(NAME),
+        "a named corridor must not lose its name in the restore list when disabled"
+    );
+}
+
 /// The suppression-trap regression. After D1 a name becomes a
 /// `section_intents` row, and `durable_intent_rows` treats every intent row
 /// as a suppression ground unless it filters by kind — under which bug this
@@ -438,14 +499,34 @@ fn dissolved_named_corridor_leaves_other_ground_unnamed() {
     let (id, fp) = busiest_section(&cold.snapshot).expect("cold detect produced a section");
     engine.set_section_name(&id, Some(NAME)).expect("set name");
 
-    for aid in &fp.activity_ids {
+    // Deleting evidence is the one legitimate way a corridor dies, and
+    // ALL of it must go: partial traversers outside the section's visit
+    // list leave evidence that honestly re-forms a low-visit corridor
+    // now that orphaned ground re-queues.
+    for aid in corpus
+        .bucket_a
+        .iter()
+        .filter(|a| lends_ground(&fp, &a.gps_points))
+        .map(|a| a.id.as_str())
+    {
         engine.remove_activity(aid).expect("remove_activity");
     }
-    // Deleting evidence is the one legitimate way a corridor dies; the
-    // debounced dissolve needs a few steps to retire the visible row.
-    let mut snap = ingest_step(&mut engine, "drain_0", &[&corpus.bucket_c_single]).snapshot;
-    for (i, a) in corpus.bucket_d_delta.iter().enumerate() {
-        snap = ingest_step(&mut engine, &format!("drain_{}", i + 1), &[a]).snapshot;
+    // The debounced dissolve needs a few steps to retire the visible row.
+    // Drain only with activities that lend the footprint no ground —
+    // orphaned ground re-queues, so any lingering passes over the
+    // corridor are an honest low-visit section and it would never
+    // dissolve. Empty steps keep the re-detect cadence.
+    let drains: Vec<&LifecycleActivity> = std::iter::once(&corpus.bucket_c_single)
+        .chain(corpus.bucket_d_delta.iter())
+        .chain(corpus.bucket_b_delta.iter())
+        .chain(corpus.bucket_e_delta.iter())
+        .filter(|a| !lends_ground(&fp, &a.gps_points))
+        .take(4)
+        .collect();
+    assert!(drains.len() >= 3, "not enough off-ground drain activities");
+    let mut snap = cold.snapshot;
+    for (i, a) in drains.iter().enumerate() {
+        snap = ingest_step(&mut engine, &format!("drain_{i}"), &[a]).snapshot;
     }
 
     let ground_alive = snap.sections.values().any(|s| ground_matches(&fp, s));
@@ -621,13 +702,34 @@ fn dormancy_roundtrip_resurfaces_name() {
     assert!(listed[0].primary);
     assert!(listed[0].coverage >= 0.6);
 
-    let removed: Vec<String> = fp.activity_ids.iter().cloned().collect();
+    // Deleting evidence is the one legitimate way ground dies, and ALL
+    // of it must go: partial traversers outside the section's visit
+    // list leave evidence that honestly re-forms a low-visit corridor
+    // now that orphaned ground re-queues.
+    let removed: Vec<String> = corpus
+        .bucket_a
+        .iter()
+        .filter(|a| lends_ground(&fp, &a.gps_points))
+        .map(|a| a.id.clone())
+        .collect();
     for aid in &removed {
         engine.remove_activity(aid).expect("remove_activity");
     }
-    let mut snap = ingest_step(&mut engine, "drain_0", &[&corpus.bucket_c_single]).snapshot;
-    for (i, a) in corpus.bucket_d_delta.iter().enumerate() {
-        snap = ingest_step(&mut engine, &format!("drain_{}", i + 1), &[a]).snapshot;
+    // Drain only with activities that lend the footprint no ground:
+    // orphaned ground re-queues, so any lingering passes over the
+    // corridor are an honest low-visit section and it would never
+    // dissolve. Empty steps keep the re-detect cadence.
+    let drains: Vec<&LifecycleActivity> = std::iter::once(&corpus.bucket_c_single)
+        .chain(corpus.bucket_d_delta.iter())
+        .chain(corpus.bucket_b_delta.iter())
+        .chain(corpus.bucket_e_delta.iter())
+        .filter(|a| !lends_ground(&fp, &a.gps_points))
+        .take(4)
+        .collect();
+    assert!(drains.len() >= 3, "not enough off-ground drain activities");
+    let mut snap = cold.snapshot;
+    for (i, a) in drains.iter().enumerate() {
+        snap = ingest_step(&mut engine, &format!("drain_{i}"), &[a]).snapshot;
     }
     assert!(
         !snap.sections.values().any(|s| ground_matches(&fp, s)),

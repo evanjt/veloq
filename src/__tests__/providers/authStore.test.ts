@@ -16,7 +16,7 @@ import { useAuthStore, getStoredCredentials, DEMO_ATHLETE_ID } from '@/shared/ap
 const mockGetItemAsync = SecureStore.getItemAsync as jest.MockedFunction<
   typeof SecureStore.getItemAsync
 >;
-const mockSetItemAsync = SecureStore.setItemAsync as jest.MockedFunction<
+const _mockSetItemAsync = SecureStore.setItemAsync as jest.MockedFunction<
   typeof SecureStore.setItemAsync
 >;
 const mockDeleteItemAsync = SecureStore.deleteItemAsync as jest.MockedFunction<

@@ -123,7 +123,7 @@ export default function RecordingDetailScreen() {
   const canUpload = entry.uploadStatus !== 'uploaded' && !isUploading;
   const coordinates = streams?.latlng ?? [];
 
-  const stats: Array<{ label: string; value: string }> = [
+  const stats: { label: string; value: string }[] = [
     {
       label: t('recording.library.recorded', 'Recorded'),
       value: new Date(entry.startTime).toLocaleString(),

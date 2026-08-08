@@ -113,10 +113,10 @@ export function gaussianSmooth(
   const n = xs.length;
   if (n < 2 || n !== ys.length) return [];
   if (n === 2) {
-    const std2 = Math.abs(ys[1] - ys[0]) / 2;
+    // A line through two points is exact, so the residual spread is zero.
     return [
-      { x: xs[0], y: ys[0], std: std2 },
-      { x: xs[1], y: ys[1], std: std2 },
+      { x: xs[0], y: ys[0], std: 0 },
+      { x: xs[1], y: ys[1], std: 0 },
     ];
   }
 
@@ -160,18 +160,31 @@ export function gaussianSmooth(
 
     // Local-linear fit: y = a + b*x (corrects boundary bias)
     const denom = sumW * sumWxx - sumWx * sumWx;
-    let y0: number;
+    let a: number;
+    let b: number;
     if (Math.abs(denom) < 1e-12) {
-      y0 = sumW > 0 ? sumWy / sumW : 0;
+      a = sumW > 0 ? sumWy / sumW : 0;
+      b = 0;
     } else {
-      const b = (sumW * sumWxy - sumWx * sumWy) / denom;
-      const a = (sumWy - b * sumWx) / sumW;
-      y0 = a + b * x0;
+      b = (sumW * sumWxy - sumWx * sumWy) / denom;
+      a = (sumWy - b * sumWx) / sumW;
     }
+    const y0 = a + b * x0;
 
-    // Weighted residual std via algebraic identity: E[(y-y0)²] = E[y²] - 2·y0·E[y] + y0²
-    // Avoids a second O(n) loop per output point
-    const variance = sumW > 0 ? (sumWyy - 2 * y0 * sumWy + y0 * y0 * sumW) / sumW : 0;
+    // Weighted residual std about the fitted LINE, not about y0. Measuring the
+    // spread about a single point folds the local slope into the band, so a
+    // trending section gets a band that saturates the plot.
+    // E[(y - (a + bx))²] expanded over the accumulated sums.
+    const variance =
+      sumW > 0
+        ? (sumWyy -
+            2 * a * sumWy -
+            2 * b * sumWxy +
+            a * a * sumW +
+            2 * a * b * sumWx +
+            b * b * sumWxx) /
+          sumW
+        : 0;
     const std = Math.sqrt(Math.max(0, variance));
 
     result.push({ x: x0, y: y0, std });

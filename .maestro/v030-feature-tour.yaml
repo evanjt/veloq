@@ -25,9 +25,9 @@ tags:
 
 # Sport filter chips
 - assertVisible:
-    text: "Cycling"
+    id: "record-category-cycling"
 - assertVisible:
-    text: "Running"
+    id: "record-category-running"
 
 # Scroll feed to see multiple cards
 - swipe:

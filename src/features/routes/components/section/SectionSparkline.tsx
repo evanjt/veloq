@@ -5,7 +5,7 @@
 
 import React from 'react';
 import { Canvas, Circle, Path, Skia } from '@shopify/react-native-skia';
-import { polylineSvgPath } from '@/shared/charts/svgPath';
+import { polylineSvgPath } from '@/shared/charts';
 import { colors, colorWithOpacity } from '@/theme';
 import type { PerformanceDataPoint } from '@/types';
 

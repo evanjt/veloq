@@ -4,7 +4,7 @@ import { getRouteEngine } from '@/shared/native/routeEngine';
 import { decodeCoords } from 'veloqrs';
 
 export interface RouteSignature {
-  points: Array<{ lat: number; lng: number }>;
+  points: { lat: number; lng: number }[];
   center: { lat: number; lng: number };
 }
 

@@ -1,5 +1,4 @@
 import { useMemo } from 'react';
-import { type Expression } from '@maplibre/maplibre-react-native';
 import { decodeCoords } from 'veloqrs';
 
 import type { FrequentSection, RoutePoint } from '@/types';
@@ -39,7 +38,8 @@ export interface SectionMapLayers {
   nearbyGeoJSON: GeoJSON.FeatureCollection;
   allTracesFeatureCollection: GeoJSON.FeatureCollection;
   hasAllTraces: boolean;
-  highlightedTraceFilter: Expression | undefined;
+  /** MapLibre filter expression, or undefined when nothing is highlighted. */
+  highlightedTraceFilter: unknown[] | undefined;
   highlightedTraceGeoJSON: FeatureOrCollection;
   highlightedLapGeoJSON: FeatureOrCollection;
 }
@@ -154,7 +154,7 @@ export function useSectionMapLayers({
 
   const hasAllTraces = allTracesFeatureCollection.features.length > 0;
 
-  const highlightedTraceFilter = useMemo<Expression | undefined>(() => {
+  const highlightedTraceFilter = useMemo<unknown[] | undefined>(() => {
     if (!highlightedActivityId || !hasAllTraces) return undefined;
     return ['==', ['get', 'activityId'], highlightedActivityId];
   }, [highlightedActivityId, hasAllTraces]);

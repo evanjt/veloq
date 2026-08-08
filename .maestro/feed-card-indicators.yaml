@@ -21,6 +21,15 @@ tags:
       id: "home-activity-list"
     timeout: 15000
 
+# The record FAB floats over the feed's bottom-right corner, exactly where a
+# card's indicator chips sit when that card rests at the bottom of the
+# viewport. A tap on an occluded chip opens the record screen instead. Nudge
+# the list so demo-test-0's chip row sits clear of the FAB before any taps.
+- swipe:
+    start: 50%, 60%
+    end: 50%, 42%
+    duration: 400
+
 - takeScreenshot: "feed-indicators-baseline"
 
 # ====================================================================

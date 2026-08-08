@@ -10,7 +10,7 @@ use super::{PersistentRouteEngine, codec};
 
 /// Bump this when the indicator computation algorithm changes.
 /// On next read, a version mismatch triggers a full clean recompute.
-const INDICATOR_ALGORITHM_VERSION: i32 = 4;
+const INDICATOR_ALGORITHM_VERSION: i32 = 5;
 
 impl PersistentRouteEngine {
     /// Recompute all activity indicators (PRs and trends) from scratch.
@@ -79,7 +79,8 @@ impl PersistentRouteEngine {
                            THEN a.duration_secs * (sa.distance_meters / a.distance_meters)
                            ELSE NULL END)";
 
-        // Get all (section_id, direction) pairs with 2+ non-excluded traversals.
+        // Pairs with 2+ non-excluded activities. Counting rows would let one
+        // lapped session qualify against itself.
         //
         // PR completeness rules (apply to both the pair list AND the per-pair
         // traversal scan below):
@@ -89,8 +90,10 @@ impl PersistentRouteEngine {
         //    can show up as a "PR" of 1:24 in feed badges.
         //  - Skip rows whose actual GPS distance is < 70% of the section's
         //    canonical distance (matches `get_section_performances_filtered`).
+        //  - Group by sport. A record and a trend are earned against the same
+        //    sport's efforts, so shared ground carries one of each per sport.
         let pair_sql = format!(
-            "SELECT sa.section_id, sa.direction, COUNT(*) as cnt
+            "SELECT sa.section_id, sa.direction, a.sport_type, COUNT(DISTINCT sa.activity_id) as cnt
              FROM section_activities sa
              JOIN sections s ON s.id = sa.section_id
              JOIN activities a ON a.id = sa.activity_id
@@ -101,16 +104,20 @@ impl PersistentRouteEngine {
                AND sa.direction != 'partial'
                AND (s.distance_meters IS NULL OR s.distance_meters <= 0
                     OR sa.distance_meters >= s.distance_meters * 0.7)
-             GROUP BY sa.section_id, sa.direction
+             GROUP BY sa.section_id, sa.direction, a.sport_type
              HAVING cnt >= 2",
             effective_time_expr
         );
 
         let mut pair_stmt = tx.prepare(&pair_sql)?;
 
-        let pairs: Vec<(String, String)> = pair_stmt
+        let pairs: Vec<(String, String, String)> = pair_stmt
             .query_map([], |row| {
-                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+                Ok((
+                    row.get::<_, String>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, String>(2)?,
+                ))
             })?
             .filter_map(|r| r.ok())
             .collect();
@@ -130,7 +137,7 @@ impl PersistentRouteEngine {
 
         let mut total = 0;
 
-        // For each (section, direction) pair: query traversals ordered by date.
+        // For each (section, direction, sport) group: traversals ordered by date.
         // Same completeness filter as the pair query above so the per-traversal
         // best matches what `get_section_performances_filtered` produces.
         let traversal_sql = format!(
@@ -140,6 +147,7 @@ impl PersistentRouteEngine {
              JOIN sections s ON s.id = sa.section_id
              WHERE sa.section_id = ?
                AND sa.direction = ?
+               AND a.sport_type = ?
                AND sa.excluded = 0
                AND sa.direction != 'partial'
                AND (s.distance_meters IS NULL OR s.distance_meters <= 0
@@ -149,15 +157,35 @@ impl PersistentRouteEngine {
         );
         let mut traversal_stmt = tx.prepare(&traversal_sql)?;
 
-        for (section_id, direction) in &pairs {
-            let traversals: Vec<(String, f64)> = traversal_stmt
-                .query_map(params![section_id, direction], |row| {
+        for (section_id, direction, sport_type) in &pairs {
+            let passes: Vec<(String, f64)> = traversal_stmt
+                .query_map(params![section_id, direction, sport_type], |row| {
                     let time: Option<f64> = row.get(1)?;
                     Ok((row.get::<_, String>(0)?, time.unwrap_or(0.0)))
                 })?
                 .filter_map(|r| r.ok())
                 .filter(|(_, t)| *t > 0.0)
                 .collect();
+
+            // One badge per activity, earned by its fastest pass. The indicator
+            // key is `(activity_id, indicator_type, target_id, direction)`, and
+            // the running average below compares activities, not laps. First
+            // appearance sets the order, keeping the sequence chronological.
+            let mut traversals: Vec<(String, f64)> = Vec::new();
+            let mut seen: HashMap<&str, usize> = HashMap::new();
+            for (activity_id, time) in &passes {
+                match seen.get(activity_id.as_str()) {
+                    Some(&i) => {
+                        if *time < traversals[i].1 {
+                            traversals[i].1 = *time;
+                        }
+                    }
+                    None => {
+                        seen.insert(activity_id.as_str(), traversals.len());
+                        traversals.push((activity_id.clone(), *time));
+                    }
+                }
+            }
 
             if traversals.len() < 2 {
                 continue;

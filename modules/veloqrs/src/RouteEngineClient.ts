@@ -10,13 +10,25 @@
 
 import type {
   PersistentEngineStats,
+  FfiActivityDetailData,
   FfiActivityMetrics,
+  FfiActivityPattern,
   FfiBounds,
+  FfiCallOutcome,
+  FfiManualActivity,
+  FfiExerciseActivities,
+  FfiExerciseSet,
+  FfiMuscleExerciseSummary,
+  FfiMuscleGroup,
+  FfiStrengthSummary,
   FfiGpsPoint,
+  FfiMapScreenData,
   FfiRouteGroup,
   FfiFrequentSection,
   FfiNamedCorridor,
   FfiSection,
+  FfiSectionDetailData,
+  FfiSectionPerformanceData,
   FfiSectionPerformanceResult,
   FfiCalendarSummary,
   FfiRoutePerformanceResult,
@@ -29,7 +41,9 @@ import type {
   FfiFtpTrend,
   FfiPaceTrend,
   FfiInsightsData,
+  FfiInsightsParams,
   FfiStartupData,
+  FfiWidgetSnapshotData,
   FfiRoutesScreenData,
   FfiPotentialSection,
   FfiSectionConfig,
@@ -37,24 +51,17 @@ import type {
   DownloadProgressResult,
 } from './generated/veloqrs';
 
-// Types for new FFI methods - will be auto-generated after Rust rebuild.
-// Declarations moved to ./delegates/shared-types.ts; re-exported here so
-// existing consumers (e.g. `import { FfiSectionMatch } from '...'`) keep working.
-export type {
-  FfiSectionMatch,
-  FfiMergeCandidate,
-  FfiNearbySectionSummary,
-  FfiActivitySectionHighlight,
-  FfiActivityRouteHighlight,
-  FfiActivityIndicator,
-  SectionEncounter,
-} from './delegates/shared-types';
-
 import type { RoutePoint, SectionDetectionProgress } from './conversions';
 import type { DelegateHost } from './delegates/host';
 import * as activityDelegates from './delegates/activities';
 import * as detectionDelegates from './delegates/detection';
+import * as elevationDelegates from './delegates/elevation';
+import type { ElevationBackfillProgress } from './delegates/elevation';
+import * as cutoverDelegates from './delegates/cutover';
+import type { CutoverDiff, CutoverProgress } from './delegates/cutover';
 import * as fitnessDelegates from './delegates/fitness';
+import * as previewDelegates from './delegates/preview';
+import type { PreviewCentre, PreviewPollStatus, PreviewResult } from './delegates/preview';
 import * as heatmapDelegates from './delegates/heatmap';
 import * as mapsDelegates from './delegates/maps';
 import * as routeDelegates from './delegates/routes';
@@ -71,6 +78,19 @@ import type {
   FfiNearbySectionSummary,
   FfiSectionMatch,
   HeatmapDay,
+  SectionEncounter,
+} from './delegates/shared-types';
+
+// Types for new FFI methods - will be auto-generated after Rust rebuild.
+// Declarations moved to ./delegates/shared-types.ts; re-exported here so
+// existing consumers (e.g. `import { FfiSectionMatch } from '...'`) keep working.
+export type {
+  FfiSectionMatch,
+  FfiMergeCandidate,
+  FfiNearbySectionSummary,
+  FfiActivitySectionHighlight,
+  FfiActivityRouteHighlight,
+  FfiActivityIndicator,
   SectionEncounter,
 } from './delegates/shared-types';
 
@@ -252,13 +272,45 @@ class RouteEngineClient implements DelegateHost {
     }
   }
 
-  startSectionDetection = (sportFilter?: string): boolean =>
-    detectionDelegates.startSectionDetection(this, sportFilter);
+  startSectionDetection = (): boolean => detectionDelegates.startSectionDetection(this);
 
   pollSectionDetection = (): string => detectionDelegates.pollSectionDetection(this);
 
   getSectionDetectionProgress = (): SectionDetectionProgress | null =>
     detectionDelegates.getSectionDetectionProgress(this);
+
+  getPreviewCentres = (limit: number): PreviewCentre[] =>
+    previewDelegates.getPreviewCentres(this, limit);
+
+  startPreviewDetect = (lat: number, lng: number, config: FfiSectionConfig): boolean =>
+    previewDelegates.startPreviewDetect(this, lat, lng, config);
+
+  pollPreviewDetect = (): PreviewPollStatus => previewDelegates.pollPreviewDetect(this);
+
+  getPreviewProgress = (): SectionDetectionProgress | null =>
+    previewDelegates.getPreviewProgress(this);
+
+  takePreviewResult = (): PreviewResult | null => previewDelegates.takePreviewResult(this);
+
+  cancelPreviewDetect = (): void => previewDelegates.cancelPreviewDetect(this);
+
+  startElevationBackfill = (): boolean => elevationDelegates.startElevationBackfill(this);
+
+  getElevationBackfillProgress = (): ElevationBackfillProgress | null =>
+    elevationDelegates.getElevationBackfillProgress(this);
+
+  getElevationBackfillRemaining = (): number | null =>
+    elevationDelegates.getElevationBackfillRemaining(this);
+
+  isCutoverPending = (): boolean => cutoverDelegates.isCutoverPending(this);
+
+  isCutoverRunning = (): boolean => cutoverDelegates.isCutoverRunning(this);
+
+  startDetectorCutover = (): boolean => cutoverDelegates.startDetectorCutover(this);
+
+  getCutoverProgress = (): CutoverProgress | null => cutoverDelegates.getCutoverProgress(this);
+
+  getCutoverDiff = (): CutoverDiff | null => cutoverDelegates.getCutoverDiff(this);
 
   setSyncCredentials = (method: SyncAuthMethod, secret: string, athleteId: string): void =>
     syncDelegates.setSyncCredentials(this, method, secret, athleteId);
@@ -266,6 +318,44 @@ class RouteEngineClient implements DelegateHost {
   clearSyncCredentials = (): void => syncDelegates.clearSyncCredentials(this);
 
   syncNow = (): boolean => syncDelegates.syncNow(this);
+
+  syncActivitiesWindow = (oldest: string, newest: string): boolean =>
+    syncDelegates.syncActivitiesWindow(this, oldest, newest);
+
+  syncPowerCurve = (sport: string, days: number): boolean =>
+    syncDelegates.syncPowerCurve(this, sport, days);
+
+  syncPaceCurve = (sport: string, days: number, gap: boolean): boolean =>
+    syncDelegates.syncPaceCurve(this, sport, days, gap);
+
+  syncActivityIntervals = (activityId: string): boolean =>
+    syncDelegates.syncActivityIntervals(this, activityId);
+
+  syncCalendarEvents = (oldest: string, newest: string): boolean =>
+    syncDelegates.syncCalendarEvents(this, oldest, newest);
+
+  syncActivityStreams = (activityId: string, types: string): boolean =>
+    syncDelegates.syncActivityStreams(this, activityId, types);
+
+  syncActivityDetail = (activityId: string): boolean =>
+    syncDelegates.syncActivityDetail(this, activityId);
+
+  syncTimeStreams = (activityIds: string[]): boolean =>
+    syncDelegates.syncTimeStreams(this, activityIds);
+
+  uploadActivityFile = (
+    filePath: string,
+    filename: string,
+    name?: string,
+    pairedEventId?: number
+  ): Promise<FfiCallOutcome> =>
+    syncDelegates.uploadActivityFile(this, filePath, filename, name, pairedEventId);
+
+  createManualActivity = (activity: FfiManualActivity): Promise<FfiCallOutcome> =>
+    syncDelegates.createManualActivity(this, activity);
+
+  validateSyncCredentials = (method: SyncAuthMethod, secret: string): Promise<FfiCallOutcome> =>
+    syncDelegates.validateSyncCredentials(this, method, secret);
 
   cancelSync = (): void => syncDelegates.cancelSync(this);
 
@@ -327,6 +417,13 @@ class RouteEngineClient implements DelegateHost {
   ): MapActivityComplete[] =>
     mapsDelegates.getMapActivitiesFiltered(this, startDate, endDate, sportTypesArray);
 
+  getMapScreenData = (
+    startDate: Date,
+    endDate: Date,
+    sportTypesArray?: string[]
+  ): FfiMapScreenData | undefined =>
+    mapsDelegates.getMapScreenData(this, startDate, endDate, sportTypesArray);
+
   getActivityBoundsForRange = (
     startDate: Date,
     endDate: Date,
@@ -334,21 +431,21 @@ class RouteEngineClient implements DelegateHost {
   ): FfiBounds | null =>
     mapsDelegates.getActivityBoundsForRange(this, startDate, endDate, sportTypesArray);
 
-  getAllMapSignatures = (): Array<{
+  getAllMapSignatures = (): {
     activityId: string;
     encodedCoords: ArrayBuffer;
     centerLat: number;
     centerLng: number;
-  }> => mapsDelegates.getAllMapSignatures(this);
+  }[] => mapsDelegates.getAllMapSignatures(this);
 
   getMapSignaturesForIds = (
     ids: string[]
-  ): Array<{
+  ): {
     activityId: string;
     encodedCoords: ArrayBuffer;
     centerLat: number;
     centerLng: number;
-  }> => mapsDelegates.getMapSignaturesForIds(this, ids);
+  }[] => mapsDelegates.getMapSignaturesForIds(this, ids);
 
   setRouteName = (routeId: string, name: string): void =>
     routeDelegates.setRouteName(this, routeId, name);
@@ -407,7 +504,7 @@ class RouteEngineClient implements DelegateHost {
   getPerformancesBatch = (
     sectionIds: string[],
     sportType?: string
-  ): Array<{ sectionId: string; result: FfiSectionPerformanceResult }> =>
+  ): { sectionId: string; result: FfiSectionPerformanceResult }[] =>
     sectionDelegates.getPerformancesBatch(this, sectionIds, sportType);
 
   getActivityPrSections = (activityId: string, sectionIds: string[]): string[] =>
@@ -435,11 +532,40 @@ class RouteEngineClient implements DelegateHost {
   getExcludedActivityIds = (sectionId: string): string[] =>
     sectionDelegates.getExcludedActivityIds(this, sectionId);
 
+  excludeSectionLap = (sectionId: string, activityId: string, startIndex: number): boolean =>
+    sectionDelegates.excludeSectionLap(this, sectionId, activityId, startIndex);
+
+  includeSectionLap = (sectionId: string, activityId: string, startIndex: number): boolean =>
+    sectionDelegates.includeSectionLap(this, sectionId, activityId, startIndex);
+
+  getExcludedSectionLaps = (sectionId: string): { activityId: string; startIndex: number }[] =>
+    sectionDelegates.getExcludedSectionLaps(this, sectionId);
+
   getExcludedSectionPerformances = (sectionId: string): FfiSectionPerformanceResult =>
     sectionDelegates.getExcludedSectionPerformances(this, sectionId);
 
   getSectionCalendarSummary = (sectionId: string): FfiCalendarSummary | null =>
     sectionDelegates.getSectionCalendarSummary(this, sectionId);
+
+  getRouteDetailData = (
+    groupId: string,
+    currentActivityId: string | undefined,
+    minGroupActivities: number
+  ): routeDelegates.RouteDetailData | undefined =>
+    routeDelegates.getRouteDetailData(this, groupId, currentActivityId, minGroupActivities);
+
+  getSectionDetailData = (
+    sectionId: string,
+    nearbyRadiusMeters: number
+  ): FfiSectionDetailData | undefined =>
+    sectionDelegates.getSectionDetailData(this, sectionId, nearbyRadiusMeters);
+
+  getSectionDetailPerformance = (
+    sectionId: string,
+    timeRangeDays: number,
+    sportFilter?: string
+  ): FfiSectionPerformanceData | undefined =>
+    sectionDelegates.getSectionDetailPerformance(this, sectionId, timeRangeDays, sportFilter);
 
   /** Queues metrics until init completes, then delegates to activities module. */
   setActivityMetrics(metrics: FfiActivityMetrics[]): void {
@@ -450,8 +576,11 @@ class RouteEngineClient implements DelegateHost {
     activityDelegates.setActivityMetricsReady(this, metrics);
   }
 
-  setTimeStreams = (streams: Array<{ activityId: string; times: number[] }>): void =>
+  setTimeStreams = (streams: { activityId: string; times: number[] }[]): void =>
     activityDelegates.setTimeStreams(this, streams);
+
+  getMissingTimeStreams = (activityIds: string[]): string[] =>
+    activityDelegates.getActivitiesMissingTimeStreams(this, activityIds);
 
   getActivitiesMissingTimeStreams = (activityIds: string[]): string[] =>
     activityDelegates.getActivitiesMissingTimeStreams(this, activityIds);
@@ -517,42 +646,29 @@ class RouteEngineClient implements DelegateHost {
     swimPaceTrend: FfiPaceTrend;
   } => fitnessDelegates.getSummaryCardData(this, currentStart, currentEnd, prevStart, prevEnd);
 
-  getInsightsData = (
-    currentStart: number,
-    currentEnd: number,
-    prevStart: number,
-    prevEnd: number,
-    chronicStart: number,
-    todayStart: number
-  ): FfiInsightsData | undefined =>
-    fitnessDelegates.getInsightsData(
-      this,
-      currentStart,
-      currentEnd,
-      prevStart,
-      prevEnd,
-      chronicStart,
-      todayStart
-    );
+  getInsightsData = (params: FfiInsightsParams): FfiInsightsData | undefined =>
+    fitnessDelegates.getInsightsData(this, params);
 
   getStartupData = (
+    params: FfiInsightsParams,
+    previewActivityIds: string[]
+  ): FfiStartupData | undefined =>
+    fitnessDelegates.getStartupData(this, params, previewActivityIds);
+
+  getWidgetSnapshot = (
     currentStart: number,
     currentEnd: number,
     prevStart: number,
     prevEnd: number,
-    chronicStart: number,
-    todayStart: number,
-    previewActivityIds: string[]
-  ): FfiStartupData | undefined =>
-    fitnessDelegates.getStartupData(
+    sparklineDays: number
+  ): FfiWidgetSnapshotData | undefined =>
+    fitnessDelegates.getWidgetSnapshot(
       this,
       currentStart,
       currentEnd,
       prevStart,
       prevEnd,
-      chronicStart,
-      todayStart,
-      previewActivityIds
+      sparklineDays
     );
 
   getPeriodStats = (startTs: number, endTs: number): FfiPeriodStats =>
@@ -609,17 +725,65 @@ class RouteEngineClient implements DelegateHost {
   // Activity Pattern Detection (K-means clustering)
   // ==========================================================================
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  getActivityPatterns = (): any[] => fitnessDelegates.getActivityPatterns(this);
+  getActivityPatterns = (): FfiActivityPattern[] => fitnessDelegates.getActivityPatterns(this);
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  getPatternForToday = (): any | undefined => fitnessDelegates.getPatternForToday(this);
+  getPatternForToday = (): FfiActivityPattern | undefined =>
+    fitnessDelegates.getPatternForToday(this);
 
-  getActivityPatternsWithToday = (): { today: any | undefined; all: any[] } =>
-    fitnessDelegates.getActivityPatternsWithToday(this);
+  getActivityPatternsWithToday = (): {
+    today: FfiActivityPattern | undefined;
+    all: FfiActivityPattern[];
+  } => fitnessDelegates.getActivityPatternsWithToday(this);
 
   upsertWellness = (rows: fitnessDelegates.WellnessRowInput[]): void =>
     fitnessDelegates.upsertWellness(this, rows);
+
+  getWellnessBodies = (oldest: string, newest: string): string[] =>
+    fitnessDelegates.getWellnessBodies(this, oldest, newest);
+
+  getActivityBodies = (oldestTs: number, newestTs: number): string[] =>
+    activityDelegates.getActivityBodies(this, oldestTs, newestTs);
+
+  upsertActivityBodies = (rows: activityDelegates.ActivityBodyInput[]): void =>
+    activityDelegates.upsertActivityBodies(this, rows);
+
+  setStreamBody = (activityId: string, types: string, raw: string): void =>
+    activityDelegates.setStreamBody(this, activityId, types, raw);
+
+  setIntervalBody = (activityId: string, raw: string): void =>
+    activityDelegates.setIntervalBody(this, activityId, raw);
+
+  setCurveBody = (
+    kind: 'power' | 'pace',
+    sport: string,
+    days: number,
+    gap: boolean,
+    raw: string
+  ): void => activityDelegates.setCurveBody(this, kind, sport, days, gap, raw);
+
+  replaceCalendarEvents = (
+    oldestTs: number,
+    newestTs: number,
+    rows: activityDelegates.CalendarEventBodyInput[]
+  ): void => activityDelegates.replaceCalendarEvents(this, oldestTs, newestTs, rows);
+
+  getStreamBody = (activityId: string, types: string): string | null =>
+    activityDelegates.getStreamBody(this, activityId, types);
+
+  getPowerCurveBody = (sport: string, days: number): string | null =>
+    fitnessDelegates.getPowerCurveBody(this, sport, days);
+
+  getPaceCurveBody = (sport: string, days: number, gap: boolean): string | null =>
+    fitnessDelegates.getPaceCurveBody(this, sport, days, gap);
+
+  getIntervalBody = (activityId: string): string | null =>
+    fitnessDelegates.getIntervalBody(this, activityId);
+
+  getCalendarEventBodies = (oldestTs: number, newestTs: number): string[] =>
+    fitnessDelegates.getCalendarEventBodies(this, oldestTs, newestTs);
+
+  getWeeklySummaries = (weekStarts: number[], weekLengthSecs: number) =>
+    fitnessDelegates.getWeeklySummaries(this, weekStarts, weekLengthSecs);
 
   getWellnessSparklines = (days: number): fitnessDelegates.WellnessSparklines | null =>
     fitnessDelegates.getWellnessSparklines(this, days);
@@ -799,8 +963,13 @@ class RouteEngineClient implements DelegateHost {
   ): { encodedTrack: ArrayBuffer; sectionStartIdx: number; sectionEndIdx: number } | null =>
     sectionDelegates.getSectionExtensionTrack(this, sectionId);
 
-  expandSectionBounds = (sectionId: string, newPolylineFlat: number[]): boolean =>
-    sectionDelegates.expandSectionBounds(this, sectionId, newPolylineFlat);
+  expandSectionBounds = (
+    sectionId: string,
+    activityId: string,
+    startIndex: number,
+    endIndex: number
+  ): boolean =>
+    sectionDelegates.expandSectionBounds(this, sectionId, activityId, startIndex, endIndex);
 
   getDownloadProgress(): DownloadProgressResult {
     return gen().getDownloadProgress();
@@ -817,41 +986,43 @@ class RouteEngineClient implements DelegateHost {
   ): activityDelegates.ActivityHighlightsBundle =>
     activityDelegates.getActivityHighlightsBundle(this, activityIds);
 
+  getActivityDetailData = (
+    activityId: string,
+    minRouteActivities: number
+  ): FfiActivityDetailData | undefined =>
+    activityDelegates.getActivityDetailData(this, activityId, minRouteActivities);
+
   // ========================================================================
   // Strength Training
   // ========================================================================
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  getExerciseSets = (activityId: string): any[] =>
+  getExerciseSets = (activityId: string): FfiExerciseSet[] =>
     strengthDelegates.getExerciseSets(this, activityId);
 
   isFitProcessed = (activityId: string): boolean =>
     strengthDelegates.isFitProcessed(this, activityId);
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  fetchAndParseExerciseSets = (authHeader: string, activityId: string): any[] =>
-    strengthDelegates.fetchAndParseExerciseSets(this, authHeader, activityId);
+  fetchAndParseExerciseSets = (activityId: string): FfiExerciseSet[] =>
+    strengthDelegates.fetchAndParseExerciseSets(this, activityId);
 
   /**
    * Insert pre-parsed exercise sets for an activity without touching the
    * network. Demo-mode only - production uses fetchAndParseExerciseSets.
    */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  bulkInsertExerciseSets(activityId: string, sets: any[]): void {
+  bulkInsertExerciseSets(activityId: string, sets: FfiExerciseSet[]): void {
     return this.timed('bulkInsertExerciseSets', () =>
       this.engine.strength().bulkInsertExerciseSets(activityId, sets)
     );
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  getMuscleGroups = (activityId: string): any[] =>
+  getMuscleGroups = (activityId: string): FfiMuscleGroup[] =>
     strengthDelegates.getMuscleGroups(this, activityId);
 
   getUnprocessedStrengthIds = (activityIds: string[]): string[] =>
     strengthDelegates.getUnprocessedStrengthIds(this, activityIds);
 
-  batchFetchExerciseSets = (authHeader: string, activityIds: string[]): string[] =>
-    strengthDelegates.batchFetchExerciseSets(this, authHeader, activityIds);
+  batchFetchExerciseSets = (activityIds: string[]): string[] =>
+    strengthDelegates.batchFetchExerciseSets(this, activityIds);
 
   /**
    * Parse FIT bytes locally and store strength sets. Returns the number of
@@ -861,18 +1032,18 @@ class RouteEngineClient implements DelegateHost {
   importSetsFromFit = (activityId: string, fitBytes: Uint8Array): number =>
     strengthDelegates.importSetsFromFit(this, activityId, fitBytes);
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  getStrengthSummary = (startTs: number, endTs: number): any =>
+  getStrengthSummary = (startTs: number, endTs: number): FfiStrengthSummary =>
     strengthDelegates.getStrengthSummary(this, startTs, endTs);
 
   getStrengthInsightSeries = (
     monthly: { startTs: number; endTs: number },
-    weekly: Array<{ startTs: number; endTs: number }>
+    weekly: { startTs: number; endTs: number }[]
   ): strengthDelegates.StrengthInsightSeries =>
     strengthDelegates.getStrengthInsightSeries(this, monthly, weekly);
 
-  getStrengthSummaryBatch = (ranges: Array<{ startTs: number; endTs: number }>): any[] =>
-    strengthDelegates.getStrengthSummaryBatch(this, ranges);
+  getStrengthSummaryBatch = (
+    ranges: { startTs: number; endTs: number }[]
+  ): FfiStrengthSummary[] => strengthDelegates.getStrengthSummaryBatch(this, ranges);
 
   getMuscleDetail = (
     activityId: string,
@@ -882,17 +1053,19 @@ class RouteEngineClient implements DelegateHost {
 
   hasStrengthData = (): boolean => strengthDelegates.hasStrengthData(this);
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  getExercisesForMuscle = (startTs: number, endTs: number, muscleSlug: string): any =>
+  getExercisesForMuscle = (
+    startTs: number,
+    endTs: number,
+    muscleSlug: string
+  ): FfiMuscleExerciseSummary =>
     strengthDelegates.getExercisesForMuscle(this, startTs, endTs, muscleSlug);
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   getActivitiesForExercise = (
     startTs: number,
     endTs: number,
     muscleSlug: string,
     exerciseCategory: number
-  ): any =>
+  ): FfiExerciseActivities =>
     strengthDelegates.getActivitiesForExercise(this, startTs, endTs, muscleSlug, exerciseCategory);
 
   // ========================================================================
@@ -944,8 +1117,7 @@ class RouteEngineClient implements DelegateHost {
   /** Recompute all activity indicators (PRs and trends). */
   recomputeIndicators = (): void => sectionDelegates.recomputeIndicators(this);
 
-  forceRedetectSections = (sportFilter?: string): boolean =>
-    detectionDelegates.forceRedetectSections(this, sportFilter);
+  forceRedetectSections = (): boolean => detectionDelegates.forceRedetectSections(this);
 
   setSectionConfig = (config: FfiSectionConfig): void =>
     detectionDelegates.setSectionConfig(this, config);

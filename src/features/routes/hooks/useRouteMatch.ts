@@ -5,8 +5,12 @@
 
 import { useMemo } from 'react';
 import { useEngineGroups } from './useRouteEngine';
+import type { RouteGroup as NativeRouteGroup } from 'veloqrs';
 import type { RouteGroup } from '@/types';
 import { toActivityType } from '@/types';
+
+/** Engine groups supplied by a caller that already fetched them. */
+type RouteGroupsInput = readonly NativeRouteGroup[];
 
 interface UseRouteMatchResult {
   /** The route group this activity belongs to */
@@ -21,8 +25,17 @@ interface UseRouteMatchResult {
   representativeActivityId: string | null;
 }
 
-export function useRouteMatch(activityId: string | undefined, enabled = true): UseRouteMatchResult {
-  const { groups } = useEngineGroups({ minActivities: 1, enabled });
+export function useRouteMatch(
+  activityId: string | undefined,
+  enabled = true,
+  preComputedGroups?: RouteGroupsInput
+): UseRouteMatchResult {
+  const skipOwnFfiCall = preComputedGroups !== undefined;
+  const { groups: queriedGroups } = useEngineGroups({
+    minActivities: 1,
+    enabled: enabled && !skipOwnFfiCall,
+  });
+  const groups = preComputedGroups ?? queriedGroups;
 
   return useMemo(() => {
     if (!activityId) {

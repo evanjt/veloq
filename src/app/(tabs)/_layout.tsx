@@ -7,12 +7,10 @@ import { useRef } from 'react';
 import { Tabs } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { PERF_DEBUG } from '@/shared/debug/renderTimer';
-import { useTilePrefetch } from '@/features/maps/hooks/useTilePrefetch';
 import { useResolvedColorScheme } from '@/shared/app/ThemeProvider';
 
 export default function TabsLayout() {
   const { t } = useTranslation();
-  useTilePrefetch();
   // Remount frozen tabs on theme flip so PaperProvider's light/dark theme
   // actually propagates to screens that enableFreeze(true) has kept offscreen.
   const colorScheme = useResolvedColorScheme();

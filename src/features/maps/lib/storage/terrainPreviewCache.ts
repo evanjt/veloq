@@ -191,29 +191,6 @@ export async function deleteTerrainPreviewsForActivity(activityId: string): Prom
   cachedKeys = cachedKeys.filter((k) => !k.startsWith(prefix));
 }
 
-/**
- * Garbage collect: given the current ordered list of feed activity IDs,
- * delete any cached images not matching those activities.
- */
-export async function gcTerrainPreviews(visibleActivityIds: string[]): Promise<void> {
-  const keepSet = new Set(visibleActivityIds.slice(0, MAX_CACHED_PREVIEWS));
-  // Keep any key whose activityId portion matches a visible activity
-  const toEvict = cachedKeys.filter((key) => {
-    const activityId = key.substring(0, key.lastIndexOf('_'));
-    return !keepSet.has(activityId);
-  });
-
-  for (const key of toEvict) {
-    const path = `${TERRAIN_DIR}${key}.jpg`;
-    await FileSystem.deleteAsync(path, { idempotent: true }).catch(() => {});
-  }
-
-  cachedKeys = cachedKeys.filter((key) => !toEvict.includes(key));
-}
-
-/**
- * Clear all terrain preview images.
- */
 export async function clearTerrainPreviews(): Promise<void> {
   try {
     const dirInfo = await FileSystem.getInfoAsync(TERRAIN_DIR);
@@ -252,22 +229,6 @@ export async function getTerrainPreviewCacheSize(): Promise<number> {
   }
 }
 
-/**
- * Get count of cached previews.
- */
-export function getTerrainPreviewCount(): number {
-  return cachedKeys.length;
-}
-
-// ============================================================================
-// Priority snapshot queue (consumed pending → in-memory for cards)
-// ============================================================================
-
-/**
- * Activity IDs that need priority snapshot generation.
- * Populated from consumePendingSnapshots() - cards check this set to bypass
- * the index-based throttle (index >= 10 skip) and request snapshots immediately.
- */
 const prioritySnapshotIds = new Set<string>();
 
 /**
@@ -301,24 +262,6 @@ export function clearPrioritySnapshot(activityId: string): void {
 type SnapshotNeededListener = () => void;
 let snapshotNeededListener: SnapshotNeededListener | null = null;
 
-/**
- * Register a listener that fires when any card needs a terrain snapshot.
- * The feed screen uses this to mount WebView workers only on demand.
- * Returns an unsubscribe function.
- */
-export function registerSnapshotNeededListener(listener: SnapshotNeededListener): () => void {
-  snapshotNeededListener = listener;
-  return () => {
-    if (snapshotNeededListener === listener) {
-      snapshotNeededListener = null;
-    }
-  };
-}
-
-/**
- * Signal that a terrain snapshot is needed (cache miss or dirty).
- * Triggers the listener so the feed screen can mount WebView workers.
- */
 export function signalSnapshotNeeded(): void {
   snapshotNeededListener?.();
 }

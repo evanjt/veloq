@@ -35,7 +35,7 @@ export const ChartYAxisLabel = React.memo(function ChartYAxisLabel({
   formatYAxisValue,
 }: ChartYAxisLabelProps) {
   const accent = showYAxisAccent
-    ? { borderLeftWidth: 2, borderLeftColor: yAxisSeries.color }
+    ? { borderLeftWidth: 2, borderLeftColor: yAxisSeries.config.color }
     : null;
 
   return (

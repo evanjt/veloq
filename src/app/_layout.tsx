@@ -1,34 +1,22 @@
 // Enable screen freezing BEFORE any other imports
 // This prevents inactive screens from re-rendering during navigation
 import { enableFreeze } from 'react-native-screens';
-enableFreeze(true);
 
-import { LogBox } from 'react-native';
-if (!__DEV__) {
-  // Keep production logs quieter without hiding warnings while developing.
-  LogBox.ignoreLogs(['Require cycle:', 'Sending `onAnimatedValueUpdate`']);
-}
+import { LogBox, Alert, AppState, View, ActivityIndicator, Platform } from 'react-native';
 
 import { installGlobalCrashHandler, setCrashScreen } from '@/shared/debug/crashLog';
-installGlobalCrashHandler();
 
 import { useEffect, useRef, useState } from 'react';
 import { Stack, useSegments, useRouter, Href } from 'expo-router';
 import { PaperProvider, Text } from 'react-native-paper';
 import { StatusBar } from 'expo-status-bar';
-import {
-  Alert,
-  AppState,
-  View,
-  ActivityIndicator,
-  Platform,
-  InteractionManager,
-} from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { configureReanimatedLogger, ReanimatedLogLevel } from 'react-native-reanimated';
 // Use legacy API for SDK 54 compatibility (new API uses File/Directory classes)
-import MapLibre, { Logger as MapLibreLogger } from '@maplibre/maplibre-react-native';
-import { useAuthStore } from '@/shared/app/AuthStore';
+import { pushCredentialsToEngine, useAuthStore } from '@/shared/app/AuthStore';
+import { seedDemoEngine } from '@/shared/app/seedDemoEngine';
+import { startElevationBackfillAfterUpdate } from '@/features/routes/lib/elevationBackfillTrigger';
+import { startDetectorCutoverAfterUpdate } from '@/features/routes/lib/cutoverTrigger';
 import { initializeSportPreference, initializeHRZones } from '@/features/fitness/stores';
 import { initializeDashboardPreferences } from '@/features/home/store';
 import { updateWidgetSnapshot } from '@/features/home';
@@ -37,10 +25,11 @@ import { MapPreferencesProvider } from '@/features/maps/stores/MapPreferencesCon
 import { initializeTileCacheStore } from '@/features/maps/stores/TileCacheStore';
 import { initializeRecordingPreferences } from '@/features/recording/stores/RecordingPreferencesStore';
 import { initializeUploadPermission } from '@/features/recording/stores/UploadPermissionStore';
-import { initializeDisabledSections } from '@/features/routes/stores/DisabledSectionsStore';
 import { useEngineStatus } from '@/features/routes/stores/EngineStatusStore';
-import { initializeRouteSettings } from '@/features/routes/stores/RouteSettingsStore';
-import { initializeSupersededSections } from '@/features/routes/stores/SupersededSectionsStore';
+import {
+  initializeRouteSettings,
+  isHeatmapEnabled,
+} from '@/features/routes/stores/RouteSettingsStore';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { initializeDebugStore } from '@/features/settings/stores/DebugStore';
 import { initializeNotificationPreferences } from '@/features/settings/stores/NotificationPreferencesStore';
@@ -53,11 +42,6 @@ import { initializeTheme, useResolvedColorScheme } from '@/shared/app/ThemeProvi
 import { TopSafeAreaProvider } from '@/shared/app/TopSafeAreaContext';
 import { initializeUnitPreference } from '@/shared/app/UnitPreferenceStore';
 import { QueryProvider, queryClient } from '@/shared/query/QueryProvider';
-import {
-  isHeatmapEnabled,
-  getDetectionStrictness,
-  getDetectionMethod,
-} from '@/features/routes/stores/RouteSettingsStore';
 import { formatLocalDate } from '@/shared/format/format';
 import { queryKeys } from '@/shared/query/queryKeys';
 import { initializeI18n, i18n } from '@/i18n';
@@ -70,12 +54,7 @@ import { WhatsNewModal, TourReturnPill } from '@/features/settings/components/wh
 import { RecordingReturnPill } from '@/features/recording/components/RecordingReturnPill';
 import { useUploadQueueProcessor } from '@/features/recording/hooks/useUploadQueueProcessor';
 import { useRouteReoptimization } from '@/features/routes/hooks/useRouteReoptimization';
-import {
-  getRouteEngine,
-  getRouteDbPath,
-  applyDetectionPresetForMethod,
-  getStrictnessFromValue,
-} from '@/shared/native/routeEngine';
+import { getRouteEngine, getRouteDbPath } from '@/shared/native/routeEngine';
 import { migrateSettingsToSqlite } from '@/shared/storage';
 import {
   onAppBackground,
@@ -93,41 +72,16 @@ import {
 // Register background insight task at module scope (required by TaskManager)
 import '@/features/insights/backgroundInsightTask';
 import { registerBackgroundNotificationTask } from '@/features/insights/backgroundInsightTask';
+enableFreeze(true);
+if (!__DEV__) {
+  // Keep production logs quieter without hiding warnings while developing.
+  LogBox.ignoreLogs(['Require cycle:', 'Sending `onAnimatedValueUpdate`']);
+}
+installGlobalCrashHandler();
 
 // Suppress Reanimated strict mode warnings from Victory Native charts
 // These occur because Victory uses shared values during render (known library behavior)
 configureReanimatedLogger({ level: ReanimatedLogLevel.error, strict: false });
-
-// Configure MapLibre to only log errors, with HTTP 404s downgraded to warnings
-// (prevents red screen in dev mode from transient tile/font 404s)
-let mapLibreLoggerConfigured = false;
-function configureMapLibreLogger() {
-  if (mapLibreLoggerConfigured) return;
-  try {
-    MapLibreLogger.setLogLevel('error');
-    MapLibreLogger.setLogCallback((log: { message: string; level: string; tag?: string }) => {
-      if (
-        log.level === 'error' &&
-        (log.tag === 'Mbgl-HttpRequest' ||
-          log.message.includes('404') ||
-          log.message.includes('not found') ||
-          log.message.includes('Unable to resolve host') ||
-          log.message.includes('Failed to load tile'))
-      ) {
-        if (__DEV__) {
-          console.warn('MapLibre HTTP warning:', log.message);
-        }
-        return true;
-      }
-      return false;
-    });
-    mapLibreLoggerConfigured = true;
-  } catch (error) {
-    if (__DEV__) {
-      console.warn('[MapLibre] Failed to configure logger:', error);
-    }
-  }
-}
 
 function AuthGate({ children }: { children: React.ReactNode }) {
   const routeParts = useSegments();
@@ -202,14 +156,6 @@ function AuthGate({ children }: { children: React.ReactNode }) {
             } else {
               engine.disableHeatmapTiles();
             }
-            // Apply persisted detection strictness if not default
-            const strictness = getDetectionStrictness();
-            if (strictness !== 60) {
-              applyDetectionPresetForMethod(
-                getDetectionMethod(),
-                getStrictnessFromValue(strictness)
-              );
-            }
             // Migrate AsyncStorage preferences to SQLite (one-time, idempotent)
             migrateSettingsToSqlite().catch(() => {});
             // Load WebDAV credentials into memory cache
@@ -218,6 +164,24 @@ function AuthGate({ children }: { children: React.ReactNode }) {
             const athleteId = useAuthStore.getState().athleteId;
             if (athleteId) {
               engine.setSetting('__athlete_id', athleteId);
+            }
+            // AuthStore.initialize() usually runs before the engine exists, so
+            // its credential push was a no-op. Repeat it now the engine is up.
+            pushCredentialsToEngine();
+            // Demo mode reads the same tables as live mode, so the fixtures
+            // have to be in SQLite before any screen queries the engine.
+            if (useAuthStore.getState().isDemoMode) {
+              seedDemoEngine();
+            } else {
+              // Tracks stored before elevation was fetched need a re-fetch;
+              // the trigger keeps attempting each launch until nothing is
+              // left to ask. Runs after the credential push so Rust has
+              // something to authenticate with.
+              startElevationBackfillAfterUpdate().catch(() => {});
+              // An install that saved Corridor keeps it until this runs; the
+              // trigger declines while the backfill still owes fetches, so a
+              // catalogue is never cut over a half-elevated library.
+              startDetectorCutoverAfterUpdate().catch(() => {});
             }
             // Initialize SyncDateRangeStore from engine's actual cached data
             const stats = engine.getStats();
@@ -405,9 +369,6 @@ export default function RootLayout() {
   useEffect(() => {
     async function initialize() {
       try {
-        // Configure MapLibre logger early (safe to do now that native modules are loaded)
-        configureMapLibreLogger();
-
         // Initialize language first to get the saved locale
         const savedLocale = await initializeLanguage();
         // Then initialize i18n with the saved locale
@@ -421,8 +382,6 @@ export default function RootLayout() {
           initializeUnitPreference(),
           initializeHRZones(),
           initializeRouteSettings(),
-          initializeSupersededSections(),
-          initializeDisabledSections(),
           initializeDashboardPreferences(), // Uses stored prefs or defaults to Cycling
           initializeDebugStore(),
           initializeTileCacheStore(),
@@ -627,6 +586,17 @@ export default function RootLayout() {
                         name="(tabs)"
                         options={{
                           animation: 'none',
+                        }}
+                      />
+                      {/* An active recording must not be swipeable away. The
+                          back gesture runs in the same direction as the
+                          slide-to-unlock track, so a stray palm swipe would
+                          drop the rider out of the screen mid-ride. Leaving is
+                          deliberate: stop the recording, or use the header. */}
+                      <Stack.Screen
+                        name="recording/[type]"
+                        options={{
+                          gestureEnabled: false,
                         }}
                       />
                     </Stack>

@@ -29,6 +29,8 @@ import { colors, darkColors, spacing, shadows } from '@/theme';
 
 interface ActivitySectionsSectionProps {
   activityId: string;
+  /** The activity's sport. Lap units follow it, not the section's label. */
+  sportType?: string;
   encounters: SectionEncounter[];
   coordinates: { latitude: number; longitude: number }[];
   isDark: boolean;
@@ -53,6 +55,7 @@ interface ActivitySectionsSectionProps {
 
 export const ActivitySectionsSection = React.memo(function ActivitySectionsSection({
   activityId,
+  sportType,
   encounters,
   coordinates,
   isDark,
@@ -62,6 +65,8 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
   highlightedSectionId,
   onHighlightedSectionIdChange,
   onSectionCreationModeChange,
+  // Swipe-to-delete is styled (deleteSwipeAction) but not yet rendered.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   removeSection,
   scanMatches,
   isScanning,
@@ -420,6 +425,7 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
         <SectionInlinePlot
           encounter={item}
           activityId={activityId}
+          sportType={sportType}
           index={index}
           style={style}
           isHighlighted={isHighlighted}
@@ -436,6 +442,7 @@ export const ActivitySectionsSection = React.memo(function ActivitySectionsSecti
     },
     [
       activityId,
+      sportType,
       highlightedRowKey,
       highlightedSectionId,
       isDark,

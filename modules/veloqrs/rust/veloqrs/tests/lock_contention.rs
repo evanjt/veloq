@@ -1,11 +1,9 @@
 //! Lock-contention baseline.
 //!
-//! Today's `apply_sections` holds the engine write lock through
-//! `save_sections` + `merge_cross_sport_sections` +
+//! `apply_sections` holds the engine write lock through `save_sections` +
 //! `recompute_activity_indicators`. While that's running, every UI-side
 //! read FFI call blocks behind it. This test measures **how long readers
-//! wait** under that contention, baseline-only — Tier 1.1 will split the
-//! lock, after which this test's recorded p99 should drop dramatically.
+//! wait** under that contention.
 //!
 //! Methodology:
 //! 1. Build scenario-B state (150 activities) on a fresh engine.
@@ -67,7 +65,7 @@ fn build_scenario_b_engine() -> (Arc<RwLock<PersistentRouteEngine>>, TempDir) {
     }
 
     // Run an initial detection so the engine has sections to read.
-    let handle = engine.detect_sections_background(None);
+    let handle = engine.detect_sections_background();
     let (sections, _) = handle.recv().unwrap_or_default();
     engine.apply_sections(sections).expect("initial apply");
 
@@ -119,7 +117,7 @@ fn lock_contention_baseline() {
     // so the writer's measured time is `apply_sections` only, not detection.
     let next_sections = {
         let mut engine = engine_arc.write().expect("write for detect");
-        let handle = engine.detect_sections_background(None);
+        let handle = engine.detect_sections_background();
         handle.recv().unwrap_or_default().0
     };
     println!(

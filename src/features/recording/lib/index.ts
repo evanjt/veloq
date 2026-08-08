@@ -49,3 +49,4 @@ export {
   type UploadRecordingOutcome,
   type UploadRecordingResult,
 } from './upload/uploadRecording';
+export { uploadActivityFile, createManualActivity, UploadFailure } from './upload/intervalsUploads';

@@ -9,8 +9,21 @@
 import * as FileSystem from 'expo-file-system/legacy';
 import type { BackupBackend, BackupEntry } from './types';
 import { getWebdavConfig } from '../webdavConfig';
+import { transferFailure, transportFailure } from './errors';
+import { debug } from '@/shared/debug/debug';
+
+const log = debug.create('WebdavBackend');
 
 const REMOTE_DIR = 'Veloq';
+
+/** A fetch that reports a dropped connection as transient rather than as a server verdict. */
+async function request(operation: string, url: string, init: RequestInit): Promise<Response> {
+  try {
+    return await fetch(url, init);
+  } catch (error) {
+    throw transportFailure(operation, error);
+  }
+}
 
 function authHeaders(username: string, password: string): Record<string, string> {
   const encoded = btoa(`${username}:${password}`);
@@ -24,6 +37,22 @@ function joinUrl(base: string, ...parts: string[]): string {
 }
 
 const PROPFIND_BODY = `<?xml version="1.0" encoding="utf-8"?><d:propfind xmlns:d="DAV:"><d:prop><d:resourcetype/></d:prop></d:propfind>`;
+
+/**
+ * Retention is best effort, but a delete that always fails grows the remote
+ * directory forever with no signal, so it is worth a line in the log.
+ */
+async function deleteQuietly(url: string, headers: Record<string, string>): Promise<void> {
+  try {
+    const res = await request('Delete backup', url, { method: 'DELETE', headers });
+    // 404 means it is already gone, which is the outcome we wanted
+    if (!res.ok && res.status !== 404) {
+      log.warn(`Delete rejected (${res.status}): ${url}`);
+    }
+  } catch (error) {
+    log.warn('Delete failed:', error instanceof Error ? error.message : String(error));
+  }
+}
 
 /**
  * Normalize a WebDAV URL: ensure trailing slash, handle common Nextcloud paths.
@@ -48,18 +77,20 @@ export function normalizeWebdavUrl(url: string): string {
 async function ensureRemoteDir(baseUrl: string, headers: Record<string, string>): Promise<void> {
   const dirUrl = joinUrl(baseUrl, REMOTE_DIR);
   // MKCOL creates the directory - 201 = created, 405 = already exists, both are fine
-  const res = await fetch(dirUrl, { method: 'MKCOL', headers });
+  const res = await request('Create remote directory', dirUrl, { method: 'MKCOL', headers });
   if (res.status !== 201 && res.status !== 405 && res.status !== 301) {
     // 301 is sometimes returned for existing collections
-    if (res.status === 401) throw new Error('Authentication failed');
+    if (res.status === 401 || res.status === 403) {
+      throw transferFailure('Create remote directory', res.status);
+    }
     // Check if it already exists with PROPFIND
-    const check = await fetch(dirUrl, {
+    const check = await request('Create remote directory', dirUrl, {
       method: 'PROPFIND',
       headers: { ...headers, Depth: '0', 'Content-Type': 'application/xml' },
       body: PROPFIND_BODY,
     });
     if (!check.ok && check.status !== 207) {
-      throw new Error(`Failed to create remote directory (${res.status})`);
+      throw transferFailure('Create remote directory', res.status);
     }
   }
 }
@@ -102,7 +133,7 @@ export const webdavBackend: BackupBackend = {
     const headers = authHeaders(config.username, config.password);
     const dirUrl = joinUrl(config.url, REMOTE_DIR);
 
-    const res = await fetch(dirUrl, {
+    const res = await request('List backups', dirUrl, {
       method: 'PROPFIND',
       headers: { ...headers, Depth: '1', 'Content-Type': 'application/xml' },
       body: `<?xml version="1.0" encoding="UTF-8"?>
@@ -115,7 +146,11 @@ export const webdavBackend: BackupBackend = {
 </d:propfind>`,
     });
 
-    if (!res.ok && res.status !== 207) return [];
+    // 404 means the directory has not been created yet, which is an empty list
+    // rather than a fault. Everything else the server rejects is reported, so
+    // a wrong password cannot read as "no backups".
+    if (res.status === 404) return [];
+    if (!res.ok && res.status !== 207) throw transferFailure('List backups', res.status);
 
     const xml = await res.text();
     const entries: BackupEntry[] = [];
@@ -149,21 +184,34 @@ export const webdavBackend: BackupBackend = {
     const filename = `veloq-${metadata.timestamp.replace(/[:.]/g, '-')}.veloqdb`;
     const fileUrl = joinUrl(config.url, REMOTE_DIR, filename);
 
-    // Upload the database file
-    await FileSystem.uploadAsync(fileUrl, localPath, {
-      httpMethod: 'PUT',
-      headers,
-      uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
-    });
+    // uploadAsync resolves with the status instead of rejecting, so an
+    // unchecked call reports a rejected write as a completed backup.
+    let dbResult;
+    try {
+      dbResult = await FileSystem.uploadAsync(fileUrl, localPath, {
+        httpMethod: 'PUT',
+        headers,
+        uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
+      });
+    } catch (error) {
+      throw transportFailure('Upload backup', error);
+    }
+    if (dbResult.status < 200 || dbResult.status >= 300) {
+      throw transferFailure('Upload backup', dbResult.status);
+    }
 
-    // Upload metadata sidecar
+    // Upload metadata sidecar. Without it the backup is invisible to
+    // listBackups, so a rejected sidecar is a failed backup too.
     const entry: BackupEntry = { ...metadata, id: filename };
     const metaUrl = `${fileUrl}.meta.json`;
-    await fetch(metaUrl, {
+    const metaRes = await request('Upload backup metadata', metaUrl, {
       method: 'PUT',
       headers: { ...headers, 'Content-Type': 'application/json' },
       body: JSON.stringify(entry, null, 2),
     });
+    if (!metaRes.ok) {
+      throw transferFailure('Upload backup metadata', metaRes.status);
+    }
   },
 
   async download(backupId: string, destPath: string): Promise<void> {
@@ -173,9 +221,14 @@ export const webdavBackend: BackupBackend = {
     const headers = authHeaders(config.username, config.password);
     const fileUrl = joinUrl(config.url, REMOTE_DIR, backupId);
 
-    const result = await FileSystem.downloadAsync(fileUrl, destPath, { headers });
+    let result;
+    try {
+      result = await FileSystem.downloadAsync(fileUrl, destPath, { headers });
+    } catch (error) {
+      throw transportFailure('Download backup', error);
+    }
     if (result.status !== 200) {
-      throw new Error(`Download failed (${result.status})`);
+      throw transferFailure('Download backup', result.status);
     }
   },
 
@@ -186,8 +239,8 @@ export const webdavBackend: BackupBackend = {
     const headers = authHeaders(config.username, config.password);
     const fileUrl = joinUrl(config.url, REMOTE_DIR, backupId);
 
-    await fetch(fileUrl, { method: 'DELETE', headers });
-    await fetch(`${fileUrl}.meta.json`, { method: 'DELETE', headers });
+    await deleteQuietly(fileUrl, headers);
+    await deleteQuietly(`${fileUrl}.meta.json`, headers);
   },
 };
 

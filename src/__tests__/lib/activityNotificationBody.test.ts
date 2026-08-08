@@ -1,3 +1,7 @@
+import { buildActivityNotificationBody } from '@/features/insights/lib/activityNotificationBody';
+import type { NotificationPreferences } from '@/features/settings/stores/NotificationPreferencesStore';
+import type { Insight } from '@/features/insights/types';
+
 const mockEngine = {
   getActivityRouteHighlights: jest.fn(),
   getSectionsForActivity: jest.fn(),
@@ -5,10 +9,6 @@ const mockEngine = {
 };
 
 jest.mock('veloqrs', () => ({ routeEngine: mockEngine }), { virtual: true });
-
-import { buildActivityNotificationBody } from '@/features/insights/lib/activityNotificationBody';
-import type { NotificationPreferences } from '@/features/settings/stores/NotificationPreferencesStore';
-import type { Insight } from '@/features/insights/types';
 
 const t = (key: string, params?: Record<string, string | number>) =>
   params ? `${key}(${Object.values(params).join(',')})` : key;

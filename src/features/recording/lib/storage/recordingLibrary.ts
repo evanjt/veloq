@@ -171,6 +171,19 @@ export function getRecording(id: string): Promise<RecordingLibraryEntry | null> 
   });
 }
 
+/**
+ * Whether the FIT file is still on disk. The upload path streams the file from
+ * Rust, so it needs to know the file is there without reading it into memory.
+ */
+export async function recordingFitExists(entry: RecordingLibraryEntry): Promise<boolean> {
+  try {
+    const info = await FileSystem.getInfoAsync(entry.fitPath);
+    return info.exists;
+  } catch {
+    return false;
+  }
+}
+
 export async function readRecordingFit(entry: RecordingLibraryEntry): Promise<ArrayBuffer | null> {
   try {
     const info = await FileSystem.getInfoAsync(entry.fitPath);

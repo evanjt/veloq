@@ -10,7 +10,7 @@ import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { CartesianChart, type PointsArray } from 'victory-native';
 import { Circle, Path, Skia } from '@shopify/react-native-skia';
-import { bandSvgPath, polylineSvgPath } from '@/shared/charts/svgPath';
+import { bandSvgPath, polylineSvgPath, useChartGestures } from '@/shared/charts';
 import { GestureDetector } from 'react-native-gesture-handler';
 import Animated from 'react-native-reanimated';
 import { isRunningActivity, isSwimmingActivity } from '@/features/activity/lib/activityUtils';
@@ -20,12 +20,7 @@ import {
   buildTrendWithBand,
   type TrendBandPoint,
 } from '@/features/routes/lib/scatterData';
-import {
-  computeTimeAxisLabels,
-  axisLabelsNeedDay,
-  formatAxisDate,
-  useScatterGestures,
-} from '@/features/stats';
+import { computeTimeAxisLabels, axisLabelsNeedDay, formatAxisDate } from '@/features/stats';
 import { colors, darkColors } from '@/theme';
 import type { ActivityType, RoutePoint, PerformanceDataPoint } from '@/types';
 import type {
@@ -160,18 +155,56 @@ export function SectionScatterChart({
     [onActivitySelect]
   );
 
-  const { composedGesture, crosshairStyle } = useScatterGestures({
-    allPoints,
-    chartWidth: CHART_WIDTH,
-    chartHeight: effectiveHeight,
-    padding: effectivePadding,
-    minSpeed,
-    maxSpeed,
-    compact,
-    mini,
-    onPointSelected: handlePointPress,
-    onScrubChange,
+  // Points carry a normalised x, so turn them into pixels once for the scrub
+  // to snap against.
+  const pointXCoords = useMemo(() => {
+    const contentWidth = CHART_WIDTH - effectivePadding.left - effectivePadding.right;
+    return allPoints.map((point) => effectivePadding.left + point.x * contentWidth);
+  }, [allPoints, effectivePadding]);
+
+  // Taps match on 2D distance so an outlier high above the trend is reachable.
+  const resolveTapIndex = useCallback(
+    (x: number, y: number) => {
+      if (allPoints.length === 0) return -1;
+      const contentWidth = CHART_WIDTH - effectivePadding.left - effectivePadding.right;
+      const contentHeight = effectiveHeight - effectivePadding.top - effectivePadding.bottom;
+      const normalisedX = Math.max(0, Math.min(1, (x - effectivePadding.left) / contentWidth));
+      const normalisedY = Math.max(0, Math.min(1, (y - effectivePadding.top) / contentHeight));
+      const speedRange = maxSpeed - minSpeed || 1;
+
+      let closestIdx = 0;
+      let closestDist = Infinity;
+      for (let i = 0; i < allPoints.length; i++) {
+        const dx = allPoints[i].x - normalisedX;
+        // Top of the chart is the fastest, so invert before comparing.
+        const dy = 1 - (allPoints[i].speed - minSpeed) / speedRange - normalisedY;
+        const dist = dx * dx + dy * dy;
+        if (dist < closestDist) {
+          closestDist = dist;
+          closestIdx = i;
+        }
+      }
+      return closestIdx;
+    },
+    [allPoints, effectivePadding, effectiveHeight, minSpeed, maxSpeed]
+  );
+
+  const { gesture, crosshairStyle, syncBounds, syncXCoords } = useChartGestures<
+    PerformanceDataPoint & { x: number }
+  >({
+    data: allPoints,
+    enabled: !mini,
+    scrubEnabled: !compact,
+    crosshairMode: 'finger',
+    onSelect: handlePointPress,
+    onInteractionChange: onScrubChange,
+    resolveTapIndex,
   });
+
+  useEffect(() => {
+    syncBounds({ left: 0, right: CHART_WIDTH, top: 0, bottom: effectiveHeight });
+    syncXCoords(pointXCoords, (value) => value);
+  }, [syncBounds, syncXCoords, pointXCoords, effectiveHeight]);
 
   if (chartData.length < 1) return null;
 
@@ -419,7 +452,7 @@ export function SectionScatterChart({
 
         {/* Gesture target for tap + long-press scrub */}
         {!mini && (
-          <GestureDetector gesture={composedGesture}>
+          <GestureDetector gesture={gesture}>
             <Animated.View style={styles.tapTarget} />
           </GestureDetector>
         )}

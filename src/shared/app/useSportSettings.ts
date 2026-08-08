@@ -1,41 +1,36 @@
+/**
+ * Sport settings come from SQLite, not the API. Rust's sync service stores the
+ * raw intervals.icu body, so zone definitions the Rust types do not model are
+ * preserved exactly.
+ */
 import { useQuery } from '@tanstack/react-query';
-import { intervalsApi } from '@/api';
-import { useMemo } from 'react';
 import { getRouteEngine } from '@/shared/native/routeEngine';
+import { useEngineChannel } from '@/shared/native/useEngineChannel';
 import { queryKeys } from '@/shared/query/queryKeys';
 import type { SportSettings, Zone } from '@/types';
 
+function readSportSettings(): SportSettings[] {
+  const engine = getRouteEngine();
+  if (!engine) return [];
+  const json = engine.getSportSettings();
+  if (!json) return [];
+  try {
+    const parsed = JSON.parse(json);
+    return Array.isArray(parsed) ? (parsed as SportSettings[]) : [];
+  } catch {
+    return [];
+  }
+}
+
 export function useSportSettings() {
-  // Load cached sport settings from engine for instant first render
-  const cachedSettings = useMemo<SportSettings[] | undefined>(() => {
-    const engine = getRouteEngine();
-    if (!engine) return undefined;
-    const json = engine.getSportSettings();
-    if (!json) return undefined;
-    try {
-      return JSON.parse(json) as SportSettings[];
-    } catch {
-      return undefined;
-    }
-  }, []);
+  useEngineChannel('activities', queryKeys.profile.sportSettings);
 
   return useQuery<SportSettings[]>({
     queryKey: queryKeys.profile.sportSettings,
-    queryFn: async () => {
-      const settings = await intervalsApi.getSportSettings();
-      // Update engine cache on successful fetch
-      const engine = getRouteEngine();
-      if (engine) {
-        try {
-          engine.setSportSettings(JSON.stringify(settings));
-        } catch {
-          // Ignore engine cache errors
-        }
-      }
-      return settings;
-    },
-    initialData: cachedSettings,
-    staleTime: 1000 * 60 * 30, // 30 minutes - settings don't change often
+    queryFn: readSportSettings,
+    // SQLite is the source, so a sync decides freshness, not a clock.
+    staleTime: Infinity,
+    gcTime: 1000 * 60 * 60 * 24,
   });
 }
 

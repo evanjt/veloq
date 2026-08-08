@@ -1,4 +1,4 @@
-import React, { useRef, useCallback, useState, useEffect } from 'react';
+import React, { useRef, useCallback, useEffect } from 'react';
 import { View, StyleSheet, Animated, Easing, TouchableOpacity } from 'react-native';
 import type { ViewStyle } from 'react-native';
 import { Text } from 'react-native-paper';
@@ -22,7 +22,6 @@ interface ControlBarProps {
   onPause: () => void;
   onResume: () => void;
   onStop: () => void;
-  onDiscard?: () => void;
   style?: ViewStyle;
 }
 
@@ -33,11 +32,10 @@ function ControlBarInner({
   onPause,
   onResume,
   onStop,
-  onDiscard,
   style,
 }: ControlBarProps) {
   const { t } = useTranslation();
-  const { isDark, colors: themeColors } = useTheme();
+  const { isDark } = useTheme();
 
   // Long-press stop state - fully Animated, no React state re-renders
   const stopAnim = useRef(new Animated.Value(0)).current;

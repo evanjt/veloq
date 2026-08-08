@@ -71,15 +71,15 @@ function getTimestampRange(period: StrengthPeriod): { startTs: number; endTs: nu
   return { startTs, endTs };
 }
 
-function getTrailingWeekRanges(weekCount: number): Array<{
+function getTrailingWeekRanges(weekCount: number): {
   label: string;
   startTs: number;
   endTs: number;
-}> {
+}[] {
   const end = new Date();
   end.setHours(23, 59, 59, 0);
 
-  const ranges: Array<{ label: string; startTs: number; endTs: number }> = [];
+  const ranges: { label: string; startTs: number; endTs: number }[] = [];
   for (let index = weekCount - 1; index >= 0; index -= 1) {
     const rangeEnd = new Date(end);
     rangeEnd.setDate(rangeEnd.getDate() - index * 7);
@@ -99,7 +99,7 @@ function getTrailingWeekRanges(weekCount: number): Array<{
 }
 
 function normalizeStrengthSummary(raw: {
-  muscleVolumes?: Array<{
+  muscleVolumes?: {
     slug: string;
     primarySets: number;
     secondarySets: number;
@@ -107,7 +107,7 @@ function normalizeStrengthSummary(raw: {
     totalReps: number;
     totalWeightKg: number;
     exerciseNames: string[];
-  }>;
+  }[];
   activityCount?: number;
   totalSets?: number;
 }): StrengthSummary {

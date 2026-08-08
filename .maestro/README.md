@@ -231,13 +231,37 @@ Opens browser UI for real-time device view and visual test building.
 maestro test .maestro/smoke.yaml --debug-output ./debug
 ```
 
+## Recording Flows
+
+The nine `recording-*.yaml` flows exercise the record screen end to end. The
+recording screen auto-locks the moment recording starts, so every flow that
+needs the control bar has to unlock first:
+
+| Purpose | Selector |
+|---------|----------|
+| Locked-state marker | `unlock-track` |
+| Slide handle to unlock | `unlock-track-handle`, swiped `RIGHT` |
+| Re-lock from the header | `recording-lock-toggle` |
+
+The unlock is a slide, not a tap. A `tapOn` on the handle leaves the screen
+locked and every later step then fails on a missing `control-pause`.
+
 ## CI Integration
 
-E2E tests run in `.github/workflows/simulator.yml`:
+E2E tests run in `.github/workflows/e2e-gate.yml` (pull requests) and
+`.github/workflows/e2e.yml` (dispatch and nightly):
 
-- **Every push**: tier0 + tier1 (smoke + critical path)
-- **Pull requests**: tier0 + tier1 + tier2 (full regression)
-- **Nightly (3am UTC)**: all tiers
-- **Manual dispatch**: all tiers
+- **Pull requests**: tier0 + tier1, excluding `flaky`, retried once. The
+  quarantined `flaky` flows run in the same job as a non-blocking check.
+- **Pull requests touching a map surface**: the `pack-map` flows run in an
+  extra job, gated on changes under `src/features/maps/**`,
+  `src/features/routes/components/*Map*` and
+  `src/features/recording/components/RecordingMap.tsx`. They are slow and
+  GPU-sensitive, so unrelated pull requests do not pay for them.
+- **Nightly / manual dispatch**: heavier tiers.
 
-Results are reported as GitHub Check annotations via JUnit reports. PRs get a sticky summary comment with pass/fail counts for both platforms.
+Both PR jobs share the APK built by `build-android-dev`, and both run on
+hosted Ubuntu with KVM. Hosted macOS is a nested VM with no hardware
+acceleration, so the emulator never boots there.
+
+Results are reported as GitHub Check annotations via JUnit reports.

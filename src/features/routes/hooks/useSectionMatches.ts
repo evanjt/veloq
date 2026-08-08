@@ -10,6 +10,7 @@ import { useMemo, useState, useEffect, useRef } from 'react';
 import { getRouteEngine } from '@/shared/native/routeEngine';
 import { generateSectionName } from '@/features/routes/lib/sectionNaming';
 import { convertNativeSectionToApp } from '@/features/routes/lib/sectionConversions';
+import type { Section as NativeSection } from 'veloqrs';
 import type { FrequentSection } from '@/types';
 
 /**
@@ -49,6 +50,12 @@ export interface UseSectionMatchesResult {
   timedOut: boolean;
 }
 
+/** Section matches a caller already read, so this hook can skip its own reads. */
+export interface PreComputedSectionMatches {
+  sections: NativeSection[];
+  sectionCount: number;
+}
+
 /**
  * Get all sections that contain a given activity.
  *
@@ -56,7 +63,11 @@ export interface UseSectionMatchesResult {
  * Previous: ~250-570ms (load ALL sections, filter in JS)
  * Now: ~10-20ms (query only sections for this activity)
  */
-export function useSectionMatches(activityId: string | undefined): UseSectionMatchesResult {
+export function useSectionMatches(
+  activityId: string | undefined,
+  preComputed?: PreComputedSectionMatches
+): UseSectionMatchesResult {
+  const skipOwnFfiCall = preComputed !== undefined;
   // Lightweight refresh trigger for section changes
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
@@ -78,6 +89,12 @@ export function useSectionMatches(activityId: string | undefined): UseSectionMat
   // Safety timeout: after 10s, mark as subscribed to prevent infinite loading.
   useEffect(() => {
     let cancelled = false;
+
+    // A caller supplying matches owns the subscription that refreshes them.
+    if (skipOwnFfiCall) {
+      setSubscribed(true);
+      return;
+    }
 
     function trySubscribe() {
       const engine = getRouteEngine();
@@ -122,11 +139,12 @@ export function useSectionMatches(activityId: string | undefined): UseSectionMat
       cancelled = true;
       unsubscribeRef.current?.();
     };
-  }, []); // Stable - refreshRef avoids stale closure
+  }, [skipOwnFfiCall]); // refreshRef avoids stale closure
 
   // Check if engine has any sections. Count-only: avoids the heavy
   // getSectionSummaries() deserialization just to read totalCount.
   const sectionCount = useMemo(() => {
+    if (preComputed) return preComputed.sectionCount;
     try {
       const engine = getRouteEngine();
       return engine?.getSectionCount() ?? 0;
@@ -134,7 +152,7 @@ export function useSectionMatches(activityId: string | undefined): UseSectionMat
       return 0;
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [refreshTrigger]);
+  }, [refreshTrigger, preComputed]);
 
   const isReady = sectionCount > 0;
   const isLoading = !subscribed;
@@ -145,16 +163,19 @@ export function useSectionMatches(activityId: string | undefined): UseSectionMat
       return [];
     }
 
-    const engine = getRouteEngine();
-    if (!engine) {
-      return [];
-    }
-
-    let nativeSections;
-    try {
-      nativeSections = engine.getSectionsForActivity(activityId);
-    } catch {
-      return [];
+    let nativeSections: NativeSection[];
+    if (preComputed) {
+      nativeSections = preComputed.sections;
+    } else {
+      const engine = getRouteEngine();
+      if (!engine) {
+        return [];
+      }
+      try {
+        nativeSections = engine.getSectionsForActivity(activityId);
+      } catch {
+        return [];
+      }
     }
 
     const matches: SectionMatch[] = [];
@@ -187,7 +208,7 @@ export function useSectionMatches(activityId: string | undefined): UseSectionMat
     // sorted by visit count desc, so the TS-side passes are gone.
     return matches;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activityId, refreshTrigger]);
+  }, [activityId, refreshTrigger, preComputed]);
 
   return {
     sections,

@@ -64,6 +64,10 @@ pub struct Section {
 
     /// How well the reference trace aligns with the consensus polyline (0.0-1.0)
     pub stability: Option<f64>,
+    /// Elevation gain (m) over the representative slice; None when unknown
+    pub elevation_gain_m: Option<f64>,
+    /// Net grade (%) over the representative slice; None when unknown
+    pub avg_grade_percent: Option<f64>,
     /// Number of times this section has been recalibrated
     pub version: Option<u32>,
     /// ISO timestamp of last recalibration
@@ -90,6 +94,16 @@ pub struct Section {
 #[derive(Debug, Default, Clone)]
 pub struct IndexActivitySummary {
     pub matched_sections: u32,
+    pub inserted_portions: u32,
+    pub regrouped: bool,
+    pub indicators_recomputed: bool,
+}
+
+/// Result of attaching a stored batch to the catalogue (two-tier ingest).
+#[derive(Debug, Default, Clone)]
+pub struct BatchAttachSummary {
+    /// Activities that matched at least one existing section.
+    pub attached_activities: u32,
     pub inserted_portions: u32,
     pub regrouped: bool,
     pub indicators_recomputed: bool,
@@ -122,9 +136,10 @@ pub struct SectionSummary {
     pub sport_type: String,
     /// Section length in meters
     pub distance_meters: f64,
-    /// Number of times this section was visited
+    /// Traversals: one per pass, so ten laps count ten. Never below
+    /// `activity_count`.
     pub visit_count: u32,
-    /// Number of activities that traverse this section
+    /// Outings: distinct activities traversing this section.
     pub activity_count: u32,
     /// Activity that provides the representative polyline
     pub representative_activity_id: Option<String>,
@@ -134,6 +149,10 @@ pub struct SectionSummary {
     pub scale: Option<String>,
     /// Bounding box for map display
     pub bounds: Option<crate::FfiBounds>,
+    /// Elevation gain (m) over the representative slice; None when unknown
+    pub elevation_gain_m: Option<f64>,
+    /// Net grade (%) over the representative slice; None when unknown
+    pub avg_grade_percent: Option<f64>,
     /// ISO timestamp when section was created
     pub created_at: String,
     /// All sport types present in this section's activities

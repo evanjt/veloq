@@ -46,7 +46,11 @@ export function UnlockTrack({ onUnlock }: { onUnlock: () => void }) {
         translateX.setValue(Math.max(0, Math.min(gesture.dx, threshold)));
       },
       onPanResponderRelease: (_, gesture) => {
-        const threshold = trackWidthRef.current - HANDLE_SIZE - spacing.xs * 2;
+        // Unlock at 80% of the travel rather than the absolute end. Requiring
+        // the final pixels makes the gesture feel unresponsive, and a swipe
+        // that lands just short reads as the control being broken.
+        const travel = trackWidthRef.current - HANDLE_SIZE - spacing.xs * 2;
+        const threshold = travel * 0.8;
         if (threshold > 0 && gesture.dx >= threshold) {
           handleUnlock();
         } else {

@@ -1,11 +1,16 @@
-import React, { memo, useMemo, useRef } from 'react';
+import React, { memo, useCallback, useEffect, useMemo, useRef } from 'react';
 import { View, StyleSheet, Text as RNText } from 'react-native';
 import { Canvas, Path, Skia, vec, LinearGradient } from '@shopify/react-native-skia';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import Animated, { useSharedValue, useAnimatedStyle, runOnJS } from 'react-native-reanimated';
+import { GestureDetector } from 'react-native-gesture-handler';
+import Animated from 'react-native-reanimated';
 import { useTheme } from '@/shared/app';
 import { darkColors, colors, colorWithOpacity } from '@/theme';
-import { buildMonotoneSvg, buildMonotoneAreaSvg } from '@/shared/charts/sparklinePath';
+import {
+  buildMonotoneSvg,
+  buildMonotoneAreaSvg,
+  useChartColors,
+  useChartGestures,
+} from '@/shared/charts';
 import type { ScrubValues } from './SummaryCardSparkline';
 
 /** Match total height of fitness sparkline (44 chart + 4 form bar) */
@@ -40,6 +45,7 @@ export const SummaryCardHRVSparkline = memo(function SummaryCardHRVSparkline({
   onTap,
 }: SummaryCardHRVSparklineProps) {
   const { isDark } = useTheme();
+  const chartColors = useChartColors();
 
   const hrvRef = useRef(hrvData);
   hrvRef.current = hrvData;
@@ -73,9 +79,10 @@ export const SummaryCardHRVSparkline = memo(function SummaryCardHRVSparkline({
   }, [hrvData, rhrData, hasRhr]);
 
   // Crosshair state
-  const crosshairX = useSharedValue(-1);
+  const labelWidth = showLabels ? 42 : 0;
+  const chartWidth = width - labelWidth;
 
-  const notifyScrub = (index: number) => {
+  const notifyScrub = useCallback((_point: number, index: number) => {
     const hrv = hrvRef.current;
     const rhr = rhrRef.current;
     const cb = onScrubRef.current;
@@ -95,77 +102,29 @@ export const SummaryCardHRVSparkline = memo(function SummaryCardHRVSparkline({
       rhr: rhr ? rhr[index] : undefined,
       dateLabel,
     });
-  };
+  }, []);
 
-  const clearScrub = () => {
-    onScrubRef.current?.(null);
-  };
+  const handleInteractionChange = useCallback((active: boolean) => {
+    if (!active) onScrubRef.current?.(null);
+  }, []);
 
-  const dataLength = useSharedValue(hrvData.length);
-  dataLength.value = hrvData.length;
-  const cWidth = useSharedValue(width);
-  cWidth.value = width - (showLabels ? 42 : 0);
-
-  const computeIndex = (x: number): number => {
-    'worklet';
-    const w = cWidth.value;
-    if (w <= 0) return 0;
-    const ratio = Math.max(0, Math.min(1, x / w));
-    return Math.round(ratio * (dataLength.value - 1));
-  };
-
-  const scrubEnabled = !!onScrub;
-  const fireTap = () => {
+  const fireTap = useCallback(() => {
     onTapRef.current?.();
-  };
+  }, []);
 
-  const tap = Gesture.Tap()
-    .enabled(!!onTap)
-    .maxDuration(500)
-    .onEnd(() => {
-      'worklet';
-      runOnJS(fireTap)();
-    });
-
-  const pan = Gesture.Pan()
-    .enabled(scrubEnabled)
-    .activeOffsetX([-4, 4])
-    .activeOffsetY([-4, 4])
-    .onStart((e) => {
-      'worklet';
-      crosshairX.value = e.x;
-      const idx = computeIndex(e.x);
-      runOnJS(notifyScrub)(idx);
-    })
-    .onUpdate((e) => {
-      'worklet';
-      crosshairX.value = e.x;
-      const idx = computeIndex(e.x);
-      runOnJS(notifyScrub)(idx);
-    })
-    .onEnd(() => {
-      'worklet';
-      crosshairX.value = -1;
-      runOnJS(clearScrub)();
-    })
-    .onFinalize(() => {
-      'worklet';
-      crosshairX.value = -1;
-      runOnJS(clearScrub)();
-    });
-
-  const composed = Gesture.Exclusive(pan, tap);
-
-  const crosshairStyle = useAnimatedStyle(() => {
-    if (crosshairX.value < 0) {
-      return { opacity: 0, transform: [{ translateX: 0 }] };
-    }
-    const xPos = Math.max(0, Math.min(cWidth.value, crosshairX.value));
-    return { opacity: 1, transform: [{ translateX: xPos }] };
+  const { gesture, crosshairStyle, syncBounds } = useChartGestures<number>({
+    data: hrvData,
+    scrubEnabled: !!onScrub,
+    scrubActivation: 'drag',
+    tapMaxDuration: 500,
+    onSelect: notifyScrub,
+    onInteractionChange: handleInteractionChange,
+    onTap: onTap ? fireTap : undefined,
   });
 
-  const labelWidth = showLabels ? 42 : 0;
-  const chartWidth = width - labelWidth;
+  useEffect(() => {
+    syncBounds({ left: 0, right: chartWidth, top: 0, bottom: CHART_HEIGHT });
+  }, [syncBounds, chartWidth]);
 
   // Direct-Skia paths (replaces Victory CartesianChart): same monotoneX geometry,
   // no chart-tree mount cost. Area baseline matches the original <Area y0={CHART_HEIGHT}>
@@ -210,12 +169,11 @@ export const SummaryCardHRVSparkline = memo(function SummaryCardHRVSparkline({
     return <View style={{ width, height: CHART_HEIGHT }} />;
   }
 
-  const casingColor = isDark ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.15)';
   const hrvLineColor = isDark ? colors.chartPink : colorWithOpacity(colors.chartPink, 0.85);
   const rhrLineColor = isDark ? colors.formHighRisk : colorWithOpacity(colors.formHighRisk, 0.65);
 
   return (
-    <GestureDetector gesture={composed}>
+    <GestureDetector gesture={gesture}>
       <View style={[styles.container, { width, height: CHART_HEIGHT }]}>
         <View style={styles.chartRow}>
           {showLabels && (
@@ -250,7 +208,7 @@ export const SummaryCardHRVSparkline = memo(function SummaryCardHRVSparkline({
               {hasRhr && skiaPaths.rhr && (
                 <Path
                   path={skiaPaths.rhr}
-                  color={casingColor}
+                  color={chartColors.casing}
                   style="stroke"
                   strokeWidth={2}
                   strokeJoin="round"
@@ -272,7 +230,7 @@ export const SummaryCardHRVSparkline = memo(function SummaryCardHRVSparkline({
               {skiaPaths.hrv && (
                 <Path
                   path={skiaPaths.hrv}
-                  color={casingColor}
+                  color={chartColors.casing}
                   style="stroke"
                   strokeWidth={2}
                   strokeJoin="round"

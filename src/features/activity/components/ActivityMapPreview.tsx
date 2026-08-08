@@ -8,7 +8,7 @@ import { getMapLibreBounds } from '@/shared/geo/polyline';
 import { useMapPreferences } from '@/features/maps/stores/MapPreferencesContext';
 import { StaticCompassArrow } from '@/shared/ui';
 import { projectRouteToBox } from '@/shared/geo/routePreview';
-import { polylineSvgPath } from '@/shared/charts/svgPath';
+import { polylineSvgPath } from '@/shared/charts';
 import { useMapPreviewCoordinates } from '../hooks/useMapPreviewCoordinates';
 import {
   hasTerrainPreview,
@@ -50,7 +50,7 @@ interface ActivityMapPreviewProps {
   /** Whether the snapshot WebView workers are mounted and ready */
   snapshotReady?: boolean;
   /** GPS track index ranges for PR sections to highlight in gold */
-  prSectionIndices?: Array<{ startIndex: number; endIndex: number }>;
+  prSectionIndices?: { startIndex: number; endIndex: number }[];
 }
 
 export const ActivityMapPreview = React.memo(function ActivityMapPreview({

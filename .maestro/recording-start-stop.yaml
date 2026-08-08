@@ -9,9 +9,9 @@ onFlowComplete:
   - openLink: "veloq://"
   - runFlow:
       when:
-        visible: "DISCARD"
+        visible: "(?i)discard"
       commands:
-        - tapOn: "DISCARD"
+        - tapOn: "(?i)discard"
 ---
 - runFlow:
     file: helpers/setup-demo-mode.yaml
@@ -23,9 +23,9 @@ onFlowComplete:
 # Dismiss any "Resume previous recording?" dialog
 - runFlow:
     when:
-      visible: "DISCARD"
+      visible: "(?i)discard"
     commands:
-      - tapOn: "DISCARD"
+      - tapOn: "(?i)discard"
 
 # Expand Cycling category if Ride isn't directly visible (may be collapsed due to
 # a previous test selecting a different activity type, e.g. WeightTraining)
@@ -36,12 +36,12 @@ onFlowComplete:
     commands:
       - scrollUntilVisible:
           element:
-            text: "Cycling"
+            id: "record-category-cycling"
           direction: DOWN
           timeout: 5000
           speed: 40
       - tapOn:
-          text: "Cycling"
+          id: "record-category-cycling"
 
 # Select Ride activity type
 - scrollUntilVisible:
@@ -63,12 +63,27 @@ onFlowComplete:
 
 - takeScreenshot: "recording-active"
 
-# Unlock the lock overlay by swiping the handle right
-- swipe:
-    from:
-      id: "lock-overlay-unlock"
-    direction: RIGHT
-    duration: 800
+# Unlock by sliding the track handle right
+# Swipe the full width of the track. A direction swipe anchored to the handle
+# only travels the handle's own width, far short of the unlock threshold, so
+# the sweep is explicit. The track sits above the bottom inset, which differs
+# per platform: measured centre is 82% on Android and 85% on iOS.
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - swipe:
+          start: 12%, 82%
+          end: 90%, 82%
+          duration: 800
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - swipe:
+          start: 12%, 85%
+          end: 90%, 85%
+          duration: 800
 
 # Wait for controls to appear after unlock
 - extendedWaitUntil:

@@ -17,7 +17,6 @@ export {
   getPaceAtDistance,
   getIndexAtDistance,
   getTimeAtDistance,
-  paceToMinPerKm,
   paceToMinPer100m,
   usePowerCurve,
   POWER_CURVE_DURATIONS,
@@ -27,7 +26,6 @@ export {
   useSeasonBests,
   type BestEffort,
   type UseSeasonBestsResult,
-  useScatterGestures,
 } from './hooks';
 
 export {
@@ -39,6 +37,8 @@ export {
   type ChartMetricValue,
   type ChartDataResult,
   type IntervalBand,
+  type BandColourToken,
+  resolveBandColour,
   computeTimeAxisLabels,
   axisLabelsNeedDay,
   formatAxisDate,

@@ -6,7 +6,7 @@
 
 use chrono::{DateTime, Datelike};
 use rusqlite::params;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use super::super::PersistentRouteEngine;
 
@@ -261,16 +261,17 @@ impl PersistentRouteEngine {
     }
 
     /// Get a calendar-aligned Year > Month performance summary for a section.
-    /// Returns full history (no date range filter).
+    /// Returns full history (no date range filter), for one sport when given.
     pub fn get_section_calendar_summary(
         &mut self,
         section_id: &str,
+        sport_filter: Option<&str>,
     ) -> Option<crate::CalendarSummary> {
         let start = std::time::Instant::now();
         // Reuse get_section_performances - single source of truth for section times.
         // This ensures calendar values match chart PRs exactly (no proportional estimates
         // for activities without time streams, matching the strict behavior).
-        let perf_result = self.get_section_performances(section_id);
+        let perf_result = self.get_section_performances_filtered(section_id, sport_filter);
 
         if perf_result.records.is_empty() {
             return None;
@@ -695,10 +696,17 @@ impl PersistentRouteEngine {
             .map(|_| "?")
             .collect::<Vec<_>>()
             .join(",");
+        // Fastest lap first, so the highlighted stretch is the one the badge is
+        // about. Mirrors the effective time the indicators are computed from.
         let idx_sql = format!(
-            "SELECT activity_id, section_id, start_index, end_index
-             FROM section_activities
-             WHERE activity_id IN ({}) AND excluded = 0",
+            "SELECT sa.activity_id, sa.section_id, sa.start_index, sa.end_index
+             FROM section_activities sa
+             JOIN activities a ON a.id = sa.activity_id
+             WHERE sa.activity_id IN ({}) AND sa.excluded = 0
+             ORDER BY COALESCE(sa.lap_time,
+                      CASE WHEN a.distance_meters > 0 AND sa.distance_meters > 0
+                           THEN a.duration_secs * (sa.distance_meters / a.distance_meters)
+                           ELSE NULL END) ASC",
             placeholders
         );
 
@@ -717,7 +725,7 @@ impl PersistentRouteEngine {
                 ))
             }) {
                 for r in rows.flatten() {
-                    idx_map.insert((r.0, r.1), (r.2, r.3));
+                    idx_map.entry((r.0, r.1)).or_insert((r.2, r.3));
                 }
             }
         }
@@ -936,8 +944,10 @@ impl PersistentRouteEngine {
         results
     }
 
-    /// Get section encounters for an activity: one entry per (section, direction).
-    /// Includes this activity's time, PR status, visit count, and sparkline history.
+    /// Get section encounters for an activity: one entry per
+    /// `(section, direction)`, represented by the activity's fastest pass.
+    /// Includes this activity's time, PR status, visit count, and sparkline
+    /// history. Individual laps are the `FfiSectionLap` surface.
     pub fn get_activity_section_encounters(
         &self,
         activity_id: &str,
@@ -953,7 +963,9 @@ impl PersistentRouteEngine {
              FROM section_activities sa
              JOIN sections s ON s.id = sa.section_id
              WHERE sa.activity_id = ?1 AND sa.excluded = 0 AND {}
-             ORDER BY sa.section_id, sa.direction",
+             ORDER BY sa.section_id, sa.direction,
+                      CASE WHEN sa.lap_time IS NULL OR sa.lap_time <= 0 THEN 1 ELSE 0 END,
+                      sa.lap_time ASC",
             visible_filter
         );
 
@@ -971,7 +983,7 @@ impl PersistentRouteEngine {
             lap_pace: f64,
         }
 
-        let traversals: Vec<Traversal> = stmt
+        let passes: Vec<Traversal> = stmt
             .query_map(rusqlite::params![activity_id], |row| {
                 Ok(Traversal {
                     section_id: row.get(0)?,
@@ -986,15 +998,24 @@ impl PersistentRouteEngine {
             .map(|rows| rows.filter_map(|r| r.ok()).collect())
             .unwrap_or_default();
 
+        // Best-timed first, so the first pass of a pair represents it.
+        let mut seen_pairs: HashSet<(String, String)> = HashSet::new();
+        let traversals: Vec<Traversal> = passes
+            .into_iter()
+            .filter(|t| seen_pairs.insert((t.section_id.clone(), t.direction.clone())))
+            .collect();
+
         let mut encounters = Vec::new();
 
         for trav in &traversals {
-            // Get history for this (section, direction): all traversals sorted by activity date
+            // History for this (section, direction), in this activity's sport: a
+            // run's progress over shared ground is its own, not the rides'.
             let history_query =
                 "SELECT sa.lap_time, sa.activity_id, COALESCE(a.start_date, 0) as act_date
                  FROM section_activities sa
-                 LEFT JOIN activities a ON a.id = sa.activity_id
+                 JOIN activities a ON a.id = sa.activity_id
                  WHERE sa.section_id = ?1 AND sa.direction = ?2
+                   AND a.sport_type = (SELECT sport_type FROM activities WHERE id = ?3)
                    AND sa.excluded = 0 AND sa.lap_time IS NOT NULL AND sa.lap_time > 0
                  ORDER BY act_date ASC";
 
@@ -1007,11 +1028,10 @@ impl PersistentRouteEngine {
             let mut history_ids: Vec<String> = Vec::new();
             let mut best_time: f64 = f64::MAX;
 
-            if let Ok(rows) = hist_stmt
-                .query_map(rusqlite::params![trav.section_id, trav.direction], |row| {
-                    Ok((row.get::<_, f64>(0)?, row.get::<_, String>(1)?))
-                })
-            {
+            if let Ok(rows) = hist_stmt.query_map(
+                rusqlite::params![trav.section_id, trav.direction, activity_id],
+                |row| Ok((row.get::<_, f64>(0)?, row.get::<_, String>(1)?)),
+            ) {
                 for row in rows.flatten() {
                     if row.0 < best_time {
                         best_time = row.0;

@@ -10,8 +10,7 @@ import { useTheme, useMetricSystem } from '@/shared/app';
 import { Text, ActivityIndicator } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { colors, darkColors, opacity, typography, spacing, layout } from '@/theme';
-import { formatDistance, getMonday, getSunday } from '@/shared/format/format';
-import { formatDurationHuman } from '@/shared/format/format';
+import { formatDistance, getMonday, getSunday, formatDurationHuman } from '@/shared/format/format';
 import type { Activity } from '@/types';
 
 type TimeRange = 'week' | 'month' | '3m' | '6m' | 'year';
@@ -27,7 +26,6 @@ interface WeeklySummaryProps {
 
 const TIME_RANGE_IDS: TimeRange[] = ['week', 'month', '3m', '6m', 'year'];
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function getTimeRangeLabel(
   range: TimeRange,
   t: (key: string) => any,

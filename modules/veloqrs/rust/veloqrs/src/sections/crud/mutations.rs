@@ -4,7 +4,9 @@
 //! auto-vs-custom matching logic), junction-table additions, rename, delete, and
 //! the activity-to-section matching helpers used by the editing submodule.
 
-use super::super::{CreateSectionParams, IndexActivitySummary, Section, SectionType};
+use super::super::{
+    BatchAttachSummary, CreateSectionParams, IndexActivitySummary, Section, SectionType,
+};
 use super::{compute_section_portions, compute_section_portions_strict};
 use crate::persistence::PersistentRouteEngine;
 use rusqlite::params;
@@ -12,6 +14,16 @@ use std::collections::HashMap;
 use std::time::{SystemTime, UNIX_EPOCH};
 use tracematch::matching::calculate_route_distance;
 use tracematch::{GpsPoint, SectionPortion};
+
+/// A section's exclusion state, read before a junction rebuild deletes the
+/// rows that carry it. `full` holds activities with every row excluded;
+/// `partial` holds per-lap state as ordinals over the activity's rows in
+/// start_index order, with the row count the ordinals were taken from.
+#[derive(Default)]
+pub(super) struct ExclusionSnapshot {
+    pub(super) full: Vec<String>,
+    pub(super) partial: Vec<(String, Vec<usize>, usize)>,
+}
 
 impl PersistentRouteEngine {
     /// Exclude an activity from a section's analysis.
@@ -29,6 +41,50 @@ impl PersistentRouteEngine {
             .map_err(|e| format!("Failed to exclude activity: {}", e))?;
         self.refresh_section_in_memory(section_id);
         self.invalidate_section_cache(section_id);
+        // The perf LRU serves excluded=0 queries; a stale entry makes the
+        // exclusion look like a no-op on the performance panel.
+        self.invalidate_perf_cache();
+        Ok(())
+    }
+
+    /// Exclude one traversal (junction row) from a section's analysis,
+    /// addressed by its start index. The activity's other laps keep counting.
+    pub fn exclude_section_lap(
+        &mut self,
+        section_id: &str,
+        activity_id: &str,
+        start_index: u32,
+    ) -> Result<(), String> {
+        self.db
+            .execute(
+                "UPDATE section_activities SET excluded = 1
+                 WHERE section_id = ? AND activity_id = ? AND start_index = ?",
+                params![section_id, activity_id, start_index],
+            )
+            .map_err(|e| format!("Failed to exclude lap: {}", e))?;
+        self.refresh_section_in_memory(section_id);
+        self.invalidate_section_cache(section_id);
+        self.invalidate_perf_cache();
+        Ok(())
+    }
+
+    /// Re-include a previously excluded traversal.
+    pub fn include_section_lap(
+        &mut self,
+        section_id: &str,
+        activity_id: &str,
+        start_index: u32,
+    ) -> Result<(), String> {
+        self.db
+            .execute(
+                "UPDATE section_activities SET excluded = 0
+                 WHERE section_id = ? AND activity_id = ? AND start_index = ?",
+                params![section_id, activity_id, start_index],
+            )
+            .map_err(|e| format!("Failed to include lap: {}", e))?;
+        self.refresh_section_in_memory(section_id);
+        self.invalidate_section_cache(section_id);
+        self.invalidate_perf_cache();
         Ok(())
     }
 
@@ -47,6 +103,7 @@ impl PersistentRouteEngine {
             .map_err(|e| format!("Failed to include activity: {}", e))?;
         self.refresh_section_in_memory(section_id);
         self.invalidate_section_cache(section_id);
+        self.invalidate_perf_cache();
         Ok(())
     }
 
@@ -67,9 +124,8 @@ impl PersistentRouteEngine {
 
         let id = format!("{}_{}__{:05}", id_prefix, ts, rand_suffix);
         let created_at = chrono::Utc::now().to_rfc3339();
-        let polyline_json =
-            serde_json::to_string(&params.polyline).unwrap_or_else(|_| "[]".to_string());
-        let polyline_blob = crate::persistence::codec::serialize_points(&params.polyline).ok();
+        let polyline_blob = crate::persistence::codec::serialize_points(&params.polyline)
+            .map_err(|e| format!("Failed to encode polyline: {}", e))?;
 
         // Compute bounds from polyline
         let (bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng) =
@@ -98,7 +154,7 @@ impl PersistentRouteEngine {
                     section_type.as_str(),
                     params.name,
                     params.sport_type,
-                    polyline_json,
+                    crate::persistence::codec::NO_POLYLINE_JSON,
                     polyline_blob,
                     params.distance_meters,
                     params.source_activity_id.as_ref(),
@@ -252,18 +308,11 @@ impl PersistentRouteEngine {
             .get_gps_track(activity_id)
             .ok_or_else(|| format!("Activity not found: {}", activity_id))?;
 
-        // Get current section to determine type, indices, and current polyline
-        let (start_index, end_index, section_type, current_polyline_json): (
-            Option<u32>,
-            Option<u32>,
-            String,
-            String,
-        ) = {
+        // Get current section to determine type and indices
+        let (start_index, end_index, section_type): (Option<u32>, Option<u32>, String) = {
             let mut stmt = self
                 .db
-                .prepare(
-                    "SELECT start_index, end_index, section_type, polyline_json FROM sections WHERE id = ?",
-                )
+                .prepare("SELECT start_index, end_index, section_type FROM sections WHERE id = ?")
                 .map_err(|e| e.to_string())?;
 
             stmt.query_row(params![section_id], |row| {
@@ -271,7 +320,6 @@ impl PersistentRouteEngine {
                     row.get::<_, Option<u32>>(0)?,
                     row.get::<_, Option<u32>>(1)?,
                     row.get::<_, String>(2)?,
-                    row.get::<_, String>(3)?,
                 ))
             })
             .map_err(|_| format!("Section not found: {}", section_id))?
@@ -288,9 +336,8 @@ impl PersistentRouteEngine {
                 .unwrap_or(&[])
                 .to_vec();
 
-            let polyline_json =
-                serde_json::to_string(&polyline).unwrap_or_else(|_| "[]".to_string());
-            let polyline_blob = crate::persistence::codec::serialize_points(&polyline).ok();
+            let polyline_blob = crate::persistence::codec::serialize_points(&polyline)
+                .map_err(|e| format!("Failed to encode polyline: {}", e))?;
             let distance = calculate_route_distance(&polyline);
             let bounds = tracematch::geo_utils::compute_bounds(&polyline);
 
@@ -312,7 +359,7 @@ impl PersistentRouteEngine {
                     params![
                         activity_id,
                         activity_id,
-                        polyline_json,
+                        crate::persistence::codec::NO_POLYLINE_JSON,
                         polyline_blob,
                         distance,
                         updated_at,
@@ -327,7 +374,7 @@ impl PersistentRouteEngine {
         } else {
             // For auto sections, extract the section-matching portion from the new activity's track
             let current_polyline: Vec<GpsPoint> =
-                serde_json::from_str(&current_polyline_json).unwrap_or_default();
+                self.stored_section_polyline(section_id).unwrap_or_default();
 
             if current_polyline.is_empty() {
                 return Err("Section has no polyline to match against".to_string());
@@ -337,7 +384,12 @@ impl PersistentRouteEngine {
 
             // Use strict matching (30m threshold, gap tolerance 1) to avoid
             // including parallel roads or large non-matching spans
-            let portions = compute_section_portions_strict(activity_id, &track, &current_polyline);
+            let portions = compute_section_portions_strict(
+                activity_id,
+                &track,
+                &current_polyline,
+                self.section_config.proximity_threshold,
+            );
             if portions.is_empty() {
                 return Err(format!(
                     "Activity {} does not overlap sufficiently with section {}",
@@ -398,17 +450,20 @@ impl PersistentRouteEngine {
                     .unwrap_or(false);
 
                 if !has_original {
+                    // The polyline_json column no longer carries geometry on new
+                    // rows, so serialise the decoded current polyline.
+                    let original_json = serde_json::to_string(&current_polyline)
+                        .map_err(|e| format!("Failed to backup original polyline: {}", e))?;
                     self.db
                         .execute(
-                            "UPDATE sections SET original_polyline_json = polyline_json WHERE id = ?",
-                            params![section_id],
+                            "UPDATE sections SET original_polyline_json = ? WHERE id = ?",
+                            params![original_json, section_id],
                         )
                         .map_err(|e| format!("Failed to backup original polyline: {}", e))?;
                 }
 
-                let polyline_json =
-                    serde_json::to_string(&new_polyline).unwrap_or_else(|_| "[]".to_string());
-                let polyline_blob = crate::persistence::codec::serialize_points(&new_polyline).ok();
+                let polyline_blob = crate::persistence::codec::serialize_points(&new_polyline)
+                    .map_err(|e| format!("Failed to encode polyline: {}", e))?;
                 let bounds = tracematch::geo_utils::compute_bounds(&new_polyline);
 
                 self.db
@@ -427,7 +482,7 @@ impl PersistentRouteEngine {
                          WHERE id = ?",
                         params![
                             activity_id,
-                            polyline_json,
+                            crate::persistence::codec::NO_POLYLINE_JSON,
                             polyline_blob,
                             new_distance,
                             updated_at,
@@ -454,17 +509,15 @@ impl PersistentRouteEngine {
         // For custom sections, add the reference activity with portion details
         if section_type == "custom" {
             // Get the updated polyline for custom section
-            let polyline_json: String = self
-                .db
-                .query_row(
-                    "SELECT polyline_json FROM sections WHERE id = ?",
-                    params![section_id],
-                    |row| row.get(0),
-                )
-                .map_err(|e| format!("Failed to get section polyline: {}", e))?;
-            let polyline: Vec<GpsPoint> = serde_json::from_str(&polyline_json).unwrap_or_default();
+            let polyline: Vec<GpsPoint> =
+                self.stored_section_polyline(section_id).unwrap_or_default();
 
-            let portions = compute_section_portions(activity_id, &track, &polyline);
+            let portions = compute_section_portions(
+                activity_id,
+                &track,
+                &polyline,
+                self.section_config.proximity_threshold,
+            );
             if portions.is_empty() {
                 // Fallback for custom sections - the source activity should always match
                 self.add_section_activity(section_id, activity_id)?;
@@ -495,8 +548,11 @@ impl PersistentRouteEngine {
         section_id: &str,
         new_polyline: &[GpsPoint],
     ) -> Result<(), String> {
-        // Get current activity IDs for this section
-        let activity_ids = self.get_section_activity_ids(section_id);
+        // ALL members, excluded ones included: the flag is a user
+        // decision and must survive the rebuild, not vanish with the rows.
+        let exclusions = self.capture_exclusions(section_id);
+        let mut activity_ids = self.get_section_activity_ids(section_id);
+        activity_ids.extend(exclusions.full.iter().cloned());
 
         if activity_ids.is_empty() || new_polyline.is_empty() {
             return Ok(());
@@ -513,13 +569,184 @@ impl PersistentRouteEngine {
         // Re-add only activities that still match, with full portion details (all laps)
         for aid in &activity_ids {
             if let Some(track) = self.get_gps_track(aid) {
-                for portion in compute_section_portions(aid, &track, new_polyline) {
+                for portion in compute_section_portions(
+                    aid,
+                    &track,
+                    new_polyline,
+                    self.section_config.proximity_threshold,
+                ) {
                     self.add_section_activity_with_portion(section_id, &portion)?;
                 }
             }
         }
+        self.reapply_exclusions(section_id, &exclusions)?;
 
         Ok(())
+    }
+
+    /// Manually attach one activity to one section, for the activity
+    /// screen's "should have matched" affordance. Relaxed bars (2.5x
+    /// proximity, 40% quality) because the user has already asserted the
+    /// match. Idempotent: a pair that already holds junction rows is left
+    /// alone — detection's per-lap rows must not gain a stacked duplicate
+    /// at a different start index.
+    pub fn rematch_activity_to_section(
+        &mut self,
+        activity_id: &str,
+        section_id: &str,
+    ) -> Result<bool, String> {
+        let track = match self.get_gps_track(activity_id) {
+            Some(t) if t.len() >= 3 => t,
+            _ => return Ok(false),
+        };
+        let polyline = match self.get_sections().iter().find(|s| s.id == section_id) {
+            Some(s) if !s.polyline.is_empty() => s.polyline.clone(),
+            _ => return Ok(false),
+        };
+        let existing: i64 = self
+            .db
+            .query_row(
+                "SELECT COUNT(*) FROM section_activities WHERE section_id = ? AND activity_id = ?",
+                params![section_id, activity_id],
+                |r| r.get(0),
+            )
+            .unwrap_or(0);
+        if existing > 0 {
+            return Ok(true);
+        }
+
+        let threshold = self.section_config.proximity_threshold * 2.5;
+        let spans = tracematch::sections::optimized::find_all_section_spans_in_route(
+            &track, &polyline, threshold,
+        );
+        let best = spans
+            .into_iter()
+            .filter(|(_, _, quality, _)| *quality >= 0.4)
+            .max_by(|a, b| a.2.partial_cmp(&b.2).unwrap_or(std::cmp::Ordering::Equal));
+        let Some((start, end, _quality, same_dir)) = best else {
+            return Ok(false);
+        };
+        let portion = &track[start..end.min(track.len())];
+        let distance = tracematch::matching::calculate_route_distance(portion);
+        let direction = if same_dir {
+            tracematch::Direction::Same
+        } else {
+            tracematch::Direction::Reverse
+        };
+        self.insert_section_activity(
+            section_id,
+            activity_id,
+            &direction,
+            start as u32,
+            end as u32,
+            distance,
+        )?;
+        self.refresh_section_in_memory(section_id);
+        self.invalidate_section_cache(section_id);
+        self.invalidate_perf_cache();
+        Ok(true)
+    }
+
+    /// Restore exclusions after a junction rebuild. Fully excluded
+    /// activities flag every new row. A partially excluded activity keeps
+    /// its per-lap state by ordinal (rows sorted by start_index), which
+    /// survives the small index shifts a geometry edit causes; if the
+    /// rebuild changed the activity's row count, the laps are no longer
+    /// the same objects and the per-lap state is dropped rather than
+    /// guessed. An excluded activity that no longer matches the new line
+    /// has no rows, and nothing to carry.
+    pub(super) fn reapply_exclusions(
+        &self,
+        section_id: &str,
+        snapshot: &ExclusionSnapshot,
+    ) -> Result<(), String> {
+        for aid in &snapshot.full {
+            self.db
+                .execute(
+                    "UPDATE section_activities SET excluded = 1 WHERE section_id = ? AND activity_id = ?",
+                    params![section_id, aid],
+                )
+                .map_err(|e| format!("Failed to reapply exclusion: {}", e))?;
+        }
+        for (aid, ordinals, expected) in &snapshot.partial {
+            let starts: Vec<u32> = {
+                let mut stmt = self
+                    .db
+                    .prepare(
+                        "SELECT start_index FROM section_activities
+                         WHERE section_id = ? AND activity_id = ? ORDER BY start_index",
+                    )
+                    .map_err(|e| format!("Failed to read rebuilt laps: {}", e))?;
+                stmt.query_map(params![section_id, aid], |row| row.get(0))
+                    .map_err(|e| format!("Failed to read rebuilt laps: {}", e))?
+                    .filter_map(|r| r.ok())
+                    .collect()
+            };
+            if starts.len() != *expected {
+                continue;
+            }
+            for ordinal in ordinals {
+                self.db
+                    .execute(
+                        "UPDATE section_activities SET excluded = 1
+                         WHERE section_id = ? AND activity_id = ? AND start_index = ?",
+                        params![section_id, aid, starts[*ordinal]],
+                    )
+                    .map_err(|e| format!("Failed to reapply lap exclusion: {}", e))?;
+            }
+        }
+        Ok(())
+    }
+
+    /// Read a section's exclusion state before a junction rebuild deletes
+    /// the rows that carry it.
+    pub(super) fn capture_exclusions(&self, section_id: &str) -> ExclusionSnapshot {
+        let any: bool = self
+            .db
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM section_activities
+                 WHERE section_id = ? AND excluded = 1)",
+                params![section_id],
+                |row| row.get(0),
+            )
+            .unwrap_or(false);
+        if !any {
+            return ExclusionSnapshot::default();
+        }
+        let mut rows: Vec<(String, u32, bool)> = Vec::new();
+        if let Ok(mut stmt) = self.db.prepare(
+            "SELECT activity_id, start_index, excluded FROM section_activities
+             WHERE section_id = ? ORDER BY activity_id, start_index",
+        ) {
+            if let Ok(mapped) = stmt.query_map(params![section_id], |row| {
+                Ok((row.get(0)?, row.get(1)?, row.get::<_, i64>(2)? != 0))
+            }) {
+                rows.extend(mapped.filter_map(|r| r.ok()));
+            }
+        }
+        let mut snapshot = ExclusionSnapshot::default();
+        let mut i = 0;
+        while i < rows.len() {
+            let aid = rows[i].0.clone();
+            let mut ordinals = Vec::new();
+            let mut count = 0usize;
+            while i < rows.len() && rows[i].0 == aid {
+                if rows[i].2 {
+                    ordinals.push(count);
+                }
+                count += 1;
+                i += 1;
+            }
+            if ordinals.is_empty() {
+                continue;
+            }
+            if ordinals.len() == count {
+                snapshot.full.push(aid);
+            } else {
+                snapshot.partial.push((aid, ordinals, count));
+            }
+        }
+        snapshot
     }
 
     /// Cheap post-ingest indexing for one freshly downloaded activity: match it
@@ -535,75 +762,9 @@ impl PersistentRouteEngine {
         activity_id: &str,
     ) -> Result<IndexActivitySummary, String> {
         let mut summary = IndexActivitySummary::default();
-
-        let track = match self.get_gps_track(activity_id) {
-            Some(t) if t.len() >= 3 => t,
-            _ => return Ok(summary),
-        };
-
-        let sport_type = self
-            .activity_metrics
-            .get(activity_id)
-            .map(|m| m.sport_type.clone());
-
-        // Collect matched section polylines up front: get_sections() borrows the
-        // in-memory Vec, and the insert loop below needs &mut self.
-        let matched: Vec<(String, Vec<GpsPoint>)> = {
-            let sections = self.get_sections();
-            if sections.is_empty() {
-                vec![]
-            } else {
-                let config = tracematch::SectionConfig::default();
-                let matches = tracematch::sections::optimized::find_sections_in_route(
-                    &track, sections, &config,
-                );
-                let mut seen = std::collections::HashSet::new();
-                matches
-                    .into_iter()
-                    .filter(|m| seen.insert(m.section_id.clone()))
-                    .filter_map(|m| {
-                        let section = sections.iter().find(|s| s.id == m.section_id)?;
-                        if let Some(sport) = &sport_type {
-                            if &section.sport_type != sport {
-                                return None;
-                            }
-                        }
-                        Some((section.id.clone(), section.polyline.clone()))
-                    })
-                    .collect()
-            }
-        };
-
-        for (section_id, polyline) in &matched {
-            let portions = compute_section_portions(activity_id, &track, polyline);
-            if portions.is_empty() {
-                continue;
-            }
-            summary.matched_sections += 1;
-
-            // Replace any rows a previous run (or a later full detection) left
-            // for this pair, so near-duplicate start_index rows can't stack up.
-            self.db
-                .execute(
-                    "DELETE FROM section_activities WHERE section_id = ? AND activity_id = ?",
-                    params![section_id, activity_id],
-                )
-                .map_err(|e| format!("Failed to clear section_activities: {}", e))?;
-
-            for portion in &portions {
-                self.insert_section_activity(
-                    section_id,
-                    activity_id,
-                    &portion.direction,
-                    portion.start_index,
-                    portion.end_index,
-                    portion.distance_meters,
-                )?;
-                summary.inserted_portions += 1;
-            }
-            self.refresh_section_in_memory(section_id);
-            self.invalidate_section_cache(section_id);
-        }
+        let (matched, portions) = self.attach_activity_junctions(activity_id)?;
+        summary.matched_sections = matched;
+        summary.inserted_portions = portions;
 
         // Ingest marked groups dirty, so this takes the incremental regroup
         // path and places the new activity in a route group. recompute_groups
@@ -633,9 +794,163 @@ impl PersistentRouteEngine {
         Ok(summary)
     }
 
-    /// Match all activities with the same sport type against a section polyline.
-    /// Adds any activities that overlap (≥3 points) to the junction table.
-    /// Used when creating custom sections to find all matching activities.
+    /// Junction-matching core of the attach tier: match one activity against
+    /// the existing catalogue and (re)write its junction rows with portions.
+    /// Never creates sections and never regroups - callers own the tail.
+    /// Returns (matched section count, inserted portion count).
+    fn attach_activity_junctions(&mut self, activity_id: &str) -> Result<(u32, u32), String> {
+        let track = match self.get_gps_track(activity_id) {
+            Some(t) if t.len() >= 3 => t,
+            _ => return Ok((0, 0)),
+        };
+
+        let sport_type = self.sport_of_activity(activity_id);
+        let pooled = self.section_config.pool_sports;
+
+        // Collect matched section polylines up front: get_sections() borrows the
+        // in-memory Vec, and the insert loop below needs &mut self.
+        let matched: Vec<(String, Vec<GpsPoint>)> = {
+            let sections = self.get_sections();
+            if sections.is_empty() {
+                vec![]
+            } else {
+                // The user's config, not the factory default: the candidate
+                // window scales off proximity_threshold, and an attach that
+                // ignores the slider matches ground detection would not.
+                let config = self.section_config.clone();
+                let matches = tracematch::sections::optimized::find_sections_in_route(
+                    &track, sections, &config,
+                );
+                let mut seen = std::collections::HashSet::new();
+                matches
+                    .into_iter()
+                    .filter(|m| seen.insert(m.section_id.clone()))
+                    .filter_map(|m| {
+                        let section = sections.iter().find(|s| s.id == m.section_id)?;
+                        // Mirror detection's partition, or attach builds a
+                        // catalogue a re-detect disagrees with.
+                        if !pooled
+                            && let Some(sport) = &sport_type
+                            && &section.sport_type != sport
+                        {
+                            return None;
+                        }
+                        Some((section.id.clone(), section.polyline.clone()))
+                    })
+                    .collect()
+            }
+        };
+
+        let mut matched_sections = 0;
+        let mut inserted_portions = 0;
+        for (section_id, polyline) in &matched {
+            let portions = compute_section_portions(
+                activity_id,
+                &track,
+                polyline,
+                self.section_config.proximity_threshold,
+            );
+            if portions.is_empty() {
+                continue;
+            }
+            matched_sections += 1;
+
+            // Replace any rows a previous run (or a later full detection) left
+            // for this pair, so near-duplicate start_index rows can't stack up.
+            // The exclusion state is a user decision and rides across the
+            // rewrite (whole snapshot: reapplying untouched pairs is a no-op).
+            let exclusions = self.capture_exclusions(section_id);
+            self.db
+                .execute(
+                    "DELETE FROM section_activities WHERE section_id = ? AND activity_id = ?",
+                    params![section_id, activity_id],
+                )
+                .map_err(|e| format!("Failed to clear section_activities: {}", e))?;
+
+            for portion in &portions {
+                self.insert_section_activity(
+                    section_id,
+                    activity_id,
+                    &portion.direction,
+                    portion.start_index,
+                    portion.end_index,
+                    portion.distance_meters,
+                )?;
+                inserted_portions += 1;
+            }
+            self.reapply_exclusions(section_id, &exclusions)?;
+            self.refresh_section_in_memory(section_id);
+            self.invalidate_section_cache(section_id);
+            self.invalidate_perf_cache();
+        }
+
+        Ok((matched_sections, inserted_portions))
+    }
+
+    /// Per-add half of the attach tier: junction rows for one just-stored
+    /// activity, errors logged (ingest must not abort on one bad track).
+    /// Returns (matched sections, inserted portions).
+    pub fn attach_stored_activity(&mut self, activity_id: &str) -> (u32, u32) {
+        match self.attach_activity_junctions(activity_id) {
+            Ok(counts) => counts,
+            Err(e) => {
+                log::warn!("tracematch: [attach] {} failed: {}", activity_id, e);
+                (0, 0)
+            }
+        }
+    }
+
+    /// Batch tail of the attach tier: one regroup (ingest marks groups
+    /// dirty) or, failing that, one indicator recompute when any junction
+    /// rows landed. Returns (regrouped, indicators_recomputed).
+    pub fn attach_finalize(&mut self, inserted_portions: u32) -> (bool, bool) {
+        if self.groups_dirty {
+            self.get_groups();
+            (true, true)
+        } else if inserted_portions > 0 {
+            match self.recompute_activity_indicators() {
+                Ok(()) => (false, true),
+                Err(e) => {
+                    log::warn!("tracematch: [attach] indicator recompute failed: {}", e);
+                    (false, false)
+                }
+            }
+        } else {
+            (false, false)
+        }
+    }
+
+    /// Attach tier of the two-tier ingest: junction rows for every stored
+    /// activity in the batch, then ONE regroup/indicator tail. Visits, laps,
+    /// and PRs read from the junction table are current the moment this
+    /// returns; new sections wait for the conditioning run.
+    pub fn attach_new_activities(&mut self, activity_ids: &[String]) -> BatchAttachSummary {
+        let mut summary = BatchAttachSummary::default();
+        for id in activity_ids {
+            let (matched, portions) = self.attach_stored_activity(id);
+            if matched > 0 {
+                summary.attached_activities += 1;
+                summary.inserted_portions += portions;
+            }
+        }
+
+        let (regrouped, indicators) = self.attach_finalize(summary.inserted_portions);
+        summary.regrouped = regrouped;
+        summary.indicators_recomputed = indicators;
+
+        log::info!(
+            "tracematch: [attach] {}/{} activities attached ({} portions, regrouped={})",
+            summary.attached_activities,
+            activity_ids.len(),
+            summary.inserted_portions,
+            summary.regrouped
+        );
+        summary
+    }
+
+    /// Match activities against a section polyline, adding any that overlap
+    /// (≥3 points) to the junction table. Pooled, every activity is a
+    /// candidate: a section's sport names it, it does not fence it.
     pub fn match_activities_to_section(
         &mut self,
         section_id: &str,
@@ -646,20 +961,23 @@ impl PersistentRouteEngine {
             return Ok(0);
         }
 
-        // Get all activity IDs with matching sport type
-        let activity_ids = self.get_activity_ids_by_sport(sport_type);
+        let activity_ids = if self.section_config.pool_sports {
+            self.get_activity_ids()
+        } else {
+            self.get_activity_ids_by_sport(sport_type)
+        };
 
         if activity_ids.is_empty() {
             return Ok(0);
         }
 
         log::info!(
-            "tracematch: [match_activities_to_section] Checking {} activities with sport_type '{}'",
+            "tracematch: [match_activities_to_section] Checking {} activities against section {} (sport_type '{}')",
             activity_ids.len(),
+            section_id,
             sport_type
         );
 
-        // Build track map for all activities with matching sport type
         let mut track_map: HashMap<String, Vec<GpsPoint>> = HashMap::new();
         for aid in &activity_ids {
             if let Some(track) = self.get_gps_track(aid) {
@@ -672,7 +990,12 @@ impl PersistentRouteEngine {
         // Compute full portion details for each matching activity (all laps)
         for aid in &activity_ids {
             if let Some(track) = track_map.get(aid) {
-                let portions = compute_section_portions(aid, track, polyline);
+                let portions = compute_section_portions(
+                    aid,
+                    track,
+                    polyline,
+                    self.section_config.proximity_threshold,
+                );
                 if !portions.is_empty() {
                     for portion in &portions {
                         self.add_section_activity_with_portion(section_id, portion)?;
@@ -694,9 +1017,12 @@ impl PersistentRouteEngine {
     /// Reset a section's reference to automatic (algorithm-selected).
     /// Sets is_user_defined to false.
     pub fn reset_section_reference(&mut self, section_id: &str) -> Result<(), String> {
+        // Drop the polyline backup with the demotion: the catalogue save
+        // wipes only backup-free auto rows before re-inserting from
+        // memory, so a demoted row still carrying its backup collides.
         self.db
             .execute(
-                "UPDATE sections SET is_user_defined = 0 WHERE id = ?",
+                "UPDATE sections SET is_user_defined = 0, original_polyline_json = NULL WHERE id = ?",
                 params![section_id],
             )
             .map_err(|e| format!("Failed to reset section reference: {}", e))?;
@@ -751,12 +1077,15 @@ impl PersistentRouteEngine {
     /// Save a section (insert or update).
     /// Used by section detection to persist auto-detected sections.
     pub fn save_section(&mut self, section: &Section) -> Result<(), String> {
-        let polyline_json =
-            serde_json::to_string(&section.polyline).unwrap_or_else(|_| "[]".to_string());
-        let point_density_json = section
-            .point_density
-            .as_ref()
-            .and_then(|pd| serde_json::to_string(pd).ok());
+        let polyline_blob = crate::persistence::codec::serialize_points(&section.polyline)
+            .map_err(|e| format!("Failed to encode polyline: {}", e))?;
+        let point_density_blob = match section.point_density.as_ref() {
+            Some(pd) => Some(
+                crate::persistence::codec::serialize(pd)
+                    .map_err(|e| format!("Failed to encode point density: {}", e))?,
+            ),
+            None => None,
+        };
 
         // Compute bounds from polyline
         let (bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng) =
@@ -779,20 +1108,21 @@ impl PersistentRouteEngine {
                     representative_activity_id, confidence, observation_count, average_spread,
                     point_density_json, scale, version, is_user_defined, stability,
                     source_activity_id, start_index, end_index, created_at, updated_at,
-                    bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng,
+                    polyline_blob, point_density_blob
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 params![
                     section.id,
                     section.section_type.as_str(),
                     section.name,
                     section.sport_type,
-                    polyline_json,
+                    crate::persistence::codec::NO_POLYLINE_JSON,
                     section.distance_meters,
                     section.representative_activity_id,
                     section.confidence,
                     section.observation_count,
                     section.average_spread,
-                    point_density_json,
+                    None::<String>, // point_density_json: legacy column, blob is authoritative
                     section.scale,
                     section.version.unwrap_or(1),
                     if section.is_user_defined { 1 } else { 0 },
@@ -806,6 +1136,8 @@ impl PersistentRouteEngine {
                     bounds_max_lat,
                     bounds_min_lng,
                     bounds_max_lng,
+                    polyline_blob,
+                    point_density_blob,
                 ],
             )
             .map_err(|e| format!("Failed to save section: {}", e))?;

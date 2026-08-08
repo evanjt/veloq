@@ -18,12 +18,17 @@ use tracematch::{GpsPoint, SectionPortion};
 
 /// Compute all traversals (laps) of an activity over a section polyline.
 /// Uses the tracematch lap-splitting algorithm.
+///
+/// The tolerance derives from the proximity anchor: a quarter of it is the
+/// long-standing 50 m at the default 200 m, and it scales with the slider
+/// so the attach paths match the same ground detection would.
 pub(crate) fn compute_section_portions(
     activity_id: &str,
     track: &[GpsPoint],
     section_polyline: &[GpsPoint],
+    proximity_threshold: f64,
 ) -> Vec<SectionPortion> {
-    let traversals = find_all_track_portions(track, section_polyline, 50.0);
+    let traversals = find_all_track_portions(track, section_polyline, proximity_threshold * 0.25);
 
     traversals
         .into_iter()
@@ -41,14 +46,16 @@ pub(crate) fn compute_section_portions(
 }
 
 /// Stricter version of compute_section_portions for reference changes.
-/// Uses a tighter proximity threshold (30m vs 50m) and gap tolerance (1 vs 3)
-/// to avoid including parallel roads or large non-matching spans.
+/// Tolerance 0.15x the proximity anchor (30 m at the default 200 m) and
+/// gap 1, to avoid including parallel roads or large non-matching spans.
 pub(super) fn compute_section_portions_strict(
     activity_id: &str,
     track: &[GpsPoint],
     section_polyline: &[GpsPoint],
+    proximity_threshold: f64,
 ) -> Vec<SectionPortion> {
-    let traversals = find_all_track_portions_with_gap(track, section_polyline, 30.0, 1);
+    let traversals =
+        find_all_track_portions_with_gap(track, section_polyline, proximity_threshold * 0.15, 1);
 
     traversals
         .into_iter()

@@ -24,12 +24,6 @@ interface VeloqWidgetModule {
 
 const VeloqWidget = requireOptionalNativeModule<VeloqWidgetModule>('VeloqWidget');
 
-/** True once the native widget module is built into the app. */
-export function isWidgetBridgeAvailable(): boolean {
-  return VeloqWidget != null;
-}
-
-/** Serialize and hand a prepared snapshot to the native widget, then trigger a redraw. */
 export function writeWidgetSnapshot(snapshot: WidgetSnapshot): void {
   if (!VeloqWidget) return;
   try {

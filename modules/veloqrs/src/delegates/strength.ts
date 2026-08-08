@@ -26,11 +26,10 @@ export function isFitProcessed(host: DelegateHost, activityId: string): boolean 
 
 export function fetchAndParseExerciseSets(
   host: DelegateHost,
-  authHeader: string,
   activityId: string
 ): FfiExerciseSet[] {
   return host.timed('fetchAndParseExerciseSets', () =>
-    host.engine.strength().fetchAndParseExerciseSets(authHeader, activityId)
+    host.engine.strength().fetchAndParseExerciseSets(activityId)
   );
 }
 
@@ -44,13 +43,9 @@ export function getUnprocessedStrengthIds(host: DelegateHost, activityIds: strin
   );
 }
 
-export function batchFetchExerciseSets(
-  host: DelegateHost,
-  authHeader: string,
-  activityIds: string[]
-): string[] {
+export function batchFetchExerciseSets(host: DelegateHost, activityIds: string[]): string[] {
   return host.timed('batchFetchExerciseSets', () =>
-    host.engine.strength().batchFetchExerciseSets(authHeader, activityIds)
+    host.engine.strength().batchFetchExerciseSets(activityIds)
   );
 }
 
@@ -97,7 +92,7 @@ export type StrengthInsightSeries = FfiStrengthInsightSeries;
 export function getStrengthInsightSeries(
   host: DelegateHost,
   monthly: { startTs: number; endTs: number },
-  weekly: Array<{ startTs: number; endTs: number }>
+  weekly: { startTs: number; endTs: number }[]
 ): StrengthInsightSeries {
   return host.timed('getStrengthInsightSeries', () =>
     host.engine.strength().getStrengthInsightSeries(
@@ -114,7 +109,7 @@ export function getStrengthInsightSeries(
  */
 export function getStrengthSummaryBatch(
   host: DelegateHost,
-  ranges: Array<{ startTs: number; endTs: number }>
+  ranges: { startTs: number; endTs: number }[]
 ): FfiStrengthSummary[] {
   if (ranges.length === 0) return [];
   return host.timed('getStrengthSummaryBatch', () =>

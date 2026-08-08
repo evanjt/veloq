@@ -53,6 +53,14 @@ export function convertNativeSectionToApp(
     averageSpread: native.averageSpread ?? 0,
     pointDensity: native.pointDensity ?? [],
     stability: ('stability' in native ? native.stability : undefined) ?? undefined,
+    elevationGainM:
+      ('elevationGainM' in native
+        ? (native as { elevationGainM?: number | null }).elevationGainM
+        : undefined) ?? undefined,
+    avgGradePercent:
+      ('avgGradePercent' in native
+        ? (native as { avgGradePercent?: number | null }).avgGradePercent
+        : undefined) ?? undefined,
     version: ('version' in native ? native.version : undefined) ?? undefined,
     updatedAt: ('updatedAt' in native ? native.updatedAt : undefined) ?? undefined,
     createdAt: ('createdAt' in native ? native.createdAt : undefined) ?? '',

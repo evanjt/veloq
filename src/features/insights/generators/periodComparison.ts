@@ -1,5 +1,10 @@
-import type { InsightMethodology, InsightSupportingData } from '../types';
-import type { Insight, PeriodStats, TFunc } from '../types';
+import type {
+  InsightMethodology,
+  InsightSupportingData,
+  Insight,
+  PeriodStats,
+  TFunc,
+} from '../types';
 import { makeInsight } from '../lib/insightBuilder';
 import { INSIGHTS_CONFIG } from '../lib/config';
 import { insightIcon } from '@/theme';

@@ -29,6 +29,10 @@ module.exports = {
   silent: true,
   rootDir: "..",
   testMatch: ["**/__tests__/**/*.test.ts", "**/__tests__/**/*.test.tsx"],
+  // react-native-worklets ships .native.ts entry points that assert the native
+  // module is installed. Its resolver strips the native extensions so a
+  // component importing reanimated can be rendered under Jest.
+  resolver: "react-native-worklets/jest/resolver",
   testPathIgnorePatterns: ["/node_modules/", "/__tests__/e2e/", ...worktreeIgnores],
   modulePathIgnorePatterns: worktreeIgnores,
   moduleNameMapper: {

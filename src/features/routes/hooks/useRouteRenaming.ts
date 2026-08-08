@@ -4,10 +4,15 @@ import type { TFunction } from 'i18next';
 import { getRouteEngine } from '@/shared/native/routeEngine';
 import { getAllRouteDisplayNames } from './useRouteGroups';
 
+/**
+ * `preComputedNames` lets a caller that already read the name map as part of a
+ * screen bundle skip this hook's own FFI call.
+ */
 export function useRouteRenaming(
   id: string | undefined,
   routeGroupBaseName: string | undefined,
-  t: TFunction
+  t: TFunction,
+  preComputedNames?: Record<string, string>
 ) {
   // State for route renaming
   const [isEditing, setIsEditing] = useState(false);
@@ -17,13 +22,12 @@ export function useRouteRenaming(
 
   useEffect(() => {
     if (id) {
-      const engine = getRouteEngine();
-      const names = engine?.getAllRouteNames() ?? {};
+      const names = preComputedNames ?? getRouteEngine()?.getAllRouteNames() ?? {};
       if (names[id]) {
         setCustomName(names[id]);
       }
     }
-  }, [id]);
+  }, [id, preComputedNames]);
 
   // Rename function - calls engine directly (no need to load all groups)
   const renameRoute = useCallback((routeId: string, name: string) => {

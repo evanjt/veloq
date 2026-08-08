@@ -37,37 +37,18 @@ impl MapManager {
         end_date: i64,
         sport_types: Vec<String>,
     ) -> Result<Vec<crate::persistence::MapActivityComplete>, VeloqError> {
-        with_engine(|e| {
-            let sport_filter: Option<std::collections::HashSet<String>> = if sport_types.is_empty()
-            {
-                None
-            } else {
-                Some(sport_types.into_iter().collect())
-            };
-            e.activity_metadata
-                .iter()
-                .filter_map(|(id, meta)| {
-                    let metrics = e.activity_metrics.get(id)?;
-                    if metrics.date < start_date || metrics.date > end_date {
-                        return None;
-                    }
-                    if let Some(ref filter) = sport_filter {
-                        if !filter.contains(&meta.sport_type) {
-                            return None;
-                        }
-                    }
-                    Some(crate::persistence::MapActivityComplete {
-                        activity_id: id.clone(),
-                        name: metrics.name.clone(),
-                        sport_type: meta.sport_type.clone(),
-                        date: metrics.date,
-                        distance: metrics.distance,
-                        duration: metrics.moving_time,
-                        bounds: meta.bounds.into(),
-                    })
-                })
-                .collect()
-        })
+        with_engine(|e| e.map_activities_filtered(start_date, end_date, sport_types))
+    }
+
+    /// Everything the map tab paints with: the engine total, the sport types
+    /// the filter chips offer, and the activities inside the window.
+    fn get_screen_data(
+        &self,
+        start_date: i64,
+        end_date: i64,
+        sport_types: Vec<String>,
+    ) -> Result<crate::FfiMapScreenData, VeloqError> {
+        with_engine(|e| e.map_screen_data(start_date, end_date, sport_types))
     }
 
     fn get_bounds_for_range(

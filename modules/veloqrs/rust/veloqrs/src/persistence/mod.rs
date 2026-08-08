@@ -35,19 +35,29 @@ use rstar::{AABB, RTree, RTreeObject};
 use rusqlite::{Connection, Result as SqlResult};
 
 mod activities;
-pub(crate) mod codec;
+pub use activities::{
+    ELEVATION_STATE_FETCHED, ELEVATION_STATE_UNAVAILABLE, ELEVATION_STATE_UNKNOWN,
+    ElevationStateCounts,
+};
+/// On-disk blob format. Public so diagnostics that open a database file
+/// directly decode it the same way the engine wrote it.
+pub mod codec;
+pub mod cutover;
 pub(crate) mod export;
 mod fitness;
 mod indicators;
 mod route_identity;
 mod routes;
 mod schema;
+mod screens;
 pub mod sections;
+pub use sections::conditioning::{DetectionSuspendGuard, detection_suspended, suspend_detection};
 pub mod settings;
 pub use settings::settings_keys;
+pub mod bodies;
 mod strength;
 mod tiles;
-pub(crate) mod wellness;
+pub mod wellness;
 
 // ============================================================================
 // Name Translation Support
@@ -89,18 +99,10 @@ fn get_section_word() -> String {
         .unwrap_or_else(|_| "Section".to_string())
 }
 
-fn haversine_distance_meters(lat1: f64, lng1: f64, lat2: f64, lng2: f64) -> f64 {
-    const EARTH_RADIUS_M: f64 = 6_371_000.0;
-
-    let dlat = (lat2 - lat1).to_radians();
-    let dlng = (lng2 - lng1).to_radians();
-    let lat1 = lat1.to_radians();
-    let lat2 = lat2.to_radians();
-
-    let a = (dlat / 2.0).sin().powi(2) + lat1.cos() * lat2.cos() * (dlng / 2.0).sin().powi(2);
-    let c = 2.0 * a.sqrt().atan2((1.0 - a).sqrt());
-
-    EARTH_RADIUS_M * c
+/// Great-circle distance in metres, over geo's IUGG mean earth radius.
+pub(crate) fn haversine_distance_meters(lat1: f64, lng1: f64, lat2: f64, lng2: f64) -> f64 {
+    use geo::{Distance, Haversine, Point};
+    Haversine::distance(Point::new(lng1, lat1), Point::new(lng2, lat2))
 }
 
 fn bounds_center_distance_meters(
@@ -251,8 +253,7 @@ impl SectionDetectionProgress {
             "finding_overlaps" => (0.15, 0.55),
             "clustering" => (0.70, 0.05),
             "postprocessing" => (0.75, 0.10),
-            "saving" => (0.85, 0.05),
-            "merging_cross_sport" => (0.90, 0.03),
+            "saving" => (0.85, 0.08),
             "recomputing_indicators" => (0.93, 0.04),
             "complete" => (1.0, 0.0),
             _ => return 50,
@@ -619,6 +620,12 @@ pub struct PersistentRouteEngine {
     /// the worker's raw catalogue and this field.
     sections: Vec<FrequentSection>,
 
+    /// Sections a custom section has replaced. They stay in `sections` because
+    /// supersession only hides: the ground is still a detection prior, and
+    /// dropping it would re-mint it under a new id on the next detect. Held in
+    /// memory so the read-lock views can hide them without touching `self.db`.
+    superseded_ids: std::collections::HashSet<String>,
+
     /// Named-corridor resolution: display name per visible section plus the
     /// full corridor listing. A pure function of DB state, refreshed lazily
     /// behind `named_overlay_stamp` — the connection's `total_changes()`
@@ -640,8 +647,10 @@ pub struct PersistentRouteEngine {
     /// convergence truth (order-free, tracks the batch every step) the parity
     /// gates compare against. The two DIFFER by design: the damped view can hold a
     /// section a debounced dissolve has not yet retired, so it lags the raw batch
-    /// by up to `k` steps. In-memory only.
-    raw_sections: Vec<FrequentSection>,
+    /// by up to `k` steps. In-memory only. `None` until a detect has applied in
+    /// this process: an applied EMPTY batch is a known answer, not an absence,
+    /// so the two must stay distinguishable.
+    raw_sections: Option<Vec<FrequentSection>>,
 
     /// Activities that have been through section detection (persisted in SQLite)
     processed_activity_ids: HashSet<String>,
@@ -686,7 +695,7 @@ pub struct PersistentRouteEngine {
 impl PersistentRouteEngine {
     /// Invalidate the performance cache.
     /// Call after any mutation that affects sections, time streams, or activity metrics.
-    fn invalidate_perf_cache(&mut self) {
+    pub(crate) fn invalidate_perf_cache(&mut self) {
         self.perf_cache.clear();
     }
 
@@ -732,10 +741,11 @@ impl PersistentRouteEngine {
             activity_metrics: HashMap::new(),
             time_streams: LruCache::new(std::num::NonZeroUsize::new(200).unwrap()),
             sections: Vec::new(),
+            superseded_ids: HashSet::new(),
             named_overlay: std::sync::RwLock::new(sections::NamedOverlay::default()),
             named_overlay_stamp: std::sync::atomic::AtomicI64::new(-1),
             identity: sections::SectionIdentity::default(),
-            raw_sections: Vec::new(),
+            raw_sections: None,
             processed_activity_ids: HashSet::new(),
             section_evidence_cache: SectionEvidenceCache::new(),
             cache_folded_ids: HashSet::new(),
@@ -785,11 +795,15 @@ impl PersistentRouteEngine {
                 }
             }
         }
+        let loaded_whole = first_error.is_none();
         if let Some(e) = first_error {
             if is_corruption_error(&e) {
                 return Err(e);
             }
         }
+
+        // Read the cutover token and set the pending flag. Nothing slow.
+        self.check_cutover_state();
 
         // B2: seed the identity registry from the sections just loaded so an
         // existing install adopts its current ids as stable seeds. The evidence
@@ -800,8 +814,14 @@ impl PersistentRouteEngine {
         // B4: prefer the persisted registry blob (exact debounce + tombstone
         // state) and fall back to reseeding from the DB rows for a fresh or
         // pre-B4 install.
+        // A reseed off a truncated `sections` (a loader error this function
+        // deliberately continues past) stays in memory, so the next open reseeds
+        // from the whole catalogue instead of restoring the truncation.
         if !self.section_identity_restore() {
             self.section_identity_reseed();
+            if loaded_whole {
+                self.section_identity_persist();
+            }
         }
 
         // B2 step 3 + B4: same for routes — restore the persisted registry
@@ -884,6 +904,10 @@ impl PersistentRouteEngine {
     /// Read-only accessors for `section_config` fields. Mirror the
     /// MatchConfig getters above so integration tests can verify
     /// persisted SectionConfig without crate-private access.
+    pub fn get_section_config(&self) -> SectionConfig {
+        self.section_config.clone()
+    }
+
     pub fn section_config_proximity_threshold(&self) -> f64 {
         self.section_config.proximity_threshold
     }
@@ -899,12 +923,10 @@ impl PersistentRouteEngine {
         // A config identical to the active one is a NO-OP. The TS init path
         // re-sends the persisted config on every launch (GlobalDataSync applies
         // the strictness preset whenever detectionStrictness != 60), so without
-        // this guard every launch would clear the processed set, force a full
-        // re-detect, and — since B2 — reset the identity registry, renumbering
-        // every section on each open for any user who has ever moved the
-        // strictness slider. Only a GENUINE change runs the re-analysis tail
-        // below (which arms config_change_reanalyses). Equality is exact, but the
-        // config round-trips through the settings table as the same f64/u32
+        // this guard every launch would clear the processed set and force a full
+        // re-detect for any user who has ever moved the strictness slider. Only a
+        // GENUINE change runs the re-analysis tail below. Equality is exact, but
+        // the config round-trips through the settings table as the same f64/u32
         // strings, so a re-sent config compares equal.
         if config == self.section_config {
             return;
@@ -976,13 +998,10 @@ impl PersistentRouteEngine {
         // clearing it forces a full re-detect under the new config.
         self.clear_processed_activity_ids();
         self.sections_dirty = true;
-        // B2: a config change also invalidates the identity BASIS — the stable
-        // ids and debounce counters were assigned to ground detected under the
-        // old params, which the new params may not even find. Reset the registry
-        // so the re-analysed catalogue reflects the new config at once instead of
-        // debounce-holding sections the old config produced (mirrors the evidence
-        // cache reset on the same event). The next detect reseeds it from scratch.
-        self.identity = sections::SectionIdentity::default();
+        // A config change invalidates the debounce, not the identities: the
+        // registry is rebuilt from the catalogue so ids carry, and the next fold
+        // applies the new params' answer in one step.
+        self.section_identity_reseed_decisive();
     }
 
     // ========================================================================
@@ -1699,18 +1718,21 @@ pub fn compute_polyline_overlap(
     let points_b: Vec<[f64; 2]> = coords_b.chunks_exact(2).map(|c| [c[0], c[1]]).collect();
     let rtree = RTree::bulk_load(points_b);
 
-    // Approximate threshold in degrees (rough: 1 degree ≈ 111km at equator)
-    // Use a generous buffer and verify with haversine
-    let threshold_deg = threshold_meters / 111_000.0 * 1.5; // 1.5x safety factor
+    // Threshold in degrees, with a 1.5x buffer; the haversine below is the real
+    // test. A degree of longitude shrinks with latitude, so padding both axes
+    // by the same amount reaches too little east-west away from the equator.
+    // Same form as bboxes_touch in sections/named.rs.
+    let pad_lat = threshold_meters / 111_320.0 * 1.5;
 
     let mut matched = 0u32;
     for chunk in coords_a.chunks_exact(2) {
         let lat_a = chunk[0];
         let lng_a = chunk[1];
+        let pad_lng = threshold_meters / (111_320.0 * lat_a.to_radians().cos().max(0.01)) * 1.5;
 
         let envelope = AABB::from_corners(
-            [lat_a - threshold_deg, lng_a - threshold_deg],
-            [lat_a + threshold_deg, lng_a + threshold_deg],
+            [lat_a - pad_lat, lng_a - pad_lng],
+            [lat_a + pad_lat, lng_a + pad_lng],
         );
 
         let mut found = false;
@@ -1752,12 +1774,6 @@ mod tests {
         (0..50)
             .map(|i| GpsPoint::new(51.5074 + i as f64 * 0.001, -0.1278 + i as f64 * 0.0005))
             .collect()
-    }
-
-    #[test]
-    fn test_create_engine() {
-        let engine = PersistentRouteEngine::in_memory().unwrap();
-        assert_eq!(engine.activity_count(), 0);
     }
 
     #[test]
@@ -1813,7 +1829,11 @@ mod tests {
 
     #[test]
     fn test_persistence() {
-        let temp_path = "/tmp/test_route_engine.db";
+        // A per-test directory: a fixed /tmp path collides with any other
+        // cargo test process on the machine and flakes inside migrations.
+        let dir = tempfile::TempDir::new().unwrap();
+        let temp_path = dir.path().join("route_engine.db");
+        let temp_path = temp_path.to_str().unwrap();
 
         // Create and add data
         {
@@ -1831,9 +1851,6 @@ mod tests {
             assert_eq!(engine.activity_count(), 1);
             assert!(engine.has_activity("test-1"));
         }
-
-        // Cleanup
-        std::fs::remove_file(temp_path).ok();
     }
 
     #[test]
@@ -1887,6 +1904,7 @@ mod tests {
             sport_type: "cycling".to_string(),
             polyline,
             representative_activity_id: representative_activity_id.to_string(),
+            representative_range: None,
             activity_ids: activity_ids.clone(),
             activity_portions: activity_ids
                 .iter()
@@ -1909,6 +1927,8 @@ mod tests {
             scale: Some(tracematch::sections::ScaleName::Medium),
             is_user_defined: false,
             stability: 0.0,
+            elevation_gain_m: None,
+            avg_grade_percent: None,
             version: 1,
             updated_at: None,
             created_at: Some("2026-01-28T00:00:00Z".to_string()),
@@ -2536,5 +2556,94 @@ mod tests {
         let (lap_time, lap_pace) = compute_lap_time_from_stream(Some(&times), 0, 2, 100.0);
         assert_eq!(lap_time, Some(20.0));
         assert_eq!(lap_pace, Some(5.0));
+    }
+}
+
+#[cfg(test)]
+mod haversine_parity_tests {
+    use super::haversine_distance_meters;
+
+    /// Shared with `src/__tests__/lib/haversineParity.test.ts`. Both sides assert
+    /// the same fixtures, so a change to either formula or radius fails here and
+    /// there rather than drifting into two screens showing different numbers.
+    const FIXTURES: &[(f64, f64, f64, f64, f64)] = &[
+        (46.2044, 6.1432, 46.5197, 6.6323, 51_359.28),
+        (46.2276, 7.3597, 46.2276, 7.3597, 0.0),
+        (-37.8136, 144.9631, -33.8688, 151.2093, 713_428.47),
+        (0.0, 0.0, 0.0, 1.0, 111_195.08),
+        (0.0, 0.0, 1.0, 0.0, 111_195.08),
+    ];
+
+    #[test]
+    fn distances_match_the_typescript_fixtures() {
+        for &(lat1, lng1, lat2, lng2, expected) in FIXTURES {
+            let actual = haversine_distance_meters(lat1, lng1, lat2, lng2);
+            assert!(
+                (actual - expected).abs() < 0.05,
+                "({lat1}, {lng1}) to ({lat2}, {lng2}): expected {expected}, got {actual}"
+            );
+        }
+    }
+
+    #[test]
+    fn uses_the_iugg_mean_radius() {
+        let half_great_circle = haversine_distance_meters(0.0, 0.0, 0.0, 180.0);
+        assert!((half_great_circle - 20_015_114.44).abs() < 0.5);
+    }
+}
+
+#[cfg(test)]
+mod polyline_overlap_latitude_tests {
+    use super::compute_polyline_overlap;
+
+    /// A degree of longitude is about 111 km at the equator and about 62 km at
+    /// 56 N. Padding the search envelope equally on both axes therefore reaches
+    /// too little east-west at high latitude, and points inside the threshold
+    /// are never handed to the haversine check.
+    #[test]
+    fn east_west_overlap_is_found_at_nordic_latitudes() {
+        // Two north-south lines separated EAST-WEST by 45 m, inside the 50 m
+        // threshold. At 55.7 N that is 7.17e-4 degrees of longitude, wider than
+        // the 6.76e-4 degrees a latitude-blind envelope reaches, so the old
+        // envelope missed every point and the haversine never ran.
+        let lat: f64 = 55.7;
+        let offset_deg = 45.0 / (111_320.0 * lat.to_radians().cos());
+
+        let a: Vec<f64> = (0..20)
+            .flat_map(|i| vec![lat + i as f64 * 0.0005, 12.5])
+            .collect();
+        let b: Vec<f64> = (0..20)
+            .flat_map(|i| vec![lat + i as f64 * 0.0005, 12.5 + offset_deg])
+            .collect();
+
+        let overlap = compute_polyline_overlap(a, b, 50.0);
+        assert!(
+            overlap > 0.9,
+            "expected the lines to overlap at latitude {lat}, got {overlap}"
+        );
+    }
+
+    #[test]
+    fn the_same_geometry_overlaps_at_the_equator() {
+        // Unchanged by the fix: at the equator the two paddings coincide.
+        let offset_deg = 45.0 / 111_320.0;
+        let a: Vec<f64> = (0..20).flat_map(|i| vec![i as f64 * 0.0005, 0.0]).collect();
+        let b: Vec<f64> = (0..20)
+            .flat_map(|i| vec![i as f64 * 0.0005, offset_deg])
+            .collect();
+
+        assert!(compute_polyline_overlap(a, b, 50.0) > 0.9);
+    }
+
+    #[test]
+    fn distant_lines_do_not_overlap() {
+        let a: Vec<f64> = (0..20)
+            .flat_map(|i| vec![55.7, 12.5 + i as f64 * 0.0005])
+            .collect();
+        let b: Vec<f64> = (0..20)
+            .flat_map(|i| vec![55.9, 12.5 + i as f64 * 0.0005])
+            .collect();
+
+        assert_eq!(compute_polyline_overlap(a, b, 50.0), 0.0);
     }
 }

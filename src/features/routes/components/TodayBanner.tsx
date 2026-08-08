@@ -12,10 +12,9 @@ import { useWellness } from '@/features/wellness';
 import { getFormZone, FORM_ZONE_COLORS, FORM_ZONE_LABELS } from '@/features/fitness/lib/fitness';
 import { formatDuration, formatDurationHuman } from '@/shared/format/format';
 import { WorkoutStepBar } from './WorkoutStepBar';
-import { colors, darkColors, spacing, layout, shadows, typography, brand } from '@/theme';
-import type { CalendarEvent } from '@/types';
+import { colors, darkColors, spacing, layout, shadows, brand } from '@/theme';
+import type { CalendarEvent, ActivityPattern } from '@/types';
 import type { WorkoutSection } from '@/features/home/hooks/useWorkoutSections';
-import type { ActivityPattern } from '@/types';
 
 const PR_RECENCY_DAYS = 7;
 

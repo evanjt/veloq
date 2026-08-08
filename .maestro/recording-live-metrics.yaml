@@ -1,5 +1,5 @@
 # Recording Live Metrics Test
-# Tests: data field grid visibility, GPS indicator, HR zone bar during recording
+# Tests: data field grid visibility, GPS indicator during recording
 
 appId: com.veloq.app.dev
 tags:
@@ -9,9 +9,9 @@ onFlowComplete:
   - openLink: "veloq://"
   - runFlow:
       when:
-        visible: "DISCARD"
+        visible: "(?i)discard"
       commands:
-        - tapOn: "DISCARD"
+        - tapOn: "(?i)discard"
 ---
 - runFlow:
     file: helpers/setup-demo-mode.yaml
@@ -23,9 +23,9 @@ onFlowComplete:
 # Dismiss any resume dialog
 - runFlow:
     when:
-      visible: "DISCARD"
+      visible: "(?i)discard"
     commands:
-      - tapOn: "DISCARD"
+      - tapOn: "(?i)discard"
 
 # Verify GPS readiness indicator on record screen
 - assertVisible:
@@ -41,12 +41,12 @@ onFlowComplete:
     commands:
       - scrollUntilVisible:
           element:
-            text: "Cycling"
+            id: "record-category-cycling"
           direction: DOWN
           timeout: 5000
           speed: 40
       - tapOn:
-          text: "Cycling"
+          id: "record-category-cycling"
 
 # Select Ride
 - scrollUntilVisible:
@@ -75,19 +75,29 @@ onFlowComplete:
     id: "data-field-distance"
     optional: true
 
-# Check HR zone bar (optional — depends on simulated sensor data)
-- assertVisible:
-    id: "hr-zone-bar"
-    optional: true
-
 - takeScreenshot: "recording-live-metrics"
 
 # Clean up: unlock, pause, stop, discard
-- swipe:
-    from:
-      id: "lock-overlay-unlock"
-    direction: RIGHT
-    duration: 800
+# Swipe the full width of the track. A direction swipe anchored to the handle
+# only travels the handle's own width, far short of the unlock threshold, so
+# the sweep is explicit. The track sits above the bottom inset, which differs
+# per platform: measured centre is 82% on Android and 85% on iOS.
+- runFlow:
+    when:
+      platform: Android
+    commands:
+      - swipe:
+          start: 12%, 82%
+          end: 90%, 82%
+          duration: 800
+- runFlow:
+    when:
+      platform: iOS
+    commands:
+      - swipe:
+          start: 12%, 85%
+          end: 90%, 85%
+          duration: 800
 
 - extendedWaitUntil:
     visible:

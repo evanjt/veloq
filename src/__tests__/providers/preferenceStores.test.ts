@@ -38,12 +38,9 @@ import {
 // SportPreferenceStore
 import {
   useSportPreference,
-  SPORT_API_TYPES,
-  SPORT_COLORS,
   getPrimarySport,
   initializeSportPreference,
 } from '@/features/fitness/stores/SportPreferenceStore';
-import type { PrimarySport } from '@/features/fitness/stores/SportPreferenceStore';
 
 // DashboardPreferencesStore
 import {
@@ -75,7 +72,6 @@ const UNIT_PREFERENCE_KEY = 'veloq-unit-preference';
 const ROUTE_SETTINGS_KEY = 'veloq-route-settings';
 const SPORT_PREFERENCE_KEY = 'veloq-primary-sport';
 const DASHBOARD_STORAGE_KEY = 'dashboard_preferences';
-const SUMMARY_CARD_STORAGE_KEY = 'dashboard_summary_card';
 const HR_ZONES_KEY = 'veloq-hr-zones';
 const MAP_PREFS_KEY = 'veloq-map-preferences';
 
@@ -117,7 +113,7 @@ describe('ThemeProvider', () => {
     jest.doMock('react-native', () => ({
       Appearance: { setColorScheme: jest.fn() },
     }));
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
+
     const tp = require('@/shared/app/ThemeProvider');
     getThemePreference = tp.getThemePreference;
   });
@@ -408,15 +404,6 @@ describe('SportPreferenceStore', () => {
     jest.clearAllMocks();
   });
 
-  describe('constants', () => {
-    it('SPORT_API_TYPES covers all sports with variants', () => {
-      expect(SPORT_API_TYPES.Cycling).toContain('Ride');
-      expect(SPORT_API_TYPES.Cycling).toContain('VirtualRide');
-      expect(SPORT_API_TYPES.Running).toContain('Run');
-      expect(SPORT_API_TYPES.Running).toContain('TrailRun');
-    });
-  });
-
   describe('initialize()', () => {
     it('rejects invalid sport - falls back to default', async () => {
       await AsyncStorage.setItem(SPORT_PREFERENCE_KEY, 'Skiing');
@@ -509,9 +496,6 @@ describe('DashboardPreferencesStore', () => {
       ).toContain('ftp');
     });
 
-    /**
-     * BUG: disable → reorder → re-enable produces duplicate order values
-     */
     it('disable → reorder → re-enable produces sequential order values', () => {
       useDashboardPreferences.getState().setMetricEnabled('ftp', false);
       useDashboardPreferences.getState().reorderMetrics(0, 2);
@@ -574,18 +558,16 @@ describe('DashboardPreferencesStore', () => {
     });
   });
 
-  describe('setSummaryCardPreferences() - Validation', () => {
-    /**
-     * BUG: No validation on heroMetric - invalid IDs accepted and stored.
-     */
-    it('accepts invalid heroMetric without validation (BUG)', () => {
-      useDashboardPreferences
-        .getState()
-        .setSummaryCardPreferences({ heroMetric: 'invalid' as MetricId });
-      expect(useDashboardPreferences.getState().summaryCard.heroMetric).toBe('invalid');
-      expect(getMetricDefinition('invalid' as MetricId)).toBeUndefined();
+  describe('getMetricDefinition()', () => {
+    it('resolves every id in AVAILABLE_METRICS and rejects unknown ids', () => {
+      for (const metric of AVAILABLE_METRICS) {
+        expect(getMetricDefinition(metric.id)?.id).toBe(metric.id);
+      }
+      expect(getMetricDefinition('notAMetric' as MetricId)).toBeUndefined();
     });
+  });
 
+  describe('setSummaryCardPreferences()', () => {
     it('partial update preserves other fields', () => {
       const original = { ...useDashboardPreferences.getState().summaryCard };
       useDashboardPreferences.getState().setSummaryCardPreferences({ showSparkline: false });
@@ -693,9 +675,8 @@ describe('HRZonesStore', () => {
     });
   });
 
-  it('[BUG] rejects HR zone data where a non-first zone is corrupted', async () => {
-    // The current validation only checks the first zone - other corrupted zones slip through
-    // This test documents the bug - if the validation is already fixed, this will pass
+  // Validation that only inspects the first zone would let the corrupt third one through.
+  it('rejects stored HR zones where a non-first zone is malformed', async () => {
     const validZone = { id: 1, name: 'Recovery', min: 0.5, max: 0.6, color: '#94A3B8' };
     const badZones = [validZone, validZone, { id: 3 }]; // missing min/max on third zone
     await AsyncStorage.setItem(HR_ZONES_KEY, JSON.stringify({ maxHR: 190, zones: badZones }));

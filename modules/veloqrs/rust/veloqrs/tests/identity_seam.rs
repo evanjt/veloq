@@ -80,14 +80,17 @@ fn act(id: String, day: i64, pts: Vec<GpsPoint>) -> LifecycleActivity {
     }
 }
 
-/// `count` laterally jittered rides of one corridor, one per day.
+/// `count` laterally jittered rides of one corridor, every second day —
+/// wide enough that even a short corpus spans past the occasion floor's
+/// one-stay window (these scenarios exercise durable ownership, not
+/// occasion support).
 fn corridor_rides(prefix: &str, east_m: f64, count: usize, day0: i64) -> Vec<LifecycleActivity> {
     (0..count)
         .map(|i| {
             let jitter = (i as f64 - (count as f64 - 1.0) / 2.0) * 1.5;
             act(
                 format!("{prefix}_{i:02}"),
-                day0 + i as i64,
+                day0 + 2 * i as i64,
                 corridor_ride(east_m, jitter),
             )
         })

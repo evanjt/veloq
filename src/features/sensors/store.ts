@@ -41,7 +41,7 @@ interface SensorState {
   removeKnownSensor: (id: string) => void;
 }
 
-export const useSensorStore = create<SensorState>((set, get) => ({
+export const useSensorStore = create<SensorState>((set) => ({
   scanning: false,
   discovered: [],
   connections: {},
