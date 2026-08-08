@@ -9,7 +9,9 @@ import {
 
 // Scenario: the widget snapshot is consumed by native code that can't compute or
 // recover from bad values, so the builder must be exhaustively null/NaN-safe and
-// the impact maths must reflect today-vs-yesterday from the newest-first series.
+// the impact maths must reflect today-vs-yesterday from the oldest-first series
+// Rust returns (`get_wellness_sparklines` reverses its DESC select), so the last
+// element is today.
 
 const NOW = 1_733_360_000; // fixed unix seconds
 
@@ -35,12 +37,12 @@ const translate = (key: string) => LABELS[key] ?? key;
 function makeRaw(overrides: Partial<RawWidgetData> = {}): RawWidgetData {
   return {
     sparklines: {
-      // newest-first (index 0 = today)
-      fitness: [72, 71, 70, 69, 68, 67, 66],
-      fatigue: [80, 76, 74, 72, 70, 68, 66],
-      form: [-8, -5, -4, -3, -2, -1, 0],
-      hrv: [68, 65, 66, 64, 67, 63, 62],
-      rhr: [48, 49, 48, 50, 49, 48, 47],
+      // oldest-first (last element = today), as Rust returns them
+      fitness: [66, 67, 68, 69, 70, 71, 72],
+      fatigue: [66, 68, 70, 72, 74, 76, 80],
+      form: [0, -1, -2, -3, -4, -5, -8],
+      hrv: [62, 63, 67, 64, 66, 65, 68],
+      rhr: [47, 48, 49, 50, 48, 49, 48],
     },
     summary: {
       currentWeek: { count: 4, totalDuration: 23_400, totalDistance: 184_000, totalTss: 412 },
@@ -168,10 +170,10 @@ describe('composeSnapshot', () => {
 
   it('zones the impact before/after values independently', () => {
     const raw = makeRaw();
-    raw.sparklines!.form = [-12, 8, 6, 4, 2, 0, -2];
+    raw.sparklines!.form = [-2, 0, 2, 4, 6, 8, -12];
     const s = composeSnapshot(raw);
-    expect(s.impact!.formBeforeZone).toBe('fresh'); // 8
-    expect(s.impact!.formAfterZone).toBe('optimal'); // -12
+    expect(s.impact!.formBeforeZone).toBe('fresh'); // 8, yesterday
+    expect(s.impact!.formAfterZone).toBe('optimal'); // -12, today
   });
 
   it('defaults latest.isPr to false and passes an engine-provided PR through', () => {
@@ -204,7 +206,7 @@ describe('composeSnapshot', () => {
     expect(s.display.impactLine).toBeNull();
   });
 
-  it('reverses sparklines to oldest-first for left→right drawing', () => {
+  it('keeps sparklines oldest-first for left→right drawing', () => {
     const s = composeSnapshot(makeRaw());
     expect(s.sparklines.form[s.sparklines.form.length - 1]).toBe(-8); // today on the right
     expect(s.sparklines.fitness[0]).toBe(66); // oldest on the left
@@ -214,9 +216,8 @@ describe('composeSnapshot', () => {
 
   it('carries a zone enum per form point so natives never derive TSB boundaries', () => {
     const raw = makeRaw();
-    raw.sparklines!.form = [-35, -20, 0, 10, 28]; // newest-first
+    raw.sparklines!.form = [28, 10, 0, -20, -35]; // oldest-first
     const s = composeSnapshot(raw);
-    // Oldest-first, mirroring the reversed form series.
     expect(s.sparklines.formZones).toEqual([
       'transition',
       'fresh',
