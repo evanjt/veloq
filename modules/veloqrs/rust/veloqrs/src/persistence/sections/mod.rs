@@ -719,8 +719,26 @@ impl PersistentRouteEngine {
     /// polylines, activityTraces, and pointDensity.
     pub fn get_section_summaries(&self) -> Vec<SectionSummary> {
         // visit_count is a denormalised column on sections now (kept correct by
-        // the section_activities recompute triggers in migration 013), so it comes
+        // the section_activities recompute triggers in migration 017), so it comes
         // straight off the main row below — no per-open GROUP BY over the junction.
+        // One junction row is one PASS, so that column counts traversals; an
+        // athlete's ten laps of an oval are ten. activity_count answers the other
+        // question ("how many outings"), so it needs its own DISTINCT and cannot
+        // be aliased to the same number.
+        let section_activity_counts: HashMap<String, u32> = {
+            let mut stmt = match self.db.prepare(
+                "SELECT section_id, COUNT(DISTINCT activity_id) FROM section_activities
+                 WHERE excluded = 0
+                 GROUP BY section_id",
+            ) {
+                Ok(s) => s,
+                Err(_) => return Vec::new(),
+            };
+            stmt.query_map([], |row| Ok((row.get(0)?, row.get(1)?)))
+                .ok()
+                .map(|iter| iter.filter_map(|r| r.ok()).collect())
+                .unwrap_or_default()
+        };
 
         // Get distinct sport types per section from activities
         let section_sport_types: HashMap<String, Vec<String>> = {
@@ -789,6 +807,7 @@ impl PersistentRouteEngine {
                 };
 
                 let visit_count: u32 = row.get::<_, Option<u32>>(16)?.unwrap_or(0);
+                let activity_count = section_activity_counts.get(&id).copied().unwrap_or(0);
                 let sport_types = section_sport_types.get(&id).cloned().unwrap_or_default();
 
                 Ok(SectionSummary {
@@ -800,7 +819,7 @@ impl PersistentRouteEngine {
                     sport_type: row.get(2)?,
                     distance_meters: row.get(3)?,
                     visit_count,
-                    activity_count: visit_count,
+                    activity_count,
                     representative_activity_id: row.get(11)?,
                     confidence: row.get::<_, Option<f64>>(4)?.unwrap_or(0.0),
                     scale: row.get(5)?,
@@ -1356,8 +1375,14 @@ impl PersistentRouteEngine {
                 consensus_state_blob, polyline_blob, point_density_blob
             ) VALUES (?, 'auto', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
         )?;
+        // OR REPLACE, not a bare INSERT. The junction key is
+        // (section_id, activity_id, start_index), and now that a track
+        // contributes one row per pass, two passes of one activity can round to
+        // the same start index on a short section. A bare INSERT turns that
+        // into a UNIQUE violation that aborts the whole detection apply, losing
+        // the entire catalogue over one duplicated index.
         let mut junction_stmt = tx
-            .prepare("INSERT INTO section_activities (section_id, activity_id, direction, start_index, end_index, distance_meters, lap_time, lap_pace) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")?;
+            .prepare("INSERT OR REPLACE INTO section_activities (section_id, activity_id, direction, start_index, end_index, distance_meters, lap_time, lap_pace) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")?;
 
         // Persist only the auto (non-user-defined) catalogue. Custom and accepted
         // sections are durable rows the wipe above spares and are managed by their

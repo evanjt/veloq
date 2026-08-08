@@ -273,7 +273,9 @@ export default function SectionDetailScreen() {
     preComputedCalendarSummary: performance?.calendarSummary ?? null,
   });
 
-  const activityCount = sectionTimeRange === 'all' ? (section?.visitCount ?? 0) : chartData.length;
+  // Traversals, not outings: visitCount counts every pass, so a lapped section
+  // reports each revolution. The header labels it as such.
+  const traversalCount = sectionTimeRange === 'all' ? (section?.visitCount ?? 0) : chartData.length;
 
   const { nearbyPolylines, isRunning } = useSectionMapData(nearby, effectiveSportType, section);
 
@@ -318,7 +320,7 @@ export default function SectionDetailScreen() {
             mapHeight={isTrimming ? MAP_HEIGHT_EDIT : MAP_HEIGHT_NORMAL}
             activityColor={activityColor}
             iconName={iconName}
-            activityCount={activityCount}
+            activityCount={traversalCount}
             mapReady={mapReady}
             isTrimming={isTrimming}
             isExpandMode={isExpandMode}

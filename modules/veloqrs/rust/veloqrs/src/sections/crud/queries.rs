@@ -217,7 +217,7 @@ impl PersistentRouteEngine {
         let base_cols = "id, section_type, name, sport_type, distance_meters,
                          representative_activity_id, created_at, confidence, scale,
                          bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng,
-                         is_user_defined, disabled, superseded_by";
+                         is_user_defined, disabled, superseded_by, visit_count";
         let query = match (section_type, visible_only) {
             (Some(st), true) => format!(
                 "SELECT {} FROM sections WHERE section_type = '{}' AND {}",
@@ -246,8 +246,11 @@ impl PersistentRouteEngine {
         let rows = stmt.query_map([], |row| {
             let id: String = row.get(0)?;
 
-            // Count activities from junction table
-            let visit_count = self.get_section_activity_count(&id);
+            // Traversals off the denormalised column (one junction row is one
+            // pass), outings from the DISTINCT count. Both fields used to carry
+            // the activity count, which under-reported every lapped section.
+            let visit_count: u32 = row.get::<_, Option<u32>>(16)?.unwrap_or(0);
+            let activity_count = self.get_section_activity_count(&id);
 
             let bounds = match (
                 row.get::<_, Option<f64>>(9)?,
@@ -276,7 +279,7 @@ impl PersistentRouteEngine {
                 sport_type: sport_type.clone(),
                 distance_meters: row.get(4)?,
                 visit_count,
-                activity_count: visit_count,
+                activity_count,
                 representative_activity_id: row.get(5)?,
                 confidence: row.get::<_, Option<f64>>(7)?.unwrap_or(0.0),
                 scale: row.get(8)?,

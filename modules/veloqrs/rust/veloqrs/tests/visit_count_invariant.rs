@@ -249,3 +249,122 @@ fn deleting_a_section_leaves_no_orphan_rows() {
     assert_counts_true(&s.raw, "a section delete");
     assert_eq!(orphan_junction_rows(&s.raw), 0, "cascade left orphan rows");
 }
+
+// ----------------------------------------------------------------------------
+// visit_count and activity_count answer different questions and must not be
+// aliased to each other. Both summary read paths used to report the SAME
+// number: the persistence path sent traversals through both fields, the CRUD
+// path sent distinct activities through both. A lapped section is the case
+// that separates them, and neither path had a test with one.
+// ----------------------------------------------------------------------------
+
+/// One pass over `section_id`, distinguished by `start_index` because that is
+/// what the junction primary key uses to tell laps apart.
+fn insert_pass(db: &Connection, section_id: &str, activity_id: &str, start_index: i64) {
+    db.execute(
+        "INSERT INTO section_activities (section_id, activity_id, direction, start_index,
+                                         end_index, distance_meters, excluded)
+         VALUES (?1, ?2, 'same', ?3, ?4, 500.0, 0)",
+        params![section_id, activity_id, start_index, start_index + 50],
+    )
+    .expect("insert pass");
+}
+
+/// An interval session: one activity round the oval three times, plus a second
+/// activity that passes once. Four traversals across two outings.
+fn setup_lapped_oval() -> Setup {
+    let s = setup();
+    insert_activity(&s.raw, "act_intervals", 1_700_000_000);
+    insert_activity(&s.raw, "act_single", 1_700_100_000);
+    insert_section(&s.raw, "sec_oval", "Run");
+    for (i, start) in [0, 100, 200].into_iter().enumerate() {
+        let _ = i;
+        insert_pass(&s.raw, "sec_oval", "act_intervals", start);
+    }
+    insert_pass(&s.raw, "sec_oval", "act_single", 0);
+    s
+}
+
+#[test]
+fn the_persistence_summary_path_separates_traversals_from_outings() {
+    let mut s = setup_lapped_oval();
+    s.engine.load().expect("load");
+
+    let summary = s
+        .engine
+        .get_section_summaries()
+        .into_iter()
+        .find(|x| x.id == "sec_oval")
+        .expect("oval summary present");
+
+    assert_eq!(summary.visit_count, 4, "three laps plus one pass");
+    assert_eq!(summary.activity_count, 2, "two outings");
+}
+
+#[test]
+fn the_crud_summary_path_separates_traversals_from_outings() {
+    let mut s = setup_lapped_oval();
+    s.engine.load().expect("load");
+
+    let summary = s
+        .engine
+        .get_all_section_summaries(None)
+        .into_iter()
+        .find(|x| x.id == "sec_oval")
+        .expect("oval summary present");
+
+    assert_eq!(summary.visit_count, 4, "three laps plus one pass");
+    assert_eq!(summary.activity_count, 2, "two outings");
+}
+
+#[test]
+fn both_summary_paths_agree_on_a_lapped_section() {
+    let mut s = setup_lapped_oval();
+    s.engine.load().expect("load");
+
+    let from_persistence = s
+        .engine
+        .get_section_summaries()
+        .into_iter()
+        .find(|x| x.id == "sec_oval")
+        .expect("persistence summary");
+    let from_crud = s
+        .engine
+        .get_all_section_summaries(None)
+        .into_iter()
+        .find(|x| x.id == "sec_oval")
+        .expect("crud summary");
+
+    assert_eq!(
+        (from_persistence.visit_count, from_persistence.activity_count),
+        (from_crud.visit_count, from_crud.activity_count),
+        "the two read paths must not disagree about the same section"
+    );
+}
+
+#[test]
+fn excluding_a_lap_drops_one_traversal_but_keeps_the_outing() {
+    let mut s = setup_lapped_oval();
+    s.engine.load().expect("load");
+
+    s.raw
+        .execute(
+            "UPDATE section_activities SET excluded = 1
+             WHERE section_id = 'sec_oval' AND activity_id = 'act_intervals' AND start_index = 100",
+            [],
+        )
+        .expect("exclude one lap");
+
+    let summary = s
+        .engine
+        .get_section_summaries()
+        .into_iter()
+        .find(|x| x.id == "sec_oval")
+        .expect("oval summary present");
+
+    assert_eq!(summary.visit_count, 3, "the excluded lap stops counting");
+    assert_eq!(
+        summary.activity_count, 2,
+        "its activity still traverses the section on its other laps"
+    );
+}
