@@ -6,7 +6,7 @@ import React, { memo, useMemo } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { CartesianChart, Line } from 'victory-native';
 import { Rect } from '@shopify/react-native-skia';
-import { useTheme } from '@/shared/app';
+import { useChartColors } from '@/shared/charts';
 import { formZoneFill, getFormZoneColor, type FormZone } from '@/features/fitness';
 
 // Zone fills are denser here than on the full FitnessFormChart: the mini chart
@@ -41,7 +41,7 @@ export const MiniFormChart = memo(function MiniFormChart({
   width = 140,
   height = 50,
 }: MiniFormChartProps) {
-  const { isDark } = useTheme();
+  const chartColors = useChartColors();
 
   // Process data for the chart
   const { chartData, minForm, maxForm, currentForm } = useMemo(() => {
@@ -146,13 +146,13 @@ export const MiniFormChart = memo(function MiniFormChart({
                 y={getY(0) - 0.5}
                 width={chartBounds.right - chartBounds.left}
                 height={1}
-                color={isDark ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.15)'}
+                color={chartColors.zeroLine}
               />
 
               {/* Form line with casing */}
               <Line
                 points={points.form}
-                color={isDark ? 'rgba(0,0,0,0.5)' : 'rgba(0,0,0,0.15)'}
+                color={chartColors.casing}
                 strokeWidth={2}
                 curveType="natural"
               />

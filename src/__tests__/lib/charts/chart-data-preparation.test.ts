@@ -2,16 +2,7 @@
  * Tests for CombinedPlot data-prep helpers.
  * Pure functions, but we need to provide minimal chart-config mocks because
  * the helpers consume a config record keyed by ChartTypeId.
- *
- * `@/shared/app/useSportSettings` is mocked to avoid pulling the `veloqrs`
- * native TurboModule into the node-based test environment. `combinedPlotData.ts`
- * only needs the zone-color constants from it.
  */
-
-jest.mock('@/shared/app/useSportSettings', () => ({
-  POWER_ZONE_COLORS: ['#808080', '#3B82F6', '#22C55E', '#F59E0B', '#EF4444', '#8B5CF6', '#DB2777'],
-  HR_ZONE_COLORS: ['#808080', '#3B82F6', '#22C55E', '#F59E0B', '#EF4444', '#8B5CF6', '#DB2777'],
-}));
 
 import {
   buildChartData,
@@ -253,30 +244,20 @@ describe('computeIntervalBands', () => {
       id: 'power',
       config: powerConfig(),
       rawData: [100, 200, 300],
-      color: '#FB923C',
       range: { min: 100, max: 300, range: 200 },
     },
   ];
 
   it('returns empty array when intervals is empty or chart data length is zero', () => {
     expect(
-      computeIntervalBands([], 0, streams(), 'distance', true, false, 'Ride', defaultSeriesInfo)
+      computeIntervalBands([], 0, streams(), 'distance', true, 'Ride', defaultSeriesInfo)
     ).toEqual([]);
     expect(
-      computeIntervalBands(
-        undefined,
-        5,
-        streams(),
-        'distance',
-        true,
-        false,
-        'Ride',
-        defaultSeriesInfo
-      )
+      computeIntervalBands(undefined, 5, streams(), 'distance', true, 'Ride', defaultSeriesInfo)
     ).toEqual([]);
   });
 
-  it('assigns distinct colors to WORK/RECOVERY/WARMUP/COOLDOWN', () => {
+  it('assigns a distinct colour token to WORK/RECOVERY/WARMUP/COOLDOWN', () => {
     const intervals: ActivityInterval[] = [
       { type: 'WARMUP', start_index: 0, end_index: 2 } as ActivityInterval,
       { type: 'WORK', start_index: 2, end_index: 5, zone: 3 } as ActivityInterval,
@@ -289,15 +270,15 @@ describe('computeIntervalBands', () => {
       streams(),
       'distance',
       true,
-      false,
       'Ride',
       defaultSeriesInfo
     );
     expect(bands).toHaveLength(4);
-    expect(bands[0].bandColor).toBe('#22C55E'); // WARMUP green
+    expect(bands[0].bandColour).toEqual({ kind: 'role', role: 'warmup' });
+    expect(bands[1].bandColour).toEqual({ kind: 'zone', scale: 'power', zone: 3 });
     expect(bands[1].isWork).toBe(true);
-    expect(bands[2].bandColor).toBe('#808080'); // RECOVERY gray
-    expect(bands[3].bandColor).toBe('#8B5CF6'); // COOLDOWN purple
+    expect(bands[2].bandColour).toEqual({ kind: 'role', role: 'recovery' });
+    expect(bands[3].bandColour).toEqual({ kind: 'role', role: 'cooldown' });
   });
 
   it('computes avgNormY only for WORK intervals with a primary series', () => {
@@ -317,7 +298,6 @@ describe('computeIntervalBands', () => {
       streams(),
       'distance',
       true,
-      false,
       'Ride',
       defaultSeriesInfo
     );
@@ -326,7 +306,7 @@ describe('computeIntervalBands', () => {
     expect(bands[1].avgNormY).toBeNull();
   });
 
-  it('falls back to primary color when WORK interval has no zone', () => {
+  it('falls back to the work role when a WORK interval has no zone', () => {
     const intervals: ActivityInterval[] = [
       { type: 'WORK', start_index: 0, end_index: 2 } as ActivityInterval,
     ];
@@ -336,12 +316,11 @@ describe('computeIntervalBands', () => {
       streams(),
       'distance',
       true,
-      false,
       'Ride',
       defaultSeriesInfo
     );
     expect(bands[0].isWork).toBe(true);
-    expect(bands[0].bandColor).toBeDefined();
+    expect(bands[0].bandColour).toEqual({ kind: 'role', role: 'work' });
   });
 });
 
@@ -398,7 +377,7 @@ describe('buildChartData golden', () => {
       ),
       seriesInfo: result.seriesInfo.map((s) => ({
         id: s.id,
-        color: s.color,
+        color: s.config.color,
         range: s.range,
         isPreview: s.isPreview ?? false,
         rawDataLength: s.rawData.length,

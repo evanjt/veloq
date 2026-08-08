@@ -1,21 +1,13 @@
-import React, { useMemo, useCallback, useState, useRef } from 'react';
+import React, { useMemo } from 'react';
 import { View, StyleSheet } from 'react-native';
 import { useTheme, useMetricSystem } from '@/shared/app';
 import { Text } from 'react-native-paper';
 import { useTranslation } from 'react-i18next';
 import { CartesianChart, Line } from 'victory-native';
 import { DashPathEffect, Line as SkiaLine } from '@shopify/react-native-skia';
-import { Gesture, GestureDetector } from 'react-native-gesture-handler';
-import { ChartCrosshair } from '@/shared/charts';
-import {
-  useSharedValue,
-  useAnimatedReaction,
-  runOnJS,
-  useDerivedValue,
-  useAnimatedStyle,
-} from 'react-native-reanimated';
+import { GestureDetector } from 'react-native-gesture-handler';
+import { ChartCrosshair, useChartColors, useChartGestures } from '@/shared/charts';
 import { colors, typography, spacing, chartStyles } from '@/theme';
-import { CHART_CONFIG } from '@/constants';
 import { usePaceCurve, paceToMinPer100m } from '../hooks/usePaceCurve';
 import { formatDistance } from '@/shared/format/format';
 
@@ -25,7 +17,6 @@ interface SwimPaceCurveChartProps {
   height?: number;
 }
 
-const CHART_COLOR = '#2196F3';
 const CSS_LINE_COLOR = 'rgba(150, 150, 150, 0.6)';
 
 // Format pace as min:sec per 100m
@@ -66,18 +57,10 @@ interface ChartPoint {
 export function SwimPaceCurveChart({ days = 365, height = 200 }: SwimPaceCurveChartProps) {
   const { t } = useTranslation();
   const { isDark } = useTheme();
+  const chartColors = useChartColors();
   const isMetric = useMetricSystem();
 
   const { data: curve, isLoading, error } = usePaceCurve({ sport: 'Swim', days });
-
-  const [tooltipData, setTooltipData] = useState<ChartPoint | null>(null);
-  const [isActive, setIsActive] = useState(false);
-
-  // Shared values for gesture tracking
-  const touchX = useSharedValue(-1);
-  const chartBoundsShared = useSharedValue({ left: 0, right: 1 });
-  const pointXCoordsShared = useSharedValue<number[]>([]);
-  const lastNotifiedIdx = useRef<number | null>(null);
 
   // Process curve data - use distances directly from API
   const { chartData, cssPace, yDomain } = useMemo(() => {
@@ -155,81 +138,14 @@ export function SwimPaceCurveChart({ days = 365, height = 200 }: SwimPaceCurveCh
     };
   }, [curve]);
 
-  // Derive selected index
-  const selectedIdx = useDerivedValue(() => {
-    'worklet';
-    const len = chartData.length;
-    const bounds = chartBoundsShared.value;
-    const chartWidth = bounds.right - bounds.left;
-
-    if (touchX.value < 0 || chartWidth <= 0 || len === 0) return -1;
-
-    const chartX = touchX.value - bounds.left;
-    const ratio = Math.max(0, Math.min(1, chartX / chartWidth));
-    const idx = Math.round(ratio * (len - 1));
-
-    return Math.min(Math.max(0, idx), len - 1);
-  }, [chartData.length]);
-
-  const updateTooltipOnJS = useCallback(
-    (idx: number) => {
-      if (idx < 0 || chartData.length === 0) {
-        if (lastNotifiedIdx.current !== null) {
-          setTooltipData(null);
-          setIsActive(false);
-          lastNotifiedIdx.current = null;
-        }
-        return;
-      }
-
-      if (idx === lastNotifiedIdx.current) return;
-      lastNotifiedIdx.current = idx;
-
-      if (!isActive) setIsActive(true);
-
-      const point = chartData[idx];
-      if (point) setTooltipData(point);
-    },
-    [chartData, isActive]
-  );
-
-  useAnimatedReaction(
-    () => selectedIdx.value,
-    (idx) => {
-      runOnJS(updateTooltipOnJS)(idx);
-    },
-    [updateTooltipOnJS]
-  );
-
-  const gesture = Gesture.Pan()
-    .onStart((e) => {
-      'worklet';
-      touchX.value = e.x;
-    })
-    .onUpdate((e) => {
-      'worklet';
-      touchX.value = e.x;
-    })
-    .onEnd(() => {
-      'worklet';
-      touchX.value = -1;
-    })
-    .minDistance(0)
-    .activateAfterLongPress(CHART_CONFIG.LONG_PRESS_DURATION);
-
-  const crosshairStyle = useAnimatedStyle(() => {
-    'worklet';
-    // Use touchX directly so crosshair always follows the finger exactly
-    if (touchX.value < 0) {
-      return { opacity: 0, transform: [{ translateX: 0 }] };
-    }
-
-    // Clamp to chart bounds
-    const bounds = chartBoundsShared.value;
-    const xPos = Math.max(bounds.left, Math.min(bounds.right, touchX.value));
-
-    return { opacity: 1, transform: [{ translateX: xPos }] };
-  }, []);
+  const {
+    gesture,
+    isActive,
+    selectedPoint: tooltipData,
+    crosshairStyle,
+    syncBounds,
+    syncXCoords,
+  } = useChartGestures<ChartPoint>({ data: chartData, crosshairMode: 'finger' });
 
   if (isLoading) {
     return (
@@ -270,7 +186,7 @@ export function SwimPaceCurveChart({ days = 365, height = 200 }: SwimPaceCurveCh
             <Text style={[styles.valueLabel, isDark && chartStyles.textDark]}>
               {t('activity.distance')}
             </Text>
-            <Text style={[styles.valueNumber, { color: CHART_COLOR }]}>
+            <Text style={[styles.valueNumber, { color: chartColors.swimCurve }]}>
               {formatDistance(displayData.distance, isMetric)}
             </Text>
           </View>
@@ -286,7 +202,7 @@ export function SwimPaceCurveChart({ days = 365, height = 200 }: SwimPaceCurveCh
             <Text style={[styles.valueLabel, isDark && chartStyles.textDark]}>
               {t('metrics.pace')}
             </Text>
-            <Text style={[styles.valueNumber, { color: CHART_COLOR }]}>
+            <Text style={[styles.valueNumber, { color: chartColors.swimCurve }]}>
               {formatPace100m(displayData.paceMs)}/100m
             </Text>
           </View>
@@ -304,20 +220,8 @@ export function SwimPaceCurveChart({ days = 365, height = 200 }: SwimPaceCurveCh
             padding={{ left: 0, right: 0, top: 4, bottom: 0 }}
           >
             {({ points, chartBounds }) => {
-              // Sync bounds for gesture
-              if (
-                chartBounds.left !== chartBoundsShared.value.left ||
-                chartBounds.right !== chartBoundsShared.value.right
-              ) {
-                chartBoundsShared.value = {
-                  left: chartBounds.left,
-                  right: chartBounds.right,
-                };
-              }
-              const newCoords = points.y.filter((p) => p.x != null).map((p) => p.x as number);
-              if (newCoords.length !== pointXCoordsShared.value.length) {
-                pointXCoordsShared.value = newCoords;
-              }
+              syncBounds(chartBounds);
+              syncXCoords(points.y, (p) => p.x);
 
               return (
                 <>
@@ -354,7 +258,7 @@ export function SwimPaceCurveChart({ days = 365, height = 200 }: SwimPaceCurveCh
                   />
                   <Line
                     points={points.y}
-                    color={CHART_COLOR}
+                    color={chartColors.swimCurve}
                     strokeWidth={1.5}
                     curveType="natural"
                   />

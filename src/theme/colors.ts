@@ -270,6 +270,32 @@ export const colors = {
   chartRed: '#EF4444',
   chartCasing: '#00000026', // Under-stroke behind chart lines for edge contrast
 
+  // Wellness metric colors
+  chartHrv: '#EC4899', // Pink-500
+  chartRhr: '#EF4444', // Red-500
+  chartSleep: '#A855F7', // Purple-500
+  chartSleepScore: '#6366F1', // Indigo-500
+  chartWeight: '#64748B', // Slate-500
+  chartFtp: '#FFB300', // Amber - FTP trend (stable across themes)
+  chartPowerCurve: brand.blue, // Power curve line
+  chartPaceCurve: '#4CAF50', // Green - pace curve line
+  chartSwimCurve: '#2196F3', // Blue - swim pace curve line
+
+  // Neutral chart overlays
+  chartGridFaint: 'rgba(0, 0, 0, 0.06)', // Axis gridlines on an insight card
+  chartZeroLine: 'rgba(0, 0, 0, 0.15)', // Baseline rule through zero
+  chartMutedBar: 'rgba(0, 0, 0, 0.12)', // Comparison bar for the weaker period
+  chartDotMuted: 'rgba(0, 0, 0, 0.25)', // Scatter dots that are not the record
+
+  // Interval band backgrounds on the combined activity chart
+  chartBandWarmup: '#22C55E', // Green-500
+  chartBandCooldown: '#8B5CF6', // Violet-500
+  chartBandNeutral: '#808080', // Grey - recovery, rest and anything unclassified
+
+  // Form zone chart, drawn over opaque zone fills so these stay solid
+  chartZeroLineSolid: '#CCCCCC',
+  chartFormLine: '#333333',
+
   // Semantic UI colors
   highlight: brand.blue,
   highlightAlt: brand.blueLight,
@@ -461,6 +487,21 @@ export const darkColors = {
   chartCadence: '#C084FC', // Purple for cadence
   chartElevation: '#94A3B8', // Slate for elevation
   chartCasing: '#00000080', // Under-stroke behind chart lines for edge contrast
+
+  // Wellness metric colors for dark mode (one Tailwind step lighter)
+  chartHrv: '#F472B6', // Pink-400
+  chartRhr: '#F87171', // Red-400
+  chartSleep: '#C084FC', // Purple-400
+  chartSleepScore: '#818CF8', // Indigo-400
+  chartWeight: '#94A3B8', // Slate-400
+
+  // Neutral chart overlays for dark mode
+  chartGridFaint: 'rgba(255, 255, 255, 0.06)',
+  chartZeroLine: 'rgba(255, 255, 255, 0.25)',
+  chartMutedBar: 'rgba(255, 255, 255, 0.15)',
+  chartDotMuted: 'rgba(255, 255, 255, 0.5)',
+  chartZeroLineSolid: '#71717A',
+  chartFormLine: '#FFFFFF',
 } as const;
 
 // =============================================================================

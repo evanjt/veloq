@@ -6,6 +6,7 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '@/shared/app';
 import { colors, darkColors, spacing, opacity } from '@/theme';
 import { ChartErrorBoundary } from '@/shared/ui';
+import { useChartColors } from '@/shared/charts';
 import type { Insight } from '@/types';
 
 const CHART_HEIGHT = 140;
@@ -27,6 +28,7 @@ export const PeriodComparisonContent = React.memo(function PeriodComparisonConte
   insight,
 }: PeriodComparisonContentProps) {
   const { isDark } = useTheme();
+  const chartColors = useChartColors();
   const comparison = insight.supportingData?.comparisonData;
   const dataPoints = insight.supportingData?.dataPoints;
 
@@ -94,8 +96,8 @@ export const PeriodComparisonContent = React.memo(function PeriodComparisonConte
   const changeColor = isPositive ? colors.success : colors.warning;
   const changeIcon = isPositive ? 'arrow-up' : 'arrow-down';
 
-  const barColor = isPositive ? colors.success : '#42A5F5';
-  const mutedBarColor = isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.12)';
+  const barColor = isPositive ? colors.success : colors.fitnessBlue;
+  const mutedBarColor = chartColors.mutedBar;
 
   return (
     <View style={styles.container}>

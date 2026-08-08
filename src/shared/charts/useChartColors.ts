@@ -24,6 +24,19 @@ export interface ChartColorScheme {
   cadence: string;
   elevation: string;
 
+  // Wellness metrics
+  hrv: string;
+  rhr: string;
+  sleep: string;
+  sleepScore: string;
+  weight: string;
+
+  // Single-series curve charts
+  ftp: string;
+  powerCurve: string;
+  paceCurve: string;
+  swimCurve: string;
+
   // General chart colors
   primary: string;
   secondary: string;
@@ -32,10 +45,17 @@ export interface ChartColorScheme {
 
   // Chart UI elements
   grid: string;
+  gridFaint: string;
   axis: string;
   label: string;
   tooltip: string;
   tooltipText: string;
+  casing: string;
+  zeroLine: string;
+  zeroLineSolid: string;
+  formLine: string;
+  mutedBar: string;
+  dotMuted: string;
 
   // Zone colors (power/HR)
   zone1: string;
@@ -45,6 +65,13 @@ export interface ChartColorScheme {
   zone5: string;
   zone6: string;
   zone7: string;
+
+  // Form zones (TSB)
+  formHighRisk: string;
+  formOptimal: string;
+  formGreyZone: string;
+  formFresh: string;
+  formTransition: string;
 }
 
 /**
@@ -69,18 +96,38 @@ export function useChartColors(): ChartColorScheme {
       cadence: isDark ? darkColors.chartCadence : colors.chartPurple,
       elevation: isDark ? darkColors.chartElevation : colors.gray600,
 
+      // Wellness metrics
+      hrv: isDark ? darkColors.chartHrv : colors.chartHrv,
+      rhr: isDark ? darkColors.chartRhr : colors.chartRhr,
+      sleep: isDark ? darkColors.chartSleep : colors.chartSleep,
+      sleepScore: isDark ? darkColors.chartSleepScore : colors.chartSleepScore,
+      weight: isDark ? darkColors.chartWeight : colors.chartWeight,
+
+      // Single-series curve charts, stable across themes
+      ftp: colors.chartFtp,
+      powerCurve: colors.chartPowerCurve,
+      paceCurve: colors.chartPaceCurve,
+      swimCurve: colors.chartSwimCurve,
+
       // General chart colors
       primary: isDark ? brand.tealDark : brand.tealLight,
       secondary: isDark ? brand.blueLight : brand.blue,
-      tertiary: isDark ? '#4ADE80' : colors.chartGreen,
+      tertiary: isDark ? darkColors.success : colors.chartGreen,
       accent: isDark ? brand.tealDark : brand.tealLight,
 
       // Chart UI elements
       grid: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.08)',
+      gridFaint: isDark ? darkColors.chartGridFaint : colors.chartGridFaint,
       axis: isDark ? darkColors.textMuted : colors.textSecondary,
       label: isDark ? darkColors.textSecondary : colors.textSecondary,
       tooltip: isDark ? darkColors.surfaceElevated : colors.surface,
       tooltipText: isDark ? darkColors.textPrimary : colors.textPrimary,
+      casing: isDark ? darkColors.chartCasing : colors.chartCasing,
+      zeroLine: isDark ? darkColors.chartZeroLine : colors.chartZeroLine,
+      zeroLineSolid: isDark ? darkColors.chartZeroLineSolid : colors.chartZeroLineSolid,
+      formLine: isDark ? darkColors.chartFormLine : colors.chartFormLine,
+      mutedBar: isDark ? darkColors.chartMutedBar : colors.chartMutedBar,
+      dotMuted: isDark ? darkColors.chartDotMuted : colors.chartDotMuted,
 
       // Zone colors (consistent across themes for recognition)
       zone1: zoneColors.zone1,
@@ -90,6 +137,13 @@ export function useChartColors(): ChartColorScheme {
       zone5: zoneColors.zone5,
       zone6: zoneColors.zone6,
       zone7: zoneColors.zone7,
+
+      // Form zones (also theme-stable, they read as a traffic light)
+      formHighRisk: colors.formHighRisk,
+      formOptimal: colors.formOptimal,
+      formGreyZone: colors.formGreyZone,
+      formFresh: colors.formFresh,
+      formTransition: colors.formTransition,
     }),
     [isDark]
   );
@@ -106,7 +160,12 @@ export type ChartMetricType =
   | 'pace'
   | 'heartRate'
   | 'cadence'
-  | 'elevation';
+  | 'elevation'
+  | 'hrv'
+  | 'rhr'
+  | 'sleep'
+  | 'sleepScore'
+  | 'weight';
 
 export function useChartColor(metric: ChartMetricType): string {
   const chartColors = useChartColors();
