@@ -35,7 +35,9 @@ use rstar::{AABB, RTree, RTreeObject};
 use rusqlite::{Connection, Result as SqlResult};
 
 mod activities;
-pub(crate) mod codec;
+/// On-disk blob format. Public so diagnostics that open a database file
+/// directly decode it the same way the engine wrote it.
+pub mod codec;
 pub(crate) mod export;
 mod fitness;
 mod indicators;

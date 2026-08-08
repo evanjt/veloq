@@ -14,6 +14,7 @@ use rusqlite::Connection;
 use std::collections::HashMap;
 use std::path::Path;
 use tracematch::{GpsPoint, MatchConfig, RouteSignature, SectionConfig};
+use veloqrs::persistence::codec;
 
 const DEFAULT_DB_PATH: &str = "tests/fixtures/private/routes.db";
 
@@ -52,7 +53,7 @@ fn load_tracks(conn: &Connection) -> Vec<(String, String, Vec<GpsPoint>)> {
     .unwrap()
     .filter_map(|r| {
         let (id, sport, blob) = r.ok()?;
-        let points: Vec<GpsPoint> = rmp_serde::from_slice(&blob).ok()?;
+        let points: Vec<GpsPoint> = codec::deserialize_points(&blob).ok()?;
         if points.len() >= 4 {
             Some((id, sport, points))
         } else {
