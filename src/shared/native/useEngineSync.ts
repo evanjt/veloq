@@ -44,8 +44,10 @@ export function useEngineSync(): void {
     }
     if (!wasSyncingRef.current) return;
     wasSyncingRef.current = false;
-    // Everything the sync writes hangs off this channel, so one refresh wakes
-    // the profile, sport-settings and wellness readers together.
-    getRouteEngine()?.triggerRefresh('activities');
+    // Both channels: 'activities' wakes the profile and sport-settings readers,
+    // 'wellness' wakes the fitness charts, the summary card and the widget.
+    const engine = getRouteEngine();
+    engine?.triggerRefresh('activities');
+    engine?.triggerRefresh('wellness');
   }, [state]);
 }

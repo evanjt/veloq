@@ -22,6 +22,7 @@ import { useTranslation } from 'react-i18next';
 import { useQueryClient } from '@tanstack/react-query';
 import { useInfiniteActivities, useActivitySectionHighlights } from '@/features/activity/hooks';
 import { isInfiniteActivitiesStale } from '@/shared/query/activitiesCache';
+import { refreshWellness } from '@/shared/native/refreshWellness';
 import { useSummaryCardData } from '@/features/home/hooks';
 import { useInsights } from '@/features/insights';
 import { useTheme } from '@/shared/app';
@@ -244,6 +245,9 @@ export default function FeedScreen() {
 
   // Comprehensive refresh: invalidates feed (stale-while-revalidate), triggers route engine sync
   const handleRefresh = useCallback(async () => {
+    // Fetch fresh wellness before re-reading it: the queries below read SQLite,
+    // so without this the summary card just re-renders the same numbers.
+    refreshWellness();
     // Reset the infinite query if page params are stale (don't cover today),
     // otherwise invalidate for smooth stale-while-revalidate.
     const infiniteRefresh = isInfiniteActivitiesStale(queryClient)

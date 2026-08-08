@@ -1,14 +1,17 @@
 import { useCallback, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { queryKeys } from '@/shared/query/queryKeys';
+import { refreshWellness } from '@/shared/native/refreshWellness';
 
 type Refetcher = () => Promise<unknown>;
 
 /**
  * Orchestrates pull-to-refresh across every query the Fitness screen depends on.
  *
- * Re-fetches wellness (via the passed refetcher) and invalidates activity,
- * power-curve, pace-curve, and athlete-summary caches in parallel.
+ * Asks Rust for fresh wellness, re-reads it from SQLite (via the passed
+ * refetcher) and invalidates activity, power-curve, pace-curve, and
+ * athlete-summary caches in parallel. Without the sync the re-read would only
+ * return the rows already stored, which is what made pull-to-refresh look inert.
  */
 export function useFitnessRefresh(refetchWellness: Refetcher) {
   const queryClient = useQueryClient();
@@ -16,6 +19,7 @@ export function useFitnessRefresh(refetchWellness: Refetcher) {
 
   const onRefresh = useCallback(async () => {
     setIsRefreshing(true);
+    refreshWellness();
     await Promise.all([
       refetchWellness(),
       queryClient.invalidateQueries({ queryKey: queryKeys.activities.all }),

@@ -19,9 +19,11 @@ import type { TimeRange } from '@/shared/app/timeRange';
 
 export type { TimeRange };
 
-/** Refetch the wellness queries whenever the engine reports a change. */
+/** Refetch the wellness queries whenever the engine reports a change.
+ *  Its own channel, not 'activities': the targeted wellness sync writes only
+ *  these rows, and every new activity would otherwise refetch them too. */
 function useWellnessInvalidation(): void {
-  useEngineChannel('activities', queryKeys.wellness.all);
+  useEngineChannel('wellness', queryKeys.wellness.all);
 }
 
 const TIME_RANGE_DAYS: Record<TimeRange, number> = {

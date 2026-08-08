@@ -22,6 +22,8 @@ import {
 import { toActivityMetrics } from '@/features/activity/lib/activityMetrics';
 import { useAuthStore } from '@/shared/app/AuthStore';
 import { useEngineSync } from '@/shared/native/useEngineSync';
+import { refreshWellness } from '@/shared/native/refreshWellness';
+import { updateWidgetSnapshot } from '@/features/home';
 import { useSyncAuthExpiry } from '@/shared/native/useSyncAuthExpiry';
 import { useRouteSettings } from '@/features/routes/stores/RouteSettingsStore';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
@@ -149,6 +151,10 @@ export function GlobalDataSync() {
         queryKey: queryKeys.charts.paceCurve.all,
       });
       onSyncComplete();
+      // New activities change CTL/ATL upstream, so pull the recomputed window
+      // and rewrite the widget snapshot from it.
+      refreshWellness();
+      updateWidgetSnapshot();
 
       // Seed pace snapshots for trend tracking (fire-and-forget).
       // pace_history is normally only populated when viewing the pace curve screen.

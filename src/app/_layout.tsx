@@ -33,6 +33,7 @@ import { seedDemoEngine } from '@/shared/app/seedDemoEngine';
 import { initializeSportPreference, initializeHRZones } from '@/features/fitness/stores';
 import { initializeDashboardPreferences } from '@/features/home/store';
 import { updateWidgetSnapshot } from '@/features/home';
+import { refreshWellness } from '@/shared/native/refreshWellness';
 import { initializeInsightsStore } from '@/features/insights/store';
 import { MapPreferencesProvider } from '@/features/maps/stores/MapPreferencesContext';
 import { initializeTileCacheStore } from '@/features/maps/stores/TileCacheStore';
@@ -279,6 +280,12 @@ function AuthGate({ children }: { children: React.ReactNode }) {
       }
       if (state === 'active') {
         onAppForeground();
+        // Pull the trailing wellness window on every foreground. intervals.icu
+        // recomputes CTL/ATL after an upload, so the numbers on screen are only
+        // as fresh as the last fetch. The widget is rewritten from whatever is
+        // already stored; the sync's own completion rewrites it again.
+        refreshWellness();
+        updateWidgetSnapshot();
         const today = formatLocalDate(new Date());
         if (today !== lastForegroundDateRef.current) {
           lastForegroundDateRef.current = today;

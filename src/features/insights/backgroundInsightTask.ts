@@ -301,7 +301,16 @@ TaskManager.defineTask(BACKGROUND_INSIGHT_TASK, async ({ data, error }) => {
       });
     }
 
-    // 6. Read wellness from the engine, refreshed by the sync above
+    // 6. Refresh wellness, then read it back from the engine. The upload that
+    // triggered this push is exactly what moves CTL/ATL, so reading without
+    // syncing first would compose the notification from pre-activity form.
+    try {
+      const { refreshWellnessAndWait } = require('@/shared/native/refreshWellness');
+      await refreshWellnessAndWait();
+    } catch (e) {
+      log.warn('Could not refresh wellness:', e);
+    }
+
     let wellnessData: WellnessInput[] | null = null;
     try {
       const { routeEngine } = require('veloqrs');

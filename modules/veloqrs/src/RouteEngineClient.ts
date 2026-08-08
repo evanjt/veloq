@@ -965,7 +965,7 @@ class RouteEngineClient implements DelegateHost {
     };
   }
 
-  triggerRefresh(event: 'groups' | 'sections' | 'activities' | 'syncReset'): void {
+  triggerRefresh(event: 'groups' | 'sections' | 'activities' | 'wellness' | 'syncReset'): void {
     if (event === 'syncReset') {
       this.notifyImmediate(event);
       return;
@@ -985,7 +985,7 @@ class RouteEngineClient implements DelegateHost {
   }
 
   notify(event: string): void {
-    this.triggerRefresh(event as 'groups' | 'sections' | 'activities' | 'syncReset');
+    this.triggerRefresh(event as 'groups' | 'sections' | 'activities' | 'wellness' | 'syncReset');
   }
 
   private notifyImmediate(event: string): void {
@@ -994,7 +994,7 @@ class RouteEngineClient implements DelegateHost {
 
   notifyAll(...events: string[]): void {
     events.forEach((event) =>
-      this.triggerRefresh(event as 'groups' | 'sections' | 'activities' | 'syncReset')
+      this.triggerRefresh(event as 'groups' | 'sections' | 'activities' | 'wellness' | 'syncReset')
     );
   }
 }
