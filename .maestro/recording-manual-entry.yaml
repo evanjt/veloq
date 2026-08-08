@@ -27,7 +27,23 @@ onFlowComplete:
     commands:
       - tapOn: "Discard"
 
-# Scroll down to reach the All Activities collapsible sections
+# The categories live behind the All Activities disclosure, which starts
+# closed, so nothing under it is in the tree until this is tapped.
+- scrollUntilVisible:
+    element:
+      id: "record-all-activities"
+    direction: DOWN
+    timeout: 10000
+    speed: 40
+
+- runFlow:
+    when:
+      notVisible:
+        id: "record-category-gym"
+    commands:
+      - tapOn:
+          id: "record-all-activities"
+
 - scrollUntilVisible:
     element:
       id: "record-category-gym"
