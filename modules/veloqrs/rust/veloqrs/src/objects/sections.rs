@@ -737,68 +737,12 @@ impl SectionManager {
         section_id: String,
     ) -> Result<bool, VeloqError> {
         with_engine(|engine| {
-            let track = match engine.get_gps_track(&activity_id) {
-                Some(t) if t.len() >= 3 => t,
-                _ => return false,
-            };
-
-            let section = match engine.get_sections().iter().find(|s| s.id == section_id) {
-                Some(s) => s.clone(),
-                None => return false,
-            };
-
-            if section.polyline.is_empty() {
-                return false;
-            }
-
-            // Use relaxed threshold: proximity * 2.5 (wider than the standard * 2.0)
-            let config = tracematch::SectionConfig::default();
-            let threshold = config.proximity_threshold * 2.5;
-
-            let spans = tracematch::sections::optimized::find_all_section_spans_in_route(
-                &track,
-                &section.polyline,
-                threshold,
-            );
-
-            // Accept matches at 40% quality (more lenient than normal 50%)
-            let best_span = spans
-                .into_iter()
-                .filter(|(_, _, quality, _)| *quality >= 0.4)
-                .max_by(|a, b| a.2.partial_cmp(&b.2).unwrap_or(std::cmp::Ordering::Equal));
-
-            if let Some((start, end, _quality, same_dir)) = best_span {
-                let portion_slice = &track[start..end.min(track.len())];
-                let distance = tracematch::matching::calculate_route_distance(portion_slice);
-                let direction = if same_dir {
-                    tracematch::Direction::Same
-                } else {
-                    tracematch::Direction::Reverse
-                };
-
-                match engine.insert_section_activity(
-                    &section_id,
-                    &activity_id,
-                    &direction,
-                    start as u32,
-                    end as u32,
-                    distance,
-                ) {
-                    Ok(_) => {
-                        engine.refresh_section_in_memory(&section_id);
-                        true
-                    }
-                    Err(e) => {
-                        log::warn!(
-                            "tracematch: [rematch] Failed to insert section_activity: {}",
-                            e
-                        );
-                        false
-                    }
-                }
-            } else {
-                false
-            }
+            engine
+                .rematch_activity_to_section(&activity_id, &section_id)
+                .unwrap_or_else(|e| {
+                    log::warn!("tracematch: [rematch] {}", e);
+                    false
+                })
         })
     }
 

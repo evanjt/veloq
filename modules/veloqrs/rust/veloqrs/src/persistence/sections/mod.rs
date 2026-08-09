@@ -669,8 +669,11 @@ impl PersistentRouteEngine {
             polyline,
             representative_activity_id: representative_activity_id.unwrap_or_default(),
             activity_ids,
-            activity_portions: vec![], // Not stored in DB
-            route_ids: vec![],         // Not stored in DB
+            // From the junction table: `save_sections` writes junction rows
+            // FROM this field, so a blank here turns the next save into a
+            // wipe of the section's traversals.
+            activity_portions: self.get_section_portions(section_id),
+            route_ids: vec![], // Not stored in DB
             visit_count,
             distance_meters,
             activity_traces: std::collections::HashMap::new(), // Not stored in DB

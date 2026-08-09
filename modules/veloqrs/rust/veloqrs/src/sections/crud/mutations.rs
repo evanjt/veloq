@@ -518,6 +518,68 @@ impl PersistentRouteEngine {
         Ok(())
     }
 
+    /// Manually attach one activity to one section, for the activity
+    /// screen's "should have matched" affordance. Relaxed bars (2.5x
+    /// proximity, 40% quality) because the user has already asserted the
+    /// match. Idempotent: a pair that already holds junction rows is left
+    /// alone — detection's per-lap rows must not gain a stacked duplicate
+    /// at a different start index.
+    pub fn rematch_activity_to_section(
+        &mut self,
+        activity_id: &str,
+        section_id: &str,
+    ) -> Result<bool, String> {
+        let track = match self.get_gps_track(activity_id) {
+            Some(t) if t.len() >= 3 => t,
+            _ => return Ok(false),
+        };
+        let polyline = match self.get_sections().iter().find(|s| s.id == section_id) {
+            Some(s) if !s.polyline.is_empty() => s.polyline.clone(),
+            _ => return Ok(false),
+        };
+        let existing: i64 = self
+            .db
+            .query_row(
+                "SELECT COUNT(*) FROM section_activities WHERE section_id = ? AND activity_id = ?",
+                params![section_id, activity_id],
+                |r| r.get(0),
+            )
+            .unwrap_or(0);
+        if existing > 0 {
+            return Ok(true);
+        }
+
+        let threshold = self.section_config.proximity_threshold * 2.5;
+        let spans = tracematch::sections::optimized::find_all_section_spans_in_route(
+            &track, &polyline, threshold,
+        );
+        let best = spans
+            .into_iter()
+            .filter(|(_, _, quality, _)| *quality >= 0.4)
+            .max_by(|a, b| a.2.partial_cmp(&b.2).unwrap_or(std::cmp::Ordering::Equal));
+        let Some((start, end, _quality, same_dir)) = best else {
+            return Ok(false);
+        };
+        let portion = &track[start..end.min(track.len())];
+        let distance = tracematch::matching::calculate_route_distance(portion);
+        let direction = if same_dir {
+            tracematch::Direction::Same
+        } else {
+            tracematch::Direction::Reverse
+        };
+        self.insert_section_activity(
+            section_id,
+            activity_id,
+            &direction,
+            start as u32,
+            end as u32,
+            distance,
+        )?;
+        self.refresh_section_in_memory(section_id);
+        self.invalidate_section_cache(section_id);
+        Ok(true)
+    }
+
     /// Restore `excluded = 1` on the given activities' rows after a
     /// junction rebuild. An excluded activity that no longer matches the
     /// new line has no rows, and nothing to carry.
@@ -783,9 +845,12 @@ impl PersistentRouteEngine {
     /// Reset a section's reference to automatic (algorithm-selected).
     /// Sets is_user_defined to false.
     pub fn reset_section_reference(&mut self, section_id: &str) -> Result<(), String> {
+        // Drop the polyline backup with the demotion: the catalogue save
+        // wipes only backup-free auto rows before re-inserting from
+        // memory, so a demoted row still carrying its backup collides.
         self.db
             .execute(
-                "UPDATE sections SET is_user_defined = 0 WHERE id = ?",
+                "UPDATE sections SET is_user_defined = 0, original_polyline_json = NULL WHERE id = ?",
                 params![section_id],
             )
             .map_err(|e| format!("Failed to reset section reference: {}", e))?;
