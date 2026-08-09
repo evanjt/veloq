@@ -222,3 +222,50 @@ fn re_emerged_ground_writes_a_restored_event_on_the_same_id() {
     assert!(version > 1, "the restore geometry is a fresh version");
     assert!(engine.section_geometry_polyline(&id_a, version).is_some());
 }
+
+/// An era snapshot narrates what the athlete sees, and the athlete's view
+/// filters excluded traversals. Two member rows at fire time with one
+/// excluded must snapshot as one visit, not two.
+#[test]
+fn era_snapshot_counts_only_included_traversals() {
+    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
+    let rides_a = corridor_rides("ca", 0.0, 9, 0);
+    let rides_b = corridor_rides("cb", 1_500.0, 9, 10);
+    let mut pool = refs(&rides_a);
+    pool.extend(refs(&rides_b));
+    let snap = ingest_step(&mut engine, "cold", &pool).snapshot;
+    let (id_a, _) = section_on(&snap, &corridor_ground(0.0)).expect("corpus fault: corridor A");
+
+    // Drain corridor A below its support floor while two members survive,
+    // one of them excluded. The dissolve then fires with rows present.
+    for aid in rides_a
+        .iter()
+        .skip(2)
+        .map(|r| r.id.clone())
+        .collect::<Vec<_>>()
+    {
+        engine.remove_activity(&aid).expect("remove_activity");
+    }
+    engine
+        .exclude_activity_from_section(&id_a, &rides_a[0].id)
+        .expect("exclude one survivor");
+    for i in 0..3 {
+        let filler = filler_act("vpm", 60 + i);
+        ingest_step(&mut engine, "vpm", &[&filler]);
+    }
+
+    let history = engine.section_history(&id_a);
+    let dissolve = history
+        .iter()
+        .find(|e| e.kind == "dissolved")
+        .expect("the drain must dissolve corridor A");
+    let details: serde_json::Value =
+        serde_json::from_str(dissolve.details.as_deref().expect("era snapshot"))
+            .expect("snapshot is JSON");
+    assert_eq!(
+        details.get("visits_per_month").and_then(|v| v.as_f64()),
+        Some(1.0),
+        "one included row over a zero-day span is one visit per month; \
+         counting the excluded row too would read 2.0"
+    );
+}

@@ -280,9 +280,9 @@ impl PersistentRouteEngine {
         let removed_bounds = self.activity_metadata.get(id).map(|m| m.bounds.clone());
 
         // Sections this activity contributes to, captured before the cascade
-        // removes its junction rows. Their denormalised visit_count needs a manual
-        // recompute below: the activity_id cascade fires no triggers (recursive
-        // triggers are off), so the count would otherwise stay stale.
+        // removes its junction rows. The delete trigger fires on the cascade
+        // and keeps visit_count current; the recompute below is a redundant
+        // backstop, kept because it is cheap and self-healing.
         let affected_sections: Vec<String> = self
             .db
             .prepare("SELECT DISTINCT section_id FROM section_activities WHERE activity_id = ?")

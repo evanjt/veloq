@@ -163,11 +163,12 @@ impl PersistentRouteEngine {
     }
 
     /// Get total visit count (number of traversals/laps) for a section.
+    /// Reads the trigger-maintained column: the junction triggers are the
+    /// one owner of this number, never an independent recount.
     pub(super) fn get_section_visit_count(&self, section_id: &str) -> u32 {
         self.db
             .query_row(
-                "SELECT COUNT(*) FROM section_activities sa
-                 WHERE sa.section_id = ? AND sa.excluded = 0",
+                "SELECT visit_count FROM sections WHERE id = ?",
                 params![section_id],
                 |row| row.get(0),
             )

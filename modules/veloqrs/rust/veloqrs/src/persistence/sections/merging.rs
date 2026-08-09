@@ -439,9 +439,9 @@ impl PersistentRouteEngine {
             rusqlite::params![secondary_id],
         )?;
 
-        // Counted for the returned summary. The stored sections.visit_count is
+        // Outings, for the log line only. The stored sections.visit_count is
         // the junction triggers' business, including the move above.
-        let visit_count: u32 = tx
+        let merged_outings: u32 = tx
             .query_row(
                 "SELECT COUNT(DISTINCT activity_id) FROM section_activities WHERE section_id = ? AND excluded = 0",
                 rusqlite::params![primary_id],
@@ -475,7 +475,7 @@ impl PersistentRouteEngine {
             "tracematch: [merge] Merged section {} into {} ({} activities)",
             secondary_id,
             primary_id,
-            visit_count
+            merged_outings
         );
 
         Ok(primary_id.to_string())

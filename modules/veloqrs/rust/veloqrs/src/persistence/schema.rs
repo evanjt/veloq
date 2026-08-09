@@ -260,11 +260,12 @@ impl PersistentRouteEngine {
     /// on that first add (a fresh column is all-zero), and the triggers use
     /// CREATE ... IF NOT EXISTS. get_section_summaries then reads visit_count
     /// straight off the row instead of a per-open GROUP BY over the junction; the
-    /// triggers keep it correct on every DIRECT section_activities write,
+    /// triggers keep it correct on every section_activities write,
     /// including the merge paths that reassign rows with UPDATE ... SET
-    /// section_id (both sides recompute). The one write they cannot see is the
-    /// activity_id foreign-key cascade (recursive_triggers is off), so
-    /// remove_activity recomputes the affected sections itself.
+    /// section_id (both sides recompute) and foreign-key cascade deletes
+    /// (recursive_triggers only gates trigger re-entry, not user triggers
+    /// under FK actions; probed live). remove_activity still recomputes the
+    /// affected sections as a redundant backstop.
     fn ensure_visit_count_denormalisation(conn: &Connection) -> SqlResult<()> {
         let has_column = conn
             .prepare("SELECT visit_count FROM sections LIMIT 0")
