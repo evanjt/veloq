@@ -79,6 +79,81 @@ fn excluded(engine: &PersistentRouteEngine, section_id: &str) -> Vec<String> {
     engine.get_excluded_activity_ids(section_id)
 }
 
+/// The corridor ridden out, back, and out again: three passes, three
+/// junction rows, so one lap can be excluded while the others stay.
+fn lapped_track(base: &tracematch::scenarios::LifecycleActivity) -> Vec<tracematch::GpsPoint> {
+    let mut points = base.gps_points.clone();
+    let mut back = base.gps_points.clone();
+    back.reverse();
+    points.extend(back);
+    points.extend(base.gps_points.clone());
+    points
+}
+
+/// An engine whose detected catalogue includes a member with several laps
+/// on one section, plus that section's id and the excluded lap's index.
+fn engine_with_lapped_member(dir: &TempDir) -> (PersistentRouteEngine, String, u32) {
+    let corpus = corpus();
+    let path = dir.path().join("exclusion_laps.db");
+    let mut engine = PersistentRouteEngine::new(path.to_str().unwrap()).unwrap();
+    for a in corpus.through_a() {
+        engine
+            .add_activity(a.id.clone(), a.gps_points.clone(), a.sport_type.clone())
+            .unwrap();
+        engine
+            .update_activity_metadata(&a.id, Some(a.start_date_unix), None, None, None)
+            .unwrap();
+    }
+    let base = &corpus.bucket_c_single;
+    engine
+        .add_activity(
+            "act_lapped".to_string(),
+            lapped_track(base),
+            base.sport_type.clone(),
+        )
+        .unwrap();
+    engine
+        .update_activity_metadata("act_lapped", Some(base.start_date_unix), None, None, None)
+        .unwrap();
+    let handle = engine.detect_sections_background(None);
+    let (sections, _) = handle.recv().unwrap_or_default();
+    engine.apply_sections(sections).unwrap();
+
+    let candidate_ids: Vec<String> = engine
+        .get_sections_for_activity("act_lapped")
+        .iter()
+        .map(|s| s.id.clone())
+        .collect();
+    let section = candidate_ids
+        .iter()
+        .filter_map(|id| engine.get_section_by_id(id))
+        .filter(|s| !s.is_user_defined)
+        .find(|s| {
+            s.activity_portions
+                .iter()
+                .filter(|p| p.activity_id == "act_lapped")
+                .count()
+                >= 2
+        })
+        .expect("a section holding several act_lapped laps");
+    let mut starts: Vec<u32> = section
+        .activity_portions
+        .iter()
+        .filter(|p| p.activity_id == "act_lapped")
+        .map(|p| p.start_index)
+        .collect();
+    starts.sort_unstable();
+    (engine, section.id.clone(), starts[1])
+}
+
+fn lapped_exclusions(engine: &PersistentRouteEngine, section_id: &str) -> Vec<(String, u32)> {
+    engine
+        .get_excluded_section_laps(section_id)
+        .into_iter()
+        .filter(|(aid, _)| aid == "act_lapped")
+        .collect()
+}
+
 #[test]
 fn an_exclusion_survives_a_trim() {
     let dir = TempDir::new().unwrap();
@@ -128,6 +203,149 @@ fn an_excluded_activity_stays_out_of_the_member_list_after_a_trim() {
     assert!(
         !after.activity_ids.contains(&member),
         "the excluded activity returned as an included member"
+    );
+}
+
+/// One excluded lap of a three-lap member must ride across a trim as
+/// exactly one excluded lap: not lost, not widened to the whole activity.
+#[test]
+fn a_per_lap_exclusion_survives_a_trim() {
+    let dir = TempDir::new().unwrap();
+    let (mut engine, sid, lap) = engine_with_lapped_member(&dir);
+    engine.exclude_section_lap(&sid, "act_lapped", lap).unwrap();
+    assert_eq!(lapped_exclusions(&engine, &sid).len(), 1);
+
+    let len = engine.get_section_by_id(&sid).unwrap().polyline.len() as u32;
+    engine.trim_section(&sid, 1, len - 2).unwrap();
+
+    assert_eq!(
+        lapped_exclusions(&engine, &sid).len(),
+        1,
+        "the excluded lap must survive the rebuild"
+    );
+    assert!(
+        !excluded(&engine, &sid).contains(&"act_lapped".to_string()),
+        "a per-lap exclusion must not widen to the whole activity"
+    );
+}
+
+/// Re-attaching an activity (sync re-index) rewrites its junction rows;
+/// the exclusion is a user decision and must ride across.
+#[test]
+fn an_exclusion_survives_a_reattach() {
+    let dir = TempDir::new().unwrap();
+    let (mut engine, sid, member) = engine_with_excludable(&dir);
+    engine.exclude_activity_from_section(&sid, &member).unwrap();
+
+    engine.attach_new_activities(&[member.clone()]);
+
+    assert_eq!(
+        excluded(&engine, &sid),
+        vec![member],
+        "the attach path silently dropped the exclusion"
+    );
+}
+
+/// Same for a single excluded lap: the re-attach keeps it a per-lap state.
+#[test]
+fn a_per_lap_exclusion_survives_a_reattach() {
+    let dir = TempDir::new().unwrap();
+    let (mut engine, sid, lap) = engine_with_lapped_member(&dir);
+    engine.exclude_section_lap(&sid, "act_lapped", lap).unwrap();
+
+    engine.attach_new_activities(&["act_lapped".to_string()]);
+
+    assert_eq!(
+        lapped_exclusions(&engine, &sid).len(),
+        1,
+        "the excluded lap must survive the re-attach"
+    );
+    assert!(
+        !excluded(&engine, &sid).contains(&"act_lapped".to_string()),
+        "a per-lap exclusion must not widen to the whole activity"
+    );
+}
+
+/// A re-detect over the same activity set keeps section ids stable, so it
+/// must keep their exclusions too. The catalogue save may not treat the
+/// junction rows as disposable.
+#[test]
+fn an_exclusion_survives_a_redetect() {
+    let dir = TempDir::new().unwrap();
+    let (mut engine, sid, member) = engine_with_excludable(&dir);
+    engine.exclude_activity_from_section(&sid, &member).unwrap();
+
+    let handle = engine.detect_sections_background(None);
+    let (sections, _) = handle.recv().unwrap_or_default();
+    engine.apply_sections(sections).unwrap();
+
+    assert_eq!(
+        excluded(&engine, &sid),
+        vec![member],
+        "the catalogue save dropped the exclusion"
+    );
+}
+
+/// Per-lap state must also ride across a re-detect of the same set.
+#[test]
+fn a_per_lap_exclusion_survives_a_redetect() {
+    let dir = TempDir::new().unwrap();
+    let (mut engine, sid, lap) = engine_with_lapped_member(&dir);
+    engine.exclude_section_lap(&sid, "act_lapped", lap).unwrap();
+
+    let handle = engine.detect_sections_background(None);
+    let (sections, _) = handle.recv().unwrap_or_default();
+    engine.apply_sections(sections).unwrap();
+
+    assert_eq!(
+        lapped_exclusions(&engine, &sid).len(),
+        1,
+        "the excluded lap must survive the re-detect"
+    );
+    assert!(
+        !excluded(&engine, &sid).contains(&"act_lapped".to_string()),
+        "a per-lap exclusion must not widen to the whole activity"
+    );
+}
+
+/// The two editing paths without exclusion coverage: expand and reference
+/// change both rebuild junction rows and must carry the flag.
+#[test]
+fn an_exclusion_survives_an_expand() {
+    let dir = TempDir::new().unwrap();
+    let (mut engine, sid, member) = engine_with_excludable(&dir);
+    engine.exclude_activity_from_section(&sid, &member).unwrap();
+
+    let polyline = engine.get_section_by_id(&sid).unwrap().polyline;
+    engine.expand_section_bounds(&sid, &polyline).unwrap();
+
+    assert_eq!(
+        excluded(&engine, &sid),
+        vec![member],
+        "expanding bounds must not forget exclusions"
+    );
+}
+
+#[test]
+fn an_exclusion_survives_a_reference_change() {
+    let dir = TempDir::new().unwrap();
+    let (mut engine, sid, member) = engine_with_excludable(&dir);
+
+    let section = engine.get_section_by_id(&sid).unwrap();
+    let other = section
+        .activity_ids
+        .iter()
+        .find(|a| **a != member)
+        .cloned()
+        .expect("a second member to take the reference");
+    engine.exclude_activity_from_section(&sid, &member).unwrap();
+
+    engine.set_section_reference(&sid, &other).unwrap();
+
+    assert_eq!(
+        excluded(&engine, &sid),
+        vec![member],
+        "changing the reference must not forget exclusions"
     );
 }
 

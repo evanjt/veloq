@@ -1828,7 +1828,11 @@ mod tests {
 
     #[test]
     fn test_persistence() {
-        let temp_path = "/tmp/test_route_engine.db";
+        // A per-test directory: a fixed /tmp path collides with any other
+        // cargo test process on the machine and flakes inside migrations.
+        let dir = tempfile::TempDir::new().unwrap();
+        let temp_path = dir.path().join("route_engine.db");
+        let temp_path = temp_path.to_str().unwrap();
 
         // Create and add data
         {
@@ -1846,9 +1850,6 @@ mod tests {
             assert_eq!(engine.activity_count(), 1);
             assert!(engine.has_activity("test-1"));
         }
-
-        // Cleanup
-        std::fs::remove_file(temp_path).ok();
     }
 
     #[test]

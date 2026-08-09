@@ -15,6 +15,16 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use tracematch::matching::calculate_route_distance;
 use tracematch::{GpsPoint, SectionPortion};
 
+/// A section's exclusion state, read before a junction rebuild deletes the
+/// rows that carry it. `full` holds activities with every row excluded;
+/// `partial` holds per-lap state as ordinals over the activity's rows in
+/// start_index order, with the row count the ordinals were taken from.
+#[derive(Default)]
+pub(super) struct ExclusionSnapshot {
+    pub(super) full: Vec<String>,
+    pub(super) partial: Vec<(String, Vec<usize>, usize)>,
+}
+
 impl PersistentRouteEngine {
     /// Exclude an activity from a section's analysis.
     /// Sets the `excluded` flag to 1 on the junction table row(s).
@@ -540,9 +550,9 @@ impl PersistentRouteEngine {
     ) -> Result<(), String> {
         // ALL members, excluded ones included: the flag is a user
         // decision and must survive the rebuild, not vanish with the rows.
-        let excluded_ids = self.get_excluded_activity_ids(section_id);
+        let exclusions = self.capture_exclusions(section_id);
         let mut activity_ids = self.get_section_activity_ids(section_id);
-        activity_ids.extend(excluded_ids.iter().cloned());
+        activity_ids.extend(exclusions.full.iter().cloned());
 
         if activity_ids.is_empty() || new_polyline.is_empty() {
             return Ok(());
@@ -569,7 +579,7 @@ impl PersistentRouteEngine {
                 }
             }
         }
-        self.reapply_exclusions(section_id, &excluded_ids)?;
+        self.reapply_exclusions(section_id, &exclusions)?;
 
         Ok(())
     }
@@ -633,18 +643,24 @@ impl PersistentRouteEngine {
         )?;
         self.refresh_section_in_memory(section_id);
         self.invalidate_section_cache(section_id);
+        self.invalidate_perf_cache();
         Ok(true)
     }
 
-    /// Restore `excluded = 1` on the given activities' rows after a
-    /// junction rebuild. An excluded activity that no longer matches the
-    /// new line has no rows, and nothing to carry.
+    /// Restore exclusions after a junction rebuild. Fully excluded
+    /// activities flag every new row. A partially excluded activity keeps
+    /// its per-lap state by ordinal (rows sorted by start_index), which
+    /// survives the small index shifts a geometry edit causes; if the
+    /// rebuild changed the activity's row count, the laps are no longer
+    /// the same objects and the per-lap state is dropped rather than
+    /// guessed. An excluded activity that no longer matches the new line
+    /// has no rows, and nothing to carry.
     pub(super) fn reapply_exclusions(
         &self,
         section_id: &str,
-        excluded_ids: &[String],
+        snapshot: &ExclusionSnapshot,
     ) -> Result<(), String> {
-        for aid in excluded_ids {
+        for aid in &snapshot.full {
             self.db
                 .execute(
                     "UPDATE section_activities SET excluded = 1 WHERE section_id = ? AND activity_id = ?",
@@ -652,7 +668,85 @@ impl PersistentRouteEngine {
                 )
                 .map_err(|e| format!("Failed to reapply exclusion: {}", e))?;
         }
+        for (aid, ordinals, expected) in &snapshot.partial {
+            let starts: Vec<u32> = {
+                let mut stmt = self
+                    .db
+                    .prepare(
+                        "SELECT start_index FROM section_activities
+                         WHERE section_id = ? AND activity_id = ? ORDER BY start_index",
+                    )
+                    .map_err(|e| format!("Failed to read rebuilt laps: {}", e))?;
+                stmt.query_map(params![section_id, aid], |row| row.get(0))
+                    .map_err(|e| format!("Failed to read rebuilt laps: {}", e))?
+                    .filter_map(|r| r.ok())
+                    .collect()
+            };
+            if starts.len() != *expected {
+                continue;
+            }
+            for ordinal in ordinals {
+                self.db
+                    .execute(
+                        "UPDATE section_activities SET excluded = 1
+                         WHERE section_id = ? AND activity_id = ? AND start_index = ?",
+                        params![section_id, aid, starts[*ordinal]],
+                    )
+                    .map_err(|e| format!("Failed to reapply lap exclusion: {}", e))?;
+            }
+        }
         Ok(())
+    }
+
+    /// Read a section's exclusion state before a junction rebuild deletes
+    /// the rows that carry it.
+    pub(super) fn capture_exclusions(&self, section_id: &str) -> ExclusionSnapshot {
+        let any: bool = self
+            .db
+            .query_row(
+                "SELECT EXISTS(SELECT 1 FROM section_activities
+                 WHERE section_id = ? AND excluded = 1)",
+                params![section_id],
+                |row| row.get(0),
+            )
+            .unwrap_or(false);
+        if !any {
+            return ExclusionSnapshot::default();
+        }
+        let mut rows: Vec<(String, u32, bool)> = Vec::new();
+        if let Ok(mut stmt) = self.db.prepare(
+            "SELECT activity_id, start_index, excluded FROM section_activities
+             WHERE section_id = ? ORDER BY activity_id, start_index",
+        ) {
+            if let Ok(mapped) = stmt.query_map(params![section_id], |row| {
+                Ok((row.get(0)?, row.get(1)?, row.get::<_, i64>(2)? != 0))
+            }) {
+                rows.extend(mapped.filter_map(|r| r.ok()));
+            }
+        }
+        let mut snapshot = ExclusionSnapshot::default();
+        let mut i = 0;
+        while i < rows.len() {
+            let aid = rows[i].0.clone();
+            let mut ordinals = Vec::new();
+            let mut count = 0usize;
+            while i < rows.len() && rows[i].0 == aid {
+                if rows[i].2 {
+                    ordinals.push(count);
+                }
+                count += 1;
+                i += 1;
+            }
+            if ordinals.is_empty() {
+                continue;
+            }
+            if ordinals.len() == count {
+                snapshot.full.push(aid);
+            } else {
+                snapshot.partial.push((aid, ordinals, count));
+            }
+        }
+        snapshot
     }
 
     /// Cheap post-ingest indexing for one freshly downloaded activity: match it
@@ -762,6 +856,9 @@ impl PersistentRouteEngine {
 
             // Replace any rows a previous run (or a later full detection) left
             // for this pair, so near-duplicate start_index rows can't stack up.
+            // The exclusion state is a user decision and rides across the
+            // rewrite (whole snapshot: reapplying untouched pairs is a no-op).
+            let exclusions = self.capture_exclusions(section_id);
             self.db
                 .execute(
                     "DELETE FROM section_activities WHERE section_id = ? AND activity_id = ?",
@@ -780,8 +877,10 @@ impl PersistentRouteEngine {
                 )?;
                 inserted_portions += 1;
             }
+            self.reapply_exclusions(section_id, &exclusions)?;
             self.refresh_section_in_memory(section_id);
             self.invalidate_section_cache(section_id);
+            self.invalidate_perf_cache();
         }
 
         Ok((matched_sections, inserted_portions))

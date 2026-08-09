@@ -71,6 +71,105 @@ pub(super) fn compute_lap_time_from_stream(
     (Some(lap_time), Some(lap_pace))
 }
 
+/// Exclusion rows the auto-section wipe is about to cascade away:
+/// `None` fate for a fully excluded activity, `Some((ordinals, count))`
+/// for per-lap state, ordinals over the pair's rows in start_index order.
+type CarriedExclusions = Vec<(String, String, Option<(Vec<usize>, usize)>)>;
+
+fn capture_auto_exclusions(tx: &rusqlite::Transaction) -> SqlResult<CarriedExclusions> {
+    // The common save carries no exclusions at all; one early-exit probe
+    // spares the correlated scan below on every detection apply.
+    let any: bool = tx
+        .query_row(
+            "SELECT EXISTS(SELECT 1 FROM section_activities WHERE excluded = 1)",
+            [],
+            |row| row.get(0),
+        )
+        .unwrap_or(false);
+    if !any {
+        return Ok(CarriedExclusions::new());
+    }
+    let mut stmt = tx.prepare(
+        "SELECT sa.section_id, sa.activity_id, sa.excluded
+         FROM section_activities sa
+         JOIN sections s ON s.id = sa.section_id
+         WHERE s.section_type = 'auto' AND s.original_polyline_json IS NULL
+           AND s.is_user_defined = 0 AND s.disabled = 0
+           AND EXISTS (SELECT 1 FROM section_activities e
+                       WHERE e.section_id = sa.section_id
+                         AND e.activity_id = sa.activity_id AND e.excluded = 1)
+         ORDER BY sa.section_id, sa.activity_id, sa.start_index",
+    )?;
+    let rows: Vec<(String, String, bool)> = stmt
+        .query_map([], |row| {
+            Ok((row.get(0)?, row.get(1)?, row.get::<_, i64>(2)? != 0))
+        })?
+        .filter_map(|r| r.ok())
+        .collect();
+    let mut carried = CarriedExclusions::new();
+    let mut i = 0;
+    while i < rows.len() {
+        let (sid, aid) = (rows[i].0.clone(), rows[i].1.clone());
+        let mut ordinals = Vec::new();
+        let mut count = 0usize;
+        while i < rows.len() && rows[i].0 == sid && rows[i].1 == aid {
+            if rows[i].2 {
+                ordinals.push(count);
+            }
+            count += 1;
+            i += 1;
+        }
+        if ordinals.len() == count {
+            carried.push((sid, aid, None));
+        } else {
+            carried.push((sid, aid, Some((ordinals, count))));
+        }
+    }
+    Ok(carried)
+}
+
+/// Put carried exclusions back after the junction re-insert. Same rules
+/// as the CRUD-side reapply: full activities flag every new row; per-lap
+/// state carries by ordinal only when the pair's row count is unchanged.
+fn reapply_auto_exclusions(
+    tx: &rusqlite::Transaction,
+    carried: &CarriedExclusions,
+) -> SqlResult<()> {
+    for (sid, aid, fate) in carried {
+        match fate {
+            None => {
+                tx.execute(
+                    "UPDATE section_activities SET excluded = 1
+                     WHERE section_id = ? AND activity_id = ?",
+                    params![sid, aid],
+                )?;
+            }
+            Some((ordinals, expected)) => {
+                let starts: Vec<u32> = {
+                    let mut stmt = tx.prepare(
+                        "SELECT start_index FROM section_activities
+                         WHERE section_id = ? AND activity_id = ? ORDER BY start_index",
+                    )?;
+                    stmt.query_map(params![sid, aid], |row| row.get(0))?
+                        .filter_map(|r| r.ok())
+                        .collect()
+                };
+                if starts.len() != *expected {
+                    continue;
+                }
+                for ordinal in ordinals {
+                    tx.execute(
+                        "UPDATE section_activities SET excluded = 1
+                         WHERE section_id = ? AND activity_id = ? AND start_index = ?",
+                        params![sid, aid, starts[*ordinal]],
+                    )?;
+                }
+            }
+        }
+    }
+    Ok(())
+}
+
 impl PersistentRouteEngine {
     /// Load sections from database.
     pub(super) fn load_sections(&mut self) -> SqlResult<()> {
@@ -1291,14 +1390,17 @@ impl PersistentRouteEngine {
             .collect()
         };
 
+        // Exclusions are user decisions living on junction rows the wipe
+        // below cascades away. Read them first so the re-insert can put
+        // them back on the surviving section ids.
+        let carried_exclusions = capture_auto_exclusions(&tx)?;
+
         // Clear existing auto sections (keep custom, trimmed, and accepted
         // sections — and disabled ones, whose row is retained so enable can
         // restore it with members intact; the disabled corridor is separately
         // suppressed via section_intents, so sparing the row cannot resurrect it).
         // Deleting the section cascades its section_activities rows (FK ON DELETE
-        // CASCADE), so this needs no separate junction delete. The cascade also
-        // does NOT fire the visit_count recompute triggers (recursive_triggers is
-        // off), so a full re-detect pays no per-row trigger cost on the wipe.
+        // CASCADE), so this needs no separate junction delete.
         tx.execute(
             "DELETE FROM sections WHERE section_type = 'auto' AND original_polyline_json IS NULL AND is_user_defined = 0 AND disabled = 0",
             [],
@@ -1642,6 +1744,10 @@ impl PersistentRouteEngine {
         // Drop prepared statements before committing (they hold borrows on tx)
         drop(section_stmt);
         drop(junction_stmt);
+
+        // Sections whose id survived the re-detect get their exclusions
+        // back; a section that died has no rows and the updates are no-ops.
+        reapply_auto_exclusions(&tx, &carried_exclusions)?;
 
         // B4: write the identity-registry blob in THIS transaction so the
         // registry and the catalogue it describes commit (or roll back) together.
