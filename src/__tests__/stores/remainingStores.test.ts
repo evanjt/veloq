@@ -45,6 +45,54 @@ const WHATS_NEW_KEY = 'veloq-whats-new-seen';
 const TILE_CACHE_KEY = 'veloq-tile-cache';
 
 // ================================================================
+// Declared defaults
+// ================================================================
+
+/**
+ * Expected behaviour: every store declares un-loaded, inert defaults so callers gate
+ * on isLoaded instead of rendering persisted-looking state before initialize() runs.
+ * Each test dirties the shared singleton first, then reads a store built from a fresh
+ * module registry, so what is asserted is the declaration and not leftover state.
+ */
+describe('declared defaults', () => {
+  function freshState(path: string, hookName: string): Record<string, unknown> {
+    let state: Record<string, unknown> = {};
+    jest.isolateModules(() => {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const mod = require(path) as Record<string, { getState: () => Record<string, unknown> }>;
+      state = mod[hookName].getState();
+    });
+    return state;
+  }
+
+  it('DebugStore starts locked, disabled, and un-loaded', () => {
+    useDebugStore.setState({ unlocked: true, enabled: true, isLoaded: true });
+    const state = freshState('@/features/settings/stores/DebugStore', 'useDebugStore');
+    expect(state.unlocked).toBe(false);
+    expect(state.enabled).toBe(false);
+    expect(state.isLoaded).toBe(false);
+  });
+
+  it('WhatsNewStore starts with no seen version, no tour, and un-loaded', () => {
+    useWhatsNewStore.setState({
+      lastSeenVersion: '9.9.9',
+      isLoaded: true,
+      tourState: { mode: 'tutorial', resumeIndex: 4, exploring: true, tip: null },
+    });
+    const state = freshState('@/features/settings/stores/WhatsNewStore', 'useWhatsNewStore');
+    expect(state.lastSeenVersion).toBeNull();
+    expect(state.tourState).toBeNull();
+    expect(state.isLoaded).toBe(false);
+  });
+
+  it('TileCacheStore starts un-loaded', () => {
+    useTileCacheStore.setState({ isLoaded: true });
+    const state = freshState('@/features/maps/stores/TileCacheStore', 'useTileCacheStore');
+    expect(state.isLoaded).toBe(false);
+  });
+});
+
+// ================================================================
 // DebugStore
 // ================================================================
 
@@ -57,15 +105,6 @@ describe('DebugStore', () => {
     });
     await AsyncStorage.clear();
     jest.clearAllMocks();
-  });
-
-  describe('initial state', () => {
-    it('has correct defaults', () => {
-      const state = useDebugStore.getState();
-      expect(state.unlocked).toBe(false);
-      expect(state.enabled).toBe(false);
-      expect(state.isLoaded).toBe(false);
-    });
   });
 
   describe('initialize()', () => {
@@ -162,15 +201,6 @@ describe('WhatsNewStore', () => {
     });
     await AsyncStorage.clear();
     jest.clearAllMocks();
-  });
-
-  describe('initial state', () => {
-    it('has correct defaults', () => {
-      const state = useWhatsNewStore.getState();
-      expect(state.lastSeenVersion).toBeNull();
-      expect(state.isLoaded).toBe(false);
-      expect(state.tourState).toBeNull();
-    });
   });
 
   describe('initialize()', () => {
@@ -291,12 +321,6 @@ describe('TileCacheStore', () => {
     useTileCacheStore.setState({ isLoaded: false });
     await AsyncStorage.clear();
     jest.clearAllMocks();
-  });
-
-  describe('initial state', () => {
-    it('has correct defaults', () => {
-      expect(useTileCacheStore.getState().isLoaded).toBe(false);
-    });
   });
 
   describe('initialize()', () => {

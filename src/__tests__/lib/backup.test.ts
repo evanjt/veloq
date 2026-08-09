@@ -21,6 +21,7 @@ const mockEngine = {
   destroyEngine: jest.fn(),
   getActivityCount: jest.fn().mockReturnValue(100),
   notifyAll: jest.fn(),
+  getSetting: jest.fn().mockReturnValue(null),
 };
 
 const mockNativeModule = {
@@ -135,6 +136,7 @@ jest.mock('expo-constants', () => ({
 }));
 
 import { createBackup, restoreBackup, restoreDatabaseBackup } from '@/features/settings/lib/backup';
+import { getLastBackupTimestamp } from '@/features/settings/lib/autobackup';
 import * as FileSystem from 'expo-file-system/legacy';
 import { queryClient } from '@/shared/query/QueryProvider';
 
@@ -476,25 +478,19 @@ describe('restoreDatabaseBackup (SQLite snapshot) - data-loss guards', () => {
   });
 });
 
-describe('getLastBackupTimestamp falsy zero bug (autoBackup.ts:82)', () => {
-  // autoBackup.ts:82 uses: `return value ? Number(value) : null;`
-  // The bug: when the stored value is '0', Number('0') === 0 which is falsy,
-  // so the ternary returns null instead of 0.
+describe('getLastBackupTimestamp', () => {
+  it('reads the stored epoch millis', () => {
+    mockEngine.getSetting.mockReturnValue('1712345678000');
+    expect(getLastBackupTimestamp()).toBe(1712345678000);
+  });
 
-  // Replicate the exact pattern from autoBackup.ts:82
-  function parseStoredTimestamp(value: string | null | undefined): number | null {
-    return value != null ? Number(value) : null;
-  }
-
-  it('parses stored timestamps, distinguishing zero from null', () => {
-    expect(parseStoredTimestamp('1712345678000')).toBe(1712345678000);
-    expect(parseStoredTimestamp('42')).toBe(42);
-    expect(parseStoredTimestamp('3.14')).toBeCloseTo(3.14);
-    expect(parseStoredTimestamp(null)).toBeNull();
-    expect(parseStoredTimestamp(undefined)).toBeNull();
-    // '0' must stay 0, not null - Number('0') is falsy but value != null guards it.
-    expect(parseStoredTimestamp('0')).toBe(0);
-    // empty string passes the value != null guard through to Number('') = 0.
-    expect(parseStoredTimestamp('')).toBe(0);
+  it('reports never-backed-up only when nothing is stored', () => {
+    mockEngine.getSetting.mockReturnValue(null);
+    expect(getLastBackupTimestamp()).toBeNull();
+    mockEngine.getSetting.mockReturnValue(undefined);
+    expect(getLastBackupTimestamp()).toBeNull();
+    // A stored '0' is a real timestamp, not "never" - it must survive the guard.
+    mockEngine.getSetting.mockReturnValue('0');
+    expect(getLastBackupTimestamp()).toBe(0);
   });
 });

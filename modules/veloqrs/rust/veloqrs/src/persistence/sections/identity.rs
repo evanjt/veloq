@@ -737,7 +737,7 @@ impl PersistentRouteEngine {
             .query_row(
                 "SELECT COUNT(*), MIN(a.start_date), MAX(a.start_date)
                  FROM section_activities sa JOIN activities a ON a.id = sa.activity_id
-                 WHERE sa.section_id = ?",
+                 WHERE sa.section_id = ? AND sa.excluded = 0",
                 rusqlite::params![real_id],
                 |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
             )

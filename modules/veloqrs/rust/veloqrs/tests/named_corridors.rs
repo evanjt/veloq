@@ -335,6 +335,31 @@ fn restore_list_shows_the_corridor_name() {
     );
 }
 
+/// The restore list exists to show disabled rows, so a named-then-disabled
+/// corridor must keep its name there: the overlay resolves only against
+/// visible rows, and a disabled row is exactly the row that list shows.
+#[test]
+fn restore_list_names_a_disabled_corridor() {
+    let corpus = corpus();
+    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
+    let cold = ingest_step(&mut engine, "cold", &corpus.through_a());
+    let (id, _) = busiest_section(&cold.snapshot).expect("cold detect produced a section");
+
+    engine.set_section_name(&id, Some(NAME)).expect("set name");
+    engine.disable_section(&id).expect("disable_section");
+
+    let all_name = engine
+        .get_all_section_summaries(None)
+        .into_iter()
+        .find(|s| s.id == id)
+        .and_then(|s| s.name);
+    assert_eq!(
+        all_name.as_deref(),
+        Some(NAME),
+        "a named corridor must not lose its name in the restore list when disabled"
+    );
+}
+
 /// The suppression-trap regression. After D1 a name becomes a
 /// `section_intents` row, and `durable_intent_rows` treats every intent row
 /// as a suppression ground unless it filters by kind — under which bug this

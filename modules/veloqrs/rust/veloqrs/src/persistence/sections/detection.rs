@@ -271,7 +271,18 @@ pub fn run_accumulator_backfill(db_path: &str, refresh_engine: bool) -> Result<(
         sections_to_seed.len()
     );
 
-    let section_config = tracematch::SectionConfig::default();
+    // The user's stored config, read off this connection: a non-default
+    // slider must seed accumulators the same way detection would. Falls
+    // back to defaults on a fresh install with no stored blob.
+    let section_config = conn
+        .query_row(
+            "SELECT value FROM settings WHERE key = ?",
+            [crate::persistence::settings_keys::SECTION_CONFIG_JSON],
+            |row| row.get::<_, String>(0),
+        )
+        .ok()
+        .and_then(|json| serde_json::from_str::<tracematch::SectionConfig>(&json).ok())
+        .unwrap_or_default();
     let mut seeded: u32 = 0;
     let mut skipped: u32 = 0;
 

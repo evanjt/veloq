@@ -86,17 +86,22 @@ impl SectionSnapshot {
     /// ground and usage, never by id, and sorted, so two catalogues with
     /// identical ground but renumbered ids produce the SAME signature. A
     /// frozen golden of this string is the backwards-compatibility anchor.
+    ///
+    /// The `g` field is the geometry digest. Without it a section could
+    /// translate wholesale onto different ground and keep an identical
+    /// signature, because distance and point count survive a translation.
     pub fn catalogue_signature(&self) -> String {
         let mut rows: Vec<String> = self
             .sections
             .values()
             .map(|f| {
                 format!(
-                    "{}|v{}|{}m|p{}|[{}]",
+                    "{}|v{}|{}m|p{}|g{:016x}|[{}]",
                     f.sport_type,
                     f.visit_count,
                     f.distance_meters.round() as i64,
                     f.polyline_point_count,
+                    coordinate_digest(&f.polyline),
                     f.activity_ids.iter().cloned().collect::<Vec<_>>().join(","),
                 )
             })
@@ -104,6 +109,60 @@ impl SectionSnapshot {
         rows.sort();
         rows.join("\n")
     }
+}
+
+/// FNV-1a over the polyline's coordinates rounded to five decimal places
+/// (~1 m). Rounding keeps the digest stable against float noise that is far
+/// below the detector's own tolerances, while any real move of the line
+/// changes it.
+fn coordinate_digest(polyline: &[GpsPoint]) -> u64 {
+    let mut h: u64 = 0xcbf2_9ce4_8422_2325;
+    for p in polyline {
+        for v in [p.latitude, p.longitude] {
+            for b in ((v * 1e5).round() as i64).to_le_bytes() {
+                h ^= b as u64;
+                h = h.wrapping_mul(0x0000_0100_0000_01b3);
+            }
+        }
+    }
+    h
+}
+
+/// Two catalogues that differ only in where the line sits must not share a
+/// signature. Distance, point count, sport and membership all survive a
+/// wholesale translation, so the geometry digest is the only thing separating
+/// them, and every self-comparison contract rests on that.
+#[test]
+fn signature_separates_translated_ground() {
+    let at = |lat: f64| SectionSnapshot {
+        sections: [(
+            "sec_ride_0".to_string(),
+            SectionFingerprint {
+                activity_ids: ["a1".to_string(), "a2".to_string()].into_iter().collect(),
+                visit_count: 2,
+                polyline_point_count: 3,
+                distance_meters: 1234.0,
+                polyline: vec![
+                    GpsPoint::new(lat, 7.35),
+                    GpsPoint::new(lat + 0.01, 7.36),
+                    GpsPoint::new(lat + 0.02, 7.37),
+                ],
+                sport_type: "Ride".to_string(),
+                is_user_defined: false,
+            },
+        )]
+        .into_iter()
+        .collect(),
+    };
+    assert_eq!(
+        at(46.23).catalogue_signature(),
+        at(46.23).catalogue_signature()
+    );
+    assert_ne!(
+        at(46.23).catalogue_signature(),
+        at(46.40).catalogue_signature(),
+        "a section translated onto different ground kept its signature"
+    );
 }
 
 /// Metres between two points (haversine). Local so the harness owns its
@@ -357,9 +416,13 @@ pub fn refs(activities: &[LifecycleActivity]) -> Vec<&LifecycleActivity> {
 
 /// Fraction of `before`'s section ids still present in `after`. Exact. Low id
 /// survival across an expand is the renumber discontinuity.
+///
+/// An empty `before` scores 0.0, not 1.0: there is nothing to survive, so no
+/// gate may read it as a pass. Call sites assert the catalogue is populated
+/// first, which is the honest place for that check to fail.
 pub fn id_survival(before: &SectionSnapshot, after: &SectionSnapshot) -> f64 {
     if before.sections.is_empty() {
-        return 1.0;
+        return 0.0;
     }
     let survived = before
         .sections
@@ -372,9 +435,12 @@ pub fn id_survival(before: &SectionSnapshot, after: &SectionSnapshot) -> f64 {
 /// Fraction of `before`'s sections whose ground (geo_key proxy) still appears
 /// in `after`, regardless of id. High ground survival with low id survival is
 /// exactly "same sections, reshuffled" — the thing to eliminate.
+///
+/// An empty `before` scores 0.0 for the same reason as `id_survival`: an
+/// undefined comparison must never read as a pass.
 pub fn ground_survival(before: &SectionSnapshot, after: &SectionSnapshot) -> f64 {
     if before.sections.is_empty() {
-        return 1.0;
+        return 0.0;
     }
     let after_sections: Vec<&SectionFingerprint> = after.sections.values().collect();
     let survived = before
@@ -391,6 +457,9 @@ pub fn ground_survival(before: &SectionSnapshot, after: &SectionSnapshot) -> f64
 /// asks the real question — did the id follow its ground? Low today (ids are
 /// positional and renumber); B2's assign-once identity layer is what drives it
 /// up. This is what the identity gate asserts on, never raw id survival.
+///
+/// No survivors scores 0.0. That case is a wiped catalogue, and scoring it a
+/// perfect 1.0 made every identity gate pass on nothing at all.
 pub fn identity_retention(before: &SectionSnapshot, after: &SectionSnapshot) -> f64 {
     let survivors: Vec<(&String, &SectionFingerprint)> = before
         .sections
@@ -398,7 +467,7 @@ pub fn identity_retention(before: &SectionSnapshot, after: &SectionSnapshot) -> 
         .filter(|(_, f)| after.sections.values().any(|g| ground_matches(f, g)))
         .collect();
     if survivors.is_empty() {
-        return 1.0;
+        return 0.0;
     }
     let kept = survivors
         .iter()
@@ -410,6 +479,41 @@ pub fn identity_retention(before: &SectionSnapshot, after: &SectionSnapshot) -> 
         })
         .count();
     kept as f64 / survivors.len() as f64
+}
+
+/// A wiped or never-formed catalogue must score zero on every survival metric.
+/// Scoring it 1.0 let the identity gates pass while asserting on nothing.
+#[test]
+fn survival_metrics_never_pass_on_an_empty_catalogue() {
+    let empty = SectionSnapshot {
+        sections: BTreeMap::new(),
+    };
+    let populated = SectionSnapshot {
+        sections: [(
+            "sec_ride_0".to_string(),
+            SectionFingerprint {
+                activity_ids: ["a1".to_string()].into_iter().collect(),
+                visit_count: 2,
+                polyline_point_count: 2,
+                distance_meters: 500.0,
+                polyline: vec![GpsPoint::new(46.23, 7.35), GpsPoint::new(46.24, 7.36)],
+                sport_type: "Ride".to_string(),
+                is_user_defined: false,
+            },
+        )]
+        .into_iter()
+        .collect(),
+    };
+
+    assert_eq!(id_survival(&empty, &empty), 0.0);
+    assert_eq!(ground_survival(&empty, &empty), 0.0);
+    assert_eq!(identity_retention(&empty, &empty), 0.0);
+
+    assert_eq!(id_survival(&populated, &empty), 0.0);
+    assert_eq!(ground_survival(&populated, &empty), 0.0);
+    assert_eq!(identity_retention(&populated, &empty), 0.0);
+
+    assert_eq!(identity_retention(&populated, &populated), 1.0);
 }
 
 /// The busiest section (highest visit count, most robust ground), for edit

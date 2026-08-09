@@ -368,6 +368,24 @@ impl SyncService {
 /// The process-wide sync service.
 pub static SYNC_SERVICE: Lazy<SyncService> = Lazy::new(SyncService::new);
 
+/// Releases the running slot when a sync task unwinds.
+///
+/// Tokio catches the panic, so without this the skipped `finish()` leaves
+/// state=Syncing and `try_begin()` refuses every later sync for the session.
+pub(crate) struct FinishGuard;
+
+impl Drop for FinishGuard {
+    fn drop(&mut self) {
+        if std::thread::panicking() {
+            SYNC_SERVICE.finish(
+                SyncState::Idle,
+                Some("sync task panicked".to_string()),
+                false,
+            );
+        }
+    }
+}
+
 /// Keys for on-demand fetches currently in flight.
 ///
 /// These do not take the exclusive sync slot: a screen asking for a power
@@ -765,22 +783,6 @@ impl SyncManager {
         match SYNC_SERVICE.build_transport() {
             Ok((transport, athlete_id)) => {
                 crate::runtime::spawn(async move {
-                    // Release the running slot even if perform_sync panics
-                    // (tokio catches the panic, but a skipped finish() would
-                    // leave state=Syncing and try_begin() refusing every
-                    // future sync for the session).
-                    struct FinishGuard;
-                    impl Drop for FinishGuard {
-                        fn drop(&mut self) {
-                            if std::thread::panicking() {
-                                SYNC_SERVICE.finish(
-                                    SyncState::Idle,
-                                    Some("sync task panicked".to_string()),
-                                    false,
-                                );
-                            }
-                        }
-                    }
                     let _guard = FinishGuard;
                     perform_sync(&SYNC_SERVICE, transport, athlete_id).await;
                 });
@@ -803,18 +805,6 @@ impl SyncManager {
         match SYNC_SERVICE.build_transport() {
             Ok((transport, athlete_id)) => {
                 crate::runtime::spawn(async move {
-                    struct FinishGuard;
-                    impl Drop for FinishGuard {
-                        fn drop(&mut self) {
-                            if std::thread::panicking() {
-                                SYNC_SERVICE.finish(
-                                    SyncState::Idle,
-                                    Some("sync task panicked".to_string()),
-                                    false,
-                                );
-                            }
-                        }
-                    }
                     let _guard = FinishGuard;
                     SYNC_SERVICE.begin_steps(1);
                     match sync_activity_window(&transport, &athlete_id, &oldest, &newest).await {
@@ -1500,6 +1490,29 @@ mod tests {
         let json = serde_json::to_value(&body).unwrap();
         assert!(json.get("distance").is_none());
         assert_eq!(json["type"], "Yoga");
+    }
+
+    /// The only test that touches the process-wide `SYNC_SERVICE`: `FinishGuard`
+    /// is wired to it, not to a caller-supplied service.
+    #[test]
+    fn a_panicking_sync_task_releases_the_running_slot() {
+        assert!(SYNC_SERVICE.try_begin());
+        assert_eq!(SYNC_SERVICE.snapshot().state, "syncing");
+
+        let outcome = std::panic::catch_unwind(|| {
+            let _guard = FinishGuard;
+            panic!("perform_sync blew up");
+        });
+        assert!(outcome.is_err());
+
+        let s = SYNC_SERVICE.snapshot();
+        assert_eq!(s.state, "idle", "a wedged slot never returns to idle");
+        assert_eq!(s.last_error.as_deref(), Some("sync task panicked"));
+        assert!(
+            SYNC_SERVICE.try_begin(),
+            "every later sync for the session is refused without the guard"
+        );
+        SYNC_SERVICE.finish(SyncState::Idle, None, false);
     }
 
     #[test]

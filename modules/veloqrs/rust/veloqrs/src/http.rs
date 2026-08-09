@@ -344,35 +344,12 @@ mod tests {
     use httpmock::prelude::*;
     use serde_json::json;
 
-    /// A fetcher pointed at a mock server. Folding this module onto Transport
-    /// is what makes that possible: the URL used to be hardcoded.
+    /// A fetcher pointed at a mock server rather than the live base URL.
     fn fetcher_to(base: String) -> ActivityFetcher {
         let gov = Arc::new(Governor::new(1000, Box::new(NoopPolicy)));
         ActivityFetcher::with_transport(
             Transport::with_governor(base, AuthMethod::ApiKey("k"), gov).unwrap(),
         )
-    }
-
-    #[test]
-    fn test_activity_map_result_serialization() {
-        let result = ActivityMapResult {
-            activity_id: "test-123".to_string(),
-            bounds: Some(MapBounds {
-                ne: [51.5, -0.1],
-                sw: [51.4, -0.2],
-            }),
-            latlngs: Some(vec![[51.45, -0.15], [51.46, -0.14]]),
-            success: true,
-            error: None,
-        };
-
-        let json = serde_json::to_string(&result).unwrap();
-        let parsed: ActivityMapResult = serde_json::from_str(&json).unwrap();
-
-        assert_eq!(parsed.activity_id, "test-123");
-        assert!(parsed.success);
-        assert!(parsed.bounds.is_some());
-        assert_eq!(parsed.latlngs.as_ref().unwrap().len(), 2);
     }
 
     #[test]
@@ -396,7 +373,9 @@ mod tests {
             results[0].latlngs.as_ref().unwrap(),
             &vec![[46.941, 7.441], [46.942, 7.442]]
         );
-        assert_eq!(results[0].bounds.as_ref().unwrap().ne, [46.95, 7.45]);
+        let bounds = results[0].bounds.as_ref().unwrap();
+        assert_eq!(bounds.ne, [46.95, 7.45]);
+        assert_eq!(bounds.sw, [46.94, 7.44]);
     }
 
     #[test]

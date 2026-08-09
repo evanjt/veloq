@@ -2,8 +2,8 @@
  * Tests for crash-recovery backup storage.
  *
  * Covers: buildRecordingBackup (state snapshot → backup, ongoing-pause fold,
- * non-restorable states), save/load round-trip, schema validation (version,
- * status, stopTime), and the restore-time paused-duration credit maths.
+ * non-restorable states), save/load round-trip, and schema validation
+ * (version, status, stopTime).
  */
 
 jest.mock('@/shared/debug/debug', () => ({
@@ -42,7 +42,7 @@ import {
   clearRecordingBackup,
   hasRecordingBackup,
 } from '@/features/recording/lib/storage/recordingBackup';
-import type { RecordingBackup, RecordingStreams } from '@/features/recording/types';
+import type { RecordingStreams } from '@/features/recording/types';
 
 const BACKUP_PATH = '/mock/docs/recording_backup.json';
 
@@ -173,20 +173,13 @@ describe('save/load round-trip', () => {
   });
 });
 
-describe('restore paused-duration credit', () => {
-  // Mirrors the restore handler in record.tsx: the savedAt→now gap is credited
-  // as paused time so moving time does not inflate across an app kill.
-  it('credits the offline gap', () => {
-    const backup: RecordingBackup = buildRecordingBackup(makeState())!;
-    const restoreTime = backup.savedAt + 120_000;
-    const restored = backup.pausedDuration + Math.max(0, restoreTime - backup.savedAt);
-    expect(restored).toBe(5_000 + 120_000);
-  });
-
-  it('never subtracts when clocks skew backwards', () => {
-    const backup: RecordingBackup = buildRecordingBackup(makeState())!;
-    const restoreTime = backup.savedAt - 60_000;
-    const restored = backup.pausedDuration + Math.max(0, restoreTime - backup.savedAt);
-    expect(restored).toBe(5_000);
+describe('savedAt stamping', () => {
+  // Restore credits the savedAt→now gap as paused time, so savedAt has to be
+  // the moment of the snapshot rather than the moment recording started.
+  it('stamps the snapshot with the current clock, not the start time', () => {
+    const now = 1_500_000;
+    jest.spyOn(Date, 'now').mockReturnValue(now);
+    const backup = buildRecordingBackup(makeState({ startTime: 1_000_000 }))!;
+    expect(backup.savedAt).toBe(now);
   });
 });

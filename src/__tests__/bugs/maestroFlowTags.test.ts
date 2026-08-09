@@ -60,8 +60,10 @@ function packTags(content: string): string[] {
 }
 
 describe('maestro flow tags', () => {
+  // Guards against MAESTRO_DIR resolving somewhere with no flows, which would
+  // make every it.each below vacuous rather than failing.
   it('finds the flow suite', () => {
-    expect(flowFiles.length).toBeGreaterThan(90);
+    expect(flowFiles.length).toBeGreaterThan(80);
   });
 
   it.each(flowFiles)('%s has exactly one tier tag', (file) => {

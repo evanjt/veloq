@@ -344,6 +344,37 @@ fn both_summary_paths_agree_on_a_lapped_section() {
     );
 }
 
+/// Guard, green from birth: the single-section detail read serves the
+/// trigger-maintained column, the same number the summaries carry. Pins
+/// the column as the one owner after the last independent COUNT(*) was
+/// retired from `get_section_visit_count`.
+#[test]
+fn the_section_detail_read_serves_the_column() {
+    let mut s = setup_lapped_oval();
+    s.engine.load().expect("load");
+
+    s.raw
+        .execute(
+            "UPDATE section_activities SET excluded = 1
+             WHERE section_id = 'sec_oval' AND activity_id = 'act_intervals' AND start_index = 100",
+            [],
+        )
+        .expect("exclude one lap");
+
+    let detail = s.engine.get_section("sec_oval").expect("section detail");
+    let summary = s
+        .engine
+        .get_section_summaries()
+        .into_iter()
+        .find(|x| x.id == "sec_oval")
+        .expect("oval summary");
+    assert_eq!(
+        detail.visit_count, summary.visit_count,
+        "detail and summary must serve the one column"
+    );
+    assert_eq!(detail.visit_count, 3);
+}
+
 #[test]
 fn excluding_a_lap_drops_one_traversal_but_keeps_the_outing() {
     let mut s = setup_lapped_oval();

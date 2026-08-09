@@ -14,29 +14,25 @@ import {
 
 describe('temporal boundaries', () => {
   describe('year boundary', () => {
-    it('formatRelativeDate handles Dec 31 to Jan 1 transition', () => {
-      // Mock "today" as Jan 1, 2026
-      jest.useFakeTimers();
+    beforeEach(() => jest.useFakeTimers());
+    afterEach(() => jest.useRealTimers());
+
+    it('calls Dec 31 "Yesterday" when today is Jan 1', () => {
       jest.setSystemTime(new Date('2026-01-01T12:00:00'));
 
-      // Yesterday (Dec 31) should show as "Yesterday" or the weekday
-      const result = formatRelativeDate('2025-12-31T12:00:00');
-      expect(result).toBeTruthy();
-      expect(result).not.toContain('NaN');
-      expect(result).not.toContain('Invalid');
-
-      jest.useRealTimers();
+      expect(formatRelativeDate('2025-12-31T12:00:00')).toBe('Yesterday');
     });
 
-    it('formatRelativeDate handles same day across year boundary', () => {
-      jest.useFakeTimers();
+    it('calls the same calendar day "Today" just after midnight', () => {
       jest.setSystemTime(new Date('2026-01-01T00:30:00'));
 
-      const result = formatRelativeDate('2026-01-01T00:00:00');
-      // Should show "Today" for same day
-      expect(result).toBeTruthy();
+      expect(formatRelativeDate('2026-01-01T00:00:00')).toBe('Today');
+    });
 
-      jest.useRealTimers();
+    it('keeps the year on a date from a previous year', () => {
+      jest.setSystemTime(new Date('2026-01-01T12:00:00'));
+
+      expect(formatRelativeDate('2024-11-20T12:00:00')).toContain('2024');
     });
   });
 
@@ -47,10 +43,11 @@ describe('temporal boundaries', () => {
       expect(result).toBe('2024-02-29');
     });
 
-    it('formatShortDate handles Feb 29', () => {
+    it('formatShortDate keeps the 29th of a leap February and drops the year', () => {
+      // Locale decides the layout, so match on the day rather than the order.
       const result = formatShortDate('2024-02-29T12:00:00');
-      expect(result).toBeTruthy();
-      expect(result).not.toContain('Invalid');
+      expect(result).toMatch(/29/);
+      expect(result).not.toMatch(/2024/);
     });
   });
 
@@ -90,16 +87,13 @@ describe('temporal boundaries', () => {
   });
 
   describe('edge time values', () => {
-    it('formatLocalDate handles midnight exactly', () => {
-      const midnight = new Date('2026-01-15T00:00:00');
-      const result = formatLocalDate(midnight);
-      expect(result).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    it('formatLocalDate keeps midnight and the last millisecond on the same day', () => {
+      expect(formatLocalDate(new Date('2026-01-15T00:00:00'))).toBe('2026-01-15');
+      expect(formatLocalDate(new Date('2026-01-15T23:59:59.999'))).toBe('2026-01-15');
     });
 
-    it('formatLocalDate handles end of day', () => {
-      const endOfDay = new Date('2026-01-15T23:59:59.999');
-      const result = formatLocalDate(endOfDay);
-      expect(result).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    it('formatLocalDate zero-pads single-digit months and days', () => {
+      expect(formatLocalDate(new Date('2026-03-07T12:00:00'))).toBe('2026-03-07');
     });
   });
 });

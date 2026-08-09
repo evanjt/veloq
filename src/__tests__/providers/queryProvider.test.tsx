@@ -80,7 +80,7 @@ jest.mock('@/i18n', () => ({
 import React from 'react';
 import { render } from '@testing-library/react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Alert, AppState } from 'react-native';
+import { Alert, AppState, Text } from 'react-native';
 import { focusManager, QueryClient } from '@tanstack/react-query';
 
 // Silence Alert.alert at runtime (not via jest.mock to avoid TurboModule init).
@@ -205,6 +205,9 @@ describe('QueryProvider', () => {
 
     it('sets 24h maxAge, attaches persister, registers onSuccess/onError', () => {
       const props = providerCapture().props;
+      // The module singleton, not a second client, otherwise nothing the app reads
+      // through useQuery shares the persisted cache.
+      expect(props.client).toBe(queryClient);
       expect(props.persistOptions.maxAge).toBe(1000 * 60 * 60 * 24);
       expect(props.persistOptions.persister).toBeDefined();
       expect(typeof props.onSuccess).toBe('function');
@@ -320,13 +323,12 @@ describe('QueryProvider', () => {
 
   describe('QueryProvider rendering', () => {
     it('renders children inside the provider', () => {
-      render(
+      const { getByText } = render(
         <QueryProvider>
-          <></>
+          <Text>child marker</Text>
         </QueryProvider>
       );
-      // Provider must mount without throwing; capture confirms the render path ran
-      expect(providerCapture().props.children).toBeDefined();
+      expect(getByText('child marker')).toBeTruthy();
     });
   });
 

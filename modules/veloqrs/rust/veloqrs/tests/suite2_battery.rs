@@ -1,11 +1,11 @@
 //! Suite #2 — Battery.
 //!
 //! The new base (`DetectionMethod::Unified`) driven through the same journeys
-//! as the Control baseline (Suite #1), over the shared harness. Live checks
-//! pass today; identity, incremental-persistence, hysteresis, and concurrency
-//! assertions are `#[ignore]` target gates that flip green as B1/B2/B4 land.
+//! as the Control baseline (Suite #1), over the shared harness. Every check
+//! here is live: the identity, order-freedom, and incremental-persistence
+//! invariants B1/B2 deliver are asserted, not printed.
 //!
-//! Run: `cargo test -p veloqrs --features synthetic --test suite2_battery -- --nocapture`
+//! Run: `cargo test -p veloqrs --features synthetic --test suite2_battery`
 
 mod lifecycle_support;
 
@@ -101,10 +101,10 @@ fn order_free_cold_batch() {
     }
 }
 
-/// Target gate (B2 identity layer): the Battery keeps section identity across
-/// an expand — most cold-catalogue ids still address the same ground
-/// afterwards. Fails today because ids are still positional and renumber on
-/// every set change; flips green when the assign-once identity layer lands.
+/// Invariant (B2 identity layer): the Battery keeps section identity across an
+/// expand — most cold-catalogue ids still address the same ground afterwards.
+/// The assign-once identity layer carries the id with the corridor, so widening
+/// the sync window adds sections instead of renumbering them.
 #[test]
 fn battery_expand_preserves_identity() {
     let corpus = corpus();
