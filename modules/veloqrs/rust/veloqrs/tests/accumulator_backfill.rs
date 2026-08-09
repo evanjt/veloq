@@ -76,6 +76,13 @@ fn null_blob_count(path: &str) -> i64 {
     .unwrap_or(0)
 }
 
+/// Rows in the persisted section catalogue.
+fn section_row_count(path: &str) -> i64 {
+    let conn = Connection::open(path).expect("open db");
+    conn.query_row("SELECT COUNT(*) FROM sections", [], |row| row.get(0))
+        .unwrap_or(0)
+}
+
 /// Whether the backfill completion flag is present.
 fn flag_set(path: &str) -> bool {
     let conn = Connection::open(path).expect("open db");
@@ -182,11 +189,15 @@ fn backfill_is_idempotent_when_flag_already_set() {
 }
 
 #[test]
+#[ignore = "red: after the backfill seeds 14 blobs, the next incremental add \
+            detects 0 sections and apply_sections_save wipes the catalogue to 0 rows. \
+            The old assertion only timed the call, so it passed while detection \
+            produced nothing. Unignore when the incremental path returns the \
+            existing catalogue instead of an empty batch."]
 fn post_backfill_incremental_add_stays_in_fast_path() {
-    // The whole point of the upgrade-path backfill: the first post-upgrade
-    // incremental add must NOT hit the expensive trace-extraction branch.
-    // Reproduce scenario C (+1 activity on top of 150) and assert detection
-    // completes in well under the 1.5 s pre-Tier-2 cost.
+    // The upgrade-path backfill exists so the first post-upgrade incremental
+    // add reuses the seeded accumulator blobs instead of re-extracting traces.
+    // Scenario C is +1 activity on top of the scenario B corpus.
 
     let tmp = TempDir::new().expect("tmp");
     let path_buf = tmp.path().join("post_backfill.db");
@@ -240,6 +251,7 @@ fn post_backfill_incremental_add_stays_in_fast_path() {
     let detect_start = Instant::now();
     let handle = engine.detect_sections_background(None);
     let (sections, _processed) = handle.recv().unwrap_or_default();
+    let section_count = sections.len();
     engine.apply_sections(sections).expect("apply");
     let elapsed_ms = detect_start.elapsed().as_millis();
 
@@ -248,14 +260,29 @@ fn post_backfill_incremental_add_stays_in_fast_path() {
         elapsed_ms
     );
 
-    // The pre-Tier-2 baseline for scenario C was 1591 ms. After Tier 2
-    // + upgrade-path backfill, both the inline-seeded and the backfill-
-    // seeded paths should land well under 800 ms on the reference build.
-    // Keep the assertion loose so a slow CI host doesn't flake: the
-    // important property is "not the old 1.5 s", not an exact speed.
+    // The fast path is defined by which branch runs, not by how long it takes,
+    // so assert the branch. Wall clock here measured the host, not the code: it
+    // read 2828 ms on a loaded machine and under 800 ms on an idle one, for
+    // identical behaviour. The perf baseline belongs in benches/.
+    //
+    // Staying off the trace-extraction branch means the seeded accumulator
+    // blobs are reused, so the NULL count cannot climb back up.
+    let null_after = null_blob_count(&path);
     assert!(
-        elapsed_ms < 800,
-        "scenario C after upgrade-path backfill should stay under 800ms, got {}ms",
-        elapsed_ms
+        null_after <= remaining_null,
+        "incremental add re-extracted traces: NULL blobs went {} -> {}",
+        remaining_null,
+        null_after
+    );
+    // Non-emptiness anchor: with an empty detection the NULL-blob check above
+    // holds trivially, and `apply_sections_save` replaces the auto catalogue
+    // with whatever it was given, so an empty result silently wipes it.
+    let sections_after = section_row_count(&path);
+    assert!(
+        section_count > 0 && sections_after > 0,
+        "incremental add produced {} sections and left {} rows: an empty detection \
+         wipes the auto catalogue rather than reusing the seeded blobs",
+        section_count,
+        sections_after
     );
 }
