@@ -25,7 +25,7 @@ pub(super) use detection::spawn_accumulator_backfill;
 use crate::{FrequentSection, GpsPoint, SectionPortion};
 use chrono::Utc;
 use rusqlite::{Result as SqlResult, params, types::Type};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use super::{PersistentRouteEngine, SectionSummary, codec, get_section_word};
 
@@ -483,6 +483,22 @@ impl PersistentRouteEngine {
             .collect()
     }
 
+    /// Distinct activities crossing the drawn line, the population the DB view
+    /// counts from junction rows. `activity_ids` holds cluster contributors,
+    /// which the render trim can differ from, so flooring on it would hide a
+    /// section the summaries show. Falls back when no portions exist, matching
+    /// the detector's own guard on the drawn set.
+    fn outings(s: &FrequentSection) -> u32 {
+        if s.activity_portions.is_empty() {
+            return s.activity_ids.len() as u32;
+        }
+        s.activity_portions
+            .iter()
+            .map(|p| &p.activity_id)
+            .collect::<HashSet<_>>()
+            .len() as u32
+    }
+
     /// Get sections filtered by sport type and/or minimum outings.
     /// Filters in-memory sections to avoid FFI overhead for non-matching entries.
     pub fn get_sections_filtered(
@@ -495,10 +511,7 @@ impl PersistentRouteEngine {
         // came back.
         self.sections
             .iter()
-            .filter(|s| {
-                sport_type.map_or(true, |st| s.sport_type == st)
-                    && s.activity_ids.len() as u32 >= min
-            })
+            .filter(|s| sport_type.map_or(true, |st| s.sport_type == st) && Self::outings(s) >= min)
             .filter(|s| !self.superseded_ids.contains(&s.id))
             .collect()
     }
