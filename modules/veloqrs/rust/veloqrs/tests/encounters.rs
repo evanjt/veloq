@@ -293,8 +293,24 @@ fn a_lapped_section_is_one_encounter_carrying_the_fastest_lap() {
 
     // Deliberately not in time order, and the slowest lap is written last.
     insert_traversal(&s.raw, "sec_oval", "act_intervals", "same", 0, 400.0, 110.0);
-    insert_traversal(&s.raw, "sec_oval", "act_intervals", "same", 100, 400.0, 90.0);
-    insert_traversal(&s.raw, "sec_oval", "act_intervals", "same", 200, 400.0, 105.0);
+    insert_traversal(
+        &s.raw,
+        "sec_oval",
+        "act_intervals",
+        "same",
+        100,
+        400.0,
+        90.0,
+    );
+    insert_traversal(
+        &s.raw,
+        "sec_oval",
+        "act_intervals",
+        "same",
+        200,
+        400.0,
+        105.0,
+    );
 
     let encounters = s.engine.get_activity_section_encounters("act_intervals");
 

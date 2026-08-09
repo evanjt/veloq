@@ -229,7 +229,10 @@ fn a_database_left_stale_by_an_older_build_repairs_on_open() {
             |r| r.get(0),
         )
         .expect("read stale count");
-    assert_eq!(stale, 1, "the older build's merge must leave the count stale");
+    assert_eq!(
+        stale, 1,
+        "the older build's merge must leave the count stale"
+    );
 
     let _engine = PersistentRouteEngine::new(&path_str).expect("reopen");
     assert_counts_true(&raw, "a reopen");
@@ -331,7 +334,10 @@ fn both_summary_paths_agree_on_a_lapped_section() {
         .expect("crud summary");
 
     assert_eq!(
-        (from_persistence.visit_count, from_persistence.activity_count),
+        (
+            from_persistence.visit_count,
+            from_persistence.activity_count
+        ),
         (from_crud.visit_count, from_crud.activity_count),
         "the two read paths must not disagree about the same section"
     );

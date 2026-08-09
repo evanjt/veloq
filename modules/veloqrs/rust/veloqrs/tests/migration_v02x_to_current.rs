@@ -1167,7 +1167,9 @@ fn seed_db_stranded_at_old_013(path: &Path) {
         M::up(include_str!(
             "../src/migrations/008_cache_all_performance_metrics.sql"
         )),
-        M::up(include_str!("../src/migrations/009_section_bounds_cache.sql")),
+        M::up(include_str!(
+            "../src/migrations/009_section_bounds_cache.sql"
+        )),
         M::up(include_str!(
             "../src/migrations/010_route_groups_activity_count.sql"
         )),
@@ -1180,7 +1182,10 @@ fn seed_db_stranded_at_old_013(path: &Path) {
     let stranded: i64 = conn
         .query_row("PRAGMA user_version", [], |r| r.get(0))
         .expect("user_version");
-    assert_eq!(stranded, 13, "the stranded database claims thirteen applied");
+    assert_eq!(
+        stranded, 13,
+        "the stranded database claims thirteen applied"
+    );
     assert!(
         conn.prepare("SELECT raw FROM wellness LIMIT 0").is_err(),
         "the stranded database must genuinely lack the column"
