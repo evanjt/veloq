@@ -6,14 +6,19 @@
 //! data on every launch. Expected behaviour: the corrupt file is quarantined
 //! (renamed aside, one generation kept) and a fresh database takes its place.
 //!
-//! Runs as a single sequential test because `persistent_engine_init` writes
-//! the process-global `PERSISTENT_ENGINE`. Integration test files are their
-//! own process, so this cannot race other test files.
+//! The tests share the process-global `PERSISTENT_ENGINE` and the process-wide
+//! panic hook, so they take `SERIAL` rather than running on cargo's default
+//! thread pool. Integration test files are their own process, so this cannot
+//! race other test files.
 
 use std::fs;
 use std::path::Path;
+use std::sync::Mutex;
 use tempfile::TempDir;
 use veloqrs::persistence::persistent_engine_ffi::persistent_engine_init;
+use veloqrs::{GpsPoint, PersistentRouteEngine};
+
+static SERIAL: Mutex<()> = Mutex::new(());
 
 fn quarantine_files(dir: &Path) -> Vec<String> {
     fs::read_dir(dir)
@@ -24,8 +29,72 @@ fn quarantine_files(dir: &Path) -> Vec<String> {
         .collect()
 }
 
+fn activity_count(db_path: &Path) -> i64 {
+    let conn = rusqlite::Connection::open(db_path).unwrap();
+    conn.query_row("SELECT COUNT(*) FROM activities", [], |row| row.get(0))
+        .unwrap()
+}
+
+/// Lock contention at launch is not corruption. Quarantining on a busy file
+/// would rename a healthy cache aside and resync from scratch, silently, for
+/// every user whose launch races a background write.
+#[test]
+fn transient_lock_does_not_quarantine() {
+    let _serial = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
+    let tmp = TempDir::new().unwrap();
+    let db_path = tmp.path().join("routes.db");
+    let db_str = db_path.to_string_lossy().into_owned();
+
+    {
+        let mut engine = PersistentRouteEngine::new(&db_str).unwrap();
+        engine
+            .add_activity(
+                "a1".to_string(),
+                vec![
+                    GpsPoint::new(46.2330, 7.3600),
+                    GpsPoint::new(46.2340, 7.3610),
+                    GpsPoint::new(46.2350, 7.3620),
+                ],
+                "Ride".to_string(),
+            )
+            .unwrap();
+    }
+    assert_eq!(activity_count(&db_path), 1, "seed must land");
+
+    // An exclusive transaction blocks every other connection for as long as it
+    // is held. Five seconds is the engine's busy_timeout, so init gives up.
+    let mut blocker = rusqlite::Connection::open(&db_path).unwrap();
+    let held = blocker
+        .transaction_with_behavior(rusqlite::TransactionBehavior::Exclusive)
+        .unwrap();
+
+    assert!(
+        !persistent_engine_init(db_str.clone()),
+        "a locked database must report failure, not recover"
+    );
+    assert!(
+        quarantine_files(tmp.path()).is_empty(),
+        "lock contention must never quarantine: {:?}",
+        quarantine_files(tmp.path())
+    );
+
+    drop(held);
+    drop(blocker);
+
+    assert_eq!(
+        activity_count(&db_path),
+        1,
+        "the cache must survive a failed launch untouched"
+    );
+    // The retry the banner offers succeeds on the same file.
+    assert!(persistent_engine_init(db_str.clone()));
+    assert!(quarantine_files(tmp.path()).is_empty());
+    assert_eq!(activity_count(&db_path), 1);
+}
+
 #[test]
 fn init_survives_corrupt_database() {
+    let _serial = SERIAL.lock().unwrap_or_else(|e| e.into_inner());
     let tmp = TempDir::new().unwrap();
     let db_path = tmp.path().join("routes.db");
     let db_str = db_path.to_string_lossy().into_owned();
@@ -42,10 +111,16 @@ fn init_survives_corrupt_database() {
     // Corrupt the file: init must quarantine it and start fresh.
     fs::write(&db_path, b"this is not a sqlite database, not even close").unwrap();
     fs::write(format!("{}-wal", db_str), b"garbage wal").unwrap();
-    assert!(
-        persistent_engine_init(db_str.clone()),
-        "init must recover from a corrupt database"
-    );
+    // A background thread the healthy init spawned may still hold the file, and
+    // SQLite then answers with a transient code that init rightly declines to
+    // quarantine on. Retry so the verdict under test is the file's own.
+    let recovered = (0..20).any(|attempt| {
+        if attempt > 0 {
+            std::thread::sleep(std::time::Duration::from_millis(50));
+        }
+        persistent_engine_init(db_str.clone())
+    });
+    assert!(recovered, "init must recover from a corrupt database");
     assert!(db_path.exists(), "a fresh database must exist");
     let generation_one = quarantine_files(tmp.path());
     assert!(
