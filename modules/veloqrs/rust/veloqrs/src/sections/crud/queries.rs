@@ -343,15 +343,34 @@ impl PersistentRouteEngine {
             .unwrap_or(0)
     }
 
-    /// Get activity IDs that are excluded from a section.
+    /// Activity IDs fully excluded from a section: no included row remains.
+    /// An activity with only some laps excluded is per-lap state, served by
+    /// `get_excluded_section_laps`.
     pub fn get_excluded_activity_ids(&self, section_id: &str) -> Vec<String> {
         let mut stmt = match self.db.prepare(
-            "SELECT DISTINCT activity_id FROM section_activities WHERE section_id = ? AND excluded = 1"
+            "SELECT activity_id FROM section_activities WHERE section_id = ?
+             GROUP BY activity_id HAVING SUM(excluded = 0) = 0",
         ) {
             Ok(s) => s,
             Err(_) => return Vec::new(),
         };
         stmt.query_map(params![section_id], |row| row.get(0))
+            .map(|rows| rows.filter_map(|r| r.ok()).collect())
+            .unwrap_or_default()
+    }
+
+    /// Every excluded junction row as an (activity, start_index) pair, the
+    /// per-lap state the lap rows render.
+    pub fn get_excluded_section_laps(&self, section_id: &str) -> Vec<(String, u32)> {
+        let mut stmt = match self.db.prepare(
+            "SELECT activity_id, start_index FROM section_activities
+             WHERE section_id = ? AND excluded = 1
+             ORDER BY activity_id, start_index",
+        ) {
+            Ok(s) => s,
+            Err(_) => return Vec::new(),
+        };
+        stmt.query_map(params![section_id], |row| Ok((row.get(0)?, row.get(1)?)))
             .map(|rows| rows.filter_map(|r| r.ok()).collect())
             .unwrap_or_default()
     }

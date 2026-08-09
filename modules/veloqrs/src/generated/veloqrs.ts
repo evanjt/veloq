@@ -2270,6 +2270,57 @@ const FfiConverterTypeFfiEfficiencyTrend = (() => {
 })();
 
 /**
+ * One excluded traversal, addressed the way the junction stores it.
+ */
+export type FfiExcludedLap = {
+  activityId: string;
+  /**
+   * Start index in the activity's GPS track
+   */
+  startIndex: /*u32*/ number;
+};
+
+/**
+ * Generated factory for {@link FfiExcludedLap} record objects.
+ */
+export const FfiExcludedLap = (() => {
+  const defaults = () => ({});
+  const create = (() => {
+    return uniffiCreateRecord<FfiExcludedLap, ReturnType<typeof defaults>>(
+      defaults,
+    );
+  })();
+  return Object.freeze({
+    create,
+    new: create,
+    defaults: () => Object.freeze(defaults()) as Partial<FfiExcludedLap>,
+  });
+})();
+
+const FfiConverterTypeFfiExcludedLap = (() => {
+  type TypeName = FfiExcludedLap;
+  class FFIConverter extends AbstractFfiConverterByteArray<TypeName> {
+    read(from: RustBuffer): TypeName {
+      return {
+        activityId: FfiConverterString.read(from),
+        startIndex: FfiConverterUInt32.read(from),
+      };
+    }
+    write(value: TypeName, into: RustBuffer): void {
+      FfiConverterString.write(value.activityId, into);
+      FfiConverterUInt32.write(value.startIndex, into);
+    }
+    allocationSize(value: TypeName): number {
+      return (
+        FfiConverterString.allocationSize(value.activityId) +
+        FfiConverterUInt32.allocationSize(value.startIndex)
+      );
+    }
+  }
+  return new FFIConverter();
+})();
+
+/**
  * Activities for a specific exercise, sorted by date DESC.
  */
 export type FfiExerciseActivities = {
@@ -11685,6 +11736,11 @@ export interface SectionManagerLike {
   disable(sectionId: string) /*throws*/ : void;
   enable(sectionId: string) /*throws*/ : void;
   excludeActivity(sectionId: string, activityId: string) /*throws*/ : void;
+  excludeLap(
+    sectionId: string,
+    activityId: string,
+    startIndex: /*u32*/ number,
+  ) /*throws*/ : void;
   expandBounds(
     sectionId: string,
     newPolylineFlat: Array</*f64*/ number>,
@@ -11779,6 +11835,7 @@ export interface SectionManagerLike {
     sectionId: string,
   ) /*throws*/ : FfiEfficiencyTrend | undefined;
   getExcludedActivities(sectionId: string) /*throws*/ : Array<string>;
+  getExcludedLaps(sectionId: string) /*throws*/ : Array<FfiExcludedLap>;
   getExcludedPerformances(
     sectionId: string,
   ) /*throws*/ : FfiSectionPerformanceResult;
@@ -11868,6 +11925,11 @@ export interface SectionManagerLike {
     entries: Array<FfiSupersededEntry>,
   ) /*throws*/ : /*u32*/ number;
   includeActivity(sectionId: string, activityId: string) /*throws*/ : void;
+  includeLap(
+    sectionId: string,
+    activityId: string,
+    startIndex: /*u32*/ number,
+  ) /*throws*/ : void;
   /**
    * Cheap post-ingest indexing for one freshly downloaded activity: match it
    * against existing sections, insert junction rows, regroup incrementally,
@@ -12095,6 +12157,28 @@ export class SectionManager
           uniffiTypeSectionManagerObjectFactory.clonePointer(this),
           FfiConverterString.lower(sectionId),
           FfiConverterString.lower(activityId),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    );
+  }
+
+  excludeLap(
+    sectionId: string,
+    activityId: string,
+    startIndex: /*u32*/ number,
+  ): void /*throws*/ {
+    uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+        FfiConverterTypeVeloqError,
+      ),
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_exclude_lap(
+          uniffiTypeSectionManagerObjectFactory.clonePointer(this),
+          FfiConverterString.lower(sectionId),
+          FfiConverterString.lower(activityId),
+          FfiConverterUInt32.lower(startIndex),
           callStatus,
         );
       },
@@ -12513,6 +12597,24 @@ export class SectionManager
         ),
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_excluded_activities(
+            uniffiTypeSectionManagerObjectFactory.clonePointer(this),
+            FfiConverterString.lower(sectionId),
+            callStatus,
+          );
+        },
+        /*liftString:*/ FfiConverterString.lift,
+      ),
+    );
+  }
+
+  getExcludedLaps(sectionId: string): Array<FfiExcludedLap> /*throws*/ {
+    return FfiConverterArrayTypeFfiExcludedLap.lift(
+      uniffiCaller.rustCallWithError(
+        /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+          FfiConverterTypeVeloqError,
+        ),
+        /*caller:*/ (callStatus) => {
+          return nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_excluded_laps(
             uniffiTypeSectionManagerObjectFactory.clonePointer(this),
             FfiConverterString.lower(sectionId),
             callStatus,
@@ -12986,6 +13088,28 @@ export class SectionManager
           uniffiTypeSectionManagerObjectFactory.clonePointer(this),
           FfiConverterString.lower(sectionId),
           FfiConverterString.lower(activityId),
+          callStatus,
+        );
+      },
+      /*liftString:*/ FfiConverterString.lift,
+    );
+  }
+
+  includeLap(
+    sectionId: string,
+    activityId: string,
+    startIndex: /*u32*/ number,
+  ): void /*throws*/ {
+    uniffiCaller.rustCallWithError(
+      /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
+        FfiConverterTypeVeloqError,
+      ),
+      /*caller:*/ (callStatus) => {
+        nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_include_lap(
+          uniffiTypeSectionManagerObjectFactory.clonePointer(this),
+          FfiConverterString.lower(sectionId),
+          FfiConverterString.lower(activityId),
+          FfiConverterUInt32.lower(startIndex),
           callStatus,
         );
       },
@@ -15657,6 +15781,11 @@ const FfiConverterArrayTypeFfiEfficiencyTrend = new FfiConverterArray(
   FfiConverterTypeFfiEfficiencyTrend,
 );
 
+// FfiConverter for Array<FfiExcludedLap>
+const FfiConverterArrayTypeFfiExcludedLap = new FfiConverterArray(
+  FfiConverterTypeFfiExcludedLap,
+);
+
 // FfiConverter for Array<FfiExerciseActivity>
 const FfiConverterArrayTypeFfiExerciseActivity = new FfiConverterArray(
   FfiConverterTypeFfiExerciseActivity,
@@ -16822,6 +16951,14 @@ function uniffiEnsureInitialized() {
     );
   }
   if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_exclude_lap() !==
+    15936
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_sectionmanager_exclude_lap",
+    );
+  }
+  if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_expand_bounds() !==
     65320
   ) {
@@ -16971,6 +17108,14 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_sectionmanager_get_excluded_activities",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_excluded_laps() !==
+    32279
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_sectionmanager_get_excluded_laps",
     );
   }
   if (
@@ -17147,6 +17292,14 @@ function uniffiEnsureInitialized() {
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_sectionmanager_include_activity",
+    );
+  }
+  if (
+    nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_include_lap() !==
+    50847
+  ) {
+    throw new UniffiInternalError.ApiChecksumMismatch(
+      "uniffi_veloqrs_checksum_method_sectionmanager_include_lap",
     );
   }
   if (
@@ -17767,6 +17920,7 @@ export default Object.freeze({
     FfiConverterTypeFfiDirectionStats,
     FfiConverterTypeFfiEfficiencyPoint,
     FfiConverterTypeFfiEfficiencyTrend,
+    FfiConverterTypeFfiExcludedLap,
     FfiConverterTypeFfiExerciseActivities,
     FfiConverterTypeFfiExerciseActivity,
     FfiConverterTypeFfiExerciseContribution,

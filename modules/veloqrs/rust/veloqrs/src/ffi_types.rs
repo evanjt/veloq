@@ -809,6 +809,15 @@ pub struct FfiSectionLap {
     pub end_index: u32,
 }
 
+/// One excluded traversal, addressed the way the junction stores it.
+#[derive(Debug, Clone, Serialize, Deserialize, uniffi::Record)]
+#[serde(rename_all = "camelCase")]
+pub struct FfiExcludedLap {
+    pub activity_id: String,
+    /// Start index in the activity's GPS track
+    pub start_index: u32,
+}
+
 impl From<crate::SectionLap> for FfiSectionLap {
     fn from(l: crate::SectionLap) -> Self {
         Self {

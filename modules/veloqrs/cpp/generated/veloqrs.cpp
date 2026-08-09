@@ -428,6 +428,9 @@ void uniffi_veloqrs_fn_method_sectionmanager_enable(
 void uniffi_veloqrs_fn_method_sectionmanager_exclude_activity(
     /*handle*/ uint64_t ptr, RustBuffer section_id, RustBuffer activity_id,
     RustCallStatus *uniffi_out_err);
+void uniffi_veloqrs_fn_method_sectionmanager_exclude_lap(
+    /*handle*/ uint64_t ptr, RustBuffer section_id, RustBuffer activity_id,
+    uint32_t start_index, RustCallStatus *uniffi_out_err);
 void uniffi_veloqrs_fn_method_sectionmanager_expand_bounds(
     /*handle*/ uint64_t ptr, RustBuffer section_id,
     RustBuffer new_polyline_flat, RustCallStatus *uniffi_out_err);
@@ -483,6 +486,9 @@ RustBuffer uniffi_veloqrs_fn_method_sectionmanager_get_efficiency_trend(
     /*handle*/ uint64_t ptr, RustBuffer section_id,
     RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_sectionmanager_get_excluded_activities(
+    /*handle*/ uint64_t ptr, RustBuffer section_id,
+    RustCallStatus *uniffi_out_err);
+RustBuffer uniffi_veloqrs_fn_method_sectionmanager_get_excluded_laps(
     /*handle*/ uint64_t ptr, RustBuffer section_id,
     RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_sectionmanager_get_excluded_performances(
@@ -549,6 +555,9 @@ uint32_t uniffi_veloqrs_fn_method_sectionmanager_import_superseded_map(
 void uniffi_veloqrs_fn_method_sectionmanager_include_activity(
     /*handle*/ uint64_t ptr, RustBuffer section_id, RustBuffer activity_id,
     RustCallStatus *uniffi_out_err);
+void uniffi_veloqrs_fn_method_sectionmanager_include_lap(
+    /*handle*/ uint64_t ptr, RustBuffer section_id, RustBuffer activity_id,
+    uint32_t start_index, RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_sectionmanager_index_new_activity(
     /*handle*/ uint64_t ptr, RustBuffer activity_id,
     RustCallStatus *uniffi_out_err);
@@ -996,6 +1005,7 @@ uint16_t uniffi_veloqrs_checksum_method_sectionmanager_delete();
 uint16_t uniffi_veloqrs_checksum_method_sectionmanager_disable();
 uint16_t uniffi_veloqrs_checksum_method_sectionmanager_enable();
 uint16_t uniffi_veloqrs_checksum_method_sectionmanager_exclude_activity();
+uint16_t uniffi_veloqrs_checksum_method_sectionmanager_exclude_lap();
 uint16_t uniffi_veloqrs_checksum_method_sectionmanager_expand_bounds();
 uint16_t uniffi_veloqrs_checksum_method_sectionmanager_extract_trace();
 uint16_t uniffi_veloqrs_checksum_method_sectionmanager_extract_traces_batch();
@@ -1021,6 +1031,7 @@ uint16_t uniffi_veloqrs_checksum_method_sectionmanager_get_detail_performance();
 uint16_t uniffi_veloqrs_checksum_method_sectionmanager_get_efficiency_trend();
 uint16_t
 uniffi_veloqrs_checksum_method_sectionmanager_get_excluded_activities();
+uint16_t uniffi_veloqrs_checksum_method_sectionmanager_get_excluded_laps();
 uint16_t
 uniffi_veloqrs_checksum_method_sectionmanager_get_excluded_performances();
 uint16_t uniffi_veloqrs_checksum_method_sectionmanager_get_extension_track();
@@ -1046,6 +1057,7 @@ uint16_t uniffi_veloqrs_checksum_method_sectionmanager_has_original_bounds();
 uint16_t uniffi_veloqrs_checksum_method_sectionmanager_import_disabled_ids();
 uint16_t uniffi_veloqrs_checksum_method_sectionmanager_import_superseded_map();
 uint16_t uniffi_veloqrs_checksum_method_sectionmanager_include_activity();
+uint16_t uniffi_veloqrs_checksum_method_sectionmanager_include_lap();
 uint16_t uniffi_veloqrs_checksum_method_sectionmanager_index_new_activity();
 uint16_t
 uniffi_veloqrs_checksum_method_sectionmanager_match_activity_to_sections();
@@ -3979,6 +3991,18 @@ NativeVeloqrs::NativeVeloqrs(
                 ->cpp_uniffi_veloqrs_fn_method_sectionmanager_exclude_activity(
                     rt, thisVal, args, count);
           });
+  props["ubrn_uniffi_veloqrs_fn_method_sectionmanager_exclude_lap"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt, "ubrn_uniffi_veloqrs_fn_method_sectionmanager_exclude_lap"),
+          4,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_fn_method_sectionmanager_exclude_lap(
+                    rt, thisVal, args, count);
+          });
   props["ubrn_uniffi_veloqrs_fn_method_sectionmanager_expand_bounds"] =
       jsi::Function::createFromHostFunction(
           rt,
@@ -4210,6 +4234,19 @@ NativeVeloqrs::NativeVeloqrs(
             ->cpp_uniffi_veloqrs_fn_method_sectionmanager_get_excluded_activities(
                 rt, thisVal, args, count);
       });
+  props["ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_excluded_laps"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt,
+              "ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_excluded_laps"),
+          2,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_fn_method_sectionmanager_get_excluded_laps(
+                    rt, thisVal, args, count);
+          });
   props["ubrn_uniffi_veloqrs_fn_method_sectionmanager_get_excluded_"
         "performances"] = jsi::Function::createFromHostFunction(
       rt,
@@ -4478,6 +4515,18 @@ NativeVeloqrs::NativeVeloqrs(
                  const jsi::Value *args, size_t count) -> jsi::Value {
             return this
                 ->cpp_uniffi_veloqrs_fn_method_sectionmanager_include_activity(
+                    rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_fn_method_sectionmanager_include_lap"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt, "ubrn_uniffi_veloqrs_fn_method_sectionmanager_include_lap"),
+          4,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_fn_method_sectionmanager_include_lap(
                     rt, thisVal, args, count);
           });
   props["ubrn_uniffi_veloqrs_fn_method_sectionmanager_index_new_activity"] =
@@ -7340,6 +7389,19 @@ NativeVeloqrs::NativeVeloqrs(
                 ->cpp_uniffi_veloqrs_checksum_method_sectionmanager_exclude_activity(
                     rt, thisVal, args, count);
           });
+  props["ubrn_uniffi_veloqrs_checksum_method_sectionmanager_exclude_lap"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt,
+              "ubrn_uniffi_veloqrs_checksum_method_sectionmanager_exclude_lap"),
+          0,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_checksum_method_sectionmanager_exclude_lap(
+                    rt, thisVal, args, count);
+          });
   props["ubrn_uniffi_veloqrs_checksum_method_sectionmanager_expand_bounds"] =
       jsi::Function::createFromHostFunction(
           rt,
@@ -7572,6 +7634,18 @@ NativeVeloqrs::NativeVeloqrs(
              const jsi::Value *args, size_t count) -> jsi::Value {
         return this
             ->cpp_uniffi_veloqrs_checksum_method_sectionmanager_get_excluded_activities(
+                rt, thisVal, args, count);
+      });
+  props["ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_excluded_"
+        "laps"] = jsi::Function::createFromHostFunction(
+      rt,
+      jsi::PropNameID::forAscii(rt, "ubrn_uniffi_veloqrs_checksum_method_"
+                                    "sectionmanager_get_excluded_laps"),
+      0,
+      [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+             const jsi::Value *args, size_t count) -> jsi::Value {
+        return this
+            ->cpp_uniffi_veloqrs_checksum_method_sectionmanager_get_excluded_laps(
                 rt, thisVal, args, count);
       });
   props["ubrn_uniffi_veloqrs_checksum_method_sectionmanager_get_excluded_"
@@ -7838,6 +7912,19 @@ NativeVeloqrs::NativeVeloqrs(
                  const jsi::Value *args, size_t count) -> jsi::Value {
             return this
                 ->cpp_uniffi_veloqrs_checksum_method_sectionmanager_include_activity(
+                    rt, thisVal, args, count);
+          });
+  props["ubrn_uniffi_veloqrs_checksum_method_sectionmanager_include_lap"] =
+      jsi::Function::createFromHostFunction(
+          rt,
+          jsi::PropNameID::forAscii(
+              rt,
+              "ubrn_uniffi_veloqrs_checksum_method_sectionmanager_include_lap"),
+          0,
+          [this](jsi::Runtime &rt, const jsi::Value &thisVal,
+                 const jsi::Value *args, size_t count) -> jsi::Value {
+            return this
+                ->cpp_uniffi_veloqrs_checksum_method_sectionmanager_include_lap(
                     rt, thisVal, args, count);
           });
   props["ubrn_uniffi_veloqrs_checksum_method_sectionmanager_index_new_"
@@ -11155,6 +11242,24 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_sectionmanager_exclude_activity(
   return jsi::Value::undefined();
 }
 jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_sectionmanager_exclude_lap(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  uniffi_veloqrs_fn_method_sectionmanager_exclude_lap(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
+      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[2]),
+      uniffi_jsi::Bridging<uint32_t>::fromJs(rt, callInvoker, args[3]),
+      &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return jsi::Value::undefined();
+}
+jsi::Value
 NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_sectionmanager_expand_bounds(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
     size_t count) {
@@ -11457,6 +11562,22 @@ jsi::Value NativeVeloqrs::
   RustCallStatus status =
       uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
   auto value = uniffi_veloqrs_fn_method_sectionmanager_get_excluded_activities(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
+      &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return uniffi::veloqrs::Bridging<RustBuffer>::toJs(rt, callInvoker, value);
+}
+jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_sectionmanager_get_excluded_laps(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  auto value = uniffi_veloqrs_fn_method_sectionmanager_get_excluded_laps(
       uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
                                                         args[0]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
@@ -11824,6 +11945,24 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_sectionmanager_include_activity(
                                                         args[0]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[2]),
+      &status);
+  uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
+                                                        args[count - 1]);
+
+  return jsi::Value::undefined();
+}
+jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_sectionmanager_include_lap(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  RustCallStatus status =
+      uniffi::veloqrs::Bridging<RustCallStatus>::rustSuccess(rt);
+  uniffi_veloqrs_fn_method_sectionmanager_include_lap(
+      uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
+                                                        args[0]),
+      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
+      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[2]),
+      uniffi_jsi::Bridging<uint32_t>::fromJs(rt, callInvoker, args[3]),
       &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);
@@ -14572,6 +14711,14 @@ jsi::Value NativeVeloqrs::
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
 jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_sectionmanager_exclude_lap(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  auto value = uniffi_veloqrs_checksum_method_sectionmanager_exclude_lap();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value
 NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_sectionmanager_expand_bounds(
     jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
     size_t count) {
@@ -14730,6 +14877,15 @@ jsi::Value NativeVeloqrs::
         size_t count) {
   auto value =
       uniffi_veloqrs_checksum_method_sectionmanager_get_excluded_activities();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value NativeVeloqrs::
+    cpp_uniffi_veloqrs_checksum_method_sectionmanager_get_excluded_laps(
+        jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+        size_t count) {
+  auto value =
+      uniffi_veloqrs_checksum_method_sectionmanager_get_excluded_laps();
 
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }
@@ -14920,6 +15076,14 @@ jsi::Value NativeVeloqrs::
         jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
         size_t count) {
   auto value = uniffi_veloqrs_checksum_method_sectionmanager_include_activity();
+
+  return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
+}
+jsi::Value
+NativeVeloqrs::cpp_uniffi_veloqrs_checksum_method_sectionmanager_include_lap(
+    jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+    size_t count) {
+  auto value = uniffi_veloqrs_checksum_method_sectionmanager_include_lap();
 
   return uniffi_jsi::Bridging<uint16_t>::toJs(rt, callInvoker, value);
 }

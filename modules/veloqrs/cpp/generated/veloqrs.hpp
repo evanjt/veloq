@@ -433,6 +433,9 @@ protected:
   jsi::Value cpp_uniffi_veloqrs_fn_method_sectionmanager_exclude_activity(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
+  jsi::Value cpp_uniffi_veloqrs_fn_method_sectionmanager_exclude_lap(
+      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+      size_t count);
   jsi::Value cpp_uniffi_veloqrs_fn_method_sectionmanager_expand_bounds(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
@@ -494,6 +497,9 @@ protected:
       size_t count);
   jsi::Value
   cpp_uniffi_veloqrs_fn_method_sectionmanager_get_excluded_activities(
+      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+      size_t count);
+  jsi::Value cpp_uniffi_veloqrs_fn_method_sectionmanager_get_excluded_laps(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value
@@ -563,6 +569,9 @@ protected:
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value cpp_uniffi_veloqrs_fn_method_sectionmanager_include_activity(
+      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+      size_t count);
+  jsi::Value cpp_uniffi_veloqrs_fn_method_sectionmanager_include_lap(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value cpp_uniffi_veloqrs_fn_method_sectionmanager_index_new_activity(
@@ -1390,6 +1399,9 @@ protected:
   jsi::Value cpp_uniffi_veloqrs_checksum_method_sectionmanager_exclude_activity(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
+  jsi::Value cpp_uniffi_veloqrs_checksum_method_sectionmanager_exclude_lap(
+      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+      size_t count);
   jsi::Value cpp_uniffi_veloqrs_checksum_method_sectionmanager_expand_bounds(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
@@ -1455,6 +1467,10 @@ protected:
       size_t count);
   jsi::Value
   cpp_uniffi_veloqrs_checksum_method_sectionmanager_get_excluded_activities(
+      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+      size_t count);
+  jsi::Value
+  cpp_uniffi_veloqrs_checksum_method_sectionmanager_get_excluded_laps(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value
@@ -1535,6 +1551,9 @@ protected:
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value cpp_uniffi_veloqrs_checksum_method_sectionmanager_include_activity(
+      jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
+      size_t count);
+  jsi::Value cpp_uniffi_veloqrs_checksum_method_sectionmanager_include_lap(
       jsi::Runtime &rt, const jsi::Value &thisVal, const jsi::Value *args,
       size_t count);
   jsi::Value

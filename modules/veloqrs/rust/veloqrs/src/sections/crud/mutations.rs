@@ -37,6 +37,47 @@ impl PersistentRouteEngine {
         Ok(())
     }
 
+    /// Exclude one traversal (junction row) from a section's analysis,
+    /// addressed by its start index. The activity's other laps keep counting.
+    pub fn exclude_section_lap(
+        &mut self,
+        section_id: &str,
+        activity_id: &str,
+        start_index: u32,
+    ) -> Result<(), String> {
+        self.db
+            .execute(
+                "UPDATE section_activities SET excluded = 1
+                 WHERE section_id = ? AND activity_id = ? AND start_index = ?",
+                params![section_id, activity_id, start_index],
+            )
+            .map_err(|e| format!("Failed to exclude lap: {}", e))?;
+        self.refresh_section_in_memory(section_id);
+        self.invalidate_section_cache(section_id);
+        self.invalidate_perf_cache();
+        Ok(())
+    }
+
+    /// Re-include a previously excluded traversal.
+    pub fn include_section_lap(
+        &mut self,
+        section_id: &str,
+        activity_id: &str,
+        start_index: u32,
+    ) -> Result<(), String> {
+        self.db
+            .execute(
+                "UPDATE section_activities SET excluded = 0
+                 WHERE section_id = ? AND activity_id = ? AND start_index = ?",
+                params![section_id, activity_id, start_index],
+            )
+            .map_err(|e| format!("Failed to include lap: {}", e))?;
+        self.refresh_section_in_memory(section_id);
+        self.invalidate_section_cache(section_id);
+        self.invalidate_perf_cache();
+        Ok(())
+    }
+
     /// Re-include a previously excluded activity in a section's analysis.
     /// Sets the `excluded` flag back to 0 on the junction table row(s).
     pub fn include_activity_in_section(

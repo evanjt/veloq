@@ -461,6 +461,59 @@ impl SectionManager {
         with_engine(|e| e.get_excluded_activity_ids(&section_id))
     }
 
+    fn exclude_lap(
+        &self,
+        section_id: String,
+        activity_id: String,
+        start_index: u32,
+    ) -> Result<(), VeloqError> {
+        with_engine(|e| {
+            e.exclude_section_lap(&section_id, &activity_id, start_index)
+                .map_err(|e| VeloqError::Database { msg: e })?;
+            if let Err(err) = e.recompute_activity_indicators() {
+                log::warn!(
+                    "tracematch: [exclude_lap] Indicator recomputation failed: {}",
+                    err
+                );
+            }
+            Ok(())
+        })?
+    }
+
+    fn include_lap(
+        &self,
+        section_id: String,
+        activity_id: String,
+        start_index: u32,
+    ) -> Result<(), VeloqError> {
+        with_engine(|e| {
+            e.include_section_lap(&section_id, &activity_id, start_index)
+                .map_err(|e| VeloqError::Database { msg: e })?;
+            if let Err(err) = e.recompute_activity_indicators() {
+                log::warn!(
+                    "tracematch: [include_lap] Indicator recomputation failed: {}",
+                    err
+                );
+            }
+            Ok(())
+        })?
+    }
+
+    fn get_excluded_laps(
+        &self,
+        section_id: String,
+    ) -> Result<Vec<crate::FfiExcludedLap>, VeloqError> {
+        with_engine(|e| {
+            e.get_excluded_section_laps(&section_id)
+                .into_iter()
+                .map(|(activity_id, start_index)| crate::FfiExcludedLap {
+                    activity_id,
+                    start_index,
+                })
+                .collect()
+        })
+    }
+
     fn delete(&self, section_id: String) -> Result<(), VeloqError> {
         with_engine(|e| {
             e.delete_section(&section_id)
