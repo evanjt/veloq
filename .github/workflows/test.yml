@@ -67,6 +67,10 @@ jobs:
         working-directory: modules/veloqrs/rust
         run: cargo test --workspace
 
+      - name: Run synthetic contracts
+        working-directory: modules/veloqrs/rust
+        run: cargo test -p veloqrs --features synthetic
+
   rust-lint:
     name: Rust Lint
     runs-on: ubuntu-latest

@@ -503,9 +503,15 @@ impl PersistentRouteEngine {
             return Err("Section polyline too short".to_string());
         }
 
-        // Find where the section starts/ends in the representative activity's track
-        // Use find_all_track_portions with a generous threshold to locate the section
-        let portions = find_all_track_portions(&track, &polyline, 100.0);
+        // Find where the section starts/ends in the representative activity's
+        // track. Generous bar, half the proximity anchor (100 m at the
+        // default 200 m), derived so it co-varies with the slider like every
+        // other matching window.
+        let portions = find_all_track_portions(
+            &track,
+            &polyline,
+            self.section_config.proximity_threshold * 0.5,
+        );
 
         if portions.is_empty() {
             // Fallback: use nearest-point matching for start and end
