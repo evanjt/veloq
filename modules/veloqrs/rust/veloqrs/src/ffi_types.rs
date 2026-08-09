@@ -1837,81 +1837,56 @@ pub struct FfiEfficiencyTrend {
 
 #[cfg(test)]
 mod tests {
+    //! The fixtures here are exhaustive struct literals on purpose: a new
+    //! field on a source type breaks this build, while the `From` impl would
+    //! keep compiling and quietly stop carrying it. Every value is distinct so
+    //! a transposed pair of same-typed fields fails rather than passing.
     use super::*;
 
-    #[test]
-    fn test_ffi_direction_stats_from_tracematch() {
-        let stats = crate::DirectionStats {
+    fn direction_stats() -> crate::DirectionStats {
+        crate::DirectionStats {
             avg_time: Some(300.0),
             last_activity: Some(1700000000),
             count: 5,
             avg_speed: Some(4.5),
-        };
-        let ffi_stats = FfiDirectionStats::from(stats);
-        assert_eq!(ffi_stats.avg_time, Some(300.0));
-        assert_eq!(ffi_stats.last_activity, Some(1700000000));
-        assert_eq!(ffi_stats.count, 5);
+        }
     }
 
-    #[test]
-    fn test_ffi_section_lap_from_tracematch() {
-        let lap = crate::SectionLap {
+    fn section_lap() -> crate::SectionLap {
+        crate::SectionLap {
             id: "lap_1".to_string(),
             activity_id: "act_123".to_string(),
             time: 120.5,
             pace: 8.3,
             distance: 1000.0,
             direction: "forward".to_string(),
-            start_index: 0,
-            end_index: 100,
-        };
-        let ffi_lap = FfiSectionLap::from(lap);
-        assert_eq!(ffi_lap.id, "lap_1");
-        assert_eq!(ffi_lap.activity_id, "act_123");
-        assert_eq!(ffi_lap.time, 120.5);
-        assert_eq!(ffi_lap.pace, 8.3);
-        assert_eq!(ffi_lap.direction, "forward");
+            start_index: 17,
+            end_index: 104,
+        }
     }
 
-    #[test]
-    fn test_ffi_section_performance_record_from_tracematch() {
-        let lap = crate::SectionLap {
-            id: "lap_1".to_string(),
-            activity_id: "act_123".to_string(),
-            time: 120.5,
-            pace: 8.3,
-            distance: 1000.0,
-            direction: "forward".to_string(),
-            start_index: 0,
-            end_index: 100,
-        };
-        let record = crate::SectionPerformanceRecord {
-            activity_id: "act_123".to_string(),
-            activity_name: "Morning Ride".to_string(),
+    fn section_record(direction: &str, best_time: f64) -> crate::SectionPerformanceRecord {
+        crate::SectionPerformanceRecord {
+            activity_id: format!("act_{direction}"),
+            activity_name: format!("{direction} effort"),
             activity_date: 1700000000,
-            laps: vec![lap],
+            laps: vec![section_lap()],
             lap_count: 1,
-            best_time: 120.5,
+            best_time,
             best_pace: 8.3,
-            avg_time: 120.5,
-            avg_pace: 8.3,
-            direction: "forward".to_string(),
+            avg_time: best_time + 4.0,
+            avg_pace: 7.9,
+            direction: direction.to_string(),
             section_distance: 1000.0,
-        };
-        let ffi_record = FfiSectionPerformanceRecord::from(record);
-        assert_eq!(ffi_record.activity_id, "act_123");
-        assert_eq!(ffi_record.activity_name, "Morning Ride");
-        assert_eq!(ffi_record.laps.len(), 1);
-        assert_eq!(ffi_record.best_time, 120.5);
+        }
     }
 
-    #[test]
-    fn test_ffi_route_performance_from_tracematch() {
-        let perf = crate::RoutePerformance {
-            activity_id: "act_123".to_string(),
+    fn route_performance(activity_id: &str, speed: f64) -> crate::RoutePerformance {
+        crate::RoutePerformance {
+            activity_id: activity_id.to_string(),
             name: "Morning Ride".to_string(),
             date: 1700000000,
-            speed: 8.5,
+            speed,
             duration: 3600,
             moving_time: 3500,
             distance: 30000.0,
@@ -1921,54 +1896,220 @@ mod tests {
             is_current: false,
             direction: "same".to_string(),
             match_percentage: Some(95.5),
-        };
-        let ffi_perf = FfiRoutePerformance::from(perf);
-        assert_eq!(ffi_perf.activity_id, "act_123");
-        assert_eq!(ffi_perf.speed, 8.5);
-        assert_eq!(ffi_perf.avg_hr, Some(145));
-        assert_eq!(ffi_perf.match_percentage, Some(95.5));
+        }
+    }
+
+    fn activity_metrics() -> crate::ActivityMetrics {
+        crate::ActivityMetrics {
+            activity_id: "act_123".to_string(),
+            name: "Morning Ride".to_string(),
+            date: 1700000000,
+            distance: 30000.0,
+            moving_time: 3500,
+            elapsed_time: 3600,
+            elevation_gain: 500.0,
+            avg_hr: Some(145),
+            avg_power: Some(200),
+            sport_type: "Ride".to_string(),
+        }
     }
 
     #[test]
-    fn test_ffi_section_performance_result_empty() {
+    fn direction_stats_carries_every_field() {
+        let ffi = FfiDirectionStats::from(direction_stats());
+        assert_eq!(ffi.avg_time, Some(300.0));
+        assert_eq!(ffi.last_activity, Some(1700000000));
+        assert_eq!(ffi.count, 5);
+        // avg_speed and avg_time are both Option<f64>: a transposition here
+        // would show route stats as a speed in a seconds field.
+        assert_eq!(ffi.avg_speed, Some(4.5));
+    }
+
+    #[test]
+    fn direction_stats_keeps_an_absent_speed_absent() {
+        let mut stats = direction_stats();
+        stats.avg_speed = None;
+        let ffi = FfiDirectionStats::from(stats);
+        assert_eq!(ffi.avg_time, Some(300.0));
+        assert!(ffi.avg_speed.is_none());
+    }
+
+    #[test]
+    fn section_lap_carries_every_field() {
+        let ffi = FfiSectionLap::from(section_lap());
+        assert_eq!(ffi.id, "lap_1");
+        assert_eq!(ffi.activity_id, "act_123");
+        assert_eq!(ffi.time, 120.5);
+        assert_eq!(ffi.pace, 8.3);
+        assert_eq!(ffi.distance, 1000.0);
+        assert_eq!(ffi.direction, "forward");
+        // Swapped track indices would draw the lap backwards on the map.
+        assert_eq!(ffi.start_index, 17);
+        assert_eq!(ffi.end_index, 104);
+    }
+
+    #[test]
+    fn section_performance_record_carries_every_field() {
+        let ffi = FfiSectionPerformanceRecord::from(section_record("forward", 120.5));
+        assert_eq!(ffi.activity_id, "act_forward");
+        assert_eq!(ffi.activity_name, "forward effort");
+        assert_eq!(ffi.activity_date, 1700000000);
+        assert_eq!(ffi.lap_count, 1);
+        // best_* against avg_*: a transposition would report the average as
+        // the PR on the section detail.
+        assert_eq!(ffi.best_time, 120.5);
+        assert_eq!(ffi.avg_time, 124.5);
+        assert_eq!(ffi.best_pace, 8.3);
+        assert_eq!(ffi.avg_pace, 7.9);
+        assert_eq!(ffi.direction, "forward");
+        assert_eq!(ffi.section_distance, 1000.0);
+
+        assert_eq!(ffi.laps.len(), 1);
+        assert_eq!(ffi.laps[0].id, "lap_1");
+        assert_eq!(ffi.laps[0].start_index, 17);
+    }
+
+    #[test]
+    fn route_performance_keeps_duration_and_moving_time_apart() {
+        // The route PR delta chip is moving-time based, so a swap of these two
+        // u32 fields would silently compare the wrong clock.
+        let ffi = FfiRoutePerformance::from(route_performance("act_123", 8.5));
+        assert_eq!(ffi.duration, 3600, "duration is elapsed time");
+        assert_eq!(ffi.moving_time, 3500, "moving_time is moving time");
+    }
+
+    #[test]
+    fn route_performance_carries_every_field() {
+        let ffi = FfiRoutePerformance::from(route_performance("act_123", 8.5));
+        assert_eq!(ffi.activity_id, "act_123");
+        assert_eq!(ffi.name, "Morning Ride");
+        assert_eq!(ffi.date, 1700000000);
+        assert_eq!(ffi.speed, 8.5);
+        assert_eq!(ffi.distance, 30000.0);
+        assert_eq!(ffi.elevation_gain, 500.0);
+        assert_eq!(ffi.avg_hr, Some(145));
+        assert_eq!(ffi.avg_power, Some(200));
+        assert!(!ffi.is_current);
+        assert_eq!(ffi.direction, "same");
+        assert_eq!(ffi.match_percentage, Some(95.5));
+    }
+
+    #[test]
+    fn activity_metrics_keeps_moving_and_elapsed_time_apart() {
+        let ffi = FfiActivityMetrics::from(activity_metrics());
+        assert_eq!(ffi.moving_time, 3500);
+        assert_eq!(ffi.elapsed_time, 3600);
+        assert_eq!(ffi.activity_id, "act_123");
+        assert_eq!(ffi.name, "Morning Ride");
+        assert_eq!(ffi.date, 1700000000);
+        assert_eq!(ffi.distance, 30000.0);
+        assert_eq!(ffi.elevation_gain, 500.0);
+        assert_eq!(ffi.avg_hr, Some(145));
+        assert_eq!(ffi.avg_power, Some(200));
+        assert_eq!(ffi.sport_type, "Ride");
+        // These four have no source field and must not invent a value.
+        assert!(ffi.training_load.is_none());
+        assert!(ffi.ftp.is_none());
+        assert!(ffi.power_zone_times.is_none());
+        assert!(ffi.hr_zone_times.is_none());
+    }
+
+    #[test]
+    fn activity_metrics_round_trips_back_without_drift() {
+        let original = activity_metrics();
+        let back = crate::ActivityMetrics::from(FfiActivityMetrics::from(original.clone()));
+        assert_eq!(back.activity_id, original.activity_id);
+        assert_eq!(back.name, original.name);
+        assert_eq!(back.date, original.date);
+        assert_eq!(back.distance, original.distance);
+        assert_eq!(back.moving_time, original.moving_time);
+        assert_eq!(back.elapsed_time, original.elapsed_time);
+        assert_eq!(back.elevation_gain, original.elevation_gain);
+        assert_eq!(back.avg_hr, original.avg_hr);
+        assert_eq!(back.avg_power, original.avg_power);
+        assert_eq!(back.sport_type, original.sport_type);
+    }
+
+    #[test]
+    fn section_performance_result_keeps_its_option_slots_distinct() {
         let result = crate::SectionPerformanceResult {
-            records: vec![],
-            best_record: None,
-            best_forward_record: None,
-            best_reverse_record: None,
-            forward_stats: None,
-            reverse_stats: None,
+            records: vec![
+                section_record("forward", 120.5),
+                section_record("reverse", 131.0),
+            ],
+            best_record: Some(section_record("overall", 118.0)),
+            best_forward_record: Some(section_record("forward", 120.5)),
+            best_reverse_record: Some(section_record("reverse", 131.0)),
+            forward_stats: Some(crate::DirectionStats {
+                avg_time: Some(300.0),
+                last_activity: Some(1700000000),
+                count: 5,
+                avg_speed: Some(4.5),
+            }),
+            reverse_stats: Some(crate::DirectionStats {
+                avg_time: Some(410.0),
+                last_activity: Some(1690000000),
+                count: 2,
+                avg_speed: Some(3.1),
+            }),
         };
-        let ffi_result = FfiSectionPerformanceResult::from(result);
-        assert!(ffi_result.records.is_empty());
-        assert!(ffi_result.best_record.is_none());
+
+        let ffi = FfiSectionPerformanceResult::from(result);
+        assert_eq!(ffi.records.len(), 2);
+        assert_eq!(ffi.records[0].direction, "forward");
+        assert_eq!(ffi.records[1].direction, "reverse");
+        // Crossing these three slots would show the wrong PR per direction.
+        assert_eq!(ffi.best_record.as_ref().unwrap().best_time, 118.0);
+        assert_eq!(ffi.best_forward_record.as_ref().unwrap().best_time, 120.5);
+        assert_eq!(ffi.best_reverse_record.as_ref().unwrap().best_time, 131.0);
+        assert_eq!(ffi.forward_stats.as_ref().unwrap().count, 5);
+        assert_eq!(ffi.reverse_stats.as_ref().unwrap().count, 2);
     }
 
     #[test]
-    fn test_ffi_route_performance_result_empty() {
+    fn route_performance_result_keeps_its_option_slots_distinct() {
         let result = crate::RoutePerformanceResult {
-            performances: vec![],
-            activity_metrics: vec![],
-            best: None,
-            best_forward: None,
-            best_reverse: None,
-            forward_stats: None,
-            reverse_stats: None,
-            current_rank: None,
+            performances: vec![
+                route_performance("act_1", 7.0),
+                route_performance("act_2", 8.5),
+            ],
+            activity_metrics: vec![activity_metrics()],
+            best: Some(route_performance("act_best", 9.9)),
+            best_forward: Some(route_performance("act_fwd", 8.5)),
+            best_reverse: Some(route_performance("act_rev", 6.2)),
+            forward_stats: Some(crate::DirectionStats {
+                avg_time: Some(300.0),
+                last_activity: Some(1700000000),
+                count: 5,
+                avg_speed: Some(4.5),
+            }),
+            reverse_stats: Some(crate::DirectionStats {
+                avg_time: Some(410.0),
+                last_activity: Some(1690000000),
+                count: 2,
+                avg_speed: Some(3.1),
+            }),
+            current_rank: Some(3),
         };
-        let ffi_result = FfiRoutePerformanceResult::from(result);
-        assert!(ffi_result.performances.is_empty());
-        assert!(ffi_result.best.is_none());
-        assert!(ffi_result.current_rank.is_none());
+
+        let ffi = FfiRoutePerformanceResult::from(result);
+        assert_eq!(ffi.performances.len(), 2);
+        assert_eq!(ffi.performances[0].activity_id, "act_1");
+        assert_eq!(ffi.performances[1].activity_id, "act_2");
+        assert_eq!(ffi.activity_metrics.len(), 1);
+        assert_eq!(ffi.activity_metrics[0].moving_time, 3500);
+        assert_eq!(ffi.best.as_ref().unwrap().activity_id, "act_best");
+        assert_eq!(ffi.best_forward.as_ref().unwrap().activity_id, "act_fwd");
+        assert_eq!(ffi.best_reverse.as_ref().unwrap().activity_id, "act_rev");
+        assert_eq!(ffi.forward_stats.as_ref().unwrap().count, 5);
+        assert_eq!(ffi.reverse_stats.as_ref().unwrap().count, 2);
+        assert_eq!(ffi.current_rank, Some(3));
     }
 
-    #[test]
-    fn test_ffi_section_from_section() {
-        use crate::sections::{Section, SectionType};
-
-        let section = Section {
+    fn section_fixture(section_type: crate::sections::SectionType) -> crate::sections::Section {
+        crate::sections::Section {
             id: "section_123".to_string(),
-            section_type: SectionType::Auto,
+            section_type,
             name: Some("Test Section".to_string()),
             sport_type: "Ride".to_string(),
             polyline: vec![
@@ -1976,43 +2117,78 @@ mod tests {
                 tracematch::GpsPoint::new(40.1, -73.9),
             ],
             distance_meters: 1500.0,
-            representative_activity_id: Some("act_123".to_string()),
+            representative_activity_id: Some("act_rep".to_string()),
             activity_ids: vec!["act_123".to_string(), "act_456".to_string()],
             visit_count: 5,
             confidence: Some(0.95),
             observation_count: Some(10),
             average_spread: Some(15.0),
-            point_density: Some(vec![5, 5]),
+            point_density: Some(vec![4, 6]),
             scale: Some("medium".to_string()),
-            is_user_defined: false,
+            is_user_defined: true,
             stability: Some(0.85),
             version: Some(3),
             updated_at: Some("2024-06-01T00:00:00Z".to_string()),
             created_at: "2024-01-01T00:00:00Z".to_string(),
             route_ids: Some(vec!["route_1".to_string()]),
-            source_activity_id: None,
-            start_index: None,
-            end_index: None,
-            disabled: false,
-            superseded_by: None,
-        };
+            source_activity_id: Some("act_src".to_string()),
+            start_index: Some(11),
+            end_index: Some(97),
+            disabled: true,
+            superseded_by: Some("section_999".to_string()),
+        }
+    }
 
-        let ffi_section = FfiSection::from(section);
-        assert_eq!(ffi_section.id, "section_123");
-        assert_eq!(ffi_section.section_type, "auto");
-        assert_eq!(ffi_section.name, Some("Test Section".to_string()));
-        assert_eq!(ffi_section.sport_type, "Ride");
+    #[test]
+    fn section_carries_every_field() {
+        let ffi = FfiSection::from(section_fixture(crate::sections::SectionType::Custom));
+        assert_eq!(ffi.id, "section_123");
+        assert_eq!(ffi.section_type, "custom");
+        assert_eq!(ffi.name, Some("Test Section".to_string()));
+        assert_eq!(ffi.sport_type, "Ride");
+        assert_eq!(ffi.distance_meters, 1500.0);
         assert_eq!(
-            crate::coords::decode(&ffi_section.encoded_polyline).len(),
-            2
+            ffi.representative_activity_id,
+            Some("act_rep".to_string()),
+            "representative and source activity ids must not be crossed"
         );
-        assert_eq!(ffi_section.distance_meters, 1500.0);
-        assert_eq!(ffi_section.activity_ids.len(), 2);
-        assert_eq!(ffi_section.visit_count, 5);
-        assert_eq!(ffi_section.confidence, Some(0.95));
-        assert!(!ffi_section.is_user_defined);
-        assert_eq!(ffi_section.route_ids, Some(vec!["route_1".to_string()]));
-        assert!(ffi_section.source_activity_id.is_none());
+        assert_eq!(ffi.source_activity_id, Some("act_src".to_string()));
+        assert_eq!(ffi.activity_ids, vec!["act_123", "act_456"]);
+        assert_eq!(ffi.visit_count, 5);
+        assert_eq!(ffi.confidence, Some(0.95));
+        assert_eq!(ffi.observation_count, Some(10));
+        assert_eq!(ffi.average_spread, Some(15.0));
+        assert_eq!(ffi.point_density, Some(vec![4, 6]));
+        assert_eq!(ffi.scale, Some("medium".to_string()));
+        assert!(ffi.is_user_defined);
+        assert_eq!(ffi.stability, Some(0.85));
+        assert_eq!(ffi.version, Some(3));
+        assert_eq!(ffi.updated_at, Some("2024-06-01T00:00:00Z".to_string()));
+        assert_eq!(ffi.created_at, "2024-01-01T00:00:00Z");
+        assert_eq!(ffi.route_ids, Some(vec!["route_1".to_string()]));
+        assert_eq!(ffi.start_index, Some(11));
+        assert_eq!(ffi.end_index, Some(97));
+        assert!(ffi.disabled);
+        assert_eq!(ffi.superseded_by, Some("section_999".to_string()));
+
+        // The polyline survives the delta+varint encoding in order, not just
+        // in count: a reversed or truncated encode draws the wrong overlay.
+        let decoded = crate::coords::decode(&ffi.encoded_polyline);
+        assert_eq!(decoded.len(), 2);
+        assert!((decoded[0].latitude - 40.0).abs() < 1e-5);
+        assert!((decoded[0].longitude + 74.0).abs() < 1e-5);
+        assert!((decoded[1].latitude - 40.1).abs() < 1e-5);
+        assert!((decoded[1].longitude + 73.9).abs() < 1e-5);
+    }
+
+    #[test]
+    fn section_type_reaches_ffi_as_its_own_tag() {
+        // A conversion that hardcoded either tag would still satisfy the
+        // single-variant test above.
+        let auto = FfiSection::from(section_fixture(crate::sections::SectionType::Auto));
+        assert_eq!(auto.section_type, "auto");
+        let custom = FfiSection::from(section_fixture(crate::sections::SectionType::Custom));
+        assert_eq!(custom.section_type, "custom");
     }
 }
 

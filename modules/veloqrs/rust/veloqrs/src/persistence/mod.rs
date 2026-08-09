@@ -1770,12 +1770,6 @@ mod tests {
     }
 
     #[test]
-    fn test_create_engine() {
-        let engine = PersistentRouteEngine::in_memory().unwrap();
-        assert_eq!(engine.activity_count(), 0);
-    }
-
-    #[test]
     fn test_add_activity() {
         let mut engine = PersistentRouteEngine::in_memory().unwrap();
         engine

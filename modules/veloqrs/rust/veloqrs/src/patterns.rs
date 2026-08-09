@@ -1199,15 +1199,6 @@ mod tests {
     }
 
     #[test]
-    fn test_empty_metrics_returns_empty() {
-        // Cannot test compute_activity_patterns without a real DB connection,
-        // but we can verify the early return path is sane
-        let features: Vec<&ActivityFeature> = vec![];
-        let normalized = normalize_features(&features);
-        assert!(normalized.is_empty());
-    }
-
-    #[test]
     fn test_normalize_features_single() {
         let f = ActivityFeature {
             activity_id: "a".to_string(),
