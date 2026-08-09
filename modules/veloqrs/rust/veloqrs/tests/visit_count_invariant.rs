@@ -45,9 +45,10 @@ fn insert_section(db: &Connection, id: &str, sport: &str) {
     db.execute(
         "INSERT INTO sections (id, section_type, name, sport_type, polyline_json,
                                distance_meters, disabled, version,
-                               bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng)
+                               bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng,
+                               created_at, updated_at)
          VALUES (?1, 'auto', ?1, ?2, '[]', 500.0, 0, 1,
-                 46.0, 46.01, 7.0, 7.01)",
+                 46.0, 46.01, 7.0, 7.01, '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z')",
         params![id, sport],
     )
     .expect("insert section");
@@ -421,5 +422,55 @@ fn returning_often_enough_clears_the_floor() {
     assert!(
         passing.iter().any(|x| x.id == "sec_commute"),
         "five separate outings clear a floor of five"
+    );
+}
+
+/// Scenario: a section with four passes, only one carrying a lap time.
+/// Expected behaviour: after a restart the in-memory catalogue reports the
+/// same visit count as the summaries column. Counting only timed passes
+/// makes the number DROP when a time stream arrives for one lap.
+#[test]
+fn a_restart_keeps_the_visit_count_at_the_column() {
+    let tmp = TempDir::new().expect("temp dir");
+    let path: PathBuf = tmp.path().join("restart.db");
+    let path_str = path.to_str().unwrap().to_string();
+    {
+        let _engine = PersistentRouteEngine::new(&path_str).expect("engine new");
+    }
+    let raw = Connection::open(&path).expect("raw open");
+    insert_activity(&raw, "act_a", 1_600_000_000);
+    insert_activity(&raw, "act_b", 1_600_100_000);
+    insert_section(&raw, "sec_col", "Ride");
+    insert_pass(&raw, "sec_col", "act_a", 0);
+    insert_pass(&raw, "sec_col", "act_a", 100);
+    insert_pass(&raw, "sec_col", "act_a", 200);
+    insert_pass(&raw, "sec_col", "act_b", 0);
+    raw.execute(
+        "UPDATE section_activities SET lap_time = 120.0
+         WHERE section_id = 'sec_col' AND activity_id = 'act_a' AND start_index = 0",
+        [],
+    )
+    .unwrap();
+    let column: u32 = raw
+        .query_row(
+            "SELECT visit_count FROM sections WHERE id = 'sec_col'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap();
+    assert_eq!(column, 4);
+    drop(raw);
+
+    let mut engine = PersistentRouteEngine::new(&path_str).expect("reopen");
+    engine.load().expect("load");
+    let in_memory = engine
+        .get_sections_filtered(None, None)
+        .into_iter()
+        .find(|s| s.id == "sec_col")
+        .map(|s| s.visit_count)
+        .unwrap_or(0);
+    assert_eq!(
+        in_memory, column,
+        "in-memory visit count diverges from the column after a restart"
     );
 }

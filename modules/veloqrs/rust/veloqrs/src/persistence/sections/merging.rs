@@ -22,10 +22,10 @@ impl PersistentRouteEngine {
                 "SELECT s.id, s.sport_type, s.distance_meters,
                         (COALESCE(s.bounds_min_lat, 0) + COALESCE(s.bounds_max_lat, 0)) / 2.0,
                         (COALESCE(s.bounds_min_lng, 0) + COALESCE(s.bounds_max_lng, 0)) / 2.0,
-                        (SELECT COUNT(*) FROM section_activities sa WHERE sa.section_id = s.id AND sa.excluded = 0)
+                        s.visit_count
                  FROM sections s
                  WHERE s.section_type = 'auto' AND s.original_polyline_json IS NULL
-                   AND s.bounds_min_lat IS NOT NULL"
+                   AND s.bounds_min_lat IS NOT NULL",
             )?;
             stmt.query_map([], |row| {
                 Ok((
@@ -240,7 +240,7 @@ impl PersistentRouteEngine {
         // Find nearby sections (within 300m center distance)
         let mut stmt = match self.db.prepare(
             "SELECT s.id, s.name, s.sport_type, s.distance_meters,
-                    (SELECT COUNT(*) FROM section_activities sa WHERE sa.section_id = s.id AND sa.excluded = 0),
+                    s.visit_count,
                     (COALESCE(s.bounds_min_lat, 0) + COALESCE(s.bounds_max_lat, 0)) / 2.0,
                     (COALESCE(s.bounds_min_lng, 0) + COALESCE(s.bounds_max_lng, 0)) / 2.0
              FROM sections s
