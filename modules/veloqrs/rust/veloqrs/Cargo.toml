@@ -210,6 +210,33 @@ required-features = ["synthetic"]
 name = "identity_seam"
 required-features = ["synthetic"]
 
+# These six carry a crate-level `#![cfg(feature = "synthetic")]`. Without a
+# stanza cargo still builds them under the default lane and prints
+# `ok. 0 passed`, so a skipped file is indistinguishable from a passing one.
+[[test]]
+name = "section_summaries_read_path"
+required-features = ["synthetic"]
+
+[[test]]
+name = "conditioning_driver"
+required-features = ["synthetic"]
+
+[[test]]
+name = "refresh_portions"
+required-features = ["synthetic"]
+
+[[test]]
+name = "two_tier_ingest"
+required-features = ["synthetic"]
+
+[[test]]
+name = "detection_settles"
+required-features = ["synthetic"]
+
+[[test]]
+name = "exclusion_durability"
+required-features = ["synthetic"]
+
 [[bench]]
 name = "heatmap_tiles"
 harness = false
