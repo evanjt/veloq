@@ -10,7 +10,7 @@
 //! Cross-sport merge is not a separate call here: `apply_sections` runs it in
 //! its finalize tail, so every `ingest_step` already exercises it.
 //!
-//! Run: `cargo test -p veloqrs --features synthetic --test suite2_merge_evolution -- --nocapture --include-ignored`
+//! Run: `cargo test -p veloqrs --features synthetic --test suite2_merge_evolution -- --include-ignored`
 
 mod lifecycle_support;
 
@@ -94,89 +94,9 @@ fn sport_map(corpus: &LifecycleCorpus) -> HashMap<String, String> {
 // Curiosity 1: MERGE (merge_user_sections)
 // ============================================================================
 
-/// Measurement: cold-detect, then merge one real section into another with
-/// distinct ground. Prints whether the merged geometry stays a single pass
-/// (invariant 1) or stitches two corridors, whether the activity union is
-/// correct, and whether any junction rows leak.
-#[test]
-fn merge_two_sections_today() {
-    let corpus = corpus();
-    let (mut engine, dir) = fresh_engine_for(Arm::Control);
-    let cold = ingest_step(&mut engine, "cold", &corpus.through_a()).snapshot;
-
-    let (primary_id, primary) =
-        busiest_section(&cold).expect("cold detect produced a primary section");
-    // Pick the busiest section whose ground differs from the primary, so the
-    // merge is a genuine cross-corridor union (the stitch question).
-    let (secondary_id, secondary) = cold
-        .sections
-        .iter()
-        .filter(|(id, f)| **id != primary_id && !ground_matches(&primary, f))
-        .max_by_key(|(_, f)| f.visit_count)
-        .map(|(id, f)| (id.clone(), f.clone()))
-        .expect("a second, geographically distinct section to merge");
-
-    let want_union: BTreeSet<String> = primary
-        .activity_ids
-        .union(&secondary.activity_ids)
-        .cloned()
-        .collect();
-
-    let merged_id = engine
-        .merge_user_sections(&primary_id, &secondary_id)
-        .expect("merge_user_sections");
-    let after = snapshot(&mut engine);
-    let merged = after
-        .sections
-        .get(&merged_id)
-        .expect("primary survives the merge in-session");
-
-    let db_path = dir.path().join("lifecycle.db");
-    println!(
-        "[control] merge {secondary_id} -> {primary_id}: \
-         polyline_points {} -> {} (stitch would grow this), \
-         distance {:.0}m -> {:.0}m, \
-         visit_count {} -> {} (want union {}), \
-         members match union = {}, orphan_junction_rows = {}, merged is_user_defined = {}",
-        primary.polyline_point_count,
-        merged.polyline_point_count,
-        primary.distance_meters,
-        merged.distance_meters,
-        primary.visit_count,
-        merged.visit_count,
-        want_union.len(),
-        merged.activity_ids == want_union,
-        orphan_junction_rows(&db_path),
-        merged.is_user_defined,
-    );
-
-    // Then resync, to show whether the merge holds. The merged id is positional
-    // (ride_main is always rank-0 Ride), so it can reappear as a fresh auto
-    // section even though the merge itself carried no durable flag.
-    let secondary_ground = secondary.clone();
-    match try_ingest_step(&mut engine, "resync", &refs(&corpus.bucket_d_delta)) {
-        Ok(m) => {
-            let s = m.snapshot;
-            let split_back = s
-                .sections
-                .iter()
-                .any(|(id, f)| *id != merged_id && ground_matches(&secondary_ground, f));
-            let after_udf = s.sections.get(&merged_id).map(|f| f.is_user_defined);
-            println!(
-                "[control] after resync: merged id present = {}, its is_user_defined = {:?}, \
-                 secondary ground re-emerged as a SEPARATE section (merge split back) = {split_back}",
-                s.sections.contains_key(&merged_id),
-                after_udf,
-            );
-        }
-        Err(e) => println!("[control] merge + resync CRASHED: {e}"),
-    }
-}
-
-/// Gate (green regression guard): a merge must not leak junction rows for the
-/// consumed section. Passes today. `merge_user_sections` moves the rows then
-/// deletes the donor's remainder, so no `section_activities` row points at a
-/// deleted section. Keep it green.
+/// Gate: a merge must not leak junction rows for the consumed section.
+/// `merge_user_sections` moves the rows then deletes the donor's remainder, so
+/// no `section_activities` row points at a deleted section.
 #[test]
 fn merge_leaves_no_orphaned_junction_rows() {
     let corpus = corpus();
@@ -203,15 +123,12 @@ fn merge_leaves_no_orphaned_junction_rows() {
     );
 }
 
-/// Target gate: a user merge must survive a later resync as the merge, a
-/// durable user-defined fact, not as a coincidence. Fails today:
-/// `merge_user_sections` never sets `is_user_defined`, so the merged primary
-/// stays `section_type='auto'`, `is_user_defined=0`, and the resync's
-/// `save_sections` wipe drops exactly that class. The positional id reappears
-/// (ride_main re-detects at rank 0), which is why a naive id-present check
-/// would pass, so this asserts the honest signal: the surviving section must be
-/// user-defined and still hold the union. Green when a merge is recorded as
-/// durable user intent (B4) and stable identity (B2) stops the wipe undoing it.
+/// A user merge survives a later resync as the merge, a durable user-defined
+/// fact, not as a coincidence. A naive id-present check would pass even if the
+/// id merely reappeared as a fresh auto section, so this asserts the honest
+/// signal: the surviving section must be user-defined and still hold the union
+/// of both members. That is the merge being recorded as durable user intent and
+/// stable identity (B2) stopping the wipe from undoing it.
 #[test]
 fn merge_survives_resync() {
     let corpus = corpus();
@@ -255,61 +172,6 @@ fn merge_survives_resync() {
 // ============================================================================
 // Curiosity 2: NEAR-DUPLICATE / CROSS-SPORT
 // ============================================================================
-
-/// Measurement: cold-detect and print two collapse signals. First, whether any
-/// single section bridges the ride corridor and its 60 m parallel neighbour
-/// (invariant 8 near-duplicate merge). Second, how many visible sections mix
-/// true Ride and Run members after the auto cross-sport merge (invariant 2
-/// per-sport view). Both are printed, never asserted here.
-#[test]
-fn near_duplicate_and_cross_sport_today() {
-    let corpus = corpus();
-    let smap = sport_map(&corpus);
-    let ride_main = ground_fp(corpus.corridors[0].polyline.clone());
-    let parallel = ground_fp(parallel_ground(
-        &corpus.corridors[0].polyline,
-        60.0, // matches config.parallel_street_offset_meters
-    ));
-
-    let (mut engine, _dir) = fresh_engine_for(Arm::Control);
-    let cold = ingest_step(&mut engine, "cold", &corpus.through_a()).snapshot;
-
-    let bridging = cold
-        .sections
-        .iter()
-        .filter(|(_, f)| ground_matches(f, &ride_main) && ground_matches(f, &parallel))
-        .count();
-    let on_ride = cold
-        .sections
-        .values()
-        .filter(|f| ground_matches(f, &ride_main))
-        .count();
-    let on_parallel = cold
-        .sections
-        .values()
-        .filter(|f| ground_matches(f, &parallel))
-        .count();
-
-    let mixed: Vec<(String, BTreeSet<String>)> = cold
-        .sections
-        .iter()
-        .filter_map(|(id, f)| {
-            let sports = member_sports(&smap, &f.activity_ids);
-            (sports.len() > 1).then(|| (id.clone(), sports))
-        })
-        .collect();
-
-    println!(
-        "[control] near-duplicate: sections on ride={on_ride}, on 60m-parallel={on_parallel}, \
-         bridging BOTH grounds = {bridging} (invariant 8: want 0)"
-    );
-    println!(
-        "[control] cross-sport: {} visible section(s) mix true sports after auto-merge {:?} \
-         (invariant 2: want 0 mixed-membership)",
-        mixed.len(),
-        mixed,
-    );
-}
 
 /// Target gate: a section must never span a corridor and its near-duplicate
 /// (invariant 8, under-represent never merge). Red if the consensus method
@@ -382,13 +244,12 @@ fn track(snap: &SectionSnapshot, corridor: &SectionFingerprint) -> Option<(Strin
         .map(|(id, f)| (id.clone(), f.visit_count, f.distance_meters))
 }
 
-/// Measurement: cold-detect a busy corridor, then resync progressively so the
-/// same corridor accumulates traversals and its extent should grow. Prints the
-/// corridor's id, visit_count, and distance at each step, plus id carry-over
-/// (`identity_retention`) across each expand. Shows whether an unpinned section
-/// keeps its identity as it auto-morphs, or is renumbered each detect.
+/// Auto-morph honesty: as a corridor accumulates traversals across two resyncs
+/// it must never lose history. Its visit_count is monotone non-decreasing, and
+/// the ground never vanishes from the catalogue while activities are only being
+/// added. A red here is a section silently shedding traversals as it grows.
 #[test]
-fn unpinned_section_evolution_today() {
+fn unpinned_corridor_never_loses_visits_as_it_grows() {
     let corpus = corpus();
     let (mut engine, _dir) = fresh_engine_for(Arm::Control);
 
@@ -399,36 +260,25 @@ fn unpinned_section_evolution_today() {
     let s_b = ingest_step(&mut engine, "b/expand", &refs(&corpus.bucket_b_delta)).snapshot;
     let s_c = ingest_step(&mut engine, "c/single", &[&corpus.bucket_c_single]).snapshot;
 
-    println!(
-        "[control] evolution of corridor first seen as {busy_id}:\n  \
-         a: {:?}\n  b: {:?}\n  c: {:?}",
-        track(&s_a, &corridor),
-        track(&s_b, &corridor),
-        track(&s_c, &corridor),
-    );
-    println!(
-        "[control] identity_retention a->b = {:.2}, b->c = {:.2} (want >= 0.85; \
-         id_survival a->b = {:.2})",
-        identity_retention(&s_a, &s_b),
-        identity_retention(&s_b, &s_c),
-        id_survival(&s_a, &s_b),
-    );
+    let at = |snap: &SectionSnapshot, step: &str| {
+        track(snap, &corridor)
+            .unwrap_or_else(|| panic!("corridor {busy_id} vanished from the catalogue at {step}"))
+    };
+    let (_, va, _) = at(&s_a, "a/cold");
+    let (_, vb, _) = at(&s_b, "b/expand");
+    let (_, vc, _) = at(&s_c, "c/single");
 
-    // The auto-morph honesty checks, printed not asserted: monotone visits and
-    // a superset activity set say the section grew without losing history.
-    let mono = matches!(
-        (track(&s_a, &corridor), track(&s_b, &corridor), track(&s_c, &corridor)),
-        (Some((_, va, _)), Some((_, vb, _)), Some((_, vc, _))) if va <= vb && vb <= vc
+    assert!(
+        va <= vb && vb <= vc,
+        "corridor {busy_id} lost traversals while activities were only added: visit_count {va} -> {vb} -> {vc}",
     );
-    println!("[control] corridor visit_count monotone non-decreasing across a->b->c = {mono}");
 }
 
-/// Target gate (invariant 7 / B2 hysteresis): an unpinned section must keep its
-/// identity as its extent evolves. Asserts `identity_retention >= 0.85` across
-/// both the big expand (a->b) and the single add (b->c). Red today. Control's
-/// ids are positional/rank-assigned and `save_sections` re-inserts fresh ids
-/// every detect, so a growing set reshuffles ids off their ground. Green when
-/// B2's assign-once identity layer carries the id with the corridor.
+/// Invariant 7 / B2 hysteresis: an unpinned section keeps its identity as its
+/// extent evolves. Asserts `identity_retention >= 0.85` across both the big
+/// expand (a->b) and the single add (b->c) — B2's assign-once identity layer
+/// carries the id with the corridor, so a growing set adds sections instead of
+/// reshuffling ids off their ground.
 #[test]
 fn unpinned_evolution_keeps_identity() {
     let corpus = corpus();
@@ -450,32 +300,6 @@ fn unpinned_evolution_keeps_identity() {
 // ============================================================================
 // Curiosity 4: DELETE-THEN-RESYNC
 // ============================================================================
-
-/// Measurement: hard-delete a busy corridor, then resync with activities that
-/// re-travel it. Prints whether the same id returns and whether the corridor
-/// re-emerges under any id. A hard delete leaves no tombstone, so this is the
-/// stronger form of the disable defect: even a deletion cannot suppress a
-/// corridor the detector still sees.
-#[test]
-fn delete_corridor_reemerges_today() {
-    let corpus = corpus();
-    let (mut engine, _dir) = fresh_engine_for(Arm::Control);
-    let cold = ingest_step(&mut engine, "cold", &corpus.through_a()).snapshot;
-    let (id, deleted_ground) = busiest_section(&cold).expect("a busy corridor to delete");
-
-    engine.delete_section(&id).expect("delete_section");
-    let after = ingest_step(&mut engine, "resync", &refs(&corpus.bucket_b_delta)).snapshot;
-
-    let reemerged = after
-        .sections
-        .values()
-        .any(|s| ground_matches(&deleted_ground, s));
-    println!(
-        "[control] deleted section {id}: same-id back after resync = {}, \
-         ground re-emerged under any id = {reemerged}",
-        after.sections.contains_key(&id),
-    );
-}
 
 /// A deleted corridor must not re-emerge on resync (invariant 6).
 /// `delete_section` records a durable `section_intents` row before the row

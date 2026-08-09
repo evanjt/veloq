@@ -6,24 +6,24 @@
 //! view. These behaviours live in the persistence layer and are method-agnostic,
 //! so they run on the fast Control arm.
 //!
-//! What this suite pins down (all observed on the Control arm, default corpus):
-//! - Geometry edits (rename/trim/set_reference) auto-promote to user-defined and
-//!   therefore inherit the R2 positional-id crash on the next resync. Documented
-//!   here per op; the survival gate lives below. Root R2 is already reported by
-//!   `suite2_edits.rs::accept_survives_resync`, so it is noted, not re-raised.
+//! What this suite pins down (all on the Control arm, default corpus):
+//! - A bare rename stays metadata only, and an edited (trimmed) section survives
+//!   the next resync with its edited extent intact.
 //! - set_section_reference honours the real-trace invariant: the new polyline is
-//!   a contiguous slice of ONE reference activity, never the whole track (Bug 1
-//!   stays fixed). Guarded live.
-//! - The two reset paths disagree: reset_section_bounds fully restores and
-//!   disarms the crash; reset_section_reference is a half-reset that keeps the
-//!   replaced geometry and the backup, so it neither restores nor disarms.
-//! - recalculate_section_polyline is non-idempotent and can collapse the extent.
-//! - Geometry edits do not invalidate the performance cache, so
+//!   a contiguous slice of ONE reference activity, never the whole track.
+//! - reset_section_bounds is the complete reset: it restores the original
+//!   geometry, clears the backup, and leaves the row deletable so the resync
+//!   wipe-rebuild proceeds.
+//! - recalculate_section_polyline keeps the remnant on real corridor, but is
+//!   still non-idempotent (gated `#[ignore]`).
+//! - reset_section_reference clears the backup but does not restore the replaced
+//!   geometry, so it is still a half-reset (gated `#[ignore]`).
+//! - Geometry edits still do not invalidate the performance cache, so
 //!   get_section_performances serves pre-edit laps until an unrelated event
-//!   clears it.
+//!   clears it (gated `#[ignore]`).
 //!
 //! Run: `cargo test -p veloqrs --features synthetic --test suite2_edits_geometry \
-//!       -- --nocapture --include-ignored`
+//!       -- --include-ignored`
 
 mod lifecycle_support;
 
@@ -112,13 +112,13 @@ fn seed_metrics_and_streams(engine: &mut PersistentRouteEngine, activities: &[&L
 }
 
 // ============================================================================
-// Measurements — never fail, document today's reality.
+// Live invariants
 // ============================================================================
 
 /// A rename is metadata only: it must NOT promote the auto section to
 /// user-defined, so the section stays in the ordinary detection flow and the
-/// following resync completes. The old promote-on-rename path parked the row
-/// under a positional id and crashed the next resync on INSERT (root R2).
+/// following resync completes. A promote-on-rename path would park the row
+/// under an id fresh detection can re-mint and crash the next resync on INSERT.
 #[test]
 fn rename_stays_metadata_only_and_resync_survives() {
     let corpus = corpus();
@@ -144,108 +144,12 @@ fn rename_stays_metadata_only_and_resync_survives() {
     );
 }
 
-/// set_section_reference on an auto section extracts the matching portion of the
-/// new reference activity. The junction stays consistent (one row per traversal,
-/// no duplicate explosion), but the edit promotes to user-defined and so also
-/// hits R2 on resync.
+/// reset_section_bounds is the complete reset: it restores the ORIGINAL polyline
+/// from the backup, so a trim is genuinely undone rather than merely unflagged.
+/// The distance is the observable proxy for the restored shape. A red here means
+/// the reset is cosmetic and the user's "revert" silently keeps the trim.
 #[test]
-fn set_reference_keeps_junction_consistent_but_resync_crashes() {
-    let corpus = corpus();
-    let (mut engine, _dir) = fresh_engine_for(Arm::Control);
-    let cold = ingest_step(&mut engine, "cold", &corpus.through_a());
-    let (id, before) = busiest_section(&cold.snapshot).expect("cold detect produced a section");
-    let new_ref = before.activity_ids.iter().next().unwrap().clone();
-
-    engine
-        .set_section_reference(&id, &new_ref)
-        .expect("set_section_reference");
-    let after = engine.get_section(&id).expect("get_section");
-    println!(
-        "[set_ref] visits={} acts={} rep={:?} (visits >> acts would flag duplicate junction rows)",
-        after.visit_count,
-        after.activity_ids.len(),
-        after.representative_activity_id,
-    );
-
-    match try_ingest_step(&mut engine, "resync", &refs(&corpus.bucket_d_delta)) {
-        Ok(step) => println!("[resync] OK sections={}", step.snapshot.count()),
-        Err(e) => println!("[resync] CRASH (root R2): {e}"),
-    }
-}
-
-/// reset_section_reference claims to restore automatic behaviour but only clears
-/// the is_user_defined flag. It leaves the user-replaced polyline in place and
-/// leaves the original_polyline_json backup, so (a) the geometry is not actually
-/// reset and (b) the backup keeps the row spared, so the resync still crashes.
-/// Contrast reset_section_bounds below, which does the full job.
-#[test]
-fn reset_reference_is_a_half_reset() {
-    let corpus = corpus();
-    let (mut engine, _dir) = fresh_engine_for(Arm::Control);
-    let cold = ingest_step(&mut engine, "cold", &corpus.through_a());
-    let (id, before) = busiest_section(&cold.snapshot).expect("cold detect produced a section");
-    let new_ref = before.activity_ids.iter().next().unwrap().clone();
-
-    engine
-        .set_section_reference(&id, &new_ref)
-        .expect("set_section_reference");
-    let replaced_dist = engine.get_section(&id).unwrap().distance_meters;
-
-    engine
-        .reset_section_reference(&id)
-        .expect("reset_section_reference");
-    let reset = engine.get_section(&id).unwrap();
-    println!(
-        "[reset_ref] user_defined={} dist={:.0}m orig_dist={:.0}m geometry_restored={} backup_cleared={}",
-        reset.is_user_defined,
-        reset.distance_meters,
-        before.distance_meters,
-        (reset.distance_meters - before.distance_meters).abs() < 1.0,
-        !engine.has_original_bounds(&id),
-    );
-    println!("       (still holds the replaced {replaced_dist:.0}m geometry, not the original)");
-
-    match try_ingest_step(&mut engine, "resync", &refs(&corpus.bucket_d_delta)) {
-        Ok(step) => println!("[resync] OK sections={}", step.snapshot.count()),
-        Err(e) => println!("[resync] CRASH (backup left in place keeps the row spared): {e}"),
-    }
-}
-
-/// Trimming to the inner 60% rewrites the junction (some end-only traversals no
-/// longer match) and promotes to user-defined, so the resync hits R2.
-#[test]
-fn trim_rewrites_junction_and_resync_crashes() {
-    let corpus = corpus();
-    let (mut engine, _dir) = fresh_engine_for(Arm::Control);
-    let cold = ingest_step(&mut engine, "cold", &corpus.through_a());
-    let (id, before) = busiest_section(&cold.snapshot).expect("cold detect produced a section");
-    let (start, end) = middle_trim(before.polyline_point_count);
-
-    engine.trim_section(&id, start, end).expect("trim_section");
-    let after = engine.get_section(&id).unwrap();
-    println!(
-        "[trim {start}..{end}] pts {}->{} dist {:.0}->{:.0}m acts {}->{} has_backup={}",
-        before.polyline_point_count,
-        after.polyline.len(),
-        before.distance_meters,
-        after.distance_meters,
-        before.activity_ids.len(),
-        after.activity_ids.len(),
-        engine.has_original_bounds(&id),
-    );
-
-    match try_ingest_step(&mut engine, "resync", &refs(&corpus.bucket_d_delta)) {
-        Ok(step) => println!("[resync] OK sections={}", step.snapshot.count()),
-        Err(e) => println!("[resync] CRASH (root R2): {e}"),
-    }
-}
-
-/// reset_section_bounds is the complete reset: it restores the original polyline,
-/// clears the backup, and clears is_user_defined. The section is therefore
-/// deletable again, so the resync wipe-rebuild proceeds without colliding and the
-/// corridor snaps back to fresh detection.
-#[test]
-fn reset_bounds_snaps_geometry_back() {
+fn reset_bounds_restores_the_original_geometry() {
     let corpus = corpus();
     let (mut engine, _dir) = fresh_engine_for(Arm::Control);
     let cold = ingest_step(&mut engine, "cold", &corpus.through_a());
@@ -254,101 +158,59 @@ fn reset_bounds_snaps_geometry_back() {
 
     engine.trim_section(&id, start, end).expect("trim_section");
     let trimmed_dist = engine.get_section(&id).unwrap().distance_meters;
+    assert!(
+        trimmed_dist < before.distance_meters,
+        "the trim did not shorten the section ({trimmed_dist:.0}m vs {:.0}m), so the reset below would prove nothing",
+        before.distance_meters,
+    );
+
     engine
         .reset_section_bounds(&id)
         .expect("reset_section_bounds");
-    let reset = engine.get_section(&id).unwrap();
-    println!(
-        "[reset_bounds] trimmed={:.0}m reset={:.0}m orig={:.0}m restored={} user_defined={} backup_cleared={}",
-        trimmed_dist,
+    let reset = engine.get_section(&id).expect("get_section after reset");
+
+    assert!(
+        (reset.distance_meters - before.distance_meters).abs() < 1.0,
+        "reset_section_bounds did not restore the original geometry: {:.0}m after reset, {:.0}m originally, {trimmed_dist:.0}m trimmed",
         reset.distance_meters,
         before.distance_meters,
-        (reset.distance_meters - before.distance_meters).abs() < 1.0,
-        reset.is_user_defined,
-        !engine.has_original_bounds(&id),
     );
-
-    match try_ingest_step(&mut engine, "resync", &refs(&corpus.bucket_d_delta)) {
-        Ok(step) => println!(
-            "[resync] OK sections={} (crash disarmed)",
-            step.snapshot.count()
-        ),
-        Err(e) => println!("[resync] CRASH: {e}"),
-    }
+    assert!(
+        !reset.is_user_defined,
+        "reset_section_bounds left the section flagged user-defined, so detection can no longer own it"
+    );
 }
 
 /// recalculate_section_polyline rebuilds a section's consensus from its traces.
-/// It is non-idempotent (a second call changes the shape again) and, being a
-/// weighted average sensitive to rayon scheduling, non-deterministic across runs
-/// with an extent that can collapse far below the original. The remnant still
-/// lies on real corridor (high single-activity coverage), so the defect is
-/// instability, not going off-track.
+/// It is a weighted average, so the extent can move (idempotence is gated
+/// `#[ignore]` below), but whatever survives must still lie on real corridor:
+/// nearly every point within tolerance of ONE contributing activity's track. A
+/// red here is a recalculated section drawn across ground nobody travelled.
 #[test]
-fn recalculate_drifts_and_can_collapse() {
+fn recalculate_polyline_stays_on_real_corridor() {
     let corpus = corpus();
     let (mut engine, _dir) = fresh_engine_for(Arm::Control);
     let cold = ingest_step(&mut engine, "cold", &corpus.through_a());
     let (id, before) = busiest_section(&cold.snapshot).expect("cold detect produced a section");
     let one_act = engine
         .get_gps_track(before.activity_ids.iter().next().unwrap())
-        .unwrap_or_default();
+        .expect("a contributing activity's track");
 
-    let first = engine.recalculate_section_polyline(&id);
-    let second = engine.recalculate_section_polyline(&id);
+    engine
+        .recalculate_section_polyline(&id)
+        .expect("recalculate_section_polyline");
     let after = engine.get_section(&id).expect("get_section after recalc");
-    println!(
-        "[recalc] cold={}pts/{:.0}m  #1={:?}  #2={:?}  idempotent={}",
-        before.polyline_point_count,
-        before.distance_meters,
-        first
-            .as_ref()
-            .map(|r| (r.polyline_point_count, r.distance_meters.round())),
-        second
-            .as_ref()
-            .map(|r| (r.polyline_point_count, r.distance_meters.round())),
-        match (&first, &second) {
-            (Some(a), Some(b)) => a.polyline_point_count == b.polyline_point_count,
-            _ => false,
-        },
+
+    assert!(
+        after.polyline.len() >= 2,
+        "recalculate collapsed the section to {} point(s)",
+        after.polyline.len()
     );
-    println!(
-        "       final pts={} dist={:.0}m coverage_of_one_activity={:.2}",
-        after.polyline.len(),
-        after.distance_meters,
-        coverage(&after.polyline, &one_act, 50.0),
-    );
-}
-
-/// Geometry edits do not invalidate the performance cache (keyed on section id;
-/// only delete_section invalidates it). A read straight after a trim serves the
-/// pre-trim laps and PRs. Proven by forcing the invalidation the edit skipped
-/// (via set_activity_metrics) and re-reading: the numbers move.
-#[test]
-fn trim_leaves_a_stale_performance_cache() {
-    let corpus = corpus();
-    let (mut engine, _dir) = fresh_engine_for(Arm::Control);
-    let cold = ingest_step(&mut engine, "cold", &corpus.through_a());
-    let (id, before) = busiest_section(&cold.snapshot).expect("cold detect produced a section");
-    seed_metrics_and_streams(&mut engine, &corpus.through_a());
-
-    let primed = engine.get_section_performances(&id);
-    let (start, end) = middle_trim(before.polyline_point_count);
-    engine.trim_section(&id, start, end).expect("trim_section");
-    let stale = engine.get_section_performances(&id);
-
-    // Force the invalidation the trim omitted, then read the true post-trim view.
-    force_perf_invalidation(&mut engine, &corpus.bucket_c_single.id);
-    let fresh = engine.get_section_performances(&id);
-
-    println!(
-        "[perf] primed={}rec/{:?}  after_trim_stale={}rec/{:?}  forced_fresh={}rec/{:?}  stale={}",
-        primed.records.len(),
-        primed.best_record.as_ref().map(|r| r.best_time),
-        stale.records.len(),
-        stale.best_record.as_ref().map(|r| r.best_time),
-        fresh.records.len(),
-        fresh.best_record.as_ref().map(|r| r.best_time),
-        stale.records.len() != fresh.records.len(),
+    let cov = coverage(&after.polyline, &one_act, 50.0);
+    assert!(
+        cov >= 0.9,
+        "recalculated polyline is only {:.0}% covered by a contributing activity — it drifted off the corridor",
+        cov * 100.0,
     );
 }
 
@@ -371,12 +233,8 @@ fn force_perf_invalidation(engine: &mut PersistentRouteEngine, activity_id: &str
         .expect("set_activity_metrics");
 }
 
-// ============================================================================
-// Live invariants — green today, kept as regression guards.
-// ============================================================================
-
-/// Real-trace invariant (Bug 1, fixed 2026-02-02): set_section_reference must
-/// replace the polyline with a contiguous slice of the ONE reference activity,
+/// Real-trace invariant: set_section_reference must replace the polyline with a
+/// contiguous slice of the ONE reference activity,
 /// never the whole track and never a stitch across activities. Verified by full
 /// coverage of the source track plus a length bounded by it.
 #[test]
@@ -407,10 +265,10 @@ fn set_reference_polyline_stays_within_one_source_activity() {
     );
 }
 
-/// The complete-reset path must disarm the resync crash: reset_section_bounds
-/// clears both spare conditions (is_user_defined and the backup), so detection
-/// can wipe-rebuild the row without an id collision. This is the working
-/// contrast to reset_section_reference (gated red below).
+/// The complete-reset path clears both spare conditions (is_user_defined and the
+/// backup), so detection can wipe-rebuild the row and the following resync
+/// completes. This is the working contrast to reset_section_reference, which
+/// clears the backup but not the geometry (gated red below).
 #[test]
 fn reset_bounds_disarms_the_resync_crash() {
     let corpus = corpus();
@@ -432,16 +290,11 @@ fn reset_bounds_disarms_the_resync_crash() {
         .expect("resync after a full bounds reset must not crash");
 }
 
-// ============================================================================
-// Target gates — #[ignore], red today, assert the desired behaviour.
-// ============================================================================
-
-/// A user-edited (here: trimmed) section must survive a later resync with its
-/// trimmed extent intact. Fails today: the edit promotes to user-defined, sparing
-/// its row while its positional id (`sec_ride_0`) is re-emitted by fresh
-/// detection, so `apply_sections` dies with `UNIQUE constraint failed:
-/// sections.id` (root R2, same as accept). Green when stable identity (B2) stops
-/// ids colliding and/or persistence upserts (B4).
+/// A user-edited (here: trimmed) section survives a later resync with its
+/// trimmed extent intact. The edit promotes the row to user-defined, sparing it
+/// from the wipe, and stable identity (B2) stops fresh detection re-minting the
+/// same id for other ground — so `apply_sections` neither collides nor snaps the
+/// extent back.
 #[test]
 fn gate_edited_section_survives_resync() {
     let corpus = corpus();
@@ -468,13 +321,12 @@ fn gate_edited_section_survives_resync() {
     );
 }
 
-/// reset_section_reference must fully reset like reset_section_bounds: restore the
-/// original geometry and clear the backup. Fails today: it clears only
-/// is_user_defined, leaving the user-replaced polyline and the
-/// original_polyline_json backup, so the "reset to automatic" is cosmetic and the
-/// resync crash stays armed. Green when the two reset paths are unified.
+/// reset_section_reference must fully reset like reset_section_bounds: restore
+/// the original geometry AND clear the backup. Only the backup half holds today,
+/// so the section is deletable again (the resync is disarmed) but still renders
+/// the user-replaced polyline. Green when the two reset paths are unified.
 #[test]
-#[ignore = "reset_section_reference is a half-reset — leaves the replaced geometry and the backup, so it neither restores nor disarms (unlike reset_section_bounds)"]
+#[ignore = "reset_section_reference is a half-reset — it clears is_user_defined and the backup but leaves the replaced geometry, so 'reset to automatic' does not restore the original shape"]
 fn gate_reset_reference_fully_resets_like_reset_bounds() {
     let corpus = corpus();
     let (mut engine, _dir) = fresh_engine_for(Arm::Control);
@@ -529,9 +381,9 @@ fn gate_recalculate_polyline_is_idempotent() {
 
 /// A geometry edit must invalidate the performance cache so the section detail
 /// reflects the new shape. Fails today: trim/set_reference/reset_* never call
-/// invalidate_perf_cache (only delete does), so get_section_performances serves
-/// the pre-edit laps. Proven by comparing the straight-after-trim read against a
-/// forced-fresh read.
+/// invalidate_perf_cache (delete, merge, exclusion edits and detection do), so
+/// get_section_performances serves the pre-edit laps. Proven by comparing the
+/// straight-after-trim read against a forced-fresh read.
 #[test]
 #[ignore = "geometry edits do not invalidate perf_cache — get_section_performances returns pre-edit laps/PRs until an unrelated event clears it"]
 fn gate_geometry_edit_invalidates_perf_cache() {

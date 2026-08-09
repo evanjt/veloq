@@ -8,16 +8,17 @@
 //!
 //! Unlike sections, grouping keys off group MEMBERSHIP (`already_grouped`), not
 //! `processed_activity_ids`, and the incremental path seeds Union-Find with the
-//! existing group structure and threads `existing_reps` through — so routes may
-//! be far more stable across a resync than sections. These tests measure whether
-//! that holds: identity, chosen representative, custom name, and whether the
-//! processed-set freeze (NEW-R4) reaches routes at all.
+//! existing group structure and threads `existing_reps` through. These tests pin
+//! what that has to deliver: a deterministic byte-stable catalogue, an opaque id
+//! that survives a resync, and a chosen representative, custom name, and
+//! membership that survive with it. The one remaining red is the in-memory
+//! custom name (`#[ignore]`d, B4 owes the re-hydrate).
 //!
 //! Method-agnostic persistence behaviour, run on the fast Control arm.
 //!
 //! Run:
 //!   cargo test -p veloqrs --features synthetic --test suite2_routes_lifecycle \
-//!     -- --nocapture --include-ignored
+//!     -- --include-ignored
 
 mod lifecycle_support;
 
@@ -62,12 +63,7 @@ impl RouteSnapshot {
     fn count(&self) -> usize {
         self.groups.len()
     }
-    fn multi_member(&self) -> usize {
-        self.groups
-            .values()
-            .filter(|g| g.activity_ids.len() > 1)
-            .count()
-    }
+
     /// Order-free, keyed by group_id + representative + members.
     fn catalogue_signature(&self) -> String {
         let mut rows: Vec<String> = self
@@ -80,25 +76,6 @@ impl RouteSnapshot {
                     g.sport_type,
                     g.representative_id,
                     g.activity_ids.iter().cloned().collect::<Vec<_>>().join(","),
-                )
-            })
-            .collect();
-        rows.sort();
-        rows.join("\n")
-    }
-
-    /// Id-free AND representative-free: pure membership (which activities
-    /// co-group). Two catalogues with the same grouping but different group_ids
-    /// or representatives produce the SAME string, so this isolates "same ground"
-    /// from "same identity".
-    fn membership_signature(&self) -> String {
-        let mut rows: Vec<String> = self
-            .groups
-            .values()
-            .map(|g| {
-                format!(
-                    "[{}]",
-                    g.activity_ids.iter().cloned().collect::<Vec<_>>().join(",")
                 )
             })
             .collect();
@@ -153,19 +130,6 @@ fn group_carrying(
         .map(|(id, g)| (id.clone(), g.clone()))
 }
 
-/// Fraction of `before` group ids still present in `after` (exact id survival).
-fn route_id_survival(before: &RouteSnapshot, after: &RouteSnapshot) -> f64 {
-    if before.groups.is_empty() {
-        return 1.0;
-    }
-    let kept = before
-        .groups
-        .keys()
-        .filter(|id| after.groups.contains_key(*id))
-        .count();
-    kept as f64 / before.groups.len() as f64
-}
-
 /// Synthetic metrics so `get_activity_route_highlights` has timed attempts to
 /// compare. Distance/date come from the activity; moving_time is supplied so we
 /// control the speed ordering.
@@ -188,85 +152,17 @@ fn metrics_for(a: &LifecycleActivity, moving_time: u32) -> ActivityMetrics {
 }
 
 // ============================================================================
-// Curiosity 0 — does the shared corpus even form route groups?
+// Curiosity 0 — route grouping determinism
 // ============================================================================
-
-/// Measurement: cold-ingest through_a, force grouping, and report how many route
-/// groups form and how many have more than one member. Route matching compares
-/// whole-route endpoints, while the corpus is built for corridor (section)
-/// overlap with random approach/departure segments — so multi-member routes are
-/// not guaranteed. This test says plainly whether the route lifecycle is even
-/// exercisable on the shared corpus.
-#[test]
-fn route_formation_measured() {
-    let corpus = route_corpus(COLD_N);
-    let (mut engine, _dir) = fresh_engine_for(Arm::Control);
-    ingest_step(&mut engine, "cold", &corpus.through_a());
-    let routes = route_snapshot(&mut engine);
-
-    let largest = routes
-        .groups
-        .values()
-        .map(|g| g.activity_ids.len())
-        .max()
-        .unwrap_or(0);
-    println!(
-        "\n[control] route formation over {} activities",
-        corpus.through_a().len()
-    );
-    println!(
-        "  route groups={}  multi-member={}  largest group={} members",
-        routes.count(),
-        routes.multi_member(),
-        largest,
-    );
-    if let Some((id, f)) = busiest_route(&routes) {
-        println!(
-            "  busiest route {id}: {} members, rep={}, sport={}",
-            f.activity_ids.len(),
-            f.representative_id,
-            f.sport_type,
-        );
-    } else {
-        println!(
-            "  NO multi-member route groups — corpus is section-oriented; route CRUD gates cannot target a real route"
-        );
-    }
-}
-
-/// Measurement: cold-group the SAME set on two fresh engines and compare both
-/// the full catalogue (with group_ids + representatives) and the id-free
-/// membership. `recompute_groups` iterates a std HashMap and the Union-Find root
-/// becomes the group_id, so identity may be seed-non-deterministic even when the
-/// grouping (membership) is stable.
-#[test]
-fn route_grouping_determinism_measured() {
-    let corpus = route_corpus(COLD_N);
-    let (mut e1, _d1) = fresh_engine_for(Arm::Control);
-    ingest_step(&mut e1, "cold", &corpus.through_a());
-    let a = route_snapshot(&mut e1);
-    let (mut e2, _d2) = fresh_engine_for(Arm::Control);
-    ingest_step(&mut e2, "cold", &corpus.through_a());
-    let b = route_snapshot(&mut e2);
-
-    println!("\n[control] route grouping determinism (same set, two fresh engines)");
-    println!(
-        "  groups {} vs {}   full catalogue (ids+reps) identical: {}   membership identical: {}",
-        a.count(),
-        b.count(),
-        a.catalogue_signature() == b.catalogue_signature(),
-        a.membership_signature() == b.membership_signature(),
-    );
-}
 
 /// Gate (determinism): the WHOLE route catalogue — group ids and representatives
 /// included — is byte-stable across two fresh engines over the same set. Unlike
 /// sections (whose signature is id-free), the route snapshot's signature carries
-/// the id, so identity had to become deterministic, not just stable: B2 mints an
-/// ORDINAL `r_<n>` in sorted-member order (no HashMap-seed leak into the id) and a
-/// cold group's representative is already the sorted-min member, so the two
-/// catalogues match to the byte. Red before B2 — the group_id was the Union-Find
-/// root, seed-dependent across engines.
+/// the id, so identity has to be deterministic, not merely stable: B2 mints an
+/// ORDINAL `r_<n>` in sorted-member order (no HashMap-seed leak into the id) and
+/// a cold group's representative is already the sorted-min member, so the two
+/// catalogues match to the byte. A red is a seed-dependent value (the Union-Find
+/// root) leaking back into the id.
 #[test]
 fn route_snapshot_is_byte_stable_across_engines() {
     let corpus = route_corpus(COLD_N);
@@ -298,61 +194,11 @@ fn corpus_activity<'a>(corpus: &'a LifecycleCorpus, id: &str) -> &'a LifecycleAc
 // Curiosity 1 — ROUTE IDENTITY STABILITY across a resync
 // ============================================================================
 
-/// Measurement: cold-group, then resync bucket_d_delta and regroup. Report route
-/// id survival and how the busiest route's membership drifts. Sections renumber
-/// wholesale on a resync (positional ids); this asks whether routes do too.
-#[test]
-fn route_identity_across_resync_measured() {
-    let corpus = route_corpus(COLD_N);
-    let (mut engine, _dir) = fresh_engine_for(Arm::Control);
-    ingest_step(&mut engine, "cold", &corpus.through_a());
-    let before = route_snapshot(&mut engine);
-    let (busiest_id, busiest) = busiest_route(&before).expect("a multi-member route");
-
-    ingest_step(&mut engine, "resync", &refs(&corpus.bucket_d_delta));
-    let after = route_snapshot(&mut engine);
-
-    // Membership-anchored: which group now carries the cold route's members?
-    let anchored = group_carrying(&after, &busiest.activity_ids);
-    let min_member = busiest
-        .activity_ids
-        .iter()
-        .min()
-        .cloned()
-        .unwrap_or_default();
-    println!(
-        "\n[control] route identity across resync (+{} activities)",
-        corpus.bucket_d_delta.len()
-    );
-    println!(
-        "  groups {} -> {}   id survival = {:.0}%",
-        before.count(),
-        after.count(),
-        route_id_survival(&before, &after) * 100.0,
-    );
-    println!("  busiest cold id={busiest_id}  min-member={min_member}",);
-    println!(
-        "  cold id still addresses the route: {}   membership-anchored new id: {:?}   new id == min-member: {}",
-        after.groups.contains_key(&busiest_id),
-        anchored.as_ref().map(|(id, _)| id.clone()),
-        anchored
-            .as_ref()
-            .map(|(id, _)| *id == min_member)
-            .unwrap_or(false),
-    );
-}
-
-/// Target gate: a multi-member route has a STABLE, OPAQUE identity across a
-/// resync — an id that does not move with its membership. Fails today, and this
-/// is R2 reaching routes: the group_id is the Union-Find ROOT, which the cold
-/// FULL path and the incremental RESYNC path assign by different rules. The cold
-/// full path roots at a hash-seed dependent member; the incremental resync path
-/// deterministically re-roots to the group's MIN member id. So after any resync
-/// the id is positional (== min member), a value that changes whenever the
-/// full/incremental paths disagree (the cold id then vanishes) or a lower-id
-/// member joins — orphaning anything keyed to it (see the representative and name
-/// gates). Deterministic: post-resync the id is the min member. Green when routes
-/// carry an assign-once opaque id (B2).
+/// A multi-member route has a STABLE, OPAQUE identity across a resync — an id
+/// that does not move with its membership. B2 mints an ordinal `r_<n>` rather
+/// than reusing the Union-Find root, so the id is never the group's MIN member
+/// id. A positional id would be re-keyed whenever a lower-id member joins,
+/// orphaning everything stored against it (the representative and name below).
 #[test]
 fn route_identity_survives_resync() {
     let corpus = route_corpus(COLD_N);
@@ -364,8 +210,8 @@ fn route_identity_survives_resync() {
     ingest_step(&mut engine, "resync", &refs(&corpus.bucket_d_delta));
     let after = route_snapshot(&mut engine);
 
-    // The route still exists by membership; the defect is that its id is now the
-    // positional min-member, not a stable opaque identity.
+    // Follow the route by membership, then check its id is opaque rather than
+    // the positional min-member value a re-key would produce.
     let (new_id, _f) =
         group_carrying(&after, &busiest.activity_ids).expect("route survives by membership");
     let min_member = busiest
@@ -376,7 +222,7 @@ fn route_identity_survives_resync() {
         .unwrap_or_default();
     assert_ne!(
         new_id, min_member,
-        "route identity is positional (the min-member id) after a resync — it is not a stable id (R2 reaches routes)",
+        "route identity is positional (the min-member id) after a resync — it is not a stable opaque id",
     );
 }
 
@@ -384,61 +230,12 @@ fn route_identity_survives_resync() {
 // Curiosity 2 — REPRESENTATIVE SURVIVAL across a resync
 // ============================================================================
 
-/// Measurement: promote a non-default member to representative, resync, regroup.
-/// Report the representative BOTH by the old id and membership-anchored (the old
-/// id vanishes on resync per curiosity 1, so the honest question is what the
-/// route — followed by its members — now calls its representative).
-#[test]
-fn route_representative_survival_measured() {
-    let corpus = route_corpus(COLD_N);
-    let (mut engine, _dir) = fresh_engine_for(Arm::Control);
-    ingest_step(&mut engine, "cold", &corpus.through_a());
-    let before = route_snapshot(&mut engine);
-    let (busiest_id, busiest) = busiest_route(&before).expect("a multi-member route");
-
-    let chosen = busiest
-        .activity_ids
-        .iter()
-        .find(|m| **m != busiest.representative_id)
-        .expect("a second member to promote")
-        .clone();
-    engine
-        .set_route_representative(&busiest_id, &chosen)
-        .expect("set_route_representative");
-
-    ingest_step(&mut engine, "resync", &refs(&corpus.bucket_d_delta));
-    let after = route_snapshot(&mut engine);
-
-    let anchored = group_carrying(&after, &busiest.activity_ids);
-    println!("\n[control] representative survival — route {busiest_id}");
-    println!("  chose rep {chosen} (was {})", busiest.representative_id,);
-    println!(
-        "  after resync: by old id rep={:?}   membership-anchored rep={:?}   stuck={}",
-        after
-            .groups
-            .get(&busiest_id)
-            .map(|g| g.representative_id.clone()),
-        anchored.as_ref().map(|(_, g)| g.representative_id.clone()),
-        anchored
-            .as_ref()
-            .map(|(_, g)| g.representative_id == chosen)
-            .unwrap_or(false),
-    );
-    println!(
-        "  => the re-keyed group misses existing_reps (keyed by the vanished cold id) and falls back to the min-member medoid"
-    );
-}
-
-/// Target gate: a user-chosen route representative survives a resync. Fails on
-/// most seeds — a corollary of the identity defect. The incremental path threads
-/// `existing_reps` keyed by group_id, but the resync re-keys the route to the
-/// min-member id (curiosity 1), so the lookup MISSES and the representative falls
-/// back to the fresh min-member medoid, discarding the user's pick. Membership-
-/// anchored so it follows the route past the id churn. SEED-CONDITIONAL: green
-/// only on the ~1-in-5 hash seed where the cold Union-Find root already equals the
-/// min-member (so identity does not churn and `existing_reps` hits); red
-/// otherwise. Green unconditionally once identity is a stable assign-once id (B2)
-/// or the representative is stored against a stable key.
+/// A user-chosen route representative survives a resync. The incremental path
+/// threads `existing_reps` keyed by group_id, so this only holds because the id
+/// is stable across the regroup (curiosity 1). A red here means the lookup
+/// missed and the representative fell back to the fresh min-member medoid,
+/// discarding the user's pick. Membership-anchored, so it follows the route even
+/// if the id does churn.
 #[test]
 fn route_representative_survives_resync() {
     let corpus = route_corpus(COLD_N);
@@ -472,12 +269,13 @@ fn route_representative_survives_resync() {
 // Curiosity 3 — NAME SURVIVAL across a resync
 // ============================================================================
 
-/// Measurement: name a route, resync, regroup. Report the name from BOTH query
-/// surfaces — `get_route_name` (in-memory group) and `get_all_route_names` (the
-/// `route_names` DB table) — because `recompute_groups` rebuilds the in-memory
-/// groups with `custom_name = None` and never re-hydrates from the table.
+/// The `route_names` row survives a resync under the SAME id, and that id still
+/// addresses the route by membership. This is the durable half of route naming:
+/// the name is keyed by group_id, so a re-keyed group would orphan the row and
+/// lose the name from every surface. Stable identity (B2) is what keeps the two
+/// lookups agreeing. The in-memory surface is gated separately below.
 #[test]
-fn route_name_survival_measured() {
+fn route_name_row_survives_resync_under_the_stable_id() {
     let corpus = route_corpus(COLD_N);
     let (mut engine, _dir) = fresh_engine_for(Arm::Control);
     ingest_step(&mut engine, "cold", &corpus.through_a());
@@ -487,39 +285,31 @@ fn route_name_survival_measured() {
     engine
         .set_route_name(&busiest_id, Some("My Climb"))
         .expect("set_route_name");
-    println!("\n[control] name survival — route {busiest_id} named \"My Climb\"");
-    println!(
-        "  before resync: get_route_name = {:?}",
-        engine.get_route_name(&busiest_id)
-    );
-
     ingest_step(&mut engine, "resync", &refs(&corpus.bucket_d_delta));
     let after = route_snapshot(&mut engine);
 
-    let in_memory = engine.get_route_name(&busiest_id);
-    let in_db = engine.get_all_route_names().get(&busiest_id).cloned();
-    let anchored_name = group_carrying(&after, &busiest.activity_ids)
-        .and_then(|(id, _)| engine.get_all_route_names().get(&id).cloned());
-    println!(
-        "  after resync:  get_route_name (in-memory)={:?}   get_all_route_names[old id] (DB)={:?}   name under the re-keyed route={:?}",
-        in_memory, in_db, anchored_name,
+    assert_eq!(
+        engine
+            .get_all_route_names()
+            .get(&busiest_id)
+            .map(|s| s.as_str()),
+        Some("My Climb"),
+        "the route_names row was orphaned by the resync — the name is keyed to an id the regroup discarded",
     );
-    println!(
-        "  => the name was stored against the cold id, which the resync re-keys; the route_names row is orphaned AND recompute never re-hydrates custom_name, so the name is gone from every surface"
+    let (anchored_id, _) = group_carrying(&after, &busiest.activity_ids)
+        .expect("the named route survives by membership");
+    assert_eq!(
+        anchored_id, busiest_id,
+        "the named route came back under {anchored_id}, so the name row at {busiest_id} no longer addresses it",
     );
 }
 
-/// Target gate: a user's custom route name survives a resync. Fails today, and
-/// Two compounding causes, one now fixed. (1) The name was stored in
-/// `route_names` keyed by the group_id, which the resync re-keyed (curiosity 1),
-/// orphaning the row — FIXED by B2: the stable route id survives the resync, so
-/// the `route_names` row is no longer orphaned (`get_all_route_names` under the
-/// stable id keeps the name). (2) `recompute_groups` still rebuilds the in-memory
-/// groups with `custom_name = None` and never re-hydrates from `route_names`, so
-/// `get_route_name` (which reads the in-memory group) returns None. That
-/// re-hydration is B4's job, so this stays red on the in-memory surface only.
+/// A user's custom route name survives a resync on the in-memory surface too.
+/// `recompute_groups` rebuilds the groups with `custom_name = None` and never
+/// re-hydrates from `route_names`, so `get_route_name` returns None even though
+/// the DB row is intact (asserted above). Green when the re-hydrate lands.
 #[test]
-#[ignore = "B4: the route_names row now survives (B2 stable id, no longer orphaned), but recompute_groups still does not re-hydrate custom_name into the in-memory group, so get_route_name is None until B4 adds the re-hydrate"]
+#[ignore = "B4: recompute_groups does not re-hydrate custom_name into the in-memory group, so get_route_name is None after a resync even though the route_names row survives"]
 fn route_name_survives_resync() {
     let corpus = route_corpus(COLD_N);
     let (mut engine, _dir) = fresh_engine_for(Arm::Control);
@@ -541,63 +331,14 @@ fn route_name_survives_resync() {
 }
 
 // ============================================================================
-// Curiosity 4 — DOES THE PROCESSED-SET FREEZE (NEW-R4) REACH ROUTES?
+// Curiosity 4 — does the processed-set short-circuit reach routes?
 // ============================================================================
 
-/// Measurement: add a NEW activity whose GPS is identical to an existing route
-/// member (guaranteed same ground/endpoints), regroup, and report whether the
-/// route's membership grows. Sections FREEZE here (a new activity on seen ground
-/// is a no-op via the processed-set short-circuit). Routes key off group
-/// membership instead, so they should NOT freeze.
-#[test]
-fn route_membership_update_measured() {
-    let corpus = route_corpus(COLD_N);
-    let (mut engine, _dir) = fresh_engine_for(Arm::Control);
-    ingest_step(&mut engine, "cold", &corpus.through_a());
-    let before = route_snapshot(&mut engine);
-    let (_busiest_id, busiest) = busiest_route(&before).expect("a multi-member route");
-
-    let member = corpus_activity(&corpus, busiest.representative_id.as_str());
-    let clone = LifecycleActivity {
-        id: "route_repeat_clone".to_string(),
-        sport_type: member.sport_type.clone(),
-        start_date_unix: member.start_date_unix + 100_000,
-        gps_points: member.gps_points.clone(),
-    };
-    ingest_step(&mut engine, "repeat", &[&clone]);
-    let after = route_snapshot(&mut engine);
-
-    // Membership-anchored (the group_id re-keys on regroup, curiosity 1).
-    let anchored = group_carrying(&after, &busiest.activity_ids);
-    println!(
-        "\n[control] does the freeze reach routes — added an identical-GPS repeat of {}",
-        member.id
-    );
-    println!(
-        "  route carrying the cold members: {} -> {} members   contains the repeat = {}",
-        busiest.activity_ids.len(),
-        anchored
-            .as_ref()
-            .map(|(_, g)| g.activity_ids.len())
-            .unwrap_or(0),
-        anchored
-            .as_ref()
-            .map(|(_, g)| g.activity_ids.contains("route_repeat_clone"))
-            .unwrap_or(false),
-    );
-    println!(
-        "  => route grouping keys off membership, not processed_activity_ids, so NEW-R4 does not freeze it"
-    );
-}
-
 /// Guard: a new activity on an existing route's ground joins that route on
-/// regroup — routes are NOT frozen by the processed-set short-circuit that
-/// freezes sections (NEW-R4). This bounds the freeze's blast radius: it stops at
-/// the section pipeline. Membership-anchored (the group re-keys on regroup).
-/// Holds today; kept `#[ignore]` for uniformity. Red would mean the freeze has
-/// spread to routes.
+/// regroup. Route grouping keys off group MEMBERSHIP, not
+/// `processed_activity_ids`, so the section pipeline's short-circuit cannot
+/// freeze it. Membership-anchored, so it follows the route across the regroup.
 #[test]
-#[ignore = "guard — routes update membership for a new activity on seen ground (freeze/NEW-R4 does not reach routes); holds today, kept ignored until the suite gates CI"]
 fn route_membership_not_frozen() {
     let corpus = route_corpus(COLD_N);
     let (mut engine, _dir) = fresh_engine_for(Arm::Control);
@@ -628,75 +369,6 @@ fn route_membership_not_frozen() {
 // Curiosity 5 — FIRST / SINGLE ATTEMPT SAFETY of route highlights
 // ============================================================================
 
-/// Measurement: give the busiest route timed attempts and read
-/// `get_activity_route_highlights`. Print the per-attempt trend/is_pr, and probe
-/// a first attempt and a single-attempt (singleton) route. The moving_times are
-/// chosen so the third attempt is UP versus the running average yet is NOT the
-/// PR — the case that distinguishes trend (running average) from delta (PR).
-#[test]
-fn route_highlights_first_attempt_measured() {
-    let corpus = route_corpus(COLD_N);
-    let (mut engine, _dir) = fresh_engine_for(Arm::Control);
-    ingest_step(&mut engine, "cold", &corpus.through_a());
-    let routes = route_snapshot(&mut engine);
-    let (_id, busiest) = busiest_route(&routes).expect("a multi-member route");
-
-    // Order members by date and assign moving_times so speeds go slow, fast (PR),
-    // then medium (above the running average of the first two, but not a PR).
-    let mut members: Vec<&String> = busiest.activity_ids.iter().collect();
-    members.sort_by_key(|id| corpus_activity(&corpus, id).start_date_unix);
-    let times = [1000u32, 500, 600, 700, 800];
-    let metrics: Vec<ActivityMetrics> = members
-        .iter()
-        .enumerate()
-        .map(|(i, id)| metrics_for(corpus_activity(&corpus, id), times[i.min(times.len() - 1)]))
-        .collect();
-    engine
-        .set_activity_metrics(metrics)
-        .expect("set_activity_metrics");
-
-    let ids: Vec<String> = members.iter().map(|s| (*s).clone()).collect();
-    let highlights = engine.get_activity_route_highlights(&ids);
-
-    println!(
-        "\n[control] route highlights — {} timed attempts on the busiest route",
-        ids.len()
-    );
-    for h in &highlights {
-        println!(
-            "  {} trend={:>2} is_pr={} time_delta={:?} pr_improvement={:?}",
-            h.activity_id, h.trend, h.is_pr, h.time_delta_seconds, h.pr_improvement_seconds,
-        );
-    }
-
-    // First (earliest) attempt.
-    let first = &ids[0];
-    let first_h = highlights.iter().find(|h| &h.activity_id == first);
-    println!(
-        "  first attempt {first}: trend = {:?} (expect 0)",
-        first_h.map(|h| h.trend)
-    );
-
-    // Single-attempt route: any singleton group.
-    if let Some((sid, sfp)) = routes
-        .groups
-        .iter()
-        .find(|(_, g)| g.activity_ids.len() == 1)
-    {
-        let only = sfp.activity_ids.iter().next().unwrap().clone();
-        engine
-            .set_activity_metrics(vec![metrics_for(corpus_activity(&corpus, &only), 900)])
-            .expect("metrics");
-        let sh = engine.get_activity_route_highlights(&[only.clone()]);
-        println!(
-            "  single-attempt route {sid}: {} highlight(s), trend={:?}, is_pr={:?} (no crash / NaN)",
-            sh.len(),
-            sh.first().map(|h| h.trend),
-            sh.first().map(|h| h.is_pr),
-        );
-    }
-}
-
 /// Guard: route-highlight trend/delta are first/single-attempt safe and the
 /// trend is decoupled from the PR.
 ///   - every trend is one of {-1, 0, 1} (never NaN — the field is an i8);
@@ -707,9 +379,7 @@ fn route_highlights_first_attempt_measured() {
 ///     reads best moving time. The intentional split (see the activity-card note
 ///     in CLAUDE.md), verified here rather than a fixed third-attempt value,
 ///     which the direction-bucket split inside the function makes brittle.
-/// Holds today; kept `#[ignore]` for uniformity with the target gates.
 #[test]
-#[ignore = "guard — route highlight trend is first/single-attempt safe and decoupled from the PR (running average); holds today, kept ignored until the suite gates CI"]
 fn route_highlights_trend_is_running_average_safe() {
     let corpus = route_corpus(COLD_N);
     let (mut engine, _dir) = fresh_engine_for(Arm::Control);

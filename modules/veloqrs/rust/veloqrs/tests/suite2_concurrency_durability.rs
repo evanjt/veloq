@@ -8,10 +8,7 @@
 //! actually renders, and does the no-WAL single-writer store stay consistent
 //! under a concurrent reader, racing detections, and an interrupted sync.
 //!
-//! Structure per curiosity: a `#[test]` MEASUREMENT that prints reality and
-//! never fails, and a target `#[test]` GATE asserting the invariant. Gates that
-//! hold today are kept as live regression guards. Gates that are red are
-//! `#[ignore]`d with the B-work that turns them green. Everything is
+//! One live gate per curiosity, each asserting the invariant. Everything is
 //! method-agnostic persistence behaviour, so it runs on the fast Control arm.
 //!
 //! A second engine is opened directly with `PersistentRouteEngine::new(path)` on
@@ -20,11 +17,19 @@
 //! owned by value, not the global `PERSISTENT_ENGINE` singleton, so this
 //! exercises SQLite-level concurrency directly, not the process-wide RwLock.
 //!
-//! Run: `cargo test -p veloqrs --features synthetic \
-//!   --test suite2_concurrency_durability -- --nocapture --include-ignored`
-//! (add `--test-threads=1` to keep the two-engine timing test isolated).
+//! The two-engine timing tests need the machine to themselves: a heavy test
+//! running alongside makes the reader observe mid-commit counts. `serialise()`
+//! enforces that in-process, so the file is safe at any `--test-threads`.
 
 mod lifecycle_support;
+
+/// Serialises the tests in this binary. The two-engine timing tests observe
+/// mid-commit counts if another heavy test shares the machine, and a comment
+/// asking for `--test-threads=1` does not bind CI.
+fn serialise() -> std::sync::MutexGuard<'static, ()> {
+    static LOCK: std::sync::Mutex<()> = std::sync::Mutex::new(());
+    LOCK.lock().unwrap_or_else(|e| e.into_inner())
+}
 
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -112,8 +117,9 @@ fn db_path(dir: &tempfile::TempDir) -> String {
 // ever in memory?
 // ============================================================================
 
-/// (db signature after cold detect, db signature after a fresh reopen,
-///  engine #1 in-memory count post-apply, engine #2 in-memory count post-load).
+/// The db catalogue signature after a cold detect, and again after a fresh
+/// reopen, plus the in-memory count each engine carries. The counts let the gate
+/// prove `load` rehydrates the cache rather than coming up empty.
 fn restart_state() -> (String, String, usize, usize) {
     let corpus = corpus();
     let (mut e1, dir) = fresh_engine_for(Arm::Control);
@@ -134,32 +140,17 @@ fn restart_state() -> (String, String, usize, usize) {
     (sig_db_before, sig_db_after, e1_inmem, e2_inmem)
 }
 
-#[test]
-fn restart_durability_today() {
-    let (before, after, e1_inmem, e2_inmem) = restart_state();
-    let db_rows_before = before.lines().count();
-    let db_rows_after = after.lines().count();
-    println!(
-        "[control] restart: db catalogue {} -> {} rows across a fresh open ({}); in-memory cache {} (engine #1 post-apply) -> {} (engine #2 post-load)",
-        db_rows_before,
-        db_rows_after,
-        if before == after {
-            "IDENTICAL"
-        } else {
-            "CHANGED"
-        },
-        e1_inmem,
-        e2_inmem,
-    );
-}
-
-/// Gate: the user-visible catalogue is byte-identical across a fresh open. This
-/// is the floor the app stands on. A restart must not lose or mutate detected
-/// sections. Holds today (`save_sections` commits to the DB and `load` reads it
-/// back), so this is a live regression guard, not a red target.
+/// Gate: the user-visible catalogue is byte-identical across a fresh open, and
+/// `load` brings the in-memory cache back with it. This is the floor the app
+/// stands on. A restart must not lose or mutate detected sections.
 #[test]
 fn restart_preserves_catalogue() {
-    let (before, after, _e1, _e2) = restart_state();
+    let _serial = serialise();
+    let (before, after, e1_inmem, e2_inmem) = restart_state();
+    assert_eq!(
+        e2_inmem, e1_inmem,
+        "load() rehydrated {e2_inmem} in-memory sections, engine #1 held {e1_inmem}"
+    );
     assert!(
         !before.is_empty(),
         "cold detect produced no catalogue to persist"
@@ -179,6 +170,7 @@ fn restart_preserves_catalogue() {
 /// the tombstones). Fingerprint = the serialised registry, so equality is exact.
 #[test]
 fn identity_registries_survive_restart() {
+    let _serial = serialise();
     let corpus = corpus();
     let (mut e1, dir) = fresh_engine_for(Arm::Battery);
     ingest_step(&mut e1, "cold", &corpus.through_a());
@@ -213,48 +205,19 @@ fn identity_registries_survive_restart() {
 // Curiosity 2: in-memory cache vs DB view seam (B4)
 //
 // `get_sections()` returns the in-memory `self.sections` cache;
-// `get_sections_by_type(None)` reads the DB. `apply_sections_save` overwrites
-// the cache with the fresh detection result and never reloads from DB, so any
-// mutation that touches only the DB leaves the cache stale. Measured reality:
-// the APPLY path keeps them coherent (no cross-sport merge fires on the
-// synthetic corpus), but a DB-only edit (disable) drifts them apart. The
-// cache never learns the section left the visible set.
+// `get_sections_by_type(None)` reads the DB. `apply_sections_save` re-assigns
+// the cache wholesale, so the risk is a mutation that touches only the DB. Both
+// halves are gated: the apply path stays coherent, and a DB-only edit (disable)
+// is reflected in the cache rather than leaving it one section ahead.
 // ============================================================================
-
-#[test]
-fn in_memory_vs_db_divergence_today() {
-    let corpus = corpus();
-    let (mut e, _dir) = fresh_engine_for(Arm::Control);
-
-    let cold = ingest_step(&mut e, "cold", &corpus.through_a());
-    let cold_inmem = in_memory_snapshot(&e).count();
-    let cold_db = cold.snapshot.count();
-
-    let expand = ingest_step(&mut e, "expand", &refs(&corpus.bucket_b_delta));
-    let expand_inmem = in_memory_snapshot(&e).count();
-    let expand_db = expand.snapshot.count();
-
-    // A DB-only edit: disabling a section removes it from the DB visibility
-    // filter but the in-memory cache is never told.
-    let (id, _) = busiest_section(&expand.snapshot).expect("a section to disable");
-    e.disable_section(&id).expect("disable_section");
-    let disabled_inmem = in_memory_snapshot(&e).count();
-    let disabled_db = snapshot(&mut e).count();
-
-    println!(
-        "[control] seam: cold inmem={cold_inmem}=db={cold_db} | expand inmem={expand_inmem}=db={expand_db} | after disabling {id} inmem={disabled_inmem} vs db={disabled_db} (gap={})",
-        disabled_inmem as i64 - disabled_db as i64,
-    );
-}
 
 /// Guard: the apply path itself keeps the cache and DB coherent. After a cold
 /// detect and after an expand re-detect, `get_sections()` and the DB view report
-/// the same catalogue. Holds today on the synthetic corpus, no cross-sport
-/// merge fires in the finalize tail to mutate the DB out from under the cache,
-/// so the "apply overwrites the cache" path stays consistent. A live guard: if a
-/// finalize step starts editing the DB without updating the cache, this trips.
+/// the same catalogue. If a finalize step starts editing the DB without updating
+/// the cache, this trips.
 #[test]
 fn apply_path_keeps_cache_coherent() {
+    let _serial = serialise();
     let corpus = corpus();
     let (mut e, _dir) = fresh_engine_for(Arm::Control);
     let cold = ingest_step(&mut e, "cold", &corpus.through_a());
@@ -271,14 +234,13 @@ fn apply_path_keeps_cache_coherent() {
     );
 }
 
-/// Target gate (B4): the in-memory cache must reflect a DB-only edit. Disabling
-/// a section drops it from the DB view the app renders, but `get_sections()`
-/// still returns it, the cache is never invalidated. Reproduces the seam as a
-/// count gap (in-memory carries one more section than the DB). Red today, green
-/// when the cache is kept in lockstep with (or reloaded from) the DB after any
-/// mutation, not just re-assigned wholesale on apply.
+/// Gate (B4): the in-memory cache reflects a DB-only edit. Disabling a section
+/// drops it from the DB view the app renders, and the cache is kept in lockstep
+/// rather than left one section ahead. A red here is the seam reopening: an
+/// in-memory consumer acting on a section the user hid.
 #[test]
 fn cache_reflects_db_only_edits() {
+    let _serial = serialise();
     let corpus = corpus();
     let (mut e, _dir) = fresh_engine_for(Arm::Control);
     let cold = ingest_step(&mut e, "cold", &corpus.through_a());
@@ -364,31 +326,6 @@ fn read_during_write() -> (usize, usize, Vec<(usize, Duration)>) {
     (n0, n1, reads)
 }
 
-#[test]
-fn read_during_write_today() {
-    let (n0, n1, reads) = read_during_write();
-    let max_latency = reads.iter().map(|(_, d)| *d).max().unwrap_or_default();
-    let zero_reads = reads.iter().filter(|(c, _)| *c == 0).count();
-    let torn_reads = reads
-        .iter()
-        .filter(|(c, _)| *c != 0 && *c != n0 && *c != n1)
-        .count();
-    let saw_n0 = reads.iter().any(|(c, _)| *c == n0);
-    let saw_n1 = reads.iter().any(|(c, _)| *c == n1);
-
-    println!(
-        "[control] read-during-write: N0={} N1={} | reads={} max_latency={:?} zero_reads={} torn_reads={} | observed N0={} N1={}",
-        n0,
-        n1,
-        reads.len(),
-        max_latency,
-        zero_reads,
-        torn_reads,
-        saw_n0,
-        saw_n1,
-    );
-}
-
 /// Gate: a concurrent reader on a second connection never errors, never sees a
 /// false-empty, and never sees a torn catalogue while the writer re-detects.
 /// Every read is N0 (pre-commit) or N1 (post-commit). SQLite's transaction
@@ -398,6 +335,7 @@ fn read_during_write_today() {
 /// read. Kept as a live guard: if it ever fails, contention safety regressed.
 #[test]
 fn concurrent_reads_are_consistent() {
+    let _serial = serialise();
     let (n0, n1, reads) = read_during_write();
     assert!(n0 > 0, "cold detect produced no baseline catalogue");
     let max_latency = reads.iter().map(|(_, d)| *d).max().unwrap_or_default();
@@ -456,33 +394,14 @@ fn racing_detect() -> (bool, bool, String, String, usize, Option<String>) {
     (r1_ok, r2_ok, sig1, sig2, final_count, r2_err)
 }
 
-#[test]
-fn racing_detect_today() {
-    let (r1_ok, r2_ok, sig1, sig2, final_count, r2_err) = racing_detect();
-    println!(
-        "[control] racing detect: apply#1={} apply#2={} | detection results {} | final catalogue={} sections{}",
-        if r1_ok { "ok" } else { "ERR" },
-        if r2_ok { "ok" } else { "ERR" },
-        if sig1 == sig2 {
-            "IDENTICAL (deterministic)"
-        } else {
-            "DIFFER (non-deterministic)"
-        },
-        final_count,
-        match r2_err {
-            Some(e) => format!(" | apply#2 error: {e}"),
-            None => String::new(),
-        },
-    );
-}
-
 /// Gate: racing two full detections and applying both must not crash or corrupt
-/// the store. The second apply succeeds and leaves a non-empty catalogue. Holds
-/// today because `save_sections` DELETEs all auto sections before re-inserting,
-/// so the second apply cannot collide on a UNIQUE id (unlike the accept+resync
-/// path, R2). Kept as a live guard on that wipe-rebuild crash-safety.
+/// the store. The second apply succeeds and leaves a non-empty catalogue.
+/// `save_sections` DELETEs all auto sections before re-inserting, so the second
+/// apply cannot collide on a UNIQUE id. A live guard on that wipe-rebuild
+/// crash-safety.
 #[test]
 fn racing_detect_does_not_corrupt() {
+    let _serial = serialise();
     let (r1_ok, r2_ok, _sig1, _sig2, final_count, r2_err) = racing_detect();
     assert!(r1_ok, "first apply of a racing detect failed");
     assert!(
@@ -535,22 +454,14 @@ fn crash_before_apply() -> (usize, usize, usize) {
     (activities, sections_before, sections_after)
 }
 
-#[test]
-fn crash_before_apply_today() {
-    let (activities, before, after) = crash_before_apply();
-    println!(
-        "[control] crash-before-apply: after reopen activities={} sections={} | after recover detect sections={}",
-        activities, before, after,
-    );
-}
-
 /// Gate: an interrupted sync leaves a consistent DB and is fully recoverable.
 /// All ingested activities survive the reopen, no partial sections were written
-/// before the crash, and a subsequent detect rebuilds the catalogue. Holds today
-/// (add_activity commits independently of detection. Nothing half-writes a
-/// section without an apply), so this is a live durability guard.
+/// before the crash, and a subsequent detect rebuilds the catalogue.
+/// `add_activity` commits independently of detection, so nothing half-writes a
+/// section without an apply.
 #[test]
 fn crash_before_apply_recovers() {
+    let _serial = serialise();
     let corpus = corpus();
     let expected_activities = corpus.through_a().len();
     let (activities, before, after) = crash_before_apply();
