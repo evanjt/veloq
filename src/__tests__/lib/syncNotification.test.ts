@@ -123,6 +123,7 @@ describe('notification handler differentiation', () => {
       .then((result: Notifications.NotificationBehavior) => {
         expect(result.shouldShowBanner).toBe(true);
         expect(result.shouldShowList).toBe(true);
+        expect(result.shouldPlaySound).toBe(false);
         expect(result.shouldShowAlert).toBeUndefined();
       });
   });
@@ -224,24 +225,8 @@ describe('notification tap handler', () => {
     expect(router.push).not.toHaveBeenCalled();
   });
 
-  it('returns shouldShowBanner true for non-sync notifications', () => {
-    initializeNotifications();
-
-    const handlerCall = (Notifications.setNotificationHandler as jest.Mock).mock.calls[0][0];
-    const insightNotification = {
-      request: { identifier: 'insight-new-pr' },
-    } as Notifications.Notification;
-
-    return handlerCall
-      .handleNotification(insightNotification)
-      .then((result: Notifications.NotificationBehavior) => {
-        expect(result.shouldShowBanner).toBe(true);
-        expect(result.shouldPlaySound).toBe(false);
-      });
-  });
-
-  it('returns a subscription with remove function', () => {
-    const subscription = setupNotificationResponseHandler();
-    expect(typeof subscription.remove).toBe('function');
+  it('registers exactly one response listener per call', () => {
+    setupNotificationResponseHandler();
+    expect(addListenerMock).toHaveBeenCalledTimes(1);
   });
 });

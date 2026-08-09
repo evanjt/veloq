@@ -77,8 +77,10 @@ describe('tile math', () => {
       maxLng: 8.6,
     };
 
-    it('returns a positive number', () => {
-      expect(tileCountForBounds(bounds, [10, 14])).toBeGreaterThan(0);
+    it('counts every tile the Zurich box touches from z10 to z14', () => {
+      // A single tile at z10 growing to a 6x5 block at z14.
+      expect(tileCountForBounds(bounds, [10, 14])).toBe(46);
+      expect(tileCountForBounds(bounds, [14, 14])).toBe(30);
     });
 
     it('returns more tiles for wider zoom range', () => {
@@ -153,11 +155,11 @@ describe('tile math', () => {
       expect(clusters.length).toBe(2);
     });
 
-    it('each cluster has a non-empty hash', () => {
+    it('names a cluster by its expanded bounds, rounded to ~1km', () => {
       const activities = [{ bounds: { minLat: 47.35, maxLat: 47.36, minLng: 8.5, maxLng: 8.51 } }];
       const clusters = clusterActivityBounds(activities, 20, 5);
-      expect(clusters[0].hash).toBeTruthy();
-      expect(clusters[0].hash.length).toBeGreaterThan(0);
+      // Cache pack names key off this hash, so drift silently orphans the cache.
+      expect(clusters[0].hash).toBe('3ne_3np_nf_nu');
     });
 
     it('cluster bounds are expanded by radius', () => {
@@ -186,8 +188,8 @@ describe('tile math', () => {
         'https://tiles.example.com/{z}/{x}/{y}.png',
         [10, 10]
       );
-      expect(urls.length).toBeGreaterThan(0);
-      expect(urls[0]).toMatch(/^https:\/\/tiles\.example\.com\/10\/\d+\/\d+\.png$/);
+      // Zurich sits in a single z10 tile, so x and y are pinned.
+      expect(urls).toEqual(['https://tiles.example.com/10/536/358.png']);
     });
 
     it('deduplicates tiles across overlapping clusters', () => {
@@ -228,7 +230,8 @@ describe('tile math', () => {
         { zoomRange: [10, 12] },
         { zoomRange: [10, 12] },
       ]);
-      expect(twoSources).toBe(oneSource * 2);
+      expect(oneSource).toBe(3);
+      expect(twoSources).toBe(6);
     });
   });
 });

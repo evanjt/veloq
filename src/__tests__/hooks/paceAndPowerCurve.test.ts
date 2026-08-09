@@ -285,15 +285,9 @@ describe('formatPowerCurveForChart', () => {
 // Constant arrays
 // ---------------------------------------------------------------------------
 
-describe('PACE_CURVE_DISTANCES', () => {
-  it('has entries for standard running distances', () => {
-    const labels = PACE_CURVE_DISTANCES.map((d) => d.label);
-    expect(labels).toContain('400m');
-    expect(labels).toContain('5K');
-    expect(labels).toContain('10K');
-    expect(labels).toContain('Half');
-  });
+// Charts plot these in array order, so a duplicate or out-of-order entry folds the curve back.
 
+describe('PACE_CURVE_DISTANCES', () => {
   it('distances are in ascending order', () => {
     for (let i = 1; i < PACE_CURVE_DISTANCES.length; i++) {
       expect(PACE_CURVE_DISTANCES[i].meters).toBeGreaterThan(PACE_CURVE_DISTANCES[i - 1].meters);
@@ -302,21 +296,19 @@ describe('PACE_CURVE_DISTANCES', () => {
 });
 
 describe('SWIM_PACE_CURVE_DISTANCES', () => {
-  it('has entries for standard swimming distances', () => {
-    const labels = SWIM_PACE_CURVE_DISTANCES.map((d) => d.label);
-    expect(labels).toContain('100m');
-    expect(labels).toContain('400m');
-    expect(labels).toContain('1500m');
+  it('distances are in ascending order', () => {
+    for (let i = 1; i < SWIM_PACE_CURVE_DISTANCES.length; i++) {
+      expect(SWIM_PACE_CURVE_DISTANCES[i].meters).toBeGreaterThan(
+        SWIM_PACE_CURVE_DISTANCES[i - 1].meters
+      );
+    }
   });
 });
 
 describe('POWER_CURVE_DURATIONS', () => {
-  it('has entries for standard durations', () => {
-    const labels = POWER_CURVE_DURATIONS.map((d) => d.label);
-    expect(labels).toContain('5s');
-    expect(labels).toContain('1m');
-    expect(labels).toContain('5m');
-    expect(labels).toContain('20m');
-    expect(labels).toContain('1h');
+  it('durations are in ascending order', () => {
+    for (let i = 1; i < POWER_CURVE_DURATIONS.length; i++) {
+      expect(POWER_CURVE_DURATIONS[i].secs).toBeGreaterThan(POWER_CURVE_DURATIONS[i - 1].secs);
+    }
   });
 });

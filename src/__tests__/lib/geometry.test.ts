@@ -1,3 +1,10 @@
+const mockEngineOverlap = jest.fn();
+let mockEngine: { computePolylineOverlap: jest.Mock } | null = null;
+
+jest.mock('@/shared/native/routeEngine', () => ({
+  getRouteEngine: () => mockEngine,
+}));
+
 import {
   haversineDistance,
   computePolylineOverlap,
@@ -40,23 +47,38 @@ describe('haversineDistance', () => {
 });
 
 describe('computePolylineOverlap', () => {
-  // Note: computePolylineOverlap delegates to the Rust engine (R-tree).
-  // In tests without the native module, it returns 0 for non-empty inputs.
+  const line = [
+    { lat: 46.948, lng: 7.447 },
+    { lat: 46.949, lng: 7.448 },
+  ];
 
-  it('returns 0 for empty polyline A', () => {
-    expect(computePolylineOverlap([], [{ lat: 0, lng: 0 }])).toBe(0);
+  beforeEach(() => {
+    mockEngineOverlap.mockReset().mockReturnValue(0.42);
+    mockEngine = { computePolylineOverlap: mockEngineOverlap };
   });
 
-  it('returns 0 for empty polyline B', () => {
-    expect(computePolylineOverlap([{ lat: 0, lng: 0 }], [])).toBe(0);
+  it('flattens both polylines to lat/lng pairs and returns the engine ratio', () => {
+    expect(computePolylineOverlap(line, line)).toBe(0.42);
+    expect(mockEngineOverlap).toHaveBeenCalledWith(
+      [46.948, 7.447, 46.949, 7.448],
+      [46.948, 7.447, 46.949, 7.448],
+      50
+    );
   });
 
-  it('returns 0 when engine is unavailable', () => {
-    const line = [
-      { lat: 0, lng: 0 },
-      { lat: 0.001, lng: 0.001 },
-    ];
-    // Without native engine, returns 0
+  it('passes an explicit threshold through', () => {
+    computePolylineOverlap(line, line, 15);
+    expect(mockEngineOverlap).toHaveBeenCalledWith(expect.anything(), expect.anything(), 15);
+  });
+
+  it('short-circuits an empty polyline without consulting the engine', () => {
+    expect(computePolylineOverlap([], line)).toBe(0);
+    expect(computePolylineOverlap(line, [])).toBe(0);
+    expect(mockEngineOverlap).not.toHaveBeenCalled();
+  });
+
+  it('returns 0 when the engine is unavailable', () => {
+    mockEngine = null;
     expect(computePolylineOverlap(line, line)).toBe(0);
   });
 });
