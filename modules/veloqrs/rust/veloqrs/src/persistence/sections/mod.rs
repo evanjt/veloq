@@ -514,14 +514,10 @@ impl PersistentRouteEngine {
         }
     }
 
-    /// Refresh a section in memory from the database.
-    /// Only applies to auto sections (custom sections are not cached in memory).
-    /// Call this after modifying a section's polyline or activity list.
+    /// Refresh a section in memory from the database. Auto and custom
+    /// sections are both cached in `self.sections`, so this applies to any
+    /// row. Call it after modifying a section's polyline or activity list.
     pub fn refresh_section_in_memory(&mut self, section_id: &str) {
-        // Only auto sections are cached in self.sections
-        // Custom sections always come from DB via get_section()
-
-        // First check if this is an auto section by querying the DB
         let section_data: Option<(
             String,
             String,

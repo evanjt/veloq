@@ -214,6 +214,33 @@ impl PersistentRouteEngine {
         section_type: Option<SectionType>,
         visible_only: bool,
     ) -> Vec<SectionSummary> {
+        // Same junction-derived sport list the canonical summaries read uses.
+        let section_sport_types: std::collections::HashMap<String, Vec<String>> = {
+            let mut stmt = match self.db.prepare(
+                "SELECT sa.section_id, GROUP_CONCAT(DISTINCT am.sport_type)
+                 FROM section_activities sa
+                 JOIN activity_metrics am ON sa.activity_id = am.activity_id
+                 WHERE sa.excluded = 0
+                 GROUP BY sa.section_id",
+            ) {
+                Ok(s) => s,
+                Err(_) => return Vec::new(),
+            };
+            stmt.query_map([], |row| {
+                let id: String = row.get(0)?;
+                let types_csv: String = row.get::<_, Option<String>>(1)?.unwrap_or_default();
+                let types: Vec<String> = types_csv
+                    .split(',')
+                    .filter(|s| !s.is_empty())
+                    .map(|s| s.to_string())
+                    .collect();
+                Ok((id, types))
+            })
+            .ok()
+            .map(|iter| iter.filter_map(|r| r.ok()).collect())
+            .unwrap_or_default()
+        };
+
         let base_cols = "id, section_type, name, sport_type, distance_meters,
                          representative_activity_id, created_at, confidence, scale,
                          bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng,
@@ -268,6 +295,10 @@ impl PersistentRouteEngine {
             };
 
             let sport_type: String = row.get(3)?;
+            let sport_types = section_sport_types
+                .get(&id)
+                .cloned()
+                .unwrap_or_else(|| vec![sport_type.clone()]);
             Ok(SectionSummary {
                 id,
                 section_type: row
@@ -283,17 +314,21 @@ impl PersistentRouteEngine {
                 scale: row.get(8)?,
                 bounds,
                 created_at: row.get::<_, Option<String>>(6)?.unwrap_or_default(),
-                sport_types: vec![sport_type],
+                sport_types,
                 is_user_defined: row.get::<_, Option<i32>>(13)?.unwrap_or(0) != 0,
                 disabled: row.get::<_, Option<i32>>(14)?.unwrap_or(0) != 0,
                 superseded_by: row.get(15)?,
             })
         });
 
-        match rows {
+        let mut results: Vec<SectionSummary> = match rows {
             Ok(iter) => iter.filter_map(|r| r.ok()).collect(),
             Err(_) => Vec::new(),
+        };
+        for summary in &mut results {
+            self.apply_named_overlay_to_summary(summary);
         }
+        results
     }
 
     /// Get distinct activity count for a section.

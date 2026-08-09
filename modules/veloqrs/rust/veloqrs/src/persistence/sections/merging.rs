@@ -14,7 +14,7 @@ impl PersistentRouteEngine {
     /// - Their bounds centers are within 200m (Haversine)
     /// - Their distances are within 25% of each other
     ///
-    /// The primary section (most activities) absorbs the secondary's activities.
+    /// The primary section (most traversals) absorbs the secondary's activities.
     pub fn merge_cross_sport_sections(&mut self) -> SqlResult<()> {
         // Load all auto sections with bounds
         let sections: Vec<(String, String, f64, f64, f64, u32)> = {
@@ -34,7 +34,7 @@ impl PersistentRouteEngine {
                     row.get::<_, f64>(2)?,    // distance_meters
                     row.get::<_, f64>(3)?,    // center_lat
                     row.get::<_, f64>(4)?,    // center_lng
-                    row.get::<_, u32>(5)?,    // activity_count
+                    row.get::<_, u32>(5)?,    // visit_count (traversals)
                 ))
             })?
             .filter_map(|r| r.ok())
@@ -95,7 +95,7 @@ impl PersistentRouteEngine {
             let pi = find(&mut parent, i);
             let pj = find(&mut parent, j);
             if pi != pj {
-                // Merge into the one with more activities
+                // Merge into the one with more traversals
                 if sections[pi].5 >= sections[pj].5 {
                     parent[pj] = pi;
                 } else {
@@ -118,7 +118,7 @@ impl PersistentRouteEngine {
                 continue;
             }
 
-            // Primary = member with most activities
+            // Primary = member with most traversals
             let primary_idx = *members.iter().max_by_key(|&&idx| sections[idx].5).unwrap();
             let primary_id = &sections[primary_idx].0;
 

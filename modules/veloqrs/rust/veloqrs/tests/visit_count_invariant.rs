@@ -474,3 +474,51 @@ fn a_restart_keeps_the_visit_count_at_the_column() {
         "in-memory visit count diverges from the column after a restart"
     );
 }
+
+/// A retention cleanup deletes activities but nothing removes their junction
+/// rows, so a spared (custom or accepted) section keeps counting ghosts
+/// forever. The delete must take the junction rows with it, letting the
+/// triggers recompute the column.
+#[test]
+fn a_retention_cleanup_takes_the_junction_rows_with_it() {
+    let s = setup();
+    let mut engine = s.engine;
+    insert_activity(&s.raw, "old", 1_000_000);
+    insert_activity(&s.raw, "recent", 1_700_000_000);
+    s.raw
+        .execute(
+            "UPDATE activities SET created_at = 1000000 WHERE id = 'old'",
+            [],
+        )
+        .expect("age the old activity");
+    insert_section(&s.raw, "sec", "Ride");
+    insert_traversal(&s.raw, "sec", "old");
+    insert_traversal(&s.raw, "sec", "recent");
+
+    let deleted = engine.cleanup_old_activities(30).expect("cleanup");
+    assert_eq!(deleted, 1, "exactly the aged activity is deleted");
+
+    let ghosts: i64 = s
+        .raw
+        .query_row(
+            "SELECT COUNT(*) FROM section_activities sa
+             WHERE NOT EXISTS (SELECT 1 FROM activities a WHERE a.id = sa.activity_id)",
+            [],
+            |r| r.get(0),
+        )
+        .expect("ghost query");
+    assert_eq!(
+        ghosts, 0,
+        "junction rows survived their activity's deletion"
+    );
+
+    let column: i64 = s
+        .raw
+        .query_row(
+            "SELECT visit_count FROM sections WHERE id = 'sec'",
+            [],
+            |r| r.get(0),
+        )
+        .expect("column read");
+    assert_eq!(column, 1, "visit_count still counts the deleted activity");
+}

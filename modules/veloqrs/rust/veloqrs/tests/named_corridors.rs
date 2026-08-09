@@ -299,6 +299,42 @@ fn naming_roundtrip_and_unname() {
     assert_ne!(summary_name(&engine, &id).as_deref(), Some(NAME));
 }
 
+/// The restore list reads `get_all_section_summaries`, a different code path
+/// from `get_section_summaries`. Both must resolve the corridor name, or the
+/// hidden-sections sheet shows the generated "Section N" for a named corridor.
+#[test]
+fn restore_list_shows_the_corridor_name() {
+    let corpus = corpus();
+    let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
+    let cold = ingest_step(&mut engine, "cold", &corpus.through_a());
+    let (id, _) = busiest_section(&cold.snapshot).expect("cold detect produced a section");
+
+    engine.set_section_name(&id, Some(NAME)).expect("set name");
+    assert_eq!(summary_name(&engine, &id).as_deref(), Some(NAME));
+
+    let all_name = engine
+        .get_all_section_summaries(None)
+        .into_iter()
+        .find(|s| s.id == id)
+        .and_then(|s| s.name);
+    assert_eq!(
+        all_name.as_deref(),
+        Some(NAME),
+        "get_all_section_summaries does not resolve the corridor name"
+    );
+
+    let typed_name = engine
+        .get_section_summaries_by_type(None)
+        .into_iter()
+        .find(|s| s.id == id)
+        .and_then(|s| s.name);
+    assert_eq!(
+        typed_name.as_deref(),
+        Some(NAME),
+        "get_section_summaries_by_type does not resolve the corridor name"
+    );
+}
+
 /// The suppression-trap regression. After D1 a name becomes a
 /// `section_intents` row, and `durable_intent_rows` treats every intent row
 /// as a suppression ground unless it filters by kind — under which bug this
