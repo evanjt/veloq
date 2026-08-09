@@ -233,6 +233,72 @@ impl PersistentRouteEngine {
             });
         }
 
+        // Fallback pass: an intent with no visible cover resolves against
+        // the hidden catalogue so the restore list shows the user's name on
+        // a disabled or superseded row. The corridor entry itself stays
+        // dormant — no visible section carries the name.
+        let mut hidden_pairs: Vec<(String, String)> = Vec::new();
+        if resolved.iter().any(|(vi, _)| vi.is_none()) {
+            let hidden = self.hidden_rows_for_resolution();
+            let mut parsed_hidden: std::collections::HashMap<usize, Option<Vec<GpsPoint>>> =
+                std::collections::HashMap::new();
+            // hidden row index -> (intent index, coverage)
+            let mut hidden_winner: BTreeMap<usize, (usize, f64)> = BTreeMap::new();
+            for (ii, intent) in intents.iter().enumerate() {
+                if resolved[ii].0.is_some() || hidden.is_empty() {
+                    continue;
+                }
+                let core = trim_core(&intent.footprint);
+                let core_bbox = bbox(&core);
+                let mid_lat = (core_bbox.0 + core_bbox.1) / 2.0;
+                let mut candidates: Vec<(usize, tracematch::sections::NamedScore)> = Vec::new();
+                for (hi, row) in hidden.iter().enumerate() {
+                    if !bboxes_touch(core_bbox, row.bbox, mid_lat) {
+                        continue;
+                    }
+                    let polyline = parsed_hidden.entry(hi).or_insert_with(|| {
+                        crate::persistence::codec::decode_polyline_row(
+                            row.polyline_blob.as_deref(),
+                            Some(&row.polyline_json),
+                        )
+                        .ok()
+                        .filter(|p| !p.is_empty())
+                    });
+                    let Some(polyline) = polyline else { continue };
+                    let Some(score) = score_named_candidate(&core, &intent.footprint, polyline)
+                    else {
+                        continue;
+                    };
+                    candidates.push((hi, score));
+                }
+                let scored: Vec<NamedCandidate> = candidates
+                    .iter()
+                    .map(|&(hi, score)| NamedCandidate {
+                        score,
+                        created_at: &hidden[hi].created_at,
+                        id: &hidden[hi].id,
+                    })
+                    .collect();
+                if let Some((i, cov)) = select_candidate(&scored) {
+                    let hi = candidates[i].0;
+                    let replace = match hidden_winner.get(&hi) {
+                        None => true,
+                        Some(&(best_ii, best_cov)) => {
+                            cov > best_cov
+                                || (cov == best_cov
+                                    && intent.created_at < intents[best_ii].created_at)
+                        }
+                    };
+                    if replace {
+                        hidden_winner.insert(hi, (ii, cov));
+                    }
+                }
+            }
+            for (hi, (ii, _)) in hidden_winner {
+                hidden_pairs.push((hidden[hi].id.clone(), intents[ii].name.clone()));
+            }
+        }
+
         // Two intents on one section: the better-covering one displays, ties
         // to the older intent. Both stay listed.
         let mut winner_per_section: BTreeMap<usize, usize> = BTreeMap::new();
@@ -252,6 +318,9 @@ impl PersistentRouteEngine {
         }
 
         let mut overlay = NamedOverlay::default();
+        for (sid, name) in hidden_pairs {
+            overlay.by_section.insert(sid, name);
+        }
         for (ii, intent) in intents.into_iter().enumerate() {
             let (vi, cov) = resolved[ii];
             let primary = vi.is_some_and(|vi| winner_per_section.get(&vi) == Some(&ii));
@@ -321,6 +390,64 @@ impl PersistentRouteEngine {
                     polyline_blob
              FROM sections
              WHERE disabled = 0 AND superseded_by IS NULL
+               AND is_user_defined = 0 AND section_type = 'auto'",
+        ) else {
+            return Vec::new();
+        };
+        let rows = stmt.query_map([], |row| {
+            Ok((
+                row.get::<_, String>(0)?,
+                row.get::<_, String>(1)?,
+                row.get::<_, String>(2)?,
+                row.get::<_, Option<f64>>(3)?,
+                row.get::<_, Option<f64>>(4)?,
+                row.get::<_, Option<f64>>(5)?,
+                row.get::<_, Option<f64>>(6)?,
+                row.get::<_, Option<Vec<u8>>>(7)?,
+            ))
+        });
+        let Ok(iter) = rows else { return Vec::new() };
+        iter.flatten()
+            .filter_map(
+                |(id, polyline_json, created_at, lat0, lat1, lng0, lng1, polyline_blob)| {
+                    let bb = match (lat0, lat1, lng0, lng1) {
+                        (Some(a), Some(b), Some(c), Some(d)) => (a, b, c, d),
+                        _ => {
+                            let polyline = crate::persistence::codec::decode_polyline_row(
+                                polyline_blob.as_deref(),
+                                Some(&polyline_json),
+                            )
+                            .ok()?;
+                            if polyline.is_empty() {
+                                return None;
+                            }
+                            bbox(&polyline)
+                        }
+                    };
+                    Some(VisibleRow {
+                        id,
+                        polyline_blob,
+                        polyline_json,
+                        created_at,
+                        bbox: bb,
+                    })
+                },
+            )
+            .collect()
+    }
+
+    /// Hidden counterparts of `visible_rows_for_resolution`: disabled or
+    /// superseded auto rows. The restore list is made of exactly these, so
+    /// an intent with no visible cover falls back to them — a named then
+    /// disabled corridor must not read "Section N" on the one list whose
+    /// job is showing it.
+    fn hidden_rows_for_resolution(&self) -> Vec<VisibleRow> {
+        let Ok(mut stmt) = self.db.prepare(
+            "SELECT id, polyline_json, created_at,
+                    bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng,
+                    polyline_blob
+             FROM sections
+             WHERE (disabled = 1 OR superseded_by IS NOT NULL)
                AND is_user_defined = 0 AND section_type = 'auto'",
         ) else {
             return Vec::new();
