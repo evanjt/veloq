@@ -30,7 +30,7 @@
 mod lifecycle_support;
 
 use lifecycle_support::*;
-use std::collections::{BTreeSet, HashMap};
+use std::collections::BTreeSet;
 use tracematch::GpsPoint;
 use tracematch::scenarios::{LifecycleActivity, LifecycleConfig, LifecycleCorpus};
 
@@ -159,42 +159,79 @@ fn is_reverse_pair(a: &SectionFingerprint, b: &SectionFingerprint) -> bool {
     opposite_orientation + 10.0 < same_orientation
 }
 
-/// Real traversals of one ground-truth corridor, pulled from a generously
-/// sized corpus so the shared/cross-sport corridors have plenty of overlap.
-/// Returns the traversals plus the canonical corridor polyline (the ground).
+/// Traversals of a deterministic road-like corridor: ~900 m with gentle
+/// bends, one pass per outing, braided by a per-outing perpendicular
+/// wobble. The corpus generator's random-walk corridors coil back within
+/// the fold radius of themselves, so no single clean pass exists and the
+/// detector honestly refuses to render them — these suites test SPORT
+/// identity, and need ground a road could actually take. `corridor_idx`
+/// offsets the road south so distinct indices are distinct ground.
 fn corridor_source(
     corridor_idx: usize,
     min_needed: usize,
 ) -> (Vec<LifecycleActivity>, Vec<GpsPoint>) {
-    // One big cold bucket: the 18% cross-sport roll needs volume to seed both
-    // sports onto corridor 2. Detection never runs on all of these; tests
-    // ingest a handful of the returned traversals.
-    let cfg = LifecycleConfig {
-        bucket_a_count: 240,
-        bucket_b_delta_count: 0,
-        bucket_e_delta_count: 0,
-        parallel_street_count: 0,
-        ..LifecycleConfig::default()
+    let base_lat = 46.0 - 0.05 * corridor_idx as f64;
+    let base_lng = 7.0;
+    let m_lat = 111_320.0;
+    let m_lng = m_lat * base_lat.to_radians().cos();
+    let waypoints: [(f64, f64); 5] = [
+        (0.0, 0.0),
+        (250.0, 40.0),
+        (480.0, -30.0),
+        (700.0, 50.0),
+        (900.0, 0.0),
+    ];
+    // Densify at ~10 m.
+    let mut path: Vec<(f64, f64)> = Vec::new();
+    for w in waypoints.windows(2) {
+        let (ax, ay) = w[0];
+        let (bx, by) = w[1];
+        let len = ((bx - ax).powi(2) + (by - ay).powi(2)).sqrt();
+        let steps = (len / 10.0).ceil().max(1.0) as usize;
+        for s in 0..steps {
+            let t = s as f64 / steps as f64;
+            path.push((ax + (bx - ax) * t, ay + (by - ay) * t));
+        }
+    }
+    path.push(waypoints[4]);
+    let to_gps = |x: f64, y: f64, ele: f64| {
+        GpsPoint::with_elevation(base_lat + y / m_lat, base_lng + x / m_lng, ele)
     };
-    let corpus = LifecycleCorpus::generate(&cfg);
-    let corridor = &corpus.corridors[corridor_idx];
-    let by_id: HashMap<String, LifecycleActivity> = corpus
-        .through_e()
-        .into_iter()
-        .cloned()
-        .map(|a| (a.id.clone(), a))
-        .collect();
-    let traversals: Vec<LifecycleActivity> = corridor
-        .activity_ids
+    let ground: Vec<GpsPoint> = path
         .iter()
-        .filter_map(|id| by_id.get(id).cloned())
+        .enumerate()
+        .map(|(i, &(x, y))| to_gps(x, y, 300.0 + 0.4 * i as f64))
         .collect();
-    assert!(
-        traversals.len() >= min_needed,
-        "corridor {corridor_idx} produced {} traversals, needed {min_needed}",
-        traversals.len()
-    );
-    (traversals, corridor.polyline.clone())
+    let n = min_needed.max(12);
+    let traversals: Vec<LifecycleActivity> = (0..n)
+        .map(|i| {
+            let phase = i as f64 * 1.7;
+            let pts: Vec<GpsPoint> = path
+                .iter()
+                .enumerate()
+                .map(|(j, &(x, y))| {
+                    // Perpendicular 2.5 m wobble braids outings like
+                    // receiver noise while staying deterministic.
+                    let (nx, ny) = if j + 1 < path.len() {
+                        let (dx, dy) = (path[j + 1].0 - x, path[j + 1].1 - y);
+                        let l = (dx * dx + dy * dy).sqrt().max(1e-9);
+                        (-dy / l, dx / l)
+                    } else {
+                        (0.0, 1.0)
+                    };
+                    let off = 2.5 * (j as f64 * 2.7 + phase).sin();
+                    to_gps(x + nx * off, y + ny * off, 300.0 + 0.4 * j as f64)
+                })
+                .collect();
+            LifecycleActivity {
+                id: format!("road{corridor_idx}_t{i:03}"),
+                sport_type: "Ride".to_string(),
+                start_date_unix: 1_600_000_000 + i as i64 * 3 * 86_400,
+                gps_points: pts,
+            }
+        })
+        .collect();
+    (traversals, ground)
 }
 
 // ============================================================================
