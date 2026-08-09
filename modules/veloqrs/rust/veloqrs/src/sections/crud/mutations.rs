@@ -31,6 +31,9 @@ impl PersistentRouteEngine {
             .map_err(|e| format!("Failed to exclude activity: {}", e))?;
         self.refresh_section_in_memory(section_id);
         self.invalidate_section_cache(section_id);
+        // The perf LRU serves excluded=0 queries; a stale entry makes the
+        // exclusion look like a no-op on the performance panel.
+        self.invalidate_perf_cache();
         Ok(())
     }
 
@@ -49,6 +52,7 @@ impl PersistentRouteEngine {
             .map_err(|e| format!("Failed to include activity: {}", e))?;
         self.refresh_section_in_memory(section_id);
         self.invalidate_section_cache(section_id);
+        self.invalidate_perf_cache();
         Ok(())
     }
 
@@ -483,8 +487,11 @@ impl PersistentRouteEngine {
         section_id: &str,
         new_polyline: &[GpsPoint],
     ) -> Result<(), String> {
-        // Get current activity IDs for this section
-        let activity_ids = self.get_section_activity_ids(section_id);
+        // ALL members, excluded ones included: the flag is a user
+        // decision and must survive the rebuild, not vanish with the rows.
+        let excluded_ids = self.get_excluded_activity_ids(section_id);
+        let mut activity_ids = self.get_section_activity_ids(section_id);
+        activity_ids.extend(excluded_ids.iter().cloned());
 
         if activity_ids.is_empty() || new_polyline.is_empty() {
             return Ok(());
@@ -506,7 +513,27 @@ impl PersistentRouteEngine {
                 }
             }
         }
+        self.reapply_exclusions(section_id, &excluded_ids)?;
 
+        Ok(())
+    }
+
+    /// Restore `excluded = 1` on the given activities' rows after a
+    /// junction rebuild. An excluded activity that no longer matches the
+    /// new line has no rows, and nothing to carry.
+    pub(super) fn reapply_exclusions(
+        &self,
+        section_id: &str,
+        excluded_ids: &[String],
+    ) -> Result<(), String> {
+        for aid in excluded_ids {
+            self.db
+                .execute(
+                    "UPDATE section_activities SET excluded = 1 WHERE section_id = ? AND activity_id = ?",
+                    params![section_id, aid],
+                )
+                .map_err(|e| format!("Failed to reapply exclusion: {}", e))?;
+        }
         Ok(())
     }
 

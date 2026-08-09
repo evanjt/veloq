@@ -192,7 +192,9 @@ impl PersistentRouteEngine {
                 )
                 .unwrap_or_else(|_| "Ride".to_string());
 
-            // Clear existing matches first, then scan all activities
+            // Clear existing matches first, then scan all activities.
+            // Exclusions are user decisions and ride across the rebuild.
+            let excluded_ids = self.get_excluded_activity_ids(section_id);
             self.db
                 .execute(
                     "DELETE FROM section_activities WHERE section_id = ?",
@@ -200,6 +202,7 @@ impl PersistentRouteEngine {
                 )
                 .map_err(|e| format!("Failed to clear section activities: {}", e))?;
             self.match_activities_to_section(section_id, &trimmed, &sport_type)?;
+            self.reapply_exclusions(section_id, &excluded_ids)?;
         } else {
             self.rematch_section_activities(section_id, &trimmed)?;
         }
@@ -279,6 +282,7 @@ impl PersistentRouteEngine {
         // Re-match activities against restored polyline
         // For custom sections, scan ALL activities by sport (not just previously matched)
         if section_type == "custom" {
+            let excluded_ids = self.get_excluded_activity_ids(section_id);
             self.db
                 .execute(
                     "DELETE FROM section_activities WHERE section_id = ?",
@@ -286,6 +290,7 @@ impl PersistentRouteEngine {
                 )
                 .map_err(|e| format!("Failed to clear section activities: {}", e))?;
             self.match_activities_to_section(section_id, &original, &sport_type)?;
+            self.reapply_exclusions(section_id, &excluded_ids)?;
         } else {
             self.rematch_section_activities(section_id, &original)?;
         }
@@ -393,6 +398,7 @@ impl PersistentRouteEngine {
                 )
                 .unwrap_or_else(|_| "Ride".to_string());
 
+            let excluded_ids = self.get_excluded_activity_ids(section_id);
             self.db
                 .execute(
                     "DELETE FROM section_activities WHERE section_id = ?",
@@ -400,6 +406,7 @@ impl PersistentRouteEngine {
                 )
                 .map_err(|e| format!("Failed to clear section activities: {}", e))?;
             self.match_activities_to_section(section_id, &new_polyline, &sport_type)?;
+            self.reapply_exclusions(section_id, &excluded_ids)?;
         } else {
             self.rematch_section_activities(section_id, &new_polyline)?;
         }

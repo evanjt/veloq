@@ -696,7 +696,7 @@ pub struct PersistentRouteEngine {
 impl PersistentRouteEngine {
     /// Invalidate the performance cache.
     /// Call after any mutation that affects sections, time streams, or activity metrics.
-    fn invalidate_perf_cache(&mut self) {
+    pub(crate) fn invalidate_perf_cache(&mut self) {
         self.perf_cache.clear();
     }
 
