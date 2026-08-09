@@ -5,11 +5,6 @@
  * synced before it is read, and a write that does not land is a failed backup.
  */
 
-import * as FileSystem from 'expo-file-system/legacy';
-import { icloudBackend } from '@/features/settings/lib/autobackup/backends/icloudBackend';
-import { isBackupTransferError } from '@/features/settings/lib/autobackup/backends/errors';
-import type { BackupEntry } from '@/features/settings/lib/autobackup/backends/types';
-
 const mockCloudStorage = {
   setProviderOptions: jest.fn(),
   isCloudAvailable: jest.fn(),
@@ -37,6 +32,11 @@ jest.mock('react-native/Libraries/Utilities/Platform', () => ({
 jest.mock('expo-file-system/legacy', () => ({
   deleteAsync: jest.fn().mockResolvedValue(undefined),
 }));
+
+import * as FileSystem from 'expo-file-system/legacy';
+import { icloudBackend } from '@/features/settings/lib/autobackup/backends/icloudBackend';
+import { isBackupTransferError } from '@/features/settings/lib/autobackup/backends/errors';
+import type { BackupEntry } from '@/features/settings/lib/autobackup/backends/types';
 
 const METADATA: Omit<BackupEntry, 'id'> = {
   timestamp: '2026-08-05T10:00:00.000Z',

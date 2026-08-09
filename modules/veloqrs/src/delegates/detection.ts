@@ -10,9 +10,9 @@ import type { SectionDetectionProgress } from '../conversions';
 import type { FfiPotentialSection, FfiSectionConfig } from '../generated/veloqrs';
 import type { DelegateHost } from './host';
 
-export function startSectionDetection(host: DelegateHost): boolean {
+export function startSectionDetection(host: DelegateHost, sportFilter?: string): boolean {
   if (!host.ready) return false;
-  return host.timed('startSectionDetection', () => host.engine.detection().start());
+  return host.timed('startSectionDetection', () => host.engine.detection().start(sportFilter));
 }
 
 export function pollSectionDetection(host: DelegateHost): string {
@@ -68,11 +68,11 @@ export function setMatchStrictness(
   );
 }
 
-export function forceRedetectSections(host: DelegateHost): boolean {
+export function forceRedetectSections(host: DelegateHost, sportFilter?: string): boolean {
   if (!host.ready) return false;
   try {
     const started = host.timed('forceRedetectSections', () =>
-      host.engine.detection().forceRedetect()
+      host.engine.detection().forceRedetect(sportFilter)
     );
     return started;
   } catch (e) {

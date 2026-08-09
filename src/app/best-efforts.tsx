@@ -6,10 +6,14 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTranslation } from 'react-i18next';
 import { ScreenSafeAreaView, ScreenErrorBoundary, TAB_BAR_SAFE_PADDING } from '@/shared/ui';
 import { useActivities } from '@/features/activity/hooks';
-import { useSeasonBests } from '@/features/stats';
+import { useSeasonBests, type BestEffort } from '@/features/stats';
 import { useTheme } from '@/shared/app';
-import { formatLocalDate } from '@/shared/format/format';
-import { formatEffortValue, formatEffortTime } from '@/features/fitness/lib';
+import {
+  formatDuration,
+  formatLocalDate,
+  formatPaceCompact,
+  formatSwimPace,
+} from '@/shared/format/format';
 import { SPORT_COLORS, type PrimarySport } from '@/features/fitness/stores';
 import { colors, darkColors, layout, spacing, typography, opacity } from '@/theme';
 
@@ -23,6 +27,18 @@ function sportIcon(sport: PrimarySport): keyof typeof MaterialCommunityIcons.gly
   if (sport === 'Cycling') return 'bike';
   if (sport === 'Running') return 'run';
   return 'swim';
+}
+
+function formatEffortValue(effort: BestEffort, sport: PrimarySport): string {
+  if (effort.value === null || !Number.isFinite(effort.value)) return '-';
+  if (sport === 'Cycling') return `${Math.round(effort.value)}w`;
+  if (sport === 'Running') return `${formatPaceCompact(effort.value)}/km`;
+  return `${formatSwimPace(effort.value)}/100m`;
+}
+
+function formatEffortTime(effort: BestEffort): string | null {
+  if (effort.time === null || !Number.isFinite(effort.time)) return null;
+  return formatDuration(effort.time);
 }
 
 interface SportSectionProps {
@@ -70,7 +86,7 @@ function SportSection({ sport, days, activityMap, isDark }: SportSectionProps) {
       ) : (
         efforts.map((effort, index) => {
           const activityInfo = effort.activityId ? activityMap.get(effort.activityId) : undefined;
-          const timeStr = formatEffortTime(effort.time);
+          const timeStr = formatEffortTime(effort);
           const isLast = index === efforts.length - 1;
 
           const rowBody = (
@@ -78,7 +94,7 @@ function SportSection({ sport, days, activityMap, isDark }: SportSectionProps) {
               <Text style={[styles.label, isDark && styles.labelDark]}>{effort.label}</Text>
               <View style={styles.valueColumn}>
                 <Text style={[styles.value, { color: sportColor }]}>
-                  {formatEffortValue(effort.value, sport)}
+                  {formatEffortValue(effort, sport)}
                 </Text>
                 {timeStr && sport !== 'Cycling' ? (
                   <Text style={[styles.timeText, isDark && styles.timeTextDark]}>{timeStr}</Text>

@@ -1,7 +1,19 @@
 // Shared map style definitions and constants
 // All sources are commercially licensed (MIT, BSD, OGD, CC BY, Public Domain)
 
+import { DARK_MATTER_STYLE } from './darkMatterStyle';
 import { LIBERTY_STYLE } from '@/features/maps/styles/liberty';
+import {
+  isPointInSwitzerland,
+  isPointInFrance,
+  isPointInUSA,
+  isPointInSpain,
+  isPointInAustria,
+  isPointInNetherlands,
+  isPointInCzechia,
+  isPointInPoland,
+  isPointInLuxembourg,
+} from './countryBoundaries';
 
 export type MapStyleType = 'light' | 'dark' | 'satellite';
 
@@ -51,7 +63,7 @@ const REGIONS = {
     maxLng: -66.9,
     minZoom: 10, // NAIP high-res kicks in at zoom 10+
   },
-  // Spain (mainland + Balearics; the Canaries sit outside these bounds)
+  // Spain (mainland + Balearics; Canaries handled by isPointInSpain bbox check)
   spain: {
     minLat: 36.0,
     maxLat: 43.8,
@@ -219,6 +231,62 @@ export const SATELLITE_SOURCES: Record<SatelliteSourceId, SatelliteSource> = {
   },
 };
 
+/**
+ * Determine the best satellite source for a given location and zoom level.
+ * Returns the source ID and whether regional high-res imagery is available.
+ */
+export function getSatelliteSourceId(lat: number, lng: number, zoom: number): SatelliteSourceId {
+  // Check smallest/highest-priority countries first, then larger regions
+
+  // Switzerland - highest priority (maxzoom 20, 10cm)
+  if (zoom >= REGIONS.switzerland.minZoom && isPointInSwitzerland(lng, lat)) {
+    return 'swisstopo';
+  }
+
+  // Luxembourg - tiny, must check before France (maxzoom 21, 10cm, CC0)
+  if (zoom >= REGIONS.luxembourg.minZoom && isPointInLuxembourg(lng, lat)) {
+    return 'luxembourg';
+  }
+
+  // Austria - borders Switzerland (maxzoom 20, 20cm)
+  if (zoom >= REGIONS.austria.minZoom && isPointInAustria(lng, lat)) {
+    return 'austria';
+  }
+
+  // Netherlands (maxzoom 21, 8cm)
+  if (zoom >= REGIONS.netherlands.minZoom && isPointInNetherlands(lng, lat)) {
+    return 'netherlands';
+  }
+
+  // France - excludes Switzerland and Luxembourg (maxzoom 20, 20cm)
+  if (zoom >= REGIONS.france.minZoom && isPointInFrance(lng, lat)) {
+    return 'ign';
+  }
+
+  // Czech Republic (maxzoom 18, 12.5cm)
+  if (zoom >= REGIONS.czechia.minZoom && isPointInCzechia(lng, lat)) {
+    return 'czechia';
+  }
+
+  // Spain (maxzoom 20, 25-50cm)
+  if (zoom >= REGIONS.spain.minZoom && isPointInSpain(lng, lat)) {
+    return 'spain';
+  }
+
+  // Poland (maxzoom 19, 25cm)
+  if (zoom >= REGIONS.poland.minZoom && isPointInPoland(lng, lat)) {
+    return 'poland';
+  }
+
+  // USA - NAIP (maxzoom 17, 60cm)
+  if (zoom >= REGIONS.usa.minZoom && isPointInUSA(lng, lat)) {
+    return 'naip';
+  }
+
+  // Global fallback
+  return 'eox';
+}
+
 // Type for combined satellite MapLibre style with multiple regional sources
 export interface CombinedSatelliteMapStyle {
   version: 8;
@@ -233,7 +301,7 @@ export interface CombinedSatelliteMapStyle {
       bounds?: [number, number, number, number];
     }
   >;
-  layers: (
+  layers: Array<
     | {
         id: string;
         type: 'raster';
@@ -246,9 +314,20 @@ export interface CombinedSatelliteMapStyle {
         type: 'background';
         paint: { 'background-color': string };
       }
-  )[];
+  >;
 }
 
+// Legacy type alias for backwards compatibility
+export type SatelliteMapStyle = CombinedSatelliteMapStyle;
+
+/**
+ * Build a combined MapLibre style with all satellite sources layered.
+ * EOX serves as the global base layer, regional sources overlay on top.
+ *
+ * NOTE: True polygon clipping of raster layers is not supported in MapLibre.
+ * We use tightened rectangular bounds to minimize visible edges.
+ * The bounds are set to the actual country extents rather than expanded boxes.
+ */
 export function getCombinedSatelliteStyle(): CombinedSatelliteMapStyle {
   return {
     version: 8,
@@ -447,40 +526,46 @@ export const MAP_ATTRIBUTIONS: Record<MapStyleType, string> = {
   satellite: 'Sentinel-2 cloudless by EOX', // Default, updated dynamically
 };
 
+// Get attribution for a specific satellite source
+export function getSatelliteAttribution(sourceId: SatelliteSourceId): string {
+  return SATELLITE_SOURCES[sourceId].attribution;
+}
+
 /**
  * Get combined attribution for all satellite sources visible in the current viewport.
  * Uses precise polygon boundaries for accurate attribution.
  */
-// Each regional source and the zoom gate that governs it. Attribution is
-// derived from the same bounds MapLibre clips the raster to, so the credit
-// line always names the imagery actually drawn.
-const REGIONAL_ATTRIBUTION_SOURCES: [SatelliteSourceId, keyof typeof REGIONS][] = [
-  ['swisstopo', 'switzerland'],
-  ['luxembourg', 'luxembourg'],
-  ['austria', 'austria'],
-  ['netherlands', 'netherlands'],
-  ['ign', 'france'],
-  ['czechia', 'czechia'],
-  ['spain', 'spain'],
-  ['poland', 'poland'],
-  ['naip', 'usa'],
-];
-
-function boundsContain(
-  bounds: [number, number, number, number] | undefined,
-  lng: number,
-  lat: number
-): boolean {
-  if (!bounds) return false;
-  const [west, south, east, north] = bounds;
-  return lng >= west && lng <= east && lat >= south && lat <= north;
-}
-
 export function getCombinedSatelliteAttribution(lat: number, lng: number, zoom: number): string {
-  const attributions = REGIONAL_ATTRIBUTION_SOURCES.filter(
-    ([id, region]) =>
-      zoom >= REGIONS[region].minZoom && boundsContain(SATELLITE_SOURCES[id].bounds, lng, lat)
-  ).map(([id]) => SATELLITE_SOURCES[id].attribution);
+  const attributions: string[] = [];
+
+  // Check which regional sources are visible using precise polygon checks
+  if (zoom >= REGIONS.switzerland.minZoom && isPointInSwitzerland(lng, lat)) {
+    attributions.push(SATELLITE_SOURCES.swisstopo.attribution);
+  }
+  if (zoom >= REGIONS.luxembourg.minZoom && isPointInLuxembourg(lng, lat)) {
+    attributions.push(SATELLITE_SOURCES.luxembourg.attribution);
+  }
+  if (zoom >= REGIONS.austria.minZoom && isPointInAustria(lng, lat)) {
+    attributions.push(SATELLITE_SOURCES.austria.attribution);
+  }
+  if (zoom >= REGIONS.netherlands.minZoom && isPointInNetherlands(lng, lat)) {
+    attributions.push(SATELLITE_SOURCES.netherlands.attribution);
+  }
+  if (zoom >= REGIONS.france.minZoom && isPointInFrance(lng, lat)) {
+    attributions.push(SATELLITE_SOURCES.ign.attribution);
+  }
+  if (zoom >= REGIONS.czechia.minZoom && isPointInCzechia(lng, lat)) {
+    attributions.push(SATELLITE_SOURCES.czechia.attribution);
+  }
+  if (zoom >= REGIONS.spain.minZoom && isPointInSpain(lng, lat)) {
+    attributions.push(SATELLITE_SOURCES.spain.attribution);
+  }
+  if (zoom >= REGIONS.poland.minZoom && isPointInPoland(lng, lat)) {
+    attributions.push(SATELLITE_SOURCES.poland.attribution);
+  }
+  if (zoom >= REGIONS.usa.minZoom && isPointInUSA(lng, lat)) {
+    attributions.push(SATELLITE_SOURCES.naip.attribution);
+  }
 
   // Always include EOX as the global base
   attributions.push(SATELLITE_SOURCES.eox.attribution);
@@ -504,7 +589,7 @@ export function rewriteVectorUrls<T extends object>(style: T): T {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const rewritten: any = JSON.parse(JSON.stringify(style));
   if (rewritten.sources) {
-    for (const source of Object.values(rewritten.sources) as Record<string, unknown>[]) {
+    for (const source of Object.values(rewritten.sources) as Array<Record<string, unknown>>) {
       if (source.type === 'vector' && source.url === 'https://tiles.openfreemap.org/planet') {
         delete source.url;
         source.tiles = ['cached-vector://tiles.openfreemap.org/planet/{z}/{x}/{y}.pbf'];
@@ -593,3 +678,193 @@ export const TERRAIN_3D_CONFIG = {
     'highway_path',
   ],
 } as const;
+
+/**
+ * Minimal map style for 3D terrain snapshot previews.
+ *
+ * Full vector styles (Liberty, Dark Matter) have dozens of layers (roads, labels,
+ * railways, aeroways) that render flat at 60-degree pitch, clashing with 3D terrain.
+ * This style keeps only background, water, and country boundaries - the terrain
+ * hillshade provides all the visual detail needed for a 160px preview card.
+ *
+ * Bonus: fewer vector layers = fewer tiles to load = faster + more reliable rendering.
+ */
+export function getTerrainSnapshotStyle(mode: 'light' | 'dark') {
+  const isLight = mode === 'light';
+  return {
+    version: 8 as const,
+    sources: {
+      openmaptiles: {
+        type: 'vector' as const,
+        url: 'https://tiles.openfreemap.org/planet',
+      },
+    },
+    glyphs: 'https://tiles.openfreemap.org/fonts/{fontstack}/{range}.pbf',
+    layers: [
+      {
+        id: 'background',
+        type: 'background' as const,
+        paint: { 'background-color': isLight ? '#E8E0D8' : '#1A1A1A' },
+      },
+      // Landcover - broad natural areas
+      {
+        id: 'landcover_wood',
+        type: 'fill' as const,
+        source: 'openmaptiles',
+        'source-layer': 'landcover',
+        filter: ['all', ['==', '$type', 'Polygon'], ['==', 'subclass', 'wood']],
+        paint: { 'fill-color': isLight ? '#ADD19E' : '#1A2E1A', 'fill-opacity': 0.7 },
+      },
+      {
+        id: 'landcover_grass',
+        type: 'fill' as const,
+        source: 'openmaptiles',
+        'source-layer': 'landcover',
+        filter: ['all', ['==', '$type', 'Polygon'], ['in', 'subclass', 'grass', 'farmland']],
+        paint: { 'fill-color': isLight ? '#D2E4B0' : '#1E2A16', 'fill-opacity': 0.6 },
+      },
+      // Landuse - human areas
+      {
+        id: 'landuse_residential',
+        type: 'fill' as const,
+        source: 'openmaptiles',
+        'source-layer': 'landuse',
+        filter: ['all', ['==', '$type', 'Polygon'], ['==', 'class', 'residential']],
+        paint: { 'fill-color': isLight ? '#DFDBD6' : '#252525', 'fill-opacity': 0.6 },
+      },
+      {
+        id: 'landuse_commercial',
+        type: 'fill' as const,
+        source: 'openmaptiles',
+        'source-layer': 'landuse',
+        filter: ['all', ['==', '$type', 'Polygon'], ['in', 'class', 'commercial', 'industrial']],
+        paint: { 'fill-color': isLight ? '#E0D8D0' : '#282828', 'fill-opacity': 0.5 },
+      },
+      {
+        id: 'landuse_park',
+        type: 'fill' as const,
+        source: 'openmaptiles',
+        'source-layer': 'landuse',
+        filter: ['all', ['==', '$type', 'Polygon'], ['in', 'class', 'park', 'cemetery']],
+        paint: { 'fill-color': isLight ? '#A8CC8C' : '#1C2E1C', 'fill-opacity': 0.7 },
+      },
+      // Water
+      {
+        id: 'water',
+        type: 'fill' as const,
+        source: 'openmaptiles',
+        'source-layer': 'water',
+        filter: ['all', ['==', '$type', 'Polygon'], ['!=', 'brunnel', 'tunnel']],
+        paint: { 'fill-color': isLight ? '#A3C7DF' : '#2C353C', 'fill-antialias': false },
+      },
+      {
+        id: 'waterway',
+        type: 'line' as const,
+        source: 'openmaptiles',
+        'source-layer': 'waterway',
+        filter: ['==', '$type', 'LineString'],
+        paint: {
+          'line-color': isLight ? '#A3C7DF' : '#2C353C',
+          'line-width': 1,
+          'line-opacity': 0.6,
+        },
+      },
+      // Roads - major roads only, follow terrain for geographic context
+      {
+        id: 'road_motorway_casing',
+        type: 'line' as const,
+        source: 'openmaptiles',
+        'source-layer': 'transportation',
+        minzoom: 5,
+        filter: ['all', ['==', '$type', 'LineString'], ['==', 'class', 'motorway']],
+        layout: { 'line-join': 'round' as const, 'line-cap': 'round' as const },
+        paint: {
+          'line-color': isLight ? '#E0A050' : '#333333',
+          'line-width': ['interpolate', ['linear'], ['zoom'], 5, 1, 12, 4, 16, 8],
+          'line-opacity': 0.6,
+        },
+      },
+      {
+        id: 'road_motorway',
+        type: 'line' as const,
+        source: 'openmaptiles',
+        'source-layer': 'transportation',
+        minzoom: 5,
+        filter: ['all', ['==', '$type', 'LineString'], ['==', 'class', 'motorway']],
+        layout: { 'line-join': 'round' as const, 'line-cap': 'round' as const },
+        paint: {
+          'line-color': isLight ? '#F0C070' : '#444444',
+          'line-width': ['interpolate', ['linear'], ['zoom'], 5, 0.5, 12, 2.5, 16, 5],
+        },
+      },
+      {
+        id: 'road_trunk_casing',
+        type: 'line' as const,
+        source: 'openmaptiles',
+        'source-layer': 'transportation',
+        minzoom: 7,
+        filter: ['all', ['==', '$type', 'LineString'], ['==', 'class', 'trunk']],
+        layout: { 'line-join': 'round' as const, 'line-cap': 'round' as const },
+        paint: {
+          'line-color': isLight ? '#D8A060' : '#333333',
+          'line-width': ['interpolate', ['linear'], ['zoom'], 7, 0.8, 12, 3, 16, 6],
+          'line-opacity': 0.5,
+        },
+      },
+      {
+        id: 'road_trunk',
+        type: 'line' as const,
+        source: 'openmaptiles',
+        'source-layer': 'transportation',
+        minzoom: 7,
+        filter: ['all', ['==', '$type', 'LineString'], ['==', 'class', 'trunk']],
+        layout: { 'line-join': 'round' as const, 'line-cap': 'round' as const },
+        paint: {
+          'line-color': isLight ? '#F0D080' : '#3A3A3A',
+          'line-width': ['interpolate', ['linear'], ['zoom'], 7, 0.4, 12, 1.8, 16, 3.5],
+        },
+      },
+      {
+        id: 'road_primary',
+        type: 'line' as const,
+        source: 'openmaptiles',
+        'source-layer': 'transportation',
+        minzoom: 8,
+        filter: ['all', ['==', '$type', 'LineString'], ['==', 'class', 'primary']],
+        layout: { 'line-join': 'round' as const, 'line-cap': 'round' as const },
+        paint: {
+          'line-color': isLight ? '#FFFFFF' : '#353535',
+          'line-width': ['interpolate', ['linear'], ['zoom'], 8, 0.3, 12, 1.2, 16, 3],
+          'line-opacity': 0.7,
+        },
+      },
+      {
+        id: 'road_secondary',
+        type: 'line' as const,
+        source: 'openmaptiles',
+        'source-layer': 'transportation',
+        minzoom: 10,
+        filter: ['all', ['==', '$type', 'LineString'], ['==', 'class', 'secondary']],
+        layout: { 'line-join': 'round' as const, 'line-cap': 'round' as const },
+        paint: {
+          'line-color': isLight ? '#FFFFFF' : '#303030',
+          'line-width': ['interpolate', ['linear'], ['zoom'], 10, 0.2, 14, 0.8, 16, 2],
+          'line-opacity': 0.5,
+        },
+      },
+      // Boundaries
+      {
+        id: 'boundary_country',
+        type: 'line' as const,
+        source: 'openmaptiles',
+        'source-layer': 'boundary',
+        filter: ['all', ['==', 'admin_level', 2], ['!=', 'maritime', 1]],
+        paint: {
+          'line-color': isLight ? '#CCBBAA' : '#333333',
+          'line-width': 0.7,
+          'line-opacity': 0.4,
+        },
+      },
+    ],
+  };
+}

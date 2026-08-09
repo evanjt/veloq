@@ -3,10 +3,11 @@ import { View, StyleSheet, Pressable } from 'react-native';
 import { Text } from 'react-native-paper';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useTheme } from '@/shared/app';
-import { getSportDisplayName, getActivityIcon } from '@/features/activity/lib/activityUtils';
+import { getSportDisplayName } from '@/features/activity/lib/activityUtils';
 import { useSectionDetail } from '@/features/routes/hooks/useRouteEngine';
 import { navigateTo } from '@/shared/app/navigation';
 import { formatDuration } from '@/shared/format/format';
+import { getActivityIcon } from '@/features/activity/lib/activityUtils';
 import { SectionInsightMap } from './SectionInsightMap';
 import { colors, darkColors, spacing, opacity, shadows } from '@/theme';
 import type { Insight, SupportingSection } from '@/types';
@@ -32,7 +33,7 @@ function getSingleSportLabel(sections: SupportingSection[]): string | null {
 
 function getContextCopy(
   sections: SupportingSection[],
-  dataPoints: { label: string; unit?: string }[]
+  dataPoints: Array<{ label: string; unit?: string }>
 ): {
   heading: string;
   body: string;

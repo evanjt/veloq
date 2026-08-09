@@ -500,12 +500,12 @@ async function handleIntervalsWebhook(
   try {
     const payload = (await request.json()) as {
       secret?: string;
-      events?: {
+      events?: Array<{
         athlete_id?: string;
         type?: string;
         timestamp?: string;
         activity?: { id?: string };
-      }[];
+      }>;
     };
 
     // Validate shared secret
@@ -626,6 +626,7 @@ async function sendExpoPush(
   // When the app is FLAG_STOPPED the silent push is dropped by the OS and
   // only the visible one shows — exactly what we want.
   const activityId = typeof data.activity_id === "string" ? data.activity_id : null;
+  const tag = activityId ? `activity-${activityId}` : undefined;
 
   const messages: Record<string, unknown>[] = [];
 

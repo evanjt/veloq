@@ -131,20 +131,6 @@ export function useRoutePerformances(
     };
   }, [engineGroup, groupIndex]);
 
-  // The engine already picks the best run per direction, over its own population and its
-  // own direction rules. Mapping its record keeps this card consistent with the rank and
-  // direction counts rendered beside it.
-  function toDirectionBest(
-    ffi: { movingTime: number; speed: number; date: number | bigint } | null | undefined
-  ): DirectionBestRecord | null {
-    if (!ffi) return null;
-    return {
-      bestTime: ffi.movingTime,
-      bestSpeed: ffi.speed,
-      activityDate: fromUnixSeconds(ffi.date) ?? new Date(),
-    };
-  }
-
   // Get route performance data from Rust engine (includes inlined metrics as of Issue C optimization)
   // This provides match info, direction stats, current rank, AND activity metrics (no separate FFI call)
   const rustData = useMemo((): {
@@ -153,8 +139,6 @@ export function useRoutePerformances(
     forwardStats: DirectionStats | null;
     reverseStats: DirectionStats | null;
     currentRank: number | null;
-    bestForward: DirectionBestRecord | null;
-    bestReverse: DirectionBestRecord | null;
   } => {
     const emptyResult = {
       matchInfoMap: new Map<string, RustMatchInfo>(),
@@ -162,8 +146,6 @@ export function useRoutePerformances(
       forwardStats: null,
       reverseStats: null,
       currentRank: null,
-      bestForward: null,
-      bestReverse: null,
     };
 
     if (!engineGroup) return emptyResult;
@@ -202,8 +184,6 @@ export function useRoutePerformances(
         forwardStats: toDirectionStats(result.forwardStats),
         reverseStats: toDirectionStats(result.reverseStats),
         currentRank: result.currentRank ?? null,
-        bestForward: toDirectionBest(result.bestForward),
-        bestReverse: toDirectionBest(result.bestReverse),
       };
     } catch {
       return emptyResult;
@@ -215,8 +195,6 @@ export function useRoutePerformances(
     activityMetrics,
     forwardStats: rustForwardStats,
     reverseStats: rustReverseStats,
-    bestForward: rustBestForward,
-    bestReverse: rustBestReverse,
   } = rustData;
 
   // Build performances from inlined metrics (Issue C: no separate FFI call) + match info from Rust
@@ -277,13 +255,49 @@ export function useRoutePerformances(
         ? validPoints.reduce((best, p) => (p.duration < best.duration ? p : best), validPoints[0])
         : null;
 
+    // Find best forward (direction is "same" or "forward")
+    const forwardPoints = points.filter(
+      (p) => (p.direction === 'same' || p.direction === 'partial') && p.duration > 0
+    );
+    const bestForwardPoint =
+      forwardPoints.length > 0
+        ? forwardPoints.reduce(
+            (best, p) => (p.duration < best.duration ? p : best),
+            forwardPoints[0]
+          )
+        : null;
+    const bestForward: DirectionBestRecord | null = bestForwardPoint
+      ? {
+          bestTime: bestForwardPoint.duration,
+          bestSpeed: bestForwardPoint.speed,
+          activityDate: bestForwardPoint.date,
+        }
+      : null;
+
+    // Find best reverse
+    const reversePoints = points.filter((p) => p.direction === 'reverse' && p.duration > 0);
+    const bestReversePoint =
+      reversePoints.length > 0
+        ? reversePoints.reduce(
+            (best, p) => (p.duration < best.duration ? p : best),
+            reversePoints[0]
+          )
+        : null;
+    const bestReverse: DirectionBestRecord | null = bestReversePoint
+      ? {
+          bestTime: bestReversePoint.duration,
+          bestSpeed: bestReversePoint.speed,
+          activityDate: bestReversePoint.date,
+        }
+      : null;
+
     return {
       performances: points,
       best: bestPoint,
-      bestForwardRecord: rustBestForward,
-      bestReverseRecord: rustBestReverse,
+      bestForwardRecord: bestForward,
+      bestReverseRecord: bestReverse,
     };
-  }, [engineGroup, activityId, matchInfoMap, activityMetrics, rustBestForward, rustBestReverse]);
+  }, [engineGroup, activityId, matchInfoMap, activityMetrics]);
 
   // avg_speed now comes pre-computed from Rust's DirectionStats - no TS
   // augmentation needed.

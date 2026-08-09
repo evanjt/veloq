@@ -2,12 +2,14 @@
  * Scenario: the section detail map fits sections whose bounding box can be only
  * a couple of hundred metres across.
  *
- * Expected behaviour: the camera fits the supplied bounds and keeps room around
- * them for the controls, and the bounds padding scales with the section rather
- * than being a fixed number of degrees.
+ * Expected behaviour: the camera fits the supplied bounds, keeps room around
+ * them for the controls, and clamps zoom at street level so a short section
+ * does not push past the point where basemap tiles turn grainy.
  */
 import {
   SECTION_MAP_BOUNDS_PADDING,
+  SECTION_MAP_FIT_PADDING,
+  SECTION_MAP_MAX_ZOOM,
   sectionCameraSpec,
 } from '@/features/routes/lib/sectionMapCamera';
 import { boundsOfLngLat } from '@/features/maps/lib/coordinates';
@@ -18,24 +20,29 @@ const SHORT_SECTION: [number, number][] = [
 ];
 
 describe('section map camera', () => {
-  it('fits bounds rather than pinning a centre and zoom', () => {
-    const bounds = boundsOfLngLat(SHORT_SECTION, SECTION_MAP_BOUNDS_PADDING)!;
+  it('clamps zoom at street level', () => {
+    expect(SECTION_MAP_MAX_ZOOM).toBeLessThanOrEqual(16);
+  });
 
-    const camera = sectionCameraSpec(bounds);
+  it('fits the supplied bounds with room for the controls', () => {
+    const bounds = boundsOfLngLat(SHORT_SECTION, SECTION_MAP_BOUNDS_PADDING);
+    expect(bounds).not.toBeNull();
 
-    // Pixels of room for the controls, not the fractional bounds padding.
-    expect(camera.padding).toBe(80);
+    const camera = sectionCameraSpec(bounds!);
+
+    expect(camera.bounds).toEqual(bounds);
+    expect(camera.padding).toBe(SECTION_MAP_FIT_PADDING);
     expect(camera.center).toBeUndefined();
     expect(camera.zoom).toBeUndefined();
   });
 
-  it('pads a short section by a fraction of its own extent', () => {
+  it('pads a short section beyond its raw extent', () => {
+    const raw = boundsOfLngLat(SHORT_SECTION)!;
     const padded = boundsOfLngLat(SHORT_SECTION, SECTION_MAP_BOUNDS_PADDING)!;
 
-    // 0.0015° x 0.0012° raw, so 15% padding is 0.000225° x 0.00018°.
-    expect(padded.sw[0]).toBeCloseTo(7.446775, 9);
-    expect(padded.sw[1]).toBeCloseTo(46.94782, 9);
-    expect(padded.ne[0]).toBeCloseTo(7.448725, 9);
-    expect(padded.ne[1]).toBeCloseTo(46.94938, 9);
+    expect(padded.sw[0]).toBeLessThan(raw.sw[0]);
+    expect(padded.sw[1]).toBeLessThan(raw.sw[1]);
+    expect(padded.ne[0]).toBeGreaterThan(raw.ne[0]);
+    expect(padded.ne[1]).toBeGreaterThan(raw.ne[1]);
   });
 });

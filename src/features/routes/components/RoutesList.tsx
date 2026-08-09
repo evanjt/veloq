@@ -6,7 +6,7 @@
  * Full group data is only loaded on detail page.
  */
 
-import React, { useEffect, useRef, memo, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useRef, memo, useMemo, useState } from 'react';
 import {
   View,
   StyleSheet,
@@ -180,6 +180,8 @@ function batchGroupToRouteGroup(group: GroupWithPolyline, index: number): RouteG
 export const RoutesList = memo(function RoutesList({
   onRefresh,
   isRefreshing = false,
+  startDate,
+  endDate,
   batchGroups,
   onLoadMore,
   hasMore = false,
@@ -278,6 +280,7 @@ export const RoutesList = memo(function RoutesList({
   );
 
   const displayRouteCount = totalGroupCount ?? allGroups.length;
+  const routeInfoText = 'Routes are whole activities you repeat on similar paths.';
 
   const renderHeader = () => (
     <View>

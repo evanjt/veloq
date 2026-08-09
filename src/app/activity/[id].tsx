@@ -2,12 +2,7 @@ import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react'
 import { View, ScrollView, StyleSheet, Dimensions, InteractionManager } from 'react-native';
 import { Text, IconButton, Snackbar } from 'react-native-paper';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import {
-  ScreenSafeAreaView,
-  ChartSkeleton,
-  ComponentErrorBoundary,
-  ErrorStatePreset,
-} from '@/shared/ui';
+import { ScreenSafeAreaView, ChartSkeleton } from '@/shared/ui';
 import { logScreenRender } from '@/shared/debug/renderTimer';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -37,9 +32,12 @@ import type {
 } from '@/features/maps/components/ActivityMapView';
 import type { CreationState } from '@/features/maps/components/SectionCreationOverlay';
 import { convertLatLngTuples, decodePolyline } from '@/shared/geo/polyline';
-import { useExerciseSets, ExerciseTable, MuscleGroupView } from '@/features/strength';
+import { useExerciseSets } from '@/features/strength';
 import { useAthlete } from '@/shared/app/useAthlete';
+import { ExerciseTable, MuscleGroupView } from '@/features/strength';
+import { ComponentErrorBoundary } from '@/shared/ui';
 import { colors, darkColors, spacing } from '@/theme';
+import { ErrorStatePreset } from '@/shared/ui';
 import {
   setCameraOverride,
   getCameraOverride,
@@ -103,7 +101,7 @@ export default function ActivityDetailScreen() {
   // Track whether any chart is being interacted with to disable ScrollView
   const [chartInteracting, setChartInteracting] = useState(false);
   // Track whether 3D map mode is active
-  const [, setIs3DMapActive] = useState(false);
+  const [is3DMapActive, setIs3DMapActive] = useState(false);
 
   // Snackbar for 3D camera override feedback
   const [snackbarVisible, setSnackbarVisible] = useState(false);
@@ -556,6 +554,7 @@ export default function ActivityDetailScreen() {
           coordinates={coordinates}
           streams={streams}
           isMetric={isMetric}
+          isDark={isDark}
           debugEnabled={debugEnabled}
           insetTop={insets.top}
           mapHeight={MAP_HEIGHT}
@@ -648,7 +647,6 @@ export default function ActivityDetailScreen() {
         {hasGpsData && (
           <ActivitySectionsSection
             activityId={id}
-            sportType={activity.type}
             encounters={encounters}
             coordinates={coordinates}
             isDark={isDark}

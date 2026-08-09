@@ -3,7 +3,7 @@ import { View, Text, StyleSheet } from 'react-native';
 import { colors, darkColors, spacing } from '@/theme';
 
 interface DebugInfoPanelProps {
-  entries: { label: string; value: string }[];
+  entries: Array<{ label: string; value: string }>;
   isDark: boolean;
 }
 

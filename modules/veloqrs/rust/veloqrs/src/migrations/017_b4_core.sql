@@ -74,14 +74,6 @@ CREATE INDEX IF NOT EXISTS idx_section_activities_perf
 -- would fail the second pass. The hook is pragma-guarded and idempotent, and it
 -- runs after the junction rebuild so the triggers bind the rebuilt table.
 
--- The gps_tracks.elevation_state column (0 unknown, 1 fetched, 2 unavailable
--- upstream) belongs to this version and is added the same way, by the hook
--- `ensure_gps_track_elevation_state`, for the same re-runnability reason. It
--- records whether an activity's stored points carry elevation, so a backfill is
--- resumable and detection can be gated on the library being uniformly elevated:
--- a partly elevated library vetoes genuine climbs as lifts, because a track
--- without elevation can mint a lift candidate but can never rescue one.
-
 -- Phase 2: durable suppression records for user-disabled and user-deleted
 -- corridors (invariant 6: evidence is permanent, sections are views; a
 -- user-hidden or user-removed corridor must NOT re-emerge from detection, ever,
@@ -101,22 +93,13 @@ CREATE INDEX IF NOT EXISTS idx_section_activities_perf
 -- section best covers it. Named rows carry a minted `ni_` id (never a section
 -- id), NEVER suppress detection (the emitter reads suppression grounds from
 -- disabled/deleted rows only), and outlive every catalogue rebuild.
---
--- The key is (id, kind): one section carries at most one intent PER kind, so
--- intents of different kind on the same ground coexist instead of overwriting
--- one another.
---
--- kind = 'fixed' is the reserved user-pinned class. It sits in the CHECK from
--- the start because widening a CHECK costs a create-copy-drop-rename over live
--- user intents.
 CREATE TABLE IF NOT EXISTS section_intents (
-    id TEXT NOT NULL,
-    kind TEXT NOT NULL CHECK(kind IN ('disabled', 'deleted', 'named', 'fixed')),
+    id TEXT PRIMARY KEY,
+    kind TEXT NOT NULL CHECK(kind IN ('disabled', 'deleted', 'named')),
     polyline_json TEXT NOT NULL,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     name TEXT,
-    sport_type TEXT,
-    PRIMARY KEY (id, kind)
+    sport_type TEXT
 );
 
 -- D4: section history, versioned geometry, and pins. All three key on the
@@ -139,11 +122,6 @@ CREATE TABLE IF NOT EXISTS section_history (
 );
 CREATE INDEX IF NOT EXISTS idx_section_history_section
     ON section_history(section_id, at);
--- Catalogue-wide reads walk the ledger by time, across sections: "what
--- happened since the last sync", and the backdated baseline row an upgrade
--- writes. The composite index above leads on section_id and cannot serve them.
-CREATE INDEX IF NOT EXISTS idx_section_history_at
-    ON section_history(at);
 
 -- Versioned polylines. encoding 1 = quantised zigzag-varint stream
 -- (codec.rs encode_polyline: 1e-6 deg, 0.1 m elevation, ~3 B/point on the
@@ -152,18 +130,6 @@ CREATE INDEX IF NOT EXISTS idx_section_history_at
 -- and a quarantine salvage cannot lose a version to a torn predecessor.
 -- Retention on write: version 1 (birth geometry), milestones, the pinned
 -- version, and the newest three always survive; other versions are pruned.
---
--- A section's line is one contiguous range of one real activity, so the
--- (rep_activity_id, rep_start_index, rep_end_index) triple is the truth and the
--- blob is a decoded cache of it. The triple is nullable because a corridor-era
--- version is an averaged consensus line belonging to no single activity.
---
--- `source` says which of the two a version is. 'exact' means the triple is
--- present and re-slicing the stored stream reproduces the blob byte for byte;
--- 'consensus' is an averaged line no activity carries, so the triple stays
--- NULL; 'orphaned' means the representative activity is gone and the blob is
--- the last honest picture. NULL is unstated provenance, read as not-exact.
--- Readers take the blob for anything that is not 'exact' with a triple.
 CREATE TABLE IF NOT EXISTS section_geometry (
     section_id TEXT NOT NULL,
     version INTEGER NOT NULL,
@@ -171,10 +137,6 @@ CREATE TABLE IF NOT EXISTS section_geometry (
     encoding INTEGER NOT NULL DEFAULT 1,
     blob BLOB NOT NULL,
     milestone INTEGER NOT NULL DEFAULT 0,
-    rep_activity_id TEXT,
-    rep_start_index INTEGER,
-    rep_end_index INTEGER,
-    source TEXT CHECK(source IS NULL OR source IN ('exact', 'consensus', 'orphaned')),
     PRIMARY KEY (section_id, version)
 );
 
@@ -185,46 +147,4 @@ CREATE TABLE IF NOT EXISTS section_pins (
     section_id TEXT PRIMARY KEY,
     version INTEGER NOT NULL,
     created_at TEXT NOT NULL DEFAULT (datetime('now'))
-);
-
--- Cutover archive: a snapshot of the auto catalogue taken before the one-time
--- Corridor-to-Unified migration. The rows are the revert substrate: if the
--- user rolls back, these are restored as is_user_defined = 1 (pinned) sections,
--- which survive every later detect by construction. One archive per token, so
--- a re-run of the same cutover replaces its own prior snapshot. No FK to
--- sections: these rows outlive the wipe.
-CREATE TABLE IF NOT EXISTS section_catalogue_archive (
-    token TEXT NOT NULL,
-    section_id TEXT NOT NULL,
-    name TEXT,
-    sport_type TEXT NOT NULL,
-    polyline_blob BLOB,
-    polyline_json TEXT,
-    distance_meters REAL NOT NULL DEFAULT 0,
-    visit_count INTEGER NOT NULL DEFAULT 0,
-    created_at TEXT,
-    bounds_min_lat REAL,
-    bounds_max_lat REAL,
-    bounds_min_lng REAL,
-    bounds_max_lng REAL,
-    PRIMARY KEY (token, section_id)
-);
-
--- The members of each archived section. A section restored without these is a
--- geometry with no traversals: the card reads a visit count off the row while
--- the detail screen lists nothing, and every lap time is gone. The wipe
--- cascades section_activities away, so they have to be archived to come back.
-CREATE TABLE IF NOT EXISTS section_catalogue_archive_members (
-    token TEXT NOT NULL,
-    section_id TEXT NOT NULL,
-    activity_id TEXT NOT NULL,
-    direction TEXT NOT NULL DEFAULT 'same',
-    start_index INTEGER NOT NULL DEFAULT 0,
-    end_index INTEGER NOT NULL DEFAULT 0,
-    distance_meters REAL NOT NULL DEFAULT 0,
-    lap_time REAL,
-    lap_pace REAL,
-    excluded INTEGER NOT NULL DEFAULT 0,
-    avg_hr REAL,
-    PRIMARY KEY (token, section_id, activity_id, start_index)
 );

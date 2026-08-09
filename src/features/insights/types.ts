@@ -16,6 +16,7 @@ export interface DataPoint {
   value: number | string;
   unit?: string;
   context?: 'good' | 'warning' | 'concern' | 'neutral';
+  range?: { min: number; max: number; label?: string };
 }
 
 export interface InsightAlternative {
@@ -30,6 +31,8 @@ export interface InsightMethodology {
   name: string;
   description: string;
   formula?: string;
+  reference?: string;
+  referenceUrl?: string;
 }
 
 export interface SupportingSection {

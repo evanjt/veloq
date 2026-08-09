@@ -147,6 +147,8 @@ function findWrapperFunctions(ffiLocationMap: Map<string, FfiExport>): WrapperFu
 
     // Track JSDoc block state
     let inJsDoc = false;
+    let jsDocStartLine = 0;
+    let jsDocContent = '';
     let seeTargets: string[] = [];
 
     for (let i = 0; i < lines.length; i++) {
@@ -156,8 +158,11 @@ function findWrapperFunctions(ffiLocationMap: Map<string, FfiExport>): WrapperFu
       // Track JSDoc blocks
       if (line.includes('/**')) {
         inJsDoc = true;
+        jsDocStartLine = lineNum;
+        jsDocContent = line;
         seeTargets = [];
       } else if (inJsDoc) {
+        jsDocContent += '\n' + line;
         // Look for @see annotations
         const seeMatch = line.match(/@see\s+(.+)/);
         if (seeMatch) {

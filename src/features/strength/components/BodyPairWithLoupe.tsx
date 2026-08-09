@@ -24,10 +24,10 @@ const BODY_INTRINSIC_W = 200;
 const BODY_INTRINSIC_H = 400;
 
 interface BodyPairWithLoupeProps {
-  data: readonly ExtendedBodyPart[];
+  data: ReadonlyArray<ExtendedBodyPart>;
   gender: 'male' | 'female';
   scale: number;
-  colors: readonly string[];
+  colors: ReadonlyArray<string>;
   defaultFill?: string;
   onMuscleTap?: (slug: string) => void;
   onMuscleScrub?: (slug: string) => void;
@@ -93,9 +93,9 @@ export const BodyPairWithLoupe = React.memo(function BodyPairWithLoupe({
       // Normalized 0-1 coordinates within the SVG viewBox
       const nx = (localX - padX) / bodyPixelW;
       const ny = y / bodyPixelH;
-      return findMuscleAtPoint(nx, ny, side, tappableSlugs, gender);
+      return findMuscleAtPoint(nx, ny, side, tappableSlugs);
     },
-    [layoutSize, tappableSlugs, totalGap, bodyPixelW, bodyPixelH, gender]
+    [layoutSize, tappableSlugs, totalGap, bodyPixelW, bodyPixelH]
   );
 
   const handleScrubUpdate = useCallback(

@@ -8,6 +8,7 @@ import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { useAthlete } from '@/shared/app/useAthlete';
 import { useAuthStore } from '@/shared/app/AuthStore';
+import { useSportPreference } from '@/features/fitness/stores';
 import { useDashboardPreferences } from '@/features/home/store';
 import { useMapPreferences } from '@/features/maps/stores/MapPreferencesContext';
 import { useRouteSettings } from '@/features/routes/stores/RouteSettingsStore';
@@ -23,7 +24,7 @@ import { getLastBackupTimestamp } from '@/features/settings/lib/autobackup';
 import { colors, darkColors, spacing, layout, typography } from '@/theme';
 import { SettingsNavRow } from '@/features/settings/components/SettingsNavRow';
 import { FooterSection, SupportSection } from '@/features/settings/components';
-import { settingsStyles } from '@/features/settings/components/settingsStyles';
+import { settingsStyles, DIVIDER_INSET } from '@/features/settings/components/settingsStyles';
 
 interface AccountRowProps {
   athlete?: { name?: string; profile?: string; profile_medium?: string };
@@ -171,10 +172,11 @@ export default function SettingsScreen() {
 
   // Subtitle: Routes & Sections
   const routeMatchingEnabled = useRouteSettings((s) => s.settings.enabled);
-  const detectionSubtitle = useMemo(
-    () => (routeMatchingEnabled ? t('common.on') : t('common.off')),
-    [routeMatchingEnabled, t]
-  );
+  const detectionMethod = useRouteSettings((s) => s.settings.detectionMethod);
+  const detectionSubtitle = useMemo(() => {
+    if (!routeMatchingEnabled) return t('common.off');
+    return t(`settings.detectionMethod_${detectionMethod}` as never) as string;
+  }, [routeMatchingEnabled, detectionMethod, t]);
 
   // Subtitle: Notifications
   const notificationsEnabled = useNotificationPreferences((s) => s.enabled);

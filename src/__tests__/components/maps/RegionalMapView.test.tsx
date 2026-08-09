@@ -6,12 +6,6 @@
  * control, and the toggles stay pressable without a GL context.
  */
 
-import React from 'react';
-import { render, fireEvent, screen } from '@testing-library/react-native';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { RegionalMapView } from '@/features/maps/components/RegionalMapView';
-import type { ActivityBoundsItem } from '@/types';
-
 jest.mock('veloqrs', () => require('../../__shared__/veloqrsStub'));
 
 jest.mock('expo-router', () => ({
@@ -47,6 +41,12 @@ jest.mock('expo-location', () => ({
   getCurrentPositionAsync: jest.fn(),
   Accuracy: { Balanced: 3 },
 }));
+
+import React from 'react';
+import { render, fireEvent, screen } from '@testing-library/react-native';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { RegionalMapView } from '@/features/maps/components/RegionalMapView';
+import type { ActivityBoundsItem } from '@/types';
 
 const METRICS = {
   frame: { x: 0, y: 0, width: 390, height: 844 },
@@ -135,7 +135,7 @@ describe('RegionalMapView', () => {
   });
 
   describe('degenerate input', () => {
-    const cases: [string, Partial<React.ComponentProps<typeof RegionalMapView>>][] = [
+    const cases: Array<[string, Partial<React.ComponentProps<typeof RegionalMapView>>]> = [
       ['an empty activity list', { activities: [] }],
       ['an activity with no GPS track', { activities: [activity('a1', { latlngs: undefined })] }],
       ['an activity with an empty GPS track', { activities: [activity('a1', { latlngs: [] })] }],

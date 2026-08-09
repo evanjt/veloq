@@ -305,7 +305,7 @@ impl SectionManager {
         section_id: String,
     ) -> Result<Option<crate::FfiCalendarSummary>, VeloqError> {
         with_engine(|e| {
-            e.get_section_calendar_summary(&section_id, None)
+            e.get_section_calendar_summary(&section_id)
                 .map(crate::FfiCalendarSummary::from)
         })
     }
@@ -550,8 +550,8 @@ impl SectionManager {
                 &polyline,
                 &track_map,
             );
-            match traces.into_iter().next() {
-                Some((_, trace)) => crate::coords::encode(&trace),
+            match traces.get(&activity_id) {
+                Some(trace) => crate::coords::encode(trace),
                 None => vec![],
             }
         })
@@ -594,12 +594,15 @@ impl SectionManager {
     fn expand_bounds(
         &self,
         section_id: String,
-        activity_id: String,
-        start_index: u32,
-        end_index: u32,
+        new_polyline_flat: Vec<f64>,
     ) -> Result<(), VeloqError> {
         with_engine(|e| {
-            e.expand_section_bounds(&section_id, &activity_id, start_index, end_index)
+            let points: Vec<tracematch::GpsPoint> = new_polyline_flat
+                .chunks(2)
+                .filter(|c| c.len() == 2)
+                .map(|c| tracematch::GpsPoint::new(c[0], c[1]))
+                .collect();
+            e.expand_section_bounds(&section_id, &points)
                 .map_err(|e| VeloqError::Database { msg: e })
         })?
     }
@@ -674,9 +677,7 @@ impl SectionManager {
                 // Use the unfiltered variant
                 e.get_all_section_summaries(None)
                     .into_iter()
-                    .filter(|s| {
-                        crate::persistence::PersistentRouteEngine::summary_covers_sport(s, sport)
-                    })
+                    .filter(|s| s.sport_type == *sport)
                     .collect()
             }
             None => e.get_all_section_summaries(None),
@@ -889,11 +890,10 @@ impl SectionManager {
         section_ids: Vec<String>,
     ) -> Result<Vec<String>, VeloqError> {
         with_engine(|e| {
-            let sport = e.sport_of_activity(&activity_id);
             section_ids
                 .into_iter()
                 .filter(|sid| {
-                    e.get_section_performances_filtered(sid, sport.as_deref())
+                    e.get_section_performances(sid)
                         .best_record
                         .as_ref()
                         .is_some_and(|r| r.activity_id == activity_id)

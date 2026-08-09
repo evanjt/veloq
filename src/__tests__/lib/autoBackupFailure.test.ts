@@ -5,18 +5,6 @@
  * on is kept for the settings screen to read.
  */
 
-import {
-  performBackup,
-  registerBackend,
-  getLastBackupTimestamp,
-  getLastBackupFailure,
-  type BackupBackend,
-} from '@/features/settings/lib/autobackup';
-import {
-  transferFailure,
-  transportFailure,
-} from '@/features/settings/lib/autobackup/backends/errors';
-
 const mockSettings = new Map<string, string>();
 
 jest.mock('@/shared/native/routeEngine', () => ({
@@ -37,6 +25,18 @@ jest.mock('expo-file-system/legacy', () => ({
   getInfoAsync: jest.fn().mockResolvedValue({ exists: true, size: 4096 }),
   deleteAsync: jest.fn().mockResolvedValue(undefined),
 }));
+
+import {
+  performBackup,
+  registerBackend,
+  getLastBackupTimestamp,
+  getLastBackupFailure,
+  type BackupBackend,
+} from '@/features/settings/lib/autobackup';
+import {
+  transferFailure,
+  transportFailure,
+} from '@/features/settings/lib/autobackup/backends/errors';
 
 const upload = jest.fn();
 

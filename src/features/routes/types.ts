@@ -169,6 +169,83 @@ export interface RouteGroup {
 /** Direction of route match */
 export type MatchDirection = 'same' | 'reverse' | 'partial';
 
+/** Match result when comparing two activities */
+export interface RouteMatch {
+  /** Activity ID being matched */
+  activityId: string;
+  /** Route group ID it matches */
+  routeGroupId: string;
+  /** Match percentage (0-100) */
+  matchPercentage: number;
+  /** Direction: 'same' | 'reverse' | 'partial' */
+  direction: MatchDirection;
+  /** For partial matches: overlap start (% along route) */
+  overlapStart?: number;
+  /** For partial matches: overlap end (% along route) */
+  overlapEnd?: number;
+  /** For partial matches: overlapping distance in meters */
+  overlapDistance?: number;
+  /** Confidence score (0-1) based on GPS quality and point density */
+  confidence: number;
+}
+
+/** Performance data for a route completion */
+export interface RoutePerformance {
+  activityId: string;
+  date: string;
+  duration: number;
+  movingTime: number;
+  averageSpeed: number;
+  averagePower?: number;
+  averageHr?: number;
+  elevationGain: number;
+  matchQuality: number;
+  direction: MatchDirection;
+}
+
+/** Cached route matching data */
+export interface RouteMatchCache {
+  /** Cache version for invalidation */
+  version: number;
+  /** Last update timestamp */
+  lastUpdated: string;
+  /** Route signatures by activity ID */
+  signatures: Record<string, RouteSignature>;
+  /** Route groups */
+  groups: RouteGroup[];
+  /** Matches mapping activity ID to match info */
+  matches: Record<string, RouteMatch>;
+  /** Activity IDs that have been processed */
+  processedActivityIds: string[];
+  /** Reverse index: activity ID → route group ID (for O(1) lookup) */
+  activityToRouteId: Record<string, string>;
+  /** Frequently traveled sections (auto-detected) */
+  frequentSections?: FrequentSection[];
+}
+
+/** Status of an individual activity being processed */
+export interface ProcessedActivityStatus {
+  id: string;
+  name: string;
+  type: string;
+  status: 'pending' | 'checking' | 'matched' | 'no-match' | 'error';
+  matchedWith?: string; // Name of activity it matched with
+}
+
+/** A match discovered during processing (pair of activities) */
+export interface DiscoveredMatchInfo {
+  id: string;
+  activity1: { id: string; name: string };
+  activity2: { id: string; name: string };
+  type: string;
+  matchPercentage: number;
+  /** Simplified preview points (normalized 0-1) */
+  previewPoints?: { x: number; y: number }[];
+  distance?: number;
+  /** Whether this is the most recent match */
+  isNew?: boolean;
+}
+
 /** A route discovered during processing (group of matching activities) */
 export interface DiscoveredRouteInfo {
   id: string;
@@ -189,6 +266,75 @@ export interface DiscoveredRouteInfo {
   /** Route distance in meters */
   distance?: number;
 }
+
+/** Progress state for route processing */
+export interface RouteProcessingProgress {
+  status:
+    | 'idle'
+    | 'filtering'
+    | 'fetching'
+    | 'processing'
+    | 'matching'
+    | 'detecting-sections'
+    | 'complete'
+    | 'error';
+  current: number;
+  total: number;
+  message?: string;
+  /** For filtering phase: total activities being considered */
+  totalActivities?: number;
+  /** For filtering phase: number of candidates found */
+  candidatesFound?: number;
+  /** Individual activity statuses for live UI */
+  processedActivities?: ProcessedActivityStatus[];
+  /** Running count of matches found */
+  matchesFound?: number;
+  /** Routes discovered so far (grouped activities) */
+  discoveredRoutes?: DiscoveredRouteInfo[];
+  /** Currently processing activity name */
+  currentActivity?: string;
+  /** Number of cached signatures we're matching against */
+  cachedSignatureCount?: number;
+}
+
+/** Configuration for route matching algorithm */
+export interface RouteMatchConfig {
+  /** Tolerance for Douglas-Peucker simplification (meters) */
+  simplificationTolerance: number;
+  /** Target number of simplified points */
+  targetPoints: number;
+  /** Maximum distance between matched points (meters) */
+  distanceThreshold: number;
+  /** Minimum match percentage to consider a match (for showing in activity view) */
+  minMatchPercentage: number;
+  /**
+   * Minimum match percentage to GROUP activities into the same route.
+   * This is intentionally much higher than minMatchPercentage because grouping
+   * should only happen for truly identical journeys, not shared sections.
+   */
+  minGroupingPercentage: number;
+  /** Minimum bounds overlap required (0-1) */
+  minBoundsOverlap: number;
+  /** Maximum distance difference to consider (fraction, e.g., 0.5 = 50%) for MATCHING */
+  maxDistanceDifference: number;
+  /** Distance threshold for loop detection (meters) */
+  loopThreshold: number;
+  /** Grid size for region hashing (degrees, ~500m at equator) */
+  regionGridSize: number;
+}
+
+/** Default configuration values */
+export const DEFAULT_ROUTE_MATCH_CONFIG: RouteMatchConfig = {
+  simplificationTolerance: 15, // meters
+  targetPoints: 100,
+  distanceThreshold: 50, // meters
+  minMatchPercentage: 20, // Lower threshold to discover partial matches (for display)
+  minGroupingPercentage: 70, // High threshold - activities must share most of the route to group
+  minBoundsOverlap: 0.2, // Lower overlap requirement
+  maxDistanceDifference: 0.5, // Allow 50% distance difference for partial matches
+  loopThreshold: 100, // meters
+  regionGridSize: 0.005, // ~500m
+};
 
 // =============================================================================
 // Sections (Unified auto-detected + custom sections)
@@ -238,10 +384,6 @@ export interface Section {
 
   /** How well the reference trace aligns with the consensus (0.0-1.0) */
   stability?: number;
-  /** Elevation gain in metres over the representative slice, absent when unknown */
-  elevationGainM?: number;
-  /** Net grade percent over the representative slice, absent when unknown */
-  avgGradePercent?: number;
   /** Number of times this section has been recalibrated */
   version?: number;
   /** ISO timestamp of last recalibration */
@@ -309,10 +451,6 @@ export interface SectionSummary {
   visitCount: number;
   representativeActivityId?: string;
   createdAt: string;
-  /** Elevation gain in metres over the representative slice, absent when unknown */
-  elevationGainM?: number;
-  /** Net grade percent over the representative slice, absent when unknown */
-  avgGradePercent?: number;
 }
 
 /**
@@ -333,6 +471,26 @@ export interface ActivitySectionRecord {
 
 /** Backward compatibility alias */
 export type SectionPortion = ActivitySectionRecord;
+
+/** Configuration for section detection */
+export interface SectionConfig {
+  proximityThreshold: number;
+  minSectionLength: number;
+  maxSectionLength: number;
+  minActivities: number;
+  clusterTolerance: number;
+  samplePoints: number;
+}
+
+/** Default section detection configuration */
+export const DEFAULT_SECTION_CONFIG: SectionConfig = {
+  proximityThreshold: 150,
+  minSectionLength: 200,
+  maxSectionLength: 5000,
+  minActivities: 3,
+  clusterTolerance: 80,
+  samplePoints: 50,
+};
 
 /** Parameters for creating a section */
 export interface CreateSectionParams {
@@ -378,4 +536,31 @@ export interface DirectionStats {
   count: number;
   /** Average speed across traversals (m/s). Populated for route stats; null for section. */
   avgSpeed: number | null;
+}
+
+/**
+ * Raw direction stats from Rust (before Date conversion).
+ * Used internally for parsing JSON responses.
+ */
+export interface RawDirectionStats {
+  avgTime?: number;
+  lastActivity?: number; // Unix timestamp in seconds
+  count?: number;
+  avgSpeed?: number;
+}
+
+/**
+ * Parse direction stats from Rust engine response.
+ * Converts Unix timestamps (seconds) to JS Date objects.
+ */
+export function parseDirectionStats(
+  stats: RawDirectionStats | null | undefined
+): DirectionStats | null {
+  if (!stats) return null;
+  return {
+    avgTime: stats.avgTime ?? null,
+    lastActivity: stats.lastActivity ? new Date(stats.lastActivity * 1000) : null,
+    count: stats.count ?? 0,
+    avgSpeed: stats.avgSpeed ?? null,
+  };
 }

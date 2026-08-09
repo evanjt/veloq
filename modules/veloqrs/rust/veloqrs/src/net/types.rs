@@ -80,7 +80,7 @@ pub const ACTIVITY_STATS_EXTRA: &str =
     "icu_pm_ftp_watts,icu_zone_times,icu_hr_zone_times,icu_power_zones,icu_hr_zones";
 
 // ===========================================================================
-// Streams
+// Streams (parseStreams parity)
 // ===========================================================================
 
 /// One raw stream object from `streams.json`. `latlng` carries lat in `data`
@@ -95,24 +95,7 @@ pub struct StreamDto {
     pub data2: Option<Vec<Option<f64>>>,
 }
 
-/// One series whose sample count disagrees with the `latlng` index space. The
-/// server sends every series at the same length, so a disagreement means the
-/// response is malformed and the parsed values cannot be trusted positionally.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct SeriesLengthMismatch {
-    pub series: &'static str,
-    /// Samples the series carries.
-    pub len: usize,
-    /// Samples the `latlng` index space covers.
-    pub expected: usize,
-}
-
-/// Parsed, app-facing streams.
-///
-/// Every series shares one index space: when the response carries `latlng`,
-/// samples whose coordinate pair is null are dropped from all series alike, so
-/// `latlng[i]` and `altitude[i]` describe the same sample. Any series that did
-/// not line up with that space is listed in `misaligned`.
+/// Parsed, app-facing streams. Mirrors `ActivityStreams` from the TS layer.
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct ParsedStreams {
     pub time: Vec<i64>,
@@ -128,7 +111,6 @@ pub struct ParsedStreams {
     pub temp: Vec<f64>,
     pub wbal: Vec<f64>,
     pub gap: Vec<f64>,
-    pub misaligned: Vec<SeriesLengthMismatch>,
 }
 
 /// Pace in minutes per `reference_meters`, from a speed in m/s. Mirrors
@@ -145,116 +127,20 @@ fn fill(v: &[Option<f64>]) -> Vec<f64> {
     v.iter().map(|x| x.unwrap_or(f64::NAN)).collect()
 }
 
-/// A coordinate the engine will store. The validity mask, the parsed `latlng`
-/// and the stored track share this gate, so every series stays in the index
-/// space the stored points actually occupy.
-pub(crate) fn is_storable(lat: f64, lng: f64) -> bool {
-    lat.is_finite()
-        && lng.is_finite()
-        && (-90.0..=90.0).contains(&lat)
-        && (-180.0..=180.0).contains(&lng)
-}
-
-/// Sample validity taken from `latlng`: true where both lat and lng are present.
-/// `None` when the response carries no usable `latlng`, in which case every
-/// series keeps its own length.
-fn latlng_mask(raw: &[StreamDto], misaligned: &mut Vec<SeriesLengthMismatch>) -> Option<Vec<bool>> {
-    let s = raw.iter().find(|s| s.kind == "latlng")?;
-    let Some(lng) = s.data2.as_ref() else {
-        log::warn!(
-            "[Streams] latlng carries {} lat samples and no lng series",
-            s.data.len()
-        );
-        misaligned.push(SeriesLengthMismatch {
-            series: "latlng",
-            len: s.data.len(),
-            expected: 0,
-        });
-        return None;
-    };
-    let n = s.data.len().min(lng.len());
-    let longest = s.data.len().max(lng.len());
-    if longest != n {
-        log::warn!(
-            "[Streams] latlng carries {} lat and {} lng samples",
-            s.data.len(),
-            lng.len()
-        );
-        misaligned.push(SeriesLengthMismatch {
-            series: "latlng",
-            len: longest,
-            expected: n,
-        });
-    }
-    Some(
-        (0..n)
-            .map(|i| match (s.data[i], lng[i]) {
-                (Some(la), Some(lo)) => is_storable(la, lo),
-                _ => false,
-            })
-            .collect(),
-    )
-}
-
-/// One series reduced to the valid samples, gaps as NaN. A series whose length
-/// disagrees with the mask source is recorded in `misaligned` and logged before
-/// it is reduced, so a discarded tail or a padded gap never passes unremarked.
-fn select(
-    kind: &'static str,
-    mask: Option<&[bool]>,
-    v: &[Option<f64>],
-    misaligned: &mut Vec<SeriesLengthMismatch>,
-) -> Vec<f64> {
-    let Some(m) = mask else {
-        return fill(v);
-    };
-    if v.len() != m.len() {
-        log::warn!(
-            "[Streams] series {} carries {} samples, the latlng index space covers {}",
-            kind,
-            v.len(),
-            m.len()
-        );
-        misaligned.push(SeriesLengthMismatch {
-            series: kind,
-            len: v.len(),
-            expected: m.len(),
-        });
-    }
-    m.iter()
-        .enumerate()
-        .filter(|(_, keep)| **keep)
-        .map(|(i, _)| v.get(i).copied().flatten().unwrap_or(f64::NAN))
-        .collect()
-}
-
-/// Convert raw stream objects into the parsed shape: zip latlng data/data2,
-/// prefer `fixed_altitude` over `altitude`, convert `ga_velocity` (m/s) to gap
-/// pace (min/km).
-///
-/// The `latlng` validity mask governs every series, so all of them come back the
-/// same length in one index space. TypeScript's `parseStreams` has no such rule,
-/// so the two shapes are not interchangeable.
+/// Convert raw stream objects into the parsed shape, applying the same rules as
+/// the TS `parseStreams`: zip latlng data/data2, prefer `fixed_altitude` over
+/// `altitude`, convert `ga_velocity` (m/s) to gap pace (min/km).
 pub fn parse_streams(raw: Vec<StreamDto>) -> ParsedStreams {
     let mut out = ParsedStreams::default();
-    let mut misaligned = Vec::new();
-    let mask = latlng_mask(&raw, &mut misaligned);
-    let mask = mask.as_deref();
     for s in raw {
         match s.kind.as_str() {
-            // A NaN gap saturates to 0 on the cast.
-            "time" => {
-                out.time = select("time", mask, &s.data, &mut misaligned)
-                    .into_iter()
-                    .map(|x| x as i64)
-                    .collect()
-            }
+            "time" => out.time = s.data.iter().map(|x| x.unwrap_or(0.0) as i64).collect(),
             "latlng" => {
                 if let Some(lng) = &s.data2 {
                     let n = s.data.len().min(lng.len());
                     out.latlng = (0..n)
                         .filter_map(|i| match (s.data[i], lng[i]) {
-                            (Some(la), Some(lo)) if is_storable(la, lo) => Some([la, lo]),
+                            (Some(la), Some(lo)) => Some([la, lo]),
                             _ => None,
                         })
                         .collect();
@@ -262,35 +148,31 @@ pub fn parse_streams(raw: Vec<StreamDto>) -> ParsedStreams {
             }
             "altitude" => {
                 if !out.altitude_is_fixed {
-                    out.altitude = select("altitude", mask, &s.data, &mut misaligned);
+                    out.altitude = fill(&s.data);
                 }
             }
             "fixed_altitude" => {
-                out.altitude = select("fixed_altitude", mask, &s.data, &mut misaligned);
+                out.altitude = fill(&s.data);
                 out.altitude_is_fixed = true;
             }
-            "heartrate" => out.heartrate = select("heartrate", mask, &s.data, &mut misaligned),
-            "watts" => out.watts = select("watts", mask, &s.data, &mut misaligned),
-            "cadence" => out.cadence = select("cadence", mask, &s.data, &mut misaligned),
-            "velocity_smooth" => {
-                out.velocity_smooth = select("velocity_smooth", mask, &s.data, &mut misaligned)
-            }
-            "distance" => out.distance = select("distance", mask, &s.data, &mut misaligned),
-            "grade_smooth" => {
-                out.grade_smooth = select("grade_smooth", mask, &s.data, &mut misaligned)
-            }
-            "temp" => out.temp = select("temp", mask, &s.data, &mut misaligned),
-            "w_bal" => out.wbal = select("w_bal", mask, &s.data, &mut misaligned),
+            "heartrate" => out.heartrate = fill(&s.data),
+            "watts" => out.watts = fill(&s.data),
+            "cadence" => out.cadence = fill(&s.data),
+            "velocity_smooth" => out.velocity_smooth = fill(&s.data),
+            "distance" => out.distance = fill(&s.data),
+            "grade_smooth" => out.grade_smooth = fill(&s.data),
+            "temp" => out.temp = fill(&s.data),
+            "w_bal" => out.wbal = fill(&s.data),
             "ga_velocity" => {
-                out.gap = select("ga_velocity", mask, &s.data, &mut misaligned)
-                    .into_iter()
-                    .map(|x| pace_minutes_from_speed(x, 1000.0))
+                out.gap = s
+                    .data
+                    .iter()
+                    .map(|x| pace_minutes_from_speed(x.unwrap_or(0.0), 1000.0))
                     .collect()
             }
             _ => {}
         }
     }
-    out.misaligned = misaligned;
     out
 }
 
@@ -619,34 +501,6 @@ mod tests {
         // ga_velocity 5 m/s -> 1000/5/60 = 3.333.. min/km; 0 -> 0.
         assert!((s.gap[0] - (1000.0 / 5.0 / 60.0)).abs() < 1e-9);
         assert_eq!(s.gap[1], 0.0);
-    }
-
-    #[test]
-    fn parse_streams_drops_altitude_at_a_null_coordinate() {
-        // Distinct altitude per index, so a series that compacted independently
-        // of latlng would land on the wrong samples rather than the right ones.
-        let raw: Vec<StreamDto> = serde_json::from_value(json!([
-            {"type": "latlng", "data": [42.5, null, 42.7, null, 42.9],
-             "data2": [1.1, null, 1.3, null, 1.5]},
-            {"type": "altitude", "data": [100.0, 200.0, 300.0, 400.0, 500.0]}
-        ]))
-        .unwrap();
-        let s = parse_streams(raw);
-        assert_eq!(s.latlng, vec![[42.5, 1.1], [42.7, 1.3], [42.9, 1.5]]);
-        assert_eq!(s.altitude, vec![100.0, 300.0, 500.0]);
-        assert!(s.misaligned.is_empty());
-    }
-
-    #[test]
-    fn parse_streams_leaves_altitude_empty_when_the_series_is_absent() {
-        let raw: Vec<StreamDto> = serde_json::from_value(json!([
-            {"type": "latlng", "data": [42.5, 42.6], "data2": [1.1, 1.2]}
-        ]))
-        .unwrap();
-        let s = parse_streams(raw);
-        assert_eq!(s.latlng.len(), 2);
-        assert!(s.altitude.is_empty());
-        assert!(!s.altitude_is_fixed);
     }
 
     #[test]

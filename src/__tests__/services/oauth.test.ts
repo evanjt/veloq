@@ -10,16 +10,6 @@
  */
 
 // Mock expo-crypto: deterministic getRandomBytes for state generation
-import * as WebBrowser from 'expo-web-browser';
-import {
-  buildAuthorizationUrl,
-  startOAuthFlow,
-  parseCallbackUrl,
-  validateState,
-  handleOAuthCallback,
-} from '@/features/auth/lib/oauth';
-import { OAUTH } from '@/features/auth/constants';
-
 jest.mock('expo-crypto', () => ({
   getRandomBytes: jest.fn((length: number) => {
     // Return deterministic bytes (0x00, 0x11, 0x22, ...) for reproducible state
@@ -52,6 +42,16 @@ jest.mock('expo-linking', () => ({
     };
   }),
 }));
+
+import * as WebBrowser from 'expo-web-browser';
+import {
+  buildAuthorizationUrl,
+  startOAuthFlow,
+  parseCallbackUrl,
+  validateState,
+  handleOAuthCallback,
+} from '@/features/auth/lib/oauth';
+import { OAUTH } from '@/features/auth/constants';
 
 const mockedOpenAuth = WebBrowser.openAuthSessionAsync as jest.MockedFunction<
   typeof WebBrowser.openAuthSessionAsync

@@ -22,7 +22,7 @@ import type {
   FfiSectionPerformanceData,
   FfiSectionPerformanceResult,
   SectionSummary,
- FfiSectionChartData } from '../../generated/veloqrs';
+} from '../../generated/veloqrs';
 import type { DelegateHost } from '../host';
 import type {
   FfiActivityIndicator,
@@ -32,7 +32,6 @@ import type {
   FfiSectionMatch,
   SectionEncounter,
 } from '../shared-types';
-
 
 const EMPTY_SECTION_PERFORMANCE_RESULT: FfiSectionPerformanceResult = {
   records: [],
@@ -200,7 +199,7 @@ export function getPerformancesBatch(
   host: DelegateHost,
   sectionIds: string[],
   sportType?: string
-): { sectionId: string; result: FfiSectionPerformanceResult }[] {
+): Array<{ sectionId: string; result: FfiSectionPerformanceResult }> {
   if (!host.ready || sectionIds.length === 0) return [];
   return host.timed('getPerformancesBatch', () =>
     host.engine.sections().getPerformancesBatch(sectionIds, sportType)
@@ -240,6 +239,8 @@ export function getWorkoutSections(
     host.engine.sections().getWorkoutSections(sportType, limit)
   );
 }
+
+import type { FfiSectionChartData } from '../../generated/veloqrs';
 export type { FfiSectionChartData };
 export type { FfiSectionChartPoint } from '../../generated/veloqrs';
 

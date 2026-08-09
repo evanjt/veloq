@@ -7,7 +7,6 @@
 
 import type { Activity } from '@/types';
 import { type ActivityMetrics } from 'veloqrs';
-import { startDateLocalToEpochSeconds } from '@/shared/time/startDate';
 
 /**
  * Convert Activity to ActivityMetrics for Rust engine.
@@ -27,7 +26,13 @@ export function toActivityMetrics(activity: Activity): ActivityMetrics {
   return {
     activityId: activity.id,
     name: activity.name,
-    date: BigInt(startDateLocalToEpochSeconds(activity.start_date_local) ?? 0),
+    date: BigInt(
+      Math.floor(
+        Number.isFinite(new Date(activity.start_date_local).getTime())
+          ? new Date(activity.start_date_local).getTime() / 1000
+          : 0
+      )
+    ),
     distance: activity.distance ?? 0,
     movingTime: activity.moving_time ?? 0,
     elapsedTime: activity.elapsed_time ?? 0,

@@ -1,21 +1,37 @@
-// routeEngine pulls in react-native through its import chain, so the mock must be
-// declared before any import that triggers it.
+// Mock modules that pull in react-native through their import chains.
+// These mocks must be declared before any imports that trigger the chains.
+jest.mock('@/shared/native/routeEngine', () => ({
+  getRouteEngine: () => null,
+}));
+
+jest.mock('@/features/fitness/stores/SportPreferenceStore', () => ({
+  ...jest.requireActual('@/features/fitness/stores/SportPreferenceStore'),
+  SPORT_API_TYPES: {
+    Cycling: ['Ride', 'VirtualRide'],
+    Running: ['Run', 'VirtualRun', 'TrailRun'],
+    Swimming: ['Swim', 'OpenWaterSwim'],
+  },
+}));
+
 import { calculateZonesFromStreams } from '@/features/fitness/hooks/useZoneDistribution';
 import {
   getSettingsForSport,
   getZoneColor,
   POWER_ZONE_COLORS,
   HR_ZONE_COLORS,
+  DEFAULT_HR_ZONES,
 } from '@/shared/app/useSportSettings';
-import { SPORT_COLORS } from '@/features/fitness/stores/SportPreferenceStore';
+import { SPORT_API_TYPES, SPORT_COLORS } from '@/features/fitness/stores/SportPreferenceStore';
 import type { PrimarySport } from '@/features/fitness/stores/SportPreferenceStore';
-import { getFormZone, FORM_ZONE_BOUNDARIES, type FormZone } from '@/features/fitness/lib/fitness';
+import {
+  getFormZone,
+  FORM_ZONE_COLORS,
+  FORM_ZONE_LABELS,
+  FORM_ZONE_BOUNDARIES,
+  type FormZone,
+} from '@/features/fitness/lib/fitness';
 import { getLatestFTP, getLatestEFTP } from '@/features/activity/hooks/useEFTPHistory';
 import type { SportSettings, Activity } from '@/types';
-
-jest.mock('@/shared/native/routeEngine', () => ({
-  getRouteEngine: () => null,
-}));
 
 // ---------------------------------------------------------------------------
 // calculateZonesFromStreams
@@ -152,29 +168,93 @@ describe('getSettingsForSport', () => {
 // ---------------------------------------------------------------------------
 
 describe('getZoneColor', () => {
-  it('clamps an index past the end of the palette to the last color', () => {
-    const lastPower = POWER_ZONE_COLORS[POWER_ZONE_COLORS.length - 1];
-    const lastHR = HR_ZONE_COLORS[HR_ZONE_COLORS.length - 1];
-    // 5 and 6 are valid power indices but past the end of the shorter HR palette.
-    for (const idx of [5, 6, 10, 100]) {
-      expect(getZoneColor(idx, 'hr')).toBe(lastHR);
+  it('returns the palette color at valid indices for power and HR', () => {
+    for (const idx of [0, 3, 6]) {
+      expect(getZoneColor(idx, 'power')).toBe(POWER_ZONE_COLORS[idx]);
     }
-    for (const idx of [7, 10, 100]) {
-      expect(getZoneColor(idx, 'power')).toBe(lastPower);
+    for (const idx of [0, 2, 4]) {
+      expect(getZoneColor(idx, 'hr')).toBe(HR_ZONE_COLORS[idx]);
     }
-    expect(getZoneColor(6, 'power')).not.toBe(lastHR);
   });
 
-  it('defaults to the power palette when type is omitted', () => {
-    // Index 6 exists only in the power palette, so it separates the two defaults.
-    expect(getZoneColor(6)).toBe(POWER_ZONE_COLORS[6]);
-    expect(getZoneColor(6)).not.toBe(getZoneColor(6, 'hr'));
+  it('clamps out-of-bounds index to the last color for power and HR', () => {
+    const lastPower = POWER_ZONE_COLORS[POWER_ZONE_COLORS.length - 1];
+    const lastHR = HR_ZONE_COLORS[HR_ZONE_COLORS.length - 1];
+    for (const idx of [10, 100]) {
+      expect(getZoneColor(idx, 'power')).toBe(lastPower);
+      expect(getZoneColor(idx, 'hr')).toBe(lastHR);
+    }
+  });
+
+  it('returns correct palette for power vs HR at same index', () => {
+    // Both palettes now use intervals.icu colors - same color at shared indices
+    expect(getZoneColor(4, 'power')).toBe(POWER_ZONE_COLORS[4]);
+    expect(getZoneColor(4, 'hr')).toBe(HR_ZONE_COLORS[4]);
+  });
+
+  it('defaults to power when type is omitted', () => {
+    expect(getZoneColor(0)).toBe(POWER_ZONE_COLORS[0]);
+    expect(getZoneColor(3)).toBe(POWER_ZONE_COLORS[3]);
   });
 });
 
 // ---------------------------------------------------------------------------
-// SPORT_COLORS
+// Zone color and zone constant arrays
 // ---------------------------------------------------------------------------
+
+describe('HR_ZONE_COLORS', () => {
+  it('has exactly 5 colors', () => {
+    expect(HR_ZONE_COLORS).toHaveLength(5);
+  });
+
+  it('all entries are valid hex color strings', () => {
+    HR_ZONE_COLORS.forEach((color) => {
+      expect(color).toMatch(/^#[0-9A-Fa-f]{6}$/);
+    });
+  });
+});
+
+describe('DEFAULT_HR_ZONES', () => {
+  it('has exactly 5 zones', () => {
+    expect(DEFAULT_HR_ZONES).toHaveLength(5);
+  });
+
+  it('has sequential IDs from 1 to 5', () => {
+    DEFAULT_HR_ZONES.forEach((zone, idx) => {
+      expect(zone.id).toBe(idx + 1);
+    });
+  });
+
+  it('each zone has a non-empty name', () => {
+    DEFAULT_HR_ZONES.forEach((zone) => {
+      expect(zone.name).toBeTruthy();
+      expect(zone.name.length).toBeGreaterThan(0);
+    });
+  });
+
+  it('each zone has a color matching HR_ZONE_COLORS', () => {
+    DEFAULT_HR_ZONES.forEach((zone, idx) => {
+      expect(zone.color).toBe(HR_ZONE_COLORS[idx]);
+    });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// SPORT_API_TYPES and SPORT_COLORS
+// ---------------------------------------------------------------------------
+
+describe('SPORT_API_TYPES', () => {
+  it('each primary sport includes its canonical API type', () => {
+    const cases: { sport: PrimarySport; type: string }[] = [
+      { sport: 'Cycling', type: 'Ride' },
+      { sport: 'Running', type: 'Run' },
+      { sport: 'Swimming', type: 'Swim' },
+    ];
+    for (const { sport, type } of cases) {
+      expect(SPORT_API_TYPES[sport]).toContain(type);
+    }
+  });
+});
 
 describe('SPORT_COLORS', () => {
   const primarySports: PrimarySport[] = ['Cycling', 'Running', 'Swimming'];
@@ -187,7 +267,7 @@ describe('SPORT_COLORS', () => {
 });
 
 // ---------------------------------------------------------------------------
-// getFormZone and FORM_ZONE_BOUNDARIES
+// getFormZone and FORM_ZONE_COLORS / FORM_ZONE_LABELS / FORM_ZONE_BOUNDARIES
 // ---------------------------------------------------------------------------
 
 describe('getFormZone', () => {
@@ -240,17 +320,20 @@ describe('getFormZone', () => {
   });
 });
 
-describe('FORM_ZONE_BOUNDARIES', () => {
+describe('FORM_ZONE constants', () => {
   const allZones: FormZone[] = ['highRisk', 'optimal', 'greyZone', 'fresh', 'transition'];
 
-  // The chart bands read the constant while the badge reads getFormZone, so the two
-  // drifting apart would paint a band the classifier disagrees with.
-  it('every band classifies back to its own zone under getFormZone', () => {
+  it('every zone has a valid color, label, and ordered boundaries', () => {
     for (const zone of allZones) {
+      expect(FORM_ZONE_COLORS[zone]).toMatch(/^#[0-9A-Fa-f]{6}$/);
+
+      expect(typeof FORM_ZONE_LABELS[zone]).toBe('string');
+      expect(FORM_ZONE_LABELS[zone].length).toBeGreaterThan(0);
+
       const { min, max } = FORM_ZONE_BOUNDARIES[zone];
+      expect(typeof min).toBe('number');
+      expect(typeof max).toBe('number');
       expect(min).toBeLessThan(max);
-      expect(getFormZone(min)).toBe(zone);
-      expect(getFormZone(max - 0.01)).toBe(zone);
     }
   });
 

@@ -27,8 +27,7 @@ export function getRouteEngine(): typeof import('veloqrs').routeEngine | null {
   return mod?.routeEngine ?? null;
 }
 
-export const DETECTION_METHODS = ['corridor', 'density', 'flow', 'unified'] as const;
-export type DetectionMethod = (typeof DETECTION_METHODS)[number];
+export type DetectionMethod = 'corridor' | 'density' | 'flow';
 export type DetectionStrictness = 'relaxed' | 'default' | 'strict';
 
 /**
@@ -73,22 +72,118 @@ const MATCH_PRESETS: Record<DetectionStrictness, { matchPct: number; endpoint: n
   strict: { matchPct: 65, endpoint: 180 },
 };
 
-// The configuration the unified detector is validated at. Written in full so
-// it cannot inherit a value another method left behind.
-export const UNIFIED_CONFIG = {
-  proximityThreshold: 200,
-  minSectionLength: 150,
-  maxSectionLength: 200000,
-  minActivities: 2,
-  divergenceThreshold: 0.15,
+export interface CorridorPreset {
+  proximityThreshold: number;
+  minSectionLength: number;
+  minActivities: number;
+  minCorridorTracks: number;
+}
+
+export interface DensityGridPreset {
+  proximityThreshold: number;
+  minSectionLength: number;
+  minActivities: number;
+  minRoutes: number;
+  jaccardThreshold: number;
+}
+
+export interface FlowGraphPreset {
+  proximityThreshold: number;
+  minSectionLength: number;
+  minActivities: number;
+  minCellVisits: number;
+  divergenceThreshold: number;
+}
+
+export const CORRIDOR_PRESETS: Record<DetectionStrictness, CorridorPreset> = {
+  relaxed: {
+    proximityThreshold: 250,
+    minSectionLength: 100,
+    minActivities: 2,
+    minCorridorTracks: 2,
+  },
+  default: {
+    proximityThreshold: 200,
+    minSectionLength: 150,
+    minActivities: 2,
+    minCorridorTracks: 2,
+  },
+  strict: {
+    proximityThreshold: 75,
+    minSectionLength: 300,
+    minActivities: 4,
+    minCorridorTracks: 4,
+  },
+};
+
+export const DENSITY_GRID_PRESETS: Record<DetectionStrictness, DensityGridPreset> = {
+  relaxed: {
+    proximityThreshold: 200,
+    minSectionLength: 150,
+    minActivities: 2,
+    minRoutes: 2,
+    jaccardThreshold: 0.35,
+  },
+  default: {
+    proximityThreshold: 150,
+    minSectionLength: 200,
+    minActivities: 3,
+    minRoutes: 3,
+    jaccardThreshold: 0.5,
+  },
+  strict: {
+    proximityThreshold: 75,
+    minSectionLength: 300,
+    minActivities: 4,
+    minRoutes: 4,
+    jaccardThreshold: 0.65,
+  },
+};
+
+export const FLOW_GRAPH_PRESETS: Record<DetectionStrictness, FlowGraphPreset> = {
+  relaxed: {
+    proximityThreshold: 200,
+    minSectionLength: 150,
+    minActivities: 2,
+    minCellVisits: 30,
+    divergenceThreshold: 0.1,
+  },
+  default: {
+    proximityThreshold: 150,
+    minSectionLength: 200,
+    minActivities: 3,
+    minCellVisits: 50,
+    divergenceThreshold: 0.15,
+  },
+  strict: {
+    proximityThreshold: 75,
+    minSectionLength: 300,
+    minActivities: 4,
+    minCellVisits: 80,
+    divergenceThreshold: 0.25,
+  },
+};
+
+const METHOD_FFI_KEY: Record<DetectionMethod, 'corridor' | 'density_grid' | 'flow_graph'> = {
+  corridor: 'corridor',
+  density: 'density_grid',
+  flow: 'flow_graph',
 };
 
 /**
- * Apply the route-grouping strictness, and the detector config it rides with,
- * to the Rust engine. The engine persists section_config to the settings table,
- * so the next load picks it up without help.
+ * Apply a detection preset to the Rust engine for the given method.
+ *
+ * Writes the method-specific param set plus the shared route-grouping
+ * strictness. The Rust engine persists section_config to the settings
+ * table so the next engine load picks it up automatically.
+ *
+ * `preserveHierarchy` is derived from the strictness level (more relaxed
+ * → preserve scale hierarchy, more strict → flatten).
  */
-export function applyDetectionStrictness(strictness: DetectionStrictness): void {
+export function applyDetectionPresetForMethod(
+  method: DetectionMethod,
+  strictness: DetectionStrictness
+): void {
   const engine = getRouteEngine();
   if (!engine) return;
 
@@ -98,13 +193,45 @@ export function applyDetectionStrictness(strictness: DetectionStrictness): void 
   const current = engine.getSectionConfig();
   if (!current) return;
 
-  // Written in full, never merged over whatever the config already held.
-  engine.setSectionConfig({
-    ...current,
-    detectionMethod: 'unified',
-    preserveHierarchy: false,
-    ...UNIFIED_CONFIG,
-  });
+  const ffiMethod = METHOD_FFI_KEY[method];
+  const preserveHierarchy = strictness === 'relaxed';
+
+  if (method === 'corridor') {
+    const p = CORRIDOR_PRESETS[strictness];
+    engine.setSectionConfig({
+      ...current,
+      detectionMethod: ffiMethod,
+      preserveHierarchy,
+      proximityThreshold: p.proximityThreshold,
+      minSectionLength: p.minSectionLength,
+      minActivities: p.minActivities,
+      minCorridorTracks: p.minCorridorTracks,
+    });
+  } else if (method === 'density') {
+    const p = DENSITY_GRID_PRESETS[strictness];
+    engine.setSectionConfig({
+      ...current,
+      detectionMethod: ffiMethod,
+      preserveHierarchy,
+      proximityThreshold: p.proximityThreshold,
+      minSectionLength: p.minSectionLength,
+      minActivities: p.minActivities,
+      minRoutes: p.minRoutes,
+      jaccardThreshold: p.jaccardThreshold,
+    });
+  } else {
+    const p = FLOW_GRAPH_PRESETS[strictness];
+    engine.setSectionConfig({
+      ...current,
+      detectionMethod: ffiMethod,
+      preserveHierarchy,
+      proximityThreshold: p.proximityThreshold,
+      minSectionLength: p.minSectionLength,
+      minActivities: p.minActivities,
+      minCellVisits: p.minCellVisits,
+      divergenceThreshold: p.divergenceThreshold,
+    });
+  }
 }
 
 /**

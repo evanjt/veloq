@@ -10,10 +10,6 @@ use std::time::Duration;
 /// Streams requested for the detail charts (GPS + the per-metric series).
 pub const DEFAULT_STREAM_TYPES: &str = "time,distance,latlng,velocity_smooth,heartrate,watts,altitude,fixed_altitude,cadence,grade_smooth,temp,w_bal,ga_velocity";
 
-/// Series the bulk track ingest asks for: the coordinates, plus both altitude
-/// forms so `parse_streams` can prefer the corrected one.
-pub const TRACK_STREAM_TYPES: &str = "latlng,fixed_altitude,altitude";
-
 /// `GET /athlete/{id}` - full athlete profile.
 pub async fn fetch_athlete(
     t: &Transport,
@@ -185,11 +181,7 @@ pub async fn fetch_oldest_activity_date(
     Ok(oldest_activity_date(&acts))
 }
 
-/// `GET /activity/{id}/streams.json` → parsed streams, every series reduced to
-/// the `latlng` index space. A ragged series is reduced to that space with its
-/// gaps as NaN, never shifted, so it costs its own samples and not the
-/// response. A `latlng` series that disagrees with itself is rejected: it
-/// defines the index space, so nothing in the response can be trusted.
+/// `GET /activity/{id}/streams.json` → parsed streams (parseStreams parity).
 pub async fn fetch_streams(
     t: &Transport,
     activity_id: &str,
@@ -203,27 +195,7 @@ pub async fn fetch_streams(
             lane,
         )
         .await?;
-    let parsed = parse_streams(raw);
-    if !parsed.misaligned.is_empty() {
-        let detail = parsed
-            .misaligned
-            .iter()
-            .map(|m| format!("{} has {} of {}", m.series, m.len, m.expected))
-            .collect::<Vec<_>>()
-            .join(", ");
-        if parsed.misaligned.iter().any(|m| m.series == "latlng") {
-            return Err(NetError::Decode(format!(
-                "activity {} streams misaligned: {}",
-                activity_id, detail
-            )));
-        }
-        log::warn!(
-            "[Streams] activity {} carries misaligned series: {}",
-            activity_id,
-            detail
-        );
-    }
-    Ok(parsed)
+    Ok(parse_streams(raw))
 }
 
 /// `GET /activity/{id}/streams.json` as the untyped body. TypeScript's
@@ -259,17 +231,19 @@ pub async fn fetch_activity_body(
 }
 
 /// An activity's `time` stream as whole seconds, for the section-performance
-/// lap maths. A section addresses this array with the indices it holds into the
-/// stored track, so `latlng` is requested alongside `time` to put both in the
-/// one index space. Without it a single dropped coordinate shifts every lap
-/// time on the activity. A negative sample is clamped rather than dropped.
+/// lap maths. Non-finite and negative samples are dropped rather than cast.
 pub async fn fetch_time_stream(
     t: &Transport,
     activity_id: &str,
     lane: Lane,
 ) -> Result<Vec<u32>, NetError> {
-    let parsed = fetch_streams(t, activity_id, Some("time,latlng"), lane).await?;
-    Ok(parsed.time.into_iter().map(|v| v.max(0) as u32).collect())
+    let parsed = fetch_streams(t, activity_id, Some("time"), lane).await?;
+    Ok(parsed
+        .time
+        .into_iter()
+        .filter(|v| *v >= 0)
+        .map(|v| v as u32)
+        .collect())
 }
 
 /// `GET /activity/{id}/intervals` - work/recovery intervals.
@@ -630,40 +604,6 @@ mod tests {
         let s = crate::runtime::block_on(fetch_streams(&t, "77", None, Lane::Interactive)).unwrap();
         mock.assert();
         assert_eq!(s.latlng, vec![[42.5, 1.1], [42.6, 1.2]]);
-    }
-
-    #[test]
-    fn a_ragged_series_costs_its_own_samples_and_not_the_response() {
-        let server = MockServer::start();
-        server.mock(|when, then| {
-            when.method(GET).path("/activity/77/streams.json");
-            then.status(200).json_body(json!([
-                {"type": "latlng", "data": [42.5, 42.6, 42.7], "data2": [1.1, 1.2, 1.3]},
-                {"type": "heartrate", "data": [120, 121]},
-                {"type": "altitude", "data": [400.0, 401.0, 402.0]}
-            ]));
-        });
-        let t = fast_transport(server.base_url());
-        let s = crate::runtime::block_on(fetch_streams(&t, "77", None, Lane::Interactive)).unwrap();
-        assert_eq!(s.latlng.len(), 3);
-        assert_eq!(s.altitude, vec![400.0, 401.0, 402.0]);
-        assert_eq!(s.heartrate.len(), 3);
-        assert!(s.heartrate[2].is_nan());
-    }
-
-    #[test]
-    fn a_latlng_series_that_disagrees_with_itself_rejects_the_response() {
-        let server = MockServer::start();
-        server.mock(|when, then| {
-            when.method(GET).path("/activity/77/streams.json");
-            then.status(200).json_body(json!([
-                {"type": "latlng", "data": [42.5, 42.6, 42.7], "data2": [1.1]},
-                {"type": "altitude", "data": [400.0, 401.0, 402.0]}
-            ]));
-        });
-        let t = fast_transport(server.base_url());
-        let r = crate::runtime::block_on(fetch_streams(&t, "77", None, Lane::Interactive));
-        assert!(r.is_err(), "a broken index space cannot be trusted");
     }
 
     #[test]

@@ -238,6 +238,7 @@ export default function RecordingScreen() {
           onPause={handlePause}
           onResume={handleResume}
           onStop={handleStop}
+          onDiscard={handleDiscard}
           onLap={handleLap}
           style={{ paddingBottom: insets.bottom + TAB_BAR_SAFE_PADDING }}
         />

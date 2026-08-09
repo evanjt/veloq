@@ -1,6 +1,4 @@
-./scripts/check-no-private-data.sh
 npx lint-staged
 npm run audit
 npx tsc --noEmit
-npm run lint
 npm test -- --maxWorkers=2

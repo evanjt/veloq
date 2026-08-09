@@ -17,3 +17,4 @@ export {
   HEATMAP_ROUTE_COLOR,
 } from './regionalMapLayerSpecs';
 export { REGIONAL_FIT_PADDING } from './regionalCamera';
+export { type SelectedRoute } from './types';

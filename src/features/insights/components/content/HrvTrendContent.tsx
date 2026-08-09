@@ -3,14 +3,12 @@ import { View, StyleSheet } from 'react-native';
 import { Text } from 'react-native-paper';
 import { Canvas, Path, LinearGradient, vec, Line as SkiaLine } from '@shopify/react-native-skia';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/shared/app';
 import { colors, darkColors, spacing, opacity } from '@/theme';
 import { ChartErrorBoundary } from '@/shared/ui';
 import { polylineSvgPath, useChartColors } from '@/shared/charts';
 import type { Insight } from '@/types';
 import type { LayoutChangeEvent } from 'react-native';
-import type { TFunction } from 'i18next';
 
 const CHART_HEIGHT = 140;
 const CHART_PADDING = { top: 12, bottom: 24, left: 36, right: 12 };
@@ -56,7 +54,6 @@ interface HrvTrendContentProps {
 export const HrvTrendContent = React.memo(function HrvTrendContent({
   insight,
 }: HrvTrendContentProps) {
-  const { t } = useTranslation();
   const { isDark } = useTheme();
   const chartColors = useChartColors();
   const [chartWidth, setChartWidth] = useState(0);
@@ -209,9 +206,9 @@ export const HrvTrendContent = React.memo(function HrvTrendContent({
                   ]}
                 >
                   <Text style={[styles.axisLabel, { color: textMuted }]}>
-                    {formatDaysAgo(t, sparklineData.length - 1)}
+                    {formatDaysAgo(sparklineData.length - 1)}
                   </Text>
-                  <Text style={[styles.axisLabel, { color: textMuted }]}>{t('time.today')}</Text>
+                  <Text style={[styles.axisLabel, { color: textMuted }]}>Today</Text>
                 </View>
               ) : null}
             </View>
@@ -222,9 +219,9 @@ export const HrvTrendContent = React.memo(function HrvTrendContent({
   );
 });
 
-function formatDaysAgo(t: TFunction, days: number): string {
-  if (days <= 1) return t('time.yesterday');
-  return t('time.daysAgo', { count: days });
+function formatDaysAgo(days: number): string {
+  if (days <= 1) return 'Yesterday';
+  return `${days}d ago`;
 }
 
 const styles = StyleSheet.create({

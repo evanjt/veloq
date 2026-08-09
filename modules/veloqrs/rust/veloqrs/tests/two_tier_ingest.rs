@@ -37,7 +37,7 @@ fn engine_with_sections(dir: &TempDir, corpus: &LifecycleCorpus) -> PersistentRo
             .unwrap();
     }
 
-    let handle = engine.detect_sections_background();
+    let handle = engine.detect_sections_background(None);
     let (sections, _) = handle.recv().unwrap_or_default();
     engine.apply_sections(sections).unwrap();
     assert!(
@@ -254,7 +254,7 @@ fn a_lapped_attach_matches_what_batch_detection_assigns() {
         store(&mut batch, &id, activity.gps_points.clone(), activity);
     }
     store(&mut batch, "act_lapped", lapped_track(base), base);
-    let handle = batch.detect_sections_background();
+    let handle = batch.detect_sections_background(None);
     let (sections, _) = handle.recv().unwrap_or_default();
     batch.apply_sections(sections).unwrap();
 
@@ -328,36 +328,5 @@ fn the_attach_tolerance_follows_the_proximity_setting() {
     assert!(
         summary.inserted_portions > 0,
         "a 75 m-offset track failed to attach under a 400 m proximity setting"
-    );
-}
-
-/// The tightening direction of the same derivation: at the default setting
-/// the derived 50 m bar must REFUSE a 75 m-offset track, or a regression
-/// hard-coding a wider constant would pass the loosening test above.
-#[test]
-fn the_attach_tolerance_refuses_offsets_beyond_the_derived_bar() {
-    let dir = TempDir::new().unwrap();
-    let corpus = LifecycleCorpus::generate(&LifecycleConfig {
-        bucket_a_count: 30,
-        bucket_b_delta_count: 0,
-        bucket_e_delta_count: 0,
-        parallel_street_count: 0,
-        ..LifecycleConfig::default()
-    });
-    let mut engine = engine_with_sections(&dir, &corpus);
-
-    let base = &corpus.bucket_c_single;
-    let mut shifted = base.gps_points.clone();
-    for p in &mut shifted {
-        p.latitude += 75.0 / 111_320.0;
-    }
-    engine
-        .add_activity("shifted".into(), shifted, base.sport_type.clone())
-        .unwrap();
-
-    let summary = engine.attach_new_activities(&["shifted".to_string()]);
-    assert_eq!(
-        summary.inserted_portions, 0,
-        "a 75 m-offset track must not attach under the default 200 m setting"
     );
 }

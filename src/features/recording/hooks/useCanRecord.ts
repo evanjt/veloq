@@ -17,6 +17,7 @@ type CanRecordResult = {
  */
 export function useCanRecord(): CanRecordResult {
   const authMethod = useAuthStore((s) => s.authMethod);
+  const needsUpgrade = useUploadPermissionStore((s) => s.needsUpgrade);
   const hasWritePermission = useUploadPermissionStore((s) => s.hasWritePermission);
 
   // API key users always have full permissions - can't scope API keys

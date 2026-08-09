@@ -12,6 +12,7 @@ export {
   resolveLanguageToLocale,
   getEffectiveLanguage,
   getAvailableLanguages,
+  getAvailableLanguagesFlat,
   isEnglishVariant,
   getEnglishVariantValue,
   isLanguageVariant,

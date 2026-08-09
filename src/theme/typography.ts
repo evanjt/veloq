@@ -170,3 +170,5 @@ export const typography = {
     lineHeight: 14,
   },
 } as const;
+
+export type TypographyKey = keyof typeof typography;

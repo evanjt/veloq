@@ -508,7 +508,7 @@ fn adopted_geometry_survives_restart_and_resync() {
         );
     }
 
-    let handle = engine.detect_sections_background();
+    let handle = engine.detect_sections_background(None);
     let (main, cache_update) = handle.recv_with_cache();
     let (sections, processed_ids) = main.unwrap_or_default();
     engine

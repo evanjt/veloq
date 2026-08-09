@@ -7,7 +7,7 @@ const t = (key: string, params?: Record<string, string | number>) => {
 };
 
 function makeSummary(
-  muscles: { slug: string; weightedSets: number }[],
+  muscles: Array<{ slug: string; weightedSets: number }>,
   activityCount = 4
 ): StrengthSummary {
   return {

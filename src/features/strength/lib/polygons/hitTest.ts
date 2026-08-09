@@ -1,7 +1,17 @@
 import { FRONT_POSITIONS, BACK_POSITIONS } from '../muscleHitRegions';
 
-import { FRONT_MALE, BACK_MALE } from './male.generated';
-import { FRONT_FEMALE, BACK_FEMALE } from './female.generated';
+import { FRONT_QUADRICEPS } from './quads';
+import { BACK_HAMSTRING } from './hamstrings';
+import { BACK_GLUTEAL } from './glutes';
+import { FRONT_CALVES, BACK_CALVES } from './calves';
+import { FRONT_CHEST } from './chest';
+import { FRONT_TRAPEZIUS, FRONT_ADDUCTORS } from './backFront';
+import { BACK_TRAPEZIUS, BACK_ADDUCTORS, BACK_UPPER_BACK, BACK_LOWER_BACK } from './backBack';
+import { FRONT_DELTOIDS, BACK_DELTOIDS } from './shoulders';
+import { FRONT_BICEPS, FRONT_TRICEPS, FRONT_FOREARM } from './armsFront';
+import { BACK_TRICEPS, BACK_FOREARM } from './armsBack';
+import { FRONT_ABS } from './abs';
+import { FRONT_OBLIQUES } from './obliques';
 
 export type Polygon = number[][];
 export type MusclePolygons = Record<string, Polygon[]>;
@@ -24,11 +34,31 @@ const PRIORITY: string[] = [
   'lower-back',
 ];
 
-export type BodyGender = 'male' | 'female';
+export const FRONT_POLYGONS: MusclePolygons = {
+  ...FRONT_QUADRICEPS,
+  ...FRONT_CALVES,
+  ...FRONT_CHEST,
+  ...FRONT_TRAPEZIUS,
+  ...FRONT_ADDUCTORS,
+  ...FRONT_DELTOIDS,
+  ...FRONT_BICEPS,
+  ...FRONT_TRICEPS,
+  ...FRONT_FOREARM,
+  ...FRONT_ABS,
+  ...FRONT_OBLIQUES,
+};
 
-const POLYGONS: Record<BodyGender, Record<'front' | 'back', MusclePolygons>> = {
-  male: { front: FRONT_MALE, back: BACK_MALE },
-  female: { front: FRONT_FEMALE, back: BACK_FEMALE },
+export const BACK_POLYGONS: MusclePolygons = {
+  ...BACK_HAMSTRING,
+  ...BACK_GLUTEAL,
+  ...BACK_CALVES,
+  ...BACK_TRAPEZIUS,
+  ...BACK_ADDUCTORS,
+  ...BACK_UPPER_BACK,
+  ...BACK_LOWER_BACK,
+  ...BACK_DELTOIDS,
+  ...BACK_TRICEPS,
+  ...BACK_FOREARM,
 };
 
 function pip(x: number, y: number, poly: number[][]): boolean {
@@ -48,10 +78,9 @@ export function findMuscleAtPoint(
   nx: number,
   ny: number,
   side: 'front' | 'back',
-  tappableSlugs: Set<string>,
-  gender: BodyGender = 'male'
+  tappableSlugs: Set<string>
 ): string | null {
-  const polys = POLYGONS[gender][side];
+  const polys = side === 'front' ? FRONT_POLYGONS : BACK_POLYGONS;
   for (const slug of PRIORITY) {
     if (!tappableSlugs.has(slug)) continue;
     const pl = polys[slug];

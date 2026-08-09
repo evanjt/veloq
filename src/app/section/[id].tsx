@@ -58,9 +58,13 @@ import {
   MAP_HEIGHT_EDIT,
 } from '@/features/routes/components/section/SectionHeader';
 import { styles } from '@/features/routes/components/section/SectionDetail.styles';
-import { type MaterialIconName } from '@/features/activity/lib/activityUtils';
+import {
+  getActivityIcon,
+  getActivityColor,
+  type MaterialIconName,
+} from '@/features/activity/lib/activityUtils';
 import { colors } from '@/theme';
-import type { RoutePoint } from '@/types';
+import type { ActivityType, RoutePoint } from '@/types';
 
 export default function SectionDetailScreen() {
   // Performance timing
@@ -309,6 +313,7 @@ export default function SectionDetailScreen() {
           {/* Hero Map Section - expands when editing */}
           <SectionHeader
             section={section}
+            isDark={isDark}
             insetTop={insets.top}
             mapHeight={isTrimming ? MAP_HEIGHT_EDIT : MAP_HEIGHT_NORMAL}
             activityColor={activityColor}
@@ -406,7 +411,6 @@ export default function SectionDetailScreen() {
               bestForwardRecord={computedBestForward}
               bestReverseRecord={computedBestReverse}
               calendarSummary={calendarSummary}
-              effectiveSportType={effectiveSportType}
               isRunning={isRunning}
               activityColor={activityColor}
               navActivityId={navActivityId}

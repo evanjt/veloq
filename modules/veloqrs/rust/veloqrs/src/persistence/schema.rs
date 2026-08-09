@@ -5,7 +5,7 @@ use rusqlite::{Connection, Result as SqlResult, params};
 use rusqlite_migration::{M, Migrations};
 use std::collections::{HashMap, HashSet};
 
-use super::{PersistentRouteEngine, codec, sections};
+use super::{PersistentRouteEngine, codec};
 
 impl PersistentRouteEngine {
     /// App-level schema version for post-migration Rust hooks.
@@ -22,34 +22,35 @@ impl PersistentRouteEngine {
     /// M16: bounded activity stream body cache.
     /// M17: section history, geometry versions and pins (B4 core).
     pub(super) fn migrations() -> Migrations<'static> {
-        Migrations::new(Self::migration_scripts().into_iter().map(M::up).collect())
-    }
-
-    /// The migration SQL in application order. Exposed so migration tests can
-    /// seed a database at an arbitrary released version by applying a prefix of
-    /// this exact list, rather than hand-copying `include_str!` lines that then
-    /// drift from what ships.
-    #[doc(hidden)]
-    pub fn migration_scripts() -> Vec<&'static str> {
-        vec![
-            include_str!("../migrations/001_initial_schema.sql"),
-            include_str!("../migrations/002_unified_sections.sql"),
-            include_str!("../migrations/003_drop_section_names.sql"),
-            include_str!("../migrations/004_extend_activity_metrics.sql"),
-            include_str!("../migrations/005_profile_and_settings.sql"),
-            include_str!("../migrations/006_processed_activities.sql"),
-            include_str!("../migrations/007_cache_section_performances.sql"),
-            include_str!("../migrations/008_cache_all_performance_metrics.sql"),
-            include_str!("../migrations/009_section_bounds_cache.sql"),
-            include_str!("../migrations/010_route_groups_activity_count.sql"),
-            include_str!("../migrations/011_pace_history.sql"),
-            include_str!("../migrations/012_v030.sql"),
-            include_str!("../migrations/013_wellness_raw_body.sql"),
-            include_str!("../migrations/014_activity_bodies.sql"),
-            include_str!("../migrations/015_curve_interval_calendar_bodies.sql"),
-            include_str!("../migrations/016_stream_bodies.sql"),
-            include_str!("../migrations/017_b4_core.sql"),
-        ]
+        Migrations::new(vec![
+            M::up(include_str!("../migrations/001_initial_schema.sql")),
+            M::up(include_str!("../migrations/002_unified_sections.sql")),
+            M::up(include_str!("../migrations/003_drop_section_names.sql")),
+            M::up(include_str!(
+                "../migrations/004_extend_activity_metrics.sql"
+            )),
+            M::up(include_str!("../migrations/005_profile_and_settings.sql")),
+            M::up(include_str!("../migrations/006_processed_activities.sql")),
+            M::up(include_str!(
+                "../migrations/007_cache_section_performances.sql"
+            )),
+            M::up(include_str!(
+                "../migrations/008_cache_all_performance_metrics.sql"
+            )),
+            M::up(include_str!("../migrations/009_section_bounds_cache.sql")),
+            M::up(include_str!(
+                "../migrations/010_route_groups_activity_count.sql"
+            )),
+            M::up(include_str!("../migrations/011_pace_history.sql")),
+            M::up(include_str!("../migrations/012_v030.sql")),
+            M::up(include_str!("../migrations/013_wellness_raw_body.sql")),
+            M::up(include_str!("../migrations/014_activity_bodies.sql")),
+            M::up(include_str!(
+                "../migrations/015_curve_interval_calendar_bodies.sql"
+            )),
+            M::up(include_str!("../migrations/016_stream_bodies.sql")),
+            M::up(include_str!("../migrations/017_b4_core.sql")),
+        ])
     }
 
     /// Initialize the database schema using migrations.
@@ -124,13 +125,7 @@ impl PersistentRouteEngine {
         // unconditionally after every migration pass.
         Self::ensure_visit_count_denormalisation(conn)?;
         Self::ensure_section_intents_named_shape(conn)?;
-        Self::ensure_section_geometry_provenance(conn)?;
-        Self::ensure_sections_geometry_provenance(conn)?;
         Self::ensure_wellness_raw_column(conn)?;
-        Self::ensure_gps_track_elevation_state(conn)?;
-        Self::ensure_section_elevation_columns(conn)?;
-        Self::ensure_section_geometry_baseline(conn, current_version);
-        Self::ensure_catalogue_archive(conn);
 
         // Post-migration data population for pre-0.2.2 databases.
         // Users on 0.2.2+ (schema_version >= 7) skip this block entirely.
@@ -259,177 +254,17 @@ impl PersistentRouteEngine {
         Ok(())
     }
 
-    /// Add `gps_tracks.elevation_state`, the per-activity elevation provenance:
-    /// 0 unknown, 1 fetched, 2 unavailable upstream. Default 0, so a row stored
-    /// before the column existed reads as unknown rather than as a claim that
-    /// its points carry elevation.
-    ///
-    /// Lives in a hook rather than in 017.sql because `ALTER TABLE ADD COLUMN`
-    /// is not idempotent and that file is applied repeatedly by
-    /// `migration_017_is_rerunnable`. Keyed on column presence, so it is safe to
-    /// run after every migration pass.
-    fn ensure_gps_track_elevation_state(conn: &Connection) -> SqlResult<()> {
-        if conn
-            .prepare("SELECT elevation_state FROM gps_tracks LIMIT 0")
-            .is_err()
-        {
-            conn.execute(
-                "ALTER TABLE gps_tracks ADD COLUMN elevation_state INTEGER NOT NULL DEFAULT 0",
-                [],
-            )?;
-        }
-        Ok(())
-    }
-
-    /// Add the nullable elevation pair to `sections`. NULL means the row
-    /// predates elevation metadata; the next detect's wipe-and-reinsert
-    /// fills auto rows lazily. Keyed on column presence because
-    /// `ALTER TABLE ADD COLUMN` is not idempotent and 017 reruns.
-    fn ensure_section_elevation_columns(conn: &Connection) -> SqlResult<()> {
-        if conn
-            .prepare("SELECT elevation_gain_m FROM sections LIMIT 0")
-            .is_err()
-        {
-            conn.execute("ALTER TABLE sections ADD COLUMN elevation_gain_m REAL", [])?;
-            conn.execute("ALTER TABLE sections ADD COLUMN avg_grade_percent REAL", [])?;
-        }
-        Ok(())
-    }
-
-    /// Add the `section_geometry` provenance triple. Keyed on column presence,
-    /// because 017 creates the table only when absent and so cannot reach one a
-    /// database already carries. Nullable throughout: a corridor-era version is
-    /// an averaged line belonging to no single activity.
-    fn ensure_section_geometry_provenance(conn: &Connection) -> SqlResult<()> {
-        let table_exists = conn
-            .prepare("SELECT section_id FROM section_geometry LIMIT 0")
-            .is_ok();
-        // Probes the last column added, inside one transaction, so a torn run
-        // leaves nothing and the next open retries.
-        if table_exists
-            && conn
-                .prepare("SELECT rep_end_index FROM section_geometry LIMIT 0")
-                .is_err()
-        {
-            conn.execute_batch(
-                "BEGIN;
-                 ALTER TABLE section_geometry ADD COLUMN rep_activity_id TEXT;
-                 ALTER TABLE section_geometry ADD COLUMN rep_start_index INTEGER;
-                 ALTER TABLE section_geometry ADD COLUMN rep_end_index INTEGER;
-                 COMMIT;",
-            )?;
-        }
-        // Separately probed: a database that took the triple from an earlier
-        // build has the columns above and not this one.
-        if table_exists
-            && conn
-                .prepare("SELECT source FROM section_geometry LIMIT 0")
-                .is_err()
-        {
-            conn.execute(
-                "ALTER TABLE section_geometry ADD COLUMN source TEXT
-                 CHECK(source IS NULL OR source IN ('exact', 'consensus', 'orphaned'))",
-                [],
-            )?;
-        }
-        Ok(())
-    }
-
-    /// Add the live row's provenance triple. `section_geometry` carries one per
-    /// stored version; these carry it for the geometry a section holds now, so a
-    /// read can re-slice the stored stream instead of decoding the cached blob.
-    fn ensure_sections_geometry_provenance(conn: &Connection) -> SqlResult<()> {
-        // Probes the last column added, inside one transaction, so a torn run
-        // leaves nothing and the next open retries.
-        if conn
-            .prepare("SELECT geometry_source FROM sections LIMIT 0")
-            .is_err()
-        {
-            conn.execute_batch(
-                "BEGIN;
-                 ALTER TABLE sections ADD COLUMN rep_start_index INTEGER;
-                 ALTER TABLE sections ADD COLUMN rep_end_index INTEGER;
-                 ALTER TABLE sections ADD COLUMN geometry_source TEXT
-                     CHECK(geometry_source IS NULL
-                           OR geometry_source IN ('exact', 'consensus', 'orphaned'));
-                 COMMIT;",
-            )?;
-        }
-        Ok(())
-    }
-
-    /// Give every pre-ledger section a birth geometry version and one backdated
-    /// event, so the first change to it has a prior to sit beside. One-shot and
-    /// non-fatal: this runs on the open that quarantines a database it cannot
-    /// migrate, and a missing baseline is a thinner history, not a broken one.
-    fn ensure_section_geometry_baseline(conn: &Connection, schema_from: i32) {
-        match sections::history::seed_baseline_geometry_on(conn, schema_from) {
-            Ok((0, 0)) => {}
-            // A skipped section has an undecodable or empty line, which no
-            // later open can improve on, so the marker still lands and the
-            // count is the only record that it was passed over.
-            Ok((seeded, skipped)) => log::info!(
-                "tracematch: [Migration] Seeded baseline geometry for {seeded} sections, skipped {skipped}"
-            ),
-            Err(e) => log::warn!("tracematch: [Migration] Baseline geometry seeding failed: {e}"),
-        }
-    }
-
-    /// Ensure the cutover archive tables exist. Databases that ran 017 before
-    /// these tables were added need the CREATE IF NOT EXISTS here. The DDL
-    /// must stay byte-identical to 017's, or two populations diverge.
-    fn ensure_catalogue_archive(conn: &Connection) {
-        if let Err(e) = conn.execute_batch(
-            "CREATE TABLE IF NOT EXISTS section_catalogue_archive (
-                 token TEXT NOT NULL,
-                 section_id TEXT NOT NULL,
-                 name TEXT,
-                 sport_type TEXT NOT NULL,
-                 polyline_blob BLOB,
-                 polyline_json TEXT,
-                 distance_meters REAL NOT NULL DEFAULT 0,
-                 visit_count INTEGER NOT NULL DEFAULT 0,
-                 created_at TEXT,
-                 bounds_min_lat REAL,
-                 bounds_max_lat REAL,
-                 bounds_min_lng REAL,
-                 bounds_max_lng REAL,
-                 PRIMARY KEY (token, section_id)
-             );
-             CREATE TABLE IF NOT EXISTS section_catalogue_archive_members (
-                 token TEXT NOT NULL,
-                 section_id TEXT NOT NULL,
-                 activity_id TEXT NOT NULL,
-                 direction TEXT NOT NULL DEFAULT 'same',
-                 start_index INTEGER NOT NULL DEFAULT 0,
-                 end_index INTEGER NOT NULL DEFAULT 0,
-                 distance_meters REAL NOT NULL DEFAULT 0,
-                 lap_time REAL,
-                 lap_pace REAL,
-                 excluded INTEGER NOT NULL DEFAULT 0,
-                 avg_hr REAL,
-                 PRIMARY KEY (token, section_id, activity_id, start_index)
-             )",
-        ) {
-            log::warn!(
-                "tracematch: [Migration] ensure_catalogue_archive failed: {}",
-                e
-            );
-        }
-    }
-
     /// Add the Phase 3 (B4) visit_count column, backfill it once, and create the
     /// recompute triggers. Idempotent and self-healing: the column is added only
     /// when absent (SQLite has no ADD COLUMN IF NOT EXISTS), the backfill runs only
     /// on that first add (a fresh column is all-zero), and the triggers use
     /// CREATE ... IF NOT EXISTS. get_section_summaries then reads visit_count
     /// straight off the row instead of a per-open GROUP BY over the junction; the
-    /// triggers keep it correct on every section_activities write,
+    /// triggers keep it correct on every DIRECT section_activities write,
     /// including the merge paths that reassign rows with UPDATE ... SET
-    /// section_id (both sides recompute) and foreign-key cascade deletes
-    /// (recursive_triggers only gates trigger re-entry, not user triggers
-    /// under FK actions; probed live). remove_activity still recomputes the
-    /// affected sections as a redundant backstop.
+    /// section_id (both sides recompute). The one write they cannot see is the
+    /// activity_id foreign-key cascade (recursive_triggers is off), so
+    /// remove_activity recomputes the affected sections itself.
     fn ensure_visit_count_denormalisation(conn: &Connection) -> SqlResult<()> {
         let has_column = conn
             .prepare("SELECT visit_count FROM sections LIMIT 0")
@@ -496,13 +331,13 @@ impl PersistentRouteEngine {
         Ok(())
     }
 
-    /// Bring `section_intents` to the named-corridor shape (kinds 'named' and
-    /// 'fixed' plus `name`/`sport_type` columns), widen its key to `(id, kind)`,
-    /// and backfill legacy user names once. Idempotent: each rebuild runs only
-    /// while sqlite_master still shows the older shape, preserving every row so
-    /// user suppression and naming survive; the backfill is guarded by a
-    /// schema_info marker so a v12 upgrade (whose 013 already creates the
-    /// extended table) still promotes its legacy names exactly once.
+    /// Bring `section_intents` to the named-corridor shape (kind 'named' plus
+    /// `name`/`sport_type` columns) and backfill legacy user names once.
+    /// Idempotent: the rebuild runs only while sqlite_master shows the old
+    /// CHECK, preserving every disabled/deleted row so user suppression
+    /// survives the shape change; the backfill is guarded by a schema_info
+    /// marker so a v12 upgrade (whose 013 already creates the extended table)
+    /// still promotes its legacy names exactly once.
     fn ensure_section_intents_named_shape(conn: &Connection) -> SqlResult<()> {
         let table_sql: Option<String> = conn
             .query_row(
@@ -519,39 +354,17 @@ impl PersistentRouteEngine {
                 "BEGIN;
                  DROP TABLE IF EXISTS section_intents_named_shape;
                  CREATE TABLE section_intents_named_shape (
-                     id TEXT NOT NULL,
-                     kind TEXT NOT NULL CHECK(kind IN ('disabled', 'deleted', 'named', 'fixed')),
+                     id TEXT PRIMARY KEY,
+                     kind TEXT NOT NULL CHECK(kind IN ('disabled', 'deleted', 'named')),
                      polyline_json TEXT NOT NULL,
                      created_at TEXT NOT NULL DEFAULT (datetime('now')),
                      name TEXT,
-                     sport_type TEXT,
-                     PRIMARY KEY (id, kind)
+                     sport_type TEXT
                  );
                  INSERT INTO section_intents_named_shape (id, kind, polyline_json, created_at)
                      SELECT id, kind, polyline_json, created_at FROM section_intents;
                  DROP TABLE section_intents;
                  ALTER TABLE section_intents_named_shape RENAME TO section_intents;
-                 COMMIT;",
-            )?;
-        } else if !table_sql.contains("PRIMARY KEY (id, kind)") || !table_sql.contains("'fixed'") {
-            conn.execute_batch(
-                "BEGIN;
-                 DROP TABLE IF EXISTS section_intents_keyed_shape;
-                 CREATE TABLE section_intents_keyed_shape (
-                     id TEXT NOT NULL,
-                     kind TEXT NOT NULL CHECK(kind IN ('disabled', 'deleted', 'named', 'fixed')),
-                     polyline_json TEXT NOT NULL,
-                     created_at TEXT NOT NULL DEFAULT (datetime('now')),
-                     name TEXT,
-                     sport_type TEXT,
-                     PRIMARY KEY (id, kind)
-                 );
-                 INSERT INTO section_intents_keyed_shape
-                     (id, kind, polyline_json, created_at, name, sport_type)
-                     SELECT id, kind, polyline_json, created_at, name, sport_type
-                     FROM section_intents;
-                 DROP TABLE section_intents;
-                 ALTER TABLE section_intents_keyed_shape RENAME TO section_intents;
                  COMMIT;",
             )?;
         }

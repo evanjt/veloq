@@ -17,6 +17,7 @@ export {
   getPaceAtDistance,
   getIndexAtDistance,
   getTimeAtDistance,
+  paceToMinPerKm,
   paceToMinPer100m,
   usePowerCurve,
   POWER_CURVE_DURATIONS,

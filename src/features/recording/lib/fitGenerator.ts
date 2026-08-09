@@ -1,4 +1,5 @@
-import type { ActivityType, RecordingStreams, RecordingLap } from '@/types';
+import type { ActivityType } from '@/types';
+import type { RecordingStreams, RecordingLap } from '@/types';
 import { debug } from '@/shared/debug/debug';
 
 const log = debug.create('FitGenerator');
@@ -214,7 +215,7 @@ export async function generateFitFile(params: {
   /** Total paused seconds; subtracted from total_timer_time (active time per spec). */
   pausedTimeSeconds?: number;
 }): Promise<ArrayBuffer> {
-  const { activityType, startTime, streams, laps, pausedTimeSeconds = 0 } = params;
+  const { activityType, startTime, streams, laps, name, pausedTimeSeconds = 0 } = params;
   const writer = new FitWriter();
   const [sport, subSport] = getSport(activityType);
   const fitStartTime = dateToFitTimestamp(startTime);

@@ -57,14 +57,14 @@ export interface InsightInputData {
   formAtl: number | null;
   peakCtl: number | null;
   currentCtl: number | null;
-  wellnessWindow?: {
+  wellnessWindow?: Array<{
     date: string;
     hrv?: number;
     restingHR?: number;
     sleepSecs?: number;
     ctl?: number;
     atl?: number;
-  }[];
+  }>;
   chronicPeriod?: PeriodStats | null;
   allSectionTrends?: SectionTrendData[];
   /** Efficiency trends from the engine, already filtered and capped. */
@@ -82,7 +82,7 @@ export interface InsightInputData {
 
 export interface PipelineOutcome {
   kept: Insight[];
-  rejected: { insight: Insight; reason: GateReason }[];
+  rejected: Array<{ insight: Insight; reason: GateReason }>;
   scored: ScoredInsight[];
   capDropped: DropRecord[];
 }
@@ -139,6 +139,7 @@ function safeRun<T>(label: string, fn: () => T[], fallback: T[] = []): T[] {
       process.env &&
       (process.env.VELOQ_INSIGHTS_DEBUG || process.env.NODE_ENV === 'test')
     ) {
+      // eslint-disable-next-line no-console
       console.warn(`[insights/${label}] generator failed; isolating:`, err);
     }
     return fallback;
@@ -179,7 +180,6 @@ export function generateInsights(data: InsightInputData, t: TFunc): Insight[] {
       sectionName: s.sectionName,
       bestTimeSecs: s.bestTimeSecs,
       traversalCount: s.traversalCount,
-      daysSinceLast: s.daysSinceLast,
       sportType: s.sportType,
     }));
     const existingStalePrIds = new Set(candidates.map((i) => i.id));
@@ -191,6 +191,7 @@ export function generateInsights(data: InsightInputData, t: TFunc): Insight[] {
             ftpTrend: data.ftpTrend,
             runPaceTrend: data.paceTrend,
             swimPaceTrend: data.swimPaceTrend ?? null,
+            recentPRs: data.recentPRs,
             existingInsightIds: existingStalePrIds,
           },
           t,
@@ -221,7 +222,7 @@ export function generateInsights(data: InsightInputData, t: TFunc): Insight[] {
 
   // 2. Hard gates (G1–G4) - reject before scoring
   const activeRegion = data.activeRegion ?? null;
-  const rejected: { insight: Insight; reason: GateReason }[] = [];
+  const rejected: Array<{ insight: Insight; reason: GateReason }> = [];
   const passed: Insight[] = [];
 
   for (const insight of candidates) {

@@ -42,32 +42,24 @@ export function resetSectionBounds(host: DelegateHost, sectionId: string): boole
 }
 
 /**
- * Expand section bounds to a wider range of the source activity's GPS track.
+ * Expand section bounds by providing a new polyline (can be larger than original).
  * Backs up original polyline on first edit, re-matches activities.
  */
 export function expandSectionBounds(
   host: DelegateHost,
   sectionId: string,
-  activityId: string,
-  startIndex: number,
-  endIndex: number
+  newPolylineFlat: number[]
 ): boolean {
   if (!host.ready) return false;
   validateId(sectionId, 'section ID');
-  validateId(activityId, 'activity ID');
   try {
     host.timed('expandSectionBounds', () =>
-      host.engine.sections().expandBounds(sectionId, activityId, startIndex, endIndex)
+      host.engine.sections().expandBounds(sectionId, newPolylineFlat)
     );
     host.notifyAll('sections');
     return true;
   } catch (e) {
-    console.error(
-      '[RouteEngine] expandSectionBounds failed:',
-      sectionId,
-      { activityId, startIndex, endIndex },
-      e
-    );
+    console.error('[RouteEngine] expandSectionBounds failed:', sectionId, e);
     return false;
   }
 }

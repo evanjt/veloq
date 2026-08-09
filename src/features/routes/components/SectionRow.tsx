@@ -26,7 +26,7 @@ import {
   colorWithOpacity,
 } from '@/theme';
 import { getActivityColor, getActivityIcon } from '@/features/activity/lib/activityUtils';
-import { formatDistance, formatElevation } from '@/shared/format/format';
+import { formatDistance } from '@/shared/format/format';
 import { getBoundsFromPoints } from '@/shared/geo/polyline';
 import type { ActivityType, FrequentSection, RoutePoint } from '@/types';
 import type { SectionSummary } from 'veloqrs';
@@ -58,10 +58,6 @@ interface SectionRowData {
   sportTypes?: string[];
   /** Whether this section has been accepted/pinned by the user */
   isUserDefined?: boolean;
-  /** Elevation gain in metres over the representative slice */
-  elevationGainM?: number;
-  /** Net grade percent over the representative slice */
-  avgGradePercent?: number;
 }
 
 interface SectionRowProps {
@@ -107,14 +103,6 @@ function normalizeSectionData(
         'isUserDefined' in section
           ? (section as { isUserDefined: boolean }).isUserDefined
           : undefined,
-      elevationGainM:
-        'elevationGainM' in section
-          ? ((section as { elevationGainM?: number }).elevationGainM ?? undefined)
-          : undefined,
-      avgGradePercent:
-        'avgGradePercent' in section
-          ? ((section as { avgGradePercent?: number }).avgGradePercent ?? undefined)
-          : undefined,
     };
   }
   // Check if it's a SectionSummary (has activityCount number)
@@ -134,14 +122,6 @@ function normalizeSectionData(
       isUserDefined:
         'isUserDefined' in section
           ? (section as { isUserDefined: boolean }).isUserDefined
-          : undefined,
-      elevationGainM:
-        'elevationGainM' in section
-          ? ((section as { elevationGainM?: number }).elevationGainM ?? undefined)
-          : undefined,
-      avgGradePercent:
-        'avgGradePercent' in section
-          ? ((section as { avgGradePercent?: number }).avgGradePercent ?? undefined)
           : undefined,
     };
   }
@@ -435,18 +415,6 @@ export const SectionRow = memo(function SectionRow({
           <Text style={[styles.metaText, isDark && styles.textMuted]}>
             {formatDistance(section.distanceMeters, isMetric)}
           </Text>
-          {section.elevationGainM != null && section.elevationGainM >= 10 && (
-            <View style={styles.gainChip}>
-              <MaterialCommunityIcons
-                name="arrow-top-right"
-                size={10}
-                color={isDark ? darkColors.textSecondary : colors.textSecondary}
-              />
-              <Text style={[styles.metaText, isDark && styles.textMuted]}>
-                {formatElevation(section.elevationGainM, isMetric)}
-              </Text>
-            </View>
-          )}
           {distanceFromUser != null && Number.isFinite(distanceFromUser) && (
             <View style={styles.proximityTag}>
               <MaterialCommunityIcons
@@ -570,11 +538,6 @@ const styles = StyleSheet.create({
   },
   textMuted: {
     color: darkColors.textSecondary,
-  },
-  gainChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 2,
   },
   proximityTag: {
     flexDirection: 'row',

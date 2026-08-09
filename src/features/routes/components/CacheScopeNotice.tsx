@@ -1,0 +1,82 @@
+/**
+ * Cache scope notice component.
+ * Shows how many activities have been processed and cache coverage.
+ */
+
+import React from 'react';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
+import { useTheme } from '@/shared/app';
+import { Text } from 'react-native-paper';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { useTranslation } from 'react-i18next';
+import { colors, darkColors, opacity, spacing, layout, typography } from '@/theme';
+
+interface CacheScopeNoticeProps {
+  /** Number of processed activities */
+  processedCount: number;
+  /** Total groups found */
+  groupCount: number;
+  /** Optional: callback when pressed */
+  onPress?: () => void;
+}
+
+export function CacheScopeNotice({ processedCount, groupCount, onPress }: CacheScopeNoticeProps) {
+  const { t } = useTranslation();
+  const { isDark } = useTheme();
+
+  const content = (
+    <View style={[styles.container, isDark && styles.containerDark]}>
+      <MaterialCommunityIcons
+        name="information-outline"
+        size={16}
+        color={isDark ? darkColors.textSecondary : colors.textSecondary}
+      />
+      <Text style={[styles.text, isDark && styles.textDark]}>
+        {t('routes.basedOnActivities', { count: processedCount })}
+        {groupCount > 0 && ` · ${t('routes.routesFound', { count: groupCount })}`}
+      </Text>
+      {onPress && (
+        <MaterialCommunityIcons
+          name="chevron-right"
+          size={16}
+          color={isDark ? darkColors.chevronMuted : colors.chevronMuted}
+        />
+      )}
+    </View>
+  );
+
+  if (onPress) {
+    return (
+      <TouchableOpacity onPress={onPress} activeOpacity={0.7}>
+        {content}
+      </TouchableOpacity>
+    );
+  }
+
+  return content;
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: opacity.overlay.subtle,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: layout.borderRadiusSm,
+    marginHorizontal: spacing.md,
+    marginBottom: spacing.md,
+  },
+  containerDark: {
+    backgroundColor: opacity.overlayDark.light,
+  },
+  text: {
+    flex: 1,
+    fontSize: typography.bodyCompact.fontSize,
+    color: colors.textSecondary,
+  },
+  textDark: {
+    color: darkColors.textMuted,
+  },
+});

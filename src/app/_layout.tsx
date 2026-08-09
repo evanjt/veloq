@@ -1,22 +1,34 @@
 // Enable screen freezing BEFORE any other imports
 // This prevents inactive screens from re-rendering during navigation
 import { enableFreeze } from 'react-native-screens';
+enableFreeze(true);
 
-import { LogBox, Alert, AppState, View, ActivityIndicator, Platform } from 'react-native';
+import { LogBox } from 'react-native';
+if (!__DEV__) {
+  // Keep production logs quieter without hiding warnings while developing.
+  LogBox.ignoreLogs(['Require cycle:', 'Sending `onAnimatedValueUpdate`']);
+}
 
 import { installGlobalCrashHandler, setCrashScreen } from '@/shared/debug/crashLog';
+installGlobalCrashHandler();
 
 import { useEffect, useRef, useState } from 'react';
 import { Stack, useSegments, useRouter, Href } from 'expo-router';
 import { PaperProvider, Text } from 'react-native-paper';
 import { StatusBar } from 'expo-status-bar';
+import {
+  Alert,
+  AppState,
+  View,
+  ActivityIndicator,
+  Platform,
+  InteractionManager,
+} from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { configureReanimatedLogger, ReanimatedLogLevel } from 'react-native-reanimated';
 // Use legacy API for SDK 54 compatibility (new API uses File/Directory classes)
 import { pushCredentialsToEngine, useAuthStore } from '@/shared/app/AuthStore';
 import { seedDemoEngine } from '@/shared/app/seedDemoEngine';
-import { startElevationBackfillAfterUpdate } from '@/features/routes/lib/elevationBackfillTrigger';
-import { startDetectorCutoverAfterUpdate } from '@/features/routes/lib/cutoverTrigger';
 import { initializeSportPreference, initializeHRZones } from '@/features/fitness/stores';
 import { initializeDashboardPreferences } from '@/features/home/store';
 import { updateWidgetSnapshot } from '@/features/home';
@@ -25,11 +37,10 @@ import { MapPreferencesProvider } from '@/features/maps/stores/MapPreferencesCon
 import { initializeTileCacheStore } from '@/features/maps/stores/TileCacheStore';
 import { initializeRecordingPreferences } from '@/features/recording/stores/RecordingPreferencesStore';
 import { initializeUploadPermission } from '@/features/recording/stores/UploadPermissionStore';
+import { initializeDisabledSections } from '@/features/routes/stores/DisabledSectionsStore';
 import { useEngineStatus } from '@/features/routes/stores/EngineStatusStore';
-import {
-  initializeRouteSettings,
-  isHeatmapEnabled,
-} from '@/features/routes/stores/RouteSettingsStore';
+import { initializeRouteSettings } from '@/features/routes/stores/RouteSettingsStore';
+import { initializeSupersededSections } from '@/features/routes/stores/SupersededSectionsStore';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { initializeDebugStore } from '@/features/settings/stores/DebugStore';
 import { initializeNotificationPreferences } from '@/features/settings/stores/NotificationPreferencesStore';
@@ -42,6 +53,11 @@ import { initializeTheme, useResolvedColorScheme } from '@/shared/app/ThemeProvi
 import { TopSafeAreaProvider } from '@/shared/app/TopSafeAreaContext';
 import { initializeUnitPreference } from '@/shared/app/UnitPreferenceStore';
 import { QueryProvider, queryClient } from '@/shared/query/QueryProvider';
+import {
+  isHeatmapEnabled,
+  getDetectionStrictness,
+  getDetectionMethod,
+} from '@/features/routes/stores/RouteSettingsStore';
 import { formatLocalDate } from '@/shared/format/format';
 import { queryKeys } from '@/shared/query/queryKeys';
 import { initializeI18n, i18n } from '@/i18n';
@@ -54,7 +70,12 @@ import { WhatsNewModal, TourReturnPill } from '@/features/settings/components/wh
 import { RecordingReturnPill } from '@/features/recording/components/RecordingReturnPill';
 import { useUploadQueueProcessor } from '@/features/recording/hooks/useUploadQueueProcessor';
 import { useRouteReoptimization } from '@/features/routes/hooks/useRouteReoptimization';
-import { getRouteEngine, getRouteDbPath } from '@/shared/native/routeEngine';
+import {
+  getRouteEngine,
+  getRouteDbPath,
+  applyDetectionPresetForMethod,
+  getStrictnessFromValue,
+} from '@/shared/native/routeEngine';
 import { migrateSettingsToSqlite } from '@/shared/storage';
 import {
   onAppBackground,
@@ -72,12 +93,6 @@ import {
 // Register background insight task at module scope (required by TaskManager)
 import '@/features/insights/backgroundInsightTask';
 import { registerBackgroundNotificationTask } from '@/features/insights/backgroundInsightTask';
-enableFreeze(true);
-if (!__DEV__) {
-  // Keep production logs quieter without hiding warnings while developing.
-  LogBox.ignoreLogs(['Require cycle:', 'Sending `onAnimatedValueUpdate`']);
-}
-installGlobalCrashHandler();
 
 // Suppress Reanimated strict mode warnings from Victory Native charts
 // These occur because Victory uses shared values during render (known library behavior)
@@ -156,6 +171,14 @@ function AuthGate({ children }: { children: React.ReactNode }) {
             } else {
               engine.disableHeatmapTiles();
             }
+            // Apply persisted detection strictness if not default
+            const strictness = getDetectionStrictness();
+            if (strictness !== 60) {
+              applyDetectionPresetForMethod(
+                getDetectionMethod(),
+                getStrictnessFromValue(strictness)
+              );
+            }
             // Migrate AsyncStorage preferences to SQLite (one-time, idempotent)
             migrateSettingsToSqlite().catch(() => {});
             // Load WebDAV credentials into memory cache
@@ -172,16 +195,6 @@ function AuthGate({ children }: { children: React.ReactNode }) {
             // have to be in SQLite before any screen queries the engine.
             if (useAuthStore.getState().isDemoMode) {
               seedDemoEngine();
-            } else {
-              // Tracks stored before elevation was fetched need a re-fetch;
-              // the trigger keeps attempting each launch until nothing is
-              // left to ask. Runs after the credential push so Rust has
-              // something to authenticate with.
-              startElevationBackfillAfterUpdate().catch(() => {});
-              // An install that saved Corridor keeps it until this runs; the
-              // trigger declines while the backfill still owes fetches, so a
-              // catalogue is never cut over a half-elevated library.
-              startDetectorCutoverAfterUpdate().catch(() => {});
             }
             // Initialize SyncDateRangeStore from engine's actual cached data
             const stats = engine.getStats();
@@ -382,6 +395,8 @@ export default function RootLayout() {
           initializeUnitPreference(),
           initializeHRZones(),
           initializeRouteSettings(),
+          initializeSupersededSections(),
+          initializeDisabledSections(),
           initializeDashboardPreferences(), // Uses stored prefs or defaults to Cycling
           initializeDebugStore(),
           initializeTileCacheStore(),

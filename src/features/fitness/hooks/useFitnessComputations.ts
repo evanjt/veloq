@@ -1,6 +1,5 @@
 import { useMemo } from 'react';
 
-import { calculateDecoupling } from '@/features/stats/lib/decoupling';
 import { type PrimarySport } from '@/features/fitness/stores';
 import type { WellnessData, ZoneDistribution, eFTPPoint } from '@/types';
 import { getFormZone, type FormZone } from '../lib';
@@ -79,10 +78,21 @@ export function useFitnessComputations({
     if (!decouplingStreams?.watts || !decouplingStreams?.heartrate) return null;
     const power = decouplingStreams.watts;
     const hr = decouplingStreams.heartrate;
-    const analysis = calculateDecoupling(power, hr);
-    if (!analysis) return null;
+    if (power.length < 4 || hr.length < 4) return null;
 
-    return { value: analysis.decoupling, isGood: analysis.isGood };
+    const midpoint = Math.floor(power.length / 2);
+    const avgFirstPower = power.slice(0, midpoint).reduce((a, b) => a + b, 0) / midpoint;
+    const avgFirstHR = hr.slice(0, midpoint).reduce((a, b) => a + b, 0) / midpoint;
+    const avgSecondPower =
+      power.slice(midpoint).reduce((a, b) => a + b, 0) / (power.length - midpoint);
+    const avgSecondHR = hr.slice(midpoint).reduce((a, b) => a + b, 0) / (hr.length - midpoint);
+
+    const firstHalfEf = avgFirstPower / avgFirstHR;
+    const secondHalfEf = avgSecondPower / avgSecondHR;
+    const decoupling = ((firstHalfEf - secondHalfEf) / firstHalfEf) * 100;
+    const isGood = decoupling < 5;
+
+    return { value: decoupling, isGood };
   }, [decouplingStreams]);
 
   // Memoize current (latest) values - only recompute when wellness data changes

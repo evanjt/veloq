@@ -18,6 +18,7 @@ import { useAuthStore } from '@/shared/app/AuthStore';
 import { useSyncDateRange } from '@/shared/app/SyncDateRangeStore';
 import { colors, darkColors, spacing, typography } from '@/theme';
 import {
+  getActivityTypeConfig,
   groupTypesByCategory,
   ACTIVITY_CATEGORIES,
 } from '@/features/maps/components/ActivityTypeFilter';
@@ -101,7 +102,11 @@ export default function MapScreen() {
   const syncOldest = useSyncDateRange((s) => s.oldest);
   const syncNewest = useSyncDateRange((s) => s.newest);
   // Fetch activities for the current sync range (triggers GlobalDataSync)
-  const { isError: isActivitiesError, refetch: refetchActivities } = useActivities({
+  const {
+    isLoading: isLoadingActivities,
+    isError: isActivitiesError,
+    refetch: refetchActivities,
+  } = useActivities({
     oldest: syncOldest,
     newest: syncNewest,
     includeStats: false,
@@ -109,7 +114,7 @@ export default function MapScreen() {
   });
 
   // Get sync state from engine cache
-  const { isReady, cacheStats } = useActivityBoundsCache();
+  const { isReady, progress, cacheStats } = useActivityBoundsCache();
   const oldestSyncedDate = cacheStats.oldestDate;
   const newestSyncedDate = cacheStats.newestDate;
 

@@ -2,16 +2,14 @@
 
 pub mod conditioning;
 mod detection;
-pub(super) mod history;
+mod history;
 mod identity;
 mod merging;
 mod named;
 mod naming;
-pub(crate) mod preview;
 mod ranking;
-pub(crate) mod track_pool;
 
-pub use history::{DetectorGeneration, SectionGeometryVersion, SectionHistoryEvent};
+pub use history::{SectionGeometryVersion, SectionHistoryEvent};
 pub(crate) use identity::SectionIdentity;
 pub(crate) use named::looks_generated;
 pub use named::{NamedCorridor, NamedOverlay};
@@ -21,7 +19,6 @@ pub use named::{NamedCorridor, NamedOverlay};
 // variant (`run_accumulator_backfill`) is re-exported pub so integration
 // tests in `tests/` can drive it deterministically - it's a test-only
 // entry point, not a FFI surface.
-pub(crate) use detection::DETECTION_PHASE_SUSPENDED;
 pub use detection::run_accumulator_backfill;
 pub(super) use detection::spawn_accumulator_backfill;
 
@@ -32,32 +29,15 @@ use std::collections::{HashMap, HashSet};
 
 use super::{PersistentRouteEngine, SectionSummary, codec, get_section_word};
 
-/// `schema_info` key naming the detection method that cut the stored catalogue.
-pub const CATALOGUE_METHOD_KEY: &str = "catalogue_detection_method";
-
-/// `schema_info` key holding [`section_config_digest`] of the config the stored
-/// catalogue ran under.
-pub const CATALOGUE_CONFIG_DIGEST_KEY: &str = "catalogue_config_digest";
-
-/// Stable fingerprint of a detection config, as 16 lowercase hex digits.
-///
-/// Two devices holding the same config agree on this string. The input is the
-/// serde form, ordered by struct declaration rather than by map iteration, and
-/// the hash is FNV-1a, whose output is fixed across processes and releases.
-pub fn section_config_digest(config: &tracematch::sections::SectionConfig) -> String {
-    let Ok(canonical) = serde_json::to_string(config) else {
-        return "unserialisable".to_string();
-    };
-    let mut hash: u64 = 0xcbf2_9ce4_8422_2325;
-    for byte in canonical.as_bytes() {
-        hash ^= *byte as u64;
-        hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
-    }
-    format!("{hash:016x}")
-}
-
 /// Haversine distance between two lat/lng points in meters.
-pub(super) use crate::persistence::haversine_distance_meters as haversine_distance;
+pub(super) fn haversine_distance(lat1: f64, lng1: f64, lat2: f64, lng2: f64) -> f64 {
+    let r = 6_371_000.0; // Earth radius in meters
+    let d_lat = (lat2 - lat1).to_radians();
+    let d_lng = (lng2 - lng1).to_radians();
+    let a = (d_lat / 2.0).sin().powi(2)
+        + lat1.to_radians().cos() * lat2.to_radians().cos() * (d_lng / 2.0).sin().powi(2);
+    r * 2.0 * a.sqrt().asin()
+}
 
 /// Compute `(lap_time, lap_pace)` from a time stream slice and traversal indices.
 ///
@@ -190,50 +170,6 @@ fn reapply_auto_exclusions(
     Ok(())
 }
 
-/// Sport words that can prefix a stored section name.
-const NAME_SPORT_WORDS: [&str; 7] = [
-    "Ride",
-    "Run",
-    "Hike",
-    "Walk",
-    "Swim",
-    "VirtualRide",
-    "VirtualRun",
-];
-
-/// Reads the number out of "Section N" or "{Sport} Section N".
-fn section_name_number(name: &str, section_word: &str) -> Option<u32> {
-    if let Some(rest) = name.strip_prefix(&format!("{} ", section_word)) {
-        return rest.parse::<u32>().ok();
-    }
-    for sport in NAME_SPORT_WORDS {
-        if let Some(rest) = name.strip_prefix(&format!("{} {} ", sport, section_word)) {
-            return rest.parse::<u32>().ok();
-        }
-    }
-    None
-}
-
-/// Every number `names` already spends, so minting cannot reuse one.
-fn taken_section_numbers<'a>(
-    names: impl Iterator<Item = &'a str>,
-    section_word: &str,
-) -> HashSet<u32> {
-    names
-        .filter_map(|name| section_name_number(name, section_word))
-        .collect()
-}
-
-/// Next free number in the shared sequence, marked taken.
-fn next_section_number(taken: &mut HashSet<u32>, counter: &mut u32) -> u32 {
-    loop {
-        *counter += 1;
-        if taken.insert(*counter) {
-            return *counter;
-        }
-    }
-}
-
 impl PersistentRouteEngine {
     /// Load sections from database.
     pub(super) fn load_sections(&mut self) -> SqlResult<()> {
@@ -306,12 +242,9 @@ impl PersistentRouteEngine {
                         representative_activity_id, confidence, observation_count, average_spread,
                         point_density_json, scale, version, is_user_defined, stability,
                         created_at, updated_at, consensus_state_blob,
-                        polyline_blob, point_density_blob,
-                        elevation_gain_m, avg_grade_percent,
-                        rep_start_index, rep_end_index
+                        polyline_blob, point_density_blob
                  FROM sections
-                 WHERE (section_type = 'auto' OR section_type = 'custom') AND disabled = 0
-                 ORDER BY id",
+                 WHERE (section_type = 'auto' OR section_type = 'custom') AND disabled = 0",
             )?;
 
             self.sections = stmt
@@ -357,18 +290,13 @@ impl PersistentRouteEngine {
                     let portions = section_portions.get(&id)
                         .cloned()
                         .unwrap_or_default();
-                    // Derive activity_ids from portions, unique and in id order
+                    // Derive activity_ids from portions (deduplicated)
                     let activity_ids: Vec<String> = portions.iter()
                         .map(|p| p.activity_id.clone())
-                        .collect::<std::collections::BTreeSet<_>>()
+                        .collect::<std::collections::HashSet<_>>()
                         .into_iter()
                         .collect();
                     let visit_count = portions.len() as u32;
-
-                    // Both columns or neither: a half-range indexes nothing.
-                    let rep_start: Option<u32> = row.get(22)?;
-                    let rep_end: Option<u32> = row.get(23)?;
-                    let representative_range = rep_start.zip(rep_end);
 
                     Ok(FrequentSection {
                         id,
@@ -376,7 +304,6 @@ impl PersistentRouteEngine {
                         sport_type: row.get(3)?,
                         polyline,
                         representative_activity_id: representative_activity_id.unwrap_or_default(),
-                        representative_range,
                         activity_ids,
                         activity_portions: portions,
                         route_ids: vec![],
@@ -398,8 +325,6 @@ impl PersistentRouteEngine {
                         },
                         is_user_defined: row.get::<_, Option<i32>>(13)?.unwrap_or(0) != 0,
                         stability: row.get::<_, Option<f64>>(14)?.unwrap_or(0.0),
-                        elevation_gain_m: row.get(20)?,
-                        avg_grade_percent: row.get(21)?,
                         version: row.get::<_, Option<u32>>(12)?.unwrap_or(1),
                         updated_at: row.get(16)?,
                         created_at: row.get(15)?,
@@ -665,54 +590,6 @@ impl PersistentRouteEngine {
             .len() as u32
     }
 
-    /// Whether a sport traverses this section. Ground is neutral: the section's
-    /// own `sport_type` is only the dominant label of its traversals.
-    /// Counts the same population as `outings`.
-    pub(crate) fn covers_sport(&self, s: &FrequentSection, sport: &str) -> bool {
-        if s.sport_type == sport {
-            return true;
-        }
-        let mut traversers = s
-            .activity_portions
-            .iter()
-            .map(|p| &p.activity_id)
-            .peekable();
-        if traversers.peek().is_some() {
-            return traversers.any(|id| self.sport_of(id) == Some(sport));
-        }
-        s.activity_ids
-            .iter()
-            .any(|id| self.sport_of(id) == Some(sport))
-    }
-
-    /// The activity's sport, falling back to the `activities` row when the
-    /// in-memory maps have not been loaded.
-    pub(crate) fn sport_of_activity(&self, activity_id: &str) -> Option<String> {
-        if let Some(sport) = self.sport_of(activity_id) {
-            return Some(sport.to_string());
-        }
-        self.db
-            .query_row(
-                "SELECT sport_type FROM activities WHERE id = ?",
-                rusqlite::params![activity_id],
-                |row| row.get::<_, String>(0),
-            )
-            .ok()
-    }
-
-    /// `activity_metadata` is the authority: it is written on ingest, while
-    /// `activity_metrics` fills only once metrics load.
-    pub(crate) fn sport_of(&self, activity_id: &str) -> Option<&str> {
-        self.activity_metadata
-            .get(activity_id)
-            .map(|m| m.sport_type.as_str())
-            .or_else(|| {
-                self.activity_metrics
-                    .get(activity_id)
-                    .map(|m| m.sport_type.as_str())
-            })
-    }
-
     /// Get sections filtered by sport type and/or minimum outings.
     /// Filters in-memory sections to avoid FFI overhead for non-matching entries.
     pub fn get_sections_filtered(
@@ -722,31 +599,12 @@ impl PersistentRouteEngine {
     ) -> Vec<&FrequentSection> {
         let min = min_visits.unwrap_or(0);
         // Outings, not passes: laps show ground covered, not that the athlete
-        // came back. Under a sport filter the floor counts that sport's
-        // outings, so a road ridden weekly cannot admit itself to the Run list
-        // on one run.
+        // came back.
         self.sections
             .iter()
-            .filter(|s| match sport_type {
-                Some(st) => self.covers_sport(s, st) && self.outings_in_sport(s, st) >= min,
-                None => Self::outings(s) >= min,
-            })
+            .filter(|s| sport_type.map_or(true, |st| s.sport_type == st) && Self::outings(s) >= min)
             .filter(|s| !self.superseded_ids.contains(&s.id))
             .collect()
-    }
-
-    /// [`outings`](Self::outings) restricted to one sport's traversals.
-    pub(crate) fn outings_in_sport(&self, s: &FrequentSection, sport: &str) -> u32 {
-        let matches = |id: &String| self.sport_of(id) == Some(sport);
-        if s.activity_portions.is_empty() {
-            return s.activity_ids.iter().filter(|id| matches(id)).count() as u32;
-        }
-        s.activity_portions
-            .iter()
-            .map(|p| &p.activity_id)
-            .filter(|id| matches(id))
-            .collect::<HashSet<_>>()
-            .len() as u32
     }
 
     pub fn mark_section_accepted_in_memory(&mut self, section_id: &str) {
@@ -778,18 +636,12 @@ impl PersistentRouteEngine {
             Option<String>,
             Option<Vec<u8>>,
             Option<Vec<u8>>,
-            Option<f64>,
-            Option<f64>,
-            Option<u32>,
-            Option<u32>,
         )> = {
             let mut stmt = match self.db.prepare(
                 "SELECT section_type, sport_type, name, polyline_json, distance_meters,
                         representative_activity_id, confidence, observation_count, average_spread,
                         point_density_json, scale, version, is_user_defined, stability,
-                        created_at, updated_at, polyline_blob, point_density_blob,
-                        elevation_gain_m, avg_grade_percent,
-                        rep_start_index, rep_end_index
+                        created_at, updated_at, polyline_blob, point_density_blob
                  FROM sections WHERE id = ?",
             ) {
                 Ok(s) => s,
@@ -816,10 +668,6 @@ impl PersistentRouteEngine {
                     row.get::<_, Option<String>>(15)?,  // updated_at
                     row.get::<_, Option<Vec<u8>>>(16)?, // polyline_blob
                     row.get::<_, Option<Vec<u8>>>(17)?, // point_density_blob
-                    row.get::<_, Option<f64>>(18)?,     // elevation_gain_m
-                    row.get::<_, Option<f64>>(19)?,     // avg_grade_percent
-                    row.get::<_, Option<u32>>(20)?,     // rep_start_index
-                    row.get::<_, Option<u32>>(21)?,     // rep_end_index
                 ))
             })
             .ok()
@@ -844,10 +692,6 @@ impl PersistentRouteEngine {
             updated_at,
             polyline_blob,
             point_density_blob,
-            elevation_gain_m,
-            avg_grade_percent,
-            rep_start_index,
-            rep_end_index,
         ) = match section_data {
             Some(data) => data,
             None => return, // Section not found
@@ -910,9 +754,6 @@ impl PersistentRouteEngine {
             sport_type,
             polyline,
             representative_activity_id: representative_activity_id.unwrap_or_default(),
-            // Dropping this here would demote an exact section to consensus on
-            // the next save, permanently.
-            representative_range: rep_start_index.zip(rep_end_index),
             activity_ids,
             // From the junction table: `save_sections` writes junction rows
             // FROM this field, so a blank here turns the next save into a
@@ -939,8 +780,6 @@ impl PersistentRouteEngine {
             }),
             is_user_defined: is_user_defined.unwrap_or(0) != 0,
             stability: stability.unwrap_or(0.0),
-            elevation_gain_m,
-            avg_grade_percent,
             version: version.unwrap_or(1),
             updated_at,
             created_at,
@@ -1005,12 +844,11 @@ impl PersistentRouteEngine {
                 .unwrap_or_default()
         };
 
-        // Sport comes from `activities`, written on ingest. `activity_metrics`
-        // fills only once metrics load, so joining it hides a sport until then.
+        // Get distinct sport types per section from activities
         let section_sport_types: HashMap<String, Vec<String>> = {
             let mut stmt = match self.db.prepare(
-                "SELECT sa.section_id, GROUP_CONCAT(DISTINCT a.sport_type) FROM section_activities sa
-                 JOIN activities a ON sa.activity_id = a.id
+                "SELECT sa.section_id, GROUP_CONCAT(DISTINCT am.sport_type) FROM section_activities sa
+                 JOIN activity_metrics am ON sa.activity_id = am.activity_id
                  WHERE sa.excluded = 0
                  GROUP BY sa.section_id"
             ) {
@@ -1020,13 +858,11 @@ impl PersistentRouteEngine {
             stmt.query_map([], |row| {
                 let id: String = row.get(0)?;
                 let types_csv: String = row.get::<_, Option<String>>(1)?.unwrap_or_default();
-                // GROUP_CONCAT order is undefined, so sort for a stable summary.
-                let mut types: Vec<String> = types_csv
+                let types: Vec<String> = types_csv
                     .split(',')
                     .filter(|s| !s.is_empty())
                     .map(|s| s.to_string())
                     .collect();
-                types.sort();
                 Ok((id, types))
             })
             .ok()
@@ -1038,8 +874,7 @@ impl PersistentRouteEngine {
             "SELECT id, name, sport_type, distance_meters, confidence, scale,
                     bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng,
                     section_type, representative_activity_id, created_at,
-                    is_user_defined, disabled, superseded_by, visit_count,
-                    elevation_gain_m, avg_grade_percent
+                    is_user_defined, disabled, superseded_by, visit_count
              FROM sections
              WHERE disabled = 0 AND superseded_by IS NULL",
         ) {
@@ -1093,8 +928,6 @@ impl PersistentRouteEngine {
                     confidence: row.get::<_, Option<f64>>(4)?.unwrap_or(0.0),
                     scale: row.get(5)?,
                     bounds,
-                    elevation_gain_m: row.get(17)?,
-                    avg_grade_percent: row.get(18)?,
                     created_at: row.get::<_, Option<String>>(12)?.unwrap_or_default(),
                     sport_types,
                     is_user_defined: row.get::<_, Option<i32>>(13)?.unwrap_or(0) != 0,
@@ -1151,14 +984,8 @@ impl PersistentRouteEngine {
     pub fn get_section_summaries_for_sport(&self, sport_type: &str) -> Vec<SectionSummary> {
         self.get_section_summaries()
             .into_iter()
-            .filter(|s| Self::summary_covers_sport(s, sport_type))
+            .filter(|s| s.sport_type == sport_type)
             .collect()
-    }
-
-    /// [`covers_sport`](Self::covers_sport) over a summary, which already
-    /// carries every sport its traversals hold in `sport_types`.
-    pub(crate) fn summary_covers_sport(s: &SectionSummary, sport: &str) -> bool {
-        s.sport_type == sport || s.sport_types.iter().any(|t| t == sport)
     }
 
     /// Get a single section by ID with LRU caching.
@@ -1205,7 +1032,6 @@ impl PersistentRouteEngine {
             sport_type: section.sport_type,
             polyline: section.polyline,
             representative_activity_id: section.representative_activity_id.unwrap_or_default(),
-            representative_range: None,
             activity_ids: section.activity_ids,
             activity_portions: portions,
             route_ids: section.route_ids.unwrap_or_default(),
@@ -1219,8 +1045,6 @@ impl PersistentRouteEngine {
             scale: section.scale.and_then(|s| s.parse().ok()),
             is_user_defined: section.is_user_defined,
             stability: section.stability.unwrap_or(0.0),
-            elevation_gain_m: section.elevation_gain_m,
-            avg_grade_percent: section.avg_grade_percent,
             version: section.version.unwrap_or(1),
             updated_at: section.updated_at,
             created_at: Some(section.created_at),
@@ -1539,7 +1363,7 @@ impl PersistentRouteEngine {
     }
 
     pub(super) fn save_sections(&self) -> SqlResult<()> {
-        self.write_catalogue(&[], false)
+        self.save_sections_with_events(&[])
     }
 
     /// [`save_sections`](Self::save_sections) plus the lifecycle events the
@@ -1550,42 +1374,7 @@ impl PersistentRouteEngine {
         &self,
         events: &[identity::SectionLifecycleEvent],
     ) -> SqlResult<()> {
-        self.write_catalogue(events, true)
-    }
-
-    /// `from_detect` separates a detection apply from the ordinary saves a
-    /// mutation makes. Only a detect re-cuts geometry, so only a detect can
-    /// carry the catalogue from one detector generation to the next.
-    fn write_catalogue(
-        &self,
-        events: &[identity::SectionLifecycleEvent],
-        from_detect: bool,
-    ) -> SqlResult<()> {
         let tx = self.db.unchecked_transaction()?;
-
-        // The detector that cut what is on disk no longer matches the live
-        // one, so every shape it drew is about to be replaced by a different
-        // algorithm's answer. Keep each one as a milestone and say so, before
-        // the wipe below takes them. The row set is the wipe's own predicate:
-        // a custom, accepted or disabled section keeps its line through a
-        // detector change and has nothing to explain.
-        if from_detect && let Some((from, to)) = self.detector_generation_change() {
-            let mut stmt = tx.prepare(
-                "SELECT id, polyline_blob, polyline_json FROM sections
-                 WHERE section_type = 'auto' AND original_polyline_json IS NULL
-                   AND is_user_defined = 0 AND disabled = 0",
-            )?;
-            let priors: Vec<(String, Option<Vec<u8>>, Option<String>)> = stmt
-                .query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))?
-                .filter_map(|r| r.ok())
-                .collect();
-            drop(stmt);
-            for (id, blob, json) in priors {
-                let prior = codec::decode_polyline_row(blob.as_deref(), json.as_deref())
-                    .unwrap_or_default();
-                history::record_algorithm_change_on(&tx, &id, Some(&prior), Some(&from), &to)?;
-            }
-        }
 
         // Birth dates of every current row, read BEFORE the wipe. New payloads
         // stamp created_at at mint, but payloads persisted before that change
@@ -1654,15 +1443,34 @@ impl PersistentRouteEngine {
 
         let section_word = get_section_word();
 
-        // Names on the rows the wipe spared, plus names carried in memory,
-        // which the loop below writes back unchanged.
-        let mut taken_numbers = taken_section_numbers(
-            existing_names
-                .values()
-                .map(String::as_str)
-                .chain(self.sections.iter().filter_map(|s| s.name.as_deref())),
-            &section_word,
-        );
+        // Collect which numbers are already taken (check both old and new patterns)
+        let mut taken_numbers: std::collections::HashSet<u32> = std::collections::HashSet::new();
+        for name in existing_names.values() {
+            // New pattern: "Section N"
+            let prefix = format!("{} ", section_word);
+            if name.starts_with(&prefix) {
+                if let Ok(num) = name[prefix.len()..].parse::<u32>() {
+                    taken_numbers.insert(num);
+                }
+            }
+            // Old pattern: "{Sport} Section N" - still recognize for numbering
+            for sport in [
+                "Ride",
+                "Run",
+                "Hike",
+                "Walk",
+                "Swim",
+                "VirtualRide",
+                "VirtualRun",
+            ] {
+                let old_prefix = format!("{} {} ", sport, section_word);
+                if name.starts_with(&old_prefix) {
+                    if let Ok(num) = name[old_prefix.len()..].parse::<u32>() {
+                        taken_numbers.insert(num);
+                    }
+                }
+            }
+        }
 
         // Insert auto-detected sections with new schema
         let mut section_stmt = tx.prepare(
@@ -1671,10 +1479,8 @@ impl PersistentRouteEngine {
                 representative_activity_id, confidence, observation_count, average_spread,
                 point_density_json, scale, version, is_user_defined, stability, created_at, updated_at,
                 bounds_min_lat, bounds_max_lat, bounds_min_lng, bounds_max_lng,
-                consensus_state_blob, polyline_blob, point_density_blob,
-                elevation_gain_m, avg_grade_percent,
-                rep_start_index, rep_end_index, geometry_source
-            ) VALUES (?, 'auto', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+                consensus_state_blob, polyline_blob, point_density_blob
+            ) VALUES (?, 'auto', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
         )?;
         // OR REPLACE: two passes of one activity can share a `start_index` on a
         // short section, and a UNIQUE violation would abort the whole apply.
@@ -1691,13 +1497,10 @@ impl PersistentRouteEngine {
             .iter()
             .filter(|s| !s.is_user_defined)
             .collect();
-        // Section id closes the order: it is unique, so name minting below
-        // assigns the same number to the same section on every run.
         sorted_sections.sort_by(|a, b| {
             a.sport_type
                 .cmp(&b.sport_type)
                 .then_with(|| b.activity_ids.len().cmp(&a.activity_ids.len()))
-                .then_with(|| a.id.cmp(&b.id))
         });
 
         // Track next available number for each sport type (for sequential assignment)
@@ -1781,8 +1584,18 @@ impl PersistentRouteEngine {
                 } else {
                     // Generate unique sequential name (no sport prefix)
                     let counter = sport_counters.entry("_global".to_string()).or_insert(0);
-                    let number = next_section_number(&mut taken_numbers, counter);
-                    Some(format!("{} {}", section_word, number))
+
+                    // Find next available number (skip taken numbers)
+                    loop {
+                        *counter += 1;
+                        if !taken_numbers.contains(counter) {
+                            break;
+                        }
+                    }
+
+                    let new_name = format!("{} {}", section_word, counter);
+                    taken_numbers.insert(*counter); // Mark this number as taken
+                    Some(new_name)
                 };
 
             // Compute bounds from polyline
@@ -1840,15 +1653,6 @@ impl PersistentRouteEngine {
                 .as_ref()
                 .and_then(|acc| codec::serialize_gps_composite(acc).ok());
 
-            // A range is only truth alongside the activity it indexes. Without
-            // one the line is an average, which is a slice of nothing.
-            let geometry_source = if section.representative_range.is_some()
-                && !section.representative_activity_id.is_empty()
-            {
-                history::SOURCE_EXACT
-            } else {
-                history::SOURCE_CONSENSUS
-            };
             section_stmt.execute(params![
                 section.id,
                 name_to_save,
@@ -1877,11 +1681,6 @@ impl PersistentRouteEngine {
                 consensus_state_blob,
                 polyline_blob,
                 point_density_blob,
-                section.elevation_gain_m,
-                section.avg_grade_percent,
-                section.representative_range.map(|(start, _)| start),
-                section.representative_range.map(|(_, end)| end),
-                geometry_source,
             ])?;
 
             // Diagnostic: a section that claims attached activities but has
@@ -1971,10 +1770,6 @@ impl PersistentRouteEngine {
                     &event.real_id,
                     polyline,
                     false,
-                    event
-                        .reference
-                        .as_ref()
-                        .map(|(id, start, end)| (id.as_str(), *start, *end)),
                 )?),
                 None => None,
             };
@@ -1984,81 +1779,11 @@ impl PersistentRouteEngine {
                 event.kind,
                 event.details.as_deref(),
                 version,
-                None,
             )?;
-        }
-
-        // Provenance of the catalogue this transaction stores: which detector
-        // cut it, and under which parameters. Only a detect moves it. A
-        // mutation save leaves the geometry of every other section alone, so
-        // advancing the marker there would retire the one-shot capture above
-        // without anything having been re-cut.
-        if from_detect {
-            for (key, value) in [
-                (
-                    CATALOGUE_METHOD_KEY,
-                    self.section_config.detection_method.as_str().to_string(),
-                ),
-                (
-                    CATALOGUE_CONFIG_DIGEST_KEY,
-                    section_config_digest(&self.section_config),
-                ),
-            ] {
-                tx.execute(
-                    "INSERT OR REPLACE INTO schema_info (key, value) VALUES (?, ?)",
-                    params![key, value],
-                )?;
-            }
         }
 
         tx.commit()?;
 
         Ok(())
-    }
-
-    /// The detection method that cut the stored catalogue, absent until a save
-    /// has run under a build that records it.
-    pub fn catalogue_detection_method(&self) -> Option<String> {
-        self.schema_info_value(CATALOGUE_METHOD_KEY)
-    }
-
-    /// [`section_config_digest`] of the config the stored catalogue ran under.
-    pub fn catalogue_config_digest(&self) -> Option<String> {
-        self.schema_info_value(CATALOGUE_CONFIG_DIGEST_KEY)
-    }
-
-    fn schema_info_value(&self, key: &str) -> Option<String> {
-        self.db
-            .query_row(
-                "SELECT value FROM schema_info WHERE key = ?",
-                params![key],
-                |row| row.get(0),
-            )
-            .ok()
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn name_number_reads_current_and_legacy_patterns() {
-        assert_eq!(section_name_number("Section 7", "Section"), Some(7));
-        assert_eq!(section_name_number("Ride Section 7", "Section"), Some(7));
-        assert_eq!(section_name_number("Lakeside loop", "Section"), None);
-        assert_eq!(section_name_number("Section", "Section"), None);
-    }
-
-    #[test]
-    fn carried_names_are_taken_so_minting_skips_them() {
-        let stored = ["Section 1"];
-        let carried = ["Section 2", "Riverside"];
-        let mut taken = taken_section_numbers(stored.into_iter().chain(carried), "Section");
-        assert_eq!(taken, HashSet::from([1, 2]));
-
-        let mut counter = 0;
-        assert_eq!(next_section_number(&mut taken, &mut counter), 3);
-        assert_eq!(next_section_number(&mut taken, &mut counter), 4);
     }
 }

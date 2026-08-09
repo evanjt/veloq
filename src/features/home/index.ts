@@ -1,6 +1,7 @@
 export {
   SummaryCard,
   type SummaryCardProps,
+  MiniFormChart,
   SummaryCardSparkline,
   SummaryCardHRVSparkline,
   InsightLine,
@@ -31,7 +32,11 @@ export {
   type MetricPreference,
 } from './store';
 
-export { updateWidgetSnapshot, writeWidgetSnapshot } from './lib/widgetBridge';
+export {
+  updateWidgetSnapshot,
+  writeWidgetSnapshot,
+  isWidgetBridgeAvailable,
+} from './lib/widgetBridge';
 export {
   composeSnapshot,
   gatherWidgetSnapshot,

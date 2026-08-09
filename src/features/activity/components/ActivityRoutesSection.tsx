@@ -2,8 +2,9 @@ import React from 'react';
 import { ScrollView, StyleSheet } from 'react-native';
 import { useTranslation } from 'react-i18next';
 import { RoutePerformanceSection } from '@/features/routes/components/performance/RoutePerformanceSection';
-import { ComponentErrorBoundary, EmptyState, TAB_BAR_SAFE_PADDING } from '@/shared/ui';
+import { ComponentErrorBoundary, EmptyState } from '@/shared/ui';
 import { DataRangeFooter } from '@/features/routes';
+import { TAB_BAR_SAFE_PADDING } from '@/shared/ui';
 import type { ActivityType } from '@/types';
 import { spacing } from '@/theme';
 

@@ -64,7 +64,7 @@ const OVERLAP_THRESHOLD = 0.8;
  */
 function findSupersededSections(
   customPolyline: RoutePoint[],
-  autoSections: { id: string; polyline: RoutePoint[] }[]
+  autoSections: Array<{ id: string; polyline: RoutePoint[] }>
 ): string[] {
   const superseded: string[] = [];
 
@@ -286,4 +286,21 @@ export function useCustomSections(options: UseCustomSectionsOptions = {}): UseCu
     renameSection,
     refresh,
   };
+}
+
+/**
+ * Hook to get a single custom section by ID
+ */
+export function useCustomSection(sectionId: string | undefined): {
+  section: Section | null;
+  isLoading: boolean;
+} {
+  const { sections, isLoading } = useCustomSections();
+
+  const section = useMemo(() => {
+    if (!sectionId) return null;
+    return sections.find((s) => s.id === sectionId) || null;
+  }, [sections, sectionId]);
+
+  return { section, isLoading };
 }

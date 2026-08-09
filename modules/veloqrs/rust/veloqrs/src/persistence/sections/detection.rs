@@ -1,7 +1,6 @@
 //! Background section detection and application.
 
 use crate::persistence::codec;
-use crate::persistence::codec::TrackRead;
 use crate::{FrequentSection, GpsPoint, SectionEvidenceCache};
 use rusqlite::{Connection, Result as SqlResult, params};
 use std::collections::{HashMap, HashSet};
@@ -15,270 +14,24 @@ use super::super::{
     SectionDetectionProgress, load_groups_from_db,
 };
 
-/// A stored track that did not decode, named so it can be excluded from a
-/// detection pool by id rather than counted anonymously.
-pub(crate) struct CorruptTrack {
-    pub activity_id: String,
-    pub reason: String,
-}
-
-/// Share of unreadable rows above which a pool is treated as a read-path
-/// failure rather than isolated row rot. Above the ceiling the detect is
-/// abandoned and the catalogue is left as it stands, because a catalogue cut
-/// over a fraction of the library is wrong rather than incomplete.
-const MAX_CORRUPT_POOL_FRACTION: f64 = 0.10;
-
-/// Fewest unreadable rows that can abandon a run. The fraction alone makes a
-/// small library a cliff, where one bad blob in nine gives up on detection
-/// permanently. A read-path failure takes the whole store with it and clears
-/// both bars, so the floor costs nothing against the shape worth catching.
-const MIN_CORRUPT_TO_ABANDON: usize = 8;
-
-/// Seconds an abandoned pool stays abandoned while its activity ids are
-/// unchanged. The abort returns before `save_processed_activity_ids`, so
-/// without a window every sync reloads and re-decodes the whole store to reach
-/// the same verdict. Any new or removed activity changes the digest and
-/// retries at once, so a repaired library is never held off by the window.
-const ABANDON_RETRY_SECONDS: i64 = 6 * 3600;
-
-/// `schema_info` key holding the completeness of the pool the live catalogue
-/// was cut over.
-const POOL_INTEGRITY_KEY: &str = "detection_pool_integrity";
-
-/// `schema_info` key holding the pool an abandoned run gave up on.
-const ABANDONED_POOL_KEY: &str = "detection_abandoned_pool";
-
-/// `schema_info` key holding the sections whose accumulator was seeded over
-/// only part of their traversals.
-const SEED_EXCLUSIONS_KEY: &str = "accumulator_seed_exclusions";
-
-/// Number of ids named individually in a log line or a durable record.
-const CORRUPT_ID_LOG_CAP: usize = 20;
-
-/// Whether a pool with this many unreadable rows may still be cut over. Both
-/// bars must be cleared to abandon: enough unreadable rows to rule out
-/// isolated rot, and enough of the store to rule out a catalogue worth cutting.
-fn pool_is_usable(readable: usize, corrupt: usize) -> bool {
-    let total = readable + corrupt;
-    if total == 0 || corrupt < MIN_CORRUPT_TO_ABANDON {
-        return true;
-    }
-    (corrupt as f64) / (total as f64) <= MAX_CORRUPT_POOL_FRACTION
-}
-
-/// FNV-1a over the sorted activity ids. Fixed by its own arithmetic rather
-/// than by the standard library, so the stored digest still names the same
-/// pool after a toolchain change.
-fn pool_digest(activity_ids: &[String]) -> u64 {
-    let mut sorted: Vec<&str> = activity_ids.iter().map(|s| s.as_str()).collect();
-    sorted.sort_unstable();
-    let mut hash: u64 = 0xcbf2_9ce4_8422_2325;
-    let mix = |byte: u8, hash: &mut u64| {
-        *hash ^= byte as u64;
-        *hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
-    };
-    for id in sorted {
-        for byte in id.as_bytes() {
-            mix(*byte, &mut hash);
-        }
-        mix(0xff, &mut hash);
-    }
-    hash
-}
-
-/// True when this exact pool was abandoned recently enough that loading it
-/// again can only reach the same verdict.
-fn abandon_window_active(conn: &Connection, activity_ids: &[String]) -> bool {
-    let stored: Option<String> = conn
-        .query_row(
-            "SELECT value FROM schema_info WHERE key = ?",
-            params![ABANDONED_POOL_KEY],
-            |row| row.get(0),
-        )
-        .ok();
-    let Some(stored) = stored else {
-        return false;
-    };
-    let Ok(record) = serde_json::from_str::<serde_json::Value>(&stored) else {
-        return false;
-    };
-    let digest = record["pool_digest"].as_str().unwrap_or_default();
-    let at = record["abandoned_at"].as_i64().unwrap_or(0);
-    let age = chrono::Utc::now().timestamp() - at;
-    digest == format!("{:016x}", pool_digest(activity_ids))
-        && (0..ABANDON_RETRY_SECONDS).contains(&age)
-}
-
-/// Name the pool an abandoned run gave up on, so the next sync can tell it has
-/// already been decoded and rejected.
-fn record_abandoned_pool(conn: &Connection, activity_ids: &[String]) {
-    let value = serde_json::json!({
-        "abandoned_at": chrono::Utc::now().timestamp(),
-        "pool_digest": format!("{:016x}", pool_digest(activity_ids)),
-        "pool_size": activity_ids.len(),
-    })
-    .to_string();
-    if let Err(e) = conn.execute(
-        "INSERT OR REPLACE INTO schema_info (key, value) VALUES (?, ?)",
-        params![ABANDONED_POOL_KEY, value],
-    ) {
-        log::error!("tracematch: [pool integrity] abandon record failed: {}", e);
-    }
-}
-
-/// Drop the abandon record once a pool is usable again.
-fn clear_abandoned_pool(conn: &Connection) {
-    let _ = conn.execute(
-        "DELETE FROM schema_info WHERE key = ?",
-        params![ABANDONED_POOL_KEY],
-    );
-}
-
-/// Name the sections whose accumulator was seeded over only part of their
-/// traversals, so a consensus short some traversals is a durable fact rather
-/// than a log line. A backfill with nothing excluded clears the record.
-fn record_seed_exclusions(conn: &Connection, exclusions: &[(String, Vec<String>)]) {
-    if exclusions.is_empty() {
-        let _ = conn.execute(
-            "DELETE FROM schema_info WHERE key = ?",
-            params![SEED_EXCLUSIONS_KEY],
-        );
-        return;
-    }
-    let value = serde_json::json!({
-        "recorded_at": chrono::Utc::now().timestamp(),
-        "sections": exclusions.len(),
-        "excluded": exclusions
-            .iter()
-            .take(CORRUPT_ID_LOG_CAP)
-            .map(|(section_id, activity_ids)| serde_json::json!({
-                "section_id": section_id,
-                "activity_ids": activity_ids,
-            }))
-            .collect::<Vec<_>>(),
-    })
-    .to_string();
-    if let Err(e) = conn.execute(
-        "INSERT OR REPLACE INTO schema_info (key, value) VALUES (?, ?)",
-        params![SEED_EXCLUSIONS_KEY, value],
-    ) {
-        log::error!(
-            "tracematch: [accum backfill] exclusion record failed: {}",
-            e
-        );
-    }
-}
-
-/// Name every excluded track and its reason, capped so a corpus-wide read
-/// failure cannot flood the log.
-fn log_corrupt_tracks(context: &str, readable: usize, corrupt: &[CorruptTrack]) {
-    if corrupt.is_empty() {
-        return;
-    }
-    log::error!(
-        "tracematch: [{}] {} of {} stored tracks are unreadable and excluded from the pool",
-        context,
-        corrupt.len(),
-        readable + corrupt.len()
-    );
-    for track in corrupt.iter().take(CORRUPT_ID_LOG_CAP) {
-        log::error!(
-            "tracematch: [{}] activity {} unreadable: {}",
-            context,
-            track.activity_id,
-            track.reason
-        );
-    }
-    if corrupt.len() > CORRUPT_ID_LOG_CAP {
-        log::error!(
-            "tracematch: [{}] {} further unreadable tracks not listed",
-            context,
-            corrupt.len() - CORRUPT_ID_LOG_CAP
-        );
-    }
-}
-
-/// Record how complete the pool behind the live catalogue is, so an incomplete
-/// corpus is a durable fact rather than a log line that scrolls away.
-/// `abandoned` says whether the run gave up on this pool or cut a catalogue
-/// over it, which is the difference between an unchanged catalogue and a
-/// current one. A clean pool clears the record.
-fn record_pool_integrity(
-    conn: &Connection,
-    readable: usize,
-    corrupt: &[CorruptTrack],
-    abandoned: bool,
-) {
-    if corrupt.is_empty() {
-        let _ = conn.execute(
-            "DELETE FROM schema_info WHERE key = ?",
-            params![POOL_INTEGRITY_KEY],
-        );
-        return;
-    }
-    let value = serde_json::json!({
-        "recorded_at": chrono::Utc::now().timestamp(),
-        "readable": readable,
-        "corrupt": corrupt.len(),
-        "abandoned": abandoned,
-        "activity_ids": corrupt
-            .iter()
-            .take(CORRUPT_ID_LOG_CAP)
-            .map(|c| c.activity_id.as_str())
-            .collect::<Vec<_>>(),
-        "first_reason": corrupt.first().map(|c| c.reason.as_str()).unwrap_or(""),
-    })
-    .to_string();
-    if let Err(e) = conn.execute(
-        "INSERT OR REPLACE INTO schema_info (key, value) VALUES (?, ?)",
-        params![POOL_INTEGRITY_KEY, value],
-    ) {
-        log::error!("tracematch: [pool integrity] record failed: {}", e);
-    }
-}
-
 /// Load all route signatures from the DB (standalone, no engine needed).
-/// Returns the signatures that decoded and the ones that did not, so the
-/// caller decides whether a reduced pool may be grouped over.
-fn load_all_signatures(conn: &Connection) -> (Vec<RouteSignature>, Vec<CorruptTrack>) {
+fn load_all_signatures(conn: &Connection) -> Vec<RouteSignature> {
     let mut stmt = match conn.prepare(
         "SELECT activity_id, points, start_point_lat, start_point_lng,
                 end_point_lat, end_point_lng, total_distance
          FROM signatures",
     ) {
         Ok(s) => s,
-        Err(_) => return (Vec::new(), Vec::new()),
+        Err(_) => return Vec::new(),
     };
 
-    let rows = stmt.query_map([], |row| {
-        Ok((
-            row.get::<_, String>(0)?,
-            row.get::<_, Vec<u8>>(1)?,
-            GpsPoint::new(row.get(2)?, row.get(3)?),
-            GpsPoint::new(row.get(4)?, row.get(5)?),
-            row.get::<_, f64>(6)?,
-        ))
-    });
-    let rows = match rows {
-        Ok(r) => r,
-        Err(_) => return (Vec::new(), Vec::new()),
-    };
-
-    let mut signatures: Vec<RouteSignature> = Vec::new();
-    let mut corrupt: Vec<CorruptTrack> = Vec::new();
-
-    for (id, blob, start_point, end_point, total_distance) in rows.flatten() {
-        let points: Vec<GpsPoint> = match TrackRead::from_blob(&blob) {
-            TrackRead::Present(points) => points,
-            TrackRead::Missing => Vec::new(),
-            TrackRead::Corrupt(reason) => {
-                corrupt.push(CorruptTrack {
-                    activity_id: id,
-                    reason,
-                });
-                continue;
-            }
-        };
+    stmt.query_map([], |row| {
+        let id: String = row.get(0)?;
+        let blob: Vec<u8> = row.get(1)?;
+        let points: Vec<GpsPoint> = codec::deserialize_points(&blob).unwrap_or_default();
+        let start_point = GpsPoint::new(row.get(2)?, row.get(3)?);
+        let end_point = GpsPoint::new(row.get(4)?, row.get(5)?);
+        let total_distance: f64 = row.get(6)?;
         let bounds = Bounds::from_points(&points).unwrap_or(Bounds {
             min_lat: 0.0,
             max_lat: 0.0,
@@ -286,7 +39,7 @@ fn load_all_signatures(conn: &Connection) -> (Vec<RouteSignature>, Vec<CorruptTr
             max_lng: 0.0,
         });
         let center = bounds.center();
-        signatures.push(RouteSignature {
+        Ok(RouteSignature {
             activity_id: id,
             points,
             total_distance,
@@ -294,10 +47,10 @@ fn load_all_signatures(conn: &Connection) -> (Vec<RouteSignature>, Vec<CorruptTr
             end_point,
             bounds,
             center,
-        });
-    }
-
-    (signatures, corrupt)
+        })
+    })
+    .map(|rows| rows.filter_map(|r| r.ok()).collect())
+    .unwrap_or_default()
 }
 
 /// Compute route groups from DB signatures and save them back.
@@ -310,18 +63,8 @@ fn recompute_and_save_groups(
 ) -> Vec<RouteGroup> {
     let start = std::time::Instant::now();
 
-    let (signatures, corrupt) = load_all_signatures(conn);
+    let signatures = load_all_signatures(conn);
     let sig_ms = start.elapsed().as_millis();
-
-    if !corrupt.is_empty() {
-        log_corrupt_tracks("BG Groups", signatures.len(), &corrupt);
-        if !pool_is_usable(signatures.len(), corrupt.len()) {
-            log::error!(
-                "tracematch: [BG Groups] Keeping the existing groups: too much of the signature pool is unreadable to regroup over"
-            );
-            return existing_groups.to_vec();
-        }
-    }
 
     if signatures.is_empty() {
         return existing_groups.to_vec();
@@ -528,22 +271,9 @@ pub fn run_accumulator_backfill(db_path: &str, refresh_engine: bool) -> Result<(
         sections_to_seed.len()
     );
 
-    // The user's stored config, read off this connection: a non-default
-    // slider must seed accumulators the same way detection would. Falls
-    // back to defaults on a fresh install with no stored blob.
-    let section_config = conn
-        .query_row(
-            "SELECT value FROM settings WHERE key = ?",
-            [crate::persistence::settings_keys::SECTION_CONFIG_JSON],
-            |row| row.get::<_, String>(0),
-        )
-        .ok()
-        .and_then(|json| serde_json::from_str::<tracematch::SectionConfig>(&json).ok())
-        .unwrap_or_default();
+    let section_config = tracematch::SectionConfig::default();
     let mut seeded: u32 = 0;
     let mut skipped: u32 = 0;
-    let mut unreadable_sections: u32 = 0;
-    let mut seed_exclusions: Vec<(String, Vec<String>)> = Vec::new();
 
     for (section_id, polyline) in &sections_to_seed {
         // Activity ids for this section (excluded=0 matches the rest of the codebase).
@@ -567,7 +297,6 @@ pub fn run_accumulator_backfill(db_path: &str, refresh_engine: bool) -> Result<(
         // query - cheaper than N separate query_row round-trips, especially on
         // sections with many traversals.
         let mut track_map_owned: HashMap<String, Vec<tracematch::GpsPoint>> = HashMap::new();
-        let mut section_corrupt: Vec<CorruptTrack> = Vec::new();
         {
             let placeholders: String = std::iter::repeat("?")
                 .take(activity_ids.len())
@@ -583,48 +312,19 @@ pub fn run_accumulator_backfill(db_path: &str, refresh_engine: bool) -> Result<(
                     .map(|id| id as &dyn rusqlite::ToSql)
                     .collect();
                 if let Ok(rows) = stmt.query_map(params_slice.as_slice(), |row| {
-                    Ok((row.get::<_, String>(0)?, row.get::<_, Vec<u8>>(1)?))
+                    let id: String = row.get(0)?;
+                    let bytes: Vec<u8> = row.get(1)?;
+                    let track: Vec<tracematch::GpsPoint> =
+                        codec::deserialize_points(&bytes).unwrap_or_default();
+                    Ok((id, track))
                 }) {
-                    for (id, bytes) in rows.flatten() {
-                        match TrackRead::from_blob(&bytes) {
-                            TrackRead::Present(track) => {
-                                if !track.is_empty() {
-                                    track_map_owned.insert(id, track);
-                                }
-                            }
-                            TrackRead::Missing => {}
-                            TrackRead::Corrupt(reason) => section_corrupt.push(CorruptTrack {
-                                activity_id: id,
-                                reason,
-                            }),
+                    for row in rows.flatten() {
+                        if !row.1.is_empty() {
+                            track_map_owned.insert(row.0, row.1);
                         }
                     }
                 }
             }
-        }
-        // An accumulator is a consensus over the traversals folded into it and
-        // it names them in `absorbed_activity_ids`, so one built over the
-        // readable members is a section as it stood before the unreadable
-        // traversals, not a wrong one. It is seeded, the exclusion is recorded,
-        // and a repaired track folds in later without double-counting.
-        if !section_corrupt.is_empty() {
-            for track in section_corrupt.iter().take(CORRUPT_ID_LOG_CAP) {
-                log::error!(
-                    "tracematch: [accum backfill] section {} seeded without activity {}, track unreadable: {}",
-                    section_id,
-                    track.activity_id,
-                    track.reason
-                );
-            }
-            unreadable_sections += 1;
-            seed_exclusions.push((
-                section_id.clone(),
-                section_corrupt
-                    .iter()
-                    .take(CORRUPT_ID_LOG_CAP)
-                    .map(|c| c.activity_id.clone())
-                    .collect(),
-            ));
         }
         if track_map_owned.is_empty() {
             skipped += 1;
@@ -636,15 +336,16 @@ pub fn run_accumulator_backfill(db_path: &str, refresh_engine: bool) -> Result<(
             .map(|(k, v)| (k.as_str(), v.as_slice()))
             .collect();
 
-        let traces = tracematch::sections::extract_all_activity_traces(
+        let traces_map = tracematch::sections::extract_all_activity_traces(
             &activity_ids,
             polyline,
             &track_ref_map,
         );
-        if traces.is_empty() {
+        if traces_map.is_empty() {
             skipped += 1;
             continue;
         }
+        let traces: Vec<(String, Vec<tracematch::GpsPoint>)> = traces_map.into_iter().collect();
         let acc = tracematch::sections::build_accumulator_from_traces(
             polyline,
             &traces,
@@ -689,13 +390,6 @@ pub fn run_accumulator_backfill(db_path: &str, refresh_engine: bool) -> Result<(
         skipped,
         start.elapsed()
     );
-    record_seed_exclusions(&conn, &seed_exclusions);
-    if unreadable_sections > 0 {
-        log::error!(
-            "tracematch: [accum backfill] {} sections seeded over part of their traversals because a member track is unreadable",
-            unreadable_sections
-        );
-    }
 
     // Best-effort: refresh the engine's in-memory copy so the new blobs
     // become usable without requiring an app restart. If the write lock is
@@ -759,14 +453,15 @@ fn seed_consensus_state(
         if section.polyline.len() < 2 || section.activity_ids.is_empty() {
             continue;
         }
-        let traces = tracematch::sections::extract_all_activity_traces(
+        let traces_map = tracematch::sections::extract_all_activity_traces(
             &section.activity_ids,
             &section.polyline,
             &track_map,
         );
-        if traces.is_empty() {
+        if traces_map.is_empty() {
             continue;
         }
+        let traces: Vec<(String, Vec<GpsPoint>)> = traces_map.into_iter().collect();
         let acc = tracematch::sections::build_accumulator_from_traces(
             &section.polyline,
             &traces,
@@ -776,78 +471,18 @@ fn seed_consensus_state(
     }
 }
 
-/// Phase reported by a handle that was refused because detection is
-/// suspended. It is not one of the weighted run phases, so `get_percent`
-/// reports the unknown-phase 50 rather than pretending to progress.
-pub const DETECTION_PHASE_SUSPENDED: &str = "suspended";
-
 impl PersistentRouteEngine {
-    /// A handle for a run that never started: no worker, both senders dropped.
-    ///
-    /// The first poll reads `WorkerPoll::Died`, which the FFI poll reports as
-    /// "error". A refusal is therefore visible to the caller and distinct from
-    /// a run that completed and changed nothing, which reports "complete".
-    fn refused_detection_handle() -> SectionDetectionHandle {
-        let (tx, rx) = mpsc::channel();
-        let (cache_tx, cache_rx) = mpsc::channel::<CacheUpdate>();
-        drop(tx);
-        drop(cache_tx);
-        let progress = SectionDetectionProgress::new();
-        progress.set_phase(DETECTION_PHASE_SUSPENDED, 0);
-        SectionDetectionHandle {
-            receiver: rx,
-            cache_receiver: cache_rx,
-            progress,
-        }
-    }
-
-    /// Stored tracks that do not yet carry elevation, ie. the size of the
-    /// remaining backfill plus the tracks upstream can never fill.
-    pub fn elevation_backfill_outstanding(&self) -> u64 {
-        self.elevation_state_counts()
-            .map(|counts| counts.not_fetched())
-            .unwrap_or(0)
-    }
-
-    /// True when every stored track has been asked about its elevation and
-    /// answered, so lift rescue reads the same way for every track in the pool.
-    ///
-    /// Detection does NOT gate on this. A library that has simply never been
-    /// backfilled reads as non-uniform, and refusing it would leave a user who
-    /// never updates with no sections at all. The gate is the suspension
-    /// guard a backfill holds; this is the query a backfill uses to decide
-    /// whether it has work, and a diagnostic for everyone else.
-    pub fn library_uniformly_elevated(&self) -> bool {
-        self.elevation_backfill_outstanding() == 0
-    }
-
     /// Start section detection in a background thread.
     ///
     /// Returns a handle that can be polled for completion and progress.
     ///
-    /// Detection always covers every activity, so the catalogue is a pure
-    /// function of the activity set plus config.
-    ///
     /// Note: This method is designed to be non-blocking on the calling thread.
     /// All heavy operations (groups loading, track loading, detection) happen
     /// in the background thread to keep the UI responsive.
-    pub fn detect_sections_background(&mut self) -> SectionDetectionHandle {
-        // The single funnel every detection arm passes through, so the
-        // suspension gate sits here rather than at each caller.
-        if super::conditioning::detection_suspended() {
-            log::info!(
-                "tracematch: [SectionDetection] Refused: detection is suspended for a backfill"
-            );
-            return Self::refused_detection_handle();
-        }
-        self.detect_sections_background_unchecked()
-    }
-
-    /// The run behind [`detect_sections_background`], without the suspension
-    /// gate. Only the backfill's own final re-cut may call this: it holds the
-    /// guard precisely so nothing else can run, and its detect is the one the
-    /// suspension exists to protect.
-    pub(crate) fn detect_sections_background_unchecked(&mut self) -> SectionDetectionHandle {
+    pub fn detect_sections_background(
+        &mut self,
+        sport_filter: Option<String>,
+    ) -> SectionDetectionHandle {
         let (tx, rx) = mpsc::channel();
         // Out-of-band channel for the Unified detector's evidence-cache update.
         // Left unsent by the legacy detectors and the short-circuit, so the
@@ -895,11 +530,11 @@ impl PersistentRouteEngine {
 
         for (id, m) in &self.activity_metadata {
             sport_map.insert(id.clone(), m.sport_type.clone());
-            activity_ids.push(id.clone());
+            match &sport_filter {
+                Some(sport) if &m.sport_type != sport => {}
+                _ => activity_ids.push(id.clone()),
+            }
         }
-        // Metadata iterates in HashMap order, so sort by the activities primary
-        // key to give the detector a deterministic input order.
-        activity_ids.sort();
 
         // Activity start times for the occasion support floor: ground
         // visited only within one stay is a trip, not repetition. Dates
@@ -934,37 +569,19 @@ impl PersistentRouteEngine {
             .cloned()
             .collect();
 
-        // Pinned sections hold their drawn line: the fold freezes them and
-        // withholds any fresh cut sharing their corridor. Read here, on the
-        // engine, so the worker takes the durable intent as an explicit input.
-        let pinned_ids = self.pinned_section_ids();
-
         let new_activity_ids: Vec<String> = activity_ids
             .iter()
             .filter(|id| !self.processed_activity_ids.contains(*id))
             .cloned()
             .collect();
 
-        // Short-circuit: no new activities means nothing to detect. Re-emit the
-        // last RAW batch, not the damped visible view: the visible catalogue can
-        // lag the batch while a dissolve debounces, and echoing it back through
-        // identity would count as a decisive continuation and hold the laggards
-        // forever. The raw batch is what a re-fold over the unchanged pool would
-        // emit, so the debounce keeps pressing and the view converges. A known
-        // EMPTY raw batch is echoed as empty for the same reason: it is the
-        // detector's answer, and echoing the visible view instead would
-        // resurrect sections the pool no longer supports. The raw batch lives
-        // in memory only; in a fresh process the visible catalogue is the best
-        // available echo.
+        // Short-circuit: no new activities means nothing to detect
         if new_activity_ids.is_empty() && !existing_sections.is_empty() {
             log::info!(
                 "tracematch: [SectionDetection] No new activities, skipping detection ({} already processed)",
                 self.processed_activity_ids.len()
             );
-            let sections_copy = match &self.raw_sections {
-                Some(raw) => raw.clone(),
-                None => existing_sections.clone(),
-            };
+            let sections_copy = existing_sections.clone();
             let all_ids = activity_ids.clone();
             tx.send((sections_copy, all_ids)).ok();
             // No detection ran, so the evidence cache is unchanged: `cache_tx` is
@@ -1005,20 +622,6 @@ impl PersistentRouteEngine {
                     return;
                 }
             };
-
-            // A pool already decoded and rejected is not decoded again until it
-            // changes or the window lapses, so an unreadable store costs one
-            // full load per window rather than one per sync. The run still ends
-            // without a result, so the poll reports the same abort.
-            if abandon_window_active(&conn, &ids_to_load) {
-                log::error!(
-                    "tracematch: [SectionDetection] Abandoning detection: this pool of {} activities was already found unreadable within the last {} hours. The catalogue is left unchanged.",
-                    ids_to_load.len(),
-                    ABANDON_RETRY_SECONDS / 3600
-                );
-                progress_clone.set_phase("aborted", 0);
-                return;
-            }
 
             let groups = if needs_group_recompute {
                 log::info!(
@@ -1072,8 +675,6 @@ impl PersistentRouteEngine {
 
             let mut tracks_loaded = 0;
             let mut tracks_empty = 0;
-            let mut rows_readable = 0usize;
-            let mut corrupt_tracks: Vec<CorruptTrack> = Vec::new();
             let tracks: Vec<(String, Vec<GpsPoint>)> = if ids_to_load.is_empty() {
                 Vec::new()
             } else {
@@ -1094,23 +695,21 @@ impl PersistentRouteEngine {
                             let params_slice: Vec<&dyn rusqlite::ToSql> =
                                 chunk.iter().map(|id| id as &dyn rusqlite::ToSql).collect();
                             let rows = stmt.query_map(params_slice.as_slice(), |row| {
-                                Ok((row.get::<_, String>(0)?, row.get::<_, Vec<u8>>(1)?))
+                                let id: String = row.get(0)?;
+                                let blob: Vec<u8> = row.get(1)?;
+                                let track: Vec<GpsPoint> = codec::deserialize_points(&blob)
+                                    .unwrap_or_else(|e| {
+                                        log::warn!(
+                                            "tracematch: [SectionDetection] Skipping malformed track for {}: {:?}",
+                                            id, e
+                                        );
+                                        Vec::new()
+                                    });
+                                Ok((id, track))
                             });
                             if let Ok(iter) = rows {
-                                for (id, blob) in iter.flatten() {
-                                    match TrackRead::from_blob(&blob) {
-                                        TrackRead::Present(track) => {
-                                            rows_readable += 1;
-                                            loaded.insert(id, track);
-                                        }
-                                        TrackRead::Missing => {}
-                                        TrackRead::Corrupt(reason) => {
-                                            corrupt_tracks.push(CorruptTrack {
-                                                activity_id: id,
-                                                reason,
-                                            })
-                                        }
-                                    }
+                                for row in iter.flatten() {
+                                    loaded.insert(row.0, row.1);
                                 }
                             }
                         }
@@ -1146,37 +745,11 @@ impl PersistentRouteEngine {
             };
 
             log::info!(
-                "tracematch: [SectionDetection] Loaded {} tracks ({} empty/missing, {} unreadable) from {} activity IDs",
+                "tracematch: [SectionDetection] Loaded {} tracks ({} empty/missing) from {} activity IDs",
                 tracks_loaded,
                 tracks_empty,
-                corrupt_tracks.len(),
                 ids_to_load.len()
             );
-
-            // The pool is the corpus the catalogue is cut over, so an
-            // unreadable row is never absorbed quietly. It is named in the log
-            // and recorded in schema_info, and past both bars the run is
-            // abandoned rather than allowed to re-cut every section against a
-            // corpus smaller than the user's library. Dropping `tx` unsent
-            // leaves the poll reporting Died, which clears the handle and
-            // leaves the stored catalogue exactly as it stands.
-            let usable = pool_is_usable(rows_readable, corrupt_tracks.len());
-            log_corrupt_tracks("SectionDetection", rows_readable, &corrupt_tracks);
-            record_pool_integrity(&conn, rows_readable, &corrupt_tracks, !usable);
-
-            if !usable {
-                log::error!(
-                    "tracematch: [SectionDetection] Abandoning detection: {} of {} stored tracks are unreadable, past both the {} row floor and the {:.0}% ceiling. The catalogue is left unchanged.",
-                    corrupt_tracks.len(),
-                    rows_readable + corrupt_tracks.len(),
-                    MIN_CORRUPT_TO_ABANDON,
-                    MAX_CORRUPT_POOL_FRACTION * 100.0
-                );
-                record_abandoned_pool(&conn, &ids_to_load);
-                progress_clone.set_phase("aborted", 0);
-                return;
-            }
-            clear_abandoned_pool(&conn);
 
             if tracks.is_empty() {
                 log::info!("tracematch: [SectionDetection] No tracks loaded, skipping detection");
@@ -1218,10 +791,7 @@ impl PersistentRouteEngine {
                 // on a warm cache it is just the genuinely new activities. This is
                 // what makes a restart self-heal (the DB holds the catalogue; the
                 // cache rebuilds) without ever double-routing an already-folded id.
-                // No seconds. They feed only the lift veto, whose ruling is
-                // still open: ingest now carries elevation, so the veto can
-                // raise candidates, and wiring seconds needs the lift-candidate
-                // memo re-keyed first.
+                // Seconds streams are wired in B3, so pass none here.
                 let new_ids_for_cache: Vec<String> = tracks
                     .iter()
                     .map(|(id, _)| id.clone())
@@ -1238,7 +808,7 @@ impl PersistentRouteEngine {
                 );
 
                 let mut cache = cache_at_spawn;
-                let sections_to_send = tracematch::detect_sections_unified_incremental_dated(
+                let mut sections_to_send = tracematch::detect_sections_unified_incremental_dated(
                     &mut cache,
                     &existing_sections,
                     &tracks,
@@ -1247,10 +817,7 @@ impl PersistentRouteEngine {
                     &sport_map,
                     &start_epochs,
                     &section_config,
-                    &tracematch::SectionUpdatePolicy {
-                        pinned_ids,
-                        freeze_all_geometry: false,
-                    },
+                    &tracematch::SectionUpdatePolicy::default(),
                 )
                 .catalogue;
 
@@ -1276,10 +843,14 @@ impl PersistentRouteEngine {
                     })
                     .ok();
 
-                // No consensus seed here. The accumulator is read only by
-                // `sections::incremental`, which the unified arm never calls,
-                // so seeding it rebuilds an R-tree and rescans every member
-                // track per section for a value nothing consumes.
+                // Seed consensus_state for the fresh sections, mirroring the
+                // full-detection path (the sections arrive from detection
+                // without an accumulator).
+                seed_consensus_state(
+                    &mut sections_to_send,
+                    &tracks,
+                    section_config.proximity_threshold,
+                );
 
                 // Signal saving phase before sending results for DB persistence
                 progress_clone.set_phase("saving", 1);
@@ -1489,7 +1060,7 @@ impl PersistentRouteEngine {
         let old_identity = std::mem::replace(&mut self.identity, trial_identity);
         match self.save_sections_with_events(&events) {
             Ok(()) => {
-                self.raw_sections = Some(raw_for_convergence);
+                self.raw_sections = raw_for_convergence;
                 self.sections_dirty = false;
                 // Clear activity_traces to prevent memory leak. These GPS
                 // traces were used for consensus computation but aren't
@@ -1560,23 +1131,33 @@ impl PersistentRouteEngine {
         Ok(())
     }
 
-    /// Deferred tail of apply_sections: activity-indicator recompute. It is
-    /// best-effort (errors are logged, not returned) because it doesn't affect
-    /// the ability to query the just-saved sections, it only refines derived
-    /// state. Safe to invoke on a background thread after
-    /// `apply_sections_save` returns.
+    /// Deferred tail of apply_sections: cross-sport merge + activity-
+    /// indicator recompute. Both are best-effort (errors are logged, not
+    /// returned) because they don't affect the ability to query the just-
+    /// saved sections - they only refine derived state. Safe to invoke on
+    /// a background thread after `apply_sections_save` returns.
     pub fn apply_sections_finalize(&mut self) {
         self.apply_sections_finalize_with_progress(None);
     }
 
     /// Variant that emits phase markers to the supplied progress tracker
-    /// so the UI can show "still recomputing indicators" instead of a
-    /// frozen-looking 100% bar.
+    /// so the UI can show "still working on cross-sport merge / indicator
+    /// recompute" instead of a frozen-looking 100% bar (Tier 4).
     pub fn apply_sections_finalize_with_progress(
         &mut self,
         progress: Option<&super::super::SectionDetectionProgress>,
     ) {
         if let Some(p) = progress {
+            p.set_phase("merging_cross_sport", 1);
+        }
+        if let Err(e) = self.merge_cross_sport_sections() {
+            log::warn!(
+                "tracematch: [apply_sections_finalize] Cross-sport merge failed: {}",
+                e
+            );
+        }
+        if let Some(p) = progress {
+            p.increment();
             p.set_phase("recomputing_indicators", 1);
         }
         if let Err(e) = self.recompute_activity_indicators() {

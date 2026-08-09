@@ -11,7 +11,6 @@ import { type ChartConfig, type ChartTypeId } from '@/features/activity/lib/char
 import { isCyclingActivity } from '@/features/activity/lib/activityUtils';
 import type { ActivityStreams, ActivityInterval, ActivityType } from '@/types';
 import { CHART_CONFIG } from '@/constants';
-import { finiteExtent } from '@/shared/charts/extent';
 
 /**
  * One input series derived from a chart config + streams. The colour is not
@@ -129,11 +128,10 @@ export function buildChartData(
 
   // Calculate min/max for each series for normalization
   const seriesRanges = series.map((s) => {
-    // A stream with no finite sample normalises against a flat range. Its points
-    // are non-finite anyway, so the chart draws a gap rather than a floor line.
-    const extent = finiteExtent(s.rawData);
-    if (!extent) return { min: 0, max: 0, range: 1 };
-    return { min: extent.min, max: extent.max, range: extent.max - extent.min || 1 };
+    const values = s.rawData.filter((v) => !isNaN(v) && isFinite(v));
+    const min = Math.min(...values);
+    const max = Math.max(...values);
+    return { min, max, range: max - min || 1 };
   });
 
   for (let i = 0; i < xSource.length; i += step) {
@@ -161,8 +159,8 @@ export function buildChartData(
     indices.push(i);
   }
 
-  // A non-finite x sample would otherwise carry NaN into the axis domain.
-  const computedMaxX = finiteExtent(points.map((p) => p.x))?.max ?? 1;
+  const xValues = points.map((p) => p.x);
+  const computedMaxX = Math.max(...xValues);
 
   return {
     chartData: points,
@@ -194,9 +192,8 @@ export function computeAllAverages(
     const rawData = config.getStream?.(streams);
     if (!rawData || rawData.length === 0) continue;
 
-    const validValues = rawData.filter((v) => Number.isFinite(v));
-    const extent = finiteExtent(validValues);
-    if (!extent) continue;
+    const validValues = rawData.filter((v) => !isNaN(v) && isFinite(v));
+    if (validValues.length === 0) continue;
 
     let computed: number;
     let valuePrefix = '';
@@ -205,11 +202,8 @@ export function computeAllAverages(
       // Sum of positive deltas (elevation gain)
       let gain = 0;
       for (let i = 1; i < rawData.length; i++) {
-        // Both samples must be real. A null neighbour differences to a whole
-        // sample's worth of fabricated gain.
-        if (!Number.isFinite(rawData[i]) || !Number.isFinite(rawData[i - 1])) continue;
         const delta = rawData[i] - rawData[i - 1];
-        if (delta > 0) gain += delta;
+        if (delta > 0 && isFinite(delta)) gain += delta;
       }
       computed = gain;
       valuePrefix = '+';
@@ -230,7 +224,7 @@ export function computeAllAverages(
     let maxFormatted: string;
     if (config.defaultMetric === 'gain') {
       // Gain is fixed - use it as max width; also check max altitude for scrub case
-      let maxRaw = extent.max;
+      let maxRaw = Math.max(...validValues);
       if (!isMetric && config.convertToImperial) {
         maxRaw = config.convertToImperial(maxRaw);
       }
@@ -240,7 +234,7 @@ export function computeAllAverages(
       // Use the wider of gain formatted or max altitude formatted
       maxFormatted = formatted.length >= maxAltFormatted.length ? formatted : maxAltFormatted;
     } else {
-      let maxRaw = extent.max;
+      let maxRaw = Math.max(...validValues);
       if (!isMetric && config.convertToImperial) {
         maxRaw = config.convertToImperial(maxRaw);
       }
@@ -343,7 +337,7 @@ export function computeIntervalBands(
           : primarySeries.id === 'heartrate'
             ? interval.average_heartrate
             : null;
-      if (avgRaw != null && Number.isFinite(avgRaw)) {
+      if (avgRaw != null && isFinite(avgRaw)) {
         const { min, range } = primarySeries.range;
         avgNormY = Math.max(0, Math.min(1, (avgRaw - min) / range));
       }

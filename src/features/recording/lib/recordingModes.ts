@@ -1,4 +1,5 @@
-import type { ActivityType, RecordingMode } from '@/types';
+import type { ActivityType } from '@/types';
+import type { RecordingMode } from '@/types';
 
 const GPS_TYPES: ActivityType[] = [
   'Ride',

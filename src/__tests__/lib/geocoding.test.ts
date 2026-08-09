@@ -3,8 +3,6 @@
  * Mocks fetch and AsyncStorage for deterministic behavior.
  */
 
-import { reverseGeocode, generateRouteName, clearGeocodeCache } from '@/shared/geo/geocoding';
-
 jest.mock('@react-native-async-storage/async-storage', () =>
   require('@react-native-async-storage/async-storage/jest/async-storage-mock')
 );
@@ -12,6 +10,8 @@ jest.mock('@react-native-async-storage/async-storage', () =>
 // Mock global fetch
 const mockFetch = jest.fn();
 global.fetch = mockFetch;
+
+import { reverseGeocode, generateRouteName, clearGeocodeCache } from '@/shared/geo/geocoding';
 
 beforeEach(async () => {
   mockFetch.mockReset();

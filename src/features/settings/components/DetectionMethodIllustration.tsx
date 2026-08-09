@@ -5,9 +5,14 @@ import { useTheme } from '@/shared/app';
 import { brand } from '@/theme';
 
 interface Props {
+  method: 'corridor' | 'density' | 'flow';
   proximity: number;
   minSectionLength: number;
   minActivities: number;
+  minCorridorTracks: number;
+  minRoutes: number;
+  jaccardThreshold: number;
+  minCellVisits: number;
   divergenceThreshold: number;
 }
 
@@ -154,20 +159,38 @@ function densify(pts: [number, number][]): { latitude: number; longitude: number
   return out;
 }
 
-/** The single line the detector draws on the sample traces when a live cut
- *  is unavailable. */
-const FALLBACK = ['15,100 60,92 120,85 200,80 280,85 340,92 385,100'];
+const FFI_METHOD: Record<Props['method'], string> = {
+  corridor: 'corridor',
+  density: 'density_grid',
+  flow: 'flow_graph',
+};
+
+const FALLBACK: Record<Props['method'], string[]> = {
+  corridor: [
+    '15,100 60,92 120,85 200,80 280,85 340,92 385,100',
+    '15,101 60,93 120,86 200,81',
+    '280,86 340,93 385,101',
+    '170,82 200,70 230,68 250,78',
+  ],
+  density: ['60,92 120,85 200,80', '280,85 340,92 385,100'],
+  flow: ['120,85 160,83', '200,80 240,83', '280,85 320,90'],
+};
 
 export function DetectionMethodIllustration({
+  method,
   proximity,
   minSectionLength,
   minActivities,
+  minCorridorTracks,
+  minRoutes,
+  jaccardThreshold,
+  minCellVisits,
   divergenceThreshold,
 }: Props) {
   const { isDark } = useTheme();
   const bg = isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.08)';
 
-  const [highlights, setHighlights] = useState<string[]>(FALLBACK);
+  const [highlights, setHighlights] = useState<string[]>(FALLBACK[method]);
 
   const traces = useMemo(() => buildTraces(), []);
   const inputData = useMemo(() => {
@@ -191,12 +214,13 @@ export function DetectionMethodIllustration({
         const { getNativeModule } = require('@/shared/native/routeEngine');
         const mod = getNativeModule();
         if (!mod) {
-          setHighlights(FALLBACK);
+          setHighlights(FALLBACK[method]);
           return;
         }
 
+        const flowProx = method === 'flow' ? Math.max(25, Math.round(proximity / 3)) : proximity;
         const config = JSON.stringify({
-          proximityThreshold: proximity,
+          proximityThreshold: flowProx,
           minSectionLength,
           maxSectionLength: 200000,
           minActivities,
@@ -225,9 +249,14 @@ export function DetectionMethodIllustration({
             },
           ],
           preserveHierarchy: true,
+          jaccardThreshold,
+          minRoutes,
           enableDensitySplits: false,
+          mergeDistanceMultiplier: 4.0,
+          minCellVisits,
           divergenceThreshold,
-          detectionMethod: 'unified',
+          minCorridorTracks,
+          detectionMethod: FFI_METHOD[method],
         });
 
         const resultJson: string = await mod.detectSectionsStandalone(
@@ -248,10 +277,10 @@ export function DetectionMethodIllustration({
             )
           );
         } else {
-          setHighlights(FALLBACK);
+          setHighlights(FALLBACK[method]);
         }
       } catch {
-        setHighlights(FALLBACK);
+        setHighlights(FALLBACK[method]);
       }
     };
 
@@ -259,7 +288,18 @@ export function DetectionMethodIllustration({
     return () => {
       cancelled = true;
     };
-  }, [proximity, minSectionLength, minActivities, divergenceThreshold, inputData]);
+  }, [
+    method,
+    proximity,
+    minSectionLength,
+    minActivities,
+    minCorridorTracks,
+    minRoutes,
+    jaccardThreshold,
+    minCellVisits,
+    divergenceThreshold,
+    inputData,
+  ]);
 
   const displayTraces = BASE_TRACES.map((t) => t.pts.map((p) => p.join(',')).join(' '));
 
@@ -280,7 +320,7 @@ export function DetectionMethodIllustration({
         ))}
         {highlights.map((points, i) => (
           <Polyline
-            key={`h-${i}`}
+            key={`h-${method}-${i}`}
             points={points}
             fill="none"
             stroke={brand.tealLight}

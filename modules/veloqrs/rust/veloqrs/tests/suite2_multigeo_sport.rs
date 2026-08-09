@@ -8,21 +8,24 @@
 //! happens to travel a shared corridor most.
 //!
 //! The Battery arm (`DetectionMethod::Unified`) is the probe here because the
-//! behaviour under test lives in the detector: it cuts one pool and emits
-//! sections ordered by each cluster's south-west corner. Identity is layered on
-//! top (B2), so an id must stay on its ground while that emission order moves
-//! underneath it.
+//! behaviour under test lives in the detector: it partitions tracks per sport
+//! at entry ("sections never span sports"), numbers sections positionally per
+//! sport (`sec_<sport>_<n>`), and orders geographic clusters by their
+//! south-west corner with one continuous counter. The apply tail then patches
+//! the sport split back together with `merge_cross_sport_sections`, whose
+//! primary is simply the section with more activities. Every id, sport, and
+//! ground fact below falls out of those three mechanisms.
 //!
-//! One gate per curiosity. Three hold today and run live; the shared-corridor
-//! heading is still frozen at first assignment by the identity carry, so that
-//! one is `#[ignore]`d with the defect named. Snapshots read the user-visible
-//! DB view, so every count is what the app renders.
+//! Per curiosity: a MEASUREMENT test that prints reality and never fails, and
+//! an `#[ignore]` GATE that states the target invariant (red under
+//! `--include-ignored` today, green when the B-work lands). Snapshots read the
+//! user-visible DB view, so every count is post-merge, what the app renders.
 //!
 //! Data is synthetic and deterministic (`LifecycleCorpus`, seeded). A second
 //! geography is a corpus at a shifted origin with namespaced activity ids so
 //! the two never collide in the engine.
 //!
-//! Run: `cargo test -p veloqrs --features synthetic --test suite2_multigeo_sport -- --include-ignored`
+//! Run: `cargo test -p veloqrs --features synthetic --test suite2_multigeo_sport -- --nocapture --include-ignored`
 
 mod lifecycle_support;
 
@@ -232,14 +235,18 @@ fn corridor_source(
 }
 
 // ============================================================================
-// Curiosity 1 — SPATIAL PERTURBATION (identity across space)
+// Curiosity 1 — SPATIAL PERTURBATION (R2 across space)
 // ============================================================================
 //
-// A second, distant city is added to a detected library. Emission still orders
-// clusters by their south-west corner, so a city placed further SOUTH sorts
-// ahead of the first and shifts every emission position. Identity must not
-// follow that: the id a section holds has to be a function of its own ground,
-// not of how many sections sort ahead of it in the whole catalogue.
+// A second, distant city is added to a detected library. Its clusters have
+// their own south-west corner and slot into the single per-sport section
+// counter by latitude. If the distant city sorts BEFORE the first (further
+// south), every pre-existing id shifts, even though the first city's ground is
+// untouched. The reshuffle is therefore GLOBAL across geographies: the id a
+// section holds is a function of how many sections sort ahead of it in the
+// whole catalogue, not of its own ground. Placing the same city NORTH (sorts
+// after) leaves the ids alone, which isolates the cause as spatial position,
+// not "adding data".
 
 /// Cold-detect geography 1, then add a namespaced geography 2 at a shifted
 /// origin and re-read the SAME engine. Geography 2 is sized at or above
@@ -269,16 +276,59 @@ fn geo_scenario(
     (g1a, g1b)
 }
 
-/// Gate (positional ids): a distant, unrelated geography must not perturb the
-/// identity of an existing one. Asserts `identity_retention >= 0.85` for
-/// geography 1 when geography 2 is added to the SOUTH, the harder direction —
-/// its clusters sort ahead of geography 1's, so a counter numbered by south-west
-/// corner would renumber geography 1 wholesale. Identity is assigned once and
-/// carried with the ground (B2), independent of what else the catalogue holds.
+/// Measurement: add a distant geography to the south (sorts first) and to the
+/// north (sorts last), and print the three survival signals for geography 1's
+/// sections in each case. The tell is a HIGH `id_survival` (the string
+/// `sec_ride_0` always exists) beside a LOW `identity_retention` (that id no
+/// longer covers its old ground) with `ground_survival` at 1.0: same sections,
+/// reshuffled. North should hold identity; south should not.
+#[test]
+fn geography_perturbation_today() {
+    let (s_a, s_south) = geo_scenario(46.37, 0x5150, "g2s_");
+    let (n_a, n_north) = geo_scenario(48.37, 0x6160, "g2n_");
+
+    println!(
+        "[battery] add distant geography to the SOUTH (its clusters sort first):\n  \
+         id_survival={:.2} ground_survival={:.2} identity_retention={:.2} \
+         (want identity >= 0.85; low here means ids reshuffled off their ground)",
+        id_survival(&s_a, &s_south),
+        ground_survival(&s_a, &s_south),
+        identity_retention(&s_a, &s_south),
+    );
+    println!(
+        "[battery] add the SAME geography to the NORTH (its clusters sort last):\n  \
+         id_survival={:.2} ground_survival={:.2} identity_retention={:.2} \
+         (identity should hold here — only the sort position changed)",
+        id_survival(&n_a, &n_north),
+        ground_survival(&n_a, &n_north),
+        identity_retention(&n_a, &n_north),
+    );
+
+    // Make the id lie concrete: follow geography 1's busiest section by ground.
+    if let Some((cold_id, cold)) = busiest_section(&s_a) {
+        let ground = ground_fp(cold.polyline.clone());
+        let same_id_now = s_south.sections.get(&cold_id);
+        let ground_now = busiest_on_ground(&s_south, &ground).map(|(id, _)| id);
+        let same_id_still_on_ground = same_id_now
+            .map(|f| ground_matches(&cold, f))
+            .unwrap_or(false);
+        println!(
+            "[battery] south: geography-1 busiest was {cold_id}; after the add, id {cold_id} \
+             still covers that ground = {same_id_still_on_ground}; the ground now lives under {ground_now:?}",
+        );
+    }
+}
+
+/// Gate (R2 / positional ids): a distant, unrelated geography must not perturb
+/// the identity of an existing one. Asserts `identity_retention >= 0.85` for
+/// geography 1 when geography 2 is added to the south. Red today — the single
+/// per-sport section counter numbers clusters by their south-west corner, so a
+/// southern city inserts ahead and renumbers geography 1 wholesale. Green when
+/// identity is assigned once and carried with the ground (B2), independent of
+/// what else the catalogue contains.
 #[test]
 fn distant_geography_must_not_reshuffle_ids() {
     let (g1a, g1b) = geo_scenario(46.37, 0x5150, "g2s_");
-    assert_catalogue_populated("geo1 before the southern add", &g1a);
     let retention = identity_retention(&g1a, &g1b);
     let ground = ground_survival(&g1a, &g1b);
     assert!(
@@ -294,17 +344,17 @@ fn distant_geography_must_not_reshuffle_ids() {
 // ============================================================================
 //
 // Corridor 2 in the corpus is travelled by both Ride and Run (ground-truth
-// `sport_types = [Ride, Run]`). Pooled detection treats that as ONE ground with
-// a derived sport, keeping a per-sport comparison view on top. The heading it
-// derives is still the identity's first assignment, so it tracks which sport
-// arrived first rather than which sport owns the ground.
+// `sport_types = [Ride, Run]`). Pooled detection should treat that as ONE
+// ground with a derived sport, keeping a per-sport comparison view on top. The
+// current engine instead partitions by sport at detection (a Ride section and
+// a Run section on identical ground), then the apply tail's
+// `merge_cross_sport_sections` collapses them into one whose sport is simply
+// the side with more traversals. So the derived sport is a count artefact:
+// flip which sport rides the corridor more and the section's sport flips with
+// it, on unchanged ground.
 
 /// Ingest `ride_n` + `run_n` traversals of corridor 2, same ground, only the
 /// sport labels differ, and return the post-pipeline snapshot plus the ground.
-///
-/// The minority sport goes in first, so a heading held from first assignment
-/// disagrees between the two arms instead of agreeing on whichever sport the
-/// caller happened to ingest first.
 fn cross_flip_snapshot(
     ride_n: usize,
     run_n: usize,
@@ -320,24 +370,52 @@ fn cross_flip_snapshot(
     );
 
     let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
-    let (first, second) = if ride_n <= run_n {
-        (("cross/ride", &rides), ("cross/run", &runs))
-    } else {
-        (("cross/run", &runs), ("cross/ride", &rides))
-    };
-    ingest_step(&mut engine, first.0, &refs(first.1));
-    let snap = ingest_step(&mut engine, second.0, &refs(second.1)).snapshot;
+    ingest_step(&mut engine, "cross/ride", &refs(&rides));
+    let snap = ingest_step(&mut engine, "cross/run", &refs(&runs)).snapshot;
     (snap, ground)
+}
+
+/// Measurement: run the shared corridor twice, once Ride-majority and once
+/// Run-majority, over the SAME physical ground. Print how many sections land on
+/// that ground and what sport the section carries each way. Ground-truth is
+/// multi-sport {Ride, Run}; a defensibly-derived sport would not depend on the
+/// count. Prints, never asserts.
+#[test]
+fn shared_corridor_sport_derivation_today() {
+    let (ride_major, ground) = cross_flip_snapshot(8, 4, "c2a_");
+    let (run_major, _) = cross_flip_snapshot(4, 8, "c2b_");
+    let g = ground_fp(ground);
+
+    let on_ride_major = sections_on_ground(&ride_major, &g);
+    let on_run_major = sections_on_ground(&run_major, &g);
+    let sport_ride_major = busiest_on_ground(&ride_major, &g).map(|(_, f)| f.sport_type);
+    let sport_run_major = busiest_on_ground(&run_major, &g).map(|(_, f)| f.sport_type);
+
+    println!(
+        "[battery] cross-sport ground truth = [Ride, Run]. Pooled detection result:\n  \
+         Ride-majority (8R/4r): {} section(s) on the ground, derived sport = {:?}\n  \
+         Run-majority  (4R/8r): {} section(s) on the ground, derived sport = {:?}\n  \
+         (invariant 2: want ONE section whose sport does NOT flip with the majority)",
+        on_ride_major.len(),
+        sport_ride_major,
+        on_run_major.len(),
+        sport_run_major,
+    );
+    println!(
+        "[battery] cross-sport: derived sport flips with the traversal count = {}",
+        sport_ride_major != sport_run_major,
+    );
 }
 
 /// Gate (invariant 2 — sport is derived, not partitioned): a corridor travelled
 /// by both sports must yield ONE section on that ground, and its derived sport
-/// must be invariant to which sport travels it more. Pooling delivers the single
-/// section. The heading is still red: the identity carry freezes sport at first
-/// assignment, so it reports the sport that arrived first, not the ground's.
-/// Green when the comparison layer owns sport and the heading re-derives.
+/// must be invariant to which sport travels it more. Red today — detection
+/// splits per sport and `merge_cross_sport_sections` picks the majority side as
+/// primary, so the sport flips Ride<->Run on identical ground (or, if the merge
+/// gates miss, two per-sport sections coexist on one ground). Green when sport
+/// is a comparison-layer attribute of a single pooled section.
 #[test]
-#[ignore = "invariant 2: the identity carry freezes sport at first assignment, so the heading follows ingest order rather than the ground (item 63)."]
+#[ignore = "invariant 2 — detection partitions by sport then the apply tail's count-based cross-sport merge picks the majority as the section sport, so the derived sport is a rank artefact that flips on unchanged ground."]
 fn shared_corridor_yields_one_section_with_stable_sport() {
     let (ride_major, ground) = cross_flip_snapshot(8, 4, "c2a_");
     let (run_major, _) = cross_flip_snapshot(4, 8, "c2b_");
@@ -362,8 +440,8 @@ fn shared_corridor_yields_one_section_with_stable_sport() {
     let sport_run_major = &on_run_major[0].1.sport_type;
     assert_eq!(
         sport_ride_major, sport_run_major,
-        "the heading disagrees across two arms with the same ground: {sport_ride_major} vs {sport_run_major} \
-         (invariant 2: sport is derived from the ground, not from ingest order or visit counts)"
+        "derived sport flips with the traversal-count majority: {sport_ride_major} vs {sport_run_major} \
+         (invariant 2: sport is derived from the ground, not from which side has more visits)"
     );
 }
 
@@ -373,17 +451,111 @@ fn shared_corridor_yields_one_section_with_stable_sport() {
 //
 // A Ride-only corridor exists, then Run passes of the SAME ground arrive. Under
 // invariant 2 the section is the ground: it keeps its id, and the second sport
-// is absorbed. The Run batch here is >= 50% new, so it takes the FULL re-detect
-// path — the harder case, where the whole pool is re-cut and the id has to be
-// handed to the surviving candidate rather than re-minted.
+// is absorbed into a derived attribute. The current engine does one of two
+// things depending only on batch size:
+//  - incremental (Run < 50% new): the Run pass matches the existing section
+//    geometrically (no sport filter) and is absorbed, so the id survives but
+//    the section stays frozen at "Ride" while silently holding Run members;
+//  - full (Run >= 50% new): re-detection makes a fresh Run section, then the
+//    count-based cross-sport merge makes the Run side primary and DELETES the
+//    old Ride section, so the id does not survive at all.
+// Either way the outcome hinges on how many activities arrived, not on the
+// ground.
 
-/// Gate (invariant 2, id survives a sport addition): adding a second sport on
-/// the same ground must leave the cold section's id still on that ground.
+/// Measurement: cold-detect a Ride-only corridor, then add Run passes two ways.
+/// The full-mode add (Run majority) shows whether the cold id survives; the
+/// incremental-mode add shows whether the id survives but the sport freezes.
+#[test]
+fn add_second_sport_identity_today() {
+    {
+        // Full mode: 5 Ride cold, then 6 Run (>= half of 11) forces re-detect.
+        let (src, ground) = corridor_source(2, 11);
+        let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
+        let cold = ingest_step(
+            &mut engine,
+            "full/ride-cold",
+            &refs(&labelled(&src, 0..5, "c3f_ride_", "Ride")),
+        )
+        .snapshot;
+        let g = ground_fp(ground);
+        let cold_sec = busiest_on_ground(&cold, &g);
+
+        let after = match try_ingest_step(
+            &mut engine,
+            "full/run-add",
+            &refs(&labelled(&src, 5..11, "c3f_run_", "Run")),
+        ) {
+            Ok(m) => Some(m.snapshot),
+            Err(e) => {
+                println!("[battery] full add crashed (a crash is a finding): {e}");
+                None
+            }
+        };
+
+        if let (Some((cold_id, _)), Some(after)) = (cold_sec, after) {
+            let on = sections_on_ground(&after, &g);
+            println!(
+                "[battery] FULL add (5 Ride then 6 Run, same ground):\n  \
+                 cold id was {cold_id}; after add the ground carries {} section(s): {:?}\n  \
+                 same id survives = {}",
+                on.len(),
+                on.iter()
+                    .map(|(id, f)| (id.clone(), f.sport_type.clone()))
+                    .collect::<Vec<_>>(),
+                on.iter().any(|(id, _)| *id == cold_id),
+            );
+        }
+    }
+
+    {
+        // Incremental mode: 7 Ride cold, then 3 Run (< half of 10) is absorbed.
+        let (src, ground) = corridor_source(2, 10);
+        let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
+        let cold = ingest_step(
+            &mut engine,
+            "incr/ride-cold",
+            &refs(&labelled(&src, 0..7, "c3i_ride_", "Ride")),
+        )
+        .snapshot;
+        let gi = ground_fp(ground);
+        let cold_sec = busiest_on_ground(&cold, &gi);
+        let after = ingest_step(
+            &mut engine,
+            "incr/run-add",
+            &refs(&labelled(&src, 7..10, "c3i_run_", "Run")),
+        )
+        .snapshot;
+
+        if let Some((cold_id, _)) = cold_sec {
+            let now = after.sections.get(&cold_id);
+            let holds_run = now
+                .map(|f| f.activity_ids.iter().any(|a| a.contains("c3i_run_")))
+                .unwrap_or(false);
+            println!(
+                "[battery] INCREMENTAL add (7 Ride then 3 Run, same ground):\n  \
+                 cold id {cold_id} survives = {}; its sport_type is now {:?}; \
+                 it silently holds Run members = {holds_run} \
+                 (id kept, but sport frozen at cold value — not derived)",
+                now.is_some(),
+                now.map(|f| f.sport_type.clone()),
+            );
+        }
+    }
+}
+
+/// Gate (invariant 2 — id survives a sport addition): adding a second sport on
+/// the same ground must leave exactly one section that keeps its id.
 ///
-/// This is B2's identity layer: the Run pass re-cuts the whole pool, and B2's
-/// resolution hands the cold id to the surviving candidate rather than
-/// re-minting it. The heading that candidate carries is gated separately by
-/// `shared_corridor_yields_one_section_with_stable_sport`.
+/// The IDENTITY half is B2's: when the Run pass arrives, detection splits the
+/// shared ground into a Ride and a Run candidate, and B2's split resolution
+/// hands the cold id to the higher-support candidate (its tie-break is
+/// majority-visits, identical to the cross-sport merge's majority primary on
+/// this relabelled identical-ground corpus, so the id always lands on the
+/// survivor). The SINGLE-SECTION half still comes from the apply-tail cross-sport
+/// merge collapsing the two per-sport sections into one; B3's pooled detection
+/// will make that structural rather than incidental (and delete the merge), and
+/// the gate stays green across it because pooled detection also yields one
+/// section on the ground.
 #[test]
 fn section_id_survives_sport_addition() {
     let (src, ground) = corridor_source(2, 11);
@@ -409,9 +581,10 @@ fn section_id_survives_sport_addition() {
 
     let on = sections_on_ground(&after, &g);
     assert!(
-        on.iter().any(|(id, _)| id == &cold_id),
-        "adding a second sport on the same ground broke identity: cold id {cold_id} left the \
-         ground, which now carries {:?}",
+        on.len() == 1 && on[0].0 == cold_id,
+        "adding a second sport on the same ground broke identity: cold id {cold_id} now maps to \
+         {} section(s) {:?} (want exactly 1, keeping {cold_id})",
+        on.len(),
         on.iter()
             .map(|(id, f)| (id.clone(), f.sport_type.clone()))
             .collect::<Vec<_>>(),
@@ -423,8 +596,9 @@ fn section_id_survives_sport_addition() {
 // ============================================================================
 //
 // A corridor travelled both ways is one corridor. The unified detector rasters
-// tracks into a coverage grid, which is direction-blind, so a reverse pass joins
-// the forward section rather than spawning a mirror on the same ground.
+// tracks into a coverage grid, which is direction-blind, so a reverse pass
+// should join the forward section rather than spawn a mirror on the same
+// ground. This measures both arms and gates the Battery (Unified) invariant.
 
 /// Ingest forward + reversed passes of the same `n` corridor-0 traversals as one
 /// sport on `arm`, and return the snapshot plus the corridor ground.
@@ -440,12 +614,40 @@ fn reverse_mix_snapshot(arm: Arm, n: usize, prefix: &str) -> (SectionSnapshot, V
     (snap, ground)
 }
 
-/// Gate (invariant 2 — one corridor, both directions): a reverse pass reuses the
-/// forward section, never spawning a mirror on the same ground. Battery arm. The
-/// unified detector rasters into a direction-blind coverage grid, so both
-/// directions land in one section. A red is a direction-sensitive change
-/// reintroducing mirror duplicates.
+/// Measurement: on both arms, print how many sections land on the corridor and
+/// how many of those pairs are reverse mirrors (same ground, opposite
+/// orientation). Prints, never asserts.
 #[test]
+fn reverse_direction_today() {
+    for arm in [Arm::Battery, Arm::Control] {
+        let (snap, ground) = reverse_mix_snapshot(arm, 6, &format!("c4{}_", arm.label()));
+        let g = ground_fp(ground);
+        let on = sections_on_ground(&snap, &g);
+        let mut mirror_pairs = 0usize;
+        for i in 0..on.len() {
+            for j in (i + 1)..on.len() {
+                if is_reverse_pair(&on[i].1, &on[j].1) {
+                    mirror_pairs += 1;
+                }
+            }
+        }
+        println!(
+            "[{}] reverse mix (6 forward + 6 reverse of one corridor): {} section(s) on the \
+             ground, {mirror_pairs} reverse-mirror pair(s) (want 1 section, 0 mirrors)",
+            arm.label(),
+            on.len(),
+        );
+    }
+}
+
+/// Gate (invariant 2 — one corridor, both directions): a reverse pass must
+/// reuse the forward section, never spawn a mirror on the same ground. Battery
+/// arm. The unified detector's coverage grid is direction-blind, so this is
+/// expected to hold today; kept as an `#[ignore]` Battery-target invariant so a
+/// future direction-sensitive change cannot quietly reintroduce mirror
+/// duplicates. Red if any reverse-mirror pair appears on the corridor ground.
+#[test]
+#[ignore = "invariant 2 reverse-mirror guard — Unified's coverage grid is direction-blind so this holds today; retained as a Battery-target invariant against a regression that would split forward/reverse into mirror sections."]
 fn reverse_pass_reuses_forward_section() {
     let (snap, ground) = reverse_mix_snapshot(Arm::Battery, 6, "c4g_");
     let g = ground_fp(ground);

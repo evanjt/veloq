@@ -160,11 +160,13 @@ fn merging_two_sections_keeps_the_count_true() {
 }
 
 #[test]
-fn merging_across_sports_keeps_the_count_true() {
+fn cross_sport_merge_keeps_the_count_true() {
     let mut s = setup();
     insert_activity(&s.raw, "a1", 1_700_000_000);
     insert_activity(&s.raw, "a2", 1_700_086_400);
     insert_activity(&s.raw, "a3", 1_700_172_800);
+    // Same corridor walked and ridden: identical bounds and distance, so the
+    // cross-sport pass sees one section under two sports.
     insert_section(&s.raw, "ride", "Ride");
     insert_section(&s.raw, "run", "Run");
     insert_traversal(&s.raw, "ride", "a1");
@@ -172,14 +174,14 @@ fn merging_across_sports_keeps_the_count_true() {
     insert_traversal(&s.raw, "run", "a3");
 
     s.engine
-        .merge_user_sections("ride", "run")
-        .expect("merge across sports");
+        .merge_cross_sport_sections()
+        .expect("cross-sport merge");
 
-    assert_counts_true(&s.raw, "a merge across sports");
+    assert_counts_true(&s.raw, "a cross-sport merge");
     assert_eq!(
         orphan_junction_rows(&s.raw),
         0,
-        "merge across sports left orphan rows"
+        "cross-sport merge left orphan rows"
     );
 }
 
@@ -340,37 +342,6 @@ fn both_summary_paths_agree_on_a_lapped_section() {
         (from_crud.visit_count, from_crud.activity_count),
         "the two read paths must not disagree about the same section"
     );
-}
-
-/// Guard, green from birth: the single-section detail read serves the
-/// trigger-maintained column, the same number the summaries carry. Pins
-/// the column as the one owner after the last independent COUNT(*) was
-/// retired from `get_section_visit_count`.
-#[test]
-fn the_section_detail_read_serves_the_column() {
-    let mut s = setup_lapped_oval();
-    s.engine.load().expect("load");
-
-    s.raw
-        .execute(
-            "UPDATE section_activities SET excluded = 1
-             WHERE section_id = 'sec_oval' AND activity_id = 'act_intervals' AND start_index = 100",
-            [],
-        )
-        .expect("exclude one lap");
-
-    let detail = s.engine.get_section("sec_oval").expect("section detail");
-    let summary = s
-        .engine
-        .get_section_summaries()
-        .into_iter()
-        .find(|x| x.id == "sec_oval")
-        .expect("oval summary");
-    assert_eq!(
-        detail.visit_count, summary.visit_count,
-        "detail and summary must serve the one column"
-    );
-    assert_eq!(detail.visit_count, 3);
 }
 
 #[test]

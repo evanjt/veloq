@@ -18,8 +18,9 @@ import type { ActivityType, RoutePoint, PerformanceDataPoint } from '@/types';
 
 export interface SectionPerformanceSectionProps {
   isDark: boolean;
-  /** The sport whose efforts are plotted. Decides pace against speed units. */
-  sportType: string;
+  section: {
+    sportType: string;
+  };
   chartData: (PerformanceDataPoint & { x: number })[];
   forwardStats: DirectionSummaryStats | null;
   reverseStats: DirectionSummaryStats | null;
@@ -41,7 +42,7 @@ export interface SectionPerformanceSectionProps {
 
 export function SectionPerformanceSection({
   isDark,
-  sportType,
+  section,
   chartData,
   forwardStats,
   reverseStats,
@@ -101,7 +102,7 @@ export function SectionPerformanceSection({
       </View>
       <SectionScatterChart
         chartData={chartData}
-        activityType={sportType as ActivityType}
+        activityType={section.sportType as ActivityType}
         isDark={isDark}
         bestForwardRecord={bestForwardRecord}
         bestReverseRecord={bestReverseRecord}

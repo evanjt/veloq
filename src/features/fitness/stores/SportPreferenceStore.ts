@@ -5,6 +5,13 @@ const SPORT_PREFERENCE_KEY = 'veloq-primary-sport';
 
 export type PrimarySport = 'Cycling' | 'Running' | 'Swimming';
 
+// Map primary sport to activity types used in API calls
+export const SPORT_API_TYPES: Record<PrimarySport, string[]> = {
+  Cycling: ['Ride', 'VirtualRide'],
+  Running: ['Run', 'VirtualRun', 'TrailRun'],
+  Swimming: ['Swim', 'OpenWaterSwim'],
+};
+
 // Sport-specific colors
 export const SPORT_COLORS: Record<PrimarySport, string> = {
   Cycling: '#3B82F6', // Blue-500 - Royal blue
