@@ -157,7 +157,7 @@
   },
   "overrides": {
     "expo-modules-core": "56.0.14",
-    "js-yaml": "^4.3.0",
+    "js-yaml": "^4.3.1",
     "uuid": ">=11.1.1"
   }
 }
