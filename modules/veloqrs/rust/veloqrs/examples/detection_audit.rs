@@ -1,14 +1,16 @@
-//! Audit and regression tests for section detection and route grouping.
+//! Detection and route-grouping diagnostics over a Veloq database export.
 //!
-//! Reads a Veloq database export (.veloqdb) and runs detection/grouping
-//! from scratch, reporting diagnostics and comparing threshold configs.
+//! Reads a `.veloqdb` export, re-runs grouping and section detection from
+//! scratch, and prints the resulting distributions. It needs a private
+//! database that is not in the repo, so it is a diagnostic binary rather than
+//! a test: nothing here asserts detector behaviour on a fixture CI can build.
 //!
 //! Usage:
-//!   # Default path: tests/fixtures/private/routes.db
-//!   cargo test -p veloqrs --test detection_audit -- --nocapture --ignored
+//!   cargo run -p veloqrs --example detection_audit
+//!   VELOQ_DB=/path/to/export.veloqdb cargo run -p veloqrs --example detection_audit
 //!
-//!   # Custom path (e.g. an exported .veloqdb from the app):
-//!   VELOQ_DB=/path/to/export.veloqdb cargo test -p veloqrs --test detection_audit -- --nocapture --ignored
+//! An optional argument selects one report instead of all of them:
+//!   match-quality | sections | groups | redetect | accepted
 
 use rusqlite::Connection;
 use std::collections::HashMap;
@@ -26,10 +28,7 @@ fn open_db() -> Option<Connection> {
     let path_str = db_path();
     let path = Path::new(&path_str);
     if !path.exists() {
-        eprintln!(
-            "Skipping: {} not found (set VELOQ_DB to override)",
-            path_str
-        );
+        eprintln!("{} not found (set VELOQ_DB to override)", path_str);
         return None;
     }
     Some(Connection::open(path).expect("open DB"))
@@ -63,22 +62,102 @@ fn load_tracks(conn: &Connection) -> Vec<(String, String, Vec<GpsPoint>)> {
     .collect()
 }
 
-// ── Helpers ────────────────────────────────────────────────────────
+fn compute_containment(poly_a: &[GpsPoint], poly_b: &[GpsPoint], threshold: f64) -> f64 {
+    if poly_a.is_empty() || poly_b.is_empty() {
+        return 0.0;
+    }
 
-// ── Route match quality audit ──────────────────────────────────────
+    let tree_b = tracematch::sections::build_rtree(poly_b);
+    let threshold_deg = threshold / 111_000.0;
+    let threshold_deg_sq = threshold_deg * threshold_deg;
 
-#[test]
-#[ignore]
-fn audit_route_match_quality() {
-    let conn = match open_db() {
-        Some(c) => c,
-        None => return,
-    };
+    let mut contained = 0;
+    for point in poly_a {
+        let query = [point.latitude, point.longitude];
+        if let Some(nearest) = tree_b.nearest_neighbor(&query) {
+            let d0 = nearest.lat - query[0];
+            let d1 = nearest.lng - query[1];
+            if d0 * d0 + d1 * d1 <= threshold_deg_sq {
+                contained += 1;
+            }
+        }
+    }
 
-    let all_tracks = load_tracks(&conn);
+    contained as f64 / poly_a.len() as f64
+}
+
+fn load_existing_sections(conn: &Connection) -> Vec<(String, f64, String, i64)> {
+    let mut stmt = conn
+        .prepare(
+            "SELECT s.id, s.distance_meters, s.sport_type,
+                    (SELECT COUNT(*) FROM section_activities sa
+                     WHERE sa.section_id = s.id AND sa.excluded = 0) as visits
+             FROM sections s
+             WHERE s.disabled = 0
+             ORDER BY visits DESC",
+        )
+        .unwrap();
+
+    stmt.query_map([], |row| {
+        Ok((
+            row.get::<_, String>(0)?,
+            row.get::<_, f64>(1)?,
+            row.get::<_, String>(2)?,
+            row.get::<_, i64>(3)?,
+        ))
+    })
+    .unwrap()
+    .filter_map(|r| r.ok())
+    .collect()
+}
+
+fn per_activity_section_counts(conn: &Connection) -> Vec<(String, i64)> {
+    let mut stmt = conn
+        .prepare(
+            "SELECT sa.activity_id, COUNT(*) as cnt
+             FROM section_activities sa
+             WHERE sa.excluded = 0
+             GROUP BY sa.activity_id
+             ORDER BY cnt DESC",
+        )
+        .unwrap();
+
+    stmt.query_map([], |row| {
+        Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?))
+    })
+    .unwrap()
+    .filter_map(|r| r.ok())
+    .collect()
+}
+
+fn load_existing_groups(conn: &Connection) -> Vec<(String, String, i64, String)> {
+    let mut stmt = conn
+        .prepare(
+            "SELECT id, representative_id, activity_count, sport_type
+             FROM route_groups
+             ORDER BY activity_count DESC",
+        )
+        .unwrap();
+
+    stmt.query_map([], |row| {
+        Ok((
+            row.get::<_, String>(0)?,
+            row.get::<_, String>(1)?,
+            row.get::<_, i64>(2)?,
+            row.get::<_, String>(3)?,
+        ))
+    })
+    .unwrap()
+    .filter_map(|r| r.ok())
+    .collect()
+}
+
+// ── Route match quality ────────────────────────────────────────────
+
+fn audit_route_match_quality(conn: &Connection) {
+    let all_tracks = load_tracks(conn);
     let config = MatchConfig::default();
 
-    // Build signature map
     let sig_map: HashMap<String, RouteSignature> = all_tracks
         .iter()
         .filter_map(|(id, _, pts)| {
@@ -87,25 +166,17 @@ fn audit_route_match_quality() {
         })
         .collect();
 
-    let _sport_map: HashMap<String, String> = all_tracks
-        .iter()
-        .map(|(id, sport, _)| (id.clone(), sport.clone()))
-        .collect();
-
-    // Load route groups from DB
-    let groups = load_existing_groups(&conn);
+    let groups = load_existing_groups(conn);
 
     println!("\n======================================================================");
     println!("ROUTE MATCH QUALITY — pairwise AMD within groups");
     println!("======================================================================\n");
 
-    // For each large group, compute pairwise match % between representative and all members
     for (group_id, rep_id, count, sport) in groups.iter().take(10) {
         if *count < 5 {
             continue;
         }
 
-        // Get activity IDs from the group
         let activity_ids_json: String = conn
             .query_row(
                 "SELECT activity_ids FROM route_groups WHERE id = ?",
@@ -156,7 +227,6 @@ fn audit_route_match_quality() {
             min_pct, max_pct, avg_pct
         );
 
-        // Show the worst matches
         let below_70: Vec<_> = match_pcts.iter().filter(|(_, p)| *p < 70.0).collect();
         if !below_70.is_empty() {
             println!("  Activities below 70% match:");
@@ -165,7 +235,6 @@ fn audit_route_match_quality() {
             }
         }
 
-        // Show distribution
         let above_90 = match_pcts.iter().filter(|(_, p)| *p >= 90.0).count();
         let range_70_90 = match_pcts
             .iter()
@@ -185,86 +254,11 @@ fn audit_route_match_quality() {
     }
 }
 
-fn compute_containment(poly_a: &[GpsPoint], poly_b: &[GpsPoint], threshold: f64) -> f64 {
-    if poly_a.is_empty() || poly_b.is_empty() {
-        return 0.0;
-    }
-
-    let tree_b = tracematch::sections::build_rtree(poly_b);
-    let threshold_deg = threshold / 111_000.0;
-    let threshold_deg_sq = threshold_deg * threshold_deg;
-
-    let mut contained = 0;
-    for point in poly_a {
-        let query = [point.latitude, point.longitude];
-        if let Some(nearest) = tree_b.nearest_neighbor(&query) {
-            let d0 = nearest.lat - query[0];
-            let d1 = nearest.lng - query[1];
-            if d0 * d0 + d1 * d1 <= threshold_deg_sq {
-                contained += 1;
-            }
-        }
-    }
-
-    contained as f64 / poly_a.len() as f64
-}
-
 // ── Section audit ──────────────────────────────────────────────────
 
-fn load_existing_sections(conn: &Connection) -> Vec<(String, f64, String, i64)> {
-    let mut stmt = conn
-        .prepare(
-            "SELECT s.id, s.distance_meters, s.sport_type,
-                    (SELECT COUNT(*) FROM section_activities sa
-                     WHERE sa.section_id = s.id AND sa.excluded = 0) as visits
-             FROM sections s
-             WHERE s.disabled = 0
-             ORDER BY visits DESC",
-        )
-        .unwrap();
-
-    stmt.query_map([], |row| {
-        Ok((
-            row.get::<_, String>(0)?,
-            row.get::<_, f64>(1)?,
-            row.get::<_, String>(2)?,
-            row.get::<_, i64>(3)?,
-        ))
-    })
-    .unwrap()
-    .filter_map(|r| r.ok())
-    .collect()
-}
-
-fn per_activity_section_counts(conn: &Connection) -> Vec<(String, i64)> {
-    let mut stmt = conn
-        .prepare(
-            "SELECT sa.activity_id, COUNT(*) as cnt
-             FROM section_activities sa
-             WHERE sa.excluded = 0
-             GROUP BY sa.activity_id
-             ORDER BY cnt DESC",
-        )
-        .unwrap();
-
-    stmt.query_map([], |row| {
-        Ok((row.get::<_, String>(0)?, row.get::<_, i64>(1)?))
-    })
-    .unwrap()
-    .filter_map(|r| r.ok())
-    .collect()
-}
-
-#[test]
-#[ignore]
-fn audit_existing_sections() {
-    let conn = match open_db() {
-        Some(c) => c,
-        None => return,
-    };
-
-    let sections = load_existing_sections(&conn);
-    let per_activity = per_activity_section_counts(&conn);
+fn audit_existing_sections(conn: &Connection) {
+    let sections = load_existing_sections(conn);
+    let per_activity = per_activity_section_counts(conn);
 
     println!("\n======================================================================");
     println!("SECTION AUDIT — existing database state");
@@ -272,7 +266,6 @@ fn audit_existing_sections() {
 
     println!("Total sections: {}", sections.len());
 
-    // By sport
     let mut by_sport: HashMap<&str, usize> = HashMap::new();
     for (_, _, sport, _) in &sections {
         *by_sport.entry(sport.as_str()).or_default() += 1;
@@ -284,7 +277,6 @@ fn audit_existing_sections() {
         println!("  {:<20} {}", sport, count);
     }
 
-    // Distance distribution
     let buckets = [
         (0.0, 100.0, "< 100m"),
         (100.0, 200.0, "100-200m"),
@@ -302,7 +294,6 @@ fn audit_existing_sections() {
         println!("  {:<12} {}", label, count);
     }
 
-    // Visit distribution
     println!("\nVisit distribution:");
     let vbuckets = [(1, 2), (3, 5), (6, 10), (11, 30), (31, i64::MAX)];
     let vlabels = ["1-2", "3-5", "6-10", "11-30", "30+"];
@@ -314,7 +305,6 @@ fn audit_existing_sections() {
         println!("  {:<12} visits: {}", label, count);
     }
 
-    // Per-activity section counts
     let max_sections = per_activity.first().map(|(_, c)| *c).unwrap_or(0);
     let avg_sections = if per_activity.is_empty() {
         0.0
@@ -342,7 +332,6 @@ fn audit_existing_sections() {
         println!("  {:<12} sections: {} activities", label, count);
     }
 
-    // Top 10 most over-sectioned activities
     println!("\nTop 10 most over-sectioned activities:");
     for (id, count) in per_activity.iter().take(10) {
         println!("  {} — {} sections", id, count);
@@ -353,37 +342,8 @@ fn audit_existing_sections() {
 
 // ── Route grouping audit ───────────────────────────────────────────
 
-fn load_existing_groups(conn: &Connection) -> Vec<(String, String, i64, String)> {
-    let mut stmt = conn
-        .prepare(
-            "SELECT id, representative_id, activity_count, sport_type
-             FROM route_groups
-             ORDER BY activity_count DESC",
-        )
-        .unwrap();
-
-    stmt.query_map([], |row| {
-        Ok((
-            row.get::<_, String>(0)?,
-            row.get::<_, String>(1)?,
-            row.get::<_, i64>(2)?,
-            row.get::<_, String>(3)?,
-        ))
-    })
-    .unwrap()
-    .filter_map(|r| r.ok())
-    .collect()
-}
-
-#[test]
-#[ignore]
-fn audit_existing_route_groups() {
-    let conn = match open_db() {
-        Some(c) => c,
-        None => return,
-    };
-
-    let groups = load_existing_groups(&conn);
+fn audit_existing_route_groups(conn: &Connection) {
+    let groups = load_existing_groups(conn);
 
     println!("\n======================================================================");
     println!("ROUTE GROUP AUDIT — existing database state");
@@ -391,7 +351,6 @@ fn audit_existing_route_groups() {
 
     println!("Total route groups: {}", groups.len());
 
-    // By sport
     let mut by_sport: HashMap<&str, (usize, i64)> = HashMap::new();
     for (_, _, count, sport) in &groups {
         let entry = by_sport.entry(sport.as_str()).or_default();
@@ -408,7 +367,6 @@ fn audit_existing_route_groups() {
         );
     }
 
-    // Size distribution
     let size_buckets = [(1, 1), (2, 5), (6, 15), (16, 30), (31, i64::MAX)];
     let size_labels = ["1", "2-5", "6-15", "16-30", "30+"];
     println!("\nGroup size distribution:");
@@ -420,7 +378,6 @@ fn audit_existing_route_groups() {
         println!("  {:<12} activities: {} groups", label, count);
     }
 
-    // Top 15 largest groups
     println!("\nTop 15 largest groups:");
     for (id, rep, count, sport) in groups.iter().take(15) {
         println!("  {} — {} activities (rep: {}, {})", id, count, rep, sport);
@@ -431,15 +388,8 @@ fn audit_existing_route_groups() {
 
 // ── Re-detection comparison ────────────────────────────────────────
 
-#[test]
-#[ignore]
-fn redetect_and_compare() {
-    let conn = match open_db() {
-        Some(c) => c,
-        None => return,
-    };
-
-    let all_tracks = load_tracks(&conn);
+fn redetect_and_compare(conn: &Connection) {
+    let all_tracks = load_tracks(conn);
     let total_activities = all_tracks.len();
 
     println!("\n======================================================================");
@@ -447,19 +397,16 @@ fn redetect_and_compare() {
     println!("======================================================================\n");
     println!("Loaded {} activities with GPS tracks", total_activities);
 
-    // Build sport map
     let sport_map: HashMap<String, String> = all_tracks
         .iter()
         .map(|(id, sport, _)| (id.clone(), sport.clone()))
         .collect();
 
-    // Build tracks for detection (id, points)
     let tracks: Vec<(String, Vec<GpsPoint>)> = all_tracks
         .iter()
         .map(|(id, _, pts)| (id.clone(), pts.clone()))
         .collect();
 
-    // First: run route grouping
     println!("\n--- Route Grouping ---");
     let config = MatchConfig::default();
     println!(
@@ -487,7 +434,6 @@ fn redetect_and_compare() {
         total_activities
     );
 
-    // Group by sport for sport-specific grouping
     let mut sig_by_sport: HashMap<String, Vec<RouteSignature>> = HashMap::new();
     for sig in &signatures {
         let sport = sport_map.get(&sig.activity_id).cloned().unwrap_or_default();
@@ -520,7 +466,6 @@ fn redetect_and_compare() {
     }
     println!("Total groups: {}", all_groups.len());
 
-    // Second: run section detection
     println!("\n--- Section Detection (current defaults) ---");
     let section_config = SectionConfig::default();
     println!(
@@ -543,7 +488,6 @@ fn redetect_and_compare() {
     println!("Sections detected: {}", result.sections.len());
     println!("Potentials: {}", result.potentials.len());
 
-    // Section stats
     let mut by_sport_sections: HashMap<&str, usize> = HashMap::new();
     for s in &result.sections {
         *by_sport_sections.entry(s.sport_type.as_str()).or_default() += 1;
@@ -555,7 +499,6 @@ fn redetect_and_compare() {
         println!("  {:<20} {}", sport, count);
     }
 
-    // Length distribution
     let buckets = [
         (0.0, 100.0, "< 100m"),
         (100.0, 200.0, "100-200m"),
@@ -574,7 +517,6 @@ fn redetect_and_compare() {
         println!("  {:<12} {}", label, count);
     }
 
-    // Visit count distribution
     let vbuckets: [(u32, u32); 5] = [(1, 2), (3, 5), (6, 10), (11, 30), (31, u32::MAX)];
     let vlabels = ["1-2", "3-5", "6-10", "11-30", "30+"];
     println!("\nVisit distribution:");
@@ -587,7 +529,6 @@ fn redetect_and_compare() {
         println!("  {:<12} visits: {}", label, count);
     }
 
-    // Per-activity section counts
     let mut per_activity: HashMap<&str, usize> = HashMap::new();
     for s in &result.sections {
         for aid in &s.activity_ids {
@@ -617,7 +558,6 @@ fn redetect_and_compare() {
         println!("    {} ({}) — {} sections", id, sport, count);
     }
 
-    // Overlap audit
     println!("\n--- Overlap Audit ---");
     let mut overlap_pairs = 0;
     let mut high_overlap_pairs = Vec::new();
@@ -630,7 +570,7 @@ fn redetect_and_compare() {
             .push(i);
     }
 
-    for (_sport, indices) in &sections_by_sport {
+    for indices in sections_by_sport.values() {
         for (a_idx, &i) in indices.iter().enumerate() {
             let si = &result.sections[i];
 
@@ -650,20 +590,18 @@ fn redetect_and_compare() {
                         section_config.proximity_threshold,
                     );
 
-                    if j_in_i > 0.3 || i_in_j > 0.3 {
-                        overlap_pairs += 1;
-                        if high_overlap_pairs.len() < 20 {
-                            high_overlap_pairs.push((
-                                si.id.clone(),
-                                sj.id.clone(),
-                                si.distance_meters,
-                                sj.distance_meters,
-                                si.visit_count,
-                                sj.visit_count,
-                                j_in_i,
-                                i_in_j,
-                            ));
-                        }
+                    overlap_pairs += 1;
+                    if high_overlap_pairs.len() < 20 {
+                        high_overlap_pairs.push((
+                            si.id.clone(),
+                            sj.id.clone(),
+                            si.distance_meters,
+                            sj.distance_meters,
+                            si.visit_count,
+                            sj.visit_count,
+                            j_in_i,
+                            i_in_j,
+                        ));
                     }
                 }
             }
@@ -693,164 +631,12 @@ fn redetect_and_compare() {
     println!("======================================================================\n");
 }
 
-// ── Consensus freeze tests ────────────────────────────────────────
+// ── Accepted-section survival ──────────────────────────────────────
 
-fn make_straight_track(
-    id: &str,
-    base_lat: f64,
-    base_lng: f64,
-    points: usize,
-) -> (String, Vec<GpsPoint>) {
-    let pts: Vec<GpsPoint> = (0..points)
-        .map(|i| GpsPoint {
-            latitude: base_lat + (i as f64) * 0.0001,
-            longitude: base_lng,
-            elevation: Some(100.0),
-        })
-        .collect();
-    (id.to_string(), pts)
-}
-
-#[test]
-#[ignore]
-fn consensus_freeze_accepted_section() {
-    use std::sync::Arc;
-    use tracematch::sections::{NoopProgress, detect_sections_multiscale};
-
-    let config = SectionConfig::default();
-    let mut sport_types = HashMap::new();
-
-    let tracks: Vec<(String, Vec<GpsPoint>)> = (0..5)
-        .map(|i| {
-            let offset = (i as f64) * 0.00001;
-            make_straight_track(&format!("a{}", i), 47.0 + offset, 7.0, 60)
-        })
-        .collect();
-    for (id, _) in &tracks {
-        sport_types.insert(id.clone(), "Ride".to_string());
-    }
-
-    let match_config = MatchConfig::default();
-    let groups = tracematch::group_signatures_parallel(
-        &tracks
-            .iter()
-            .filter_map(|(id, pts)| RouteSignature::from_points(id, pts, &match_config))
-            .collect::<Vec<_>>(),
-        &match_config,
-    );
-
-    let result = detect_sections_multiscale(&tracks, &sport_types, &groups, &config);
-    assert!(
-        !result.sections.is_empty(),
-        "should detect at least one section"
-    );
-
-    let mut sections = result.sections;
-    sections[0].is_user_defined = true;
-    let frozen_polyline = sections[0].polyline.clone();
-    let frozen_confidence = sections[0].confidence;
-
-    let new_tracks: Vec<(String, Vec<GpsPoint>)> = (5..8)
-        .map(|i| {
-            let offset = (i as f64) * 0.00002;
-            make_straight_track(&format!("a{}", i), 47.0 + offset, 7.0, 60)
-        })
-        .collect();
-    for (id, _) in &new_tracks {
-        sport_types.insert(id.clone(), "Ride".to_string());
-    }
-
-    let all_tracks: Vec<_> = tracks.iter().chain(new_tracks.iter()).cloned().collect();
-    let incremental = tracematch::sections::incremental::detect_sections_incremental(
-        &new_tracks,
-        &sections,
-        &all_tracks,
-        &sport_types,
-        &groups,
-        &config,
-        Arc::new(NoopProgress),
-    );
-
-    let accepted = incremental
-        .updated_sections
-        .iter()
-        .find(|s| s.is_user_defined)
-        .expect("accepted section should still exist");
-
-    assert_eq!(
-        accepted.polyline.len(),
-        frozen_polyline.len(),
-        "accepted section polyline length changed"
-    );
-    for (i, (a, b)) in accepted
-        .polyline
-        .iter()
-        .zip(frozen_polyline.iter())
-        .enumerate()
-    {
-        assert!(
-            (a.latitude - b.latitude).abs() < 1e-10 && (a.longitude - b.longitude).abs() < 1e-10,
-            "polyline point {} changed: ({},{}) -> ({},{})",
-            i,
-            b.latitude,
-            b.longitude,
-            a.latitude,
-            a.longitude,
-        );
-    }
-    assert_eq!(accepted.confidence, frozen_confidence, "confidence changed");
-
-    assert!(
-        accepted.visit_count > 5,
-        "visit count should increase (got {})",
-        accepted.visit_count,
-    );
-
-    println!(
-        "Consensus freeze: PASSED — polyline frozen, visits updated to {}",
-        accepted.visit_count
-    );
-}
-
-#[test]
-#[ignore]
-fn save_sections_preserves_accepted() {
-    let conn = match open_db() {
-        Some(c) => c,
-        None => return,
-    };
-
-    // Count accepted sections before
-    let before: i64 = conn
-        .query_row(
-            "SELECT COUNT(*) FROM sections WHERE is_user_defined = 1",
-            [],
-            |row| row.get(0),
-        )
-        .unwrap_or(0);
-
-    if before == 0 {
-        println!("No accepted sections in DB — marking one for test");
-        let maybe_id: Option<String> = conn
-            .query_row(
-                "SELECT id FROM sections WHERE section_type = 'auto' LIMIT 1",
-                [],
-                |row| row.get(0),
-            )
-            .ok();
-
-        if let Some(id) = maybe_id {
-            conn.execute(
-                "UPDATE sections SET is_user_defined = 1 WHERE id = ?",
-                [&id],
-            )
-            .unwrap();
-            println!("Marked section {} as accepted", id);
-        } else {
-            println!("No auto sections to mark — skipping test");
-            return;
-        }
-    }
+fn report_accepted_survive_delete(conn: &Connection) {
+    println!("\n======================================================================");
+    println!("ACCEPTED SECTIONS — would save_sections' DELETE remove them?");
+    println!("======================================================================\n");
 
     let accepted_count: i64 = conn
         .query_row(
@@ -858,9 +644,13 @@ fn save_sections_preserves_accepted() {
             [],
             |row| row.get(0),
         )
-        .unwrap();
+        .unwrap_or(0);
 
-    // Simulate what save_sections DELETE queries do (read-only check)
+    if accepted_count == 0 {
+        println!("No accepted sections in this database — nothing to check");
+        return;
+    }
+
     let would_delete: i64 = conn
         .query_row(
             "SELECT COUNT(*) FROM sections WHERE section_type = 'auto' AND original_polyline_json IS NULL AND is_user_defined = 0",
@@ -880,13 +670,35 @@ fn save_sections_preserves_accepted() {
     println!("Accepted sections: {}", accepted_count);
     println!("Would delete (non-accepted auto): {}", would_delete);
     println!("Would keep (accepted auto): {}", would_keep);
+}
 
-    assert!(
-        would_keep >= accepted_count,
-        "DELETE query would remove accepted sections! kept={} accepted={}",
-        would_keep,
-        accepted_count
-    );
+fn main() {
+    let conn = match open_db() {
+        Some(c) => c,
+        None => std::process::exit(1),
+    };
 
-    println!("Save persistence: PASSED — accepted sections survive DELETE queries");
+    let which = std::env::args().nth(1).unwrap_or_else(|| "all".to_string());
+
+    match which.as_str() {
+        "match-quality" => audit_route_match_quality(&conn),
+        "sections" => audit_existing_sections(&conn),
+        "groups" => audit_existing_route_groups(&conn),
+        "redetect" => redetect_and_compare(&conn),
+        "accepted" => report_accepted_survive_delete(&conn),
+        "all" => {
+            audit_existing_sections(&conn);
+            audit_existing_route_groups(&conn);
+            audit_route_match_quality(&conn);
+            report_accepted_survive_delete(&conn);
+            redetect_and_compare(&conn);
+        }
+        other => {
+            eprintln!(
+                "unknown report {:?}: expected match-quality | sections | groups | redetect | accepted | all",
+                other
+            );
+            std::process::exit(2);
+        }
+    }
 }

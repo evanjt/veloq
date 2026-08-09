@@ -245,3 +245,9 @@ required-features = ["synthetic"]
 [[bin]]
 name = "uniffi-bindgen"
 path = "uniffi-bindgen.rs"
+
+# Diagnostics over a private .veloqdb export. Not a test: it asserts nothing
+# and CI has no database to point it at.
+[[example]]
+name = "detection_audit"
+path = "examples/detection_audit.rs"
