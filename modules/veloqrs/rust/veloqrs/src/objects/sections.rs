@@ -687,7 +687,8 @@ impl SectionManager {
                 return vec![];
             }
 
-            let config = tracematch::SectionConfig::default();
+            // The user's config, matching the attach path's window.
+            let config = engine.get_section_config();
             let matches =
                 tracematch::sections::optimized::find_sections_in_route(&track, sections, &config);
 

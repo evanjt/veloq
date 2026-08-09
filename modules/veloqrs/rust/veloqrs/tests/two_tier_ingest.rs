@@ -292,3 +292,41 @@ fn re_attaching_a_lapped_activity_does_not_stack_rows() {
         assert_eq!(passes, 3, "three laps stay three after a repeated attach");
     }
 }
+
+/// The attach matcher derives its tolerance from the proximity setting.
+/// At the default (200 m) the derived tolerance is the long-standing 50 m,
+/// so shipped behaviour is unchanged; a relaxed setting must widen the
+/// match with it, or the slider silently stops at the detection layer.
+#[test]
+fn the_attach_tolerance_follows_the_proximity_setting() {
+    let dir = TempDir::new().unwrap();
+    let corpus = LifecycleCorpus::generate(&LifecycleConfig {
+        bucket_a_count: 30,
+        bucket_b_delta_count: 0,
+        bucket_e_delta_count: 0,
+        parallel_street_count: 0,
+        ..LifecycleConfig::default()
+    });
+    let mut engine = engine_with_sections(&dir, &corpus);
+
+    let mut cfg = tracematch::SectionConfig::default();
+    cfg.proximity_threshold = 400.0;
+    engine.set_section_config(cfg);
+
+    // 75 m north of a known corridor ride: outside the default-derived
+    // 50 m tolerance, inside the relaxed 100 m one.
+    let base = &corpus.bucket_c_single;
+    let mut shifted = base.gps_points.clone();
+    for p in &mut shifted {
+        p.latitude += 75.0 / 111_320.0;
+    }
+    engine
+        .add_activity("shifted".into(), shifted, base.sport_type.clone())
+        .unwrap();
+
+    let summary = engine.attach_new_activities(&["shifted".to_string()]);
+    assert!(
+        summary.inserted_portions > 0,
+        "a 75 m-offset track failed to attach under a 400 m proximity setting"
+    );
+}

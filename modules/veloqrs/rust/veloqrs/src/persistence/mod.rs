@@ -895,6 +895,10 @@ impl PersistentRouteEngine {
     /// Read-only accessors for `section_config` fields. Mirror the
     /// MatchConfig getters above so integration tests can verify
     /// persisted SectionConfig without crate-private access.
+    pub fn get_section_config(&self) -> SectionConfig {
+        self.section_config.clone()
+    }
+
     pub fn section_config_proximity_threshold(&self) -> f64 {
         self.section_config.proximity_threshold
     }

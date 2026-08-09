@@ -333,7 +333,12 @@ impl PersistentRouteEngine {
 
             // Use strict matching (30m threshold, gap tolerance 1) to avoid
             // including parallel roads or large non-matching spans
-            let portions = compute_section_portions_strict(activity_id, &track, &current_polyline);
+            let portions = compute_section_portions_strict(
+                activity_id,
+                &track,
+                &current_polyline,
+                self.section_config.proximity_threshold,
+            );
             if portions.is_empty() {
                 return Err(format!(
                     "Activity {} does not overlap sufficiently with section {}",
@@ -456,7 +461,12 @@ impl PersistentRouteEngine {
             let polyline: Vec<GpsPoint> =
                 self.stored_section_polyline(section_id).unwrap_or_default();
 
-            let portions = compute_section_portions(activity_id, &track, &polyline);
+            let portions = compute_section_portions(
+                activity_id,
+                &track,
+                &polyline,
+                self.section_config.proximity_threshold,
+            );
             if portions.is_empty() {
                 // Fallback for custom sections - the source activity should always match
                 self.add_section_activity(section_id, activity_id)?;
@@ -508,7 +518,12 @@ impl PersistentRouteEngine {
         // Re-add only activities that still match, with full portion details (all laps)
         for aid in &activity_ids {
             if let Some(track) = self.get_gps_track(aid) {
-                for portion in compute_section_portions(aid, &track, new_polyline) {
+                for portion in compute_section_portions(
+                    aid,
+                    &track,
+                    new_polyline,
+                    self.section_config.proximity_threshold,
+                ) {
                     self.add_section_activity_with_portion(section_id, &portion)?;
                 }
             }
@@ -666,7 +681,10 @@ impl PersistentRouteEngine {
             if sections.is_empty() {
                 vec![]
             } else {
-                let config = tracematch::SectionConfig::default();
+                // The user's config, not the factory default: the candidate
+                // window scales off proximity_threshold, and an attach that
+                // ignores the slider matches ground detection would not.
+                let config = self.section_config.clone();
                 let matches = tracematch::sections::optimized::find_sections_in_route(
                     &track, sections, &config,
                 );
@@ -690,7 +708,12 @@ impl PersistentRouteEngine {
         let mut matched_sections = 0;
         let mut inserted_portions = 0;
         for (section_id, polyline) in &matched {
-            let portions = compute_section_portions(activity_id, &track, polyline);
+            let portions = compute_section_portions(
+                activity_id,
+                &track,
+                polyline,
+                self.section_config.proximity_threshold,
+            );
             if portions.is_empty() {
                 continue;
             }
@@ -823,7 +846,12 @@ impl PersistentRouteEngine {
         // Compute full portion details for each matching activity (all laps)
         for aid in &activity_ids {
             if let Some(track) = track_map.get(aid) {
-                let portions = compute_section_portions(aid, track, polyline);
+                let portions = compute_section_portions(
+                    aid,
+                    track,
+                    polyline,
+                    self.section_config.proximity_threshold,
+                );
                 if !portions.is_empty() {
                     for portion in &portions {
                         self.add_section_activity_with_portion(section_id, portion)?;
