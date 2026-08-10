@@ -22,35 +22,34 @@ impl PersistentRouteEngine {
     /// M16: bounded activity stream body cache.
     /// M17: section history, geometry versions and pins (B4 core).
     pub(super) fn migrations() -> Migrations<'static> {
-        Migrations::new(vec![
-            M::up(include_str!("../migrations/001_initial_schema.sql")),
-            M::up(include_str!("../migrations/002_unified_sections.sql")),
-            M::up(include_str!("../migrations/003_drop_section_names.sql")),
-            M::up(include_str!(
-                "../migrations/004_extend_activity_metrics.sql"
-            )),
-            M::up(include_str!("../migrations/005_profile_and_settings.sql")),
-            M::up(include_str!("../migrations/006_processed_activities.sql")),
-            M::up(include_str!(
-                "../migrations/007_cache_section_performances.sql"
-            )),
-            M::up(include_str!(
-                "../migrations/008_cache_all_performance_metrics.sql"
-            )),
-            M::up(include_str!("../migrations/009_section_bounds_cache.sql")),
-            M::up(include_str!(
-                "../migrations/010_route_groups_activity_count.sql"
-            )),
-            M::up(include_str!("../migrations/011_pace_history.sql")),
-            M::up(include_str!("../migrations/012_v030.sql")),
-            M::up(include_str!("../migrations/013_wellness_raw_body.sql")),
-            M::up(include_str!("../migrations/014_activity_bodies.sql")),
-            M::up(include_str!(
-                "../migrations/015_curve_interval_calendar_bodies.sql"
-            )),
-            M::up(include_str!("../migrations/016_stream_bodies.sql")),
-            M::up(include_str!("../migrations/017_b4_core.sql")),
-        ])
+        Migrations::new(Self::migration_scripts().into_iter().map(M::up).collect())
+    }
+
+    /// The migration SQL in application order. Exposed so migration tests can
+    /// seed a database at an arbitrary released version by applying a prefix of
+    /// this exact list, rather than hand-copying `include_str!` lines that then
+    /// drift from what ships.
+    #[doc(hidden)]
+    pub fn migration_scripts() -> Vec<&'static str> {
+        vec![
+            include_str!("../migrations/001_initial_schema.sql"),
+            include_str!("../migrations/002_unified_sections.sql"),
+            include_str!("../migrations/003_drop_section_names.sql"),
+            include_str!("../migrations/004_extend_activity_metrics.sql"),
+            include_str!("../migrations/005_profile_and_settings.sql"),
+            include_str!("../migrations/006_processed_activities.sql"),
+            include_str!("../migrations/007_cache_section_performances.sql"),
+            include_str!("../migrations/008_cache_all_performance_metrics.sql"),
+            include_str!("../migrations/009_section_bounds_cache.sql"),
+            include_str!("../migrations/010_route_groups_activity_count.sql"),
+            include_str!("../migrations/011_pace_history.sql"),
+            include_str!("../migrations/012_v030.sql"),
+            include_str!("../migrations/013_wellness_raw_body.sql"),
+            include_str!("../migrations/014_activity_bodies.sql"),
+            include_str!("../migrations/015_curve_interval_calendar_bodies.sql"),
+            include_str!("../migrations/016_stream_bodies.sql"),
+            include_str!("../migrations/017_b4_core.sql"),
+        ]
     }
 
     /// Initialize the database schema using migrations.
