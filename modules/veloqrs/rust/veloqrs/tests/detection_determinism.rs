@@ -25,7 +25,13 @@ use tracematch::scenarios::{LifecycleConfig, LifecycleCorpus};
 /// than as agreement.
 const MARKER: &str = "CATALOGUE-DIGEST ";
 const CHILD_ENV: &str = "VELOQ_DETERMINISM_CHILD";
-const WORKER: &str = "a_cold_detect_fills_the_catalogue";
+
+/// Both arms are gated. `Control` is the shipped default and is scheduled for
+/// replacement rather than repair, so its result says what users get today.
+/// `Battery` is `Unified`, the arm that has to be deterministic before it
+/// becomes the default.
+const WORKER_CONTROL: &str = "a_cold_detect_fills_the_catalogue_on_the_control_arm";
+const WORKER_BATTERY: &str = "a_cold_detect_fills_the_catalogue_on_the_battery_arm";
 
 /// Separate processes get separate `RandomState` seeds. Four is enough that an
 /// order-dependent detector disagrees with near-certainty while the suite stays
@@ -42,23 +48,24 @@ fn digest(text: &str) -> String {
         .collect()
 }
 
-fn cold_catalogue_signature() -> String {
+fn cold_catalogue_signature(arm: Arm) -> String {
     let corpus = LifecycleCorpus::generate(&LifecycleConfig::default());
-    let (mut engine, _dir) = fresh_engine_for(Arm::Control);
+    let (mut engine, _dir) = fresh_engine_for(arm);
     let cold = ingest_step(&mut engine, "cold", &corpus.through_a());
     cold.snapshot.catalogue_signature()
 }
 
-/// The worker the parent re-executes, and a gate in its own right: an empty
-/// catalogue would make every cross-process comparison below agree on nothing.
-#[test]
-fn a_cold_detect_fills_the_catalogue() {
-    let signature = cold_catalogue_signature();
+/// Doubles as the worker the parent re-executes and as a gate in its own right:
+/// an empty catalogue would make every cross-process comparison below agree on
+/// nothing.
+fn run_worker(arm: Arm) {
+    let signature = cold_catalogue_signature(arm);
 
     assert!(
         !signature.is_empty(),
-        "cold detect produced no sections, so the determinism comparison would \
-         hold two empty strings against each other and pass"
+        "cold detect on the {} arm produced no sections, so the determinism \
+         comparison would hold two empty strings against each other and pass",
+        arm.label()
     );
 
     if std::env::var(CHILD_ENV).is_ok() {
@@ -66,9 +73,19 @@ fn a_cold_detect_fills_the_catalogue() {
     }
 }
 
-fn child_digest(exe: &std::path::Path, index: usize) -> String {
+#[test]
+fn a_cold_detect_fills_the_catalogue_on_the_control_arm() {
+    run_worker(Arm::Control);
+}
+
+#[test]
+fn a_cold_detect_fills_the_catalogue_on_the_battery_arm() {
+    run_worker(Arm::Battery);
+}
+
+fn child_digest(exe: &std::path::Path, worker: &str, index: usize) -> String {
     let out = Command::new(exe)
-        .args(["--exact", WORKER, "--nocapture"])
+        .args(["--exact", worker, "--nocapture"])
         .env(CHILD_ENV, "1")
         .output()
         .unwrap_or_else(|e| panic!("child {index}: could not re-execute {}: {e}", exe.display()));
@@ -94,25 +111,42 @@ fn child_digest(exe: &std::path::Path, index: usize) -> String {
         .to_string()
 }
 
-#[test]
-fn detection_lands_on_the_same_catalogue_in_every_process() {
+fn assert_every_process_agrees(arm: Arm, worker: &str) {
     let exe = std::env::current_exe().expect("path to this test binary");
 
     let mut by_digest: BTreeMap<String, Vec<usize>> = BTreeMap::new();
     for i in 0..CHILDREN {
-        by_digest.entry(child_digest(&exe, i)).or_default().push(i);
+        by_digest
+            .entry(child_digest(&exe, worker, i))
+            .or_default()
+            .push(i);
     }
 
     assert_eq!(
         by_digest.len(),
         1,
-        "{} processes detected {} different catalogues from identical input: {:?}\n\n\
+        "{} processes detected {} different catalogues from identical input on \
+         the {} arm: {:?}\n\n\
          The corpus is seeded from a fixed value, so every process saw the same \
          activities. A split here means detection reads an order that varies per \
          process, which on a phone means two devices holding the same history draw \
          different sections.",
         CHILDREN,
         by_digest.len(),
+        arm.label(),
         by_digest
     );
+}
+
+/// The shipped default. Scheduled for replacement rather than repair, so a red
+/// here measures what users get today.
+#[test]
+fn the_control_arm_lands_on_the_same_catalogue_in_every_process() {
+    assert_every_process_agrees(Arm::Control, WORKER_CONTROL);
+}
+
+/// The arm that has to be deterministic before it can become the default.
+#[test]
+fn the_battery_arm_lands_on_the_same_catalogue_in_every_process() {
+    assert_every_process_agrees(Arm::Battery, WORKER_BATTERY);
 }
