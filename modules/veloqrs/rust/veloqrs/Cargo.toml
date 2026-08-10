@@ -171,6 +171,10 @@ name = "suite2_edits_geometry"
 required-features = ["synthetic"]
 
 [[test]]
+name = "detection_determinism"
+required-features = ["synthetic"]
+
+[[test]]
 name = "suite2_engine_cache"
 required-features = ["synthetic"]
 
