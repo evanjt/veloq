@@ -481,6 +481,16 @@ pub fn identity_retention(before: &SectionSnapshot, after: &SectionSnapshot) -> 
     kept as f64 / survivors.len() as f64
 }
 
+/// Every survival metric scores an empty `before` 0.0, so a gate that compares
+/// before a section has formed measures nothing. Assert the catalogue exists
+/// first.
+pub fn assert_catalogue_populated(label: &str, snap: &SectionSnapshot) {
+    assert!(
+        snap.count() > 0,
+        "{label}: catalogue is empty, the comparison that follows would assert nothing"
+    );
+}
+
 /// A wiped or never-formed catalogue must score zero on every survival metric.
 /// Scoring it 1.0 let the identity gates pass while asserting on nothing.
 #[test]

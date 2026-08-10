@@ -84,8 +84,9 @@ fn batch_snapshot(activities: &[&LifecycleActivity]) -> SectionSnapshot {
 
 /// Assert the cached-drip catalogue and the batch catalogue describe the same
 /// ground in BOTH directions (neither invents nor drops a section's ground).
-/// Empty-vs-empty is a match (early prefixes before any section forms), so this
-/// only bites once real sections exist.
+/// Both catalogues must be populated: `ground_survival` scores an empty `before`
+/// 0.0, so this never reads as a pass on nothing. Callers skip the
+/// pre-formation prefix explicitly and latch once a section has formed.
 fn assert_ground_match(step: usize, batch: &SectionSnapshot, drip: &SectionSnapshot) {
     let batch_in_drip = ground_survival(batch, drip);
     let drip_in_batch = ground_survival(drip, batch);
@@ -111,10 +112,6 @@ fn assert_ground_match(step: usize, batch: &SectionSnapshot, drip: &SectionSnaps
 // ============================================================================
 
 #[test]
-#[ignore = "red: step 1 detects 0 sections on BOTH arms, so this compared two \
-            empty catalogues. It passed only because the ground-overlap metric \
-            returned 1.0 for empty-vs-empty; that now returns 0.0. Unignore when \
-            the drip corpus yields sections at step 1."]
 fn single_cluster_drip_matches_batch_every_step() {
     let corpus = cold_corpus(47.37, 0xC0FFEE, 14);
     let pool: Vec<&LifecycleActivity> = corpus.bucket_a.iter().collect();
@@ -122,14 +119,28 @@ fn single_cluster_drip_matches_batch_every_step() {
     let (mut drip_engine, _dir) = fresh_engine_for(Arm::Battery);
     let mut seen: Vec<&LifecycleActivity> = Vec::new();
 
+    // Support floors mean no section can form over the first few adds. Skip
+    // that prefix, then latch: once ground has formed, a later empty step is a
+    // real desync and must still fail.
+    let mut formed = false;
     for (i, a) in pool.iter().copied().enumerate() {
         ingest_step(&mut drip_engine, "drip", &[a]);
         seen.push(a);
 
         let drip = raw_snapshot(&drip_engine);
         let batch = batch_snapshot(&seen);
+        if !formed && batch.count() == 0 && drip.count() == 0 {
+            continue;
+        }
+        formed = true;
         assert_ground_match(i + 1, &batch, &drip);
     }
+
+    assert!(
+        formed,
+        "no step formed a section, the parity gate asserted nothing"
+    );
+    assert_catalogue_populated("final drip", &raw_snapshot(&drip_engine));
 }
 
 // ============================================================================
@@ -144,11 +155,13 @@ fn single_cluster_drip_matches_batch_every_step() {
 // ============================================================================
 
 #[test]
-#[ignore = "red: same root as single_cluster_drip_matches_batch_every_step, \
-            0 sections on both arms at step 1."]
 fn multi_cluster_interleaved_drip_matches_batch_every_step() {
-    let geo1 = cold_corpus(47.37, 0xC0FFEE, 7);
-    let geo2_raw = cold_corpus(45.30, 0xBEEF, 7); // ~2 deg south => a distinct cluster
+    // n is load-bearing, not cosmetic. `emit_bucket` spaces days and draws the
+    // parallel-street decoys as a function of the total count, so a smaller
+    // corpus is not a prefix of a larger one. The per-geography preconditions
+    // below are what keeps that from silently emptying the gate.
+    let geo1 = cold_corpus(47.37, 0xC0FFEE, 12);
+    let geo2_raw = cold_corpus(45.30, 0xBEEF, 12); // ~2 deg south => a distinct cluster
     let geo1_acts: Vec<&LifecycleActivity> = geo1.bucket_a.iter().collect();
     let geo2_acts_owned = namespaced("g2_", &geo2_raw.bucket_a.iter().collect::<Vec<_>>());
     let geo2_acts: Vec<&LifecycleActivity> = geo2_acts_owned.iter().collect();
@@ -165,17 +178,33 @@ fn multi_cluster_interleaved_drip_matches_batch_every_step() {
         }
     }
 
+    // Each geography must be able to form ground on its own, or the interleaved
+    // comparison below has nothing to disagree about.
+    assert_catalogue_populated("geo1 batch", &batch_snapshot(&geo1_acts));
+    assert_catalogue_populated("geo2 batch", &batch_snapshot(&geo2_acts));
+
     let (mut drip_engine, _dir) = fresh_engine_for(Arm::Battery);
     let mut seen: Vec<&LifecycleActivity> = Vec::new();
 
+    let mut formed = false;
     for (i, a) in order.iter().copied().enumerate() {
         ingest_step(&mut drip_engine, "drip", &[a]);
         seen.push(a);
 
         let drip = raw_snapshot(&drip_engine);
         let batch = batch_snapshot(&seen);
+        if !formed && batch.count() == 0 && drip.count() == 0 {
+            continue;
+        }
+        formed = true;
         assert_ground_match(i + 1, &batch, &drip);
     }
+
+    assert!(
+        formed,
+        "no step formed a section, the parity gate asserted nothing"
+    );
+    assert_catalogue_populated("final drip", &raw_snapshot(&drip_engine));
 }
 
 // ============================================================================

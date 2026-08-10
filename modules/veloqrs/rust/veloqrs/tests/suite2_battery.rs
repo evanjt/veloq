@@ -46,6 +46,7 @@ fn expand_window_discontinuity_is_measured() {
         let expand = ingest_step(&mut engine, "expand-1y", &refs(&corpus.bucket_b_delta));
         cold.print(arm);
         expand.print(arm);
+        assert_catalogue_populated(arm.label(), &cold.snapshot);
         println!(
             "[{}] expand survival: id(string)={:>3.0}%  ground={:>3.0}%  identity(ground+id)={:>3.0}%   ({} -> {} sections)",
             arm.label(),
@@ -111,6 +112,7 @@ fn battery_expand_preserves_identity() {
     let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
     let cold = ingest_step(&mut engine, "cold-90", &corpus.through_a());
     let expand = ingest_step(&mut engine, "expand-1y", &refs(&corpus.bucket_b_delta));
+    assert_catalogue_populated("cold-90", &cold.snapshot);
     // Ground-anchored identity, NOT raw string-id survival: of the sections
     // whose corridor persisted, how many kept their id.
     let retention = identity_retention(&cold.snapshot, &expand.snapshot);

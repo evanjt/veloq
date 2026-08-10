@@ -58,6 +58,7 @@ fn playback_vs_batch_cold_set() {
         let play = snapshot(&mut ep);
 
         let parity = play.catalogue_signature() == batch.snapshot.catalogue_signature();
+        assert_catalogue_populated(arm.label(), &batch.snapshot);
         let converged = ground_survival(&batch.snapshot, &play);
         println!(
             "[{}] BATCH   detect={:>6}ms apply={:>5}ms  ({} sections)",
@@ -115,6 +116,7 @@ fn playback_converges_to_batch() {
         ingest_step(&mut ep, "play", &[a]);
     }
     let play = snapshot(&mut ep);
+    assert_catalogue_populated("batch", &batch.snapshot);
     let converged = ground_survival(&batch.snapshot, &play);
     assert!(
         converged >= 0.85,

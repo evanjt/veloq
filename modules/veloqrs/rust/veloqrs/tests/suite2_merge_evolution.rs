@@ -288,6 +288,8 @@ fn unpinned_evolution_keeps_identity() {
     let s_b = ingest_step(&mut engine, "b/expand", &refs(&corpus.bucket_b_delta)).snapshot;
     let s_c = ingest_step(&mut engine, "c/single", &[&corpus.bucket_c_single]).snapshot;
 
+    assert_catalogue_populated("a/cold", &s_a);
+    assert_catalogue_populated("b/expand", &s_b);
     let ab = identity_retention(&s_a, &s_b);
     let bc = identity_retention(&s_b, &s_c);
     assert!(
