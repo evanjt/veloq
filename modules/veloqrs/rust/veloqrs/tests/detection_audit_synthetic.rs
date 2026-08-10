@@ -77,7 +77,7 @@ const SHARED_START: (f64, f64) = (47.3700, 8.5400);
 const SHARED_END: (f64, f64) = (47.3835, 8.5400);
 
 /// Unique approach/departure per activity: widely separated so they're clearly
-/// outside the proximity_threshold (50 m). ~800 m divergence at mid-prefix.
+/// outside the proximity threshold. ~800 m divergence at mid-prefix.
 const FIXTURE_VARIANTS: [(f64, f64, f64, f64); 5] = [
     (47.3620, 8.5250, 47.3920, 8.5550), // SW → NE
     (47.3625, 8.5550, 47.3915, 8.5250), // SE → NW

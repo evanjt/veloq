@@ -280,6 +280,7 @@ fn geo_scenario(
 #[test]
 fn distant_geography_must_not_reshuffle_ids() {
     let (g1a, g1b) = geo_scenario(46.37, 0x5150, "g2s_");
+    assert_catalogue_populated("geo1 before the southern add", &g1a);
     let retention = identity_retention(&g1a, &g1b);
     let ground = ground_survival(&g1a, &g1b);
     assert!(

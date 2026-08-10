@@ -1,3 +1,4 @@
+./scripts/check-no-private-data.sh
 npx lint-staged
 npm run audit
 npx tsc --noEmit

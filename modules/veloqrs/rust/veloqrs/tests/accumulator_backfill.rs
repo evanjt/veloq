@@ -189,11 +189,6 @@ fn backfill_is_idempotent_when_flag_already_set() {
 }
 
 #[test]
-#[ignore = "red: after the backfill seeds 14 blobs, the next incremental add \
-            detects 0 sections and apply_sections_save wipes the catalogue to 0 rows. \
-            The old assertion only timed the call, so it passed while detection \
-            produced nothing. Unignore when the incremental path returns the \
-            existing catalogue instead of an empty batch."]
 fn post_backfill_incremental_add_stays_in_fast_path() {
     // The upgrade-path backfill exists so the first post-upgrade incremental
     // add reuses the seeded accumulator blobs instead of re-extracting traces.
@@ -225,8 +220,11 @@ fn post_backfill_incremental_add_stays_in_fast_path() {
         before
     );
 
-    // Re-open the engine (fresh load picks up blobs from disk).
+    // Mirror `persistent_engine_init`: new() then load(). new() alone leaves
+    // `activity_metadata` empty, so the detection pool would be the one new
+    // activity and Corridor's `min_activities` floor would zero the batch.
     let mut engine = PersistentRouteEngine::new(&path).expect("engine");
+    engine.load().expect("load");
 
     // Ingest the single new activity (scenario C's +1).
     let new_activity = &corpus.bucket_c_single;
