@@ -580,6 +580,11 @@ impl PersistentRouteEngine {
             .cloned()
             .collect();
 
+        // Pinned sections hold their drawn line: the fold freezes them and
+        // withholds any fresh cut sharing their corridor. Read here, on the
+        // engine, so the worker takes the durable intent as an explicit input.
+        let pinned_ids = self.pinned_section_ids();
+
         let new_activity_ids: Vec<String> = activity_ids
             .iter()
             .filter(|id| !self.processed_activity_ids.contains(*id))
@@ -840,7 +845,10 @@ impl PersistentRouteEngine {
                     &sport_map,
                     &start_epochs,
                     &section_config,
-                    &tracematch::SectionUpdatePolicy::default(),
+                    &tracematch::SectionUpdatePolicy {
+                        pinned_ids,
+                        freeze_all_geometry: false,
+                    },
                 )
                 .catalogue;
 
