@@ -249,6 +249,14 @@ required-features = ["synthetic"]
 name = "custom_section_survives_clear"
 required-features = ["synthetic"]
 
+[[test]]
+name = "identity_reseed"
+required-features = ["synthetic"]
+
+[[test]]
+name = "detection_fixed_point"
+required-features = ["synthetic"]
+
 [[bench]]
 name = "heatmap_tiles"
 harness = false

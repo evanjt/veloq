@@ -98,8 +98,8 @@ pub(crate) fn poll_detection_once() -> Result<DetectionPoll, VeloqError> {
             })??;
 
             // Release the write lock above before the finalize tail so any
-            // queued reads see the saved sections during the cross-sport
-            // merge + indicator recompute, which re-takes a separate lock.
+            // queued reads see the saved sections during the indicator
+            // recompute, which re-takes a separate lock.
             with_engine(|e| {
                 e.apply_sections_finalize_with_progress(progress.as_ref());
                 // Reload groups from DB in case the background thread
