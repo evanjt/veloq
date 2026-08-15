@@ -828,7 +828,7 @@ impl PersistentRouteEngine {
                 );
 
                 let mut cache = cache_at_spawn;
-                let mut sections_to_send = tracematch::detect_sections_unified_incremental_dated(
+                let sections_to_send = tracematch::detect_sections_unified_incremental_dated(
                     &mut cache,
                     &existing_sections,
                     &tracks,
@@ -863,14 +863,10 @@ impl PersistentRouteEngine {
                     })
                     .ok();
 
-                // Seed consensus_state for the fresh sections, mirroring the
-                // full-detection path (the sections arrive from detection
-                // without an accumulator).
-                seed_consensus_state(
-                    &mut sections_to_send,
-                    &tracks,
-                    section_config.proximity_threshold,
-                );
+                // No consensus seed here. The accumulator is read only by
+                // `sections::incremental`, which the unified arm never calls,
+                // so seeding it rebuilds an R-tree and rescans every member
+                // track per section for a value nothing consumes.
 
                 // Signal saving phase before sending results for DB persistence
                 progress_clone.set_phase("saving", 1);
