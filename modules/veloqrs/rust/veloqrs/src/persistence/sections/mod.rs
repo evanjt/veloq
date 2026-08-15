@@ -38,12 +38,9 @@ pub const CATALOGUE_CONFIG_DIGEST_KEY: &str = "catalogue_config_digest";
 
 /// Stable fingerprint of a detection config, as 16 lowercase hex digits.
 ///
-/// Two devices holding the same config agree on this string, so a catalogue
-/// that disagrees can be told apart from one cut under different parameters.
-/// The input is the serde form of the config, whose field order is the struct's
-/// declaration order, not a map iteration; the hash is FNV-1a rather than
-/// `DefaultHasher`, whose output is not guaranteed stable across processes or
-/// releases.
+/// Two devices holding the same config agree on this string. The input is the
+/// serde form, ordered by struct declaration rather than by map iteration, and
+/// the hash is FNV-1a, whose output is fixed across processes and releases.
 pub fn section_config_digest(config: &tracematch::sections::SectionConfig) -> String {
     let Ok(canonical) = serde_json::to_string(config) else {
         return "unserialisable".to_string();
@@ -1810,10 +1807,8 @@ impl PersistentRouteEngine {
             )?;
         }
 
-        // Provenance of the catalogue this transaction stores. Without it a
-        // device cannot say which detector or which parameters cut its
-        // sections, so two devices claiming the same settings cannot be checked
-        // against each other.
+        // Provenance of the catalogue this transaction stores: which detector
+        // cut it, and under which parameters.
         for (key, value) in [
             (
                 CATALOGUE_METHOD_KEY,
