@@ -802,7 +802,8 @@ impl PersistentRouteEngine {
                 // on a warm cache it is just the genuinely new activities. This is
                 // what makes a restart self-heal (the DB holds the catalogue; the
                 // cache rebuilds) without ever double-routing an already-folded id.
-                // Seconds streams are wired in B3, so pass none here.
+                // No seconds. They feed only the lift veto, which needs point
+                // elevations to raise a candidate at all, and ingest carries none.
                 let new_ids_for_cache: Vec<String> = tracks
                     .iter()
                     .map(|(id, _)| id.clone())

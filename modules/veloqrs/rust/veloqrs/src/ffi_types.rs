@@ -450,6 +450,8 @@ impl From<FfiSectionConfig> for tracematch::SectionConfig {
             min_cell_visits: c.min_cell_visits,
             divergence_threshold: c.divergence_threshold,
             min_corridor_tracks: c.min_corridor_tracks,
+            // Pooling is not a user setting, so it stays off the FFI record.
+            pool_sports: tracematch::SectionConfig::default().pool_sports,
         }
     }
 }
