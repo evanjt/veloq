@@ -29,6 +29,33 @@ use std::collections::{HashMap, HashSet};
 
 use super::{PersistentRouteEngine, SectionSummary, codec, get_section_word};
 
+/// `schema_info` key naming the detection method that cut the stored catalogue.
+pub const CATALOGUE_METHOD_KEY: &str = "catalogue_detection_method";
+
+/// `schema_info` key holding [`section_config_digest`] of the config the stored
+/// catalogue ran under.
+pub const CATALOGUE_CONFIG_DIGEST_KEY: &str = "catalogue_config_digest";
+
+/// Stable fingerprint of a detection config, as 16 lowercase hex digits.
+///
+/// Two devices holding the same config agree on this string, so a catalogue
+/// that disagrees can be told apart from one cut under different parameters.
+/// The input is the serde form of the config, whose field order is the struct's
+/// declaration order, not a map iteration; the hash is FNV-1a rather than
+/// `DefaultHasher`, whose output is not guaranteed stable across processes or
+/// releases.
+pub fn section_config_digest(config: &tracematch::sections::SectionConfig) -> String {
+    let Ok(canonical) = serde_json::to_string(config) else {
+        return "unserialisable".to_string();
+    };
+    let mut hash: u64 = 0xcbf2_9ce4_8422_2325;
+    for byte in canonical.as_bytes() {
+        hash ^= *byte as u64;
+        hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
+    }
+    format!("{hash:016x}")
+}
+
 /// Haversine distance between two lat/lng points in meters.
 pub(super) fn haversine_distance(lat1: f64, lng1: f64, lat2: f64, lng2: f64) -> f64 {
     let r = 6_371_000.0; // Earth radius in meters
@@ -1782,8 +1809,49 @@ impl PersistentRouteEngine {
             )?;
         }
 
+        // Provenance of the catalogue this transaction stores. Without it a
+        // device cannot say which detector or which parameters cut its
+        // sections, so two devices claiming the same settings cannot be checked
+        // against each other.
+        for (key, value) in [
+            (
+                CATALOGUE_METHOD_KEY,
+                self.section_config.detection_method.as_str().to_string(),
+            ),
+            (
+                CATALOGUE_CONFIG_DIGEST_KEY,
+                section_config_digest(&self.section_config),
+            ),
+        ] {
+            tx.execute(
+                "INSERT OR REPLACE INTO schema_info (key, value) VALUES (?, ?)",
+                params![key, value],
+            )?;
+        }
+
         tx.commit()?;
 
         Ok(())
+    }
+
+    /// The detection method that cut the stored catalogue, absent until a save
+    /// has run under a build that records it.
+    pub fn catalogue_detection_method(&self) -> Option<String> {
+        self.schema_info_value(CATALOGUE_METHOD_KEY)
+    }
+
+    /// [`section_config_digest`] of the config the stored catalogue ran under.
+    pub fn catalogue_config_digest(&self) -> Option<String> {
+        self.schema_info_value(CATALOGUE_CONFIG_DIGEST_KEY)
+    }
+
+    fn schema_info_value(&self, key: &str) -> Option<String> {
+        self.db
+            .query_row(
+                "SELECT value FROM schema_info WHERE key = ?",
+                params![key],
+                |row| row.get(0),
+            )
+            .ok()
     }
 }
