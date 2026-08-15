@@ -1162,7 +1162,11 @@ impl PersistentRouteEngine {
         if let Some(p) = progress {
             p.set_phase("merging_cross_sport", 1);
         }
-        if let Err(e) = self.merge_cross_sport_sections() {
+        // Pooled detection cuts shared ground once and labels it afterwards, so
+        // a cross-sport pair is a relabelling, not two sections to fuse.
+        if !self.section_config.pool_sports
+            && let Err(e) = self.merge_cross_sport_sections()
+        {
             log::warn!(
                 "tracematch: [apply_sections_finalize] Cross-sport merge failed: {}",
                 e
