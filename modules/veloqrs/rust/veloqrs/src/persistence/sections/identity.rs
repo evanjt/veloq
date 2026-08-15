@@ -844,8 +844,7 @@ impl PersistentRouteEngine {
         if let Err(e) = self.db.execute(
             "INSERT INTO section_intents (id, kind, polyline_json, created_at)
              VALUES (?, ?, ?, datetime('now'))
-             ON CONFLICT(id) DO UPDATE SET
-                kind = excluded.kind,
+             ON CONFLICT(id, kind) DO UPDATE SET
                 polyline_json = excluded.polyline_json,
                 created_at = excluded.created_at",
             rusqlite::params![section_id, kind, polyline_json],

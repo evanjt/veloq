@@ -332,12 +332,12 @@ impl PersistentRouteEngine {
     }
 
     /// Bring `section_intents` to the named-corridor shape (kind 'named' plus
-    /// `name`/`sport_type` columns) and backfill legacy user names once.
-    /// Idempotent: the rebuild runs only while sqlite_master shows the old
-    /// CHECK, preserving every disabled/deleted row so user suppression
-    /// survives the shape change; the backfill is guarded by a schema_info
-    /// marker so a v12 upgrade (whose 013 already creates the extended table)
-    /// still promotes its legacy names exactly once.
+    /// `name`/`sport_type` columns), widen its key to `(id, kind)`, and
+    /// backfill legacy user names once. Idempotent: each rebuild runs only
+    /// while sqlite_master still shows the older shape, preserving every row so
+    /// user suppression and naming survive; the backfill is guarded by a
+    /// schema_info marker so a v12 upgrade (whose 013 already creates the
+    /// extended table) still promotes its legacy names exactly once.
     fn ensure_section_intents_named_shape(conn: &Connection) -> SqlResult<()> {
         let table_sql: Option<String> = conn
             .query_row(
@@ -354,17 +354,39 @@ impl PersistentRouteEngine {
                 "BEGIN;
                  DROP TABLE IF EXISTS section_intents_named_shape;
                  CREATE TABLE section_intents_named_shape (
-                     id TEXT PRIMARY KEY,
+                     id TEXT NOT NULL,
                      kind TEXT NOT NULL CHECK(kind IN ('disabled', 'deleted', 'named')),
                      polyline_json TEXT NOT NULL,
                      created_at TEXT NOT NULL DEFAULT (datetime('now')),
                      name TEXT,
-                     sport_type TEXT
+                     sport_type TEXT,
+                     PRIMARY KEY (id, kind)
                  );
                  INSERT INTO section_intents_named_shape (id, kind, polyline_json, created_at)
                      SELECT id, kind, polyline_json, created_at FROM section_intents;
                  DROP TABLE section_intents;
                  ALTER TABLE section_intents_named_shape RENAME TO section_intents;
+                 COMMIT;",
+            )?;
+        } else if !table_sql.contains("PRIMARY KEY (id, kind)") {
+            conn.execute_batch(
+                "BEGIN;
+                 DROP TABLE IF EXISTS section_intents_keyed_shape;
+                 CREATE TABLE section_intents_keyed_shape (
+                     id TEXT NOT NULL,
+                     kind TEXT NOT NULL CHECK(kind IN ('disabled', 'deleted', 'named')),
+                     polyline_json TEXT NOT NULL,
+                     created_at TEXT NOT NULL DEFAULT (datetime('now')),
+                     name TEXT,
+                     sport_type TEXT,
+                     PRIMARY KEY (id, kind)
+                 );
+                 INSERT INTO section_intents_keyed_shape
+                     (id, kind, polyline_json, created_at, name, sport_type)
+                     SELECT id, kind, polyline_json, created_at, name, sport_type
+                     FROM section_intents;
+                 DROP TABLE section_intents;
+                 ALTER TABLE section_intents_keyed_shape RENAME TO section_intents;
                  COMMIT;",
             )?;
         }
