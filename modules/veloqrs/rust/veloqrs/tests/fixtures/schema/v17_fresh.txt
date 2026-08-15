@@ -202,6 +202,7 @@ table section_geometry
   column rep_end_index type=INTEGER notnull=0 default=<none> pk=0
   column rep_start_index type=INTEGER notnull=0 default=<none> pk=0
   column section_id type=TEXT notnull=1 default=<none> pk=1
+  column source type=TEXT notnull=0 default=<none> pk=0
   column version type=INTEGER notnull=1 default=<none> pk=2
   index auto(section_id,version) unique=1 origin=pk partial=0 cols=[section_id,version]
 table section_history

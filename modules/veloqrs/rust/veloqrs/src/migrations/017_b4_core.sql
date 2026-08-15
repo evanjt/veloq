@@ -149,6 +149,13 @@ CREATE INDEX IF NOT EXISTS idx_section_history_at
 -- (rep_activity_id, rep_start_index, rep_end_index) triple is the truth and the
 -- blob is a decoded cache of it. The triple is nullable because a corridor-era
 -- version is an averaged consensus line belonging to no single activity.
+--
+-- `source` says which of the two a version is. 'exact' means the triple is
+-- present and re-slicing the stored stream reproduces the blob byte for byte;
+-- 'consensus' is an averaged line no activity carries, so the triple stays
+-- NULL; 'orphaned' means the representative activity is gone and the blob is
+-- the last honest picture. NULL is unstated provenance, read as not-exact.
+-- Readers take the blob for anything that is not 'exact' with a triple.
 CREATE TABLE IF NOT EXISTS section_geometry (
     section_id TEXT NOT NULL,
     version INTEGER NOT NULL,
@@ -159,6 +166,7 @@ CREATE TABLE IF NOT EXISTS section_geometry (
     rep_activity_id TEXT,
     rep_start_index INTEGER,
     rep_end_index INTEGER,
+    source TEXT CHECK(source IS NULL OR source IN ('exact', 'consensus', 'orphaned')),
     PRIMARY KEY (section_id, version)
 );
 

@@ -5,7 +5,7 @@ use rusqlite::{Connection, Result as SqlResult, params};
 use rusqlite_migration::{M, Migrations};
 use std::collections::{HashMap, HashSet};
 
-use super::{PersistentRouteEngine, codec};
+use super::{PersistentRouteEngine, codec, sections};
 
 impl PersistentRouteEngine {
     /// App-level schema version for post-migration Rust hooks.
@@ -126,6 +126,7 @@ impl PersistentRouteEngine {
         Self::ensure_section_intents_named_shape(conn)?;
         Self::ensure_section_geometry_provenance(conn)?;
         Self::ensure_wellness_raw_column(conn)?;
+        Self::ensure_section_geometry_baseline(conn, current_version);
 
         // Post-migration data population for pre-0.2.2 databases.
         // Users on 0.2.2+ (schema_version >= 7) skip this block entirely.
@@ -277,7 +278,37 @@ impl PersistentRouteEngine {
                  COMMIT;",
             )?;
         }
+        // Separately probed: a database that took the triple from an earlier
+        // build has the columns above and not this one.
+        if table_exists
+            && conn
+                .prepare("SELECT source FROM section_geometry LIMIT 0")
+                .is_err()
+        {
+            conn.execute(
+                "ALTER TABLE section_geometry ADD COLUMN source TEXT
+                 CHECK(source IS NULL OR source IN ('exact', 'consensus', 'orphaned'))",
+                [],
+            )?;
+        }
         Ok(())
+    }
+
+    /// Give every pre-ledger section a birth geometry version and one backdated
+    /// event, so the first change to it has a prior to sit beside. One-shot and
+    /// non-fatal: this runs on the open that quarantines a database it cannot
+    /// migrate, and a missing baseline is a thinner history, not a broken one.
+    fn ensure_section_geometry_baseline(conn: &Connection, schema_from: i32) {
+        match sections::history::seed_baseline_geometry_on(conn, schema_from) {
+            Ok((0, 0)) => {}
+            // A skipped section has an undecodable or empty line, which no
+            // later open can improve on, so the marker still lands and the
+            // count is the only record that it was passed over.
+            Ok((seeded, skipped)) => log::info!(
+                "tracematch: [Migration] Seeded baseline geometry for {seeded} sections, skipped {skipped}"
+            ),
+            Err(e) => log::warn!("tracematch: [Migration] Baseline geometry seeding failed: {e}"),
+        }
     }
 
     /// Add the Phase 3 (B4) visit_count column, backfill it once, and create the

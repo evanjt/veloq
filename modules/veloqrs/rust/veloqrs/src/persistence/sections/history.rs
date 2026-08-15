@@ -27,6 +27,28 @@ const GEOMETRY_KEEP_RECENT: usize = 3;
 /// `section_geometry.encoding` for the quantised zigzag-varint stream.
 const ENCODING_QUANTISED: i64 = 1;
 
+/// `section_geometry.source` for an averaged line no single activity carries,
+/// which is why its representative triple is NULL.
+pub const SOURCE_CONSENSUS: &str = "consensus";
+
+/// Baseline row an upgrade writes for a section that pre-dates the ledger.
+pub const KIND_BASELINE: &str = "baseline";
+
+/// First detect after the detector generation the catalogue was cut under
+/// stops matching the live one.
+pub const KIND_ALGORITHM_CHANGED: &str = "algorithm_changed";
+
+/// One id gave way to another across a detector change. Written on both ids,
+/// `superseded_by` on the old and `supersedes` on the new.
+pub const KIND_SUPERSEDED: &str = "superseded";
+
+/// The detector and parameters a catalogue was cut under.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DetectorGeneration {
+    pub method: String,
+    pub digest: String,
+}
+
 /// One stored geometry version, without its polyline.
 #[derive(Debug, Clone, PartialEq)]
 pub struct SectionGeometryVersion {
@@ -107,7 +129,337 @@ pub(super) fn append_history_on(
     Ok(conn.last_insert_rowid())
 }
 
+/// `schema_info` key marking the one-off baseline seeding as done.
+const BASELINE_MARKER_KEY: &str = "section_geometry_baseline_v1";
+
+/// Detector every catalogue that pre-dates the generation marker was cut under.
+/// The marker's only writer is a detect, and no shipped build ran one, so a
+/// migrating database would otherwise present as having always been current.
+const PRE_LEDGER_METHOD: &str = "corridor";
+
+/// Digest stamped beside [`PRE_LEDGER_METHOD`]. [`super::section_config_digest`]
+/// emits 16 hex digits, so this can never collide with a live config.
+const PRE_LEDGER_DIGEST: &str = "pre-ledger";
+
+/// One section awaiting its birth geometry: the stored line in whichever form
+/// it survives in, its earliest member ride, and how many rides it holds.
+struct PendingBaseline {
+    id: String,
+    blob: Option<Vec<u8>>,
+    json: Option<String>,
+    at: String,
+    activity_count: i64,
+}
+
+/// Write the birth geometry of every section that pre-dates the ledger.
+///
+/// A database upgraded onto the history tables carries sections with no
+/// versions and no events, so the first change to any of them has nothing to
+/// sit beside. This writes each one's current polyline as version 1, a
+/// milestone by construction, and appends one `baseline` event backdated to the
+/// section's earliest member ride rather than to upgrade day.
+///
+/// The row is `consensus` with a NULL triple: the line was cut by a detector
+/// that never recorded which activity it came from, and claiming a triple that
+/// was never checked would put a wrong line under a prior-versus-current
+/// overlay. Runs once, guarded on [`BASELINE_MARKER_KEY`]; a fresh install
+/// marks itself done over an empty catalogue and never seeds.
+///
+/// Seeding a non-empty catalogue also stamps the generation marker at
+/// [`PRE_LEDGER_METHOD`], because the catalogue it just described was cut by
+/// that detector and nothing else will ever say so. Without it the first
+/// detect under a new detector sees no generation change and the flip goes
+/// unexplained for exactly the users the ledger exists for.
+///
+/// Returns the number of sections seeded and the number skipped for an
+/// undecodable or empty polyline.
+pub(in crate::persistence) fn seed_baseline_geometry_on(
+    conn: &rusqlite::Connection,
+    schema_from: i32,
+) -> rusqlite::Result<(usize, usize)> {
+    let done: bool = conn.query_row(
+        "SELECT EXISTS(SELECT 1 FROM schema_info WHERE key = ?)",
+        params![BASELINE_MARKER_KEY],
+        |row| row.get(0),
+    )?;
+    if done {
+        return Ok((0, 0));
+    }
+
+    // One transaction over the whole seed, marker included, so a kill mid-run
+    // leaves no half-written ledger and the next open starts over.
+    let tx = conn.unchecked_transaction()?;
+    let conn = &*tx;
+
+    let stored_detector: Option<String> = conn
+        .query_row(
+            "SELECT value FROM schema_info WHERE key = ?",
+            params![super::CATALOGUE_METHOD_KEY],
+            |row| row.get(0),
+        )
+        .optional()?;
+
+    // Backdating reads the member rides, so a section whose junction rows are
+    // gone falls back to now rather than claiming a date it cannot support.
+    let mut stmt = conn.prepare(
+        "SELECT s.id, s.polyline_blob, s.polyline_json,
+                COALESCE(
+                    (SELECT datetime(MIN(a.start_date), 'unixepoch')
+                     FROM section_activities sa JOIN activities a ON a.id = sa.activity_id
+                     WHERE sa.section_id = s.id),
+                    datetime('now')),
+                (SELECT COUNT(*) FROM section_activities sa WHERE sa.section_id = s.id)
+         FROM sections s
+         WHERE NOT EXISTS (SELECT 1 FROM section_geometry g WHERE g.section_id = s.id)",
+    )?;
+    let rows: Vec<PendingBaseline> = stmt
+        .query_map([], |row| {
+            Ok(PendingBaseline {
+                id: row.get(0)?,
+                blob: row.get(1)?,
+                json: row.get(2)?,
+                at: row.get(3)?,
+                activity_count: row.get(4)?,
+            })
+        })?
+        .filter_map(|r| r.ok())
+        .collect();
+    drop(stmt);
+
+    let detector = stored_detector
+        .clone()
+        .or_else(|| (!rows.is_empty()).then(|| PRE_LEDGER_METHOD.to_string()));
+
+    let mut seeded = 0usize;
+    let mut skipped = 0usize;
+    for PendingBaseline {
+        id,
+        blob,
+        json,
+        at,
+        activity_count,
+    } in rows
+    {
+        let Ok(polyline) = codec::decode_polyline_row(blob.as_deref(), json.as_deref()) else {
+            skipped += 1;
+            continue;
+        };
+        if polyline.is_empty() {
+            skipped += 1;
+            continue;
+        }
+        conn.execute(
+            "INSERT INTO section_geometry
+                 (section_id, version, created_at, encoding, blob, milestone, source)
+             VALUES (?, 1, ?, ?, ?, 1, ?)",
+            params![
+                id,
+                at,
+                ENCODING_QUANTISED,
+                codec::encode_polyline(&polyline),
+                SOURCE_CONSENSUS,
+            ],
+        )?;
+        let details = serde_json::json!({
+            "source": "upgrade",
+            "schema_from": schema_from,
+            "detector": detector,
+            "activity_count": activity_count,
+        })
+        .to_string();
+        append_history_on(conn, &id, KIND_BASELINE, Some(&details), Some(1), Some(&at))?;
+        seeded += 1;
+    }
+
+    // The catalogue just described was cut by the pre-ledger detector, and a
+    // save under the live one would otherwise be the first thing to name a
+    // generation, hiding the change it is about to make.
+    if seeded > 0 && stored_detector.is_none() {
+        for (key, value) in [
+            (super::CATALOGUE_METHOD_KEY, PRE_LEDGER_METHOD),
+            (super::CATALOGUE_CONFIG_DIGEST_KEY, PRE_LEDGER_DIGEST),
+        ] {
+            conn.execute(
+                "INSERT OR REPLACE INTO schema_info (key, value) VALUES (?, ?)",
+                params![key, value],
+            )?;
+        }
+    }
+
+    conn.execute(
+        "INSERT OR REPLACE INTO schema_info (key, value) VALUES (?, datetime('now'))",
+        params![BASELINE_MARKER_KEY],
+    )?;
+    tx.commit()?;
+    Ok((seeded, skipped))
+}
+
+/// The generation stored beside a catalogue, absent until a save records one.
+pub(super) fn stored_generation_on(conn: &rusqlite::Connection) -> Option<DetectorGeneration> {
+    let value = |key: &str| -> Option<String> {
+        conn.query_row(
+            "SELECT value FROM schema_info WHERE key = ?",
+            params![key],
+            |row| row.get(0),
+        )
+        .ok()
+    };
+    Some(DetectorGeneration {
+        method: value(super::CATALOGUE_METHOD_KEY)?,
+        digest: value(super::CATALOGUE_CONFIG_DIGEST_KEY)?,
+    })
+}
+
+/// Keep the shape `section_id` carries right now as a milestone and return its
+/// version.
+///
+/// `current` is the line on the section row, which is the authority. Only when
+/// the newest stored version already encodes to it is that version milestoned;
+/// otherwise the section drifted without an event (an adopted batch geometry
+/// does exactly that) and the stored line is stale, so `current` is written as
+/// a new milestone version. None when there is neither.
+pub(super) fn milestone_prior_geometry_on(
+    conn: &rusqlite::Connection,
+    section_id: &str,
+    current: Option<&[GpsPoint]>,
+) -> rusqlite::Result<Option<i64>> {
+    let newest: Option<(i64, Vec<u8>)> = conn
+        .query_row(
+            "SELECT version, blob FROM section_geometry
+             WHERE section_id = ?1
+               AND version = (SELECT MAX(version) FROM section_geometry WHERE section_id = ?1)",
+            params![section_id],
+            |row| Ok((row.get(0)?, row.get(1)?)),
+        )
+        .optional()?;
+    let current = current.filter(|points| !points.is_empty());
+    match (newest, current) {
+        (Some((_, blob)), Some(points)) if codec::encode_polyline(points) != blob => {
+            Ok(Some(record_geometry_on(conn, section_id, points, true)?))
+        }
+        (Some((version, _)), _) => {
+            conn.execute(
+                "UPDATE section_geometry SET milestone = 1 WHERE section_id = ? AND version = ?",
+                params![section_id, version],
+            )?;
+            Ok(Some(version))
+        }
+        (None, Some(points)) => Ok(Some(record_geometry_on(conn, section_id, points, true)?)),
+        (None, None) => Ok(None),
+    }
+}
+
+/// Keep the shape a section held under the outgoing detector, then record that
+/// the detector changed. The milestone runs first because the save that
+/// follows overwrites the row and the "before" line has to already be stored.
+pub(super) fn record_algorithm_change_on(
+    conn: &rusqlite::Connection,
+    section_id: &str,
+    prior_polyline: Option<&[GpsPoint]>,
+    from: Option<&DetectorGeneration>,
+    to: &DetectorGeneration,
+) -> rusqlite::Result<i64> {
+    let prior_version = milestone_prior_geometry_on(conn, section_id, prior_polyline)?;
+    let details = serde_json::json!({
+        "from_method": from.map(|g| g.method.clone()),
+        "to_method": to.method,
+        "config_digest_from": from.map(|g| g.digest.clone()),
+        "config_digest_to": to.digest,
+        "prior_version": prior_version,
+    })
+    .to_string();
+    append_history_on(
+        conn,
+        section_id,
+        KIND_ALGORITHM_CHANGED,
+        Some(&details),
+        prior_version,
+        None,
+    )
+}
+
+/// Record that `old_id` gave way to `new_id`, on both ids, so the ledger reads
+/// forwards from the retired section and backwards from its replacement.
+pub(super) fn append_superseded_pair_on(
+    conn: &rusqlite::Connection,
+    old_id: &str,
+    new_id: &str,
+    overlap_fraction: Option<f64>,
+) -> rusqlite::Result<(i64, i64)> {
+    let old_details = serde_json::json!({
+        "superseded_by": new_id,
+        "overlap_fraction": overlap_fraction,
+    })
+    .to_string();
+    let new_details = serde_json::json!({
+        "supersedes": old_id,
+        "overlap_fraction": overlap_fraction,
+    })
+    .to_string();
+    let old_event = append_history_on(
+        conn,
+        old_id,
+        KIND_SUPERSEDED,
+        Some(&old_details),
+        None,
+        None,
+    )?;
+    let new_event = append_history_on(
+        conn,
+        new_id,
+        KIND_SUPERSEDED,
+        Some(&new_details),
+        None,
+        None,
+    )?;
+    Ok((old_event, new_event))
+}
+
 impl PersistentRouteEngine {
+    /// The generation the stored catalogue was cut under, when it disagrees
+    /// with the live config. None on a catalogue nothing has saved yet, and
+    /// None while the two agree.
+    ///
+    /// A seeded generation names the detector and not its parameters, so it is
+    /// compared on method alone. Reading its sentinel digest as a real one
+    /// would tell every migrating user their algorithm changed, including the
+    /// ones staying on the detector they already had.
+    pub fn detector_generation_change(&self) -> Option<(DetectorGeneration, DetectorGeneration)> {
+        let stored = stored_generation_on(&self.db)?;
+        let live = DetectorGeneration {
+            method: self.section_config.detection_method.as_str().to_string(),
+            digest: super::section_config_digest(&self.section_config),
+        };
+        let changed = if stored.digest == PRE_LEDGER_DIGEST {
+            stored.method != live.method
+        } else {
+            stored != live
+        };
+        changed.then_some((stored, live))
+    }
+
+    /// Milestone the outgoing shape and append `algorithm_changed`. Returns the
+    /// event row id.
+    pub fn record_section_algorithm_change(
+        &mut self,
+        section_id: &str,
+        prior_polyline: Option<&[GpsPoint]>,
+        from: Option<&DetectorGeneration>,
+        to: &DetectorGeneration,
+    ) -> rusqlite::Result<i64> {
+        record_algorithm_change_on(&self.db, section_id, prior_polyline, from, to)
+    }
+
+    /// Append the `superseded` pair linking a retired id to its replacement.
+    pub fn record_section_superseded(
+        &mut self,
+        old_id: &str,
+        new_id: &str,
+        overlap_fraction: Option<f64>,
+    ) -> rusqlite::Result<(i64, i64)> {
+        append_superseded_pair_on(&self.db, old_id, new_id, overlap_fraction)
+    }
+
     /// Store `polyline` as the next geometry version of `section_id` and
     /// prune per the retention policy. Returns the version number written.
     pub fn record_section_geometry(
