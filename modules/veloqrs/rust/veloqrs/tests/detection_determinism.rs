@@ -26,8 +26,8 @@ use tracematch::scenarios::{LifecycleConfig, LifecycleCorpus};
 const MARKER: &str = "CATALOGUE-DIGEST ";
 const CHILD_ENV: &str = "VELOQ_DETERMINISM_CHILD";
 
-/// Both arms are gated. `Control` is the shipped default and is scheduled for
-/// replacement rather than repair, so its result says what users get today.
+/// Both arms are gated. `Control` is `Corridor`, scheduled for replacement
+/// rather than repair, so its result measures the detector on its way out.
 /// `Battery` is `Unified`, the arm that has to be deterministic before it
 /// becomes the default.
 const WORKER_CONTROL: &str = "a_cold_detect_fills_the_catalogue_on_the_control_arm";
@@ -138,9 +138,9 @@ fn assert_every_process_agrees(arm: Arm, worker: &str) {
     );
 }
 
-/// The shipped default. Scheduled for replacement rather than repair, so a red
-/// here measures what users get today. Run it with `--ignored` to take that
-/// measurement; it gates nothing until Corridor is the default again.
+/// Corridor, scheduled for replacement rather than repair. Run it with
+/// `--ignored` to measure the detector on its way out; it gates nothing until
+/// Corridor is deterministic across processes.
 #[test]
 #[ignore = "Corridor is not deterministic across processes and is being replaced, not repaired"]
 fn the_control_arm_lands_on_the_same_catalogue_in_every_process() {
