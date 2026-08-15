@@ -8,15 +8,15 @@
 //! happens to travel a shared corridor most.
 //!
 //! The Battery arm (`DetectionMethod::Unified`) is the probe here because the
-//! behaviour under test lives in the detector: it partitions tracks per sport at
-//! entry ("sections never span sports") and emits sections per sport ordered by
-//! each cluster's south-west corner. Identity is layered on top (B2), so an id
-//! must stay on its ground while that emission order moves underneath it.
+//! behaviour under test lives in the detector: it cuts one pool and emits
+//! sections ordered by each cluster's south-west corner. Identity is layered on
+//! top (B2), so an id must stay on its ground while that emission order moves
+//! underneath it.
 //!
 //! One gate per curiosity. Three hold today and run live; the shared-corridor
-//! sport derivation still comes from the per-sport partition, so that one is
-//! `#[ignore]`d with the defect named. Snapshots read the user-visible DB view,
-//! so every count is what the app renders.
+//! heading is still frozen at first assignment by the identity carry, so that
+//! one is `#[ignore]`d with the defect named. Snapshots read the user-visible
+//! DB view, so every count is what the app renders.
 //!
 //! Data is synthetic and deterministic (`LifecycleCorpus`, seeded). A second
 //! geography is a corpus at a shifted origin with namespaced activity ids so
@@ -294,13 +294,17 @@ fn distant_geography_must_not_reshuffle_ids() {
 // ============================================================================
 //
 // Corridor 2 in the corpus is travelled by both Ride and Run (ground-truth
-// `sport_types = [Ride, Run]`). Pooled detection should treat that as ONE
-// ground with a derived sport, keeping a per-sport comparison view on top. The
-// current engine instead partitions by sport at detection, so identical ground
-// carries a Ride section and a Run section and no single derived sport exists.
+// `sport_types = [Ride, Run]`). Pooled detection treats that as ONE ground with
+// a derived sport, keeping a per-sport comparison view on top. The heading it
+// derives is still the identity's first assignment, so it tracks which sport
+// arrived first rather than which sport owns the ground.
 
 /// Ingest `ride_n` + `run_n` traversals of corridor 2, same ground, only the
 /// sport labels differ, and return the post-pipeline snapshot plus the ground.
+///
+/// The minority sport goes in first, so a heading held from first assignment
+/// disagrees between the two arms instead of agreeing on whichever sport the
+/// caller happened to ingest first.
 fn cross_flip_snapshot(
     ride_n: usize,
     run_n: usize,
@@ -316,18 +320,24 @@ fn cross_flip_snapshot(
     );
 
     let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
-    ingest_step(&mut engine, "cross/ride", &refs(&rides));
-    let snap = ingest_step(&mut engine, "cross/run", &refs(&runs)).snapshot;
+    let (first, second) = if ride_n <= run_n {
+        (("cross/ride", &rides), ("cross/run", &runs))
+    } else {
+        (("cross/run", &runs), ("cross/ride", &rides))
+    };
+    ingest_step(&mut engine, first.0, &refs(first.1));
+    let snap = ingest_step(&mut engine, second.0, &refs(second.1)).snapshot;
     (snap, ground)
 }
 
 /// Gate (invariant 2 — sport is derived, not partitioned): a corridor travelled
 /// by both sports must yield ONE section on that ground, and its derived sport
-/// must be invariant to which sport travels it more. Red today, detection
-/// splits per sport so two per-sport sections coexist on one ground. Green when
-/// sport is a comparison-layer attribute of a single pooled section.
+/// must be invariant to which sport travels it more. Pooling delivers the single
+/// section. The heading is still red: the identity carry freezes sport at first
+/// assignment, so it reports the sport that arrived first, not the ground's.
+/// Green when the comparison layer owns sport and the heading re-derives.
 #[test]
-#[ignore = "invariant 2: detection partitions by sport, so shared ground carries one section per sport instead of one section with a derived sport."]
+#[ignore = "invariant 2: the identity carry freezes sport at first assignment, so the heading follows ingest order rather than the ground (item 63)."]
 fn shared_corridor_yields_one_section_with_stable_sport() {
     let (ride_major, ground) = cross_flip_snapshot(8, 4, "c2a_");
     let (run_major, _) = cross_flip_snapshot(4, 8, "c2b_");
@@ -352,8 +362,8 @@ fn shared_corridor_yields_one_section_with_stable_sport() {
     let sport_run_major = &on_run_major[0].1.sport_type;
     assert_eq!(
         sport_ride_major, sport_run_major,
-        "derived sport flips with the traversal-count majority: {sport_ride_major} vs {sport_run_major} \
-         (invariant 2: sport is derived from the ground, not from which side has more visits)"
+        "the heading disagrees across two arms with the same ground: {sport_ride_major} vs {sport_run_major} \
+         (invariant 2: sport is derived from the ground, not from ingest order or visit counts)"
     );
 }
 
@@ -364,17 +374,16 @@ fn shared_corridor_yields_one_section_with_stable_sport() {
 // A Ride-only corridor exists, then Run passes of the SAME ground arrive. Under
 // invariant 2 the section is the ground: it keeps its id, and the second sport
 // is absorbed. The Run batch here is >= 50% new, so it takes the FULL re-detect
-// path — the harder case, where detection re-splits the ground per sport and the
-// id has to be handed to the surviving candidate rather than re-minted.
+// path — the harder case, where the whole pool is re-cut and the id has to be
+// handed to the surviving candidate rather than re-minted.
 
 /// Gate (invariant 2, id survives a sport addition): adding a second sport on
 /// the same ground must leave the cold section's id still on that ground.
 ///
-/// This is B2's identity layer: when the Run pass arrives, detection splits the
-/// shared ground into a Ride and a Run candidate, and B2's split resolution
-/// hands the cold id to the higher-support candidate rather than re-minting it.
-/// The count of sections on the ground is the per-sport partition's business,
-/// gated separately by `shared_corridor_yields_one_section_with_stable_sport`.
+/// This is B2's identity layer: the Run pass re-cuts the whole pool, and B2's
+/// resolution hands the cold id to the surviving candidate rather than
+/// re-minting it. The heading that candidate carries is gated separately by
+/// `shared_corridor_yields_one_section_with_stable_sport`.
 #[test]
 fn section_id_survives_sport_addition() {
     let (src, ground) = corridor_source(2, 11);
