@@ -77,7 +77,7 @@ fn reapplying_the_same_catalogue_writes_nothing() {
             .expect("update_activity_metadata");
     }
 
-    let handle = engine.detect_sections_background(None);
+    let handle = engine.detect_sections_background();
     let (sections, processed) = handle.recv().unwrap_or_default();
     assert!(
         !sections.is_empty(),

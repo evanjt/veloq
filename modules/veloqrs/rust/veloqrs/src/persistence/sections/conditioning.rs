@@ -107,7 +107,7 @@ fn try_start_conditioning() -> bool {
             engine.section_config.detection_method,
             tracematch::DetectionMethod::Unified
         ) {
-            Some(engine.detect_sections_background(None))
+            Some(engine.detect_sections_background())
         } else {
             None
         }

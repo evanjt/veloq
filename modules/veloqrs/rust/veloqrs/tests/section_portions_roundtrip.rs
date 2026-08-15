@@ -68,7 +68,7 @@ fn detection_save_reload_preserves_activity_portions() {
 
         // Run detection: the background thread does the work, recv
         // pulls the result, apply_sections persists it.
-        let handle = engine.detect_sections_background(None);
+        let handle = engine.detect_sections_background();
         let (sections, _) = handle.recv().unwrap_or_default();
         engine.apply_sections(sections).unwrap();
     }

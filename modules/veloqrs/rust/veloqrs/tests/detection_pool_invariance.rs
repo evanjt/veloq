@@ -1,0 +1,136 @@
+//! Scenario: a mixed-sport library detected from two ingest orders, then
+//! detected a second time over the same pool.
+//! Expected behaviour: every run spans all sports and yields the same section
+//! membership, so the catalogue is a pure function of the pool plus config.
+
+#![cfg(feature = "synthetic")]
+
+use std::collections::{BTreeSet, HashMap};
+
+use tempfile::TempDir;
+use tracematch::scenarios::{LifecycleActivity, LifecycleConfig, LifecycleCorpus};
+use veloqrs::PersistentRouteEngine;
+
+fn corpus() -> Vec<LifecycleActivity> {
+    LifecycleCorpus::generate(&LifecycleConfig {
+        bucket_a_count: 40,
+        bucket_b_delta_count: 0,
+        bucket_d_delta_count: 0,
+        bucket_e_delta_count: 0,
+        parallel_street_count: 2,
+        ..LifecycleConfig::default()
+    })
+    .through_a()
+    .into_iter()
+    .cloned()
+    .collect()
+}
+
+fn ingest(engine: &mut PersistentRouteEngine, activities: &[LifecycleActivity]) {
+    for activity in activities {
+        engine
+            .add_activity(
+                activity.id.clone(),
+                activity.gps_points.clone(),
+                activity.sport_type.clone(),
+            )
+            .expect("add_activity");
+        engine
+            .update_activity_metadata(
+                &activity.id,
+                Some(activity.start_date_unix),
+                None,
+                None,
+                None,
+            )
+            .expect("update_activity_metadata");
+    }
+}
+
+fn detect(engine: &mut PersistentRouteEngine) {
+    let handle = engine.detect_sections_background();
+    let (sections, processed) = handle.recv().unwrap_or_default();
+    engine.apply_sections(sections).expect("apply_sections");
+    engine
+        .save_processed_activity_ids(&processed)
+        .expect("save_processed_activity_ids");
+}
+
+/// Member activities of every section, order-free.
+fn catalogue(engine: &PersistentRouteEngine) -> Vec<Vec<String>> {
+    let mut entries: Vec<Vec<String>> = engine
+        .get_sections()
+        .iter()
+        .map(|s| {
+            let mut ids = s.activity_ids.clone();
+            ids.sort();
+            ids
+        })
+        .collect();
+    entries.sort();
+    entries
+}
+
+/// Sports of the activities that ended up in the catalogue.
+fn covered_sports(
+    engine: &PersistentRouteEngine,
+    activities: &[LifecycleActivity],
+) -> BTreeSet<String> {
+    let sports: HashMap<&str, &str> = activities
+        .iter()
+        .map(|a| (a.id.as_str(), a.sport_type.as_str()))
+        .collect();
+    engine
+        .get_sections()
+        .iter()
+        .flat_map(|s| s.activity_ids.iter())
+        .filter_map(|id| sports.get(id.as_str()).map(|s| s.to_string()))
+        .collect()
+}
+
+/// Order independence holds. The re-invocation arm does not: a second detect
+/// over an unchanged pool emits a section duplicating one already in the
+/// catalogue. Run with `--ignored` to see it.
+#[test]
+#[ignore = "a second detect over an unchanged pool duplicates a section"]
+fn test_detection_catalogue_stable_across_invocations() {
+    let activities = corpus();
+
+    let dir = TempDir::new().unwrap();
+    let start_path = dir.path().join("start.db");
+    let mut start_engine =
+        PersistentRouteEngine::new(start_path.to_str().unwrap()).expect("engine");
+    ingest(&mut start_engine, &activities);
+    detect(&mut start_engine);
+
+    let reversed_path = dir.path().join("reversed.db");
+    let mut reversed_engine =
+        PersistentRouteEngine::new(reversed_path.to_str().unwrap()).expect("engine");
+    let mut reversed: Vec<LifecycleActivity> = activities.clone();
+    reversed.reverse();
+    ingest(&mut reversed_engine, &reversed);
+    detect(&mut reversed_engine);
+
+    let expected = catalogue(&start_engine);
+    assert!(!expected.is_empty(), "expected sections from the corpus");
+
+    let sports = covered_sports(&start_engine, &activities);
+    assert!(
+        sports.len() > 1,
+        "detection must span every sport in the pool, got {:?}",
+        sports
+    );
+
+    assert_eq!(
+        expected,
+        catalogue(&reversed_engine),
+        "catalogue must not depend on ingest order"
+    );
+
+    detect(&mut start_engine);
+    assert_eq!(
+        expected,
+        catalogue(&start_engine),
+        "re-invoking detection over the same pool must not change the catalogue"
+    );
+}

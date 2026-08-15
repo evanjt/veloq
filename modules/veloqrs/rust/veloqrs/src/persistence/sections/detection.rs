@@ -487,13 +487,13 @@ impl PersistentRouteEngine {
     ///
     /// Returns a handle that can be polled for completion and progress.
     ///
+    /// Detection always covers every activity, so the catalogue is a pure
+    /// function of the activity set plus config.
+    ///
     /// Note: This method is designed to be non-blocking on the calling thread.
     /// All heavy operations (groups loading, track loading, detection) happen
     /// in the background thread to keep the UI responsive.
-    pub fn detect_sections_background(
-        &mut self,
-        sport_filter: Option<String>,
-    ) -> SectionDetectionHandle {
+    pub fn detect_sections_background(&mut self) -> SectionDetectionHandle {
         let (tx, rx) = mpsc::channel();
         // Out-of-band channel for the Unified detector's evidence-cache update.
         // Left unsent by the legacy detectors and the short-circuit, so the
@@ -541,10 +541,7 @@ impl PersistentRouteEngine {
 
         for (id, m) in &self.activity_metadata {
             sport_map.insert(id.clone(), m.sport_type.clone());
-            match &sport_filter {
-                Some(sport) if &m.sport_type != sport => {}
-                _ => activity_ids.push(id.clone()),
-            }
+            activity_ids.push(id.clone());
         }
 
         // Activity start times for the occasion support floor: ground

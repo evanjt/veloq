@@ -123,7 +123,7 @@ impl DetectionManager {
         Arc::new(Self { _private: () })
     }
 
-    fn start(&self, sport_filter: Option<String>) -> Result<bool, VeloqError> {
+    fn start(&self) -> Result<bool, VeloqError> {
         {
             let handle_guard = SECTION_DETECTION_HANDLE
                 .lock()
@@ -134,7 +134,7 @@ impl DetectionManager {
             }
         }
 
-        let handle = with_engine(|e| e.detect_sections_background(sport_filter))?;
+        let handle = with_engine(|e| e.detect_sections_background())?;
 
         let mut handle_guard = SECTION_DETECTION_HANDLE
             .lock()
@@ -173,7 +173,7 @@ impl DetectionManager {
     /// Force full re-detection by clearing processed activity IDs first.
     /// This ensures all activities are re-evaluated against sections.
     /// Returns false if detection is already running.
-    fn force_redetect(&self, sport_filter: Option<String>) -> Result<bool, VeloqError> {
+    fn force_redetect(&self) -> Result<bool, VeloqError> {
         {
             let handle_guard = SECTION_DETECTION_HANDLE
                 .lock()
@@ -191,7 +191,7 @@ impl DetectionManager {
             e.clear_processed_activity_ids();
         })?;
 
-        let handle = with_engine(|e| e.detect_sections_background(sport_filter))?;
+        let handle = with_engine(|e| e.detect_sections_background())?;
 
         let mut handle_guard = SECTION_DETECTION_HANDLE
             .lock()

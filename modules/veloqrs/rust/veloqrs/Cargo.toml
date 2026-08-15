@@ -115,6 +115,10 @@ name = "consensus_persistence"
 required-features = ["synthetic"]
 
 [[test]]
+name = "detection_pool_invariance"
+required-features = ["synthetic"]
+
+[[test]]
 name = "heatmap_parity"
 required-features = ["synthetic"]
 

@@ -360,7 +360,7 @@ pub fn try_ingest_step(
     let ingest_ms = ingest_start.elapsed().as_millis();
 
     let detect_start = Instant::now();
-    let handle = engine.detect_sections_background(None);
+    let handle = engine.detect_sections_background();
     // Cache-aware recv so a Unified drip actually folds through the evidence
     // cache; Control produces no cache update, so this is identical to the plain
     // path for the Control arm.

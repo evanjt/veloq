@@ -35,7 +35,7 @@ fn detected_engine(dir: &TempDir) -> PersistentRouteEngine {
             .update_activity_metadata(&a.id, Some(a.start_date_unix), None, None, None)
             .unwrap();
     }
-    let handle = engine.detect_sections_background(None);
+    let handle = engine.detect_sections_background();
     let (sections, _) = handle.recv().unwrap_or_default();
     engine.apply_sections(sections).unwrap();
     engine

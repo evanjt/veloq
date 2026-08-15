@@ -167,7 +167,6 @@ interface NativeModuleInterface {
   ): Uint8Array;
   ubrn_uniffi_veloqrs_fn_method_detectionmanager_force_redetect(
     ptr: bigint,
-    sportFilter: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): number;
   ubrn_uniffi_veloqrs_fn_method_detectionmanager_get_config(
@@ -199,7 +198,6 @@ interface NativeModuleInterface {
   ): void;
   ubrn_uniffi_veloqrs_fn_method_detectionmanager_start(
     ptr: bigint,
-    sportFilter: Uint8Array,
     uniffi_out_err: UniffiRustCallStatus,
   ): number;
   ubrn_uniffi_veloqrs_fn_clone_veloqengine(

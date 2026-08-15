@@ -61,7 +61,7 @@ fn engine_with_excludable(dir: &TempDir) -> (PersistentRouteEngine, String, Stri
     offsets.push(times.len() as u32);
     engine.set_activity_metrics(metrics).unwrap();
     engine.set_time_streams_flat(&ids, &times, &offsets);
-    let handle = engine.detect_sections_background(None);
+    let handle = engine.detect_sections_background();
     let (sections, _) = handle.recv().unwrap_or_default();
     engine.apply_sections(sections).unwrap();
 
@@ -115,7 +115,7 @@ fn engine_with_lapped_member(dir: &TempDir) -> (PersistentRouteEngine, String, u
     engine
         .update_activity_metadata("act_lapped", Some(base.start_date_unix), None, None, None)
         .unwrap();
-    let handle = engine.detect_sections_background(None);
+    let handle = engine.detect_sections_background();
     let (sections, _) = handle.recv().unwrap_or_default();
     engine.apply_sections(sections).unwrap();
 
@@ -275,7 +275,7 @@ fn an_exclusion_survives_a_redetect() {
     let (mut engine, sid, member) = engine_with_excludable(&dir);
     engine.exclude_activity_from_section(&sid, &member).unwrap();
 
-    let handle = engine.detect_sections_background(None);
+    let handle = engine.detect_sections_background();
     let (sections, _) = handle.recv().unwrap_or_default();
     engine.apply_sections(sections).unwrap();
 
@@ -293,7 +293,7 @@ fn a_per_lap_exclusion_survives_a_redetect() {
     let (mut engine, sid, lap) = engine_with_lapped_member(&dir);
     engine.exclude_section_lap(&sid, "act_lapped", lap).unwrap();
 
-    let handle = engine.detect_sections_background(None);
+    let handle = engine.detect_sections_background();
     let (sections, _) = handle.recv().unwrap_or_default();
     engine.apply_sections(sections).unwrap();
 

@@ -289,7 +289,7 @@ fn apply_failure_drops_cache_then_recovers() {
         .update_activity_metadata(&new_id.id, Some(new_id.start_date_unix), None, None, None)
         .expect("update_metadata");
 
-    let handle = engine.detect_sections_background(None);
+    let handle = engine.detect_sections_background();
     let (main, cache_update) = handle.recv_with_cache();
     let (sections, _processed) = main.unwrap_or_default();
     assert!(

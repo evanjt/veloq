@@ -67,7 +67,7 @@ fn build_scenario_b_engine() -> (Arc<RwLock<PersistentRouteEngine>>, TempDir) {
     }
 
     // Run an initial detection so the engine has sections to read.
-    let handle = engine.detect_sections_background(None);
+    let handle = engine.detect_sections_background();
     let (sections, _) = handle.recv().unwrap_or_default();
     engine.apply_sections(sections).expect("initial apply");
 
@@ -119,7 +119,7 @@ fn lock_contention_baseline() {
     // so the writer's measured time is `apply_sections` only, not detection.
     let next_sections = {
         let mut engine = engine_arc.write().expect("write for detect");
-        let handle = engine.detect_sections_background(None);
+        let handle = engine.detect_sections_background();
         handle.recv().unwrap_or_default().0
     };
     println!(

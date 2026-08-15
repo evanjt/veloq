@@ -87,7 +87,7 @@ fn backfill_cadence_conditions_without_any_ts_poll() {
     // The applied run also advances the processed set, so a sync-end detect
     // over the same pool short-circuits instead of re-deriving.
     let processed = with_persistent_engine(|engine| {
-        let handle = engine.detect_sections_background(None);
+        let handle = engine.detect_sections_background();
         let (sections_again, _) = handle.recv().unwrap_or_default();
         (sections_again.len(), engine.get_sections().len())
     })

@@ -16,8 +16,8 @@ interface RescanProgress {
 }
 
 interface SectionRescanState {
-  rescan: (sportFilter?: string) => boolean;
-  forceRescan: (sportFilter?: string) => boolean;
+  rescan: () => boolean;
+  forceRescan: () => boolean;
   isScanning: boolean;
   progress: RescanProgress | null;
   result: RescanResult | null;
@@ -77,29 +77,23 @@ export function useSectionRescan(): SectionRescanState {
     }, 500);
   }, [stopPolling]);
 
-  const rescan = useCallback(
-    (sportFilter?: string) => {
-      const engine = getRouteEngine();
-      if (!engine) return false;
-      beforeCountRef.current = getSectionCount();
-      const started = engine.startSectionDetection(sportFilter);
-      if (started) startPolling();
-      return started;
-    },
-    [startPolling]
-  );
+  const rescan = useCallback(() => {
+    const engine = getRouteEngine();
+    if (!engine) return false;
+    beforeCountRef.current = getSectionCount();
+    const started = engine.startSectionDetection();
+    if (started) startPolling();
+    return started;
+  }, [startPolling]);
 
-  const forceRescan = useCallback(
-    (sportFilter?: string) => {
-      const engine = getRouteEngine();
-      if (!engine) return false;
-      beforeCountRef.current = getSectionCount();
-      const started = engine.forceRedetectSections(sportFilter);
-      if (started) startPolling();
-      return started;
-    },
-    [startPolling]
-  );
+  const forceRescan = useCallback(() => {
+    const engine = getRouteEngine();
+    if (!engine) return false;
+    beforeCountRef.current = getSectionCount();
+    const started = engine.forceRedetectSections();
+    if (started) startPolling();
+    return started;
+  }, [startPolling]);
 
   const clearResult = useCallback(() => setResult(null), []);
 

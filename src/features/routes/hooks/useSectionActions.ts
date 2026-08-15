@@ -362,9 +362,8 @@ export function useSectionActions({
 
   // --- rematch ---
   const handleRematchActivities = useCallback(() => {
-    if (!section?.sportType) return;
-    rescan(section.sportType);
-  }, [section?.sportType, rescan]);
+    rescan();
+  }, [rescan]);
 
   return {
     // name edit
