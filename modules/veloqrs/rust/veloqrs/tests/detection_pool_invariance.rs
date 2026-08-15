@@ -147,7 +147,10 @@ fn test_pooled_cold_and_warm_detections_agree() {
     );
 
     let expected = catalogue(&cold);
-    assert!(!expected.is_empty(), "expected sections from the pooled pool");
+    assert!(
+        !expected.is_empty(),
+        "expected sections from the pooled pool"
+    );
     assert_eq!(
         expected,
         catalogue(&warm),
