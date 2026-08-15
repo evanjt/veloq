@@ -198,6 +198,9 @@ table section_geometry
   column created_at type=TEXT notnull=1 default=datetime('now') pk=0
   column encoding type=INTEGER notnull=1 default=1 pk=0
   column milestone type=INTEGER notnull=1 default=0 pk=0
+  column rep_activity_id type=TEXT notnull=0 default=<none> pk=0
+  column rep_end_index type=INTEGER notnull=0 default=<none> pk=0
+  column rep_start_index type=INTEGER notnull=0 default=<none> pk=0
   column section_id type=TEXT notnull=1 default=<none> pk=1
   column version type=INTEGER notnull=1 default=<none> pk=2
   index auto(section_id,version) unique=1 origin=pk partial=0 cols=[section_id,version]

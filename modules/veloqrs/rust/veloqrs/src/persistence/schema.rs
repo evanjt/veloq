@@ -124,6 +124,7 @@ impl PersistentRouteEngine {
         // unconditionally after every migration pass.
         Self::ensure_visit_count_denormalisation(conn)?;
         Self::ensure_section_intents_named_shape(conn)?;
+        Self::ensure_section_geometry_provenance(conn)?;
         Self::ensure_wellness_raw_column(conn)?;
 
         // Post-migration data population for pre-0.2.2 databases.
@@ -253,6 +254,32 @@ impl PersistentRouteEngine {
         Ok(())
     }
 
+    /// Add the `section_geometry` provenance triple. Keyed on column presence,
+    /// because 017 creates the table only when absent and so cannot reach one a
+    /// database already carries. Nullable throughout: a corridor-era version is
+    /// an averaged line belonging to no single activity.
+    fn ensure_section_geometry_provenance(conn: &Connection) -> SqlResult<()> {
+        let table_exists = conn
+            .prepare("SELECT section_id FROM section_geometry LIMIT 0")
+            .is_ok();
+        // Probes the last column added, inside one transaction, so a torn run
+        // leaves nothing and the next open retries.
+        if table_exists
+            && conn
+                .prepare("SELECT rep_end_index FROM section_geometry LIMIT 0")
+                .is_err()
+        {
+            conn.execute_batch(
+                "BEGIN;
+                 ALTER TABLE section_geometry ADD COLUMN rep_activity_id TEXT;
+                 ALTER TABLE section_geometry ADD COLUMN rep_start_index INTEGER;
+                 ALTER TABLE section_geometry ADD COLUMN rep_end_index INTEGER;
+                 COMMIT;",
+            )?;
+        }
+        Ok(())
+    }
+
     /// Add the Phase 3 (B4) visit_count column, backfill it once, and create the
     /// recompute triggers. Idempotent and self-healing: the column is added only
     /// when absent (SQLite has no ADD COLUMN IF NOT EXISTS), the backfill runs only
@@ -331,9 +358,9 @@ impl PersistentRouteEngine {
         Ok(())
     }
 
-    /// Bring `section_intents` to the named-corridor shape (kind 'named' plus
-    /// `name`/`sport_type` columns), widen its key to `(id, kind)`, and
-    /// backfill legacy user names once. Idempotent: each rebuild runs only
+    /// Bring `section_intents` to the named-corridor shape (kinds 'named' and
+    /// 'fixed' plus `name`/`sport_type` columns), widen its key to `(id, kind)`,
+    /// and backfill legacy user names once. Idempotent: each rebuild runs only
     /// while sqlite_master still shows the older shape, preserving every row so
     /// user suppression and naming survive; the backfill is guarded by a
     /// schema_info marker so a v12 upgrade (whose 013 already creates the
@@ -355,7 +382,7 @@ impl PersistentRouteEngine {
                  DROP TABLE IF EXISTS section_intents_named_shape;
                  CREATE TABLE section_intents_named_shape (
                      id TEXT NOT NULL,
-                     kind TEXT NOT NULL CHECK(kind IN ('disabled', 'deleted', 'named')),
+                     kind TEXT NOT NULL CHECK(kind IN ('disabled', 'deleted', 'named', 'fixed')),
                      polyline_json TEXT NOT NULL,
                      created_at TEXT NOT NULL DEFAULT (datetime('now')),
                      name TEXT,
@@ -368,13 +395,13 @@ impl PersistentRouteEngine {
                  ALTER TABLE section_intents_named_shape RENAME TO section_intents;
                  COMMIT;",
             )?;
-        } else if !table_sql.contains("PRIMARY KEY (id, kind)") {
+        } else if !table_sql.contains("PRIMARY KEY (id, kind)") || !table_sql.contains("'fixed'") {
             conn.execute_batch(
                 "BEGIN;
                  DROP TABLE IF EXISTS section_intents_keyed_shape;
                  CREATE TABLE section_intents_keyed_shape (
                      id TEXT NOT NULL,
-                     kind TEXT NOT NULL CHECK(kind IN ('disabled', 'deleted', 'named')),
+                     kind TEXT NOT NULL CHECK(kind IN ('disabled', 'deleted', 'named', 'fixed')),
                      polyline_json TEXT NOT NULL,
                      created_at TEXT NOT NULL DEFAULT (datetime('now')),
                      name TEXT,
