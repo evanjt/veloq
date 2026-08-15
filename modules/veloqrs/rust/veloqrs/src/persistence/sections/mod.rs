@@ -1806,6 +1806,7 @@ impl PersistentRouteEngine {
                 event.kind,
                 event.details.as_deref(),
                 version,
+                None,
             )?;
         }
 

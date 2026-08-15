@@ -86,19 +86,23 @@ pub(super) fn record_geometry_on(
     Ok(version)
 }
 
-/// Append one lifecycle event row. Returns the event row id. Connection-level
-/// for the same transactional reason as [`record_geometry_on`].
+/// Append one lifecycle event row at `at`, or at the current time when `at` is
+/// None. An upgrade backdates its baseline row to when the catalogue it
+/// describes was actually cut; a live event passes None. Returns the event row
+/// id. Connection-level for the same transactional reason as
+/// [`record_geometry_on`].
 pub(super) fn append_history_on(
     conn: &rusqlite::Connection,
     section_id: &str,
     kind: &str,
     details: Option<&str>,
     geometry_version: Option<i64>,
+    at: Option<&str>,
 ) -> rusqlite::Result<i64> {
     conn.execute(
-        "INSERT INTO section_history (section_id, kind, details, geometry_version)
-         VALUES (?, ?, ?, ?)",
-        params![section_id, kind, details, geometry_version],
+        "INSERT INTO section_history (section_id, at, kind, details, geometry_version)
+         VALUES (?, COALESCE(?, datetime('now')), ?, ?, ?)",
+        params![section_id, at, kind, details, geometry_version],
     )?;
     Ok(conn.last_insert_rowid())
 }
@@ -159,7 +163,7 @@ impl PersistentRouteEngine {
             .unwrap_or_default()
     }
 
-    /// Append one lifecycle event. Returns the event row id.
+    /// Append one lifecycle event at the current time. Returns the event row id.
     pub fn append_section_history(
         &mut self,
         section_id: &str,
@@ -167,7 +171,27 @@ impl PersistentRouteEngine {
         details: Option<&str>,
         geometry_version: Option<i64>,
     ) -> rusqlite::Result<i64> {
-        append_history_on(&self.db, section_id, kind, details, geometry_version)
+        append_history_on(&self.db, section_id, kind, details, geometry_version, None)
+    }
+
+    /// Append one lifecycle event at `at`, for a row that records something
+    /// which happened before this call.
+    pub fn append_section_history_at(
+        &mut self,
+        section_id: &str,
+        kind: &str,
+        details: Option<&str>,
+        geometry_version: Option<i64>,
+        at: &str,
+    ) -> rusqlite::Result<i64> {
+        append_history_on(
+            &self.db,
+            section_id,
+            kind,
+            details,
+            geometry_version,
+            Some(at),
+        )
     }
 
     /// Every event of one section, oldest first.

@@ -208,6 +208,7 @@ table section_history
   column id type=INTEGER notnull=0 default=<none> pk=1
   column kind type=TEXT notnull=1 default=<none> pk=0
   column section_id type=TEXT notnull=1 default=<none> pk=0
+  index idx_section_history_at unique=0 origin=c partial=0 cols=[at]
   index idx_section_history_section unique=0 origin=c partial=0 cols=[section_id,at]
 table section_intents
   column created_at type=TEXT notnull=1 default=datetime('now') pk=0
@@ -329,6 +330,7 @@ index idx_overlap_cache_b :: CREATE INDEX idx_overlap_cache_b ON overlap_cache(a
 index idx_pace_history_sport_date :: CREATE INDEX idx_pace_history_sport_date ON pace_history(sport_type, date DESC)
 index idx_section_activities_activity :: CREATE INDEX idx_section_activities_activity ON section_activities(activity_id)
 index idx_section_activities_perf :: CREATE INDEX idx_section_activities_perf ON section_activities(section_id, excluded, lap_time)
+index idx_section_history_at :: CREATE INDEX idx_section_history_at ON section_history(at)
 index idx_section_history_section :: CREATE INDEX idx_section_history_section ON section_history(section_id, at)
 index idx_sections_disabled :: CREATE INDEX idx_sections_disabled ON sections(disabled)
 index idx_sections_sport :: CREATE INDEX idx_sections_sport ON sections(sport_type)
