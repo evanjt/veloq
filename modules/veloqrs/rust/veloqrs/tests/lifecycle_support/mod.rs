@@ -4,10 +4,8 @@
 //! full-stack path (SQLite ingest -> `detect_sections_background` ->
 //! `apply_sections` -> snapshot):
 //!
-//! - `Arm::Control` drives the engine's shipped default method (currently
-//!   `DetectionMethod::Corridor`; multiscale on batches over 500). This is
-//!   the frozen baseline for validity, backwards-compatibility, and
-//!   benchmarking (Suite #1).
+//! - `Arm::Control` drives `DetectionMethod::Corridor` by name, the frozen
+//!   baseline (Suite #1).
 //! - `Arm::Battery` drives `DetectionMethod::Unified`, the new base
 //!   (Suite #2).
 //!
@@ -25,13 +23,13 @@ use std::time::Instant;
 use tempfile::TempDir;
 use tracematch::GpsPoint;
 use tracematch::scenarios::LifecycleActivity;
-use tracematch::sections::{DetectionMethod, SectionConfig};
+use tracematch::sections::DetectionMethod;
 use veloqrs::PersistentRouteEngine;
 
 /// Which detection engine an arm drives.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Arm {
-    /// The shipped current method (engine default). Suite #1 golden control.
+    /// `DetectionMethod::Corridor`, the frozen baseline. Suite #1 golden control.
     Control,
     /// `DetectionMethod::Unified` — the new base. Suite #2.
     Battery,
@@ -42,6 +40,14 @@ impl Arm {
         match self {
             Arm::Control => "control",
             Arm::Battery => "battery",
+        }
+    }
+
+    /// The detector this arm drives, named explicitly rather than defaulted.
+    pub fn method(self) -> DetectionMethod {
+        match self {
+            Arm::Control => DetectionMethod::Corridor,
+            Arm::Battery => DetectionMethod::Unified,
         }
     }
 }
@@ -281,24 +287,49 @@ pub fn raw_snapshot(engine: &PersistentRouteEngine) -> SectionSnapshot {
 // Engine construction per arm
 // ============================================================================
 
-/// A fresh temp-DB engine on the Control arm (shipped default method).
+/// A fresh temp-DB engine on the Control arm (Corridor).
 pub fn fresh_engine() -> (PersistentRouteEngine, TempDir) {
     fresh_engine_for(Arm::Control)
 }
 
-/// A fresh temp-DB engine configured for the given arm. Control leaves the
-/// engine at its shipped default; Battery flips `detection_method` to Unified.
+/// A fresh temp-DB engine on the given arm, differing only in
+/// `detection_method`.
 pub fn fresh_engine_for(arm: Arm) -> (PersistentRouteEngine, TempDir) {
     let _ = env_logger::builder().is_test(true).try_init();
     let dir = TempDir::new().expect("tempdir");
     let path = dir.path().join("lifecycle.db");
     let mut engine = PersistentRouteEngine::new(path.to_str().unwrap()).expect("open engine");
-    if arm == Arm::Battery {
-        let mut cfg = SectionConfig::default();
-        cfg.detection_method = DetectionMethod::Unified;
-        engine.set_section_config(cfg);
-    }
+    let mut cfg = engine.get_section_config();
+    cfg.detection_method = arm.method();
+    engine.set_section_config(cfg);
+    assert_eq!(
+        engine.get_section_config().detection_method,
+        arm.method(),
+        "{} arm did not land on {}",
+        arm.label(),
+        arm.method(),
+    );
     (engine, dir)
+}
+
+/// Control resolves to Corridor and Battery to Unified, on the arm and on the
+/// engine it builds.
+#[test]
+fn the_arms_drive_two_different_named_detectors() {
+    assert_eq!(Arm::Control.method(), DetectionMethod::Corridor);
+    assert_eq!(Arm::Battery.method(), DetectionMethod::Unified);
+    assert_ne!(Arm::Control.method(), Arm::Battery.method());
+
+    let (control, _c) = fresh_engine_for(Arm::Control);
+    let (battery, _b) = fresh_engine_for(Arm::Battery);
+    assert_eq!(
+        control.get_section_config().detection_method,
+        DetectionMethod::Corridor
+    );
+    assert_ne!(
+        control.get_section_config().detection_method,
+        battery.get_section_config().detection_method
+    );
 }
 
 // ============================================================================

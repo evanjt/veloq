@@ -795,6 +795,7 @@ impl PersistentRouteEngine {
                 }
             }
         }
+        let loaded_whole = first_error.is_none();
         if let Some(e) = first_error {
             if is_corruption_error(&e) {
                 return Err(e);
@@ -810,8 +811,14 @@ impl PersistentRouteEngine {
         // B4: prefer the persisted registry blob (exact debounce + tombstone
         // state) and fall back to reseeding from the DB rows for a fresh or
         // pre-B4 install.
+        // A reseed off a truncated `sections` (a loader error this function
+        // deliberately continues past) stays in memory, so the next open reseeds
+        // from the whole catalogue instead of restoring the truncation.
         if !self.section_identity_restore() {
             self.section_identity_reseed();
+            if loaded_whole {
+                self.section_identity_persist();
+            }
         }
 
         // B2 step 3 + B4: same for routes — restore the persisted registry
@@ -913,12 +920,10 @@ impl PersistentRouteEngine {
         // A config identical to the active one is a NO-OP. The TS init path
         // re-sends the persisted config on every launch (GlobalDataSync applies
         // the strictness preset whenever detectionStrictness != 60), so without
-        // this guard every launch would clear the processed set, force a full
-        // re-detect, and — since B2 — reset the identity registry, renumbering
-        // every section on each open for any user who has ever moved the
-        // strictness slider. Only a GENUINE change runs the re-analysis tail
-        // below (which arms config_change_reanalyses). Equality is exact, but the
-        // config round-trips through the settings table as the same f64/u32
+        // this guard every launch would clear the processed set and force a full
+        // re-detect for any user who has ever moved the strictness slider. Only a
+        // GENUINE change runs the re-analysis tail below. Equality is exact, but
+        // the config round-trips through the settings table as the same f64/u32
         // strings, so a re-sent config compares equal.
         if config == self.section_config {
             return;
@@ -990,13 +995,10 @@ impl PersistentRouteEngine {
         // clearing it forces a full re-detect under the new config.
         self.clear_processed_activity_ids();
         self.sections_dirty = true;
-        // B2: a config change also invalidates the identity BASIS — the stable
-        // ids and debounce counters were assigned to ground detected under the
-        // old params, which the new params may not even find. Reset the registry
-        // so the re-analysed catalogue reflects the new config at once instead of
-        // debounce-holding sections the old config produced (mirrors the evidence
-        // cache reset on the same event). The next detect reseeds it from scratch.
-        self.identity = sections::SectionIdentity::default();
+        // A config change invalidates the debounce, not the identities: the
+        // registry is rebuilt from the catalogue so ids carry, and the next fold
+        // applies the new params' answer in one step.
+        self.section_identity_reseed_decisive();
     }
 
     // ========================================================================

@@ -301,6 +301,46 @@ impl PersistentRouteEngine {
         }
     }
 
+    /// Write the registry blob on its own, outside the catalogue save.
+    ///
+    /// The registry also moves on events that write no catalogue: a relinquish,
+    /// an activity purge, a reseed. Each of those follows a DB change that is
+    /// already committed, so the blob has to follow it at once. Otherwise a kill
+    /// before the next detect restores a registry describing rows the DB no
+    /// longer holds, and the outcome of the next detect depends on when the
+    /// process died. Best-effort: a failed write leaves the older blob, which the
+    /// next apply's ground remap heals.
+    pub(crate) fn section_identity_persist(&self) {
+        let Some(blob) = self.section_identity_blob() else {
+            log::warn!("tracematch: [section_identity_persist] serialisation failed");
+            return;
+        };
+        if let Err(e) = self.db.execute(
+            "INSERT INTO identity_state (key, blob, updated_at)
+             VALUES (?, ?, datetime('now'))
+             ON CONFLICT(key) DO UPDATE SET blob = excluded.blob, updated_at = excluded.updated_at",
+            rusqlite::params![SECTION_IDENTITY_KEY, blob],
+        ) {
+            log::warn!("tracematch: [section_identity_persist] {e}");
+        }
+    }
+
+    /// Ids of the sections the user has pinned. A pin is durable intent that the
+    /// drawn line does not move, so the detector receives them as
+    /// [`tracematch::SectionUpdatePolicy::pinned_ids`] and freezes them through
+    /// the fold. Sorted, so the policy carries no read order.
+    pub(crate) fn pinned_section_ids(&self) -> Vec<String> {
+        let Ok(mut stmt) = self
+            .db
+            .prepare("SELECT section_id FROM section_pins ORDER BY section_id")
+        else {
+            return Vec::new();
+        };
+        stmt.query_map([], |row| row.get::<_, String>(0))
+            .map(|rows| rows.flatten().collect())
+            .unwrap_or_default()
+    }
+
     /// Seed the registry from the sections already loaded from the DB, adopting
     /// each existing id as a stable seed. Called once after `load_sections` so an
     /// existing install keeps its ids (positional, custom, or previously minted)
@@ -312,6 +352,10 @@ impl PersistentRouteEngine {
     /// through suppression, never the registry. `seen` is primed with the whole
     /// current activity set so the first post-open detect folds nothing spuriously
     /// (the seeded sections already hold their DB members).
+    ///
+    /// In-memory only. The blob is derivable from the catalogue that seeded it,
+    /// so the caller decides whether to persist it (see
+    /// [`section_identity_reseed_decisive`](Self::section_identity_reseed_decisive)).
     pub(crate) fn section_identity_reseed(&mut self) {
         let managed: Vec<FrequentSection> = self
             .sections
@@ -333,6 +377,21 @@ impl PersistentRouteEngine {
         }
         identity.seen = self.activity_metadata.keys().cloned().collect();
         self.identity = identity;
+    }
+
+    /// Reseed for a config change: the ids carry, and the next fold applies its
+    /// dissolves and re-cuts without a streak.
+    ///
+    /// The debounce absorbs detector noise, and a config change is not noise:
+    /// the user asked for different ground and the first batch under the new
+    /// params is the answer. Without the arm, ground the new config no longer
+    /// finds stays visible for `k` detects, which on a weekly-syncing library is
+    /// weeks. The arm rides the registry blob, so it survives a kill and is
+    /// still spent by the first fold rather than the first fold after a restart.
+    pub(crate) fn section_identity_reseed_decisive(&mut self) {
+        self.section_identity_reseed();
+        self.identity.hysteresis.arm_decisive();
+        self.section_identity_persist();
     }
 
     /// Run a fresh detection catalogue through the identity + hysteresis layer,
@@ -533,6 +592,11 @@ impl PersistentRouteEngine {
                         row.section.created_at = prior.created_at.clone();
                         row.section.version = prior.version;
                         row.section.updated_at = prior.updated_at.clone();
+                        // Sport stays with the identity here for the same
+                        // reason as an adopted carry: the ground may re-emerge
+                        // in another sport's cut, and a section that comes back
+                        // as itself must not come back as another sport.
+                        row.section.sport_type = prior.sport_type.clone();
                         row
                     }),
                 CandidateFate::Minted => None,
@@ -778,11 +842,15 @@ impl PersistentRouteEngine {
             .filter(|(_, r)| r.real_id == real_id)
             .map(|(pid, _)| pid.clone())
             .collect();
+        if pids.is_empty() {
+            return;
+        }
         for pid in pids {
             self.identity.rows.remove(&pid);
             self.identity.graves.remove(&pid);
             self.identity.hysteresis.forget(&pid);
         }
+        self.section_identity_persist();
     }
 
     /// Drop a removed activity from every section the registry carries (visible
@@ -793,7 +861,9 @@ impl PersistentRouteEngine {
     /// detection apply. Called by remove_activity. Ground is untouched: only the
     /// gone activity leaves; the section's geometry and other members stay.
     pub(crate) fn section_identity_purge_activity(&mut self, activity_id: &str) {
-        fn drop_from(section: &mut FrequentSection, activity_id: &str) {
+        /// Whether the section carried the activity at all.
+        fn drop_from(section: &mut FrequentSection, activity_id: &str) -> bool {
+            let ids_before = section.activity_ids.len();
             section.activity_ids.retain(|a| a != activity_id);
             let before = section.activity_portions.len();
             section
@@ -801,16 +871,23 @@ impl PersistentRouteEngine {
                 .retain(|p| p.activity_id != activity_id);
             let dropped = (before - section.activity_portions.len()) as u32;
             section.visit_count = section.visit_count.saturating_sub(dropped);
+            dropped > 0 || section.activity_ids.len() != ids_before
         }
+        let mut moved = false;
         for row in self.identity.rows.values_mut() {
-            drop_from(&mut row.section, activity_id);
+            moved |= drop_from(&mut row.section, activity_id);
         }
         for row in self.identity.graves.values_mut() {
-            drop_from(&mut row.section, activity_id);
+            moved |= drop_from(&mut row.section, activity_id);
         }
-        self.identity.seen.remove(activity_id);
+        moved |= self.identity.seen.remove(activity_id);
         for section in &mut self.sections {
             drop_from(section, activity_id);
+        }
+        // The blob is the whole catalogue, and a bulk delete is one call per
+        // activity, so an untouched registry writes nothing.
+        if moved {
+            self.section_identity_persist();
         }
     }
 

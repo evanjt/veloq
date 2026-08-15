@@ -201,32 +201,60 @@ fn near_duplicate_corridors_stay_disjoint() {
     );
 }
 
-/// Gate: a cross-sport corridor keeps a per-sport view, so no visible section
-/// pools a Ride and a Run under one heading. A red means a running effort lands
-/// under a Ride section with a nonsensical pace PR. Invariant 2 is collapsed
-/// STORAGE, so it runs on the arm whose detection partitions by sport. Corridor
-/// pools at detection and derives a dominant label, which the invariant cannot
-/// distinguish from a storage collapse.
+/// Gate (invariant 2): Unified pools sports, so a corridor two sports share is
+/// ONE section carrying the traversals of both, headed by a sport its own
+/// traffic does. A red is a heading nobody rode: a placeholder label, or a
+/// sport a minority of the members do, either of which puts a running effort
+/// under a nonsensical PR. The per-sport comparison view is a leaderboard-layer
+/// split of these members, not a second section, so it is not gated here.
 #[test]
-fn cross_sport_corridor_keeps_per_sport_view() {
+fn a_cross_sport_corridor_is_one_section_headed_by_its_own_traffic() {
     let corpus = corpus();
     let smap = sport_map(&corpus);
 
     let (mut engine, _dir) = fresh_engine_for(Arm::Battery);
     let cold = ingest_step(&mut engine, "cold", &corpus.through_a()).snapshot;
 
-    let mixed: Vec<(String, BTreeSet<String>)> = cold
+    let mixed: Vec<(&String, &SectionFingerprint, BTreeSet<String>)> = cold
         .sections
         .iter()
         .filter_map(|(id, f)| {
             let sports = member_sports(&smap, &f.activity_ids);
-            (sports.len() > 1).then(|| (id.clone(), sports))
+            (sports.len() > 1).then(|| (id, f, sports))
         })
         .collect();
     assert!(
-        mixed.is_empty(),
-        "cross-sport collapse: section(s) {mixed:?} pool multiple true sports (invariant 2)"
+        !mixed.is_empty(),
+        "no section pools two sports, so pooling is off and this gate proves nothing"
     );
+
+    for (id, f, sports) in &mixed {
+        assert!(
+            sports.contains(&f.sport_type),
+            "section {id} is headed {} but its members ride {sports:?}",
+            f.sport_type
+        );
+        let heading_count = f
+            .activity_ids
+            .iter()
+            .filter(|a| smap.get(*a) == Some(&f.sport_type))
+            .count();
+        let best = sports
+            .iter()
+            .map(|s| {
+                f.activity_ids
+                    .iter()
+                    .filter(|a| smap.get(*a) == Some(s))
+                    .count()
+            })
+            .max()
+            .unwrap_or(0);
+        assert_eq!(
+            heading_count, best,
+            "section {id} is headed {} on {heading_count} of its traversals while another sport has {best}",
+            f.sport_type
+        );
+    }
 }
 
 // ============================================================================

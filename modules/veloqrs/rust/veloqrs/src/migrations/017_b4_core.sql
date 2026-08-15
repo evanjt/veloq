@@ -97,9 +97,13 @@ CREATE INDEX IF NOT EXISTS idx_section_activities_perf
 -- The key is (id, kind): one section carries at most one intent PER kind, so
 -- intents of different kind on the same ground coexist instead of overwriting
 -- one another.
+--
+-- kind = 'fixed' is the reserved user-pinned class. It sits in the CHECK from
+-- the start because widening a CHECK costs a create-copy-drop-rename over live
+-- user intents.
 CREATE TABLE IF NOT EXISTS section_intents (
     id TEXT NOT NULL,
-    kind TEXT NOT NULL CHECK(kind IN ('disabled', 'deleted', 'named')),
+    kind TEXT NOT NULL CHECK(kind IN ('disabled', 'deleted', 'named', 'fixed')),
     polyline_json TEXT NOT NULL,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     name TEXT,
@@ -140,6 +144,18 @@ CREATE INDEX IF NOT EXISTS idx_section_history_at
 -- and a quarantine salvage cannot lose a version to a torn predecessor.
 -- Retention on write: version 1 (birth geometry), milestones, the pinned
 -- version, and the newest three always survive; other versions are pruned.
+--
+-- A section's line is one contiguous range of one real activity, so the
+-- (rep_activity_id, rep_start_index, rep_end_index) triple is the truth and the
+-- blob is a decoded cache of it. The triple is nullable because a corridor-era
+-- version is an averaged consensus line belonging to no single activity.
+--
+-- `source` says which of the two a version is. 'exact' means the triple is
+-- present and re-slicing the stored stream reproduces the blob byte for byte;
+-- 'consensus' is an averaged line no activity carries, so the triple stays
+-- NULL; 'orphaned' means the representative activity is gone and the blob is
+-- the last honest picture. NULL is unstated provenance, read as not-exact.
+-- Readers take the blob for anything that is not 'exact' with a triple.
 CREATE TABLE IF NOT EXISTS section_geometry (
     section_id TEXT NOT NULL,
     version INTEGER NOT NULL,
@@ -147,6 +163,10 @@ CREATE TABLE IF NOT EXISTS section_geometry (
     encoding INTEGER NOT NULL DEFAULT 1,
     blob BLOB NOT NULL,
     milestone INTEGER NOT NULL DEFAULT 0,
+    rep_activity_id TEXT,
+    rep_start_index INTEGER,
+    rep_end_index INTEGER,
+    source TEXT CHECK(source IS NULL OR source IN ('exact', 'consensus', 'orphaned')),
     PRIMARY KEY (section_id, version)
 );
 

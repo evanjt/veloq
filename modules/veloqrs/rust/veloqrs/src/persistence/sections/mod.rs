@@ -2,14 +2,14 @@
 
 pub mod conditioning;
 mod detection;
-mod history;
+pub(super) mod history;
 mod identity;
 mod merging;
 mod named;
 mod naming;
 mod ranking;
 
-pub use history::{SectionGeometryVersion, SectionHistoryEvent};
+pub use history::{DetectorGeneration, SectionGeometryVersion, SectionHistoryEvent};
 pub(crate) use identity::SectionIdentity;
 pub(crate) use named::looks_generated;
 pub use named::{NamedCorridor, NamedOverlay};
@@ -1434,7 +1434,7 @@ impl PersistentRouteEngine {
     }
 
     pub(super) fn save_sections(&self) -> SqlResult<()> {
-        self.save_sections_with_events(&[])
+        self.write_catalogue(&[], false)
     }
 
     /// [`save_sections`](Self::save_sections) plus the lifecycle events the
@@ -1445,7 +1445,42 @@ impl PersistentRouteEngine {
         &self,
         events: &[identity::SectionLifecycleEvent],
     ) -> SqlResult<()> {
+        self.write_catalogue(events, true)
+    }
+
+    /// `from_detect` separates a detection apply from the ordinary saves a
+    /// mutation makes. Only a detect re-cuts geometry, so only a detect can
+    /// carry the catalogue from one detector generation to the next.
+    fn write_catalogue(
+        &self,
+        events: &[identity::SectionLifecycleEvent],
+        from_detect: bool,
+    ) -> SqlResult<()> {
         let tx = self.db.unchecked_transaction()?;
+
+        // The detector that cut what is on disk no longer matches the live
+        // one, so every shape it drew is about to be replaced by a different
+        // algorithm's answer. Keep each one as a milestone and say so, before
+        // the wipe below takes them. The row set is the wipe's own predicate:
+        // a custom, accepted or disabled section keeps its line through a
+        // detector change and has nothing to explain.
+        if from_detect && let Some((from, to)) = self.detector_generation_change() {
+            let mut stmt = tx.prepare(
+                "SELECT id, polyline_blob, polyline_json FROM sections
+                 WHERE section_type = 'auto' AND original_polyline_json IS NULL
+                   AND is_user_defined = 0 AND disabled = 0",
+            )?;
+            let priors: Vec<(String, Option<Vec<u8>>, Option<String>)> = stmt
+                .query_map([], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)))?
+                .filter_map(|r| r.ok())
+                .collect();
+            drop(stmt);
+            for (id, blob, json) in priors {
+                let prior = codec::decode_polyline_row(blob.as_deref(), json.as_deref())
+                    .unwrap_or_default();
+                history::record_algorithm_change_on(&tx, &id, Some(&prior), Some(&from), &to)?;
+            }
+        }
 
         // Birth dates of every current row, read BEFORE the wipe. New payloads
         // stamp created_at at mint, but payloads persisted before that change
@@ -1829,21 +1864,26 @@ impl PersistentRouteEngine {
         }
 
         // Provenance of the catalogue this transaction stores: which detector
-        // cut it, and under which parameters.
-        for (key, value) in [
-            (
-                CATALOGUE_METHOD_KEY,
-                self.section_config.detection_method.as_str().to_string(),
-            ),
-            (
-                CATALOGUE_CONFIG_DIGEST_KEY,
-                section_config_digest(&self.section_config),
-            ),
-        ] {
-            tx.execute(
-                "INSERT OR REPLACE INTO schema_info (key, value) VALUES (?, ?)",
-                params![key, value],
-            )?;
+        // cut it, and under which parameters. Only a detect moves it. A
+        // mutation save leaves the geometry of every other section alone, so
+        // advancing the marker there would retire the one-shot capture above
+        // without anything having been re-cut.
+        if from_detect {
+            for (key, value) in [
+                (
+                    CATALOGUE_METHOD_KEY,
+                    self.section_config.detection_method.as_str().to_string(),
+                ),
+                (
+                    CATALOGUE_CONFIG_DIGEST_KEY,
+                    section_config_digest(&self.section_config),
+                ),
+            ] {
+                tx.execute(
+                    "INSERT OR REPLACE INTO schema_info (key, value) VALUES (?, ?)",
+                    params![key, value],
+                )?;
+            }
         }
 
         tx.commit()?;
