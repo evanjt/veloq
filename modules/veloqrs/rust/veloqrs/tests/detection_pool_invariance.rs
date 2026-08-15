@@ -9,6 +9,7 @@ use std::collections::{BTreeSet, HashMap};
 
 use tempfile::TempDir;
 use tracematch::scenarios::{LifecycleActivity, LifecycleConfig, LifecycleCorpus};
+use tracematch::{DetectionMethod, SectionConfig};
 use veloqrs::PersistentRouteEngine;
 
 fn corpus() -> Vec<LifecycleActivity> {
@@ -88,11 +89,73 @@ fn covered_sports(
         .collect()
 }
 
-/// Order independence holds. The re-invocation arm does not: a second detect
-/// over an unchanged pool emits a section duplicating one already in the
-/// catalogue. Run with `--ignored` to see it.
+fn pooled_unified(engine: &mut PersistentRouteEngine) {
+    engine.set_section_config(SectionConfig {
+        detection_method: DetectionMethod::Unified,
+        pool_sports: true,
+        ..SectionConfig::default()
+    });
+}
+
+/// Scenario: one engine detects the pooled-sport pool cold; another grows it
+/// incrementally over the evidence cache; both then settle.
+/// Expected behaviour: the two engines hold the same section membership.
 #[test]
-#[ignore = "a second detect over an unchanged pool duplicates a section"]
+fn test_pooled_cold_and_warm_detections_agree() {
+    let activities = corpus();
+    let dir = TempDir::new().unwrap();
+
+    let cold_path = dir.path().join("cold.db");
+    let mut cold = PersistentRouteEngine::new(cold_path.to_str().unwrap()).expect("engine");
+    pooled_unified(&mut cold);
+    ingest(&mut cold, &activities);
+    detect(&mut cold);
+
+    let warm_path = dir.path().join("warm.db");
+    let mut warm = PersistentRouteEngine::new(warm_path.to_str().unwrap()).expect("engine");
+    pooled_unified(&mut warm);
+    let (head, tail) = activities.split_at(activities.len() / 2);
+    ingest(&mut warm, head);
+    detect(&mut warm);
+    ingest(&mut warm, tail);
+
+    // The warm view lags the batch while held-over sections press through the
+    // k-step dissolve debounce; run well past k so both views sit at the fold's
+    // fixed point.
+    for _ in 0..8 {
+        detect(&mut warm);
+        detect(&mut cold);
+    }
+
+    let raw = |e: &PersistentRouteEngine| -> Vec<Vec<String>> {
+        let mut v: Vec<Vec<String>> = e
+            .raw_detection_catalogue()
+            .iter()
+            .map(|s| {
+                let mut ids = s.activity_ids.clone();
+                ids.sort();
+                ids
+            })
+            .collect();
+        v.sort();
+        v
+    };
+    assert_eq!(
+        raw(&cold),
+        raw(&warm),
+        "raw pooled batches must agree cold and warm"
+    );
+
+    let expected = catalogue(&cold);
+    assert!(!expected.is_empty(), "expected sections from the pooled pool");
+    assert_eq!(
+        expected,
+        catalogue(&warm),
+        "pooled cold and warm engines must agree on the same pool"
+    );
+}
+
+#[test]
 fn test_detection_catalogue_stable_across_invocations() {
     let activities = corpus();
 

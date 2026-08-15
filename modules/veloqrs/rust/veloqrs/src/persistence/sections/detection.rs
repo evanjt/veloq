@@ -583,13 +583,24 @@ impl PersistentRouteEngine {
             .cloned()
             .collect();
 
-        // Short-circuit: no new activities means nothing to detect
+        // Short-circuit: no new activities means nothing to detect. Re-emit the
+        // last RAW batch, not the damped visible view: the visible catalogue can
+        // lag the batch while a dissolve debounces, and echoing it back through
+        // identity would count as a decisive continuation and hold the laggards
+        // forever. The raw batch is what a re-fold over the unchanged pool would
+        // emit, so the debounce keeps pressing and the view converges. The raw
+        // batch lives in memory only; in a fresh process the visible catalogue
+        // is the best available echo.
         if new_activity_ids.is_empty() && !existing_sections.is_empty() {
             log::info!(
                 "tracematch: [SectionDetection] No new activities, skipping detection ({} already processed)",
                 self.processed_activity_ids.len()
             );
-            let sections_copy = existing_sections.clone();
+            let sections_copy = if self.raw_sections.is_empty() {
+                existing_sections.clone()
+            } else {
+                self.raw_sections.clone()
+            };
             let all_ids = activity_ids.clone();
             tx.send((sections_copy, all_ids)).ok();
             // No detection ran, so the evidence cache is unchanged: `cache_tx` is
