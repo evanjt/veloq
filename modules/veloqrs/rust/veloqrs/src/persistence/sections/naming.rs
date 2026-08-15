@@ -1,7 +1,7 @@
 //! Section name persistence and migration helpers.
 
 use rusqlite::{OptionalExtension, Result as SqlResult, params};
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 use super::super::{PersistentRouteEngine, get_section_word};
 
@@ -155,7 +155,7 @@ impl PersistentRouteEngine {
         }
 
         // Resolve conflicts: if two old names map to same number, renumber the one with fewer activities
-        let mut number_to_sections: HashMap<u32, Vec<(String, u32)>> = HashMap::new();
+        let mut number_to_sections: BTreeMap<u32, Vec<(String, u32)>> = BTreeMap::new();
         for (id, _, num) in &renames {
             let activity_count = self
                 .sections
@@ -175,8 +175,8 @@ impl PersistentRouteEngine {
         let mut next_counter = renames.iter().map(|(_, _, n)| *n).max().unwrap_or(0);
 
         for (num, mut section_ids) in number_to_sections {
-            // Sort by activity count DESC - keep the one with most activities at this number
-            section_ids.sort_by(|a, b| b.1.cmp(&a.1));
+            // Most activities keeps the number, section id settles a draw.
+            section_ids.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
 
             for (i, (section_id, _)) in section_ids.iter().enumerate() {
                 let final_num = if i == 0 && !used_numbers.contains(&num) {
