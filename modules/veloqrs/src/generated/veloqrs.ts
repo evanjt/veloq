@@ -11743,7 +11743,9 @@ export interface SectionManagerLike {
   ) /*throws*/ : void;
   expandBounds(
     sectionId: string,
-    newPolylineFlat: Array</*f64*/ number>,
+    activityId: string,
+    startIndex: /*u32*/ number,
+    endIndex: /*u32*/ number,
   ) /*throws*/ : void;
   extractTrace(
     activityId: string,
@@ -12188,7 +12190,9 @@ export class SectionManager
 
   expandBounds(
     sectionId: string,
-    newPolylineFlat: Array</*f64*/ number>,
+    activityId: string,
+    startIndex: /*u32*/ number,
+    endIndex: /*u32*/ number,
   ): void /*throws*/ {
     uniffiCaller.rustCallWithError(
       /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
@@ -12198,7 +12202,9 @@ export class SectionManager
         nativeModule().ubrn_uniffi_veloqrs_fn_method_sectionmanager_expand_bounds(
           uniffiTypeSectionManagerObjectFactory.clonePointer(this),
           FfiConverterString.lower(sectionId),
-          FfiConverterArrayFloat64.lower(newPolylineFlat),
+          FfiConverterString.lower(activityId),
+          FfiConverterUInt32.lower(startIndex),
+          FfiConverterUInt32.lower(endIndex),
           callStatus,
         );
       },
@@ -16960,7 +16966,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_sectionmanager_expand_bounds() !==
-    65320
+    21302
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_sectionmanager_expand_bounds",
