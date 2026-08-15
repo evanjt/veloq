@@ -27,7 +27,7 @@ export function getRouteEngine(): typeof import('veloqrs').routeEngine | null {
   return mod?.routeEngine ?? null;
 }
 
-export type DetectionMethod = 'corridor' | 'density' | 'flow';
+export type DetectionMethod = 'corridor' | 'density' | 'flow' | 'unified';
 export type DetectionStrictness = 'relaxed' | 'default' | 'strict';
 
 /**
@@ -164,10 +164,24 @@ export const FLOW_GRAPH_PRESETS: Record<DetectionStrictness, FlowGraphPreset> = 
   },
 };
 
-const METHOD_FFI_KEY: Record<DetectionMethod, 'corridor' | 'density_grid' | 'flow_graph'> = {
+// The configuration the unified detector is validated at. Written in full so
+// it cannot inherit a value another method left behind.
+export const UNIFIED_CONFIG = {
+  proximityThreshold: 200,
+  minSectionLength: 150,
+  maxSectionLength: 200000,
+  minActivities: 2,
+  divergenceThreshold: 0.15,
+};
+
+const METHOD_FFI_KEY: Record<
+  DetectionMethod,
+  'corridor' | 'density_grid' | 'flow_graph' | 'unified'
+> = {
   corridor: 'corridor',
   density: 'density_grid',
   flow: 'flow_graph',
+  unified: 'unified',
 };
 
 /**
@@ -196,7 +210,14 @@ export function applyDetectionPresetForMethod(
   const ffiMethod = METHOD_FFI_KEY[method];
   const preserveHierarchy = strictness === 'relaxed';
 
-  if (method === 'corridor') {
+  if (method === 'unified') {
+    engine.setSectionConfig({
+      ...current,
+      detectionMethod: ffiMethod,
+      preserveHierarchy: false,
+      ...UNIFIED_CONFIG,
+    });
+  } else if (method === 'corridor') {
     const p = CORRIDOR_PRESETS[strictness];
     engine.setSectionConfig({
       ...current,

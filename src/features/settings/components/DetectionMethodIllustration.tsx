@@ -3,9 +3,10 @@ import { View } from 'react-native';
 import Svg, { Polyline, Line, Text as SvgText } from 'react-native-svg';
 import { useTheme } from '@/shared/app';
 import { brand } from '@/theme';
+import type { DetectionMethod } from '@/shared/native/routeEngine';
 
 interface Props {
-  method: 'corridor' | 'density' | 'flow';
+  method: DetectionMethod;
   proximity: number;
   minSectionLength: number;
   minActivities: number;
@@ -163,6 +164,7 @@ const FFI_METHOD: Record<Props['method'], string> = {
   corridor: 'corridor',
   density: 'density_grid',
   flow: 'flow_graph',
+  unified: 'unified',
 };
 
 const FALLBACK: Record<Props['method'], string[]> = {
@@ -174,6 +176,7 @@ const FALLBACK: Record<Props['method'], string[]> = {
   ],
   density: ['60,92 120,85 200,80', '280,85 340,92 385,100'],
   flow: ['120,85 160,83', '200,80 240,83', '280,85 320,90'],
+  unified: ['15,100 60,92 120,85 200,80 280,85 340,92 385,100'],
 };
 
 export function DetectionMethodIllustration({
