@@ -925,8 +925,13 @@ class RouteEngineClient implements DelegateHost {
   ): { encodedTrack: ArrayBuffer; sectionStartIdx: number; sectionEndIdx: number } | null =>
     sectionDelegates.getSectionExtensionTrack(this, sectionId);
 
-  expandSectionBounds = (sectionId: string, newPolylineFlat: number[]): boolean =>
-    sectionDelegates.expandSectionBounds(this, sectionId, newPolylineFlat);
+  expandSectionBounds = (
+    sectionId: string,
+    activityId: string,
+    startIndex: number,
+    endIndex: number
+  ): boolean =>
+    sectionDelegates.expandSectionBounds(this, sectionId, activityId, startIndex, endIndex);
 
   getDownloadProgress(): DownloadProgressResult {
     return gen().getDownloadProgress();

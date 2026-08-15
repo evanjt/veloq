@@ -241,6 +241,10 @@ required-features = ["synthetic"]
 name = "exclusion_durability"
 required-features = ["synthetic"]
 
+[[test]]
+name = "custom_section_survives_clear"
+required-features = ["synthetic"]
+
 [[bench]]
 name = "heatmap_tiles"
 harness = false

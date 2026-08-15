@@ -802,7 +802,8 @@ impl PersistentRouteEngine {
                 // on a warm cache it is just the genuinely new activities. This is
                 // what makes a restart self-heal (the DB holds the catalogue; the
                 // cache rebuilds) without ever double-routing an already-folded id.
-                // Seconds streams are wired in B3, so pass none here.
+                // No seconds. They feed only the lift veto, which needs point
+                // elevations to raise a candidate at all, and ingest carries none.
                 let new_ids_for_cache: Vec<String> = tracks
                     .iter()
                     .map(|(id, _)| id.clone())
@@ -1161,7 +1162,11 @@ impl PersistentRouteEngine {
         if let Some(p) = progress {
             p.set_phase("merging_cross_sport", 1);
         }
-        if let Err(e) = self.merge_cross_sport_sections() {
+        // Pooled detection cuts shared ground once and labels it afterwards, so
+        // a cross-sport pair is a relabelling, not two sections to fuse.
+        if !self.section_config.pool_sports
+            && let Err(e) = self.merge_cross_sport_sections()
+        {
             log::warn!(
                 "tracematch: [apply_sections_finalize] Cross-sport merge failed: {}",
                 e

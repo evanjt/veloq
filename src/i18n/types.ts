@@ -348,9 +348,12 @@ export interface TranslationResource {
     methodDensityDesc: string;
     methodFlow: string;
     methodFlowDesc: string;
+    methodUnified: string;
+    methodUnifiedDesc: string;
     detectionMethod_corridor: string;
     detectionMethod_density: string;
     detectionMethod_flow: string;
+    detectionMethod_unified: string;
     reanalyzeSections: string;
     reanalyzeWarning: string;
     cleanupOverlapping: string;

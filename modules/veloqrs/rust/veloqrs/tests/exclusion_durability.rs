@@ -316,8 +316,14 @@ fn an_exclusion_survives_an_expand() {
     let (mut engine, sid, member) = engine_with_excludable(&dir);
     engine.exclude_activity_from_section(&sid, &member).unwrap();
 
-    let polyline = engine.get_section_by_id(&sid).unwrap().polyline;
-    engine.expand_section_bounds(&sid, &polyline).unwrap();
+    let anchor = engine
+        .get_section_by_id(&sid)
+        .unwrap()
+        .representative_activity_id;
+    let track = engine.get_gps_track(&anchor).expect("anchor track");
+    engine
+        .expand_section_bounds(&sid, &anchor, 0, track.len() as u32 - 1)
+        .unwrap();
 
     assert_eq!(
         excluded(&engine, &sid),

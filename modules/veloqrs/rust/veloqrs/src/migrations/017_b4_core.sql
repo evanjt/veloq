@@ -93,13 +93,18 @@ CREATE INDEX IF NOT EXISTS idx_section_activities_perf
 -- section best covers it. Named rows carry a minted `ni_` id (never a section
 -- id), NEVER suppress detection (the emitter reads suppression grounds from
 -- disabled/deleted rows only), and outlive every catalogue rebuild.
+--
+-- The key is (id, kind): one section carries at most one intent PER kind, so
+-- intents of different kind on the same ground coexist instead of overwriting
+-- one another.
 CREATE TABLE IF NOT EXISTS section_intents (
-    id TEXT PRIMARY KEY,
+    id TEXT NOT NULL,
     kind TEXT NOT NULL CHECK(kind IN ('disabled', 'deleted', 'named')),
     polyline_json TEXT NOT NULL,
     created_at TEXT NOT NULL DEFAULT (datetime('now')),
     name TEXT,
-    sport_type TEXT
+    sport_type TEXT,
+    PRIMARY KEY (id, kind)
 );
 
 -- D4: section history, versioned geometry, and pins. All three key on the
@@ -122,6 +127,11 @@ CREATE TABLE IF NOT EXISTS section_history (
 );
 CREATE INDEX IF NOT EXISTS idx_section_history_section
     ON section_history(section_id, at);
+-- Catalogue-wide reads walk the ledger by time, across sections: "what
+-- happened since the last sync", and the backdated baseline row an upgrade
+-- writes. The composite index above leads on section_id and cannot serve them.
+CREATE INDEX IF NOT EXISTS idx_section_history_at
+    ON section_history(at);
 
 -- Versioned polylines. encoding 1 = quantised zigzag-varint stream
 -- (codec.rs encode_polyline: 1e-6 deg, 0.1 m elevation, ~3 B/point on the

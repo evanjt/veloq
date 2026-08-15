@@ -432,8 +432,8 @@ void uniffi_veloqrs_fn_method_sectionmanager_exclude_lap(
     /*handle*/ uint64_t ptr, RustBuffer section_id, RustBuffer activity_id,
     uint32_t start_index, RustCallStatus *uniffi_out_err);
 void uniffi_veloqrs_fn_method_sectionmanager_expand_bounds(
-    /*handle*/ uint64_t ptr, RustBuffer section_id,
-    RustBuffer new_polyline_flat, RustCallStatus *uniffi_out_err);
+    /*handle*/ uint64_t ptr, RustBuffer section_id, RustBuffer activity_id,
+    uint32_t start_index, uint32_t end_index, RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_sectionmanager_extract_trace(
     /*handle*/ uint64_t ptr, RustBuffer activity_id,
     RustBuffer section_polyline_flat, RustCallStatus *uniffi_out_err);
@@ -4008,7 +4008,7 @@ NativeVeloqrs::NativeVeloqrs(
           rt,
           jsi::PropNameID::forAscii(
               rt, "ubrn_uniffi_veloqrs_fn_method_sectionmanager_expand_bounds"),
-          3,
+          5,
           [this](jsi::Runtime &rt, const jsi::Value &thisVal,
                  const jsi::Value *args, size_t count) -> jsi::Value {
             return this
@@ -11270,6 +11270,8 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_sectionmanager_expand_bounds(
                                                         args[0]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
       uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[2]),
+      uniffi_jsi::Bridging<uint32_t>::fromJs(rt, callInvoker, args[3]),
+      uniffi_jsi::Bridging<uint32_t>::fromJs(rt, callInvoker, args[4]),
       &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);

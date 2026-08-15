@@ -594,15 +594,12 @@ impl SectionManager {
     fn expand_bounds(
         &self,
         section_id: String,
-        new_polyline_flat: Vec<f64>,
+        activity_id: String,
+        start_index: u32,
+        end_index: u32,
     ) -> Result<(), VeloqError> {
         with_engine(|e| {
-            let points: Vec<tracematch::GpsPoint> = new_polyline_flat
-                .chunks(2)
-                .filter(|c| c.len() == 2)
-                .map(|c| tracematch::GpsPoint::new(c[0], c[1]))
-                .collect();
-            e.expand_section_bounds(&section_id, &points)
+            e.expand_section_bounds(&section_id, &activity_id, start_index, end_index)
                 .map_err(|e| VeloqError::Database { msg: e })
         })?
     }

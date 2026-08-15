@@ -36,12 +36,14 @@ const METHOD_LABELS: { key: DetectionMethod; label: string }[] = [
   { key: 'corridor', label: 'settings.methodCorridor' },
   { key: 'density', label: 'settings.methodDensity' },
   { key: 'flow', label: 'settings.methodFlow' },
+  { key: 'unified', label: 'settings.methodUnified' },
 ];
 
 const METHOD_DESCS: Record<DetectionMethod, string> = {
   corridor: 'settings.methodCorridorDesc',
   density: 'settings.methodDensityDesc',
   flow: 'settings.methodFlowDesc',
+  unified: 'settings.methodUnifiedDesc',
 };
 
 type MethodParams = {

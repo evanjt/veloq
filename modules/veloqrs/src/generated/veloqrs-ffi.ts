@@ -696,7 +696,9 @@ interface NativeModuleInterface {
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_expand_bounds(
     ptr: bigint,
     sectionId: Uint8Array,
-    newPolylineFlat: Uint8Array,
+    activityId: Uint8Array,
+    startIndex: number,
+    endIndex: number,
     uniffi_out_err: UniffiRustCallStatus,
   ): void;
   ubrn_uniffi_veloqrs_fn_method_sectionmanager_extract_trace(
