@@ -55,7 +55,7 @@ fn build_scenario_b(path: &str) -> LifecycleCorpus {
             .expect("update_activity_metadata");
     }
 
-    let handle = engine.detect_sections_background(None);
+    let handle = engine.detect_sections_background();
     let (sections, processed) = handle.recv().unwrap_or_default();
     engine.apply_sections(sections).expect("apply");
     engine
@@ -247,7 +247,7 @@ fn post_backfill_incremental_add_stays_in_fast_path() {
 
     // Detect + time.
     let detect_start = Instant::now();
-    let handle = engine.detect_sections_background(None);
+    let handle = engine.detect_sections_background();
     let (sections, _processed) = handle.recv().unwrap_or_default();
     let section_count = sections.len();
     engine.apply_sections(sections).expect("apply");

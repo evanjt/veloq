@@ -266,8 +266,7 @@ class RouteEngineClient implements DelegateHost {
     }
   }
 
-  startSectionDetection = (sportFilter?: string): boolean =>
-    detectionDelegates.startSectionDetection(this, sportFilter);
+  startSectionDetection = (): boolean => detectionDelegates.startSectionDetection(this);
 
   pollSectionDetection = (): string => detectionDelegates.pollSectionDetection(this);
 
@@ -1079,8 +1078,7 @@ class RouteEngineClient implements DelegateHost {
   /** Recompute all activity indicators (PRs and trends). */
   recomputeIndicators = (): void => sectionDelegates.recomputeIndicators(this);
 
-  forceRedetectSections = (sportFilter?: string): boolean =>
-    detectionDelegates.forceRedetectSections(this, sportFilter);
+  forceRedetectSections = (): boolean => detectionDelegates.forceRedetectSections(this);
 
   setSectionConfig = (config: FfiSectionConfig): void =>
     detectionDelegates.setSectionConfig(this, config);

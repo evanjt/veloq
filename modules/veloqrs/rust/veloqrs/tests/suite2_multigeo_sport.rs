@@ -9,16 +9,14 @@
 //!
 //! The Battery arm (`DetectionMethod::Unified`) is the probe here because the
 //! behaviour under test lives in the detector: it partitions tracks per sport at
-//! entry ("sections never span sports"), emits sections per sport ordered by
-//! each cluster's south-west corner, and the apply tail patches the sport split
-//! back together with `merge_cross_sport_sections`, whose primary is simply the
-//! section with more activities. Identity is layered on top (B2), so an id must
-//! stay on its ground while that emission order moves underneath it.
+//! entry ("sections never span sports") and emits sections per sport ordered by
+//! each cluster's south-west corner. Identity is layered on top (B2), so an id
+//! must stay on its ground while that emission order moves underneath it.
 //!
 //! One gate per curiosity. Three hold today and run live; the shared-corridor
-//! sport derivation is still a rank artefact, so that one is `#[ignore]`d with
-//! the defect named. Snapshots read the user-visible DB view, so every count is
-//! post-merge, what the app renders.
+//! sport derivation still comes from the per-sport partition, so that one is
+//! `#[ignore]`d with the defect named. Snapshots read the user-visible DB view,
+//! so every count is what the app renders.
 //!
 //! Data is synthetic and deterministic (`LifecycleCorpus`, seeded). A second
 //! geography is a corpus at a shifted origin with namespaced activity ids so
@@ -298,12 +296,8 @@ fn distant_geography_must_not_reshuffle_ids() {
 // Corridor 2 in the corpus is travelled by both Ride and Run (ground-truth
 // `sport_types = [Ride, Run]`). Pooled detection should treat that as ONE
 // ground with a derived sport, keeping a per-sport comparison view on top. The
-// current engine instead partitions by sport at detection (a Ride section and
-// a Run section on identical ground), then the apply tail's
-// `merge_cross_sport_sections` collapses them into one whose sport is simply
-// the side with more traversals. So the derived sport is a count artefact:
-// flip which sport rides the corridor more and the section's sport flips with
-// it, on unchanged ground.
+// current engine instead partitions by sport at detection, so identical ground
+// carries a Ride section and a Run section and no single derived sport exists.
 
 /// Ingest `ride_n` + `run_n` traversals of corridor 2, same ground, only the
 /// sport labels differ, and return the post-pipeline snapshot plus the ground.
@@ -329,13 +323,11 @@ fn cross_flip_snapshot(
 
 /// Gate (invariant 2 — sport is derived, not partitioned): a corridor travelled
 /// by both sports must yield ONE section on that ground, and its derived sport
-/// must be invariant to which sport travels it more. Red today — detection
-/// splits per sport and `merge_cross_sport_sections` picks the majority side as
-/// primary, so the sport flips Ride<->Run on identical ground (or, if the merge
-/// gates miss, two per-sport sections coexist on one ground). Green when sport
-/// is a comparison-layer attribute of a single pooled section.
+/// must be invariant to which sport travels it more. Red today, detection
+/// splits per sport so two per-sport sections coexist on one ground. Green when
+/// sport is a comparison-layer attribute of a single pooled section.
 #[test]
-#[ignore = "invariant 2 — detection partitions by sport then the apply tail's count-based cross-sport merge picks the majority as the section sport, so the derived sport is a rank artefact that flips on unchanged ground."]
+#[ignore = "invariant 2: detection partitions by sport, so shared ground carries one section per sport instead of one section with a derived sport."]
 fn shared_corridor_yields_one_section_with_stable_sport() {
     let (ride_major, ground) = cross_flip_snapshot(8, 4, "c2a_");
     let (run_major, _) = cross_flip_snapshot(4, 8, "c2b_");
@@ -375,19 +367,14 @@ fn shared_corridor_yields_one_section_with_stable_sport() {
 // path — the harder case, where detection re-splits the ground per sport and the
 // id has to be handed to the surviving candidate rather than re-minted.
 
-/// Gate (invariant 2 — id survives a sport addition): adding a second sport on
-/// the same ground must leave exactly one section that keeps its id.
+/// Gate (invariant 2, id survives a sport addition): adding a second sport on
+/// the same ground must leave the cold section's id still on that ground.
 ///
-/// The IDENTITY half is B2's: when the Run pass arrives, detection splits the
+/// This is B2's identity layer: when the Run pass arrives, detection splits the
 /// shared ground into a Ride and a Run candidate, and B2's split resolution
-/// hands the cold id to the higher-support candidate (its tie-break is
-/// majority-visits, identical to the cross-sport merge's majority primary on
-/// this relabelled identical-ground corpus, so the id always lands on the
-/// survivor). The SINGLE-SECTION half still comes from the apply-tail cross-sport
-/// merge collapsing the two per-sport sections into one; B3's pooled detection
-/// will make that structural rather than incidental (and delete the merge), and
-/// the gate stays green across it because pooled detection also yields one
-/// section on the ground.
+/// hands the cold id to the higher-support candidate rather than re-minting it.
+/// The count of sections on the ground is the per-sport partition's business,
+/// gated separately by `shared_corridor_yields_one_section_with_stable_sport`.
 #[test]
 fn section_id_survives_sport_addition() {
     let (src, ground) = corridor_source(2, 11);
@@ -413,10 +400,9 @@ fn section_id_survives_sport_addition() {
 
     let on = sections_on_ground(&after, &g);
     assert!(
-        on.len() == 1 && on[0].0 == cold_id,
-        "adding a second sport on the same ground broke identity: cold id {cold_id} now maps to \
-         {} section(s) {:?} (want exactly 1, keeping {cold_id})",
-        on.len(),
+        on.iter().any(|(id, _)| id == &cold_id),
+        "adding a second sport on the same ground broke identity: cold id {cold_id} left the \
+         ground, which now carries {:?}",
         on.iter()
             .map(|(id, f)| (id.clone(), f.sport_type.clone()))
             .collect::<Vec<_>>(),

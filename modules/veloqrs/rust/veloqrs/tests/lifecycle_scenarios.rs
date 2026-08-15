@@ -136,7 +136,7 @@ fn ingest_step(
     let ingest_ms = ingest_start.elapsed().as_millis();
 
     let detect_start = Instant::now();
-    let handle = engine.detect_sections_background(None);
+    let handle = engine.detect_sections_background();
     let (sections, processed_ids) = handle.recv().unwrap_or_default();
     let detection_ms = detect_start.elapsed().as_millis();
 

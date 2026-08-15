@@ -194,6 +194,50 @@ fn reapply_auto_exclusions(
     Ok(())
 }
 
+/// Sport words that can prefix a stored section name.
+const NAME_SPORT_WORDS: [&str; 7] = [
+    "Ride",
+    "Run",
+    "Hike",
+    "Walk",
+    "Swim",
+    "VirtualRide",
+    "VirtualRun",
+];
+
+/// Reads the number out of "Section N" or "{Sport} Section N".
+fn section_name_number(name: &str, section_word: &str) -> Option<u32> {
+    if let Some(rest) = name.strip_prefix(&format!("{} ", section_word)) {
+        return rest.parse::<u32>().ok();
+    }
+    for sport in NAME_SPORT_WORDS {
+        if let Some(rest) = name.strip_prefix(&format!("{} {} ", sport, section_word)) {
+            return rest.parse::<u32>().ok();
+        }
+    }
+    None
+}
+
+/// Every number `names` already spends, so minting cannot reuse one.
+fn taken_section_numbers<'a>(
+    names: impl Iterator<Item = &'a str>,
+    section_word: &str,
+) -> HashSet<u32> {
+    names
+        .filter_map(|name| section_name_number(name, section_word))
+        .collect()
+}
+
+/// Next free number in the shared sequence, marked taken.
+fn next_section_number(taken: &mut HashSet<u32>, counter: &mut u32) -> u32 {
+    loop {
+        *counter += 1;
+        if taken.insert(*counter) {
+            return *counter;
+        }
+    }
+}
+
 impl PersistentRouteEngine {
     /// Load sections from database.
     pub(super) fn load_sections(&mut self) -> SqlResult<()> {
@@ -268,7 +312,8 @@ impl PersistentRouteEngine {
                         created_at, updated_at, consensus_state_blob,
                         polyline_blob, point_density_blob
                  FROM sections
-                 WHERE (section_type = 'auto' OR section_type = 'custom') AND disabled = 0",
+                 WHERE (section_type = 'auto' OR section_type = 'custom') AND disabled = 0
+                 ORDER BY id",
             )?;
 
             self.sections = stmt
@@ -314,10 +359,10 @@ impl PersistentRouteEngine {
                     let portions = section_portions.get(&id)
                         .cloned()
                         .unwrap_or_default();
-                    // Derive activity_ids from portions (deduplicated)
+                    // Derive activity_ids from portions, unique and in id order
                     let activity_ids: Vec<String> = portions.iter()
                         .map(|p| p.activity_id.clone())
-                        .collect::<std::collections::HashSet<_>>()
+                        .collect::<std::collections::BTreeSet<_>>()
                         .into_iter()
                         .collect();
                     let visit_count = portions.len() as u32;
@@ -882,11 +927,13 @@ impl PersistentRouteEngine {
             stmt.query_map([], |row| {
                 let id: String = row.get(0)?;
                 let types_csv: String = row.get::<_, Option<String>>(1)?.unwrap_or_default();
-                let types: Vec<String> = types_csv
+                // GROUP_CONCAT order is undefined, so sort for a stable summary.
+                let mut types: Vec<String> = types_csv
                     .split(',')
                     .filter(|s| !s.is_empty())
                     .map(|s| s.to_string())
                     .collect();
+                types.sort();
                 Ok((id, types))
             })
             .ok()
@@ -1467,34 +1514,15 @@ impl PersistentRouteEngine {
 
         let section_word = get_section_word();
 
-        // Collect which numbers are already taken (check both old and new patterns)
-        let mut taken_numbers: std::collections::HashSet<u32> = std::collections::HashSet::new();
-        for name in existing_names.values() {
-            // New pattern: "Section N"
-            let prefix = format!("{} ", section_word);
-            if name.starts_with(&prefix) {
-                if let Ok(num) = name[prefix.len()..].parse::<u32>() {
-                    taken_numbers.insert(num);
-                }
-            }
-            // Old pattern: "{Sport} Section N" - still recognize for numbering
-            for sport in [
-                "Ride",
-                "Run",
-                "Hike",
-                "Walk",
-                "Swim",
-                "VirtualRide",
-                "VirtualRun",
-            ] {
-                let old_prefix = format!("{} {} ", sport, section_word);
-                if name.starts_with(&old_prefix) {
-                    if let Ok(num) = name[old_prefix.len()..].parse::<u32>() {
-                        taken_numbers.insert(num);
-                    }
-                }
-            }
-        }
+        // Names on the rows the wipe spared, plus names carried in memory,
+        // which the loop below writes back unchanged.
+        let mut taken_numbers = taken_section_numbers(
+            existing_names
+                .values()
+                .map(String::as_str)
+                .chain(self.sections.iter().filter_map(|s| s.name.as_deref())),
+            &section_word,
+        );
 
         // Insert auto-detected sections with new schema
         let mut section_stmt = tx.prepare(
@@ -1521,10 +1549,13 @@ impl PersistentRouteEngine {
             .iter()
             .filter(|s| !s.is_user_defined)
             .collect();
+        // Section id closes the order: it is unique, so name minting below
+        // assigns the same number to the same section on every run.
         sorted_sections.sort_by(|a, b| {
             a.sport_type
                 .cmp(&b.sport_type)
                 .then_with(|| b.activity_ids.len().cmp(&a.activity_ids.len()))
+                .then_with(|| a.id.cmp(&b.id))
         });
 
         // Track next available number for each sport type (for sequential assignment)
@@ -1608,18 +1639,8 @@ impl PersistentRouteEngine {
                 } else {
                     // Generate unique sequential name (no sport prefix)
                     let counter = sport_counters.entry("_global".to_string()).or_insert(0);
-
-                    // Find next available number (skip taken numbers)
-                    loop {
-                        *counter += 1;
-                        if !taken_numbers.contains(counter) {
-                            break;
-                        }
-                    }
-
-                    let new_name = format!("{} {}", section_word, counter);
-                    taken_numbers.insert(*counter); // Mark this number as taken
-                    Some(new_name)
+                    let number = next_section_number(&mut taken_numbers, counter);
+                    Some(format!("{} {}", section_word, number))
                 };
 
             // Compute bounds from polyline
@@ -1849,5 +1870,30 @@ impl PersistentRouteEngine {
                 |row| row.get(0),
             )
             .ok()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn name_number_reads_current_and_legacy_patterns() {
+        assert_eq!(section_name_number("Section 7", "Section"), Some(7));
+        assert_eq!(section_name_number("Ride Section 7", "Section"), Some(7));
+        assert_eq!(section_name_number("Lakeside loop", "Section"), None);
+        assert_eq!(section_name_number("Section", "Section"), None);
+    }
+
+    #[test]
+    fn carried_names_are_taken_so_minting_skips_them() {
+        let stored = ["Section 1"];
+        let carried = ["Section 2", "Riverside"];
+        let mut taken = taken_section_numbers(stored.into_iter().chain(carried), "Section");
+        assert_eq!(taken, HashSet::from([1, 2]));
+
+        let mut counter = 0;
+        assert_eq!(next_section_number(&mut taken, &mut counter), 3);
+        assert_eq!(next_section_number(&mut taken, &mut counter), 4);
     }
 }

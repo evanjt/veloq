@@ -37,7 +37,7 @@ fn engine_with_sections(dir: &TempDir, corpus: &LifecycleCorpus) -> PersistentRo
             .unwrap();
     }
 
-    let handle = engine.detect_sections_background(None);
+    let handle = engine.detect_sections_background();
     let (sections, _) = handle.recv().unwrap_or_default();
     engine.apply_sections(sections).unwrap();
     assert!(
@@ -254,7 +254,7 @@ fn a_lapped_attach_matches_what_batch_detection_assigns() {
         store(&mut batch, &id, activity.gps_points.clone(), activity);
     }
     store(&mut batch, "act_lapped", lapped_track(base), base);
-    let handle = batch.detect_sections_background(None);
+    let handle = batch.detect_sections_background();
     let (sections, _) = handle.recv().unwrap_or_default();
     batch.apply_sections(sections).unwrap();
 

@@ -9478,7 +9478,7 @@ export interface DetectionManagerLike {
    * This ensures all activities are re-evaluated against sections.
    * Returns false if detection is already running.
    */
-  forceRedetect(sportFilter: string | undefined) /*throws*/ : boolean;
+  forceRedetect() /*throws*/ : boolean;
   getConfig() /*throws*/ : FfiSectionConfig;
   getMatchStrictness() /*throws*/ : FfiMatchStrictness;
   getProgress() /*throws*/ : FfiDetectionProgress | undefined;
@@ -9488,7 +9488,7 @@ export interface DetectionManagerLike {
     minMatchPct: /*f64*/ number,
     endpointThreshold: /*f64*/ number,
   ) /*throws*/ : void;
-  start(sportFilter: string | undefined) /*throws*/ : boolean;
+  start() /*throws*/ : boolean;
 }
 /**
  * @deprecated Use `DetectionManagerLike` instead.
@@ -9542,7 +9542,7 @@ export class DetectionManager
    * This ensures all activities are re-evaluated against sections.
    * Returns false if detection is already running.
    */
-  forceRedetect(sportFilter: string | undefined): boolean /*throws*/ {
+  forceRedetect(): boolean /*throws*/ {
     return FfiConverterBool.lift(
       uniffiCaller.rustCallWithError(
         /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
@@ -9551,7 +9551,6 @@ export class DetectionManager
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_detectionmanager_force_redetect(
             uniffiTypeDetectionManagerObjectFactory.clonePointer(this),
-            FfiConverterOptionalString.lower(sportFilter),
             callStatus,
           );
         },
@@ -9664,7 +9663,7 @@ export class DetectionManager
     );
   }
 
-  start(sportFilter: string | undefined): boolean /*throws*/ {
+  start(): boolean /*throws*/ {
     return FfiConverterBool.lift(
       uniffiCaller.rustCallWithError(
         /*liftError:*/ FfiConverterTypeVeloqError.lift.bind(
@@ -9673,7 +9672,6 @@ export class DetectionManager
         /*caller:*/ (callStatus) => {
           return nativeModule().ubrn_uniffi_veloqrs_fn_method_detectionmanager_start(
             uniffiTypeDetectionManagerObjectFactory.clonePointer(this),
-            FfiConverterOptionalString.lower(sportFilter),
             callStatus,
           );
         },
@@ -16254,7 +16252,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_detectionmanager_force_redetect() !==
-    5989
+    43403
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_detectionmanager_force_redetect",
@@ -16310,7 +16308,7 @@ function uniffiEnsureInitialized() {
   }
   if (
     nativeModule().ubrn_uniffi_veloqrs_checksum_method_detectionmanager_start() !==
-    28896
+    23853
   ) {
     throw new UniffiInternalError.ApiChecksumMismatch(
       "uniffi_veloqrs_checksum_method_detectionmanager_start",

@@ -52,7 +52,7 @@ fn setup_b_state_engine(path: &str) -> PersistentRouteEngine {
             .expect("update_activity_metadata");
     }
 
-    let handle = engine.detect_sections_background(None);
+    let handle = engine.detect_sections_background();
     let (sections, processed) = handle.recv().unwrap_or_default();
     engine.apply_sections(sections).expect("apply");
     engine
@@ -69,7 +69,7 @@ fn setup_b_state_engine(path: &str) -> PersistentRouteEngine {
         .update_activity_metadata(&extra.id, Some(extra.start_date_unix), None, None, None)
         .expect("update metadata extra");
 
-    let handle = engine.detect_sections_background(None);
+    let handle = engine.detect_sections_background();
     let (sections, processed) = handle.recv().unwrap_or_default();
     engine.apply_sections(sections).expect("apply 2");
     engine

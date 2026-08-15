@@ -33,7 +33,7 @@ fn clearing_routes_keeps_the_sections_the_athlete_drew() {
             .add_activity(a.id.clone(), a.gps_points.clone(), a.sport_type.clone())
             .unwrap();
     }
-    let handle = engine.detect_sections_background(None);
+    let handle = engine.detect_sections_background();
     let (sections, _) = handle.recv().unwrap_or_default();
     engine.apply_sections(sections).unwrap();
     let detected = engine.get_section_summaries().len();

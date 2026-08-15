@@ -295,7 +295,7 @@ fn read_during_write() -> (usize, usize, Vec<(usize, Duration)>) {
             w.update_activity_metadata(&a.id, Some(a.start_date_unix), None, None, None)
                 .expect("writer update_metadata");
         }
-        let handle = w.detect_sections_background(None);
+        let handle = w.detect_sections_background();
         let (sections, processed) = handle.recv().unwrap_or_default();
         w.apply_sections(sections).expect("writer apply_sections");
         w.save_processed_activity_ids(&processed)
@@ -377,8 +377,8 @@ fn racing_detect() -> (bool, bool, String, String, usize, Option<String>) {
             .expect("update_metadata");
     }
 
-    let h1 = engine.detect_sections_background(None);
-    let h2 = engine.detect_sections_background(None);
+    let h1 = engine.detect_sections_background();
+    let h2 = engine.detect_sections_background();
     let (s1, _) = h1.recv().unwrap_or_default();
     let (s2, _) = h2.recv().unwrap_or_default();
     let sig1 = frequent_signature(&s1);

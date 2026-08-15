@@ -48,7 +48,7 @@ fn indexes_new_activity_against_existing_sections() {
             .unwrap();
     }
 
-    let handle = engine.detect_sections_background(None);
+    let handle = engine.detect_sections_background();
     let (sections, _) = handle.recv().unwrap_or_default();
     engine.apply_sections(sections).unwrap();
     assert!(

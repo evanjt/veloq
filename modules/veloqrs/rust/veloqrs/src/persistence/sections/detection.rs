@@ -487,13 +487,13 @@ impl PersistentRouteEngine {
     ///
     /// Returns a handle that can be polled for completion and progress.
     ///
+    /// Detection always covers every activity, so the catalogue is a pure
+    /// function of the activity set plus config.
+    ///
     /// Note: This method is designed to be non-blocking on the calling thread.
     /// All heavy operations (groups loading, track loading, detection) happen
     /// in the background thread to keep the UI responsive.
-    pub fn detect_sections_background(
-        &mut self,
-        sport_filter: Option<String>,
-    ) -> SectionDetectionHandle {
+    pub fn detect_sections_background(&mut self) -> SectionDetectionHandle {
         let (tx, rx) = mpsc::channel();
         // Out-of-band channel for the Unified detector's evidence-cache update.
         // Left unsent by the legacy detectors and the short-circuit, so the
@@ -541,11 +541,11 @@ impl PersistentRouteEngine {
 
         for (id, m) in &self.activity_metadata {
             sport_map.insert(id.clone(), m.sport_type.clone());
-            match &sport_filter {
-                Some(sport) if &m.sport_type != sport => {}
-                _ => activity_ids.push(id.clone()),
-            }
+            activity_ids.push(id.clone());
         }
+        // Metadata iterates in HashMap order, so sort by the activities primary
+        // key to give the detector a deterministic input order.
+        activity_ids.sort();
 
         // Activity start times for the occasion support floor: ground
         // visited only within one stay is a trip, not repetition. Dates
@@ -586,13 +586,24 @@ impl PersistentRouteEngine {
             .cloned()
             .collect();
 
-        // Short-circuit: no new activities means nothing to detect
+        // Short-circuit: no new activities means nothing to detect. Re-emit the
+        // last RAW batch, not the damped visible view: the visible catalogue can
+        // lag the batch while a dissolve debounces, and echoing it back through
+        // identity would count as a decisive continuation and hold the laggards
+        // forever. The raw batch is what a re-fold over the unchanged pool would
+        // emit, so the debounce keeps pressing and the view converges. The raw
+        // batch lives in memory only; in a fresh process the visible catalogue
+        // is the best available echo.
         if new_activity_ids.is_empty() && !existing_sections.is_empty() {
             log::info!(
                 "tracematch: [SectionDetection] No new activities, skipping detection ({} already processed)",
                 self.processed_activity_ids.len()
             );
-            let sections_copy = existing_sections.clone();
+            let sections_copy = if self.raw_sections.is_empty() {
+                existing_sections.clone()
+            } else {
+                self.raw_sections.clone()
+            };
             let all_ids = activity_ids.clone();
             tx.send((sections_copy, all_ids)).ok();
             // No detection ran, so the evidence cache is unchanged: `cache_tx` is
@@ -820,7 +831,7 @@ impl PersistentRouteEngine {
                 );
 
                 let mut cache = cache_at_spawn;
-                let mut sections_to_send = tracematch::detect_sections_unified_incremental_dated(
+                let sections_to_send = tracematch::detect_sections_unified_incremental_dated(
                     &mut cache,
                     &existing_sections,
                     &tracks,
@@ -855,14 +866,10 @@ impl PersistentRouteEngine {
                     })
                     .ok();
 
-                // Seed consensus_state for the fresh sections, mirroring the
-                // full-detection path (the sections arrive from detection
-                // without an accumulator).
-                seed_consensus_state(
-                    &mut sections_to_send,
-                    &tracks,
-                    section_config.proximity_threshold,
-                );
+                // No consensus seed here. The accumulator is read only by
+                // `sections::incremental`, which the unified arm never calls,
+                // so seeding it rebuilds an R-tree and rescans every member
+                // track per section for a value nothing consumes.
 
                 // Signal saving phase before sending results for DB persistence
                 progress_clone.set_phase("saving", 1);
@@ -1143,37 +1150,23 @@ impl PersistentRouteEngine {
         Ok(())
     }
 
-    /// Deferred tail of apply_sections: cross-sport merge + activity-
-    /// indicator recompute. Both are best-effort (errors are logged, not
-    /// returned) because they don't affect the ability to query the just-
-    /// saved sections - they only refine derived state. Safe to invoke on
-    /// a background thread after `apply_sections_save` returns.
+    /// Deferred tail of apply_sections: activity-indicator recompute. It is
+    /// best-effort (errors are logged, not returned) because it doesn't affect
+    /// the ability to query the just-saved sections, it only refines derived
+    /// state. Safe to invoke on a background thread after
+    /// `apply_sections_save` returns.
     pub fn apply_sections_finalize(&mut self) {
         self.apply_sections_finalize_with_progress(None);
     }
 
     /// Variant that emits phase markers to the supplied progress tracker
-    /// so the UI can show "still working on cross-sport merge / indicator
-    /// recompute" instead of a frozen-looking 100% bar (Tier 4).
+    /// so the UI can show "still recomputing indicators" instead of a
+    /// frozen-looking 100% bar.
     pub fn apply_sections_finalize_with_progress(
         &mut self,
         progress: Option<&super::super::SectionDetectionProgress>,
     ) {
         if let Some(p) = progress {
-            p.set_phase("merging_cross_sport", 1);
-        }
-        // Pooled detection cuts shared ground once and labels it afterwards, so
-        // a cross-sport pair is a relabelling, not two sections to fuse.
-        if !self.section_config.pool_sports
-            && let Err(e) = self.merge_cross_sport_sections()
-        {
-            log::warn!(
-                "tracematch: [apply_sections_finalize] Cross-sport merge failed: {}",
-                e
-            );
-        }
-        if let Some(p) = progress {
-            p.increment();
             p.set_phase("recomputing_indicators", 1);
         }
         if let Err(e) = self.recompute_activity_indicators() {

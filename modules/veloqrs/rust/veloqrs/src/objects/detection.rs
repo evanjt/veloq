@@ -47,13 +47,12 @@ pub(crate) fn poll_detection_once() -> Result<DetectionPoll, VeloqError> {
         crate::persistence::WorkerPoll::Ready((sections, detection_activity_ids)) => {
             // Tier 1.1 split: hot save + processed_ids return synchronously
             // (sections are queryable immediately), then run the
-            // cross-sport merge + indicator recompute under the engine
-            // lock as the deferred tail. The total wall-clock is
-            // unchanged on the write side, but get_progress() callers
-            // see the apply tail emit phase events
-            // (merging_cross_sport / recomputing_indicators / complete)
-            // and the UI can keep showing forward motion instead of
-            // freezing on a stalled "100%" bar.
+            // indicator recompute under the engine lock as the deferred
+            // tail. The total wall-clock is unchanged on the write side,
+            // but get_progress() callers see the apply tail emit phase
+            // events (recomputing_indicators / complete) and the UI can
+            // keep showing forward motion instead of freezing on a
+            // stalled "100%" bar.
             let progress = handle_guard.as_ref().map(|h| h.progress.clone());
 
             // Take the Unified evidence-cache update (None for the legacy
@@ -123,7 +122,7 @@ impl DetectionManager {
         Arc::new(Self { _private: () })
     }
 
-    fn start(&self, sport_filter: Option<String>) -> Result<bool, VeloqError> {
+    fn start(&self) -> Result<bool, VeloqError> {
         {
             let handle_guard = SECTION_DETECTION_HANDLE
                 .lock()
@@ -134,7 +133,7 @@ impl DetectionManager {
             }
         }
 
-        let handle = with_engine(|e| e.detect_sections_background(sport_filter))?;
+        let handle = with_engine(|e| e.detect_sections_background())?;
 
         let mut handle_guard = SECTION_DETECTION_HANDLE
             .lock()
@@ -173,7 +172,7 @@ impl DetectionManager {
     /// Force full re-detection by clearing processed activity IDs first.
     /// This ensures all activities are re-evaluated against sections.
     /// Returns false if detection is already running.
-    fn force_redetect(&self, sport_filter: Option<String>) -> Result<bool, VeloqError> {
+    fn force_redetect(&self) -> Result<bool, VeloqError> {
         {
             let handle_guard = SECTION_DETECTION_HANDLE
                 .lock()
@@ -191,7 +190,7 @@ impl DetectionManager {
             e.clear_processed_activity_ids();
         })?;
 
-        let handle = with_engine(|e| e.detect_sections_background(sport_filter))?;
+        let handle = with_engine(|e| e.detect_sections_background())?;
 
         let mut handle_guard = SECTION_DETECTION_HANDLE
             .lock()

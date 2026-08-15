@@ -164,8 +164,7 @@ RustBuffer uniffi_veloqrs_fn_method_detectionmanager_detect_potentials(
     /*handle*/ uint64_t ptr, RustBuffer sport_filter,
     RustCallStatus *uniffi_out_err);
 int8_t uniffi_veloqrs_fn_method_detectionmanager_force_redetect(
-    /*handle*/ uint64_t ptr, RustBuffer sport_filter,
-    RustCallStatus *uniffi_out_err);
+    /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_detectionmanager_get_config(
     /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
 RustBuffer uniffi_veloqrs_fn_method_detectionmanager_get_match_strictness(
@@ -180,8 +179,7 @@ void uniffi_veloqrs_fn_method_detectionmanager_set_match_strictness(
     /*handle*/ uint64_t ptr, double min_match_pct, double endpoint_threshold,
     RustCallStatus *uniffi_out_err);
 int8_t uniffi_veloqrs_fn_method_detectionmanager_start(
-    /*handle*/ uint64_t ptr, RustBuffer sport_filter,
-    RustCallStatus *uniffi_out_err);
+    /*handle*/ uint64_t ptr, RustCallStatus *uniffi_out_err);
 /*handle*/ uint64_t uniffi_veloqrs_fn_clone_veloqengine(
     /*handle*/ uint64_t handle, RustCallStatus *uniffi_out_err);
 void uniffi_veloqrs_fn_free_veloqengine(
@@ -2774,7 +2772,7 @@ NativeVeloqrs::NativeVeloqrs(
           jsi::PropNameID::forAscii(
               rt,
               "ubrn_uniffi_veloqrs_fn_method_detectionmanager_force_redetect"),
-          2,
+          1,
           [this](jsi::Runtime &rt, const jsi::Value &thisVal,
                  const jsi::Value *args, size_t count) -> jsi::Value {
             return this
@@ -2860,7 +2858,7 @@ NativeVeloqrs::NativeVeloqrs(
           rt,
           jsi::PropNameID::forAscii(
               rt, "ubrn_uniffi_veloqrs_fn_method_detectionmanager_start"),
-          2,
+          1,
           [this](jsi::Runtime &rt, const jsi::Value &thisVal,
                  const jsi::Value *args, size_t count) -> jsi::Value {
             return this->cpp_uniffi_veloqrs_fn_method_detectionmanager_start(
@@ -9625,7 +9623,6 @@ NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_detectionmanager_force_redetect(
   auto value = uniffi_veloqrs_fn_method_detectionmanager_force_redetect(
       uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
                                                         args[0]),
-      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
       &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);
@@ -9731,7 +9728,6 @@ jsi::Value NativeVeloqrs::cpp_uniffi_veloqrs_fn_method_detectionmanager_start(
   auto value = uniffi_veloqrs_fn_method_detectionmanager_start(
       uniffi_jsi::Bridging</*handle*/ uint64_t>::fromJs(rt, callInvoker,
                                                         args[0]),
-      uniffi::veloqrs::Bridging<RustBuffer>::fromJs(rt, callInvoker, args[1]),
       &status);
   uniffi::veloqrs::Bridging<RustCallStatus>::copyIntoJs(rt, callInvoker, status,
                                                         args[count - 1]);

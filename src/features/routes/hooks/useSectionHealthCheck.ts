@@ -44,7 +44,7 @@ export function useSectionHealthCheck(syncComplete: boolean): void {
         }
 
         await AsyncStorage.setItem(FLAG_KEY, 'done');
-        engine.forceRedetectSections(undefined);
+        engine.forceRedetectSections();
       } catch {
         // best-effort
       }
